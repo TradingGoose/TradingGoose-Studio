@@ -1,4 +1,4 @@
-import type { Edge } from 'reactflow'
+import type { Edge } from '@xyflow/react'
 import type { BlockOutput, SubBlockType } from '@/blocks/types'
 import type { DeploymentStatus } from '@/stores/workflows/registry/types'
 
@@ -146,7 +146,10 @@ export interface DragStartPosition {
   parentId?: string | null
 }
 
+export type WorkflowDirection = 'TD' | 'LR'
+
 export interface WorkflowState {
+  direction?: WorkflowDirection
   blocks: Record<string, BlockState>
   edges: Edge[]
   lastSaved?: number | string

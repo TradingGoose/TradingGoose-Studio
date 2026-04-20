@@ -9,6 +9,8 @@ import {
   PlanWelcomeEmail,
   ResetPasswordEmail,
   UsageThresholdEmail,
+  WaitlistApprovedEmail,
+  WaitlistConfirmationEmail,
 } from '@/components/emails'
 import FreeTierUpgradeEmail from '@/components/emails/billing/free-tier-upgrade-email'
 import { getBrandConfig } from '@/lib/branding/branding'
@@ -17,7 +19,11 @@ import { getBaseUrl } from '@/lib/urls/utils'
 export async function renderOTPEmail(
   otp: string,
   email: string,
-  type: 'sign-in' | 'email-verification' | 'forget-password' | 'change-email' = 'email-verification',
+  type:
+    | 'sign-in'
+    | 'email-verification'
+    | 'forget-password'
+    | 'change-email' = 'email-verification',
   chatTitle?: string
 ): Promise<string> {
   return await render(OTPVerificationEmail({ otp, email, type, chatTitle }))
@@ -128,18 +134,28 @@ export async function renderUsageThresholdEmail(params: {
 
 export async function renderFreeTierUpgradeEmail(params: {
   userName?: string
+  currentTierName?: string
   percentUsed: number
   currentUsage: number
   limit: number
   upgradeLink: string
+  recommendedTierName?: string | null
+  recommendedTierPriceUsd?: number | null
+  recommendedTierIncludedUsageLimitUsd?: number | null
+  recommendedTierFeatures?: string[]
 }): Promise<string> {
   return await render(
     FreeTierUpgradeEmail({
       userName: params.userName,
+      currentTierName: params.currentTierName,
       percentUsed: params.percentUsed,
       currentUsage: params.currentUsage,
       limit: params.limit,
       upgradeLink: params.upgradeLink,
+      recommendedTierName: params.recommendedTierName,
+      recommendedTierPriceUsd: params.recommendedTierPriceUsd,
+      recommendedTierIncludedUsageLimitUsd: params.recommendedTierIncludedUsageLimitUsd,
+      recommendedTierFeatures: params.recommendedTierFeatures,
       updatedDate: new Date(),
     })
   )
@@ -147,6 +163,28 @@ export async function renderFreeTierUpgradeEmail(params: {
 
 export async function renderNewsletterWelcomeEmail(): Promise<string> {
   return await render(NewsletterWelcomeEmail())
+}
+
+export async function renderWaitlistConfirmationEmail(email: string): Promise<string> {
+  return await render(
+    WaitlistConfirmationEmail({
+      email,
+      submittedDate: new Date(),
+    })
+  )
+}
+
+export async function renderWaitlistApprovedEmail(
+  email: string,
+  signupLink: string
+): Promise<string> {
+  return await render(
+    WaitlistApprovedEmail({
+      email,
+      signupLink,
+      approvedDate: new Date(),
+    })
+  )
 }
 
 export function getEmailSubject(
@@ -162,8 +200,8 @@ export function getEmailSubject(
     | 'enterprise-subscription'
     | 'usage-threshold'
     | 'free-tier-upgrade'
-    | 'plan-welcome-pro'
-    | 'plan-welcome-team'
+    | 'waitlist-confirmation'
+    | 'waitlist-approved'
 ): string {
   const brandName = getBrandConfig().name
 
@@ -185,22 +223,26 @@ export function getEmailSubject(
     case 'help-confirmation':
       return 'Your request has been received'
     case 'enterprise-subscription':
-      return `Your Enterprise Plan is now active on ${brandName}`
+      return `Your organization billing is now active on ${brandName}`
     case 'usage-threshold':
       return `You're nearing your monthly budget on ${brandName}`
     case 'free-tier-upgrade':
-      return `You're at 90% of your free credits on ${brandName}`
-    case 'plan-welcome-pro':
-      return `Your Pro plan is now active on ${brandName}`
-    case 'plan-welcome-team':
-      return `Your Team plan is now active on ${brandName}`
+      return `Your current tier is nearing its included usage on ${brandName}`
+    case 'waitlist-confirmation':
+      return `We received your ${brandName} access request`
+    case 'waitlist-approved':
+      return `Your ${brandName} access request was approved`
     default:
       return brandName
   }
 }
 
+export function getPlanWelcomeSubject(planName: string): string {
+  return `Your ${planName} tier is now active on ${getBrandConfig().name}`
+}
+
 export async function renderPlanWelcomeEmail(params: {
-  planName: 'Pro' | 'Team'
+  planName: string
   userName?: string
   loginLink?: string
 }): Promise<string> {

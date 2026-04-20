@@ -6,6 +6,7 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { CopilotFiles, isUsingCloudStorage } from '@/lib/uploads'
 import type { StorageContext } from '@/lib/uploads/core/config-resolver'
 import { downloadFile } from '@/lib/uploads/core/storage-service'
+import { verifyVercelDownloadToken } from '@/lib/uploads/providers/vercel/download-token'
 import {
   createErrorResponse,
   createFileResponse,
@@ -29,21 +30,33 @@ export async function GET(
 
     logger.info('File serve request:', { path })
 
-    const authResult = await checkHybridAuth(request, { requireWorkflowId: false })
-
-    if (!authResult.success) {
-      logger.warn('Unauthorized file access attempt', { path, error: authResult.error })
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    const userId = authResult.userId
     const fullPath = path.join('/')
     const isS3Path = path[0] === 's3'
-    const isBlobPath = path[0] === 'blob'
-    const isCloudPath = isS3Path || isBlobPath
+    const isAzurePath = path[0] === 'azure'
+    const isVercelPath = path[0] === 'vercel'
+    const isCloudPath = isS3Path || isAzurePath || isVercelPath
     const cloudKey = isCloudPath ? path.slice(1).join('/') : fullPath
 
-    const contextParam = request.nextUrl.searchParams.get('context')
+    const signedVercelAccess = isVercelPath
+      ? await resolveSignedVercelAccess(request, cloudKey)
+      : { authorized: false as const }
+
+    let userId: string | undefined
+
+    if (!signedVercelAccess.authorized) {
+      const authResult = await checkHybridAuth(request, { requireWorkflowId: false })
+
+      if (!authResult.success) {
+        logger.warn('Unauthorized file access attempt', { path, error: authResult.error })
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      }
+
+      userId = authResult.userId
+    }
+
+    const contextParam = signedVercelAccess.authorized
+      ? signedVercelAccess.context
+      : request.nextUrl.searchParams.get('context')
     const legacyBucketType = request.nextUrl.searchParams.get('bucket')
 
     if (isUsingCloudStorage() || isCloudPath) {
@@ -59,6 +72,27 @@ export async function GET(
     }
 
     return createErrorResponse(error instanceof Error ? error : new Error('Failed to serve file'))
+  }
+}
+
+async function resolveSignedVercelAccess(
+  request: NextRequest,
+  cloudKey: string
+): Promise<{ authorized: true; context?: StorageContext } | { authorized: false }> {
+  const downloadToken = request.nextUrl.searchParams.get('downloadToken')
+  if (!downloadToken) {
+    return { authorized: false }
+  }
+
+  const tokenClaims = await verifyVercelDownloadToken(downloadToken)
+  if (!tokenClaims || tokenClaims.key !== cloudKey) {
+    logger.warn('Invalid signed Vercel download token', { key: cloudKey })
+    return { authorized: false }
+  }
+
+  return {
+    authorized: true,
+    context: tokenClaims.context,
   }
 }
 

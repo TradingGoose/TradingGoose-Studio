@@ -10,6 +10,7 @@ interface PrimaryButtonProps {
   size?: 'sm' | 'default' | 'lg'
   className?: string
   type?: 'button' | 'submit' | 'reset'
+  form?: string
 }
 
 export function PrimaryButton({
@@ -19,9 +20,11 @@ export function PrimaryButton({
   size = 'sm',
   className,
   type = 'button',
+  form,
 }: PrimaryButtonProps) {
   return (
     <Button
+      form={form}
       type={type}
       onClick={onClick}
       disabled={disabled}

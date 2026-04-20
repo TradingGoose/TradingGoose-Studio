@@ -1,4 +1,5 @@
 import { createLogger } from '@/lib/logs/console/logger'
+import type { AutoLayoutDirection } from '@/lib/workflows/workflow-direction'
 import type { GraphNode, LayoutOptions } from './types'
 import { boxesOverlap, createBoundingBox } from './utils'
 
@@ -12,6 +13,7 @@ export function calculatePositions(
   layers: Map<number, GraphNode[]>,
   options: LayoutOptions = {}
 ): void {
+  const direction = options.direction ?? 'horizontal'
   const horizontalSpacing = options.horizontalSpacing ?? DEFAULT_HORIZONTAL_SPACING
   const verticalSpacing = options.verticalSpacing ?? DEFAULT_VERTICAL_SPACING
   const padding = options.padding ?? DEFAULT_PADDING
@@ -22,22 +24,52 @@ export function calculatePositions(
   // Calculate positions for each layer
   for (const layerNum of layerNumbers) {
     const nodesInLayer = layers.get(layerNum)!
-    const xPosition = padding.x + layerNum * horizontalSpacing
+    if (direction === 'vertical') {
+      const yPosition = padding.y + layerNum * verticalSpacing
+      const totalWidth = nodesInLayer.reduce(
+        (sum, node, idx) => sum + node.metrics.width + (idx > 0 ? horizontalSpacing : 0),
+        0
+      )
 
-    // Calculate total height needed for this layer
+      let xOffset: number
+      switch (alignment) {
+        case 'start':
+          xOffset = padding.x
+          break
+        case 'center':
+          xOffset = Math.max(padding.x, 300 - totalWidth / 2)
+          break
+        case 'end':
+          xOffset = 900 - totalWidth - padding.x
+          break
+        default:
+          xOffset = padding.x
+          break
+      }
+
+      for (const node of nodesInLayer) {
+        node.position = {
+          x: xOffset,
+          y: yPosition,
+        }
+
+        xOffset += node.metrics.width + horizontalSpacing
+      }
+      continue
+    }
+
+    const xPosition = padding.x + layerNum * horizontalSpacing
     const totalHeight = nodesInLayer.reduce(
       (sum, node, idx) => sum + node.metrics.height + (idx > 0 ? verticalSpacing : 0),
       0
     )
 
-    // Start Y position based on alignment
     let yOffset: number
     switch (alignment) {
       case 'start':
         yOffset = padding.y
         break
       case 'center':
-        // Center the layer vertically
         yOffset = Math.max(padding.y, 300 - totalHeight / 2)
         break
       case 'end':
@@ -48,7 +80,6 @@ export function calculatePositions(
         break
     }
 
-    // Position each node in the layer
     for (const node of nodesInLayer) {
       node.position = {
         x: xPosition,
@@ -60,10 +91,15 @@ export function calculatePositions(
   }
 
   // Resolve any overlaps
-  resolveOverlaps(Array.from(layers.values()).flat(), verticalSpacing)
+  resolveOverlaps(Array.from(layers.values()).flat(), direction, horizontalSpacing, verticalSpacing)
 }
 
-function resolveOverlaps(nodes: GraphNode[], verticalSpacing: number): void {
+function resolveOverlaps(
+  nodes: GraphNode[],
+  direction: AutoLayoutDirection,
+  horizontalSpacing: number,
+  verticalSpacing: number
+): void {
   const MAX_ITERATIONS = 20
   let iteration = 0
   let hasOverlap = true
@@ -75,7 +111,7 @@ function resolveOverlaps(nodes: GraphNode[], verticalSpacing: number): void {
     // Sort nodes by position for consistent processing
     const sortedNodes = [...nodes].sort((a, b) => {
       if (a.layer !== b.layer) return a.layer - b.layer
-      return a.position.y - b.position.y
+      return direction === 'vertical' ? a.position.x - b.position.x : a.position.y - b.position.y
     })
 
     for (let i = 0; i < sortedNodes.length; i++) {
@@ -90,15 +126,23 @@ function resolveOverlaps(nodes: GraphNode[], verticalSpacing: number): void {
         if (boxesOverlap(box1, box2, 30)) {
           hasOverlap = true
 
-          // If in same layer, shift vertically
-          if (node1.layer === node2.layer) {
+          if (node1.layer === node2.layer && direction === 'vertical') {
+            const midpoint = (node1.position.x + node2.position.x) / 2
+
+            node1.position.x = midpoint - node1.metrics.width / 2 - horizontalSpacing / 2
+            node2.position.x = midpoint + node2.metrics.width / 2 + horizontalSpacing / 2
+          } else if (node1.layer === node2.layer) {
             const totalHeight = node1.metrics.height + node2.metrics.height + verticalSpacing
             const midpoint = (node1.position.y + node2.position.y) / 2
 
             node1.position.y = midpoint - node1.metrics.height / 2 - verticalSpacing / 2
             node2.position.y = midpoint + node2.metrics.height / 2 + verticalSpacing / 2
+          } else if (direction === 'vertical') {
+            const requiredSpace = box1.x + box1.width + horizontalSpacing
+            if (node2.position.x < requiredSpace) {
+              node2.position.x = requiredSpace
+            }
           } else {
-            // Different layers - shift the later one down
             const requiredSpace = box1.y + box1.height + verticalSpacing
             if (node2.position.y < requiredSpace) {
               node2.position.y = requiredSpace

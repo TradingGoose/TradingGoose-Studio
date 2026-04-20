@@ -67,20 +67,19 @@ export function generateBrandedMetadata(override: Partial<Metadata> = {}): Metad
       siteName: brand.name,
       images: [
         {
-          url: brand.logoUrl || '/favicon/web-app-manifest-512x512.png',
-          width: 512,
-          height: 512,
+          url: '/social-preview.png',
+          width: 2559,
+          height: 1398,
           alt: brand.name,
         },
       ],
     },
     twitter: {
-      card: 'summary',
+      card: 'summary_large_image',
       title: defaultTitle,
       description: summaryFull,
-      images: [brand.logoUrl || '/favicon/web-app-manifest-512x512.png'],
-      creator: '@tradinggoose',
-      site: '@tradinggoose',
+      images: [{ url: '/social-preview.png', alt: brand.name }],
+      creator: '@BruzWJ',
     },
     manifest: '/manifest.webmanifest',
     icons: {
@@ -98,10 +97,10 @@ export function generateBrandedMetadata(override: Partial<Metadata> = {}): Metad
           sizes: '512x512',
           type: 'image/png',
         },
-        { url: brand.faviconUrl || '/favicon/favicon.svg', sizes: 'any', type: 'image/svg+xml' },
+        { url: brand.faviconUrl, sizes: 'any', type: 'image/svg+xml' },
       ],
       apple: '/favicon/apple-touch-icon.png',
-      shortcut: brand.faviconUrl || '/favicon/favicon.ico',
+      shortcut: brand.faviconUrl,
     },
     appleWebApp: {
       capable: true,
@@ -137,7 +136,6 @@ export function generateStructuredData() {
     sameAs: [
       'https://github.com/TradingGoose/TradingGoose-Studio',
       'https://docs.tradinggoose.ai',
-      'https://x.com/tradinggoose',
       'https://discord.gg/wavf5JWhuT',
     ],
     applicationCategory: 'FinanceApplication',
@@ -156,7 +154,6 @@ export function generateStructuredData() {
       url: 'https://tradinggoose.ai',
       sameAs: [
         'https://github.com/TradingGoose/TradingGoose-Studio',
-        'https://x.com/tradinggoose',
         'https://discord.gg/wavf5JWhuT',
       ],
     },

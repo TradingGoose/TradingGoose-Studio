@@ -89,7 +89,8 @@ const createErrorHydrationState = (
 
 const deriveIsMetadataLoading = (
   hydrationByChannel: Record<string, ChannelHydrationState>
-): boolean => Object.values(hydrationByChannel).some((hydration) => hydration.phase === 'metadata-loading')
+): boolean =>
+  Object.values(hydrationByChannel).some((hydration) => hydration.phase === 'metadata-loading')
 
 const getRealHydrationChannels = (hydrationByChannel: Record<string, ChannelHydrationState>) =>
   Object.keys(hydrationByChannel).filter((channelKey) => channelKey !== WORKSPACE_BOOTSTRAP_CHANNEL)
@@ -143,7 +144,8 @@ const syncRegistryFromPairContexts = (
     Object.entries(updates).forEach(([chan, wfId]) => {
       const previousActive = state.activeWorkflowIds[chan]
       const previousHydration = state.hydrationByChannel[chan]
-      const workspaceId = state.workflows[wfId]?.workspaceId ?? previousHydration?.workspaceId ?? null
+      const workspaceId =
+        state.workflows[wfId]?.workspaceId ?? previousHydration?.workspaceId ?? null
       nextActiveWorkflowIds[chan] = wfId
 
       // Only reset the loaded flag when the workflow changed; keep it when linking the same one
@@ -175,7 +177,10 @@ const getActiveWorkflowIdFromState = (
   return state.loadedWorkflowIds[channelKey] ? (state.activeWorkflowIds[channelKey] ?? null) : null
 }
 
-const getHydrationFromState = (state: WorkflowRegistry, channelId?: string): ChannelHydrationState =>
+const getHydrationFromState = (
+  state: WorkflowRegistry,
+  channelId?: string
+): ChannelHydrationState =>
   state.hydrationByChannel[resolveChannelKey(channelId)] ?? createIdleHydrationState()
 
 const metadataRequestCache = new Map<string, Promise<any[]>>()
@@ -384,7 +389,13 @@ export const useWorkflowRegistry = create<WorkflowRegistry>()(
         return loadedChannels[0] ?? null
       },
 
-      loadWorkflows: async ({ workspaceId, channelId }: { workspaceId: string; channelId?: string }) => {
+      loadWorkflows: async ({
+        workspaceId,
+        channelId,
+      }: {
+        workspaceId: string
+        channelId?: string
+      }) => {
         const trimmedWorkspaceId = workspaceId.trim()
         if (!trimmedWorkspaceId) {
           throw new Error('workspaceId is required')
@@ -396,7 +407,9 @@ export const useWorkflowRegistry = create<WorkflowRegistry>()(
           }
 
           const realChannels = getRealHydrationChannels(get().hydrationByChannel)
-          return realChannels.length > 0 ? realChannels : [WORKSPACE_BOOTSTRAP_CHANNEL]
+          return realChannels.length > 0
+            ? [...realChannels, WORKSPACE_BOOTSTRAP_CHANNEL]
+            : [WORKSPACE_BOOTSTRAP_CHANNEL]
         })()
 
         const requestId = crypto.randomUUID()
@@ -669,7 +682,13 @@ export const useWorkflowRegistry = create<WorkflowRegistry>()(
         // Note: needsRedeployment is now computed server-side via /api/workflows/{id}/status
       },
 
-      setActiveWorkflow: async ({ workflowId, channelId }: { workflowId: string; channelId?: string }) => {
+      setActiveWorkflow: async ({
+        workflowId,
+        channelId,
+      }: {
+        workflowId: string
+        channelId?: string
+      }) => {
         const channelKey = resolveChannelKey(channelId)
         const state = get()
         const workflowMetadata = state.workflows[workflowId]
@@ -868,9 +887,12 @@ export const useWorkflowRegistry = create<WorkflowRegistry>()(
         try {
           const requestBody: Record<string, unknown> = {
             name: options.name || generateCreativeWorkflowName(),
-            description: options.description || 'New workflow',
+            description: options.description ?? 'New workflow',
             workspaceId,
             folderId: options.folderId || null,
+          }
+          if (typeof options.color === 'string') {
+            requestBody.color = options.color
           }
           if (options.marketplaceId) {
             requestBody.color = '#808080'
@@ -1118,12 +1140,12 @@ export const useWorkflowRegistry = create<WorkflowRegistry>()(
         }
 
         // Get the current workflow state from the Yjs session
-        const { getRegisteredWorkflowSession: getYjsSession } = require('@/lib/yjs/workflow-session-registry') as typeof import('@/lib/yjs/workflow-session-registry')
-        const { getWorkflowSnapshot: getYjsSnapshot } = require('@/lib/yjs/workflow-session') as typeof import('@/lib/yjs/workflow-session')
+        const { getRegisteredWorkflowSession: getYjsSession } =
+          require('@/lib/yjs/workflow-session-registry') as typeof import('@/lib/yjs/workflow-session-registry')
+        const { getWorkflowSnapshot: getYjsSnapshot } =
+          require('@/lib/yjs/workflow-session') as typeof import('@/lib/yjs/workflow-session')
         const yjsSession = getYjsSession(sourceId)
-        const currentWorkflowState = yjsSession?.doc
-          ? getYjsSnapshot(yjsSession.doc)
-          : null
+        const currentWorkflowState = yjsSession?.doc ? getYjsSnapshot(yjsSession.doc) : null
 
         // If we're duplicating the active workflow, use current state
         // Otherwise, we need to fetch it from DB or use empty state

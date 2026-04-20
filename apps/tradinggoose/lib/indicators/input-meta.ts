@@ -3,7 +3,7 @@ import type { InputMeta, InputMetaMap } from '@/lib/indicators/types'
 const isPlainObject = (value: unknown): value is Record<string, unknown> =>
   Boolean(value) && typeof value === 'object' && !Array.isArray(value)
 
-const INPUT_TYPES = [
+export const INPUT_TYPES = [
   'any',
   'int',
   'float',
@@ -42,7 +42,7 @@ const findMatchingParen = (code: string, openIndex: number) => {
   let inSingle = false
   let inDouble = false
   let inTemplate = false
-  let escape = false
+  let isEscaped = false
   let inLineComment = false
   let inBlockComment = false
 
@@ -65,14 +65,14 @@ const findMatchingParen = (code: string, openIndex: number) => {
       continue
     }
 
-    if (escape) {
-      escape = false
+    if (isEscaped) {
+      isEscaped = false
       continue
     }
 
     if (inSingle) {
       if (char === '\\') {
-        escape = true
+        isEscaped = true
       } else if (char === "'") {
         inSingle = false
       }
@@ -81,7 +81,7 @@ const findMatchingParen = (code: string, openIndex: number) => {
 
     if (inDouble) {
       if (char === '\\') {
-        escape = true
+        isEscaped = true
       } else if (char === '"') {
         inDouble = false
       }
@@ -90,7 +90,7 @@ const findMatchingParen = (code: string, openIndex: number) => {
 
     if (inTemplate) {
       if (char === '\\') {
-        escape = true
+        isEscaped = true
       } else if (char === '`') {
         inTemplate = false
       }
@@ -169,20 +169,20 @@ const parseInputArgs = (argsRaw: string): string[] => {
   let inSingle = false
   let inDouble = false
   let inTemplate = false
-  let escape = false
+  let isEscaped = false
 
   for (let i = 0; i < argsRaw.length; i += 1) {
     const char = argsRaw[i]
 
-    if (escape) {
+    if (isEscaped) {
       current += char
-      escape = false
+      isEscaped = false
       continue
     }
 
     if (inSingle) {
       if (char === '\\') {
-        escape = true
+        isEscaped = true
       } else if (char === "'") {
         inSingle = false
       }
@@ -192,7 +192,7 @@ const parseInputArgs = (argsRaw: string): string[] => {
 
     if (inDouble) {
       if (char === '\\') {
-        escape = true
+        isEscaped = true
       } else if (char === '"') {
         inDouble = false
       }
@@ -202,7 +202,7 @@ const parseInputArgs = (argsRaw: string): string[] => {
 
     if (inTemplate) {
       if (char === '\\') {
-        escape = true
+        isEscaped = true
       } else if (char === '`') {
         inTemplate = false
       }
@@ -267,7 +267,7 @@ const resolveTitle = (args: string[], argsRaw: string): string | undefined => {
   }
 
   const titleMatch = argsRaw.match(/title\s*:\s*(['"])(.*?)\1/)
-  if (titleMatch && titleMatch[2]?.trim()) {
+  if (titleMatch?.[2]?.trim()) {
     return titleMatch[2].trim()
   }
 

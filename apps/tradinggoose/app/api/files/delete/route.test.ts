@@ -78,14 +78,14 @@ describe('File Delete API Route', () => {
     })
   })
 
-  it('should handle Azure Blob file deletion successfully', async () => {
+  it('should handle Azure file deletion successfully', async () => {
     setupFileApiMocks({
       cloudEnabled: true,
-      storageProvider: 'blob',
+      storageProvider: 'azure',
     })
 
     const req = createMockRequest('POST', {
-      filePath: '/api/files/serve/blob/1234567890-test-document.pdf',
+      filePath: '/api/files/serve/azure/1234567890-test-document.pdf',
     })
 
     const { POST } = await import('@/app/api/files/delete/route')
@@ -100,6 +100,32 @@ describe('File Delete API Route', () => {
     const storageService = await import('@/lib/uploads/core/storage-service')
     expect(storageService.deleteFile).toHaveBeenCalledWith({
       key: '1234567890-test-document.pdf',
+      context: 'general',
+    })
+  })
+
+  it('should strip query parameters from Vercel delete paths', async () => {
+    setupFileApiMocks({
+      cloudEnabled: true,
+      storageProvider: 'vercel',
+    })
+
+    const req = createMockRequest('POST', {
+      filePath: '/api/files/serve/vercel/1234567890-test-file.pdf?context=general',
+    })
+
+    const { POST } = await import('@/app/api/files/delete/route')
+
+    const response = await POST(req)
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(data).toHaveProperty('success', true)
+    expect(data).toHaveProperty('message', 'File deleted successfully')
+
+    const storageService = await import('@/lib/uploads/core/storage-service')
+    expect(storageService.deleteFile).toHaveBeenCalledWith({
+      key: '1234567890-test-file.pdf',
       context: 'general',
     })
   })

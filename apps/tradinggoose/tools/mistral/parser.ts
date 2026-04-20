@@ -64,7 +64,7 @@ export const mistralParserTool: ToolConfig<MistralParserInput, MistralParserOutp
       type: 'string',
       required: true,
       visibility: 'user-only',
-      description: 'Mistral API key (MISTRAL_API_KEY)',
+      description: 'Mistral API key for this request.',
     },
   },
 

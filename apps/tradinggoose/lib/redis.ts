@@ -40,6 +40,14 @@ else
 end
 `
 
+const RENEW_LOCK_SCRIPT = `
+if redis.call("get", KEYS[1]) == ARGV[1] then
+  return redis.call("expire", KEYS[1], ARGV[2])
+else
+  return 0
+end
+`
+
 const readInMemoryCacheEntry = (
   key: string
 ): { value: string; expiry: number | null } | null => {
@@ -246,7 +254,27 @@ export async function releaseLock(lockKey: string, value: string): Promise<boole
   const redis = ensureRedisAvailable('releaseLock')
   if (redis) {
     const result = await redis.eval(RELEASE_LOCK_SCRIPT, 1, lockKey, value)
-    return result === 1
+    return Number(result) === 1
+  }
+
+  return true
+}
+
+export async function renewLock(
+  lockKey: string,
+  value: string,
+  expirySeconds: number
+): Promise<boolean> {
+  const redis = ensureRedisAvailable('renewLock')
+  if (redis) {
+    const result = await redis.eval(
+      RENEW_LOCK_SCRIPT,
+      1,
+      lockKey,
+      value,
+      Math.max(1, Math.ceil(expirySeconds))
+    )
+    return Number(result) === 1
   }
 
   return true
@@ -257,6 +285,8 @@ export async function closeRedisConnection(): Promise<void> {
     clearInterval(pingInterval)
     pingInterval = null
   }
+  pingFailures = 0
+  pingInFlight = false
 
   if (!globalRedisClient) return
   try {

@@ -1,69 +1,106 @@
-export interface SubscriptionPermissions {
-  canUpgradeToPro: boolean
-  canUpgradeToTeam: boolean
-  canViewEnterprise: boolean
-  canManageTeam: boolean
-  canEditUsageLimit: boolean
-  canCancelSubscription: boolean
-  showTeamMemberView: boolean
-  showUpgradePlans: boolean
-}
+import type {
+  EnterprisePlaceholderDisplay,
+  PublicBillingTierDisplay,
+} from '@/lib/billing/public-catalog'
+import { canTierEditUsageLimit } from '@/lib/billing/tier-summary'
+import type { BillingTierSummary } from '@/lib/subscription/types'
 
 export interface SubscriptionState {
   isFree: boolean
-  isPro: boolean
-  isTeam: boolean
-  isEnterprise: boolean
   isPaid: boolean
-  plan: string
-  status: string
+  tier: BillingTierSummary
 }
 
 export interface UserRole {
   isTeamAdmin: boolean
-  userRole: string
 }
 
-export function getSubscriptionPermissions(
-  subscription: SubscriptionState,
+export interface SubscriptionSurfaceState {
+  currentTier: PublicBillingTierDisplay | null
+  isOrganizationPlan: boolean
+  isAdjustableSeatPlan: boolean
+  isCustomOrganizationPlan: boolean
+  canManageOrganizationPlan: boolean
+  canEditUsageLimit: boolean
+  canCancelSubscription: boolean
+  showTeamMemberView: boolean
+  visibleUpgradeTiers: PublicBillingTierDisplay[]
+  showEnterprisePlaceholder: boolean
+  enterprisePlaceholder: EnterprisePlaceholderDisplay | null
+}
+
+interface SubscriptionSurfaceInput {
+  subscription: SubscriptionState
   userRole: UserRole
-): SubscriptionPermissions {
-  const { isFree, isPro, isTeam, isEnterprise, isPaid } = subscription
-  const { isTeamAdmin } = userRole
+  publicTiers: PublicBillingTierDisplay[]
+  enterprisePlaceholder: EnterprisePlaceholderDisplay | null
+}
+
+function getCurrentTier(
+  subscription: SubscriptionState,
+  publicTiers: PublicBillingTierDisplay[]
+): PublicBillingTierDisplay | null {
+  const matchedTier = subscription.tier.id
+    ? publicTiers.find((tier) => tier.id === subscription.tier.id)
+    : null
+  if (matchedTier) {
+    return matchedTier
+  }
+
+  if (!subscription.isFree) {
+    return null
+  }
+
+  return publicTiers.find((tier) => tier.isDefault) ?? null
+}
+
+export function getSubscriptionSurfaceState({
+  subscription,
+  userRole,
+  publicTiers,
+  enterprisePlaceholder,
+}: SubscriptionSurfaceInput): SubscriptionSurfaceState {
+  const currentTier = getCurrentTier(subscription, publicTiers)
+  const effectiveTier = currentTier ?? subscription.tier
+  const isCurrentOrganizationPlan = effectiveTier.ownerType === 'organization'
+  const isCurrentCustomOrganizationPlan =
+    isCurrentOrganizationPlan && !currentTier && !subscription.isFree
+  const isCurrentAdjustableSeatPlan =
+    isCurrentOrganizationPlan && effectiveTier.seatMode === 'adjustable'
+  const canEditUsageLimit = canTierEditUsageLimit(effectiveTier)
+  const isTeamMemberView = isCurrentOrganizationPlan && !userRole.isTeamAdmin
+
+  let visibleUpgradeTiers: PublicBillingTierDisplay[] = []
+
+  if (!isTeamMemberView && !isCurrentCustomOrganizationPlan) {
+    const currentDisplayOrder = currentTier?.displayOrder ?? (subscription.isFree ? -1 : null)
+
+    if (subscription.isFree) {
+      visibleUpgradeTiers = publicTiers.filter((tier) => !tier.isDefault)
+    } else if (currentDisplayOrder !== null) {
+      visibleUpgradeTiers = publicTiers.filter(
+        (tier) => tier.id !== currentTier?.id && tier.displayOrder > currentDisplayOrder
+      )
+    }
+  }
+
+  const showEnterprisePlaceholder = Boolean(
+    enterprisePlaceholder && !isCurrentCustomOrganizationPlan && !isTeamMemberView
+  )
 
   return {
-    canUpgradeToPro: isFree,
-    canUpgradeToTeam: isFree || (isPro && !isTeam),
-    canViewEnterprise: !isEnterprise && !(isTeam && !isTeamAdmin), // Don't show to enterprise users or team members
-    canManageTeam: isTeam && isTeamAdmin,
-    canEditUsageLimit: (isFree || (isPro && !isTeam) || (isTeam && isTeamAdmin)) && !isEnterprise, // Free users see upgrade badge, Pro (non-team) users and team admins see pencil
-    canCancelSubscription: isPaid && !isEnterprise && !(isTeam && !isTeamAdmin), // Team members can't cancel
-    showTeamMemberView: isTeam && !isTeamAdmin,
-    showUpgradePlans: isFree || (isPro && !isTeam) || (isTeam && isTeamAdmin), // Free users, Pro users, Team owners see plans
+    currentTier,
+    isOrganizationPlan: isCurrentOrganizationPlan,
+    isAdjustableSeatPlan: isCurrentAdjustableSeatPlan,
+    isCustomOrganizationPlan: isCurrentCustomOrganizationPlan,
+    canManageOrganizationPlan: isCurrentOrganizationPlan && userRole.isTeamAdmin,
+    canEditUsageLimit:
+      canEditUsageLimit && (!isCurrentOrganizationPlan || userRole.isTeamAdmin),
+    canCancelSubscription:
+      subscription.isPaid && !isCurrentCustomOrganizationPlan && !isTeamMemberView,
+    showTeamMemberView: isTeamMemberView && !isCurrentCustomOrganizationPlan,
+    visibleUpgradeTiers,
+    showEnterprisePlaceholder,
+    enterprisePlaceholder,
   }
-}
-
-export function getVisiblePlans(
-  subscription: SubscriptionState,
-  userRole: UserRole
-): ('pro' | 'team' | 'enterprise')[] {
-  const plans: ('pro' | 'team' | 'enterprise')[] = []
-  const { isFree, isPro, isTeam } = subscription
-  const { isTeamAdmin } = userRole
-
-  // Free users see all plans
-  if (isFree) {
-    plans.push('pro', 'team', 'enterprise')
-  }
-  // Pro users see team and enterprise
-  else if (isPro && !isTeam) {
-    plans.push('team', 'enterprise')
-  }
-  // Team owners see only enterprise (no team plan since they already have it)
-  else if (isTeam && isTeamAdmin) {
-    plans.push('enterprise')
-  }
-  // Team members, Enterprise users see no plans
-
-  return plans
 }

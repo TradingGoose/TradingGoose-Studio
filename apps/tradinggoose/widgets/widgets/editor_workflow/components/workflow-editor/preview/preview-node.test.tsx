@@ -181,4 +181,65 @@ describe('PreviewNode', () => {
     expect(markup).toContain('Temperature 0-2')
     expect(markup).not.toContain('Temperature 0-1')
   })
+
+  it('renders both deploy-managed and editor-managed trigger fields in preview mode', () => {
+    const markup = renderToStaticMarkup(
+      createElement(PreviewNode as any, {
+        id: 'trigger-preview-1',
+        data: {
+          type: 'github_issue_opened',
+          name: 'GitHub Trigger',
+          config: {
+            category: 'triggers',
+            bgColor: '#22c55e',
+            icon: (props: any) => createElement('svg', props),
+            triggers: {
+              available: ['github_issue_opened'],
+            },
+            subBlocks: [
+              {
+                id: 'selectedTriggerId',
+                title: 'Trigger Type',
+                type: 'dropdown',
+                mode: 'trigger',
+              },
+              {
+                id: 'contentType',
+                title: 'Content Type',
+                type: 'short-input',
+                mode: 'trigger',
+                condition: {
+                  field: 'selectedTriggerId',
+                  value: 'github_issue_opened',
+                },
+              },
+              {
+                id: 'inputFormat',
+                title: 'Input Format',
+                type: 'short-input',
+                mode: 'trigger',
+                condition: {
+                  field: 'selectedTriggerId',
+                  value: 'github_issue_opened',
+                },
+              },
+            ],
+          },
+          subBlockValues: {
+            selectedTriggerId: { value: 'github_issue_opened' },
+            contentType: { value: 'application/json' },
+            inputFormat: { value: 'payload' },
+          },
+          readOnly: true,
+          isPreview: true,
+        },
+      })
+    )
+
+    expect(markup).toContain('Trigger Type')
+    expect(markup).toContain('Content Type')
+    expect(markup).toContain('application/json')
+    expect(markup).toContain('Input Format')
+    expect(markup).toContain('payload')
+  })
 })

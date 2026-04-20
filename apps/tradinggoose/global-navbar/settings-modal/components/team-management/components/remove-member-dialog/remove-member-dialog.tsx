@@ -12,6 +12,7 @@ interface RemoveMemberDialogProps {
   open: boolean
   memberName: string
   shouldReduceSeats: boolean
+  canReduceSeats: boolean
   isSelfRemoval?: boolean
   onOpenChange: (open: boolean) => void
   onShouldReduceSeatsChange: (shouldReduce: boolean) => void
@@ -23,6 +24,7 @@ export function RemoveMemberDialog({
   open,
   memberName,
   shouldReduceSeats,
+  canReduceSeats,
   onOpenChange,
   onShouldReduceSeatsChange,
   onConfirmRemove,
@@ -42,7 +44,7 @@ export function RemoveMemberDialog({
           </DialogDescription>
         </DialogHeader>
 
-        {!isSelfRemoval && (
+        {!isSelfRemoval && canReduceSeats && (
           <div className='py-4'>
             <div className='flex items-center space-x-2'>
               <input

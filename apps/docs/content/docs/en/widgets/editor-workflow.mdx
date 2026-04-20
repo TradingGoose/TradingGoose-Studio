@@ -22,7 +22,7 @@ The Workflow Editor is the main canvas for building AI workflows. It renders a f
 - **Loop and parallel blocks** available as special toolbar items for control-flow logic
 - **Floating controls** for quick canvas actions (enabled by default in the widget configuration)
 - **Training controls** toggle that lets you switch training-mode overlays on or off per widget
-- **Diff controls** for reviewing version changes against a previous workflow state
+- **Export controls** in the header bar download the current workflow as TradingGoose export JSON, bundling workspace skills when present.
 - **Trigger list** showing all triggers attached to the workflow
 - **Viewport-aware positioning** -- the widget tracks its own bounding rect so new blocks drop at the visible center of the canvas, even when the widget is embedded in a small panel
 - **Nested subflow validation** with real-time error highlighting when a subflow reference is invalid
@@ -40,7 +40,7 @@ The header is split into three sections:
 
 - **Left**: the block toolbar -- a dropdown to browse and search available blocks, tools, and triggers, then add them to the canvas
 - **Center**: a workflow selector dropdown that lets you switch between workflows in the workspace
-- **Right**: the control bar with execution, save, and workflow-level actions
+- **Right**: the control bar with execution, export, save, and workflow-level actions
 
 ### Key interactions
 
@@ -67,7 +67,6 @@ The canvas UI is controlled by `WorkflowCanvasUIConfig`:
 | `floatingControls` | `true` | Show floating action buttons on the canvas |
 | `trainingControls` | `true` | Enable training-mode control overlays |
 | `forceTrainingControls` | `false` | Always show training controls regardless of user toggle |
-| `diffControls` | `true` | Show diff review controls |
 | `triggerList` | `true` | Display the trigger list panel |
 | `controlBar` | `false` | Show the legacy control bar (off by default in the widget) |
 
@@ -86,7 +85,7 @@ These defaults are set at the widget level and merged with any layout-level over
     Browse all available workflow triggers.
   </Card>
   <Card title="Workflow List" href="/widgets/list-workflow">
-    Browse and manage workflow files.
+    Browse, create, and import workflow files.
   </Card>
   <Card title="Workflow Console" href="/widgets/workflow-console">
     View execution logs and streaming output.

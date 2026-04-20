@@ -606,14 +606,14 @@ function resolveAlpacaCredentials(payload: MarketSubscribePayload): {
   keyId?: string
   secretKey?: string
 } {
-  const keyId = payload.auth?.apiKey || process.env.ALPACA_API_KEY_ID
-  const secretKey = payload.auth?.apiSecret || process.env.ALPACA_API_SECRET_KEY
+  const keyId = payload.auth?.apiKey
+  const secretKey = payload.auth?.apiSecret
 
   return { keyId, secretKey }
 }
 
 function resolveFinnhubApiKey(payload: MarketSubscribePayload): string | undefined {
-  return payload.auth?.apiKey || process.env.FINNHUB_API_KEY
+  return payload.auth?.apiKey
 }
 
 function buildAlpacaStreamKey(config: {
@@ -693,7 +693,7 @@ function resolveEnvVarRefs(
   return value
 }
 
-async function resolveMarketSubscribeEnv(
+export async function resolveMarketSubscribeEnv(
   payload: MarketSubscribePayload,
   userId?: string
 ): Promise<MarketSubscribePayload> {

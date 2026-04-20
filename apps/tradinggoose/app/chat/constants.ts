@@ -7,7 +7,8 @@ export const CHAT_ERROR_MESSAGES = {
   CHAT_UNAVAILABLE: 'This chat is currently unavailable. Please try again later.',
   NO_CHAT_TRIGGER:
     'No Chat trigger configured for this workflow. Add a Chat Trigger block to enable chat execution.',
-  USAGE_LIMIT_EXCEEDED: 'Usage limit exceeded. Please upgrade your plan to continue using chat.',
+  USAGE_LIMIT_EXCEEDED:
+    'Usage limit exceeded. Please upgrade your billing tier to continue using chat.',
 } as const
 
 export const CHAT_REQUEST_TIMEOUT_MS = 300000 // 5 minutes (same as in chat.tsx)

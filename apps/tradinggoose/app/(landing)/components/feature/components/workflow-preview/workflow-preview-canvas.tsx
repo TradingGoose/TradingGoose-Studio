@@ -2,16 +2,17 @@
 
 import { useCallback, useMemo } from 'react'
 import { Minus, Plus } from 'lucide-react'
-import ReactFlow, {
+import {
   Background,
   ConnectionLineType,
+  ReactFlow,
   type EdgeTypes,
   type NodeTypes,
   ReactFlowProvider,
   useReactFlow,
   useStore,
-} from 'reactflow'
-import 'reactflow/dist/style.css'
+} from '@xyflow/react'
+import '@xyflow/react/dist/style.css'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import type { WorkflowState } from '@/stores/workflows/workflow/types'
@@ -99,8 +100,8 @@ function WorkflowPreviewFlow({ workflowState, className }: WorkflowPreviewFlowPr
   return (
     <div className={cn('workflow-container h-full w-full', className)}>
       <ReactFlow
-        nodes={nodes}
-        edges={edges}
+        defaultNodes={nodes}
+        defaultEdges={edges}
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
         connectionLineType={ConnectionLineType.Bezier}
@@ -109,7 +110,7 @@ function WorkflowPreviewFlow({ workflowState, className }: WorkflowPreviewFlowPr
         fitViewOptions={{ padding: PREVIEW_FIT_PADDING }}
         elementsSelectable
         selectNodesOnDrag={false}
-        nodesDraggable={false}
+        nodesDraggable
         nodesConnectable={false}
         panOnScroll
         zoomOnDoubleClick={false}
@@ -121,8 +122,11 @@ function WorkflowPreviewFlow({ workflowState, className }: WorkflowPreviewFlowPr
         noWheelClassName='allow-scroll'
         proOptions={{ hideAttribution: true }}
         className='h-full w-full'
+        style={{
+          backgroundColor: 'transparent',
+        }}
       >
-        <Background color='hsl(var(--workflow-dots))' size={4} gap={40} />
+        <Background bgColor='transparent' color='hsl(var(--workflow-dots))' size={4} gap={40} />
         <WorkflowPreviewControls />
       </ReactFlow>
     </div>

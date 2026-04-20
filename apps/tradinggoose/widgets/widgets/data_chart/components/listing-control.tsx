@@ -7,6 +7,7 @@ import {
 } from '@/stores/market/selector/store'
 import {
   areListingIdentitiesEqual,
+  type ListingIdentity,
   toListingValue,
   toListingValueObject,
   type ListingOption,
@@ -73,6 +74,8 @@ export const DataChartListingControl = ({
   const safeInstance = instance ?? createEmptyListingSelectorInstance()
   const setPairContext = useSetPairColorContext()
   const previousProviderRef = useRef<string | undefined>(undefined)
+  const syncedInstanceIdRef = useRef<string | null>(null)
+  const syncedListingIdentityRef = useRef<ListingIdentity | null | undefined>(undefined)
 
   useEffect(() => {
     ensureInstance(instanceId)
@@ -121,12 +124,22 @@ export const DataChartListingControl = ({
   }, [providerId, safeInstance.providerId, instanceId, updateInstance])
 
   useEffect(() => {
-    const selectedListingIdentity = toListingValueObject(safeInstance.selectedListingValue ?? null)
+    const previouslySyncedListing = syncedListingIdentityRef.current
+    const alreadySyncedInstance = syncedInstanceIdRef.current === instanceId
+    const alreadySynced =
+      alreadySyncedInstance &&
+      previouslySyncedListing !== undefined &&
+      ((previouslySyncedListing === null && listingIdentity === null) ||
+        areListingIdentitiesEqual(previouslySyncedListing, listingIdentity))
 
-    if (
-      listingIdentity &&
-      !areListingIdentitiesEqual(listingIdentity, selectedListingIdentity)
-    ) {
+    if (alreadySynced) {
+      return
+    }
+
+    syncedInstanceIdRef.current = instanceId
+    syncedListingIdentityRef.current = listingIdentity
+
+    if (listingIdentity) {
       updateInstance(instanceId, {
         selectedListingValue: listingIdentity ?? null,
         selectedListing: displayListing,
@@ -135,14 +148,12 @@ export const DataChartListingControl = ({
       return
     }
 
-    if (!listingIdentity && safeInstance.selectedListingValue) {
-      updateInstance(instanceId, {
-        selectedListingValue: null,
-        selectedListing: null,
-        query: '',
-      })
-    }
-  }, [listingIdentity, displayListing, safeInstance.selectedListingValue, instanceId, updateInstance])
+    updateInstance(instanceId, {
+      selectedListingValue: null,
+      selectedListing: null,
+      query: '',
+    })
+  }, [listingIdentity, displayListing, instanceId, updateInstance])
 
   const handleListingChange = (selected: ListingOption | null) => {
     const normalized = toListingValue(selected)

@@ -1,0 +1,828 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { ToolArgSchemas, ToolResultSchemas } from '@/lib/copilot/registry'
+import { ClientToolCallState } from '@/lib/copilot/tools/client/base-tool'
+import {
+  CreateSkillClientTool,
+  EditSkillClientTool,
+  GetCustomToolClientTool,
+  GetSkillClientTool,
+  ListSkillsClientTool,
+  RenameSkillClientTool,
+} from '@/lib/copilot/tools/client/entities/entity-document-tools'
+
+const mockRegistryState = {
+  workflows: {} as Record<string, { workspaceId?: string }>,
+}
+
+const mockCopilotState = {
+  toolCallsById: {} as Record<string, { params?: Record<string, unknown> }>,
+}
+
+const mockEntitySessionRegistry = {
+  session: null as any,
+}
+
+const mockEntityFieldState = {
+  values: {} as Record<string, unknown>,
+}
+
+const originalFetch = globalThis.fetch
+
+vi.mock('@/stores/workflows/registry/store', () => ({
+  useWorkflowRegistry: {
+    getState: () => mockRegistryState,
+  },
+}))
+
+vi.mock('@/stores/copilot/store-access', () => ({
+  getCopilotStoreForToolCall: () => ({
+    getState: () => mockCopilotState,
+  }),
+}))
+
+vi.mock('@/lib/yjs/entity-session-registry', () => ({
+  getRegisteredEntitySession: vi.fn((reviewSessionId?: string | null) => {
+    if (
+      !reviewSessionId ||
+      mockEntitySessionRegistry.session?.descriptor?.reviewSessionId !== reviewSessionId
+    ) {
+      return null
+    }
+
+    return mockEntitySessionRegistry.session
+  }),
+  getRegisteredEntitySessionByIdentity: vi.fn(
+    (entityKind: string, entityId?: string | null, workspaceId?: string | null) => {
+      const session = mockEntitySessionRegistry.session
+      if (!entityId || !session) {
+        return null
+      }
+
+      if (
+        session.descriptor.entityKind !== entityKind ||
+        session.descriptor.entityId !== entityId
+      ) {
+        return null
+      }
+
+      if (workspaceId != null && session.descriptor.workspaceId !== workspaceId) {
+        return null
+      }
+
+      return session
+    }
+  ),
+}))
+
+vi.mock('@/lib/yjs/entity-session', () => ({
+  getEntityFields: () => ({ ...mockEntityFieldState.values }),
+  setEntityField: (_doc: unknown, key: string, value: unknown) => {
+    mockEntityFieldState.values[key] = value
+  },
+  replaceEntityTextField: (_doc: unknown, key: string, value: string) => {
+    mockEntityFieldState.values[key] = value
+  },
+}))
+
+describe('entity document tools', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks()
+    vi.unstubAllGlobals?.()
+    globalThis.fetch = originalFetch
+    mockRegistryState.workflows = {
+      'wf-context': { workspaceId: 'ws-1' },
+    }
+    mockCopilotState.toolCallsById = {}
+    mockEntitySessionRegistry.session = null
+    mockEntityFieldState.values = {}
+  })
+
+  it('list_skills auto-executes and returns generic entity list results', async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === 'string' ? input : input.toString()
+      const method = init?.method || 'GET'
+
+      if (url === '/api/skills?workspaceId=ws-1' && method === 'GET') {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            data: [
+              {
+                id: 'skill-1',
+                name: 'market-research',
+                description: 'Research a market before trading.',
+              },
+            ],
+          }),
+        }
+      }
+
+      if (url === '/api/copilot/tools/mark-complete' && method === 'POST') {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ success: true }),
+        }
+      }
+
+      throw new Error(`Unexpected fetch URL: ${url} (${method})`)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const toolCallId = 'list-skills'
+    const tool = new ListSkillsClientTool(toolCallId)
+    tool.setExecutionContext({
+      toolCallId,
+      toolName: 'list_skills',
+      channelId: 'pair-yellow',
+      workflowId: 'wf-context',
+      log: vi.fn(),
+    })
+
+    await tool.execute()
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/skills?workspaceId=ws-1')
+    expect(tool.getState()).toBe(ClientToolCallState.success)
+
+    const markCompleteCall = fetchMock.mock.calls.find(([input, init]) => {
+      const url = typeof input === 'string' ? input : input.toString()
+      return url === '/api/copilot/tools/mark-complete' && (init?.method || 'GET') === 'POST'
+    })
+    const markCompleteBody = JSON.parse(String(markCompleteCall?.[1]?.body))
+    expect(markCompleteBody.data).toMatchObject({
+      entityKind: 'skill',
+      count: 1,
+    })
+    expect(markCompleteBody.data.entities).toEqual([
+      {
+        entityId: 'skill-1',
+        entityName: 'market-research',
+        entityDescription: 'Research a market before trading.',
+      },
+    ])
+  })
+
+  it('get_custom_tool reads the explicit target entity and returns an entity document', async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === 'string' ? input : input.toString()
+      const method = init?.method || 'GET'
+
+      if (url === '/api/tools/custom?workspaceId=ws-1' && method === 'GET') {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            data: [
+              {
+                id: 'tool-1',
+                title: 'market-tool',
+                schema: {
+                  type: 'function',
+                  function: {
+                    name: 'marketTool',
+                    description: 'Fetch market data',
+                    parameters: { type: 'object', properties: {} },
+                  },
+                },
+                code: 'return 1',
+              },
+            ],
+          }),
+        }
+      }
+
+      if (url === '/api/copilot/tools/mark-complete' && method === 'POST') {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ success: true }),
+        }
+      }
+
+      throw new Error(`Unexpected fetch URL: ${url} (${method})`)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const toolCallId = 'get-custom-tool'
+    const tool = new GetCustomToolClientTool(toolCallId)
+    tool.setExecutionContext({
+      toolCallId,
+      toolName: 'get_custom_tool',
+      channelId: 'pair-orange',
+      workflowId: 'wf-context',
+      log: vi.fn(),
+    })
+
+    await tool.execute({ entityId: 'tool-1' })
+
+    expect(tool.getState()).toBe(ClientToolCallState.success)
+
+    const markCompleteCall = fetchMock.mock.calls.find(([input, init]) => {
+      const url = typeof input === 'string' ? input : input.toString()
+      return url === '/api/copilot/tools/mark-complete' && (init?.method || 'GET') === 'POST'
+    })
+    const markCompleteBody = JSON.parse(String(markCompleteCall?.[1]?.body))
+
+    expect(markCompleteBody.data).toMatchObject({
+      entityKind: 'custom_tool',
+      entityId: 'tool-1',
+      entityName: 'market-tool',
+      documentFormat: 'tg-custom-tool-document-v1',
+    })
+    expect(markCompleteBody.data.entityDocument).toContain('"title": "market-tool"')
+    expect(markCompleteBody.data.entityDocument).toContain('"codeText": "return 1"')
+  })
+
+  it('get_custom_tool reads a matching live entity session by explicit entityId', async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === 'string' ? input : input.toString()
+      const method = init?.method || 'GET'
+
+      if (url === '/api/copilot/tools/mark-complete' && method === 'POST') {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ success: true }),
+        }
+      }
+
+      throw new Error(`Unexpected fetch URL: ${url} (${method})`)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    mockEntityFieldState.values = {
+      title: 'live-market-tool',
+      schemaText: JSON.stringify({
+        type: 'function',
+        function: {
+          name: 'liveMarketTool',
+          description: 'Fetch live market data',
+          parameters: { type: 'object', properties: {} },
+        },
+      }),
+      codeText: 'return 2',
+    }
+
+    mockEntitySessionRegistry.session = {
+      descriptor: {
+        entityKind: 'custom_tool',
+        entityId: 'tool-1',
+        reviewSessionId: 'review-1',
+        draftSessionId: 'draft-1',
+        workspaceId: 'ws-1',
+      },
+      doc: {},
+    }
+
+    const toolCallId = 'get-custom-tool-live-session'
+    const tool = new GetCustomToolClientTool(toolCallId)
+    tool.setExecutionContext({
+      toolCallId,
+      toolName: 'get_custom_tool',
+      channelId: 'pair-orange',
+      workspaceId: 'ws-1',
+      log: vi.fn(),
+    })
+
+    await tool.execute({ entityId: 'tool-1' })
+
+    expect(tool.getState()).toBe(ClientToolCallState.success)
+
+    const markCompleteCall = fetchMock.mock.calls.find(([input, init]) => {
+      const url = typeof input === 'string' ? input : input.toString()
+      return url === '/api/copilot/tools/mark-complete' && (init?.method || 'GET') === 'POST'
+    })
+    const markCompleteBody = JSON.parse(String(markCompleteCall?.[1]?.body))
+
+    expect(markCompleteBody.data).toMatchObject({
+      entityKind: 'custom_tool',
+      entityId: 'tool-1',
+      entityName: 'live-market-tool',
+      documentFormat: 'tg-custom-tool-document-v1',
+    })
+    expect(markCompleteBody.data.entityDocument).toContain('"title": "live-market-tool"')
+    expect(markCompleteBody.data.entityDocument).toContain('"codeText": "return 2"')
+  })
+
+  it('edit_skill applies the edited document to the active draft on accept', async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === 'string' ? input : input.toString()
+      const method = init?.method || 'GET'
+
+      if (url === '/api/copilot/tools/mark-complete' && method === 'POST') {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ success: true }),
+        }
+      }
+
+      throw new Error(`Unexpected fetch URL: ${url} (${method})`)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    mockEntityFieldState.values = {
+      name: 'old-skill',
+      description: 'Old description',
+      content: 'Old content',
+    }
+
+    mockEntitySessionRegistry.session = {
+      descriptor: {
+        entityKind: 'skill',
+        entityId: 'skill-1',
+        reviewSessionId: 'review-1',
+        draftSessionId: 'draft-1',
+      },
+      doc: {
+        transact: (cb: () => void) => cb(),
+      },
+    }
+
+    const toolCallId = 'edit-skill'
+    const tool = new EditSkillClientTool(toolCallId)
+    tool.setExecutionContext({
+      toolCallId,
+      toolName: 'edit_skill',
+      channelId: 'pair-purple',
+      workflowId: 'wf-context',
+      reviewSessionId: 'review-1',
+      entityKind: 'skill',
+      entityId: 'skill-1',
+      draftSessionId: 'draft-1',
+      log: vi.fn(),
+    })
+
+    await tool.execute({
+      entityId: 'skill-1',
+      entityDocument: JSON.stringify(
+        {
+          name: 'new-skill',
+          description: 'New description',
+          content: 'New content',
+        },
+        null,
+        2
+      ),
+      documentFormat: 'tg-skill-document-v1',
+    })
+
+    await tool.handleAccept()
+
+    expect(tool.getState()).toBe(ClientToolCallState.success)
+    expect(mockEntityFieldState.values).toEqual({
+      name: 'new-skill',
+      description: 'New description',
+      content: 'New content',
+    })
+
+    const markCompleteCall = fetchMock.mock.calls.find(([input, init]) => {
+      const url = typeof input === 'string' ? input : input.toString()
+      return url === '/api/copilot/tools/mark-complete' && (init?.method || 'GET') === 'POST'
+    })
+    const markCompleteBody = JSON.parse(String(markCompleteCall?.[1]?.body))
+    expect(markCompleteBody.data).toMatchObject({
+      success: true,
+      entityKind: 'skill',
+      entityId: 'skill-1',
+      entityName: 'new-skill',
+      documentFormat: 'tg-skill-document-v1',
+      reviewSessionId: 'review-1',
+      draftSessionId: 'draft-1',
+    })
+  })
+
+  it('get_skill reads an unsaved draft from the active review session without a DB entityId', async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === 'string' ? input : input.toString()
+      const method = init?.method || 'GET'
+
+      if (url === '/api/copilot/tools/mark-complete' && method === 'POST') {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ success: true }),
+        }
+      }
+
+      throw new Error(`Unexpected fetch URL: ${url} (${method})`)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    mockEntityFieldState.values = {
+      name: 'draft-skill',
+      description: 'Draft description',
+      content: 'Draft content',
+    }
+
+    mockEntitySessionRegistry.session = {
+      descriptor: {
+        entityKind: 'skill',
+        entityId: null,
+        reviewSessionId: 'review-draft',
+        draftSessionId: 'draft-1',
+        workspaceId: 'ws-1',
+      },
+      doc: {
+        transact: (cb: () => void) => cb(),
+      },
+    }
+
+    const toolCallId = 'get-skill-unsaved-draft'
+    const tool = new GetSkillClientTool(toolCallId)
+    tool.setExecutionContext({
+      toolCallId,
+      toolName: 'get_skill',
+      channelId: 'pair-purple',
+      workspaceId: 'ws-1',
+      reviewSessionId: 'review-draft',
+      entityKind: 'skill',
+      draftSessionId: 'draft-1',
+      log: vi.fn(),
+    })
+
+    await tool.execute()
+
+    expect(tool.getState()).toBe(ClientToolCallState.success)
+
+    const markCompleteCall = fetchMock.mock.calls.find(([input, init]) => {
+      const url = typeof input === 'string' ? input : input.toString()
+      return url === '/api/copilot/tools/mark-complete' && (init?.method || 'GET') === 'POST'
+    })
+    const markCompleteBody = JSON.parse(String(markCompleteCall?.[1]?.body))
+    expect(markCompleteBody.data).toMatchObject({
+      entityKind: 'skill',
+      entityName: 'draft-skill',
+      documentFormat: 'tg-skill-document-v1',
+    })
+    expect(markCompleteBody.data.entityDocument).toContain('"name": "draft-skill"')
+    expect(markCompleteBody.data).not.toHaveProperty('entityId')
+  })
+
+  it('edit_skill applies edits to an unsaved draft via the active review session without a DB entityId', async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === 'string' ? input : input.toString()
+      const method = init?.method || 'GET'
+
+      if (url === '/api/copilot/tools/mark-complete' && method === 'POST') {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ success: true }),
+        }
+      }
+
+      throw new Error(`Unexpected fetch URL: ${url} (${method})`)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    mockEntityFieldState.values = {
+      name: 'draft-skill',
+      description: 'Draft description',
+      content: 'Draft content',
+    }
+
+    mockEntitySessionRegistry.session = {
+      descriptor: {
+        entityKind: 'skill',
+        entityId: null,
+        reviewSessionId: 'review-draft',
+        draftSessionId: 'draft-1',
+        workspaceId: 'ws-1',
+      },
+      doc: {
+        transact: (cb: () => void) => cb(),
+      },
+    }
+
+    const toolCallId = 'get-skill-unsaved-draft'
+    const tool = new EditSkillClientTool(toolCallId)
+    tool.setExecutionContext({
+      toolCallId,
+      toolName: 'edit_skill',
+      channelId: 'pair-purple',
+      workspaceId: 'ws-1',
+      reviewSessionId: 'review-draft',
+      entityKind: 'skill',
+      draftSessionId: 'draft-1',
+      log: vi.fn(),
+    })
+
+    await tool.execute({
+      entityDocument: JSON.stringify({
+        name: 'draft-skill-updated',
+        description: 'Updated draft description',
+        content: 'Updated draft content',
+      }),
+      documentFormat: 'tg-skill-document-v1',
+    } as any)
+    await tool.handleAccept()
+
+    expect(tool.getState()).toBe(ClientToolCallState.success)
+    expect(mockEntityFieldState.values).toEqual({
+      name: 'draft-skill-updated',
+      description: 'Updated draft description',
+      content: 'Updated draft content',
+    })
+
+    const markCompleteCall = fetchMock.mock.calls.find(([input, init]) => {
+      const url = typeof input === 'string' ? input : input.toString()
+      return url === '/api/copilot/tools/mark-complete' && (init?.method || 'GET') === 'POST'
+    })
+    const markCompleteBody = JSON.parse(String(markCompleteCall?.[1]?.body))
+    expect(markCompleteBody.data).toMatchObject({
+      success: true,
+      entityKind: 'skill',
+      entityName: 'draft-skill-updated',
+      documentFormat: 'tg-skill-document-v1',
+      reviewSessionId: 'review-draft',
+      draftSessionId: 'draft-1',
+    })
+    expect(markCompleteBody.data).not.toHaveProperty('entityId')
+  })
+
+  it('create_skill applies the document to an unsaved draft and marks completion with the create alias', async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === 'string' ? input : input.toString()
+      const method = init?.method || 'GET'
+
+      if (url === '/api/copilot/tools/mark-complete' && method === 'POST') {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ success: true }),
+        }
+      }
+
+      throw new Error(`Unexpected fetch URL: ${url} (${method})`)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    mockEntityFieldState.values = {
+      name: '',
+      description: '',
+      content: '',
+    }
+
+    mockEntitySessionRegistry.session = {
+      descriptor: {
+        entityKind: 'skill',
+        entityId: null,
+        reviewSessionId: 'review-draft',
+        draftSessionId: 'draft-1',
+        workspaceId: 'ws-1',
+      },
+      doc: {
+        transact: (cb: () => void) => cb(),
+      },
+    }
+
+    const toolCallId = 'create-skill'
+    const tool = new CreateSkillClientTool(toolCallId)
+    tool.setExecutionContext({
+      toolCallId,
+      toolName: 'create_skill',
+      channelId: 'pair-purple',
+      workspaceId: 'ws-1',
+      reviewSessionId: 'review-draft',
+      entityKind: 'skill',
+      draftSessionId: 'draft-1',
+      log: vi.fn(),
+    })
+
+    await tool.execute({
+      entityDocument: JSON.stringify({
+        name: 'created-skill',
+        description: 'Created draft description',
+        content: 'Created draft content',
+      }),
+      documentFormat: 'tg-skill-document-v1',
+    } as any)
+    await tool.handleAccept()
+
+    expect(tool.getState()).toBe(ClientToolCallState.success)
+    expect(mockEntityFieldState.values).toEqual({
+      name: 'created-skill',
+      description: 'Created draft description',
+      content: 'Created draft content',
+    })
+
+    const markCompleteCall = fetchMock.mock.calls.find(([input, init]) => {
+      const url = typeof input === 'string' ? input : input.toString()
+      return url === '/api/copilot/tools/mark-complete' && (init?.method || 'GET') === 'POST'
+    })
+    const markCompleteBody = JSON.parse(String(markCompleteCall?.[1]?.body))
+    expect(markCompleteBody.name).toBe('create_skill')
+    expect(markCompleteBody.data).toMatchObject({
+      success: true,
+      entityKind: 'skill',
+      entityName: 'created-skill',
+      reviewSessionId: 'review-draft',
+      draftSessionId: 'draft-1',
+    })
+    expect(markCompleteBody.data).not.toHaveProperty('entityId')
+  })
+
+  it('rename_skill applies the renamed document to a saved review target', async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === 'string' ? input : input.toString()
+      const method = init?.method || 'GET'
+
+      if (url === '/api/copilot/tools/mark-complete' && method === 'POST') {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ success: true }),
+        }
+      }
+
+      throw new Error(`Unexpected fetch URL: ${url} (${method})`)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    mockEntityFieldState.values = {
+      name: 'old-skill-name',
+      description: 'Existing description',
+      content: 'Existing content',
+    }
+
+    mockEntitySessionRegistry.session = {
+      descriptor: {
+        entityKind: 'skill',
+        entityId: 'skill-1',
+        reviewSessionId: 'review-1',
+        draftSessionId: 'draft-1',
+      },
+      doc: {
+        transact: (cb: () => void) => cb(),
+      },
+    }
+
+    const toolCallId = 'rename-skill'
+    const tool = new RenameSkillClientTool(toolCallId)
+    tool.setExecutionContext({
+      toolCallId,
+      toolName: 'rename_skill',
+      channelId: 'pair-purple',
+      workflowId: 'wf-context',
+      reviewSessionId: 'review-1',
+      entityKind: 'skill',
+      entityId: 'skill-1',
+      draftSessionId: 'draft-1',
+      log: vi.fn(),
+    })
+
+    await tool.execute({
+      entityId: 'skill-1',
+      entityDocument: JSON.stringify({
+        name: 'renamed-skill',
+        description: 'Existing description',
+        content: 'Existing content',
+      }),
+      documentFormat: 'tg-skill-document-v1',
+    })
+    await tool.handleAccept()
+
+    expect(tool.getState()).toBe(ClientToolCallState.success)
+    expect(mockEntityFieldState.values).toEqual({
+      name: 'renamed-skill',
+      description: 'Existing description',
+      content: 'Existing content',
+    })
+
+    const markCompleteCall = fetchMock.mock.calls.find(([input, init]) => {
+      const url = typeof input === 'string' ? input : input.toString()
+      return url === '/api/copilot/tools/mark-complete' && (init?.method || 'GET') === 'POST'
+    })
+    const markCompleteBody = JSON.parse(String(markCompleteCall?.[1]?.body))
+    expect(markCompleteBody.name).toBe('rename_skill')
+    expect(markCompleteBody.data).toMatchObject({
+      success: true,
+      entityKind: 'skill',
+      entityId: 'skill-1',
+      entityName: 'renamed-skill',
+      reviewSessionId: 'review-1',
+      draftSessionId: 'draft-1',
+    })
+  })
+
+  it('edit_skill rejects edits without an explicit entityId when no unsaved draft review session is active', async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === 'string' ? input : input.toString()
+      const method = init?.method || 'GET'
+
+      if (url === '/api/copilot/tools/mark-complete' && method === 'POST') {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ success: true }),
+        }
+      }
+
+      throw new Error(`Unexpected fetch URL: ${url} (${method})`)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    mockEntitySessionRegistry.session = {
+      descriptor: {
+        entityKind: 'skill',
+        entityId: 'skill-current',
+        reviewSessionId: 'review-current',
+        draftSessionId: null,
+      },
+      doc: {
+        transact: (cb: () => void) => cb(),
+      },
+    }
+
+    const toolCallId = 'edit-skill-without-entity-id'
+    const tool = new EditSkillClientTool(toolCallId)
+    tool.setExecutionContext({
+      toolCallId,
+      toolName: 'edit_skill',
+      channelId: 'pair-purple',
+      workflowId: 'wf-context',
+      log: vi.fn(),
+    })
+
+    await tool.execute({
+      entityDocument: JSON.stringify({
+        name: 'new-skill',
+        description: '',
+        content: '',
+      }),
+      documentFormat: 'tg-skill-document-v1',
+    } as any)
+    await tool.handleAccept()
+
+    expect(tool.getState()).toBe(ClientToolCallState.error)
+    expect(mockEntityFieldState.values).toEqual({})
+
+    const markCompleteCall = fetchMock.mock.calls.find(([input, init]) => {
+      const url = typeof input === 'string' ? input : input.toString()
+      return url === '/api/copilot/tools/mark-complete' && (init?.method || 'GET') === 'POST'
+    })
+    const markCompleteBody = JSON.parse(String(markCompleteCall?.[1]?.body))
+    expect(markCompleteBody.status).toBe(500)
+    expect(markCompleteBody.message).toContain('entityId is required to update a saved skill')
+  })
+
+  it('registry schemas accept optional explicit entity ids for entity document tools', () => {
+    expect(ToolArgSchemas.list_skills.parse({})).toMatchObject({})
+    expect(ToolArgSchemas.get_skill.parse({ entityId: 'skill-1' })).toMatchObject({
+      entityId: 'skill-1',
+    })
+    expect(ToolArgSchemas.get_skill.parse({})).toMatchObject({})
+    expect(
+      ToolArgSchemas.edit_skill.parse({
+        entityId: 'skill-1',
+        entityDocument: '{"name":"skill","description":"","content":""}',
+      })
+    ).toMatchObject({
+      entityId: 'skill-1',
+      entityDocument: '{"name":"skill","description":"","content":""}',
+    })
+    expect(
+      ToolArgSchemas.edit_skill.parse({
+        entityDocument: '{"name":"skill","description":"","content":""}',
+      })
+    ).toMatchObject({
+      entityDocument: '{"name":"skill","description":"","content":""}',
+    })
+    expect(
+      ToolArgSchemas.create_skill.parse({
+        entityDocument: '{"name":"skill","description":"","content":""}',
+      })
+    ).toMatchObject({
+      entityDocument: '{"name":"skill","description":"","content":""}',
+    })
+
+    expect(
+      ToolResultSchemas.get_custom_tool.parse({
+        entityKind: 'custom_tool',
+        entityId: 'tool-1',
+        entityName: 'market-tool',
+        documentFormat: 'tg-custom-tool-document-v1',
+        entityDocument: '{}',
+      })
+    ).toBeDefined()
+    expect(
+      ToolResultSchemas.list_skills.parse({
+        entityKind: 'skill',
+        entities: [],
+        count: 0,
+      })
+    ).toBeDefined()
+    expect(
+      ToolResultSchemas.rename_skill.parse({
+        success: true,
+        entityKind: 'skill',
+        entityId: 'skill-1',
+        entityName: 'renamed-skill',
+        documentFormat: 'tg-skill-document-v1',
+        entityDocument: '{"name":"renamed-skill","description":"","content":""}',
+      })
+    ).toBeDefined()
+  })
+})

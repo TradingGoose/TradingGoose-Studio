@@ -1,7 +1,12 @@
 import crypto, { randomUUID } from 'crypto'
 import { db } from '@tradinggoose/db'
-import { document, embedding, knowledgeBase, knowledgeBaseTagDefinitions } from '@tradinggoose/db/schema'
-import { tasks } from '@trigger.dev/sdk'
+import {
+  document,
+  embedding,
+  knowledgeBase,
+  knowledgeBaseTagDefinitions,
+  pendingExecution,
+} from '@tradinggoose/db/schema'
 import { and, asc, desc, eq, inArray, isNull, sql } from 'drizzle-orm'
 import {
   checkStorageQuota,
@@ -10,13 +15,12 @@ import {
 } from '@/lib/billing/storage'
 import { generateEmbeddings } from '@/lib/embeddings/utils'
 import { env } from '@/lib/env'
+import { enqueuePendingExecution } from '@/lib/execution/pending-execution'
 import { getSlotsForFieldType, type TAG_SLOT_CONFIG } from '@/lib/knowledge/consts'
 import { processDocument } from '@/lib/knowledge/documents/document-processor'
 import { getNextAvailableSlot } from '@/lib/knowledge/tags/service'
 import { createLogger } from '@/lib/logs/console/logger'
-import { getStorageMethod, isRedisStorage } from '@/lib/storage'
 import type { DocumentProcessingPayload } from '@/background/knowledge-processing'
-import { DocumentProcessingQueue } from './queue'
 import type { DocumentSortField, SortOrder } from './types'
 
 const logger = createLogger('DocumentService')
@@ -32,6 +36,26 @@ const LARGE_DOC_CONFIG = {
   MAX_EMBEDDING_BATCH: 500, // Generate embeddings in batches of 500
   MAX_FILE_SIZE: 100 * 1024 * 1024, // 100MB max file size
   MAX_CHUNKS_PER_DOCUMENT: 100000, // Maximum chunks allowed per document
+}
+
+type DocumentProcessingRequestPayload = Omit<
+  DocumentProcessingPayload,
+  'userId' | 'workspaceId'
+>
+
+async function deleteQueuedDocumentExecutions(documentIds: string[]) {
+  await Promise.all(
+    documentIds.map((documentId) =>
+      db
+        .delete(pendingExecution)
+        .where(
+          and(
+            eq(pendingExecution.executionType, 'document'),
+            sql<boolean>`${pendingExecution.id} like ${`document_processing:${documentId}:%`}`,
+          ),
+        ),
+    ),
+  )
 }
 
 /**
@@ -50,44 +74,20 @@ function withTimeout<T>(
   ])
 }
 
-const PROCESSING_CONFIG = {
-  maxConcurrentDocuments: Math.max(1, Math.floor((env.KB_CONFIG_CONCURRENCY_LIMIT || 20) / 5)) || 4,
-  batchSize: Math.max(1, Math.floor((env.KB_CONFIG_BATCH_SIZE || 20) / 2)) || 10,
-  delayBetweenBatches: (env.KB_CONFIG_DELAY_BETWEEN_BATCHES || 100) * 2,
-  delayBetweenDocuments: (env.KB_CONFIG_DELAY_BETWEEN_DOCUMENTS || 50) * 2,
-}
-
-const REDIS_PROCESSING_CONFIG = {
-  maxConcurrentDocuments: env.KB_CONFIG_CONCURRENCY_LIMIT || 20,
-  batchSize: env.KB_CONFIG_BATCH_SIZE || 20,
-  delayBetweenBatches: env.KB_CONFIG_DELAY_BETWEEN_BATCHES || 100,
-  delayBetweenDocuments: env.KB_CONFIG_DELAY_BETWEEN_DOCUMENTS || 50,
-}
-
-let documentQueue: DocumentProcessingQueue | null = null
-
-export function getDocumentQueue(): DocumentProcessingQueue {
-  if (!documentQueue) {
-    const config = isRedisStorage() ? REDIS_PROCESSING_CONFIG : PROCESSING_CONFIG
-    documentQueue = new DocumentProcessingQueue({
-      maxConcurrent: config.maxConcurrentDocuments,
-      retryDelay: env.KB_CONFIG_MIN_TIMEOUT || 1000,
-      maxRetries: env.KB_CONFIG_MAX_ATTEMPTS || 3,
-    })
-  }
-  return documentQueue
-}
-
-export function getProcessingConfig() {
-  return isRedisStorage() ? REDIS_PROCESSING_CONFIG : PROCESSING_CONFIG
-}
-
 export interface DocumentData {
   documentId: string
   filename: string
   fileUrl: string
   fileSize: number
   mimeType: string
+  uploadedAt?: Date
+  tag1?: string | null
+  tag2?: string | null
+  tag3?: string | null
+  tag4?: string | null
+  tag5?: string | null
+  tag6?: string | null
+  tag7?: string | null
 }
 
 export interface ProcessingOptions {
@@ -96,19 +96,6 @@ export interface ProcessingOptions {
   recipe: string
   lang: string
   chunkOverlap: number
-}
-
-export interface DocumentJobData {
-  knowledgeBaseId: string
-  documentId: string
-  docData: {
-    filename: string
-    fileUrl: string
-    fileSize: number
-    mimeType: string
-  }
-  processingOptions: ProcessingOptions
-  requestId: string
 }
 
 export interface DocumentTagData {
@@ -195,91 +182,6 @@ export async function processDocumentTags(
 }
 
 /**
- * Process documents with best available method: Trigger.dev > queue-based processing
- */
-export async function processDocumentsWithQueue(
-  createdDocuments: DocumentData[],
-  knowledgeBaseId: string,
-  processingOptions: ProcessingOptions,
-  requestId: string
-): Promise<void> {
-  // Priority 1: Trigger.dev
-  if (isTriggerAvailable()) {
-    try {
-      logger.info(
-        `[${requestId}] Using Trigger.dev background processing for ${createdDocuments.length} documents`
-      )
-
-      const triggerPayloads = createdDocuments.map((doc) => ({
-        knowledgeBaseId,
-        documentId: doc.documentId,
-        docData: {
-          filename: doc.filename,
-          fileUrl: doc.fileUrl,
-          fileSize: doc.fileSize,
-          mimeType: doc.mimeType,
-        },
-        processingOptions: {
-          chunkSize: processingOptions.chunkSize || 1024,
-          minCharactersPerChunk: processingOptions.minCharactersPerChunk || 1,
-          recipe: processingOptions.recipe || 'default',
-          lang: processingOptions.lang || 'en',
-          chunkOverlap: processingOptions.chunkOverlap || 200,
-        },
-        requestId,
-      }))
-
-      const result = await processDocumentsWithTrigger(triggerPayloads, requestId)
-
-      if (result.success) {
-        logger.info(
-          `[${requestId}] Successfully triggered background processing: ${result.message}`
-        )
-        return
-      }
-      logger.warn(`[${requestId}] Trigger.dev failed: ${result.message}, falling back to queue`)
-    } catch (error) {
-      logger.warn(`[${requestId}] Trigger.dev processing failed, falling back to queue:`, error)
-    }
-  }
-
-  // Priority 2: Queue-based processing (Redis or in-memory based on storage method)
-  const queue = getDocumentQueue()
-  const storageMethod = getStorageMethod()
-  logger.info(`[${requestId}] Using ${storageMethod} queue for ${createdDocuments.length} documents`)
-
-  const jobPromises = createdDocuments.map((doc) =>
-    queue.addJob<DocumentJobData>('process-document', {
-      knowledgeBaseId,
-      documentId: doc.documentId,
-      docData: {
-        filename: doc.filename,
-        fileUrl: doc.fileUrl,
-        fileSize: doc.fileSize,
-        mimeType: doc.mimeType,
-      },
-      processingOptions,
-      requestId,
-    })
-  )
-
-  await Promise.all(jobPromises)
-
-  queue
-    .processJobs(async (job) => {
-      const data = job.data as DocumentJobData
-      const { knowledgeBaseId, documentId, docData, processingOptions } = data
-      await processDocumentAsync(knowledgeBaseId, documentId, docData, processingOptions)
-    })
-    .catch((error) => {
-      logger.error(`[${requestId}] Error in queue processing:`, error)
-    })
-
-  logger.info(`[${requestId}] All documents queued for processing`)
-  return
-}
-
-/**
  * Process a document asynchronously with full error handling
  */
 export async function processDocumentAsync(
@@ -301,6 +203,17 @@ export async function processDocumentAsync(
 ): Promise<void> {
   const startTime = Date.now()
   try {
+    const [documentState] = await db
+      .select({ deletedAt: document.deletedAt })
+      .from(document)
+      .where(eq(document.id, documentId))
+      .limit(1)
+
+    if (!documentState || documentState.deletedAt) {
+      logger.info(`[${documentId}] Skipping processing for deleted document`)
+      return
+    }
+
     logger.info(`[${documentId}] Starting document processing: ${docData.filename}`)
 
     await db
@@ -328,7 +241,7 @@ export async function processDocumentAsync(
         if (processed.chunks.length > LARGE_DOC_CONFIG.MAX_CHUNKS_PER_DOCUMENT) {
           throw new Error(
             `Document has ${processed.chunks.length.toLocaleString()} chunks, exceeding maximum of ${LARGE_DOC_CONFIG.MAX_CHUNKS_PER_DOCUMENT.toLocaleString()}. ` +
-            `This document is unusually large and may need to be split into multiple files or preprocessed to reduce content.`
+              `This document is unusually large and may need to be split into multiple files or preprocessed to reduce content.`
           )
         }
 
@@ -404,6 +317,17 @@ export async function processDocumentAsync(
         }))
 
         await db.transaction(async (tx) => {
+          const [currentDocument] = await tx
+            .select({ deletedAt: document.deletedAt })
+            .from(document)
+            .where(eq(document.id, documentId))
+            .limit(1)
+
+          if (!currentDocument || currentDocument.deletedAt) {
+            logger.info(`[${documentId}] Skipping write for deleted document`)
+            return
+          }
+
           // Insert embeddings in batches for large documents
           if (embeddingRecords.length > 0) {
             const batchSize = LARGE_DOC_CONFIG.MAX_CHUNKS_PER_BATCH
@@ -464,49 +388,70 @@ export async function processDocumentAsync(
   }
 }
 
-/**
- * Check if Trigger.dev is available and configured
- */
-export function isTriggerAvailable(): boolean {
-  return !!(env.TRIGGER_SECRET_KEY && env.TRIGGER_DEV_ENABLED !== false)
+export async function prepareDocumentForProcessing(documentId: string) {
+  await db.transaction(async (tx) => {
+    await tx.delete(embedding).where(eq(embedding.documentId, documentId))
+
+    await tx
+      .update(document)
+      .set({
+        processingStatus: 'pending',
+        processingStartedAt: null,
+        processingCompletedAt: null,
+        processingError: null,
+        chunkCount: 0,
+        tokenCount: 0,
+        characterCount: 0,
+      })
+      .where(eq(document.id, documentId))
+  })
 }
 
-/**
- * Process documents using Trigger.dev
- */
-export async function processDocumentsWithTrigger(
-  documents: DocumentProcessingPayload[],
+export async function enqueueDocumentProcessingJobs(
+  documents: DocumentProcessingRequestPayload[],
   requestId: string
-): Promise<{ success: boolean; message: string; jobIds?: string[] }> {
-  if (!isTriggerAvailable()) {
-    throw new Error('Trigger.dev is not configured - TRIGGER_SECRET_KEY missing')
+): Promise<string[]> {
+  if (documents.length === 0) {
+    return []
   }
 
-  try {
-    logger.info(`[${requestId}] Triggering background processing for ${documents.length} documents`)
-
-    const jobPromises = documents.map(async (document) => {
-      const job = await tasks.trigger('knowledge-process-document', document)
-      return job.id
+  const [knowledgeBaseOwner] = await db
+    .select({
+      userId: knowledgeBase.userId,
+      workspaceId: knowledgeBase.workspaceId,
     })
+    .from(knowledgeBase)
+    .where(eq(knowledgeBase.id, documents[0].knowledgeBaseId))
+    .limit(1)
 
-    const jobIds = await Promise.all(jobPromises)
-
-    logger.info(`[${requestId}] Triggered ${jobIds.length} document processing jobs`)
-
-    return {
-      success: true,
-      message: `${documents.length} document processing jobs triggered`,
-      jobIds,
-    }
-  } catch (error) {
-    logger.error(`[${requestId}] Failed to trigger document processing jobs:`, error)
-
-    return {
-      success: false,
-      message: error instanceof Error ? error.message : 'Failed to trigger background jobs',
-    }
+  if (!knowledgeBaseOwner) {
+    throw new Error('Knowledge base not found')
   }
+
+  logger.info(`[${requestId}] Queueing ${documents.length} document pending executions`)
+
+  const jobIds = await Promise.all(
+    documents.map(async (document) => {
+      const pendingExecutionId = `document_processing:${document.documentId}:${requestId}`
+      const job = await enqueuePendingExecution({
+        executionType: 'document',
+        pendingExecutionId,
+        workspaceId: knowledgeBaseOwner.workspaceId,
+        userId: knowledgeBaseOwner.userId,
+        source: 'document_processing',
+        requestId,
+        payload: {
+          ...document,
+          userId: knowledgeBaseOwner.userId,
+          workspaceId: knowledgeBaseOwner.workspaceId,
+        },
+      })
+      return job.pendingExecutionId
+    })
+  )
+
+  logger.info(`[${requestId}] Queued ${jobIds.length} document pending executions`)
+  return jobIds
 }
 
 /**
@@ -537,7 +482,7 @@ export async function createDocumentRecords(
 
     // Get knowledge base owner
     const kb = await db
-      .select({ userId: knowledgeBase.userId })
+      .select({ userId: knowledgeBase.userId, workspaceId: knowledgeBase.workspaceId })
       .from(knowledgeBase)
       .where(eq(knowledgeBase.id, knowledgeBaseId))
       .limit(1)
@@ -547,7 +492,7 @@ export async function createDocumentRecords(
     }
 
     // Always meter the knowledge base owner
-    const quotaCheck = await checkStorageQuota(kb[0].userId, totalSize)
+    const quotaCheck = await checkStorageQuota(kb[0].userId, totalSize, kb[0].workspaceId)
 
     if (!quotaCheck.allowed) {
       throw new Error(quotaCheck.error || 'Storage limit exceeded')
@@ -613,6 +558,14 @@ export async function createDocumentRecords(
         fileUrl: docData.fileUrl,
         fileSize: docData.fileSize,
         mimeType: docData.mimeType,
+        uploadedAt: now,
+        tag1: newDocument.tag1,
+        tag2: newDocument.tag2,
+        tag3: newDocument.tag3,
+        tag4: newDocument.tag4,
+        tag5: newDocument.tag5,
+        tag6: newDocument.tag6,
+        tag7: newDocument.tag7,
       })
     }
 
@@ -628,7 +581,7 @@ export async function createDocumentRecords(
 
         // Get knowledge base owner
         const kb = await db
-          .select({ userId: knowledgeBase.userId })
+          .select({ userId: knowledgeBase.userId, workspaceId: knowledgeBase.workspaceId })
           .from(knowledgeBase)
           .where(eq(knowledgeBase.id, knowledgeBaseId))
           .limit(1)
@@ -636,7 +589,7 @@ export async function createDocumentRecords(
         if (kb.length > 0) {
           // Always meter the knowledge base owner
           try {
-            await incrementStorageUsage(kb[0].userId, totalSize)
+            await incrementStorageUsage(kb[0].userId, totalSize, kb[0].workspaceId)
             logger.info(
               `[${requestId}] Updated knowledge base owner storage usage for ${totalSize} bytes`
             )
@@ -830,157 +783,6 @@ export async function getDocuments(
 }
 
 /**
- * Create a single document record
- */
-export async function createSingleDocument(
-  documentData: {
-    filename: string
-    fileUrl: string
-    fileSize: number
-    mimeType: string
-    documentTagsData?: string
-    tag1?: string
-    tag2?: string
-    tag3?: string
-    tag4?: string
-    tag5?: string
-    tag6?: string
-    tag7?: string
-  },
-  knowledgeBaseId: string,
-  requestId: string,
-  userId?: string
-): Promise<{
-  id: string
-  knowledgeBaseId: string
-  filename: string
-  fileUrl: string
-  fileSize: number
-  mimeType: string
-  chunkCount: number
-  tokenCount: number
-  characterCount: number
-  enabled: boolean
-  uploadedAt: Date
-  tag1: string | null
-  tag2: string | null
-  tag3: string | null
-  tag4: string | null
-  tag5: string | null
-  tag6: string | null
-  tag7: string | null
-}> {
-  // Check storage limits before creating document
-  if (userId) {
-    // Get knowledge base owner
-    const kb = await db
-      .select({ userId: knowledgeBase.userId })
-      .from(knowledgeBase)
-      .where(eq(knowledgeBase.id, knowledgeBaseId))
-      .limit(1)
-
-    if (kb.length === 0) {
-      throw new Error('Knowledge base not found')
-    }
-
-    // Always meter the knowledge base owner
-    const quotaCheck = await checkStorageQuota(kb[0].userId, documentData.fileSize)
-
-    if (!quotaCheck.allowed) {
-      throw new Error(quotaCheck.error || 'Storage limit exceeded')
-    }
-  }
-
-  const documentId = randomUUID()
-  const now = new Date()
-
-  // Process structured tag data if provided
-  let processedTags: Record<string, string | null> = {
-    tag1: documentData.tag1 || null,
-    tag2: documentData.tag2 || null,
-    tag3: documentData.tag3 || null,
-    tag4: documentData.tag4 || null,
-    tag5: documentData.tag5 || null,
-    tag6: documentData.tag6 || null,
-    tag7: documentData.tag7 || null,
-  }
-
-  if (documentData.documentTagsData) {
-    try {
-      const tagData = JSON.parse(documentData.documentTagsData)
-      if (Array.isArray(tagData)) {
-        // Process structured tag data and create tag definitions
-        processedTags = await processDocumentTags(knowledgeBaseId, tagData, requestId)
-      }
-    } catch (error) {
-      logger.warn(`[${requestId}] Failed to parse documentTagsData:`, error)
-    }
-  }
-
-  const newDocument = {
-    id: documentId,
-    knowledgeBaseId,
-    filename: documentData.filename,
-    fileUrl: documentData.fileUrl,
-    fileSize: documentData.fileSize,
-    mimeType: documentData.mimeType,
-    chunkCount: 0,
-    tokenCount: 0,
-    characterCount: 0,
-    enabled: true,
-    uploadedAt: now,
-    ...processedTags,
-  }
-
-  await db.insert(document).values(newDocument)
-
-  logger.info(`[${requestId}] Document created: ${documentId} in knowledge base ${knowledgeBaseId}`)
-
-  // Increment storage usage tracking
-  if (userId) {
-    // Get knowledge base owner
-    const kb = await db
-      .select({ userId: knowledgeBase.userId })
-      .from(knowledgeBase)
-      .where(eq(knowledgeBase.id, knowledgeBaseId))
-      .limit(1)
-
-    if (kb.length > 0) {
-      // Always meter the knowledge base owner
-      try {
-        await incrementStorageUsage(kb[0].userId, documentData.fileSize)
-        logger.info(
-          `[${requestId}] Updated knowledge base owner storage usage for ${documentData.fileSize} bytes`
-        )
-      } catch (error) {
-        logger.error(`[${requestId}] Failed to update knowledge base owner storage usage:`, error)
-      }
-    }
-  }
-
-  return newDocument as {
-    id: string
-    knowledgeBaseId: string
-    filename: string
-    fileUrl: string
-    fileSize: number
-    mimeType: string
-    chunkCount: number
-    tokenCount: number
-    characterCount: number
-    enabled: boolean
-    uploadedAt: Date
-    tag1: string | null
-    tag2: string | null
-    tag3: string | null
-    tag4: string | null
-    tag5: string | null
-    tag6: string | null
-    tag7: string | null
-  }
-}
-
-/**
  * Perform bulk operations on documents
  */
 export async function bulkDocumentOperation(
@@ -1054,25 +856,32 @@ export async function bulkDocumentOperation(
     }
 
     // Handle bulk soft delete
-    updateResult = await db
-      .update(document)
-      .set({
-        deletedAt: new Date(),
-      })
-      .where(
-        and(
-          eq(document.knowledgeBaseId, knowledgeBaseId),
-          inArray(document.id, documentIds),
-          isNull(document.deletedAt)
+    updateResult = await db.transaction(async (tx) => {
+      const result = await tx
+        .update(document)
+        .set({
+          deletedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(document.knowledgeBaseId, knowledgeBaseId),
+            inArray(document.id, documentIds),
+            isNull(document.deletedAt)
+          )
         )
-      )
-      .returning({ id: document.id, deletedAt: document.deletedAt })
+        .returning({ id: document.id, deletedAt: document.deletedAt })
+
+      await tx.delete(embedding).where(inArray(embedding.documentId, documentIds))
+      return result
+    })
+
+    await deleteQueuedDocumentExecutions(documentIds)
 
     // Decrement storage usage tracking
     if (userId && totalSize > 0) {
       // Get knowledge base owner
       const kb = await db
-        .select({ userId: knowledgeBase.userId })
+        .select({ userId: knowledgeBase.userId, workspaceId: knowledgeBase.workspaceId })
         .from(knowledgeBase)
         .where(eq(knowledgeBase.id, knowledgeBaseId))
         .limit(1)
@@ -1080,7 +889,7 @@ export async function bulkDocumentOperation(
       if (kb.length > 0) {
         // Always meter the knowledge base owner
         try {
-          await decrementStorageUsage(kb[0].userId, totalSize)
+          await decrementStorageUsage(kb[0].userId, totalSize, kb[0].workspaceId)
           logger.info(
             `[${requestId}] Updated knowledge base owner storage usage for -${totalSize} bytes`
           )
@@ -1122,41 +931,6 @@ export async function bulkDocumentOperation(
 }
 
 /**
- * Mark a document as failed due to timeout
- */
-export async function markDocumentAsFailedTimeout(
-  documentId: string,
-  processingStartedAt: Date,
-  requestId: string
-): Promise<{ success: boolean; processingDuration: number }> {
-  const now = new Date()
-  const processingDuration = now.getTime() - processingStartedAt.getTime()
-  const DEAD_PROCESS_THRESHOLD_MS = 150 * 1000
-
-  if (processingDuration <= DEAD_PROCESS_THRESHOLD_MS) {
-    throw new Error('Document has not been processing long enough to be considered dead')
-  }
-
-  await db
-    .update(document)
-    .set({
-      processingStatus: 'failed',
-      processingError: 'Processing timed out - background process may have been terminated',
-      processingCompletedAt: now,
-    })
-    .where(eq(document.id, documentId))
-
-  logger.info(
-    `[${requestId}] Marked document ${documentId} as failed due to dead process (processing time: ${Math.round(processingDuration / 1000)}s)`
-  )
-
-  return {
-    success: true,
-    processingDuration,
-  }
-}
-
-/**
  * Retry processing a failed document
  */
 export async function retryDocumentProcessing(
@@ -1170,24 +944,6 @@ export async function retryDocumentProcessing(
   },
   requestId: string
 ): Promise<{ success: boolean; status: string; message: string }> {
-  // Clear existing embeddings and reset document state
-  await db.transaction(async (tx) => {
-    await tx.delete(embedding).where(eq(embedding.documentId, documentId))
-
-    await tx
-      .update(document)
-      .set({
-        processingStatus: 'pending',
-        processingStartedAt: null,
-        processingCompletedAt: null,
-        processingError: null,
-        chunkCount: 0,
-        tokenCount: 0,
-        characterCount: 0,
-      })
-      .where(eq(document.id, documentId))
-  })
-
   const processingOptions = {
     chunkSize: 512,
     minCharactersPerChunk: 24,
@@ -1196,11 +952,18 @@ export async function retryDocumentProcessing(
     chunkOverlap: 100,
   }
 
-  // Start processing in the background
-  processDocumentAsync(knowledgeBaseId, documentId, docData, processingOptions).catch(
-    (error: unknown) => {
-      logger.error(`[${requestId}] Background retry processing error:`, error)
-    }
+  await enqueueDocumentProcessingJobs(
+    [
+      {
+        knowledgeBaseId,
+        documentId,
+        docData,
+        processingOptions,
+        resetBeforeProcessing: true,
+        requestId,
+      },
+    ],
+    requestId
   )
 
   logger.info(`[${requestId}] Document retry initiated: ${documentId}`)
@@ -1209,6 +972,40 @@ export async function retryDocumentProcessing(
     success: true,
     status: 'pending',
     message: 'Document retry processing started',
+  }
+}
+
+export async function failStaleDocumentProcessing(
+  documentId: string,
+  requestId: string
+): Promise<{ success: boolean; status: string; message: string }> {
+  await db.transaction(async (tx) => {
+    await tx
+      .delete(pendingExecution)
+      .where(
+        and(
+          eq(pendingExecution.executionType, 'document'),
+          sql<boolean>`${pendingExecution.id} like ${`document_processing:${documentId}:%`}`,
+        )
+      )
+
+    await tx
+      .update(document)
+      .set({
+        processingStatus: 'failed',
+        processingStartedAt: null,
+        processingCompletedAt: new Date(),
+        processingError: 'Document processing exceeded the recovery window and was stopped.',
+      })
+      .where(and(eq(document.id, documentId), eq(document.processingStatus, 'processing')))
+  })
+
+  logger.warn(`[${requestId}] Stale document processing marked as failed: ${documentId}`)
+
+  return {
+    success: true,
+    status: 'failed',
+    message: 'Document processing marked as failed',
   }
 }
 
@@ -1295,7 +1092,7 @@ export async function updateDocument(
   TAG_SLOTS.forEach((slot: TagSlot) => {
     const updateValue = (updateData as any)[slot]
     if (updateValue !== undefined) {
-      ; (dbUpdateData as any)[slot] = updateValue
+      ;(dbUpdateData as any)[slot] = updateValue
     }
   })
 
@@ -1366,12 +1163,18 @@ export async function deleteDocument(
   documentId: string,
   requestId: string
 ): Promise<{ success: boolean; message: string }> {
-  await db
-    .update(document)
-    .set({
-      deletedAt: new Date(),
-    })
-    .where(eq(document.id, documentId))
+  await db.transaction(async (tx) => {
+    await tx
+      .update(document)
+      .set({
+        deletedAt: new Date(),
+      })
+      .where(eq(document.id, documentId))
+
+    await tx.delete(embedding).where(eq(embedding.documentId, documentId))
+  })
+
+  await deleteQueuedDocumentExecutions([documentId])
 
   logger.info(`[${requestId}] Document deleted: ${documentId}`)
 

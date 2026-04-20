@@ -1,0 +1,46 @@
+---
+title: "Skill List"
+description: "Browse, create, and import workspace skills."
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+## Overview
+
+| Property | Value |
+|----------|-------|
+| **Key** | `list_skill` |
+| **Category** | List |
+
+The Skill List widget is the workspace browser for reusable skills. Use it to search existing skills, create new ones, import TradingGoose export JSON, and open the selected skill in the Skill Editor.
+
+## Features
+
+- **Browse and search** skills in the current workspace.
+- **Create new** skills from the Create menu.
+- **Import** skills from the Create menu with the **Import skills** action.
+- **Open in editor** by selecting a skill from the list.
+- **Pair color linking** keeps the list synced with the Skill Editor when both widgets share the same color.
+
+## Usage
+
+1. Add the widget to a workspace panel.
+2. Use the Create menu to add a new skill or import a TradingGoose export JSON file.
+3. Select a skill in the list to open it in the paired Skill Editor widget.
+4. Assign a pair color if you want selection changes to stay in sync between the list and editor.
+
+<Callout type="info">
+  Create and import actions require edit permission on the workspace. Browsing existing skills only requires workspace access.
+</Callout>
+
+## Related
+
+<Cards>
+  <Card title="Skill Editor" href="/widgets/editor-skill">
+    Write and export reusable workspace skills.
+  </Card>
+  <Card title="Skills Guide" href="/utilities/skills">
+    Learn how skills are structured, loaded, and used at runtime.
+  </Card>
+</Cards>

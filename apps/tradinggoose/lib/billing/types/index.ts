@@ -4,10 +4,11 @@
  */
 
 export interface EnterpriseSubscriptionMetadata {
-  plan: 'enterprise'
-  // The referenceId must be provided in Stripe metadata to link to the organization
-  // This gets stored in the subscription.referenceId column
+  // Enterprise subscriptions are organization-owned and store an explicit billing subject.
+  referenceType: 'organization'
   referenceId: string
+  // Hidden organization tier to map the contract subscription onto
+  billingTierId?: string
   // The fixed monthly price for this enterprise customer (as string from Stripe metadata)
   // This will be used to set the organization's usage limit
   monthlyPrice: string
@@ -31,8 +32,39 @@ export interface UsageLimitInfo {
   currentLimit: number
   canEdit: boolean
   minimumLimit: number
-  plan: string
+  tier: BillingTierSummary
   updatedAt: Date | null
+}
+
+export interface BillingTierSummary {
+  id: string | null
+  displayName: string
+  ownerType: 'user' | 'organization'
+  usageScope: 'individual' | 'pooled'
+  seatMode: 'fixed' | 'adjustable'
+  displayOrder: number
+  monthlyPriceUsd: number | null
+  yearlyPriceUsd: number | null
+  includedUsageLimitUsd: number | null
+  storageLimitGb: number | null
+  concurrencyLimit: number | null
+  seatCount: number | null
+  seatMaximum: number | null
+  syncRateLimitPerMinute: number | null
+  asyncRateLimitPerMinute: number | null
+  apiEndpointRateLimitPerMinute: number | null
+  maxPendingAgeSeconds: number | null
+  maxPendingCount: number | null
+  canEditUsageLimit: boolean
+  canConfigureSso: boolean
+  logRetentionDays: number | null
+  workflowExecutionMultiplier: number
+  workflowModelCostMultiplier: number
+  functionExecutionMultiplier: number
+  copilotCostMultiplier: number
+  pricingFeatures: string[]
+  isPublic: boolean
+  hasStripeMonthlyPriceId: boolean
 }
 
 export interface BillingData {
@@ -45,21 +77,9 @@ export interface BillingData {
 }
 
 export interface UserSubscriptionState {
-  isPro: boolean
-  isTeam: boolean
-  isEnterprise: boolean
-  isFree: boolean
-  highestPrioritySubscription: any | null
+  tier: BillingTierSummary
+  effectiveSubscription: any | null
   hasExceededLimit: boolean
-  planName: string
-}
-
-export interface SubscriptionPlan {
-  name: string
-  priceId: string
-  limits: {
-    cost: number
-  }
 }
 
 export interface BillingEntity {
@@ -124,7 +144,7 @@ export interface BillingSummary {
   currentUsagePercentage: number
   billingPeriodStart: Date | null
   billingPeriodEnd: Date | null
-  plan: string
+  tier: BillingTierSummary
   subscriptionStatus: string | null
   seats: number | null
   billingStatus: 'ok' | 'warning' | 'exceeded'
@@ -132,13 +152,10 @@ export interface BillingSummary {
 
 export interface SubscriptionAPIResponse {
   isPaid: boolean
-  isPro: boolean
-  isTeam: boolean
-  isEnterprise: boolean
-  plan: string
   status: string | null
   seats: number | null
   metadata: any | null
+  tier: BillingTierSummary
   usage: UsageData
 }
 
@@ -146,13 +163,12 @@ export interface UsageLimitAPIResponse {
   currentLimit: number
   canEdit: boolean
   minimumLimit: number
-  plan: string
+  tier: BillingTierSummary
   setBy?: string
   updatedAt?: Date
 }
 
 // Utility Types
-export type PlanType = 'free' | 'pro' | 'team' | 'enterprise'
 export type SubscriptionStatus =
   | 'active'
   | 'canceled'
@@ -182,21 +198,15 @@ export interface UpdateUsageLimitResult {
 export interface UseSubscriptionStateReturn {
   subscription: {
     isPaid: boolean
-    isPro: boolean
-    isTeam: boolean
-    isEnterprise: boolean
-    isFree: boolean
-    plan: string
     status?: string
     seats?: number
     metadata?: any
+    tier: BillingTierSummary
   }
   usage: UsageData
   isLoading: boolean
   error: Error | null
   refetch: () => Promise<any>
-  isAtLeastPro: () => boolean
-  isAtLeastTeam: () => boolean
   canUpgrade: () => boolean
   getBillingStatus: () => BillingStatusType
   getRemainingBudget: () => number
@@ -207,7 +217,7 @@ export interface UseUsageLimitReturn {
   currentLimit: number
   canEdit: boolean
   minimumLimit: number
-  plan: string
+  tier: BillingTierSummary
   setBy?: string
   updatedAt?: Date
   updateLimit: (newLimit: number) => Promise<{ success: boolean }>

@@ -1,12 +1,11 @@
 'use client'
 
 import { Minus, Plus, Redo2, Undo2 } from 'lucide-react'
-import { useReactFlow, useStore } from 'reactflow'
+import { useReactFlow, useStore } from '@xyflow/react'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useOptionalWorkflowSession } from '@/lib/yjs/workflow-session-host'
 import { cn } from '@/lib/utils'
-import { useGeneralStore } from '@/stores/settings/general/store'
 
 interface FloatingControlsProps {
   constrainToContainer?: boolean
@@ -19,10 +18,7 @@ export function FloatingControls({ constrainToContainer = false }: FloatingContr
     Array.isArray(s.transform) ? s.transform[2] : s.viewport?.zoom
   )
   const workflowSession = useOptionalWorkflowSession()
-  const { showFloatingControls } = useGeneralStore()
   const currentZoom = Math.round(((zoom as number) || 1) * 100)
-
-  if (!showFloatingControls) return null
 
   const handleZoomIn = () => {
     zoomIn({ duration: 200 })

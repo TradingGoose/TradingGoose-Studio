@@ -112,45 +112,8 @@ describe('TradingGooseClient', () => {
     })
   })
 
-  describe('executeWorkflow - async execution', () => {
-    it('should return AsyncExecutionResult when async is true', async () => {
-      const fetchMock = await getFetchMock()
-      const mockResponse = {
-        ok: true,
-        status: 202,
-        json: vi.fn().mockResolvedValue({
-          success: true,
-          taskId: 'task-123',
-          status: 'queued',
-          createdAt: '2024-01-01T00:00:00Z',
-          links: {
-            status: '/api/jobs/task-123',
-          },
-        }),
-        headers: {
-          get: vi.fn().mockReturnValue(null),
-        },
-      }
-      fetchMock.mockResolvedValue(mockResponse as any)
-
-      const result = await client.executeWorkflow('workflow-id', {
-        input: { message: 'Hello' },
-        async: true,
-      })
-
-      expect(result).toHaveProperty('taskId', 'task-123')
-      expect(result).toHaveProperty('status', 'queued')
-      expect(result).toHaveProperty('links')
-      expect((result as any).links.status).toBe('/api/jobs/task-123')
-
-      // Verify headers were set correctly
-      const calls = fetchMock.mock.calls
-      expect(calls[0][1]?.headers).toMatchObject({
-        'X-Execution-Mode': 'async',
-      })
-    })
-
-    it('should return WorkflowExecutionResult when async is false', async () => {
+  describe('executeWorkflow', () => {
+    it('should return WorkflowExecutionResult', async () => {
       const fetchMock = await getFetchMock()
       const mockResponse = {
         ok: true,
@@ -168,89 +131,11 @@ describe('TradingGooseClient', () => {
 
       const result = await client.executeWorkflow('workflow-id', {
         input: { message: 'Hello' },
-        async: false,
       })
 
       expect(result).toHaveProperty('success', true)
       expect(result).toHaveProperty('output')
       expect(result).not.toHaveProperty('taskId')
-    })
-
-    it('should not set X-Execution-Mode header when async is undefined', async () => {
-      const fetchMock = await getFetchMock()
-      const mockResponse = {
-        ok: true,
-        status: 200,
-        json: vi.fn().mockResolvedValue({
-          success: true,
-          output: {},
-        }),
-        headers: {
-          get: vi.fn().mockReturnValue(null),
-        },
-      }
-      fetchMock.mockResolvedValue(mockResponse as any)
-
-      await client.executeWorkflow('workflow-id', {
-        input: { message: 'Hello' },
-      })
-
-      const calls = fetchMock.mock.calls
-      expect(calls[0][1]?.headers).not.toHaveProperty('X-Execution-Mode')
-    })
-  })
-
-  describe('getJobStatus', () => {
-    it('should fetch job status with correct endpoint', async () => {
-      const fetchMock = await getFetchMock()
-      const mockResponse = {
-        ok: true,
-        json: vi.fn().mockResolvedValue({
-          success: true,
-          taskId: 'task-123',
-          status: 'completed',
-          metadata: {
-            startedAt: '2024-01-01T00:00:00Z',
-            completedAt: '2024-01-01T00:01:00Z',
-            duration: 60000,
-          },
-          output: { result: 'done' },
-        }),
-        headers: {
-          get: vi.fn().mockReturnValue(null),
-        },
-      }
-      fetchMock.mockResolvedValue(mockResponse as any)
-
-      const result = await client.getJobStatus('task-123')
-
-      expect(result).toHaveProperty('taskId', 'task-123')
-      expect(result).toHaveProperty('status', 'completed')
-      expect(result).toHaveProperty('output')
-
-      // Verify correct endpoint was called
-      const calls = fetchMock.mock.calls
-      expect(calls[0][0]).toBe('https://test.tradinggoose.ai/api/jobs/task-123')
-    })
-
-    it('should handle job not found error', async () => {
-      const fetchMock = await getFetchMock()
-      const mockResponse = {
-        ok: false,
-        status: 404,
-        statusText: 'Not Found',
-        json: vi.fn().mockResolvedValue({
-          error: 'Job not found',
-          code: 'JOB_NOT_FOUND',
-        }),
-        headers: {
-          get: vi.fn().mockReturnValue(null),
-        },
-      }
-      fetchMock.mockResolvedValue(mockResponse as any)
-
-      await expect(client.getJobStatus('invalid-task')).rejects.toThrow(TradingGooseError)
-      await expect(client.getJobStatus('invalid-task')).rejects.toThrow('Job not found')
     })
   })
 

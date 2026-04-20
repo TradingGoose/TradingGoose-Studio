@@ -4,7 +4,7 @@ import type { TriggerConfig } from '@/triggers/types'
 export const telegramWebhookTrigger: TriggerConfig = {
   id: 'telegram_webhook',
   name: 'Telegram Webhook',
-  provider: 'telegram',
+  webhookProvider: 'telegram',
   description: 'Trigger workflow from Telegram bot messages and events',
   version: '1.0.0',
   icon: TelegramIcon,

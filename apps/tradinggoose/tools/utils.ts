@@ -282,6 +282,7 @@ export function createCustomToolRequestBody(
       blockNameMapping: blockNameMapping, // Block name to ID mapping
       workflowId: params._context?.workflowId || workflowId, // Pass workflowId for server-side context
       userId: params._context?.userId, // Pass userId for auth context
+      ...(params._context?.workspaceId ? { workspaceId: params._context.workspaceId } : {}),
       isCustomTool: true, // Flag to indicate this is a custom tool execution
     }
   }
@@ -321,7 +322,8 @@ export function getTool(toolId: string): ToolConfig | undefined {
 export async function getToolAsync(
   toolId: string,
   workflowId?: string,
-  workspaceId?: string
+  workspaceId?: string,
+  userId?: string
 ): Promise<ToolConfig | undefined> {
   // Check for built-in tools
   const builtInTool = tools[toolId]
@@ -329,7 +331,7 @@ export async function getToolAsync(
 
   // Check if it's a custom tool
   if (toolId.startsWith('custom_')) {
-    return getCustomTool(toolId, workflowId, workspaceId)
+    return getCustomTool(toolId, workflowId, workspaceId, userId)
   }
 
   return undefined
@@ -377,7 +379,8 @@ function createToolConfig(customTool: any, customToolId: string): ToolConfig {
 async function getCustomTool(
   customToolId: string,
   workflowId?: string,
-  workspaceId?: string
+  workspaceId?: string,
+  userId?: string
 ): Promise<ToolConfig | undefined> {
   const identifier = customToolId.replace('custom_', '')
 
@@ -396,7 +399,7 @@ async function getCustomTool(
     if (typeof window === 'undefined') {
       try {
         const { generateInternalToken } = await import('@/lib/auth/internal')
-        const internalToken = await generateInternalToken()
+        const internalToken = await generateInternalToken(userId)
         headers.Authorization = `Bearer ${internalToken}`
       } catch (error) {
         logger.warn('Failed to generate internal token for custom tools fetch', { error })

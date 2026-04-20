@@ -6,7 +6,7 @@ import { type NextRequest, NextResponse } from 'next/server'
 import { v4 as uuidv4 } from 'uuid'
 import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
-import { decryptSecret } from '@/lib/utils'
+import { decryptSecret } from '@/lib/utils-server'
 
 const logger = createLogger('WorkflowLogWebhookTestAPI')
 
@@ -102,14 +102,14 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     }
 
     if (webhook.includeFinalOutput) {
-      ; (payload.data as any).finalOutput = {
+      ;(payload.data as any).finalOutput = {
         message: 'This is a test webhook delivery',
         test: true,
       }
     }
 
     if (webhook.includeTraceSpans) {
-      ; (payload.data as any).traceSpans = [
+      ;(payload.data as any).traceSpans = [
         {
           id: 'span_test_1',
           name: 'Test Block',
@@ -123,7 +123,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     }
 
     if (webhook.includeRateLimits) {
-      ; (payload.data as any).rateLimits = {
+      ;(payload.data as any).rateLimits = {
         sync: {
           limit: 150,
           remaining: 45,
@@ -138,10 +138,13 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     }
 
     if (webhook.includeUsageData) {
-      ; (payload.data as any).usage = {
+      ;(payload.data as any).usage = {
         currentPeriodCost: 2.45,
         limit: 10,
-        plan: 'pro',
+        tier: {
+          id: 'tier_user_fixed',
+          displayName: 'Pro',
+        },
         isExceeded: false,
       }
     }

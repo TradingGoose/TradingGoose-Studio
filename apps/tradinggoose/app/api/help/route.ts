@@ -3,10 +3,8 @@ import { z } from 'zod'
 import { renderHelpConfirmationEmail } from '@/components/emails'
 import { getSession } from '@/lib/auth'
 import { sendEmail } from '@/lib/email/mailer'
-import { getFromEmailAddress } from '@/lib/email/utils'
-import { env } from '@/lib/env'
+import { getHelpEmailAddress } from '@/lib/email/utils'
 import { createLogger } from '@/lib/logs/console/logger'
-import { getEmailDomain } from '@/lib/urls/utils'
 import { generateRequestId } from '@/lib/utils'
 
 const logger = createLogger('HelpAPI')
@@ -80,6 +78,7 @@ export async function POST(req: NextRequest) {
     }
 
     logger.debug(`[${requestId}] Help request includes ${images.length} images`)
+    const helpEmailAddress = await getHelpEmailAddress()
 
     // Prepare email content
     let emailText = `
@@ -94,10 +93,9 @@ ${message}
     }
 
     const emailResult = await sendEmail({
-      to: [`help@${env.EMAIL_DOMAIN || getEmailDomain()}`],
+      to: [helpEmailAddress],
       subject: `[${type.toUpperCase()}] ${subject}`,
       text: emailText,
-      from: getFromEmailAddress(),
       replyTo: email,
       emailType: 'transactional',
       attachments: images.map((image) => ({
@@ -127,8 +125,7 @@ ${message}
         to: [email],
         subject: `Your ${type} request has been received: ${subject}`,
         html: confirmationHtml,
-        from: getFromEmailAddress(),
-        replyTo: `help@${env.EMAIL_DOMAIN || getEmailDomain()}`,
+        replyTo: helpEmailAddress,
         emailType: 'transactional',
       })
     } catch (err) {

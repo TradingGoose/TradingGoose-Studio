@@ -1,23 +1,12 @@
-'use client'
-
-import { useEffect } from 'react'
 import Link from 'next/link'
-import { useBrandConfig } from '@/lib/branding/branding'
-import { getEnv } from '@/lib/env'
-import { LegalLayout } from '@/app/(landing)/components'
+import LegalLayout from '@/app/(landing)/components/legal-layout'
+import { getBrandConfig } from '@/lib/branding/branding'
 
 export default function TermsOfService() {
-  const brand = useBrandConfig()
-  const projectName = brand.name || 'TradingGoose Studio'
-  const supportEmail = brand.supportEmail || 'support@tradinggoose.ai'
+  const brand = getBrandConfig()
+  const projectName = brand.name
+  const supportEmail = brand.supportEmail
   const supportEmailHref = `mailto:${supportEmail}`
-
-  useEffect(() => {
-    const termsUrl = getEnv('NEXT_PUBLIC_TERMS_URL')
-    if (termsUrl?.startsWith('http')) {
-      window.location.href = termsUrl
-    }
-  }, [])
 
   return (
     <LegalLayout title='Terms of Service' path='/terms'>

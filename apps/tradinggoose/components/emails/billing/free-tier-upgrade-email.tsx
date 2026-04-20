@@ -20,26 +20,51 @@ import { getBaseUrl } from '@/lib/urls/utils'
 
 interface FreeTierUpgradeEmailProps {
   userName?: string
+  currentTierName?: string
   percentUsed?: number
   currentUsage?: number
   limit?: number
   upgradeLink?: string
+  recommendedTierName?: string | null
+  recommendedTierPriceUsd?: number | null
+  recommendedTierIncludedUsageLimitUsd?: number | null
+  recommendedTierFeatures?: string[]
   updatedDate?: Date
+}
+
+function formatCurrency(value: number | null | undefined): string | null {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) {
+    return null
+  }
+
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    maximumFractionDigits: 2,
+  }).format(value)
 }
 
 export function FreeTierUpgradeEmail({
   userName,
+  currentTierName = 'your current tier',
   percentUsed = 0,
   currentUsage = 0,
   limit = 0,
   upgradeLink,
+  recommendedTierName = null,
+  recommendedTierPriceUsd = null,
+  recommendedTierIncludedUsageLimitUsd = null,
+  recommendedTierFeatures = [],
   updatedDate = new Date(),
 }: FreeTierUpgradeEmailProps) {
   const brand = getBrandConfig()
   const baseUrl = getBaseUrl()
   const ctaLink = upgradeLink || `${baseUrl}/billing`
+  const recommendedPrice = formatCurrency(recommendedTierPriceUsd)
+  const recommendedIncludedUsage = formatCurrency(recommendedTierIncludedUsageLimitUsd)
+  const featurePreview = recommendedTierFeatures.slice(0, 3)
 
-  const previewText = `${brand.name}: You've used ${percentUsed}% of your free credits`
+  const previewText = `${brand.name}: ${currentTierName} is nearing its included usage`
 
   return (
     <Html>
@@ -51,7 +76,7 @@ export function FreeTierUpgradeEmail({
             <Row>
               <Column style={{ textAlign: 'center' }}>
                 <Img
-                  src={brand.logoUrl || `${baseUrl}/favicon/web-app-manifest-192x192.png`}
+                  src={`${baseUrl}/favicon/web-app-manifest-192x192.png`}
                   width='96'
                   height='96'
                   alt={brand.name}
@@ -77,41 +102,58 @@ export function FreeTierUpgradeEmail({
             </Text>
 
             <Text style={baseStyles.paragraph}>
-              You've used <strong>${currentUsage.toFixed(2)}</strong> of your{' '}
-              <strong>${limit.toFixed(2)}</strong> free credits ({percentUsed}%).
+              You've used <strong>${currentUsage.toFixed(2)}</strong> of the{' '}
+              <strong>${limit.toFixed(2)}</strong> included in {currentTierName} ({percentUsed}%).
             </Text>
 
             <Text style={baseStyles.paragraph}>
-              To ensure uninterrupted service and unlock the full power of {brand.name}, upgrade to
-              Pro today.
+              Review your available billing tiers now so you can expand your usage before this
+              month&apos;s limit interrupts new work.
             </Text>
 
-            <Section style={baseStyles.codeContainer} >
-              <Text
-                style={{
-                  ...baseStyles.paragraph,
-                  marginTop: 0,
-                  marginBottom: 12,
-                  fontWeight: 'bold',
-                }}
-              >
-                What you get with Pro:
-              </Text>
-              <Text style={{ ...baseStyles.paragraph, margin: '8px 0', lineHeight: 1.6 }}>
-                • <strong>$20/month in credits</strong> – 2x your free tier
-                <br />• <strong>Priority support</strong> – Get help when you need it
-                <br />• <strong>Advanced features</strong> – Access to premium blocks and
-                integrations
-                <br />• <strong>No interruptions</strong> – Never worry about running out of credits
-              </Text>
-            </Section>
+            {recommendedTierName ? (
+              <Section style={baseStyles.codeContainer}>
+                <Text
+                  style={{
+                    ...baseStyles.paragraph,
+                    marginTop: 0,
+                    marginBottom: 12,
+                    fontWeight: 'bold',
+                  }}
+                >
+                  Recommended next tier: {recommendedTierName}
+                </Text>
+                <Text style={{ ...baseStyles.paragraph, margin: '8px 0', lineHeight: 1.6 }}>
+                  {recommendedPrice ? (
+                    <>
+                      • <strong>Starts at {recommendedPrice}/month</strong>
+                      <br />
+                    </>
+                  ) : null}
+                  {recommendedIncludedUsage ? (
+                    <>
+                      • <strong>{recommendedIncludedUsage}</strong> included usage each month
+                      <br />
+                    </>
+                  ) : null}
+                  {featurePreview.map((feature) => (
+                    <React.Fragment key={feature}>
+                      • {feature}
+                      <br />
+                    </React.Fragment>
+                  ))}
+                </Text>
+              </Section>
+            ) : null}
 
             <Hr />
 
-            <Text style={baseStyles.paragraph}>Upgrade now to keep building without limits.</Text>
+            <Text style={baseStyles.paragraph}>
+              Open billing settings to review the live tier catalog.
+            </Text>
 
             <Link href={ctaLink} style={{ textDecoration: 'none' }}>
-              <Text style={baseStyles.button}>Upgrade to Pro</Text>
+              <Text style={baseStyles.button}>Review Billing Tiers</Text>
             </Link>
 
             <Text style={baseStyles.paragraph}>
@@ -124,7 +166,8 @@ export function FreeTierUpgradeEmail({
             </Text>
 
             <Text style={{ ...baseStyles.paragraph, fontSize: '12px', color: '#666' }}>
-              Sent on {updatedDate.toLocaleDateString()} • This is a one-time notification at 90%.
+              Sent on {updatedDate.toLocaleDateString()} • This is a one-time notification after
+              your default tier crosses its upgrade threshold.
             </Text>
           </Section>
         </Container>

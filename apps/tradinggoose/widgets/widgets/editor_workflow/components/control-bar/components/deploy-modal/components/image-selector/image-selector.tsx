@@ -1,6 +1,7 @@
 'use client'
 
 import { useRef, useState } from 'react'
+import { upload as uploadToVercelBlob } from '@vercel/blob/client'
 import { Image, Loader2, Upload, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
@@ -75,38 +76,78 @@ export function ImageSelector({
         // Log the presigned URL response for debugging
         logger.info('Presigned URL response:', presignedData)
 
-        // Upload directly to storage provider
-        const uploadHeaders: Record<string, string> = {
-          'Content-Type': file.type,
+        if (presignedData.storageProvider === 'vercel') {
+          await uploadToVercelBlob(presignedData.fileInfo.key, file, {
+            access: presignedData.blobAccess || 'private',
+            handleUploadUrl: '/api/files/vercel/client-upload?type=chat',
+            clientPayload: JSON.stringify({
+              clientUploadAuthorization: presignedData.clientUploadAuthorization,
+              contentType: file.type,
+              fileName: file.name,
+              fileSize: file.size,
+              pathname: presignedData.fileInfo.key,
+            }),
+            contentType: file.type,
+            multipart: file.size > 8 * 1024 * 1024,
+          })
+          const publicUrl = presignedData.fileInfo.path
+          onChange(publicUrl)
+          logger.info(`Image uploaded successfully via Vercel client upload: ${publicUrl}`)
+          return
+        } else if (presignedData.directUploadSupported !== false) {
+          // Upload directly to storage provider
+          const uploadHeaders: Record<string, string> = {
+            'Content-Type': file.type,
+          }
+
+          // Add any additional headers from the presigned response (for Azure)
+          if (presignedData.uploadHeaders) {
+            Object.assign(uploadHeaders, presignedData.uploadHeaders)
+          }
+
+          const uploadTarget = presignedData.uploadUrl || presignedData.presignedUrl
+          const uploadResponse = await fetch(uploadTarget, {
+            method: 'PUT',
+            body: file,
+            headers: uploadHeaders,
+          })
+
+          logger.info(`Upload response status: ${uploadResponse.status}`)
+          logger.info(
+            'Upload response headers:',
+            Object.fromEntries(uploadResponse.headers.entries())
+          )
+
+          if (!uploadResponse.ok) {
+            const responseText = await uploadResponse.text()
+            logger.error(`Direct upload failed: ${uploadResponse.status} - ${responseText}`)
+            throw new Error(`Direct upload failed: ${uploadResponse.status} - ${responseText}`)
+          }
+          // Use the file info returned from the presigned URL endpoint
+          const publicUrl = presignedData.fileInfo.path
+          onChange(publicUrl)
+          logger.info(`Image uploaded successfully via direct upload: ${publicUrl}`)
+          return
         }
 
-        // Add any additional headers from the presigned response (for Azure Blob)
-        if (presignedData.uploadHeaders) {
-          Object.assign(uploadHeaders, presignedData.uploadHeaders)
-        }
+        // Fallback to traditional upload through API route
+        const formData = new FormData()
+        formData.append('file', file)
 
-        const uploadResponse = await fetch(presignedData.uploadUrl, {
-          method: 'PUT',
-          body: file,
-          headers: uploadHeaders,
+        const response = await fetch('/api/files/upload', {
+          method: 'POST',
+          body: formData,
         })
 
-        logger.info(`Upload response status: ${uploadResponse.status}`)
-        logger.info(
-          'Upload response headers:',
-          Object.fromEntries(uploadResponse.headers.entries())
-        )
-
-        if (!uploadResponse.ok) {
-          const responseText = await uploadResponse.text()
-          logger.error(`Direct upload failed: ${uploadResponse.status} - ${responseText}`)
-          throw new Error(`Direct upload failed: ${uploadResponse.status} - ${responseText}`)
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({ error: response.statusText }))
+          throw new Error(errorData.error || `Failed to upload file: ${response.status}`)
         }
 
-        // Use the file info returned from the presigned URL endpoint
-        const publicUrl = presignedData.fileInfo.path
+        const data = await response.json()
+        const publicUrl = data.path
         onChange(publicUrl)
-        logger.info(`Image uploaded successfully via direct upload: ${publicUrl}`)
+        logger.info(`Image uploaded successfully via server upload: ${publicUrl}`)
       } else {
         // Fallback to traditional upload through API route
         const formData = new FormData()

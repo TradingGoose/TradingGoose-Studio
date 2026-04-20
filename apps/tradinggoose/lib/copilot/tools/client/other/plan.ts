@@ -45,7 +45,7 @@ export class PlanClientTool extends BaseClientTool {
             completed: false,
             executing: false,
           }))
-          const { getCopilotStoreForToolCall } = await import('@/stores/copilot/store')
+          const { getCopilotStoreForToolCall } = await import('@/stores/copilot/store-access')
           const storeApi = getCopilotStoreForToolCall(this.toolCallId)
           const store = storeApi.getState()
           if (store.setPlanTodos) {

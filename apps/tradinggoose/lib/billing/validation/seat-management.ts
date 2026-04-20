@@ -1,5 +1,12 @@
 import { db } from '@tradinggoose/db'
-import { invitation, member, organization, subscription, user, userStats } from '@tradinggoose/db/schema'
+import {
+  invitation,
+  member,
+  organization,
+  subscription,
+  user,
+  userStats,
+} from '@tradinggoose/db/schema'
 import { and, count, eq } from 'drizzle-orm'
 import { getOrganizationSubscription } from '@/lib/billing/core/billing'
 import { quickValidateEmail } from '@/lib/email/validation'
@@ -19,10 +26,43 @@ interface OrganizationSeatInfo {
   organizationId: string
   organizationName: string
   currentSeats: number
+  memberSeats: number
+  pendingInvitations: number
   maxSeats: number
   availableSeats: number
-  subscriptionPlan: string
+  subscriptionTierName: string
   canAddSeats: boolean
+}
+
+export async function getSeatOccupancy(organizationId: string): Promise<{
+  members: number
+  pending: number
+  occupied: number
+}> {
+  const [memberCount, pendingInvitationCount] = await Promise.all([
+    db
+      .select({ count: count() })
+      .from(member)
+      .where(eq(member.organizationId, organizationId)),
+    db
+      .select({ count: count() })
+      .from(invitation)
+      .where(and(eq(invitation.organizationId, organizationId), eq(invitation.status, 'pending'))),
+  ])
+
+  const members = memberCount[0]?.count || 0
+  const pending = pendingInvitationCount[0]?.count || 0
+
+  return {
+    members,
+    pending,
+    occupied: members + pending,
+  }
+}
+
+export async function getOccupiedSeatCount(organizationId: string): Promise<number> {
+  const { occupied } = await getSeatOccupancy(organizationId)
+  return occupied
 }
 
 /**
@@ -46,29 +86,19 @@ export async function validateSeatAvailability(
       }
     }
 
-    // Free and Pro plans don't support organizations
-    if (['free', 'pro'].includes(subscription.plan)) {
+    const { occupied: currentSeats } = await getSeatOccupancy(organizationId)
+
+    if (subscription.tier.ownerType !== 'organization') {
       return {
         canInvite: false,
-        reason: 'Organization features require Team or Enterprise plan',
-        currentSeats: 0,
+        reason: 'Seat limits are only available for organization subscriptions',
+        currentSeats,
         maxSeats: 0,
         availableSeats: 0,
       }
     }
 
-    // Get current member count
-    const memberCount = await db
-      .select({ count: count() })
-      .from(member)
-      .where(eq(member.organizationId, organizationId))
-
-    const currentSeats = memberCount[0]?.count || 0
-
-    // Determine seat limits based on subscription
-    // Team: seats from Stripe subscription quantity
-    // Enterprise: seats from metadata (stored in subscription.seats)
-    const maxSeats = subscription.seats || 1
+    const maxSeats = Math.max(subscription.seats || subscription.tier.seatCount || 1, 1)
 
     const availableSeats = Math.max(0, maxSeats - currentSeats)
     const canInvite = availableSeats >= additionalSeats
@@ -133,16 +163,13 @@ export async function getOrganizationSeatInfo(
       return null
     }
 
-    const memberCount = await db
-      .select({ count: count() })
-      .from(member)
-      .where(eq(member.organizationId, organizationId))
+    const seatOccupancy = await getSeatOccupancy(organizationId)
+    const currentSeats = seatOccupancy.occupied
 
-    const currentSeats = memberCount[0]?.count || 0
+    const maxSeats = Math.max(subscription.seats || subscription.tier.seatCount || 1, 1)
 
-    const maxSeats = subscription.seats || 1
-
-    const canAddSeats = subscription.plan !== 'enterprise'
+    const canAddSeats =
+      subscription.tier.ownerType === 'organization' && subscription.tier.seatMode === 'adjustable'
 
     const availableSeats = Math.max(0, maxSeats - currentSeats)
 
@@ -150,9 +177,11 @@ export async function getOrganizationSeatInfo(
       organizationId,
       organizationName: organizationData[0].name,
       currentSeats,
+      memberSeats: seatOccupancy.members,
+      pendingInvitations: seatOccupancy.pending,
       maxSeats,
       availableSeats,
-      subscriptionPlan: subscription.plan,
+      subscriptionTierName: subscription.tier.displayName,
       canAddSeats,
     }
   } catch (error) {
@@ -254,17 +283,19 @@ export async function updateOrganizationSeats(
       return { success: false, error: 'No active subscription found' }
     }
 
-    const memberCount = await db
-      .select({ count: count() })
-      .from(member)
-      .where(eq(member.organizationId, organizationId))
+    if (
+      subscriptionRecord.tier.ownerType !== 'organization' ||
+      subscriptionRecord.tier.seatMode !== 'adjustable'
+    ) {
+      return { success: false, error: 'Seat changes are only available for adjustable organization tiers' }
+    }
 
-    const currentMembers = memberCount[0]?.count || 0
+    const occupiedSeats = await getOccupiedSeatCount(organizationId)
 
-    if (newSeatCount < currentMembers) {
+    if (newSeatCount < occupiedSeats) {
       return {
         success: false,
-        error: `Cannot reduce seats below current member count (${currentMembers})`,
+        error: `Cannot reduce seats below current occupied seat count (${occupiedSeats})`,
       }
     }
 
@@ -397,7 +428,8 @@ export async function getOrganizationSeatAnalytics(organizationId: string) {
       ...seatInfo,
       utilizationRate: Math.round(utilizationRate * 100) / 100,
       activeMembers: recentlyActive,
-      inactiveMembers: seatInfo.currentSeats - recentlyActive,
+      inactiveMembers: Math.max(0, seatInfo.memberSeats - recentlyActive),
+      pendingInvitations: seatInfo.pendingInvitations,
       memberActivity,
     }
   } catch (error) {

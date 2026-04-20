@@ -1,8 +1,8 @@
 'use client'
 
 import React from 'react'
-import ReactFlow, { applyNodeChanges, type NodeChange, useReactFlow } from 'reactflow'
-import 'reactflow/dist/style.css'
+import { ReactFlow, applyNodeChanges, type NodeChange, useReactFlow } from '@xyflow/react'
+import '@xyflow/react/dist/style.css'
 import { LandingLoopNode } from './landing-block/landing-loop-node'
 import { LandingNode } from './landing-block/landing-node'
 import { CARD_WIDTH, type LandingCanvasProps } from './landing-canvas'

@@ -7,9 +7,10 @@ import {
   CollapsibleInputOutput,
   normalizeChildWorkflowSpan,
 } from '@/app/workspace/[workspaceId]/logs/components/log-details/components/trace-spans'
+import { scaleLogCostBreakdown } from '@/app/workspace/[workspaceId]/logs/utils'
 import { getBlock } from '@/blocks/registry'
 import { isSkillLoaderToolId } from '@/executor/handlers/agent/skills-resolver'
-import { getProviderIcon } from '@/providers/ai/utils'
+import { formatCost, getProviderIcon } from '@/providers/ai/utils'
 import type { TraceSpan } from '@/stores/logs/filters/types'
 import { getTool } from '@/tools/utils'
 
@@ -17,14 +18,12 @@ interface TraceSpanItemProps {
   span: TraceSpan
   depth: number
   totalDuration: number
-  isLast: boolean
   parentStartTime: number
   workflowStartTime: number
-  onToggle: (spanId: string, expanded: boolean, hasSubItems: boolean) => void
+  onToggle: (spanId: string, expanded: boolean) => void
   expandedSpans: Set<string>
-  hasSubItems?: boolean
+  costMultiplier?: number
   hoveredPercent?: number | null
-  hoveredWorkflowMs?: number | null
   forwardHover: (clientX: number, clientY: number) => void
   gapBeforeMs?: number
   gapBeforePercent?: number
@@ -46,6 +45,7 @@ export function TraceSpanItem({
   workflowStartTime,
   onToggle,
   expandedSpans,
+  costMultiplier = 1,
   hoveredPercent,
   forwardHover,
   gapBeforeMs = 0,
@@ -59,6 +59,7 @@ export function TraceSpanItem({
   const hasToolCalls = span.toolCalls && span.toolCalls.length > 0
   const hasInputOutput = Boolean(span.input || span.output)
   const hasNestedItems = hasChildren || hasToolCalls || hasInputOutput
+  const displayCost = scaleLogCostBreakdown(span.cost, costMultiplier)
 
   const spanStartTime = new Date(span.startTime).getTime()
   const spanEndTime = new Date(span.endTime).getTime()
@@ -75,7 +76,7 @@ export function TraceSpanItem({
 
   const handleSpanClick = () => {
     if (hasNestedItems) {
-      onToggle(spanId, !expanded, hasNestedItems)
+      onToggle(spanId, !expanded)
     }
   }
 
@@ -355,24 +356,17 @@ export function TraceSpanItem({
                   </Tooltip>
                 </TooltipProvider>
               )}
-              {chipVisibility.cost && span.cost?.total !== undefined && (
+              {chipVisibility.cost && displayCost?.total !== undefined && (
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <span className='cursor-default rounded bg-secondary px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground tabular-nums'>
-                        {(() => {
-                          try {
-                            const { formatCost } = require('@/providers/ai/utils')
-                            return formatCost(Number(span.cost.total) || 0)
-                          } catch {
-                            return `$${Number.parseFloat(String(span.cost.total)).toFixed(4)}`
-                          }
-                        })()}
+                        {formatCost(Number(displayCost.total) || 0)}
                       </span>
                     </TooltipTrigger>
                     <TooltipContent side='top'>
                       {(() => {
-                        const c = span.cost || {}
+                        const c = displayCost || {}
                         const input = typeof c.input === 'number' ? c.input : undefined
                         const output = typeof c.output === 'number' ? c.output : undefined
                         const total =
@@ -381,24 +375,17 @@ export function TraceSpanItem({
                             : typeof input === 'number' && typeof output === 'number'
                               ? input + output
                               : undefined
-                        let formatCostFn: (v: number) => string = (v: number) =>
-                          `$${Number(v).toFixed(4)}`
-                        try {
-                          formatCostFn = require('@/providers/ai/utils').formatCost as (
-                            v: number
-                          ) => string
-                        } catch {}
                         return (
                           <div className='space-y-0.5'>
                             {typeof input === 'number' && (
-                              <div className='text-xs'>Input: {formatCostFn(input)}</div>
+                              <div className='text-xs'>Input: {formatCost(input)}</div>
                             )}
                             {typeof output === 'number' && (
-                              <div className='text-xs'>Output: {formatCostFn(output)}</div>
+                              <div className='text-xs'>Output: {formatCost(output)}</div>
                             )}
                             {typeof total === 'number' && (
                               <div className='border-t pt-0.5 text-xs'>
-                                Total: {formatCostFn(total)}
+                                Total: {formatCost(total)}
                               </div>
                             )}
                           </div>
@@ -625,12 +612,6 @@ export function TraceSpanItem({
               {span.children?.map((childSpan, index) => {
                 const enrichedChildSpan = normalizeChildWorkflowSpan(childSpan)
 
-                const childHasSubItems =
-                  (enrichedChildSpan.children?.length ?? 0) > 0 ||
-                  (enrichedChildSpan.toolCalls?.length ?? 0) > 0 ||
-                  Boolean(enrichedChildSpan.input) ||
-                  Boolean(enrichedChildSpan.output)
-
                 let childGapMs = 0
                 let childGapPercent = 0
                 if (index > 0 && span.children) {
@@ -649,13 +630,12 @@ export function TraceSpanItem({
                     span={enrichedChildSpan}
                     depth={depth + 1}
                     totalDuration={totalDuration}
-                    isLast={index === (span.children?.length || 0) - 1}
                     parentStartTime={spanStartTime}
                     workflowStartTime={workflowStartTime}
                     onToggle={onToggle}
                     expandedSpans={expandedSpans}
-                    hasSubItems={childHasSubItems}
                     forwardHover={forwardHover}
+                    costMultiplier={costMultiplier}
                     gapBeforeMs={childGapMs}
                     gapBeforePercent={childGapPercent}
                     showRelativeChip={chipVisibility.relative}
@@ -690,21 +670,18 @@ export function TraceSpanItem({
                     : toolCall.output,
                 }
 
-                const hasToolCallData = Boolean(toolCall.input || toolCall.output || toolCall.error)
-
                 return (
                   <TraceSpanItem
                     key={`tool-${index}`}
                     span={toolSpan}
                     depth={depth + 1}
                     totalDuration={totalDuration}
-                    isLast={index === (span.toolCalls?.length || 0) - 1}
                     parentStartTime={spanStartTime}
                     workflowStartTime={workflowStartTime}
                     onToggle={onToggle}
                     expandedSpans={expandedSpans}
-                    hasSubItems={hasToolCallData}
                     forwardHover={forwardHover}
+                    costMultiplier={costMultiplier}
                     showRelativeChip={chipVisibility.relative}
                     chipVisibility={chipVisibility}
                   />

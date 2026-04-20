@@ -14,7 +14,7 @@ export const MicrosoftTeamsBlock: BlockConfig<MicrosoftTeamsResponse> = {
   docsLink: 'https://docs.tradinggoose.ai/tools/microsoft_teams',
   category: 'tools',
   triggerAllowed: true,
-  bgColor: undefined,
+  bgColor: '#5059C9',
   icon: MicrosoftTeamsIcon,
   subBlocks: [
     {

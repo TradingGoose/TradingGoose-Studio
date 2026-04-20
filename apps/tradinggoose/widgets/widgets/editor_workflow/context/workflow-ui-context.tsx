@@ -6,8 +6,6 @@ import type { WorkflowCanvasUIConfig } from '@/widgets/widgets/editor_workflow/c
 const DEFAULT_UI_CONFIG: WorkflowCanvasUIConfig = {
   controlBar: false,
   floatingControls: false,
-  trainingControls: false,
-  forceTrainingControls: false,
   triggerList: true,
 }
 

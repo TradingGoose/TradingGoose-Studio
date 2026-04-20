@@ -101,6 +101,7 @@ export default async function WorkspaceDashboardPage({
     <div className='flex h-full w-full flex-col overflow-hidden bg-background'>
       <div className='flex min-h-0 min-w-0 flex-1 overflow-hidden'>
         <DashboardClient
+          key={`${workspaceId}:${activeLayout.id}`}
           initialState={hydratedLayout}
           workspaceId={workspaceId}
           layoutId={activeLayout.id}

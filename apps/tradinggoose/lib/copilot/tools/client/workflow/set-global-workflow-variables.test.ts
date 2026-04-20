@@ -20,19 +20,19 @@ vi.mock('@/lib/yjs/workflow-session', () => ({
 describe('SetGlobalWorkflowVariablesClientTool', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
-    vi.unstubAllGlobals()
+    vi.unstubAllGlobals?.()
     mockGetRegisteredWorkflowSession.mockReset()
     mockGetVariablesForWorkflow.mockReset()
     mockSetVariables.mockReset()
   })
 
-  it('uses execution-context workflowId and writes variables only through the live Yjs session', async () => {
+  it('uses explicit workflowId and writes variables only through the live Yjs session', async () => {
     const doc = { kind: 'workflow-doc' }
     mockGetRegisteredWorkflowSession.mockReturnValue({ doc })
     mockGetVariablesForWorkflow.mockReturnValue({
       'var-1': {
         id: 'var-1',
-        workflowId: 'wf-context',
+        workflowId: 'wf-target',
         name: 'existing',
         type: 'plain',
         value: 'value',
@@ -70,28 +70,29 @@ describe('SetGlobalWorkflowVariablesClientTool', () => {
     })
 
     await tool.handleAccept({
+      workflowId: 'wf-target',
       operations: [
         { operation: 'edit', name: 'existing', type: 'number', value: '42' },
         { operation: 'add', name: 'newVar', type: 'boolean', value: 'true' },
       ],
     })
 
-    expect(mockGetRegisteredWorkflowSession).toHaveBeenCalledWith('wf-context')
-    expect(mockGetVariablesForWorkflow).toHaveBeenCalledWith('wf-context')
+    expect(mockGetRegisteredWorkflowSession).toHaveBeenCalledWith('wf-target')
+    expect(mockGetVariablesForWorkflow).toHaveBeenCalledWith('wf-target')
     expect(mockSetVariables).toHaveBeenCalledTimes(1)
     expect(mockSetVariables).toHaveBeenCalledWith(
       doc,
       {
         'var-1': {
           id: 'var-1',
-          workflowId: 'wf-context',
+          workflowId: 'wf-target',
           name: 'existing',
           type: 'number',
           value: 42,
         },
         'var-2': {
           id: 'var-2',
-          workflowId: 'wf-context',
+          workflowId: 'wf-target',
           name: 'newVar',
           type: 'boolean',
           value: true,

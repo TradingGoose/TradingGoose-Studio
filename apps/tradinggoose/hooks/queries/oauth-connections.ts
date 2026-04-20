@@ -1,6 +1,6 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { client } from '@/lib/auth-client'
 import { createLogger } from '@/lib/logs/console/logger'
+import { startOAuthConnectFlow } from '@/lib/oauth/connect'
 import { OAUTH_PROVIDERS, type OAuthServiceConfig } from '@/lib/oauth/oauth'
 
 const logger = createLogger('OAuthConnectionsQuery')
@@ -130,15 +130,9 @@ export function useConnectOAuthService() {
 
   return useMutation({
     mutationFn: async ({ providerId, callbackURL }: ConnectServiceParams) => {
-      if (providerId === 'trello') {
-        window.location.href = '/api/auth/trello/authorize'
-        return { success: true }
-      }
-
-      await client.oauth2.link({
+      await startOAuthConnectFlow({
         providerId,
         callbackURL,
-        errorCallbackURL: callbackURL,
       })
 
       return { success: true }

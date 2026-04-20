@@ -70,8 +70,18 @@ export async function handleAuthError(reason?: string) {
   if (shouldRateLimitRecovery(reason)) return
 
   isHandlingAuthError = true
-  logger.warn('Handling authentication error (no-op to preserve session)', { reason })
-  isHandlingAuthError = false
+  deleteBrowserAuthCookies()
+  await safeServerSignOut()
+
+  if (window.location.pathname === '/login') {
+    logger.warn('Cleared stale auth state on login page', { reason })
+    isHandlingAuthError = false
+    return
+  }
+
+  const callbackUrl = `${window.location.pathname}${window.location.search}`
+  logger.warn('Handling authentication error', { reason, callbackUrl })
+  window.location.replace(`/login?reauth=1&callbackUrl=${encodeURIComponent(callbackUrl)}`)
 }
 
 export function isAuthErrorStatus(status?: number | null): boolean {

@@ -1,6 +1,5 @@
 'use client'
 
-import type { MouseEvent } from 'react'
 import { useCallback, useEffect, useState } from 'react'
 import { MenuIcon } from 'lucide-react'
 import Image from 'next/image'
@@ -18,8 +17,12 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Separator } from '@/components/ui/separator'
 import { useBrandConfig } from '@/lib/branding/branding'
-import { isHosted } from '@/lib/environment'
 import { createLogger } from '@/lib/logs/console/logger'
+import {
+  getRegistrationPrimaryHref,
+  getRegistrationPrimaryLabel,
+  type RegistrationMode,
+} from '@/lib/registration/shared'
 import { getFormattedGitHubStars } from '@/app/(landing)/actions/github'
 import { soehne } from '@/app/fonts/soehne/soehne'
 
@@ -27,16 +30,31 @@ const logger = createLogger('nav')
 
 interface NavProps {
   hideAuthButtons?: boolean
-  variant?: 'landing' | 'auth' | 'legal'
+  variant?: 'landing' | 'auth'
+  registrationMode?: RegistrationMode | null
 }
 
-export default function Nav({ hideAuthButtons = false, variant = 'landing' }: NavProps = {}) {
+export default function Nav({
+  hideAuthButtons = false,
+  variant = 'landing',
+  registrationMode = null,
+}: NavProps = {}) {
   const [githubStars, setGithubStars] = useState('0')
   const router = useRouter()
   const brand = useBrandConfig()
+  const hasResolvedRegistrationMode = registrationMode !== null
+  const registrationPrimaryHref = registrationMode
+    ? getRegistrationPrimaryHref(registrationMode)
+    : null
+  const registrationPrimaryLabel = registrationMode
+    ? getRegistrationPrimaryLabel(registrationMode)
+    : null
+  const showStandaloneLogin = hasResolvedRegistrationMode && registrationPrimaryHref !== null
 
   useEffect(() => {
-    if (variant !== 'landing') return
+    if (variant !== 'landing') {
+      return
+    }
 
     const timeoutId = setTimeout(() => {
       const fetchStars = async () => {
@@ -47,23 +65,24 @@ export default function Nav({ hideAuthButtons = false, variant = 'landing' }: Na
           logger.warn('Error fetching GitHub stars:', error)
         }
       }
+
       fetchStars()
     }, 2000)
 
     return () => clearTimeout(timeoutId)
   }, [variant])
 
-  const handleLoginClick = useCallback(
-    (e: MouseEvent<HTMLButtonElement>) => {
-      e.preventDefault()
-      router.push('/login?reauth=1')
-    },
-    [router]
-  )
+  const navigateToLogin = useCallback(() => {
+    router.push('/login?reauth=1')
+  }, [router])
 
-  const handleEnterpriseClick = useCallback(() => {
-    window.open('https://form.typeform.com/to/jqCO12pF', '_blank', 'noopener,noreferrer')
-  }, [])
+  const navigateToPrimaryCta = useCallback(() => {
+    if (!registrationPrimaryHref) {
+      return
+    }
+
+    router.push(registrationPrimaryHref)
+  }, [registrationPrimaryHref, router])
 
   const desktopNavLinks = variant === 'landing' && (
     <div className='hidden items-center gap-6 font-medium text-muted-foreground text-sm md:flex'>
@@ -76,26 +95,9 @@ export default function Nav({ hideAuthButtons = false, variant = 'landing' }: Na
       >
         Docs
       </Link>
-      <Link
-        href='/blog'
-        className='transition-colors hover:text-foreground'
-        prefetch={false}
-      >
+      <Link href='/blog' className='transition-colors hover:text-foreground' prefetch={false}>
         Blog
       </Link>
-      {/*
-      <Link href='#pricing' className='transition-colors hover:text-foreground' scroll>
-        Pricing
-      </Link>
-      <button
-        onClick={handleEnterpriseClick}
-        className='transition-colors hover:text-foreground'
-        type='button'
-        aria-label='Contact for Enterprise pricing'
-      >
-        Enterprise
-      </button>
-      */}
       <a
         href='https://github.com/TradingGoose/TradingGoose-Studio'
         target='_blank'
@@ -109,6 +111,30 @@ export default function Nav({ hideAuthButtons = false, variant = 'landing' }: Na
     </div>
   )
 
+  const registrationActions =
+    !hideAuthButtons && hasResolvedRegistrationMode && registrationPrimaryLabel ? (
+      <>
+        {showStandaloneLogin ? (
+          <Button
+            variant='ghost'
+            size='sm'
+            onClick={navigateToLogin}
+            className='rounded-md text-base'
+          >
+            Login
+          </Button>
+        ) : null}
+        <Button
+          size='sm'
+          onClick={registrationPrimaryHref ? navigateToPrimaryCta : undefined}
+          disabled={!registrationPrimaryHref}
+          className='rounded-md text-base'
+        >
+          {registrationPrimaryLabel}
+        </Button>
+      </>
+    ) : null
+
   return (
     <nav
       aria-label='Primary navigation'
@@ -121,7 +147,7 @@ export default function Nav({ hideAuthButtons = false, variant = 'landing' }: Na
           href='/?from=nav'
           aria-label={`${brand.name} home`}
           itemProp='url'
-          className='flex items-center gap-2 h-9'
+          className='flex h-9 items-center gap-2'
           prefetch={false}
         >
           <span itemProp='name' className='sr-only'>
@@ -147,41 +173,13 @@ export default function Nav({ hideAuthButtons = false, variant = 'landing' }: Na
 
         <div className='flex items-center gap-3 sm:gap-4'>
           {desktopNavLinks}
-          {variant === 'landing' && (
+          {variant === 'landing' && !hideAuthButtons && hasResolvedRegistrationMode ? (
             <Separator orientation='vertical' className='hidden h-6 md:block' />
-          )}
+          ) : null}
 
-          {!hideAuthButtons && isHosted && (
-            <Button
-              size='sm'
-              disabled
-              className='hidden rounded-md text-base md:inline-flex'
-              aria-label='Coming soon'
-            >
-              Coming soon
-            </Button>
-          )}
-          {!hideAuthButtons && !isHosted && (
-            <div className='hidden items-center gap-2 md:flex'>
-              <Button
-                variant='ghost'
-                size='sm'
-                onClick={handleLoginClick}
-                className='rounded-md text-base'
-              >
-                Login
-              </Button>
-              <Button
-                size='sm'
-                onClick={() => router.push('/signup')}
-                className='rounded-md text-base'
-              >
-                Get Started
-              </Button>
-            </div>
-          )}
+          {registrationActions ? <div className='hidden items-center gap-2 md:flex'>{registrationActions}</div> : null}
 
-          {variant === 'landing' && (
+          {variant === 'landing' ? (
             <DropdownMenu>
               <DropdownMenuTrigger className='md:hidden' asChild>
                 <Button variant='outline' size='icon'>
@@ -207,14 +205,6 @@ export default function Nav({ hideAuthButtons = false, variant = 'landing' }: Na
                       Blog
                     </Link>
                   </DropdownMenuItem>
-                  {/*
-                  <DropdownMenuItem>
-                    <Link href='#pricing' scroll className='w-full'>
-                      Pricing
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onSelect={handleEnterpriseClick}>Enterprise</DropdownMenuItem>
-                  */}
                   <DropdownMenuItem>
                     <a
                       href='https://github.com/TradingGoose/TradingGoose-Studio'
@@ -226,49 +216,18 @@ export default function Nav({ hideAuthButtons = false, variant = 'landing' }: Na
                       <span aria-live='polite'>{githubStars}</span>
                     </a>
                   </DropdownMenuItem>
-                  {!hideAuthButtons && isHosted && (
+                  {registrationActions ? (
                     <>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem className='!bg-transparent'>
-                        <Button
-                          className='w-full justify-start rounded-lg'
-                          size='sm'
-                          disabled
-                          aria-label='Coming soon'
-                        >
-                          Coming soon
-                        </Button>
+                        <div className='flex w-full flex-col gap-2'>{registrationActions}</div>
                       </DropdownMenuItem>
                     </>
-                  )}
-                  {!hideAuthButtons && !isHosted && (
-                    <>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem className='!bg-transparent'>
-                        <Button
-                          variant='ghost'
-                          className='w-full justify-start rounded-lg'
-                          size='sm'
-                          onClick={handleLoginClick}
-                        >
-                          Login
-                        </Button>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem className='!bg-transparent'>
-                        <Button
-                          className='w-full justify-start rounded-lg'
-                          size='sm'
-                          onClick={() => router.push('/signup')}
-                        >
-                          Get Started
-                        </Button>
-                      </DropdownMenuItem>
-                    </>
-                  )}
+                  ) : null}
                 </DropdownMenuGroup>
               </DropdownMenuContent>
             </DropdownMenu>
-          )}
+          ) : null}
         </div>
       </div>
     </nav>

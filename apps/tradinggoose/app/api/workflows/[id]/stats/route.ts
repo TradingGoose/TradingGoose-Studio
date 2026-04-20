@@ -2,6 +2,7 @@ import { db } from '@tradinggoose/db'
 import { userStats, workflow } from '@tradinggoose/db/schema'
 import { eq, sql } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
+import { handleNewUser } from '@/lib/billing/core/usage'
 import { createLogger } from '@/lib/logs/console/logger'
 
 const logger = createLogger('WorkflowStatsAPI')
@@ -48,18 +49,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         .where(eq(userStats.userId, workflowRecord.userId))
 
       if (userStatsRecords.length === 0) {
-        await db.insert(userStats).values({
-          id: crypto.randomUUID(),
-          userId: workflowRecord.userId,
-          totalManualExecutions: 0,
-          totalApiCalls: 0,
-          totalWebhookTriggers: 0,
-          totalScheduledExecutions: 0,
-          totalChatExecutions: 0,
-          totalTokensUsed: 0,
-          totalCost: '0.00',
-          lastActive: sql`now()`,
-        })
+        await handleNewUser(workflowRecord.userId)
       } else {
         await db
           .update(userStats)

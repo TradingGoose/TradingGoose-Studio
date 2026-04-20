@@ -4,7 +4,7 @@ import type { TriggerConfig } from '@/triggers/types'
 export const githubReleasePublishedTrigger: TriggerConfig = {
   id: 'github_release_published',
   name: 'GitHub Release Published',
-  provider: 'github',
+  webhookProvider: 'github',
   description: 'Trigger workflow when a new release is published in a GitHub repository',
   version: '1.0.0',
   icon: GithubIcon,

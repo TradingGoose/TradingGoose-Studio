@@ -5,6 +5,7 @@ import {
   getOrganizationBillingData,
   isOrganizationOwnerOrAdmin,
 } from '@/lib/billing/core/organization'
+import { BILLING_DISABLED_ERROR, getBillingGateState } from '@/lib/billing/settings'
 import { createLogger } from '@/lib/logs/console/logger'
 
 const logger = createLogger('UnifiedUsageAPI')
@@ -48,6 +49,12 @@ export async function GET(request: NextRequest) {
           { status: 400 }
         )
       }
+
+      const hasPermission = await isOrganizationOwnerOrAdmin(session.user.id, organizationId)
+      if (!hasPermission) {
+        return NextResponse.json({ error: 'Permission denied' }, { status: 403 })
+      }
+
       const org = await getOrganizationBillingData(organizationId)
       return NextResponse.json({
         success: true,
@@ -103,6 +110,11 @@ export async function PUT(request: NextRequest) {
         { error: 'Invalid context. Must be "user" or "organization"' },
         { status: 400 }
       )
+    }
+
+    const billingGate = await getBillingGateState()
+    if (!billingGate.billingEnabled) {
+      return NextResponse.json({ error: BILLING_DISABLED_ERROR }, { status: 409 })
     }
 
     if (context === 'user') {

@@ -5,8 +5,13 @@ import {
   ClientToolCallState,
 } from '@/lib/copilot/tools/client/base-tool'
 import { createLogger } from '@/lib/logs/console/logger'
-import { sanitizeForCopilot } from '@/lib/workflows/json-sanitizer'
-import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
+import { serializeWorkflowToTgMermaid } from '@/lib/workflows/studio-workflow-mermaid'
+import {
+  buildWorkflowSummary,
+  buildWorkflowDocumentToolResult,
+  getReadableWorkflowState,
+  resolveWorkflowTarget,
+} from './workflow-review-tool-utils'
 
 const logger = createLogger('GetWorkflowFromNameClientTool')
 
@@ -44,50 +49,35 @@ export class GetWorkflowFromNameClientTool extends BaseClientTool {
         return
       }
 
-      // Try to find by name from registry first to get ID
-      const registry = useWorkflowRegistry.getState()
-      const match = Object.values((registry as any).workflows || {}).find(
-        (w: any) =>
-          String(w?.name || '')
-            .trim()
-            .toLowerCase() === workflowName.toLowerCase()
-      ) as any
-
-      if (!match?.id) {
-        await this.markToolComplete(404, `Workflow not found: ${workflowName}`)
-        this.setState(ClientToolCallState.error)
-        return
-      }
-
-      // Fetch full workflow from API route (normalized tables)
-      const res = await fetch(`/api/workflows/${encodeURIComponent(match.id)}`, { method: 'GET' })
-      if (!res.ok) {
-        const text = await res.text().catch(() => '')
-        await this.markToolComplete(res.status, text || 'Failed to fetch workflow by name')
-        this.setState(ClientToolCallState.error)
-        return
-      }
-
-      const json = await res.json()
-      const wf = json?.data
-      if (!wf?.state?.blocks) {
+      const executionContext = this.requireExecutionContext()
+      const {
+        workflowId,
+        workflowName: resolvedWorkflowName,
+        workspaceId,
+      } = await resolveWorkflowTarget(
+        executionContext,
+        { workflow_name: workflowName }
+      )
+      const { workflowState } = await getReadableWorkflowState(executionContext, workflowId)
+      if (!workflowState?.blocks) {
         await this.markToolComplete(422, 'Workflow state is empty or invalid')
         this.setState(ClientToolCallState.error)
         return
       }
 
-      // Convert state to the same string format as get_user_workflow
-      const workflowState = {
-        blocks: wf.state.blocks || {},
-        edges: wf.state.edges || [],
-        loops: wf.state.loops || {},
-        parallels: wf.state.parallels || {},
-      }
-      // Sanitize workflow state for copilot (remove UI-specific data)
-      const sanitizedState = sanitizeForCopilot(workflowState)
-      const userWorkflow = JSON.stringify(sanitizedState, null, 2)
+      const workflowDocument = serializeWorkflowToTgMermaid(workflowState)
 
-      await this.markToolComplete(200, `Retrieved workflow ${workflowName}`, { userWorkflow })
+      await this.markToolComplete(
+        200,
+        `Retrieved workflow ${resolvedWorkflowName || workflowName}`,
+        buildWorkflowDocumentToolResult({
+          workflowId,
+          workflowName: resolvedWorkflowName || workflowName,
+          workspaceId,
+          workflowDocument,
+          workflowSummary: buildWorkflowSummary(workflowState),
+        })
+      )
       this.setState(ClientToolCallState.success)
     } catch (error: any) {
       const message = error instanceof Error ? error.message : String(error)

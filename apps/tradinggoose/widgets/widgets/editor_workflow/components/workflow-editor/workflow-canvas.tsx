@@ -2,15 +2,16 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import ReactFlow, {
+import {
   Background,
   ConnectionLineType,
+  ReactFlow,
   type Edge,
   type Node,
   useOnSelectionChange,
   useReactFlow,
-} from 'reactflow'
-import 'reactflow/dist/style.css'
+} from '@xyflow/react'
+import '@xyflow/react/dist/style.css'
 import { useSession } from '@/lib/auth-client'
 import { createLogger } from '@/lib/logs/console/logger'
 import { TriggerUtils } from '@/lib/workflows/triggers'
@@ -23,7 +24,6 @@ import { useWorkspacePermissions } from '@/hooks/use-workspace-permissions'
 import { useCurrentWorkflow } from '@/hooks/workflow'
 import { useCopilotStore } from '@/stores/copilot/store'
 import { useExecutionStore } from '@/stores/execution/store'
-import { useGeneralStore } from '@/stores/settings/general/store'
 import { hasWorkflowsInitiallyLoaded, useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import { getUniqueBlockName } from '@/stores/workflows/utils'
 import { DEFAULT_WORKFLOW_CHANNEL_ID } from '@/stores/workflows/workflow/types'
@@ -32,7 +32,6 @@ import { useWorkflowMutations } from '@/lib/yjs/use-workflow-doc'
 import { isBlockProtected } from '@/stores/workflows/workflow/utils'
 import { ControlBar } from '@/widgets/widgets/editor_workflow/components/control-bar/control-bar'
 import { FloatingControls } from '@/widgets/widgets/editor_workflow/components/floating-controls/floating-controls'
-import { TrainingControls } from '@/widgets/widgets/editor_workflow/components/training-controls/training-controls'
 import { TriggerList } from '@/widgets/widgets/editor_workflow/components/trigger-list/trigger-list'
 import {
   TriggerWarningDialog,
@@ -92,13 +91,14 @@ import { useWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/work
 const logger = createLogger('Workflow')
 
 // Memoized ReactFlow props to prevent unnecessary re-renders
-const defaultEdgeOptions = { type: 'custom' }
+const defaultEdgeOptions = { type: 'workflowEdge' }
 const connectionLineStyle = {
   stroke: '#94a3b8',
   strokeWidth: 2,
   strokeDasharray: '5,5',
 }
 const snapGrid: [number, number] = [20, 20]
+const AUTO_CONNECT_ENABLED = true
 
 interface BlockData {
   id: string
@@ -117,16 +117,12 @@ type WorkflowViewportBounds = {
 export type WorkflowCanvasUIConfig = {
   controlBar?: boolean
   floatingControls?: boolean
-  trainingControls?: boolean
-  forceTrainingControls?: boolean
   triggerList?: boolean
 }
 
 const defaultUIConfig: Required<WorkflowCanvasUIConfig> = {
   controlBar: false,
   floatingControls: false,
-  trainingControls: false,
-  forceTrainingControls: false,
   triggerList: true,
 }
 
@@ -228,7 +224,7 @@ const WorkflowCanvas = React.memo(
     const { workspaceId, workflowId } = useWorkflowRoute()
     const resolvedChannelId = useMemo(() => channelId ?? DEFAULT_WORKFLOW_CHANNEL_ID, [channelId])
     const reactFlowId = useMemo(() => `workflow-${resolvedChannelId}`, [resolvedChannelId])
-    const { project, getNodes, screenToFlowPosition } = useReactFlow()
+    const { getNodes, screenToFlowPosition } = useReactFlow()
     const previousViewIdentityRef = useRef<string | null>(null)
     const previousViewNodeCountRef = useRef(0)
 
@@ -249,10 +245,8 @@ const WorkflowCanvas = React.memo(
 
     const projectViewportCenter = useCallback(() => {
       const center = getViewportCenterCoordinates()
-      return typeof screenToFlowPosition === 'function'
-        ? screenToFlowPosition(center)
-        : project(center)
-    }, [project, screenToFlowPosition, getViewportCenterCoordinates])
+      return screenToFlowPosition(center)
+    }, [screenToFlowPosition, getViewportCenterCoordinates])
 
     const containerHeightClass = viewportBounds ? 'h-full' : 'h-screen'
 
@@ -675,7 +669,7 @@ const WorkflowCanvas = React.memo(
           const centerPosition = projectViewportCenter()
 
           // Auto-connect logic for container nodes
-          const isAutoConnectEnabled = useGeneralStore.getState().isAutoConnectEnabled
+          const isAutoConnectEnabled = AUTO_CONNECT_ENABLED
           let autoConnectEdge
           if (isAutoConnectEnabled) {
             const closestBlock = findClosestOutput(centerPosition)
@@ -730,7 +724,7 @@ const WorkflowCanvas = React.memo(
         const name = getUniqueBlockName(baseName, blocks)
 
         // Auto-connect logic
-        const isAutoConnectEnabled = useGeneralStore.getState().isAutoConnectEnabled
+        const isAutoConnectEnabled = AUTO_CONNECT_ENABLED
         let autoConnectEdge
         if (isAutoConnectEnabled && blockConfig.category !== 'triggers') {
           const closestBlock = findClosestOutput(centerPosition)
@@ -828,10 +822,9 @@ const WorkflowCanvas = React.memo(
           const data = JSON.parse(event.dataTransfer.getData('application/json'))
           if (data.type === 'connectionBlock') return
 
-          const reactFlowBounds = event.currentTarget.getBoundingClientRect()
-          const position = project({
-            x: event.clientX - reactFlowBounds.left,
-            y: event.clientY - reactFlowBounds.top,
+          const position = screenToFlowPosition({
+            x: event.clientX,
+            y: event.clientY,
           })
 
           // Check if dropping inside a container node (loop or parallel)
@@ -870,7 +863,7 @@ const WorkflowCanvas = React.memo(
               resizeLoopNodesWrapper()
             } else {
               // Auto-connect the container to the closest node on the canvas
-              const isAutoConnectEnabled = useGeneralStore.getState().isAutoConnectEnabled
+              const isAutoConnectEnabled = AUTO_CONNECT_ENABLED
               let autoConnectEdge
               if (isAutoConnectEnabled) {
                 const closestBlock = findClosestOutput(position)
@@ -939,7 +932,7 @@ const WorkflowCanvas = React.memo(
             )
 
             // Auto-connect logic for blocks inside containers
-            const isAutoConnectEnabled = useGeneralStore.getState().isAutoConnectEnabled
+            const isAutoConnectEnabled = AUTO_CONNECT_ENABLED
             let autoConnectEdge
             if (isAutoConnectEnabled && blockConfig?.category !== 'triggers') {
               if (existingChildBlocks.length > 0) {
@@ -1018,7 +1011,7 @@ const WorkflowCanvas = React.memo(
             }
 
             // Regular auto-connect logic
-            const isAutoConnectEnabled = useGeneralStore.getState().isAutoConnectEnabled
+            const isAutoConnectEnabled = AUTO_CONNECT_ENABLED
             let autoConnectEdge
             if (isAutoConnectEnabled && blockConfig?.category !== 'triggers') {
               const closestBlock = findClosestOutput(position)
@@ -1056,7 +1049,7 @@ const WorkflowCanvas = React.memo(
         }
       },
       [
-        project,
+        screenToFlowPosition,
         blocks,
         addBlock,
         findClosestOutput,
@@ -1076,10 +1069,9 @@ const WorkflowCanvas = React.memo(
         if (!event.dataTransfer?.types.includes('application/json')) return
 
         try {
-          const reactFlowBounds = event.currentTarget.getBoundingClientRect()
-          const position = project({
-            x: event.clientX - reactFlowBounds.left,
-            y: event.clientY - reactFlowBounds.top,
+          const position = screenToFlowPosition({
+            x: event.clientX,
+            y: event.clientY,
           })
 
           // Check if hovering over a container node
@@ -1097,7 +1089,7 @@ const WorkflowCanvas = React.memo(
           logger.error('Error in onDragOver', { err })
         }
       },
-      [project, isPointInLoopNodeWrapper, getNodes, blocks]
+      [screenToFlowPosition, isPointInLoopNodeWrapper, getNodes, blocks]
     )
 
     // Initialize workflow when it exists in registry and isn't active
@@ -1520,7 +1512,7 @@ const WorkflowCanvas = React.memo(
             y: nodeAbsPosBefore.y - containerAbsPosBefore.y,
           }
 
-          const isAutoConnectEnabled = useGeneralStore.getState().isAutoConnectEnabled
+          const isAutoConnectEnabled = AUTO_CONNECT_ENABLED
           const edgesToAdd = isAutoConnectEnabled
             ? buildAutoConnectEdgesForContainerDrop({
                 blocks,
@@ -1670,7 +1662,7 @@ const WorkflowCanvas = React.memo(
         <div className={`flex ${containerHeightClass} w-full flex-col overflow-hidden`}>
           <div className='relative h-full w-full flex-1 transition-all duration-200'>
             <div className='workflow-container h-full'>
-              <Background color='hsl(var(--workflow-dots))' size={4} gap={40} />
+              <Background bgColor='transparent' color='hsl(var(--workflow-dots))' size={4} gap={40} />
             </div>
           </div>
         </div>
@@ -1696,15 +1688,6 @@ const WorkflowCanvas = React.memo(
           {/* Floating Controls (Zoom, Undo, Redo) */}
           {uiConfig.floatingControls && (
             <FloatingControls constrainToContainer={Boolean(viewportBounds)} />
-          )}
-
-          {/* Training Controls - for recording workflow edits */}
-          {uiConfig.trainingControls && (
-            <TrainingControls
-              channelId={resolvedChannelId}
-              forceVisible={uiConfig.forceTrainingControls}
-              constrainToContainer={Boolean(viewportBounds)}
-            />
           )}
 
           <ReactFlow
@@ -1743,7 +1726,7 @@ const WorkflowCanvas = React.memo(
             draggable={false}
             noWheelClassName='allow-scroll'
             edgesFocusable={true}
-            edgesUpdatable={effectivePermissions.canEdit}
+            edgesReconnectable={effectivePermissions.canEdit}
             className='workflow-container h-full'
             onNodeDrag={effectivePermissions.canEdit ? onNodeDrag : undefined}
             onNodeDragStop={effectivePermissions.canEdit ? onNodeDragStop : undefined}
@@ -1757,8 +1740,11 @@ const WorkflowCanvas = React.memo(
             elevateNodesOnSelect={true}
             autoPanOnConnect={effectivePermissions.canEdit}
             autoPanOnNodeDrag={effectivePermissions.canEdit}
+            style={{
+              backgroundColor: 'transparent',
+            }}
           >
-            <Background color='hsl(var(--workflow-dots))' size={4} gap={40} />
+            <Background bgColor='transparent' color='hsl(var(--workflow-dots))' size={4} gap={40} />
             <NodeEditorPanel selectedNodeId={resolvedSelectedNodeId} />
           </ReactFlow>
 

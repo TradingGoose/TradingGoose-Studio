@@ -24,7 +24,7 @@ export interface PlanCardProps {
 }
 
 /**
- * PlanCard component for displaying subscription plan information
+ * PlanCard component for displaying subscription tier information
  * Supports both vertical and horizontal layouts with flexible pricing display
  */
 export function PlanCard({
@@ -110,10 +110,10 @@ export function PlanCard({
             'h-9 rounded-sm text-xs transition-colors',
             isHorizontal ? 'px-4' : 'w-full',
             isError &&
-            'border-red-500 bg-transparent text-red-500 hover:bg-red-500 hover:text-white dark:border-red-500 dark:text-red-500 dark:hover:bg-red-500'
+              'border-red-500 bg-transparent text-red-500 hover:bg-red-500 hover:text-white dark:border-red-500 dark:text-red-500 dark:hover:bg-red-500'
           )}
           variant={isError ? 'outline' : 'default'}
-          aria-label={`${buttonText} ${name} plan`}
+          aria-label={`${buttonText} ${name} tier`}
         >
           {isError ? 'Error' : buttonText}
         </Button>

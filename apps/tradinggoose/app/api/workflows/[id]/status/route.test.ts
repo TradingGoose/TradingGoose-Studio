@@ -57,6 +57,18 @@ describe('Workflow Status API Route', () => {
       loadWorkflowStateWithFallback: mockLoadWorkflowStateWithFallback,
     }))
 
+    vi.doMock('@/lib/workflows/utils', () => ({
+      hasWorkflowChanged: vi.fn((currentState, deployedState) => {
+        if (!Object.hasOwn(deployedState, 'variables')) {
+          return false
+        }
+        return (
+          JSON.stringify(currentState.variables ?? {}) !==
+          JSON.stringify(deployedState.variables ?? {})
+        )
+      }),
+    }))
+
     vi.doMock('@tradinggoose/db', () => ({
       db: {
         select: vi.fn().mockReturnValue({

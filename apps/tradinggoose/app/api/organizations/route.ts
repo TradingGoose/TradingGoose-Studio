@@ -3,10 +3,15 @@ import { member, organization } from '@tradinggoose/db/schema'
 import { and, eq, or } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
-import { createOrganizationForTeamPlan } from '@/lib/billing/organization'
+import { getEffectiveSubscription } from '@/lib/billing/core/subscription'
+import { createOrganizationForOrganizationTier } from '@/lib/billing/organization'
+import { getBillingGateState } from '@/lib/billing/settings'
 import { createLogger } from '@/lib/logs/console/logger'
+import { getOrganizationAccessState } from '@/lib/organization/access'
 
 const logger = createLogger('OrganizationsAPI')
+const ORGANIZATION_CREATION_FORBIDDEN_ERROR =
+  'Organization creation is not enabled for this billing tier.'
 
 export async function GET() {
   try {
@@ -32,8 +37,15 @@ export async function GET() {
         )
       )
 
+    const anyMembership = await db
+      .select({ id: member.id })
+      .from(member)
+      .where(eq(member.userId, session.user.id))
+      .limit(1)
+
     return NextResponse.json({
       organizations: userOrganizations,
+      isMemberOfAnyOrg: anyMembership.length > 0,
     })
   } catch (error) {
     logger.error('Failed to fetch organizations', {
@@ -71,7 +83,7 @@ export async function POST(request: Request) {
       // If no body or invalid JSON, use defaults
     }
 
-    logger.info('Creating organization for team plan', {
+    logger.info('Creating organization', {
       userId: user.id,
       userName: user.name,
       userEmail: user.email,
@@ -79,7 +91,6 @@ export async function POST(request: Request) {
       organizationSlug,
     })
 
-    // Enforce: a user can only belong to one organization at a time
     const existingOrgMembership = await db
       .select({ id: member.id })
       .from(member)
@@ -96,15 +107,32 @@ export async function POST(request: Request) {
       )
     }
 
-    // Create organization and make user the owner/admin
-    const organizationId = await createOrganizationForTeamPlan(
+    const [{ billingEnabled }, personalSubscription] = await Promise.all([
+      getBillingGateState(),
+      getEffectiveSubscription(user.id),
+    ])
+    const access = getOrganizationAccessState({
+      billingEnabled,
+      hasOrganization: false,
+      isOrganizationAdmin: false,
+      userTier: personalSubscription?.tier,
+    })
+
+    if (!access.canCreateOrganization) {
+      return NextResponse.json(
+        { error: ORGANIZATION_CREATION_FORBIDDEN_ERROR },
+        { status: 403 }
+      )
+    }
+
+    const organizationId = await createOrganizationForOrganizationTier(
       user.id,
       organizationName || undefined,
-      user.email,
+      user.email || undefined,
       organizationSlug
     )
 
-    logger.info('Successfully created organization for team plan', {
+    logger.info('Successfully created organization', {
       userId: user.id,
       organizationId,
     })
@@ -114,7 +142,7 @@ export async function POST(request: Request) {
       organizationId,
     })
   } catch (error) {
-    logger.error('Failed to create organization for team plan', {
+    logger.error('Failed to create organization', {
       error: error instanceof Error ? error.message : 'Unknown error',
       stack: error instanceof Error ? error.stack : undefined,
     })

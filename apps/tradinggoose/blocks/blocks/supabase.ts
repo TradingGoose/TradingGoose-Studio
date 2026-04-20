@@ -14,7 +14,7 @@ export const SupabaseBlock: BlockConfig<SupabaseResponse> = {
     'Integrate Supabase into the workflow. Can get many rows, get, create, update, delete, and upsert a row.',
   docsLink: 'https://docs.tradinggoose.ai/tools/supabase',
   category: 'tools',
-  bgColor: undefined,
+  bgColor: '#3ECF8E',
   icon: SupabaseIcon,
   subBlocks: [
     {

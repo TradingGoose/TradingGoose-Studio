@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMockRequest, setupCommonApiMocks } from '@/app/api/__test-utils__/utils'
 import { EDIT_REPLAY_BLOCKED_MESSAGE } from '@/lib/copilot/chat-replay-safety'
 
-describe('Copilot Chat Update Messages Review Sessions', () => {
+describe('Copilot Chat Update Messages', () => {
   const mockAuthenticate = vi.fn()
   const mockLoadReviewSessionForUser = vi.fn()
   const mockTransaction = vi.fn()
@@ -195,12 +195,12 @@ describe('Copilot Chat Update Messages Review Sessions', () => {
     vi.restoreAllMocks()
   })
 
-  it('allows a collaborator to update messages for a shared saved-entity review session', async () => {
+  it('updates messages for a generic copilot chat session', async () => {
     mockLoadReviewSessionForUser.mockResolvedValue({
       id: 'review-session-1',
       userId: 'creator-user',
-      entityKind: 'skill',
-      entityId: 'skill-1',
+      entityKind: 'copilot',
+      entityId: null,
       workspaceId: 'workspace-1',
     })
 
@@ -228,7 +228,7 @@ describe('Copilot Chat Update Messages Review Sessions', () => {
     expect(response.status).toBe(200)
     await expect(response.json()).resolves.toEqual({
       success: true,
-      messageCount: 3,
+      messageCount: 2,
     })
 
     expect(mockLoadReviewSessionForUser).toHaveBeenCalledWith(
@@ -237,17 +237,17 @@ describe('Copilot Chat Update Messages Review Sessions', () => {
       { requireWrite: true }
     )
     expect(mockTransaction).toHaveBeenCalledTimes(1)
-    expect(deleteWhere).not.toHaveBeenCalled()
-    expect(insertValues).not.toHaveBeenCalled()
-    expect(updateWhere).not.toHaveBeenCalled()
+    expect(deleteWhere).toHaveBeenCalledTimes(2)
+    expect(insertValues).toHaveBeenCalledTimes(2)
+    expect(updateWhere).toHaveBeenCalledTimes(2)
   })
 
-  it('preserves newer collaborator turns when the owner saves edits to older shared-session messages', async () => {
+  it('rewrites generic copilot chat messages exactly', async () => {
     mockLoadReviewSessionForUser.mockResolvedValue({
       id: 'review-session-1',
       userId: 'collaborator-user',
-      entityKind: 'skill',
-      entityId: 'skill-1',
+      entityKind: 'copilot',
+      entityId: null,
       workspaceId: 'workspace-1',
     })
 
@@ -275,12 +275,12 @@ describe('Copilot Chat Update Messages Review Sessions', () => {
     expect(response.status).toBe(200)
     await expect(response.json()).resolves.toEqual({
       success: true,
-      messageCount: 3,
+      messageCount: 2,
     })
 
     expect(deleteWhere).toHaveBeenCalledTimes(2)
     expect(insertValues).toHaveBeenCalledTimes(2)
-    expect(updateWhere).toHaveBeenCalledTimes(1)
+    expect(updateWhere).toHaveBeenCalledTimes(2)
     expect(insertValues.mock.calls[1]?.[0]).toEqual([
       expect.objectContaining({
         itemId: 'message-1',
@@ -290,25 +290,20 @@ describe('Copilot Chat Update Messages Review Sessions', () => {
         itemId: 'message-2',
         content: 'Updated draft saved.',
       }),
-      expect.objectContaining({
-        itemId: 'message-3',
-        content: 'Collaborator note added after load',
-      }),
     ])
   })
 
-  it('uses exact rewrite mode for shared-session edit replay truncation', async () => {
+  it('uses exact rewrite mode for edit replay truncation', async () => {
     mockLoadReviewSessionForUser.mockResolvedValue({
       id: 'review-session-1',
       userId: 'collaborator-user',
-      entityKind: 'skill',
-      entityId: 'skill-1',
+      entityKind: 'copilot',
+      entityId: null,
       workspaceId: 'workspace-1',
     })
 
     const request = createMockRequest('POST', {
       reviewSessionId: 'review-session-1',
-      preserveConcurrentHistory: false,
       messages: [
         {
           id: 'message-1',
@@ -330,7 +325,7 @@ describe('Copilot Chat Update Messages Review Sessions', () => {
 
     expect(deleteWhere).toHaveBeenCalledTimes(2)
     expect(insertValues).toHaveBeenCalledTimes(2)
-    expect(updateWhere).toHaveBeenCalledTimes(1)
+    expect(updateWhere).toHaveBeenCalledTimes(2)
     expect(insertValues.mock.calls[1]?.[0]).toEqual([
       expect.objectContaining({
         itemId: 'message-1',
@@ -341,6 +336,30 @@ describe('Copilot Chat Update Messages Review Sessions', () => {
 
   it('returns not found when the caller cannot access the review session', async () => {
     mockLoadReviewSessionForUser.mockResolvedValue(null)
+
+    const request = createMockRequest('POST', {
+      reviewSessionId: 'review-session-1',
+      messages: [],
+    })
+
+    const { POST } = await import('@/app/api/copilot/chat/update-messages/route')
+    const response = await POST(request)
+
+    expect(response.status).toBe(404)
+    await expect(response.json()).resolves.toEqual({
+      error: 'Review session not found or unauthorized',
+    })
+    expect(mockTransaction).not.toHaveBeenCalled()
+  })
+
+  it('rejects entity-bound sessions for generic copilot chat rewrites', async () => {
+    mockLoadReviewSessionForUser.mockResolvedValue({
+      id: 'review-session-1',
+      userId: 'collaborator-user',
+      entityKind: 'skill',
+      entityId: 'skill-1',
+      workspaceId: 'workspace-1',
+    })
 
     const request = createMockRequest('POST', {
       reviewSessionId: 'review-session-1',
@@ -429,15 +448,15 @@ describe('Copilot Chat Update Messages Review Sessions', () => {
     })
     expect(deleteWhere).not.toHaveBeenCalled()
     expect(insertValues).not.toHaveBeenCalled()
-    expect(updateWhere).not.toHaveBeenCalled()
+    expect(updateWhere).toHaveBeenCalledTimes(1)
   })
 
   it('rejects rewrites that would drop later accepted shared-entity mutations', async () => {
     mockLoadReviewSessionForUser.mockResolvedValue({
       id: 'review-session-1',
       userId: 'collaborator-user',
-      entityKind: 'skill',
-      entityId: 'skill-1',
+      entityKind: 'copilot',
+      entityId: null,
       workspaceId: 'workspace-1',
     })
 
@@ -458,10 +477,10 @@ describe('Copilot Chat Update Messages Review Sessions', () => {
         toolCalls: [
           {
             id: 'tool-entity-1',
-            name: 'manage_skill',
+            name: 'edit_skill',
             state: 'success',
             params: {
-              operation: 'edit',
+              entityDocument: '{}',
             },
           },
         ],
@@ -471,11 +490,9 @@ describe('Copilot Chat Update Messages Review Sessions', () => {
             timestamp: 1,
             toolCall: {
               id: 'tool-entity-1',
-              name: 'manage_skill',
+              name: 'edit_skill',
               state: 'success',
-              result: {
-                operation: 'edit',
-              },
+              result: {},
             },
           },
         ],
@@ -491,7 +508,6 @@ describe('Copilot Chat Update Messages Review Sessions', () => {
 
     const request = createMockRequest('POST', {
       reviewSessionId: 'review-session-1',
-      preserveConcurrentHistory: false,
       messages: [
         {
           id: 'message-1',
@@ -511,15 +527,15 @@ describe('Copilot Chat Update Messages Review Sessions', () => {
     })
     expect(deleteWhere).not.toHaveBeenCalled()
     expect(insertValues).not.toHaveBeenCalled()
-    expect(updateWhere).not.toHaveBeenCalled()
+    expect(updateWhere).toHaveBeenCalledTimes(1)
   })
 
   it('persists tool-state-only message updates when ids and text stay the same', async () => {
     mockLoadReviewSessionForUser.mockResolvedValue({
       id: 'review-session-1',
       userId: 'collaborator-user',
-      entityKind: 'skill',
-      entityId: 'skill-1',
+      entityKind: 'copilot',
+      entityId: null,
       workspaceId: 'workspace-1',
     })
 
@@ -591,7 +607,7 @@ describe('Copilot Chat Update Messages Review Sessions', () => {
     })
     expect(deleteWhere).toHaveBeenCalledTimes(2)
     expect(insertValues).toHaveBeenCalledTimes(2)
-    expect(updateWhere).toHaveBeenCalledTimes(1)
+    expect(updateWhere).toHaveBeenCalledTimes(2)
     expect(insertValues.mock.calls[1]?.[0]).toEqual([
       expect.objectContaining({
         itemId: 'message-1',

@@ -3,23 +3,27 @@ import { z } from 'zod'
 import {
   authenticateCopilotRequestSessionOnly,
   createBadRequestResponse,
-  createInternalServerErrorResponse,
   createRequestTracker,
   createUnauthorizedResponse,
 } from '@/lib/copilot/auth'
-import { ToolIds } from '@/lib/copilot/registry'
-import { routeExecution } from '@/lib/copilot/tools/server/router'
+import { buildCopilotServerToolErrorResponse } from '@/lib/copilot/server-tool-errors'
 import { createLogger } from '@/lib/logs/console/logger'
 
 const logger = createLogger('ExecuteCopilotServerToolAPI')
 
 const ExecuteSchema = z.object({
-  toolName: ToolIds,
+  toolName: z.string().min(1),
   payload: z.unknown().optional(),
+  context: z
+    .object({
+      contextWorkflowId: z.string().optional(),
+    })
+    .optional(),
 })
 
 export async function POST(req: NextRequest) {
   const tracker = createRequestTracker()
+  let toolName: string | undefined
   try {
     const { userId, isAuthenticated } = await authenticateCopilotRequestSessionOnly()
     if (!isAuthenticated || !userId) {
@@ -32,10 +36,32 @@ export async function POST(req: NextRequest) {
       logger.debug(`[${tracker.requestId}] Incoming request body preview`, { preview })
     } catch {}
 
-    const { toolName, payload } = ExecuteSchema.parse(body)
+    let parsedBody: z.infer<typeof ExecuteSchema>
+    try {
+      parsedBody = ExecuteSchema.parse(body)
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        logger.debug(`[${tracker.requestId}] Execute request envelope validation error`, {
+          issues: error.issues,
+        })
+        return createBadRequestResponse('Invalid request body for execute-copilot-server-tool')
+      }
+      throw error
+    }
+    toolName = parsedBody.toolName
+    const { payload, context } = parsedBody
+
+    const [{ isToolId }, { routeExecution }] = await Promise.all([
+      import('@/lib/copilot/registry'),
+      import('@/lib/copilot/tools/server/router'),
+    ])
+
+    if (!isToolId(toolName)) {
+      return createBadRequestResponse('Invalid request body for execute-copilot-server-tool')
+    }
 
     logger.info(`[${tracker.requestId}] Executing server tool`, { toolName })
-    const result = await routeExecution(toolName, payload, { userId })
+    const result = await routeExecution(toolName, payload, { userId, ...context })
 
     try {
       const resultPreview = JSON.stringify(result).slice(0, 300)
@@ -44,12 +70,8 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ success: true, result })
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      logger.debug(`[${tracker.requestId}] Zod validation error`, { issues: error.issues })
-      return createBadRequestResponse('Invalid request body for execute-copilot-server-tool')
-    }
     logger.error(`[${tracker.requestId}] Failed to execute server tool:`, error)
-    const errorMessage = error instanceof Error ? error.message : 'Failed to execute server tool'
-    return createInternalServerErrorResponse(errorMessage)
+    const structuredError = buildCopilotServerToolErrorResponse(toolName, error)
+    return NextResponse.json(structuredError.body, { status: structuredError.status })
   }
 }

@@ -25,7 +25,7 @@ const logger = createLogger('CancelSubscription')
 
 interface CancelSubscriptionProps {
   subscription: {
-    plan: string
+    tierDisplayName: string
     status: string | null
     isPaid: boolean
   }
@@ -60,7 +60,7 @@ export function CancelSubscription({ subscription, subscriptionData }: CancelSub
     }
   }, [error])
 
-  // Don't show for free plans
+  // Don't show for free tiers
   if (!subscription.isPaid) {
     return null
   }
@@ -78,7 +78,7 @@ export function CancelSubscription({ subscription, subscriptionData }: CancelSub
       let referenceId = session.user.id
       let subscriptionId: string | undefined
 
-      if (subscriptionStatus.isTeam && activeOrgId) {
+      if (subscriptionStatus.tier.ownerType === 'organization' && activeOrgId) {
         referenceId = activeOrgId
         subscriptionId = billingPayload?.id
       }
@@ -86,7 +86,7 @@ export function CancelSubscription({ subscription, subscriptionData }: CancelSub
       logger.info('Canceling subscription', {
         referenceId,
         subscriptionId,
-        isTeam: subscriptionStatus.isTeam,
+        ownerType: subscriptionStatus.tier.ownerType,
         activeOrgId,
       })
 
@@ -97,6 +97,7 @@ export function CancelSubscription({ subscription, subscriptionData }: CancelSub
       const returnUrl = getBaseUrl() + window.location.pathname.split('/w/')[0]
 
       const cancelParams: any = {
+        customerType: subscriptionStatus.tier.ownerType,
         returnUrl,
         referenceId,
       }
@@ -139,7 +140,7 @@ export function CancelSubscription({ subscription, subscriptionData }: CancelSub
         let referenceId: string
         let subscriptionId: string | undefined
 
-        if ((subscriptionStatus.isTeam || subscriptionStatus.isEnterprise) && activeOrgId) {
+        if (subscriptionStatus.tier.ownerType === 'organization' && activeOrgId) {
           referenceId = activeOrgId
           subscriptionId = billingPayload?.id
         } else {
@@ -151,7 +152,10 @@ export function CancelSubscription({ subscription, subscriptionData }: CancelSub
         logger.info('Restoring subscription', { referenceId, subscriptionId })
 
         // Build restore params - only include subscriptionId if we have one (team/enterprise)
-        const restoreParams: any = { referenceId }
+        const restoreParams: any = {
+          customerType: subscriptionStatus.tier.ownerType,
+          referenceId,
+        }
         if (subscriptionId) {
           restoreParams.subscriptionId = subscriptionId
         }
@@ -244,14 +248,15 @@ export function CancelSubscription({ subscription, subscriptionData }: CancelSub
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {isCancelAtPeriodEnd ? 'Restore' : 'Cancel'} {subscription.plan} subscription?
+              {isCancelAtPeriodEnd ? 'Restore' : 'Cancel'} {subscription.tierDisplayName}{' '}
+              subscription?
             </AlertDialogTitle>
             <AlertDialogDescription>
               {isCancelAtPeriodEnd
                 ? 'Your subscription is set to cancel at the end of the billing period. Would you like to keep your subscription active?'
                 : `You'll be redirected to Stripe to manage your subscription. You'll keep access until ${formatDate(
                     periodEndDate
-                  )}, then downgrade to free plan.`}{' '}
+                  )}, then move to the default tier.`}{' '}
               {!isCancelAtPeriodEnd && (
                 <span className='text-red-500 dark:text-red-500'>
                   This action cannot be undone.

@@ -1,7 +1,7 @@
 import { db, workflowDeploymentVersion } from '@tradinggoose/db'
 import { and, desc, eq } from 'drizzle-orm'
 import type { NextRequest, NextResponse } from 'next/server'
-import { verifyInternalToken } from '@/lib/auth/internal'
+import { verifyInternalTokenDetailed } from '@/lib/auth/internal'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
 import { validateWorkflowPermissions } from '@/lib/workflows/utils'
@@ -29,7 +29,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
     if (authHeader?.startsWith('Bearer ')) {
       const token = authHeader.split(' ')[1]
-      isInternalCall = await verifyInternalToken(token)
+      const verification = await verifyInternalTokenDetailed(token)
+      isInternalCall = verification.valid
     }
 
     if (!isInternalCall) {

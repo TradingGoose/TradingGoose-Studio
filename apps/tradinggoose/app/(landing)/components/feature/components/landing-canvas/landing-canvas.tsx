@@ -1,8 +1,8 @@
 'use client'
 
 import React from 'react'
-import type { Edge, Node } from 'reactflow'
-import { ReactFlowProvider } from 'reactflow'
+import type { Edge, Node } from '@xyflow/react'
+import { ReactFlowProvider } from '@xyflow/react'
 import { DotPattern } from './dot-pattern'
 import type { LandingCardData } from './landing-block/landing-block'
 import { LandingFlow } from './landing-flow'

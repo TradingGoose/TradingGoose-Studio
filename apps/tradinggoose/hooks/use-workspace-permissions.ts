@@ -157,7 +157,7 @@ export function useWorkspacePermissions(workspaceId: string | null): UseWorkspac
 
   useEffect(() => {
     if (!workspaceId) {
-      return () => { }
+      return () => {}
     }
     fetchPermissions(workspaceId).catch((error) => {
       logger.error('Failed to load workspace permissions', { workspaceId, error })

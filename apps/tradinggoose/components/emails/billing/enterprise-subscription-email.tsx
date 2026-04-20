@@ -1,11 +1,10 @@
-import * as React from 'react'
 import { Body, Container, Head, Html, Link, Preview, Section, Text } from '@react-email/components'
 import { format } from 'date-fns'
-import { getBrandConfig } from '@/lib/branding/branding'
-import { getBaseUrl } from '@/lib/urls/utils'
 import { baseStyles } from '@/components/emails/base-styles'
 import EmailFooter from '@/components/emails/footer'
 import EmailHeader from '@/components/emails/header'
+import { getBrandConfig } from '@/lib/branding/branding'
+import { getBaseUrl } from '@/lib/urls/utils'
 
 interface EnterpriseSubscriptionEmailProps {
   userName?: string
@@ -28,15 +27,15 @@ export const EnterpriseSubscriptionEmail = ({
     <Html>
       <Head />
       <Body style={baseStyles.main}>
-        <Preview>Your Enterprise Plan is active on {brand.name}</Preview>
+        <Preview>Your organization billing is active on {brand.name}</Preview>
         <Container style={baseStyles.container}>
           <EmailHeader />
 
           <Section style={baseStyles.content}>
-            <Text style={baseStyles.title}>Enterprise plan activated</Text>
+            <Text style={baseStyles.title}>Organization billing activated</Text>
             <Text style={baseStyles.paragraph}>Welcome aboard, {userName}.</Text>
             <Text style={baseStyles.paragraph}>
-              Your <strong>Enterprise Plan</strong> is live on {brand.name}. You now have expanded
+              Your organization billing tier is live on {brand.name}. You now have expanded
               capacity, advanced controls, and organization-wide access.
             </Text>
 
@@ -46,7 +45,13 @@ export const EnterpriseSubscriptionEmail = ({
                   <tr>
                     <td align='center'>
                       <Link href={effectiveLoginLink} style={{ textDecoration: 'none' }}>
-                        <Text style={{ ...baseStyles.button, display: 'inline-block', margin: '22px 0' }}>
+                        <Text
+                          style={{
+                            ...baseStyles.button,
+                            display: 'inline-block',
+                            margin: '22px 0',
+                          }}
+                        >
                           Access Your Account
                         </Text>
                       </Link>

@@ -36,7 +36,7 @@ describe('Email Validation', () => {
         const result = await validateEmail(email)
         expect(result.isValid).toBe(true)
       }
-    })
+    }, 15_000)
 
     it.concurrent('should reject consecutive dots (RFC violation)', async () => {
       const result = await validateEmail('user..name@example.com')

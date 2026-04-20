@@ -7,8 +7,8 @@ import {
   getMicrosoftRefreshTokenExpiry,
   isMicrosoftProvider,
   PROACTIVE_REFRESH_THRESHOLD_DAYS,
-  refreshOAuthToken,
 } from '@/lib/oauth/oauth'
+import { refreshOAuthToken } from '@/lib/oauth/oauth.server'
 
 const logger = createLogger('OAuthUtilsAPI')
 

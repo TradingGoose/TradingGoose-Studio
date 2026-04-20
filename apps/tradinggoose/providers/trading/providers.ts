@@ -1,7 +1,6 @@
 import type React from 'react'
 import type { AssetClass } from '@/providers/market/types'
 import { alpacaTradingProviderConfig } from '@/providers/trading/alpaca/config'
-import { robinhoodTradingProviderConfig } from '@/providers/trading/robinhood/config'
 import { tradierTradingProviderConfig } from '@/providers/trading/tradier/config'
 import type {
   TradingAuthType,
@@ -244,43 +243,6 @@ export const TRADING_PROVIDER_DEFINITIONS: Record<string, TradingProviderDefinit
       timeInForce: 'day',
     },
     config: tradierTradingProviderConfig,
-  },
-  robinhood: {
-    id: 'robinhood',
-    name: 'Robinhood',
-    description: 'Robinhood brokerage (OAuth).',
-    authType: 'oauth',
-    oauth: {
-      provider: 'robinhood',
-      serviceId: 'robinhood',
-      scopes: ['internal', 'read', 'trading'],
-      credentialTitle: 'Robinhood Account',
-      credentialPlaceholder: 'Select or connect Robinhood account',
-    },
-    fields: [
-      {
-        id: 'accountUrl',
-        label: 'Robinhood Account URL',
-        type: 'string',
-        for: 'both',
-        required: false,
-        description: 'Account resource URL (optional if default account is used).',
-      },
-      {
-        id: 'instrumentUrl',
-        label: 'Instrument URL',
-        type: 'string',
-        for: 'order',
-        required: true,
-        description:
-          'Instrument resource URL for the symbol (can be retrieved via /instruments?symbol=SYMBOL).',
-      },
-    ],
-    defaults: {
-      orderType: 'market',
-      timeInForce: 'gfd',
-    },
-    config: robinhoodTradingProviderConfig,
   },
 }
 

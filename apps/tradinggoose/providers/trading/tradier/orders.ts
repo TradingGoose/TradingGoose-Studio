@@ -1,10 +1,11 @@
 import { buildTradierAuthHeaders, resolveTradierBaseUrl } from '@/providers/trading/tradier/client'
-import { normalizeTradierListingSymbol } from '@/providers/trading/tradier/listing'
+import { tradierTradingProviderConfig } from '@/providers/trading/tradier/config'
 import type {
   TradingOrder,
   TradingOrderInput,
   TradingRequestConfig,
 } from '@/providers/trading/types'
+import { listingIdentityToTradingSymbol } from '@/providers/trading/utils'
 
 const normalizeTradierOrderType = (value?: string) => {
   if (typeof value !== 'string' || !value.trim()) return 'market'
@@ -36,7 +37,7 @@ export const buildTradierOrderRequest = (params: TradingOrderInput): TradingRequ
   const authHeaders = buildTradierAuthHeaders(params)
   const baseUrl = resolveTradierBaseUrl(params.environment)
 
-  const symbol = normalizeTradierListingSymbol({
+  const symbol = listingIdentityToTradingSymbol(tradierTradingProviderConfig, {
     listing: params.listing,
     base: params.base,
     quote: params.quote,
@@ -44,7 +45,6 @@ export const buildTradierOrderRequest = (params: TradingOrderInput): TradingRequ
     marketCode: params.marketCode,
     countryCode: params.countryCode,
     cityName: params.cityName,
-    timeZoneName: params.timeZoneName,
   })
 
   const providerParams = params.providerParams ?? {}

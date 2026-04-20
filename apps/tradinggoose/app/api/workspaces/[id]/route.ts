@@ -1,14 +1,30 @@
-import { workflow } from '@tradinggoose/db/schema'
+import { workflow } from '@tradinggoose/db'
 import { and, eq, inArray } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
+import { z } from 'zod'
 import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
+import {
+  checkWorkspaceAccess,
+  getUserEntityPermissions,
+  getWorkspaceById,
+} from '@/lib/permissions/utils'
+import {
+  resolveWorkspaceBillingOwnerUpdate,
+  toWorkspaceApiRecord,
+  WorkspaceBillingOwnerUpdateError,
+  workspaceBillingOwnerSchema,
+} from '@/lib/workspaces/billing-owner'
 
 const logger = createLogger('WorkspaceByIdAPI')
 
-import { db } from '@tradinggoose/db'
-import { knowledgeBase, permissions, templates, workspace } from '@tradinggoose/db/schema'
-import { getUserEntityPermissions } from '@/lib/permissions/utils'
+import { db, knowledgeBase, permissions, templates, workspace } from '@tradinggoose/db'
+
+const patchWorkspaceSchema = z.object({
+  name: z.string().trim().min(1).optional(),
+  allowPersonalApiKeys: z.boolean().optional(),
+  billingOwner: workspaceBillingOwnerSchema.optional(),
+})
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -22,7 +38,11 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const url = new URL(request.url)
   const checkTemplates = url.searchParams.get('check-templates') === 'true'
 
-  // Check if user has any access to this workspace
+  const access = await checkWorkspaceAccess(workspaceId, session.user.id)
+  if (!access.exists || !access.hasAccess || !access.workspace) {
+    return NextResponse.json({ error: 'Workspace not found or access denied' }, { status: 404 })
+  }
+
   const userPermission = await getUserEntityPermissions(session.user.id, 'workspace', workspaceId)
   if (!userPermission) {
     return NextResponse.json({ error: 'Workspace not found or access denied' }, { status: 404 })
@@ -64,20 +84,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     }
   }
 
-  // Get workspace details
-  const workspaceDetails = await db
-    .select()
-    .from(workspace)
-    .where(eq(workspace.id, workspaceId))
-    .then((rows) => rows[0])
-
-  if (!workspaceDetails) {
-    return NextResponse.json({ error: 'Workspace not found' }, { status: 404 })
-  }
-
   return NextResponse.json({
     workspace: {
-      ...workspaceDetails,
+      ...toWorkspaceApiRecord(access.workspace),
       permissions: userPermission,
     },
   })
@@ -100,36 +109,78 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   }
 
   try {
-    const { name } = await request.json()
+    const { name, allowPersonalApiKeys, billingOwner } = patchWorkspaceSchema.parse(
+      await request.json()
+    )
 
-    if (!name) {
-      return NextResponse.json({ error: 'Name is required' }, { status: 400 })
+    if (name === undefined && allowPersonalApiKeys === undefined && billingOwner === undefined) {
+      return NextResponse.json({ error: 'No updates provided' }, { status: 400 })
     }
 
-    // Update workspace
+    const existingWorkspace = await getWorkspaceById(workspaceId)
+
+    if (!existingWorkspace) {
+      return NextResponse.json({ error: 'Workspace not found' }, { status: 404 })
+    }
+
+    const updateData: Record<string, unknown> = {}
+
+    if (name !== undefined) {
+      updateData.name = name
+    }
+
+    if (allowPersonalApiKeys !== undefined) {
+      updateData.allowPersonalApiKeys = allowPersonalApiKeys
+    }
+
+    if (billingOwner !== undefined) {
+      Object.assign(
+        updateData,
+        await resolveWorkspaceBillingOwnerUpdate({
+          actingUserId: session.user.id,
+          workspaceId,
+          workspaceOwnerId: existingWorkspace.ownerId,
+          billingOwner,
+        })
+      )
+    }
+
+    if (Object.keys(updateData).length === 0) {
+      return NextResponse.json({ error: 'No valid updates provided' }, { status: 400 })
+    }
+
     await db
       .update(workspace)
       .set({
-        name,
+        ...updateData,
         updatedAt: new Date(),
       })
       .where(eq(workspace.id, workspaceId))
 
-    // Get updated workspace
-    const updatedWorkspace = await db
-      .select()
-      .from(workspace)
-      .where(eq(workspace.id, workspaceId))
-      .then((rows) => rows[0])
+    const updatedWorkspace = await getWorkspaceById(workspaceId)
+    if (!updatedWorkspace) {
+      return NextResponse.json({ error: 'Workspace not found' }, { status: 404 })
+    }
 
     return NextResponse.json({
       workspace: {
-        ...updatedWorkspace,
+        ...toWorkspaceApiRecord(updatedWorkspace),
         permissions: userPermission,
       },
     })
   } catch (error) {
-    console.error('Error updating workspace:', error)
+    logger.error('Error updating workspace:', error)
+    if (error instanceof z.ZodError) {
+      return NextResponse.json(
+        { error: error.issues[0]?.message ?? 'Invalid workspace update payload' },
+        { status: 400 }
+      )
+    }
+
+    if (error instanceof WorkspaceBillingOwnerUpdateError) {
+      return NextResponse.json({ error: error.message }, { status: 400 })
+    }
+
     return NextResponse.json({ error: 'Failed to update workspace' }, { status: 500 })
   }
 }
@@ -148,6 +199,11 @@ export async function DELETE(
   const workspaceId = id
   const body = await request.json().catch(() => ({}))
   const { deleteTemplates = false } = body // User's choice: false = keep templates (recommended), true = delete templates
+
+  const existingWorkspace = await getWorkspaceById(workspaceId)
+  if (!existingWorkspace) {
+    return NextResponse.json({ error: 'Workspace not found' }, { status: 404 })
+  }
 
   // Check if user has admin permissions to delete workspace
   const userPermission = await getUserEntityPermissions(session.user.id, 'workspace', workspaceId)

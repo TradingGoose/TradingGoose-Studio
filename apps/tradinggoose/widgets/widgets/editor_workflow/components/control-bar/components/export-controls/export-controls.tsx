@@ -5,8 +5,8 @@ import { ArrowDownToLine } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { createLogger } from '@/lib/logs/console/logger'
-import { sanitizeForExport } from '@/lib/workflows/json-sanitizer'
-import { getWorkflowWithValues } from '@/stores/workflows'
+import { useSkills } from '@/hooks/queries/skills'
+import { useWorkflowJsonStore } from '@/stores/workflows/json/store'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import { widgetHeaderIconButtonClassName } from '@/widgets/widgets/components/widget-header-control'
 import { useWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
@@ -24,7 +24,13 @@ export function ExportControls({ disabled = false, variant = 'workspace' }: Expo
   const [isExporting, setIsExporting] = useState(false)
   const { workflows } = useWorkflowRegistry()
   const { workflowId, channelId } = useWorkflowRoute()
+  const { getJson: getWorkflowExportJson } = useWorkflowJsonStore()
+
   const currentWorkflow = workflowId ? workflows[workflowId] : null
+  const workflowWorkspaceId = currentWorkflow?.workspaceId ?? null
+  const { data: workspaceSkills = [], refetch: refetchWorkspaceSkills } = useSkills(
+    workflowWorkspaceId ?? ''
+  )
 
   const downloadFile = (content: string, filename: string, mimeType: string) => {
     try {
@@ -50,13 +56,18 @@ export function ExportControls({ disabled = false, variant = 'workspace' }: Expo
 
     setIsExporting(true)
     try {
-      // Read live workflow state from Yjs and sanitize for export
-      const workflow = getWorkflowWithValues(workflowId, channelId)
-      if (!workflow?.state) {
+      const refreshedSkills = workflowWorkspaceId ? await refetchWorkspaceSkills() : null
+      const exportWorkspaceSkills = refreshedSkills?.data ?? workspaceSkills
+
+      const jsonContent = await getWorkflowExportJson({
+        workflowId,
+        channelId,
+        workspaceSkills: exportWorkspaceSkills,
+      })
+
+      if (!jsonContent) {
         throw new Error('Failed to generate JSON')
       }
-      const exportState = sanitizeForExport(workflow.state)
-      const jsonContent = JSON.stringify(exportState, null, 2)
 
       const filename = `${currentWorkflow.name.replace(/[^a-z0-9]/gi, '-')}.json`
       downloadFile(jsonContent, filename, 'application/json')

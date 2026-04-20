@@ -5,6 +5,7 @@ import { and, eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { getEmailSubject, renderInvitationEmail } from '@/components/emails/render-email'
 import { getSession } from '@/lib/auth'
+import { getOrganizationBillingData } from '@/lib/billing/core/organization'
 import { getUserUsageData } from '@/lib/billing/core/usage'
 import { validateSeatAvailability } from '@/lib/billing/validation/seat-management'
 import { sendEmail } from '@/lib/email/mailer'
@@ -74,13 +75,47 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
           userName: user.name,
           userEmail: user.email,
           currentPeriodCost: userStats.currentPeriodCost,
-          currentUsageLimit: userStats.currentUsageLimit,
-          usageLimitUpdatedAt: userStats.usageLimitUpdatedAt,
+          customUsageLimit: userStats.customUsageLimit,
+          customUsageLimitUpdatedAt: userStats.customUsageLimitUpdatedAt,
         })
         .from(member)
         .innerJoin(user, eq(member.userId, user.id))
         .leftJoin(userStats, eq(user.id, userStats.userId))
         .where(eq(member.organizationId, organizationId))
+
+      const organizationBillingData = await getOrganizationBillingData(organizationId)
+
+      if (organizationBillingData?.subscriptionTier) {
+        const usageScope = organizationBillingData.subscriptionTier.usageScope
+        const memberUsageByUserId = new Map(
+          organizationBillingData.members.map((organizationMember) => [
+            organizationMember.userId,
+            organizationMember.currentUsage,
+          ])
+        )
+        const billingPeriodStart = organizationBillingData.billingPeriodStart
+        const billingPeriodEnd = organizationBillingData.billingPeriodEnd
+        const sharedCurrentPeriodCost =
+          usageScope === 'pooled' ? organizationBillingData.totalCurrentUsage : null
+
+        const membersWithUsage = base.map((row) => ({
+          ...row,
+          currentPeriodCost:
+            usageScope === 'individual' ? (memberUsageByUserId.get(row.userId) ?? 0) : null,
+          billingPeriodStart,
+          billingPeriodEnd,
+        }))
+
+        return NextResponse.json({
+          success: true,
+          data: membersWithUsage,
+          total: membersWithUsage.length,
+          userRole,
+          hasAdminAccess,
+          usageScope,
+          sharedCurrentPeriodCost,
+        })
+      }
 
       const membersWithUsage = await Promise.all(
         base.map(async (row) => {
@@ -173,18 +208,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       return NextResponse.json({ error: 'Forbidden - Admin access required' }, { status: 403 })
     }
 
-    // Check seat availability
-    const seatValidation = await validateSeatAvailability(organizationId, 1)
-    if (!seatValidation.canInvite) {
-      return NextResponse.json(
-        {
-          error: `Cannot invite member. Using ${seatValidation.currentSeats} of ${seatValidation.maxSeats} seats.`,
-          details: seatValidation,
-        },
-        { status: 400 }
-      )
-    }
-
     // Check if user is already a member
     const existingUser = await db
       .select({ id: user.id })
@@ -225,6 +248,18 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     if (existingInvitation.length > 0) {
       return NextResponse.json(
         { error: 'Pending invitation already exists for this email' },
+        { status: 400 }
+      )
+    }
+
+    // Check seat availability after filtering existing members and pending invitations.
+    const seatValidation = await validateSeatAvailability(organizationId, 1)
+    if (!seatValidation.canInvite) {
+      return NextResponse.json(
+        {
+          error: `Cannot invite member. Using ${seatValidation.currentSeats} of ${seatValidation.maxSeats} seats.`,
+          details: seatValidation,
+        },
         { status: 400 }
       )
     }

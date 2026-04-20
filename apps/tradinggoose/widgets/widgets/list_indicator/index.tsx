@@ -2,11 +2,12 @@
 
 import { useCallback } from 'react'
 import { ListChecks } from 'lucide-react'
+import { parseImportedIndicatorsFile } from '@/lib/indicators/import-export'
 import {
   useUserPermissionsContext,
   WorkspacePermissionsProvider,
 } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
-import { useCreateIndicator } from '@/hooks/queries/indicators'
+import { useCreateIndicator, useImportIndicators } from '@/hooks/queries/indicators'
 import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
 import { useIndicatorsStore } from '@/stores/indicators/store'
 import type { IndicatorDefinition } from '@/stores/indicators/types'
@@ -55,6 +56,7 @@ const IndicatorListHeaderRight = ({
 }) => {
   const permissions = useUserPermissionsContext()
   const createIndicatorMutation = useCreateIndicator()
+  const importMutation = useImportIndicators()
   const storedIndicators = useIndicatorsStore((state) =>
     workspaceId ? state.getAllIndicators(workspaceId) : []
   )
@@ -119,10 +121,31 @@ const IndicatorListHeaderRight = ({
     workspaceId,
   ])
 
+  const handleImportIndicator = useCallback(
+    async (content: string) => {
+      if (!workspaceId || importMutation.isPending || !permissions.canEdit) return
+
+      try {
+        const parsedFile = parseImportedIndicatorsFile(JSON.parse(content) as unknown)
+        await importMutation.mutateAsync({
+          workspaceId,
+          file: parsedFile,
+        })
+      } catch (error) {
+        console.error('Failed to import indicator', error)
+      }
+    },
+    [importMutation, permissions.canEdit, workspaceId]
+  )
+
   return (
     <IndicatorCreateMenu
       disabled={!workspaceId || !permissions.canEdit || createIndicatorMutation.isPending}
+      canCreate={!createIndicatorMutation.isPending && permissions.canEdit}
+      canImport={Boolean(workspaceId && permissions.canEdit)}
+      isImporting={importMutation.isPending}
       onCreateIndicator={handleCreateIndicator}
+      onImportIndicator={handleImportIndicator}
     />
   )
 }

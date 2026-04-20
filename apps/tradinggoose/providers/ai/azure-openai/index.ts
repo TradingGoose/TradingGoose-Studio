@@ -1,6 +1,6 @@
 import { AzureOpenAI } from 'openai'
-import { env } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
+import { resolveAzureOpenAIServiceConfig } from '@/lib/system-services/runtime'
 import type { StreamingExecution } from '@/executor/types'
 import { getProviderDefaultModel, getProviderModels } from '@/providers/ai/models'
 import type {
@@ -82,21 +82,20 @@ export const azureOpenAIProvider: ProviderConfig = {
       stream: !!request.stream,
     })
 
-    // Extract Azure-specific configuration from request or environment
-    // Priority: request parameters > environment variables
-    const azureEndpoint = request.azureEndpoint || env.AZURE_OPENAI_ENDPOINT
-    const azureApiVersion =
-      request.azureApiVersion || env.AZURE_OPENAI_API_VERSION || '2024-07-01-preview'
+    // Extract Azure-specific configuration from request or admin-managed system services.
+    // Priority: request parameters > system service defaults.
+    const azureServiceConfig = await resolveAzureOpenAIServiceConfig()
+    const azureEndpoint = request.azureEndpoint || azureServiceConfig.endpoint
+    const azureApiVersion = request.azureApiVersion || azureServiceConfig.apiVersion
 
     if (!azureEndpoint) {
       throw new Error(
-        'Azure OpenAI endpoint is required. Please provide it via azureEndpoint parameter or AZURE_OPENAI_ENDPOINT environment variable.'
+        'Azure OpenAI endpoint is required. Please provide it via azureEndpoint parameter or admin services.'
       )
     }
 
-    // API key is now handled server-side before this function is called
     const azureOpenAI = new AzureOpenAI({
-      apiKey: request.apiKey,
+      apiKey: request.apiKey || azureServiceConfig.apiKey || '',
       apiVersion: azureApiVersion,
       endpoint: azureEndpoint,
     })

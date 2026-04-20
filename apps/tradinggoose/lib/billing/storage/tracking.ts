@@ -7,7 +7,9 @@
 import { db } from '@tradinggoose/db'
 import { organization, userStats } from '@tradinggoose/db/schema'
 import { eq, sql } from 'drizzle-orm'
-import { isBillingEnabled } from '@/lib/environment'
+import { isBillingEnabledForRuntime } from '@/lib/billing/settings'
+import { isOrganizationSubscription } from '@/lib/billing/tiers'
+import { resolveWorkspaceBillingContext } from '@/lib/billing/workspace-billing'
 import { createLogger } from '@/lib/logs/console/logger'
 
 const logger = createLogger('StorageTracking')
@@ -16,27 +18,32 @@ const logger = createLogger('StorageTracking')
  * Increment storage usage after successful file upload
  * Only tracks if billing is enabled
  */
-export async function incrementStorageUsage(userId: string, bytes: number): Promise<void> {
-  if (!isBillingEnabled) {
+export async function incrementStorageUsage(
+  userId: string,
+  bytes: number,
+  workspaceId?: string | null
+): Promise<void> {
+  if (!(await isBillingEnabledForRuntime())) {
     logger.debug('Billing disabled, skipping storage increment')
     return
   }
 
   try {
-    // Check if user is in a team/enterprise org
-    const { getHighestPrioritySubscription } = await import('@/lib/billing/core/subscription')
-    const sub = await getHighestPrioritySubscription(userId)
+    const billingContext = await resolveWorkspaceBillingContext({
+      workspaceId,
+      actorUserId: userId,
+    })
 
-    if (sub && (sub.plan === 'team' || sub.plan === 'enterprise')) {
+    if (isOrganizationSubscription(billingContext.subscription)) {
       // Update organization storage
       await db
         .update(organization)
         .set({
           storageUsedBytes: sql`${organization.storageUsedBytes} + ${bytes}`,
         })
-        .where(eq(organization.id, sub.referenceId))
+        .where(eq(organization.id, billingContext.scopeId))
 
-      logger.info(`Incremented org storage: ${bytes} bytes for org ${sub.referenceId}`)
+      logger.info(`Incremented org storage: ${bytes} bytes for org ${billingContext.scopeId}`)
     } else {
       // Update user stats storage
       await db
@@ -44,9 +51,11 @@ export async function incrementStorageUsage(userId: string, bytes: number): Prom
         .set({
           storageUsedBytes: sql`${userStats.storageUsedBytes} + ${bytes}`,
         })
-        .where(eq(userStats.userId, userId))
+        .where(eq(userStats.userId, billingContext.billingUserId))
 
-      logger.info(`Incremented user storage: ${bytes} bytes for user ${userId}`)
+      logger.info(
+        `Incremented user storage: ${bytes} bytes for user ${billingContext.billingUserId}`
+      )
     }
   } catch (error) {
     logger.error('Error incrementing storage usage:', error)
@@ -58,27 +67,32 @@ export async function incrementStorageUsage(userId: string, bytes: number): Prom
  * Decrement storage usage after file deletion
  * Only tracks if billing is enabled
  */
-export async function decrementStorageUsage(userId: string, bytes: number): Promise<void> {
-  if (!isBillingEnabled) {
+export async function decrementStorageUsage(
+  userId: string,
+  bytes: number,
+  workspaceId?: string | null
+): Promise<void> {
+  if (!(await isBillingEnabledForRuntime())) {
     logger.debug('Billing disabled, skipping storage decrement')
     return
   }
 
   try {
-    // Check if user is in a team/enterprise org
-    const { getHighestPrioritySubscription } = await import('@/lib/billing/core/subscription')
-    const sub = await getHighestPrioritySubscription(userId)
+    const billingContext = await resolveWorkspaceBillingContext({
+      workspaceId,
+      actorUserId: userId,
+    })
 
-    if (sub && (sub.plan === 'team' || sub.plan === 'enterprise')) {
+    if (isOrganizationSubscription(billingContext.subscription)) {
       // Update organization storage
       await db
         .update(organization)
         .set({
           storageUsedBytes: sql`GREATEST(0, ${organization.storageUsedBytes} - ${bytes})`,
         })
-        .where(eq(organization.id, sub.referenceId))
+        .where(eq(organization.id, billingContext.scopeId))
 
-      logger.info(`Decremented org storage: ${bytes} bytes for org ${sub.referenceId}`)
+      logger.info(`Decremented org storage: ${bytes} bytes for org ${billingContext.scopeId}`)
     } else {
       // Update user stats storage
       await db
@@ -86,9 +100,11 @@ export async function decrementStorageUsage(userId: string, bytes: number): Prom
         .set({
           storageUsedBytes: sql`GREATEST(0, ${userStats.storageUsedBytes} - ${bytes})`,
         })
-        .where(eq(userStats.userId, userId))
+        .where(eq(userStats.userId, billingContext.billingUserId))
 
-      logger.info(`Decremented user storage: ${bytes} bytes for user ${userId}`)
+      logger.info(
+        `Decremented user storage: ${bytes} bytes for user ${billingContext.billingUserId}`
+      )
     }
   } catch (error) {
     logger.error('Error decrementing storage usage:', error)

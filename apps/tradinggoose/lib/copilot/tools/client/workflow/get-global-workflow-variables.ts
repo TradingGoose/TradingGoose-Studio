@@ -4,10 +4,14 @@ import {
   type BaseClientToolMetadata,
   ClientToolCallState,
 } from '@/lib/copilot/tools/client/base-tool'
+import { getReadableWorkflowState } from '@/lib/copilot/tools/client/workflow/workflow-review-tool-utils'
 import { createLogger } from '@/lib/logs/console/logger'
-import { getVariablesForWorkflow } from '@/lib/yjs/workflow-session-registry'
 
 const logger = createLogger('GetGlobalWorkflowVariablesClientTool')
+
+interface GetGlobalWorkflowVariablesArgs {
+  workflowId: string
+}
 
 export class GetGlobalWorkflowVariablesClientTool extends BaseClientTool {
   static readonly id = 'get_global_workflow_variables'
@@ -32,28 +36,20 @@ export class GetGlobalWorkflowVariablesClientTool extends BaseClientTool {
     },
   }
 
-  async execute(): Promise<void> {
+  async execute(args?: GetGlobalWorkflowVariablesArgs): Promise<void> {
     try {
       this.setState(ClientToolCallState.executing)
-      const activeWorkflowId = this.requireExecutionContext().workflowId
-      if (!activeWorkflowId) {
-        await this.markToolComplete(400, 'No active workflow found')
-        this.setState(ClientToolCallState.error)
-        return
-      }
-
-      const varsRecord = getVariablesForWorkflow(activeWorkflowId)
-      if (!varsRecord) {
-        await this.markToolComplete(400, 'No active Yjs session for this workflow')
-        this.setState(ClientToolCallState.error)
-        return
-      }
+      const executionContext = this.requireExecutionContext()
+      const { workflowId, variables: varsRecord } = await getReadableWorkflowState(
+        executionContext,
+        args?.workflowId
+      )
       const variables = Object.values(varsRecord).map((v: any) => ({
         name: String(v?.name || ''),
         value: (v as any)?.value,
       }))
 
-      logger.info('Fetched workflow variables from Yjs', { count: variables.length })
+      logger.info('Fetched workflow variables', { workflowId, count: variables.length })
       await this.markToolComplete(200, `Found ${variables.length} variable(s)`, { variables })
       this.setState(ClientToolCallState.success)
     } catch (error: any) {

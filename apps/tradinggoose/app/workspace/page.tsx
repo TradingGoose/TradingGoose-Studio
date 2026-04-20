@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { LoadingAgent } from '@/components/ui/loading-agent'
 import { useSession } from '@/lib/auth-client'
 import { createLogger } from '@/lib/logs/console/logger'
@@ -10,11 +10,8 @@ const logger = createLogger('WorkspacePage')
 
 export default function WorkspacePage() {
   const router = useRouter()
-  const {
-    data: session,
-    isPending,
-    error: sessionError,
-  } = useSession()
+  const searchParams = useSearchParams()
+  const { data: session, isPending, error: sessionError } = useSession()
 
   useEffect(() => {
     const redirectToFirstWorkspace = async () => {
@@ -35,7 +32,18 @@ export default function WorkspacePage() {
       try {
         // Check if we need to redirect a specific workflow from old URL format
         const urlParams = new URLSearchParams(window.location.search)
+        const callbackUrl = urlParams.get('callbackUrl')
         const redirectWorkflowId = urlParams.get('redirect_workflow')
+
+        if (
+          callbackUrl?.startsWith('/') &&
+          !callbackUrl.startsWith('//') &&
+          callbackUrl !== window.location.pathname
+        ) {
+          logger.info('Redirecting to callback URL from workspace root', { callbackUrl })
+          router.replace(callbackUrl)
+          return
+        }
 
         if (redirectWorkflowId) {
           // Try to get the workspace for this workflow
@@ -139,13 +147,12 @@ export default function WorkspacePage() {
     // Only run this logic when we're at the root /workspace path
     // If we're already in a specific workspace, the children components will handle it
     if (typeof window !== 'undefined') {
-      const normalizedPath =
-        window.location.pathname.replace(/\/+$/, '') || '/'
+      const normalizedPath = window.location.pathname.replace(/\/+$/, '') || '/'
       if (normalizedPath === '/workspace') {
-      redirectToFirstWorkspace()
+        redirectToFirstWorkspace()
       }
     }
-  }, [session, isPending, sessionError, router])
+  }, [session, isPending, sessionError, router, searchParams])
 
   // Show loading state while we determine where to redirect
   if (isPending) {

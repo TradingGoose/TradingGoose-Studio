@@ -162,5 +162,4 @@ export function bootstrapProviderModels() {
   store.fetchModels('base')
   store.fetchModels('ollama')
   store.fetchModels('openrouter')
-  store.fetchModels('vllm')
 }

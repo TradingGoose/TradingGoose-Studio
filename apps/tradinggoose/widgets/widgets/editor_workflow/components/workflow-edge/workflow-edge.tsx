@@ -1,10 +1,16 @@
 'use client';
 import { X } from 'lucide-react'
-import { BaseEdge, EdgeLabelRenderer, type EdgeProps, getBezierPath } from 'reactflow'
-interface WorkflowEdgeProps extends EdgeProps {
-  sourceHandle?: string | null
-  targetHandle?: string | null
+import { BaseEdge, EdgeLabelRenderer, type Edge, type EdgeProps, getBezierPath } from '@xyflow/react'
+
+interface WorkflowEdgeData extends Record<string, unknown> {
+  isSelected?: boolean
+  isInsideLoop?: boolean
+  parentLoopId?: string
+  onDelete?: (edgeId: string) => void
 }
+
+type WorkflowCanvasEdge = Edge<WorkflowEdgeData, 'workflowEdge' | 'default'>
+type WorkflowEdgeProps = EdgeProps<WorkflowCanvasEdge>
 
 export const WorkflowEdge = ({
   id,
@@ -18,8 +24,6 @@ export const WorkflowEdge = ({
   style,
   source,
   target,
-  sourceHandle,
-  targetHandle,
 }: WorkflowEdgeProps) => {
   const [edgePath, labelX, labelY] = getBezierPath({
     sourceX,

@@ -6,41 +6,44 @@ import {
   BookOpen,
   Bot,
   Box,
-  Check,
-  Clipboard,
   Info,
   LibraryBig,
   Shapes,
   SquareChevronRight,
-  ThumbsDown,
-  ThumbsUp,
   Workflow,
   X,
 } from 'lucide-react'
+import { isHiddenCopilotContext } from '@/lib/copilot/chat-contexts'
 import {
   EDIT_REPLAY_BLOCKED_MESSAGE,
   hasAcceptedLiveMutationAfterMessage,
 } from '@/lib/copilot/chat-replay-safety'
-import { isHiddenCopilotContext } from '@/lib/copilot/chat-contexts'
 import { InlineToolCall } from '@/lib/copilot/inline-tool-call'
 import { createLogger } from '@/lib/logs/console/logger'
 import { useCopilotStore, useCopilotStoreApi } from '@/stores/copilot/store'
-import type { ChatContext, CopilotMessage as CopilotMessageType } from '@/stores/copilot/types'
+import { hasUiActiveToolCalls } from '@/stores/copilot/store-state'
+import type {
+  ChatContext,
+  CopilotMessage as CopilotMessageType,
+  CopilotSendRuntimeContext,
+} from '@/stores/copilot/types'
 import { UserInput, type UserInputRef } from '../user-input/user-input'
 import {
+  buildAssistantMessageSegments,
   FileAttachmentDisplay,
   OptionsSelector,
   parseSpecialTags,
   SmoothStreamingText,
   StreamingIndicator,
-  ThinkingBlock,
+  ThinkingGroup,
 } from './components'
-import CopilotMarkdownRenderer from './components/markdown-renderer'
+import { shouldRenderAssistantOptions } from './message-visibility'
 
 const logger = createLogger('CopilotMessage')
 
 interface CopilotMessageProps {
   message: CopilotMessageType
+  runtimeContext: CopilotSendRuntimeContext
   isStreaming?: boolean
   panelWidth?: number
   isDimmed?: boolean
@@ -48,18 +51,9 @@ interface CopilotMessageProps {
 }
 
 const CopilotMessage: FC<CopilotMessageProps> = memo(
-  ({
-    message,
-    isStreaming,
-    panelWidth = 308,
-    isDimmed = false,
-    onEditModeChange,
-  }) => {
+  ({ message, runtimeContext, isStreaming, panelWidth = 308, isDimmed = false, onEditModeChange }) => {
     const isUser = message.role === 'user'
     const isAssistant = message.role === 'assistant'
-    const [showCopySuccess, setShowCopySuccess] = useState(false)
-    const [showUpvoteSuccess, setShowUpvoteSuccess] = useState(false)
-    const [showDownvoteSuccess, setShowDownvoteSuccess] = useState(false)
     const [showAllContexts, setShowAllContexts] = useState(false)
     const [isEditMode, setIsEditMode] = useState(false)
     const [isExpanded, setIsExpanded] = useState(false)
@@ -70,20 +64,20 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
     const messageContentRef = useRef<HTMLDivElement>(null)
     const userInputRef = useRef<UserInputRef>(null)
     const [needsExpansion, setNeedsExpansion] = useState(false)
+    const [typingSegmentKeys, setTypingSegmentKeys] = useState<string[]>([])
 
     const {
       currentChat,
       messages,
       sendMessage,
       isSendingMessage,
+      isAwaitingContinuation,
       abortMessage,
       accessLevel,
       setAccessLevel,
+      toolCallsById,
     } = useCopilotStore()
     const copilotStoreApi = useCopilotStoreApi()
-
-    // Import COPILOT_TOOL_IDS - placing it here since it's needed in multiple functions
-    const WORKFLOW_TOOL_NAMES = ['edit_workflow']
 
     // Check if this is the last user message (for showing abort button)
     const isLastUserMessage = useMemo(() => {
@@ -97,152 +91,21 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
       return messages[messages.length - 1]?.id === message.id
     }, [messages, message.id])
 
+    const hasActiveToolCalls = useMemo(() => hasUiActiveToolCalls(toolCallsById), [toolCallsById])
+    const isTurnInProgress =
+      isStreaming ||
+      isSendingMessage ||
+      isAwaitingContinuation ||
+      currentChat?.latestTurnStatus === 'in_progress' ||
+      hasActiveToolCalls
+    const isMessageTyping = typingSegmentKeys.length > 0
+    const shouldHidePostTurnControls = isTurnInProgress || isMessageTyping
+    const shouldShowActivityIndicator = isAssistant && isLastMessage && isTurnInProgress && !isMessageTyping
+
     const isReplayBlockedForEdit = useMemo(
       () => hasAcceptedLiveMutationAfterMessage(messages, message.id),
       [message.id, messages]
     )
-
-    const handleCopyContent = () => {
-      // Copy clean text content
-      const textToCopy = cleanTextContent || message.content || ''
-      navigator.clipboard.writeText(textToCopy)
-      setShowCopySuccess(true)
-    }
-
-    // Helper function to get the full assistant response content
-    const getFullAssistantContent = (message: CopilotMessageType) => {
-      // First try the direct content
-      if (message.content?.trim()) {
-        return message.content
-      }
-
-      // If no direct content, build from content blocks
-      if (message.contentBlocks && message.contentBlocks.length > 0) {
-        return message.contentBlocks
-          .filter((block) => block.type === 'text')
-          .map((block) => block.content)
-          .join('')
-      }
-
-      return message.content || ''
-    }
-
-    // Helper function to find the last user query before this assistant message
-    const getLastUserQuery = () => {
-      const messageIndex = messages.findIndex((msg) => msg.id === message.id)
-      if (messageIndex === -1) return null
-
-      // Look backwards from this message to find the last user message
-      for (let i = messageIndex - 1; i >= 0; i--) {
-        if (messages[i].role === 'user') {
-          return messages[i].content
-        }
-      }
-      return null
-    }
-
-    // Helper function to extract workflow YAML from workflow tool calls
-    const getWorkflowYaml = () => {
-      const allToolCalls = [
-        ...(message.toolCalls || []),
-        ...(message.contentBlocks || [])
-          .filter((block) => block.type === 'tool_call')
-          .map((block) => (block as any).toolCall),
-      ]
-
-      // Find workflow tools (edit_workflow)
-      const workflowTools = allToolCalls.filter((toolCall) =>
-        WORKFLOW_TOOL_NAMES.includes(toolCall?.name)
-      )
-
-      // Extract YAML content from workflow tools in the current message
-      for (const toolCall of workflowTools) {
-        // Try various locations where YAML content might be stored
-        const yamlContent =
-          toolCall.result?.yamlContent ||
-          toolCall.result?.data?.yamlContent ||
-          toolCall.input?.yamlContent ||
-          toolCall.input?.data?.yamlContent
-
-        if (yamlContent && typeof yamlContent === 'string' && yamlContent.trim()) {
-          return yamlContent
-        }
-      }
-
-      return null
-    }
-
-    // Function to submit feedback
-    const submitFeedback = async (isPositive: boolean) => {
-      // Ensure we have a chat ID
-      if (!currentChat?.reviewSessionId) {
-        logger.error('No current chat ID available for feedback submission')
-        return
-      }
-
-      const userQuery = getLastUserQuery()
-      if (!userQuery) {
-        logger.error('No user query found for feedback submission')
-        return
-      }
-
-      const agentResponse = getFullAssistantContent(message)
-      if (!agentResponse.trim()) {
-        logger.error('No agent response content available for feedback submission')
-        return
-      }
-
-      // Get workflow YAML if this message contains workflow tools
-      const workflowYaml = getWorkflowYaml()
-
-      try {
-        const requestBody: any = {
-          reviewSessionId: currentChat.reviewSessionId,
-          userQuery,
-          agentResponse,
-          isPositiveFeedback: isPositive,
-        }
-
-        // Only include workflowYaml if it exists
-        if (workflowYaml) {
-          requestBody.workflowYaml = workflowYaml
-        }
-
-        const response = await fetch('/api/copilot/feedback', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(requestBody),
-        })
-
-        if (!response.ok) {
-          throw new Error(`Failed to submit feedback: ${response.statusText}`)
-        }
-
-        const result = await response.json()
-      } catch (error) {
-        logger.error('Error submitting feedback:', error)
-      }
-    }
-
-    const handleUpvote = async () => {
-      // Reset downvote if it was active
-      setShowDownvoteSuccess(false)
-      setShowUpvoteSuccess(true)
-
-      // Submit positive feedback
-      await submitFeedback(true)
-    }
-
-    const handleDownvote = async () => {
-      // Reset upvote if it was active
-      setShowUpvoteSuccess(false)
-      setShowDownvoteSuccess(true)
-
-      // Submit negative feedback
-      await submitFeedback(false)
-    }
 
     const handleEditMessage = () => {
       if (isReplayBlockedForEdit) {
@@ -295,7 +158,7 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
       }
 
       // If a stream is in progress, abort it first
-      if (isSendingMessage) {
+      if (isTurnInProgress) {
         abortMessage()
         // Wait a brief moment for abort to complete
         await new Promise((resolve) => setTimeout(resolve, 100))
@@ -334,7 +197,6 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
                 reviewSessionId: currentChat.reviewSessionId,
-                preserveConcurrentHistory: false,
                 messages: truncatedMessages.map((m) => ({
                   id: m.id,
                   role: m.role,
@@ -355,7 +217,7 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
                 if (typeof payload?.error === 'string' && payload.error.trim().length > 0) {
                   errorMessage = payload.error
                 }
-              } catch {}
+              } catch { }
 
               if (response.status === 409) {
                 handleCancelEdit()
@@ -385,6 +247,7 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
           fileAttachments: fileAttachments || message.fileAttachments,
           contexts: (contexts || (message as any).contexts) as ChatContext[] | undefined,
           messageId: message.id, // Reuse the original message ID
+          runtimeContext,
         })
       }
     }
@@ -400,33 +263,6 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
 
       return () => window.clearTimeout(timeoutId)
     }, [editBlockedReason])
-
-    useEffect(() => {
-      if (showCopySuccess) {
-        const timer = setTimeout(() => {
-          setShowCopySuccess(false)
-        }, 2000)
-        return () => clearTimeout(timer)
-      }
-    }, [showCopySuccess])
-
-    useEffect(() => {
-      if (showUpvoteSuccess) {
-        const timer = setTimeout(() => {
-          setShowUpvoteSuccess(false)
-        }, 2000)
-        return () => clearTimeout(timer)
-      }
-    }, [showUpvoteSuccess])
-
-    useEffect(() => {
-      if (showDownvoteSuccess) {
-        const timer = setTimeout(() => {
-          setShowDownvoteSuccess(false)
-        }, 2000)
-        return () => clearTimeout(timer)
-      }
-    }, [showDownvoteSuccess])
 
     // Handle click outside to exit edit mode
     useEffect(() => {
@@ -490,7 +326,6 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
     useEffect(() => {
       if (messageContentRef.current && isUser) {
         const scrollHeight = messageContentRef.current.scrollHeight
-        const clientHeight = messageContentRef.current.clientHeight
         // If content is taller than the max height (3 lines ~60px), mark as needing expansion
         setNeedsExpansion(scrollHeight > 60)
       }
@@ -520,89 +355,121 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
 
     const handleOptionSelect = useCallback(
       (_optionKey: string, optionText: string) => {
-        sendMessage(optionText)
+        sendMessage(optionText, { runtimeContext })
       },
-      [sendMessage]
+      [runtimeContext, sendMessage]
     )
 
-    // Get clean text content with double newline parsing
-    const cleanTextContent = useMemo(() => {
-      if (!message.content) return ''
-
-      // Parse out excessive newlines (more than 2 consecutive newlines)
-      const normalized = message.content.replace(/\n{3,}/g, '\n\n')
-      if (!isAssistant) return normalized
-
-      if (parsedTags) {
-        return parsedTags.cleanContent.replace(/\n{3,}/g, '\n\n')
-      }
-
-      return normalized
-    }, [message.content, isAssistant, parsedTags])
-
-    // Memoize content blocks to avoid re-rendering unchanged blocks
-    const memoizedContentBlocks = useMemo(() => {
+    const assistantSegments = useMemo(() => {
       if (!message.contentBlocks || message.contentBlocks.length === 0) {
         return null
       }
 
-      return message.contentBlocks.map((block, index) => {
-        if (block.type === 'text') {
+      return buildAssistantMessageSegments(message.contentBlocks)
+    }, [message.contentBlocks])
+
+    const visibleAssistantSegments = useMemo(() => {
+      if (!assistantSegments) {
+        return null
+      }
+
+      if (typingSegmentKeys.length === 0) {
+        return assistantSegments
+      }
+
+      const typingKeySet = new Set(typingSegmentKeys)
+      const visibleSegments = []
+
+      for (const segment of assistantSegments) {
+        visibleSegments.push(segment)
+        if (segment.type === 'text' && typingKeySet.has(segment.key)) {
+          break
+        }
+      }
+
+      return visibleSegments
+    }, [assistantSegments, typingSegmentKeys])
+
+    const handleTypingStateChange = useCallback((typingKey: string, isTyping: boolean) => {
+      setTypingSegmentKeys((currentKeys) => {
+        const hasKey = currentKeys.includes(typingKey)
+        if (isTyping) {
+          return hasKey ? currentKeys : [...currentKeys, typingKey]
+        }
+        return hasKey ? currentKeys.filter((key) => key !== typingKey) : currentKeys
+      })
+    }, [])
+
+    useEffect(() => {
+      const activeTextSegmentKeys = new Set(
+        assistantSegments
+          ?.filter((segment) => segment.type === 'text')
+          .map((segment) => segment.key) ?? []
+      )
+
+      setTypingSegmentKeys((currentKeys) =>
+        currentKeys.filter((key) => activeTextSegmentKeys.has(key))
+      )
+    }, [assistantSegments])
+
+    // Memoize content blocks to avoid re-rendering unchanged blocks
+    const memoizedContentBlocks = useMemo(() => {
+      if (!visibleAssistantSegments) {
+        return null
+      }
+
+      return visibleAssistantSegments.map((segment, index) => {
+        if (segment.type === 'text') {
+          const block = segment.block
           const isLastTextBlock =
-            index === message.contentBlocks!.length - 1 && block.type === 'text'
+            index === visibleAssistantSegments.length - 1 && segment.type === 'text'
           // Clean content for this text block and strip special tags
           const parsed = parseSpecialTags(block.content)
           const cleanBlockContent = parsed.cleanContent.replace(/\n{3,}/g, '\n\n')
 
           if (!cleanBlockContent.trim()) return null
 
-          // Use smooth streaming for the last text block if we're streaming
-          const shouldUseSmoothing = isStreaming && isLastTextBlock
-
           return (
             <div
-              key={`text-${index}-${block.timestamp || index}`}
+              key={segment.key}
               className='w-full max-w-full overflow-hidden transition-opacity duration-200 ease-in-out'
               style={{
                 opacity: cleanBlockContent.length > 0 ? 1 : 0.7,
-                transform: shouldUseSmoothing ? 'translateY(0)' : undefined,
-                transition: shouldUseSmoothing
+                transform: isLastTextBlock ? 'translateY(0)' : undefined,
+                transition: isLastTextBlock
                   ? 'transform 0.1s ease-out, opacity 0.2s ease-in-out'
                   : 'opacity 0.2s ease-in-out',
               }}
             >
-              {shouldUseSmoothing ? (
-                <SmoothStreamingText content={cleanBlockContent} isStreaming={isStreaming} />
-              ) : (
-                <CopilotMarkdownRenderer content={cleanBlockContent} />
-              )}
-            </div>
-          )
-        }
-        if (block.type === 'thinking') {
-          const isLastBlock = index === message.contentBlocks!.length - 1
-          // Consider the thinking block streaming if the overall message is streaming
-          // and the block has not been finalized with a duration yet. This avoids
-          // freezing the timer when new blocks are appended after the thinking block.
-          const isStreamingThinking = isStreaming && (block as any).duration == null
-
-          return (
-            <div key={`thinking-${index}-${block.timestamp || index}`} className='w-full'>
-              <ThinkingBlock
-                content={block.content}
-                isStreaming={isStreamingThinking}
-                duration={block.duration}
-                startTime={block.startTime}
+              <SmoothStreamingText
+                content={cleanBlockContent}
+                isStreaming={Boolean(isStreaming)}
+                typingKey={segment.key}
+                onTypingStateChange={handleTypingStateChange}
               />
             </div>
           )
         }
-        if (block.type === 'tool_call') {
+        if (segment.type === 'thinking') {
+          const isStreamingThinking =
+            Boolean(isStreaming) && segment.blocks.some((block) => block.duration == null)
+
+          return (
+            <div
+              key={segment.key}
+              className='fade-in-0 slide-in-from-top-2 w-full animate-in transition-opacity duration-200 ease-out'
+            >
+              <ThinkingGroup blocks={segment.blocks} isStreaming={isStreamingThinking} />
+            </div>
+          )
+        }
+        if (segment.type === 'tool_call') {
+          const block = segment.block
           // Visibility and filtering handled by InlineToolCall
           return (
             <div
-              key={`tool-${block.toolCall.id}`}
-              className='transition-opacity duration-300 ease-in-out'
+              key={segment.key}
+              className='fade-in-0 slide-in-from-top-2 animate-in transition-opacity duration-200 ease-out'
               style={{ opacity: 1 }}
             >
               <InlineToolCall toolCallId={block.toolCall.id} toolCall={block.toolCall} />
@@ -611,20 +478,21 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
         }
         return null
       })
-    }, [message.contentBlocks, isStreaming])
+    }, [handleTypingStateChange, isStreaming, visibleAssistantSegments])
 
     if (isUser) {
       return (
         <div
-          className={`w-full max-w-full overflow-hidden py-0.5 transition-opacity duration-200 ${isDimmed ? 'opacity-40' : 'opacity-100'}`}
+          className={`w-full min-w-0 max-w-full overflow-hidden py-0.5 transition-opacity duration-200 ${isDimmed ? 'opacity-40' : 'opacity-100'}`}
         >
           {isEditMode ? (
             <div ref={editContainerRef} className='relative w-full'>
               <UserInput
                 ref={userInputRef}
+                workspaceId={currentChat?.workspaceId ?? ''}
                 onSubmit={handleSubmitEdit}
                 onAbort={handleCancelEdit}
-                isLoading={isSendingMessage && isLastUserMessage}
+                isLoading={isTurnInProgress && isLastUserMessage}
                 disabled={false}
                 value={editedContent}
                 onChange={setEditedContent}
@@ -637,7 +505,7 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
               />
             </div>
           ) : (
-            <div className='w-full'>
+            <div className='w-full min-w-0'>
               {editBlockedReason && (
                 <div className='mb-1.5 rounded-md border border-destructive/30 bg-destructive/10 px-2 py-1 text-destructive text-xs'>
                   {editBlockedReason}
@@ -653,8 +521,8 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
 
               {/* Context chips displayed above the message box */}
               {(Array.isArray((message as any).contexts) && (message as any).contexts.length > 0) ||
-              (Array.isArray(message.contentBlocks) &&
-                (message.contentBlocks as any[]).some((b: any) => b?.type === 'contexts')) ? (
+                (Array.isArray(message.contentBlocks) &&
+                  (message.contentBlocks as any[]).some((b: any) => b?.type === 'contexts')) ? (
                 <div className='mb-1.5 flex flex-wrap gap-1.5'>
                   {(() => {
                     const direct = Array.isArray((message as any).contexts)
@@ -734,11 +602,11 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
                 onClick={handleMessageClick}
                 onMouseEnter={() => setIsHoveringMessage(true)}
                 onMouseLeave={() => setIsHoveringMessage(false)}
-                className='group relative cursor-text rounded-md border border-input bg-muted/40 px-3 py-1.5 shadow-xs transition-all duration-200 '
+                className='group relative min-w-0 cursor-text rounded-md border border-input bg-muted/40 px-3 py-1.5 shadow-xs transition-all duration-200'
               >
                 <div
                   ref={messageContentRef}
-                  className={`whitespace-pre-wrap break-words py-1 pl-[2px] font-sans text-foreground text-sm leading-[1.25rem] ${isSendingMessage && isLastUserMessage ? 'pr-10' : 'pr-2'}`}
+                  className={`min-w-0 whitespace-pre-wrap break-words py-1 pl-[2px] font-sans text-foreground text-sm leading-[1.25rem] ${isSendingMessage && isLastUserMessage ? 'pr-10' : 'pr-2'}`}
                   style={{
                     maxHeight: !isExpanded && needsExpansion ? '60px' : 'none',
                     overflow: !isExpanded && needsExpansion ? 'hidden' : 'visible',
@@ -787,7 +655,7 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
                   <div className='absolute right-0 bottom-0 left-0 h-full rounded-b-lg bg-gradient-to-t from-background/60 to-transparent' />
                 )}
                 {/* Abort button when hovering and response is generating (only on last user message) */}
-                {isSendingMessage && isHoveringMessage && isLastUserMessage && (
+                {isTurnInProgress && isHoveringMessage && isLastUserMessage && (
                   <div className='absolute right-2 bottom-2'>
                     <button
                       onClick={(e) => {
@@ -797,11 +665,10 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
                       className='flex h-6 w-6 items-center justify-center rounded-full bg-red-500 text-white transition-all duration-200 hover:bg-red-600'
                       title='Stop generation'
                     >
-                      <X className='h-3 w-3' />
+                      <X className='h-4 w-4' />
                     </button>
                   </div>
                 )}
-
               </div>
             </div>
           )}
@@ -818,56 +685,7 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
             {/* Content blocks in chronological order */}
             {memoizedContentBlocks}
 
-            {/* Show streaming indicator if streaming but no text content yet after tool calls */}
-            {isStreaming &&
-              !message.content &&
-              message.contentBlocks?.every((block) => block.type === 'tool_call') && (
-                <StreamingIndicator />
-              )}
-
-            {/* Streaming indicator when no content yet */}
-            {!cleanTextContent && !message.contentBlocks?.length && isStreaming && (
-              <StreamingIndicator />
-            )}
-
-            {/* Action buttons for completed messages */}
-            {!isStreaming && cleanTextContent && (
-              <div className='flex items-center gap-1'>
-                <button
-                  onClick={handleCopyContent}
-                  className='text-muted-foreground transition-colors hover:bg-card'
-                  title='Copy'
-                >
-                  {showCopySuccess ? (
-                    <Check className='h-3 w-3' strokeWidth={2} />
-                  ) : (
-                    <Clipboard className='h-3 w-3' strokeWidth={2} />
-                  )}
-                </button>
-                <button
-                  onClick={handleUpvote}
-                  className='text-muted-foreground transition-colors hover:bg-card'
-                  title='Upvote'
-                >
-                  {showUpvoteSuccess ? (
-                    <Check className='h-3 w-3' strokeWidth={2} />
-                  ) : (
-                    <ThumbsUp className='h-3 w-3' strokeWidth={2} />
-                  )}
-                </button>
-                <button
-                  onClick={handleDownvote}
-                  className='text-muted-foreground transition-colors hover:bg-card'
-                  title='Downvote'
-                >
-                  {showDownvoteSuccess ? (
-                    <Check className='h-3 w-3' strokeWidth={2} />
-                  ) : (
-                    <ThumbsDown className='h-3 w-3' strokeWidth={2} />
-                  )}
-                </button>
-              </div>
-            )}
+            {shouldShowActivityIndicator && <StreamingIndicator />}
 
             {/* Citations if available */}
             {message.citations && message.citations.length > 0 && (
@@ -889,18 +707,29 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
               </div>
             )}
 
-            {/* Options selector when agent presents choices - streams in but disabled until complete */}
-            {parsedTags?.options && Object.keys(parsedTags.options).length > 0 && (
-              <OptionsSelector
-                options={parsedTags.options}
-                onSelect={handleOptionSelect}
-                disabled={!isLastMessage || isSendingMessage || isStreaming}
-                enableKeyboardNav={
-                  isLastMessage && !isStreaming && parsedTags.optionsComplete === true
-                }
-                streaming={isStreaming || parsedTags.optionsComplete === false}
-              />
-            )}
+            {/* Options selector after the full assistant message has finished rendering */}
+            {(() => {
+              const options = parsedTags?.options
+              const shouldRenderOptions = shouldRenderAssistantOptions({
+                role: message.role,
+                isLastMessage,
+                hasOptions: Boolean(options && Object.keys(options).length > 0),
+              })
+              const isOptionsReady =
+                !shouldHidePostTurnControls && parsedTags?.optionsComplete === true
+
+              if (!shouldRenderOptions || !options || !isOptionsReady) return null
+
+              return (
+                <OptionsSelector
+                  options={options}
+                  onSelect={handleOptionSelect}
+                  disabled={false}
+                  enableKeyboardNav={true}
+                  streaming={false}
+                />
+              )
+            })()}
           </div>
         </div>
       )

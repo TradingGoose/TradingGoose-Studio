@@ -27,21 +27,73 @@ jobs:
             TAG="v$(date -u +'%Y.%m.%d').$SUFFIX"
           done
 
-          # Get the previous release tag
-          PREV_TAG=$(gh release list --limit 1 --json tagName --jq '.[0].tagName' 2>/dev/null || echo "")
+          # Get the previous release date to filter PRs
+          PREV_DATE=$(gh release list --limit 1 --json createdAt --jq '.[0].createdAt' 2>/dev/null || echo "")
 
-          # Build release notes from commits since previous release
-          if [ -n "$PREV_TAG" ]; then
-            NOTES=$(git log "${PREV_TAG}..HEAD" --pretty=format:"- %s (%h)" --no-merges)
+          # Collect all commits from PRs merged into staging, deduplicate, and categorize
+          declare -A SEEN
+          FEATURES=""
+          FIXES=""
+          REFACTORS=""
+          DOCS=""
+          OTHER=""
+
+          if [ -n "$PREV_DATE" ]; then
+            PR_NUMS=$(gh pr list --base staging --state merged --json number,mergedAt \
+              --jq "[.[] | select(.mergedAt >= \"$PREV_DATE\")] | .[].number")
           else
-            NOTES=$(git log --pretty=format:"- %s (%h)" --no-merges)
+            PR_NUMS=$(gh pr list --base staging --state merged --json number \
+              --jq '.[].number')
           fi
 
-          if [ -z "$NOTES" ]; then
-            NOTES="No changes since last release."
+          for PR_NUM in $PR_NUMS; do
+            COMMITS=$(gh pr view "$PR_NUM" --json commits \
+              --jq '.commits[] | "\(.oid[:7])\t\(.messageHeadline)"')
+
+            while IFS=$'\t' read -r HASH MSG; do
+              [ -z "$HASH" ] && continue
+              [ -n "${SEEN[$HASH]}" ] && continue
+              SEEN[$HASH]=1
+
+              # Format conventional commit prefix as inline code
+              LINE=$(echo "- ${MSG} (${HASH})" | sed -E 's/^(- )(feat|fix|build|refactor|chore|ci|docs|style|test|perf)(\([^)]*\))?:/\1`\2\3`:/')
+
+              case "$MSG" in
+                feat*)     FEATURES="${FEATURES}${LINE}"$'\n' ;;
+                fix*)      FIXES="${FIXES}${LINE}"$'\n' ;;
+                refactor*) REFACTORS="${REFACTORS}${LINE}"$'\n' ;;
+                docs*)     DOCS="${DOCS}${LINE}"$'\n' ;;
+                *)         OTHER="${OTHER}${LINE}"$'\n' ;;
+              esac
+            done <<< "$COMMITS"
+          done
+
+          # Assemble release notes
+          NOTES="# TradingGoose Studio ${TAG}"$'\n\n'
+          NOTES="${NOTES}_Release date: $(date -u +%Y-%m-%d)_"$'\n\n'
+
+          [ -n "$FEATURES" ]  && NOTES="${NOTES}## Features"$'\n'"${FEATURES}"$'\n'
+          [ -n "$FIXES" ]     && NOTES="${NOTES}## Bug Fixes"$'\n'"${FIXES}"$'\n'
+          [ -n "$REFACTORS" ] && NOTES="${NOTES}## Refactors"$'\n'"${REFACTORS}"$'\n'
+          [ -n "$DOCS" ]      && NOTES="${NOTES}## Documentation"$'\n'"${DOCS}"$'\n'
+          [ -n "$OTHER" ]     && NOTES="${NOTES}## Other Changes"$'\n'"${OTHER}"$'\n'
+
+          # Contributors
+          if [ -n "$PREV_DATE" ]; then
+            CONTRIBUTORS=$(gh pr list --base staging --state merged --json author,mergedAt \
+              --jq "[.[] | select(.mergedAt >= \"$PREV_DATE\")] | [.[].author.login] | unique | .[] | \"- @\(.)\"")
+          else
+            CONTRIBUTORS=$(gh pr list --base staging --state merged --json author \
+              --jq '[.[].author.login] | unique | .[] | "- @\(.)"')
+          fi
+          [ -n "$CONTRIBUTORS" ] && NOTES="${NOTES}## Contributors"$'\n'"${CONTRIBUTORS}"$'\n'
+
+          if [ "$NOTES" = "# TradingGoose Studio ${TAG}"$'\n\n'"_Release date: $(date -u +%Y-%m-%d)_"$'\n\n' ]; then
+            NOTES="${NOTES}No changes since last release."$'\n'
           fi
 
           gh release create "$TAG" \
             --title "$TAG" \
+            --target staging \
             --notes "$NOTES" \
             --latest

@@ -1,6 +1,6 @@
 import OpenAI from 'openai'
-import { env } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
+import { resolveOllamaServiceConfig } from '@/lib/system-services/runtime'
 import type { StreamingExecution } from '@/executor/types'
 import type { ModelsObject } from '@/providers/ai/ollama/types'
 import type {
@@ -18,7 +18,6 @@ import { useProvidersStore } from '@/stores/providers/store'
 import { executeTool } from '@/tools'
 
 const logger = createLogger('OllamaProvider')
-const OLLAMA_HOST = env.OLLAMA_URL || 'http://localhost:11434'
 
 /**
  * Helper function to convert an Ollama stream to a standard ReadableStream
@@ -76,7 +75,8 @@ export const ollamaProvider: ProviderConfig = {
     }
 
     try {
-      const response = await fetch(`${OLLAMA_HOST}/api/tags`)
+      const ollamaConfig = await resolveOllamaServiceConfig()
+      const response = await fetch(`${ollamaConfig.baseUrl}/api/tags`)
       if (!response.ok) {
         useProvidersStore.getState().setModels('ollama', [])
         logger.warn('Ollama service is not available. The provider will be disabled.')
@@ -106,9 +106,11 @@ export const ollamaProvider: ProviderConfig = {
     })
 
     // Create Ollama client using OpenAI-compatible API
+    const ollamaConfig = await resolveOllamaServiceConfig()
+    const ollamaHost = ollamaConfig.baseUrl
     const ollama = new OpenAI({
       apiKey: 'empty',
-      baseURL: `${OLLAMA_HOST}/v1`,
+      baseURL: `${ollamaHost}/v1`,
     })
 
     // Start with an empty array for all messages

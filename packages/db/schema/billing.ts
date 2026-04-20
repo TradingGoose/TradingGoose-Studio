@@ -1,18 +1,17 @@
-import { sql } from 'drizzle-orm'
 import {
   bigint,
   boolean,
-  check,
   decimal,
   index,
   integer,
   json,
+  primaryKey,
   pgTable,
   text,
   timestamp,
 } from 'drizzle-orm/pg-core'
-import { DEFAULT_FREE_CREDITS } from '../consts'
 import { organization, user } from './core'
+import { systemBillingTier } from './system'
 
 export const userStats = pgTable('user_stats', {
   id: text('id').primaryKey(),
@@ -27,31 +26,112 @@ export const userStats = pgTable('user_stats', {
   totalChatExecutions: integer('total_chat_executions').notNull().default(0),
   totalTokensUsed: integer('total_tokens_used').notNull().default(0),
   totalCost: decimal('total_cost').notNull().default('0'),
-  currentUsageLimit: decimal('current_usage_limit').default(DEFAULT_FREE_CREDITS.toString()), // Default $10 for free plan, null for team/enterprise
-  usageLimitUpdatedAt: timestamp('usage_limit_updated_at').defaultNow(),
+  grantedOnboardingAllowanceUsd: decimal('granted_onboarding_allowance_usd').notNull().default('0'),
+  customUsageLimit: decimal('custom_usage_limit'),
+  customUsageLimitUpdatedAt: timestamp('custom_usage_limit_updated_at').defaultNow(),
   // Billing period tracking
   currentPeriodCost: decimal('current_period_cost').notNull().default('0'), // Usage in current billing period
   lastPeriodCost: decimal('last_period_cost').default('0'), // Usage from previous billing period
   billedOverageThisPeriod: decimal('billed_overage_this_period').notNull().default('0'), // Amount of overage already billed via threshold billing
-  // Pro usage snapshot when joining a team (to prevent double-billing)
-  proPeriodCostSnapshot: decimal('pro_period_cost_snapshot').default('0'), // Snapshot of Pro usage when joining team
   // Copilot usage tracking
   totalCopilotCost: decimal('total_copilot_cost').notNull().default('0'),
   currentPeriodCopilotCost: decimal('current_period_copilot_cost').notNull().default('0'),
   lastPeriodCopilotCost: decimal('last_period_copilot_cost').default('0'),
   totalCopilotTokens: integer('total_copilot_tokens').notNull().default(0),
   totalCopilotCalls: integer('total_copilot_calls').notNull().default(0),
-  // Storage tracking (for free/pro users)
+  // Storage tracking for individual-scoped usage
   storageUsedBytes: bigint('storage_used_bytes', { mode: 'number' }).notNull().default(0),
   lastActive: timestamp('last_active').notNull().defaultNow(),
   billingBlocked: boolean('billing_blocked').notNull().default(false),
 })
 
+export const organizationBillingLedger = pgTable(
+  'organization_billing_ledger',
+  {
+    organizationId: text('organization_id')
+      .primaryKey()
+      .references(() => organization.id, { onDelete: 'cascade' }),
+    totalManualExecutions: integer('total_manual_executions').notNull().default(0),
+    totalApiCalls: integer('total_api_calls').notNull().default(0),
+    totalWebhookTriggers: integer('total_webhook_triggers').notNull().default(0),
+    totalScheduledExecutions: integer('total_scheduled_executions').notNull().default(0),
+    totalChatExecutions: integer('total_chat_executions').notNull().default(0),
+    totalTokensUsed: integer('total_tokens_used').notNull().default(0),
+    totalCost: decimal('total_cost').notNull().default('0'),
+    currentPeriodCost: decimal('current_period_cost').notNull().default('0'),
+    lastPeriodCost: decimal('last_period_cost').notNull().default('0'),
+    billedOverageThisPeriod: decimal('billed_overage_this_period').notNull().default('0'),
+    totalCopilotCost: decimal('total_copilot_cost').notNull().default('0'),
+    currentPeriodCopilotCost: decimal('current_period_copilot_cost').notNull().default('0'),
+    lastPeriodCopilotCost: decimal('last_period_copilot_cost').notNull().default('0'),
+    totalCopilotTokens: integer('total_copilot_tokens').notNull().default(0),
+    totalCopilotCalls: integer('total_copilot_calls').notNull().default(0),
+    billingBlocked: boolean('billing_blocked').notNull().default(false),
+    lastActive: timestamp('last_active').notNull().defaultNow(),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    updatedAt: timestamp('updated_at').notNull().defaultNow(),
+  },
+  (table) => ({
+    organizationIdIdx: index('organization_billing_ledger_organization_id_idx').on(
+      table.organizationId
+    ),
+  })
+)
+
+export const organizationMemberBillingLedger = pgTable(
+  'organization_member_billing_ledger',
+  {
+    organizationId: text('organization_id')
+      .notNull()
+      .references(() => organization.id, { onDelete: 'cascade' }),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    totalManualExecutions: integer('total_manual_executions').notNull().default(0),
+    totalApiCalls: integer('total_api_calls').notNull().default(0),
+    totalWebhookTriggers: integer('total_webhook_triggers').notNull().default(0),
+    totalScheduledExecutions: integer('total_scheduled_executions').notNull().default(0),
+    totalChatExecutions: integer('total_chat_executions').notNull().default(0),
+    totalTokensUsed: integer('total_tokens_used').notNull().default(0),
+    totalCost: decimal('total_cost').notNull().default('0'),
+    currentPeriodCost: decimal('current_period_cost').notNull().default('0'),
+    lastPeriodCost: decimal('last_period_cost').notNull().default('0'),
+    totalCopilotCost: decimal('total_copilot_cost').notNull().default('0'),
+    currentPeriodCopilotCost: decimal('current_period_copilot_cost').notNull().default('0'),
+    lastPeriodCopilotCost: decimal('last_period_copilot_cost').notNull().default('0'),
+    totalCopilotTokens: integer('total_copilot_tokens').notNull().default(0),
+    totalCopilotCalls: integer('total_copilot_calls').notNull().default(0),
+    lastActive: timestamp('last_active').notNull().defaultNow(),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    updatedAt: timestamp('updated_at').notNull().defaultNow(),
+  },
+  (table) => ({
+    organizationUserPk: primaryKey({
+      name: 'organization_member_billing_ledger_pkey',
+      columns: [table.organizationId, table.userId],
+    }),
+    organizationIdIdx: index('organization_member_billing_ledger_organization_id_idx').on(
+      table.organizationId
+    ),
+    userIdIdx: index('organization_member_billing_ledger_user_id_idx').on(table.userId),
+  })
+)
+
 export const subscription = pgTable(
   'subscription',
   {
     id: text('id').primaryKey(),
+    // Better Auth Stripe still requires this field; it stores the immutable billing tier ID.
     plan: text('plan').notNull(),
+    billingTierId: text('billing_tier_id').references(() => systemBillingTier.id, {
+      onDelete: 'restrict',
+    }),
+    // Better Auth's Stripe plugin owns row creation and only writes referenceId directly.
+    // Default to user, then normalize to the tier/customer owner immediately after sync.
+    referenceType: text('reference_type')
+      .$type<'user' | 'organization'>()
+      .notNull()
+      .default('user'),
     referenceId: text('reference_id').notNull(),
     stripeCustomerId: text('stripe_customer_id'),
     stripeSubscriptionId: text('stripe_subscription_id'),
@@ -65,13 +145,11 @@ export const subscription = pgTable(
     metadata: json('metadata'),
   },
   (table) => ({
+    billingTierIdIdx: index('subscription_billing_tier_id_idx').on(table.billingTierId),
     referenceStatusIdx: index('subscription_reference_status_idx').on(
+      table.referenceType,
       table.referenceId,
       table.status
-    ),
-    enterpriseMetadataCheck: check(
-      'check_enterprise_metadata',
-      sql`plan != 'enterprise' OR metadata IS NOT NULL`
     ),
   })
 )

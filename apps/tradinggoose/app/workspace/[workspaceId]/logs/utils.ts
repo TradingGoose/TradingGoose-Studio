@@ -1,3 +1,6 @@
+import { format } from 'date-fns'
+import type { CostMetadata, TraceSpan } from '@/stores/logs/filters/types'
+
 /**
  * Parse duration from various log data formats
  */
@@ -167,7 +170,121 @@ export function mapToExecutionLogAlt(log: any): ExecutionLog {
   }
 }
 
-import { format } from 'date-fns'
+function readFiniteNumber(value: unknown): number | undefined {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value
+  }
+  return undefined
+}
+
+function scaleCostValue(value: number, multiplier: number): number {
+  return Number.parseFloat((value * multiplier).toFixed(8))
+}
+
+export function collectTraceSpanCostTotals(traceSpans?: TraceSpan[]) {
+  const totals = {
+    input: 0,
+    output: 0,
+    total: 0,
+  }
+
+  const visit = (spans?: TraceSpan[]) => {
+    if (!Array.isArray(spans)) {
+      return
+    }
+
+    for (const span of spans) {
+      if (span.cost) {
+        const input = readFiniteNumber(span.cost.input) ?? 0
+        const output = readFiniteNumber(span.cost.output) ?? 0
+        const total = readFiniteNumber(span.cost.total) ?? input + output
+
+        totals.input += input
+        totals.output += output
+        totals.total += total
+      }
+
+      if (span.children?.length) {
+        visit(span.children)
+      }
+    }
+  }
+
+  visit(traceSpans)
+  return totals
+}
+
+function getStoredModelCostTotal(cost?: CostMetadata | null): number | undefined {
+  if (!cost) {
+    return undefined
+  }
+
+  const explicitModelCost = readFiniteNumber((cost as { modelCost?: unknown }).modelCost)
+  if (explicitModelCost !== undefined) {
+    return explicitModelCost
+  }
+
+  const input = readFiniteNumber(cost.input)
+  const output = readFiniteNumber(cost.output)
+
+  if (input !== undefined || output !== undefined) {
+    return (input ?? 0) + (output ?? 0)
+  }
+
+  if (cost.models) {
+    return Object.values(cost.models).reduce((sum, modelCost) => {
+      const modelTotal =
+        readFiniteNumber(modelCost.total) ??
+        (readFiniteNumber(modelCost.input) ?? 0) + (readFiniteNumber(modelCost.output) ?? 0)
+      return sum + modelTotal
+    }, 0)
+  }
+
+  return undefined
+}
+
+export function getTraceSpanDisplayCostMultiplier(
+  traceSpans?: TraceSpan[],
+  workflowCost?: CostMetadata | null
+): number {
+  const rawTotals = collectTraceSpanCostTotals(traceSpans)
+  if (rawTotals.total <= 0) {
+    return 1
+  }
+
+  const storedModelCostTotal = getStoredModelCostTotal(workflowCost)
+  if (storedModelCostTotal === undefined) {
+    return 1
+  }
+
+  const multiplier = storedModelCostTotal / rawTotals.total
+  return Number.isFinite(multiplier) && multiplier >= 0 ? multiplier : 1
+}
+
+export function scaleLogCostBreakdown<
+  T extends { input?: number; output?: number; total?: number },
+>(cost: T | null | undefined, multiplier = 1): T | null | undefined {
+  if (!cost) {
+    return cost
+  }
+
+  if (!Number.isFinite(multiplier) || multiplier === 1) {
+    return cost
+  }
+
+  const input = readFiniteNumber(cost.input)
+  const output = readFiniteNumber(cost.output)
+  const total =
+    readFiniteNumber(cost.total) ??
+    (input !== undefined || output !== undefined ? (input ?? 0) + (output ?? 0) : undefined)
+
+  return {
+    ...cost,
+    ...(input !== undefined ? { input: scaleCostValue(input, multiplier) } : {}),
+    ...(output !== undefined ? { output: scaleCostValue(output, multiplier) } : {}),
+    ...(total !== undefined ? { total: scaleCostValue(total, multiplier) } : {}),
+  }
+}
 
 export const formatDate = (dateString: string) => {
   const date = new Date(dateString)

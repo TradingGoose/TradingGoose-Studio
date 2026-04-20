@@ -5,10 +5,19 @@ import {
   ClientToolCallState,
 } from '@/lib/copilot/tools/client/base-tool'
 import {
-  ExecuteResponseSuccessSchema,
+  executeCopilotServerTool,
+  getCopilotServerToolErrorStatus,
+} from '@/lib/copilot/tools/client/server-tool-response'
+import {
+  GetBlocksAndToolsInput,
   GetBlocksAndToolsResult,
 } from '@/lib/copilot/tools/shared/schemas'
 import { createLogger } from '@/lib/logs/console/logger'
+
+interface GetBlocksAndToolsArgs {
+  query?: string
+  triggerAllowed?: boolean
+}
 
 export class GetBlocksAndToolsClientTool extends BaseClientTool {
   static readonly id = 'get_blocks_and_tools'
@@ -19,40 +28,35 @@ export class GetBlocksAndToolsClientTool extends BaseClientTool {
 
   static readonly metadata: BaseClientToolMetadata = {
     displayNames: {
-      [ClientToolCallState.generating]: { text: 'Exploring available options', icon: Loader2 },
-      [ClientToolCallState.pending]: { text: 'Exploring available options', icon: Loader2 },
-      [ClientToolCallState.executing]: { text: 'Exploring available options', icon: Loader2 },
-      [ClientToolCallState.success]: { text: 'Explored available options', icon: Blocks },
-      [ClientToolCallState.error]: { text: 'Failed to explore options', icon: XCircle },
-      [ClientToolCallState.aborted]: { text: 'Aborted exploring options', icon: MinusCircle },
-      [ClientToolCallState.rejected]: { text: 'Skipped exploring options', icon: MinusCircle },
+      [ClientToolCallState.generating]: { text: 'Exploring workflow blocks', icon: Loader2 },
+      [ClientToolCallState.pending]: { text: 'Exploring workflow blocks', icon: Loader2 },
+      [ClientToolCallState.executing]: { text: 'Exploring workflow blocks', icon: Loader2 },
+      [ClientToolCallState.success]: { text: 'Explored workflow blocks', icon: Blocks },
+      [ClientToolCallState.error]: { text: 'Failed to explore workflow blocks', icon: XCircle },
+      [ClientToolCallState.aborted]: { text: 'Aborted exploring workflow blocks', icon: MinusCircle },
+      [ClientToolCallState.rejected]: { text: 'Skipped exploring workflow blocks', icon: MinusCircle },
     },
     interrupt: undefined,
   }
 
-  async execute(): Promise<void> {
+  async execute(args?: GetBlocksAndToolsArgs): Promise<void> {
     const logger = createLogger('GetBlocksAndToolsClientTool')
     try {
       this.setState(ClientToolCallState.executing)
+      const payload = GetBlocksAndToolsInput.parse(args || {})
 
-      const res = await fetch('/api/copilot/execute-copilot-server-tool', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ toolName: 'get_blocks_and_tools', payload: {} }),
-      })
-      if (!res.ok) {
-        const errorText = await res.text().catch(() => '')
-        throw new Error(errorText || `Server error (${res.status})`)
-      }
-      const json = await res.json()
-      const parsed = ExecuteResponseSuccessSchema.parse(json)
-      const result = GetBlocksAndToolsResult.parse(parsed.result)
+      const result = GetBlocksAndToolsResult.parse(
+        await executeCopilotServerTool({
+          toolName: 'get_blocks_and_tools',
+          payload,
+        })
+      )
 
       await this.markToolComplete(200, 'Successfully retrieved blocks and tools', result)
       this.setState(ClientToolCallState.success)
     } catch (error: any) {
       const message = error instanceof Error ? error.message : String(error)
-      await this.markToolComplete(500, message)
+      await this.markToolComplete(getCopilotServerToolErrorStatus(error) ?? 500, message)
       this.setState(ClientToolCallState.error)
     }
   }

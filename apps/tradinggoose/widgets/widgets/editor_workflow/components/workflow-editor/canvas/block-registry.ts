@@ -1,4 +1,4 @@
-import type { EdgeTypes, NodeTypes } from 'reactflow'
+import type { EdgeTypes, Node, NodeTypes } from '@xyflow/react'
 import { getBlock } from '@/blocks'
 import type { BlockConfig } from '@/blocks/types'
 import type { BlockState } from '@/stores/workflows/workflow/types'
@@ -18,7 +18,7 @@ export const workflowEdgeTypes: EdgeTypes = {
 
 export type CanvasNodeKind = 'workflowBlock' | 'subflowNode'
 
-export interface WorkflowCanvasNodeData {
+export interface WorkflowCanvasNodeData extends Record<string, unknown> {
   type?: string
   config?: BlockConfig
   name?: string
@@ -31,6 +31,8 @@ export interface WorkflowCanvasNodeData {
   parentId?: string
   extent?: 'parent'
 }
+
+export type WorkflowEditorNode = Node<WorkflowCanvasNodeData, CanvasNodeKind>
 
 export type CanvasNodeDescriptor = {
   nodeType: CanvasNodeKind

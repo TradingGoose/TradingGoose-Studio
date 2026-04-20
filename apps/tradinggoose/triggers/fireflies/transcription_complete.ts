@@ -4,7 +4,7 @@ import type { TriggerConfig } from '@/triggers/types'
 export const firefliesTranscriptionCompleteTrigger: TriggerConfig = {
   id: 'fireflies_transcription_complete',
   name: 'Fireflies Transcription Complete',
-  provider: 'fireflies',
+  webhookProvider: 'fireflies',
   description: 'Trigger workflow when a Fireflies meeting transcription is complete',
   version: '1.0.0',
   icon: FirefliesIcon,

@@ -7,7 +7,7 @@ import { Callout } from 'fumadocs-ui/components/callout'
 import { Step, Steps } from 'fumadocs-ui/components/steps'
 import { Card, Cards } from 'fumadocs-ui/components/card'
 
-Custom Tools let you define your own callable functions that Agent blocks can invoke at runtime. Each tool is a pair: a **JSON config** that declares the tool's name, description, and parameters, plus a **JavaScript function body** that runs when the tool is called.
+Custom Tools let you define your own callable functions that Agent blocks can invoke at runtime. Each tool is a pair: a **JSON config** that declares the tool's name, description, and parameters, plus a **JavaScript function body** that runs when the tool is called. You can export custom tools from the editor and import them through the Custom Tool List widget using the shared TradingGoose export JSON format.
 
 ## Tool schema
 
@@ -34,7 +34,7 @@ Every custom tool follows the OpenAI function-calling JSON format. The editor va
 ```
 
 - `type` must be `"function"`.
-- `function.name` is the identifier the agent sees and calls. Must be unique within the workspace.
+- `function.name` is the identifier the agent sees and calls. Must be unique within the workspace when saved. Imported collisions are renamed automatically.
 - `function.description` tells the agent when to use the tool.
 - `function.parameters` is a standard JSON Schema object describing the inputs.
 
@@ -54,7 +54,7 @@ The function should `return` a value when the tool is expected to produce output
     Open the [Custom Tool Editor](/widgets/editor-custom-tool) widget in your workspace dashboard.
   </Step>
   <Step>
-    Select an existing tool from the dropdown or create a new one from the Custom Tool List widget.
+    Select an existing tool from the dropdown or create a new one from the [Custom Tool List](/widgets/list-custom-tool) widget.
   </Step>
   <Step>
     Switch between the **Config** and **Code** tabs to edit the JSON schema and JavaScript body respectively. Both tabs include an AI wand that can generate content from a natural-language prompt.
@@ -63,6 +63,10 @@ The function should `return` a value when the tool is expected to produce output
     Click the **Save** button in the widget header. The editor validates the schema before saving and rejects duplicate tool names.
   </Step>
 </Steps>
+
+## Import and Export
+
+Custom tools use the shared TradingGoose export JSON format. Export a tool from the Custom Tool Editor and import it from the [Custom Tool List](/widgets/list-custom-tool) widget. Imported titles and function names are normalized automatically, and collisions are renamed so the import can complete without manual cleanup.
 
 ## How agents invoke custom tools
 
@@ -92,6 +96,9 @@ For external tool integrations using MCP, see the [MCP utility page](/utilities/
 <Cards>
   <Card title="Custom Tool Editor" href="/widgets/editor-custom-tool">
     Widget for editing the schema and code of a custom tool.
+  </Card>
+  <Card title="Custom Tool List" href="/widgets/list-custom-tool">
+    Browse, create, and import custom tools in the workspace.
   </Card>
   <Card title="MCP" href="/utilities/mcp">
     Connect to external tool servers using the Model Context Protocol.

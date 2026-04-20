@@ -6,56 +6,6 @@ import { generateRuntimeCSP } from './lib/security/csp'
 const logger = createLogger('Proxy')
 
 const AUTH_ROUTES = new Set(['/login', '/signup'])
-
-/**
- * When running in hosted mode (tradinggoose.ai / staging), only landing pages
- * are served. Every other route gets a 404 so we can show "coming soon" only.
- */
-const HOSTED_ALLOWED_PATHS = new Set(['/', '/licenses', '/privacy', '/terms', '/changelog'])
-const HOSTED_ALLOWED_API_PATHS = new Set(['/api/github-stars', '/api/newsletter/subscribe'])
-
-const HOSTED_HOSTNAMES = [
-  'www.tradinggoose.ai',
-  'tradinggoose.ai',
-  'preview.tradinggoose.ai',
-  'staging.tradinggoose.ai',
-]
-
-function isHostedEnvironment(): boolean {
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL
-  if (!appUrl) return false
-  try {
-    const hostname = new URL(appUrl.includes('://') ? appUrl : `https://${appUrl}`).hostname
-    return HOSTED_HOSTNAMES.includes(hostname)
-  } catch {
-    return HOSTED_HOSTNAMES.includes(appUrl.replace(/^https?:\/\//, '').split('/')[0])
-  }
-}
-
-function isAllowedInHostedMode(pathname: string): boolean {
-  if (HOSTED_ALLOWED_PATHS.has(pathname)) return true
-  if (pathname === '/blog' || pathname.startsWith('/blog/')) return true
-  if (pathname.startsWith('/blog-images/')) return true
-  if (HOSTED_ALLOWED_API_PATHS.has(pathname)) return true
-  // Allow static assets, Next.js internals, and public files
-  if (pathname.startsWith('/_next/')) return true
-  if (pathname.startsWith('/favicon')) return true
-  if (pathname.startsWith('/social/')) return true
-  if (pathname.startsWith('/logo/')) return true
-  if (pathname.startsWith('/static/')) return true
-  if (pathname.startsWith('/footer/')) return true
-  // Allow public root assets (images, icons, etc.)
-  if (/^\/.+\.(svg|png|jpg|jpeg|gif|webp|ico|woff2?|ttf|css|js)$/.test(pathname)) return true
-  if (
-    pathname === '/robots.txt' ||
-    pathname === '/sitemap.xml' ||
-    pathname === '/manifest.webmanifest'
-  )
-    return true
-  if (pathname === '/changelog.xml' || pathname === '/llms.txt' || pathname === '/llms-full.txt')
-    return true
-  return false
-}
 const AUTH_COOKIE_KEYS = [
   'better-auth.session_token',
   'better-auth.session_data',
@@ -90,6 +40,16 @@ function buildLoginRedirect(request: NextRequest, callback?: string) {
     loginUrl.searchParams.set('callbackUrl', callback)
   }
   return NextResponse.redirect(loginUrl)
+}
+
+function isProtectedAppPath(pathname: string): boolean {
+  return (
+    pathname.startsWith('/workspace') ||
+    pathname === '/admin' ||
+    pathname.startsWith('/admin/') ||
+    pathname === '/w' ||
+    pathname.startsWith('/w/')
+  )
 }
 
 /**
@@ -151,18 +111,10 @@ function handleSecurityFiltering(request: NextRequest): NextResponse | null {
 export async function proxy(request: NextRequest) {
   const url = request.nextUrl
 
-  // In hosted mode, only serve landing pages — everything else is 404
-  if (isHostedEnvironment() && !isAllowedInHostedMode(url.pathname)) {
-    return NextResponse.rewrite(new URL('/not-found', request.url), { status: 404 })
-  }
-
   const hasActiveSession = Boolean(getSessionCookie(request))
+  const isProtectedPath = isProtectedAppPath(url.pathname)
 
-  if (
-    url.pathname.startsWith('/workspace') ||
-    url.pathname === '/w' ||
-    url.pathname.startsWith('/w/')
-  ) {
+  if (isProtectedPath) {
     if (!hasActiveSession) {
       const callbackTarget = `${url.pathname}${url.search}`
       return buildLoginRedirect(request, callbackTarget)
@@ -189,7 +141,16 @@ export async function proxy(request: NextRequest) {
   const securityBlock = handleSecurityFiltering(request)
   if (securityBlock) return securityBlock
 
-  const response = NextResponse.next()
+  const requestHeaders = new Headers(request.headers)
+  if (isProtectedPath) {
+    requestHeaders.set('x-auth-callback-url', `${url.pathname}${url.search}`)
+  }
+
+  const response = NextResponse.next({
+    request: {
+      headers: requestHeaders,
+    },
+  })
   response.headers.set('Vary', 'User-Agent')
 
   if (
@@ -197,7 +158,7 @@ export async function proxy(request: NextRequest) {
     url.pathname.startsWith('/chat') ||
     url.pathname === '/'
   ) {
-    response.headers.set('Content-Security-Policy', generateRuntimeCSP())
+    response.headers.set('Content-Security-Policy', await generateRuntimeCSP())
   }
 
   return response

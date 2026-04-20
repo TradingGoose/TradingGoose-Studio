@@ -5,7 +5,7 @@ import { buildMeetingOutputs, circlebackSetupInstructions, circlebackTriggerOpti
 export const circlebackWebhookTrigger: TriggerConfig = {
   id: 'circleback_webhook',
   name: 'Circleback Webhook',
-  provider: 'circleback',
+  webhookProvider: 'circleback',
   description: 'Generic webhook trigger for all Circleback events',
   version: '1.0.0',
   icon: CirclebackIcon,

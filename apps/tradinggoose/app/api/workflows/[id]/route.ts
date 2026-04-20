@@ -5,13 +5,14 @@ import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { authenticateApiKeyFromHeader, updateApiKeyLastUsed } from '@/lib/api-key/service'
 import { getSession } from '@/lib/auth'
-import { verifyInternalToken } from '@/lib/auth/internal'
+import { verifyInternalTokenDetailed } from '@/lib/auth/internal'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
 import { hydrateListingUI } from '@/lib/listing/hydrate-ui'
 import { loadWorkflowStateWithFallback } from '@/lib/workflows/db-helpers'
 import { getWorkflowAccessContext, getWorkflowById } from '@/lib/workflows/utils'
 import { deleteYjsSessionInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
+import { createWorkflowSnapshot } from '@/lib/yjs/workflow-session'
 
 const logger = createLogger('WorkflowByIdAPI')
 
@@ -38,7 +39,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
     if (authHeader?.startsWith('Bearer ')) {
       const token = authHeader.split(' ')[1]
-      isInternalCall = await verifyInternalToken(token)
+      const verification = await verifyInternalTokenDetailed(token)
+      isInternalCall = verification.valid
     }
 
     let userId: string | null = null
@@ -133,12 +135,15 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       })
     }
 
-    const resolvedState = workflowState ?? {
-      blocks: {},
-      edges: [],
-      loops: {},
-      parallels: {},
-    }
+    const resolvedState = workflowState
+      ? createWorkflowSnapshot({
+          direction: workflowState.direction,
+          blocks: workflowState.blocks,
+          edges: workflowState.edges,
+          loops: workflowState.loops,
+          parallels: workflowState.parallels,
+        })
+      : createWorkflowSnapshot()
 
     let resolvedBlocks = resolvedState.blocks
     if (!isInternalCall && resolvedState.blocks) {
@@ -155,6 +160,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       ...workflowData,
       state: {
         deploymentStatuses: {},
+        ...(resolvedState.direction !== undefined ? { direction: resolvedState.direction } : {}),
         blocks: resolvedBlocks,
         edges: resolvedState.edges,
         loops: resolvedState.loops,
@@ -162,6 +168,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         lastSaved: Date.now(),
         isDeployed: workflowData.isDeployed || false,
         deployedAt: workflowData.deployedAt,
+        variables: workflowState?.variables ?? {},
       },
     }
 

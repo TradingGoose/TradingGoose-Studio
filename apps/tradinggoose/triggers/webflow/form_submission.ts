@@ -4,7 +4,7 @@ import type { TriggerConfig } from '../types'
 export const webflowFormSubmissionTrigger: TriggerConfig = {
   id: 'webflow_form_submission',
   name: 'Form Submission',
-  provider: 'webflow',
+  webhookProvider: 'webflow',
   description:
     'Trigger workflow when a form is submitted on a Webflow site (requires Webflow credentials)',
   version: '1.0.0',

@@ -1,5 +1,5 @@
 import type { BlockConfig } from '@/blocks/types'
-import { parseProvider } from '@/lib/oauth/oauth'
+import { getOAuthProviderSubjectId } from '@/lib/oauth/oauth'
 
 export type ProviderAvailability = Record<string, boolean>
 
@@ -42,7 +42,11 @@ export const getBlockOAuthRequirements = (block: BlockConfig) => {
   const oauthConditionFields = new Set<string>()
 
   for (const subBlock of requiredOauthInputs) {
-    const providerId = subBlock.provider ?? subBlock.serviceId
+    const providerId = getOAuthProviderSubjectId({
+      provider: subBlock.provider,
+      serviceId: subBlock.serviceId,
+      requiredScopes: subBlock.requiredScopes,
+    })
     if (!providerId) continue
     const conditionField = getConditionField(subBlock.condition)
     if (conditionField) {
@@ -75,12 +79,7 @@ export const getBlockOAuthRequirements = (block: BlockConfig) => {
 }
 
 const isProviderAvailable = (providerId: string, availability: ProviderAvailability) => {
-  if (providerId in availability) {
-    return Boolean(availability[providerId])
-  }
-
-  const { baseProvider } = parseProvider(providerId)
-  return Boolean(availability[baseProvider])
+  return Boolean(availability[providerId])
 }
 
 export const isBlockAvailable = (block: BlockConfig, availability: ProviderAvailability) => {

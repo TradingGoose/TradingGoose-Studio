@@ -1,8 +1,8 @@
 import type { NextRequest } from 'next/server'
 import { checkHybridAuth } from '@/lib/auth/hybrid'
-import { env } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
 import { validateAlphanumericId } from '@/lib/security/input-validation'
+import { resolveElevenLabsServiceConfig } from '@/lib/system-services/runtime'
 
 const logger = createLogger('ProxyTTSStreamAPI')
 
@@ -27,9 +27,10 @@ export async function POST(request: NextRequest) {
       return new Response(voiceIdValidation.error, { status: 400 })
     }
 
-    const apiKey = env.ELEVENLABS_API_KEY
+    const elevenLabsConfig = await resolveElevenLabsServiceConfig()
+    const apiKey = elevenLabsConfig.apiKey
     if (!apiKey) {
-      logger.error('ELEVENLABS_API_KEY not configured on server')
+      logger.error('ElevenLabs service not configured on server')
       return new Response('ElevenLabs service not configured', { status: 503 })
     }
 

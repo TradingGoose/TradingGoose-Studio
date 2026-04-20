@@ -1,0 +1,47 @@
+---
+title: "Custom Tool List"
+description: "Browse, create, and import workspace custom tools."
+---
+
+import { Callout } from 'fumadocs-ui/components/callout'
+import { Card, Cards } from 'fumadocs-ui/components/card'
+
+## Overview
+
+| Property | Value |
+|----------|-------|
+| **Key** | `list_custom_tool` |
+| **Category** | List |
+
+The Custom Tool List widget is the workspace browser for reusable custom tools. Use it to search existing tools, create new ones, import TradingGoose export JSON, and open the selected tool in the Custom Tool Editor.
+
+## Features
+
+- **Browse and search** custom tools in the current workspace.
+- **Create new** custom tools from the Create menu.
+- **Import** custom tools from the Create menu with the **Import custom tools** action.
+- **Open in editor** by selecting a tool from the list.
+- **Pair color linking** keeps the list synced with the Custom Tool Editor when both widgets share the same color.
+- **Automatic rename handling** updates imported titles and function names when they collide with existing tools.
+
+## Usage
+
+1. Add the widget to a workspace panel.
+2. Use the Create menu to add a new custom tool or import a TradingGoose export JSON file.
+3. Select a tool in the list to open it in the paired Custom Tool Editor widget.
+4. Assign a pair color if you want selection changes to stay in sync between the list and editor.
+
+<Callout type="info">
+  Create and import actions require edit permission on the workspace. Browsing existing tools only requires workspace access.
+</Callout>
+
+## Related
+
+<Cards>
+  <Card title="Custom Tool Editor" href="/widgets/editor-custom-tool">
+    Define the schema and code for a custom tool.
+  </Card>
+  <Card title="Custom Tools Guide" href="/utilities/custom-tools">
+    Learn how custom tools are structured, saved, and invoked at runtime.
+  </Card>
+</Cards>

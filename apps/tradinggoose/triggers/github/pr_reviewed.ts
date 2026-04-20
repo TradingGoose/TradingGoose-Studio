@@ -4,7 +4,7 @@ import type { TriggerConfig } from '@/triggers/types'
 export const githubPRReviewedTrigger: TriggerConfig = {
   id: 'github_pr_reviewed',
   name: 'GitHub PR Reviewed',
-  provider: 'github',
+  webhookProvider: 'github',
   description:
     'Trigger workflow when a pull request review is submitted, edited, or dismissed in a GitHub repository',
   version: '1.0.0',

@@ -9,7 +9,7 @@ import type { TriggerConfig } from '@/triggers/types'
 export const hubspotCompanyDeletedTrigger: TriggerConfig = {
   id: 'hubspot_company_deleted',
   name: 'HubSpot Company Deleted',
-  provider: 'hubspot',
+  webhookProvider: 'hubspot',
   description: 'Trigger workflow when a company is deleted in HubSpot',
   version: '1.0.0',
   icon: HubspotIcon,

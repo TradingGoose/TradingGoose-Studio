@@ -6,7 +6,7 @@ import { v4 as uuidv4 } from 'uuid'
 import { z } from 'zod'
 import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
-import { encryptSecret } from '@/lib/utils'
+import { encryptSecret } from '@/lib/utils-server'
 
 const logger = createLogger('WorkflowLogWebhookAPI')
 
@@ -39,7 +39,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     const userId = session.user.id
 
     const hasAccess = await db
-      .select({ id: workflow.id })
+      .select({ id: workflow.id, userId: workflow.userId, workspaceId: workflow.workspaceId })
       .from(workflow)
       .innerJoin(
         permissions,
@@ -91,7 +91,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const userId = session.user.id
 
     const hasAccess = await db
-      .select({ id: workflow.id })
+      .select({ id: workflow.id, userId: workflow.userId, workspaceId: workflow.workspaceId })
       .from(workflow)
       .innerJoin(
         permissions,
@@ -107,6 +107,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     if (hasAccess.length === 0) {
       return NextResponse.json({ error: 'Workflow not found' }, { status: 404 })
     }
+
+    const workflowRecord = hasAccess[0]
 
     const body = await request.json()
     const validationResult = CreateWebhookSchema.safeParse(body)
@@ -135,7 +137,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         { status: 409 }
       )
     }
-
     let encryptedSecret: string | null = null
 
     if (data.secret) {

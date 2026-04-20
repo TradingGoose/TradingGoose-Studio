@@ -10,7 +10,7 @@ export const PostgreSQLBlock: BlockConfig<PostgresResponse> = {
     'Integrate PostgreSQL into the workflow. Can query, insert, update, delete, and execute raw SQL.',
   docsLink: 'https://docs.tradinggoose.ai/tools/postgresql',
   category: 'tools',
-  bgColor: undefined,
+  bgColor: '#336791',
   icon: PostgresIcon,
   subBlocks: [
     {

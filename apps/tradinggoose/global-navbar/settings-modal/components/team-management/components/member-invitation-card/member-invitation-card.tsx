@@ -30,9 +30,7 @@ const PermissionSelector = React.memo<PermissionSelectorProps>(
     )
 
     return (
-      <div
-        className={cn('inline-flex rounded-lg border border-input bg-background', className)}
-      >
+      <div className={cn('inline-flex rounded-lg border border-input bg-background', className)}>
         {permissionOptions.map((option, index) => (
           <button
             key={option.value}
@@ -72,8 +70,10 @@ interface MemberInvitationCardProps {
   onLoadUserWorkspaces: () => Promise<void>
   onWorkspaceToggle: (workspaceId: string, permission: string) => void
   inviteSuccess: boolean
+  canInviteMembers: boolean
+  inviteUnavailableMessage?: string | null
+  seatLimited: boolean
   availableSeats?: number
-  maxSeats?: number
 }
 
 function ButtonSkeleton() {
@@ -94,11 +94,14 @@ export function MemberInvitationCard({
   onLoadUserWorkspaces,
   onWorkspaceToggle,
   inviteSuccess,
+  canInviteMembers,
+  inviteUnavailableMessage,
+  seatLimited,
   availableSeats = 0,
-  maxSeats = 0,
 }: MemberInvitationCardProps) {
   const selectedCount = selectedWorkspaces.length
-  const hasAvailableSeats = availableSeats > 0
+  const hasAvailableSeats = seatLimited ? availableSeats > 0 : true
+  const inviteEnabled = canInviteMembers && hasAvailableSeats
   const [emailError, setEmailError] = useState<string>('')
 
   // Email validation function using existing lib
@@ -157,7 +160,7 @@ export function MemberInvitationCard({
               placeholder='Enter email address'
               value={inviteEmail}
               onChange={handleEmailChange}
-              disabled={isInviting || !hasAvailableSeats}
+              disabled={isInviting || !inviteEnabled}
               className={cn('w-full', emailError && 'border-red-500 focus-visible:ring-red-500')}
             />
             <div className='h-4 pt-1'>
@@ -174,7 +177,7 @@ export function MemberInvitationCard({
               onLoadUserWorkspaces()
             }
           }}
-          disabled={isInviting || !hasAvailableSeats}
+          disabled={isInviting || !inviteEnabled}
           className='h-9 shrink-0 rounded-sm text-sm'
         >
           {showWorkspaceInvite ? 'Hide' : 'Add'} Workspaces
@@ -182,13 +185,19 @@ export function MemberInvitationCard({
         <Button
           size='sm'
           onClick={handleInviteClick}
-          disabled={!inviteEmail || isInviting || !hasAvailableSeats}
+          disabled={!inviteEmail || isInviting || !inviteEnabled}
           className='h-9 shrink-0 rounded-sm'
         >
           {isInviting ? <ButtonSkeleton /> : null}
-          {hasAvailableSeats ? 'Invite' : 'No Seats'}
+          {canInviteMembers ? (hasAvailableSeats ? 'Invite' : 'No Seats') : 'Unavailable'}
         </Button>
       </div>
+
+      {!canInviteMembers && inviteUnavailableMessage ? (
+        <Alert>
+          <AlertDescription>{inviteUnavailableMessage}</AlertDescription>
+        </Alert>
+      ) : null}
 
       {showWorkspaceInvite && (
         <div className='space-y-4'>

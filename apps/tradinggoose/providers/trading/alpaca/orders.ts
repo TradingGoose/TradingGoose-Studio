@@ -1,10 +1,11 @@
 import { buildAlpacaAuthHeaders } from '@/providers/trading/alpaca/auth'
-import { normalizeAlpacaListingSymbol } from '@/providers/trading/alpaca/listing'
+import { alpacaTradingProviderConfig } from '@/providers/trading/alpaca/config'
 import type {
   TradingOrder,
   TradingOrderInput,
   TradingRequestConfig,
 } from '@/providers/trading/types'
+import { listingIdentityToTradingSymbol } from '@/providers/trading/utils'
 
 export const buildAlpacaOrderRequest = (params: TradingOrderInput): TradingRequestConfig => {
   const authHeaders = buildAlpacaAuthHeaders(params)
@@ -14,7 +15,7 @@ export const buildAlpacaOrderRequest = (params: TradingOrderInput): TradingReque
       ? 'https://paper-api.alpaca.markets'
       : 'https://api.alpaca.markets'
 
-  const symbol = normalizeAlpacaListingSymbol({
+  const symbol = listingIdentityToTradingSymbol(alpacaTradingProviderConfig, {
     listing: params.listing,
     base: params.base,
     quote: params.quote,
@@ -22,7 +23,6 @@ export const buildAlpacaOrderRequest = (params: TradingOrderInput): TradingReque
     marketCode: params.marketCode,
     countryCode: params.countryCode,
     cityName: params.cityName,
-    timeZoneName: params.timeZoneName,
   })
 
   const quantity =

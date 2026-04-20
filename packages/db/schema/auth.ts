@@ -1,4 +1,4 @@
-import { index, json, jsonb, pgTable, text, timestamp, boolean } from 'drizzle-orm/pg-core'
+import { boolean, index, json, pgTable, text, timestamp } from 'drizzle-orm/pg-core'
 import { organization, user } from './core'
 
 export const session = pgTable(
@@ -63,14 +63,6 @@ export const verification = pgTable(
   })
 )
 
-export const waitlist = pgTable('waitlist', {
-  id: text('id').primaryKey(),
-  email: text('email').notNull().unique(),
-  status: text('status').notNull().default('pending'), // pending, approved, rejected
-  createdAt: timestamp('created_at').notNull().defaultNow(),
-  updatedAt: timestamp('updated_at').notNull().defaultNow(),
-})
-
 export const settings = pgTable('settings', {
   id: text('id').primaryKey(), // Use the user id as the key
   userId: text('user_id')
@@ -78,30 +70,12 @@ export const settings = pgTable('settings', {
     .references(() => user.id, { onDelete: 'cascade' })
     .unique(), // One settings record per user
 
-  // General settings
   theme: text('theme').notNull().default('system'),
-  autoConnect: boolean('auto_connect').notNull().default(true),
-  autoFillEnvVars: boolean('auto_fill_env_vars').notNull().default(true), // DEPRECATED: autofill feature removed
-  autoPan: boolean('auto_pan').notNull().default(true),
-  consoleExpandedByDefault: boolean('console_expanded_by_default').notNull().default(true),
-
-  // Privacy settings
   telemetryEnabled: boolean('telemetry_enabled').notNull().default(true),
-
-  // Email preferences
   emailPreferences: json('email_preferences').notNull().default('{}'),
-
-  // Billing usage notifications preference
   billingUsageNotificationsEnabled: boolean('billing_usage_notifications_enabled')
     .notNull()
     .default(true),
-
-  // UI preferences
-  showFloatingControls: boolean('show_floating_controls').notNull().default(true),
-  showTrainingControls: boolean('show_training_controls').notNull().default(false),
-
-  // Copilot auto-allowed integration tools
-  copilotAutoAllowedTools: jsonb('copilot_auto_allowed_tools').notNull().default('[]'),
 
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 })

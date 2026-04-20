@@ -1,5 +1,5 @@
-import { env } from '@/lib/env'
 import type { TrelloAddCommentParams, TrelloAddCommentResponse } from '@/tools/trello/types'
+import { getTrelloApiKey } from '@/tools/trello/utils'
 import type { ToolConfig } from '@/tools/types'
 
 export const trelloAddCommentTool: ToolConfig<TrelloAddCommentParams, TrelloAddCommentResponse> = {
@@ -39,7 +39,7 @@ export const trelloAddCommentTool: ToolConfig<TrelloAddCommentParams, TrelloAddC
       if (!params.cardId) {
         throw new Error('Card ID is required')
       }
-      const apiKey = env.TRELLO_API_KEY || ''
+      const apiKey = getTrelloApiKey(params)
       const token = params.accessToken
       return `https://api.trello.com/1/cards/${params.cardId}/actions/comments?key=${apiKey}&token=${token}`
     },

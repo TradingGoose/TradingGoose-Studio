@@ -2,30 +2,31 @@
 
 import { useCallback } from 'react'
 import { ToolCase } from 'lucide-react'
+import { parseImportedSkillsFile } from '@/lib/skills/import-export'
 import {
   useUserPermissionsContext,
   WorkspacePermissionsProvider,
 } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
-import { useCreateSkill } from '@/hooks/queries/skills'
+import { useCreateSkill, useImportSkills } from '@/hooks/queries/skills'
 import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
 import { useSkillsStore } from '@/stores/skills/store'
 import type { SkillDefinition } from '@/stores/skills/types'
 import type { PairColor } from '@/widgets/pair-colors'
 import type { DashboardWidgetDefinition, WidgetComponentProps } from '@/widgets/types'
 import { emitSkillSelectionChange } from '@/widgets/utils/skill-selection'
+import {
+  buildPersistedPairContext,
+  SKILL_EDITOR_WIDGET_KEY,
+  SKILL_LIST_WIDGET_KEY,
+} from '@/widgets/widgets/_shared/skill/utils'
 import { widgetHeaderButtonGroupClassName } from '@/widgets/widgets/components/widget-header-control'
 import { SkillCreateMenu } from '@/widgets/widgets/list_skill/components/skill-create-menu'
 import {
   SkillList,
   SkillListMessage,
 } from '@/widgets/widgets/list_skill/components/skill-list/skill-list'
-import {
-  buildPersistedPairContext,
-  SKILL_EDITOR_WIDGET_KEY,
-  SKILL_LIST_WIDGET_KEY,
-} from '@/widgets/widgets/_shared/skill/utils'
 
-const DEFAULT_SKILL_NAME = 'new-skill'
+const DEFAULT_SKILL_NAME = 'New Skill'
 
 const buildNewSkillDraft = (skills: SkillDefinition[]) => {
   const existingNames = new Set(
@@ -58,6 +59,7 @@ const SkillListHeaderRight = ({
 }) => {
   const permissions = useUserPermissionsContext()
   const createSkillMutation = useCreateSkill()
+  const importMutation = useImportSkills()
   const storedSkills = useSkillsStore((state) =>
     workspaceId ? state.getAllSkills(workspaceId) : []
   )
@@ -122,10 +124,32 @@ const SkillListHeaderRight = ({
     workspaceId,
   ])
 
+  const handleImportSkills = useCallback(
+    async (content: string) => {
+      if (!workspaceId || importMutation.isPending || !permissions.canEdit) return
+
+      try {
+        const parsedFile = JSON.parse(content) as unknown
+        parseImportedSkillsFile(parsedFile)
+        await importMutation.mutateAsync({
+          workspaceId,
+          file: parsedFile,
+        })
+      } catch (error) {
+        console.error('Failed to import skills', error)
+      }
+    },
+    [importMutation, permissions.canEdit, workspaceId]
+  )
+
   return (
     <SkillCreateMenu
       disabled={!workspaceId || !permissions.canEdit || createSkillMutation.isPending}
+      canCreate={!createSkillMutation.isPending && permissions.canEdit}
+      canImport={Boolean(workspaceId && permissions.canEdit)}
+      isImporting={importMutation.isPending}
       onCreateSkill={handleCreateSkill}
+      onImportSkills={handleImportSkills}
     />
   )
 }
@@ -146,11 +170,7 @@ const ListSkillHeaderRight = ({
   return (
     <WorkspacePermissionsProvider workspaceId={workspaceId}>
       <div className={widgetHeaderButtonGroupClassName()}>
-        <SkillListHeaderRight
-          workspaceId={workspaceId}
-          panelId={panelId}
-          pairColor={pairColor}
-        />
+        <SkillListHeaderRight workspaceId={workspaceId} panelId={panelId} pairColor={pairColor} />
       </div>
     </WorkspacePermissionsProvider>
   )

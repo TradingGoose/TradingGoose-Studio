@@ -4,7 +4,7 @@ import type { TriggerConfig } from '@/triggers/types'
 export const airtableWebhookTrigger: TriggerConfig = {
   id: 'airtable_webhook',
   name: 'Airtable Webhook',
-  provider: 'airtable',
+  webhookProvider: 'airtable',
   description:
     'Trigger workflow from Airtable record changes like create, update, and delete events (requires Airtable credentials)',
   version: '1.0.0',

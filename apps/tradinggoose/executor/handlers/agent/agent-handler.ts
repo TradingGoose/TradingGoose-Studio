@@ -11,8 +11,7 @@ import type {
   ToolInput,
 } from '@/executor/handlers/agent/types'
 import type { BlockHandler, ExecutionContext, StreamingExecution } from '@/executor/types'
-import { executeProviderRequest } from '@/providers/ai'
-import { getApiKey, getProviderFromModel, transformBlockTool } from '@/providers/ai/utils'
+import { getProviderFromModel, transformBlockTool } from '@/providers/ai/utils'
 import type { SerializedBlock } from '@/serializer/types'
 import { executeTool } from '@/tools'
 import { getTool, getToolAsync } from '@/tools/utils'
@@ -254,6 +253,7 @@ export class AgentBlockHandler implements BlockHandler {
             _context: {
               workflowId: context.workflowId,
               workspaceId: context.workspaceId,
+              userId: context.userId,
             },
           },
           false, // skipPostProcess
@@ -284,7 +284,7 @@ export class AgentBlockHandler implements BlockHandler {
       if (typeof window === 'undefined') {
         try {
           const { generateInternalToken } = await import('@/lib/auth/internal')
-          const internalToken = await generateInternalToken()
+          const internalToken = await generateInternalToken(context.userId)
           headers.Authorization = `Bearer ${internalToken}`
         } catch (error) {
           logger.error(`Failed to generate internal token for MCP tool discovery:`, error)
@@ -354,7 +354,7 @@ export class AgentBlockHandler implements BlockHandler {
           if (typeof window === 'undefined') {
             try {
               const { generateInternalToken } = await import('@/lib/auth/internal')
-              const internalToken = await generateInternalToken()
+              const internalToken = await generateInternalToken(context.userId)
               headers.Authorization = `Bearer ${internalToken}`
             } catch (error) {
               logger.error(`Failed to generate internal token for MCP tool ${toolName}:`, error)
@@ -407,7 +407,7 @@ export class AgentBlockHandler implements BlockHandler {
       selectedOperation: tool.operation,
       getAllBlocks,
       getToolAsync: (toolId: string) =>
-        getToolAsync(toolId, context.workflowId, context.workspaceId),
+        getToolAsync(toolId, context.workflowId, context.workspaceId, context.userId),
       getTool,
     })
 
@@ -637,8 +637,6 @@ export class AgentBlockHandler implements BlockHandler {
       if (!isBrowser) {
         return this.executeServerSide(
           providerRequest,
-          providerId,
-          model,
           block,
           responseFormat,
           context,
@@ -660,41 +658,18 @@ export class AgentBlockHandler implements BlockHandler {
 
   private async executeServerSide(
     providerRequest: any,
-    providerId: string,
-    model: string,
     block: SerializedBlock,
     responseFormat: any,
     context: ExecutionContext,
     providerStartTime: number
   ) {
-    const finalApiKey = this.getApiKey(providerId, model, providerRequest.apiKey)
-
-    // Collect block outputs for runtime resolution
-    const { blockData, blockNameMapping } = collectBlockData(context)
-
-    const response = await executeProviderRequest(providerId, {
-      model,
-      systemPrompt: 'systemPrompt' in providerRequest ? providerRequest.systemPrompt : undefined,
-      context: 'context' in providerRequest ? providerRequest.context : undefined,
-      tools: providerRequest.tools,
-      temperature: providerRequest.temperature,
-      maxTokens: providerRequest.maxTokens,
-      apiKey: finalApiKey,
-      azureEndpoint: providerRequest.azureEndpoint,
-      azureApiVersion: providerRequest.azureApiVersion,
-      responseFormat: providerRequest.responseFormat,
-      workflowId: providerRequest.workflowId,
-      workspaceId: providerRequest.workspaceId,
-      stream: providerRequest.stream,
-      messages: 'messages' in providerRequest ? providerRequest.messages : undefined,
-      environmentVariables: context.environmentVariables || {},
-      workflowVariables: context.workflowVariables || {},
-      blockData,
-      blockNameMapping,
-    })
-
-    this.logExecutionSuccess(providerId, model, context, block, providerStartTime, response)
-    return this.processProviderResponse(response, block, responseFormat)
+    return this.executeViaProviderApi(
+      providerRequest,
+      block,
+      responseFormat,
+      context,
+      providerStartTime
+    )
   }
 
   private async executeBrowserSide(
@@ -704,7 +679,23 @@ export class AgentBlockHandler implements BlockHandler {
     context: ExecutionContext,
     providerStartTime: number
   ) {
-    logger.info('Using HTTP provider request (browser environment)')
+    return this.executeViaProviderApi(
+      providerRequest,
+      block,
+      responseFormat,
+      context,
+      providerStartTime
+    )
+  }
+
+  private async executeViaProviderApi(
+    providerRequest: any,
+    block: SerializedBlock,
+    responseFormat: any,
+    context: ExecutionContext,
+    providerStartTime: number
+  ) {
+    logger.info('Using HTTP provider request')
 
     const url = new URL('/api/providers', getBaseUrl())
     const response = await fetch(url.toString(), {
@@ -779,20 +770,6 @@ export class AgentBlockHandler implements BlockHandler {
 
     // Fallback for plain ReadableStream or when header parsing fails
     return this.createMinimalStreamingExecution(response.body!)
-  }
-
-  private getApiKey(providerId: string, model: string, inputApiKey: string): string {
-    try {
-      return getApiKey(providerId, model, inputApiKey)
-    } catch (error) {
-      logger.error('Failed to get API key:', {
-        provider: providerId,
-        model,
-        error: error instanceof Error ? error.message : String(error),
-        hasProvidedApiKey: !!inputApiKey,
-      })
-      throw new Error(error instanceof Error ? error.message : 'API key error')
-    }
   }
 
   private async extractErrorMessage(response: Response): Promise<string> {

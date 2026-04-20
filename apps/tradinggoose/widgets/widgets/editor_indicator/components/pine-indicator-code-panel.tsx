@@ -1,9 +1,10 @@
 'use client'
 
 import { type MutableRefObject, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useLatestRef } from '@/hooks/use-latest-ref'
-import { useQueryClient } from '@tanstack/react-query'
-import type { MonacoEditorHandle } from '@/components/monaco-editor'
+import {
+  buildMonacoIndicatorDiagnosticSource,
+  type MonacoEditorHandle,
+} from '@/components/monaco-editor'
 import { checkEnvVarTrigger, EnvVarDropdown } from '@/components/ui/env-var-dropdown'
 import { Notice } from '@/components/ui/notice'
 import {
@@ -14,33 +15,27 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import {
-  buildInputsMapFromMeta,
-  inferInputMetaFromPineCode,
-} from '@/lib/indicators/input-meta'
-import { ENTITY_KIND_INDICATOR, type ReviewTargetDescriptor } from '@/lib/copilot/review-sessions/types'
-import * as Y from 'yjs'
-import { useEntitySession } from '@/lib/copilot/review-sessions/entity-session-host'
-import { getFieldsMap } from '@/lib/yjs/entity-session'
-import { useYjsStringField, useYjsField } from '@/lib/yjs/use-entity-fields'
-import { indicatorKeys, useVerifyIndicator } from '@/hooks/queries/indicators'
+import { buildInputsMapFromMeta, inferInputMetaFromPineCode } from '@/lib/indicators/input-meta'
+import { PINE_CHEAT_SHEET_EXTRA_LIBS } from '@/lib/indicators/pine-cheat-sheet'
+import { useUpdateIndicator, useVerifyIndicator } from '@/hooks/queries/indicators'
 import { useWand } from '@/hooks/workflow/use-wand'
-import type { InputMetaMap } from '@/lib/indicators/types'
+import type { IndicatorDefinition } from '@/stores/indicators/types'
+import { emitIndicatorEditorState } from '@/widgets/utils/indicator-editor-actions'
 import {
   CHEAT_SHEET_GROUPS,
   type CheatSheetGroup,
 } from '@/widgets/widgets/editor_indicator/components/pine-cheat-sheet'
-import { PINE_CHEAT_SHEET_EXTRA_LIBS } from '@/widgets/widgets/editor_indicator/components/pine-cheat-sheet-typings'
 import { WandPromptBar } from '@/widgets/widgets/editor_workflow/components/wand-prompt-bar/wand-prompt-bar'
 import { CodeEditor } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/components/tool-input/components/code-editor/code-editor'
 
 type IndicatorCodePanelProps = {
+  indicator: IndicatorDefinition
+  indicatorId: string
   workspaceId: string
-  descriptor: ReviewTargetDescriptor
   saveRef: MutableRefObject<() => void>
   verifyRef: MutableRefObject<() => void>
-  yjsDoc: Y.Doc
-  onReviewTargetChange?: (descriptor: ReviewTargetDescriptor | null) => void
+  panelId?: string
+  widgetKey?: string
 }
 
 const PINE_WAND_PROMPT = `# Role
@@ -72,30 +67,18 @@ Rules:
 2) Do NOT include a function wrapper or signature.`
 
 export function IndicatorCodePanel({
+  indicator,
+  indicatorId,
   workspaceId,
-  descriptor,
   saveRef,
   verifyRef,
-  yjsDoc,
-  onReviewTargetChange,
+  panelId,
+  widgetKey,
 }: IndicatorCodePanelProps) {
-  const queryClient = useQueryClient()
-  const entitySession = useEntitySession()
+  const updateMutation = useUpdateIndicator()
   const verifyMutation = useVerifyIndicator()
 
-  const pineCodeYText = yjsDoc ? getFieldsMap(yjsDoc).get('pineCode') : null
-
-  // Yjs-backed collaborative fields
-  const [yjsName] = useYjsStringField(yjsDoc, 'name', '')
-  const [yjsColor] = useYjsStringField(yjsDoc, 'color', '')
-  const [yjsPineCode, setYjsPineCode] = useYjsStringField(yjsDoc, 'pineCode', '')
-  const [yjsInputMeta, setYjsInputMeta] = useYjsField<InputMetaMap | null>(
-    yjsDoc,
-    'inputMeta',
-    null
-  )
-  const pineCode = yjsPineCode
-  const setPineCode = setYjsPineCode
+  const [pineCode, setPineCode] = useState('')
 
   const [verifyStatus, setVerifyStatus] = useState<
     | { state: 'idle' }
@@ -113,23 +96,17 @@ export function IndicatorCodePanel({
 
   const codeEditorRef = useRef<HTMLDivElement>(null)
   const codeEditorHandleRef = useRef<MonacoEditorHandle | null>(null)
-  const pineCodeRef = useLatestRef(pineCode)
+  const indicatorSignatureRef = useRef('')
   const disallowedGlobalMessage =
     'Do not use $.pine or $.data. Use globals directly (ta, input, plot, open, high, low, close, volume).'
   const monacoModelPath = useMemo(
     () =>
-      `inmemory://model/pine-indicator-${encodeURIComponent(workspaceId)}-${encodeURIComponent(
-        descriptor.reviewSessionId ?? descriptor.draftSessionId ?? descriptor.entityId ?? 'draft'
-      )}.ts`,
-    [descriptor.draftSessionId, descriptor.entityId, descriptor.reviewSessionId, workspaceId]
+      `inmemory://model/pine-indicator-${encodeURIComponent(workspaceId)}-${encodeURIComponent(indicatorId)}.ts`,
+    [workspaceId, indicatorId]
   )
 
   const validateNoDollarGlobals = (code: string) =>
     /\$\.(pine|data)\b/.test(code) ? disallowedGlobalMessage : null
-
-  useEffect(() => {
-    setVerifyStatus({ state: 'idle' })
-  }, [descriptor.reviewSessionId])
 
   const calcWand = useWand({
     wandConfig: {
@@ -144,11 +121,27 @@ export function IndicatorCodePanel({
       setPineCode(content)
     },
     onStreamChunk: (chunk) => {
-      const nextCode = `${pineCodeRef.current}${chunk}`
-      pineCodeRef.current = nextCode
-      setPineCode(nextCode)
+      setPineCode((prev) => prev + chunk)
     },
   })
+
+  useEffect(() => {
+    if (!indicator) return
+    const signature = `${indicator.id}:${indicator.updatedAt ?? indicator.createdAt ?? ''}`
+    if (indicatorSignatureRef.current === signature) return
+    indicatorSignatureRef.current = signature
+
+    setPineCode(indicator.pineCode ?? '')
+    setVerifyStatus({ state: 'idle' })
+  }, [indicator])
+
+  useEffect(() => {
+    emitIndicatorEditorState({
+      isDirty: pineCode !== (indicator.pineCode ?? ''),
+      panelId,
+      widgetKey,
+    })
+  }, [indicator.id, indicator.pineCode, panelId, pineCode, widgetKey])
 
   const updateCursorState = (
     value: string,
@@ -190,67 +183,27 @@ export function IndicatorCodePanel({
   }
 
   const handleSave = useCallback(async () => {
-    if (!workspaceId || !descriptor.reviewSessionId) return
+    if (!workspaceId || !indicatorId) return
     const disallowedMessage = validateNoDollarGlobals(pineCode)
     if (disallowedMessage) {
       setVerifyStatus({ state: 'error', message: disallowedMessage })
       return
     }
-    const inferredInputMeta = inferInputMetaFromPineCode(pineCode) ?? yjsInputMeta ?? null
-    const trimmedName = yjsName.trim()
-
-    if (!trimmedName) {
-      setVerifyStatus({ state: 'error', message: 'Indicator name is required.' })
-      return
-    }
+    const inferredInputMeta = inferInputMetaFromPineCode(pineCode)
 
     try {
-      setYjsInputMeta(inferredInputMeta)
-
-      const response = await fetch('/api/copilot/review-entities/save', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          entityKind: ENTITY_KIND_INDICATOR,
-          workspaceId,
-          reviewSessionId: descriptor.reviewSessionId,
-          draftSessionId: descriptor.draftSessionId ?? undefined,
-          indicator: {
-            id: descriptor.entityId ?? undefined,
-            name: trimmedName,
-            color: yjsColor.trim() || null,
-            pineCode,
-            inputMeta: inferredInputMeta,
-          },
-        }),
+      await updateMutation.mutateAsync({
+        workspaceId,
+        indicatorId,
+        updates: {
+          pineCode,
+          inputMeta: inferredInputMeta ?? null,
+        },
       })
-
-      const payload = await response.json().catch(() => ({}))
-      if (!response.ok) {
-        throw new Error(payload?.error || 'Failed to save indicator.')
-      }
-
-      await queryClient.invalidateQueries({ queryKey: indicatorKeys.list(workspaceId) })
-      if (payload?.reviewTarget) {
-        onReviewTargetChange?.(payload.reviewTarget as ReviewTargetDescriptor)
-      }
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to save indicator.'
-      setVerifyStatus({ state: 'error', message })
+      console.error('Failed to update indicator', err)
     }
-  }, [
-    descriptor.draftSessionId,
-    descriptor.entityId,
-    descriptor.reviewSessionId,
-    onReviewTargetChange,
-    pineCode,
-    queryClient,
-    setYjsInputMeta,
-    workspaceId,
-    yjsColor,
-    yjsInputMeta,
-    yjsName,
-  ])
+  }, [workspaceId, indicatorId, updateMutation, pineCode])
 
   const handleVerify = useCallback(async () => {
     if (!workspaceId) return
@@ -293,8 +246,7 @@ export function IndicatorCodePanel({
       }
       const plotsCount = data?.plotsCount ?? 0
       const markersCount = data?.markersCount ?? 0
-      const baseMessage = `Verification passed (${plotsCount} plot${plotsCount === 1 ? '' : 's'
-        }, ${markersCount} marker${markersCount === 1 ? '' : 's'}).`
+      const baseMessage = `Verification passed (${plotsCount} plot${plotsCount === 1 ? '' : 's'}, ${markersCount} marker${markersCount === 1 ? '' : 's'}).`
 
       if (warnings.length > 0) {
         setVerifyStatus({
@@ -327,7 +279,7 @@ export function IndicatorCodePanel({
   return (
     <div className='flex h-full w-full flex-col overflow-hidden p-2'>
       <div className='space-y-2'>
-        <div className='rounded-md bg-muted flex justify-start gap-2 p-2'>
+        <div className='flex justify-start gap-2 rounded-md bg-muted p-2'>
           <div className='flex flex-wrap items-center gap-1 '>
             <Select
               value={cheatSheetGroup}
@@ -353,7 +305,7 @@ export function IndicatorCodePanel({
               return (
                 <Tooltip key={item.key}>
                   <TooltipTrigger asChild>
-                    <code className='cursor-help rounded bg-background px-1 py-0.5 text-xs text-foreground'>
+                    <code className='cursor-help rounded bg-background px-1 py-0.5 text-foreground text-xs'>
                       {item.key}
                     </code>
                   </TooltipTrigger>
@@ -376,8 +328,7 @@ export function IndicatorCodePanel({
                       )}
                       {members && (
                         <div className='text-secondary/80'>
-                          <span className='font-medium text-secondary'>Available:</span>{' '}
-                          {members}
+                          <span className='font-medium text-secondary'>Available:</span> {members}
                         </div>
                       )}
                     </div>
@@ -445,12 +396,11 @@ export function IndicatorCodePanel({
           path={monacoModelPath}
           placeholder='Write PineTS code here...'
           minHeight='0px'
-          className='flex-1 min-h-0'
-          yText={pineCodeYText instanceof Y.Text ? pineCodeYText : null}
-          awareness={entitySession?.awareness}
+          className='min-h-0 flex-1'
           highlightVariables={true}
           editorHandleRef={codeEditorHandleRef}
           extraLibs={PINE_CHEAT_SHEET_EXTRA_LIBS}
+          diagnosticSourceBuilder={buildMonacoIndicatorDiagnosticSource}
           editorOptions={{
             scrollbar: { alwaysConsumeMouseWheel: true },
           }}

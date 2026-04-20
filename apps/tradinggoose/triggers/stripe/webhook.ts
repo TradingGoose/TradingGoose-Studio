@@ -4,7 +4,7 @@ import type { TriggerConfig } from '@/triggers/types'
 export const stripeWebhookTrigger: TriggerConfig = {
   id: 'stripe_webhook',
   name: 'Stripe Webhook',
-  provider: 'stripe',
+  webhookProvider: 'stripe',
   description: 'Triggers when Stripe events occur (payments, subscriptions, invoices, etc.)',
   version: '1.0.0',
   icon: StripeIcon,

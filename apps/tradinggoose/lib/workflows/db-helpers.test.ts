@@ -556,6 +556,7 @@ describe('Database Helpers', () => {
       )
 
       expect(result.success).toBe(true)
+      expect(result.normalizedState).toEqual(mockWorkflowState)
 
       // Verify transaction was called
       expect(mockTransaction).toHaveBeenCalledTimes(1)
@@ -681,6 +682,104 @@ describe('Database Helpers', () => {
         workflowId: mockWorkflowId,
         type: 'loop',
       })
+    })
+
+    it('should regenerate edge ids that conflict with another workflow', async () => {
+      let capturedEdgeInserts: any[] = []
+
+      mockDb.select.mockImplementation(() => ({
+        from: vi.fn().mockReturnValue({
+          where: vi.fn().mockImplementation(() => {
+            const callCount = mockDb.select.mock.calls.length
+            if (callCount === 1) {
+              return Promise.resolve([])
+            }
+            if (callCount === 2) {
+              return Promise.resolve([{ id: 'edge-1' }])
+            }
+            return Promise.resolve([])
+          }),
+        }),
+      }))
+
+      mockDb.transaction = vi.fn().mockImplementation(async (callback) => {
+        const tx = createMockTx({
+          insert: vi.fn().mockReturnValue({
+            values: vi.fn().mockImplementation((data) => {
+              if (Array.isArray(data) && data[0]?.sourceBlockId !== undefined) {
+                capturedEdgeInserts = data
+              }
+              return Promise.resolve([])
+            }),
+          }),
+        })
+
+        return callback(tx)
+      })
+
+      const result = await dbHelpers.saveWorkflowToNormalizedTables(
+        mockWorkflowId,
+        mockWorkflowState
+      )
+
+      expect(result.success).toBe(true)
+      expect(result.normalizedState?.edges).toHaveLength(1)
+      expect(result.normalizedState?.edges[0].id).not.toBe('edge-1')
+      expect(result.normalizedState?.edges[0].source).toBe('block-1')
+      expect(result.normalizedState?.edges[0].target).toBe('block-2')
+      expect(capturedEdgeInserts).toHaveLength(1)
+      expect(capturedEdgeInserts[0].id).toBe(result.normalizedState?.edges[0].id)
+    })
+
+    it('should regenerate duplicate edge ids within a single save payload', async () => {
+      let capturedEdgeInserts: any[] = []
+      const stateWithDuplicateEdgeIds: WorkflowState = {
+        ...mockWorkflowState,
+        edges: [
+          {
+            id: 'edge-duplicate',
+            source: 'block-1',
+            target: 'block-2',
+            sourceHandle: 'output',
+            targetHandle: 'input',
+          },
+          {
+            id: 'edge-duplicate',
+            source: 'block-2',
+            target: 'block-1',
+            sourceHandle: 'output',
+            targetHandle: 'input',
+          },
+        ],
+      }
+
+      mockDb.transaction = vi.fn().mockImplementation(async (callback) => {
+        const tx = createMockTx({
+          insert: vi.fn().mockReturnValue({
+            values: vi.fn().mockImplementation((data) => {
+              if (Array.isArray(data) && data[0]?.sourceBlockId !== undefined) {
+                capturedEdgeInserts = data
+              }
+              return Promise.resolve([])
+            }),
+          }),
+        })
+
+        return callback(tx)
+      })
+
+      const result = await dbHelpers.saveWorkflowToNormalizedTables(
+        mockWorkflowId,
+        stateWithDuplicateEdgeIds
+      )
+
+      expect(result.success).toBe(true)
+      const normalizedEdgeIds = result.normalizedState!.edges.map((edge) => edge.id)
+      expect(normalizedEdgeIds).toHaveLength(2)
+      expect(normalizedEdgeIds[0]).toBe('edge-duplicate')
+      expect(normalizedEdgeIds[1]).not.toBe('edge-duplicate')
+      expect(new Set(normalizedEdgeIds).size).toBe(2)
+      expect(capturedEdgeInserts.map((edge) => edge.id)).toEqual(normalizedEdgeIds)
     })
   })
 

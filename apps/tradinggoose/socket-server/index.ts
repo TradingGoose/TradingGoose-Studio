@@ -3,6 +3,7 @@ import type { Duplex } from 'stream'
 import { WebSocketServer } from 'ws'
 import { env } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
+import { closeRedisConnection } from '@/lib/redis'
 import { createSocketIOServer } from '@/socket-server/config/socket'
 import { setupAllHandlers } from '@/socket-server/handlers'
 import { IndicatorMonitorRuntime } from '@/socket-server/market/indicator-monitor-runtime'
@@ -136,8 +137,14 @@ const shutdown = () => {
     })
     .finally(() => {
       httpServer.close(() => {
-        logger.info('Socket.IO server closed')
-        process.exit(0)
+        void closeRedisConnection()
+          .catch((error) => {
+            logger.error('Failed to close Redis connection cleanly', { error })
+          })
+          .finally(() => {
+            logger.info('Socket.IO server closed')
+            process.exit(0)
+          })
       })
     })
 }

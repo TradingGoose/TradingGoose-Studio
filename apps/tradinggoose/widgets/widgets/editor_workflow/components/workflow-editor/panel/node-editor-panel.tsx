@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Check, ChevronDown, Pencil } from 'lucide-react'
-import { Panel } from 'reactflow'
+import { Panel } from '@xyflow/react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -16,13 +16,14 @@ import { getIconTileStyle } from '@/lib/ui/icon-colors'
 import { useBlock, useBlockProtection, useLoop, useParallel } from '@/lib/yjs/use-workflow-doc'
 import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import { getBlock } from '@/blocks'
-import type { SubBlockConfig } from '@/blocks/types'
 import { useWorkflowEditorActions } from '@/hooks/workflow/use-workflow-editor-actions'
-import { isConfigurableTriggerDeploySubBlock } from '@/triggers/constants'
 import { LoopTool } from '@/widgets/widgets/editor_workflow/components/subflows/loop/loop-config'
 import { ParallelTool } from '@/widgets/widgets/editor_workflow/components/subflows/parallel/parallel-config'
 import { SubBlock } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/sub-block'
-import { buildSubBlockRows } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/sub-block-layout'
+import {
+  buildTriggerEditingLayout,
+  getTriggerAwareSubBlockStableKey,
+} from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/trigger-editing-layout'
 
 interface NodeEditorPanelProps {
   selectedNodeId: string | null
@@ -31,67 +32,6 @@ interface NodeEditorPanelProps {
 type LoopType = 'for' | 'forEach' | 'while' | 'doWhile'
 type ParallelType = 'count' | 'collection'
 type SubflowNodeType = 'loop' | 'parallel'
-
-function readStateValue(stateEntry: any) {
-  if (stateEntry && typeof stateEntry === 'object' && 'value' in stateEntry) {
-    return stateEntry.value
-  }
-
-  return stateEntry
-}
-
-function resolveActiveTriggerId(
-  stateToUse: Record<string, any>,
-  availableTriggerIds?: string[]
-): string | null {
-  const selectedTriggerId = readStateValue(stateToUse.selectedTriggerId)
-  if (typeof selectedTriggerId === 'string' && selectedTriggerId.trim().length > 0) {
-    return selectedTriggerId
-  }
-
-  const triggerId = readStateValue(stateToUse.triggerId)
-  if (typeof triggerId === 'string' && triggerId.trim().length > 0) {
-    return triggerId
-  }
-
-  return availableTriggerIds?.[0] ?? null
-}
-
-function hasResolvedStateValue(stateToUse: Record<string, any>, field: string): boolean {
-  const value = readStateValue(stateToUse[field])
-  if (typeof value === 'string') {
-    return value.trim().length > 0
-  }
-
-  return value !== undefined && value !== null
-}
-
-function withResolvedTriggerState(
-  stateToUse: Record<string, any>,
-  activeTriggerId: string | null
-): Record<string, any> {
-  if (!activeTriggerId) {
-    return stateToUse
-  }
-
-  let nextState = stateToUse
-
-  if (!hasResolvedStateValue(nextState, 'selectedTriggerId')) {
-    nextState = {
-      ...nextState,
-      selectedTriggerId: { value: activeTriggerId },
-    }
-  }
-
-  if (!hasResolvedStateValue(nextState, 'triggerId')) {
-    nextState = {
-      ...nextState,
-      triggerId: { value: activeTriggerId },
-    }
-  }
-
-  return nextState
-}
 
 const LOOP_TYPE_OPTIONS: Array<{ value: LoopType; label: string }> = [
   { value: 'for', label: 'For Loop' },
@@ -104,31 +44,6 @@ const PARALLEL_TYPE_OPTIONS: Array<{ value: ParallelType; label: string }> = [
   { value: 'count', label: 'Parallel Count' },
   { value: 'collection', label: 'Parallel Each' },
 ]
-
-function getSubBlockStableKey(
-  blockId: string,
-  subBlock: SubBlockConfig,
-  stateToUse: Record<string, any>,
-  availableTriggerIds?: string[]
-) {
-  if (subBlock.type === 'mcp-dynamic-args') {
-    const serverValue = stateToUse.server?.value || 'no-server'
-    const toolValue = stateToUse.tool?.value || 'no-tool'
-    return `${blockId}-${subBlock.id}-${serverValue}-${toolValue}`
-  }
-
-  if (subBlock.type === 'mcp-tool-selector') {
-    const serverValue = stateToUse.server?.value || 'no-server'
-    return `${blockId}-${subBlock.id}-${serverValue}`
-  }
-
-  if (subBlock.mode === 'trigger') {
-    const activeTriggerId = resolveActiveTriggerId(stateToUse, availableTriggerIds) || 'no-trigger'
-    return `${blockId}-${subBlock.id}-${activeTriggerId}`
-  }
-
-  return `${blockId}-${subBlock.id}`
-}
 
 export function NodeEditorPanel({ selectedNodeId }: NodeEditorPanelProps) {
   const userPermissions = useUserPermissionsContext()
@@ -413,113 +328,21 @@ export function NodeEditorPanel({ selectedNodeId }: NodeEditorPanelProps) {
     displayAdvancedOptions,
     hasAdvancedOnlyFields,
     isTriggerConfigurationView,
-    hasDeploymentManagedTriggerConfiguration,
   } = useMemo(() => {
-    if (!selectedBlock || !blockConfig?.subBlocks) {
-      return {
-        regularRows: [] as SubBlockConfig[][],
-        advancedRows: [] as SubBlockConfig[][],
-        stateToUse: {},
-        displayAdvancedOptions: false,
-        hasAdvancedOnlyFields: false,
-        isTriggerConfigurationView: false,
-        hasDeploymentManagedTriggerConfiguration: false,
-      }
-    }
-
-    const blockStateForConditions = selectedBlock.subBlocks || {}
-
-    const isPureTriggerBlock = blockConfig.category === 'triggers'
-    const effectiveTrigger = Boolean(selectedBlock.triggerMode) || isPureTriggerBlock
-    const activeTriggerId = effectiveTrigger
-      ? resolveActiveTriggerId(blockStateForConditions, blockConfig.triggers?.available)
-      : null
-    const normalizedConditionState = effectiveTrigger
-      ? withResolvedTriggerState(blockStateForConditions, activeTriggerId)
-      : blockStateForConditions
-    const effectiveAdvanced = Boolean(selectedBlock.advancedMode)
-    const advancedValuesPresent = blockConfig.subBlocks.some((subBlock) => {
-      if (subBlock.mode !== 'advanced') return false
-      const value = blockStateForConditions[subBlock.id]?.value
-      if (value === undefined || value === null) return false
-      if (typeof value === 'string') return value.trim().length > 0
-      if (Array.isArray(value)) return value.length > 0
-      if (typeof value === 'object') return Object.keys(value).length > 0
-      return true
+    return buildTriggerEditingLayout({
+      blockConfig,
+      blockState: selectedBlock,
+      shouldDisableWrite,
     })
-    const advancedVisibility = shouldDisableWrite
-      ? effectiveAdvanced || advancedValuesPresent
-      : effectiveAdvanced
-    const advancedOnlySubBlocks = blockConfig.subBlocks.filter(
-      (subBlock) => subBlock.mode === 'advanced'
-    )
-    const hasConfigurableDeployTriggerFields = buildSubBlockRows({
-      subBlocks: blockConfig.subBlocks,
-      stateToUse: normalizedConditionState,
-      isAdvancedMode: false,
-      isTriggerMode: effectiveTrigger,
-      isPureTriggerBlock,
-      availableTriggerIds: blockConfig.triggers?.available,
-      hideFromPreview: false,
-      triggerSubBlockOwner: 'deploy',
-    }).some((row) => row.some(isConfigurableTriggerDeploySubBlock))
-    const hasCustomDeployTriggerFlow = activeTriggerId === 'chat'
-
-    const regularRowsAccumulator = buildSubBlockRows({
-      subBlocks: blockConfig.subBlocks,
-      stateToUse: normalizedConditionState,
-      isAdvancedMode: false,
-      isTriggerMode: effectiveTrigger,
-      isPureTriggerBlock,
-      availableTriggerIds: blockConfig.triggers?.available,
-      hideFromPreview: false,
-    })
-    const advancedRowsAccumulator = buildSubBlockRows({
-      subBlocks: advancedOnlySubBlocks,
-      stateToUse: normalizedConditionState,
-      isAdvancedMode: true,
-      isTriggerMode: effectiveTrigger,
-      isPureTriggerBlock,
-      availableTriggerIds: blockConfig.triggers?.available,
-      hideFromPreview: false,
-    })
-
-    return {
-      regularRows: regularRowsAccumulator,
-      advancedRows: advancedRowsAccumulator,
-      stateToUse: normalizedConditionState,
-      displayAdvancedOptions: advancedVisibility,
-      hasAdvancedOnlyFields: advancedRowsAccumulator.length > 0,
-      isTriggerConfigurationView: effectiveTrigger,
-      hasDeploymentManagedTriggerConfiguration:
-        hasConfigurableDeployTriggerFields || hasCustomDeployTriggerFlow,
-    }
   }, [blockConfig, selectedBlock, shouldDisableWrite])
 
   const emptyStateMessage = useMemo(() => {
-    if (isTriggerConfigurationView && hasDeploymentManagedTriggerConfiguration) {
-      if (userPermissions.canAdmin) {
-        return 'This trigger is configured in Deployment Settings. Use Deploy in the control bar to edit it.'
-      }
-
-      if (userPermissions.canEdit) {
-        return 'This trigger is configured in Deployment Settings. A workspace admin can update it there.'
-      }
-
-      return 'This trigger is configured in Deployment Settings.'
-    }
-
     if (isTriggerConfigurationView) {
       return 'This trigger has no editable fields in the panel.'
     }
 
     return 'No editable fields for this block.'
-  }, [
-    hasDeploymentManagedTriggerConfiguration,
-    isTriggerConfigurationView,
-    userPermissions.canAdmin,
-    userPermissions.canEdit,
-  ])
+  }, [isTriggerConfigurationView])
 
   if (!selectedNodeId) return null
 
@@ -717,7 +540,7 @@ export function NodeEditorPanel({ selectedNodeId }: NodeEditorPanelProps) {
             {regularRows.map((row, rowIndex) => (
               <div key={`panel-row-${rowIndex}`} className='flex gap-3'>
                 {row.map((subBlock) => {
-                  const stableKey = getSubBlockStableKey(
+                  const stableKey = getTriggerAwareSubBlockStableKey(
                     selectedBlock.id,
                     subBlock,
                     stateToUse,
@@ -772,7 +595,7 @@ export function NodeEditorPanel({ selectedNodeId }: NodeEditorPanelProps) {
               advancedRows.map((row, rowIndex) => (
                 <div key={`panel-advanced-row-${rowIndex}`} className='flex gap-3'>
                   {row.map((subBlock) => {
-                    const stableKey = getSubBlockStableKey(
+                    const stableKey = getTriggerAwareSubBlockStableKey(
                       selectedBlock.id,
                       subBlock,
                       stateToUse,

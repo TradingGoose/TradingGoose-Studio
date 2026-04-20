@@ -29,6 +29,24 @@ export type MonacoEditorHandle = {
   insertTextAtCursor: (text: string) => void
 }
 
+export type MonacoDiagnosticLanguage = 'javascript' | 'typescript'
+
+export type MonacoDiagnosticSource = {
+  content: string
+  language: MonacoDiagnosticLanguage
+  userCodeStartLine: number
+  userCodeLength: number
+  fileExtension?: 'js' | 'ts'
+}
+
+export type MonacoDiagnosticSourceBuilder = (
+  source: string,
+  context: {
+    language: MonacoDiagnosticLanguage
+    path: string
+  }
+) => MonacoDiagnosticSource | null
+
 export type MonacoEditorProps = {
   value: string
   onChange?: (value: string) => void
@@ -65,4 +83,5 @@ export type MonacoEditorProps = {
    * selections as Monaco decorations. Only used when `yText` is provided.
    */
   awareness?: import('@y/protocols/awareness').Awareness | null
+  diagnosticSourceBuilder?: MonacoDiagnosticSourceBuilder
 }

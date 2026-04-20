@@ -88,6 +88,34 @@ export function getRegisteredEntitySession(
   return sessions.get(reviewSessionId) ?? null
 }
 
+export function getRegisteredEntitySessionByIdentity(
+  entityKind: RegisteredEntitySession['descriptor']['entityKind'],
+  entityId: string | null | undefined,
+  workspaceId?: string | null
+): RegisteredEntitySession | null {
+  if (!entityId) {
+    return null
+  }
+
+  const matches = Array.from(sessions.values()).filter((session) => {
+    if (session.descriptor.entityKind !== entityKind) {
+      return false
+    }
+
+    if (session.descriptor.entityId !== entityId) {
+      return false
+    }
+
+    if (workspaceId != null && session.descriptor.workspaceId !== workspaceId) {
+      return false
+    }
+
+    return true
+  })
+
+  return matches.length === 1 ? matches[0] : null
+}
+
 export function useRegisteredEntitySession(
   reviewSessionId: string | null | undefined
 ): RegisteredEntitySession | null {

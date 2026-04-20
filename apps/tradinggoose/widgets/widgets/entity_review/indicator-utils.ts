@@ -1,5 +1,8 @@
 export const getIndicatorIdFromParams = (params?: Record<string, unknown> | null) => {
-  return typeof params?.indicatorId === 'string' && params.indicatorId.trim().length > 0
-    ? params.indicatorId.trim()
+  const indicatorId =
+    typeof params?.indicatorId === 'string' ? params.indicatorId : params?.pineIndicatorId
+
+  return typeof indicatorId === 'string' && indicatorId.trim().length > 0
+    ? indicatorId.trim()
     : null
 }

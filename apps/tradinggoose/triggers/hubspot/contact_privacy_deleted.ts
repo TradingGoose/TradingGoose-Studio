@@ -9,7 +9,7 @@ import type { TriggerConfig } from '@/triggers/types'
 export const hubspotContactPrivacyDeletedTrigger: TriggerConfig = {
   id: 'hubspot_contact_privacy_deleted',
   name: 'HubSpot Contact Privacy Deleted',
-  provider: 'hubspot',
+  webhookProvider: 'hubspot',
   description:
     'Trigger workflow when a contact is deleted for privacy compliance (GDPR, CCPA, etc.) in HubSpot',
   version: '1.0.0',

@@ -3,11 +3,12 @@ import { z } from 'zod'
 import { getSession } from '@/lib/auth'
 import {
   deleteDocument,
-  markDocumentAsFailedTimeout,
+  failStaleDocumentProcessing,
   retryDocumentProcessing,
   updateDocument,
 } from '@/lib/knowledge/documents/service'
 import { createLogger } from '@/lib/logs/console/logger'
+import { TriggerExecutionUnavailableError } from '@/lib/trigger/settings'
 import { generateRequestId } from '@/lib/utils'
 import { checkDocumentAccess, checkDocumentWriteAccess } from '@/app/api/knowledge/utils'
 
@@ -21,8 +22,8 @@ const UpdateDocumentSchema = z.object({
   characterCount: z.number().min(0).optional(),
   processingStatus: z.enum(['pending', 'processing', 'completed', 'failed']).optional(),
   processingError: z.string().optional(),
-  markFailedDueToTimeout: z.boolean().optional(),
   retryProcessing: z.boolean().optional(),
+  failStaleProcessing: z.boolean().optional(),
   // Tag fields
   tag1: z.string().optional(),
   tag2: z.string().optional(),
@@ -110,43 +111,26 @@ export async function PUT(
     try {
       const validatedData = UpdateDocumentSchema.parse(body)
 
-      const updateData: any = {}
-
-      if (validatedData.markFailedDueToTimeout) {
+      if (validatedData.failStaleProcessing) {
         const doc = accessCheck.document
 
         if (doc.processingStatus !== 'processing') {
-          return NextResponse.json(
-            { error: `Document is not in processing state (current: ${doc.processingStatus})` },
-            { status: 400 }
-          )
+          return NextResponse.json({ error: 'Document is not processing' }, { status: 400 })
         }
 
-        if (!doc.processingStartedAt) {
-          return NextResponse.json(
-            { error: 'Document has no processing start time' },
-            { status: 400 }
-          )
-        }
+        const result = await failStaleDocumentProcessing(documentId, requestId)
 
-        try {
-          await markDocumentAsFailedTimeout(documentId, doc.processingStartedAt, requestId)
+        return NextResponse.json({
+          success: true,
+          data: {
+            documentId,
+            status: result.status,
+            message: result.message,
+          },
+        })
+      }
 
-          return NextResponse.json({
-            success: true,
-            data: {
-              documentId,
-              status: 'failed',
-              message: 'Document marked as failed due to timeout',
-            },
-          })
-        } catch (error) {
-          if (error instanceof Error) {
-            return NextResponse.json({ error: error.message }, { status: 400 })
-          }
-          throw error
-        }
-      } else if (validatedData.retryProcessing) {
+      if (validatedData.retryProcessing) {
         const doc = accessCheck.document
 
         if (doc.processingStatus !== 'failed') {
@@ -201,6 +185,11 @@ export async function PUT(
       throw validationError
     }
   } catch (error) {
+    if (error instanceof TriggerExecutionUnavailableError) {
+      logger.error(`[${requestId}] Document processing blocked`, { error: error.message })
+      return NextResponse.json({ error: error.message }, { status: error.statusCode })
+    }
+
     logger.error(`[${requestId}] Error updating document ${documentId}`, error)
     return NextResponse.json({ error: 'Failed to update document' }, { status: 500 })
   }

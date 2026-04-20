@@ -13,6 +13,7 @@ interface FrozenCanvasModalProps {
   workflowName?: string
   trigger?: string
   traceSpans?: any[] // TraceSpans data from log metadata
+  costMultiplier?: number
   isOpen: boolean
   onClose: () => void
 }
@@ -22,6 +23,7 @@ export function FrozenCanvasModal({
   workflowName,
   trigger,
   traceSpans,
+  costMultiplier = 1,
   isOpen,
   onClose,
 }: FrozenCanvasModalProps) {
@@ -80,9 +82,10 @@ export function FrozenCanvasModal({
           <FrozenCanvas
             executionId={executionId}
             traceSpans={traceSpans}
+            costMultiplier={costMultiplier}
             height='100%'
             width='100%'
-          // Ensure preview leaves padding at edges so nodes don't touch header
+            // Ensure preview leaves padding at edges so nodes don't touch header
           />
         </div>
 

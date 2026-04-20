@@ -1,5 +1,5 @@
-import { env } from '@/lib/env'
 import type { TrelloListCardsParams, TrelloListCardsResponse } from '@/tools/trello/types'
+import { getTrelloApiKey } from '@/tools/trello/utils'
 import type { ToolConfig } from '@/tools/types'
 
 export const trelloListCardsTool: ToolConfig<TrelloListCardsParams, TrelloListCardsResponse> = {
@@ -38,7 +38,7 @@ export const trelloListCardsTool: ToolConfig<TrelloListCardsParams, TrelloListCa
       if (!params.boardId) {
         throw new Error('Board ID is required')
       }
-      const apiKey = env.TRELLO_API_KEY || ''
+      const apiKey = getTrelloApiKey(params)
       const token = params.accessToken
       let url = `https://api.trello.com/1/boards/${params.boardId}/cards?key=${apiKey}&token=${token}&fields=id,name,desc,url,idBoard,idList,closed,labels,due,dueComplete`
       if (params.listId) {

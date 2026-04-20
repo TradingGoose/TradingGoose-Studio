@@ -1,4 +1,4 @@
-import type { Edge, Node } from 'reactflow'
+import type { Edge, Node } from '@xyflow/react'
 import { getBlock } from '@/blocks'
 import type { BlockConfig } from '@/blocks/types'
 import type { BlockState, WorkflowState } from '@/stores/workflows/workflow/types'
@@ -8,7 +8,7 @@ import {
   type PreviewDiffStatus,
 } from './preview-diff'
 
-export type PreviewNodeData = {
+export interface PreviewNodeData extends Record<string, unknown> {
   type: string
   name: string
   config: BlockConfig
@@ -23,7 +23,7 @@ export type PreviewNodeData = {
   diffStatus?: PreviewDiffStatus
 }
 
-export type PreviewSubflowData = {
+export interface PreviewSubflowData extends Record<string, unknown> {
   name: string
   width: number
   height: number
@@ -33,9 +33,25 @@ export type PreviewSubflowData = {
   diffStatus?: PreviewDiffStatus
 }
 
+export type PreviewCanvasNode = Node<PreviewNodeData, 'previewNode'>
+export type PreviewCanvasSubflowNode = Node<PreviewSubflowData, 'subflowNode'>
+
 export type PreviewPayloadAdapterResult = {
-  nodes: Node[]
+  nodes: Array<PreviewCanvasNode | PreviewCanvasSubflowNode>
   edges: Edge[]
+}
+
+function buildPreviewEdgeId(edge: Pick<Edge, 'source' | 'target' | 'sourceHandle' | 'targetHandle'>): string {
+  const sourceHandle =
+    !edge.sourceHandle || edge.sourceHandle === 'source' || edge.sourceHandle === 'output'
+      ? 'source'
+      : edge.sourceHandle
+  const targetHandle =
+    !edge.targetHandle || edge.targetHandle === 'target' || edge.targetHandle === 'input'
+      ? 'target'
+      : edge.targetHandle
+
+  return `${edge.source}-${sourceHandle}-${edge.target}-${targetHandle}`
 }
 
 function calculateAbsolutePosition(
@@ -67,7 +83,7 @@ export function adaptPreviewPayloadToCanvas(
   workflowState: WorkflowState,
   options?: PreviewPayloadAdapterOptions
 ): PreviewPayloadAdapterResult {
-  const nodes: Node[] = []
+  const nodes: Array<PreviewCanvasNode | PreviewCanvasSubflowNode> = []
   const diffStatuses = buildPreviewDiffStatusMap(options?.operations)
 
   Object.values(workflowState.blocks).forEach((block) => {
@@ -79,7 +95,6 @@ export function adaptPreviewPayloadToCanvas(
         id: block.id,
         type: 'subflowNode',
         position: absolutePosition,
-        draggable: false,
         data: {
           name: block.name,
           width: block.data?.width || 500,
@@ -102,7 +117,6 @@ export function adaptPreviewPayloadToCanvas(
       id: block.id,
       type: 'previewNode',
       position: absolutePosition,
-      draggable: false,
       data: {
         type: block.type,
         name: block.name,
@@ -118,6 +132,7 @@ export function adaptPreviewPayloadToCanvas(
 
   const edges = (workflowState.edges || []).map((edge) => ({
     ...edge,
+    id: edge.id || buildPreviewEdgeId(edge),
     type: edge.type || 'workflowEdge',
   }))
 

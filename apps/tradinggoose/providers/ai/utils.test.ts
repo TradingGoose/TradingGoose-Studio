@@ -8,7 +8,6 @@ import {
   getAllModelProviders,
   getAllModels,
   getAllProviderIds,
-  getApiKey,
   getBaseModelProviders,
   getCustomTools,
   getHostedModels,
@@ -23,12 +22,14 @@ import {
   MODELS_WITH_TEMPERATURE_SUPPORT,
   MODELS_WITH_VERBOSITY,
   PROVIDERS_WITH_TOOL_USAGE_CONTROL,
+  prepareToolExecution,
   prepareToolsWithUsageControl,
   supportsTemperature,
   supportsToolUsageControl,
   transformCustomTool,
   updateOllamaProviderModels,
 } from '@/providers/ai/utils'
+import { getApiKey } from '@/providers/ai/utils-server'
 
 const isHostedSpy = vi.spyOn(environmentModule, 'isHosted', 'get')
 const mockGetRotatingApiKey = vi.fn().mockReturnValue('rotating-server-key')
@@ -53,55 +54,59 @@ describe('getApiKey', () => {
     module.require = originalRequire
   })
 
-  it('should return user-provided key when not in hosted environment', () => {
+  it('should return user-provided key when not in hosted environment', async () => {
     isHostedSpy.mockReturnValue(false)
 
     // For OpenAI
-    const key1 = getApiKey('openai', 'gpt-4', 'user-key-openai')
+    const key1 = await getApiKey('openai', 'gpt-4', 'user-key-openai')
     expect(key1).toBe('user-key-openai')
 
     // For Anthropic
-    const key2 = getApiKey('anthropic', 'claude-3', 'user-key-anthropic')
+    const key2 = await getApiKey('anthropic', 'claude-3', 'user-key-anthropic')
     expect(key2).toBe('user-key-anthropic')
   })
 
-  it('should throw error if no key provided in non-hosted environment', () => {
+  it('should throw error if no key provided in non-hosted environment', async () => {
     isHostedSpy.mockReturnValue(false)
 
-    expect(() => getApiKey('openai', 'gpt-4')).toThrow('API key is required for openai gpt-4')
-    expect(() => getApiKey('anthropic', 'claude-3')).toThrow(
+    await expect(getApiKey('openai', 'gpt-4')).rejects.toThrow(
+      'API key is required for openai gpt-4'
+    )
+    await expect(getApiKey('anthropic', 'claude-3')).rejects.toThrow(
       'API key is required for anthropic claude-3'
     )
   })
 
-  it('should fall back to user key in hosted environment if rotation fails', () => {
+  it('should fall back to user key in hosted environment if rotation fails', async () => {
     isHostedSpy.mockReturnValue(true)
 
     module.require = vi.fn(() => {
       throw new Error('Rotation failed')
     })
 
-    const key = getApiKey('openai', 'gpt-4', 'user-fallback-key')
+    const key = await getApiKey('openai', 'gpt-4', 'user-fallback-key')
     expect(key).toBe('user-fallback-key')
   })
 
-  it('should throw error in hosted environment if rotation fails and no user key', () => {
+  it('should throw error in hosted environment if rotation fails and no user key', async () => {
     isHostedSpy.mockReturnValue(true)
 
     module.require = vi.fn(() => {
       throw new Error('Rotation failed')
     })
 
-    expect(() => getApiKey('openai', 'gpt-4')).toThrow('No API key available for openai gpt-4')
+    await expect(getApiKey('openai', 'gpt-4')).rejects.toThrow(
+      'No API key available for openai gpt-4'
+    )
   })
 
-  it('should require user key for non-OpenAI/Anthropic providers even in hosted environment', () => {
+  it('should require user key for non-OpenAI/Anthropic providers even in hosted environment', async () => {
     isHostedSpy.mockReturnValue(true)
 
-    const key = getApiKey('other-provider', 'some-model', 'user-key')
+    const key = await getApiKey('other-provider', 'some-model', 'user-key')
     expect(key).toBe('user-key')
 
-    expect(() => getApiKey('other-provider', 'some-model')).toThrow(
+    await expect(getApiKey('other-provider', 'some-model')).rejects.toThrow(
       'API key is required for other-provider some-model'
     )
   })
@@ -719,6 +724,75 @@ describe('Tool Management', () => {
     it.concurrent('should return array of transformed custom tools', () => {
       const result = getCustomTools()
       expect(Array.isArray(result)).toBe(true)
+    })
+  })
+
+  describe('prepareToolExecution', () => {
+    it.concurrent('should preserve workspace-only execution context', () => {
+      const { toolParams, executionParams } = prepareToolExecution(
+        {
+          params: {
+            llmOnly: 'overridden',
+            toolOnly: 'tool-value',
+          },
+        },
+        {
+          llmOnly: 'llm-value',
+          argOnly: 'arg-value',
+        },
+        {
+          workspaceId: 'workspace-1',
+          chatId: 'chat-1',
+          userId: 'user-1',
+        }
+      )
+
+      expect(toolParams).toEqual({
+        llmOnly: 'overridden',
+        toolOnly: 'tool-value',
+        argOnly: 'arg-value',
+      })
+      expect(executionParams).toMatchObject({
+        llmOnly: 'overridden',
+        toolOnly: 'tool-value',
+        argOnly: 'arg-value',
+        _context: {
+          workspaceId: 'workspace-1',
+          chatId: 'chat-1',
+          userId: 'user-1',
+        },
+      })
+      expect(executionParams._context).not.toHaveProperty('workflowId')
+    })
+
+    it.concurrent('should include workflow and execution metadata when available', () => {
+      const { executionParams } = prepareToolExecution(
+        { params: {} },
+        {},
+        {
+          workflowId: 'workflow-1',
+          workspaceId: 'workspace-1',
+          chatId: 'chat-1',
+          userId: 'user-1',
+          environmentVariables: { API_KEY: 'secret' },
+          workflowVariables: { symbol: 'AAPL' },
+          blockData: { blockA: { output: 1 } },
+          blockNameMapping: { source: 'blockA' },
+        }
+      )
+
+      expect(executionParams).toEqual({
+        _context: {
+          workflowId: 'workflow-1',
+          workspaceId: 'workspace-1',
+          chatId: 'chat-1',
+          userId: 'user-1',
+        },
+        envVars: { API_KEY: 'secret' },
+        workflowVariables: { symbol: 'AAPL' },
+        blockData: { blockA: { output: 1 } },
+        blockNameMapping: { source: 'blockA' },
+      })
     })
   })
 

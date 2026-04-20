@@ -1,4 +1,4 @@
-import type { Node } from 'reactflow'
+import type { Node } from '@xyflow/react'
 import { describe, expect, it, vi } from 'vitest'
 import type { BlockState } from '@/stores/workflows/workflow/types'
 import { resolveCanvasNodeDescriptor } from './block-registry'

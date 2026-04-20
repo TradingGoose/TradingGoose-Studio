@@ -145,7 +145,7 @@ vi.mock('@/lib/yjs/workflow-session', () => ({
 
 // Mock trigger functions
 vi.mock('@/triggers/utils', () => ({
-  getTriggersByProvider: vi.fn((provider: string) => {
+  getTriggersByWebhookProvider: vi.fn((provider: string) => {
     const mockTriggers: Record<string, any[]> = {
       outlook: [
         {
@@ -198,8 +198,8 @@ vi.mock('@/triggers/utils', () => ({
 
 describe('TagDropdown Trigger Output Parsing', () => {
   it.concurrent('should parse trigger outputs correctly for outlook trigger', () => {
-    // Mock getTriggersByProvider function directly
-    const getTriggersByProvider = vi.fn((provider: string) => {
+    // Mock getTriggersByWebhookProvider function directly
+    const getTriggersByWebhookProvider = vi.fn((provider: string) => {
       const mockTriggers: Record<string, any[]> = {
         outlook: [
           {
@@ -222,7 +222,7 @@ describe('TagDropdown Trigger Output Parsing', () => {
       return mockTriggers[provider] || []
     })
 
-    const triggers = getTriggersByProvider('outlook')
+    const triggers = getTriggersByWebhookProvider('outlook')
     const firstTrigger = triggers[0]
 
     expect(firstTrigger).toBeDefined()
@@ -241,8 +241,8 @@ describe('TagDropdown Trigger Output Parsing', () => {
   it.concurrent(
     'should get correct output type for trigger paths using getOutputTypeForPath',
     () => {
-      // Mock getTriggersByProvider function directly
-      const getTriggersByProvider = vi.fn((provider: string) => {
+      // Mock getTriggersByWebhookProvider function directly
+      const getTriggersByWebhookProvider = vi.fn((provider: string) => {
         const mockTriggers: Record<string, any[]> = {
           outlook: [
             {
@@ -273,7 +273,7 @@ describe('TagDropdown Trigger Output Parsing', () => {
         outputPath: string
       ): string => {
         if (block?.triggerMode && blockConfig?.triggers?.enabled) {
-          const triggers = getTriggersByProvider(block.type)
+          const triggers = getTriggersByWebhookProvider(block.type)
           const firstTrigger = triggers[0]
 
           if (firstTrigger?.outputs) {
@@ -333,7 +333,7 @@ describe('TagDropdown Trigger Output Parsing', () => {
   )
 
   it.concurrent('should handle trigger output navigation for parent objects', () => {
-    const getTriggersByProvider = vi.fn((provider: string) => {
+    const getTriggersByWebhookProvider = vi.fn((provider: string) => {
       const mockTriggers: Record<string, any[]> = {
         outlook: [
           {
@@ -357,7 +357,7 @@ describe('TagDropdown Trigger Output Parsing', () => {
       outputPath: string
     ): string => {
       if (block?.triggerMode && blockConfig?.triggers?.enabled) {
-        const triggers = getTriggersByProvider(block.type)
+        const triggers = getTriggersByWebhookProvider(block.type)
         const firstTrigger = triggers[0]
 
         if (firstTrigger?.outputs) {
@@ -413,8 +413,8 @@ describe('TagDropdown Trigger Output Parsing', () => {
       outputPath: string
     ): string => {
       if (block?.triggerMode && blockConfig?.triggers?.enabled) {
-        const { getTriggersByProvider } = require('@/triggers/utils')
-        const triggers = getTriggersByProvider(block.type)
+        const { getTriggersByWebhookProvider } = require('@/triggers/utils')
+        const triggers = getTriggersByWebhookProvider(block.type)
         const firstTrigger = triggers[0]
 
         if (firstTrigger?.outputs) {
@@ -473,7 +473,7 @@ describe('TagDropdown Trigger Output Parsing', () => {
   })
 
   it.concurrent('should handle different trigger providers correctly', () => {
-    const getTriggersByProvider = vi.fn((provider: string) => {
+    const getTriggersByWebhookProvider = vi.fn((provider: string) => {
       const mockTriggers: Record<string, any[]> = {
         slack: [
           {
@@ -498,7 +498,7 @@ describe('TagDropdown Trigger Output Parsing', () => {
       outputPath: string
     ): string => {
       if (block?.triggerMode && blockConfig?.triggers?.enabled) {
-        const triggers = getTriggersByProvider(block.type)
+        const triggers = getTriggersByWebhookProvider(block.type)
         const firstTrigger = triggers[0]
 
         if (firstTrigger?.outputs) {
@@ -552,8 +552,8 @@ describe('TagDropdown Trigger Output Parsing', () => {
     ): string => {
       if (block?.triggerMode && blockConfig?.triggers?.enabled) {
         try {
-          const { getTriggersByProvider } = require('@/triggers/utils')
-          const triggers = getTriggersByProvider(block.type)
+          const { getTriggersByWebhookProvider } = require('@/triggers/utils')
+          const triggers = getTriggersByWebhookProvider(block.type)
           const firstTrigger = triggers[0]
 
           if (firstTrigger?.outputs) {
@@ -604,7 +604,7 @@ describe('TagDropdown Trigger Output Parsing', () => {
   })
 
   it.concurrent('should generate correct trigger output tags for dropdown', () => {
-    const getTriggersByProvider = vi.fn((provider: string) => {
+    const getTriggersByWebhookProvider = vi.fn((provider: string) => {
       const mockTriggers: Record<string, any[]> = {
         outlook: [
           {
@@ -637,7 +637,7 @@ describe('TagDropdown Trigger Output Parsing', () => {
 
     // Mock trigger output tag generation
     const generateTriggerOutputTags = (blockType: string, blockId: string): string[] => {
-      const triggers = getTriggersByProvider(blockType)
+      const triggers = getTriggersByWebhookProvider(blockType)
       const firstTrigger = triggers[0]
 
       if (!firstTrigger?.outputs) return []
@@ -684,7 +684,7 @@ describe('TagDropdown Trigger Output Parsing', () => {
   })
 
   it.concurrent('should correctly identify trigger vs tool output resolution', () => {
-    const getTriggersByProvider = vi.fn((provider: string) => {
+    const getTriggersByWebhookProvider = vi.fn((provider: string) => {
       const mockTriggers: Record<string, any[]> = {
         outlook: [
           {
@@ -707,7 +707,7 @@ describe('TagDropdown Trigger Output Parsing', () => {
     ): string => {
       if (block?.triggerMode && blockConfig?.triggers?.enabled) {
         // Trigger mode logic
-        const triggers = getTriggersByProvider(block.type)
+        const triggers = getTriggersByWebhookProvider(block.type)
         const firstTrigger = triggers[0]
 
         if (firstTrigger?.outputs) {

@@ -1,87 +1,94 @@
 'use client'
 
-import type { LucideIcon } from 'lucide-react'
-import { CircleIcon, Code2, Database, DollarSign, HardDrive, Workflow } from 'lucide-react'
+import { CircleIcon } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { MotionPreset } from '@/components/ui/motion-preset'
+import { formatBillingPriceLabel, formatBillingPricePeriod } from '@/lib/billing/public-catalog'
+import {
+  DEFAULT_REGISTRATION_MODE,
+  getRegistrationPrimaryHref,
+  getRegistrationPrimaryLabel,
+} from '@/lib/registration/shared'
 import { cn } from '@/lib/utils'
 import { useCardGlow } from '@/app/(landing)/components/use-card-glow'
-import {
-  ENTERPRISE_PLAN_FEATURES,
-  PRO_PLAN_FEATURES,
-  TEAM_PLAN_FEATURES,
-} from '@/global-navbar/settings-modal/components/subscription/plan-configs'
+import { toPlanFeatures } from '@/global-navbar/settings-modal/components/subscription/plan-configs'
+import { usePublicBillingCatalog } from '@/hooks/queries/public-billing-catalog'
+import { useRegistrationState } from '@/hooks/queries/registration'
 
-interface PricingFeature {
-  icon: LucideIcon
-  text: string
-}
-
-interface PricingTier {
+interface PricingTierCard {
+  id: string
   name: string
   price: string
   period?: string
   description: string
-  features: PricingFeature[]
-  ctaText: string
+  features: ReturnType<typeof toPlanFeatures>
   featured?: boolean
+  ctaKind: 'contact' | 'signup'
+  contactUrl?: string | null
 }
-
-const pricingTiers: PricingTier[] = [
-  {
-    name: 'Community',
-    price: 'Free',
-    description: 'For individuals exploring indicators, AI workflows, and strategy prototyping.',
-    features: [
-      { icon: DollarSign, text: '$10 usage limit' },
-      { icon: HardDrive, text: '5GB file storage' },
-      { icon: Workflow, text: 'Public template access' },
-      { icon: Database, text: 'Limited log retention' },
-      { icon: Code2, text: 'CLI / SDK access' },
-    ],
-    ctaText: 'Get Started',
-  },
-  {
-    name: 'Pro',
-    price: '$20',
-    period: '/mo',
-    description:
-      'For active users who need higher throughput, more storage, and unlimited workspaces.',
-    features: PRO_PLAN_FEATURES,
-    ctaText: 'Get Started',
-    featured: true,
-  },
-  {
-    name: 'Team',
-    price: '$40',
-    period: '/mo',
-    description: 'For teams sharing workflows, pooled storage, and a dedicated support channel.',
-    features: TEAM_PLAN_FEATURES,
-    ctaText: 'Get Started',
-  },
-  {
-    name: 'Enterprise',
-    price: 'Custom',
-    description:
-      'For organisations needing custom rate limits, self-hosting, and dedicated support.',
-    features: ENTERPRISE_PLAN_FEATURES,
-    ctaText: 'Contact Sales',
-  },
-]
 
 export default function LandingPricing() {
   const router = useRouter()
+  const registrationQuery = useRegistrationState()
+  const registrationMode = registrationQuery.data?.registrationMode ?? DEFAULT_REGISTRATION_MODE
+  const registrationPrimaryHref = getRegistrationPrimaryHref(registrationMode)
+  const registrationPrimaryLabel = getRegistrationPrimaryLabel(registrationMode)
+  const { data: publicBillingCatalog } = usePublicBillingCatalog()
+  const featuredTierId =
+    publicBillingCatalog?.publicTiers.find((tier) => !tier.isDefault)?.id ?? null
 
   useCardGlow()
 
-  const handleCta = (tier: PricingTier) => {
-    if (tier.ctaText === 'Contact Sales') {
-      window.open('https://form.typeform.com/to/jqCO12pF', '_blank')
-    } else {
-      router.push('/signup')
+  const publicTierCards =
+    publicBillingCatalog?.publicTiers.map((tier) => ({
+      id: tier.id,
+      name: tier.displayName,
+      price: formatBillingPriceLabel(tier),
+      period: formatBillingPricePeriod(tier) ?? undefined,
+      description: tier.description,
+      features: toPlanFeatures(tier.pricingFeatures),
+      featured: tier.id === featuredTierId,
+      ctaKind: 'signup' as const,
+    })) ?? []
+
+  const pricingTiers: PricingTierCard[] = [
+    ...publicTierCards,
+    ...(publicBillingCatalog?.enterprisePlaceholder
+      ? [
+          {
+            id: 'enterprise-placeholder',
+            name: publicBillingCatalog.enterprisePlaceholder.displayName,
+            price: 'Custom',
+            description: publicBillingCatalog.enterprisePlaceholder.description,
+            features: toPlanFeatures(publicBillingCatalog.enterprisePlaceholder.pricingFeatures),
+            ctaKind: 'contact' as const,
+            contactUrl: publicBillingCatalog.enterprisePlaceholder.contactUrl,
+          },
+        ]
+      : []),
+  ]
+
+  if (!publicBillingCatalog?.billingEnabled || pricingTiers.length === 0) {
+    return null
+  }
+
+  const handleCta = (tier: PricingTierCard) => {
+    if (tier.ctaKind === 'contact') {
+      if (!tier.contactUrl) {
+        return
+      }
+
+      window.open(tier.contactUrl, '_blank')
+      return
     }
+
+    if (!registrationPrimaryHref) {
+      return
+    }
+
+    router.push(registrationPrimaryHref)
   }
 
   return (
@@ -117,13 +124,18 @@ export default function LandingPricing() {
           </MotionPreset>
         </div>
 
-        <div className='mt-16 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:mt-20 lg:grid-cols-4'>
+        <div className='mt-16 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:mt-20 xl:grid-cols-4'>
           {pricingTiers.map((tier, index) => {
             const buttonVariant = tier.featured ? 'default' : 'outline'
+            const ctaText =
+              tier.ctaKind === 'contact'
+                ? 'Contact Sales'
+                : registrationPrimaryLabel
+            const isSignupDisabled = tier.ctaKind === 'signup' && !registrationPrimaryHref
 
             return (
               <MotionPreset
-                key={tier.name}
+                key={tier.id}
                 fade
                 slide={{ direction: 'up', offset: 32 }}
                 transition={{ duration: 0.5 }}
@@ -132,7 +144,7 @@ export default function LandingPricing() {
                 <div
                   suppressHydrationWarning
                   className={cn(
-                    'card group relative h-full overflow-hidden rounded-lg bg-foreground/10 p-px transition-all duration-300 ease-in-out max-lg:last:col-span-full',
+                    'card group relative h-full overflow-hidden rounded-lg bg-foreground/10 p-px transition-all duration-300 ease-in-out',
                     { 'p-0': tier.featured }
                   )}
                 >
@@ -183,14 +195,18 @@ export default function LandingPricing() {
                         size='lg'
                         className='border-primary'
                         variant={buttonVariant}
+                        disabled={isSignupDisabled}
                         onClick={() => handleCta(tier)}
                       >
-                        {tier.ctaText}
+                        {ctaText}
                       </Button>
 
                       <div className='flex flex-col gap-1.5'>
-                        {tier.features.map((feature, idx) => (
-                          <div key={idx} className='flex items-center gap-2 py-1'>
+                        {tier.features.map((feature, featureIndex) => (
+                          <div
+                            key={`${tier.id}-${feature.text}-${featureIndex}`}
+                            className='flex items-center gap-2 py-1'
+                          >
                             <CircleIcon className='size-3' />
                             <span className='font-normal text-base'>{feature.text}</span>
                           </div>

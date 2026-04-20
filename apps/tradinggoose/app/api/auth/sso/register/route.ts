@@ -1,9 +1,97 @@
 import { type NextRequest, NextResponse } from 'next/server'
-import { auth } from '@/lib/auth'
+import { z } from 'zod'
+import { auth, getSession } from '@/lib/auth'
+import { getOrganizationBillingData, isOrganizationOwnerOrAdmin } from '@/lib/billing/core/organization'
+import { getBillingGateState } from '@/lib/billing/settings'
 import { env } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
+import { getOrganizationAccessState } from '@/lib/organization/access'
+import { validateExternalUrl } from '@/lib/security/input-validation'
+import { getBaseUrl } from '@/lib/urls/utils'
 
 const logger = createLogger('SSO-Register')
+const REDACTED_MARKER = '[REDACTED]'
+const LEGACY_OIDC_OVERRIDE_FIELDS = [
+  'authorizationEndpoint',
+  'tokenEndpoint',
+  'userInfoEndpoint',
+  'jwksEndpoint',
+] as const
+
+type OrganizationSession = {
+  activeOrganizationId?: string | null
+}
+
+const mappingSchema = z
+  .object({
+    id: z.string().default('sub'),
+    email: z.string().default('email'),
+    name: z.string().default('name'),
+    image: z.string().default('picture'),
+  })
+  .default({
+    id: 'sub',
+    email: 'email',
+    name: 'name',
+    image: 'picture',
+  })
+
+const ssoRegistrationSchema = z.discriminatedUnion('providerType', [
+  z.object({
+    providerType: z.literal('oidc').default('oidc'),
+    providerId: z.string().min(1, 'Provider ID is required'),
+    issuer: z.string().url('Issuer must be a valid URL'),
+    domain: z.string().min(1, 'Domain is required'),
+    mapping: mappingSchema,
+    clientId: z.string().min(1, 'Client ID is required for OIDC'),
+    clientSecret: z.string().min(1, 'Client Secret is required for OIDC'),
+    scopes: z
+      .union([
+        z.string().transform((value) =>
+          value
+            .split(',')
+            .map((scope) => scope.trim())
+            .filter((scope) => scope !== '')
+        ),
+        z.array(z.string()),
+      ])
+      .default(['openid', 'profile', 'email']),
+    pkce: z.boolean().default(true),
+  }),
+  z.object({
+    providerType: z.literal('saml'),
+    providerId: z.string().min(1, 'Provider ID is required'),
+    issuer: z.string().url('Issuer must be a valid URL'),
+    domain: z.string().min(1, 'Domain is required'),
+    mapping: mappingSchema,
+    entryPoint: z.string().url('Entry point must be a valid URL for SAML'),
+    cert: z.string().min(1, 'Certificate is required for SAML'),
+    callbackUrl: z.string().url().optional(),
+    audience: z.string().optional(),
+    wantAssertionsSigned: z.boolean().optional(),
+    signatureAlgorithm: z.string().optional(),
+    digestAlgorithm: z.string().optional(),
+    identifierFormat: z.string().optional(),
+    idpMetadata: z.string().optional(),
+  }),
+])
+
+function validateHttpsUrl(url: string, label: string) {
+  const validation = validateExternalUrl(url, label)
+  if (!validation.isValid) {
+    return validation.error ?? `${label} is invalid`
+  }
+
+  return null
+}
+
+function getLegacyOidcOverrideFields(value: unknown): string[] {
+  if (!value || typeof value !== 'object') {
+    return []
+  }
+
+  return LEGACY_OIDC_OVERRIDE_FIELDS.filter((field) => field in value)
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -11,58 +99,72 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'SSO is not enabled' }, { status: 400 })
     }
 
-    const body = await request.json()
-    const {
-      providerId,
-      issuer,
-      domain,
-      providerType = 'oidc',
-      // OIDC specific fields
-      clientId,
-      clientSecret,
-      scopes = ['openid', 'profile', 'email'],
-      pkce = true,
-      // SAML specific fields
-      entryPoint,
-      cert,
-      callbackUrl,
-      audience,
-      wantAssertionsSigned,
-      signatureAlgorithm,
-      digestAlgorithm,
-      identifierFormat,
-      idpMetadata,
-      // Mapping configuration
-      mapping = {
-        id: 'sub',
-        email: 'email',
-        name: 'name',
-        image: 'picture',
-      },
-    } = body
+    const session = await getSession(request.headers)
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+    }
 
-    if (!providerId || !issuer || !domain) {
+    const activeOrganizationId = (session.session as OrganizationSession | undefined)
+      ?.activeOrganizationId
+    if (!activeOrganizationId) {
+      return NextResponse.json({ error: 'Active organization is required' }, { status: 400 })
+    }
+
+    const [{ billingEnabled }, canManageSso, organizationBillingData] = await Promise.all([
+      getBillingGateState(),
+      isOrganizationOwnerOrAdmin(session.user.id, activeOrganizationId),
+      getOrganizationBillingData(activeOrganizationId),
+    ])
+    const access = getOrganizationAccessState({
+      billingEnabled,
+      hasOrganization: true,
+      isOrganizationAdmin: canManageSso,
+      organizationTier: organizationBillingData?.subscriptionTier,
+    })
+
+    if (!access.canManageOrganization) {
       return NextResponse.json(
-        { error: 'Missing required fields: providerId, issuer, domain' },
+        { error: 'Only organization owners and admins can manage SSO' },
+        { status: 403 }
+      )
+    }
+
+    if (!access.canConfigureSso) {
+      return NextResponse.json(
+        { error: 'Single Sign-On is not enabled for this organization' },
+        { status: 403 }
+      )
+    }
+
+    const rawBody = await request.json()
+    const rawProviderType = rawBody?.providerType === 'saml' ? 'saml' : 'oidc'
+    const legacyOidcOverrideFields =
+      rawProviderType === 'oidc' ? getLegacyOidcOverrideFields(rawBody) : []
+
+    if (legacyOidcOverrideFields.length > 0) {
+      return NextResponse.json(
+        {
+          error: `Manual OIDC endpoint overrides are not supported: ${legacyOidcOverrideFields.join(', ')}. Configure OIDC using the issuer URL only.`,
+        },
         { status: 400 }
       )
     }
 
-    if (providerType === 'oidc') {
-      if (!clientId || !clientSecret) {
-        return NextResponse.json(
-          { error: 'Missing required OIDC fields: clientId, clientSecret' },
-          { status: 400 }
-        )
-      }
-    } else if (providerType === 'saml') {
-      if (!entryPoint || !cert) {
-        return NextResponse.json(
-          { error: 'Missing required SAML fields: entryPoint, cert' },
-          { status: 400 }
-        )
-      }
+    const parseResult = ssoRegistrationSchema.safeParse(rawBody)
+
+    if (!parseResult.success) {
+      const firstError = parseResult.error.errors[0]
+      const errorMessage = firstError?.message || 'Validation failed'
+
+      logger.warn('Invalid SSO registration request', {
+        errors: parseResult.error.errors,
+      })
+
+      return NextResponse.json({ error: errorMessage }, { status: 400 })
     }
+
+    const body = parseResult.data
+    const { providerId, issuer, domain, providerType, mapping } = body
 
     const headers: Record<string, string> = {}
     request.headers.forEach((value, key) => {
@@ -73,77 +175,158 @@ export async function POST(request: NextRequest) {
       providerId,
       issuer,
       domain,
-      mapping,
+      organizationId: activeOrganizationId,
     }
 
     if (providerType === 'oidc') {
+      const {
+        clientId,
+        clientSecret,
+        scopes,
+        pkce,
+      } = body
+
       const oidcConfig: any = {
         clientId,
         clientSecret,
-        scopes:
-          typeof scopes === 'string'
-            ? scopes
-                .split(',')
-                .map((s: string) => s.trim())
-                .filter((s: string) => s !== 'offline_access')
-            : (scopes || ['openid', 'profile', 'email']).filter(
-                (s: string) => s !== 'offline_access'
-              ),
+        scopes: Array.isArray(scopes)
+          ? scopes.filter((scope) => scope !== 'offline_access')
+          : ['openid', 'profile', 'email'].filter((scope) => scope !== 'offline_access'),
         pkce: pkce ?? true,
+        mapping,
       }
 
-      // Add manual endpoints for providers that might need them
-      // Common patterns for OIDC providers that don't support discovery properly
-      if (
-        issuer.includes('okta.com') ||
-        issuer.includes('auth0.com') ||
-        issuer.includes('identityserver')
-      ) {
-        const baseUrl = issuer.includes('/oauth2/default')
-          ? issuer.replace('/oauth2/default', '')
-          : issuer.replace('/oauth', '').replace('/v2.0', '').replace('/oauth2', '')
-
-        // Okta-style endpoints
-        if (issuer.includes('okta.com')) {
-          oidcConfig.authorizationEndpoint = `${baseUrl}/oauth2/default/v1/authorize`
-          oidcConfig.tokenEndpoint = `${baseUrl}/oauth2/default/v1/token`
-          oidcConfig.userInfoEndpoint = `${baseUrl}/oauth2/default/v1/userinfo`
-          oidcConfig.jwksEndpoint = `${baseUrl}/oauth2/default/v1/keys`
-        }
-        // Auth0-style endpoints
-        else if (issuer.includes('auth0.com')) {
-          oidcConfig.authorizationEndpoint = `${baseUrl}/authorize`
-          oidcConfig.tokenEndpoint = `${baseUrl}/oauth/token`
-          oidcConfig.userInfoEndpoint = `${baseUrl}/userinfo`
-          oidcConfig.jwksEndpoint = `${baseUrl}/.well-known/jwks.json`
-        }
-        // Generic OIDC endpoints (IdentityServer, etc.)
-        else {
-          oidcConfig.authorizationEndpoint = `${baseUrl}/connect/authorize`
-          oidcConfig.tokenEndpoint = `${baseUrl}/connect/token`
-          oidcConfig.userInfoEndpoint = `${baseUrl}/connect/userinfo`
-          oidcConfig.jwksEndpoint = `${baseUrl}/.well-known/jwks`
-        }
-
-        logger.info('Using manual OIDC endpoints for provider', {
-          providerId,
-          provider: issuer.includes('okta.com')
-            ? 'Okta'
-            : issuer.includes('auth0.com')
-              ? 'Auth0'
-              : 'Generic',
-          authEndpoint: oidcConfig.authorizationEndpoint,
+      const discoveryUrl = `${issuer.replace(/\/$/, '')}/.well-known/openid-configuration`
+      const discoveryUrlError = validateHttpsUrl(discoveryUrl, 'OIDC discovery URL')
+      if (discoveryUrlError) {
+        logger.warn('OIDC discovery URL failed validation', {
+          discoveryUrl,
+          error: discoveryUrlError,
         })
+        return NextResponse.json({ error: discoveryUrlError }, { status: 400 })
+      }
+
+      try {
+        logger.info('Fetching OIDC discovery document', {
+          discoveryUrl,
+        })
+
+        const discoveryResponse = await fetch(discoveryUrl, {
+          headers: { Accept: 'application/json' },
+        })
+
+        if (!discoveryResponse.ok) {
+          logger.error('Failed to fetch OIDC discovery document', {
+            status: discoveryResponse.status,
+          })
+          return NextResponse.json(
+            {
+              error: 'Failed to fetch OIDC discovery document. Please verify the issuer URL.',
+            },
+            { status: 400 }
+          )
+        }
+
+        const discovery = (await discoveryResponse.json()) as Record<string, unknown>
+
+        const discoveredEndpoints: Record<string, unknown> = {
+          authorization_endpoint: discovery.authorization_endpoint,
+          token_endpoint: discovery.token_endpoint,
+          userinfo_endpoint: discovery.userinfo_endpoint,
+          jwks_uri: discovery.jwks_uri,
+        }
+
+        for (const [key, value] of Object.entries(discoveredEndpoints)) {
+          if (typeof value !== 'string') {
+            continue
+          }
+
+          const endpointError = validateHttpsUrl(value, `OIDC ${key}`)
+          if (endpointError) {
+            logger.warn('OIDC discovered endpoint failed validation', {
+              endpoint: key,
+              url: value,
+              error: endpointError,
+            })
+            return NextResponse.json(
+              {
+                error: `Discovered OIDC ${key} failed security validation: ${endpointError}`,
+              },
+              { status: 400 }
+            )
+          }
+        }
+
+        oidcConfig.authorizationEndpoint = discovery.authorization_endpoint
+        oidcConfig.tokenEndpoint = discovery.token_endpoint
+        oidcConfig.userInfoEndpoint = discovery.userinfo_endpoint
+        oidcConfig.jwksEndpoint = discovery.jwks_uri
+
+        logger.info('Resolved OIDC endpoints from discovery', {
+          providerId,
+          issuer,
+          authorizationEndpoint: oidcConfig.authorizationEndpoint,
+          tokenEndpoint: oidcConfig.tokenEndpoint,
+          userInfoEndpoint: oidcConfig.userInfoEndpoint,
+          jwksEndpoint: oidcConfig.jwksEndpoint,
+        })
+      } catch (error) {
+        logger.error('Error fetching OIDC discovery document', {
+          error: error instanceof Error ? error.message : 'Unknown error',
+          discoveryUrl,
+        })
+        return NextResponse.json(
+          {
+            error: 'Failed to fetch OIDC discovery document. Please verify the issuer URL.',
+          },
+          { status: 400 }
+        )
+      }
+
+      if (
+        !oidcConfig.authorizationEndpoint ||
+        !oidcConfig.tokenEndpoint ||
+        !oidcConfig.jwksEndpoint
+      ) {
+        const missing: string[] = []
+        if (!oidcConfig.authorizationEndpoint) missing.push('authorizationEndpoint')
+        if (!oidcConfig.tokenEndpoint) missing.push('tokenEndpoint')
+        if (!oidcConfig.jwksEndpoint) missing.push('jwksEndpoint')
+
+        logger.error('Missing required OIDC endpoints after discovery', {
+          missing,
+          authorizationEndpoint: oidcConfig.authorizationEndpoint,
+          tokenEndpoint: oidcConfig.tokenEndpoint,
+          jwksEndpoint: oidcConfig.jwksEndpoint,
+        })
+        return NextResponse.json(
+          {
+            error: `Missing required OIDC endpoints from discovery: ${missing.join(', ')}. Please verify the issuer supports OIDC discovery.`,
+          },
+          { status: 400 }
+        )
       }
 
       providerConfig.oidcConfig = oidcConfig
-    } else if (providerType === 'saml') {
-      const computedCallbackUrl =
-        callbackUrl || `${issuer.replace('/metadata', '')}/callback/${providerId}`
+    } else {
+      const {
+        entryPoint,
+        cert,
+        callbackUrl,
+        audience,
+        wantAssertionsSigned,
+        signatureAlgorithm,
+        digestAlgorithm,
+        identifierFormat,
+        idpMetadata,
+      } = body
 
-      const escapeXml = (str: string) =>
-        str.replace(/[<>&"']/g, (c) => {
-          switch (c) {
+      const computedCallbackUrl =
+        callbackUrl || `${getBaseUrl()}/api/auth/sso/saml2/sp/acs/${providerId}`
+
+      const escapeXml = (value: string) =>
+        value.replace(/[<>&"']/g, (character) => {
+          switch (character) {
             case '<':
               return '&lt;'
             case '>':
@@ -155,7 +338,7 @@ export async function POST(request: NextRequest) {
             case "'":
               return '&apos;'
             default:
-              return c
+              return character
           }
         })
 
@@ -188,7 +371,6 @@ export async function POST(request: NextRequest) {
       }
 
       providerConfig.samlConfig = samlConfig
-      providerConfig.mapping = undefined
     }
 
     logger.info('Calling Better Auth registerSSOProvider with config:', {
@@ -203,13 +385,13 @@ export async function POST(request: NextRequest) {
           oidcConfig: providerConfig.oidcConfig
             ? {
                 ...providerConfig.oidcConfig,
-                clientSecret: '[REDACTED]',
+                clientSecret: REDACTED_MARKER,
               }
             : undefined,
           samlConfig: providerConfig.samlConfig
             ? {
                 ...providerConfig.samlConfig,
-                cert: '[REDACTED]',
+                cert: REDACTED_MARKER,
               }
             : undefined,
         },
@@ -227,6 +409,7 @@ export async function POST(request: NextRequest) {
       providerId,
       providerType,
       domain,
+      organizationId: activeOrganizationId,
     })
 
     return NextResponse.json({

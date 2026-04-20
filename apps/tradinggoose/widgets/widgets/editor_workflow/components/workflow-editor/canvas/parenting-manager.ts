@@ -1,5 +1,6 @@
 import type { BlockState } from '@/stores/workflows/workflow/types'
 import { isBlockProtected } from '@/stores/workflows/workflow/utils'
+import type { WorkflowCanvasNodeData } from '@/widgets/widgets/editor_workflow/components/workflow-editor/canvas/block-registry'
 import {
   calculateRelativePosition,
   getNodeAbsolutePosition,
@@ -7,10 +8,11 @@ import {
   getNodeHierarchy,
   resizeContainerNodes,
 } from '@/widgets/widgets/editor_workflow/components/workflow-editor/canvas/node-position-utils'
-import type { Edge, Node } from 'reactflow'
+import type { Edge, Node } from '@xyflow/react'
 
 type BlocksById = Record<string, BlockState>
-type GetNodes = () => Node[]
+type WorkflowCanvasNode = Node<WorkflowCanvasNodeData>
+type GetNodes = () => WorkflowCanvasNode[]
 
 interface UpdateNodeParentParams {
   nodeId: string
@@ -34,7 +36,7 @@ interface ParentUpdateResult {
 }
 
 interface FindClosestContainerParams {
-  node: Node
+  node: WorkflowCanvasNode
   blocks: BlocksById
   getNodes: GetNodes
 }
@@ -48,7 +50,7 @@ interface BuildContainerEdgesParams {
   determineSourceHandle: (block: { id: string; type: string }) => string
 }
 
-function getNodeRect(node: Node, absolutePosition: { x: number; y: number }) {
+function getNodeRect(node: WorkflowCanvasNode, absolutePosition: { x: number; y: number }) {
   const width =
     node.type === 'subflowNode'
       ? (node.data?.width ?? 500)

@@ -23,6 +23,7 @@ export function layoutContainers(
   const { root, children } = getBlocksByParent(blocks)
 
   const containerOptions: LayoutOptions = {
+    direction: options.direction,
     horizontalSpacing: options.horizontalSpacing ? options.horizontalSpacing * 0.85 : 400,
     verticalSpacing: options.verticalSpacing ? options.verticalSpacing : 200,
     padding: { x: CONTAINER_PADDING_X, y: CONTAINER_PADDING_Y },

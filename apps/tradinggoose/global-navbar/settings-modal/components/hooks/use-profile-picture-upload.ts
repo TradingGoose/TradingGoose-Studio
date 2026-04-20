@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { upload as uploadToVercelBlob } from '@vercel/blob/client'
 import { createLogger } from '@/lib/logs/console/logger'
 
 const logger = createLogger('ProfilePictureUpload')
@@ -64,6 +65,28 @@ export function useProfilePictureUpload({
         const presignedData = await presignedResponse.json()
 
         logger.info('Presigned URL response:', presignedData)
+
+        if (presignedData.storageProvider === 'vercel') {
+          await uploadToVercelBlob(presignedData.fileInfo.key, file, {
+            access: presignedData.blobAccess || 'private',
+            handleUploadUrl: '/api/files/vercel/client-upload?type=profile-pictures',
+            clientPayload: JSON.stringify({
+              clientUploadAuthorization: presignedData.clientUploadAuthorization,
+              contentType: file.type,
+              fileName: file.name,
+              fileSize: file.size,
+              pathname: presignedData.fileInfo.key,
+            }),
+            contentType: file.type,
+            multipart: file.size > 8 * 1024 * 1024,
+          })
+
+          const publicUrl = presignedData.fileInfo.path
+          logger.info(
+            `Profile picture uploaded successfully via Vercel client upload: ${publicUrl}`
+          )
+          return publicUrl
+        }
 
         if (presignedData.directUploadSupported && presignedData.presignedUrl) {
           const uploadHeaders: Record<string, string> = {

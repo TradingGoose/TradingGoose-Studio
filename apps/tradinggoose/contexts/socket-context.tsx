@@ -1,18 +1,31 @@
 'use client'
 
-import {
-  createContext,
-  type ReactNode,
-  useContext,
-  useEffect,
-  useRef,
-  useState,
-} from 'react'
+import { createContext, type ReactNode, useContext, useEffect, useRef, useState } from 'react'
 import { io, type Socket } from 'socket.io-client'
+import { handleAuthError } from '@/lib/auth/auth-error-handler'
 import { getEnv } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
 
 const logger = createLogger('SocketContext')
+const isSocketAuthError = (message: string) =>
+  message === 'Authentication required' ||
+  message === 'Invalid session' ||
+  message === 'Token validation failed' ||
+  message === 'Failed to generate socket token: 401'
+const logSocketIssue = (
+  event: string,
+  details: {
+    message: string
+    type?: string
+  }
+) => {
+  if (isSocketAuthError(details.message)) {
+    logger.warn(event, details)
+    void handleAuthError('socket-auth')
+  } else {
+    logger.error(event, details)
+  }
+}
 
 interface User {
   id: string
@@ -73,9 +86,7 @@ const isEntryAlive = (entry: SocketRegistryEntry): boolean => {
  * Called when the registry is accessed so that orphaned sockets from HMR
  * reloads do not accumulate.
  */
-const pruneStaleEntries = (
-  registry: Map<string, SocketRegistryEntry>
-): void => {
+const pruneStaleEntries = (registry: Map<string, SocketRegistryEntry>): void => {
   registry.forEach((entry, key) => {
     if (!isEntryAlive(entry)) {
       // Best-effort cleanup of the underlying socket
@@ -96,8 +107,7 @@ const pruneStaleEntries = (
  * sockets are rarer, but pruning is still necessary to avoid leaking
  * entries that were disconnected by transient network issues.
  */
-const PRUNE_INTERVAL_MS =
-  process.env.NODE_ENV === 'development' ? 30_000 : 5 * 60_000
+const PRUNE_INTERVAL_MS = process.env.NODE_ENV === 'development' ? 30_000 : 5 * 60_000
 
 let lastPruneTime = 0
 
@@ -140,7 +150,14 @@ export function SocketProvider({ children, user }: SocketProviderProps) {
       headers: { 'cache-control': 'no-store' },
     })
 
-    if (!res.ok) throw new Error('Failed to generate socket token')
+    if (res.status === 401) {
+      throw new Error('Authentication required')
+    }
+
+    if (!res.ok) {
+      throw new Error(`Failed to generate socket token: ${res.status}`)
+    }
+
     const body = await res.json().catch(() => ({}))
     const token = body?.token
     if (!token || typeof token !== 'string') throw new Error('Invalid socket token')
@@ -162,7 +179,7 @@ export function SocketProvider({ children, user }: SocketProviderProps) {
     userIdRef.current = user.id
 
     const registry = getGlobalSocketRegistry()
-    let entry = registry.get(user.id)
+    const entry = registry.get(user.id)
     let disposed = false
 
     let setupSocketCleanup: (() => void) | undefined
@@ -188,10 +205,11 @@ export function SocketProvider({ children, user }: SocketProviderProps) {
       }
 
       const onConnectError = (error: any) => {
+        setIsConnected(false)
         setIsConnecting(false)
-        logger.error('Socket connection error:', {
-          message: error.message,
-          type: error.type,
+        logSocketIssue('Socket connection error:', {
+          message: error instanceof Error ? error.message : String(error),
+          type: error?.type,
         })
       }
 
@@ -215,22 +233,26 @@ export function SocketProvider({ children, user }: SocketProviderProps) {
       if (entry.promise) {
         logger.info('Waiting for shared socket initialization', { userId: user.id })
         setIsConnecting(true)
-        entry.promise.then((socket) => {
-          if (disposed) return
-          const current = registry.get(user.id)
-          if (current) {
-            registry.set(user.id, {
-              ...current,
-              connection: socket,
-              promise: null,
+        entry.promise
+          .then((socket) => {
+            if (disposed) return
+            const current = registry.get(user.id)
+            if (current) {
+              registry.set(user.id, {
+                ...current,
+                connection: socket,
+                promise: null,
+              })
+            }
+            setupSocketCleanup = setupSocket(socket)
+          })
+          .catch((err) => {
+            logSocketIssue('Shared socket initialization failed', {
+              message: err instanceof Error ? err.message : String(err),
             })
-          }
-          setupSocketCleanup = setupSocket(socket)
-        }).catch((err) => {
-          logger.error('Shared socket initialization failed', err)
-          if (!disposed) setIsConnecting(false)
-          registry.delete(user.id) // Allow retry
-        })
+            if (!disposed) setIsConnecting(false)
+            registry.delete(user.id) // Allow retry
+          })
       } else if (entry.connection) {
         logger.info('Reusing existing shared socket connection', { userId: user.id })
         setupSocketCleanup = setupSocket(entry.connection)
@@ -262,7 +284,9 @@ export function SocketProvider({ children, user }: SocketProviderProps) {
               const freshToken = await generateSocketToken()
               cb({ token: freshToken })
             } catch (error) {
-              logger.error('Failed to generate fresh token for connection:', error)
+              logSocketIssue('Failed to generate fresh token for connection:', {
+                message: error instanceof Error ? error.message : String(error),
+              })
               cb({ token: null })
             }
           },
@@ -276,23 +300,27 @@ export function SocketProvider({ children, user }: SocketProviderProps) {
         promise: initPromise,
       })
 
-      initPromise.then((socket) => {
-        if (disposed) {
-          // Component unmounted before socket was ready — clean up immediately
-          socket.disconnect()
-          registry.delete(user.id)
-          return
-        }
-        registry.set(user.id, {
-          connection: socket,
-          promise: null,
+      initPromise
+        .then((socket) => {
+          if (disposed) {
+            // Component unmounted before socket was ready — clean up immediately
+            socket.disconnect()
+            registry.delete(user.id)
+            return
+          }
+          registry.set(user.id, {
+            connection: socket,
+            promise: null,
+          })
+          setupSocketCleanup = setupSocket(socket)
         })
-        setupSocketCleanup = setupSocket(socket)
-      }).catch((err) => {
-        logger.error('Failed to initialize socket:', err)
-        if (!disposed) setIsConnecting(false)
-        registry.delete(user.id)
-      })
+        .catch((err) => {
+          logSocketIssue('Failed to initialize socket:', {
+            message: err instanceof Error ? err.message : String(err),
+          })
+          if (!disposed) setIsConnecting(false)
+          registry.delete(user.id)
+        })
     }
 
     return () => {

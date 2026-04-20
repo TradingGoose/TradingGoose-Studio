@@ -13,7 +13,7 @@ import { Card, Cards } from 'fumadocs-ui/components/card'
 | **Key** | `editor_custom_tool` |
 | **Category** | Editor |
 
-The Custom Tool Editor lets you define and modify custom tools that agents can call during workflows. Each tool has two parts: a JSON schema that declares the tool's name, description, and parameters, and a JavaScript function body that runs when the tool is invoked. Use the [Custom Tool List](/utilities/custom-tools) widget to browse and create tools; the editor is the primary workspace for authoring their logic.
+The Custom Tool Editor lets you define and modify custom tools that agents can call during workflows. Each tool has two parts: a JSON schema that declares the tool's name, description, and parameters, and a JavaScript function body that runs when the tool is invoked. Use the [Custom Tool List](/widgets/list-custom-tool) widget to browse, create, and import tools; the editor is the primary workspace for authoring their logic.
 
 ## Features
 
@@ -24,13 +24,14 @@ The Custom Tool Editor lets you define and modify custom tools that agents can c
 - **Schema parameter autocomplete** in the code editor automatically suggests parameter names derived from the JSON schema as you type.
 - **Environment variable dropdown** triggers on the `{{` pattern, letting you insert workspace secrets.
 - **Tag dropdown** triggers on the tag pattern, letting you reference workflow variables.
+- **Export button** in the header bar downloads the current custom tool as TradingGoose export JSON.
 - **Save button** validates the schema, checks for duplicate tool names, and persists both schema and code. If validation fails, the editor switches to the Config section and shows the error.
 - **Tool selector** in the header bar switches between custom tools. When paired via a color link, it syncs with the Custom Tool List widget.
 
 ## Usage
 
 1. Add the widget to a workspace from the widget picker.
-2. Select an existing custom tool from the header dropdown, or create one from the [Custom Tool List](/utilities/custom-tools) widget.
+2. Select an existing custom tool from the header dropdown, or create/import one from the [Custom Tool List](/widgets/list-custom-tool) widget.
 3. In the **Config** tab, write or generate the JSON schema defining the tool's name, description, and parameters.
 4. Switch to the **Code** tab and write the JavaScript function body. Use parameter names from the schema directly -- the code editor will autocomplete them.
 5. Click **Save** to persist the tool. The editor validates the schema first and shows any errors inline.
@@ -59,8 +60,10 @@ The JSON schema must follow the OpenAI function-calling format:
 }
 ```
 
+Custom tools exported from the editor use the shared TradingGoose export JSON format. If you import tools through the Custom Tool List widget, duplicate titles and function names are renamed automatically before the editor opens them.
+
 <Callout>
-This widget supports the **pairColor** mechanism. Assign the same color to a Custom Tool Editor and a [Custom Tool List](/utilities/custom-tools) widget so that selecting a tool in the list automatically opens it in the editor.
+This widget supports the **pairColor** mechanism. Assign the same color to a Custom Tool Editor and a [Custom Tool List](/widgets/list-custom-tool) widget so that selecting a tool in the list automatically opens it in the editor.
 </Callout>
 
 ## Configuration
@@ -72,6 +75,9 @@ The selected tool is stored in widget params as `customToolId` and synced throug
 <Cards>
   <Card title="Custom Tools Guide" href="/utilities/custom-tools">
     Learn what custom tools are, how agents invoke them, and best practices.
+  </Card>
+  <Card title="Custom Tool List" href="/widgets/list-custom-tool">
+    Browse, create, and import custom tools from the workspace list.
   </Card>
   <Card title="Workflow Editor" href="/widgets/editor-workflow">
     Canvas interface to build and edit workflows.

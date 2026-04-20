@@ -12,12 +12,11 @@ import type { TraceSpan } from '@/stores/logs/filters/types'
 interface TraceSpansProps {
   traceSpans?: TraceSpan[]
   totalDuration?: number
-  onExpansionChange?: (expanded: boolean) => void
+  costMultiplier?: number
 }
 
-export function TraceSpans({ traceSpans, totalDuration = 0, onExpansionChange }: TraceSpansProps) {
+export function TraceSpans({ traceSpans, totalDuration = 0, costMultiplier = 1 }: TraceSpansProps) {
   const [expandedSpans, setExpandedSpans] = useState<Set<string>>(new Set())
-  const [typeFilters, setTypeFilters] = useState<Record<string, boolean>>({})
   const containerRef = useRef<HTMLDivElement | null>(null)
   const timelineHitboxRef = useRef<HTMLDivElement | null>(null)
   const [hoveredPercent, setHoveredPercent] = useState<number | null>(null)
@@ -59,8 +58,9 @@ export function TraceSpans({ traceSpans, totalDuration = 0, onExpansionChange }:
   }, 0)
 
   const actualTotalDuration = workflowEndTime - workflowStartTime
+  const effectiveTotalDuration = actualTotalDuration > 0 ? actualTotalDuration : totalDuration
 
-  const handleSpanToggle = (spanId: string, expanded: boolean, hasSubItems: boolean) => {
+  const handleSpanToggle = (spanId: string, expanded: boolean) => {
     const newExpandedSpans = new Set(expandedSpans)
     if (expanded) {
       newExpandedSpans.add(spanId)
@@ -68,42 +68,7 @@ export function TraceSpans({ traceSpans, totalDuration = 0, onExpansionChange }:
       newExpandedSpans.delete(spanId)
     }
     setExpandedSpans(newExpandedSpans)
-
-    if (onExpansionChange && hasSubItems) {
-      onExpansionChange(newExpandedSpans.size > 0)
-    }
   }
-
-  const availableTypes = useMemo(() => {
-    const set = new Set<string>()
-    const visit = (spans?: TraceSpan[]) => {
-      if (!spans) return
-      for (const s of spans) {
-        if (s?.type) {
-          const tl = s.type.toLowerCase()
-          if (tl !== 'workflow') set.add(tl) // Never expose 'workflow' as a filter
-        }
-        if (s?.children?.length) visit(s.children)
-        if (s?.toolCalls?.length) set.add('tool')
-      }
-    }
-    visit(traceSpans)
-    return Array.from(set).sort()
-  }, [traceSpans])
-
-  const effectiveTypeFilters = useMemo(() => {
-    if (!availableTypes.length) return {}
-    if (Object.keys(typeFilters).length === 0) {
-      const all: Record<string, boolean> = {}
-      availableTypes.forEach((t) => (all[t] = true))
-      return all
-    }
-    const merged = { ...typeFilters }
-    availableTypes.forEach((t) => {
-      if (merged[t] === undefined) merged[t] = true
-    })
-    return merged
-  }, [availableTypes, typeFilters])
 
   const toggleAll = (expand: boolean) => {
     if (!traceSpans) return
@@ -120,29 +85,7 @@ export function TraceSpans({ traceSpans, totalDuration = 0, onExpansionChange }:
       collect(traceSpans)
     }
     setExpandedSpans(next)
-    onExpansionChange?.(expand)
   }
-
-  const filtered = useMemo(() => {
-    const allowed = new Set(
-      Object.entries(effectiveTypeFilters)
-        .filter(([, v]) => v)
-        .map(([k]) => k)
-    )
-    const filterTree = (spans: TraceSpan[]): TraceSpan[] =>
-      spans
-        .map((s) => ({ ...s }))
-        .filter((s) => {
-          const tl = s.type?.toLowerCase?.() || ''
-          if (tl === 'workflow') return true
-          return allowed.has(tl)
-        })
-        .map((s) => ({
-          ...s,
-          children: s.children ? filterTree(s.children) : undefined,
-        }))
-    return traceSpans ? filterTree(traceSpans) : []
-  }, [traceSpans, effectiveTypeFilters])
 
   const forwardHover = useCallback(
     (clientX: number, clientY: number) => {
@@ -163,10 +106,10 @@ export function TraceSpans({ traceSpans, totalDuration = 0, onExpansionChange }:
 
       const clamped = Math.max(0, Math.min(1, (clientX - railRect.left) / railRect.width))
       setHoveredPercent(clamped * 100)
-      setHoveredWorkflowMs(workflowStartTime + clamped * actualTotalDuration)
+      setHoveredWorkflowMs(workflowStartTime + clamped * effectiveTotalDuration)
       setHoveredX(railRect.left + clamped * railRect.width - containerRect.left)
     },
-    [actualTotalDuration, workflowStartTime]
+    [effectiveTotalDuration, workflowStartTime]
   )
 
   useEffect(() => {
@@ -228,25 +171,18 @@ export function TraceSpans({ traceSpans, totalDuration = 0, onExpansionChange }:
           setHoveredX(null)
         }}
       >
-        {filtered.map((span, index) => {
+        {traceSpans.map((span, index) => {
           const normalizedSpan = normalizeChildWorkflowSpan(span)
-          const hasSubItems = Boolean(
-            (normalizedSpan.children && normalizedSpan.children.length > 0) ||
-              (normalizedSpan.toolCalls && normalizedSpan.toolCalls.length > 0) ||
-              normalizedSpan.input ||
-              normalizedSpan.output
-          )
-
           // Calculate gap from previous span (for sequential execution visualization)
           let gapMs = 0
           let gapPercent = 0
           if (index > 0) {
-            const prevSpan = filtered[index - 1]
+            const prevSpan = traceSpans[index - 1]
             const prevEndTime = new Date(prevSpan.endTime).getTime()
             const currentStartTime = new Date(normalizedSpan.startTime).getTime()
             gapMs = currentStartTime - prevEndTime
-            if (gapMs > 0 && actualTotalDuration > 0) {
-              gapPercent = (gapMs / actualTotalDuration) * 100
+            if (gapMs > 0 && effectiveTotalDuration > 0) {
+              gapPercent = (gapMs / effectiveTotalDuration) * 100
             }
           }
 
@@ -255,18 +191,14 @@ export function TraceSpans({ traceSpans, totalDuration = 0, onExpansionChange }:
               key={index}
               span={normalizedSpan}
               depth={0}
-              totalDuration={
-                actualTotalDuration !== undefined ? actualTotalDuration : totalDuration
-              }
-              isLast={index === traceSpans.length - 1}
+              totalDuration={effectiveTotalDuration}
               parentStartTime={new Date(normalizedSpan.startTime).getTime()}
               workflowStartTime={workflowStartTime}
               onToggle={handleSpanToggle}
               expandedSpans={expandedSpans}
-              hasSubItems={hasSubItems}
               hoveredPercent={hoveredPercent}
-              hoveredWorkflowMs={hoveredWorkflowMs}
               forwardHover={forwardHover}
+              costMultiplier={costMultiplier}
               gapBeforeMs={gapMs}
               gapBeforePercent={gapPercent}
               showRelativeChip={chipVisibility.relative}

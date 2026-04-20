@@ -5,15 +5,16 @@ import {
   ClientToolCallState,
 } from '@/lib/copilot/tools/client/base-tool'
 import {
-  getReadableWorkflowSnapshot,
-  resolveWorkflowIdFromExecutionContext,
+  buildWorkflowSummary,
+  buildWorkflowDocumentToolResult,
+  getReadableWorkflowState,
+  resolveWorkflowTarget,
 } from '@/lib/copilot/tools/client/workflow/workflow-review-tool-utils'
 import { createLogger } from '@/lib/logs/console/logger'
-import { sanitizeForCopilot } from '@/lib/workflows/json-sanitizer'
+import { serializeWorkflowToTgMermaid } from '@/lib/workflows/studio-workflow-mermaid'
 
 interface GetUserWorkflowArgs {
-  workflowId?: string
-  includeMetadata?: boolean
+  workflowId: string
 }
 
 const logger = createLogger('GetUserWorkflowClientTool')
@@ -42,14 +43,19 @@ export class GetUserWorkflowClientTool extends BaseClientTool {
       this.setState(ClientToolCallState.executing)
       const executionContext = this.requireExecutionContext()
 
-      const workflowId = resolveWorkflowIdFromExecutionContext(executionContext, args?.workflowId)
+      const { workflowId, workflowName, workspaceId } = await resolveWorkflowTarget(
+        executionContext,
+        {
+          workflowId: args?.workflowId,
+        }
+      )
 
       logger.info('Fetching user workflow from readable workflow snapshot', {
         workflowId,
-        includeMetadata: args?.includeMetadata,
+        workflowName,
       })
 
-      const { workflowState, source } = await getReadableWorkflowSnapshot(
+      const { workflowState, source } = await getReadableWorkflowState(
         executionContext,
         workflowId
       )
@@ -68,21 +74,17 @@ export class GetUserWorkflowClientTool extends BaseClientTool {
         return
       }
 
-      // Sanitize workflow state for copilot (remove UI-specific data)
-      const sanitizedState = sanitizeForCopilot(workflowState)
-
-      // Convert to JSON string for transport
-      let workflowJson = ''
+      let workflowDocument = ''
       try {
-        workflowJson = JSON.stringify(sanitizedState, null, 2)
-        logger.info('Successfully stringified sanitized workflow state', {
+        workflowDocument = serializeWorkflowToTgMermaid(workflowState)
+        logger.info('Successfully serialized workflow document', {
           workflowId,
-          jsonLength: workflowJson.length,
+          documentLength: workflowDocument.length,
         })
       } catch (stringifyError) {
         await this.markToolComplete(
           500,
-          `Failed to convert workflow to JSON: ${
+          `Failed to convert workflow to Mermaid: ${
             stringifyError instanceof Error ? stringifyError.message : 'Unknown error'
           }`
         )
@@ -91,7 +93,17 @@ export class GetUserWorkflowClientTool extends BaseClientTool {
       }
 
       // Mark complete with data; keep state success for store render
-      await this.markToolComplete(200, 'Workflow analyzed', { userWorkflow: workflowJson })
+      await this.markToolComplete(
+        200,
+        'Workflow analyzed',
+        buildWorkflowDocumentToolResult({
+          workflowId,
+          workflowName,
+          workspaceId,
+          workflowDocument,
+          workflowSummary: buildWorkflowSummary(workflowState),
+        })
+      )
       this.setState(ClientToolCallState.success)
     } catch (error: any) {
       const message = error instanceof Error ? error.message : String(error)

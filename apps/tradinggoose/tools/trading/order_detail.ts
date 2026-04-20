@@ -44,12 +44,6 @@ export const tradingOrderDetailTool: ToolConfig<
       visibility: 'user-only',
       description: 'Tradier OAuth credential id.',
     },
-    robinhoodCredential: {
-      type: 'string',
-      required: false,
-      visibility: 'user-only',
-      description: 'Robinhood OAuth credential id.',
-    },
     alpacaCredential: {
       type: 'string',
       required: false,
@@ -80,12 +74,6 @@ export const tradingOrderDetailTool: ToolConfig<
       visibility: 'user-or-llm',
       description: 'Tradier account ID override if not present in stored order metadata.',
     },
-    accountUrl: {
-      type: 'string',
-      required: false,
-      visibility: 'user-or-llm',
-      description: 'Robinhood account URL override if needed.',
-    },
   },
 
   request: {
@@ -102,7 +90,6 @@ export const tradingOrderDetailTool: ToolConfig<
       apiKey: params.apiKey,
       apiSecret: params.apiSecret,
       accountId: params.accountId,
-      accountUrl: params.accountUrl,
     }),
   },
 

@@ -1,4 +1,9 @@
-import { BASE_EXECUTION_CHARGE } from '@/lib/billing/constants'
+import { getResolvedBillingSettings } from '@/lib/billing/settings'
+import {
+  getTierWorkflowExecutionMultiplier,
+  getTierWorkflowModelCostMultiplier,
+} from '@/lib/billing/tiers'
+import { resolveWorkflowBillingContext } from '@/lib/billing/workspace-billing'
 import { createLogger } from '@/lib/logs/console/logger'
 import { executionLogger } from '@/lib/logs/execution/logger'
 import {
@@ -106,11 +111,43 @@ export class LoggingSession {
     }
   }
 
+  private async resolveWorkflowExecutionPricing(): Promise<{
+    workflowExecutionChargeUsd: number
+    workflowModelCostMultiplier: number
+  }> {
+    const billingSettings = await getResolvedBillingSettings()
+
+    if (!billingSettings.billingEnabled) {
+      return {
+        workflowExecutionChargeUsd: 0,
+        workflowModelCostMultiplier: 1,
+      }
+    }
+
+    const billingContext = await resolveWorkflowBillingContext({
+      workflowId: this.workflowId,
+      actorUserId: this.environment?.userId ?? null,
+    })
+
+    return {
+      workflowExecutionChargeUsd:
+        billingSettings.workflowExecutionChargeUsd *
+        getTierWorkflowExecutionMultiplier(billingContext.tier),
+      workflowModelCostMultiplier: getTierWorkflowModelCostMultiplier(billingContext.tier),
+    }
+  }
+
   async complete(params: SessionCompleteParams = {}): Promise<void> {
     const { endedAt, totalDurationMs, finalOutput, traceSpans, workflowInput } = params
 
     try {
-      const costSummary = calculateCostSummary(traceSpans || [])
+      const { workflowExecutionChargeUsd, workflowModelCostMultiplier } =
+        await this.resolveWorkflowExecutionPricing()
+      const costSummary = calculateCostSummary(
+        traceSpans || [],
+        workflowExecutionChargeUsd,
+        workflowModelCostMultiplier
+      )
       const endTime = endedAt || new Date().toISOString()
       const duration = totalDurationMs || 0
 
@@ -172,15 +209,16 @@ export class LoggingSession {
       const endTime = endedAt ? new Date(endedAt) : new Date()
       const durationMs = typeof totalDurationMs === 'number' ? totalDurationMs : 0
       const startTime = new Date(endTime.getTime() - Math.max(1, durationMs))
+      const { workflowExecutionChargeUsd } = await this.resolveWorkflowExecutionPricing()
 
       const costSummary = {
-        totalCost: BASE_EXECUTION_CHARGE,
+        totalCost: workflowExecutionChargeUsd,
         totalInputCost: 0,
         totalOutputCost: 0,
         totalTokens: 0,
         totalPromptTokens: 0,
         totalCompletionTokens: 0,
-        baseExecutionCharge: BASE_EXECUTION_CHARGE,
+        baseExecutionCharge: workflowExecutionChargeUsd,
         modelCost: 0,
         models: {},
       }

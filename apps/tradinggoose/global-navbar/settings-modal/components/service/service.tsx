@@ -45,11 +45,7 @@ const SERVICE_COPY: Record<
 
 export function Service() {
   if (!isHosted) {
-    return (
-      <div className='px-6 py-4 text-muted-foreground text-sm'>
-        Service API keys are available in hosted environments.
-      </div>
-    )
+    return null
   }
 
   return (

@@ -4,6 +4,7 @@ import { AuthMode } from '@/blocks/types'
 import type { HubSpotResponse } from '@/tools/hubspot/types'
 import { getTrigger } from '@/triggers'
 import { hubspotAllTriggerOptions } from '@/triggers/hubspot/utils'
+import { HUBSPOT_OAUTH_SCOPES } from '@/lib/oauth'
 
 export const HubSpotBlock: BlockConfig<HubSpotResponse> = {
   type: 'hubspot',
@@ -41,31 +42,7 @@ export const HubSpotBlock: BlockConfig<HubSpotResponse> = {
       type: 'oauth-input',
       provider: 'hubspot',
       serviceId: 'hubspot',
-      requiredScopes: [
-        'crm.objects.contacts.read',
-        'crm.objects.contacts.write',
-        'crm.objects.companies.read',
-        'crm.objects.companies.write',
-        'crm.objects.deals.read',
-        'crm.objects.deals.write',
-        'crm.objects.owners.read',
-        'crm.objects.users.read',
-        'crm.objects.users.write',
-        'crm.objects.marketing_events.read',
-        'crm.objects.marketing_events.write',
-        'crm.objects.line_items.read',
-        'crm.objects.line_items.write',
-        'crm.objects.quotes.read',
-        'crm.objects.quotes.write',
-        'crm.objects.appointments.read',
-        'crm.objects.appointments.write',
-        'crm.objects.carts.read',
-        'crm.objects.carts.write',
-        'crm.import',
-        'crm.lists.read',
-        'crm.lists.write',
-        'tickets',
-      ],
+      requiredScopes: HUBSPOT_OAUTH_SCOPES,
       placeholder: 'Select HubSpot account',
       required: true,
     },

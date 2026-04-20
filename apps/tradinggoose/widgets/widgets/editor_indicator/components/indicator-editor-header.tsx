@@ -1,20 +1,19 @@
 'use client'
 
-import { Check, Save } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Check, Download, Save } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { exportIndicatorsAsJson } from '@/lib/indicators/import-export'
 import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
+import { useIndicatorsStore } from '@/stores/indicators/store'
 import type { PairColor } from '@/widgets/pair-colors'
-import { emitIndicatorEditorAction } from '@/widgets/utils/indicator-editor-actions'
+import {
+  emitIndicatorEditorAction,
+  useIndicatorEditorState,
+} from '@/widgets/utils/indicator-editor-actions'
 import { emitIndicatorSelectionChange } from '@/widgets/utils/indicator-selection'
 import { IndicatorDropdown } from '@/widgets/widgets/components/pine-indicator-dropdown'
-import {
-  EntityEditorHeaderButton,
-  EntityEditorRedoButton,
-  EntityEditorUndoButton,
-} from '@/widgets/widgets/components/entity-editor-buttons'
-import {
-  buildPersistedPairContext,
-  readEntitySelectionState,
-} from '@/widgets/widgets/editor_indicator/utils'
 
 interface IndicatorEditorSelectorProps {
   workspaceId?: string
@@ -22,7 +21,6 @@ interface IndicatorEditorSelectorProps {
   indicatorId?: string | null
   pairColor?: PairColor
   widgetKey?: string
-  params?: Record<string, unknown> | null
 }
 
 export function IndicatorEditorSelector({
@@ -31,7 +29,6 @@ export function IndicatorEditorSelector({
   indicatorId,
   pairColor = 'gray',
   widgetKey,
-  params,
 }: IndicatorEditorSelectorProps) {
   const resolvedPairColor = (pairColor ?? 'gray') as PairColor
   const isLinkedToColorPair = resolvedPairColor !== 'gray'
@@ -46,15 +43,7 @@ export function IndicatorEditorSelector({
     const nextId = ids[0] ?? null
     if (isLinkedToColorPair) {
       if (pairContext?.indicatorId === nextId) return
-      setPairContext(
-        resolvedPairColor,
-        buildPersistedPairContext({
-          existing: pairContext,
-          legacyIdKey: 'indicatorId',
-          descriptor: null,
-          legacyEntityId: nextId,
-        })
-      )
+      setPairContext(resolvedPairColor, { indicatorId: nextId })
       return
     }
     if (!widgetKey) return
@@ -84,112 +73,194 @@ interface IndicatorEditorActionButtonProps {
   panelId?: string
   widgetKey?: string
   pairColor?: PairColor
-  params?: Record<string, unknown> | null
 }
 
-function useIndicatorSelection({
+const sanitizeFileNameSegment = (value: string) =>
+  value
+    .trim()
+    .replace(/[<>:"/\\|?*\u0000-\u001F]/g, '-')
+    .replace(/\s+/g, '-')
+
+const downloadJsonFile = (fileName: string, content: string) => {
+  const blob = new Blob([content], { type: 'application/json;charset=utf-8' })
+  const blobUrl = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+
+  link.href = blobUrl
+  link.download = fileName
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  URL.revokeObjectURL(blobUrl)
+}
+
+export function IndicatorEditorExportButton({
+  workspaceId,
   indicatorId,
+  panelId,
+  widgetKey,
   pairColor = 'gray',
-  params,
-}: Pick<IndicatorEditorActionButtonProps, 'indicatorId' | 'pairColor' | 'params'>) {
+}: IndicatorEditorActionButtonProps) {
   const resolvedPairColor = (pairColor ?? 'gray') as PairColor
+  const isLinkedToColorPair = resolvedPairColor !== 'gray'
   const pairContext = usePairColorContext(resolvedPairColor)
-  return readEntitySelectionState({
-    params,
-    pairContext: resolvedPairColor !== 'gray' ? pairContext : null,
-    legacyIdKey: 'indicatorId',
+  const [isDirty, setIsDirty] = useState(true)
+
+  const resolvedIndicatorId = isLinkedToColorPair
+    ? (pairContext?.indicatorId ?? indicatorId ?? null)
+    : (indicatorId ?? null)
+  const indicator = useIndicatorsStore((state) =>
+    workspaceId && resolvedIndicatorId
+      ? state.getIndicator(resolvedIndicatorId, workspaceId)
+      : undefined
+  )
+
+  useIndicatorEditorState({
+    panelId,
+    widget: widgetKey ? ({ key: widgetKey } as { key: string }) : null,
+    onStateChange: (detail) => {
+      setIsDirty(detail.isDirty)
+    },
   })
-}
 
-function useHasIndicatorSelection(
-  props: Pick<IndicatorEditorActionButtonProps, 'indicatorId' | 'pairColor' | 'params'>
-) {
-  const s = useIndicatorSelection(props)
-  return !!s.legacyEntityId || !!s.reviewSessionId || !!s.reviewDraftSessionId
-}
+  useEffect(() => {
+    setIsDirty(true)
+  }, [resolvedIndicatorId, workspaceId])
 
-type IndicatorEditorAction = 'save' | 'verify' | 'undo' | 'redo'
+  const fileName = useMemo(() => {
+    if (!indicator?.name) {
+      return 'indicator.json'
+    }
 
-/**
- * Internal parameterized button that powers save / verify / undo / redo.
- * All four share the same hook calls; only the rendered button differs.
- */
-function IndicatorEditorActionButton({
-  action,
-  ...props
-}: IndicatorEditorActionButtonProps & { action: IndicatorEditorAction }) {
-  const selectionState = useIndicatorSelection(props)
-  const hasSelection = useHasIndicatorSelection(props)
-  const emitAction = () =>
-    emitIndicatorEditorAction({ action, panelId: props.panelId, widgetKey: props.widgetKey })
+    const normalized = sanitizeFileNameSegment(indicator.name)
+    return normalized.length > 0 ? `${normalized}.json` : 'indicator.json'
+  }, [indicator?.name])
 
-  switch (action) {
-    case 'save':
-      return (
-        <EntityEditorHeaderButton
-          tooltip='Save indicator'
-          label='Save indicator'
-          icon={Save}
-          disabled={!props.workspaceId || !hasSelection}
-          variant='default'
-          onClick={emitAction}
-        />
-      )
-    case 'verify':
-      return (
-        <EntityEditorHeaderButton
-          tooltip='Verify indicator'
-          label='Verify indicator'
-          icon={Check}
-          disabled={!props.workspaceId || !hasSelection}
-          variant='secondary'
-          onClick={emitAction}
-        />
-      )
-    case 'undo':
-      return (
-        <EntityEditorUndoButton
-          reviewSessionId={selectionState.reviewSessionId}
-          onAction={emitAction}
-        />
-      )
-    case 'redo':
-      return (
-        <EntityEditorRedoButton
-          reviewSessionId={selectionState.reviewSessionId}
-          onAction={emitAction}
-        />
-      )
-  }
-}
+  const exportDisabled = !workspaceId || !resolvedIndicatorId || !indicator || isDirty
+  const tooltipText =
+    exportDisabled && indicator && isDirty ? 'Save indicator before exporting' : 'Export indicator'
 
-export function IndicatorEditorSaveButton(props: IndicatorEditorActionButtonProps) {
-  return <IndicatorEditorActionButton action='save' {...props} />
-}
+  const handleExport = useCallback(() => {
+    if (!indicator) return
 
-export function IndicatorEditorVerifyButton(props: IndicatorEditorActionButtonProps) {
-  return <IndicatorEditorActionButton action='verify' {...props} />
-}
+    const json = exportIndicatorsAsJson({
+      exportedFrom: 'indicatorEditor',
+      indicators: [indicator],
+    })
 
-export function IndicatorEditorUndoButton(props: IndicatorEditorActionButtonProps) {
-  return <IndicatorEditorActionButton action='undo' {...props} />
-}
+    downloadJsonFile(fileName, json)
+  }, [fileName, indicator])
 
-export function IndicatorEditorRedoButton(props: IndicatorEditorActionButtonProps) {
-  return <IndicatorEditorActionButton action='redo' {...props} />
-}
-
-/**
- * Consolidated header actions for the indicator editor.
- * Receives the shared props once and renders undo, redo, verify, and save buttons.
- */
-export function IndicatorEditorHeaderActions(props: IndicatorEditorActionButtonProps) {
   return (
-    <div className='flex items-center gap-1'>
-      <IndicatorEditorUndoButton {...props} />
-      <IndicatorEditorRedoButton {...props} />
-      <IndicatorEditorVerifyButton {...props} />
-      <IndicatorEditorSaveButton {...props} />
-    </div>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span className='inline-flex'>
+          <Button
+            type='button'
+            variant='outline'
+            size='sm'
+            className='h-7 w-7 text-xs'
+            onClick={handleExport}
+            disabled={exportDisabled}
+          >
+            <Download className='h-4 w-4' />
+            <span className='sr-only'>Export indicator</span>
+          </Button>
+        </span>
+      </TooltipTrigger>
+      <TooltipContent side='top'>{tooltipText}</TooltipContent>
+    </Tooltip>
+  )
+}
+
+export function IndicatorEditorSaveButton({
+  workspaceId,
+  indicatorId,
+  panelId,
+  widgetKey,
+  pairColor = 'gray',
+}: IndicatorEditorActionButtonProps) {
+  const resolvedPairColor = (pairColor ?? 'gray') as PairColor
+  const isLinkedToColorPair = resolvedPairColor !== 'gray'
+  const pairContext = usePairColorContext(resolvedPairColor)
+
+  const resolvedIndicatorId = isLinkedToColorPair
+    ? (pairContext?.indicatorId ?? indicatorId ?? null)
+    : (indicatorId ?? null)
+  const saveDisabled = !workspaceId || !resolvedIndicatorId
+
+  const handleSave = () => {
+    emitIndicatorEditorAction({
+      action: 'save',
+      panelId,
+      widgetKey,
+    })
+  }
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span className='inline-flex'>
+          <Button
+            type='button'
+            variant='default'
+            size='sm'
+            className='h-7 w-7 text-xs'
+            onClick={handleSave}
+            disabled={saveDisabled}
+          >
+            <Save className='h-4 w-4' />
+            <span className='sr-only'>Save indicator</span>
+          </Button>
+        </span>
+      </TooltipTrigger>
+      <TooltipContent side='top'>Save indicator</TooltipContent>
+    </Tooltip>
+  )
+}
+
+export function IndicatorEditorVerifyButton({
+  workspaceId,
+  indicatorId,
+  panelId,
+  widgetKey,
+  pairColor = 'gray',
+}: IndicatorEditorActionButtonProps) {
+  const resolvedPairColor = (pairColor ?? 'gray') as PairColor
+  const isLinkedToColorPair = resolvedPairColor !== 'gray'
+  const pairContext = usePairColorContext(resolvedPairColor)
+
+  const resolvedIndicatorId = isLinkedToColorPair
+    ? (pairContext?.indicatorId ?? indicatorId ?? null)
+    : (indicatorId ?? null)
+  const verifyDisabled = !workspaceId || !resolvedIndicatorId
+
+  const handleVerify = () => {
+    emitIndicatorEditorAction({
+      action: 'verify',
+      panelId,
+      widgetKey,
+    })
+  }
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span className='inline-flex'>
+          <Button
+            type='button'
+            variant='secondary'
+            size='sm'
+            className='h-7 w-7 text-xs'
+            onClick={handleVerify}
+            disabled={verifyDisabled}
+          >
+            <Check className='h-4 w-4' />
+            <span className='sr-only'>Verify indicator</span>
+          </Button>
+        </span>
+      </TooltipTrigger>
+      <TooltipContent side='top'>Verify indicator</TooltipContent>
+    </Tooltip>
   )
 }

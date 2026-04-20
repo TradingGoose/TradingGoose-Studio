@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { env } from '@/lib/env'
+import { resolveGitHubServiceConfig } from '@/lib/system-services/runtime'
 
 const GITHUB_REPO = 'TradingGoose/TradingGoose-Studio'
 
@@ -11,7 +11,8 @@ function formatStarCount(num: number): string {
 
 export async function GET() {
   try {
-    const token = env.GITHUB_TOKEN
+    const githubConfig = await resolveGitHubServiceConfig()
+    const token = githubConfig.token
     const response = await fetch(`https://api.github.com/repos/${GITHUB_REPO}`, {
       headers: {
         Accept: 'application/vnd.github+json',

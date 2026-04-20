@@ -32,11 +32,12 @@ export interface CopilotMessage {
   citations?: { id: number; title: string; url: string; similarity?: number }[]
   toolCalls?: CopilotToolCall[]
   contentBlocks?: Array<
-    | { type: 'text'; content: string; timestamp: number }
+    | { type: 'text'; content: string; timestamp: number; itemId?: string }
     | {
         type: 'thinking'
         content: string
         timestamp: number
+        itemId?: string
         duration?: number
         startTime?: number
       }
@@ -50,23 +51,47 @@ export interface CopilotMessage {
 // Contexts attached to a user message
 type WorkflowChatContext =
   | { kind: 'workflow'; workflowId: string; label: string }
-  | { kind: 'current_workflow'; workflowId: string; label: string }
+  | {
+      kind: 'current_workflow'
+      workflowId: string
+      label: string
+    }
 
 type SkillChatContext =
   | { kind: 'skill'; skillId: string; workspaceId?: string; label: string }
-  | { kind: 'current_skill'; skillId: string; workspaceId?: string; label: string }
+  | {
+      kind: 'current_skill'
+      skillId?: string
+      workspaceId?: string
+      label: string
+    }
 
 type IndicatorChatContext =
   | { kind: 'indicator'; indicatorId: string; workspaceId?: string; label: string }
-  | { kind: 'current_indicator'; indicatorId: string; workspaceId?: string; label: string }
+  | {
+      kind: 'current_indicator'
+      indicatorId?: string
+      workspaceId?: string
+      label: string
+    }
 
 type CustomToolChatContext =
   | { kind: 'custom_tool'; customToolId: string; workspaceId?: string; label: string }
-  | { kind: 'current_custom_tool'; customToolId: string; workspaceId?: string; label: string }
+  | {
+      kind: 'current_custom_tool'
+      customToolId?: string
+      workspaceId?: string
+      label: string
+    }
 
 type McpServerChatContext =
   | { kind: 'mcp_server'; mcpServerId: string; workspaceId?: string; label: string }
-  | { kind: 'current_mcp_server'; mcpServerId: string; workspaceId?: string; label: string }
+  | {
+      kind: 'current_mcp_server'
+      mcpServerId?: string
+      workspaceId?: string
+      label: string
+    }
 
 export type ChatContext =
   | { kind: 'past_chat'; reviewSessionId: string; label: string }
@@ -85,7 +110,6 @@ export type ChatContext =
 export interface CopilotChat {
   reviewSessionId: string
   workspaceId: string | null
-  channelId: string | null
   entityKind: string | null
   entityId: string | null
   draftSessionId: string | null
@@ -93,52 +117,54 @@ export interface CopilotChat {
   messages: CopilotMessage[]
   messageCount: number
   conversationId?: string | null
+  latestTurnStatus?: string | null
   createdAt: Date
   updatedAt: Date
+}
+
+export interface CopilotLiveReviewTarget {
+  entityKind: Exclude<ReviewEntityKind, 'workflow'>
+  entityId: string | null
+  reviewSessionId: string | null
+  draftSessionId: string | null
 }
 
 export interface CopilotLiveContext {
   workflowId: string | null
   workspaceId: string | null
+  reviewTarget?: CopilotLiveReviewTarget | null
+}
+
+export interface CopilotSendRuntimeContext {
+  liveContext: CopilotLiveContext
+  implicitContexts: ChatContext[]
 }
 
 export interface CopilotToolExecutionProvenance {
-  channelId: string
   workflowId?: string
+  contextWorkflowId?: string
+  workspaceId?: string
   reviewSessionId?: string
   entityKind?: ReviewEntityKind
   entityId?: string
   draftSessionId?: string
-  workspaceId?: string
 }
 
 export interface CopilotState {
   accessLevel: CopilotAccessLevel
   selectedModel: CopilotRuntimeModel
   agentPrefetch: boolean
-  isCollapsed: boolean
 
   currentChat: CopilotChat | null
   chats: CopilotChat[]
   messages: CopilotMessage[]
-  liveContext: CopilotLiveContext
-  implicitContexts: ChatContext[]
 
-  isLoading: boolean
   isLoadingChats: boolean
   isSendingMessage: boolean
-  isSaving: boolean
+  isAwaitingContinuation: boolean
   isAborting: boolean
 
-  error: string | null
-  saveError: string | null
-
   abortController: AbortController | null
-
-  chatsLastLoadedAt: Date | null
-  chatsLoadedForScope: string | null
-
-  revertState: { messageId: string; messageContent: string } | null
   inputValue: string
 
   planTodos: Array<{ id: string; content: string; completed?: boolean; executing?: boolean }>
@@ -146,14 +172,6 @@ export interface CopilotState {
 
   // Map of toolCallId -> CopilotToolCall for quick access during streaming
   toolCallsById: Record<string, CopilotToolCall>
-
-  // Transient flag to prevent auto-selecting a chat during new-chat UX
-  suppressAutoSelect?: boolean
-
-  // Explicitly track the current user message id for this in-flight query (for stats/diff correlation)
-  currentUserMessageId?: string | null
-
-  // Per-message metadata captured at send-time for reliable stats
 
   // Context usage tracking for percentage pill
   contextUsage: {
@@ -170,23 +188,22 @@ export interface CopilotActions {
   setAccessLevel: (accessLevel: CopilotAccessLevel) => void
   setSelectedModel: (model: CopilotStore['selectedModel']) => Promise<void>
   setAgentPrefetch: (prefetch: boolean) => void
-  fetchContextUsage: (options?: { bill?: boolean; assistantMessageId?: string }) => Promise<void>
+  fetchContextUsage: (
+    options?: { bill?: boolean; assistantMessageId?: string; workflowId?: string }
+  ) => Promise<void>
 
-  setLiveContext: (context: Partial<CopilotLiveContext>) => void
-  validateCurrentChat: () => boolean
-  loadChats: (forceRefresh?: boolean, options?: { workspaceId?: string | null }) => Promise<void>
-  areChatsFresh: () => boolean
+  loadChats: (options?: { workspaceId?: string | null }) => Promise<void>
   selectChat: (chat: CopilotChat) => Promise<void>
-  createNewChat: () => Promise<void>
+  createNewChat: (workspaceId?: string | null) => Promise<void>
   deleteChat: (reviewSessionId: string) => Promise<void>
 
   sendMessage: (
     message: string,
     options?: {
-      stream?: boolean
       fileAttachments?: MessageFileAttachment[]
       contexts?: ChatContext[]
       messageId?: string
+      runtimeContext?: CopilotSendRuntimeContext
     }
   ) => Promise<void>
   abortMessage: () => void
@@ -195,18 +212,15 @@ export interface CopilotActions {
     toolCallId?: string
   ) => void
   setToolCallState: (toolCall: any, newState: ClientToolCallState, options?: any) => void
-  sendDocsMessage: (query: string, options?: { stream?: boolean; topK?: number }) => Promise<void>
-  saveChatMessages: (chatId: string) => Promise<void>
+  saveChatMessages: (
+    chatId: string,
+    options?: { latestTurnStatus?: string | null }
+  ) => Promise<void>
 
-  clearMessages: () => void
-  clearError: () => void
-  clearSaveError: () => void
-  retrySave: (chatId: string) => Promise<void>
   cleanup: () => void
   reset: () => void
 
   setInputValue: (value: string) => void
-  clearRevertState: () => void
 
   setPlanTodos: (
     todos: Array<{ id: string; content: string; completed?: boolean; executing?: boolean }>
@@ -218,11 +232,12 @@ export interface CopilotActions {
     stream: ReadableStream,
     messageId: string,
     isContinuation?: boolean,
-    triggerUserMessageId?: string
+    turnProvenance?: CopilotToolExecutionProvenance
   ) => Promise<void>
-  handleNewReviewSessionCreation: (newReviewSessionId: string) => Promise<void>
-  updateDiffStore: (yamlContent: string, toolName?: string) => Promise<void>
-  updateDiffStoreWithWorkflowState: (workflowState: any, toolName?: string) => Promise<void>
+  handleNewReviewSessionCreation: (
+    newReviewSessionId: string,
+    workspaceId?: string | null
+  ) => Promise<void>
 
   executeCopilotToolCall: (toolCallId: string) => Promise<void>
   skipCopilotToolCall: (toolCallId: string) => Promise<void>

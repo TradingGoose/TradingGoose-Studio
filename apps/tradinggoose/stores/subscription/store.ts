@@ -8,8 +8,6 @@ import {
   getRemainingBudget as getRemainingBudgetHelper,
   getSubscriptionStatus as getSubscriptionStatusHelper,
   getUsage as getUsageHelper,
-  isAtLeastPro as isAtLeastProHelper,
-  isAtLeastTeam as isAtLeastTeamHelper,
 } from '@/lib/subscription/helpers'
 import type {
   BillingStatus,
@@ -145,7 +143,8 @@ export const useSubscriptionStore = create<SubscriptionStore>()(
             throw new Error(`HTTP error! status: ${response.status}`)
           }
 
-          const data = await response.json()
+          const result = await response.json()
+          const data = result.data ?? result
 
           // Transform dates
           const transformedData: UsageLimitData = {
@@ -249,7 +248,8 @@ export const useSubscriptionStore = create<SubscriptionStore>()(
           let usageLimitData = null
 
           if (usageLimitResponse.ok) {
-            usageLimitData = await usageLimitResponse.json()
+            const usageLimitResult = await usageLimitResponse.json()
+            usageLimitData = usageLimitResult.data ?? usageLimitResult
           } else {
             logger.warn('Failed to load usage limit data, using defaults')
           }
@@ -366,10 +366,6 @@ export const useSubscriptionStore = create<SubscriptionStore>()(
       getRemainingBudget: () => getRemainingBudgetHelper(get().subscriptionData),
 
       getDaysRemainingInPeriod: () => getDaysRemainingInPeriodHelper(get().subscriptionData),
-
-      isAtLeastPro: () => isAtLeastProHelper(get().subscriptionData),
-
-      isAtLeastTeam: () => isAtLeastTeamHelper(get().subscriptionData),
 
       canUpgrade: () => canUpgradeHelper(get().subscriptionData),
     }),

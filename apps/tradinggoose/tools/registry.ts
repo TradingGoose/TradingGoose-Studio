@@ -15,6 +15,7 @@ import {
   discordGetUserTool,
   discordSendMessageTool,
 } from '@/tools/discord'
+import { duckduckgoSearchTool } from '@/tools/duckduckgo'
 import { elevenLabsTtsTool } from '@/tools/elevenlabs'
 import {
   exaAnswerTool,
@@ -323,6 +324,7 @@ export const tools: Record<string, ToolConfig> = {
   slack_canvas: slackCanvasTool,
   github_repo_info: githubRepoInfoTool,
   github_latest_commit: githubLatestCommitTool,
+  duckduckgo_search: duckduckgoSearchTool,
   serper_search: serperSearch,
   tavily_search: tavilySearchTool,
   tavily_extract: tavilyExtractTool,

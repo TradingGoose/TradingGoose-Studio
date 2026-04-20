@@ -1,5 +1,4 @@
 import { randomUUID } from 'crypto'
-import { render } from '@react-email/render'
 import { db } from '@tradinggoose/db'
 import {
   permissions,
@@ -10,10 +9,7 @@ import {
 } from '@tradinggoose/db/schema'
 import { and, eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
-import { WorkspaceInvitationEmail } from '@/components/emails/workspace-invitation'
 import { getSession } from '@/lib/auth'
-import { sendEmail } from '@/lib/email/mailer'
-import { getFromEmailAddress } from '@/lib/email/utils'
 import { hasWorkspaceAdminAccess } from '@/lib/permissions/utils'
 import { getBaseUrl } from '@/lib/urls/utils'
 
@@ -270,6 +266,12 @@ export async function POST(
     const baseUrl = getBaseUrl()
     const invitationLink = `${baseUrl}/invite/${invitationId}?token=${newToken}`
 
+    const [{ render }, { WorkspaceInvitationEmail }, { sendEmail }] = await Promise.all([
+      import('@react-email/render'),
+      import('@/components/emails/workspace-invitation'),
+      import('@/lib/email/mailer'),
+    ])
+
     const emailHtml = await render(
       WorkspaceInvitationEmail({
         workspaceName: ws.name,
@@ -282,7 +284,6 @@ export async function POST(
       to: invitation.email,
       subject: `You've been invited to join "${ws.name}" on TradingGoose`,
       html: emailHtml,
-      from: getFromEmailAddress(),
       emailType: 'transactional',
     })
 

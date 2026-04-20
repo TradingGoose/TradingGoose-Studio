@@ -11,6 +11,7 @@ import {
   type LucideIcon,
   Monitor,
   Moon,
+  ShieldCheck,
   Star,
   Sun,
   User,
@@ -20,14 +21,15 @@ import { useRouter } from 'next/navigation'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar'
 import { signOut } from '@/lib/auth-client'
-import { isBillingEnabled, isHosted } from '@/lib/environment'
+import { isHosted } from '@/lib/environment'
 import { createLogger } from '@/lib/logs/console/logger'
+import { getOrganizationAccessState } from '@/lib/organization/access'
 import { getUserRole } from '@/lib/organization/helpers'
 import { getSubscriptionStatus } from '@/lib/subscription/helpers'
 import { getBaseUrl } from '@/lib/urls/utils'
 import { HelpModal } from '@/global-navbar/settings-modal/components/help/help-modal'
 import type { SettingsSection } from '@/global-navbar/settings-modal/types'
-import { useOrganizations } from '@/hooks/queries/organization'
+import { useOrganizationBilling, useOrganizations } from '@/hooks/queries/organization'
 import { useSubscriptionData } from '@/hooks/queries/subscription'
 import { clearUserData } from '@/stores'
 import { useGeneralStore } from '@/stores/settings/general/store'
@@ -68,7 +70,10 @@ interface UserMenuProps {
   userAvatarVersion?: number | string | null
   userId?: string | null
   onOpenSettings?: (section: SettingsSection) => void
-  canManageTeam?: boolean
+  systemNavigation?: {
+    href: string
+    label: string
+  } | null
 }
 
 export function UserMenu({
@@ -78,7 +83,7 @@ export function UserMenu({
   userAvatarVersion,
   userId,
   onOpenSettings,
-  canManageTeam,
+  systemNavigation,
 }: UserMenuProps) {
   const router = useRouter()
   const [isSigningOut, setIsSigningOut] = useState(false)
@@ -94,30 +99,36 @@ export function UserMenu({
   const isThemeLoading = useGeneralStore((state) => state.isThemeLoading)
   const { data: organizationsData } = useOrganizations()
   const currentThemeLabel = THEME_OPTIONS.find((option) => option.value === theme)?.label ?? 'Theme'
-  const [isSSOProviderOwner, setIsSSOProviderOwner] = useState<boolean | null>(null)
   const [isHelpModalOpen, setIsHelpModalOpen] = useState(false)
   const activeOrganization = organizationsData?.activeOrganization
-  const hasEnterprisePlan = organizationsData?.billingData?.data?.isEnterprise ?? false
   const activeOrganizationId = activeOrganization?.id
-  const billingEnabled = isBillingEnabled
+  const { data: organizationBillingData } = useOrganizationBilling(activeOrganizationId || '')
   const { data: subscriptionData, isLoading: isSubscriptionLoading } = useSubscriptionData()
   const billingPayload = (subscriptionData as any)?.data ?? subscriptionData
+  const organizationBillingPayload =
+    (organizationBillingData as any)?.data ?? organizationBillingData ?? null
+  const billingEnabled =
+    organizationBillingPayload?.billingEnabled ??
+    billingPayload?.billingEnabled ??
+    organizationsData?.billingData?.data?.billingEnabled ??
+    true
   const subscription = getSubscriptionStatus(billingPayload)
-  const isOrganizationPlan = subscription.isTeam || subscription.isEnterprise
+  const isOrganizationPlan = subscription.tier.ownerType === 'organization'
   const userRole = useMemo(
     () => getUserRole(activeOrganization, userEmail),
     [activeOrganization, userEmail]
   )
   const isOwner = userRole === 'owner'
   const isAdmin = userRole === 'admin'
-  const hasOrganization = Boolean(activeOrganizationId)
-  const canManageSSOSettings = useMemo(() => {
-    if (!hasOrganization || !hasEnterprisePlan) return false
-    if (isHosted) {
-      return isOwner || isAdmin
-    }
-    return isSSOProviderOwner === true
-  }, [hasEnterprisePlan, hasOrganization, isAdmin, isOwner, isSSOProviderOwner])
+  const organizationAccess = getOrganizationAccessState({
+    billingEnabled,
+    hasOrganization: Boolean(activeOrganizationId),
+    isOrganizationAdmin: isOwner || isAdmin,
+    userTier: billingPayload?.tier,
+    organizationTier: organizationBillingPayload?.subscriptionTier,
+  })
+  const canOpenTeamSettings = organizationAccess.canOpenTeamSettings
+  const canManageSSOSettings = organizationAccess.canConfigureSso
 
   useEffect(() => {
     if (!userId || typeof window === 'undefined') return
@@ -168,38 +179,6 @@ export function UserMenu({
     return () => window.removeEventListener('user-avatar-updated', handler)
   }, [])
 
-  useEffect(() => {
-    if (isHosted) {
-      setIsSSOProviderOwner(null)
-      return
-    }
-
-    if (!userId) {
-      setIsSSOProviderOwner(false)
-      return
-    }
-
-    let isMounted = true
-
-    const fetchProviders = async () => {
-      try {
-        const response = await fetch('/api/auth/sso/providers')
-        if (!response.ok) throw new Error('Failed to fetch providers')
-        const data = await response.json()
-        const ownsProvider = data.providers?.some((p: any) => p.userId === userId) || false
-        if (isMounted) setIsSSOProviderOwner(ownsProvider)
-      } catch {
-        if (isMounted) setIsSSOProviderOwner(false)
-      }
-    }
-
-    fetchProviders()
-
-    return () => {
-      isMounted = false
-    }
-  }, [userId])
-
   const effectiveAvatar = avatarOverride.url ?? userAvatar
   const effectiveVersion = avatarOverride.version ?? userAvatarVersion
 
@@ -246,7 +225,7 @@ export function UserMenu({
     const context = isOrganizationPlan ? ('organization' as const) : ('user' as const)
     if (context === 'organization' && !activeOrganizationId) {
       logger.error('Cannot open billing portal without an active organization', {
-        plan: subscription.plan,
+        tier: subscription.tier.displayName,
       })
       alert('Select an organization to manage billing.')
       return
@@ -309,8 +288,8 @@ export function UserMenu({
               align='start'
             >
               <DropdownMenuGroup>
-                <div className='flex items-center gap-1.5 px-2 pb-1.5 pt-0.5'>
-                  <DropdownMenuItem className='flex items-center gap-2 text-sm font-medium text-muted-foreground'>
+                <div className='flex items-center gap-1.5 px-2 pt-0.5 pb-1.5'>
+                  <DropdownMenuItem className='flex items-center gap-2 font-medium text-muted-foreground text-sm'>
                     {currentThemeLabel}
                   </DropdownMenuItem>
                   {THEME_OPTIONS.map(({ value, label, Icon }) => {
@@ -356,21 +335,23 @@ export function UserMenu({
                   <User />
                   Account Detail
                 </DropdownMenuItem>
-                <DropdownMenuItem
-                  onSelect={(event) => {
-                    event.preventDefault()
-                    if (onOpenSettings) {
-                      onOpenSettings('service')
-                    } else if (typeof window !== 'undefined') {
-                      window.dispatchEvent(
-                        new CustomEvent('open-settings', { detail: { tab: 'service' } })
-                      )
-                    }
-                  }}
-                >
-                  <KeyRound />
-                  Service API Keys
-                </DropdownMenuItem>
+                {isHosted ? (
+                  <DropdownMenuItem
+                    onSelect={(event) => {
+                      event.preventDefault()
+                      if (onOpenSettings) {
+                        onOpenSettings('service')
+                      } else if (typeof window !== 'undefined') {
+                        window.dispatchEvent(
+                          new CustomEvent('open-settings', { detail: { tab: 'service' } })
+                        )
+                      }
+                    }}
+                  >
+                    <KeyRound />
+                    Service API Keys
+                  </DropdownMenuItem>
+                ) : null}
               </DropdownMenuGroup>
               {billingEnabled ? (
                 <>
@@ -404,11 +385,11 @@ export function UserMenu({
                   </DropdownMenuGroup>
                 </>
               ) : null}
-              {(canManageTeam || canManageSSOSettings) && (
+              {canOpenTeamSettings || canManageSSOSettings ? (
                 <>
                   <DropdownMenuSeparator />
                   <DropdownMenuGroup>
-                    {canManageTeam ? (
+                    {canOpenTeamSettings ? (
                       <DropdownMenuItem
                         onSelect={(event) => {
                           event.preventDefault()
@@ -444,7 +425,23 @@ export function UserMenu({
                     ) : null}
                   </DropdownMenuGroup>
                 </>
-              )}
+              ) : null}
+              {systemNavigation ? (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuGroup>
+                    <DropdownMenuItem
+                      onSelect={(event) => {
+                        event.preventDefault()
+                        router.push(systemNavigation.href)
+                      }}
+                    >
+                      <ShieldCheck />
+                      {systemNavigation.label}
+                    </DropdownMenuItem>
+                  </DropdownMenuGroup>
+                </>
+              ) : null}
               <DropdownMenuSeparator />
               <DropdownMenuGroup>
                 <DropdownMenuItem

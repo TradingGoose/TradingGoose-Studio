@@ -78,6 +78,18 @@ if (typeof document !== 'undefined') {
         overflow-wrap: anywhere !important;
         word-break: break-word !important;
       }
+      .copilot-markdown-wrapper li > p {
+        margin: 0 !important;
+      }
+      .copilot-markdown-wrapper li > ul,
+      .copilot-markdown-wrapper li > ol {
+        margin-top: 0.25rem !important;
+        margin-bottom: 0 !important;
+      }
+      .copilot-markdown-wrapper li > p + ul,
+      .copilot-markdown-wrapper li > p + ol {
+        margin-top: 0.25rem !important;
+      }
 
       /* Reduce top margin for first heading (e.g., right after thinking block) */
       .copilot-markdown-wrapper > h1:first-child,
@@ -189,7 +201,7 @@ export default function CopilotMarkdownRenderer({ content }: CopilotMarkdownRend
         children,
         ordered,
       }: React.LiHTMLAttributes<HTMLLIElement> & { ordered?: boolean }) => (
-        <li className='font-sans text-gray-800 dark:text-gray-200' style={{ display: 'list-item' }}>
+        <li className='space-b-1 font-sans text-gray-800 dark:text-gray-200' style={{ display: 'list-item' }}>
           {children}
         </li>
       ),

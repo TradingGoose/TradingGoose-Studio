@@ -12,7 +12,7 @@ export const GoogleSheetsBlock: BlockConfig<GoogleSheetsResponse> = {
     'Integrate Google Sheets into the workflow. Can read, write, append, and update data.',
   docsLink: 'https://docs.tradinggoose.ai/tools/google_sheets',
   category: 'tools',
-  bgColor: undefined,
+  bgColor: '#34A853',
   icon: GoogleSheetsIcon,
   subBlocks: [
     // Operation selector

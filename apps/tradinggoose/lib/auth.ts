@@ -2,9 +2,9 @@ import { sso } from '@better-auth/sso'
 import { stripe } from '@better-auth/stripe'
 import { db } from '@tradinggoose/db'
 import * as schema from '@tradinggoose/db/schema'
-import { createAuthMiddleware } from 'better-auth/api'
 import { betterAuth } from 'better-auth'
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'
+import { APIError, createAuthMiddleware } from 'better-auth/api'
 import { nextCookies } from 'better-auth/next-js'
 import {
   customSession,
@@ -18,20 +18,31 @@ import type { GenericOAuthConfig } from 'better-auth/plugins/generic-oauth'
 /** OAuth2 token type extracted from better-auth's GenericOAuthConfig */
 type OAuthTokens = Parameters<NonNullable<GenericOAuthConfig['getUserInfo']>>[0]
 
-import { and, eq } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 import { headers } from 'next/headers'
-import Stripe from 'stripe'
+import type Stripe from 'stripe'
 import {
   getEmailSubject,
   renderInvitationEmail,
   renderOTPEmail,
   renderPasswordResetEmail,
 } from '@/components/emails/render-email'
-import { sendPlanWelcomeEmail } from '@/lib/billing'
+import { sendBillingTierWelcomeEmail } from '@/lib/billing'
 import { authorizeSubscriptionReference } from '@/lib/billing/authorization'
+import {
+  ensureDefaultUserSubscription,
+  getEffectiveSubscription,
+} from '@/lib/billing/core/subscription'
 import { handleNewUser } from '@/lib/billing/core/usage'
-import { syncSubscriptionUsageLimits } from '@/lib/billing/organization'
-import { getPlans } from '@/lib/billing/plans'
+import {
+  ensureOrganizationForOrganizationSubscription,
+  syncSubscriptionUsageLimits,
+} from '@/lib/billing/organization'
+import { getBetterAuthPlansConfig } from '@/lib/billing/plans'
+import { getBillingGateState } from '@/lib/billing/settings'
+import { hydrateSubscriptionsWithTiers, requireBillingTierById } from '@/lib/billing/tiers'
+import { syncSubscriptionBillingTierFromStripeSubscription } from '@/lib/billing/tiers/persistence'
+import { validateSeatAvailability } from '@/lib/billing/validation/seat-management'
 import { handleManualEnterpriseSubscription } from '@/lib/billing/webhooks/enterprise'
 import {
   handleInvoiceFinalized,
@@ -43,18 +54,31 @@ import {
   handleSubscriptionDeleted,
 } from '@/lib/billing/webhooks/subscription'
 import { sendEmail } from '@/lib/email/mailer'
-import { getFromEmailAddress } from '@/lib/email/utils'
 import { quickValidateEmail } from '@/lib/email/validation'
-import { env, isTruthy } from '@/lib/env'
-import { isBillingEnabled, isEmailVerificationEnabled } from '@/lib/environment'
+import { env, getEnv } from '@/lib/env'
+import { isEmailVerificationEnabled } from '@/lib/environment'
 import { createLogger } from '@/lib/logs/console/logger'
 import {
   getCanonicalScopesForProvider,
   getMicrosoftRefreshTokenExpiry,
+  HUBSPOT_OAUTH_SCOPES,
   isMicrosoftProvider,
   MICROSOFT_PROVIDERS,
   OAUTH_PROVIDERS,
 } from '@/lib/oauth'
+import { getSystemOAuthClientCredentialsForRequest } from '@/lib/oauth/system-managed-config'
+import { getOrganizationAccessState } from '@/lib/organization/access'
+import { getRegistrationEligibility, markWaitlistEntrySignedUp } from '@/lib/registration/service'
+import {
+  REGISTRATION_DISABLED_MESSAGE,
+  REGISTRATION_WAITLIST_MESSAGE,
+} from '@/lib/registration/shared'
+import {
+  createStripeClientProxy,
+  getStripeServiceConfig,
+  hasStripeSecretKey,
+} from '@/lib/system-services/stripe-runtime'
+import { getResolvedSystemSettings } from '@/lib/system-settings/service'
 import { getBaseUrl } from '@/lib/urls/utils'
 import { SSO_TRUSTED_PROVIDERS } from './sso/consts'
 
@@ -72,6 +96,7 @@ const BASE_TRUSTED_OAUTH_PROVIDERS = [
   'slack',
   'reddit',
   'webflow',
+  'hubspot',
 ]
 
 const TRUSTED_OAUTH_PROVIDER_IDS = Array.from(
@@ -85,9 +110,154 @@ const TRUSTED_OAUTH_PROVIDER_IDS = Array.from(
   ])
 )
 
+async function getHydratedSubscriptionById(subscriptionId: string) {
+  const rows = await db
+    .select()
+    .from(schema.subscription)
+    .where(eq(schema.subscription.id, subscriptionId))
+    .limit(1)
+
+  const hydratedSubscriptions = await hydrateSubscriptionsWithTiers(rows)
+  return hydratedSubscriptions[0] ?? null
+}
+
+type SystemManagedGenericOAuthConfig = Omit<GenericOAuthConfig, 'clientId' | 'clientSecret'>
+type EnvBackedSocialProviderConfig = {
+  clientId: string
+  clientSecret: string
+}
+
+function toSystemManagedGenericOAuthConfig(
+  config: SystemManagedGenericOAuthConfig
+): GenericOAuthConfig {
+  const providerConfig = {
+    ...config,
+    clientId: '',
+    clientSecret: '',
+  } satisfies GenericOAuthConfig
+
+  Object.defineProperties(providerConfig, {
+    clientId: {
+      enumerable: true,
+      configurable: true,
+      get() {
+        return getSystemOAuthClientCredentialsForRequest(config.providerId).clientId
+      },
+    },
+    clientSecret: {
+      enumerable: true,
+      configurable: true,
+      get() {
+        return getSystemOAuthClientCredentialsForRequest(config.providerId).clientSecret
+      },
+    },
+  })
+
+  return providerConfig
+}
+
+function toSystemManagedGenericOAuthConfigs(configs: SystemManagedGenericOAuthConfig[]) {
+  return configs.map((config) => toSystemManagedGenericOAuthConfig(config))
+}
+
+function toEnvBackedSocialProviderConfig<T extends EnvBackedSocialProviderConfig>(
+  envKeys: {
+    clientId: string
+    clientSecret: string
+  },
+  config: Omit<T, 'clientId' | 'clientSecret'>
+): T
+function toEnvBackedSocialProviderConfig<T extends Record<string, unknown>>(
+  envKeys: {
+    clientId: string
+    clientSecret: string
+  },
+  config: T
+): T & EnvBackedSocialProviderConfig
+function toEnvBackedSocialProviderConfig(
+  envKeys: {
+    clientId: string
+    clientSecret: string
+  },
+  config: Record<string, unknown>
+) {
+  const providerConfig = {
+    ...config,
+    clientId: '',
+    clientSecret: '',
+  }
+
+  Object.defineProperties(providerConfig, {
+    clientId: {
+      enumerable: true,
+      configurable: true,
+      get() {
+        return getEnv(envKeys.clientId)?.trim() ?? ''
+      },
+    },
+    clientSecret: {
+      enumerable: true,
+      configurable: true,
+      get() {
+        return getEnv(envKeys.clientSecret)?.trim() ?? ''
+      },
+    },
+  })
+
+  return providerConfig
+}
+
+function hasEnvBackedSocialProviderCredentials(envKeys: {
+  clientId: string
+  clientSecret: string
+}) {
+  return Boolean(getEnv(envKeys.clientId)?.trim() && getEnv(envKeys.clientSecret)?.trim())
+}
+
+function buildSocialProviders() {
+  const socialProviders: Record<string, Record<string, unknown>> = {}
+
+  if (
+    hasEnvBackedSocialProviderCredentials({
+      clientId: 'GITHUB_CLIENT_ID',
+      clientSecret: 'GITHUB_CLIENT_SECRET',
+    })
+  ) {
+    socialProviders.github = toEnvBackedSocialProviderConfig(
+      {
+        clientId: 'GITHUB_CLIENT_ID',
+        clientSecret: 'GITHUB_CLIENT_SECRET',
+      },
+      {
+        scopes: ['user:email', 'repo'],
+      }
+    )
+  }
+
+  if (
+    hasEnvBackedSocialProviderCredentials({
+      clientId: 'GOOGLE_CLIENT_ID',
+      clientSecret: 'GOOGLE_CLIENT_SECRET',
+    })
+  ) {
+    socialProviders.google = toEnvBackedSocialProviderConfig(
+      {
+        clientId: 'GOOGLE_CLIENT_ID',
+        clientSecret: 'GOOGLE_CLIENT_SECRET',
+      },
+      {
+        scopes: [
+          'https://www.googleapis.com/auth/userinfo.email',
+          'https://www.googleapis.com/auth/userinfo.profile',
+        ],
+      }
+    )
+  }
+
+  return socialProviders
+}
+
 const MICROSOFT_OAUTH_BASE_CONFIG = {
-  clientId: env.MICROSOFT_CLIENT_ID as string,
-  clientSecret: env.MICROSOFT_CLIENT_SECRET as string,
   authorizationUrl: 'https://login.microsoftonline.com/common/oauth2/v2.0/authorize',
   tokenUrl: 'https://login.microsoftonline.com/common/oauth2/v2.0/token',
   userInfoUrl: 'https://graph.microsoft.com/v1.0/me',
@@ -103,8 +273,7 @@ function createMicrosoftOAuthProvider(providerId: string) {
     providerId,
     scopes: getCanonicalScopesForProvider(providerId),
     redirectURI: `${getBaseUrl()}/api/auth/oauth2/callback/${providerId}`,
-    getUserInfo: async (tokens: OAuthTokens) =>
-      getMicrosoftUserInfoFromIdToken(tokens, providerId),
+    getUserInfo: async (tokens: OAuthTokens) => getMicrosoftUserInfoFromIdToken(tokens, providerId),
   }
 }
 
@@ -146,16 +315,7 @@ function getMicrosoftUserInfoFromIdToken(tokens: OAuthTokens, providerId: string
   }
 }
 
-// Only initialize Stripe if the key is provided
-// This allows local development without a Stripe account
-const validStripeKey = env.STRIPE_SECRET_KEY
-
-let stripeClient = null
-if (validStripeKey) {
-  stripeClient = new Stripe(env.STRIPE_SECRET_KEY || '', {
-    apiVersion: '2025-08-27.basil',
-  })
-}
+const stripeClient = createStripeClientProxy()
 
 export const auth = betterAuth({
   baseURL: getBaseUrl(),
@@ -179,13 +339,41 @@ export const auth = betterAuth({
   databaseHooks: {
     user: {
       create: {
+        before: async (user) => {
+          const eligibility = await getRegistrationEligibility(user.email)
+          if (eligibility.allowed) {
+            return
+          }
+
+          throw new APIError('BAD_REQUEST', {
+            message:
+              eligibility.reason === 'disabled'
+                ? REGISTRATION_DISABLED_MESSAGE
+                : REGISTRATION_WAITLIST_MESSAGE,
+          })
+        },
         after: async (user) => {
           logger.info('[databaseHooks.user.create.after] User created, initializing stats', {
             userId: user.id,
           })
 
           try {
+            await markWaitlistEntrySignedUp(user.email, user.id)
+          } catch (error) {
+            logger.error('[databaseHooks.user.create.after] Failed to mark waitlist signup', {
+              userId: user.id,
+              email: user.email,
+              error,
+            })
+          }
+
+          try {
             await handleNewUser(user.id)
+
+            const { billingEnabled } = await getBillingGateState()
+            if (billingEnabled) {
+              await ensureDefaultUserSubscription(user.id)
+            }
           } catch (error) {
             logger.error('[databaseHooks.user.create.after] Failed to initialize user stats', {
               userId: user.id,
@@ -272,21 +460,7 @@ export const auth = betterAuth({
       ],
     },
   },
-  socialProviders: {
-    github: {
-      clientId: env.GITHUB_CLIENT_ID as string,
-      clientSecret: env.GITHUB_CLIENT_SECRET as string,
-      scopes: ['user:email', 'repo'],
-    },
-    google: {
-      clientId: env.GOOGLE_CLIENT_ID as string,
-      clientSecret: env.GOOGLE_CLIENT_SECRET as string,
-      scopes: [
-        'https://www.googleapis.com/auth/userinfo.email',
-        'https://www.googleapis.com/auth/userinfo.profile',
-      ],
-    },
-  },
+  socialProviders: buildSocialProviders(),
   emailAndPassword: {
     enabled: true,
     requireEmailVerification: isEmailVerificationEnabled,
@@ -302,7 +476,6 @@ export const auth = betterAuth({
         to: user.email,
         subject: getEmailSubject('reset-password'),
         html,
-        from: getFromEmailAddress(),
         emailType: 'transactional',
       })
 
@@ -313,9 +486,6 @@ export const auth = betterAuth({
   },
   hooks: {
     before: createAuthMiddleware(async (ctx) => {
-      if (ctx.path.startsWith('/sign-up') && isTruthy(env.DISABLE_REGISTRATION))
-        throw new Error('Registration is disabled, please contact your admin.')
-
       if (
         (ctx.path.startsWith('/sign-in') || ctx.path.startsWith('/sign-up')) &&
         (env.ALLOWED_LOGIN_EMAILS || env.ALLOWED_LOGIN_DOMAINS)
@@ -382,7 +552,7 @@ export const auth = betterAuth({
             })
             throw new Error(
               validation.reason ||
-              "We are unable to deliver the verification email to that address. Please make sure it's valid and able to receive emails."
+                "We are unable to deliver the verification email to that address. Please make sure it's valid and able to receive emails."
             )
           }
 
@@ -392,7 +562,6 @@ export const auth = betterAuth({
             to: data.email,
             subject: getEmailSubject(data.type),
             html,
-            from: getFromEmailAddress(),
             emailType: 'transactional',
           })
 
@@ -422,42 +591,34 @@ export const auth = betterAuth({
       expiresIn: 15 * 60, // 15 minutes in seconds
     }),
     genericOAuth({
-      config: [
+      config: toSystemManagedGenericOAuthConfigs([
         {
           providerId: 'alpaca',
-          clientId: env.ALPACA_CLIENT_ID as string,
-          clientSecret: env.ALPACA_CLIENT_SECRET as string,
           authorizationUrl: 'https://app.alpaca.markets/oauth/authorize',
           tokenUrl: 'https://api.alpaca.markets/oauth/token',
-          scopes: [
-            'account:write', 
-            'trading', 
-            'data'
-          ],
+          scopes: ['account:write', 'trading', 'data'],
           getUserInfo: async (tokens) => {
             // Access provider-specific fields from raw token data
             const options = {
               headers: {
-                "Authorization": `Bearer ${tokens.accessToken}`
+                Authorization: `Bearer ${tokens.accessToken}`,
               },
-            };
-            const response = await fetch("https://paper-api.alpaca.markets/v2/account", options);
-            const data = await response.json();
+            }
+            const response = await fetch('https://paper-api.alpaca.markets/v2/account', options)
+            const data = await response.json()
             return {
               id: data.id,
               name: data.account_number,
               email: data.account_number,
-              image: "",
+              image: '',
               emailVerified: false,
-            };
+            }
           },
           responseType: 'code',
           redirectURI: `${getBaseUrl()}/api/auth/oauth2/callback/alpaca`,
         },
         {
           providerId: 'github-repo',
-          clientId: env.GITHUB_REPO_CLIENT_ID as string,
-          clientSecret: env.GITHUB_REPO_CLIENT_SECRET as string,
           authorizationUrl: 'https://github.com/login/oauth/authorize',
           accessType: 'offline',
           prompt: 'consent',
@@ -533,8 +694,6 @@ export const auth = betterAuth({
         // Google providers
         {
           providerId: 'google-email',
-          clientId: env.GOOGLE_CLIENT_ID as string,
-          clientSecret: env.GOOGLE_CLIENT_SECRET as string,
           discoveryUrl: 'https://accounts.google.com/.well-known/openid-configuration',
           accessType: 'offline',
           scopes: [
@@ -549,8 +708,6 @@ export const auth = betterAuth({
         },
         {
           providerId: 'google-calendar',
-          clientId: env.GOOGLE_CLIENT_ID as string,
-          clientSecret: env.GOOGLE_CLIENT_SECRET as string,
           discoveryUrl: 'https://accounts.google.com/.well-known/openid-configuration',
           accessType: 'offline',
           scopes: [
@@ -563,8 +720,6 @@ export const auth = betterAuth({
         },
         {
           providerId: 'google-drive',
-          clientId: env.GOOGLE_CLIENT_ID as string,
-          clientSecret: env.GOOGLE_CLIENT_SECRET as string,
           discoveryUrl: 'https://accounts.google.com/.well-known/openid-configuration',
           accessType: 'offline',
           scopes: [
@@ -578,8 +733,6 @@ export const auth = betterAuth({
         },
         {
           providerId: 'google-docs',
-          clientId: env.GOOGLE_CLIENT_ID as string,
-          clientSecret: env.GOOGLE_CLIENT_SECRET as string,
           discoveryUrl: 'https://accounts.google.com/.well-known/openid-configuration',
           accessType: 'offline',
           scopes: [
@@ -593,8 +746,6 @@ export const auth = betterAuth({
         },
         {
           providerId: 'google-sheets',
-          clientId: env.GOOGLE_CLIENT_ID as string,
-          clientSecret: env.GOOGLE_CLIENT_SECRET as string,
           discoveryUrl: 'https://accounts.google.com/.well-known/openid-configuration',
           accessType: 'offline',
           scopes: [
@@ -609,8 +760,6 @@ export const auth = betterAuth({
 
         {
           providerId: 'google-forms',
-          clientId: env.GOOGLE_CLIENT_ID as string,
-          clientSecret: env.GOOGLE_CLIENT_SECRET as string,
           discoveryUrl: 'https://accounts.google.com/.well-known/openid-configuration',
           accessType: 'offline',
           scopes: [
@@ -624,8 +773,6 @@ export const auth = betterAuth({
 
         {
           providerId: 'google-vault',
-          clientId: env.GOOGLE_CLIENT_ID as string,
-          clientSecret: env.GOOGLE_CLIENT_SECRET as string,
           discoveryUrl: 'https://accounts.google.com/.well-known/openid-configuration',
           accessType: 'offline',
           scopes: [
@@ -642,8 +789,6 @@ export const auth = betterAuth({
 
         {
           providerId: 'wealthbox',
-          clientId: env.WEALTHBOX_CLIENT_ID as string,
-          clientSecret: env.WEALTHBOX_CLIENT_SECRET as string,
           authorizationUrl: 'https://app.crmworkspace.com/oauth/authorize',
           tokenUrl: 'https://app.crmworkspace.com/oauth/token',
           userInfoUrl: 'https://dummy-not-used.wealthbox.com', // Dummy URL since no user info endpoint exists
@@ -675,8 +820,6 @@ export const auth = betterAuth({
         // Supabase provider
         {
           providerId: 'supabase',
-          clientId: env.SUPABASE_CLIENT_ID as string,
-          clientSecret: env.SUPABASE_CLIENT_SECRET as string,
           authorizationUrl: 'https://api.supabase.com/v1/oauth/authorize',
           tokenUrl: 'https://api.supabase.com/v1/oauth/token',
           userInfoUrl: 'https://dummy-not-used.supabase.co',
@@ -725,8 +868,6 @@ export const auth = betterAuth({
         // X provider
         {
           providerId: 'x',
-          clientId: env.X_CLIENT_ID as string,
-          clientSecret: env.X_CLIENT_SECRET as string,
           authorizationUrl: 'https://x.com/i/oauth2/authorize',
           tokenUrl: 'https://api.x.com/2/oauth2/token',
           userInfoUrl: 'https://api.x.com/2/users/me',
@@ -784,8 +925,6 @@ export const auth = betterAuth({
         // Confluence provider
         {
           providerId: 'confluence',
-          clientId: env.CONFLUENCE_CLIENT_ID as string,
-          clientSecret: env.CONFLUENCE_CLIENT_SECRET as string,
           authorizationUrl: 'https://auth.atlassian.com/authorize',
           tokenUrl: 'https://auth.atlassian.com/oauth/token',
           userInfoUrl: 'https://api.atlassian.com/me',
@@ -835,8 +974,6 @@ export const auth = betterAuth({
         // Discord provider
         {
           providerId: 'discord',
-          clientId: env.DISCORD_CLIENT_ID as string,
-          clientSecret: env.DISCORD_CLIENT_SECRET as string,
           authorizationUrl: 'https://discord.com/api/oauth2/authorize',
           tokenUrl: 'https://discord.com/api/oauth2/token',
           userInfoUrl: 'https://discord.com/api/users/@me',
@@ -886,8 +1023,6 @@ export const auth = betterAuth({
         // Jira provider
         {
           providerId: 'jira',
-          clientId: env.JIRA_CLIENT_ID as string,
-          clientSecret: env.JIRA_CLIENT_SECRET as string,
           authorizationUrl: 'https://auth.atlassian.com/authorize',
           tokenUrl: 'https://auth.atlassian.com/oauth/token',
           userInfoUrl: 'https://api.atlassian.com/me',
@@ -956,8 +1091,6 @@ export const auth = betterAuth({
         // Airtable provider
         {
           providerId: 'airtable',
-          clientId: env.AIRTABLE_CLIENT_ID as string,
-          clientSecret: env.AIRTABLE_CLIENT_SECRET as string,
           authorizationUrl: 'https://airtable.com/oauth2/v1/authorize',
           tokenUrl: 'https://airtable.com/oauth2/v1/token',
           userInfoUrl: 'https://api.airtable.com/v0/meta/whoami',
@@ -1005,8 +1138,6 @@ export const auth = betterAuth({
         // Notion provider
         {
           providerId: 'notion',
-          clientId: env.NOTION_CLIENT_ID as string,
-          clientSecret: env.NOTION_CLIENT_SECRET as string,
           authorizationUrl: 'https://api.notion.com/v1/oauth/authorize',
           tokenUrl: 'https://api.notion.com/v1/oauth/token',
           userInfoUrl: 'https://api.notion.com/v1/users/me',
@@ -1055,8 +1186,6 @@ export const auth = betterAuth({
         // Reddit provider
         {
           providerId: 'reddit',
-          clientId: env.REDDIT_CLIENT_ID as string,
-          clientSecret: env.REDDIT_CLIENT_SECRET as string,
           authorizationUrl: 'https://www.reddit.com/api/v1/authorize?duration=permanent',
           tokenUrl: 'https://www.reddit.com/api/v1/access_token',
           userInfoUrl: 'https://oauth.reddit.com/api/v1/me',
@@ -1105,8 +1234,6 @@ export const auth = betterAuth({
 
         {
           providerId: 'linear',
-          clientId: env.LINEAR_CLIENT_ID as string,
-          clientSecret: env.LINEAR_CLIENT_SECRET as string,
           authorizationUrl: 'https://linear.app/oauth/authorize',
           tokenUrl: 'https://api.linear.app/oauth/token',
           scopes: ['read', 'write'],
@@ -1178,8 +1305,6 @@ export const auth = betterAuth({
         // Slack provider
         {
           providerId: 'slack',
-          clientId: env.SLACK_CLIENT_ID as string,
-          clientSecret: env.SLACK_CLIENT_SECRET as string,
           authorizationUrl: 'https://slack.com/oauth/v2/authorize',
           tokenUrl: 'https://slack.com/api/oauth.v2.access',
           userInfoUrl: 'https://slack.com/api/users.identity',
@@ -1239,8 +1364,6 @@ export const auth = betterAuth({
         // Webflow provider
         {
           providerId: 'webflow',
-          clientId: env.WEBFLOW_CLIENT_ID as string,
-          clientSecret: env.WEBFLOW_CLIENT_SECRET as string,
           authorizationUrl: 'https://webflow.com/oauth/authorize',
           tokenUrl: 'https://api.webflow.com/oauth/access_token',
           userInfoUrl: 'https://api.webflow.com/v2/token/introspect',
@@ -1285,274 +1408,361 @@ export const auth = betterAuth({
             }
           },
         },
-      ],
+
+        {
+          providerId: 'hubspot',
+          authorizationUrl: 'https://app.hubspot.com/oauth/authorize',
+          tokenUrl: 'https://api.hubspot.com/oauth/v3/token',
+          scopes: HUBSPOT_OAUTH_SCOPES,
+          responseType: 'code',
+          redirectURI: `${getBaseUrl()}/api/auth/oauth2/callback/hubspot`,
+          getUserInfo: async (tokens) => {
+            try {
+              const credentials = getSystemOAuthClientCredentialsForRequest('hubspot')
+              const response = await fetch('https://api.hubspot.com/oauth/v3/token/introspect', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: new URLSearchParams({
+                  client_id: credentials.clientId,
+                  client_secret: credentials.clientSecret,
+                  token_type_hint: 'access_token',
+                  access_token: tokens.accessToken ?? '',
+                }).toString(),
+              })
+
+              if (!response.ok) {
+                logger.error('Error fetching HubSpot token metadata:', {
+                  status: response.status,
+                  statusText: response.statusText,
+                })
+                return null
+              }
+
+              const profile = await response.json()
+              const hubId = String(profile.hub_id ?? 'hubspot')
+              const userId = String(profile.user_id ?? profile.user ?? crypto.randomUUID())
+              const email = profile.user || `${userId}@hubspot.user`
+              const now = new Date()
+
+              return {
+                id: `${hubId}-${userId}`,
+                name: profile.user || profile.hub_domain || 'HubSpot User',
+                email,
+                emailVerified: Boolean(profile.user),
+                createdAt: now,
+                updatedAt: now,
+              }
+            } catch (error) {
+              logger.error('Error in HubSpot getUserInfo:', { error })
+              return null
+            }
+          },
+        },
+      ] as SystemManagedGenericOAuthConfig[]),
     }),
     // Include SSO plugin when enabled
     ...(env.SSO_ENABLED ? [sso()] : []),
-    // Only include the Stripe plugin when billing is enabled
-    ...(isBillingEnabled && stripeClient
-      ? [
-        stripe({
-          stripeClient,
-          stripeWebhookSecret: env.STRIPE_WEBHOOK_SECRET || '',
-          createCustomerOnSignUp: true,
-          onCustomerCreate: async ({ stripeCustomer, user }) => {
-            logger.info('[onCustomerCreate] Stripe customer created', {
-              stripeCustomerId: stripeCustomer.id,
-              userId: user.id,
-            })
-          },
-          subscription: {
-            enabled: true,
-            plans: getPlans(),
-            authorizeReference: async ({ user, referenceId }) => {
-              return await authorizeSubscriptionReference(user.id, referenceId)
-            },
-            getCheckoutSessionParams: async ({ plan, subscription }) => {
-              if (plan.name === 'team') {
-                return {
-                  params: {
-                    allow_promotion_codes: true,
-                    line_items: [
-                      {
-                        price: plan.priceId,
-                        quantity: subscription?.seats || 1,
-                        adjustable_quantity: {
-                          enabled: true,
-                          minimum: 1,
-                          maximum: 50,
-                        },
-                      },
-                    ],
+    // Stripe is deployment-owned and env-backed; update it through deployment secrets.
+    stripe({
+      stripeClient,
+      get stripeWebhookSecret() {
+        return getStripeServiceConfig().webhookSecret ?? ''
+      },
+      get createCustomerOnSignUp() {
+        return hasStripeSecretKey()
+      },
+      onCustomerCreate: async ({ stripeCustomer, user }) => {
+        logger.info('[onCustomerCreate] Stripe customer created', {
+          stripeCustomerId: stripeCustomer.id,
+          userId: user.id,
+        })
+      },
+      subscription: {
+        enabled: true,
+        plans: getBetterAuthPlansConfig(),
+        authorizeReference: async ({ user, referenceId }) => {
+          return await authorizeSubscriptionReference(user.id, referenceId)
+        },
+        getCheckoutSessionParams: async ({ plan, subscription }) => {
+          const [settings, tier] = await Promise.all([
+            getResolvedSystemSettings(),
+            requireBillingTierById(plan.name),
+          ])
+          const allowPromotionCodes = settings.allowPromotionCodes
+
+          if (tier.ownerType === 'organization') {
+            const seatCount = tier.seatCount ?? 1
+            const checkoutQuantity = Math.max(subscription?.seats || seatCount, seatCount, 1)
+
+            return {
+              params: {
+                allow_promotion_codes: allowPromotionCodes,
+                line_items: [
+                  {
+                    price: plan.priceId,
+                    quantity: checkoutQuantity,
+                    ...(tier.seatMode === 'adjustable'
+                      ? {
+                          adjustable_quantity: {
+                            enabled: true,
+                            minimum: seatCount,
+                            ...(typeof tier.seatMaximum === 'number'
+                              ? { maximum: tier.seatMaximum }
+                              : {}),
+                          },
+                        }
+                      : {}),
                   },
-                }
-              }
+                ],
+              },
+            }
+          }
 
-              return {
-                params: {
-                  allow_promotion_codes: true,
-                },
-              }
+          return {
+            params: {
+              allow_promotion_codes: allowPromotionCodes,
             },
-            onSubscriptionComplete: async ({
-              subscription,
-            }: {
-              event: Stripe.Event
-              stripeSubscription: Stripe.Subscription
-              subscription: any
-            }) => {
-              logger.info('[onSubscriptionComplete] Subscription created', {
-                subscriptionId: subscription.id,
-                referenceId: subscription.referenceId,
-                plan: subscription.plan,
-                status: subscription.status,
-              })
+          }
+        },
+        onSubscriptionComplete: async ({
+          event,
+          stripeSubscription,
+          subscription,
+        }: {
+          event: Stripe.Event
+          stripeSubscription: Stripe.Subscription
+          subscription: any
+        }) => {
+          logger.info('[onSubscriptionComplete] Subscription created', {
+            subscriptionId: subscription.id,
+            referenceType: subscription.referenceType,
+            referenceId: subscription.referenceId,
+            status: subscription.status,
+          })
 
-              await handleSubscriptionCreated(subscription)
+          await syncSubscriptionBillingTierFromStripeSubscription(
+            subscription.id,
+            stripeSubscription || (event.data.object as Stripe.Subscription | undefined)
+          )
 
-              await syncSubscriptionUsageLimits(subscription)
+          const hydratedSubscription = await getHydratedSubscriptionById(subscription.id)
+          const subscriptionRecord = hydratedSubscription ?? { ...subscription, tier: null }
+          const resolvedSubscription =
+            await ensureOrganizationForOrganizationSubscription(subscriptionRecord)
 
-              await sendPlanWelcomeEmail(subscription)
-            },
-            onSubscriptionUpdate: async ({
-              subscription,
-            }: {
-              event: Stripe.Event
-              subscription: any
-            }) => {
-              logger.info('[onSubscriptionUpdate] Subscription updated', {
-                subscriptionId: subscription.id,
-                status: subscription.status,
-                plan: subscription.plan,
-              })
+          await handleSubscriptionCreated(resolvedSubscription)
 
-              try {
-                await syncSubscriptionUsageLimits(subscription)
-              } catch (error) {
-                logger.error('[onSubscriptionUpdate] Failed to sync usage limits', {
-                  subscriptionId: subscription.id,
-                  referenceId: subscription.referenceId,
-                  error,
-                })
-              }
-            },
-            onSubscriptionDeleted: async ({
-              subscription,
-            }: {
-              event: Stripe.Event
-              stripeSubscription: Stripe.Subscription
-              subscription: any
-            }) => {
-              logger.info('[onSubscriptionDeleted] Subscription deleted', {
-                subscriptionId: subscription.id,
-                referenceId: subscription.referenceId,
-              })
+          await syncSubscriptionUsageLimits(resolvedSubscription)
 
-              try {
-                await handleSubscriptionDeleted(subscription)
+          await sendBillingTierWelcomeEmail(resolvedSubscription)
+        },
+        onSubscriptionUpdate: async ({
+          event,
+          subscription,
+        }: {
+          event: Stripe.Event
+          subscription: any
+        }) => {
+          logger.info('[onSubscriptionUpdate] Subscription updated', {
+            subscriptionId: subscription.id,
+            status: subscription.status,
+          })
 
-                // Reset usage limits to free tier
-                await syncSubscriptionUsageLimits(subscription)
+          await syncSubscriptionBillingTierFromStripeSubscription(
+            subscription.id,
+            event.data.object as Stripe.Subscription | undefined
+          )
 
-                logger.info('[onSubscriptionDeleted] Reset usage limits to free tier', {
-                  subscriptionId: subscription.id,
-                  referenceId: subscription.referenceId,
-                })
-              } catch (error) {
-                logger.error('[onSubscriptionDeleted] Failed to handle subscription deletion', {
-                  subscriptionId: subscription.id,
-                  referenceId: subscription.referenceId,
-                  error,
-                })
-              }
-            },
-          },
-          onEvent: async (event: Stripe.Event) => {
-            logger.info('[onEvent] Received Stripe webhook', {
-              eventId: event.id,
-              eventType: event.type,
+          const hydratedSubscription = await getHydratedSubscriptionById(subscription.id)
+          const subscriptionRecord = hydratedSubscription ?? { ...subscription, tier: null }
+          const resolvedSubscription =
+            await ensureOrganizationForOrganizationSubscription(subscriptionRecord)
+
+          try {
+            await syncSubscriptionUsageLimits(resolvedSubscription)
+          } catch (error) {
+            logger.error('[onSubscriptionUpdate] Failed to sync usage limits', {
+              subscriptionId: subscription.id,
+              referenceType: resolvedSubscription.referenceType,
+              referenceId: resolvedSubscription.referenceId,
+              error,
             })
+          }
+        },
+        onSubscriptionDeleted: async ({
+          event,
+          stripeSubscription,
+          subscription,
+        }: {
+          event: Stripe.Event
+          stripeSubscription: Stripe.Subscription
+          subscription: any
+        }) => {
+          logger.info('[onSubscriptionDeleted] Subscription deleted', {
+            subscriptionId: subscription.id,
+            referenceType: subscription.referenceType,
+            referenceId: subscription.referenceId,
+          })
 
-            try {
-              switch (event.type) {
-                case 'invoice.payment_succeeded': {
-                  await handleInvoicePaymentSucceeded(event)
-                  break
-                }
-                case 'invoice.payment_failed': {
-                  await handleInvoicePaymentFailed(event)
-                  break
-                }
-                case 'invoice.finalized': {
-                  await handleInvoiceFinalized(event)
-                  break
-                }
-                case 'customer.subscription.created': {
-                  await handleManualEnterpriseSubscription(event)
-                  break
-                }
-                // Note: customer.subscription.deleted is handled by better-auth's onSubscriptionDeleted callback above
-                default:
-                  logger.info('[onEvent] Ignoring unsupported webhook event', {
-                    eventId: event.id,
-                    eventType: event.type,
-                  })
-                  break
-              }
+          try {
+            await syncSubscriptionBillingTierFromStripeSubscription(
+              subscription.id,
+              stripeSubscription || (event.data.object as Stripe.Subscription | undefined)
+            )
 
-              logger.info('[onEvent] Successfully processed webhook', {
+            const hydratedSubscription = await getHydratedSubscriptionById(subscription.id)
+            const subscriptionRecord = hydratedSubscription ?? { ...subscription, tier: null }
+
+            await handleSubscriptionDeleted(subscriptionRecord)
+
+            const { billingEnabled } = await getBillingGateState()
+            const nextSubscriptionRecord =
+              billingEnabled && subscriptionRecord.referenceType === 'user'
+                ? await ensureDefaultUserSubscription(subscriptionRecord.referenceId)
+                : subscriptionRecord
+
+            await syncSubscriptionUsageLimits(nextSubscriptionRecord)
+
+            logger.info('[onSubscriptionDeleted] Reconciled subscription usage limits', {
+              subscriptionId: subscription.id,
+              referenceType: subscription.referenceType,
+              referenceId: subscription.referenceId,
+            })
+          } catch (error) {
+            logger.error('[onSubscriptionDeleted] Failed to handle subscription deletion', {
+              subscriptionId: subscription.id,
+              referenceType: subscription.referenceType,
+              referenceId: subscription.referenceId,
+              error,
+            })
+          }
+        },
+      },
+      onEvent: async (event: Stripe.Event) => {
+        logger.info('[onEvent] Received Stripe webhook', {
+          eventId: event.id,
+          eventType: event.type,
+        })
+
+        try {
+          switch (event.type) {
+            case 'invoice.payment_succeeded': {
+              await handleInvoicePaymentSucceeded(event)
+              break
+            }
+            case 'invoice.payment_failed': {
+              await handleInvoicePaymentFailed(event)
+              break
+            }
+            case 'invoice.finalized': {
+              await handleInvoiceFinalized(event)
+              break
+            }
+            case 'customer.subscription.created': {
+              await handleManualEnterpriseSubscription(event)
+              break
+            }
+            // Note: customer.subscription.deleted is handled by better-auth's onSubscriptionDeleted callback above
+            default:
+              logger.info('[onEvent] Ignoring unsupported webhook event', {
                 eventId: event.id,
                 eventType: event.type,
               })
-            } catch (error) {
-              logger.error('[onEvent] Failed to process webhook', {
-                eventId: event.id,
-                eventType: event.type,
-                error,
-              })
-              throw error
-            }
-          },
-        }),
-        organization({
-          allowUserToCreateOrganization: async (user) => {
-            const dbSubscriptions = await db
-              .select()
-              .from(schema.subscription)
-              .where(eq(schema.subscription.referenceId, user.id))
+              break
+          }
 
-            const hasTeamPlan = dbSubscriptions.some(
-              (sub) =>
-                sub.status === 'active' && (sub.plan === 'team' || sub.plan === 'enterprise')
-            )
+          logger.info('[onEvent] Successfully processed webhook', {
+            eventId: event.id,
+            eventType: event.type,
+          })
+        } catch (error) {
+          logger.error('[onEvent] Failed to process webhook', {
+            eventId: event.id,
+            eventType: event.type,
+            error,
+          })
+          throw error
+        }
+      },
+    }),
+    organization({
+      allowUserToCreateOrganization: async (user) => {
+        const [{ billingEnabled }, personalSubscription, memberships] = await Promise.all([
+          getBillingGateState(),
+          getEffectiveSubscription(user.id),
+          db
+            .select({ id: schema.member.id })
+            .from(schema.member)
+            .where(eq(schema.member.userId, user.id))
+            .limit(1),
+        ])
 
-            return hasTeamPlan
-          },
-          // Set a fixed membership limit of 50, but the actual limit will be enforced in the invitation flow
-          membershipLimit: 50,
-          // Validate seat limits before sending invitations
-          beforeInvite: async ({ organization }: { organization: { id: string } }) => {
-            const subscriptions = await db
-              .select()
-              .from(schema.subscription)
-              .where(
-                and(
-                  eq(schema.subscription.referenceId, organization.id),
-                  eq(schema.subscription.status, 'active')
-                )
-              )
+        return getOrganizationAccessState({
+          billingEnabled,
+          hasOrganization: memberships.length > 0,
+          isOrganizationAdmin: false,
+          userTier: personalSubscription?.tier,
+        }).canCreateOrganization
+      },
+      // Set a fixed membership limit of 50, but the actual limit will be enforced in the invitation flow
+      membershipLimit: 50,
+      // Validate seat limits before sending invitations
+      beforeInvite: async ({ organization }: { organization: { id: string } }) => {
+        const seatValidation = await validateSeatAvailability(organization.id)
 
-            const teamOrEnterpriseSubscription = subscriptions.find(
-              (sub) => sub.plan === 'team' || sub.plan === 'enterprise'
-            )
+        if (!seatValidation.canInvite) {
+          throw new Error(seatValidation.reason ?? 'Unable to invite member')
+        }
+      },
+      sendInvitationEmail: async (data: any) => {
+        try {
+          const { invitation, organization, inviter } = data
 
-            if (!teamOrEnterpriseSubscription) {
-              throw new Error('No active team or enterprise subscription for this organization')
-            }
+          const inviteUrl = `${getBaseUrl()}/invite/${invitation.id}`
+          const inviterName = inviter.user?.name || 'A team member'
 
-            const members = await db
-              .select()
-              .from(schema.member)
-              .where(eq(schema.member.organizationId, organization.id))
+          const html = await renderInvitationEmail(
+            inviterName,
+            organization.name,
+            inviteUrl,
+            invitation.email
+          )
 
-            const pendingInvites = await db
-              .select()
-              .from(schema.invitation)
-              .where(
-                and(
-                  eq(schema.invitation.organizationId, organization.id),
-                  eq(schema.invitation.status, 'pending')
-                )
-              )
+          const result = await sendEmail({
+            to: invitation.email,
+            subject: `${inviterName} has invited you to join ${organization.name} on TradingGoose`,
+            html,
+            emailType: 'transactional',
+          })
 
-            const totalCount = members.length + pendingInvites.length
-            const seatLimit = teamOrEnterpriseSubscription.seats || 1
-
-            if (totalCount >= seatLimit) {
-              throw new Error(`Organization has reached its seat limit of ${seatLimit}`)
-            }
-          },
-          sendInvitationEmail: async (data: any) => {
-            try {
-              const { invitation, organization, inviter } = data
-
-              const inviteUrl = `${getBaseUrl()}/invite/${invitation.id}`
-              const inviterName = inviter.user?.name || 'A team member'
-
-              const html = await renderInvitationEmail(
-                inviterName,
-                organization.name,
-                inviteUrl,
-                invitation.email
-              )
-
-              const result = await sendEmail({
-                to: invitation.email,
-                subject: `${inviterName} has invited you to join ${organization.name} on TradingGoose`,
-                html,
-                from: getFromEmailAddress(),
-                emailType: 'transactional',
-              })
-
-              if (!result.success) {
-                logger.error('Failed to send organization invitation email:', result.message)
-              }
-            } catch (error) {
-              logger.error('Error sending invitation email', { error })
-            }
-          },
-          organizationCreation: {
-            afterCreate: async ({ organization, user }: { organization: { id: string }; user: { id: string } }) => {
-              logger.info('[organizationCreation.afterCreate] Organization created', {
-                organizationId: organization.id,
-                creatorId: user.id,
-              })
-            },
-          },
-        }),
-      ]
-      : []),
+          if (!result.success) {
+            logger.error('Failed to send organization invitation email:', result.message)
+          }
+        } catch (error) {
+          logger.error('Error sending invitation email', { error })
+        }
+      },
+      organizationCreation: {
+        afterCreate: async ({
+          organization,
+          user,
+        }: {
+          organization: { id: string }
+          user: { id: string }
+        }) => {
+          logger.info('[organizationCreation.afterCreate] Organization created', {
+            organizationId: organization.id,
+            creatorId: user.id,
+          })
+        },
+      },
+    }),
   ],
+  onAPIError: {
+    errorURL: '/error',
+  },
   pages: {
     signIn: '/login',
     signUp: '/signup',
@@ -1561,28 +1771,15 @@ export const auth = betterAuth({
   },
 })
 
-function isUnauthorizedSessionError(error: unknown) {
-  if (!error || typeof error !== 'object') {
-    return false
-  }
-
-  const status = (error as any).status ?? (error as any).statusCode
-  const code = (error as any).code
-  const message = (error as any).message ?? (error as any).meta?.message
-
-  return (
-    status === 401 ||
-    code === 'UNAUTHORIZED' ||
-    message === 'Failed to get session' ||
-    message === 'Failed to get session.'
-  )
-}
-
-export async function getSession(headersOverride?: Headers) {
+export async function getSession(
+  headersOverride?: Headers,
+  options?: { disableCookieCache?: boolean }
+) {
   const hdrs = headersOverride ?? (await headers())
   try {
     return await auth.api.getSession({
       headers: hdrs,
+      ...(options ? { query: options } : {}),
     })
   } catch (error) {
     logger.warn('Failed to fetch session', { error })

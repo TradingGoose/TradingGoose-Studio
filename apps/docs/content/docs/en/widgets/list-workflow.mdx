@@ -1,6 +1,6 @@
 ---
 title: "Workflow List"
-description: "The Workflow List widget displays a browseable list of all workflows in your workspace."
+description: "Browse, create, and import workflows in your workspace."
 ---
 
 import { Callout } from 'fumadocs-ui/components/callout'
@@ -13,18 +13,23 @@ import { Card, Cards } from 'fumadocs-ui/components/card'
 | **Key** | `list_workflow` |
 | **Category** | List |
 
-The Workflow List widget displays a browseable list of all workflows in your workspace.
+The Workflow List widget displays a browseable list of all workflows in your workspace. Use it to create new workflows or folders, import workflow JSON, and open any workflow in the editor.
 
 ## Features
 
 - **Browse**: View all workflows in your workspace
 - **Search & Filter**: Find workflows quickly
-- **Create New**: Start a new workflow directly from the list
+- **Create**: Start a new folder or workflow directly from the Create menu
+- **Import**: Import a TradingGoose export JSON file from the Create menu. If the file includes skills, they are imported first and the workflow references are relinked automatically.
 - **Open in Editor**: Click to open any workflow in the editor widget
 
 ## Usage
 
-Add this widget alongside the Workflow Editor to manage your workflows.
+Add this widget alongside the Workflow Editor to manage your workflows. The Create menu includes folder creation, new workflow creation, and import.
+
+<Callout type="info">
+  Workflow imports use the shared TradingGoose export JSON format. Bundled skills are imported first and relinked automatically.
+</Callout>
 
 ## Related
 

@@ -15,7 +15,7 @@ vi.mock('@tradinggoose/db/schema', () => ({
 }))
 
 vi.mock('@/lib/billing/core/subscription', () => ({
-  getHighestPrioritySubscription: vi.fn(),
+  getEffectiveSubscription: vi.fn(),
 }))
 
 vi.mock('@/lib/billing/core/usage', () => ({
@@ -27,8 +27,8 @@ vi.mock('@/lib/billing/threshold-billing', () => ({
   checkAndBillOverageThreshold: vi.fn(),
 }))
 
-vi.mock('@/lib/environment', () => ({
-  isBillingEnabled: vi.fn(() => false),
+vi.mock('@/lib/billing/settings', () => ({
+  isBillingEnabledForRuntime: vi.fn(() => Promise.resolve(false)),
 }))
 
 vi.mock('@/lib/logs/events', () => ({

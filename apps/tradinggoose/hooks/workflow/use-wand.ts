@@ -175,6 +175,7 @@ export function useWand({
             systemPrompt: systemPrompt, // Send the processed system prompt with context
             streaming: true,
             history: wandConfig.maintainHistory ? conversationHistory : [], // Include history if enabled
+            generationType: wandConfig.generationType,
           }),
           signal: abortControllerRef.current.signal,
           cache: 'no-store',

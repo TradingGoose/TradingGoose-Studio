@@ -8,7 +8,7 @@ import type { TriggerConfig } from '@/triggers/types'
 export const chatTrigger: TriggerConfig = {
   id: 'chat',
   name: 'Chat',
-  provider: 'core',
+  webhookProvider: 'core',
   description: 'Start workflow from a chat deployment',
   version: '1.0.0',
   icon: MessageCircle,

@@ -1,21 +1,19 @@
+import { db } from '@tradinggoose/db'
+import { workflow } from '@tradinggoose/db/schema'
+import { eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
-import { checkHybridAuth } from '@/lib/auth/hybrid'
+import { AuthType, checkSessionOrInternalAuth } from '@/lib/auth/hybrid'
 import {
-  getCodeExecutionConcurrencyLimitMessage,
-  isCodeExecutionConcurrencyBackendUnavailableError,
-  isCodeExecutionConcurrencyLimitError,
-  withCodeExecutionConcurrencyLimit,
-} from '@/lib/execution/concurrency-limit'
+  ExecutionGateError,
+  enforceServerExecutionRateLimit,
+} from '@/lib/execution/execution-concurrency-limit'
 import {
-  getLocalVmSaturationLimitMessage,
-  isLocalVmSaturationLimitError,
-} from '@/lib/execution/local-saturation-limit'
+  executeFunctionRequest,
+} from '@/lib/function/execution'
 import { createLogger } from '@/lib/logs/console/logger'
+import { checkWorkspaceAccess, getUserEntityPermissions } from '@/lib/permissions/utils'
+import { RateLimitError } from '@/services/queue'
 import { generateRequestId } from '@/lib/utils'
-import { resolveCodeVariables } from '../code-resolution'
-import { executeFunctionWithRuntimeGate } from '../e2b-execution'
-import { createUserFriendlyErrorMessage, extractEnhancedError } from '../error-formatting'
-import { findFunctionPineDisallowedReason, transpileTypeScriptCode } from '../typescript-utils'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -26,21 +24,16 @@ const logger = createLogger('FunctionExecuteAPI')
 export async function POST(req: NextRequest) {
   const requestId = generateRequestId()
   const startTime = Date.now()
-  let stdout = ''
-  let userCodeStartLine = 3
-  let resolvedCode = ''
-  const buildOutput = (result: unknown, executionTime: number, outputStdout = stdout) => ({
+  const buildOutput = (result: unknown, executionTime: number, outputStdout = '') => ({
     result,
     stdout: outputStdout,
     executionTime,
   })
-  const respondSuccess = (result: unknown, executionTime: number, outputStdout = stdout) =>
-    NextResponse.json({ success: true, output: buildOutput(result, executionTime, outputStdout) })
   const respondFailure = (
     error: string,
     executionTime: number,
     status = 500,
-    outputStdout = stdout,
+    outputStdout = '',
     debug?: Record<string, unknown>
   ) =>
     NextResponse.json(
@@ -54,162 +47,87 @@ export async function POST(req: NextRequest) {
     )
 
   try {
-    const body = await req.json()
-    const { DEFAULT_EXECUTION_TIMEOUT_MS } = await import('@/lib/execution/constants')
-
-    const {
-      code,
-      params = {},
-      timeout = DEFAULT_EXECUTION_TIMEOUT_MS,
-      envVars = {},
-      blockData = {},
-      blockNameMapping = {},
-      workflowVariables = {},
-      workflowId,
-      isCustomTool = false,
-    } = body
-    const auth = await checkHybridAuth(req, { requireWorkflowId: false })
+    const auth = await checkSessionOrInternalAuth(req, { requireWorkflowId: false })
     if (!auth.success || !auth.userId) {
       return respondFailure('Unauthorized', Date.now() - startTime, 401)
     }
-    const e2bUserScope = auth.userId
 
-    const executionParams = { ...params }
-    executionParams._context = undefined
+    const body = await req.json()
+    const { workflowId, workspaceId } = body
+    const concurrencyLeaseInherited =
+      auth.authType === AuthType.INTERNAL_JWT && body.concurrencyLeaseInherited === true
 
-    logger.info(`[${requestId}] Function execution request`, {
-      hasCode: !!code,
-      paramsCount: Object.keys(executionParams).length,
-      timeout,
+    if (workflowId) {
+      const [workflowData] = await db
+        .select({ userId: workflow.userId, workspaceId: workflow.workspaceId })
+        .from(workflow)
+        .where(eq(workflow.id, workflowId))
+        .limit(1)
+
+      if (!workflowData) {
+        return respondFailure('Workflow not found', Date.now() - startTime, 404)
+      }
+
+      let hasWorkflowAccess = workflowData.userId === auth.userId
+
+      if (!hasWorkflowAccess && workflowData.workspaceId) {
+        const workflowWorkspaceAccess = await checkWorkspaceAccess(
+          workflowData.workspaceId,
+          auth.userId
+        )
+        hasWorkflowAccess = workflowWorkspaceAccess.hasAccess
+      }
+
+      if (!hasWorkflowAccess) {
+        return respondFailure('Workflow access denied', Date.now() - startTime, 403)
+      }
+    }
+
+    if (workspaceId) {
+      const workspacePermission = await getUserEntityPermissions(
+        auth.userId,
+        'workspace',
+        workspaceId
+      )
+
+      if (!workspacePermission) {
+        return respondFailure('Workspace access denied', Date.now() - startTime, 403)
+      }
+    }
+
+    await enforceServerExecutionRateLimit({
+      actorUserId: auth.userId,
+      authType: auth.authType,
       workflowId,
-      isCustomTool,
+      workspaceId,
+      isAsync: false,
+      logger,
+      requestId,
+      source: 'function execution',
     })
 
-    const { resolvedCode: nextResolvedCode, contextVariables } = resolveCodeVariables(
-      code,
-      executionParams,
-      envVars,
-      blockData,
-      blockNameMapping,
-      workflowVariables
-    )
-    resolvedCode = nextResolvedCode
-
-    const disallowedPineUsageReason = await findFunctionPineDisallowedReason(resolvedCode)
-    if (disallowedPineUsageReason) {
-      return respondFailure(disallowedPineUsageReason, Date.now() - startTime, 400)
-    }
-
-    const transpiledCode = await transpileTypeScriptCode(resolvedCode)
-    const runtimeExecution = await withCodeExecutionConcurrencyLimit({
+    const result = await executeFunctionRequest({
+      ...body,
+      concurrencyLeaseInherited,
       userId: auth.userId,
-      task: () =>
-        executeFunctionWithRuntimeGate({
-          requestId,
-          transpiledCode,
-          resolvedCode,
-          timeout,
-          isCustomTool,
-          e2bUserScope,
-          executionParams,
-          envVars,
-          contextVariables,
-          onImportExtractionError: (error) => {
-            logger.error('Failed to extract JavaScript imports', { error })
-          },
-          onSandboxResult: ({ sandboxId, stdoutPreview, error }) => {
-            logger.info(`[${requestId}] E2B JS sandbox`, {
-              sandboxId,
-              stdoutPreview,
-              error,
-            })
-          },
-          onStdout: (chunk) => {
-            stdout += chunk
-          },
-          onWarn: (message, meta) => {
-            logger.warn(message, meta)
-          },
-          onError: (message) => {
-            logger.error(`[${requestId}] Code Console Error: ${message}`)
-          },
-        }),
+      requestId,
     })
 
-    stdout = runtimeExecution.stdout || stdout
-    userCodeStartLine = runtimeExecution.userCodeStartLine
-
-    if (!runtimeExecution.success) {
-      return respondFailure(
-        runtimeExecution.error ?? 'Function execution failed',
-        runtimeExecution.executionTime,
-        500,
-        runtimeExecution.stdout
-      )
-    }
-
-    const executionTime = Date.now() - startTime
-    logger.info(`[${requestId}] Function executed successfully`, {
-      executionTime,
-      engine: runtimeExecution.engine,
-    })
-
-    return respondSuccess(runtimeExecution.result, executionTime)
+    return NextResponse.json(result.body, { status: result.statusCode })
   } catch (error: any) {
-    if (isCodeExecutionConcurrencyBackendUnavailableError(error)) {
-      return respondFailure(error.message, Date.now() - startTime, error.statusCode, stdout)
-    }
-
-    if (isCodeExecutionConcurrencyLimitError(error)) {
-      return respondFailure(
-        getCodeExecutionConcurrencyLimitMessage(error),
-        Date.now() - startTime,
-        error.statusCode
-      )
-    }
-
-    if (isLocalVmSaturationLimitError(error)) {
-      return respondFailure(
-        getLocalVmSaturationLimitMessage(error),
-        Date.now() - startTime,
-        error.statusCode
-      )
-    }
-
-    const executionTime = Date.now() - startTime
-    const userLineFromError =
-      error && typeof error === 'object' && typeof error.__userCodeStartLine === 'number'
-        ? error.__userCodeStartLine
-        : undefined
-    if (typeof userLineFromError === 'number') {
-      userCodeStartLine = userLineFromError
+    if (
+      error instanceof ExecutionGateError ||
+      error instanceof RateLimitError
+    ) {
+      return respondFailure(error.message, Date.now() - startTime, error.statusCode)
     }
 
     logger.error(`[${requestId}] Function execution failed`, {
       error: error.message || 'Unknown error',
       stack: error.stack,
-      executionTime,
+      executionTime: Date.now() - startTime,
     })
 
-    const enhancedError = extractEnhancedError(error, userCodeStartLine, resolvedCode)
-    const userFriendlyErrorMessage = createUserFriendlyErrorMessage(enhancedError, resolvedCode)
-
-    logger.error(`[${requestId}] Enhanced error details`, {
-      originalMessage: error.message,
-      enhancedMessage: userFriendlyErrorMessage,
-      line: enhancedError.line,
-      column: enhancedError.column,
-      lineContent: enhancedError.lineContent,
-      errorType: enhancedError.name,
-      userCodeStartLine,
-    })
-
-    return respondFailure(userFriendlyErrorMessage, executionTime, 500, stdout, {
-      line: enhancedError.line,
-      column: enhancedError.column,
-      errorType: enhancedError.name,
-      lineContent: enhancedError.lineContent,
-      stack: enhancedError.stack,
-    })
+    return respondFailure(error.message || 'Function execution failed', Date.now() - startTime, 500)
   }
 }

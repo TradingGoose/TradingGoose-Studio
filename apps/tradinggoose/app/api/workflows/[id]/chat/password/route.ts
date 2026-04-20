@@ -1,7 +1,8 @@
 import type { NextRequest } from 'next/server'
 import { z } from 'zod'
 import { createLogger } from '@/lib/logs/console/logger'
-import { encryptSecret, generateRequestId } from '@/lib/utils'
+import { generateRequestId } from '@/lib/utils'
+import { encryptSecret } from '@/lib/utils-server'
 import { validateWorkflowPermissions } from '@/lib/workflows/utils'
 import { createErrorResponse, createSuccessResponse } from '@/app/api/workflows/utils'
 

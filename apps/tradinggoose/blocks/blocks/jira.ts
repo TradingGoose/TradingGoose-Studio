@@ -11,7 +11,7 @@ export const JiraBlock: BlockConfig<JiraResponse> = {
   longDescription: 'Integrate Jira into the workflow. Can read, write, and update issues.',
   docsLink: 'https://docs.tradinggoose.ai/tools/jira',
   category: 'tools',
-  bgColor: undefined,
+  bgColor: '#2684FF',
   icon: JiraIcon,
   subBlocks: [
     {

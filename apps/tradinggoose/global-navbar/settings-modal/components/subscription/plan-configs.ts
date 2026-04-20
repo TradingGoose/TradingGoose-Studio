@@ -1,37 +1,47 @@
+import type { LucideIcon } from 'lucide-react'
 import {
   Building2,
   Clock,
+  Code2,
   Database,
+  DollarSign,
   HardDrive,
   HeadphonesIcon,
   Infinity as InfinityIcon,
   MessageSquare,
   Server,
+  ShieldCheck,
   Users,
   Zap,
 } from 'lucide-react'
 import type { PlanFeature } from './components/plan-card'
 
-export const PRO_PLAN_FEATURES: PlanFeature[] = [
-  { icon: Zap, text: '25 runs per minute (sync)' },
-  { icon: Clock, text: '200 runs per minute (async)' },
-  { icon: HardDrive, text: '50GB file storage' },
-  { icon: Building2, text: 'Unlimited workspaces' },
-  { icon: Users, text: 'Unlimited invites' },
-  { icon: Database, text: 'Unlimited log retention' },
+const FEATURE_ICON_RULES: Array<{ icon: LucideIcon; pattern: RegExp }> = [
+  { icon: DollarSign, pattern: /\$|usage|credit|billing|price|cost/i },
+  { icon: HardDrive, pattern: /storage|file|gb|tb|disk/i },
+  { icon: Users, pattern: /seat|team|member|invite|workspace|organization/i },
+  { icon: Building2, pattern: /workspace|organization|company/i },
+  { icon: Clock, pattern: /async|queue|minute|latency/i },
+  { icon: Zap, pattern: /sync|throughput|rate limit|speed|run/i },
+  { icon: Database, pattern: /log|retention|history|database/i },
+  { icon: MessageSquare, pattern: /slack|discord|channel|chat|message/i },
+  { icon: Server, pattern: /hosting|host|self-host|infra|deployment/i },
+  { icon: HeadphonesIcon, pattern: /support|success|sla/i },
+  { icon: ShieldCheck, pattern: /security|sso|audit|compliance/i },
+  { icon: Code2, pattern: /api|sdk|cli|developer/i },
 ]
 
-export const TEAM_PLAN_FEATURES: PlanFeature[] = [
-  { icon: Zap, text: '75 runs per minute (sync)' },
-  { icon: Clock, text: '500 runs per minute (async)' },
-  { icon: HardDrive, text: '500GB file storage (pooled)' },
-  { icon: InfinityIcon, text: 'Everything in Pro' },
-  { icon: MessageSquare, text: 'Dedicated Slack channel' },
-]
+const DEFAULT_FEATURE_ICON = InfinityIcon
 
-export const ENTERPRISE_PLAN_FEATURES: PlanFeature[] = [
-  { icon: Zap, text: 'Custom rate limits' },
-  { icon: HardDrive, text: 'Custom file storage limits' },
-  { icon: Server, text: 'Enterprise hosting' },
-  { icon: HeadphonesIcon, text: 'Dedicated support' },
-]
+export function getPlanFeatureIcon(featureText: string): LucideIcon {
+  return (
+    FEATURE_ICON_RULES.find((rule) => rule.pattern.test(featureText))?.icon ?? DEFAULT_FEATURE_ICON
+  )
+}
+
+export function toPlanFeatures(features: string[]): PlanFeature[] {
+  return features.map((text) => ({
+    icon: getPlanFeatureIcon(text),
+    text,
+  }))
+}

@@ -35,24 +35,38 @@ describe('chat replay safety', () => {
     expect(
       isAcceptedLiveMutationToolCall({
         id: 'tool-4',
-        name: 'manage_skill',
+        name: 'create_skill',
         state: 'success',
-        params: { operation: 'edit' },
       })
     ).toBe(true)
 
     expect(
       isAcceptedLiveMutationToolCall({
         id: 'tool-5',
-        name: 'manage_indicator',
+        name: 'edit_monitor',
         state: 'success',
-        result: { operation: 'list' },
+      })
+    ).toBe(true)
+
+    expect(
+      isAcceptedLiveMutationToolCall({
+        id: 'tool-5b',
+        name: 'rename_workflow',
+        state: 'accepted',
+      })
+    ).toBe(true)
+
+    expect(
+      isAcceptedLiveMutationToolCall({
+        id: 'tool-6',
+        name: 'list_indicators',
+        state: 'success',
       })
     ).toBe(false)
 
     expect(
       isAcceptedLiveMutationToolCall({
-        id: 'tool-6',
+        id: 'tool-7',
         name: 'run_workflow',
         state: 'success',
       })
@@ -83,11 +97,8 @@ describe('chat replay safety', () => {
         toolCalls: [
           {
             id: 'tool-2',
-            name: 'manage_custom_tool',
+            name: 'list_custom_tools',
             state: 'success',
-            params: {
-              operation: 'list',
-            },
           },
         ],
       })
@@ -107,11 +118,8 @@ describe('chat replay safety', () => {
             type: 'tool_call',
             toolCall: {
               id: 'tool-1',
-              name: 'manage_mcp_tool',
+              name: 'rename_mcp_server',
               state: 'success',
-              result: {
-                operation: 'edit',
-              },
             },
           },
         ],

@@ -18,22 +18,27 @@ export const extractExplicitCopilotContexts = (
   Array.isArray(contexts) ? contexts.filter((context) => !isHiddenCopilotContext(context)) : []
 
 const buildContextIdentityKey = (context: ChatContext): string => {
+  const getContextReviewIdentity = () =>
+    ('reviewSessionId' in context ? context.reviewSessionId : undefined) ??
+    ('draftSessionId' in context ? context.draftSessionId : undefined) ??
+    context.label
+
   switch (context.kind) {
     case 'workflow':
     case 'current_workflow':
       return `workflow:${context.workflowId}`
     case 'skill':
     case 'current_skill':
-      return `skill:${context.skillId}`
+      return `skill:${context.skillId ?? getContextReviewIdentity()}`
     case 'indicator':
     case 'current_indicator':
-      return `indicator:${context.indicatorId}`
+      return `indicator:${context.indicatorId ?? getContextReviewIdentity()}`
     case 'custom_tool':
     case 'current_custom_tool':
-      return `custom_tool:${context.customToolId}`
+      return `custom_tool:${context.customToolId ?? getContextReviewIdentity()}`
     case 'mcp_server':
     case 'current_mcp_server':
-      return `mcp_server:${context.mcpServerId}`
+      return `mcp_server:${context.mcpServerId ?? getContextReviewIdentity()}`
     case 'past_chat':
       return `past_chat:${context.reviewSessionId}`
     case 'workflow_block':

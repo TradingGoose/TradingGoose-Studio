@@ -11,15 +11,10 @@ import {
   useSidebar,
 } from '@/components/ui/sidebar'
 import { Skeleton } from '@/components/ui/skeleton'
-import { UsageHeader } from '@/global-navbar/settings-modal/components/shared/usage-header'
-import { getEnv, isTruthy } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
+import { getBillingStatus, getSubscriptionStatus, getUsage } from '@/lib/subscription/helpers'
 import { getBaseUrl } from '@/lib/urls/utils'
-import {
-  getBillingStatus,
-  getSubscriptionStatus,
-  getUsage,
-} from '@/lib/subscription/helpers'
+import { UsageHeader } from '@/global-navbar/settings-modal/components/shared/usage-header'
 import { useOrganizationBilling, useOrganizations } from '@/hooks/queries/organization'
 import { useSubscriptionData } from '@/hooks/queries/subscription'
 import type { NavSection } from '../types'
@@ -30,46 +25,39 @@ interface SidebarNavProps {
 
 export function SidebarNav({ navItems }: SidebarNavProps) {
   const workspaceItems = navItems.filter((item) => (item.section ?? 'workspace') === 'workspace')
+  const adminItems = navItems.filter((item) => item.section === 'admin')
   const moreItems = navItems.filter((item) => item.section === 'more')
 
   return (
     <>
-      {workspaceItems.length ? (
-        <SidebarGroup>
-          <SidebarGroupLabel>Workspace</SidebarGroupLabel>
-          <SidebarMenu>
-            {workspaceItems.map((item) => (
-              <SidebarMenuItem key={item.title}>
-                <SidebarMenuButton asChild isActive={item.isActive} tooltip={item.title}>
-                  <Link href={item.url}>
-                    <item.icon />
-                    <span>{item.title}</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            ))}
-          </SidebarMenu>
-        </SidebarGroup>
-      ) : null}
-
-      {moreItems.length ? (
-        <SidebarGroup>
-          <SidebarGroupLabel>More</SidebarGroupLabel>
-          <SidebarMenu>
-            {moreItems.map((item) => (
-              <SidebarMenuItem key={item.title}>
-                <SidebarMenuButton asChild isActive={item.isActive} tooltip={item.title}>
-                  <Link href={item.url}>
-                    <item.icon />
-                    <span>{item.title}</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            ))}
-          </SidebarMenu>
-        </SidebarGroup>
-      ) : null}
+      {renderNavGroup('Workspace', workspaceItems)}
+      {renderNavGroup('System', adminItems)}
+      {renderNavGroup('More', moreItems)}
     </>
+  )
+}
+
+function renderNavGroup(label: string, items: NavSection[]) {
+  if (!items.length) {
+    return null
+  }
+
+  return (
+    <SidebarGroup>
+      <SidebarGroupLabel>{label}</SidebarGroupLabel>
+      <SidebarMenu>
+        {items.map((item) => (
+          <SidebarMenuItem key={item.title}>
+            <SidebarMenuButton asChild isActive={item.isActive} tooltip={item.title}>
+              <Link href={item.url}>
+                <item.icon />
+                <span>{item.title}</span>
+              </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        ))}
+      </SidebarMenu>
+    </SidebarGroup>
   )
 }
 
@@ -81,11 +69,11 @@ function UsageHeaderSkeleton() {
   return (
     <div className='space-y-2 rounded-md border bg-background p-3 shadow-xs'>
       <div className='flex items-center justify-between'>
-        <div className='flex items-center gap-2 justify-between'>
+        <div className='flex items-center justify-between gap-2'>
           <Skeleton className='h-4 w-10 rounded-full' />
           <Skeleton className='h-4 w-10 rounded-full' />
         </div>
-        <div className='flex items-center gap-1 justify-between'>
+        <div className='flex items-center justify-between gap-1'>
           <Skeleton className='h-3 w-full rounded-full' />
           <Skeleton className='h-3 w-full rounded-full' />
         </div>
@@ -98,17 +86,13 @@ function UsageHeaderSkeleton() {
 export function SidebarUsageIndicator({ onOpenSubscriptionSettings }: SidebarUsageIndicatorProps) {
   const { state } = useSidebar()
   const logger = createLogger('SidebarUsageIndicator')
-  const billingEnabled = useMemo(() => {
-    const runtimeFlag = getEnv('NEXT_PUBLIC_BILLING_ENABLED')
-    const buildFlag = process.env.NEXT_PUBLIC_BILLING_ENABLED
-    return isTruthy(runtimeFlag ?? buildFlag ?? true)
-  }, [])
   const {
     data: subscriptionData,
     isLoading: isSubscriptionLoading,
     isError: isSubscriptionError,
   } = useSubscriptionData()
   const billingPayload = (subscriptionData as any)?.data ?? subscriptionData
+  const billingEnabled = useMemo(() => billingPayload?.billingEnabled ?? true, [billingPayload])
   const subscription = getSubscriptionStatus(billingPayload)
   const usage = getUsage(billingPayload)
   const billingStatus = getBillingStatus(billingPayload)
@@ -118,27 +102,41 @@ export function SidebarUsageIndicator({ onOpenSubscriptionSettings }: SidebarUsa
     activeOrganizationId || ''
   )
 
-  const normalizedBillingStatus: 'ok' | 'warning' | 'exceeded' | 'blocked' =
-    billingStatus === 'unknown' ? 'ok' : billingStatus
-  const isOrganizationPlan = subscription.isTeam || subscription.isEnterprise
+  const isOrganizationPlan = subscription.tier.ownerType === 'organization'
   const currentUsage = isOrganizationPlan
-    ? organizationBillingData?.totalCurrentUsage ?? usage.current
+    ? (organizationBillingData?.totalCurrentUsage ?? usage.current)
     : usage.current
   const usageLimit = isOrganizationPlan
-    ? organizationBillingData?.totalUsageLimit ??
-    organizationBillingData?.minimumBillingAmount ??
-    usage.limit
+    ? (organizationBillingData?.totalUsageLimit ??
+      organizationBillingData?.minimumUsageLimit ??
+      usage.limit)
     : usage.limit
   const percentUsedRaw = isOrganizationPlan
     ? (() => {
-      const totalLimit = organizationBillingData?.totalUsageLimit
-      if (totalLimit && totalLimit > 0) {
-        return ((organizationBillingData?.totalCurrentUsage ?? 0) / totalLimit) * 100
-      }
-      return usage.percentUsed
-    })()
+        const totalLimit = organizationBillingData?.totalUsageLimit
+        if (totalLimit && totalLimit > 0) {
+          return ((organizationBillingData?.totalCurrentUsage ?? 0) / totalLimit) * 100
+        }
+        return usage.percentUsed
+      })()
     : usage.percentUsed
   const percentUsed = Math.max(0, Math.min(Math.round(percentUsedRaw ?? 0), 100))
+  const organizationWarningThresholdPercent =
+    typeof organizationBillingData?.warningThresholdPercent === 'number'
+      ? organizationBillingData.warningThresholdPercent
+      : 100
+  const normalizedBillingStatus: 'ok' | 'warning' | 'exceeded' | 'blocked' =
+    billingPayload?.billingBlocked
+      ? 'blocked'
+      : isOrganizationPlan
+        ? percentUsed >= 100
+          ? 'exceeded'
+          : percentUsedRaw >= organizationWarningThresholdPercent
+            ? 'warning'
+            : 'ok'
+        : billingStatus === 'unknown'
+          ? 'ok'
+          : billingStatus
   const safeCurrentUsage = Number.isFinite(currentUsage) ? Number(currentUsage) : 0
   const safeUsageLimit = Number.isFinite(usageLimit) ? Number(usageLimit) : 0
   const seatsText =
@@ -147,9 +145,7 @@ export function SidebarUsageIndicator({ onOpenSubscriptionSettings }: SidebarUsa
       : subscription.seats
         ? `${subscription.seats} seats`
         : undefined
-  const usageTitle = subscription.plan
-    ? `${subscription.plan.charAt(0).toUpperCase()}${subscription.plan.slice(1)}`
-    : 'Free'
+  const usageTitle = subscription.tier.displayName
   const shouldShowUsageHeader =
     billingEnabled && (Boolean(subscriptionData) || isSubscriptionLoading || isSubscriptionError)
   const showUsageSkeleton =
@@ -168,11 +164,11 @@ export function SidebarUsageIndicator({ onOpenSubscriptionSettings }: SidebarUsa
 
   const handleResolvePayment = async () => {
     const context =
-      subscription.isTeam || subscription.isEnterprise ? ('organization' as const) : ('user' as const)
+      subscription.tier.ownerType === 'organization' ? ('organization' as const) : ('user' as const)
 
     if (context === 'organization' && !activeOrganizationId) {
       logger.error('Cannot resolve payment without an active organization', {
-        plan: subscription.plan,
+        tier: subscription.tier.displayName,
       })
       alert('Select an organization to manage billing.')
       return

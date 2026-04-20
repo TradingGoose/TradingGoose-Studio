@@ -1,14 +1,15 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import ReactFlow, {
+import {
   Background,
   ConnectionLineType,
+  ReactFlow,
   type EdgeTypes,
   type NodeTypes,
   ReactFlowProvider,
-} from 'reactflow'
-import 'reactflow/dist/style.css'
+} from '@xyflow/react'
+import '@xyflow/react/dist/style.css'
 import { cn } from '@/lib/utils'
 import type { WorkflowState } from '@/stores/workflows/workflow/types'
 import type { PreviewDiffOperation } from './preview-diff'
@@ -60,7 +61,9 @@ export function PreviewWorkflow({
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
 
   const { nodes, edges } = useMemo(() => {
-    return adaptPreviewPayloadToCanvas(workflowState, { operations: diffOperations })
+    return diffOperations === undefined
+      ? adaptPreviewPayloadToCanvas(workflowState)
+      : adaptPreviewPayloadToCanvas(workflowState, { operations: diffOperations })
   }, [diffOperations, workflowState])
 
   return (
@@ -96,12 +99,15 @@ export function PreviewWorkflow({
             elementsSelectable={showInspector}
             nodesDraggable={false}
             nodesConnectable={false}
+            style={{
+              backgroundColor: 'transparent',
+            }}
             onNodeClick={(event, node) => {
               setSelectedNodeId(node.id)
               onNodeClick?.(node.id, { x: event.clientX, y: event.clientY })
             }}
           >
-            <Background color='hsl(var(--workflow-dots))' size={4} gap={40} />
+            <Background bgColor='transparent' color='hsl(var(--workflow-dots))' size={4} gap={40} />
           </ReactFlow>
         </div>
 

@@ -10,7 +10,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { client } from '@/lib/auth-client'
 import { createLogger } from '@/lib/logs/console/logger'
 import {
   getProviderIdFromServiceId,
@@ -19,6 +18,7 @@ import {
   type OAuthProvider,
   parseProvider,
 } from '@/lib/oauth'
+import { startOAuthConnectFlow } from '@/lib/oauth/connect'
 
 const logger = createLogger('OAuthRequiredModal')
 
@@ -174,10 +174,9 @@ export function OAuthRequiredModal({
         requiredScopes,
       })
 
-      await client.oauth2.link({
+      await startOAuthConnectFlow({
         providerId,
         callbackURL: window.location.href,
-        errorCallbackURL: window.location.href,
       })
     } catch (error) {
       logger.error('Error initiating OAuth flow:', { error })

@@ -11,6 +11,7 @@ import {
   GoogleFormsIcon,
   GoogleIcon,
   GoogleSheetsIcon,
+  HubspotIcon,
   JiraIcon,
   LinearIcon,
   DollarIcon,
@@ -25,15 +26,12 @@ import {
   RedditIcon,
   SlackIcon,
   SupabaseIcon,
+  TrelloIcon,
   WealthboxIcon,
   WebflowIcon,
   xIcon,
 } from '@/components/icons/icons'
 import { AlpacaIcon } from '@/components/icons/provider-icons'
-import { env, getEnv } from '@/lib/env'
-import { createLogger } from '@/lib/logs/console/logger'
-
-const logger = createLogger('OAuth')
 
 export type OAuthProvider =
   | 'google'
@@ -52,7 +50,6 @@ export type OAuthProvider =
   | 'wealthbox'
   | 'webflow'
   | 'tradier'
-  | 'robinhood'
   | string
 
 export type OAuthService =
@@ -85,8 +82,38 @@ export type OAuthService =
   | 'onedrive'
   | 'webflow'
   | 'tradier'
-  | 'robinhood'
   | string
+
+export interface OAuthCredentialFieldConfig {
+  key: string
+  label: string
+  note: string
+  placeholder: string
+  isSensitive: boolean
+  required?: boolean
+  oauthProperty?: 'clientId' | 'clientSecret'
+}
+
+const DEFAULT_OAUTH_CREDENTIAL_FIELDS: OAuthCredentialFieldConfig[] = [
+  {
+    key: 'client_id',
+    label: 'Client ID',
+    note: 'Public app identifier',
+    placeholder: 'Enter client ID',
+    isSensitive: false,
+    required: true,
+    oauthProperty: 'clientId',
+  },
+  {
+    key: 'client_secret',
+    label: 'Client Secret',
+    note: 'Private app credential',
+    placeholder: 'Enter client secret',
+    isSensitive: true,
+    required: true,
+    oauthProperty: 'clientSecret',
+  },
+]
 export interface OAuthProviderConfig {
   id: OAuthProvider
   name: string
@@ -94,6 +121,7 @@ export interface OAuthProviderConfig {
   services: Record<string, OAuthServiceConfig>
   defaultService: string
   credentialProvider?: string
+  credentialFields?: OAuthCredentialFieldConfig[]
 }
 
 export interface OAuthServiceConfig {
@@ -106,6 +134,32 @@ export interface OAuthServiceConfig {
   scopes: string[]
   credentialProvider?: string
 }
+
+export const HUBSPOT_OAUTH_SCOPES = [
+  'crm.objects.contacts.read',
+  'crm.objects.contacts.write',
+  'crm.objects.companies.read',
+  'crm.objects.companies.write',
+  'crm.objects.deals.read',
+  'crm.objects.deals.write',
+  'crm.objects.owners.read',
+  'crm.objects.users.read',
+  'crm.objects.users.write',
+  'crm.objects.marketing_events.read',
+  'crm.objects.marketing_events.write',
+  'crm.objects.line_items.read',
+  'crm.objects.line_items.write',
+  'crm.objects.quotes.read',
+  'crm.objects.quotes.write',
+  'crm.objects.appointments.read',
+  'crm.objects.appointments.write',
+  'crm.objects.carts.read',
+  'crm.objects.carts.write',
+  'crm.import',
+  'crm.lists.read',
+  'crm.lists.write',
+  'tickets',
+]
 
 export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
   alpaca: {
@@ -559,22 +613,50 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
     },
     defaultService: 'tradier',
   },
-  robinhood: {
-    id: 'robinhood',
-    name: 'Robinhood',
-    icon: (props) => DollarIcon(props),
+  hubspot: {
+    id: 'hubspot',
+    name: 'HubSpot',
+    icon: (props) => HubspotIcon(props),
     services: {
-      robinhood: {
-        id: 'robinhood',
-        name: 'Robinhood',
-        description: 'Place trades and read holdings from Robinhood.',
-        providerId: 'robinhood',
-        icon: (props) => DollarIcon(props),
-        baseProviderIcon: (props) => DollarIcon(props),
-        scopes: ['internal', 'read', 'trading'],
+      hubspot: {
+        id: 'hubspot',
+        name: 'HubSpot',
+        description: 'Manage contacts, companies, deals, and CRM data in HubSpot.',
+        providerId: 'hubspot',
+        icon: (props) => HubspotIcon(props),
+        baseProviderIcon: (props) => HubspotIcon(props),
+        scopes: HUBSPOT_OAUTH_SCOPES,
       },
     },
-    defaultService: 'robinhood',
+    defaultService: 'hubspot',
+  },
+  trello: {
+    id: 'trello',
+    name: 'Trello',
+    icon: (props) => TrelloIcon(props),
+    credentialFields: [
+      {
+        key: 'api_key',
+        label: 'API Key',
+        note: 'Public Trello API key used with user tokens',
+        placeholder: 'Enter Trello API key',
+        isSensitive: false,
+        required: true,
+        oauthProperty: 'clientId',
+      },
+    ],
+    services: {
+      trello: {
+        id: 'trello',
+        name: 'Trello',
+        description: 'Manage Trello boards, lists, cards, actions, and comments.',
+        providerId: 'trello',
+        icon: (props) => TrelloIcon(props),
+        baseProviderIcon: (props) => TrelloIcon(props),
+        scopes: ['read', 'write'],
+      },
+    },
+    defaultService: 'trello',
   },
   webflow: {
     id: 'webflow',
@@ -609,94 +691,73 @@ export function getMicrosoftRefreshTokenExpiry(): Date {
   return new Date(Date.now() + MICROSOFT_REFRESH_TOKEN_LIFETIME_DAYS * 24 * 60 * 60 * 1000)
 }
 
+type OAuthServiceLookupEntry = {
+  baseProvider: string
+  featureType: string
+  serviceId: string
+  providerId: string
+  scopes: string[]
+}
+
+function normalizeOAuthIdentifier(value: string) {
+  return value.trim()
+}
+
+function normalizeOAuthScope(value: string) {
+  return value.trim().toLowerCase()
+}
+
 // Helper function to get a service by provider and service ID
 export function getServiceByProviderAndId(
   provider: OAuthProvider,
   serviceId?: string
 ): OAuthServiceConfig {
-  const providerConfig = OAUTH_PROVIDERS[provider]
+  const normalizedProvider = normalizeOAuthIdentifier(provider)
+  const providerConfig = resolveOAuthProviderConfig(normalizedProvider)
   if (!providerConfig) {
-    throw new Error(`Provider ${provider} not found`)
+    throw new Error(`Provider ${normalizedProvider} not found`)
   }
 
-  if (!serviceId) {
-    return providerConfig.services[providerConfig.defaultService]
-  }
+  const resolvedServiceId =
+    serviceId?.trim() ||
+    getOAuthServiceLookupEntry(normalizedProvider)?.serviceId ||
+    providerConfig.defaultService
 
-  return (
-    providerConfig.services[serviceId] || providerConfig.services[providerConfig.defaultService]
-  )
+  return providerConfig.services[resolvedServiceId] || providerConfig.services[providerConfig.defaultService]
 }
 
 // Helper function to determine service ID from scopes
 export function getServiceIdFromScopes(provider: OAuthProvider, scopes: string[]): string {
-  const providerConfig = OAUTH_PROVIDERS[provider]
-  if (!providerConfig) {
-    return provider
+  const normalizedProvider = normalizeOAuthIdentifier(provider)
+  const directService = getOAuthServiceLookupEntry(normalizedProvider)
+  if (directService) {
+    return directService.serviceId
   }
 
-  if (provider === 'google') {
-    if (scopes.some((scope) => scope.includes('gmail') || scope.includes('mail'))) {
-      return 'gmail'
-    }
-    if (scopes.some((scope) => scope.includes('drive'))) {
-      return 'google-drive'
-    }
-    if (scopes.some((scope) => scope.includes('docs'))) {
-      return 'google-docs'
-    }
-    if (scopes.some((scope) => scope.includes('sheets'))) {
-      return 'google-sheets'
-    }
-    if (scopes.some((scope) => scope.includes('calendar'))) {
-      return 'google-calendar'
-    }
-    if (scopes.some((scope) => scope.includes('forms'))) {
-      return 'google-forms'
-    }
-    if (scopes.some((scope) => scope.includes('ediscovery'))) {
-      return 'google-vault'
-    }
-  } else if (provider === 'microsoft-teams') {
-    return 'microsoft-teams'
-  } else if (provider === 'outlook') {
-    return 'outlook'
-  } else if (provider === 'sharepoint') {
-    return 'sharepoint'
-  } else if (provider === 'microsoft-planner') {
-    return 'microsoft-planner'
-  } else if (provider === 'onedrive') {
-    return 'onedrive'
-  } else if (provider === 'github') {
-    return 'github'
-  } else if (provider === 'supabase') {
-    return 'supabase'
-  } else if (provider === 'x') {
-    return 'x'
-  } else if (provider === 'confluence') {
-    return 'confluence'
-  } else if (provider === 'jira') {
-    return 'jira'
-  } else if (provider === 'airtable') {
-    return 'airtable'
-  } else if (provider === 'notion') {
-    return 'notion'
-  } else if (provider === 'discord') {
-    return 'discord'
-  } else if (provider === 'linear') {
-    return 'linear'
-  } else if (provider === 'slack') {
-    return 'slack'
-  } else if (provider === 'reddit') {
-    return 'reddit'
-  } else if (provider === 'wealthbox') {
-    return 'wealthbox'
-  } else if (provider === 'tradier') {
-    return 'tradier'
-  } else if (provider === 'robinhood') {
-    return 'robinhood'
-  } else if (provider === 'webflow') {
-    return 'webflow'
+  const providerConfig = OAUTH_PROVIDERS[normalizedProvider]
+  if (!providerConfig) {
+    return normalizedProvider
+  }
+
+  const normalizedScopes = Array.from(
+    new Set(scopes.map(normalizeOAuthScope).filter(Boolean))
+  )
+  if (normalizedScopes.length === 0) {
+    return providerConfig.defaultService
+  }
+
+  const matchingServices = Object.values(providerConfig.services).filter((service) => {
+    const serviceScopes = new Set(service.scopes.map(normalizeOAuthScope))
+    return normalizedScopes.every((scope) => serviceScopes.has(scope))
+  })
+
+  if (matchingServices.length === 1) {
+    return matchingServices[0]!.id
+  }
+
+  const hintedServiceId = resolveServiceIdFromScopeHints(providerConfig.id, normalizedScopes)
+  if (hintedServiceId) {
+    return hintedServiceId
   }
 
   return providerConfig.defaultService
@@ -704,16 +765,14 @@ export function getServiceIdFromScopes(provider: OAuthProvider, scopes: string[]
 
 // Helper function to get provider ID from service ID
 export function getProviderIdFromServiceId(serviceId: string): string {
-  for (const provider of Object.values(OAUTH_PROVIDERS)) {
-    for (const [id, service] of Object.entries(provider.services)) {
-      if (id === serviceId) {
-        return service.providerId
-      }
-    }
+  const normalizedServiceId = normalizeOAuthIdentifier(serviceId)
+  const service = getOAuthServiceLookupEntry(normalizedServiceId)
+  if (service) {
+    return service.providerId
   }
 
   // Default fallback
-  return serviceId
+  return normalizedServiceId
 }
 
 // Interface for credential objects
@@ -735,33 +794,132 @@ export interface ProviderConfig {
 
 export type OAuthProviderAvailability = Record<string, boolean>
 
+const OAUTH_SERVICE_ENTRIES = Object.entries(OAUTH_PROVIDERS).flatMap(([baseProvider, providerConfig]) =>
+  Object.entries(providerConfig.services).map(([featureType, service]) => ({
+    baseProvider,
+    featureType,
+    serviceId: service.id,
+    providerId: service.providerId,
+    scopes: service.scopes,
+  }))
+) as OAuthServiceLookupEntry[]
+
 const OAUTH_PROVIDER_LOOKUP = Object.fromEntries(
-  Object.entries(OAUTH_PROVIDERS).flatMap(([baseProvider, providerConfig]) =>
-    Object.entries(providerConfig.services).map(([featureType, service]) => [
-      service.providerId,
-      {
-        baseProvider,
-        featureType,
-        scopes: service.scopes,
-        credentialProvider:
-          service.credentialProvider ?? providerConfig.credentialProvider ?? service.providerId,
-      },
-    ])
-  )
-) as Record<
-  string,
-  {
-    baseProvider: string
-    featureType: string
-    scopes: string[]
-    credentialProvider: string
+  OAUTH_SERVICE_ENTRIES.map((entry) => [
+    entry.providerId,
+    {
+      baseProvider: entry.baseProvider,
+      featureType: entry.featureType,
+      serviceId: entry.serviceId,
+      providerId: entry.providerId,
+      scopes: entry.scopes,
+    },
+  ])
+) as Record<string, OAuthServiceLookupEntry>
+
+const OAUTH_SERVICE_LOOKUP = Object.fromEntries(
+  OAUTH_SERVICE_ENTRIES.map((entry) => [
+    entry.serviceId,
+    {
+      baseProvider: entry.baseProvider,
+      featureType: entry.featureType,
+      serviceId: entry.serviceId,
+      providerId: entry.providerId,
+      scopes: entry.scopes,
+    },
+  ])
+) as Record<string, OAuthServiceLookupEntry>
+
+const OAUTH_SCOPE_HINTS: Record<string, Array<{ serviceId: string; patterns: string[] }>> = {
+  google: [
+    { serviceId: 'gmail', patterns: ['gmail', 'mail'] },
+    { serviceId: 'google-docs', patterns: ['docs'] },
+    { serviceId: 'google-sheets', patterns: ['sheets'] },
+    { serviceId: 'google-drive', patterns: ['drive'] },
+    { serviceId: 'google-calendar', patterns: ['calendar'] },
+    { serviceId: 'google-forms', patterns: ['forms'] },
+    { serviceId: 'google-vault', patterns: ['ediscovery'] },
+  ],
+  microsoft: [
+    { serviceId: 'microsoft-teams', patterns: ['chat.', 'channel', 'team.'] },
+    { serviceId: 'outlook', patterns: ['mail.'] },
+    { serviceId: 'sharepoint', patterns: ['sites.'] },
+    { serviceId: 'microsoft-planner', patterns: ['tasks.', 'group.readwrite', 'group.read.all'] },
+    { serviceId: 'onedrive', patterns: ['files.'] },
+  ],
+}
+
+function getOAuthServiceLookupEntry(identifier: string): OAuthServiceLookupEntry | null {
+  const normalizedIdentifier = normalizeOAuthIdentifier(identifier)
+  return OAUTH_SERVICE_LOOKUP[normalizedIdentifier] ?? OAUTH_PROVIDER_LOOKUP[normalizedIdentifier] ?? null
+}
+
+function resolveOAuthProviderConfig(identifier: string) {
+  const normalizedIdentifier = normalizeOAuthIdentifier(identifier)
+  if (OAUTH_PROVIDERS[normalizedIdentifier]) {
+    return OAUTH_PROVIDERS[normalizedIdentifier]
   }
->
+
+  const service = getOAuthServiceLookupEntry(normalizedIdentifier)
+  return service ? OAUTH_PROVIDERS[service.baseProvider] : null
+}
+
+function cloneOAuthCredentialFields(fields: OAuthCredentialFieldConfig[]) {
+  return fields.map((field) => ({ ...field }))
+}
+
+export function getOAuthCredentialFields(identifier: string) {
+  const providerConfig = resolveOAuthProviderConfig(identifier)
+  return cloneOAuthCredentialFields(
+    providerConfig?.credentialFields ?? DEFAULT_OAUTH_CREDENTIAL_FIELDS
+  )
+}
+
+function resolveServiceIdFromScopeHints(baseProvider: string, normalizedScopes: string[]) {
+  const providerHints = OAUTH_SCOPE_HINTS[baseProvider]
+  if (!providerHints) {
+    return null
+  }
+
+  const matchedHint = providerHints.find((hint) =>
+    normalizedScopes.some((scope) => hint.patterns.some((pattern) => scope.includes(pattern)))
+  )
+
+  return matchedHint?.serviceId ?? null
+}
+
+export const SYSTEM_INTEGRATION_OAUTH_SERVICE_PROVIDER_IDS = new Set(
+  Object.values(OAUTH_PROVIDERS).flatMap((provider) =>
+    Object.values(provider.services).map((service) => service.providerId)
+  )
+)
+
+export const SIGN_IN_OAUTH_PROVIDER_IDS = new Set(['google', 'github'])
+
+export function isSystemIntegrationManagedOAuthServiceProviderId(providerId: string) {
+  return SYSTEM_INTEGRATION_OAUTH_SERVICE_PROVIDER_IDS.has(providerId.trim())
+}
+
+export function isSignInOAuthProviderId(providerId: string) {
+  return SIGN_IN_OAUTH_PROVIDER_IDS.has(providerId.trim())
+}
 
 export function getCanonicalScopesForProvider(providerId: string): string[] {
-  return OAUTH_PROVIDER_LOOKUP[providerId]?.scopes
-    ? [...OAUTH_PROVIDER_LOOKUP[providerId].scopes]
+  const normalizedProviderId = normalizeOAuthIdentifier(providerId)
+  const serviceLookup =
+    OAUTH_PROVIDER_LOOKUP[normalizedProviderId] ?? OAUTH_SERVICE_LOOKUP[normalizedProviderId]
+
+  return serviceLookup?.scopes
+    ? [...serviceLookup.scopes]
     : []
+}
+
+export function getBaseProviderForService(providerId: string): string {
+  const normalizedProviderId = normalizeOAuthIdentifier(providerId)
+  const serviceLookup =
+    OAUTH_PROVIDER_LOOKUP[normalizedProviderId] ?? OAUTH_SERVICE_LOOKUP[normalizedProviderId]
+
+  return serviceLookup?.baseProvider || parseProvider(normalizedProviderId).baseProvider
 }
 
 /**
@@ -769,7 +927,8 @@ export function getCanonicalScopesForProvider(providerId: string): string[] {
  * This is a server-safe utility that can be used in both client and server code
  */
 export function parseProvider(provider: OAuthProvider): ProviderConfig {
-  const mapping = OAUTH_PROVIDER_LOOKUP[provider]
+  const normalizedProvider = normalizeOAuthIdentifier(provider)
+  const mapping = OAUTH_PROVIDER_LOOKUP[normalizedProvider] ?? OAUTH_SERVICE_LOOKUP[normalizedProvider]
   if (mapping) {
     return {
       baseProvider: mapping.baseProvider,
@@ -778,432 +937,39 @@ export function parseProvider(provider: OAuthProvider): ProviderConfig {
   }
 
   // Handle compound providers (e.g., 'google-email' -> { baseProvider: 'google', featureType: 'email' })
-  const [base, feature = 'default'] = provider.split('-')
+  const [base, feature = 'default'] = normalizedProvider.split('-')
   return {
     baseProvider: base,
     featureType: feature,
   }
 }
 
-const toEnvKey = (providerId: string) =>
-  providerId.replace(/[^a-zA-Z0-9]+/g, '_').toUpperCase()
+export function getOAuthProviderSubjectId(input: {
+  provider?: string | null
+  serviceId?: string | null
+  requiredScopes?: string[]
+}): string | null {
+  const provider = input.provider?.trim()
+  const serviceId = input.serviceId?.trim()
+  const requiredScopes = input.requiredScopes ?? []
 
-export const getOAuthProviderAvailability = (
-  providers: string[] = []
-): OAuthProviderAvailability => {
-  const availability: OAuthProviderAvailability = {}
-  const uniqueProviders = providers.filter((provider) => provider.trim().length > 0)
-
-  const checkProvider = (providerId: string) => {
-    const credentialProvider = OAUTH_PROVIDER_LOOKUP[providerId]?.credentialProvider ?? providerId
-    const credentialPrefix = toEnvKey(credentialProvider)
-    return (
-      Boolean(getEnv(`${credentialPrefix}_CLIENT_ID`)) &&
-      Boolean(getEnv(`${credentialPrefix}_CLIENT_SECRET`))
-    )
+  if (serviceId) {
+    return getProviderIdFromServiceId(serviceId)
   }
 
-  if (uniqueProviders.length === 0) {
-    return availability
-  }
-
-  for (const providerId of uniqueProviders) {
-    availability[providerId] = checkProvider(providerId)
-  }
-
-  return availability
-}
-
-interface ProviderAuthConfig {
-  tokenEndpoint: string
-  clientId: string
-  clientSecret: string
-  useBasicAuth: boolean
-  additionalHeaders?: Record<string, string>
-  supportsRefreshTokenRotation?: boolean
-  useJsonBody?: boolean
-}
-
-/**
- * Get OAuth provider configuration for token refresh
- */
-function getProviderAuthConfig(provider: string): ProviderAuthConfig {
-  const getCredentials = (clientId: string | undefined, clientSecret: string | undefined) => {
-    if (!clientId || !clientSecret) {
-      throw new Error(`Missing client credentials for provider: ${provider}`)
-    }
-    return { clientId, clientSecret }
-  }
-
-  switch (provider) {
-    case 'google': {
-      const { clientId, clientSecret } = getCredentials(
-        env.GOOGLE_CLIENT_ID,
-        env.GOOGLE_CLIENT_SECRET
-      )
-      return {
-        tokenEndpoint: 'https://oauth2.googleapis.com/token',
-        clientId,
-        clientSecret,
-        useBasicAuth: false,
-      }
-    }
-    case 'github': {
-      const { clientId, clientSecret } = getCredentials(
-        env.GITHUB_CLIENT_ID,
-        env.GITHUB_CLIENT_SECRET
-      )
-      return {
-        tokenEndpoint: 'https://github.com/login/oauth/access_token',
-        clientId,
-        clientSecret,
-        useBasicAuth: false,
-        additionalHeaders: { Accept: 'application/json' },
-      }
-    }
-    case 'x': {
-      const { clientId, clientSecret } = getCredentials(env.X_CLIENT_ID, env.X_CLIENT_SECRET)
-      return {
-        tokenEndpoint: 'https://api.x.com/2/oauth2/token',
-        clientId,
-        clientSecret,
-        useBasicAuth: true,
-        supportsRefreshTokenRotation: true,
-      }
-    }
-    case 'confluence': {
-      const { clientId, clientSecret } = getCredentials(
-        env.CONFLUENCE_CLIENT_ID,
-        env.CONFLUENCE_CLIENT_SECRET
-      )
-      return {
-        tokenEndpoint: 'https://auth.atlassian.com/oauth/token',
-        clientId,
-        clientSecret,
-        useBasicAuth: true,
-        supportsRefreshTokenRotation: true,
-      }
-    }
-    case 'jira': {
-      const { clientId, clientSecret } = getCredentials(env.JIRA_CLIENT_ID, env.JIRA_CLIENT_SECRET)
-      return {
-        tokenEndpoint: 'https://auth.atlassian.com/oauth/token',
-        clientId,
-        clientSecret,
-        useBasicAuth: true,
-        supportsRefreshTokenRotation: true,
-      }
-    }
-    case 'airtable': {
-      const { clientId, clientSecret } = getCredentials(
-        env.AIRTABLE_CLIENT_ID,
-        env.AIRTABLE_CLIENT_SECRET
-      )
-      return {
-        tokenEndpoint: 'https://airtable.com/oauth2/v1/token',
-        clientId,
-        clientSecret,
-        useBasicAuth: true,
-        supportsRefreshTokenRotation: true,
-      }
-    }
-    case 'supabase': {
-      const { clientId, clientSecret } = getCredentials(
-        env.SUPABASE_CLIENT_ID,
-        env.SUPABASE_CLIENT_SECRET
-      )
-      return {
-        tokenEndpoint: 'https://api.supabase.com/v1/oauth/token',
-        clientId,
-        clientSecret,
-        useBasicAuth: false,
-      }
-    }
-    case 'notion': {
-      const { clientId, clientSecret } = getCredentials(
-        env.NOTION_CLIENT_ID,
-        env.NOTION_CLIENT_SECRET
-      )
-      return {
-        tokenEndpoint: 'https://api.notion.com/v1/oauth/token',
-        clientId,
-        clientSecret,
-        useBasicAuth: true,
-        supportsRefreshTokenRotation: true,
-        useJsonBody: true,
-      }
-    }
-    case 'discord': {
-      const { clientId, clientSecret } = getCredentials(
-        env.DISCORD_CLIENT_ID,
-        env.DISCORD_CLIENT_SECRET
-      )
-      return {
-        tokenEndpoint: 'https://discord.com/api/v10/oauth2/token',
-        clientId,
-        clientSecret,
-        useBasicAuth: true,
-      }
-    }
-    case 'microsoft': {
-      const { clientId, clientSecret } = getCredentials(
-        env.MICROSOFT_CLIENT_ID,
-        env.MICROSOFT_CLIENT_SECRET
-      )
-      return {
-        tokenEndpoint: 'https://login.microsoftonline.com/common/oauth2/v2.0/token',
-        clientId,
-        clientSecret,
-        useBasicAuth: false,
-      }
-    }
-    case 'outlook': {
-      const { clientId, clientSecret } = getCredentials(
-        env.MICROSOFT_CLIENT_ID,
-        env.MICROSOFT_CLIENT_SECRET
-      )
-      return {
-        tokenEndpoint: 'https://login.microsoftonline.com/common/oauth2/v2.0/token',
-        clientId,
-        clientSecret,
-        useBasicAuth: false,
-      }
-    }
-    case 'onedrive': {
-      const { clientId, clientSecret } = getCredentials(
-        env.MICROSOFT_CLIENT_ID,
-        env.MICROSOFT_CLIENT_SECRET
-      )
-      return {
-        tokenEndpoint: 'https://login.microsoftonline.com/common/oauth2/v2.0/token',
-        clientId,
-        clientSecret,
-        useBasicAuth: false,
-      }
-    }
-    case 'sharepoint': {
-      const { clientId, clientSecret } = getCredentials(
-        env.MICROSOFT_CLIENT_ID,
-        env.MICROSOFT_CLIENT_SECRET
-      )
-      return {
-        tokenEndpoint: 'https://login.microsoftonline.com/common/oauth2/v2.0/token',
-        clientId,
-        clientSecret,
-        useBasicAuth: false,
-      }
-    }
-    case 'linear': {
-      const { clientId, clientSecret } = getCredentials(
-        env.LINEAR_CLIENT_ID,
-        env.LINEAR_CLIENT_SECRET
-      )
-      return {
-        tokenEndpoint: 'https://api.linear.app/oauth/token',
-        clientId,
-        clientSecret,
-        useBasicAuth: true,
-        supportsRefreshTokenRotation: true,
-      }
-    }
-    case 'slack': {
-      const { clientId, clientSecret } = getCredentials(
-        env.SLACK_CLIENT_ID,
-        env.SLACK_CLIENT_SECRET
-      )
-      return {
-        tokenEndpoint: 'https://slack.com/api/oauth.v2.access',
-        clientId,
-        clientSecret,
-        useBasicAuth: false,
-        supportsRefreshTokenRotation: true,
-      }
-    }
-    case 'reddit': {
-      const { clientId, clientSecret } = getCredentials(
-        env.REDDIT_CLIENT_ID,
-        env.REDDIT_CLIENT_SECRET
-      )
-      return {
-        tokenEndpoint: 'https://www.reddit.com/api/v1/access_token',
-        clientId,
-        clientSecret,
-        useBasicAuth: true,
-        additionalHeaders: {
-          'User-Agent': 'tradinggoose-studio/1.0',
-        },
-      }
-    }
-    case 'tradier': {
-      const { clientId, clientSecret } = getCredentials(
-        env.TRADIER_CLIENT_ID,
-        env.TRADIER_CLIENT_SECRET
-      )
-      return {
-        tokenEndpoint: 'https://api.tradier.com/v1/oauth/token',
-        clientId,
-        clientSecret,
-        useBasicAuth: false,
-      }
-    }
-    case 'robinhood': {
-      const { clientId, clientSecret } = getCredentials(
-        env.ROBINHOOD_CLIENT_ID,
-        env.ROBINHOOD_CLIENT_SECRET
-      )
-      return {
-        tokenEndpoint: 'https://api.robinhood.com/oauth2/token/',
-        clientId,
-        clientSecret,
-        useBasicAuth: false,
-      }
-    }
-    case 'wealthbox': {
-      const { clientId, clientSecret } = getCredentials(
-        env.WEALTHBOX_CLIENT_ID,
-        env.WEALTHBOX_CLIENT_SECRET
-      )
-      return {
-        tokenEndpoint: 'https://app.crmworkspace.com/oauth/token',
-        clientId,
-        clientSecret,
-        useBasicAuth: false,
-        supportsRefreshTokenRotation: true,
-      }
-    }
-    case 'webflow': {
-      const { clientId, clientSecret } = getCredentials(
-        env.WEBFLOW_CLIENT_ID,
-        env.WEBFLOW_CLIENT_SECRET
-      )
-      return {
-        tokenEndpoint: 'https://api.webflow.com/oauth/access_token',
-        clientId,
-        clientSecret,
-        useBasicAuth: false,
-        supportsRefreshTokenRotation: false,
-      }
-    }
-    default:
-      throw new Error(`Unsupported provider: ${provider}`)
-  }
-}
-
-/**
- * Build the authentication request headers and body for OAuth token refresh
- */
-function buildAuthRequest(
-  config: ProviderAuthConfig,
-  refreshToken: string
-): { headers: Record<string, string>; bodyParams: Record<string, string>; useJsonBody: boolean } {
-  const headers: Record<string, string> = {
-    'Content-Type': config.useJsonBody ? 'application/json' : 'application/x-www-form-urlencoded',
-    ...config.additionalHeaders,
-  }
-
-  const bodyParams: Record<string, string> = {
-    grant_type: 'refresh_token',
-    refresh_token: refreshToken,
-  }
-
-  if (config.useBasicAuth) {
-    // Use Basic Authentication - credentials in Authorization header only
-    const basicAuth = Buffer.from(`${config.clientId}:${config.clientSecret}`).toString('base64')
-    headers.Authorization = `Basic ${basicAuth}`
-  } else {
-    // Use body credentials - include client credentials in request body
-    bodyParams.client_id = config.clientId
-    bodyParams.client_secret = config.clientSecret
-  }
-
-  return { headers, bodyParams, useJsonBody: Boolean(config.useJsonBody) }
-}
-
-function getBaseProviderForService(providerId: string): string {
-  return OAUTH_PROVIDER_LOOKUP[providerId]?.baseProvider || parseProvider(providerId).baseProvider
-}
-
-/**
- * Refresh an OAuth token
- * This is a server-side utility function to refresh OAuth tokens
- * @param providerId The provider ID (e.g., 'google-drive')
- * @param refreshToken The refresh token to use
- * @returns Object containing the new access token and expiration time in seconds, or null if refresh failed
- */
-export async function refreshOAuthToken(
-  providerId: string,
-  refreshToken: string
-): Promise<{ accessToken: string; expiresIn: number; refreshToken: string } | null> {
-  try {
-    const provider = getBaseProviderForService(providerId)
-
-    // Get provider configuration
-    const config = getProviderAuthConfig(provider)
-
-    // Build authentication request
-    const { headers, bodyParams, useJsonBody } = buildAuthRequest(config, refreshToken)
-
-    // Refresh the token
-    const response = await fetch(config.tokenEndpoint, {
-      method: 'POST',
-      headers,
-      body: useJsonBody ? JSON.stringify(bodyParams) : new URLSearchParams(bodyParams).toString(),
-    })
-
-    if (!response.ok) {
-      const errorText = await response.text()
-      let errorData = errorText
-
-      // Try to parse the error as JSON for better diagnostics
-      try {
-        errorData = JSON.parse(errorText)
-      } catch (_e) {
-        // Not JSON, keep as text
-      }
-
-      logger.error('Token refresh failed:', {
-        status: response.status,
-        error: errorText,
-        parsedError: errorData,
-        providerId,
-      })
-      throw new Error(`Failed to refresh token: ${response.status} ${errorText}`)
-    }
-
-    const data = await response.json()
-
-    // Extract token and expiration (different providers may use different field names)
-    const accessToken = data.access_token
-
-    // Handle refresh token rotation for providers that support it
-    let newRefreshToken = null
-    if (config.supportsRefreshTokenRotation && data.refresh_token) {
-      newRefreshToken = data.refresh_token
-      logger.info(`Received new refresh token from ${provider}`)
-    }
-
-    // Get expiration time - use provider's value or default to 1 hour (3600 seconds)
-    // Different providers use different names for this field
-    const expiresIn = data.expires_in || data.expiresIn || 3600
-
-    if (!accessToken) {
-      logger.warn('No access token found in refresh response', data)
-      return null
-    }
-
-    logger.info('Token refreshed successfully with expiration', {
-      expiresIn,
-      hasNewRefreshToken: !!newRefreshToken,
-      provider,
-    })
-
-    return {
-      accessToken,
-      expiresIn,
-      refreshToken: newRefreshToken || refreshToken, // Return new refresh token if available
-    }
-  } catch (error) {
-    logger.error('Error refreshing token:', { error })
+  if (!provider) {
     return null
   }
+
+  if (requiredScopes.length > 0) {
+    const derivedServiceId = getServiceIdFromScopes(provider as OAuthProvider, requiredScopes)
+    return getProviderIdFromServiceId(derivedServiceId)
+  }
+
+  const providerConfig = resolveOAuthProviderConfig(provider)
+  if (providerConfig) {
+    return getProviderIdFromServiceId(providerConfig.defaultService)
+  }
+
+  return getProviderIdFromServiceId(provider)
 }

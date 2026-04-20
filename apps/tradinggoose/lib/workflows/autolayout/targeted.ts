@@ -1,4 +1,5 @@
 import { createLogger } from '@/lib/logs/console/logger'
+import type { AutoLayoutDirection } from '@/lib/workflows/workflow-direction'
 import type { BlockState } from '@/stores/workflows/workflow/types'
 import { assignLayers, groupByLayer } from './layering'
 import { calculatePositions } from './positioning'
@@ -30,7 +31,12 @@ export function applyTargetedLayout(
   edges: Edge[],
   options: TargetedLayoutOptions
 ): Record<string, BlockState> {
-  const { changedBlockIds, verticalSpacing = 200, horizontalSpacing = 550 } = options
+  const {
+    changedBlockIds,
+    direction = 'horizontal',
+    verticalSpacing = 200,
+    horizontalSpacing = 550,
+  } = options
 
   if (!changedBlockIds || changedBlockIds.length === 0) {
     return blocks
@@ -41,7 +47,16 @@ export function applyTargetedLayout(
 
   const groups = getBlocksByParent(blocksCopy)
 
-  layoutGroup(null, groups.root, blocksCopy, edges, changedSet, verticalSpacing, horizontalSpacing)
+  layoutGroup(
+    null,
+    groups.root,
+    blocksCopy,
+    edges,
+    changedSet,
+    direction,
+    verticalSpacing,
+    horizontalSpacing
+  )
 
   for (const [parentId, childIds] of groups.children.entries()) {
     layoutGroup(
@@ -50,6 +65,7 @@ export function applyTargetedLayout(
       blocksCopy,
       edges,
       changedSet,
+      direction,
       verticalSpacing,
       horizontalSpacing
     )
@@ -64,6 +80,7 @@ function layoutGroup(
   blocks: Record<string, BlockState>,
   edges: Edge[],
   changedSet: Set<string>,
+  direction: AutoLayoutDirection,
   verticalSpacing: number,
   horizontalSpacing: number
 ): void {
@@ -110,6 +127,7 @@ function layoutGroup(
     blocks,
     edges,
     parentBlock,
+    direction,
     horizontalSpacing,
     verticalSpacing
   )
@@ -158,6 +176,7 @@ function computeLayoutPositions(
   blocks: Record<string, BlockState>,
   edges: Edge[],
   parentBlock: BlockState | undefined,
+  direction: AutoLayoutDirection,
   horizontalSpacing: number,
   verticalSpacing: number
 ): Map<string, { x: number; y: number }> {
@@ -179,12 +198,14 @@ function computeLayoutPositions(
 
   const layoutOptions: LayoutOptions = parentBlock
     ? {
+        direction,
         horizontalSpacing: horizontalSpacing * 0.85,
         verticalSpacing,
         padding: { x: CONTAINER_PADDING_X, y: CONTAINER_PADDING_Y },
         alignment: 'center',
       }
     : {
+        direction,
         horizontalSpacing,
         verticalSpacing,
         padding: { x: ROOT_PADDING_X, y: ROOT_PADDING_Y },
@@ -230,18 +251,6 @@ function computeLayoutPositions(
   }
 
   return positions
-}
-
-function getBounds(positions: Map<string, { x: number; y: number }>) {
-  let minX = Number.POSITIVE_INFINITY
-  let minY = Number.POSITIVE_INFINITY
-
-  for (const pos of positions.values()) {
-    minX = Math.min(minX, pos.x)
-    minY = Math.min(minY, pos.y)
-  }
-
-  return { minX, minY }
 }
 
 function updateContainerDimensions(
@@ -305,48 +314,4 @@ function hasPosition(block: BlockState): boolean {
   if (!block.position) return false
   const { x, y } = block.position
   return Number.isFinite(x) && Number.isFinite(y)
-}
-
-/**
- * Estimate block heights for diff view by using current workflow measurements
- * This provides better height estimates than using default values
- */
-export function transferBlockHeights(
-  sourceBlocks: Record<string, BlockState>,
-  targetBlocks: Record<string, BlockState>
-): void {
-  // Build a map of block type+name to heights from source
-  const heightMap = new Map<string, { height: number; width: number; isWide: boolean }>()
-
-  for (const [id, block] of Object.entries(sourceBlocks)) {
-    const key = `${block.type}:${block.name}`
-    heightMap.set(key, {
-      height: block.height || 100,
-      width: block.layout?.measuredWidth || (block.isWide ? 480 : 350),
-      isWide: block.isWide || false,
-    })
-  }
-
-  // Transfer heights to target blocks
-  for (const block of Object.values(targetBlocks)) {
-    const key = `${block.type}:${block.name}`
-    const measurements = heightMap.get(key)
-
-    if (measurements) {
-      block.height = measurements.height
-      block.isWide = measurements.isWide
-
-      if (!block.layout) {
-        block.layout = {}
-      }
-      block.layout.measuredHeight = measurements.height
-      block.layout.measuredWidth = measurements.width
-    }
-  }
-
-  logger.debug('Transferred block heights from source workflow', {
-    sourceCount: Object.keys(sourceBlocks).length,
-    targetCount: Object.keys(targetBlocks).length,
-    heightsMapped: heightMap.size,
-  })
 }

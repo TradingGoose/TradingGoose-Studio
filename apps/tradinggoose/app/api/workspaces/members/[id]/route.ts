@@ -1,9 +1,17 @@
-import { db } from '@tradinggoose/db'
-import { permissions } from '@tradinggoose/db/schema'
+import { db, permissions, workspace } from '@tradinggoose/db'
 import { and, eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
+import { z } from 'zod'
 import { getSession } from '@/lib/auth'
+import { createLogger } from '@/lib/logs/console/logger'
 import { hasWorkspaceAdminAccess } from '@/lib/permissions/utils'
+import { assertWorkspaceBillingOwnerCanBeRemoved } from '@/lib/workspaces/billing-owner'
+
+const logger = createLogger('WorkspaceMemberAPI')
+
+const deleteMemberSchema = z.object({
+  workspaceId: z.string().trim().min(1, 'Workspace ID is required'),
+})
 
 // DELETE /api/workspaces/members/[id] - Remove a member from a workspace
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -15,12 +23,36 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   }
 
   try {
-    // Get the workspace ID from the request body or URL
-    const body = await req.json()
-    const workspaceId = body.workspaceId
-
-    if (!workspaceId) {
+    const bodyParse = deleteMemberSchema.safeParse(await req.json().catch(() => null))
+    if (!bodyParse.success) {
       return NextResponse.json({ error: 'Workspace ID is required' }, { status: 400 })
+    }
+    const workspaceId = bodyParse.data.workspaceId
+
+    const workspaceRow = await db
+      .select({
+        billingOwnerType: workspace.billingOwnerType,
+        billingOwnerUserId: workspace.billingOwnerUserId,
+      })
+      .from(workspace)
+      .where(eq(workspace.id, workspaceId))
+      .limit(1)
+
+    if (workspaceRow.length === 0) {
+      return NextResponse.json({ error: 'Workspace not found' }, { status: 404 })
+    }
+
+    try {
+      assertWorkspaceBillingOwnerCanBeRemoved({
+        billingOwnerType: workspaceRow[0].billingOwnerType,
+        billingOwnerUserId: workspaceRow[0].billingOwnerUserId,
+        userId,
+      })
+    } catch (error) {
+      if (error instanceof Error) {
+        return NextResponse.json({ error: error.message }, { status: 400 })
+      }
+      throw error
     }
 
     // Check if the user to be removed actually has permissions for this workspace
@@ -83,7 +115,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
 
     return NextResponse.json({ success: true })
   } catch (error) {
-    console.error('Error removing workspace member:', error)
+    logger.error('Error removing workspace member:', error)
     return NextResponse.json({ error: 'Failed to remove workspace member' }, { status: 500 })
   }
 }

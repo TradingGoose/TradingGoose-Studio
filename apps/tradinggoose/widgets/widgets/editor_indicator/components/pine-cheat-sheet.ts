@@ -1,7 +1,6 @@
-import { CHEAT_SHEET_MEMBERS } from './pine-cheat-sheet-members'
+import { CHEAT_SHEET_MEMBERS } from '@/lib/indicators/pine-cheat-sheet'
 
-const formatMembers = (key: keyof typeof CHEAT_SHEET_MEMBERS) =>
-  CHEAT_SHEET_MEMBERS[key].join(', ')
+const formatMembers = (key: keyof typeof CHEAT_SHEET_MEMBERS) => CHEAT_SHEET_MEMBERS[key].join(', ')
 
 export const CHEAT_SHEET_GROUPS = {
   data: {

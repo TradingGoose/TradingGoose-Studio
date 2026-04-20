@@ -398,12 +398,18 @@ export function ListingSelector({
 
   const dropdown = showListingDropdown ? (
     <div
-      className='absolute z-[1000]'
-      style={{
-        top: dropdownPosition?.top ?? 0,
-        left: dropdownPosition?.left ?? 0,
-        width: dropdownPosition?.width ?? 'auto',
-      }}
+      className={cn(
+        dropdownPosition ? 'absolute z-[1000]' : 'absolute left-0 top-full z-[200] mt-1 w-full'
+      )}
+      style={
+        dropdownPosition
+          ? {
+              top: dropdownPosition.top,
+              left: dropdownPosition.left,
+              width: dropdownPosition.width,
+            }
+          : undefined
+      }
       data-market-selector
       onWheel={(event) => event.stopPropagation()}
     >
@@ -504,7 +510,14 @@ export function ListingSelector({
               return
             }
 
-            updateInstance(instanceId, { query: nextValue })
+            setOpen(true)
+            setHighlightedIndex(-1)
+            const patch: Partial<typeof safeInstance> = { query: nextValue }
+            if (selectedListing && selectedLabel && nextValue.trim() !== selectedLabel) {
+              patch.selectedListingValue = null
+              patch.selectedListing = null
+            }
+            updateInstance(instanceId, patch)
           }}
           onFocus={() => {
             if (disabled) return
@@ -623,7 +636,11 @@ export function ListingSelector({
         </button>
       </div>
 
-      {portalTarget && dropdownPosition ? createPortal(dropdown, portalTarget) : null}
+      {dropdown
+        ? portalTarget && dropdownPosition
+          ? createPortal(dropdown, portalTarget)
+          : dropdown
+        : null}
 
       {blockId ? (
         <TagDropdown

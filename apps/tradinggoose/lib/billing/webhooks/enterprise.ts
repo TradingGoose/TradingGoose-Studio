@@ -6,38 +6,44 @@ import {
   getEmailSubject,
   renderEnterpriseSubscriptionEmail,
 } from '@/components/emails/render-email'
+import {
+  getTierIncludedUsageLimit,
+  isOrganizationBillingTier,
+  requireBillingTierById,
+} from '@/lib/billing/tiers'
+import { resolveBillingTierForPersistence } from '@/lib/billing/tiers/persistence'
 import { sendEmail } from '@/lib/email/mailer'
-import { getFromEmailAddress } from '@/lib/email/utils'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { EnterpriseSubscriptionMetadata } from '../types'
 
 const logger = createLogger('BillingEnterprise')
 
-function isEnterpriseMetadata(value: unknown): value is EnterpriseSubscriptionMetadata {
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === 'string' && value.trim().length > 0
+}
+
+function isManualContractMetadata(value: unknown): value is EnterpriseSubscriptionMetadata {
   return (
     !!value &&
     typeof value === 'object' &&
-    'plan' in value &&
+    'referenceType' in value &&
     'referenceId' in value &&
     'monthlyPrice' in value &&
     'seats' in value &&
-    typeof value.plan === 'string' &&
-    value.plan.toLowerCase() === 'enterprise' &&
-    typeof value.referenceId === 'string' &&
-    typeof value.monthlyPrice === 'string' &&
-    typeof value.seats === 'string'
+    value.referenceType === 'organization' &&
+    isNonEmptyString(value.referenceId) &&
+    isNonEmptyString(value.monthlyPrice) &&
+    isNonEmptyString(value.seats)
   )
 }
 
 export async function handleManualEnterpriseSubscription(event: Stripe.Event) {
   const stripeSubscription = event.data.object as Stripe.Subscription
+  const metadata = stripeSubscription.metadata || {}
 
-  const metaPlan = (stripeSubscription.metadata?.plan as string | undefined)?.toLowerCase() || ''
-
-  if (metaPlan !== 'enterprise') {
-    logger.info('[subscription.created] Skipping non-enterprise subscription', {
+  if (!isManualContractMetadata(metadata)) {
+    logger.info('[subscription.created] Skipping non-enterprise metadata subscription', {
       subscriptionId: stripeSubscription.id,
-      plan: metaPlan || 'unknown',
     })
     return
   }
@@ -51,12 +57,7 @@ export async function handleManualEnterpriseSubscription(event: Stripe.Event) {
     throw new Error('Missing Stripe customer ID on subscription')
   }
 
-  const metadata = stripeSubscription.metadata || {}
-
-  const referenceId =
-    typeof metadata.referenceId === 'string' && metadata.referenceId.length > 0
-      ? metadata.referenceId
-      : null
+  const referenceId = metadata.referenceId
 
   if (!referenceId) {
     logger.error('[subscription.created] Unable to resolve referenceId', {
@@ -66,13 +67,6 @@ export async function handleManualEnterpriseSubscription(event: Stripe.Event) {
     throw new Error('Unable to resolve referenceId for subscription')
   }
 
-  if (!isEnterpriseMetadata(metadata)) {
-    logger.error('[subscription.created] Invalid enterprise metadata shape', {
-      subscriptionId: stripeSubscription.id,
-      metadata,
-    })
-    throw new Error('Invalid enterprise metadata for subscription')
-  }
   const enterpriseMetadata = metadata
   const metadataJson: Record<string, unknown> = { ...enterpriseMetadata }
 
@@ -100,10 +94,29 @@ export async function handleManualEnterpriseSubscription(event: Stripe.Event) {
 
   // Get the first subscription item which contains the period information
   const referenceItem = stripeSubscription.items?.data?.[0]
+  const billingTier = await resolveBillingTierForPersistence({
+    billingTierId: enterpriseMetadata.billingTierId,
+    stripePriceIds: stripeSubscription.items.data.map((item) => item.price?.id),
+    stripeProductIds: stripeSubscription.items.data.map((item) =>
+      typeof item.price?.product === 'string' ? item.price.product : item.price?.product?.id
+    ),
+  })
+  const billingTierRecord = await requireBillingTierById(billingTier.id)
+
+  if (!isOrganizationBillingTier(billingTierRecord)) {
+    logger.warn('[subscription.created] Skipping non-organization tier in enterprise handler', {
+      subscriptionId: stripeSubscription.id,
+      billingTierId: billingTier.id,
+      billingTier: billingTier.displayName,
+    })
+    return
+  }
 
   const subscriptionRow = {
     id: crypto.randomUUID(),
-    plan: 'enterprise',
+    plan: billingTierRecord.id,
+    billingTierId: billingTierRecord.id,
+    referenceType: 'organization' as const,
     referenceId,
     stripeCustomerId,
     stripeSubscriptionId: stripeSubscription.id,
@@ -134,6 +147,8 @@ export async function handleManualEnterpriseSubscription(event: Stripe.Event) {
       .update(subscription)
       .set({
         plan: subscriptionRow.plan,
+        billingTierId: subscriptionRow.billingTierId,
+        referenceType: subscriptionRow.referenceType,
         referenceId: subscriptionRow.referenceId,
         stripeCustomerId: subscriptionRow.stripeCustomerId,
         status: subscriptionRow.status,
@@ -150,34 +165,39 @@ export async function handleManualEnterpriseSubscription(event: Stripe.Event) {
     await db.insert(subscription).values(subscriptionRow)
   }
 
-  // Update the organization's usage limit to match the monthly price
-  // The referenceId for enterprise plans is the organization ID
-  try {
-    await db
-      .update(organization)
-      .set({
-        orgUsageLimit: monthlyPrice.toFixed(2),
-        updatedAt: new Date(),
-      })
-      .where(eq(organization.id, referenceId))
+  if (billingTierRecord.usageScope === 'pooled') {
+    const organizationUsageLimit = getTierIncludedUsageLimit(billingTierRecord) || monthlyPrice
 
-    logger.info('[subscription.created] Updated organization usage limit', {
-      organizationId: referenceId,
-      usageLimit: monthlyPrice,
-    })
-  } catch (error) {
-    logger.error('[subscription.created] Failed to update organization usage limit', {
-      organizationId: referenceId,
-      usageLimit: monthlyPrice,
-      error,
-    })
-    // Don't throw - the subscription was created successfully, just log the error
+    try {
+      await db
+        .update(organization)
+        .set({
+          orgUsageLimit: organizationUsageLimit.toFixed(2),
+          updatedAt: new Date(),
+        })
+        .where(eq(organization.id, referenceId))
+
+      logger.info('[subscription.created] Updated organization usage limit', {
+        organizationId: referenceId,
+        usageLimit: organizationUsageLimit,
+      })
+    } catch (error) {
+      logger.error('[subscription.created] Failed to update organization usage limit', {
+        organizationId: referenceId,
+        usageLimit: organizationUsageLimit,
+        error,
+      })
+      // Don't throw - the subscription was created successfully, just log the error
+    }
   }
 
   logger.info('[subscription.created] Upserted enterprise subscription', {
-    subscriptionId: subscriptionRow.id,
+    subscriptionId: existing[0]?.id || subscriptionRow.id,
+    referenceType: subscriptionRow.referenceType,
     referenceId: subscriptionRow.referenceId,
-    plan: subscriptionRow.plan,
+    subscriptionKey: subscriptionRow.plan,
+    billingTierId: subscriptionRow.billingTierId,
+    billingTier: billingTierRecord.displayName,
     status: subscriptionRow.status,
     monthlyPrice,
     seats,
@@ -214,7 +234,6 @@ export async function handleManualEnterpriseSubscription(event: Stripe.Event) {
         to: user.email,
         subject: getEmailSubject('enterprise-subscription'),
         html,
-        from: getFromEmailAddress(),
         emailType: 'transactional',
       })
 

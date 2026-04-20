@@ -1,4 +1,5 @@
 import path from 'path'
+import type { StorageContext } from '@/lib/uploads/core/config-resolver'
 
 export const MAX_FILE_SIZE = 100 * 1024 * 1024 // 100MB
 
@@ -64,6 +65,84 @@ export interface FileValidationError {
   code: 'UNSUPPORTED_FILE_TYPE' | 'MIME_TYPE_MISMATCH'
   message: string
   supportedTypes: string[]
+}
+
+export interface UploadValidationError {
+  code: FileValidationError['code'] | 'VALIDATION_ERROR'
+  message: string
+  supportedTypes?: string[]
+}
+
+export function resolveUploadContext(typeParam: string | null | undefined): StorageContext {
+  switch (typeParam) {
+    case 'knowledge-base':
+      return 'knowledge-base'
+    case 'chat':
+      return 'chat'
+    case 'copilot':
+      return 'copilot'
+    case 'profile-pictures':
+      return 'profile-pictures'
+    default:
+      return 'general'
+  }
+}
+
+export function isImageMimeType(mimeType: string): boolean {
+  return mimeType.toLowerCase().startsWith('image/')
+}
+
+export function validateUploadRequest(options: {
+  fileName: string
+  contentType: string
+  fileSize: number
+  context: StorageContext
+}): UploadValidationError | null {
+  const { fileName, contentType, fileSize, context } = options
+
+  if (!fileName?.trim()) {
+    return {
+      code: 'VALIDATION_ERROR',
+      message: 'fileName is required and cannot be empty',
+    }
+  }
+
+  if (!contentType?.trim()) {
+    return {
+      code: 'VALIDATION_ERROR',
+      message: 'contentType is required and cannot be empty',
+    }
+  }
+
+  if (!Number.isFinite(fileSize) || fileSize <= 0) {
+    return {
+      code: 'VALIDATION_ERROR',
+      message: 'fileSize must be a positive number',
+    }
+  }
+
+  if (fileSize > MAX_FILE_SIZE) {
+    return {
+      code: 'VALIDATION_ERROR',
+      message: `File size (${fileSize} bytes) exceeds maximum allowed size (${MAX_FILE_SIZE} bytes)`,
+    }
+  }
+
+  if (context === 'knowledge-base') {
+    const fileValidationError = validateFileType(fileName, contentType)
+    if (fileValidationError) {
+      return fileValidationError
+    }
+  }
+
+  if ((context === 'copilot' || context === 'profile-pictures') && !isImageMimeType(contentType)) {
+    return {
+      code: 'VALIDATION_ERROR',
+      message: `Only image files (JPEG, PNG, GIF, WebP, SVG) are allowed for ${context === 'copilot' ? 'copilot' : 'profile picture'} uploads`,
+    }
+  }
+
+  return null
 }
 
 /**

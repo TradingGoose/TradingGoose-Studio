@@ -8,8 +8,8 @@
     "build": "NODE_OPTIONS='--max-old-space-size=4096' next build --webpack",
     "start": "next start",
     "i18n": "bunx lingo.dev@latest run",
-    "postinstall": "fumadocs-mdx",
-    "type-check": "tsc --noEmit"
+    "postinstall": "bun node_modules/.bin/fumadocs-mdx",
+    "type-check": "bun node_modules/.bin/fumadocs-mdx && tsc --noEmit"
   },
   "dependencies": {
     "@radix-ui/react-collapsible": "^1.1.12",
@@ -28,8 +28,8 @@
     "lucide-react": "^0.511.0",
     "next": "16.2.2",
     "next-themes": "^0.4.6",
-    "react": "19.1.0",
-    "react-dom": "19.1.0",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
     "remark": "15.0.1",
     "remark-gfm": "4.0.1",
     "remark-mdx": "3.1.1",

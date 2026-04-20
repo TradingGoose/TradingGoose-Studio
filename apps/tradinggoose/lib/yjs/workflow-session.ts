@@ -11,11 +11,16 @@
  *   - "metadata"  (Y.Map) — session-level workflow metadata (e.g. reseed markers)
  */
 
-import type { Edge } from 'reactflow'
+import type { Edge } from '@xyflow/react'
 import * as Y from 'yjs'
 import { resolveStoredDateValue } from '@/lib/time-format'
 import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
-import type { BlockState, Loop, Parallel } from '@/stores/workflows/workflow/types'
+import type {
+  BlockState,
+  Loop,
+  Parallel,
+  WorkflowDirection,
+} from '@/stores/workflows/workflow/types'
 
 // ---------------------------------------------------------------------------
 // Yjs map key constants (avoids stringly-typed keys across the codebase)
@@ -30,6 +35,7 @@ export const YJS_KEYS = {
   EDGES: 'edges',
   LOOPS: 'loops',
   PARALLELS: 'parallels',
+  DIRECTION: 'direction',
   LAST_SAVED: 'lastSaved',
   IS_DEPLOYED: 'isDeployed',
   DEPLOYED_AT: 'deployedAt',
@@ -224,6 +230,7 @@ export function materializeWorkflowTextFields(
 // ---------------------------------------------------------------------------
 
 export interface WorkflowSnapshot {
+  direction?: WorkflowDirection
   blocks: Record<string, BlockState>
   edges: Edge[]
   loops: Record<string, Loop>
@@ -240,6 +247,7 @@ export interface WorkflowSnapshot {
  */
 function applySnapshotDefaults(partial: Partial<WorkflowSnapshot>): WorkflowSnapshot {
   return {
+    ...(partial.direction !== undefined ? { direction: partial.direction } : {}),
     blocks: partial.blocks ?? {},
     edges: partial.edges ?? [],
     loops: partial.loops ?? {},
@@ -278,6 +286,7 @@ export function getWorkflowSnapshot(doc: Y.Doc): WorkflowSnapshot {
   const blocks = materializeWorkflowTextFields(wMap.get(YJS_KEYS.BLOCKS) ?? {}, textFields)
 
   return applySnapshotDefaults({
+    direction: wMap.get(YJS_KEYS.DIRECTION),
     blocks,
     edges: wMap.get(YJS_KEYS.EDGES) ?? [],
     loops: wMap.get(YJS_KEYS.LOOPS) ?? {},
@@ -304,6 +313,7 @@ export function getWorkflowSnapshotCloned(doc: Y.Doc): WorkflowSnapshot {
   })
 
   return applySnapshotDefaults({
+    direction: wMap.get(YJS_KEYS.DIRECTION),
     blocks: materializeWorkflowTextFields(blocks, textFields),
     edges,
     loops,
@@ -326,6 +336,7 @@ export function setWorkflowState(doc: Y.Doc, state: WorkflowSnapshot, origin?: s
   doc.transact(() => {
     const wMap = getWorkflowMap(doc)
     const textFields = getWorkflowTextFieldsMap(doc)
+    if (state.direction !== undefined) wMap.set(YJS_KEYS.DIRECTION, state.direction)
     wMap.set(YJS_KEYS.BLOCKS, state.blocks ?? {})
     wMap.set(YJS_KEYS.EDGES, state.edges ?? [])
     wMap.set(YJS_KEYS.LOOPS, state.loops ?? {})
@@ -469,6 +480,7 @@ export function setVariables(doc: Y.Doc, variables: Record<string, any>, origin?
  * by both the server-side Yjs loader and the template builder.
  */
 export interface PersistedDocState {
+  direction?: WorkflowDirection
   blocks: Record<string, BlockState>
   edges: Edge[]
   loops: Record<string, Loop>
@@ -483,6 +495,7 @@ export function extractPersistedStateFromDoc(doc: Y.Doc): PersistedDocState {
   const lastSaved = resolveStoredDateValue(snapshot.lastSaved)?.getTime() ?? Date.now()
 
   return {
+    ...(snapshot.direction !== undefined ? { direction: snapshot.direction } : {}),
     blocks: snapshot.blocks || {},
     edges: snapshot.edges || [],
     loops: snapshot.loops || {},

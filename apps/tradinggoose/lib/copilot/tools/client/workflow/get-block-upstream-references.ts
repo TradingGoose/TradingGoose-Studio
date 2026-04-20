@@ -10,20 +10,21 @@ import {
   formatOutputsWithPrefix,
   getSubflowInsidePaths,
   getWorkflowSubBlockValues,
-  getWorkflowVariables,
+  getWorkflowVariableOutputs,
 } from '@/lib/copilot/tools/client/workflow/block-output-utils'
+import { getReadableWorkflowState } from '@/lib/copilot/tools/client/workflow/workflow-review-tool-utils'
 import {
   GetBlockUpstreamReferencesResult,
   type GetBlockUpstreamReferencesResultType,
 } from '@/lib/copilot/tools/shared/schemas'
 import { BlockPathCalculator } from '@/lib/block-path-calculator'
-import { getSnapshotForWorkflow } from '@/lib/yjs/workflow-session-registry'
 import type { Loop, Parallel } from '@/stores/workflows/workflow/types'
 
 const logger = createLogger('GetBlockUpstreamReferencesClientTool')
 
 interface GetBlockUpstreamReferencesArgs {
   blockIds: string[]
+  workflowId: string
 }
 
 export class GetBlockUpstreamReferencesClientTool extends BaseClientTool {
@@ -77,27 +78,16 @@ export class GetBlockUpstreamReferencesClientTool extends BaseClientTool {
         return
       }
 
-      const activeWorkflowId = executionContext.workflowId
-      if (!activeWorkflowId) {
-        await this.markToolComplete(400, 'No active workflow found')
-        this.setState(ClientToolCallState.error)
-        return
-      }
-
-      const snapshot = getSnapshotForWorkflow(activeWorkflowId)
-      if (!snapshot) {
-        await this.markToolComplete(400, 'No active Yjs session found')
-        this.setState(ClientToolCallState.error)
-        return
-      }
+      const { workflowId: activeWorkflowId, workflowState: snapshot, variables } =
+        await getReadableWorkflowState(executionContext, args.workflowId)
       const blocks = snapshot.blocks || {}
       const edges = snapshot.edges || []
       const loops = snapshot.loops || {}
       const parallels = snapshot.parallels || {}
-      const subBlockValues = getWorkflowSubBlockValues(activeWorkflowId)
+      const subBlockValues = getWorkflowSubBlockValues(activeWorkflowId, snapshot)
 
       const ctx = { workflowId: activeWorkflowId, blocks, loops, parallels, subBlockValues }
-      const variableOutputs = getWorkflowVariables(activeWorkflowId)
+      const variableOutputs = getWorkflowVariableOutputs(variables)
       const graphEdges = edges.map((edge) => ({ source: edge.source, target: edge.target }))
 
       const results: GetBlockUpstreamReferencesResultType['results'] = []

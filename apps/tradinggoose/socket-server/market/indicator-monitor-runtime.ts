@@ -2,44 +2,62 @@ import { randomUUID } from 'node:crypto'
 import { db } from '@tradinggoose/db'
 import { pineIndicators, webhook, workflow } from '@tradinggoose/db/schema'
 import { and, eq, inArray } from 'drizzle-orm'
+import { getApiKeyOwnerUserId } from '@/lib/api-key/service'
+import { checkServerSideUsageLimits } from '@/lib/billing'
 import { getEffectiveDecryptedEnv } from '@/lib/environment/utils'
-import { withCodeExecutionConcurrencyLimit } from '@/lib/execution/concurrency-limit'
-import { DEFAULT_INDICATOR_RUNTIME_MAP } from '@/lib/indicators/default/runtime'
 import {
-  applyIndicatorTriggerPayloadBudget,
-  buildIndicatorTriggerDispatchPayload,
-  buildLiveIndicatorTriggerEventId,
-  resolveDispatchIntervalMs,
-  resolveLatestBarOpenTimeSec,
-} from '@/lib/indicators/dispatch'
-import { executeCompiledIndicator } from '@/lib/indicators/execution/compile-execution'
-import { buildInputsMapFromMeta, normalizeInputMetaMap } from '@/lib/indicators/input-meta'
+  ExecutionGateError,
+} from '@/lib/execution/execution-concurrency-limit'
+import {
+  enqueuePendingExecution,
+  isPendingExecutionLimitError,
+} from '@/lib/execution/pending-execution'
+import { DEFAULT_INDICATOR_RUNTIME_MAP } from '@/lib/indicators/default/runtime'
+import { resolveDispatchIntervalMs } from '@/lib/indicators/dispatch'
+import {
+  buildInputsMapFromMeta,
+  normalizeInputMetaMap,
+} from '@/lib/indicators/input-meta'
 import { INDICATOR_MONITOR_TRIGGER_ID } from '@/lib/indicators/monitor-config'
 import {
   mapMarketBarToBarMs,
   mapMarketSeriesToBarsMs,
   normalizeBarsMs,
 } from '@/lib/indicators/series-data'
-import type { BarMs, NormalizedPineSignal } from '@/lib/indicators/types'
-import { type ListingIdentity, toListingValueObject } from '@/lib/listing/identity'
-import { createLogger } from '@/lib/logs/console/logger'
-import { acquireLock, getRedisClient, getRedisStorageMode, releaseLock } from '@/lib/redis'
-import { decryptSecret } from '@/lib/utils'
+import { isIndicatorTriggerCapable } from '@/lib/indicators/trigger-detection'
+import type { BarMs } from '@/lib/indicators/types'
 import {
-  checkRateLimits,
-  checkUsageLimits,
-  queueWebhookExecutionInternal,
-} from '@/lib/webhooks/processor'
+  type ListingIdentity,
+  toListingValueObject,
+} from '@/lib/listing/identity'
+import { createLogger } from '@/lib/logs/console/logger'
+import {
+  acquireLock,
+  getRedisClient,
+  getRedisStorageMode,
+  renewLock,
+  releaseLock,
+} from '@/lib/redis'
+import { TriggerExecutionUnavailableError } from '@/lib/trigger/settings'
+import { decryptSecret } from '@/lib/utils-server'
 import { blockExistsInDeployment } from '@/lib/workflows/db-helpers'
 import { executeProviderRequest } from '@/providers/market'
 import { alpacaProviderConfig } from '@/providers/market/alpaca/config'
 import { finnhubProviderConfig } from '@/providers/market/finnhub/config'
 import type { MarketBar, MarketSeries } from '@/providers/market/types'
-import { resolveListingContext, resolveProviderSymbol } from '@/providers/market/utils'
+import {
+  resolveListingContext,
+  resolveProviderSymbol,
+} from '@/providers/market/utils'
+import type { IndicatorMonitorExecutionPayload } from '@/background/indicator-monitor-execution'
 import { marketStreamManager } from '@/socket-server/market/manager'
 import type { AuthenticatedSocket } from '@/socket-server/middleware/auth'
 
-type MonitorRuntimeStatus = 'not_initialized' | 'running' | 'degraded' | 'disabled'
+type MonitorRuntimeStatus =
+  | 'not_initialized'
+  | 'running'
+  | 'degraded'
+  | 'disabled'
 
 export type IndicatorMonitorRuntimeHealth = {
   enabled: boolean
@@ -104,13 +122,13 @@ type IndicatorMonitorSubscription = {
   timezone?: string
   startAt?: string
   endAt?: string
-  lastDispatchedBarBucketMs: number | null
 }
 
 const logger = createLogger('IndicatorMonitorRuntime')
 
 const LOCK_KEY = 'indicator-monitor-runtime-lock'
-const LOCK_EXPIRY_SECONDS = 60 * 60
+const LOCK_EXPIRY_SECONDS = 90
+const LOCK_REFRESH_INTERVAL_MS = 30_000
 const RECONCILE_INTERVAL_MS = 30_000
 const MONITOR_WINDOW_BARS = 2000
 const ENV_VAR_PATTERN = /\{\{([^}]+)\}\}/g
@@ -151,72 +169,11 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 
 const normalizeSymbol = (value: string) => value.trim().toUpperCase()
 
-const toMarketSeries = ({
-  bars,
-  listing,
-  marketCode,
-  timezone,
-}: {
-  bars: BarMs[]
-  listing: ListingIdentity
-  marketCode?: string
-  timezone?: string
-}): MarketSeries => {
-  const listingBase = listing.listing_type === 'default' ? listing.listing_id : listing.base_id
-  const listingQuote = listing.listing_type === 'default' ? undefined : listing.quote_id
-
-  return {
-    listing,
-    listingBase,
-    listingQuote,
-    marketCode,
-    timezone,
-    start: bars[0] ? new Date(bars[0].openTime).toISOString() : undefined,
-    end: bars[bars.length - 1] ? new Date(bars[bars.length - 1].openTime).toISOString() : undefined,
-    bars: bars.map((bar) => ({
-      timeStamp: new Date(bar.openTime).toISOString(),
-      open: bar.open,
-      high: bar.high,
-      low: bar.low,
-      close: bar.close,
-      volume: bar.volume,
-    })),
-  }
-}
-
-const chooseCandidate = ({
-  triggers,
-  latestBarOpenTimeSec,
-}: {
-  triggers: NormalizedPineSignal[]
-  latestBarOpenTimeSec: number | null
-}): {
-  candidate: NormalizedPineSignal | null
-  reason: 'no_latest_candidate' | 'ok'
-} => {
-  if (latestBarOpenTimeSec === null) {
-    return { candidate: null, reason: 'no_latest_candidate' }
-  }
-
-  const latestCandidates = triggers.filter((signal) => signal.time === latestBarOpenTimeSec)
-  if (latestCandidates.length === 0) {
-    return { candidate: null, reason: 'no_latest_candidate' }
-  }
-
-  const sorted = [...latestCandidates].sort((a, b) => {
-    if (a.time !== b.time) return a.time - b.time
-    if (a.event !== b.event) return a.event.localeCompare(b.event)
-    return a.signal.localeCompare(b.signal)
-  })
-
-  return { candidate: sorted[0] ?? null, reason: 'ok' }
-}
-
 const normalizeProviderConfig = (
   row: typeof webhook.$inferSelect,
   workspaceId: string,
   userId: string,
-  pinnedApiKeyId: string | null
+  pinnedApiKeyId: string | null,
 ): MonitorRuntimeConfig | null => {
   if (!isRecord(row.providerConfig)) return null
 
@@ -224,9 +181,12 @@ const normalizeProviderConfig = (
   const triggerId = toTrimmedString(providerConfig.triggerId)
   if (triggerId && triggerId !== INDICATOR_MONITOR_TRIGGER_ID) return null
 
-  if (providerConfig.monitor !== undefined && !isRecord(providerConfig.monitor)) return null
+  if (providerConfig.monitor !== undefined && !isRecord(providerConfig.monitor))
+    return null
 
-  const monitor = isRecord(providerConfig.monitor) ? providerConfig.monitor : providerConfig
+  const monitor = isRecord(providerConfig.monitor)
+    ? providerConfig.monitor
+    : providerConfig
   const providerId = toTrimmedString(monitor.providerId)
   const interval = toTrimmedString(monitor.interval)
   const indicatorId = toTrimmedString(monitor.indicatorId)
@@ -236,7 +196,8 @@ const normalizeProviderConfig = (
     toTrimmedString(monitor.blockId) ??
     toTrimmedString(row.blockId)
 
-  if (!providerId || (providerId !== 'alpaca' && providerId !== 'finnhub')) return null
+  if (!providerId || (providerId !== 'alpaca' && providerId !== 'finnhub'))
+    return null
   if (!interval || !indicatorId || !listing) return null
   if (!triggerBlockId) return null
 
@@ -273,13 +234,15 @@ const normalizeProviderConfig = (
     ...normalized,
     signature: JSON.stringify({
       ...normalized,
-      auth: normalized.auth ? { hasSecrets: Boolean(normalized.auth.encryptedSecrets) } : undefined,
+      auth: normalized.auth
+        ? { hasSecrets: Boolean(normalized.auth.encryptedSecrets) }
+        : undefined,
     }),
   }
 }
 
-async function resolveMonitorAuth(
-  monitor: MonitorRuntimeConfig
+export async function resolveMonitorAuth(
+  monitor: MonitorRuntimeConfig,
 ): Promise<{ apiKey?: string; apiSecret?: string }> {
   const encryptedSecrets = monitor.auth?.encryptedSecrets ?? {}
   const decryptedSecrets: Record<string, string> = {}
@@ -294,19 +257,25 @@ async function resolveMonitorAuth(
 
       if (decrypted.includes('{{') && decrypted.includes('}}')) {
         if (!envVars) {
-          envVars = await getEffectiveDecryptedEnv(monitor.userId, monitor.workspaceId)
+          envVars = await getEffectiveDecryptedEnv(
+            monitor.userId,
+            monitor.workspaceId,
+          )
         }
 
-        const resolved = decrypted.replace(ENV_VAR_PATTERN, (_match, envKeyRaw) => {
-          const envKey = String(envKeyRaw).trim()
-          if (!envKey) return _match
-          const envValue = envVars?.[envKey]
-          if (envValue === undefined) {
-            missingVars.add(envKey)
-            return ''
-          }
-          return envValue
-        })
+        const resolved = decrypted.replace(
+          ENV_VAR_PATTERN,
+          (_match, envKeyRaw) => {
+            const envKey = String(envKeyRaw).trim()
+            if (!envKey) return _match
+            const envValue = envVars?.[envKey]
+            if (envValue === undefined) {
+              missingVars.add(envKey)
+              return ''
+            }
+            return envValue
+          },
+        )
         const trimmedResolved = resolved.trim()
         if (trimmedResolved) {
           decryptedSecrets[key] = trimmedResolved
@@ -326,39 +295,47 @@ async function resolveMonitorAuth(
 
   if (missingVars.size > 0) {
     throw new Error(
-      `Missing environment variable${missingVars.size > 1 ? 's' : ''}: ${Array.from(missingVars).join(', ')}`
+      `Missing environment variable${missingVars.size > 1 ? 's' : ''}: ${Array.from(missingVars).join(', ')}`,
     )
   }
 
   return {
-    apiKey: decryptedSecrets.apiKey || process.env.ALPACA_API_KEY_ID || process.env.FINNHUB_API_KEY,
-    apiSecret: decryptedSecrets.apiSecret || process.env.ALPACA_API_SECRET_KEY,
+    apiKey: decryptedSecrets.apiKey,
+    apiSecret: decryptedSecrets.apiSecret,
   }
 }
 
 async function resolveIndicatorDefinitions(
-  monitors: MonitorRuntimeConfig[]
+  monitors: MonitorRuntimeConfig[],
 ): Promise<Map<string, IndicatorDefinition>> {
   const definitions = new Map<string, IndicatorDefinition>()
 
   monitors.forEach((monitor) => {
-    const defaultIndicator = DEFAULT_INDICATOR_RUNTIME_MAP.get(monitor.indicatorId)
+    const defaultIndicator = DEFAULT_INDICATOR_RUNTIME_MAP.get(
+      monitor.indicatorId,
+    )
     if (!defaultIndicator) return
     definitions.set(`${monitor.workspaceId}:${monitor.indicatorId}`, {
       id: monitor.indicatorId,
       name: defaultIndicator.name,
       pineCode: defaultIndicator.pineCode,
-      inputMeta: defaultIndicator.inputMeta as Record<string, unknown> | undefined,
+      inputMeta: defaultIndicator.inputMeta as
+        | Record<string, unknown>
+        | undefined,
     })
   })
 
   const unresolvedCustoms = monitors.filter(
-    (monitor) => !DEFAULT_INDICATOR_RUNTIME_MAP.has(monitor.indicatorId)
+    (monitor) => !DEFAULT_INDICATOR_RUNTIME_MAP.has(monitor.indicatorId),
   )
   if (unresolvedCustoms.length === 0) return definitions
 
-  const indicatorIds = Array.from(new Set(unresolvedCustoms.map((monitor) => monitor.indicatorId)))
-  const workspaceIds = Array.from(new Set(unresolvedCustoms.map((monitor) => monitor.workspaceId)))
+  const indicatorIds = Array.from(
+    new Set(unresolvedCustoms.map((monitor) => monitor.indicatorId)),
+  )
+  const workspaceIds = Array.from(
+    new Set(unresolvedCustoms.map((monitor) => monitor.workspaceId)),
+  )
 
   const rows = await db
     .select({
@@ -372,8 +349,8 @@ async function resolveIndicatorDefinitions(
     .where(
       and(
         inArray(pineIndicators.id, indicatorIds),
-        inArray(pineIndicators.workspaceId, workspaceIds)
-      )
+        inArray(pineIndicators.workspaceId, workspaceIds),
+      ),
     )
 
   rows.forEach((row) => {
@@ -381,7 +358,8 @@ async function resolveIndicatorDefinitions(
       id: row.id,
       name: row.name,
       pineCode: row.pineCode,
-      inputMeta: (row.inputMeta as Record<string, unknown> | undefined) ?? undefined,
+      inputMeta:
+        (row.inputMeta as Record<string, unknown> | undefined) ?? undefined,
     })
   })
 
@@ -395,6 +373,7 @@ export class IndicatorMonitorRuntime {
   private starting = false
   private lockHeld = false
   private instanceId = randomUUID()
+  private lockRefreshTimer: ReturnType<typeof setInterval> | null = null
   private reconcileTimer: ReturnType<typeof setInterval> | null = null
   private retryTimer: ReturnType<typeof setTimeout> | null = null
   private isReconciling = false
@@ -412,7 +391,8 @@ export class IndicatorMonitorRuntime {
   getHealth(): IndicatorMonitorRuntimeHealth {
     const redisConfigured = getRedisStorageMode() === 'redis'
     const redisClientAvailable = Boolean(getRedisClient())
-    const degraded = this.status === 'degraded' || (redisConfigured && !redisClientAvailable)
+    const degraded =
+      this.status === 'degraded' || (redisConfigured && !redisClientAvailable)
 
     return {
       enabled: this.running,
@@ -446,6 +426,12 @@ export class IndicatorMonitorRuntime {
     this.reconcileTimer = null
   }
 
+  private clearLockRefreshTimer() {
+    if (!this.lockRefreshTimer) return
+    clearInterval(this.lockRefreshTimer)
+    this.lockRefreshTimer = null
+  }
+
   private stopSubscriptions() {
     const subscriptions = Array.from(this.subscriptions.values())
     subscriptions.forEach((subscription) => {
@@ -464,9 +450,43 @@ export class IndicatorMonitorRuntime {
     try {
       await releaseLock(LOCK_KEY, this.instanceId)
     } catch (error) {
-      this.logger.warn('Failed to release indicator monitor runtime lock', { error })
+      this.logger.warn('Failed to release indicator monitor runtime lock', {
+        error,
+      })
     } finally {
       this.lockHeld = false
+    }
+  }
+
+  private startLockRefreshTimer() {
+    if (this.lockRefreshTimer) return
+
+    this.lockRefreshTimer = setInterval(() => {
+      void this.refreshLock()
+    }, LOCK_REFRESH_INTERVAL_MS)
+    this.lockRefreshTimer.unref?.()
+  }
+
+  private async refreshLock() {
+    if (!this.running || !this.lockHeld) return
+
+    try {
+      const renewed = await renewLock(
+        LOCK_KEY,
+        this.instanceId,
+        LOCK_EXPIRY_SECONDS,
+      )
+      if (renewed) return
+
+      this.lockHeld = false
+      await this.enterDegradedState(
+        'lock',
+        new Error('Indicator monitor runtime lock ownership was lost'),
+        true,
+      )
+    } catch (error) {
+      this.lockHeld = false
+      await this.enterDegradedState('lock', error, true)
     }
   }
 
@@ -481,21 +501,23 @@ export class IndicatorMonitorRuntime {
   }
 
   private async enterDegradedState(
-    reason: 'startup' | 'interval' | 'request',
+    reason: 'startup' | 'interval' | 'request' | 'lock',
     error: unknown,
-    shouldLogWarning: boolean
+    shouldLogWarning: boolean,
   ) {
-    this.lastReconcileError = error instanceof Error ? error.message : String(error)
+    this.lastReconcileError =
+      error instanceof Error ? error.message : String(error)
     this.status = 'degraded'
     this.running = false
     this.pendingReconcile = false
+    this.clearLockRefreshTimer()
     this.clearReconcileTimer()
     this.stopSubscriptions()
     await this.releaseLockIfHeld()
     this.scheduleRetry()
 
     if (shouldLogWarning) {
-      this.logger.warn('Indicator monitor paused; database unavailable', {
+      this.logger.warn('Indicator monitor paused; runtime unavailable', {
         reason,
         error:
           error instanceof Error
@@ -518,16 +540,25 @@ export class IndicatorMonitorRuntime {
 
       let lockAcquired = false
       try {
-        lockAcquired = await acquireLock(LOCK_KEY, this.instanceId, LOCK_EXPIRY_SECONDS)
+        lockAcquired = await acquireLock(
+          LOCK_KEY,
+          this.instanceId,
+          LOCK_EXPIRY_SECONDS,
+        )
       } catch (error) {
-        this.logger.warn('Indicator monitor runtime lock acquisition error', { error })
+        this.logger.warn('Indicator monitor runtime lock acquisition error', {
+          error,
+        })
       }
 
       if (!lockAcquired) {
         this.running = false
         this.lockHeld = false
-        this.status = getRedisStorageMode() === 'redis' ? 'degraded' : 'disabled'
-        this.logger.warn('Indicator monitor runtime disabled; lock acquisition failed.')
+        this.status =
+          getRedisStorageMode() === 'redis' ? 'degraded' : 'disabled'
+        this.logger.warn(
+          'Indicator monitor runtime disabled; lock acquisition failed.',
+        )
         this.scheduleRetry()
         return
       }
@@ -535,7 +566,9 @@ export class IndicatorMonitorRuntime {
       this.lockHeld = true
       this.running = true
       this.status = 'running'
+      this.clearLockRefreshTimer()
       this.clearReconcileTimer()
+      this.startLockRefreshTimer()
 
       await this.reconcile('startup')
 
@@ -554,13 +587,11 @@ export class IndicatorMonitorRuntime {
 
   async stop() {
     this.clearRetryTimer()
+    this.clearLockRefreshTimer()
     this.clearReconcileTimer()
     this.stopSubscriptions()
 
-    if (this.lockHeld) {
-      await releaseLock(LOCK_KEY, this.instanceId)
-      this.lockHeld = false
-    }
+    await this.releaseLockIfHeld()
 
     this.running = false
     this.starting = false
@@ -601,37 +632,54 @@ export class IndicatorMonitorRuntime {
         .from(webhook)
         .innerJoin(workflow, eq(webhook.workflowId, workflow.id))
         .where(
-          and(
-            eq(webhook.provider, 'indicator'),
-            eq(webhook.isActive, true),
-            eq(workflow.isDeployed, true)
-          )
+          and(eq(webhook.provider, 'indicator'), eq(webhook.isActive, true)),
         )
 
       let skippedMissingWorkspace = 0
       let skippedInvalidConfig = 0
+      let disconnectedInvalidWorkflow = 0
       const monitors: MonitorRuntimeConfig[] = []
 
-      rows.forEach((row) => {
+      for (const row of rows) {
         if (!row.workflow.workspaceId) {
           skippedMissingWorkspace += 1
-          return
+          await this.disconnectMonitor(row.webhook.id, 'missing_workspace')
+          continue
+        }
+
+        if (!row.workflow.isDeployed) {
+          disconnectedInvalidWorkflow += 1
+          await this.disconnectMonitor(
+            row.webhook.id,
+            'workflow_not_deployed',
+            {
+              workflowId: row.workflow.id,
+            },
+          )
+          continue
         }
 
         const normalized = normalizeProviderConfig(
           row.webhook,
           row.workflow.workspaceId,
           row.workflow.userId,
-          row.workflow.pinnedApiKeyId
+          row.workflow.pinnedApiKeyId,
         )
 
         if (!normalized) {
           skippedInvalidConfig += 1
-          return
+          await this.disconnectMonitor(
+            row.webhook.id,
+            'invalid_monitor_config',
+            {
+              workflowId: row.workflow.id,
+            },
+          )
+          continue
         }
 
         monitors.push(normalized)
-      })
+      }
 
       if (rows.length > 0 && monitors.length === 0) {
         this.logger.warn(
@@ -641,30 +689,85 @@ export class IndicatorMonitorRuntime {
             totalRows: rows.length,
             skippedMissingWorkspace,
             skippedInvalidConfig,
-          }
+            disconnectedInvalidWorkflow,
+          },
         )
       }
 
       const indicatorDefinitions = await resolveIndicatorDefinitions(monitors)
       const nextMonitorIds = new Set(monitors.map((monitor) => monitor.id))
 
-      Array.from(this.subscriptions.entries()).forEach(([monitorId, subscription]) => {
-        if (!nextMonitorIds.has(monitorId)) {
-          this.stopSubscription(subscription)
-          this.subscriptions.delete(monitorId)
-        }
-      })
+      Array.from(this.subscriptions.entries()).forEach(
+        ([monitorId, subscription]) => {
+          if (!nextMonitorIds.has(monitorId)) {
+            this.stopSubscription(subscription)
+            this.subscriptions.delete(monitorId)
+          }
+        },
+      )
 
       for (const monitor of monitors) {
         const existing = this.subscriptions.get(monitor.id)
         const nextIndicator = indicatorDefinitions.get(
-          `${monitor.workspaceId}:${monitor.indicatorId}`
+          `${monitor.workspaceId}:${monitor.indicatorId}`,
         )
         if (!nextIndicator) {
-          this.logger.warn('Indicator monitor skipped; indicator not found', {
+          await this.disconnectMonitor(monitor.id, 'indicator_not_found', {
             monitorId: monitor.id,
             workspaceId: monitor.workspaceId,
             indicatorId: monitor.indicatorId,
+          })
+          this.skippedCount += 1
+          continue
+        }
+
+        if (!isIndicatorTriggerCapable(nextIndicator.pineCode)) {
+          await this.disconnectMonitor(
+            monitor.id,
+            'indicator_not_trigger_capable',
+            {
+              monitorId: monitor.id,
+              workspaceId: monitor.workspaceId,
+              indicatorId: monitor.indicatorId,
+            },
+          )
+          this.skippedCount += 1
+          continue
+        }
+
+        if (
+          !(await blockExistsInDeployment(monitor.workflowId, monitor.blockId))
+        ) {
+          await this.disconnectMonitor(monitor.id, 'missing_trigger_block', {
+            monitorId: monitor.id,
+            workflowId: monitor.workflowId,
+            blockId: monitor.blockId,
+          })
+          this.skippedCount += 1
+          continue
+        }
+
+        const actorUserId = await getApiKeyOwnerUserId(monitor.pinnedApiKeyId)
+        if (!actorUserId) {
+          await this.disconnectMonitor(monitor.id, 'missing_billing_actor', {
+            monitorId: monitor.id,
+            workflowId: monitor.workflowId,
+          })
+          this.skippedCount += 1
+          continue
+        }
+
+        const usageCheck = await checkServerSideUsageLimits({
+          userId: actorUserId,
+          workflowId: monitor.workflowId,
+          workspaceId: monitor.workspaceId,
+        })
+        if (usageCheck.isExceeded) {
+          await this.disconnectMonitor(monitor.id, 'usage_limit_exceeded', {
+            monitorId: monitor.id,
+            workflowId: monitor.workflowId,
+            currentUsage: usageCheck.currentUsage,
+            limit: usageCheck.limit,
           })
           this.skippedCount += 1
           continue
@@ -680,7 +783,10 @@ export class IndicatorMonitorRuntime {
         }
 
         try {
-          const subscription = await this.createSubscription(monitor, nextIndicator)
+          const subscription = await this.createSubscription(
+            monitor,
+            nextIndicator,
+          )
           this.subscriptions.set(monitor.id, subscription)
         } catch (error) {
           this.logger.warn('Failed to start indicator monitor subscription', {
@@ -706,10 +812,15 @@ export class IndicatorMonitorRuntime {
         activeSubscriptions: this.subscriptions.size,
       })
     } catch (error) {
-      this.lastReconcileError = error instanceof Error ? error.message : String(error)
+      this.lastReconcileError =
+        error instanceof Error ? error.message : String(error)
 
       if (isDatabaseConnectionError(error)) {
-        await this.enterDegradedState(reason, error, this.subscriptions.size > 0)
+        await this.enterDegradedState(
+          reason,
+          error,
+          this.subscriptions.size > 0,
+        )
         return
       }
 
@@ -728,13 +839,17 @@ export class IndicatorMonitorRuntime {
 
   private async createSubscription(
     monitor: MonitorRuntimeConfig,
-    indicator: IndicatorDefinition
+    indicator: IndicatorDefinition,
   ): Promise<IndicatorMonitorSubscription> {
     const auth = await resolveMonitorAuth(monitor)
     const listingContext = await resolveListingContext(monitor.listing)
     const providerConfig =
-      monitor.providerId === 'alpaca' ? alpacaProviderConfig : finnhubProviderConfig
-    const symbol = normalizeSymbol(resolveProviderSymbol(providerConfig, listingContext))
+      monitor.providerId === 'alpaca'
+        ? alpacaProviderConfig
+        : finnhubProviderConfig
+    const symbol = normalizeSymbol(
+      resolveProviderSymbol(providerConfig, listingContext),
+    )
 
     if (!symbol) {
       throw new Error('Unable to resolve provider symbol')
@@ -757,17 +872,18 @@ export class IndicatorMonitorRuntime {
       symbol,
       marketCode: listingContext.marketCode,
       timezone: listingContext.timeZoneName ?? undefined,
-      startAt: cappedBars[0] ? new Date(cappedBars[0].openTime).toISOString() : undefined,
+      startAt: cappedBars[0]
+        ? new Date(cappedBars[0].openTime).toISOString()
+        : undefined,
       endAt: cappedBars[cappedBars.length - 1]
         ? new Date(cappedBars[cappedBars.length - 1].openTime).toISOString()
         : undefined,
-      lastDispatchedBarBucketMs: null,
     }
   }
 
   private async createManagedMarketStream(
     monitor: MonitorRuntimeConfig,
-    auth: { apiKey?: string; apiSecret?: string }
+    auth: { apiKey?: string; apiSecret?: string },
   ) {
     const syntheticSocket = {
       id: `indicator-monitor-runtime:${monitor.id}`,
@@ -790,7 +906,7 @@ export class IndicatorMonitorRuntime {
             {
               monitorId: monitor.id,
               message,
-            }
+            },
           )
         }
       },
@@ -823,7 +939,7 @@ export class IndicatorMonitorRuntime {
 
   private async fetchMonitorBars(
     monitor: MonitorRuntimeConfig,
-    auth: { apiKey?: string; apiSecret?: string }
+    auth: { apiKey?: string; apiSecret?: string },
   ): Promise<BarMs[]> {
     const result = await executeProviderRequest(monitor.providerId, {
       kind: 'series',
@@ -840,7 +956,7 @@ export class IndicatorMonitorRuntime {
     const marketSeries = result as MarketSeries
     return normalizeBarsMs(
       mapMarketSeriesToBarsMs(marketSeries, monitor.intervalMs ?? undefined),
-      monitor.intervalMs ?? undefined
+      monitor.intervalMs ?? undefined,
     )
   }
 
@@ -852,16 +968,45 @@ export class IndicatorMonitorRuntime {
     }
   }
 
+  private async disconnectMonitor(
+    monitorId: string,
+    reason: string,
+    metadata: Record<string, unknown> = {},
+  ) {
+    const subscription = this.subscriptions.get(monitorId)
+    if (subscription) {
+      this.stopSubscription(subscription)
+      this.subscriptions.delete(monitorId)
+    }
+
+    await db
+      .update(webhook)
+      .set({
+        isActive: false,
+        updatedAt: new Date(),
+      })
+      .where(and(eq(webhook.id, monitorId), eq(webhook.provider, 'indicator')))
+
+    this.logger.warn('Indicator monitor disconnected', {
+      monitorId,
+      reason,
+      ...metadata,
+    })
+  }
+
   private async handleIncomingBar(monitorId: string, bar: MarketBar) {
     const subscription = this.subscriptions.get(monitorId)
     if (!subscription) return
 
-    const mapped = mapMarketBarToBarMs(bar, subscription.config.intervalMs ?? undefined)
+    const mapped = mapMarketBarToBarMs(
+      bar,
+      subscription.config.intervalMs ?? undefined,
+    )
     if (!mapped) return
 
     const mergedBars = normalizeBarsMs(
       [...subscription.bars, mapped],
-      subscription.config.intervalMs ?? undefined
+      subscription.config.intervalMs ?? undefined,
     )
     const cappedBars = mergedBars.slice(-MONITOR_WINDOW_BARS)
     subscription.bars = cappedBars
@@ -872,165 +1017,104 @@ export class IndicatorMonitorRuntime {
       ? new Date(cappedBars[cappedBars.length - 1].openTime).toISOString()
       : undefined
 
-    await this.computeAndDispatch(subscription)
+    await this.enqueueMonitorExecution(subscription)
   }
 
-  private async computeAndDispatch(subscription: IndicatorMonitorSubscription) {
+  private async enqueueMonitorExecution(
+    subscription: IndicatorMonitorSubscription,
+  ) {
     const monitor = subscription.config
 
     try {
-      const compiled = await withCodeExecutionConcurrencyLimit({
-        userId: monitor.userId,
-        task: () =>
-          executeCompiledIndicator({
-            pineCode: subscription.indicator.pineCode,
-            barsMs: subscription.bars,
-            inputsMap: subscription.inputsMap,
-            listing: monitor.listing,
-            interval: monitor.interval,
-            intervalMs: monitor.intervalMs,
-            executionTimeoutMs: 15_000,
-            userId: monitor.userId,
-          }),
-      })
-
-      if (!compiled.output) return
-      const latestBarOpenTimeSec = resolveLatestBarOpenTimeSec(subscription.bars)
-      const candidate = chooseCandidate({
-        triggers: compiled.output.triggers,
-        latestBarOpenTimeSec,
-      })
-
-      if (!candidate.candidate) {
-        return
-      }
-
-      const barBucketMs = candidate.candidate.time * 1000
-      if (subscription.lastDispatchedBarBucketMs === barBucketMs) {
+      const actorUserId = await getApiKeyOwnerUserId(monitor.pinnedApiKeyId)
+      if (!actorUserId) {
+        await this.disconnectMonitor(monitor.id, 'missing_billing_actor', {
+          monitorId: monitor.id,
+          workflowId: monitor.workflowId,
+        })
         this.skippedCount += 1
         return
       }
 
-      const eventId = buildLiveIndicatorTriggerEventId({
-        monitorId: monitor.id,
-        indicatorId: monitor.indicatorId,
-        barBucketMs,
-      })
-
-      const marketSeries = toMarketSeries({
-        bars: subscription.bars,
-        listing: monitor.listing,
-        marketCode: subscription.marketCode,
-        timezone: subscription.timezone,
-      })
-
-      const payload = buildIndicatorTriggerDispatchPayload({
-        eventId,
-        executionId: eventId,
-        emittedAt: new Date().toISOString(),
-        triggerSignal: candidate.candidate,
-        indicatorId: monitor.indicatorId,
-        indicatorName: subscription.indicator.name,
-        output: compiled.output,
-        inputsMap: subscription.inputsMap,
-        interval: monitor.interval,
-        intervalMs: monitor.intervalMs ?? undefined,
-        marketSeries,
+      const pendingExecutionId = `indicator_monitor:${monitor.id}:${randomUUID()}`
+      const payload: IndicatorMonitorExecutionPayload = {
         monitor: {
           id: monitor.id,
           workflowId: monitor.workflowId,
+          workspaceId: monitor.workspaceId,
+          userId: monitor.userId,
+          actorUserId,
           blockId: monitor.blockId,
-          listing: monitor.listing,
           providerId: monitor.providerId,
           interval: monitor.interval,
+          intervalMs: monitor.intervalMs,
           indicatorId: monitor.indicatorId,
+          listing: monitor.listing,
         },
-      })
-
-      const budgetResult = applyIndicatorTriggerPayloadBudget(payload)
-      if (budgetResult.skipped) {
-        this.logger.warn('Indicator monitor dispatch skipped: payload too large', {
-          monitorId: monitor.id,
-          workflowId: monitor.workflowId,
-          originalSizeBytes: budgetResult.metadata.originalSizeBytes,
-          finalSizeBytes: budgetResult.metadata.finalSizeBytes,
-          retainedBars: budgetResult.metadata.retainedBars,
-        })
-        this.skippedCount += 1
-        return
-      }
-
-      if (budgetResult.metadata.truncated) {
-        this.logger.warn('Indicator monitor payload truncated', {
-          monitorId: monitor.id,
-          workflowId: monitor.workflowId,
-          originalSizeBytes: budgetResult.metadata.originalSizeBytes,
-          finalSizeBytes: budgetResult.metadata.finalSizeBytes,
-          retainedBars: budgetResult.metadata.retainedBars,
-        })
-      }
-
-      const workflowRow = {
-        id: monitor.workflowId,
-        pinnedApiKeyId: monitor.pinnedApiKeyId,
-      }
-      const webhookRow = {
-        id: monitor.id,
-        path: monitor.path,
-        provider: 'indicator',
-        providerConfig: {
-          triggerId: INDICATOR_MONITOR_TRIGGER_ID,
+        indicator: {
+          id: subscription.indicator.id,
+          name: subscription.indicator.name,
+          pineCode: subscription.indicator.pineCode,
         },
-        blockId: monitor.blockId,
+        inputsMap: subscription.inputsMap,
+        bars: subscription.bars,
+        marketCode: subscription.marketCode,
+        timezone: subscription.timezone,
       }
 
-      const rateLimitResult = await checkRateLimits(workflowRow, webhookRow, monitor.id)
-      if (!rateLimitResult.allowed) {
-        this.skippedCount += 1
-        return
-      }
-
-      const usageLimitResult = await checkUsageLimits(workflowRow, webhookRow, monitor.id, false)
-      if (!usageLimitResult.allowed) {
-        this.skippedCount += 1
-        return
-      }
-
-      if (!(await blockExistsInDeployment(monitor.workflowId, monitor.blockId))) {
-        this.skippedCount += 1
-        return
-      }
-
-      const queueResult = await queueWebhookExecutionInternal(
-        webhookRow,
-        workflowRow,
-        budgetResult.payload,
-        { kind: 'internal', headers: {} },
-        {
-          requestId: monitor.id,
-          path: monitor.path,
-          testMode: false,
-          executionTarget: 'deployed',
-          headerOverrides: {
-            'x-event-id': eventId,
-          },
+      try {
+        await enqueuePendingExecution({
+          executionType: 'indicator_monitor',
+          pendingExecutionId,
+          workflowId: monitor.workflowId,
+          workspaceId: monitor.workspaceId,
+          userId: actorUserId,
+          source: 'indicator_monitor',
+          orderingKey: `indicator_monitor:${monitor.id}`,
+          requestId: pendingExecutionId,
+          payload,
+        })
+      } catch (error) {
+        if (error instanceof ExecutionGateError) {
+          await this.disconnectMonitor(monitor.id, 'invalid_billing_context', {
+            monitorId: monitor.id,
+            workflowId: monitor.workflowId,
+            error: error.message,
+          })
+          this.skippedCount += 1
+          return
         }
-      )
 
-      if (!queueResult.queued) {
-        this.logger.warn('Indicator monitor queue dispatch failed', {
-          monitorId: monitor.id,
-          workflowId: monitor.workflowId,
-          reason: queueResult.message,
-        })
-        this.skippedCount += 1
-        return
+        if (error instanceof TriggerExecutionUnavailableError) {
+          await this.disconnectMonitor(monitor.id, 'trigger_execution_disabled', {
+            monitorId: monitor.id,
+            workflowId: monitor.workflowId,
+            error: error.message,
+          })
+          this.skippedCount += 1
+          return
+        }
+
+        if (isPendingExecutionLimitError(error)) {
+          this.logger.warn(
+            'Indicator monitor queue backlog is full; skipping monitor event',
+            {
+              monitorId: monitor.id,
+              workflowId: monitor.workflowId,
+              pendingCount: error.details.pendingCount,
+              maxPendingCount: error.details.maxPendingCount,
+            },
+          )
+          this.skippedCount += 1
+          return
+        }
+
+        throw error
       }
 
-      subscription.lastDispatchedBarBucketMs = barBucketMs
       this.dispatchedCount += 1
     } catch (error) {
-      this.logger.warn('Indicator monitor compute/dispatch failed', {
+      this.logger.warn('Indicator monitor queueing failed', {
         monitorId: monitor.id,
         workflowId: monitor.workflowId,
         error,

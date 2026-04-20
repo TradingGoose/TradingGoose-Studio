@@ -10,7 +10,7 @@ export const GoogleFormsBlock: BlockConfig = {
     'Integrate Google Forms into your workflow. Provide a Form ID to list responses, or specify a Response ID to fetch a single response. Requires OAuth.',
   docsLink: 'https://docs.tradinggoose.ai/tools/google_forms',
   category: 'tools',
-  bgColor: undefined,
+  bgColor: '#7248B9',
   icon: GoogleFormsIcon,
   subBlocks: [
     {

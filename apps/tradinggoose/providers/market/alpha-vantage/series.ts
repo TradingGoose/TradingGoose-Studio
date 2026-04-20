@@ -3,7 +3,6 @@ import type {
   MarketBar,
   MarketSeries,
   MarketSeriesRequest,
-  MarketProviderAuth,
   NormalizationMode,
 } from '@/providers/market/types'
 import { resolveListingContext, resolveProviderSymbol } from '@/providers/market/utils'
@@ -38,10 +37,6 @@ type SeriesType = 'equity' | 'fx' | 'crypto' | 'digital'
 
 function resolveInterval(request: MarketSeriesRequest): string {
   return request.interval || (request.providerParams?.interval as string | undefined) || DEFAULT_INTERVAL
-}
-
-function resolveApiKey(auth?: MarketProviderAuth): string | undefined {
-  return auth?.apiKey || process.env.ALPHAVANTAGE_API_KEY
 }
 
 function isIntradayInterval(interval: string): interval is keyof typeof INTRADAY_INTERVAL_MAP {
@@ -267,7 +262,7 @@ function filterBarsByRange(
 export async function fetchAlphaVantageSeries(
   request: MarketSeriesRequest
 ): Promise<MarketSeries> {
-  const apiKey = resolveApiKey(request.auth)
+  const apiKey = request.auth?.apiKey
   if (!apiKey) {
     throw new Error('Alpha Vantage API key is required')
   }

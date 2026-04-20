@@ -8,11 +8,16 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { client } from '@/lib/auth-client'
 import { quickValidateEmail } from '@/lib/email/validation'
-import { env, isFalsy } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
+import {
+  getAuthRegistrationHref,
+  getAuthRegistrationLabel,
+  type RegistrationMode,
+} from '@/lib/registration/shared'
 import { cn } from '@/lib/utils'
+import { AuthPageHeader } from '@/app/(auth)/components/auth-page-header'
+import { AuthWaitlistNote } from '@/app/(auth)/components/auth-waitlist-note'
 import { inter } from '@/app/fonts/inter'
-import { soehne } from '@/app/fonts/soehne/soehne'
 
 const logger = createLogger('SSOForm')
 
@@ -50,7 +55,7 @@ const validateCallbackUrl = (url: string): boolean => {
   }
 }
 
-export default function SSOForm() {
+export default function SSOForm({ registrationMode }: { registrationMode: RegistrationMode }) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [isLoading, setIsLoading] = useState(false)
@@ -60,6 +65,8 @@ export default function SSOForm() {
   const primaryButtonClasses =
     'bg-primary text-primary-foreground flex w-full items-center justify-center gap-2 rounded-md border border-transparent font-medium text-[15px] transition-all duration-200'
   const [callbackUrl, setCallbackUrl] = useState('/workspace')
+  const registrationHref = getAuthRegistrationHref(registrationMode)
+  const registrationLabel = getAuthRegistrationLabel(registrationMode)
 
   useEffect(() => {
     if (searchParams) {
@@ -155,14 +162,13 @@ export default function SSOForm() {
 
   return (
     <>
-      <div className='space-y-1 text-center'>
-        <h1 className={`${soehne.className} font-medium text-[32px] tracking-tight`}>
-          Sign in with SSO
-        </h1>
-        <p className={`${inter.className} font-[380] text-[16px] text-muted-foreground`}>
-          Enter your work email to continue
-        </p>
-      </div>
+      <AuthPageHeader
+        eyebrow='SSO'
+        title='Sign in with SSO'
+        description='Enter your work email to continue'
+      />
+
+      {registrationMode === 'waitlist' ? <AuthWaitlistNote /> : null}
 
       <form onSubmit={onSubmit} className={`${inter.className} mt-8 space-y-8`}>
         <div className='space-y-6'>
@@ -184,8 +190,8 @@ export default function SSOForm() {
               className={cn(
                 'rounded-md shadow-sm transition-colors focus:border-gray-400 focus:ring-2 focus:ring-gray-100',
                 showEmailValidationError &&
-                emailErrors.length > 0 &&
-                'border-red-500 focus:border-red-500 focus:ring-red-100 focus-visible:ring-red-500'
+                  emailErrors.length > 0 &&
+                  'border-red-500 focus:border-red-500 focus:ring-red-100 focus-visible:ring-red-500'
               )}
             />
             {showEmailValidationError && emailErrors.length > 0 && (
@@ -203,43 +209,37 @@ export default function SSOForm() {
         </Button>
       </form>
 
-      {/* Only show divider and email signin button if email/password is enabled */}
-      {!isFalsy(env.NEXT_PUBLIC_EMAIL_PASSWORD_SIGNUP_ENABLED) && (
-        <>
-          <div className={`${inter.className} relative my-6 font-light`}>
-            <div className='absolute inset-0 flex items-center'>
-              <div className='auth-divider w-full border-t' />
-            </div>
-            <div className='relative flex justify-center text-sm'>
-              <span className='bg-background px-4 font-[340] text-muted-foreground'>Or</span>
-            </div>
-          </div>
+      <div className={`${inter.className} relative my-6 font-light`}>
+        <div className='absolute inset-0 flex items-center'>
+          <div className='auth-divider w-full border-t' />
+        </div>
+        <div className='relative flex justify-center text-sm'>
+          <span className='bg-background px-4 font-[340] text-muted-foreground'>Or</span>
+        </div>
+      </div>
 
-          <div className={`${inter.className} space-y-3`}>
-            <Link
-              href={`/login${callbackUrl ? `?callbackUrl=${encodeURIComponent(callbackUrl)}` : ''}`}
-            >
-              <Button
-                variant='outline'
-                className='w-full rounded-md shadow-sm hover:bg-gray-50'
-                type='button'
-              >
-                Sign in with email
-              </Button>
-            </Link>
-          </div>
-        </>
-      )}
+      <div className={`${inter.className} space-y-3`}>
+        <Link
+          href={`/login${callbackUrl ? `?callbackUrl=${encodeURIComponent(callbackUrl)}` : ''}`}
+        >
+          <Button
+            variant='outline'
+            className='w-full rounded-md shadow-sm hover:bg-gray-50'
+            type='button'
+          >
+            Sign in with email
+          </Button>
+        </Link>
+      </div>
 
-      {/* Only show signup link if email/password signup is enabled */}
-      {!isFalsy(env.NEXT_PUBLIC_EMAIL_PASSWORD_SIGNUP_ENABLED) && (
+      {registrationHref && registrationLabel && (
         <div className={`${inter.className} pt-6 text-center font-light text-[14px]`}>
           <span className='font-normal'>Don't have an account? </span>
           <Link
-            href={`/signup${callbackUrl ? `?callbackUrl=${encodeURIComponent(callbackUrl)}` : ''}`}
+            href={`${registrationHref}${callbackUrl ? `?callbackUrl=${encodeURIComponent(callbackUrl)}` : ''}`}
             className='font-medium text-primary underline-offset-4 transition hover:text-primary-hover hover:underline'
           >
-            Sign up
+            {registrationLabel}
           </Link>
         </div>
       )}

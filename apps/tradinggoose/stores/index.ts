@@ -242,7 +242,7 @@ export const resetAllStores = () => {
   })
   useExecutionStore.getState().reset()
   useConsoleStore.setState({ entries: [], isOpen: false })
-  getCopilotStore().setState({ messages: [], isSendingMessage: false, error: null })
+  getCopilotStore().setState({ messages: [], isSendingMessage: false })
   useCustomToolsStore.getState().resetAll()
   useSkillsStore.getState().resetAll()
   useIndicatorsStore.getState().resetAll()

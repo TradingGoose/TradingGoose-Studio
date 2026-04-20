@@ -27,7 +27,7 @@ const GMAIL_SYSTEM_LABELS = [
 export const gmailPollingTrigger: TriggerConfig = {
   id: 'gmail_poller',
   name: 'Gmail Email Trigger',
-  provider: 'gmail',
+  webhookProvider: 'gmail',
   description: 'Triggers when new emails are received in Gmail (requires Gmail credentials)',
   version: '1.0.0',
   icon: GmailIcon,

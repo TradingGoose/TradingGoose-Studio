@@ -15,14 +15,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ message: 'Email is required' }, { status: 400 })
     }
 
-    const authApi = auth.api as unknown as {
-      forgetPassword: (params: {
-        body: { email: string; redirectTo?: string }
-        method: 'POST'
-      }) => Promise<unknown>
-    }
-
-    await authApi.forgetPassword({
+    await auth.api.requestPasswordReset({
       body: {
         email,
         redirectTo,
@@ -32,7 +25,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: true })
   } catch (error) {
-    logger.error('Error requesting password reset:', { error })
+    logger.error('Error requesting password reset:', error)
 
     return NextResponse.json(
       {

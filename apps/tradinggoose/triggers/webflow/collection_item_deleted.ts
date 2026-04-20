@@ -4,7 +4,7 @@ import type { TriggerConfig } from '../types'
 export const webflowCollectionItemDeletedTrigger: TriggerConfig = {
   id: 'webflow_collection_item_deleted',
   name: 'Collection Item Deleted',
-  provider: 'webflow',
+  webhookProvider: 'webflow',
   description:
     'Trigger workflow when an item is deleted from a Webflow CMS collection (requires Webflow credentials)',
   version: '1.0.0',

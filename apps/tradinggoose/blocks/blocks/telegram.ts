@@ -13,7 +13,7 @@ export const TelegramBlock: BlockConfig<TelegramResponse> = {
     'Integrate Telegram into the workflow. Can send and delete messages. Can be used in trigger mode to trigger a workflow when a message is sent to a chat.',
   docsLink: 'https://docs.tradinggoose.ai/tools/telegram',
   category: 'tools',
-  bgColor: undefined,
+  bgColor: '#24A1DE',
   icon: TelegramIcon,
   triggerAllowed: true,
   subBlocks: [

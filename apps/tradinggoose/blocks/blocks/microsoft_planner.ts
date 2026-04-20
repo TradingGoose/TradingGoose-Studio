@@ -24,7 +24,7 @@ export const MicrosoftPlannerBlock: BlockConfig<MicrosoftPlannerResponse> = {
   longDescription: 'Integrate Microsoft Planner into the workflow. Can read and create tasks.',
   docsLink: 'https://docs.tradinggoose.ai/tools/microsoft_planner',
   category: 'tools',
-  bgColor: undefined,
+  bgColor: '#33C481',
   icon: MicrosoftPlannerIcon,
   subBlocks: [
     {

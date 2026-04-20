@@ -3,6 +3,9 @@ import { z } from 'zod'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
 import { applyAutoLayout } from '@/lib/workflows/autolayout'
+import {
+  resolveAutoLayoutDirection,
+} from '@/lib/workflows/workflow-direction'
 
 const logger = createLogger('YamlAutoLayoutAPI')
 
@@ -49,6 +52,13 @@ export async function POST(request: NextRequest) {
     })
 
     const autoLayoutOptions = {
+      direction: resolveAutoLayoutDirection(
+        {
+          blocks: workflowState.blocks,
+          edges: workflowState.edges,
+        },
+        options?.direction
+      ),
       horizontalSpacing: options?.spacing?.horizontal || 550,
       verticalSpacing: options?.spacing?.vertical || 200,
       padding: {

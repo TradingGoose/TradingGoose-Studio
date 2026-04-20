@@ -10,8 +10,8 @@ TradingGoose Studio. See the NOTICE file for a summary of attributions.
 1. Sim Studio (upstream project)
 ================================================================================
 
-Source:  https://github.com/simstudioai/sim
-Commit:  b768ca845e9b05aa98e8e7379f5287efa4829ddb (v0.4.5)
+Source:  https://github.com/simstudioai/sim/releases/tag/v0.4.25
+Release: v0.4.25
 License: Apache License 2.0
 
 The full text of the Apache License 2.0 is identical to the LICENSE file

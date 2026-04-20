@@ -1,5 +1,6 @@
 'use client'
 
+import { upload as uploadToVercelBlob } from '@vercel/blob/client'
 import {
   forwardRef,
   type KeyboardEvent,
@@ -27,7 +28,7 @@ import {
   Paperclip,
   Send,
   Shapes,
-  Shield,
+  ShieldAlert,
   ShieldCheck,
   SquareChevronRight,
   Workflow,
@@ -61,7 +62,6 @@ import { cn } from '@/lib/utils'
 import { useWorkflowBlocks } from '@/lib/yjs/use-workflow-doc'
 import { useCopilotStore } from '@/stores/copilot/store'
 import type { ChatContext } from '@/stores/copilot/types'
-import { useWorkspaceId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 import { ContextUsagePill } from '../context-usage-pill/context-usage-pill'
 
 const logger = createLogger('CopilotUserInput')
@@ -91,7 +91,8 @@ interface AttachedFile {
 }
 
 interface UserInputProps {
-  channelId?: string
+  workspaceId: string
+  workflowId?: string | null
   onSubmit: (
     message: string,
     fileAttachments?: MessageFileAttachment[],
@@ -119,7 +120,8 @@ interface UserInputRef {
 const UserInput = forwardRef<UserInputRef, UserInputProps>(
   (
     {
-      channelId,
+      workspaceId,
+      workflowId = null,
       onSubmit,
       onAbort,
       disabled = false,
@@ -217,9 +219,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
     const [isLoadingLogs, setIsLoadingLogs] = useState(false)
 
     const { data: session } = useSession()
-    const { liveContext, contextUsage, createNewChat } = useCopilotStore()
-    const workspaceId = useWorkspaceId()
-    const workflowId = liveContext.workflowId
+    const { contextUsage, createNewChat } = useCopilotStore()
 
     // Determine placeholder based on access level
     const effectivePlaceholder =
@@ -267,7 +267,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
     useEffect(() => {
       setPastChats([])
       setIsLoadingPastChats(false)
-    }, [channelId, workspaceId])
+    }, [workspaceId])
 
     // Auto-resize textarea and toggle vertical scroll when exceeding max height
     useEffect(() => {
@@ -368,15 +368,12 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
         setIsLoadingPastChats(true)
 
         const params = new URLSearchParams()
-        if (channelId) {
-          params.set('channelId', channelId)
-        }
         if (workspaceId) {
           params.set('workspaceId', workspaceId)
         }
 
         const query = params.toString()
-        const resp = await fetch(query ? `/api/copilot/chats?${query}` : '/api/copilot/chats')
+        const resp = await fetch(query ? `/api/copilot/chat?${query}` : '/api/copilot/chat')
         if (!resp.ok) throw new Error(`Failed to load chats: ${resp.status}`)
         const data = await resp.json()
         const items = Array.isArray(data?.chats) ? data.chats : []
@@ -613,24 +610,61 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
           }
 
           const presignedData = await presignedResponse.json()
+          let uploadedFilePath = presignedData.fileInfo?.path || ''
+          let uploadedFileKey = presignedData.fileInfo?.key || ''
 
-          logger.info(`Uploading file: ${presignedData.presignedUrl}`)
-          const uploadHeaders = presignedData.uploadHeaders || {}
-          const uploadResponse = await fetch(presignedData.presignedUrl, {
-            method: 'PUT',
-            headers: {
-              'Content-Type': file.type,
-              ...uploadHeaders,
-            },
-            body: file,
-          })
+          if (presignedData.storageProvider === 'vercel') {
+            await uploadToVercelBlob(presignedData.fileInfo.key, file, {
+              access: presignedData.blobAccess || 'private',
+              handleUploadUrl: '/api/files/vercel/client-upload?type=copilot',
+              clientPayload: JSON.stringify({
+                clientUploadAuthorization: presignedData.clientUploadAuthorization,
+                contentType: file.type,
+                fileName: file.name,
+                fileSize: file.size,
+                pathname: presignedData.fileInfo.key,
+              }),
+              contentType: file.type,
+              multipart: file.size > 8 * 1024 * 1024,
+            })
+          } else if (presignedData.directUploadSupported !== false) {
+            logger.info(`Uploading file: ${presignedData.presignedUrl}`)
+            const uploadHeaders = presignedData.uploadHeaders || {}
+            const uploadResponse = await fetch(presignedData.presignedUrl, {
+              method: 'PUT',
+              headers: {
+                'Content-Type': file.type,
+                ...uploadHeaders,
+              },
+              body: file,
+            })
 
-          logger.info(`Upload response status: ${uploadResponse.status}`)
+            logger.info(`Upload response status: ${uploadResponse.status}`)
 
-          if (!uploadResponse.ok) {
-            const errorText = await uploadResponse.text()
-            logger.error(`Upload failed: ${errorText}`)
-            throw new Error(`Failed to upload file: ${uploadResponse.status} ${errorText}`)
+            if (!uploadResponse.ok) {
+              const errorText = await uploadResponse.text()
+              logger.error(`Upload failed: ${errorText}`)
+              throw new Error(`Failed to upload file: ${uploadResponse.status} ${errorText}`)
+            }
+          } else {
+            const formData = new FormData()
+            formData.append('file', file)
+
+            const uploadResponse = await fetch('/api/files/upload', {
+              method: 'POST',
+              body: formData,
+            })
+
+            if (!uploadResponse.ok) {
+              const errorData = await uploadResponse
+                .json()
+                .catch(() => ({ error: uploadResponse.statusText }))
+              throw new Error(errorData.error || `Failed to upload file: ${uploadResponse.status}`)
+            }
+
+            const uploadData = await uploadResponse.json()
+            uploadedFilePath = uploadData.path || ''
+            uploadedFileKey = uploadData.key || ''
           }
 
           // Update file entry with success
@@ -639,8 +673,8 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
               f.id === tempFile.id
                 ? {
                     ...f,
-                    path: presignedData.fileInfo.path,
-                    key: presignedData.fileInfo.key, // Store the actual storage key
+                    path: uploadedFilePath,
+                    key: uploadedFileKey, // Store the actual storage key
                     uploading: false,
                   }
                 : f
@@ -1723,9 +1757,9 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
 
     const getAccessLevelIcon = () => {
       if (accessLevel === 'full') {
-        return <ShieldCheck className='h-3 w-3 text-muted-foreground' />
+        return <ShieldAlert className='h-3 w-3 text-muted-foreground' />
       }
-      return <Shield className='h-3 w-3 text-muted-foreground' />
+      return <ShieldCheck className='h-3 w-3 text-muted-foreground' />
     }
 
     const getAccessLevelText = () => {
@@ -2115,7 +2149,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
             <div className='absolute top-2 right-2 z-10'>
               <ContextUsagePill
                 percentage={contextUsage.percentage}
-                onCreateNewChat={createNewChat}
+                onCreateNewChat={() => createNewChat(workspaceId)}
               />
             </div>
           )}
@@ -3246,7 +3280,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                             )}
                           >
                             <span className='flex items-center gap-1.5'>
-                              <Shield className='h-3 w-3 text-muted-foreground' />
+                              <ShieldAlert className='h-3 w-3 text-muted-foreground' />
                               Limited
                             </span>
                             {accessLevel === 'limited' && (
@@ -3273,7 +3307,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
                             )}
                           >
                             <span className='flex items-center gap-1.5'>
-                              <ShieldCheck className='h-3 w-3 text-muted-foreground' />
+                              <ShieldAlert className='h-3 w-3 text-muted-foreground' />
                               Full
                             </span>
                             {accessLevel === 'full' && (

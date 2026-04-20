@@ -25,12 +25,9 @@ export interface TradingActionParams {
   apiKey?: string
   apiSecret?: string
   tradierCredential?: string
-  robinhoodCredential?: string
   alpacaCredential?: string
   // Provider-specific extras
   accountId?: string
-  accountUrl?: string
-  instrumentUrl?: string
   orderSizingMode?: string
   orderClass?: string
 }
@@ -42,7 +39,6 @@ export interface TradingHoldingsParams {
   apiKey?: string
   apiSecret?: string
   accountId?: string
-  accountUrl?: string
 }
 
 export interface TradingOrderDetailParams {
@@ -54,10 +50,8 @@ export interface TradingOrderDetailParams {
   apiKey?: string
   apiSecret?: string
   tradierCredential?: string
-  robinhoodCredential?: string
   alpacaCredential?: string
   accountId?: string
-  accountUrl?: string
 }
 
 export interface TradingOrderDetailOutput {

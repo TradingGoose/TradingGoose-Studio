@@ -1,10 +1,16 @@
 import { headers } from 'next/headers'
 import { NextResponse } from 'next/server'
-import { auth } from '@/lib/auth'
+import { auth, getSession } from '@/lib/auth'
 
 export async function POST() {
   try {
     const hdrs = await headers()
+    const session = await getSession(hdrs, { disableCookieCache: true })
+
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+    }
+
     const response = await auth.api.generateOneTimeToken({
       headers: hdrs,
     })

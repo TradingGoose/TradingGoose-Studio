@@ -4,7 +4,7 @@ import type { TriggerConfig } from '@/triggers/types'
 export const githubPRClosedTrigger: TriggerConfig = {
   id: 'github_pr_closed',
   name: 'GitHub PR Closed',
-  provider: 'github',
+  webhookProvider: 'github',
   description:
     'Trigger workflow when a pull request is closed without being merged (e.g., abandoned) in a GitHub repository',
   version: '1.0.0',

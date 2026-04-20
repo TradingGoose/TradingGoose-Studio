@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from 'react'
 import { useLatestRef } from '@/hooks/use-latest-ref'
-import type { Edge } from 'reactflow'
+import type { Edge } from '@xyflow/react'
 import { resolveStoredDateValue } from '@/lib/time-format'
 import { useWorkflowDoc } from '@/lib/yjs/use-workflow-doc'
 import type { BlockState, Loop, Parallel } from '@/stores/workflows/workflow/types'

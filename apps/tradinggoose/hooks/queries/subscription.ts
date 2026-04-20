@@ -1,5 +1,4 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { organizationKeys } from '@/hooks/queries/organization'
 
 /**
  * Query key factories for subscription-related queries
@@ -48,7 +47,7 @@ async function fetchUsageLimitData() {
 
 /**
  * Hook to fetch usage limit metadata
- * Returns: currentLimit, minimumLimit, canEdit, plan, updatedAt
+ * Returns: currentLimit, minimumLimit, canEdit, tier, updatedAt
  * Use this for editing usage limits, not for displaying current usage
  */
 export function useUsageLimitData() {
@@ -134,36 +133,6 @@ export function useUpdateUsageLimit() {
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: subscriptionKeys.user() })
       queryClient.invalidateQueries({ queryKey: subscriptionKeys.usage() })
-    },
-  })
-}
-
-/**
- * Upgrade subscription mutation
- */
-interface UpgradeSubscriptionParams {
-  plan: string
-  orgId?: string
-}
-
-export function useUpgradeSubscription() {
-  const queryClient = useQueryClient()
-
-  return useMutation({
-    mutationFn: async ({ plan }: UpgradeSubscriptionParams) => {
-      return { plan }
-    },
-    onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: subscriptionKeys.all })
-
-      if (variables.orgId) {
-        queryClient.invalidateQueries({
-          queryKey: organizationKeys.billing(variables.orgId),
-        })
-        queryClient.invalidateQueries({
-          queryKey: organizationKeys.subscription(variables.orgId),
-        })
-      }
     },
   })
 }

@@ -4,7 +4,7 @@ import type { TriggerConfig } from '@/triggers/types'
 export const githubWorkflowRunTrigger: TriggerConfig = {
   id: 'github_workflow_run',
   name: 'GitHub Actions Workflow Run',
-  provider: 'github',
+  webhookProvider: 'github',
   description:
     'Trigger workflow when a GitHub Actions workflow run is requested, in progress, or completed',
   version: '1.0.0',

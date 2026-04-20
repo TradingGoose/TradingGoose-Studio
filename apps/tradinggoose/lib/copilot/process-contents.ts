@@ -10,7 +10,7 @@ import { and, asc, eq, isNull } from 'drizzle-orm'
 import { REVIEW_ITEM_KINDS } from '@/lib/copilot/review-sessions/thread-history'
 import { createLogger } from '@/lib/logs/console/logger'
 import { escapeRegExp } from '@/lib/utils'
-import { loadWorkflowFromNormalizedTables } from '@/lib/workflows/db-helpers'
+import { loadWorkflowStateWithFallback } from '@/lib/workflows/db-helpers'
 import { sanitizeForCopilot } from '@/lib/workflows/json-sanitizer'
 import type { ChatContext } from '@/stores/copilot/types'
 
@@ -59,14 +59,17 @@ export async function processContextsServer(
         )
       }
       if ((ctx.kind === 'workflow' || ctx.kind === 'current_workflow') && ctx.workflowId) {
-        return await processWorkflowFromDb(
+        return await processWorkflowContext(
           ctx.workflowId,
           ctx.label ? `@${ctx.label}` : '@',
           ctx.kind
         )
       }
-      if ((ctx.kind === 'skill' || ctx.kind === 'current_skill') && ctx.skillId) {
-        return await processEntityContextFromDb({
+      if (
+        (ctx.kind === 'skill' || ctx.kind === 'current_skill') &&
+        ctx.skillId
+      ) {
+        return await processEntityContext({
           contextKind: ctx.kind,
           entityKind: 'skill',
           entityId: ctx.skillId,
@@ -74,8 +77,11 @@ export async function processContextsServer(
           tag: ctx.label ? `@${ctx.label}` : '@',
         })
       }
-      if ((ctx.kind === 'indicator' || ctx.kind === 'current_indicator') && ctx.indicatorId) {
-        return await processEntityContextFromDb({
+      if (
+        (ctx.kind === 'indicator' || ctx.kind === 'current_indicator') &&
+        ctx.indicatorId
+      ) {
+        return await processEntityContext({
           contextKind: ctx.kind,
           entityKind: 'indicator',
           entityId: ctx.indicatorId,
@@ -83,8 +89,11 @@ export async function processContextsServer(
           tag: ctx.label ? `@${ctx.label}` : '@',
         })
       }
-      if ((ctx.kind === 'custom_tool' || ctx.kind === 'current_custom_tool') && ctx.customToolId) {
-        return await processEntityContextFromDb({
+      if (
+        (ctx.kind === 'custom_tool' || ctx.kind === 'current_custom_tool') &&
+        ctx.customToolId
+      ) {
+        return await processEntityContext({
           contextKind: ctx.kind,
           entityKind: 'custom_tool',
           entityId: ctx.customToolId,
@@ -92,8 +101,11 @@ export async function processContextsServer(
           tag: ctx.label ? `@${ctx.label}` : '@',
         })
       }
-      if ((ctx.kind === 'mcp_server' || ctx.kind === 'current_mcp_server') && ctx.mcpServerId) {
-        return await processEntityContextFromDb({
+      if (
+        (ctx.kind === 'mcp_server' || ctx.kind === 'current_mcp_server') &&
+        ctx.mcpServerId
+      ) {
+        return await processEntityContext({
           contextKind: ctx.kind,
           entityKind: 'mcp_server',
           entityId: ctx.mcpServerId,
@@ -173,7 +185,7 @@ function resolveContextWorkspaceId(
   return resolvedWorkspaceId
 }
 
-async function processEntityContextFromDb(params: {
+async function processEntityContext(params: {
   contextKind:
     | 'skill'
     | 'current_skill'
@@ -182,13 +194,21 @@ async function processEntityContextFromDb(params: {
     | 'custom_tool'
     | 'current_custom_tool'
     | 'mcp_server'
-    | 'current_mcp_server'
+  | 'current_mcp_server'
   entityKind: 'skill' | 'indicator' | 'custom_tool' | 'mcp_server'
-  entityId: string
+  entityId: string | null
   workspaceId: string | null
   tag: string
 }): Promise<AgentContext | null> {
   if (!params.workspaceId) {
+    return null
+  }
+
+  if (!params.entityId) {
+    logger.warn('Skipping copilot entity context without entityId', {
+      entityKind: params.entityKind,
+      contextKind: params.contextKind,
+    })
     return null
   }
 
@@ -235,6 +255,18 @@ async function processEntityContextFromDb(params: {
       error,
     })
     return null
+  }
+}
+
+function parseStructuredTextField(value: unknown): unknown {
+  if (typeof value !== 'string') {
+    return value ?? null
+  }
+
+  try {
+    return JSON.parse(value)
+  } catch {
+    return value
   }
 }
 
@@ -411,29 +443,30 @@ async function processPastChatFromDb(
   }
 }
 
-async function processWorkflowFromDb(
+async function processWorkflowContext(
   workflowId: string,
   tag: string,
   kind: 'workflow' | 'current_workflow' = 'workflow'
 ): Promise<AgentContext | null> {
   try {
-    const normalized = await loadWorkflowFromNormalizedTables(workflowId)
-    if (!normalized) {
-      logger.warn('No normalized workflow data found', { workflowId })
+    const workflowState = await loadWorkflowStateWithFallback(workflowId)
+    if (!workflowState) {
+      logger.warn('No workflow data found for copilot context', { workflowId })
       return null
     }
-    const workflowState = {
-      blocks: normalized.blocks || {},
-      edges: normalized.edges || [],
-      loops: normalized.loops || {},
-      parallels: normalized.parallels || {},
-    }
+
     // Sanitize workflow state for copilot (remove UI-specific data like positions)
-    const sanitizedState = sanitizeForCopilot(workflowState)
+    const sanitizedState = sanitizeForCopilot({
+      blocks: workflowState.blocks || {},
+      edges: workflowState.edges || [],
+      loops: workflowState.loops || {},
+      parallels: workflowState.parallels || {},
+    })
     // Match get-user-workflow format: just the workflow state JSON
     const content = JSON.stringify(sanitizedState, null, 2)
     logger.info('Processed sanitized workflow context', {
       workflowId,
+      source: workflowState.source,
       blocks: Object.keys(sanitizedState.blocks || {}).length,
     })
     // Use the provided kind for the type
@@ -557,9 +590,9 @@ async function processWorkflowBlockFromDb(
   label?: string
 ): Promise<AgentContext | null> {
   try {
-    const normalized = await loadWorkflowFromNormalizedTables(workflowId)
-    if (!normalized) return null
-    const block = (normalized.blocks as any)[blockId]
+    const workflowState = await loadWorkflowStateWithFallback(workflowId)
+    if (!workflowState) return null
+    const block = (workflowState.blocks as any)[blockId]
     if (!block) return null
     const tag = label ? `@${label} in Workflow` : `@${block.name || blockId} in Workflow`
 

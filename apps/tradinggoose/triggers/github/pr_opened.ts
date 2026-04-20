@@ -4,7 +4,7 @@ import type { TriggerConfig } from '@/triggers/types'
 export const githubPROpenedTrigger: TriggerConfig = {
   id: 'github_pr_opened',
   name: 'GitHub PR Opened',
-  provider: 'github',
+  webhookProvider: 'github',
   description: 'Trigger workflow when a new pull request is opened in a GitHub repository',
   version: '1.0.0',
   icon: GithubIcon,

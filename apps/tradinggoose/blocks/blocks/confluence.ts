@@ -11,7 +11,7 @@ export const ConfluenceBlock: BlockConfig<ConfluenceResponse> = {
   longDescription: 'Integrate Confluence into the workflow. Can read and update a page.',
   docsLink: 'https://docs.tradinggoose.ai/tools/confluence',
   category: 'tools',
-  bgColor: undefined,
+  bgColor: '#2684FF',
   icon: ConfluenceIcon,
   subBlocks: [
     {

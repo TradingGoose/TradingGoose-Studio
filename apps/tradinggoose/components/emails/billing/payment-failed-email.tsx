@@ -50,7 +50,7 @@ export function PaymentFailedEmail({
             <Row>
               <Column style={{ textAlign: 'center' }}>
                 <Img
-                  src={brand.logoUrl || `${baseUrl}/favicon/web-app-manifest-192x192.png`}
+                  src={`${baseUrl}/favicon/web-app-manifest-192x192.png`}
                   width='96'
                   height='96'
                   alt={brand.name}

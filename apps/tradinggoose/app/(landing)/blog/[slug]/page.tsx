@@ -6,7 +6,7 @@ import { Clock } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { BlogLayout } from '@/app/(landing)/components'
+import BlogLayout from '@/app/(landing)/components/blog-layout'
 import { getPostBySlug } from '../lib/posts'
 import { formatBlogDate } from '../lib/heading-slugs'
 import BreadcrumbNav from '../components/breadcrumb-nav'
@@ -22,23 +22,37 @@ interface PostPageProps {
 
 export const dynamic = 'force-dynamic'
 
+/** Strip markdown link syntax for meta tags: [text](url) → text */
+function toPlainTitle(md: string): string {
+  return md.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1').replace(/\n/g, ' ').trim()
+}
+
 export async function generateMetadata({ params }: PostPageProps): Promise<Metadata> {
   const { slug } = await params
   const post = await getPostBySlug(slug)
   if (!post) return {}
 
+  // Plain-text title for <title>, og:title, twitter:title — browsers & social
+  // platforms don't render Markdown, so strip link syntax for clean display.
+  // The visible H1 still renders the full Markdown via MarkdownTitle.
+  const plainTitle = toPlainTitle(post.title)
+
   return {
-    title: `${post.title} | TradingGoose Blog`,
+    title: `${plainTitle} | TradingGoose Blog`,
     description: post.description,
+    alternates: {
+      canonical: `/blog/${slug}`,
+    },
     openGraph: {
-      title: post.title,
+      title: plainTitle,
       description: post.description,
       type: 'article',
-      images: post.image ? [{ url: post.image, width: 1200, height: 630, alt: post.title }] : [],
+      url: `/blog/${slug}`,
+      images: post.image ? [{ url: post.image, width: 1200, height: 630, alt: plainTitle }] : [],
     },
     twitter: {
       card: 'summary_large_image',
-      title: post.title,
+      title: plainTitle,
       description: post.description,
       images: post.image ? [post.image] : [],
     },
@@ -53,8 +67,41 @@ export default async function PostPage({ params }: PostPageProps) {
   const { title, date, image, authors, tags, toc, content, readingTime } = post
   const postPath = `/blog/${slug}`
 
+  const plainTitle = toPlainTitle(title)
+  const wordCount = content.split(/\s+/).length
+  const blogPostingSchema = {
+    '@context': 'https://schema.org',
+    '@type': 'BlogPosting',
+    headline: plainTitle,
+    description: post.description,
+    ...(image && { image }),
+    datePublished: date ? new Date(date).toISOString() : undefined,
+    wordCount,
+    timeRequired: `PT${readingTime}M`,
+    ...(authors?.length && {
+      author: authors.map((a) => ({
+        '@type': 'Person',
+        name: a.name,
+        url: a.profileUrl,
+        image: a.avatar,
+        sameAs: [
+          `https://github.com/${a.github}`,
+          ...(a.x ? [`https://x.com/${a.x}`] : []),
+        ],
+      })),
+    }),
+    publisher: { '@id': 'https://tradinggoose.ai/#organization' },
+    mainEntityOfPage: { '@type': 'WebPage', '@id': `https://tradinggoose.ai/blog/${slug}` },
+    ...(tags?.length && { keywords: tags.join(', '), articleSection: tags[0] }),
+    inLanguage: 'en-US',
+  }
+
   return (
-    <BlogLayout path={`/blog/${slug}`} title={title}>
+    <BlogLayout path={`/blog/${slug}`} title={plainTitle}>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(blogPostingSchema).replace(/</g, '\\u003c') }}
+      />
       <article>
         <BreadcrumbNav pageTitle={title} />
 

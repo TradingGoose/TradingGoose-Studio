@@ -9,7 +9,7 @@ import {
 } from '@tradinggoose/db'
 import type { InferSelectModel } from 'drizzle-orm'
 import { and, desc, eq, inArray, ne, sql } from 'drizzle-orm'
-import type { Edge } from 'reactflow'
+import type { Edge } from '@xyflow/react'
 import { v4 as uuidv4 } from 'uuid'
 import * as Y from 'yjs'
 import { reconcilePublishedChatsForDeploymentTx } from '@/lib/chat/published-deployment'
@@ -18,13 +18,20 @@ import {
   serializeYjsTransportEnvelope,
 } from '@/lib/copilot/review-sessions/identity'
 import { createLogger } from '@/lib/logs/console/logger'
+import { inferMermaidDirectionFromWorkflowState } from '@/lib/workflows/workflow-direction'
 import { getYjsSnapshot, SocketServerBridgeError } from '@/lib/yjs/server/snapshot-bridge'
 import { extractPersistedStateFromDoc } from '@/lib/yjs/workflow-session'
 import { resolveStoredDateValue } from '@/lib/time-format'
 import { normalizeVariables } from '@/lib/workflows/variable-utils'
 import { sanitizeAgentToolsInBlocks } from '@/lib/workflows/validation'
 import type { Variable } from '@/stores/variables/types'
-import type { BlockState, Loop, Parallel, WorkflowState } from '@/stores/workflows/workflow/types'
+import type {
+  BlockState,
+  Loop,
+  Parallel,
+  WorkflowDirection,
+  WorkflowState,
+} from '@/stores/workflows/workflow/types'
 import { SUBFLOW_TYPES } from '@/stores/workflows/workflow/types'
 
 const logger = createLogger('WorkflowDBHelpers')
@@ -75,6 +82,7 @@ const sanitizeBlockLayout = (layout: unknown): BlockState['layout'] => {
 }
 
 export type PersistedWorkflowState = {
+  direction?: WorkflowDirection
   blocks: Record<string, any>
   edges: any[]
   loops: Record<string, any>
@@ -217,6 +225,12 @@ export async function loadWorkflowStateWithFallback(
   }
 
   return {
+    direction: normalizedData.blocks && Object.keys(normalizedData.blocks).length > 0
+      ? inferMermaidDirectionFromWorkflowState({
+          blocks: normalizedData.blocks,
+          edges: normalizedData.edges,
+        })
+      : undefined,
     blocks: normalizedData.blocks,
     edges: normalizedData.edges,
     loops: normalizedData.loops,
@@ -368,6 +382,84 @@ export async function ensureUniqueBlockIds(
     edges: updatedEdges,
     loops: updatedLoops,
     parallels: updatedParallels,
+  }
+}
+
+export async function ensureUniqueEdgeIds(
+  workflowId: string,
+  state: WorkflowState
+): Promise<WorkflowState> {
+  const edges = state.edges || []
+  if (edges.length === 0) {
+    return state
+  }
+
+  const candidateIds = edges.flatMap((edge) => {
+    if (!edge || typeof edge !== 'object' || typeof edge.id !== 'string') {
+      return []
+    }
+
+    const trimmedId = edge.id.trim()
+    return trimmedId.length > 0 ? [trimmedId] : []
+  })
+
+  const conflictingIdsResult =
+    candidateIds.length === 0
+      ? []
+      : await db
+          .select({ id: workflowEdges.id })
+          .from(workflowEdges)
+          .where(
+            and(inArray(workflowEdges.id, candidateIds), ne(workflowEdges.workflowId, workflowId))
+          )
+
+  const conflictingIds = new Set(conflictingIdsResult.map((row) => row.id))
+  const seen = new Set<string>()
+  let regeneratedCount = 0
+
+  const updatedEdges = edges.map((edge) => {
+    if (!edge || typeof edge !== 'object') {
+      return edge
+    }
+
+    const trimmedId = typeof edge.id === 'string' ? edge.id.trim() : ''
+    const shouldRegenerate =
+      trimmedId.length === 0 || seen.has(trimmedId) || conflictingIds.has(trimmedId)
+
+    let nextId = trimmedId
+    if (shouldRegenerate) {
+      do {
+        nextId = uuidv4()
+      } while (seen.has(nextId) || conflictingIds.has(nextId))
+      regeneratedCount += 1
+    }
+
+    seen.add(nextId)
+
+    if (nextId === edge.id) {
+      return edge
+    }
+
+    return {
+      ...edge,
+      id: nextId,
+    }
+  })
+
+  if (regeneratedCount === 0 && updatedEdges.every((edge, index) => edge === edges[index])) {
+    return state
+  }
+
+  if (regeneratedCount > 0) {
+    logger.warn(
+      `Detected ${regeneratedCount} duplicate or conflicting edge id(s) while saving workflow ${workflowId}. Regenerating ids for safe persistence.`,
+      { workflowId }
+    )
+  }
+
+  return {
+    ...state,
+    edges: updatedEdges,
   }
 }
 
@@ -694,9 +786,10 @@ export async function loadWorkflowFromNormalizedTables(
 export async function saveWorkflowToNormalizedTables(
   workflowId: string,
   state: WorkflowState
-): Promise<{ success: boolean; error?: string }> {
+): Promise<{ success: boolean; error?: string; normalizedState?: WorkflowState }> {
   try {
-    const normalizedState = await ensureUniqueBlockIds(workflowId, state)
+    const stateWithUniqueBlockIds = await ensureUniqueBlockIds(workflowId, state)
+    const normalizedState = await ensureUniqueEdgeIds(workflowId, stateWithUniqueBlockIds)
 
     const sanitizeNumberForDecimal = (value: unknown): string => {
       if (typeof value !== 'number' || !Number.isFinite(value)) {
@@ -858,7 +951,7 @@ export async function saveWorkflowToNormalizedTables(
       }
     })
 
-    return { success: true }
+    return { success: true, normalizedState }
   } catch (error) {
     const causeMessage =
       error && typeof error === 'object' && 'cause' in error && error.cause instanceof Error

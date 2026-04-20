@@ -58,7 +58,7 @@ const FEATURE_ROWS: FeatureRow[] = [
     badge: 'Workflows',
     title: 'AI-powered workflows',
     description:
-      'Build workflows on a canvas with AI agent blocks that make LLM-driven decisions. Integrate with Slack, Discord, GitHub, Gmail, and more — then route orders to Alpaca, Tradier, or Robinhood.',
+      'Build workflows on a canvas with AI agent blocks that make LLM-driven decisions. Integrate with Slack, Discord, GitHub, Gmail, and more — then route orders to Alpaca or Tradier.',
     bullets: [
       { title: 'AI agent blocks for autonomous analysis and decisions' },
       { title: 'Integrations with Slack, Discord, GitHub, Gmail, and more' },
