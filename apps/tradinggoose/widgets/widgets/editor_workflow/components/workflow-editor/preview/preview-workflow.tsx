@@ -10,7 +10,6 @@ import {
   ReactFlowProvider,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
-import { useXYFlowColorMode } from '@/hooks/use-xyflow-color-mode'
 import { cn } from '@/lib/utils'
 import type { WorkflowState } from '@/stores/workflows/workflow/types'
 import type { PreviewDiffOperation } from './preview-diff'
@@ -60,7 +59,6 @@ export function PreviewWorkflow({
   diffOperations,
 }: PreviewWorkflowProps) {
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
-  const colorMode = useXYFlowColorMode()
 
   const { nodes, edges } = useMemo(() => {
     return diffOperations === undefined
@@ -81,7 +79,6 @@ export function PreviewWorkflow({
           <ReactFlow
             nodes={nodes}
             edges={edges}
-            colorMode={colorMode}
             nodeTypes={previewNodeTypes}
             edgeTypes={previewEdgeTypes}
             connectionLineType={ConnectionLineType.Bezier}
@@ -102,7 +99,10 @@ export function PreviewWorkflow({
             elementsSelectable={showInspector}
             nodesDraggable={false}
             nodesConnectable={false}
-            style={{ backgroundColor: 'transparent' }}
+            style={{
+              backgroundColor: 'transparent',
+            }}
+            className='xyflow-theme'
             onNodeClick={(event, node) => {
               setSelectedNodeId(node.id)
               onNodeClick?.(node.id, { x: event.clientX, y: event.clientY })

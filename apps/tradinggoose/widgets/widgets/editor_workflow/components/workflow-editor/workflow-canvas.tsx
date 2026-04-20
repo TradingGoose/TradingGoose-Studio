@@ -13,7 +13,6 @@ import {
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { useSession } from '@/lib/auth-client'
-import { useXYFlowColorMode } from '@/hooks/use-xyflow-color-mode'
 import { createLogger } from '@/lib/logs/console/logger'
 import { TriggerUtils } from '@/lib/workflows/triggers'
 import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
@@ -144,7 +143,6 @@ const WorkflowCanvas = React.memo(
     viewportBounds,
   }: WorkflowCanvasProps) => {
     const uiConfig = useMemo(() => ({ ...defaultUIConfig, ...ui }), [ui])
-    const colorMode = useXYFlowColorMode()
     // State
     const [isWorkflowReady, setIsWorkflowReady] = useState(false)
 
@@ -1696,7 +1694,6 @@ const WorkflowCanvas = React.memo(
             id={reactFlowId}
             nodes={nodes}
             edges={edgesWithSelection}
-            colorMode={colorMode}
             onNodesChange={onNodesChange}
             onEdgesChange={onEdgesChange}
             onConnect={effectivePermissions.canEdit ? onConnect : undefined}
@@ -1730,7 +1727,7 @@ const WorkflowCanvas = React.memo(
             noWheelClassName='allow-scroll'
             edgesFocusable={true}
             edgesReconnectable={effectivePermissions.canEdit}
-            className='workflow-container h-full'
+            className='workflow-container h-full xyflow-theme'
             onNodeDrag={effectivePermissions.canEdit ? onNodeDrag : undefined}
             onNodeDragStop={effectivePermissions.canEdit ? onNodeDragStop : undefined}
             onNodeDragStart={effectivePermissions.canEdit ? onNodeDragStart : undefined}
@@ -1743,7 +1740,9 @@ const WorkflowCanvas = React.memo(
             elevateNodesOnSelect={true}
             autoPanOnConnect={effectivePermissions.canEdit}
             autoPanOnNodeDrag={effectivePermissions.canEdit}
-            style={{ backgroundColor: 'transparent' }}
+            style={{
+              backgroundColor: 'transparent',
+            }}
           >
             <Background bgColor='transparent' color='hsl(var(--workflow-dots))' size={4} gap={40} />
             <NodeEditorPanel selectedNodeId={resolvedSelectedNodeId} />
