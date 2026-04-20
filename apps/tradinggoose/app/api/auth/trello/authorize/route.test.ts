@@ -49,7 +49,7 @@ describe('Trello authorize route', () => {
     mockGetTrelloApiKey.mockResolvedValue('trello-api-key')
   })
 
-  it('redirects to Trello authorize with the callback bridge', async () => {
+  it('redirects to Trello authorize with the API callback bridge', async () => {
     const { GET } = await import('./route')
     const response = await GET(
       new NextRequest(
@@ -71,7 +71,7 @@ describe('Trello authorize route', () => {
     expect(authorizeURL.searchParams.get('response_type')).toBe('token')
 
     const returnURL = new URL(authorizeURL.searchParams.get('return_url')!)
-    expect(returnURL.pathname).toBe('/auth/trello/callback')
+    expect(returnURL.pathname).toBe('/api/auth/trello/callback')
     expect(returnURL.searchParams.get('callbackURL')).toBe(
       'http://localhost:3000/workspace/ws-1/integrations'
     )
