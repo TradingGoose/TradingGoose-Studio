@@ -32,15 +32,14 @@ export async function POST(request: NextRequest) {
     }
 
     const action = request.nextUrl.searchParams.get('action')
+    const storageProvider = getStorageProvider()
 
-    if (!isUsingCloudStorage()) {
+    if (!isUsingCloudStorage() || storageProvider === 'vercel') {
       return NextResponse.json(
-        { error: 'Multipart upload is only available with cloud storage (S3 or Azure Blob)' },
+        { error: 'Multipart upload is only available with s3 or azure storage' },
         { status: 400 }
       )
     }
-
-    const storageProvider = getStorageProvider()
 
     switch (action) {
       case 'initiate': {
@@ -67,9 +66,9 @@ export async function POST(request: NextRequest) {
             key: result.key,
           })
         }
-        if (storageProvider === 'blob') {
+        if (storageProvider === 'azure') {
           const { initiateMultipartUpload } = await import(
-            '@/lib/uploads/providers/blob/blob-client'
+            '@/lib/uploads/providers/azure/azure-client'
           )
 
           const result = await initiateMultipartUpload({
@@ -113,8 +112,8 @@ export async function POST(request: NextRequest) {
 
           return NextResponse.json({ presignedUrls })
         }
-        if (storageProvider === 'blob') {
-          const { getMultipartPartUrls } = await import('@/lib/uploads/providers/blob/blob-client')
+        if (storageProvider === 'azure') {
+          const { getMultipartPartUrls } = await import('@/lib/uploads/providers/azure/azure-client')
 
           const presignedUrls = await getMultipartPartUrls(key, uploadId, partNumbers, {
             containerName: config.containerName!,
@@ -158,9 +157,9 @@ export async function POST(request: NextRequest) {
                   key: result.key,
                 }
               }
-              if (storageProvider === 'blob') {
+              if (storageProvider === 'azure') {
                 const { completeMultipartUpload } = await import(
-                  '@/lib/uploads/providers/blob/blob-client'
+                  '@/lib/uploads/providers/azure/azure-client'
                 )
                 const parts = upload.parts // Azure format: { blockId, partNumber }
 
@@ -203,9 +202,9 @@ export async function POST(request: NextRequest) {
             key: result.key,
           })
         }
-        if (storageProvider === 'blob') {
+        if (storageProvider === 'azure') {
           const { completeMultipartUpload } = await import(
-            '@/lib/uploads/providers/blob/blob-client'
+            '@/lib/uploads/providers/azure/azure-client'
           )
 
           const result = await completeMultipartUpload(key, uploadId, parts, {
@@ -243,8 +242,8 @@ export async function POST(request: NextRequest) {
           await abortS3MultipartUpload(key, uploadId)
 
           logger.info(`Aborted S3 multipart upload for key ${key} (context: ${context})`)
-        } else if (storageProvider === 'blob') {
-          const { abortMultipartUpload } = await import('@/lib/uploads/providers/blob/blob-client')
+        } else if (storageProvider === 'azure') {
+          const { abortMultipartUpload } = await import('@/lib/uploads/providers/azure/azure-client')
 
           await abortMultipartUpload(key, uploadId, {
             containerName: config.containerName!,

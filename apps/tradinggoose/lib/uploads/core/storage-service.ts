@@ -1,9 +1,28 @@
 import { createLogger } from '@/lib/logs/console/logger'
-import { USE_BLOB_STORAGE, USE_S3_STORAGE } from '@/lib/uploads/core/setup'
+import {
+  USE_AZURE_STORAGE,
+  USE_S3_STORAGE,
+  USE_VERCEL_STORAGE,
+  type StorageProvider,
+} from '@/lib/uploads/core/setup'
 import { getStorageConfig, type StorageContext } from './config-resolver'
 import type { FileInfo } from './storage-client'
 
 const logger = createLogger('StorageService')
+
+function createVercelConfig(config: {
+  token?: string
+  access?: 'public' | 'private'
+}): { token: string; access: 'public' | 'private' } {
+  if (!config.token) {
+    throw new Error('Vercel Blob configuration missing token')
+  }
+
+  return {
+    token: config.token,
+    access: config.access || 'private',
+  }
+}
 
 export interface UploadFileOptions {
   file: Buffer
@@ -53,16 +72,28 @@ export async function uploadFile(options: UploadFileOptions): Promise<FileInfo> 
 
   const keyToUse = customKey || fileName
 
-  if (USE_BLOB_STORAGE) {
-    const { uploadToBlob } = await import('../providers/blob/blob-client')
-    const blobConfig = {
+  if (USE_AZURE_STORAGE) {
+    const { uploadToAzure } = await import('../providers/azure/azure-client')
+    const azureConfig = {
       containerName: config.containerName!,
       accountName: config.accountName!,
       accountKey: config.accountKey,
       connectionString: config.connectionString,
     }
 
-    return uploadToBlob(file, keyToUse, contentType, blobConfig, file.length)
+    return uploadToAzure(file, keyToUse, contentType, azureConfig, file.length)
+  }
+
+  if (USE_VERCEL_STORAGE) {
+    const { uploadToVercel } = await import('../providers/vercel/vercel-client')
+    return uploadToVercel(
+      file,
+      keyToUse,
+      contentType,
+      createVercelConfig(config),
+      file.length,
+      preserveKey
+    )
   }
 
   if (USE_S3_STORAGE) {
@@ -114,15 +145,20 @@ export async function downloadFile(options: DownloadFileOptions): Promise<Buffer
   if (context) {
     const config = getStorageConfig(context)
 
-    if (USE_BLOB_STORAGE) {
-      const { downloadFromBlob } = await import('../providers/blob/blob-client')
-      const blobConfig = {
+    if (USE_AZURE_STORAGE) {
+      const { downloadFromAzure } = await import('../providers/azure/azure-client')
+      const azureConfig = {
         containerName: config.containerName!,
         accountName: config.accountName!,
         accountKey: config.accountKey,
         connectionString: config.connectionString,
       }
-      return downloadFromBlob(key, blobConfig)
+      return downloadFromAzure(key, azureConfig)
+    }
+
+    if (USE_VERCEL_STORAGE) {
+      const { downloadFromVercel } = await import('../providers/vercel/vercel-client')
+      return downloadFromVercel(key, createVercelConfig(config))
     }
 
     if (USE_S3_STORAGE) {
@@ -150,15 +186,20 @@ export async function deleteFile(options: DeleteFileOptions): Promise<void> {
   if (context) {
     const config = getStorageConfig(context)
 
-    if (USE_BLOB_STORAGE) {
-      const { deleteFromBlob } = await import('../providers/blob/blob-client')
-      const blobConfig = {
+    if (USE_AZURE_STORAGE) {
+      const { deleteFromAzure } = await import('../providers/azure/azure-client')
+      const azureConfig = {
         containerName: config.containerName!,
         accountName: config.accountName!,
         accountKey: config.accountKey,
         connectionString: config.connectionString,
       }
-      return deleteFromBlob(key, blobConfig)
+      return deleteFromAzure(key, azureConfig)
+    }
+
+    if (USE_VERCEL_STORAGE) {
+      const { deleteFromVercel } = await import('../providers/vercel/vercel-client')
+      return deleteFromVercel(key, createVercelConfig(config))
     }
 
     if (USE_S3_STORAGE) {
@@ -219,8 +260,15 @@ export async function generatePresignedUploadUrl(
     )
   }
 
-  if (USE_BLOB_STORAGE) {
-    return generateBlobPresignedUrl(key, contentType, allMetadata, config, expirationSeconds)
+  if (USE_AZURE_STORAGE) {
+    return generateAzurePresignedUrl(key, contentType, allMetadata, config, expirationSeconds)
+  }
+
+  if (USE_VERCEL_STORAGE) {
+    return {
+      url: '',
+      key,
+    }
   }
 
   throw new Error('Cloud storage not configured. Cannot generate presigned URL for local storage.')
@@ -271,9 +319,9 @@ async function generateS3PresignedUrl(
 }
 
 /**
- * Generate presigned URL for Azure Blob
+ * Generate presigned URL for Azure
  */
-async function generateBlobPresignedUrl(
+async function generateAzurePresignedUrl(
   key: string,
   contentType: string,
   metadata: Record<string, string>,
@@ -285,16 +333,16 @@ async function generateBlobPresignedUrl(
   },
   expirationSeconds: number
 ): Promise<PresignedUrlResponse> {
-  const { getBlobServiceClient } = await import('../providers/blob/blob-client')
+  const { getAzureServiceClient } = await import('../providers/azure/azure-client')
   const { BlobSASPermissions, generateBlobSASQueryParameters, StorageSharedKeyCredential } =
     await import('@azure/storage-blob')
 
   if (!config.containerName) {
-    throw new Error('Blob configuration missing container name')
+    throw new Error('Azure configuration missing container name')
   }
 
-  const blobServiceClient = getBlobServiceClient()
-  const containerClient = blobServiceClient.getContainerClient(config.containerName)
+  const azureServiceClient = getAzureServiceClient()
+  const containerClient = azureServiceClient.getContainerClient(config.containerName)
   const blobClient = containerClient.getBlockBlobClient(key)
 
   const startsOn = new Date()
@@ -318,7 +366,7 @@ async function generateBlobPresignedUrl(
       sharedKeyCredential
     ).toString()
   } else {
-    throw new Error('Azure Blob SAS generation requires accountName and accountKey')
+    throw new Error('Azure SAS generation requires accountName and accountKey')
   }
 
   return {
@@ -394,8 +442,8 @@ export async function generatePresignedDownloadUrl(
     )
   }
 
-  if (USE_BLOB_STORAGE) {
-    const { getPresignedUrlWithConfig } = await import('../providers/blob/blob-client')
+  if (USE_AZURE_STORAGE) {
+    const { getPresignedUrlWithConfig } = await import('../providers/azure/azure-client')
     return getPresignedUrlWithConfig(
       key,
       {
@@ -408,6 +456,11 @@ export async function generatePresignedDownloadUrl(
     )
   }
 
+  if (USE_VERCEL_STORAGE) {
+    const { getDownloadUrlWithConfig } = await import('../providers/vercel/vercel-client')
+    return getDownloadUrlWithConfig(key, createVercelConfig(config), expirationSeconds, context)
+  }
+
   return `/api/files/serve/${encodeURIComponent(key)}`
 }
 
@@ -415,14 +468,15 @@ export async function generatePresignedDownloadUrl(
  * Check if cloud storage is available
  */
 export function hasCloudStorage(): boolean {
-  return USE_BLOB_STORAGE || USE_S3_STORAGE
+  return USE_AZURE_STORAGE || USE_S3_STORAGE || USE_VERCEL_STORAGE
 }
 
 /**
  * Get the current storage provider name
  */
-export function getStorageProviderName(): 'Azure Blob' | 'S3' | 'Local' {
-  if (USE_BLOB_STORAGE) return 'Azure Blob'
-  if (USE_S3_STORAGE) return 'S3'
-  return 'Local'
+export function getStorageProviderName(): StorageProvider {
+  if (USE_AZURE_STORAGE) return 'azure'
+  if (USE_S3_STORAGE) return 's3'
+  if (USE_VERCEL_STORAGE) return 'vercel'
+  return 'local'
 }

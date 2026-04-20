@@ -264,9 +264,9 @@ async function handleExternalUrl(
 
     const {
       S3_EXECUTION_FILES_CONFIG,
-      BLOB_EXECUTION_FILES_CONFIG,
+      AZURE_EXECUTION_FILES_CONFIG,
       USE_S3_STORAGE,
-      USE_BLOB_STORAGE,
+      USE_AZURE_STORAGE,
     } = await import('@/lib/uploads/core/setup')
 
     let isExecutionFile = false
@@ -277,8 +277,8 @@ async function handleExternalUrl(
         const bucketInHost = parsedUrl.hostname.startsWith(S3_EXECUTION_FILES_CONFIG.bucket)
         const bucketInPath = parsedUrl.pathname.startsWith(`/${S3_EXECUTION_FILES_CONFIG.bucket}/`)
         isExecutionFile = bucketInHost || bucketInPath
-      } else if (USE_BLOB_STORAGE && BLOB_EXECUTION_FILES_CONFIG.containerName) {
-        isExecutionFile = url.includes(`/${BLOB_EXECUTION_FILES_CONFIG.containerName}/`)
+      } else if (USE_AZURE_STORAGE && AZURE_EXECUTION_FILES_CONFIG.containerName) {
+        isExecutionFile = url.includes(`/${AZURE_EXECUTION_FILES_CONFIG.containerName}/`)
       }
     } catch (error) {
       logger.warn('Failed to parse URL for execution file check:', error)

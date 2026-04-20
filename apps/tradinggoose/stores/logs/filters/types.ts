@@ -115,7 +115,7 @@ export interface WorkflowLog {
     key: string
     uploadedAt: string
     expiresAt: string
-    storageProvider?: 's3' | 'blob' | 'local'
+    storageProvider?: 's3' | 'azure' | 'vercel' | 'local'
     bucketName?: string
   }>
   cost?: CostMetadata

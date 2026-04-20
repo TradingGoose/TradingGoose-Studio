@@ -1,5 +1,5 @@
 /**
- * Tests for Azure Blob Storage client
+ * Tests for Azure storage client
  *
  * @vitest-environment node
  */
@@ -26,7 +26,7 @@ vi.mock('@azure/storage-blob', () => ({
   },
 }))
 
-describe('Azure Blob Storage Client', () => {
+describe('Azure Storage Client', () => {
   beforeEach(() => {
     vi.resetAllMocks()
     vi.resetModules()
@@ -73,8 +73,8 @@ describe('Azure Blob Storage Client', () => {
       }),
     }))
 
-    vi.doMock('@/lib/uploads/setup', () => ({
-      BLOB_CONFIG: {
+    vi.doMock('@/lib/uploads/core/setup', () => ({
+      AZURE_CONFIG: {
         accountName: 'testaccount',
         accountKey: 'testkey',
         connectionString:
@@ -88,9 +88,9 @@ describe('Azure Blob Storage Client', () => {
     vi.clearAllMocks()
   })
 
-  describe('uploadToBlob', () => {
-    it('should upload a file to Azure Blob Storage', async () => {
-      const { uploadToBlob } = await import('@/lib/uploads/providers/blob/blob-client')
+  describe('uploadToAzure', () => {
+    it('should upload a file to Azure storage', async () => {
+      const { uploadToAzure } = await import('@/lib/uploads/providers/azure/azure-client')
 
       const testBuffer = Buffer.from('test file content')
       const fileName = 'test-file.txt'
@@ -98,7 +98,7 @@ describe('Azure Blob Storage Client', () => {
 
       mockUpload.mockResolvedValueOnce({})
 
-      const result = await uploadToBlob(testBuffer, fileName, contentType)
+      const result = await uploadToAzure(testBuffer, fileName, contentType)
 
       expect(mockUpload).toHaveBeenCalledWith(testBuffer, testBuffer.length, {
         blobHTTPHeaders: {
@@ -111,7 +111,7 @@ describe('Azure Blob Storage Client', () => {
       })
 
       expect(result).toEqual({
-        path: expect.stringContaining('/api/files/serve/blob/'),
+        path: expect.stringContaining('/api/files/serve/azure/'),
         key: expect.stringContaining(fileName.replace(/\s+/g, '-')),
         name: fileName,
         size: testBuffer.length,
@@ -119,8 +119,8 @@ describe('Azure Blob Storage Client', () => {
       })
     })
 
-    it('should handle custom blob configuration', async () => {
-      const { uploadToBlob } = await import('@/lib/uploads/providers/blob/blob-client')
+    it('should handle custom Azure configuration', async () => {
+      const { uploadToAzure } = await import('@/lib/uploads/providers/azure/azure-client')
 
       const testBuffer = Buffer.from('test file content')
       const fileName = 'test-file.txt'
@@ -133,7 +133,7 @@ describe('Azure Blob Storage Client', () => {
 
       mockUpload.mockResolvedValueOnce({})
 
-      const result = await uploadToBlob(testBuffer, fileName, contentType, customConfig)
+      const result = await uploadToAzure(testBuffer, fileName, contentType, customConfig)
 
       expect(mockGetContainerClient).toHaveBeenCalledWith('customcontainer')
       expect(result.name).toBe(fileName)
@@ -141,9 +141,9 @@ describe('Azure Blob Storage Client', () => {
     })
   })
 
-  describe('downloadFromBlob', () => {
-    it('should download a file from Azure Blob Storage', async () => {
-      const { downloadFromBlob } = await import('@/lib/uploads/providers/blob/blob-client')
+  describe('downloadFromAzure', () => {
+    it('should download a file from Azure storage', async () => {
+      const { downloadFromAzure } = await import('@/lib/uploads/providers/azure/azure-client')
 
       const testKey = 'test-file-key'
       const testContent = Buffer.from('downloaded content')
@@ -162,7 +162,7 @@ describe('Azure Blob Storage Client', () => {
         readableStreamBody: mockReadableStream,
       })
 
-      const result = await downloadFromBlob(testKey)
+      const result = await downloadFromAzure(testKey)
 
       expect(mockGetBlockBlobClient).toHaveBeenCalledWith(testKey)
       expect(mockDownload).toHaveBeenCalled()
@@ -170,15 +170,15 @@ describe('Azure Blob Storage Client', () => {
     })
   })
 
-  describe('deleteFromBlob', () => {
-    it('should delete a file from Azure Blob Storage', async () => {
-      const { deleteFromBlob } = await import('@/lib/uploads/providers/blob/blob-client')
+  describe('deleteFromAzure', () => {
+    it('should delete a file from Azure storage', async () => {
+      const { deleteFromAzure } = await import('@/lib/uploads/providers/azure/azure-client')
 
       const testKey = 'test-file-key'
 
       mockDelete.mockResolvedValueOnce({})
 
-      await deleteFromBlob(testKey)
+      await deleteFromAzure(testKey)
 
       expect(mockGetBlockBlobClient).toHaveBeenCalledWith(testKey)
       expect(mockDelete).toHaveBeenCalled()
@@ -186,8 +186,8 @@ describe('Azure Blob Storage Client', () => {
   })
 
   describe('getPresignedUrl', () => {
-    it('should generate a presigned URL for Azure Blob Storage', async () => {
-      const { getPresignedUrl } = await import('@/lib/uploads/providers/blob/blob-client')
+    it('should generate a presigned URL for Azure storage', async () => {
+      const { getPresignedUrl } = await import('@/lib/uploads/providers/azure/azure-client')
 
       const testKey = 'test-file-key'
       const expiresIn = 3600
@@ -212,7 +212,7 @@ describe('Azure Blob Storage Client', () => {
 
     it.each(testCases)('should sanitize "$input" to "$expected"', async ({ input, expected }) => {
       const { sanitizeFilenameForMetadata } = await import(
-        '@/lib/uploads/providers/blob/blob-client'
+        '@/lib/uploads/providers/azure/azure-client'
       )
       expect(sanitizeFilenameForMetadata(input)).toBe(expected)
     })

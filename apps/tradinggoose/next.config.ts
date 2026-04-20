@@ -29,10 +29,19 @@ const nextConfig: NextConfig = {
         protocol: 'https',
         hostname: 'cdn.*.com',
       },
-      // Azure Blob Storage
+      // Azure storage
       {
         protocol: 'https',
         hostname: '*.blob.core.windows.net',
+      },
+      // Vercel Blob
+      {
+        protocol: 'https',
+        hostname: '*.public.blob.vercel-storage.com',
+      },
+      {
+        protocol: 'https',
+        hostname: '*.private.blob.vercel-storage.com',
       },
       // AWS S3
       {

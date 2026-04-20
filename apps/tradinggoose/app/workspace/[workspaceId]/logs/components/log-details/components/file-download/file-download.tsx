@@ -17,7 +17,7 @@ interface FileDownloadProps {
     url: string
     uploadedAt: string
     expiresAt: string
-    storageProvider?: 's3' | 'blob' | 'local'
+    storageProvider?: 's3' | 'azure' | 'vercel' | 'local'
     bucketName?: string
   }
   isExecutionFile?: boolean // Flag to indicate this is an execution file

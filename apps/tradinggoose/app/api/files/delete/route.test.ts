@@ -78,14 +78,14 @@ describe('File Delete API Route', () => {
     })
   })
 
-  it('should handle Azure Blob file deletion successfully', async () => {
+  it('should handle Azure file deletion successfully', async () => {
     setupFileApiMocks({
       cloudEnabled: true,
-      storageProvider: 'blob',
+      storageProvider: 'azure',
     })
 
     const req = createMockRequest('POST', {
-      filePath: '/api/files/serve/blob/1234567890-test-document.pdf',
+      filePath: '/api/files/serve/azure/1234567890-test-document.pdf',
     })
 
     const { POST } = await import('@/app/api/files/delete/route')

@@ -6,13 +6,15 @@ import {
   createErrorResponse,
   createOptionsResponse,
   createSuccessResponse,
-  extractBlobKey,
+  extractAzureKey,
   extractFilename,
   extractS3Key,
+  extractVercelKey,
   InvalidRequestError,
-  isBlobPath,
+  isAzurePath,
   isCloudPath,
   isS3Path,
+  isVercelPath,
 } from '@/app/api/files/utils'
 
 export const dynamic = 'force-dynamic'
@@ -64,15 +66,19 @@ export async function POST(request: NextRequest) {
 }
 
 /**
- * Extract storage key from file path (works for S3, Blob, and local paths)
+ * Extract storage key from file path (works for S3, Azure, Vercel, and local paths)
  */
 function extractStorageKey(filePath: string): string {
   if (isS3Path(filePath)) {
     return extractS3Key(filePath)
   }
 
-  if (isBlobPath(filePath)) {
-    return extractBlobKey(filePath)
+  if (isAzurePath(filePath)) {
+    return extractAzureKey(filePath)
+  }
+
+  if (isVercelPath(filePath)) {
+    return extractVercelKey(filePath)
   }
 
   // Handle "/api/files/serve/<key>" paths

@@ -81,6 +81,7 @@ function safeCreateEnv() {
     CRON_SECRET: z.string().optional(),                  // Secret for authenticating cron job requests
 
     // Cloud Storage - AWS S3
+    STORAGE_PROVIDER: z.enum(['local', 's3', 'azure', 'vercel']).optional(),                  // Explicit storage provider override
     AWS_REGION: z.string().optional(),                  // AWS region for S3 buckets
     AWS_ACCESS_KEY_ID: z.string().optional(),                  // AWS access key ID
     AWS_SECRET_ACCESS_KEY: z.string().optional(),                  // AWS secret access key
@@ -91,7 +92,7 @@ function safeCreateEnv() {
     S3_COPILOT_BUCKET_NAME: z.string().optional(),                  // S3 bucket for copilot files
     S3_PROFILE_PICTURES_BUCKET_NAME: z.string().optional(),                  // S3 bucket for profile pictures
 
-    // Cloud Storage - Azure Blob 
+    // Cloud Storage - Azure 
     AZURE_ACCOUNT_NAME: z.string().optional(),                  // Azure storage account name
     AZURE_ACCOUNT_KEY: z.string().optional(),                  // Azure storage account key
     AZURE_CONNECTION_STRING: z.string().optional(),                  // Azure storage connection string
@@ -101,6 +102,11 @@ function safeCreateEnv() {
     AZURE_STORAGE_CHAT_CONTAINER_NAME: z.string().optional(),                  // Azure container for chat logos
     AZURE_STORAGE_COPILOT_CONTAINER_NAME: z.string().optional(),                  // Azure container for copilot files
     AZURE_STORAGE_PROFILE_PICTURES_CONTAINER_NAME: z.string().optional(),          // Azure container for profile pictures
+
+    // Cloud Storage - Vercel Blob
+    BLOB_READ_WRITE_TOKEN: z.string().optional(),                  // Default Vercel Blob read-write token
+    VERCEL_BLOB_READ_WRITE_TOKEN: z.string().optional(),                  // Custom-named Vercel Blob read-write token
+    VERCEL_BLOB_ACCESS: z.enum(['public', 'private']).optional(),                  // Vercel Blob access mode
 
     // Knowledge Base Processing Configuration - Shared across all processing methods
     KB_CONFIG_MAX_DURATION: z.number().optional().default(600),     // Max processing duration in seconds (10 minutes)

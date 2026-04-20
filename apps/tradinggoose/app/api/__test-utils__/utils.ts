@@ -837,7 +837,7 @@ export function mockEncryption(options: { encryptedValue?: string; decryptedValu
  * Interface for storage provider mock configuration
  */
 export interface StorageProviderMockOptions {
-  provider?: 's3' | 'blob' | 'local'
+  provider?: 's3' | 'azure' | 'vercel' | 'local'
   isCloudEnabled?: boolean
   throwError?: boolean
   errorMessage?: string
@@ -846,7 +846,7 @@ export interface StorageProviderMockOptions {
 }
 
 /**
- * Create storage provider mocks (S3, Blob, Local)
+ * Create storage provider mocks (S3, Azure, Vercel, Local)
  */
 export function createStorageProviderMocks(options: StorageProviderMockOptions = {}) {
   const {
@@ -871,6 +871,15 @@ export function createStorageProviderMocks(options: StorageProviderMockOptions =
   const downloadFileMock = vi.fn().mockResolvedValue(Buffer.from('test content'))
   const deleteFileMock = vi.fn().mockResolvedValue(undefined)
   const hasCloudStorageMock = vi.fn().mockReturnValue(isCloudEnabled)
+  const getStorageConfigMock = vi.fn().mockImplementation(() => ({
+    bucket: provider === 's3' ? 'test-s3-bucket' : undefined,
+    region: provider === 's3' ? 'us-east-1' : undefined,
+    containerName: provider === 'azure' ? 'test-container' : undefined,
+    accountName: provider === 'azure' ? 'testaccount' : undefined,
+    accountKey: provider === 'azure' ? 'testkey' : undefined,
+    token: provider === 'vercel' ? 'vercel-token' : undefined,
+    access: provider === 'vercel' ? 'private' : undefined,
+  }))
 
   const generatePresignedUploadUrlMock = vi.fn().mockImplementation((params: any) => {
     const { fileName, context } = params
@@ -891,7 +900,7 @@ export function createStorageProviderMocks(options: StorageProviderMockOptions =
     }
 
     return Promise.resolve({
-      url: presignedUrl,
+      url: provider === 'vercel' ? '' : presignedUrl,
       key,
       uploadHeaders: uploadHeaders,
     })
@@ -901,6 +910,7 @@ export function createStorageProviderMocks(options: StorageProviderMockOptions =
 
   vi.doMock('@/lib/uploads', () => ({
     getStorageProvider: vi.fn().mockReturnValue(provider),
+    getStorageConfig: getStorageConfigMock,
     isUsingCloudStorage: vi.fn().mockReturnValue(isCloudEnabled),
     StorageService: {
       uploadFile: uploadFileMock,
@@ -937,18 +947,28 @@ export function createStorageProviderMocks(options: StorageProviderMockOptions =
 
   vi.doMock('@/lib/uploads/core/setup', () => ({
     USE_S3_STORAGE: provider === 's3',
-    USE_BLOB_STORAGE: provider === 'blob',
+    USE_AZURE_STORAGE: provider === 'azure',
+    USE_VERCEL_STORAGE: provider === 'vercel',
     USE_LOCAL_STORAGE: provider === 'local',
     getStorageProvider: vi.fn().mockReturnValue(provider),
   }))
 
+  vi.doMock('@/lib/uploads/core/config-resolver', () => ({
+    getStorageConfig: getStorageConfigMock,
+  }))
+
   if (provider === 's3') {
-    vi.doMock('@/lib/uploads/s3/s3-client', () => ({
+    vi.doMock('@/lib/uploads/providers/s3/s3-client', () => ({
       getS3Client: vi.fn().mockReturnValue({}),
       sanitizeFilenameForMetadata: vi.fn((filename) => filename),
     }))
 
-    vi.doMock('@/lib/uploads/setup', () => ({
+    vi.doMock('@/lib/uploads/core/setup', () => ({
+      USE_S3_STORAGE: true,
+      USE_AZURE_STORAGE: false,
+      USE_VERCEL_STORAGE: false,
+      USE_LOCAL_STORAGE: false,
+      getStorageProvider: vi.fn().mockReturnValue(provider),
       S3_CONFIG: {
         bucket: 'test-s3-bucket',
         region: 'us-east-1',
@@ -961,17 +981,17 @@ export function createStorageProviderMocks(options: StorageProviderMockOptions =
         bucket: 'test-s3-chat-bucket',
         region: 'us-east-1',
       },
-      BLOB_CONFIG: {
+      AZURE_CONFIG: {
         accountName: 'testaccount',
         accountKey: 'testkey',
         containerName: 'test-container',
       },
-      BLOB_KB_CONFIG: {
+      AZURE_KB_CONFIG: {
         accountName: 'testaccount',
         accountKey: 'testkey',
         containerName: 'test-kb-container',
       },
-      BLOB_CHAT_CONFIG: {
+      AZURE_CHAT_CONFIG: {
         accountName: 'testaccount',
         accountKey: 'testkey',
         containerName: 'test-chat-container',
@@ -990,7 +1010,7 @@ export function createStorageProviderMocks(options: StorageProviderMockOptions =
         return Promise.resolve(presignedUrl)
       }),
     }))
-  } else if (provider === 'blob') {
+  } else if (provider === 'azure') {
     const baseUrl = 'https://testaccount.blob.core.windows.net/test-container'
     const mockBlockBlobClient = {
       url: baseUrl,
@@ -1007,23 +1027,28 @@ export function createStorageProviderMocks(options: StorageProviderMockOptions =
       }),
     }
 
-    vi.doMock('@/lib/uploads/blob/blob-client', () => ({
-      getBlobServiceClient: vi.fn().mockReturnValue(mockBlobServiceClient),
+    vi.doMock('@/lib/uploads/providers/azure/azure-client', () => ({
+      getAzureServiceClient: vi.fn().mockReturnValue(mockBlobServiceClient),
       sanitizeFilenameForMetadata: vi.fn((filename) => filename),
     }))
 
-    vi.doMock('@/lib/uploads/setup', () => ({
-      BLOB_CONFIG: {
+    vi.doMock('@/lib/uploads/core/setup', () => ({
+      USE_S3_STORAGE: false,
+      USE_AZURE_STORAGE: true,
+      USE_VERCEL_STORAGE: false,
+      USE_LOCAL_STORAGE: false,
+      getStorageProvider: vi.fn().mockReturnValue(provider),
+      AZURE_CONFIG: {
         accountName: 'testaccount',
         accountKey: 'testkey',
         containerName: 'test-container',
       },
-      BLOB_KB_CONFIG: {
+      AZURE_KB_CONFIG: {
         accountName: 'testaccount',
         accountKey: 'testkey',
         containerName: 'test-kb-container',
       },
-      BLOB_CHAT_CONFIG: {
+      AZURE_CHAT_CONFIG: {
         accountName: 'testaccount',
         accountKey: 'testkey',
         containerName: 'test-chat-container',
@@ -1039,12 +1064,23 @@ export function createStorageProviderMocks(options: StorageProviderMockOptions =
       })),
       StorageSharedKeyCredential: vi.fn(),
     }))
+  } else if (provider === 'vercel') {
+    vi.doMock('@vercel/blob', () => ({
+      put: vi.fn(),
+      get: vi.fn(),
+      del: vi.fn(),
+    }))
+
+    vi.doMock('@vercel/blob/client', () => ({
+      upload: vi.fn(),
+      handleUpload: vi.fn(),
+    }))
   }
 
   return {
     provider,
     isCloudEnabled,
-    mockBlobClient: provider === 'blob' ? vi.fn() : undefined,
+    mockAzureClient: provider === 'azure' ? vi.fn() : undefined,
     mockS3Client: provider === 's3' ? vi.fn() : undefined,
   }
 }
@@ -1362,7 +1398,7 @@ export function setupKnowledgeMocks(
 export function setupFileApiMocks(
   options: {
     authenticated?: boolean
-    storageProvider?: 's3' | 'blob' | 'local'
+    storageProvider?: 's3' | 'azure' | 'vercel' | 'local'
     cloudEnabled?: boolean
   } = {}
 ) {
@@ -1405,6 +1441,7 @@ export function setupFileApiMocks(
 
     vi.doMock('@/lib/uploads', () => ({
       getStorageProvider: vi.fn().mockReturnValue('local'),
+      getStorageConfig: vi.fn().mockReturnValue({}),
       isUsingCloudStorage: vi.fn().mockReturnValue(cloudEnabled),
       StorageService: {
         uploadFile: uploadFileMock,
@@ -1534,10 +1571,11 @@ export function mockUploadUtils(
     isUsingCloudStorage: vi.fn().mockReturnValue(isCloudStorage),
   }))
 
-  vi.doMock('@/lib/uploads/setup', () => ({
+  vi.doMock('@/lib/uploads/core/setup', () => ({
     UPLOAD_DIR: '/test/uploads',
     USE_S3_STORAGE: isCloudStorage,
-    USE_BLOB_STORAGE: false,
+    USE_AZURE_STORAGE: false,
+    USE_VERCEL_STORAGE: false,
     ensureUploadsDirectory: vi.fn().mockResolvedValue(true),
     S3_CONFIG: {
       bucket: 'test-bucket',

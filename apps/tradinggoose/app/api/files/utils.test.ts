@@ -35,15 +35,15 @@ describe('extractFilename', () => {
       )
     })
 
-    it('should preserve Azure Blob path structure', () => {
-      expect(extractFilename('/api/files/serve/blob/1234567890-test-document.pdf')).toBe(
-        'blob/1234567890-test-document.pdf'
+    it('should preserve Azure path structure', () => {
+      expect(extractFilename('/api/files/serve/azure/1234567890-test-document.pdf')).toBe(
+        'azure/1234567890-test-document.pdf'
       )
     })
 
-    it('should preserve Blob path with nested folders', () => {
-      expect(extractFilename('/api/files/serve/blob/uploads/user-files/report.xlsx')).toBe(
-        'blob/uploads/user-files/report.xlsx'
+    it('should preserve Azure path with nested folders', () => {
+      expect(extractFilename('/api/files/serve/azure/uploads/user-files/report.xlsx')).toBe(
+        'azure/uploads/user-files/report.xlsx'
       )
     })
   })
@@ -91,8 +91,8 @@ describe('extractFilename', () => {
       )
     })
 
-    it('should sanitize Blob path traversal attempts while preserving structure', () => {
-      expect(extractFilename('/api/files/serve/blob/../system.txt')).toBe('blob/system.txt')
+    it('should sanitize Azure path traversal attempts while preserving structure', () => {
+      expect(extractFilename('/api/files/serve/azure/../system.txt')).toBe('azure/system.txt')
     })
 
     it('should remove leading dots from cloud path segments', () => {
@@ -143,8 +143,8 @@ describe('extractFilename', () => {
       expect(extractFilename('/api/files/serve/s3/1234567890-test-file.txt')).toBe(
         's3/1234567890-test-file.txt'
       )
-      expect(extractFilename('/api/files/serve/blob/1234567890-test-document.pdf')).toBe(
-        'blob/1234567890-test-document.pdf'
+      expect(extractFilename('/api/files/serve/azure/1234567890-test-document.pdf')).toBe(
+        'azure/1234567890-test-document.pdf'
       )
     })
 

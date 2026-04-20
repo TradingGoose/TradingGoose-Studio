@@ -3,7 +3,13 @@ import { mkdir } from 'fs/promises'
 import path, { join } from 'path'
 import { env } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
-import { getStorageProvider, USE_BLOB_STORAGE, USE_S3_STORAGE } from '@/lib/uploads/core/setup'
+import {
+  getStorageProvider,
+  USE_AZURE_STORAGE,
+  USE_LOCAL_STORAGE,
+  USE_S3_STORAGE,
+  USE_VERCEL_STORAGE,
+} from '@/lib/uploads/core/setup'
 
 const logger = createLogger('UploadsSetup')
 
@@ -20,8 +26,13 @@ export async function ensureUploadsDirectory() {
     return true
   }
 
-  if (USE_BLOB_STORAGE) {
-    logger.info('Using Azure Blob storage, skipping local uploads directory creation')
+  if (USE_AZURE_STORAGE) {
+    logger.info('Using Azure storage, skipping local uploads directory creation')
+    return true
+  }
+
+  if (USE_VERCEL_STORAGE) {
+    logger.info('Using Vercel Blob storage, skipping local uploads directory creation')
     return true
   }
 
@@ -45,16 +56,16 @@ if (typeof process !== 'undefined') {
   // Log storage mode
   logger.info(`Storage provider: ${storageProvider}`)
 
-  if (USE_BLOB_STORAGE) {
-    // Verify Azure Blob credentials
+  if (USE_AZURE_STORAGE) {
+    // Verify Azure credentials
     if (!env.AZURE_STORAGE_CONTAINER_NAME) {
-      logger.warn('Azure Blob storage is enabled but AZURE_STORAGE_CONTAINER_NAME is not set')
+      logger.warn('Azure storage is enabled but AZURE_STORAGE_CONTAINER_NAME is not set')
     } else if (!env.AZURE_ACCOUNT_NAME && !env.AZURE_CONNECTION_STRING) {
       logger.warn(
-        'Azure Blob storage is enabled but neither AZURE_ACCOUNT_NAME nor AZURE_CONNECTION_STRING is set'
+        'Azure storage is enabled but neither AZURE_ACCOUNT_NAME nor AZURE_CONNECTION_STRING is set'
       )
       logger.warn(
-        'Set AZURE_ACCOUNT_NAME + AZURE_ACCOUNT_KEY or AZURE_CONNECTION_STRING for Azure Blob storage'
+        'Set AZURE_ACCOUNT_NAME + AZURE_ACCOUNT_KEY or AZURE_CONNECTION_STRING for Azure storage'
       )
     } else if (env.AZURE_ACCOUNT_NAME && !env.AZURE_ACCOUNT_KEY && !env.AZURE_CONNECTION_STRING) {
       logger.warn(
@@ -62,12 +73,21 @@ if (typeof process !== 'undefined') {
       )
       logger.warn('Set AZURE_ACCOUNT_KEY or use AZURE_CONNECTION_STRING for authentication')
     } else {
-      logger.info('Azure Blob storage credentials found in environment variables')
+      logger.info('Azure storage credentials found in environment variables')
       if (env.AZURE_CONNECTION_STRING) {
         logger.info('Using Azure connection string for authentication')
       } else {
         logger.info('Using Azure account name and key for authentication')
       }
+    }
+  } else if (USE_VERCEL_STORAGE) {
+    if (!env.BLOB_READ_WRITE_TOKEN && !env.VERCEL_BLOB_READ_WRITE_TOKEN) {
+      logger.warn(
+        'Vercel Blob storage is enabled but no token was found. Set BLOB_READ_WRITE_TOKEN or VERCEL_BLOB_READ_WRITE_TOKEN.'
+      )
+    } else {
+      logger.info('Vercel Blob storage token found in environment variables')
+      logger.info(`Using Vercel Blob access mode: ${env.VERCEL_BLOB_ACCESS || 'private'}`)
     }
   } else if (USE_S3_STORAGE) {
     // Verify AWS credentials
@@ -80,7 +100,7 @@ if (typeof process !== 'undefined') {
     } else {
       logger.info('AWS S3 credentials found in environment variables')
     }
-  } else {
+  } else if (USE_LOCAL_STORAGE) {
     // Local storage mode
     logger.info('Using local file storage')
 
@@ -95,11 +115,11 @@ if (typeof process !== 'undefined') {
   }
 
   // Log additional configuration details
-  if (USE_BLOB_STORAGE && env.AZURE_STORAGE_KB_CONTAINER_NAME) {
-    logger.info(`Azure Blob knowledge base container: ${env.AZURE_STORAGE_KB_CONTAINER_NAME}`)
+  if (USE_AZURE_STORAGE && env.AZURE_STORAGE_KB_CONTAINER_NAME) {
+    logger.info(`Azure knowledge base container: ${env.AZURE_STORAGE_KB_CONTAINER_NAME}`)
   }
-  if (USE_BLOB_STORAGE && env.AZURE_STORAGE_COPILOT_CONTAINER_NAME) {
-    logger.info(`Azure Blob copilot container: ${env.AZURE_STORAGE_COPILOT_CONTAINER_NAME}`)
+  if (USE_AZURE_STORAGE && env.AZURE_STORAGE_COPILOT_CONTAINER_NAME) {
+    logger.info(`Azure copilot container: ${env.AZURE_STORAGE_COPILOT_CONTAINER_NAME}`)
   }
   if (USE_S3_STORAGE && env.S3_KB_BUCKET_NAME) {
     logger.info(`S3 knowledge base bucket: ${env.S3_KB_BUCKET_NAME}`)

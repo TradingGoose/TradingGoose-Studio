@@ -5,8 +5,10 @@ export * as WorkspaceFiles from '@/lib/uploads/contexts/workspace'
 export { getStorageConfig, type StorageContext } from '@/lib/uploads/core/config-resolver'
 export {
   UPLOAD_DIR,
-  USE_BLOB_STORAGE,
+  USE_AZURE_STORAGE,
+  USE_LOCAL_STORAGE,
   USE_S3_STORAGE,
+  USE_VERCEL_STORAGE,
 } from '@/lib/uploads/core/setup'
 export {
   type CustomStorageConfig,
