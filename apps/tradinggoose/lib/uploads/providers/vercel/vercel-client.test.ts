@@ -61,4 +61,37 @@ describe('vercel-client', () => {
     })
     expect(file.toString()).toBe('hello from blob')
   })
+
+  it('deletes blobs by pathname with the Vercel token', async () => {
+    const delMock = vi.fn().mockResolvedValue(undefined)
+
+    vi.doMock('@vercel/blob', () => ({
+      del: delMock,
+      get: vi.fn(),
+      put: vi.fn(),
+    }))
+    vi.doMock('@/lib/uploads/core/setup', () => ({
+      VERCEL_BLOB_CONFIG: {
+        token: 'blob-token',
+        access: 'private',
+      },
+    }))
+    vi.doMock('@/lib/urls/utils', () => ({
+      getBaseUrl: vi.fn().mockReturnValue('https://app.tradinggoose.ai'),
+    }))
+    vi.doMock('./download-token', () => ({
+      createVercelDownloadToken: vi.fn().mockResolvedValue('download-token'),
+    }))
+
+    const { deleteFromVercel } = await import('@/lib/uploads/providers/vercel/vercel-client')
+
+    await deleteFromVercel('kb/report.pdf', {
+      token: 'blob-token',
+      access: 'private',
+    })
+
+    expect(delMock).toHaveBeenCalledWith('kb/report.pdf', {
+      token: 'blob-token',
+    })
+  })
 })
