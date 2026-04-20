@@ -1,12 +1,8 @@
 import { describe, expect, it } from 'vitest'
-
-async function loadTool() {
-  return import('./get-blocks-and-tools.ts?actual')
-}
+import { getBlocksAndToolsServerTool } from './get-blocks-and-tools'
 
 describe('getBlocksAndToolsServerTool', () => {
   it('lists available blocks with Mermaid contracts instead of schema metadata', async () => {
-    const { getBlocksAndToolsServerTool } = await loadTool()
     const result = await getBlocksAndToolsServerTool.execute({})
 
     expect(result.blocks.length).toBeGreaterThan(0)
@@ -36,7 +32,6 @@ describe('getBlocksAndToolsServerTool', () => {
   })
 
   it('matches mixed capability queries across different built-in blocks', async () => {
-    const { getBlocksAndToolsServerTool } = await loadTool()
     const result = await getBlocksAndToolsServerTool.execute({
       query: 'OHLCV indicator',
     })

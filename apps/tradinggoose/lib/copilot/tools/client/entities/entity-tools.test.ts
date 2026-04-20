@@ -128,7 +128,7 @@ describe('entity document tools', () => {
 
       throw new Error(`Unexpected fetch URL: ${url} (${method})`)
     })
-    globalThis.fetch = fetchMock as typeof fetch
+    vi.stubGlobal('fetch', fetchMock)
 
     const toolCallId = 'list-skills'
     const tool = new ListSkillsClientTool(toolCallId)
@@ -202,7 +202,7 @@ describe('entity document tools', () => {
 
       throw new Error(`Unexpected fetch URL: ${url} (${method})`)
     })
-    globalThis.fetch = fetchMock as typeof fetch
+    vi.stubGlobal('fetch', fetchMock)
 
     const toolCallId = 'get-custom-tool'
     const tool = new GetCustomToolClientTool(toolCallId)
@@ -249,7 +249,7 @@ describe('entity document tools', () => {
 
       throw new Error(`Unexpected fetch URL: ${url} (${method})`)
     })
-    globalThis.fetch = fetchMock as typeof fetch
+    vi.stubGlobal('fetch', fetchMock)
 
     mockEntityFieldState.values = {
       title: 'live-market-tool',
@@ -320,7 +320,7 @@ describe('entity document tools', () => {
 
       throw new Error(`Unexpected fetch URL: ${url} (${method})`)
     })
-    globalThis.fetch = fetchMock as typeof fetch
+    vi.stubGlobal('fetch', fetchMock)
 
     mockEntityFieldState.values = {
       name: 'old-skill',
@@ -408,7 +408,7 @@ describe('entity document tools', () => {
 
       throw new Error(`Unexpected fetch URL: ${url} (${method})`)
     })
-    globalThis.fetch = fetchMock as typeof fetch
+    vi.stubGlobal('fetch', fetchMock)
 
     mockEntityFieldState.values = {
       name: 'draft-skill',
@@ -475,7 +475,7 @@ describe('entity document tools', () => {
 
       throw new Error(`Unexpected fetch URL: ${url} (${method})`)
     })
-    globalThis.fetch = fetchMock as typeof fetch
+    vi.stubGlobal('fetch', fetchMock)
 
     mockEntityFieldState.values = {
       name: 'draft-skill',
@@ -557,7 +557,7 @@ describe('entity document tools', () => {
 
       throw new Error(`Unexpected fetch URL: ${url} (${method})`)
     })
-    globalThis.fetch = fetchMock as typeof fetch
+    vi.stubGlobal('fetch', fetchMock)
 
     mockEntityFieldState.values = {
       name: '',
@@ -639,7 +639,7 @@ describe('entity document tools', () => {
 
       throw new Error(`Unexpected fetch URL: ${url} (${method})`)
     })
-    globalThis.fetch = fetchMock as typeof fetch
+    vi.stubGlobal('fetch', fetchMock)
 
     mockEntityFieldState.values = {
       name: 'old-skill-name',
@@ -722,7 +722,7 @@ describe('entity document tools', () => {
 
       throw new Error(`Unexpected fetch URL: ${url} (${method})`)
     })
-    globalThis.fetch = fetchMock as typeof fetch
+    vi.stubGlobal('fetch', fetchMock)
 
     mockEntitySessionRegistry.session = {
       descriptor: {
