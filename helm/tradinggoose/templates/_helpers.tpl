@@ -223,19 +223,6 @@ Ollama URL
 {{- end }}
 
 {{/*
-Socket Server URL (internal)
-*/}}
-{{- define "tradinggoose.socketServerUrl" -}}
-{{- if .Values.realtime.enabled }}
-{{- $serviceName := printf "%s-realtime" (include "tradinggoose.fullname" .) }}
-{{- $port := .Values.realtime.service.port }}
-{{- printf "http://%s:%v" $serviceName $port }}
-{{- else }}
-{{- .Values.app.env.SOCKET_SERVER_URL | default "http://localhost:3002" }}
-{{- end }}
-{{- end }}
-
-{{/*
 Resource limits and requests
 */}}
 {{- define "tradinggoose.resources" -}}

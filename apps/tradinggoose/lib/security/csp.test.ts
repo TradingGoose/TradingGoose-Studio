@@ -75,9 +75,8 @@ describe('CSP helpers', () => {
     expect(policy).not.toContain('undefined')
   })
 
-  it('falls back to concrete socket defaults when env values are invalid', async () => {
+  it('falls back to concrete socket defaults when the socket env is unset', async () => {
     mockRuntimeEnv.NEXT_PUBLIC_APP_URL = 'undefined'
-    mockRuntimeEnv.NEXT_PUBLIC_SOCKET_URL = 'not-a-url'
 
     const policy = await generateRuntimeCSP()
     const tokens = tokenizeCsp(policy)

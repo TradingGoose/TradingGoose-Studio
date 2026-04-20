@@ -1,14 +1,15 @@
-import * as Y from 'yjs'
 import { WebsocketProvider } from 'y-websocket'
+import * as Y from 'yjs'
 import {
   buildYjsTransportEnvelope,
   serializeYjsTransportEnvelope,
 } from '@/lib/copilot/review-sessions/identity'
 import type {
-  ReviewTargetDescriptor,
   ReviewEntityKind,
+  ReviewTargetDescriptor,
   ReviewTargetRuntimeState,
 } from '@/lib/copilot/review-sessions/types'
+import { getEnv } from '@/lib/env'
 import { seedEntitySession } from '@/lib/yjs/entity-session'
 import { applySnapshotToDoc } from './client'
 
@@ -107,12 +108,11 @@ export async function bootstrapYjsProvider(
       | undefined
 
     resolvedDescriptor = expiredBody?.descriptor ?? descriptor
-    runtime =
-      expiredBody?.runtime ?? {
-        docState: 'expired',
-        replaySafe: false,
-        reseededFromCanonical: false,
-      }
+    runtime = expiredBody?.runtime ?? {
+      docState: 'expired',
+      replaySafe: false,
+      reseededFromCanonical: false,
+    }
 
     seedEntitySession(doc, {
       entityKind: options.draftSeed.entityKind,
@@ -155,11 +155,7 @@ export async function bootstrapYjsProvider(
   let tokenRefreshRetryTimeout: ReturnType<typeof setTimeout> | null = null
 
   const scheduleReconnectWithFreshToken = (currentProvider: WebsocketProvider) => {
-    if (
-      !currentProvider.shouldConnect ||
-      tokenRefreshInFlight ||
-      tokenRefreshRetryTimeout
-    ) {
+    if (!currentProvider.shouldConnect || tokenRefreshInFlight || tokenRefreshRetryTimeout) {
       return
     }
 
@@ -205,14 +201,9 @@ export async function bootstrapYjsProvider(
 }
 
 function getDefaultWsOrigin(): string {
-  if (typeof window !== 'undefined') {
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-    const host = window.location.hostname
-    const port = process.env.NEXT_PUBLIC_SOCKET_PORT || '3002'
-    return `${protocol}//${host}:${port}`
-  }
-
-  return 'ws://localhost:3002'
+  return (getEnv('NEXT_PUBLIC_SOCKET_URL')?.trim() || 'http://localhost:3002')
+    .replace(/^http:\/\//, 'ws://')
+    .replace(/^https:\/\//, 'wss://')
 }
 
 export class YjsExpiredDraftError extends Error {
