@@ -145,18 +145,16 @@ export const DataChartCandleTypeDropdown = ({
     <DropdownMenu modal={false}>
       <Tooltip>
         <TooltipTrigger asChild>
-          <span className='inline-flex'>
-            <DropdownMenuTrigger asChild>
-              <button type='button' className={widgetHeaderIconButtonClassName()}>
-                {SelectedIcon ? (
-                  <SelectedIcon className='h-3.5 w-3.5' />
-                ) : (
-                  <CandlestickChart className='h-3.5 w-3.5' />
-                )}
-                <span className='sr-only'>Candle style</span>
-              </button>
-            </DropdownMenuTrigger>
-          </span>
+          <DropdownMenuTrigger asChild>
+            <button type='button' className={widgetHeaderIconButtonClassName()}>
+              {SelectedIcon ? (
+                <SelectedIcon className='h-3.5 w-3.5' />
+              ) : (
+                <CandlestickChart className='h-3.5 w-3.5' />
+              )}
+              <span className='sr-only'>Candle style</span>
+            </button>
+          </DropdownMenuTrigger>
         </TooltipTrigger>
         <TooltipContent side='top'>Candle style</TooltipContent>
       </Tooltip>

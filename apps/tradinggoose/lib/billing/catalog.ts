@@ -1,8 +1,8 @@
 import {
-  type PublicBillingCatalog,
-  type PublicBillingTierDisplay,
   GENERIC_ENTERPRISE_PLACEHOLDER_DESCRIPTION,
   GENERIC_ENTERPRISE_PLACEHOLDER_FEATURES,
+  type PublicBillingCatalog,
+  type PublicBillingTierDisplay,
 } from '@/lib/billing/public-catalog'
 import { getResolvedBillingSettings } from '@/lib/billing/settings'
 import type { BillingTierRecord } from '@/lib/billing/tiers'
@@ -29,7 +29,10 @@ function toTierDisplay(tier: BillingTierRecord): PublicBillingTierDisplay {
 
 export async function getPublicBillingCatalog(): Promise<PublicBillingCatalog> {
   const [settings, publicTiers, hiddenEnterpriseTier] = await Promise.all([
-    getResolvedBillingSettings(),
+    getResolvedBillingSettings().catch(() => ({
+      billingEnabled: false,
+      enterpriseContactUrl: null,
+    })),
     getPublicBillingTiers(),
     getHiddenEnterprisePlaceholderTier(),
   ])
