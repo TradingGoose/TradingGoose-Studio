@@ -352,7 +352,7 @@ export function TemplateCard({
           return
         }
 
-        const workflowUrl = `/workspace/${params.workspaceId}/w/${data.workflowId}`
+        const workflowUrl = `/workspace/${params.workspaceId as string}/dashboard`
         logger.info('Template used successfully, navigating to:', workflowUrl)
 
         // Call the callback if provided (for closing modals, etc.)

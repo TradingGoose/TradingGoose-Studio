@@ -209,11 +209,6 @@ const WorkflowListWidgetBody = ({
     return regularWorkflows[0]?.id ?? null
   }, [selectedWorkflowId, activeWorkflowId, regularWorkflows, workspaceId, workflows])
 
-  const syntheticPathname =
-    workspaceId && effectiveActiveWorkflowId
-      ? `/workspace/${workspaceId}/w/${effectiveActiveWorkflowId}`
-      : ''
-
   const handleCreateWorkflow = useCallback(
     async (folderId?: string) => {
       if (!workspaceId) {
@@ -296,7 +291,6 @@ const WorkflowListWidgetBody = ({
             onCreateWorkflow={handleCreateWorkflow}
             workspaceIdOverride={workspaceId}
             workflowIdOverride={effectiveActiveWorkflowId}
-            pathnameOverride={syntheticPathname}
             onWorkflowSelect={handleWorkflowSelect}
             disableNavigation
           />
