@@ -44,9 +44,8 @@ export async function handleSubscriptionCreated(
 
     const wasFreePreviously = otherActiveSubscriptions.length === 0
     const isPaidPlan = isPaidBillingTier(subscriptionData.tier)
-    const isPersonalSubscribedTransition =
-      wasFreePreviously && subscriptionData.referenceType === 'user'
-    const shouldResetUsage = isPersonalSubscribedTransition || (wasFreePreviously && isPaidPlan)
+    const isPersonalDefaultPathExit = wasFreePreviously && subscriptionData.referenceType === 'user'
+    const shouldResetUsage = isPersonalDefaultPathExit || (wasFreePreviously && isPaidPlan)
 
     if (shouldResetUsage) {
       logger.info('Detected free/default -> subscribed transition, resetting usage', {
@@ -56,7 +55,10 @@ export async function handleSubscriptionCreated(
         billingTier: subscriptionData.tier?.displayName,
       })
 
-      if (isPersonalSubscribedTransition) {
+      if (isPersonalDefaultPathExit) {
+        // Leaving the default personal path settles already-consumed onboarding credit before
+        // resetting the period ledger. This applies to paid upgrades too because cancellation
+        // falls back to the default tier.
         await decrementGrantedOnboardingAllowanceByCurrentPeriodUsage(subscriptionData.referenceId)
       } else {
         await resetUsageForSubscription({

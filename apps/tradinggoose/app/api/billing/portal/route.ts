@@ -8,6 +8,7 @@ import { BILLING_DISABLED_ERROR, getBillingGateState } from '@/lib/billing/setti
 import { requireStripeClient } from '@/lib/billing/stripe-client'
 import {
   createStripeUserCustomer,
+  getStripeUserCustomerReplacementIdempotencyKey,
   isDeletedStripeCustomer,
   isMissingStripeCustomerError,
 } from '@/lib/billing/stripe-customers'
@@ -91,6 +92,8 @@ export async function POST(request: NextRequest) {
           return NextResponse.json({ error: 'User not found' }, { status: 404 })
         }
 
+        let replacementCustomerId: string | null = null
+
         if (userRecord.customer) {
           try {
             const existingCustomer = await stripe.customers.retrieve(userRecord.customer)
@@ -103,6 +106,7 @@ export async function POST(request: NextRequest) {
               userId: session.user.id,
               stripeCustomerId: userRecord.customer,
             })
+            replacementCustomerId = userRecord.customer
           } catch (error) {
             if (!isMissingStripeCustomerError(error)) {
               logger.warn(
@@ -121,14 +125,24 @@ export async function POST(request: NextRequest) {
               stripeCustomerId: userRecord.customer,
               error,
             })
+            replacementCustomerId = userRecord.customer
           }
         }
 
-        const stripeCustomer = await createStripeUserCustomer(stripe, {
-          email: userRecord.email,
-          name: userRecord.name,
-          userId: session.user.id,
-        })
+        const stripeCustomer = await createStripeUserCustomer(
+          stripe,
+          {
+            email: userRecord.email,
+            name: userRecord.name,
+            userId: session.user.id,
+          },
+          replacementCustomerId
+            ? getStripeUserCustomerReplacementIdempotencyKey(
+                session.user.id,
+                replacementCustomerId
+              )
+            : undefined
+        )
 
         await tx
           .update(user)

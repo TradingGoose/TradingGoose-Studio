@@ -8,13 +8,24 @@ export function getStripeUserCustomerCreateIdempotencyKey(userId: string) {
   return `auth-signup:user-customer:${hashedUserId}`
 }
 
+export function getStripeUserCustomerReplacementIdempotencyKey(
+  userId: string,
+  staleCustomerId: string
+) {
+  const hashedReplacementTarget = createHash('sha256')
+    .update(`${userId}:${staleCustomerId}`)
+    .digest('hex')
+  return `billing-portal:user-customer-replacement:${hashedReplacementTarget}`
+}
+
 export async function createStripeUserCustomer(
   stripe: StripeCustomerCreateClient,
   params: {
     email: string
     name: string
     userId: string
-  }
+  },
+  idempotencyKey: string = getStripeUserCustomerCreateIdempotencyKey(params.userId)
 ) {
   return stripe.customers.create(
     {
@@ -26,7 +37,7 @@ export async function createStripeUserCustomer(
       },
     },
     {
-      idempotencyKey: getStripeUserCustomerCreateIdempotencyKey(params.userId),
+      idempotencyKey,
     }
   )
 }

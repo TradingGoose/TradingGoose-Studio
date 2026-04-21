@@ -42,9 +42,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       )
     }
 
-    const validationError = validateAdminBillingTierInput(parsed.data, {
-      requireStripeMonthlyPriceId: true,
-    })
+    const validationError = validateAdminBillingTierInput(parsed.data)
     if (validationError) {
       return NextResponse.json({ error: validationError }, { status: 400 })
     }

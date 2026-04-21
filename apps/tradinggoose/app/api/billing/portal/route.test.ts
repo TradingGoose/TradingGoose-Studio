@@ -255,7 +255,19 @@ describe('/api/billing/portal route', () => {
     expect(response.status).toBe(200)
     expect(payload.url).toBe('https://billing.stripe.test/session')
     expect(mockStripeCustomersRetrieve).toHaveBeenCalledWith('cus_stale')
-    expect(mockStripeCustomersCreate).toHaveBeenCalledOnce()
+    expect(mockStripeCustomersCreate).toHaveBeenCalledWith(
+      {
+        email: 'user@example.com',
+        name: 'Portal User',
+        metadata: {
+          userId: 'user-1',
+          customerType: 'user',
+        },
+      },
+      {
+        idempotencyKey: `billing-portal:user-customer-replacement:${createHash('sha256').update('user-1:cus_stale').digest('hex')}`,
+      }
+    )
     expect(userUpdates).toEqual([
       expect.objectContaining({
         stripeCustomerId: 'cus_user_123',
