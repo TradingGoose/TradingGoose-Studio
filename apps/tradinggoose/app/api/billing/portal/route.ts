@@ -1,17 +1,12 @@
 import { db } from '@tradinggoose/db'
-import { subscription as subscriptionTable, user } from '@tradinggoose/db/schema'
+import { subscription as subscriptionTable } from '@tradinggoose/db/schema'
 import { and, eq, inArray, or, sql } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
 import { isOrganizationOwnerOrAdmin } from '@/lib/billing/core/organization'
 import { BILLING_DISABLED_ERROR, getBillingGateState } from '@/lib/billing/settings'
 import { requireStripeClient } from '@/lib/billing/stripe-client'
-import {
-  createStripeUserCustomer,
-  getStripeUserCustomerReplacementIdempotencyKey,
-  isDeletedStripeCustomer,
-  isMissingStripeCustomerError,
-} from '@/lib/billing/stripe-customers'
+import { ensureStripeUserCustomer } from '@/lib/billing/stripe-customers'
 import { BILLING_ACTIVE_SUBSCRIPTION_STATUSES } from '@/lib/billing/subscriptions/utils'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getBaseUrl } from '@/lib/urls/utils'
@@ -72,99 +67,23 @@ export async function POST(request: NextRequest) {
 
       stripeCustomerId = rows.length > 0 ? rows[0].customer || null : null
     } else {
-      const userStripeCustomer = await db.transaction(async (tx) => {
+      const personalStripeCustomer = await db.transaction(async (tx) => {
         await tx.execute(
           sql`select pg_advisory_xact_lock(${BILLING_PORTAL_CUSTOMER_LOCK_NAMESPACE}, hashtext(${session.user.id}))`
         )
 
-        const rows = await tx
-          .select({
-            customer: user.stripeCustomerId,
-            email: user.email,
-            name: user.name,
-          })
-          .from(user)
-          .where(eq(user.id, session.user.id))
-          .limit(1)
-
-        const userRecord = rows[0]
-        if (!userRecord) {
-          return NextResponse.json({ error: 'User not found' }, { status: 404 })
-        }
-
-        let replacementCustomerId: string | null = null
-
-        if (userRecord.customer) {
-          try {
-            const existingCustomer = await stripe.customers.retrieve(userRecord.customer)
-
-            if (!isDeletedStripeCustomer(existingCustomer)) {
-              return userRecord.customer
-            }
-
-            logger.warn('Stored personal Stripe customer is deleted; recreating', {
-              userId: session.user.id,
-              stripeCustomerId: userRecord.customer,
-            })
-            replacementCustomerId = userRecord.customer
-          } catch (error) {
-            if (!isMissingStripeCustomerError(error)) {
-              logger.warn(
-                'Stored personal Stripe customer lookup failed; keeping existing mapping',
-                {
-                  userId: session.user.id,
-                  stripeCustomerId: userRecord.customer,
-                  error,
-                }
-              )
-              throw error
-            }
-
-            logger.warn('Stored personal Stripe customer is missing; recreating', {
-              userId: session.user.id,
-              stripeCustomerId: userRecord.customer,
-              error,
-            })
-            replacementCustomerId = userRecord.customer
-          }
-        }
-
-        const stripeCustomer = await createStripeUserCustomer(
-          stripe,
-          {
-            email: userRecord.email,
-            name: userRecord.name,
-            userId: session.user.id,
-          },
-          replacementCustomerId
-            ? getStripeUserCustomerReplacementIdempotencyKey(
-                session.user.id,
-                replacementCustomerId
-              )
-            : undefined
-        )
-
-        await tx
-          .update(user)
-          .set({
-            stripeCustomerId: stripeCustomer.id,
-            updatedAt: new Date(),
-          })
-          .where(eq(user.id, session.user.id))
-
-        logger.info('Ensured Stripe customer for personal billing portal access', {
+        return ensureStripeUserCustomer(stripe, {
+          dbClient: tx,
+          logger,
           userId: session.user.id,
-          stripeCustomerId: stripeCustomer.id,
         })
-
-        return stripeCustomer.id
       })
 
-      if (userStripeCustomer instanceof NextResponse) {
-        return userStripeCustomer
+      if (!personalStripeCustomer) {
+        return NextResponse.json({ error: 'User not found' }, { status: 404 })
       }
 
-      stripeCustomerId = userStripeCustomer
+      stripeCustomerId = personalStripeCustomer.id
     }
 
     if (!stripeCustomerId) {

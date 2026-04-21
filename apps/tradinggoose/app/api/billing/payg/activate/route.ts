@@ -1,5 +1,5 @@
 import { db } from '@tradinggoose/db'
-import { subscription, user } from '@tradinggoose/db/schema'
+import { subscription } from '@tradinggoose/db/schema'
 import { eq, sql } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
@@ -8,8 +8,8 @@ import { syncSubscriptionUsageLimits } from '@/lib/billing/organization'
 import { BILLING_DISABLED_ERROR, getBillingGateState } from '@/lib/billing/settings'
 import { requireStripeClient } from '@/lib/billing/stripe-client'
 import {
+  ensureStripeUserCustomer,
   getStripeCustomerDefaultPaymentMethodId,
-  isDeletedStripeCustomer,
 } from '@/lib/billing/stripe-customers'
 import { BILLING_ACTIVE_SUBSCRIPTION_STATUSES } from '@/lib/billing/subscriptions/utils'
 import { type BillingTierRecord, isFreeBillingTier } from '@/lib/billing/tiers'
@@ -97,17 +97,6 @@ export async function POST() {
         })
       }
 
-      const userRows = await tx
-        .select({ stripeCustomerId: user.stripeCustomerId })
-        .from(user)
-        .where(eq(user.id, session.user.id))
-        .limit(1)
-
-      const stripeCustomerId = userRows[0]?.stripeCustomerId ?? null
-      if (!stripeCustomerId) {
-        return NextResponse.json({ error: 'Stripe customer not found' }, { status: 409 })
-      }
-
       const activationAttemptId =
         getPaygActivationAttemptId(currentSubscription.metadata) ?? crypto.randomUUID()
 
@@ -126,7 +115,6 @@ export async function POST() {
       return {
         activationAttemptId,
         currentSubscription,
-        stripeCustomerId,
       }
     })
 
@@ -134,25 +122,17 @@ export async function POST() {
       return activationState
     }
 
-    let customer
+    const customer = await ensureStripeUserCustomer(stripe, {
+      logger,
+      userId: session.user.id,
+    })
 
-    try {
-      customer = await stripe.customers.retrieve(activationState.stripeCustomerId)
-    } catch (error) {
-      logger.warn('Failed to retrieve Stripe customer during PAYG activation', {
-        userId: session.user.id,
-        stripeCustomerId: activationState.stripeCustomerId,
-        error,
-      })
-      return NextResponse.json({ error: 'Stripe customer not found' }, { status: 409 })
-    }
-
-    if (isDeletedStripeCustomer(customer)) {
-      return NextResponse.json({ error: 'Stripe customer not found' }, { status: 409 })
+    if (!customer) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
     const existingStripeSubscriptions = await stripe.subscriptions.list({
-      customer: activationState.stripeCustomerId,
+      customer: customer.id,
       status: 'all',
       limit: 100,
     })
@@ -169,7 +149,7 @@ export async function POST() {
       logger.warn('Recovered pre-existing Stripe subscription during PAYG activation retry', {
         userId: session.user.id,
         subscriptionId: activationState.currentSubscription.id,
-        stripeCustomerId: activationState.stripeCustomerId,
+        stripeCustomerId: customer.id,
         stripeSubscriptionId: existingStripeSubscription.id,
         stripeStatus: existingStripeSubscription.status,
       })
@@ -185,7 +165,7 @@ export async function POST() {
       (await stripe.subscriptions
         .create(
           {
-            customer: activationState.stripeCustomerId,
+            customer: customer.id,
             default_payment_method: defaultPaymentMethodId ?? undefined,
             items: [{ price: activationState.currentSubscription.tier.stripeMonthlyPriceId! }],
             metadata: {
@@ -212,7 +192,7 @@ export async function POST() {
             logger.warn('Stripe rejected PAYG activation before subscription became active', {
               userId: session.user.id,
               subscriptionId: activationState.currentSubscription.id,
-              stripeCustomerId: activationState.stripeCustomerId,
+              stripeCustomerId: customer.id,
               type: stripeError.type,
               code: stripeError.code,
               message: stripeError.message,
@@ -320,7 +300,7 @@ export async function POST() {
         .set({
           plan: activationState.currentSubscription.tier.id,
           billingTierId: activationState.currentSubscription.tier.id,
-          stripeCustomerId: activationState.stripeCustomerId,
+          stripeCustomerId: customer.id,
           stripeSubscriptionId: stripeSubscription.id,
           status: stripeSubscription.status,
           periodStart,

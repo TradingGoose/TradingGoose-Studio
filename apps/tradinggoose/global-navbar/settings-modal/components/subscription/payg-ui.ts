@@ -1,3 +1,8 @@
+export type PaygActivationErrorPayload = {
+  error?: string
+  code?: string | null
+}
+
 export type PersonalPaygPrimaryAction =
   | 'resolve_payment'
   | 'add_payment_method'
@@ -5,17 +10,7 @@ export type PersonalPaygPrimaryAction =
   | 'increase_limit'
   | 'manage_billing'
 
-interface PersonalPaygUiStateParams {
-  billingBlocked: boolean
-  hasPaymentMethodOnFile: boolean
-  hasStripeSubscription: boolean
-  hasStripeMonthlyPriceId: boolean
-  subscriptionStatus: string | null | undefined
-  canEditUsageLimit: boolean
-  tierCanEditUsageLimit: boolean
-}
-
-interface PersonalPaygUiState {
+export type PersonalPaygUiState = {
   badgeText: string
   primaryAction: PersonalPaygPrimaryAction
   showBadge: boolean
@@ -29,9 +24,15 @@ const PAYMENT_RESOLUTION_STATUSES = new Set([
   'unpaid',
 ])
 
-export function getPersonalPaygUiState(
-  params: PersonalPaygUiStateParams
-): PersonalPaygUiState {
+export function getPersonalPaygUiState(params: {
+  billingBlocked: boolean
+  hasPaymentMethodOnFile: boolean
+  hasStripeSubscription: boolean
+  hasStripeMonthlyPriceId: boolean
+  subscriptionStatus: string | null | undefined
+  canEditUsageLimit: boolean
+  tierCanEditUsageLimit: boolean
+}): PersonalPaygUiState {
   const showBadge = params.tierCanEditUsageLimit || params.hasStripeMonthlyPriceId
   const needsPaymentResolution =
     params.billingBlocked || PAYMENT_RESOLUTION_STATUSES.has(params.subscriptionStatus ?? '')
@@ -78,4 +79,13 @@ export function getPersonalPaygUiState(
     showBadge,
     showUsageLimitControl: false,
   }
+}
+
+export function shouldOpenBillingPortalForPaygActivationError(
+  status: number,
+  payload: PaygActivationErrorPayload | null | undefined
+): boolean {
+  return (
+    status === 402 || (status === 409 && payload?.error === 'No default payment method on file')
+  )
 }

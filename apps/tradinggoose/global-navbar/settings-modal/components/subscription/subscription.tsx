@@ -21,10 +21,10 @@ import { useGeneralStore } from '@/stores/settings/general/store'
 import { UsageHeader } from '../shared/usage-header'
 import { PlanCard, UsageLimit, type UsageLimitRef, WorkspaceBillingOwnerEditor } from './components'
 import {
+  getPersonalPaygUiState,
   type PaygActivationErrorPayload,
   shouldOpenBillingPortalForPaygActivationError,
-} from './payg-activation-recovery'
-import { getPersonalPaygUiState } from './personal-payg-state'
+} from './payg-ui'
 import { toPlanFeatures } from './plan-configs'
 import { getSubscriptionSurfaceState } from './subscription-permissions'
 

@@ -1,7 +1,28 @@
 import { createHash } from 'node:crypto'
+import { db } from '@tradinggoose/db'
+import { user } from '@tradinggoose/db/schema'
+import { eq } from 'drizzle-orm'
 import type Stripe from 'stripe'
 
-type StripeCustomerCreateClient = Pick<Stripe, 'customers'>
+type StripeCustomerCreateClient = {
+  customers: Pick<Stripe.CustomersResource, 'create'>
+}
+type StripeCustomerClient = {
+  customers: Pick<Stripe.CustomersResource, 'create' | 'retrieve'>
+}
+type StripeUserCustomerRecord = {
+  stripeCustomerId: string | null
+  email: string
+  name: string
+}
+type StripeUserCustomerDbClient = {
+  select: any
+  update: any
+}
+type StripeUserCustomerLogger = {
+  info?: (message: string, payload?: Record<string, unknown>) => void
+  warn?: (message: string, payload?: Record<string, unknown>) => void
+}
 
 export function getStripeUserCustomerCreateIdempotencyKey(userId: string) {
   const hashedUserId = createHash('sha256').update(userId).digest('hex')
@@ -15,6 +36,8 @@ export function getStripeUserCustomerReplacementIdempotencyKey(
   const hashedReplacementTarget = createHash('sha256')
     .update(`${userId}:${staleCustomerId}`)
     .digest('hex')
+  // Preserve the historical namespace so retries reuse the same Stripe idempotency key
+  // across portal-initiated and shared-helper replacement flows.
   return `billing-portal:user-customer-replacement:${hashedReplacementTarget}`
 }
 
@@ -40,6 +63,92 @@ export async function createStripeUserCustomer(
       idempotencyKey,
     }
   )
+}
+
+export async function ensureStripeUserCustomer(
+  stripe: StripeCustomerClient,
+  params: {
+    userId: string
+    dbClient?: StripeUserCustomerDbClient
+    logger?: StripeUserCustomerLogger
+  }
+): Promise<Stripe.Customer | null> {
+  const dbClient = params.dbClient ?? db
+  const rows = (await dbClient
+    .select({
+      stripeCustomerId: user.stripeCustomerId,
+      email: user.email,
+      name: user.name,
+    })
+    .from(user)
+    .where(eq(user.id, params.userId))
+    .limit(1)) as StripeUserCustomerRecord[]
+
+  const userRecord = rows[0]
+  if (!userRecord) {
+    return null
+  }
+
+  let replacementCustomerId: string | null = null
+
+  if (userRecord.stripeCustomerId) {
+    try {
+      const existingCustomer = await stripe.customers.retrieve(userRecord.stripeCustomerId)
+
+      if (!isDeletedStripeCustomer(existingCustomer)) {
+        return existingCustomer
+      }
+
+      params.logger?.warn?.('Stored personal Stripe customer is deleted; recreating', {
+        userId: params.userId,
+        stripeCustomerId: userRecord.stripeCustomerId,
+      })
+      replacementCustomerId = userRecord.stripeCustomerId
+    } catch (error) {
+      if (!isMissingStripeCustomerError(error)) {
+        params.logger?.warn?.('Stored personal Stripe customer lookup failed; keeping mapping', {
+          userId: params.userId,
+          stripeCustomerId: userRecord.stripeCustomerId,
+          error,
+        })
+        throw error
+      }
+
+      params.logger?.warn?.('Stored personal Stripe customer is missing; recreating', {
+        userId: params.userId,
+        stripeCustomerId: userRecord.stripeCustomerId,
+        error,
+      })
+      replacementCustomerId = userRecord.stripeCustomerId
+    }
+  }
+
+  const stripeCustomer = await createStripeUserCustomer(
+    stripe,
+    {
+      email: userRecord.email,
+      name: userRecord.name,
+      userId: params.userId,
+    },
+    replacementCustomerId
+      ? getStripeUserCustomerReplacementIdempotencyKey(params.userId, replacementCustomerId)
+      : undefined
+  )
+
+  await dbClient
+    .update(user)
+    .set({
+      stripeCustomerId: stripeCustomer.id,
+      updatedAt: new Date(),
+    })
+    .where(eq(user.id, params.userId))
+
+  params.logger?.info?.('Ensured personal Stripe customer', {
+    userId: params.userId,
+    stripeCustomerId: stripeCustomer.id,
+  })
+
+  return stripeCustomer
 }
 
 export function getStripeCustomerDefaultPaymentMethodId(

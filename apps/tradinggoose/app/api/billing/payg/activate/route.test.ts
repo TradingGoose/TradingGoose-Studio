@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const {
   mockEnsureDefaultUserSubscription,
+  mockEnsureStripeUserCustomer,
   mockEq,
   mockExecute,
   mockGetBillingGateState,
@@ -14,13 +15,13 @@ const {
   mockRequireStripeClient,
   mockRandomUUID,
   mockSql,
-  mockStripeCustomersRetrieve,
-  mockStripeSubscriptionsList,
   mockStripeSubscriptionsCreate,
+  mockStripeSubscriptionsList,
   mockHandleSubscriptionCreated,
   mockSyncSubscriptionUsageLimits,
 } = vi.hoisted(() => ({
   mockEnsureDefaultUserSubscription: vi.fn(),
+  mockEnsureStripeUserCustomer: vi.fn(),
   mockEq: vi.fn((field: unknown, value: unknown) => ({ field, value })),
   mockExecute: vi.fn(),
   mockGetBillingGateState: vi.fn(),
@@ -35,9 +36,8 @@ const {
     strings,
     values,
   })),
-  mockStripeCustomersRetrieve: vi.fn(),
-  mockStripeSubscriptionsList: vi.fn(),
   mockStripeSubscriptionsCreate: vi.fn(),
+  mockStripeSubscriptionsList: vi.fn(),
   mockHandleSubscriptionCreated: vi.fn(),
   mockSyncSubscriptionUsageLimits: vi.fn(),
 }))
@@ -46,29 +46,10 @@ const subscriptionTable = {
   id: 'subscription.id',
 }
 
-const userTable = {
-  id: 'user.id',
-  stripeCustomerId: 'user.stripeCustomerId',
-}
-
-let userRows: Array<{ stripeCustomerId: string | null }> = []
 let subscriptionUpdates: Array<{ table: unknown; values: Record<string, unknown> }> = []
 
 const mockTx = {
   execute: mockExecute,
-  select: vi.fn(() => ({
-    from: vi.fn((table) => ({
-      where: vi.fn(() => ({
-        limit: vi.fn(() => {
-          if (table === userTable) {
-            return Promise.resolve(userRows)
-          }
-
-          return Promise.resolve([])
-        }),
-      })),
-    })),
-  })),
   update: vi.fn((table) => ({
     set: vi.fn((values) => ({
       where: vi.fn(async () => {
@@ -80,19 +61,6 @@ const mockTx = {
 }
 
 const mockDb = {
-  select: vi.fn(() => ({
-    from: vi.fn((table) => ({
-      where: vi.fn(() => ({
-        limit: vi.fn(() => {
-          if (table === userTable) {
-            return Promise.resolve(userRows)
-          }
-
-          return Promise.resolve([])
-        }),
-      })),
-    })),
-  })),
   update: vi.fn((table) => ({
     set: vi.fn((values) => ({
       where: vi.fn(async () => {
@@ -110,7 +78,6 @@ vi.mock('@tradinggoose/db', () => ({
 
 vi.mock('@tradinggoose/db/schema', () => ({
   subscription: subscriptionTable,
-  user: userTable,
 }))
 
 vi.mock('drizzle-orm', () => ({
@@ -138,6 +105,17 @@ vi.mock('@/lib/billing/settings', () => ({
 vi.mock('@/lib/billing/stripe-client', () => ({
   requireStripeClient: mockRequireStripeClient,
 }))
+
+vi.mock('@/lib/billing/stripe-customers', async () => {
+  const actual = await vi.importActual<typeof import('@/lib/billing/stripe-customers')>(
+    '@/lib/billing/stripe-customers'
+  )
+
+  return {
+    ...actual,
+    ensureStripeUserCustomer: mockEnsureStripeUserCustomer,
+  }
+})
 
 vi.mock('@/lib/billing/subscriptions/utils', () => ({
   BILLING_ACTIVE_SUBSCRIPTION_STATUSES: ['active', 'trialing'],
@@ -191,6 +169,16 @@ function buildCurrentSubscription(overrides: Record<string, unknown> = {}) {
       stripeMonthlyPriceId: 'price_payg',
       monthlyPriceUsd: 0,
       yearlyPriceUsd: 0,
+    },
+    ...overrides,
+  }
+}
+
+function buildStripeCustomer(overrides: Record<string, unknown> = {}) {
+  return {
+    id: 'cus_123',
+    invoice_settings: {
+      default_payment_method: 'pm_123',
     },
     ...overrides,
   }
@@ -267,18 +255,30 @@ function expectPersistedStripeSubscriptionUpdate(stripeSubscriptionId: string) {
 }
 
 describe('/api/billing/payg/activate route', () => {
+  let stripeClient: {
+    subscriptions: {
+      list: typeof mockStripeSubscriptionsList
+      create: typeof mockStripeSubscriptionsCreate
+    }
+  }
+
   beforeEach(() => {
     vi.clearAllMocks()
     vi.resetModules()
 
-    userRows = [{ stripeCustomerId: 'cus_123' }]
     subscriptionUpdates = []
     mockRandomUUID.mockReset()
     mockRandomUUID.mockReturnValue('attempt-1')
     mockExecute.mockReset()
     mockTx.execute.mockClear()
-    mockTx.select.mockClear()
     mockTx.update.mockClear()
+
+    stripeClient = {
+      subscriptions: {
+        list: mockStripeSubscriptionsList,
+        create: mockStripeSubscriptionsCreate,
+      },
+    }
 
     mockGetSession.mockResolvedValue({
       user: { id: 'user-1' },
@@ -288,21 +288,8 @@ describe('/api/billing/payg/activate route', () => {
       stripeConfigured: true,
     })
     mockEnsureDefaultUserSubscription.mockResolvedValue(buildCurrentSubscription())
-    mockRequireStripeClient.mockReturnValue({
-      customers: {
-        retrieve: mockStripeCustomersRetrieve,
-      },
-      subscriptions: {
-        list: mockStripeSubscriptionsList,
-        create: mockStripeSubscriptionsCreate,
-      },
-    })
-    mockStripeCustomersRetrieve.mockResolvedValue({
-      id: 'cus_123',
-      invoice_settings: {
-        default_payment_method: 'pm_123',
-      },
-    })
+    mockEnsureStripeUserCustomer.mockResolvedValue(buildStripeCustomer())
+    mockRequireStripeClient.mockReturnValue(stripeClient)
     mockStripeSubscriptionsList.mockResolvedValue({
       data: [],
     })
@@ -353,6 +340,7 @@ describe('/api/billing/payg/activate route', () => {
     expect(payload.error).toBe(
       'Current billing tier is not an inactive personal pay-as-you-go tier'
     )
+    expect(mockEnsureStripeUserCustomer).not.toHaveBeenCalled()
     expect(mockStripeSubscriptionsCreate).not.toHaveBeenCalled()
   })
 
@@ -370,26 +358,27 @@ describe('/api/billing/payg/activate route', () => {
     expect(response.status).toBe(200)
     expect(payload.status).toBe('already_active')
     expect(payload.stripeSubscriptionId).toBe('sub_existing')
+    expect(mockEnsureStripeUserCustomer).not.toHaveBeenCalled()
     expect(mockStripeSubscriptionsCreate).not.toHaveBeenCalled()
   })
 
-  it('requires an existing Stripe customer and default payment method', async () => {
-    userRows = [{ stripeCustomerId: null }]
+  it('uses the shared personal Stripe customer contract before requiring a default payment method', async () => {
+    mockEnsureStripeUserCustomer.mockResolvedValueOnce(null)
 
     const { POST } = await import('./route')
-    const missingCustomerResponse = await POST()
-    const missingCustomerPayload = await missingCustomerResponse.json()
+    const missingUserResponse = await POST()
+    const missingUserPayload = await missingUserResponse.json()
 
-    expect(missingCustomerResponse.status).toBe(409)
-    expect(missingCustomerPayload.error).toBe('Stripe customer not found')
+    expect(missingUserResponse.status).toBe(404)
+    expect(missingUserPayload.error).toBe('User not found')
 
-    userRows = [{ stripeCustomerId: 'cus_123' }]
-    mockStripeCustomersRetrieve.mockResolvedValueOnce({
-      id: 'cus_123',
-      invoice_settings: {
-        default_payment_method: null,
-      },
-    })
+    mockEnsureStripeUserCustomer.mockResolvedValueOnce(
+      buildStripeCustomer({
+        invoice_settings: {
+          default_payment_method: null,
+        },
+      })
+    )
 
     const noPaymentMethodResponse = await POST()
     const noPaymentMethodPayload = await noPaymentMethodResponse.json()
@@ -409,6 +398,12 @@ describe('/api/billing/payg/activate route', () => {
       status: 'activated',
       stripeSubscriptionId: 'sub_stripe_123',
     })
+    expect(mockEnsureStripeUserCustomer).toHaveBeenCalledWith(
+      stripeClient,
+      expect.objectContaining({
+        userId: 'user-1',
+      })
+    )
     expect(mockStripeSubscriptionsCreate).toHaveBeenCalledWith(
       {
         customer: 'cus_123',
@@ -522,12 +517,13 @@ describe('/api/billing/payg/activate route', () => {
   })
 
   it('recovers an already-created active Stripe subscription even if no default payment method is on file anymore', async () => {
-    mockStripeCustomersRetrieve.mockResolvedValueOnce({
-      id: 'cus_123',
-      invoice_settings: {
-        default_payment_method: null,
-      },
-    })
+    mockEnsureStripeUserCustomer.mockResolvedValueOnce(
+      buildStripeCustomer({
+        invoice_settings: {
+          default_payment_method: null,
+        },
+      })
+    )
     mockStripeSubscriptionsList.mockResolvedValueOnce({
       data: [buildStripeSubscription({ id: 'sub_stripe_existing' })],
     })
