@@ -65,6 +65,7 @@ export const useSubscriptionStore = create<SubscriptionStore>()(
           // Transform dates with error handling
           const transformedData: SubscriptionData = {
             ...data,
+            hasPaymentMethodOnFile: !!data.hasPaymentMethodOnFile,
             periodEnd: data.periodEnd
               ? (() => {
                   try {
@@ -257,6 +258,7 @@ export const useSubscriptionStore = create<SubscriptionStore>()(
           // Transform subscription data dates with error handling
           const transformedSubscriptionData: SubscriptionData = {
             ...subscriptionData,
+            hasPaymentMethodOnFile: !!subscriptionData.hasPaymentMethodOnFile,
             periodEnd: subscriptionData.periodEnd
               ? (() => {
                   try {

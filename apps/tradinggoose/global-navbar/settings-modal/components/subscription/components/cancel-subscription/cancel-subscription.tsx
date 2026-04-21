@@ -15,7 +15,6 @@ import {
 import { Button } from '@/components/ui/button'
 import { useSession, useSubscription } from '@/lib/auth-client'
 import { createLogger } from '@/lib/logs/console/logger'
-import { getSubscriptionStatus } from '@/lib/subscription/helpers'
 import { getBaseUrl } from '@/lib/urls/utils'
 import { cn } from '@/lib/utils'
 import { organizationKeys, useOrganizations } from '@/hooks/queries/organization'
@@ -26,8 +25,7 @@ const logger = createLogger('CancelSubscription')
 interface CancelSubscriptionProps {
   subscription: {
     tierDisplayName: string
-    status: string | null
-    isPaid: boolean
+    canManage: boolean
   }
   subscriptionData?: {
     periodEnd?: Date | null
@@ -48,7 +46,7 @@ export function CancelSubscription({ subscription, subscriptionData }: CancelSub
 
   const activeOrganization = orgsData?.activeOrganization
   const billingPayload = (subData as any)?.data ?? subData
-  const currentSubscriptionStatus = getSubscriptionStatus(billingPayload)
+  const customerType = billingPayload?.tier?.ownerType === 'organization' ? 'organization' : 'user'
 
   // Clear error after 3 seconds
   useEffect(() => {
@@ -60,8 +58,7 @@ export function CancelSubscription({ subscription, subscriptionData }: CancelSub
     }
   }, [error])
 
-  // Don't show for free tiers
-  if (!subscription.isPaid) {
+  if (!subscription.canManage) {
     return null
   }
 
@@ -72,13 +69,12 @@ export function CancelSubscription({ subscription, subscriptionData }: CancelSub
     setError(null)
 
     try {
-      const subscriptionStatus = currentSubscriptionStatus
       const activeOrgId = activeOrganization?.id
 
       let referenceId = session.user.id
       let subscriptionId: string | undefined
 
-      if (subscriptionStatus.tier.ownerType === 'organization' && activeOrgId) {
+      if (customerType === 'organization' && activeOrgId) {
         referenceId = activeOrgId
         subscriptionId = billingPayload?.id
       }
@@ -86,7 +82,7 @@ export function CancelSubscription({ subscription, subscriptionData }: CancelSub
       logger.info('Canceling subscription', {
         referenceId,
         subscriptionId,
-        ownerType: subscriptionStatus.tier.ownerType,
+        ownerType: customerType,
         activeOrgId,
       })
 
@@ -97,7 +93,7 @@ export function CancelSubscription({ subscription, subscriptionData }: CancelSub
       const returnUrl = getBaseUrl() + window.location.pathname.split('/w/')[0]
 
       const cancelParams: any = {
-        customerType: subscriptionStatus.tier.ownerType,
+        customerType,
         returnUrl,
         referenceId,
       }
@@ -129,7 +125,6 @@ export function CancelSubscription({ subscription, subscriptionData }: CancelSub
     setError(null)
 
     try {
-      const subscriptionStatus = currentSubscriptionStatus
       const activeOrgId = activeOrganization?.id
 
       if (isCancelAtPeriodEnd) {
@@ -140,7 +135,7 @@ export function CancelSubscription({ subscription, subscriptionData }: CancelSub
         let referenceId: string
         let subscriptionId: string | undefined
 
-        if (subscriptionStatus.tier.ownerType === 'organization' && activeOrgId) {
+        if (customerType === 'organization' && activeOrgId) {
           referenceId = activeOrgId
           subscriptionId = billingPayload?.id
         } else {
@@ -153,7 +148,7 @@ export function CancelSubscription({ subscription, subscriptionData }: CancelSub
 
         // Build restore params - only include subscriptionId if we have one (team/enterprise)
         const restoreParams: any = {
-          customerType: subscriptionStatus.tier.ownerType,
+          customerType,
           referenceId,
         }
         if (subscriptionId) {
@@ -288,8 +283,7 @@ export function CancelSubscription({ subscription, subscriptionData }: CancelSub
             </AlertDialogCancel>
 
             {(() => {
-              const subscriptionStatus = currentSubscriptionStatus
-              if (subscriptionStatus.isPaid && isCancelAtPeriodEnd) {
+              if (isCancelAtPeriodEnd) {
                 return (
                   <AlertDialogAction
                     onClick={handleKeep}
