@@ -105,17 +105,6 @@ export function resolveTurnStatusFromToolCalls(
   return hasActiveToolCall ? ACTIVE_TURN_STATUS : COMPLETED_TURN_STATUS
 }
 
-export function resolveStreamPausedTurnStatus(
-  toolCallsById: Record<string, CopilotToolCall>,
-  awaitingTools: boolean
-): string {
-  if (awaitingTools && Object.keys(toolCallsById).length === 0) {
-    return ACTIVE_TURN_STATUS
-  }
-
-  return resolveTurnStatusFromToolCalls(toolCallsById)
-}
-
 export function resolveStoreTurnActivityState(
   state: Pick<CopilotStore, 'isAwaitingContinuation'>,
   toolCallsById: Record<string, CopilotToolCall>

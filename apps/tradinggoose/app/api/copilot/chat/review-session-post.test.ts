@@ -897,7 +897,10 @@ describe('Copilot Chat POST Generic Sessions', () => {
     const response = await POST(request)
 
     expect(response.headers.get('Content-Type')).toBe('text/event-stream')
-    await response.text()
+    const responseText = await response.text()
+    expect(responseText).toContain('"type":"turn_state"')
+    expect(responseText).toContain('"phase":"streaming"')
+    expect(responseText).toContain('"phase":"completed"')
 
     expect(mockBuildAppendReviewTurn).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -1017,6 +1020,53 @@ describe('Copilot Chat POST Generic Sessions', () => {
         },
       ],
     })
+  })
+
+  it('marks rewritten streamed error replies as error turns instead of completed turns', async () => {
+    mockProcessContextsServer.mockResolvedValue([])
+    mockLoadReviewSessionForUser.mockResolvedValueOnce({
+      id: 'review-session-error-stream',
+      userId: 'collaborator-user',
+      workspaceId: 'workspace-1',
+      entityKind: 'copilot',
+      entityId: null,
+      draftSessionId: null,
+      title: 'Error stream chat',
+      model: 'claude-sonnet-4.6',
+      conversationId: null,
+      createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+    })
+    mockProxyCopilotRequest.mockResolvedValueOnce({
+      ok: true,
+      body: createSseStream([{ type: 'error', error: 'Model exploded.' }]),
+    })
+
+    const request = createMockRequest('POST', {
+      message: 'Handle the stream failure',
+      reviewSessionId: 'review-session-error-stream',
+      model: 'claude-sonnet-4.6',
+      stream: true,
+    })
+
+    const { POST } = await import('@/app/api/copilot/chat/route')
+    const response = await POST(request)
+
+    expect(response.headers.get('Content-Type')).toBe('text/event-stream')
+    const responseText = await response.text()
+    expect(responseText).toContain('"type":"turn_state"')
+    expect(responseText).toContain('"status":"error"')
+    expect(responseText).toContain('"phase":"error"')
+
+    expect(mockBuildAppendReviewTurn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        reviewSessionId: 'review-session-error-stream',
+        latestTurnStatus: 'error',
+        assistantMessage: expect.objectContaining({
+          content: '_Model exploded._',
+        }),
+      })
+    )
   })
 
   it('normalizes JSON-string function call arguments before persisting streamed tool calls', async () => {

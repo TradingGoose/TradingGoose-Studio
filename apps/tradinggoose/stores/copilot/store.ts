@@ -56,7 +56,6 @@ import {
   hasUiActiveToolCalls,
   isChatTurnInProgress,
   resolveStoreTurnActivityState,
-  resolveStreamPausedTurnStatus,
   resolveTurnStatusFromToolCalls,
 } from '@/stores/copilot/store-state'
 import {
@@ -122,6 +121,34 @@ function schedulePersistCurrentChatState(
       void get().saveChatMessages(reviewSessionId, { latestTurnStatus })
     }, 48)
   )
+}
+
+function resolveFinalStreamTurnState(
+  context: Pick<StreamingContext, 'awaitingTools' | 'latestTurnStatus'>,
+  toolCallsById: Record<string, CopilotToolCall>
+) {
+  let latestTurnStatus = context.latestTurnStatus ?? ACTIVE_TURN_STATUS
+  let isAwaitingContinuation = context.awaitingTools === true
+
+  if (latestTurnStatus === ACTIVE_TURN_STATUS && isAwaitingContinuation) {
+    if (Object.keys(toolCallsById).length === 0) {
+      return {
+        latestTurnStatus,
+        isAwaitingContinuation,
+      }
+    }
+
+    const toolDrivenStatus = resolveTurnStatusFromToolCalls(toolCallsById)
+    if (toolDrivenStatus !== ACTIVE_TURN_STATUS) {
+      latestTurnStatus = toolDrivenStatus
+      isAwaitingContinuation = false
+    }
+  }
+
+  return {
+    latestTurnStatus,
+    isAwaitingContinuation,
+  }
 }
 
 async function postCopilotMarkComplete(params: {
@@ -1202,6 +1229,8 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
             contentBlocks: [],
             textBlocksByItemId: new Map(),
             thinkingBlocksByItemId: new Map(),
+            latestTurnStatus: ACTIVE_TURN_STATUS,
+            awaitingTools: false,
           }
 
           if (isContinuation) {
@@ -1238,12 +1267,6 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
                   }
                 : msg
             ),
-            ...buildChatTurnStatusState(
-              state,
-              context.awaitingTools ? ACTIVE_TURN_STATUS : COMPLETED_TURN_STATUS
-            ),
-            isSendingMessage: context.awaitingTools === true,
-            isAwaitingContinuation: context.awaitingTools === true,
             abortController: null,
           }))
 
@@ -1256,16 +1279,15 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
 
           await flushPendingAutoExecutionToolCalls(context, get, logger)
 
-          const latestTurnStatus = resolveStreamPausedTurnStatus(
-            get().toolCallsById,
-            context.awaitingTools === true
+          const { latestTurnStatus, isAwaitingContinuation } = resolveFinalStreamTurnState(
+            context,
+            get().toolCallsById
           )
 
           set((state) => ({
             ...buildChatTurnStatusState(state, latestTurnStatus),
             isSendingMessage: latestTurnStatus === ACTIVE_TURN_STATUS,
-            isAwaitingContinuation:
-              latestTurnStatus === ACTIVE_TURN_STATUS && context.awaitingTools === true,
+            isAwaitingContinuation,
           }))
 
           // Persist full message state (including contentBlocks) to database
