@@ -11,9 +11,9 @@ import {
   useSidebar,
 } from '@/components/ui/sidebar'
 import { Skeleton } from '@/components/ui/skeleton'
+import { openBillingPortal } from '@/lib/billing/billing-portal'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getBillingStatus, getSubscriptionStatus, getUsage } from '@/lib/subscription/helpers'
-import { getBaseUrl } from '@/lib/urls/utils'
 import { UsageHeader } from '@/global-navbar/settings-modal/components/shared/usage-header'
 import { useOrganizationBilling, useOrganizations } from '@/hooks/queries/organization'
 import { useSubscriptionData } from '@/hooks/queries/subscription'
@@ -175,18 +175,10 @@ export function SidebarUsageIndicator({ onOpenSubscriptionSettings }: SidebarUsa
     }
 
     try {
-      const res = await fetch('/api/billing/portal', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          context,
-          organizationId: context === 'organization' ? activeOrganizationId : undefined,
-          returnUrl: `${getBaseUrl()}/workspace?billing=updated`,
-        }),
+      await openBillingPortal({
+        context,
+        organizationId: context === 'organization' ? activeOrganizationId : undefined,
       })
-      const data = await res.json()
-      if (!res.ok || !data?.url) throw new Error(data?.error || 'Failed to start billing portal')
-      window.location.href = data.url
     } catch (error) {
       logger.error('Failed to open billing portal from sidebar usage indicator', { error })
       alert(error instanceof Error ? error.message : 'Failed to open billing portal')

@@ -2,7 +2,9 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Skeleton, Switch } from '@/components/ui'
+import { Button } from '@/components/ui/button'
 import { useSession } from '@/lib/auth-client'
+import { openBillingPortal as openBillingPortalSession } from '@/lib/billing/billing-portal'
 import type { PublicBillingTierDisplay } from '@/lib/billing/public-catalog'
 import { formatBillingPriceLabel, formatBillingPricePeriod } from '@/lib/billing/public-catalog'
 import { canEditUsageLimit } from '@/lib/billing/subscriptions/utils'
@@ -10,7 +12,6 @@ import { getUserRole } from '@/lib/organization'
 import { getBillingStatus, getSubscriptionStatus, getUsage } from '@/lib/subscription/helpers'
 import type { BillingUpgradeTarget } from '@/lib/subscription/upgrade'
 import { useSubscriptionUpgrade } from '@/lib/subscription/upgrade'
-import { getBaseUrl } from '@/lib/urls/utils'
 import { cn } from '@/lib/utils'
 import { useGeneralSettings, useUpdateGeneralSetting } from '@/hooks/queries/general-settings'
 import { useOrganizationBilling, useOrganizations } from '@/hooks/queries/organization'
@@ -18,16 +19,10 @@ import { usePublicBillingCatalog } from '@/hooks/queries/public-billing-catalog'
 import { useSubscriptionData, useUsageLimitData } from '@/hooks/queries/subscription'
 import { useGeneralStore } from '@/stores/settings/general/store'
 import { UsageHeader } from '../shared/usage-header'
+import { PlanCard, UsageLimit, type UsageLimitRef, WorkspaceBillingOwnerEditor } from './components'
 import {
-  CancelSubscription,
-  PlanCard,
-  UsageLimit,
-  type UsageLimitRef,
-  WorkspaceBillingOwnerEditor,
-} from './components'
-import {
-  shouldOpenBillingPortalForPaygActivationError,
   type PaygActivationErrorPayload,
+  shouldOpenBillingPortalForPaygActivationError,
 } from './payg-activation-recovery'
 import { getPersonalPaygUiState } from './personal-payg-state'
 import { toPlanFeatures } from './plan-configs'
@@ -289,6 +284,10 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
     ? surfaceState.canEditUsageLimit || surfaceState.showTeamMemberView
     : showPersonalUsageLimitControl
   const showPersonalSubscriptionManagement = !isOrganizationPlan && hasStripeSubscription
+  const showManageSubscriptionRow =
+    (subscription.isPaid || showPersonalSubscriptionManagement) &&
+    !surfaceState.isCustomOrganizationPlan &&
+    !surfaceState.showTeamMemberView
   const badgeText =
     !isOrganizationPlan && personalPaygUiState.showBadge
       ? personalPaygUiState.badgeText
@@ -320,20 +319,15 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
 
   const openBillingPortal = useCallback(
     async (context: 'user' | 'organization') => {
-      const res = await fetch('/api/billing/portal', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          context,
-          organizationId: context === 'organization' ? activeOrgId : undefined,
-          returnUrl: `${getBaseUrl()}/workspace?billing=updated`,
-        }),
-      })
-      const data = await res.json()
-      if (!res.ok || !data?.url) {
-        throw new Error(data?.error || 'Failed to start billing portal')
+      if (context === 'organization' && !activeOrgId) {
+        alert('Select an organization to manage billing.')
+        return
       }
-      window.location.href = data.url
+
+      await openBillingPortalSession({
+        context,
+        organizationId: context === 'organization' ? activeOrgId : undefined,
+      })
     },
     [activeOrgId]
   )
@@ -543,14 +537,15 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
           </div>
         )}
 
-        {(subscription.isPaid || showPersonalSubscriptionManagement) && billingPayload?.periodEnd && (
-          <div className='mt-4 flex items-center justify-between'>
-            <span className='font-medium text-sm'>Next Billing Date</span>
-            <span className='text-muted-foreground text-sm'>
-              {new Date(billingPayload.periodEnd).toLocaleDateString()}
-            </span>
-          </div>
-        )}
+        {(subscription.isPaid || showPersonalSubscriptionManagement) &&
+          billingPayload?.periodEnd && (
+            <div className='mt-4 flex items-center justify-between'>
+              <span className='font-medium text-sm'>Next Billing Date</span>
+              <span className='text-muted-foreground text-sm'>
+                {new Date(billingPayload.periodEnd).toLocaleDateString()}
+              </span>
+            </div>
+          )}
 
         {(subscription.isPaid || showPersonalSubscriptionManagement) && (
           <BillingUsageNotificationsToggle />
@@ -566,18 +561,35 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
           </div>
         )}
 
-        {(surfaceState.canCancelSubscription || showPersonalSubscriptionManagement) && (
+        {showManageSubscriptionRow && (
           <div className='mt-2'>
-            <CancelSubscription
-              subscription={{
-                tierDisplayName: subscription.tier.displayName,
-                canManage: subscription.isPaid || showPersonalSubscriptionManagement,
-              }}
-              subscriptionData={{
-                periodEnd: billingPayload?.periodEnd || null,
-                cancelAtPeriodEnd: billingPayload?.cancelAtPeriodEnd,
-              }}
-            />
+            <div className='flex items-center justify-between'>
+              <div>
+                <span className='font-medium text-sm'>
+                  {billingPayload?.cancelAtPeriodEnd
+                    ? 'Restore Subscription'
+                    : 'Manage Subscription'}
+                </span>
+                <p className='mt-1 text-muted-foreground text-xs'>
+                  Open Stripe Billing Portal to cancel, restore, or update your subscription.
+                </p>
+              </div>
+              <Button
+                variant='outline'
+                className='h-8 rounded-sm font-medium text-xs'
+                onClick={() => {
+                  void openBillingPortal(isOrganizationPlan ? 'organization' : 'user').catch(
+                    (error) => {
+                      alert(
+                        error instanceof Error ? error.message : 'Failed to open billing portal'
+                      )
+                    }
+                  )
+                }}
+              >
+                Manage
+              </Button>
+            </div>
           </div>
         )}
       </div>

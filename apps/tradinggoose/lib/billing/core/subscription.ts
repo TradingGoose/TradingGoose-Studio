@@ -1,6 +1,8 @@
 import { db } from '@tradinggoose/db'
 import { member, subscription, user, userStats } from '@tradinggoose/db/schema'
 import { and, eq, inArray } from 'drizzle-orm'
+import { getResolvedBillingSettings } from '@/lib/billing/settings'
+import { BILLING_ENTITLED_SUBSCRIPTION_STATUSES } from '@/lib/billing/subscriptions/utils'
 import type { BillingReference, SubscriptionWithTier } from '@/lib/billing/tiers'
 import {
   getSubscriptionUsageAllowanceUsd,
@@ -10,8 +12,6 @@ import {
   selectEffectiveSubscription,
   toBillingTierSummary,
 } from '@/lib/billing/tiers'
-import { BILLING_ENTITLED_SUBSCRIPTION_STATUSES } from '@/lib/billing/subscriptions/utils'
-import { getResolvedBillingSettings } from '@/lib/billing/settings'
 import type { BillingTierSummary } from '@/lib/billing/types'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getBaseUrl } from '@/lib/urls/utils'
@@ -189,7 +189,8 @@ export async function ensureDefaultUserSubscription(userId: string): Promise<Sub
 }
 
 export async function backfillDefaultUserSubscriptions(): Promise<number> {
-  const [userRows, entitledSubscriptions] = await Promise.all([
+  const [{ onboardingAllowanceUsd }, userRows, entitledSubscriptions] = await Promise.all([
+    getResolvedBillingSettings(),
     db.select({ id: user.id }).from(user),
     db
       .select({ referenceId: subscription.referenceId })
@@ -203,6 +204,11 @@ export async function backfillDefaultUserSubscriptions(): Promise<number> {
   ])
 
   const subscribedUserIds = new Set(entitledSubscriptions.map((row) => row.referenceId))
+  const usageLimit = onboardingAllowanceUsd.toString()
+  const usageLimitSeed = {
+    grantedOnboardingAllowanceUsd: usageLimit,
+    customUsageLimit: usageLimit,
+  }
   let createdCount = 0
 
   for (const row of userRows) {
@@ -211,6 +217,16 @@ export async function backfillDefaultUserSubscriptions(): Promise<number> {
     }
 
     await ensureDefaultUserSubscription(row.id)
+    await db
+      .insert(userStats)
+      .values({
+        id: crypto.randomUUID(),
+        userId: row.id,
+        ...usageLimitSeed,
+      })
+      .onConflictDoNothing({
+        target: userStats.userId,
+      })
     createdCount += 1
   }
 

@@ -33,13 +33,17 @@ import {
   ensureDefaultUserSubscription,
   getEffectiveSubscription,
 } from '@/lib/billing/core/subscription'
-import { handleNewUser } from '@/lib/billing/core/usage'
+import {
+  handleNewUser,
+  resetUserCustomUsageLimitToGrantedOnboardingAllowance,
+} from '@/lib/billing/core/usage'
 import {
   ensureOrganizationForOrganizationSubscription,
   syncSubscriptionUsageLimits,
 } from '@/lib/billing/organization'
 import { getBetterAuthPlansConfig } from '@/lib/billing/plans'
 import { getBillingGateState } from '@/lib/billing/settings'
+import { createStripeUserCustomer } from '@/lib/billing/stripe-customers'
 import { hydrateSubscriptionsWithTiers, requireBillingTierById } from '@/lib/billing/tiers'
 import { syncSubscriptionBillingTierFromStripeSubscription } from '@/lib/billing/tiers/persistence'
 import { validateSeatAvailability } from '@/lib/billing/validation/seat-management'
@@ -317,6 +321,31 @@ function getMicrosoftUserInfoFromIdToken(tokens: OAuthTokens, providerId: string
 
 const stripeClient = createStripeClientProxy()
 
+async function createStripeCustomerForSignedUpUser(user: {
+  id: string
+  email: string
+  name: string
+}) {
+  const stripeCustomer = await createStripeUserCustomer(stripeClient, {
+    email: user.email,
+    name: user.name,
+    userId: user.id,
+  })
+
+  await db
+    .update(schema.user)
+    .set({
+      stripeCustomerId: stripeCustomer.id,
+      updatedAt: new Date(),
+    })
+    .where(eq(schema.user.id, user.id))
+
+  logger.info('[databaseHooks.user.create.after] Created Stripe customer for user', {
+    userId: user.id,
+    stripeCustomerId: stripeCustomer.id,
+  })
+}
+
 export const auth = betterAuth({
   baseURL: getBaseUrl(),
   trustedOrigins: [
@@ -379,6 +408,17 @@ export const auth = betterAuth({
               userId: user.id,
               error,
             })
+          }
+
+          if (hasStripeSecretKey()) {
+            try {
+              await createStripeCustomerForSignedUpUser(user)
+            } catch (error) {
+              logger.error('[databaseHooks.user.create.after] Failed to create Stripe customer', {
+                userId: user.id,
+                error,
+              })
+            }
           }
         },
       },
@@ -1470,15 +1510,7 @@ export const auth = betterAuth({
       get stripeWebhookSecret() {
         return getStripeServiceConfig().webhookSecret ?? ''
       },
-      get createCustomerOnSignUp() {
-        return hasStripeSecretKey()
-      },
-      onCustomerCreate: async ({ stripeCustomer, user }) => {
-        logger.info('[onCustomerCreate] Stripe customer created', {
-          stripeCustomerId: stripeCustomer.id,
-          userId: user.id,
-        })
-      },
+      createCustomerOnSignUp: false,
       subscription: {
         enabled: true,
         plans: getBetterAuthPlansConfig(),
@@ -1622,6 +1654,16 @@ export const auth = betterAuth({
               billingEnabled && subscriptionRecord.referenceType === 'user'
                 ? await ensureDefaultUserSubscription(subscriptionRecord.referenceId)
                 : subscriptionRecord
+
+            if (
+              nextSubscriptionRecord.referenceType === 'user' &&
+              nextSubscriptionRecord.tier?.isDefault &&
+              !nextSubscriptionRecord.stripeSubscriptionId
+            ) {
+              await resetUserCustomUsageLimitToGrantedOnboardingAllowance(
+                nextSubscriptionRecord.referenceId
+              )
+            }
 
             await syncSubscriptionUsageLimits(nextSubscriptionRecord)
 

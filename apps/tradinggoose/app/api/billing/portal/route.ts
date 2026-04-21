@@ -1,16 +1,22 @@
 import { db } from '@tradinggoose/db'
 import { subscription as subscriptionTable, user } from '@tradinggoose/db/schema'
-import { and, eq, inArray, or } from 'drizzle-orm'
+import { and, eq, inArray, or, sql } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
 import { isOrganizationOwnerOrAdmin } from '@/lib/billing/core/organization'
 import { BILLING_DISABLED_ERROR, getBillingGateState } from '@/lib/billing/settings'
 import { requireStripeClient } from '@/lib/billing/stripe-client'
+import {
+  createStripeUserCustomer,
+  isDeletedStripeCustomer,
+  isMissingStripeCustomerError,
+} from '@/lib/billing/stripe-customers'
 import { BILLING_ACTIVE_SUBSCRIPTION_STATUSES } from '@/lib/billing/subscriptions/utils'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getBaseUrl } from '@/lib/urls/utils'
 
 const logger = createLogger('BillingPortal')
+const BILLING_PORTAL_CUSTOMER_LOCK_NAMESPACE = 4_126_092
 
 export async function POST(request: NextRequest) {
   const session = await getSession()
@@ -65,34 +71,66 @@ export async function POST(request: NextRequest) {
 
       stripeCustomerId = rows.length > 0 ? rows[0].customer || null : null
     } else {
-      const rows = await db
-        .select({
-          customer: user.stripeCustomerId,
-          email: user.email,
-          name: user.name,
-        })
-        .from(user)
-        .where(eq(user.id, session.user.id))
-        .limit(1)
+      const userStripeCustomer = await db.transaction(async (tx) => {
+        await tx.execute(
+          sql`select pg_advisory_xact_lock(${BILLING_PORTAL_CUSTOMER_LOCK_NAMESPACE}, hashtext(${session.user.id}))`
+        )
 
-      const userRecord = rows[0]
-      if (!userRecord) {
-        return NextResponse.json({ error: 'User not found' }, { status: 404 })
-      }
+        const rows = await tx
+          .select({
+            customer: user.stripeCustomerId,
+            email: user.email,
+            name: user.name,
+          })
+          .from(user)
+          .where(eq(user.id, session.user.id))
+          .limit(1)
 
-      stripeCustomerId = userRecord.customer || null
+        const userRecord = rows[0]
+        if (!userRecord) {
+          return NextResponse.json({ error: 'User not found' }, { status: 404 })
+        }
 
-      if (!stripeCustomerId) {
-        const stripeCustomer = await stripe.customers.create({
+        if (userRecord.customer) {
+          try {
+            const existingCustomer = await stripe.customers.retrieve(userRecord.customer)
+
+            if (!isDeletedStripeCustomer(existingCustomer)) {
+              return userRecord.customer
+            }
+
+            logger.warn('Stored personal Stripe customer is deleted; recreating', {
+              userId: session.user.id,
+              stripeCustomerId: userRecord.customer,
+            })
+          } catch (error) {
+            if (!isMissingStripeCustomerError(error)) {
+              logger.warn(
+                'Stored personal Stripe customer lookup failed; keeping existing mapping',
+                {
+                  userId: session.user.id,
+                  stripeCustomerId: userRecord.customer,
+                  error,
+                }
+              )
+              throw error
+            }
+
+            logger.warn('Stored personal Stripe customer is missing; recreating', {
+              userId: session.user.id,
+              stripeCustomerId: userRecord.customer,
+              error,
+            })
+          }
+        }
+
+        const stripeCustomer = await createStripeUserCustomer(stripe, {
           email: userRecord.email,
           name: userRecord.name,
-          metadata: {
-            userId: session.user.id,
-            customerType: 'user',
-          },
+          userId: session.user.id,
         })
 
-        await db
+        await tx
           .update(user)
           .set({
             stripeCustomerId: stripeCustomer.id,
@@ -100,13 +138,19 @@ export async function POST(request: NextRequest) {
           })
           .where(eq(user.id, session.user.id))
 
-        stripeCustomerId = stripeCustomer.id
-
-        logger.info('Created missing Stripe customer for personal billing portal access', {
+        logger.info('Ensured Stripe customer for personal billing portal access', {
           userId: session.user.id,
-          stripeCustomerId,
+          stripeCustomerId: stripeCustomer.id,
         })
+
+        return stripeCustomer.id
+      })
+
+      if (userStripeCustomer instanceof NextResponse) {
+        return userStripeCustomer
       }
+
+      stripeCustomerId = userStripeCustomer
     }
 
     if (!stripeCustomerId) {

@@ -7,6 +7,10 @@ import { getSimplifiedBillingSummary } from '@/lib/billing/core/billing'
 import { getOrganizationBillingData } from '@/lib/billing/core/organization'
 import { getBillingGateState } from '@/lib/billing/settings'
 import { requireStripeClient } from '@/lib/billing/stripe-client'
+import {
+  getStripeCustomerDefaultPaymentMethodId,
+  isDeletedStripeCustomer,
+} from '@/lib/billing/stripe-customers'
 import { createLogger } from '@/lib/logs/console/logger'
 
 const logger = createLogger('UnifiedBillingAPI')
@@ -25,30 +29,6 @@ async function getOrganizationMemberRole(organizationId: string, userId: string)
   return memberRecord[0]?.role ?? null
 }
 
-function getDefaultPaymentMethodId(
-  customer:
-    | {
-        invoice_settings?: {
-          default_payment_method?:
-            | string
-            | {
-                id?: string | null
-              }
-            | null
-        } | null
-      }
-    | null
-    | undefined
-): string | null {
-  const defaultPaymentMethod = customer?.invoice_settings?.default_payment_method
-
-  if (typeof defaultPaymentMethod === 'string') {
-    return defaultPaymentMethod
-  }
-
-  return defaultPaymentMethod?.id ?? null
-}
-
 async function getPersonalHasPaymentMethodOnFile(params: {
   stripeConfigured: boolean
   stripeCustomerId: string | null | undefined
@@ -62,11 +42,11 @@ async function getPersonalHasPaymentMethodOnFile(params: {
     const stripe = requireStripeClient()
     const customer = await stripe.customers.retrieve(params.stripeCustomerId)
 
-    if ('deleted' in customer) {
+    if (isDeletedStripeCustomer(customer)) {
       return false
     }
 
-    return Boolean(getDefaultPaymentMethodId(customer))
+    return Boolean(getStripeCustomerDefaultPaymentMethodId(customer))
   } catch (error) {
     logger.warn('Failed to resolve Stripe payment method state for personal billing payload', {
       userId: params.userId,

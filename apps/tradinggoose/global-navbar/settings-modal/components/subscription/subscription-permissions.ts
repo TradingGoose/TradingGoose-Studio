@@ -22,7 +22,6 @@ export interface SubscriptionSurfaceState {
   isCustomOrganizationPlan: boolean
   canManageOrganizationPlan: boolean
   canEditUsageLimit: boolean
-  canCancelSubscription: boolean
   showTeamMemberView: boolean
   visibleUpgradeTiers: PublicBillingTierDisplay[]
   showEnterprisePlaceholder: boolean
@@ -96,8 +95,6 @@ export function getSubscriptionSurfaceState({
     canManageOrganizationPlan: isCurrentOrganizationPlan && userRole.isTeamAdmin,
     canEditUsageLimit:
       canEditUsageLimit && (!isCurrentOrganizationPlan || userRole.isTeamAdmin),
-    canCancelSubscription:
-      subscription.isPaid && !isCurrentCustomOrganizationPlan && !isTeamMemberView,
     showTeamMemberView: isTeamMemberView && !isCurrentCustomOrganizationPlan,
     visibleUpgradeTiers,
     showEnterprisePlaceholder,
