@@ -12,8 +12,11 @@ export const BILLING_ENTITLED_SUBSCRIPTION_STATUSES = [
 type ActiveSubscriptionLike =
   | {
       status: string | null
+      referenceType?: string | null
+      stripeSubscriptionId?: string | null
       tier?: {
         canEditUsageLimit?: boolean | null
+        ownerType?: string | null
       } | null
     }
   | null
@@ -29,5 +32,16 @@ export function canEditUsageLimit(subscription: ActiveSubscriptionLike): boolean
     return false
   }
 
-  return canTierEditUsageLimit(subscription.tier)
+  if (!canTierEditUsageLimit(subscription.tier)) {
+    return false
+  }
+
+  const isPersonalSubscription =
+    subscription.referenceType === 'user' || subscription.tier?.ownerType === 'user'
+
+  if (isPersonalSubscription && !subscription.stripeSubscriptionId) {
+    return false
+  }
+
+  return true
 }

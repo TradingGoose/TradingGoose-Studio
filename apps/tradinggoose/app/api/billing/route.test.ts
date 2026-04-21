@@ -9,6 +9,8 @@ const mockGetSession = vi.fn()
 const mockGetBillingGateState = vi.fn()
 const mockGetSimplifiedBillingSummary = vi.fn()
 const mockGetOrganizationBillingData = vi.fn()
+const mockRequireStripeClient = vi.fn()
+const mockStripeCustomersRetrieve = vi.fn()
 
 const memberTable = {
   role: 'role',
@@ -21,8 +23,14 @@ const userStatsTable = {
   userId: 'userId',
 }
 
+const userTable = {
+  id: 'id',
+  stripeCustomerId: 'stripeCustomerId',
+}
+
 let memberRows: Array<{ role: string }> = []
 let userStatsRows: Array<{ blocked: boolean }> = []
+let userRows: Array<{ stripeCustomerId: string | null }> = []
 
 const mockDb = {
   select: vi.fn(() => ({
@@ -35,6 +43,10 @@ const mockDb = {
 
           if (table === userStatsTable) {
             return userStatsRows
+          }
+
+          if (table === userTable) {
+            return userRows
           }
 
           return []
@@ -50,6 +62,7 @@ vi.mock('@tradinggoose/db', () => ({
 
 vi.mock('@tradinggoose/db/schema', () => ({
   member: memberTable,
+  user: userTable,
   userStats: userStatsTable,
 }))
 
@@ -74,6 +87,10 @@ vi.mock('@/lib/billing/settings', () => ({
   getBillingGateState: mockGetBillingGateState,
 }))
 
+vi.mock('@/lib/billing/stripe-client', () => ({
+  requireStripeClient: mockRequireStripeClient,
+}))
+
 vi.mock('@/lib/logs/console/logger', () => ({
   createLogger: () => ({
     info: vi.fn(),
@@ -94,6 +111,13 @@ describe('/api/billing route', () => {
 
     memberRows = []
     userStatsRows = []
+    userRows = [{ stripeCustomerId: null }]
+    mockRequireStripeClient.mockReturnValue({
+      customers: {
+        retrieve: mockStripeCustomersRetrieve,
+      },
+    })
+    mockStripeCustomersRetrieve.mockReset()
 
     mockGetBillingGateState.mockResolvedValue({
       billingEnabled: true,
@@ -138,7 +162,7 @@ describe('/api/billing route', () => {
     })
     userStatsRows = [{ blocked: true }]
 
-    const { GET } = await import('@/app/api/billing/route')
+    const { GET } = await import('./route')
     const response = await GET(createRequest('http://localhost:3000/api/billing?context=user'))
     const payload = await response.json()
 
@@ -148,9 +172,32 @@ describe('/api/billing route', () => {
     expect(payload.data.tier.ownerType).toBe('user')
     expect(payload.data.usage.limit).toBe(25)
     expect(payload.data.billingBlocked).toBe(true)
+    expect(payload.data.hasPaymentMethodOnFile).toBe(false)
     expect(payload.data.organizationId).toBeUndefined()
     expect(mockGetSimplifiedBillingSummary).toHaveBeenCalledWith('user-1')
     expect(mockGetOrganizationBillingData).not.toHaveBeenCalled()
+  })
+
+  it('reports personal card-on-file state from the Stripe customer default payment method', async () => {
+    mockGetSession.mockResolvedValue({
+      user: { id: 'user-1' },
+      session: { activeOrganizationId: 'org-1' },
+    })
+    userRows = [{ stripeCustomerId: 'cus_123' }]
+    mockStripeCustomersRetrieve.mockResolvedValue({
+      id: 'cus_123',
+      invoice_settings: {
+        default_payment_method: 'pm_123',
+      },
+    })
+
+    const { GET } = await import('./route')
+    const response = await GET(createRequest('http://localhost:3000/api/billing?context=user'))
+    const payload = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(payload.data.hasPaymentMethodOnFile).toBe(true)
+    expect(mockStripeCustomersRetrieve).toHaveBeenCalledWith('cus_123')
   })
 
   it('keeps explicit organization billing access restricted to organization members', async () => {
@@ -160,7 +207,7 @@ describe('/api/billing route', () => {
     })
     memberRows = []
 
-    const { GET } = await import('@/app/api/billing/route')
+    const { GET } = await import('./route')
     const response = await GET(
       createRequest('http://localhost:3000/api/billing?context=organization&id=org-1')
     )
@@ -223,7 +270,7 @@ describe('/api/billing route', () => {
       ],
     })
 
-    const { GET } = await import('@/app/api/billing/route')
+    const { GET } = await import('./route')
     const response = await GET(
       createRequest('http://localhost:3000/api/billing?context=organization&id=org-1')
     )
@@ -271,7 +318,7 @@ describe('/api/billing route', () => {
       members: [],
     })
 
-    const { GET } = await import('@/app/api/billing/route')
+    const { GET } = await import('./route')
     const response = await GET(
       createRequest('http://localhost:3000/api/billing?context=organization&id=org-1')
     )
@@ -290,7 +337,7 @@ describe('/api/billing route', () => {
     })
     mockGetSimplifiedBillingSummary.mockRejectedValue(new Error('billing invariant failure'))
 
-    const { GET } = await import('@/app/api/billing/route')
+    const { GET } = await import('./route')
     const response = await GET(createRequest('http://localhost:3000/api/billing?context=user'))
     const payload = await response.json()
 

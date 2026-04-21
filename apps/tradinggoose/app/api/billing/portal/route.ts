@@ -66,12 +66,47 @@ export async function POST(request: NextRequest) {
       stripeCustomerId = rows.length > 0 ? rows[0].customer || null : null
     } else {
       const rows = await db
-        .select({ customer: user.stripeCustomerId })
+        .select({
+          customer: user.stripeCustomerId,
+          email: user.email,
+          name: user.name,
+        })
         .from(user)
         .where(eq(user.id, session.user.id))
         .limit(1)
 
-      stripeCustomerId = rows.length > 0 ? rows[0].customer || null : null
+      const userRecord = rows[0]
+      if (!userRecord) {
+        return NextResponse.json({ error: 'User not found' }, { status: 404 })
+      }
+
+      stripeCustomerId = userRecord.customer || null
+
+      if (!stripeCustomerId) {
+        const stripeCustomer = await stripe.customers.create({
+          email: userRecord.email,
+          name: userRecord.name,
+          metadata: {
+            userId: session.user.id,
+            customerType: 'user',
+          },
+        })
+
+        await db
+          .update(user)
+          .set({
+            stripeCustomerId: stripeCustomer.id,
+            updatedAt: new Date(),
+          })
+          .where(eq(user.id, session.user.id))
+
+        stripeCustomerId = stripeCustomer.id
+
+        logger.info('Created missing Stripe customer for personal billing portal access', {
+          userId: session.user.id,
+          stripeCustomerId,
+        })
+      }
     }
 
     if (!stripeCustomerId) {
