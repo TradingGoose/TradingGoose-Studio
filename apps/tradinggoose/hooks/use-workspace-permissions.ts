@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect } from 'react'
 import type { permissionTypeEnum } from '@tradinggoose/db/schema'
-import { create } from 'zustand'
+import { createWithEqualityFn as create } from 'zustand/traditional'
 import { handleAuthError } from '@/lib/auth/auth-error-handler'
 import { createLogger } from '@/lib/logs/console/logger'
 import { API_ENDPOINTS } from '@/stores/constants'

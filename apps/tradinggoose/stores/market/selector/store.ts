@@ -1,4 +1,4 @@
-import { create } from 'zustand'
+import { createWithEqualityFn as create } from 'zustand/traditional'
 import type { ListingIdentity, ListingOption } from '@/lib/listing/identity'
 
 export interface ListingSelectorInstance {

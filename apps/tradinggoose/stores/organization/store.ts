@@ -1,4 +1,4 @@
-import { create } from 'zustand'
+import { createWithEqualityFn as create } from 'zustand/traditional'
 import { devtools } from 'zustand/middleware'
 import { client } from '@/lib/auth-client'
 import { createLogger } from '@/lib/logs/console/logger'

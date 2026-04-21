@@ -1,4 +1,4 @@
-import { create } from 'zustand'
+import { createWithEqualityFn as create } from 'zustand/traditional'
 import { devtools } from 'zustand/middleware'
 import { getBlock } from '@/blocks'
 import type { SubBlockConfig } from '@/blocks/types'

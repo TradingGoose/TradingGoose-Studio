@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo } from 'react'
-import { create } from 'zustand'
+import { createWithEqualityFn as create } from 'zustand/traditional'
 import type { SortConfig, TerminalFilters } from './types'
 
 interface UiState {

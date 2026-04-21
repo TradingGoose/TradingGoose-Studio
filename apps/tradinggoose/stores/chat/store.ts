@@ -1,5 +1,5 @@
 import { v4 as uuidv4 } from 'uuid'
-import { create } from 'zustand'
+import { createWithEqualityFn as create } from 'zustand/traditional'
 import { devtools, persist } from 'zustand/middleware'
 import type { ChatMessage, ChatStore } from '@/stores/chat/types'
 
