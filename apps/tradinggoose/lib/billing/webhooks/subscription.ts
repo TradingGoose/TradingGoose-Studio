@@ -2,11 +2,9 @@ import { db } from '@tradinggoose/db'
 import { subscription } from '@tradinggoose/db/schema'
 import { and, eq, ne } from 'drizzle-orm'
 import { calculateSubscriptionOverage } from '@/lib/billing/core/billing'
+import { decrementGrantedOnboardingAllowanceByCurrentPeriodUsage } from '@/lib/billing/core/usage'
 import { requireStripeClient } from '@/lib/billing/stripe-client'
-import {
-  type BillingTierRecord,
-  isPaidBillingTier,
-} from '@/lib/billing/tiers'
+import { type BillingTierRecord, isPaidBillingTier } from '@/lib/billing/tiers'
 import {
   getBilledOverageForSubscription,
   resetUsageForSubscription,
@@ -26,7 +24,7 @@ type TieredSubscriptionLifecycleRecord = {
 }
 
 /**
- * Handle new subscription creation - reset usage if transitioning from free to paid
+ * Handle new subscription creation - reset usage if transitioning from free/default to subscribed
  */
 export async function handleSubscriptionCreated(
   subscriptionData: TieredSubscriptionLifecycleRecord
@@ -46,21 +44,28 @@ export async function handleSubscriptionCreated(
 
     const wasFreePreviously = otherActiveSubscriptions.length === 0
     const isPaidPlan = isPaidBillingTier(subscriptionData.tier)
+    const isPersonalSubscribedTransition =
+      wasFreePreviously && subscriptionData.referenceType === 'user'
+    const shouldResetUsage = isPersonalSubscribedTransition || (wasFreePreviously && isPaidPlan)
 
-    if (wasFreePreviously && isPaidPlan) {
-      logger.info('Detected free -> paid transition, resetting usage', {
+    if (shouldResetUsage) {
+      logger.info('Detected free/default -> subscribed transition, resetting usage', {
         subscriptionId: subscriptionData.id,
         referenceType: subscriptionData.referenceType,
         referenceId: subscriptionData.referenceId,
         billingTier: subscriptionData.tier?.displayName,
       })
 
-      await resetUsageForSubscription({
-        referenceId: subscriptionData.referenceId,
-        tier: subscriptionData.tier,
-      })
+      if (isPersonalSubscribedTransition) {
+        await decrementGrantedOnboardingAllowanceByCurrentPeriodUsage(subscriptionData.referenceId)
+      } else {
+        await resetUsageForSubscription({
+          referenceId: subscriptionData.referenceId,
+          tier: subscriptionData.tier,
+        })
+      }
 
-      logger.info('Successfully reset usage for free -> paid transition', {
+      logger.info('Successfully reset usage for free/default -> subscribed transition', {
         subscriptionId: subscriptionData.id,
         referenceType: subscriptionData.referenceType,
         referenceId: subscriptionData.referenceId,
