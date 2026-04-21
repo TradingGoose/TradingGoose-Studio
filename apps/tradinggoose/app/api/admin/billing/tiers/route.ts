@@ -44,7 +44,9 @@ export async function POST(request: Request) {
       )
     }
 
-    const validationError = validateAdminBillingTierInput(parsed.data)
+    const validationError = validateAdminBillingTierInput(parsed.data, {
+      requireStripeMonthlyPriceId: true,
+    })
     if (validationError) {
       return NextResponse.json({ error: validationError }, { status: 400 })
     }

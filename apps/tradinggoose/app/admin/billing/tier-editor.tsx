@@ -851,12 +851,14 @@ function TierFormFields({
   sectionState,
   onSectionStateChange,
   onAccessFieldChange,
+  requireStripeMonthlyPriceId = false,
 }: {
   initialValues: TierFormDefaults
   previewValues: TierFormDefaults
   sectionState: TierEditorSectionState
   onSectionStateChange: (sectionId: TierEditorSectionId, open: boolean) => void
   onAccessFieldChange: (field: keyof TierDerivedAccessFields, value: string) => void
+  requireStripeMonthlyPriceId?: boolean
 }) {
   const sectionSummaries = getTierSectionSummaries(previewValues)
   const derivedAccessFields = normalizeTierAccessFields(previewValues)
@@ -1006,13 +1008,14 @@ function TierFormFields({
                 id='stripeMonthlyPriceId'
                 label='Stripe Monthly Price ID'
                 hint='Stripe monthly price ID, like `price_...`.'
-                nullable
+                nullable={!requireStripeMonthlyPriceId}
                 blankHint='Leave blank if monthly checkout is off.'
               >
                 <Input
                   id='stripeMonthlyPriceId'
                   name='stripeMonthlyPriceId'
                   defaultValue={initialValues.stripeMonthlyPriceId}
+                  required={requireStripeMonthlyPriceId}
                 />
               </FieldShell>
             </div>
@@ -1416,6 +1419,7 @@ export function TierEditorFormSurface({
   sectionState,
   onSectionStateChange,
   onAccessFieldChange,
+  requireStripeMonthlyPriceId = false,
   disabled,
   onSubmit,
   onFormChange,
@@ -1427,6 +1431,7 @@ export function TierEditorFormSurface({
   sectionState: TierEditorSectionState
   onSectionStateChange: (sectionId: TierEditorSectionId, open: boolean) => void
   onAccessFieldChange: (field: keyof TierDerivedAccessFields, value: string) => void
+  requireStripeMonthlyPriceId?: boolean
   disabled: boolean
   onSubmit: (event: FormEvent<HTMLFormElement>) => void | Promise<void>
   onFormChange: (event: FormEvent<HTMLFormElement>) => void
@@ -1442,6 +1447,7 @@ export function TierEditorFormSurface({
             sectionState={sectionState}
             onSectionStateChange={onSectionStateChange}
             onAccessFieldChange={onAccessFieldChange}
+            requireStripeMonthlyPriceId={requireStripeMonthlyPriceId}
           />
           {footer ? (
             <div className='border-border/60 border-t px-4 py-4 sm:px-5'>{footer}</div>
