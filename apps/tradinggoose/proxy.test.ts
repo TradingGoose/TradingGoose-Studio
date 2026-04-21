@@ -39,16 +39,17 @@ describe('proxy auth routing', () => {
     expect(response.headers.get('x-middleware-rewrite')).toBeNull()
   })
 
-  it('still rewrites non-landing hosted requests to the not-found route', async () => {
+  it('redirects hosted protected routes to login when no session is present', async () => {
     const { proxy } = await import('./proxy')
     const response = await proxy(
       new NextRequest('https://www.tradinggoose.ai/workspace/ws-1/dashboard')
     )
 
-    expect(response.status).toBe(404)
-    expect(response.headers.get('x-middleware-rewrite')).toBe(
-      'https://www.tradinggoose.ai/not-found'
+    expect(response.status).toBe(307)
+    expect(response.headers.get('location')).toBe(
+      'https://www.tradinggoose.ai/login?callbackUrl=%2Fworkspace%2Fws-1%2Fdashboard'
     )
+    expect(response.headers.get('x-middleware-rewrite')).toBeNull()
   })
 
   it('allows the login route through when reauth is explicitly requested', async () => {

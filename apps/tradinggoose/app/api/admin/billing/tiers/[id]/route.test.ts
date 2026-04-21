@@ -160,7 +160,9 @@ describe('PATCH /api/admin/billing/tiers/[id]', () => {
     const data = await response.json()
 
     expect(response.status).toBe(400)
-    expect(data.error).toBe('New tiers must configure a Stripe monthly price ID')
+    expect(data.error).toBe(
+      'Public tiers with a recurring monthly price must configure a Stripe monthly price ID'
+    )
     expect(mockTierLimit).not.toHaveBeenCalled()
     expect(mockTransaction).not.toHaveBeenCalled()
   })
