@@ -109,7 +109,6 @@ export default function LoginPage({
   const router = useRouter()
   const searchParams = useSearchParams()
   const [isLoading, setIsLoading] = useState(false)
-  const [_mounted, setMounted] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [password, setPassword] = useState('')
   const [passwordErrors, setPasswordErrors] = useState<string[]>([])
@@ -133,8 +132,6 @@ export default function LoginPage({
   const [showEmailValidationError, setShowEmailValidationError] = useState(false)
 
   useEffect(() => {
-    setMounted(true)
-
     if (searchParams) {
       const callback = searchParams.get('callbackUrl')
       if (callback) {
@@ -407,6 +404,7 @@ export default function LoginPage({
             <Input
               id='email'
               name='email'
+              suppressHydrationWarning
               placeholder='Enter your email'
               required
               autoCapitalize='none'
@@ -444,6 +442,7 @@ export default function LoginPage({
               <Input
                 id='password'
                 name='password'
+                suppressHydrationWarning
                 required
                 type={showPassword ? 'text' : 'password'}
                 autoCapitalize='none'
