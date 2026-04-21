@@ -3,6 +3,14 @@ import { isDev, isHosted } from '@/lib/environment'
 import { env, isTruthy } from './lib/env'
 import { getMainCSPPolicy, getWorkflowExecutionCSPPolicy } from './lib/security/csp'
 
+const MONACO_TRACE_ROOTS = ['./node_modules', './apps/tradinggoose/node_modules'] as const
+const MONACO_TRACE_FILES = MONACO_TRACE_ROOTS.flatMap((root) => [
+  `${root}/monaco-editor/esm/vs/**/*.js`,
+  `${root}/monaco-editor/esm/vs/**/*.js.map`,
+  `${root}/.bun/monaco-editor@*/node_modules/monaco-editor/esm/vs/**/*.js`,
+  `${root}/.bun/monaco-editor@*/node_modules/monaco-editor/esm/vs/**/*.js.map`,
+])
+
 const nextConfig: NextConfig = {
   devIndicators: false,
   images: {
@@ -63,6 +71,9 @@ const nextConfig: NextConfig = {
     ignoreBuildErrors: isTruthy(env.DOCKER_BUILD) || isTruthy(env.VERCEL),
   },
   output: isTruthy(env.DOCKER_BUILD) ? 'standalone' : undefined,
+  outputFileTracingIncludes: {
+    '/monaco-editor/esm/vs/**/*': MONACO_TRACE_FILES,
+  },
   turbopack: {
     resolveExtensions: ['.tsx', '.ts', '.jsx', '.js', '.mjs', '.json'],
   },
