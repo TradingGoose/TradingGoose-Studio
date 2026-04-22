@@ -580,7 +580,6 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
                 <UserInput
                   ref={userInputRef}
                   workspaceId={workspaceId}
-                  workflowId={workflowId}
                   onSubmit={handleSubmit}
                   onAbort={handleAbort}
                   disabled={inputDisabled}

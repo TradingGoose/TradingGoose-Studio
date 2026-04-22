@@ -41,6 +41,22 @@ const assistantMessage: CopilotMessageType = {
   citations: [{ id: 1, title: 'Source A', url: 'https://example.com/source-a' }],
 }
 
+const userMentionMessage = {
+  id: 'user-1',
+  role: 'user',
+  content: "what's the trigger of this workflow? @default-agent",
+  timestamp: '2026-04-17T00:00:00.000Z',
+  contentBlocks: [],
+  contexts: [
+    {
+      kind: 'workflow',
+      workflowId: 'wf-1',
+      workspaceId: 'ws-1',
+      label: 'default-agent',
+    },
+  ],
+} as CopilotMessageType
+
 vi.mock('@/lib/copilot/chat-replay-safety', () => ({
   EDIT_REPLAY_BLOCKED_MESSAGE: 'blocked',
   hasAcceptedLiveMutationAfterMessage: () => false,
@@ -133,5 +149,19 @@ describe('CopilotMessage', () => {
     expect(container.querySelector('[title="Copy"]')).toBeNull()
     expect(container.querySelector('[title="Upvote"]')).toBeNull()
     expect(container.querySelector('[title="Downvote"]')).toBeNull()
+  })
+
+  it('renders explicit context mentions inline without a duplicate context chip row', async () => {
+    mockStoreState.messages = [userMentionMessage]
+
+    await act(async () => {
+      root.render(<CopilotMessage message={userMentionMessage} runtimeContext={runtimeContext} />)
+    })
+
+    expect(container.querySelector('[title="default-agent"]')).toBeNull()
+
+    const inlineMention = container.querySelector('[data-message-box] span.rounded-xs')
+    expect(inlineMention?.textContent).toBe('@default-agent')
+    expect(container.textContent).toContain("what's the trigger of this workflow?")
   })
 })

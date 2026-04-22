@@ -1,10 +1,12 @@
+import { REVIEW_ENTITY_KINDS, type ReviewEntityKind } from '@/lib/copilot/review-sessions/types'
 import { normalizeOptionalString } from '@/lib/utils'
-import type { PairColorContext } from '@/stores/dashboard/pair-store'
 import type { ChatContext } from '@/stores/copilot/types'
+import type { PairColorContext } from '@/stores/dashboard/pair-store'
 import {
-  REVIEW_ENTITY_KINDS,
-  type ReviewEntityKind,
-} from '@/lib/copilot/review-sessions/types'
+  buildCopilotWorkspaceEntityContext,
+  COPILOT_WORKSPACE_ENTITY_CONFIGS,
+  getCopilotWorkspaceEntityIdFromPairContext,
+} from './workspace-entities'
 
 type BuildImplicitCopilotContextsOptions = {
   workspaceId?: string | null
@@ -28,7 +30,8 @@ type ActiveReviewTarget = {
 function readPairReviewTarget(pairContext?: PairColorContext | null): ActiveReviewTarget | null {
   const reviewEntityKind = normalizeOptionalString(pairContext?.reviewTarget?.reviewEntityKind)
   const reviewEntityId = normalizeOptionalString(pairContext?.reviewTarget?.reviewEntityId) ?? null
-  const reviewSessionId = normalizeOptionalString(pairContext?.reviewTarget?.reviewSessionId) ?? null
+  const reviewSessionId =
+    normalizeOptionalString(pairContext?.reviewTarget?.reviewSessionId) ?? null
   const draftSessionId =
     normalizeOptionalString(pairContext?.reviewTarget?.reviewDraftSessionId) ?? null
 
@@ -48,7 +51,9 @@ function readPairReviewTarget(pairContext?: PairColorContext | null): ActiveRevi
   }
 }
 
-export function resolveCopilotWorkflowId(pairContext?: PairColorContext | null): string | undefined {
+export function resolveCopilotWorkflowId(
+  pairContext?: PairColorContext | null
+): string | undefined {
   return normalizeOptionalString(pairContext?.workflowId)
 }
 
@@ -82,55 +87,33 @@ export const buildImplicitCopilotContexts = ({
   const contexts: ChatContext[] = []
 
   if (resolvedWorkflowId) {
-    contexts.push({
-      kind: 'current_workflow',
-      workflowId: resolvedWorkflowId,
-      label: 'Current Workflow',
-    })
+    contexts.push(
+      buildCopilotWorkspaceEntityContext({
+        entityKind: 'workflow',
+        entityId: resolvedWorkflowId,
+        current: true,
+      })
+    )
   }
 
-  const currentEntityContextBase = {
-    ...(resolvedWorkspaceId ? { workspaceId: resolvedWorkspaceId } : {}),
-  }
+  for (const config of COPILOT_WORKSPACE_ENTITY_CONFIGS) {
+    if (config.entityKind === 'workflow') {
+      continue
+    }
 
-  const skillId = normalizeOptionalString(pairContext?.skillId)
-  if (skillId) {
-    contexts.push({
-      kind: 'current_skill',
-      label: 'Current Skill',
-      ...currentEntityContextBase,
-      skillId,
-    })
-  }
+    const entityId = getCopilotWorkspaceEntityIdFromPairContext(pairContext, config.entityKind)
+    if (!entityId) {
+      continue
+    }
 
-  const customToolId = normalizeOptionalString(pairContext?.customToolId)
-  if (customToolId) {
-    contexts.push({
-      kind: 'current_custom_tool',
-      label: 'Current Tool',
-      ...currentEntityContextBase,
-      customToolId,
-    })
-  }
-
-  const indicatorId = normalizeOptionalString(pairContext?.indicatorId)
-  if (indicatorId) {
-    contexts.push({
-      kind: 'current_indicator',
-      label: 'Current Indicator',
-      ...currentEntityContextBase,
-      indicatorId,
-    })
-  }
-
-  const mcpServerId = normalizeOptionalString(pairContext?.mcpServerId)
-  if (mcpServerId) {
-    contexts.push({
-      kind: 'current_mcp_server',
-      label: 'Current MCP Server',
-      ...currentEntityContextBase,
-      mcpServerId,
-    })
+    contexts.push(
+      buildCopilotWorkspaceEntityContext({
+        entityKind: config.entityKind,
+        entityId,
+        workspaceId: resolvedWorkspaceId,
+        current: true,
+      })
+    )
   }
 
   return contexts
