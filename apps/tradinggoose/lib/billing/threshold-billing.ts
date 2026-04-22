@@ -138,6 +138,11 @@ export async function checkAndBillOverageThreshold(params: {
     }
 
     if (!subscription.stripeSubscriptionId) {
+      logger.error('No Stripe subscription ID found', {
+        billingUserId: billingContext.billingUserId,
+        workspaceId: params.workspaceId,
+        workflowId: params.workflowId,
+      })
       return
     }
     const stripeSubscriptionId = subscription.stripeSubscriptionId

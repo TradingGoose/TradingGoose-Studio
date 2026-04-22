@@ -8,6 +8,7 @@ const {
   mockDb,
   mockEq,
   mockGetResolvedBillingSettings,
+  mockLogger,
   mockRequireStripeClient,
   mockResolveWorkspaceBillingContext,
   mockSql,
@@ -22,6 +23,12 @@ const {
   },
   mockEq: vi.fn((field: unknown, value: unknown) => ({ field, value })),
   mockGetResolvedBillingSettings: vi.fn(),
+  mockLogger: {
+    debug: vi.fn(),
+    error: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+  },
   mockRequireStripeClient: vi.fn(),
   mockResolveWorkspaceBillingContext: vi.fn(),
   mockSql: vi.fn((strings: TemplateStringsArray, ...values: unknown[]) => ({
@@ -105,12 +112,7 @@ vi.mock('@/lib/billing/workspace-billing', () => ({
 }))
 
 vi.mock('@/lib/logs/console/logger', () => ({
-  createLogger: () => ({
-    debug: vi.fn(),
-    error: vi.fn(),
-    info: vi.fn(),
-    warn: vi.fn(),
-  }),
+  createLogger: () => mockLogger,
 }))
 
 const paygTier = {
@@ -231,5 +233,39 @@ describe('checkAndBillOverageThreshold', () => {
     expect(mockStripeInvoicesCreate).not.toHaveBeenCalled()
     expect(mockStripeInvoiceItemsCreate).not.toHaveBeenCalled()
     expect(updatedStats).toEqual([])
+  })
+
+  it('logs and exits when an active subscription is missing its Stripe subscription ID', async () => {
+    mockResolveWorkspaceBillingContext.mockResolvedValueOnce({
+      subscription: {
+        id: 'sub_local',
+        status: 'active',
+        stripeSubscriptionId: null,
+        periodEnd: new Date('2026-05-01T00:00:00.000Z'),
+        tier: paygTier,
+      },
+      tier: paygTier,
+      scopeType: 'user',
+      scopeId: 'user-1',
+      billingOwner: {
+        type: 'user',
+      },
+      billingUserId: 'user-1',
+    })
+
+    const { checkAndBillOverageThreshold } = await import('./threshold-billing')
+
+    await checkAndBillOverageThreshold({
+      userId: 'user-1',
+      workspaceId: 'workspace-1',
+    })
+
+    expect(mockLogger.error).toHaveBeenCalledWith('No Stripe subscription ID found', {
+      billingUserId: 'user-1',
+      workspaceId: 'workspace-1',
+      workflowId: undefined,
+    })
+    expect(mockDb.transaction).not.toHaveBeenCalled()
+    expect(mockStripeInvoicesCreate).not.toHaveBeenCalled()
   })
 })
