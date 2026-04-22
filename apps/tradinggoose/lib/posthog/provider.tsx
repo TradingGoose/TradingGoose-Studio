@@ -3,11 +3,11 @@
 import { useEffect } from 'react'
 import posthog from 'posthog-js'
 import { PostHogProvider as PHProvider } from 'posthog-js/react'
-import { getEnv, isTruthy } from '../env'
+import { getEnv } from '../env'
 
 export function PostHogProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
-    const posthogKey = getEnv('NEXT_PUBLIC_POSTHOG_KEY') || 'phc_wekVf2yb9Ua9UV6uwRsUHVhbc2p7hccEJsQTZ2wCCX6N'
+    const posthogKey = getEnv('NEXT_PUBLIC_POSTHOG_KEY')
     const disabled = getEnv('NEXT_PUBLIC_POSTHOG_DISABLED') === '1'
 
     if (!disabled && posthogKey && !posthog.__loaded) {
