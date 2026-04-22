@@ -27,9 +27,10 @@ import { PreviewWorkflow } from '@/widgets/widgets/editor_workflow/components/wo
 
 type WorkflowReviewPayload = {
   workflowState: Record<string, any>
-  changeSummary: string[]
   previewDiffOperations: Array<{ operation_type?: string; block_id?: string }>
   warnings: string[]
+  addedBlocksCount: number
+  removedBlocksCount: number
   addedEdgesCount: number
   removedEdgesCount: number
 }
@@ -279,12 +280,6 @@ function readWorkflowReviewPayload(toolCall: CopilotToolCall): WorkflowReviewPay
     ? result.preview.edgeDiff.removed.length
     : 0
 
-  const changeSummary = [
-    ...(blockDiff?.added || []).map((blockId) => `Add ${blockId}`),
-    ...(blockDiff?.updated || []).map((blockId) => `Update ${blockId}`),
-    ...(blockDiff?.removed || []).map((blockId) => `Remove ${blockId}`),
-  ]
-
   const previewDiffOperations = [
     ...(blockDiff?.added || []).map((block_id) => ({ operation_type: 'add', block_id })),
     ...(blockDiff?.updated || []).map((block_id) => ({ operation_type: 'edit', block_id })),
@@ -292,9 +287,10 @@ function readWorkflowReviewPayload(toolCall: CopilotToolCall): WorkflowReviewPay
 
   return {
     workflowState,
-    changeSummary,
     previewDiffOperations,
     warnings,
+    addedBlocksCount: Array.isArray(blockDiff?.added) ? blockDiff.added.length : 0,
+    removedBlocksCount: Array.isArray(blockDiff?.removed) ? blockDiff.removed.length : 0,
     addedEdgesCount,
     removedEdgesCount,
   }
@@ -785,13 +781,13 @@ export function InlineToolCall({
       {entityReviewDiffPayload ? (
         <div className='pr-1 pl-5'>
           <div className='flex flex-col gap-3 rounded-md border border-orange-200/70 bg-card/60 p-3 dark:border-orange-900/50'>
-            <div className='text-[11px] font-medium uppercase tracking-wide text-muted-foreground'>
+            <div className='font-medium text-[11px] text-muted-foreground uppercase tracking-wide'>
               {entityReviewDiffPayload.title}
             </div>
 
             {entityReviewDiffPayload.sections.map((section) => (
               <div key={section.key} className='flex flex-col gap-1.5'>
-                <div className='text-[11px] font-medium uppercase tracking-wide text-muted-foreground'>
+                <div className='font-medium text-[11px] text-muted-foreground uppercase tracking-wide'>
                   {section.label}
                 </div>
                 <div className='overflow-hidden rounded-md border border-border/60 bg-background/70'>
@@ -818,38 +814,34 @@ export function InlineToolCall({
       {showWorkflowReview && workflowReviewPayload ? (
         <div className='pr-1 pl-5'>
           <div className='flex flex-col gap-3 rounded-md border border-border/60 bg-card/60 p-3'>
-            {workflowReviewPayload.changeSummary.length > 0 ? (
-              <div className='flex flex-col gap-1'>
-                <div className='text-[11px] font-medium uppercase tracking-wide text-muted-foreground'>
-                  Proposed Changes
-                </div>
-                <div className='flex flex-wrap gap-1.5'>
-                  {workflowReviewPayload.changeSummary.map((summary, index) => (
-                    <span
-                      key={`${summary}-${index}`}
-                      className='inline-flex items-center rounded-full border border-border/60 bg-muted/40 px-2 py-0.5 text-xs text-foreground'
-                    >
-                      {summary}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            ) : null}
-
-            {workflowReviewPayload.addedEdgesCount > 0 ||
+            {workflowReviewPayload.addedBlocksCount > 0 ||
+            workflowReviewPayload.removedBlocksCount > 0 ||
+            workflowReviewPayload.addedEdgesCount > 0 ||
             workflowReviewPayload.removedEdgesCount > 0 ? (
-              <div className='flex items-center gap-3 text-xs text-muted-foreground'>
-                <span>Edges +{workflowReviewPayload.addedEdgesCount}</span>
-                <span>Edges -{workflowReviewPayload.removedEdgesCount}</span>
+              <div className='flex flex-wrap items-center gap-3 text-muted-foreground text-xs'>
+                {(workflowReviewPayload.addedBlocksCount > 0 ||
+                  workflowReviewPayload.removedBlocksCount > 0) && (
+                  <>
+                    <span>Blocks +{workflowReviewPayload.addedBlocksCount}</span>
+                    <span>Blocks -{workflowReviewPayload.removedBlocksCount}</span>
+                  </>
+                )}
+                {(workflowReviewPayload.addedEdgesCount > 0 ||
+                  workflowReviewPayload.removedEdgesCount > 0) && (
+                  <>
+                    <span>Edges +{workflowReviewPayload.addedEdgesCount}</span>
+                    <span>Edges -{workflowReviewPayload.removedEdgesCount}</span>
+                  </>
+                )}
               </div>
             ) : null}
 
             {workflowReviewPayload.warnings.length > 0 ? (
               <div className='flex flex-col gap-1'>
-                <div className='text-[11px] font-medium uppercase tracking-wide text-muted-foreground'>
+                <div className='font-medium text-[11px] text-muted-foreground uppercase tracking-wide'>
                   Warnings
                 </div>
-                <ul className='list-disc space-y-1 pl-4 text-xs text-muted-foreground'>
+                <ul className='list-disc space-y-1 pl-4 text-muted-foreground text-xs'>
                   {workflowReviewPayload.warnings.map((warning, index) => (
                     <li key={`${warning}-${index}`}>{warning}</li>
                   ))}
