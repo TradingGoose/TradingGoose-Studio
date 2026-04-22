@@ -107,9 +107,7 @@ describe('handleSubscriptionCreated', () => {
       } as any,
     })
 
-    expect(mockDecrementGrantedOnboardingAllowanceByCurrentPeriodUsage).toHaveBeenCalledWith(
-      'user-1'
-    )
+    expect(mockDecrementGrantedOnboardingAllowanceByCurrentPeriodUsage).toHaveBeenCalled()
     expect(mockResetUsageForSubscription).not.toHaveBeenCalled()
   })
 

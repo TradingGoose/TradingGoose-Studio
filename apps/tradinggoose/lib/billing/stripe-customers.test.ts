@@ -202,20 +202,26 @@ describe('ensureStripeUserCustomer', () => {
     ])
   })
 
-  it('does not recreate or overwrite the stored Stripe customer on transient lookup failures', async () => {
+  it('does not recreate or overwrite the stored Stripe customer on non-missing lookup failures', async () => {
     userRows = [
       { stripeCustomerId: 'cus_existing', email: 'user@example.com', name: 'Portal User' },
     ]
     const dbClient = createDbClient()
     const stripe = createStripeClient()
-    stripe.customers.retrieve.mockRejectedValue(new Error('Stripe API unavailable'))
+    stripe.customers.retrieve.mockRejectedValue(
+      Object.assign(new Error('No such customer'), {
+        param: 'customer',
+        statusCode: 500,
+        type: 'StripeInvalidRequestError',
+      })
+    )
 
     await expect(
       ensureStripeUserCustomer(stripe, {
         dbClient,
         userId: 'user-1',
       })
-    ).rejects.toThrow('Stripe API unavailable')
+    ).rejects.toThrow('No such customer')
 
     expect(stripe.customers.create).not.toHaveBeenCalled()
     expect(userUpdates).toEqual([])

@@ -184,6 +184,36 @@ describe('/api/billing route', () => {
       session: { activeOrganizationId: 'org-1' },
     })
     userRows = [{ stripeCustomerId: 'cus_123' }]
+    mockGetSimplifiedBillingSummary.mockResolvedValue({
+      id: 'sub_user_1',
+      type: 'individual',
+      isPaid: false,
+      status: null,
+      seats: null,
+      metadata: null,
+      stripeSubscriptionId: null,
+      periodEnd: null,
+      tier: {
+        id: 'tier_payg',
+        displayName: 'Pay As You Go',
+        ownerType: 'user',
+        usageScope: 'individual',
+        seatMode: 'fixed',
+        monthlyPriceUsd: 0,
+        yearlyPriceUsd: 0,
+        hasStripeMonthlyPriceId: true,
+      },
+      usage: {
+        current: 0,
+        limit: 25,
+        percentUsed: 0,
+        isWarning: false,
+        isExceeded: false,
+        billingPeriodStart: null,
+        billingPeriodEnd: null,
+        lastPeriodCost: 0,
+      },
+    })
     mockStripeCustomersRetrieve.mockResolvedValue({
       id: 'cus_123',
       invoice_settings: {

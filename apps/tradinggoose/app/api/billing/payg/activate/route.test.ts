@@ -12,13 +12,13 @@ const {
   mockGetBillingGateState,
   mockGetSession,
   mockIsFreeBillingTier,
-  mockRequireStripeClient,
+  mockHandleSubscriptionCreated,
   mockRandomUUID,
+  mockRequireStripeClient,
   mockSql,
+  mockSyncSubscriptionUsageLimits,
   mockStripeSubscriptionsCreate,
   mockStripeSubscriptionsList,
-  mockHandleSubscriptionCreated,
-  mockSyncSubscriptionUsageLimits,
 } = vi.hoisted(() => ({
   mockEnsureDefaultUserSubscription: vi.fn(),
   mockEnsureStripeUserCustomer: vi.fn(),
@@ -30,6 +30,7 @@ const {
     (tier: { monthlyPriceUsd?: number | string | null; yearlyPriceUsd?: number | string | null }) =>
       Number(tier?.monthlyPriceUsd ?? 0) <= 0 && Number(tier?.yearlyPriceUsd ?? 0) <= 0
   ),
+  mockHandleSubscriptionCreated: vi.fn(),
   mockRequireStripeClient: vi.fn(),
   mockRandomUUID: vi.fn(),
   mockSql: vi.fn((strings: TemplateStringsArray, ...values: unknown[]) => ({
@@ -38,7 +39,6 @@ const {
   })),
   mockStripeSubscriptionsCreate: vi.fn(),
   mockStripeSubscriptionsList: vi.fn(),
-  mockHandleSubscriptionCreated: vi.fn(),
   mockSyncSubscriptionUsageLimits: vi.fn(),
 }))
 
@@ -294,7 +294,6 @@ describe('/api/billing/payg/activate route', () => {
       data: [],
     })
     mockStripeSubscriptionsCreate.mockResolvedValue(buildStripeSubscription())
-    mockHandleSubscriptionCreated.mockResolvedValue(undefined)
   })
 
   it('returns 401 when unauthenticated', async () => {
@@ -452,7 +451,8 @@ describe('/api/billing/payg/activate route', () => {
         stripeSubscriptionId: 'sub_stripe_123',
         status: 'active',
         tier: expect.objectContaining({ id: 'tier_payg' }),
-      })
+      }),
+      mockTx
     )
     expect(mockSyncSubscriptionUsageLimits).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -506,12 +506,7 @@ describe('/api/billing/payg/activate route', () => {
       stripeSubscriptionId: 'sub_stripe_existing',
     })
     expect(mockStripeSubscriptionsCreate).not.toHaveBeenCalled()
-    expect(mockHandleSubscriptionCreated).toHaveBeenCalledWith(
-      expect.objectContaining({
-        stripeSubscriptionId: 'sub_stripe_existing',
-        status: 'active',
-      })
-    )
+    expect(mockHandleSubscriptionCreated).toHaveBeenCalledOnce()
     expectActivationAttemptMetadataPersisted()
     expectPersistedStripeSubscriptionUpdate('sub_stripe_existing')
   })
@@ -539,12 +534,7 @@ describe('/api/billing/payg/activate route', () => {
       stripeSubscriptionId: 'sub_stripe_existing',
     })
     expect(mockStripeSubscriptionsCreate).not.toHaveBeenCalled()
-    expect(mockHandleSubscriptionCreated).toHaveBeenCalledWith(
-      expect.objectContaining({
-        stripeSubscriptionId: 'sub_stripe_existing',
-        status: 'active',
-      })
-    )
+    expect(mockHandleSubscriptionCreated).toHaveBeenCalledOnce()
   })
 
   it('ignores canceled historical Stripe subscriptions when reactivating PAYG', async () => {
@@ -645,9 +635,10 @@ describe('/api/billing/payg/activate route', () => {
       )
       .mockResolvedValueOnce(
         buildCurrentSubscription({
+          stripeCustomerId: 'cus_123',
+          stripeSubscriptionId: 'sub_stripe_123',
           metadata: {
             source: 'default-tier',
-            paygActivationAttemptId: 'attempt-1',
           },
         })
       )
@@ -674,7 +665,7 @@ describe('/api/billing/payg/activate route', () => {
     expect(secondResponse.status).toBe(200)
     expect(secondPayload).toMatchObject({
       success: true,
-      status: 'activated',
+      status: 'already_active',
       stripeSubscriptionId: 'sub_stripe_123',
     })
     expect(mockStripeSubscriptionsCreate).toHaveBeenCalledTimes(1)

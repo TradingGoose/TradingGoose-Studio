@@ -61,9 +61,10 @@ export async function handleNewUser(userId: string): Promise<void> {
 }
 
 export async function decrementGrantedOnboardingAllowanceByCurrentPeriodUsage(
-  userId: string
+  userId: string,
+  dbClient: Pick<typeof db, 'select' | 'update'> = db
 ): Promise<void> {
-  const statsRecords = await db
+  const statsRecords = await dbClient
     .select({
       currentPeriodCost: userStats.currentPeriodCost,
       currentPeriodCopilotCost: userStats.currentPeriodCopilotCost,
@@ -118,7 +119,7 @@ export async function decrementGrantedOnboardingAllowanceByCurrentPeriodUsage(
     nextValues.customUsageLimit = remainingAllowance.toString()
   }
 
-  await db.update(userStats).set(nextValues).where(eq(userStats.userId, userId))
+  await dbClient.update(userStats).set(nextValues).where(eq(userStats.userId, userId))
 }
 
 export async function resetUserCustomUsageLimitToGrantedOnboardingAllowance(

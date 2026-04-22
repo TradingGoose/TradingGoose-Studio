@@ -104,8 +104,11 @@ export async function getEffectiveSubscription(
   return getPersonalEffectiveSubscription(userId)
 }
 
-async function getActivePersonalSubscriptions(userId: string): Promise<SubscriptionRecord[]> {
-  return db
+async function getActivePersonalSubscriptions(
+  userId: string,
+  dbClient: Pick<typeof db, 'select'> = db
+): Promise<SubscriptionRecord[]> {
+  return dbClient
     .select()
     .from(subscription)
     .where(
@@ -118,9 +121,10 @@ async function getActivePersonalSubscriptions(userId: string): Promise<Subscript
 }
 
 export async function getPersonalEffectiveSubscription(
-  userId: string
+  userId: string,
+  dbClient: Pick<typeof db, 'select'> = db
 ): Promise<SubscriptionWithTier | null> {
-  const personalSubs = await getActivePersonalSubscriptions(userId)
+  const personalSubs = await getActivePersonalSubscriptions(userId, dbClient)
   const hydratedSubscriptions = await hydrateSubscriptionsWithTiers(personalSubs)
   return selectEffectiveSubscription(hydratedSubscriptions)
 }
@@ -129,8 +133,11 @@ function getDefaultUserSubscriptionId(userId: string) {
   return `${DEFAULT_USER_SUBSCRIPTION_ID_PREFIX}${userId}`
 }
 
-export async function ensureDefaultUserSubscription(userId: string): Promise<SubscriptionWithTier> {
-  const existingSubscription = await getPersonalEffectiveSubscription(userId)
+export async function ensureDefaultUserSubscription(
+  userId: string,
+  dbClient: Pick<typeof db, 'insert' | 'select'> = db
+): Promise<SubscriptionWithTier> {
+  const existingSubscription = await getPersonalEffectiveSubscription(userId, dbClient)
   if (existingSubscription) {
     return existingSubscription
   }
@@ -138,7 +145,7 @@ export async function ensureDefaultUserSubscription(userId: string): Promise<Sub
   const defaultTier = await requireDefaultBillingTier()
   const subscriptionId = getDefaultUserSubscriptionId(userId)
 
-  await db
+  await dbClient
     .insert(subscription)
     .values({
       id: subscriptionId,
@@ -180,7 +187,7 @@ export async function ensureDefaultUserSubscription(userId: string): Promise<Sub
       },
     })
 
-  const defaultSubscription = await getPersonalEffectiveSubscription(userId)
+  const defaultSubscription = await getPersonalEffectiveSubscription(userId, dbClient)
   if (!defaultSubscription) {
     throw new Error(`Failed to provision default subscription for user ${userId}`)
   }

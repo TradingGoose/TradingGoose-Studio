@@ -27,10 +27,11 @@ type TieredSubscriptionLifecycleRecord = {
  * Handle new subscription creation - reset usage if transitioning from free/default to subscribed
  */
 export async function handleSubscriptionCreated(
-  subscriptionData: TieredSubscriptionLifecycleRecord
+  subscriptionData: TieredSubscriptionLifecycleRecord,
+  dbClient: Pick<typeof db, 'select' | 'update'> = db
 ) {
   try {
-    const otherActiveSubscriptions = await db
+    const otherActiveSubscriptions = await dbClient
       .select()
       .from(subscription)
       .where(
@@ -59,7 +60,10 @@ export async function handleSubscriptionCreated(
         // Leaving the default personal path settles already-consumed onboarding credit before
         // resetting the period ledger. This applies to paid upgrades too because cancellation
         // falls back to the default tier.
-        await decrementGrantedOnboardingAllowanceByCurrentPeriodUsage(subscriptionData.referenceId)
+        await decrementGrantedOnboardingAllowanceByCurrentPeriodUsage(
+          subscriptionData.referenceId,
+          dbClient
+        )
       } else {
         await resetUsageForSubscription({
           referenceId: subscriptionData.referenceId,

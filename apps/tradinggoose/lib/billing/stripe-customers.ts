@@ -199,8 +199,8 @@ export function isMissingStripeCustomerError(error: unknown): boolean {
   }
 
   if (
-    stripeError.type !== 'StripeInvalidRequestError' &&
-    stripeError.statusCode !== 404 &&
+    stripeError.type !== 'StripeInvalidRequestError' ||
+    stripeError.statusCode !== 404 ||
     stripeError.param !== 'customer'
   ) {
     return false

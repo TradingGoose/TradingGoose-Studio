@@ -141,11 +141,14 @@ export async function GET(request: NextRequest) {
           .where(eq(user.id, session.user.id))
           .limit(1),
       ])
-      const hasPaymentMethodOnFile = await getPersonalHasPaymentMethodOnFile({
-        stripeConfigured: billingGate.stripeConfigured,
-        stripeCustomerId: userRows[0]?.stripeCustomerId ?? null,
-        userId: session.user.id,
-      })
+      const hasPaymentMethodOnFile =
+        summary.tier.hasStripeMonthlyPriceId || summary.tier.canEditUsageLimit
+          ? await getPersonalHasPaymentMethodOnFile({
+              stripeConfigured: billingGate.stripeConfigured,
+              stripeCustomerId: userRows[0]?.stripeCustomerId ?? null,
+              userId: session.user.id,
+            })
+          : false
 
       billingData = {
         ...summary,
