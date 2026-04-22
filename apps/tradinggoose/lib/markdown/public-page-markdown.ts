@@ -2,6 +2,7 @@ import { getPublicBillingCatalog } from '@/lib/billing/catalog'
 import { buildHostedPricingSentence } from '@/lib/billing/public-catalog'
 import { DEFAULT_META_DESCRIPTION } from '@/lib/branding/metadata'
 import { convertHtmlToMarkdown } from '@/lib/markdown/html-to-markdown'
+import { resolveGitHubServiceConfig } from '@/lib/system-services/runtime'
 import { getAllPosts, getPostBySlug } from '@/app/(landing)/blog/lib/posts'
 
 interface MarkdownDocumentOptions {
@@ -10,6 +11,10 @@ interface MarkdownDocumentOptions {
   body: string
   description?: string
 }
+
+const CHANGELOG_RELEASES_URL =
+  'https://api.github.com/repos/tradinggoose/tradinggoose-studio/releases?per_page=10&page=1'
+const CHANGELOG_RELEASES_REVALIDATE_SECONDS = 300
 
 function escapeFrontmatterValue(value: string): string {
   return JSON.stringify(value)
@@ -160,13 +165,18 @@ async function buildChangelogMarkdown(origin: string): Promise<string> {
   let releases: any[] = []
 
   try {
-    const response = await fetch(
-      'https://api.github.com/repos/tradinggoose/tradinggoose-studio/releases?per_page=10&page=1',
-      {
-        headers: { Accept: 'application/vnd.github+json' },
-        cache: 'no-store',
-      }
-    )
+    const githubConfig = await resolveGitHubServiceConfig()
+    const token = githubConfig.token
+    const response = await fetch(CHANGELOG_RELEASES_URL, {
+      headers: {
+        Accept: 'application/vnd.github+json',
+        'X-GitHub-Api-Version': '2022-11-28',
+        'User-Agent': 'TradingGoose-Studio/1.0',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      next: { revalidate: CHANGELOG_RELEASES_REVALIDATE_SECONDS },
+      cache: 'force-cache',
+    })
 
     releases = response.ok ? await response.json() : []
   } catch {
