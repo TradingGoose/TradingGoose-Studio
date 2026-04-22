@@ -22,7 +22,6 @@ export const SINGLE_TOOL_TYPES = [
   'FibRetracement',
   'PriceRange',
   'LongShortPosition',
-  'MarketDepth',
 ] as const
 
 export const MANUAL_TOOL_TYPES = [
