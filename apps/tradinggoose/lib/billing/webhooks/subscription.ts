@@ -65,10 +65,13 @@ export async function handleSubscriptionCreated(
           dbClient
         )
       } else {
-        await resetUsageForSubscription({
-          referenceId: subscriptionData.referenceId,
-          tier: subscriptionData.tier,
-        })
+        await resetUsageForSubscription(
+          {
+            referenceId: subscriptionData.referenceId,
+            tier: subscriptionData.tier,
+          },
+          dbClient
+        )
       }
 
       logger.info('Successfully reset usage for free/default -> subscribed transition', {

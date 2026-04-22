@@ -127,10 +127,13 @@ describe('handleSubscriptionCreated', () => {
     })
 
     expect(mockDecrementGrantedOnboardingAllowanceByCurrentPeriodUsage).not.toHaveBeenCalled()
-    expect(mockResetUsageForSubscription).toHaveBeenCalledWith({
-      referenceId: 'org-1',
-      tier: expect.objectContaining({ displayName: 'Team' }),
-    })
+    expect(mockResetUsageForSubscription).toHaveBeenCalledWith(
+      {
+        referenceId: 'org-1',
+        tier: expect.objectContaining({ displayName: 'Team' }),
+      },
+      mockDb
+    )
   })
 
   it('does nothing when the user was not previously on the free/default path', async () => {
