@@ -1,6 +1,8 @@
 import { db } from '@tradinggoose/db'
 import { member, subscription, user, userStats } from '@tradinggoose/db/schema'
 import { and, eq, inArray } from 'drizzle-orm'
+import { getResolvedBillingSettings } from '@/lib/billing/settings'
+import { BILLING_ENTITLED_SUBSCRIPTION_STATUSES } from '@/lib/billing/subscriptions/utils'
 import type { BillingReference, SubscriptionWithTier } from '@/lib/billing/tiers'
 import {
   getSubscriptionUsageAllowanceUsd,
@@ -10,8 +12,6 @@ import {
   selectEffectiveSubscription,
   toBillingTierSummary,
 } from '@/lib/billing/tiers'
-import { BILLING_ENTITLED_SUBSCRIPTION_STATUSES } from '@/lib/billing/subscriptions/utils'
-import { getResolvedBillingSettings } from '@/lib/billing/settings'
 import type { BillingTierSummary } from '@/lib/billing/types'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getBaseUrl } from '@/lib/urls/utils'
@@ -104,8 +104,11 @@ export async function getEffectiveSubscription(
   return getPersonalEffectiveSubscription(userId)
 }
 
-async function getActivePersonalSubscriptions(userId: string): Promise<SubscriptionRecord[]> {
-  return db
+async function getActivePersonalSubscriptions(
+  userId: string,
+  dbClient: Pick<typeof db, 'select'> = db
+): Promise<SubscriptionRecord[]> {
+  return dbClient
     .select()
     .from(subscription)
     .where(
@@ -118,9 +121,10 @@ async function getActivePersonalSubscriptions(userId: string): Promise<Subscript
 }
 
 export async function getPersonalEffectiveSubscription(
-  userId: string
+  userId: string,
+  dbClient: Pick<typeof db, 'select'> = db
 ): Promise<SubscriptionWithTier | null> {
-  const personalSubs = await getActivePersonalSubscriptions(userId)
+  const personalSubs = await getActivePersonalSubscriptions(userId, dbClient)
   const hydratedSubscriptions = await hydrateSubscriptionsWithTiers(personalSubs)
   return selectEffectiveSubscription(hydratedSubscriptions)
 }
@@ -129,8 +133,11 @@ function getDefaultUserSubscriptionId(userId: string) {
   return `${DEFAULT_USER_SUBSCRIPTION_ID_PREFIX}${userId}`
 }
 
-export async function ensureDefaultUserSubscription(userId: string): Promise<SubscriptionWithTier> {
-  const existingSubscription = await getPersonalEffectiveSubscription(userId)
+export async function ensureDefaultUserSubscription(
+  userId: string,
+  dbClient: Pick<typeof db, 'insert' | 'select'> = db
+): Promise<SubscriptionWithTier> {
+  const existingSubscription = await getPersonalEffectiveSubscription(userId, dbClient)
   if (existingSubscription) {
     return existingSubscription
   }
@@ -138,7 +145,7 @@ export async function ensureDefaultUserSubscription(userId: string): Promise<Sub
   const defaultTier = await requireDefaultBillingTier()
   const subscriptionId = getDefaultUserSubscriptionId(userId)
 
-  await db
+  await dbClient
     .insert(subscription)
     .values({
       id: subscriptionId,
@@ -180,7 +187,7 @@ export async function ensureDefaultUserSubscription(userId: string): Promise<Sub
       },
     })
 
-  const defaultSubscription = await getPersonalEffectiveSubscription(userId)
+  const defaultSubscription = await getPersonalEffectiveSubscription(userId, dbClient)
   if (!defaultSubscription) {
     throw new Error(`Failed to provision default subscription for user ${userId}`)
   }
@@ -189,7 +196,8 @@ export async function ensureDefaultUserSubscription(userId: string): Promise<Sub
 }
 
 export async function backfillDefaultUserSubscriptions(): Promise<number> {
-  const [userRows, entitledSubscriptions] = await Promise.all([
+  const [{ onboardingAllowanceUsd }, userRows, entitledSubscriptions] = await Promise.all([
+    getResolvedBillingSettings(),
     db.select({ id: user.id }).from(user),
     db
       .select({ referenceId: subscription.referenceId })
@@ -203,6 +211,11 @@ export async function backfillDefaultUserSubscriptions(): Promise<number> {
   ])
 
   const subscribedUserIds = new Set(entitledSubscriptions.map((row) => row.referenceId))
+  const usageLimit = onboardingAllowanceUsd.toString()
+  const usageLimitSeed = {
+    grantedOnboardingAllowanceUsd: usageLimit,
+    customUsageLimit: usageLimit,
+  }
   let createdCount = 0
 
   for (const row of userRows) {
@@ -211,6 +224,16 @@ export async function backfillDefaultUserSubscriptions(): Promise<number> {
     }
 
     await ensureDefaultUserSubscription(row.id)
+    await db
+      .insert(userStats)
+      .values({
+        id: crypto.randomUUID(),
+        userId: row.id,
+        ...usageLimitSeed,
+      })
+      .onConflictDoNothing({
+        target: userStats.userId,
+      })
     createdCount += 1
   }
 

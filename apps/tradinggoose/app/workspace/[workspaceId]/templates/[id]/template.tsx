@@ -239,7 +239,7 @@ export default function TemplateDetails({
       const newWorkflow = await response.json()
 
       // Navigate to the new workflow
-      router.push(`/workspace/${workspaceId}/w/${newWorkflow.id}`)
+      router.push(`/workspace/${workspaceId}/dashboard`)
     } catch (error) {
       logger.error('Error using template:', error)
       // Show error to user (could implement toast notification)

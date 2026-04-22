@@ -114,7 +114,12 @@ describe('Copilot mark-complete API', () => {
 
     expect(response.status).toBe(200)
     expect(response.headers.get('Content-Type')).toContain('text/event-stream')
-    expect(await response.text()).toContain('"type":"response.output_item.added"')
+    expect(response.headers.get('X-Accel-Buffering')).toBe('no')
+    const responseText = await response.text()
+    expect(responseText).toContain('"type":"turn_state"')
+    expect(responseText).toContain('"phase":"streaming"')
+    expect(responseText).toContain('"phase":"completed"')
+    expect(responseText).toContain('"type":"response.output_item.added"')
     expect(await mockProxyCopilotRequest.mock.calls[0]?.[0]).toEqual({
       endpoint: '/api/tools/mark-complete',
       body: {

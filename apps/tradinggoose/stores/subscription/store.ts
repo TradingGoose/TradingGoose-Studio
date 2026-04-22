@@ -1,4 +1,4 @@
-import { create } from 'zustand'
+import { createWithEqualityFn as create } from 'zustand/traditional'
 import { devtools } from 'zustand/middleware'
 import { createLogger } from '@/lib/logs/console/logger'
 import {
@@ -65,6 +65,7 @@ export const useSubscriptionStore = create<SubscriptionStore>()(
           // Transform dates with error handling
           const transformedData: SubscriptionData = {
             ...data,
+            hasPaymentMethodOnFile: !!data.hasPaymentMethodOnFile,
             periodEnd: data.periodEnd
               ? (() => {
                   try {
@@ -257,6 +258,7 @@ export const useSubscriptionStore = create<SubscriptionStore>()(
           // Transform subscription data dates with error handling
           const transformedSubscriptionData: SubscriptionData = {
             ...subscriptionData,
+            hasPaymentMethodOnFile: !!subscriptionData.hasPaymentMethodOnFile,
             periodEnd: subscriptionData.periodEnd
               ? (() => {
                   try {

@@ -1,11 +1,16 @@
 import { db } from '@tradinggoose/db'
-import { member, userStats } from '@tradinggoose/db/schema'
+import { member, user, userStats } from '@tradinggoose/db/schema'
 import { and, eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
 import { getSimplifiedBillingSummary } from '@/lib/billing/core/billing'
 import { getOrganizationBillingData } from '@/lib/billing/core/organization'
 import { getBillingGateState } from '@/lib/billing/settings'
+import { requireStripeClient } from '@/lib/billing/stripe-client'
+import {
+  getStripeCustomerDefaultPaymentMethodId,
+  isDeletedStripeCustomer,
+} from '@/lib/billing/stripe-customers'
 import { createLogger } from '@/lib/logs/console/logger'
 
 const logger = createLogger('UnifiedBillingAPI')
@@ -22,6 +27,34 @@ async function getOrganizationMemberRole(organizationId: string, userId: string)
     .limit(1)
 
   return memberRecord[0]?.role ?? null
+}
+
+async function getPersonalHasPaymentMethodOnFile(params: {
+  stripeConfigured: boolean
+  stripeCustomerId: string | null | undefined
+  userId: string
+}) {
+  if (!params.stripeConfigured || !params.stripeCustomerId) {
+    return false
+  }
+
+  try {
+    const stripe = requireStripeClient()
+    const customer = await stripe.customers.retrieve(params.stripeCustomerId)
+
+    if (isDeletedStripeCustomer(customer)) {
+      return false
+    }
+
+    return Boolean(getStripeCustomerDefaultPaymentMethodId(customer))
+  } catch (error) {
+    logger.warn('Failed to resolve Stripe payment method state for personal billing payload', {
+      userId: params.userId,
+      stripeCustomerId: params.stripeCustomerId,
+      error,
+    })
+    return false
+  }
 }
 
 function toOrganizationBillingPayload(
@@ -95,16 +128,33 @@ export async function GET(request: NextRequest) {
       // `context=user` must always preserve the personal billing contract used by the
       // existing subscription hooks and stores. Organization billing is exposed only
       // through the explicit organization context endpoint.
-      billingData = await getSimplifiedBillingSummary(session.user.id)
-      const stats = await db
-        .select({ blocked: userStats.billingBlocked })
-        .from(userStats)
-        .where(eq(userStats.userId, session.user.id))
-        .limit(1)
+      const [summary, stats, userRows] = await Promise.all([
+        getSimplifiedBillingSummary(session.user.id),
+        db
+          .select({ blocked: userStats.billingBlocked })
+          .from(userStats)
+          .where(eq(userStats.userId, session.user.id))
+          .limit(1),
+        db
+          .select({ stripeCustomerId: user.stripeCustomerId })
+          .from(user)
+          .where(eq(user.id, session.user.id))
+          .limit(1),
+      ])
+      const hasPaymentMethodOnFile =
+        summary.tier.hasStripeMonthlyPriceId || summary.tier.canEditUsageLimit
+          ? await getPersonalHasPaymentMethodOnFile({
+              stripeConfigured: billingGate.stripeConfigured,
+              stripeCustomerId: userRows[0]?.stripeCustomerId ?? null,
+              userId: session.user.id,
+            })
+          : false
+
       billingData = {
-        ...billingData,
+        ...summary,
         billingEnabled: billingGate.billingEnabled,
         billingBlocked: stats.length > 0 ? !!stats[0].blocked : false,
+        hasPaymentMethodOnFile,
       }
     } else {
       const userRole = await getOrganizationMemberRole(contextId!, session.user.id)

@@ -662,6 +662,7 @@ export function AdminBillingCreateTier() {
             setSectionState((current) => ({ ...current, [sectionId]: open }))
           }
           onAccessFieldChange={handleAccessFieldChange}
+          requireStripeMonthlyPriceId={true}
           disabled={createTier.isPending}
           onSubmit={handleSubmit}
           onFormChange={handleFormChange}

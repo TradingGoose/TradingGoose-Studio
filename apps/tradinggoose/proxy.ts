@@ -47,8 +47,7 @@ function isProtectedAppPath(pathname: string): boolean {
     pathname.startsWith('/workspace') ||
     pathname === '/admin' ||
     pathname.startsWith('/admin/') ||
-    pathname === '/w' ||
-    pathname.startsWith('/w/')
+    pathname === '/workspace/'
   )
 }
 
@@ -169,8 +168,6 @@ export const config = {
     '/', // Root path for self-hosted redirect logic
     '/terms', // Whitelabel terms redirect
     '/privacy', // Whitelabel privacy redirect
-    '/w', // Legacy /w redirect
-    '/w/:path*', // Legacy /w/* redirects
     '/workspace/:path*', // New workspace routes
     '/login',
     '/signup',

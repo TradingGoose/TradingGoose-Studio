@@ -5,7 +5,7 @@ import {
 import { normalizeFunctionCallArguments } from '@/lib/copilot/function-call-args'
 import { ClientToolCallState } from '@/lib/copilot/tools/client/base-tool'
 import { withPinnedToolExecutionProvenance } from '@/stores/copilot/store-provenance'
-import { ACTIVE_TURN_STATUS } from '@/stores/copilot/store-state'
+import { ACTIVE_TURN_STATUS, buildChatTurnStatusState } from '@/stores/copilot/store-state'
 import {
   bindClientToolExecutionContext,
   copilotToolHasInterrupt,
@@ -32,6 +32,7 @@ export interface StreamingContext {
   thinkingBlocksByItemId: Map<string, any>
   pendingAutoExecutionToolCallIds?: Set<string>
   newReviewSessionId?: string
+  latestTurnStatus?: string
   awaitingTools?: boolean
   streamComplete?: boolean
 }
@@ -59,6 +60,18 @@ function createOptimizedContentBlocks(contentBlocks: any[]): any[] {
     result[i] = { ...block }
   }
   return result
+}
+
+function applyStreamingTurnState(
+  set: any,
+  status: string,
+  isAwaitingContinuation: boolean
+) {
+  set((state: CopilotStore) => ({
+    ...buildChatTurnStatusState(state, status),
+    isSendingMessage: status === ACTIVE_TURN_STATUS,
+    isAwaitingContinuation,
+  }))
 }
 
 export function updateStreamingMessage(set: any, context: StreamingContext) {
@@ -603,6 +616,18 @@ export function createSSEHandlers(params: {
     'response.completed': (_data, context) => {
       context.streamComplete = true
     },
+    turn_state: (data, context, _get, set) => {
+      const status = typeof data?.status === 'string' ? data.status : ''
+      const phase = typeof data?.phase === 'string' ? data.phase : ''
+      if (!status) {
+        return
+      }
+
+      context.latestTurnStatus = status
+      context.awaitingTools = phase === 'waiting_for_tools'
+
+      applyStreamingTurnState(set, status, context.awaitingTools === true)
+    },
     error: (data, context, _get, set) => {
       logger.error('Stream error:', data.error)
       const content = getStreamingAssistantContent(context) || 'An error occurred.'
@@ -620,7 +645,6 @@ export function createSSEHandlers(params: {
       context.streamComplete = true
     },
     awaiting_tools: (_data, context) => {
-      context.awaitingTools = true
       context.streamComplete = true
     },
     stream_end: (_data, context, _get, set) => {

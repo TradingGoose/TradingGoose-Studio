@@ -151,7 +151,7 @@ export function WorkspacePermissionsProvider({
     if (isAuthError) {
       const callbackTarget =
         typeof window === 'undefined'
-          ? `/workspace/${workspaceId}`
+          ? `/workspace/${workspaceId}/dashboard`
           : `${window.location.pathname}${window.location.search}`
 
       setHasRedirected(true)

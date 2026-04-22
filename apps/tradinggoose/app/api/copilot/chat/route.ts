@@ -554,7 +554,11 @@ const createCopilotStreamCapture = () => {
 function enqueueErrorRewrite(
   event: Record<string, unknown>,
   controller: ReadableStreamDefaultController,
-  reader: ReadableStreamDefaultReader
+  reader: ReadableStreamDefaultReader,
+  enqueueTurnState: (
+    status: 'in_progress' | 'completed' | 'error',
+    phase: 'streaming' | 'waiting_for_tools' | 'completed' | 'error'
+  ) => void
 ): string {
   const eventData =
     typeof event.data === 'object' && event.data !== null
@@ -584,6 +588,7 @@ function enqueueErrorRewrite(
     return formatted
   }
   try {
+    enqueueTurnState('error', 'error')
     controller.enqueue(
       encodeSSE({
         type: 'response.output_text.delta',
@@ -924,6 +929,33 @@ export async function POST(req: NextRequest) {
             logger.debug(`[${tracker.requestId}] Sent initial reviewSessionId event to client`)
           }
 
+          const enqueueTurnState = (
+            status: 'in_progress' | 'completed' | 'error',
+            phase: 'streaming' | 'waiting_for_tools' | 'completed' | 'error'
+          ) => {
+            controller.enqueue(
+              encodeSSE({
+                type: 'turn_state',
+                status,
+                phase,
+              })
+            )
+          }
+
+          enqueueTurnState('in_progress', 'streaming')
+
+          const forwardClientEvent = (event: Record<string, unknown>) => {
+            if (event.type === 'awaiting_tools') {
+              latestTurnStatus = 'in_progress'
+              enqueueTurnState('in_progress', 'waiting_for_tools')
+            } else if (event.type === 'response.completed') {
+              latestTurnStatus = 'completed'
+              enqueueTurnState('completed', 'completed')
+            }
+
+            controller.enqueue(encodeSSE(event))
+          }
+
           reader = copilotResponse.body!.getReader()
           const decoder = new TextDecoder()
 
@@ -1040,7 +1072,6 @@ export async function POST(req: NextRequest) {
                         break
 
                       case 'awaiting_tools':
-                        latestTurnStatus = 'in_progress'
                         break
 
                       case 'error':
@@ -1050,10 +1081,16 @@ export async function POST(req: NextRequest) {
                     }
 
                     if (event?.type === 'error') {
-                      assistantContentOverride = enqueueErrorRewrite(event, controller, reader)
+                      latestTurnStatus = 'error'
+                      assistantContentOverride = enqueueErrorRewrite(
+                        event,
+                        controller,
+                        reader,
+                        enqueueTurnState
+                      )
                     } else {
                       try {
-                        controller.enqueue(encodeSSE(event))
+                        forwardClientEvent(event)
                       } catch (enqueueErr) {
                         reader.cancel()
                         break
@@ -1120,10 +1157,16 @@ export async function POST(req: NextRequest) {
                     streamCapture.captureDoneItem(event.item as Record<string, unknown>)
                   }
                   if (event?.type === 'error') {
-                    assistantContentOverride = enqueueErrorRewrite(event, controller, reader)
+                    latestTurnStatus = 'error'
+                    assistantContentOverride = enqueueErrorRewrite(
+                      event,
+                      controller,
+                      reader,
+                      enqueueTurnState
+                    )
                   } else {
                     try {
-                      controller.enqueue(encodeSSE(event))
+                      forwardClientEvent(event)
                     } catch (enqueueErr) {
                       reader.cancel()
                     }

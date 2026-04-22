@@ -51,8 +51,13 @@ export type AdminBillingTierMutationInput = z.infer<
   typeof adminBillingTierMutationSchema
 >
 
+type AdminBillingTierValidationOptions = {
+  requireStripeMonthlyPriceId?: boolean
+}
+
 export function validateAdminBillingTierInput(
   input: AdminBillingTierMutationInput,
+  options: AdminBillingTierValidationOptions = {},
 ): string | null {
   if (input.isDefault) {
     if (!input.isPublic) {
@@ -119,6 +124,10 @@ export function validateAdminBillingTierInput(
     if (input.includedUsageLimitUsd === null) {
       return 'Active tiers must configure an included usage limit'
     }
+  }
+
+  if (options.requireStripeMonthlyPriceId && !input.stripeMonthlyPriceId) {
+    return 'New tiers must configure a Stripe monthly price ID'
   }
 
   if (

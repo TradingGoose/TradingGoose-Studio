@@ -1,4 +1,4 @@
-import { create } from 'zustand'
+import { createWithEqualityFn as create } from 'zustand/traditional'
 import type { FilterState, LogLevel, TimeRange, TriggerType } from '@/stores/logs/filters/types'
 
 // Helper functions for URL synchronization

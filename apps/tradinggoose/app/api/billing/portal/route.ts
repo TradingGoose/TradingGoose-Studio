@@ -1,16 +1,18 @@
 import { db } from '@tradinggoose/db'
-import { subscription as subscriptionTable, user } from '@tradinggoose/db/schema'
-import { and, eq, inArray, or } from 'drizzle-orm'
+import { subscription as subscriptionTable } from '@tradinggoose/db/schema'
+import { and, eq, inArray, or, sql } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
 import { isOrganizationOwnerOrAdmin } from '@/lib/billing/core/organization'
 import { BILLING_DISABLED_ERROR, getBillingGateState } from '@/lib/billing/settings'
 import { requireStripeClient } from '@/lib/billing/stripe-client'
+import { ensureStripeUserCustomer } from '@/lib/billing/stripe-customers'
 import { BILLING_ACTIVE_SUBSCRIPTION_STATUSES } from '@/lib/billing/subscriptions/utils'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getBaseUrl } from '@/lib/urls/utils'
 
 const logger = createLogger('BillingPortal')
+const BILLING_PORTAL_CUSTOMER_LOCK_NAMESPACE = 4_126_092
 
 export async function POST(request: NextRequest) {
   const session = await getSession()
@@ -65,13 +67,23 @@ export async function POST(request: NextRequest) {
 
       stripeCustomerId = rows.length > 0 ? rows[0].customer || null : null
     } else {
-      const rows = await db
-        .select({ customer: user.stripeCustomerId })
-        .from(user)
-        .where(eq(user.id, session.user.id))
-        .limit(1)
+      const personalStripeCustomer = await db.transaction(async (tx) => {
+        await tx.execute(
+          sql`select pg_advisory_xact_lock(${BILLING_PORTAL_CUSTOMER_LOCK_NAMESPACE}, hashtext(${session.user.id}))`
+        )
 
-      stripeCustomerId = rows.length > 0 ? rows[0].customer || null : null
+        return ensureStripeUserCustomer(stripe, {
+          dbClient: tx,
+          logger,
+          userId: session.user.id,
+        })
+      })
+
+      if (!personalStripeCustomer) {
+        return NextResponse.json({ error: 'User not found' }, { status: 404 })
+      }
+
+      stripeCustomerId = personalStripeCustomer.id
     }
 
     if (!stripeCustomerId) {

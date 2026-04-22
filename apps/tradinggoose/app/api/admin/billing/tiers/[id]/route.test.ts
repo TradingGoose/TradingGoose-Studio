@@ -143,6 +143,30 @@ describe('PATCH /api/admin/billing/tiers/[id]', () => {
     mockTransaction.mockResolvedValue(undefined)
   })
 
+  it('rejects edits that omit the Stripe monthly price ID', async () => {
+    const { PATCH } = await import('./route')
+    const payload = {
+      ...createPayload(),
+      stripeMonthlyPriceId: null,
+    }
+
+    const response = await PATCH(
+      new Request('http://localhost/api/admin/billing/tiers/tier-pro', {
+        method: 'PATCH',
+        body: JSON.stringify(payload),
+      }) as any,
+      { params: Promise.resolve({ id: 'tier-pro' }) },
+    )
+    const data = await response.json()
+
+    expect(response.status).toBe(400)
+    expect(data.error).toBe(
+      'Public tiers with a recurring monthly price must configure a Stripe monthly price ID'
+    )
+    expect(mockTierLimit).not.toHaveBeenCalled()
+    expect(mockTransaction).not.toHaveBeenCalled()
+  })
+
   it.each([
     ['workflowExecutionMultiplier', 'workflow execution multiplier'],
     ['functionExecutionMultiplier', 'function execution multiplier'],
