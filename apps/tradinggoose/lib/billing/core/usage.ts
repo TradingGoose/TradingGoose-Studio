@@ -41,6 +41,7 @@ export async function handleNewUser(userId: string): Promise<void> {
         id: crypto.randomUUID(),
         userId,
         grantedOnboardingAllowanceUsd: onboardingAllowanceUsd.toString(),
+        customUsageLimit: onboardingAllowanceUsd.toString(),
       })
       .onConflictDoNothing({
         target: userStats.userId,
@@ -57,6 +58,98 @@ export async function handleNewUser(userId: string): Promise<void> {
     })
     throw error
   }
+}
+
+export async function decrementGrantedOnboardingAllowanceByCurrentPeriodUsage(
+  userId: string,
+  dbClient: Pick<typeof db, 'select' | 'update'> = db
+): Promise<void> {
+  const statsRecords = await dbClient
+    .select({
+      currentPeriodCost: userStats.currentPeriodCost,
+      currentPeriodCopilotCost: userStats.currentPeriodCopilotCost,
+      grantedOnboardingAllowanceUsd: userStats.grantedOnboardingAllowanceUsd,
+      customUsageLimit: userStats.customUsageLimit,
+    })
+    .from(userStats)
+    .where(eq(userStats.userId, userId))
+    .limit(1)
+
+  if (statsRecords.length === 0) {
+    return
+  }
+
+  const grantedAllowance = Math.max(
+    Number.parseFloat(statsRecords[0].grantedOnboardingAllowanceUsd?.toString() ?? '0'),
+    0
+  )
+  const currentPeriodCost = Math.max(
+    Number.parseFloat(statsRecords[0].currentPeriodCost?.toString() ?? '0'),
+    0
+  )
+  const currentPeriodCopilotCost = statsRecords[0].currentPeriodCopilotCost?.toString() ?? '0'
+  const currentPeriodCopilotCostValue = Math.max(Number.parseFloat(currentPeriodCopilotCost), 0)
+
+  if (currentPeriodCost === 0 && currentPeriodCopilotCostValue === 0) {
+    return
+  }
+
+  const remainingAllowance = Math.max(grantedAllowance - currentPeriodCost, 0)
+  const currentCustomUsageLimit = Number.parseFloat(
+    statsRecords[0].customUsageLimit?.toString() ?? '0'
+  )
+  const shouldSyncSeededCustomLimit =
+    Number.isFinite(currentCustomUsageLimit) && currentCustomUsageLimit === grantedAllowance
+  const nextValues: {
+    billedOverageThisPeriod: string
+    grantedOnboardingAllowanceUsd: string
+    lastPeriodCopilotCost?: string
+    lastPeriodCost?: string
+    currentPeriodCopilotCost: string
+    currentPeriodCost: string
+    customUsageLimit?: string
+  } = {
+    billedOverageThisPeriod: '0',
+    grantedOnboardingAllowanceUsd: remainingAllowance.toString(),
+    currentPeriodCopilotCost: '0',
+    currentPeriodCost: '0',
+  }
+
+  nextValues.lastPeriodCopilotCost = currentPeriodCopilotCost
+  nextValues.lastPeriodCost = currentPeriodCost.toString()
+
+  if (shouldSyncSeededCustomLimit) {
+    nextValues.customUsageLimit = remainingAllowance.toString()
+  }
+
+  await dbClient.update(userStats).set(nextValues).where(eq(userStats.userId, userId))
+}
+
+export async function resetUserCustomUsageLimitToGrantedOnboardingAllowance(
+  userId: string
+): Promise<void> {
+  const statsRecords = await db
+    .select({ grantedOnboardingAllowanceUsd: userStats.grantedOnboardingAllowanceUsd })
+    .from(userStats)
+    .where(eq(userStats.userId, userId))
+    .limit(1)
+
+  if (statsRecords.length === 0) {
+    return
+  }
+
+  const remainingAllowance = Math.max(
+    Number.parseFloat(statsRecords[0].grantedOnboardingAllowanceUsd?.toString() ?? '0'),
+    0
+  )
+
+  await db
+    .update(userStats)
+    .set({
+      customUsageLimit: remainingAllowance.toString(),
+      customUsageLimitUpdatedAt: new Date(),
+    })
+    .where(eq(userStats.userId, userId))
 }
 
 /**

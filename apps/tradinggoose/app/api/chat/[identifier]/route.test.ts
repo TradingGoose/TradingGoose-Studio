@@ -58,6 +58,8 @@ describe('Chat Identifier API Route', () => {
   const mockWorkflowResult = [
     {
       isDeployed: true,
+      workspaceId: 'workspace-id',
+      variables: {},
       state: {
         blocks: {},
         edges: [],

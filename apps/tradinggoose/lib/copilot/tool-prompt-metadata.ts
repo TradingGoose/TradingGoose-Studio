@@ -37,13 +37,13 @@ export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
   },
   edit_workflow: {
     description:
-      'Update a workflow using exact argument keys `workflowId`, full `workflowDocument`, and `documentFormat: tg-mermaid-v1`, then return the resulting workflow state.',
+      'Replace the full workflow document using exact argument keys `workflowId`, full `workflowDocument`, and `documentFormat: tg-mermaid-v1`, then return the resulting workflow state. Use this only for graph or topology edits such as adding, removing, reconnecting, or replacing blocks, or changing loop, parallel, or condition structure. Do not use this for a single existing block `name`, `enabled`, or `subBlocks` change; use `edit_workflow_block` instead. If a full-document edit fails and the request only changes one existing block config, stop retrying `edit_workflow` and switch tools.',
     kind: 'edit',
     entityKind: 'workflow',
   },
   edit_workflow_block: {
     description:
-      'Update one existing workflow block without changing workflow connections, graph structure, loops, or parallels. Use exact argument keys `workflowId`, `blockId`, optional `blockType`, optional `name`, optional `enabled`, and optional `subBlocks` mapping canonical sub-block ids to new values.',
+      'Default tool for one existing block config change. Patch one existing workflow block without changing workflow connections, graph structure, loops, parallels, condition branches, or adding or removing blocks. Use exact argument keys `workflowId`, `blockId`, optional `blockType`, optional `name`, optional `enabled`, and optional `subBlocks` mapping canonical sub-block ids to new values. Use `get_user_workflow` first for the exact `blockId`, and use `get_blocks_metadata` before editing `subBlocks`. If a previous `edit_workflow` attempt only needed one block config change, switch to this tool instead of retrying `edit_workflow`.',
     kind: 'edit',
     entityKind: 'workflow',
   },
@@ -71,7 +71,7 @@ export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
   },
   get_blocks_metadata: {
     description:
-      'Fetch detailed canonical profiles for workflow block types returned by `get_blocks_and_tools`, including sub-block ids, option values, input reference grammar, auth requirements, best practices, operations, and Mermaid structure examples.',
+      'Fetch detailed canonical profiles for workflow block types returned by `get_blocks_and_tools`, including sub-block ids, option values, exact input reference grammar, the source tools to resolve valid `<...>` tags, auth requirements, best practices, operations, and Mermaid structure examples.',
     kind: 'inspect',
     entityKind: 'workflow',
   },
@@ -218,31 +218,32 @@ export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
     surfaceKind: 'monitor',
   },
   list_indicators: {
-    description: 'List indicators in the current workspace.',
+    description:
+      'List both built-in default indicators and workspace custom indicators. Each result includes `source`, `editable`, `callableInFunctionBlock`, optional `entityId` for editable custom indicators, optional `runtimeId` for built-in Function-block calls, and optional `inputTitles` showing saved override keys. Use `get_indicator` next to inspect the full indicator document, Pine code, and input metadata for a candidate built-in or custom indicator.',
     kind: 'list',
     entityKind: 'indicator',
   },
   get_indicator: {
     description:
-      'Return the target indicator as an editable document payload with `entityDocument` and `documentFormat`.',
+      'Return one indicator as a document payload with `entityDocument` and `documentFormat`. For built-in default indicators, pass `runtimeId` from `list_indicators` to inspect the read-only default indicator document, Pine code, and input metadata. For custom indicators, use `entityId` from `list_indicators` entries where `editable` is true, or rely on the active review session. Built-in default indicators are read-only.',
     kind: 'read',
     entityKind: 'indicator',
   },
   create_indicator: {
     description:
-      'Create a new indicator by sending a full indicator document into the active unsaved draft review session, then return the resulting document.',
+      'Create a new custom indicator by sending a full indicator document into the active unsaved draft review session, then return the resulting document. Use this when no built-in default indicator fits the needed behavior.',
     kind: 'create',
     entityKind: 'indicator',
   },
   edit_indicator: {
     description:
-      'Update the target indicator from a full indicator document and return the resulting document.',
+      'Update one custom indicator from a full indicator document and return the resulting document. Use only with `entityId` from `list_indicators` entries where `editable` is true. Built-in default indicators are not editable.',
     kind: 'edit',
     entityKind: 'indicator',
   },
   rename_indicator: {
     description:
-      'Rename the target indicator by sending a full indicator document with the updated `name`, then return the resulting document.',
+      'Rename one custom indicator by sending a full indicator document with the updated `name`, then return the resulting document. Use only with `entityId` from `list_indicators` entries where `editable` is true.',
     kind: 'rename',
     entityKind: 'indicator',
   },
@@ -310,13 +311,13 @@ export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
   },
   get_block_outputs: {
     description:
-      'Return exact output paths for the given block ids, such as `agent.content`. Use those paths inside angle-bracket references like `<agent.content>`.',
+      'Return structured output entries for the given block ids, each with an exact `path` such as `agent.content` plus its output `type`. Copy `outputs[].path` exactly and wrap it once as `<agent.content>`. Do not invent `block.`, `output`, or workflow block id prefixes.',
     kind: 'inspect',
     entityKind: 'workflow',
   },
   get_block_upstream_references: {
     description:
-      'Return exact upstream outputs and workflow variable tags accessible to the given block ids. Use returned block outputs inside `<...>` references and workflow variables as `<variable.name>`.',
+      'Return exact upstream outputs and workflow variable tags accessible to the given block ids. Each accessible output includes exact `path` and `type`. Copy each returned `accessibleBlocks.outputs[].path` exactly into `<...>`, and copy each variable `tag` exactly as `<variable.name>`. Do not invent new paths.',
     kind: 'inspect',
     entityKind: 'workflow',
   },

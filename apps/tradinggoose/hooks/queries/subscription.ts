@@ -79,7 +79,7 @@ export function useUpdateUsageLimit() {
 
       if (!response.ok) {
         const error = await response.json()
-        throw new Error(error.message || 'Failed to update usage limit')
+        throw new Error(error.error || error.message || 'Failed to update usage limit')
       }
 
       return response.json()

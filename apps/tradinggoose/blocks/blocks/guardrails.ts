@@ -28,7 +28,7 @@ export const GuardrailsBlock: BlockConfig<GuardrailsResponse> = {
   longDescription:
     'Validate content using guardrails. Check if content is valid JSON, matches a regex pattern, detect hallucinations using RAG + LLM scoring, or detect PII.',
   bestPractices: `
-  - Reference block outputs using <blockName.output> syntax in the Content field
+  - Reference upstream outputs in the Content field by copying exact tags like <agent.content>
   - Use JSON validation to ensure structured output from LLMs before parsing
   - Use regex validation for format checking (emails, phone numbers, URLs, etc.)
   - Use hallucination check to validate LLM outputs against knowledge base content

@@ -2,23 +2,22 @@
 
 import type { LucideIcon } from 'lucide-react'
 import {
-  ArrowLeftRight,
   Brush,
   Circle,
-  Rows2,
   Crosshair,
   Eraser,
   Eye,
   EyeOff,
   Highlighter,
+  LoaderPinwheel,
   MessageSquareText,
   Minus,
   MoveHorizontal,
   MoveRight,
   MoveVertical,
   PanelTopDashed,
+  Rows2,
   Ruler,
-  LoaderPinwheel,
   Square,
   Trash2,
   TrendingUp,
@@ -62,7 +61,6 @@ export const DRAW_TOOL_LABELS: Record<ManualToolType, string> = {
   PriceRange: 'Price range',
   LongShortPosition: 'Long/short position',
   Text: 'Text',
-  MarketDepth: 'Market depth',
 }
 
 export const DRAW_ACTION_LABELS: Record<DrawToolActionType, string> = {
@@ -94,7 +92,6 @@ export const DRAW_TOOL_ICONS: Record<ManualToolType, LucideIcon> = {
   PriceRange: Ruler,
   LongShortPosition: PanelTopDashed,
   Text: Type,
-  MarketDepth: ArrowLeftRight,
 }
 
 export const DRAW_ACTION_ICONS: Record<DrawToolActionType, LucideIcon> = {

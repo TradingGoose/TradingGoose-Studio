@@ -16,7 +16,8 @@ export default async function WorkspaceLayout({
   const session = await getSession(requestHeaders, { disableCookieCache: true })
 
   if (!session?.user?.id) {
-    const callbackTarget = requestHeaders.get('x-auth-callback-url') || `/workspace/${workspaceId}`
+    const callbackTarget =
+      requestHeaders.get('x-auth-callback-url') || `/workspace/${workspaceId}/dashboard`
     redirect(`/login?reauth=1&callbackUrl=${encodeURIComponent(callbackTarget)}`)
   }
 

@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next'
+import Script from 'next/script'
 import { PUBLIC_ENV_KEY } from 'next-runtime-env'
 import { generateBrandedMetadata } from '@/lib/branding/metadata'
 import { createLogger } from '@/lib/logs/console/logger'
@@ -31,20 +32,26 @@ const BROWSER_EXTENSION_ATTRIBUTES = [
 if (typeof window !== 'undefined') {
   const originalError = console.error
   console.error = (...args) => {
-    if (args[0].includes('Hydration')) {
-      const isExtensionError = BROWSER_EXTENSION_ATTRIBUTES.some((attr) =>
-        args.some((arg) => typeof arg === 'string' && arg.includes(attr))
-      )
+    const messages = args.filter((arg): arg is string => typeof arg === 'string')
+    const isHydrationError = messages.some((message) => message.includes('Hydration'))
 
-      if (!isExtensionError) {
-        logger.error('Hydration Error', {
-          details: args,
-          componentStack: args.find(
-            (arg) => typeof arg === 'string' && arg.includes('component stack')
-          ),
-        })
-      }
+    if (!isHydrationError) {
+      originalError.apply(console, args)
+      return
     }
+
+    const isExtensionError = BROWSER_EXTENSION_ATTRIBUTES.some((attr) =>
+      messages.some((message) => message.includes(attr))
+    )
+
+    if (isExtensionError) {
+      return
+    }
+
+    logger.error('Hydration Error', {
+      details: args,
+      componentStack: messages.find((message) => message.includes('component stack')),
+    })
     originalError.apply(console, args)
   }
 }
@@ -78,11 +85,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <meta name='color-scheme' content='light dark' />
         <meta name='format-detection' content='telephone=no' />
         <meta httpEquiv='x-ua-compatible' content='ie=edge' />
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `window['${PUBLIC_ENV_KEY}'] = ${publicEnv};`,
-          }}
-        />
+        <Script id='public-env' strategy='beforeInteractive'>
+          {`window['${PUBLIC_ENV_KEY}'] = ${publicEnv};`}
+        </Script>
       </head>
       <body suppressHydrationWarning>
         <PostHogProvider>

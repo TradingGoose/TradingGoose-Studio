@@ -2,6 +2,9 @@ import type { Metadata } from 'next'
 import { getBrandConfig } from '@/lib/branding/branding'
 import { getBaseUrl } from '@/lib/urls/utils'
 
+export const DEFAULT_META_DESCRIPTION =
+  'Open-source LLM trading platform. Connect data providers, write custom indicators in PineTS, and trigger AI agent workflows on live signals.'
+
 /**
  * Generate dynamic metadata based on brand configuration
  */
@@ -10,14 +13,13 @@ export function generateBrandedMetadata(override: Partial<Metadata> = {}): Metad
 
   const defaultTitle = brand.name
   const summaryFull = `TradingGoose is an open-source visual workflow platform for technical LLM-driven trading. Connect your own market data providers, write custom indicators in PineTS, monitor live prices, and wire signals into AI agent workflows that place trades, send alerts, rebalance portfolios, or run any action you define. Build workspaces with split-panel widgets, chart multiple indicators, and backtest strategies against historical candle data.`
-  const summaryShort = `TradingGoose Studio — open-source, no-code visual workflow platform for technical LLM-driven trading. Build custom PineTS indicators, monitor live markets, and trigger AI agent workflows.`
 
   return {
     title: {
       template: `%s | ${brand.name}`,
       default: defaultTitle,
     },
-    description: summaryShort,
+    description: DEFAULT_META_DESCRIPTION,
     applicationName: brand.name,
     authors: [{ name: brand.name }],
     generator: 'Next.js',
@@ -42,7 +44,6 @@ export function generateBrandedMetadata(override: Partial<Metadata> = {}): Metad
     publisher: brand.name,
     metadataBase: new URL(getBaseUrl()),
     alternates: {
-      canonical: '/',
       languages: {
         'en-US': '/en-US',
       },

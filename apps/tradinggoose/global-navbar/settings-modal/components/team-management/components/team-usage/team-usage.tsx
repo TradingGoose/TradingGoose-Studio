@@ -1,8 +1,8 @@
 import { useRef } from 'react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useActiveOrganization } from '@/lib/auth-client'
+import { openBillingPortal } from '@/lib/billing/billing-portal'
 import { canTierEditUsageLimit } from '@/lib/billing/tier-summary'
-import { getBaseUrl } from '@/lib/urls/utils'
 import { UsageHeader } from '@/global-navbar/settings-modal/components/shared/usage-header'
 import {
   UsageLimit,
@@ -94,20 +94,16 @@ export function TeamUsage({ hasAdminAccess }: TeamUsageProps) {
       status={status}
       percentUsed={percentUsed}
       onResolvePayment={async () => {
+        if (!activeOrg?.id) {
+          alert('Select an organization to manage billing.')
+          return
+        }
+
         try {
-          const res = await fetch('/api/billing/portal', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              context: 'organization',
-              organizationId: activeOrg?.id,
-              returnUrl: `${getBaseUrl()}/workspace?billing=updated`,
-            }),
+          await openBillingPortal({
+            context: 'organization',
+            organizationId: activeOrg.id,
           })
-          const data = await res.json()
-          if (!res.ok || !data?.url)
-            throw new Error(data?.error || 'Failed to start billing portal')
-          window.location.href = data.url
         } catch (e) {
           alert(e instanceof Error ? e.message : 'Failed to open billing portal')
         }

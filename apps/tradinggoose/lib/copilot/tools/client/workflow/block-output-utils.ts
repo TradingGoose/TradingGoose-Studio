@@ -1,5 +1,4 @@
-import { getBlockOutputPaths } from '@/lib/workflows/block-outputs'
-import { getBlock } from '@/blocks'
+import { getBlockOutputPaths, getBlockOutputType } from '@/lib/workflows/block-outputs'
 import { normalizeBlockName } from '@/stores/workflows/utils'
 import type { Variable } from '@/stores/variables/types'
 import type { BlockState, Loop, Parallel } from '@/stores/workflows/workflow/types'
@@ -7,7 +6,6 @@ import { getRegisteredWorkflowSession } from '@/lib/yjs/workflow-session-registr
 import { getWorkflowSnapshot } from '@/lib/yjs/workflow-session'
 
 export interface WorkflowContext {
-  workflowId: string
   blocks: Record<string, BlockState>
   loops: Record<string, Loop>
   parallels: Record<string, Parallel>
@@ -19,6 +17,11 @@ export interface VariableOutput {
   name: string
   type: string
   tag: string
+}
+
+export interface BlockOutputReference {
+  path: string
+  type: string
 }
 
 /**
@@ -113,7 +116,7 @@ export function getWorkflowVariableOutputs(
   }))
 }
 
-export function getSubflowInsidePaths(
+function getSubflowInsidePaths(
   blockType: 'loop' | 'parallel',
   blockId: string,
   loops: Record<string, Loop>,
@@ -134,42 +137,91 @@ export function getSubflowInsidePaths(
   return paths
 }
 
-export function computeBlockOutputPaths(block: BlockState, ctx: WorkflowContext): string[] {
+function formatOutputReferencesWithPrefix(
+  paths: string[],
+  blockName: string,
+  resolveType: (path: string) => string
+): BlockOutputReference[] {
+  const normalizedName = normalizeBlockName(blockName)
+  return paths.map((path) => ({
+    path: `${normalizedName}.${path}`,
+    type: resolveType(path),
+  }))
+}
+
+function resolveSubflowOutputType(path: string): string {
+  if (path === 'index') return 'number'
+  if (path === 'results' || path === 'items') return 'json'
+  return 'any'
+}
+
+export function getSubflowInsideOutputReferences(
+  blockType: 'loop' | 'parallel',
+  blockId: string,
+  blockName: string,
+  loops: Record<string, Loop>,
+  parallels: Record<string, Parallel>
+): BlockOutputReference[] {
+  return formatOutputReferencesWithPrefix(
+    getSubflowInsidePaths(blockType, blockId, loops, parallels),
+    blockName,
+    resolveSubflowOutputType
+  )
+}
+
+export function getSubflowOutsideOutputReferences(blockName: string): BlockOutputReference[] {
+  return formatOutputReferencesWithPrefix(['results'], blockName, resolveSubflowOutputType)
+}
+
+export function computeBlockOutputReferences(
+  block: BlockState,
+  ctx: WorkflowContext,
+  workflowVariables: VariableOutput[] = []
+): BlockOutputReference[] {
   const { blocks, loops, parallels, subBlockValues } = ctx
-  const blockConfig = getBlock(block.type)
-  const mergedSubBlocks = getMergedSubBlocks(blocks, subBlockValues, block.id)
+  const blockName = block.name || block.type
 
   if (block.type === 'loop' || block.type === 'parallel') {
-    const insidePaths = getSubflowInsidePaths(block.type, block.id, loops, parallels)
-    return ['results', ...insidePaths]
+    return formatOutputReferencesWithPrefix(
+      ['results', ...getSubflowInsidePaths(block.type, block.id, loops, parallels)],
+      blockName,
+      resolveSubflowOutputType
+    )
   }
 
   if (block.type === 'evaluator') {
     const metricsValue = getSubBlockValue(blocks, subBlockValues, block.id, 'metrics')
-    if (metricsValue && Array.isArray(metricsValue) && metricsValue.length > 0) {
-      const validMetrics = metricsValue.filter((metric: { name?: string }) => metric?.name)
-      return validMetrics.map((metric: { name: string }) => metric.name.toLowerCase())
+    const metricPaths =
+      metricsValue && Array.isArray(metricsValue) && metricsValue.length > 0
+        ? metricsValue
+            .filter((metric: { name?: string }) => metric?.name)
+            .map((metric: { name: string }) => metric.name.toLowerCase())
+        : null
+
+    if (metricPaths) {
+      return formatOutputReferencesWithPrefix(metricPaths, blockName, () => 'number')
     }
-    return getBlockOutputPaths(block.type, mergedSubBlocks)
   }
 
   if (block.type === 'variables') {
     const variablesValue = getSubBlockValue(blocks, subBlockValues, block.id, 'variables')
-    if (variablesValue && Array.isArray(variablesValue) && variablesValue.length > 0) {
-      const validAssignments = variablesValue.filter((assignment: { variableName?: string }) =>
-        assignment?.variableName?.trim()
-      )
-      return validAssignments.map((assignment: { variableName: string }) =>
-        assignment.variableName.trim()
-      )
-    }
-    return []
+    const variableNames =
+      variablesValue && Array.isArray(variablesValue) && variablesValue.length > 0
+        ? variablesValue
+            .filter((assignment: { variableName?: string }) => assignment?.variableName?.trim())
+            .map((assignment: { variableName: string }) => assignment.variableName.trim())
+        : []
+
+    return formatOutputReferencesWithPrefix(variableNames, blockName, (path) => {
+      const variable = workflowVariables.find((entry) => entry.name === path)
+      return variable?.type || 'any'
+    })
   }
 
-  return getBlockOutputPaths(block.type, mergedSubBlocks, block.triggerMode)
-}
+  const mergedSubBlocks = getMergedSubBlocks(blocks, subBlockValues, block.id)
+  const outputPaths = getBlockOutputPaths(block.type, mergedSubBlocks, block.triggerMode)
 
-export function formatOutputsWithPrefix(paths: string[], blockName: string): string[] {
-  const normalizedName = normalizeBlockName(blockName)
-  return paths.map((path) => `${normalizedName}.${path}`)
+  return formatOutputReferencesWithPrefix(outputPaths, blockName, (path) =>
+    getBlockOutputType(block.type, path, mergedSubBlocks, block.triggerMode)
+  )
 }

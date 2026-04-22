@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo } from 'react'
+import { memo, useMemo, type SyntheticEvent } from 'react'
 import {
   ArrowLeftRight,
   ArrowUpDown,
@@ -115,7 +115,10 @@ export const ActionBar = memo(
       isActionLocked ? 'Block is locked' : getTooltipMessage(defaultMessage)
 
     const tooltipSide = horizontalHandles ? 'top' : 'right'
-    const actionButtonClass = cn('text-gray-500', disabled && 'cursor-not-allowed opacity-50')
+    const actionButtonClass = cn(
+      'nodrag nopan text-gray-500',
+      disabled && 'cursor-not-allowed opacity-50'
+    )
     const destructiveActionButtonClass = cn(actionButtonClass, 'hover:text-red-600')
     const scheduleTone: StatusTone = !hasScheduleInfo
       ? 'blue'
@@ -139,10 +142,14 @@ export const ActionBar = memo(
         <div className={cn('relative h-2 w-2 rounded-full', statusToneClasses[tone].dot)} />
       </div>
     )
+    const stopActionBarEvent = (event: SyntheticEvent) => {
+      event.stopPropagation()
+    }
 
     return (
       <div
         className={cn(
+          'nodrag nopan',
           horizontalHandles
             ? '-translate-x-1/2 absolute bottom-full left-1/2 z-10 mb-2'
             : '-right-14 absolute top-0',
@@ -152,6 +159,9 @@ export const ActionBar = memo(
           'rounded-md border border-gray-200 bg-background shadow-xs dark:border-gray-800',
           'opacity-0 transition-opacity duration-200 group-hover:opacity-100'
         )}
+        onClick={stopActionBarEvent}
+        onMouseDown={stopActionBarEvent}
+        onPointerDown={stopActionBarEvent}
       >
         <Tooltip>
           <TooltipTrigger asChild>

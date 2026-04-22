@@ -1,4 +1,14 @@
+import type { Metadata } from 'next'
 import LegalLayout from '@/app/(landing)/components/legal-layout'
+
+export const metadata: Metadata = {
+  title: 'Licenses & Notices | TradingGoose',
+  description:
+    'Licenses and notices for TradingGoose Studio, including AGPL-3.0 terms, PineTS, and third-party component attributions.',
+  alternates: {
+    canonical: '/licenses',
+  },
+}
 
 export default function LicensesPage() {
   return (

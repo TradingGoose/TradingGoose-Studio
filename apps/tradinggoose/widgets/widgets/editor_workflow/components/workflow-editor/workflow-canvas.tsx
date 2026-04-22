@@ -1144,7 +1144,7 @@ const WorkflowCanvas = React.memo(
         // If no workflows exist after loading, redirect to workspace root
         if (workflowIds.length === 0) {
           logger.info('No workflows found, redirecting to workspace root')
-          router.replace(`/workspace/${workspaceId}/w`)
+          router.replace(`/workspace/${workspaceId}/dashboard`)
           return
         }
 
@@ -1159,10 +1159,10 @@ const WorkflowCanvas = React.memo(
           })
 
           if (workspaceWorkflows.length > 0) {
-            router.replace(`/workspace/${workspaceId}/w/${workspaceWorkflows[0]}`)
+            router.replace(`/workspace/${workspaceId}/dashboard`)
           } else {
             // No valid workflows for this workspace, redirect to workspace root
-            router.replace(`/workspace/${workspaceId}/w`)
+            router.replace(`/workspace/${workspaceId}/dashboard`)
           }
           return
         }
@@ -1174,7 +1174,7 @@ const WorkflowCanvas = React.memo(
             `Workflow ${currentId} belongs to workspace ${currentWorkflow.workspaceId}, not ${workspaceId}`
           )
           // Redirect to the correct workspace for this workflow
-          router.replace(`/workspace/${currentWorkflow.workspaceId}/w/${currentId}`)
+          router.replace(`/workspace/${currentWorkflow.workspaceId}/dashboard`)
           return
         }
       }

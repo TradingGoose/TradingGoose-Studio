@@ -1,6 +1,16 @@
+import type { Metadata } from 'next'
 import Link from 'next/link'
 import LegalLayout from '@/app/(landing)/components/legal-layout'
 import { getBrandConfig } from '@/lib/branding/branding'
+
+export const metadata: Metadata = {
+  title: 'Privacy Policy | TradingGoose',
+  description:
+    'Privacy Policy for TradingGoose Studio, covering account data, workflows, connected services, analytics, billing, and retention practices.',
+  alternates: {
+    canonical: '/privacy',
+  },
+}
 
 export default function PrivacyPolicy() {
   const brand = getBrandConfig()

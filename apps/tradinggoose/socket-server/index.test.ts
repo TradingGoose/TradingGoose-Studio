@@ -188,9 +188,6 @@ describe('Socket Server Index Integration', () => {
     cleanupAllDocuments()
     cleanupPersistence()
 
-    // Use a random port for each test to avoid conflicts
-    PORT = 3333 + Math.floor(Math.random() * 1000)
-
     // Create HTTP server
     httpServer = createServer()
 
@@ -207,22 +204,20 @@ describe('Socket Server Index Integration', () => {
         reject(new Error(`Server failed to start on port ${PORT} within 15 seconds`))
       }, 15000)
 
-      httpServer.listen(PORT, '0.0.0.0', () => {
+      httpServer.listen(0, '127.0.0.1', () => {
         clearTimeout(timeout)
+        const address = httpServer.address()
+        if (!address || typeof address === 'string') {
+          reject(new Error('Server did not expose a numeric port'))
+          return
+        }
+        PORT = address.port
         resolve()
       })
 
       httpServer.on('error', (err: any) => {
         clearTimeout(timeout)
-        if (err.code === 'EADDRINUSE') {
-          // Try a different port
-          PORT = 3333 + Math.floor(Math.random() * 1000)
-          httpServer.listen(PORT, '0.0.0.0', () => {
-            resolve()
-          })
-        } else {
-          reject(err)
-        }
+        reject(err)
       })
     })
   }, 20000)

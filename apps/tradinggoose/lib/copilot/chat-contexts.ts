@@ -1,12 +1,14 @@
 import type { ChatContext } from '@/stores/copilot/types'
+import {
+  COPILOT_WORKSPACE_ENTITY_CONFIGS,
+  readCopilotWorkspaceEntityContext,
+} from '@/widgets/widgets/copilot/workspace-entities'
 
-const HIDDEN_COPILOT_CONTEXT_KINDS = new Set<ChatContext['kind']>([
-  'current_workflow',
-  'current_skill',
-  'current_indicator',
-  'current_custom_tool',
-  'current_mcp_server',
-])
+const HIDDEN_COPILOT_CONTEXT_KINDS = new Set<ChatContext['kind']>(
+  COPILOT_WORKSPACE_ENTITY_CONFIGS.map(
+    (config) => `current_${config.entityKind}` as ChatContext['kind']
+  )
+)
 
 export const isHiddenCopilotContext = (
   context: Pick<ChatContext, 'kind'> | null | undefined
@@ -23,22 +25,12 @@ const buildContextIdentityKey = (context: ChatContext): string => {
     ('draftSessionId' in context ? context.draftSessionId : undefined) ??
     context.label
 
+  const entityContext = readCopilotWorkspaceEntityContext(context)
+  if (entityContext) {
+    return `${entityContext.entityKind}:${entityContext.entityId ?? getContextReviewIdentity()}`
+  }
+
   switch (context.kind) {
-    case 'workflow':
-    case 'current_workflow':
-      return `workflow:${context.workflowId}`
-    case 'skill':
-    case 'current_skill':
-      return `skill:${context.skillId ?? getContextReviewIdentity()}`
-    case 'indicator':
-    case 'current_indicator':
-      return `indicator:${context.indicatorId ?? getContextReviewIdentity()}`
-    case 'custom_tool':
-    case 'current_custom_tool':
-      return `custom_tool:${context.customToolId ?? getContextReviewIdentity()}`
-    case 'mcp_server':
-    case 'current_mcp_server':
-      return `mcp_server:${context.mcpServerId ?? getContextReviewIdentity()}`
     case 'past_chat':
       return `past_chat:${context.reviewSessionId}`
     case 'workflow_block':
@@ -54,6 +46,8 @@ const buildContextIdentityKey = (context: ChatContext): string => {
     case 'logs':
       return `logs:${context.executionId ?? context.label}`
   }
+
+  return context.label
 }
 
 const dedupeCopilotContexts = (contexts: ChatContext[]): ChatContext[] => {

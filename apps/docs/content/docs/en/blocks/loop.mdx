@@ -16,7 +16,7 @@ import { Tab, Tabs } from 'fumadocs-ui/components/tabs'
 The Loop block is a container that executes the blocks inside it repeatedly. It is not a regular block with its own source file -- it is a special wrapper node managed by the executor's `LoopBlockHandler`. Drag blocks into the loop container and they will run once per iteration.
 
 <Callout type="info">
-  Loop blocks are container nodes. Drag other blocks inside them on the canvas to define what runs each iteration.
+  Loop blocks are container nodes. Drag child blocks inside the loop on the canvas. Incoming edges enter through Loop Start, and child outputs reconnect to Loop End before the workflow continues outside the loop.
 </Callout>
 
 ## Loop Types

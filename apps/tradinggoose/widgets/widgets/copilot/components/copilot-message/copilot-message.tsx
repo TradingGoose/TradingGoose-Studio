@@ -1,18 +1,7 @@
 'use client'
 
 import { type FC, memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import {
-  Blocks,
-  BookOpen,
-  Bot,
-  Box,
-  Info,
-  LibraryBig,
-  Shapes,
-  SquareChevronRight,
-  Workflow,
-  X,
-} from 'lucide-react'
+import { X } from 'lucide-react'
 import { isHiddenCopilotContext } from '@/lib/copilot/chat-contexts'
 import {
   EDIT_REPLAY_BLOCKED_MESSAGE,
@@ -41,6 +30,75 @@ import { shouldRenderAssistantOptions } from './message-visibility'
 
 const logger = createLogger('CopilotMessage')
 
+const getMentionableContextLabels = (contexts: Array<ChatContext | any>) => {
+  return Array.from(
+    new Set(
+      contexts
+        .filter((context) => !isHiddenCopilotContext(context))
+        .map((context) => context?.label)
+        .filter(Boolean) as string[]
+    )
+  ).sort((a, b) => b.length - a.length)
+}
+
+const buildContextMentionPattern = (labels: string[]) => {
+  if (labels.length === 0) {
+    return null
+  }
+
+  const escapeRegex = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  return new RegExp(`(^|\\s+)(@(?:${labels.map(escapeRegex).join('|')}))(?=\\s|$)`, 'g')
+}
+
+const renderUserMessageTextWithMentions = (text: string, contexts: Array<ChatContext | any>) => {
+  const labels = getMentionableContextLabels(contexts)
+  const pattern = buildContextMentionPattern(labels)
+
+  if (!pattern) {
+    return text
+  }
+
+  const nodes: React.ReactNode[] = []
+  let lastIndex = 0
+  let match: RegExpExecArray | null
+
+  while ((match = pattern.exec(text)) !== null) {
+    const prefix = match[1]
+    const mention = match[2]
+    const before = text.slice(lastIndex, match.index)
+
+    if (before) {
+      nodes.push(before)
+    }
+
+    if (prefix) {
+      nodes.push(prefix)
+    }
+
+    nodes.push(
+      <span
+        key={`mention-${match.index}-${lastIndex}`}
+        className='rounded-xs text-black [-webkit-box-decoration-break:clone] [box-decoration-break:clone]'
+        style={{
+          backgroundColor: 'hsl(var(--primary-hover))',
+          boxShadow: '0 0 0 2px hsl(var(--primary-hover))',
+        }}
+      >
+        {mention}
+      </span>
+    )
+
+    lastIndex = match.index + match[0].length
+  }
+
+  const tail = text.slice(lastIndex)
+  if (tail) {
+    nodes.push(tail)
+  }
+
+  return nodes.length > 0 ? nodes : text
+}
+
 interface CopilotMessageProps {
   message: CopilotMessageType
   runtimeContext: CopilotSendRuntimeContext
@@ -51,10 +109,16 @@ interface CopilotMessageProps {
 }
 
 const CopilotMessage: FC<CopilotMessageProps> = memo(
-  ({ message, runtimeContext, isStreaming, panelWidth = 308, isDimmed = false, onEditModeChange }) => {
+  ({
+    message,
+    runtimeContext,
+    isStreaming,
+    panelWidth = 308,
+    isDimmed = false,
+    onEditModeChange,
+  }) => {
     const isUser = message.role === 'user'
     const isAssistant = message.role === 'assistant'
-    const [showAllContexts, setShowAllContexts] = useState(false)
     const [isEditMode, setIsEditMode] = useState(false)
     const [isExpanded, setIsExpanded] = useState(false)
     const [editedContent, setEditedContent] = useState(message.content)
@@ -100,7 +164,26 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
       hasActiveToolCalls
     const isMessageTyping = typingSegmentKeys.length > 0
     const shouldHidePostTurnControls = isTurnInProgress || isMessageTyping
-    const shouldShowActivityIndicator = isAssistant && isLastMessage && isTurnInProgress && !isMessageTyping
+    const shouldShowActivityIndicator =
+      isAssistant && isLastMessage && isTurnInProgress && !isMessageTyping
+    const userMessageText = message.content || ''
+    const userMessageContexts = (() => {
+      const direct = Array.isArray((message as any).contexts)
+        ? ((message as any).contexts as any[])
+        : []
+      const block = Array.isArray(message.contentBlocks)
+        ? (message.contentBlocks as any[]).find(
+            (contentBlock: any) => contentBlock?.type === 'contexts'
+          )
+        : null
+      const fromBlock = Array.isArray((block as any)?.contexts)
+        ? ((block as any).contexts as any[])
+        : []
+
+      return (direct.length > 0 ? direct : fromBlock).filter(
+        (context: any) => !isHiddenCopilotContext(context)
+      )
+    })()
 
     const isReplayBlockedForEdit = useMemo(
       () => hasAcceptedLiveMutationAfterMessage(messages, message.id),
@@ -217,7 +300,7 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
                 if (typeof payload?.error === 'string' && payload.error.trim().length > 0) {
                   errorMessage = payload.error
                 }
-              } catch { }
+              } catch {}
 
               if (response.status === 409) {
                 handleCancelEdit()
@@ -519,82 +602,6 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
                 </div>
               )}
 
-              {/* Context chips displayed above the message box */}
-              {(Array.isArray((message as any).contexts) && (message as any).contexts.length > 0) ||
-                (Array.isArray(message.contentBlocks) &&
-                  (message.contentBlocks as any[]).some((b: any) => b?.type === 'contexts')) ? (
-                <div className='mb-1.5 flex flex-wrap gap-1.5'>
-                  {(() => {
-                    const direct = Array.isArray((message as any).contexts)
-                      ? ((message as any).contexts as any[])
-                      : []
-                    const block = Array.isArray(message.contentBlocks)
-                      ? (message.contentBlocks as any[]).find((b: any) => b?.type === 'contexts')
-                      : null
-                    const fromBlock = Array.isArray((block as any)?.contexts)
-                      ? ((block as any).contexts as any[])
-                      : []
-                    const allContexts = (direct.length > 0 ? direct : fromBlock).filter(
-                      (context: any) => !isHiddenCopilotContext(context)
-                    )
-                    const MAX_VISIBLE = 4
-                    const visible = showAllContexts
-                      ? allContexts
-                      : allContexts.slice(0, MAX_VISIBLE)
-                    return (
-                      <>
-                        {visible.map((ctx: any, idx: number) => (
-                          <span
-                            key={`ctx-${idx}-${ctx?.label || ctx?.kind}`}
-                            className='inline-flex items-center gap-1 rounded-full bg-primary-hover/20 px-1.5 py-0.5 text-foreground text-xs'
-                            title={ctx?.label || ctx?.kind}
-                          >
-                            {ctx?.kind === 'past_chat' ? (
-                              <Bot className='h-3 w-3 text-muted-foreground' />
-                            ) : ctx?.kind === 'workflow' || ctx?.kind === 'current_workflow' ? (
-                              <Workflow className='h-3 w-3 text-muted-foreground' />
-                            ) : ctx?.kind === 'blocks' ? (
-                              <Blocks className='h-3 w-3 text-muted-foreground' />
-                            ) : ctx?.kind === 'workflow_block' ? (
-                              <Box className='h-3 w-3 text-muted-foreground' />
-                            ) : ctx?.kind === 'knowledge' ? (
-                              <LibraryBig className='h-3 w-3 text-muted-foreground' />
-                            ) : ctx?.kind === 'templates' ? (
-                              <Shapes className='h-3 w-3 text-muted-foreground' />
-                            ) : ctx?.kind === 'docs' ? (
-                              <BookOpen className='h-3 w-3 text-muted-foreground' />
-                            ) : ctx?.kind === 'logs' ? (
-                              <SquareChevronRight className='h-3 w-3 text-muted-foreground' />
-                            ) : (
-                              <Info className='h-3 w-3 text-muted-foreground' />
-                            )}
-                            <span className='max-w-[140px] truncate'>
-                              {ctx?.label || ctx?.kind}
-                            </span>
-                          </span>
-                        ))}
-                        {allContexts.length > MAX_VISIBLE && (
-                          <button
-                            type='button'
-                            onClick={() => setShowAllContexts((v) => !v)}
-                            className='inline-flex items-center gap-1 rounded-full bg-[color-mix(in_srgb,var(--primary-hover)_10%,transparent)] px-1.5 py-0.5 text-[11px] text-foreground hover:bg-[color-mix(in_srgb,var(--primary-hover)_14%,transparent)]'
-                            title={
-                              showAllContexts
-                                ? 'Show less'
-                                : `Show ${allContexts.length - MAX_VISIBLE} more`
-                            }
-                          >
-                            {showAllContexts
-                              ? 'Show less'
-                              : `+${allContexts.length - MAX_VISIBLE} more`}
-                          </button>
-                        )}
-                      </>
-                    )
-                  })()}
-                </div>
-              ) : null}
-
               {/* Message box - styled like input, clickable to edit */}
               <div
                 data-message-box
@@ -613,42 +620,7 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
                     position: 'relative',
                   }}
                 >
-                  {(() => {
-                    const text = message.content || ''
-                    const contexts: any[] = Array.isArray((message as any).contexts)
-                      ? ((message as any).contexts as any[])
-                      : []
-                    const labels = contexts
-                      .filter((context) => !isHiddenCopilotContext(context))
-                      .map((c) => c?.label)
-                      .filter(Boolean) as string[]
-                    if (!labels.length) return text
-
-                    const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-                    const pattern = new RegExp(`@(${labels.map(escapeRegex).join('|')})`, 'g')
-
-                    const nodes: React.ReactNode[] = []
-                    let lastIndex = 0
-                    let match: RegExpExecArray | null
-                    while ((match = pattern.exec(text)) !== null) {
-                      const i = match.index
-                      const before = text.slice(lastIndex, i)
-                      if (before) nodes.push(before)
-                      const mention = match[0]
-                      nodes.push(
-                        <span
-                          key={`mention-${i}-${lastIndex}`}
-                          className='rounded-sm bg-[color-mix(in_srgb,var(--primary-hover)_14%,transparent)] px-1'
-                        >
-                          {mention}
-                        </span>
-                      )
-                      lastIndex = i + mention.length
-                    }
-                    const tail = text.slice(lastIndex)
-                    if (tail) nodes.push(tail)
-                    return nodes
-                  })()}
+                  {renderUserMessageTextWithMentions(userMessageText, userMessageContexts)}
                 </div>
                 {/* Gradient fade when truncated */}
                 {!isExpanded && needsExpansion && (

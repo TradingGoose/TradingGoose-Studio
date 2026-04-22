@@ -270,14 +270,21 @@ export async function getBilledOverageForSubscription(sub: {
   return userStatsRecords.length > 0 ? parseDecimal(userStatsRecords[0].billedOverageThisPeriod) : 0
 }
 
-export async function resetUsageForSubscription(sub: SubscriptionUsageScope) {
+export async function resetUsageForSubscription(
+  sub: SubscriptionUsageScope,
+  dbClient: Pick<typeof db, 'select' | 'update'> = db
+) {
   if (isOrganizationSubscription(sub)) {
-    const billingLedger = await getOrganizationBillingLedger(sub.referenceId)
-    if (!billingLedger) {
+    const ledgerRows = await dbClient
+      .select({ organizationId: organizationBillingLedger.organizationId })
+      .from(organizationBillingLedger)
+      .where(eq(organizationBillingLedger.organizationId, sub.referenceId))
+      .limit(1)
+    if (ledgerRows.length === 0) {
       return
     }
 
-    await db
+    await dbClient
       .update(organizationBillingLedger)
       .set({
         lastPeriodCost: sql`${organizationBillingLedger.currentPeriodCost}`,
@@ -290,7 +297,7 @@ export async function resetUsageForSubscription(sub: SubscriptionUsageScope) {
       .where(eq(organizationBillingLedger.organizationId, sub.referenceId))
 
     if (sub.tier && usesIndividualBillingLedger(sub.tier)) {
-      await db
+      await dbClient
         .update(organizationMemberBillingLedger)
         .set({
           lastPeriodCost: sql`${organizationMemberBillingLedger.currentPeriodCost}`,
@@ -302,7 +309,7 @@ export async function resetUsageForSubscription(sub: SubscriptionUsageScope) {
         .where(eq(organizationMemberBillingLedger.organizationId, sub.referenceId))
     }
   } else {
-    const currentStats = await db
+    const currentStats = await dbClient
       .select({
         current: userStats.currentPeriodCost,
         currentCopilot: userStats.currentPeriodCopilotCost,
@@ -314,7 +321,7 @@ export async function resetUsageForSubscription(sub: SubscriptionUsageScope) {
       const current = Number.parseFloat(currentStats[0].current?.toString() || '0')
       const currentCopilot = currentStats[0].currentCopilot || '0'
 
-      await db
+      await dbClient
         .update(userStats)
         .set({
           lastPeriodCost: current.toString(),

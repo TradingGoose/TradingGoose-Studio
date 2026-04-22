@@ -6,7 +6,7 @@ export const metadata: Metadata = {
   description:
     'Stay up-to-date with the latest features, improvements, and bug fixes in TradingGoose.',
   alternates: {
-    canonical: '/changelog',
+    canonical: 'https://tradinggoose.ai/changelog',
     types: {
       'application/rss+xml': '/changelog.xml',
     },

@@ -143,17 +143,31 @@ const RenameWorkflowArgs = z
 
 const EditWorkflowArgs = z
   .object({
-    workflowDocument: z.string().min(1),
+    workflowDocument: z
+      .string()
+      .min(1)
+      .describe(
+        'Complete raw `tg-mermaid-v1` Mermaid document for the entire workflow, not a partial patch. Preserve unchanged canonical `%% TG_BLOCK` and `%% TG_EDGE` entries. Use this only for graph or topology changes such as adding, removing, reconnecting, or replacing blocks, loops, parallels, or condition branches.'
+      ),
     documentFormat: z.literal(TG_MERMAID_DOCUMENT_FORMAT).optional(),
     workflowId: RequiredId,
     currentWorkflowState: z.string().optional(),
   })
   .strict()
+  .describe(
+    'Full workflow document replacement tool. Do not use this to rename one existing block or patch one block\'s `enabled` or `subBlocks`; use `edit_workflow_block` instead.'
+  )
 
 const EditWorkflowBlockArgs = z
   .object({
     workflowId: RequiredId,
-    blockId: z.string().trim().min(1).describe('Existing workflow block instance id.'),
+    blockId: z
+      .string()
+      .trim()
+      .min(1)
+      .describe(
+        'Exact existing workflow block instance id from `get_user_workflow.workflowSummary.blocks`. Do not invent ids.'
+      ),
     blockType: z
       .string()
       .trim()
@@ -166,16 +180,32 @@ const EditWorkflowBlockArgs = z
       .record(z.any())
       .optional()
       .describe(
-        'Map canonical sub-block ids to replacement values. Use get_blocks_metadata for the block type before editing.'
+        'Partial patch for the selected block only: map changed canonical sub-block ids to replacement values. Do not send a full workflow document, unchanged fields, or invented keys. Use `get_blocks_metadata` for canonical ids and `get_user_workflow` for current derived sub-block entries.'
       ),
     currentWorkflowState: z.string().optional(),
   })
   .strict()
+  .describe(
+    'Single-block patch tool. Default to this when only one existing block needs a `name`, `enabled`, or `subBlocks` change and the workflow graph stays the same.'
+  )
 
 const EditCustomToolArgs = buildEntityDocumentMutationArgs(CUSTOM_TOOL_DOCUMENT_FORMAT)
 const CreateCustomToolArgs = buildEntityDocumentMutationArgs(CUSTOM_TOOL_DOCUMENT_FORMAT, {
   includeEntityId: false,
 })
+const GetIndicatorArgs = z
+  .object({
+    entityId: RequiredId.optional(),
+    runtimeId: z
+      .string()
+      .trim()
+      .min(1)
+      .optional()
+      .describe(
+        'Built-in default indicator runtime id from `list_indicators`, such as `RSI`. Use this for read-only built-in inspection.'
+      ),
+  })
+  .strict()
 const EditIndicatorArgs = buildEntityDocumentMutationArgs(INDICATOR_DOCUMENT_FORMAT)
 const CreateIndicatorArgs = buildEntityDocumentMutationArgs(INDICATOR_DOCUMENT_FORMAT, {
   includeEntityId: false,
@@ -340,7 +370,7 @@ export const ToolArgSchemas = {
   }),
 
   list_indicators: z.object({}),
-  get_indicator: EntityReviewTargetArgs,
+  get_indicator: GetIndicatorArgs,
   create_indicator: CreateIndicatorArgs,
   edit_indicator: EditIndicatorArgs,
   rename_indicator: EditIndicatorArgs,
@@ -531,6 +561,23 @@ const GenericEntityListEntry = z.object({
 const GenericEntityListResult = z.object({
   entityKind: z.enum(['skill', 'custom_tool', 'indicator', 'mcp_server']),
   entities: z.array(GenericEntityListEntry),
+  count: z.number(),
+})
+
+const IndicatorListEntry = z.object({
+  name: z.string(),
+  source: z.enum(['default', 'custom']),
+  color: z.string().optional(),
+  editable: z.boolean(),
+  callableInFunctionBlock: z.boolean(),
+  inputTitles: z.array(z.string()).optional(),
+  entityId: z.string().optional(),
+  runtimeId: z.string().optional(),
+})
+
+const IndicatorListResult = z.object({
+  entityKind: z.literal('indicator'),
+  indicators: z.array(IndicatorListEntry),
   count: z.number(),
 })
 
@@ -848,9 +895,7 @@ export const ToolResultSchemas = {
       success: z.boolean(),
     })
     .merge(MonitorDocumentEnvelope),
-  list_indicators: GenericEntityListResult.extend({
-    entityKind: z.literal('indicator'),
-  }),
+  list_indicators: IndicatorListResult,
   get_indicator: IndicatorDocumentEnvelope.extend({
     entityKind: z.literal('indicator'),
   }),

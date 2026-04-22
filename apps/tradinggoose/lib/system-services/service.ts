@@ -155,6 +155,12 @@ export async function resolveSystemServiceConfig(
   }
 }
 
+export async function resolveSystemServiceSettingsConfig(
+  serviceId: string
+): Promise<Record<string, SystemServiceResolvedValue>> {
+  return resolveSystemServiceSettings(serviceId)
+}
+
 export async function upsertSystemServiceConfig(input: {
   serviceId: string
   credentials: SystemServiceCredentialInput[]

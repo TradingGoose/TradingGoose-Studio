@@ -118,7 +118,10 @@ export async function PUT(request: NextRequest) {
     }
 
     if (context === 'user') {
-      await updateUserUsageLimit(userId, limit)
+      const result = await updateUserUsageLimit(userId, limit)
+      if (!result.success) {
+        return NextResponse.json({ error: result.error }, { status: 400 })
+      }
     } else if (context === 'organization') {
       if (!organizationId) {
         return NextResponse.json(

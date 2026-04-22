@@ -15,10 +15,7 @@ const mockUnregisteredReviewSessionIds = new Set<string>()
 const mockSetPairColorContext = vi.fn()
 const mockSaveChatMessages = vi.fn(async () => {})
 const mockCopilot = vi.fn((props: any) => (
-  <div
-    data-testid='copilot'
-    data-input-disabled={String(Boolean(props.inputDisabled))}
-  >
+  <div data-testid='copilot' data-input-disabled={String(Boolean(props.inputDisabled))}>
     copilot
   </div>
 ))
@@ -34,8 +31,7 @@ let mockCopilotStoreState: any = null
 const mockCopilotStoreApi = {
   getState: () => mockCopilotStoreState,
   setState: (partial: any) => {
-    const nextState =
-      typeof partial === 'function' ? partial(mockCopilotStoreState) : partial
+    const nextState = typeof partial === 'function' ? partial(mockCopilotStoreState) : partial
     mockCopilotStoreState = {
       ...mockCopilotStoreState,
       ...nextState,
@@ -85,6 +81,20 @@ vi.mock('@/lib/yjs/entity-session-registry', () => ({
       : null,
 }))
 
+vi.mock('@/lib/yjs/workflow-session-host', () => ({
+  WorkflowSessionProvider: ({
+    children,
+    workflowId,
+  }: {
+    children: React.ReactNode
+    workflowId: string
+  }) => (
+    <div data-testid='workflow-session-host' data-workflow-id={workflowId}>
+      {children}
+    </div>
+  ),
+}))
+
 vi.mock('@/stores/copilot/store', () => ({
   DEFAULT_COPILOT_CHANNEL_ID: 'default',
   CopilotStoreProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
@@ -108,7 +118,8 @@ vi.mock('@/stores/dashboard/pair-store', () => ({
 }))
 
 vi.mock('@/widgets/widgets/entity_review/review-target-utils', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@/widgets/widgets/entity_review/review-target-utils')>()
+  const actual =
+    await importOriginal<typeof import('@/widgets/widgets/entity_review/review-target-utils')>()
   return {
     ...actual,
     resolveEntityReviewTarget: (...args: any[]) => mockResolveEntityReviewTarget(...args),
@@ -227,6 +238,17 @@ describe('CopilotApp', () => {
     )
   })
 
+  it('mounts the workflow session host for the current pair-color workflow', async () => {
+    mockLiveWorkflowId = 'workflow-current'
+
+    await renderApp()
+
+    expect(container.querySelector('[data-testid="workflow-session-host"]')).toHaveAttribute(
+      'data-workflow-id',
+      'workflow-current'
+    )
+  })
+
   it('resolves and mounts explicit draft review targets', async () => {
     mockLiveTarget = {
       reviewSessionId: null,
@@ -326,12 +348,7 @@ describe('CopilotApp', () => {
     expect(mockSaveChatMessages).toHaveBeenCalledWith('chat-1')
   })
 
-  it('does not mount workflow sessions for current or workflow review targets', async () => {
-    mockLiveWorkflowId = 'workflow-current'
-    await renderApp()
-
-    expect(container.querySelector('[data-testid="workflow-session-host"]')).toBeNull()
-
+  it('does not mount a workflow session when only a workflow review target is present', async () => {
     mockLiveTarget = {
       reviewSessionId: 'review-workflow-1',
       entityKind: 'workflow',

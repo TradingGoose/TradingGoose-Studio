@@ -8,6 +8,7 @@ const {
   mockAnd,
   mockDb,
   mockEq,
+  mockRequireDefaultBillingTier,
   mockGetResolvedBillingSettings,
   mockGetSubscriptionUsageAllowanceUsd,
   mockHydrateSubscriptionsWithTiers,
@@ -21,6 +22,7 @@ const {
     insert: vi.fn(),
   },
   mockEq: vi.fn(),
+  mockRequireDefaultBillingTier: vi.fn(),
   mockGetResolvedBillingSettings: vi.fn(),
   mockGetSubscriptionUsageAllowanceUsd: vi.fn(),
   mockHydrateSubscriptionsWithTiers: vi.fn(),
@@ -63,11 +65,15 @@ vi.mock('@/lib/billing/settings', () => ({
   getResolvedBillingSettings: mockGetResolvedBillingSettings,
 }))
 
+vi.mock('@/lib/billing/subscriptions/utils', () => ({
+  BILLING_ENTITLED_SUBSCRIPTION_STATUSES: ['active', 'trialing'],
+}))
+
 vi.mock('@/lib/billing/tiers', () => ({
   getSubscriptionUsageAllowanceUsd: mockGetSubscriptionUsageAllowanceUsd,
   getTierDisplayName: vi.fn(),
   hydrateSubscriptionsWithTiers: mockHydrateSubscriptionsWithTiers,
-  requireDefaultBillingTier: vi.fn(),
+  requireDefaultBillingTier: mockRequireDefaultBillingTier,
   selectEffectiveSubscription: mockSelectEffectiveSubscription,
   toBillingTierSummary: mockToBillingTierSummary,
 }))
@@ -85,9 +91,12 @@ vi.mock('@/lib/urls/utils', () => ({
   getBaseUrl: vi.fn(() => 'http://localhost:3000'),
 }))
 
-function createSelectQueryMock(result: unknown, terminal: 'limit' | 'where' = 'limit') {
+function createSelectQueryMock(
+  result: unknown,
+  terminal: 'from' | 'limit' | 'where' = 'limit'
+) {
   const query = {
-    from: vi.fn(() => query),
+    from: vi.fn(() => (terminal === 'from' ? Promise.resolve(result) : query)),
     where: vi.fn(() => (terminal === 'where' ? Promise.resolve(result) : query)),
     limit: vi.fn(() => Promise.resolve(result)),
   }
@@ -100,8 +109,12 @@ describe('subscription billing helpers', () => {
     vi.resetModules()
     vi.clearAllMocks()
     mockGetSubscriptionUsageAllowanceUsd.mockReturnValue(10)
-    mockHydrateSubscriptionsWithTiers.mockResolvedValue([])
-    mockSelectEffectiveSubscription.mockReturnValue(null)
+    mockHydrateSubscriptionsWithTiers.mockImplementation(async (rows) => rows)
+    mockSelectEffectiveSubscription.mockImplementation((subscriptions) => subscriptions[0] ?? null)
+    mockRequireDefaultBillingTier.mockResolvedValue({
+      id: 'tier_default',
+      isDefault: true,
+    })
   })
 
   it('keeps the default-tier minimum usage limit at least as high as the granted onboarding allowance', async () => {
@@ -167,5 +180,84 @@ describe('subscription billing helpers', () => {
     await expect(getPersonalBillingSnapshot('user_123')).rejects.toThrow(
       'No active personal subscription found for billed user user_123'
     )
+  })
+
+  it('seeds missing user stats on backfill without resetting existing records', async () => {
+    const insertCalls: Array<{
+      values: Record<string, unknown>
+      conflict: 'update' | 'nothing'
+      target: unknown
+      set?: Record<string, unknown>
+    }> = []
+    const selectResults: Array<{
+      result: unknown
+      terminal: 'from' | 'limit' | 'where'
+    }> = [
+      { result: [{ id: 'user_123' }], terminal: 'from' },
+      { result: [], terminal: 'where' },
+      { result: [], terminal: 'where' },
+      {
+        result: [
+          {
+            id: 'sub_default_user_123',
+            referenceType: 'user',
+            referenceId: 'user_123',
+            status: 'active',
+            tier: {
+              id: 'tier_default',
+              isDefault: true,
+            },
+          },
+        ],
+        terminal: 'where',
+      },
+    ]
+
+    mockGetResolvedBillingSettings.mockResolvedValue({
+      onboardingAllowanceUsd: 25,
+    })
+    mockDb.select.mockImplementation(() => {
+      const nextResult = selectResults.shift() ?? { result: [], terminal: 'where' as const }
+      return createSelectQueryMock(nextResult.result, nextResult.terminal)
+    })
+    mockDb.insert.mockImplementation(() => ({
+      values: vi.fn((values) => ({
+        onConflictDoUpdate: vi.fn(({ target, set }) => {
+          insertCalls.push({ values, conflict: 'update', target, set })
+          return Promise.resolve()
+        }),
+        onConflictDoNothing: vi.fn(({ target }) => {
+          insertCalls.push({ values, conflict: 'nothing', target })
+          return Promise.resolve()
+        }),
+      })),
+    }))
+
+    const { backfillDefaultUserSubscriptions } = await import('./subscription')
+    const createdCount = await backfillDefaultUserSubscriptions()
+
+    expect(createdCount).toBe(1)
+    expect(insertCalls).toEqual([
+      expect.objectContaining({
+        conflict: 'update',
+        values: expect.objectContaining({
+          id: 'sub_default_user_123',
+          plan: 'tier_default',
+          billingTierId: 'tier_default',
+          referenceType: 'user',
+          referenceId: 'user_123',
+          status: 'active',
+        }),
+      }),
+      expect.objectContaining({
+        conflict: 'nothing',
+        values: expect.objectContaining({
+          userId: 'user_123',
+          grantedOnboardingAllowanceUsd: '25',
+          customUsageLimit: '25',
+        }),
+      }),
+    ])
+    expect(insertCalls[1]).not.toHaveProperty('set')
   })
 })

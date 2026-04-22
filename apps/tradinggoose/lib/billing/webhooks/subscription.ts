@@ -2,11 +2,9 @@ import { db } from '@tradinggoose/db'
 import { subscription } from '@tradinggoose/db/schema'
 import { and, eq, ne } from 'drizzle-orm'
 import { calculateSubscriptionOverage } from '@/lib/billing/core/billing'
+import { decrementGrantedOnboardingAllowanceByCurrentPeriodUsage } from '@/lib/billing/core/usage'
 import { requireStripeClient } from '@/lib/billing/stripe-client'
-import {
-  type BillingTierRecord,
-  isPaidBillingTier,
-} from '@/lib/billing/tiers'
+import { type BillingTierRecord, isPaidBillingTier } from '@/lib/billing/tiers'
 import {
   getBilledOverageForSubscription,
   resetUsageForSubscription,
@@ -26,13 +24,14 @@ type TieredSubscriptionLifecycleRecord = {
 }
 
 /**
- * Handle new subscription creation - reset usage if transitioning from free to paid
+ * Handle new subscription creation - reset usage if transitioning from free/default to subscribed
  */
 export async function handleSubscriptionCreated(
-  subscriptionData: TieredSubscriptionLifecycleRecord
+  subscriptionData: TieredSubscriptionLifecycleRecord,
+  dbClient: Pick<typeof db, 'select' | 'update'> = db
 ) {
   try {
-    const otherActiveSubscriptions = await db
+    const otherActiveSubscriptions = await dbClient
       .select()
       .from(subscription)
       .where(
@@ -40,27 +39,42 @@ export async function handleSubscriptionCreated(
           eq(subscription.referenceType, subscriptionData.referenceType),
           eq(subscription.referenceId, subscriptionData.referenceId),
           eq(subscription.status, 'active'),
-          ne(subscription.id, subscriptionData.id) // Exclude current subscription
+          ne(subscription.id, subscriptionData.id)
         )
       )
 
     const wasFreePreviously = otherActiveSubscriptions.length === 0
     const isPaidPlan = isPaidBillingTier(subscriptionData.tier)
+    const isPersonalDefaultPathExit = wasFreePreviously && subscriptionData.referenceType === 'user'
+    const shouldResetUsage = isPersonalDefaultPathExit || (wasFreePreviously && isPaidPlan)
 
-    if (wasFreePreviously && isPaidPlan) {
-      logger.info('Detected free -> paid transition, resetting usage', {
+    if (shouldResetUsage) {
+      logger.info('Detected free/default -> subscribed transition, resetting usage', {
         subscriptionId: subscriptionData.id,
         referenceType: subscriptionData.referenceType,
         referenceId: subscriptionData.referenceId,
         billingTier: subscriptionData.tier?.displayName,
       })
 
-      await resetUsageForSubscription({
-        referenceId: subscriptionData.referenceId,
-        tier: subscriptionData.tier,
-      })
+      if (isPersonalDefaultPathExit) {
+        // Leaving the default personal path settles already-consumed onboarding credit before
+        // resetting the period ledger. This applies to paid upgrades too because cancellation
+        // falls back to the default tier.
+        await decrementGrantedOnboardingAllowanceByCurrentPeriodUsage(
+          subscriptionData.referenceId,
+          dbClient
+        )
+      } else {
+        await resetUsageForSubscription(
+          {
+            referenceId: subscriptionData.referenceId,
+            tier: subscriptionData.tier,
+          },
+          dbClient
+        )
+      }
 
-      logger.info('Successfully reset usage for free -> paid transition', {
+      logger.info('Successfully reset usage for free/default -> subscribed transition', {
         subscriptionId: subscriptionData.id,
         referenceType: subscriptionData.referenceType,
         referenceId: subscriptionData.referenceId,

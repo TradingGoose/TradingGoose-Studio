@@ -1,5 +1,5 @@
 import { db } from '@tradinggoose/db'
-import { organization } from '@tradinggoose/db/schema'
+import { organization, userStats } from '@tradinggoose/db/schema'
 import { eq } from 'drizzle-orm'
 import {
   getOrganizationBillingLedger,
@@ -22,6 +22,7 @@ interface UsageData {
   isExceeded: boolean
   currentUsage: number
   limit: number
+  billingBlocked: boolean
 }
 
 async function getUsageMonitorStatus(
@@ -29,10 +30,35 @@ async function getUsageMonitorStatus(
   usageWarningThresholdPercent: number
 ): Promise<UsageData> {
   try {
-    const usageData = await getUserUsageData(userId)
+    const [usageData, statsRows] = await Promise.all([
+      getUserUsageData(userId),
+      db
+        .select({ billingBlocked: userStats.billingBlocked })
+        .from(userStats)
+        .where(eq(userStats.userId, userId))
+        .limit(1),
+    ])
     const limit = usageData.limit
     const currentUsage = usageData.currentUsage
     const percentUsed = usageData.percentUsed
+    const billingBlocked = statsRows[0]?.billingBlocked ?? false
+
+    if (billingBlocked) {
+      logger.warn('Personal billing is blocked; rejecting execution', {
+        userId,
+        currentUsage,
+      })
+
+      return {
+        percentUsed: 100,
+        isWarning: false,
+        isExceeded: true,
+        currentUsage,
+        limit: 0,
+        billingBlocked: true,
+      }
+    }
+
     const isWarning = percentUsed >= usageWarningThresholdPercent && percentUsed < 100
     const isExceeded = currentUsage >= limit
 
@@ -43,6 +69,7 @@ async function getUsageMonitorStatus(
       percentUsed,
       isWarning,
       isExceeded,
+      billingBlocked,
     })
 
     return {
@@ -51,6 +78,7 @@ async function getUsageMonitorStatus(
       isExceeded,
       currentUsage,
       limit,
+      billingBlocked,
     }
   } catch (error) {
     logger.error('Error checking usage status', {
@@ -70,6 +98,7 @@ async function getUsageMonitorStatus(
       isExceeded: true, // Block execution when we can't determine status
       currentUsage: 0,
       limit: 0, // Zero limit forces blocking
+      billingBlocked: false,
     }
   }
 }
@@ -210,6 +239,15 @@ export async function checkServerSideUsageLimits(params: {
     }
 
     const usageData = await getUsageMonitorStatus(userId, usageWarningThresholdPercent)
+
+    if (usageData.billingBlocked) {
+      return {
+        isExceeded: true,
+        currentUsage: usageData.currentUsage,
+        limit: 0,
+        message: 'Billing issue detected. Please update your payment method to continue.',
+      }
+    }
 
     return {
       isExceeded: usageData.isExceeded,

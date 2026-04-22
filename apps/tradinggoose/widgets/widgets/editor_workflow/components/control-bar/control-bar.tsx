@@ -1,20 +1,12 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import {
-  Bug,
-  LayoutDashboard,
-  Play,
-  RefreshCw,
-  SkipForward,
-  StepForward,
-  Store,
-  X,
-} from 'lucide-react'
+import { Bug, LayoutDashboard, Play, RefreshCw, SkipForward, StepForward, X } from 'lucide-react'
 import { Button, Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui'
 import { useSession } from '@/lib/auth-client'
 import { createLogger } from '@/lib/logs/console/logger'
 import { cn } from '@/lib/utils'
+import { useWorkflowBlocks, useWorkflowEdges } from '@/lib/yjs/use-workflow-doc'
 import {
   getKeyboardShortcutText,
   useKeyboardShortcuts,
@@ -22,9 +14,7 @@ import {
 import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import { getBlock } from '@/blocks'
 import { useWorkflowExecution } from '@/hooks/workflow/use-workflow-execution'
-
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
-import { useWorkflowBlocks, useWorkflowEdges } from '@/lib/yjs/use-workflow-doc'
 import type { WorkflowState } from '@/stores/workflows/workflow/types'
 import {
   widgetHeaderButtonGroupClassName,
@@ -33,7 +23,6 @@ import {
 import {
   DeploymentControls,
   ExportControls,
-  TemplateModal,
 } from '@/widgets/widgets/editor_workflow/components/control-bar/components'
 import { useWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 
@@ -94,22 +83,24 @@ export function ControlBar({
 }: ControlBarProps) {
   const { data: session } = useSession()
   const { workflowId, channelId } = useWorkflowRoute()
-  // Store hooks
-  const blocks = useWorkflowBlocks()
   const isRegistryLoading = useWorkflowRegistry((state) => state.isLoading)
   const activeWorkflowId = workflowId
-  const { isExecuting, handleRunWorkflow, handleCancelExecution } = useWorkflowExecution()
+  const {
+    isExecuting,
+    isDebugging,
+    pendingBlocks,
+    handleRunWorkflow,
+    handleStepDebug,
+    handleResumeDebug,
+    handleCancelDebug,
+    handleCancelExecution,
+  } = useWorkflowExecution()
 
   // User permissions - use stable activeWorkspaceId from registry instead of deriving from currentWorkflow
   const userPermissions = useUserPermissionsContext()
 
-  // Debug mode state
-  const { isDebugging, pendingBlocks, handleStepDebug, handleCancelDebug, handleResumeDebug } =
-    useWorkflowExecution()
-
   // Local state
   const [, forceUpdate] = useState({})
-  const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false)
   const [isAutoLayouting, setIsAutoLayouting] = useState(false)
 
   // Deployed state management
@@ -265,13 +256,7 @@ export function ControlBar({
     }
 
     checkForChanges()
-  }, [
-    activeWorkflowId,
-    deployedState,
-    currentBlocks,
-    currentEdges,
-    isLoadingDeployedState,
-  ])
+  }, [activeWorkflowId, deployedState, currentBlocks, currentEdges, isLoadingDeployedState])
 
   useEffect(() => {
     if (session?.user?.id && !isRegistryLoading) {
@@ -349,7 +334,13 @@ export function ControlBar({
    */
   const renderAutoLayoutButton = () => {
     const handleAutoLayoutClick = async () => {
-      if (isExecuting || isDebugging || !userPermissions.canEdit || isAutoLayouting || hasLockedBlocks) {
+      if (
+        isExecuting ||
+        isDebugging ||
+        !userPermissions.canEdit ||
+        isAutoLayouting ||
+        hasLockedBlocks
+      ) {
         return
       }
 
@@ -426,45 +417,40 @@ export function ControlBar({
     )
   }
 
-  /**
-   * Handles debug mode toggle - starts or stops debugging
-   */
   const handleDebugToggle = useCallback(() => {
-    if (!userPermissions.canRead) return
+    if (!userPermissions.canRead) {
+      return
+    }
 
     if (isDebugging) {
-      // Stop debugging
       handleCancelDebug()
-    } else {
-      // Check if there are executable blocks before starting debug mode
-      const hasExecutableBlocks = Object.values(blocks).some((block) => {
-        const blockConfig = getBlock(block.type)
-        return block.enabled !== false && blockConfig?.category !== 'triggers'
-      })
-
-      if (!hasExecutableBlocks) {
-        return // Do nothing if no executable blocks
-      }
-
-      // Start debugging
-      if (usageExceeded) {
-        openSubscriptionSettings()
-      } else {
-        handleRunWorkflow(undefined, true) // Start in debug mode
-      }
+      return
     }
+
+    const hasExecutableBlocks = Object.values(currentBlocks).some((block) => {
+      const blockConfig = getBlock(block.type)
+      return block.enabled !== false && blockConfig?.category !== 'triggers'
+    })
+
+    if (!hasExecutableBlocks) {
+      return
+    }
+
+    if (usageExceeded) {
+      openSubscriptionSettings()
+      return
+    }
+
+    void handleRunWorkflow(undefined, true)
   }, [
-    userPermissions.canRead,
-    isDebugging,
-    usageExceeded,
-    blocks,
+    currentBlocks,
     handleCancelDebug,
     handleRunWorkflow,
+    isDebugging,
+    usageExceeded,
+    userPermissions.canRead,
   ])
 
-  /**
-   * Render debug controls bar (replaces run button when debugging)
-   */
   const renderDebugControlsBar = () => {
     const pendingCount = pendingBlocks.length
     const isControlDisabled = pendingCount === 0
@@ -480,9 +466,7 @@ export function ControlBar({
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
-              onClick={() => {
-                handleStepDebug()
-              }}
+              onClick={() => void handleStepDebug()}
               className={debugButtonClass}
               disabled={isControlDisabled}
             >
@@ -496,9 +480,7 @@ export function ControlBar({
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
-              onClick={() => {
-                handleResumeDebug()
-              }}
+              onClick={() => void handleResumeDebug()}
               className={debugButtonClass}
               disabled={isControlDisabled}
             >
@@ -511,12 +493,7 @@ export function ControlBar({
 
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button
-              onClick={() => {
-                handleCancelDebug()
-              }}
-              className={debugButtonClass}
-            >
+            <Button onClick={handleCancelDebug} className={debugButtonClass}>
               <X className='h-5 w-5' />
               <span className='sr-only'>Cancel Debugging</span>
             </Button>
@@ -527,51 +504,9 @@ export function ControlBar({
     )
   }
 
-  /**
-   * Render publish template button
-   */
-  const renderPublishButton = () => {
-    const canEdit = userPermissions.canEdit
-    const isDisabled = isExecuting || isDebugging || !canEdit
-
-    const getTooltipText = () => {
-      if (!canEdit) return 'Admin permission required to publish templates'
-      if (isDebugging) return 'Cannot publish template while debugging'
-      if (isExecuting) return 'Cannot publish template while workflow is running'
-      return 'Publish as template'
-    }
-
-    return (
-      <Tooltip>
-        <TooltipTrigger asChild>
-          {isDisabled ? (
-            <div className={getDisabledIconButtonClass()}>
-              <Store className='h-4 w-4' />
-            </div>
-          ) : (
-            <Button
-              variant='outline'
-              onClick={() => setIsTemplateModalOpen(true)}
-              className={getIconButtonClass()}
-            >
-              <Store className='h-5 w-5' />
-              <span className='sr-only'>Publish Template</span>
-            </Button>
-          )}
-        </TooltipTrigger>
-        <TooltipContent>{getTooltipText()}</TooltipContent>
-      </Tooltip>
-    )
-  }
-
-  /**
-   * Render debug mode toggle button
-   */
   const renderDebugModeToggle = () => {
     const canDebug = userPermissions.canRead
-
-    // Check if there are any meaningful blocks in the workflow (excluding triggers)
-    const hasExecutableBlocks = Object.values(blocks).some((block) => {
+    const hasExecutableBlocks = Object.values(currentBlocks).some((block) => {
       const blockConfig = getBlock(block.type)
       return block.enabled !== false && blockConfig?.category !== 'triggers'
     })
@@ -694,19 +629,9 @@ export function ControlBar({
     <div className={containerClass}>
       {showOptionalControls && <ExportControls variant={variant} />}
       {showOptionalControls && renderAutoLayoutButton()}
-      {showOptionalControls && renderPublishButton()}
       {!isDebugging && renderDebugModeToggle()}
       {renderDeployButton()}
       {isDebugging ? renderDebugControlsBar() : renderRunButton()}
-
-      {/* Template Modal */}
-      {activeWorkflowId && (
-        <TemplateModal
-          open={isTemplateModalOpen}
-          onOpenChange={setIsTemplateModalOpen}
-          workflowId={activeWorkflowId}
-        />
-      )}
     </div>
   )
 }

@@ -147,8 +147,11 @@ export default function Integrations() {
   return (
     <section id='integrations' className='py-8 sm:py-16 lg:py-24'>
       <script
+        id='landing-integrations-jsonld'
         type='application/ld+json'
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(integrationsStructuredData) }}
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(integrationsStructuredData).replace(/</g, '\\u003c'),
+        }}
       />
       <div className='mx-auto px-4 sm:px-6 lg:px-48'>
         <div className='flex items-start justify-between gap-12 max-md:flex-col sm:gap-16 lg:gap-24'>

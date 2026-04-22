@@ -317,7 +317,16 @@ export const KnowledgeBaseResultSchema = z.object({
 export type KnowledgeBaseResult = z.infer<typeof KnowledgeBaseResultSchema>
 
 export const GetBlockOutputsInput = z.object({
-  blockIds: z.array(z.string()).optional(),
+  blockIds: z
+    .array(z.string())
+    .optional()
+    .describe(
+      'Optional exact workflow instance block ids from `get_user_workflow.workflowSummary.blocks`. Omit to inspect every block output in the workflow.'
+    ),
+})
+const BlockOutputReferenceSchema = z.object({
+  path: z.string(),
+  type: z.string(),
 })
 export const GetBlockOutputsResult = z.object({
   blocks: z.array(
@@ -325,9 +334,9 @@ export const GetBlockOutputsResult = z.object({
       blockId: z.string(),
       blockName: z.string(),
       blockType: z.string(),
-      outputs: z.array(z.string()),
-      insideSubflowOutputs: z.array(z.string()).optional(),
-      outsideSubflowOutputs: z.array(z.string()).optional(),
+      outputs: z.array(BlockOutputReferenceSchema),
+      insideSubflowOutputs: z.array(BlockOutputReferenceSchema).optional(),
+      outsideSubflowOutputs: z.array(BlockOutputReferenceSchema).optional(),
     })
   ),
   variables: z
@@ -345,7 +354,12 @@ export type GetBlockOutputsInputType = z.infer<typeof GetBlockOutputsInput>
 export type GetBlockOutputsResultType = z.infer<typeof GetBlockOutputsResult>
 
 export const GetBlockUpstreamReferencesInput = z.object({
-  blockIds: z.array(z.string()).min(1),
+  blockIds: z
+    .array(z.string())
+    .min(1)
+    .describe(
+      'Exact workflow instance block ids from `get_user_workflow.workflowSummary.blocks` whose accessible upstream references should be resolved.'
+    ),
 })
 export const GetBlockUpstreamReferencesResult = z.object({
   results: z.array(
@@ -366,7 +380,7 @@ export const GetBlockUpstreamReferencesResult = z.object({
           blockId: z.string(),
           blockName: z.string(),
           blockType: z.string(),
-          outputs: z.array(z.string()),
+          outputs: z.array(BlockOutputReferenceSchema),
           accessContext: z.enum(['inside', 'outside']).optional(),
         })
       ),

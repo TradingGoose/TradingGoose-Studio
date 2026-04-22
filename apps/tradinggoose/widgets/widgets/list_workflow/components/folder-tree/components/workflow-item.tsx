@@ -258,7 +258,7 @@ export function WorkflowItem({
       }
 
       if (workspaceId) {
-        router.push(`/workspace/${workspaceId}/w/${duplicatedWorkflowId}`)
+        router.push(`/workspace/${workspaceId}/dashboard`)
       } else if (duplicatedWorkflow && onSelect) {
         onSelect(duplicatedWorkflow)
       }
@@ -428,7 +428,7 @@ export function WorkflowItem({
           </button>
         ) : (
           <Link
-            href={`/workspace/${workspaceId}/w/${workflow.id}`}
+            href={`/workspace/${workspaceId}/dashboard`}
             className='flex min-w-0 flex-1 items-center gap-2'
             onClick={handleClick}
             draggable={false}

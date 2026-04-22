@@ -1,4 +1,4 @@
-import { create } from 'zustand'
+import { createWithEqualityFn as create } from 'zustand/traditional'
 import type { ListingIdentity } from '@/lib/listing/identity'
 import type { PairColor } from '@/widgets/pair-colors'
 import { PAIR_COLORS } from '@/widgets/pair-colors'

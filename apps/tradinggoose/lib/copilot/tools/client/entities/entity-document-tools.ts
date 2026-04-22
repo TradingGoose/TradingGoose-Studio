@@ -30,7 +30,9 @@ import {
 } from '@/lib/copilot/tools/client/base-tool'
 import {
   applyEntityFieldsToSession,
+  type EntityReadTarget,
   getActiveEntitySession,
+  listCopilotIndicators,
   listCanonicalEntityEntries,
   readEntityFieldsFromContext,
   resolveWorkspaceIdFromExecutionContext,
@@ -45,9 +47,7 @@ type EntityToolConfig = {
   icon: LucideIcon
 }
 
-type ReadEntityDocumentArgs = {
-  entityId?: string
-}
+type ReadEntityDocumentArgs = EntityReadTarget
 
 type EditEntityDocumentArgs = ReadEntityDocumentArgs & {
   entityDocument: string
@@ -250,7 +250,7 @@ function createGetEntityDocumentTool(toolId: string, config: EntityToolConfig) {
         const { entityId, entityName, fields } = await readEntityFieldsFromContext(
           executionContext,
           config.kind,
-          args?.entityId
+          args
         )
 
         await this.markToolComplete(200, `${config.singularLabel} document ready`, {
@@ -421,7 +421,34 @@ export const RenameCustomToolClientTool = createEntityDocumentMutationTool(
   'rename'
 )
 
-export const ListIndicatorsClientTool = createListEntityTool('list_indicators', indicatorToolConfig)
+export class ListIndicatorsClientTool extends BaseClientTool {
+  static readonly id = 'list_indicators'
+  static readonly metadata = createListMetadata(indicatorToolConfig)
+
+  constructor(toolCallId: string) {
+    super(toolCallId, ListIndicatorsClientTool.id, ListIndicatorsClientTool.metadata)
+  }
+
+  async execute(): Promise<void> {
+    try {
+      this.setState(ClientToolCallState.executing)
+      const executionContext = this.requireExecutionContext()
+      const workspaceId = resolveWorkspaceIdFromExecutionContext(executionContext)
+      const indicators = await listCopilotIndicators(workspaceId)
+
+      await this.markToolComplete(200, 'Listed indicators', {
+        entityKind: 'indicator',
+        indicators,
+        count: indicators.length,
+      })
+      this.setState(ClientToolCallState.success)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      await this.markToolComplete(500, message)
+      this.setState(ClientToolCallState.error)
+    }
+  }
+}
 export const GetIndicatorClientTool = createGetEntityDocumentTool(
   'get_indicator',
   indicatorToolConfig

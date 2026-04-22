@@ -15,7 +15,10 @@ const { resolveAzureOpenAIServiceConfig, resolveOpenAIServiceConfig } = vi.hoist
 
 vi.mock('drizzle-orm', () => ({
   and: (...args: any[]) => args,
+  asc: (...args: any[]) => args,
+  desc: (...args: any[]) => args,
   eq: (...args: any[]) => args,
+  inArray: (...args: any[]) => args,
   isNull: () => true,
   sql: (strings: TemplateStringsArray, ...expr: any[]) => ({ strings, expr }),
 }))
@@ -96,27 +99,38 @@ vi.stubGlobal(
 )
 
 vi.mock('@tradinggoose/db', () => {
+  function resolveRows(table: any, n: number) {
+    const tableSymbols = Object.getOwnPropertySymbols(table || {})
+    const baseNameSymbol = tableSymbols.find((s) => s.toString().includes('BaseName'))
+    const tableName = baseNameSymbol ? table[baseNameSymbol] : ''
+
+    if (tableName === 'knowledge_base') {
+      return Promise.resolve(kbRows.slice(0, n))
+    }
+    if (tableName === 'document') {
+      return Promise.resolve(docRows.slice(0, n))
+    }
+    if (tableName === 'embedding') {
+      return Promise.resolve(chunkRows.slice(0, n))
+    }
+
+    return Promise.resolve([])
+  }
+
   const selectBuilder = {
     from(table: any) {
+      const withLimit = {
+        limit(n: number) {
+          return resolveRows(table, n)
+        },
+      }
+
       return {
         where() {
           return {
-            limit(n: number) {
-              const tableSymbols = Object.getOwnPropertySymbols(table || {})
-              const baseNameSymbol = tableSymbols.find((s) => s.toString().includes('BaseName'))
-              const tableName = baseNameSymbol ? table[baseNameSymbol] : ''
-
-              if (tableName === 'knowledge_base') {
-                return Promise.resolve(kbRows.slice(0, n))
-              }
-              if (tableName === 'document') {
-                return Promise.resolve(docRows.slice(0, n))
-              }
-              if (tableName === 'embedding') {
-                return Promise.resolve(chunkRows.slice(0, n))
-              }
-
-              return Promise.resolve([])
+            ...withLimit,
+            orderBy() {
+              return withLimit
             },
           }
         },
@@ -134,6 +148,7 @@ vi.mock('@tradinggoose/db', () => {
       }),
       transaction: vi.fn(async (fn: any) => {
         await fn({
+          select: vi.fn(() => selectBuilder),
           insert: (table: any) => ({
             values: (records: any) => {
               dbOps.order.push('insert')
@@ -191,6 +206,8 @@ describe('Knowledge Utils', () => {
 
   describe('processDocumentAsync', () => {
     it.concurrent('should insert embeddings before updating document counters', async () => {
+      docRows.push({ id: 'doc1', deletedAt: null })
+
       await processDocumentAsync(
         'kb1',
         'doc1',

@@ -1,7 +1,7 @@
 import type { CopilotAccessLevel } from '@/lib/copilot/access-policy'
+import type { ReviewEntityKind } from '@/lib/copilot/review-sessions/types'
 import type { CopilotRuntimeModel } from '@/lib/copilot/runtime-models'
 import type { ClientToolCallState, ClientToolDisplay } from '@/lib/copilot/tools/client/base-tool'
-import type { ReviewEntityKind } from '@/lib/copilot/review-sessions/types'
 
 export type ToolState = ClientToolCallState
 
@@ -49,57 +49,43 @@ export interface CopilotMessage {
 }
 
 // Contexts attached to a user message
-type WorkflowChatContext =
-  | { kind: 'workflow'; workflowId: string; label: string }
-  | {
-      kind: 'current_workflow'
-      workflowId: string
-      label: string
-    }
+type WorkspaceEntityContextIdFieldByKind = {
+  workflow: 'workflowId'
+  skill: 'skillId'
+  indicator: 'indicatorId'
+  custom_tool: 'customToolId'
+  mcp_server: 'mcpServerId'
+}
 
-type SkillChatContext =
-  | { kind: 'skill'; skillId: string; workspaceId?: string; label: string }
-  | {
-      kind: 'current_skill'
-      skillId?: string
-      workspaceId?: string
-      label: string
-    }
+type WorkspaceEntityContextBase = {
+  workspaceId?: string
+  label: string
+}
 
-type IndicatorChatContext =
-  | { kind: 'indicator'; indicatorId: string; workspaceId?: string; label: string }
-  | {
-      kind: 'current_indicator'
-      indicatorId?: string
-      workspaceId?: string
-      label: string
-    }
+type WorkspaceEntityExplicitChatContext = {
+  [K in keyof WorkspaceEntityContextIdFieldByKind]: { kind: K } & Record<
+    WorkspaceEntityContextIdFieldByKind[K],
+    string
+  > &
+    WorkspaceEntityContextBase
+}[keyof WorkspaceEntityContextIdFieldByKind]
 
-type CustomToolChatContext =
-  | { kind: 'custom_tool'; customToolId: string; workspaceId?: string; label: string }
-  | {
-      kind: 'current_custom_tool'
-      customToolId?: string
-      workspaceId?: string
-      label: string
-    }
+type WorkspaceEntityCurrentChatContext = {
+  [K in keyof WorkspaceEntityContextIdFieldByKind]: {
+    kind: `current_${K}`
+  } & (K extends 'workflow'
+    ? Record<WorkspaceEntityContextIdFieldByKind[K], string>
+    : Partial<Record<WorkspaceEntityContextIdFieldByKind[K], string>>) &
+    WorkspaceEntityContextBase
+}[keyof WorkspaceEntityContextIdFieldByKind]
 
-type McpServerChatContext =
-  | { kind: 'mcp_server'; mcpServerId: string; workspaceId?: string; label: string }
-  | {
-      kind: 'current_mcp_server'
-      mcpServerId?: string
-      workspaceId?: string
-      label: string
-    }
+type WorkspaceEntityChatContext =
+  | WorkspaceEntityExplicitChatContext
+  | WorkspaceEntityCurrentChatContext
 
 export type ChatContext =
   | { kind: 'past_chat'; reviewSessionId: string; label: string }
-  | WorkflowChatContext
-  | SkillChatContext
-  | IndicatorChatContext
-  | CustomToolChatContext
-  | McpServerChatContext
+  | WorkspaceEntityChatContext
   | { kind: 'blocks'; blockIds: string[]; label: string }
   | { kind: 'logs'; executionId?: string; label: string }
   | { kind: 'workflow_block'; workflowId: string; blockId: string; label: string }
@@ -188,9 +174,11 @@ export interface CopilotActions {
   setAccessLevel: (accessLevel: CopilotAccessLevel) => void
   setSelectedModel: (model: CopilotStore['selectedModel']) => Promise<void>
   setAgentPrefetch: (prefetch: boolean) => void
-  fetchContextUsage: (
-    options?: { bill?: boolean; assistantMessageId?: string; workflowId?: string }
-  ) => Promise<void>
+  fetchContextUsage: (options?: {
+    bill?: boolean
+    assistantMessageId?: string
+    workflowId?: string
+  }) => Promise<void>
 
   loadChats: (options?: { workspaceId?: string | null }) => Promise<void>
   selectChat: (chat: CopilotChat) => Promise<void>

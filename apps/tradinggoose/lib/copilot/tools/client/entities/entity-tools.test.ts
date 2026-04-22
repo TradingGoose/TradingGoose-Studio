@@ -5,7 +5,9 @@ import {
   CreateSkillClientTool,
   EditSkillClientTool,
   GetCustomToolClientTool,
+  GetIndicatorClientTool,
   GetSkillClientTool,
+  ListIndicatorsClientTool,
   ListSkillsClientTool,
   RenameSkillClientTool,
 } from '@/lib/copilot/tools/client/entities/entity-document-tools'
@@ -232,6 +234,149 @@ describe('entity document tools', () => {
     })
     expect(markCompleteBody.data.entityDocument).toContain('"title": "market-tool"')
     expect(markCompleteBody.data.entityDocument).toContain('"codeText": "return 1"')
+  })
+
+  it('list_indicators returns built-in and custom indicators with capability flags', async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === 'string' ? input : input.toString()
+      const method = init?.method || 'GET'
+
+      if (
+        url === '/api/indicators/options?workspaceId=ws-1&surface=copilot' &&
+        method === 'GET'
+      ) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            data: [
+              {
+                id: 'RSI',
+                name: 'Relative Strength Index',
+                source: 'default',
+                color: '#3972F6',
+                editable: false,
+                callableInFunctionBlock: true,
+                inputTitles: ['Length'],
+                runtimeId: 'RSI',
+              },
+              {
+                id: 'indicator-1',
+                name: 'My Custom Indicator',
+                source: 'custom',
+                color: '#ff0000',
+                editable: true,
+                callableInFunctionBlock: false,
+                inputTitles: ['Fast Length'],
+                entityId: 'indicator-1',
+              },
+            ],
+          }),
+        }
+      }
+
+      if (url === '/api/copilot/tools/mark-complete' && method === 'POST') {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ success: true }),
+        }
+      }
+
+      throw new Error(`Unexpected fetch URL: ${url} (${method})`)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const toolCallId = 'list-indicators'
+    const tool = new ListIndicatorsClientTool(toolCallId)
+    tool.setExecutionContext({
+      toolCallId,
+      toolName: 'list_indicators',
+      channelId: 'pair-cyan',
+      workflowId: 'wf-context',
+      log: vi.fn(),
+    })
+
+    await tool.execute()
+
+    expect(tool.getState()).toBe(ClientToolCallState.success)
+
+    const markCompleteCall = fetchMock.mock.calls.find(([input, init]) => {
+      const url = typeof input === 'string' ? input : input.toString()
+      return url === '/api/copilot/tools/mark-complete' && (init?.method || 'GET') === 'POST'
+    })
+    const markCompleteBody = JSON.parse(String(markCompleteCall?.[1]?.body))
+    expect(markCompleteBody.data).toMatchObject({
+      entityKind: 'indicator',
+      count: 2,
+    })
+    expect(markCompleteBody.data.indicators).toEqual([
+      {
+        name: 'Relative Strength Index',
+        source: 'default',
+        color: '#3972F6',
+        editable: false,
+        callableInFunctionBlock: true,
+        inputTitles: ['Length'],
+        runtimeId: 'RSI',
+      },
+      {
+        name: 'My Custom Indicator',
+        source: 'custom',
+        color: '#ff0000',
+        editable: true,
+        callableInFunctionBlock: false,
+        inputTitles: ['Fast Length'],
+        entityId: 'indicator-1',
+      },
+    ])
+  })
+
+  it('get_indicator reads a built-in default indicator by runtimeId', async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === 'string' ? input : input.toString()
+      const method = init?.method || 'GET'
+
+      if (url === '/api/copilot/tools/mark-complete' && method === 'POST') {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ success: true }),
+        }
+      }
+
+      throw new Error(`Unexpected fetch URL: ${url} (${method})`)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const toolCallId = 'get-indicator-default'
+    const tool = new GetIndicatorClientTool(toolCallId)
+    tool.setExecutionContext({
+      toolCallId,
+      toolName: 'get_indicator',
+      channelId: 'pair-yellow',
+      workflowId: 'wf-context',
+      log: vi.fn(),
+    })
+
+    await tool.execute({ runtimeId: 'RSI' })
+
+    expect(tool.getState()).toBe(ClientToolCallState.success)
+
+    const markCompleteCall = fetchMock.mock.calls.find(([input, init]) => {
+      const url = typeof input === 'string' ? input : input.toString()
+      return url === '/api/copilot/tools/mark-complete' && (init?.method || 'GET') === 'POST'
+    })
+    const markCompleteBody = JSON.parse(String(markCompleteCall?.[1]?.body))
+
+    expect(markCompleteBody.data).toMatchObject({
+      entityKind: 'indicator',
+      entityName: 'Relative Strength Index',
+      documentFormat: 'tg-indicator-document-v1',
+    })
+    expect(markCompleteBody.data.entityDocument).toContain('"name": "Relative Strength Index"')
+    expect(markCompleteBody.data.entityDocument).toContain('"pineCode"')
+    expect(markCompleteBody.data.entityDocument).toContain('"Length"')
   })
 
   it('get_custom_tool reads a matching live entity session by explicit entityId', async () => {
@@ -774,6 +919,9 @@ describe('entity document tools', () => {
       entityId: 'skill-1',
     })
     expect(ToolArgSchemas.get_skill.parse({})).toMatchObject({})
+    expect(ToolArgSchemas.get_indicator.parse({ runtimeId: 'RSI' })).toMatchObject({
+      runtimeId: 'RSI',
+    })
     expect(
       ToolArgSchemas.edit_skill.parse({
         entityId: 'skill-1',
@@ -812,6 +960,22 @@ describe('entity document tools', () => {
         entityKind: 'skill',
         entities: [],
         count: 0,
+      })
+    ).toBeDefined()
+    expect(
+      ToolResultSchemas.list_indicators.parse({
+        entityKind: 'indicator',
+        indicators: [
+          {
+            name: 'Relative Strength Index',
+            source: 'default',
+            editable: false,
+            callableInFunctionBlock: true,
+            runtimeId: 'RSI',
+            inputTitles: ['Length'],
+          },
+        ],
+        count: 1,
       })
     ).toBeDefined()
     expect(

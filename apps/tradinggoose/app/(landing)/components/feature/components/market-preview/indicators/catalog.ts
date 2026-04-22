@@ -73,6 +73,24 @@ const signalLength = input.int(5, 'Signal Length');
 const spread = ta.ema(close, fastLength) - ta.ema(close, slowLength);
 const signal = ta.ema(spread, signalLength);
 const pressure = spread - signal;
+const bullishPressure = ta.crossover(pressure, 0);
+const bearishPressure = ta.crossunder(pressure, 0);
+
+trigger('long', {
+  condition: bullishPressure,
+  input: 'Momentum pressure crossed above the baseline',
+  signal: 'long',
+  position: 'belowBar',
+  color: '#22c55e',
+});
+
+trigger('short', {
+  condition: bearishPressure,
+  input: 'Momentum pressure crossed below the baseline',
+  signal: 'short',
+  position: 'aboveBar',
+  color: '#ef4444',
+});
 
 plot(pressure, 'Pressure', { style: plot.style_histogram, color: '#8b5cf6' });
 plot(signal, 'Signal', { color: '#f97316', linewidth: 2 });

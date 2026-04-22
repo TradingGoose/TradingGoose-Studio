@@ -22,18 +22,12 @@ function toDecimalString(value: number | null) {
 
 export const dynamic = 'force-dynamic'
 
-export async function PATCH(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> },
-) {
+export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const userId = await requireAdminBillingUserId()
     const { stripeConfigured } = await getBillingGateState()
     if (!stripeConfigured) {
-      return NextResponse.json(
-        { error: ADMIN_BILLING_UNAVAILABLE_ERROR },
-        { status: 409 },
-      )
+      return NextResponse.json({ error: ADMIN_BILLING_UNAVAILABLE_ERROR }, { status: 409 })
     }
     const { id } = await params
     const body = await request.json()
@@ -42,10 +36,9 @@ export async function PATCH(
     if (!parsed.success) {
       return NextResponse.json(
         {
-          error:
-            parsed.error.issues[0]?.message ?? 'Invalid billing tier payload',
+          error: parsed.error.issues[0]?.message ?? 'Invalid billing tier payload',
         },
-        { status: 400 },
+        { status: 400 }
       )
     }
 
@@ -61,10 +54,7 @@ export async function PATCH(
       .limit(1)
 
     if (!existingTier) {
-      return NextResponse.json(
-        { error: 'Billing tier not found' },
-        { status: 404 },
-      )
+      return NextResponse.json({ error: 'Billing tier not found' }, { status: 404 })
     }
 
     const billingEnabled = await isBillingEnabledForRuntime()
@@ -74,20 +64,16 @@ export async function PATCH(
           error:
             'Disable billing or assign another active default tier before removing the default tier flag.',
         },
-        { status: 409 },
+        { status: 409 }
       )
     }
 
-    if (
-      billingEnabled &&
-      parsed.data.isDefault &&
-      parsed.data.status !== 'active'
-    ) {
+    if (billingEnabled && parsed.data.isDefault && parsed.data.status !== 'active') {
       return NextResponse.json(
         {
           error: 'The default tier must stay active while billing is enabled.',
         },
-        { status: 409 },
+        { status: 409 }
       )
     }
 
@@ -105,7 +91,7 @@ export async function PATCH(
             error:
               'A tier with subscriptions cannot be moved back to draft. Archive it or keep it active.',
           },
-          { status: 409 },
+          { status: 409 }
         )
       }
 
@@ -119,14 +105,14 @@ export async function PATCH(
       ]
 
       const changedField = structuralFields.find(
-        (field) => existingTier[field] !== (parsed.data as any)[field],
+        (field) => existingTier[field] !== (parsed.data as any)[field]
       )
       if (changedField) {
         return NextResponse.json(
           {
             error: `Cannot change ${changedField} for a tier that already has subscriptions. Duplicate the tier, migrate subscribers, and archive the old tier instead.`,
           },
-          { status: 409 },
+          { status: 409 }
         )
       }
 
@@ -137,50 +123,42 @@ export async function PATCH(
       ) {
         return NextResponse.json(
           {
-            error:
-              'A tier with subscriptions must keep explicit rate limits configured.',
+            error: 'A tier with subscriptions must keep explicit rate limits configured.',
           },
-          { status: 409 },
+          { status: 409 }
         )
       }
 
       if (parsed.data.includedUsageLimitUsd === null) {
         return NextResponse.json(
           {
-            error:
-              'A tier with subscriptions must keep an included usage limit configured.',
+            error: 'A tier with subscriptions must keep an included usage limit configured.',
           },
-          { status: 409 },
+          { status: 409 }
         )
       }
 
       if (parsed.data.storageLimitGb === null) {
         return NextResponse.json(
           {
-            error:
-              'A tier with subscriptions must keep a storage limit configured.',
+            error: 'A tier with subscriptions must keep a storage limit configured.',
           },
-          { status: 409 },
+          { status: 409 }
         )
       }
 
       if (parsed.data.concurrencyLimit === null) {
         return NextResponse.json(
           {
-            error:
-              'A tier with subscriptions must keep an execution concurrency limit configured.',
+            error: 'A tier with subscriptions must keep an execution concurrency limit configured.',
           },
-          { status: 409 },
+          { status: 409 }
         )
       }
 
       const zeroedExecutionMultipliers = [
-        parsed.data.workflowExecutionMultiplier === 0
-          ? 'workflow execution multiplier'
-          : null,
-        parsed.data.functionExecutionMultiplier === 0
-          ? 'function execution multiplier'
-          : null,
+        parsed.data.workflowExecutionMultiplier === 0 ? 'workflow execution multiplier' : null,
+        parsed.data.functionExecutionMultiplier === 0 ? 'function execution multiplier' : null,
       ].filter((value): value is string => Boolean(value))
 
       if (zeroedExecutionMultipliers.length > 0) {
@@ -188,7 +166,7 @@ export async function PATCH(
           {
             error: `A tier with subscriptions cannot set ${zeroedExecutionMultipliers.join(' or ')} to 0. Create a separate free tier if you need zero-cost executions.`,
           },
-          { status: 409 },
+          { status: 409 }
         )
       }
     }
@@ -209,9 +187,7 @@ export async function PATCH(
           seatMode: parsed.data.seatMode,
           monthlyPriceUsd: toDecimalString(parsed.data.monthlyPriceUsd),
           yearlyPriceUsd: toDecimalString(parsed.data.yearlyPriceUsd),
-          includedUsageLimitUsd: toDecimalString(
-            parsed.data.includedUsageLimitUsd,
-          ),
+          includedUsageLimitUsd: toDecimalString(parsed.data.includedUsageLimitUsd),
           storageLimitGb: parsed.data.storageLimitGb,
           concurrencyLimit: parsed.data.concurrencyLimit,
           seatCount: parsed.data.seatCount,
@@ -221,22 +197,15 @@ export async function PATCH(
           stripeProductId: parsed.data.stripeProductId,
           syncRateLimitPerMinute: parsed.data.syncRateLimitPerMinute,
           asyncRateLimitPerMinute: parsed.data.asyncRateLimitPerMinute,
-          apiEndpointRateLimitPerMinute:
-            parsed.data.apiEndpointRateLimitPerMinute,
+          apiEndpointRateLimitPerMinute: parsed.data.apiEndpointRateLimitPerMinute,
           maxPendingAgeSeconds: parsed.data.maxPendingAgeSeconds,
           maxPendingCount: parsed.data.maxPendingCount,
           canEditUsageLimit: parsed.data.canEditUsageLimit,
           canConfigureSso: parsed.data.canConfigureSso,
           logRetentionDays: parsed.data.logRetentionDays,
-          workflowExecutionMultiplier: String(
-            parsed.data.workflowExecutionMultiplier ?? 1,
-          ),
-          workflowModelCostMultiplier: String(
-            parsed.data.workflowModelCostMultiplier ?? 1,
-          ),
-          functionExecutionMultiplier: String(
-            parsed.data.functionExecutionMultiplier ?? 1,
-          ),
+          workflowExecutionMultiplier: String(parsed.data.workflowExecutionMultiplier ?? 1),
+          workflowModelCostMultiplier: String(parsed.data.workflowModelCostMultiplier ?? 1),
+          functionExecutionMultiplier: String(parsed.data.functionExecutionMultiplier ?? 1),
           copilotCostMultiplier: String(parsed.data.copilotCostMultiplier ?? 1),
           pricingFeatures: parsed.data.pricingFeatures,
           isPublic: parsed.data.isPublic,
@@ -259,25 +228,16 @@ export async function PATCH(
     }
 
     logger.error('Failed to update billing tier', { error })
-    return NextResponse.json(
-      { error: 'Failed to update billing tier' },
-      { status: 500 },
-    )
+    return NextResponse.json({ error: 'Failed to update billing tier' }, { status: 500 })
   }
 }
 
-export async function DELETE(
-  _request: Request,
-  { params }: { params: Promise<{ id: string }> },
-) {
+export async function DELETE(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     await requireAdminBillingUserId()
     const { stripeConfigured } = await getBillingGateState()
     if (!stripeConfigured) {
-      return NextResponse.json(
-        { error: ADMIN_BILLING_UNAVAILABLE_ERROR },
-        { status: 409 },
-      )
+      return NextResponse.json({ error: ADMIN_BILLING_UNAVAILABLE_ERROR }, { status: 409 })
     }
     const { id } = await params
 
@@ -291,17 +251,11 @@ export async function DELETE(
       .limit(1)
 
     if (!existingTier) {
-      return NextResponse.json(
-        { error: 'Billing tier not found' },
-        { status: 404 },
-      )
+      return NextResponse.json({ error: 'Billing tier not found' }, { status: 404 })
     }
 
     if (existingTier.isDefault) {
-      return NextResponse.json(
-        { error: 'The default tier cannot be deleted' },
-        { status: 409 },
-      )
+      return NextResponse.json({ error: 'The default tier cannot be deleted' }, { status: 409 })
     }
 
     const [{ count: subscriptionCount }] = await db
@@ -312,10 +266,9 @@ export async function DELETE(
     if (Number(subscriptionCount) > 0) {
       return NextResponse.json(
         {
-          error:
-            'This tier has subscriptions and cannot be deleted. Archive it instead.',
+          error: 'This tier has subscriptions and cannot be deleted. Archive it instead.',
         },
-        { status: 409 },
+        { status: 409 }
       )
     }
 
@@ -332,9 +285,6 @@ export async function DELETE(
     }
 
     logger.error('Failed to delete billing tier', { error })
-    return NextResponse.json(
-      { error: 'Failed to delete billing tier' },
-      { status: 500 },
-    )
+    return NextResponse.json({ error: 'Failed to delete billing tier' }, { status: 500 })
   }
 }

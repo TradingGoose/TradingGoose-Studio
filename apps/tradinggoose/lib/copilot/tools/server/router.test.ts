@@ -128,7 +128,7 @@ let routeExecution: typeof import('@/lib/copilot/tools/server/router').routeExec
 beforeAll(async () => {
   ;({ getToolContract, isToolId } = await import('@/lib/copilot/registry'))
   ;({ routeExecution } = await import('@/lib/copilot/tools/server/router'))
-})
+}, 30000)
 
 beforeEach(() => {
   editWorkflowExecute.mockClear()

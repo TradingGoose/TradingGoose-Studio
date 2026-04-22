@@ -1,7 +1,6 @@
 'use client'
 
 import { createContext, type ReactNode, useContext, useMemo } from 'react'
-import { useStore } from 'zustand'
 import { useStoreWithEqualityFn } from 'zustand/traditional'
 import type { StoreApi } from 'zustand/vanilla'
 import {
@@ -43,12 +42,12 @@ function useWorkflowStoreBase<T>(selector?: Selector<T>, equalityFn?: EqualityFn
   }
 
   if (!selector) {
-    return useStore(store)
+    return useStoreWithEqualityFn(store)
   }
 
   return equalityFn
     ? useStoreWithEqualityFn(store, selector, equalityFn)
-    : useStore(store, selector)
+    : useStoreWithEqualityFn(store, selector)
 }
 
 type UseWorkflowStoreHook = typeof useWorkflowStoreBase & {

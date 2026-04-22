@@ -21,12 +21,12 @@ import { useRouter } from 'next/navigation'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar'
 import { signOut } from '@/lib/auth-client'
+import { openBillingPortal } from '@/lib/billing/billing-portal'
 import { isHosted } from '@/lib/environment'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getOrganizationAccessState } from '@/lib/organization/access'
 import { getUserRole } from '@/lib/organization/helpers'
 import { getSubscriptionStatus } from '@/lib/subscription/helpers'
-import { getBaseUrl } from '@/lib/urls/utils'
 import { HelpModal } from '@/global-navbar/settings-modal/components/help/help-modal'
 import type { SettingsSection } from '@/global-navbar/settings-modal/types'
 import { useOrganizationBilling, useOrganizations } from '@/hooks/queries/organization'
@@ -233,21 +233,10 @@ export function UserMenu({
 
     setIsOpeningBillingPortal(true)
     try {
-      const res = await fetch('/api/billing/portal', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          context,
-          organizationId: context === 'organization' ? activeOrganizationId : undefined,
-          returnUrl: `${getBaseUrl()}/workspace?billing=updated`,
-        }),
+      await openBillingPortal({
+        context,
+        organizationId: context === 'organization' ? activeOrganizationId : undefined,
       })
-
-      const data = await res.json()
-      if (!res.ok || !data?.url) {
-        throw new Error(data?.error || 'Failed to start billing portal')
-      }
-      window.location.href = data.url
     } catch (error) {
       logger.error('Failed to open billing portal from user menu', { error })
       alert(error instanceof Error ? error.message : 'Failed to open billing portal')

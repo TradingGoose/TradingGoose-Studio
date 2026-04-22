@@ -132,4 +132,31 @@ describe('/api/usage route', () => {
     })
     expect(mockUpdateUserUsageLimit).not.toHaveBeenCalled()
   })
+
+  it('returns 400 for personal usage updates when the limit change is rejected', async () => {
+    mockUpdateUserUsageLimit.mockResolvedValueOnce({
+      success: false,
+      error: 'This billing tier cannot edit usage limits',
+    })
+
+    const { PUT } = await import('./route')
+    const response = await PUT(
+      new NextRequest('http://localhost/api/usage', {
+        method: 'PUT',
+        body: JSON.stringify({
+          context: 'user',
+          limit: 10,
+        }),
+        headers: {
+          'content-type': 'application/json',
+        },
+      })
+    )
+
+    expect(response.status).toBe(400)
+    expect(await response.json()).toEqual({
+      error: 'This billing tier cannot edit usage limits',
+    })
+    expect(mockUpdateUserUsageLimit).toHaveBeenCalledWith('user-1', 10)
+  })
 })

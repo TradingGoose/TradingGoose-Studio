@@ -204,7 +204,9 @@ describe('Workspace Invitation [invitationId] API Route', () => {
       const response = await GET(request, { params })
 
       expect(response.status).toBe(307)
-      expect(response.headers.get('location')).toBe('https://test.tradinggoose.ai/workspace/workspace-456/w')
+      expect(response.headers.get('location')).toBe(
+        'https://test.tradinggoose.ai/workspace/workspace-456/dashboard'
+      )
     })
 
     it('should redirect to error page when invitation expired', async () => {

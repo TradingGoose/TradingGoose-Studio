@@ -2,7 +2,7 @@ import { cache } from 'react'
 import fs from 'fs'
 import path from 'path'
 import matter from 'gray-matter'
-import { resolveGitHubServiceConfig } from '@/lib/system-services/runtime'
+import { resolveGitHubBlogSourceConfig } from '@/lib/system-services/runtime'
 import { normalizeHeadingText, textToSlug } from './heading-slugs'
 import type { Post, PostFrontmatter, ResolvedAuthor, TOC } from './types'
 
@@ -21,8 +21,8 @@ import type { Post, PostFrontmatter, ResolvedAuthor, TOC } from './types'
  * All relative image paths (in frontmatter `image` and markdown `![](...)`)
  * are auto-resolved to raw.githubusercontent.com URLs.
  *
- * Configure the GitHub Admin Service token to increase API rate limits
- * (optional for public repos).
+ * The GitHub token is optional for public repos, so the blog renderer reads
+ * only the repository settings and never decrypts credentials during build.
  *
  * When no GitHub blog repository is configured, falls back to local filesystem at
  * app/(landing)/blog/content/.
@@ -166,16 +166,9 @@ interface GitHubTreeItem {
   type: string
 }
 
-async function fetchPostsFromGitHub(
-  source: GitHubBlogSource,
-  token: string | null
-): Promise<Post[]> {
+async function fetchPostsFromGitHub(source: GitHubBlogSource): Promise<Post[]> {
   const treeUrl = `https://api.github.com/repos/${source.repository}/git/trees/${source.branch}?recursive=1`
   const headers: Record<string, string> = { Accept: 'application/vnd.github.v3+json' }
-
-  if (token) {
-    headers.Authorization = `Bearer ${token}`
-  }
 
   const treeRes = await fetch(treeUrl, {
     headers,
@@ -253,20 +246,17 @@ function fetchPostsFromLocal(): Post[] {
 // Deduplicate within a single server render pass (generateMetadata + page component)
 export const getAllPosts = cache(async (): Promise<Post[]> => {
   try {
-    const githubConfig = await resolveGitHubServiceConfig()
+    const githubConfig = await resolveGitHubBlogSourceConfig()
     const repository = githubConfig.blogRepository
 
     if (!repository) {
       return fetchPostsFromLocal()
     }
 
-    return fetchPostsFromGitHub(
-      {
-        repository,
-        branch: githubConfig.blogBranch,
-      },
-      githubConfig.token
-    )
+    return fetchPostsFromGitHub({
+      repository,
+      branch: githubConfig.blogBranch,
+    })
   } catch {
     console.warn('[blog] Failed to resolve GitHub blog settings, falling back to local content')
     return fetchPostsFromLocal()

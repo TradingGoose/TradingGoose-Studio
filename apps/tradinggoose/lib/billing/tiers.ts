@@ -47,10 +47,6 @@ type SubscriptionScopeRecord = {
   tier?: BillingTierRecord | null
 }
 
-function isDefined<T>(value: T | null | undefined): value is T {
-  return value !== null && value !== undefined
-}
-
 export function parseBillingAmount(
   value: string | number | null | undefined,
 ): number {
@@ -137,11 +133,7 @@ export function getTierIncludedUsageLimit(
 export function getTierUsageAllowanceUsd(
   tier: BillingTierRecord | null | undefined,
 ): number {
-  if (isDefined(tier?.includedUsageLimitUsd)) {
-    return parseBillingAmount(tier.includedUsageLimitUsd)
-  }
-
-  return getTierBasePrice(tier)
+  return parseBillingAmount(tier?.includedUsageLimitUsd)
 }
 
 export function getSubscriptionUsageAllowanceUsd(

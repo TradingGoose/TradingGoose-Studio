@@ -30,6 +30,7 @@ export interface SubscriptionData {
   status: string | null
   seats: number | null
   metadata: any | null
+  hasPaymentMethodOnFile?: boolean
   stripeSubscriptionId: string | null
   periodEnd: Date | null
   cancelAtPeriodEnd?: boolean

@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import clsx from 'clsx'
-import { usePathname } from 'next/navigation'
 import { Skeleton } from '@/components/ui/skeleton'
 import { createLogger } from '@/lib/logs/console/logger'
 import { useOptionalWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
@@ -23,7 +22,7 @@ interface FolderSectionProps {
   disableNavigation?: boolean
   workflowsByFolder: Record<string, WorkflowMetadata[]>
   expandedFolders: Set<string>
-  pathname: string
+  activeWorkflowId: string | null
   updateWorkflow: (id: string, updates: Partial<WorkflowMetadata>) => Promise<void>
   updateFolder: (id: string, updates: any) => Promise<any>
   canDeleteWorkflow: boolean
@@ -80,7 +79,7 @@ function FolderSection({
   disableNavigation = false,
   workflowsByFolder,
   expandedFolders,
-  pathname,
+  activeWorkflowId,
   updateWorkflow,
   updateFolder,
   canDeleteWorkflow,
@@ -180,7 +179,7 @@ function FolderSection({
                   <div style={{ paddingLeft: `${(level + 1) * 20 + 8}px` }}>
                     <WorkflowItem
                       workflow={workflow}
-                      active={pathname === `/workspace/${workspaceId}/w/${workflow.id}`}
+                      active={activeWorkflowId === workflow.id}
                       level={level}
                       isDragOver={isAnyDragOver}
                       onSelect={onWorkflowSelect}
@@ -235,7 +234,7 @@ function FolderSection({
                       disableNavigation={disableNavigation}
                       workflowsByFolder={workflowsByFolder}
                       expandedFolders={expandedFolders}
-                      pathname={pathname}
+                      activeWorkflowId={activeWorkflowId}
                       updateWorkflow={updateWorkflow}
                       updateFolder={updateFolder}
                       canDeleteWorkflow={canDeleteWorkflow}
@@ -383,7 +382,6 @@ interface FolderTreeProps {
   onCreateWorkflow: (folderId?: string) => Promise<string | undefined> | undefined
   workspaceIdOverride?: string | null
   workflowIdOverride?: string | null
-  pathnameOverride?: string
   onWorkflowSelect?: (workflow: WorkflowMetadata) => void
   disableNavigation?: boolean
 }
@@ -395,15 +393,12 @@ export function FolderTree({
   onCreateWorkflow,
   workspaceIdOverride = null,
   workflowIdOverride = null,
-  pathnameOverride,
   onWorkflowSelect,
   disableNavigation = false,
 }: FolderTreeProps) {
   const routeContext = useOptionalWorkflowRoute()
-  const routerPathname = usePathname()
   const workspaceId = workspaceIdOverride ?? routeContext?.workspaceId ?? null
   const workflowId = workflowIdOverride ?? routeContext?.workflowId ?? null
-  const pathname = pathnameOverride ?? routerPathname ?? ''
   const expandedFolders = useFolderStore((state) => state.expandedFolders)
   const fetchFolders = useFolderStore((state) => state.fetchFolders)
   const foldersLoading = useFolderStore((state) => state.isLoading)
@@ -548,7 +543,7 @@ export function FolderTree({
         disableNavigation={disableNavigation}
         workflowsByFolder={workflowsByFolder}
         expandedFolders={expandedFolders}
-        pathname={pathname}
+        activeWorkflowId={workflowId}
         updateWorkflow={updateWorkflow}
         updateFolder={updateFolderAPI}
         canDeleteWorkflow={canDeleteWorkflow}
@@ -604,7 +599,7 @@ export function FolderTree({
             <WorkflowItem
               key={workflow.id}
               workflow={workflow}
-              active={pathname === `/workspace/${workspaceId}/w/${workflow.id}`}
+              active={workflowId === workflow.id}
               level={-1}
               isDragOver={rootDragOver}
               onSelect={onWorkflowSelect}

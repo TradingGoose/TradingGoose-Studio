@@ -1,4 +1,5 @@
 import { getEntityDocumentName, type EntityDocumentKind } from '@/lib/copilot/entity-documents'
+import { getDefaultIndicator } from '@/lib/indicators/default'
 import type { ClientToolExecutionContext } from '@/lib/copilot/tools/client/base-tool'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import {
@@ -24,6 +25,22 @@ type EntityListEntry = {
   entityUrl?: string
   entityEnabled?: boolean
   entityConnectionStatus?: string
+}
+
+export type CopilotIndicatorListEntry = {
+  name: string
+  source: 'default' | 'custom'
+  color?: string
+  editable: boolean
+  callableInFunctionBlock: boolean
+  inputTitles?: string[]
+  entityId?: string
+  runtimeId?: string
+}
+
+export type EntityReadTarget = {
+  entityId?: string
+  runtimeId?: string
 }
 
 type EntityApiConfig = {
@@ -203,16 +220,77 @@ export async function listCanonicalEntityEntries(
   return items.map((item) => config.toListEntry(item))
 }
 
+export async function listCopilotIndicators(
+  workspaceId: string
+): Promise<CopilotIndicatorListEntry[]> {
+  const response = await fetch(
+    `/api/indicators/options?workspaceId=${encodeURIComponent(workspaceId)}&surface=copilot`
+  )
+  const data = await response.json().catch(() => ({}))
+
+  if (!response.ok) {
+    throw new Error(data?.error || `Failed to fetch indicators: ${response.status}`)
+  }
+
+  const items = Array.isArray(data?.data) ? data.data : []
+
+  return items.flatMap((item: any) => {
+    const name = typeof item?.name === 'string' ? item.name : ''
+    const source = item?.source === 'custom' ? 'custom' : item?.source === 'default' ? 'default' : null
+    if (!name || !source) return []
+
+    const entry: CopilotIndicatorListEntry = {
+      name,
+      source,
+      editable: item?.editable === true,
+      callableInFunctionBlock: item?.callableInFunctionBlock === true,
+      ...(typeof item?.color === 'string' && item.color ? { color: item.color } : {}),
+      ...(Array.isArray(item?.inputTitles)
+        ? {
+            inputTitles: item.inputTitles.filter((value: unknown): value is string => typeof value === 'string'),
+          }
+        : {}),
+      ...(typeof item?.entityId === 'string' && item.entityId ? { entityId: item.entityId } : {}),
+      ...(typeof item?.runtimeId === 'string' && item.runtimeId ? { runtimeId: item.runtimeId } : {}),
+    }
+
+    return [entry]
+  })
+}
+
 export async function readEntityFieldsFromContext(
   executionContext: ClientToolExecutionContext,
   kind: EntityDocumentKind,
-  entityId?: string
+  target?: EntityReadTarget
 ): Promise<{
   entityId?: string
   entityName: string
   fields: Record<string, unknown>
 }> {
-  const resolvedEntityId = entityId?.trim() || undefined
+  const resolvedEntityId = target?.entityId?.trim() || undefined
+  const resolvedRuntimeId = kind === 'indicator' ? target?.runtimeId?.trim() || undefined : undefined
+
+  if (resolvedRuntimeId) {
+    if (resolvedEntityId) {
+      throw new Error('Use either runtimeId or entityId, not both')
+    }
+
+    const indicator = getDefaultIndicator(resolvedRuntimeId)
+    if (!indicator) {
+      throw new Error(`Built-in indicator ${resolvedRuntimeId} was not found`)
+    }
+
+    return {
+      entityName: indicator.name,
+      fields: {
+        name: indicator.name,
+        color: '#3972F6',
+        pineCode: indicator.pineCode,
+        inputMeta: indicator.inputMeta ?? null,
+      },
+    }
+  }
+
   const activeSession = getActiveEntitySession(executionContext, kind, resolvedEntityId)
 
   if (activeSession) {

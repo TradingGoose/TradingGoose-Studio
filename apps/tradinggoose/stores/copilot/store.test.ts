@@ -15,10 +15,48 @@ import { useEnvironmentStore } from '@/stores/settings/environment/store'
 
 type FetchCall = readonly [input: RequestInfo | URL, init?: RequestInit]
 
+function withRelayTurnState(events: unknown[], options?: { includeInitial?: boolean }) {
+  const relayedEvents: unknown[] = []
+
+  if (options?.includeInitial !== false) {
+    relayedEvents.push({
+      type: 'turn_state',
+      status: 'in_progress',
+      phase: 'streaming',
+    })
+  }
+
+  for (const event of events as Array<Record<string, unknown>>) {
+    if (event?.type === 'awaiting_tools') {
+      relayedEvents.push({
+        type: 'turn_state',
+        status: 'in_progress',
+        phase: 'waiting_for_tools',
+      })
+    } else if (event?.type === 'response.completed') {
+      relayedEvents.push({
+        type: 'turn_state',
+        status: 'completed',
+        phase: 'completed',
+      })
+    } else if (event?.type === 'error') {
+      relayedEvents.push({
+        type: 'turn_state',
+        status: 'error',
+        phase: 'error',
+      })
+    }
+
+    relayedEvents.push(event)
+  }
+
+  return relayedEvents
+}
+
 function createSseStream(events: unknown[]): ReadableStream<Uint8Array> {
   return new ReadableStream<Uint8Array>({
     start(controller) {
-      for (const event of events) {
+      for (const event of withRelayTurnState(events)) {
         controller.enqueue(encodeSSE(event))
       }
       controller.close()
@@ -36,6 +74,13 @@ function createDeferredSseStream() {
   const stream = new ReadableStream<Uint8Array>({
     start(controller) {
       controllerRef = controller
+      controller.enqueue(
+        encodeSSE({
+          type: 'turn_state',
+          status: 'in_progress',
+          phase: 'streaming',
+        })
+      )
       resolveReady?.()
     },
   })
@@ -44,7 +89,9 @@ function createDeferredSseStream() {
     stream,
     ready,
     push(event: unknown) {
-      controllerRef?.enqueue(encodeSSE(event))
+      for (const relayedEvent of withRelayTurnState([event], { includeInitial: false })) {
+        controllerRef?.enqueue(encodeSSE(relayedEvent))
+      }
     },
     close() {
       controllerRef?.close()

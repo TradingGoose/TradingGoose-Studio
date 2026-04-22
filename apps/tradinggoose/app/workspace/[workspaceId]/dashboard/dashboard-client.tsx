@@ -310,7 +310,7 @@ export function DashboardClient({
             (workspace: { id: string; name: string }): DropdownItem => ({
               id: workspace.id,
               name: workspace.name,
-              href: `/workspace/${workspace.id}/w`,
+              href: `/workspace/${workspace.id}/dashboard`,
             })
           )
         )

@@ -38,7 +38,7 @@ Current payload: {context}
 Do not include any explanations, markdown formatting, or other text outside the JSON object.
 
 You have access to the following variables you can use to generate the JSON payload:
-- Use angle brackets for workflow variables, e.g., '<blockName.output>'.
+- Use exact TradingGoose tags in angle brackets for upstream outputs or workflow variables, e.g., '<agent.content>' or '<variable.userId>'. Do NOT invent '<block...>' prefixes.
 - Use double curly braces for environment variables, e.g., '{{ENV_VAR_NAME}}'.
 
 Example:
@@ -46,7 +46,7 @@ Example:
   "event": "workflow.completed",
   "data": {
     "result": "<agent.content>",
-    "timestamp": "<function.result>"
+    "userId": "<variable.userId>"
   }
 }`,
         placeholder: 'Describe the webhook payload you need...',

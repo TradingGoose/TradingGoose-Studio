@@ -7,7 +7,7 @@ import { requireStripeClient } from '@/lib/billing/stripe-client'
 import {
   getSubscriptionUsageAllowanceUsd,
   getTierUsageAllowanceUsd,
-  isPaidBillingTier,
+  isFreeBillingTier,
   usesIndividualBillingLedger,
 } from '@/lib/billing/tiers'
 import {
@@ -128,6 +128,7 @@ export async function checkAndBillOverageThreshold(params: {
     const { overageThresholdDollars: threshold } = await getResolvedBillingSettings()
     const billingContext = await resolveThresholdBillingContext(params)
     const subscription = billingContext.subscription
+    const billingTier = billingContext.tier
 
     if (!subscription || subscription.status !== 'active') {
       logger.debug('No active subscription for threshold billing', {
@@ -138,9 +139,22 @@ export async function checkAndBillOverageThreshold(params: {
       return
     }
 
-    if (!isPaidBillingTier(billingContext.tier)) {
+    if (!subscription.stripeSubscriptionId) {
+      const logPayload = {
+        billingTier: billingTier.displayName,
+        billingUserId: billingContext.billingUserId,
+        workspaceId: params.workspaceId,
+        workflowId: params.workflowId,
+      }
+
+      if (isFreeBillingTier(billingTier)) {
+        logger.debug('Threshold billing skipped for inactive free/PAYG subscription', logPayload)
+      } else {
+        logger.error('No Stripe subscription ID found', logPayload)
+      }
       return
     }
+    const stripeSubscriptionId = subscription.stripeSubscriptionId
 
     await db.transaction(async (tx) => {
       const isOrganizationScope =
@@ -254,15 +268,6 @@ export async function checkAndBillOverageThreshold(params: {
       }
 
       const amountToBill = unbilledOverage
-      const stripeSubscriptionId = subscription.stripeSubscriptionId
-      if (!stripeSubscriptionId) {
-        logger.error('No Stripe subscription ID found', {
-          billingUserId: billingContext.billingUserId,
-          workspaceId: params.workspaceId,
-          workflowId: params.workflowId,
-        })
-        return
-      }
 
       const stripe = requireStripeClient()
       const stripeSubscription = await stripe.subscriptions.retrieve(stripeSubscriptionId)
