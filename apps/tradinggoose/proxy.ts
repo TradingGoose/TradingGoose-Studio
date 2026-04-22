@@ -1,5 +1,13 @@
 import { getSessionCookie } from 'better-auth/cookies'
 import { type NextRequest, NextResponse } from 'next/server'
+import { appendHomepageDiscoveryLinks } from '@/lib/discovery/link-headers'
+import {
+  appendVaryHeader,
+  isMarkdownRenderablePath,
+  MARKDOWN_BYPASS_HEADER,
+  MARKDOWN_RENDER_ROUTE,
+  requestAcceptsMarkdown,
+} from '@/lib/markdown/negotiation'
 import { createLogger } from './lib/logs/console/logger'
 import { generateRuntimeCSP } from './lib/security/csp'
 
@@ -49,6 +57,40 @@ function isProtectedAppPath(pathname: string): boolean {
     pathname.startsWith('/admin/') ||
     pathname === '/workspace/'
   )
+}
+
+function rewriteMarkdownRequest(request: NextRequest): NextResponse | null {
+  if (request.method !== 'GET' && request.method !== 'HEAD') {
+    return null
+  }
+
+  if (request.headers.get(MARKDOWN_BYPASS_HEADER) === '1') {
+    return null
+  }
+
+  if (request.nextUrl.pathname.startsWith('/api/')) {
+    return null
+  }
+
+  if (!requestAcceptsMarkdown(request.headers)) {
+    return null
+  }
+
+  if (!isMarkdownRenderablePath(request.nextUrl.pathname)) {
+    return null
+  }
+
+  const rewriteUrl = new URL(MARKDOWN_RENDER_ROUTE, request.url)
+  rewriteUrl.searchParams.set('path', request.nextUrl.pathname)
+
+  const requestHeaders = new Headers(request.headers)
+  requestHeaders.set(MARKDOWN_BYPASS_HEADER, '1')
+
+  return NextResponse.rewrite(rewriteUrl, {
+    request: {
+      headers: requestHeaders,
+    },
+  })
 }
 
 /**
@@ -140,6 +182,9 @@ export async function proxy(request: NextRequest) {
   const securityBlock = handleSecurityFiltering(request)
   if (securityBlock) return securityBlock
 
+  const markdownRewrite = rewriteMarkdownRequest(request)
+  if (markdownRewrite) return markdownRewrite
+
   const requestHeaders = new Headers(request.headers)
   if (isProtectedPath) {
     requestHeaders.set('x-auth-callback-url', `${url.pathname}${url.search}`)
@@ -150,7 +195,7 @@ export async function proxy(request: NextRequest) {
       headers: requestHeaders,
     },
   })
-  response.headers.set('Vary', 'User-Agent')
+  response.headers.set('Vary', appendVaryHeader(appendVaryHeader(null, 'User-Agent'), 'Accept'))
 
   if (
     url.pathname.startsWith('/workspace') ||
@@ -158,6 +203,10 @@ export async function proxy(request: NextRequest) {
     url.pathname === '/'
   ) {
     response.headers.set('Content-Security-Policy', await generateRuntimeCSP())
+  }
+
+  if (url.pathname === '/') {
+    appendHomepageDiscoveryLinks(response.headers)
   }
 
   return response

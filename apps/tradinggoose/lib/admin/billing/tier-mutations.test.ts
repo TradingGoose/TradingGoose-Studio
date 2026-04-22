@@ -16,7 +16,7 @@ function createTierInput(
     seatMode: 'fixed',
     monthlyPriceUsd: null,
     yearlyPriceUsd: null,
-    includedUsageLimitUsd: null,
+    includedUsageLimitUsd: 0,
     storageLimitGb: null,
     concurrencyLimit: null,
     seatCount: null,
@@ -47,6 +47,12 @@ function createTierInput(
 describe('validateAdminBillingTierInput', () => {
   it('allows a default tier to stay in draft while it is being edited', () => {
     expect(validateAdminBillingTierInput(createTierInput())).toBeNull()
+  })
+
+  it('requires every tier to configure an included usage limit', () => {
+    expect(
+      validateAdminBillingTierInput(createTierInput({ includedUsageLimitUsd: null })),
+    ).toBe('Billing tiers must configure an included usage limit')
   })
 
   it('allows a zero-price default tier to configure normal tier limits', () => {

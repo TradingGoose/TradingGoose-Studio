@@ -3,13 +3,13 @@ import { getPublicBillingCatalog } from '@/lib/billing/catalog'
 import { buildHostedPricingSummary } from '@/lib/billing/public-catalog'
 import { Background } from '@/app/(landing)/components'
 import Landing from '@/app/(landing)/landing'
+import { DEFAULT_META_DESCRIPTION } from '@/lib/branding/metadata'
 
 export const dynamic = 'force-dynamic'
 
 const metadataBase: Metadata = {
   title: 'TradingGoose - Visual Workflow Platform for LLM Trading | Open Source',
-  description:
-    'Open-source visual workflow platform for technical LLM-driven trading. Connect your own data providers, write custom indicators in PineTS, monitor live markets, and trigger AI agent workflows on signals.',
+  description: DEFAULT_META_DESCRIPTION,
   keywords:
     'AI trading workflows, LLM trading agents, technical trading automation, custom trading indicators, PineTS indicators, visual trading workflow builder, trading signal automation, market data workflow, backtesting platform, open source trading platform, algorithmic trading, AI trading assistant',
   authors: [{ name: 'TradingGoose Studio' }],
@@ -51,7 +51,7 @@ const metadataBase: Metadata = {
     },
   },
   alternates: {
-    canonical: 'https://tradinggoose.ai',
+    canonical: 'https://tradinggoose.ai/',
     languages: {
       'en-US': 'https://tradinggoose.ai',
     },

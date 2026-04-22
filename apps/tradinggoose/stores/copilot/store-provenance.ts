@@ -1,6 +1,5 @@
 'use client'
 
-import { REVIEW_ENTITY_KINDS, type ReviewEntityKind } from '@/lib/copilot/review-sessions/types'
 import { normalizeOptionalString } from '@/lib/utils'
 import type {
   ChatContext,
@@ -9,15 +8,12 @@ import type {
   CopilotToolCall,
   CopilotToolExecutionProvenance,
 } from '@/stores/copilot/types'
+import { readCopilotWorkspaceEntityContext } from '@/widgets/widgets/copilot/workspace-entities'
 
 type ContextTurnProvenance = {
   workspaceId?: string
   contextWorkflowId?: string
   explicit: boolean
-}
-
-function isReviewEntityKind(entityKind: string | null | undefined): entityKind is ReviewEntityKind {
-  return REVIEW_ENTITY_KINDS.includes(entityKind as ReviewEntityKind)
 }
 
 function applyContextTurnProvenance(
@@ -36,23 +32,18 @@ function applyContextTurnProvenance(
 }
 
 function getContextTurnProvenance(context: ChatContext): ContextTurnProvenance | null {
-  if (context.kind === 'current_workflow') {
-    return {
-      contextWorkflowId: normalizeOptionalString(context.workflowId),
-      explicit: false,
-    }
+  const entityContext = readCopilotWorkspaceEntityContext(context)
+  if (!entityContext) {
+    return null
   }
 
-  const rawKind = context.kind.startsWith('current_')
-    ? context.kind.slice('current_'.length)
-    : context.kind
-  if (!isReviewEntityKind(rawKind)) return null
-
-  const current = context.kind.startsWith('current_')
-  const typedContext = context as any
   return {
-    workspaceId: normalizeOptionalString(typedContext.workspaceId),
-    explicit: !current,
+    workspaceId: normalizeOptionalString(entityContext.workspaceId),
+    contextWorkflowId:
+      entityContext.entityKind === 'workflow'
+        ? normalizeOptionalString(entityContext.entityId)
+        : undefined,
+    explicit: !entityContext.current,
   }
 }
 
@@ -139,7 +130,10 @@ export function findAssistantMessageIdForToolCall(
     const message = messages[index]
     if (message.role !== 'assistant') continue
 
-    if (Array.isArray(message.toolCalls) && message.toolCalls.some((toolCall) => toolCall.id === toolCallId)) {
+    if (
+      Array.isArray(message.toolCalls) &&
+      message.toolCalls.some((toolCall) => toolCall.id === toolCallId)
+    ) {
       return message.id
     }
 

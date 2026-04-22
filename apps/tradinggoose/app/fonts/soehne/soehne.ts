@@ -19,7 +19,7 @@ export const soehne = localFont({
     { path: './soehne-dreiviertelfett-kursiv.woff2', weight: '700', style: 'italic' },
   ],
   display: 'swap',
-  preload: true,
+  preload: false,
   variable: '--font-soehne',
   fallback: ['system-ui', 'Segoe UI', 'Roboto', 'Helvetica Neue', 'Arial', 'Noto Sans'],
   adjustFontFallback: 'Arial',

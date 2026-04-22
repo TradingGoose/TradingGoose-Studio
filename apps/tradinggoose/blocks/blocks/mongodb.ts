@@ -683,7 +683,8 @@ The output MUST be a single, valid JSON object representing MongoDB update opera
 You have access to workflow context variables:
 - Input parameters: Use <paramName> syntax (e.g., <userId>, <newStatus>)
 - Environment variables: Use {{ENV_VAR}} syntax (e.g., {{DEFAULT_STATUS}})
-- Previous block outputs: Use <block.previousBlock.output.field> syntax
+- Previous block outputs: Copy exact TradingGoose tags like <agent.content> from workflow context tools. Do not invent <block...> prefixes.
+- Workflow variables: Use exact tags like <variable.userId>.
 
 Generate the MongoDB update operation that safely and accurately fulfills the user's request.`,
         placeholder: 'Describe what you want to update...',

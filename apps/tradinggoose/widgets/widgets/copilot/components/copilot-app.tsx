@@ -1,26 +1,28 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import Providers from '@/app/workspace/[workspaceId]/providers/providers'
 import { useSession } from '@/lib/auth-client'
 import { EntitySessionHost } from '@/lib/copilot/review-sessions/entity-session-host'
 import type { ReviewTargetDescriptor } from '@/lib/copilot/review-sessions/types'
+import { useRegisteredEntitySession } from '@/lib/yjs/entity-session-registry'
+import { WorkflowSessionProvider } from '@/lib/yjs/workflow-session-host'
+import Providers from '@/app/workspace/[workspaceId]/providers/providers'
 import {
   CopilotStoreProvider,
   DEFAULT_COPILOT_CHANNEL_ID,
   useCopilotStoreApi,
 } from '@/stores/copilot/store'
 import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
-import { useRegisteredEntitySession } from '@/lib/yjs/entity-session-registry'
 import type { PairColor } from '@/widgets/pair-colors'
+import {
+  buildCopilotEditableReviewTargets,
+  type CopilotEditableReviewTarget,
+  resolveCopilotWorkflowId,
+} from '@/widgets/widgets/copilot/live-contexts'
 import {
   buildReviewTargetDescriptorFromState,
   resolveEntityReviewTarget,
 } from '@/widgets/widgets/entity_review/review-target-utils'
-import {
-  buildCopilotEditableReviewTargets,
-  type CopilotEditableReviewTarget,
-} from '@/widgets/widgets/copilot/live-contexts'
 import { Copilot } from './copilot/copilot'
 
 interface CopilotAppProps {
@@ -88,6 +90,7 @@ const CopilotAppContent = ({
   const pairContext = usePairColorContext(pairColor)
   const setPairColorContext = useSetPairColorContext()
   const copilotStoreApi = useCopilotStoreApi()
+  const workflowId = resolveCopilotWorkflowId(pairContext) ?? null
   const editableReviewTargets = useMemo(
     () => buildCopilotEditableReviewTargets({ pairContext }),
     [
@@ -197,10 +200,7 @@ const CopilotAppContent = ({
             const store = copilotStoreApi.getState()
             const lastMessage = store.messages[store.messages.length - 1]
 
-            if (
-              lastMessage?.role !== 'assistant' ||
-              lastMessage.content !== noticeContent
-            ) {
+            if (lastMessage?.role !== 'assistant' || lastMessage.content !== noticeContent) {
               const noticeMessage = createCopilotNoticeMessage(noticeContent)
               const nextMessages = [...store.messages, noticeMessage]
               const currentChat = store.currentChat
@@ -240,12 +240,7 @@ const CopilotAppContent = ({
     return () => {
       cancelled = true
     }
-  }, [
-    copilotStoreApi,
-    entityTargetResolution,
-    pairColor,
-    setPairColorContext,
-  ])
+  }, [copilotStoreApi, entityTargetResolution, pairColor, setPairColorContext])
 
   const entityDescriptors = useMemo(
     () => [
@@ -266,10 +261,9 @@ const CopilotAppContent = ({
     entityTargetResolution.unresolvedKey &&
       resolvedEntityTargets?.key !== entityTargetResolution.unresolvedKey
   )
-  const isWaitingForEntitySessions =
-    entityDescriptors.length > 0 && !allEntitySessionsRegistered
+  const isWaitingForEntitySessions = entityDescriptors.length > 0 && !allEntitySessionsRegistered
 
-  const copilotContent = (
+  const copilotBody = (
     <div className='flex h-full w-full flex-col overflow-hidden '>
       <Copilot
         key={channelId}
@@ -279,6 +273,14 @@ const CopilotAppContent = ({
         inputDisabled={isResolvingReviewTarget || isWaitingForEntitySessions}
       />
     </div>
+  )
+
+  const copilotContent = workflowId ? (
+    <WorkflowSessionProvider workspaceId={workspaceId} workflowId={workflowId} user={user}>
+      {copilotBody}
+    </WorkflowSessionProvider>
+  ) : (
+    copilotBody
   )
 
   return entityDescriptors.reduceRight(

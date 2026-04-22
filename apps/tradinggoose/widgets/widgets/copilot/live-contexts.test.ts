@@ -19,7 +19,12 @@ describe('buildImplicitCopilotContexts', () => {
         },
       })
     ).toEqual([
-      { kind: 'current_workflow', workflowId: 'workflow-pair', label: 'Current Workflow' },
+      {
+        kind: 'current_workflow',
+        workflowId: 'workflow-pair',
+        workspaceId: 'workspace-1',
+        label: 'Current Workflow',
+      },
       {
         kind: 'current_skill',
         skillId: 'skill-1',
@@ -64,7 +69,12 @@ describe('buildImplicitCopilotContexts', () => {
         } as any,
       })
     ).toEqual([
-      { kind: 'current_workflow', workflowId: 'workflow-pair', label: 'Current Workflow' },
+      {
+        kind: 'current_workflow',
+        workflowId: 'workflow-pair',
+        workspaceId: 'workspace-1',
+        label: 'Current Workflow',
+      },
       {
         kind: 'current_skill',
         skillId: 'skill-live',
@@ -98,7 +108,12 @@ describe('buildImplicitCopilotContexts', () => {
         pairContext,
       })
     ).toEqual([
-      { kind: 'current_workflow', workflowId: 'workflow-pair', label: 'Current Workflow' },
+      {
+        kind: 'current_workflow',
+        workflowId: 'workflow-pair',
+        workspaceId: 'workspace-1',
+        label: 'Current Workflow',
+      },
     ])
   })
 

@@ -1,44 +1,23 @@
 ---
 title: Parallel
-description: Execute search queries in parallel
+description: Run child blocks concurrently inside a container
 ---
 
 import { BlockInfoCard } from "@/components/ui/block-info-card"
 import { Callout } from 'fumadocs-ui/components/callout'
 import { Step, Steps } from 'fumadocs-ui/components/steps'
 import { Tab, Tabs } from 'fumadocs-ui/components/tabs'
-import { BlockConfigPreview } from '@/components/ui/block-config-preview'
-import { ShowcaseCard } from '@/components/ui/showcase-card'
 
 <BlockInfoCard
-  type="parallel_ai"
+  type="parallel"
   color=""
 />
 
-The Parallel block is a container block in TradingGoose that allows you to execute multiple instances of blocks concurrently for faster workflow processing.
-
-The Parallel block supports two types of concurrent execution:
+The Parallel block is a container block in TradingGoose that runs child blocks concurrently.
 
 <Callout type="info">
-  Parallel blocks are container nodes that execute their contents multiple times simultaneously, unlike loops which execute sequentially.
+  Parallel blocks are container nodes. Drag child blocks inside the parallel on the canvas. Incoming edges enter through Parallel Start, and child outputs reconnect to Parallel End before the workflow continues outside the container.
 </Callout>
-
-<ShowcaseCard>
-  <BlockConfigPreview
-    name="Parallel AI"
-    type="parallel"
-    color="#7C3AED"
-    hideHeader
-    subBlocks={[
-      { "id": "objective", "title": "Search Objective", "type": "long-input", "layout": "full", "placeholder": "When was the United Nations established? Prefer UN's websites.", "required": true },
-      { "id": "search_queries", "title": "Search Queries", "type": "long-input", "layout": "full", "placeholder": "Enter search queries separated by commas (e.g., \"Founding year UN\", \"Year of founding United Nations\")" },
-      { "id": "processor", "title": "Processor", "type": "dropdown", "layout": "full", "options": [{ "label": "Base", "id": "base" }, { "label": "Pro", "id": "pro" }] },
-      { "id": "max_results", "title": "Max Results", "type": "short-input", "layout": "half", "placeholder": "5" },
-      { "id": "max_chars_per_result", "title": "Max Chars", "type": "short-input", "layout": "half", "placeholder": "1500" },
-      { "id": "apiKey", "title": "API Key", "type": "short-input", "layout": "full", "placeholder": "Enter your Parallel AI API key", "password": true, "required": true }
-    ]}
-  />
-</ShowcaseCard>
 
 ## Overview
 
@@ -100,8 +79,8 @@ Choose between two types of parallel execution:
 
 1. Drag a Parallel block from the toolbar onto your canvas
 2. Configure the parallel type and parameters
-3. Drag a single block inside the parallel container
-4. Connect the block as needed
+3. Drag the child blocks that should run in parallel inside the container
+4. Connect incoming flow to Parallel Start, and connect child outputs back to Parallel End before continuing outside the container
 
 ### Accessing Results
 
@@ -159,10 +138,6 @@ Each parallel instance runs independently:
   - You cannot place a Loop block inside a Parallel block
   - You cannot place another Parallel block inside a Parallel block
   - You cannot place any container block inside another container block
-</Callout>
-
-<Callout type="warning">
-  Parallel blocks can only contain a single block. You cannot have multiple blocks connected to each other inside a parallel - only the first block would execute in that case.
 </Callout>
 
 <Callout type="info">

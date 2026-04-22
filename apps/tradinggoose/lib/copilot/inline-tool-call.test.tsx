@@ -5,8 +5,8 @@
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { InlineToolCall } from './inline-tool-call'
 import { ClientToolCallState } from '@/lib/copilot/tools/client/base-tool'
+import { InlineToolCall } from './inline-tool-call'
 
 const reactActEnvironment = globalThis as typeof globalThis & {
   IS_REACT_ACT_ENVIRONMENT?: boolean
@@ -117,6 +117,11 @@ describe('InlineToolCall', () => {
                     type: 'manual_trigger',
                     name: 'Trigger',
                   },
+                  'existing-1': {
+                    id: 'existing-1',
+                    type: 'http_request',
+                    name: 'Request',
+                  },
                 },
                 edges: [],
                 loops: {},
@@ -124,9 +129,9 @@ describe('InlineToolCall', () => {
               },
               preview: {
                 blockDiff: {
-                  added: [],
-                  removed: [],
-                  updated: ['trigger-1'],
+                  added: ['trigger-1'],
+                  removed: ['old-1'],
+                  updated: ['existing-1'],
                 },
                 edgeDiff: {
                   added: [],
@@ -140,11 +145,18 @@ describe('InlineToolCall', () => {
       )
     })
 
-    expect(container.textContent).toContain('Proposed Changes')
-    expect(container.textContent).toContain('Update trigger-1')
+    expect(container.textContent).toContain('Blocks +1')
+    expect(container.textContent).toContain('Blocks -1')
+    expect(container.textContent).not.toContain('Proposed Changes')
+    expect(container.textContent).not.toContain('Add trigger-1')
+    expect(container.textContent).not.toContain('Update existing-1')
+    expect(container.textContent).not.toContain('Remove old-1')
     expect(container.textContent).toContain('Added block trigger-1 has no outgoing edges.')
     expect(container.querySelector('[data-testid="workflow-preview"]')?.textContent).toContain(
       'trigger-1'
+    )
+    expect(container.querySelector('[data-testid="workflow-preview"]')?.textContent).toContain(
+      'existing-1'
     )
   })
 
@@ -187,7 +199,8 @@ describe('InlineToolCall', () => {
       )
     })
 
-    expect(container.textContent).not.toContain('Proposed Changes')
+    expect(container.textContent).not.toContain('Blocks +')
+    expect(container.textContent).not.toContain('Blocks -')
     expect(container.querySelector('[data-testid="workflow-preview"]')).toBeNull()
   })
 
@@ -218,7 +231,8 @@ describe('InlineToolCall', () => {
       )
     })
 
-    expect(container.textContent).not.toContain('Proposed Changes')
+    expect(container.textContent).not.toContain('Blocks +')
+    expect(container.textContent).not.toContain('Blocks -')
     expect(container.querySelector('[data-testid="workflow-preview"]')).toBeNull()
   })
 

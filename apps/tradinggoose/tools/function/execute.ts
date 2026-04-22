@@ -6,7 +6,7 @@ export const functionExecuteTool: ToolConfig<CodeExecutionInput, CodeExecutionOu
   id: 'function_execute',
   name: 'Function Execute',
   description:
-    'Execute TypeScript code. fetch() is available. Code runs in async IIFE wrapper automatically after TypeScript transpiles to JavaScript. CRITICAL: Write plain statements with await/return, NOT wrapped in functions. Use indicator.<ID>(marketSeries) for built-in indicators; direct pinets/PineTS indicator definitions are not supported in this block.',
+    'Execute TypeScript code. fetch() is available. Code runs in async IIFE wrapper automatically after TypeScript transpiles to JavaScript. CRITICAL: Write plain statements with await/return, NOT wrapped in functions. For built-in indicators, use indicator.<ID>(marketSeries) with full Historical Data output and an optional object of input-title overrides. Do not define indicator(...) or import pinets/PineTS in this block.',
   version: '1.0.0',
 
   params: {
@@ -15,7 +15,7 @@ export const functionExecuteTool: ToolConfig<CodeExecutionInput, CodeExecutionOu
       required: true,
       visibility: 'user-or-llm',
       description:
-        'Raw TypeScript statements (NOT a function). Code is transpiled to JavaScript and auto-wrapped in async context. MUST use fetch() for HTTP (NOT xhr/axios/request libs). Write like: await fetch(url) then return result. Imports require E2B runtime support. For indicators use indicator.<ID>(marketSeries); do not import pinets or define indicator(...) directly.',
+        'Raw TypeScript statements (NOT a function). Code is transpiled to JavaScript and auto-wrapped in async context. MUST use fetch() for HTTP (NOT xhr/axios/request libs). Write like: await fetch(url) then return result. Imports require E2B runtime support. For built-in indicators, pass the full Historical Data MarketSeries object, not a scalar series like <historical_data.close>. The optional second argument must be an object, for example indicator.RSI(<historical_data>, { Length: 7 }) or indicator.RSI(<historical_data>, { inputs: { Length: 7 } }). Use indicator.list() if the built-in ID is unknown. Do not import pinets or define indicator(...) directly.',
     },
     timeout: {
       type: 'number',
