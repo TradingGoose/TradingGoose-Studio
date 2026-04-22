@@ -1,6 +1,6 @@
 import { db } from '@tradinggoose/db'
 import { subscription } from '@tradinggoose/db/schema'
-import { and, eq, ne } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import { calculateSubscriptionOverage } from '@/lib/billing/core/billing'
 import { decrementGrantedOnboardingAllowanceByCurrentPeriodUsage } from '@/lib/billing/core/usage'
 import { requireStripeClient } from '@/lib/billing/stripe-client'
@@ -31,19 +31,29 @@ export async function handleSubscriptionCreated(
   dbClient: Pick<typeof db, 'select' | 'update'> = db
 ) {
   try {
-    const otherActiveSubscriptions = await dbClient
-      .select()
+    const activeSubscriptions = await dbClient
+      .select({ id: subscription.id, stripeSubscriptionId: subscription.stripeSubscriptionId })
       .from(subscription)
       .where(
         and(
           eq(subscription.referenceType, subscriptionData.referenceType),
           eq(subscription.referenceId, subscriptionData.referenceId),
-          eq(subscription.status, 'active'),
-          ne(subscription.id, subscriptionData.id) // Exclude current subscription
+          eq(subscription.status, 'active')
         )
       )
 
-    const wasFreePreviously = otherActiveSubscriptions.length === 0
+    if (
+      activeSubscriptions.some(
+        (row) => row.id === subscriptionData.id && Boolean(row.stripeSubscriptionId)
+      )
+    ) {
+      return
+    }
+
+    const otherActiveSubscriptionsCount = activeSubscriptions.filter(
+      (row) => row.id !== subscriptionData.id
+    ).length
+    const wasFreePreviously = otherActiveSubscriptionsCount === 0
     const isPaidPlan = isPaidBillingTier(subscriptionData.tier)
     const isPersonalDefaultPathExit = wasFreePreviously && subscriptionData.referenceType === 'user'
     const shouldResetUsage = isPersonalDefaultPathExit || (wasFreePreviously && isPaidPlan)
@@ -88,7 +98,7 @@ export async function handleSubscriptionCreated(
         billingTier: subscriptionData.tier?.displayName,
         wasFreePreviously,
         isPaidPlan,
-        otherActiveSubscriptionsCount: otherActiveSubscriptions.length,
+        otherActiveSubscriptionsCount,
       })
     }
   } catch (error) {

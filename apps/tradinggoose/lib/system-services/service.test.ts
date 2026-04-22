@@ -171,6 +171,27 @@ describe('system services service', () => {
     })
   })
 
+  it('resolves settings without decrypting credentials when only public config is needed', async () => {
+    const { resolveSystemServiceSettingsConfig } = await import('./service')
+
+    mockSelectWhere.mockResolvedValueOnce([
+      {
+        id: 'browserbase:setting:projectId',
+        service: 'browserbase',
+        kind: 'setting',
+        key: 'projectId',
+        value: 'proj_123',
+      },
+    ])
+
+    const result = await resolveSystemServiceSettingsConfig('browserbase')
+
+    expect(result).toEqual({
+      projectId: 'proj_123',
+    })
+    expect(mockDecryptSecret).not.toHaveBeenCalled()
+  })
+
   it('writes credentials and settings back into one table with kind-specific ids', async () => {
     const { upsertSystemServiceConfig } = await import('./service')
 

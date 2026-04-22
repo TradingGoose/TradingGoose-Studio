@@ -10,7 +10,6 @@ const {
   mockDecrementGrantedOnboardingAllowanceByCurrentPeriodUsage,
   mockEq,
   mockIsPaidBillingTier,
-  mockNe,
   mockResetUsageForSubscription,
 } = vi.hoisted(() => ({
   mockAnd: vi.fn(),
@@ -20,11 +19,10 @@ const {
   mockDecrementGrantedOnboardingAllowanceByCurrentPeriodUsage: vi.fn(),
   mockEq: vi.fn((field: unknown, value: unknown) => ({ field, value })),
   mockIsPaidBillingTier: vi.fn(),
-  mockNe: vi.fn((field: unknown, value: unknown) => ({ field, value })),
   mockResetUsageForSubscription: vi.fn(),
 }))
 
-let otherActiveSubscriptions: Array<Record<string, unknown>> = []
+let activeSubscriptions: Array<Record<string, unknown>> = []
 
 vi.mock('@tradinggoose/db', () => ({
   db: mockDb,
@@ -36,13 +34,13 @@ vi.mock('@tradinggoose/db/schema', () => ({
     referenceId: 'subscription.referenceId',
     status: 'subscription.status',
     id: 'subscription.id',
+    stripeSubscriptionId: 'subscription.stripeSubscriptionId',
   },
 }))
 
 vi.mock('drizzle-orm', () => ({
   and: mockAnd,
   eq: mockEq,
-  ne: mockNe,
 }))
 
 vi.mock('@/lib/billing/core/usage', () => ({
@@ -89,8 +87,8 @@ describe('handleSubscriptionCreated', () => {
     vi.resetModules()
     vi.clearAllMocks()
 
-    otherActiveSubscriptions = []
-    mockDb.select.mockImplementation(() => createSelectQueryMock(otherActiveSubscriptions))
+    activeSubscriptions = []
+    mockDb.select.mockImplementation(() => createSelectQueryMock(activeSubscriptions))
     mockIsPaidBillingTier.mockReturnValue(false)
   })
 
@@ -137,7 +135,7 @@ describe('handleSubscriptionCreated', () => {
   })
 
   it('does nothing when the user was not previously on the free/default path', async () => {
-    otherActiveSubscriptions = [{ id: 'sub_existing' }]
+    activeSubscriptions = [{ id: 'sub_existing' }]
 
     const { handleSubscriptionCreated } = await import('./subscription')
 
@@ -146,6 +144,26 @@ describe('handleSubscriptionCreated', () => {
       referenceType: 'user',
       referenceId: 'user-1',
       status: 'active',
+      tier: {
+        displayName: 'Pay As You Go',
+      } as any,
+    })
+
+    expect(mockDecrementGrantedOnboardingAllowanceByCurrentPeriodUsage).not.toHaveBeenCalled()
+    expect(mockResetUsageForSubscription).not.toHaveBeenCalled()
+  })
+
+  it('skips duplicate transition handling when the subscription row is already Stripe-linked', async () => {
+    activeSubscriptions = [{ id: 'sub_1', stripeSubscriptionId: 'stripe_sub_1' }]
+
+    const { handleSubscriptionCreated } = await import('./subscription')
+
+    await handleSubscriptionCreated({
+      id: 'sub_1',
+      referenceType: 'user',
+      referenceId: 'user-1',
+      status: 'active',
+      stripeSubscriptionId: 'stripe_sub_1',
       tier: {
         displayName: 'Pay As You Go',
       } as any,

@@ -260,7 +260,55 @@ describe('checkAndBillOverageThreshold', () => {
       workspaceId: 'workspace-1',
     })
 
+    expect(mockLogger.debug).toHaveBeenCalledWith(
+      'Threshold billing skipped for inactive free/PAYG subscription',
+      {
+        billingTier: 'Pay As You Go',
+        billingUserId: 'user-1',
+        workspaceId: 'workspace-1',
+        workflowId: undefined,
+      },
+    )
+    expect(mockLogger.error).not.toHaveBeenCalled()
+    expect(mockDb.transaction).not.toHaveBeenCalled()
+    expect(mockStripeInvoicesCreate).not.toHaveBeenCalled()
+  })
+
+  it('still logs an error when a paid subscription is missing its Stripe subscription ID', async () => {
+    mockResolveWorkspaceBillingContext.mockResolvedValueOnce({
+      subscription: {
+        id: 'sub_local',
+        status: 'active',
+        stripeSubscriptionId: null,
+        periodEnd: new Date('2026-05-01T00:00:00.000Z'),
+        tier: {
+          ...paygTier,
+          displayName: 'Pro',
+          monthlyPriceUsd: 20,
+        },
+      },
+      tier: {
+        ...paygTier,
+        displayName: 'Pro',
+        monthlyPriceUsd: 20,
+      },
+      scopeType: 'user',
+      scopeId: 'user-1',
+      billingOwner: {
+        type: 'user',
+      },
+      billingUserId: 'user-1',
+    })
+
+    const { checkAndBillOverageThreshold } = await import('./threshold-billing')
+
+    await checkAndBillOverageThreshold({
+      userId: 'user-1',
+      workspaceId: 'workspace-1',
+    })
+
     expect(mockLogger.error).toHaveBeenCalledWith('No Stripe subscription ID found', {
+      billingTier: 'Pro',
       billingUserId: 'user-1',
       workspaceId: 'workspace-1',
       workflowId: undefined,

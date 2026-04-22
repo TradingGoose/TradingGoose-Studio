@@ -1,4 +1,4 @@
-import { resolveSystemServiceConfig } from './service'
+import { resolveSystemServiceConfig, resolveSystemServiceSettingsConfig } from './service'
 
 type ServiceConfigRecord = Record<string, unknown>
 type ApiKeyConfig = { apiKey: string | null }
@@ -23,6 +23,13 @@ function createServiceResolver<T>(
   mapper: (config: ServiceConfigRecord) => T
 ) {
   return async (): Promise<T> => mapper(await resolveSystemServiceConfig(serviceId))
+}
+
+function createServiceSettingsResolver<T>(
+  serviceId: string,
+  mapper: (config: ServiceConfigRecord) => T
+) {
+  return async (): Promise<T> => mapper(await resolveSystemServiceSettingsConfig(serviceId))
 }
 
 function readRotationKeys(config: ServiceConfigRecord) {
@@ -113,6 +120,11 @@ export const resolveElevenLabsServiceConfig = createServiceResolver(
 
 export const resolveGitHubServiceConfig = createServiceResolver('github', (config) => ({
   token: asString(config.token),
+  blogRepository: asString(config.blogRepository),
+  blogBranch: asString(config.blogBranch) ?? 'main',
+}))
+
+export const resolveGitHubBlogSourceConfig = createServiceSettingsResolver('github', (config) => ({
   blogRepository: asString(config.blogRepository),
   blogBranch: asString(config.blogBranch) ?? 'main',
 }))
