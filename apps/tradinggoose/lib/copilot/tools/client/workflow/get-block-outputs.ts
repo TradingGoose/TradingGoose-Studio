@@ -6,9 +6,9 @@ import {
   ClientToolCallState,
 } from '@/lib/copilot/tools/client/base-tool'
 import {
-  computeBlockOutputPaths,
-  formatOutputsWithPrefix,
-  getSubflowInsidePaths,
+  computeBlockOutputReferences,
+  getSubflowInsideOutputReferences,
+  getSubflowOutsideOutputReferences,
   getWorkflowSubBlockValues,
   getWorkflowVariableOutputs,
 } from '@/lib/copilot/tools/client/workflow/block-output-utils'
@@ -72,8 +72,9 @@ export class GetBlockOutputsClientTool extends BaseClientTool {
       const loops = snapshot.loops || {}
       const parallels = snapshot.parallels || {}
       const subBlockValues = getWorkflowSubBlockValues(activeWorkflowId, snapshot)
+      const variableOutputs = getWorkflowVariableOutputs(variables)
 
-      const ctx = { workflowId: activeWorkflowId, blocks, loops, parallels, subBlockValues }
+      const ctx = { blocks, loops, parallels, subBlockValues }
       const targetBlockIds =
         args?.blockIds && args.blockIds.length > 0 ? args.blockIds : Object.keys(blocks)
 
@@ -93,12 +94,16 @@ export class GetBlockOutputsClientTool extends BaseClientTool {
         }
 
         if (block.type === 'loop' || block.type === 'parallel') {
-          const insidePaths = getSubflowInsidePaths(block.type, blockId, loops, parallels)
-          blockOutput.insideSubflowOutputs = formatOutputsWithPrefix(insidePaths, blockName)
-          blockOutput.outsideSubflowOutputs = formatOutputsWithPrefix(['results'], blockName)
+          blockOutput.insideSubflowOutputs = getSubflowInsideOutputReferences(
+            block.type,
+            blockId,
+            blockName,
+            loops,
+            parallels
+          )
+          blockOutput.outsideSubflowOutputs = getSubflowOutsideOutputReferences(blockName)
         } else {
-          const outputPaths = computeBlockOutputPaths(block, ctx)
-          blockOutput.outputs = formatOutputsWithPrefix(outputPaths, blockName)
+          blockOutput.outputs = computeBlockOutputReferences(block, ctx, variableOutputs)
         }
 
         blockOutputs.push(blockOutput)
@@ -112,7 +117,7 @@ export class GetBlockOutputsClientTool extends BaseClientTool {
         blocks: blockOutputs,
       }
       if (includeVariables) {
-        resultData.variables = getWorkflowVariableOutputs(variables)
+        resultData.variables = variableOutputs
       }
 
       const result = GetBlockOutputsResult.parse(resultData)

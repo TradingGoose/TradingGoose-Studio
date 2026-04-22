@@ -87,7 +87,7 @@ describe('getBlocksMetadataServerTool', () => {
     )
 
     const result = await getBlocksMetadataServerTool.execute({
-      blockIds: ['github', 'condition', 'input_trigger', 'function', 'loop'],
+      blockIds: ['github', 'condition', 'input_trigger', 'function', 'loop', 'parallel'],
     })
 
     expect(result.metadata.github).toEqual(
@@ -127,6 +127,7 @@ describe('getBlocksMetadataServerTool', () => {
         hardRequirement: true,
         workflowOutputs: expect.objectContaining({
           syntax: '<block.output>',
+          summary: expect.stringMatching(/Copy the exact `path` returned[\s\S]*returned `type`/),
           sourceTools: expect.arrayContaining([
             'get_block_outputs',
             'get_block_upstream_references',
@@ -134,6 +135,7 @@ describe('getBlocksMetadataServerTool', () => {
         }),
         workflowVariables: expect.objectContaining({
           syntax: '<variable.name>',
+          summary: expect.stringContaining('Copy the exact workflow variable tag'),
           sourceTools: ['get_global_workflow_variables'],
         }),
         environmentVariables: expect.objectContaining({
@@ -143,10 +145,23 @@ describe('getBlocksMetadataServerTool', () => {
       })
     )
     expect(result.metadata.loop?.mermaidContract.renderKind).toBe('loop_container')
+    expect(result.metadata.loop?.bestPractices).toContain('Loop Start')
+    expect(result.metadata.loop?.bestPractices).toContain('Loop End')
+    expect(result.metadata.loop?.mermaidExamples.connectedDocument).toContain(
+      'n1 --> n2__loop_start'
+    )
+    expect(result.metadata.loop?.mermaidExamples.connectedDocument).toContain(
+      'n3 --> n2__loop_end'
+    )
+    expect(result.metadata.parallel?.bestPractices).toContain('Parallel Start')
+    expect(result.metadata.parallel?.bestPractices).toContain('Parallel End')
     expect(result.metadata.function?.inputReferenceGrammar?.blockSpecificRules).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          title: 'Use built-in indicators with Historical Data output',
+          title: 'Use built-in indicators with full Historical Data output',
+          examples: expect.arrayContaining([
+            'await indicator.RSI(<historical_data>, { Length: 7 })',
+          ]),
         }),
         expect.objectContaining({
           title: 'Do not author custom Pine indicators inside Function blocks',

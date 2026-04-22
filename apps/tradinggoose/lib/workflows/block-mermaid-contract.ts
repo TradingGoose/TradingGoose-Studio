@@ -444,14 +444,36 @@ function buildContainerWorkflowExamples(
     },
     edges: [
       createEdge({
-        id: 'a_input-source-c_child-target',
+        id: 'a_input-source-b_container-target',
         source: 'a_input',
-        target: childId,
+        target: containerId,
       }),
       createEdge({
-        id: 'c_child-source-d_next-target',
+        id: 'b_container-start-c_child-target',
+        source: containerId,
+        target: childId,
+        sourceHandle:
+          params.renderKind === 'loop_container'
+            ? 'loop-start-source'
+            : 'parallel-start-source',
+      }),
+      createEdge({
+        id: 'c_child-source-b_container-end-target',
         source: childId,
+        target: containerId,
+        targetHandle:
+          params.renderKind === 'loop_container'
+            ? 'loop-end-target'
+            : 'parallel-end-target',
+      }),
+      createEdge({
+        id: 'b_container-end-d_next-target',
+        source: containerId,
         target: 'd_next',
+        sourceHandle:
+          params.renderKind === 'loop_container'
+            ? 'loop-end-source'
+            : 'parallel-end-source',
       }),
     ],
     loops:

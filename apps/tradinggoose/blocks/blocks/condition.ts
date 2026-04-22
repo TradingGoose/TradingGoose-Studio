@@ -22,7 +22,7 @@ export const ConditionBlock: BlockConfig<ConditionBlockOutput> = {
     'This is a core workflow block. Add a condition to the workflow to branch the execution path based on a boolean expression.',
   bestPractices: `
   - Write the conditions using standard javascript syntax except referencing the outputs of previous blocks using <> syntax, and keep them as simple as possible. No hacky fallbacks.
-  - Can reference workflow variables using <blockName.output> syntax as usual within conditions.
+  - Reference upstream outputs with exact tags like <agent.content> and workflow variables with exact tags like <variable.riskLimit>.
   `,
   docsLink: 'https://docs.tradinggoose.ai/blocks/condition',
   bgColor: '#FF752F',

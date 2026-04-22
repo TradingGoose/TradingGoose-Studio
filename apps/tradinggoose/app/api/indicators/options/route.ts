@@ -16,6 +16,7 @@ export const runtime = 'nodejs'
 
 const QuerySchema = z.object({
   workspaceId: z.string().min(1),
+  surface: z.enum(['monitor', 'copilot']).optional(),
 })
 
 type IndicatorOptionRecord = {
@@ -23,6 +24,11 @@ type IndicatorOptionRecord = {
   name: string
   source: 'default' | 'custom'
   color: string
+  editable?: boolean
+  callableInFunctionBlock?: boolean
+  inputTitles?: string[]
+  entityId?: string
+  runtimeId?: string
 }
 
 export async function GET(request: NextRequest) {
@@ -47,7 +53,7 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const { workspaceId } = parsed.data
+    const { workspaceId, surface } = parsed.data
     const permission = await checkWorkspacePermission({
       userId: auth.userId,
       workspaceId,
@@ -55,13 +61,19 @@ export async function GET(request: NextRequest) {
     })
     if (!permission.ok) return permission.response
 
+    const copilotSurface = surface === 'copilot'
+
     const defaultOptions: IndicatorOptionRecord[] = DEFAULT_INDICATOR_RUNTIME_ENTRIES.filter(
-      (entry) => isIndicatorTriggerCapable(entry.pineCode)
+      (entry) => copilotSurface || isIndicatorTriggerCapable(entry.pineCode)
     ).map((entry) => ({
       id: entry.id,
       name: entry.name,
       source: 'default',
       color: '#3972F6',
+      editable: false,
+      callableInFunctionBlock: true,
+      inputTitles: Object.keys(entry.inputMeta ?? {}),
+      runtimeId: entry.id,
     }))
 
     const customRows = await db
@@ -70,17 +82,25 @@ export async function GET(request: NextRequest) {
         name: pineIndicators.name,
         color: pineIndicators.color,
         pineCode: pineIndicators.pineCode,
+        inputMeta: pineIndicators.inputMeta,
       })
       .from(pineIndicators)
       .where(eq(pineIndicators.workspaceId, workspaceId))
 
     const customOptions: IndicatorOptionRecord[] = customRows
-      .filter((row) => isIndicatorTriggerCapable(row.pineCode))
+      .filter((row) => copilotSurface || isIndicatorTriggerCapable(row.pineCode))
       .map((row) => ({
         id: row.id,
         name: row.name,
         source: 'custom',
         color: row.color?.trim() || '#3972F6',
+        editable: true,
+        callableInFunctionBlock: false,
+        inputTitles:
+          row.inputMeta && typeof row.inputMeta === 'object' && !Array.isArray(row.inputMeta)
+            ? Object.keys(row.inputMeta)
+            : [],
+        entityId: row.id,
       }))
 
     const merged = [...defaultOptions, ...customOptions].sort((a, b) =>

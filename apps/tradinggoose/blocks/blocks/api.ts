@@ -75,11 +75,13 @@ Do not include any explanations, markdown formatting, or other text outside the 
 You have access to the following variables you can use to generate the JSON body:
 - 'params' (object): Contains input parameters derived from the JSON schema. Access these directly using the parameter name wrapped in angle brackets, e.g., '<paramName>'. Do NOT use 'params.paramName'.
 - 'environmentVariables' (object): Contains environment variables. Reference these using the double curly brace syntax: '{{ENV_VAR_NAME}}'. Do NOT use 'environmentVariables.VAR_NAME' or env.
+- Upstream block outputs: Copy exact TradingGoose tags like '<agent.content>' from workflow context tools. Do NOT invent '<block...>' prefixes.
+- Workflow variables: Use exact tags like '<variable.userId>'.
 
 Example:
 {
-  "name": "<block.agent.response.content>",
-  "age": <block.function.output.age>,
+  "name": "<agent.content>",
+  "userId": "<variable.userId>",
   "success": true
 }`,
         placeholder: 'Describe the API request body you need...',

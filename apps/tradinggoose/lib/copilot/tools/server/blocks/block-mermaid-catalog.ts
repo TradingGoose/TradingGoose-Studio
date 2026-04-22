@@ -43,14 +43,14 @@ const SPECIAL_BLOCK_DEFINITIONS: Record<string, Omit<BlockCatalogDefinition, 'bl
     blockName: 'Loop',
     blockDescription: 'Control-flow container for iterating over child blocks.',
     bestPractices:
-      'Keep child blocks inside the loop container. External edges enter through the loop boundary, and child outputs reconnect to the loop end before leaving.',
+      'Keep child blocks inside the loop container. Incoming edges enter through Loop Start. Child outputs reconnect to Loop End before leaving the container.',
     triggerAllowed: false,
   },
   parallel: {
     blockName: 'Parallel',
     blockDescription: 'Control-flow container for running child branches in parallel.',
     bestPractices:
-      'Keep child blocks inside the parallel container. External edges enter through the parallel boundary, and child outputs reconnect to the parallel end before leaving.',
+      'Keep child blocks inside the parallel container. Incoming edges enter through Parallel Start. Child outputs reconnect to Parallel End before leaving the container.',
     triggerAllowed: false,
   },
 }
@@ -215,18 +215,18 @@ function buildInputReferenceGrammar(
   return {
     hardRequirement: true,
     summary:
-      'All input-capable fields on this block must use TradingGoose reference grammar exactly. Do not invent alternate placeholder syntaxes.',
+      'All input-capable fields on this block must use TradingGoose reference grammar exactly. Resolve tags with the listed source tools, then copy the returned tag verbatim instead of inventing placeholder syntax.',
     workflowOutputs: {
       syntax: '<block.output>',
       summary:
-        'Reference outputs from workflow blocks with angle brackets and the exact output path for the source block.',
+        'Copy the exact `path` returned by `get_block_outputs` or `get_block_upstream_references`, such as `agent.content`, and wrap it once as `<agent.content>`. Use the returned `type` to choose valid fields. Do not add `block.`, `previousBlock`, `output`, or workflow block ids.',
       examples: ['<agent.content>', '<historical_data.close>'],
       sourceTools: ['get_block_outputs', 'get_block_upstream_references'],
     },
     workflowVariables: {
       syntax: '<variable.name>',
       summary:
-        'Reference workflow-scoped variables with the reserved `variable.` prefix and the exact variable name.',
+        'Copy the exact workflow variable tag, such as `variable.riskLimit`, and wrap it once as `<variable.riskLimit>`.',
       examples: ['<variable.riskLimit>', '<variable.companyName>'],
       sourceTools: ['get_global_workflow_variables'],
     },
@@ -238,15 +238,16 @@ function buildInputReferenceGrammar(
       sourceTools: ['get_environment_variables'],
     },
     ...(blockType === 'function'
-      ? {
+        ? {
           blockSpecificRules: [
             {
-              title: 'Use built-in indicators with Historical Data output',
+              title: 'Use built-in indicators with full Historical Data output',
               summary:
-                'Call built-in indicators with `indicator.<ID>(marketSeries)` and pass Historical Data output as the market series input.',
+                'Call built-in indicators with `indicator.<ID>(marketSeries)` and pass the full Historical Data output object, not `<historical_data.close>`. The optional second argument must be an object. Use saved indicator input titles as keys, or pass them under `inputs`. Use `indicator.list()` if the built-in ID is unknown.',
               examples: [
                 'await indicator.RSI(<historical_data>)',
-                'await indicator.MACD(<historical_data>)',
+                'await indicator.RSI(<historical_data>, { Length: 7 })',
+                "await indicator.MACD(<historical_data>, { 'Fast Length': 12, 'Slow Length': 26, 'Signal Length': 9 })",
               ],
             },
             {

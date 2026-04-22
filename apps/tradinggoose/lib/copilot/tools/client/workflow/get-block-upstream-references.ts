@@ -6,9 +6,9 @@ import {
   ClientToolCallState,
 } from '@/lib/copilot/tools/client/base-tool'
 import {
-  computeBlockOutputPaths,
-  formatOutputsWithPrefix,
-  getSubflowInsidePaths,
+  computeBlockOutputReferences,
+  getSubflowInsideOutputReferences,
+  getSubflowOutsideOutputReferences,
   getWorkflowSubBlockValues,
   getWorkflowVariableOutputs,
 } from '@/lib/copilot/tools/client/workflow/block-output-utils'
@@ -86,7 +86,7 @@ export class GetBlockUpstreamReferencesClientTool extends BaseClientTool {
       const parallels = snapshot.parallels || {}
       const subBlockValues = getWorkflowSubBlockValues(activeWorkflowId, snapshot)
 
-      const ctx = { workflowId: activeWorkflowId, blocks, loops, parallels, subBlockValues }
+      const ctx = { blocks, loops, parallels, subBlockValues }
       const variableOutputs = getWorkflowVariableOutputs(variables)
       const graphEdges = edges.map((edge) => ({ source: edge.source, target: edge.target }))
 
@@ -157,7 +157,7 @@ export class GetBlockUpstreamReferencesClientTool extends BaseClientTool {
 
           const blockName = block.name || block.type
           let accessContext: 'inside' | 'outside' | undefined
-          let outputPaths: string[]
+          let outputs: GetBlockUpstreamReferencesResultType['results'][0]['accessibleBlocks'][0]['outputs']
 
           if (block.type === 'loop' || block.type === 'parallel') {
             const isInside =
@@ -165,20 +165,24 @@ export class GetBlockUpstreamReferencesClientTool extends BaseClientTool {
               (block.type === 'parallel' && containingParallelIds.has(accessibleBlockId))
 
             accessContext = isInside ? 'inside' : 'outside'
-            outputPaths = isInside
-              ? getSubflowInsidePaths(block.type, accessibleBlockId, loops, parallels)
-              : ['results']
+            outputs = isInside
+              ? getSubflowInsideOutputReferences(
+                  block.type,
+                  accessibleBlockId,
+                  blockName,
+                  loops,
+                  parallels
+                )
+              : getSubflowOutsideOutputReferences(blockName)
           } else {
-            outputPaths = computeBlockOutputPaths(block, ctx)
+            outputs = computeBlockOutputReferences(block, ctx, variableOutputs)
           }
-
-          const formattedOutputs = formatOutputsWithPrefix(outputPaths, blockName)
 
           const entry: GetBlockUpstreamReferencesResultType['results'][0]['accessibleBlocks'][0] = {
             blockId: accessibleBlockId,
             blockName,
             blockType: block.type,
-            outputs: formattedOutputs,
+            outputs,
           }
 
           if (accessContext) entry.accessContext = accessContext

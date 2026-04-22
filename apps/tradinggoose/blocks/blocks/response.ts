@@ -37,7 +37,7 @@ export const ResponseBlock: BlockConfig<ResponseBlockOutput> = {
       layout: 'full',
       condition: { field: 'dataMode', value: 'structured' },
       description:
-        'Define the structure of your response data. Use <variable.name> in field names to reference workflow variables.',
+        'Define the structure of your response data. Use exact workflow variable tags like <variable.userId> in field names when needed.',
     },
     {
       id: 'data',
@@ -48,7 +48,7 @@ export const ResponseBlock: BlockConfig<ResponseBlockOutput> = {
       language: 'json',
       condition: { field: 'dataMode', value: 'json' },
       description:
-        'Data that will be sent as the response body on API calls. Use <variable.name> to reference workflow variables.',
+        'Data that will be sent as the response body on API calls. Use exact upstream output tags like <agent.content> and exact workflow variable tags like <variable.userId>.',
       wandConfig: {
         enabled: true,
         maintainHistory: true,
@@ -63,11 +63,13 @@ Do not include any explanations, markdown formatting, or other text outside the 
 You have access to the following variables you can use to generate the JSON body:
 - 'params' (object): Contains input parameters derived from the JSON schema. Access these directly using the parameter name wrapped in angle brackets, e.g., '<paramName>'. Do NOT use 'params.paramName'.
 - 'environmentVariables' (object): Contains environment variables. Reference these using the double curly brace syntax: '{{ENV_VAR_NAME}}'. Do NOT use 'environmentVariables.VAR_NAME' or env.
+- Upstream block outputs: Copy exact TradingGoose tags like '<agent.content>'. Do NOT invent '<block...>' prefixes.
+- Workflow variables: Use exact tags like '<variable.userId>'.
 
 Example:
 {
-  "name": "<block.agent.response.content>",
-  "age": <block.function.output.age>,
+  "name": "<agent.content>",
+  "userId": "<variable.userId>",
   "success": true
 }`,
         placeholder: 'Describe the API response structure you need...',
