@@ -104,6 +104,10 @@ export function validateAdminBillingTierInput(
     }
   }
 
+  if (input.includedUsageLimitUsd === null) {
+    return 'Billing tiers must configure an included usage limit'
+  }
+
   if (input.status === 'active') {
     if (
       input.syncRateLimitPerMinute === null ||
@@ -121,9 +125,6 @@ export function validateAdminBillingTierInput(
       return 'Active tiers must configure a concurrency limit'
     }
 
-    if (input.includedUsageLimitUsd === null) {
-      return 'Active tiers must configure an included usage limit'
-    }
   }
 
   if (options.requireStripeMonthlyPriceId && !input.stripeMonthlyPriceId) {

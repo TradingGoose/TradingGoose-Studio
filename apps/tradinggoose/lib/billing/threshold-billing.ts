@@ -7,7 +7,6 @@ import { requireStripeClient } from '@/lib/billing/stripe-client'
 import {
   getSubscriptionUsageAllowanceUsd,
   getTierUsageAllowanceUsd,
-  isPaidBillingTier,
   usesIndividualBillingLedger,
 } from '@/lib/billing/tiers'
 import {
@@ -138,9 +137,10 @@ export async function checkAndBillOverageThreshold(params: {
       return
     }
 
-    if (!isPaidBillingTier(billingContext.tier)) {
+    if (!subscription.stripeSubscriptionId) {
       return
     }
+    const stripeSubscriptionId = subscription.stripeSubscriptionId
 
     await db.transaction(async (tx) => {
       const isOrganizationScope =
@@ -254,15 +254,6 @@ export async function checkAndBillOverageThreshold(params: {
       }
 
       const amountToBill = unbilledOverage
-      const stripeSubscriptionId = subscription.stripeSubscriptionId
-      if (!stripeSubscriptionId) {
-        logger.error('No Stripe subscription ID found', {
-          billingUserId: billingContext.billingUserId,
-          workspaceId: params.workspaceId,
-          workflowId: params.workflowId,
-        })
-        return
-      }
 
       const stripe = requireStripeClient()
       const stripeSubscription = await stripe.subscriptions.retrieve(stripeSubscriptionId)
