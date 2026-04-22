@@ -20,6 +20,7 @@ import type {
   WorkflowBlockItem,
   WorkspaceEntityItem,
 } from '../types'
+import { loadWorkspaceEntityMentionItems } from '../workspace-entity-mentions'
 
 const logger = createLogger('CopilotUserInputMentionSources')
 
@@ -45,13 +46,6 @@ const createEmptyWorkspaceEntityLoading = (): Record<CopilotWorkspaceEntityKind,
   custom_tool: false,
   mcp_server: false,
 })
-
-const sortByRecent = <T extends { createdAt?: string; updatedAt?: string }>(items: T[]) =>
-  [...items].sort((left, right) => {
-    const leftTime = new Date(left.updatedAt || left.createdAt || 0).getTime()
-    const rightTime = new Date(right.updatedAt || right.createdAt || 0).getTime()
-    return rightTime - leftTime
-  })
 
 export function useUserInputMentionSources({ workspaceId }: UseUserInputMentionSourcesOptions) {
   const [pastChats, setPastChats] = useState<PastChatItem[]>([])
@@ -117,70 +111,7 @@ export function useUserInputMentionSources({ workspaceId }: UseUserInputMentionS
 
       try {
         setWorkspaceEntityLoading((prev) => ({ ...prev, [entityKind]: true }))
-
-        let response: Response
-        if (entityKind === 'workflow') {
-          response = await fetch(`/api/workflows?workspaceId=${encodeURIComponent(workspaceId)}`)
-        } else if (entityKind === 'skill') {
-          response = await fetch(`/api/skills?workspaceId=${encodeURIComponent(workspaceId)}`)
-        } else if (entityKind === 'indicator') {
-          response = await fetch(
-            `/api/indicators/custom?workspaceId=${encodeURIComponent(workspaceId)}`
-          )
-        } else if (entityKind === 'custom_tool') {
-          response = await fetch(`/api/tools/custom?workspaceId=${encodeURIComponent(workspaceId)}`)
-        } else {
-          response = await fetch(`/api/mcp/servers?workspaceId=${encodeURIComponent(workspaceId)}`)
-        }
-
-        const data = await response.json().catch(() => ({}))
-
-        if (!response.ok) {
-          throw new Error(`Failed to load ${entityKind}: ${response.status}`)
-        }
-
-        const mapped: WorkspaceEntityItem[] =
-          entityKind === 'workflow'
-            ? sortByRecent(Array.isArray(data?.data) ? data.data : []).map((item: any) => ({
-                entityKind,
-                id: item.id,
-                name: item.name || 'Untitled Workflow',
-                color: item.color,
-              }))
-            : entityKind === 'skill'
-              ? sortByRecent(Array.isArray(data?.data) ? data.data : []).map((item: any) => ({
-                  entityKind,
-                  id: item.id,
-                  name: item.name || 'Untitled Skill',
-                  description: item.description || '',
-                }))
-              : entityKind === 'indicator'
-                ? sortByRecent(Array.isArray(data?.data) ? data.data : []).map((item: any) => ({
-                    entityKind,
-                    id: item.id,
-                    name: item.name || 'Untitled Indicator',
-                    color: item.color,
-                  }))
-                : entityKind === 'custom_tool'
-                  ? sortByRecent(Array.isArray(data?.data) ? data.data : []).map((item: any) => ({
-                      entityKind,
-                      id: item.id,
-                      name: item.title || item.schema?.function?.name || 'Untitled Tool',
-                      description: item.schema?.function?.description || '',
-                      functionName: item.schema?.function?.name || '',
-                    }))
-                  : sortByRecent(Array.isArray(data?.data?.servers) ? data.data.servers : []).map(
-                      (item: any) => ({
-                        entityKind,
-                        id: item.id,
-                        name: item.name || 'Untitled MCP Server',
-                        description: item.description || '',
-                        transport: item.transport || 'http',
-                        enabled: item.enabled,
-                        connectionStatus: item.connectionStatus,
-                      })
-                    )
-
+        const mapped = await loadWorkspaceEntityMentionItems(entityKind, workspaceId)
         setWorkspaceEntities((prev) => ({ ...prev, [entityKind]: mapped }))
       } catch (error) {
         logger.error(`Failed to load ${entityKind} mention sources`, error)
@@ -190,13 +121,6 @@ export function useUserInputMentionSources({ workspaceId }: UseUserInputMentionS
     },
     [workspaceEntities, workspaceEntityLoading, workspaceId]
   )
-
-  const ensureWorkflowsLoaded = useCallback(async () => {
-    if (!workspaceId) {
-      return
-    }
-    await ensureWorkspaceEntityLoaded('workflow')
-  }, [ensureWorkspaceEntityLoaded, workspaceId])
 
   const ensureKnowledgeLoaded = useCallback(async () => {
     if (isLoadingKnowledge || knowledgeBases.length > 0) {
@@ -385,9 +309,9 @@ export function useUserInputMentionSources({ workspaceId }: UseUserInputMentionS
 
   useEffect(() => {
     if (workflowId && workspaceEntities.workflow.length === 0) {
-      void ensureWorkflowsLoaded()
+      void ensureWorkspaceEntityLoaded('workflow')
     }
-  }, [ensureWorkflowsLoaded, workflowId, workspaceEntities.workflow.length])
+  }, [ensureWorkspaceEntityLoaded, workflowId, workspaceEntities.workflow.length])
 
   useEffect(() => {
     setPastChats([])
@@ -430,7 +354,6 @@ export function useUserInputMentionSources({ workspaceId }: UseUserInputMentionS
     ensurePastChatsLoaded,
     ensureSubmenuLoaded,
     ensureWorkflowBlocksLoaded,
-    ensureWorkflowsLoaded,
     isLoadingBlocks,
     isLoadingKnowledge,
     isLoadingLogs,

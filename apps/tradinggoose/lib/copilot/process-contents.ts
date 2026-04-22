@@ -13,6 +13,7 @@ import { escapeRegExp } from '@/lib/utils'
 import { loadWorkflowStateWithFallback } from '@/lib/workflows/db-helpers'
 import { sanitizeForCopilot } from '@/lib/workflows/json-sanitizer'
 import type { ChatContext } from '@/stores/copilot/types'
+import { readCopilotWorkspaceEntityContext } from '@/widgets/widgets/copilot/workspace-entities'
 
 export type AgentContextType =
   | 'past_chat'
@@ -51,67 +52,38 @@ export async function processContextsServer(
   if (!Array.isArray(contexts) || contexts.length === 0) return []
   const tasks = contexts.map(async (ctx) => {
     try {
+      const entityContext = readCopilotWorkspaceEntityContext(ctx)
+      if (entityContext?.entityId) {
+        const tag = ctx.label ? `@${ctx.label}` : '@'
+        const entityKind = entityContext.entityKind
+
+        if (entityKind === 'workflow') {
+          return await processWorkflowContext(
+            entityContext.entityId,
+            tag,
+            entityContext.current ? 'current_workflow' : 'workflow'
+          )
+        }
+
+        return await processEntityContext({
+          contextKind: ctx.kind as Parameters<typeof processEntityContext>[0]['contextKind'],
+          entityKind,
+          entityId: entityContext.entityId,
+          workspaceId: resolveContextWorkspaceId(
+            entityContext.workspaceId ?? undefined,
+            workspaceId,
+            ctx
+          ),
+          tag,
+        })
+      }
+
       if (ctx.kind === 'past_chat' && ctx.reviewSessionId) {
         return await processPastChatFromDb(
           ctx.reviewSessionId,
           userId,
           ctx.label ? `@${ctx.label}` : '@'
         )
-      }
-      if ((ctx.kind === 'workflow' || ctx.kind === 'current_workflow') && ctx.workflowId) {
-        return await processWorkflowContext(
-          ctx.workflowId,
-          ctx.label ? `@${ctx.label}` : '@',
-          ctx.kind
-        )
-      }
-      if (
-        (ctx.kind === 'skill' || ctx.kind === 'current_skill') &&
-        ctx.skillId
-      ) {
-        return await processEntityContext({
-          contextKind: ctx.kind,
-          entityKind: 'skill',
-          entityId: ctx.skillId,
-          workspaceId: resolveContextWorkspaceId(ctx.workspaceId, workspaceId, ctx),
-          tag: ctx.label ? `@${ctx.label}` : '@',
-        })
-      }
-      if (
-        (ctx.kind === 'indicator' || ctx.kind === 'current_indicator') &&
-        ctx.indicatorId
-      ) {
-        return await processEntityContext({
-          contextKind: ctx.kind,
-          entityKind: 'indicator',
-          entityId: ctx.indicatorId,
-          workspaceId: resolveContextWorkspaceId(ctx.workspaceId, workspaceId, ctx),
-          tag: ctx.label ? `@${ctx.label}` : '@',
-        })
-      }
-      if (
-        (ctx.kind === 'custom_tool' || ctx.kind === 'current_custom_tool') &&
-        ctx.customToolId
-      ) {
-        return await processEntityContext({
-          contextKind: ctx.kind,
-          entityKind: 'custom_tool',
-          entityId: ctx.customToolId,
-          workspaceId: resolveContextWorkspaceId(ctx.workspaceId, workspaceId, ctx),
-          tag: ctx.label ? `@${ctx.label}` : '@',
-        })
-      }
-      if (
-        (ctx.kind === 'mcp_server' || ctx.kind === 'current_mcp_server') &&
-        ctx.mcpServerId
-      ) {
-        return await processEntityContext({
-          contextKind: ctx.kind,
-          entityKind: 'mcp_server',
-          entityId: ctx.mcpServerId,
-          workspaceId: resolveContextWorkspaceId(ctx.workspaceId, workspaceId, ctx),
-          tag: ctx.label ? `@${ctx.label}` : '@',
-        })
       }
       if (ctx.kind === 'knowledge' && (ctx as any).knowledgeId) {
         return await processKnowledgeFromDb(
@@ -194,7 +166,7 @@ async function processEntityContext(params: {
     | 'custom_tool'
     | 'current_custom_tool'
     | 'mcp_server'
-  | 'current_mcp_server'
+    | 'current_mcp_server'
   entityKind: 'skill' | 'indicator' | 'custom_tool' | 'mcp_server'
   entityId: string | null
   workspaceId: string | null

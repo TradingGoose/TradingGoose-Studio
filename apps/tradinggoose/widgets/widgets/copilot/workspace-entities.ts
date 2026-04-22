@@ -14,8 +14,8 @@ type CopilotWorkspaceEntityConfig = {
   entityKind: ReviewEntityKind
   mentionOption: string
   submenuTitle: string
-  currentKind: ChatContext['kind']
   currentLabel: string
+  idField: 'workflowId' | 'skillId' | 'indicatorId' | 'customToolId' | 'mcpServerId'
 }
 
 export const COPILOT_WORKSPACE_ENTITY_CONFIGS = [
@@ -23,36 +23,36 @@ export const COPILOT_WORKSPACE_ENTITY_CONFIGS = [
     entityKind: ENTITY_KIND_WORKFLOW,
     mentionOption: 'Workflows',
     submenuTitle: 'All workflows',
-    currentKind: 'current_workflow',
     currentLabel: 'Current Workflow',
+    idField: 'workflowId',
   },
   {
     entityKind: ENTITY_KIND_SKILL,
     mentionOption: 'Skills',
     submenuTitle: 'Skills',
-    currentKind: 'current_skill',
     currentLabel: 'Current Skill',
+    idField: 'skillId',
   },
   {
     entityKind: ENTITY_KIND_CUSTOM_TOOL,
     mentionOption: 'Custom Tools',
     submenuTitle: 'Custom Tools',
-    currentKind: 'current_custom_tool',
     currentLabel: 'Current Tool',
+    idField: 'customToolId',
   },
   {
     entityKind: ENTITY_KIND_INDICATOR,
     mentionOption: 'Indicators',
     submenuTitle: 'Indicators',
-    currentKind: 'current_indicator',
     currentLabel: 'Current Indicator',
+    idField: 'indicatorId',
   },
   {
     entityKind: ENTITY_KIND_MCP_SERVER,
     mentionOption: 'MCP Servers',
     submenuTitle: 'MCP Servers',
-    currentKind: 'current_mcp_server',
     currentLabel: 'Current MCP Server',
+    idField: 'mcpServerId',
   },
 ] as const satisfies readonly CopilotWorkspaceEntityConfig[]
 
@@ -60,6 +60,12 @@ export type CopilotWorkspaceEntityKind =
   (typeof COPILOT_WORKSPACE_ENTITY_CONFIGS)[number]['entityKind']
 export type CopilotWorkspaceEntityMentionOption =
   (typeof COPILOT_WORKSPACE_ENTITY_CONFIGS)[number]['mentionOption']
+type CopilotWorkspaceEntityContextDetails = {
+  entityKind: CopilotWorkspaceEntityKind
+  entityId: string | null
+  workspaceId: string | null
+  current: boolean
+}
 
 const COPILOT_WORKSPACE_ENTITY_KIND_SET = new Set<string>(
   COPILOT_WORKSPACE_ENTITY_CONFIGS.map((config) => config.entityKind)
@@ -138,6 +144,24 @@ export function getCopilotWorkspaceEntityKindFromContext(
     : null
 }
 
+export function readCopilotWorkspaceEntityContext(
+  context: ChatContext | null | undefined
+): CopilotWorkspaceEntityContextDetails | null {
+  const entityKind = getCopilotWorkspaceEntityKindFromContext(context)
+
+  if (!context || !entityKind) {
+    return null
+  }
+
+  return {
+    entityKind,
+    entityId: getCopilotWorkspaceEntityIdFromContext(context),
+    workspaceId:
+      'workspaceId' in context ? (normalizeOptionalString(context.workspaceId) ?? null) : null,
+    current: context.kind.startsWith('current_'),
+  }
+}
+
 export function getCopilotWorkspaceEntityIdFromContext(context: ChatContext): string | null {
   switch (context.kind) {
     case 'workflow':
@@ -198,47 +222,42 @@ export function buildCopilotWorkspaceEntityContext({
   const config = getCopilotWorkspaceEntityConfig(entityKind)
   const resolvedLabel = label?.trim() || (current ? config.currentLabel : config.mentionOption)
   const normalizedWorkspaceId = normalizeOptionalString(workspaceId)
-
-  if (entityKind === ENTITY_KIND_WORKFLOW) {
-    return {
-      kind: current ? 'current_workflow' : 'workflow',
-      workflowId: entityId,
-      label: resolvedLabel,
-    }
-  }
-
-  if (entityKind === ENTITY_KIND_SKILL) {
-    return {
-      kind: current ? 'current_skill' : 'skill',
-      skillId: entityId,
-      ...(normalizedWorkspaceId ? { workspaceId: normalizedWorkspaceId } : {}),
-      label: resolvedLabel,
-    }
-  }
-
-  if (entityKind === ENTITY_KIND_INDICATOR) {
-    return {
-      kind: current ? 'current_indicator' : 'indicator',
-      indicatorId: entityId,
-      ...(normalizedWorkspaceId ? { workspaceId: normalizedWorkspaceId } : {}),
-      label: resolvedLabel,
-    }
-  }
-
-  if (entityKind === ENTITY_KIND_CUSTOM_TOOL) {
-    return {
-      kind: current ? 'current_custom_tool' : 'custom_tool',
-      customToolId: entityId,
-      ...(normalizedWorkspaceId ? { workspaceId: normalizedWorkspaceId } : {}),
-      label: resolvedLabel,
-    }
-  }
-
-  return {
-    kind: current ? 'current_mcp_server' : 'mcp_server',
-    mcpServerId: entityId,
+  const baseContext = {
     ...(normalizedWorkspaceId ? { workspaceId: normalizedWorkspaceId } : {}),
     label: resolvedLabel,
+  }
+
+  switch (config.idField) {
+    case 'workflowId':
+      return {
+        kind: current ? 'current_workflow' : 'workflow',
+        ...baseContext,
+        workflowId: entityId,
+      }
+    case 'skillId':
+      return {
+        kind: current ? 'current_skill' : 'skill',
+        ...baseContext,
+        skillId: entityId,
+      }
+    case 'indicatorId':
+      return {
+        kind: current ? 'current_indicator' : 'indicator',
+        ...baseContext,
+        indicatorId: entityId,
+      }
+    case 'customToolId':
+      return {
+        kind: current ? 'current_custom_tool' : 'custom_tool',
+        ...baseContext,
+        customToolId: entityId,
+      }
+    case 'mcpServerId':
+      return {
+        kind: current ? 'current_mcp_server' : 'mcp_server',
+        ...baseContext,
+        mcpServerId: entityId,
+      }
   }
 }
 

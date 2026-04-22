@@ -54,7 +54,7 @@ function readPairReviewTarget(pairContext?: PairColorContext | null): ActiveRevi
 export function resolveCopilotWorkflowId(
   pairContext?: PairColorContext | null
 ): string | undefined {
-  return normalizeOptionalString(pairContext?.workflowId)
+  return getCopilotWorkspaceEntityIdFromPairContext(pairContext, 'workflow') ?? undefined
 }
 
 export function buildCopilotEditableReviewTargets({
@@ -82,25 +82,10 @@ export const buildImplicitCopilotContexts = ({
 }: BuildImplicitCopilotContextsOptions): ChatContext[] => {
   // These contexts describe what the user is looking at right now. They are sent
   // with each turn, but they do not mount or select editable review sessions.
-  const resolvedWorkflowId = resolveCopilotWorkflowId(pairContext)
   const resolvedWorkspaceId = normalizeOptionalString(workspaceId)
   const contexts: ChatContext[] = []
 
-  if (resolvedWorkflowId) {
-    contexts.push(
-      buildCopilotWorkspaceEntityContext({
-        entityKind: 'workflow',
-        entityId: resolvedWorkflowId,
-        current: true,
-      })
-    )
-  }
-
   for (const config of COPILOT_WORKSPACE_ENTITY_CONFIGS) {
-    if (config.entityKind === 'workflow') {
-      continue
-    }
-
     const entityId = getCopilotWorkspaceEntityIdFromPairContext(pairContext, config.entityKind)
     if (!entityId) {
       continue

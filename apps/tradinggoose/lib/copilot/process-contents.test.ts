@@ -5,6 +5,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mockGetBlocksMetadataExecute = vi.fn()
 const mockLoadSkill = vi.fn()
+const mockLoadWorkflowStateWithFallback = vi.fn()
+const mockSanitizeForCopilot = vi.fn((value) => value)
 
 vi.mock('@tradinggoose/db', () => ({
   db: {},
@@ -48,11 +50,11 @@ vi.mock('@/lib/copilot/review-sessions/entity-loaders', () => ({
 }))
 
 vi.mock('@/lib/workflows/db-helpers', () => ({
-  loadWorkflowStateWithFallback: vi.fn(),
+  loadWorkflowStateWithFallback: mockLoadWorkflowStateWithFallback,
 }))
 
 vi.mock('@/lib/workflows/json-sanitizer', () => ({
-  sanitizeForCopilot: vi.fn((value) => value),
+  sanitizeForCopilot: mockSanitizeForCopilot,
 }))
 
 describe('processContextsServer', () => {
@@ -60,6 +62,8 @@ describe('processContextsServer', () => {
     vi.resetModules()
     mockGetBlocksMetadataExecute.mockReset()
     mockLoadSkill.mockReset()
+    mockLoadWorkflowStateWithFallback.mockReset()
+    mockSanitizeForCopilot.mockClear()
   })
 
   it('expands block contexts through the canonical blockIds path', async () => {
@@ -131,6 +135,68 @@ describe('processContextsServer', () => {
             name: 'Canonical Skill',
             description: 'Canonical description',
             content: 'Canonical content',
+          },
+          null,
+          2
+        ),
+      },
+    ])
+  })
+
+  it('hydrates workflow contexts through the shared workspace entity path', async () => {
+    mockLoadWorkflowStateWithFallback.mockResolvedValue({
+      source: 'db',
+      blocks: {
+        trigger: {
+          id: 'trigger',
+          type: 'trigger',
+        },
+      },
+      edges: [],
+      loops: {},
+      parallels: {},
+    })
+
+    const { processContextsServer } = await import('@/lib/copilot/process-contents')
+    const result = await processContextsServer(
+      [
+        {
+          kind: 'workflow',
+          workflowId: 'workflow-1',
+          workspaceId: 'workspace-1',
+          label: 'Attached Workflow',
+        },
+      ],
+      'user-1'
+    )
+
+    expect(mockLoadWorkflowStateWithFallback).toHaveBeenCalledWith('workflow-1')
+    expect(mockSanitizeForCopilot).toHaveBeenCalledWith({
+      blocks: {
+        trigger: {
+          id: 'trigger',
+          type: 'trigger',
+        },
+      },
+      edges: [],
+      loops: {},
+      parallels: {},
+    })
+    expect(result).toEqual([
+      {
+        type: 'workflow',
+        tag: '@Attached Workflow',
+        content: JSON.stringify(
+          {
+            blocks: {
+              trigger: {
+                id: 'trigger',
+                type: 'trigger',
+              },
+            },
+            edges: [],
+            loops: {},
+            parallels: {},
           },
           null,
           2

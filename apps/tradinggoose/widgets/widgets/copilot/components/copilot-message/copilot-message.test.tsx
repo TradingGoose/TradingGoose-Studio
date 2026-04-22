@@ -9,6 +9,7 @@ import type {
   CopilotMessage as CopilotMessageType,
   CopilotSendRuntimeContext,
 } from '@/stores/copilot/types'
+import { buildCopilotWorkspaceEntityContext } from '../../workspace-entities'
 
 const reactActEnvironment = globalThis as typeof globalThis & {
   IS_REACT_ACT_ENVIRONMENT?: boolean
@@ -41,21 +42,21 @@ const assistantMessage: CopilotMessageType = {
   citations: [{ id: 1, title: 'Source A', url: 'https://example.com/source-a' }],
 }
 
-const userMentionMessage = {
+const userMentionMessage: CopilotMessageType = {
   id: 'user-1',
   role: 'user',
   content: "what's the trigger of this workflow? @default-agent",
   timestamp: '2026-04-17T00:00:00.000Z',
   contentBlocks: [],
   contexts: [
-    {
-      kind: 'workflow',
-      workflowId: 'wf-1',
+    buildCopilotWorkspaceEntityContext({
+      entityKind: 'workflow',
+      entityId: 'wf-1',
       workspaceId: 'ws-1',
       label: 'default-agent',
-    },
+    }),
   ],
-} as CopilotMessageType
+}
 
 vi.mock('@/lib/copilot/chat-replay-safety', () => ({
   EDIT_REPLAY_BLOCKED_MESSAGE: 'blocked',

@@ -4,6 +4,7 @@ import {
   getCopilotWorkspaceEntityIdFromPairContext,
   getCopilotWorkspaceEntityKindFromContext,
   matchesCopilotWorkspaceEntityContext,
+  readCopilotWorkspaceEntityContext,
 } from './workspace-entities'
 
 describe('workspace-entities', () => {
@@ -22,6 +23,20 @@ describe('workspace-entities', () => {
   })
 
   it('builds explicit workspace entity contexts with workspace ids', () => {
+    expect(
+      buildCopilotWorkspaceEntityContext({
+        entityKind: 'workflow',
+        entityId: 'workflow-1',
+        workspaceId: 'workspace-1',
+        label: 'Primary Workflow',
+      })
+    ).toEqual({
+      kind: 'workflow',
+      workflowId: 'workflow-1',
+      workspaceId: 'workspace-1',
+      label: 'Primary Workflow',
+    })
+
     expect(
       buildCopilotWorkspaceEntityContext({
         entityKind: 'skill',
@@ -61,6 +76,36 @@ describe('workspace-entities', () => {
 
     expect(matchesCopilotWorkspaceEntityContext(context, 'mcp_server', 'mcp-1')).toBe(true)
     expect(matchesCopilotWorkspaceEntityContext(context, 'mcp_server', 'mcp-2')).toBe(false)
+  })
+
+  it('reads shared workspace entity context details consistently', () => {
+    expect(
+      readCopilotWorkspaceEntityContext({
+        kind: 'workflow',
+        workflowId: 'workflow-1',
+        workspaceId: 'workspace-1',
+        label: 'Primary Workflow',
+      })
+    ).toEqual({
+      entityKind: 'workflow',
+      entityId: 'workflow-1',
+      workspaceId: 'workspace-1',
+      current: false,
+    })
+
+    expect(
+      readCopilotWorkspaceEntityContext({
+        kind: 'current_skill',
+        skillId: 'skill-1',
+        workspaceId: 'workspace-1',
+        label: 'Current Skill',
+      })
+    ).toEqual({
+      entityKind: 'skill',
+      entityId: 'skill-1',
+      workspaceId: 'workspace-1',
+      current: true,
+    })
   })
 
   it('reads entity ids from pair context consistently', () => {

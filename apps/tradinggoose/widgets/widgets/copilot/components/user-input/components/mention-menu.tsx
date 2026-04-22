@@ -1,6 +1,6 @@
 'use client'
 
-import type { MouseEvent, RefObject } from 'react'
+import type { MouseEvent, ReactNode, RefObject } from 'react'
 import {
   Activity,
   Blocks,
@@ -21,6 +21,7 @@ import { createPortal } from 'react-dom'
 import { getIconTileStyle, sanitizeSolidIconColor } from '@/lib/ui/icon-colors'
 import { cn } from '@/lib/utils'
 import {
+  type CopilotWorkspaceEntityKind,
   getCopilotWorkspaceEntityKindFromMentionOption,
   isCopilotWorkspaceEntityMentionOption,
 } from '../../../workspace-entities'
@@ -49,6 +50,7 @@ import type {
   WorkflowBlockItem,
   WorkspaceEntityItem,
 } from '../types'
+import { getWorkspaceEntityMentionEmptyState } from '../workspace-entity-mentions'
 
 interface MentionMenuProps {
   inAggregated: boolean
@@ -178,31 +180,79 @@ const renderMcpServerBadge = (status?: WorkspaceEntityItem['connectionStatus']) 
   )
 }
 
+const WORKSPACE_ENTITY_MAIN_OPTION_ICONS: Record<
+  CopilotWorkspaceEntityKind,
+  typeof Workflow | typeof ToolCase | typeof Activity | typeof Wrench | typeof Server
+> = {
+  workflow: Workflow,
+  skill: ToolCase,
+  indicator: Activity,
+  custom_tool: Wrench,
+  mcp_server: Server,
+}
+
+const renderWorkspaceEntityMainOptionIcon = (entityKind: CopilotWorkspaceEntityKind) => {
+  const Icon = WORKSPACE_ENTITY_MAIN_OPTION_ICONS[entityKind]
+  return <Icon className='h-3.5 w-3.5 text-muted-foreground' />
+}
+
+const WORKSPACE_ENTITY_ITEM_RENDERERS: Record<
+  CopilotWorkspaceEntityKind,
+  (entity: WorkspaceEntityItem) => ReactNode
+> = {
+  workflow: (entity) => (
+    <>
+      {renderWorkflowBadge(entity.color)}
+      <span className='truncate'>{entity.name}</span>
+    </>
+  ),
+  skill: (entity) => (
+    <>
+      {renderSkillBadge()}
+      <span className='truncate'>{entity.name}</span>
+    </>
+  ),
+  indicator: (entity) => (
+    <>
+      {renderIndicatorBadge(entity.color)}
+      <span className='truncate'>{entity.name}</span>
+    </>
+  ),
+  custom_tool: (entity) => (
+    <>
+      {renderCustomToolBadge()}
+      <span className='truncate'>{entity.name}</span>
+      {entity.functionName ? (
+        <>
+          <span className='text-muted-foreground'>·</span>
+          <span className='truncate text-muted-foreground text-xs'>{entity.functionName}</span>
+        </>
+      ) : null}
+    </>
+  ),
+  mcp_server: (entity) => (
+    <>
+      {renderMcpServerBadge(entity.connectionStatus)}
+      <span className='truncate'>{entity.name}</span>
+      {entity.transport ? (
+        <>
+          <span className='text-muted-foreground'>·</span>
+          <span className='text-muted-foreground text-xs uppercase'>{entity.transport}</span>
+        </>
+      ) : null}
+    </>
+  ),
+}
+
 const renderMainOptionIcon = (option: MentionOption) => {
   if (option === 'Chats') {
     return <Bot className='h-3.5 w-3.5 text-muted-foreground' />
   }
 
   if (isCopilotWorkspaceEntityMentionOption(option)) {
-    const entityKind = getCopilotWorkspaceEntityKindFromMentionOption(option)
-
-    if (entityKind === 'workflow') {
-      return <Workflow className='h-3.5 w-3.5 text-muted-foreground' />
-    }
-
-    if (entityKind === 'skill') {
-      return <ToolCase className='h-3.5 w-3.5 text-muted-foreground' />
-    }
-
-    if (entityKind === 'indicator') {
-      return <Activity className='h-3.5 w-3.5 text-muted-foreground' />
-    }
-
-    if (entityKind === 'custom_tool') {
-      return <Wrench className='h-3.5 w-3.5 text-muted-foreground' />
-    }
-
-    return <Server className='h-3.5 w-3.5 text-muted-foreground' />
+    return renderWorkspaceEntityMainOptionIcon(
+      getCopilotWorkspaceEntityKindFromMentionOption(option)
+    )
   }
 
   if (option === 'Blocks') {
@@ -243,61 +293,7 @@ const renderMentionItemContent = (type: MentionSubmenu, item: MentionItem) => {
 
   if (isCopilotWorkspaceEntityMentionOption(type)) {
     const entity = item as WorkspaceEntityItem
-
-    if (entity.entityKind === 'workflow') {
-      return (
-        <>
-          {renderWorkflowBadge(entity.color)}
-          <span className='truncate'>{entity.name || 'Untitled Workflow'}</span>
-        </>
-      )
-    }
-
-    if (entity.entityKind === 'skill') {
-      return (
-        <>
-          {renderSkillBadge()}
-          <span className='truncate'>{entity.name || 'Untitled Skill'}</span>
-        </>
-      )
-    }
-
-    if (entity.entityKind === 'indicator') {
-      return (
-        <>
-          {renderIndicatorBadge(entity.color)}
-          <span className='truncate'>{entity.name || 'Untitled Indicator'}</span>
-        </>
-      )
-    }
-
-    if (entity.entityKind === 'custom_tool') {
-      return (
-        <>
-          {renderCustomToolBadge()}
-          <span className='truncate'>{entity.name || 'Untitled Tool'}</span>
-          {entity.functionName ? (
-            <>
-              <span className='text-muted-foreground'>·</span>
-              <span className='truncate text-muted-foreground text-xs'>{entity.functionName}</span>
-            </>
-          ) : null}
-        </>
-      )
-    }
-
-    return (
-      <>
-        {renderMcpServerBadge(entity.connectionStatus)}
-        <span className='truncate'>{entity.name || 'Untitled MCP Server'}</span>
-        {entity.transport ? (
-          <>
-            <span className='text-muted-foreground'>·</span>
-            <span className='text-muted-foreground text-xs uppercase'>{entity.transport}</span>
-          </>
-        ) : null}
-      </>
-    )
+    return WORKSPACE_ENTITY_ITEM_RENDERERS[entity.entityKind](entity)
   }
 
   if (type === 'Knowledge') {
@@ -384,24 +380,10 @@ const getSubmenuEmptyState = (submenu: MentionSubmenu) => {
     return 'No past chats'
   }
 
-  if (submenu === 'Workflows') {
-    return 'No workflows'
-  }
-
-  if (submenu === 'Skills') {
-    return 'No skills'
-  }
-
-  if (submenu === 'Indicators') {
-    return 'No indicators'
-  }
-
-  if (submenu === 'Custom Tools') {
-    return 'No custom tools'
-  }
-
-  if (submenu === 'MCP Servers') {
-    return 'No MCP servers'
+  if (isCopilotWorkspaceEntityMentionOption(submenu)) {
+    return getWorkspaceEntityMentionEmptyState(
+      getCopilotWorkspaceEntityKindFromMentionOption(submenu)
+    )
   }
 
   if (submenu === 'Knowledge') {
@@ -559,7 +541,11 @@ export function MentionMenu({
               >
                 <div className='flex items-center gap-1'>
                   {renderMainOptionIcon(option)}
-                  <span>{option === 'Workflows' ? 'All workflows' : option}</span>
+                  <span>
+                    {isCopilotWorkspaceEntityMentionOption(option)
+                      ? getMentionSubmenuTitle(option)
+                      : option}
+                  </span>
                 </div>
                 {option !== 'Docs' && (
                   <ChevronRight className='h-3.5 w-3.5 text-muted-foreground' />
