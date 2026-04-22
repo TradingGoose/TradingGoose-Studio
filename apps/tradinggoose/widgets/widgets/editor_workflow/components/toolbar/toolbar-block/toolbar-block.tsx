@@ -53,10 +53,10 @@ export function ToolbarBlock({
       onDragStart={handleDragStart}
       onClick={handleClick}
       className={cn(
-        'group flex h-9 w-full items-center gap-[10px] rounded-sm p-2 transition-colors',
+        'group flex h-9 w-full items-center gap-2 rounded-sm p-2 transition-colors',
         disabled
           ? 'cursor-not-allowed opacity-60'
-          : 'cursor-pointer hover:bg-card active:cursor-grabbing'
+          : 'cursor-pointer hover:bg-secondary/60 active:cursor-grabbing'
       )}
     >
       <div
