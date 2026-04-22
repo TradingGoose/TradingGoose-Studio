@@ -1,6 +1,16 @@
+import type { Metadata } from 'next'
 import Link from 'next/link'
 import LegalLayout from '@/app/(landing)/components/legal-layout'
 import { getBrandConfig } from '@/lib/branding/branding'
+
+export const metadata: Metadata = {
+  title: 'Terms of Service | TradingGoose',
+  description:
+    'Terms of Service for TradingGoose Studio, covering access, acceptable use, integrations, billing, and trading-related disclaimers.',
+  alternates: {
+    canonical: '/terms',
+  },
+}
 
 export default function TermsOfService() {
   const brand = getBrandConfig()
