@@ -60,7 +60,7 @@ function isProtectedAppPath(pathname: string): boolean {
 }
 
 function rewriteMarkdownRequest(request: NextRequest): NextResponse | null {
-  if (request.method !== 'GET') {
+  if (request.method !== 'GET' && request.method !== 'HEAD') {
     return null
   }
 

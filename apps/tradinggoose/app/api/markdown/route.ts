@@ -1,4 +1,5 @@
 import type { NextRequest } from 'next/server'
+import { appendHomepageDiscoveryLinks } from '@/lib/discovery/link-headers'
 import {
   appendVaryHeader,
   isMarkdownRenderablePath,
@@ -8,7 +9,7 @@ import {
 import { renderPublicPageMarkdown } from '@/lib/markdown/public-page-markdown'
 import { getAccurateTokenCount } from '@/lib/tokenization/estimators'
 
-export async function GET(request: NextRequest) {
+async function createMarkdownResponse(request: NextRequest, includeBody: boolean) {
   const pathname = normalizeMarkdownPath(request.nextUrl.searchParams.get('path'))
 
   if (!pathname || !isMarkdownRenderablePath(pathname)) {
@@ -33,12 +34,24 @@ export async function GET(request: NextRequest) {
 
   const tokenCount = getAccurateTokenCount(markdown)
 
-  return new Response(markdown, {
-    headers: {
-      'Content-Type': MARKDOWN_CONTENT_TYPE,
-      'Cache-Control': 'public, max-age=300, stale-while-revalidate=3600',
-      Vary: appendVaryHeader(null, 'Accept'),
-      'x-markdown-tokens': String(tokenCount),
-    },
+  const headers = new Headers({
+    'Content-Type': MARKDOWN_CONTENT_TYPE,
+    'Cache-Control': 'public, max-age=300, stale-while-revalidate=3600',
+    Vary: appendVaryHeader(null, 'Accept'),
+    'x-markdown-tokens': String(tokenCount),
   })
+
+  if (pathname === '/') {
+    appendHomepageDiscoveryLinks(headers)
+  }
+
+  return new Response(includeBody ? markdown : null, { headers })
+}
+
+export async function GET(request: NextRequest) {
+  return createMarkdownResponse(request, true)
+}
+
+export async function HEAD(request: NextRequest) {
+  return createMarkdownResponse(request, false)
 }
