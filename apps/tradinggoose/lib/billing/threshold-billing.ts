@@ -7,6 +7,7 @@ import { requireStripeClient } from '@/lib/billing/stripe-client'
 import {
   getSubscriptionUsageAllowanceUsd,
   getTierUsageAllowanceUsd,
+  isFreeBillingTier,
   usesIndividualBillingLedger,
 } from '@/lib/billing/tiers'
 import {
@@ -127,6 +128,7 @@ export async function checkAndBillOverageThreshold(params: {
     const { overageThresholdDollars: threshold } = await getResolvedBillingSettings()
     const billingContext = await resolveThresholdBillingContext(params)
     const subscription = billingContext.subscription
+    const billingTier = billingContext.tier
 
     if (!subscription || subscription.status !== 'active') {
       logger.debug('No active subscription for threshold billing', {
@@ -138,11 +140,18 @@ export async function checkAndBillOverageThreshold(params: {
     }
 
     if (!subscription.stripeSubscriptionId) {
-      logger.error('No Stripe subscription ID found', {
+      const logPayload = {
+        billingTier: billingTier.displayName,
         billingUserId: billingContext.billingUserId,
         workspaceId: params.workspaceId,
         workflowId: params.workflowId,
-      })
+      }
+
+      if (isFreeBillingTier(billingTier)) {
+        logger.debug('Threshold billing skipped for inactive free/PAYG subscription', logPayload)
+      } else {
+        logger.error('No Stripe subscription ID found', logPayload)
+      }
       return
     }
     const stripeSubscriptionId = subscription.stripeSubscriptionId

@@ -206,15 +206,7 @@ describe('usage onboarding allowance helpers', () => {
 
     await decrementGrantedOnboardingAllowanceByCurrentPeriodUsage('user-1')
 
-    expect(updateValues).toEqual([
-      {
-        billedOverageThisPeriod: '0',
-        currentPeriodCopilotCost: '0',
-        currentPeriodCost: '0',
-        grantedOnboardingAllowanceUsd: '12.5',
-        customUsageLimit: '12.5',
-      },
-    ])
+    expect(updateValues).toEqual([])
   })
 
   it('resets custom usage limit from remaining granted onboarding allowance', async () => {

@@ -39,7 +39,7 @@ export async function handleSubscriptionCreated(
           eq(subscription.referenceType, subscriptionData.referenceType),
           eq(subscription.referenceId, subscriptionData.referenceId),
           eq(subscription.status, 'active'),
-          ne(subscription.id, subscriptionData.id) // Exclude current subscription
+          ne(subscription.id, subscriptionData.id)
         )
       )
 
