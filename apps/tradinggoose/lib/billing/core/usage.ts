@@ -89,6 +89,11 @@ export async function decrementGrantedOnboardingAllowanceByCurrentPeriodUsage(
   )
   const currentPeriodCopilotCost = statsRecords[0].currentPeriodCopilotCost?.toString() ?? '0'
   const currentPeriodCopilotCostValue = Math.max(Number.parseFloat(currentPeriodCopilotCost), 0)
+
+  if (currentPeriodCost === 0 && currentPeriodCopilotCostValue === 0) {
+    return
+  }
+
   const remainingAllowance = Math.max(grantedAllowance - currentPeriodCost, 0)
   const currentCustomUsageLimit = Number.parseFloat(
     statsRecords[0].customUsageLimit?.toString() ?? '0'
@@ -110,10 +115,8 @@ export async function decrementGrantedOnboardingAllowanceByCurrentPeriodUsage(
     currentPeriodCost: '0',
   }
 
-  if (currentPeriodCost > 0 || currentPeriodCopilotCostValue > 0) {
-    nextValues.lastPeriodCopilotCost = currentPeriodCopilotCost
-    nextValues.lastPeriodCost = currentPeriodCost.toString()
-  }
+  nextValues.lastPeriodCopilotCost = currentPeriodCopilotCost
+  nextValues.lastPeriodCost = currentPeriodCost.toString()
 
   if (shouldSyncSeededCustomLimit) {
     nextValues.customUsageLimit = remainingAllowance.toString()
