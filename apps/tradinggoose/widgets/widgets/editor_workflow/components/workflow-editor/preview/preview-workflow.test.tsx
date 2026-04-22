@@ -24,7 +24,7 @@ vi.mock('@/lib/utils', () => ({
   cn: (...classes: Array<string | undefined | null | false>) => classes.filter(Boolean).join(' '),
 }))
 
-vi.mock('reactflow', () => {
+vi.mock('@xyflow/react', () => {
   const ReactFlow = (props: any) => {
     lastReactFlowProps = props
     return createElement('div', { 'data-testid': 'reactflow' }, props.children)
@@ -32,7 +32,7 @@ vi.mock('reactflow', () => {
 
   return {
     __esModule: true,
-    default: ReactFlow,
+    ReactFlow,
     ReactFlowProvider: ({ children }: any) =>
       createElement('div', { 'data-testid': 'provider' }, children),
     Background: (props: any) =>

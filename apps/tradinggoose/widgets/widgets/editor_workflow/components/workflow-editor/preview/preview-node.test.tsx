@@ -2,7 +2,7 @@ import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it, vi } from 'vitest'
 
-vi.mock('reactflow', () => ({
+vi.mock('@xyflow/react', () => ({
   Handle: ({ id, type, position }: { id: string; type: string; position: string }) =>
     createElement('div', {
       'data-testid': 'handle',

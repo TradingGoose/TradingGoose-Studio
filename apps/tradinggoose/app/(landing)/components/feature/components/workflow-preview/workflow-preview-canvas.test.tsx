@@ -16,10 +16,10 @@ vi.mock(
   })
 )
 
-vi.mock('reactflow', () => {
+vi.mock('@xyflow/react', () => {
   return {
     __esModule: true,
-    default: (props: any) => {
+    ReactFlow: (props: any) => {
       lastReactFlowProps = props
       return <div data-testid='reactflow'>{props.children}</div>
     },
