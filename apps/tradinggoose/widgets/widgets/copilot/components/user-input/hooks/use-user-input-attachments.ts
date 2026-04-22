@@ -20,7 +20,7 @@ const revokePreviewUrls = (files: AttachedFile[]) => {
 export function useUserInputAttachments({ userId }: { userId?: string }) {
   const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([])
   const [isDragging, setIsDragging] = useState(false)
-  const [dragCounter, setDragCounter] = useState(0)
+  const [, setDragCounter] = useState(0)
   const attachedFilesRef = useRef<AttachedFile[]>([])
 
   useEffect(() => {
