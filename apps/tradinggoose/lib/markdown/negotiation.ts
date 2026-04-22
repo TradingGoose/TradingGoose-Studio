@@ -2,8 +2,6 @@ export const MARKDOWN_CONTENT_TYPE = 'text/markdown; charset=utf-8'
 export const MARKDOWN_RENDER_ROUTE = '/api/markdown'
 export const MARKDOWN_BYPASS_HEADER = 'x-tradinggoose-markdown-bypass'
 
-const MARKDOWN_ACCEPT_PATTERN = /(^|,)\s*text\/markdown(?:\s*(?:;|,|$))/i
-
 const EXACT_PUBLIC_PATHS = new Set([
   '/',
   '/blog',
@@ -18,7 +16,30 @@ type HeadersLike = Pick<Headers, 'get'>
 
 export function requestAcceptsMarkdown(headers: HeadersLike): boolean {
   const accept = headers.get('accept') || ''
-  return MARKDOWN_ACCEPT_PATTERN.test(accept)
+
+  return accept
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter(Boolean)
+    .some((entry) => {
+      const [mediaRange, ...params] = entry.split(';').map((part) => part.trim())
+
+      if (mediaRange.toLowerCase() !== 'text/markdown') {
+        return false
+      }
+
+      const qParam = params.find((param) => param.toLowerCase().startsWith('q='))
+      if (!qParam) {
+        return true
+      }
+
+      const qValue = Number.parseFloat(qParam.slice(2))
+      if (Number.isNaN(qValue)) {
+        return false
+      }
+
+      return qValue > 0
+    })
 }
 
 export function isMarkdownRenderablePath(pathname: string): boolean {

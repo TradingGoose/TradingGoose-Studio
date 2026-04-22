@@ -8,6 +8,12 @@ type LinkTarget = {
   type?: string
 }
 
+type CatalogLink = {
+  href: string
+  type?: string
+  title?: string
+}
+
 const HOMEPAGE_LINK_TARGETS: LinkTarget[] = [
   {
     href: API_CATALOG_PATH,
@@ -42,15 +48,47 @@ export function appendHomepageDiscoveryLinks(headers: Headers): void {
   })
 }
 
+const CATALOG_ITEM_LINKS: CatalogLink[] = [
+  {
+    href: '/api/github-stars',
+    type: 'application/json',
+    title: 'Public GitHub repository star count endpoint',
+  },
+  {
+    href: '/api/registration',
+    type: 'application/json',
+    title: 'Current public registration mode endpoint',
+  },
+  {
+    href: '/api/waitlist',
+    type: 'application/json',
+    title: 'Waitlist submission endpoint for hosted signup access',
+  },
+]
+
 export function getApiCatalogDocument(origin: string) {
   return {
     linkset: [
       {
         anchor: `${origin}${API_CATALOG_PATH}`,
-        item: [
-          { href: `${origin}/api/github-stars` },
-          { href: `${origin}/api/registration` },
-          { href: `${origin}/api/waitlist` },
+        item: CATALOG_ITEM_LINKS.map((item) => ({
+          href: `${origin}${item.href}`,
+          type: item.type,
+          title: item.title,
+        })),
+        'service-doc': [
+          {
+            href: 'https://docs.tradinggoose.ai',
+            type: 'text/html',
+            title: 'TradingGoose documentation',
+          },
+        ],
+        describedby: [
+          {
+            href: `${origin}/llms-full.txt`,
+            type: 'text/plain',
+            title: 'Machine-readable TradingGoose platform overview',
+          },
         ],
       },
     ],
