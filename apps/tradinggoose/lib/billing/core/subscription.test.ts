@@ -182,7 +182,7 @@ describe('subscription billing helpers', () => {
     )
   })
 
-  it('seeds missing user stats on backfill without resetting existing records', async () => {
+  it('seeds onboarding allowance into user stats on billing-enable backfill', async () => {
     const insertCalls: Array<{
       values: Record<string, unknown>
       conflict: 'update' | 'nothing'
@@ -250,14 +250,17 @@ describe('subscription billing helpers', () => {
         }),
       }),
       expect.objectContaining({
-        conflict: 'nothing',
+        conflict: 'update',
         values: expect.objectContaining({
           userId: 'user_123',
           grantedOnboardingAllowanceUsd: '25',
           customUsageLimit: '25',
         }),
+        set: {
+          grantedOnboardingAllowanceUsd: '25',
+          customUsageLimit: '25',
+        },
       }),
     ])
-    expect(insertCalls[1]).not.toHaveProperty('set')
   })
 })

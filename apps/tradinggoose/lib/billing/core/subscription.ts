@@ -231,8 +231,9 @@ export async function backfillDefaultUserSubscriptions(): Promise<number> {
         userId: row.id,
         ...usageLimitSeed,
       })
-      .onConflictDoNothing({
+      .onConflictDoUpdate({
         target: userStats.userId,
+        set: usageLimitSeed,
       })
     createdCount += 1
   }
