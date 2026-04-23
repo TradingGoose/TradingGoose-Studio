@@ -7,7 +7,8 @@ const logger = createLogger('ProviderModelsQuery')
 const providerEndpoints: Record<ProviderName, string> = {
   base: '/api/providers/ai/base/models',
   ollama: '/api/providers/ai/ollama/models',
-  vllm: '/api/providers/vllm/models',
+  vllm: '/api/providers/ai/vllm/models',
+  fireworks: '/api/providers/ai/fireworks/models',
   openrouter: '/api/providers/ai/openrouter/models',
 }
 

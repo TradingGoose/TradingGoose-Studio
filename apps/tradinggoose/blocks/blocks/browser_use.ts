@@ -41,7 +41,7 @@ export const BrowserUseBlock: BlockConfig<BrowserUseResponse> = {
         { label: 'O4 Mini', id: 'o4-mini' },
         { label: 'Gemini 2.5 Flash', id: 'gemini-2.5-flash' },
         { label: 'Gemini 2.5 Pro', id: 'gemini-2.5-pro' },
-        { label: 'Gemini 3 Pro Preview', id: 'gemini-3-pro-preview' },
+        { label: 'Gemini 3.1 Pro Preview', id: 'gemini-3.1-pro-preview' },
         { label: 'Gemini Flash Latest', id: 'gemini-flash-latest' },
         { label: 'Gemini Flash Lite Latest', id: 'gemini-flash-lite-latest' },
         { label: 'Claude 3.7 Sonnet', id: 'claude-3-7-sonnet-20250219' },

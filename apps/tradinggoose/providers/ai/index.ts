@@ -1,15 +1,20 @@
 import { createLogger } from '@/lib/logs/console/logger'
 import type { StreamingExecution } from '@/executor/types'
 import { anthropicProvider } from '@/providers/ai/anthropic'
+import { azureAnthropicProvider } from '@/providers/ai/azure-anthropic'
 import { azureOpenAIProvider } from '@/providers/ai/azure-openai'
+import { bedrockProvider } from '@/providers/ai/bedrock'
 import { cerebrasProvider } from '@/providers/ai/cerebras'
 import { deepseekProvider } from '@/providers/ai/deepseek'
+import { fireworksProvider } from '@/providers/ai/fireworks'
 import { googleProvider } from '@/providers/ai/google'
 import { groqProvider } from '@/providers/ai/groq'
 import { mistralProvider } from '@/providers/ai/mistral'
 import { ollamaProvider } from '@/providers/ai/ollama'
 import { openaiProvider } from '@/providers/ai/openai'
 import { openRouterProvider } from '@/providers/ai/openrouter'
+import { vertexProvider } from '@/providers/ai/vertex'
+import { vllmProvider } from '@/providers/ai/vllm'
 import type { ProviderConfig, ProviderRequest, ProviderResponse } from '@/providers/ai/types'
 import {
   calculateCost,
@@ -24,15 +29,20 @@ const logger = createLogger('Providers')
 const providers: Record<string, ProviderConfig> = {
   openai: openaiProvider,
   anthropic: anthropicProvider,
+  'azure-anthropic': azureAnthropicProvider,
   google: googleProvider,
+  vertex: vertexProvider,
   deepseek: deepseekProvider,
   xai: xAIProvider,
   cerebras: cerebrasProvider,
   groq: groqProvider,
   mistral: mistralProvider,
   'azure-openai': azureOpenAIProvider,
+  bedrock: bedrockProvider,
+  fireworks: fireworksProvider,
   openrouter: openRouterProvider,
   ollama: ollamaProvider,
+  vllm: vllmProvider,
 }
 
 function sanitizeRequest(request: ProviderRequest): ProviderRequest {
@@ -126,7 +136,8 @@ export async function executeProviderRequest(
   }
 
   if (response.tokens) {
-    const { prompt: promptTokens = 0, completion: completionTokens = 0 } = response.tokens
+    const promptTokens = response.tokens.prompt ?? response.tokens.input ?? 0
+    const completionTokens = response.tokens.completion ?? response.tokens.output ?? 0
     const useCachedInput = !!request.context && request.context.length > 0
 
     if (shouldBillModelUsage(response.model)) {
