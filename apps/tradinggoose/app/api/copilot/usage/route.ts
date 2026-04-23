@@ -22,13 +22,6 @@ import { hasProcessedMessage, markMessageAsProcessed } from '@/lib/redis'
 import { getCopilotApiUrl, proxyCopilotRequest } from '@/app/api/copilot/proxy'
 import { calculateCost } from '@/providers/ai/utils'
 
-const MODEL_SYNONYMS: Record<string, string> = {
-  'claude-sonnet-4.6': 'claude-sonnet-4-6',
-  'claude-4.6-sonnet': 'claude-sonnet-4-6',
-  'claude-opus-4.6': 'claude-opus-4-6',
-  'claude-4.6-opus': 'claude-opus-4-6',
-}
-
 const BILLING_EVENT_TTL_SECONDS = 60 * 60 * 24 * 30 // 30 days
 const DEFAULT_ESTIMATED_RESERVATION_USD = 1
 const BILLING_DISABLED_RESERVATION_ID = 'billing-disabled'
@@ -229,11 +222,7 @@ function extractTokenMetrics(usage: any): TokenMetrics | null {
 
 function normalizeModelForBilling(model: string): string {
   const base = model.includes('/') ? model.split('/').pop() || model : model
-  const lower = base.toLowerCase()
-  if (MODEL_SYNONYMS[lower]) {
-    return MODEL_SYNONYMS[lower]
-  }
-  return lower
+  return base.toLowerCase()
 }
 
 async function recordBilledUsage(params: {

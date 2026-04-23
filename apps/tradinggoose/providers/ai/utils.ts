@@ -1,3 +1,5 @@
+import type { ChatCompletionChunk } from 'openai/resources/chat/completions'
+import type { CompletionUsage } from 'openai/resources/completions'
 import { getEnv, isTruthy } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
 import {
@@ -5,8 +7,10 @@ import {
   getHostedModels as getHostedModelsFromDefinitions,
   getMaxTemperature as getMaxTempFromDefinitions,
   getModelPricing as getModelPricingFromDefinitions,
+  getModelsWithDeepResearch,
   getModelsWithReasoningEffort,
   getModelsWithTemperatureSupport,
+  getModelsWithThinking,
   getModelsWithTempRange01,
   getModelsWithTempRange02,
   getModelsWithVerbosity,
@@ -17,6 +21,7 @@ import {
   supportsTemperature as supportsTemperatureFromDefinitions,
   supportsToolUsageControl as supportsToolUsageControlFromDefinitions,
   updateOllamaModels as updateOllamaModelsInDefinitions,
+  updateVLLMModels as updateVLLMModelsInDefinitions,
 } from '@/providers/ai/models'
 import type { ProviderId, ProviderToolConfig } from '@/providers/ai/types'
 import { useCustomToolsStore } from '@/stores/custom-tools/store'
@@ -61,9 +66,26 @@ export async function updateOpenRouterProviderModels(models: string[]): Promise<
   providers.openrouter.models = getProviderModelsFromDefinitions('openrouter')
 }
 
+export function updateVLLMProviderModels(models: string[]): void {
+  updateVLLMModelsInDefinitions(models)
+  providers.vllm.models = getProviderModelsFromDefinitions('vllm')
+}
+
+export async function updateFireworksProviderModels(models: string[]): Promise<void> {
+  const { updateFireworksModels } = await import('@/providers/ai/models')
+  updateFireworksModels(models)
+  providers.fireworks.models = getProviderModelsFromDefinitions('fireworks')
+}
+
 export function getBaseModelProviders(): Record<string, ProviderId> {
   const allProviders = Object.entries(providers)
-    .filter(([providerId]) => providerId !== 'ollama' && providerId !== 'openrouter')
+    .filter(
+      ([providerId]) =>
+        providerId !== 'ollama' &&
+        providerId !== 'vllm' &&
+        providerId !== 'openrouter' &&
+        providerId !== 'fireworks'
+    )
     .reduce(
       (map, [providerId, config]) => {
         config.models.forEach((model) => {
@@ -243,6 +265,18 @@ ${fieldDescriptions}
 
 Your response MUST be valid JSON and include all the specified fields with their correct types.
 Each metric should be an object containing 'score' (number) and 'reasoning' (string).`
+}
+
+export function generateSchemaInstructions(schema: any, schemaName?: string): string {
+  const name = schemaName || 'response'
+  return `IMPORTANT: You must respond with a valid JSON object that conforms to the following schema.
+Do not include any text before or after the JSON object. Only output the JSON.
+
+Schema name: ${name}
+JSON Schema:
+${JSON.stringify(schema, null, 2)}
+
+Your response must be valid JSON that exactly matches this schema structure.`
 }
 
 export function extractAndParseJSON(content: string): any {
@@ -489,6 +523,20 @@ export function getModelPricing(modelId: string): any {
   return getModelPricingFromDefinitions(modelId)
 }
 
+export function sumToolCosts(toolResults?: Record<string, unknown>[]): number {
+  if (!toolResults?.length) return 0
+
+  let total = 0
+  for (const toolResult of toolResults) {
+    const cost = toolResult?.cost as { total?: unknown } | undefined
+    if (typeof cost?.total === 'number') {
+      total += cost.total
+    }
+  }
+
+  return total
+}
+
 /**
  * Format cost as a currency string
  *
@@ -530,7 +578,7 @@ export function getHostedModels(): string[] {
  */
 export function shouldBillModelUsage(model: string): boolean {
   const hostedModels = getHostedModels()
-  return hostedModels.includes(model)
+  return hostedModels.some((hostedModel) => hostedModel.toLowerCase() === model.toLowerCase())
 }
 
 /**
@@ -827,8 +875,10 @@ export function trackForcedToolUsage(
 export const MODELS_TEMP_RANGE_0_2 = getModelsWithTempRange02()
 export const MODELS_TEMP_RANGE_0_1 = getModelsWithTempRange01()
 export const MODELS_WITH_TEMPERATURE_SUPPORT = getModelsWithTemperatureSupport()
+export const MODELS_WITH_DEEP_RESEARCH = getModelsWithDeepResearch()
 export const MODELS_WITH_REASONING_EFFORT = getModelsWithReasoningEffort()
 export const MODELS_WITH_VERBOSITY = getModelsWithVerbosity()
+export const MODELS_WITH_THINKING = getModelsWithThinking()
 export const PROVIDERS_WITH_TOOL_USAGE_CONTROL = getProvidersWithToolUsageControl()
 
 /**
@@ -836,6 +886,27 @@ export const PROVIDERS_WITH_TOOL_USAGE_CONTROL = getProvidersWithToolUsageContro
  */
 export function supportsTemperature(model: string): boolean {
   return supportsTemperatureFromDefinitions(model)
+}
+
+export function supportsReasoningEffort(model: string): boolean {
+  return MODELS_WITH_REASONING_EFFORT.includes(model.toLowerCase())
+}
+
+export function supportsVerbosity(model: string): boolean {
+  return MODELS_WITH_VERBOSITY.includes(model.toLowerCase())
+}
+
+export function supportsThinking(model: string): boolean {
+  return MODELS_WITH_THINKING.includes(model.toLowerCase())
+}
+
+export function isDeepResearchModel(model: string): boolean {
+  return MODELS_WITH_DEEP_RESEARCH.includes(model.toLowerCase())
+}
+
+export function isGemini3Model(model: string): boolean {
+  const normalizedModel = model.toLowerCase().replace(/^vertex\//, '')
+  return normalizedModel.startsWith('gemini-3')
 }
 
 /**
@@ -897,4 +968,81 @@ export function prepareToolExecution(
   }
 
   return { toolParams, executionParams }
+}
+
+export function createOpenAICompatibleStream(
+  stream: AsyncIterable<ChatCompletionChunk>,
+  providerName: string,
+  onComplete?: (content: string, usage: CompletionUsage) => void
+): ReadableStream<Uint8Array> {
+  const streamLogger = createLogger(`${providerName}Utils`)
+  let fullContent = ''
+  let promptTokens = 0
+  let completionTokens = 0
+  let totalTokens = 0
+
+  return new ReadableStream({
+    async start(controller) {
+      try {
+        for await (const chunk of stream) {
+          if (chunk.usage) {
+            promptTokens = chunk.usage.prompt_tokens ?? 0
+            completionTokens = chunk.usage.completion_tokens ?? 0
+            totalTokens = chunk.usage.total_tokens ?? 0
+          }
+
+          const content = chunk.choices?.[0]?.delta?.content || ''
+          if (content) {
+            fullContent += content
+            controller.enqueue(new TextEncoder().encode(content))
+          }
+        }
+
+        if (onComplete) {
+          if (promptTokens === 0 && completionTokens === 0) {
+            streamLogger.warn(`${providerName} stream completed without usage data`)
+          }
+
+          onComplete(fullContent, {
+            prompt_tokens: promptTokens,
+            completion_tokens: completionTokens,
+            total_tokens: totalTokens || promptTokens + completionTokens,
+          })
+        }
+
+        controller.close()
+      } catch (error) {
+        controller.error(error)
+      }
+    },
+  })
+}
+
+export function checkForForcedToolUsageOpenAI(
+  response: any,
+  toolChoice: string | { type: string; function?: { name: string }; name?: string },
+  providerName: string,
+  forcedTools: string[],
+  usedForcedTools: string[]
+): { hasUsedForcedTool: boolean; usedForcedTools: string[] } {
+  if (typeof toolChoice !== 'object' || !response?.choices?.[0]?.message?.tool_calls) {
+    return {
+      hasUsedForcedTool: false,
+      usedForcedTools,
+    }
+  }
+
+  const result = trackForcedToolUsage(
+    response.choices[0].message.tool_calls,
+    toolChoice,
+    createLogger(`${providerName}Utils`),
+    providerName.toLowerCase().replace(/\s+/g, '-'),
+    forcedTools,
+    usedForcedTools
+  )
+
+  return {
+    hasUsedForcedTool: result.hasUsedForcedTool,
+    usedForcedTools: result.usedForcedTools,
+  }
 }
