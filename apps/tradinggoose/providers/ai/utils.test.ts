@@ -382,6 +382,14 @@ describe('Cost Calculation', () => {
       expect(result.pricing.input).toBe(1.0) // Default pricing
     })
 
+    it.concurrent('should resolve dotted Claude model ids through the pricing catalog', () => {
+      const dotted = calculateCost('claude-sonnet-4.6', 100, 25, false)
+      const hyphenated = calculateCost('claude-sonnet-4-6', 100, 25, false)
+
+      expect(dotted.total).toBeGreaterThan(0)
+      expect(dotted).toEqual(hyphenated)
+    })
+
     it.concurrent('should handle zero tokens', () => {
       const result = calculateCost('gpt-4.1', 0, 0, false)
 
