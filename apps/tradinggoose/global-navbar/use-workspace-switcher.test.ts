@@ -58,6 +58,7 @@ describe('shouldResetWorkflowRegistryOnWorkspaceSwitch', () => {
       '@/global-navbar/use-workspace-switcher'
     )
     expect(shouldResetWorkflowRegistryOnWorkspaceSwitch('/workspace/ws-1/dashboard')).toBe(true)
+    expect(shouldResetWorkflowRegistryOnWorkspaceSwitch('/workspace/ws-1/monitor')).toBe(true)
     expect(shouldResetWorkflowRegistryOnWorkspaceSwitch('/workspace/ws-1/w/wf-1')).toBe(true)
   })
 })

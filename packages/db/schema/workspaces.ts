@@ -263,6 +263,40 @@ export const layoutMap = pgTable(
   })
 )
 
+export const monitorView = pgTable(
+  'monitor_view',
+  {
+    id: text('id').primaryKey(),
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => workspace.id, { onDelete: 'cascade' }),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    sort_order: integer('sort_order').notNull().default(0),
+    config: jsonb('config').notNull().default('{}'),
+    isActive: boolean('is_active').notNull().default(false),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    updatedAt: timestamp('updated_at').notNull().defaultNow(),
+  },
+  (table) => ({
+    workspaceIdx: index('monitor_view_workspace_idx').on(table.workspaceId),
+    userIdx: index('monitor_view_user_idx').on(table.userId),
+    workspaceUserIdx: index('monitor_view_workspace_user_idx').on(table.workspaceId, table.userId),
+    workspaceUserActiveIdx: index('monitor_view_workspace_user_active_idx').on(
+      table.workspaceId,
+      table.userId,
+      table.isActive
+    ),
+    workspaceUserSortIdx: index('monitor_view_workspace_user_sort_idx').on(
+      table.workspaceId,
+      table.userId,
+      table.sort_order
+    ),
+  })
+)
+
 export const workspaceFile = pgTable(
   'workspace_file',
   {

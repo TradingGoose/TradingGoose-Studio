@@ -61,9 +61,8 @@ const parseStringArrayFromURL = (value: string | null): string[] => {
   return value.split(',').filter(Boolean)
 }
 
-const parseViewModeFromURL = (value: string | null): 'logs' | 'monitors' | 'dashboard' => {
+const parseViewModeFromURL = (value: string | null): 'logs' | 'dashboard' => {
   if (value === 'dashboard') return 'dashboard'
-  if (value === 'monitors') return 'monitors'
   return 'logs'
 }
 
@@ -252,7 +251,8 @@ export const useFilterStore = create<FilterState>((set, get) => ({
     const folderIds = parseStringArrayFromURL(params.get('folderIds'))
     const triggers = parseTriggerArrayFromURL(params.get('triggers'))
     const searchQuery = params.get('search') || ''
-    const viewMode = parseViewModeFromURL(params.get('view'))
+    const rawViewMode = params.get('view')
+    const viewMode = parseViewModeFromURL(rawViewMode)
 
     set({
       viewMode,
@@ -265,7 +265,6 @@ export const useFilterStore = create<FilterState>((set, get) => ({
       _isInitializing: false, // Clear the flag after initialization
     })
 
-    // Ensure URL reflects the initialized state
     get().syncWithURL()
   },
 

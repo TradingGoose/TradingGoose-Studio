@@ -13,7 +13,7 @@ export const indicatorTrigger: TriggerConfig = {
       type: 'text',
       mode: 'trigger',
       defaultValue:
-        'Indicator monitors are managed from Logs → Monitors. Configure provider, listing, interval, indicator, and workflow target there.',
+        'Indicator monitors are managed from /workspace/[workspaceId]/monitor. Configure provider, listing, interval, indicator, and workflow target there.',
       readOnly: true,
     },
   ],

@@ -36,13 +36,14 @@ const indicatorTriggerOutputs = {
 export const IndicatorTriggerBlock: BlockConfig = {
   type: 'indicator_trigger',
   name: 'Indicator Monitor',
-  description: 'Trigger workflow from indicator monitor events managed in Logs → Monitors.',
+  description:
+    'Trigger workflow from indicator monitor events managed in /workspace/[workspaceId]/monitor.',
   category: 'triggers',
   icon: IndicatorTriggerIcon,
   bgColor: '#16A34A',
   triggerAllowed: true,
   bestPractices: `
-  - Configure and manage monitors in Logs > Monitors.
+  - Configure and manage monitors in /workspace/[workspaceId]/monitor.
   - Use this trigger block to expose monitor payload fields to downstream blocks.
   - Keep monitor/provider/auth/listing settings out of workflow trigger subblocks.
   `,
