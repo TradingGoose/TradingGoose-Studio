@@ -52,6 +52,8 @@ export const SKILL_EDITOR_STATE_EVENT = 'skill-editor:state'
 export const MCP_WIDGET_SELECT_SERVER_EVENT = 'mcp-widgets:select-server'
 export const MCP_EDITOR_ACTION_EVENT = 'mcp-editor:action'
 export const WATCHLIST_WIDGET_UPDATE_PARAMS_EVENT = 'watchlist-widgets:update-params'
+export const PORTFOLIO_SNAPSHOT_WIDGET_UPDATE_PARAMS_EVENT =
+  'portfolio-snapshot-widgets:update-params'
 
 export type WorkflowWidgetSelectEventDetail = {
   workflowId: string
@@ -66,6 +68,12 @@ export type DataChartWidgetUpdateEventDetail = {
 }
 
 export type WatchlistWidgetUpdateEventDetail = {
+  params: Record<string, unknown>
+  panelId?: string
+  widgetKey?: string
+}
+
+export type PortfolioSnapshotWidgetUpdateEventDetail = {
   params: Record<string, unknown>
   panelId?: string
   widgetKey?: string

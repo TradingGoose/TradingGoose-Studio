@@ -1,3 +1,4 @@
+import { sumFiniteNumbers, toFiniteNumber } from '@/providers/trading/portfolio-utils'
 import { buildTradierAuthHeaders, resolveTradierBaseUrl } from '@/providers/trading/tradier/client'
 import { tradierTradingProviderConfig } from '@/providers/trading/tradier/config'
 import type {
@@ -10,17 +11,9 @@ import type {
 } from '@/providers/trading/types'
 import { tradingSymbolToListingIdentity } from '@/providers/trading/utils'
 
-const DEFAULT_BASE_CURRENCY = 'USD'
+export const TRADIER_DEFAULT_BASE_CURRENCY = 'USD'
 
-const toNumber = (value: unknown): number | undefined => {
-  const parsed = Number(value)
-  return Number.isFinite(parsed) ? parsed : undefined
-}
-
-const sumNumbers = (values: Array<number | undefined>): number =>
-  values.reduce<number>((total, value) => (typeof value === 'number' ? total + value : total), 0)
-
-const getCurrencySymbol = (currency?: string) => {
+export const getTradierCurrencySymbol = (currency?: string) => {
   switch (currency) {
     case 'USD':
       return '$'
@@ -35,7 +28,7 @@ const getCurrencySymbol = (currency?: string) => {
   }
 }
 
-const mapAccountType = (value: unknown): UnifiedTradingAccountType => {
+export const mapTradierAccountType = (value: unknown): UnifiedTradingAccountType => {
   if (typeof value !== 'string') return 'unknown'
   const normalized = value.toLowerCase()
   if (normalized === 'margin') return 'margin'
@@ -43,14 +36,14 @@ const mapAccountType = (value: unknown): UnifiedTradingAccountType => {
   return 'unknown'
 }
 
-const extractPositions = (data: any) => {
+export const extractTradierPositions = (data: any) => {
   const positions = data?.positions?.position || data?.positions || data?.position || []
   if (Array.isArray(positions)) return positions
   if (!positions) return []
   return [positions]
 }
 
-const extractBalances = (data: any) => {
+export const extractTradierBalances = (data: any) => {
   if (!data || typeof data !== 'object') return undefined
   if (data.balance && typeof data.balance === 'object') {
     return {
@@ -80,6 +73,55 @@ const extractBalances = (data: any) => {
   return undefined
 }
 
+export const normalizeTradierPositions = (positions: unknown): UnifiedTradingPosition[] => {
+  const list = Array.isArray(positions) ? positions : []
+
+  return list.map((position: any) => {
+    const resolvedSymbol = tradingSymbolToListingIdentity(tradierTradingProviderConfig, {
+      symbol: typeof position?.symbol === 'string' ? position.symbol : undefined,
+      assetClass: 'stock',
+      defaultQuote: TRADIER_DEFAULT_BASE_CURRENCY,
+    })
+    const quantity = toFiniteNumber(position?.quantity) ?? 0
+    const marketValue = toFiniteNumber(position?.market_value)
+    const costBasis = toFiniteNumber(position?.cost_basis)
+    const averagePrice =
+      typeof costBasis === 'number' && quantity !== 0 ? Math.abs(costBasis / quantity) : undefined
+    const side = quantity === 0 ? 'flat' : quantity < 0 ? 'short' : 'long'
+    const openedAt =
+      typeof position?.date_acquired === 'string' ? position.date_acquired : undefined
+
+    return {
+      symbol: {
+        base: resolvedSymbol?.base ?? 'UNKNOWN',
+        quote: resolvedSymbol?.quote ?? TRADIER_DEFAULT_BASE_CURRENCY,
+        listing: resolvedSymbol?.listing,
+        name: null,
+        assetClass: resolvedSymbol?.assetClass ?? 'stock',
+        active: true,
+        rank: 0,
+      },
+      quantity,
+      side,
+      averagePrice,
+      marketValue,
+      currencySymbol: getTradierCurrencySymbol(TRADIER_DEFAULT_BASE_CURRENCY),
+      conversionRate: 1,
+      costBasis,
+      openedAt,
+    }
+  })
+}
+
+export const sumTradierPositionMarketValues = (positions: UnifiedTradingPosition[]) =>
+  sumFiniteNumbers(positions.map((position) => position.marketValue))
+
+export const sumTradierPositionCostBasis = (positions: UnifiedTradingPosition[]) =>
+  sumFiniteNumbers(positions.map((position) => position.costBasis))
+
+export const sumTradierPositionUnrealizedPnl = (positions: UnifiedTradingPosition[]) =>
+  sumFiniteNumbers(positions.map((position) => position.unrealizedPnl))
+
 export const buildTradierHoldingsRequest = (params: TradingHoldingsInput): TradingRequestConfig => {
   if (!params.accountId) {
     throw new Error('Tradier account ID is required')
@@ -103,77 +145,40 @@ export const normalizeTradierHoldings = (
   data: any,
   context?: TradingHoldingsNormalizationContext
 ): UnifiedTradingAccountSnapshot => {
-  const list = extractPositions(data)
-  const balancePayload = extractBalances(data)
+  const list = extractTradierPositions(data)
+  const balancePayload = extractTradierBalances(data)
   const balances = balancePayload?.balances
   const margin = balancePayload?.margin
   const cash = balancePayload?.cash
+  const normalizedPositions = normalizeTradierPositions(list)
 
-  const normalizedPositions: UnifiedTradingPosition[] = list.map((position: any) => {
-    const resolvedSymbol = tradingSymbolToListingIdentity(tradierTradingProviderConfig, {
-      symbol: typeof position?.symbol === 'string' ? position.symbol : undefined,
-      assetClass: 'stock',
-      defaultQuote: DEFAULT_BASE_CURRENCY,
-    })
-    const quantity = toNumber(position?.quantity) ?? 0
-    const marketValue = toNumber(position?.market_value)
-    const costBasis = toNumber(position?.cost_basis)
-    const averagePrice =
-      typeof costBasis === 'number' && quantity !== 0 ? Math.abs(costBasis / quantity) : undefined
-    const side = quantity === 0 ? 'flat' : quantity < 0 ? 'short' : 'long'
-    const openedAt =
-      typeof position?.date_acquired === 'string' ? position.date_acquired : undefined
-
-    return {
-      symbol: {
-        base: resolvedSymbol?.base ?? 'UNKNOWN',
-        quote: resolvedSymbol?.quote ?? DEFAULT_BASE_CURRENCY,
-        listing: resolvedSymbol?.listing,
-        name: null,
-        assetClass: resolvedSymbol?.assetClass ?? 'stock',
-        active: true,
-        rank: 0,
-      },
-      quantity,
-      side,
-      averagePrice,
-      marketValue,
-      currencySymbol: getCurrencySymbol(DEFAULT_BASE_CURRENCY),
-      conversionRate: 1,
-      costBasis,
-      openedAt,
-    }
-  })
-
-  const totalHoldingsValueFromPositions = sumNumbers(
-    normalizedPositions.map((position) => position.marketValue)
-  )
-  const totalCostBasis = sumNumbers(normalizedPositions.map((position) => position.costBasis))
+  const totalHoldingsValueFromPositions = sumTradierPositionMarketValues(normalizedPositions)
+  const totalCostBasis = sumTradierPositionCostBasis(normalizedPositions)
   const hasMarketValues = normalizedPositions.some(
     (position) => typeof position.marketValue === 'number'
   )
 
   const totalHoldingsValueFromBalances =
-    toNumber(balances?.market_value) ?? toNumber(balances?.long_market_value)
+    toFiniteNumber(balances?.market_value) ?? toFiniteNumber(balances?.long_market_value)
   const totalHoldingsValue =
     totalHoldingsValueFromBalances ??
     (hasMarketValues ? totalHoldingsValueFromPositions : totalCostBasis)
 
-  const totalUnrealizedPnlFromPositions = sumNumbers(
-    normalizedPositions.map((position) => position.unrealizedPnl)
-  )
-  const totalUnrealizedPnl = toNumber(balances?.open_pl) ?? totalUnrealizedPnlFromPositions
-  const totalRealizedPnl = toNumber(balances?.close_pl)
-  const totalCashValue = toNumber(balances?.total_cash) ?? toNumber(cash?.cash_available) ?? 0
+  const totalUnrealizedPnl =
+    toFiniteNumber(balances?.open_pl) ?? sumTradierPositionUnrealizedPnl(normalizedPositions)
+  const totalRealizedPnl = toFiniteNumber(balances?.close_pl)
+  const totalCashValue =
+    toFiniteNumber(balances?.total_cash) ?? toFiniteNumber(cash?.cash_available) ?? 0
   const totalPortfolioValue =
-    toNumber(balances?.total_equity) ?? totalHoldingsValue + totalCashValue
+    toFiniteNumber(balances?.total_equity) ?? totalHoldingsValue + totalCashValue
 
   const cashBalances =
-    toNumber(balances?.total_cash) !== undefined || toNumber(cash?.cash_available) !== undefined
+    toFiniteNumber(balances?.total_cash) !== undefined ||
+    toFiniteNumber(cash?.cash_available) !== undefined
       ? [
           {
-            currency: DEFAULT_BASE_CURRENCY,
-            currencySymbol: getCurrencySymbol(DEFAULT_BASE_CURRENCY),
+            currency: TRADIER_DEFAULT_BASE_CURRENCY,
+            currencySymbol: getTradierCurrencySymbol(TRADIER_DEFAULT_BASE_CURRENCY),
             amount: totalCashValue,
             conversionRate: 1,
             amountInAccountCurrency: totalCashValue,
@@ -189,8 +194,8 @@ export const normalizeTradierHoldings = (
     },
     account: {
       id: balances?.account_number || context?.accountId || 'unknown',
-      type: mapAccountType(balances?.account_type),
-      baseCurrency: DEFAULT_BASE_CURRENCY,
+      type: mapTradierAccountType(balances?.account_type),
+      baseCurrency: TRADIER_DEFAULT_BASE_CURRENCY,
       status: 'unknown',
     },
     cashBalances,
@@ -202,9 +207,10 @@ export const normalizeTradierHoldings = (
       totalHoldingsValue,
       totalUnrealizedPnl,
       totalRealizedPnl,
-      marginUsed: toNumber(balances?.current_requirement),
-      buyingPower: toNumber(margin?.stock_buying_power) ?? toNumber(balances?.stock_buying_power),
-      equity: toNumber(balances?.equity) ?? totalPortfolioValue,
+      marginUsed: toFiniteNumber(balances?.current_requirement),
+      buyingPower:
+        toFiniteNumber(margin?.stock_buying_power) ?? toFiniteNumber(balances?.stock_buying_power),
+      equity: toFiniteNumber(balances?.equity) ?? totalPortfolioValue,
     },
     extra: {
       rawPositions: list,
