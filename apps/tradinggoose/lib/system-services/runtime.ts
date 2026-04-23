@@ -113,6 +113,13 @@ export const resolveOllamaServiceConfig = createServiceResolver('ollama', (confi
   baseUrl: asString(config.baseUrl) ?? 'http://localhost:11434',
 }))
 
+export const resolveVllmServiceConfig = createServiceResolver('vllm', readApiKeyAndBaseUrlConfig)
+
+export const resolveFireworksServiceConfig = createServiceResolver(
+  'fireworks',
+  readApiKeyConfig
+)
+
 export const resolveElevenLabsServiceConfig = createServiceResolver(
   'elevenlabs',
   readApiKeyConfig

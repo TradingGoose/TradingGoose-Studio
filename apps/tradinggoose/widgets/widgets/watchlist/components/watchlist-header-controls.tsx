@@ -194,7 +194,7 @@ export const WatchlistHeaderLeftControls = ({
   }
 
   return (
-    <div className={widgetHeaderButtonGroupClassName('shrink-0')}>
+    <div className={widgetHeaderButtonGroupClassName('min-w-0')}>
       <WatchlistProviderSettingsButton
         providerId={providerId}
         providerParams={params?.providerParams}
@@ -307,8 +307,8 @@ export const WatchlistHeaderCenterControls = ({
     addListingMutation.isPending
 
   return (
-    <div className={widgetHeaderButtonGroupClassName('shrink-0')}>
-      <div className='min-w-[240px]'>
+    <div className={widgetHeaderButtonGroupClassName('min-w-0')}>
+      <div className='w-full min-w-0 max-w-[240px]'>
         <ListingSelector
           instanceId={selectorInstanceId}
           disabled={!workspaceId || !providerId || !selectedWatchlist}
@@ -519,18 +519,20 @@ export const WatchlistHeaderRightControls = ({
   }
 
   return (
-    <div className={widgetHeaderButtonGroupClassName('shrink-0')}>
-      <WatchlistListSelector
-        watchlists={orderedWatchlists}
-        selectedWatchlist={selectedWatchlist}
-        onSelect={handleSelectWatchlist}
-        onRenameWatchlist={handleRenameWatchlist}
-        onDeleteWatchlist={handleDeleteWatchlistById}
-        isRenamingWatchlist={renameMutation.isPending}
-        isDeletingWatchlist={deleteMutation.isPending}
-        disabled={!workspaceId}
-        align='end'
-      />
+    <div className={widgetHeaderButtonGroupClassName('min-w-0')}>
+      <div className='w-full min-w-0 max-w-[220px]'>
+        <WatchlistListSelector
+          watchlists={orderedWatchlists}
+          selectedWatchlist={selectedWatchlist}
+          onSelect={handleSelectWatchlist}
+          onRenameWatchlist={handleRenameWatchlist}
+          onDeleteWatchlist={handleDeleteWatchlistById}
+          isRenamingWatchlist={renameMutation.isPending}
+          isDeletingWatchlist={deleteMutation.isPending}
+          disabled={!workspaceId}
+          align='end'
+        />
+      </div>
       <WatchlistListActionsButton
         open={listActionsOpen}
         onOpenChange={setListActionsOpen}

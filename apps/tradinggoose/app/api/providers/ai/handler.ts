@@ -21,6 +21,11 @@ export interface ProviderRouteBody {
   apiKey?: string
   azureEndpoint?: string
   azureApiVersion?: string
+  vertexProject?: string
+  vertexLocation?: string
+  bedrockAccessKeyId?: string
+  bedrockSecretKey?: string
+  bedrockRegion?: string
   responseFormat?: any
   workflowId?: string
   workspaceId?: string
@@ -34,6 +39,7 @@ export interface ProviderRouteBody {
   blockNameMapping?: Record<string, string>
   reasoningEffort?: string
   verbosity?: string
+  thinkingLevel?: string
 }
 
 interface HandleAIProviderParams {
@@ -59,6 +65,11 @@ export async function handleAIProviderRequest({
     apiKey,
     azureEndpoint,
     azureApiVersion,
+    vertexProject,
+    vertexLocation,
+    bedrockAccessKeyId,
+    bedrockSecretKey,
+    bedrockRegion,
     responseFormat,
     workflowId,
     workspaceId,
@@ -70,6 +81,7 @@ export async function handleAIProviderRequest({
     blockNameMapping,
     reasoningEffort,
     verbosity,
+    thinkingLevel,
   } = body
 
   const providerConfig = getProvider(providerId)
@@ -94,6 +106,11 @@ export async function handleAIProviderRequest({
     hasApiKey: !!apiKey,
     hasAzureEndpoint: !!azureEndpoint,
     hasAzureApiVersion: !!azureApiVersion,
+    hasVertexProject: !!vertexProject,
+    hasVertexLocation: !!vertexLocation,
+    hasBedrockAccessKeyId: !!bedrockAccessKeyId,
+    hasBedrockSecretKey: !!bedrockSecretKey,
+    hasBedrockRegion: !!bedrockRegion,
     hasResponseFormat: !!responseFormat,
     workflowId,
     stream: !!stream,
@@ -103,6 +120,7 @@ export async function handleAIProviderRequest({
     hasWorkflowVariables: !!workflowVariables && Object.keys(workflowVariables).length > 0,
     reasoningEffort,
     verbosity,
+    thinkingLevel,
   })
 
   let finalApiKey: string
@@ -138,6 +156,11 @@ export async function handleAIProviderRequest({
     apiKey: finalApiKey,
     azureEndpoint,
     azureApiVersion,
+    vertexProject,
+    vertexLocation,
+    bedrockAccessKeyId,
+    bedrockSecretKey,
+    bedrockRegion,
     responseFormat,
     workflowId,
     workspaceId,
@@ -149,6 +172,7 @@ export async function handleAIProviderRequest({
     blockNameMapping,
     reasoningEffort,
     verbosity,
+    thinkingLevel,
   })
 
   const executionTime = Date.now() - startTime

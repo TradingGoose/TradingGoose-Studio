@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { AdminBillingSettingsMutationInput } from '@/lib/admin/billing/settings-mutations'
 import type { AdminBillingTierMutationInput } from '@/lib/admin/billing/tier-mutations'
 import type { AdminBillingSnapshot } from '@/lib/admin/billing/types'
+import { subscriptionKeys } from './subscription'
 
 const ADMIN_BILLING_ENDPOINT = '/api/admin/billing'
 const ADMIN_BILLING_SETTINGS_ENDPOINT = '/api/admin/billing/settings'
@@ -95,7 +96,10 @@ export function useUpdateAdminBillingSettings() {
     mutationFn: (input: AdminBillingSettingsMutationInput) =>
       sendMutationRequest(ADMIN_BILLING_SETTINGS_ENDPOINT, 'PATCH', input),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: adminBillingKeys.snapshot() })
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: adminBillingKeys.snapshot() }),
+        queryClient.invalidateQueries({ queryKey: subscriptionKeys.all }),
+      ])
     },
   })
 }

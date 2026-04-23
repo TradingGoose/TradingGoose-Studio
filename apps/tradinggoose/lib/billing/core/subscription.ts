@@ -1,6 +1,6 @@
 import { db } from '@tradinggoose/db'
 import { member, subscription, user, userStats } from '@tradinggoose/db/schema'
-import { and, eq, inArray } from 'drizzle-orm'
+import { and, eq, inArray, sql } from 'drizzle-orm'
 import { getResolvedBillingSettings } from '@/lib/billing/settings'
 import { BILLING_ENTITLED_SUBSCRIPTION_STATUSES } from '@/lib/billing/subscriptions/utils'
 import type { BillingReference, SubscriptionWithTier } from '@/lib/billing/tiers'
@@ -231,8 +231,16 @@ export async function backfillDefaultUserSubscriptions(): Promise<number> {
         userId: row.id,
         ...usageLimitSeed,
       })
-      .onConflictDoNothing({
+      .onConflictDoUpdate({
         target: userStats.userId,
+        set: {
+          grantedOnboardingAllowanceUsd: usageLimit,
+          customUsageLimit: sql`CASE
+            WHEN ${userStats.customUsageLimit} = ${userStats.grantedOnboardingAllowanceUsd}
+              THEN ${usageLimit}
+            ELSE ${userStats.customUsageLimit}
+          END`,
+        },
       })
     createdCount += 1
   }

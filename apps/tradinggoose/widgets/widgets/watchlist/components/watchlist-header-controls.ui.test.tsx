@@ -183,7 +183,7 @@ describe('watchlist header controls', () => {
       )
     })
 
-    expect(container.firstElementChild?.className).toContain('shrink-0')
+    expect(container.firstElementChild?.className).toContain('min-w-0')
 
     const buttons = Array.from(container.querySelectorAll('button'))
     const listingButton = buttons.find((button) => button.textContent?.includes('Select Listing'))
@@ -248,7 +248,7 @@ describe('watchlist header controls', () => {
       )
     })
 
-    expect(container.firstElementChild?.className).toContain('shrink-0')
+    expect(container.firstElementChild?.className).toContain('min-w-0')
 
     const button = Array.from(container.querySelectorAll('button')).find((candidate) =>
       candidate.textContent?.includes('Create Section')

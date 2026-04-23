@@ -28,6 +28,8 @@ export interface NormalizedBlockOutput {
   content?: string // Text content from LLM responses
   model?: string // Model identifier used for generation
   tokens?: {
+    input?: number
+    output?: number
     prompt?: number
     completion?: number
     total?: number

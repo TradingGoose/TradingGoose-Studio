@@ -164,7 +164,7 @@ describe('WatchlistListSelector', () => {
     expect(onRenameWatchlist).toHaveBeenCalledWith('favorites', 'Tech')
   })
 
-  it('uses indicator-style sizing for the selector trigger and dropdown', async () => {
+  it('uses the shared trading-selector render style for the trigger and dropdown', async () => {
     await act(async () => {
       root.render(
         <WatchlistListSelector
@@ -178,8 +178,10 @@ describe('WatchlistListSelector', () => {
     const trigger = container.querySelector('button[aria-haspopup="listbox"]')
     const content = container.querySelector('.content')
 
-    expect(trigger?.className).toContain('min-w-[220px]')
-    expect(content?.className).toContain('w-[240px]')
+    expect(trigger?.className).toContain('w-full')
+    expect(trigger?.className).toContain('min-w-0')
+    expect(content?.className).toContain('w-[260px]')
+    expect(content?.className).toContain('p-1')
   })
 
   it('opens the delete confirmation and deletes the selected watchlist', async () => {

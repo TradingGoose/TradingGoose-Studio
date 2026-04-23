@@ -1001,15 +1001,15 @@ describe('Copilot Usage API - Completion', () => {
     }))
   })
 
-  it('records internal completion billing with completion id dedupe', async () => {
+  it('records internal completion billing with canonical dotted Claude model ids', async () => {
     const request = new NextRequest('http://localhost:3000/api/copilot/usage', {
       method: 'POST',
       body: JSON.stringify({
         action: 'commit',
         kind: 'completion',
         userId: 'user-1',
-        model: 'gpt-5.4',
-        remoteModel: 'openai/gpt-5.4',
+        model: 'claude-sonnet-4.6',
+        remoteModel: 'anthropic/claude-sonnet-4.6',
         completionId: 'completion-1',
         reservationId: 'reservation-1',
         usage: {
@@ -1031,7 +1031,7 @@ describe('Copilot Usage API - Completion', () => {
         billed: true,
         duplicate: false,
         tokens: 125,
-        model: 'gpt-5.4',
+        model: 'claude-sonnet-4.6',
         cost: 3,
       },
     })
@@ -1049,6 +1049,7 @@ describe('Copilot Usage API - Completion', () => {
       'copilot-completion-billing:completion-1',
       60 * 60 * 24 * 30
     )
+    expect(mockCalculateCost).toHaveBeenCalledWith('claude-sonnet-4.6', 100, 25, false)
     expect(mockReleaseCopilotUsageReservation).toHaveBeenCalledWith({
       reservationId: 'reservation-1',
     })

@@ -289,6 +289,42 @@ export const SYSTEM_SERVICE_DEFINITIONS: SystemServiceDefinition[] = [
     ],
   },
   {
+    id: 'vllm',
+    displayName: 'vLLM',
+    description: 'Base URL and optional bearer token for the OpenAI-compatible vLLM service.',
+    credentialFields: [
+      {
+        key: 'apiKey',
+        label: 'API Key',
+        description: 'Optional bearer token for the vLLM endpoint.',
+        required: false,
+      },
+    ],
+    settingFields: [
+      {
+        key: 'baseUrl',
+        label: 'Base URL',
+        description: 'Base URL for the OpenAI-compatible vLLM host.',
+        type: 'url',
+        required: false,
+      },
+    ],
+  },
+  {
+    id: 'fireworks',
+    displayName: 'Fireworks',
+    description: 'API key for Fireworks model discovery in the provider picker.',
+    credentialFields: [
+      {
+        key: 'apiKey',
+        label: 'API Key',
+        description: 'Used to fetch available Fireworks models.',
+        required: false,
+      },
+    ],
+    settingFields: [],
+  },
+  {
     id: 'elevenlabs',
     displayName: 'ElevenLabs',
     description: 'API key for system-owned text-to-speech requests.',
