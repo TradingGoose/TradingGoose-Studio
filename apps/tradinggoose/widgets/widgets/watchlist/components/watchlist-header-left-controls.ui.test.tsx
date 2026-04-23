@@ -91,7 +91,7 @@ describe('WatchlistHeaderLeftControls', () => {
     })
 
     expect(container.textContent).not.toContain('provider-settings')
-    expect(container.firstElementChild?.className).toContain('shrink-0')
+    expect(container.firstElementChild?.className).toContain('min-w-0')
 
     await act(async () => {
       root.render(
