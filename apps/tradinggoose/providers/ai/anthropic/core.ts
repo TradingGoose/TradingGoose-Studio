@@ -532,10 +532,6 @@ export async function executeAnthropicProviderRequest(
             .map((item) => item.text)
             .join('\n')
 
-          if (textContent) {
-            content = textContent
-          }
-
           const toolUses = currentResponse.content.filter((item) => item.type === 'tool_use')
           if (!toolUses || toolUses.length === 0) {
             break
