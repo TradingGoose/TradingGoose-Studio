@@ -28,17 +28,6 @@ import { executeTool } from '@/tools'
 const logger = createLogger('VLLMProvider')
 const VLLM_VERSION = '1.0.0'
 
-async function resolveVllmRuntimeConfig(
-  request?: Pick<ProviderRequest, 'apiKey' | 'azureEndpoint'>
-) {
-  const serviceConfig = await resolveVllmServiceConfig()
-
-  return {
-    baseUrl: (request?.azureEndpoint || serviceConfig.baseUrl || '').replace(/\/$/, ''),
-    apiKey: request?.apiKey || serviceConfig.apiKey || 'empty',
-  }
-}
-
 export const vllmProvider: ProviderConfig = {
   id: 'vllm',
   name: 'vLLM',
@@ -54,7 +43,8 @@ export const vllmProvider: ProviderConfig = {
     }
 
     try {
-      const { baseUrl, apiKey } = await resolveVllmRuntimeConfig()
+      const vllmConfig = await resolveVllmServiceConfig()
+      const baseUrl = (vllmConfig.baseUrl || '').replace(/\/$/, '')
       if (!baseUrl) {
         logger.info('vLLM base URL not configured, skipping initialization')
         return
@@ -63,6 +53,7 @@ export const vllmProvider: ProviderConfig = {
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
       }
+      const apiKey = vllmConfig.apiKey
       if (apiKey) {
         headers.Authorization = `Bearer ${apiKey}`
       }
@@ -102,14 +93,13 @@ export const vllmProvider: ProviderConfig = {
       stream: !!request.stream,
     })
 
-    const { baseUrl, apiKey } = await resolveVllmRuntimeConfig({
-      apiKey: request.apiKey,
-      azureEndpoint: request.azureEndpoint,
-    })
+    const vllmConfig = await resolveVllmServiceConfig()
+    const baseUrl = (request.azureEndpoint || vllmConfig.baseUrl || '').replace(/\/$/, '')
     if (!baseUrl) {
       throw new Error('vLLM base URL is required for vLLM provider')
     }
 
+    const apiKey = request.apiKey || vllmConfig.apiKey || 'empty'
     const vllm = new OpenAI({
       apiKey,
       baseURL: `${baseUrl}/v1`,

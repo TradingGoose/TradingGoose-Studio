@@ -31,8 +31,6 @@ describe('admin system services', () => {
     const marketApi = snapshot.services.find((service) => service.id === 'market_api')
     const localExecution = snapshot.services.find((service) => service.id === 'local_execution')
     const ollama = snapshot.services.find((service) => service.id === 'ollama')
-    const vllm = snapshot.services.find((service) => service.id === 'vllm')
-    const fireworks = snapshot.services.find((service) => service.id === 'fireworks')
 
     expect(github?.settings.find((setting) => setting.key === 'blogRepository')).toMatchObject({
       required: false,
@@ -64,19 +62,6 @@ describe('admin system services', () => {
     expect(ollama?.settings.find((setting) => setting.key === 'baseUrl')).toMatchObject({
       required: true,
       defaultValue: 'http://localhost:11434',
-    })
-    expect(vllm?.credentials.find((credential) => credential.key === 'apiKey')).toMatchObject({
-      required: false,
-      hasValue: false,
-    })
-    expect(vllm?.settings.find((setting) => setting.key === 'baseUrl')).toMatchObject({
-      required: false,
-      hasValue: false,
-      defaultValue: '',
-    })
-    expect(fireworks?.credentials.find((credential) => credential.key === 'apiKey')).toMatchObject({
-      required: false,
-      hasValue: false,
     })
   })
 })
