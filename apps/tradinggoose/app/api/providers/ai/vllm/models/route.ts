@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
-import { getEnv } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
+import { resolveVllmServiceConfig } from '@/lib/system-services/runtime'
 import { filterBlacklistedModels } from '@/providers/ai/utils'
 
 const logger = createLogger('VLLMModelsAPI')
@@ -8,18 +8,19 @@ const logger = createLogger('VLLMModelsAPI')
 export const dynamic = 'force-dynamic'
 
 export async function GET() {
-  const baseUrl = (getEnv('VLLM_BASE_URL') || '').replace(/\/$/, '')
-
-  if (!baseUrl) {
-    logger.info('VLLM_BASE_URL not configured')
-    return NextResponse.json({ models: [] })
-  }
-
   try {
+    const config = await resolveVllmServiceConfig()
+    const baseUrl = (config.baseUrl || '').replace(/\/$/, '')
+
+    if (!baseUrl) {
+      logger.info('vLLM base URL not configured')
+      return NextResponse.json({ models: [] })
+    }
+
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
     }
-    const apiKey = getEnv('VLLM_API_KEY')
+    const apiKey = config.apiKey
     if (apiKey) {
       headers.Authorization = `Bearer ${apiKey}`
     }
@@ -48,7 +49,6 @@ export async function GET() {
   } catch (error) {
     logger.error('Failed to fetch vLLM models', {
       error: error instanceof Error ? error.message : 'Unknown error',
-      baseUrl,
     })
     return NextResponse.json({ models: [] })
   }

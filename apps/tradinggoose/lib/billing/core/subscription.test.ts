@@ -13,6 +13,7 @@ const {
   mockGetSubscriptionUsageAllowanceUsd,
   mockHydrateSubscriptionsWithTiers,
   mockInArray,
+  mockSql,
   mockSelectEffectiveSubscription,
   mockToBillingTierSummary,
 } = vi.hoisted(() => ({
@@ -27,6 +28,11 @@ const {
   mockGetSubscriptionUsageAllowanceUsd: vi.fn(),
   mockHydrateSubscriptionsWithTiers: vi.fn(),
   mockInArray: vi.fn(),
+  mockSql: vi.fn((strings: TemplateStringsArray, ...values: unknown[]) => ({
+    strings,
+    values,
+    type: 'sql',
+  })),
   mockSelectEffectiveSubscription: vi.fn(),
   mockToBillingTierSummary: vi.fn((tier) => tier ?? { id: null, displayName: 'No plan' }),
 }))
@@ -59,6 +65,7 @@ vi.mock('drizzle-orm', () => ({
   and: mockAnd,
   eq: mockEq,
   inArray: mockInArray,
+  sql: mockSql,
 }))
 
 vi.mock('@/lib/billing/settings', () => ({
@@ -237,6 +244,7 @@ describe('subscription billing helpers', () => {
     const createdCount = await backfillDefaultUserSubscriptions()
 
     expect(createdCount).toBe(1)
+    expect(mockSql).toHaveBeenCalledTimes(1)
     expect(insertCalls).toEqual([
       expect.objectContaining({
         conflict: 'update',
@@ -256,10 +264,18 @@ describe('subscription billing helpers', () => {
           grantedOnboardingAllowanceUsd: '25',
           customUsageLimit: '25',
         }),
-        set: {
+        set: expect.objectContaining({
           grantedOnboardingAllowanceUsd: '25',
-          customUsageLimit: '25',
-        },
+          customUsageLimit: expect.objectContaining({
+            type: 'sql',
+            values: [
+              'userStats.customUsageLimit',
+              'userStats.grantedOnboardingAllowanceUsd',
+              '25',
+              'userStats.customUsageLimit',
+            ],
+          }),
+        }),
       }),
     ])
   })

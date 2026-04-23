@@ -1,5 +1,5 @@
 import { createLogger } from '@/lib/logs/console/logger'
-import { getEnv } from '@/lib/env'
+import { resolveVllmServiceConfig } from '@/lib/system-services/runtime'
 import { toError } from '@/providers/ai/error'
 import OpenAI from 'openai'
 import type { ChatCompletionCreateParamsStreaming } from 'openai/resources/chat/completions'
@@ -28,6 +28,17 @@ import { executeTool } from '@/tools'
 const logger = createLogger('VLLMProvider')
 const VLLM_VERSION = '1.0.0'
 
+async function resolveVllmRuntimeConfig(
+  request?: Pick<ProviderRequest, 'apiKey' | 'azureEndpoint'>
+) {
+  const serviceConfig = await resolveVllmServiceConfig()
+
+  return {
+    baseUrl: (request?.azureEndpoint || serviceConfig.baseUrl || '').replace(/\/$/, ''),
+    apiKey: request?.apiKey || serviceConfig.apiKey || 'empty',
+  }
+}
+
 export const vllmProvider: ProviderConfig = {
   id: 'vllm',
   name: 'vLLM',
@@ -42,18 +53,16 @@ export const vllmProvider: ProviderConfig = {
       return
     }
 
-    const baseUrl = (getEnv('VLLM_BASE_URL') || '').replace(/\/$/, '')
-    if (!baseUrl) {
-      logger.info('VLLM_BASE_URL not configured, skipping initialization')
-      return
-    }
-
     try {
+      const { baseUrl, apiKey } = await resolveVllmRuntimeConfig()
+      if (!baseUrl) {
+        logger.info('vLLM base URL not configured, skipping initialization')
+        return
+      }
+
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
       }
-
-      const apiKey = getEnv('VLLM_API_KEY')
       if (apiKey) {
         headers.Authorization = `Bearer ${apiKey}`
       }
@@ -93,12 +102,14 @@ export const vllmProvider: ProviderConfig = {
       stream: !!request.stream,
     })
 
-    const baseUrl = (request.azureEndpoint || getEnv('VLLM_BASE_URL') || '').replace(/\/$/, '')
+    const { baseUrl, apiKey } = await resolveVllmRuntimeConfig({
+      apiKey: request.apiKey,
+      azureEndpoint: request.azureEndpoint,
+    })
     if (!baseUrl) {
-      throw new Error('VLLM_BASE_URL is required for vLLM provider')
+      throw new Error('vLLM base URL is required for vLLM provider')
     }
 
-    const apiKey = request.apiKey || getEnv('VLLM_API_KEY') || 'empty'
     const vllm = new OpenAI({
       apiKey,
       baseURL: `${baseUrl}/v1`,

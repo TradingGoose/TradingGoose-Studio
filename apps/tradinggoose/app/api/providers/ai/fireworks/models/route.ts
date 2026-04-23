@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
-import { getEnv } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
+import { resolveFireworksServiceConfig } from '@/lib/system-services/runtime'
 import { filterBlacklistedModels } from '@/providers/ai/utils'
 
 const logger = createLogger('FireworksModelsAPI')
@@ -12,13 +12,13 @@ interface FireworksModelsResponse {
 }
 
 export async function GET() {
-  const apiKey = getEnv('FIREWORKS_API_KEY')
-  if (!apiKey) {
-    logger.info('No Fireworks API key available')
-    return NextResponse.json({ models: [] })
-  }
-
   try {
+    const { apiKey } = await resolveFireworksServiceConfig()
+    if (!apiKey) {
+      logger.info('No Fireworks API key available')
+      return NextResponse.json({ models: [] })
+    }
+
     const response = await fetch('https://api.fireworks.ai/inference/v1/models', {
       headers: {
         Authorization: `Bearer ${apiKey}`,
