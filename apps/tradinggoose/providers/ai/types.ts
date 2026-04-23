@@ -4,7 +4,9 @@ export type ProviderId =
   | 'openai'
   | 'azure-openai'
   | 'anthropic'
+  | 'azure-anthropic'
   | 'google'
+  | 'vertex'
   | 'deepseek'
   | 'xai'
   | 'cerebras'
@@ -12,6 +14,9 @@ export type ProviderId =
   | 'mistral'
   | 'ollama'
   | 'openrouter'
+  | 'fireworks'
+  | 'vllm'
+  | 'bedrock'
 
 /**
  * Model pricing information per million tokens
@@ -29,6 +34,8 @@ export interface ModelPricing {
 export type ModelPricingMap = Record<string, ModelPricing>
 
 export interface TokenInfo {
+  input?: number
+  output?: number
   prompt?: number
   completion?: number
   total?: number
@@ -61,6 +68,7 @@ export interface FunctionCallResponse {
   result?: Record<string, any>
   output?: Record<string, any>
   input?: Record<string, any>
+  success?: boolean
 }
 
 export interface TimeSegment {
@@ -74,13 +82,9 @@ export interface TimeSegment {
 export interface ProviderResponse {
   content: string
   model: string
-  tokens?: {
-    prompt?: number
-    completion?: number
-    total?: number
-  }
+  tokens?: TokenInfo
   toolCalls?: FunctionCallResponse[]
-  toolResults?: any[]
+  toolResults?: Record<string, unknown>[]
   timing?: {
     startTime: string // ISO timestamp when provider execution started
     endTime: string // ISO timestamp when provider execution completed
@@ -94,9 +98,11 @@ export interface ProviderResponse {
   cost?: {
     input: number // Cost in USD for input tokens
     output: number // Cost in USD for output tokens
+    toolCost?: number
     total: number // Total cost in USD
     pricing: ModelPricing // The pricing used for calculation
   }
+  interactionId?: string
 }
 
 export type ToolUsageControl = 'auto' | 'force' | 'none'
@@ -112,6 +118,7 @@ export interface ProviderToolConfig {
     required: string[]
   }
   usageControl?: ToolUsageControl
+  paramsTransform?: (params: Record<string, any>) => Record<string, any>
 }
 
 export interface Message {
@@ -135,12 +142,12 @@ export interface Message {
 
 export interface ProviderRequest {
   model: string
-  systemPrompt: string
+  systemPrompt?: string
   context?: string
   tools?: ProviderToolConfig[]
   temperature?: number
   maxTokens?: number
-  apiKey: string
+  apiKey?: string
   messages?: Message[]
   responseFormat?: {
     name: string
@@ -159,12 +166,37 @@ export interface ProviderRequest {
   blockData?: Record<string, any> // Runtime block outputs for <block.field> resolution in custom tools
   blockNameMapping?: Record<string, string> // Mapping of block names to IDs for resolution
   isCopilotRequest?: boolean // Flag to indicate this request is from the copilot system
+  isBYOK?: boolean
   // Azure OpenAI specific parameters
   azureEndpoint?: string
   azureApiVersion?: string
+  vertexProject?: string
+  vertexLocation?: string
+  bedrockAccessKeyId?: string
+  bedrockSecretKey?: string
+  bedrockRegion?: string
   // GPT-5 specific parameters
   reasoningEffort?: string
   verbosity?: string
+  thinkingLevel?: string
+  isDeployedContext?: boolean
+  callChain?: string[]
+  previousInteractionId?: string
+  abortSignal?: AbortSignal
+}
+
+export class ProviderError extends Error {
+  timing: {
+    startTime: string
+    endTime: string
+    duration: number
+  }
+
+  constructor(message: string, timing: { startTime: string; endTime: string; duration: number }) {
+    super(message)
+    this.name = 'ProviderError'
+    this.timing = timing
+  }
 }
 
 // Map of provider IDs to their configurations

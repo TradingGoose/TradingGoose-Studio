@@ -84,16 +84,6 @@ export const WatchlistListSelector = ({
   const isEditing = Boolean(editingWatchlistId)
   const tooltipText = disabled ? 'Watchlist selection unavailable' : 'Select watchlist'
   const selectionLabel = selectedWatchlist?.name ?? 'Select watchlist'
-  const chevronClassName =
-    'h-4 w-4 text-muted-foreground transition-transform group-data-[state=open]:rotate-180'
-  const iconBadge = (
-    <div
-      className='h-5 w-5 rounded-xs bg-muted/60 p-0.5 text-muted-foreground'
-      aria-hidden='true'
-    >
-      <List className='h-4 w-4' />
-    </div>
-  )
 
   const cancelRename = () => {
     setEditingWatchlistId(null)
@@ -201,21 +191,33 @@ export const WatchlistListSelector = ({
                   type='button'
                   disabled={disabled}
                   className={widgetHeaderControlClassName(
-                    cn('group flex min-w-[220px] items-center justify-between gap-2')
+                    cn('group flex w-full min-w-0 items-center justify-between gap-2')
                   )}
                   aria-haspopup='listbox'
+                  aria-label='Select watchlist'
                 >
-                  {iconBadge}
-                  {selectedWatchlist ? (
-                    <span className='min-w-0 flex-1 truncate text-left font-medium text-foreground text-sm'>
+                  <span className='flex min-w-0 flex-1 items-center gap-2 overflow-hidden'>
+                    <span
+                      className='h-5 w-5 rounded-xs bg-muted/60 p-0.5 text-muted-foreground'
+                      aria-hidden='true'
+                    >
+                      <List className='h-4 w-4' />
+                    </span>
+                    <span
+                      className={cn(
+                        'min-w-0 flex-1 truncate text-left text-sm',
+                        selectedWatchlist
+                          ? 'font-medium text-foreground'
+                          : 'text-muted-foreground'
+                      )}
+                    >
                       {selectionLabel}
                     </span>
-                  ) : (
-                    <span className='min-w-0 flex-1 truncate text-left font-medium text-muted-foreground text-sm'>
-                      {selectionLabel}
-                    </span>
-                  )}
-                  <ChevronDown className={chevronClassName} aria-hidden='true' />
+                  </span>
+                  <ChevronDown
+                    className='h-4 w-4 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-180'
+                    aria-hidden='true'
+                  />
                 </button>
               </DropdownMenuTrigger>
             </span>
@@ -227,12 +229,12 @@ export const WatchlistListSelector = ({
           sideOffset={6}
           className={cn(
             widgetHeaderMenuContentClassName,
-            'max-h-[20rem] w-[240px] overflow-hidden p-0 shadow-lg'
+            'max-h-[20rem] w-[260px] overflow-hidden p-1'
           )}
           style={{ maxHeight: DROPDOWN_MAX_HEIGHT }}
           onWheel={(event) => event.stopPropagation()}
         >
-          <div className='flex h-full max-h-[inherit] flex-col'>
+          <div className='flex h-full max-h-[inherit] flex-col overflow-hidden rounded-sm'>
             <div className='border-border/70 border-b p-2'>
               <div className='flex items-center gap-1 rounded-md border bg-background px-2 py-1.5 text-muted-foreground text-sm'>
                 <Search className='h-3.5 w-3.5 shrink-0' />
@@ -287,7 +289,7 @@ export const WatchlistListSelector = ({
                           key={watchlist.id}
                           className={cn(
                             widgetHeaderMenuItemClassName,
-                            'group/watchlist items-center gap-2'
+                            'group/watchlist justify-between'
                           )}
                           onSelect={(event) => {
                             event.preventDefault()
@@ -323,13 +325,7 @@ export const WatchlistListSelector = ({
                               disabled={isRenamingWatchlist || isDeletingWatchlist}
                             />
                           ) : (
-                            <>
-                              <Check
-                                className={cn(
-                                  'h-4 w-4 shrink-0',
-                                  isSelected ? 'text-foreground' : 'text-transparent'
-                                )}
-                              />
+                            <div className='flex min-w-0 flex-1 items-center gap-2'>
                               <span
                                 className={cn(
                                   widgetHeaderMenuTextClassName,
@@ -338,60 +334,65 @@ export const WatchlistListSelector = ({
                               >
                                 <span className='inline-block'>{watchlist.name}</span>
                               </span>
-                            </>
+                            </div>
                           )}
 
                           {!isEditingRow && (canRenameRow || canDeleteRow) ? (
-                            <div className='pointer-events-none ml-1 flex items-center gap-1 opacity-0 transition-opacity group-focus-within/watchlist:pointer-events-auto group-focus-within/watchlist:opacity-100 group-hover/watchlist:pointer-events-auto group-hover/watchlist:opacity-100'>
-                              {canRenameRow ? (
-                                <Button
-                                  type='button'
-                                  variant='ghost'
-                                  size='icon'
-                                  className='h-4 w-4 p-0 text-muted-foreground transition-colors hover:bg-transparent hover:text-foreground'
-                                  onMouseDown={(event) => {
-                                    event.preventDefault()
-                                    event.stopPropagation()
-                                  }}
-                                  onPointerDown={(event) => {
-                                    event.preventDefault()
-                                    event.stopPropagation()
-                                  }}
-                                  onClick={(event) => {
-                                    event.preventDefault()
-                                    event.stopPropagation()
-                                    handleStartRename(watchlist)
-                                  }}
-                                  aria-label={`Rename ${watchlist.name}`}
-                                >
-                                  <Pencil className='!h-3.5 !w-3.5' />
-                                </Button>
-                              ) : null}
-                              {canDeleteRow ? (
-                                <Button
-                                  type='button'
-                                  variant='ghost'
-                                  size='icon'
-                                  className='h-4 w-4 p-0 text-muted-foreground transition-colors hover:bg-transparent hover:text-foreground'
-                                  onMouseDown={(event) => {
-                                    event.preventDefault()
-                                    event.stopPropagation()
-                                  }}
-                                  onPointerDown={(event) => {
-                                    event.preventDefault()
-                                    event.stopPropagation()
-                                  }}
-                                  onClick={(event) => {
-                                    event.preventDefault()
-                                    event.stopPropagation()
-                                    setDeleteTarget(watchlist)
-                                  }}
-                                  aria-label={`Delete ${watchlist.name}`}
-                                >
-                                  <Trash2 className='!h-3.5 !w-3.5' />
-                                </Button>
-                              ) : null}
+                            <div className='ml-2 flex shrink-0 items-center gap-1'>
+                              <div className='pointer-events-none flex items-center gap-1 opacity-0 transition-opacity group-focus-within/watchlist:pointer-events-auto group-focus-within/watchlist:opacity-100 group-hover/watchlist:pointer-events-auto group-hover/watchlist:opacity-100'>
+                                {canRenameRow ? (
+                                  <Button
+                                    type='button'
+                                    variant='ghost'
+                                    size='icon'
+                                    className='h-4 w-4 p-0 text-muted-foreground transition-colors hover:bg-transparent hover:text-foreground'
+                                    onMouseDown={(event) => {
+                                      event.preventDefault()
+                                      event.stopPropagation()
+                                    }}
+                                    onPointerDown={(event) => {
+                                      event.preventDefault()
+                                      event.stopPropagation()
+                                    }}
+                                    onClick={(event) => {
+                                      event.preventDefault()
+                                      event.stopPropagation()
+                                      handleStartRename(watchlist)
+                                    }}
+                                    aria-label={`Rename ${watchlist.name}`}
+                                  >
+                                    <Pencil className='!h-3.5 !w-3.5' />
+                                  </Button>
+                                ) : null}
+                                {canDeleteRow ? (
+                                  <Button
+                                    type='button'
+                                    variant='ghost'
+                                    size='icon'
+                                    className='h-4 w-4 p-0 text-muted-foreground transition-colors hover:bg-transparent hover:text-foreground'
+                                    onMouseDown={(event) => {
+                                      event.preventDefault()
+                                      event.stopPropagation()
+                                    }}
+                                    onPointerDown={(event) => {
+                                      event.preventDefault()
+                                      event.stopPropagation()
+                                    }}
+                                    onClick={(event) => {
+                                      event.preventDefault()
+                                      event.stopPropagation()
+                                      setDeleteTarget(watchlist)
+                                    }}
+                                    aria-label={`Delete ${watchlist.name}`}
+                                  >
+                                    <Trash2 className='!h-3.5 !w-3.5' />
+                                  </Button>
+                                ) : null}
+                              </div>
+                              {isSelected ? <Check className='h-3.5 w-3.5 text-primary' /> : null}
                             </div>
+                          ) : !isEditingRow && isSelected ? (
+                            <Check className='ml-2 h-3.5 w-3.5 shrink-0 text-primary' />
                           ) : null}
                         </DropdownMenuItem>
                       )

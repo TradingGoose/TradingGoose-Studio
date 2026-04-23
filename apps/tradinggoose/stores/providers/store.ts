@@ -1,7 +1,12 @@
 import { createWithEqualityFn as create } from 'zustand/traditional'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getBaseUrl } from '@/lib/urls/utils'
-import { updateOllamaProviderModels, updateOpenRouterProviderModels } from '@/providers/ai/utils'
+import {
+  updateFireworksProviderModels,
+  updateOllamaProviderModels,
+  updateOpenRouterProviderModels,
+  updateVLLMProviderModels,
+} from '@/providers/ai/utils'
 import type { ProviderConfig, ProviderName, ProvidersStore } from './types'
 
 const logger = createLogger('ProvidersStore')
@@ -23,8 +28,13 @@ const PROVIDER_CONFIGS: Record<ProviderName, ProviderConfig> = {
     updateFunction: updateOpenRouterProviderModels,
   },
   vllm: {
-    apiEndpoint: '/api/providers/vllm/models',
-    updateFunction: () => {},
+    apiEndpoint: '/api/providers/ai/vllm/models',
+    updateFunction: updateVLLMProviderModels,
+  },
+  fireworks: {
+    apiEndpoint: '/api/providers/ai/fireworks/models',
+    dedupeModels: true,
+    updateFunction: updateFireworksProviderModels,
   },
 }
 
@@ -74,6 +84,7 @@ export const useProvidersStore = create<ProvidersStore>((set, get) => ({
     ollama: { models: [], isLoading: false },
     openrouter: { models: [], isLoading: false },
     vllm: { models: [], isLoading: false },
+    fireworks: { models: [], isLoading: false },
   },
 
   setModels: (provider, models) => {
@@ -162,4 +173,6 @@ export function bootstrapProviderModels() {
   store.fetchModels('base')
   store.fetchModels('ollama')
   store.fetchModels('openrouter')
+  store.fetchModels('vllm')
+  store.fetchModels('fireworks')
 }

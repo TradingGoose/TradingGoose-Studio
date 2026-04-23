@@ -3,6 +3,7 @@ import type { AdminSystemSettingsMutationInput } from '@/lib/admin/system-settin
 import type { AdminSystemSettingsSnapshot } from '@/lib/admin/system-settings/types'
 import { adminBillingKeys } from './admin-billing'
 import { adminRegistrationKeys } from './admin-registration'
+import { subscriptionKeys } from './subscription'
 
 const ADMIN_SYSTEM_SETTINGS_ENDPOINT = '/api/admin/system-settings'
 
@@ -113,6 +114,7 @@ export function useUpdateAdminSystemSettings() {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: adminBillingKeys.snapshot() }),
         queryClient.invalidateQueries({ queryKey: adminRegistrationKeys.snapshot() }),
+        queryClient.invalidateQueries({ queryKey: subscriptionKeys.all }),
       ])
     },
   })

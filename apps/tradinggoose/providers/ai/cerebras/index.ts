@@ -98,9 +98,11 @@ export const cerebrasProvider: ProviderConfig = {
           }))
         : undefined
 
+      const selectedModel = request.model || cerebrasProvider.defaultModel
+
       // Build the request payload
       const payload: any = {
-        model: (request.model || 'cerebras/llama-3.3-70b').replace('cerebras/', ''),
+        model: selectedModel.replace('cerebras/', ''),
         messages: allMessages,
       }
 
@@ -164,7 +166,7 @@ export const cerebrasProvider: ProviderConfig = {
             success: true,
             output: {
               content: '', // Will be filled by streaming content in chat component
-              model: request.model || 'cerebras/llama-3.3-70b',
+              model: selectedModel,
               tokens: tokenUsage,
               toolCalls: undefined,
               providerTiming: {
@@ -476,7 +478,7 @@ export const cerebrasProvider: ProviderConfig = {
             success: true,
             output: {
               content: '', // Will be filled by the callback
-              model: request.model || 'cerebras/llama-3.3-70b',
+              model: selectedModel,
               tokens: {
                 prompt: tokens.prompt,
                 completion: tokens.completion,
