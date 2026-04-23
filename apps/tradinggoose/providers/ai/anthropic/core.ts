@@ -489,15 +489,6 @@ export async function executeAnthropicProviderRequest(
       let currentResponse = await createMessage(anthropic, payload, request.abortSignal)
       const firstResponseTime = Date.now() - initialCallTime
 
-      let content = ''
-
-      if (Array.isArray(currentResponse.content)) {
-        content = currentResponse.content
-          .filter((item) => item.type === 'text')
-          .map((item) => item.text)
-          .join('\n')
-      }
-
       const tokens = {
         input: currentResponse.usage?.input_tokens || 0,
         output: currentResponse.usage?.output_tokens || 0,
