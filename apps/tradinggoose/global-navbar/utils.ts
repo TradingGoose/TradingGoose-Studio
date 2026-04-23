@@ -1,4 +1,5 @@
 import {
+  Activity,
   Braces,
   Files,
   KeyRound,
@@ -32,6 +33,7 @@ export function getWorkspaceSwitchPath(
     'knowledge',
     'files',
     'logs',
+    'monitor',
     'environment',
     'api-keys',
     'integrations',
@@ -51,6 +53,7 @@ export function createWorkspaceNav(workspaceId?: string): NavItemLink[] {
       { title: 'Knowledge', url: '/knowledge', icon: LibraryBig, section: 'workspace' },
       { title: 'Files', url: '/files', icon: Files, section: 'workspace' },
       { title: 'Logs', url: '/logs', icon: Scroll, section: 'workspace' },
+      { title: 'Monitor', url: '/monitor', icon: Activity, section: 'workspace' },
     ]
   }
 
@@ -60,6 +63,7 @@ export function createWorkspaceNav(workspaceId?: string): NavItemLink[] {
     { title: 'Knowledge', url: `${base}/knowledge`, icon: LibraryBig, section: 'workspace' },
     { title: 'Files', url: `${base}/files`, icon: Files, section: 'workspace' },
     { title: 'Logs', url: `${base}/logs`, icon: Scroll, section: 'workspace' },
+    { title: 'Monitor', url: `${base}/monitor`, icon: Activity, section: 'workspace' },
     { title: 'Environment Variable', url: `${base}/environment`, icon: Braces, section: 'more' },
     { title: 'API Keys', url: `${base}/api-keys`, icon: KeyRound, section: 'more' },
     { title: 'Integrations', url: `${base}/integrations`, icon: Waypoints, section: 'more' },

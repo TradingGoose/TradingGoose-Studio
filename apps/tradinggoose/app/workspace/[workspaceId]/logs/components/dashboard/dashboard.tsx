@@ -145,7 +145,7 @@ export function Dashboard() {
   useEffect(() => {
     const urlView = searchParams.get('view')
     if (urlView === 'dashboard' || urlView === 'logs') {
-      if ((viewMode as string) !== urlView) setViewMode(urlView as any)
+      if (viewMode !== urlView) setViewMode(urlView)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -815,20 +815,6 @@ export function Dashboard() {
           aria-pressed={viewMode === 'logs'}
         >
           Logs
-        </Button>
-        <Button
-          variant='ghost'
-          size='sm'
-          onClick={() => setViewMode('monitors')}
-          className={cn(
-            'h-7 rounded-sm px-3 font-normal text-xs',
-            viewMode === 'monitors'
-              ? 'bg-background text-foreground'
-              : 'text-muted-foreground hover:text-foreground'
-          )}
-          aria-pressed={viewMode === 'monitors'}
-        >
-          Monitors
         </Button>
         <Button
           variant='ghost'

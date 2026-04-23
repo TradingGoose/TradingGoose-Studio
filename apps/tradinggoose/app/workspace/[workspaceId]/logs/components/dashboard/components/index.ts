@@ -1,4 +1,3 @@
-export { default as Controls } from './controls'
 export { default as KPIs } from './kpis'
 export { default as LineChart } from './line-chart'
 export { LogsFilters } from './logs-filters/logs-filters'
