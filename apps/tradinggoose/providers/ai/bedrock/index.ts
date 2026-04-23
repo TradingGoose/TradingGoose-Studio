@@ -557,7 +557,6 @@ export const bedrockProvider: ProviderConfig = {
           const {
             toolUseId,
             toolName,
-            toolArgs,
             toolParams,
             result,
             startTime,
