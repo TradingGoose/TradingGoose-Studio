@@ -102,6 +102,16 @@ export interface TradingHoldingsNormalizationContext extends TradingHoldingsInpu
   providerName?: string
 }
 
+export interface TradingPortfolioBaseContext {
+  providerId: TradingProviderId
+  environment?: 'paper' | 'live'
+  accessToken: string
+}
+
+export interface TradingPortfolioAccountContext extends TradingPortfolioBaseContext {
+  accountId: string
+}
+
 export interface TradingOrderRequest extends TradingOrderInput {
   kind: 'order'
 }
@@ -252,6 +262,32 @@ export interface UnifiedTradingAccountSnapshot {
   orders: UnifiedTradingOrder[]
   accountSummary: UnifiedTradingAccountSummary
   extra?: Record<string, any>
+}
+
+export type TradingPortfolioPerformanceWindow = '1D' | '1W' | '1M' | '3M' | 'YTD' | '1Y' | 'MAX'
+
+export interface UnifiedTradingPortfolioPerformancePoint {
+  timestamp: string
+  equity: number
+}
+
+export interface UnifiedTradingPortfolioPerformanceSummary {
+  currency: string
+  startEquity: number
+  endEquity: number
+  highEquity: number
+  lowEquity: number
+  absoluteReturn: number
+  percentReturn: number | null
+  asOf: string
+}
+
+export interface UnifiedTradingPortfolioPerformance {
+  window: TradingPortfolioPerformanceWindow
+  supportedWindows: TradingPortfolioPerformanceWindow[]
+  series: UnifiedTradingPortfolioPerformancePoint[]
+  summary: UnifiedTradingPortfolioPerformanceSummary | null
+  unavailableReason?: string
 }
 
 export interface TradingOrder {

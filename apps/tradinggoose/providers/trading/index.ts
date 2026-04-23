@@ -1,5 +1,7 @@
 import { createLogger } from '@/lib/logs/console/logger'
+import { alpacaProvider } from '@/providers/trading/alpaca'
 import type { TradingProvider } from '@/providers/trading/providers'
+import { tradierProvider } from '@/providers/trading/tradier'
 import type {
   TradingOrderDetailInput,
   TradingOrderDetailResult,
@@ -8,8 +10,6 @@ import type {
   TradingProviderRequest,
   TradingRequestConfig,
 } from '@/providers/trading/types'
-import { alpacaProvider } from '@/providers/trading/alpaca'
-import { tradierProvider } from '@/providers/trading/tradier'
 
 const logger = createLogger('TradingProviders')
 
@@ -79,4 +79,5 @@ export async function executeTradingProviderOrderDetailRequest(
   return provider.orderDetailRequest(historyRecord, params)
 }
 
+export * from './portfolio'
 export * from './providers'

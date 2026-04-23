@@ -4,14 +4,14 @@ import { alpacaTradingProviderConfig } from '@/providers/trading/alpaca/config'
 import { tradierTradingProviderConfig } from '@/providers/trading/tradier/config'
 import type {
   TradingAuthType,
-  TradingOrderDetailInput,
-  TradingOrderDetailResult,
-  TradingOrderHistoryRecord,
   TradingFieldDefinition,
   TradingHoldingsInput,
   TradingHoldingsNormalizationContext,
   TradingOperationKind,
   TradingOrder,
+  TradingOrderDetailInput,
+  TradingOrderDetailResult,
+  TradingOrderHistoryRecord,
   TradingOrderInput,
   TradingProviderId,
   TradingProviderOAuthConfig,
@@ -207,7 +207,7 @@ export const TRADING_PROVIDER_DEFINITIONS: Record<string, TradingProviderDefinit
       serviceId: 'alpaca',
       scopes: ['account:write', 'trading', 'data'],
       credentialTitle: 'Alpaca Account',
-      credentialPlaceholder: 'Select Alpaca account',
+      credentialPlaceholder: 'Select or connect Alpaca connection',
     },
     credentialFields: [],
     defaults: {
@@ -226,7 +226,7 @@ export const TRADING_PROVIDER_DEFINITIONS: Record<string, TradingProviderDefinit
       serviceId: 'tradier',
       scopes: ['read', 'write', 'trade'],
       credentialTitle: 'Tradier Account',
-      credentialPlaceholder: 'Select or connect Tradier account',
+      credentialPlaceholder: 'Select or connect Tradier connection',
     },
     fields: [
       {
@@ -290,11 +290,10 @@ export function getTradingProviders(): TradingProviderDefinition[] {
   return Object.values(TRADING_PROVIDER_DEFINITIONS)
 }
 
-export function getTradingProviderOptions(): Array<{ id: string; name: string }> {
-  return Object.values(TRADING_PROVIDER_DEFINITIONS).map((provider) => ({
-    id: provider.id,
-    name: provider.name,
-  }))
+export function getTradingProviderOAuthServiceId(providerId: TradingProviderId): string | null {
+  const provider = getTradingProviderDefinition(providerId)
+  if (!provider?.oauth) return null
+  return provider.oauth.serviceId ?? provider.oauth.provider
 }
 
 export function getTradingProvidersByKind(kind: TradingOperationKind): TradingProviderDefinition[] {
@@ -309,6 +308,29 @@ export function getTradingProviderOptionsByKind(
   kind: TradingOperationKind
 ): Array<{ id: string; name: string }> {
   return getTradingProvidersByKind(kind).map((provider) => ({
+    id: provider.id,
+    name: provider.name,
+  }))
+}
+
+export function getAvailableTradingProviders(
+  providerAvailability: Record<string, boolean>,
+  kind?: TradingOperationKind
+): TradingProviderDefinition[] {
+  const providers = kind ? getTradingProvidersByKind(kind) : getTradingProviders()
+
+  return providers.filter((provider) => {
+    const oauthServiceId = getTradingProviderOAuthServiceId(provider.id)
+    if (!oauthServiceId) return true
+    return Boolean(providerAvailability[oauthServiceId])
+  })
+}
+
+export function getAvailableTradingProviderOptions(
+  providerAvailability: Record<string, boolean>,
+  kind?: TradingOperationKind
+): Array<{ id: string; name: string }> {
+  return getAvailableTradingProviders(providerAvailability, kind).map((provider) => ({
     id: provider.id,
     name: provider.name,
   }))
