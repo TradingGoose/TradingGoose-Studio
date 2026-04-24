@@ -1,18 +1,26 @@
 import type {
   IndicatorMonitorRecord,
+  IndicatorMonitorMutationInput,
+  IndicatorMonitorStateUpdateInput,
   IndicatorOption,
   WorkflowPickerOption,
   WorkflowTargetOption,
-} from './types'
-import { parseErrorMessage, toTrimmed } from './utils'
+} from '../shared/types'
+import { parseErrorMessage, toTrimmed } from '../shared/utils'
 import type {
   CreateMonitorViewBody,
   MonitorViewRow,
   MonitorViewsListResponse,
   UpdateMonitorViewBody,
-} from './view-config'
+} from '../view/view-config'
 
 const FALLBACK_INDICATOR_COLOR = '#3972F6'
+
+const parseMonitorResponse = async (response: Response): Promise<IndicatorMonitorRecord | null> => {
+  const payload = await response.json().catch(() => null)
+  const data = payload?.data
+  return data && typeof data === 'object' ? (data as IndicatorMonitorRecord) : null
+}
 
 export async function loadWorkflowTargetOptions(
   workspaceId: string
@@ -123,6 +131,49 @@ export async function loadMonitors(workspaceId: string): Promise<IndicatorMonito
   return Array.isArray(payload?.data) ? payload.data : []
 }
 
+export async function createIndicatorMonitor(
+  body: IndicatorMonitorMutationInput
+): Promise<IndicatorMonitorRecord | null> {
+  const response = await fetch('/api/indicator-monitors', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+
+  if (!response.ok) {
+    throw new Error(await parseErrorMessage(response))
+  }
+
+  return parseMonitorResponse(response)
+}
+
+export async function updateIndicatorMonitor(
+  monitorId: string,
+  body: Partial<IndicatorMonitorMutationInput> | IndicatorMonitorStateUpdateInput
+): Promise<IndicatorMonitorRecord | null> {
+  const response = await fetch(`/api/indicator-monitors/${encodeURIComponent(monitorId)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+
+  if (!response.ok) {
+    throw new Error(await parseErrorMessage(response))
+  }
+
+  return parseMonitorResponse(response)
+}
+
+export async function deleteIndicatorMonitor(monitorId: string) {
+  const response = await fetch(`/api/indicator-monitors/${encodeURIComponent(monitorId)}`, {
+    method: 'DELETE',
+  })
+
+  if (!response.ok) {
+    throw new Error(await parseErrorMessage(response))
+  }
+}
+
 export async function listMonitorViews(workspaceId: string): Promise<MonitorViewRow[]> {
   const response = await fetch(`/api/workspaces/${encodeURIComponent(workspaceId)}/monitor-views`)
 
@@ -152,11 +203,29 @@ export async function createMonitorView(
   return payload as MonitorViewRow
 }
 
-export async function activateMonitorView(workspaceId: string, activeViewId: string) {
+export async function setActiveMonitorView(workspaceId: string, activeViewId: string) {
   const response = await fetch(`/api/workspaces/${encodeURIComponent(workspaceId)}/monitor-views`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ activeViewId }),
+  })
+
+  if (!response.ok) {
+    throw new Error(await parseErrorMessage(response))
+  }
+}
+
+export async function reorderMonitorViews(
+  workspaceId: string,
+  body: {
+    viewOrder: string[]
+    activeViewId?: string
+  }
+) {
+  const response = await fetch(`/api/workspaces/${encodeURIComponent(workspaceId)}/monitor-views`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
   })
 
   if (!response.ok) {

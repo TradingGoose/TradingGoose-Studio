@@ -56,6 +56,26 @@ export type MonitorDraft = {
   isActive: boolean
 }
 
+export type IndicatorMonitorMutationInput = {
+  workspaceId: string
+  workflowId: string
+  blockId: string
+  providerId: string
+  interval: string
+  indicatorId: string
+  listing: ListingIdentity
+  auth: {
+    secrets: Record<string, string>
+  }
+  providerParams?: Record<string, string>
+  isActive: boolean
+}
+
+export type IndicatorMonitorStateUpdateInput = {
+  workspaceId: string
+  isActive: boolean
+}
+
 export type StreamingProviderOption = {
   id: string
   name: string
@@ -67,5 +87,3 @@ export type WorkflowPickerOption = {
   workflowName: string
   workflowColor: string
 }
-
-export type MonitorNameDialogMode = 'create' | 'rename' | 'duplicate'

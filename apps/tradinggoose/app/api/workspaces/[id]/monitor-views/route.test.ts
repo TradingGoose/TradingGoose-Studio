@@ -4,57 +4,41 @@
 
 import { NextRequest } from 'next/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { DEFAULT_MONITOR_VIEW_CONFIG } from '@/app/workspace/[workspaceId]/monitor/components/view-config'
 
 const {
   mockGetSession,
-  mockSelectOrderBy,
-  mockSelectLimit,
-  mockTxUpdateWhere,
-  mockTxInsertReturning,
-} = vi.hoisted(() => ({
+  mockOrderBy,
+  mockTxWhere,
+  mockTxSet,
+  mockTxUpdate,
+  mockTxReturning,
+  mockTxValues,
+  mockTxInsert,
+  mockTransaction,
+} =
+  vi.hoisted(() => ({
   mockGetSession: vi.fn(),
-  mockSelectOrderBy: vi.fn(),
-  mockSelectLimit: vi.fn(),
-  mockTxUpdateWhere: vi.fn(),
-  mockTxInsertReturning: vi.fn(),
+  mockOrderBy: vi.fn(),
+  mockTxWhere: vi.fn(),
+  mockTxSet: vi.fn(),
+  mockTxUpdate: vi.fn(),
+  mockTxReturning: vi.fn(),
+  mockTxValues: vi.fn(),
+  mockTxInsert: vi.fn(),
+  mockTransaction: vi.fn(),
 }))
 
-const mockSelectWhere = vi.fn(() => ({
-  orderBy: mockSelectOrderBy,
-  limit: mockSelectLimit,
+const mockWhere = vi.fn(() => ({
+  orderBy: mockOrderBy,
 }))
 
-const mockSelectFrom = vi.fn(() => ({
-  where: mockSelectWhere,
+const mockFrom = vi.fn(() => ({
+  where: mockWhere,
 }))
 
 const mockSelect = vi.fn(() => ({
-  from: mockSelectFrom,
+  from: mockFrom,
 }))
-
-const mockTxUpdateSet = vi.fn(() => ({
-  where: mockTxUpdateWhere,
-}))
-
-const mockTxUpdate = vi.fn(() => ({
-  set: mockTxUpdateSet,
-}))
-
-const mockTxInsertValues = vi.fn(() => ({
-  returning: mockTxInsertReturning,
-}))
-
-const mockTxInsert = vi.fn(() => ({
-  values: mockTxInsertValues,
-}))
-
-const mockTransaction = vi.fn(async (callback: (tx: unknown) => Promise<unknown>) =>
-  callback({
-    update: mockTxUpdate,
-    insert: mockTxInsert,
-  })
-)
 
 vi.mock('@tradinggoose/db', () => ({
   db: {
@@ -68,12 +52,9 @@ vi.mock('@tradinggoose/db/schema', () => ({
     id: 'monitorView.id',
     workspaceId: 'monitorView.workspaceId',
     userId: 'monitorView.userId',
-    name: 'monitorView.name',
     sort_order: 'monitorView.sort_order',
-    config: 'monitorView.config',
-    isActive: 'monitorView.isActive',
     createdAt: 'monitorView.createdAt',
-    updatedAt: 'monitorView.updatedAt',
+    isActive: 'monitorView.isActive',
   },
 }))
 
@@ -87,118 +68,191 @@ vi.mock('@/lib/auth', () => ({
   getSession: (...args: unknown[]) => mockGetSession(...args),
 }))
 
-const now = new Date('2026-04-22T00:00:00.000Z')
-
-const createDbRow = (overrides: Record<string, unknown> = {}) => ({
-  id: 'view-1',
-  workspaceId: 'workspace-1',
-  userId: 'user-1',
-  name: 'Default View',
-  sort_order: 0,
-  isActive: true,
-  config: DEFAULT_MONITOR_VIEW_CONFIG,
-  createdAt: now,
-  updatedAt: now,
-  ...overrides,
-})
-
-describe('monitor views collection route', () => {
+describe('monitor view collection route', () => {
   beforeEach(() => {
-    vi.resetModules()
     vi.clearAllMocks()
     mockGetSession.mockResolvedValue({ user: { id: 'user-1' } })
-    mockSelectOrderBy.mockReset()
-    mockSelectLimit.mockReset()
-    mockTxUpdateWhere.mockReset()
-    mockTxInsertReturning.mockReset()
-  })
-
-  it('lists the current user monitor views for a workspace', async () => {
-    mockSelectOrderBy.mockResolvedValue([createDbRow()])
-
-    const { GET } = await import('./route')
-    const response = await GET(
-      new NextRequest('http://localhost/api/workspaces/workspace-1/monitor-views'),
+    mockOrderBy.mockResolvedValue([
+      { id: 'view-1', sort_order: 0, createdAt: new Date('2026-04-23T00:00:00.000Z') },
+      { id: 'view-2', sort_order: 1, createdAt: new Date('2026-04-23T00:00:00.000Z') },
+    ])
+    mockTxWhere.mockResolvedValue(undefined)
+    mockTxSet.mockImplementation(() => ({
+      where: mockTxWhere,
+    }))
+    mockTxUpdate.mockImplementation(() => ({
+      set: mockTxSet,
+    }))
+    mockTxValues.mockImplementation(() => ({
+      returning: mockTxReturning,
+    }))
+    mockTxInsert.mockImplementation(() => ({
+      values: mockTxValues,
+    }))
+    mockTxReturning.mockResolvedValue([
       {
-        params: Promise.resolve({ id: 'workspace-1' }),
-      }
-    )
-
-    expect(response.status).toBe(200)
-    expect(await response.json()).toEqual({
-      data: [
-        {
-          id: 'view-1',
-          name: 'Default View',
-          sortOrder: 0,
-          isActive: true,
-          config: DEFAULT_MONITOR_VIEW_CONFIG,
-          createdAt: now.toISOString(),
-          updatedAt: now.toISOString(),
-        },
-      ],
-    })
-  })
-
-  it('creates and activates the default personal view when requested', async () => {
-    mockSelectOrderBy.mockResolvedValue([])
-    mockTxUpdateWhere.mockResolvedValue(undefined)
-    mockTxInsertReturning.mockResolvedValue([createDbRow()])
-
-    const { POST } = await import('./route')
-    const response = await POST(
-      new NextRequest('http://localhost/api/workspaces/workspace-1/monitor-views', {
-        method: 'POST',
-        body: JSON.stringify({
-          name: 'Default View',
-          config: DEFAULT_MONITOR_VIEW_CONFIG,
-          makeActive: true,
-        }),
-      }),
-      {
-        params: Promise.resolve({ id: 'workspace-1' }),
-      }
-    )
-
-    expect(response.status).toBe(201)
-    expect(await response.json()).toEqual({
-      id: 'view-1',
-      name: 'Default View',
-      sortOrder: 0,
-      isActive: true,
-      config: DEFAULT_MONITOR_VIEW_CONFIG,
-      createdAt: now.toISOString(),
-      updatedAt: now.toISOString(),
-    })
-    expect(mockTxInsertValues).toHaveBeenCalledWith(
-      expect.objectContaining({
+        id: 'view-created',
+        name: 'Created View',
         workspaceId: 'workspace-1',
         userId: 'user-1',
-        name: 'Default View',
-        sort_order: 0,
+        sort_order: 2,
         isActive: true,
-        config: DEFAULT_MONITOR_VIEW_CONFIG,
+        config: {},
+        createdAt: new Date('2026-04-23T00:00:00.000Z'),
+        updatedAt: new Date('2026-04-23T00:00:00.000Z'),
+      },
+    ])
+    mockTransaction.mockImplementation(async (callback) =>
+      callback({
+        insert: mockTxInsert,
+        update: mockTxUpdate,
       })
     )
   })
 
-  it('activates another saved view inside the same workspace', async () => {
-    mockSelectLimit.mockResolvedValue([{ id: 'view-2' }])
-    mockTxUpdateWhere.mockResolvedValue(undefined)
-
+  const patchCollectionRoute = async (body: unknown) => {
     const { PATCH } = await import('./route')
-    const response = await PATCH(
+    return PATCH(
       new NextRequest('http://localhost/api/workspaces/workspace-1/monitor-views', {
         method: 'PATCH',
-        body: JSON.stringify({ activeViewId: 'view-2' }),
+        body: JSON.stringify(body),
       }),
       {
         params: Promise.resolve({ id: 'workspace-1' }),
       }
     )
+  }
+
+  const postCollectionRoute = async (body: unknown) => {
+    const { POST } = await import('./route')
+    return POST(
+      new NextRequest('http://localhost/api/workspaces/workspace-1/monitor-views', {
+        method: 'POST',
+        body: JSON.stringify(body),
+      }),
+      {
+        params: Promise.resolve({ id: 'workspace-1' }),
+      }
+    )
+  }
+
+  it('rejects reordered view ids that omit existing rows', async () => {
+    const response = await patchCollectionRoute({
+      viewOrder: ['view-1'],
+    })
+
+    expect(response.status).toBe(400)
+    expect(await response.json()).toEqual({ error: 'Invalid viewOrder' })
+  })
+
+  it('rejects reordered view ids with non-string entries', async () => {
+    const response = await patchCollectionRoute({
+      viewOrder: ['view-1', 2],
+    })
+
+    expect(response.status).toBe(400)
+    expect(await response.json()).toEqual({ error: 'Invalid viewOrder' })
+  })
+
+  it('rejects reordered view ids with duplicates', async () => {
+    const response = await patchCollectionRoute({
+      viewOrder: ['view-1', 'view-1'],
+    })
+
+    expect(response.status).toBe(400)
+    expect(await response.json()).toEqual({ error: 'Invalid viewOrder' })
+  })
+
+  it('rejects reordered view ids that reference unknown rows', async () => {
+    const response = await patchCollectionRoute({
+      viewOrder: ['view-1', 'view-3'],
+    })
+
+    expect(response.status).toBe(400)
+    expect(await response.json()).toEqual({ error: 'Invalid viewOrder' })
+  })
+
+  it('persists a valid reorder and active view change', async () => {
+    const response = await patchCollectionRoute({
+      viewOrder: ['view-2', 'view-1'],
+      activeViewId: 'view-2',
+    })
 
     expect(response.status).toBe(200)
     expect(await response.json()).toEqual({ success: true })
-    expect(mockTxUpdateWhere).toHaveBeenCalledTimes(2)
+    expect(mockTransaction).toHaveBeenCalledOnce()
+    expect(mockTxUpdate).toHaveBeenCalled()
+  })
+
+  it('accepts an activeViewId-only patch', async () => {
+    const response = await patchCollectionRoute({
+      activeViewId: 'view-2',
+    })
+
+    expect(response.status).toBe(200)
+    expect(await response.json()).toEqual({ success: true })
+    expect(mockTransaction).toHaveBeenCalledOnce()
+    expect(mockTxUpdate).toHaveBeenCalledTimes(2)
+  })
+
+  it('normalizes and persists execution-workspace config fields on create', async () => {
+    mockOrderBy.mockResolvedValue([])
+    mockTxReturning.mockResolvedValue([
+      {
+        id: 'view-created',
+        name: 'Created View',
+        workspaceId: 'workspace-1',
+        userId: 'user-1',
+        sort_order: 0,
+        isActive: true,
+        config: {
+          filterQuery: 'workflow:#wf-1',
+          quickFilters: [{ field: 'provider', operator: 'include', values: ['alpaca'] }],
+          sortBy: [],
+          kanban: { localCardOrder: { success: ['log-2', 'log-1'] } },
+        },
+        createdAt: new Date('2026-04-23T00:00:00.000Z'),
+        updatedAt: new Date('2026-04-23T00:00:00.000Z'),
+      },
+    ])
+
+    const response = await postCollectionRoute({
+      name: 'Created View',
+      config: {
+        filterQuery: 'workflow:#wf-1',
+        quickFilters: [{ field: 'provider', operator: 'include', values: ['alpaca', 'alpaca'] }],
+        sortBy: [],
+        kanban: {
+          localCardOrder: { success: ['log-2', 'log-1', 'log-1'] },
+        },
+      },
+      makeActive: true,
+    })
+
+    expect(response.status).toBe(201)
+    expect(mockTxValues).toHaveBeenCalledWith(
+      expect.objectContaining({
+        config: expect.objectContaining({
+          filterQuery: 'workflow:#wf-1',
+          quickFilters: [{ field: 'provider', operator: 'include', values: ['alpaca'] }],
+          sortBy: [],
+          kanban: expect.objectContaining({
+            localCardOrder: { success: ['log-2', 'log-1'] },
+          }),
+        }),
+      })
+    )
+    expect(await response.json()).toEqual(
+      expect.objectContaining({
+        config: expect.objectContaining({
+          filterQuery: 'workflow:#wf-1',
+          quickFilters: [{ field: 'provider', operator: 'include', values: ['alpaca'] }],
+          sortBy: [],
+          kanban: expect.objectContaining({
+            localCardOrder: { success: ['log-2', 'log-1'] },
+          }),
+        }),
+      })
+    )
   })
 })
