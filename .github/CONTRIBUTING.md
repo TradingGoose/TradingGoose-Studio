@@ -154,9 +154,15 @@ After running this command, open [http://localhost:3000/](http://localhost:3000/
 git clone https://github.com/<your-username>/TradingGoose-Studio.git
 cd TradingGoose-Studio
 
-# Start TradingGoose
+# Copy the root Compose env template and set the required secrets/tags
+cp .env.example .env
+
 docker compose -f docker-compose.prod.yml up -d
 ```
+
+Your root `.env` must include `POSTGRES_*`, `NEXT_PUBLIC_APP_URL`,
+`BETTER_AUTH_SECRET`, `ENCRYPTION_KEY`, `API_ENCRYPTION_KEY`, and
+`INTERNAL_API_SECRET`. The `ENCRYPTION_KEY` value must be available to both the app and realtime containers.
 
 Access the application at [http://localhost:3000/](http://localhost:3000/)
 
@@ -178,14 +184,13 @@ ollama pull gemma3:4b
 
 ```bash
 # With NVIDIA GPU support
-docker compose --profile local-gpu -f docker-compose.ollama.yml up -d
+docker compose --profile gpu --profile setup -f docker-compose.ollama.yml up -d
 
 # Without GPU (CPU only)
-docker compose --profile local-cpu -f docker-compose.ollama.yml up -d
+docker compose --profile cpu --profile setup -f docker-compose.ollama.yml up -d
 
-# If hosting on a server, update the environment variables in the docker-compose.prod.yml file
-# to include the server's public IP then start again (OLLAMA_URL to i.e. http://1.1.1.1:11434)
-docker compose -f docker-compose.prod.yml up -d
+# If hosting on a server, point OLLAMA_URL in .env to the remote endpoint
+# before starting docker compose -f docker-compose.prod.yml up -d
 ```
 
 ### Option 3: Using VS Code / Cursor Dev Containers
@@ -238,7 +243,8 @@ If you prefer not to use Docker or Dev Containers:
      cd apps/tradinggoose
      ```
    - Copy `.env.example` to `.env`
-   - Configure required variables (DATABASE_URL, BETTER_AUTH_SECRET, BETTER_AUTH_URL)
+   - Configure required variables (DATABASE_URL, NEXT_PUBLIC_APP_URL, BETTER_AUTH_SECRET, ENCRYPTION_KEY, INTERNAL_API_SECRET)
+   - Add `API_ENCRYPTION_KEY` if you want encrypted API-key storage in local development
 
 3. **Set Up Database:**
 

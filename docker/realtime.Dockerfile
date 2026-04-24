@@ -1,7 +1,7 @@
 # ========================================
 # Base Stage: Alpine Linux with Bun
 # ========================================
-FROM oven/bun:1.2.22-alpine AS base
+FROM oven/bun:1.3.11-alpine AS base
 
 # ========================================
 # Dependencies Stage: Install Dependencies
@@ -9,9 +9,6 @@ FROM oven/bun:1.2.22-alpine AS base
 FROM base AS deps
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
-
-# Install turbo globally
-RUN bun install -g turbo
 
 COPY package.json bun.lock ./
 RUN mkdir -p apps
@@ -28,11 +25,16 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
+RUN bun install --omit dev --ignore-scripts
+
+WORKDIR /app/apps/tradinggoose
+RUN bun build --target bun --outfile /tmp/realtime-build/socket-server.js socket-server/index.ts
+
 # ========================================
 # Runner Stage: Run the Socket Server
 # ========================================
 FROM base AS runner
-WORKDIR /app
+WORKDIR /app/apps/tradinggoose
 
 ENV NODE_ENV=production
 
@@ -40,11 +42,8 @@ ENV NODE_ENV=production
 RUN addgroup -g 1001 -S nodejs && \
     adduser -S nextjs -u 1001
 
-# Copy the tradinggoose app and the shared db package needed by socket-server
-COPY --from=builder --chown=nextjs:nodejs /app/apps/tradinggoose ./apps/tradinggoose
-COPY --from=builder --chown=nextjs:nodejs /app/packages/db ./packages/db
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules ./node_modules
-COPY --from=builder --chown=nextjs:nodejs /app/package.json ./package.json
+# Copy the bundled socket server runtime artifact only
+COPY --from=builder --chown=nextjs:nodejs /tmp/realtime-build/socket-server.js ./socket-server.js
 
 # Switch to non-root user
 USER nextjs
@@ -55,5 +54,5 @@ ENV PORT=3002 \
     SOCKET_PORT=3002 \
     HOSTNAME="0.0.0.0"
 
-# Run the socket server directly
-CMD ["bun", "apps/tradinggoose/socket-server/index.ts"]
+# Run the bundled socket server directly
+CMD ["bun", "./socket-server.js"]
