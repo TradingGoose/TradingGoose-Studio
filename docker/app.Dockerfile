@@ -58,7 +58,7 @@ RUN bun run build
 # ========================================
 FROM base AS guardrails
 RUN apk add --no-cache python3 py3-pip bash
-WORKDIR /tmp/guardrails
+WORKDIR /app/lib/guardrails
 
 COPY apps/tradinggoose/lib/guardrails/setup.sh ./setup.sh
 COPY apps/tradinggoose/lib/guardrails/requirements.txt ./requirements.txt

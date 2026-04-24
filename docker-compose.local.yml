@@ -1,8 +1,6 @@
 services:
   redis:
     image: redis:7.2.1-alpine
-    ports:
-      - '6379:6379'
     healthcheck:
       test: ['CMD', 'redis-cli', 'ping']
       interval: 5s
@@ -27,6 +25,7 @@ services:
       - COPILOT_API_URL=${COPILOT_API_URL:-}
       - OLLAMA_URL=${OLLAMA_URL:-http://localhost:11434}
       - NEXT_PUBLIC_SOCKET_URL=${NEXT_PUBLIC_SOCKET_URL:-http://realtime:3002}
+      - API_ENCRYPTION_KEY=${API_ENCRYPTION_KEY:-}
     depends_on:
       redis:
         condition: service_healthy
