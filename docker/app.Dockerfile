@@ -85,18 +85,17 @@ RUN addgroup -g 1001 -S nodejs && \
 COPY --from=builder --chown=nextjs:nodejs /app/apps/tradinggoose/public ./apps/tradinggoose/public
 COPY --from=builder --chown=nextjs:nodejs /app/apps/tradinggoose/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/apps/tradinggoose/.next/static ./apps/tradinggoose/.next/static
-# Preserve Bun's production dependency trees so yjs can resolve lib0 through the
-# workspace symlink layout inside the runtime image.
+# Preserve Bun's workspace symlink for lib0 so yjs can resolve it at runtime.
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules ./node_modules
-COPY --from=builder --chown=nextjs:nodejs /app/apps/tradinggoose/node_modules ./apps/tradinggoose/node_modules
+COPY --from=builder --chown=nextjs:nodejs /app/apps/tradinggoose/node_modules/lib0 ./apps/tradinggoose/node_modules/lib0
 
 # Guardrails runtime assets
-COPY --from=guardrails --chown=nextjs:nodejs /tmp/guardrails/venv ./lib/guardrails/venv
-COPY --from=guardrails --chown=nextjs:nodejs /tmp/guardrails/validate_pii.py ./lib/guardrails/validate_pii.py
+COPY --from=guardrails --chown=nextjs:nodejs /app/lib/guardrails/venv ./lib/guardrails/venv
+COPY --from=guardrails --chown=nextjs:nodejs /app/lib/guardrails/validate_pii.py ./lib/guardrails/validate_pii.py
 
-# Create .next/cache directory with correct ownership
+# Create the writable .next/cache directory for the non-root runtime user
 RUN mkdir -p apps/tradinggoose/.next/cache && \
-    chown -R nextjs:nodejs /app
+    chown nextjs:nodejs apps/tradinggoose/.next/cache
 
 # Switch to non-root user
 USER nextjs

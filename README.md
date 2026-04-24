@@ -96,12 +96,17 @@ bun run dev:full
 
 ## Docker Compose
 
-If you use Docker Compose, create a `.env` file from the `.env.example.docker` file and set the
-required secrets before running the compose manifests. The `.env` must
-include `POSTGRES_*`, `NEXT_PUBLIC_APP_URL`, `BETTER_AUTH_SECRET`,
+If you use Docker Compose, copy `apps/tradinggoose/.env.example.docker` to
+`apps/tradinggoose/.env` and set the required secrets before running the
+compose manifests. The `.env` must include `POSTGRES_*`,
+`NEXT_PUBLIC_APP_URL`, `NEXT_PUBLIC_SOCKET_URL`, `BETTER_AUTH_SECRET`,
 `ENCRYPTION_KEY`, `API_ENCRYPTION_KEY`, and `INTERNAL_API_SECRET`. The
 `ENCRYPTION_KEY` value is shared by both the app and realtime containers, and
 `API_ENCRYPTION_KEY` enables encrypted API-key storage in the app container.
+`NEXT_PUBLIC_SOCKET_URL` should point at `http://localhost:3002` for local
+Compose runs; production deployments must override it with a browser-reachable
+public URL. The prod and Ollama compose files also require `IMAGE_TAG` and
+`OLLAMA_IMAGE_TAG` respectively.
 
 ```
 docker compose --env-file ./apps/tradinggoose/.env -f docker-compose.local.yml up
