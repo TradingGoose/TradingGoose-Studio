@@ -28,7 +28,8 @@ COPY . .
 RUN bun install --omit dev --ignore-scripts
 
 WORKDIR /app/apps/tradinggoose
-RUN bun build --target bun --outfile /tmp/realtime-build/socket-server.js socket-server/index.ts
+RUN mkdir -p /tmp/realtime-build && \
+    bun build --target bun --outfile /tmp/realtime-build/socket-server.js socket-server/index.ts
 
 # ========================================
 # Runner Stage: Run the Socket Server

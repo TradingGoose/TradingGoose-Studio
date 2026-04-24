@@ -85,8 +85,8 @@ RUN addgroup -g 1001 -S nodejs && \
 COPY --from=builder --chown=nextjs:nodejs /app/apps/tradinggoose/public ./apps/tradinggoose/public
 COPY --from=builder --chown=nextjs:nodejs /app/apps/tradinggoose/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/apps/tradinggoose/.next/static ./apps/tradinggoose/.next/static
-# Preserve Bun's workspace symlink for lib0 so yjs can resolve it at runtime.
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules ./node_modules
+# Preserve Bun's workspace target for lib0 so yjs can resolve it at runtime.
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/.bun/lib0@0.2.102/node_modules/lib0 ./node_modules/.bun/lib0@0.2.102/node_modules/lib0
 COPY --from=builder --chown=nextjs:nodejs /app/apps/tradinggoose/node_modules/lib0 ./apps/tradinggoose/node_modules/lib0
 
 # Guardrails runtime assets
