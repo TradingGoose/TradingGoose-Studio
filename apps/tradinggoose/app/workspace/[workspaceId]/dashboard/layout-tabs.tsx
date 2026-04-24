@@ -12,6 +12,7 @@ export type LayoutTab = {
   name: string
   sortOrder: number
   isActive: boolean
+  hasDraft?: boolean
 }
 
 interface LayoutTabsProps {
@@ -21,7 +22,7 @@ interface LayoutTabsProps {
   onReorder: (nextLayouts: LayoutTab[]) => void
   onCreate: () => void
   onRename: (layoutId: string, name: string) => void
-  onDelete: (layoutId: string) => void
+  onDelete?: (layoutId: string) => void
 }
 
 export function LayoutTabs({
@@ -159,6 +160,9 @@ export function LayoutTabs({
                       <span className='min-w-0 flex-1 truncate pr-1 pb-1 font-md text-md'>
                         {layout.name}
                       </span>
+                      {layout.isActive && layout.hasDraft ? (
+                        <span className='ml-1 inline-flex h-1.5 w-1.5 rounded-full bg-amber-500' />
+                      ) : null}
                     </button>
                   )}
                   {editingId === layout.id ? (
@@ -181,7 +185,7 @@ export function LayoutTabs({
                     >
                       <Pencil className='h-3.5 w-3.5' />
                     </button>
-                  ) : (
+                  ) : onDelete ? (
                     <button
                       type='button'
                       className='pointer-events-none inline-flex h-full w-0 shrink-0 items-center justify-center overflow-hidden text-muted-foreground opacity-0 transition-[width,opacity,color] hover:text-destructive focus-visible:pointer-events-auto focus-visible:w-4 focus-visible:opacity-100 group-hover:pointer-events-auto group-hover:w-4 group-hover:opacity-100'
@@ -191,6 +195,8 @@ export function LayoutTabs({
                     >
                       <X className='h-4 w-4' />
                     </button>
+                  ) : (
+                    <span className='inline-flex h-full w-0 shrink-0' />
                   )}
                 </SortableItem>
               ))}

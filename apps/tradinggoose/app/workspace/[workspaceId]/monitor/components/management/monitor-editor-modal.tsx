@@ -18,14 +18,14 @@ import type { SubBlockConfig } from '@/blocks/types'
 import type { MarketProviderParamDefinition } from '@/providers/market/providers'
 import { getMarketSeriesCapabilities } from '@/providers/market/providers'
 import { ShortInput } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/components/short-input'
-import { SearchableDropdown } from './searchable-dropdown'
+import { SearchableDropdown } from '../controls/searchable-dropdown'
 import type {
   IndicatorOption,
   MonitorDraft,
   StreamingProviderOption,
   WorkflowPickerOption,
   WorkflowTargetOption,
-} from './types'
+} from '../shared/types'
 
 type MonitorEditorModalProps = {
   open: boolean

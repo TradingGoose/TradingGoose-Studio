@@ -4,17 +4,29 @@
 
 import { NextRequest } from 'next/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { DEFAULT_MONITOR_VIEW_CONFIG } from '@/app/workspace/[workspaceId]/monitor/components/view-config'
+import { DEFAULT_MONITOR_VIEW_CONFIG } from '@/app/workspace/[workspaceId]/monitor/components/view/view-config'
 
-const { mockGetSession, mockSelectLimit, mockUpdateWhere, mockDeleteWhere } = vi.hoisted(() => ({
+const {
+  mockGetSession,
+  mockSelectLimit,
+  mockSelectOrderBy,
+  mockUpdateWhere,
+  mockDeleteWhere,
+  mockDelete,
+  mockTransaction,
+} = vi.hoisted(() => ({
   mockGetSession: vi.fn(),
   mockSelectLimit: vi.fn(),
+  mockSelectOrderBy: vi.fn(),
   mockUpdateWhere: vi.fn(),
   mockDeleteWhere: vi.fn(),
+  mockDelete: vi.fn(),
+  mockTransaction: vi.fn(),
 }))
 
 const mockSelectWhere = vi.fn(() => ({
   limit: mockSelectLimit,
+  orderBy: mockSelectOrderBy,
 }))
 
 const mockSelectFrom = vi.fn(() => ({
@@ -33,15 +45,11 @@ const mockUpdate = vi.fn(() => ({
   set: mockUpdateSet,
 }))
 
-const mockDelete = vi.fn(() => ({
-  where: mockDeleteWhere,
-}))
-
 vi.mock('@tradinggoose/db', () => ({
   db: {
     select: mockSelect,
+    transaction: mockTransaction,
     update: mockUpdate,
-    delete: mockDelete,
   },
 }))
 
@@ -52,13 +60,13 @@ vi.mock('@tradinggoose/db/schema', () => ({
     userId: 'monitorView.userId',
     name: 'monitorView.name',
     config: 'monitorView.config',
-    isActive: 'monitorView.isActive',
     updatedAt: 'monitorView.updatedAt',
   },
 }))
 
 vi.mock('drizzle-orm', () => ({
   and: vi.fn((...conditions: unknown[]) => ({ conditions, type: 'and' })),
+  asc: vi.fn((value: unknown) => ({ type: 'asc', value })),
   eq: vi.fn((field: unknown, value: unknown) => ({ field, type: 'eq', value })),
 }))
 
@@ -68,29 +76,42 @@ vi.mock('@/lib/auth', () => ({
 
 describe('monitor view item route', () => {
   beforeEach(() => {
-    vi.resetModules()
     vi.clearAllMocks()
     mockGetSession.mockResolvedValue({ user: { id: 'user-1' } })
-    mockSelectLimit.mockReset()
-    mockUpdateWhere.mockReset()
-    mockDeleteWhere.mockReset()
+    mockSelectLimit.mockResolvedValue([{ id: 'view-1' }])
+    mockSelectOrderBy.mockResolvedValue([{ id: 'view-1', isActive: true, sort_order: 0 }])
+    mockUpdateWhere.mockResolvedValue(undefined)
+    mockDeleteWhere.mockResolvedValue(undefined)
+    mockDelete.mockImplementation(() => ({
+      where: mockDeleteWhere,
+    }))
+    mockTransaction.mockImplementation(async (callback) =>
+      callback({
+        delete: mockDelete,
+        update: mockUpdate,
+      })
+    )
   })
 
-  it('updates a saved monitor view name and config', async () => {
-    mockSelectLimit.mockResolvedValue([{ id: 'view-1' }])
-    mockUpdateWhere.mockResolvedValue(undefined)
-
+  it('normalizes the saved execution-workspace config on update', async () => {
     const { PATCH } = await import('./route')
     const response = await PATCH(
       new NextRequest('http://localhost/api/workspaces/workspace-1/monitor-views/view-1', {
         method: 'PATCH',
         body: JSON.stringify({
-          name: 'Operations',
           config: {
             ...DEFAULT_MONITOR_VIEW_CONFIG,
-            filters: {
-              ...DEFAULT_MONITOR_VIEW_CONFIG.filters,
-              assetTypes: ['STOCK', 'stock'],
+            filterQuery: 'workflow:#wf-1',
+            quickFilters: [
+              { field: 'provider', operator: 'include', values: ['alpaca', 'alpaca'] },
+            ],
+            sortBy: [],
+            kanban: {
+              ...DEFAULT_MONITOR_VIEW_CONFIG.kanban,
+              localCardOrder: {
+                success: ['log-1', 'log-1', 'log-2'],
+              },
+              visibleFieldIds: ['workflow', 'workflow', 'cost'],
             },
           },
         }),
@@ -104,12 +125,17 @@ describe('monitor view item route', () => {
     expect(await response.json()).toEqual({ success: true })
     expect(mockUpdateSet).toHaveBeenCalledWith(
       expect.objectContaining({
-        name: 'Operations',
         config: {
           ...DEFAULT_MONITOR_VIEW_CONFIG,
-          filters: {
-            ...DEFAULT_MONITOR_VIEW_CONFIG.filters,
-            assetTypes: ['stock'],
+          filterQuery: 'workflow:#wf-1',
+          quickFilters: [{ field: 'provider', operator: 'include', values: ['alpaca'] }],
+          sortBy: [],
+          kanban: {
+            ...DEFAULT_MONITOR_VIEW_CONFIG.kanban,
+            localCardOrder: {
+              success: ['log-1', 'log-2'],
+            },
+            visibleFieldIds: ['workflow', 'cost'],
           },
         },
         updatedAt: expect.any(Date),
@@ -117,9 +143,7 @@ describe('monitor view item route', () => {
     )
   })
 
-  it('rejects deleting the active saved view', async () => {
-    mockSelectLimit.mockResolvedValue([{ id: 'view-1', isActive: true }])
-
+  it('rejects deleting the last remaining view', async () => {
     const { DELETE } = await import('./route')
     const response = await DELETE(
       new NextRequest('http://localhost/api/workspaces/workspace-1/monitor-views/view-1', {
@@ -131,12 +155,44 @@ describe('monitor view item route', () => {
     )
 
     expect(response.status).toBe(400)
-    expect(await response.json()).toEqual({ error: 'Cannot delete active view' })
+    expect(await response.json()).toEqual({ error: 'Cannot delete the last remaining view' })
+    expect(mockTransaction).not.toHaveBeenCalled()
   })
 
-  it('deletes an inactive saved view', async () => {
-    mockSelectLimit.mockResolvedValue([{ id: 'view-2', isActive: false }])
-    mockDeleteWhere.mockResolvedValue(undefined)
+  it('reassigns the active view when deleting the current active row', async () => {
+    mockSelectOrderBy.mockResolvedValue([
+      { id: 'view-1', isActive: true, sort_order: 0 },
+      { id: 'view-2', isActive: false, sort_order: 1 },
+    ])
+
+    const { DELETE } = await import('./route')
+    const response = await DELETE(
+      new NextRequest('http://localhost/api/workspaces/workspace-1/monitor-views/view-1', {
+        method: 'DELETE',
+      }),
+      {
+        params: Promise.resolve({ id: 'workspace-1', viewId: 'view-1' }),
+      }
+    )
+
+    expect(response.status).toBe(200)
+    expect(await response.json()).toEqual({ success: true })
+    expect(mockTransaction).toHaveBeenCalledOnce()
+    expect(mockDelete).toHaveBeenCalled()
+    expect(mockUpdateSet).toHaveBeenCalledWith(
+      expect.objectContaining({
+        isActive: true,
+        updatedAt: expect.any(Date),
+      })
+    )
+  })
+
+  it('reassigns the active view to the previous sibling when available', async () => {
+    mockSelectOrderBy.mockResolvedValue([
+      { id: 'view-1', isActive: false, sort_order: 0 },
+      { id: 'view-2', isActive: true, sort_order: 1 },
+      { id: 'view-3', isActive: false, sort_order: 2 },
+    ])
 
     const { DELETE } = await import('./route')
     const response = await DELETE(
@@ -150,6 +206,14 @@ describe('monitor view item route', () => {
 
     expect(response.status).toBe(200)
     expect(await response.json()).toEqual({ success: true })
-    expect(mockDeleteWhere).toHaveBeenCalledTimes(1)
+
+    const finalActivationWhere = mockUpdateWhere.mock.calls.at(-1)?.[0]
+    expect(finalActivationWhere).toEqual(
+      expect.objectContaining({
+        conditions: expect.arrayContaining([
+          expect.objectContaining({ field: 'monitorView.id', value: 'view-1' }),
+        ]),
+      })
+    )
   })
 })
