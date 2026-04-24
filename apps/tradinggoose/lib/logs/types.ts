@@ -40,6 +40,41 @@ export interface ToolCall {
   error?: string
 }
 
+export interface ToolCallMetadata {
+  toolCalls?: ToolCall[]
+}
+
+export interface CostMetadata {
+  baseExecutionCharge?: number
+  models?: Record<
+    string,
+    {
+      input?: number
+      output?: number
+      total?: number
+      tokens?: {
+        prompt?: number
+        completion?: number
+        total?: number
+      }
+    }
+  >
+  input?: number
+  output?: number
+  total?: number
+  tokens?: {
+    prompt?: number
+    completion?: number
+    total?: number
+  }
+  pricing?: {
+    input: number
+    output: number
+    cachedInput?: number
+    updatedAt: string
+  }
+}
+
 export type BlockInputData = Record<string, any>
 export type BlockOutputData = NormalizedBlockOutput | null
 
@@ -126,7 +161,7 @@ export interface WorkflowExecutionLog {
       }
     >
   }
-  duration?: string
+  durationMs?: number | null
   createdAt: string
 }
 
@@ -261,6 +296,73 @@ export interface WorkflowExecutionFilters {
   minCost?: number
   maxCost?: number
   hasErrors?: boolean
+}
+
+export type WorkflowLogOutcome = 'running' | 'success' | 'error' | 'skipped' | 'unknown'
+
+export interface WorkflowLogWorkflowSummary {
+  id: string
+  name: string
+  description: string | null
+  color: string
+  folderId?: string | null
+  folderName?: string | null
+  userId?: string | null
+  workspaceId?: string | null
+}
+
+export interface WorkflowLog {
+  id: string
+  workflowId: string
+  executionId: string | null
+  level: string
+  trigger: string | null
+  startedAt: string
+  endedAt: string | null
+  durationMs: number | null
+  outcome: WorkflowLogOutcome
+  workflow?: WorkflowLogWorkflowSummary | null
+  files?: Array<{
+    id: string
+    name: string
+    size: number
+    type: string
+    url: string
+    key: string
+    uploadedAt: string
+    expiresAt: string
+    storageProvider?: 's3' | 'azure' | 'vercel' | 'local'
+    bucketName?: string
+  }>
+  cost?: CostMetadata
+  executionData?: ToolCallMetadata & {
+    traceSpans?: TraceSpan[]
+    blockInput?: Record<string, unknown>
+    blockExecutions?: Array<{
+      id: string
+      blockId: string
+      blockName: string
+      blockType: string
+      startedAt: string
+      endedAt: string
+      durationMs: number
+      status: 'success' | 'error' | 'skipped'
+      errorMessage?: string
+      errorStackTrace?: string
+      inputData: unknown
+      outputData: unknown
+      cost?: CostMetadata
+      metadata: Record<string, unknown>
+    }>
+  }
+}
+
+export interface LogsResponse {
+  data: WorkflowLog[]
+  total: number
+  page: number
+  pageSize: number
+  totalPages: number
 }
 
 export interface PaginationParams {

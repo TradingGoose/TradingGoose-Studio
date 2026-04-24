@@ -6,6 +6,7 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import type { WorkflowLog } from '@/lib/logs/types'
 import { cn } from '@/lib/utils'
 import { soehne } from '@/app/fonts/soehne/soehne'
 import KPIs from '@/app/workspace/[workspaceId]/logs/components/dashboard/components/kpis'
@@ -16,11 +17,9 @@ import WorkflowFilter from '@/app/workspace/[workspaceId]/logs/components/logs-t
 import FolderFilter from '@/app/workspace/[workspaceId]/logs/components/logs-toolbar/components/filters/components/folder'
 import TriggerFilter from '@/app/workspace/[workspaceId]/logs/components/logs-toolbar/components/filters/components/trigger'
 import LevelFilter from '@/app/workspace/[workspaceId]/logs/components/logs-toolbar/components/filters/components/level'
-import { mapToExecutionLog, mapToExecutionLogAlt } from '@/app/workspace/[workspaceId]/logs/utils'
 import { GlobalNavbarHeader } from '@/global-navbar'
 import { formatCost } from '@/providers/ai/utils'
 import { useFilterStore } from '@/stores/logs/filters/store'
-import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import { LogsFilters } from '@/app/workspace/[workspaceId]/logs/components/dashboard/components/logs-filters/logs-filters'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 
@@ -46,32 +45,12 @@ interface WorkflowExecution {
 const DEFAULT_SEGMENTS = 72
 const MIN_SEGMENT_PX = 10
 
-interface ExecutionLog {
-  id: string
-  executionId: string
-  startedAt: string
-  level: string
-  trigger: string
-  triggerUserId: string | null
-  triggerInputs: any
-  outputs: any
-  errorMessage: string | null
-  duration: number | null
-  cost: {
-    input: number
-    output: number
-    total: number
-  } | null
-  workflowName?: string
-  workflowColor?: string
-}
-
 interface WorkflowDetailsDataLocal {
   errorRates: { timestamp: string; value: number }[]
   durations: { timestamp: string; value: number }[]
   executionCounts: { timestamp: string; value: number }[]
-  logs: ExecutionLog[]
-  allLogs: ExecutionLog[]
+  logs: WorkflowLog[]
+  allLogs: WorkflowLog[]
   __meta?: { offset: number; hasMore: boolean }
 }
 
@@ -137,8 +116,6 @@ export function Dashboard() {
     setViewMode,
     timeRange: sidebarTimeRange,
   } = useFilterStore()
-
-  const { workflows } = useWorkflowRegistry()
 
   const timeFilter = getTimeFilterFromRange(sidebarTimeRange)
 
@@ -357,10 +334,10 @@ export function Dashboard() {
         if (triggers.length > 0) logsParams.set('triggers', triggers.join(','))
 
         const logsResponse = await fetch(`/api/logs?${logsParams.toString()}`)
-        let mappedLogs: ExecutionLog[] = []
+        let mappedLogs: WorkflowLog[] = []
         if (logsResponse.ok) {
-          const logsData = await logsResponse.json()
-          mappedLogs = (logsData.data || []).map(mapToExecutionLog)
+          const logsData = (await logsResponse.json()) as { data?: WorkflowLog[] }
+          mappedLogs = Array.isArray(logsData.data) ? logsData.data : []
         }
 
         setGlobalDetails({
@@ -413,8 +390,8 @@ export function Dashboard() {
           throw new Error('Failed to fetch workflow details')
         }
 
-        const data = await response.json()
-        const mappedLogs: ExecutionLog[] = (data.data || []).map(mapToExecutionLogAlt)
+        const data = (await response.json()) as { data?: WorkflowLog[] }
+        const mappedLogs = Array.isArray(data.data) ? data.data : []
 
         setWorkflowDetails((prev) => ({
           ...prev,
@@ -462,8 +439,8 @@ export function Dashboard() {
         if (triggers.length > 0) qp.set('triggers', triggers.join(','))
         const res = await fetch(`/api/logs?${qp.toString()}`)
         if (!res.ok) return
-        const data = await res.json()
-        const more: ExecutionLog[] = (data.data || []).map(mapToExecutionLogAlt)
+        const data = (await res.json()) as { data?: WorkflowLog[] }
+        const more = Array.isArray(data.data) ? data.data : []
 
         setWorkflowDetails((prev) => {
           const cur = prev[workflowId]
@@ -519,8 +496,8 @@ export function Dashboard() {
 
       const res = await fetch(`/api/logs?${qp.toString()}`)
       if (!res.ok) return
-      const data = await res.json()
-      const more: ExecutionLog[] = (data.data || []).map(mapToExecutionLog)
+      const data = (await res.json()) as { data?: WorkflowLog[] }
+      const more = Array.isArray(data.data) ? data.data : []
 
       setGlobalDetails((prev) => {
         if (!prev) return prev
@@ -980,7 +957,7 @@ export function Dashboard() {
                       const sortedIndices = Array.from(allSegmentIndices).sort((a, b) => a - b)
 
                       // Aggregate logs from all selected workflows/segments
-                      const allLogs: any[] = []
+                      const allLogs: WorkflowLog[] = []
                       let totalExecutions = 0
                       let totalSuccess = 0
 
@@ -1038,14 +1015,9 @@ export function Dashboard() {
                           windows.some((w) => t >= w.start && t < w.end)
 
                         // Filter logs for this workflow's selected segments
-                        const workflowLogs = details.allLogs
-                          .filter((log) => inAnyWindow(new Date(log.startedAt).getTime()))
-                          .map((log) => ({
-                            ...log,
-                            workflowName: (log as any).workflowName || wf.workflowName,
-                            workflowColor:
-                              (log as any).workflowColor || workflows[wfId]?.color || '#64748b',
-                          }))
+                        const workflowLogs = details.allLogs.filter((log) =>
+                          inAnyWindow(new Date(log.startedAt).getTime())
+                        )
 
                         allLogs.push(...workflowLogs)
 
@@ -1142,10 +1114,7 @@ export function Dashboard() {
                       const rate = total > 0 ? (success / total) * 100 : 100
 
                       const details = workflowDetails[expandedWorkflowId]
-                      let logsToDisplay = (details?.logs || []).map((log) => ({
-                        ...log,
-                        workflowName: (log as any).workflowName || wf.workflowName,
-                      }))
+                      let logsToDisplay = details?.logs || []
                       // Helper to construct series from workflow segments
                       const buildSeriesFromSegments = (
                         segs: WorkflowExecution['segments']
@@ -1218,12 +1187,9 @@ export function Dashboard() {
                         const inAnyWindow = (t: number) =>
                           windows.some((w) => t >= w.start && t < w.end)
 
-                        logsToDisplay = details.allLogs
-                          .filter((log) => inAnyWindow(new Date(log.startedAt).getTime()))
-                          .map((log) => ({
-                            ...log,
-                            workflowName: (log as any).workflowName || wf.workflowName,
-                          }))
+                        logsToDisplay = details.allLogs.filter((log) =>
+                          inAnyWindow(new Date(log.startedAt).getTime())
+                        )
 
                         // Build series from selected segments indices
                         const idxSet = new Set(workflowSelectedIndices)

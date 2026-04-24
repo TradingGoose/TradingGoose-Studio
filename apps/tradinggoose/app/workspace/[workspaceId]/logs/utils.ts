@@ -7,14 +7,8 @@ import type { CostMetadata, TraceSpan } from '@/stores/logs/filters/types'
 export function parseDuration(log: any): number | null {
   let durationCandidate: number | null = null
 
-  if (typeof log.totalDurationMs === 'number') {
-    durationCandidate = log.totalDurationMs
-  } else if (typeof log.duration === 'number') {
-    durationCandidate = log.duration
-  } else if (typeof log.totalDurationMs === 'string') {
-    durationCandidate = Number.parseInt(String(log.totalDurationMs).replace(/[^0-9]/g, ''), 10)
-  } else if (typeof log.duration === 'string') {
-    durationCandidate = Number.parseInt(String(log.duration).replace(/[^0-9]/g, ''), 10)
+  if (typeof log.durationMs === 'number') {
+    durationCandidate = log.durationMs
   }
 
   return Number.isFinite(durationCandidate) ? durationCandidate : null
@@ -75,99 +69,6 @@ export function extractOutput(log: any): any {
   }
 
   return output
-}
-
-/**
- * Map raw log data to ExecutionLog format
- */
-export interface ExecutionLog {
-  id: string
-  executionId: string
-  startedAt: string
-  level: string
-  trigger: string
-  triggerUserId: string | null
-  triggerInputs: any
-  outputs: any
-  errorMessage: string | null
-  duration: number | null
-  cost: {
-    input: number
-    output: number
-    total: number
-  } | null
-  workflowName?: string
-  workflowColor?: string
-}
-
-/**
- * Convert raw API log response to ExecutionLog format
- */
-export function mapToExecutionLog(log: any): ExecutionLog {
-  const started = log.startedAt
-    ? new Date(log.startedAt)
-    : log.endedAt
-      ? new Date(log.endedAt)
-      : null
-
-  const startedAt =
-    started && !Number.isNaN(started.getTime()) ? started.toISOString() : new Date().toISOString()
-
-  const duration = parseDuration(log)
-  const output = extractOutput(log)
-
-  return {
-    id: log.id,
-    executionId: log.executionId,
-    startedAt,
-    level: log.level || 'info',
-    trigger: log.trigger || 'manual',
-    triggerUserId: log.triggerUserId || null,
-    triggerInputs: undefined,
-    outputs: output || undefined,
-    errorMessage: log.error || null,
-    duration,
-    cost: log.cost
-      ? {
-          input: log.cost.input || 0,
-          output: log.cost.output || 0,
-          total: log.cost.total || 0,
-        }
-      : null,
-    workflowName: log.workflowName || log.workflow?.name,
-    workflowColor: log.workflowColor || log.workflow?.color,
-  }
-}
-
-/**
- * Alternative version that uses createdAt as fallback for startedAt
- * (used in some API responses)
- */
-export function mapToExecutionLogAlt(log: any): ExecutionLog {
-  const duration = parseDuration(log)
-  const output = extractOutput(log)
-
-  return {
-    id: log.id,
-    executionId: log.executionId,
-    startedAt: log.createdAt || log.startedAt,
-    level: log.level || 'info',
-    trigger: log.trigger || 'manual',
-    triggerUserId: log.triggerUserId || null,
-    triggerInputs: undefined,
-    outputs: output || undefined,
-    errorMessage: log.error || null,
-    duration,
-    cost: log.cost
-      ? {
-          input: log.cost.input || 0,
-          output: log.cost.output || 0,
-          total: log.cost.total || 0,
-        }
-      : null,
-    workflowName: log.workflow?.name,
-    workflowColor: log.workflow?.color,
-  }
 }
 
 function readFiniteNumber(value: unknown): number | undefined {
@@ -232,7 +133,7 @@ function getStoredModelCostTotal(cost?: CostMetadata | null): number | undefined
   }
 
   if (cost.models) {
-    return Object.values(cost.models).reduce((sum, modelCost) => {
+    return Object.values(cost.models).reduce<number>((sum, modelCost) => {
       const modelTotal =
         readFiniteNumber(modelCost.total) ??
         (readFiniteNumber(modelCost.input) ?? 0) + (readFiniteNumber(modelCost.output) ?? 0)

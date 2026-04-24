@@ -1,94 +1,73 @@
-'use client'
+"use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Search, X } from 'lucide-react'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { parseQuery, type ParsedFilter } from '@/lib/logs/query-parser'
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Search, X } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import type { QueryPolicy, SearchClause } from "@/lib/logs/query-types";
+import { serializeQuery } from "@/lib/logs/query-parser";
 import {
   type FolderData,
+  type MonitorRowSuggestionData,
   SearchSuggestions,
   type WorkflowData,
-} from '@/lib/logs/search-suggestions'
-import { cn } from '@/lib/utils'
-import { useSearchState } from '@/app/workspace/[workspaceId]/logs/hooks/use-search-state'
-import { useFolderStore } from '@/stores/folders/store'
-import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
+} from "@/lib/logs/search-suggestions";
+import { cn } from "@/lib/utils";
+import { useSearchState } from "@/app/workspace/[workspaceId]/logs/hooks/use-search-state";
 
 interface AutocompleteSearchProps {
-  value: string
-  onChange: (value: string) => void
-  placeholder?: string
-  availableWorkflows?: string[]
-  availableFolders?: string[]
-  className?: string
-  onOpenChange?: (open: boolean) => void
-  showActiveFilters?: boolean
-  showTextSearchIndicator?: boolean
+  value: string;
+  onChange: (value: string) => void;
+  queryPolicy: QueryPolicy;
+  placeholder?: string;
+  workflowsData?: WorkflowData[];
+  foldersData?: FolderData[];
+  availableMonitorRows?: MonitorRowSuggestionData[];
+  className?: string;
+  onOpenChange?: (open: boolean) => void;
+  showActiveFilters?: boolean;
+  showTextSearchIndicator?: boolean;
+  externalClauses?: SearchClause[];
+  onRemoveExternalClause?: (clause: SearchClause) => void;
 }
 
 export function AutocompleteSearch({
   value,
   onChange,
-  placeholder = 'Search logs...',
-  availableWorkflows = [],
-  availableFolders = [],
+  queryPolicy,
+  placeholder = "Search logs...",
+  workflowsData = [],
+  foldersData = [],
+  availableMonitorRows = [],
   className,
   onOpenChange,
   showActiveFilters = true,
   showTextSearchIndicator = true,
+  externalClauses = [],
+  onRemoveExternalClause,
 }: AutocompleteSearchProps) {
-  const workflows = useWorkflowRegistry((state) => state.workflows)
-  const folders = useFolderStore((state) => state.folders)
-
-  const fallbackWorkflowData = useMemo<WorkflowData[]>(() => {
-    return availableWorkflows.map((name, index) => ({
-      id: `external-workflow-${index}-${name}`,
-      name,
-    }))
-  }, [availableWorkflows])
-
-  const fallbackFolderData = useMemo<FolderData[]>(() => {
-    return availableFolders.map((name, index) => ({
-      id: `external-folder-${index}-${name}`,
-      name,
-    }))
-  }, [availableFolders])
-
-  const storeWorkflowData = useMemo<WorkflowData[]>(() => {
-    return Object.values(workflows)
-      .filter((workflow) => workflow?.name)
-      .map((workflow) => ({
-        id: workflow.id,
-        name: workflow.name,
-        description: workflow.description,
-      }))
-  }, [workflows])
-
-  const storeFolderData = useMemo<FolderData[]>(() => {
-    return Object.values(folders).map((folder) => ({
-      id: folder.id,
-      name: folder.name,
-    }))
-  }, [folders])
-
-  const workflowsData =
-    storeWorkflowData.length > 0 ? storeWorkflowData : fallbackWorkflowData
-  const foldersData = storeFolderData.length > 0 ? storeFolderData : fallbackFolderData
-
-  const suggestionEngine = useMemo(() => {
-    return new SearchSuggestions(workflowsData, foldersData)
-  }, [workflowsData, foldersData])
-
-  const handleFiltersChange = useCallback((_filters: ParsedFilter[], _textSearch: string) => {
-    // State synchronization handled by effects below
-  }, [])
+  const suggestionEngine = useMemo(
+    () =>
+      new SearchSuggestions({
+        policy: queryPolicy,
+        workflowsData,
+        foldersData,
+        monitorRows: availableMonitorRows,
+      }),
+    [availableMonitorRows, foldersData, queryPolicy, workflowsData],
+  );
 
   const {
-    appliedFilters,
+    clauses,
     currentInput,
     textSearch,
+    invalidQualifierFragments,
+    committedQuery,
     isOpen,
     suggestions,
     sections,
@@ -106,349 +85,343 @@ export function AutocompleteSearch({
     initializeFromQuery,
     setHighlightedIndex,
   } = useSearchState({
-    onFiltersChange: handleFiltersChange,
+    queryPolicy,
     getSuggestions: (input) => suggestionEngine.getSuggestions(input),
-  })
+  });
 
-  const lastSyncedQueryRef = useRef(value)
-  const applyQueryToState = useCallback(
-    (query: string) => {
-      const parsed = parseQuery(query)
-      initializeFromQuery(parsed.textSearch, parsed.filters)
-    },
-    [initializeFromQuery]
-  )
+  const lastPropValueRef = useRef(value);
+  const pendingCommittedQueryRef = useRef<string | null>(null);
+  const pendingHydrationValueRef = useRef<string | null>(null);
+  const hasHydratedRef = useRef(false);
 
   useEffect(() => {
-    const nextQuery = buildQueryString(appliedFilters, textSearch, currentInput)
-    if (nextQuery === value) {
-      lastSyncedQueryRef.current = value
-      return
+    if (pendingHydrationValueRef.current !== null) {
+      if (committedQuery !== pendingHydrationValueRef.current) {
+        return;
+      }
+
+      pendingHydrationValueRef.current = null;
+      hasHydratedRef.current = true;
+      return;
     }
-    lastSyncedQueryRef.current = nextQuery
-    onChange(nextQuery)
-  }, [appliedFilters, textSearch, currentInput, value, onChange])
 
-  useEffect(() => {
-    if (value === lastSyncedQueryRef.current) {
-      return
+    if (!hasHydratedRef.current) {
+      return;
     }
-    applyQueryToState(value)
-  }, [value, applyQueryToState])
+
+    if (committedQuery === lastPropValueRef.current) {
+      return;
+    }
+
+    pendingCommittedQueryRef.current = committedQuery;
+    onChange(committedQuery);
+  }, [committedQuery, onChange]);
 
   useEffect(() => {
-    onOpenChange?.(isOpen)
-  }, [isOpen, onOpenChange])
+    if (
+      pendingCommittedQueryRef.current !== null &&
+      value === pendingCommittedQueryRef.current
+    ) {
+      lastPropValueRef.current = value;
+      pendingCommittedQueryRef.current = null;
+      return;
+    }
+
+    if (hasHydratedRef.current && value === lastPropValueRef.current) {
+      return;
+    }
+
+    lastPropValueRef.current = value;
+    pendingHydrationValueRef.current = value;
+    initializeFromQuery(value);
+  }, [initializeFromQuery, value]);
 
   useEffect(() => {
-    if (!isOpen || highlightedIndex < 0) return
-    const container = dropdownRef.current
-    const optionEl = container?.querySelector<HTMLElement>(`[data-index="${highlightedIndex}"]`)
-    if (optionEl) {
+    onOpenChange?.(isOpen);
+  }, [isOpen, onOpenChange]);
+
+  useEffect(() => {
+    if (!isOpen || highlightedIndex < 0) return;
+    const container = dropdownRef.current;
+    const optionElement = container?.querySelector<HTMLElement>(
+      `[data-index="${highlightedIndex}"]`,
+    );
+    if (optionElement) {
       try {
-        optionEl.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+        optionElement.scrollIntoView({ block: "nearest", behavior: "smooth" });
       } catch {
-        optionEl.scrollIntoView({ block: 'nearest' })
+        optionElement.scrollIntoView({ block: "nearest" });
       }
     }
-  }, [isOpen, highlightedIndex, dropdownRef])
+  }, [dropdownRef, highlightedIndex, isOpen]);
 
-  const inputContainerRef = useRef<HTMLDivElement>(null)
-  const [dropdownWidth, setDropdownWidth] = useState(500)
+  const inputContainerRef = useRef<HTMLDivElement>(null);
+  const [dropdownWidth, setDropdownWidth] = useState(500);
+
   useEffect(() => {
     const measure = () => {
       if (inputContainerRef.current) {
-        setDropdownWidth(inputContainerRef.current.offsetWidth)
+        setDropdownWidth(inputContainerRef.current.offsetWidth);
       }
-    }
-    measure()
-    window.addEventListener('resize', measure)
-    return () => window.removeEventListener('resize', measure)
-  }, [])
+    };
 
-  const hasFilters = appliedFilters.length > 0
-  const hasTextSearch = textSearch.length > 0
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, []);
+
+  const hasClauses = clauses.length + externalClauses.length > 0;
+  const hasTextSearch = textSearch.length > 0;
   const suggestionType =
-    sections.length > 0 ? 'multi-section' : suggestions.length > 0 ? suggestions[0]?.category : null
+    sections.length > 0
+      ? "multi-section"
+      : suggestions.length > 0
+        ? suggestions[0]?.category
+        : null;
 
-  const handleTextSearchClear = () => {
-    initializeFromQuery('', appliedFilters.slice())
-  }
+  const handleTextSearchClear = useCallback(() => {
+    initializeFromQuery(
+      serializeQuery(
+        {
+          clauses,
+          textSearch: "",
+        },
+        queryPolicy,
+      ),
+    );
+  }, [clauses, initializeFromQuery, queryPolicy]);
 
   return (
-    <div className={cn('relative', className)}>
+    <div className={cn("relative", className)}>
       <Popover
         open={isOpen}
         onOpenChange={(open) => {
           if (!open) {
-            setHighlightedIndex(-1)
+            setHighlightedIndex(-1);
           }
         }}
       >
         <PopoverTrigger asChild>
           <div
             ref={inputContainerRef}
-            className='relative flex h-9 w-full items-center rounded-md border border-border bg-card/60 px-2 text-sm transition-colors focus-within:border-ring focus-within:ring-1 focus-within:ring-ring'
+            className="relative flex h-9 w-full items-center rounded-md border border-border bg-card/60 px-2 text-sm transition-colors focus-within:border-ring focus-within:ring-1 focus-within:ring-ring"
           >
-            <Search className='mr-2 h-4 w-4 flex-shrink-0 text-muted-foreground' strokeWidth={2} />
-            <div className='flex flex-1 items-center gap-1.5 overflow-x-auto text-sm [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'>
-              {appliedFilters.map((filter, index) => (
-                <Button
-                  key={`${filter.field}-${filter.value}-${index}`}
-                  variant='outline'
-                  size='sm'
-                  className={cn(
-                    'h-6 flex-shrink-0 gap-1 rounded-sm px-2 text-[11px]',
-                    highlightedBadgeIndex === index && 'border-ring text-foreground'
-                  )}
-                  onMouseDown={(e) => {
-                    e.preventDefault()
-                    removeBadge(index)
-                  }}
-                >
-                  <span className='text-muted-foreground'>{filter.field}:</span>
-                  <span className='text-foreground'>
-                    {filter.operator !== '=' && filter.operator}
-                    {filter.originalValue}
-                  </span>
-                  <X className='h-3 w-3' />
-                </Button>
-              ))}
+            <Search
+              className="mr-2 h-4 w-4 flex-shrink-0 text-muted-foreground"
+              strokeWidth={2}
+            />
+            <div className="flex flex-1 items-center gap-1.5 overflow-x-auto text-sm [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              {showActiveFilters &&
+                externalClauses.map((clause) => (
+                  <Button
+                    key={`external:${clause.id}`}
+                    variant="outline"
+                    size="sm"
+                    className="h-6 flex-shrink-0 gap-1 rounded-sm px-2 text-[11px]"
+                    onMouseDown={(event) => {
+                      event.preventDefault();
+                      onRemoveExternalClause?.(clause);
+                    }}
+                  >
+                    <span className="text-foreground">{clause.raw}</span>
+                    <X className="h-3 w-3" />
+                  </Button>
+                ))}
 
-              {hasTextSearch && (
+              {showActiveFilters &&
+                clauses.map((clause, index) => (
+                  <Button
+                    key={`clause:${index}:${clause.id}`}
+                    variant="outline"
+                    size="sm"
+                    className={cn(
+                      "h-6 flex-shrink-0 gap-1 rounded-sm px-2 text-[11px]",
+                      highlightedBadgeIndex === index &&
+                        "border-ring text-foreground",
+                    )}
+                    onMouseDown={(event) => {
+                      event.preventDefault();
+                      removeBadge(index);
+                    }}
+                  >
+                    <span className="text-foreground">{clause.raw}</span>
+                    <X className="h-3 w-3" />
+                  </Button>
+                ))}
+
+              {showTextSearchIndicator && hasTextSearch && (
                 <Button
-                  variant='outline'
-                  size='sm'
-                  className='h-6 flex-shrink-0 gap-1 rounded-sm px-2 text-[11px]'
-                  onMouseDown={(e) => {
-                    e.preventDefault()
-                    handleTextSearchClear()
+                  variant="outline"
+                  size="sm"
+                  className="h-6 flex-shrink-0 gap-1 rounded-sm px-2 text-[11px]"
+                  onMouseDown={(event) => {
+                    event.preventDefault();
+                    handleTextSearchClear();
                   }}
                 >
-                  <span className='text-foreground'>
-                    &quot;
-                    {textSearch}
-                    &quot;
-                  </span>
-                  <X className='h-3 w-3' />
+                  <span className="text-muted-foreground">text:</span>
+                  <span className="text-foreground">{textSearch}</span>
+                  <X className="h-3 w-3" />
                 </Button>
               )}
 
               <input
                 ref={inputRef}
-                type='text'
-                placeholder={hasFilters || hasTextSearch ? '' : placeholder}
                 value={currentInput}
-                onChange={(e) => handleInputChange(e.target.value)}
+                onChange={(event) => handleInputChange(event.target.value)}
                 onKeyDown={handleKeyDown}
                 onFocus={handleFocus}
                 onBlur={handleBlur}
-                className='min-w-[120px] flex-1 border-0 bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground'
+                placeholder={!hasClauses && !hasTextSearch ? placeholder : ""}
+                className="h-full min-w-[120px] flex-1 bg-transparent outline-none placeholder:text-muted-foreground"
+                autoComplete="off"
+                autoCorrect="off"
+                autoCapitalize="off"
+                spellCheck="false"
               />
             </div>
 
-            {(hasFilters || hasTextSearch) && (
+            {(hasClauses || hasTextSearch || currentInput) && (
               <Button
-                type='button'
-                size='icon'
-                variant='ghost'
-                className='ml-1 h-6 w-6 flex-shrink-0 text-muted-foreground hover:text-foreground'
-                onMouseDown={(e) => {
-                  e.preventDefault()
-                  clearAll()
+                variant="ghost"
+                size="icon"
+                className="ml-1 h-6 w-6 shrink-0 text-muted-foreground hover:text-foreground"
+                onMouseDown={(event) => {
+                  event.preventDefault();
+                  clearAll();
                 }}
               >
-                <X className='h-4 w-4' />
+                <X className="h-3.5 w-3.5" />
               </Button>
             )}
           </div>
         </PopoverTrigger>
 
-        {suggestions.length > 0 && (
-          <PopoverContent
-            className='p-0'
-            style={{ width: dropdownWidth }}
-            align='start'
-            sideOffset={4}
-            onOpenAutoFocus={(e) => e.preventDefault()}
-          >
-            <div ref={dropdownRef} className='max-h-96 overflow-y-auto'>
-              {sections.length > 0 ? (
-                <div className='py-1'>
-                  {suggestions[0]?.category === 'show-all' && (
-                    <button
-                      key={suggestions[0].id}
-                      data-index={0}
-                      className={cn(
-                        'w-full px-3 py-1.5 text-left text-sm transition-colors',
-                        highlightedIndex === 0
-                          ? 'bg-accent text-accent-foreground'
-                          : 'hover:bg-card hover:text-foreground'
-                      )}
-                      onMouseEnter={() => setHighlightedIndex(0)}
-                      onMouseDown={(e) => {
-                        e.preventDefault()
-                        handleSuggestionSelect(suggestions[0])
-                      }}
-                    >
-                      {suggestions[0].label}
-                    </button>
-                  )}
-
-                  {sections.map((section) => (
-                    <div key={section.title}>
-                      <div className='border-t border-border/50 px-3 py-1.5 font-medium text-[11px] uppercase tracking-wide text-muted-foreground/80'>
-                        {section.title}
-                      </div>
+        <PopoverContent
+          align="start"
+          className="p-1"
+          style={{ width: dropdownWidth }}
+          onOpenAutoFocus={(event) => event.preventDefault()}
+        >
+          <div ref={dropdownRef} className="max-h-[300px] overflow-y-auto">
+            {sections.length > 0 ? (
+              <div className="space-y-2">
+                {sections.map((section) => (
+                  <div key={section.title} className="space-y-1">
+                    <div className="px-2 pt-1 font-medium text-[11px] uppercase tracking-wide text-muted-foreground">
+                      {section.title}
+                    </div>
+                    <div className="space-y-0.5">
                       {section.suggestions.map((suggestion) => {
-                        if (suggestion.category === 'show-all') return null
-                        const index = suggestions.indexOf(suggestion)
-                        const isHighlighted = index === highlightedIndex
-
+                        const index = suggestions.findIndex(
+                          (entry) => entry.id === suggestion.id,
+                        );
                         return (
                           <button
                             key={suggestion.id}
+                            type="button"
                             data-index={index}
                             className={cn(
-                              'w-full px-3 py-1.5 text-left text-sm transition-colors',
-                              isHighlighted
-                                ? 'bg-accent text-accent-foreground'
-                                : 'hover:bg-card hover:text-foreground'
+                              "flex w-full items-start gap-2 rounded-sm px-2 py-1.5 text-left text-sm hover:bg-accent",
+                              index === highlightedIndex && "bg-accent",
                             )}
-                            onMouseEnter={() => setHighlightedIndex(index)}
-                            onMouseDown={(e) => {
-                              e.preventDefault()
-                              handleSuggestionSelect(suggestion)
+                            onMouseDown={(event) => {
+                              event.preventDefault();
+                              handleSuggestionSelect(suggestion);
                             }}
                           >
-                            <div className='flex items-center justify-between gap-3'>
-                              <div className='min-w-0 flex-1 truncate'>{suggestion.label}</div>
-                              {suggestion.value !== suggestion.label && (
-                                <div className='flex-shrink-0 font-mono text-[11px] text-muted-foreground'>
-                                  {suggestion.category === 'workflow' ||
-                                  suggestion.category === 'folder'
-                                    ? `${suggestion.category}:`
-                                    : ''}
+                            <div className="min-w-0 flex-1">
+                              <div className="truncate font-medium">
+                                {suggestion.label}
+                              </div>
+                              {suggestion.description ? (
+                                <div className="truncate text-muted-foreground text-xs">
+                                  {suggestion.description}
                                 </div>
-                              )}
+                              ) : null}
                             </div>
                           </button>
-                        )
+                        );
                       })}
                     </div>
-                  ))}
-                </div>
-              ) : (
-                <div className='py-1'>
-                  {suggestionType === 'filters' && (
-                    <div className='border-b border-border/50 px-3 py-1.5 font-medium text-[11px] uppercase tracking-wide text-muted-foreground/80'>
-                      Suggested Filters
-                    </div>
-                  )}
-
-                  {suggestions.map((suggestion, index) => (
-                    <button
-                      key={suggestion.id}
-                      data-index={index}
-                      className={cn(
-                        'w-full px-3 py-1.5 text-left text-sm transition-colors',
-                        index === highlightedIndex
-                          ? 'bg-accent text-accent-foreground'
-                          : 'hover:bg-card hover:text-foreground'
-                      )}
-                      onMouseEnter={() => setHighlightedIndex(index)}
-                      onMouseDown={(e) => {
-                        e.preventDefault()
-                        handleSuggestionSelect(suggestion)
-                      }}
-                    >
-                      <div className='flex items-center justify-between gap-3'>
-                        <div className='min-w-0 flex-1'>{suggestion.label}</div>
-                        {suggestion.description && (
-                          <div className='flex-shrink-0 font-mono text-[11px] text-muted-foreground'>
-                            {suggestion.value}
+                  </div>
+                ))}
+                <div className="space-y-0.5">
+                  {suggestions
+                    .filter((suggestion) => suggestion.category === "show-all")
+                    .map((suggestion) => {
+                      const index = suggestions.findIndex(
+                        (entry) => entry.id === suggestion.id,
+                      );
+                      return (
+                        <button
+                          key={suggestion.id}
+                          type="button"
+                          data-index={index}
+                          className={cn(
+                            "flex w-full items-start gap-2 rounded-sm px-2 py-1.5 text-left text-sm hover:bg-accent",
+                            index === highlightedIndex && "bg-accent",
+                          )}
+                          onMouseDown={(event) => {
+                            event.preventDefault();
+                            handleSuggestionSelect(suggestion);
+                          }}
+                        >
+                          <div className="min-w-0 flex-1 truncate font-medium">
+                            {suggestion.label}
                           </div>
-                        )}
-                      </div>
-                    </button>
-                  ))}
+                        </button>
+                      );
+                    })}
                 </div>
-              )}
-            </div>
-          </PopoverContent>
-        )}
+              </div>
+            ) : (
+              <div className="space-y-0.5">
+                {suggestions.map((suggestion, index) => (
+                  <button
+                    key={suggestion.id}
+                    type="button"
+                    data-index={index}
+                    className={cn(
+                      "flex w-full items-start gap-2 rounded-sm px-2 py-1.5 text-left text-sm hover:bg-accent",
+                      index === highlightedIndex && "bg-accent",
+                    )}
+                    onMouseDown={(event) => {
+                      event.preventDefault();
+                      handleSuggestionSelect(suggestion);
+                    }}
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate font-medium">
+                        {suggestion.label}
+                      </div>
+                      {suggestion.description ? (
+                        <div className="truncate text-muted-foreground text-xs">
+                          {suggestion.description}
+                        </div>
+                      ) : null}
+                    </div>
+                    {suggestion.category !== "show-all" && suggestionType ? (
+                      <Badge
+                        variant="secondary"
+                        className="shrink-0 text-[10px] capitalize"
+                      >
+                        {suggestion.category}
+                      </Badge>
+                    ) : null}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </PopoverContent>
       </Popover>
 
-      {showActiveFilters && hasFilters && (
-        <div className='mt-3 flex flex-wrap items-center gap-2'>
-          <span className='font-medium text-xs text-muted-foreground'>Active Filters:</span>
-          {appliedFilters.map((filter, index) => (
-            <Badge
-              key={`${filter.field}-${filter.value}-${index}`}
-              variant='secondary'
-              className='h-6 border border-border/50 bg-muted/50 font-mono text-xs text-muted-foreground'
-            >
-              <span className='mr-1'>{filter.field}:</span>
-              <span>
-                {filter.operator !== '=' && filter.operator}
-                {filter.originalValue}
-              </span>
-              <Button
-                type='button'
-                variant='ghost'
-                size='sm'
-                className='ml-1 h-3 w-3 p-0 text-muted-foreground hover:bg-card/50 hover:text-foreground'
-                onMouseDown={(e) => {
-                  e.preventDefault()
-                  removeBadge(index)
-                }}
-              >
-                <X className='h-2.5 w-2.5' />
-              </Button>
-            </Badge>
-          ))}
-          {appliedFilters.length > 1 && (
-            <Button
-              type='button'
-              variant='ghost'
-              size='sm'
-              className='h-6 text-xs text-muted-foreground hover:text-foreground'
-              onMouseDown={(e) => {
-                e.preventDefault()
-                initializeFromQuery(textSearch, [])
-              }}
-            >
-              Clear all
-            </Button>
-          )}
+      {invalidQualifierFragments.length > 0 ? (
+        <div className="mt-1 truncate text-destructive text-xs">
+          Unsupported qualifier: {invalidQualifierFragments.join(", ")}
         </div>
-      )}
-
-      {showTextSearchIndicator && hasTextSearch && (
-        <div className='mt-2 flex items-center gap-2'>
-          <span className='font-medium text-xs text-muted-foreground'>Text Search:</span>
-          <Badge variant='outline' className='text-xs'>
-            &quot;{textSearch}&quot;
-          </Badge>
-        </div>
-      )}
+      ) : null}
     </div>
-  )
-}
-
-function buildQueryString(filters: ParsedFilter[], textSearch: string, currentInput: string) {
-  const filterStrings = filters.map(
-    (filter) => `${filter.field}:${filter.operator !== '=' ? filter.operator : ''}${filter.originalValue}`
-  )
-  const parts = [...filterStrings]
-
-  if (textSearch.trim()) {
-    parts.push(textSearch.trim())
-  }
-
-  if (currentInput.trim()) {
-    parts.push(currentInput)
-  }
-
-  return parts.join(' ').trim()
+  );
 }

@@ -1,33 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Info, Loader2 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
+import type { WorkflowLog } from '@/lib/logs/types'
 import { cn } from '@/lib/utils'
 import LineChart, {
   type LineChartPoint,
 } from '@/app/workspace/[workspaceId]/logs/components/dashboard/components/line-chart'
 import { getTriggerColor } from '@/app/workspace/[workspaceId]/logs/components/dashboard/utils'
-import { formatDate } from '@/app/workspace/[workspaceId]/logs/utils'
+import { extractOutput, formatDate } from '@/app/workspace/[workspaceId]/logs/utils'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
-
-export interface ExecutionLogItem {
-  id: string
-  executionId: string
-  startedAt: string
-  level: string
-  trigger: string
-  triggerUserId: string | null
-  triggerInputs: any
-  outputs: any
-  errorMessage: string | null
-  duration: number | null
-  cost: {
-    input: number
-    output: number
-    total: number
-  } | null
-  workflowName?: string
-  workflowColor?: string
-}
 
 export interface WorkflowDetailsData {
   errorRates: LineChartPoint[]
@@ -36,8 +17,31 @@ export interface WorkflowDetailsData {
   durationP90?: LineChartPoint[]
   durationP99?: LineChartPoint[]
   executionCounts: LineChartPoint[]
-  logs: ExecutionLogItem[]
-  allLogs: ExecutionLogItem[]
+  logs: WorkflowLog[]
+  allLogs: WorkflowLog[]
+}
+
+const getWorkflowLogOutputText = (log: WorkflowLog) => {
+  const output = extractOutput(log)
+  if (output === null || typeof output === 'undefined') {
+    return '—'
+  }
+
+  return typeof output === 'string' ? output : JSON.stringify(output)
+}
+
+const getWorkflowLogErrorText = (log: WorkflowLog) => {
+  const blockExecutions = Array.isArray(log.executionData?.blockExecutions)
+    ? log.executionData.blockExecutions
+    : []
+  for (let index = blockExecutions.length - 1; index >= 0; index -= 1) {
+    const errorMessage = blockExecutions[index]?.errorMessage
+    if (typeof errorMessage === 'string' && errorMessage.trim()) {
+      return errorMessage
+    }
+  }
+
+  return null
 }
 
 export function WorkflowDetails({
@@ -314,8 +318,8 @@ export function WorkflowDetails({
                         logDate && !Number.isNaN(logDate.getTime())
                           ? formatDate(logDate.toISOString())
                           : ({ compactDate: '—', compactTime: '' } as any)
-                      const outputsStr = log.outputs ? JSON.stringify(log.outputs) : '—'
-                      const errorStr = log.errorMessage || ''
+                      const outputsStr = getWorkflowLogOutputText(log)
+                      const errorStr = getWorkflowLogErrorText(log) || ''
                       const isExpanded = expandedRowId === log.id
 
                       return (
@@ -381,23 +385,28 @@ export function WorkflowDetails({
 
                             <div>
                               <div className='font-[400] text-muted-foreground text-xs'>
-                                {log.cost && log.cost.total > 0 ? formatCost(log.cost.total) : '—'}
+                                {typeof log.cost?.total === 'number' && log.cost.total > 0
+                                  ? formatCost(log.cost.total)
+                                  : '—'}
                               </div>
                             </div>
 
                             {/* Workflow cell */}
                             <div className='whitespace-nowrap'>
-                              {log.workflowName ? (
+                              {log.workflow?.name ? (
                                 <div className='inline-flex items-center gap-2'>
                                   <span
                                     className='h-3.5 w-3.5 rounded'
-                                    style={{ backgroundColor: log.workflowColor || '#64748b' }}
+                                    style={{
+                                      backgroundColor:
+                                        log.workflow?.color || workflowColor || '#64748b',
+                                    }}
                                   />
                                   <span
                                     className='max-w-[150px] truncate text-muted-foreground text-xs'
-                                    title={log.workflowName}
+                                    title={log.workflow?.name}
                                   >
-                                    {log.workflowName}
+                                    {log.workflow?.name}
                                   </span>
                                 </div>
                               ) : (
@@ -420,7 +429,7 @@ export function WorkflowDetails({
 
                             <div className='text-right'>
                               <div className='text-muted-foreground text-xs tabular-nums'>
-                                {typeof log.duration === 'number' ? `${log.duration}ms` : '—'}
+                                {typeof log.durationMs === 'number' ? `${log.durationMs}ms` : '—'}
                               </div>
                             </div>
                           </div>
