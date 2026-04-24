@@ -110,7 +110,13 @@ services:
     image: ollama/ollama:${OLLAMA_IMAGE_TAG:?set OLLAMA_IMAGE_TAG in .env}
     volumes:
       - ollama_data:/root/.ollama
-    gpus: all
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
     environment:
       - NVIDIA_DRIVER_CAPABILITIES=all
       - OLLAMA_LOAD_TIMEOUT=-1
