@@ -1,265 +1,458 @@
-import { db } from '@tradinggoose/db'
-import { permissions, workflow, workflowExecutionLogs } from '@tradinggoose/db/schema'
-import { and, desc, eq, gte, inArray, lte, type SQL, sql } from 'drizzle-orm'
-import { type NextRequest, NextResponse } from 'next/server'
-import { z } from 'zod'
-import { getSession } from '@/lib/auth'
-import { createLogger } from '@/lib/logs/console/logger'
-import { normalizeOptionalString } from '@/lib/utils'
-import { parseListingFilter } from '@/app/api/logs/log-utils'
+import { db } from "@tradinggoose/db";
+import {
+  permissions,
+  workflow,
+  workflowExecutionLogs,
+  workflowFolder,
+} from "@tradinggoose/db/schema";
+import { and, desc, eq, gte, inArray, lte, sql, type SQL } from "drizzle-orm";
+import { type NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
+import { getSession } from "@/lib/auth";
+import { createLogger } from "@/lib/logs/console/logger";
+import { normalizeOptionalString } from "@/lib/utils";
+import {
+  matchesWorkflowLogFilters,
+  parseListingFilters,
+  serializeWorkflowLog,
+} from "@/app/api/logs/log-utils";
 
-const logger = createLogger('LogsExportAPI')
+const logger = createLogger("LogsExportAPI");
 
-export const revalidate = 0
+export const revalidate = 0;
 
 const ExportParamsSchema = z.object({
   level: z.string().optional(),
+  excludeLevel: z.string().optional(),
+  outcomes: z.string().optional(),
+  excludeOutcomes: z.string().optional(),
   workflowIds: z.string().optional(),
+  excludeWorkflowIds: z.string().optional(),
   folderIds: z.string().optional(),
   triggers: z.string().optional(),
+  excludeTriggers: z.string().optional(),
   startDate: z.string().optional(),
   endDate: z.string().optional(),
   search: z.string().optional(),
   workflowName: z.string().optional(),
+  excludeWorkflowName: z.string().optional(),
   folderName: z.string().optional(),
+  excludeFolderName: z.string().optional(),
   monitorId: z.string().optional(),
-  listing: z.string().optional(),
+  excludeMonitorId: z.string().optional(),
   indicatorId: z.string().optional(),
+  listings: z.string().optional(),
+  excludeListings: z.string().optional(),
   providerId: z.string().optional(),
+  excludeProviderId: z.string().optional(),
   interval: z.string().optional(),
-  triggerSource: z.preprocess(
-    (value) => {
-      if (typeof value !== 'string') return value
-      const trimmed = value.trim()
-      return trimmed.length === 0 ? undefined : trimmed
-    },
-    z.literal('indicator_trigger').optional()
-  ),
+  excludeInterval: z.string().optional(),
+  assetTypes: z.string().optional(),
+  excludeAssetTypes: z.string().optional(),
+  hasFields: z.string().optional(),
+  noFields: z.string().optional(),
+  startedAtFrom: z.string().optional(),
+  startedAtFromExclusive: z.string().optional(),
+  startedAtTo: z.string().optional(),
+  startedAtToExclusive: z.string().optional(),
+  endedAtFrom: z.string().optional(),
+  endedAtFromExclusive: z.string().optional(),
+  endedAtTo: z.string().optional(),
+  endedAtToExclusive: z.string().optional(),
+  durationMinMs: z.coerce.number().optional(),
+  durationMinMsExclusive: z.string().optional(),
+  durationMaxMs: z.coerce.number().optional(),
+  durationMaxMsExclusive: z.string().optional(),
+  costMin: z.coerce.number().optional(),
+  costMinExclusive: z.string().optional(),
+  costMax: z.coerce.number().optional(),
+  costMaxExclusive: z.string().optional(),
+  triggerSource: z.preprocess((value) => {
+    if (typeof value !== "string") return value;
+    const trimmed = value.trim();
+    return trimmed.length === 0 ? undefined : trimmed;
+  }, z.literal("indicator_trigger").optional()),
   workspaceId: z.string(),
-})
+});
 
+const splitCsv = (value: string | undefined) =>
+  (value ?? "")
+    .split(",")
+    .map((entry) => entry.trim())
+    .filter(Boolean);
 
-function escapeCsv(value: any): string {
-  if (value === null || value === undefined) return ''
-  const str = String(value)
-  if (/[",\n]/.test(str)) {
-    return `"${str.replace(/"/g, '""')}"`
+const parseBooleanFlag = (value: string | undefined) =>
+  value === "true" || value === "1";
+
+const TOTAL_COST_SQL = sql<number>`COALESCE((${workflowExecutionLogs.cost}->>'total')::double precision, 0)`;
+
+const applyDateLowerBound = (
+  conditions: SQL | undefined,
+  column:
+    | typeof workflowExecutionLogs.startedAt
+    | typeof workflowExecutionLogs.endedAt,
+  value: string | undefined,
+  exclusive: boolean,
+) => {
+  const normalized = normalizeOptionalString(value);
+  if (!normalized) return conditions;
+
+  const bound = new Date(normalized);
+  return and(
+    conditions,
+    exclusive ? sql`${column} > ${bound}` : gte(column, bound),
+  );
+};
+
+const applyDateUpperBound = (
+  conditions: SQL | undefined,
+  column:
+    | typeof workflowExecutionLogs.startedAt
+    | typeof workflowExecutionLogs.endedAt,
+  value: string | undefined,
+  exclusive: boolean,
+) => {
+  const normalized = normalizeOptionalString(value);
+  if (!normalized) return conditions;
+
+  const bound = new Date(normalized);
+  return and(
+    conditions,
+    exclusive ? sql`${column} < ${bound}` : lte(column, bound),
+  );
+};
+
+const applyNumberLowerBound = (
+  conditions: SQL | undefined,
+  column: typeof workflowExecutionLogs.totalDurationMs,
+  value: number | undefined,
+  exclusive: boolean,
+) => {
+  if (typeof value !== "number") return conditions;
+  return and(
+    conditions,
+    exclusive ? sql`${column} > ${value}` : gte(column, value),
+  );
+};
+
+const applyNumberUpperBound = (
+  conditions: SQL | undefined,
+  column: typeof workflowExecutionLogs.totalDurationMs,
+  value: number | undefined,
+  exclusive: boolean,
+) => {
+  if (typeof value !== "number") return conditions;
+  return and(
+    conditions,
+    exclusive ? sql`${column} < ${value}` : lte(column, value),
+  );
+};
+
+const applyCostLowerBound = (
+  conditions: SQL | undefined,
+  value: number | undefined,
+  exclusive: boolean,
+) => {
+  if (typeof value !== "number") return conditions;
+  return and(
+    conditions,
+    exclusive
+      ? sql`${TOTAL_COST_SQL} > ${value}`
+      : sql`${TOTAL_COST_SQL} >= ${value}`,
+  );
+};
+
+const applyCostUpperBound = (
+  conditions: SQL | undefined,
+  value: number | undefined,
+  exclusive: boolean,
+) => {
+  if (typeof value !== "number") return conditions;
+  return and(
+    conditions,
+    exclusive
+      ? sql`${TOTAL_COST_SQL} < ${value}`
+      : sql`${TOTAL_COST_SQL} <= ${value}`,
+  );
+};
+
+function escapeCsv(value: unknown): string {
+  if (value === null || value === undefined) return "";
+  const stringValue = String(value);
+  if (/[",\n]/.test(stringValue)) {
+    return `"${stringValue.replace(/"/g, '""')}"`;
   }
-  return str
+  return stringValue;
 }
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await getSession()
+    const session = await getSession();
     if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const userId = session.user.id
-    const { searchParams } = new URL(request.url)
-    const params = ExportParamsSchema.parse(Object.fromEntries(searchParams.entries()))
-    const monitorId = normalizeOptionalString(params.monitorId)
-    const listing = parseListingFilter(params.listing)
-    const indicatorId = normalizeOptionalString(params.indicatorId)
-    const providerId = normalizeOptionalString(params.providerId)
-    const interval = normalizeOptionalString(params.interval)
-    const triggerSource = normalizeOptionalString(params.triggerSource)
-    if (listing === null) {
-      return NextResponse.json({ error: 'Invalid listing filter' }, { status: 400 })
+    const userId = session.user.id;
+    const { searchParams } = new URL(request.url);
+    const params = ExportParamsSchema.parse(
+      Object.fromEntries(searchParams.entries()),
+    );
+
+    const listings = parseListingFilters(params.listings);
+    const excludedListings = parseListingFilters(params.excludeListings);
+
+    if (listings === null || excludedListings === null) {
+      return NextResponse.json(
+        { error: "Invalid listing filter" },
+        { status: 400 },
+      );
     }
 
-    const selectColumns = {
-      id: workflowExecutionLogs.id,
-      workflowId: workflowExecutionLogs.workflowId,
-      executionId: workflowExecutionLogs.executionId,
-      level: workflowExecutionLogs.level,
-      trigger: workflowExecutionLogs.trigger,
-      startedAt: workflowExecutionLogs.startedAt,
-      endedAt: workflowExecutionLogs.endedAt,
-      totalDurationMs: workflowExecutionLogs.totalDurationMs,
-      cost: workflowExecutionLogs.cost,
-      executionData: workflowExecutionLogs.executionData,
-      workflowName: workflow.name,
-    }
-
-    let conditions: SQL | undefined = eq(workflow.workspaceId, params.workspaceId)
-
-    if (params.level && params.level !== 'all') {
-      conditions = and(conditions, eq(workflowExecutionLogs.level, params.level))
-    }
+    let conditions: SQL | undefined = eq(
+      workflow.workspaceId,
+      params.workspaceId,
+    );
 
     if (params.workflowIds) {
-      const workflowIds = params.workflowIds.split(',').filter(Boolean)
-      if (workflowIds.length > 0) conditions = and(conditions, inArray(workflow.id, workflowIds))
+      const workflowIds = splitCsv(params.workflowIds);
+      if (workflowIds.length > 0) {
+        conditions = and(conditions, inArray(workflow.id, workflowIds));
+      }
     }
 
     if (params.folderIds) {
-      const folderIds = params.folderIds.split(',').filter(Boolean)
-      if (folderIds.length > 0) conditions = and(conditions, inArray(workflow.folderId, folderIds))
+      const folderIds = splitCsv(params.folderIds);
+      if (folderIds.length > 0) {
+        conditions = and(conditions, inArray(workflow.folderId, folderIds));
+      }
     }
 
     if (params.triggers) {
-      const triggers = params.triggers.split(',').filter(Boolean)
-      if (triggers.length > 0 && !triggers.includes('all')) {
-        conditions = and(conditions, inArray(workflowExecutionLogs.trigger, triggers))
+      const triggers = splitCsv(params.triggers);
+      if (triggers.length > 0 && !triggers.includes("all")) {
+        conditions = and(
+          conditions,
+          inArray(workflowExecutionLogs.trigger, triggers),
+        );
       }
     }
 
     if (params.startDate) {
-      conditions = and(conditions, gte(workflowExecutionLogs.startedAt, new Date(params.startDate)))
+      conditions = and(
+        conditions,
+        gte(workflowExecutionLogs.startedAt, new Date(params.startDate)),
+      );
     }
     if (params.endDate) {
-      conditions = and(conditions, lte(workflowExecutionLogs.startedAt, new Date(params.endDate)))
+      conditions = and(
+        conditions,
+        lte(workflowExecutionLogs.startedAt, new Date(params.endDate)),
+      );
     }
 
-    if (params.search) {
-      const term = `%${params.search}%`
-      conditions = and(conditions, sql`${workflowExecutionLogs.executionId} ILIKE ${term}`)
-    }
-    if (params.workflowName) {
-      const nameTerm = `%${params.workflowName}%`
-      conditions = and(conditions, sql`${workflow.name} ILIKE ${nameTerm}`)
-    }
-    if (params.folderName) {
-      const folderTerm = `%${params.folderName}%`
-      conditions = and(conditions, sql`${workflow.name} ILIKE ${folderTerm}`)
+    conditions = applyDateLowerBound(
+      conditions,
+      workflowExecutionLogs.startedAt,
+      params.startedAtFrom,
+      parseBooleanFlag(params.startedAtFromExclusive),
+    );
+    conditions = applyDateUpperBound(
+      conditions,
+      workflowExecutionLogs.startedAt,
+      params.startedAtTo,
+      parseBooleanFlag(params.startedAtToExclusive),
+    );
+    conditions = applyDateLowerBound(
+      conditions,
+      workflowExecutionLogs.endedAt,
+      params.endedAtFrom,
+      parseBooleanFlag(params.endedAtFromExclusive),
+    );
+    conditions = applyDateUpperBound(
+      conditions,
+      workflowExecutionLogs.endedAt,
+      params.endedAtTo,
+      parseBooleanFlag(params.endedAtToExclusive),
+    );
+    conditions = applyNumberLowerBound(
+      conditions,
+      workflowExecutionLogs.totalDurationMs,
+      params.durationMinMs,
+      parseBooleanFlag(params.durationMinMsExclusive),
+    );
+    conditions = applyNumberUpperBound(
+      conditions,
+      workflowExecutionLogs.totalDurationMs,
+      params.durationMaxMs,
+      parseBooleanFlag(params.durationMaxMsExclusive),
+    );
+    conditions = applyCostLowerBound(
+      conditions,
+      params.costMin,
+      parseBooleanFlag(params.costMinExclusive),
+    );
+    conditions = applyCostUpperBound(
+      conditions,
+      params.costMax,
+      parseBooleanFlag(params.costMaxExclusive),
+    );
+
+    if (params.triggerSource) {
+      conditions = and(
+        conditions,
+        sql`${workflowExecutionLogs.executionData}->'trigger'->>'source' = ${params.triggerSource}`,
+      );
     }
 
-    if (monitorId) {
-      conditions = and(
-        conditions,
-        sql`${workflowExecutionLogs.executionData}->'trigger'->'data'->'monitor'->>'id' = ${monitorId}`
+    const rows = await db
+      .select({
+        id: workflowExecutionLogs.id,
+        workflowId: workflowExecutionLogs.workflowId,
+        executionId: workflowExecutionLogs.executionId,
+        level: workflowExecutionLogs.level,
+        trigger: workflowExecutionLogs.trigger,
+        startedAt: workflowExecutionLogs.startedAt,
+        endedAt: workflowExecutionLogs.endedAt,
+        totalDurationMs: workflowExecutionLogs.totalDurationMs,
+        executionData: workflowExecutionLogs.executionData,
+        cost: workflowExecutionLogs.cost,
+        files: workflowExecutionLogs.files,
+        createdAt: workflowExecutionLogs.createdAt,
+        workflowName: workflow.name,
+        workflowDescription: workflow.description,
+        workflowColor: workflow.color,
+        workflowFolderId: workflow.folderId,
+        workflowFolderName: workflowFolder.name,
+        workflowUserId: workflow.userId,
+        workflowWorkspaceId: workflow.workspaceId,
+        workflowCreatedAt: workflow.createdAt,
+        workflowUpdatedAt: workflow.updatedAt,
+      })
+      .from(workflow)
+      .innerJoin(
+        workflowExecutionLogs,
+        eq(workflowExecutionLogs.workflowId, workflow.id),
       )
-    }
-    if (listing) {
-      conditions = and(
-        conditions,
-        sql`${workflowExecutionLogs.executionData}->'trigger'->'data'->'monitor'->'listing'->>'listing_type' = ${listing.listing_type}`,
-        sql`${workflowExecutionLogs.executionData}->'trigger'->'data'->'monitor'->'listing'->>'listing_id' = ${listing.listing_id}`,
-        sql`${workflowExecutionLogs.executionData}->'trigger'->'data'->'monitor'->'listing'->>'base_id' = ${listing.base_id}`,
-        sql`${workflowExecutionLogs.executionData}->'trigger'->'data'->'monitor'->'listing'->>'quote_id' = ${listing.quote_id}`
+      .leftJoin(workflowFolder, eq(workflow.folderId, workflowFolder.id))
+      .innerJoin(
+        permissions,
+        and(
+          eq(permissions.entityType, "workspace"),
+          eq(permissions.entityId, workflow.workspaceId),
+          eq(permissions.userId, userId),
+        ),
       )
-    }
-    if (indicatorId) {
-      conditions = and(
-        conditions,
-        sql`${workflowExecutionLogs.executionData}->'trigger'->'data'->'monitor'->>'indicatorId' = ${indicatorId}`
-      )
-    }
-    if (providerId) {
-      conditions = and(
-        conditions,
-        sql`${workflowExecutionLogs.executionData}->'trigger'->'data'->'monitor'->>'providerId' = ${providerId}`
-      )
-    }
-    if (interval) {
-      conditions = and(
-        conditions,
-        sql`${workflowExecutionLogs.executionData}->'trigger'->'data'->'monitor'->>'interval' = ${interval}`
-      )
-    }
-    if (triggerSource) {
-      conditions = and(
-        conditions,
-        sql`${workflowExecutionLogs.executionData}->'trigger'->>'source' = ${triggerSource}`
-      )
-    }
+      .where(conditions)
+      .orderBy(desc(workflowExecutionLogs.startedAt));
+
+    const filters = {
+      search: normalizeOptionalString(params.search) ?? undefined,
+      level: splitCsv(params.level),
+      excludeLevel: splitCsv(params.excludeLevel),
+      outcomes: splitCsv(params.outcomes),
+      excludeOutcomes: splitCsv(params.excludeOutcomes),
+      triggers: splitCsv(params.triggers),
+      excludeTriggers: splitCsv(params.excludeTriggers),
+      workflowIds: splitCsv(params.workflowIds),
+      excludeWorkflowIds: splitCsv(params.excludeWorkflowIds),
+      workflowNames: splitCsv(params.workflowName),
+      excludeWorkflowNames: splitCsv(params.excludeWorkflowName),
+      folderNames: splitCsv(params.folderName),
+      excludeFolderNames: splitCsv(params.excludeFolderName),
+      monitorId: splitCsv(params.monitorId),
+      excludeMonitorId: splitCsv(params.excludeMonitorId),
+      indicatorId: splitCsv(params.indicatorId),
+      providerId: splitCsv(params.providerId),
+      excludeProviderId: splitCsv(params.excludeProviderId),
+      interval: splitCsv(params.interval),
+      excludeInterval: splitCsv(params.excludeInterval),
+      listings: listings ?? [],
+      excludeListings: excludedListings ?? [],
+      assetTypes: splitCsv(params.assetTypes).map((entry) =>
+        entry.toLowerCase(),
+      ),
+      excludeAssetTypes: splitCsv(params.excludeAssetTypes).map((entry) =>
+        entry.toLowerCase(),
+      ),
+      hasFields: splitCsv(params.hasFields),
+      noFields: splitCsv(params.noFields),
+      startedAtFrom: normalizeOptionalString(params.startedAtFrom) ?? undefined,
+      startedAtFromExclusive: parseBooleanFlag(params.startedAtFromExclusive),
+      startedAtTo: normalizeOptionalString(params.startedAtTo) ?? undefined,
+      startedAtToExclusive: parseBooleanFlag(params.startedAtToExclusive),
+      endedAtFrom: normalizeOptionalString(params.endedAtFrom) ?? undefined,
+      endedAtFromExclusive: parseBooleanFlag(params.endedAtFromExclusive),
+      endedAtTo: normalizeOptionalString(params.endedAtTo) ?? undefined,
+      endedAtToExclusive: parseBooleanFlag(params.endedAtToExclusive),
+      durationMinMs: params.durationMinMs,
+      durationMinMsExclusive: parseBooleanFlag(params.durationMinMsExclusive),
+      durationMaxMs: params.durationMaxMs,
+      durationMaxMsExclusive: parseBooleanFlag(params.durationMaxMsExclusive),
+      costMin: params.costMin,
+      costMinExclusive: parseBooleanFlag(params.costMinExclusive),
+      costMax: params.costMax,
+      costMaxExclusive: parseBooleanFlag(params.costMaxExclusive),
+    };
+
+    const filteredLogs = rows.flatMap((row) => {
+      const fullLog = serializeWorkflowLog(row, "full");
+      if (!matchesWorkflowLogFilters(fullLog, filters)) {
+        return [];
+      }
+
+      return [fullLog];
+    });
 
     const header = [
-      'startedAt',
-      'level',
-      'workflow',
-      'trigger',
-      'durationMs',
-      'costTotal',
-      'workflowId',
-      'executionId',
-      'message',
-      'traceSpans',
-    ].join(',')
+      "startedAt",
+      "level",
+      "outcome",
+      "workflow",
+      "trigger",
+      "durationMs",
+      "costTotal",
+      "workflowId",
+      "executionId",
+    ].join(",");
 
-    const encoder = new TextEncoder()
+    const encoder = new TextEncoder();
     const stream = new ReadableStream<Uint8Array>({
-      start: async (controller) => {
-        controller.enqueue(encoder.encode(`${header}\n`))
-        const pageSize = 1000
-        let offset = 0
-        try {
-          while (true) {
-            const rows = await db
-              .select(selectColumns)
-              .from(workflowExecutionLogs)
-              .innerJoin(workflow, eq(workflowExecutionLogs.workflowId, workflow.id))
-              .innerJoin(
-                permissions,
-                and(
-                  eq(permissions.entityType, 'workspace'),
-                  eq(permissions.entityId, workflow.workspaceId),
-                  eq(permissions.userId, userId)
-                )
-              )
-              .where(conditions)
-              .orderBy(desc(workflowExecutionLogs.startedAt))
-              .limit(pageSize)
-              .offset(offset)
-
-            if (!rows.length) break
-
-            for (const r of rows as any[]) {
-              let message = ''
-              let traces: any = null
-              try {
-                const ed = (r as any).executionData
-                if (ed) {
-                  if (ed.finalOutput)
-                    message =
-                      typeof ed.finalOutput === 'string'
-                        ? ed.finalOutput
-                        : JSON.stringify(ed.finalOutput)
-                  if (ed.message) message = ed.message
-                  if (ed.traceSpans) traces = ed.traceSpans
-                }
-              } catch {}
-              const line = [
-                escapeCsv(r.startedAt?.toISOString?.() || r.startedAt),
-                escapeCsv(r.level),
-                escapeCsv(r.workflowName),
-                escapeCsv(r.trigger),
-                escapeCsv(r.totalDurationMs ?? ''),
-                escapeCsv(r.cost?.total ?? r.cost?.value?.total ?? ''),
-                escapeCsv(r.workflowId ?? ''),
-                escapeCsv(r.executionId ?? ''),
-                escapeCsv(message),
-                escapeCsv(traces ? JSON.stringify(traces) : ''),
-              ].join(',')
-              controller.enqueue(encoder.encode(`${line}\n`))
-            }
-
-            offset += pageSize
-          }
-          controller.close()
-        } catch (e: any) {
-          logger.error('Export stream error', { error: e?.message })
-          try {
-            controller.error(e)
-          } catch {}
-        }
+      start(controller) {
+        controller.enqueue(encoder.encode(`${header}\n`));
+        filteredLogs.forEach((log) => {
+          const line = [
+            escapeCsv(log.startedAt),
+            escapeCsv(log.level),
+            escapeCsv(log.outcome),
+            escapeCsv(log.workflow?.name),
+            escapeCsv(log.trigger),
+            escapeCsv(log.durationMs),
+            escapeCsv(log.cost?.total),
+            escapeCsv(log.workflowId),
+            escapeCsv(log.executionId),
+          ].join(",");
+          controller.enqueue(encoder.encode(`${line}\n`));
+        });
+        controller.close();
       },
-    })
+    });
 
-    const ts = new Date().toISOString().replace(/[:.]/g, '-')
-    const filename = `logs-${ts}.csv`
+    const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+    const filename = `logs-${timestamp}.csv`;
 
     return new NextResponse(stream as any, {
       status: 200,
       headers: {
-        'Content-Type': 'text/csv; charset=utf-8',
-        'Content-Disposition': `attachment; filename="${filename}"`,
-        'Cache-Control': 'no-cache',
+        "Content-Type": "text/csv; charset=utf-8",
+        "Content-Disposition": `attachment; filename="${filename}"`,
+        "Cache-Control": "no-cache",
       },
-    })
+    });
   } catch (error: any) {
-    logger.error('Export error', { error: error?.message })
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    logger.error("Export route error", { error: error?.message });
+    return NextResponse.json(
+      { error: error?.message ?? "Failed to export logs" },
+      { status: 500 },
+    );
   }
 }

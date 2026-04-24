@@ -118,7 +118,7 @@ export interface LogItem {
   executionId?: string
   level: string
   trigger: string | null
-  createdAt: string
+  startedAt: string
   workflowName: string
 }
 

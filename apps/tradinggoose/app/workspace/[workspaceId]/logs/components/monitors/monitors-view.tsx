@@ -239,7 +239,9 @@ export function MonitorsView({
       searchQuery,
       limit: LOGS_PER_PAGE,
       monitorId: selectedMonitor?.monitorId,
-      listing: selectedMonitor?.providerConfig.monitor.listing,
+      listings: selectedMonitor
+        ? [selectedMonitor.providerConfig.monitor.listing]
+        : [],
       indicatorId: selectedMonitor?.providerConfig.monitor.indicatorId,
       providerId: selectedMonitor?.providerConfig.monitor.providerId,
       interval: selectedMonitor?.providerConfig.monitor.interval,
@@ -268,8 +270,9 @@ export function MonitorsView({
         ? 'Failed to fetch monitor logs'
         : null
 
-  const detailedMonitorLogQuery = useLogDetail(selectedMonitorLog?.id)
-  const detailedMonitorLog = detailedMonitorLogQuery.data ?? selectedMonitorLog
+  const selectedMonitorLogId = selectedMonitorLog?.id ?? undefined
+  const detailedMonitorLogQuery = useLogDetail(selectedMonitorLogId)
+  const detailedSelectedMonitorLog = detailedMonitorLogQuery.data ?? null
 
   const refreshHandler = useCallback(async () => {
     await refreshMonitors()
@@ -843,15 +846,31 @@ export function MonitorsView({
               minSize={20}
               className='min-h-0 min-w-0 overflow-auto p-1'
             >
-              <LogDetails
-                log={detailedMonitorLog}
-                isOpen={Boolean(selectedMonitorLog)}
-                onClose={closeMonitorLogDetails}
-                onNavigateNext={handleNavigateMonitorLogNext}
-                onNavigatePrev={handleNavigateMonitorLogPrev}
-                hasNext={selectedMonitorLogIndex < monitorLogs.length - 1}
-                hasPrev={selectedMonitorLogIndex > 0}
-              />
+              {detailedMonitorLogQuery.isLoading ? (
+                <div className='flex h-full items-center justify-center text-muted-foreground text-sm'>
+                  Loading log details…
+                </div>
+              ) : detailedMonitorLogQuery.error ? (
+                <div className='flex h-full items-center justify-center text-center text-destructive text-sm'>
+                  {detailedMonitorLogQuery.error instanceof Error
+                    ? detailedMonitorLogQuery.error.message
+                    : 'Failed to load log details'}
+                </div>
+              ) : detailedSelectedMonitorLog ? (
+                <LogDetails
+                  log={detailedSelectedMonitorLog}
+                  isOpen={Boolean(selectedMonitorLog)}
+                  onClose={closeMonitorLogDetails}
+                  onNavigateNext={handleNavigateMonitorLogNext}
+                  onNavigatePrev={handleNavigateMonitorLogPrev}
+                  hasNext={selectedMonitorLogIndex < monitorLogs.length - 1}
+                  hasPrev={selectedMonitorLogIndex > 0}
+                />
+              ) : (
+                <div className='flex h-full items-center justify-center text-muted-foreground text-sm'>
+                  Log details are unavailable for the selected entry.
+                </div>
+              )}
             </ResizablePanel>
           </>
         ) : null}

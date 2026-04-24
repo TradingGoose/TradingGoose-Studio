@@ -144,7 +144,7 @@ export function LogsList({
                       </colgroup>
                       <tbody>
                         {logs.map((log) => {
-                          const formattedDate = formatDate(log.createdAt)
+                          const formattedDate = formatDate(log.startedAt)
                           const isSelected = selectedLogId === log.id
 
                           return (
@@ -216,7 +216,7 @@ export function LogsList({
                                 )}
                               </td>
                               <td className='hidden px-4 py-3 text-center align-middle text-muted-foreground text-xs xl:table-cell'>
-                                {log.duration || '—'}
+                                {typeof log.durationMs === 'number' ? `${log.durationMs}ms` : '—'}
                               </td>
                             </tr>
                           )

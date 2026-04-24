@@ -1,21 +1,29 @@
+export type SuggestionCategory =
+  | 'qualifier'
+  | 'value'
+  | 'workflow'
+  | 'folder'
+  | 'monitor'
+  | 'provider'
+  | 'interval'
+  | 'listing'
+  | 'status'
+  | 'trigger'
+  | 'assetType'
+  | 'date'
+  | 'duration'
+  | 'cost'
+  | 'has'
+  | 'no'
+  | 'show-all'
+
 export interface Suggestion {
   id: string
   value: string
   label: string
   description?: string
   color?: string
-  category?:
-    | 'filters'
-    | 'level'
-    | 'trigger'
-    | 'cost'
-    | 'date'
-    | 'duration'
-    | 'workflow'
-    | 'folder'
-    | 'workflowId'
-    | 'executionId'
-    | 'show-all'
+  category: SuggestionCategory
 }
 
 export interface SuggestionSection {
@@ -24,7 +32,7 @@ export interface SuggestionSection {
 }
 
 export interface SuggestionGroup {
-  type: 'filter-keys' | 'filter-values' | 'multi-section'
+  type: 'qualifiers' | 'values' | 'multi-section'
   filterKey?: string
   suggestions: Suggestion[]
   sections?: SuggestionSection[]
