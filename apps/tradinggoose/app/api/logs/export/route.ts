@@ -1,21 +1,21 @@
-import { db } from "@tradinggoose/db";
+import { db } from '@tradinggoose/db'
 import {
   permissions,
   workflow,
   workflowExecutionLogs,
   workflowFolder,
-} from "@tradinggoose/db/schema";
-import { and, desc, eq, gte, inArray, lte, sql, type SQL } from "drizzle-orm";
-import { type NextRequest, NextResponse } from "next/server";
-import { z } from "zod";
-import { getSession } from "@/lib/auth";
-import { createLogger } from "@/lib/logs/console/logger";
-import { normalizeOptionalString } from "@/lib/utils";
+} from '@tradinggoose/db/schema'
+import { and, desc, eq, gte, inArray, lte, or, type SQL, sql } from 'drizzle-orm'
+import { type NextRequest, NextResponse } from 'next/server'
+import { z } from 'zod'
+import { getSession } from '@/lib/auth'
+import { createLogger } from '@/lib/logs/console/logger'
+import { normalizeOptionalString } from '@/lib/utils'
 import {
   matchesWorkflowLogFilters,
   parseListingFilters,
   serializeWorkflowLog,
-} from "@/app/api/logs/log-utils";
+} from '@/app/api/logs/log-utils'
 
 const logger = createLogger("LogsExportAPI");
 
@@ -68,121 +68,100 @@ const ExportParamsSchema = z.object({
   costMax: z.coerce.number().optional(),
   costMaxExclusive: z.string().optional(),
   triggerSource: z.preprocess((value) => {
-    if (typeof value !== "string") return value;
-    const trimmed = value.trim();
-    return trimmed.length === 0 ? undefined : trimmed;
-  }, z.literal("indicator_trigger").optional()),
+    if (typeof value !== 'string') return value
+    const trimmed = value.trim()
+    return trimmed.length === 0 ? undefined : trimmed
+  }, z.literal('indicator_trigger').optional()),
   workspaceId: z.string(),
 });
 
 const splitCsv = (value: string | undefined) =>
-  (value ?? "")
-    .split(",")
+  (value ?? '')
+    .split(',')
     .map((entry) => entry.trim())
-    .filter(Boolean);
+    .filter(Boolean)
 
-const parseBooleanFlag = (value: string | undefined) =>
-  value === "true" || value === "1";
+const parseBooleanFlag = (value: string | undefined) => value === 'true' || value === '1'
 
-const TOTAL_COST_SQL = sql<number>`COALESCE((${workflowExecutionLogs.cost}->>'total')::double precision, 0)`;
+const TOTAL_COST_SQL = sql<number>`COALESCE((${workflowExecutionLogs.cost}->>'total')::double precision, 0)`
 
 const applyDateLowerBound = (
   conditions: SQL | undefined,
-  column:
-    | typeof workflowExecutionLogs.startedAt
-    | typeof workflowExecutionLogs.endedAt,
+  column: typeof workflowExecutionLogs.startedAt | typeof workflowExecutionLogs.endedAt,
   value: string | undefined,
-  exclusive: boolean,
+  exclusive: boolean
 ) => {
-  const normalized = normalizeOptionalString(value);
-  if (!normalized) return conditions;
+  const normalized = normalizeOptionalString(value)
+  if (!normalized) return conditions
 
-  const bound = new Date(normalized);
-  return and(
-    conditions,
-    exclusive ? sql`${column} > ${bound}` : gte(column, bound),
-  );
-};
+  const bound = new Date(normalized)
+  return and(conditions, exclusive ? sql`${column} > ${bound}` : gte(column, bound))
+}
 
 const applyDateUpperBound = (
   conditions: SQL | undefined,
-  column:
-    | typeof workflowExecutionLogs.startedAt
-    | typeof workflowExecutionLogs.endedAt,
+  column: typeof workflowExecutionLogs.startedAt | typeof workflowExecutionLogs.endedAt,
   value: string | undefined,
-  exclusive: boolean,
+  exclusive: boolean
 ) => {
-  const normalized = normalizeOptionalString(value);
-  if (!normalized) return conditions;
+  const normalized = normalizeOptionalString(value)
+  if (!normalized) return conditions
 
-  const bound = new Date(normalized);
-  return and(
-    conditions,
-    exclusive ? sql`${column} < ${bound}` : lte(column, bound),
-  );
-};
+  const bound = new Date(normalized)
+  return and(conditions, exclusive ? sql`${column} < ${bound}` : lte(column, bound))
+}
 
 const applyNumberLowerBound = (
   conditions: SQL | undefined,
   column: typeof workflowExecutionLogs.totalDurationMs,
   value: number | undefined,
-  exclusive: boolean,
+  exclusive: boolean
 ) => {
-  if (typeof value !== "number") return conditions;
-  return and(
-    conditions,
-    exclusive ? sql`${column} > ${value}` : gte(column, value),
-  );
-};
+  if (typeof value !== 'number') return conditions
+  return and(conditions, exclusive ? sql`${column} > ${value}` : gte(column, value))
+}
 
 const applyNumberUpperBound = (
   conditions: SQL | undefined,
   column: typeof workflowExecutionLogs.totalDurationMs,
   value: number | undefined,
-  exclusive: boolean,
+  exclusive: boolean
 ) => {
-  if (typeof value !== "number") return conditions;
-  return and(
-    conditions,
-    exclusive ? sql`${column} < ${value}` : lte(column, value),
-  );
-};
+  if (typeof value !== 'number') return conditions
+  return and(conditions, exclusive ? sql`${column} < ${value}` : lte(column, value))
+}
 
 const applyCostLowerBound = (
   conditions: SQL | undefined,
   value: number | undefined,
-  exclusive: boolean,
+  exclusive: boolean
 ) => {
-  if (typeof value !== "number") return conditions;
+  if (typeof value !== 'number') return conditions
   return and(
     conditions,
-    exclusive
-      ? sql`${TOTAL_COST_SQL} > ${value}`
-      : sql`${TOTAL_COST_SQL} >= ${value}`,
-  );
-};
+    exclusive ? sql`${TOTAL_COST_SQL} > ${value}` : sql`${TOTAL_COST_SQL} >= ${value}`
+  )
+}
 
 const applyCostUpperBound = (
   conditions: SQL | undefined,
   value: number | undefined,
-  exclusive: boolean,
+  exclusive: boolean
 ) => {
-  if (typeof value !== "number") return conditions;
+  if (typeof value !== 'number') return conditions
   return and(
     conditions,
-    exclusive
-      ? sql`${TOTAL_COST_SQL} < ${value}`
-      : sql`${TOTAL_COST_SQL} <= ${value}`,
-  );
-};
+    exclusive ? sql`${TOTAL_COST_SQL} < ${value}` : sql`${TOTAL_COST_SQL} <= ${value}`
+  )
+}
 
 function escapeCsv(value: unknown): string {
-  if (value === null || value === undefined) return "";
-  const stringValue = String(value);
+  if (value === null || value === undefined) return ''
+  const stringValue = String(value)
   if (/[",\n]/.test(stringValue)) {
-    return `"${stringValue.replace(/"/g, '""')}"`;
+    return `"${stringValue.replace(/"/g, '""')}"`
   }
-  return stringValue;
+  return stringValue
 }
 
 const parseCsvValues = (value: string | undefined) =>
@@ -198,123 +177,120 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const userId = session.user.id;
-    const { searchParams } = new URL(request.url);
-    const params = ExportParamsSchema.parse(
-      Object.fromEntries(searchParams.entries()),
-    );
+    const userId = session.user.id
+    const { searchParams } = new URL(request.url)
+    const params = ExportParamsSchema.parse(Object.fromEntries(searchParams.entries()))
 
-    const listings = parseListingFilters(params.listings);
-    const excludedListings = parseListingFilters(params.excludeListings);
+    const listings = parseListingFilters(params.listings)
+    const excludedListings = parseListingFilters(params.excludeListings)
 
     if (listings === null || excludedListings === null) {
-      return NextResponse.json(
-        { error: "Invalid listing filter" },
-        { status: 400 },
-      );
+      return NextResponse.json({ error: 'Invalid listing filter' }, { status: 400 })
     }
 
-    let conditions: SQL | undefined = eq(
-      workflow.workspaceId,
-      params.workspaceId,
-    );
+    let conditions: SQL | undefined = eq(workflowExecutionLogs.workspaceId, params.workspaceId)
 
     if (params.workflowIds) {
-      const workflowIds = splitCsv(params.workflowIds);
+      const workflowIds = splitCsv(params.workflowIds)
       if (workflowIds.length > 0) {
-        conditions = and(conditions, inArray(workflow.id, workflowIds));
+        conditions = and(
+          conditions,
+          or(
+            inArray(workflowExecutionLogs.workflowId, workflowIds),
+            inArray(sql<string>`${workflowExecutionLogs.workflowSummary}->>'id'`, workflowIds)
+          )
+        )
       }
     }
 
     if (params.folderIds) {
-      const folderIds = splitCsv(params.folderIds);
+      const folderIds = splitCsv(params.folderIds)
       if (folderIds.length > 0) {
-        conditions = and(conditions, inArray(workflow.folderId, folderIds));
+        conditions = and(
+          conditions,
+          inArray(
+            sql<string>`COALESCE(${workflow.folderId}, ${workflowExecutionLogs.workflowSummary}->>'folderId')`,
+            folderIds
+          )
+        )
       }
     }
 
     if (params.triggers) {
-      const triggers = splitCsv(params.triggers);
-      if (triggers.length > 0 && !triggers.includes("all")) {
-        conditions = and(
-          conditions,
-          inArray(workflowExecutionLogs.trigger, triggers),
-        );
+      const triggers = splitCsv(params.triggers)
+      if (triggers.length > 0 && !triggers.includes('all')) {
+        conditions = and(conditions, inArray(workflowExecutionLogs.trigger, triggers))
       }
     }
 
     if (params.startDate) {
-      conditions = and(
-        conditions,
-        gte(workflowExecutionLogs.startedAt, new Date(params.startDate)),
-      );
+      conditions = and(conditions, gte(workflowExecutionLogs.startedAt, new Date(params.startDate)))
     }
-    if (params.endDate) {
-      conditions = and(
-        conditions,
-        lte(workflowExecutionLogs.startedAt, new Date(params.endDate)),
-      );
+    if (indicatorId) {
+      conditions = and(conditions, lte(workflowExecutionLogs.startedAt, new Date(params.endDate)))
     }
 
     conditions = applyDateLowerBound(
       conditions,
       workflowExecutionLogs.startedAt,
       params.startedAtFrom,
-      parseBooleanFlag(params.startedAtFromExclusive),
-    );
+      parseBooleanFlag(params.startedAtFromExclusive)
+    )
     conditions = applyDateUpperBound(
       conditions,
       workflowExecutionLogs.startedAt,
       params.startedAtTo,
-      parseBooleanFlag(params.startedAtToExclusive),
-    );
+      parseBooleanFlag(params.startedAtToExclusive)
+    )
     conditions = applyDateLowerBound(
       conditions,
       workflowExecutionLogs.endedAt,
       params.endedAtFrom,
-      parseBooleanFlag(params.endedAtFromExclusive),
-    );
+      parseBooleanFlag(params.endedAtFromExclusive)
+    )
     conditions = applyDateUpperBound(
       conditions,
       workflowExecutionLogs.endedAt,
       params.endedAtTo,
-      parseBooleanFlag(params.endedAtToExclusive),
-    );
+      parseBooleanFlag(params.endedAtToExclusive)
+    )
     conditions = applyNumberLowerBound(
       conditions,
       workflowExecutionLogs.totalDurationMs,
       params.durationMinMs,
-      parseBooleanFlag(params.durationMinMsExclusive),
-    );
+      parseBooleanFlag(params.durationMinMsExclusive)
+    )
     conditions = applyNumberUpperBound(
       conditions,
       workflowExecutionLogs.totalDurationMs,
       params.durationMaxMs,
-      parseBooleanFlag(params.durationMaxMsExclusive),
-    );
+      parseBooleanFlag(params.durationMaxMsExclusive)
+    )
     conditions = applyCostLowerBound(
       conditions,
       params.costMin,
-      parseBooleanFlag(params.costMinExclusive),
-    );
+      parseBooleanFlag(params.costMinExclusive)
+    )
     conditions = applyCostUpperBound(
       conditions,
       params.costMax,
-      parseBooleanFlag(params.costMaxExclusive),
-    );
+      parseBooleanFlag(params.costMaxExclusive)
+    )
 
     if (params.triggerSource) {
       conditions = and(
         conditions,
-        sql`${workflowExecutionLogs.executionData}->'trigger'->>'source' = ${params.triggerSource}`,
-      );
+        sql`${workflowExecutionLogs.executionData}->'trigger'->>'source' = ${params.triggerSource}`
+      )
     }
 
     const rows = await db
       .select({
         id: workflowExecutionLogs.id,
         workflowId: workflowExecutionLogs.workflowId,
+        workspaceId: workflowExecutionLogs.workspaceId,
         executionId: workflowExecutionLogs.executionId,
+        workflowSummary: workflowExecutionLogs.workflowSummary,
         level: workflowExecutionLogs.level,
         trigger: workflowExecutionLogs.trigger,
         startedAt: workflowExecutionLogs.startedAt,
@@ -334,22 +310,23 @@ export async function GET(request: NextRequest) {
         workflowCreatedAt: workflow.createdAt,
         workflowUpdatedAt: workflow.updatedAt,
       })
-      .from(workflow)
-      .innerJoin(
-        workflowExecutionLogs,
-        eq(workflowExecutionLogs.workflowId, workflow.id),
-      )
+      .from(workflowExecutionLogs)
+      .leftJoin(workflow, eq(workflowExecutionLogs.workflowId, workflow.id))
       .leftJoin(workflowFolder, eq(workflow.folderId, workflowFolder.id))
       .innerJoin(
         permissions,
         and(
-          eq(permissions.entityType, "workspace"),
-          eq(permissions.entityId, workflow.workspaceId),
-          eq(permissions.userId, userId),
-        ),
+          eq(permissions.entityType, 'workspace'),
+          eq(permissions.entityId, workflowExecutionLogs.workspaceId),
+          eq(permissions.userId, userId)
+        )
       )
       .where(conditions)
-      .orderBy(desc(workflowExecutionLogs.startedAt));
+      .orderBy(
+        desc(workflowExecutionLogs.startedAt),
+        desc(workflowExecutionLogs.createdAt),
+        desc(workflowExecutionLogs.id)
+      )
 
     const filters = {
       search: normalizeOptionalString(params.search) ?? undefined,
@@ -374,12 +351,8 @@ export async function GET(request: NextRequest) {
       excludeInterval: splitCsv(params.excludeInterval),
       listings: listings ?? [],
       excludeListings: excludedListings ?? [],
-      assetTypes: splitCsv(params.assetTypes).map((entry) =>
-        entry.toLowerCase(),
-      ),
-      excludeAssetTypes: splitCsv(params.excludeAssetTypes).map((entry) =>
-        entry.toLowerCase(),
-      ),
+      assetTypes: splitCsv(params.assetTypes).map((entry) => entry.toLowerCase()),
+      excludeAssetTypes: splitCsv(params.excludeAssetTypes).map((entry) => entry.toLowerCase()),
       hasFields: splitCsv(params.hasFields),
       noFields: splitCsv(params.noFields),
       startedAtFrom: normalizeOptionalString(params.startedAtFrom) ?? undefined,
@@ -398,33 +371,33 @@ export async function GET(request: NextRequest) {
       costMinExclusive: parseBooleanFlag(params.costMinExclusive),
       costMax: params.costMax,
       costMaxExclusive: parseBooleanFlag(params.costMaxExclusive),
-    };
+    }
 
     const filteredLogs = rows.flatMap((row) => {
-      const fullLog = serializeWorkflowLog(row, "full");
+      const fullLog = serializeWorkflowLog(row, 'full')
       if (!matchesWorkflowLogFilters(fullLog, filters)) {
-        return [];
+        return []
       }
 
-      return [fullLog];
-    });
+      return [fullLog]
+    })
 
     const header = [
-      "startedAt",
-      "level",
-      "outcome",
-      "workflow",
-      "trigger",
-      "durationMs",
-      "costTotal",
-      "workflowId",
-      "executionId",
-    ].join(",");
+      'startedAt',
+      'level',
+      'outcome',
+      'workflow',
+      'trigger',
+      'durationMs',
+      'costTotal',
+      'workflowId',
+      'executionId',
+    ].join(',')
 
-    const encoder = new TextEncoder();
+    const encoder = new TextEncoder()
     const stream = new ReadableStream<Uint8Array>({
       start(controller) {
-        controller.enqueue(encoder.encode(`${header}\n`));
+        controller.enqueue(encoder.encode(`${header}\n`))
         filteredLogs.forEach((log) => {
           const line = [
             escapeCsv(log.startedAt),
@@ -436,15 +409,15 @@ export async function GET(request: NextRequest) {
             escapeCsv(log.cost?.total),
             escapeCsv(log.workflowId),
             escapeCsv(log.executionId),
-          ].join(",");
-          controller.enqueue(encoder.encode(`${line}\n`));
-        });
-        controller.close();
+          ].join(',')
+          controller.enqueue(encoder.encode(`${line}\n`))
+        })
+        controller.close()
       },
     });
 
-    const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-    const filename = `logs-${timestamp}.csv`;
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
+    const filename = `logs-${timestamp}.csv`
 
     return new NextResponse(stream as any, {
       status: 200,
@@ -455,10 +428,7 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error: any) {
-    logger.error("Export route error", { error: error?.message });
-    return NextResponse.json(
-      { error: error?.message ?? "Failed to export logs" },
-      { status: 500 },
-    );
+    logger.error('Export route error', { error: error?.message })
+    return NextResponse.json({ error: error?.message ?? 'Failed to export logs' }, { status: 500 })
   }
 }

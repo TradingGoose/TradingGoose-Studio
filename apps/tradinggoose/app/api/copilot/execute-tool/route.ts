@@ -10,9 +10,12 @@ import {
   createRequestTracker,
   createUnauthorizedResponse,
 } from '@/lib/copilot/auth'
-import { createPermissionError, verifyWorkflowAccess } from '@/lib/copilot/review-sessions/permissions'
-import { DEFAULT_EXECUTION_TIMEOUT_MS } from '@/lib/execution/constants'
+import {
+  createPermissionError,
+  verifyWorkflowAccess,
+} from '@/lib/copilot/review-sessions/permissions'
 import { getEffectiveDecryptedEnv } from '@/lib/environment/utils'
+import { DEFAULT_EXECUTION_TIMEOUT_MS } from '@/lib/execution/constants'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getTrelloApiKey } from '@/lib/trello/auth'
 import { generateRequestId } from '@/lib/utils'
@@ -74,9 +77,25 @@ export async function POST(req: NextRequest) {
     try {
       const preview = JSON.stringify(body).slice(0, 300)
       logger.debug(`[${tracker.requestId}] Incoming execute-tool request`, { preview })
-    } catch { }
+    } catch {}
 
     const { toolCallId, toolName, arguments: toolArgs, workflowId } = ExecuteToolSchema.parse(body)
+
+    if (
+      (toolName === 'trading_order_history' || toolName === 'trading_order_detail') &&
+      !workflowId
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: `${toolName} requires workflowId`,
+          toolCallId,
+        },
+        { status: 400 }
+      )
+    }
+    const requiresTradingWorkspace =
+      toolName === 'trading_order_history' || toolName === 'trading_order_detail'
 
     let workspaceId: string | undefined
     if (workflowId) {
@@ -90,9 +109,24 @@ export async function POST(req: NextRequest) {
       }
       workspaceId = resolvedWorkspaceId ?? undefined
     }
+    if (requiresTradingWorkspace && !workspaceId) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: `${toolName} requires workspace scope`,
+          toolCallId,
+        },
+        { status: 400 }
+      )
+    }
 
     const toolConfig = toolName.startsWith('custom_')
-      ? await getToolAsync(toolName, workflowId, workspaceId)
+      ? await getToolAsync(toolName, workflowId, workspaceId, userId, {
+          workflowId,
+          workspaceId,
+          userId,
+          submissionSource: 'copilot',
+        })
       : getTool(toolName)
     const isMcpTool = toolName.startsWith('mcp-')
 
@@ -103,13 +137,14 @@ export async function POST(req: NextRequest) {
         const allToolNames = Object.keys(allTools)
         const prefix = toolName.split('_')[0]
         similarTools = allToolNames.filter((name) => name.startsWith(`${prefix}_`)).slice(0, 10)
-      } catch { }
+      } catch {}
 
       return NextResponse.json(
         {
           success: false,
-          error: `Tool not found: ${toolName}${similarTools.length ? `. Similar tools: ${similarTools.join(', ')}` : ''
-            }`,
+          error: `Tool not found: ${toolName}${
+            similarTools.length ? `. Similar tools: ${similarTools.join(', ')}` : ''
+          }`,
           toolCallId,
         },
         { status: 404 }
@@ -154,7 +189,11 @@ export async function POST(req: NextRequest) {
         }
 
         const requestId = generateRequestId()
-        const { accessToken } = await refreshTokenIfNeeded(requestId, credential as any, credential.id)
+        const { accessToken } = await refreshTokenIfNeeded(
+          requestId,
+          credential as any,
+          credential.id
+        )
 
         if (!accessToken) {
           return NextResponse.json(
@@ -172,7 +211,7 @@ export async function POST(req: NextRequest) {
           executionParams.apiKey = await getTrelloApiKey()
         }
         if (executionParams.credential) {
-          delete executionParams.credential
+          executionParams.credential = undefined
         }
       }
     }
@@ -193,6 +232,7 @@ export async function POST(req: NextRequest) {
       workflowId,
       workspaceId,
       userId,
+      submissionSource: 'copilot',
     }
 
     if (toolName === 'function_execute') {

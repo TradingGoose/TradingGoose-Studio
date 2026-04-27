@@ -1,7 +1,12 @@
 import type { ListingIdentity } from '@/lib/listing/identity'
 import { createSearchClause } from '@/lib/logs/query-parser'
 import type { QueryPolicy } from '@/lib/logs/query-types'
-import type { Suggestion, SuggestionCategory, SuggestionGroup, SuggestionSection } from '@/app/workspace/[workspaceId]/logs/types'
+import type {
+  Suggestion,
+  SuggestionCategory,
+  SuggestionGroup,
+  SuggestionSection,
+} from '@/lib/logs/search-suggestion-types'
 
 export interface WorkflowData {
   id: string
@@ -69,9 +74,7 @@ export class SearchSuggestions {
     }
 
     if (normalizedInput === 'has:' || normalizedInput === 'no:') {
-      return this.getPresenceFieldSuggestions(
-        normalizedInput.startsWith('has:') ? 'has' : 'no'
-      )
+      return this.getPresenceFieldSuggestions(normalizedInput.startsWith('has:') ? 'has' : 'no')
     }
 
     if (normalizedInput.startsWith('has:')) {

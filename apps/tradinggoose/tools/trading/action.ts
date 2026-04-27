@@ -51,7 +51,6 @@ const ORDER_HISTORY_OMIT_KEYS = new Set([
   'credentialServiceId',
   'accessToken',
   '_context',
-  '_workflowId',
   '_credentialId',
 ])
 
@@ -376,15 +375,31 @@ export const tradingActionTool: ToolConfig<TradingActionParams, TradingActionRes
       )
 
       const context = (params as any)._context as
-        | { workflowId?: string; executionId?: string }
+        | {
+            workflowId?: string
+            workspaceId?: string
+            userId?: string
+            executionId?: string
+            workflowLogId?: string
+            submissionSource?: 'manual' | 'copilot' | 'workflow'
+          }
         | undefined
+      const workspaceId = context?.workspaceId
+      if (!workspaceId) {
+        throw new Error('Order history recording requires workspace context')
+      }
+      const workflowLogId = context?.workflowLogId
+      const submissionSource = context?.submissionSource ?? (workflowLogId ? 'workflow' : 'manual')
 
       const orderSubmit: OrderSubmit = {
+        workspaceId,
         provider: params.provider,
         environment: resolveProviderEnvironment(params),
         recordedAt: new Date().toISOString(),
-        workflowId: context?.workflowId ?? (params as any)._workflowId,
+        submissionSource,
+        workflowId: context?.workflowId,
         workflowExecutionId: context?.executionId,
+        workflowLogId,
         listingIdentity,
         request: buildOrderSubmitRequest(params),
         response: responsePayload,
@@ -393,12 +408,18 @@ export const tradingActionTool: ToolConfig<TradingActionParams, TradingActionRes
 
       const baseUrl = getBaseUrl()
       const recordUrl = new URL('/api/tools/trading/order-history', baseUrl).toString()
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      }
+
+      if (typeof window === 'undefined') {
+        const { generateInternalToken } = await import('@/lib/auth/internal')
+        headers.Authorization = `Bearer ${await generateInternalToken(context?.userId)}`
+      }
 
       await fetch(recordUrl, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers,
         body: JSON.stringify(orderSubmit),
       })
     } catch (error: any) {

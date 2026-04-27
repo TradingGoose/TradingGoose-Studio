@@ -8,7 +8,11 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { buildTraceSpans } from '@/lib/logs/execution/trace-spans/trace-spans'
 import type { BlockOutput } from '@/blocks/types'
 import { Executor } from '@/executor'
-import type { ExecutionResult, StreamingExecution } from '@/executor/types'
+import type {
+  ExecutionContextExtensions,
+  ExecutionResult,
+  StreamingExecution,
+} from '@/executor/types'
 import { Serializer } from '@/serializer'
 import type { SerializedWorkflow } from '@/serializer/types'
 import {
@@ -27,13 +31,7 @@ interface ExecutorOptions {
   envVarValues?: Record<string, string>
   workflowInput?: any
   workflowVariables?: Record<string, any>
-  contextExtensions?: {
-    stream?: boolean
-    selectedOutputs?: string[]
-    edges?: Array<{ source: string; target: string }>
-    onStream?: (streamingExecution: StreamingExecution) => Promise<void>
-    executionId?: string
-  }
+  contextExtensions?: ExecutionContextExtensions
 }
 
 export interface WorkflowExecutionOptions {
@@ -46,7 +44,7 @@ export interface WorkflowExecutionOptions {
 export interface WorkflowExecutionContext {
   activeWorkflowId: string
   currentWorkflow: WorkflowSnapshot
-  workspaceId: string | null
+  workspaceId: string
   workflowVariables: Record<string, any>
   getAllVariables: () => any
   setExecutor: (executor: Executor) => void
@@ -80,6 +78,10 @@ export async function getWorkflowExecutionContext(
   const { getAllVariables } = useEnvironmentStore.getState()
   const { setExecutor } = useExecutionStore.getState()
 
+  if (!workspaceId) {
+    throw new Error('Workflow execution context requires workspaceId')
+  }
+
   return {
     activeWorkflowId,
     currentWorkflow,
@@ -107,6 +109,10 @@ export async function executeWorkflowWithLogging(
     setExecutor,
   } = context
   const { workflowInput, onStream, executionId } = options
+
+  if (!workspaceId) {
+    throw new Error('Workflow execution requires workspaceId')
+  }
 
   const {
     blocks: workflowBlocks,
@@ -198,6 +204,8 @@ export async function executeWorkflowWithLogging(
       })),
       onStream,
       executionId,
+      workspaceId,
+      submissionSource: 'copilot',
     },
   }
 

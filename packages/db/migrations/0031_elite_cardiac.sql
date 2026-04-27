@@ -1,0 +1,2 @@
+CREATE TYPE "public"."order_submission_source" AS ENUM('manual', 'copilot', 'workflow');--> statement-breakpoint
+ALTER TABLE "orderHistoryTable" ALTER COLUMN "submission_source" SET DATA TYPE "public"."order_submission_source" USING "submission_source"::"public"."order_submission_source";

@@ -1,16 +1,14 @@
 import { createLogger } from '@/lib/logs/console/logger'
 import { encodeSSE } from '@/lib/utils'
 import { runWorkflowExecution } from '@/lib/workflows/execution-runner'
+import type { StreamingExecution } from '@/executor/types'
 
 const logger = createLogger('WorkflowStreaming')
 
 export interface StreamingConfig {
   selectedOutputs?: string[]
   workflowTriggerType?: 'api' | 'chat'
-  onStream?: (streamingExec: {
-    stream: ReadableStream
-    execution?: { blockId?: string }
-  }) => Promise<void>
+  onStream?: (streamingExec: StreamingExecution) => Promise<void>
 }
 
 export interface StreamingResponseOptions {
@@ -29,16 +27,9 @@ export interface StreamingResponseOptions {
 }
 
 export async function createStreamingResponse(
-  options: StreamingResponseOptions,
+  options: StreamingResponseOptions
 ): Promise<ReadableStream> {
-  const {
-    requestId,
-    workflow,
-    input,
-    executingUserId,
-    streamConfig,
-    executionId,
-  } = options
+  const { requestId, workflow, input, executingUserId, streamConfig, executionId } = options
 
   return new ReadableStream({
     async start(controller) {
@@ -53,11 +44,8 @@ export async function createStreamingResponse(
           processedOutputs.add(blockId)
         }
 
-        const onStreamCallback = async (streamingExec: {
-          stream: ReadableStream
-          execution?: { blockId?: string }
-        }) => {
-          const blockId = streamingExec.execution?.blockId || 'unknown'
+        const onStreamCallback = async (streamingExec: StreamingExecution) => {
+          const blockId = (streamingExec.execution as any)?.blockId || 'unknown'
           const reader = streamingExec.stream.getReader()
           const decoder = new TextDecoder()
           let isFirstChunk = true
@@ -72,10 +60,7 @@ export async function createStreamingResponse(
               }
 
               const textChunk = decoder.decode(value, { stream: true })
-              streamedContent.set(
-                blockId,
-                (streamedContent.get(blockId) || '') + textChunk,
-              )
+              streamedContent.set(blockId, (streamedContent.get(blockId) || '') + textChunk)
 
               if (isFirstChunk) {
                 sendChunk(blockId, textChunk)
@@ -85,37 +70,25 @@ export async function createStreamingResponse(
               }
             }
           } catch (streamError) {
-            logger.error(
-              `[${requestId}] Error reading agent stream:`,
-              streamError,
-            )
+            logger.error(`[${requestId}] Error reading agent stream:`, streamError)
             controller.enqueue(
               encodeSSE({
                 event: 'stream_error',
                 blockId,
-                error:
-                  streamError instanceof Error
-                    ? streamError.message
-                    : 'Stream reading error',
-              }),
+                error: streamError instanceof Error ? streamError.message : 'Stream reading error',
+              })
             )
           }
         }
 
-        const onBlockCompleteCallback = async (
-          blockId: string,
-          output: any,
-        ) => {
+        const onBlockCompleteCallback = async (blockId: string, output: any) => {
           if (!streamConfig.selectedOutputs?.length) return
 
-          const {
-            extractBlockIdFromOutputId,
-            extractPathFromOutputId,
-            traverseObjectPath,
-          } = await import('@/lib/response-format')
+          const { extractBlockIdFromOutputId, extractPathFromOutputId, traverseObjectPath } =
+            await import('@/lib/response-format')
 
           const matchingOutputs = streamConfig.selectedOutputs.filter(
-            (outputId) => extractBlockIdFromOutputId(outputId) === blockId,
+            (outputId) => extractBlockIdFromOutputId(outputId) === blockId
           )
 
           if (!matchingOutputs.length) return
@@ -130,9 +103,7 @@ export async function createStreamingResponse(
 
             if (outputValue !== undefined) {
               const formattedOutput =
-                typeof outputValue === 'string'
-                  ? outputValue
-                  : JSON.stringify(outputValue, null, 2)
+                typeof outputValue === 'string' ? outputValue : JSON.stringify(outputValue, null, 2)
               sendChunk(blockId, formattedOutput)
             }
           }
@@ -178,15 +149,13 @@ export async function createStreamingResponse(
             return log
           })
 
-          const { processStreamingBlockLogs } =
-            await import('@/lib/tokenization')
+          const { processStreamingBlockLogs } = await import('@/lib/tokenization')
           processStreamingBlockLogs(result.logs, streamedContent)
         }
 
         // Complete the logging session with updated trace spans that include cost data
         if (result._streamingMetadata?.loggingSession) {
-          const { buildTraceSpans } =
-            await import('@/lib/logs/execution/trace-spans/trace-spans')
+          const { buildTraceSpans } = await import('@/lib/logs/execution/trace-spans/trace-spans')
           const { traceSpans, totalDuration } = buildTraceSpans(result)
 
           await result._streamingMetadata.loggingSession.safeComplete({
@@ -208,41 +177,29 @@ export async function createStreamingResponse(
         }
 
         if (streamConfig.selectedOutputs?.length && result.output) {
-          const {
-            extractBlockIdFromOutputId,
-            extractPathFromOutputId,
-            traverseObjectPath,
-          } = await import('@/lib/response-format')
+          const { extractBlockIdFromOutputId, extractPathFromOutputId, traverseObjectPath } =
+            await import('@/lib/response-format')
 
           for (const outputId of streamConfig.selectedOutputs) {
             const blockId = extractBlockIdFromOutputId(outputId)
             const path = extractPathFromOutputId(outputId, blockId)
 
             if (result.logs) {
-              const blockLog = result.logs.find(
-                (log: any) => log.blockId === blockId,
-              )
+              const blockLog = result.logs.find((log: any) => log.blockId === blockId)
               if (blockLog?.output) {
                 let value = traverseObjectPath(blockLog.output, path)
                 if (value === undefined && blockLog.output.response) {
                   value = traverseObjectPath(blockLog.output.response, path)
                 }
                 if (value !== undefined) {
-                  const dangerousKeys = [
-                    '__proto__',
-                    'constructor',
-                    'prototype',
-                  ]
-                  if (
-                    dangerousKeys.includes(blockId) ||
-                    dangerousKeys.includes(path)
-                  ) {
+                  const dangerousKeys = ['__proto__', 'constructor', 'prototype']
+                  if (dangerousKeys.includes(blockId) || dangerousKeys.includes(path)) {
                     logger.warn(
                       `[${requestId}] Blocked potentially dangerous property assignment`,
                       {
                         blockId,
                         path,
-                      },
+                      }
                     )
                     continue
                   }
@@ -268,7 +225,7 @@ export async function createStreamingResponse(
           encodeSSE({
             event: 'error',
             error: error.message || 'Stream processing error',
-          }),
+          })
         )
         controller.close()
       }

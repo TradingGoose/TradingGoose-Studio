@@ -600,26 +600,29 @@ async function processExecutionLogFromDb(
         totalDurationMs: workflowExecutionLogs.totalDurationMs,
         executionData: workflowExecutionLogs.executionData,
         cost: workflowExecutionLogs.cost,
+        workflowSummary: workflowExecutionLogs.workflowSummary,
         workflowName: workflow.name,
       })
       .from(workflowExecutionLogs)
-      .innerJoin(workflow, eq(workflowExecutionLogs.workflowId, workflow.id))
+      .leftJoin(workflow, eq(workflowExecutionLogs.workflowId, workflow.id))
       .where(eq(workflowExecutionLogs.executionId, executionId))
       .limit(1)
 
     const log = rows?.[0] as any
     if (!log) return null
+    const workflowSummary =
+      log.workflowSummary && typeof log.workflowSummary === 'object' ? log.workflowSummary : {}
 
     const summary = {
       id: log.id,
-      workflowId: log.workflowId,
+      workflowId: log.workflowId ?? workflowSummary.id ?? null,
       executionId: log.executionId,
       level: log.level,
       trigger: log.trigger,
       startedAt: log.startedAt?.toISOString?.() || String(log.startedAt),
       endedAt: log.endedAt?.toISOString?.() || (log.endedAt ? String(log.endedAt) : null),
       totalDurationMs: log.totalDurationMs ?? null,
-      workflowName: log.workflowName || '',
+      workflowName: log.workflowName || workflowSummary.name || '',
       // Include trace spans and any available details without being huge
       executionData: log.executionData
         ? {

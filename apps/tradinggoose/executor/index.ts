@@ -117,7 +117,7 @@ export class Executor {
   private blockHandlers: BlockHandler[]
   private workflowInput: any
   private isDebugging = false
-  private contextExtensions: ExecutionContextExtensions = {}
+  private contextExtensions: Partial<ExecutionContextExtensions> = {}
   private actualWorkflow: SerializedWorkflow
   private isCancelled = false
   private isChildExecution = false
@@ -771,11 +771,14 @@ export class Executor {
     startTime: Date,
     startBlockId?: string
   ): ExecutionContext {
+    const workspaceId = this.requireExecutionWorkspaceId()
     const context: ExecutionContext = {
       workflowId,
-      workspaceId: this.contextExtensions.workspaceId,
+      workspaceId,
       userId: this.contextExtensions.userId,
       executionId: this.contextExtensions.executionId,
+      workflowLogId: this.contextExtensions.workflowLogId,
+      submissionSource: this.contextExtensions.submissionSource,
       concurrencyLeaseInherited: this.contextExtensions.concurrencyLeaseInherited,
       triggerType: this.contextExtensions.triggerType,
       workflowDepth: this.contextExtensions.workflowDepth ?? 0,
@@ -1077,6 +1080,14 @@ export class Executor {
     context.activeExecutionPath.add(initBlock.id)
 
     return context
+  }
+
+  private requireExecutionWorkspaceId(): string {
+    const workspaceId = this.contextExtensions.workspaceId?.trim()
+    if (!workspaceId) {
+      throw new Error('Executor requires contextExtensions.workspaceId for workflow execution')
+    }
+    return workspaceId
   }
 
   /**

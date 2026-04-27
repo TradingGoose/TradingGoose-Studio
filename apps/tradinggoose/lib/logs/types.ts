@@ -102,7 +102,8 @@ export interface ExecutionStatus {
 
 export interface WorkflowExecutionSnapshot {
   id: string
-  workflowId: string
+  workflowId: string | null
+  workspaceId: string
   stateHash: string
   stateData: WorkflowState
   createdAt: string
@@ -113,9 +114,11 @@ export type WorkflowExecutionSnapshotSelect = WorkflowExecutionSnapshot
 
 export interface WorkflowExecutionLog {
   id: string
-  workflowId: string
+  workflowId: string | null
+  workspaceId: string
   executionId: string
   stateSnapshotId: string
+  workflowSummary: WorkflowLogWorkflowSummary
   level: 'info' | 'error'
   trigger: ExecutionTrigger['type']
   startedAt: string
@@ -215,7 +218,8 @@ export interface TraceSpan {
 
 export interface WorkflowExecutionSummary {
   id: string
-  workflowId: string
+  workflowId: string | null
+  workspaceId: string
   workflowName: string
   executionId: string
   trigger: ExecutionTrigger['type']
@@ -307,17 +311,21 @@ export interface WorkflowLogWorkflowSummary {
   color: string
   folderId?: string | null
   folderName?: string | null
-  userId?: string | null
-  workspaceId?: string | null
+  userId: string
+  workspaceId: string
+  createdAt: string
+  updatedAt: string
 }
 
 export interface WorkflowLog {
   id: string
-  workflowId: string
+  workflowId: string | null
+  workspaceId: string
   executionId: string | null
   level: string
   trigger: string | null
   startedAt: string
+  recordCreatedAt: string
   endedAt: string | null
   durationMs: number | null
   outcome: WorkflowLogOutcome
@@ -419,9 +427,17 @@ export interface BatchInsertResult<T> {
 }
 
 export interface SnapshotService {
-  createSnapshot(workflowId: string, state: WorkflowState): Promise<WorkflowExecutionSnapshot>
+  createSnapshot(params: {
+    workflowId: string
+    workspaceId: string
+    state: WorkflowState
+  }): Promise<WorkflowExecutionSnapshot>
   getSnapshot(id: string): Promise<WorkflowExecutionSnapshot | null>
-  getSnapshotByHash(workflowId: string, hash: string): Promise<WorkflowExecutionSnapshot | null>
+  getSnapshotByHash(params: {
+    workflowId: string
+    workspaceId: string
+    hash: string
+  }): Promise<WorkflowExecutionSnapshot | null>
   computeStateHash(state: WorkflowState): string
   cleanupOrphanedSnapshots(olderThanDays: number): Promise<number>
 }
@@ -438,6 +454,7 @@ export interface ExecutionLoggerService {
     trigger: ExecutionTrigger
     environment: ExecutionEnvironment
     workflowState: WorkflowState
+    workflowSummary: WorkflowLogWorkflowSummary
   }): Promise<{
     workflowLog: WorkflowExecutionLog
     snapshot: WorkflowExecutionSnapshot

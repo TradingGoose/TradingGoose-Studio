@@ -48,6 +48,7 @@ describe('WorkflowBlockHandler', () => {
 
     mockContext = {
       workflowId: 'parent-workflow-id',
+      workspaceId: 'test-workspace-id',
       userId: 'user-1',
       executionId: 'execution-1',
       workflowDepth: 0,

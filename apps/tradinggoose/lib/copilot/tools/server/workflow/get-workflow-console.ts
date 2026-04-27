@@ -1,6 +1,6 @@
 import { db } from '@tradinggoose/db'
 import { workflowExecutionLogs } from '@tradinggoose/db/schema'
-import { desc, eq } from 'drizzle-orm'
+import { desc, eq, or, sql } from 'drizzle-orm'
 import type { BaseServerTool } from '@/lib/copilot/tools/server/base-tool'
 import { createLogger } from '@/lib/logs/console/logger'
 
@@ -87,7 +87,7 @@ function normalizeErrorMessage(errorValue: unknown): string | undefined {
   if (typeof errorValue === 'object') {
     try {
       return JSON.stringify(errorValue)
-    } catch { }
+    } catch {}
   }
   try {
     return String(errorValue)
@@ -243,7 +243,12 @@ export const getWorkflowConsoleServerTool: BaseServerTool<GetWorkflowConsoleArgs
         cost: workflowExecutionLogs.cost,
       })
       .from(workflowExecutionLogs)
-      .where(eq(workflowExecutionLogs.workflowId, workflowId))
+      .where(
+        or(
+          eq(workflowExecutionLogs.workflowId, workflowId),
+          sql`${workflowExecutionLogs.workflowSummary}->>'id' = ${workflowId}`
+        )
+      )
       .orderBy(desc(workflowExecutionLogs.startedAt))
       .limit(limit)
 

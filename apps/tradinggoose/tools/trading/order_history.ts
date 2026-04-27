@@ -13,6 +13,7 @@ export interface OrderHistoryResponse {
     history: OrderHistory
     count: number
     workflowId?: string | null
+    workspaceId?: string | null
     startDate: string
     endDate: string
   }
@@ -48,16 +49,29 @@ export const orderHistoryTool: ToolConfig<OrderHistoryParams, OrderHistoryRespon
   },
 
   request: {
-    url: (params: OrderHistoryParams & { _context?: { workflowId?: string } }) => {
+    url: (
+      params: OrderHistoryParams & {
+        _context?: {
+          workflowId?: string
+          workspaceId?: string
+        }
+      }
+    ) => {
+      const context = params._context ?? {}
       const startDate = params.startDate
       const endDate = params.endDate
-      const workflowId = params.workflowId || params._context?.workflowId
+      const workflowId = params.workflowId || context.workflowId
+      const workspaceId = context.workspaceId
 
       if (!startDate || !endDate) {
         throw new Error('startDate and endDate are required')
       }
+      if (!workspaceId) {
+        throw new Error('trading_order_history requires workspace execution context')
+      }
 
       const searchParams = new URLSearchParams()
+      searchParams.set('workspaceId', workspaceId)
       searchParams.set('startDate', startDate)
       searchParams.set('endDate', endDate)
       if (workflowId) {
@@ -84,6 +98,7 @@ export const orderHistoryTool: ToolConfig<OrderHistoryParams, OrderHistoryRespon
         history,
         count: typeof data.count === 'number' ? data.count : history.length,
         workflowId: data.workflowId,
+        workspaceId: data.workspaceId,
         startDate: data.startDate || '',
         endDate: data.endDate || '',
       },
@@ -98,10 +113,13 @@ export const orderHistoryTool: ToolConfig<OrderHistoryParams, OrderHistoryRespon
         type: 'object',
         properties: {
           id: { type: 'string', description: 'Order history record ID' },
+          workspaceId: { type: 'string', description: 'Owning workspace ID' },
           provider: { type: 'string', description: 'Trading provider' },
           recordedAt: { type: 'string', description: 'Recorded timestamp' },
+          submissionSource: { type: 'string', description: 'Order submission source' },
           workflowId: { type: 'string', description: 'Workflow ID' },
           workflowExecutionId: { type: 'string', description: 'Workflow execution ID' },
+          workflowLogId: { type: 'string', description: 'Linked workflow execution log ID' },
           listingIdentity: { type: 'object', description: 'Listing identity metadata' },
           request: { type: 'object', description: 'Normalized order request payload' },
           response: { type: 'object', description: 'Normalized order response payload' },
@@ -111,6 +129,7 @@ export const orderHistoryTool: ToolConfig<OrderHistoryParams, OrderHistoryRespon
     },
     count: { type: 'number', description: 'Number of records returned.' },
     workflowId: { type: 'string', description: 'Workflow ID used for filtering.' },
+    workspaceId: { type: 'string', description: 'Workspace ID used for filtering.' },
     startDate: { type: 'string', description: 'Start datetime used for filtering.' },
     endDate: { type: 'string', description: 'End datetime used for filtering.' },
   },

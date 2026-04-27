@@ -84,6 +84,7 @@ describe('Router → Workflow Block Execution Fix', () => {
 
     mockContext = {
       workflowId: 'test-workflow',
+      workspaceId: 'test-workspace-id',
       blockStates: new Map(),
       blockLogs: [],
       metadata: { duration: 0 },

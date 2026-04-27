@@ -472,7 +472,7 @@ export function DashboardClient({
 
   const pages = useMemo(
     () => [
-      { id: 'logs', name: 'Logs', icon: ScrollText, href: `/workspace/${workspaceId}/logs` },
+      { id: 'records', name: 'Records', icon: ScrollText, href: `/workspace/${workspaceId}/records` },
       {
         id: 'monitor',
         name: 'Monitor',

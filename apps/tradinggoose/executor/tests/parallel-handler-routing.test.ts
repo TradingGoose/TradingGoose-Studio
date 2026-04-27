@@ -88,6 +88,7 @@ describe('Parallel Handler Integration with PathTracker', () => {
 
     mockContext = {
       workflowId: 'test-workflow',
+      workspaceId: 'test-workspace-id',
       blockStates: new Map(),
       blockLogs: [],
       metadata: { duration: 0 },

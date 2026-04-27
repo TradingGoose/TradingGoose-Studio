@@ -10,6 +10,26 @@ const logger = createLogger('V1LogDetailsAPI')
 
 export const revalidate = 0
 
+type WorkflowSummary = {
+  id?: string | null
+  name?: string | null
+  description?: string | null
+  color?: string | null
+  folderId?: string | null
+  userId?: string | null
+  workspaceId?: string | null
+  createdAt?: string | Date | null
+  updatedAt?: string | Date | null
+}
+
+const readWorkflowSummary = (value: unknown): WorkflowSummary =>
+  value && typeof value === 'object' && !Array.isArray(value) ? (value as WorkflowSummary) : {}
+
+const toIsoString = (value: string | Date | null | undefined): string | null => {
+  if (!value) return null
+  return value instanceof Date ? value.toISOString() : value
+}
+
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const requestId = crypto.randomUUID().slice(0, 8)
 
@@ -37,6 +57,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         cost: workflowExecutionLogs.cost,
         files: workflowExecutionLogs.files,
         createdAt: workflowExecutionLogs.createdAt,
+        workspaceId: workflowExecutionLogs.workspaceId,
+        workflowSummary: workflowExecutionLogs.workflowSummary,
         workflowName: workflow.name,
         workflowDescription: workflow.description,
         workflowColor: workflow.color,
@@ -47,12 +69,12 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         workflowUpdatedAt: workflow.updatedAt,
       })
       .from(workflowExecutionLogs)
-      .innerJoin(workflow, eq(workflowExecutionLogs.workflowId, workflow.id))
+      .leftJoin(workflow, eq(workflowExecutionLogs.workflowId, workflow.id))
       .innerJoin(
         permissions,
         and(
           eq(permissions.entityType, 'workspace'),
-          eq(permissions.entityId, workflow.workspaceId),
+          eq(permissions.entityId, workflowExecutionLogs.workspaceId),
           eq(permissions.userId, userId)
         )
       )
@@ -64,21 +86,22 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       return NextResponse.json({ error: 'Log not found' }, { status: 404 })
     }
 
+    const summary = readWorkflowSummary(log.workflowSummary)
     const workflowSummary = {
-      id: log.workflowId,
-      name: log.workflowName,
-      description: log.workflowDescription,
-      color: log.workflowColor,
-      folderId: log.workflowFolderId,
-      userId: log.workflowUserId,
-      workspaceId: log.workflowWorkspaceId,
-      createdAt: log.workflowCreatedAt,
-      updatedAt: log.workflowUpdatedAt,
+      id: log.workflowId ?? summary.id ?? null,
+      name: log.workflowName ?? summary.name ?? null,
+      description: log.workflowDescription ?? summary.description ?? null,
+      color: log.workflowColor ?? summary.color ?? null,
+      folderId: log.workflowFolderId ?? summary.folderId ?? null,
+      userId: log.workflowUserId ?? summary.userId ?? null,
+      workspaceId: log.workflowWorkspaceId ?? summary.workspaceId ?? log.workspaceId,
+      createdAt: log.workflowCreatedAt?.toISOString() ?? toIsoString(summary.createdAt),
+      updatedAt: log.workflowUpdatedAt?.toISOString() ?? toIsoString(summary.updatedAt),
     }
 
     const response = {
       id: log.id,
-      workflowId: log.workflowId,
+      workflowId: workflowSummary.id,
       executionId: log.executionId,
       level: log.level,
       trigger: log.trigger,

@@ -73,6 +73,7 @@ describe('RouterBlockHandler', () => {
 
     mockContext = {
       workflowId: 'test-workflow-id',
+      workspaceId: 'test-workspace-id',
       blockStates: new Map(),
       blockLogs: [],
       metadata: { duration: 0 },

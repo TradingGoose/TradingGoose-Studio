@@ -1,3 +1,5 @@
+import { db, orderHistoryTable } from '@tradinggoose/db'
+import { and, eq, isNull } from 'drizzle-orm'
 import type { NextRequest } from 'next/server'
 import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
@@ -38,13 +40,31 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
       const session = await getSession()
       const userId = session?.user?.id ?? validation.workflow.userId
-      const workspaceId = validation.workflow.workspaceId || ''
+      const workspaceId = validation.workflow.workspaceId
 
-      await loggingSession.safeStart({
+      if (!workspaceId) {
+        return createErrorResponse('Workflow is missing workspace scope', 400)
+      }
+
+      const workflowLogId = await loggingSession.safeStart({
         userId,
         workspaceId,
         variables: {},
       })
+
+      if (workflowLogId && typeof executionId === 'string' && executionId.length > 0) {
+        await db
+          .update(orderHistoryTable)
+          .set({ workflowLogId })
+          .where(
+            and(
+              eq(orderHistoryTable.workspaceId, workspaceId),
+              eq(orderHistoryTable.workflowId, id),
+              eq(orderHistoryTable.workflowExecutionId, executionId),
+              isNull(orderHistoryTable.workflowLogId),
+            ),
+          )
+      }
 
       const { traceSpans, totalDuration } = buildTraceSpans(result)
 
@@ -67,6 +87,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
       return createSuccessResponse({
         message: 'Execution logs persisted successfully',
+        workflowLogId,
       })
     }
 

@@ -1,5 +1,10 @@
 import { db } from '@tradinggoose/db'
-import { permissions, workflow, workflowExecutionLogs, workflowFolder } from '@tradinggoose/db/schema'
+import {
+  permissions,
+  workflow,
+  workflowExecutionLogs,
+  workflowFolder,
+} from '@tradinggoose/db/schema'
 import { and, eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
@@ -28,7 +33,9 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
       .select({
         id: workflowExecutionLogs.id,
         workflowId: workflowExecutionLogs.workflowId,
+        workspaceId: workflowExecutionLogs.workspaceId,
         executionId: workflowExecutionLogs.executionId,
+        workflowSummary: workflowExecutionLogs.workflowSummary,
         level: workflowExecutionLogs.level,
         trigger: workflowExecutionLogs.trigger,
         startedAt: workflowExecutionLogs.startedAt,
@@ -48,17 +55,14 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
         workflowCreatedAt: workflow.createdAt,
         workflowUpdatedAt: workflow.updatedAt,
       })
-      .from(workflow)
-      .innerJoin(
-        workflowExecutionLogs,
-        eq(workflowExecutionLogs.workflowId, workflow.id)
-      )
+      .from(workflowExecutionLogs)
+      .leftJoin(workflow, eq(workflowExecutionLogs.workflowId, workflow.id))
       .leftJoin(workflowFolder, eq(workflow.folderId, workflowFolder.id))
       .innerJoin(
         permissions,
         and(
           eq(permissions.entityType, 'workspace'),
-          eq(permissions.entityId, workflow.workspaceId),
+          eq(permissions.entityId, workflowExecutionLogs.workspaceId),
           eq(permissions.userId, userId)
         )
       )

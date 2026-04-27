@@ -3,13 +3,14 @@ import {
   getTierWorkflowExecutionMultiplier,
   getTierWorkflowModelCostMultiplier,
 } from '@/lib/billing/tiers'
-import { resolveWorkflowBillingContext } from '@/lib/billing/workspace-billing'
+import { resolveWorkspaceBillingContext } from '@/lib/billing/workspace-billing'
 import { createLogger } from '@/lib/logs/console/logger'
 import { executionLogger } from '@/lib/logs/execution/logger'
 import {
   calculateCostSummary,
   createEnvironmentObject,
   createTriggerObject,
+  loadWorkflowSummaryForExecution,
   loadWorkflowStateForExecution,
 } from '@/lib/logs/execution/logging-factory'
 import type {
@@ -23,7 +24,7 @@ const logger = createLogger('LoggingSession')
 
 export interface SessionStartParams {
   userId?: string
-  workspaceId?: string
+  workspaceId: string
   variables?: Record<string, string>
   triggerData?: Record<string, unknown>
 }
@@ -67,7 +68,7 @@ export class LoggingSession {
     this.requestId = requestId
   }
 
-  async start(params: SessionStartParams = {}): Promise<void> {
+  async start(params: SessionStartParams): Promise<string> {
     const { userId, workspaceId, variables, triggerData } = params
 
     try {
@@ -79,19 +80,23 @@ export class LoggingSession {
         workspaceId,
         variables
       )
+      const workflowSummary = await loadWorkflowSummaryForExecution(this.workflowId)
       this.workflowState = await loadWorkflowStateForExecution(this.workflowId)
 
-      await executionLogger.startWorkflowExecution({
+      const { workflowLog } = await executionLogger.startWorkflowExecution({
         workflowId: this.workflowId,
         executionId: this.executionId,
         trigger: this.trigger,
         environment: this.environment,
         workflowState: this.workflowState,
+        workflowSummary,
       })
 
       if (this.requestId) {
         logger.debug(`[${this.requestId}] Started logging for execution ${this.executionId}`)
       }
+
+      return workflowLog.id
     } catch (error) {
       if (this.requestId) {
         logger.error(`[${this.requestId}] Failed to start logging:`, error)
@@ -124,8 +129,13 @@ export class LoggingSession {
       }
     }
 
-    const billingContext = await resolveWorkflowBillingContext({
-      workflowId: this.workflowId,
+    const workspaceId = this.environment?.workspaceId
+    if (!workspaceId) {
+      throw new Error('Workflow execution billing requires workspaceId')
+    }
+
+    const billingContext = await resolveWorkspaceBillingContext({
+      workspaceId,
       actorUserId: this.environment?.userId ?? null,
     })
 
@@ -276,10 +286,9 @@ export class LoggingSession {
     }
   }
 
-  async safeStart(params: SessionStartParams = {}): Promise<boolean> {
+  async safeStart(params: SessionStartParams): Promise<string | null> {
     try {
-      await this.start(params)
-      return true
+      return await this.start(params)
     } catch (error) {
       if (this.requestId) {
         logger.warn(
@@ -307,12 +316,14 @@ export class LoggingSession {
           parallels: {},
         } as unknown as WorkflowState
 
-        await executionLogger.startWorkflowExecution({
+        const workflowSummary = await loadWorkflowSummaryForExecution(this.workflowId)
+        const { workflowLog } = await executionLogger.startWorkflowExecution({
           workflowId: this.workflowId,
           executionId: this.executionId,
           trigger: this.trigger,
           environment: this.environment,
           workflowState: this.workflowState,
+          workflowSummary,
         })
 
         if (this.requestId) {
@@ -320,12 +331,12 @@ export class LoggingSession {
             `[${this.requestId}] Started minimal logging for execution ${this.executionId}`
           )
         }
-        return true
+        return workflowLog.id
       } catch (fallbackError) {
         if (this.requestId) {
           logger.error(`[${this.requestId}] Minimal logging start also failed:`, fallbackError)
         }
-        return false
+        return null
       }
     }
   }

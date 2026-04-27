@@ -5,42 +5,35 @@
 import { NextRequest } from 'next/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const {
-  mockGetSession,
-  mockLimit,
-  mockWhere,
-  mockInnerJoin,
-  mockLeftJoin,
-  mockFrom,
-  mockSelect,
-} = vi.hoisted(() => {
-  const mockGetSession = vi.fn()
-  const mockLimit = vi.fn()
-  const chain: Record<string, any> = {}
-  const mockWhere = vi.fn(() => chain)
-  const mockInnerJoin = vi.fn(() => chain)
-  const mockLeftJoin = vi.fn(() => chain)
-  const mockFrom = vi.fn(() => chain)
-  Object.assign(chain, {
-    innerJoin: mockInnerJoin,
-    leftJoin: mockLeftJoin,
-    where: mockWhere,
-    limit: mockLimit,
-  })
-  const mockSelect = vi.fn(() => ({
-    from: mockFrom,
-  }))
+const { mockGetSession, mockLimit, mockWhere, mockInnerJoin, mockLeftJoin, mockFrom, mockSelect } =
+  vi.hoisted(() => {
+    const mockGetSession = vi.fn()
+    const mockLimit = vi.fn()
+    const chain: Record<string, any> = {}
+    const mockWhere = vi.fn(() => chain)
+    const mockInnerJoin = vi.fn(() => chain)
+    const mockLeftJoin = vi.fn(() => chain)
+    const mockFrom = vi.fn(() => chain)
+    Object.assign(chain, {
+      innerJoin: mockInnerJoin,
+      leftJoin: mockLeftJoin,
+      where: mockWhere,
+      limit: mockLimit,
+    })
+    const mockSelect = vi.fn(() => ({
+      from: mockFrom,
+    }))
 
-  return {
-    mockGetSession,
-    mockLimit,
-    mockWhere,
-    mockInnerJoin,
-    mockLeftJoin,
-    mockFrom,
-    mockSelect,
-  }
-})
+    return {
+      mockGetSession,
+      mockLimit,
+      mockWhere,
+      mockInnerJoin,
+      mockLeftJoin,
+      mockFrom,
+      mockSelect,
+    }
+  })
 
 vi.mock('@tradinggoose/db', () => ({
   db: {
@@ -68,6 +61,7 @@ vi.mock('@tradinggoose/db/schema', () => ({
   workflowExecutionLogs: {
     id: 'workflowExecutionLogs.id',
     workflowId: 'workflowExecutionLogs.workflowId',
+    workspaceId: 'workflowExecutionLogs.workspaceId',
     executionId: 'workflowExecutionLogs.executionId',
     level: 'workflowExecutionLogs.level',
     trigger: 'workflowExecutionLogs.trigger',
@@ -94,7 +88,11 @@ vi.mock('@/lib/auth', () => ({
   getSession: (...args: unknown[]) => mockGetSession(...args),
 }))
 
-const buildRow = ({ startedAt = new Date('2026-04-23T00:00:00.000Z') }: { startedAt?: Date | null }) => ({
+const buildRow = ({
+  startedAt = new Date('2026-04-23T00:00:00.000Z'),
+}: {
+  startedAt?: Date | null
+}) => ({
   id: 'log-1',
   workflowId: 'workflow-1',
   executionId: 'exec-1',
@@ -134,14 +132,24 @@ const buildRow = ({ startedAt = new Date('2026-04-23T00:00:00.000Z') }: { starte
   workflowUpdatedAt: new Date('2026-04-23T00:00:00.000Z'),
 })
 
-const expectWorkflowJoinedBeforeFolder = () => {
+const expectLogAnchoredWorkflowFolderJoin = () => {
   const fromCall = mockFrom.mock.calls.at(-1) as [unknown] | undefined
+  const leftJoinCalls = mockLeftJoin.mock.calls as unknown as Array<[unknown, unknown]>
 
   expect(fromCall?.[0]).toMatchObject({
+    id: 'workflowExecutionLogs.id',
+  })
+  expect(leftJoinCalls[0]?.[0]).toMatchObject({
     id: 'workflow.id',
   })
-  expect(mockInnerJoin.mock.invocationCallOrder[0]).toBeLessThan(
-    mockLeftJoin.mock.invocationCallOrder[0]!
+  expect(leftJoinCalls[1]?.[0]).toMatchObject({
+    id: 'workflowFolder.id',
+  })
+  expect(mockLeftJoin.mock.invocationCallOrder[0]).toBeLessThan(
+    mockLeftJoin.mock.invocationCallOrder[1]!
+  )
+  expect(mockLeftJoin.mock.invocationCallOrder[1]).toBeLessThan(
+    mockInnerJoin.mock.invocationCallOrder[0]!
   )
 }
 
@@ -170,7 +178,7 @@ describe('log detail route', () => {
     })
 
     expect(response.status).toBe(200)
-    expectWorkflowJoinedBeforeFolder()
+    expectLogAnchoredWorkflowFolderJoin()
     const body = await response.json()
 
     expect(body).toEqual({

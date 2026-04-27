@@ -7,9 +7,9 @@
  * which are the central pieces of infrastructure for executing tools.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { generateInternalToken } from '@/lib/auth/internal'
 import { buildLoadSkillTool } from '@/executor/handlers/agent/skills-resolver'
 import type { ExecutionContext } from '@/executor/types'
-import { generateInternalToken } from '@/lib/auth/internal'
 import { mockEnvironmentVariables } from '@/tools/__test-utils__/test-tools'
 import { executeTool } from '@/tools/index'
 import { tools } from '@/tools/registry'
@@ -163,6 +163,8 @@ describe('executeTool Function', () => {
   let cleanupEnvVars: () => void
 
   beforeEach(() => {
+    vi.mocked(generateInternalToken).mockResolvedValue('mock-internal-token')
+
     // Mock fetch
     global.fetch = Object.assign(
       vi.fn().mockImplementation(async (url, options) => {
@@ -273,6 +275,90 @@ describe('executeTool Function', () => {
     }
 
     expect(vi.mocked(generateInternalToken)).toHaveBeenCalledWith('user-123')
+  })
+
+  it('fails internal route execution when internal auth cannot be generated', async () => {
+    const mockContext = createMockExecutionContext({ userId: 'user-123' })
+    const originalWindow = global.window
+    vi.mocked(generateInternalToken).mockRejectedValueOnce(new Error('token boom'))
+
+    Object.defineProperty(global, 'window', {
+      value: undefined,
+      writable: true,
+      configurable: true,
+    })
+
+    try {
+      const result = await executeTool(
+        'function_execute',
+        {
+          code: 'return { result: "hello world" }',
+          language: 'javascript',
+        },
+        false,
+        mockContext
+      )
+
+      expect(result.success).toBe(false)
+      expect(result.error).toBe('token boom')
+      expect(global.fetch).not.toHaveBeenCalled()
+    } finally {
+      Object.defineProperty(global, 'window', {
+        value: originalWindow,
+        writable: true,
+        configurable: true,
+      })
+    }
+  })
+
+  it('fails credential token lookup before fetch when internal auth cannot be generated', async () => {
+    const mockContext = createMockExecutionContext({ userId: 'user-123' })
+    const originalWindow = global.window
+    const originalTool = (tools as any).test_credential_tool
+    vi.mocked(generateInternalToken).mockRejectedValueOnce(new Error('token boom'))
+    ;(tools as any).test_credential_tool = {
+      id: 'test_credential_tool',
+      name: 'Test Credential Tool',
+      description: 'A test tool that needs an OAuth credential token',
+      version: '1.0.0',
+      params: {},
+      request: {
+        url: 'https://api.example.com/secure',
+        method: 'GET',
+        headers: () => ({ 'Content-Type': 'application/json' }),
+      },
+    }
+
+    Object.defineProperty(global, 'window', {
+      value: undefined,
+      writable: true,
+      configurable: true,
+    })
+
+    try {
+      const result = await executeTool(
+        'test_credential_tool',
+        { credential: 'credential-1' },
+        false,
+        mockContext
+      )
+
+      expect(result.success).toBe(false)
+      expect(result.error).toContain('Failed to obtain credential for tool test_credential_tool')
+      expect(result.error).toContain('token boom')
+      expect(global.fetch).not.toHaveBeenCalled()
+    } finally {
+      if (originalTool) {
+        ;(tools as any).test_credential_tool = originalTool
+      } else {
+        Reflect.deleteProperty(tools as any, 'test_credential_tool')
+      }
+      Object.defineProperty(global, 'window', {
+        value: originalWindow,
+        writable: true,
+        configurable: true,
+      })
+    }
   })
 
   it('should load skill content through the skills API', async () => {

@@ -1,6 +1,11 @@
 import { db } from '@tradinggoose/db'
-import { permissions, workflow, workflowLogWebhook } from '@tradinggoose/db/schema'
-import { and, eq } from 'drizzle-orm'
+import {
+  permissions,
+  workflow,
+  workflowLogWebhook,
+  workflowLogWebhookDelivery,
+} from '@tradinggoose/db/schema'
+import { and, eq, inArray } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { getSession } from '@/lib/auth'
@@ -195,7 +200,15 @@ export async function DELETE(
       return NextResponse.json({ error: 'Workflow not found' }, { status: 404 })
     }
 
-    // Delete the webhook (will cascade delete deliveries)
+    await db
+      .delete(workflowLogWebhookDelivery)
+      .where(
+        and(
+          eq(workflowLogWebhookDelivery.subscriptionId, webhookId),
+          inArray(workflowLogWebhookDelivery.status, ['pending', 'in_progress']),
+        ),
+      )
+
     const deletedWebhook = await db
       .delete(workflowLogWebhook)
       .where(

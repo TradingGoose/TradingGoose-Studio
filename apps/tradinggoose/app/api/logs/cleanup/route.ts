@@ -1,6 +1,10 @@
-import { db } from '@tradinggoose/db'
-import { workflow, workflowExecutionLogs } from '@tradinggoose/db/schema'
-import { and, eq, inArray, lt } from 'drizzle-orm'
+import { db, orderHistoryTable } from '@tradinggoose/db'
+import {
+  workflowExecutionLogs,
+  workflowLogWebhookDelivery,
+  workspace,
+} from '@tradinggoose/db/schema'
+import { and, eq, inArray, lt, sql } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { verifyCronAuth } from '@/lib/auth/internal'
 import { isBillingEnabledForRuntime } from '@/lib/billing/settings'
@@ -31,38 +35,31 @@ function parseLogRetentionDays(value: unknown): number | null {
   return null
 }
 
-async function getWorkflowRetentionGroups(): Promise<
-  Array<{ retentionDays: number; workflowIds: string[] }>
+async function getWorkspaceRetentionGroups(): Promise<
+  Array<{ retentionDays: number; workspaceIds: string[] }>
 > {
-  const workflowRows = await db
+  const workspaceRows = await db
     .select({
-      id: workflow.id,
-      userId: workflow.userId,
-      workspaceId: workflow.workspaceId,
+      id: workspace.id,
+      ownerId: workspace.ownerId,
     })
-    .from(workflow)
+    .from(workspace)
 
-  const workflowIdsByRetentionDays = new Map<number, string[]>()
+  const workspaceIdsByRetentionDays = new Map<number, string[]>()
   const billingContextByScopeKey = new Map<
     string,
     Promise<Awaited<ReturnType<typeof resolveWorkspaceBillingContext>>>
   >()
 
-  for (const workflowRow of workflowRows) {
-    const scopeKey = workflowRow.workspaceId
-      ? `workspace:${workflowRow.workspaceId}`
-      : `user:${workflowRow.userId}`
+  for (const workspaceRow of workspaceRows) {
+    const scopeKey = `workspace:${workspaceRow.id}`
 
     let billingContextPromise = billingContextByScopeKey.get(scopeKey)
     if (!billingContextPromise) {
-      billingContextPromise = workflowRow.workspaceId
-        ? resolveWorkspaceBillingContext({
-            workspaceId: workflowRow.workspaceId,
-            actorUserId: workflowRow.userId,
-          })
-        : resolveWorkspaceBillingContext({
-            actorUserId: workflowRow.userId,
-          })
+      billingContextPromise = resolveWorkspaceBillingContext({
+        workspaceId: workspaceRow.id,
+        actorUserId: workspaceRow.ownerId,
+      })
       billingContextByScopeKey.set(scopeKey, billingContextPromise)
     }
 
@@ -73,27 +70,26 @@ async function getWorkflowRetentionGroups(): Promise<
         continue
       }
 
-      const workflowIds = workflowIdsByRetentionDays.get(retentionDays) ?? []
-      workflowIds.push(workflowRow.id)
-      workflowIdsByRetentionDays.set(retentionDays, workflowIds)
+      const workspaceIds = workspaceIdsByRetentionDays.get(retentionDays) ?? []
+      workspaceIds.push(workspaceRow.id)
+      workspaceIdsByRetentionDays.set(retentionDays, workspaceIds)
     } catch (error) {
-      logger.error('Failed to resolve workflow billing context for log cleanup', {
-        workflowId: workflowRow.id,
-        workspaceId: workflowRow.workspaceId,
-        userId: workflowRow.userId,
+      logger.error('Failed to resolve workspace billing context for log cleanup', {
+        workspaceId: workspaceRow.id,
+        ownerId: workspaceRow.ownerId,
         error,
       })
     }
   }
 
-  const workflowGroups = Array.from(workflowIdsByRetentionDays.entries()).map(
-    ([retentionDays, workflowIds]) => ({
+  const workspaceGroups = Array.from(workspaceIdsByRetentionDays.entries()).map(
+    ([retentionDays, workspaceIds]) => ({
       retentionDays,
-      workflowIds,
+      workspaceIds,
     })
   )
 
-  return workflowGroups.filter((workflowGroup) => workflowGroup.workflowIds.length > 0)
+  return workspaceGroups.filter((workspaceGroup) => workspaceGroup.workspaceIds.length > 0)
 }
 
 export async function GET(request: NextRequest) {
@@ -108,11 +104,11 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ message: 'Billing disabled, skipping cleanup' })
     }
 
-    const workflowGroups = await getWorkflowRetentionGroups()
+    const workspaceGroups = await getWorkspaceRetentionGroups()
 
-    if (workflowGroups.length === 0) {
-      logger.info('No workflows found for finite log retention cleanup')
-      return NextResponse.json({ message: 'No workflows found for cleanup' })
+    if (workspaceGroups.length === 0) {
+      logger.info('No workspaces found for finite log retention cleanup')
+      return NextResponse.json({ message: 'No workspaces found for cleanup' })
     }
 
     const results = {
@@ -141,21 +137,21 @@ export async function GET(request: NextRequest) {
     let hasMoreLogs = false
 
     logger.info('Starting enhanced logs cleanup', {
-      workflowGroupCount: workflowGroups.length,
-      workflowCount: workflowGroups.reduce(
-        (totalWorkflowCount, workflowGroup) =>
-          totalWorkflowCount + workflowGroup.workflowIds.length,
+      workspaceGroupCount: workspaceGroups.length,
+      workspaceCount: workspaceGroups.reduce(
+        (totalWorkspaceCount, workspaceGroup) =>
+          totalWorkspaceCount + workspaceGroup.workspaceIds.length,
         0
       ),
     })
 
-    for (const workflowGroup of workflowGroups) {
+    for (const workspaceGroup of workspaceGroups) {
       if (batchesProcessed >= MAX_BATCHES) {
         break
       }
 
       const retentionDate = new Date()
-      retentionDate.setDate(retentionDate.getDate() - workflowGroup.retentionDays)
+      retentionDate.setDate(retentionDate.getDate() - workspaceGroup.retentionDays)
       let groupHasMoreLogs = true
 
       while (groupHasMoreLogs && batchesProcessed < MAX_BATCHES) {
@@ -178,8 +174,17 @@ export async function GET(request: NextRequest) {
           .from(workflowExecutionLogs)
           .where(
             and(
-              inArray(workflowExecutionLogs.workflowId, workflowGroup.workflowIds),
-              lt(workflowExecutionLogs.createdAt, retentionDate)
+              inArray(workflowExecutionLogs.workspaceId, workspaceGroup.workspaceIds),
+              lt(workflowExecutionLogs.createdAt, retentionDate),
+              sql`NOT EXISTS (
+                SELECT 1 FROM ${workflowLogWebhookDelivery}
+                WHERE ${workflowLogWebhookDelivery.executionId} = ${workflowExecutionLogs.executionId}
+                AND ${workflowLogWebhookDelivery.status} IN ('pending', 'in_progress')
+              )`,
+              sql`NOT EXISTS (
+                SELECT 1 FROM ${orderHistoryTable}
+                WHERE ${orderHistoryTable.workflowLogId} = ${workflowExecutionLogs.id}
+              )`
             )
           )
           .limit(BATCH_SIZE)
@@ -265,7 +270,7 @@ export async function GET(request: NextRequest) {
         logger.info(
           `Processed enhanced logs batch ${batchesProcessed}: ${oldEnhancedLogs.length} logs`,
           {
-            retentionDays: workflowGroup.retentionDays,
+            retentionDays: workspaceGroup.retentionDays,
           }
         )
       }
@@ -273,7 +278,7 @@ export async function GET(request: NextRequest) {
 
     try {
       const snapshotRetentionDays =
-        Math.min(...workflowGroups.map((workflowGroup) => workflowGroup.retentionDays)) + 1
+        Math.min(...workspaceGroups.map((workspaceGroup) => workspaceGroup.retentionDays)) + 1
       const cleanedSnapshots = await snapshotService.cleanupOrphanedSnapshots(snapshotRetentionDays)
       results.snapshots.cleaned = cleanedSnapshots
       logger.info(`Cleaned up ${cleanedSnapshots} orphaned snapshots`)

@@ -7,9 +7,18 @@ const mockGetBlocksMetadataExecute = vi.fn()
 const mockLoadSkill = vi.fn()
 const mockLoadWorkflowStateWithFallback = vi.fn()
 const mockSanitizeForCopilot = vi.fn((value) => value)
+const mockLogRowsQueue: unknown[][] = []
+const mockSelectChain: Record<string, any> = {}
+mockSelectChain.from = vi.fn(() => mockSelectChain)
+mockSelectChain.leftJoin = vi.fn(() => mockSelectChain)
+mockSelectChain.where = vi.fn(() => mockSelectChain)
+mockSelectChain.limit = vi.fn(() => Promise.resolve(mockLogRowsQueue.shift() ?? []))
+const mockDbSelect = vi.fn(() => mockSelectChain)
 
 vi.mock('@tradinggoose/db', () => ({
-  db: {},
+  db: {
+    select: mockDbSelect,
+  },
 }))
 
 vi.mock('@tradinggoose/db/schema', () => ({
@@ -18,6 +27,23 @@ vi.mock('@tradinggoose/db/schema', () => ({
   document: {},
   knowledgeBase: {},
   templates: {},
+  workflow: {
+    id: 'workflow.id',
+    name: 'workflow.name',
+  },
+  workflowExecutionLogs: {
+    id: 'workflowExecutionLogs.id',
+    workflowId: 'workflowExecutionLogs.workflowId',
+    executionId: 'workflowExecutionLogs.executionId',
+    level: 'workflowExecutionLogs.level',
+    trigger: 'workflowExecutionLogs.trigger',
+    startedAt: 'workflowExecutionLogs.startedAt',
+    endedAt: 'workflowExecutionLogs.endedAt',
+    totalDurationMs: 'workflowExecutionLogs.totalDurationMs',
+    executionData: 'workflowExecutionLogs.executionData',
+    cost: 'workflowExecutionLogs.cost',
+    workflowSummary: 'workflowExecutionLogs.workflowSummary',
+  },
 }))
 
 vi.mock('drizzle-orm', () => ({
@@ -64,6 +90,9 @@ describe('processContextsServer', () => {
     mockLoadSkill.mockReset()
     mockLoadWorkflowStateWithFallback.mockReset()
     mockSanitizeForCopilot.mockClear()
+    mockLogRowsQueue.length = 0
+    mockDbSelect.mockClear()
+    mockSelectChain.leftJoin.mockClear()
   })
 
   it('expands block contexts through the canonical blockIds path', async () => {
@@ -203,5 +232,41 @@ describe('processContextsServer', () => {
         ),
       },
     ])
+  })
+
+  it('hydrates deleted workflow log contexts from the durable workflow summary', async () => {
+    mockLogRowsQueue.push([
+      {
+        id: 'log-1',
+        workflowId: null,
+        executionId: 'execution-1',
+        level: 'info',
+        trigger: 'manual',
+        startedAt: new Date('2026-04-23T00:00:00.000Z'),
+        endedAt: null,
+        totalDurationMs: null,
+        executionData: {},
+        cost: null,
+        workflowSummary: {
+          id: 'deleted-workflow-1',
+          name: 'Deleted workflow',
+        },
+        workflowName: null,
+      },
+    ])
+
+    const { processContextsServer } = await import('@/lib/copilot/process-contents')
+    const result = await processContextsServer(
+      [{ kind: 'logs', executionId: 'execution-1', label: 'Deleted Run' } as any],
+      'user-1'
+    )
+
+    expect(mockSelectChain.leftJoin).toHaveBeenCalled()
+    expect(result).toHaveLength(1)
+    const content = JSON.parse(result[0]!.content)
+    expect(content).toMatchObject({
+      workflowId: 'deleted-workflow-1',
+      workflowName: 'Deleted workflow',
+    })
   })
 })

@@ -4,6 +4,8 @@ import type { BlockOutput } from '@/blocks/types'
 import type { SerializedBlock, SerializedWorkflow } from '@/serializer/types'
 import type { TriggerType } from '@/services/queue'
 
+export type ExecutionSubmissionSource = 'manual' | 'copilot' | 'workflow'
+
 /**
  * User-facing file object with simplified interface
  */
@@ -106,9 +108,11 @@ export interface BlockState {
  */
 export interface ExecutionContext {
   workflowId: string // Unique identifier for this workflow execution
-  workspaceId?: string // Workspace ID for file storage scoping
+  workspaceId: string // Workspace ID for file storage scoping
   userId?: string // Authenticated acting user for internal server-to-server calls
   executionId?: string // Unique execution ID for file storage scoping
+  workflowLogId?: string
+  submissionSource?: ExecutionSubmissionSource
   concurrencyLeaseInherited?: boolean
   triggerType?: TriggerType
   workflowDepth?: number
@@ -196,8 +200,10 @@ export interface ExecutionContextExtensions {
   onStream?: (streamingExecution: StreamingExecution) => Promise<void>
   onBlockComplete?: (blockId: string, output: any) => Promise<void>
   executionId?: string
-  workspaceId?: string
+  workspaceId: string
   userId?: string
+  workflowLogId?: string
+  submissionSource?: ExecutionSubmissionSource
   concurrencyLeaseInherited?: boolean
   executionConcurrencyController?: ExecutionConcurrencyController
   triggerType?: TriggerType

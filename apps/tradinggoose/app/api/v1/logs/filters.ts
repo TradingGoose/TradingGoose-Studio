@@ -1,5 +1,5 @@
 import { workflow, workflowExecutionLogs } from '@tradinggoose/db/schema'
-import { and, desc, eq, gte, inArray, lte, type SQL, sql } from 'drizzle-orm'
+import { and, desc, eq, gte, inArray, lte, or, type SQL, sql } from 'drizzle-orm'
 import type { ListingIdentity } from '@/lib/listing/identity'
 
 export interface LogFilters {
@@ -32,8 +32,8 @@ export interface LogFilters {
 export function buildLogFilters(filters: LogFilters): SQL<unknown> {
   const conditions: SQL<unknown>[] = []
 
-  // Required: workspace and permissions check
-  conditions.push(eq(workflow.workspaceId, filters.workspaceId))
+  // Required: durable log workspace scope.
+  conditions.push(eq(workflowExecutionLogs.workspaceId, filters.workspaceId))
 
   // Cursor-based pagination
   if (filters.cursor) {
@@ -51,12 +51,22 @@ export function buildLogFilters(filters: LogFilters): SQL<unknown> {
 
   // Workflow IDs filter
   if (filters.workflowIds && filters.workflowIds.length > 0) {
-    conditions.push(inArray(workflow.id, filters.workflowIds))
+    conditions.push(
+      or(
+        inArray(workflowExecutionLogs.workflowId, filters.workflowIds),
+        inArray(sql<string>`${workflowExecutionLogs.workflowSummary}->>'id'`, filters.workflowIds)
+      )!
+    )
   }
 
   // Folder IDs filter
   if (filters.folderIds && filters.folderIds.length > 0) {
-    conditions.push(inArray(workflow.folderId, filters.folderIds))
+    conditions.push(
+      inArray(
+        sql<string>`COALESCE(${workflow.folderId}, ${workflowExecutionLogs.workflowSummary}->>'folderId')`,
+        filters.folderIds
+      )
+    )
   }
 
   // Triggers filter

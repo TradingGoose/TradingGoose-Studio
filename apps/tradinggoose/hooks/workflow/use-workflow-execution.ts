@@ -1,22 +1,27 @@
 import { useCallback, useState } from 'react'
-import { useLatestRef } from '@/hooks/use-latest-ref'
 import { v4 as uuidv4 } from 'uuid'
 import { createLogger } from '@/lib/logs/console/logger'
 import { buildTraceSpans } from '@/lib/logs/execution/trace-spans/trace-spans'
 import { processStreamingBlockLogs } from '@/lib/tokenization'
 import { TriggerUtils } from '@/lib/workflows/triggers'
-import { useWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
+import { useWorkflowVariables } from '@/lib/yjs/use-workflow-doc'
 import type { BlockOutput } from '@/blocks/types'
 import { Executor } from '@/executor'
-import type { BlockLog, ExecutionResult, StreamingExecution } from '@/executor/types'
+import type {
+  BlockLog,
+  ExecutionContextExtensions,
+  ExecutionResult,
+  StreamingExecution,
+} from '@/executor/types'
+import { useLatestRef } from '@/hooks/use-latest-ref'
 import { Serializer, WorkflowValidationError } from '@/serializer'
 import type { SerializedWorkflow } from '@/serializer/types'
-import { useExecutionStore } from '@/stores/execution/store'
 import { useConsoleStore } from '@/stores/console/store'
+import { useExecutionStore } from '@/stores/execution/store'
 import { useEnvironmentStore } from '@/stores/settings/environment/store'
-import { useWorkflowVariables } from '@/lib/yjs/use-workflow-doc'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import { generateLoopBlocks, generateParallelBlocks } from '@/stores/workflows/workflow/utils'
+import { useWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 import { useCurrentWorkflow } from './use-current-workflow'
 
 const logger = createLogger('useWorkflowExecution')
@@ -28,15 +33,7 @@ interface ExecutorOptions {
   envVarValues?: Record<string, string>
   workflowInput?: any
   workflowVariables?: Record<string, any>
-  contextExtensions?: {
-    stream?: boolean
-    selectedOutputs?: string[]
-    edges?: Array<{ source: string; target: string }>
-    onStream?: (streamingExecution: StreamingExecution) => Promise<void>
-    onBlockComplete?: (blockId: string, output: any) => Promise<void>
-    executionId?: string
-    workspaceId?: string
-  }
+  contextExtensions?: ExecutionContextExtensions
 }
 
 // Debug state validation result
@@ -99,9 +96,7 @@ export function useWorkflowExecution() {
   const currentWorkflow = useCurrentWorkflow()
   const { workflowId: routeWorkflowId, channelId } = useWorkflowRoute()
   const workflows = useWorkflowRegistry((state) => state.workflows)
-  const registryWorkflowId = useWorkflowRegistry((state) =>
-    state.getActiveWorkflowId(channelId)
-  )
+  const registryWorkflowId = useWorkflowRegistry((state) => state.getActiveWorkflowId(channelId))
   const activeWorkflowId = routeWorkflowId ?? registryWorkflowId
   const { toggleConsole, cancelRunningEntries } = useConsoleStore()
   const { getAllVariables, loadWorkspaceEnvironment } = useEnvironmentStore()
@@ -406,7 +401,7 @@ export function useWorkflowExecution() {
                     if (isUploadErrorCapable(workflowInput)) {
                       try {
                         workflowInput.onUploadError(message)
-                      } catch { }
+                      } catch {}
                     }
                   }
                 }
@@ -417,7 +412,7 @@ export function useWorkflowExecution() {
                 if (isUploadErrorCapable(workflowInput)) {
                   try {
                     workflowInput.onUploadError('Unexpected error uploading files')
-                  } catch { }
+                  } catch {}
                 }
                 // Continue execution even if file upload fails
                 workflowInput.files = []
@@ -427,9 +422,9 @@ export function useWorkflowExecution() {
             const streamCompletionTimes = new Map<string, number>()
             const selectionChannelId =
               workflowInput &&
-                typeof workflowInput === 'object' &&
-                !Array.isArray(workflowInput) &&
-                'selectionChannelId' in workflowInput
+              typeof workflowInput === 'object' &&
+              !Array.isArray(workflowInput) &&
+              'selectionChannelId' in workflowInput
                 ? (workflowInput as any).selectionChannelId
                 : undefined
             const selectedOutputsForExecution = await resolveSelectedOutputsForWorkflow(
@@ -546,7 +541,7 @@ export function useWorkflowExecution() {
                 if (!result.metadata) {
                   result.metadata = { duration: 0, startTime: new Date().toISOString() }
                 }
-                ; (result.metadata as any).source = 'chat'
+                ;(result.metadata as any).source = 'chat'
 
                 // Update block logs with actual stream completion times
                 if (result.logs && streamCompletionTimes.size > 0) {
@@ -673,7 +668,7 @@ export function useWorkflowExecution() {
             if (!result.metadata) {
               result.metadata = { duration: 0, startTime: new Date().toISOString() }
             }
-            ; (result.metadata as any).source = 'chat'
+            ;(result.metadata as any).source = 'chat'
           }
 
           persistLogs(executionId, result).catch((err) => {
@@ -782,6 +777,10 @@ export function useWorkflowExecution() {
     // Get workspaceId from workflow metadata
     const workspaceId = activeWorkflowId ? workflows[activeWorkflowId]?.workspaceId : undefined
 
+    if (!workspaceId) {
+      throw new Error('Cannot execute workflow without workspaceId')
+    }
+
     // Get environment variables with workspace precedence
     const personalEnvVars = getAllVariables()
     const personalEnvValues = Object.entries(personalEnvVars).reduce(
@@ -837,12 +836,15 @@ export function useWorkflowExecution() {
     if (isExecutingFromChat && activeWorkflowId) {
       const selectionChannelId =
         workflowInput &&
-          typeof workflowInput === 'object' &&
-          !Array.isArray(workflowInput) &&
-          'selectionChannelId' in workflowInput
+        typeof workflowInput === 'object' &&
+        !Array.isArray(workflowInput) &&
+        'selectionChannelId' in workflowInput
           ? (workflowInput as any).selectionChannelId
           : undefined
-      selectedOutputs = await resolveSelectedOutputsForWorkflow(activeWorkflowId, selectionChannelId)
+      selectedOutputs = await resolveSelectedOutputsForWorkflow(
+        activeWorkflowId,
+        selectionChannelId
+      )
     }
 
     // Helper to extract test values from inputFormat subblock
@@ -1003,6 +1005,7 @@ export function useWorkflowExecution() {
         onBlockComplete,
         executionId,
         workspaceId,
+        submissionSource: isExecutingFromChat ? 'copilot' : 'manual',
       },
     }
 
@@ -1055,7 +1058,7 @@ export function useWorkflowExecution() {
             blockName,
             blockType,
           })
-        } catch { }
+        } catch {}
       }
 
       errorResult = {

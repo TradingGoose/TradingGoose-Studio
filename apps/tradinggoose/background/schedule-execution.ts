@@ -189,6 +189,11 @@ export async function executeScheduleJob(payload: ScheduleExecutionPayload) {
       return
     }
 
+    if (!workflowRecord.workspaceId) {
+      logger.warn(`[${requestId}] Workflow ${payload.workflowId} is missing workspaceId`)
+      return
+    }
+
     const actorUserId = await getApiKeyOwnerUserId(
       workflowRecord.pinnedApiKeyId,
     )

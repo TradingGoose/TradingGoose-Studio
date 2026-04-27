@@ -17,6 +17,7 @@ vi.mock('@/lib/logs/console/logger', () => ({
 describe('ParallelManager', () => {
   const createMockContext = (): ExecutionContext => ({
     workflowId: 'test-workflow',
+    workspaceId: 'test-workspace-id',
     blockStates: new Map(),
     blockLogs: [],
     metadata: { startTime: new Date().toISOString(), duration: 0 },

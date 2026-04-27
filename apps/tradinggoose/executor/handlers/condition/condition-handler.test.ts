@@ -95,6 +95,7 @@ describe('ConditionBlockHandler', () => {
     // Define mock context *after* workflow and blocks are set up
     mockContext = {
       workflowId: 'test-workflow-id',
+      workspaceId: 'test-workspace-id',
       blockStates: new Map<string, BlockState>([
         [
           mockSourceBlock.id,

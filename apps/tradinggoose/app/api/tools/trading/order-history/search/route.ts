@@ -1,6 +1,8 @@
 import { db, orderHistoryTable } from '@tradinggoose/db'
+import { workflow } from '@tradinggoose/db/schema'
 import { and, desc, eq, gte, lt, or, type SQL, sql } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
+import { getSession } from '@/lib/auth'
 import {
   areListingIdentitiesEqual,
   type ListingIdentity,
@@ -9,6 +11,7 @@ import {
 } from '@/lib/listing/identity'
 import { resolveListingIdentity } from '@/lib/listing/resolve'
 import { createLogger } from '@/lib/logs/console/logger'
+import { checkWorkspaceAccess } from '@/lib/permissions/utils'
 import { generateRequestId } from '@/lib/utils'
 
 const logger = createLogger('TradingOrderHistorySearchAPI')
@@ -215,16 +218,64 @@ const buildDateSearchCondition = (query: string): SQL | null => {
   return and(gte(orderHistoryTable.recordedAt, start), lt(orderHistoryTable.recordedAt, end)) as SQL
 }
 
+async function readWorkflowWorkspaceId(workflowId: string) {
+  const [row] = await db
+    .select({ workspaceId: workflow.workspaceId })
+    .from(workflow)
+    .where(eq(workflow.id, workflowId))
+    .limit(1)
+
+  return row?.workspaceId?.trim() || null
+}
+
 export async function GET(request: NextRequest) {
   const requestId = generateRequestId()
 
   try {
+    const session = await getSession()
+    if (!session?.user?.id) {
+      return NextResponse.json(
+        { success: false, error: { message: 'Unauthorized' } },
+        { status: 401 }
+      )
+    }
+
     const url = new URL(request.url)
+    const requestedWorkspaceId = readString(url.searchParams.get('workspaceId'))
     const workflowId = readString(url.searchParams.get('workflowId'))
     const query = readString(url.searchParams.get('q')) ?? ''
     const limit = parseLimit(url.searchParams.get('limit'))
 
-    const conditions: SQL[] = []
+    const workspaceId = requestedWorkspaceId ?? ''
+    if (!workspaceId) {
+      return NextResponse.json(
+        { success: false, error: { message: 'workspaceId is required' } },
+        { status: 400 }
+      )
+    }
+
+    if (workflowId) {
+      const workflowWorkspaceId = await readWorkflowWorkspaceId(workflowId)
+      if (!workflowWorkspaceId) {
+        return NextResponse.json(
+          { success: false, error: { message: 'Workflow not found' } },
+          { status: 404 }
+        )
+      }
+      if (workspaceId !== workflowWorkspaceId) {
+        return NextResponse.json(
+          { success: false, error: { message: 'workflowId does not belong to workspaceId' } },
+          { status: 400 }
+        )
+      }
+    }
+
+    const access = await checkWorkspaceAccess(workspaceId, session.user.id)
+    if (!access.exists || !access.hasAccess) {
+      return NextResponse.json({ success: false, error: { message: 'Not found' } }, { status: 404 })
+    }
+
+    const conditions: SQL[] = [eq(orderHistoryTable.workspaceId, workspaceId)]
 
     if (workflowId) {
       conditions.push(eq(orderHistoryTable.workflowId, workflowId))
@@ -284,6 +335,7 @@ export async function GET(request: NextRequest) {
         data: {
           results,
           count: results.length,
+          workspaceId,
           workflowId: workflowId ?? null,
           query,
           limit,

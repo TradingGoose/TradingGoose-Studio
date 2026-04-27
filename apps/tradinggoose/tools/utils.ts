@@ -7,6 +7,14 @@ import type { TableRow, ToolConfig, ToolResponse } from '@/tools/types'
 
 const logger = createLogger('ToolsUtils')
 
+type CustomToolExecutionScope = {
+  workflowId?: string
+  workspaceId?: string
+  userId?: string
+  workflowLogId?: string
+  submissionSource?: string
+}
+
 /**
  * Transforms a table from the store format to a key-value object
  * @param table Array of table rows from the store
@@ -255,9 +263,15 @@ export function createCustomToolRequestBody(
   customTool: any,
   isClient = true,
   workflowId?: string,
-  getStore?: () => any
+  getStore?: () => any,
+  authoritativeScope?: CustomToolExecutionScope
 ) {
   return (params: Record<string, any>) => {
+    const rawContext =
+      params._context && typeof params._context === 'object'
+        ? (params._context as Record<string, unknown>)
+        : {}
+    const context = authoritativeScope ?? rawContext
     // Get environment variables - try multiple sources in order of preference:
     // 1. envVars parameter (passed from provider/agent context)
     // 2. Client-side store (if running in browser)
@@ -280,9 +294,17 @@ export function createCustomToolRequestBody(
       workflowVariables: workflowVariables, // Workflow variables for <variable.name> resolution
       blockData: blockData, // Runtime block outputs for <block.field> resolution
       blockNameMapping: blockNameMapping, // Block name to ID mapping
-      workflowId: params._context?.workflowId || workflowId, // Pass workflowId for server-side context
-      userId: params._context?.userId, // Pass userId for auth context
-      ...(params._context?.workspaceId ? { workspaceId: params._context.workspaceId } : {}),
+      workflowId: context.workflowId ?? workflowId, // Pass workflowId for server-side context
+      userId: context.userId, // Pass userId for auth context
+      ...(typeof context.workspaceId === 'string' && context.workspaceId
+        ? { workspaceId: context.workspaceId }
+        : {}),
+      ...(typeof context.workflowLogId === 'string' && context.workflowLogId
+        ? { workflowLogId: context.workflowLogId }
+        : {}),
+      ...(typeof context.submissionSource === 'string' && context.submissionSource
+        ? { submissionSource: context.submissionSource }
+        : {}),
       isCustomTool: true, // Flag to indicate this is a custom tool execution
     }
   }
@@ -323,7 +345,8 @@ export async function getToolAsync(
   toolId: string,
   workflowId?: string,
   workspaceId?: string,
-  userId?: string
+  userId?: string,
+  authoritativeScope?: CustomToolExecutionScope
 ): Promise<ToolConfig | undefined> {
   // Check for built-in tools
   const builtInTool = tools[toolId]
@@ -331,7 +354,7 @@ export async function getToolAsync(
 
   // Check if it's a custom tool
   if (toolId.startsWith('custom_')) {
-    return getCustomTool(toolId, workflowId, workspaceId, userId)
+    return getCustomTool(toolId, workflowId, workspaceId, userId, authoritativeScope)
   }
 
   return undefined
@@ -380,7 +403,8 @@ async function getCustomTool(
   customToolId: string,
   workflowId?: string,
   workspaceId?: string,
-  userId?: string
+  userId?: string,
+  authoritativeScope?: CustomToolExecutionScope
 ): Promise<ToolConfig | undefined> {
   const identifier = customToolId.replace('custom_', '')
 
@@ -403,6 +427,7 @@ async function getCustomTool(
         headers.Authorization = `Bearer ${internalToken}`
       } catch (error) {
         logger.warn('Failed to generate internal token for custom tools fetch', { error })
+        throw error
       }
     }
 
@@ -446,7 +471,13 @@ async function getCustomTool(
         url: '/api/function/execute',
         method: 'POST',
         headers: () => ({ 'Content-Type': 'application/json' }),
-        body: createCustomToolRequestBody(customTool, false, workflowId),
+        body: createCustomToolRequestBody(
+          customTool,
+          false,
+          workflowId,
+          undefined,
+          authoritativeScope ?? { workflowId, workspaceId, userId }
+        ),
       },
 
       // Same response handling as client-side

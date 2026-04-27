@@ -57,5 +57,6 @@ export const TradingOrderHistoryBlock: BlockConfig<OrderHistoryResponse> = {
     startDate: { type: 'string', description: 'Start datetime used for filtering.' },
     endDate: { type: 'string', description: 'End datetime used for filtering.' },
     workflowId: { type: 'string', description: 'Workflow ID used for filtering.' },
+    workspaceId: { type: 'string', description: 'Workspace ID used for filtering.' },
   },
 }

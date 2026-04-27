@@ -28,7 +28,6 @@ export type TriggerType = 'chat' | 'api' | 'webhook' | 'manual' | 'schedule' | '
 export interface FilterState {
   logs: import('@/lib/logs/types').WorkflowLog[]
   workspaceId: string
-  viewMode: 'logs' | 'dashboard'
   timeRange: TimeRange
   level: LogLevel
   workflowIds: string[]
@@ -43,7 +42,6 @@ export interface FilterState {
   _isInitializing: boolean
   setLogs: (logs: import('@/lib/logs/types').WorkflowLog[], append?: boolean) => void
   setWorkspaceId: (workspaceId: string) => void
-  setViewMode: (viewMode: 'logs' | 'dashboard') => void
   setTimeRange: (timeRange: TimeRange) => void
   setLevel: (level: LogLevel) => void
   setWorkflowIds: (workflowIds: string[]) => void

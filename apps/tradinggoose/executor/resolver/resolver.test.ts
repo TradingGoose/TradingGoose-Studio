@@ -749,6 +749,7 @@ describe('InputResolver', () => {
       const resolver = new InputResolver(workflow, {})
       const context: ExecutionContext = {
         workflowId: 'test',
+        workspaceId: 'test-workspace-id',
         blockStates: new Map(),
         blockLogs: [],
         metadata: { duration: 0 },
@@ -810,6 +811,7 @@ describe('InputResolver', () => {
       const resolver = new InputResolver(workflow, {})
       const context: ExecutionContext = {
         workflowId: 'test',
+        workspaceId: 'test-workspace-id',
         blockStates: new Map(),
         blockLogs: [],
         metadata: { duration: 0 },
@@ -877,6 +879,7 @@ describe('InputResolver', () => {
 
       const context: ExecutionContext = {
         workflowId: 'test',
+        workspaceId: 'test-workspace-id',
         blockStates: new Map(),
         blockLogs: [],
         metadata: { duration: 0 },
@@ -944,6 +947,7 @@ describe('InputResolver', () => {
 
       const context: ExecutionContext = {
         workflowId: 'test',
+        workspaceId: 'test-workspace-id',
         blockStates: new Map(),
         blockLogs: [],
         metadata: { duration: 0 },
@@ -1002,6 +1006,7 @@ describe('InputResolver', () => {
       const resolver = new InputResolver(workflow, {})
       const context: ExecutionContext = {
         workflowId: 'test',
+        workspaceId: 'test-workspace-id',
         blockStates: new Map(),
         blockLogs: [],
         metadata: { duration: 0 },
@@ -1087,6 +1092,7 @@ describe('InputResolver', () => {
       const resolver = new InputResolver(workflow, {}, {}, undefined, accessibilityMap)
       const context: ExecutionContext = {
         workflowId: 'test',
+        workspaceId: 'test-workspace-id',
         blockStates: new Map([
           [
             'parallel-1',
@@ -1177,6 +1183,7 @@ describe('InputResolver', () => {
       const resolver = new InputResolver(workflow, {}, {}, undefined, accessibilityMap)
       const context: ExecutionContext = {
         workflowId: 'test',
+        workspaceId: 'test-workspace-id',
         blockStates: new Map([
           [
             'parallel-1',
@@ -1315,6 +1322,7 @@ describe('InputResolver', () => {
       )
       contextWithConnections = {
         workflowId: 'test-workflow',
+        workspaceId: 'test-workspace-id',
         blockStates: new Map([
           ['trigger-1', { output: { input: 'Hello World' }, executed: true, executionTime: 0 }],
           ['agent-1', { output: { content: 'Agent response' }, executed: true, executionTime: 0 }],
@@ -1657,9 +1665,7 @@ describe('InputResolver', () => {
           }
         })
         // Always allow trigger block access
-        const triggerBlock = extendedWorkflow.blocks.find(
-          (b) => b.metadata?.id === 'input_trigger'
-        )
+        const triggerBlock = extendedWorkflow.blocks.find((b) => b.metadata?.id === 'input_trigger')
         if (triggerBlock) {
           accessibleBlocks.add(triggerBlock.id)
         }
@@ -1676,9 +1682,7 @@ describe('InputResolver', () => {
           }
         })
         // Always allow trigger block access
-        const triggerBlock = extendedWorkflow.blocks.find(
-          (b) => b.metadata?.id === 'input_trigger'
-        )
+        const triggerBlock = extendedWorkflow.blocks.find((b) => b.metadata?.id === 'input_trigger')
         if (triggerBlock) {
           accessibleBlocks.add(triggerBlock.id)
         }
@@ -2826,86 +2830,90 @@ describe('InputResolver', () => {
   })
 
   describe('Trigger reference array property fallback', () => {
-    it.concurrent('should resolve first file property when referencing trigger files without index', () => {
-      const chatWorkflow: SerializedWorkflow = {
-        version: '1.0',
-        blocks: [
-          {
-            id: 'chat-block',
-            metadata: { id: 'chat_trigger', name: 'Chat', category: 'triggers' },
-            position: { x: 0, y: 0 },
-            config: { tool: 'chat_trigger', params: {} },
-            inputs: {},
-            outputs: {},
-            enabled: true,
-          },
-          {
-            id: 'consumer-block',
-            metadata: { id: 'generic', name: 'Consumer' },
-            position: { x: 200, y: 0 },
-            config: {
-              tool: 'generic',
-              params: {
-                fileUrl: '<chat.files.url>',
-              },
-            },
-            inputs: {
-              fileUrl: 'string',
-            },
-            outputs: {},
-            enabled: true,
-          },
-        ],
-        connections: [{ source: 'chat-block', target: 'consumer-block' }],
-        loops: {},
-      }
-
-      const file = {
-        id: 'file-1',
-        url: 'https://example.com/file.txt',
-        name: 'file.txt',
-        size: 123,
-        type: 'text/plain',
-        key: 'uploads/file-1',
-        uploadedAt: new Date().toISOString(),
-        expiresAt: new Date(Date.now() + 3600_000).toISOString(),
-      }
-
-      const chatContext: ExecutionContext = {
-        workflowId: 'chat-workflow',
-        workflow: chatWorkflow,
-        blockStates: new Map([
-          [
-            'chat-block',
+    it.concurrent(
+      'should resolve first file property when referencing trigger files without index',
+      () => {
+        const chatWorkflow: SerializedWorkflow = {
+          version: '1.0',
+          blocks: [
             {
-              output: {
-                input: 'hello world',
-                conversationId: 'conv-123',
-                files: [file],
+              id: 'chat-block',
+              metadata: { id: 'chat_trigger', name: 'Chat', category: 'triggers' },
+              position: { x: 0, y: 0 },
+              config: { tool: 'chat_trigger', params: {} },
+              inputs: {},
+              outputs: {},
+              enabled: true,
+            },
+            {
+              id: 'consumer-block',
+              metadata: { id: 'generic', name: 'Consumer' },
+              position: { x: 200, y: 0 },
+              config: {
+                tool: 'generic',
+                params: {
+                  fileUrl: '<chat.files.url>',
+                },
               },
-              executed: true,
-              executionTime: 0,
+              inputs: {
+                fileUrl: 'string',
+              },
+              outputs: {},
+              enabled: true,
             },
           ],
-        ]),
-        activeExecutionPath: new Set(['chat-block', 'consumer-block']),
-        blockLogs: [],
-        metadata: { duration: 0 },
-        environmentVariables: {},
-        decisions: { router: new Map(), condition: new Map() },
-        loopIterations: new Map(),
-        loopItems: new Map(),
-        completedLoops: new Set(),
-        executedBlocks: new Set(['chat-block']),
+          connections: [{ source: 'chat-block', target: 'consumer-block' }],
+          loops: {},
+        }
+
+        const file = {
+          id: 'file-1',
+          url: 'https://example.com/file.txt',
+          name: 'file.txt',
+          size: 123,
+          type: 'text/plain',
+          key: 'uploads/file-1',
+          uploadedAt: new Date().toISOString(),
+          expiresAt: new Date(Date.now() + 3600_000).toISOString(),
+        }
+
+        const chatContext: ExecutionContext = {
+          workflowId: 'chat-workflow',
+          workspaceId: 'test-workspace-id',
+          workflow: chatWorkflow,
+          blockStates: new Map([
+            [
+              'chat-block',
+              {
+                output: {
+                  input: 'hello world',
+                  conversationId: 'conv-123',
+                  files: [file],
+                },
+                executed: true,
+                executionTime: 0,
+              },
+            ],
+          ]),
+          activeExecutionPath: new Set(['chat-block', 'consumer-block']),
+          blockLogs: [],
+          metadata: { duration: 0 },
+          environmentVariables: {},
+          decisions: { router: new Map(), condition: new Map() },
+          loopIterations: new Map(),
+          loopItems: new Map(),
+          completedLoops: new Set(),
+          executedBlocks: new Set(['chat-block']),
+        }
+
+        const triggerResolver = new InputResolver(chatWorkflow, {}, {})
+
+        const consumerBlock = chatWorkflow.blocks[1]
+        const result = triggerResolver.resolveInputs(consumerBlock, chatContext)
+
+        expect(result.fileUrl).toBe(file.url)
       }
-
-      const triggerResolver = new InputResolver(chatWorkflow, {}, {})
-
-      const consumerBlock = chatWorkflow.blocks[1]
-      const result = triggerResolver.resolveInputs(consumerBlock, chatContext)
-
-      expect(result.fileUrl).toBe(file.url)
-    })
+    )
   })
 
   describe('Variable Reference Validation', () => {
@@ -3184,6 +3192,7 @@ describe('InputResolver', () => {
 
       parallelContext = {
         workflowId: 'test-parallel-workflow',
+        workspaceId: 'test-workspace-id',
         workflow: parallelWorkflow,
         blockStates: new Map([
           [

@@ -1,7 +1,7 @@
 import { createHash } from 'crypto'
 import { db } from '@tradinggoose/db'
-import { workflowExecutionSnapshots } from '@tradinggoose/db/schema'
-import { and, eq, lt } from 'drizzle-orm'
+import { workflowExecutionLogs, workflowExecutionSnapshots } from '@tradinggoose/db/schema'
+import { and, eq, lt, sql } from 'drizzle-orm'
 import { v4 as uuidv4 } from 'uuid'
 import { createLogger } from '@/lib/logs/console/logger'
 import type {
@@ -15,22 +15,29 @@ import type {
 const logger = createLogger('SnapshotService')
 
 export class SnapshotService implements ISnapshotService {
-  async createSnapshot(
-    workflowId: string,
+  async createSnapshot(params: {
+    workflowId: string
+    workspaceId: string
     state: WorkflowState
-  ): Promise<WorkflowExecutionSnapshot> {
-    const result = await this.createSnapshotWithDeduplication(workflowId, state)
+  }): Promise<WorkflowExecutionSnapshot> {
+    const result = await this.createSnapshotWithDeduplication(params)
     return result.snapshot
   }
 
-  async createSnapshotWithDeduplication(
-    workflowId: string,
+  async createSnapshotWithDeduplication(params: {
+    workflowId: string
+    workspaceId: string
     state: WorkflowState
-  ): Promise<SnapshotCreationResult> {
+  }): Promise<SnapshotCreationResult> {
+    const { workflowId, workspaceId, state } = params
     // Hash the position-less state for deduplication (functional equivalence)
     const stateHash = this.computeStateHash(state)
 
-    const existingSnapshot = await this.getSnapshotByHash(workflowId, stateHash)
+    const existingSnapshot = await this.getSnapshotByHash({
+      workflowId,
+      workspaceId,
+      hash: stateHash,
+    })
     if (existingSnapshot) {
       logger.debug(`Reusing existing snapshot for workflow ${workflowId} with hash ${stateHash}`)
       return {
@@ -44,6 +51,7 @@ export class SnapshotService implements ISnapshotService {
     const snapshotData: WorkflowExecutionSnapshotInsert = {
       id: uuidv4(),
       workflowId,
+      workspaceId,
       stateHash,
       stateData: state, // Full state with positions, subblock values, etc.
     }
@@ -81,16 +89,19 @@ export class SnapshotService implements ISnapshotService {
     }
   }
 
-  async getSnapshotByHash(
-    workflowId: string,
+  async getSnapshotByHash(params: {
+    workflowId: string
+    workspaceId: string
     hash: string
-  ): Promise<WorkflowExecutionSnapshot | null> {
+  }): Promise<WorkflowExecutionSnapshot | null> {
+    const { workflowId, workspaceId, hash } = params
     const [snapshot] = await db
       .select()
       .from(workflowExecutionSnapshots)
       .where(
         and(
           eq(workflowExecutionSnapshots.workflowId, workflowId),
+          eq(workflowExecutionSnapshots.workspaceId, workspaceId),
           eq(workflowExecutionSnapshots.stateHash, hash)
         )
       )
@@ -117,7 +128,15 @@ export class SnapshotService implements ISnapshotService {
 
     const deletedSnapshots = await db
       .delete(workflowExecutionSnapshots)
-      .where(lt(workflowExecutionSnapshots.createdAt, cutoffDate))
+      .where(
+        and(
+          lt(workflowExecutionSnapshots.createdAt, cutoffDate),
+          sql`NOT EXISTS (
+            SELECT 1 FROM ${workflowExecutionLogs}
+            WHERE ${workflowExecutionLogs.stateSnapshotId} = ${workflowExecutionSnapshots.id}
+          )`
+        )
+      )
       .returning({ id: workflowExecutionSnapshots.id })
 
     const deletedCount = deletedSnapshots.length

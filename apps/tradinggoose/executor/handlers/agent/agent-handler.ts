@@ -407,7 +407,13 @@ export class AgentBlockHandler implements BlockHandler {
       selectedOperation: tool.operation,
       getAllBlocks,
       getToolAsync: (toolId: string) =>
-        getToolAsync(toolId, context.workflowId, context.workspaceId, context.userId),
+        getToolAsync(toolId, context.workflowId, context.workspaceId, context.userId, {
+          workflowId: context.workflowId,
+          workspaceId: context.workspaceId,
+          userId: context.userId,
+          workflowLogId: context.workflowLogId,
+          submissionSource: context.submissionSource,
+        }),
       getTool,
     })
 

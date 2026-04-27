@@ -111,6 +111,7 @@ describe('Executor', () => {
       const executor = new Executor({
         workflow,
         contextExtensions: {
+          workspaceId: 'test-workspace-id',
           stream: true,
           selectedOutputs: ['block1'],
           edges: [{ source: 'trigger', target: 'block1' }],
@@ -170,7 +171,9 @@ describe('Executor', () => {
       const workflow = createMinimalWorkflow()
       workflow.blocks = workflow.blocks.filter((block) => block.metadata?.category !== 'triggers')
 
-      expect(() => new Executor(workflow)).toThrow('Workflow must include at least one trigger block')
+      expect(() => new Executor(workflow)).toThrow(
+        'Workflow must include at least one trigger block'
+      )
     })
 
     it.concurrent('should allow workflows with disabled trigger blocks', () => {
@@ -310,6 +313,7 @@ describe('Executor', () => {
       const executor = new Executor({
         workflow,
         contextExtensions: {
+          workspaceId: 'test-workspace-id',
           stream: true,
           selectedOutputs: ['block1'],
           onStream: mockOnStream,
@@ -337,6 +341,7 @@ describe('Executor', () => {
       const executor = new Executor({
         workflow,
         contextExtensions: {
+          workspaceId: 'test-workspace-id',
           stream: true,
           selectedOutputs,
           edges,
@@ -626,6 +631,7 @@ describe('Executor', () => {
       const executor = new Executor({
         workflow,
         contextExtensions: {
+          workspaceId: 'test-workspace-id',
           stream: true,
           selectedOutputs: ['block1'],
           onStream: mockOnStream,
@@ -647,6 +653,7 @@ describe('Executor', () => {
       const executor = new Executor({
         workflow,
         contextExtensions: {
+          workspaceId: 'test-workspace-id',
           stream: true,
           selectedOutputs: ['block1'],
           onStream: mockOnStream,
