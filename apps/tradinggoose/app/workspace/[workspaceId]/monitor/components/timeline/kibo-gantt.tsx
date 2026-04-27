@@ -11,15 +11,16 @@ import {
   startOfWeek,
 } from 'date-fns'
 import { ChevronLeft, ChevronRight, ZoomIn } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuLabel,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { Slider } from '@/components/ui/slider'
 import { cn } from '@/lib/utils'
 import {
@@ -30,12 +31,12 @@ import {
   getMonitorTimelineHeaderGroupId,
 } from '../shared/monitor-time'
 import {
+  EXECUTION_MONITOR_TIMELINE_ZOOM,
+  type ExecutionMonitorFieldSum,
+  type ExecutionMonitorTimelineZoom,
   MONITOR_TIMELINE_SCALE_MAX,
   MONITOR_TIMELINE_SCALE_MIN,
   MONITOR_TIMELINE_SCALE_STEP,
-  MONITOR_TIMELINE_ZOOM,
-  type MonitorFieldSum,
-  type MonitorTimelineZoom,
 } from '../view/view-config'
 
 export type KiboGanttItem = {
@@ -51,13 +52,13 @@ export type KiboGanttItem = {
 export type KiboGanttGroup = {
   id: string
   label: string
-  aggregates?: Partial<Record<MonitorFieldSum, number>>
+  aggregates?: Partial<Record<ExecutionMonitorFieldSum, number>>
   items: KiboGanttItem[]
 }
 
 type KiboGanttProps = {
   groups: KiboGanttGroup[]
-  zoom: MonitorTimelineZoom
+  zoom: ExecutionMonitorTimelineZoom
   scale: number
   timezone: string
   selectedItemId: string | null
@@ -65,7 +66,7 @@ type KiboGanttProps = {
   showIntervalBoundaries: boolean
   controlsDisabled: boolean
   onSelectItem: (itemId: string) => void
-  onZoomChange?: (zoom: MonitorTimelineZoom) => void
+  onZoomChange?: (zoom: ExecutionMonitorTimelineZoom) => void
   onScaleChange?: (scale: number) => void
 }
 
@@ -88,19 +89,19 @@ const MINUTE_MS = 60_000
 const TIMELINE_ITEM_HEIGHT = 32
 const TIMELINE_ITEM_GAP = 8
 const TIMELINE_ROW_PADDING = 10
-const FIELD_SUM_LABELS: Record<MonitorFieldSum, string> = {
+const FIELD_SUM_LABELS: Record<ExecutionMonitorFieldSum, string> = {
   count: 'Count',
   durationMs: 'Duration',
   cost: 'Cost',
 }
 
-const TIMELINE_ZOOM_LABELS: Record<MonitorTimelineZoom, string> = {
+const TIMELINE_ZOOM_LABELS: Record<ExecutionMonitorTimelineZoom, string> = {
   day: 'Day',
   week: 'Week',
   month: 'Month',
 }
 
-const getTimelinePaddingUnits = (zoom: MonitorTimelineZoom) => {
+const getTimelinePaddingUnits = (zoom: ExecutionMonitorTimelineZoom) => {
   switch (zoom) {
     case 'day':
       return 24
@@ -111,7 +112,7 @@ const getTimelinePaddingUnits = (zoom: MonitorTimelineZoom) => {
   }
 }
 
-const getTimelineExtensionUnits = (zoom: MonitorTimelineZoom) => {
+const getTimelineExtensionUnits = (zoom: ExecutionMonitorTimelineZoom) => {
   switch (zoom) {
     case 'day':
       return 24
@@ -122,7 +123,7 @@ const getTimelineExtensionUnits = (zoom: MonitorTimelineZoom) => {
   }
 }
 
-const startOfTimelineUnit = (date: Date, zoom: MonitorTimelineZoom) => {
+const startOfTimelineUnit = (date: Date, zoom: ExecutionMonitorTimelineZoom) => {
   switch (zoom) {
     case 'day':
       return startOfHour(date)
@@ -133,7 +134,7 @@ const startOfTimelineUnit = (date: Date, zoom: MonitorTimelineZoom) => {
   }
 }
 
-const addTimelineUnits = (date: Date, zoom: MonitorTimelineZoom, units: number) => {
+const addTimelineUnits = (date: Date, zoom: ExecutionMonitorTimelineZoom, units: number) => {
   switch (zoom) {
     case 'day':
       return addHours(date, units)
@@ -144,7 +145,7 @@ const addTimelineUnits = (date: Date, zoom: MonitorTimelineZoom, units: number) 
   }
 }
 
-const getBaseColumnWidth = (zoom: MonitorTimelineZoom) => {
+const getBaseColumnWidth = (zoom: ExecutionMonitorTimelineZoom) => {
   switch (zoom) {
     case 'day':
       return 72
@@ -155,7 +156,7 @@ const getBaseColumnWidth = (zoom: MonitorTimelineZoom) => {
   }
 }
 
-const getBaseUnitMinutes = (zoom: MonitorTimelineZoom) => {
+const getBaseUnitMinutes = (zoom: ExecutionMonitorTimelineZoom) => {
   switch (zoom) {
     case 'day':
       return 60
@@ -166,7 +167,7 @@ const getBaseUnitMinutes = (zoom: MonitorTimelineZoom) => {
   }
 }
 
-const getTimelineDensity = (zoom: MonitorTimelineZoom, scale: number): TimelineDensity => {
+const getTimelineDensity = (zoom: ExecutionMonitorTimelineZoom, scale: number): TimelineDensity => {
   switch (zoom) {
     case 'day':
       if (scale >= 160) return { bucketMinutes: 15 }
@@ -182,12 +183,16 @@ const getTimelineDensity = (zoom: MonitorTimelineZoom, scale: number): TimelineD
   }
 }
 
-const getColumnWidth = (zoom: MonitorTimelineZoom, scale: number, density: TimelineDensity) =>
+const getColumnWidth = (
+  zoom: ExecutionMonitorTimelineZoom,
+  scale: number,
+  density: TimelineDensity
+) =>
   Math.max(
     24,
     Math.round(
       ((getBaseColumnWidth(zoom) * scale) / 100) *
-      (density.bucketMinutes / getBaseUnitMinutes(zoom))
+        (density.bucketMinutes / getBaseUnitMinutes(zoom))
     )
   )
 
@@ -199,7 +204,10 @@ const getTimelineSeed = (groups: KiboGanttGroup[]) =>
     .flat()
     .join(':')
 
-const getTimelineBounds = (groups: KiboGanttGroup[], zoom: MonitorTimelineZoom): TimelineWindow => {
+const getTimelineBounds = (
+  groups: KiboGanttGroup[],
+  zoom: ExecutionMonitorTimelineZoom
+): TimelineWindow => {
   const items = groups.flatMap((group) => group.items)
   const today = new Date()
   const starts = items.map((item) => item.startAt.getTime()).concat(today.getTime())
@@ -234,21 +242,21 @@ const getGroupRowHeight = (itemCount: number) => {
   return Math.max(
     TIMELINE_ITEM_HEIGHT,
     TIMELINE_ROW_PADDING * 2 +
-    itemCount * TIMELINE_ITEM_HEIGHT +
-    Math.max(0, itemCount - 1) * TIMELINE_ITEM_GAP
+      itemCount * TIMELINE_ITEM_HEIGHT +
+      Math.max(0, itemCount - 1) * TIMELINE_ITEM_GAP
   )
 }
 
 const getGroupItemTop = (index: number) =>
   TIMELINE_ROW_PADDING + index * (TIMELINE_ITEM_HEIGHT + TIMELINE_ITEM_GAP)
 
-const getBoundaryBucket = (column: Date, zoom: MonitorTimelineZoom, timezone: string) =>
+const getBoundaryBucket = (column: Date, zoom: ExecutionMonitorTimelineZoom, timezone: string) =>
   getMonitorTimelineBoundaryBucket(column, zoom, timezone)
 
 const buildHeaderGroups = (
   columns: Date[],
   headerGroupIds: string[],
-  zoom: MonitorTimelineZoom,
+  zoom: ExecutionMonitorTimelineZoom,
   timezone: string
 ): TimelineHeaderGroup[] => {
   const groups: TimelineHeaderGroup[] = []
@@ -272,13 +280,16 @@ const buildHeaderGroups = (
   return groups
 }
 
-const getColumnPrimaryLabel = (column: Date, zoom: MonitorTimelineZoom, timezone: string) =>
-  formatMonitorTimelinePrimaryLabel(column, zoom, timezone)
+const getColumnPrimaryLabel = (
+  column: Date,
+  zoom: ExecutionMonitorTimelineZoom,
+  timezone: string
+) => formatMonitorTimelinePrimaryLabel(column, zoom, timezone)
 
-const getColumnTickTitle = (column: Date, zoom: MonitorTimelineZoom, timezone: string) =>
+const getColumnTickTitle = (column: Date, zoom: ExecutionMonitorTimelineZoom, timezone: string) =>
   formatMonitorTimelineTickTitle(column, zoom, timezone)
 
-const getMinimumTickSpacing = (zoom: MonitorTimelineZoom, density: TimelineDensity) => {
+const getMinimumTickSpacing = (zoom: ExecutionMonitorTimelineZoom, density: TimelineDensity) => {
   switch (zoom) {
     case 'day':
       if (density.bucketMinutes <= 15) return 58
@@ -294,7 +305,7 @@ const getMinimumTickSpacing = (zoom: MonitorTimelineZoom, density: TimelineDensi
 }
 
 const getTickLabelStep = (
-  zoom: MonitorTimelineZoom,
+  zoom: ExecutionMonitorTimelineZoom,
   columnWidth: number,
   density: TimelineDensity
 ) => Math.max(1, Math.ceil(getMinimumTickSpacing(zoom, density) / columnWidth))
@@ -310,7 +321,7 @@ const shouldShowColumnTick = ({
   density: TimelineDensity
   headerGroupIds: string[]
   index: number
-  zoom: MonitorTimelineZoom
+  zoom: ExecutionMonitorTimelineZoom
 }) => {
   if (index === 0) return true
   if (headerGroupIds[index - 1] !== headerGroupIds[index]) {
@@ -409,14 +420,14 @@ export function KiboGantt({
   const todayOffset = getDateOffset(new Date(), columns, timelineDensity, columnWidth)
   const intervalBoundaryIndexes = showIntervalBoundaries
     ? columns
-      .map((column, index) =>
-        index > 0 &&
+        .map((column, index) =>
+          index > 0 &&
           getBoundaryBucket(columns[index - 1]!, zoom, timezone) !==
-          getBoundaryBucket(column, zoom, timezone)
-          ? index
-          : null
-      )
-      .filter((index): index is number => index !== null)
+            getBoundaryBucket(column, zoom, timezone)
+            ? index
+            : null
+        )
+        .filter((index): index is number => index !== null)
     : []
 
   useEffect(() => {
@@ -501,7 +512,7 @@ export function KiboGantt({
   }
 
   return (
-    <div className='flex h-full min-h-0 flex-col overflow-hidden rounded-xl border bg-card/40'>
+    <Card className='flex h-full min-h-0 flex-col overflow-hidden rounded-xl border bg-card/40'>
       <div className='flex h-11 shrink-0 items-center gap-3 border-b px-2'>
         <div className='shrink-0 px-2 font-medium text-sm'>Timeline</div>
         <div
@@ -529,34 +540,26 @@ export function KiboGantt({
             <span className='min-w-10 text-right tabular-nums'>{scale}%</span>
           </div>
 
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                type='button'
-                variant='ghost'
-                size='sm'
-                className='h-8 shrink-0 rounded-md px-2'
-                disabled={controlsDisabled}
-                aria-label={`Timeline zoom: ${TIMELINE_ZOOM_LABELS[zoom]}`}
-              >
-                <ZoomIn className='h-4 w-4' />
-                <span>{TIMELINE_ZOOM_LABELS[zoom]}</span>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align='end' className='w-52'>
-              <DropdownMenuLabel>Zoom level</DropdownMenuLabel>
-              <DropdownMenuRadioGroup
-                value={zoom}
-                onValueChange={(value) => onZoomChange?.(value as MonitorTimelineZoom)}
-              >
-                {MONITOR_TIMELINE_ZOOM.map((timelineZoom) => (
-                  <DropdownMenuRadioItem key={timelineZoom} value={timelineZoom}>
-                    {TIMELINE_ZOOM_LABELS[timelineZoom]}
-                  </DropdownMenuRadioItem>
-                ))}
-              </DropdownMenuRadioGroup>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <Select
+            value={zoom}
+            disabled={controlsDisabled}
+            onValueChange={(value) => onZoomChange?.(value as ExecutionMonitorTimelineZoom)}
+          >
+            <SelectTrigger
+              className='h-8 w-[120px] shrink-0'
+              aria-label={`Timeline zoom: ${TIMELINE_ZOOM_LABELS[zoom]}`}
+            >
+              <ZoomIn className='mr-2 h-4 w-4' />
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {EXECUTION_MONITOR_TIMELINE_ZOOM.map((timelineZoom) => (
+                <SelectItem key={timelineZoom} value={timelineZoom}>
+                  Zoom: {TIMELINE_ZOOM_LABELS[timelineZoom]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
 
           <Button
             type='button'
@@ -620,10 +623,14 @@ export function KiboGantt({
                   {aggregateEntries.length > 0 ? (
                     <div className='mt-2 flex flex-wrap gap-1.5 text-[11px] text-muted-foreground'>
                       {aggregateEntries.map(([field, value]) => (
-                        <span key={field} className='rounded bg-muted/60 px-1.5 py-0.5'>
-                          {FIELD_SUM_LABELS[field as MonitorFieldSum] ?? field}:{' '}
+                        <Badge
+                          key={field}
+                          variant='outline'
+                          className='rounded-sm font-normal text-[11px]'
+                        >
+                          {FIELD_SUM_LABELS[field as ExecutionMonitorFieldSum] ?? field}:{' '}
                           {formatAggregateValue(field, value)}
-                        </span>
+                        </Badge>
                       ))}
                     </div>
                   ) : null}
@@ -722,7 +729,7 @@ export function KiboGantt({
                     {columns.map((column) => (
                       <div
                         key={`${group.id}:grid:${zoom}:${column.toISOString()}`}
-                        className='h-full shrink-0 border-b'
+                        className='h-full shrink-0 border-r border-b'
                         style={{ width: columnWidth }}
                       />
                     ))}
@@ -740,9 +747,9 @@ export function KiboGantt({
                             key={item.id}
                             type='button'
                             className={cn(
-                              'absolute flex items-center rounded-md px-3 text-left text-xs text-white shadow-sm transition hover:opacity-90',
+                              'absolute flex items-center rounded-md px-3 text-left text-white text-xs shadow-sm transition hover:opacity-90',
                               selectedItemId === item.id &&
-                              'ring-2 ring-primary ring-offset-2 ring-offset-background'
+                                'ring-2 ring-primary ring-offset-2 ring-offset-background'
                             )}
                             style={{
                               left: metrics.left + 8,
@@ -755,14 +762,20 @@ export function KiboGantt({
                           >
                             <span className='truncate'>{item.title}</span>
                             {item.isOrphaned ? (
-                              <span className='ml-2 rounded bg-black/20 px-1.5 py-0.5 text-[10px]'>
+                              <Badge
+                                variant='secondary'
+                                className='ml-2 border-0 bg-black/20 text-[10px] text-white hover:bg-black/20'
+                              >
                                 Orphaned
-                              </span>
+                              </Badge>
                             ) : null}
                             {item.isPartial ? (
-                              <span className='ml-2 rounded bg-black/20 px-1.5 py-0.5 text-[10px]'>
+                              <Badge
+                                variant='secondary'
+                                className='ml-2 border-0 bg-black/20 text-[10px] text-white hover:bg-black/20'
+                              >
                                 Partial
-                              </span>
+                              </Badge>
                             ) : null}
                           </button>
                         )
@@ -775,6 +788,6 @@ export function KiboGantt({
           </div>
         </div>
       </div>
-    </div>
+    </Card>
   )
 }

@@ -7,11 +7,13 @@ import {
 } from '@tradinggoose/db/schema'
 import { and, desc, eq } from 'drizzle-orm'
 import { DEFAULT_INDICATOR_RUNTIME_MAP } from '@/lib/indicators/default/runtime'
+import { normalizeInputMetaMap } from '@/lib/indicators/input-meta'
 import {
   type IndicatorMonitorAuthStored,
   type IndicatorMonitorProviderConfig,
   toPublicIndicatorMonitorProviderConfig,
 } from '@/lib/indicators/monitor-config'
+import type { InputMetaMap } from '@/lib/indicators/types'
 import { isIndicatorTriggerCapable } from '@/lib/indicators/trigger-detection'
 import { resolveListingIdentity } from '@/lib/listing/resolve'
 import { decryptSecret } from '@/lib/utils-server'
@@ -176,6 +178,41 @@ export const ensureTriggerCapableIndicator = async (workspaceId: string, indicat
   }
   if (!isIndicatorTriggerCapable(customIndicator.pineCode)) {
     throw new Error(`Indicator ${indicatorId} does not use trigger(...).`)
+  }
+}
+
+export const loadIndicatorInputMetadata = async (
+  workspaceId: string,
+  indicatorId: string
+): Promise<{ id: string; inputMeta?: InputMetaMap }> => {
+  const defaultIndicator = DEFAULT_INDICATOR_RUNTIME_MAP.get(indicatorId)
+  if (defaultIndicator) {
+    return {
+      id: indicatorId,
+      ...(defaultIndicator.inputMeta && Object.keys(defaultIndicator.inputMeta).length > 0
+        ? { inputMeta: defaultIndicator.inputMeta }
+        : {}),
+    }
+  }
+
+  const rows = await db
+    .select({
+      id: pineIndicators.id,
+      inputMeta: pineIndicators.inputMeta,
+    })
+    .from(pineIndicators)
+    .where(and(eq(pineIndicators.id, indicatorId), eq(pineIndicators.workspaceId, workspaceId)))
+    .limit(1)
+
+  const row = rows[0]
+  if (!row) {
+    throw new Error(`Indicator ${indicatorId} not found.`)
+  }
+
+  const inputMeta = normalizeInputMetaMap(row.inputMeta)
+  return {
+    id: row.id,
+    ...(inputMeta && Object.keys(inputMeta).length > 0 ? { inputMeta } : {}),
   }
 }
 

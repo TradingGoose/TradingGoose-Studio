@@ -4,7 +4,7 @@ import {
   getExecutionGroupValue,
   type MonitorExecutionItem,
 } from '../data/execution-ordering'
-import type { MonitorFieldSum, MonitorGroupField, MonitorViewConfig } from '../view/view-config'
+import type { ExecutionMonitorFieldSum, ExecutionMonitorGroupField, ExecutionMonitorViewConfig } from '../view/view-config'
 
 export type MonitorBoardColumn = {
   id: string
@@ -12,7 +12,7 @@ export type MonitorBoardColumn = {
   label: string
   items: MonitorExecutionItem[]
   totalCount: number
-  aggregates: Partial<Record<MonitorFieldSum, number>>
+  aggregates: Partial<Record<ExecutionMonitorFieldSum, number>>
   limit: number | null
 }
 
@@ -41,7 +41,7 @@ const reorderColumnItems = (items: MonitorExecutionItem[], orderedIds: string[])
   })
 }
 
-const GROUP_FIELD_LABELS: Record<MonitorGroupField, string> = {
+const GROUP_FIELD_LABELS: Record<ExecutionMonitorGroupField, string> = {
   outcome: 'Outcome',
   workflow: 'Workflow',
   trigger: 'Trigger',
@@ -53,7 +53,7 @@ const GROUP_FIELD_LABELS: Record<MonitorGroupField, string> = {
 }
 
 const EMPTY_COLUMN_VALUES: Partial<
-  Record<MonitorGroupField, Array<{ id: string; label: string; sortValue: string }>>
+  Record<ExecutionMonitorGroupField, Array<{ id: string; label: string; sortValue: string }>>
 > = {
   outcome: [
     { id: 'running', label: 'Running', sortValue: 'running' },
@@ -80,8 +80,8 @@ const EMPTY_COLUMN_VALUES: Partial<
 }
 
 const buildEmptyColumns = (
-  columnField: MonitorGroupField,
-  config: MonitorViewConfig
+  columnField: ExecutionMonitorGroupField,
+  config: ExecutionMonitorViewConfig
 ): MonitorBoardColumn[] => {
   const values = EMPTY_COLUMN_VALUES[columnField] ?? [
     {
@@ -100,7 +100,7 @@ const buildEmptyColumns = (
       items: [],
       totalCount: 0,
       aggregates: Object.fromEntries(config.fieldSums.map((field) => [field, 0])) as Partial<
-        Record<MonitorFieldSum, number>
+        Record<ExecutionMonitorFieldSum, number>
       >,
       limit: config.kanban.columnLimits[value.id] ?? null,
     }))
@@ -108,7 +108,7 @@ const buildEmptyColumns = (
 
 export const buildMonitorBoardSections = (
   items: MonitorExecutionItem[],
-  config: MonitorViewConfig
+  config: ExecutionMonitorViewConfig
 ): MonitorBoardSection[] => {
   const columnField = config.kanban.columnField
   const sectionField =
@@ -192,7 +192,7 @@ export const buildMonitorBoardSections = (
 
       const aggregates = Object.fromEntries(
         config.fieldSums.map((field) => [field, getExecutionAggregate(orderedItems, field)])
-      ) as Partial<Record<MonitorFieldSum, number>>
+      ) as Partial<Record<ExecutionMonitorFieldSum, number>>
 
       return {
         ...column,

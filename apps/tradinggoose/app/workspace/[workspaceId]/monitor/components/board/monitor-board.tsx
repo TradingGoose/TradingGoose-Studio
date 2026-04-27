@@ -1,31 +1,38 @@
 'use client'
 
-import { useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { formatMonitorDateTime } from '../shared/monitor-time'
+import {
+  MonitorAggregateBadges,
+  MonitorBoardShell,
+  MonitorSectionHeader,
+} from '../shared/monitor-ui'
+import type {
+  ExecutionMonitorQuickFilterField,
+  ExecutionMonitorVisibleFieldId,
+} from '../view/view-config'
 import type { MonitorBoardColumn, MonitorBoardSection } from './board-state'
 import {
   KanbanBoard,
-  KanbanBoardProvider,
   KanbanCard,
-  KanbanColumn,
-  KanbanColumnList,
-  KanbanColumnListItem,
+  KanbanCards,
+  type KanbanDragEvent,
   type KanbanDropDirection,
+  KanbanProvider,
 } from './kanban'
-import { formatMonitorDateTime } from '../shared/monitor-time'
-import type { MonitorQuickFilterField, MonitorVisibleFieldId } from '../view/view-config'
 
 type MonitorBoardProps = {
   sections: MonitorBoardSection[]
   selectedExecutionLogId: string | null
-  visibleFieldIds: MonitorVisibleFieldId[]
+  visibleFieldIds: ExecutionMonitorVisibleFieldId[]
   timezone: string
   canReorder: boolean
   onSelectExecution: (logId: string) => void
-  onToggleQuickFilter: (field: MonitorQuickFilterField, value: string) => void
-  isQuickFilterActive: (field: MonitorQuickFilterField, value: string) => boolean
+  onToggleQuickFilter: (field: ExecutionMonitorQuickFilterField, value: string) => void
+  isQuickFilterActive: (field: ExecutionMonitorQuickFilterField, value: string) => boolean
   onReorderColumnCards: (columnId: string, nextExecutionIds: string[]) => void
 }
 
@@ -34,7 +41,7 @@ type DragState = {
   columnId: string
 } | null
 
-const formatVisibleField = (item: any, field: MonitorVisibleFieldId, timezone: string) => {
+const formatVisibleField = (item: any, field: ExecutionMonitorVisibleFieldId, timezone: string) => {
   switch (field) {
     case 'workflow':
       return item.workflowName
@@ -59,7 +66,7 @@ const formatVisibleField = (item: any, field: MonitorVisibleFieldId, timezone: s
   }
 }
 
-const resolveQuickFilterValue = (item: any, field: MonitorVisibleFieldId) => {
+const resolveQuickFilterValue = (item: any, field: ExecutionMonitorVisibleFieldId) => {
   switch (field) {
     case 'workflow':
       return item.workflowId
@@ -78,7 +85,9 @@ const resolveQuickFilterValue = (item: any, field: MonitorVisibleFieldId) => {
   }
 }
 
-const resolveQuickFilterField = (field: MonitorVisibleFieldId): MonitorQuickFilterField | null => {
+const resolveQuickFilterField = (
+  field: ExecutionMonitorVisibleFieldId
+): ExecutionMonitorQuickFilterField | null => {
   switch (field) {
     case 'workflow':
     case 'provider':
@@ -114,14 +123,32 @@ const reorderWithinColumn = (
   return nextIds
 }
 
+const moveWithinColumn = (
+  column: MonitorBoardColumn,
+  activeId: string,
+  direction: 'up' | 'down'
+) => {
+  const nextIds = column.items.map((item) => item.logId)
+  const currentIndex = nextIds.indexOf(activeId)
+  if (currentIndex === -1) return nextIds
+
+  const nextIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1
+  if (nextIndex < 0 || nextIndex >= nextIds.length) return nextIds
+
+  const [movedId] = nextIds.splice(currentIndex, 1)
+  if (!movedId) return nextIds
+  nextIds.splice(nextIndex, 0, movedId)
+  return nextIds
+}
+
 const ColumnAggregates = ({ aggregates }: { aggregates: MonitorBoardColumn['aggregates'] }) => (
-  <div className='flex flex-wrap gap-2 border-b px-3 py-2 text-[11px] text-muted-foreground'>
-    {Object.entries(aggregates).map(([field, value]) => (
-      <span key={field}>
-        {field}: {typeof value === 'number' ? value.toFixed(field === 'count' ? 0 : 2) : value}
-      </span>
-    ))}
-  </div>
+  <MonitorAggregateBadges
+    entries={aggregates}
+    className='border-b px-3 py-2'
+    formatValue={(field, value) =>
+      typeof value === 'number' ? value.toFixed(field === 'count' ? 0 : 2) : value
+    }
+  />
 )
 
 export function MonitorBoard({
@@ -136,6 +163,27 @@ export function MonitorBoard({
   onReorderColumnCards,
 }: MonitorBoardProps) {
   const [dragState, setDragState] = useState<DragState>(null)
+  const cardColumnById = useMemo(() => {
+    const entries = sections.flatMap((section) =>
+      section.columns.flatMap((column) =>
+        column.items.map((item) => [item.logId, column.id] as const)
+      )
+    )
+    return new Map(entries)
+  }, [sections])
+
+  const handleDragStart = useCallback(
+    (event: KanbanDragEvent) => {
+      const cardId = event.activeItem.id
+      const columnId = cardColumnById.get(cardId)
+      setDragState(canReorder && columnId ? { cardId, columnId } : null)
+    },
+    [canReorder, cardColumnById]
+  )
+
+  const handleDragEnd = useCallback(() => {
+    setDragState(null)
+  }, [])
 
   const handleDropAtColumn = (column: MonitorBoardColumn) => {
     if (!canReorder || !dragState || dragState.columnId !== column.id) {
@@ -163,153 +211,155 @@ export function MonitorBoard({
   }
 
   return (
-    <KanbanBoardProvider>
-      <div className='flex h-full w-full max-w-full min-w-0 flex-col overflow-hidden rounded-xl border bg-card/40'>
-        <div className='flex min-h-0 w-full max-w-full min-w-0 flex-1 flex-col gap-4 overflow-auto p-4'>
-          {sections.map((section) => (
-            <section
-              key={section.id}
-              className='flex min-h-0 w-full max-w-full min-w-0 flex-1 flex-col gap-3'
+    <KanbanProvider
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+      onDragCancel={handleDragEnd}
+    >
+      <MonitorBoardShell>
+        {sections.map((section) => (
+          <section
+            key={section.id}
+            className='flex min-h-0 w-full min-w-0 max-w-full flex-1 flex-col gap-3'
+          >
+            <MonitorSectionHeader
+              title={section.label}
+              description={`${section.columns.reduce((sum, column) => sum + column.totalCount, 0)} executions`}
             >
-              <div className='flex items-center justify-between'>
-                <div>
-                  <h2 className='font-medium text-sm'>{section.label}</h2>
-                  <p className='text-muted-foreground text-xs'>
-                    {section.columns.reduce((sum, column) => sum + column.totalCount, 0)} executions
-                  </p>
-                </div>
-                {!canReorder ? (
-                  <Badge variant='secondary' className='text-[10px]'>
-                    Sorted
-                  </Badge>
-                ) : null}
-              </div>
+              {!canReorder ? (
+                <Badge variant='secondary' className='text-[10px]'>
+                  Sorted
+                </Badge>
+              ) : null}
+            </MonitorSectionHeader>
 
-              <KanbanBoard className='flex-1 pb-0'>
-                {section.columns.map((column) => {
-                  const canDrop = canReorder && dragState?.columnId === column.id
+            <KanbanBoard className='flex-1 pb-0'>
+              {section.columns.map((column) => {
+                const canDrop = canReorder && dragState?.columnId === column.id
 
-                  return (
-                    <KanbanColumn
-                      key={column.id}
-                      columnId={column.id}
-                      title={column.label}
-                      count={column.totalCount}
-                      canDrop={canDrop}
-                      onDropOverColumn={() => handleDropAtColumn(column)}
-                    >
-                      <div className='flex items-center justify-between border-b px-3 py-2'>
-                        <div className='text-muted-foreground text-xs'>
-                          {column.totalCount} items
+                return (
+                  <KanbanCards
+                    key={column.id}
+                    columnId={column.id}
+                    title={column.label}
+                    count={column.totalCount}
+                    canDrop={canDrop}
+                    onDropOverColumn={() => handleDropAtColumn(column)}
+                    itemIds={column.items.map((item) => item.logId)}
+                    listClassName='space-y-2'
+                    beforeCards={
+                      <>
+                        <div className='flex items-center justify-between border-b px-3 py-2'>
+                          <div className='text-muted-foreground text-xs'>
+                            {column.totalCount} items
+                          </div>
+                          {column.limit ? (
+                            <Badge variant='outline' className='text-[10px]'>
+                              Limit {column.limit}
+                            </Badge>
+                          ) : null}
                         </div>
-                        {column.limit ? (
-                          <Badge variant='outline' className='text-[10px]'>
-                            Limit {column.limit}
-                          </Badge>
-                        ) : null}
-                      </div>
-                      <ColumnAggregates aggregates={column.aggregates} />
+                        <ColumnAggregates aggregates={column.aggregates} />
+                      </>
+                    }
+                  >
+                    {column.items.length === 0 ? (
+                      <li className='h-32 rounded-lg bg-muted/20' aria-hidden='true' />
+                    ) : (
+                      column.items.map((item) => (
+                        <KanbanCard
+                          key={item.logId}
+                          data={{ id: item.logId, columnId: column.id }}
+                          selected={selectedExecutionLogId === item.logId}
+                          onDropOverCard={
+                            canDrop && dragState?.cardId !== item.logId
+                              ? (_, direction) => handleDropAtItem(column, item.logId, direction)
+                              : undefined
+                          }
+                          onClick={() => onSelectExecution(item.logId)}
+                          onKeyDown={(event) => {
+                            if (!canReorder) return
+                            if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return
+                            event.preventDefault()
+                            event.stopPropagation()
+                            onReorderColumnCards(
+                              column.id,
+                              moveWithinColumn(
+                                column,
+                                item.logId,
+                                event.key === 'ArrowUp' ? 'up' : 'down'
+                              )
+                            )
+                          }}
+                          disabled={!canReorder}
+                          className={cn(
+                            'space-y-3 px-3 py-3 text-left transition hover:border-primary/50',
+                            selectedExecutionLogId === item.logId && 'border-primary'
+                          )}
+                        >
+                          <div className='space-y-1'>
+                            <div className='font-medium text-sm'>{item.listingLabel}</div>
+                            <div className='text-muted-foreground text-xs'>
+                              {item.executionId || item.logId}
+                            </div>
+                          </div>
 
-                      <KanbanColumnList className='space-y-2'>
-                        {column.items.length === 0 ? (
-                          <li className='h-32 rounded-lg bg-muted/20' aria-hidden='true' />
-                        ) : (
-                          column.items.map((item) => (
-                            <KanbanColumnListItem
-                              key={item.logId}
-                              cardId={item.logId}
-                              canDrop={canDrop && dragState?.cardId !== item.logId}
-                              onDropOverListItem={(_, direction) =>
-                                handleDropAtItem(column, item.logId, direction)
-                              }
-                            >
-                              <KanbanCard
-                                data={{ id: item.logId }}
-                                selected={selectedExecutionLogId === item.logId}
-                                onClick={() => onSelectExecution(item.logId)}
-                                onDragStart={() =>
-                                  setDragState(
-                                    canReorder
-                                      ? {
-                                          cardId: item.logId,
-                                          columnId: column.id,
-                                        }
-                                      : null
-                                  )
-                                }
-                                onDragEnd={() => setDragState(null)}
-                                disabled={!canReorder}
-                                className={cn(
-                                  'space-y-3 px-3 py-3 text-left transition hover:border-primary/50',
-                                  selectedExecutionLogId === item.logId && 'border-primary'
-                                )}
-                              >
-                                <div className='space-y-1'>
-                                  <div className='font-medium text-sm'>{item.listingLabel}</div>
-                                  <div className='text-muted-foreground text-xs'>
-                                    {item.executionId || item.logId}
-                                  </div>
-                                </div>
+                          <div className='flex flex-wrap gap-1.5'>
+                            {visibleFieldIds.map((fieldId) => {
+                              const quickFilterField = resolveQuickFilterField(fieldId)
+                              const quickFilterValue = resolveQuickFilterValue(item, fieldId)
+                              const isActive = Boolean(
+                                quickFilterField &&
+                                  quickFilterValue &&
+                                  isQuickFilterActive(quickFilterField, quickFilterValue)
+                              )
 
-                                <div className='flex flex-wrap gap-1.5'>
-                                  {visibleFieldIds.map((fieldId) => {
-                                    const quickFilterField = resolveQuickFilterField(fieldId)
-                                    const quickFilterValue = resolveQuickFilterValue(item, fieldId)
-                                    const isActive = Boolean(
-                                      quickFilterField &&
-                                        quickFilterValue &&
-                                        isQuickFilterActive(quickFilterField, quickFilterValue)
-                                    )
+                              return (
+                                <Button
+                                  key={`${item.logId}:${fieldId}`}
+                                  type='button'
+                                  variant={isActive ? 'secondary' : 'outline'}
+                                  size='sm'
+                                  aria-pressed={isActive}
+                                  className={cn(
+                                    'h-6 rounded-sm px-2 text-[11px]',
+                                    isActive &&
+                                      'border-primary/50 bg-primary/10 text-primary hover:bg-primary/15'
+                                  )}
+                                  onClick={(event) => {
+                                    event.stopPropagation()
+                                    if (quickFilterField && quickFilterValue) {
+                                      onToggleQuickFilter(quickFilterField, quickFilterValue)
+                                    }
+                                  }}
+                                >
+                                  <span className='text-muted-foreground'>{fieldId}</span>
+                                  <span>{formatVisibleField(item, fieldId, timezone)}</span>
+                                </Button>
+                              )
+                            })}
+                          </div>
 
-                                    return (
-                                      <Button
-                                        key={`${item.logId}:${fieldId}`}
-                                        type='button'
-                                        variant={isActive ? 'secondary' : 'outline'}
-                                        size='sm'
-                                        aria-pressed={isActive}
-                                        className={cn(
-                                          'h-6 rounded-sm px-2 text-[11px]',
-                                          isActive &&
-                                            'border-primary/50 bg-primary/10 text-primary hover:bg-primary/15'
-                                        )}
-                                        onClick={(event) => {
-                                          event.stopPropagation()
-                                          if (quickFilterField && quickFilterValue) {
-                                            onToggleQuickFilter(quickFilterField, quickFilterValue)
-                                          }
-                                        }}
-                                      >
-                                        <span className='text-muted-foreground'>{fieldId}</span>
-                                        <span>{formatVisibleField(item, fieldId, timezone)}</span>
-                                      </Button>
-                                    )
-                                  })}
-                                </div>
-
-                                {item.isOrphaned ? (
-                                  <Badge variant='destructive' className='text-[10px]'>
-                                    Source monitor unavailable
-                                  </Badge>
-                                ) : null}
-                                {item.isPartial ? (
-                                  <Badge variant='outline' className='text-[10px]'>
-                                    Snapshot incomplete
-                                  </Badge>
-                                ) : null}
-                              </KanbanCard>
-                            </KanbanColumnListItem>
-                          ))
-                        )}
-                      </KanbanColumnList>
-                    </KanbanColumn>
-                  )
-                })}
-              </KanbanBoard>
-            </section>
-          ))}
-        </div>
-      </div>
-    </KanbanBoardProvider>
+                          {item.isOrphaned ? (
+                            <Badge variant='destructive' className='text-[10px]'>
+                              Source monitor unavailable
+                            </Badge>
+                          ) : null}
+                          {item.isPartial ? (
+                            <Badge variant='outline' className='text-[10px]'>
+                              Snapshot incomplete
+                            </Badge>
+                          ) : null}
+                        </KanbanCard>
+                      ))
+                    )}
+                  </KanbanCards>
+                )
+              })}
+            </KanbanBoard>
+          </section>
+        ))}
+      </MonitorBoardShell>
+    </KanbanProvider>
   )
 }

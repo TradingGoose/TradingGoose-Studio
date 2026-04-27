@@ -1,5 +1,5 @@
 import { formatTimezoneLabel, isUtcOffset, parseUtcOffsetMinutes } from '@/lib/time-format'
-import type { MonitorTimelineZoom } from '../view/view-config'
+import type { ExecutionMonitorTimelineZoom } from '../view/view-config'
 
 const FALLBACK_TIMEZONE = 'UTC'
 
@@ -42,7 +42,7 @@ export const formatMonitorDateTime = (date: Date, timezone: string) => {
 
 export const formatMonitorTimelineHeaderGroup = (
   date: Date,
-  zoom: MonitorTimelineZoom,
+  zoom: ExecutionMonitorTimelineZoom,
   timezone: string
 ) => {
   const adjustedDate = applyTimezoneOffset(date, timezone)
@@ -64,7 +64,7 @@ export const formatMonitorTimelineHeaderGroup = (
 
 export const getMonitorTimelineHeaderGroupId = (
   date: Date,
-  zoom: MonitorTimelineZoom,
+  zoom: ExecutionMonitorTimelineZoom,
   timezone: string
 ) => {
   const adjustedDate = applyTimezoneOffset(date, timezone)
@@ -84,7 +84,7 @@ export const getMonitorTimelineHeaderGroupId = (
 
 export const getMonitorTimelineBoundaryBucket = (
   date: Date,
-  zoom: MonitorTimelineZoom,
+  zoom: ExecutionMonitorTimelineZoom,
   timezone: string
 ) => {
   if (zoom === 'day') {
@@ -98,7 +98,7 @@ export const getMonitorTimelineBoundaryBucket = (
 
 export const formatMonitorTimelinePrimaryLabel = (
   date: Date,
-  zoom: MonitorTimelineZoom,
+  zoom: ExecutionMonitorTimelineZoom,
   timezone: string
 ) => {
   const adjustedDate = applyTimezoneOffset(date, timezone)
@@ -122,7 +122,7 @@ export const formatMonitorTimelinePrimaryLabel = (
 
 export const formatMonitorTimelineTickTitle = (
   date: Date,
-  zoom: MonitorTimelineZoom,
+  zoom: ExecutionMonitorTimelineZoom,
   timezone: string
 ) => {
   const adjustedDate = applyTimezoneOffset(date, timezone)

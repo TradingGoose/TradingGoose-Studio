@@ -28,18 +28,38 @@ const isValidMonitorShellWorkingState = (value: unknown): value is MonitorShellW
   const record = value as Record<string, unknown>
   const keys = Object.keys(record)
   if (
-    keys.length !== 3 ||
-    !keys.includes('isMonitorsPaneOpen') ||
-    !keys.includes('outerPanelSizes') ||
-    !keys.includes('innerPanelSizes')
+    keys.length !== 4 ||
+    !keys.includes('activeMode') ||
+    !keys.includes('activeViewIdsByMode') ||
+    !keys.includes('executionPanelSizes') ||
+    !keys.includes('configPanelSizes')
   ) {
     return false
   }
 
+  if (record.activeMode !== 'executions' && record.activeMode !== 'config') {
+    return false
+  }
+
+  if (!record.activeViewIdsByMode || typeof record.activeViewIdsByMode !== 'object') {
+    return false
+  }
+
+  const activeIds = record.activeViewIdsByMode as Record<string, unknown>
+  const activeIdKeys = Object.keys(activeIds)
+  if (activeIdKeys.some((key) => key !== 'executions' && key !== 'config')) {
+    return false
+  }
+
+  const activeIdsAreValid = activeIdKeys.every((key) => {
+    const value = activeIds[key]
+    return value === null || typeof value === 'string'
+  })
+
   return (
-    typeof record.isMonitorsPaneOpen === 'boolean' &&
-    isValidPanelSizes(record.outerPanelSizes) &&
-    isValidPanelSizes(record.innerPanelSizes)
+    activeIdsAreValid &&
+    isValidPanelSizes(record.executionPanelSizes) &&
+    isValidPanelSizes(record.configPanelSizes)
   )
 }
 
@@ -66,13 +86,13 @@ export const readMonitorWorkingState = (
     return DEFAULT_MONITOR_SHELL_WORKING_STATE
   }
 
-  return rawValue
+  return normalizeMonitorShellWorkingState(rawValue)
 }
 
 export const writeMonitorWorkingState = (
   workspaceId: string,
   userId: string,
-  state: MonitorShellWorkingState
+  state: unknown
 ) => {
   if (!workspaceId || !userId) return false
 

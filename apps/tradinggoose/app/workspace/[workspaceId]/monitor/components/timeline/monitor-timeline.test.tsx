@@ -5,8 +5,8 @@
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { DEFAULT_MONITOR_VIEW_CONFIG } from '../view/view-config'
-import { MonitorRoadmap } from './monitor-roadmap'
+import { DEFAULT_EXECUTION_MONITOR_VIEW_CONFIG } from '../view/view-config'
+import { MonitorTimeline } from './monitor-timeline'
 
 const reactActEnvironment = globalThis as typeof globalThis & {
   IS_REACT_ACT_ENVIRONMENT?: boolean
@@ -19,7 +19,7 @@ const ResizeObserverMock = class {
   disconnect() {}
 } as unknown as typeof ResizeObserver
 
-describe('MonitorRoadmap', () => {
+describe('MonitorTimeline', () => {
   let container: HTMLDivElement
   let root: Root
   let originalResizeObserver: typeof ResizeObserver | undefined
@@ -49,7 +49,7 @@ describe('MonitorRoadmap', () => {
 
     await act(async () => {
       root.render(
-        <MonitorRoadmap
+        <MonitorTimeline
           groups={[
             {
               id: 'success',
@@ -84,11 +84,13 @@ describe('MonitorRoadmap', () => {
                     isPartial: true,
                     sourceLog: {
                       id: 'log-1',
+                      workspaceId: 'workspace-1',
                       workflowId: 'wf-1',
                       executionId: 'exec-1',
                       level: 'info',
                       trigger: 'manual',
                       startedAt: '2026-04-23T00:00:00.000Z',
+                      recordCreatedAt: '2026-04-23T00:00:00.000Z',
                       endedAt: '2026-04-23T00:05:00.000Z',
                       durationMs: 300000,
                       outcome: 'success',
@@ -98,7 +100,7 @@ describe('MonitorRoadmap', () => {
               ],
             },
           ]}
-          config={DEFAULT_MONITOR_VIEW_CONFIG}
+          config={DEFAULT_EXECUTION_MONITOR_VIEW_CONFIG}
           selectedExecutionLogId={null}
           controlsDisabled={false}
           onSelectExecution={onSelectExecution}
@@ -111,7 +113,7 @@ describe('MonitorRoadmap', () => {
     )
 
     if (!(button instanceof HTMLButtonElement)) {
-      throw new Error('Expected roadmap bar to render')
+      throw new Error('Expected timeline bar to render')
     }
 
     await act(async () => {

@@ -1,20 +1,20 @@
 'use client'
 
 import { KiboGantt } from './kibo-gantt'
-import type { MonitorRoadmapGroup } from './roadmap-state'
-import type { MonitorTimelineZoom, MonitorViewConfig } from '../view/view-config'
+import type { MonitorTimelineGroup } from './timeline-state'
+import type { ExecutionMonitorTimelineZoom, ExecutionMonitorViewConfig } from '../view/view-config'
 
-type MonitorRoadmapProps = {
-  groups: MonitorRoadmapGroup[]
-  config: MonitorViewConfig
+type MonitorTimelineProps = {
+  groups: MonitorTimelineGroup[]
+  config: ExecutionMonitorViewConfig
   selectedExecutionLogId: string | null
   controlsDisabled: boolean
   onSelectExecution: (logId: string) => void
-  onTimelineZoomChange?: (zoom: MonitorTimelineZoom) => void
+  onTimelineZoomChange?: (zoom: ExecutionMonitorTimelineZoom) => void
   onTimelineScaleChange?: (scale: number) => void
 }
 
-export function MonitorRoadmap({
+export function MonitorTimeline({
   groups,
   config,
   selectedExecutionLogId,
@@ -22,7 +22,7 @@ export function MonitorRoadmap({
   onSelectExecution,
   onTimelineZoomChange,
   onTimelineScaleChange,
-}: MonitorRoadmapProps) {
+}: MonitorTimelineProps) {
   return (
     <KiboGantt
       groups={groups.map((group) => ({

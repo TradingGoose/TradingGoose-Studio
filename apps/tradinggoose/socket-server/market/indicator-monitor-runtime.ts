@@ -105,6 +105,7 @@ type MonitorRuntimeConfig = {
   indicatorId: string
   listing: ListingIdentity
   providerParams?: Record<string, unknown>
+  indicatorInputs?: Record<string, unknown>
   auth?: {
     encryptedSecrets?: Record<string, string>
   }
@@ -205,6 +206,9 @@ const normalizeProviderConfig = (
   const providerParams = isRecord(monitor.providerParams)
     ? (monitor.providerParams as Record<string, unknown>)
     : undefined
+  const indicatorInputs = isRecord(monitor.indicatorInputs)
+    ? (monitor.indicatorInputs as Record<string, unknown>)
+    : undefined
   const auth = isRecord(monitor.auth)
     ? {
         encryptedSecrets: isRecord(monitor.auth.encryptedSecrets)
@@ -227,6 +231,7 @@ const normalizeProviderConfig = (
     indicatorId,
     listing,
     providerParams,
+    indicatorInputs,
     auth,
   }
 
@@ -856,7 +861,7 @@ export class IndicatorMonitorRuntime {
     }
 
     const inputMeta = normalizeInputMetaMap(indicator.inputMeta)
-    const inputsMap = buildInputsMapFromMeta(inputMeta)
+    const inputsMap = buildInputsMapFromMeta(inputMeta, monitor.indicatorInputs)
 
     const initialBars = await this.fetchMonitorBars(monitor, auth)
     const cappedBars = initialBars.slice(-MONITOR_WINDOW_BARS)

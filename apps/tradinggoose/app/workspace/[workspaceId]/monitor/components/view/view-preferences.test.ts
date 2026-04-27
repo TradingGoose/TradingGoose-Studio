@@ -4,6 +4,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { BrowserStorage } from '@/lib/browser-storage'
+import { DEFAULT_MONITOR_SHELL_WORKING_STATE, type MonitorShellWorkingState } from './view-config'
 import {
   getMonitorWorkingStateKey,
   readMonitorWorkingState,
@@ -32,48 +33,62 @@ describe('monitor view preferences', () => {
     vi.restoreAllMocks()
   })
 
-  it('persists shell working state by workspace and user', () => {
-    writeMonitorWorkingState('workspace-1', 'user-1', {
-      isMonitorsPaneOpen: false,
-      outerPanelSizes: [24, 76],
-      innerPanelSizes: [60, 40],
-    })
+  it('persists mode-aware shell working state by workspace and user', () => {
+    const state: MonitorShellWorkingState = {
+      activeMode: 'config',
+      activeViewIdsByMode: { executions: 'exec-view', config: 'config-view' },
+      executionPanelSizes: [60, 40],
+      configPanelSizes: [70, 30],
+    }
 
-    expect(readMonitorWorkingState('workspace-1', 'user-1')).toEqual({
-      isMonitorsPaneOpen: false,
-      outerPanelSizes: [24, 76],
-      innerPanelSizes: [60, 40],
-    })
+    writeMonitorWorkingState('workspace-1', 'user-1', state)
+
+    expect(readMonitorWorkingState('workspace-1', 'user-1')).toEqual(state)
+    expect(readMonitorWorkingState('workspace-1', 'user-2')).toEqual(
+      DEFAULT_MONITOR_SHELL_WORKING_STATE
+    )
   })
 
-  it('clears invalid shell working state blobs instead of normalizing them', () => {
+  it('does not write shell working state without a workspace and user scope', () => {
+    const state: MonitorShellWorkingState = {
+      activeMode: 'config',
+      activeViewIdsByMode: { config: 'config-view' },
+      executionPanelSizes: [60, 40],
+      configPanelSizes: [70, 30],
+    }
+
+    expect(writeMonitorWorkingState('', 'user-1', state)).toBe(false)
+    expect(writeMonitorWorkingState('workspace-1', '', state)).toBe(false)
+    expect(BrowserStorage.setItem).not.toHaveBeenCalled()
+    expect(storage.size).toBe(0)
+  })
+
+  it('removes legacy shell working state blobs instead of translating them', () => {
     const key = getMonitorWorkingStateKey('workspace-1', 'user-1')
     storage.set(key, {
-      layout: 'kanban',
+      isMonitorsPaneOpen: false,
       outerPanelSizes: [24, 76],
+      innerPanelSizes: [60, 40],
     })
 
-    expect(readMonitorWorkingState('workspace-1', 'user-1')).toEqual({
-      isMonitorsPaneOpen: true,
-      outerPanelSizes: null,
-      innerPanelSizes: null,
-    })
+    expect(readMonitorWorkingState('workspace-1', 'user-1')).toEqual(
+      DEFAULT_MONITOR_SHELL_WORKING_STATE
+    )
     expect(storage.has(key)).toBe(false)
   })
 
-  it('clears shell state when panel sizes are non-positive or impossible', () => {
+  it('clears malformed new shell state blobs', () => {
     const key = getMonitorWorkingStateKey('workspace-1', 'user-1')
     storage.set(key, {
-      isMonitorsPaneOpen: true,
-      outerPanelSizes: [0, 100],
-      innerPanelSizes: [-10, 110],
+      activeMode: 'config',
+      activeViewIdsByMode: { config: 'config-view', other: 'bad' },
+      executionPanelSizes: [0, 100],
+      configPanelSizes: [-10, 110],
     })
 
-    expect(readMonitorWorkingState('workspace-1', 'user-1')).toEqual({
-      isMonitorsPaneOpen: true,
-      outerPanelSizes: null,
-      innerPanelSizes: null,
-    })
+    expect(readMonitorWorkingState('workspace-1', 'user-1')).toEqual(
+      DEFAULT_MONITOR_SHELL_WORKING_STATE
+    )
     expect(storage.has(key)).toBe(false)
   })
 })

@@ -7,7 +7,7 @@ import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useLogsList } from '@/hooks/queries/logs'
 import { MONITOR_QUERY_POLICY } from '@/lib/logs/query-policy'
-import { DEFAULT_MONITOR_VIEW_CONFIG } from '../view/view-config'
+import { DEFAULT_EXECUTION_MONITOR_VIEW_CONFIG } from '../view/view-config'
 import { useMonitorWorkspaceLogs } from './use-monitor-workspace-logs'
 import type { IndicatorMonitorRecord } from '../shared/types'
 
@@ -25,14 +25,14 @@ function HookHarness({
   onRender,
   monitors = [],
   viewConfig = {
-    ...DEFAULT_MONITOR_VIEW_CONFIG,
+    ...DEFAULT_EXECUTION_MONITOR_VIEW_CONFIG,
     filterQuery: 'workflow:#wf-1',
     quickFilters: [{ field: 'provider', operator: 'include', values: ['alpaca'] }],
   },
 }: {
   onRender: (value: ReturnType<typeof useMonitorWorkspaceLogs>) => void
   monitors?: IndicatorMonitorRecord[]
-  viewConfig?: typeof DEFAULT_MONITOR_VIEW_CONFIG
+  viewConfig?: typeof DEFAULT_EXECUTION_MONITOR_VIEW_CONFIG
 }) {
   const value = useMonitorWorkspaceLogs({
     workspaceId: 'workspace-1',
@@ -60,6 +60,7 @@ describe('useMonitorWorkspaceLogs', () => {
             logs: [
               {
                 id: 'log-1',
+                workspaceId: 'workspace-1',
                 workflowId: 'wf-1',
                 executionId: 'exec-1',
                 startedAt: '2026-04-23T00:00:00.000Z',
@@ -166,6 +167,7 @@ describe('useMonitorWorkspaceLogs', () => {
             logs: [
               {
                 id: 'log-1',
+                workspaceId: 'workspace-1',
                 workflowId: 'wf-1',
                 executionId: 'exec-1',
                 startedAt: '2026-04-23T00:00:00.000Z',
@@ -191,6 +193,7 @@ describe('useMonitorWorkspaceLogs', () => {
               },
               {
                 id: 'log-2',
+                workspaceId: 'workspace-1',
                 workflowId: 'wf-1',
                 executionId: 'exec-2',
                 startedAt: '2026-04-23T00:10:00.000Z',
@@ -233,11 +236,11 @@ describe('useMonitorWorkspaceLogs', () => {
       root.render(
         createElement(HookHarness, {
           viewConfig: {
-            ...DEFAULT_MONITOR_VIEW_CONFIG,
+            ...DEFAULT_EXECUTION_MONITOR_VIEW_CONFIG,
             layout: 'kanban',
             groupBy: 'outcome',
             kanban: {
-              ...DEFAULT_MONITOR_VIEW_CONFIG.kanban,
+              ...DEFAULT_EXECUTION_MONITOR_VIEW_CONFIG.kanban,
               localCardOrder: {
                 success: ['log-2', 'log-1'],
               },

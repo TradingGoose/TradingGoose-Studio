@@ -1,4 +1,3 @@
-import { getMarketSeriesCapabilities } from '@/providers/market/providers'
 import type { MarketProviderParamDefinition } from '@/providers/market/providers'
 import type { IndicatorMonitorRecord, MonitorDraft } from './types'
 
@@ -92,19 +91,19 @@ export const buildDraftFromMonitor = (monitor: IndicatorMonitorRecord): MonitorD
     providerParamValues: mapProviderParamsToDraftValues(
       monitor.providerConfig.monitor.providerParams
     ),
+    indicatorInputs: { ...(monitor.providerConfig.monitor.indicatorInputs ?? {}) },
     existingEncryptedSecretFieldIds: auth?.encryptedSecretFieldIds ?? [],
     isActive: monitor.isActive,
   }
 }
 
 export const buildDefaultDraft = ({
-  providers,
+  providerId,
+  interval,
 }: {
-  providers: Array<{ id: string }>
+  providerId: string
+  interval: string
 }): MonitorDraft => {
-  const providerId = providers[0]?.id ?? 'alpaca'
-  const interval = getMarketSeriesCapabilities(providerId)?.intervals?.[0] ?? '1m'
-
   return {
     workflowId: '',
     blockId: '',
@@ -114,8 +113,9 @@ export const buildDefaultDraft = ({
     listing: null,
     secretValues: {},
     providerParamValues: {},
+    indicatorInputs: {},
     existingEncryptedSecretFieldIds: [],
-    isActive: true,
+    isActive: false,
   }
 }
 

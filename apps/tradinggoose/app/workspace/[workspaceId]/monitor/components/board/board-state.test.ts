@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { buildMonitorBoardSections } from './board-state'
 import type { MonitorExecutionItem } from '../data/execution-ordering'
-import { DEFAULT_MONITOR_VIEW_CONFIG } from '../view/view-config'
+import { DEFAULT_EXECUTION_MONITOR_VIEW_CONFIG } from '../view/view-config'
 
 const buildExecution = (overrides: Partial<MonitorExecutionItem>): MonitorExecutionItem => ({
   logId: 'log-1',
@@ -26,11 +26,13 @@ const buildExecution = (overrides: Partial<MonitorExecutionItem>): MonitorExecut
   isPartial: false,
   sourceLog: {
     id: 'log-1',
+    workspaceId: 'workspace-1',
     workflowId: 'wf-1',
     executionId: 'exec-1',
     level: 'info',
     trigger: 'manual',
     startedAt: '2026-04-23T00:00:00.000Z',
+    recordCreatedAt: '2026-04-23T00:00:00.000Z',
     endedAt: '2026-04-23T00:05:00.000Z',
     durationMs: 300000,
     outcome: 'success',
@@ -40,7 +42,7 @@ const buildExecution = (overrides: Partial<MonitorExecutionItem>): MonitorExecut
 
 describe('buildMonitorBoardSections', () => {
   it('returns empty kanban columns instead of an empty-state section when no executions match', () => {
-    const sections = buildMonitorBoardSections([], DEFAULT_MONITOR_VIEW_CONFIG)
+    const sections = buildMonitorBoardSections([], DEFAULT_EXECUTION_MONITOR_VIEW_CONFIG)
 
     expect(sections).toHaveLength(1)
     expect(sections[0]?.label).toBe('All executions')
@@ -66,10 +68,10 @@ describe('buildMonitorBoardSections', () => {
         }),
       ],
       {
-        ...DEFAULT_MONITOR_VIEW_CONFIG,
+        ...DEFAULT_EXECUTION_MONITOR_VIEW_CONFIG,
         groupBy: 'workflow',
         kanban: {
-          ...DEFAULT_MONITOR_VIEW_CONFIG.kanban,
+          ...DEFAULT_EXECUTION_MONITOR_VIEW_CONFIG.kanban,
           columnField: 'outcome',
         },
       }
@@ -85,11 +87,11 @@ describe('buildMonitorBoardSections', () => {
         buildExecution({ logId: 'log-2', executionId: 'exec-2' }),
       ],
       {
-        ...DEFAULT_MONITOR_VIEW_CONFIG,
+        ...DEFAULT_EXECUTION_MONITOR_VIEW_CONFIG,
         sortBy: [],
         groupBy: 'workflow',
         kanban: {
-          ...DEFAULT_MONITOR_VIEW_CONFIG.kanban,
+          ...DEFAULT_EXECUTION_MONITOR_VIEW_CONFIG.kanban,
           columnField: 'outcome',
           localCardOrder: {
             'wf-1::success': ['log-2', 'log-1'],
@@ -109,10 +111,10 @@ describe('buildMonitorBoardSections', () => {
         buildExecution({ logId: 'log-3', outcome: 'error' }),
       ],
       {
-        ...DEFAULT_MONITOR_VIEW_CONFIG,
+        ...DEFAULT_EXECUTION_MONITOR_VIEW_CONFIG,
         groupBy: 'outcome',
         kanban: {
-          ...DEFAULT_MONITOR_VIEW_CONFIG.kanban,
+          ...DEFAULT_EXECUTION_MONITOR_VIEW_CONFIG.kanban,
           columnField: 'workflow',
         },
       }

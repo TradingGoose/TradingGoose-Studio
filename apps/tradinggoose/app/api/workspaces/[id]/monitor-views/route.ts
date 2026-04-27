@@ -1,36 +1,50 @@
 import { randomUUID } from 'crypto'
 import { db } from '@tradinggoose/db'
 import { monitorView } from '@tradinggoose/db/schema'
-import { and, asc, eq } from 'drizzle-orm'
+import { and, eq, inArray } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
 import {
-  normalizeMonitorViewConfig,
   type CreateMonitorViewBody,
-  type MonitorViewRowResponse,
+  InvalidMonitorViewConfigRequestError,
+  type MonitorPageMode,
+  type MonitorSavedViewConfig,
+  type MonitorViewRow,
+  parseMonitorSavedViewConfig,
 } from '@/app/workspace/[workspaceId]/monitor/components/view/view-config'
+import {
+  findStrictRowById,
+  getRowsForMode,
+  isMonitorPageMode,
+  listStrictMonitorViewRows,
+  monitorViewErrorResponse,
+  rebuildRowsWithSameModeOrder,
+  toStrictMonitorViewRow,
+} from './shared'
 
 const getUserId = async () => {
   const session = await getSession()
   return session?.user?.id ?? null
 }
 
-const toRowResponse = (row: typeof monitorView.$inferSelect): MonitorViewRowResponse => ({
-  id: row.id,
-  name: row.name,
-  sortOrder: row.sort_order ?? 0,
-  isActive: !!row.isActive,
-  config: normalizeMonitorViewConfig(row.config),
-  createdAt: row.createdAt.toISOString(),
-  updatedAt: row.updatedAt.toISOString(),
-})
+const sameStringSet = (left: string[], right: string[]) => {
+  if (left.length !== right.length) return false
+  const leftSet = new Set(left)
+  const rightSet = new Set(right)
+  if (leftSet.size !== left.length || rightSet.size !== right.length) return false
+  return left.every((entry) => rightSet.has(entry))
+}
 
-const listRows = async (workspaceId: string, userId: string) =>
-  db
-    .select()
-    .from(monitorView)
-    .where(and(eq(monitorView.workspaceId, workspaceId), eq(monitorView.userId, userId)))
-    .orderBy(asc(monitorView.sort_order), asc(monitorView.createdAt))
+const clearActiveForMode = async (
+  tx: Pick<typeof db, 'update'>,
+  rows: MonitorViewRow[],
+  mode: MonitorPageMode
+) => {
+  const ids = rows.filter((row) => row.mode === mode).map((row) => row.id)
+  if (ids.length === 0) return
+
+  await tx.update(monitorView).set({ isActive: false }).where(inArray(monitorView.id, ids))
+}
 
 export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const userId = await getUserId()
@@ -40,11 +54,15 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
   }
 
   const { id: workspaceId } = await params
-  const rows = await listRows(workspaceId, userId)
 
-  return NextResponse.json({
-    data: rows.map(toRowResponse),
-  })
+  try {
+    const rows = await listStrictMonitorViewRows(workspaceId, userId)
+    return NextResponse.json({ data: rows })
+  } catch (error) {
+    const response = monitorViewErrorResponse(error)
+    if (response) return response
+    throw error
+  }
 }
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -64,43 +82,62 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     return NextResponse.json({ error: 'Name cannot be empty' }, { status: 400 })
   }
 
-  const { id: workspaceId } = await params
-  const existingRows = await listRows(workspaceId, userId)
-  const highestSortOrder = existingRows.reduce((max, row) => Math.max(max, row.sort_order ?? -1), -1)
-  const normalizedConfig = normalizeMonitorViewConfig(body.config)
-  const shouldMakeActive = body.makeActive === true || existingRows.length === 0
-
-  const inserted = await db.transaction(async (tx) => {
-    if (shouldMakeActive) {
-      await tx
-        .update(monitorView)
-        .set({ isActive: false })
-        .where(and(eq(monitorView.workspaceId, workspaceId), eq(monitorView.userId, userId)))
+  let normalizedConfig: MonitorSavedViewConfig
+  try {
+    normalizedConfig = parseMonitorSavedViewConfig(body.config)
+  } catch (error) {
+    if (error instanceof InvalidMonitorViewConfigRequestError) {
+      return NextResponse.json({ error: 'Invalid monitor view config.' }, { status: 400 })
     }
+    throw error
+  }
 
-    const [created] = await tx
-      .insert(monitorView)
-      .values({
-        id: randomUUID(),
-        workspaceId,
-        userId,
-        name: trimmedName,
-        sort_order: highestSortOrder + 1,
-        config: normalizedConfig,
-        isActive: shouldMakeActive,
-      })
-      .returning()
+  const { id: workspaceId } = await params
 
-    return created
-  })
+  try {
+    const existingRows = await listStrictMonitorViewRows(workspaceId, userId)
+    const sameModeRows = getRowsForMode(existingRows, normalizedConfig.mode)
+    const highestSortOrder = existingRows.reduce(
+      (max, row) => Math.max(max, row.sortOrder ?? -1),
+      -1
+    )
+    const shouldMakeActive =
+      typeof body.makeActive === 'boolean' ? body.makeActive : sameModeRows.length === 0
 
-  return NextResponse.json(toRowResponse(inserted), { status: 201 })
+    const inserted = await db.transaction(async (tx) => {
+      if (shouldMakeActive) {
+        await clearActiveForMode(tx, existingRows, normalizedConfig.mode)
+      }
+
+      const [created] = await tx
+        .insert(monitorView)
+        .values({
+          id: randomUUID(),
+          workspaceId,
+          userId,
+          name: trimmedName,
+          sort_order: highestSortOrder + 1,
+          config: normalizedConfig,
+          isActive: shouldMakeActive,
+        })
+        .returning()
+
+      if (!created) {
+        throw new Error('Failed to create monitor view')
+      }
+
+      return created
+    })
+
+    return NextResponse.json(toStrictMonitorViewRow(inserted), { status: 201 })
+  } catch (error) {
+    const response = monitorViewErrorResponse(error)
+    if (response) return response
+    throw error
+  }
 }
 
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const userId = await getUserId()
 
   if (!userId) {
@@ -112,23 +149,24 @@ export async function PATCH(
     return NextResponse.json({ error: 'Invalid payload' }, { status: 400 })
   }
 
-  const rawViewOrder = Object.prototype.hasOwnProperty.call(body, 'viewOrder')
-    ? (body as any).viewOrder
-    : undefined
+  const rawViewOrder = Object.hasOwn(body, 'viewOrder') ? (body as any).viewOrder : undefined
   if (typeof rawViewOrder !== 'undefined' && !Array.isArray(rawViewOrder)) {
     return NextResponse.json({ error: 'Invalid viewOrder' }, { status: 400 })
   }
 
-  if (
-    Array.isArray(rawViewOrder) &&
-    rawViewOrder.some((entry) => typeof entry !== 'string' || entry.trim().length === 0)
-  ) {
+  const hasViewOrder = Array.isArray(rawViewOrder)
+  const viewOrder = hasViewOrder ? rawViewOrder.map((entry) => String(entry).trim()) : null
+  if (viewOrder?.some((entry) => !entry)) {
     return NextResponse.json({ error: 'Invalid viewOrder' }, { status: 400 })
   }
 
-  const viewOrder = Array.isArray(rawViewOrder)
-    ? rawViewOrder.map((entry) => entry.trim())
+  const mode = isMonitorPageMode((body as any).mode)
+    ? ((body as any).mode as MonitorPageMode)
     : null
+  if (hasViewOrder && !mode) {
+    return NextResponse.json({ error: 'Mode is required when reordering views' }, { status: 400 })
+  }
+
   const activeViewId =
     typeof (body as any).activeViewId === 'string' && (body as any).activeViewId.trim()
       ? (body as any).activeViewId.trim()
@@ -139,58 +177,74 @@ export async function PATCH(
   }
 
   const { id: workspaceId } = await params
-  const rows = await listRows(workspaceId, userId)
-  const currentIds = rows.map((row) => row.id)
-  const currentIdSet = new Set(currentIds)
 
-  if (viewOrder) {
-    if (viewOrder.length !== currentIds.length || new Set(viewOrder).size !== currentIds.length) {
-      return NextResponse.json({ error: 'Invalid viewOrder' }, { status: 400 })
+  try {
+    const rows = await listStrictMonitorViewRows(workspaceId, userId)
+    const activeRow = activeViewId ? findStrictRowById(rows, activeViewId) : null
+    if (activeViewId && !activeRow) {
+      return NextResponse.json({ error: 'Invalid activeViewId' }, { status: 400 })
     }
 
-    if (viewOrder.some((id: string) => !currentIdSet.has(id))) {
-      return NextResponse.json({ error: 'Invalid viewOrder' }, { status: 400 })
+    if (mode && activeRow && activeRow.mode !== mode) {
+      return NextResponse.json(
+        { error: 'Active view must belong to the reordered mode' },
+        { status: 400 }
+      )
     }
-  }
 
-  if (activeViewId && !currentIdSet.has(activeViewId)) {
-    return NextResponse.json({ error: 'Invalid activeViewId' }, { status: 400 })
-  }
+    const activeMode = activeRow?.mode ?? mode
+    if (!activeMode) {
+      return NextResponse.json({ error: 'Invalid activeViewId' }, { status: 400 })
+    }
 
-  await db.transaction(async (tx) => {
-    if (viewOrder) {
-      for (const [index, viewId] of viewOrder.entries()) {
+    let reorderedRows: MonitorViewRow[] | null = null
+
+    if (viewOrder && mode) {
+      const sameModeRows = rows.filter((row) => row.mode === mode)
+      const sameModeIds = sameModeRows.map((row) => row.id)
+      if (!sameStringSet(viewOrder, sameModeIds)) {
+        return NextResponse.json({ error: 'Invalid viewOrder' }, { status: 400 })
+      }
+
+      reorderedRows = rebuildRowsWithSameModeOrder(rows, mode, viewOrder)
+    }
+
+    await db.transaction(async (tx) => {
+      if (reorderedRows) {
+        for (const row of reorderedRows) {
+          await tx
+            .update(monitorView)
+            .set({ sort_order: row.sortOrder, updatedAt: new Date() })
+            .where(
+              and(
+                eq(monitorView.id, row.id),
+                eq(monitorView.workspaceId, workspaceId),
+                eq(monitorView.userId, userId)
+              )
+            )
+        }
+      }
+
+      if (activeViewId) {
+        await clearActiveForMode(tx, rows, activeMode)
+
         await tx
           .update(monitorView)
-          .set({ sort_order: index, updatedAt: new Date() })
+          .set({ isActive: true, updatedAt: new Date() })
           .where(
             and(
-              eq(monitorView.id, viewId),
+              eq(monitorView.id, activeViewId),
               eq(monitorView.workspaceId, workspaceId),
               eq(monitorView.userId, userId)
             )
           )
       }
-    }
+    })
 
-    if (activeViewId) {
-      await tx
-        .update(monitorView)
-        .set({ isActive: false })
-        .where(and(eq(monitorView.workspaceId, workspaceId), eq(monitorView.userId, userId)))
-
-      await tx
-        .update(monitorView)
-        .set({ isActive: true, updatedAt: new Date() })
-        .where(
-          and(
-            eq(monitorView.id, activeViewId),
-            eq(monitorView.workspaceId, workspaceId),
-            eq(monitorView.userId, userId)
-          )
-        )
-    }
-  })
-
-  return NextResponse.json({ success: true })
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    const response = monitorViewErrorResponse(error)
+    if (response) return response
+    throw error
+  }
 }

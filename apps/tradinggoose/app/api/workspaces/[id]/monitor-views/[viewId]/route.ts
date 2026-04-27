@@ -1,24 +1,38 @@
 import { db } from '@tradinggoose/db'
 import { monitorView } from '@tradinggoose/db/schema'
-import { and, asc, eq } from 'drizzle-orm'
+import { and, eq, inArray } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
 import {
-  normalizeMonitorViewConfig,
+  InvalidMonitorViewConfigRequestError,
+  type MonitorPageMode,
+  type MonitorViewRow,
+  parseMonitorSavedViewConfig,
   type UpdateMonitorViewBody,
 } from '@/app/workspace/[workspaceId]/monitor/components/view/view-config'
+import {
+  compactRowsForPersistence,
+  findStrictRowById,
+  getRowsForMode,
+  listStrictMonitorViewRows,
+  monitorViewErrorResponse,
+} from '../shared'
 
 const getUserId = async () => {
   const session = await getSession()
   return session?.user?.id ?? null
 }
 
-const listRows = async (workspaceId: string, userId: string) =>
-  db
-    .select()
-    .from(monitorView)
-    .where(and(eq(monitorView.workspaceId, workspaceId), eq(monitorView.userId, userId)))
-    .orderBy(asc(monitorView.sort_order), asc(monitorView.createdAt))
+const clearActiveForMode = async (
+  tx: Pick<typeof db, 'update'>,
+  rows: MonitorViewRow[],
+  mode: MonitorPageMode
+) => {
+  const ids = rows.filter((row) => row.mode === mode).map((row) => row.id)
+  if (ids.length === 0) return
+
+  await tx.update(monitorView).set({ isActive: false }).where(inArray(monitorView.id, ids))
+}
 
 export async function PATCH(
   request: NextRequest,
@@ -41,45 +55,63 @@ export async function PATCH(
 
   const { id: workspaceId, viewId } = await params
 
-  const [existing] = await db
-    .select({ id: monitorView.id })
-    .from(monitorView)
-    .where(
-      and(
-        eq(monitorView.id, viewId),
-        eq(monitorView.workspaceId, workspaceId),
-        eq(monitorView.userId, userId)
+  try {
+    const rows = await listStrictMonitorViewRows(workspaceId, userId)
+    const existing = findStrictRowById(rows, viewId)
+
+    if (!existing) {
+      return NextResponse.json({ error: 'View not found' }, { status: 404 })
+    }
+
+    const nextName = typeof body.name === 'string' ? body.name.trim() : undefined
+    if (typeof body.name !== 'undefined' && !nextName) {
+      return NextResponse.json({ error: 'Name cannot be empty' }, { status: 400 })
+    }
+
+    let nextConfig = existing.config
+    if (typeof body.config !== 'undefined') {
+      try {
+        nextConfig = parseMonitorSavedViewConfig(body.config)
+      } catch (error) {
+        if (error instanceof InvalidMonitorViewConfigRequestError) {
+          return NextResponse.json({ error: 'Invalid monitor view config.' }, { status: 400 })
+        }
+        throw error
+      }
+
+      if (nextConfig.mode !== existing.mode) {
+        return NextResponse.json({ error: 'Cannot change view mode' }, { status: 400 })
+      }
+    }
+
+    await db
+      .update(monitorView)
+      .set({
+        ...(nextName ? { name: nextName } : {}),
+        ...(typeof body.config !== 'undefined' ? { config: nextConfig } : {}),
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(monitorView.id, viewId),
+          eq(monitorView.workspaceId, workspaceId),
+          eq(monitorView.userId, userId)
+        )
       )
-    )
-    .limit(1)
 
-  if (!existing) {
-    return NextResponse.json({ error: 'View not found' }, { status: 404 })
+    const refreshedRows = await listStrictMonitorViewRows(workspaceId, userId)
+    const updatedRow = findStrictRowById(refreshedRows, viewId)
+
+    if (!updatedRow) {
+      return NextResponse.json({ error: 'View not found' }, { status: 404 })
+    }
+
+    return NextResponse.json(updatedRow)
+  } catch (error) {
+    const response = monitorViewErrorResponse(error)
+    if (response) return response
+    throw error
   }
-
-  const nextName = typeof body.name === 'string' ? body.name.trim() : undefined
-  if (typeof body.name !== 'undefined' && !nextName) {
-    return NextResponse.json({ error: 'Name cannot be empty' }, { status: 400 })
-  }
-
-  await db
-    .update(monitorView)
-    .set({
-      ...(nextName ? { name: nextName } : {}),
-      ...(typeof body.config !== 'undefined'
-        ? { config: normalizeMonitorViewConfig(body.config) }
-        : {}),
-      updatedAt: new Date(),
-    })
-    .where(
-      and(
-        eq(monitorView.id, viewId),
-        eq(monitorView.workspaceId, workspaceId),
-        eq(monitorView.userId, userId)
-      )
-    )
-
-  return NextResponse.json({ success: true })
 }
 
 export async function DELETE(
@@ -93,51 +125,78 @@ export async function DELETE(
   }
 
   const { id: workspaceId, viewId } = await params
-  const rows = await listRows(workspaceId, userId)
-  const index = rows.findIndex((row) => row.id === viewId)
 
-  if (index === -1) {
-    return NextResponse.json({ error: 'View not found' }, { status: 404 })
-  }
+  try {
+    const rows = await listStrictMonitorViewRows(workspaceId, userId)
+    const index = rows.findIndex((row) => row.id === viewId)
 
-  if (rows.length === 1) {
-    return NextResponse.json({ error: 'Cannot delete the last remaining view' }, { status: 400 })
-  }
+    if (index === -1) {
+      return NextResponse.json({ error: 'View not found' }, { status: 404 })
+    }
 
-  const row = rows[index]!
-  const previousRow = index > 0 ? rows[index - 1] : null
-  const nextRow = index < rows.length - 1 ? rows[index + 1] : null
-  const nextActiveId = row.isActive ? previousRow?.id ?? nextRow?.id ?? null : null
-
-  await db.transaction(async (tx) => {
-    await tx
-      .delete(monitorView)
-      .where(
-        and(
-          eq(monitorView.id, viewId),
-          eq(monitorView.workspaceId, workspaceId),
-          eq(monitorView.userId, userId)
-        )
+    const row = rows[index]!
+    const rowMode = row.mode ?? row.config.mode
+    const sameModeRows = getRowsForMode(rows, rowMode)
+    if (sameModeRows.length === 1) {
+      return NextResponse.json(
+        { error: 'Cannot delete the last remaining view for this mode' },
+        { status: 400 }
       )
+    }
 
-    if (nextActiveId) {
-      await tx
-        .update(monitorView)
-        .set({ isActive: false })
-        .where(and(eq(monitorView.workspaceId, workspaceId), eq(monitorView.userId, userId)))
+    const sameModeIndex = sameModeRows.findIndex((entry) => entry.id === viewId)
+    const previousSameModeRow = sameModeIndex > 0 ? sameModeRows[sameModeIndex - 1] : null
+    const nextSameModeRow =
+      sameModeIndex < sameModeRows.length - 1 ? sameModeRows[sameModeIndex + 1] : null
+    const nextActiveId = row.isActive
+      ? (previousSameModeRow?.id ?? nextSameModeRow?.id ?? null)
+      : null
+    const remainingRows = compactRowsForPersistence(rows.filter((entry) => entry.id !== viewId))
 
+    await db.transaction(async (tx) => {
       await tx
-        .update(monitorView)
-        .set({ isActive: true, updatedAt: new Date() })
+        .delete(monitorView)
         .where(
           and(
-            eq(monitorView.id, nextActiveId),
+            eq(monitorView.id, viewId),
             eq(monitorView.workspaceId, workspaceId),
             eq(monitorView.userId, userId)
           )
         )
-    }
-  })
 
-  return NextResponse.json({ success: true })
+      for (const remainingRow of remainingRows) {
+        await tx
+          .update(monitorView)
+          .set({ sort_order: remainingRow.sortOrder, updatedAt: new Date() })
+          .where(
+            and(
+              eq(monitorView.id, remainingRow.id),
+              eq(monitorView.workspaceId, workspaceId),
+              eq(monitorView.userId, userId)
+            )
+          )
+      }
+
+      if (nextActiveId) {
+        await clearActiveForMode(tx, remainingRows, rowMode)
+
+        await tx
+          .update(monitorView)
+          .set({ isActive: true, updatedAt: new Date() })
+          .where(
+            and(
+              eq(monitorView.id, nextActiveId),
+              eq(monitorView.workspaceId, workspaceId),
+              eq(monitorView.userId, userId)
+            )
+          )
+      }
+    })
+
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    const response = monitorViewErrorResponse(error)
+    if (response) return response
+    throw error
+  }
 }

@@ -2,18 +2,18 @@ import { useEffect, useMemo } from 'react'
 import { MONITOR_QUERY_POLICY } from '@/lib/logs/query-policy'
 import { createSearchClause, parseQuery, serializeQuery } from '@/lib/logs/query-parser'
 import { toListingValueObject } from '@/lib/listing/identity'
-import { useLogsList } from '@/hooks/queries/logs'
+import { useLogsList, type LogFilters } from '@/hooks/queries/logs'
 import { buildMonitorBoardSections } from '../board/board-state'
 import type { IndicatorMonitorRecord } from '../shared/types'
 import { type MonitorExecutionItem, sortExecutionItems } from './execution-ordering'
-import { buildMonitorRoadmapGroups } from '../timeline/roadmap-state'
+import { buildMonitorTimelineGroups } from '../timeline/timeline-state'
 import type {
-  MonitorQuickFilter,
-  MonitorQuickFilterField,
-  MonitorViewConfig,
+  ExecutionMonitorQuickFilter,
+  ExecutionMonitorQuickFilterField,
+  ExecutionMonitorViewConfig,
 } from '../view/view-config'
 
-const QUICK_FILTER_FIELD_TO_QUERY_FIELD: Record<MonitorQuickFilterField, string> = {
+const QUICK_FILTER_FIELD_TO_QUERY_FIELD: Record<ExecutionMonitorQuickFilterField, string> = {
   outcome: 'status',
   workflow: 'workflow',
   trigger: 'trigger',
@@ -24,7 +24,7 @@ const QUICK_FILTER_FIELD_TO_QUERY_FIELD: Record<MonitorQuickFilterField, string>
   monitor: 'monitor',
 }
 
-type MonitorWorkspaceQueryConfig = Pick<MonitorViewConfig, 'filterQuery' | 'quickFilters'>
+type MonitorWorkspaceQueryConfig = Pick<ExecutionMonitorViewConfig, 'filterQuery' | 'quickFilters'>
 
 const getListingLabel = (listing: any) => {
   const normalized = toListingValueObject(listing)
@@ -37,7 +37,7 @@ const getListingLabel = (listing: any) => {
   return [normalized.base_id, normalized.quote_id].filter(Boolean).join('/') || 'Unknown listing'
 }
 
-export const createMonitorQuickFilterClause = (filter: MonitorQuickFilter) => {
+export const createMonitorQuickFilterClause = (filter: ExecutionMonitorQuickFilter) => {
   const field = QUICK_FILTER_FIELD_TO_QUERY_FIELD[filter.field]
   const kind = filter.operator === 'has' ? 'has' : filter.operator === 'no' ? 'no' : 'field'
 
@@ -78,6 +78,20 @@ export const buildMonitorWorkspaceSearchQuery = (
     MONITOR_QUERY_POLICY
   )
 }
+
+export const buildMonitorExecutionLogFilters = (viewConfig: ExecutionMonitorViewConfig): LogFilters => ({
+  timeRange: 'All time',
+  level: 'all',
+  workflowIds: [],
+  folderIds: [],
+  triggers: [],
+  searchQuery: buildMonitorWorkspaceSearchQuery(viewConfig),
+  limit: 100,
+  details: 'full',
+  queryPolicy: MONITOR_QUERY_POLICY,
+  queryPolicyKey: 'monitor',
+  triggerSource: 'indicator_trigger',
+})
 
 const toExecutionItem = (
   log: any,
@@ -131,26 +145,14 @@ export function useMonitorWorkspaceLogs({
   monitors,
 }: {
   workspaceId: string
-  viewConfig: MonitorViewConfig
+  viewConfig: ExecutionMonitorViewConfig
   monitors: IndicatorMonitorRecord[]
 }) {
-  const mergedQuery = useMemo(() => buildMonitorWorkspaceSearchQuery(viewConfig), [viewConfig])
+  const filters = useMemo(() => buildMonitorExecutionLogFilters(viewConfig), [viewConfig])
 
   const logsQuery = useLogsList(
     workspaceId,
-    {
-      timeRange: 'All time',
-      level: 'all',
-      workflowIds: [],
-      folderIds: [],
-      triggers: [],
-      searchQuery: mergedQuery,
-      limit: 100,
-      details: 'full',
-      queryPolicy: MONITOR_QUERY_POLICY,
-      queryPolicyKey: 'monitor',
-      triggerSource: 'indicator_trigger',
-    },
+    filters,
     {
       enabled: Boolean(workspaceId),
       refetchInterval: false,
@@ -181,7 +183,7 @@ export function useMonitorWorkspaceLogs({
         ? buildMonitorBoardSections(executionItems, viewConfig).flatMap((section) =>
             section.columns.flatMap((column) => column.items.map((item) => item.logId))
           )
-        : buildMonitorRoadmapGroups(executionItems, viewConfig).flatMap((group) =>
+        : buildMonitorTimelineGroups(executionItems, viewConfig).flatMap((group) =>
             group.items.map((item) => item.id)
           ),
     [executionItems, viewConfig]

@@ -1,10 +1,10 @@
 import type { ListingIdentity } from '@/lib/listing/identity'
 import type { WorkflowLog } from '@/stores/logs/filters/types'
 import type {
-  MonitorFieldSum,
-  MonitorGroupField,
-  MonitorSortField,
-  MonitorSortRule,
+  ExecutionMonitorFieldSum,
+  ExecutionMonitorGroupField,
+  ExecutionMonitorSortField,
+  ExecutionMonitorSortRule,
 } from '../view/view-config'
 
 export type MonitorExecutionItem = {
@@ -58,7 +58,7 @@ const compareNumbers = (left: number | null, right: number | null) => {
 
 export const getExecutionGroupValue = (
   item: MonitorExecutionItem,
-  field: MonitorGroupField
+  field: ExecutionMonitorGroupField
 ): ExecutionGroupValue => {
   switch (field) {
     case 'outcome':
@@ -115,7 +115,7 @@ export const getExecutionGroupValue = (
 export const compareExecutionGroupValues = (
   left: ExecutionGroupValue,
   right: ExecutionGroupValue,
-  field: MonitorGroupField
+  field: ExecutionMonitorGroupField
 ) => {
   if (field === 'outcome') {
     const outcomeComparison =
@@ -142,7 +142,7 @@ export const compareExecutionGroupValues = (
 
 export const sortExecutionGroups = <T>(
   groups: T[],
-  field: MonitorGroupField | null,
+  field: ExecutionMonitorGroupField | null,
   getValue: (group: T) => ExecutionGroupValue
 ) => {
   if (!field) {
@@ -157,7 +157,7 @@ export const sortExecutionGroups = <T>(
 export const compareExecutionItemsByField = (
   left: MonitorExecutionItem,
   right: MonitorExecutionItem,
-  field: MonitorSortField
+  field: ExecutionMonitorSortField
 ) => {
   switch (field) {
     case 'startedAt':
@@ -181,13 +181,13 @@ export const compareExecutionItemsByField = (
 
 export const sortExecutionItems = (
   items: MonitorExecutionItem[],
-  sortBy: MonitorSortRule[]
+  sortBy: ExecutionMonitorSortRule[]
 ) => {
   if (sortBy.length === 0) {
     return [...items]
   }
 
-  const appliedSorts: MonitorSortRule[] = sortBy
+  const appliedSorts: ExecutionMonitorSortRule[] = sortBy
 
   return [...items].sort((left, right) => {
     for (const rule of appliedSorts) {
@@ -203,7 +203,7 @@ export const sortExecutionItems = (
 
 export const getExecutionAggregate = (
   items: MonitorExecutionItem[],
-  field: MonitorFieldSum
+  field: ExecutionMonitorFieldSum
 ) => {
   switch (field) {
     case 'count':

@@ -6,7 +6,7 @@ import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { KiboGantt } from './kibo-gantt'
-import type { MonitorTimelineZoom } from '../view/view-config'
+import type { ExecutionMonitorTimelineZoom } from '../view/view-config'
 
 const reactActEnvironment = globalThis as typeof globalThis & {
   IS_REACT_ACT_ENVIRONMENT?: boolean
@@ -53,7 +53,7 @@ describe('KiboGantt', () => {
     startAt,
     endAt,
   }: {
-    zoom: MonitorTimelineZoom
+    zoom: ExecutionMonitorTimelineZoom
     scale?: number
     startAt: Date
     endAt: Date

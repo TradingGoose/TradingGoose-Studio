@@ -1,10 +1,9 @@
 import { db, webhook } from '@tradinggoose/db'
 import { and, eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
-import { z } from 'zod'
 import {
   INDICATOR_MONITOR_TRIGGER_ID,
-  IndicatorMonitorMutationSchema,
+  IndicatorMonitorUpdateSchema,
   type IndicatorMonitorProviderConfig,
   normalizeIndicatorMonitorConfig,
 } from '@/lib/indicators/monitor-config'
@@ -17,6 +16,7 @@ import {
   ensureTriggerCapableIndicator,
   ensureWorkflowInWorkspace,
   getIndicatorMonitorRowById,
+  loadIndicatorInputMetadata,
   toIndicatorMonitorRecord,
 } from '../shared'
 
@@ -24,10 +24,6 @@ const logger = createLogger('IndicatorMonitorByIdAPI')
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
-
-const UpdateMonitorSchema = IndicatorMonitorMutationSchema.partial().extend({
-  workspaceId: z.string().min(1),
-})
 
 const clientErrorPatterns = ['Missing', 'Invalid', 'not found', 'must be', 'does not', 'Unable to']
 
@@ -92,7 +88,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     }
 
     const body = await request.json().catch(() => ({}))
-    const parsed = UpdateMonitorSchema.safeParse(body)
+    const parsed = IndicatorMonitorUpdateSchema.safeParse(body)
     if (!parsed.success) {
       return NextResponse.json(
         { error: parsed.error.errors[0]?.message ?? 'Invalid request' },
@@ -101,9 +97,15 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     }
 
     const payload = parsed.data
-    const workspaceId = payload.workspaceId || row.workflow.workspaceId
+    const workspaceId = row.workflow.workspaceId
     if (!workspaceId) {
-      return NextResponse.json({ error: 'workspaceId is required' }, { status: 400 })
+      return NextResponse.json({ error: 'Monitor workspace is missing' }, { status: 400 })
+    }
+    if (payload.workspaceId !== workspaceId) {
+      return NextResponse.json(
+        { error: 'workspaceId does not match monitor workspace' },
+        { status: 400 }
+      )
     }
 
     const permission = await checkWorkspacePermission({
@@ -134,20 +136,43 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     ) {
       await ensureIndicatorTriggerBlockInDeployedState(nextWorkflowId, nextTriggerBlockId)
     }
-    await ensureTriggerCapableIndicator(
-      workspaceId,
-      payload.indicatorId ?? existingMonitor.indicatorId
-    )
+    const nextProviderId = payload.providerId ?? existingMonitor.providerId
+    const providerChanged = nextProviderId !== existingMonitor.providerId
+    const nextIndicatorId = payload.indicatorId ?? existingMonitor.indicatorId
+    const indicatorChanged = nextIndicatorId !== existingMonitor.indicatorId
+    const authProvided = Object.prototype.hasOwnProperty.call(payload, 'auth')
+    const providerParamsProvided = Object.prototype.hasOwnProperty.call(payload, 'providerParams')
+    const indicatorInputsProvided = Object.prototype.hasOwnProperty.call(payload, 'indicatorInputs')
+
+    await ensureTriggerCapableIndicator(workspaceId, nextIndicatorId)
+    const indicatorMetadata = await loadIndicatorInputMetadata(workspaceId, nextIndicatorId)
+
+    const nextProviderParams = providerChanged
+      ? providerParamsProvided
+        ? (payload.providerParams ?? {})
+        : undefined
+      : providerParamsProvided
+        ? (payload.providerParams ?? {})
+        : existingMonitor.providerParams
+    const nextIndicatorInputs = indicatorChanged
+      ? indicatorInputsProvided
+        ? (payload.indicatorInputs ?? {})
+        : {}
+      : indicatorInputsProvided
+        ? (payload.indicatorInputs ?? {})
+        : existingMonitor.indicatorInputs
 
     const providerConfig = await normalizeIndicatorMonitorConfig({
       triggerBlockId: nextTriggerBlockId,
-      providerId: payload.providerId ?? existingMonitor.providerId,
+      providerId: nextProviderId,
       interval: payload.interval ?? existingMonitor.interval,
       listingInput: payload.listing ?? existingMonitor.listing,
-      indicatorId: payload.indicatorId ?? existingMonitor.indicatorId,
-      authInput: payload.auth,
-      providerParams: payload.providerParams ?? existingMonitor.providerParams,
-      previousAuth: existingMonitor.auth,
+      indicatorId: nextIndicatorId,
+      authInput: authProvided ? payload.auth : undefined,
+      providerParams: nextProviderParams,
+      indicatorInputs: nextIndicatorInputs,
+      indicatorInputMeta: indicatorMetadata.inputMeta,
+      previousAuth: providerChanged ? undefined : existingMonitor.auth,
     })
 
     const nextIsActive =
@@ -167,10 +192,20 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         isActive: nextIsActive,
         updatedAt: new Date(),
       })
-      .where(and(eq(webhook.id, id), eq(webhook.provider, 'indicator')))
+      .where(
+        and(
+          eq(webhook.id, id),
+          eq(webhook.provider, 'indicator'),
+          eq(webhook.workflowId, row.workflow.id)
+        )
+      )
       .returning()
 
     void notifyIndicatorMonitorsReconcile({ requestId, logger })
+
+    if (!updatedMonitor) {
+      return NextResponse.json({ error: 'Monitor not found' }, { status: 404 })
+    }
 
     return NextResponse.json(
       { data: await toIndicatorMonitorRecord(updatedMonitor) },

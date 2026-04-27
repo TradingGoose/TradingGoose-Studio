@@ -3,7 +3,7 @@ import { nanoid } from 'nanoid'
 import { type NextRequest, NextResponse } from 'next/server'
 import {
   INDICATOR_MONITOR_TRIGGER_ID,
-  IndicatorMonitorMutationSchema,
+  IndicatorMonitorCreateSchema,
   normalizeIndicatorMonitorConfig,
 } from '@/lib/indicators/monitor-config'
 import { createLogger } from '@/lib/logs/console/logger'
@@ -15,6 +15,7 @@ import {
   ensureTriggerCapableIndicator,
   ensureWorkflowInWorkspace,
   listIndicatorMonitorRows,
+  loadIndicatorInputMetadata,
   toIndicatorMonitorRecord,
 } from './shared'
 
@@ -79,7 +80,7 @@ export async function POST(request: NextRequest) {
     if ('response' in auth) return auth.response
 
     const body = await request.json().catch(() => ({}))
-    const parsed = IndicatorMonitorMutationSchema.safeParse(body)
+    const parsed = IndicatorMonitorCreateSchema.safeParse(body)
     if (!parsed.success) {
       return NextResponse.json(
         { error: parsed.error.errors[0]?.message ?? 'Invalid request' },
@@ -99,6 +100,10 @@ export async function POST(request: NextRequest) {
     const workflowRow = await ensureWorkflowInWorkspace(payload.workflowId, payload.workspaceId)
     await ensureIndicatorTriggerBlockInDeployedState(payload.workflowId, payload.blockId)
     await ensureTriggerCapableIndicator(payload.workspaceId, payload.indicatorId)
+    const indicatorMetadata = await loadIndicatorInputMetadata(
+      payload.workspaceId,
+      payload.indicatorId
+    )
 
     const providerConfig = await normalizeIndicatorMonitorConfig({
       triggerBlockId: payload.blockId,
@@ -108,6 +113,8 @@ export async function POST(request: NextRequest) {
       indicatorId: payload.indicatorId,
       authInput: payload.auth,
       providerParams: payload.providerParams,
+      indicatorInputs: payload.indicatorInputs,
+      indicatorInputMeta: indicatorMetadata.inputMeta,
     })
 
     const monitorId = nanoid()

@@ -1,65 +1,48 @@
 'use client'
 
-import { type ReactNode, type WheelEvent, useCallback, useMemo, useRef } from 'react'
-import { Loader2, SquareChartGantt, SquareKanban } from 'lucide-react'
+import { useMemo } from 'react'
+import { Loader2 } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
-import {
-  DropdownMenu,
-  DropdownMenuCheckboxItem,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuSeparator,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
-import { Input } from '@/components/ui/input'
+import { Card, CardContent } from '@/components/ui/card'
+import { Notice } from '@/components/ui/notice'
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
 import { Sheet, SheetContent } from '@/components/ui/sheet'
+import { LogDetails } from '@/app/workspace/[workspaceId]/records/components/log-details/log-details'
 import { useIsMobile } from '@/hooks/use-mobile'
-import { cn } from '@/lib/utils'
-import { LogDetails } from '@/app/workspace/[workspaceId]/logs/components/log-details/log-details'
 import { buildMonitorBoardSections } from '../board/board-state'
 import { MonitorBoard } from '../board/monitor-board'
-import { MonitorTimezoneMenu } from '../controls/monitor-timezone-menu'
 import { getExecutionGroupValue, type MonitorExecutionItem } from '../data/execution-ordering'
-import { MonitorRoadmap } from '../timeline/monitor-roadmap'
-import { buildMonitorRoadmapGroups } from '../timeline/roadmap-state'
 import {
-  MONITOR_FIELD_SUMS,
-  MONITOR_GROUP_FIELDS,
-  MONITOR_SORT_FIELDS,
+  MonitorControlBar,
+  MonitorControlSelect,
+  MonitorControlToggle,
+  MonitorStateCard,
+} from '../shared/monitor-ui'
+import { MonitorTimeline } from '../timeline/monitor-timeline'
+import { buildMonitorTimelineGroups } from '../timeline/timeline-state'
+import { MonitorTimezoneMenu } from '../timezone-selector/monitor-timezone-menu'
+import {
+  DEFAULT_EXECUTION_PANEL_SIZES,
+  EXECUTION_MONITOR_FIELD_SUMS,
+  EXECUTION_MONITOR_GROUP_FIELDS,
+  EXECUTION_MONITOR_SORT_FIELDS,
+  EXECUTION_MONITOR_VISIBLE_FIELDS,
+  type ExecutionMonitorFieldSum,
+  type ExecutionMonitorGroupField,
+  type ExecutionMonitorQuickFilterField,
+  type ExecutionMonitorSortField,
+  type ExecutionMonitorTimelineZoom,
+  type ExecutionMonitorViewConfig,
   MONITOR_TIMELINE_SCALE_MAX,
   MONITOR_TIMELINE_SCALE_MIN,
-  MONITOR_VISIBLE_FIELDS,
-  type MonitorFieldSum,
-  type MonitorGroupField,
-  type MonitorQuickFilterField,
-  type MonitorSortField,
-  type MonitorTimelineZoom,
-  type MonitorViewConfig,
 } from '../view/view-config'
 
 type MonitorExecutionWorkspaceProps = {
   viewStateMode: 'loading' | 'server' | 'error'
   viewStateReloading: boolean
   viewsError: string | null
-  effectiveConfig: MonitorViewConfig
-  isCreateViewDialogOpen: boolean
-  nameDialogValue: string
-  nameDialogBusy: boolean
+  effectiveConfig: ExecutionMonitorViewConfig
   executionItems: MonitorExecutionItem[]
   executionsLoading: boolean
   executionsError: string | null
@@ -68,26 +51,25 @@ type MonitorExecutionWorkspaceProps = {
   selectedExecutionLog: MonitorExecutionItem['sourceLog'] | null
   inspectorLoading: boolean
   inspectorError: string | null
-  innerPanelSizes: [number, number] | null
-  onInnerPanelLayout: (sizes: number[]) => void
+  panelSizes: [number, number] | null
+  onPanelLayout: (sizes: number[]) => void
   onUpdateViewConfig: (
-    next: MonitorViewConfig | ((current: MonitorViewConfig) => MonitorViewConfig)
+    next:
+      | ExecutionMonitorViewConfig
+      | ((current: ExecutionMonitorViewConfig) => ExecutionMonitorViewConfig)
   ) => void
-  onToggleQuickFilter: (field: MonitorQuickFilterField, value: string) => void
-  isQuickFilterActive: (field: MonitorQuickFilterField, value: string) => boolean
+  onToggleQuickFilter: (field: ExecutionMonitorQuickFilterField, value: string) => void
+  isQuickFilterActive: (field: ExecutionMonitorQuickFilterField, value: string) => boolean
   onReorderColumnCards: (columnId: string, nextExecutionIds: string[]) => void
   onSelectExecution: (logId: string | null) => void
   onNavigatePrev: () => void
   onNavigateNext: () => void
   hasPrev: boolean
   hasNext: boolean
-  onChangeNameDialogValue: (value: string) => void
-  onCloseNameDialog: () => void
-  onSubmitNameDialog: () => void
   onReloadViews: () => void
 }
 
-const GROUP_FIELD_LABELS: Record<MonitorGroupField, string> = {
+const GROUP_FIELD_LABELS: Record<ExecutionMonitorGroupField, string> = {
   outcome: 'Outcome',
   workflow: 'Workflow',
   trigger: 'Trigger',
@@ -98,7 +80,7 @@ const GROUP_FIELD_LABELS: Record<MonitorGroupField, string> = {
   monitor: 'Monitor',
 }
 
-const SORT_FIELD_LABELS: Record<MonitorSortField, string> = {
+const SORT_FIELD_LABELS: Record<ExecutionMonitorSortField, string> = {
   startedAt: 'Started at',
   endedAt: 'Ended at',
   durationMs: 'Duration',
@@ -109,7 +91,7 @@ const SORT_FIELD_LABELS: Record<MonitorSortField, string> = {
   listingLabel: 'Listing',
 }
 
-const FIELD_SUM_LABELS: Record<MonitorFieldSum, string> = {
+const FIELD_SUM_LABELS: Record<ExecutionMonitorFieldSum, string> = {
   count: 'Count',
   durationMs: 'Duration',
   cost: 'Cost',
@@ -130,7 +112,7 @@ const VISIBLE_FIELD_LABELS = {
 
 const DEFAULT_COLUMN_LIMITS = [0, 5, 10, 20] as const
 
-const getDefaultSortDirection = (field: MonitorSortField) => {
+const getDefaultSortDirection = (field: ExecutionMonitorSortField) => {
   switch (field) {
     case 'startedAt':
     case 'endedAt':
@@ -142,109 +124,23 @@ const getDefaultSortDirection = (field: MonitorSortField) => {
   }
 }
 
-const getTimelineMarkersLabel = (markers: MonitorViewConfig['timeline']['markers']) => {
-  const activeMarkers = [
-    markers.today ? 'Today' : null,
-    markers.intervalBoundaries ? 'Boundaries' : null,
-  ].filter(Boolean)
-
-  return activeMarkers.length > 0 ? activeMarkers.join(', ') : 'None'
-}
-
-function ToolbarMenu({
-  label,
-  value,
-  disabled,
-  className,
-  children,
-}: {
-  label: string
-  value?: string
-  disabled?: boolean
-  className?: string
-  children: ReactNode
-}) {
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          variant='outline'
-          size='sm'
-          className={cn('h-8 shrink-0 gap-2 rounded-md', className)}
-          disabled={disabled}
-        >
-          <span className='shrink-0'>{label}</span>
-          {value ? (
-            <span className='max-w-[180px] truncate text-muted-foreground'>{value}</span>
-          ) : null}
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align='start' className='max-h-[420px] overflow-y-auto'>
-        {children}
-      </DropdownMenuContent>
-    </DropdownMenu>
-  )
-}
-
 function ExecutionContextStrip({ execution }: { execution: MonitorExecutionItem }) {
   return (
     <div className='border-b bg-muted/30 px-3 py-3'>
       <div className='flex flex-wrap items-center gap-2 text-xs'>
         <span className='font-medium text-foreground'>{execution.workflowName}</span>
-        <span className='rounded-sm bg-background px-2 py-1 text-muted-foreground'>
-          {execution.outcome}
-        </span>
-        {execution.monitorId ? (
-          <span className='rounded-sm bg-background px-2 py-1 text-muted-foreground'>
-            {execution.monitorId}
-          </span>
-        ) : null}
-        {execution.providerId ? (
-          <span className='rounded-sm bg-background px-2 py-1 text-muted-foreground'>
-            {execution.providerId}
-          </span>
-        ) : null}
-        {execution.interval ? (
-          <span className='rounded-sm bg-background px-2 py-1 text-muted-foreground'>
-            {execution.interval}
-          </span>
-        ) : null}
+        <Badge variant='secondary'>{execution.outcome}</Badge>
+        {execution.monitorId ? <Badge variant='outline'>{execution.monitorId}</Badge> : null}
+        {execution.providerId ? <Badge variant='outline'>{execution.providerId}</Badge> : null}
+        {execution.interval ? <Badge variant='outline'>{execution.interval}</Badge> : null}
         {execution.isOrphaned ? (
-          <span className='rounded-sm bg-red-500/10 px-2 py-1 text-red-600'>
-            Source monitor unavailable
-          </span>
+          <Badge variant='destructive'>Source monitor unavailable</Badge>
         ) : null}
         {execution.isPartial ? (
-          <span className='rounded-sm bg-amber-500/10 px-2 py-1 text-amber-700'>
+          <Badge variant='outline' className='border-amber-500/30 bg-amber-500/10 text-amber-700'>
             Snapshot incomplete
-          </span>
+          </Badge>
         ) : null}
-      </div>
-    </div>
-  )
-}
-
-function InspectorState({
-  title,
-  description,
-  actionLabel,
-  onAction,
-}: {
-  title: string
-  description: string
-  actionLabel: string
-  onAction: () => void
-}) {
-  return (
-    <div className='flex h-full items-center justify-center rounded-xl border bg-card/50 px-6 text-center'>
-      <div className='space-y-3'>
-        <div className='space-y-1'>
-          <div className='font-medium text-sm'>{title}</div>
-          <div className='max-w-sm text-muted-foreground text-sm'>{description}</div>
-        </div>
-        <Button variant='outline' size='sm' onClick={onAction}>
-          {actionLabel}
-        </Button>
       </div>
     </div>
   )
@@ -255,9 +151,6 @@ export function MonitorExecutionWorkspace({
   viewStateReloading,
   viewsError,
   effectiveConfig,
-  isCreateViewDialogOpen,
-  nameDialogValue,
-  nameDialogBusy,
   executionItems,
   executionsLoading,
   executionsError,
@@ -266,8 +159,8 @@ export function MonitorExecutionWorkspace({
   selectedExecutionLog,
   inspectorLoading,
   inspectorError,
-  innerPanelSizes,
-  onInnerPanelLayout,
+  panelSizes,
+  onPanelLayout,
   onUpdateViewConfig,
   onToggleQuickFilter,
   isQuickFilterActive,
@@ -277,13 +170,9 @@ export function MonitorExecutionWorkspace({
   onNavigateNext,
   hasPrev,
   hasNext,
-  onChangeNameDialogValue,
-  onCloseNameDialog,
-  onSubmitNameDialog,
   onReloadViews,
 }: MonitorExecutionWorkspaceProps) {
   const isMobile = useIsMobile()
-  const toolbarScrollRef = useRef<HTMLDivElement>(null)
   const controlsDisabled = viewStateMode !== 'server' || viewStateReloading
   const activeSort = effectiveConfig.sortBy[0] ?? null
   const secondarySort = effectiveConfig.sortBy[1] ?? null
@@ -291,8 +180,8 @@ export function MonitorExecutionWorkspace({
     () => buildMonitorBoardSections(executionItems, effectiveConfig),
     [effectiveConfig, executionItems]
   )
-  const roadmapGroups = useMemo(
-    () => buildMonitorRoadmapGroups(executionItems, effectiveConfig),
+  const timelineGroups = useMemo(
+    () => buildMonitorTimelineGroups(executionItems, effectiveConfig),
     [effectiveConfig, executionItems]
   )
   const columnOptions = useMemo(() => {
@@ -312,7 +201,7 @@ export function MonitorExecutionWorkspace({
   const resolvedInspectorLog = selectedExecutionLog ?? null
   const showDesktopInspector = !isMobile && Boolean(selectedExecution)
 
-  const handleSortFieldChange = (field: MonitorSortField) => {
+  const handleSortFieldChange = (field: ExecutionMonitorSortField) => {
     onUpdateViewConfig((current) => ({
       ...current,
       sortBy: [
@@ -336,7 +225,7 @@ export function MonitorExecutionWorkspace({
     }))
   }
 
-  const handleSecondarySortFieldChange = (field: MonitorSortField | '') => {
+  const handleSecondarySortFieldChange = (field: ExecutionMonitorSortField | '') => {
     onUpdateViewConfig((current) => {
       if (field === '') {
         return {
@@ -381,7 +270,7 @@ export function MonitorExecutionWorkspace({
     })
   }
 
-  const handleFieldSumToggle = (fieldSum: MonitorFieldSum) => {
+  const handleFieldSumToggle = (fieldSum: ExecutionMonitorFieldSum) => {
     onUpdateViewConfig((current) => ({
       ...current,
       fieldSums: current.fieldSums.includes(fieldSum)
@@ -390,7 +279,7 @@ export function MonitorExecutionWorkspace({
     }))
   }
 
-  const handleVisibleFieldToggle = (fieldId: (typeof MONITOR_VISIBLE_FIELDS)[number]) => {
+  const handleVisibleFieldToggle = (fieldId: (typeof EXECUTION_MONITOR_VISIBLE_FIELDS)[number]) => {
     onUpdateViewConfig((current) => ({
       ...current,
       kanban: {
@@ -433,13 +322,6 @@ export function MonitorExecutionWorkspace({
     })
   }
 
-  const handleToolbarWheel = useCallback((event: WheelEvent<HTMLDivElement>) => {
-    if (!toolbarScrollRef.current) return
-    if (Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return
-    event.preventDefault()
-    toolbarScrollRef.current.scrollLeft += event.deltaY
-  }, [])
-
   const handleTimelineScaleChange = (scale: number) => {
     onUpdateViewConfig((current) => ({
       ...current,
@@ -450,7 +332,7 @@ export function MonitorExecutionWorkspace({
     }))
   }
 
-  const handleTimelineZoomChange = (zoom: MonitorTimelineZoom) => {
+  const handleTimelineZoomChange = (zoom: ExecutionMonitorTimelineZoom) => {
     onUpdateViewConfig((current) => ({
       ...current,
       timeline: {
@@ -460,7 +342,9 @@ export function MonitorExecutionWorkspace({
     }))
   }
 
-  const handleTimelineMarkerToggle = (marker: keyof MonitorViewConfig['timeline']['markers']) => {
+  const handleTimelineMarkerToggle = (
+    marker: keyof ExecutionMonitorViewConfig['timeline']['markers']
+  ) => {
     onUpdateViewConfig((current) => ({
       ...current,
       timeline: {
@@ -480,11 +364,8 @@ export function MonitorExecutionWorkspace({
     }))
   }
 
-  const ActiveLayoutIcon = effectiveConfig.layout === 'kanban' ? SquareKanban : SquareChartGantt
-  const activeLayoutLabel = effectiveConfig.layout === 'kanban' ? 'Kanban view' : 'Timeline view'
-
   const canvas = (
-    <div className='flex h-full w-full max-w-full min-w-0 flex-col overflow-hidden'>
+    <div className='flex h-full w-full min-w-0 max-w-full flex-col overflow-hidden'>
       {effectiveConfig.layout === 'kanban' ? (
         <MonitorBoard
           sections={boardSections}
@@ -498,8 +379,8 @@ export function MonitorExecutionWorkspace({
           onReorderColumnCards={onReorderColumnCards}
         />
       ) : (
-        <MonitorRoadmap
-          groups={roadmapGroups}
+        <MonitorTimeline
+          groups={timelineGroups}
           config={effectiveConfig}
           selectedExecutionLogId={selectedExecutionLogId}
           controlsDisabled={controlsDisabled}
@@ -513,30 +394,25 @@ export function MonitorExecutionWorkspace({
 
   const inspectorContent = selectedExecution ? (
     inspectorLoading && !resolvedInspectorLog ? (
-      <div className='flex h-full items-center justify-center rounded-xl border bg-card/50'>
-        <div className='flex items-center gap-2 text-muted-foreground text-sm'>
-          <Loader2 className='h-4 w-4 animate-spin' />
-          Loading execution details…
-        </div>
-      </div>
+      <MonitorStateCard loadingLabel='Loading execution details…' className='h-full bg-card/50' />
     ) : inspectorError ? (
-      <InspectorState
+      <MonitorStateCard
         title='Execution details unavailable'
         description={inspectorError}
         actionLabel='Close inspector'
         onAction={() => onSelectExecution(null)}
       />
     ) : !resolvedInspectorLog ? (
-      <InspectorState
+      <MonitorStateCard
         title='Execution details unavailable'
         description='The selected execution could not be loaded from the detail route.'
         actionLabel='Close inspector'
         onAction={() => onSelectExecution(null)}
       />
     ) : (
-      <div className='flex h-full min-h-0 flex-col overflow-hidden rounded-xl border bg-card/50'>
+      <Card className='flex h-full min-h-0 flex-col overflow-hidden rounded-xl border bg-card/50'>
         <ExecutionContextStrip execution={selectedExecution} />
-        <div className='min-h-0 flex-1 overflow-hidden'>
+        <CardContent className='min-h-0 flex-1 overflow-hidden p-0'>
           <LogDetails
             log={resolvedInspectorLog}
             isOpen
@@ -546,443 +422,325 @@ export function MonitorExecutionWorkspace({
             hasNext={hasNext}
             hasPrev={hasPrev}
           />
-        </div>
-      </div>
+        </CardContent>
+      </Card>
     )
   ) : null
 
   return (
-    <div className='flex h-full w-full max-w-full min-w-0 flex-col overflow-hidden p-1.5'>
-      <div className='w-full bg-muted rounded-lg max-w-full min-w-0 shrink-0 overflow-hidden'>
-        <div
-          ref={toolbarScrollRef}
-          onWheel={handleToolbarWheel}
-          className='p-1.5 w-full max-w-full min-w-0 overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
-        >
-          <div
-            role='toolbar'
-            aria-label='Monitor view controls'
-            className='flex w-max min-w-full items-center gap-2'
+    <div className='flex h-full w-full min-w-0 max-w-full flex-col overflow-hidden p-1.5'>
+      <MonitorControlBar toolbarLabel='Monitor view controls'>
+        <MonitorControlSelect
+          value={effectiveConfig.layout}
+          disabled={controlsDisabled}
+          triggerClassName='w-[150px]'
+          options={[
+            { value: 'kanban', label: 'Layout: Kanban' },
+            { value: 'timeline', label: 'Layout: Timeline' },
+          ]}
+          onValueChange={(value) =>
+            onUpdateViewConfig((current) => ({
+              ...current,
+              layout: value as ExecutionMonitorViewConfig['layout'],
+            }))
+          }
+        />
+
+        <MonitorTimezoneMenu
+          timezone={effectiveConfig.timezone}
+          disabled={controlsDisabled}
+          onTimezoneChange={handleTimezoneChange}
+        />
+
+        <MonitorControlSelect
+          value={activeSort?.field ?? 'manual'}
+          disabled={controlsDisabled}
+          triggerClassName='w-[185px]'
+          options={[
+            { value: 'manual', label: 'Manual order' },
+            ...EXECUTION_MONITOR_SORT_FIELDS.map((field) => ({
+              value: field,
+              label: `Sort by: ${SORT_FIELD_LABELS[field]}`,
+            })),
+          ]}
+          onValueChange={(value) =>
+            value === 'manual'
+              ? onUpdateViewConfig((current) => ({ ...current, sortBy: [] }))
+              : handleSortFieldChange(value as ExecutionMonitorSortField)
+          }
+        />
+
+        <MonitorControlSelect
+          value={activeSort?.direction ?? 'desc'}
+          disabled={controlsDisabled || !activeSort}
+          triggerClassName='w-[155px]'
+          options={[
+            { value: 'asc', label: 'Direction: Asc' },
+            { value: 'desc', label: 'Direction: Desc' },
+          ]}
+          onValueChange={(value) => handleSortDirectionChange(value as 'asc' | 'desc')}
+        />
+
+        <MonitorControlSelect
+          value={secondarySort?.field ?? 'none'}
+          disabled={controlsDisabled}
+          triggerClassName='w-[195px]'
+          options={[
+            { value: 'none', label: 'No secondary sort' },
+            ...EXECUTION_MONITOR_SORT_FIELDS.map((field) => ({
+              value: field,
+              label: `Then: ${SORT_FIELD_LABELS[field]}`,
+              disabled: activeSort?.field === field,
+            })),
+          ]}
+          onValueChange={(value) =>
+            handleSecondarySortFieldChange(
+              value === 'none' ? '' : (value as ExecutionMonitorSortField)
+            )
+          }
+        />
+
+        <MonitorControlSelect
+          value={secondarySort?.direction ?? 'asc'}
+          disabled={controlsDisabled || !secondarySort}
+          triggerClassName='w-[155px]'
+          options={[
+            { value: 'asc', label: 'Then dir: Asc' },
+            { value: 'desc', label: 'Then dir: Desc' },
+          ]}
+          onValueChange={(value) => handleSecondarySortDirectionChange(value as 'asc' | 'desc')}
+        />
+
+        <MonitorControlSelect
+          value={effectiveConfig.groupBy}
+          disabled={controlsDisabled}
+          triggerClassName='w-[170px]'
+          options={EXECUTION_MONITOR_GROUP_FIELDS.map((field) => ({
+            value: field,
+            label: `Group: ${GROUP_FIELD_LABELS[field]}`,
+          }))}
+          onValueChange={(value) =>
+            onUpdateViewConfig((current) => ({
+              ...current,
+              groupBy: value as ExecutionMonitorGroupField,
+            }))
+          }
+        />
+
+        <MonitorControlSelect
+          value={effectiveConfig.sliceBy ?? 'none'}
+          disabled={controlsDisabled}
+          triggerClassName='w-[170px]'
+          options={[
+            { value: 'none', label: 'No slice' },
+            ...EXECUTION_MONITOR_GROUP_FIELDS.filter(
+              (field) => field !== effectiveConfig.groupBy
+            ).map((field) => ({
+              value: field,
+              label: `Slice: ${GROUP_FIELD_LABELS[field]}`,
+            })),
+          ]}
+          onValueChange={(value) =>
+            onUpdateViewConfig((current) => ({
+              ...current,
+              sliceBy: value === 'none' ? null : (value as ExecutionMonitorGroupField),
+            }))
+          }
+        />
+
+        {effectiveConfig.layout === 'timeline' ? (
+          <>
+            <MonitorControlToggle
+              pressed={effectiveConfig.timeline.markers.today}
+              disabled={controlsDisabled}
+              onClick={() => handleTimelineMarkerToggle('today')}
+            >
+              Today
+            </MonitorControlToggle>
+            <MonitorControlToggle
+              pressed={effectiveConfig.timeline.markers.intervalBoundaries}
+              disabled={controlsDisabled}
+              onClick={() => handleTimelineMarkerToggle('intervalBoundaries')}
+            >
+              Boundaries
+            </MonitorControlToggle>
+            <Button type='button' variant='outline' size='sm' className='h-8 shrink-0' disabled>
+              Dates: Started → Ended
+            </Button>
+          </>
+        ) : null}
+
+        {effectiveConfig.layout === 'kanban' ? (
+          <MonitorControlSelect
+            value={effectiveConfig.verticalGroupBy ?? 'none'}
+            disabled={controlsDisabled}
+            triggerClassName='w-[185px]'
+            options={[
+              { value: 'none', label: 'No swimlane' },
+              ...EXECUTION_MONITOR_GROUP_FIELDS.filter(
+                (field) => field !== effectiveConfig.groupBy && field !== effectiveConfig.sliceBy
+              ).map((field) => ({
+                value: field,
+                label: `Swimlane: ${GROUP_FIELD_LABELS[field]}`,
+              })),
+            ]}
+            onValueChange={(value) =>
+              onUpdateViewConfig((current) => ({
+                ...current,
+                verticalGroupBy: value === 'none' ? null : (value as ExecutionMonitorGroupField),
+              }))
+            }
+          />
+        ) : null}
+
+        {EXECUTION_MONITOR_FIELD_SUMS.map((fieldSum) => (
+          <MonitorControlToggle
+            key={fieldSum}
+            pressed={effectiveConfig.fieldSums.includes(fieldSum)}
+            disabled={controlsDisabled}
+            onClick={() => handleFieldSumToggle(fieldSum)}
           >
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant='outline'
-                  size='icon'
-                  className='order-1 h-8 w-8 shrink-0 rounded-md'
-                  disabled={controlsDisabled}
-                  aria-label={`Select monitor layout. Current layout: ${activeLayoutLabel}.`}
-                >
-                  <ActiveLayoutIcon className='h-4 w-4' />
-                  <span className='sr-only'>{activeLayoutLabel}</span>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align='start'>
-                <DropdownMenuRadioGroup
-                  value={effectiveConfig.layout}
-                  onValueChange={(value) =>
-                    onUpdateViewConfig((current) => ({
-                      ...current,
-                      layout: value as MonitorViewConfig['layout'],
-                    }))
-                  }
-                >
-                  <DropdownMenuRadioItem value='kanban'>
-                    <SquareKanban className='mr-2 h-4 w-4' />
-                    Kanban
-                  </DropdownMenuRadioItem>
-                  <DropdownMenuRadioItem value='timeline'>
-                    <SquareChartGantt className='mr-2 h-4 w-4' />
-                    Timeline
-                  </DropdownMenuRadioItem>
-                </DropdownMenuRadioGroup>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            {FIELD_SUM_LABELS[fieldSum]}
+          </MonitorControlToggle>
+        ))}
 
-            <MonitorTimezoneMenu
-              timezone={effectiveConfig.timezone}
-              disabled={controlsDisabled}
-              className='order-2'
-              onTimezoneChange={handleTimezoneChange}
-            />
+        {effectiveConfig.layout === 'kanban' ? (
+          <MonitorControlSelect
+            value={effectiveConfig.kanban.columnField}
+            disabled={controlsDisabled}
+            triggerClassName='w-[185px]'
+            options={EXECUTION_MONITOR_GROUP_FIELDS.map((field) => ({
+              value: field,
+              label: `Column: ${GROUP_FIELD_LABELS[field]}`,
+            }))}
+            onValueChange={(value) =>
+              onUpdateViewConfig((current) => ({
+                ...current,
+                kanban: {
+                  ...current.kanban,
+                  columnField: value as ExecutionMonitorGroupField,
+                  hiddenColumnIds: [],
+                  localCardOrder: {},
+                },
+              }))
+            }
+          />
+        ) : null}
 
-            <ToolbarMenu
-              label='Sort by'
-              className={effectiveConfig.layout === 'timeline' ? 'order-5' : 'order-3'}
-              value={
-                activeSort
-                  ? [
-                    `${SORT_FIELD_LABELS[activeSort.field]} ${activeSort.direction === 'asc' ? '↑' : '↓'}`,
-                    ...(secondarySort
-                      ? [
-                        `${SORT_FIELD_LABELS[secondarySort.field]} ${secondarySort.direction === 'asc' ? '↑' : '↓'
-                        }`,
-                      ]
-                      : []),
-                  ].join(', ')
-                  : 'Unsorted'
-              }
-              disabled={controlsDisabled}
-            >
-              <DropdownMenuItem
-                onClick={() => onUpdateViewConfig((current) => ({ ...current, sortBy: [] }))}
-              >
-                Unsorted
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuLabel>Field</DropdownMenuLabel>
-              <DropdownMenuRadioGroup
-                value={activeSort?.field ?? ''}
-                onValueChange={(value) => handleSortFieldChange(value as MonitorSortField)}
-              >
-                {MONITOR_SORT_FIELDS.map((field) => (
-                  <DropdownMenuRadioItem key={field} value={field}>
-                    {SORT_FIELD_LABELS[field]}
-                  </DropdownMenuRadioItem>
-                ))}
-              </DropdownMenuRadioGroup>
-              <DropdownMenuSeparator />
-              <DropdownMenuLabel>Direction</DropdownMenuLabel>
-              <DropdownMenuRadioGroup
-                value={activeSort?.direction ?? ''}
-                onValueChange={(value) => handleSortDirectionChange(value as 'asc' | 'desc')}
-              >
-                <DropdownMenuRadioItem value='asc' disabled={!activeSort}>
-                  Ascending
-                </DropdownMenuRadioItem>
-                <DropdownMenuRadioItem value='desc' disabled={!activeSort}>
-                  Descending
-                </DropdownMenuRadioItem>
-              </DropdownMenuRadioGroup>
-              <DropdownMenuSeparator />
-              <DropdownMenuLabel>Secondary field</DropdownMenuLabel>
-              <DropdownMenuRadioGroup
-                value={secondarySort?.field ?? ''}
-                onValueChange={(value) =>
-                  handleSecondarySortFieldChange(value as MonitorSortField | '')
-                }
-              >
-                <DropdownMenuRadioItem value=''>None</DropdownMenuRadioItem>
-                {MONITOR_SORT_FIELDS.map((field) => (
-                  <DropdownMenuRadioItem
-                    key={`secondary:${field}`}
-                    value={field}
-                    disabled={activeSort?.field === field}
-                  >
-                    {SORT_FIELD_LABELS[field]}
-                  </DropdownMenuRadioItem>
-                ))}
-              </DropdownMenuRadioGroup>
-              <DropdownMenuSeparator />
-              <DropdownMenuLabel>Secondary direction</DropdownMenuLabel>
-              <DropdownMenuRadioGroup
-                value={secondarySort?.direction ?? ''}
-                onValueChange={(value) =>
-                  handleSecondarySortDirectionChange(value as 'asc' | 'desc')
-                }
-              >
-                <DropdownMenuRadioItem value='asc' disabled={!secondarySort}>
-                  Ascending
-                </DropdownMenuRadioItem>
-                <DropdownMenuRadioItem value='desc' disabled={!secondarySort}>
-                  Descending
-                </DropdownMenuRadioItem>
-              </DropdownMenuRadioGroup>
-            </ToolbarMenu>
-
-            <ToolbarMenu
-              label='Group by'
-              className={effectiveConfig.layout === 'timeline' ? 'order-3' : 'order-4'}
-              value={GROUP_FIELD_LABELS[effectiveConfig.groupBy]}
-              disabled={controlsDisabled}
-            >
-              <DropdownMenuRadioGroup
-                value={effectiveConfig.groupBy}
-                onValueChange={(value) =>
-                  onUpdateViewConfig((current) => ({
-                    ...current,
-                    groupBy: value as MonitorGroupField,
-                  }))
-                }
-              >
-                {MONITOR_GROUP_FIELDS.map((field) => (
-                  <DropdownMenuRadioItem key={field} value={field}>
-                    {GROUP_FIELD_LABELS[field]}
-                  </DropdownMenuRadioItem>
-                ))}
-              </DropdownMenuRadioGroup>
-            </ToolbarMenu>
-
-            <ToolbarMenu
-              label='Slice by'
-              className={effectiveConfig.layout === 'timeline' ? 'order-8' : 'order-5'}
-              value={effectiveConfig.sliceBy ? GROUP_FIELD_LABELS[effectiveConfig.sliceBy] : 'None'}
-              disabled={controlsDisabled}
-            >
-              <DropdownMenuRadioGroup
-                value={effectiveConfig.sliceBy ?? ''}
-                onValueChange={(value) =>
-                  onUpdateViewConfig((current) => ({
-                    ...current,
-                    sliceBy: value ? (value as MonitorGroupField) : null,
-                  }))
-                }
-              >
-                <DropdownMenuRadioItem value=''>None</DropdownMenuRadioItem>
-                {MONITOR_GROUP_FIELDS.map((field) => (
-                  <DropdownMenuRadioItem key={field} value={field}>
-                    {GROUP_FIELD_LABELS[field]}
-                  </DropdownMenuRadioItem>
-                ))}
-              </DropdownMenuRadioGroup>
-            </ToolbarMenu>
-
-            {effectiveConfig.layout === 'timeline' ? (
-              <>
-                <ToolbarMenu
-                  label='Markers'
-                  className='order-4'
-                  value={getTimelineMarkersLabel(effectiveConfig.timeline.markers)}
-                  disabled={controlsDisabled}
-                >
-                  <DropdownMenuCheckboxItem
-                    checked={effectiveConfig.timeline.markers.today}
-                    onCheckedChange={() => handleTimelineMarkerToggle('today')}
-                  >
-                    Today
-                  </DropdownMenuCheckboxItem>
-                  <DropdownMenuCheckboxItem
-                    checked={effectiveConfig.timeline.markers.intervalBoundaries}
-                    onCheckedChange={() => handleTimelineMarkerToggle('intervalBoundaries')}
-                  >
-                    Interval boundaries
-                  </DropdownMenuCheckboxItem>
-                </ToolbarMenu>
-
-                <ToolbarMenu
-                  label='Dates'
-                  className='order-6'
-                  value='Started → Ended'
-                  disabled={controlsDisabled}
-                >
-                  <DropdownMenuLabel>Execution range</DropdownMenuLabel>
-                  <DropdownMenuItem disabled>Started at → Ended at</DropdownMenuItem>
-                </ToolbarMenu>
-
-              </>
-            ) : null}
-
-            {effectiveConfig.layout === 'kanban' ? (
-              <ToolbarMenu
-                label='Swimlane'
-                className='order-6'
-                value={
-                  effectiveConfig.verticalGroupBy
-                    ? GROUP_FIELD_LABELS[effectiveConfig.verticalGroupBy]
-                    : 'None'
-                }
+        {effectiveConfig.layout === 'kanban'
+          ? EXECUTION_MONITOR_VISIBLE_FIELDS.map((fieldId) => (
+              <MonitorControlToggle
+                key={fieldId}
+                pressed={effectiveConfig.kanban.visibleFieldIds.includes(fieldId)}
                 disabled={controlsDisabled}
+                onClick={() => handleVisibleFieldToggle(fieldId)}
               >
-                <DropdownMenuRadioGroup
-                  value={effectiveConfig.verticalGroupBy ?? ''}
-                  onValueChange={(value) =>
-                    onUpdateViewConfig((current) => ({
-                      ...current,
-                      verticalGroupBy: value ? (value as MonitorGroupField) : null,
-                    }))
-                  }
-                >
-                  <DropdownMenuRadioItem value=''>None</DropdownMenuRadioItem>
-                  {MONITOR_GROUP_FIELDS.map((field) => (
-                    <DropdownMenuRadioItem key={field} value={field}>
-                      {GROUP_FIELD_LABELS[field]}
-                    </DropdownMenuRadioItem>
-                  ))}
-                </DropdownMenuRadioGroup>
-              </ToolbarMenu>
-            ) : null}
+                {VISIBLE_FIELD_LABELS[fieldId]}
+              </MonitorControlToggle>
+            ))
+          : null}
 
-            <ToolbarMenu
-              label='Field sum'
-              className={effectiveConfig.layout === 'timeline' ? 'order-9' : 'order-7'}
-              value={
-                effectiveConfig.fieldSums.length > 0
-                  ? effectiveConfig.fieldSums.map((field) => FIELD_SUM_LABELS[field]).join(', ')
-                  : 'None'
-              }
-              disabled={controlsDisabled}
-            >
-              {MONITOR_FIELD_SUMS.map((fieldSum) => (
-                <DropdownMenuCheckboxItem
-                  key={fieldSum}
-                  checked={effectiveConfig.fieldSums.includes(fieldSum)}
-                  onCheckedChange={() => handleFieldSumToggle(fieldSum)}
-                >
-                  {FIELD_SUM_LABELS[fieldSum]}
-                </DropdownMenuCheckboxItem>
-              ))}
-            </ToolbarMenu>
+        {effectiveConfig.layout === 'kanban' && columnOptions.length === 0 ? (
+          <Button type='button' variant='outline' size='sm' className='h-8 shrink-0' disabled>
+            No columns
+          </Button>
+        ) : null}
 
-            {effectiveConfig.layout === 'kanban' ? (
-              <>
-                <ToolbarMenu
-                  label='Column field'
-                  className='order-8'
-                  value={GROUP_FIELD_LABELS[effectiveConfig.kanban.columnField]}
+        {effectiveConfig.layout === 'kanban'
+          ? columnOptions.map((option) => {
+              const visible = !effectiveConfig.kanban.hiddenColumnIds.includes(option.value)
+
+              return (
+                <MonitorControlToggle
+                  key={option.value}
+                  pressed={visible}
                   disabled={controlsDisabled}
+                  onClick={() => handleColumnVisibilityToggle(option.value)}
                 >
-                  <DropdownMenuRadioGroup
-                    value={effectiveConfig.kanban.columnField}
-                    onValueChange={(value) =>
-                      onUpdateViewConfig((current) => ({
-                        ...current,
-                        kanban: {
-                          ...current.kanban,
-                          columnField: value as MonitorGroupField,
-                          hiddenColumnIds: [],
-                          localCardOrder: {},
-                        },
-                      }))
-                    }
-                  >
-                    {MONITOR_GROUP_FIELDS.map((field) => (
-                      <DropdownMenuRadioItem key={field} value={field}>
-                        {GROUP_FIELD_LABELS[field]}
-                      </DropdownMenuRadioItem>
-                    ))}
-                  </DropdownMenuRadioGroup>
-                </ToolbarMenu>
+                  {option.label}
+                </MonitorControlToggle>
+              )
+            })
+          : null}
 
-                <ToolbarMenu label='Fields' className='order-9' disabled={controlsDisabled}>
-                  {MONITOR_VISIBLE_FIELDS.map((fieldId) => (
-                    <DropdownMenuCheckboxItem
-                      key={fieldId}
-                      checked={effectiveConfig.kanban.visibleFieldIds.includes(fieldId)}
-                      onCheckedChange={() => handleVisibleFieldToggle(fieldId)}
-                    >
-                      {VISIBLE_FIELD_LABELS[fieldId]}
-                    </DropdownMenuCheckboxItem>
-                  ))}
-                </ToolbarMenu>
+        {effectiveConfig.layout === 'kanban'
+          ? columnOptions.map((option) => (
+              <MonitorControlSelect
+                key={`limit:${option.value}`}
+                value={String(effectiveConfig.kanban.columnLimits[option.value] ?? 0)}
+                disabled={controlsDisabled}
+                triggerClassName='w-[185px]'
+                options={DEFAULT_COLUMN_LIMITS.map((limit) => ({
+                  value: String(limit),
+                  label: `${option.label}: ${limit === 0 ? 'No limit' : `${limit} items`}`,
+                }))}
+                onValueChange={(value) =>
+                  handleColumnLimitChange(option.value, Number.parseInt(value, 10))
+                }
+              />
+            ))
+          : null}
+      </MonitorControlBar>
 
-                <ToolbarMenu
-                  label='Columns'
-                  className='order-10'
-                  disabled={controlsDisabled || columnOptions.length === 0}
-                >
-                  {columnOptions.length === 0 ? (
-                    <DropdownMenuItem disabled>No columns</DropdownMenuItem>
-                  ) : (
-                    columnOptions.map((option) => (
-                      <DropdownMenuCheckboxItem
-                        key={option.value}
-                        checked={!effectiveConfig.kanban.hiddenColumnIds.includes(option.value)}
-                        onCheckedChange={() => handleColumnVisibilityToggle(option.value)}
-                      >
-                        {option.label}
-                      </DropdownMenuCheckboxItem>
-                    ))
-                  )}
-                </ToolbarMenu>
-
-                <ToolbarMenu
-                  label='Column limits'
-                  className='order-11'
-                  disabled={controlsDisabled || columnOptions.length === 0}
-                >
-                  {columnOptions.length === 0 ? (
-                    <DropdownMenuItem disabled>No columns</DropdownMenuItem>
-                  ) : (
-                    columnOptions.map((option) => (
-                      <DropdownMenuSub key={option.value}>
-                        <DropdownMenuSubTrigger>{option.label}</DropdownMenuSubTrigger>
-                        <DropdownMenuSubContent>
-                          <DropdownMenuRadioGroup
-                            value={String(effectiveConfig.kanban.columnLimits[option.value] ?? 0)}
-                            onValueChange={(value) =>
-                              handleColumnLimitChange(option.value, Number.parseInt(value, 10))
-                            }
-                          >
-                            {DEFAULT_COLUMN_LIMITS.map((limit) => (
-                              <DropdownMenuRadioItem key={limit} value={String(limit)}>
-                                {limit === 0 ? 'No limit' : `${limit} items`}
-                              </DropdownMenuRadioItem>
-                            ))}
-                          </DropdownMenuRadioGroup>
-                        </DropdownMenuSubContent>
-                      </DropdownMenuSub>
-                    ))
-                  )}
-                </ToolbarMenu>
-              </>
-            ) : null}
-          </div>
-        </div>
-      </div>
-
-      <div className='flex min-h-0 w-full max-w-full min-w-0 flex-1 flex-col overflow-hidden pt-1.5'>
+      <div className='flex min-h-0 w-full min-w-0 max-w-full flex-1 flex-col overflow-hidden pt-1.5'>
         {viewStateMode === 'loading' ? (
-          <div className='flex min-h-[320px] flex-1 items-center justify-center rounded-xl border bg-card/40'>
-            <div className='flex items-center gap-2 text-muted-foreground text-sm'>
-              <Loader2 className='h-4 w-4 animate-spin' />
-              Loading monitor views…
-            </div>
-          </div>
+          <MonitorStateCard
+            loadingLabel='Loading monitor views…'
+            className='min-h-[320px] flex-1'
+          />
         ) : viewStateMode === 'error' ? (
-          <div className='flex min-h-[320px] flex-1 items-center justify-center rounded-xl border bg-card/40 p-6'>
-            <div className='flex max-w-md flex-col items-center gap-3 text-center'>
-              <div className='font-medium text-base'>Views unavailable</div>
-              <p className='text-muted-foreground text-sm'>
-                {viewsError ?? 'Monitor views could not be loaded right now.'}
-              </p>
-              <Button
-                variant='outline'
-                size='sm'
-                onClick={onReloadViews}
-                disabled={viewStateReloading}
-              >
-                {viewStateReloading ? <Loader2 className='mr-2 h-4 w-4 animate-spin' /> : null}
-                Reload views
-              </Button>
-            </div>
-          </div>
+          <MonitorStateCard
+            title='Views unavailable'
+            description={viewsError ?? 'Monitor views could not be loaded right now.'}
+            actionLabel={
+              viewStateReloading ? (
+                <>
+                  <Loader2 className='mr-2 h-4 w-4 animate-spin' />
+                  Reload views
+                </>
+              ) : (
+                'Reload views'
+              )
+            }
+            actionDisabled={viewStateReloading}
+            onAction={onReloadViews}
+            className='min-h-[320px] flex-1'
+          />
         ) : (
           <>
             {viewsError ? (
-              <div className='mb-3 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-amber-700 text-sm'>
+              <Notice variant='warning' className='mb-3'>
                 {viewsError}
-              </div>
+              </Notice>
             ) : null}
             {executionsError ? (
-              <div className='mb-3 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-destructive text-sm'>
+              <Notice variant='error' className='mb-3'>
                 {executionsError}
-              </div>
+              </Notice>
             ) : null}
             {executionsLoading ? (
-              <div className='flex min-h-[320px] flex-1 items-center justify-center rounded-xl border bg-card/40'>
-                <div className='flex items-center gap-2 text-muted-foreground text-sm'>
-                  <Loader2 className='h-4 w-4 animate-spin' />
-                  Loading executions…
-                </div>
-              </div>
+              <MonitorStateCard
+                loadingLabel='Loading executions…'
+                className='min-h-[320px] flex-1'
+              />
             ) : showDesktopInspector && inspectorContent ? (
               <ResizablePanelGroup
                 direction='horizontal'
-                className='flex min-h-0 w-full max-w-full min-w-0 flex-1 overflow-hidden'
-                onLayout={onInnerPanelLayout}
+                className='flex min-h-0 w-full min-w-0 max-w-full flex-1 overflow-hidden'
+                onLayout={onPanelLayout}
               >
                 <ResizablePanel
                   order={1}
-                  defaultSize={innerPanelSizes?.[0] ?? 68}
+                  defaultSize={panelSizes?.[0] ?? DEFAULT_EXECUTION_PANEL_SIZES[0]}
                   minSize={45}
-                  className='flex h-full max-h-full w-full max-w-full min-h-0 min-w-0 flex-col overflow-hidden'
+                  className='flex h-full max-h-full min-h-0 w-full min-w-0 max-w-full flex-col overflow-hidden'
                 >
                   {canvas}
                 </ResizablePanel>
                 <ResizableHandle withHandle />
                 <ResizablePanel
                   order={2}
-                  defaultSize={innerPanelSizes?.[1] ?? 32}
+                  defaultSize={panelSizes?.[1] ?? DEFAULT_EXECUTION_PANEL_SIZES[1]}
                   minSize={24}
                   className='min-h-0 min-w-0 overflow-auto'
                 >
@@ -1006,41 +764,6 @@ export function MonitorExecutionWorkspace({
           </div>
         </SheetContent>
       </Sheet>
-
-      <Dialog open={isCreateViewDialogOpen} onOpenChange={(open) => !open && onCloseNameDialog()}>
-        <DialogContent className='sm:max-w-md'>
-          <DialogHeader>
-            <DialogTitle>Create View</DialogTitle>
-            <DialogDescription>
-              Create a new saved view from the current execution workspace settings.
-            </DialogDescription>
-          </DialogHeader>
-          <Input
-            value={nameDialogValue}
-            onChange={(event) => onChangeNameDialogValue(event.target.value)}
-            placeholder='View name'
-            disabled={nameDialogBusy}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter') {
-                event.preventDefault()
-                onSubmitNameDialog()
-              }
-            }}
-          />
-          <DialogFooter>
-            <Button variant='outline' onClick={onCloseNameDialog} disabled={nameDialogBusy}>
-              Cancel
-            </Button>
-            <Button
-              onClick={onSubmitNameDialog}
-              disabled={nameDialogBusy || !nameDialogValue.trim()}
-            >
-              {nameDialogBusy ? <Loader2 className='mr-2 h-4 w-4 animate-spin' /> : null}
-              Create view
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }
