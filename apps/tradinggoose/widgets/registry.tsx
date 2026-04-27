@@ -17,6 +17,7 @@ import { listMcpWidget } from '@/widgets/widgets/list_mcp'
 import { listSkillWidget } from '@/widgets/widgets/list_skill'
 import { workflowListWidget } from '@/widgets/widgets/list_workflow'
 import { portfolioSnapshotWidget } from '@/widgets/widgets/portfolio_snapshot'
+import { quickOrderWidget } from '@/widgets/widgets/quick_order'
 import { watchlistWidget } from '@/widgets/widgets/watchlist'
 import { chatWidget } from '@/widgets/widgets/workflow_chat'
 import { workflowConsoleWidget } from '@/widgets/widgets/workflow_console'
@@ -56,6 +57,7 @@ const widgetRegistry: Record<string, DashboardWidgetDefinition> = {
   workflow_variables: workflowVariablesWidget,
   watchlist: watchlistWidget,
   portfolio_snapshot: portfolioSnapshotWidget,
+  quick_order: quickOrderWidget,
 }
 
 export const getWidgetDefinition = (key: string): DashboardWidgetDefinition | undefined =>

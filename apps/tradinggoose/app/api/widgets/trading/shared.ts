@@ -10,7 +10,7 @@ import {
   getTradingProviderDefinition,
   getTradingProviderParamDefinitions,
 } from '@/providers/trading/providers'
-import type { UnifiedTradingAccount } from '@/providers/trading/types'
+import type { TradingOperationKind, UnifiedTradingAccount } from '@/providers/trading/types'
 
 const logger = createLogger('TradingWidgetRoutes')
 
@@ -41,6 +41,8 @@ type PreflightContext = {
   sessionUserId: string
 }
 
+export type TradingWidgetBaseRouteContext = PreflightContext
+
 export type TradingAccountRouteContext = PreflightContext & {
   accountId: string
   account: UnifiedTradingAccount
@@ -50,8 +52,11 @@ export type TradingPerformanceRouteContext = TradingAccountRouteContext & {
   window: string
 }
 
-const getSupportedEnvironments = (providerId: string) => {
-  const environmentDefinition = getTradingProviderParamDefinitions(providerId, 'holdings').find(
+const getSupportedEnvironments = (
+  providerId: string,
+  operationKind: TradingOperationKind = 'holdings'
+) => {
+  const environmentDefinition = getTradingProviderParamDefinitions(providerId, operationKind).find(
     (definition) => definition.id === 'environment'
   )
   return new Set(
@@ -107,9 +112,11 @@ export async function resolveTradingWidgetPreflight<T extends EnvironmentRequest
 export async function resolveTradingWidgetContext({
   requestData,
   requestId,
+  operationKind = 'holdings',
 }: {
   requestData: EnvironmentRequestData
   requestId: string
+  operationKind?: TradingOperationKind
 }): Promise<PreflightContext | NextResponse> {
   const providerId = requireStringField(requestData, 'provider')
   if (providerId instanceof NextResponse) return providerId
@@ -130,7 +137,7 @@ export async function resolveTradingWidgetContext({
     return NextResponse.json({ error: 'Unsupported provider' }, { status: 400 })
   }
 
-  const supportedEnvironments = getSupportedEnvironments(providerId)
+  const supportedEnvironments = getSupportedEnvironments(providerId, operationKind)
   if (!supportedEnvironments.has(environment as 'paper' | 'live')) {
     return NextResponse.json({ error: 'Unsupported environment' }, { status: 400 })
   }
@@ -161,20 +168,15 @@ export async function resolveTradingWidgetContext({
   }
 }
 
-export async function resolveTradingWidgetAccountContext({
-  requestData,
-  requestId,
+export async function resolveTradingWidgetSelectedAccount({
+  baseContext,
+  accountId,
 }: {
-  requestData: TradingAccountIdentityData
-  requestId: string
+  baseContext: TradingWidgetBaseRouteContext
+  accountId?: string
 }): Promise<TradingAccountRouteContext | NextResponse> {
-  const accountId = requireStringField(requestData, 'accountId')
-  if (accountId instanceof NextResponse) return accountId
-
-  const baseContext = await resolveTradingWidgetContext({ requestData, requestId })
-  if (baseContext instanceof Response) {
-    return baseContext
-  }
+  const selectedAccountId = requireStringField({ accountId }, 'accountId')
+  if (selectedAccountId instanceof NextResponse) return selectedAccountId
 
   const accounts = await listTradingAccounts({
     providerId: baseContext.providerId,
@@ -182,16 +184,36 @@ export async function resolveTradingWidgetAccountContext({
     accessToken: baseContext.accessToken,
   })
 
-  const account = accounts.find((candidate) => candidate.id === accountId)
+  const account = accounts.find((candidate) => candidate.id === selectedAccountId)
   if (!account) {
     return NextResponse.json({ error: 'Account not found for credential' }, { status: 404 })
   }
 
   return {
     ...baseContext,
-    accountId,
+    accountId: selectedAccountId,
     account,
   }
+}
+
+export async function resolveTradingWidgetAccountContext({
+  requestData,
+  requestId,
+  operationKind = 'holdings',
+}: {
+  requestData: TradingAccountIdentityData
+  requestId: string
+  operationKind?: TradingOperationKind
+}): Promise<TradingAccountRouteContext | NextResponse> {
+  const accountId = requireStringField(requestData, 'accountId')
+  if (accountId instanceof NextResponse) return accountId
+
+  const baseContext = await resolveTradingWidgetContext({ requestData, requestId, operationKind })
+  if (baseContext instanceof Response) {
+    return baseContext
+  }
+
+  return resolveTradingWidgetSelectedAccount({ baseContext, accountId })
 }
 
 export async function resolveTradingWidgetPerformanceContext({

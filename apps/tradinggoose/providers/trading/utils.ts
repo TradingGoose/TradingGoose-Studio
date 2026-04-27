@@ -6,7 +6,18 @@ import type {
   TradingRuleScopeKey,
   TradingSymbolRule,
 } from '@/providers/trading/providers'
+import { getTradingProviderConfig } from '@/providers/trading/providers'
 import type { TradingSymbolInput } from '@/providers/trading/types'
+
+const TRADING_ASSET_CLASS_SET = new Set<AssetClass>([
+  'stock',
+  'etf',
+  'future',
+  'currency',
+  'crypto',
+  'indice',
+  'mutualfund',
+])
 
 const readListingField = (record: Record<string, unknown>, key: string): string | undefined => {
   const value = record[key]
@@ -42,6 +53,45 @@ export interface TradingSymbolToListingIdentityResult {
   base: string
   quote: string
   assetClass: AssetClass
+}
+
+const normalizeTradingListingAssetClass = (value: unknown): AssetClass | undefined => {
+  if (typeof value !== 'string') return undefined
+  const normalized = value.trim().toLowerCase()
+  return TRADING_ASSET_CLASS_SET.has(normalized as AssetClass)
+    ? (normalized as AssetClass)
+    : undefined
+}
+
+export function resolveTradingListingAssetClass(
+  listing?: ListingInputValue | null,
+  explicitAssetClass?: AssetClass | null
+): AssetClass | undefined {
+  const listingIdentity = toListingValueObject(listing)
+  const record = (listing || {}) as Record<string, unknown>
+  const listingType = typeof record.listing_type === 'string' ? record.listing_type : undefined
+
+  return (
+    normalizeTradingListingAssetClass(explicitAssetClass) ||
+    normalizeTradingListingAssetClass(record.assetClass) ||
+    normalizeTradingListingAssetClass(record.base_asset_class) ||
+    normalizeTradingListingAssetClass(record.quote_asset_class) ||
+    inferAssetClassFromListing(listingIdentity) ||
+    (listingType === 'crypto' || listingType === 'currency'
+      ? (listingType as AssetClass)
+      : undefined)
+  )
+}
+
+export function isTradingOrderListingSupported(
+  providerId: string,
+  listing?: ListingInputValue | null
+): boolean {
+  const assetClass = resolveTradingListingAssetClass(listing)
+  if (!assetClass) return true
+
+  const supportedAssetClasses = getTradingProviderConfig(providerId)?.availability.assetClass ?? []
+  return supportedAssetClasses.includes(assetClass)
 }
 
 function buildTradingListingContext(input: TradingSymbolInput): TradingListingContext {
@@ -125,7 +175,8 @@ export function tradingSymbolToListingIdentity(
     )
     .sort((left, right) => {
       const scoreDelta =
-        scoreReverseRule(right.rule, input.assetClass) - scoreReverseRule(left.rule, input.assetClass)
+        scoreReverseRule(right.rule, input.assetClass) -
+        scoreReverseRule(left.rule, input.assetClass)
       return scoreDelta !== 0 ? scoreDelta : left.index - right.index
     })[0]?.rule
 
@@ -339,10 +390,7 @@ function scoreReverseRule(rule: TradingSymbolRule, assetClass?: AssetClass | nul
   return score
 }
 
-function parseSymbolWithTemplate(
-  symbol: string,
-  template: string
-): Record<string, string> | null {
+function parseSymbolWithTemplate(symbol: string, template: string): Record<string, string> | null {
   const pattern = buildTemplateRegex(template)
   if (!pattern) return null
   const match = pattern.exec(symbol)
@@ -385,13 +433,6 @@ function resolveTemplateCapture(key: string): string {
       return '(?<exchangeSuffix>\\.[A-Za-z0-9._-]+)'
     case 'exchangeCode':
       return '(?<exchangeCode>[A-Za-z0-9._-]+)'
-    case 'base':
-    case 'quote':
-    case 'listing':
-    case 'market':
-    case 'country':
-    case 'city':
-    case 'assetClass':
     default:
       return `(?<${key}>[A-Za-z0-9._:-]+)`
   }

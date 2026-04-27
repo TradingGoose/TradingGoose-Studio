@@ -54,6 +54,7 @@ export const MCP_EDITOR_ACTION_EVENT = 'mcp-editor:action'
 export const WATCHLIST_WIDGET_UPDATE_PARAMS_EVENT = 'watchlist-widgets:update-params'
 export const PORTFOLIO_SNAPSHOT_WIDGET_UPDATE_PARAMS_EVENT =
   'portfolio-snapshot-widgets:update-params'
+export const QUICK_ORDER_WIDGET_UPDATE_PARAMS_EVENT = 'quick-order-widgets:update-params'
 
 export type WorkflowWidgetSelectEventDetail = {
   workflowId: string
@@ -74,6 +75,12 @@ export type WatchlistWidgetUpdateEventDetail = {
 }
 
 export type PortfolioSnapshotWidgetUpdateEventDetail = {
+  params: Record<string, unknown>
+  panelId?: string
+  widgetKey?: string
+}
+
+export type QuickOrderWidgetUpdateEventDetail = {
   params: Record<string, unknown>
   panelId?: string
   widgetKey?: string

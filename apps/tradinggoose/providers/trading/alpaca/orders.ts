@@ -1,5 +1,6 @@
 import { buildAlpacaAuthHeaders } from '@/providers/trading/alpaca/auth'
 import { alpacaTradingProviderConfig } from '@/providers/trading/alpaca/config'
+import { getAlpacaNotionalOrderTypeError } from '@/providers/trading/order-validation'
 import type {
   TradingOrder,
   TradingOrderInput,
@@ -64,10 +65,8 @@ export const buildAlpacaOrderRequest = (params: TradingOrderInput): TradingReque
   const isTrailingStop = orderType === 'trailing_stop'
 
   if (useNotional) {
-    const supportedTypes = new Set(['market', 'limit', 'stop', 'stop_limit'])
-    if (!supportedTypes.has(orderType)) {
-      throw new Error('Alpaca notional orders support market, limit, stop, or stop_limit types.')
-    }
+    const orderTypeError = getAlpacaNotionalOrderTypeError(orderType)
+    if (orderTypeError) throw new Error(orderTypeError)
     if (timeInForce !== 'day') {
       throw new Error('Alpaca notional orders require time_in_force=day.')
     }

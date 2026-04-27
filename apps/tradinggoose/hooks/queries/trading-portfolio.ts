@@ -1,4 +1,8 @@
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery } from '@tanstack/react-query'
+import type {
+  QuickOrderSubmitRequest,
+  QuickOrderSubmitResponse,
+} from '@/app/api/widgets/trading/order/types'
 import type {
   TradingPortfolioPerformanceWindow,
   UnifiedTradingAccount,
@@ -20,7 +24,7 @@ type TradingPerformanceRequest = TradingSnapshotRequest & {
   selectedWindow?: TradingPortfolioPerformanceWindow
 }
 
-const postJson = async <T>(url: string, body: Record<string, unknown>): Promise<T> => {
+const postJson = async <T>(url: string, body: unknown): Promise<T> => {
   const response = await fetch(url, {
     method: 'POST',
     headers: {
@@ -34,6 +38,11 @@ const postJson = async <T>(url: string, body: Record<string, unknown>): Promise<
     accounts?: UnifiedTradingAccount[]
     snapshot?: UnifiedTradingAccountSnapshot
     performance?: UnifiedTradingPortfolioPerformance
+    order?: QuickOrderSubmitResponse['order']
+    provider?: string
+    environment?: string
+    accountId?: string
+    message?: string | null
   }
 
   if (!response.ok) {
@@ -141,5 +150,12 @@ export function useTradingPortfolioPerformance(request: TradingPerformanceReques
     ),
     staleTime: 30 * 1000,
     refetchOnWindowFocus: false,
+  })
+}
+
+export function useSubmitTradingOrder() {
+  return useMutation<QuickOrderSubmitResponse, Error, QuickOrderSubmitRequest>({
+    mutationFn: (request) =>
+      postJson<QuickOrderSubmitResponse>('/api/widgets/trading/order', request),
   })
 }

@@ -1,6 +1,6 @@
 'use client'
 
-import { Check, ChevronDown, Wallet } from 'lucide-react'
+import { Check, ChevronDown } from 'lucide-react'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -57,26 +57,18 @@ export function TradingAccountSelector({
                 type='button'
                 disabled={disabled}
                 className={widgetHeaderControlClassName(
-                  'group flex min-w-[220px] items-center justify-between gap-2'
+                  'group flex w-full min-w-0 items-center justify-between gap-2'
                 )}
                 aria-haspopup='listbox'
                 aria-label='Select trading account'
               >
-                <span className='flex min-w-0 flex-1 items-center gap-2 overflow-hidden'>
-                  <span
-                    className='h-5 w-5 rounded-xs bg-muted/60 p-0.5 text-muted-foreground'
-                    aria-hidden='true'
-                  >
-                    <Wallet className='h-4 w-4' />
-                  </span>
-                  <span
-                    className={cn(
-                      'min-w-0 flex-1 truncate text-left text-sm',
-                      selectedAccount ? 'font-medium text-foreground' : 'text-muted-foreground'
-                    )}
-                  >
-                    {buttonLabel}
-                  </span>
+                <span
+                  className={cn(
+                    'min-w-0 flex-1 truncate text-left text-sm',
+                    selectedAccount ? 'font-medium text-foreground' : 'text-muted-foreground'
+                  )}
+                >
+                  {buttonLabel}
                 </span>
                 <ChevronDown
                   className='h-4 w-4 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-180'
