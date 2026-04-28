@@ -32,7 +32,7 @@ describe('HeatmapTreemapChart', () => {
   })
 
   it('renders without ResizeObserver by using the initial measurement fallback', async () => {
-    globalThis.ResizeObserver = undefined as typeof globalThis.ResizeObserver
+    globalThis.ResizeObserver = undefined as unknown as typeof globalThis.ResizeObserver
     Object.defineProperty(HTMLElement.prototype, 'getBoundingClientRect', {
       configurable: true,
       value: () => ({
@@ -92,7 +92,7 @@ describe('HeatmapTreemapChart', () => {
   })
 
   it('hides visible tile text when the tile is below the label threshold', async () => {
-    globalThis.ResizeObserver = undefined as typeof globalThis.ResizeObserver
+    globalThis.ResizeObserver = undefined as unknown as typeof globalThis.ResizeObserver
     Object.defineProperty(HTMLElement.prototype, 'getBoundingClientRect', {
       configurable: true,
       value: () => ({

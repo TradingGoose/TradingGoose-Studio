@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo } from 'react'
-import { Check } from 'lucide-react'
+import { Check, ChevronDown } from 'lucide-react'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -72,10 +72,10 @@ export function TradingProviderSelector({
     [options]
   )
   const selectedOption = optionsWithIcons.find((option) => option.id === value) ?? null
-  const label = selectedOption?.name ?? placeholder
+  const label = selectedOption ? `Broker: ${selectedOption.name}` : placeholder
   const SelectedIcon = selectedOption?.icon
   const isDropdownDisabled = disabled || optionsWithIcons.length === 0
-  const tooltipText = isDropdownDisabled ? 'Provider selection unavailable' : 'Select provider'
+  const tooltipText = isDropdownDisabled ? 'Provider selection unavailable' : 'Select broker'
 
   return (
     <DropdownMenu modal={false}>
@@ -87,19 +87,31 @@ export function TradingProviderSelector({
                 type='button'
                 disabled={isDropdownDisabled}
                 className={widgetHeaderControlClassName(
-                  cn('flex w-7 items-center justify-center px-0', triggerClassName)
+                  cn('group flex min-w-[150px] max-w-[190px] justify-between', triggerClassName)
                 )}
                 aria-haspopup='listbox'
                 aria-label='Select trading provider'
               >
-                {SelectedIcon ? (
-                  <SelectedIcon className='h-4 w-4 text-muted-foreground' aria-hidden='true' />
-                ) : (
-                  <span className='font-semibold text-muted-foreground text-xs'>
-                    {label.slice(0, 1)}
+                <span className='flex min-w-0 items-center gap-1.5'>
+                  {SelectedIcon ? (
+                    <SelectedIcon
+                      className='h-4 w-4 shrink-0 text-muted-foreground'
+                      aria-hidden='true'
+                    />
+                  ) : null}
+                  <span
+                    className={cn(
+                      'min-w-0 truncate text-left',
+                      selectedOption ? 'text-foreground' : 'text-muted-foreground'
+                    )}
+                  >
+                    {label}
                   </span>
-                )}
-                <span className='sr-only'>{label}</span>
+                </span>
+                <ChevronDown
+                  className='h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-180'
+                  aria-hidden='true'
+                />
               </button>
             </DropdownMenuTrigger>
           </span>

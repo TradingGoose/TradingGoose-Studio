@@ -2,27 +2,34 @@
  * @vitest-environment jsdom
  */
 
-import type { ReactNode } from 'react'
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { renderQuickOrderHeader } from '@/widgets/widgets/quick_order/components/header'
 
-const mockUseOAuthCredentials = vi.fn()
 const mockUseOAuthProviderAvailability = vi.fn()
-const mockUseTradingAccounts = vi.fn()
 const mockEmitQuickOrderParamsChange = vi.fn()
-
-vi.mock('@/hooks/queries/oauth-credentials', () => ({
-  useOAuthCredentials: (...args: unknown[]) => mockUseOAuthCredentials(...args),
-}))
+type MockTradingAccountSelectorProps = {
+  onAccountSelect?: (selection: unknown) => void
+}
+const mockTradingAccountSelector = vi.fn(({ onAccountSelect }: MockTradingAccountSelectorProps) => (
+  <button
+    type='button'
+    data-testid='account-selector'
+    onClick={() =>
+      onAccountSelect?.({
+        credentialId: 'cred-1',
+        environment: 'paper',
+        accountId: 'acct-1',
+      })
+    }
+  >
+    account
+  </button>
+))
 
 vi.mock('@/hooks/queries/oauth-provider-availability', () => ({
   useOAuthProviderAvailability: (...args: unknown[]) => mockUseOAuthProviderAvailability(...args),
-}))
-
-vi.mock('@/hooks/queries/trading-portfolio', () => ({
-  useTradingAccounts: (...args: unknown[]) => mockUseTradingAccounts(...args),
 }))
 
 vi.mock('@/widgets/utils/quick-order-params', () => ({
@@ -38,42 +45,14 @@ vi.mock('@/widgets/widgets/components/trading-provider-selector', () => ({
 }))
 
 vi.mock('@/widgets/widgets/components/trading-account-selector', () => ({
-  TradingAccountSelector: ({
-    onAccountSelect,
-    disabled,
-  }: {
-    onAccountSelect: (accountId: string) => void
-    disabled?: boolean
-  }) => (
-    <button
-      type='button'
-      data-testid='account-selector'
-      disabled={disabled}
-      onClick={() => onAccountSelect('acct-1')}
-    >
-      account
-    </button>
-  ),
+  TradingAccountSelector: (props: MockTradingAccountSelectorProps) =>
+    mockTradingAccountSelector(props),
 }))
 
-vi.mock('@/components/ui/popover', () => ({
-  Popover: ({ children }: { children: ReactNode }) => <>{children}</>,
-  PopoverContent: ({ children }: { children: ReactNode }) => <div>{children}</div>,
-  PopoverTrigger: ({ children }: { children: ReactNode }) => <>{children}</>,
+vi.mock('@/widgets/widgets/components/widget-header-control', () => ({
+  widgetHeaderButtonGroupClassName: (className?: string) =>
+    ['controls', className].filter(Boolean).join(' '),
 }))
-
-vi.mock('@/components/ui/tooltip', () => ({
-  Tooltip: ({ children }: { children: ReactNode }) => <>{children}</>,
-  TooltipContent: ({ children }: { children: ReactNode }) => <div>{children}</div>,
-  TooltipTrigger: ({ children }: { children: ReactNode }) => <>{children}</>,
-}))
-
-vi.mock(
-  '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/components/credential-selector/components/oauth-required-modal',
-  () => ({
-    OAuthRequiredModal: () => null,
-  })
-)
 
 const queryResult = <T,>(overrides: Partial<T> = {}) =>
   ({
@@ -106,12 +85,6 @@ describe('QuickOrderHeaderControls', () => {
 
     mockUseOAuthProviderAvailability.mockReturnValue(
       queryResult({ data: { alpaca: true, tradier: true } })
-    )
-    mockUseOAuthCredentials.mockReturnValue(
-      queryResult({ data: [{ id: 'cred-1', name: 'Primary' }] })
-    )
-    mockUseTradingAccounts.mockReturnValue(
-      queryResult({ data: [{ id: 'acct-1', name: 'Paper Account' }] })
     )
   })
 
@@ -174,8 +147,8 @@ describe('QuickOrderHeaderControls', () => {
     expect(mockEmitQuickOrderParamsChange).toHaveBeenCalledWith({
       params: {
         provider: 'tradier',
-        environment: 'paper',
         credentialId: null,
+        environment: null,
         accountId: null,
       },
       panelId: 'panel-1',
@@ -188,12 +161,12 @@ describe('QuickOrderHeaderControls', () => {
     })
   })
 
-  it('keeps account selection disabled and account query unbound until a credential is selected', () => {
+  it('shows the account selector after a trading provider is selected', () => {
     const header = renderHeader({
       panelId: 'panel-1',
       widget: {
         key: 'quick_order',
-        params: { provider: 'alpaca', environment: 'paper', side: 'buy' },
+        params: { provider: 'alpaca', side: 'buy' },
       } as any,
     })
 
@@ -203,11 +176,55 @@ describe('QuickOrderHeaderControls', () => {
 
     expect(
       container.querySelector<HTMLButtonElement>('[data-testid="account-selector"]')
-    ).toBeDisabled()
-    expect(mockUseTradingAccounts).toHaveBeenCalledWith({
-      provider: 'alpaca',
-      credentialId: undefined,
-      environment: 'paper',
+    ).toBeTruthy()
+  })
+
+  it('hides account selection before a trading provider is selected', () => {
+    const header = renderHeader({
+      panelId: 'panel-1',
+      widget: {
+        key: 'quick_order',
+        params: { side: 'buy' },
+      } as any,
+    })
+
+    act(() => {
+      root.render(<>{header.left}</>)
+    })
+
+    expect(
+      container.querySelector<HTMLButtonElement>('[data-testid="provider-selector"]')
+    ).toBeTruthy()
+    expect(
+      container.querySelector<HTMLButtonElement>('[data-testid="account-selector"]')
+    ).toBeNull()
+  })
+
+  it('updates credential, environment, and account together from account selection', () => {
+    const header = renderHeader({
+      panelId: 'panel-1',
+      widget: {
+        key: 'quick_order',
+        params: { provider: 'alpaca', side: 'buy' },
+      } as any,
+    })
+
+    act(() => {
+      root.render(<>{header.left}</>)
+    })
+
+    act(() => {
+      container.querySelector<HTMLButtonElement>('[data-testid="account-selector"]')?.click()
+    })
+
+    expect(mockEmitQuickOrderParamsChange).toHaveBeenCalledWith({
+      params: {
+        credentialId: 'cred-1',
+        environment: 'paper',
+        accountId: 'acct-1',
+      },
+      panelId: 'panel-1',
+      widgetKey: 'quick_order',
     })
   })
 })

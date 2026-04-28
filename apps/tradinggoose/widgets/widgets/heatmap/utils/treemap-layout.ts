@@ -29,6 +29,8 @@ type LayoutNode = HeatmapTreemapInputItem & {
   value: number
 }
 
+type LayoutDatum = { children: LayoutNode[] } | LayoutNode
+
 const resolveTileLabel = (item: HeatmapTreemapInputItem) => {
   if (item.resolvedListing?.base) return item.resolvedListing.base
   if (item.listing.listing_type === 'default') return item.listing.listing_id
@@ -60,14 +62,9 @@ export const computeHeatmapTreemapLayout = ({
     }
   })
 
-  const root = hierarchy<{ children: LayoutNode[] } | LayoutNode>({ children }).sum((node) =>
-    'value' in node ? node.value : 0
+  const root = treemap<LayoutDatum>().size([width, height]).paddingInner(2).round(true)(
+    hierarchy<LayoutDatum>({ children }).sum((node) => ('value' in node ? node.value : 0))
   )
-
-  treemap<{ children: LayoutNode[] } | LayoutNode>()
-    .size([width, height])
-    .paddingInner(2)
-    .round(true)(root)
 
   return root
     .leaves()

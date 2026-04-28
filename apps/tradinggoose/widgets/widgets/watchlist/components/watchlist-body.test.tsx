@@ -12,7 +12,7 @@ import { WatchlistWidgetBody } from '@/widgets/widgets/watchlist/components/watc
 
 const mockWatchlistTable = vi.fn()
 const mockRefetchQuotes = vi.fn()
-const mockUseMarketQuoteSnapshots = vi.fn(() => ({
+const mockUseMarketQuoteSnapshots = vi.fn((_request: unknown) => ({
   data: {},
   refetch: mockRefetchQuotes,
 }))
@@ -73,7 +73,7 @@ vi.mock('@/hooks/queries/watchlists', () => ({
 }))
 
 vi.mock('@/hooks/queries/market-quote-snapshots', () => ({
-  useMarketQuoteSnapshots: (...args: unknown[]) => mockUseMarketQuoteSnapshots(...args),
+  useMarketQuoteSnapshots: (request: unknown) => mockUseMarketQuoteSnapshots(request),
 }))
 
 vi.mock('@/widgets/utils/watchlist-params', () => ({

@@ -279,8 +279,8 @@ export function HeatmapWidgetBody({
       cappedSourceListings.map((sourceListing) => {
         const key = sourceListing.key
         return {
-          key,
           ...sourceListing,
+          key,
           resolvedListing: resolvedListingsQuery.data?.[key] ?? null,
           quote: quoteSnapshotsQuery.data?.[key] ?? null,
         }

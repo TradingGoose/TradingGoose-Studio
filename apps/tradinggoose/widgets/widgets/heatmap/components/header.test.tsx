@@ -8,25 +8,49 @@ import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { renderHeatmapHeader } from '@/widgets/widgets/heatmap/components/header'
 
-const mockUseOAuthCredentials = vi.fn()
 const mockUseOAuthProviderAvailability = vi.fn()
-const mockUseTradingAccounts = vi.fn()
 const mockEmitHeatmapParamsChange = vi.fn()
-
-vi.mock('@/hooks/queries/oauth-credentials', () => ({
-  useOAuthCredentials: (...args: unknown[]) => mockUseOAuthCredentials(...args),
-}))
+type MockTradingAccountSelectorProps = {
+  onAccountSelect?: (selection: unknown) => void
+}
+const mockTradingAccountSelector = vi.fn(({ onAccountSelect }: MockTradingAccountSelectorProps) => (
+  <button
+    type='button'
+    data-testid='trading-account-selector'
+    onClick={() =>
+      onAccountSelect?.({
+        credentialId: 'cred-1',
+        environment: 'paper',
+        accountId: 'acct-1',
+      })
+    }
+  >
+    Trading account
+  </button>
+))
 
 vi.mock('@/hooks/queries/oauth-provider-availability', () => ({
   useOAuthProviderAvailability: (...args: unknown[]) => mockUseOAuthProviderAvailability(...args),
 }))
 
-vi.mock('@/hooks/queries/trading-portfolio', () => ({
-  useTradingAccounts: (...args: unknown[]) => mockUseTradingAccounts(...args),
-}))
-
 vi.mock('@/widgets/utils/heatmap-params', () => ({
   emitHeatmapParamsChange: (...args: unknown[]) => mockEmitHeatmapParamsChange(...args),
+}))
+
+vi.mock('@/components/ui/tabs', () => ({
+  Tabs: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
+  TabsList: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
+  TabsTrigger: ({ children, value }: { children?: ReactNode; value: string }) => (
+    <button type='button' data-value={value}>
+      {children}
+    </button>
+  ),
+}))
+
+vi.mock('@/components/ui/tooltip', () => ({
+  Tooltip: ({ children }: { children?: ReactNode }) => <>{children}</>,
+  TooltipTrigger: ({ children }: { children?: ReactNode }) => <>{children}</>,
+  TooltipContent: ({ children }: { children?: ReactNode }) => <>{children}</>,
 }))
 
 vi.mock('@/widgets/widgets/components/market-provider-settings-button', () => ({
@@ -48,11 +72,26 @@ vi.mock('@/widgets/widgets/components/market-provider-selector', () => ({
 }))
 
 vi.mock('@/widgets/widgets/components/trading-provider-selector', () => ({
-  TradingProviderSelector: () => <select aria-label='Trading provider' />,
+  TradingProviderSelector: ({
+    value,
+    onChange,
+  }: {
+    value?: string
+    onChange?: (providerId: string) => void
+  }) => (
+    <button
+      type='button'
+      data-testid='trading-provider-selector'
+      onClick={() => onChange?.('alpaca')}
+    >
+      Trading provider {value}
+    </button>
+  ),
 }))
 
 vi.mock('@/widgets/widgets/components/trading-account-selector', () => ({
-  TradingAccountSelector: () => <button type='button'>Trading account</button>,
+  TradingAccountSelector: (props: MockTradingAccountSelectorProps) =>
+    mockTradingAccountSelector(props),
 }))
 
 vi.mock('@/widgets/widgets/components/widget-header-control', () => ({
@@ -60,25 +99,6 @@ vi.mock('@/widgets/widgets/components/widget-header-control', () => ({
     ['controls', className].filter(Boolean).join(' '),
   widgetHeaderIconButtonClassName: () => 'icon-button',
 }))
-
-vi.mock('@/components/ui/tooltip', () => ({
-  Tooltip: ({ children }: { children?: ReactNode }) => <>{children}</>,
-  TooltipTrigger: ({ children }: { children?: ReactNode }) => <>{children}</>,
-  TooltipContent: ({ children }: { children?: ReactNode }) => <>{children}</>,
-}))
-
-vi.mock('@/components/ui/popover', () => ({
-  Popover: ({ children }: { children?: ReactNode }) => <>{children}</>,
-  PopoverTrigger: ({ children }: { children?: ReactNode }) => <>{children}</>,
-  PopoverContent: ({ children }: { children?: ReactNode }) => <>{children}</>,
-}))
-
-vi.mock(
-  '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/components/credential-selector/components/oauth-required-modal',
-  () => ({
-    OAuthRequiredModal: () => null,
-  })
-)
 
 const createQueryResult = <T,>(overrides: Partial<T> = {}) =>
   ({
@@ -111,8 +131,6 @@ describe('HeatmapHeaderControls', () => {
         },
       })
     )
-    mockUseOAuthCredentials.mockReturnValue(createQueryResult({ data: [] }))
-    mockUseTradingAccounts.mockReturnValue(createQueryResult({ data: [] }))
   })
 
   afterEach(() => {
@@ -152,7 +170,71 @@ describe('HeatmapHeaderControls', () => {
       widgetKey: 'heatmap',
     })
     expect(mockUseOAuthProviderAvailability).not.toHaveBeenCalled()
-    expect(mockUseOAuthCredentials).not.toHaveBeenCalled()
-    expect(mockUseTradingAccounts).not.toHaveBeenCalled()
+    expect(mockTradingAccountSelector).not.toHaveBeenCalled()
+  })
+
+  it('shows the account selector after a portfolio trading provider is selected', async () => {
+    const slots = renderHeatmapHeader?.({
+      panelId: 'panel-1',
+      widget: {
+        key: 'heatmap',
+        params: {
+          sourceMode: 'portfolio',
+          tradingProvider: 'alpaca',
+        },
+      } as any,
+    })
+
+    await act(async () => {
+      root.render(
+        <>
+          {slots?.left}
+          {slots?.center}
+          {slots?.right}
+        </>
+      )
+    })
+
+    expect(container.textContent).toContain('Trading account')
+    expect(mockTradingAccountSelector).toHaveBeenCalledWith(
+      expect.objectContaining({
+        providerId: 'alpaca',
+        credentialProviderId: 'alpaca',
+        accountId: undefined,
+      })
+    )
+  })
+
+  it('updates credential, environment, and account together from account selection', async () => {
+    const slots = renderHeatmapHeader?.({
+      panelId: 'panel-1',
+      widget: {
+        key: 'heatmap',
+        params: {
+          sourceMode: 'portfolio',
+          tradingProvider: 'alpaca',
+        },
+      } as any,
+    })
+
+    await act(async () => {
+      root.render(<>{slots?.right}</>)
+    })
+
+    await act(async () => {
+      container
+        .querySelector<HTMLButtonElement>('[data-testid="trading-account-selector"]')
+        ?.click()
+    })
+
+    expect(mockEmitHeatmapParamsChange).toHaveBeenCalledWith({
+      params: {
+        credentialId: 'cred-1',
+        environment: 'paper',
+        accountId: 'acct-1',
+      },
+      panelId: 'panel-1',
+      widgetKey: 'heatmap',
+    })
   })
 })

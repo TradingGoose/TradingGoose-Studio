@@ -95,20 +95,22 @@ export const tradingPortfolioQueryKeys = {
     ] as const,
 }
 
+export async function fetchTradingAccounts(request: TradingAccountsRequest) {
+  const payload = await postJson<{ accounts?: UnifiedTradingAccount[] }>(
+    '/api/widgets/trading/accounts',
+    {
+      provider: request.provider,
+      credentialId: request.credentialId,
+      environment: request.environment,
+    }
+  )
+  return payload.accounts ?? []
+}
+
 export function useTradingAccounts(request: TradingAccountsRequest) {
   return useQuery<UnifiedTradingAccount[]>({
     queryKey: tradingPortfolioQueryKeys.accounts(request),
-    queryFn: async () => {
-      const payload = await postJson<{ accounts?: UnifiedTradingAccount[] }>(
-        '/api/widgets/trading/accounts',
-        {
-          provider: request.provider,
-          credentialId: request.credentialId,
-          environment: request.environment,
-        }
-      )
-      return payload.accounts ?? []
-    },
+    queryFn: () => fetchTradingAccounts(request),
     enabled: Boolean(request.provider && request.credentialId && request.environment),
     staleTime: 60 * 1000,
     refetchOnWindowFocus: false,
