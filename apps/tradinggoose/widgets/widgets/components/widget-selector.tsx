@@ -20,7 +20,7 @@ import {
   widgetHeaderMenuTextClassName,
 } from '@/widgets/widgets/components/widget-header-control'
 
-interface WidgetSelectorProps {
+export interface WidgetSelectorProps {
   currentKey?: string | null
   onSelect?: (widgetKey: string) => void
   disabled?: boolean
@@ -35,13 +35,23 @@ type TriggerElementProps = {
   'aria-disabled'?: boolean
 }
 
-function WidgetSelectorComponent({
+export function WidgetSelectorComponent({
   currentKey,
   onSelect,
   disabled,
   renderTrigger,
 }: WidgetSelectorProps) {
   const categories = useMemo(() => getWidgetCategories(), [])
+  const visibleCategories = useMemo(
+    () =>
+      categories
+        .map((category) => ({
+          ...category,
+          widgets: category.widgets.filter((widget) => widget.key !== 'empty'),
+        }))
+        .filter((category) => category.widgets.length > 0),
+    [categories]
+  )
   const currentDefinition: DashboardWidgetDefinition | undefined = useMemo(
     () => getWidgetDefinition(currentKey ?? 'empty') ?? getWidgetDefinition('empty'),
     [currentKey]
@@ -91,20 +101,17 @@ function WidgetSelectorComponent({
       </Tooltip>
       <DropdownMenuContent
         sideOffset={6}
-        className={cn(widgetHeaderMenuContentClassName, 'w-[540px] max-w-[calc(100vw-2rem)] p-2')}
+        className={cn(widgetHeaderMenuContentClassName, 'w-[720px] max-w-[calc(100vw-2rem)] p-2')}
       >
-        <div className='grid grid-cols-3'>
-          {categories.map((category) => {
-            const visibleWidgets = category.widgets.filter((widget) => widget.key !== 'empty')
-            if (visibleWidgets.length === 0) return null
-
+        <div className='grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4'>
+          {visibleCategories.map((category) => {
             return (
               <div key={category.key} className=''>
                 <div>
                   <p className='font-semibold text-xs uppercase tracking-wide '>{category.title}</p>
                 </div>
                 <div className='space-y-1'>
-                  {visibleWidgets.map((widget) => (
+                  {category.widgets.map((widget) => (
                     <DropdownMenuItem
                       key={widget.key}
                       className={cn(widgetHeaderMenuItemClassName, 'items-start items-center')}

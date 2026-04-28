@@ -9,7 +9,7 @@ export const portfolioSnapshotWidget: DashboardWidgetDefinition = {
   key: 'portfolio_snapshot',
   title: 'Portfolio Snapshot',
   icon: Wallet,
-  category: 'utility',
+  category: 'trading',
   description: 'Broker account performance and current account summary.',
   component: (props) => <PortfolioSnapshotWidgetBody {...props} />,
   renderHeader: renderPortfolioSnapshotHeader,

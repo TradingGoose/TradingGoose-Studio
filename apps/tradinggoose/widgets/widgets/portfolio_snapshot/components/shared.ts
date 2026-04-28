@@ -2,51 +2,38 @@ import {
   getTradingPortfolioDefaultEnvironment,
   getTradingPortfolioSupportedWindows,
 } from '@/providers/trading/portfolio'
-import {
-  getAvailableTradingProviderOptions,
-  getTradingProviderDefinition,
-  getTradingProviderOAuthServiceId,
-  getTradingProviderOptionsByKind,
-  getTradingProviderParamDefinitions,
-  getTradingProvidersByKind,
-} from '@/providers/trading/providers'
 import type { TradingPortfolioPerformanceWindow } from '@/providers/trading/types'
+import {
+  getSeriesMarketProviderOptions,
+  resolveSeriesMarketProviderId,
+} from '@/widgets/widgets/data_chart/options'
+import {
+  getTradingWidgetEnvironmentOptions,
+  getTradingWidgetProviderAvailabilityIds,
+  getTradingWidgetProviderOptions,
+  resolveTradingWidgetCredentialProvider,
+  resolveTradingWidgetProviderId,
+} from '@/widgets/utils/trading-widget-providers'
 import type { PortfolioSnapshotWidgetParams } from '@/widgets/widgets/portfolio_snapshot/types'
 
-const DEFAULT_PORTFOLIO_SNAPSHOT_PROVIDER_OPTIONS = getTradingProviderOptionsByKind('holdings')
+const DEFAULT_PORTFOLIO_SNAPSHOT_PROVIDER_OPTIONS = getTradingWidgetProviderOptions('holdings')
 
 export const getPortfolioSnapshotProviderAvailabilityIds = () =>
-  getTradingProvidersByKind('holdings')
-    .map((provider) => getTradingProviderOAuthServiceId(provider.id))
-    .filter((providerId): providerId is string => Boolean(providerId))
+  getTradingWidgetProviderAvailabilityIds('holdings')
 
 export const getPortfolioSnapshotProviderOptions = (
   providerAvailability?: Record<string, boolean>
-) =>
-  providerAvailability
-    ? getAvailableTradingProviderOptions(providerAvailability, 'holdings')
-    : DEFAULT_PORTFOLIO_SNAPSHOT_PROVIDER_OPTIONS
+) => getTradingWidgetProviderOptions('holdings', providerAvailability)
 
 export const resolvePortfolioSnapshotProviderId = (
   params: PortfolioSnapshotWidgetParams | null | undefined,
   providerOptions: Array<{ id: string; name: string }> = DEFAULT_PORTFOLIO_SNAPSHOT_PROVIDER_OPTIONS
 ) => {
-  const provider = typeof params?.provider === 'string' ? params.provider.trim() : ''
-  const validOptions = new Set(providerOptions.map((option) => option.id))
-
-  if (provider && validOptions.has(provider)) {
-    return provider
-  }
-
-  return ''
+  return resolveTradingWidgetProviderId(params?.provider, providerOptions)
 }
 
 export const getPortfolioSnapshotEnvironmentOptions = (providerId: string) => {
-  return (
-    getTradingProviderParamDefinitions(providerId, 'holdings')
-      .find((definition) => definition.id === 'environment')
-      ?.options?.filter((option) => option.id === 'paper' || option.id === 'live') ?? []
-  )
+  return getTradingWidgetEnvironmentOptions(providerId, 'holdings')
 }
 
 export const getPortfolioSnapshotDefaultEnvironment = (providerId: string) =>
@@ -62,6 +49,21 @@ export const getPortfolioSnapshotDefaultWindow = (
 }
 
 export const resolvePortfolioSnapshotCredentialProvider = (providerId: string) => {
-  const providerDefinition = getTradingProviderDefinition(providerId)
-  return providerDefinition?.oauth?.serviceId ?? providerDefinition?.oauth?.provider
+  return resolveTradingWidgetCredentialProvider(providerId)
+}
+
+export const getPortfolioSnapshotMarketProviderOptions = () => getSeriesMarketProviderOptions()
+
+export const resolvePortfolioSnapshotMarketProviderId = (
+  params: PortfolioSnapshotWidgetParams | null | undefined,
+  options = getPortfolioSnapshotMarketProviderOptions()
+) => resolveSeriesMarketProviderId(params?.marketProvider, options)
+
+export const shouldPersistPortfolioSnapshotMarketProviderDefault = (
+  params: PortfolioSnapshotWidgetParams | null | undefined,
+  providerId: string
+) => {
+  if (!providerId.trim()) return false
+  const persisted = typeof params?.marketProvider === 'string' ? params.marketProvider.trim() : ''
+  return persisted !== providerId
 }

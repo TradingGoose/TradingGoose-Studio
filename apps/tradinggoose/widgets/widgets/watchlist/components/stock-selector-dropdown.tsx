@@ -4,7 +4,7 @@ import { useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { cn } from '@/lib/utils'
 import { MarketListingRow } from '@/components/listing-selector/listing/row'
-import type { ListingOption } from '@/lib/listing/identity'
+import { getListingIdentityKey, type ListingOption } from '@/lib/listing/identity'
 
 type DropdownPosition = {
   top: number
@@ -39,9 +39,7 @@ export function StockSelectorDropdown({
 
   useEffect(() => {
     if (highlightedIndex < 0 || !dropdownRef.current) return
-    const target = dropdownRef.current.querySelector(
-      `[data-option-index="${highlightedIndex}"]`
-    )
+    const target = dropdownRef.current.querySelector(`[data-option-index="${highlightedIndex}"]`)
     if (target && target instanceof HTMLElement) {
       target.scrollIntoView({ block: 'nearest' })
     }
@@ -77,9 +75,7 @@ export function StockSelectorDropdown({
           onTouchMove={(event) => event.stopPropagation()}
         >
           {isLoading ? (
-            <div className='py-6 text-center text-sm text-muted-foreground'>
-              Searching...
-            </div>
+            <div className='py-6 text-center text-sm text-muted-foreground'>Searching...</div>
           ) : results.length === 0 ? (
             <div className='py-6 text-center text-sm text-muted-foreground'>
               {error || 'No listings found.'}
@@ -89,7 +85,7 @@ export function StockSelectorDropdown({
               const isHighlighted = index === highlightedIndex
               return (
                 <div
-                  key={`${listing.listing_type}|${listing.listing_id}|${listing.base_id}|${listing.quote_id}`}
+                  key={getListingIdentityKey(listing)}
                   data-option-index={index}
                   onMouseEnter={() => onHighlightChange(index)}
                   onMouseDown={(event) => {

@@ -9,6 +9,7 @@ import { PortfolioSnapshotWidgetBody } from '@/widgets/widgets/portfolio_snapsho
 
 const mockUseOAuthCredentials = vi.fn()
 const mockUseOAuthProviderAvailability = vi.fn()
+const mockUseMarketQuoteSnapshots = vi.fn()
 const mockUseTradingAccounts = vi.fn()
 const mockUseTradingPortfolioSnapshot = vi.fn()
 const mockUseTradingPortfolioPerformance = vi.fn()
@@ -20,6 +21,10 @@ vi.mock('@/hooks/queries/oauth-credentials', () => ({
 
 vi.mock('@/hooks/queries/oauth-provider-availability', () => ({
   useOAuthProviderAvailability: (...args: unknown[]) => mockUseOAuthProviderAvailability(...args),
+}))
+
+vi.mock('@/hooks/queries/market-quote-snapshots', () => ({
+  useMarketQuoteSnapshots: (...args: unknown[]) => mockUseMarketQuoteSnapshots(...args),
 }))
 
 vi.mock('@/hooks/queries/trading-portfolio', () => ({
@@ -81,6 +86,18 @@ describe('PortfolioSnapshotWidgetBody', () => {
         data: [{ id: 'acct-1', name: 'Paper', type: 'paper', baseCurrency: 'USD' }],
       })
     )
+    mockUseMarketQuoteSnapshots.mockReturnValue(
+      createQueryResult({
+        data: {
+          'default|AAPL||': {
+            lastPrice: 110,
+            previousClose: 100,
+            change: 10,
+            changePercent: 10,
+          },
+        },
+      })
+    )
     mockUseTradingPortfolioSnapshot.mockReturnValue(
       createQueryResult({
         data: {
@@ -96,7 +113,19 @@ describe('PortfolioSnapshotWidgetBody', () => {
           cashBalances: [],
           positions: [
             {
-              symbol: { base: 'AAPL', quote: 'USD', assetClass: 'stock', active: true, rank: 0 },
+              symbol: {
+                base: 'AAPL',
+                quote: 'USD',
+                assetClass: 'stock',
+                active: true,
+                rank: 0,
+                listing: {
+                  listing_id: 'AAPL',
+                  base_id: '',
+                  quote_id: '',
+                  listing_type: 'default',
+                },
+              },
               quantity: 10,
             },
           ],
@@ -406,6 +435,58 @@ describe('PortfolioSnapshotWidgetBody', () => {
     await act(async () => {
       root.render(
         <PortfolioSnapshotWidgetBody
+          context={{ workspaceId: 'workspace-1' }}
+          widget={{ key: 'portfolio_snapshot' } as any}
+          panelId='panel-1'
+          params={{
+            provider: 'alpaca',
+            credentialId: 'cred-1',
+            environment: 'paper',
+            accountId: 'acct-1',
+            selectedWindow: '1D',
+            marketProvider: 'alpaca',
+            marketAuth: { apiKey: '{{ ALPACA_API_KEY }}' },
+          }}
+        />
+      )
+    })
+
+    expect(container.textContent).toContain('Performance')
+    expect(container.textContent).toContain('Current Summary')
+    expect(container.textContent).toContain('Portfolio Value')
+    expect(container.textContent).toContain('Market Quotes')
+    expect(container.textContent).toContain('Quote Value')
+    expect(container.textContent).toContain('Day Change')
+    expect(container.textContent).toContain('Day %')
+    expect(container.textContent).toContain('Quoted Positions')
+    expect(container.textContent).toContain('Alpaca · paper · active · paper')
+    expect(container.textContent).toContain('performance-chart')
+    expect(mockUseMarketQuoteSnapshots).toHaveBeenCalledWith({
+      workspaceId: 'workspace-1',
+      provider: 'alpaca',
+      items: [
+        {
+          key: 'default|AAPL||',
+          listing: {
+            listing_id: 'AAPL',
+            base_id: '',
+            quote_id: '',
+            listing_type: 'default',
+          },
+        },
+      ],
+      auth: { apiKey: '{{ ALPACA_API_KEY }}' },
+      providerParams: undefined,
+      refreshKey: null,
+      enabled: true,
+    })
+  })
+
+  it('persists the market provider fallback from the body when params are available', async () => {
+    await act(async () => {
+      root.render(
+        <PortfolioSnapshotWidgetBody
+          context={{ workspaceId: 'workspace-1' }}
           widget={{ key: 'portfolio_snapshot' } as any}
           panelId='panel-1'
           params={{
@@ -419,11 +500,123 @@ describe('PortfolioSnapshotWidgetBody', () => {
       )
     })
 
+    expect(mockEmitPortfolioSnapshotParamsChange).toHaveBeenCalledWith({
+      params: {
+        marketProvider: expect.any(String),
+      },
+      panelId: 'panel-1',
+      widgetKey: 'portfolio_snapshot',
+    })
+  })
+
+  it('uses signed quantity for quote-backed day change', async () => {
+    mockUseTradingPortfolioSnapshot.mockReturnValue(
+      createQueryResult({
+        data: {
+          asOf: '2026-04-22T15:30:00.000Z',
+          provider: { name: 'Alpaca', environment: 'paper' },
+          account: {
+            id: 'acct-1',
+            name: 'Paper',
+            type: 'paper',
+            baseCurrency: 'USD',
+            status: 'active',
+          },
+          cashBalances: [],
+          positions: [
+            {
+              symbol: {
+                base: 'TSLA',
+                quote: 'USD',
+                assetClass: 'stock',
+                active: true,
+                rank: 0,
+                listing: {
+                  listing_id: 'TSLA',
+                  base_id: '',
+                  quote_id: '',
+                  listing_type: 'default',
+                },
+              },
+              quantity: -5,
+            },
+          ],
+          orders: [],
+          accountSummary: {
+            totalPortfolioValue: 10000,
+            totalCashValue: 2500,
+            totalHoldingsValue: 7500,
+            buyingPower: 15000,
+            totalUnrealizedPnl: 100,
+          },
+        },
+      })
+    )
+    mockUseMarketQuoteSnapshots.mockReturnValue(
+      createQueryResult({
+        data: {
+          'default|TSLA||': {
+            lastPrice: 110,
+            previousClose: 100,
+            change: 10,
+            changePercent: 10,
+          },
+        },
+      })
+    )
+
+    await act(async () => {
+      root.render(
+        <PortfolioSnapshotWidgetBody
+          context={{ workspaceId: 'workspace-1' }}
+          widget={{ key: 'portfolio_snapshot' } as any}
+          panelId='panel-1'
+          params={{
+            provider: 'alpaca',
+            credentialId: 'cred-1',
+            environment: 'paper',
+            accountId: 'acct-1',
+            selectedWindow: '1D',
+            marketProvider: 'alpaca',
+          }}
+        />
+      )
+    })
+
+    expect(container.textContent).toContain('$550.00')
+    expect(container.textContent).toContain('-$50.00')
+    expect(container.textContent).toContain('-8.33%')
+  })
+
+  it('keeps broker snapshot visible when market quotes fail', async () => {
+    mockUseMarketQuoteSnapshots.mockReturnValue(
+      createQueryResult({
+        error: new Error('quotes failed'),
+      })
+    )
+
+    await act(async () => {
+      root.render(
+        <PortfolioSnapshotWidgetBody
+          context={{ workspaceId: 'workspace-1' }}
+          widget={{ key: 'portfolio_snapshot' } as any}
+          panelId='panel-1'
+          params={{
+            provider: 'alpaca',
+            credentialId: 'cred-1',
+            environment: 'paper',
+            accountId: 'acct-1',
+            selectedWindow: '1D',
+            marketProvider: 'alpaca',
+          }}
+        />
+      )
+    })
+
     expect(container.textContent).toContain('Performance')
     expect(container.textContent).toContain('Current Summary')
-    expect(container.textContent).toContain('Portfolio Value')
-    expect(container.textContent).toContain('Alpaca · paper · active · paper')
-    expect(container.textContent).toContain('performance-chart')
+    expect(container.textContent).toContain('quotes failed')
+    expect(container.textContent).toContain('Quote Value')
   })
 
   it('renders the explicit performance unavailable state', async () => {

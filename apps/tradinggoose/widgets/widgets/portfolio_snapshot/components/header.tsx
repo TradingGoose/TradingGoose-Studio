@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Check, KeyRound, RefreshCw } from 'lucide-react'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
@@ -10,6 +10,8 @@ import { useTradingAccounts } from '@/hooks/queries/trading-portfolio'
 import { getTradingProviderDefinition } from '@/providers/trading/providers'
 import type { DashboardWidgetDefinition } from '@/widgets/types'
 import { emitPortfolioSnapshotParamsChange } from '@/widgets/utils/portfolio-snapshot-params'
+import { MarketProviderSelector } from '@/widgets/widgets/components/market-provider-selector'
+import { MarketProviderSettingsButton } from '@/widgets/widgets/components/market-provider-settings-button'
 import { TradingAccountSelector } from '@/widgets/widgets/components/trading-account-selector'
 import { TradingProviderSelector } from '@/widgets/widgets/components/trading-provider-selector'
 import {
@@ -20,20 +22,24 @@ import { OAuthRequiredModal } from '@/widgets/widgets/editor_workflow/components
 import {
   getPortfolioSnapshotDefaultEnvironment,
   getPortfolioSnapshotEnvironmentOptions,
+  getPortfolioSnapshotMarketProviderOptions,
   getPortfolioSnapshotProviderAvailabilityIds,
   getPortfolioSnapshotProviderOptions,
   resolvePortfolioSnapshotCredentialProvider,
+  resolvePortfolioSnapshotMarketProviderId,
   resolvePortfolioSnapshotProviderId,
+  shouldPersistPortfolioSnapshotMarketProviderDefault,
 } from '@/widgets/widgets/portfolio_snapshot/components/shared'
 import type { PortfolioSnapshotWidgetParams } from '@/widgets/widgets/portfolio_snapshot/types'
 
 type HeaderControlProps = {
+  workspaceId?: string
   panelId?: string
   widgetKey: string
   params: PortfolioSnapshotWidgetParams | null
 }
 
-function PortfolioSnapshotProviderSettingsButton({
+export function PortfolioSnapshotProviderSettingsButton({
   panelId,
   widgetKey,
   providerId,
@@ -43,6 +49,7 @@ function PortfolioSnapshotProviderSettingsButton({
   credentials,
   isCredentialsLoading,
   onRefreshCredentials,
+  toolName = 'Portfolio Snapshot',
 }: {
   panelId?: string
   widgetKey: string
@@ -53,6 +60,7 @@ function PortfolioSnapshotProviderSettingsButton({
   credentials: Array<{ id: string; name: string }>
   isCredentialsLoading: boolean
   onRefreshCredentials: () => Promise<unknown>
+  toolName?: string
 }) {
   const [open, setOpen] = useState(false)
   const [showOAuthModal, setShowOAuthModal] = useState(false)
@@ -208,7 +216,7 @@ function PortfolioSnapshotProviderSettingsButton({
             void onRefreshCredentials()
           }}
           provider={oauthProvider}
-          toolName='Portfolio Snapshot'
+          toolName={toolName}
           requiredScopes={providerDefinition?.oauth?.scopes}
           serviceId={providerDefinition?.oauth?.serviceId}
         />
@@ -218,6 +226,7 @@ function PortfolioSnapshotProviderSettingsButton({
 }
 
 export function PortfolioSnapshotHeaderControls({
+  workspaceId,
   panelId,
   widgetKey,
   params,
@@ -229,7 +238,9 @@ export function PortfolioSnapshotHeaderControls({
     () => getPortfolioSnapshotProviderOptions(providerAvailabilityQuery.data),
     [providerAvailabilityQuery.data]
   )
+  const marketProviderOptions = useMemo(() => getPortfolioSnapshotMarketProviderOptions(), [])
   const providerId = resolvePortfolioSnapshotProviderId(params, providerOptions)
+  const marketProviderId = resolvePortfolioSnapshotMarketProviderId(params, marketProviderOptions)
   const hasSelectedProvider = Boolean(providerId)
   const hasValidPersistedProvider = Boolean(params?.provider) && params?.provider === providerId
   const areProviderOptionsReady =
@@ -273,12 +284,57 @@ export function PortfolioSnapshotHeaderControls({
         ? getPortfolioSnapshotDefaultEnvironment(providerId)
         : undefined
 
+  useEffect(() => {
+    if (!shouldPersistPortfolioSnapshotMarketProviderDefault(params, marketProviderId)) return
+    emitPortfolioSnapshotParamsChange({
+      params: { marketProvider: marketProviderId },
+      panelId,
+      widgetKey,
+    })
+  }, [marketProviderId, panelId, params, widgetKey])
+
   if (!areProviderOptionsReady) {
     return <div className={widgetHeaderButtonGroupClassName()} />
   }
 
   return (
     <div className={widgetHeaderButtonGroupClassName()}>
+      <MarketProviderSettingsButton
+        providerId={marketProviderId}
+        providerParams={params?.marketProviderParams}
+        authParams={params?.marketAuth}
+        workspaceId={workspaceId}
+        onSave={({ providerParams, auth }) => {
+          emitPortfolioSnapshotParamsChange({
+            params: {
+              marketProviderParams: providerParams,
+              marketAuth: auth,
+              runtime: { refreshAt: Date.now() },
+            },
+            panelId,
+            widgetKey,
+          })
+        }}
+      />
+
+      <MarketProviderSelector
+        value={marketProviderId}
+        options={marketProviderOptions}
+        onChange={(nextProvider) => {
+          if (!nextProvider || nextProvider === marketProviderId) return
+          emitPortfolioSnapshotParamsChange({
+            params: {
+              marketProvider: nextProvider,
+              marketProviderParams: null,
+              marketAuth: null,
+              runtime: { refreshAt: Date.now() },
+            },
+            panelId,
+            widgetKey,
+          })
+        }}
+      />
+
       <PortfolioSnapshotProviderSettingsButton
         panelId={panelId}
         widgetKey={widgetKey}
@@ -432,11 +488,13 @@ function PortfolioSnapshotHeaderCenterControls({ panelId, widgetKey, params }: H
 }
 
 export const renderPortfolioSnapshotHeader: DashboardWidgetDefinition['renderHeader'] = ({
+  context,
   panelId,
   widget,
 }) => ({
   left: (
     <PortfolioSnapshotHeaderControls
+      workspaceId={context?.workspaceId}
       panelId={panelId}
       widgetKey={widget?.key ?? 'portfolio_snapshot'}
       params={(widget?.params as PortfolioSnapshotWidgetParams | null | undefined) ?? null}

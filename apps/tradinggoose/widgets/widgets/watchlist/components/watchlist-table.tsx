@@ -45,13 +45,13 @@ import {
   type ListingOption,
   toListingValue,
 } from '@/lib/listing/identity'
+import type { MarketQuoteSnapshot } from '@/lib/market/quote-snapshots'
 import { cn } from '@/lib/utils'
 import type {
   WatchlistListingItem,
   WatchlistRecord,
   WatchlistSectionItem,
 } from '@/lib/watchlists/types'
-import type { WatchlistQuoteSnapshot } from '@/hooks/queries/watchlist-quotes'
 import { useListingSelectorStore } from '@/stores/market/selector/store'
 import { StockSelector } from '@/widgets/widgets/watchlist/components/stock-selector'
 import {
@@ -69,7 +69,7 @@ import {
 
 type WatchlistTableProps = {
   watchlist: WatchlistRecord | null
-  quotes: Record<string, WatchlistQuoteSnapshot>
+  quotes: Record<string, MarketQuoteSnapshot>
   providerId?: string
   onUpdateItemListing: (itemId: string, listing: ListingIdentity) => Promise<boolean> | boolean
   onReorderItems: (orderedItemIds: string[]) => Promise<void>

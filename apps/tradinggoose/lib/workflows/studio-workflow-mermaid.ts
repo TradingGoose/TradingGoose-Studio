@@ -1,8 +1,14 @@
 import type { Edge } from '@xyflow/react'
 import type { WorkflowSnapshot } from '@/lib/yjs/workflow-session'
+import { stableStringifyJsonValue } from '@/lib/json/stable'
 import { TG_MERMAID_DOCUMENT_FORMAT } from '@/lib/workflows/document-format'
 import { inferMermaidDirectionFromWorkflowState } from '@/lib/workflows/workflow-direction'
-import type { BlockState, Loop, Parallel, WorkflowDirection } from '@/stores/workflows/workflow/types'
+import type {
+  BlockState,
+  Loop,
+  Parallel,
+  WorkflowDirection,
+} from '@/stores/workflows/workflow/types'
 
 export { TG_MERMAID_DOCUMENT_FORMAT } from '@/lib/workflows/document-format'
 
@@ -63,25 +69,8 @@ const TG_LOOP_PREFIX = `${COMMENT_PREFIX}TG_LOOP `
 const TG_PARALLEL_PREFIX = `${COMMENT_PREFIX}TG_PARALLEL `
 const CONDITION_INPUT_KEY = 'conditions'
 
-function sortJsonValue(value: unknown): unknown {
-  if (Array.isArray(value)) {
-    return value.map(sortJsonValue)
-  }
-
-  if (value && typeof value === 'object') {
-    return Object.keys(value as Record<string, unknown>)
-      .sort()
-      .reduce<Record<string, unknown>>((sorted, key) => {
-        sorted[key] = sortJsonValue((value as Record<string, unknown>)[key])
-        return sorted
-      }, {})
-  }
-
-  return value
-}
-
 function toDocumentJson(value: unknown): string {
-  return JSON.stringify(sortJsonValue(value))
+  return stableStringifyJsonValue(value)
 }
 
 function toCommentLine(prefix: string, value: unknown): string {
@@ -93,7 +82,10 @@ function escapeMermaidLabel(value: string): string {
 }
 
 function unescapeMermaidLabel(value: string): string {
-  return value.replace(/<br\/>/g, '\n').replace(/\\"/g, '"').replace(/\\\\/g, '\\')
+  return value
+    .replace(/<br\/>/g, '\n')
+    .replace(/\\"/g, '"')
+    .replace(/\\\\/g, '\\')
 }
 
 function buildAliasMap(blockIds: string[]): Map<string, string> {
@@ -108,9 +100,7 @@ function resolveBlockIdFromVisibleNodeId(
   return aliasToBlockId.get(nodeId) ?? (knownBlockIds.has(nodeId) ? nodeId : undefined)
 }
 
-function parseRectNodeLine(
-  line: string
-): { nodeId: string; label: string } | null {
+function parseRectNodeLine(line: string): { nodeId: string; label: string } | null {
   const rectMatch = line.match(/^([A-Za-z0-9_]+)(?:\(\["(.*)"\]\)|\["(.*)"\])$/)
   const label = rectMatch?.[2] ?? rectMatch?.[3]
 
@@ -150,9 +140,7 @@ function parseConditionEntries(value: unknown): ConditionEntry[] {
     const trimmed = rawKey.trim()
     if (trimmed === 'else if') {
       nextElseIfIndexRef.current += 1
-      return nextElseIfIndexRef.current === 1
-        ? 'else-if'
-        : `else-if-${nextElseIfIndexRef.current}`
+      return nextElseIfIndexRef.current === 1 ? 'else-if' : `else-if-${nextElseIfIndexRef.current}`
     }
     return trimmed
   }
@@ -304,7 +292,9 @@ function buildBlockLabelLines(blockId: string, block: BlockState): string[] {
       ? parseConditionEntries(block.subBlocks?.[CONDITION_INPUT_KEY]?.value)
       : []
 
-  const subBlockKeys = Object.keys(block.subBlocks || {}).sort((left, right) => left.localeCompare(right))
+  const subBlockKeys = Object.keys(block.subBlocks || {}).sort((left, right) =>
+    left.localeCompare(right)
+  )
   for (const subBlockKey of subBlockKeys) {
     if (subBlockKey === CONDITION_INPUT_KEY && conditionEntries.length > 0) {
       continue
@@ -319,7 +309,10 @@ function buildBlockLabelLines(blockId: string, block: BlockState): string[] {
   }
 
   const dataEntries = Object.entries(block.data || {})
-    .filter(([key, value]) => value !== undefined && !['parentId', 'extent', 'width', 'height', 'type'].includes(key))
+    .filter(
+      ([key, value]) =>
+        value !== undefined && !['parentId', 'extent', 'width', 'height', 'type'].includes(key)
+    )
     .sort(([left], [right]) => left.localeCompare(right))
   for (const [key, value] of dataEntries) {
     lines.push(`data.${key}: ${serializeLabelValue(value)}`)
@@ -340,7 +333,11 @@ function renderDiamondNode(nodeId: string, labelLines: string[], indent: string)
   return `${indent}${nodeId}{"${escapeMermaidLabel(labelLines.join('\n'))}"}`
 }
 
-function createContainerNodeId(alias: string, type: 'loop' | 'parallel', kind: 'start' | 'end'): string {
+function createContainerNodeId(
+  alias: string,
+  type: 'loop' | 'parallel',
+  kind: 'start' | 'end'
+): string {
   return `${alias}__${type}_${kind}`
 }
 
@@ -403,11 +400,7 @@ function emitBlockGraphLines(params: {
     for (const entry of conditionEntries) {
       const branchNodeId = createConditionBranchNodeId(alias, entry.key)
       lines.push(
-        renderRectNode(
-          branchNodeId,
-          buildConditionBranchLabelLines(blockId, entry),
-          `${indent}  `
-        )
+        renderRectNode(branchNodeId, buildConditionBranchLabelLines(blockId, entry), `${indent}  `)
       )
       lines.push(`${indent}  ${alias} --> ${branchNodeId}`)
     }
@@ -449,7 +442,10 @@ function emitBlockGraphLines(params: {
   lines.push(`${indent}end`)
 }
 
-function extractConditionDisplayKey(blockId: string, sourceHandle: string | null | undefined): string | null {
+function extractConditionDisplayKey(
+  blockId: string,
+  sourceHandle: string | null | undefined
+): string | null {
   if (!sourceHandle || !sourceHandle.startsWith('condition-')) {
     return null
   }
@@ -1063,10 +1059,7 @@ function isContainerBlockType(blockType: string | undefined): blockType is 'loop
   return blockType === 'loop' || blockType === 'parallel'
 }
 
-function getContainerAncestorChain(
-  blockId: string,
-  blocks: Record<string, BlockState>
-): string[] {
+function getContainerAncestorChain(blockId: string, blocks: Record<string, BlockState>): string[] {
   const chain: string[] = []
   const visited = new Set<string>()
   let currentParentId = blocks[blockId]?.data?.parentId
@@ -1141,7 +1134,10 @@ function getEdgeSourceContext(
 ): string[] {
   const context = getContainerAncestorChain(edge.source, blocks)
 
-  if (isContainerStartSourceHandle(edge.sourceHandle) && isContainerBlockType(blocks[edge.source]?.type)) {
+  if (
+    isContainerStartSourceHandle(edge.sourceHandle) &&
+    isContainerBlockType(blocks[edge.source]?.type)
+  ) {
     context.push(edge.source)
   }
 
@@ -1154,7 +1150,10 @@ function getEdgeTargetContext(
 ): string[] {
   const context = getContainerAncestorChain(edge.target, blocks)
 
-  if (isContainerEndTargetHandle(edge.targetHandle) && isContainerBlockType(blocks[edge.target]?.type)) {
+  if (
+    isContainerEndTargetHandle(edge.targetHandle) &&
+    isContainerBlockType(blocks[edge.target]?.type)
+  ) {
     context.push(edge.target)
   }
 
@@ -1167,8 +1166,12 @@ function toNormalizedEdge(
   return {
     source: edge.source,
     target: edge.target,
-    ...(edge.sourceHandle && edge.sourceHandle !== 'source' ? { sourceHandle: edge.sourceHandle } : {}),
-    ...(edge.targetHandle && edge.targetHandle !== 'target' ? { targetHandle: edge.targetHandle } : {}),
+    ...(edge.sourceHandle && edge.sourceHandle !== 'source'
+      ? { sourceHandle: edge.sourceHandle }
+      : {}),
+    ...(edge.targetHandle && edge.targetHandle !== 'target'
+      ? { targetHandle: edge.targetHandle }
+      : {}),
   }
 }
 
@@ -1374,7 +1377,9 @@ function assertVisibleEdgesMatchCanonical(
     detailParts.push(`missing TG_EDGE entries for ${missingCanonical.slice(0, 3).join(', ')}`)
   }
   if (missingVisible.length > 0) {
-    detailParts.push(`missing visible connection lines for ${missingVisible.slice(0, 3).join(', ')}`)
+    detailParts.push(
+      `missing visible connection lines for ${missingVisible.slice(0, 3).join(', ')}`
+    )
     const expectedVisibleLines = missingVisible
       .map((key) => canonicalEdgeByKey.get(key))
       .filter((edge): edge is Edge => !!edge)
@@ -1407,7 +1412,8 @@ function mergeOverlayIntoBlock(
     nextSubBlocks[subBlockId] = {
       id: subBlockId,
       type:
-        existingSubBlock?.type ?? (subBlockId === CONDITION_INPUT_KEY ? 'condition-input' : 'short-input'),
+        existingSubBlock?.type ??
+        (subBlockId === CONDITION_INPUT_KEY ? 'condition-input' : 'short-input'),
       value: value as any,
     }
   }
@@ -1451,7 +1457,9 @@ function mergeConditionEntriesIntoBlock(
   existingBlock: BlockState,
   entries: ConditionEntry[]
 ): BlockState {
-  const existingEntries = parseConditionEntries(existingBlock.subBlocks?.[CONDITION_INPUT_KEY]?.value)
+  const existingEntries = parseConditionEntries(
+    existingBlock.subBlocks?.[CONDITION_INPUT_KEY]?.value
+  )
   const existingSignature = toDocumentJson(existingEntries)
   const nextSignature = toDocumentJson(parseConditionEntries(entries))
 
@@ -1500,16 +1508,22 @@ function assertBlockState(value: unknown): asserts value is BlockState {
     typeof candidate.position.x !== 'number' ||
     typeof candidate.position.y !== 'number'
   ) {
-    throw new Error(
-      'Invalid TG_BLOCK payload: expected position with numeric x and y values.'
-    )
+    throw new Error('Invalid TG_BLOCK payload: expected position with numeric x and y values.')
   }
 
-  if (!candidate.subBlocks || typeof candidate.subBlocks !== 'object' || Array.isArray(candidate.subBlocks)) {
+  if (
+    !candidate.subBlocks ||
+    typeof candidate.subBlocks !== 'object' ||
+    Array.isArray(candidate.subBlocks)
+  ) {
     throw new Error('Invalid TG_BLOCK payload: expected subBlocks object.')
   }
 
-  if (!candidate.outputs || typeof candidate.outputs !== 'object' || Array.isArray(candidate.outputs)) {
+  if (
+    !candidate.outputs ||
+    typeof candidate.outputs !== 'object' ||
+    Array.isArray(candidate.outputs)
+  ) {
     throw new Error('Invalid TG_BLOCK payload: expected outputs object.')
   }
 
@@ -1598,7 +1612,9 @@ export function serializeWorkflowToTgMermaid(
     lines.push(toCommentLine(TG_EDGE_PREFIX, edge))
   }
 
-  const loopIds = Object.keys(workflowState.loops ?? {}).sort((left, right) => left.localeCompare(right))
+  const loopIds = Object.keys(workflowState.loops ?? {}).sort((left, right) =>
+    left.localeCompare(right)
+  )
   for (const loopId of loopIds) {
     lines.push(toCommentLine(TG_LOOP_PREFIX, workflowState.loops[loopId]))
   }
@@ -1697,7 +1713,10 @@ export function parseTgMermaidToWorkflow(
     visibleGraph.visibleBlockIds,
     visibleGraph.inferredParentIds
   )
-  const normalizedVisibleEdges = normalizeLogicalWorkflowEdges(visibleGraph.edges, blocksWithVisibleParenting)
+  const normalizedVisibleEdges = normalizeLogicalWorkflowEdges(
+    visibleGraph.edges,
+    blocksWithVisibleParenting
+  )
   const normalizedCanonicalEdges = normalizeLogicalWorkflowEdges(edges, blocksWithVisibleParenting)
   const syncedContainers = syncContainerNodeMembership(blocksWithVisibleParenting, loops, parallels)
 
@@ -1741,8 +1760,7 @@ export function buildWorkflowDocumentPreviewDiff(
   const updated = [...nextBlockIds]
     .filter((blockId) => currentBlockIds.has(blockId))
     .filter(
-      (blockId) =>
-        toDocumentJson(currentBlocks[blockId]) !== toDocumentJson(nextBlocks[blockId])
+      (blockId) => toDocumentJson(currentBlocks[blockId]) !== toDocumentJson(nextBlocks[blockId])
     )
     .sort()
 

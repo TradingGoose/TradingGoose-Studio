@@ -98,6 +98,12 @@ describe('Alpaca portfolio helpers', () => {
     })
     expect(snapshot.cashBalances[0]?.amount).toBe(2500)
     expect(snapshot.positions).toHaveLength(1)
+    expect(snapshot.positions[0]?.symbol.listing).toEqual({
+      listing_id: 'AAPL',
+      base_id: '',
+      quote_id: '',
+      listing_type: 'default',
+    })
     expect(snapshot.extra).toBeUndefined()
   })
 
@@ -156,6 +162,12 @@ describe('Alpaca portfolio helpers', () => {
       equity: 9000,
     })
     expect(snapshot.positions[0]?.quantity).toBe(-25)
+    expect(snapshot.positions[0]?.symbol.listing).toEqual({
+      listing_id: 'GME',
+      base_id: '',
+      quote_id: '',
+      listing_type: 'default',
+    })
   })
 
   it('maps query windows and normalizes performance series', async () => {

@@ -21,23 +21,24 @@ vi.mock('@/widgets/widgets/watchlist/components/watchlist-refresh-data-button', 
   WatchlistRefreshDataButton: () => <div>refresh-button</div>,
 }))
 
-vi.mock('@/widgets/widgets/watchlist/components/provider-controls', () => ({
-  resolveWatchlistProviderCredentialDefinitions: (providerId?: string) =>
-    providerId === 'alpaca' ? [{ id: 'apiKey' }, { id: 'apiSecret' }] : [],
-  WatchlistProviderSettingsButton: (props: {
-    definitions: Array<{ id: string }>
+vi.mock('@/widgets/widgets/components/market-provider-settings-button', () => ({
+  MarketProviderSettingsButton: (props: {
+    providerId?: string
     onSave: (next: {
       auth?: Record<string, unknown>
       providerParams?: Record<string, unknown>
     }) => void
   }) => {
-    if (props.definitions.length === 0) return null
+    if (props.providerId !== 'alpaca') return null
 
     return (
       <button
         type='button'
         onClick={() =>
-          props.onSave({ auth: { apiKey: 'secret' }, providerParams: { feed: 'iex' } })
+          props.onSave({
+            auth: { apiKey: '{{ ALPACA_API_KEY }}' },
+            providerParams: { feed: 'iex' },
+          })
         }
       >
         provider-settings
@@ -139,7 +140,7 @@ describe('WatchlistHeaderLeftControls', () => {
     expect(mockEmitWatchlistParamsChange).toHaveBeenCalledWith({
       params: {
         providerParams: { feed: 'iex' },
-        auth: { apiKey: 'secret' },
+        auth: { apiKey: '{{ ALPACA_API_KEY }}' },
         runtime: {
           refreshAt: expect.any(Number),
         },

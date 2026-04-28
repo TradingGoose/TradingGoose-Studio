@@ -18,6 +18,7 @@ import { listSkillWidget } from '@/widgets/widgets/list_skill'
 import { workflowListWidget } from '@/widgets/widgets/list_workflow'
 import { portfolioSnapshotWidget } from '@/widgets/widgets/portfolio_snapshot'
 import { quickOrderWidget } from '@/widgets/widgets/quick_order'
+import { heatmapWidget } from '@/widgets/widgets/heatmap'
 import { watchlistWidget } from '@/widgets/widgets/watchlist'
 import { chatWidget } from '@/widgets/widgets/workflow_chat'
 import { workflowConsoleWidget } from '@/widgets/widgets/workflow_console'
@@ -27,6 +28,10 @@ const widgetCategoryConfig: WidgetCategoryDefinition[] = [
   {
     key: 'list',
     title: 'Lists',
+  },
+  {
+    key: 'trading',
+    title: 'Trading',
   },
   {
     key: 'editor',
@@ -58,6 +63,7 @@ const widgetRegistry: Record<string, DashboardWidgetDefinition> = {
   watchlist: watchlistWidget,
   portfolio_snapshot: portfolioSnapshotWidget,
   quick_order: quickOrderWidget,
+  heatmap: heatmapWidget,
 }
 
 export const getWidgetDefinition = (key: string): DashboardWidgetDefinition | undefined =>

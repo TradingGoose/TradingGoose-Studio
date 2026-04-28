@@ -3,7 +3,8 @@
 import { type MutableRefObject, useEffect, useMemo, useRef, useState } from 'react'
 import type { IChartApi, ISeriesApi } from 'lightweight-charts'
 import type { Socket } from 'socket.io-client'
-import type { ListingIdentity } from '@/lib/listing/identity'
+import { stableStringifyJsonValue } from '@/lib/json/stable'
+import { getListingIdentityKey, type ListingIdentity } from '@/lib/listing/identity'
 import { getMarketSeriesCapabilities } from '@/providers/market/providers'
 import type {
   MarketInterval,
@@ -142,7 +143,7 @@ export const useChartDataLoader = ({
   )
   const listingSignature = useMemo(() => {
     if (!listing) return null
-    return `${listing.listing_type}|${listing.listing_id}|${listing.base_id}|${listing.quote_id}`
+    return getListingIdentityKey(listing)
   }, [listing])
   const rangeKey = seriesWindow.windowKey ?? 'none'
   const rescaleKey = useMemo(
@@ -456,9 +457,7 @@ export const useChartDataLoader = ({
       }
     }
 
-    const listingLoadKey = listing
-      ? `${listing.listing_type}|${listing.listing_id}|${listing.base_id}|${listing.quote_id}`
-      : 'none'
+    const listingLoadKey = listing ? getListingIdentityKey(listing) : 'none'
     const seriesLoadKey = [
       workspaceId ?? 'none',
       providerId ?? 'none',
@@ -466,8 +465,8 @@ export const useChartDataLoader = ({
       requestInterval ?? 'none',
       normalizationMode ?? 'none',
       seriesWindow.windowKey ?? 'none',
-      JSON.stringify(providerParams ?? null),
-      JSON.stringify(authParams ?? null),
+      stableStringifyJsonValue(providerParams ?? null),
+      stableStringifyJsonValue(authParams ?? null),
       refreshAt ?? 'none',
     ].join('|')
     const previousSeriesLoadKey = lastSeriesLoadKeyRef.current

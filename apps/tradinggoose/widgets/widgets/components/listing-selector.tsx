@@ -9,7 +9,12 @@ import { formatDisplayText } from '@/components/ui/formatted-text'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { useAccessibleReferencePrefixes } from '@/hooks/workflow/use-accessible-reference-prefixes'
 import type { ListingIdentity, ListingOption } from '@/lib/listing/identity'
-import { areListingIdentitiesEqual, toListingValue, toListingValueObject } from '@/lib/listing/identity'
+import {
+  areListingIdentitiesEqual,
+  getListingIdentityKey,
+  toListingValue,
+  toListingValueObject,
+} from '@/lib/listing/identity'
 import { requestListingResolution } from '@/components/listing-selector/selector/resolve-request'
 import {
   createEmptyListingSelectorInstance,
@@ -33,9 +38,6 @@ interface ListingSelectorProps {
   onListingValueChange?: (value: string | null) => void
   onListingTagSelect?: (value: string) => void
 }
-
-const getListingIdentityKey = (listing: ListingIdentity) =>
-  `${listing.listing_type}|${listing.listing_id}|${listing.base_id}|${listing.quote_id}`
 
 const getListingOptionKey = (listing: ListingOption) =>
   `${getListingIdentityKey(listing)}|${listing.base ?? ''}|${listing.quote ?? ''}|${listing.name ?? ''}`
@@ -74,9 +76,7 @@ const hasListingDetails = (listing?: ListingOption | null): boolean => {
   return Boolean(quote)
 }
 
-const getFlagData = (
-  countryCode?: string | null
-): { emoji: string; codepoints: string } | null => {
+const getFlagData = (countryCode?: string | null): { emoji: string; codepoints: string } | null => {
   if (!countryCode) return null
   const code = countryCode.trim().toUpperCase()
   if (code.length !== 2) return null
@@ -106,8 +106,7 @@ const ListingSelectorRow = ({
   const companyName = listing ? getListingCompanyName(listing) : null
   const assetClassLabel = listing?.assetClass?.toUpperCase() ?? ''
   const flagData = getFlagData(listing?.countryCode)
-  const prefersFlagImage =
-    typeof navigator !== 'undefined' && /Windows/i.test(navigator.userAgent)
+  const prefersFlagImage = typeof navigator !== 'undefined' && /Windows/i.test(navigator.userAgent)
   const flagImageUrl = flagData
     ? `https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/svg/${flagData.codepoints}.svg`
     : null
@@ -122,8 +121,12 @@ const ListingSelectorRow = ({
       </Avatar>
       {showSecondary && companyName ? (
         <div className='min-w-0 flex-1'>
-          <span className='block min-w-0 truncate text-sm font-medium'>{listing ? symbol : 'Select listing'}</span>
-          <span className='block min-w-0 truncate text-muted-foreground text-xs'>{companyName}</span>
+          <span className='block min-w-0 truncate text-sm font-medium'>
+            {listing ? symbol : 'Select listing'}
+          </span>
+          <span className='block min-w-0 truncate text-muted-foreground text-xs'>
+            {companyName}
+          </span>
         </div>
       ) : (
         <span className='min-w-0 truncate text-sm font-medium'>
@@ -169,14 +172,7 @@ export function ListingSelector({
   }, [ensureInstance, instanceId])
 
   const safeInstance = instance ?? createEmptyListingSelectorInstance()
-  const {
-    query,
-    results,
-    isLoading,
-    error,
-    selectedListing,
-    providerId,
-  } = safeInstance
+  const { query, results, isLoading, error, selectedListing, providerId } = safeInstance
 
   const [open, setOpen] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -288,9 +284,7 @@ export function ListingSelector({
     const lastOpen = value.lastIndexOf('<')
     const lastClose = value.indexOf('>', lastOpen + 1)
     const rawTag =
-      lastOpen >= 0
-        ? value.slice(lastOpen + 1, lastClose >= 0 ? lastClose : value.length)
-        : value
+      lastOpen >= 0 ? value.slice(lastOpen + 1, lastClose >= 0 ? lastClose : value.length) : value
     const trimmedTag = rawTag.trim()
     const normalizedValue = trimmedTag ? `<${trimmedTag}>` : value
     commitVariableValue(normalizedValue, 'tag')
@@ -309,8 +303,7 @@ export function ListingSelector({
   }, [open])
 
   useEffect(() => {
-    const selectedValue =
-      safeInstance.selectedListingValue ?? safeInstance.selectedListing ?? null
+    const selectedValue = safeInstance.selectedListingValue ?? safeInstance.selectedListing ?? null
     if (!selectedValue) {
       hydratedListingRef.current = null
       return
@@ -341,7 +334,7 @@ export function ListingSelector({
           selectedListingValue: identity,
         })
       })
-      .catch(() => { })
+      .catch(() => {})
 
     return () => {
       cancelled = true
@@ -459,9 +452,7 @@ export function ListingSelector({
         <input
           ref={inputRef}
           className={cn(
-            widgetHeaderControlClassName(
-              'w-full justify-center pr-9 text-sm font-medium'
-            ),
+            widgetHeaderControlClassName('w-full justify-center pr-9 text-sm font-medium'),
             hideInputText && 'text-transparent caret-transparent placeholder:text-transparent'
           )}
           name={`listing-search-${instanceId}`}
@@ -632,7 +623,12 @@ export function ListingSelector({
             }
           }}
         >
-          <ChevronDown className={cn('h-4 w-4 opacity-0 transition-transform', open && 'rotate-180 opacity-50')} />
+          <ChevronDown
+            className={cn(
+              'h-4 w-4 opacity-0 transition-transform',
+              open && 'rotate-180 opacity-50'
+            )}
+          />
         </button>
       </div>
 

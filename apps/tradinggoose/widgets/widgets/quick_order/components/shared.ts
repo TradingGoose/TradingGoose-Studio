@@ -2,27 +2,24 @@ import type { ListingInputValue } from '@/lib/listing/identity'
 import { getTradingProvider } from '@/providers/trading'
 import { getStrictTradingOrderTypeDefinitions } from '@/providers/trading/order-types'
 import type { TradingOrderTypeDefinition } from '@/providers/trading/providers'
-import {
-  getAvailableTradingProviderOptions,
-  getTradingProviderDefinition,
-  getTradingProviderOAuthServiceId,
-  getTradingProviderOptionsByKind,
-  getTradingProviderParamDefinitions,
-  getTradingProvidersByKind,
-} from '@/providers/trading/providers'
+import { getTradingProviderParamDefinitions } from '@/providers/trading/providers'
 import type { TradingOrderType, TradingProviderId } from '@/providers/trading/types'
 import { resolveTradingListingAssetClass } from '@/providers/trading/utils'
+import {
+  getTradingWidgetEnvironmentOptions,
+  getTradingWidgetProviderAvailabilityIds,
+  getTradingWidgetProviderOptions,
+  resolveTradingWidgetCredentialProvider,
+  resolveTradingWidgetProviderId,
+} from '@/widgets/utils/trading-widget-providers'
 
 export const QUICK_ORDER_WIDGET_KEY = 'quick_order'
 
 export const getQuickOrderProviderAvailabilityIds = () =>
-  getTradingProvidersByKind('order')
-    .map((provider) => getTradingProviderOAuthServiceId(provider.id))
-    .filter((providerId): providerId is string => Boolean(providerId))
+  getTradingWidgetProviderAvailabilityIds('order')
 
 export const getQuickOrderProviderOptions = (providerAvailability?: Record<string, boolean>) => {
-  if (!providerAvailability) return getTradingProviderOptionsByKind('order')
-  return getAvailableTradingProviderOptions(providerAvailability, 'order')
+  return getTradingWidgetProviderOptions('order', providerAvailability)
 }
 
 export const resolveQuickOrderProviderId = (
@@ -32,19 +29,11 @@ export const resolveQuickOrderProviderId = (
   if (typeof provider !== 'string' || !provider.trim()) return undefined
   const providerId = provider.trim()
   const options = getQuickOrderProviderOptions(providerAvailability)
-  return options.some((option) => option.id === providerId) ? providerId : undefined
+  return resolveTradingWidgetProviderId(providerId, options) || undefined
 }
 
 export const getQuickOrderEnvironmentOptions = (providerId?: string) => {
-  if (!providerId) return []
-  const environmentDefinition = getTradingProviderParamDefinitions(providerId, 'order').find(
-    (definition) => definition.id === 'environment'
-  )
-  return (
-    environmentDefinition?.options
-      ?.map((option) => option.id)
-      .filter((value): value is 'paper' | 'live' => value === 'paper' || value === 'live') ?? []
-  )
+  return getTradingWidgetEnvironmentOptions(providerId, 'order').map((option) => option.id)
 }
 
 export const getQuickOrderDefaultEnvironment = (
@@ -67,9 +56,7 @@ export const resolveQuickOrderEnvironment = (
 }
 
 export const resolveQuickOrderCredentialProvider = (providerId?: string) => {
-  if (!providerId) return undefined
-  const provider = getTradingProviderDefinition(providerId)
-  return provider?.oauth?.serviceId ?? provider?.oauth?.provider
+  return resolveTradingWidgetCredentialProvider(providerId)
 }
 
 export type QuickOrderSizingMode = 'quantity' | 'notional'

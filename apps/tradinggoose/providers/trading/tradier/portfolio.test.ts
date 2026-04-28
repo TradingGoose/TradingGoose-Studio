@@ -99,6 +99,12 @@ describe('Tradier portfolio helpers', () => {
       totalUnrealizedPnl: 250,
     })
     expect(snapshot.positions).toHaveLength(1)
+    expect(snapshot.positions[0]?.symbol.listing).toEqual({
+      listing_id: 'MSFT',
+      base_id: '',
+      quote_id: '',
+      listing_type: 'default',
+    })
     expect(snapshot.extra).toBeUndefined()
   })
 

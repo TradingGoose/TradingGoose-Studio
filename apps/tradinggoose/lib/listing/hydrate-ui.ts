@@ -3,6 +3,7 @@ import {
   type ListingIdentity,
   type ListingInputValue,
   type ListingResolved,
+  getListingIdentityKey,
   toListingValueObject,
 } from '@/lib/listing/identity'
 import { resolveListingIdentity } from '@/lib/listing/resolve'
@@ -16,9 +17,6 @@ import {
 type ListingRecord = Record<string, unknown>
 type ListingHydrationCache = Map<string, ListingResolved | null>
 const SHARED_LISTING_CACHE_TTL_SECONDS = 5 * 60
-
-const buildListingKey = (listing: ListingIdentity) =>
-  `${listing.listing_type}|${listing.listing_id}|${listing.base_id}|${listing.quote_id}`
 
 const readText = (value: unknown): string | null => {
   if (typeof value === 'string') {
@@ -90,7 +88,7 @@ const resolveListingValue = async (
   if (!listingIdentity) return value
   if (hasResolvedFields(record, listingIdentity.listing_type)) return value
 
-  const key = buildListingKey(listingIdentity)
+  const key = getListingIdentityKey(listingIdentity)
   if (!cache.has(key)) {
     const sharedCacheKey = `listing-resolve:${key}`
     const cachedResolved = await readServerJsonCache<ListingResolved | null>(sharedCacheKey)

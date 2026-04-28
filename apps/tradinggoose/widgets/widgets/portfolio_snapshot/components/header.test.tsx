@@ -192,6 +192,18 @@ describe('PortfolioSnapshotHeaderControls', () => {
     })
   }
 
+  it('persists the resolved market provider default from the header', async () => {
+    await renderHeader()
+
+    expect(mockEmitPortfolioSnapshotParamsChange).toHaveBeenCalledWith({
+      params: {
+        marketProvider: expect.any(String),
+      },
+      panelId: 'panel-1',
+      widgetKey: 'portfolio_snapshot',
+    })
+  })
+
   it('resets provider-scoped selections when the provider changes', async () => {
     await renderHeader()
 

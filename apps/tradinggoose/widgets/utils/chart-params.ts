@@ -1,11 +1,15 @@
 import { useEffect, useRef } from 'react'
-import type { WidgetInstance } from '@/widgets/layout'
-import type { ManualOwnerSnapshot } from '@/widgets/widgets/data_chart/drawings/snapshot'
-import { normalizeManualOwnerSnapshot } from '@/widgets/widgets/data_chart/drawings/snapshot'
+import {
+  sanitizeMarketProviderAuthRefs,
+  sanitizeMarketProviderParamsForWidget,
+} from '@/lib/market/market-provider-settings'
 import {
   DATA_CHART_WIDGET_UPDATE_PARAMS_EVENT,
   type DataChartWidgetUpdateEventDetail,
 } from '@/widgets/events'
+import type { WidgetInstance } from '@/widgets/layout'
+import type { ManualOwnerSnapshot } from '@/widgets/widgets/data_chart/drawings/snapshot'
+import { normalizeManualOwnerSnapshot } from '@/widgets/widgets/data_chart/drawings/snapshot'
 
 interface UseDataChartParamsPersistenceOptions {
   onWidgetParamsChange?: (params: Record<string, unknown> | null) => void
@@ -92,7 +96,7 @@ const mergeDrawToolsSnapshots = (
     const id = typeof entry.id === 'string' ? entry.id.trim() : ''
     if (!id) return entry
 
-    const hasExplicitSnapshotField = Object.prototype.hasOwnProperty.call(entry, 'snapshot')
+    const hasExplicitSnapshotField = Object.hasOwn(entry, 'snapshot')
     if (hasExplicitSnapshotField) {
       return entry
     }
@@ -143,7 +147,47 @@ const mergeNestedParams = (
       : { ...incomingRuntime }
   }
 
-  return merged
+  return sanitizeDataChartParams(merged) ?? {}
+}
+
+export const sanitizeDataChartParams = (
+  params: Record<string, unknown> | null | undefined
+): Record<string, unknown> | null => {
+  if (!params || !isRecord(params)) return null
+
+  const nextParams: Record<string, unknown> = { ...params }
+  const data = isRecord(params.data) ? params.data : null
+
+  if (data) {
+    const provider = typeof data.provider === 'string' ? data.provider.trim() : ''
+    const providerParams = sanitizeMarketProviderParamsForWidget(provider, data.providerParams)
+    const auth = sanitizeMarketProviderAuthRefs(data.auth)
+    const nextData = Object.entries(data).reduce<Record<string, unknown>>((acc, [key, value]) => {
+      if (key !== 'provider' && key !== 'providerParams' && key !== 'auth') {
+        acc[key] = value
+      }
+      return acc
+    }, {})
+
+    if (provider) {
+      nextData.provider = provider
+    }
+
+    if (providerParams) {
+      nextData.providerParams = providerParams
+    }
+
+    if (auth) {
+      nextData.auth = auth
+    }
+
+    nextParams.data = Object.keys(nextData).length > 0 ? nextData : undefined
+  }
+
+  return Object.entries(nextParams).reduce<Record<string, unknown>>((acc, [key, value]) => {
+    if (value !== undefined) acc[key] = value
+    return acc
+  }, {})
 }
 
 export function useDataChartParamsPersistence({
@@ -152,13 +196,10 @@ export function useDataChartParamsPersistence({
   widget,
   params,
 }: UseDataChartParamsPersistenceOptions) {
-  const latestParamsRef = useRef<Record<string, unknown> | null>(
-    params && typeof params === 'object' ? (params as Record<string, unknown>) : null
-  )
+  const latestParamsRef = useRef<Record<string, unknown> | null>(sanitizeDataChartParams(params))
 
   useEffect(() => {
-    latestParamsRef.current =
-      params && typeof params === 'object' ? (params as Record<string, unknown>) : null
+    latestParamsRef.current = sanitizeDataChartParams(params)
   }, [params])
 
   useEffect(() => {

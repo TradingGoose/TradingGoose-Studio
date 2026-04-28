@@ -1,4 +1,6 @@
 import { useMutation, useQuery } from '@tanstack/react-query'
+import type { ListingIdentity } from '@/lib/listing/identity'
+import type { TradingHoldingsListingsResponse } from '@/app/api/widgets/trading/holdings-listings/route'
 import type {
   QuickOrderSubmitRequest,
   QuickOrderSubmitResponse,
@@ -38,6 +40,8 @@ const postJson = async <T>(url: string, body: unknown): Promise<T> => {
     accounts?: UnifiedTradingAccount[]
     snapshot?: UnifiedTradingAccountSnapshot
     performance?: UnifiedTradingPortfolioPerformance
+    listings?: ListingIdentity[]
+    invalidPositions?: TradingHoldingsListingsResponse['invalidPositions']
     order?: QuickOrderSubmitResponse['order']
     provider?: string
     environment?: string
@@ -80,6 +84,15 @@ export const tradingPortfolioQueryKeys = {
       request.accountId ?? '',
       request.selectedWindow ?? '',
     ] as const,
+  holdingsListings: (request: TradingSnapshotRequest) =>
+    [
+      'trading-portfolio',
+      'holdings-listings',
+      request.provider ?? '',
+      request.credentialId ?? '',
+      request.environment ?? '',
+      request.accountId ?? '',
+    ] as const,
 }
 
 export function useTradingAccounts(request: TradingAccountsRequest) {
@@ -116,6 +129,32 @@ export function useTradingPortfolioSnapshot(request: TradingSnapshotRequest) {
         }
       )
       return payload.snapshot
+    },
+    enabled: Boolean(
+      request.provider && request.credentialId && request.environment && request.accountId
+    ),
+    staleTime: 30 * 1000,
+    refetchOnWindowFocus: false,
+  })
+}
+
+export function useTradingHoldingsListings(request: TradingSnapshotRequest) {
+  return useQuery<TradingHoldingsListingsResponse>({
+    queryKey: tradingPortfolioQueryKeys.holdingsListings(request),
+    queryFn: async () => {
+      const payload = await postJson<{
+        listings?: ListingIdentity[]
+        invalidPositions?: TradingHoldingsListingsResponse['invalidPositions']
+      }>('/api/widgets/trading/holdings-listings', {
+        provider: request.provider,
+        credentialId: request.credentialId,
+        environment: request.environment,
+        accountId: request.accountId,
+      })
+      return {
+        listings: payload.listings ?? [],
+        invalidPositions: payload.invalidPositions ?? [],
+      }
     },
     enabled: Boolean(
       request.provider && request.credentialId && request.environment && request.accountId

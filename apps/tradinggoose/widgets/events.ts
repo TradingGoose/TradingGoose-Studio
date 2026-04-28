@@ -55,6 +55,7 @@ export const WATCHLIST_WIDGET_UPDATE_PARAMS_EVENT = 'watchlist-widgets:update-pa
 export const PORTFOLIO_SNAPSHOT_WIDGET_UPDATE_PARAMS_EVENT =
   'portfolio-snapshot-widgets:update-params'
 export const QUICK_ORDER_WIDGET_UPDATE_PARAMS_EVENT = 'quick-order-widgets:update-params'
+export const HEATMAP_WIDGET_UPDATE_PARAMS_EVENT = 'heatmap-widgets:update-params'
 
 export type WorkflowWidgetSelectEventDetail = {
   workflowId: string
@@ -81,6 +82,12 @@ export type PortfolioSnapshotWidgetUpdateEventDetail = {
 }
 
 export type QuickOrderWidgetUpdateEventDetail = {
+  params: Record<string, unknown>
+  panelId?: string
+  widgetKey?: string
+}
+
+export type HeatmapWidgetUpdateEventDetail = {
   params: Record<string, unknown>
   panelId?: string
   widgetKey?: string

@@ -1,5 +1,9 @@
 import { useEffect, useRef } from 'react'
 import {
+  sanitizeMarketProviderAuthRefs,
+  sanitizeMarketProviderParamsForWidget,
+} from '@/lib/market/market-provider-settings'
+import {
   PORTFOLIO_SNAPSHOT_WIDGET_UPDATE_PARAMS_EVENT,
   type PortfolioSnapshotWidgetUpdateEventDetail,
 } from '@/widgets/events'
@@ -68,18 +72,27 @@ export const sanitizePortfolioSnapshotParams = (
 
   const nextParams: Record<string, unknown> = {}
   const provider = normalizeString(params.provider)
+  const marketProvider = normalizeString(params.marketProvider)
   const credentialId = normalizeString(params.credentialId)
   const environment = normalizeString(params.environment)
   const accountId = normalizeString(params.accountId)
   const selectedWindow = normalizeString(params.selectedWindow)
 
   if (provider) nextParams.provider = provider
+  if (marketProvider) nextParams.marketProvider = marketProvider
   if (credentialId) nextParams.credentialId = credentialId
   if (environment === 'paper' || environment === 'live') {
     nextParams.environment = environment
   }
   if (accountId) nextParams.accountId = accountId
   if (selectedWindow) nextParams.selectedWindow = selectedWindow
+  const marketProviderParams = sanitizeMarketProviderParamsForWidget(
+    marketProvider,
+    params.marketProviderParams
+  )
+  const marketAuth = sanitizeMarketProviderAuthRefs(params.marketAuth)
+  if (marketProviderParams) nextParams.marketProviderParams = marketProviderParams
+  if (marketAuth) nextParams.marketAuth = marketAuth
   if (refreshAt !== undefined) {
     nextParams.runtime = {
       refreshAt,

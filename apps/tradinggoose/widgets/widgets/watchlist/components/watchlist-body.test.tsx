@@ -12,6 +12,10 @@ import { WatchlistWidgetBody } from '@/widgets/widgets/watchlist/components/watc
 
 const mockWatchlistTable = vi.fn()
 const mockRefetchQuotes = vi.fn()
+const mockUseMarketQuoteSnapshots = vi.fn(() => ({
+  data: {},
+  refetch: mockRefetchQuotes,
+}))
 
 const selectedListing: ListingIdentity = {
   listing_id: 'BTC',
@@ -37,10 +41,11 @@ const watchlist = {
   createdAt: '2026-03-13T00:00:00.000Z',
   updatedAt: '2026-03-13T00:00:00.000Z',
 }
+let currentWatchlists = [watchlist]
 
 vi.mock('@/hooks/queries/watchlists', () => ({
   useWatchlists: () => ({
-    data: [watchlist],
+    data: currentWatchlists,
     isLoading: false,
     isFetching: false,
     error: null,
@@ -67,11 +72,8 @@ vi.mock('@/hooks/queries/watchlists', () => ({
   }),
 }))
 
-vi.mock('@/hooks/queries/watchlist-quotes', () => ({
-  useWatchlistQuotes: () => ({
-    data: {},
-    refetch: mockRefetchQuotes,
-  }),
+vi.mock('@/hooks/queries/market-quote-snapshots', () => ({
+  useMarketQuoteSnapshots: (...args: unknown[]) => mockUseMarketQuoteSnapshots(...args),
 }))
 
 vi.mock('@/widgets/utils/watchlist-params', () => ({
@@ -123,6 +125,7 @@ describe('WatchlistWidgetBody', () => {
     vi.clearAllMocks()
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = true
     resetPairStore()
+    currentWatchlists = [watchlist]
     container = document.createElement('div')
     document.body.appendChild(container)
     root = createRoot(container)
@@ -247,5 +250,80 @@ describe('WatchlistWidgetBody', () => {
         selectedListing: null,
       })
     )
+  })
+
+  it('uses watchlist item ids as shared quote request keys', async () => {
+    await act(async () => {
+      root.render(
+        <WatchlistWidgetBody
+          context={{ workspaceId: 'workspace-1' }}
+          panelId='panel-1'
+          pairColor='gray'
+          widget={{ key: 'watchlist', pairColor: 'gray' } as any}
+          params={{
+            watchlistId: 'watchlist-1',
+            provider: 'alpaca',
+            auth: { apiKey: '{{ ALPACA_API_KEY }}' },
+            providerParams: { feed: 'iex' },
+          }}
+        />
+      )
+    })
+
+    expect(mockUseMarketQuoteSnapshots).toHaveBeenCalledWith({
+      workspaceId: 'workspace-1',
+      provider: 'alpaca',
+      items: [
+        {
+          key: 'listing-1',
+          listing: selectedListing,
+        },
+      ],
+      auth: { apiKey: '{{ ALPACA_API_KEY }}' },
+      providerParams: { feed: 'iex' },
+      refreshKey: null,
+      enabled: true,
+    })
+  })
+
+  it('uses runtime.refreshAt as the shared quote refresh key without refetching quotes directly', async () => {
+    await act(async () => {
+      root.render(
+        <WatchlistWidgetBody
+          context={{ workspaceId: 'workspace-1' }}
+          panelId='panel-1'
+          pairColor='gray'
+          widget={{ key: 'watchlist', pairColor: 'gray' } as any}
+          params={{
+            watchlistId: 'watchlist-1',
+            provider: 'alpaca',
+            runtime: { refreshAt: 100 },
+          }}
+        />
+      )
+    })
+
+    await act(async () => {
+      root.render(
+        <WatchlistWidgetBody
+          context={{ workspaceId: 'workspace-1' }}
+          panelId='panel-1'
+          pairColor='gray'
+          widget={{ key: 'watchlist', pairColor: 'gray' } as any}
+          params={{
+            watchlistId: 'watchlist-1',
+            provider: 'alpaca',
+            runtime: { refreshAt: 200 },
+          }}
+        />
+      )
+    })
+
+    expect(mockUseMarketQuoteSnapshots.mock.calls.at(-1)?.[0]).toEqual(
+      expect.objectContaining({
+        refreshKey: 200,
+      })
+    )
+    expect(mockRefetchQuotes).not.toHaveBeenCalled()
   })
 })

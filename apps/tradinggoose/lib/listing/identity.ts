@@ -75,9 +75,10 @@ export const areListingIdentitiesEqual = (
   )
 }
 
-const normalizeListingIdentity = (
-  record: Record<string, unknown>
-): ListingIdentity | null => {
+export const getListingIdentityKey = (listing: ListingIdentity) =>
+  `${listing.listing_type}|${listing.listing_id}|${listing.base_id}|${listing.quote_id}`
+
+const normalizeListingIdentity = (record: Record<string, unknown>): ListingIdentity | null => {
   const listingType = readListingType(record)
   if (!listingType) return null
 

@@ -32,15 +32,15 @@ import type { DashboardWidgetDefinition } from '@/widgets/types'
 import { emitWatchlistParamsChange } from '@/widgets/utils/watchlist-params'
 import { ListingSelector } from '@/widgets/widgets/components/listing-selector'
 import { MarketProviderSelector } from '@/widgets/widgets/components/market-provider-selector'
+import { MarketProviderSettingsButton } from '@/widgets/widgets/components/market-provider-settings-button'
 import {
   widgetHeaderButtonGroupClassName,
   widgetHeaderIconButtonClassName,
 } from '@/widgets/widgets/components/widget-header-control'
-import { providerOptions } from '@/widgets/widgets/data_chart/options'
 import {
-  resolveWatchlistProviderCredentialDefinitions,
-  WatchlistProviderSettingsButton,
-} from '@/widgets/widgets/watchlist/components/provider-controls'
+  providerOptions,
+  resolveSeriesMarketProviderId,
+} from '@/widgets/widgets/data_chart/options'
 import { WatchlistListActionsButton } from '@/widgets/widgets/watchlist/components/watchlist-list-actions-button'
 import { WatchlistListSelector } from '@/widgets/widgets/watchlist/components/watchlist-list-selector'
 import { WatchlistRefreshDataButton } from '@/widgets/widgets/watchlist/components/watchlist-refresh-data-button'
@@ -57,9 +57,7 @@ type WatchlistHeaderControlsSlotProps = {
 }
 
 const resolveProviderId = (params: WatchlistWidgetParams | null | undefined) => {
-  const fromParams = typeof params?.provider === 'string' ? params.provider.trim() : ''
-  if (fromParams) return fromParams
-  return providerOptions[0]?.id ?? ''
+  return resolveSeriesMarketProviderId(params?.provider, providerOptions)
 }
 
 const toEpochMs = (value?: string | null) => {
@@ -144,10 +142,6 @@ export const WatchlistHeaderLeftControls = ({
   const widgetKey = widget?.key ?? 'watchlist'
   const params = resolveWatchlistParams(widget)
   const providerId = resolveProviderId(params)
-  const credentialDefinitions = useMemo(
-    () => resolveWatchlistProviderCredentialDefinitions(providerId),
-    [providerId]
-  )
 
   const handleProviderChange = (nextProvider: string) => {
     if (!nextProvider || nextProvider === providerId) return
@@ -195,11 +189,10 @@ export const WatchlistHeaderLeftControls = ({
 
   return (
     <div className={widgetHeaderButtonGroupClassName('min-w-0')}>
-      <WatchlistProviderSettingsButton
+      <MarketProviderSettingsButton
         providerId={providerId}
         providerParams={params?.providerParams}
         authParams={params?.auth}
-        definitions={credentialDefinitions}
         workspaceId={workspaceId}
         onSave={handleSaveProviderSettings}
       />

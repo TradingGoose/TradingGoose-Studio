@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useRef } from 'react'
 import { LoadingAgent } from '@/components/ui/loading-agent'
+import { getListingIdentityKey, type ListingIdentity } from '@/lib/listing/identity'
+import { useMarketQuoteSnapshots } from '@/hooks/queries/market-quote-snapshots'
 import { useOAuthCredentials } from '@/hooks/queries/oauth-credentials'
 import { useOAuthProviderAvailability } from '@/hooks/queries/oauth-provider-availability'
 import {
@@ -21,11 +23,14 @@ import {
   getPortfolioSnapshotDefaultEnvironment,
   getPortfolioSnapshotDefaultWindow,
   getPortfolioSnapshotEnvironmentOptions,
+  getPortfolioSnapshotMarketProviderOptions,
   getPortfolioSnapshotProviderAvailabilityIds,
   getPortfolioSnapshotProviderOptions,
   getPortfolioSnapshotSupportedWindows,
   resolvePortfolioSnapshotCredentialProvider,
+  resolvePortfolioSnapshotMarketProviderId,
   resolvePortfolioSnapshotProviderId,
+  shouldPersistPortfolioSnapshotMarketProviderDefault,
 } from '@/widgets/widgets/portfolio_snapshot/components/shared'
 import type { PortfolioSnapshotWidgetParams } from '@/widgets/widgets/portfolio_snapshot/types'
 
@@ -36,6 +41,7 @@ const PortfolioMessage = ({ message }: { message: string }) => (
 )
 
 const CALENDAR_DAY_TIMESTAMP_PATTERN = /^\d{4}-\d{2}-\d{2}T(?:00:00:00\.000Z|12:00:00\.000Z)$/
+const PORTFOLIO_SNAPSHOT_QUOTE_CAP = 200
 
 const formatCurrency = (value: number | undefined, currency = 'USD') => {
   if (typeof value !== 'number' || !Number.isFinite(value)) {
@@ -55,6 +61,15 @@ const formatPercent = (value: number | null | undefined) => {
   }
 
   return `${value >= 0 ? '+' : ''}${value.toFixed(2)}%`
+}
+
+const formatSignedCurrency = (value: number | null | undefined, currency = 'USD') => {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    return 'N/A'
+  }
+
+  const formatted = formatCurrency(Math.abs(value), currency)
+  return `${value >= 0 ? '+' : '-'}${formatted}`
 }
 
 const formatAsOf = (timestamp: string | undefined) => {
@@ -82,11 +97,13 @@ const StatCard = ({ label, value, hint }: { label: string; value: string; hint?:
 )
 
 export function PortfolioSnapshotWidgetBody({
+  context,
   panelId,
   widget,
   params,
   onWidgetParamsChange,
 }: WidgetComponentProps) {
+  const workspaceId = context?.workspaceId ?? null
   const widgetKey = widget?.key ?? 'portfolio_snapshot'
   const widgetParams =
     params && typeof params === 'object' ? (params as PortfolioSnapshotWidgetParams) : null
@@ -97,7 +114,14 @@ export function PortfolioSnapshotWidgetBody({
     () => getPortfolioSnapshotProviderOptions(providerAvailabilityQuery.data),
     [providerAvailabilityQuery.data]
   )
+  const marketProviderOptions = useMemo(() => getPortfolioSnapshotMarketProviderOptions(), [])
   const providerId = resolvePortfolioSnapshotProviderId(widgetParams, providerOptions)
+  const marketProviderId = resolvePortfolioSnapshotMarketProviderId(
+    widgetParams,
+    marketProviderOptions
+  )
+  const marketProviderName =
+    marketProviderOptions.find((option) => option.id === marketProviderId)?.name ?? marketProviderId
   const hasSelectedProvider = Boolean(providerId)
   const hasValidPersistedProvider =
     Boolean(widgetParams?.provider) && widgetParams?.provider === providerId
@@ -140,6 +164,16 @@ export function PortfolioSnapshotWidgetBody({
     widget,
     params: params && typeof params === 'object' ? (params as Record<string, unknown>) : null,
   })
+
+  useEffect(() => {
+    if (!widgetParams) return
+    if (!shouldPersistPortfolioSnapshotMarketProviderDefault(widgetParams, marketProviderId)) return
+    emitPortfolioSnapshotParamsChange({
+      params: { marketProvider: marketProviderId },
+      panelId,
+      widgetKey,
+    })
+  }, [marketProviderId, panelId, widgetKey, widgetParams])
 
   useEffect(() => {
     if (!hasInvalidPersistedProvider) return
@@ -305,6 +339,65 @@ export function PortfolioSnapshotWidgetBody({
     accountId: resolvedAccount?.id,
   })
 
+  const quotePositions = useMemo(() => {
+    const byKey = new Map<
+      string,
+      {
+        key: string
+        listing: ListingIdentity
+        grossQuantity: number
+        signedQuantity: number
+      }
+    >()
+
+    for (const position of snapshotQuery.data?.positions ?? []) {
+      const listing = position.symbol.listing
+      if (!listing) continue
+      const key = getListingIdentityKey(listing)
+      const current = byKey.get(key)
+      const multiplier = position.multiplier ?? 1
+      const conversionRate = position.conversionRate ?? 1
+      const signedQuantity = position.quantity * multiplier * conversionRate
+      const grossQuantity = Math.abs(signedQuantity)
+      if (current) {
+        current.grossQuantity += grossQuantity
+        current.signedQuantity += signedQuantity
+        continue
+      }
+      byKey.set(key, {
+        key,
+        listing,
+        grossQuantity,
+        signedQuantity,
+      })
+    }
+
+    return Array.from(byKey.values())
+  }, [snapshotQuery.data?.positions])
+  const cappedQuotePositions = useMemo(
+    () => quotePositions.slice(0, PORTFOLIO_SNAPSHOT_QUOTE_CAP),
+    [quotePositions]
+  )
+
+  const quoteItems = useMemo(
+    () =>
+      cappedQuotePositions.map((position) => ({
+        key: position.key,
+        listing: position.listing,
+      })),
+    [cappedQuotePositions]
+  )
+
+  const quoteSnapshotsQuery = useMarketQuoteSnapshots({
+    workspaceId: workspaceId ?? undefined,
+    provider: marketProviderId || undefined,
+    items: quoteItems,
+    auth: widgetParams?.marketAuth,
+    providerParams: widgetParams?.marketProviderParams,
+    refreshKey: refreshAt,
+    enabled: Boolean(resolvedAccount?.id && quoteItems.length > 0),
+  })
+
   const performanceQuery = useTradingPortfolioPerformance({
     provider: isProviderReady ? providerId : undefined,
     credentialId: activeCredentialId,
@@ -437,6 +530,60 @@ export function PortfolioSnapshotWidgetBody({
   const performance = performanceQuery.data
   const currency = performance?.summary?.currency ?? snapshot.account.baseCurrency ?? 'USD'
   const activeWindows = performance?.supportedWindows ?? supportedWindows
+  const quoteErrorMessage =
+    quoteSnapshotsQuery.error instanceof Error
+      ? quoteSnapshotsQuery.error.message
+      : quoteSnapshotsQuery.error
+        ? 'Failed to load market quotes.'
+        : null
+  const quoteSummary = cappedQuotePositions.reduce(
+    (summary, position) => {
+      const quote = quoteSnapshotsQuery.data?.[position.key]
+      if (
+        typeof quote?.lastPrice !== 'number' ||
+        !Number.isFinite(quote.lastPrice) ||
+        typeof quote.previousClose !== 'number' ||
+        !Number.isFinite(quote.previousClose)
+      ) {
+        return summary
+      }
+
+      const perUnitDayChange =
+        typeof quote.change === 'number' && Number.isFinite(quote.change)
+          ? quote.change
+          : quote.lastPrice - quote.previousClose
+      summary.quoteValue += quote.lastPrice * position.grossQuantity
+      summary.dayChange += perUnitDayChange * position.signedQuantity
+      summary.quotedPositions += 1
+      return summary
+    },
+    { dayChange: 0, quoteValue: 0, quotedPositions: 0 }
+  )
+  const quoteDayChange = quoteSummary.quotedPositions > 0 ? quoteSummary.dayChange : null
+  const quotePreviousValue =
+    typeof quoteDayChange === 'number' ? quoteSummary.quoteValue - quoteDayChange : null
+  const quoteDayPercent =
+    typeof quoteDayChange === 'number' &&
+    typeof quotePreviousValue === 'number' &&
+    quotePreviousValue !== 0
+      ? (quoteDayChange / quotePreviousValue) * 100
+      : null
+  const quotedPositionsHint =
+    quotePositions.length > cappedQuotePositions.length
+      ? `Quote metrics use first ${PORTFOLIO_SNAPSHOT_QUOTE_CAP} of ${quotePositions.length} holdings`
+      : undefined
+  const quoteStatusText =
+    quoteErrorMessage ??
+    (quoteSnapshotsQuery.isLoading && !quoteSnapshotsQuery.data
+      ? 'Loading quotes'
+      : quoteSnapshotsQuery.isFetching
+        ? 'Refreshing quotes'
+        : (quotedPositionsHint ??
+          (marketProviderId
+            ? quoteItems.length > 0
+              ? `${quoteSummary.quotedPositions}/${cappedQuotePositions.length} quoted`
+              : 'No holdings with market listings'
+            : 'No market provider')))
 
   return (
     <div className='flex h-full min-h-0 flex-col gap-3 p-3'>
@@ -566,6 +713,48 @@ export function PortfolioSnapshotWidgetBody({
             label='Positions'
             value={String(snapshot.positions.length)}
             hint={snapshot.account.id}
+          />
+        </div>
+
+        <div className='mt-4 flex flex-wrap items-end justify-between gap-2'>
+          <div>
+            <div className='font-medium text-sm'>Market Quotes</div>
+            <div className='mt-1 text-muted-foreground text-xs'>
+              {marketProviderName || 'No market provider'}
+            </div>
+          </div>
+          <div className='text-right text-muted-foreground text-xs'>{quoteStatusText}</div>
+        </div>
+
+        <div className='mt-2 grid grid-cols-2 gap-3 md:grid-cols-4'>
+          <StatCard
+            label='Quote Value'
+            value={
+              quoteErrorMessage
+                ? 'N/A'
+                : quoteSummary.quotedPositions > 0
+                  ? formatCurrency(quoteSummary.quoteValue, currency)
+                  : 'N/A'
+            }
+            hint={quoteErrorMessage ?? marketProviderId ?? 'No market provider'}
+          />
+          <StatCard
+            label='Day Change'
+            value={quoteErrorMessage ? 'N/A' : formatSignedCurrency(quoteDayChange, currency)}
+            hint={quoteSnapshotsQuery.isFetching ? 'Refreshing' : undefined}
+          />
+          <StatCard
+            label='Day %'
+            value={quoteErrorMessage ? 'N/A' : formatPercent(quoteDayPercent)}
+          />
+          <StatCard
+            label='Quoted Positions'
+            value={
+              quoteErrorMessage
+                ? `0/${cappedQuotePositions.length}`
+                : `${quoteSummary.quotedPositions}/${cappedQuotePositions.length}`
+            }
+            hint={quotedPositionsHint}
           />
         </div>
       </section>
