@@ -3,7 +3,7 @@ import {
   type ListingIdentity,
   toListingValueObject,
 } from '@/lib/listing/identity'
-import { MARKET_QUOTE_SNAPSHOT_REQUEST_CAP } from '@/lib/market/quote-snapshots'
+import { MARKET_QUOTE_SNAPSHOT_REQUEST_CAP } from '@/lib/market/quote-snapshot-contract'
 import type { WatchlistRecord } from '@/lib/watchlists/types'
 
 export const HEATMAP_LISTING_CAP = MARKET_QUOTE_SNAPSHOT_REQUEST_CAP

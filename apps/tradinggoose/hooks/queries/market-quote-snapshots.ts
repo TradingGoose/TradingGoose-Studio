@@ -9,9 +9,9 @@ import {
 import {
   MARKET_QUOTE_SNAPSHOT_REQUEST_CAP,
   type MarketQuoteSnapshot,
-} from '@/lib/market/quote-snapshots'
+} from '@/lib/market/quote-snapshot-contract'
 
-export type { MarketQuoteSnapshot } from '@/lib/market/quote-snapshots'
+export type { MarketQuoteSnapshot } from '@/lib/market/quote-snapshot-contract'
 
 export type MarketQuoteSnapshotRequestItem = {
   key: string

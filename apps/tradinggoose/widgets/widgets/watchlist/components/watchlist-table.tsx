@@ -45,7 +45,7 @@ import {
   type ListingOption,
   toListingValue,
 } from '@/lib/listing/identity'
-import type { MarketQuoteSnapshot } from '@/lib/market/quote-snapshots'
+import type { MarketQuoteSnapshot } from '@/lib/market/quote-snapshot-contract'
 import { cn } from '@/lib/utils'
 import type {
   WatchlistListingItem,

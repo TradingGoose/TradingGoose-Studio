@@ -10,12 +10,12 @@ import {
 import { createLogger } from '@/lib/logs/console/logger'
 import { validateMarketProviderCredentialRefs } from '@/lib/market/market-provider-settings'
 import {
-  buildMarketQuoteSnapshot,
   createEmptyMarketQuoteSnapshot,
   MARKET_QUOTE_SNAPSHOT_PROVIDER_BATCH_SIZE,
   MARKET_QUOTE_SNAPSHOT_REQUEST_CAP,
   type MarketQuoteSnapshot,
-} from '@/lib/market/quote-snapshots'
+} from '@/lib/market/quote-snapshot-contract'
+import { buildMarketQuoteSnapshot } from '@/lib/market/quote-snapshots'
 import { getUserEntityPermissions } from '@/lib/permissions/utils'
 
 const logger = createLogger('MarketQuoteSnapshotsAPI')

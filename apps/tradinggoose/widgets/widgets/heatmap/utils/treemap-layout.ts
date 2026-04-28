@@ -1,7 +1,7 @@
 import { hierarchy, treemap } from 'd3-hierarchy'
 import type { ListingIdentity, ListingResolved } from '@/lib/listing/identity'
 import { getListingIdentityKey } from '@/lib/listing/identity'
-import type { MarketQuoteSnapshot } from '@/lib/market/quote-snapshots'
+import type { MarketQuoteSnapshot } from '@/lib/market/quote-snapshot-contract'
 
 export type HeatmapTreemapInputItem = {
   key: string

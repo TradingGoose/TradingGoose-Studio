@@ -1,25 +1,17 @@
 import type { ListingIdentity } from '@/lib/listing/identity'
+import {
+  createEmptyMarketQuoteSnapshot,
+  type MarketQuoteSnapshot,
+} from '@/lib/market/quote-snapshot-contract'
 import { executeProviderRequest } from '@/providers/market'
 import type { MarketSeries } from '@/providers/market/types'
 
-export type MarketQuoteSnapshot = {
-  lastPrice: number | null
-  change: number | null
-  changePercent: number | null
-  previousClose: number | null
-  error?: string
-}
-
-export const MARKET_QUOTE_SNAPSHOT_REQUEST_CAP = 200
-export const MARKET_QUOTE_SNAPSHOT_PROVIDER_BATCH_SIZE = 10
-
-export const createEmptyMarketQuoteSnapshot = (error?: string): MarketQuoteSnapshot => ({
-  lastPrice: null,
-  change: null,
-  changePercent: null,
-  previousClose: null,
-  ...(error ? { error } : {}),
-})
+export {
+  createEmptyMarketQuoteSnapshot,
+  MARKET_QUOTE_SNAPSHOT_PROVIDER_BATCH_SIZE,
+  MARKET_QUOTE_SNAPSHOT_REQUEST_CAP,
+  type MarketQuoteSnapshot,
+} from '@/lib/market/quote-snapshot-contract'
 
 const normalizeSeries = (value: unknown): MarketSeries | null => {
   if (!value || typeof value !== 'object') return null
