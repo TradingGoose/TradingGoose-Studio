@@ -143,6 +143,55 @@ describe('MonitorConfigWorkspace', () => {
     expect(container.textContent).toContain('Create Monitor')
   })
 
+  it('keeps the detail panel closed until a monitor card is selected', async () => {
+    await act(async () => {
+      root.render(
+        <MonitorConfigWorkspace
+          workspaceId='workspace-1'
+          viewStateMode='server'
+          viewStateReloading={false}
+          viewsError={null}
+          effectiveConfig={DEFAULT_CONFIG_MONITOR_VIEW_CONFIG}
+          panelSizes={null}
+          monitorRecords={[monitor]}
+          monitorsLoading={false}
+          monitorsError={null}
+          referenceData={referenceData}
+          monitorActions={{
+            createMonitor: vi.fn(),
+            updateMonitor: vi.fn(),
+            toggleMonitorState: vi.fn(),
+            deleteMonitor: vi.fn(),
+          }}
+          createMonitorRequestId={0}
+          onPanelLayout={vi.fn()}
+          onUpdateViewConfig={vi.fn()}
+          onReloadViews={vi.fn()}
+        />
+      )
+    })
+
+    expect(container.textContent).toContain('RSI')
+    expect(container.textContent).not.toContain('Monitor ID')
+    expect(container.textContent).not.toContain('Delete')
+
+    const monitorCard = Array.from(container.querySelectorAll('[role="button"]')).find((node) =>
+      node.textContent?.includes('RSI')
+    )
+    if (!(monitorCard instanceof HTMLElement)) {
+      throw new Error('Expected monitor card to render')
+    }
+
+    await act(async () => {
+      monitorCard.click()
+      await Promise.resolve()
+    })
+
+    expect(container.textContent).toContain('Monitor ID')
+    expect(container.textContent).toContain('Delete')
+    expect(container.textContent).toContain('Workflow One - Indicator Trigger')
+  })
+
   it('surfaces non-fatal view warnings while rendering server-backed config views', async () => {
     await act(async () => {
       root.render(

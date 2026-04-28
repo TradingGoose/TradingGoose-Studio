@@ -12,7 +12,6 @@ import {
 } from '@/components/ui/card'
 import { Sheet, SheetContent } from '@/components/ui/sheet'
 import { useIsMobile } from '@/hooks/use-mobile'
-import { MonitorStateCard } from '../shared/monitor-ui'
 import type { MonitorReferenceData } from '../shared/types'
 import { IndicatorInputSummary } from './indicator-input-fields'
 import { MonitorEditorForm } from './monitor-editor-form'
@@ -23,19 +22,6 @@ type MonitorEditorPanelProps = {
   editorState: MonitorEditorState
   referenceData: MonitorReferenceData
   createDisabled?: boolean
-}
-
-function EmptyPanel({ onCreate, disabled }: { onCreate: () => void; disabled: boolean }) {
-  return (
-    <MonitorStateCard
-      title='No monitor selected'
-      description='Select a config card or create a monitor.'
-      actionLabel='New monitor'
-      actionDisabled={disabled}
-      onAction={onCreate}
-      className='h-full bg-card/50'
-    />
-  )
 }
 
 function MonitorDetails({
@@ -181,12 +167,7 @@ function EditorContent({
     return <MonitorDetails editorState={editorState} referenceData={referenceData} />
   }
 
-  return (
-    <EmptyPanel
-      onCreate={editorState.openCreate}
-      disabled={Boolean(referenceData.createDisabledReason)}
-    />
-  )
+  return null
 }
 
 export function MonitorEditorPanel({

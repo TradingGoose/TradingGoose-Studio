@@ -64,6 +64,9 @@ const Harness = ({ records }: { records: IndicatorMonitorRecord[] }) => {
   return (
     <div>
       <div data-testid='selected-monitor'>{state.selectedMonitorId ?? 'none'}</div>
+      <button type='button' onClick={() => state.setSelectedMonitorId('monitor-1')}>
+        Select monitor
+      </button>
       <button type='button' onClick={state.clearSelection}>
         Clear selection
       </button>
@@ -95,7 +98,7 @@ describe('useMonitorEditorState', () => {
   const selectedMonitorText = () =>
     container.querySelector('[data-testid="selected-monitor"]')?.textContent
 
-  it('does not immediately reselect a monitor after an explicit clear', async () => {
+  it('only selects a monitor after an explicit selection', async () => {
     await act(async () => {
       root.render(<Harness records={[monitor]} />)
     })
@@ -103,15 +106,27 @@ describe('useMonitorEditorState', () => {
       await Promise.resolve()
     })
 
-    expect(selectedMonitorText()).toBe('monitor-1')
+    expect(selectedMonitorText()).toBe('none')
 
-    const button = container.querySelector('button')
-    if (!(button instanceof HTMLButtonElement)) {
+    const buttons = container.querySelectorAll('button')
+    const selectButton = buttons[0]
+    const clearButton = buttons[1]
+    if (!(selectButton instanceof HTMLButtonElement)) {
+      throw new Error('Expected select button to render')
+    }
+    if (!(clearButton instanceof HTMLButtonElement)) {
       throw new Error('Expected clear button to render')
     }
 
     await act(async () => {
-      button.click()
+      selectButton.click()
+      await Promise.resolve()
+    })
+
+    expect(selectedMonitorText()).toBe('monitor-1')
+
+    await act(async () => {
+      clearButton.click()
       await Promise.resolve()
     })
 
@@ -119,6 +134,31 @@ describe('useMonitorEditorState', () => {
 
     await act(async () => {
       root.render(<Harness records={[monitor]} />)
+      await Promise.resolve()
+    })
+
+    expect(selectedMonitorText()).toBe('none')
+  })
+
+  it('clears selection when the selected monitor is removed from records', async () => {
+    await act(async () => {
+      root.render(<Harness records={[monitor]} />)
+    })
+
+    const selectButton = container.querySelector('button')
+    if (!(selectButton instanceof HTMLButtonElement)) {
+      throw new Error('Expected select button to render')
+    }
+
+    await act(async () => {
+      selectButton.click()
+      await Promise.resolve()
+    })
+
+    expect(selectedMonitorText()).toBe('monitor-1')
+
+    await act(async () => {
+      root.render(<Harness records={[]} />)
       await Promise.resolve()
     })
 

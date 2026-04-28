@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useListingSelectorStore } from '@/stores/market/selector/store'
 import type { ConfigBoardContext } from '../config/config-board-state'
 import {
@@ -45,35 +45,25 @@ export function useMonitorEditorState({
   const [togglingMonitorId, setTogglingMonitorId] = useState<string | null>(null)
   const [deletingMonitorId, setDeletingMonitorId] = useState<string | null>(null)
   const [panelError, setPanelError] = useState<string | null>(null)
-  const selectionClearedRef = useRef(false)
 
   const ensureListingSelectorInstance = useListingSelectorStore((state) => state.ensureInstance)
   const resetListingSelectorInstance = useListingSelectorStore((state) => state.resetInstance)
   const updateListingSelectorInstance = useListingSelectorStore((state) => state.updateInstance)
 
   useEffect(() => {
-    if (!selectedMonitorId && monitorRecords.length > 0 && !selectionClearedRef.current) {
-      setSelectedMonitorId(monitorRecords[0]!.monitorId)
-    }
     if (
       selectedMonitorId &&
       !monitorRecords.some((monitor) => monitor.monitorId === selectedMonitorId)
     ) {
-      selectionClearedRef.current = false
-      setSelectedMonitorId(monitorRecords[0]?.monitorId ?? null)
-    }
-    if (monitorRecords.length === 0) {
-      selectionClearedRef.current = false
+      setSelectedMonitorId(null)
     }
   }, [monitorRecords, selectedMonitorId])
 
   const selectMonitorId = useCallback((monitorId: string | null) => {
-    selectionClearedRef.current = false
     setSelectedMonitorId(monitorId)
   }, [])
 
   const clearSelection = useCallback(() => {
-    selectionClearedRef.current = true
     setSelectedMonitorId(null)
   }, [])
 
@@ -325,9 +315,7 @@ export function useMonitorEditorState({
       try {
         await monitorActions.deleteMonitor(monitorId)
         if (selectedMonitorId === monitorId) {
-          selectMonitorId(
-            monitorRecords.find((monitor) => monitor.monitorId !== monitorId)?.monitorId ?? null
-          )
+          selectMonitorId(null)
         }
         closeEditor()
       } catch (error) {
@@ -336,7 +324,7 @@ export function useMonitorEditorState({
         setDeletingMonitorId(null)
       }
     },
-    [closeEditor, monitorActions, monitorRecords, selectMonitorId, selectedMonitorId]
+    [closeEditor, monitorActions, selectMonitorId, selectedMonitorId]
   )
 
   return {

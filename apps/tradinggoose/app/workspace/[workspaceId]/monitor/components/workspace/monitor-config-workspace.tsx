@@ -470,7 +470,7 @@ export function MonitorConfigWorkspace({
           visibleFieldIds={effectiveConfig.kanban.visibleFieldIds}
           timezone={effectiveConfig.timezone}
           canReorder={canReorder}
-          onSelectCard={(card) => editorState.openEdit(card.sourceMonitor)}
+          onSelectCard={(card) => editorState.setSelectedMonitorId(card.monitorId)}
           onCreateInContext={editorState.openCreateFromBoardContext}
           onMoveCard={(monitorId, context) => {
             void handleMoveCard(monitorId, context)
@@ -481,14 +481,15 @@ export function MonitorConfigWorkspace({
     </div>
   )
 
-  const editor = (
+  const hasEditorPanel = editorState.isEditorOpen || Boolean(editorState.selectedMonitor)
+  const editor = hasEditorPanel ? (
     <MonitorEditorPanel
       workspaceId={workspaceId}
       editorState={editorState}
       referenceData={referenceData}
       createDisabled={controlsDisabled}
     />
-  )
+  ) : null
 
   return (
     <div className='w-full flex h-full max-h-full min-h-0 min-w-0 flex-col overflow-hidden p-1.5'>
@@ -497,7 +498,7 @@ export function MonitorConfigWorkspace({
           {board}
           {editor}
         </div>
-      ) : (
+      ) : hasEditorPanel ? (
         <ResizablePanelGroup
           direction='horizontal'
           onLayout={onPanelLayout}
@@ -517,6 +518,8 @@ export function MonitorConfigWorkspace({
             <div className='h-full pl-1.5'>{editor}</div>
           </ResizablePanel>
         </ResizablePanelGroup>
+      ) : (
+        <div className='min-h-0 flex-1'>{board}</div>
       )}
     </div>
   )
