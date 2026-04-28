@@ -13,6 +13,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { toListingValueObject } from '@/lib/listing/identity'
 import { parseQuery, serializeQuery } from '@/lib/logs/query-parser'
 import { MONITOR_QUERY_POLICY } from '@/lib/logs/query-policy'
@@ -1315,26 +1316,28 @@ export function MonitorPage({ workspaceId, userId }: MonitorPageProps) {
 
   const headerRight = (
     <div className='flex items-center gap-2'>
-      <div className='flex shrink-0 rounded-md border bg-background p-0.5'>
-        {(['executions', 'config'] as const).map((mode) => (
-          <Button
-            key={mode}
-            type='button'
-            variant={activeMode === mode ? 'secondary' : 'ghost'}
-            size='sm'
-            className='h-7 px-2 text-xs capitalize'
-            disabled={
-              shellActionsDisabled ||
-              (mode === 'config' ? configModeDisabled : !renderableModes.includes(mode))
-            }
-            onClick={() => {
-              void handleChangeMode(mode)
-            }}
-          >
-            {mode}
-          </Button>
-        ))}
-      </div>
+      <Tabs
+        value={activeMode}
+        onValueChange={(value) => {
+          void handleChangeMode(value as MonitorPageMode)
+        }}
+      >
+        <TabsList aria-label='Monitor mode' className='h-8 shrink-0 rounded-md p-0.5'>
+          {(['executions', 'config'] as const).map((mode) => (
+            <TabsTrigger
+              key={mode}
+              value={mode}
+              className='h-7 px-2 py-0 text-xs capitalize'
+              disabled={
+                shellActionsDisabled ||
+                (mode === 'config' ? configModeDisabled : !renderableModes.includes(mode))
+              }
+            >
+              {mode}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+      </Tabs>
       {activeMode === 'executions' ? (
         <Button
           variant='outline'

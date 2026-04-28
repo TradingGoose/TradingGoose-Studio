@@ -451,6 +451,13 @@ describe('MonitorPage', () => {
     const button = findButton(label)
 
     await act(async () => {
+      button.dispatchEvent(
+        new MouseEvent('mousedown', {
+          bubbles: true,
+          cancelable: true,
+          button: 0,
+        })
+      )
       button.click()
     })
   }
