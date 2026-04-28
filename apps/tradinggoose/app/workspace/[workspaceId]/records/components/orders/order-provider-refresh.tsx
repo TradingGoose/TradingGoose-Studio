@@ -3,20 +3,22 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Loader2, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import { useOAuthCredentials } from '@/hooks/queries/oauth-credentials'
 import { useProviderOrderDetail } from '@/hooks/queries/records-orders'
-import { useTradingAccounts } from '@/hooks/queries/trading-portfolio'
-import { getTradingProviderOAuthServiceId } from '@/providers/trading/providers'
+import {
+  getTradingProviderOAuthServiceId,
+  getTradingProviderParamDefinitions,
+} from '@/providers/trading/providers'
 import type { TradingProviderId } from '@/providers/trading/types'
-import { TradingAccountSelector } from '@/widgets/widgets/components/trading-account-selector'
+import {
+  TradingAccountSelector,
+  type TradingEnvironmentOption,
+} from '@/widgets/widgets/components/trading-account-selector'
 import type { RecordsOrder } from './types'
+
+const isTradingEnvironmentOption = (option: {
+  id: string
+  label: string
+}): option is TradingEnvironmentOption => option.id === 'paper' || option.id === 'live'
 
 export function OrderProviderRefresh({
   workspaceId,
@@ -27,38 +29,26 @@ export function OrderProviderRefresh({
   order: RecordsOrder
   active: boolean
 }) {
-  const credentialProviderId = getTradingProviderOAuthServiceId(order.provider as TradingProviderId)
-  const credentialsQuery = useOAuthCredentials(credentialProviderId ?? undefined, active)
-  const credentials = credentialsQuery.data ?? []
+  const providerId = order.provider as TradingProviderId
+  const credentialProviderId = getTradingProviderOAuthServiceId(providerId)
   const [credentialId, setCredentialId] = useState('')
   const [environment, setEnvironment] = useState(order.environment ?? 'paper')
   const [accountId, setAccountId] = useState(order.accountId ?? '')
   const [requested, setRequested] = useState(false)
+  const environmentOptions = useMemo(
+    () =>
+      getTradingProviderParamDefinitions(providerId, 'order')
+        .find((definition) => definition.id === 'environment')
+        ?.options?.filter(isTradingEnvironmentOption) ?? [],
+    [providerId]
+  )
 
   useEffect(() => {
-    if (!credentialId && credentials.length === 1 && credentials[0]?.id) {
-      setCredentialId(credentials[0].id)
-    }
-  }, [credentialId, credentials])
-
-  useEffect(() => {
+    setCredentialId('')
     setEnvironment(order.environment ?? 'paper')
     setAccountId(order.accountId ?? '')
     setRequested(false)
   }, [order.id, order.environment, order.accountId])
-
-  const accountsQuery = useTradingAccounts({
-    provider: order.provider,
-    credentialId,
-    environment,
-  })
-  const accounts = accountsQuery.data ?? []
-
-  useEffect(() => {
-    if (!accountId && accounts.length === 1 && accounts[0]?.id) {
-      setAccountId(accounts[0].id)
-    }
-  }, [accountId, accounts])
 
   const providerRequiresAccount = order.provider === 'tradier'
   const canRefresh = Boolean(
@@ -77,11 +67,6 @@ export function OrderProviderRefresh({
     enabled: active && requested && canRefresh,
   })
 
-  const credentialItems = useMemo(
-    () => credentials.map((credential) => ({ id: credential.id, name: credential.name })),
-    [credentials]
-  )
-
   if (!credentialProviderId) {
     return (
       <div className='rounded-md border bg-card/40 p-4 text-muted-foreground text-sm'>
@@ -92,43 +77,23 @@ export function OrderProviderRefresh({
 
   return (
     <div className='space-y-4'>
-      <div className='grid gap-3 md:grid-cols-[1fr_140px]'>
-        <Select
-          value={credentialId || 'none'}
-          onValueChange={(value) => setCredentialId(value === 'none' ? '' : value)}
-        >
-          <SelectTrigger className='h-9 rounded-md bg-background'>
-            <SelectValue placeholder='Select credential' />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value='none'>Select credential</SelectItem>
-            {credentialItems.map((credential) => (
-              <SelectItem key={credential.id} value={credential.id}>
-                {credential.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        <Select value={environment} onValueChange={setEnvironment}>
-          <SelectTrigger className='h-9 rounded-md bg-background'>
-            <SelectValue placeholder='Environment' />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value='paper'>Paper</SelectItem>
-            <SelectItem value='live'>Live</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
       <TradingAccountSelector
+        providerId={providerId}
+        credentialProviderId={credentialProviderId}
+        environmentOptions={environmentOptions}
+        credentialId={credentialId}
+        environment={environment}
         accountId={accountId}
-        accounts={accounts}
-        isAccountsLoading={accountsQuery.isLoading}
-        accountsError={accountsQuery.error}
-        disabled={!credentialId || !environment}
+        disabled={!active}
         placeholder={providerRequiresAccount ? 'Select account' : 'Optional account'}
-        onAccountSelect={setAccountId}
+        tooltipText='Select provider refresh account'
+        toolName='Provider Detail Refresh'
+        onAccountSelect={(selection) => {
+          setCredentialId(selection.credentialId)
+          setEnvironment(selection.environment)
+          setAccountId(selection.accountId)
+          setRequested(false)
+        }}
       />
 
       <Button
@@ -145,13 +110,9 @@ export function OrderProviderRefresh({
         Refresh provider detail
       </Button>
 
-      {credentialsQuery.isLoading ? (
-        <p className='text-muted-foreground text-sm'>Loading credentials...</p>
-      ) : credentialsQuery.error ? (
-        <p className='text-destructive text-sm'>Unable to load trading credentials.</p>
-      ) : !credentialId ? (
+      {!credentialId ? (
         <p className='text-muted-foreground text-sm'>
-          Select a credential to fetch live provider detail.
+          Select a broker account to fetch live provider detail.
         </p>
       ) : providerRequiresAccount && !accountId ? (
         <p className='text-muted-foreground text-sm'>
