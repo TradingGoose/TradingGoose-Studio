@@ -328,7 +328,7 @@ export function MonitorConfigWorkspace({
   }
 
   const board = (
-    <div className='flex h-full min-h-0 flex-col gap-2'>
+    <div className='flex h-full min-h-0 flex-col gap-2 px-1.5'>
       <MonitorControlBar toolbarLabel='Monitor config controls'>
         <MonitorTimezoneMenu
           timezone={effectiveConfig.timezone}
