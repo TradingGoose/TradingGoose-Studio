@@ -12,7 +12,11 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
-import { monitorControlSurfaceClass } from '../shared/monitor-ui'
+import {
+  monitorControlDropdownContentClass,
+  monitorControlDropdownContentStyle,
+  monitorControlSurfaceClass,
+} from '../shared/monitor-ui'
 import { formatMonitorTimezoneLabel } from '../shared/monitor-time'
 import { DEFAULT_MONITOR_TIMEZONE } from '../view/view-config'
 
@@ -95,7 +99,12 @@ export function MonitorTimezoneMenu({
           <span className='truncate text-foreground'>{selectedLabel}</span>
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align='start' className='w-[280px] p-0'>
+      <DropdownMenuContent
+        align='start'
+        side='bottom'
+        className={cn(monitorControlDropdownContentClass, 'p-0')}
+        style={monitorControlDropdownContentStyle}
+      >
         <div className='border-b p-2'>
           <Input
             placeholder='Search timezones...'

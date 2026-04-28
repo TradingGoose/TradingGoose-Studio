@@ -429,7 +429,6 @@ export function MonitorConfigWorkspace({
           label='Sums'
           value={summarizeConfigFieldSums(effectiveConfig.fieldSums)}
           disabled={controlsDisabled}
-          contentClassName='w-44'
         >
           {CONFIG_MONITOR_FIELD_SUMS.map((field) => (
             <DropdownMenuCheckboxItem
@@ -445,7 +444,6 @@ export function MonitorConfigWorkspace({
           label='Fields'
           value={summarizeConfigVisibleFields(effectiveConfig.kanban.visibleFieldIds)}
           disabled={controlsDisabled}
-          contentClassName='w-52'
         >
           {CONFIG_MONITOR_VISIBLE_FIELDS.map((field) => (
             <DropdownMenuCheckboxItem

@@ -24,6 +24,10 @@ import {
 import { Slider } from '@/components/ui/slider'
 import { cn } from '@/lib/utils'
 import {
+  monitorControlDropdownContentClass,
+  monitorControlSelectContentStyle,
+} from '../shared/monitor-ui'
+import {
   formatMonitorTimelineHeaderGroup,
   formatMonitorTimelinePrimaryLabel,
   formatMonitorTimelineTickTitle,
@@ -552,7 +556,12 @@ export function KiboGantt({
               <ZoomIn className='mr-2 h-4 w-4' />
               <SelectValue />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent
+              align='start'
+              side='bottom'
+              className={monitorControlDropdownContentClass}
+              style={monitorControlSelectContentStyle}
+            >
               {EXECUTION_MONITOR_TIMELINE_ZOOM.map((timelineZoom) => (
                 <SelectItem key={timelineZoom} value={timelineZoom}>
                   Zoom: {TIMELINE_ZOOM_LABELS[timelineZoom]}

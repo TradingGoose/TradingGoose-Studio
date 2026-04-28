@@ -514,7 +514,6 @@ export function MonitorExecutionWorkspace({
             )
           }
           disabled={controlsDisabled}
-          contentClassName='w-40'
         >
           <DropdownMenuLabel>Layout</DropdownMenuLabel>
           <DropdownMenuRadioGroup
@@ -625,7 +624,6 @@ export function MonitorExecutionWorkspace({
             label='Markers'
             value={summarizeTimelineMarkers(effectiveConfig.timeline.markers)}
             disabled={controlsDisabled}
-            contentClassName='w-48'
           >
             <DropdownMenuCheckboxItem
               checked={effectiveConfig.timeline.markers.today}
@@ -670,7 +668,6 @@ export function MonitorExecutionWorkspace({
           label='Sums'
           value={summarizeExecutionFieldSums(effectiveConfig.fieldSums)}
           disabled={controlsDisabled}
-          contentClassName='w-44'
         >
           {EXECUTION_MONITOR_FIELD_SUMS.map((fieldSum) => (
             <DropdownMenuCheckboxItem
@@ -713,7 +710,6 @@ export function MonitorExecutionWorkspace({
                 label='Fields'
                 value={summarizeExecutionVisibleFields(effectiveConfig.kanban.visibleFieldIds)}
                 disabled={controlsDisabled}
-                contentClassName='w-52'
               >
                 {EXECUTION_MONITOR_VISIBLE_FIELDS.map((fieldId) => (
                   <DropdownMenuCheckboxItem
@@ -738,7 +734,6 @@ export function MonitorExecutionWorkspace({
                     columnOptions
                   )}
                   disabled={controlsDisabled}
-                  contentClassName='w-52'
                 >
                   {columnOptions.map((option) => (
                     <DropdownMenuCheckboxItem
@@ -758,7 +753,6 @@ export function MonitorExecutionWorkspace({
                       : `${Object.keys(effectiveConfig.kanban.columnLimits).length} set`
                   }
                   disabled={controlsDisabled}
-                  contentClassName='w-56'
                 >
                   <DropdownMenuLabel>Column limits</DropdownMenuLabel>
                   <DropdownMenuSeparator />
