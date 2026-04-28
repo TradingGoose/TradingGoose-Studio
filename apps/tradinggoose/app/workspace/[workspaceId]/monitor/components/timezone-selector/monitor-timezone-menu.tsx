@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
+import { monitorControlSurfaceClass } from '../shared/monitor-ui'
 import { formatMonitorTimezoneLabel } from '../shared/monitor-time'
 import { DEFAULT_MONITOR_TIMEZONE } from '../view/view-config'
 
@@ -86,12 +87,12 @@ export function MonitorTimezoneMenu({
           type='button'
           variant='outline'
           size='sm'
-          className={cn('h-8 shrink-0 gap-2 rounded-md', className)}
+          className={cn(monitorControlSurfaceClass, 'max-w-[132px]', className)}
           disabled={disabled}
+          aria-label={`Timezone: ${selectedLabel}`}
         >
-          <ClockFading className='h-4 w-4' />
-          <span>Timezone</span>
-          <span className='max-w-[150px] truncate text-muted-foreground'>{selectedLabel}</span>
+          <ClockFading className='h-3.5 w-3.5' />
+          <span className='truncate'>{selectedLabel}</span>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align='start' className='w-[280px] p-0'>

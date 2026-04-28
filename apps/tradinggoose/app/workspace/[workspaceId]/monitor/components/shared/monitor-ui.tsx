@@ -1,10 +1,15 @@
 'use client'
 
 import { type ComponentProps, type ReactNode, useCallback, useRef, type WheelEvent } from 'react'
-import { Loader2 } from 'lucide-react'
+import { ChevronDown, Loader2 } from 'lucide-react'
 import { Badge, type BadgeProps } from '@/components/ui/badge'
 import { Button, type ButtonProps } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import {
   Select,
   SelectContent,
@@ -13,6 +18,9 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
+
+export const monitorControlSurfaceClass =
+  'h-7 shrink-0 gap-1 rounded-md border-border/70 bg-background px-2 text-xs font-medium shadow-none'
 
 type MonitorControlBarProps = ComponentProps<'div'> & {
   contentClassName?: string
@@ -37,7 +45,7 @@ export function MonitorControlBar({
   return (
     <div
       className={cn(
-        'w-full min-w-0 max-w-full shrink-0 overflow-hidden rounded-lg bg-muted p-1.5',
+        'w-full min-w-0 max-w-full shrink-0 overflow-hidden',
         className
       )}
       {...props}
@@ -50,7 +58,7 @@ export function MonitorControlBar({
         <div
           role='toolbar'
           aria-label={toolbarLabel}
-          className={cn('flex w-max min-w-full items-center gap-2', contentClassName)}
+          className={cn('flex w-max min-w-full items-center gap-1.5', contentClassName)}
         >
           {children}
         </div>
@@ -67,6 +75,7 @@ type MonitorControlSelectOption = {
 
 type MonitorControlSelectProps = ComponentProps<typeof Select> & {
   children?: ReactNode
+  label?: ReactNode
   options?: MonitorControlSelectOption[]
   placeholder?: string
   triggerClassName?: string
@@ -74,6 +83,7 @@ type MonitorControlSelectProps = ComponentProps<typeof Select> & {
 
 export function MonitorControlSelect({
   children,
+  label,
   options,
   placeholder,
   triggerClassName,
@@ -81,7 +91,8 @@ export function MonitorControlSelect({
 }: MonitorControlSelectProps) {
   return (
     <Select {...props}>
-      <SelectTrigger className={cn('h-8 shrink-0', triggerClassName)}>
+      <SelectTrigger className={cn(monitorControlSurfaceClass, triggerClassName)}>
+        {label ? <span className='shrink-0 text-[11px] text-muted-foreground'>{label}</span> : null}
         <SelectValue placeholder={placeholder} />
       </SelectTrigger>
       <SelectContent>
@@ -113,11 +124,69 @@ export function MonitorControlToggle({
       variant={pressed ? 'secondary' : 'outline'}
       size='sm'
       aria-pressed={pressed}
-      className={cn('h-8 shrink-0', className)}
+      className={cn(monitorControlSurfaceClass, className)}
       {...props}
     >
       {children}
     </Button>
+  )
+}
+
+type MonitorControlMenuProps = {
+  align?: 'start' | 'center' | 'end'
+  children: ReactNode
+  className?: string
+  contentClassName?: string
+  disabled?: boolean
+  icon?: ReactNode
+  iconOnly?: boolean
+  label?: ReactNode
+  srLabel?: string
+  value?: ReactNode
+}
+
+export function MonitorControlMenu({
+  align = 'start',
+  children,
+  className,
+  contentClassName,
+  disabled,
+  icon,
+  iconOnly = false,
+  label,
+  srLabel,
+  value,
+}: MonitorControlMenuProps) {
+  return (
+    <DropdownMenu modal={false}>
+      <DropdownMenuTrigger asChild>
+        <Button
+          type='button'
+          variant='outline'
+          size='sm'
+          disabled={disabled}
+          className={cn(
+            monitorControlSurfaceClass,
+            iconOnly ? 'w-7 px-0' : 'max-w-[220px]',
+            className
+          )}
+          aria-label={srLabel}
+        >
+          {icon}
+          {iconOnly ? <span className='sr-only'>{srLabel}</span> : null}
+          {!iconOnly && label ? (
+            <span className='shrink-0 text-[11px] text-muted-foreground'>{label}</span>
+          ) : null}
+          {!iconOnly && value ? (
+            <span className='truncate text-foreground'>{value}</span>
+          ) : null}
+          {!iconOnly ? <ChevronDown className='ml-0.5 h-3.5 w-3.5 text-muted-foreground' /> : null}
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align={align} className={contentClassName}>
+        {children}
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }
 

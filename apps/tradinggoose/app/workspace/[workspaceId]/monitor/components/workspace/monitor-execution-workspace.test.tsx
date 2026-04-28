@@ -514,7 +514,7 @@ describe('MonitorExecutionWorkspace', () => {
       )
     })
 
-    await selectOption('Sort by: Started at', 'Sort by: Workflow')
+    await selectOption('Started at ↓', 'Workflow ↓')
 
     const updater = onUpdateViewConfig.mock.calls.at(-1)?.[0]
     if (typeof updater !== 'function') {
@@ -569,7 +569,7 @@ describe('MonitorExecutionWorkspace', () => {
       )
     })
 
-    await selectOption('No swimlane', 'Swimlane: Workflow')
+    await selectOption('Swimlane', 'Workflow')
 
     const updater = onUpdateViewConfig.mock.calls.at(-1)?.[0]
     if (typeof updater !== 'function') {
@@ -630,20 +630,18 @@ describe('MonitorExecutionWorkspace', () => {
       throw new Error('Expected monitor view toolbar to render')
     }
 
-    expect(toolbar.textContent).toContain('Group:')
+    expect(toolbar.textContent).toContain('Group')
     expect(toolbar.textContent).toContain('Workflow')
+    expect(toolbar.textContent).toContain('Markers')
     expect(toolbar.textContent).toContain('Today')
-    expect(toolbar.textContent).toContain('Sort by')
+    expect(toolbar.textContent).toContain('Sort')
     expect(toolbar.textContent).toContain('Started at')
-    expect(toolbar.textContent).toContain('Dates')
-    expect(toolbar.textContent).toContain('Started')
-    expect(toolbar.textContent).toContain('Ended')
+    expect(toolbar.textContent).not.toContain('Dates')
     expect(toolbar.textContent).not.toContain('Zoom level')
     expect(toolbar.textContent).not.toContain('120%')
-    expect(toolbar.textContent).toContain('Slice:')
+    expect(toolbar.textContent).toContain('Slice')
     expect(toolbar.textContent).toContain('Trigger')
     expect(toolbar.textContent).toContain('Count')
-    expect(toolbar.textContent).toContain('Timezone')
     expect(toolbar.textContent).toContain('UTC')
 
     const rangeControls = container.querySelector(

@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef } from 'react'
+import { DropdownMenuCheckboxItem } from '@/components/ui/dropdown-menu'
 import { Notice } from '@/components/ui/notice'
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
 import { useIsMobile } from '@/hooks/use-mobile'
@@ -20,8 +21,8 @@ import { MonitorEditorPanel } from '../management/monitor-editor-panel'
 import { useMonitorEditorState } from '../management/use-monitor-editor-state'
 import {
   MonitorControlBar,
+  MonitorControlMenu,
   MonitorControlSelect,
-  MonitorControlToggle,
   MonitorStateCard,
 } from '../shared/monitor-ui'
 import type {
@@ -102,6 +103,16 @@ const FIELD_SUM_LABELS: Record<ConfigMonitorFieldSum, string> = {
   activeCount: 'Active',
   pausedCount: 'Paused',
 }
+
+const summarizeConfigFieldSums = (fieldSums: ConfigMonitorFieldSum[]) => {
+  if (fieldSums.length === 0) return 'None'
+  if (fieldSums.length === 1) return FIELD_SUM_LABELS[fieldSums[0]!]
+  return `${FIELD_SUM_LABELS[fieldSums[0]!]} +${fieldSums.length - 1}`
+}
+
+const summarizeConfigVisibleFields = (
+  visibleFieldIds: ConfigMonitorViewConfig['kanban']['visibleFieldIds']
+) => `${visibleFieldIds.length} shown`
 
 export function MonitorConfigWorkspace({
   workspaceId,
@@ -331,11 +342,12 @@ export function MonitorConfigWorkspace({
         />
         <MonitorControlSelect
           value={effectiveConfig.groupBy}
+          label='Group'
           disabled={controlsDisabled}
-          triggerClassName='w-[170px]'
+          triggerClassName='w-[140px]'
           options={CONFIG_MONITOR_DIMENSION_FIELDS.map((field) => ({
             value: field,
-            label: `Group: ${DIMENSION_LABELS[field]}`,
+            label: DIMENSION_LABELS[field],
           }))}
           onValueChange={(value) =>
             onUpdateViewConfig((current) => ({
@@ -346,15 +358,16 @@ export function MonitorConfigWorkspace({
         />
         <MonitorControlSelect
           value={effectiveConfig.sliceBy ?? 'none'}
+          label='Slice'
           disabled={controlsDisabled}
-          triggerClassName='w-[170px]'
+          triggerClassName='w-[140px]'
           options={[
-            { value: 'none', label: 'No slice' },
+            { value: 'none', label: 'None' },
             ...CONFIG_MONITOR_DIMENSION_FIELDS.filter(
               (field) => field !== effectiveConfig.groupBy
             ).map((field) => ({
               value: field,
-              label: `Slice: ${DIMENSION_LABELS[field]}`,
+              label: DIMENSION_LABELS[field],
             })),
           ]}
           onValueChange={(value) =>
@@ -366,15 +379,16 @@ export function MonitorConfigWorkspace({
         />
         <MonitorControlSelect
           value={effectiveConfig.verticalGroupBy ?? 'none'}
+          label='Swimlane'
           disabled={controlsDisabled}
-          triggerClassName='w-[185px]'
+          triggerClassName='w-[150px]'
           options={[
-            { value: 'none', label: 'No swimlane' },
+            { value: 'none', label: 'None' },
             ...CONFIG_MONITOR_DIMENSION_FIELDS.filter(
               (field) => field !== effectiveConfig.groupBy && field !== effectiveConfig.sliceBy
             ).map((field) => ({
               value: field,
-              label: `Swimlane: ${DIMENSION_LABELS[field]}`,
+              label: DIMENSION_LABELS[field],
             })),
           ]}
           onValueChange={(value) =>
@@ -386,13 +400,14 @@ export function MonitorConfigWorkspace({
         />
         <MonitorControlSelect
           value={activeSort?.field ?? 'manual'}
+          label='Sort'
           disabled={controlsDisabled}
-          triggerClassName='w-[170px]'
+          triggerClassName='w-[150px]'
           options={[
             { value: 'manual', label: 'Manual order' },
             ...CONFIG_MONITOR_SORT_FIELDS.map((field) => ({
               value: field,
-              label: `Sort: ${SORT_LABELS[field]}`,
+              label: SORT_LABELS[field],
             })),
           ]}
           onValueChange={(value) =>
@@ -401,35 +416,47 @@ export function MonitorConfigWorkspace({
               sortBy:
                 value !== 'manual'
                   ? [
-                      {
-                        field: value as ConfigMonitorSortField,
-                        direction: current.sortBy[0]?.direction ?? 'asc',
-                      },
-                    ]
+                    {
+                      field: value as ConfigMonitorSortField,
+                      direction: current.sortBy[0]?.direction ?? 'asc',
+                    },
+                  ]
                   : [],
             }))
           }
         />
-        {CONFIG_MONITOR_FIELD_SUMS.map((field) => (
-          <MonitorControlToggle
-            key={field}
-            pressed={effectiveConfig.fieldSums.includes(field)}
-            disabled={controlsDisabled}
-            onClick={() => handleFieldSumToggle(field)}
-          >
-            {FIELD_SUM_LABELS[field]}
-          </MonitorControlToggle>
-        ))}
-        {CONFIG_MONITOR_VISIBLE_FIELDS.map((field) => (
-          <MonitorControlToggle
-            key={field}
-            pressed={effectiveConfig.kanban.visibleFieldIds.includes(field)}
-            disabled={controlsDisabled}
-            onClick={() => handleVisibleFieldToggle(field)}
-          >
-            {VISIBLE_LABELS[field]}
-          </MonitorControlToggle>
-        ))}
+        <MonitorControlMenu
+          label='Sums'
+          value={summarizeConfigFieldSums(effectiveConfig.fieldSums)}
+          disabled={controlsDisabled}
+          contentClassName='w-44'
+        >
+          {CONFIG_MONITOR_FIELD_SUMS.map((field) => (
+            <DropdownMenuCheckboxItem
+              key={field}
+              checked={effectiveConfig.fieldSums.includes(field)}
+              onCheckedChange={() => handleFieldSumToggle(field)}
+            >
+              {FIELD_SUM_LABELS[field]}
+            </DropdownMenuCheckboxItem>
+          ))}
+        </MonitorControlMenu>
+        <MonitorControlMenu
+          label='Fields'
+          value={summarizeConfigVisibleFields(effectiveConfig.kanban.visibleFieldIds)}
+          disabled={controlsDisabled}
+          contentClassName='w-52'
+        >
+          {CONFIG_MONITOR_VISIBLE_FIELDS.map((field) => (
+            <DropdownMenuCheckboxItem
+              key={field}
+              checked={effectiveConfig.kanban.visibleFieldIds.includes(field)}
+              onCheckedChange={() => handleVisibleFieldToggle(field)}
+            >
+              {VISIBLE_LABELS[field]}
+            </DropdownMenuCheckboxItem>
+          ))}
+        </MonitorControlMenu>
       </MonitorControlBar>
 
       {noticeMessage ? <Notice variant='warning'>{noticeMessage}</Notice> : null}

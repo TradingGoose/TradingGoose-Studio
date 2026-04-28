@@ -1,10 +1,19 @@
 'use client'
 
 import { useMemo } from 'react'
-import { Loader2 } from 'lucide-react'
+import { Loader2, SquareChartGantt, SquareKanban } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import {
+  DropdownMenuCheckboxItem,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+} from '@/components/ui/dropdown-menu'
 import { Notice } from '@/components/ui/notice'
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
 import { Sheet, SheetContent } from '@/components/ui/sheet'
@@ -15,8 +24,8 @@ import { MonitorBoard } from '../board/monitor-board'
 import { getExecutionGroupValue, type MonitorExecutionItem } from '../data/execution-ordering'
 import {
   MonitorControlBar,
+  MonitorControlMenu,
   MonitorControlSelect,
-  MonitorControlToggle,
   MonitorStateCard,
 } from '../shared/monitor-ui'
 import { MonitorTimeline } from '../timeline/monitor-timeline'
@@ -97,6 +106,11 @@ const FIELD_SUM_LABELS: Record<ExecutionMonitorFieldSum, string> = {
   cost: 'Cost',
 }
 
+const SORT_DIRECTION_SYMBOLS = {
+  asc: '↑',
+  desc: '↓',
+} as const
+
 const VISIBLE_FIELD_LABELS = {
   workflow: 'Workflow',
   provider: 'Provider',
@@ -111,6 +125,40 @@ const VISIBLE_FIELD_LABELS = {
 } as const
 
 const DEFAULT_COLUMN_LIMITS = [0, 5, 10, 20] as const
+
+const encodeExecutionSortValue = (
+  field: ExecutionMonitorSortField,
+  direction: 'asc' | 'desc'
+) => `${field}:${direction}`
+
+const formatExecutionSortValue = (
+  field: ExecutionMonitorSortField,
+  direction: 'asc' | 'desc'
+) => `${SORT_FIELD_LABELS[field]} ${SORT_DIRECTION_SYMBOLS[direction]}`
+
+const summarizeExecutionFieldSums = (fieldSums: ExecutionMonitorFieldSum[]) => {
+  if (fieldSums.length === 0) return 'None'
+  if (fieldSums.length === 1) return FIELD_SUM_LABELS[fieldSums[0]!]
+  return `${FIELD_SUM_LABELS[fieldSums[0]!]} +${fieldSums.length - 1}`
+}
+
+const summarizeExecutionVisibleFields = (
+  visibleFieldIds: ExecutionMonitorViewConfig['kanban']['visibleFieldIds']
+) => `${visibleFieldIds.length} shown`
+
+const summarizeExecutionColumns = (
+  hiddenColumnIds: string[],
+  columnOptions: Array<{ value: string; label: string }>
+) => `${columnOptions.length - hiddenColumnIds.length}/${columnOptions.length}`
+
+const summarizeTimelineMarkers = (
+  markers: ExecutionMonitorViewConfig['timeline']['markers']
+) => {
+  if (markers.today && markers.intervalBoundaries) return 'Today + boundaries'
+  if (markers.today) return 'Today'
+  if (markers.intervalBoundaries) return 'Boundaries'
+  return 'None'
+}
 
 const getDefaultSortDirection = (field: ExecutionMonitorSortField) => {
   switch (field) {
@@ -176,6 +224,12 @@ export function MonitorExecutionWorkspace({
   const controlsDisabled = viewStateMode !== 'server' || viewStateReloading
   const activeSort = effectiveConfig.sortBy[0] ?? null
   const secondarySort = effectiveConfig.sortBy[1] ?? null
+  const primarySortValue = activeSort
+    ? encodeExecutionSortValue(activeSort.field, activeSort.direction)
+    : 'manual'
+  const secondarySortValue = secondarySort
+    ? encodeExecutionSortValue(secondarySort.field, secondarySort.direction)
+    : 'none'
   const boardSections = useMemo(
     () => buildMonitorBoardSections(executionItems, effectiveConfig),
     [effectiveConfig, executionItems]
@@ -200,30 +254,6 @@ export function MonitorExecutionWorkspace({
 
   const resolvedInspectorLog = selectedExecutionLog ?? null
   const showDesktopInspector = !isMobile && Boolean(selectedExecution)
-
-  const handleSortFieldChange = (field: ExecutionMonitorSortField) => {
-    onUpdateViewConfig((current) => ({
-      ...current,
-      sortBy: [
-        {
-          field,
-          direction: current.sortBy[0]?.direction ?? getDefaultSortDirection(field),
-        },
-        ...current.sortBy.slice(1, 2).filter((entry) => entry.field !== field),
-      ],
-    }))
-  }
-
-  const handleSortDirectionChange = (direction: 'asc' | 'desc') => {
-    if (!activeSort) return
-    onUpdateViewConfig((current) => ({
-      ...current,
-      sortBy:
-        current.sortBy.length === 0
-          ? []
-          : [{ ...current.sortBy[0]!, direction }, ...current.sortBy.slice(1, 2)],
-    }))
-  }
 
   const handleSecondarySortFieldChange = (field: ExecutionMonitorSortField | '') => {
     onUpdateViewConfig((current) => {
@@ -251,21 +281,6 @@ export function MonitorExecutionWorkspace({
             direction: current.sortBy[1]?.direction ?? getDefaultSortDirection(field),
           },
         ],
-      }
-    })
-  }
-
-  const handleSecondarySortDirectionChange = (direction: 'asc' | 'desc') => {
-    if (!secondarySort) return
-    onUpdateViewConfig((current) => {
-      const primary = current.sortBy[0]
-      if (!primary || current.sortBy.length < 2) {
-        return current
-      }
-
-      return {
-        ...current,
-        sortBy: [primary, { ...current.sortBy[1]!, direction }],
       }
     })
   }
@@ -364,6 +379,64 @@ export function MonitorExecutionWorkspace({
     }))
   }
 
+  const handlePrimarySortValueChange = (value: string) => {
+    if (value === 'manual') {
+      onUpdateViewConfig((current) => ({ ...current, sortBy: [] }))
+      return
+    }
+
+    const [field, direction] = value.split(':')
+    if (
+      !EXECUTION_MONITOR_SORT_FIELDS.includes(field as ExecutionMonitorSortField) ||
+      (direction !== 'asc' && direction !== 'desc')
+    ) {
+      return
+    }
+
+    const resolvedField = field as ExecutionMonitorSortField
+    onUpdateViewConfig((current) => ({
+      ...current,
+      sortBy: [
+        {
+          field: resolvedField,
+          direction,
+        },
+        ...current.sortBy.slice(1, 2).filter((entry) => entry.field !== resolvedField),
+      ],
+    }))
+  }
+
+  const handleSecondarySortValueChange = (value: string) => {
+    if (value === 'none') {
+      handleSecondarySortFieldChange('')
+      return
+    }
+
+    const [field, direction] = value.split(':')
+    if (
+      !EXECUTION_MONITOR_SORT_FIELDS.includes(field as ExecutionMonitorSortField) ||
+      (direction !== 'asc' && direction !== 'desc')
+    ) {
+      return
+    }
+
+    const resolvedField = field as ExecutionMonitorSortField
+    onUpdateViewConfig((current) => {
+      const primary = current.sortBy[0]
+      if (!primary) {
+        return {
+          ...current,
+          sortBy: [{ field: resolvedField, direction }],
+        }
+      }
+
+      return {
+        ...current,
+        sortBy: [primary, { field: resolvedField, direction }],
+      }
+    })
+  }
+
   const canvas = (
     <div className='flex h-full w-full min-w-0 max-w-full flex-col overflow-hidden'>
       {effectiveConfig.layout === 'kanban' ? (
@@ -430,21 +503,33 @@ export function MonitorExecutionWorkspace({
   return (
     <div className='flex h-full w-full min-w-0 max-w-full flex-col overflow-hidden p-1.5'>
       <MonitorControlBar toolbarLabel='Monitor view controls'>
-        <MonitorControlSelect
-          value={effectiveConfig.layout}
-          disabled={controlsDisabled}
-          triggerClassName='w-[150px]'
-          options={[
-            { value: 'kanban', label: 'Layout: Kanban' },
-            { value: 'timeline', label: 'Layout: Timeline' },
-          ]}
-          onValueChange={(value) =>
-            onUpdateViewConfig((current) => ({
-              ...current,
-              layout: value as ExecutionMonitorViewConfig['layout'],
-            }))
+        <MonitorControlMenu
+          iconOnly
+          srLabel={`Execution layout: ${effectiveConfig.layout}`}
+          icon={
+            effectiveConfig.layout === 'kanban' ? (
+              <SquareKanban className='h-3.5 w-3.5' />
+            ) : (
+              <SquareChartGantt className='h-3.5 w-3.5' />
+            )
           }
-        />
+          disabled={controlsDisabled}
+          contentClassName='w-40'
+        >
+          <DropdownMenuLabel>Layout</DropdownMenuLabel>
+          <DropdownMenuRadioGroup
+            value={effectiveConfig.layout}
+            onValueChange={(value) =>
+              onUpdateViewConfig((current) => ({
+                ...current,
+                layout: value as ExecutionMonitorViewConfig['layout'],
+              }))
+            }
+          >
+            <DropdownMenuRadioItem value='kanban'>Kanban</DropdownMenuRadioItem>
+            <DropdownMenuRadioItem value='timeline'>Timeline</DropdownMenuRadioItem>
+          </DropdownMenuRadioGroup>
+        </MonitorControlMenu>
 
         <MonitorTimezoneMenu
           timezone={effectiveConfig.timezone}
@@ -453,71 +538,57 @@ export function MonitorExecutionWorkspace({
         />
 
         <MonitorControlSelect
-          value={activeSort?.field ?? 'manual'}
+          value={primarySortValue}
+          label='Sort'
           disabled={controlsDisabled}
-          triggerClassName='w-[185px]'
+          triggerClassName='w-[148px]'
           options={[
             { value: 'manual', label: 'Manual order' },
-            ...EXECUTION_MONITOR_SORT_FIELDS.map((field) => ({
-              value: field,
-              label: `Sort by: ${SORT_FIELD_LABELS[field]}`,
-            })),
+            ...EXECUTION_MONITOR_SORT_FIELDS.flatMap((field) => [
+              {
+                value: encodeExecutionSortValue(field, 'desc'),
+                label: formatExecutionSortValue(field, 'desc'),
+              },
+              {
+                value: encodeExecutionSortValue(field, 'asc'),
+                label: formatExecutionSortValue(field, 'asc'),
+              },
+            ]),
           ]}
-          onValueChange={(value) =>
-            value === 'manual'
-              ? onUpdateViewConfig((current) => ({ ...current, sortBy: [] }))
-              : handleSortFieldChange(value as ExecutionMonitorSortField)
-          }
+          onValueChange={handlePrimarySortValueChange}
         />
 
         <MonitorControlSelect
-          value={activeSort?.direction ?? 'desc'}
-          disabled={controlsDisabled || !activeSort}
-          triggerClassName='w-[155px]'
-          options={[
-            { value: 'asc', label: 'Direction: Asc' },
-            { value: 'desc', label: 'Direction: Desc' },
-          ]}
-          onValueChange={(value) => handleSortDirectionChange(value as 'asc' | 'desc')}
-        />
-
-        <MonitorControlSelect
-          value={secondarySort?.field ?? 'none'}
+          value={secondarySortValue}
+          label='Then'
           disabled={controlsDisabled}
-          triggerClassName='w-[195px]'
+          triggerClassName='w-[148px]'
           options={[
             { value: 'none', label: 'No secondary sort' },
-            ...EXECUTION_MONITOR_SORT_FIELDS.map((field) => ({
-              value: field,
-              label: `Then: ${SORT_FIELD_LABELS[field]}`,
-              disabled: activeSort?.field === field,
-            })),
+            ...EXECUTION_MONITOR_SORT_FIELDS.flatMap((field) => [
+              {
+                value: encodeExecutionSortValue(field, 'desc'),
+                label: formatExecutionSortValue(field, 'desc'),
+                disabled: activeSort?.field === field,
+              },
+              {
+                value: encodeExecutionSortValue(field, 'asc'),
+                label: formatExecutionSortValue(field, 'asc'),
+                disabled: activeSort?.field === field,
+              },
+            ]),
           ]}
-          onValueChange={(value) =>
-            handleSecondarySortFieldChange(
-              value === 'none' ? '' : (value as ExecutionMonitorSortField)
-            )
-          }
-        />
-
-        <MonitorControlSelect
-          value={secondarySort?.direction ?? 'asc'}
-          disabled={controlsDisabled || !secondarySort}
-          triggerClassName='w-[155px]'
-          options={[
-            { value: 'asc', label: 'Then dir: Asc' },
-            { value: 'desc', label: 'Then dir: Desc' },
-          ]}
-          onValueChange={(value) => handleSecondarySortDirectionChange(value as 'asc' | 'desc')}
+          onValueChange={handleSecondarySortValueChange}
         />
 
         <MonitorControlSelect
           value={effectiveConfig.groupBy}
+          label='Group'
           disabled={controlsDisabled}
-          triggerClassName='w-[170px]'
+          triggerClassName='w-[124px]'
           options={EXECUTION_MONITOR_GROUP_FIELDS.map((field) => ({
             value: field,
-            label: `Group: ${GROUP_FIELD_LABELS[field]}`,
+            label: GROUP_FIELD_LABELS[field],
           }))}
           onValueChange={(value) =>
             onUpdateViewConfig((current) => ({
@@ -529,15 +600,16 @@ export function MonitorExecutionWorkspace({
 
         <MonitorControlSelect
           value={effectiveConfig.sliceBy ?? 'none'}
+          label='Slice'
           disabled={controlsDisabled}
-          triggerClassName='w-[170px]'
+          triggerClassName='w-[124px]'
           options={[
-            { value: 'none', label: 'No slice' },
+            { value: 'none', label: 'None' },
             ...EXECUTION_MONITOR_GROUP_FIELDS.filter(
               (field) => field !== effectiveConfig.groupBy
             ).map((field) => ({
               value: field,
-              label: `Slice: ${GROUP_FIELD_LABELS[field]}`,
+              label: GROUP_FIELD_LABELS[field],
             })),
           ]}
           onValueChange={(value) =>
@@ -549,39 +621,40 @@ export function MonitorExecutionWorkspace({
         />
 
         {effectiveConfig.layout === 'timeline' ? (
-          <>
-            <MonitorControlToggle
-              pressed={effectiveConfig.timeline.markers.today}
-              disabled={controlsDisabled}
-              onClick={() => handleTimelineMarkerToggle('today')}
+          <MonitorControlMenu
+            label='Markers'
+            value={summarizeTimelineMarkers(effectiveConfig.timeline.markers)}
+            disabled={controlsDisabled}
+            contentClassName='w-48'
+          >
+            <DropdownMenuCheckboxItem
+              checked={effectiveConfig.timeline.markers.today}
+              onCheckedChange={() => handleTimelineMarkerToggle('today')}
             >
               Today
-            </MonitorControlToggle>
-            <MonitorControlToggle
-              pressed={effectiveConfig.timeline.markers.intervalBoundaries}
-              disabled={controlsDisabled}
-              onClick={() => handleTimelineMarkerToggle('intervalBoundaries')}
+            </DropdownMenuCheckboxItem>
+            <DropdownMenuCheckboxItem
+              checked={effectiveConfig.timeline.markers.intervalBoundaries}
+              onCheckedChange={() => handleTimelineMarkerToggle('intervalBoundaries')}
             >
               Boundaries
-            </MonitorControlToggle>
-            <Button type='button' variant='outline' size='sm' className='h-8 shrink-0' disabled>
-              Dates: Started → Ended
-            </Button>
-          </>
+            </DropdownMenuCheckboxItem>
+          </MonitorControlMenu>
         ) : null}
 
         {effectiveConfig.layout === 'kanban' ? (
           <MonitorControlSelect
             value={effectiveConfig.verticalGroupBy ?? 'none'}
+            label='Swimlane'
             disabled={controlsDisabled}
-            triggerClassName='w-[185px]'
+            triggerClassName='w-[140px]'
             options={[
-              { value: 'none', label: 'No swimlane' },
+              { value: 'none', label: 'None' },
               ...EXECUTION_MONITOR_GROUP_FIELDS.filter(
                 (field) => field !== effectiveConfig.groupBy && field !== effectiveConfig.sliceBy
               ).map((field) => ({
                 value: field,
-                label: `Swimlane: ${GROUP_FIELD_LABELS[field]}`,
+                label: GROUP_FIELD_LABELS[field],
               })),
             ]}
             onValueChange={(value) =>
@@ -593,25 +666,32 @@ export function MonitorExecutionWorkspace({
           />
         ) : null}
 
-        {EXECUTION_MONITOR_FIELD_SUMS.map((fieldSum) => (
-          <MonitorControlToggle
-            key={fieldSum}
-            pressed={effectiveConfig.fieldSums.includes(fieldSum)}
-            disabled={controlsDisabled}
-            onClick={() => handleFieldSumToggle(fieldSum)}
-          >
-            {FIELD_SUM_LABELS[fieldSum]}
-          </MonitorControlToggle>
-        ))}
+        <MonitorControlMenu
+          label='Sums'
+          value={summarizeExecutionFieldSums(effectiveConfig.fieldSums)}
+          disabled={controlsDisabled}
+          contentClassName='w-44'
+        >
+          {EXECUTION_MONITOR_FIELD_SUMS.map((fieldSum) => (
+            <DropdownMenuCheckboxItem
+              key={fieldSum}
+              checked={effectiveConfig.fieldSums.includes(fieldSum)}
+              onCheckedChange={() => handleFieldSumToggle(fieldSum)}
+            >
+              {FIELD_SUM_LABELS[fieldSum]}
+            </DropdownMenuCheckboxItem>
+          ))}
+        </MonitorControlMenu>
 
         {effectiveConfig.layout === 'kanban' ? (
           <MonitorControlSelect
             value={effectiveConfig.kanban.columnField}
+            label='Columns'
             disabled={controlsDisabled}
-            triggerClassName='w-[185px]'
+            triggerClassName='w-[132px]'
             options={EXECUTION_MONITOR_GROUP_FIELDS.map((field) => ({
               value: field,
-              label: `Column: ${GROUP_FIELD_LABELS[field]}`,
+              label: GROUP_FIELD_LABELS[field],
             }))}
             onValueChange={(value) =>
               onUpdateViewConfig((current) => ({
@@ -628,57 +708,82 @@ export function MonitorExecutionWorkspace({
         ) : null}
 
         {effectiveConfig.layout === 'kanban'
-          ? EXECUTION_MONITOR_VISIBLE_FIELDS.map((fieldId) => (
-              <MonitorControlToggle
-                key={fieldId}
-                pressed={effectiveConfig.kanban.visibleFieldIds.includes(fieldId)}
+          ? (
+              <MonitorControlMenu
+                label='Fields'
+                value={summarizeExecutionVisibleFields(effectiveConfig.kanban.visibleFieldIds)}
                 disabled={controlsDisabled}
-                onClick={() => handleVisibleFieldToggle(fieldId)}
+                contentClassName='w-52'
               >
-                {VISIBLE_FIELD_LABELS[fieldId]}
-              </MonitorControlToggle>
-            ))
+                {EXECUTION_MONITOR_VISIBLE_FIELDS.map((fieldId) => (
+                  <DropdownMenuCheckboxItem
+                    key={fieldId}
+                    checked={effectiveConfig.kanban.visibleFieldIds.includes(fieldId)}
+                    onCheckedChange={() => handleVisibleFieldToggle(fieldId)}
+                  >
+                    {VISIBLE_FIELD_LABELS[fieldId]}
+                  </DropdownMenuCheckboxItem>
+                ))}
+              </MonitorControlMenu>
+            )
           : null}
 
-        {effectiveConfig.layout === 'kanban' && columnOptions.length === 0 ? (
-          <Button type='button' variant='outline' size='sm' className='h-8 shrink-0' disabled>
-            No columns
-          </Button>
-        ) : null}
-
         {effectiveConfig.layout === 'kanban'
-          ? columnOptions.map((option) => {
-              const visible = !effectiveConfig.kanban.hiddenColumnIds.includes(option.value)
-
-              return (
-                <MonitorControlToggle
-                  key={option.value}
-                  pressed={visible}
+          ? columnOptions.length > 0 ? (
+              <>
+                <MonitorControlMenu
+                  label='Visible'
+                  value={summarizeExecutionColumns(
+                    effectiveConfig.kanban.hiddenColumnIds,
+                    columnOptions
+                  )}
                   disabled={controlsDisabled}
-                  onClick={() => handleColumnVisibilityToggle(option.value)}
+                  contentClassName='w-52'
                 >
-                  {option.label}
-                </MonitorControlToggle>
-              )
-            })
-          : null}
-
-        {effectiveConfig.layout === 'kanban'
-          ? columnOptions.map((option) => (
-              <MonitorControlSelect
-                key={`limit:${option.value}`}
-                value={String(effectiveConfig.kanban.columnLimits[option.value] ?? 0)}
-                disabled={controlsDisabled}
-                triggerClassName='w-[185px]'
-                options={DEFAULT_COLUMN_LIMITS.map((limit) => ({
-                  value: String(limit),
-                  label: `${option.label}: ${limit === 0 ? 'No limit' : `${limit} items`}`,
-                }))}
-                onValueChange={(value) =>
-                  handleColumnLimitChange(option.value, Number.parseInt(value, 10))
-                }
-              />
-            ))
+                  {columnOptions.map((option) => (
+                    <DropdownMenuCheckboxItem
+                      key={option.value}
+                      checked={!effectiveConfig.kanban.hiddenColumnIds.includes(option.value)}
+                      onCheckedChange={() => handleColumnVisibilityToggle(option.value)}
+                    >
+                      {option.label}
+                    </DropdownMenuCheckboxItem>
+                  ))}
+                </MonitorControlMenu>
+                <MonitorControlMenu
+                  label='Limits'
+                  value={
+                    Object.keys(effectiveConfig.kanban.columnLimits).length === 0
+                      ? 'Off'
+                      : `${Object.keys(effectiveConfig.kanban.columnLimits).length} set`
+                  }
+                  disabled={controlsDisabled}
+                  contentClassName='w-56'
+                >
+                  <DropdownMenuLabel>Column limits</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  {columnOptions.map((option) => (
+                    <DropdownMenuSub key={`limit:${option.value}`}>
+                      <DropdownMenuSubTrigger>{option.label}</DropdownMenuSubTrigger>
+                      <DropdownMenuSubContent className='w-40'>
+                        <DropdownMenuRadioGroup
+                          value={String(effectiveConfig.kanban.columnLimits[option.value] ?? 0)}
+                          onValueChange={(value) =>
+                            handleColumnLimitChange(option.value, Number.parseInt(value, 10))
+                          }
+                        >
+                          {DEFAULT_COLUMN_LIMITS.map((limit) => (
+                            <DropdownMenuRadioItem key={limit} value={String(limit)}>
+                              {limit === 0 ? 'No limit' : `${limit} items`}
+                            </DropdownMenuRadioItem>
+                          ))}
+                        </DropdownMenuRadioGroup>
+                      </DropdownMenuSubContent>
+                    </DropdownMenuSub>
+                  ))}
+                </MonitorControlMenu>
+              </>
+            ) : null
           : null}
       </MonitorControlBar>
 
