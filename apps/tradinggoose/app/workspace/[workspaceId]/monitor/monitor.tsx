@@ -179,7 +179,6 @@ export function MonitorPage({ workspaceId, userId }: MonitorPageProps) {
   const [viewNameDialog, setViewNameDialog] = useState<ViewNameDialogState | null>(null)
   const [nameDialogValue, setNameDialogValue] = useState('')
   const [nameDialogBusy, setNameDialogBusy] = useState(false)
-  const [createMonitorRequestId, setCreateMonitorRequestId] = useState(0)
   const [selectedExecutionLogId, setSelectedExecutionLogId] = useState<string | null>(null)
 
   const activeViewId = activeViewIdsByMode.executions ?? null
@@ -1366,26 +1365,6 @@ export function MonitorPage({ workspaceId, userId }: MonitorPageProps) {
         )}
         <span className='sr-only'>Refresh monitor workspace</span>
       </Button>
-      {activeMode === 'config' ? (
-        <Button
-          variant='outline'
-          size='sm'
-          className='h-9'
-          disabled={
-            !renderableModes.includes('config') ||
-            shellActionsDisabled ||
-            referenceData.isLoading ||
-            Boolean(referenceData.createDisabledReason)
-          }
-          onClick={() => {
-            void (async () => {
-              setCreateMonitorRequestId((current) => current + 1)
-            })()
-          }}
-        >
-          New monitor
-        </Button>
-      ) : null}
     </div>
   )
 
@@ -1425,7 +1404,6 @@ export function MonitorPage({ workspaceId, userId }: MonitorPageProps) {
       monitorsError={monitorsError}
       referenceData={referenceData}
       monitorActions={monitorActions}
-      createMonitorRequestId={createMonitorRequestId}
       onPanelLayout={(sizes) =>
         updateWorkingState((current) => ({
           ...current,

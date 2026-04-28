@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useMemo, useState } from 'react'
+import { Plus } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -219,11 +220,12 @@ export function MonitorConfigBoard({
                                 <Button
                                   type='button'
                                   variant='ghost'
-                                  size='sm'
-                                  className='h-7 px-2 text-xs'
+                                  size='icon'
+                                  className='h-7 w-7'
+                                  aria-label={`Add monitor in ${title}`}
                                   onClick={() => onCreateInContext(bucket.context)}
                                 >
-                                  Add monitor
+                                  <Plus className='h-4 w-4' />
                                 </Button>
                               </div>
                               <MonitorAggregateBadges

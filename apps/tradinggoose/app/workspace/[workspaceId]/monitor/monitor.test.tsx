@@ -134,7 +134,6 @@ vi.mock(
   () => ({
     MonitorConfigWorkspace: (props: any) => (
       <div>
-        <div data-testid='config-create-request-id'>{props.createMonitorRequestId}</div>
         <div data-testid='config-views-error'>{props.viewsError ?? 'none'}</div>
         <button
           type='button'
@@ -738,7 +737,7 @@ describe('MonitorPage', () => {
     expect(container.querySelector('input[placeholder="Search config monitors..."]')).not.toBeNull()
   })
 
-  it('renders the New monitor header action only in config mode', async () => {
+  it('does not render a New monitor action in the shell header', async () => {
     await act(async () => {
       root.render(<MonitorPage workspaceId='workspace-1' userId='user-1' />)
     })
@@ -747,7 +746,7 @@ describe('MonitorPage', () => {
 
     await click('config')
 
-    expect(findButton('New monitor')).toBeInstanceOf(HTMLButtonElement)
+    expect(container.textContent).not.toContain('New monitor')
   })
 
   it('keeps config mode in a loading state until monitor requirements load', async () => {
@@ -783,9 +782,7 @@ describe('MonitorPage', () => {
 
     await waitForText('Loading monitor requirements...')
 
-    expect(container.querySelector('[data-testid="config-create-request-id"]')).toBeNull()
     expect(findButton('config').disabled).toBe(true)
-    expect(findButton('New monitor').disabled).toBe(true)
   })
 
   it('shows quick filters alongside the shared header query and removes them from that surface', async () => {
@@ -1060,7 +1057,6 @@ describe('MonitorPage', () => {
     expect(findButton('executions').disabled).toBe(true)
     expect(findButton('config').disabled).toBe(true)
     expect(findButton('Refresh monitor workspace').disabled).toBe(true)
-    expect(findButton('New monitor').disabled).toBe(true)
 
     await act(async () => {
       resolveRemove?.()
@@ -1193,7 +1189,6 @@ describe('MonitorPage', () => {
     expect(container.textContent).toContain('Views unavailable')
     expect(container.textContent).toContain('Failed to load views')
     expect(container.querySelector('[data-testid="selected-execution"]')).toBeNull()
-    expect(container.querySelector('[data-testid="config-create-request-id"]')).toBeNull()
   })
 
   it('keeps the current shell state when a non-initial view reload fails', async () => {

@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef } from 'react'
+import { useCallback, useMemo } from 'react'
 import { DropdownMenuCheckboxItem } from '@/components/ui/dropdown-menu'
 import { Notice } from '@/components/ui/notice'
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
@@ -56,7 +56,6 @@ type MonitorConfigWorkspaceProps = {
   monitorsError: string | null
   referenceData: MonitorReferenceData
   monitorActions: MonitorRecordActions
-  createMonitorRequestId: number
   onPanelLayout: (sizes: number[]) => void
   onUpdateViewConfig: (
     next: ConfigMonitorViewConfig | ((current: ConfigMonitorViewConfig) => ConfigMonitorViewConfig)
@@ -126,13 +125,11 @@ export function MonitorConfigWorkspace({
   monitorsError,
   referenceData,
   monitorActions,
-  createMonitorRequestId,
   onPanelLayout,
   onUpdateViewConfig,
   onReloadViews,
 }: MonitorConfigWorkspaceProps) {
   const isMobile = useIsMobile()
-  const lastHandledCreateMonitorRequestIdRef = useRef(0)
   const targetMonitorIds = useMemo(
     () => Array.from(new Set(monitorRecords.map((monitor) => monitor.monitorId))).sort(),
     [monitorRecords]
@@ -188,21 +185,6 @@ export function MonitorConfigWorkspace({
   })
   const controlsDisabled =
     viewStateMode !== 'server' || viewStateReloading || referenceData.isLoading
-
-  useEffect(() => {
-    if (viewStateMode !== 'server') return
-    if (controlsDisabled || referenceData.createDisabledReason) return
-    if (createMonitorRequestId === lastHandledCreateMonitorRequestIdRef.current) return
-
-    lastHandledCreateMonitorRequestIdRef.current = createMonitorRequestId
-    editorState.openCreate()
-  }, [
-    controlsDisabled,
-    createMonitorRequestId,
-    editorState,
-    referenceData.createDisabledReason,
-    viewStateMode,
-  ])
 
   const activeSort = effectiveConfig.sortBy[0] ?? null
   const canReorder = effectiveConfig.sortBy.length === 0

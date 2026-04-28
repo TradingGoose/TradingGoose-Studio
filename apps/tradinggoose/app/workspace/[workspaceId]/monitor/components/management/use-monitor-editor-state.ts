@@ -147,10 +147,6 @@ export function useMonitorEditorState({
     [ensureListingSelectorInstance, updateListingSelectorInstance]
   )
 
-  const openCreate = useCallback(() => {
-    openDraft(null, buildBlankMonitorDraft(referenceData))
-  }, [openDraft, referenceData])
-
   const openEdit = useCallback(
     (monitor: IndicatorMonitorRecord) => {
       selectMonitorId(monitor.monitorId)
@@ -344,7 +340,6 @@ export function useMonitorEditorState({
     editingListingInstanceId,
     setSelectedMonitorId: selectMonitorId,
     clearSelection,
-    openCreate,
     openEdit,
     openCreateFromBoardContext,
     openRejectedDropProposal,

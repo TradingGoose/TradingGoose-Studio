@@ -110,7 +110,7 @@ describe('MonitorConfigWorkspace', () => {
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = false
   })
 
-  it('renders config cards from monitor records and opens create from header signal', async () => {
+  it('renders config cards from monitor records and opens create from a board add action', async () => {
     await act(async () => {
       root.render(
         <MonitorConfigWorkspace
@@ -130,7 +130,6 @@ describe('MonitorConfigWorkspace', () => {
             toggleMonitorState: vi.fn(),
             deleteMonitor: vi.fn(),
           }}
-          createMonitorRequestId={1}
           onPanelLayout={vi.fn()}
           onUpdateViewConfig={vi.fn()}
           onReloadViews={vi.fn()}
@@ -140,6 +139,19 @@ describe('MonitorConfigWorkspace', () => {
 
     expect(container.textContent).toContain('RSI')
     expect(container.textContent).toContain('Workflow One - Indicator Trigger')
+
+    const addMonitorButton = Array.from(container.querySelectorAll('button')).find((button) =>
+      button.getAttribute('aria-label')?.includes('Add monitor')
+    )
+    if (!(addMonitorButton instanceof HTMLButtonElement)) {
+      throw new Error('Expected Add monitor button to render')
+    }
+
+    await act(async () => {
+      addMonitorButton.click()
+      await Promise.resolve()
+    })
+
     expect(container.textContent).toContain('Create Monitor')
   })
 
@@ -163,7 +175,6 @@ describe('MonitorConfigWorkspace', () => {
             toggleMonitorState: vi.fn(),
             deleteMonitor: vi.fn(),
           }}
-          createMonitorRequestId={0}
           onPanelLayout={vi.fn()}
           onUpdateViewConfig={vi.fn()}
           onReloadViews={vi.fn()}
@@ -212,7 +223,6 @@ describe('MonitorConfigWorkspace', () => {
             toggleMonitorState: vi.fn(),
             deleteMonitor: vi.fn(),
           }}
-          createMonitorRequestId={0}
           onPanelLayout={vi.fn()}
           onUpdateViewConfig={vi.fn()}
           onReloadViews={vi.fn()}
@@ -248,7 +258,6 @@ describe('MonitorConfigWorkspace', () => {
             toggleMonitorState: vi.fn(),
             deleteMonitor: vi.fn(),
           }}
-          createMonitorRequestId={0}
           onPanelLayout={vi.fn()}
           onUpdateViewConfig={vi.fn()}
           onReloadViews={vi.fn()}
@@ -260,6 +269,6 @@ describe('MonitorConfigWorkspace', () => {
     expect(container.textContent).toContain('Workflow target')
     expect(container.textContent).toContain('Active')
     expect(container.textContent).toContain('Paused')
-    expect(container.textContent).toContain('Add monitor')
+    expect(container.querySelector('button[aria-label^="Add monitor"]')).not.toBeNull()
   })
 })
