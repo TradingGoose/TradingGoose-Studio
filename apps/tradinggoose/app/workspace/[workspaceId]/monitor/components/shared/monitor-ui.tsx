@@ -203,7 +203,7 @@ export function MonitorBoardShell({
   return (
     <Card
       className={cn(
-        'flex h-full w-full min-w-0 max-w-full flex-col overflow-hidden rounded-xl border bg-card/40',
+        'flex h-full w-full min-w-0 max-w-full flex-col overflow-hidden rounded-xl border bg-card/40 p-1.5',
         className
       )}
       {...props}
