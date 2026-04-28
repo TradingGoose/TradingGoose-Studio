@@ -4,21 +4,19 @@ import { useCallback, useMemo, useState } from 'react'
 import { Plus } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { cn } from '@/lib/utils'
+import { type KanbanDragEvent, type KanbanDropDirection, KanbanProvider } from '../board/kanban'
 import {
-  KanbanBoard,
-  KanbanCard,
-  KanbanCards,
-  type KanbanDragEvent,
-  type KanbanDropDirection,
-  KanbanProvider,
-} from '../board/kanban'
+  MonitorKanbanBoard,
+  MonitorKanbanCard,
+  MonitorKanbanCardHeader,
+  MonitorKanbanColumn,
+  MonitorKanbanEmptyCard,
+  MonitorKanbanFieldChip,
+  MonitorKanbanGroup,
+  MonitorKanbanSection,
+  MonitorKanbanShell,
+} from '../board/monitor-kanban'
 import { formatMonitorDateTime } from '../shared/monitor-time'
-import {
-  MonitorAggregateBadges,
-  MonitorBoardShell,
-  MonitorSectionHeader,
-} from '../shared/monitor-ui'
 import type { ConfigMonitorVisibleField } from '../view/view-config'
 import type {
   ConfigBoardBucket,
@@ -168,33 +166,24 @@ export function MonitorConfigBoard({
       onDragEnd={clearDragState}
       onDragCancel={clearDragState}
     >
-      <MonitorBoardShell>
+      <MonitorKanbanShell>
         {sections.map((section) => (
-          <section key={section.id} className='flex min-h-0 flex-col gap-3'>
-            <MonitorSectionHeader
-              title={section.label}
-              description={`${section.cards.length} monitor configs`}
-            >
-              <MonitorAggregateBadges
-                entries={section.aggregates}
-                variant='secondary'
-                badgeClassName='text-[10px]'
-              />
-            </MonitorSectionHeader>
-
+          <MonitorKanbanSection
+            key={section.id}
+            title={section.label}
+            description={`${section.cards.length} monitor configs`}
+            aggregates={section.aggregates}
+            aggregateVariant='secondary'
+            aggregateBadgeClassName='text-[10px]'
+          >
             {section.groups.map((group) => (
-              <div key={`${section.id}:${group.id}`} className='space-y-2'>
-                <div className='flex items-center justify-between rounded-lg bg-muted/50 px-3 py-2'>
-                  <div>
-                    <div className='font-medium text-xs'>{group.label}</div>
-                    <div className='text-[11px] text-muted-foreground'>
-                      {group.cards.length} monitors
-                    </div>
-                  </div>
-                  <MonitorAggregateBadges entries={group.aggregates} />
-                </div>
-
-                <KanbanBoard className='pb-0'>
+              <MonitorKanbanGroup
+                key={`${section.id}:${group.id}`}
+                title={group.label}
+                description={`${group.cards.length} monitors`}
+                aggregates={group.aggregates}
+              >
+                <MonitorKanbanBoard>
                   {group.statusLanes.flatMap((lane) =>
                     lane.buckets.map((bucket) => {
                       const canDrop = Boolean(dragState)
@@ -202,7 +191,7 @@ export function MonitorConfigBoard({
                         bucket.label === 'All' ? lane.label : `${lane.label} - ${bucket.label}`
 
                       return (
-                        <KanbanCards
+                        <MonitorKanbanColumn
                           key={bucket.id}
                           columnId={bucket.id}
                           title={title}
@@ -210,36 +199,26 @@ export function MonitorConfigBoard({
                           canDrop={canDrop}
                           onDropOverColumn={() => handleDropAtBucket(bucket)}
                           itemIds={bucket.cards.map((card) => card.monitorId)}
-                          listClassName='space-y-2'
-                          beforeCards={
-                            <>
-                              <div className='flex items-center justify-between border-b px-3 py-2'>
-                                <div className='text-muted-foreground text-xs'>
-                                  {bucket.cards.length} monitors
-                                </div>
-                                <Button
-                                  type='button'
-                                  variant='ghost'
-                                  size='icon'
-                                  className='h-7 w-7'
-                                  aria-label={`Add monitor in ${title}`}
-                                  onClick={() => onCreateInContext(bucket.context)}
-                                >
-                                  <Plus className='h-4 w-4' />
-                                </Button>
-                              </div>
-                              <MonitorAggregateBadges
-                                entries={bucket.aggregates}
-                                className='border-b px-3 py-2'
-                              />
-                            </>
+                          summary={`${bucket.cards.length} monitors`}
+                          metaAction={
+                            <Button
+                              type='button'
+                              variant='ghost'
+                              size='icon'
+                              className='h-7 w-7'
+                              aria-label={`Add monitor in ${title}`}
+                              onClick={() => onCreateInContext(bucket.context)}
+                            >
+                              <Plus className='h-4 w-4' />
+                            </Button>
                           }
+                          aggregates={bucket.aggregates}
                         >
                           {bucket.cards.length === 0 ? (
-                            <li className='h-24 rounded-lg bg-muted/20' aria-hidden='true' />
+                            <MonitorKanbanEmptyCard />
                           ) : (
                             bucket.cards.map((card) => (
-                              <KanbanCard
+                              <MonitorKanbanCard
                                 key={card.monitorId}
                                 data={{ id: card.monitorId, columnId: bucket.id }}
                                 selected={selectedMonitorId === card.monitorId}
@@ -250,28 +229,19 @@ export function MonitorConfigBoard({
                                     : undefined
                                 }
                                 onClick={() => onSelectCard(card)}
-                                className={cn(
-                                  'space-y-3 px-3 py-3 text-left transition hover:border-primary/50',
-                                  selectedMonitorId === card.monitorId && 'border-primary'
-                                )}
                               >
-                                <div className='space-y-1'>
-                                  <div className='font-medium text-sm'>{card.indicatorName}</div>
-                                  <div className='text-muted-foreground text-xs'>
-                                    {card.workflowTargetLabel}
-                                  </div>
-                                </div>
+                                <MonitorKanbanCardHeader
+                                  title={card.indicatorName}
+                                  subtitle={card.workflowTargetLabel}
+                                />
 
                                 <div className='flex flex-wrap gap-1.5'>
                                   {visibleFieldIds.map((fieldId) => (
-                                    <Badge
+                                    <MonitorKanbanFieldChip
                                       key={`${card.monitorId}:${fieldId}`}
-                                      variant='outline'
-                                      className='gap-1 rounded-sm px-2 py-1 font-normal text-[11px]'
-                                    >
-                                      <span className='text-muted-foreground'>{fieldId}</span>
-                                      <span>{formatVisibleField(card, fieldId, timezone)}</span>
-                                    </Badge>
+                                      label={fieldId}
+                                      value={formatVisibleField(card, fieldId, timezone)}
+                                    />
                                   ))}
                                 </div>
 
@@ -281,19 +251,19 @@ export function MonitorConfigBoard({
                                 >
                                   {card.isActive ? 'Active' : 'Paused'}
                                 </Badge>
-                              </KanbanCard>
+                              </MonitorKanbanCard>
                             ))
                           )}
-                        </KanbanCards>
+                        </MonitorKanbanColumn>
                       )
                     })
                   )}
-                </KanbanBoard>
-              </div>
+                </MonitorKanbanBoard>
+              </MonitorKanbanGroup>
             ))}
-          </section>
+          </MonitorKanbanSection>
         ))}
-      </MonitorBoardShell>
+      </MonitorKanbanShell>
     </KanbanProvider>
   )
 }

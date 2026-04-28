@@ -2,27 +2,23 @@
 
 import { useCallback, useMemo, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { cn } from '@/lib/utils'
 import { formatMonitorDateTime } from '../shared/monitor-time'
-import {
-  MonitorAggregateBadges,
-  MonitorBoardShell,
-  MonitorSectionHeader,
-} from '../shared/monitor-ui'
 import type {
   ExecutionMonitorQuickFilterField,
   ExecutionMonitorVisibleFieldId,
 } from '../view/view-config'
 import type { MonitorBoardColumn, MonitorBoardSection } from './board-state'
+import { type KanbanDragEvent, type KanbanDropDirection, KanbanProvider } from './kanban'
 import {
-  KanbanBoard,
-  KanbanCard,
-  KanbanCards,
-  type KanbanDragEvent,
-  type KanbanDropDirection,
-  KanbanProvider,
-} from './kanban'
+  MonitorKanbanBoard,
+  MonitorKanbanCard,
+  MonitorKanbanCardHeader,
+  MonitorKanbanColumn,
+  MonitorKanbanEmptyCard,
+  MonitorKanbanFieldChip,
+  MonitorKanbanSection,
+  MonitorKanbanShell,
+} from './monitor-kanban'
 
 type MonitorBoardProps = {
   sections: MonitorBoardSection[]
@@ -141,16 +137,6 @@ const moveWithinColumn = (
   return nextIds
 }
 
-const ColumnAggregates = ({ aggregates }: { aggregates: MonitorBoardColumn['aggregates'] }) => (
-  <MonitorAggregateBadges
-    entries={aggregates}
-    className='border-b px-3 py-2'
-    formatValue={(field, value) =>
-      typeof value === 'number' ? value.toFixed(field === 'count' ? 0 : 2) : value
-    }
-  />
-)
-
 export function MonitorBoard({
   sections,
   selectedExecutionLogId,
@@ -216,29 +202,26 @@ export function MonitorBoard({
       onDragEnd={handleDragEnd}
       onDragCancel={handleDragEnd}
     >
-      <MonitorBoardShell>
+      <MonitorKanbanShell>
         {sections.map((section) => (
-          <section
+          <MonitorKanbanSection
             key={section.id}
-            className='flex min-h-0 w-full min-w-0 max-w-full flex-1 flex-col gap-3'
-          >
-            <MonitorSectionHeader
-              title={section.label}
-              description={`${section.columns.reduce((sum, column) => sum + column.totalCount, 0)} executions`}
-            >
-              {!canReorder ? (
+            title={section.label}
+            description={`${section.columns.reduce((sum, column) => sum + column.totalCount, 0)} executions`}
+            actions={
+              !canReorder ? (
                 <Badge variant='secondary' className='text-[10px]'>
                   Sorted
                 </Badge>
-              ) : null}
-            </MonitorSectionHeader>
-
-            <KanbanBoard className='flex-1 pb-0'>
+              ) : null
+            }
+          >
+            <MonitorKanbanBoard>
               {section.columns.map((column) => {
                 const canDrop = canReorder && dragState?.columnId === column.id
 
                 return (
-                  <KanbanCards
+                  <MonitorKanbanColumn
                     key={column.id}
                     columnId={column.id}
                     title={column.label}
@@ -246,28 +229,24 @@ export function MonitorBoard({
                     canDrop={canDrop}
                     onDropOverColumn={() => handleDropAtColumn(column)}
                     itemIds={column.items.map((item) => item.logId)}
-                    listClassName='space-y-2'
-                    beforeCards={
-                      <>
-                        <div className='flex items-center justify-between border-b px-3 py-2'>
-                          <div className='text-muted-foreground text-xs'>
-                            {column.totalCount} items
-                          </div>
-                          {column.limit ? (
-                            <Badge variant='outline' className='text-[10px]'>
-                              Limit {column.limit}
-                            </Badge>
-                          ) : null}
-                        </div>
-                        <ColumnAggregates aggregates={column.aggregates} />
-                      </>
+                    summary={`${column.totalCount} items`}
+                    metaAction={
+                      column.limit ? (
+                        <Badge variant='outline' className='text-[10px]'>
+                          Limit {column.limit}
+                        </Badge>
+                      ) : null
+                    }
+                    aggregates={column.aggregates}
+                    formatAggregateValue={(field, value) =>
+                      typeof value === 'number' ? value.toFixed(field === 'count' ? 0 : 2) : value
                     }
                   >
                     {column.items.length === 0 ? (
-                      <li className='h-32 rounded-lg bg-muted/20' aria-hidden='true' />
+                      <MonitorKanbanEmptyCard />
                     ) : (
                       column.items.map((item) => (
-                        <KanbanCard
+                        <MonitorKanbanCard
                           key={item.logId}
                           data={{ id: item.logId, columnId: column.id }}
                           selected={selectedExecutionLogId === item.logId}
@@ -292,17 +271,11 @@ export function MonitorBoard({
                             )
                           }}
                           disabled={!canReorder}
-                          className={cn(
-                            'space-y-3 px-3 py-3 text-left transition hover:border-primary/50',
-                            selectedExecutionLogId === item.logId && 'border-primary'
-                          )}
                         >
-                          <div className='space-y-1'>
-                            <div className='font-medium text-sm'>{item.listingLabel}</div>
-                            <div className='text-muted-foreground text-xs'>
-                              {item.executionId || item.logId}
-                            </div>
-                          </div>
+                          <MonitorKanbanCardHeader
+                            title={item.listingLabel}
+                            subtitle={item.executionId || item.logId}
+                          />
 
                           <div className='flex flex-wrap gap-1.5'>
                             {visibleFieldIds.map((fieldId) => {
@@ -315,27 +288,18 @@ export function MonitorBoard({
                               )
 
                               return (
-                                <Button
+                                <MonitorKanbanFieldChip
                                   key={`${item.logId}:${fieldId}`}
-                                  type='button'
-                                  variant={isActive ? 'secondary' : 'outline'}
-                                  size='sm'
-                                  aria-pressed={isActive}
-                                  className={cn(
-                                    'h-6 rounded-sm px-2 text-[11px]',
-                                    isActive &&
-                                      'border-primary/50 bg-primary/10 text-primary hover:bg-primary/15'
-                                  )}
+                                  active={isActive}
+                                  label={fieldId}
+                                  value={formatVisibleField(item, fieldId, timezone)}
                                   onClick={(event) => {
                                     event.stopPropagation()
                                     if (quickFilterField && quickFilterValue) {
                                       onToggleQuickFilter(quickFilterField, quickFilterValue)
                                     }
                                   }}
-                                >
-                                  <span className='text-muted-foreground'>{fieldId}</span>
-                                  <span>{formatVisibleField(item, fieldId, timezone)}</span>
-                                </Button>
+                                />
                               )
                             })}
                           </div>
@@ -350,16 +314,16 @@ export function MonitorBoard({
                               Snapshot incomplete
                             </Badge>
                           ) : null}
-                        </KanbanCard>
+                        </MonitorKanbanCard>
                       ))
                     )}
-                  </KanbanCards>
+                  </MonitorKanbanColumn>
                 )
               })}
-            </KanbanBoard>
-          </section>
+            </MonitorKanbanBoard>
+          </MonitorKanbanSection>
         ))}
-      </MonitorBoardShell>
+      </MonitorKanbanShell>
     </KanbanProvider>
   )
 }
