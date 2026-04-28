@@ -85,13 +85,13 @@ export function MonitorTimezoneMenu({
       <DropdownMenuTrigger asChild>
         <Button
           type='button'
-          variant='ghost'
+          variant='outline'
           size='sm'
           className={cn(monitorControlSurfaceClass, 'max-w-[132px]', className)}
           disabled={disabled}
           aria-label={`Timezone: ${selectedLabel}`}
         >
-          <ClockFading className='h-3.5 w-3.5' />
+          <ClockFading className='h-4 w-4' />
           <span className='truncate text-foreground'>{selectedLabel}</span>
         </Button>
       </DropdownMenuTrigger>

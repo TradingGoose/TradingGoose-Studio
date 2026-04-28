@@ -20,7 +20,7 @@ import {
 import { cn } from '@/lib/utils'
 
 export const monitorControlSurfaceClass =
-  'h-7 min-w-0 shrink-0 justify-start gap-1 rounded-sm border border-transparent bg-transparent px-2 text-xs font-normal text-muted-foreground shadow-none transition-colors hover:bg-background hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 data-[state=open]:bg-background data-[state=open]:text-foreground'
+  'inline-flex h-9 min-w-0 shrink-0 items-center justify-between gap-2 whitespace-nowrap rounded-md border border-border bg-background px-3 font-normal text-sm text-foreground shadow-none transition-colors ring-offset-background hover:bg-card hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=open]:bg-card data-[state=open]:text-foreground [&_svg]:pointer-events-none [&_svg]:h-4 [&_svg]:w-4 [&_svg]:shrink-0'
 
 type MonitorControlBarProps = ComponentProps<'div'> & {
   contentClassName?: string
@@ -59,7 +59,7 @@ export function MonitorControlBar({
           role='toolbar'
           aria-label={toolbarLabel}
           className={cn(
-            'flex h-9 w-max min-w-full items-center gap-1 rounded-md border bg-muted p-1 shadow-sm',
+            'flex min-h-11 w-max min-w-full items-center gap-1 rounded-md border bg-muted p-1 shadow-sm',
             contentClassName
           )}
         >
@@ -95,7 +95,7 @@ export function MonitorControlSelect({
   return (
     <Select {...props}>
       <SelectTrigger className={cn(monitorControlSurfaceClass, triggerClassName)}>
-        {label ? <span className='shrink-0 text-[11px] text-muted-foreground'>{label}</span> : null}
+        {label ? <span className='shrink-0 text-xs text-muted-foreground'>{label}</span> : null}
         <span className='min-w-0 truncate text-foreground'>
           <SelectValue placeholder={placeholder} />
         </span>
@@ -126,12 +126,12 @@ export function MonitorControlToggle({
   return (
     <Button
       type={type}
-      variant='ghost'
+      variant='outline'
       size='sm'
       aria-pressed={pressed}
       className={cn(
         monitorControlSurfaceClass,
-        pressed && 'bg-background text-foreground',
+        pressed && 'border-primary/40 bg-primary/10 text-foreground hover:bg-primary/15',
         className
       )}
       {...props}
@@ -171,12 +171,12 @@ export function MonitorControlMenu({
       <DropdownMenuTrigger asChild>
         <Button
           type='button'
-          variant='ghost'
+          variant='outline'
           size='sm'
           disabled={disabled}
           className={cn(
             monitorControlSurfaceClass,
-            iconOnly ? 'w-7 justify-center px-0' : 'max-w-[220px]',
+            iconOnly ? 'w-9 justify-center px-0' : 'max-w-[220px]',
             className
           )}
           aria-label={srLabel}
@@ -184,12 +184,12 @@ export function MonitorControlMenu({
           {icon}
           {iconOnly ? <span className='sr-only'>{srLabel}</span> : null}
           {!iconOnly && label ? (
-            <span className='shrink-0 text-[11px] text-muted-foreground'>{label}</span>
+            <span className='shrink-0 text-xs text-muted-foreground'>{label}</span>
           ) : null}
           {!iconOnly && value ? (
             <span className='truncate text-foreground'>{value}</span>
           ) : null}
-          {!iconOnly ? <ChevronDown className='ml-0.5 h-3.5 w-3.5 text-muted-foreground' /> : null}
+          {!iconOnly ? <ChevronDown className='ml-0.5 h-4 w-4 text-muted-foreground' /> : null}
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align={align} className={contentClassName}>
