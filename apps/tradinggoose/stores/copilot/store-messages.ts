@@ -15,6 +15,120 @@ import type {
   MessageFileAttachment,
 } from '@/stores/copilot/types'
 
+function parseJsonObjectPrefix(
+  value: string
+): { object: Record<string, unknown>; rest: string } | null {
+  let inString = false
+  let escaped = false
+  let depth = 0
+  const start = value.search(/\S/)
+  if (start < 0 || value[start] !== '{') return null
+
+  for (let index = start; index < value.length; index++) {
+    const char = value[index]
+
+    if (inString) {
+      if (escaped) {
+        escaped = false
+      } else if (char === '\\') {
+        escaped = true
+      } else if (char === '"') {
+        inString = false
+      }
+      continue
+    }
+
+    if (char === '"') {
+      inString = true
+      continue
+    }
+
+    if (char === '{') {
+      depth += 1
+      continue
+    }
+
+    if (char !== '}') continue
+    depth -= 1
+    if (depth !== 0) continue
+
+    try {
+      const parsed = JSON.parse(value.slice(start, index + 1))
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null
+      return {
+        object: parsed as Record<string, unknown>,
+        rest: value.slice(index + 1),
+      }
+    } catch {
+      return null
+    }
+  }
+
+  return null
+}
+
+function normalizeAssistantReasoningContent(content: string): {
+  content: string
+  reasoning?: string
+} {
+  const parsed = parseJsonObjectPrefix(content)
+  if (!parsed || typeof parsed.object.reasoning !== 'string') {
+    return { content }
+  }
+
+  const explicitContent =
+    typeof parsed.object.reply === 'string'
+      ? parsed.object.reply
+      : typeof parsed.object.content === 'string'
+        ? parsed.object.content
+        : typeof parsed.object.message === 'string'
+          ? parsed.object.message
+          : typeof parsed.object.text === 'string'
+            ? parsed.object.text
+            : undefined
+
+  return {
+    content: (explicitContent ?? parsed.rest).trim(),
+    reasoning: parsed.object.reasoning.trim(),
+  }
+}
+
+function normalizeAssistantContentBlocks(blocks: any[]): any[] {
+  return blocks.flatMap((block) => {
+    if (block?.type !== 'text' || typeof block.content !== 'string') {
+      return [block]
+    }
+
+    const normalized = normalizeAssistantReasoningContent(block.content)
+    if (!normalized.reasoning) {
+      return [block]
+    }
+
+    const timestamp = typeof block.timestamp === 'number' ? block.timestamp : Date.now()
+    return [
+      {
+        type: 'thinking',
+        content: normalized.reasoning,
+        timestamp,
+        ...(typeof block.itemId === 'string' ? { itemId: `${block.itemId}-reasoning` } : {}),
+      },
+      ...(normalized.content
+        ? [
+            {
+              ...block,
+              content: normalized.content,
+            },
+          ]
+        : []),
+    ]
+  })
+}
+
+function getMessageBlockTimestamp(message: CopilotMessage): number {
+  const timestamp = Date.parse(message.timestamp)
+  return Number.isFinite(timestamp) ? timestamp : Date.now()
+}
+
 export function normalizeMessagesForUI(
   messages: CopilotMessage[],
   latestTurnStatus?: string | null,
@@ -35,7 +149,9 @@ export function normalizeMessagesForUI(
         return message
       }
 
-      const blocks: any[] = Array.isArray(message.contentBlocks)
+      const normalizedContent = normalizeAssistantReasoningContent(message.content || '')
+      const messageBlockTimestamp = getMessageBlockTimestamp(message)
+      const hydratedBlocks: any[] = Array.isArray(message.contentBlocks)
         ? (message.contentBlocks as any[]).map((b: any) => {
             if (b?.type === 'tool_call' && b.toolCall) {
               const normalizedToolCall = {
@@ -73,6 +189,16 @@ export function normalizeMessagesForUI(
             return b
           })
         : []
+      const blocks = normalizeAssistantContentBlocks(hydratedBlocks)
+      const reasoningBlock =
+        normalizedContent.reasoning && !blocks.some((block: any) => block?.type === 'thinking')
+          ? {
+              type: 'thinking',
+              content: normalizedContent.reasoning,
+              timestamp: messageBlockTimestamp,
+            }
+          : null
+      const finalBlocks = reasoningBlock && blocks.length > 0 ? [reasoningBlock, ...blocks] : blocks
 
       const updatedToolCalls = Array.isArray((message as any).toolCalls)
         ? (message as any).toolCalls.map((tc: any) => {
@@ -109,11 +235,25 @@ export function normalizeMessagesForUI(
 
       return {
         ...message,
+        content: normalizedContent.content,
         ...(updatedToolCalls && { toolCalls: updatedToolCalls }),
-        ...(blocks.length > 0
-          ? { contentBlocks: blocks }
-          : message.content?.trim()
-            ? { contentBlocks: [{ type: 'text', content: message.content, timestamp: Date.now() }] }
+        ...(finalBlocks.length > 0
+          ? { contentBlocks: finalBlocks }
+          : normalizedContent.reasoning || normalizedContent.content.trim()
+            ? {
+                contentBlocks: [
+                  ...(reasoningBlock ? [reasoningBlock] : []),
+                  ...(normalizedContent.content.trim()
+                    ? [
+                        {
+                          type: 'text',
+                          content: normalizedContent.content,
+                          timestamp: messageBlockTimestamp,
+                        },
+                      ]
+                    : []),
+                ],
+              }
             : {}),
       }
     })
