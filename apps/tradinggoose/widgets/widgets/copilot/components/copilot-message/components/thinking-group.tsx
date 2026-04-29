@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Brain, ChevronDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { CopilotMessage } from '@/stores/copilot/types'
+import CopilotMarkdownRenderer from './markdown-renderer'
 
 type ThinkingContentBlock = Extract<
   NonNullable<CopilotMessage['contentBlocks']>[number],
@@ -105,12 +106,10 @@ export function ThinkingGroup({ blocks, isStreaming = false }: ThinkingGroupProp
 
       {isExpanded && content ? (
         <div className='border-border/60 border-t px-3 py-2'>
-          <pre className='whitespace-pre-wrap break-words font-mono text-[11px] text-muted-foreground leading-5'>
-            {content}
-            {isStreaming ? (
-              <span className='ml-1 inline-block h-2 w-1 animate-pulse bg-muted-foreground/80 align-middle' />
-            ) : null}
-          </pre>
+          <CopilotMarkdownRenderer content={content} />
+          {isStreaming ? (
+            <span className='ml-1 inline-block h-2 w-1 animate-pulse bg-muted-foreground/80 align-middle' />
+          ) : null}
         </div>
       ) : null}
     </div>

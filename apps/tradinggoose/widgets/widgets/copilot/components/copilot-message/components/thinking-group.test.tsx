@@ -74,4 +74,23 @@ describe('ThinkingGroup', () => {
     expect(container.textContent).toContain('Finished thinking')
     expect(container.textContent).not.toContain('Thought for 0ms')
   })
+
+  it('renders expanded thinking content as markdown', async () => {
+    const blocks = [
+      {
+        type: 'thinking' as const,
+        content: 'Inspecting **workflow**.\n\n- Validate edges',
+        timestamp: 1,
+        itemId: 'thinking-1',
+      },
+    ]
+
+    await act(async () => {
+      root.render(<ThinkingGroup blocks={blocks} isStreaming={true} />)
+    })
+
+    expect(container.querySelector('strong')?.textContent).toBe('workflow')
+    expect(container.querySelector('ul')?.textContent).toContain('Validate edges')
+    expect(container.textContent).not.toContain('**workflow**')
+  })
 })
