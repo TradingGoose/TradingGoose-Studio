@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { KeyRound } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { checkEnvVarTrigger, EnvVarDropdown } from '@/components/ui/env-var-dropdown'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
@@ -16,10 +17,9 @@ import {
 import { Switch } from '@/components/ui/switch'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import {
-  isFullEnvVarReference,
   isMarketProviderCredentialDefinition,
   resolveMarketProviderSettingsDefinitions,
-  sanitizeMarketProviderAuthRefs,
+  sanitizeMarketProviderAuth,
   sanitizeMarketProviderParamsForWidget,
 } from '@/lib/market/market-provider-settings'
 import { cn } from '@/lib/utils'
@@ -36,6 +36,7 @@ type MarketProviderSettingsButtonProps = {
   providerName?: string
   providerParams?: Record<string, unknown>
   authParams?: Record<string, unknown>
+  workspaceId?: string
   onSave: (next: MarketProviderSettingsSaveResult) => void
 }
 
@@ -55,25 +56,118 @@ const resolveSavedValue = ({
   return providerParams?.[definition.id]
 }
 
+type MarketProviderTextInputProps = {
+  id: string
+  definition: MarketProviderParamDefinition
+  value: string
+  isCredential: boolean
+  workspaceId?: string
+  onChange: (value: string) => void
+}
+
+function MarketProviderTextInput({
+  id,
+  definition,
+  value,
+  isCredential,
+  workspaceId,
+  onChange,
+}: MarketProviderTextInputProps) {
+  const inputRef = useRef<HTMLInputElement>(null)
+  const [showEnvVars, setShowEnvVars] = useState(false)
+  const [searchTerm, setSearchTerm] = useState('')
+  const [cursorPosition, setCursorPosition] = useState(0)
+
+  const updateEnvPicker = (nextValue: string, nextCursorPosition: number, focused: boolean) => {
+    if (!focused) {
+      setShowEnvVars(false)
+      setSearchTerm('')
+      return
+    }
+
+    const envVarTrigger = checkEnvVarTrigger(nextValue, nextCursorPosition)
+    const shouldShowCredentialPicker =
+      isCredential && (nextValue.trim() === '' || envVarTrigger.show)
+
+    setShowEnvVars(shouldShowCredentialPicker || envVarTrigger.show)
+    setSearchTerm(envVarTrigger.show ? envVarTrigger.searchTerm : '')
+  }
+
+  return (
+    <div className='relative'>
+      <Input
+        ref={inputRef}
+        id={id}
+        type={isCredential ? 'password' : definition.type === 'number' ? 'number' : 'text'}
+        value={value}
+        onChange={(event) => {
+          const nextValue = event.target.value
+          const nextCursorPosition = event.target.selectionStart ?? nextValue.length
+          setCursorPosition(nextCursorPosition)
+          onChange(nextValue)
+          updateEnvPicker(nextValue, nextCursorPosition, true)
+        }}
+        onFocus={(event) => {
+          const nextCursorPosition = event.currentTarget.selectionStart ?? value.length
+          setCursorPosition(nextCursorPosition)
+          updateEnvPicker(value, nextCursorPosition, true)
+        }}
+        onBlur={() => {
+          setShowEnvVars(false)
+          setSearchTerm('')
+        }}
+        placeholder={definition.placeholder}
+        min={definition.min}
+        max={definition.max}
+        step={definition.step}
+        autoComplete='off'
+        autoCorrect='off'
+        autoCapitalize='off'
+        spellCheck={false}
+      />
+      {isCredential ? (
+        <EnvVarDropdown
+          visible={showEnvVars}
+          onSelect={(nextValue) => {
+            onChange(nextValue)
+            setShowEnvVars(false)
+            setSearchTerm('')
+            requestAnimationFrame(() => inputRef.current?.focus())
+          }}
+          searchTerm={searchTerm}
+          inputValue={value}
+          cursorPosition={cursorPosition}
+          workspaceId={workspaceId}
+          onClose={() => {
+            setShowEnvVars(false)
+            setSearchTerm('')
+          }}
+        />
+      ) : null}
+    </div>
+  )
+}
+
 export function MarketProviderSettingsButton({
   providerId,
   providerName,
   providerParams,
   authParams,
+  workspaceId,
   onSave,
 }: MarketProviderSettingsButtonProps) {
   const trimmedProviderId = typeof providerId === 'string' ? providerId.trim() : ''
   const definitions = resolveMarketProviderSettingsDefinitions(trimmedProviderId)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const paramValuesRef = useRef<Record<string, unknown>>({})
+  const changedParamIdsRef = useRef<Set<string>>(new Set())
   const [inputValues, setInputValues] = useState<Record<string, string>>({})
-  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({})
 
   useEffect(() => {
     if (!settingsOpen) return
     paramValuesRef.current = {}
+    changedParamIdsRef.current = new Set()
     setInputValues({})
-    setValidationErrors({})
   }, [settingsOpen])
 
   if (definitions.length === 0) return null
@@ -82,13 +176,7 @@ export function MarketProviderSettingsButton({
   const triggerLabel = `${resolvedProviderName} config`
 
   const handleParamChange = (id: string, value: unknown) => {
-    setValidationErrors((current) => {
-      if (!current[id]) return current
-      const next = { ...current }
-      delete next[id]
-      return next
-    })
-
+    changedParamIdsRef.current.add(id)
     if (typeof value === 'string' && value.trim() === '') {
       delete paramValuesRef.current[id]
       return
@@ -99,33 +187,17 @@ export function MarketProviderSettingsButton({
   const handleSave = () => {
     if (!trimmedProviderId) return
 
-    const nextValidationErrors: Record<string, string> = {}
-    for (const definition of definitions) {
-      if (!isMarketProviderCredentialDefinition(definition)) continue
-
-      const value = Object.hasOwn(paramValuesRef.current, definition.id)
-        ? paramValuesRef.current[definition.id]
-        : resolveSavedValue({ definition, authParams, providerParams })
-
-      if (typeof value === 'string' && value.trim() && !isFullEnvVarReference(value)) {
-        nextValidationErrors[definition.id] =
-          'Use a full environment variable reference like {{ ALPACA_API_KEY }}.'
-      }
-    }
-
-    if (Object.keys(nextValidationErrors).length > 0) {
-      setValidationErrors(nextValidationErrors)
-      return
-    }
-
     const nextProviderParamsInput = {
       ...(providerParams ?? {}),
       ...paramValuesRef.current,
     }
+    const resolveNextCredentialValue = (id: 'apiKey' | 'apiSecret') =>
+      changedParamIdsRef.current.has(id) ? paramValuesRef.current[id] : authParams?.[id]
+
     const nextAuthInput = {
       ...(authParams ?? {}),
-      apiKey: paramValuesRef.current.apiKey ?? authParams?.apiKey,
-      apiSecret: paramValuesRef.current.apiSecret ?? authParams?.apiSecret,
+      apiKey: resolveNextCredentialValue('apiKey'),
+      apiSecret: resolveNextCredentialValue('apiSecret'),
     }
 
     onSave({
@@ -133,7 +205,7 @@ export function MarketProviderSettingsButton({
         trimmedProviderId,
         nextProviderParamsInput
       ),
-      auth: sanitizeMarketProviderAuthRefs(nextAuthInput),
+      auth: sanitizeMarketProviderAuth(nextAuthInput),
     })
     setSettingsOpen(false)
   }
@@ -146,13 +218,13 @@ export function MarketProviderSettingsButton({
             <button
               type='button'
               className={widgetHeaderControlClassName(
-                cn('flex min-w-[120px] max-w-[170px] justify-between gap-1.5')
+                cn('flex justify-between gap-1.5')
               )}
               disabled={!trimmedProviderId}
               aria-label={`Configure ${resolvedProviderName} provider`}
             >
               <KeyRound className='h-3.5 w-3.5 shrink-0 text-muted-foreground' />
-              <span className='min-w-0 truncate text-left'>{triggerLabel}</span>
+              <span className='min-w-0 text-left'>{triggerLabel}</span>
             </button>
           </PopoverTrigger>
         </TooltipTrigger>
@@ -161,9 +233,7 @@ export function MarketProviderSettingsButton({
       <PopoverContent className='w-72 space-y-3 p-4'>
         <div className='space-y-1'>
           <p className='font-medium text-sm'>Provider settings</p>
-          <p className='text-muted-foreground text-xs'>
-            Use environment variable references for credentials.
-          </p>
+          <p className='text-muted-foreground text-xs'>Save credentials for this widget.</p>
         </div>
         <div className='space-y-3'>
           {definitions.map((definition) => {
@@ -174,7 +244,7 @@ export function MarketProviderSettingsButton({
                 definition,
                 authParams,
                 providerParams,
-              }) ?? definition.defaultValue
+              }) ?? (isCredential ? undefined : definition.defaultValue)
             const selectValue =
               typeof resolvedValue === 'string' || typeof resolvedValue === 'number'
                 ? String(resolvedValue)
@@ -192,7 +262,7 @@ export function MarketProviderSettingsButton({
                   ? resolvedValue.toLowerCase() === 'true'
                   : false
             const controlledValue = inputValues[definition.id] ?? inputValue ?? ''
-            const validationError = validationErrors[definition.id]
+
             if (definition.inputType === 'switch' || definition.type === 'boolean') {
               return (
                 <div
@@ -241,33 +311,20 @@ export function MarketProviderSettingsButton({
                 <Label htmlFor={inputId} className='text-xs'>
                   {definition.title ?? definition.id}
                 </Label>
-                <Input
+                <MarketProviderTextInput
                   id={inputId}
-                  type={
-                    isCredential ? 'password' : definition.type === 'number' ? 'number' : 'text'
-                  }
+                  definition={definition}
+                  isCredential={isCredential}
                   value={controlledValue}
-                  onChange={(event) => {
+                  onChange={(value) => {
                     setInputValues((current) => ({
                       ...current,
-                      [definition.id]: event.target.value,
+                      [definition.id]: value,
                     }))
-                    handleParamChange(definition.id, event.target.value)
+                    handleParamChange(definition.id, value)
                   }}
-                  placeholder={definition.placeholder}
-                  min={definition.min}
-                  max={definition.max}
-                  step={definition.step}
-                  autoComplete='off'
-                  aria-invalid={validationError ? true : undefined}
-                  className={validationError ? 'border-destructive' : undefined}
+                  workspaceId={workspaceId}
                 />
-                {validationError ? (
-                  <p className='text-[11px] text-destructive'>{validationError}</p>
-                ) : null}
-                {isCredential ? (
-                  <p className='text-[11px] text-muted-foreground'>Use {'{{ ENV_VAR }}'}.</p>
-                ) : null}
               </div>
             )
           })}

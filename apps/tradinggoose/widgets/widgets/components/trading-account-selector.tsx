@@ -103,12 +103,12 @@ export function TradingAccountSelector({
     () =>
       isEnabled
         ? credentials.flatMap((credential) =>
-            normalizedEnvironmentOptions.map((environmentOption) => ({
-              credential,
-              environment: environmentOption.id,
-              environmentLabel: environmentOption.label,
-            }))
-          )
+          normalizedEnvironmentOptions.map((environmentOption) => ({
+            credential,
+            environment: environmentOption.id,
+            environmentLabel: environmentOption.label,
+          }))
+        )
         : [],
     [credentials, isEnabled, normalizedEnvironmentOptions]
   )
@@ -151,10 +151,10 @@ export function TradingAccountSelector({
   const selectedKey =
     credentialId && selectedEnvironment && accountId
       ? buildAccountOptionKey({
-          credentialId,
-          environment: selectedEnvironment,
-          accountId,
-        })
+        credentialId,
+        environment: selectedEnvironment,
+        accountId,
+      })
       : ''
   const selectedOption = accountOptions.find((option) => option.key === selectedKey) ?? null
   const buttonLabel = selectedOption
@@ -184,7 +184,7 @@ export function TradingAccountSelector({
                   type='button'
                   disabled={!isEnabled}
                   className={widgetHeaderControlClassName(
-                    'group flex min-w-[220px] max-w-[280px] justify-between gap-2'
+                    'group flex justify-between gap-2'
                   )}
                   aria-haspopup='listbox'
                   aria-label='Select trading account'
@@ -198,7 +198,7 @@ export function TradingAccountSelector({
                     ) : null}
                     <span
                       className={cn(
-                        'min-w-0 truncate text-left text-sm',
+                        'min-w-0 text-left',
                         selectedOption ? 'font-medium text-foreground' : 'text-muted-foreground'
                       )}
                     >

@@ -1,12 +1,29 @@
 'use client'
 
 import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react'
+import { ListingSelector } from '@/components/listing-selector/selector/combo'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { LoadingAgent } from '@/components/ui/loading-agent'
-import type { ListingOption } from '@/lib/listing/identity'
-import type { QuickOrderSubmitRequest } from '@/app/api/widgets/trading/order/types'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { getListingIdentityKey, type ListingOption } from '@/lib/listing/identity'
+import type { QuickOrderSubmitRequest } from '@/app/api/providers/trading/order/types'
+import { useMarketQuoteSnapshots } from '@/hooks/queries/market-quote-snapshots'
 import { useOAuthCredentials } from '@/hooks/queries/oauth-credentials'
 import { useOAuthProviderAvailability } from '@/hooks/queries/oauth-provider-availability'
-import { useSubmitTradingOrder, useTradingAccounts } from '@/hooks/queries/trading-portfolio'
+import {
+  useSubmitTradingOrder,
+  useTradingAccounts,
+  useTradingPortfolioSnapshot,
+} from '@/hooks/queries/trading-portfolio'
 import {
   ALPACA_TRAILING_STOP_TRAIL_VALUE_ERROR,
   getAlpacaNotionalOrderTypeError,
@@ -21,7 +38,7 @@ import {
   emitQuickOrderParamsChange,
   useQuickOrderParamsPersistence,
 } from '@/widgets/utils/quick-order-params'
-import { ListingSelector } from '@/widgets/widgets/components/listing-selector'
+import { getSeriesMarketProviderOptions } from '@/widgets/widgets/data_chart/options'
 import {
   getQuickOrderDefaultEnvironment,
   getQuickOrderDefaultTimeInForce,
@@ -43,27 +60,36 @@ type QuickOrderBodyParams = QuickOrderWidgetParams | null
 
 const centerStateClassName =
   'flex h-full min-h-0 items-center justify-center px-4 py-6 text-center text-muted-foreground text-sm'
-const fieldClassName =
-  'h-9 w-full rounded-md border border-border/70 bg-background px-3 text-sm outline-none transition-colors placeholder:text-muted-foreground/60 focus:border-foreground/40'
-const labelClassName = 'text-muted-foreground text-xs font-medium'
 
 function CenterState({ children }: { children: string }) {
   return <div className={centerStateClassName}>{children}</div>
 }
 
-function Field({ label, children }: { label: string; children: ReactNode }) {
+const formatCurrency = (value: number | null | undefined, currency = 'USD') => {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return '$ -'
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency,
+    maximumFractionDigits: 2,
+  }).format(value)
+}
+
+const getQuickOrderMarketProviderId = () => {
+  const options = getSeriesMarketProviderOptions()
+  return options.find((option) => option.id === 'yahoo-finance')?.id ?? options[0]?.id ?? ''
+}
+
+function OrderRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className='block space-y-1.5'>
-      <span className={labelClassName}>{label}</span>
-      {children}
+    <div className='flex items-center justify-between gap-3 text-sm'>
+      <span className='font-medium text-foreground'>{label}</span>
+      <span className='font-mono text-muted-foreground tabular-nums'>{value}</span>
     </div>
   )
 }
 
-const formatListingSymbol = (listing: ListingOption | null) => {
-  if (!listing) return 'Select listing'
-  if (listing.base && listing.quote) return `${listing.base}/${listing.quote}`
-  return listing.base || listing.name || 'Selected listing'
+function FieldBlock({ children }: { children: ReactNode }) {
+  return <div className='space-y-2'>{children}</div>
 }
 
 const getParsedNumberValue = (result: QuickOrderNumberParseResult) =>
@@ -160,11 +186,13 @@ const getValidationMessage = ({
 }
 
 export function QuickOrderWidgetBody({
+  context,
   panelId,
   widget,
   params,
   onWidgetParamsChange,
 }: WidgetComponentProps) {
+  const workspaceId = context?.workspaceId ?? null
   const quickOrderParams = (params as QuickOrderBodyParams) ?? null
   const widgetKey = widget?.key ?? 'quick_order'
   const side = quickOrderParams?.side === 'sell' ? 'sell' : 'buy'
@@ -231,22 +259,27 @@ export function QuickOrderWidgetBody({
     hasSelectedProvider && areProviderOptionsReady && Boolean(credentialProviderId)
   )
   const credentials = credentialsQuery.data ?? []
-  const selectedCredential =
-    quickOrderParams?.credentialId && !credentialsQuery.isLoading && !credentialsQuery.error
-      ? (credentials.find((credential) => credential.id === quickOrderParams.credentialId) ?? null)
-      : null
-  const activeCredentialId = selectedCredential?.id
+  const activeCredentialId = quickOrderParams?.credentialId
   const accountsQuery = useTradingAccounts({
     provider: hasSelectedProvider && areProviderOptionsReady ? providerId : undefined,
     credentialId: activeCredentialId,
     environment: hasSelectedProvider && areProviderOptionsReady ? environment : undefined,
   })
   const accounts = accountsQuery.data ?? []
+  const singleAccount = accounts.length === 1 ? (accounts[0] ?? null) : null
   const selectedAccount =
     quickOrderParams?.accountId && !accountsQuery.isLoading && !accountsQuery.error
       ? (accounts.find((account) => account.id === quickOrderParams.accountId) ?? null)
-      : null
-  const activeAccountId = selectedAccount?.id
+      : !quickOrderParams?.accountId
+        ? singleAccount
+        : null
+  const activeAccountId = quickOrderParams?.accountId ?? singleAccount?.id
+  const accountSnapshotQuery = useTradingPortfolioSnapshot({
+    provider: hasSelectedProvider && areProviderOptionsReady ? providerId : undefined,
+    credentialId: activeCredentialId,
+    environment: hasSelectedProvider && areProviderOptionsReady ? environment : undefined,
+    accountId: activeAccountId,
+  })
   const submitResetProviderKey = quickOrderParams?.provider ?? providerId
   const submitResetEnvironmentKey = quickOrderParams?.environment ?? environment
 
@@ -317,6 +350,25 @@ export function QuickOrderWidgetBody({
     [providerId]
   )
   const defaultTimeInForce = providerId ? getQuickOrderDefaultTimeInForce(providerId) : undefined
+  const marketProviderId = useMemo(() => getQuickOrderMarketProviderId(), [])
+  const quoteItems = useMemo(
+    () =>
+      listing
+        ? [
+            {
+              key: getListingIdentityKey(listing),
+              listing,
+            },
+          ]
+        : [],
+    [listing]
+  )
+  const quoteSnapshotsQuery = useMarketQuoteSnapshots({
+    workspaceId: workspaceId ?? undefined,
+    provider: marketProviderId || undefined,
+    items: quoteItems,
+    enabled: Boolean(workspaceId && marketProviderId && quoteItems.length > 0),
+  })
 
   const quantity = normalizeQuickOrderNumber(quantityInput)
   const notional = normalizeQuickOrderNumber(notionalInput)
@@ -324,6 +376,32 @@ export function QuickOrderWidgetBody({
   const stopPrice = normalizeQuickOrderNumber(stopPriceInput)
   const trailPrice = normalizeQuickOrderNumber(trailPriceInput)
   const trailPercent = normalizeQuickOrderNumber(trailPercentInput)
+  const parsedQuantity = getParsedNumberValue(quantity)
+  const parsedNotional = getParsedNumberValue(notional)
+  const parsedLimitPrice = getParsedNumberValue(limitPrice)
+  const parsedStopPrice = getParsedNumberValue(stopPrice)
+  const parsedTrailPrice = getParsedNumberValue(trailPrice)
+  const parsedTrailPercent = getParsedNumberValue(trailPercent)
+  const quoteKey = quoteItems[0]?.key
+  const selectedQuote = quoteKey ? quoteSnapshotsQuery.data?.[quoteKey] : undefined
+  const marketPrice =
+    typeof selectedQuote?.lastPrice === 'number' && Number.isFinite(selectedQuote.lastPrice)
+      ? selectedQuote.lastPrice
+      : undefined
+  const accountSnapshot = accountSnapshotQuery.data
+  const accountCurrency =
+    accountSnapshot?.account.baseCurrency ?? selectedAccount?.baseCurrency ?? 'USD'
+  const cashBuyingPower =
+    typeof accountSnapshot?.accountSummary.buyingPower === 'number'
+      ? accountSnapshot.accountSummary.buyingPower
+      : accountSnapshot?.accountSummary.totalCashValue
+  const estimatedReferencePrice = parsedLimitPrice ?? parsedStopPrice ?? marketPrice
+  const estimatedOrderValue =
+    selectedSizingMode === 'notional'
+      ? parsedNotional
+      : parsedQuantity && estimatedReferencePrice
+        ? parsedQuantity * estimatedReferencePrice
+        : undefined
   const validationMessage = getValidationMessage({
     providerId,
     credentialId: activeCredentialId,
@@ -366,37 +444,7 @@ export function QuickOrderWidgetBody({
   }, [environment, panelId, providerId, quickOrderParams?.environment, widgetKey])
 
   useEffect(() => {
-    if (!quickOrderParams?.credentialId || credentialsQuery.isLoading || credentialsQuery.error)
-      return
-    if (selectedCredential) return
-    emitQuickOrderParamsChange({
-      params: {
-        credentialId: null,
-        accountId: null,
-      },
-      panelId,
-      widgetKey,
-    })
-  }, [
-    credentialsQuery.error,
-    credentialsQuery.isLoading,
-    panelId,
-    quickOrderParams?.credentialId,
-    selectedCredential,
-    widgetKey,
-  ])
-
-  useEffect(() => {
     if (accountsQuery.isLoading || accountsQuery.error || !activeCredentialId) return
-
-    if (quickOrderParams?.accountId && !selectedAccount) {
-      emitQuickOrderParamsChange({
-        params: { accountId: null },
-        panelId,
-        widgetKey,
-      })
-      return
-    }
 
     if (!quickOrderParams?.accountId && accounts.length === 1 && accounts[0]) {
       emitQuickOrderParamsChange({
@@ -412,7 +460,6 @@ export function QuickOrderWidgetBody({
     activeCredentialId,
     panelId,
     quickOrderParams?.accountId,
-    selectedAccount,
     widgetKey,
   ])
 
@@ -548,7 +595,7 @@ export function QuickOrderWidgetBody({
     return <CenterState>Failed to load provider connections.</CenterState>
   }
 
-  if (credentials.length === 0) {
+  if (credentials.length === 0 && !activeCredentialId) {
     return <CenterState>No provider connections found. Add one from provider settings.</CenterState>
   }
 
@@ -556,29 +603,28 @@ export function QuickOrderWidgetBody({
     return <CenterState>Select a provider connection in settings.</CenterState>
   }
 
-  if (accountsQuery.isLoading) {
-    return (
-      <div className={centerStateClassName}>
-        <LoadingAgent size='md' />
-      </div>
-    )
-  }
-
-  if (accountsQuery.error) {
-    return <CenterState>Failed to load broker accounts.</CenterState>
-  }
-
-  if (accounts.length === 0) {
-    return <CenterState>No broker accounts found for the selected credential.</CenterState>
-  }
-
   if (!activeAccountId) {
+    if (accountsQuery.isLoading) {
+      return (
+        <div className={centerStateClassName}>
+          <LoadingAgent size='md' />
+        </div>
+      )
+    }
+
+    if (accountsQuery.error) {
+      return <CenterState>Failed to load broker accounts.</CenterState>
+    }
+
+    if (accounts.length === 0) {
+      return <CenterState>No broker accounts found for the selected credential.</CenterState>
+    }
+
     return <CenterState>Select a broker account to submit an order.</CenterState>
   }
 
   const canSubmit = !validationMessage && !submitOrder.isPending
   const order = submitOrder.data?.order
-  const destinationSummary = `${providerId} ${environment?.toUpperCase() ?? ''} / ${selectedAccount?.name ?? activeAccountId}`
 
   const handleSubmit = () => {
     if (
@@ -604,19 +650,12 @@ export function QuickOrderWidgetBody({
     }
 
     if (providerId === 'alpaca' && selectedSizingMode === 'notional') {
-      const parsedNotional = getParsedNumberValue(notional)
       payload.orderSizingMode = 'notional'
       if (parsedNotional !== undefined) payload.notional = parsedNotional
     } else {
-      const parsedQuantity = getParsedNumberValue(quantity)
       if (selectedSizingMode) payload.orderSizingMode = selectedSizingMode
       if (parsedQuantity !== undefined) payload.quantity = parsedQuantity
     }
-
-    const parsedLimitPrice = getParsedNumberValue(limitPrice)
-    const parsedStopPrice = getParsedNumberValue(stopPrice)
-    const parsedTrailPrice = getParsedNumberValue(trailPrice)
-    const parsedTrailPercent = getParsedNumberValue(trailPercent)
 
     if ((orderType === 'limit' || orderType === 'stop_limit') && parsedLimitPrice) {
       payload.limitPrice = parsedLimitPrice
@@ -634,135 +673,154 @@ export function QuickOrderWidgetBody({
   }
 
   return (
-    <div className='flex h-full min-h-0 flex-col'>
-      <div className='min-h-0 flex-1 overflow-y-auto px-4 py-3'>
-        <div className='space-y-4'>
-          <Field label='Listing'>
-            <ListingSelector
-              instanceId={listingInstanceId}
-              providerType='trading'
-              className='w-full'
-              onListingChange={(nextListing) => {
-                setListing(nextListing)
-                setOrderType('')
-              }}
-              onListingValueChange={() => {
-                setListing(null)
-                setOrderType('')
+    <form
+      className='flex h-full min-h-0 flex-col bg-background'
+      onSubmit={(event) => {
+        event.preventDefault()
+        handleSubmit()
+      }}
+    >
+      <div className='min-h-0 flex-1 overflow-y-auto px-4 py-4'>
+        <div className='space-y-5'>
+          <ListingSelector
+            instanceId={listingInstanceId}
+            providerType='trading'
+            className='w-full'
+            listingRequired
+            onListingChange={(nextListing) => {
+              setListing(nextListing)
+              setOrderType('')
+            }}
+            onListingValueChange={() => {
+              setListing(null)
+              setOrderType('')
+            }}
+          />
+
+          <OrderRow label='Market Price' value={formatCurrency(marketPrice, accountCurrency)} />
+
+          <FieldBlock>
+            <Label htmlFor='quick-order-size'>
+              {selectedSizingMode === 'notional' ? 'Notional' : 'Quantity'}
+            </Label>
+            <Input
+              id='quick-order-size'
+              className='h-9 font-mono'
+              inputMode='decimal'
+              value={selectedSizingMode === 'notional' ? notionalInput : quantityInput}
+              placeholder={selectedSizingMode === 'notional' ? '0.00' : '0'}
+              onChange={(event) => {
+                if (selectedSizingMode === 'notional') {
+                  setNotionalInput(event.target.value)
+                  return
+                }
+                setQuantityInput(event.target.value)
               }}
             />
-          </Field>
+          </FieldBlock>
 
-          <div className='grid grid-cols-2 gap-3'>
-            {sizingOptions.length > 0 ? (
-              <Field label='Sizing'>
-                <select
-                  className={fieldClassName}
-                  value={selectedSizingMode ?? ''}
-                  onChange={(event) => setSizingMode(event.target.value as 'quantity' | 'notional')}
-                >
-                  {sizingOptions.map((option) => (
-                    <option key={option} value={option}>
-                      {option === 'quantity' ? 'Quantity' : 'Notional'}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-            ) : null}
-
-            {selectedSizingMode === 'notional' ? (
-              <Field label='Notional'>
-                <input
-                  className={fieldClassName}
-                  inputMode='decimal'
-                  value={notionalInput}
-                  placeholder='0.00'
-                  onChange={(event) => setNotionalInput(event.target.value)}
-                />
-              </Field>
-            ) : (
-              <Field label='Quantity'>
-                <input
-                  className={fieldClassName}
-                  inputMode='decimal'
-                  value={quantityInput}
-                  placeholder='0'
-                  onChange={(event) => setQuantityInput(event.target.value)}
-                />
-              </Field>
-            )}
-          </div>
-
-          <div className='grid grid-cols-2 gap-3'>
-            <Field label='Order type'>
-              <select
-                className={fieldClassName}
-                value={orderType}
-                disabled={
-                  !listing ||
-                  !resolvedAssetClass ||
-                  !isListingSupported ||
-                  orderTypeDefinitions.length === 0
-                }
-                onChange={(event) => setOrderType(event.target.value)}
-              >
-                {orderTypeDefinitions.length === 0 ? (
-                  <option value=''>{orderTypePlaceholder}</option>
-                ) : (
-                  orderTypeDefinitions.map((definition) => (
-                    <option key={definition.id} value={definition.id}>
-                      {definition.label}
-                    </option>
-                  ))
-                )}
-              </select>
-            </Field>
-
-            <Field label='Time in force'>
-              <select
-                className={fieldClassName}
-                value={timeInForce}
-                onChange={(event) => setTimeInForce(event.target.value)}
-              >
-                {timeInForceOptions.map((option) => (
-                  <option key={option} value={option}>
-                    {option.toUpperCase()}
-                  </option>
+          <FieldBlock>
+            <Label htmlFor='quick-order-order-type'>Order Type</Label>
+            <Select
+              value={orderType || undefined}
+              disabled={
+                !listing ||
+                !resolvedAssetClass ||
+                !isListingSupported ||
+                orderTypeDefinitions.length === 0
+              }
+              onValueChange={setOrderType}
+            >
+              <SelectTrigger id='quick-order-order-type' className='h-9'>
+                <SelectValue placeholder={orderTypePlaceholder} />
+              </SelectTrigger>
+              <SelectContent>
+                {orderTypeDefinitions.map((definition) => (
+                  <SelectItem key={definition.id} value={definition.id}>
+                    {definition.label}
+                  </SelectItem>
                 ))}
-              </select>
-            </Field>
-          </div>
+              </SelectContent>
+            </Select>
+          </FieldBlock>
+
+          {sizingOptions.length > 1 ? (
+            <FieldBlock>
+              <Label>Choose how to {side}</Label>
+              <RadioGroup
+                className='flex items-center gap-5'
+                value={selectedSizingMode}
+                onValueChange={(value) =>
+                  setSizingMode(value === 'notional' ? 'notional' : 'quantity')
+                }
+              >
+                {sizingOptions.map((option) => {
+                  const id = `${listingInstanceId}-sizing-${option}`
+                  return (
+                    <div key={option} className='flex items-center gap-2'>
+                      <RadioGroupItem id={id} value={option} />
+                      <Label htmlFor={id} className='cursor-pointer text-muted-foreground text-sm'>
+                        {option === 'quantity' ? 'Shares' : 'Dollars'}
+                      </Label>
+                    </div>
+                  )
+                })}
+              </RadioGroup>
+            </FieldBlock>
+          ) : null}
+
+          <FieldBlock>
+            <Label htmlFor='quick-order-time-in-force'>Time in Force</Label>
+            <Select value={timeInForce || undefined} onValueChange={setTimeInForce}>
+              <SelectTrigger id='quick-order-time-in-force' className='h-9'>
+                <SelectValue placeholder='Select time in force' />
+              </SelectTrigger>
+              <SelectContent>
+                {timeInForceOptions.map((option) => (
+                  <SelectItem key={option} value={option}>
+                    {option.toUpperCase()}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </FieldBlock>
 
           {orderType !== 'trailing_stop' &&
           (orderType === 'limit' || orderType === 'stop_limit') ? (
-            <Field label='Limit price'>
-              <input
-                className={fieldClassName}
+            <FieldBlock>
+              <Label htmlFor='quick-order-limit-price'>Limit Price</Label>
+              <Input
+                id='quick-order-limit-price'
+                className='h-9 font-mono'
                 inputMode='decimal'
                 value={limitPriceInput}
                 placeholder='0.00'
                 onChange={(event) => setLimitPriceInput(event.target.value)}
               />
-            </Field>
+            </FieldBlock>
           ) : null}
 
           {orderType !== 'trailing_stop' && (orderType === 'stop' || orderType === 'stop_limit') ? (
-            <Field label='Stop price'>
-              <input
-                className={fieldClassName}
+            <FieldBlock>
+              <Label htmlFor='quick-order-stop-price'>Stop Price</Label>
+              <Input
+                id='quick-order-stop-price'
+                className='h-9 font-mono'
                 inputMode='decimal'
                 value={stopPriceInput}
                 placeholder='0.00'
                 onChange={(event) => setStopPriceInput(event.target.value)}
               />
-            </Field>
+            </FieldBlock>
           ) : null}
 
           {orderType === 'trailing_stop' ? (
             <div className='grid grid-cols-2 gap-3'>
-              <Field label='Trail price'>
-                <input
-                  className={fieldClassName}
+              <FieldBlock>
+                <Label htmlFor='quick-order-trail-price'>Trail Price</Label>
+                <Input
+                  id='quick-order-trail-price'
+                  className='h-9 font-mono'
                   inputMode='decimal'
                   value={trailPriceInput}
                   disabled={Boolean(trailPercentInput)}
@@ -772,10 +830,12 @@ export function QuickOrderWidgetBody({
                     if (event.target.value.trim()) setTrailPercentInput('')
                   }}
                 />
-              </Field>
-              <Field label='Trail percent'>
-                <input
-                  className={fieldClassName}
+              </FieldBlock>
+              <FieldBlock>
+                <Label htmlFor='quick-order-trail-percent'>Trail Percent</Label>
+                <Input
+                  id='quick-order-trail-percent'
+                  className='h-9 font-mono'
                   inputMode='decimal'
                   value={trailPercentInput}
                   disabled={Boolean(trailPriceInput)}
@@ -785,27 +845,43 @@ export function QuickOrderWidgetBody({
                     if (event.target.value.trim()) setTrailPriceInput('')
                   }}
                 />
-              </Field>
+              </FieldBlock>
             </div>
           ) : null}
 
           {listing && !resolvedAssetClass ? (
-            <div className='text-amber-300 text-xs'>Resolved listing asset class is required.</div>
+            <div className='rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-amber-300 text-xs'>
+              Resolved listing asset class is required.
+            </div>
           ) : null}
           {listing && resolvedAssetClass && !isListingSupported ? (
-            <div className='text-amber-300 text-xs'>Listing is not supported by this provider.</div>
+            <div className='rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-amber-300 text-xs'>
+              Listing is not supported by this provider.
+            </div>
           ) : null}
           {listing && resolvedAssetClass && isListingSupported && orderTypeMessage ? (
-            <div className='text-amber-300 text-xs'>{orderTypeMessage}</div>
+            <div className='rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-amber-300 text-xs'>
+              {orderTypeMessage}
+            </div>
           ) : null}
         </div>
       </div>
 
       <div className='shrink-0 border-border/70 border-t bg-background/95 px-4 py-3'>
-        <div className='mb-2 min-h-9 text-xs'>
-          {submitOrder.error ? (
-            <div className='text-rose-300'>{submitOrder.error.message}</div>
-          ) : order ? (
+        <div className='space-y-2 rounded-md border border-border/70 bg-card/30 p-3'>
+          <OrderRow
+            label={side === 'sell' ? 'Estimated Proceeds' : 'Estimated Cost'}
+            value={formatCurrency(estimatedOrderValue, accountCurrency)}
+          />
+          <OrderRow
+            label='Cash Buying Power'
+            value={formatCurrency(cashBuyingPower, accountCurrency)}
+          />
+        </div>
+        {submitOrder.error ? (
+          <div className='mb-2 text-destructive text-xs'>{submitOrder.error.message}</div>
+        ) : order ? (
+          <div className='mb-2 text-xs'>
             <div className='space-y-0.5 text-muted-foreground'>
               <div className='text-foreground'>
                 {order.id ? `Order ${order.id}` : 'Order submitted'}
@@ -821,37 +897,16 @@ export function QuickOrderWidgetBody({
                   .join(' / ')}
               </div>
               <div>
-                {[
-                  order.symbol ?? formatListingSymbol(listing),
-                  side.toUpperCase(),
-                  order.submittedAt,
-                ]
-                  .filter(Boolean)
-                  .join(' · ')}
+                {[order.symbol, side.toUpperCase(), order.submittedAt].filter(Boolean).join(' · ')}
               </div>
               {submitOrder.data?.message ? <div>{submitOrder.data.message}</div> : null}
             </div>
-          ) : validationMessage ? (
-            <div className='text-amber-300'>{validationMessage}</div>
-          ) : (
-            <div className='text-muted-foreground'>
-              Submit {side.toUpperCase()} {formatListingSymbol(listing)} to {destinationSummary}
-            </div>
-          )}
-        </div>
-        <button
-          type='button'
-          className={`h-10 w-full rounded-md font-semibold text-sm transition-colors ${
-            side === 'buy'
-              ? 'bg-emerald-500 text-white hover:bg-emerald-400 disabled:bg-emerald-500/30'
-              : 'bg-rose-500 text-white hover:bg-rose-400 disabled:bg-rose-500/30'
-          } disabled:cursor-not-allowed disabled:text-white/60`}
-          disabled={!canSubmit}
-          onClick={handleSubmit}
-        >
+          </div>
+        ) : null}
+        <Button type='submit' className='h-10 w-full' disabled={!canSubmit}>
           {submitOrder.isPending ? 'Submitting...' : `Submit ${side.toUpperCase()} Order`}
-        </button>
+        </Button>
       </div>
-    </div>
+    </form>
   )
 }

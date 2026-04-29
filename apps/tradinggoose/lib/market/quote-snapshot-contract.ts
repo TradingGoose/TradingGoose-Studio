@@ -3,6 +3,8 @@ export type MarketQuoteSnapshot = {
   change: number | null
   changePercent: number | null
   previousClose: number | null
+  volume?: number | null
+  volumeUsd?: number | null
   error?: string
 }
 

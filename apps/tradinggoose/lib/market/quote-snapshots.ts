@@ -20,6 +20,9 @@ const normalizeSeries = (value: unknown): MarketSeries | null => {
   return series
 }
 
+const resolveNumber = (value: unknown) =>
+  typeof value === 'number' && Number.isFinite(value) ? value : null
+
 const buildDailyRequest = async ({
   provider,
   listing,
@@ -93,17 +96,21 @@ export const buildMarketQuoteSnapshot = async ({
     const dailyBars = daily?.bars ?? []
     const latestDaily = dailyBars[dailyBars.length - 1]
     const previousDaily = dailyBars[dailyBars.length - 2]
-    const latestDailyClose = typeof latestDaily?.close === 'number' ? latestDaily.close : null
+    const latestDailyClose = resolveNumber(latestDaily?.close)
+    const latestDailyVolume = resolveNumber(latestDaily?.volume)
+    const previousDailyClose = resolveNumber(previousDaily?.close)
     const previousClose =
-      typeof previousDaily?.close === 'number'
-        ? previousDaily.close
-        : typeof latestDaily?.close === 'number'
-          ? latestDaily.close
+      previousDailyClose !== null
+        ? previousDailyClose
+        : latestDailyClose !== null
+          ? latestDailyClose
           : null
     const regular = await buildRegularLastRequest({ provider, listing, auth, providerParams })
     const regularBar = regular?.bars?.[regular.bars.length - 1]
-    const regularLastPrice = typeof regularBar?.close === 'number' ? regularBar.close : null
+    const regularLastPrice = resolveNumber(regularBar?.close)
     const lastPrice = regularLastPrice ?? latestDailyClose
+    const volumeUsd =
+      latestDailyVolume !== null && lastPrice !== null ? latestDailyVolume * lastPrice : null
     const change =
       typeof lastPrice === 'number' && typeof previousClose === 'number'
         ? lastPrice - previousClose
@@ -118,6 +125,8 @@ export const buildMarketQuoteSnapshot = async ({
       change,
       changePercent,
       previousClose,
+      ...(latestDailyVolume !== null ? { volume: latestDailyVolume } : {}),
+      ...(volumeUsd !== null ? { volumeUsd } : {}),
     }
   } catch (error) {
     return createEmptyMarketQuoteSnapshot(

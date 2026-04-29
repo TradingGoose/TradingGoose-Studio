@@ -26,12 +26,12 @@ import { workflowVariablesWidget } from '@/widgets/widgets/workflow_variables'
 
 const widgetCategoryConfig: WidgetCategoryDefinition[] = [
   {
-    key: 'list',
-    title: 'Lists',
-  },
-  {
     key: 'trading',
     title: 'Trading',
+  },
+  {
+    key: 'list',
+    title: 'Lists',
   },
   {
     key: 'editor',
@@ -39,7 +39,7 @@ const widgetCategoryConfig: WidgetCategoryDefinition[] = [
   },
   {
     key: 'utility',
-    title: 'Utility',
+    title: 'Utils',
   },
 ]
 

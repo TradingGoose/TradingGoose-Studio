@@ -9,7 +9,7 @@ export const watchlistWidget: DashboardWidgetDefinition = {
   key: 'watchlist',
   title: 'Watchlist',
   icon: List,
-  category: 'list',
+  category: 'trading',
   description: 'Manage symbol watchlists with live market columns.',
   component: (props) => <WatchlistWidgetBody {...props} />,
   renderHeader: renderWatchlistHeader,

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   resolveHeatmapEnvironment,
   resolveHeatmapTradingProviderId,
+  resolveHeatmapWatchlistSizeMetric,
   shouldPersistHeatmapMarketProviderDefault,
 } from '@/widgets/widgets/heatmap/components/shared'
 
@@ -35,5 +36,10 @@ describe('heatmap shared helpers', () => {
     expect(resolveHeatmapEnvironment('alpaca', 'paper')).toBe('paper')
     expect(resolveHeatmapEnvironment('alpaca', 'missing')).toBe('paper')
     expect(resolveHeatmapEnvironment('tradier', undefined)).toBe('live')
+  })
+
+  it('defaults watchlist tile sizing to volume USD', () => {
+    expect(resolveHeatmapWatchlistSizeMetric(null)).toBe('volumeUsd')
+    expect(resolveHeatmapWatchlistSizeMetric({ watchlistSizeMetric: 'volume' })).toBe('volume')
   })
 })

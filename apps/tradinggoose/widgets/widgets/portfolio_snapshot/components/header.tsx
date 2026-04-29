@@ -21,12 +21,14 @@ import {
 import type { PortfolioSnapshotWidgetParams } from '@/widgets/widgets/portfolio_snapshot/types'
 
 type HeaderControlProps = {
+  workspaceId?: string
   panelId?: string
   widgetKey: string
   params: PortfolioSnapshotWidgetParams | null
 }
 
 export function PortfolioSnapshotHeaderControls({
+  workspaceId,
   panelId,
   widgetKey,
   params,
@@ -84,6 +86,7 @@ export function PortfolioSnapshotHeaderControls({
         }}
         providerParams={params?.marketProviderParams}
         authParams={params?.marketAuth}
+        workspaceId={workspaceId}
         onSettingsSave={({ providerParams, auth }) => {
           emitPortfolioSnapshotParamsChange({
             params: {
@@ -161,13 +164,19 @@ function PortfolioSnapshotRefreshControl({ panelId, widgetKey, params }: HeaderC
 export const renderPortfolioSnapshotHeader: DashboardWidgetDefinition['renderHeader'] = ({
   panelId,
   widget,
+  context,
 }) => {
   const widgetKey = widget?.key ?? 'portfolio_snapshot'
   const params = (widget?.params as PortfolioSnapshotWidgetParams | null | undefined) ?? null
 
   return {
     left: (
-      <PortfolioSnapshotHeaderControls panelId={panelId} widgetKey={widgetKey} params={params} />
+      <PortfolioSnapshotHeaderControls
+        workspaceId={context?.workspaceId}
+        panelId={panelId}
+        widgetKey={widgetKey}
+        params={params}
+      />
     ),
     right: (
       <PortfolioSnapshotRefreshControl panelId={panelId} widgetKey={widgetKey} params={params} />

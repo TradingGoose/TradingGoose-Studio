@@ -12,4 +12,14 @@ describe('resolveHeatmapTileColor', () => {
     expect(resolveHeatmapTileColor(-2).bucket).toBe('loss-medium')
     expect(resolveHeatmapTileColor(-4).bucket).toBe('loss-high')
   })
+
+  it('uses solid background utilities for non-neutral buckets', () => {
+    for (const changePercent of [0.5, 2, 4, -0.5, -2, -4]) {
+      const color = resolveHeatmapTileColor(changePercent)
+
+      expect(color.className).toContain('bg-')
+      expect(color.className).not.toContain('/')
+      expect(color.className).toContain('text-white')
+    }
+  })
 })

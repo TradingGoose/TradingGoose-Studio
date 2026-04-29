@@ -4,19 +4,16 @@ import {
   type MarketProviderParamDefinition,
 } from '@/providers/market/providers'
 
-const ENV_REF_PATTERN = /^\s*\{\{\s*[A-Za-z_][A-Za-z0-9_]*\s*\}\}\s*$/
-
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
 
 const trimProviderId = (providerId?: string) =>
   typeof providerId === 'string' ? providerId.trim() : ''
 
-const isBlankCredentialValue = (value: unknown) =>
-  value === undefined || value === null || (typeof value === 'string' && value.trim() === '')
-
-export const isFullEnvVarReference = (value: unknown): value is string =>
-  typeof value === 'string' && ENV_REF_PATTERN.test(value)
+const readCredentialString = (value: unknown) => {
+  if (typeof value !== 'string') return undefined
+  return value.trim() ? value : undefined
+}
 
 export const isMarketProviderCredentialDefinition = (definition: MarketProviderParamDefinition) =>
   definition.password === true || definition.id === 'apiKey' || definition.id === 'apiSecret'
@@ -33,14 +30,17 @@ export const resolveMarketProviderSettingsDefinitions = (
   })
 }
 
-export const sanitizeMarketProviderAuthRefs = (
+export const sanitizeMarketProviderAuth = (
   auth: unknown
 ): { apiKey?: string; apiSecret?: string } | undefined => {
   if (!isRecord(auth)) return undefined
 
   const nextAuth: { apiKey?: string; apiSecret?: string } = {}
-  if (isFullEnvVarReference(auth.apiKey)) nextAuth.apiKey = auth.apiKey
-  if (isFullEnvVarReference(auth.apiSecret)) nextAuth.apiSecret = auth.apiSecret
+  const apiKey = readCredentialString(auth.apiKey)
+  const apiSecret = readCredentialString(auth.apiSecret)
+
+  if (apiKey) nextAuth.apiKey = apiKey
+  if (apiSecret) nextAuth.apiSecret = apiSecret
 
   return Object.keys(nextAuth).length > 0 ? nextAuth : undefined
 }
@@ -69,9 +69,8 @@ export const sanitizeMarketProviderParamsForWidget = (
     }
 
     if (isMarketProviderCredentialDefinition(definition)) {
-      if (isFullEnvVarReference(value)) {
-        nextParams[key] = value
-      }
+      const credentialValue = readCredentialString(value)
+      if (credentialValue) nextParams[key] = credentialValue
       continue
     }
 
@@ -86,45 +85,4 @@ export const sanitizeMarketProviderParamsForWidget = (
   }
 
   return Object.keys(nextParams).length > 0 ? nextParams : undefined
-}
-
-export const validateMarketProviderCredentialRefs = (
-  providerId: string | undefined,
-  auth: unknown,
-  providerParams?: unknown
-): { valid: true } | { valid: false; fields: string[] } => {
-  const fields: string[] = []
-
-  if (isRecord(auth)) {
-    for (const key of ['apiKey', 'apiSecret'] as const) {
-      const value = auth[key]
-      if (!isBlankCredentialValue(value) && !isFullEnvVarReference(value)) {
-        fields.push(`auth.${key}`)
-      }
-    }
-  }
-
-  const params = isRecord(providerParams) ? providerParams : null
-  if (params) {
-    for (const key of ['apiKey', 'apiSecret'] as const) {
-      if (!isBlankCredentialValue(params[key])) {
-        fields.push(`providerParams.${key}`)
-      }
-    }
-  }
-
-  const trimmedProviderId = trimProviderId(providerId)
-  if (trimmedProviderId && params) {
-    const definitions = getMarketProviderParamDefinitions(trimmedProviderId, 'series')
-    definitions.forEach((definition) => {
-      if (definition.id === 'apiKey' || definition.id === 'apiSecret') return
-      if (!isMarketProviderCredentialDefinition(definition)) return
-      const value = params[definition.id]
-      if (!isBlankCredentialValue(value) && !isFullEnvVarReference(value)) {
-        fields.push(`providerParams.${definition.id}`)
-      }
-    })
-  }
-
-  return fields.length > 0 ? { valid: false, fields } : { valid: true }
 }

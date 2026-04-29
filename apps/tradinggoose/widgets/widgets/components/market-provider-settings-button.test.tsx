@@ -32,6 +32,11 @@ vi.mock('@/components/ui/select', () => ({
   SelectItem: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
 }))
 
+vi.mock('@/components/ui/env-var-dropdown', () => ({
+  checkEnvVarTrigger: () => ({ show: false, searchTerm: '' }),
+  EnvVarDropdown: () => null,
+}))
+
 describe('MarketProviderSettingsButton', () => {
   let container: HTMLDivElement
   let root: Root
@@ -52,7 +57,7 @@ describe('MarketProviderSettingsButton', () => {
     container.remove()
   })
 
-  it('blocks saving raw credential values and keeps the popover open', async () => {
+  it('saves raw credential values', async () => {
     const onSave = vi.fn()
 
     await act(async () => {
@@ -83,23 +88,94 @@ describe('MarketProviderSettingsButton', () => {
       saveButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
     })
 
-    expect(onSave).not.toHaveBeenCalled()
-    expect(container.textContent).toContain(
-      'Use a full environment variable reference like {{ ALPACA_API_KEY }}.'
+    expect(onSave).toHaveBeenCalledWith({
+      auth: {
+        apiKey: 'raw-key',
+      },
+      providerParams: undefined,
+    })
+  })
+
+  it('renders and resaves raw persisted credentials', async () => {
+    const onSave = vi.fn()
+
+    await act(async () => {
+      root.render(
+        <MarketProviderSettingsButton
+          providerId='alpaca'
+          providerName='Alpaca'
+          authParams={{
+            apiKey: 'raw-key',
+            apiSecret: 'raw-secret',
+          }}
+          onSave={onSave}
+        />
+      )
+    })
+
+    const apiKeyInput = container.querySelector(
+      '#market-provider-param-alpaca-apiKey'
+    ) as HTMLInputElement | null
+    const apiSecretInput = container.querySelector(
+      '#market-provider-param-alpaca-apiSecret'
+    ) as HTMLInputElement | null
+
+    expect(apiKeyInput?.value).toBe('raw-key')
+    expect(apiSecretInput?.value).toBe('raw-secret')
+
+    const saveButton = Array.from(container.querySelectorAll('button')).find(
+      (button) => button.textContent?.trim() === 'Save'
     )
 
-    valueSetter?.call(apiKeyInput, '{{ ALPACA_API_KEY }}')
-    await act(async () => {
-      apiKeyInput?.dispatchEvent(new Event('input', { bubbles: true }))
-    })
     await act(async () => {
       saveButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
     })
 
     expect(onSave).toHaveBeenCalledWith({
       auth: {
-        apiKey: '{{ ALPACA_API_KEY }}',
+        apiKey: 'raw-key',
+        apiSecret: 'raw-secret',
       },
+      providerParams: undefined,
+    })
+  })
+
+  it('clears an existing env credential when the input is emptied', async () => {
+    const onSave = vi.fn()
+
+    await act(async () => {
+      root.render(
+        <MarketProviderSettingsButton
+          providerId='alpaca'
+          providerName='Alpaca'
+          authParams={{
+            apiKey: '{{ ALPACA_API_KEY }}',
+          }}
+          onSave={onSave}
+        />
+      )
+    })
+
+    const apiKeyInput = container.querySelector(
+      '#market-provider-param-alpaca-apiKey'
+    ) as HTMLInputElement | null
+    expect(apiKeyInput?.value).toBe('{{ ALPACA_API_KEY }}')
+
+    const valueSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set
+    valueSetter?.call(apiKeyInput, '')
+    await act(async () => {
+      apiKeyInput?.dispatchEvent(new Event('input', { bubbles: true }))
+    })
+
+    const saveButton = Array.from(container.querySelectorAll('button')).find(
+      (button) => button.textContent?.trim() === 'Save'
+    )
+    await act(async () => {
+      saveButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    })
+
+    expect(onSave).toHaveBeenCalledWith({
+      auth: undefined,
       providerParams: undefined,
     })
   })

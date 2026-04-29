@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo } from 'react'
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Button } from '@/components/ui/button'
 import { useOAuthProviderAvailability } from '@/hooks/queries/oauth-provider-availability'
 import type { DashboardWidgetDefinition } from '@/widgets/types'
 import { emitHeatmapParamsChange } from '@/widgets/utils/heatmap-params'
@@ -15,21 +15,24 @@ import {
   getHeatmapTradingProviderAvailabilityIds,
   getHeatmapTradingProviderOptions,
   HEATMAP_SOURCE_MODES,
+  HEATMAP_WATCHLIST_SIZE_METRICS,
   resolveHeatmapCredentialProvider,
   resolveHeatmapMarketProviderId,
   resolveHeatmapSourceMode,
   resolveHeatmapTradingProviderId,
+  resolveHeatmapWatchlistSizeMetric,
   shouldPersistHeatmapMarketProviderDefault,
 } from '@/widgets/widgets/heatmap/components/shared'
 import type { HeatmapWidgetParams } from '@/widgets/widgets/heatmap/types'
 
 type HeaderControlProps = {
+  workspaceId?: string
   panelId?: string
   widgetKey: string
   params: HeatmapWidgetParams | null
 }
 
-function HeatmapMarketControls({ panelId, widgetKey, params }: HeaderControlProps) {
+function HeatmapMarketControls({ workspaceId, panelId, widgetKey, params }: HeaderControlProps) {
   const marketProviderOptions = useMemo(() => getHeatmapMarketProviderOptions(), [])
   const marketProviderId = resolveHeatmapMarketProviderId(params, marketProviderOptions)
 
@@ -48,6 +51,7 @@ function HeatmapMarketControls({ panelId, widgetKey, params }: HeaderControlProp
       options={marketProviderOptions}
       providerParams={params?.marketProviderParams}
       authParams={params?.marketAuth}
+      workspaceId={workspaceId}
       onChange={(nextProvider) => {
         if (!nextProvider || nextProvider === marketProviderId) return
         emitHeatmapParamsChange({
@@ -80,25 +84,63 @@ function HeatmapSourceControls({ panelId, widgetKey, params }: HeaderControlProp
   const sourceMode = resolveHeatmapSourceMode(params)
 
   return (
-    <Tabs
-      value={sourceMode}
-      onValueChange={(nextMode) => {
-        if (nextMode === sourceMode) return
-        emitHeatmapParamsChange({
-          params: { sourceMode: nextMode },
-          panelId,
-          widgetKey,
-        })
-      }}
-    >
-      <TabsList className={widgetHeaderButtonGroupClassName('h-8 rounded-sm p-0')}>
-        {HEATMAP_SOURCE_MODES.map((mode) => (
-          <TabsTrigger key={mode.id} value={mode.id} className='h-8 px-2 text-xs'>
+    <div className='flex h-7 items-center gap-1 rounded-sm border border-border/70 bg-card/60 p-1'>
+      {HEATMAP_SOURCE_MODES.map((mode) => {
+        const isSelected = mode.id === sourceMode
+
+        return (
+          <Button
+            key={mode.id}
+            type='button'
+            variant={isSelected ? 'default' : 'ghost'}
+            size='sm'
+            className='h-5 min-w-14 rounded-xs px-3 text-sm'
+            onClick={() => {
+              if (mode.id === sourceMode) return
+              emitHeatmapParamsChange({
+                params: { sourceMode: mode.id },
+                panelId,
+                widgetKey,
+              })
+            }}
+          >
             {mode.label}
-          </TabsTrigger>
-        ))}
-      </TabsList>
-    </Tabs>
+          </Button>
+        )
+      })}
+    </div>
+  )
+}
+
+function HeatmapWatchlistSizeControls({ panelId, widgetKey, params }: HeaderControlProps) {
+  const sizeMetric = resolveHeatmapWatchlistSizeMetric(params)
+
+  return (
+    <div className='flex h-7 items-center gap-1 rounded-sm border border-border/70 bg-card/60 p-1'>
+      {HEATMAP_WATCHLIST_SIZE_METRICS.map((metric) => {
+        const isSelected = metric.id === sizeMetric
+
+        return (
+          <Button
+            key={metric.id}
+            type='button'
+            variant={isSelected ? 'default' : 'ghost'}
+            size='sm'
+            className='h-5 min-w-16 rounded-xs px-3 text-sm'
+            onClick={() => {
+              if (metric.id === sizeMetric) return
+              emitHeatmapParamsChange({
+                params: { watchlistSizeMetric: metric.id },
+                panelId,
+                widgetKey,
+              })
+            }}
+          >
+            {metric.label}
+          </Button>
+        )
+      })}
+    </div>
   )
 }
 
@@ -177,14 +219,29 @@ function HeatmapRefreshControl({ panelId, widgetKey }: HeaderControlProps) {
 export const renderHeatmapHeader: DashboardWidgetDefinition['renderHeader'] = ({
   panelId,
   widget,
+  context,
 }) => {
   const widgetKey = widget?.key ?? 'heatmap'
   const params = (widget?.params as HeatmapWidgetParams | null | undefined) ?? null
   const sourceMode = resolveHeatmapSourceMode(params)
 
   return {
-    left: <HeatmapMarketControls panelId={panelId} widgetKey={widgetKey} params={params} />,
-    center: <HeatmapSourceControls panelId={panelId} widgetKey={widgetKey} params={params} />,
+    left: (
+      <HeatmapMarketControls
+        workspaceId={context?.workspaceId}
+        panelId={panelId}
+        widgetKey={widgetKey}
+        params={params}
+      />
+    ),
+    center: (
+      <div className='flex min-w-0 items-center gap-1'>
+        <HeatmapSourceControls panelId={panelId} widgetKey={widgetKey} params={params} />
+        {sourceMode === 'watchlist' ? (
+          <HeatmapWatchlistSizeControls panelId={panelId} widgetKey={widgetKey} params={params} />
+        ) : null}
+      </div>
+    ),
     right: (
       <div className={widgetHeaderButtonGroupClassName('min-w-0')}>
         {sourceMode === 'portfolio' ? (

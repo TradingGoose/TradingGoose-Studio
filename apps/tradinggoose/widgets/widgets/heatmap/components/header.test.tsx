@@ -37,16 +37,6 @@ vi.mock('@/widgets/utils/heatmap-params', () => ({
   emitHeatmapParamsChange: (...args: unknown[]) => mockEmitHeatmapParamsChange(...args),
 }))
 
-vi.mock('@/components/ui/tabs', () => ({
-  Tabs: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
-  TabsList: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
-  TabsTrigger: ({ children, value }: { children?: ReactNode; value: string }) => (
-    <button type='button' data-value={value}>
-      {children}
-    </button>
-  ),
-}))
-
 vi.mock('@/components/ui/tooltip', () => ({
   Tooltip: ({ children }: { children?: ReactNode }) => <>{children}</>,
   TooltipTrigger: ({ children }: { children?: ReactNode }) => <>{children}</>,
@@ -203,6 +193,63 @@ describe('HeatmapHeaderControls', () => {
         accountId: undefined,
       })
     )
+  })
+
+  it('switches source mode from the header button group', async () => {
+    const slots = renderHeatmapHeader?.({
+      panelId: 'panel-1',
+      widget: {
+        key: 'heatmap',
+        params: {
+          sourceMode: 'watchlist',
+        },
+      } as any,
+    })
+
+    await act(async () => {
+      root.render(<>{slots?.center}</>)
+    })
+
+    await act(async () => {
+      Array.from(container.querySelectorAll('button'))
+        .find((button) => button.textContent === 'Portfolio')
+        ?.click()
+    })
+
+    expect(mockEmitHeatmapParamsChange).toHaveBeenCalledWith({
+      params: { sourceMode: 'portfolio' },
+      panelId: 'panel-1',
+      widgetKey: 'heatmap',
+    })
+  })
+
+  it('switches watchlist tile size metric from the header button group', async () => {
+    const slots = renderHeatmapHeader?.({
+      panelId: 'panel-1',
+      widget: {
+        key: 'heatmap',
+        params: {
+          sourceMode: 'watchlist',
+          watchlistSizeMetric: 'volumeUsd',
+        },
+      } as any,
+    })
+
+    await act(async () => {
+      root.render(<>{slots?.center}</>)
+    })
+
+    await act(async () => {
+      Array.from(container.querySelectorAll('button'))
+        .find((button) => button.textContent === 'Volume')
+        ?.click()
+    })
+
+    expect(mockEmitHeatmapParamsChange).toHaveBeenCalledWith({
+      params: { watchlistSizeMetric: 'volume' },
+      panelId: 'panel-1',
+      widgetKey: 'heatmap',
+    })
   })
 
   it('updates credential, environment, and account together from account selection', async () => {

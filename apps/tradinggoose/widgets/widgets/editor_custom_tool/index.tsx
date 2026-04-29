@@ -5,7 +5,6 @@ import { Download, Save, SquareTerminal } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { LoadingAgent } from '@/components/ui/loading-agent'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { cn } from '@/lib/utils'
 import { useCustomTools } from '@/hooks/queries/custom-tools'
 import { useCustomToolsStore } from '@/stores/custom-tools/store'
 import type { CustomToolDefinition } from '@/stores/custom-tools/types'
@@ -26,10 +25,7 @@ import {
   resolveCustomToolId,
 } from '@/widgets/widgets/_shared/custom_tool/utils'
 import { CustomToolDropdown } from '@/widgets/widgets/components/custom-tool-dropdown'
-import {
-  widgetHeaderButtonGroupClassName,
-  widgetHeaderControlClassName,
-} from '@/widgets/widgets/components/widget-header-control'
+import { widgetHeaderButtonGroupClassName } from '@/widgets/widgets/components/widget-header-control'
 import {
   CustomToolEditor,
   type CustomToolEditorSection,
@@ -325,7 +321,12 @@ function CustomToolEditorSelector({
   )
 }
 
-function CustomToolEditorSectionTabs({
+const CUSTOM_TOOL_EDITOR_SECTIONS: Array<{ id: CustomToolEditorSection; label: string }> = [
+  { id: 'schema', label: 'Config' },
+  { id: 'code', label: 'Code' },
+]
+
+function CustomToolEditorSectionSwitch({
   panelId,
   params,
   pairColor = 'gray',
@@ -368,40 +369,26 @@ function CustomToolEditorSectionTabs({
   }
 
   return (
-    <>
-      <button
-        type='button'
-        disabled={isDisabled}
-        className={widgetHeaderControlClassName(
-          cn(
-            'min-w-[72px] justify-center px-2',
-            activeSection === 'schema'
-              ? 'border-border bg-card text-foreground'
-              : 'text-muted-foreground'
-          )
-        )}
-        onClick={() => selectSection('schema')}
-        aria-pressed={activeSection === 'schema'}
-      >
-        Config
-      </button>
-      <button
-        type='button'
-        disabled={isDisabled}
-        className={widgetHeaderControlClassName(
-          cn(
-            'min-w-[72px] justify-center px-2',
-            activeSection === 'code'
-              ? 'border-border bg-card text-foreground'
-              : 'text-muted-foreground'
-          )
-        )}
-        onClick={() => selectSection('code')}
-        aria-pressed={activeSection === 'code'}
-      >
-        Code
-      </button>
-    </>
+    <div className='flex h-7 items-center gap-1 rounded-sm border border-border/70 bg-card/60 p-1'>
+      {CUSTOM_TOOL_EDITOR_SECTIONS.map((section) => {
+        const isSelected = section.id === activeSection
+
+        return (
+          <Button
+            key={section.id}
+            type='button'
+            variant={isSelected ? 'default' : 'ghost'}
+            size='sm'
+            className='h-5 min-w-14 rounded-xs px-3 text-sm'
+            disabled={isDisabled}
+            onClick={() => selectSection(section.id)}
+            aria-pressed={isSelected}
+          >
+            {section.label}
+          </Button>
+        )
+      })}
+    </div>
   )
 }
 
@@ -534,7 +521,7 @@ export const editorCustomToolWidget: DashboardWidgetDefinition = {
       ),
       right: (
         <div className={widgetHeaderButtonGroupClassName()}>
-          <CustomToolEditorSectionTabs
+          <CustomToolEditorSectionSwitch
             panelId={panelId}
             params={
               widget?.params && typeof widget.params === 'object'

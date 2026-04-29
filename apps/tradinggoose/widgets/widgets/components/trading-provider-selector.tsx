@@ -87,7 +87,7 @@ export function TradingProviderSelector({
                 type='button'
                 disabled={isDropdownDisabled}
                 className={widgetHeaderControlClassName(
-                  cn('group flex min-w-[150px] max-w-[190px] justify-between', triggerClassName)
+                  cn('group flex justify-between', triggerClassName)
                 )}
                 aria-haspopup='listbox'
                 aria-label='Select trading provider'
@@ -101,7 +101,7 @@ export function TradingProviderSelector({
                   ) : null}
                   <span
                     className={cn(
-                      'min-w-0 truncate text-left',
+                      'min-w-0 text-left',
                       selectedOption ? 'text-foreground' : 'text-muted-foreground'
                     )}
                   >

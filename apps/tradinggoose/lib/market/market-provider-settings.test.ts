@@ -1,64 +1,30 @@
 import { describe, expect, it } from 'vitest'
 import {
-  sanitizeMarketProviderAuthRefs,
+  sanitizeMarketProviderAuth,
   sanitizeMarketProviderParamsForWidget,
-  validateMarketProviderCredentialRefs,
 } from '@/lib/market/market-provider-settings'
 
 describe('market provider settings helpers', () => {
-  it('keeps only full env-var references for market auth credentials', () => {
+  it('keeps raw and env-var market auth credentials', () => {
     expect(
-      sanitizeMarketProviderAuthRefs({
+      sanitizeMarketProviderAuth({
         apiKey: 'raw-key',
         apiSecret: '{{ ALPACA_API_SECRET }}',
       })
     ).toEqual({
+      apiKey: 'raw-key',
       apiSecret: '{{ ALPACA_API_SECRET }}',
     })
   })
 
-  it('rejects raw market auth credentials before provider execution', () => {
-    expect(validateMarketProviderCredentialRefs('alpaca', { apiKey: 'raw-key' })).toEqual({
-      valid: false,
-      fields: ['auth.apiKey'],
-    })
-  })
-
-  it('accepts env-ref and blank auth credentials during route validation', () => {
+  it('drops blank market auth credentials', () => {
     expect(
-      validateMarketProviderCredentialRefs('alpaca', {
+      sanitizeMarketProviderAuth({
         apiKey: '{{ ALPACA_API_KEY }}',
         apiSecret: '   ',
       })
-    ).toEqual({ valid: true })
-  })
-
-  it('rejects misplaced provider auth params even when they are env refs', () => {
-    expect(
-      validateMarketProviderCredentialRefs('alpaca', undefined, {
-        apiKey: '{{ ALPACA_API_KEY }}',
-        apiSecret: 'raw-secret',
-        feed: 'iex',
-      })
     ).toEqual({
-      valid: false,
-      fields: ['providerParams.apiKey', 'providerParams.apiSecret'],
-    })
-  })
-
-  it('validates auth refs without provider metadata when provider id is missing', () => {
-    expect(validateMarketProviderCredentialRefs(undefined, { apiSecret: 'raw' })).toEqual({
-      valid: false,
-      fields: ['auth.apiSecret'],
-    })
-    expect(
-      validateMarketProviderCredentialRefs(undefined, undefined, {
-        apiKey: '{{ KEY }}',
-        feed: 'iex',
-      })
-    ).toEqual({
-      valid: false,
-      fields: ['providerParams.apiKey'],
+      apiKey: '{{ ALPACA_API_KEY }}',
     })
   })
 

@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import {
-  sanitizeMarketProviderAuthRefs,
+  sanitizeMarketProviderAuth,
   sanitizeMarketProviderParamsForWidget,
 } from '@/lib/market/market-provider-settings'
 import {
@@ -53,7 +53,7 @@ export const sanitizeWatchlistParams = (
   const provider = normalizeString(params.provider)
   const watchlistId = normalizeString(params.watchlistId)
   const providerParams = sanitizeMarketProviderParamsForWidget(provider, params.providerParams)
-  const auth = sanitizeMarketProviderAuthRefs(params.auth)
+  const auth = sanitizeMarketProviderAuth(params.auth)
   const runtime = isRecord(params.runtime) ? params.runtime : null
   const refreshAt =
     typeof runtime?.refreshAt === 'number' && Number.isFinite(runtime.refreshAt)

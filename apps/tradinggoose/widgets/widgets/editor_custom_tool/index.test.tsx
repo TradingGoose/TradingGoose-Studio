@@ -92,7 +92,9 @@ describe('Custom Tool Editor header controls', () => {
       root.render(header?.right as ReactNode)
     })
 
-    const buttons = Array.from(container.querySelectorAll('button'))
-    expect(buttons[0]?.hasAttribute('disabled')).toBe(true)
+    const exportButton = Array.from(container.querySelectorAll('button')).find((button) =>
+      button.textContent?.includes('Export custom tool')
+    )
+    expect(exportButton).toBeDisabled()
   })
 })

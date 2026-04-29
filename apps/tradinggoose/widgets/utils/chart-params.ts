@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import {
-  sanitizeMarketProviderAuthRefs,
+  sanitizeMarketProviderAuth,
   sanitizeMarketProviderParamsForWidget,
 } from '@/lib/market/market-provider-settings'
 import {
@@ -161,7 +161,7 @@ export const sanitizeDataChartParams = (
   if (data) {
     const provider = typeof data.provider === 'string' ? data.provider.trim() : ''
     const providerParams = sanitizeMarketProviderParamsForWidget(provider, data.providerParams)
-    const auth = sanitizeMarketProviderAuthRefs(data.auth)
+    const auth = sanitizeMarketProviderAuth(data.auth)
     const nextData = Object.entries(data).reduce<Record<string, unknown>>((acc, [key, value]) => {
       if (key !== 'provider' && key !== 'providerParams' && key !== 'auth') {
         acc[key] = value

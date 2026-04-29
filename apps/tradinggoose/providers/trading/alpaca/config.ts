@@ -3,7 +3,6 @@ import { alpacaTradingSymbolRules } from '@/providers/trading/alpaca/rules'
 import type { TradingProviderConfig } from '@/providers/trading/providers'
 
 const availableAssetClasses: AssetClass[] = ['stock']
-const supportsCrypto = availableAssetClasses.includes('crypto')
 const availableCryptoQuoteCodes = ['USD', 'USDC', 'USDT', 'BTC']
 const availableCryptoBaseCodes = [
   'AAVE',
@@ -80,8 +79,8 @@ const availability: TradingProviderConfig['availability'] = {
   holdings: true,
   availableCurrencyBase: [],
   availableCurrencyQuote: [],
-  availableCryptoBase: supportsCrypto ? availableCryptoBaseCodes : [],
-  availableCryptoQuote: supportsCrypto ? availableCryptoQuoteCodes : [],
+  availableCryptoBase: availableCryptoBaseCodes,
+  availableCryptoQuote: availableCryptoQuoteCodes,
 }
 
 const params: TradingProviderConfig['params'] = {

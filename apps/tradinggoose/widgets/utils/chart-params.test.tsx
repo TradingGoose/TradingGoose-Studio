@@ -49,7 +49,7 @@ describe('sanitizeDataChartParams', () => {
     container.remove()
   })
 
-  it('sanitizes nested market auth for data chart provider params', () => {
+  it('preserves raw and env-var nested market auth for data chart provider params', () => {
     expect(
       sanitizeDataChartParams({
         data: {
@@ -64,6 +64,7 @@ describe('sanitizeDataChartParams', () => {
       data: {
         provider: 'alpaca',
         auth: {
+          apiKey: 'raw-key',
           apiSecret: '{{ ALPACA_API_SECRET }}',
         },
       },

@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo } from 'react'
 import { LoadingAgent } from '@/components/ui/loading-agent'
+import { getListingIdentityKey } from '@/lib/listing/identity'
+import type { MarketQuoteSnapshot } from '@/lib/market/quote-snapshot-contract'
 import { useResolvedListings } from '@/hooks/queries/listing-resolution'
 import { useMarketQuoteSnapshots } from '@/hooks/queries/market-quote-snapshots'
 import { useOAuthCredentials } from '@/hooks/queries/oauth-credentials'
@@ -23,6 +25,7 @@ import {
   resolveHeatmapMarketProviderId,
   resolveHeatmapSourceMode,
   resolveHeatmapTradingProviderId,
+  resolveHeatmapWatchlistSizeMetric,
 } from '@/widgets/widgets/heatmap/components/shared'
 import {
   capHeatmapListings,
@@ -30,13 +33,32 @@ import {
   resolvePortfolioHeatmapListings,
   resolveWatchlistHeatmapListings,
 } from '@/widgets/widgets/heatmap/components/source-items'
-import type { HeatmapWidgetParams } from '@/widgets/widgets/heatmap/types'
+import type {
+  HeatmapWatchlistSizeMetric,
+  HeatmapWidgetParams,
+} from '@/widgets/widgets/heatmap/types'
 
 const HeatmapMessage = ({ message }: { message: string }) => (
   <div className='flex h-full items-center justify-center px-4 text-center text-muted-foreground text-sm'>
     {message}
   </div>
 )
+
+const isPositiveFiniteNumber = (value: unknown): value is number =>
+  typeof value === 'number' && Number.isFinite(value) && value > 0
+
+const resolvePortfolioSizeValue = (grossQuantity: number | undefined, lastPrice?: number | null) =>
+  isPositiveFiniteNumber(grossQuantity) && isPositiveFiniteNumber(lastPrice)
+    ? grossQuantity * lastPrice
+    : undefined
+
+const resolveWatchlistSizeValue = (
+  quote: MarketQuoteSnapshot | null,
+  metric: HeatmapWatchlistSizeMetric
+) => {
+  const value = metric === 'volume' ? quote?.volume : quote?.volumeUsd
+  return isPositiveFiniteNumber(value) ? value : undefined
+}
 
 export function HeatmapWidgetBody({
   context,
@@ -49,6 +71,7 @@ export function HeatmapWidgetBody({
   const widgetKey = widget?.key ?? 'heatmap'
   const widgetParams = params && typeof params === 'object' ? (params as HeatmapWidgetParams) : null
   const sourceMode = resolveHeatmapSourceMode(widgetParams)
+  const watchlistSizeMetric = resolveHeatmapWatchlistSizeMetric(widgetParams)
   const marketProviderId = resolveHeatmapMarketProviderId(widgetParams)
   const refreshAt =
     typeof widgetParams?.runtime?.refreshAt === 'number' ? widgetParams.runtime.refreshAt : null
@@ -114,18 +137,7 @@ export function HeatmapWidgetBody({
     credentialProviderId,
     sourceMode === 'portfolio' && isTradingProviderReady && Boolean(credentialProviderId)
   )
-  const selectedCredential =
-    widgetParams?.credentialId && !credentialsQuery.isLoading && !credentialsQuery.error
-      ? ((credentialsQuery.data ?? []).find(
-          (credential) => credential.id === widgetParams.credentialId
-        ) ?? null)
-      : null
-  const missingPersistedCredential =
-    Boolean(widgetParams?.credentialId) &&
-    !credentialsQuery.isLoading &&
-    !credentialsQuery.error &&
-    !selectedCredential
-  const activeCredentialId = missingPersistedCredential ? undefined : widgetParams?.credentialId
+  const activeCredentialId = widgetParams?.credentialId
 
   useEffect(() => {
     if (!hasInvalidPersistedTradingProvider) return
@@ -166,18 +178,6 @@ export function HeatmapWidgetBody({
     widgetParams?.environment,
   ])
 
-  useEffect(() => {
-    if (!missingPersistedCredential) return
-    emitHeatmapParamsChange({
-      params: {
-        credentialId: null,
-        accountId: null,
-      },
-      panelId,
-      widgetKey,
-    })
-  }, [missingPersistedCredential, panelId, widgetKey])
-
   const accountsQuery = useTradingAccounts({
     provider: sourceMode === 'portfolio' && isTradingProviderReady ? tradingProviderId : undefined,
     credentialId: sourceMode === 'portfolio' ? activeCredentialId : undefined,
@@ -186,8 +186,7 @@ export function HeatmapWidgetBody({
   })
   const accounts = activeCredentialId ? (accountsQuery.data ?? []) : []
   const singleAccount = accounts.length === 1 ? (accounts[0] ?? null) : null
-  const resolvedAccount =
-    accounts.find((account) => account.id === widgetParams?.accountId) ?? singleAccount ?? null
+  const activeAccountId = widgetParams?.accountId ?? singleAccount?.id
 
   useEffect(() => {
     if (sourceMode !== 'portfolio') return
@@ -198,30 +197,19 @@ export function HeatmapWidgetBody({
     if (accounts.length === 1) {
       const onlyAccount = accounts[0]
       if (!onlyAccount) return
-      if (widgetParams?.accountId === onlyAccount.id) return
+      if (widgetParams?.accountId) return
       emitHeatmapParamsChange({
         params: { accountId: onlyAccount.id },
         panelId,
         widgetKey,
       })
-      return
     }
-
-    if (!widgetParams?.accountId) return
-    if (resolvedAccount) return
-
-    emitHeatmapParamsChange({
-      params: { accountId: null },
-      panelId,
-      widgetKey,
-    })
   }, [
     accounts,
     accountsQuery.error,
     accountsQuery.isLoading,
     activeCredentialId,
     panelId,
-    resolvedAccount,
     sourceMode,
     widgetKey,
     widgetParams?.accountId,
@@ -232,13 +220,24 @@ export function HeatmapWidgetBody({
     credentialId: activeCredentialId,
     environment:
       sourceMode === 'portfolio' && isTradingProviderReady ? tradingEnvironment : undefined,
-    accountId: resolvedAccount?.id,
+    accountId: activeAccountId,
   })
   const portfolioSources = useMemo<HeatmapSourceListing[]>(
-    () => resolvePortfolioHeatmapListings(holdingsListingsQuery.data?.listings ?? []),
-    [holdingsListingsQuery.data]
+    () =>
+      resolvePortfolioHeatmapListings(
+        (holdingsListingsQuery.data?.positionListings ?? []).map((position) => position.listing)
+      ),
+    [holdingsListingsQuery.data?.positionListings]
   )
-  const invalidPortfolioPositions = holdingsListingsQuery.data?.invalidPositions ?? []
+  const portfolioQuantityByKey = useMemo(() => {
+    const quantityByKey = new Map<string, number>()
+
+    for (const position of holdingsListingsQuery.data?.positionListings ?? []) {
+      quantityByKey.set(getListingIdentityKey(position.listing), position.grossQuantity)
+    }
+
+    return quantityByKey
+  }, [holdingsListingsQuery.data?.positionListings])
   const sourceListings = sourceMode === 'portfolio' ? portfolioSources : watchlistSources
   const {
     visibleItems: cappedSourceListings,
@@ -278,14 +277,28 @@ export function HeatmapWidgetBody({
     () =>
       cappedSourceListings.map((sourceListing) => {
         const key = sourceListing.key
+        const quote = quoteSnapshotsQuery.data?.[key] ?? null
+        const sizeValue =
+          sourceMode === 'portfolio'
+            ? resolvePortfolioSizeValue(portfolioQuantityByKey.get(key), quote?.lastPrice)
+            : resolveWatchlistSizeValue(quote, watchlistSizeMetric)
+
         return {
           ...sourceListing,
           key,
           resolvedListing: resolvedListingsQuery.data?.[key] ?? null,
-          quote: quoteSnapshotsQuery.data?.[key] ?? null,
+          quote,
+          sizeValue,
         }
       }),
-    [cappedSourceListings, quoteSnapshotsQuery.data, resolvedListingsQuery.data]
+    [
+      cappedSourceListings,
+      portfolioQuantityByKey,
+      quoteSnapshotsQuery.data,
+      resolvedListingsQuery.data,
+      sourceMode,
+      watchlistSizeMetric,
+    ]
   )
 
   if (!workspaceId) {
@@ -366,27 +379,27 @@ export function HeatmapWidgetBody({
       )
     }
 
-    if (accountsQuery.isLoading && accounts.length === 0) {
-      return (
-        <div className='flex h-full items-center justify-center'>
-          <LoadingAgent size='md' />
-        </div>
-      )
-    }
+    if (!activeAccountId) {
+      if (accountsQuery.isLoading && accounts.length === 0) {
+        return (
+          <div className='flex h-full items-center justify-center'>
+            <LoadingAgent size='md' />
+          </div>
+        )
+      }
 
-    if (accountsQuery.error) {
-      return (
-        <HeatmapMessage
-          message={
-            accountsQuery.error instanceof Error
-              ? accountsQuery.error.message
-              : 'Failed to load broker accounts.'
-          }
-        />
-      )
-    }
+      if (accountsQuery.error) {
+        return (
+          <HeatmapMessage
+            message={
+              accountsQuery.error instanceof Error
+                ? accountsQuery.error.message
+                : 'Failed to load broker accounts.'
+            }
+          />
+        )
+      }
 
-    if (!resolvedAccount?.id) {
       return <HeatmapMessage message='Select a broker account to load portfolio holdings.' />
     }
 
@@ -413,26 +426,13 @@ export function HeatmapWidgetBody({
 
   if (listings.length === 0) {
     return (
-      <div className='flex h-full min-h-0 flex-col gap-2 p-2'>
-        {sourceMode === 'portfolio' && invalidPortfolioPositions.length > 0 ? (
-          <div className='shrink-0 rounded-sm border border-amber-500/40 bg-amber-500/10 px-2 py-1 text-amber-900 text-xs dark:text-amber-200'>
-            {invalidPortfolioPositions.length} holding
-            {invalidPortfolioPositions.length === 1 ? '' : 's'} missing normalized listing
-            identities.
-          </div>
-        ) : null}
-        <div className='min-h-0 flex-1'>
-          <HeatmapMessage
-            message={
-              sourceMode === 'portfolio'
-                ? invalidPortfolioPositions.length > 0
-                  ? 'No valid holdings listings found for this account.'
-                  : 'No holdings listings found for this account.'
-                : 'No watchlist listings found.'
-            }
-          />
-        </div>
-      </div>
+      <HeatmapMessage
+        message={
+          sourceMode === 'portfolio'
+            ? 'No holdings listings found for this account.'
+            : 'No watchlist listings found.'
+        }
+      />
     )
   }
 
@@ -443,13 +443,7 @@ export function HeatmapWidgetBody({
     : null
 
   return (
-    <div className='flex h-full min-h-0 flex-col gap-2 p-2'>
-      {sourceMode === 'portfolio' && invalidPortfolioPositions.length > 0 ? (
-        <div className='shrink-0 rounded-sm border border-amber-500/40 bg-amber-500/10 px-2 py-1 text-amber-900 text-xs dark:text-amber-200'>
-          {invalidPortfolioPositions.length} holding
-          {invalidPortfolioPositions.length === 1 ? '' : 's'} missing normalized listing identities.
-        </div>
-      ) : null}
+    <div className='flex h-full flex-col gap-2 p-2'>
       <div className='min-h-0 flex-1'>
         <HeatmapTreemapChart
           cappedCount={cappedCount}

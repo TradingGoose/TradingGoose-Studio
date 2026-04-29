@@ -195,6 +195,16 @@ export interface UnifiedTradingPosition {
   updatedAt?: string
 }
 
+export interface UnifiedTradingPositionListing {
+  listing: ListingIdentity
+  grossQuantity: number
+  signedQuantity: number
+}
+
+export interface UnifiedTradingPositionListings {
+  positionListings: UnifiedTradingPositionListing[]
+}
+
 export type UnifiedTradingOrderType =
   | 'Market'
   | 'Limit'

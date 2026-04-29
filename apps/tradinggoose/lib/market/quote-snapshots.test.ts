@@ -45,4 +45,36 @@ describe('buildMarketQuoteSnapshot', () => {
       changePercent: 10,
     })
   })
+
+  it('derives volume USD from the latest daily volume and resolved last price', async () => {
+    mockExecuteProviderRequest.mockImplementation(async (_providerId, request: any) => {
+      if (request.interval === '1d') {
+        return {
+          bars: [
+            { timeStamp: '2026-01-01T00:00:00.000Z', close: 100, volume: 10 },
+            { timeStamp: '2026-01-02T00:00:00.000Z', close: 105, volume: 20 },
+          ],
+        }
+      }
+
+      return {
+        bars: [{ timeStamp: '2026-01-03T15:59:00.000Z', close: 110 }],
+      }
+    })
+
+    await expect(
+      buildMarketQuoteSnapshot({
+        provider: 'alpaca',
+        listing: {
+          listing_id: 'AAPL',
+          base_id: '',
+          quote_id: '',
+          listing_type: 'default',
+        },
+      })
+    ).resolves.toMatchObject({
+      volume: 20,
+      volumeUsd: 2200,
+    })
+  })
 })

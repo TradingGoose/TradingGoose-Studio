@@ -251,8 +251,33 @@ describe('HeatmapWidgetBody', () => {
     mockUseTradingHoldingsListings.mockReturnValue(
       createQueryResult({
         data: {
-          listings: [createListing('MSFT')],
-          invalidPositions: [],
+          positionListings: [
+            {
+              listing: createListing('MSFT'),
+              grossQuantity: 4,
+              signedQuantity: 1,
+            },
+          ],
+        },
+      })
+    )
+    mockUseMarketQuoteSnapshots.mockReturnValue(
+      createQueryResult({
+        data: {
+          'default|AAPL||': {
+            lastPrice: 110,
+            previousClose: 100,
+            change: 10,
+            changePercent: 10,
+            volume: 20,
+            volumeUsd: 2200,
+          },
+          'default|MSFT||': {
+            lastPrice: 25,
+            previousClose: 20,
+            change: 5,
+            changePercent: 25,
+          },
         },
       })
     )
@@ -277,6 +302,7 @@ describe('HeatmapWidgetBody', () => {
           expect.objectContaining({
             key: 'default|AAPL||',
             sourceLabels: ['Watchlist'],
+            sizeValue: 2200,
           }),
         ],
       })
@@ -312,6 +338,7 @@ describe('HeatmapWidgetBody', () => {
           expect.objectContaining({
             key: 'default|MSFT||',
             sourceLabels: ['Portfolio'],
+            sizeValue: 100,
           }),
         ],
       })
@@ -319,7 +346,73 @@ describe('HeatmapWidgetBody', () => {
     expect(mockHeatmapTreemapChart.mock.calls.at(-1)?.[0]).not.toHaveProperty('sourceMode')
   })
 
-  it('shows invalid holdings when portfolio mode has no valid listings', async () => {
+  it('uses raw volume for watchlist tile size when selected', async () => {
+    mockUseWatchlists.mockReturnValue(
+      createQueryResult({
+        data: [
+          {
+            id: 'watchlist-1',
+            workspaceId: 'workspace-1',
+            userId: 'user-1',
+            name: 'Watchlist',
+            isSystem: false,
+            items: [
+              {
+                id: 'watchlist-item',
+                type: 'listing' as const,
+                listing: createListing('AAPL'),
+              },
+            ],
+            settings: { showLogo: true, showTicker: true, showDescription: true },
+            createdAt: '',
+            updatedAt: '',
+          },
+        ],
+      })
+    )
+    mockUseMarketQuoteSnapshots.mockReturnValue(
+      createQueryResult({
+        data: {
+          'default|AAPL||': {
+            lastPrice: 110,
+            previousClose: 100,
+            change: 10,
+            changePercent: 10,
+            volume: 20,
+            volumeUsd: 2200,
+          },
+        },
+      })
+    )
+
+    await act(async () => {
+      root.render(
+        <HeatmapWidgetBody
+          context={{ workspaceId: 'workspace-1' }}
+          widget={{ key: 'heatmap' } as any}
+          panelId='panel-1'
+          params={{
+            sourceMode: 'watchlist',
+            watchlistSizeMetric: 'volume',
+            marketProvider: 'alpaca',
+          }}
+        />
+      )
+    })
+
+    expect(mockHeatmapTreemapChart.mock.calls.at(-1)?.[0]).toEqual(
+      expect.objectContaining({
+        items: [
+          expect.objectContaining({
+            key: 'default|AAPL||',
+            sizeValue: 20,
+          }),
+        ],
+      })
+    )
+  })
+
+  it('shows empty portfolio message when portfolio mode has no listings', async () => {
     mockUseOAuthCredentials.mockReturnValue(
       createQueryResult({
         data: [{ id: 'cred-1', name: 'Broker' }],
@@ -333,12 +426,7 @@ describe('HeatmapWidgetBody', () => {
     mockUseTradingHoldingsListings.mockReturnValue(
       createQueryResult({
         data: {
-          listings: [],
-          invalidPositions: [
-            {
-              base: 'UNKNOWN',
-            },
-          ],
+          positionListings: [],
         },
       })
     )
@@ -361,8 +449,7 @@ describe('HeatmapWidgetBody', () => {
       )
     })
 
-    expect(container.textContent).toContain('1 holding missing normalized listing identities.')
-    expect(container.textContent).toContain('No valid holdings listings found for this account.')
+    expect(container.textContent).toContain('No holdings listings found for this account.')
     expect(mockHeatmapTreemapChart).not.toHaveBeenCalled()
   })
 })

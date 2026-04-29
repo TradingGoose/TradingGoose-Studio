@@ -9,11 +9,23 @@ import {
   getSeriesMarketProviderOptions,
   resolveSeriesMarketProviderId,
 } from '@/widgets/widgets/data_chart/options'
-import type { HeatmapSourceMode, HeatmapWidgetParams } from '@/widgets/widgets/heatmap/types'
+import type {
+  HeatmapSourceMode,
+  HeatmapWatchlistSizeMetric,
+  HeatmapWidgetParams,
+} from '@/widgets/widgets/heatmap/types'
 
 export const HEATMAP_SOURCE_MODES: Array<{ id: HeatmapSourceMode; label: string }> = [
   { id: 'watchlist', label: 'Watchlist' },
   { id: 'portfolio', label: 'Portfolio' },
+]
+
+export const HEATMAP_WATCHLIST_SIZE_METRICS: Array<{
+  id: HeatmapWatchlistSizeMetric
+  label: string
+}> = [
+  { id: 'volumeUsd', label: 'Volume USD' },
+  { id: 'volume', label: 'Volume' },
 ]
 
 const DEFAULT_HEATMAP_TRADING_PROVIDER_OPTIONS = getTradingWidgetProviderOptions('holdings')
@@ -37,6 +49,10 @@ export const shouldPersistHeatmapMarketProviderDefault = (
 export const resolveHeatmapSourceMode = (
   params: HeatmapWidgetParams | null | undefined
 ): HeatmapSourceMode => (params?.sourceMode === 'portfolio' ? 'portfolio' : 'watchlist')
+
+export const resolveHeatmapWatchlistSizeMetric = (
+  params: HeatmapWidgetParams | null | undefined
+): HeatmapWatchlistSizeMetric => (params?.watchlistSizeMetric === 'volume' ? 'volume' : 'volumeUsd')
 
 export const getHeatmapTradingProviderAvailabilityIds = () =>
   getTradingWidgetProviderAvailabilityIds('holdings')

@@ -1,13 +1,20 @@
 'use client'
 
-import { useEffect, useMemo, useRef } from 'react'
+import { type ReactNode, useEffect, useMemo, useRef } from 'react'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Empty, EmptyDescription, EmptyHeader } from '@/components/ui/empty'
 import { LoadingAgent } from '@/components/ui/loading-agent'
-import { getListingIdentityKey, type ListingIdentity } from '@/lib/listing/identity'
+import { Separator } from '@/components/ui/separator'
+import { getListingIdentityKey } from '@/lib/listing/identity'
+import { MARKET_QUOTE_SNAPSHOT_REQUEST_CAP } from '@/lib/market/quote-snapshot-contract'
+import { cn } from '@/lib/utils'
 import { useMarketQuoteSnapshots } from '@/hooks/queries/market-quote-snapshots'
 import { useOAuthCredentials } from '@/hooks/queries/oauth-credentials'
 import { useOAuthProviderAvailability } from '@/hooks/queries/oauth-provider-availability'
 import {
   useTradingAccounts,
+  useTradingHoldingsListings,
   useTradingPortfolioPerformance,
   useTradingPortfolioSnapshot,
 } from '@/hooks/queries/trading-portfolio'
@@ -35,16 +42,33 @@ import {
 import type { PortfolioSnapshotWidgetParams } from '@/widgets/widgets/portfolio_snapshot/types'
 
 const PortfolioMessage = ({ message }: { message: string }) => (
-  <div className='flex h-full items-center justify-center px-4 text-center text-muted-foreground text-sm'>
-    {message}
+  <Empty className='h-full min-h-[180px] rounded-none border-0 bg-transparent p-4'>
+    <EmptyHeader>
+      <EmptyDescription>{message}</EmptyDescription>
+    </EmptyHeader>
+  </Empty>
+)
+
+const PortfolioLoading = ({
+  size = 'md',
+  className,
+}: {
+  size?: 'sm' | 'md'
+  className?: string
+}) => (
+  <div className={cn('flex h-full min-h-[180px] items-center justify-center', className)}>
+    <LoadingAgent size={size} />
   </div>
 )
 
 const CALENDAR_DAY_TIMESTAMP_PATTERN = /^\d{4}-\d{2}-\d{2}T(?:00:00:00\.000Z|12:00:00\.000Z)$/
-const PORTFOLIO_SNAPSHOT_QUOTE_CAP = 200
+const PORTFOLIO_SNAPSHOT_QUOTE_CAP = MARKET_QUOTE_SNAPSHOT_REQUEST_CAP
 
-const formatCurrency = (value: number | undefined, currency = 'USD') => {
-  if (typeof value !== 'number' || !Number.isFinite(value)) {
+const isFiniteNumber = (value: unknown): value is number =>
+  typeof value === 'number' && Number.isFinite(value)
+
+const formatCurrency = (value: number | null | undefined, currency = 'USD') => {
+  if (!isFiniteNumber(value)) {
     return 'N/A'
   }
 
@@ -56,7 +80,7 @@ const formatCurrency = (value: number | undefined, currency = 'USD') => {
 }
 
 const formatPercent = (value: number | null | undefined) => {
-  if (typeof value !== 'number' || !Number.isFinite(value)) {
+  if (!isFiniteNumber(value)) {
     return 'N/A'
   }
 
@@ -64,7 +88,7 @@ const formatPercent = (value: number | null | undefined) => {
 }
 
 const formatSignedCurrency = (value: number | null | undefined, currency = 'USD') => {
-  if (typeof value !== 'number' || !Number.isFinite(value)) {
+  if (!isFiniteNumber(value)) {
     return 'N/A'
   }
 
@@ -88,11 +112,59 @@ const formatAsOf = (timestamp: string | undefined) => {
   }).format(new Date(parsed))
 }
 
-const StatCard = ({ label, value, hint }: { label: string; value: string; hint?: string }) => (
-  <div className='rounded-sm border border-border/70 bg-card/40 p-3'>
-    <div className='text-[11px] text-muted-foreground uppercase tracking-[0.14em]'>{label}</div>
-    <div className='mt-1 font-medium text-base'>{value}</div>
-    {hint ? <div className='mt-1 text-muted-foreground text-xs'>{hint}</div> : null}
+type MetricTone = 'neutral' | 'positive' | 'negative' | 'warning'
+
+const metricToneClassName: Record<MetricTone, string> = {
+  neutral: 'text-foreground',
+  positive: 'text-emerald-600 dark:text-emerald-400',
+  negative: 'text-red-600 dark:text-red-400',
+  warning: 'text-amber-600 dark:text-amber-300',
+}
+
+const getNumberTone = (value: number | null | undefined): MetricTone => {
+  if (!isFiniteNumber(value) || value === 0) return 'neutral'
+  return value > 0 ? 'positive' : 'negative'
+}
+
+const MetricGroup = ({ children, className }: { children: ReactNode; className?: string }) => (
+  <div
+    className={cn(
+      'grid gap-px overflow-hidden rounded-md border border-border/60 bg-border/60 [grid-template-columns:repeat(auto-fit,minmax(min(100%,7.5rem),1fr))]',
+      className
+    )}
+  >
+    {children}
+  </div>
+)
+
+const MetricTile = ({
+  label,
+  value,
+  hint,
+  tone = 'neutral',
+}: {
+  label: string
+  value: string
+  hint?: string
+  tone?: MetricTone
+}) => (
+  <div className='min-w-0 bg-background/80 px-3 py-2.5'>
+    <div className='text-[10px] text-muted-foreground uppercase leading-4 tracking-[0.08em] [overflow-wrap:anywhere]'>
+      {label}
+    </div>
+    <div
+      className={cn(
+        'mt-0.5 font-medium font-mono text-sm tabular-nums leading-5 [overflow-wrap:anywhere]',
+        metricToneClassName[tone]
+      )}
+    >
+      {value}
+    </div>
+    {hint ? (
+      <div className='mt-0.5 text-[11px] text-muted-foreground leading-4 [overflow-wrap:anywhere]'>
+        {hint}
+      </div>
+    ) : null}
   </div>
 )
 
@@ -154,8 +226,9 @@ export function PortfolioSnapshotWidgetBody({
     !providerAvailabilityQuery.error &&
     hasSelectedProvider &&
     providerOptions.length > 0
-  const refreshAt =
-    typeof widgetParams?.runtime?.refreshAt === 'number' ? widgetParams.runtime.refreshAt : null
+  const refreshAt = isFiniteNumber(widgetParams?.runtime?.refreshAt)
+    ? widgetParams.runtime.refreshAt
+    : null
   const lastRefreshAtRef = useRef<number | null>(null)
 
   usePortfolioSnapshotParamsPersistence({
@@ -192,8 +265,8 @@ export function PortfolioSnapshotWidgetBody({
 
   const environment =
     hasSelectedProvider &&
-    widgetParams?.environment &&
-    environmentOptions.some((option) => option.id === widgetParams.environment)
+      widgetParams?.environment &&
+      environmentOptions.some((option) => option.id === widgetParams.environment)
       ? widgetParams.environment
       : defaultEnvironment
 
@@ -252,30 +325,7 @@ export function PortfolioSnapshotWidgetBody({
     credentialProviderId,
     isProviderReady && Boolean(credentialProviderId)
   )
-  const selectedCredential =
-    persistedCredentialId && !credentialsQuery.isLoading && !credentialsQuery.error
-      ? ((credentialsQuery.data ?? []).find(
-          (credential) => credential.id === persistedCredentialId
-        ) ?? null)
-      : null
-  const missingPersistedCredential =
-    Boolean(persistedCredentialId) &&
-    !credentialsQuery.isLoading &&
-    !credentialsQuery.error &&
-    !selectedCredential
-  const activeCredentialId = missingPersistedCredential ? undefined : persistedCredentialId
-
-  useEffect(() => {
-    if (!missingPersistedCredential) return
-    emitPortfolioSnapshotParamsChange({
-      params: {
-        credentialId: null,
-        accountId: null,
-      },
-      panelId,
-      widgetKey,
-    })
-  }, [missingPersistedCredential, panelId, widgetKey])
+  const activeCredentialId = persistedCredentialId
 
   const accountsQuery = useTradingAccounts({
     provider: isProviderReady ? providerId : undefined,
@@ -284,50 +334,29 @@ export function PortfolioSnapshotWidgetBody({
   })
   const accounts = activeCredentialId ? (accountsQuery.data ?? []) : []
   const singleAccount = accounts.length === 1 ? (accounts[0] ?? null) : null
-  const resolvedAccount =
-    accounts.find((account) => account.id === widgetParams?.accountId) ?? singleAccount ?? null
+  const activeAccountId = widgetParams?.accountId ?? singleAccount?.id
 
   useEffect(() => {
     if (!activeCredentialId) return
     if (accountsQuery.isLoading) return
     if (accountsQuery.error) return
 
-    if (accounts.length === 0) {
-      if (!widgetParams?.accountId) return
-      emitPortfolioSnapshotParamsChange({
-        params: { accountId: null },
-        panelId,
-        widgetKey,
-      })
-      return
-    }
-
     if (accounts.length === 1) {
       const onlyAccount = accounts[0]
       if (!onlyAccount) return
-      if (widgetParams?.accountId === onlyAccount.id) return
+      if (widgetParams?.accountId) return
       emitPortfolioSnapshotParamsChange({
         params: { accountId: onlyAccount.id },
         panelId,
         widgetKey,
       })
-      return
     }
-
-    if (!widgetParams?.accountId) return
-    if (resolvedAccount) return
-
-    emitPortfolioSnapshotParamsChange({
-      params: { accountId: null },
-      panelId,
-      widgetKey,
-    })
   }, [
     accounts,
     activeCredentialId,
+    accountsQuery.error,
     accountsQuery.isLoading,
     panelId,
-    resolvedAccount,
     widgetKey,
     widgetParams?.accountId,
   ])
@@ -336,44 +365,24 @@ export function PortfolioSnapshotWidgetBody({
     provider: isProviderReady ? providerId : undefined,
     credentialId: activeCredentialId,
     environment: isProviderReady ? environment : undefined,
-    accountId: resolvedAccount?.id,
+    accountId: activeAccountId,
   })
 
-  const quotePositions = useMemo(() => {
-    const byKey = new Map<
-      string,
-      {
-        key: string
-        listing: ListingIdentity
-        grossQuantity: number
-        signedQuantity: number
-      }
-    >()
+  const holdingsListingsQuery = useTradingHoldingsListings({
+    provider: isProviderReady ? providerId : undefined,
+    credentialId: activeCredentialId,
+    environment: isProviderReady ? environment : undefined,
+    accountId: activeAccountId,
+  })
 
-    for (const position of snapshotQuery.data?.positions ?? []) {
-      const listing = position.symbol.listing
-      if (!listing) continue
-      const key = getListingIdentityKey(listing)
-      const current = byKey.get(key)
-      const multiplier = position.multiplier ?? 1
-      const conversionRate = position.conversionRate ?? 1
-      const signedQuantity = position.quantity * multiplier * conversionRate
-      const grossQuantity = Math.abs(signedQuantity)
-      if (current) {
-        current.grossQuantity += grossQuantity
-        current.signedQuantity += signedQuantity
-        continue
-      }
-      byKey.set(key, {
-        key,
-        listing,
-        grossQuantity,
-        signedQuantity,
-      })
-    }
-
-    return Array.from(byKey.values())
-  }, [snapshotQuery.data?.positions])
+  const quotePositions = useMemo(
+    () =>
+      (holdingsListingsQuery.data?.positionListings ?? []).map((position) => ({
+        ...position,
+        key: getListingIdentityKey(position.listing),
+      })),
+    [holdingsListingsQuery.data?.positionListings]
+  )
   const cappedQuotePositions = useMemo(
     () => quotePositions.slice(0, PORTFOLIO_SNAPSHOT_QUOTE_CAP),
     [quotePositions]
@@ -387,6 +396,12 @@ export function PortfolioSnapshotWidgetBody({
       })),
     [cappedQuotePositions]
   )
+  const holdingsListingsErrorMessage =
+    holdingsListingsQuery.error instanceof Error
+      ? holdingsListingsQuery.error.message
+      : holdingsListingsQuery.error
+        ? 'Failed to resolve holdings listings.'
+        : null
 
   const quoteSnapshotsQuery = useMarketQuoteSnapshots({
     workspaceId: workspaceId ?? undefined,
@@ -395,14 +410,14 @@ export function PortfolioSnapshotWidgetBody({
     auth: widgetParams?.marketAuth,
     providerParams: widgetParams?.marketProviderParams,
     refreshKey: refreshAt,
-    enabled: Boolean(resolvedAccount?.id && quoteItems.length > 0),
+    enabled: Boolean(activeAccountId && quoteItems.length > 0 && !holdingsListingsErrorMessage),
   })
 
   const performanceQuery = useTradingPortfolioPerformance({
     provider: isProviderReady ? providerId : undefined,
     credentialId: activeCredentialId,
     environment: isProviderReady ? environment : undefined,
-    accountId: resolvedAccount?.id,
+    accountId: activeAccountId,
     selectedWindow: selectedWindow as TradingPortfolioPerformanceWindow | undefined,
   })
 
@@ -410,18 +425,15 @@ export function PortfolioSnapshotWidgetBody({
     if (refreshAt == null) return
     if (lastRefreshAtRef.current === refreshAt) return
     lastRefreshAtRef.current = refreshAt
-    if (resolvedAccount?.id) {
+    if (activeAccountId) {
       void snapshotQuery.refetch()
+      void holdingsListingsQuery.refetch()
       void performanceQuery.refetch()
     }
-  }, [performanceQuery, refreshAt, resolvedAccount?.id, snapshotQuery])
+  }, [activeAccountId, holdingsListingsQuery, performanceQuery, refreshAt, snapshotQuery])
 
   if (providerAvailabilityQuery.isLoading) {
-    return (
-      <div className='flex h-full items-center justify-center'>
-        <LoadingAgent size='md' />
-      </div>
-    )
+    return <PortfolioLoading />
   }
 
   if (providerAvailabilityQuery.error) {
@@ -446,11 +458,7 @@ export function PortfolioSnapshotWidgetBody({
 
   if (!activeCredentialId) {
     if (credentialsQuery.isLoading) {
-      return (
-        <div className='flex h-full items-center justify-center'>
-          <LoadingAgent size='md' />
-        </div>
-      )
+      return <PortfolioLoading />
     }
 
     if (credentialsQuery.error) {
@@ -478,40 +486,32 @@ export function PortfolioSnapshotWidgetBody({
     )
   }
 
-  if (accountsQuery.isLoading && accounts.length === 0) {
-    return (
-      <div className='flex h-full items-center justify-center'>
-        <LoadingAgent size='md' />
-      </div>
-    )
-  }
+  if (!activeAccountId) {
+    if (accountsQuery.isLoading && accounts.length === 0) {
+      return <PortfolioLoading />
+    }
 
-  if (accountsQuery.error) {
-    return (
-      <PortfolioMessage
-        message={
-          accountsQuery.error instanceof Error
-            ? accountsQuery.error.message
-            : 'Failed to load broker accounts.'
-        }
-      />
-    )
-  }
+    if (accountsQuery.error) {
+      return (
+        <PortfolioMessage
+          message={
+            accountsQuery.error instanceof Error
+              ? accountsQuery.error.message
+              : 'Failed to load broker accounts.'
+          }
+        />
+      )
+    }
 
-  if (accounts.length === 0) {
-    return <PortfolioMessage message='No broker accounts found for the selected credential.' />
-  }
+    if (accounts.length === 0) {
+      return <PortfolioMessage message='No broker accounts found for the selected credential.' />
+    }
 
-  if (!resolvedAccount?.id) {
     return <PortfolioMessage message='Select a broker account to load this portfolio snapshot.' />
   }
 
   if (snapshotQuery.isLoading && !snapshotQuery.data) {
-    return (
-      <div className='flex h-full items-center justify-center'>
-        <LoadingAgent size='md' />
-      </div>
-    )
+    return <PortfolioLoading />
   }
 
   if (snapshotQuery.error || !snapshotQuery.data) {
@@ -531,28 +531,24 @@ export function PortfolioSnapshotWidgetBody({
   const currency = performance?.summary?.currency ?? snapshot.account.baseCurrency ?? 'USD'
   const activeWindows = performance?.supportedWindows ?? supportedWindows
   const quoteErrorMessage =
-    quoteSnapshotsQuery.error instanceof Error
+    holdingsListingsErrorMessage ??
+    (quoteSnapshotsQuery.error instanceof Error
       ? quoteSnapshotsQuery.error.message
       : quoteSnapshotsQuery.error
         ? 'Failed to load market quotes.'
-        : null
+        : null)
   const quoteSummary = cappedQuotePositions.reduce(
     (summary, position) => {
       const quote = quoteSnapshotsQuery.data?.[position.key]
-      if (
-        typeof quote?.lastPrice !== 'number' ||
-        !Number.isFinite(quote.lastPrice) ||
-        typeof quote.previousClose !== 'number' ||
-        !Number.isFinite(quote.previousClose)
-      ) {
+      const lastPrice = quote?.lastPrice
+      const previousClose = quote?.previousClose
+      const change = quote?.change
+      if (!isFiniteNumber(lastPrice) || !isFiniteNumber(previousClose)) {
         return summary
       }
 
-      const perUnitDayChange =
-        typeof quote.change === 'number' && Number.isFinite(quote.change)
-          ? quote.change
-          : quote.lastPrice - quote.previousClose
-      summary.quoteValue += quote.lastPrice * position.grossQuantity
+      const perUnitDayChange = isFiniteNumber(change) ? change : lastPrice - previousClose
+      summary.quoteValue += lastPrice * position.grossQuantity
       summary.dayChange += perUnitDayChange * position.signedQuantity
       summary.quotedPositions += 1
       return summary
@@ -560,204 +556,275 @@ export function PortfolioSnapshotWidgetBody({
     { dayChange: 0, quoteValue: 0, quotedPositions: 0 }
   )
   const quoteDayChange = quoteSummary.quotedPositions > 0 ? quoteSummary.dayChange : null
-  const quotePreviousValue =
-    typeof quoteDayChange === 'number' ? quoteSummary.quoteValue - quoteDayChange : null
+  const quotePreviousValue = isFiniteNumber(quoteDayChange)
+    ? quoteSummary.quoteValue - quoteDayChange
+    : null
   const quoteDayPercent =
-    typeof quoteDayChange === 'number' &&
-    typeof quotePreviousValue === 'number' &&
-    quotePreviousValue !== 0
+    isFiniteNumber(quoteDayChange) && isFiniteNumber(quotePreviousValue) && quotePreviousValue !== 0
       ? (quoteDayChange / quotePreviousValue) * 100
       : null
   const quotedPositionsHint =
     quotePositions.length > cappedQuotePositions.length
       ? `Quote metrics use first ${PORTFOLIO_SNAPSHOT_QUOTE_CAP} of ${quotePositions.length} holdings`
       : undefined
+  const isResolvingQuoteHoldings = holdingsListingsQuery.isLoading && !holdingsListingsQuery.data
   const quoteStatusText =
     quoteErrorMessage ??
-    (quoteSnapshotsQuery.isLoading && !quoteSnapshotsQuery.data
-      ? 'Loading quotes'
-      : quoteSnapshotsQuery.isFetching
-        ? 'Refreshing quotes'
-        : (quotedPositionsHint ??
-          (marketProviderId
-            ? quoteItems.length > 0
-              ? `${quoteSummary.quotedPositions}/${cappedQuotePositions.length} quoted`
-              : 'No holdings with market listings'
-            : 'No market provider')))
+    (isResolvingQuoteHoldings
+      ? 'Resolving holdings'
+      : quoteSnapshotsQuery.isLoading && !quoteSnapshotsQuery.data
+        ? 'Loading quotes'
+        : quoteSnapshotsQuery.isFetching
+          ? 'Refreshing quotes'
+          : (quotedPositionsHint ??
+            (marketProviderId
+              ? quoteItems.length > 0
+                ? `${quoteSummary.quotedPositions}/${cappedQuotePositions.length} quoted`
+                : 'No holdings with market listings'
+              : 'No market provider')))
+  const accountMetaText = `${snapshot.provider?.name ?? providerDefinition?.name ?? providerId} · ${environment} · ${snapshot.account.status ?? 'unknown'
+    } · ${snapshot.account.type}`
+  const performanceTone = getNumberTone(performance?.summary?.absoluteReturn)
+  const quoteDayTone = getNumberTone(quoteDayChange)
+  const quoteStatusTone: MetricTone = quoteErrorMessage
+    ? 'negative'
+    : isResolvingQuoteHoldings || quoteSnapshotsQuery.isFetching
+      ? 'warning'
+      : 'neutral'
 
   return (
-    <div className='flex h-full min-h-0 flex-col gap-3 p-3'>
-      <section className='flex min-h-0 flex-[1.15] flex-col rounded-sm border border-border/70 bg-card/30 p-3'>
-        <div className='flex flex-wrap items-start justify-between gap-3'>
-          <div>
-            <div className='font-medium text-sm'>Performance</div>
-            <div className='mt-1 text-muted-foreground text-xs'>
-              {snapshot.account.name ?? snapshot.account.id} · {environment}
-            </div>
-          </div>
-          <div className='flex flex-wrap gap-1'>
-            {activeWindows.map((window) => (
-              <button
-                key={window}
-                type='button'
-                className={`rounded-sm border px-2 py-1 text-xs ${
-                  selectedWindow === window
-                    ? 'border-foreground/40 bg-foreground/10 text-foreground'
-                    : 'border-border/70 text-muted-foreground'
-                }`}
-                onClick={() => {
-                  emitPortfolioSnapshotParamsChange({
-                    params: { selectedWindow: window },
-                    panelId,
-                    widgetKey,
-                  })
-                }}
+    <div className='flex h-full min-h-0 flex-col bg-background'>
+      <div className='min-h-0 flex-1 overflow-y-auto'>
+        <div className='space-y-3'>
+          <section className='overflow-hidden bg-card/30'>
+            <div className='flex flex-wrap items-center justify-between gap-3 border-border/60 border-b px-3 py-2.5'>
+              <div className='min-w-0'>
+                <div className='flex min-w-0 flex-wrap items-center gap-2'>
+                  <h3 className='font-medium text-sm'>Performance</h3>
+                  {selectedWindow ? (
+                    <Badge
+                      variant='outline'
+                      className='rounded-sm px-1.5 py-0 font-medium font-mono text-[10px]'
+                    >
+                      {selectedWindow}
+                    </Badge>
+                  ) : null}
+                </div>
+                <div className='mt-1 truncate text-muted-foreground text-xs'>
+                  {snapshot.account.name ?? snapshot.account.id} · {environment}
+                </div>
+              </div>
+
+              <div
+                role='tablist'
+                aria-label='Performance window'
+                className='flex flex-wrap items-center gap-1'
               >
-                {window}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className='mt-3 flex min-h-0 flex-1 flex-col gap-3'>
-          {performanceQuery.isLoading && !performance ? (
-            <div className='flex flex-1 items-center justify-center'>
-              <LoadingAgent size='sm' />
-            </div>
-          ) : performanceQuery.error ? (
-            <PortfolioMessage
-              message={
-                performanceQuery.error instanceof Error
-                  ? performanceQuery.error.message
-                  : 'Failed to load performance history.'
-              }
-            />
-          ) : performance?.summary ? (
-            <>
-              <div className='grid grid-cols-2 gap-3 md:grid-cols-5'>
-                <StatCard
-                  label='Return'
-                  value={formatCurrency(performance.summary.absoluteReturn, currency)}
-                  hint={formatPercent(performance.summary.percentReturn)}
-                />
-                <StatCard
-                  label='Start'
-                  value={formatCurrency(performance.summary.startEquity, currency)}
-                />
-                <StatCard
-                  label='Current'
-                  value={formatCurrency(performance.summary.endEquity, currency)}
-                />
-                <StatCard
-                  label='High'
-                  value={formatCurrency(performance.summary.highEquity, currency)}
-                />
-                <StatCard
-                  label='Low'
-                  value={formatCurrency(performance.summary.lowEquity, currency)}
-                  hint={`As of ${formatAsOf(performance.summary.asOf)}`}
-                />
+                {activeWindows.map((window) => (
+                  <Button
+                    key={window}
+                    type='button'
+                    role='tab'
+                    aria-selected={selectedWindow === window}
+                    variant={selectedWindow === window ? 'secondary' : 'ghost'}
+                    size='sm'
+                    className={cn(
+                      'h-7 cursor-pointer rounded-sm px-2 font-mono text-xs',
+                      selectedWindow === window
+                        ? 'border border-border/60 bg-muted text-foreground'
+                        : 'text-muted-foreground'
+                    )}
+                    onClick={() => {
+                      emitPortfolioSnapshotParamsChange({
+                        params: { selectedWindow: window },
+                        panelId,
+                        widgetKey,
+                      })
+                    }}
+                  >
+                    {window}
+                  </Button>
+                ))}
               </div>
-              <div className='min-h-[180px] flex-1'>
-                <PortfolioSnapshotPerformanceChart series={performance.series} />
+            </div>
+
+            <div className='p-3'>
+              {performanceQuery.isLoading && !performance ? (
+                <PortfolioLoading size='sm' className='min-h-[310px]' />
+              ) : performanceQuery.error ? (
+                <PortfolioMessage
+                  message={
+                    performanceQuery.error instanceof Error
+                      ? performanceQuery.error.message
+                      : 'Failed to load performance history.'
+                  }
+                />
+              ) : performance?.summary ? (
+                <div className='space-y-3'>
+                  <MetricGroup>
+                    <MetricTile
+                      label='Return'
+                      value={formatSignedCurrency(performance.summary.absoluteReturn, currency)}
+                      hint={formatPercent(performance.summary.percentReturn)}
+                      tone={performanceTone}
+                    />
+                    <MetricTile
+                      label='Start'
+                      value={formatCurrency(performance.summary.startEquity, currency)}
+                    />
+                    <MetricTile
+                      label='Current'
+                      value={formatCurrency(performance.summary.endEquity, currency)}
+                    />
+                    <MetricTile
+                      label='High'
+                      value={formatCurrency(performance.summary.highEquity, currency)}
+                      tone='positive'
+                    />
+                    <MetricTile
+                      label='Low'
+                      value={formatCurrency(performance.summary.lowEquity, currency)}
+                      hint={`As of ${formatAsOf(performance.summary.asOf)}`}
+                    />
+                  </MetricGroup>
+                  <div className='h-[230px] min-h-[210px] rounded-md border border-border/60 bg-background/70 p-2'>
+                    <PortfolioSnapshotPerformanceChart
+                      series={performance.series}
+                      currency={currency}
+                    />
+                  </div>
+                </div>
+              ) : (
+                <PortfolioMessage
+                  message={
+                    performance?.unavailableReason ??
+                    'Performance history is unavailable for the selected account.'
+                  }
+                />
+              )}
+            </div>
+          </section>
+
+          <section className='overflow-hidden border-t border-border/70 bg-card/30'>
+            <div className='flex flex-wrap items-start justify-between gap-3 border-border/60 border-b px-3 py-2.5'>
+              <div className='min-w-0'>
+                <div className='flex min-w-0 flex-wrap items-center gap-2'>
+                  <h3 className='font-medium text-sm'>Current Summary</h3>
+                  <Badge
+                    variant='outline'
+                    className='rounded-sm px-1.5 py-0 font-medium text-[10px]'
+                  >
+                    {snapshot.account.status ?? 'unknown'}
+                  </Badge>
+                  <Badge
+                    variant='secondary'
+                    className='rounded-sm px-1.5 py-0 font-medium text-[10px]'
+                  >
+                    {environment}
+                  </Badge>
+                </div>
+                <div className='mt-1 truncate text-muted-foreground text-xs'>{accountMetaText}</div>
               </div>
-            </>
-          ) : (
-            <PortfolioMessage
-              message={
-                performance?.unavailableReason ??
-                'Performance history is unavailable for the selected account.'
-              }
-            />
-          )}
-        </div>
-      </section>
-
-      <section className='rounded-sm border border-border/70 bg-card/30 p-3'>
-        <div className='flex flex-wrap items-start justify-between gap-3'>
-          <div>
-            <div className='font-medium text-sm'>Current Summary</div>
-            <div className='mt-1 text-muted-foreground text-xs'>
-              {snapshot.provider?.name ?? providerDefinition?.name ?? providerId} · {environment} ·{' '}
-              {snapshot.account.status ?? 'unknown'} · {snapshot.account.type}
+              <div className='text-right text-muted-foreground text-xs'>
+                <div className='font-medium text-foreground'>
+                  {snapshot.account.name ?? snapshot.account.id}
+                </div>
+                <div>As of {formatAsOf(snapshot.asOf)}</div>
+              </div>
             </div>
-          </div>
-          <div className='text-right text-muted-foreground text-xs'>
-            <div>{snapshot.account.name ?? snapshot.account.id}</div>
-            <div>As of {formatAsOf(snapshot.asOf)}</div>
-          </div>
-        </div>
 
-        <div className='mt-3 grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6'>
-          <StatCard
-            label='Portfolio Value'
-            value={formatCurrency(snapshot.accountSummary.totalPortfolioValue, currency)}
-          />
-          <StatCard
-            label='Cash'
-            value={formatCurrency(snapshot.accountSummary.totalCashValue, currency)}
-          />
-          <StatCard
-            label='Holdings'
-            value={formatCurrency(snapshot.accountSummary.totalHoldingsValue, currency)}
-          />
-          <StatCard
-            label='Buying Power'
-            value={formatCurrency(snapshot.accountSummary.buyingPower, currency)}
-          />
-          <StatCard
-            label='Unrealized P&L'
-            value={formatCurrency(snapshot.accountSummary.totalUnrealizedPnl, currency)}
-          />
-          <StatCard
-            label='Positions'
-            value={String(snapshot.positions.length)}
-            hint={snapshot.account.id}
-          />
-        </div>
-
-        <div className='mt-4 flex flex-wrap items-end justify-between gap-2'>
-          <div>
-            <div className='font-medium text-sm'>Market Quotes</div>
-            <div className='mt-1 text-muted-foreground text-xs'>
-              {marketProviderName || 'No market provider'}
+            <div className='p-3'>
+              <MetricGroup>
+                <MetricTile
+                  label='Portfolio Value'
+                  value={formatCurrency(snapshot.accountSummary.totalPortfolioValue, currency)}
+                />
+                <MetricTile
+                  label='Cash'
+                  value={formatCurrency(snapshot.accountSummary.totalCashValue, currency)}
+                />
+                <MetricTile
+                  label='Holdings'
+                  value={formatCurrency(snapshot.accountSummary.totalHoldingsValue, currency)}
+                />
+                <MetricTile
+                  label='Buying Power'
+                  value={formatCurrency(snapshot.accountSummary.buyingPower, currency)}
+                />
+                <MetricTile
+                  label='Unrealized P&L'
+                  value={formatSignedCurrency(snapshot.accountSummary.totalUnrealizedPnl, currency)}
+                  tone={getNumberTone(snapshot.accountSummary.totalUnrealizedPnl)}
+                />
+                <MetricTile
+                  label='Positions'
+                  value={String(snapshot.positions.length)}
+                  hint={snapshot.account.id}
+                />
+              </MetricGroup>
             </div>
-          </div>
-          <div className='text-right text-muted-foreground text-xs'>{quoteStatusText}</div>
-        </div>
+            <Separator className='my-3 bg-border/60' />
 
-        <div className='mt-2 grid grid-cols-2 gap-3 md:grid-cols-4'>
-          <StatCard
-            label='Quote Value'
-            value={
-              quoteErrorMessage
-                ? 'N/A'
-                : quoteSummary.quotedPositions > 0
-                  ? formatCurrency(quoteSummary.quoteValue, currency)
-                  : 'N/A'
-            }
-            hint={quoteErrorMessage ?? marketProviderId ?? 'No market provider'}
-          />
-          <StatCard
-            label='Day Change'
-            value={quoteErrorMessage ? 'N/A' : formatSignedCurrency(quoteDayChange, currency)}
-            hint={quoteSnapshotsQuery.isFetching ? 'Refreshing' : undefined}
-          />
-          <StatCard
-            label='Day %'
-            value={quoteErrorMessage ? 'N/A' : formatPercent(quoteDayPercent)}
-          />
-          <StatCard
-            label='Quoted Positions'
-            value={
-              quoteErrorMessage
-                ? `0/${cappedQuotePositions.length}`
-                : `${quoteSummary.quotedPositions}/${cappedQuotePositions.length}`
-            }
-            hint={quotedPositionsHint}
-          />
+            <div className='p-3'>
+
+              <div className='flex flex-wrap items-end justify-between gap-2'>
+                <div className='min-w-0'>
+                  <div className='flex min-w-0 flex-wrap items-center gap-2'>
+                    <h3 className='font-medium text-sm'>Market Quotes</h3>
+                    <Badge
+                      variant='outline'
+                      className='rounded-sm px-1.5 py-0 font-medium text-[10px]'
+                    >
+                      {marketProviderName || 'No market provider'}
+                    </Badge>
+                  </div>
+                  <div className='mt-1 truncate text-muted-foreground text-xs'>
+                    Quote-backed intraday estimate
+                  </div>
+                </div>
+                <div className={cn('text-right text-xs', metricToneClassName[quoteStatusTone])}>
+                  {quoteStatusText}
+                </div>
+              </div>
+
+              <MetricGroup className='mt-2'>
+                <MetricTile
+                  label='Quote Value'
+                  value={
+                    quoteErrorMessage
+                      ? 'N/A'
+                      : quoteSummary.quotedPositions > 0
+                        ? formatCurrency(quoteSummary.quoteValue, currency)
+                        : 'N/A'
+                  }
+                  hint={quoteErrorMessage ?? marketProviderId ?? 'No market provider'}
+                  tone={quoteErrorMessage ? 'negative' : 'neutral'}
+                />
+                <MetricTile
+                  label='Day Change'
+                  value={quoteErrorMessage ? 'N/A' : formatSignedCurrency(quoteDayChange, currency)}
+                  hint={quoteSnapshotsQuery.isFetching ? 'Refreshing' : undefined}
+                  tone={quoteErrorMessage ? 'negative' : quoteDayTone}
+                />
+                <MetricTile
+                  label='Day %'
+                  value={quoteErrorMessage ? 'N/A' : formatPercent(quoteDayPercent)}
+                  tone={quoteErrorMessage ? 'negative' : getNumberTone(quoteDayPercent)}
+                />
+                <MetricTile
+                  label='Quoted Positions'
+                  value={
+                    quoteErrorMessage
+                      ? `0/${cappedQuotePositions.length}`
+                      : `${quoteSummary.quotedPositions}/${cappedQuotePositions.length}`
+                  }
+                  hint={quotedPositionsHint}
+                />
+              </MetricGroup>
+            </div>
+          </section>
         </div>
-      </section>
+      </div>
     </div>
   )
 }

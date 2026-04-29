@@ -50,7 +50,7 @@ export const fetchMarketQuoteSnapshots = async ({
   const merged: Record<string, MarketQuoteSnapshot> = {}
 
   for (const chunk of chunks) {
-    const response = await fetch('/api/widgets/market/quotes', {
+    const response = await fetch('/api/providers/market/quotes', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

@@ -11,6 +11,7 @@ const mockUseOAuthCredentials = vi.fn()
 const mockUseOAuthProviderAvailability = vi.fn()
 const mockUseMarketQuoteSnapshots = vi.fn()
 const mockUseTradingAccounts = vi.fn()
+const mockUseTradingHoldingsListings = vi.fn()
 const mockUseTradingPortfolioSnapshot = vi.fn()
 const mockUseTradingPortfolioPerformance = vi.fn()
 const mockEmitPortfolioSnapshotParamsChange = vi.fn()
@@ -29,6 +30,7 @@ vi.mock('@/hooks/queries/market-quote-snapshots', () => ({
 
 vi.mock('@/hooks/queries/trading-portfolio', () => ({
   useTradingAccounts: (...args: unknown[]) => mockUseTradingAccounts(...args),
+  useTradingHoldingsListings: (...args: unknown[]) => mockUseTradingHoldingsListings(...args),
   useTradingPortfolioSnapshot: (...args: unknown[]) => mockUseTradingPortfolioSnapshot(...args),
   useTradingPortfolioPerformance: (...args: unknown[]) =>
     mockUseTradingPortfolioPerformance(...args),
@@ -86,10 +88,28 @@ describe('PortfolioSnapshotWidgetBody', () => {
         data: [{ id: 'acct-1', name: 'Paper', type: 'paper', baseCurrency: 'USD' }],
       })
     )
+    mockUseTradingHoldingsListings.mockReturnValue(
+      createQueryResult({
+        data: {
+          positionListings: [
+            {
+              listing: {
+                listing_id: 'TG_LSTG_AAPL',
+                base_id: '',
+                quote_id: '',
+                listing_type: 'default',
+              },
+              grossQuantity: 10,
+              signedQuantity: 10,
+            },
+          ],
+        },
+      })
+    )
     mockUseMarketQuoteSnapshots.mockReturnValue(
       createQueryResult({
         data: {
-          'default|AAPL||': {
+          'default|TG_LSTG_AAPL||': {
             lastPrice: 110,
             previousClose: 100,
             change: 10,
@@ -334,7 +354,7 @@ describe('PortfolioSnapshotWidgetBody', () => {
     expect(container.textContent).toContain('Performance')
   })
 
-  it('clears a saved credential that no longer exists before querying broker accounts', async () => {
+  it('keeps a saved credential in params even when credential options are incomplete', async () => {
     mockUseOAuthCredentials.mockReturnValue(
       createQueryResult({
         data: [{ id: 'cred-2', name: 'Replacement Broker', provider: 'alpaca' }],
@@ -357,7 +377,7 @@ describe('PortfolioSnapshotWidgetBody', () => {
       )
     })
 
-    expect(mockEmitPortfolioSnapshotParamsChange).toHaveBeenCalledWith({
+    expect(mockEmitPortfolioSnapshotParamsChange).not.toHaveBeenCalledWith({
       params: {
         credentialId: null,
         accountId: null,
@@ -367,12 +387,10 @@ describe('PortfolioSnapshotWidgetBody', () => {
     })
     expect(mockUseTradingAccounts).toHaveBeenCalledWith({
       provider: 'alpaca',
-      credentialId: undefined,
+      credentialId: 'cred-1',
       environment: 'paper',
     })
-    expect(container.textContent).toContain(
-      'Select an Alpaca connection in provider settings to view an account snapshot.'
-    )
+    expect(container.textContent).toContain('Performance')
   })
 
   it('preserves a saved account when the accounts query errors', async () => {
@@ -461,14 +479,20 @@ describe('PortfolioSnapshotWidgetBody', () => {
     expect(container.textContent).toContain('Quoted Positions')
     expect(container.textContent).toContain('Alpaca · paper · active · paper')
     expect(container.textContent).toContain('performance-chart')
+    expect(mockUseTradingHoldingsListings).toHaveBeenCalledWith({
+      provider: 'alpaca',
+      credentialId: 'cred-1',
+      environment: 'paper',
+      accountId: 'acct-1',
+    })
     expect(mockUseMarketQuoteSnapshots).toHaveBeenCalledWith({
       workspaceId: 'workspace-1',
       provider: 'alpaca',
       items: [
         {
-          key: 'default|AAPL||',
+          key: 'default|TG_LSTG_AAPL||',
           listing: {
-            listing_id: 'AAPL',
+            listing_id: 'TG_LSTG_AAPL',
             base_id: '',
             quote_id: '',
             listing_type: 'default',
@@ -555,12 +579,30 @@ describe('PortfolioSnapshotWidgetBody', () => {
     mockUseMarketQuoteSnapshots.mockReturnValue(
       createQueryResult({
         data: {
-          'default|TSLA||': {
+          'default|TG_LSTG_TSLA||': {
             lastPrice: 110,
             previousClose: 100,
             change: 10,
             changePercent: 10,
           },
+        },
+      })
+    )
+    mockUseTradingHoldingsListings.mockReturnValue(
+      createQueryResult({
+        data: {
+          positionListings: [
+            {
+              listing: {
+                listing_id: 'TG_LSTG_TSLA',
+                base_id: '',
+                quote_id: '',
+                listing_type: 'default',
+              },
+              grossQuantity: 5,
+              signedQuantity: -5,
+            },
+          ],
         },
       })
     )

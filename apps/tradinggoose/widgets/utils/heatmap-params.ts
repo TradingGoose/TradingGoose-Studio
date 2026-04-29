@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import {
-  sanitizeMarketProviderAuthRefs,
+  sanitizeMarketProviderAuth,
   sanitizeMarketProviderParamsForWidget,
 } from '@/lib/market/market-provider-settings'
 import {
@@ -51,6 +51,7 @@ export const sanitizeHeatmapParams = (
   if (!params || !isRecord(params)) return null
 
   const sourceMode = normalizeString(params.sourceMode)
+  const watchlistSizeMetric = normalizeString(params.watchlistSizeMetric)
   const marketProvider = normalizeString(params.marketProvider)
   const tradingProvider = normalizeString(params.tradingProvider)
   const credentialId = normalizeString(params.credentialId)
@@ -60,7 +61,7 @@ export const sanitizeHeatmapParams = (
     marketProvider,
     params.marketProviderParams
   )
-  const marketAuth = sanitizeMarketProviderAuthRefs(params.marketAuth)
+  const marketAuth = sanitizeMarketProviderAuth(params.marketAuth)
   const runtime = isRecord(params.runtime) ? params.runtime : null
   const refreshAt =
     typeof runtime?.refreshAt === 'number' && Number.isFinite(runtime.refreshAt)
@@ -69,6 +70,9 @@ export const sanitizeHeatmapParams = (
 
   const nextParams: Record<string, unknown> = {}
   if (sourceMode === 'watchlist' || sourceMode === 'portfolio') nextParams.sourceMode = sourceMode
+  if (watchlistSizeMetric === 'volume' || watchlistSizeMetric === 'volumeUsd') {
+    nextParams.watchlistSizeMetric = watchlistSizeMetric
+  }
   if (marketProvider) nextParams.marketProvider = marketProvider
   if (marketProviderParams) nextParams.marketProviderParams = marketProviderParams
   if (marketAuth) nextParams.marketAuth = marketAuth

@@ -182,6 +182,7 @@ export const WatchlistHeaderLeftControls = ({
       disabled={!workspaceId}
       providerParams={params?.providerParams}
       authParams={params?.auth}
+      workspaceId={workspaceId}
       onSettingsSave={handleSaveProviderSettings}
     />
   )

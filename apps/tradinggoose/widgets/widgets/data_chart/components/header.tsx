@@ -33,6 +33,7 @@ export const renderDataChartHeader: DashboardWidgetDefinition['renderHeader'] = 
         widgetKey={widgetKey}
         panelId={panelId}
         params={dataParams as DataChartWidgetParams}
+        workspaceId={context?.workspaceId}
       />
     ),
     center: (

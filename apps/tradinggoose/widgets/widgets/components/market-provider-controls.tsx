@@ -20,6 +20,7 @@ type MarketProviderControlsProps = {
   placeholder?: string
   providerParams?: Record<string, unknown>
   authParams?: Record<string, unknown>
+  workspaceId?: string
   onSettingsSave: (next: MarketProviderSettingsSaveResult) => void
   className?: string
 }
@@ -32,6 +33,7 @@ export function MarketProviderControls({
   placeholder,
   providerParams,
   authParams,
+  workspaceId,
   onSettingsSave,
   className,
 }: MarketProviderControlsProps) {
@@ -54,6 +56,7 @@ export function MarketProviderControls({
         providerName={selectedProvider?.name}
         providerParams={providerParams}
         authParams={authParams}
+        workspaceId={workspaceId}
         onSave={onSettingsSave}
       />
     </div>

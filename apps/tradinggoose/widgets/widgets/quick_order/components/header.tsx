@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo } from 'react'
+import { Button } from '@/components/ui/button'
 import { useOAuthProviderAvailability } from '@/hooks/queries/oauth-provider-availability'
 import type { DashboardWidgetDefinition } from '@/widgets/types'
 import { emitQuickOrderParamsChange } from '@/widgets/utils/quick-order-params'
@@ -43,9 +44,9 @@ export function QuickOrderHeaderControls({ panelId, widgetKey, params }: HeaderC
     () =>
       hasSelectedProvider
         ? getQuickOrderEnvironmentOptions(providerId).map((environment) => ({
-            id: environment,
-            label: environment === 'paper' ? 'Paper' : 'Live',
-          }))
+          id: environment,
+          label: environment === 'paper' ? 'Paper' : 'Live',
+        }))
         : [],
     [hasSelectedProvider, providerId]
   )
@@ -97,21 +98,17 @@ function QuickOrderSideTabs({ panelId, widgetKey, params }: HeaderControlProps) 
   ]
 
   return (
-    <div className='flex h-8 overflow-hidden rounded-md border border-border/70 bg-card/60 p-0.5'>
+    <div className='flex h-7 items-center gap-1 rounded-sm border border-border/70 bg-card/60 p-1'>
       {sides.map((option) => {
         const isSelected = option.id === side
 
         return (
-          <button
+          <Button
             key={option.id}
             type='button'
-            className={`min-w-14 rounded-sm border px-3 text-center font-semibold text-[11px] transition-colors ${
-              isSelected
-                ? option.id === 'buy'
-                  ? 'border-emerald-400/60 bg-emerald-500/15 text-emerald-300'
-                  : 'border-rose-400/60 bg-rose-500/15 text-rose-300'
-                : 'border-transparent text-muted-foreground hover:text-foreground'
-            }`}
+            variant={isSelected ? 'default' : 'ghost'}
+            size='sm'
+            className='h-5 min-w-14 px-3 rounded-xs text-sm'
             onClick={() => {
               if (option.id === side) return
               emitQuickOrderParamsChange({
@@ -122,7 +119,7 @@ function QuickOrderSideTabs({ panelId, widgetKey, params }: HeaderControlProps) 
             }}
           >
             {option.label}
-          </button>
+          </Button>
         )
       })}
     </div>

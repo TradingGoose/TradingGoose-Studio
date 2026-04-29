@@ -147,5 +147,53 @@ describe('trading listing utility helpers', () => {
       },
       assetClass: 'crypto',
     })
+
+    expect(
+      tradingSymbolToListingIdentity(alpacaTradingProviderConfig, {
+        symbol: 'DOGEUSD',
+        assetClass: 'crypto',
+      })
+    ).toMatchObject({
+      listing: {
+        listing_type: 'crypto',
+        base_id: 'DOGE',
+        quote_id: 'USD',
+      },
+      base: 'DOGE',
+      quote: 'USD',
+      assetClass: 'crypto',
+    })
+
+    expect(
+      tradingSymbolToListingIdentity(alpacaTradingProviderConfig, {
+        symbol: 'BTCUSDT',
+        assetClass: 'crypto',
+      })
+    ).toMatchObject({
+      listing: {
+        listing_type: 'crypto',
+        base_id: 'BTC',
+        quote_id: 'USDT',
+      },
+      base: 'BTC',
+      quote: 'USDT',
+      assetClass: 'crypto',
+    })
+
+    expect(
+      tradingSymbolToListingIdentity(alpacaTradingProviderConfig, {
+        symbol: 'SOLUSD',
+        assetClass: 'crypto',
+      })
+    ).toMatchObject({
+      listing: {
+        listing_type: 'crypto',
+        base_id: 'SOL',
+        quote_id: 'USD',
+      },
+      base: 'SOL',
+      quote: 'USD',
+      assetClass: 'crypto',
+    })
   })
 })

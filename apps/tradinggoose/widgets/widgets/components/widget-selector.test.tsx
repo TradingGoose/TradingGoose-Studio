@@ -28,7 +28,7 @@ describe('WidgetSelectorComponent', () => {
     container.remove()
   })
 
-  it('renders trading widgets in the existing selector category flow', async () => {
+  it('renders trading first and includes watchlist under Trading', async () => {
     await act(async () => {
       root.render(
         <TooltipProvider>
@@ -48,10 +48,20 @@ describe('WidgetSelectorComponent', () => {
       )
     })
 
-    expect(document.body.textContent).toContain('Trading')
-    expect(document.body.textContent).toContain('Heatmap')
-    expect(document.body.textContent).toContain('Portfolio Snapshot')
-    expect(document.body.textContent).toContain('Quick Order')
-    expect(document.body.textContent).toContain('Data Chart')
+    const content = document.body.textContent ?? ''
+
+    expect(content.indexOf('Trading')).toBeLessThan(content.indexOf('Lists'))
+    expect(content.indexOf('Lists')).toBeLessThan(content.indexOf('Editor'))
+    expect(content.indexOf('Editor')).toBeLessThan(content.indexOf('Utils'))
+
+    const tradingStart = content.indexOf('Trading')
+    const listsStart = content.indexOf('Lists')
+    const tradingSection = content.slice(tradingStart, listsStart)
+
+    expect(tradingSection).toContain('Watchlist')
+    expect(tradingSection).toContain('Heatmap')
+    expect(tradingSection).toContain('Portfolio Snapshot')
+    expect(tradingSection).toContain('Quick Order')
+    expect(tradingSection).toContain('Data Chart')
   })
 })

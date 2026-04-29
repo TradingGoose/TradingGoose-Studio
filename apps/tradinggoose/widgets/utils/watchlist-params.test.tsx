@@ -49,7 +49,7 @@ describe('sanitizeWatchlistParams', () => {
     container.remove()
   })
 
-  it('strips raw market auth while preserving env-var refs', () => {
+  it('preserves raw and env-var market auth', () => {
     expect(
       sanitizeWatchlistParams({
         provider: 'alpaca',
@@ -63,6 +63,7 @@ describe('sanitizeWatchlistParams', () => {
       provider: 'alpaca',
       watchlistId: 'watchlist-1',
       auth: {
+        apiKey: 'raw-key',
         apiSecret: '{{ ALPACA_API_SECRET }}',
       },
     })

@@ -1,15 +1,14 @@
 import { useMutation, useQuery } from '@tanstack/react-query'
-import type { ListingIdentity } from '@/lib/listing/identity'
-import type { TradingHoldingsListingsResponse } from '@/app/api/widgets/trading/holdings-listings/route'
 import type {
   QuickOrderSubmitRequest,
   QuickOrderSubmitResponse,
-} from '@/app/api/widgets/trading/order/types'
+} from '@/app/api/providers/trading/order/types'
 import type {
   TradingPortfolioPerformanceWindow,
   UnifiedTradingAccount,
   UnifiedTradingAccountSnapshot,
   UnifiedTradingPortfolioPerformance,
+  UnifiedTradingPositionListings,
 } from '@/providers/trading/types'
 
 type TradingAccountsRequest = {
@@ -40,8 +39,6 @@ const postJson = async <T>(url: string, body: unknown): Promise<T> => {
     accounts?: UnifiedTradingAccount[]
     snapshot?: UnifiedTradingAccountSnapshot
     performance?: UnifiedTradingPortfolioPerformance
-    listings?: ListingIdentity[]
-    invalidPositions?: TradingHoldingsListingsResponse['invalidPositions']
     order?: QuickOrderSubmitResponse['order']
     provider?: string
     environment?: string
@@ -96,15 +93,15 @@ export const tradingPortfolioQueryKeys = {
 }
 
 export async function fetchTradingAccounts(request: TradingAccountsRequest) {
-  const payload = await postJson<{ accounts?: UnifiedTradingAccount[] }>(
-    '/api/widgets/trading/accounts',
+  const payload = await postJson<{ accounts: UnifiedTradingAccount[] }>(
+    '/api/providers/trading/accounts',
     {
       provider: request.provider,
       credentialId: request.credentialId,
       environment: request.environment,
     }
   )
-  return payload.accounts ?? []
+  return payload.accounts
 }
 
 export function useTradingAccounts(request: TradingAccountsRequest) {
@@ -122,7 +119,7 @@ export function useTradingPortfolioSnapshot(request: TradingSnapshotRequest) {
     queryKey: tradingPortfolioQueryKeys.snapshot(request),
     queryFn: async () => {
       const payload = await postJson<{ snapshot: UnifiedTradingAccountSnapshot }>(
-        '/api/widgets/trading/snapshot',
+        '/api/providers/trading/snapshot',
         {
           provider: request.provider,
           credentialId: request.credentialId,
@@ -141,22 +138,15 @@ export function useTradingPortfolioSnapshot(request: TradingSnapshotRequest) {
 }
 
 export function useTradingHoldingsListings(request: TradingSnapshotRequest) {
-  return useQuery<TradingHoldingsListingsResponse>({
+  return useQuery<UnifiedTradingPositionListings>({
     queryKey: tradingPortfolioQueryKeys.holdingsListings(request),
     queryFn: async () => {
-      const payload = await postJson<{
-        listings?: ListingIdentity[]
-        invalidPositions?: TradingHoldingsListingsResponse['invalidPositions']
-      }>('/api/widgets/trading/holdings-listings', {
+      return postJson<UnifiedTradingPositionListings>('/api/providers/trading/holdings-listings', {
         provider: request.provider,
         credentialId: request.credentialId,
         environment: request.environment,
         accountId: request.accountId,
       })
-      return {
-        listings: payload.listings ?? [],
-        invalidPositions: payload.invalidPositions ?? [],
-      }
     },
     enabled: Boolean(
       request.provider && request.credentialId && request.environment && request.accountId
@@ -171,7 +161,7 @@ export function useTradingPortfolioPerformance(request: TradingPerformanceReques
     queryKey: tradingPortfolioQueryKeys.performance(request),
     queryFn: async () => {
       const payload = await postJson<{ performance: UnifiedTradingPortfolioPerformance }>(
-        '/api/widgets/trading/performance',
+        '/api/providers/trading/performance',
         {
           provider: request.provider,
           credentialId: request.credentialId,
@@ -197,6 +187,6 @@ export function useTradingPortfolioPerformance(request: TradingPerformanceReques
 export function useSubmitTradingOrder() {
   return useMutation<QuickOrderSubmitResponse, Error, QuickOrderSubmitRequest>({
     mutationFn: (request) =>
-      postJson<QuickOrderSubmitResponse>('/api/widgets/trading/order', request),
+      postJson<QuickOrderSubmitResponse>('/api/providers/trading/order', request),
   })
 }

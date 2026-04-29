@@ -2,7 +2,7 @@
  * @vitest-environment jsdom
  */
 
-import { act } from 'react'
+import { act, type ReactNode } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useListingSelectorStore } from '@/stores/market/selector/store'
@@ -10,7 +10,9 @@ import { QuickOrderWidgetBody } from '@/widgets/widgets/quick_order/components/b
 
 const mockUseOAuthCredentials = vi.fn()
 const mockUseOAuthProviderAvailability = vi.fn()
+const mockUseMarketQuoteSnapshots = vi.fn()
 const mockUseTradingAccounts = vi.fn()
+const mockUseTradingPortfolioSnapshot = vi.fn()
 const mockUseSubmitTradingOrder = vi.fn()
 const mockMutate = vi.fn()
 const mockReset = vi.fn()
@@ -44,20 +46,95 @@ vi.mock('@/hooks/queries/oauth-provider-availability', () => ({
   useOAuthProviderAvailability: (...args: unknown[]) => mockUseOAuthProviderAvailability(...args),
 }))
 
+vi.mock('@/hooks/queries/market-quote-snapshots', () => ({
+  useMarketQuoteSnapshots: (...args: unknown[]) => mockUseMarketQuoteSnapshots(...args),
+}))
+
 vi.mock('@/hooks/queries/trading-portfolio', () => ({
   useTradingAccounts: (...args: unknown[]) => mockUseTradingAccounts(...args),
+  useTradingPortfolioSnapshot: (...args: unknown[]) => mockUseTradingPortfolioSnapshot(...args),
   useSubmitTradingOrder: (...args: unknown[]) => mockUseSubmitTradingOrder(...args),
 }))
 
-vi.mock('@/widgets/widgets/components/listing-selector', () => ({
+vi.mock('@/components/ui/select', () => ({
+  Select: ({
+    value,
+    disabled,
+    onValueChange,
+    children,
+  }: {
+    value?: string
+    disabled?: boolean
+    onValueChange?: (value: string) => void
+    children?: ReactNode
+  }) => (
+    <select
+      value={value ?? ''}
+      disabled={disabled}
+      onChange={(event) => onValueChange?.(event.target.value)}
+    >
+      {children}
+    </select>
+  ),
+  SelectTrigger: ({ children }: { children?: ReactNode }) => <>{children}</>,
+  SelectValue: ({ placeholder }: { placeholder?: string }) => (
+    <option value=''>{placeholder}</option>
+  ),
+  SelectContent: ({ children }: { children?: ReactNode }) => <>{children}</>,
+  SelectItem: ({ value, children }: { value: string; children?: ReactNode }) => (
+    <option value={value}>{children}</option>
+  ),
+}))
+
+vi.mock('@/components/ui/radio-group', async () => {
+  const React = await vi.importActual<typeof import('react')>('react')
+  const RadioContext = React.createContext<{
+    value?: string
+    onValueChange?: (value: string) => void
+  }>({})
+
+  return {
+    RadioGroup: ({
+      value,
+      onValueChange,
+      children,
+    }: {
+      value?: string
+      onValueChange?: (value: string) => void
+      children?: ReactNode
+    }) => (
+      <RadioContext.Provider value={{ value, onValueChange }}>
+        <div>{children}</div>
+      </RadioContext.Provider>
+    ),
+    RadioGroupItem: ({ id, value }: { id?: string; value: string }) => {
+      const context = React.useContext(RadioContext)
+      return (
+        <input
+          id={id}
+          type='radio'
+          value={value}
+          checked={context.value === value}
+          onChange={() => context.onValueChange?.(value)}
+        />
+      )
+    },
+  }
+})
+
+vi.mock('@/components/listing-selector/selector/combo', () => ({
   ListingSelector: ({
     instanceId,
     providerType,
+    listingRequired,
+    className,
     onListingChange,
     onListingValueChange,
   }: {
     instanceId: string
     providerType: string
+    listingRequired?: boolean
+    className?: string
     onListingChange: (listing: Record<string, unknown>) => void
     onListingValueChange: (value: string) => void
   }) => (
@@ -65,6 +142,8 @@ vi.mock('@/widgets/widgets/components/listing-selector', () => ({
       data-testid='listing-selector-surface'
       data-instance-id={instanceId}
       data-provider-type={providerType}
+      data-listing-required={listingRequired ? 'true' : 'false'}
+      data-class-name={className ?? ''}
     >
       <button
         type='button'
@@ -135,6 +214,14 @@ const setSelectValue = async (select: HTMLSelectElement | null, value: string) =
   })
 }
 
+const chooseRadioValue = async (container: HTMLElement, value: string) => {
+  await act(async () => {
+    const radio = container.querySelector<HTMLInputElement>(`input[type="radio"][value="${value}"]`)
+    if (!radio) throw new Error(`radio ${value} missing`)
+    radio.click()
+  })
+}
+
 const findButton = (container: HTMLElement, label: string) =>
   Array.from(container.querySelectorAll('button')).find((button) =>
     button.textContent?.includes(label)
@@ -160,6 +247,39 @@ describe('QuickOrderWidgetBody', () => {
     )
     mockUseTradingAccounts.mockReturnValue(
       queryResult({ data: [{ id: 'acct-1', name: 'Paper Account' }] })
+    )
+    mockUseTradingPortfolioSnapshot.mockReturnValue(
+      queryResult({
+        data: {
+          asOf: '2026-04-25T12:00:00.000Z',
+          account: {
+            id: 'acct-1',
+            name: 'Paper Account',
+            type: 'paper',
+            baseCurrency: 'USD',
+          },
+          cashBalances: [],
+          positions: [],
+          orders: [],
+          accountSummary: {
+            totalPortfolioValue: 1000,
+            totalCashValue: 62.77,
+            buyingPower: 62.77,
+          },
+        },
+      })
+    )
+    mockUseMarketQuoteSnapshots.mockReturnValue(
+      queryResult({
+        data: {
+          AAPL: {
+            lastPrice: 12.5,
+            previousClose: 12,
+            change: 0.5,
+            changePercent: 4.16,
+          },
+        },
+      })
     )
     mockUseSubmitTradingOrder.mockReturnValue({
       mutate: mockMutate,
@@ -274,11 +394,11 @@ describe('QuickOrderWidgetBody', () => {
     const footerButton = Array.from(container.querySelectorAll('button')).find((button) =>
       button.textContent?.includes('Submit BUY Order')
     )
-    expect(container.textContent).toContain('Select a listing.')
+    expect(container.textContent).not.toContain('Select a listing.')
     expect(footerButton).toBeDisabled()
   })
 
-  it('clears stale provider, credential, and account params through scoped widget updates', async () => {
+  it('clears invalid providers without deleting saved credential or account params from async lookups', async () => {
     const onInvalidProviderChange = vi.fn()
     await renderBody(
       container,
@@ -299,7 +419,7 @@ describe('QuickOrderWidgetBody', () => {
     })
     root = createRoot(container)
 
-    const onInvalidCredentialChange = vi.fn()
+    const onIncompleteCredentialOptionsChange = vi.fn()
     mockUseOAuthCredentials.mockReturnValueOnce(queryResult({ data: [] }))
     await renderBody(
       container,
@@ -311,12 +431,13 @@ describe('QuickOrderWidgetBody', () => {
         accountId: 'acct-1',
         side: 'buy',
       },
-      onInvalidCredentialChange
+      onIncompleteCredentialOptionsChange
     )
-    expect(onInvalidCredentialChange).toHaveBeenCalledWith({
+    expect(onIncompleteCredentialOptionsChange).not.toHaveBeenCalled()
+    expect(mockUseTradingAccounts).toHaveBeenLastCalledWith({
       provider: 'alpaca',
+      credentialId: 'stale-credential',
       environment: 'paper',
-      side: 'buy',
     })
 
     await act(async () => {
@@ -324,7 +445,7 @@ describe('QuickOrderWidgetBody', () => {
     })
     root = createRoot(container)
 
-    const onInvalidAccountChange = vi.fn()
+    const onIncompleteAccountOptionsChange = vi.fn()
     mockUseTradingAccounts.mockReturnValueOnce(
       queryResult({ data: [{ id: 'acct-2', name: 'Other Account' }] })
     )
@@ -338,13 +459,14 @@ describe('QuickOrderWidgetBody', () => {
         accountId: 'stale-account',
         side: 'buy',
       },
-      onInvalidAccountChange
+      onIncompleteAccountOptionsChange
     )
-    expect(onInvalidAccountChange).toHaveBeenCalledWith({
+    expect(onIncompleteAccountOptionsChange).not.toHaveBeenCalled()
+    expect(mockUseTradingPortfolioSnapshot).toHaveBeenLastCalledWith({
       provider: 'alpaca',
       credentialId: 'cred-1',
       environment: 'paper',
-      side: 'buy',
+      accountId: 'stale-account',
     })
   })
 
@@ -365,7 +487,6 @@ describe('QuickOrderWidgetBody', () => {
     await setInputValue(container.querySelector<HTMLInputElement>('input[placeholder="0"]'), 'abc')
 
     const footerButton = findButton(container, 'Submit BUY Order')
-    expect(container.textContent).toContain('Enter a valid quantity.')
     expect(footerButton).toBeDisabled()
 
     await act(async () => {
@@ -374,7 +495,7 @@ describe('QuickOrderWidgetBody', () => {
     expect(mockMutate).not.toHaveBeenCalled()
   })
 
-  it('rejects Alpaca notional trailing stop orders in the sticky footer validation', async () => {
+  it('rejects Alpaca notional trailing stop orders before submit', async () => {
     await renderBody(container, root, {
       provider: 'alpaca',
       credentialId: 'cred-1',
@@ -388,10 +509,7 @@ describe('QuickOrderWidgetBody', () => {
     })
     await act(async () => {})
 
-    const sizingSelect = Array.from(container.querySelectorAll('select')).find((select) =>
-      select.textContent?.includes('Notional')
-    )
-    await setSelectValue(sizingSelect ?? null, 'notional')
+    await chooseRadioValue(container, 'notional')
     await setInputValue(
       container.querySelector<HTMLInputElement>('input[placeholder="0.00"]'),
       '100'
@@ -403,9 +521,6 @@ describe('QuickOrderWidgetBody', () => {
     await setSelectValue(orderTypeSelect ?? null, 'trailing_stop')
 
     const footerButton = findButton(container, 'Submit BUY Order')
-    expect(container.textContent).toContain(
-      'Alpaca notional orders support market, limit, stop, or stop_limit types.'
-    )
     expect(footerButton).toBeDisabled()
 
     await act(async () => {

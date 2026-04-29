@@ -38,7 +38,7 @@ describe('fetchMarketQuoteSnapshots', () => {
     })
 
     expect(fetchMock).toHaveBeenCalledWith(
-      '/api/widgets/market/quotes',
+      '/api/providers/market/quotes',
       expect.objectContaining({
         signal: controller.signal,
       })

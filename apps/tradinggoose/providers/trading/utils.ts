@@ -180,13 +180,19 @@ export function tradingSymbolToListingIdentity(
       return scoreDelta !== 0 ? scoreDelta : left.index - right.index
     })[0]?.rule
 
-  const parsed = matchedRule
+  const parsedSymbol = matchedRule
     ? parseSymbolWithTemplate(symbol, matchedRule.template)
     : parseDefaultTradingSymbol(symbol)
-  if (!parsed) return null
+  if (!parsedSymbol) return null
 
   const assetClass = matchedRule?.assetClass ?? input.assetClass ?? fallbackAssetClass
   const listingType = toListingType(assetClass)
+  const parsed = resolveCompactPairSymbol({
+    config,
+    parsed: parsedSymbol,
+    listingType,
+    defaultQuote,
+  })
   const base = normalizeTradingProviderSymbol(parsed.base ?? parsed.listing)
   const quote =
     normalizeTradingProviderSymbol(parsed.quote) ??
@@ -454,6 +460,93 @@ function parseDefaultTradingSymbol(symbol: string): Record<string, string> {
   return {
     base: symbol,
   }
+}
+
+function resolveCompactPairSymbol({
+  config,
+  parsed,
+  listingType,
+  defaultQuote,
+}: {
+  config: TradingProviderConfig
+  parsed: Record<string, string>
+  listingType: ListingType
+  defaultQuote: string
+}): Record<string, string> {
+  if (listingType === 'default' || parsed.quote) return parsed
+
+  const base = normalizeTradingProviderSymbol(parsed.base ?? parsed.listing)
+  if (!base) return parsed
+
+  const split = splitCompactPairSymbol(config, listingType, base, defaultQuote)
+  return split ? { ...parsed, ...split } : parsed
+}
+
+function splitCompactPairSymbol(
+  config: TradingProviderConfig,
+  listingType: ListingType,
+  symbol: string,
+  defaultQuote: string
+): { base: string; quote: string } | null {
+  const normalizedSymbol = normalizeTradingProviderSymbol(symbol)
+  if (!normalizedSymbol) return null
+
+  const quoteCandidates = getPairQuoteCandidates(config, listingType, defaultQuote)
+  if (!quoteCandidates.length) return null
+
+  const upperSymbol = normalizedSymbol.toUpperCase()
+
+  for (const quote of quoteCandidates) {
+    const upperQuote = quote.toUpperCase()
+    if (upperSymbol === upperQuote || !upperSymbol.endsWith(upperQuote)) continue
+
+    const base = normalizedSymbol.slice(0, normalizedSymbol.length - quote.length).trim()
+    if (base.length < 2) continue
+
+    return {
+      base,
+      quote,
+    }
+  }
+
+  return null
+}
+
+function getPairQuoteCandidates(
+  config: TradingProviderConfig,
+  listingType: ListingType,
+  defaultQuote: string
+): string[] {
+  if (listingType === 'default') return []
+
+  const availability =
+    listingType === 'crypto'
+      ? config.availability.availableCryptoQuote
+      : config.availability.availableCurrencyQuote
+  const ruleQuotes = config.rules
+    .filter((rule) => rule.active !== false)
+    .filter((rule) => toListingType(rule.assetClass) === listingType)
+    .map((rule) => rule.currency)
+
+  return uniqueSymbols([defaultQuote, ...(availability ?? []), ...ruleQuotes]).sort(
+    (left, right) => right.length - left.length
+  )
+}
+
+function uniqueSymbols(values: Array<string | null | undefined>): string[] {
+  const seen = new Set<string>()
+  const result: string[] = []
+
+  for (const value of values) {
+    const normalized = normalizeTradingProviderSymbol(value)
+    if (!normalized) continue
+    const key = normalized.toUpperCase()
+    if (seen.has(key)) continue
+    seen.add(key)
+    result.push(normalized)
+  }
+
+  return result
 }
 
 function toListingType(assetClass?: AssetClass | null): ListingType {

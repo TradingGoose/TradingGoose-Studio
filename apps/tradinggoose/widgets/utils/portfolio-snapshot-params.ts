@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import {
-  sanitizeMarketProviderAuthRefs,
+  sanitizeMarketProviderAuth,
   sanitizeMarketProviderParamsForWidget,
 } from '@/lib/market/market-provider-settings'
 import {
@@ -90,7 +90,7 @@ export const sanitizePortfolioSnapshotParams = (
     marketProvider,
     params.marketProviderParams
   )
-  const marketAuth = sanitizeMarketProviderAuthRefs(params.marketAuth)
+  const marketAuth = sanitizeMarketProviderAuth(params.marketAuth)
   if (marketProviderParams) nextParams.marketProviderParams = marketProviderParams
   if (marketAuth) nextParams.marketAuth = marketAuth
   if (refreshAt !== undefined) {

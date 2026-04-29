@@ -10,6 +10,7 @@ type DataChartProviderControlsProps = {
   widgetKey?: string
   panelId?: string
   params: DataChartWidgetParams
+  workspaceId?: string
 }
 
 type RefreshButtonProps = {
@@ -38,6 +39,7 @@ export const DataChartProviderControls = ({
   widgetKey,
   panelId,
   params,
+  workspaceId,
 }: DataChartProviderControlsProps) => {
   const providerId = params.data?.provider
   const providerParams = params.data?.providerParams ?? {}
@@ -76,6 +78,7 @@ export const DataChartProviderControls = ({
       onChange={handleProviderChange}
       providerParams={providerParams}
       authParams={authParams}
+      workspaceId={workspaceId}
       onSettingsSave={({ providerParams: nextProviderParams, auth }) => {
         const { ...nextDataBase } = (params.data ?? {}) as Record<string, unknown>
         emitDataChartParamsChange({
