@@ -184,6 +184,15 @@ export function normalizeMessagesForUI(
           })
         : []
       const blocks = normalizeAssistantContentBlocks(hydratedBlocks)
+      const reasoningBlock =
+        normalizedContent.reasoning && !blocks.some((block: any) => block?.type === 'thinking')
+          ? {
+              type: 'thinking',
+              content: normalizedContent.reasoning,
+              timestamp: Date.now(),
+            }
+          : null
+      const finalBlocks = reasoningBlock && blocks.length > 0 ? [reasoningBlock, ...blocks] : blocks
 
       const updatedToolCalls = Array.isArray((message as any).toolCalls)
         ? (message as any).toolCalls.map((tc: any) => {
@@ -222,20 +231,12 @@ export function normalizeMessagesForUI(
         ...message,
         content: normalizedContent.content,
         ...(updatedToolCalls && { toolCalls: updatedToolCalls }),
-        ...(blocks.length > 0
-          ? { contentBlocks: blocks }
+        ...(finalBlocks.length > 0
+          ? { contentBlocks: finalBlocks }
           : normalizedContent.reasoning || normalizedContent.content.trim()
             ? {
                 contentBlocks: [
-                  ...(normalizedContent.reasoning
-                    ? [
-                        {
-                          type: 'thinking',
-                          content: normalizedContent.reasoning,
-                          timestamp: Date.now(),
-                        },
-                      ]
-                    : []),
+                  ...(reasoningBlock ? [reasoningBlock] : []),
                   ...(normalizedContent.content.trim()
                     ? [
                         {

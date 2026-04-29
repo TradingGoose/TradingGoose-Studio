@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { ClientToolCallState } from '@/lib/copilot/tools/client/base-tool'
 import { normalizeMessagesForUI } from './store-messages'
 import type { CopilotMessage } from './types'
 
@@ -80,6 +81,42 @@ describe('normalizeMessagesForUI', () => {
       {
         type: 'text',
         content: 'Envelope reply.',
+      },
+    ])
+  })
+
+  it('preserves content-level reasoning when assistant content blocks already exist', () => {
+    const [message] = normalizeMessagesForUI([
+      {
+        id: 'assistant-4',
+        role: 'assistant',
+        content: `${JSON.stringify({ reasoning: 'Content reasoning.' })}\n\nVisible reply.`,
+        timestamp: '2026-04-28T00:00:00.000Z',
+        contentBlocks: [
+          {
+            type: 'tool_call',
+            timestamp: 1,
+            toolCall: {
+              id: 'tool-1',
+              name: 'get_user_workflow',
+              state: ClientToolCallState.success,
+            },
+          },
+        ],
+      } satisfies CopilotMessage,
+    ])
+
+    expect(message.content).toBe('Visible reply.')
+    expect(message.contentBlocks).toMatchObject([
+      {
+        type: 'thinking',
+        content: 'Content reasoning.',
+      },
+      {
+        type: 'tool_call',
+        toolCall: {
+          id: 'tool-1',
+        },
       },
     ])
   })
