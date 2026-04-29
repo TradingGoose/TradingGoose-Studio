@@ -61,38 +61,18 @@ export function MonitorKanbanBoard({ className, ...props }: ComponentProps<typeo
 }
 
 type MonitorKanbanGroupProps = ComponentProps<'div'> & {
-  aggregateBadgeClassName?: string
-  aggregateVariant?: BadgeProps['variant']
-  aggregates?: Record<string, number | string | undefined>
-  description?: ReactNode
-  title: ReactNode
+  title?: ReactNode
 }
 
 export function MonitorKanbanGroup({
-  aggregateBadgeClassName,
-  aggregateVariant,
-  aggregates = {},
   children,
   className,
-  description,
   title,
   ...props
 }: MonitorKanbanGroupProps) {
   return (
     <div className={cn('flex min-h-0 flex-1 flex-col gap-3', className)} {...props}>
-      <div className='flex items-center justify-between gap-3 rounded-xl border bg-card/60 px-4 py-3'>
-        <div className='min-w-0'>
-          <div className='truncate font-medium text-sm'>{title}</div>
-          {description ? (
-            <div className='truncate text-muted-foreground text-xs'>{description}</div>
-          ) : null}
-        </div>
-        <MonitorAggregateBadges
-          entries={aggregates}
-          variant={aggregateVariant}
-          badgeClassName={aggregateBadgeClassName}
-        />
-      </div>
+      {title ? <div className='px-1 font-medium text-muted-foreground text-xs'>{title}</div> : null}
       {children}
     </div>
   )

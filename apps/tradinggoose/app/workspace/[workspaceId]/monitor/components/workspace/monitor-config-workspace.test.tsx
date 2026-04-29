@@ -266,7 +266,6 @@ describe('MonitorConfigWorkspace', () => {
     })
 
     expect(container.textContent).toContain('All monitors')
-    expect(container.textContent).toContain('Workflow target')
     expect(container.textContent).toContain('Active')
     expect(container.textContent).toContain('Paused')
     expect(container.querySelector('button[aria-label^="Add monitor"]')).not.toBeNull()

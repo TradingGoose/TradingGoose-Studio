@@ -179,9 +179,7 @@ export function MonitorConfigBoard({
             {section.groups.map((group) => (
               <MonitorKanbanGroup
                 key={`${section.id}:${group.id}`}
-                title={group.label}
-                description={`${group.cards.length} monitors`}
-                aggregates={group.aggregates}
+                title={section.groups.length > 1 ? group.label : null}
               >
                 <MonitorKanbanBoard>
                   {group.statusLanes.flatMap((lane) =>
