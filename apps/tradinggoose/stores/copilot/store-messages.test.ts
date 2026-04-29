@@ -86,31 +86,32 @@ describe('normalizeMessagesForUI', () => {
   })
 
   it('preserves content-level reasoning when assistant content blocks already exist', () => {
-    const [message] = normalizeMessagesForUI([
-      {
-        id: 'assistant-4',
-        role: 'assistant',
-        content: `${JSON.stringify({ reasoning: 'Content reasoning.' })}\n\nVisible reply.`,
-        timestamp: '2026-04-28T00:00:00.000Z',
-        contentBlocks: [
-          {
-            type: 'tool_call',
-            timestamp: 1,
-            toolCall: {
-              id: 'tool-1',
-              name: 'get_user_workflow',
-              state: ClientToolCallState.success,
-            },
+    const input = {
+      id: 'assistant-4',
+      role: 'assistant',
+      content: `${JSON.stringify({ reasoning: 'Content reasoning.' })}\n\nVisible reply.`,
+      timestamp: '2026-04-28T00:00:00.000Z',
+      contentBlocks: [
+        {
+          type: 'tool_call',
+          timestamp: 1,
+          toolCall: {
+            id: 'tool-1',
+            name: 'get_user_workflow',
+            state: ClientToolCallState.success,
           },
-        ],
-      } satisfies CopilotMessage,
-    ])
+        },
+      ],
+    } satisfies CopilotMessage
+    const [message] = normalizeMessagesForUI([input])
+    const [normalizedAgain] = normalizeMessagesForUI([input])
 
     expect(message.content).toBe('Visible reply.')
     expect(message.contentBlocks).toMatchObject([
       {
         type: 'thinking',
         content: 'Content reasoning.',
+        timestamp: Date.parse(input.timestamp),
       },
       {
         type: 'tool_call',
@@ -119,5 +120,8 @@ describe('normalizeMessagesForUI', () => {
         },
       },
     ])
+    expect((normalizedAgain.contentBlocks?.[0] as any)?.timestamp).toBe(
+      (message.contentBlocks?.[0] as any)?.timestamp
+    )
   })
 })

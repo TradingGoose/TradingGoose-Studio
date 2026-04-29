@@ -124,6 +124,11 @@ function normalizeAssistantContentBlocks(blocks: any[]): any[] {
   })
 }
 
+function getMessageBlockTimestamp(message: CopilotMessage): number {
+  const timestamp = Date.parse(message.timestamp)
+  return Number.isFinite(timestamp) ? timestamp : Date.now()
+}
+
 export function normalizeMessagesForUI(
   messages: CopilotMessage[],
   latestTurnStatus?: string | null,
@@ -145,6 +150,7 @@ export function normalizeMessagesForUI(
       }
 
       const normalizedContent = normalizeAssistantReasoningContent(message.content || '')
+      const messageBlockTimestamp = getMessageBlockTimestamp(message)
       const hydratedBlocks: any[] = Array.isArray(message.contentBlocks)
         ? (message.contentBlocks as any[]).map((b: any) => {
             if (b?.type === 'tool_call' && b.toolCall) {
@@ -189,7 +195,7 @@ export function normalizeMessagesForUI(
           ? {
               type: 'thinking',
               content: normalizedContent.reasoning,
-              timestamp: Date.now(),
+              timestamp: messageBlockTimestamp,
             }
           : null
       const finalBlocks = reasoningBlock && blocks.length > 0 ? [reasoningBlock, ...blocks] : blocks
@@ -242,7 +248,7 @@ export function normalizeMessagesForUI(
                         {
                           type: 'text',
                           content: normalizedContent.content,
-                          timestamp: Date.now(),
+                          timestamp: messageBlockTimestamp,
                         },
                       ]
                     : []),
