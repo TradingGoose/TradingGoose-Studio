@@ -2,11 +2,18 @@
  * @vitest-environment jsdom
  */
 
+import type { ReactNode } from 'react'
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { DEFAULT_ORDERS_FILTER_STATE } from '@/lib/records/order-filters'
-import { OrderFilters } from './order-filters'
+import { OrderFilterMenu, OrderFilters } from './order-filters'
+
+vi.mock('@/components/ui/popover', () => ({
+  Popover: ({ children }: { children?: ReactNode }) => <>{children}</>,
+  PopoverTrigger: ({ children }: { children?: ReactNode }) => <>{children}</>,
+  PopoverContent: ({ children }: { children?: ReactNode }) => <>{children}</>,
+}))
 
 vi.mock('@/components/ui/select', () => ({
   Select: ({ children, onValueChange, value }: any) => (
@@ -51,17 +58,28 @@ describe('OrderFilters', () => {
     return select
   }
 
+  it('renders order search without the advanced filter menu', async () => {
+    const onSearchChange = vi.fn()
+
+    await act(async () => {
+      root.render(<OrderFilters searchValue='' onSearchChange={onSearchChange} />)
+    })
+
+    const searchInput = container.querySelector('input[placeholder="Search orders"]')
+    expect(searchInput).toBeInstanceOf(HTMLInputElement)
+    expect(container.querySelector('select')).toBeNull()
+  })
+
   it('renders and emits all order dimensions supported by the API filters', async () => {
     const onChange = vi.fn()
 
     await act(async () => {
       root.render(
-        <OrderFilters
+        <OrderFilterMenu
           state={DEFAULT_ORDERS_FILTER_STATE}
           searchValue=''
           loadedCount={1}
           totalCount={3}
-          onSearchChange={vi.fn()}
           onChange={onChange}
           onReset={vi.fn()}
         />

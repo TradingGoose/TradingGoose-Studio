@@ -5,9 +5,9 @@
 import { NextRequest } from 'next/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
-  resolveTradingWidgetContext,
-  resolveTradingWidgetSelectedAccount,
-} from '@/app/api/widgets/trading/shared'
+  resolveTradingProviderContext,
+  resolveTradingProviderSelectedAccount,
+} from '@/app/api/providers/trading/shared'
 import { executeTradingProviderOrderDetailRequest } from '@/providers/trading'
 
 const mocks = vi.hoisted(() => {
@@ -87,9 +87,9 @@ vi.mock('drizzle-orm', () => ({
   ),
 }))
 
-vi.mock('@/app/api/widgets/trading/shared', () => ({
-  resolveTradingWidgetContext: vi.fn(),
-  resolveTradingWidgetSelectedAccount: vi.fn(),
+vi.mock('@/app/api/providers/trading/shared', () => ({
+  resolveTradingProviderContext: vi.fn(),
+  resolveTradingProviderSelectedAccount: vi.fn(),
 }))
 
 vi.mock('@/lib/auth', () => ({
@@ -128,19 +128,19 @@ const orderRow = {
   normalizedOrder: { symbol: 'AAPL', status: 'filled' },
 }
 
-describe('records order provider detail route', () => {
+describe('order provider detail route', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mocks.chains.length = 0
     mocks.resultsQueue.length = 0
     mocks.getSession.mockResolvedValue({ user: { id: 'user-1' } })
     mocks.checkWorkspaceAccess.mockResolvedValue({ exists: true, hasAccess: true })
-    vi.mocked(resolveTradingWidgetContext).mockResolvedValue({
+    vi.mocked(resolveTradingProviderContext).mockResolvedValue({
       accessToken: 'access-token-1',
       environment: 'paper',
       provider: 'alpaca',
     } as any)
-    vi.mocked(resolveTradingWidgetSelectedAccount).mockResolvedValue({
+    vi.mocked(resolveTradingProviderSelectedAccount).mockResolvedValue({
       accountId: 'account-1',
     } as any)
     vi.mocked(executeTradingProviderOrderDetailRequest).mockResolvedValue({
@@ -155,7 +155,7 @@ describe('records order provider detail route', () => {
 
     const response = await POST(
       new NextRequest(
-        'http://localhost/api/records/orders/order-1/provider-detail?workspaceId=workspace-1',
+        'http://localhost/api/orders/order-1/provider-detail?workspaceId=workspace-1',
         {
           body: JSON.stringify({
             accountId: 'account-1',
@@ -173,7 +173,7 @@ describe('records order provider detail route', () => {
     expect(mocks.checkWorkspaceAccess).toHaveBeenCalledWith('workspace-1', 'user-1')
     expect(mocks.eq).toHaveBeenCalledWith('orderHistoryTable.id', 'order-1')
     expect(mocks.eq).toHaveBeenCalledWith('orderHistoryTable.workspaceId', 'workspace-1')
-    expect(resolveTradingWidgetContext).toHaveBeenCalledWith({
+    expect(resolveTradingProviderContext).toHaveBeenCalledWith({
       operationKind: 'order',
       requestData: {
         credentialId: 'credential-1',
@@ -182,7 +182,7 @@ describe('records order provider detail route', () => {
       },
       requestId: 'request-1',
     })
-    expect(resolveTradingWidgetSelectedAccount).toHaveBeenCalledWith({
+    expect(resolveTradingProviderSelectedAccount).toHaveBeenCalledWith({
       accountId: 'account-1',
       baseContext: expect.objectContaining({ accessToken: 'access-token-1' }),
     })

@@ -120,7 +120,7 @@ async function fetchOrdersPage(
   limit: number
 ) {
   const response = await fetch(
-    `/api/records/orders?${buildOrdersRequestParams(workspaceId, filters, { page, limit })}`
+    `/api/orders?${buildOrdersRequestParams(workspaceId, filters, { page, limit })}`
   )
   if (!response.ok) throw new Error('Failed to fetch order records')
   const data = (await response.json()) as RecordsOrdersResponse
@@ -158,7 +158,7 @@ export function useRecordsOrderDetail(
     queryKey: recordsOrderKeys.detail(workspaceId, orderId),
     queryFn: async () => {
       const response = await fetch(
-        `/api/records/orders/${orderId}?workspaceId=${encodeURIComponent(workspaceId as string)}`
+        `/api/orders/${orderId}?workspaceId=${encodeURIComponent(workspaceId as string)}`
       )
       if (!response.ok) throw new Error('Failed to fetch order detail')
       const { data } = await response.json()
@@ -188,7 +188,7 @@ export function useProviderOrderDetail(params: {
     ),
     queryFn: async () => {
       const response = await fetch(
-        `/api/records/orders/${params.orderId}/provider-detail?workspaceId=${encodeURIComponent(
+        `/api/orders/${params.orderId}/provider-detail?workspaceId=${encodeURIComponent(
           params.workspaceId as string
         )}`,
         {

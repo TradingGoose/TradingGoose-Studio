@@ -2,9 +2,10 @@
 
 import type React from 'react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Database, Download, Loader2, RefreshCw } from 'lucide-react'
+import { Database, Download, Filter, Loader2, RefreshCw, Search } from 'lucide-react'
 import { useParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { LOGS_QUERY_POLICY } from '@/lib/logs/query-policy'
@@ -22,6 +23,7 @@ import {
   LogsToolbar,
 } from '@/app/workspace/[workspaceId]/records/components/logs-toolbar'
 import {
+  OrderFilterMenu,
   OrderDetails,
   OrderFilters,
   OrdersTable,
@@ -29,6 +31,7 @@ import {
   type RecordsOrderDetailMode,
 } from '@/app/workspace/[workspaceId]/records/components/orders'
 import { Stats } from '@/app/workspace/[workspaceId]/records/components/stats'
+import { LogsFilters as StatsLogFilters } from '@/app/workspace/[workspaceId]/records/components/stats/components/logs-filters/logs-filters'
 import {
   parseOrdersUrlState,
   parseRecordsTab,
@@ -107,6 +110,10 @@ export default function Records() {
   const [availableWorkflows, setAvailableWorkflows] = useState<WorkflowData[]>([])
   const [availableFolders, setAvailableFolders] = useState<FolderData[]>([])
   const [isLive, setIsLive] = useState(false)
+  const [statsSearchQuery, setStatsSearchQuery] = useState('')
+  const [statsLive, setStatsLive] = useState(false)
+  const [statsRefreshRequest, setStatsRefreshRequest] = useState(0)
+  const [statsIsRefetching, setStatsIsRefetching] = useState(false)
 
   useEffect(() => {
     setWorkspaceId(workspaceId)
@@ -519,13 +526,22 @@ export default function Records() {
     }
   }, [activeTab, logsQuery, ordersQuery])
 
+  const handleStatsRefresh = useCallback(() => {
+    setStatsRefreshRequest((current) => current + 1)
+  }, [])
+
+  const resetOrdersFilters = useCallback(() => {
+    setOrderSearchInput('')
+    setOrdersState(DEFAULT_ORDERS_FILTER_STATE)
+  }, [])
+
   const handleExport = useCallback(() => {
     const anchor = document.createElement('a')
     if (activeTab === 'orders') {
       const queryParams = buildOrdersRequestParams(workspaceId, normalizedOrdersState, {
         includePagination: false,
       })
-      anchor.href = `/api/records/orders/export?${queryParams}`
+      anchor.href = `/api/orders/export?${queryParams}`
       anchor.download = 'orders_export.csv'
     } else if (activeTab === 'logs') {
       const queryParams = buildLogsRequestParams(
@@ -591,16 +607,8 @@ export default function Records() {
           </div>
           {activeTab === 'orders' ? (
             <OrderFilters
-              state={normalizedOrdersState}
               searchValue={orderSearchInput}
-              loadedCount={orders.length}
-              totalCount={ordersTotal}
               onSearchChange={setOrderSearchInput}
-              onChange={updateOrdersState}
-              onReset={() => {
-                setOrderSearchInput('')
-                setOrdersState(DEFAULT_ORDERS_FILTER_STATE)
-              }}
             />
           ) : activeTab === 'logs' ? (
             <AutocompleteSearch
@@ -617,6 +625,22 @@ export default function Records() {
               showActiveFilters={false}
               showTextSearchIndicator={false}
             />
+          ) : activeTab === 'stats' ? (
+            <div className='flex w-full flex-1'>
+              <div className='relative flex h-9 w-full items-center rounded-md border border-border bg-card/60 px-2 text-sm transition-colors focus-within:border-ring focus-within:ring-1 focus-within:ring-ring'>
+                <Search className='mr-2 h-4 w-4 flex-shrink-0 text-muted-foreground' />
+                <input
+                  value={statsSearchQuery}
+                  onChange={(event) => setStatsSearchQuery(event.target.value)}
+                  placeholder='Search workflows'
+                  className='h-full min-w-[120px] flex-1 bg-transparent outline-none placeholder:text-muted-foreground'
+                  autoComplete='off'
+                  autoCorrect='off'
+                  autoCapitalize='off'
+                  spellCheck='false'
+                />
+              </div>
+            </div>
           ) : null}
         </div>
       }
@@ -629,7 +653,16 @@ export default function Records() {
       }
       right={
         <div className='flex items-center gap-2'>
-          {activeTab === 'logs' ? (
+          {activeTab === 'orders' ? (
+            <OrderFilterMenu
+              state={normalizedOrdersState}
+              searchValue={orderSearchInput}
+              loadedCount={orders.length}
+              totalCount={ordersTotal}
+              onChange={updateOrdersState}
+              onReset={resetOrdersFilters}
+            />
+          ) : activeTab === 'logs' ? (
             <Button
               variant='ghost'
               size='sm'
@@ -644,8 +677,63 @@ export default function Records() {
             >
               Live
             </Button>
+          ) : activeTab === 'stats' ? (
+            <>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant='outline'
+                    size='sm'
+                    className='h-9 gap-2 rounded-md border-border bg-background px-3'
+                  >
+                    <Filter className='h-4 w-4' />
+                    <span className='hidden lg:inline'>Filters</span>
+                    <span className='sr-only lg:hidden'>Filters</span>
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className='w-[320px] p-0' align='end'>
+                  <div className='h-[360px]'>
+                    <StatsLogFilters />
+                  </div>
+                </PopoverContent>
+              </Popover>
+              <Button
+                variant='ghost'
+                size='sm'
+                onClick={() => setStatsLive((current) => !current)}
+                className={cn(
+                  'h-9 rounded-md px-3 font-normal text-xs',
+                  statsLive
+                    ? 'bg-primary text-black hover:bg-primary-hover hover:text-black'
+                    : 'text-muted-foreground hover:text-foreground'
+                )}
+                aria-pressed={statsLive}
+              >
+                Live
+              </Button>
+            </>
           ) : null}
-          {activeTab !== 'stats' ? (
+          {activeTab === 'stats' ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant='ghost'
+                  size='icon'
+                  onClick={handleStatsRefresh}
+                  className='h-9 rounded-md hover:bg-secondary'
+                  disabled={statsIsRefetching}
+                >
+                  {statsIsRefetching ? (
+                    <Loader2 className='h-5 w-5 animate-spin' />
+                  ) : (
+                    <RefreshCw className='h-5 w-5' />
+                  )}
+                  <span className='sr-only'>Refresh stats</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>{statsIsRefetching ? 'Refreshing...' : 'Refresh'}</TooltipContent>
+            </Tooltip>
+          ) : (
             <>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -681,7 +769,7 @@ export default function Records() {
                 <TooltipContent>Export CSV</TooltipContent>
               </Tooltip>
             </>
-          ) : null}
+          )}
         </div>
       }
     />
@@ -821,7 +909,18 @@ export default function Records() {
       </style>
       {header}
       <div className='min-h-0 flex-1 overflow-hidden'>
-        {activeTab === 'orders' ? ordersLayout : activeTab === 'logs' ? logsLayout : <Stats />}
+        {activeTab === 'orders' ? (
+          ordersLayout
+        ) : activeTab === 'logs' ? (
+          logsLayout
+        ) : (
+          <Stats
+            searchQuery={statsSearchQuery}
+            live={statsLive}
+            refreshRequest={statsRefreshRequest}
+            onRefetchingChange={setStatsIsRefetching}
+          />
+        )}
       </div>
     </div>
   )

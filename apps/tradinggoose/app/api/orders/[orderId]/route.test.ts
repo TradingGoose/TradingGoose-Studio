@@ -13,24 +13,12 @@ const mocks = vi.hoisted(() => {
     chain.from = vi.fn(() => chain)
     chain.leftJoin = vi.fn(() => chain)
     chain.where = vi.fn(() => chain)
-    chain.orderBy = vi.fn(() => chain)
+    chain.limit = vi.fn(() => chain)
     chain.then = (resolve: (value: unknown[]) => unknown, reject: (reason?: unknown) => unknown) =>
       Promise.resolve(resultsQueue.shift() ?? []).then(resolve, reject)
     chains.push(chain)
     return chain
   }
-
-  const sql = vi.fn((strings: TemplateStringsArray, ...values: unknown[]) => ({
-    strings: Array.from(strings),
-    type: 'sql',
-    values,
-  })) as any
-  sql.join = vi.fn((values: unknown[], separator: unknown) => ({
-    separator,
-    type: 'sql.join',
-    values,
-  }))
-  sql.raw = vi.fn((value: string) => ({ type: 'sql.raw', value }))
 
   return {
     chains,
@@ -39,7 +27,6 @@ const mocks = vi.hoisted(() => {
     getSession: vi.fn(),
     resultsQueue,
     select: vi.fn(makeChain),
-    sql,
   }
 })
 
@@ -79,12 +66,6 @@ vi.mock('@tradinggoose/db/schema', () => ({
 vi.mock('drizzle-orm', () => ({
   and: vi.fn((...conditions: unknown[]) => ({ conditions, type: 'and' })),
   eq: mocks.eq,
-  gte: vi.fn((field: unknown, value: unknown) => ({ field, type: 'gte', value })),
-  isNotNull: vi.fn((field: unknown) => ({ field, type: 'isNotNull' })),
-  isNull: vi.fn((field: unknown) => ({ field, type: 'isNull' })),
-  lte: vi.fn((field: unknown, value: unknown) => ({ field, type: 'lte', value })),
-  or: vi.fn((...conditions: unknown[]) => ({ conditions, type: 'or' })),
-  sql: mocks.sql,
 }))
 
 vi.mock('@/lib/auth', () => ({
@@ -116,15 +97,10 @@ const orderRow = {
   listingIdentity: { listing_type: 'stock', listing_id: 'AAPL' },
   request: { side: 'buy', quantity: 5, orderType: 'limit', timeInForce: 'day' },
   response: { orderId: 'provider-order-1', submittedAt: '2026-04-23T00:00:00.000Z' },
-  normalizedOrder: {
-    averageFillPrice: '184.25',
-    filledQuantity: '5',
-    status: 'filled',
-    symbol: 'AAPL',
-  },
+  normalizedOrder: { symbol: 'AAPL', status: 'filled', averageFillPrice: '184.25' },
 }
 
-describe('records orders export route', () => {
+describe('order detail route', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mocks.chains.length = 0
@@ -133,7 +109,20 @@ describe('records orders export route', () => {
     mocks.checkWorkspaceAccess.mockResolvedValue({ exists: true, hasAccess: true })
   })
 
-  it('exports workspace-scoped filtered order records as CSV', async () => {
+  it('requires a session', async () => {
+    mocks.getSession.mockResolvedValueOnce(null)
+    const { GET } = await import('./route')
+
+    const response = await GET(
+      new NextRequest('http://localhost/api/orders/order-1?workspaceId=workspace-1'),
+      { params: Promise.resolve({ orderId: 'order-1' }) }
+    )
+
+    expect(response.status).toBe(401)
+    expect(mocks.select).not.toHaveBeenCalled()
+  })
+
+  it('fetches details by order id and workspace-scoped linked log', async () => {
     mocks.resultsQueue.push([
       {
         order: orderRow,
@@ -150,25 +139,26 @@ describe('records orders export route', () => {
     const { GET } = await import('./route')
 
     const response = await GET(
-      new NextRequest(
-        'http://localhost/api/records/orders/export?workspaceId=workspace-1&side=buy&orderType=limit&timeInForce=day'
-      )
+      new NextRequest('http://localhost/api/orders/order-1?workspaceId=workspace-1'),
+      { params: Promise.resolve({ orderId: 'order-1' }) }
     )
-    const csv = await response.text()
 
     expect(response.status).toBe(200)
-    expect(response.headers.get('Content-Type')).toContain('text/csv')
-    expect(response.headers.get('Content-Disposition')).toContain('orders-')
     expect(mocks.checkWorkspaceAccess).toHaveBeenCalledWith('workspace-1', 'user-1')
     expect(mocks.eq).toHaveBeenCalledWith(
       'orderHistoryTable.workspaceId',
       'workflowExecutionLogs.workspaceId'
     )
-    expect(mocks.eq).toHaveBeenCalledWith(expect.any(Object), 'buy')
-    expect(mocks.eq).toHaveBeenCalledWith(expect.any(Object), 'limit')
-    expect(mocks.eq).toHaveBeenCalledWith(expect.any(Object), 'day')
-    expect(mocks.chains[0]?.orderBy).toHaveBeenCalled()
-    expect(csv).toContain('"App Order ID","Provider Order ID","Listing"')
-    expect(csv).toContain('"order-1","provider-order-1","AAPL","workflow","alpaca"')
+    expect(mocks.eq).toHaveBeenCalledWith('orderHistoryTable.id', 'order-1')
+    expect(mocks.eq).toHaveBeenCalledWith('orderHistoryTable.workspaceId', 'workspace-1')
+    expect(await response.json()).toMatchObject({
+      data: {
+        id: 'order-1',
+        workspaceId: 'workspace-1',
+        listing: { symbol: 'AAPL' },
+        linkedLog: { id: 'log-1', executionId: 'execution-1', workflowName: 'Workflow' },
+        request: { side: 'buy' },
+      },
+    })
   })
 })

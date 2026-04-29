@@ -6,14 +6,14 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { checkWorkspaceAccess } from '@/lib/permissions/utils'
 import { generateRequestId } from '@/lib/utils'
 import {
-  resolveTradingWidgetContext,
-  resolveTradingWidgetSelectedAccount,
-} from '@/app/api/widgets/trading/shared'
+  resolveTradingProviderContext,
+  resolveTradingProviderSelectedAccount,
+} from '@/app/api/providers/trading/shared'
 import { executeTradingProviderOrderDetailRequest } from '@/providers/trading'
 import type { TradingOrderDetailInput, TradingOrderHistoryRecord } from '@/providers/trading/types'
 import { readOrderAccountId } from '../../order-record-utils'
 
-const logger = createLogger('RecordsOrderProviderDetailAPI')
+const logger = createLogger('OrderProviderDetailAPI')
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -57,7 +57,7 @@ export async function POST(
     }
 
     const environment = body.environment ?? order.environment ?? undefined
-    const baseContext = await resolveTradingWidgetContext({
+    const baseContext = await resolveTradingProviderContext({
       requestData: {
         provider: order.provider,
         credentialId: body.credentialId,
@@ -73,7 +73,7 @@ export async function POST(
     const candidateAccountId = body.accountId ?? readOrderAccountId(order)
     let accountId = candidateAccountId ?? undefined
     if (candidateAccountId) {
-      const accountContext = await resolveTradingWidgetSelectedAccount({
+      const accountContext = await resolveTradingProviderSelectedAccount({
         baseContext,
         accountId: candidateAccountId,
       })

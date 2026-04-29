@@ -16,7 +16,7 @@ import {
   serializeOrderRecord,
 } from './order-record-utils'
 
-const logger = createLogger('RecordsOrdersAPI')
+const logger = createLogger('OrdersAPI')
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -125,7 +125,7 @@ export async function GET(request: NextRequest) {
       totalPages: Math.ceil(total / limit),
     })
   } catch (error) {
-    logger.error(`[${requestId}] Failed to fetch records orders`, { error })
+    logger.error(`[${requestId}] Failed to fetch orders`, { error })
     return NextResponse.json({ error: 'Failed to fetch order records' }, { status: 500 })
   }
 }

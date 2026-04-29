@@ -16,7 +16,7 @@ import {
   serializeOrderRecord,
 } from '../order-record-utils'
 
-const logger = createLogger('RecordsOrdersExportAPI')
+const logger = createLogger('OrdersExportAPI')
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'

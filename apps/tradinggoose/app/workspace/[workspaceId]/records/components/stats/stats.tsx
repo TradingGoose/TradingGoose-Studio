@@ -1,20 +1,15 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Filter, Loader2, RefreshCw, Search } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 import { useParams } from 'next/navigation'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import type { WorkflowLog } from '@/lib/logs/types'
-import { cn } from '@/lib/utils'
 import { soehne } from '@/app/fonts/soehne/soehne'
 import FolderFilter from '@/app/workspace/[workspaceId]/records/components/logs-toolbar/components/filters/components/folder'
 import Timeline from '@/app/workspace/[workspaceId]/records/components/logs-toolbar/components/filters/components/timeline'
 import TriggerFilter from '@/app/workspace/[workspaceId]/records/components/logs-toolbar/components/filters/components/trigger'
 import WorkflowFilter from '@/app/workspace/[workspaceId]/records/components/logs-toolbar/components/filters/components/workflow'
 import KPIs from '@/app/workspace/[workspaceId]/records/components/stats/components/kpis'
-import { LogsFilters } from '@/app/workspace/[workspaceId]/records/components/stats/components/logs-filters/logs-filters'
 import WorkflowDetails from '@/app/workspace/[workspaceId]/records/components/stats/components/workflow-details'
 import WorkflowsList from '@/app/workspace/[workspaceId]/records/components/stats/components/workflows-list'
 import { formatCost } from '@/providers/ai/utils'
@@ -51,7 +46,14 @@ interface WorkflowDetailsDataLocal {
   __meta?: { offset: number; hasMore: boolean }
 }
 
-export function Stats() {
+type StatsProps = {
+  searchQuery: string
+  live: boolean
+  refreshRequest: number
+  onRefetchingChange: (isRefetching: boolean) => void
+}
+
+export function Stats({ searchQuery, live, refreshRequest, onRefetchingChange }: StatsProps) {
   const params = useParams()
   const workspaceId = params.workspaceId as string
 
@@ -99,9 +101,9 @@ export function Stats() {
   >([])
   const [selectedSegments, setSelectedSegments] = useState<Record<string, number[]>>({})
   const [lastAnchorIndices, setLastAnchorIndices] = useState<Record<string, number>>({})
-  const [searchQuery, setSearchQuery] = useState('')
   const [segmentCount, setSegmentCount] = useState<number>(DEFAULT_SEGMENTS)
   const barsAreaRef = useRef<HTMLDivElement | null>(null)
+  const lastRefreshRequestRef = useRef(refreshRequest)
 
   const { workflowIds, folderIds, triggers, timeRange: sidebarTimeRange } = useFilterStore()
 
@@ -688,9 +690,6 @@ export function Stats() {
     setEndTime(new Date())
   }
 
-  const isLive = endTime.getTime() > Date.now() - 60000 // Within last minute
-  const [live, setLive] = useState(false)
-
   useEffect(() => {
     let interval: any
     if (live) {
@@ -703,9 +702,22 @@ export function Stats() {
     }
   }, [live])
 
-  const handleRefresh = useCallback(() => {
+  useEffect(() => {
+    onRefetchingChange(isRefetching)
+  }, [isRefetching, onRefetchingChange])
+
+  useEffect(
+    () => () => {
+      onRefetchingChange(false)
+    },
+    [onRefetchingChange]
+  )
+
+  useEffect(() => {
+    if (lastRefreshRequestRef.current === refreshRequest) return
+    lastRefreshRequestRef.current = refreshRequest
     void fetchExecutions(false)
-  }, [fetchExecutions])
+  }, [fetchExecutions, refreshRequest])
 
   // Infinite scroll is now handled inside WorkflowDetails
 
@@ -716,45 +728,6 @@ export function Stats() {
           className='flex flex-1 flex-col overflow-auto p-6'
           style={{ scrollbarGutter: 'stable' }}
         >
-          <div className='mb-4 flex flex-wrap items-center gap-3'>
-            <div className='relative min-w-[240px] flex-1'>
-              <Search className='-translate-y-1/2 absolute top-1/2 left-3 h-4 w-4 text-muted-foreground' />
-              <Input
-                value={searchQuery}
-                onChange={(event) => setSearchQuery(event.target.value)}
-                placeholder='Search workflows'
-                className='h-9 rounded-md border bg-background pr-3 pl-10 text-sm'
-              />
-            </div>
-            <Button
-              variant='ghost'
-              size='icon'
-              onClick={handleRefresh}
-              className='h-9 rounded-md hover:bg-secondary'
-              disabled={isRefetching}
-            >
-              {isRefetching ? (
-                <Loader2 className='h-5 w-5 animate-spin' />
-              ) : (
-                <RefreshCw className='h-5 w-5' />
-              )}
-              <span className='sr-only'>Refresh stats</span>
-            </Button>
-            <Button
-              variant='ghost'
-              size='sm'
-              onClick={() => setLive((prev) => !prev)}
-              className={cn(
-                'h-9 rounded-md px-3 font-normal text-xs',
-                live
-                  ? 'bg-primary text-black hover:bg-primary-hover hover:text-black'
-                  : 'text-muted-foreground hover:text-foreground'
-              )}
-              aria-pressed={live}
-            >
-              Live
-            </Button>
-          </div>
           {/* Content */}
           {loading ? (
             <div className='flex flex-1 items-center justify-center'>
@@ -800,25 +773,6 @@ export function Stats() {
                       <div className='min-w-[150px] flex-shrink-0'>
                         <TriggerFilter />
                       </div>
-                    </div>
-                    <div className='flex items-center gap-2 lg:hidden'>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <Button
-                            variant='outline'
-                            size='sm'
-                            className='h-9 gap-2 rounded-md border-border bg-background px-3'
-                          >
-                            <Filter className='h-4 w-4' />
-                            Filters
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className='w-[320px] p-0' align='start'>
-                          <div className='h-[360px]'>
-                            <LogsFilters />
-                          </div>
-                        </PopoverContent>
-                      </Popover>
                     </div>
                   </div>
                 </div>

@@ -77,6 +77,12 @@ vi.mock('@/components/ui/tooltip', () => ({
   TooltipTrigger: ({ children }: any) => <>{children}</>,
 }))
 
+vi.mock('@/components/ui/popover', () => ({
+  Popover: ({ children }: any) => <>{children}</>,
+  PopoverContent: ({ children }: any) => <>{children}</>,
+  PopoverTrigger: ({ children }: any) => <>{children}</>,
+}))
+
 vi.mock('@/app/workspace/[workspaceId]/records/components/log-details/log-details', () => ({
   LogDetails: ({ log }: any) => <div data-testid='log-details'>{log?.id}</div>,
 }))
@@ -102,7 +108,14 @@ vi.mock('@/app/workspace/[workspaceId]/records/components/orders', () => ({
       {order.id}:{mode}
     </div>
   ),
-  OrderFilters: ({ state }: any) => <div data-side={state.side} data-testid='order-filters' />,
+  OrderFilterMenu: ({ state }: any) => (
+    <div data-side={state.side} data-testid='order-filter-menu'>
+      order-filter-menu
+    </div>
+  ),
+  OrderFilters: ({ searchValue }: any) => (
+    <input data-testid='order-search' readOnly value={searchValue} />
+  ),
   OrdersTable: ({ onOrderClick, orders, selectedOrderId }: any) => (
     <div data-selected-order-id={selectedOrderId ?? ''} data-testid='orders-table'>
       {orders.map((entry: any) => (
@@ -115,7 +128,20 @@ vi.mock('@/app/workspace/[workspaceId]/records/components/orders', () => ({
 }))
 
 vi.mock('@/app/workspace/[workspaceId]/records/components/stats', () => ({
-  Stats: () => <div data-testid='stats-view'>stats-view</div>,
+  Stats: ({ live, refreshRequest, searchQuery }: any) => (
+    <div
+      data-live={String(live)}
+      data-refresh-request={String(refreshRequest)}
+      data-search-query={searchQuery}
+      data-testid='stats-view'
+    >
+      stats-view
+    </div>
+  ),
+}))
+
+vi.mock('@/app/workspace/[workspaceId]/records/components/stats/components/logs-filters/logs-filters', () => ({
+  LogsFilters: () => <div data-testid='stats-filters'>stats-filters</div>,
 }))
 
 vi.mock('@/hooks/queries/folders', () => ({
@@ -256,6 +282,64 @@ describe('Records', () => {
     expect(window.location.search).toBe('?tab=logs')
   })
 
+  it('renders Stats controls in the Records toolbar', async () => {
+    window.history.pushState({}, '', '/workspace/workspace-1/records?tab=stats')
+
+    await renderRecords()
+
+    const statsView = container.querySelector('[data-testid="stats-view"]')
+    const searchInput = container.querySelector(
+      'input[placeholder="Search workflows"]'
+    ) as HTMLInputElement | null
+
+    expect(statsView).toBeTruthy()
+    expect(searchInput).toBeTruthy()
+
+    const filterButton = Array.from(container.querySelectorAll('button')).find((button) =>
+      button.textContent?.includes('Filters')
+    )
+    expect(filterButton).toBeTruthy()
+
+    const valueSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set
+    valueSetter?.call(searchInput, 'orders')
+    await act(async () => {
+      searchInput?.dispatchEvent(new Event('input', { bubbles: true }))
+    })
+
+    expect(container.querySelector('[data-testid="stats-view"]')).toHaveAttribute(
+      'data-search-query',
+      'orders'
+    )
+
+    const liveButton = Array.from(container.querySelectorAll('button')).find(
+      (button) => button.textContent?.trim() === 'Live'
+    )
+    expect(liveButton).toBeTruthy()
+
+    await act(async () => {
+      liveButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    })
+
+    expect(container.querySelector('[data-testid="stats-view"]')).toHaveAttribute(
+      'data-live',
+      'true'
+    )
+
+    const refreshButton = Array.from(container.querySelectorAll('button')).find((button) =>
+      button.textContent?.includes('Refresh stats')
+    )
+    expect(refreshButton).toBeTruthy()
+
+    await act(async () => {
+      refreshButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    })
+
+    expect(container.querySelector('[data-testid="stats-view"]')).toHaveAttribute(
+      'data-refresh-request',
+      '1'
+    )
+  })
+
   it('preserves the selected order while URL filter state changes through history navigation', async () => {
     await renderRecords()
 
@@ -282,7 +366,7 @@ describe('Records', () => {
     })
 
     expect(
-      container.querySelector('[data-testid="order-filters"]')?.getAttribute('data-side')
+      container.querySelector('[data-testid="order-filter-menu"]')?.getAttribute('data-side')
     ).toBe('buy')
     expect(container.querySelector('[data-testid="order-details"]')?.textContent).toContain(
       'order-1:order'

@@ -8,7 +8,7 @@ import { checkWorkspaceAccess } from '@/lib/permissions/utils'
 import { generateRequestId } from '@/lib/utils'
 import { serializeOrderRecord } from '../order-record-utils'
 
-const logger = createLogger('RecordsOrderDetailAPI')
+const logger = createLogger('OrderDetailAPI')
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'

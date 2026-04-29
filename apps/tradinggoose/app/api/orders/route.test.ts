@@ -123,7 +123,7 @@ const orderRow = {
   normalizedOrder: { symbol: 'AAPL', status: 'filled' },
 }
 
-describe('records orders route', () => {
+describe('orders route', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mocks.chains.length = 0
@@ -151,7 +151,7 @@ describe('records orders route', () => {
 
     const response = await GET(
       new NextRequest(
-        'http://localhost/api/records/orders?workspaceId=workspace-1&limit=25&offset=50&search=AAPL'
+        'http://localhost/api/orders?workspaceId=workspace-1&limit=25&offset=50&search=AAPL'
       )
     )
 
