@@ -56,4 +56,22 @@ describe('ThinkingGroup', () => {
     expect(container.textContent).toContain('Thought for 1.3s')
     expect(container.textContent).not.toContain('Thinking...')
   })
+
+  it('does not show a fake zero duration when timing is unavailable', async () => {
+    const blocks = [
+      {
+        type: 'thinking' as const,
+        content: 'Historical reasoning.',
+        timestamp: 1,
+        itemId: 'thinking-1',
+      },
+    ]
+
+    await act(async () => {
+      root.render(<ThinkingGroup blocks={blocks} isStreaming={false} />)
+    })
+
+    expect(container.textContent).toContain('Thought')
+    expect(container.textContent).not.toContain('Thought for 0ms')
+  })
 })

@@ -23,16 +23,17 @@ function formatDuration(ms: number) {
   return `${(ms / 1000).toFixed(1)}s`
 }
 
-function getThinkingDuration(block: ThinkingContentBlock) {
-  if (typeof block.duration === 'number') {
+function getThinkingDuration(block: ThinkingContentBlock): number | null {
+  if (typeof block.duration === 'number' && block.duration > 0) {
     return block.duration
   }
 
   if (typeof block.startTime === 'number') {
-    return Date.now() - block.startTime
+    const duration = Date.now() - block.startTime
+    return duration > 0 ? duration : null
   }
 
-  return 0
+  return null
 }
 
 export function ThinkingGroup({ blocks, isStreaming = false }: ThinkingGroupProps) {
@@ -48,10 +49,13 @@ export function ThinkingGroup({ blocks, isStreaming = false }: ThinkingGroupProp
     [blocks]
   )
 
-  const totalDuration = useMemo(
-    () => blocks.reduce((sum, block) => sum + getThinkingDuration(block), 0),
-    [blocks]
-  )
+  const totalDuration = useMemo(() => {
+    let total = 0
+    for (const block of blocks) {
+      total += getThinkingDuration(block) ?? 0
+    }
+    return total
+  }, [blocks])
 
   useEffect(() => {
     if (!isStreaming) {
@@ -65,7 +69,11 @@ export function ThinkingGroup({ blocks, isStreaming = false }: ThinkingGroupProp
     }
   }, [content, isStreaming])
 
-  const headerLabel = isStreaming ? 'Thinking...' : `Thought for ${formatDuration(totalDuration)}`
+  const headerLabel = isStreaming
+    ? 'Thinking...'
+    : totalDuration > 0
+      ? `Thought for ${formatDuration(totalDuration)}`
+      : 'Thought'
 
   return (
     <div className='w-full rounded-md border border-border/60 bg-muted/30'>
