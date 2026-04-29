@@ -1,63 +1,31 @@
 'use client'
 
-import { RefreshCw } from 'lucide-react'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { emitDataChartParamsChange } from '@/widgets/utils/chart-params'
-import { MarketProviderSelector } from '@/widgets/widgets/components/market-provider-selector'
-import { MarketProviderSettingsButton } from '@/widgets/widgets/components/market-provider-settings-button'
-import {
-  widgetHeaderButtonGroupClassName,
-  widgetHeaderIconButtonClassName,
-} from '@/widgets/widgets/components/widget-header-control'
+import { MarketProviderControls } from '@/widgets/widgets/components/market-provider-controls'
+import { WidgetHeaderRefreshButton } from '@/widgets/widgets/components/widget-header-refresh-button'
 import { providerOptions } from '@/widgets/widgets/data_chart/options'
-import type {
-  DataChartAuthParams,
-  DataChartDataParams,
-  DataChartWidgetParams,
-} from '@/widgets/widgets/data_chart/types'
+import type { DataChartWidgetParams } from '@/widgets/widgets/data_chart/types'
 
 type DataChartProviderControlsProps = {
   widgetKey?: string
   panelId?: string
-  workspaceId?: string
   params: DataChartWidgetParams
 }
 
-type ProviderSettingsButtonProps = {
+type RefreshButtonProps = {
   providerId?: string
-  providerParams?: Record<string, unknown>
-  authParams?: DataChartAuthParams
-  dataParams?: DataChartDataParams
   panelId?: string
   widgetKey?: string
-  workspaceId?: string
 }
 
-export const DataChartProviderSettingsButton = ({
-  providerId,
-  providerParams,
-  authParams,
-  dataParams,
-  panelId,
-  widgetKey,
-  workspaceId,
-}: ProviderSettingsButtonProps) => {
+export const DataChartRefreshControl = ({ providerId, panelId, widgetKey }: RefreshButtonProps) => {
   return (
-    <MarketProviderSettingsButton
-      providerId={providerId}
-      providerParams={providerParams}
-      authParams={authParams}
-      workspaceId={workspaceId}
-      onSave={({ providerParams: nextProviderParams, auth }) => {
-        const { ...nextDataBase } = (dataParams ?? {}) as Record<string, unknown>
+    <WidgetHeaderRefreshButton
+      disabled={!providerId}
+      onClick={() => {
+        if (!providerId) return
         emitDataChartParamsChange({
-          params: {
-            data: {
-              ...nextDataBase,
-              providerParams: nextProviderParams,
-              auth,
-            },
-          },
+          params: { runtime: { refreshAt: Date.now() } },
           panelId,
           widgetKey,
         })
@@ -66,21 +34,14 @@ export const DataChartProviderSettingsButton = ({
   )
 }
 
-type ProviderSelectorProps = {
-  providerId?: string
-  dataParams?: DataChartDataParams
-  viewParams?: DataChartWidgetParams['view']
-  panelId?: string
-  widgetKey?: string
-}
-
-export const DataChartProviderSelector = ({
-  providerId,
-  dataParams,
-  viewParams,
-  panelId,
+export const DataChartProviderControls = ({
   widgetKey,
-}: ProviderSelectorProps) => {
+  panelId,
+  params,
+}: DataChartProviderControlsProps) => {
+  const providerId = params.data?.provider
+  const providerParams = params.data?.providerParams ?? {}
+  const authParams = params.data?.auth
   const handleProviderChange = (nextProvider: string) => {
     if (!nextProvider || nextProvider === providerId) return
 
@@ -90,10 +51,10 @@ export const DataChartProviderSelector = ({
       auth: _auth,
       providerParams: _providerParams,
       ...nextDataBase
-    } = (dataParams ?? {}) as Record<string, unknown>
+    } = (params.data ?? {}) as Record<string, unknown>
     const nextData = { ...nextDataBase, provider: nextProvider }
 
-    const { rangePresetId: _rangePresetId, ...nextView } = (viewParams ?? {}) as Record<
+    const { rangePresetId: _rangePresetId, ...nextView } = (params.view ?? {}) as Record<
       string,
       unknown
     >
@@ -109,75 +70,26 @@ export const DataChartProviderSelector = ({
   }
 
   return (
-    <MarketProviderSelector
-      value={providerId ?? ''}
+    <MarketProviderControls
+      value={providerId}
       options={providerOptions}
       onChange={handleProviderChange}
+      providerParams={providerParams}
+      authParams={authParams}
+      onSettingsSave={({ providerParams: nextProviderParams, auth }) => {
+        const { ...nextDataBase } = (params.data ?? {}) as Record<string, unknown>
+        emitDataChartParamsChange({
+          params: {
+            data: {
+              ...nextDataBase,
+              providerParams: nextProviderParams,
+              auth,
+            },
+          },
+          panelId,
+          widgetKey,
+        })
+      }}
     />
-  )
-}
-
-type RefreshButtonProps = {
-  providerId?: string
-  panelId?: string
-  widgetKey?: string
-}
-
-export const DataChartRefreshButton = ({ providerId, panelId, widgetKey }: RefreshButtonProps) => {
-  if (!providerId) return null
-
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <button
-          type='button'
-          className={widgetHeaderIconButtonClassName()}
-          onClick={() =>
-            emitDataChartParamsChange({
-              params: { runtime: { refreshAt: Date.now() } },
-              panelId,
-              widgetKey,
-            })
-          }
-        >
-          <RefreshCw className='h-3.5 w-3.5' />
-          <span className='sr-only'>Refresh data</span>
-        </button>
-      </TooltipTrigger>
-      <TooltipContent side='top'>Refresh data</TooltipContent>
-    </Tooltip>
-  )
-}
-
-export const DataChartProviderControls = ({
-  widgetKey,
-  panelId,
-  workspaceId,
-  params,
-}: DataChartProviderControlsProps) => {
-  const providerId = params.data?.provider
-  const providerParams = params.data?.providerParams ?? {}
-  const authParams = params.data?.auth
-
-  return (
-    <div className={widgetHeaderButtonGroupClassName()}>
-      <DataChartProviderSettingsButton
-        providerId={providerId}
-        providerParams={providerParams}
-        authParams={authParams}
-        dataParams={params.data}
-        panelId={panelId}
-        widgetKey={widgetKey}
-        workspaceId={workspaceId}
-      />
-      <DataChartProviderSelector
-        providerId={providerId}
-        dataParams={params.data}
-        viewParams={params.view}
-        panelId={panelId}
-        widgetKey={widgetKey}
-      />
-      <DataChartRefreshButton providerId={providerId} panelId={panelId} widgetKey={widgetKey} />
-    </div>
   )
 }

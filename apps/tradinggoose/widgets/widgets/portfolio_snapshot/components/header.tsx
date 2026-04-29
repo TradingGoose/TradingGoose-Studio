@@ -1,19 +1,13 @@
 'use client'
 
 import { useEffect, useMemo } from 'react'
-import { RefreshCw } from 'lucide-react'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useOAuthProviderAvailability } from '@/hooks/queries/oauth-provider-availability'
 import type { DashboardWidgetDefinition } from '@/widgets/types'
 import { emitPortfolioSnapshotParamsChange } from '@/widgets/utils/portfolio-snapshot-params'
-import { MarketProviderSelector } from '@/widgets/widgets/components/market-provider-selector'
-import { MarketProviderSettingsButton } from '@/widgets/widgets/components/market-provider-settings-button'
-import { TradingAccountSelector } from '@/widgets/widgets/components/trading-account-selector'
-import { TradingProviderSelector } from '@/widgets/widgets/components/trading-provider-selector'
-import {
-  widgetHeaderButtonGroupClassName,
-  widgetHeaderIconButtonClassName,
-} from '@/widgets/widgets/components/widget-header-control'
+import { MarketProviderControls } from '@/widgets/widgets/components/market-provider-controls'
+import { TradingProviderControls } from '@/widgets/widgets/components/trading-provider-controls'
+import { widgetHeaderButtonGroupClassName } from '@/widgets/widgets/components/widget-header-control'
+import { WidgetHeaderRefreshButton } from '@/widgets/widgets/components/widget-header-refresh-button'
 import {
   getPortfolioSnapshotEnvironmentOptions,
   getPortfolioSnapshotMarketProviderOptions,
@@ -27,14 +21,12 @@ import {
 import type { PortfolioSnapshotWidgetParams } from '@/widgets/widgets/portfolio_snapshot/types'
 
 type HeaderControlProps = {
-  workspaceId?: string
   panelId?: string
   widgetKey: string
   params: PortfolioSnapshotWidgetParams | null
 }
 
 export function PortfolioSnapshotHeaderControls({
-  workspaceId,
   panelId,
   widgetKey,
   params,
@@ -72,31 +64,9 @@ export function PortfolioSnapshotHeaderControls({
     })
   }, [marketProviderId, panelId, params, widgetKey])
 
-  if (!areProviderOptionsReady) {
-    return <div className={widgetHeaderButtonGroupClassName()} />
-  }
-
   return (
-    <div className={widgetHeaderButtonGroupClassName()}>
-      <MarketProviderSettingsButton
-        providerId={marketProviderId}
-        providerParams={params?.marketProviderParams}
-        authParams={params?.marketAuth}
-        workspaceId={workspaceId}
-        onSave={({ providerParams, auth }) => {
-          emitPortfolioSnapshotParamsChange({
-            params: {
-              marketProviderParams: providerParams,
-              marketAuth: auth,
-              runtime: { refreshAt: Date.now() },
-            },
-            panelId,
-            widgetKey,
-          })
-        }}
-      />
-
-      <MarketProviderSelector
+    <div className={widgetHeaderButtonGroupClassName('min-w-0')}>
+      <MarketProviderControls
         value={marketProviderId}
         options={marketProviderOptions}
         onChange={(nextProvider) => {
@@ -112,21 +82,14 @@ export function PortfolioSnapshotHeaderControls({
             widgetKey,
           })
         }}
-      />
-
-      <TradingProviderSelector
-        value={providerId || ''}
-        options={providerOptions}
-        onChange={(nextProvider) => {
-          if (!nextProvider || nextProvider === providerId) return
-
+        providerParams={params?.marketProviderParams}
+        authParams={params?.marketAuth}
+        onSettingsSave={({ providerParams, auth }) => {
           emitPortfolioSnapshotParamsChange({
             params: {
-              provider: nextProvider,
-              credentialId: null,
-              environment: null,
-              accountId: null,
-              selectedWindow: null,
+              marketProviderParams: providerParams,
+              marketAuth: auth,
+              runtime: { refreshAt: Date.now() },
             },
             panelId,
             widgetKey,
@@ -134,17 +97,31 @@ export function PortfolioSnapshotHeaderControls({
         }}
       />
 
-      {hasSelectedProvider ? (
-        <TradingAccountSelector
-          providerId={providerId || undefined}
+      {areProviderOptionsReady ? (
+        <TradingProviderControls
+          providerId={providerId}
+          providerOptions={providerOptions}
           credentialProviderId={credentialProviderId}
           environmentOptions={environmentOptions}
           credentialId={params?.credentialId}
           environment={params?.environment}
           accountId={params?.accountId}
-          placeholder='Select account'
-          tooltipText='Select trading account'
           toolName='Portfolio Snapshot'
+          onProviderChange={(nextProvider) => {
+            if (!nextProvider || nextProvider === providerId) return
+
+            emitPortfolioSnapshotParamsChange({
+              params: {
+                provider: nextProvider,
+                credentialId: null,
+                environment: null,
+                accountId: null,
+                selectedWindow: null,
+              },
+              panelId,
+              widgetKey,
+            })
+          }}
           onAccountSelect={({ credentialId, environment, accountId }) => {
             emitPortfolioSnapshotParamsChange({
               params: { credentialId, environment, accountId },
@@ -154,48 +131,46 @@ export function PortfolioSnapshotHeaderControls({
           }}
         />
       ) : null}
-
-      {providerId ? (
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              type='button'
-              className={widgetHeaderIconButtonClassName()}
-              onClick={() => {
-                emitPortfolioSnapshotParamsChange({
-                  params: {
-                    runtime: {
-                      refreshAt: Date.now(),
-                    },
-                  },
-                  panelId,
-                  widgetKey,
-                })
-              }}
-              aria-label='Refresh portfolio snapshot'
-            >
-              <RefreshCw className='h-3.5 w-3.5' />
-              <span className='sr-only'>Refresh portfolio snapshot</span>
-            </button>
-          </TooltipTrigger>
-          <TooltipContent side='top'>Refresh portfolio snapshot</TooltipContent>
-        </Tooltip>
-      ) : null}
     </div>
   )
 }
 
+function PortfolioSnapshotRefreshControl({ panelId, widgetKey, params }: HeaderControlProps) {
+  const providerId = typeof params?.provider === 'string' ? params.provider.trim() : ''
+
+  return (
+    <WidgetHeaderRefreshButton
+      label='Refresh portfolio snapshot'
+      disabled={!providerId}
+      onClick={() => {
+        if (!providerId) return
+        emitPortfolioSnapshotParamsChange({
+          params: {
+            runtime: {
+              refreshAt: Date.now(),
+            },
+          },
+          panelId,
+          widgetKey,
+        })
+      }}
+    />
+  )
+}
+
 export const renderPortfolioSnapshotHeader: DashboardWidgetDefinition['renderHeader'] = ({
-  context,
   panelId,
   widget,
-}) => ({
-  left: (
-    <PortfolioSnapshotHeaderControls
-      workspaceId={context?.workspaceId}
-      panelId={panelId}
-      widgetKey={widget?.key ?? 'portfolio_snapshot'}
-      params={(widget?.params as PortfolioSnapshotWidgetParams | null | undefined) ?? null}
-    />
-  ),
-})
+}) => {
+  const widgetKey = widget?.key ?? 'portfolio_snapshot'
+  const params = (widget?.params as PortfolioSnapshotWidgetParams | null | undefined) ?? null
+
+  return {
+    left: (
+      <PortfolioSnapshotHeaderControls panelId={panelId} widgetKey={widgetKey} params={params} />
+    ),
+    right: (
+      <PortfolioSnapshotRefreshControl panelId={panelId} widgetKey={widgetKey} params={params} />
+    ),
+  }
+}

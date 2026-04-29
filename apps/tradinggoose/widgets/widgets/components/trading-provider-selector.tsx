@@ -19,7 +19,7 @@ import {
   widgetHeaderMenuTextClassName,
 } from '@/widgets/widgets/components/widget-header-control'
 
-type TradingProviderOption = {
+export type TradingProviderOption = {
   id: string
   name: string
 }

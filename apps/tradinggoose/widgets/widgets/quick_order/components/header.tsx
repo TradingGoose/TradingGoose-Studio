@@ -4,8 +4,7 @@ import { useMemo } from 'react'
 import { useOAuthProviderAvailability } from '@/hooks/queries/oauth-provider-availability'
 import type { DashboardWidgetDefinition } from '@/widgets/types'
 import { emitQuickOrderParamsChange } from '@/widgets/utils/quick-order-params'
-import { TradingAccountSelector } from '@/widgets/widgets/components/trading-account-selector'
-import { TradingProviderSelector } from '@/widgets/widgets/components/trading-provider-selector'
+import { TradingProviderControls } from '@/widgets/widgets/components/trading-provider-controls'
 import { widgetHeaderButtonGroupClassName } from '@/widgets/widgets/components/widget-header-control'
 import {
   getQuickOrderEnvironmentOptions,
@@ -56,47 +55,37 @@ export function QuickOrderHeaderControls({ panelId, widgetKey, params }: HeaderC
   }
 
   return (
-    <div className={widgetHeaderButtonGroupClassName()}>
-      <TradingProviderSelector
-        value={providerId || ''}
-        options={providerOptions}
-        onChange={(nextProvider) => {
-          if (!nextProvider || nextProvider === providerId) return
+    <TradingProviderControls
+      providerId={providerId}
+      providerOptions={providerOptions}
+      credentialProviderId={credentialProviderId}
+      environmentOptions={environmentOptions}
+      credentialId={params?.credentialId}
+      environment={params?.environment}
+      accountId={params?.accountId}
+      toolName='Quick Order'
+      onProviderChange={(nextProvider) => {
+        if (!nextProvider || nextProvider === providerId) return
 
-          emitQuickOrderParamsChange({
-            params: {
-              provider: nextProvider,
-              credentialId: null,
-              environment: null,
-              accountId: null,
-            },
-            panelId,
-            widgetKey,
-          })
-        }}
-      />
-
-      {hasSelectedProvider ? (
-        <TradingAccountSelector
-          providerId={providerId || undefined}
-          credentialProviderId={credentialProviderId}
-          environmentOptions={environmentOptions}
-          credentialId={params?.credentialId}
-          environment={params?.environment}
-          accountId={params?.accountId}
-          placeholder='Select account'
-          tooltipText='Select trading account'
-          toolName='Quick Order'
-          onAccountSelect={({ credentialId, environment, accountId }) => {
-            emitQuickOrderParamsChange({
-              params: { credentialId, environment, accountId },
-              panelId,
-              widgetKey,
-            })
-          }}
-        />
-      ) : null}
-    </div>
+        emitQuickOrderParamsChange({
+          params: {
+            provider: nextProvider,
+            credentialId: null,
+            environment: null,
+            accountId: null,
+          },
+          panelId,
+          widgetKey,
+        })
+      }}
+      onAccountSelect={({ credentialId, environment, accountId }) => {
+        emitQuickOrderParamsChange({
+          params: { credentialId, environment, accountId },
+          panelId,
+          widgetKey,
+        })
+      }}
+    />
   )
 }
 

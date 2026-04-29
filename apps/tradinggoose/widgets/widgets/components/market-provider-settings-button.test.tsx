@@ -56,8 +56,12 @@ describe('MarketProviderSettingsButton', () => {
     const onSave = vi.fn()
 
     await act(async () => {
-      root.render(<MarketProviderSettingsButton providerId='alpaca' onSave={onSave} />)
+      root.render(
+        <MarketProviderSettingsButton providerId='alpaca' providerName='Alpaca' onSave={onSave} />
+      )
     })
+
+    expect(container.textContent).toContain('Alpaca config')
 
     const apiKeyInput = container.querySelector(
       '#market-provider-param-alpaca-apiKey'

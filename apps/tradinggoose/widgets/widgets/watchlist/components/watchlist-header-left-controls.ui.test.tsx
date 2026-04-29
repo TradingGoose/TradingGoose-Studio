@@ -13,29 +13,25 @@ vi.mock('@/widgets/utils/watchlist-params', () => ({
   emitWatchlistParamsChange: (...args: unknown[]) => mockEmitWatchlistParamsChange(...args),
 }))
 
-vi.mock('@/widgets/widgets/components/market-provider-selector', () => ({
-  MarketProviderSelector: () => <div>provider-selector</div>,
-}))
-
-vi.mock('@/widgets/widgets/watchlist/components/watchlist-refresh-data-button', () => ({
-  WatchlistRefreshDataButton: () => <div>refresh-button</div>,
-}))
-
-vi.mock('@/widgets/widgets/components/market-provider-settings-button', () => ({
-  MarketProviderSettingsButton: (props: {
-    providerId?: string
-    onSave: (next: {
+vi.mock('@/widgets/widgets/components/market-provider-controls', () => ({
+  MarketProviderControls: (props: {
+    value?: string
+    className?: string
+    onSettingsSave: (next: {
       auth?: Record<string, unknown>
       providerParams?: Record<string, unknown>
     }) => void
   }) => {
-    if (props.providerId !== 'alpaca') return null
+    if (props.value !== 'alpaca') {
+      return <div className={props.className}>provider-selector</div>
+    }
 
     return (
       <button
         type='button'
+        className={props.className}
         onClick={() =>
-          props.onSave({
+          props.onSettingsSave({
             auth: { apiKey: '{{ ALPACA_API_KEY }}' },
             providerParams: { feed: 'iex' },
           })
@@ -92,6 +88,7 @@ describe('WatchlistHeaderLeftControls', () => {
     })
 
     expect(container.textContent).not.toContain('provider-settings')
+    expect(container.textContent).toContain('provider-selector')
     expect(container.firstElementChild?.className).toContain('min-w-0')
 
     await act(async () => {

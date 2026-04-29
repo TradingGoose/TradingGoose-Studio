@@ -31,19 +31,18 @@ import type { WidgetInstance } from '@/widgets/layout'
 import type { DashboardWidgetDefinition } from '@/widgets/types'
 import { emitWatchlistParamsChange } from '@/widgets/utils/watchlist-params'
 import { ListingSelector } from '@/widgets/widgets/components/listing-selector'
-import { MarketProviderSelector } from '@/widgets/widgets/components/market-provider-selector'
-import { MarketProviderSettingsButton } from '@/widgets/widgets/components/market-provider-settings-button'
+import { MarketProviderControls } from '@/widgets/widgets/components/market-provider-controls'
 import {
   widgetHeaderButtonGroupClassName,
   widgetHeaderIconButtonClassName,
 } from '@/widgets/widgets/components/widget-header-control'
+import { WidgetHeaderRefreshButton } from '@/widgets/widgets/components/widget-header-refresh-button'
 import {
   providerOptions,
   resolveSeriesMarketProviderId,
 } from '@/widgets/widgets/data_chart/options'
 import { WatchlistListActionsButton } from '@/widgets/widgets/watchlist/components/watchlist-list-actions-button'
 import { WatchlistListSelector } from '@/widgets/widgets/watchlist/components/watchlist-list-selector'
-import { WatchlistRefreshDataButton } from '@/widgets/widgets/watchlist/components/watchlist-refresh-data-button'
 import {
   resolveSelectedWatchlist,
   resolveSelectedWatchlistId,
@@ -154,19 +153,6 @@ export const WatchlistHeaderLeftControls = ({
     })
   }
 
-  const handleRefreshData = () => {
-    if (!providerId) return
-    emitWatchlistParamsChange({
-      params: {
-        runtime: {
-          refreshAt: Date.now(),
-        },
-      },
-      panelId,
-      widgetKey,
-    })
-  }
-
   const handleSaveProviderSettings = ({
     providerParams,
     auth,
@@ -188,26 +174,16 @@ export const WatchlistHeaderLeftControls = ({
   }
 
   return (
-    <div className={widgetHeaderButtonGroupClassName('min-w-0')}>
-      <MarketProviderSettingsButton
-        providerId={providerId}
-        providerParams={params?.providerParams}
-        authParams={params?.auth}
-        workspaceId={workspaceId}
-        onSave={handleSaveProviderSettings}
-      />
-      <MarketProviderSelector
-        value={providerId}
-        options={providerOptions}
-        onChange={handleProviderChange}
-        disabled={!workspaceId}
-      />
-
-      <WatchlistRefreshDataButton
-        onClick={handleRefreshData}
-        disabled={!workspaceId || !providerId}
-      />
-    </div>
+    <MarketProviderControls
+      className='min-w-0'
+      value={providerId}
+      options={providerOptions}
+      onChange={handleProviderChange}
+      disabled={!workspaceId}
+      providerParams={params?.providerParams}
+      authParams={params?.auth}
+      onSettingsSave={handleSaveProviderSettings}
+    />
   )
 }
 
@@ -341,6 +317,7 @@ export const WatchlistHeaderRightControls = ({
 
   const widgetKey = widget?.key ?? 'watchlist'
   const params = resolveWatchlistParams(widget)
+  const providerId = resolveProviderId(params)
   const selectedWatchlistId = resolveSelectedWatchlistId(params)
 
   const { watchlists, selectedWatchlist } = useWatchlistSelection(workspaceId, selectedWatchlistId)
@@ -504,6 +481,19 @@ export const WatchlistHeaderRightControls = ({
     }
   }
 
+  const handleRefreshData = () => {
+    if (!providerId) return
+    emitWatchlistParamsChange({
+      params: {
+        runtime: {
+          refreshAt: Date.now(),
+        },
+      },
+      panelId,
+      widgetKey,
+    })
+  }
+
   const handleDeleteWatchlist = async () => {
     if (!workspaceId || !selectedWatchlist || selectedWatchlist.isSystem) return
     const deleted = await handleDeleteWatchlistById(selectedWatchlist.id)
@@ -548,6 +538,11 @@ export const WatchlistHeaderRightControls = ({
         onDeleteWatchlist={() => {
           setDeleteDialogOpen(true)
         }}
+      />
+
+      <WidgetHeaderRefreshButton
+        onClick={handleRefreshData}
+        disabled={!workspaceId || !providerId}
       />
 
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>

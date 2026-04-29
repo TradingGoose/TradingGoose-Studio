@@ -22,8 +22,9 @@ import {
   sanitizeMarketProviderAuthRefs,
   sanitizeMarketProviderParamsForWidget,
 } from '@/lib/market/market-provider-settings'
+import { cn } from '@/lib/utils'
 import type { MarketProviderParamDefinition } from '@/providers/market/providers'
-import { widgetHeaderIconButtonClassName } from '@/widgets/widgets/components/widget-header-control'
+import { widgetHeaderControlClassName } from '@/widgets/widgets/components/widget-header-control'
 
 export type MarketProviderSettingsSaveResult = {
   auth?: Record<string, unknown>
@@ -32,9 +33,9 @@ export type MarketProviderSettingsSaveResult = {
 
 type MarketProviderSettingsButtonProps = {
   providerId?: string | null
+  providerName?: string
   providerParams?: Record<string, unknown>
   authParams?: Record<string, unknown>
-  workspaceId?: string
   onSave: (next: MarketProviderSettingsSaveResult) => void
 }
 
@@ -56,6 +57,7 @@ const resolveSavedValue = ({
 
 export function MarketProviderSettingsButton({
   providerId,
+  providerName,
   providerParams,
   authParams,
   onSave,
@@ -75,6 +77,9 @@ export function MarketProviderSettingsButton({
   }, [settingsOpen])
 
   if (definitions.length === 0) return null
+
+  const resolvedProviderName = providerName?.trim() || 'Market'
+  const triggerLabel = `${resolvedProviderName} config`
 
   const handleParamChange = (id: string, value: unknown) => {
     setValidationErrors((current) => {
@@ -140,16 +145,18 @@ export function MarketProviderSettingsButton({
           <PopoverTrigger asChild>
             <button
               type='button'
-              className={widgetHeaderIconButtonClassName()}
+              className={widgetHeaderControlClassName(
+                cn('flex min-w-[120px] max-w-[170px] justify-between gap-1.5')
+              )}
               disabled={!trimmedProviderId}
-              aria-label='Market provider settings'
+              aria-label={`Configure ${resolvedProviderName} provider`}
             >
-              <KeyRound className='h-3.5 w-3.5' />
-              <span className='sr-only'>Market provider settings</span>
+              <KeyRound className='h-3.5 w-3.5 shrink-0 text-muted-foreground' />
+              <span className='min-w-0 truncate text-left'>{triggerLabel}</span>
             </button>
           </PopoverTrigger>
         </TooltipTrigger>
-        <TooltipContent side='top'>Provider settings</TooltipContent>
+        <TooltipContent side='top'>{triggerLabel}</TooltipContent>
       </Tooltip>
       <PopoverContent className='w-72 space-y-3 p-4'>
         <div className='space-y-1'>

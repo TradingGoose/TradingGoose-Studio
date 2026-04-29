@@ -1,20 +1,14 @@
 'use client'
 
 import { useEffect, useMemo } from 'react'
-import { RefreshCw } from 'lucide-react'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useOAuthProviderAvailability } from '@/hooks/queries/oauth-provider-availability'
 import type { DashboardWidgetDefinition } from '@/widgets/types'
 import { emitHeatmapParamsChange } from '@/widgets/utils/heatmap-params'
-import { MarketProviderSelector } from '@/widgets/widgets/components/market-provider-selector'
-import { MarketProviderSettingsButton } from '@/widgets/widgets/components/market-provider-settings-button'
-import { TradingAccountSelector } from '@/widgets/widgets/components/trading-account-selector'
-import { TradingProviderSelector } from '@/widgets/widgets/components/trading-provider-selector'
-import {
-  widgetHeaderButtonGroupClassName,
-  widgetHeaderIconButtonClassName,
-} from '@/widgets/widgets/components/widget-header-control'
+import { MarketProviderControls } from '@/widgets/widgets/components/market-provider-controls'
+import { TradingProviderControls } from '@/widgets/widgets/components/trading-provider-controls'
+import { widgetHeaderButtonGroupClassName } from '@/widgets/widgets/components/widget-header-control'
+import { WidgetHeaderRefreshButton } from '@/widgets/widgets/components/widget-header-refresh-button'
 import {
   getHeatmapMarketProviderOptions,
   getHeatmapTradingEnvironmentOptions,
@@ -30,13 +24,12 @@ import {
 import type { HeatmapWidgetParams } from '@/widgets/widgets/heatmap/types'
 
 type HeaderControlProps = {
-  workspaceId?: string
   panelId?: string
   widgetKey: string
   params: HeatmapWidgetParams | null
 }
 
-function HeatmapMarketControls({ workspaceId, panelId, widgetKey, params }: HeaderControlProps) {
+function HeatmapMarketControls({ panelId, widgetKey, params }: HeaderControlProps) {
   const marketProviderOptions = useMemo(() => getHeatmapMarketProviderOptions(), [])
   const marketProviderId = resolveHeatmapMarketProviderId(params, marketProviderOptions)
 
@@ -50,62 +43,36 @@ function HeatmapMarketControls({ workspaceId, panelId, widgetKey, params }: Head
   }, [marketProviderId, panelId, params, widgetKey])
 
   return (
-    <div className={widgetHeaderButtonGroupClassName()}>
-      <MarketProviderSettingsButton
-        providerId={marketProviderId}
-        providerParams={params?.marketProviderParams}
-        authParams={params?.marketAuth}
-        workspaceId={workspaceId}
-        onSave={({ providerParams, auth }) => {
-          emitHeatmapParamsChange({
-            params: {
-              marketProviderParams: providerParams,
-              marketAuth: auth,
-              runtime: { refreshAt: Date.now() },
-            },
-            panelId,
-            widgetKey,
-          })
-        }}
-      />
-      <MarketProviderSelector
-        value={marketProviderId}
-        options={marketProviderOptions}
-        onChange={(nextProvider) => {
-          if (!nextProvider || nextProvider === marketProviderId) return
-          emitHeatmapParamsChange({
-            params: {
-              marketProvider: nextProvider,
-              marketProviderParams: null,
-              marketAuth: null,
-              runtime: { refreshAt: Date.now() },
-            },
-            panelId,
-            widgetKey,
-          })
-        }}
-      />
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <button
-            type='button'
-            className={widgetHeaderIconButtonClassName()}
-            onClick={() => {
-              emitHeatmapParamsChange({
-                params: { runtime: { refreshAt: Date.now() } },
-                panelId,
-                widgetKey,
-              })
-            }}
-            aria-label='Refresh heatmap'
-          >
-            <RefreshCw className='h-3.5 w-3.5' />
-            <span className='sr-only'>Refresh heatmap</span>
-          </button>
-        </TooltipTrigger>
-        <TooltipContent side='top'>Refresh heatmap</TooltipContent>
-      </Tooltip>
-    </div>
+    <MarketProviderControls
+      value={marketProviderId}
+      options={marketProviderOptions}
+      providerParams={params?.marketProviderParams}
+      authParams={params?.marketAuth}
+      onChange={(nextProvider) => {
+        if (!nextProvider || nextProvider === marketProviderId) return
+        emitHeatmapParamsChange({
+          params: {
+            marketProvider: nextProvider,
+            marketProviderParams: null,
+            marketAuth: null,
+            runtime: { refreshAt: Date.now() },
+          },
+          panelId,
+          widgetKey,
+        })
+      }}
+      onSettingsSave={({ providerParams, auth }) => {
+        emitHeatmapParamsChange({
+          params: {
+            marketProviderParams: providerParams,
+            marketAuth: auth,
+            runtime: { refreshAt: Date.now() },
+          },
+          panelId,
+          widgetKey,
+        })
+      }}
+    />
   )
 }
 
@@ -159,50 +126,55 @@ function HeatmapPortfolioControls({ panelId, widgetKey, params }: HeaderControlP
   )
 
   return (
-    <div className={widgetHeaderButtonGroupClassName('min-w-0')}>
-      <TradingProviderSelector
-        value={providerId || ''}
-        options={providerOptions}
-        onChange={(nextProvider) => {
-          if (!nextProvider || nextProvider === providerId) return
-          emitHeatmapParamsChange({
-            params: {
-              tradingProvider: nextProvider,
-              credentialId: null,
-              environment: null,
-              accountId: null,
-            },
-            panelId,
-            widgetKey,
-          })
-        }}
-      />
-      {hasSelectedProvider ? (
-        <TradingAccountSelector
-          providerId={providerId || undefined}
-          credentialProviderId={credentialProviderId}
-          environmentOptions={environmentOptions}
-          credentialId={params?.credentialId}
-          environment={params?.environment}
-          accountId={params?.accountId}
-          placeholder='Select account'
-          tooltipText='Select trading account'
-          toolName='Heatmap'
-          onAccountSelect={({ credentialId, environment, accountId }) => {
-            emitHeatmapParamsChange({
-              params: { credentialId, environment, accountId },
-              panelId,
-              widgetKey,
-            })
-          }}
-        />
-      ) : null}
-    </div>
+    <TradingProviderControls
+      providerId={providerId}
+      providerOptions={providerOptions}
+      credentialProviderId={credentialProviderId}
+      environmentOptions={environmentOptions}
+      credentialId={params?.credentialId}
+      environment={params?.environment}
+      accountId={params?.accountId}
+      toolName='Heatmap'
+      onProviderChange={(nextProvider) => {
+        if (!nextProvider || nextProvider === providerId) return
+        emitHeatmapParamsChange({
+          params: {
+            tradingProvider: nextProvider,
+            credentialId: null,
+            environment: null,
+            accountId: null,
+          },
+          panelId,
+          widgetKey,
+        })
+      }}
+      onAccountSelect={({ credentialId, environment, accountId }) => {
+        emitHeatmapParamsChange({
+          params: { credentialId, environment, accountId },
+          panelId,
+          widgetKey,
+        })
+      }}
+    />
+  )
+}
+
+function HeatmapRefreshControl({ panelId, widgetKey }: HeaderControlProps) {
+  return (
+    <WidgetHeaderRefreshButton
+      label='Refresh heatmap'
+      onClick={() => {
+        emitHeatmapParamsChange({
+          params: { runtime: { refreshAt: Date.now() } },
+          panelId,
+          widgetKey,
+        })
+      }}
+    />
   )
 }
 
 export const renderHeatmapHeader: DashboardWidgetDefinition['renderHeader'] = ({
-  context,
   panelId,
   widget,
 }) => {
@@ -211,18 +183,15 @@ export const renderHeatmapHeader: DashboardWidgetDefinition['renderHeader'] = ({
   const sourceMode = resolveHeatmapSourceMode(params)
 
   return {
-    left: (
-      <HeatmapMarketControls
-        workspaceId={context?.workspaceId}
-        panelId={panelId}
-        widgetKey={widgetKey}
-        params={params}
-      />
-    ),
+    left: <HeatmapMarketControls panelId={panelId} widgetKey={widgetKey} params={params} />,
     center: <HeatmapSourceControls panelId={panelId} widgetKey={widgetKey} params={params} />,
-    right:
-      sourceMode === 'portfolio' ? (
-        <HeatmapPortfolioControls panelId={panelId} widgetKey={widgetKey} params={params} />
-      ) : null,
+    right: (
+      <div className={widgetHeaderButtonGroupClassName('min-w-0')}>
+        {sourceMode === 'portfolio' ? (
+          <HeatmapPortfolioControls panelId={panelId} widgetKey={widgetKey} params={params} />
+        ) : null}
+        <HeatmapRefreshControl panelId={panelId} widgetKey={widgetKey} params={params} />
+      </div>
+    ),
   }
 }

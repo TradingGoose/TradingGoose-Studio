@@ -1,12 +1,18 @@
 'use client'
 
-import type { DashboardWidgetDefinition } from '@/widgets/types'
 import type { PairColor } from '@/widgets/pair-colors'
-import { DataChartProviderControls } from '@/widgets/widgets/data_chart/components/provider-controls'
-import { DataChartListingControl } from '@/widgets/widgets/data_chart/components/listing-control'
+import type { DashboardWidgetDefinition } from '@/widgets/types'
 import { DataChartChartControls } from '@/widgets/widgets/data_chart/components/chart-controls'
-import type { DataChartWidgetParams, dataChartWidgetParams } from '@/widgets/widgets/data_chart/types'
+import { DataChartListingControl } from '@/widgets/widgets/data_chart/components/listing-control'
+import {
+  DataChartProviderControls,
+  DataChartRefreshControl,
+} from '@/widgets/widgets/data_chart/components/provider-controls'
 import { resolveSeriesWindow } from '@/widgets/widgets/data_chart/series-window'
+import type {
+  DataChartWidgetParams,
+  dataChartWidgetParams,
+} from '@/widgets/widgets/data_chart/types'
 
 export const renderDataChartHeader: DashboardWidgetDefinition['renderHeader'] = ({
   widget,
@@ -26,7 +32,6 @@ export const renderDataChartHeader: DashboardWidgetDefinition['renderHeader'] = 
       <DataChartProviderControls
         widgetKey={widgetKey}
         panelId={panelId}
-        workspaceId={context?.workspaceId}
         params={dataParams as DataChartWidgetParams}
       />
     ),
@@ -39,15 +44,22 @@ export const renderDataChartHeader: DashboardWidgetDefinition['renderHeader'] = 
       />
     ),
     right: (
-      <DataChartChartControls
-        workspaceId={context?.workspaceId}
-        params={dataParams as DataChartWidgetParams}
-        interval={seriesWindow.interval}
-        allowedIntervals={seriesWindow.allowedIntervals}
-        supportsInterval={seriesWindow.supportsInterval}
-        panelId={panelId}
-        widgetKey={widgetKey}
-      />
+      <>
+        <DataChartChartControls
+          workspaceId={context?.workspaceId}
+          params={dataParams as DataChartWidgetParams}
+          interval={seriesWindow.interval}
+          allowedIntervals={seriesWindow.allowedIntervals}
+          supportsInterval={seriesWindow.supportsInterval}
+          panelId={panelId}
+          widgetKey={widgetKey}
+        />
+        <DataChartRefreshControl
+          providerId={dataParams.data?.provider}
+          panelId={panelId}
+          widgetKey={widgetKey}
+        />
+      </>
     ),
   }
 }
