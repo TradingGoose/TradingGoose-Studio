@@ -71,7 +71,7 @@ describe('ThinkingGroup', () => {
       root.render(<ThinkingGroup blocks={blocks} isStreaming={false} />)
     })
 
-    expect(container.textContent).toContain('Thought')
+    expect(container.textContent).toContain('Finished thinking')
     expect(container.textContent).not.toContain('Thought for 0ms')
   })
 })

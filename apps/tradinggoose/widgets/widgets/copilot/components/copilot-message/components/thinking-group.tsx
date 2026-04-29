@@ -73,7 +73,7 @@ export function ThinkingGroup({ blocks, isStreaming = false }: ThinkingGroupProp
     ? 'Thinking...'
     : totalDuration > 0
       ? `Thought for ${formatDuration(totalDuration)}`
-      : 'Thought'
+      : 'Finished thinking'
 
   return (
     <div className='w-full rounded-md border border-border/60 bg-muted/30'>
