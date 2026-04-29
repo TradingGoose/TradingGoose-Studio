@@ -126,15 +126,11 @@ const VISIBLE_FIELD_LABELS = {
 
 const DEFAULT_COLUMN_LIMITS = [0, 5, 10, 20] as const
 
-const encodeExecutionSortValue = (
-  field: ExecutionMonitorSortField,
-  direction: 'asc' | 'desc'
-) => `${field}:${direction}`
+const encodeExecutionSortValue = (field: ExecutionMonitorSortField, direction: 'asc' | 'desc') =>
+  `${field}:${direction}`
 
-const formatExecutionSortValue = (
-  field: ExecutionMonitorSortField,
-  direction: 'asc' | 'desc'
-) => `${SORT_FIELD_LABELS[field]} ${SORT_DIRECTION_SYMBOLS[direction]}`
+const formatExecutionSortValue = (field: ExecutionMonitorSortField, direction: 'asc' | 'desc') =>
+  `${SORT_FIELD_LABELS[field]} ${SORT_DIRECTION_SYMBOLS[direction]}`
 
 const summarizeExecutionFieldSums = (fieldSums: ExecutionMonitorFieldSum[]) => {
   if (fieldSums.length === 0) return 'None'
@@ -151,9 +147,7 @@ const summarizeExecutionColumns = (
   columnOptions: Array<{ value: string; label: string }>
 ) => `${columnOptions.length - hiddenColumnIds.length}/${columnOptions.length}`
 
-const summarizeTimelineMarkers = (
-  markers: ExecutionMonitorViewConfig['timeline']['markers']
-) => {
+const summarizeTimelineMarkers = (markers: ExecutionMonitorViewConfig['timeline']['markers']) => {
   if (markers.today && markers.intervalBoundaries) return 'Today + boundaries'
   if (markers.today) return 'Today'
   if (markers.intervalBoundaries) return 'Boundaries'
@@ -540,7 +534,6 @@ export function MonitorExecutionWorkspace({
           value={primarySortValue}
           label='Sort'
           disabled={controlsDisabled}
-          triggerClassName='w-[148px]'
           options={[
             { value: 'manual', label: 'Manual order' },
             ...EXECUTION_MONITOR_SORT_FIELDS.flatMap((field) => [
@@ -561,7 +554,6 @@ export function MonitorExecutionWorkspace({
           value={secondarySortValue}
           label='Then'
           disabled={controlsDisabled}
-          triggerClassName='w-[148px]'
           options={[
             { value: 'none', label: 'No secondary sort' },
             ...EXECUTION_MONITOR_SORT_FIELDS.flatMap((field) => [
@@ -584,7 +576,6 @@ export function MonitorExecutionWorkspace({
           value={effectiveConfig.groupBy}
           label='Group'
           disabled={controlsDisabled}
-          triggerClassName='w-[124px]'
           options={EXECUTION_MONITOR_GROUP_FIELDS.map((field) => ({
             value: field,
             label: GROUP_FIELD_LABELS[field],
@@ -601,7 +592,6 @@ export function MonitorExecutionWorkspace({
           value={effectiveConfig.sliceBy ?? 'none'}
           label='Slice'
           disabled={controlsDisabled}
-          triggerClassName='w-[124px]'
           options={[
             { value: 'none', label: 'None' },
             ...EXECUTION_MONITOR_GROUP_FIELDS.filter(
@@ -645,7 +635,6 @@ export function MonitorExecutionWorkspace({
             value={effectiveConfig.verticalGroupBy ?? 'none'}
             label='Swimlane'
             disabled={controlsDisabled}
-            triggerClassName='w-[140px]'
             options={[
               { value: 'none', label: 'None' },
               ...EXECUTION_MONITOR_GROUP_FIELDS.filter(
@@ -685,7 +674,6 @@ export function MonitorExecutionWorkspace({
             value={effectiveConfig.kanban.columnField}
             label='Columns'
             disabled={controlsDisabled}
-            triggerClassName='w-[132px]'
             options={EXECUTION_MONITOR_GROUP_FIELDS.map((field) => ({
               value: field,
               label: GROUP_FIELD_LABELS[field],
@@ -704,81 +692,79 @@ export function MonitorExecutionWorkspace({
           />
         ) : null}
 
-        {effectiveConfig.layout === 'kanban'
-          ? (
+        {effectiveConfig.layout === 'kanban' ? (
+          <MonitorControlMenu
+            label='Fields'
+            value={summarizeExecutionVisibleFields(effectiveConfig.kanban.visibleFieldIds)}
+            disabled={controlsDisabled}
+          >
+            {EXECUTION_MONITOR_VISIBLE_FIELDS.map((fieldId) => (
+              <DropdownMenuCheckboxItem
+                key={fieldId}
+                checked={effectiveConfig.kanban.visibleFieldIds.includes(fieldId)}
+                onCheckedChange={() => handleVisibleFieldToggle(fieldId)}
+              >
+                {VISIBLE_FIELD_LABELS[fieldId]}
+              </DropdownMenuCheckboxItem>
+            ))}
+          </MonitorControlMenu>
+        ) : null}
+
+        {effectiveConfig.layout === 'kanban' ? (
+          columnOptions.length > 0 ? (
+            <>
               <MonitorControlMenu
-                label='Fields'
-                value={summarizeExecutionVisibleFields(effectiveConfig.kanban.visibleFieldIds)}
+                label='Visible'
+                value={summarizeExecutionColumns(
+                  effectiveConfig.kanban.hiddenColumnIds,
+                  columnOptions
+                )}
                 disabled={controlsDisabled}
               >
-                {EXECUTION_MONITOR_VISIBLE_FIELDS.map((fieldId) => (
+                {columnOptions.map((option) => (
                   <DropdownMenuCheckboxItem
-                    key={fieldId}
-                    checked={effectiveConfig.kanban.visibleFieldIds.includes(fieldId)}
-                    onCheckedChange={() => handleVisibleFieldToggle(fieldId)}
+                    key={option.value}
+                    checked={!effectiveConfig.kanban.hiddenColumnIds.includes(option.value)}
+                    onCheckedChange={() => handleColumnVisibilityToggle(option.value)}
                   >
-                    {VISIBLE_FIELD_LABELS[fieldId]}
+                    {option.label}
                   </DropdownMenuCheckboxItem>
                 ))}
               </MonitorControlMenu>
-            )
-          : null}
-
-        {effectiveConfig.layout === 'kanban'
-          ? columnOptions.length > 0 ? (
-              <>
-                <MonitorControlMenu
-                  label='Visible'
-                  value={summarizeExecutionColumns(
-                    effectiveConfig.kanban.hiddenColumnIds,
-                    columnOptions
-                  )}
-                  disabled={controlsDisabled}
-                >
-                  {columnOptions.map((option) => (
-                    <DropdownMenuCheckboxItem
-                      key={option.value}
-                      checked={!effectiveConfig.kanban.hiddenColumnIds.includes(option.value)}
-                      onCheckedChange={() => handleColumnVisibilityToggle(option.value)}
-                    >
-                      {option.label}
-                    </DropdownMenuCheckboxItem>
-                  ))}
-                </MonitorControlMenu>
-                <MonitorControlMenu
-                  label='Limits'
-                  value={
-                    Object.keys(effectiveConfig.kanban.columnLimits).length === 0
-                      ? 'Off'
-                      : `${Object.keys(effectiveConfig.kanban.columnLimits).length} set`
-                  }
-                  disabled={controlsDisabled}
-                >
-                  <DropdownMenuLabel>Column limits</DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  {columnOptions.map((option) => (
-                    <DropdownMenuSub key={`limit:${option.value}`}>
-                      <DropdownMenuSubTrigger>{option.label}</DropdownMenuSubTrigger>
-                      <DropdownMenuSubContent className='w-40'>
-                        <DropdownMenuRadioGroup
-                          value={String(effectiveConfig.kanban.columnLimits[option.value] ?? 0)}
-                          onValueChange={(value) =>
-                            handleColumnLimitChange(option.value, Number.parseInt(value, 10))
-                          }
-                        >
-                          {DEFAULT_COLUMN_LIMITS.map((limit) => (
-                            <DropdownMenuRadioItem key={limit} value={String(limit)}>
-                              {limit === 0 ? 'No limit' : `${limit} items`}
-                            </DropdownMenuRadioItem>
-                          ))}
-                        </DropdownMenuRadioGroup>
-                      </DropdownMenuSubContent>
-                    </DropdownMenuSub>
-                  ))}
-                </MonitorControlMenu>
-              </>
-            ) : null
-          : null}
+              <MonitorControlMenu
+                label='Limits'
+                value={
+                  Object.keys(effectiveConfig.kanban.columnLimits).length === 0
+                    ? 'Off'
+                    : `${Object.keys(effectiveConfig.kanban.columnLimits).length} set`
+                }
+                disabled={controlsDisabled}
+              >
+                <DropdownMenuLabel>Column limits</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {columnOptions.map((option) => (
+                  <DropdownMenuSub key={`limit:${option.value}`}>
+                    <DropdownMenuSubTrigger>{option.label}</DropdownMenuSubTrigger>
+                    <DropdownMenuSubContent className='w-40'>
+                      <DropdownMenuRadioGroup
+                        value={String(effectiveConfig.kanban.columnLimits[option.value] ?? 0)}
+                        onValueChange={(value) =>
+                          handleColumnLimitChange(option.value, Number.parseInt(value, 10))
+                        }
+                      >
+                        {DEFAULT_COLUMN_LIMITS.map((limit) => (
+                          <DropdownMenuRadioItem key={limit} value={String(limit)}>
+                            {limit === 0 ? 'No limit' : `${limit} items`}
+                          </DropdownMenuRadioItem>
+                        ))}
+                      </DropdownMenuRadioGroup>
+                    </DropdownMenuSubContent>
+                  </DropdownMenuSub>
+                ))}
+              </MonitorControlMenu>
+            </>
+          ) : null
+        ) : null}
       </MonitorControlBar>
 
       <div className='flex min-h-0 w-full min-w-0 max-w-full flex-1 flex-col overflow-hidden pt-1.5'>

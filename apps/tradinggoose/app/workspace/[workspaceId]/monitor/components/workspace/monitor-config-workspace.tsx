@@ -326,7 +326,6 @@ export function MonitorConfigWorkspace({
           value={effectiveConfig.groupBy}
           label='Group'
           disabled={controlsDisabled}
-          triggerClassName='w-[140px]'
           options={CONFIG_MONITOR_DIMENSION_FIELDS.map((field) => ({
             value: field,
             label: DIMENSION_LABELS[field],
@@ -342,7 +341,6 @@ export function MonitorConfigWorkspace({
           value={effectiveConfig.sliceBy ?? 'none'}
           label='Slice'
           disabled={controlsDisabled}
-          triggerClassName='w-[140px]'
           options={[
             { value: 'none', label: 'None' },
             ...CONFIG_MONITOR_DIMENSION_FIELDS.filter(
@@ -363,7 +361,6 @@ export function MonitorConfigWorkspace({
           value={effectiveConfig.verticalGroupBy ?? 'none'}
           label='Swimlane'
           disabled={controlsDisabled}
-          triggerClassName='w-[150px]'
           options={[
             { value: 'none', label: 'None' },
             ...CONFIG_MONITOR_DIMENSION_FIELDS.filter(
@@ -384,7 +381,6 @@ export function MonitorConfigWorkspace({
           value={activeSort?.field ?? 'manual'}
           label='Sort'
           disabled={controlsDisabled}
-          triggerClassName='w-[150px]'
           options={[
             { value: 'manual', label: 'Manual order' },
             ...CONFIG_MONITOR_SORT_FIELDS.map((field) => ({
@@ -398,11 +394,11 @@ export function MonitorConfigWorkspace({
               sortBy:
                 value !== 'manual'
                   ? [
-                    {
-                      field: value as ConfigMonitorSortField,
-                      direction: current.sortBy[0]?.direction ?? 'asc',
-                    },
-                  ]
+                      {
+                        field: value as ConfigMonitorSortField,
+                        direction: current.sortBy[0]?.direction ?? 'asc',
+                      },
+                    ]
                   : [],
             }))
           }
@@ -472,7 +468,7 @@ export function MonitorConfigWorkspace({
   ) : null
 
   return (
-    <div className='w-full flex h-full max-h-full min-h-0 min-w-0 flex-col overflow-hidden p-1.5'>
+    <div className='flex h-full max-h-full min-h-0 w-full min-w-0 flex-col overflow-hidden p-1.5'>
       {isMobile ? (
         <div className='min-h-0 flex-1'>
           {board}

@@ -12,12 +12,12 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
+import { formatMonitorTimezoneLabel } from '../shared/monitor-time'
 import {
   monitorControlDropdownContentClass,
   monitorControlDropdownContentStyle,
   monitorControlSurfaceClass,
 } from '../shared/monitor-ui'
-import { formatMonitorTimezoneLabel } from '../shared/monitor-time'
 import { DEFAULT_MONITOR_TIMEZONE } from '../view/view-config'
 
 type TimeZoneOption = Awaited<ReturnType<typeof fetchTimeZoneOptions>>[number]
@@ -91,12 +91,12 @@ export function MonitorTimezoneMenu({
           type='button'
           variant='outline'
           size='sm'
-          className={cn(monitorControlSurfaceClass, 'max-w-[132px]', className)}
+          className={cn(monitorControlSurfaceClass, className)}
           disabled={disabled}
           aria-label={`Timezone: ${selectedLabel}`}
         >
           <ClockFading className='h-4 w-4' />
-          <span className='truncate text-foreground'>{selectedLabel}</span>
+          <span className='shrink-0 text-foreground'>{selectedLabel}</span>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent

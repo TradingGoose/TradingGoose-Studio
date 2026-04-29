@@ -27,7 +27,7 @@ import {
 import { cn } from '@/lib/utils'
 
 export const monitorControlSurfaceClass =
-  'inline-flex h-9 min-w-0 shrink-0 items-center justify-between gap-2 whitespace-nowrap rounded-md border border-border bg-background px-3 font-normal text-sm text-foreground shadow-none transition-colors ring-offset-background hover:bg-card hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=open]:bg-card data-[state=open]:text-foreground [&_svg]:pointer-events-none [&_svg]:h-4 [&_svg]:w-4 [&_svg]:shrink-0'
+  'inline-flex h-9 w-auto min-w-max shrink-0 items-center justify-between gap-2 whitespace-nowrap rounded-md border border-border bg-background px-3 font-normal text-sm text-foreground shadow-none transition-colors ring-offset-background hover:bg-card hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=open]:bg-card data-[state=open]:text-foreground [&_svg]:pointer-events-none [&_svg]:h-4 [&_svg]:w-4 [&_svg]:shrink-0'
 
 export const monitorControlDropdownContentClass = 'max-w-[calc(100vw-2rem)]'
 
@@ -62,13 +62,7 @@ export function MonitorControlBar({
   }, [])
 
   return (
-    <div
-      className={cn(
-        'w-full min-w-0 max-w-full shrink-0 overflow-hidden',
-        className
-      )}
-      {...props}
-    >
+    <div className={cn('w-full min-w-0 max-w-full shrink-0 overflow-hidden', className)} {...props}>
       <div
         ref={scrollRef}
         onWheel={handleWheel}
@@ -100,7 +94,6 @@ type MonitorControlSelectProps = ComponentProps<typeof Select> & {
   label?: ReactNode
   options?: MonitorControlSelectOption[]
   placeholder?: string
-  triggerClassName?: string
 }
 
 export function MonitorControlSelect({
@@ -108,16 +101,17 @@ export function MonitorControlSelect({
   label,
   options,
   placeholder,
-  triggerClassName,
   ...props
 }: MonitorControlSelectProps) {
   return (
     <Select {...props}>
-      <SelectTrigger className={cn(monitorControlSurfaceClass, triggerClassName)}>
-        {label ? <span className='shrink-0 text-xs text-muted-foreground'>{label}</span> : null}
-        <span className='min-w-0 truncate text-foreground'>
-          <SelectValue placeholder={placeholder} />
-        </span>
+      <SelectTrigger className={monitorControlSurfaceClass}>
+        <div className='flex shrink-0 items-center gap-2'>
+          {label ? <span className='shrink-0 text-muted-foreground text-xs'>{label}</span> : null}
+          <span className='shrink-0 text-foreground'>
+            <SelectValue placeholder={placeholder} />
+          </span>
+        </div>
       </SelectTrigger>
       <SelectContent
         align='start'
@@ -196,7 +190,7 @@ export function MonitorControlMenu({
           disabled={disabled}
           className={cn(
             monitorControlSurfaceClass,
-            iconOnly ? 'w-9 justify-center px-0' : 'max-w-[220px]',
+            iconOnly ? 'w-9 min-w-9 justify-center px-0' : null,
             className
           )}
           aria-label={srLabel}
@@ -204,11 +198,9 @@ export function MonitorControlMenu({
           {icon}
           {iconOnly ? <span className='sr-only'>{srLabel}</span> : null}
           {!iconOnly && label ? (
-            <span className='shrink-0 text-xs text-muted-foreground'>{label}</span>
+            <span className='shrink-0 text-muted-foreground text-xs'>{label}</span>
           ) : null}
-          {!iconOnly && value ? (
-            <span className='truncate text-foreground'>{value}</span>
-          ) : null}
+          {!iconOnly && value ? <span className='shrink-0 text-foreground'>{value}</span> : null}
           {!iconOnly ? <ChevronDown className='ml-0.5 h-4 w-4 text-muted-foreground' /> : null}
         </Button>
       </DropdownMenuTrigger>
