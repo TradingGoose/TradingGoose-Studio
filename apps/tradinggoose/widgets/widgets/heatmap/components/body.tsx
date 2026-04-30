@@ -267,7 +267,7 @@ export function HeatmapWidgetBody({
     auth: widgetParams?.marketAuth,
     providerParams: widgetParams?.marketProviderParams,
     refreshKey: refreshAt,
-    enabled: cappedListings.length > 0,
+    enabled: Boolean(marketProviderId && cappedListings.length > 0),
   })
   const resolvedListingsQuery = useResolvedListings({
     listings: cappedListings,

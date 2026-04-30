@@ -274,6 +274,35 @@ describe('QuickOrderHeaderControls', () => {
     })
   })
 
+  it('does not infer market provider settings from the trading provider', () => {
+    const header = renderHeader({
+      panelId: 'panel-1',
+      widget: {
+        key: 'quick_order',
+        params: { provider: 'alpaca', side: 'buy' },
+      } as any,
+    })
+
+    act(() => {
+      root.render(<>{header.left}</>)
+    })
+
+    expect(mockMarketProviderControls).toHaveBeenCalledWith(
+      expect.objectContaining({
+        value: '',
+        providerParams: undefined,
+        authParams: undefined,
+      })
+    )
+    expect(mockEmitQuickOrderParamsChange).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        params: expect.objectContaining({
+          marketProvider: expect.any(String),
+        }),
+      })
+    )
+  })
+
   it('shows the account selector after a trading provider is selected', () => {
     const header = renderHeader({
       panelId: 'panel-1',

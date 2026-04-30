@@ -214,6 +214,59 @@ describe('HeatmapWidgetBody', () => {
     expect(mockHeatmapTreemapChart).not.toHaveBeenCalled()
   })
 
+  it('does not use portfolio trading provider settings as market quote provider settings', async () => {
+    mockUseOAuthCredentials.mockReturnValue(
+      createQueryResult({
+        data: [{ id: 'cred-1', name: 'Broker' }],
+      })
+    )
+    mockUseTradingAccounts.mockReturnValue(
+      createQueryResult({
+        data: [{ id: 'account-1', name: 'Paper' }],
+      })
+    )
+    mockUseTradingHoldingsListings.mockReturnValue(
+      createQueryResult({
+        data: {
+          positionListings: [
+            {
+              listing: createListing('MSFT'),
+              grossQuantity: 4,
+              signedQuantity: 1,
+            },
+          ],
+        },
+      })
+    )
+
+    await act(async () => {
+      root.render(
+        <HeatmapWidgetBody
+          context={{ workspaceId: 'workspace-1' }}
+          widget={{ key: 'heatmap' } as any}
+          panelId='panel-1'
+          params={{
+            sourceMode: 'portfolio',
+            tradingProvider: 'alpaca',
+            credentialId: 'cred-1',
+            environment: 'paper',
+            accountId: 'account-1',
+          }}
+        />
+      )
+    })
+
+    expect(mockUseMarketQuoteSnapshots).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        workspaceId: 'workspace-1',
+        provider: undefined,
+        auth: undefined,
+        providerParams: undefined,
+        enabled: false,
+      })
+    )
+  })
+
   it('switches source modes through the same source-neutral chart props', async () => {
     mockUseWatchlists.mockReturnValue(
       createQueryResult({

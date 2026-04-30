@@ -506,7 +506,7 @@ describe('PortfolioSnapshotWidgetBody', () => {
     })
   })
 
-  it('persists the market provider fallback from the body when params are available', async () => {
+  it('does not use trading provider settings as market quote provider settings', async () => {
     await act(async () => {
       root.render(
         <PortfolioSnapshotWidgetBody
@@ -524,12 +524,31 @@ describe('PortfolioSnapshotWidgetBody', () => {
       )
     })
 
-    expect(mockEmitPortfolioSnapshotParamsChange).toHaveBeenCalledWith({
-      params: {
-        marketProvider: expect.any(String),
-      },
-      panelId: 'panel-1',
-      widgetKey: 'portfolio_snapshot',
+    expect(mockEmitPortfolioSnapshotParamsChange).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        params: expect.objectContaining({
+          marketProvider: expect.any(String),
+        }),
+      })
+    )
+    expect(mockUseMarketQuoteSnapshots).toHaveBeenCalledWith({
+      workspaceId: 'workspace-1',
+      provider: undefined,
+      items: [
+        {
+          key: 'default|TG_LSTG_AAPL||',
+          listing: {
+            listing_id: 'TG_LSTG_AAPL',
+            base_id: '',
+            quote_id: '',
+            listing_type: 'default',
+          },
+        },
+      ],
+      auth: undefined,
+      providerParams: undefined,
+      refreshKey: null,
+      enabled: false,
     })
   })
 

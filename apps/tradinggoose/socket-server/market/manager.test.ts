@@ -223,6 +223,23 @@ describe('MarketStreamManager quote snapshots', () => {
     vi.useRealTimers()
   })
 
+  it('rejects subscriptions without an explicit market provider', async () => {
+    const manager = new MarketStreamManager()
+    const socket = createSocket('socket-1')
+
+    await expect(
+      manager.subscribe(socket, {
+        workspaceId: 'workspace-1',
+        listing,
+        channel: 'quote-snapshots',
+        clientSubscriptionId: 'quote-1',
+      })
+    ).rejects.toThrow('market provider is required')
+
+    expect(alpacaStreamInstances).toHaveLength(0)
+    expect(finnhubStreamInstances).toHaveLength(0)
+  })
+
   it('shares one upstream trade subscription for duplicate streaming quote snapshots', async () => {
     const manager = new MarketStreamManager()
     const socket = createSocket('socket-1')

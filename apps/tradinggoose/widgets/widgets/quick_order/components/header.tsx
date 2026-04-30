@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo } from 'react'
+import { useMemo } from 'react'
 import { Button } from '@/components/ui/button'
 import { useOAuthProviderAvailability } from '@/hooks/queries/oauth-provider-availability'
 import type { DashboardWidgetDefinition } from '@/widgets/types'
@@ -16,7 +16,6 @@ import {
   resolveQuickOrderCredentialProvider,
   resolveQuickOrderMarketProviderId,
   resolveQuickOrderProviderId,
-  shouldPersistQuickOrderMarketProviderDefault,
 } from '@/widgets/widgets/quick_order/components/shared'
 import type { QuickOrderSide, QuickOrderWidgetParams } from '@/widgets/widgets/quick_order/types'
 
@@ -62,15 +61,6 @@ export function QuickOrderHeaderControls({
         : [],
     [hasSelectedProvider, providerId]
   )
-
-  useEffect(() => {
-    if (!shouldPersistQuickOrderMarketProviderDefault(params, marketProviderId)) return
-    emitQuickOrderParamsChange({
-      params: { marketProvider: marketProviderId },
-      panelId,
-      widgetKey,
-    })
-  }, [marketProviderId, panelId, params, widgetKey])
 
   return (
     <div className={widgetHeaderButtonGroupClassName('min-w-0')}>

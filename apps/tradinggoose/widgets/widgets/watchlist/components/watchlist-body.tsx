@@ -134,7 +134,7 @@ export const WatchlistWidgetBody = ({
     auth: widgetParams?.auth,
     providerParams: widgetParams?.providerParams,
     refreshKey: refreshAt,
-    enabled: Boolean(selectedWatchlist),
+    enabled: Boolean(providerId && selectedWatchlist),
   })
 
   const isMutating =

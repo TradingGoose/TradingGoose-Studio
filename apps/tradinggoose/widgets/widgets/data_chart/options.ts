@@ -22,6 +22,14 @@ export const resolveSeriesMarketProviderId = (
   return options[0]?.id ?? ''
 }
 
+export const resolveConfiguredSeriesMarketProviderId = (
+  provider: unknown,
+  options = getSeriesMarketProviderOptions()
+) => {
+  const providerId = typeof provider === 'string' ? provider.trim() : ''
+  return providerId && options.some((option) => option.id === providerId) ? providerId : ''
+}
+
 export const CANDLE_TYPE_OPTIONS: Array<{
   id: DataChartCandleType
   label: string

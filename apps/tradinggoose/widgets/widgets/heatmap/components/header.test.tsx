@@ -130,7 +130,7 @@ describe('HeatmapHeaderControls', () => {
     container.remove()
   })
 
-  it('normalizes an invalid persisted market provider from the header controls', async () => {
+  it('does not normalize an invalid market provider to a fallback provider', async () => {
     const slots = renderHeatmapHeader?.({
       panelId: 'panel-1',
       widget: {
@@ -152,13 +152,13 @@ describe('HeatmapHeaderControls', () => {
       )
     })
 
-    expect(mockEmitHeatmapParamsChange).toHaveBeenCalledWith({
-      params: {
-        marketProvider: expect.not.stringMatching(/^unsupported-provider$/),
-      },
-      panelId: 'panel-1',
-      widgetKey: 'heatmap',
-    })
+    expect(mockEmitHeatmapParamsChange).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        params: expect.objectContaining({
+          marketProvider: expect.any(String),
+        }),
+      })
+    )
     expect(mockUseOAuthProviderAvailability).not.toHaveBeenCalled()
     expect(mockTradingAccountSelector).not.toHaveBeenCalled()
   })

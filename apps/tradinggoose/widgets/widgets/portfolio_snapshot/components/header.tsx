@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo } from 'react'
+import { useMemo } from 'react'
 import { useOAuthProviderAvailability } from '@/hooks/queries/oauth-provider-availability'
 import type { DashboardWidgetDefinition } from '@/widgets/types'
 import { emitPortfolioSnapshotParamsChange } from '@/widgets/utils/portfolio-snapshot-params'
@@ -16,7 +16,6 @@ import {
   resolvePortfolioSnapshotCredentialProvider,
   resolvePortfolioSnapshotMarketProviderId,
   resolvePortfolioSnapshotProviderId,
-  shouldPersistPortfolioSnapshotMarketProviderDefault,
 } from '@/widgets/widgets/portfolio_snapshot/components/shared'
 import type { PortfolioSnapshotWidgetParams } from '@/widgets/widgets/portfolio_snapshot/types'
 
@@ -56,15 +55,6 @@ export function PortfolioSnapshotHeaderControls({
     () => (hasSelectedProvider ? getPortfolioSnapshotEnvironmentOptions(providerId) : []),
     [hasSelectedProvider, providerId]
   )
-
-  useEffect(() => {
-    if (!shouldPersistPortfolioSnapshotMarketProviderDefault(params, marketProviderId)) return
-    emitPortfolioSnapshotParamsChange({
-      params: { marketProvider: marketProviderId },
-      panelId,
-      widgetKey,
-    })
-  }, [marketProviderId, panelId, params, widgetKey])
 
   return (
     <div className={widgetHeaderButtonGroupClassName('min-w-0')}>

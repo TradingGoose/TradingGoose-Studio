@@ -6,8 +6,8 @@ import {
   resolveTradingWidgetCredentialProvider,
 } from '@/widgets/utils/trading-widget-providers'
 import {
+  resolveConfiguredSeriesMarketProviderId,
   getSeriesMarketProviderOptions,
-  resolveSeriesMarketProviderId,
 } from '@/widgets/widgets/data_chart/options'
 import type {
   HeatmapSourceMode,
@@ -35,16 +35,7 @@ export const getHeatmapMarketProviderOptions = () => getSeriesMarketProviderOpti
 export const resolveHeatmapMarketProviderId = (
   params: HeatmapWidgetParams | null | undefined,
   options = getHeatmapMarketProviderOptions()
-) => resolveSeriesMarketProviderId(params?.marketProvider, options)
-
-export const shouldPersistHeatmapMarketProviderDefault = (
-  params: HeatmapWidgetParams | null | undefined,
-  providerId: string
-) => {
-  if (!providerId.trim()) return false
-  const persisted = typeof params?.marketProvider === 'string' ? params.marketProvider.trim() : ''
-  return persisted !== providerId
-}
+) => resolveConfiguredSeriesMarketProviderId(params?.marketProvider, options)
 
 export const resolveHeatmapSourceMode = (
   params: HeatmapWidgetParams | null | undefined

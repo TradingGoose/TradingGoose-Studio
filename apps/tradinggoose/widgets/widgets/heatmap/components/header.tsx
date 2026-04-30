@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo } from 'react'
+import { useMemo } from 'react'
 import { Button } from '@/components/ui/button'
 import { useOAuthProviderAvailability } from '@/hooks/queries/oauth-provider-availability'
 import type { DashboardWidgetDefinition } from '@/widgets/types'
@@ -21,7 +21,6 @@ import {
   resolveHeatmapSourceMode,
   resolveHeatmapTradingProviderId,
   resolveHeatmapWatchlistSizeMetric,
-  shouldPersistHeatmapMarketProviderDefault,
 } from '@/widgets/widgets/heatmap/components/shared'
 import type { HeatmapWidgetParams } from '@/widgets/widgets/heatmap/types'
 
@@ -35,15 +34,6 @@ type HeaderControlProps = {
 function HeatmapMarketControls({ workspaceId, panelId, widgetKey, params }: HeaderControlProps) {
   const marketProviderOptions = useMemo(() => getHeatmapMarketProviderOptions(), [])
   const marketProviderId = resolveHeatmapMarketProviderId(params, marketProviderOptions)
-
-  useEffect(() => {
-    if (!shouldPersistHeatmapMarketProviderDefault(params, marketProviderId)) return
-    emitHeatmapParamsChange({
-      params: { marketProvider: marketProviderId },
-      panelId,
-      widgetKey,
-    })
-  }, [marketProviderId, panelId, params, widgetKey])
 
   return (
     <MarketProviderControls

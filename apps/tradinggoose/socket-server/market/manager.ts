@@ -890,7 +890,8 @@ function resolveProviderId(provider?: AnyMarketProviderId): AnyMarketProviderId 
   if (provider === 'finnhub') return 'finnhub'
   if (provider === 'yahoo-finance') return 'yahoo-finance'
   if (provider === 'alpha-vantage') return 'alpha-vantage'
-  return 'alpaca'
+  if (provider === 'alpaca') return 'alpaca'
+  throw new Error('market provider is required')
 }
 
 function resolveUpstreamChannel(channel: MarketChannel): MarketStreamChannel {

@@ -4,8 +4,8 @@ import {
 } from '@/providers/trading/portfolio'
 import type { TradingPortfolioPerformanceWindow } from '@/providers/trading/types'
 import {
+  resolveConfiguredSeriesMarketProviderId,
   getSeriesMarketProviderOptions,
-  resolveSeriesMarketProviderId,
 } from '@/widgets/widgets/data_chart/options'
 import {
   getTradingWidgetEnvironmentOptions,
@@ -57,13 +57,4 @@ export const getPortfolioSnapshotMarketProviderOptions = () => getSeriesMarketPr
 export const resolvePortfolioSnapshotMarketProviderId = (
   params: PortfolioSnapshotWidgetParams | null | undefined,
   options = getPortfolioSnapshotMarketProviderOptions()
-) => resolveSeriesMarketProviderId(params?.marketProvider, options)
-
-export const shouldPersistPortfolioSnapshotMarketProviderDefault = (
-  params: PortfolioSnapshotWidgetParams | null | undefined,
-  providerId: string
-) => {
-  if (!providerId.trim()) return false
-  const persisted = typeof params?.marketProvider === 'string' ? params.marketProvider.trim() : ''
-  return persisted !== providerId
-}
+) => resolveConfiguredSeriesMarketProviderId(params?.marketProvider, options)

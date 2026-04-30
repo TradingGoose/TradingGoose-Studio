@@ -37,7 +37,6 @@ import {
   resolvePortfolioSnapshotCredentialProvider,
   resolvePortfolioSnapshotMarketProviderId,
   resolvePortfolioSnapshotProviderId,
-  shouldPersistPortfolioSnapshotMarketProviderDefault,
 } from '@/widgets/widgets/portfolio_snapshot/components/shared'
 import type { PortfolioSnapshotWidgetParams } from '@/widgets/widgets/portfolio_snapshot/types'
 
@@ -239,16 +238,6 @@ export function PortfolioSnapshotWidgetBody({
   })
 
   useEffect(() => {
-    if (!widgetParams) return
-    if (!shouldPersistPortfolioSnapshotMarketProviderDefault(widgetParams, marketProviderId)) return
-    emitPortfolioSnapshotParamsChange({
-      params: { marketProvider: marketProviderId },
-      panelId,
-      widgetKey,
-    })
-  }, [marketProviderId, panelId, widgetKey, widgetParams])
-
-  useEffect(() => {
     if (!hasInvalidPersistedProvider) return
     emitPortfolioSnapshotParamsChange({
       params: {
@@ -410,7 +399,9 @@ export function PortfolioSnapshotWidgetBody({
     auth: widgetParams?.marketAuth,
     providerParams: widgetParams?.marketProviderParams,
     refreshKey: refreshAt,
-    enabled: Boolean(activeAccountId && quoteItems.length > 0 && !holdingsListingsErrorMessage),
+    enabled: Boolean(
+      marketProviderId && activeAccountId && quoteItems.length > 0 && !holdingsListingsErrorMessage
+    ),
   })
 
   const performanceQuery = useTradingPortfolioPerformance({

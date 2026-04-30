@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
+  resolveHeatmapMarketProviderId,
   resolveHeatmapEnvironment,
   resolveHeatmapTradingProviderId,
   resolveHeatmapWatchlistSizeMetric,
-  shouldPersistHeatmapMarketProviderDefault,
 } from '@/widgets/widgets/heatmap/components/shared'
 
 describe('heatmap shared helpers', () => {
@@ -23,11 +23,12 @@ describe('heatmap shared helpers', () => {
     )
   })
 
-  it('only persists market provider defaults for concrete fallback ids', () => {
-    expect(shouldPersistHeatmapMarketProviderDefault(null, '')).toBe(false)
-    expect(shouldPersistHeatmapMarketProviderDefault(null, 'alpaca')).toBe(true)
-    expect(shouldPersistHeatmapMarketProviderDefault({ marketProvider: 'alpaca' }, 'alpaca')).toBe(
-      false
+  it('does not infer a market provider fallback', () => {
+    expect(resolveHeatmapMarketProviderId(null, providerOptions)).toBe('')
+    expect(resolveHeatmapMarketProviderId({}, providerOptions)).toBe('')
+    expect(resolveHeatmapMarketProviderId({ marketProvider: 'missing' }, providerOptions)).toBe('')
+    expect(resolveHeatmapMarketProviderId({ marketProvider: 'alpaca' }, providerOptions)).toBe(
+      'alpaca'
     )
   })
 

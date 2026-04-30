@@ -432,6 +432,31 @@ describe('QuickOrderWidgetBody', () => {
     ])
   })
 
+  it('does not use trading provider settings for market quote websocket subscriptions', async () => {
+    await renderBody(container, root, {
+      provider: 'alpaca',
+      credentialId: 'cred-1',
+      environment: 'paper',
+      accountId: 'acct-1',
+      side: 'buy',
+    })
+
+    await act(async () => {
+      container.querySelector<HTMLButtonElement>('[data-testid="listing-selector"]')?.click()
+    })
+    await act(async () => {})
+
+    expect(mockUseMarketQuoteSnapshots).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        workspaceId: 'workspace-1',
+        provider: undefined,
+        auth: undefined,
+        providerParams: undefined,
+        enabled: false,
+      })
+    )
+  })
+
   it('clears invalid providers without deleting saved credential or account params from async lookups', async () => {
     const onInvalidProviderChange = vi.fn()
     await renderBody(
