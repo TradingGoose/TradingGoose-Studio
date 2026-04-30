@@ -89,6 +89,7 @@ const timeRangeToURL = (timeRange: TimeRange): string => {
 export const useFilterStore = create<FilterState>((set, get) => ({
   logs: [],
   workspaceId: '',
+  viewMode: 'logs',
   timeRange: DEFAULT_TIME_RANGE,
   level: 'all',
   workflowIds: [],
@@ -113,6 +114,8 @@ export const useFilterStore = create<FilterState>((set, get) => ({
   },
 
   setWorkspaceId: (workspaceId) => set({ workspaceId }),
+
+  setViewMode: (viewMode) => set({ viewMode }),
 
   setTimeRange: (timeRange) => {
     set({ timeRange })

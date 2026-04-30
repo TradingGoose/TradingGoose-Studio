@@ -24,10 +24,12 @@ export type TimeRange =
 
 export type LogLevel = 'error' | 'info' | 'all'
 export type TriggerType = 'chat' | 'api' | 'webhook' | 'manual' | 'schedule' | 'all'
+export type LogsViewMode = 'logs' | 'dashboard'
 
 export interface FilterState {
   logs: import('@/lib/logs/types').WorkflowLog[]
   workspaceId: string
+  viewMode: LogsViewMode
   timeRange: TimeRange
   level: LogLevel
   workflowIds: string[]
@@ -42,6 +44,7 @@ export interface FilterState {
   _isInitializing: boolean
   setLogs: (logs: import('@/lib/logs/types').WorkflowLog[], append?: boolean) => void
   setWorkspaceId: (workspaceId: string) => void
+  setViewMode: (viewMode: LogsViewMode) => void
   setTimeRange: (timeRange: TimeRange) => void
   setLevel: (level: LogLevel) => void
   setWorkflowIds: (workflowIds: string[]) => void

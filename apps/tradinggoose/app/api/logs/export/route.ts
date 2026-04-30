@@ -17,9 +17,9 @@ import {
   serializeWorkflowLog,
 } from '@/app/api/logs/log-utils'
 
-const logger = createLogger("LogsExportAPI");
+const logger = createLogger('LogsExportAPI')
 
-export const revalidate = 0;
+export const revalidate = 0
 
 const ExportParamsSchema = z.object({
   level: z.string().optional(),
@@ -73,7 +73,7 @@ const ExportParamsSchema = z.object({
     return trimmed.length === 0 ? undefined : trimmed
   }, z.literal('indicator_trigger').optional()),
   workspaceId: z.string(),
-});
+})
 
 const splitCsv = (value: string | undefined) =>
   (value ?? '')
@@ -172,9 +172,9 @@ const parseCsvValues = (value: string | undefined) =>
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await getSession();
+    const session = await getSession()
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     const userId = session.user.id
@@ -226,7 +226,7 @@ export async function GET(request: NextRequest) {
     if (params.startDate) {
       conditions = and(conditions, gte(workflowExecutionLogs.startedAt, new Date(params.startDate)))
     }
-    if (indicatorId) {
+    if (params.endDate) {
       conditions = and(conditions, lte(workflowExecutionLogs.startedAt, new Date(params.endDate)))
     }
 
@@ -414,7 +414,7 @@ export async function GET(request: NextRequest) {
         })
         controller.close()
       },
-    });
+    })
 
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
     const filename = `logs-${timestamp}.csv`
@@ -422,11 +422,11 @@ export async function GET(request: NextRequest) {
     return new NextResponse(stream as any, {
       status: 200,
       headers: {
-        "Content-Type": "text/csv; charset=utf-8",
-        "Content-Disposition": `attachment; filename="${filename}"`,
-        "Cache-Control": "no-cache",
+        'Content-Type': 'text/csv; charset=utf-8',
+        'Content-Disposition': `attachment; filename="${filename}"`,
+        'Cache-Control': 'no-cache',
       },
-    });
+    })
   } catch (error: any) {
     logger.error('Export route error', { error: error?.message })
     return NextResponse.json({ error: error?.message ?? 'Failed to export logs' }, { status: 500 })

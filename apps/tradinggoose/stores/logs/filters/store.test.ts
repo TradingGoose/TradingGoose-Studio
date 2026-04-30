@@ -9,6 +9,7 @@ const resetFilterStore = () => {
   useFilterStore.setState({
     logs: [],
     workspaceId: '',
+    viewMode: 'logs',
     timeRange: 'All time',
     level: 'all',
     workflowIds: [],
