@@ -60,7 +60,7 @@ export function MonitorKanbanBoard({ className, ...props }: ComponentProps<typeo
   return <KanbanBoard className={cn('flex-1 pb-0', className)} {...props} />
 }
 
-type MonitorKanbanGroupProps = ComponentProps<'div'> & {
+type MonitorKanbanGroupProps = Omit<ComponentProps<'div'>, 'title'> & {
   title?: ReactNode
 }
 
