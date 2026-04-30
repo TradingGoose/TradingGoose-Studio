@@ -51,6 +51,15 @@ describe('quick order params utilities', () => {
     expect(
       sanitizeQuickOrderParams({
         provider: ' alpaca ',
+        marketProvider: ' yahoo-finance ',
+        marketProviderParams: {
+          region: 'US',
+          apiKey: 'not-persisted-here',
+        },
+        marketAuth: {
+          apiKey: 'market-key',
+          apiSecret: 'market-secret',
+        },
         credentialId: 'cred-1',
         environment: 'paper',
         accountId: 'acct-1',
@@ -61,6 +70,14 @@ describe('quick order params utilities', () => {
       })
     ).toEqual({
       provider: 'alpaca',
+      marketProvider: 'yahoo-finance',
+      marketProviderParams: {
+        region: 'US',
+      },
+      marketAuth: {
+        apiKey: 'market-key',
+        apiSecret: 'market-secret',
+      },
       credentialId: 'cred-1',
       environment: 'paper',
       accountId: 'acct-1',
@@ -126,6 +143,49 @@ describe('quick order params utilities', () => {
     expect(onChange).toHaveBeenCalledWith({
       provider: 'alpaca',
       environment: 'paper',
+      side: 'buy',
+    })
+  })
+
+  it('merges market data provider updates separately from trading provider settings', async () => {
+    const onChange = vi.fn()
+
+    await act(async () => {
+      root.render(
+        <Harness
+          params={{
+            provider: 'alpaca',
+            marketProvider: 'yahoo-finance',
+            marketProviderParams: { region: 'US' },
+            marketAuth: { apiKey: 'market-key' },
+            credentialId: 'cred-1',
+            environment: 'paper',
+            accountId: 'acct-1',
+            side: 'buy',
+          }}
+          onChange={onChange}
+        />
+      )
+    })
+
+    act(() => {
+      emitQuickOrderParamsChange({
+        params: {
+          marketProvider: 'finnhub',
+          marketProviderParams: null,
+          marketAuth: null,
+        },
+        panelId: 'panel-1',
+        widgetKey: 'quick_order',
+      })
+    })
+
+    expect(onChange).toHaveBeenCalledWith({
+      provider: 'alpaca',
+      marketProvider: 'finnhub',
+      credentialId: 'cred-1',
+      environment: 'paper',
+      accountId: 'acct-1',
       side: 'buy',
     })
   })

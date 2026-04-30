@@ -12,6 +12,11 @@ import {
   resolveTradingWidgetCredentialProvider,
   resolveTradingWidgetProviderId,
 } from '@/widgets/utils/trading-widget-providers'
+import {
+  getSeriesMarketProviderOptions,
+  resolveSeriesMarketProviderId,
+} from '@/widgets/widgets/data_chart/options'
+import type { QuickOrderWidgetParams } from '@/widgets/widgets/quick_order/types'
 
 export const QUICK_ORDER_WIDGET_KEY = 'quick_order'
 
@@ -57,6 +62,22 @@ export const resolveQuickOrderEnvironment = (
 
 export const resolveQuickOrderCredentialProvider = (providerId?: string) => {
   return resolveTradingWidgetCredentialProvider(providerId)
+}
+
+export const getQuickOrderMarketProviderOptions = () => getSeriesMarketProviderOptions()
+
+export const resolveQuickOrderMarketProviderId = (
+  params: QuickOrderWidgetParams | null | undefined,
+  options = getQuickOrderMarketProviderOptions()
+) => resolveSeriesMarketProviderId(params?.marketProvider, options)
+
+export const shouldPersistQuickOrderMarketProviderDefault = (
+  params: QuickOrderWidgetParams | null | undefined,
+  providerId: string
+) => {
+  if (!providerId.trim()) return false
+  const persisted = typeof params?.marketProvider === 'string' ? params.marketProvider.trim() : ''
+  return persisted !== providerId
 }
 
 export type QuickOrderSizingMode = 'quantity' | 'notional'

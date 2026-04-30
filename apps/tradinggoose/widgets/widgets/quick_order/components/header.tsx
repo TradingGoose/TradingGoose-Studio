@@ -1,28 +1,38 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useEffect, useMemo } from 'react'
 import { Button } from '@/components/ui/button'
 import { useOAuthProviderAvailability } from '@/hooks/queries/oauth-provider-availability'
 import type { DashboardWidgetDefinition } from '@/widgets/types'
 import { emitQuickOrderParamsChange } from '@/widgets/utils/quick-order-params'
+import { MarketProviderControls } from '@/widgets/widgets/components/market-provider-controls'
 import { TradingProviderControls } from '@/widgets/widgets/components/trading-provider-controls'
 import { widgetHeaderButtonGroupClassName } from '@/widgets/widgets/components/widget-header-control'
 import {
   getQuickOrderEnvironmentOptions,
+  getQuickOrderMarketProviderOptions,
   getQuickOrderProviderAvailabilityIds,
   getQuickOrderProviderOptions,
   resolveQuickOrderCredentialProvider,
+  resolveQuickOrderMarketProviderId,
   resolveQuickOrderProviderId,
+  shouldPersistQuickOrderMarketProviderDefault,
 } from '@/widgets/widgets/quick_order/components/shared'
 import type { QuickOrderSide, QuickOrderWidgetParams } from '@/widgets/widgets/quick_order/types'
 
 type HeaderControlProps = {
+  workspaceId?: string
   panelId?: string
   widgetKey: string
   params: QuickOrderWidgetParams | null
 }
 
-export function QuickOrderHeaderControls({ panelId, widgetKey, params }: HeaderControlProps) {
+export function QuickOrderHeaderControls({
+  workspaceId,
+  panelId,
+  widgetKey,
+  params,
+}: HeaderControlProps) {
   const providerAvailabilityQuery = useOAuthProviderAvailability(
     getQuickOrderProviderAvailabilityIds()
   )
@@ -30,7 +40,9 @@ export function QuickOrderHeaderControls({ panelId, widgetKey, params }: HeaderC
     () => getQuickOrderProviderOptions(providerAvailabilityQuery.data),
     [providerAvailabilityQuery.data]
   )
+  const marketProviderOptions = useMemo(() => getQuickOrderMarketProviderOptions(), [])
   const providerId = resolveQuickOrderProviderId(params?.provider, providerAvailabilityQuery.data)
+  const marketProviderId = resolveQuickOrderMarketProviderId(params, marketProviderOptions)
   const hasSelectedProvider = Boolean(providerId)
   const areProviderOptionsReady =
     !providerAvailabilityQuery.isLoading &&
@@ -44,49 +56,88 @@ export function QuickOrderHeaderControls({ panelId, widgetKey, params }: HeaderC
     () =>
       hasSelectedProvider
         ? getQuickOrderEnvironmentOptions(providerId).map((environment) => ({
-          id: environment,
-          label: environment === 'paper' ? 'Paper' : 'Live',
-        }))
+            id: environment,
+            label: environment === 'paper' ? 'Paper' : 'Live',
+          }))
         : [],
     [hasSelectedProvider, providerId]
   )
 
-  if (!areProviderOptionsReady) {
-    return <div className={widgetHeaderButtonGroupClassName()} />
-  }
+  useEffect(() => {
+    if (!shouldPersistQuickOrderMarketProviderDefault(params, marketProviderId)) return
+    emitQuickOrderParamsChange({
+      params: { marketProvider: marketProviderId },
+      panelId,
+      widgetKey,
+    })
+  }, [marketProviderId, panelId, params, widgetKey])
 
   return (
-    <TradingProviderControls
-      providerId={providerId}
-      providerOptions={providerOptions}
-      credentialProviderId={credentialProviderId}
-      environmentOptions={environmentOptions}
-      credentialId={params?.credentialId}
-      environment={params?.environment}
-      accountId={params?.accountId}
-      toolName='Quick Order'
-      onProviderChange={(nextProvider) => {
-        if (!nextProvider || nextProvider === providerId) return
+    <div className={widgetHeaderButtonGroupClassName('min-w-0')}>
+      <MarketProviderControls
+        value={marketProviderId}
+        options={marketProviderOptions}
+        onChange={(nextProvider) => {
+          if (!nextProvider || nextProvider === marketProviderId) return
+          emitQuickOrderParamsChange({
+            params: {
+              marketProvider: nextProvider,
+              marketProviderParams: null,
+              marketAuth: null,
+            },
+            panelId,
+            widgetKey,
+          })
+        }}
+        providerParams={params?.marketProviderParams}
+        authParams={params?.marketAuth}
+        workspaceId={workspaceId}
+        onSettingsSave={({ providerParams, auth }) => {
+          emitQuickOrderParamsChange({
+            params: {
+              marketProviderParams: providerParams,
+              marketAuth: auth,
+            },
+            panelId,
+            widgetKey,
+          })
+        }}
+      />
 
-        emitQuickOrderParamsChange({
-          params: {
-            provider: nextProvider,
-            credentialId: null,
-            environment: null,
-            accountId: null,
-          },
-          panelId,
-          widgetKey,
-        })
-      }}
-      onAccountSelect={({ credentialId, environment, accountId }) => {
-        emitQuickOrderParamsChange({
-          params: { credentialId, environment, accountId },
-          panelId,
-          widgetKey,
-        })
-      }}
-    />
+      {areProviderOptionsReady ? (
+        <TradingProviderControls
+          providerId={providerId}
+          providerOptions={providerOptions}
+          credentialProviderId={credentialProviderId}
+          environmentOptions={environmentOptions}
+          credentialId={params?.credentialId}
+          environment={params?.environment}
+          accountId={params?.accountId}
+          toolName='Quick Order'
+          onProviderChange={(nextProvider) => {
+            if (!nextProvider || nextProvider === providerId) return
+
+            emitQuickOrderParamsChange({
+              params: {
+                provider: nextProvider,
+                credentialId: null,
+                environment: null,
+                accountId: null,
+              },
+              panelId,
+              widgetKey,
+            })
+          }}
+          onAccountSelect={({ credentialId, environment, accountId }) => {
+            emitQuickOrderParamsChange({
+              params: { credentialId, environment, accountId },
+              panelId,
+              widgetKey,
+            })
+          }}
+        />
+      ) : null}
+    </div>
   )
 }
 
@@ -129,9 +180,11 @@ function QuickOrderSideTabs({ panelId, widgetKey, params }: HeaderControlProps) 
 export const renderQuickOrderHeader: DashboardWidgetDefinition['renderHeader'] = ({
   panelId,
   widget,
+  context,
 }) => ({
   left: (
     <QuickOrderHeaderControls
+      workspaceId={context?.workspaceId}
       panelId={panelId}
       widgetKey={widget?.key ?? 'quick_order'}
       params={(widget?.params as QuickOrderWidgetParams | null | undefined) ?? null}

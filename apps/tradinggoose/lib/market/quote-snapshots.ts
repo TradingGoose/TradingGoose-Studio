@@ -8,8 +8,6 @@ import type { MarketSeries } from '@/providers/market/types'
 
 export {
   createEmptyMarketQuoteSnapshot,
-  MARKET_QUOTE_SNAPSHOT_PROVIDER_BATCH_SIZE,
-  MARKET_QUOTE_SNAPSHOT_REQUEST_CAP,
   type MarketQuoteSnapshot,
 } from '@/lib/market/quote-snapshot-contract'
 

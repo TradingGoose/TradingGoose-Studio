@@ -1,5 +1,9 @@
 import { useEffect, useRef } from 'react'
 import {
+  sanitizeMarketProviderAuth,
+  sanitizeMarketProviderParamsForWidget,
+} from '@/lib/market/market-provider-settings'
+import {
   QUICK_ORDER_WIDGET_UPDATE_PARAMS_EVENT,
   type QuickOrderWidgetUpdateEventDetail,
 } from '@/widgets/events'
@@ -23,6 +27,13 @@ const normalizeString = (value: unknown) => {
 
 const areValuesEqual = (left: unknown, right: unknown): boolean => {
   if (Object.is(left, right)) return true
+
+  if (Array.isArray(left) || Array.isArray(right)) {
+    if (!Array.isArray(left) || !Array.isArray(right)) return false
+    if (left.length !== right.length) return false
+    return left.every((value, index) => areValuesEqual(value, right[index]))
+  }
+
   if (!isRecord(left) || !isRecord(right)) return false
 
   const leftKeys = Object.keys(left)
@@ -31,7 +42,7 @@ const areValuesEqual = (left: unknown, right: unknown): boolean => {
 
   for (const key of leftKeys) {
     if (!(key in right)) return false
-    if (!Object.is(left[key], right[key])) return false
+    if (!areValuesEqual(left[key], right[key])) return false
   }
 
   return true
@@ -44,16 +55,25 @@ export const sanitizeQuickOrderParams = (
 
   const nextParams: Record<string, unknown> = {}
   const provider = normalizeString(params.provider)
+  const marketProvider = normalizeString(params.marketProvider)
   const credentialId = normalizeString(params.credentialId)
   const environment = normalizeString(params.environment)
   const accountId = normalizeString(params.accountId)
   const side = normalizeString(params.side)
 
   if (provider) nextParams.provider = provider
+  if (marketProvider) nextParams.marketProvider = marketProvider
   if (credentialId) nextParams.credentialId = credentialId
   if (environment === 'paper' || environment === 'live') nextParams.environment = environment
   if (accountId) nextParams.accountId = accountId
   if (side === 'buy' || side === 'sell') nextParams.side = side
+  const marketProviderParams = sanitizeMarketProviderParamsForWidget(
+    marketProvider,
+    params.marketProviderParams
+  )
+  const marketAuth = sanitizeMarketProviderAuth(params.marketAuth)
+  if (marketProviderParams) nextParams.marketProviderParams = marketProviderParams
+  if (marketAuth) nextParams.marketAuth = marketAuth
 
   return Object.keys(nextParams).length > 0 ? nextParams : null
 }

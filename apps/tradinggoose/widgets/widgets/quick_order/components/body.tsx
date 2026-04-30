@@ -38,7 +38,6 @@ import {
   emitQuickOrderParamsChange,
   useQuickOrderParamsPersistence,
 } from '@/widgets/utils/quick-order-params'
-import { getSeriesMarketProviderOptions } from '@/widgets/widgets/data_chart/options'
 import {
   getQuickOrderDefaultEnvironment,
   getQuickOrderDefaultTimeInForce,
@@ -51,6 +50,7 @@ import {
   normalizeQuickOrderNumber,
   type QuickOrderNumberParseResult,
   resolveQuickOrderCredentialProvider,
+  resolveQuickOrderMarketProviderId,
   resolveQuickOrderOrderType,
   resolveQuickOrderProviderId,
 } from '@/widgets/widgets/quick_order/components/shared'
@@ -72,11 +72,6 @@ const formatCurrency = (value: number | null | undefined, currency = 'USD') => {
     currency,
     maximumFractionDigits: 2,
   }).format(value)
-}
-
-const getQuickOrderMarketProviderId = () => {
-  const options = getSeriesMarketProviderOptions()
-  return options.find((option) => option.id === 'yahoo-finance')?.id ?? options[0]?.id ?? ''
 }
 
 function OrderRow({ label, value }: { label: string; value: string }) {
@@ -350,7 +345,7 @@ export function QuickOrderWidgetBody({
     [providerId]
   )
   const defaultTimeInForce = providerId ? getQuickOrderDefaultTimeInForce(providerId) : undefined
-  const marketProviderId = useMemo(() => getQuickOrderMarketProviderId(), [])
+  const marketProviderId = resolveQuickOrderMarketProviderId(quickOrderParams)
   const quoteItems = useMemo(
     () =>
       listing
@@ -367,6 +362,8 @@ export function QuickOrderWidgetBody({
     workspaceId: workspaceId ?? undefined,
     provider: marketProviderId || undefined,
     items: quoteItems,
+    auth: quickOrderParams?.marketAuth,
+    providerParams: quickOrderParams?.marketProviderParams,
     enabled: Boolean(workspaceId && marketProviderId && quoteItems.length > 0),
   })
 

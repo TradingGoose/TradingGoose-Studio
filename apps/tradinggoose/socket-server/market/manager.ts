@@ -1,10 +1,20 @@
-import { createHash } from 'crypto'
+import { createHash, randomUUID } from 'crypto'
 import { getEffectiveDecryptedEnv } from '@/lib/environment/utils'
+import { stableStringifyJsonValue } from '@/lib/json/stable'
 import { areListingIdentitiesEqual, type ListingIdentity } from '@/lib/listing/identity'
 import { createLogger } from '@/lib/logs/console/logger'
+import {
+  createEmptyMarketQuoteSnapshot,
+  type MarketQuoteSnapshot,
+} from '@/lib/market/quote-snapshot-contract'
+import { buildMarketQuoteSnapshot } from '@/lib/market/quote-snapshots'
 import { alpacaProviderConfig } from '@/providers/market/alpaca/config'
 import { finnhubProviderConfig } from '@/providers/market/finnhub/config'
-import type { MarketBar } from '@/providers/market/types'
+import {
+  getMarketLiveCapabilities,
+  getMarketProviderConfig,
+} from '@/providers/market/providers'
+import type { MarketBar, MarketProviderAuth, MarketProviderParams } from '@/providers/market/types'
 import { resolveListingContext, resolveProviderSymbol } from '@/providers/market/utils'
 import type { AuthenticatedSocket } from '@/socket-server/middleware/auth'
 import {
@@ -16,12 +26,19 @@ import {
 import { FinnhubMarketStream } from './finnhub'
 
 const logger = createLogger('MarketStreamManager')
+const DEFAULT_POLLING_INTERVAL_MS = 15_000
+const MIN_POLLING_INTERVAL_MS = 5_000
+const POLLING_CONCURRENCY = 5
 
 export type MarketProviderId = 'alpaca' | 'finnhub'
-export type MarketChannel = 'bars' | 'trades' | 'quotes'
+export type PollingMarketProviderId = 'alpha-vantage' | 'yahoo-finance'
+export type AnyMarketProviderId = MarketProviderId | PollingMarketProviderId
+export type MarketStreamChannel = 'bars' | 'trades' | 'quotes'
+export type MarketChannel = MarketStreamChannel | 'quote-snapshots'
 
 export interface MarketSubscribePayload {
-  provider?: MarketProviderId
+  provider?: AnyMarketProviderId
+  clientSubscriptionId?: string
   workspaceId?: string
   listing?: ListingIdentity
   channel?: MarketChannel
@@ -38,16 +55,18 @@ export interface MarketSubscribePayload {
 
 export interface MarketUnsubscribePayload {
   subscriptionId?: string
+  clientSubscriptionId?: string
   listing?: ListingIdentity
   symbol?: string
-  provider?: MarketProviderId
+  provider?: AnyMarketProviderId
 }
 
 export interface MarketSubscriptionInfo {
   subscriptionId: string
+  clientSubscriptionId?: string
   listing: ListingIdentity | null
   symbol: string
-  provider: MarketProviderId
+  provider: AnyMarketProviderId
   market: AlpacaMarket
   channel: MarketChannel
   interval?: string
@@ -57,23 +76,29 @@ interface MarketSubscriptionRecord extends MarketSubscriptionInfo {
   streamKey: string
   socketId: string
   socket: AuthenticatedSocket
+  upstreamChannel?: MarketStreamChannel
   listingBase?: string
   listingQuote?: string
 }
 
 type MarketStream = {
-  subscribe: (symbols: string[], channel?: MarketChannel) => void
-  unsubscribe: (symbols: string[], channel?: MarketChannel) => void
+  subscribe: (symbols: string[], channel?: MarketStreamChannel) => void
+  unsubscribe: (symbols: string[], channel?: MarketStreamChannel) => void
   close: () => void
 }
 
 interface StreamState {
-  stream: MarketStream
-  provider: MarketProviderId
+  stream?: MarketStream
+  provider: AnyMarketProviderId
   market: AlpacaMarket
   feed?: AlpacaFeed
   cryptoRegion?: AlpacaCryptoRegion
-  apiKey?: string
+  auth?: MarketProviderAuth
+  providerParams?: MarketProviderParams
+  pollingTimer?: ReturnType<typeof setInterval>
+  pollingInFlight?: boolean
+  pollingIntervalMs?: number
+  quoteSnapshotCache: Map<string, MarketQuoteSnapshot>
   subscribersBySymbol: Map<string, Map<string, MarketSubscriptionRecord>>
 }
 
@@ -89,14 +114,14 @@ export class MarketStreamManager {
     const provider = resolveProviderId(resolvedPayload.provider)
 
     if (provider === 'alpaca') {
-      return this.subscribeAlpaca(socket, resolvedPayload)
+      return this.subscribeAlpaca(socket, { ...resolvedPayload, provider })
     }
 
     if (provider === 'finnhub') {
-      return this.subscribeFinnhub(socket, resolvedPayload)
+      return this.subscribeFinnhub(socket, { ...resolvedPayload, provider })
     }
 
-    throw new Error('Unsupported market data provider')
+    return this.subscribePollingProvider(socket, { ...resolvedPayload, provider })
   }
 
   unsubscribe(
@@ -117,6 +142,7 @@ export class MarketStreamManager {
 
     return matches.map((record) => ({
       subscriptionId: record.subscriptionId,
+      clientSubscriptionId: record.clientSubscriptionId,
       listing: record.listing,
       symbol: record.symbol,
       provider: record.provider,
@@ -143,9 +169,15 @@ export class MarketStreamManager {
     }
 
     const channel = payload.channel ?? 'bars'
-    if (channel !== 'bars' && channel !== 'trades' && channel !== 'quotes') {
+    if (
+      channel !== 'bars' &&
+      channel !== 'trades' &&
+      channel !== 'quotes' &&
+      channel !== 'quote-snapshots'
+    ) {
       throw new Error('Unsupported Alpaca channel')
     }
+    const upstreamChannel = resolveUpstreamChannel(channel)
 
     const context = await resolveListingContext(listing)
     const market = resolveMarket(payload, context.assetClass)
@@ -169,6 +201,7 @@ export class MarketStreamManager {
 
     const streamKey = buildAlpacaStreamKey({
       provider: 'alpaca',
+      workspaceId: payload.workspaceId,
       market,
       feed,
       cryptoRegion,
@@ -183,15 +216,27 @@ export class MarketStreamManager {
       cryptoRegion,
       keyId,
       secretKey,
+      auth: {
+        apiKey: keyId,
+        apiSecret: secretKey,
+      },
+      providerParams: payload.providerParams,
     })
 
     const intervalToken =
       typeof payload.interval === 'string' && payload.interval.trim()
         ? payload.interval.trim()
         : 'na'
-    const subscriptionId = `${streamKey}:${channel}:${symbol}:${intervalToken}`
+    const subscriptionId = createSubscriptionId({
+      streamKey,
+      channel,
+      symbol,
+      interval: intervalToken,
+      clientSubscriptionId: payload.clientSubscriptionId,
+    })
     const record: MarketSubscriptionRecord = {
       subscriptionId,
+      clientSubscriptionId: payload.clientSubscriptionId,
       streamKey,
       listing,
       socketId: socket.id,
@@ -200,6 +245,7 @@ export class MarketStreamManager {
       provider: 'alpaca',
       market,
       channel,
+      upstreamChannel,
       interval: payload.interval,
       listingBase: context.base,
       listingQuote: context.quote,
@@ -219,6 +265,7 @@ export class MarketStreamManager {
 
     return {
       subscriptionId,
+      clientSubscriptionId: payload.clientSubscriptionId,
       listing,
       symbol,
       provider: 'alpaca',
@@ -238,9 +285,10 @@ export class MarketStreamManager {
     }
 
     const channel = payload.channel ?? 'trades'
-    if (channel !== 'bars' && channel !== 'trades') {
+    if (channel !== 'bars' && channel !== 'trades' && channel !== 'quote-snapshots') {
       throw new Error('Finnhub streaming supports bars and trades only')
     }
+    const upstreamChannel = resolveUpstreamChannel(channel)
 
     const context = await resolveListingContext(listing)
     const market = resolveMarket(payload, context.assetClass)
@@ -259,20 +307,35 @@ export class MarketStreamManager {
       throw new Error('Finnhub API key is required for streaming')
     }
 
-    const streamKey = buildFinnhubStreamKey({ provider: 'finnhub', apiKey })
+    const streamKey = buildFinnhubStreamKey({
+      provider: 'finnhub',
+      workspaceId: payload.workspaceId,
+      apiKey,
+    })
     const streamState = this.getOrCreateStream(streamKey, {
       provider: 'finnhub',
       market,
       apiKey,
+      auth: {
+        apiKey,
+      },
+      providerParams: payload.providerParams,
     })
 
     const intervalToken =
       typeof payload.interval === 'string' && payload.interval.trim()
         ? payload.interval.trim()
         : 'na'
-    const subscriptionId = `${streamKey}:${channel}:${symbol}:${intervalToken}`
+    const subscriptionId = createSubscriptionId({
+      streamKey,
+      channel,
+      symbol,
+      interval: intervalToken,
+      clientSubscriptionId: payload.clientSubscriptionId,
+    })
     const record: MarketSubscriptionRecord = {
       subscriptionId,
+      clientSubscriptionId: payload.clientSubscriptionId,
       streamKey,
       listing,
       socketId: socket.id,
@@ -281,6 +344,7 @@ export class MarketStreamManager {
       provider: 'finnhub',
       market,
       channel,
+      upstreamChannel,
       interval: payload.interval,
       listingBase: context.base,
       listingQuote: context.quote,
@@ -300,9 +364,104 @@ export class MarketStreamManager {
 
     return {
       subscriptionId,
+      clientSubscriptionId: payload.clientSubscriptionId,
       listing,
       symbol,
       provider: 'finnhub',
+      market,
+      channel,
+      interval: payload.interval,
+    }
+  }
+
+  private async subscribePollingProvider(
+    socket: AuthenticatedSocket,
+    payload: MarketSubscribePayload & { provider: PollingMarketProviderId }
+  ): Promise<MarketSubscriptionInfo> {
+    const listing = payload.listing
+    if (!listing) {
+      throw new Error('listing is required to subscribe to market data')
+    }
+
+    const channel = payload.channel ?? 'quote-snapshots'
+    if (channel !== 'quote-snapshots') {
+      throw new Error('Polling market providers support quote snapshots only')
+    }
+
+    const capabilities = getMarketLiveCapabilities(payload.provider)
+    if (!capabilities?.supportsPolling) {
+      throw new Error(`Provider ${payload.provider} does not support polling market streams`)
+    }
+
+    const providerConfig = getMarketProviderConfig(payload.provider)
+    if (!providerConfig) {
+      throw new Error(`Market provider not found: ${payload.provider}`)
+    }
+
+    const context = await resolveListingContext(listing)
+    const market = resolveMarket(payload, context.assetClass)
+    const symbol = normalizeSymbol(resolveProviderSymbol(providerConfig, context))
+    if (!symbol) {
+      throw new Error('Failed to resolve provider symbol for listing')
+    }
+
+    const streamKey = buildPollingStreamKey({
+      provider: payload.provider,
+      workspaceId: payload.workspaceId,
+      auth: payload.auth,
+      providerParams: payload.providerParams,
+    })
+    const streamState = this.getOrCreatePollingStream(streamKey, {
+      provider: payload.provider,
+      auth: payload.auth,
+      providerParams: payload.providerParams,
+      pollingIntervalMs: resolvePollingIntervalMs(payload.provider, payload.providerParams),
+    })
+
+    const intervalToken =
+      typeof payload.interval === 'string' && payload.interval.trim()
+        ? payload.interval.trim()
+        : 'na'
+    const subscriptionId = createSubscriptionId({
+      streamKey,
+      channel,
+      symbol,
+      interval: intervalToken,
+      clientSubscriptionId: payload.clientSubscriptionId,
+    })
+    const record: MarketSubscriptionRecord = {
+      subscriptionId,
+      clientSubscriptionId: payload.clientSubscriptionId,
+      streamKey,
+      listing,
+      socketId: socket.id,
+      socket,
+      symbol,
+      provider: payload.provider,
+      market,
+      channel,
+      interval: payload.interval,
+      listingBase: context.base,
+      listingQuote: context.quote,
+    }
+
+    this.addSubscription(streamState, record)
+
+    logger.info('Polling market subscription added', {
+      socketId: socket.id,
+      userId: socket.userId,
+      provider: payload.provider,
+      listing,
+      symbol,
+      channel,
+    })
+
+    return {
+      subscriptionId,
+      clientSubscriptionId: payload.clientSubscriptionId,
+      listing,
+      symbol,
+      provider: payload.provider,
       market,
       channel,
       interval: payload.interval,
@@ -314,22 +473,36 @@ export class MarketStreamManager {
       streamState.subscribersBySymbol.get(record.symbol) ??
       new Map<string, MarketSubscriptionRecord>()
 
-    const hadChannel = Array.from(symbolSubscribers.values()).some(
-      (existing) => existing.channel === record.channel
-    )
+    const hadUpstreamChannel =
+      record.upstreamChannel === undefined
+        ? true
+        : Array.from(symbolSubscribers.values()).some(
+            (existing) => existing.upstreamChannel === record.upstreamChannel
+          )
 
     if (!symbolSubscribers.has(record.subscriptionId)) {
       symbolSubscribers.set(record.subscriptionId, record)
       streamState.subscribersBySymbol.set(record.symbol, symbolSubscribers)
 
-      if (!hadChannel) {
-        streamState.stream.subscribe([record.symbol], record.channel)
+      if (!hadUpstreamChannel && record.upstreamChannel) {
+        streamState.stream?.subscribe([record.symbol], record.upstreamChannel)
       }
     }
 
     const socketMap = this.socketSubscriptions.get(record.socketId) ?? new Map()
     socketMap.set(record.subscriptionId, record)
     this.socketSubscriptions.set(record.socketId, socketMap)
+
+    if (record.channel === 'quote-snapshots') {
+      const cached = streamState.quoteSnapshotCache.get(record.symbol)
+      if (cached) {
+        this.emitQuoteSnapshot(record, cached)
+      }
+    }
+
+    if (!streamState.stream) {
+      this.ensurePolling(streamState)
+    }
   }
 
   private getOrCreateStream(
@@ -342,6 +515,8 @@ export class MarketStreamManager {
       keyId?: string
       secretKey?: string
       apiKey?: string
+      auth?: MarketProviderAuth
+      providerParams?: MarketProviderParams
     }
   ): StreamState {
     const existing = this.streams.get(streamKey)
@@ -383,7 +558,35 @@ export class MarketStreamManager {
       market: config.market,
       feed: config.feed,
       cryptoRegion: config.cryptoRegion,
-      apiKey: config.apiKey,
+      auth: config.auth,
+      providerParams: config.providerParams,
+      quoteSnapshotCache: new Map(),
+      subscribersBySymbol: new Map(),
+    }
+
+    this.streams.set(streamKey, state)
+    return state
+  }
+
+  private getOrCreatePollingStream(
+    streamKey: string,
+    config: {
+      provider: PollingMarketProviderId
+      auth?: MarketProviderAuth
+      providerParams?: MarketProviderParams
+      pollingIntervalMs: number
+    }
+  ): StreamState {
+    const existing = this.streams.get(streamKey)
+    if (existing) return existing
+
+    const state: StreamState = {
+      provider: config.provider,
+      market: 'stocks',
+      auth: config.auth,
+      providerParams: config.providerParams,
+      pollingIntervalMs: config.pollingIntervalMs,
+      quoteSnapshotCache: new Map(),
       subscribersBySymbol: new Map(),
     }
 
@@ -424,7 +627,18 @@ export class MarketStreamManager {
     const subscribers = state.subscribersBySymbol.get(symbol)
     if (!subscribers || subscribers.size === 0) return
 
+    let quoteSnapshot: MarketQuoteSnapshot | null = null
+
     subscribers.forEach((record) => {
+      if (record.channel === 'quote-snapshots') {
+        if (!quoteSnapshot) {
+          quoteSnapshot = updateSnapshotFromTrade(state.quoteSnapshotCache.get(symbol), trade)
+          state.quoteSnapshotCache.set(symbol, quoteSnapshot)
+        }
+        this.emitQuoteSnapshot(record, quoteSnapshot, raw)
+        return
+      }
+
       if (record.channel !== 'trades') return
       record.socket.emit('market-trade', {
         provider: record.provider,
@@ -469,6 +683,102 @@ export class MarketStreamManager {
     })
   }
 
+  private emitQuoteSnapshotToSymbolSubscribers(
+    streamState: StreamState,
+    symbol: string,
+    snapshot: MarketQuoteSnapshot,
+    raw?: unknown
+  ) {
+    const subscribers = streamState.subscribersBySymbol.get(symbol)
+    if (!subscribers) return
+
+    subscribers.forEach((record) => {
+      if (record.channel !== 'quote-snapshots') return
+      this.emitQuoteSnapshot(record, snapshot, raw)
+    })
+  }
+
+  private emitQuoteSnapshot(
+    record: MarketSubscriptionRecord,
+    snapshot: MarketQuoteSnapshot,
+    raw?: unknown
+  ) {
+    record.socket.emit('market-quote-snapshot', {
+      provider: record.provider,
+      market: record.market,
+      channel: record.channel,
+      subscriptionId: record.subscriptionId,
+      clientSubscriptionId: record.clientSubscriptionId,
+      listing: record.listing,
+      listingBase: record.listingBase,
+      listingQuote: record.listingQuote,
+      symbol: record.symbol,
+      interval: record.interval,
+      snapshot,
+      receivedAt: new Date().toISOString(),
+      raw,
+    })
+  }
+
+  private ensurePolling(streamState: StreamState) {
+    if (streamState.pollingTimer) return
+    const intervalMs = streamState.pollingIntervalMs ?? DEFAULT_POLLING_INTERVAL_MS
+    streamState.pollingTimer = setInterval(() => {
+      void this.pollQuoteSnapshots(streamState)
+    }, intervalMs)
+    streamState.pollingTimer.unref?.()
+    void this.pollQuoteSnapshots(streamState)
+  }
+
+  private async pollQuoteSnapshots(streamState: StreamState) {
+    if (streamState.pollingInFlight) return
+
+    const records = new Map<string, MarketSubscriptionRecord>()
+    streamState.subscribersBySymbol.forEach((subscribers, symbol) => {
+      const record = Array.from(subscribers.values()).find(
+        (subscriber) => subscriber.channel === 'quote-snapshots' && subscriber.listing
+      )
+      if (record) records.set(symbol, record)
+    })
+
+    if (records.size === 0) return
+
+    streamState.pollingInFlight = true
+    try {
+      const pending = Array.from(records.entries())
+      const workers = Array.from(
+        { length: Math.min(POLLING_CONCURRENCY, pending.length) },
+        async () => {
+          while (pending.length > 0) {
+            const next = pending.shift()
+            if (!next) return
+            const [symbol, record] = next
+            try {
+              const snapshot = await buildMarketQuoteSnapshot({
+                provider: record.provider,
+                listing: record.listing as ListingIdentity,
+                auth: streamState.auth,
+                providerParams: streamState.providerParams,
+              })
+              streamState.quoteSnapshotCache.set(symbol, snapshot)
+              this.emitQuoteSnapshotToSymbolSubscribers(streamState, symbol, snapshot)
+            } catch (error) {
+              const snapshot = createEmptyMarketQuoteSnapshot(
+                error instanceof Error ? error.message : 'Failed to poll quote snapshot'
+              )
+              streamState.quoteSnapshotCache.set(symbol, snapshot)
+              this.emitQuoteSnapshotToSymbolSubscribers(streamState, symbol, snapshot)
+            }
+          }
+        }
+      )
+
+      await Promise.all(workers)
+    } finally {
+      streamState.pollingInFlight = false
+    }
+  }
+
   private handleStreamError(streamKey: string, message: string, detail?: any) {
     const state = this.streams.get(streamKey)
     if (!state) return
@@ -480,6 +790,7 @@ export class MarketStreamManager {
           market: record.market,
           channel: record.channel,
           subscriptionId: record.subscriptionId,
+          clientSubscriptionId: record.clientSubscriptionId,
           message,
           detail,
         })
@@ -494,6 +805,14 @@ export class MarketStreamManager {
     if (payload.subscriptionId) {
       const match = socketMap.get(payload.subscriptionId)
       return match ? [match] : []
+    }
+
+    if (payload.clientSubscriptionId) {
+      const matches: MarketSubscriptionRecord[] = []
+      socketMap.forEach((record) => {
+        if (record.clientSubscriptionId === payload.clientSubscriptionId) matches.push(record)
+      })
+      return matches
     }
 
     const symbol = payload.symbol ? normalizeSymbol(payload.symbol) : undefined
@@ -532,19 +851,25 @@ export class MarketStreamManager {
       symbolSubscribers.delete(record.subscriptionId)
       if (symbolSubscribers.size === 0) {
         streamState.subscribersBySymbol.delete(record.symbol)
-        streamState.stream.unsubscribe([record.symbol], record.channel)
-      } else {
-        const hasChannel = Array.from(symbolSubscribers.values()).some(
-          (existing) => existing.channel === record.channel
+        if (record.upstreamChannel) {
+          streamState.stream?.unsubscribe([record.symbol], record.upstreamChannel)
+        }
+      } else if (record.upstreamChannel) {
+        const hasUpstreamChannel = Array.from(symbolSubscribers.values()).some(
+          (existing) => existing.upstreamChannel === record.upstreamChannel
         )
-        if (!hasChannel) {
-          streamState.stream.unsubscribe([record.symbol], record.channel)
+        if (!hasUpstreamChannel) {
+          streamState.stream?.unsubscribe([record.symbol], record.upstreamChannel)
         }
       }
     }
 
     if (streamState.subscribersBySymbol.size === 0) {
-      streamState.stream.close()
+      if (streamState.pollingTimer) {
+        clearInterval(streamState.pollingTimer)
+        streamState.pollingTimer = undefined
+      }
+      streamState.stream?.close()
       this.streams.delete(record.streamKey)
     }
 
@@ -561,9 +886,15 @@ export class MarketStreamManager {
 
 export const marketStreamManager = new MarketStreamManager()
 
-function resolveProviderId(provider?: MarketProviderId): MarketProviderId {
+function resolveProviderId(provider?: AnyMarketProviderId): AnyMarketProviderId {
   if (provider === 'finnhub') return 'finnhub'
+  if (provider === 'yahoo-finance') return 'yahoo-finance'
+  if (provider === 'alpha-vantage') return 'alpha-vantage'
   return 'alpaca'
+}
+
+function resolveUpstreamChannel(channel: MarketChannel): MarketStreamChannel {
+  return channel === 'quote-snapshots' ? 'trades' : channel
 }
 
 function resolveMarket(payload: MarketSubscribePayload, assetClass?: string): AlpacaMarket {
@@ -618,6 +949,7 @@ function resolveFinnhubApiKey(payload: MarketSubscribePayload): string | undefin
 
 function buildAlpacaStreamKey(config: {
   provider: MarketProviderId
+  workspaceId?: string
   market: AlpacaMarket
   feed?: AlpacaFeed
   cryptoRegion?: AlpacaCryptoRegion
@@ -626,6 +958,7 @@ function buildAlpacaStreamKey(config: {
 }): string {
   const base = [
     config.provider,
+    config.workspaceId ?? '',
     config.market,
     config.feed ?? '',
     config.cryptoRegion ?? '',
@@ -636,9 +969,96 @@ function buildAlpacaStreamKey(config: {
   return createHash('sha256').update(base).digest('hex')
 }
 
-function buildFinnhubStreamKey(config: { provider: MarketProviderId; apiKey: string }): string {
-  const base = [config.provider, config.apiKey].join('|')
+function buildFinnhubStreamKey(config: {
+  provider: MarketProviderId
+  workspaceId?: string
+  apiKey: string
+}): string {
+  const base = [config.provider, config.workspaceId ?? '', config.apiKey].join('|')
   return createHash('sha256').update(base).digest('hex')
+}
+
+function buildPollingStreamKey(config: {
+  provider: PollingMarketProviderId
+  workspaceId?: string
+  auth?: MarketProviderAuth
+  providerParams?: MarketProviderParams
+}): string {
+  const base = [
+    config.provider,
+    config.workspaceId ?? '',
+    stableStringifyJsonValue(config.auth ?? null),
+    stableStringifyJsonValue(config.providerParams ?? null),
+  ].join('|')
+  return createHash('sha256').update(base).digest('hex')
+}
+
+function createSubscriptionId({
+  streamKey,
+  channel,
+  symbol,
+  interval,
+  clientSubscriptionId,
+}: {
+  streamKey: string
+  channel: MarketChannel
+  symbol: string
+  interval: string
+  clientSubscriptionId?: string
+}) {
+  return [
+    streamKey,
+    channel,
+    symbol,
+    interval,
+    clientSubscriptionId?.trim() || randomUUID(),
+  ].join(':')
+}
+
+function resolvePollingIntervalMs(
+  provider: PollingMarketProviderId,
+  providerParams?: MarketProviderParams
+): number {
+  const configured = Number(providerParams?.pollingIntervalMs ?? providerParams?.pollIntervalMs)
+  const capabilityDefault =
+    getMarketLiveCapabilities(provider)?.pollingIntervalMs ?? DEFAULT_POLLING_INTERVAL_MS
+  const requested =
+    Number.isFinite(configured) && configured > 0 ? configured : capabilityDefault
+  return Math.max(MIN_POLLING_INTERVAL_MS, requested)
+}
+
+function updateSnapshotFromTrade(
+  previous: MarketQuoteSnapshot | undefined,
+  trade: any
+): MarketQuoteSnapshot {
+  const price = resolveFiniteNumber(trade?.price)
+  if (price === null) return previous ?? createEmptyMarketQuoteSnapshot()
+
+  const previousClose = previous?.previousClose ?? null
+  const change =
+    previousClose !== null
+      ? price - previousClose
+      : (previous?.change ?? null)
+  const changePercent =
+    previousClose !== null && previousClose !== 0
+      ? ((price - previousClose) / previousClose) * 100
+      : (previous?.changePercent ?? null)
+  const volume = previous?.volume ?? null
+  const volumeUsd = volume !== null ? volume * price : (previous?.volumeUsd ?? null)
+
+  return {
+    lastPrice: price,
+    previousClose,
+    change,
+    changePercent,
+    ...(volume !== null ? { volume } : {}),
+    ...(volumeUsd !== null ? { volumeUsd } : {}),
+    ...(previous?.error ? { error: previous.error } : {}),
+  }
+}
+
+function resolveFiniteNumber(value: unknown): number | null {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null
 }
 
 function normalizeSymbol(symbol?: string): string {

@@ -181,6 +181,7 @@ const renderBody = async (
   await act(async () => {
     root.render(
       <QuickOrderWidgetBody
+        context={{ workspaceId: 'workspace-1' } as any}
         widget={{ key: 'quick_order' } as any}
         panelId='panel-1'
         params={params}
@@ -398,6 +399,39 @@ describe('QuickOrderWidgetBody', () => {
     expect(footerButton).toBeDisabled()
   })
 
+  it('uses configured market data provider settings for quote websocket subscriptions', async () => {
+    await renderBody(container, root, {
+      provider: 'alpaca',
+      marketProvider: 'finnhub',
+      marketProviderParams: { region: 'US' },
+      marketAuth: { apiKey: 'market-key' },
+      credentialId: 'cred-1',
+      environment: 'paper',
+      accountId: 'acct-1',
+      side: 'buy',
+    })
+
+    await act(async () => {
+      container.querySelector<HTMLButtonElement>('[data-testid="listing-selector"]')?.click()
+    })
+    await act(async () => {})
+
+    expect(mockUseMarketQuoteSnapshots).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        workspaceId: 'workspace-1',
+        provider: 'finnhub',
+        auth: { apiKey: 'market-key' },
+        providerParams: { region: 'US' },
+        enabled: true,
+      })
+    )
+    expect(mockUseMarketQuoteSnapshots.mock.calls.at(-1)?.[0].items).toEqual([
+      expect.objectContaining({
+        listing: stockListing,
+      }),
+    ])
+  })
+
   it('clears invalid providers without deleting saved credential or account params from async lookups', async () => {
     const onInvalidProviderChange = vi.fn()
     await renderBody(
@@ -532,6 +566,9 @@ describe('QuickOrderWidgetBody', () => {
   it('submits only the quick order route payload fields', async () => {
     await renderBody(container, root, {
       provider: 'alpaca',
+      marketProvider: 'finnhub',
+      marketProviderParams: { region: 'US' },
+      marketAuth: { apiKey: 'market-key' },
       credentialId: 'cred-1',
       environment: 'paper',
       accountId: 'acct-1',
@@ -568,6 +605,9 @@ describe('QuickOrderWidgetBody', () => {
     )
     expect(mockMutate.mock.calls[0][0]).not.toHaveProperty('orderClass')
     expect(mockMutate.mock.calls[0][0]).not.toHaveProperty('providerParams')
+    expect(mockMutate.mock.calls[0][0]).not.toHaveProperty('marketProvider')
+    expect(mockMutate.mock.calls[0][0]).not.toHaveProperty('marketProviderParams')
+    expect(mockMutate.mock.calls[0][0]).not.toHaveProperty('marketAuth')
   })
 
   it('renders success feedback with destination provider and account details', async () => {

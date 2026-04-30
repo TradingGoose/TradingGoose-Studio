@@ -9,6 +9,55 @@ import { renderQuickOrderHeader } from '@/widgets/widgets/quick_order/components
 
 const mockUseOAuthProviderAvailability = vi.fn()
 const mockEmitQuickOrderParamsChange = vi.fn()
+type MockMarketProviderControlsProps = {
+  value?: string | null
+  workspaceId?: string
+  providerParams?: Record<string, unknown>
+  authParams?: Record<string, unknown>
+  onChange?: (provider: string) => void
+  onSettingsSave?: (next: {
+    providerParams?: Record<string, unknown>
+    auth?: Record<string, unknown>
+  }) => void
+}
+const mockMarketProviderControls = vi.fn(
+  ({
+    value,
+    workspaceId,
+    providerParams,
+    authParams,
+    onChange,
+    onSettingsSave,
+  }: MockMarketProviderControlsProps) => (
+    <div
+      data-testid='market-provider-controls'
+      data-provider={value ?? ''}
+      data-workspace-id={workspaceId ?? ''}
+      data-provider-params={JSON.stringify(providerParams ?? null)}
+      data-auth-params={JSON.stringify(authParams ?? null)}
+    >
+      <button
+        type='button'
+        data-testid='market-provider-selector'
+        onClick={() => onChange?.('finnhub')}
+      >
+        market provider
+      </button>
+      <button
+        type='button'
+        data-testid='market-provider-settings'
+        onClick={() =>
+          onSettingsSave?.({
+            providerParams: { region: 'US' },
+            auth: { apiKey: 'market-key' },
+          })
+        }
+      >
+        market settings
+      </button>
+    </div>
+  )
+)
 type MockTradingAccountSelectorProps = {
   onAccountSelect?: (selection: unknown) => void
 }
@@ -34,6 +83,11 @@ vi.mock('@/hooks/queries/oauth-provider-availability', () => ({
 
 vi.mock('@/widgets/utils/quick-order-params', () => ({
   emitQuickOrderParamsChange: (...args: unknown[]) => mockEmitQuickOrderParamsChange(...args),
+}))
+
+vi.mock('@/widgets/widgets/components/market-provider-controls', () => ({
+  MarketProviderControls: (props: MockMarketProviderControlsProps) =>
+    mockMarketProviderControls(props),
 }))
 
 vi.mock('@/widgets/widgets/components/trading-provider-selector', () => ({
@@ -98,9 +152,18 @@ describe('QuickOrderHeaderControls', () => {
   it('renders provider/account controls in left slot and BUY/SELL tabs in center slot', () => {
     const header = renderHeader({
       panelId: 'panel-1',
+      context: { workspaceId: 'workspace-1' } as any,
       widget: {
         key: 'quick_order',
-        params: { provider: 'alpaca', credentialId: 'cred-1', environment: 'paper', side: 'buy' },
+        params: {
+          provider: 'alpaca',
+          marketProvider: 'yahoo-finance',
+          marketProviderParams: { region: 'US' },
+          marketAuth: { apiKey: 'market-key' },
+          credentialId: 'cred-1',
+          environment: 'paper',
+          side: 'buy',
+        },
       } as any,
     })
 
@@ -113,6 +176,19 @@ describe('QuickOrderHeaderControls', () => {
       )
     })
 
+    expect(container.querySelector('[data-testid="market-provider-controls"]')).not.toBeNull()
+    expect(
+      container.querySelector<HTMLElement>('[data-testid="market-provider-controls"]')?.dataset
+        .workspaceId
+    ).toBe('workspace-1')
+    expect(
+      container.querySelector<HTMLElement>('[data-testid="market-provider-controls"]')?.dataset
+        .providerParams
+    ).toBe(JSON.stringify({ region: 'US' }))
+    expect(
+      container.querySelector<HTMLElement>('[data-testid="market-provider-controls"]')?.dataset
+        .authParams
+    ).toBe(JSON.stringify({ apiKey: 'market-key' }))
     expect(container.querySelector('[data-testid="provider-selector"]')).not.toBeNull()
     expect(container.querySelector('[data-testid="account-selector"]')).not.toBeNull()
     expect(container.textContent).toContain('BUY')
@@ -138,12 +214,22 @@ describe('QuickOrderHeaderControls', () => {
     })
 
     act(() => {
+      container.querySelector<HTMLButtonElement>('[data-testid="market-provider-selector"]')?.click()
       container.querySelector<HTMLButtonElement>('[data-testid="provider-selector"]')?.click()
       Array.from(container.querySelectorAll('button'))
         .find((button) => button.textContent === 'SELL')
         ?.click()
     })
 
+    expect(mockEmitQuickOrderParamsChange).toHaveBeenCalledWith({
+      params: {
+        marketProvider: 'finnhub',
+        marketProviderParams: null,
+        marketAuth: null,
+      },
+      panelId: 'panel-1',
+      widgetKey: 'quick_order',
+    })
     expect(mockEmitQuickOrderParamsChange).toHaveBeenCalledWith({
       params: {
         provider: 'tradier',
@@ -156,6 +242,33 @@ describe('QuickOrderHeaderControls', () => {
     })
     expect(mockEmitQuickOrderParamsChange).toHaveBeenCalledWith({
       params: { side: 'sell' },
+      panelId: 'panel-1',
+      widgetKey: 'quick_order',
+    })
+  })
+
+  it('emits scoped market provider settings independently from trading account settings', () => {
+    const header = renderHeader({
+      panelId: 'panel-1',
+      widget: {
+        key: 'quick_order',
+        params: { provider: 'alpaca', marketProvider: 'yahoo-finance', side: 'buy' },
+      } as any,
+    })
+
+    act(() => {
+      root.render(<>{header.left}</>)
+    })
+
+    act(() => {
+      container.querySelector<HTMLButtonElement>('[data-testid="market-provider-settings"]')?.click()
+    })
+
+    expect(mockEmitQuickOrderParamsChange).toHaveBeenCalledWith({
+      params: {
+        marketProviderParams: { region: 'US' },
+        marketAuth: { apiKey: 'market-key' },
+      },
       panelId: 'panel-1',
       widgetKey: 'quick_order',
     })
