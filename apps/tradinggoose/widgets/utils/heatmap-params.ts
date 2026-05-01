@@ -54,8 +54,6 @@ export const sanitizeHeatmapParams = (
   const watchlistSizeMetric = normalizeString(params.watchlistSizeMetric)
   const marketProvider = normalizeString(params.marketProvider)
   const tradingProvider = normalizeString(params.tradingProvider)
-  const credentialId = normalizeString(params.credentialId)
-  const environment = normalizeString(params.environment)
   const accountId = normalizeString(params.accountId)
   const marketProviderParams = sanitizeMarketProviderParamsForWidget(
     marketProvider,
@@ -77,8 +75,6 @@ export const sanitizeHeatmapParams = (
   if (marketProviderParams) nextParams.marketProviderParams = marketProviderParams
   if (marketAuth) nextParams.marketAuth = marketAuth
   if (tradingProvider) nextParams.tradingProvider = tradingProvider
-  if (credentialId) nextParams.credentialId = credentialId
-  if (environment === 'paper' || environment === 'live') nextParams.environment = environment
   if (accountId) nextParams.accountId = accountId
   if (refreshAt !== undefined) nextParams.runtime = { refreshAt }
 

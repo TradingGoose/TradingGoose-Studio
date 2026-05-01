@@ -10,11 +10,9 @@ import { getListingIdentityKey } from '@/lib/listing/identity'
 import { MARKET_QUOTE_SNAPSHOT_REQUEST_CAP } from '@/lib/market/quote-snapshot-contract'
 import { cn } from '@/lib/utils'
 import { useMarketQuoteSnapshots } from '@/hooks/queries/market-quote-snapshots'
-import { useOAuthCredentials } from '@/hooks/queries/oauth-credentials'
 import { useOAuthProviderAvailability } from '@/hooks/queries/oauth-provider-availability'
 import {
   useTradingAccounts,
-  useTradingHoldingsListings,
   useTradingPortfolioPerformance,
   useTradingPortfolioSnapshot,
 } from '@/hooks/queries/trading-portfolio'
@@ -27,14 +25,11 @@ import {
 } from '@/widgets/utils/portfolio-snapshot-params'
 import { PortfolioSnapshotPerformanceChart } from '@/widgets/widgets/portfolio_snapshot/components/performance-chart'
 import {
-  getPortfolioSnapshotDefaultEnvironment,
   getPortfolioSnapshotDefaultWindow,
-  getPortfolioSnapshotEnvironmentOptions,
   getPortfolioSnapshotMarketProviderOptions,
   getPortfolioSnapshotProviderAvailabilityIds,
   getPortfolioSnapshotProviderOptions,
   getPortfolioSnapshotSupportedWindows,
-  resolvePortfolioSnapshotCredentialProvider,
   resolvePortfolioSnapshotMarketProviderId,
   resolvePortfolioSnapshotProviderId,
 } from '@/widgets/widgets/portfolio_snapshot/components/shared'
@@ -201,24 +196,13 @@ export function PortfolioSnapshotWidgetBody({
     !providerAvailabilityQuery.error &&
     Boolean(widgetParams?.provider) &&
     !hasSelectedProvider
-  const persistedCredentialId = hasValidPersistedProvider ? widgetParams?.credentialId : undefined
   const providerDefinition = hasSelectedProvider ? getTradingProviderDefinition(providerId) : null
-  const environmentOptions = useMemo(
-    () => (hasSelectedProvider ? getPortfolioSnapshotEnvironmentOptions(providerId) : []),
-    [hasSelectedProvider, providerId]
-  )
-  const defaultEnvironment = hasSelectedProvider
-    ? getPortfolioSnapshotDefaultEnvironment(providerId)
-    : undefined
   const supportedWindows = useMemo(
     () => (hasSelectedProvider ? getPortfolioSnapshotSupportedWindows(providerId) : []),
     [hasSelectedProvider, providerId]
   )
   const defaultWindow = hasSelectedProvider
     ? getPortfolioSnapshotDefaultWindow(providerId)
-    : undefined
-  const credentialProviderId = hasSelectedProvider
-    ? resolvePortfolioSnapshotCredentialProvider(providerId)
     : undefined
   const isProviderReady =
     !providerAvailabilityQuery.isLoading &&
@@ -242,8 +226,6 @@ export function PortfolioSnapshotWidgetBody({
     emitPortfolioSnapshotParamsChange({
       params: {
         provider: null,
-        environment: null,
-        credentialId: null,
         accountId: null,
         selectedWindow: null,
       },
@@ -251,36 +233,6 @@ export function PortfolioSnapshotWidgetBody({
       widgetKey,
     })
   }, [hasInvalidPersistedProvider, panelId, widgetKey])
-
-  const environment =
-    hasSelectedProvider &&
-      widgetParams?.environment &&
-      environmentOptions.some((option) => option.id === widgetParams.environment)
-      ? widgetParams.environment
-      : defaultEnvironment
-
-  useEffect(() => {
-    if (providerAvailabilityQuery.isLoading) return
-    if (providerAvailabilityQuery.error) return
-    if (!hasSelectedProvider) return
-    if (!hasValidPersistedProvider) return
-    if (!environment) return
-    if (widgetParams?.environment === environment) return
-    emitPortfolioSnapshotParamsChange({
-      params: { environment },
-      panelId,
-      widgetKey,
-    })
-  }, [
-    environment,
-    hasSelectedProvider,
-    hasValidPersistedProvider,
-    panelId,
-    providerAvailabilityQuery.error,
-    providerAvailabilityQuery.isLoading,
-    widgetKey,
-    widgetParams?.environment,
-  ])
 
   const selectedWindow =
     widgetParams?.selectedWindow && supportedWindows.includes(widgetParams.selectedWindow)
@@ -310,23 +262,15 @@ export function PortfolioSnapshotWidgetBody({
     widgetParams?.selectedWindow,
   ])
 
-  const credentialsQuery = useOAuthCredentials(
-    credentialProviderId,
-    isProviderReady && Boolean(credentialProviderId)
-  )
-  const activeCredentialId = persistedCredentialId
-
   const accountsQuery = useTradingAccounts({
+    workspaceId: workspaceId ?? undefined,
     provider: isProviderReady ? providerId : undefined,
-    credentialId: activeCredentialId,
-    environment: isProviderReady ? environment : undefined,
   })
-  const accounts = activeCredentialId ? (accountsQuery.data ?? []) : []
+  const accounts = accountsQuery.data ?? []
   const singleAccount = accounts.length === 1 ? (accounts[0] ?? null) : null
   const activeAccountId = widgetParams?.accountId ?? singleAccount?.id
 
   useEffect(() => {
-    if (!activeCredentialId) return
     if (accountsQuery.isLoading) return
     if (accountsQuery.error) return
 
@@ -342,7 +286,6 @@ export function PortfolioSnapshotWidgetBody({
     }
   }, [
     accounts,
-    activeCredentialId,
     accountsQuery.error,
     accountsQuery.isLoading,
     panelId,
@@ -351,26 +294,18 @@ export function PortfolioSnapshotWidgetBody({
   ])
 
   const snapshotQuery = useTradingPortfolioSnapshot({
+    workspaceId: workspaceId ?? undefined,
     provider: isProviderReady ? providerId : undefined,
-    credentialId: activeCredentialId,
-    environment: isProviderReady ? environment : undefined,
-    accountId: activeAccountId,
-  })
-
-  const holdingsListingsQuery = useTradingHoldingsListings({
-    provider: isProviderReady ? providerId : undefined,
-    credentialId: activeCredentialId,
-    environment: isProviderReady ? environment : undefined,
     accountId: activeAccountId,
   })
 
   const quotePositions = useMemo(
     () =>
-      (holdingsListingsQuery.data?.positionListings ?? []).map((position) => ({
+      snapshotQuery.positionListings.map((position) => ({
         ...position,
         key: getListingIdentityKey(position.listing),
       })),
-    [holdingsListingsQuery.data?.positionListings]
+    [snapshotQuery.positionListings]
   )
   const cappedQuotePositions = useMemo(
     () => quotePositions.slice(0, PORTFOLIO_SNAPSHOT_QUOTE_CAP),
@@ -385,13 +320,6 @@ export function PortfolioSnapshotWidgetBody({
       })),
     [cappedQuotePositions]
   )
-  const holdingsListingsErrorMessage =
-    holdingsListingsQuery.error instanceof Error
-      ? holdingsListingsQuery.error.message
-      : holdingsListingsQuery.error
-        ? 'Failed to resolve holdings listings.'
-        : null
-
   const quoteSnapshotsQuery = useMarketQuoteSnapshots({
     workspaceId: workspaceId ?? undefined,
     provider: marketProviderId || undefined,
@@ -399,15 +327,12 @@ export function PortfolioSnapshotWidgetBody({
     auth: widgetParams?.marketAuth,
     providerParams: widgetParams?.marketProviderParams,
     refreshKey: refreshAt,
-    enabled: Boolean(
-      marketProviderId && activeAccountId && quoteItems.length > 0 && !holdingsListingsErrorMessage
-    ),
+    enabled: Boolean(marketProviderId && activeAccountId && quoteItems.length > 0),
   })
 
   const performanceQuery = useTradingPortfolioPerformance({
+    workspaceId: workspaceId ?? undefined,
     provider: isProviderReady ? providerId : undefined,
-    credentialId: activeCredentialId,
-    environment: isProviderReady ? environment : undefined,
     accountId: activeAccountId,
     selectedWindow: selectedWindow as TradingPortfolioPerformanceWindow | undefined,
   })
@@ -418,10 +343,9 @@ export function PortfolioSnapshotWidgetBody({
     lastRefreshAtRef.current = refreshAt
     if (activeAccountId) {
       void snapshotQuery.refetch()
-      void holdingsListingsQuery.refetch()
       void performanceQuery.refetch()
     }
-  }, [activeAccountId, holdingsListingsQuery, performanceQuery, refreshAt, snapshotQuery])
+  }, [activeAccountId, performanceQuery, refreshAt, snapshotQuery])
 
   if (providerAvailabilityQuery.isLoading) {
     return <PortfolioLoading />
@@ -447,36 +371,6 @@ export function PortfolioSnapshotWidgetBody({
     return <PortfolioMessage message='Select a trading provider to get started.' />
   }
 
-  if (!activeCredentialId) {
-    if (credentialsQuery.isLoading) {
-      return <PortfolioLoading />
-    }
-
-    if (credentialsQuery.error) {
-      return (
-        <PortfolioMessage
-          message={
-            credentialsQuery.error instanceof Error
-              ? credentialsQuery.error.message
-              : 'Failed to load broker credentials.'
-          }
-        />
-      )
-    }
-
-    const providerName = providerDefinition?.name ?? 'broker'
-    const credentialArticle = /^[aeiou]/i.test(providerName) ? 'an' : 'a'
-    return (
-      <PortfolioMessage
-        message={
-          (credentialsQuery.data ?? []).length === 0
-            ? `Connect ${providerName} in provider settings to get started.`
-            : `Select ${credentialArticle} ${providerName} connection in provider settings to view an account snapshot.`
-        }
-      />
-    )
-  }
-
   if (!activeAccountId) {
     if (accountsQuery.isLoading && accounts.length === 0) {
       return <PortfolioLoading />
@@ -495,7 +389,7 @@ export function PortfolioSnapshotWidgetBody({
     }
 
     if (accounts.length === 0) {
-      return <PortfolioMessage message='No broker accounts found for the selected credential.' />
+      return <PortfolioMessage message='No broker accounts found for this provider connection.' />
     }
 
     return <PortfolioMessage message='Select a broker account to load this portfolio snapshot.' />
@@ -522,12 +416,11 @@ export function PortfolioSnapshotWidgetBody({
   const currency = performance?.summary?.currency ?? snapshot.account.baseCurrency ?? 'USD'
   const activeWindows = performance?.supportedWindows ?? supportedWindows
   const quoteErrorMessage =
-    holdingsListingsErrorMessage ??
-    (quoteSnapshotsQuery.error instanceof Error
+    quoteSnapshotsQuery.error instanceof Error
       ? quoteSnapshotsQuery.error.message
       : quoteSnapshotsQuery.error
         ? 'Failed to load market quotes.'
-        : null)
+        : null
   const quoteSummary = cappedQuotePositions.reduce(
     (summary, position) => {
       const quote = quoteSnapshotsQuery.data?.[position.key]
@@ -558,28 +451,28 @@ export function PortfolioSnapshotWidgetBody({
     quotePositions.length > cappedQuotePositions.length
       ? `Quote metrics use first ${PORTFOLIO_SNAPSHOT_QUOTE_CAP} of ${quotePositions.length} holdings`
       : undefined
-  const isResolvingQuoteHoldings = holdingsListingsQuery.isLoading && !holdingsListingsQuery.data
   const quoteStatusText =
     quoteErrorMessage ??
-    (isResolvingQuoteHoldings
-      ? 'Resolving holdings'
-      : quoteSnapshotsQuery.isLoading && !quoteSnapshotsQuery.data
-        ? 'Loading quotes'
-        : quoteSnapshotsQuery.isFetching
-          ? 'Refreshing quotes'
-          : (quotedPositionsHint ??
-            (marketProviderId
-              ? quoteItems.length > 0
-                ? `${quoteSummary.quotedPositions}/${cappedQuotePositions.length} quoted`
-                : 'No holdings with market listings'
-              : 'No market provider')))
-  const accountMetaText = `${snapshot.provider?.name ?? providerDefinition?.name ?? providerId} · ${environment} · ${snapshot.account.status ?? 'unknown'
-    } · ${snapshot.account.type}`
+    (quoteSnapshotsQuery.isLoading && !quoteSnapshotsQuery.data
+      ? 'Loading quotes'
+      : quoteSnapshotsQuery.isFetching
+        ? 'Refreshing quotes'
+        : (quotedPositionsHint ??
+          (marketProviderId
+            ? quoteItems.length > 0
+              ? `${quoteSummary.quotedPositions}/${cappedQuotePositions.length} quoted`
+              : 'No holdings with market listings'
+            : 'No market provider')))
+  const accountMetaText = [
+    snapshot.provider?.name ?? providerDefinition?.name ?? providerId,
+    snapshot.account.status ?? 'unknown',
+    snapshot.account.type,
+  ].join(' · ')
   const performanceTone = getNumberTone(performance?.summary?.absoluteReturn)
   const quoteDayTone = getNumberTone(quoteDayChange)
   const quoteStatusTone: MetricTone = quoteErrorMessage
     ? 'negative'
-    : isResolvingQuoteHoldings || quoteSnapshotsQuery.isFetching
+    : quoteSnapshotsQuery.isFetching
       ? 'warning'
       : 'neutral'
 
@@ -602,7 +495,7 @@ export function PortfolioSnapshotWidgetBody({
                   ) : null}
                 </div>
                 <div className='mt-1 truncate text-muted-foreground text-xs'>
-                  {snapshot.account.name ?? snapshot.account.id} · {environment}
+                  {snapshot.account.name ?? snapshot.account.id}
                 </div>
               </div>
 
@@ -706,12 +599,6 @@ export function PortfolioSnapshotWidgetBody({
                     className='rounded-sm px-1.5 py-0 font-medium text-[10px]'
                   >
                     {snapshot.account.status ?? 'unknown'}
-                  </Badge>
-                  <Badge
-                    variant='secondary'
-                    className='rounded-sm px-1.5 py-0 font-medium text-[10px]'
-                  >
-                    {environment}
                   </Badge>
                 </div>
                 <div className='mt-1 truncate text-muted-foreground text-xs'>{accountMetaText}</div>

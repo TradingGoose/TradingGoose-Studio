@@ -8,7 +8,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useListingSelectorStore } from '@/stores/market/selector/store'
 import { QuickOrderWidgetBody } from '@/widgets/widgets/quick_order/components/body'
 
-const mockUseOAuthCredentials = vi.fn()
 const mockUseOAuthProviderAvailability = vi.fn()
 const mockUseMarketQuoteSnapshots = vi.fn()
 const mockUseTradingAccounts = vi.fn()
@@ -37,10 +36,6 @@ const assetlessListing = {
 }
 
 let nextListing: Record<string, unknown> = stockListing
-
-vi.mock('@/hooks/queries/oauth-credentials', () => ({
-  useOAuthCredentials: (...args: unknown[]) => mockUseOAuthCredentials(...args),
-}))
 
 vi.mock('@/hooks/queries/oauth-provider-availability', () => ({
   useOAuthProviderAvailability: (...args: unknown[]) => mockUseOAuthProviderAvailability(...args),
@@ -243,9 +238,6 @@ describe('QuickOrderWidgetBody', () => {
     root = createRoot(container)
 
     mockUseOAuthProviderAvailability.mockReturnValue(queryResult({ data: { alpaca: true } }))
-    mockUseOAuthCredentials.mockReturnValue(
-      queryResult({ data: [{ id: 'cred-1', name: 'Primary' }] })
-    )
     mockUseTradingAccounts.mockReturnValue(
       queryResult({ data: [{ id: 'acct-1', name: 'Paper Account' }] })
     )
@@ -302,8 +294,6 @@ describe('QuickOrderWidgetBody', () => {
   it('renders order body controls and keeps the submit footer pinned as a sibling', async () => {
     await renderBody(container, root, {
       provider: 'alpaca',
-      credentialId: 'cred-1',
-      environment: 'paper',
       accountId: 'acct-1',
       side: 'buy',
     })
@@ -319,8 +309,6 @@ describe('QuickOrderWidgetBody', () => {
   it('keeps listing selector state scoped to a stable trading instance and resets on unmount', async () => {
     await renderBody(container, root, {
       provider: 'alpaca',
-      credentialId: 'cred-1',
-      environment: 'paper',
       accountId: 'acct-1',
       side: 'buy',
     })
@@ -353,8 +341,6 @@ describe('QuickOrderWidgetBody', () => {
   it('shows disabled order type placeholders before submit-ready listings', async () => {
     await renderBody(container, root, {
       provider: 'alpaca',
-      credentialId: 'cred-1',
-      environment: 'paper',
       accountId: 'acct-1',
       side: 'buy',
     })
@@ -379,8 +365,6 @@ describe('QuickOrderWidgetBody', () => {
   it('clears unresolved listing values from submit readiness', async () => {
     await renderBody(container, root, {
       provider: 'alpaca',
-      credentialId: 'cred-1',
-      environment: 'paper',
       accountId: 'acct-1',
       side: 'buy',
     })
@@ -405,8 +389,6 @@ describe('QuickOrderWidgetBody', () => {
       marketProvider: 'finnhub',
       marketProviderParams: { region: 'US' },
       marketAuth: { apiKey: 'market-key' },
-      credentialId: 'cred-1',
-      environment: 'paper',
       accountId: 'acct-1',
       side: 'buy',
     })
@@ -435,8 +417,6 @@ describe('QuickOrderWidgetBody', () => {
   it('does not use trading provider settings for market quote websocket subscriptions', async () => {
     await renderBody(container, root, {
       provider: 'alpaca',
-      credentialId: 'cred-1',
-      environment: 'paper',
       accountId: 'acct-1',
       side: 'buy',
     })
@@ -457,47 +437,19 @@ describe('QuickOrderWidgetBody', () => {
     )
   })
 
-  it('clears invalid providers without deleting saved credential or account params from async lookups', async () => {
+  it('clears invalid providers without deleting account params from async lookups', async () => {
     const onInvalidProviderChange = vi.fn()
     await renderBody(
       container,
       root,
       {
         provider: 'missing-provider',
-        credentialId: 'cred-1',
-        environment: 'paper',
         accountId: 'acct-1',
         side: 'buy',
       },
       onInvalidProviderChange
     )
     expect(onInvalidProviderChange).toHaveBeenCalledWith({ side: 'buy' })
-
-    await act(async () => {
-      root.unmount()
-    })
-    root = createRoot(container)
-
-    const onIncompleteCredentialOptionsChange = vi.fn()
-    mockUseOAuthCredentials.mockReturnValueOnce(queryResult({ data: [] }))
-    await renderBody(
-      container,
-      root,
-      {
-        provider: 'alpaca',
-        credentialId: 'stale-credential',
-        environment: 'paper',
-        accountId: 'acct-1',
-        side: 'buy',
-      },
-      onIncompleteCredentialOptionsChange
-    )
-    expect(onIncompleteCredentialOptionsChange).not.toHaveBeenCalled()
-    expect(mockUseTradingAccounts).toHaveBeenLastCalledWith({
-      provider: 'alpaca',
-      credentialId: 'stale-credential',
-      environment: 'paper',
-    })
 
     await act(async () => {
       root.unmount()
@@ -513,8 +465,6 @@ describe('QuickOrderWidgetBody', () => {
       root,
       {
         provider: 'alpaca',
-        credentialId: 'cred-1',
-        environment: 'paper',
         accountId: 'stale-account',
         side: 'buy',
       },
@@ -522,9 +472,8 @@ describe('QuickOrderWidgetBody', () => {
     )
     expect(onIncompleteAccountOptionsChange).not.toHaveBeenCalled()
     expect(mockUseTradingPortfolioSnapshot).toHaveBeenLastCalledWith({
+      workspaceId: 'workspace-1',
       provider: 'alpaca',
-      credentialId: 'cred-1',
-      environment: 'paper',
       accountId: 'stale-account',
     })
   })
@@ -532,8 +481,6 @@ describe('QuickOrderWidgetBody', () => {
   it('keeps invalid numeric text from becoming a submit payload', async () => {
     await renderBody(container, root, {
       provider: 'alpaca',
-      credentialId: 'cred-1',
-      environment: 'paper',
       accountId: 'acct-1',
       side: 'buy',
     })
@@ -557,8 +504,6 @@ describe('QuickOrderWidgetBody', () => {
   it('rejects Alpaca notional trailing stop orders before submit', async () => {
     await renderBody(container, root, {
       provider: 'alpaca',
-      credentialId: 'cred-1',
-      environment: 'paper',
       accountId: 'acct-1',
       side: 'buy',
     })
@@ -594,8 +539,6 @@ describe('QuickOrderWidgetBody', () => {
       marketProvider: 'finnhub',
       marketProviderParams: { region: 'US' },
       marketAuth: { apiKey: 'market-key' },
-      credentialId: 'cred-1',
-      environment: 'paper',
       accountId: 'acct-1',
       side: 'buy',
     })
@@ -617,8 +560,6 @@ describe('QuickOrderWidgetBody', () => {
     expect(mockMutate).toHaveBeenCalledWith(
       expect.objectContaining({
         provider: 'alpaca',
-        credentialId: 'cred-1',
-        environment: 'paper',
         accountId: 'acct-1',
         side: 'buy',
         listing: stockListing,
@@ -629,6 +570,8 @@ describe('QuickOrderWidgetBody', () => {
       })
     )
     expect(mockMutate.mock.calls[0][0]).not.toHaveProperty('orderClass')
+    expect(mockMutate.mock.calls[0][0]).not.toHaveProperty('credentialId')
+    expect(mockMutate.mock.calls[0][0]).not.toHaveProperty('environment')
     expect(mockMutate.mock.calls[0][0]).not.toHaveProperty('providerParams')
     expect(mockMutate.mock.calls[0][0]).not.toHaveProperty('marketProvider')
     expect(mockMutate.mock.calls[0][0]).not.toHaveProperty('marketProviderParams')
@@ -642,7 +585,6 @@ describe('QuickOrderWidgetBody', () => {
       isPending: false,
       data: {
         provider: 'alpaca',
-        environment: 'paper',
         accountId: 'acct-1',
         message: 'Order accepted',
         order: {
@@ -659,14 +601,12 @@ describe('QuickOrderWidgetBody', () => {
 
     await renderBody(container, root, {
       provider: 'alpaca',
-      credentialId: 'cred-1',
-      environment: 'paper',
       accountId: 'acct-1',
       side: 'buy',
     })
 
     expect(container.textContent).toContain('Order order-1')
-    expect(container.textContent).toContain('alpaca / PAPER / acct-1')
+    expect(container.textContent).toContain('alpaca / acct-1')
     expect(container.textContent).toContain('Order accepted')
   })
 })

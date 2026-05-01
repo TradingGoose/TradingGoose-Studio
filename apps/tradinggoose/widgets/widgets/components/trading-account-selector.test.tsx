@@ -9,20 +9,14 @@ import { TooltipProvider } from '@/components/ui/tooltip'
 import { TradingAccountSelector } from '@/widgets/widgets/components/trading-account-selector'
 
 const mockUseOAuthCredentials = vi.fn()
-const mockUseQueries = vi.fn()
-
-vi.mock('@tanstack/react-query', async () => {
-  const actual =
-    await vi.importActual<typeof import('@tanstack/react-query')>('@tanstack/react-query')
-
-  return {
-    ...actual,
-    useQueries: (...args: unknown[]) => mockUseQueries(...args),
-  }
-})
+const mockUseTradingAccounts = vi.fn()
 
 vi.mock('@/hooks/queries/oauth-credentials', () => ({
   useOAuthCredentials: (...args: unknown[]) => mockUseOAuthCredentials(...args),
+}))
+
+vi.mock('@/hooks/queries/trading-portfolio', () => ({
+  useTradingAccounts: (...args: unknown[]) => mockUseTradingAccounts(...args),
 }))
 
 describe('TradingAccountSelector', () => {
@@ -44,20 +38,16 @@ describe('TradingAccountSelector', () => {
       error: null,
       refetch: vi.fn(),
     })
-    mockUseQueries.mockReturnValue([
-      {
-        data: [{ id: 'acct-1', name: 'Paper Account' }],
-        isLoading: false,
-        isFetching: false,
-        error: null,
-      },
-      {
-        data: [{ id: 'acct-2', name: 'Live Account' }],
-        isLoading: false,
-        isFetching: false,
-        error: null,
-      },
-    ])
+    mockUseTradingAccounts.mockReturnValue({
+      data: [
+        { id: 'acct-1', name: 'Paper Account' },
+        { id: 'acct-2', name: 'Live Account' },
+      ],
+      isLoading: false,
+      isFetching: false,
+      error: null,
+      refetch: vi.fn(),
+    })
   })
 
   afterEach(() => {
@@ -67,18 +57,13 @@ describe('TradingAccountSelector', () => {
     container.remove()
   })
 
-  it('renders the selected broker account from credential, environment, and account id', () => {
+  it('renders the selected broker account from the shared provider connection and account id', () => {
     act(() => {
       root.render(
         <TooltipProvider>
           <TradingAccountSelector
+            workspaceId='workspace-1'
             providerId='alpaca'
-            environmentOptions={[
-              { id: 'paper', label: 'Paper' },
-              { id: 'live', label: 'Live' },
-            ]}
-            credentialId='cred-1'
-            environment='paper'
             accountId='acct-1'
           />
         </TooltipProvider>
@@ -88,13 +73,18 @@ describe('TradingAccountSelector', () => {
     const button = container.querySelector('button[aria-label="Select trading account"]')
     expect(button?.textContent).toContain('Paper Account')
     expect(mockUseOAuthCredentials).toHaveBeenCalledWith('alpaca', true)
+    expect(mockUseTradingAccounts).toHaveBeenCalledWith({
+      workspaceId: 'workspace-1',
+      provider: 'alpaca',
+      enabled: true,
+    })
   })
 
   it('renders placeholder text before a provider is selected', () => {
     act(() => {
       root.render(
         <TooltipProvider>
-          <TradingAccountSelector environmentOptions={[]} placeholder='Select account' />
+          <TradingAccountSelector placeholder='Select account' />
         </TooltipProvider>
       )
     })

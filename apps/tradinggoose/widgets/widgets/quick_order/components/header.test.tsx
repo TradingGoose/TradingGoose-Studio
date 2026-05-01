@@ -67,8 +67,6 @@ const mockTradingAccountSelector = vi.fn(({ onAccountSelect }: MockTradingAccoun
     data-testid='account-selector'
     onClick={() =>
       onAccountSelect?.({
-        credentialId: 'cred-1',
-        environment: 'paper',
         accountId: 'acct-1',
       })
     }
@@ -160,8 +158,6 @@ describe('QuickOrderHeaderControls', () => {
           marketProvider: 'yahoo-finance',
           marketProviderParams: { region: 'US' },
           marketAuth: { apiKey: 'market-key' },
-          credentialId: 'cred-1',
-          environment: 'paper',
           side: 'buy',
         },
       } as any,
@@ -200,7 +196,7 @@ describe('QuickOrderHeaderControls', () => {
       panelId: 'panel-1',
       widget: {
         key: 'quick_order',
-        params: { provider: 'alpaca', credentialId: 'cred-1', environment: 'paper', side: 'buy' },
+        params: { provider: 'alpaca', side: 'buy' },
       } as any,
     })
 
@@ -233,8 +229,6 @@ describe('QuickOrderHeaderControls', () => {
     expect(mockEmitQuickOrderParamsChange).toHaveBeenCalledWith({
       params: {
         provider: 'tradier',
-        credentialId: null,
-        environment: null,
         accountId: null,
       },
       panelId: 'panel-1',
@@ -342,7 +336,7 @@ describe('QuickOrderHeaderControls', () => {
     ).toBeNull()
   })
 
-  it('updates credential, environment, and account together from account selection', () => {
+  it('updates the account id from account selection', () => {
     const header = renderHeader({
       panelId: 'panel-1',
       widget: {
@@ -361,8 +355,6 @@ describe('QuickOrderHeaderControls', () => {
 
     expect(mockEmitQuickOrderParamsChange).toHaveBeenCalledWith({
       params: {
-        credentialId: 'cred-1',
-        environment: 'paper',
         accountId: 'acct-1',
       },
       panelId: 'panel-1',

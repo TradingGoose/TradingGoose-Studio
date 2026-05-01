@@ -90,45 +90,22 @@ export async function GET(request: NextRequest) {
           displayName = `${acc.accountId} (${baseProvider})`
         }
 
-        // Create a unique connection key that includes the full provider ID
         const connectionKey = acc.providerId
 
-        // Find existing connection for this specific provider ID
-        const existingConnection = connections.find((conn) => conn.provider === connectionKey)
-
-        const accountSummary = {
-          id: acc.id,
-          name: displayName,
-        }
-
-        if (existingConnection) {
-          // Add account to existing connection
-          existingConnection.accounts = existingConnection.accounts || []
-          existingConnection.accounts.push(accountSummary)
-          existingConnection.scopes = Array.from(
-            new Set([...(existingConnection.scopes || []), ...scopes])
-          )
-
-          const existingTimestamp = existingConnection.lastConnected
-            ? new Date(existingConnection.lastConnected).getTime()
-            : 0
-          const candidateTimestamp = acc.updatedAt.getTime()
-
-          if (candidateTimestamp > existingTimestamp) {
-            existingConnection.lastConnected = acc.updatedAt.toISOString()
-          }
-        } else {
-          // Create new connection
-          connections.push({
-            provider: connectionKey,
-            baseProvider,
-            featureType,
-            isConnected: true,
-            scopes,
-            lastConnected: acc.updatedAt.toISOString(),
-            accounts: [accountSummary],
-          })
-        }
+        connections.push({
+          provider: connectionKey,
+          baseProvider,
+          featureType,
+          isConnected: true,
+          scopes,
+          lastConnected: acc.updatedAt.toISOString(),
+          accounts: [
+            {
+              id: acc.id,
+              name: displayName,
+            },
+          ],
+        })
       }
     }
 

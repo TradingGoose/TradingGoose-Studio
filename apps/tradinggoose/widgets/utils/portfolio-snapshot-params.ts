@@ -73,17 +73,11 @@ export const sanitizePortfolioSnapshotParams = (
   const nextParams: Record<string, unknown> = {}
   const provider = normalizeString(params.provider)
   const marketProvider = normalizeString(params.marketProvider)
-  const credentialId = normalizeString(params.credentialId)
-  const environment = normalizeString(params.environment)
   const accountId = normalizeString(params.accountId)
   const selectedWindow = normalizeString(params.selectedWindow)
 
   if (provider) nextParams.provider = provider
   if (marketProvider) nextParams.marketProvider = marketProvider
-  if (credentialId) nextParams.credentialId = credentialId
-  if (environment === 'paper' || environment === 'live') {
-    nextParams.environment = environment
-  }
   if (accountId) nextParams.accountId = accountId
   if (selectedWindow) nextParams.selectedWindow = selectedWindow
   const marketProviderParams = sanitizeMarketProviderParamsForWidget(

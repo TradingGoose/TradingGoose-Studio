@@ -6,11 +6,9 @@ import { getListingIdentityKey } from '@/lib/listing/identity'
 import type { MarketQuoteSnapshot } from '@/lib/market/quote-snapshot-contract'
 import { useResolvedListings } from '@/hooks/queries/listing-resolution'
 import { useMarketQuoteSnapshots } from '@/hooks/queries/market-quote-snapshots'
-import { useOAuthCredentials } from '@/hooks/queries/oauth-credentials'
 import { useOAuthProviderAvailability } from '@/hooks/queries/oauth-provider-availability'
-import { useTradingAccounts, useTradingHoldingsListings } from '@/hooks/queries/trading-portfolio'
+import { useTradingAccounts, useTradingPortfolioSnapshot } from '@/hooks/queries/trading-portfolio'
 import { useWatchlists } from '@/hooks/queries/watchlists'
-import { getTradingProviderDefinition } from '@/providers/trading/providers'
 import type { WidgetComponentProps } from '@/widgets/types'
 import {
   emitHeatmapParamsChange,
@@ -20,8 +18,6 @@ import { HeatmapTreemapChart } from '@/widgets/widgets/heatmap/components/heatma
 import {
   getHeatmapTradingProviderAvailabilityIds,
   getHeatmapTradingProviderOptions,
-  resolveHeatmapCredentialProvider,
-  resolveHeatmapEnvironment,
   resolveHeatmapMarketProviderId,
   resolveHeatmapSourceMode,
   resolveHeatmapTradingProviderId,
@@ -111,41 +107,23 @@ export function HeatmapWidgetBody({
   )
   const tradingProviderId = resolveHeatmapTradingProviderId(widgetParams, tradingProviderOptions)
   const hasSelectedTradingProvider = Boolean(tradingProviderId)
-  const hasValidPersistedTradingProvider =
-    Boolean(widgetParams?.tradingProvider) && widgetParams?.tradingProvider === tradingProviderId
   const hasInvalidPersistedTradingProvider =
     sourceMode === 'portfolio' &&
     !providerAvailabilityQuery.isLoading &&
     !providerAvailabilityQuery.error &&
     Boolean(widgetParams?.tradingProvider) &&
     !hasSelectedTradingProvider
-  const providerDefinition = hasSelectedTradingProvider
-    ? getTradingProviderDefinition(tradingProviderId)
-    : null
-  const tradingEnvironment = hasSelectedTradingProvider
-    ? resolveHeatmapEnvironment(tradingProviderId, widgetParams?.environment)
-    : undefined
   const isTradingProviderReady =
     !providerAvailabilityQuery.isLoading &&
     !providerAvailabilityQuery.error &&
     hasSelectedTradingProvider &&
     tradingProviderOptions.length > 0
-  const credentialProviderId = hasSelectedTradingProvider
-    ? resolveHeatmapCredentialProvider(tradingProviderId)
-    : undefined
-  const credentialsQuery = useOAuthCredentials(
-    credentialProviderId,
-    sourceMode === 'portfolio' && isTradingProviderReady && Boolean(credentialProviderId)
-  )
-  const activeCredentialId = widgetParams?.credentialId
 
   useEffect(() => {
     if (!hasInvalidPersistedTradingProvider) return
     emitHeatmapParamsChange({
       params: {
         tradingProvider: null,
-        environment: null,
-        credentialId: null,
         accountId: null,
       },
       panelId,
@@ -153,44 +131,17 @@ export function HeatmapWidgetBody({
     })
   }, [hasInvalidPersistedTradingProvider, panelId, widgetKey])
 
-  useEffect(() => {
-    if (sourceMode !== 'portfolio') return
-    if (providerAvailabilityQuery.isLoading) return
-    if (providerAvailabilityQuery.error) return
-    if (!hasSelectedTradingProvider) return
-    if (!hasValidPersistedTradingProvider) return
-    if (!tradingEnvironment) return
-    if (widgetParams?.environment === tradingEnvironment) return
-    emitHeatmapParamsChange({
-      params: { environment: tradingEnvironment },
-      panelId,
-      widgetKey,
-    })
-  }, [
-    hasSelectedTradingProvider,
-    hasValidPersistedTradingProvider,
-    panelId,
-    providerAvailabilityQuery.error,
-    providerAvailabilityQuery.isLoading,
-    sourceMode,
-    tradingEnvironment,
-    widgetKey,
-    widgetParams?.environment,
-  ])
-
   const accountsQuery = useTradingAccounts({
+    workspaceId: workspaceId ?? undefined,
     provider: sourceMode === 'portfolio' && isTradingProviderReady ? tradingProviderId : undefined,
-    credentialId: sourceMode === 'portfolio' ? activeCredentialId : undefined,
-    environment:
-      sourceMode === 'portfolio' && isTradingProviderReady ? tradingEnvironment : undefined,
+    enabled: sourceMode === 'portfolio',
   })
-  const accounts = activeCredentialId ? (accountsQuery.data ?? []) : []
+  const accounts = accountsQuery.data ?? []
   const singleAccount = accounts.length === 1 ? (accounts[0] ?? null) : null
   const activeAccountId = widgetParams?.accountId ?? singleAccount?.id
 
   useEffect(() => {
     if (sourceMode !== 'portfolio') return
-    if (!activeCredentialId) return
     if (accountsQuery.isLoading) return
     if (accountsQuery.error) return
 
@@ -208,36 +159,34 @@ export function HeatmapWidgetBody({
     accounts,
     accountsQuery.error,
     accountsQuery.isLoading,
-    activeCredentialId,
     panelId,
     sourceMode,
     widgetKey,
     widgetParams?.accountId,
   ])
 
-  const holdingsListingsQuery = useTradingHoldingsListings({
+  const snapshotQuery = useTradingPortfolioSnapshot({
+    workspaceId: workspaceId ?? undefined,
     provider: sourceMode === 'portfolio' && isTradingProviderReady ? tradingProviderId : undefined,
-    credentialId: activeCredentialId,
-    environment:
-      sourceMode === 'portfolio' && isTradingProviderReady ? tradingEnvironment : undefined,
     accountId: activeAccountId,
+    enabled: sourceMode === 'portfolio',
   })
   const portfolioSources = useMemo<HeatmapSourceListing[]>(
     () =>
       resolvePortfolioHeatmapListings(
-        (holdingsListingsQuery.data?.positionListings ?? []).map((position) => position.listing)
+        snapshotQuery.positionListings.map((position) => position.listing)
       ),
-    [holdingsListingsQuery.data?.positionListings]
+    [snapshotQuery.positionListings]
   )
   const portfolioQuantityByKey = useMemo(() => {
     const quantityByKey = new Map<string, number>()
 
-    for (const position of holdingsListingsQuery.data?.positionListings ?? []) {
+    for (const position of snapshotQuery.positionListings) {
       quantityByKey.set(getListingIdentityKey(position.listing), position.grossQuantity)
     }
 
     return quantityByKey
-  }, [holdingsListingsQuery.data?.positionListings])
+  }, [snapshotQuery.positionListings])
   const sourceListings = sourceMode === 'portfolio' ? portfolioSources : watchlistSources
   const {
     visibleItems: cappedSourceListings,
@@ -352,33 +301,6 @@ export function HeatmapWidgetBody({
       return <HeatmapMessage message='Select a trading provider to load portfolio holdings.' />
     }
 
-    if (!activeCredentialId) {
-      if (credentialsQuery.isLoading) {
-        return (
-          <div className='flex h-full items-center justify-center'>
-            <LoadingAgent size='md' />
-          </div>
-        )
-      }
-
-      if (credentialsQuery.error) {
-        return (
-          <HeatmapMessage
-            message={
-              credentialsQuery.error instanceof Error
-                ? credentialsQuery.error.message
-                : 'Failed to load broker credentials.'
-            }
-          />
-        )
-      }
-
-      const providerName = providerDefinition?.name ?? 'broker'
-      return (
-        <HeatmapMessage message={`Select a ${providerName} connection in provider settings.`} />
-      )
-    }
-
     if (!activeAccountId) {
       if (accountsQuery.isLoading && accounts.length === 0) {
         return (
@@ -403,7 +325,7 @@ export function HeatmapWidgetBody({
       return <HeatmapMessage message='Select a broker account to load portfolio holdings.' />
     }
 
-    if (holdingsListingsQuery.isLoading && portfolioSources.length === 0) {
+    if (snapshotQuery.isLoading && portfolioSources.length === 0) {
       return (
         <div className='flex h-full items-center justify-center'>
           <LoadingAgent size='md' />
@@ -411,12 +333,12 @@ export function HeatmapWidgetBody({
       )
     }
 
-    if (holdingsListingsQuery.error) {
+    if (snapshotQuery.error) {
       return (
         <HeatmapMessage
           message={
-            holdingsListingsQuery.error instanceof Error
-              ? holdingsListingsQuery.error.message
+            snapshotQuery.error instanceof Error
+              ? snapshotQuery.error.message
               : 'Failed to load holdings.'
           }
         />

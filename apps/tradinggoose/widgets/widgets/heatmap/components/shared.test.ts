@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   resolveHeatmapMarketProviderId,
-  resolveHeatmapEnvironment,
+  resolveHeatmapSourceMode,
   resolveHeatmapTradingProviderId,
   resolveHeatmapWatchlistSizeMetric,
 } from '@/widgets/widgets/heatmap/components/shared'
@@ -32,11 +32,10 @@ describe('heatmap shared helpers', () => {
     )
   })
 
-  it('resolves a valid persisted environment or the provider default', () => {
-    expect(resolveHeatmapEnvironment('', 'paper')).toBeUndefined()
-    expect(resolveHeatmapEnvironment('alpaca', 'paper')).toBe('paper')
-    expect(resolveHeatmapEnvironment('alpaca', 'missing')).toBe('paper')
-    expect(resolveHeatmapEnvironment('tradier', undefined)).toBe('live')
+  it('defaults source mode to watchlist unless portfolio is explicitly persisted', () => {
+    expect(resolveHeatmapSourceMode(null)).toBe('watchlist')
+    expect(resolveHeatmapSourceMode({ sourceMode: 'watchlist' })).toBe('watchlist')
+    expect(resolveHeatmapSourceMode({ sourceMode: 'portfolio' })).toBe('portfolio')
   })
 
   it('defaults watchlist tile sizing to volume USD', () => {

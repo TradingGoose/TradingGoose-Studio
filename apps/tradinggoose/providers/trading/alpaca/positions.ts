@@ -105,10 +105,7 @@ export const sumAlpacaPositionUnrealizedPnl = (positions: UnifiedTradingPosition
 export const buildAlpacaHoldingsRequest = (params: TradingHoldingsInput): TradingRequestConfig => {
   const authHeaders = buildAlpacaAuthHeaders(params)
 
-  const baseUrl =
-    params.environment === 'paper'
-      ? 'https://paper-api.alpaca.markets'
-      : 'https://api.alpaca.markets'
+  const baseUrl = 'https://api.alpaca.markets'
 
   return {
     url: `${baseUrl}/v2/positions`,

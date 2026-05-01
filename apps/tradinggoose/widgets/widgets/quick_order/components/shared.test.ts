@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { ListingResolved } from '@/lib/listing/identity'
 import {
-  getQuickOrderDefaultEnvironment,
   getQuickOrderOrderTypeDefinitions,
   getQuickOrderSizingModeConfig,
   getQuickOrderSizingModeOptions,
@@ -77,11 +76,6 @@ const mutualFundListing = {
 } as const
 
 describe('quick order shared helpers', () => {
-  it('defaults order environments to paper when available', () => {
-    expect(getQuickOrderDefaultEnvironment('alpaca')).toBe('paper')
-    expect(getQuickOrderDefaultEnvironment('tradier')).toBe('paper')
-  })
-
   it('exposes sizing mode only for providers with a sizing selector', () => {
     expect(getQuickOrderSizingModeOptions('alpaca')).toEqual(['quantity', 'notional'])
     expect(getQuickOrderSizingModeConfig('alpaca')).toEqual({

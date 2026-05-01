@@ -2,40 +2,24 @@ import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
-import { parseProvider } from '@/lib/oauth'
-import { getCredential, refreshAccessTokenIfNeeded } from '@/app/api/auth/oauth/utils'
+import { getOAuthToken } from '@/app/api/auth/oauth/utils'
 import { listTradingAccounts } from '@/providers/trading/portfolio'
 import { TradingBrokerRequestError } from '@/providers/trading/portfolio-utils'
 import {
   getTradingProviderDefinition,
-  getTradingProviderParamDefinitions,
+  getTradingProviderOAuthServiceId,
 } from '@/providers/trading/providers'
-import type { TradingOperationKind, UnifiedTradingAccount } from '@/providers/trading/types'
+import type { UnifiedTradingAccount } from '@/providers/trading/types'
 
 const logger = createLogger('TradingProviderRoutes')
 
-const environmentSchema = z.object({
-  provider: z.string().optional(),
-  credentialId: z.string().optional(),
-  environment: z.string().optional(),
-})
-
-export const tradingAccountIdentitySchema = environmentSchema.extend({
-  accountId: z.string().optional(),
-})
-
-export const tradingPerformanceIdentitySchema = tradingAccountIdentitySchema.extend({
-  window: z.string().optional(),
-})
-
-type EnvironmentRequestData = z.infer<typeof environmentSchema>
-type TradingAccountIdentityData = z.infer<typeof tradingAccountIdentitySchema>
-type TradingPerformanceIdentityData = z.infer<typeof tradingPerformanceIdentitySchema>
+type ProviderRequestData = {
+  provider?: string
+}
 
 type PreflightContext = {
   requestId: string
   providerId: string
-  credentialId: string
   environment: 'paper' | 'live'
   accessToken: string
   sessionUserId: string
@@ -48,25 +32,7 @@ export type TradingAccountRouteContext = PreflightContext & {
   account: UnifiedTradingAccount
 }
 
-export type TradingPerformanceRouteContext = TradingAccountRouteContext & {
-  window: string
-}
-
-const getSupportedEnvironments = (
-  providerId: string,
-  operationKind: TradingOperationKind = 'holdings'
-) => {
-  const environmentDefinition = getTradingProviderParamDefinitions(providerId, operationKind).find(
-    (definition) => definition.id === 'environment'
-  )
-  return new Set(
-    (environmentDefinition?.options ?? [])
-      .map((option) => option.id)
-      .filter((value): value is 'paper' | 'live' => value === 'paper' || value === 'live')
-  )
-}
-
-const parseRequestBody = async <T extends EnvironmentRequestData>(
+const parseRequestBody = async <T extends ProviderRequestData>(
   request: Request,
   schema: z.ZodSchema<T>
 ): Promise<T | NextResponse> => {
@@ -97,9 +63,8 @@ const requireStringField = (
   return value
 }
 
-export async function resolveTradingProviderPreflight<T extends EnvironmentRequestData>({
+export async function resolveTradingProviderPreflight<T extends ProviderRequestData>({
   request,
-  requestId,
   schema,
 }: {
   request: Request
@@ -112,20 +77,12 @@ export async function resolveTradingProviderPreflight<T extends EnvironmentReque
 export async function resolveTradingProviderContext({
   requestData,
   requestId,
-  operationKind = 'holdings',
 }: {
-  requestData: EnvironmentRequestData
+  requestData: ProviderRequestData
   requestId: string
-  operationKind?: TradingOperationKind
 }): Promise<PreflightContext | NextResponse> {
   const providerId = requireStringField(requestData, 'provider')
   if (providerId instanceof NextResponse) return providerId
-
-  const credentialId = requireStringField(requestData, 'credentialId')
-  if (credentialId instanceof NextResponse) return credentialId
-
-  const environment = requireStringField(requestData, 'environment')
-  if (environment instanceof NextResponse) return environment
 
   const session = await getSession()
   if (!session?.user?.id) {
@@ -137,32 +94,23 @@ export async function resolveTradingProviderContext({
     return NextResponse.json({ error: 'Unsupported provider' }, { status: 400 })
   }
 
-  const supportedEnvironments = getSupportedEnvironments(providerId, operationKind)
-  if (!supportedEnvironments.has(environment as 'paper' | 'live')) {
-    return NextResponse.json({ error: 'Unsupported environment' }, { status: 400 })
+  const serviceId = getTradingProviderOAuthServiceId(providerId)
+  if (!serviceId) {
+    return NextResponse.json(
+      { error: 'Trading provider OAuth service is not configured' },
+      { status: 400 }
+    )
   }
 
-  const credential = await getCredential(requestId, credentialId, session.user.id)
-  if (!credential) {
-    return NextResponse.json({ error: 'Credential not found' }, { status: 404 })
-  }
-
-  const credentialProvider = parseProvider(credential.providerId).baseProvider
-  const requestedProvider = parseProvider(providerId).baseProvider
-  if (credentialProvider !== requestedProvider) {
-    return NextResponse.json({ error: 'Credential does not match provider' }, { status: 400 })
-  }
-
-  const accessToken = await refreshAccessTokenIfNeeded(credentialId, session.user.id, requestId)
+  const accessToken = await getOAuthToken(session.user.id, serviceId)
   if (!accessToken) {
-    return NextResponse.json({ error: 'Failed to refresh access token' }, { status: 401 })
+    return NextResponse.json({ error: 'Trading provider connection not found' }, { status: 404 })
   }
 
   return {
     requestId,
     providerId,
-    credentialId,
-    environment: environment as 'paper' | 'live',
+    environment: 'live',
     accessToken,
     sessionUserId: session.user.id,
   }
@@ -186,57 +134,16 @@ export async function resolveTradingProviderSelectedAccount({
 
   const account = accounts.find((candidate) => candidate.id === selectedAccountId)
   if (!account) {
-    return NextResponse.json({ error: 'Account not found for credential' }, { status: 404 })
+    return NextResponse.json(
+      { error: 'Account not found for provider connection' },
+      { status: 404 }
+    )
   }
 
   return {
     ...baseContext,
     accountId: selectedAccountId,
     account,
-  }
-}
-
-export async function resolveTradingProviderAccountContext({
-  requestData,
-  requestId,
-  operationKind = 'holdings',
-}: {
-  requestData: TradingAccountIdentityData
-  requestId: string
-  operationKind?: TradingOperationKind
-}): Promise<TradingAccountRouteContext | NextResponse> {
-  const accountId = requireStringField(requestData, 'accountId')
-  if (accountId instanceof NextResponse) return accountId
-
-  const baseContext = await resolveTradingProviderContext({ requestData, requestId, operationKind })
-  if (baseContext instanceof Response) {
-    return baseContext
-  }
-
-  return resolveTradingProviderSelectedAccount({ baseContext, accountId })
-}
-
-export async function resolveTradingProviderPerformanceContext({
-  requestData,
-  requestId,
-}: {
-  requestData: TradingPerformanceIdentityData
-  requestId: string
-}): Promise<TradingPerformanceRouteContext | NextResponse> {
-  const window = requireStringField(requestData, 'window')
-  if (window instanceof NextResponse) return window
-
-  const accountContext = await resolveTradingProviderAccountContext({
-    requestData,
-    requestId,
-  })
-  if (accountContext instanceof Response) {
-    return accountContext
-  }
-
-  return {
-    ...accountContext,
-    window,
   }
 }
 

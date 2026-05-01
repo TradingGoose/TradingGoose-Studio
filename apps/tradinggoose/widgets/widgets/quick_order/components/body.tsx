@@ -17,7 +17,6 @@ import {
 import { getListingIdentityKey, type ListingOption } from '@/lib/listing/identity'
 import type { QuickOrderSubmitRequest } from '@/app/api/providers/trading/order/types'
 import { useMarketQuoteSnapshots } from '@/hooks/queries/market-quote-snapshots'
-import { useOAuthCredentials } from '@/hooks/queries/oauth-credentials'
 import { useOAuthProviderAvailability } from '@/hooks/queries/oauth-provider-availability'
 import {
   useSubmitTradingOrder,
@@ -39,9 +38,7 @@ import {
   useQuickOrderParamsPersistence,
 } from '@/widgets/utils/quick-order-params'
 import {
-  getQuickOrderDefaultEnvironment,
   getQuickOrderDefaultTimeInForce,
-  getQuickOrderEnvironmentOptions,
   getQuickOrderOrderTypeDefinitions,
   getQuickOrderProviderAvailabilityIds,
   getQuickOrderProviderOptions,
@@ -49,7 +46,6 @@ import {
   getQuickOrderTimeInForceOptions,
   normalizeQuickOrderNumber,
   type QuickOrderNumberParseResult,
-  resolveQuickOrderCredentialProvider,
   resolveQuickOrderMarketProviderId,
   resolveQuickOrderOrderType,
   resolveQuickOrderProviderId,
@@ -103,8 +99,6 @@ const getNumberValidationMessage = (
 
 const getValidationMessage = ({
   providerId,
-  credentialId,
-  environment,
   accountId,
   listing,
   orderType,
@@ -119,8 +113,6 @@ const getValidationMessage = ({
   orderTypeMessage,
 }: {
   providerId?: string
-  credentialId?: string
-  environment?: 'paper' | 'live'
   accountId?: string
   listing: ListingOption | null
   orderType?: string
@@ -134,8 +126,7 @@ const getValidationMessage = ({
   trailPercent: QuickOrderNumberParseResult
   orderTypeMessage?: string | null
 }) => {
-  if (!providerId || !credentialId || !environment || !accountId)
-    return 'Select provider, connection, environment, and account.'
+  if (!providerId || !accountId) return 'Select provider and account.'
   if (!listing) return 'Select a listing.'
 
   const resolvedAssetClass = resolveTradingListingAssetClass(listing)
@@ -233,32 +224,9 @@ export function QuickOrderWidgetBody({
     !providerAvailabilityQuery.isLoading &&
     !providerAvailabilityQuery.error &&
     providerOptions.length > 0
-  const environmentOptions = useMemo(
-    () => (providerId ? getQuickOrderEnvironmentOptions(providerId) : []),
-    [providerId]
-  )
-  const environment =
-    providerId &&
-    quickOrderParams?.environment &&
-    environmentOptions.includes(quickOrderParams.environment)
-      ? quickOrderParams.environment
-      : providerId
-        ? getQuickOrderDefaultEnvironment(providerId)
-        : undefined
-  const credentialProviderId =
-    hasSelectedProvider && areProviderOptionsReady
-      ? resolveQuickOrderCredentialProvider(providerId)
-      : undefined
-  const credentialsQuery = useOAuthCredentials(
-    credentialProviderId,
-    hasSelectedProvider && areProviderOptionsReady && Boolean(credentialProviderId)
-  )
-  const credentials = credentialsQuery.data ?? []
-  const activeCredentialId = quickOrderParams?.credentialId
   const accountsQuery = useTradingAccounts({
+    workspaceId: workspaceId ?? undefined,
     provider: hasSelectedProvider && areProviderOptionsReady ? providerId : undefined,
-    credentialId: activeCredentialId,
-    environment: hasSelectedProvider && areProviderOptionsReady ? environment : undefined,
   })
   const accounts = accountsQuery.data ?? []
   const singleAccount = accounts.length === 1 ? (accounts[0] ?? null) : null
@@ -270,13 +238,11 @@ export function QuickOrderWidgetBody({
         : null
   const activeAccountId = quickOrderParams?.accountId ?? singleAccount?.id
   const accountSnapshotQuery = useTradingPortfolioSnapshot({
+    workspaceId: workspaceId ?? undefined,
     provider: hasSelectedProvider && areProviderOptionsReady ? providerId : undefined,
-    credentialId: activeCredentialId,
-    environment: hasSelectedProvider && areProviderOptionsReady ? environment : undefined,
     accountId: activeAccountId,
   })
   const submitResetProviderKey = quickOrderParams?.provider ?? providerId
-  const submitResetEnvironmentKey = quickOrderParams?.environment ?? environment
 
   const sizingModeConfig = useMemo(
     () => (providerId ? getQuickOrderSizingModeConfig(providerId) : { options: [] }),
@@ -401,8 +367,6 @@ export function QuickOrderWidgetBody({
         : undefined
   const validationMessage = getValidationMessage({
     providerId,
-    credentialId: activeCredentialId,
-    environment,
     accountId: activeAccountId,
     listing,
     orderType,
@@ -422,8 +386,6 @@ export function QuickOrderWidgetBody({
     emitQuickOrderParamsChange({
       params: {
         provider: null,
-        credentialId: null,
-        environment: null,
         accountId: null,
       },
       panelId,
@@ -432,16 +394,7 @@ export function QuickOrderWidgetBody({
   }, [areProviderOptionsReady, panelId, providerId, quickOrderParams?.provider, widgetKey])
 
   useEffect(() => {
-    if (!providerId || quickOrderParams?.environment === environment) return
-    emitQuickOrderParamsChange({
-      params: { environment: environment ?? null, accountId: null },
-      panelId,
-      widgetKey,
-    })
-  }, [environment, panelId, providerId, quickOrderParams?.environment, widgetKey])
-
-  useEffect(() => {
-    if (accountsQuery.isLoading || accountsQuery.error || !activeCredentialId) return
+    if (accountsQuery.isLoading || accountsQuery.error) return
 
     if (!quickOrderParams?.accountId && accounts.length === 1 && accounts[0]) {
       emitQuickOrderParamsChange({
@@ -454,7 +407,6 @@ export function QuickOrderWidgetBody({
     accounts,
     accountsQuery.error,
     accountsQuery.isLoading,
-    activeCredentialId,
     panelId,
     quickOrderParams?.accountId,
     widgetKey,
@@ -541,13 +493,11 @@ export function QuickOrderWidgetBody({
     notionalInput,
     orderType,
     quickOrderParams?.accountId,
-    quickOrderParams?.credentialId,
     quantityInput,
     side,
     sizingMode,
     stopPriceInput,
     resetSubmitOrder,
-    submitResetEnvironmentKey,
     submitResetProviderKey,
     timeInForce,
     trailPercentInput,
@@ -580,26 +530,6 @@ export function QuickOrderWidgetBody({
     return <CenterState>Select a trading provider to get started.</CenterState>
   }
 
-  if (credentialsQuery.isLoading) {
-    return (
-      <div className={centerStateClassName}>
-        <LoadingAgent size='md' />
-      </div>
-    )
-  }
-
-  if (credentialsQuery.error) {
-    return <CenterState>Failed to load provider connections.</CenterState>
-  }
-
-  if (credentials.length === 0 && !activeCredentialId) {
-    return <CenterState>No provider connections found. Add one from provider settings.</CenterState>
-  }
-
-  if (!activeCredentialId) {
-    return <CenterState>Select a provider connection in settings.</CenterState>
-  }
-
   if (!activeAccountId) {
     if (accountsQuery.isLoading) {
       return (
@@ -614,7 +544,7 @@ export function QuickOrderWidgetBody({
     }
 
     if (accounts.length === 0) {
-      return <CenterState>No broker accounts found for the selected credential.</CenterState>
+      return <CenterState>No broker accounts found for this provider connection.</CenterState>
     }
 
     return <CenterState>Select a broker account to submit an order.</CenterState>
@@ -627,8 +557,6 @@ export function QuickOrderWidgetBody({
     if (
       validationMessage ||
       !providerId ||
-      !environment ||
-      !activeCredentialId ||
       !activeAccountId ||
       !listing
     ) {
@@ -637,8 +565,6 @@ export function QuickOrderWidgetBody({
 
     const payload: QuickOrderSubmitRequest = {
       provider: providerId,
-      credentialId: activeCredentialId,
-      environment,
       accountId: activeAccountId,
       listing,
       side,
@@ -887,7 +813,6 @@ export function QuickOrderWidgetBody({
               <div>
                 {[
                   submitOrder.data?.provider,
-                  submitOrder.data?.environment?.toUpperCase(),
                   submitOrder.data?.accountId,
                 ]
                   .filter(Boolean)

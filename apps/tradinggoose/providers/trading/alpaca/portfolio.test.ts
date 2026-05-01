@@ -23,18 +23,15 @@ describe('Alpaca portfolio helpers', () => {
 
   it('normalizes account discovery metadata conservatively', () => {
     expect(
-      normalizeAlpacaTradingAccount(
-        {
-          id: 'acct-live',
-          account_number: 'PA12345',
-          currency: 'usd',
-          status: 'APPROVAL_PENDING',
-        },
-        'live'
-      )
+      normalizeAlpacaTradingAccount({
+        id: 'acct-live',
+        account_number: 'PA12345',
+        currency: 'usd',
+        status: 'APPROVAL_PENDING',
+      })
     ).toEqual({
       id: 'acct-live',
-      name: 'Alpaca Live (PA12345)',
+      name: 'Alpaca (PA12345)',
       type: 'unknown',
       baseCurrency: 'USD',
       status: 'restricted',
@@ -82,7 +79,7 @@ describe('Alpaca portfolio helpers', () => {
 
     const snapshot = await getAlpacaTradingAccountSnapshot({
       providerId: 'alpaca',
-      environment: 'paper',
+      environment: 'live',
       accessToken: 'token',
       accountId: 'acct-paper',
     })
@@ -148,7 +145,7 @@ describe('Alpaca portfolio helpers', () => {
 
     const snapshot = await getAlpacaTradingAccountSnapshot({
       providerId: 'alpaca',
-      environment: 'paper',
+      environment: 'live',
       accessToken: 'token',
       accountId: 'acct-short',
     })

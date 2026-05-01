@@ -9,10 +9,9 @@ import { HeatmapWidgetBody } from '@/widgets/widgets/heatmap/components/body'
 
 const mockUseResolvedListings = vi.fn()
 const mockUseMarketQuoteSnapshots = vi.fn()
-const mockUseOAuthCredentials = vi.fn()
 const mockUseOAuthProviderAvailability = vi.fn()
 const mockUseTradingAccounts = vi.fn()
-const mockUseTradingHoldingsListings = vi.fn()
+const mockUseTradingPortfolioSnapshot = vi.fn()
 const mockUseWatchlists = vi.fn()
 const mockHeatmapTreemapChart = vi.fn()
 const mockEmitHeatmapParamsChange = vi.fn()
@@ -25,17 +24,13 @@ vi.mock('@/hooks/queries/market-quote-snapshots', () => ({
   useMarketQuoteSnapshots: (...args: unknown[]) => mockUseMarketQuoteSnapshots(...args),
 }))
 
-vi.mock('@/hooks/queries/oauth-credentials', () => ({
-  useOAuthCredentials: (...args: unknown[]) => mockUseOAuthCredentials(...args),
-}))
-
 vi.mock('@/hooks/queries/oauth-provider-availability', () => ({
   useOAuthProviderAvailability: (...args: unknown[]) => mockUseOAuthProviderAvailability(...args),
 }))
 
 vi.mock('@/hooks/queries/trading-portfolio', () => ({
   useTradingAccounts: (...args: unknown[]) => mockUseTradingAccounts(...args),
-  useTradingHoldingsListings: (...args: unknown[]) => mockUseTradingHoldingsListings(...args),
+  useTradingPortfolioSnapshot: (...args: unknown[]) => mockUseTradingPortfolioSnapshot(...args),
 }))
 
 vi.mock('@/hooks/queries/watchlists', () => ({
@@ -96,9 +91,10 @@ describe('HeatmapWidgetBody', () => {
     mockUseResolvedListings.mockReturnValue(createQueryResult({ data: {} }))
     mockUseMarketQuoteSnapshots.mockReturnValue(createQueryResult({ data: {} }))
     mockUseOAuthProviderAvailability.mockReturnValue(createQueryResult({ data: { alpaca: true } }))
-    mockUseOAuthCredentials.mockReturnValue(createQueryResult({ data: [] }))
     mockUseTradingAccounts.mockReturnValue(createQueryResult({ data: [] }))
-    mockUseTradingHoldingsListings.mockReturnValue(createQueryResult({ data: [] }))
+    mockUseTradingPortfolioSnapshot.mockReturnValue(
+      createQueryResult({ data: undefined, positionListings: [] })
+    )
     mockUseWatchlists.mockReturnValue(createQueryResult({ data: [] }))
   })
 
@@ -215,27 +211,20 @@ describe('HeatmapWidgetBody', () => {
   })
 
   it('does not use portfolio trading provider settings as market quote provider settings', async () => {
-    mockUseOAuthCredentials.mockReturnValue(
-      createQueryResult({
-        data: [{ id: 'cred-1', name: 'Broker' }],
-      })
-    )
     mockUseTradingAccounts.mockReturnValue(
       createQueryResult({
         data: [{ id: 'account-1', name: 'Paper' }],
       })
     )
-    mockUseTradingHoldingsListings.mockReturnValue(
+    mockUseTradingPortfolioSnapshot.mockReturnValue(
       createQueryResult({
-        data: {
-          positionListings: [
-            {
-              listing: createListing('MSFT'),
-              grossQuantity: 4,
-              signedQuantity: 1,
-            },
-          ],
-        },
+        positionListings: [
+          {
+            listing: createListing('MSFT'),
+            grossQuantity: 4,
+            signedQuantity: 1,
+          },
+        ],
       })
     )
 
@@ -248,8 +237,6 @@ describe('HeatmapWidgetBody', () => {
           params={{
             sourceMode: 'portfolio',
             tradingProvider: 'alpaca',
-            credentialId: 'cred-1',
-            environment: 'paper',
             accountId: 'account-1',
           }}
         />
@@ -291,27 +278,20 @@ describe('HeatmapWidgetBody', () => {
         ],
       })
     )
-    mockUseOAuthCredentials.mockReturnValue(
-      createQueryResult({
-        data: [{ id: 'cred-1', name: 'Broker' }],
-      })
-    )
     mockUseTradingAccounts.mockReturnValue(
       createQueryResult({
         data: [{ id: 'account-1', name: 'Paper' }],
       })
     )
-    mockUseTradingHoldingsListings.mockReturnValue(
+    mockUseTradingPortfolioSnapshot.mockReturnValue(
       createQueryResult({
-        data: {
-          positionListings: [
-            {
-              listing: createListing('MSFT'),
-              grossQuantity: 4,
-              signedQuantity: 1,
-            },
-          ],
-        },
+        positionListings: [
+          {
+            listing: createListing('MSFT'),
+            grossQuantity: 4,
+            signedQuantity: 1,
+          },
+        ],
       })
     )
     mockUseMarketQuoteSnapshots.mockReturnValue(
@@ -371,19 +351,17 @@ describe('HeatmapWidgetBody', () => {
             sourceMode: 'portfolio',
             marketProvider: 'alpaca',
             tradingProvider: 'alpaca',
-            credentialId: 'cred-1',
-            environment: 'paper',
             accountId: 'account-1',
           }}
         />
       )
     })
 
-    expect(mockUseTradingHoldingsListings).toHaveBeenLastCalledWith({
+    expect(mockUseTradingPortfolioSnapshot).toHaveBeenLastCalledWith({
+      workspaceId: 'workspace-1',
       provider: 'alpaca',
-      credentialId: 'cred-1',
-      environment: 'paper',
       accountId: 'account-1',
+      enabled: true,
     })
     expect(mockHeatmapTreemapChart.mock.calls.at(-1)?.[0]).toEqual(
       expect.objectContaining({
@@ -466,23 +444,12 @@ describe('HeatmapWidgetBody', () => {
   })
 
   it('shows empty portfolio message when portfolio mode has no listings', async () => {
-    mockUseOAuthCredentials.mockReturnValue(
-      createQueryResult({
-        data: [{ id: 'cred-1', name: 'Broker' }],
-      })
-    )
     mockUseTradingAccounts.mockReturnValue(
       createQueryResult({
         data: [{ id: 'account-1', name: 'Paper' }],
       })
     )
-    mockUseTradingHoldingsListings.mockReturnValue(
-      createQueryResult({
-        data: {
-          positionListings: [],
-        },
-      })
-    )
+    mockUseTradingPortfolioSnapshot.mockReturnValue(createQueryResult({ positionListings: [] }))
 
     await act(async () => {
       root.render(
@@ -494,8 +461,6 @@ describe('HeatmapWidgetBody', () => {
             sourceMode: 'portfolio',
             marketProvider: 'alpaca',
             tradingProvider: 'alpaca',
-            credentialId: 'cred-1',
-            environment: 'paper',
             accountId: 'account-1',
           }}
         />

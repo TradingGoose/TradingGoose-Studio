@@ -152,7 +152,7 @@ export const normalizeAlpacaPortfolioHistoryResponse = ({
 export async function getAlpacaTradingAccountPerformance(
   context: TradingPortfolioAccountContext & { window: TradingPortfolioPerformanceWindow }
 ): Promise<UnifiedTradingPortfolioPerformance> {
-  const baseUrl = resolveAlpacaTradingBaseUrl(context.environment)
+  const baseUrl = resolveAlpacaTradingBaseUrl()
   const searchParams = new URLSearchParams()
 
   for (const [key, value] of Object.entries(buildAlpacaPerformanceQueryParams(context.window))) {
@@ -173,7 +173,7 @@ export async function getAlpacaTradingAccountPerformance(
     }),
   ])
 
-  const normalizedAccount = normalizeAlpacaTradingAccount(accountResponse, context.environment)
+  const normalizedAccount = normalizeAlpacaTradingAccount(accountResponse)
 
   return normalizeAlpacaPortfolioHistoryResponse({
     history: historyResponse,

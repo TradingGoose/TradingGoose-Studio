@@ -60,8 +60,6 @@ describe('quick order params utilities', () => {
           apiKey: 'market-key',
           apiSecret: 'market-secret',
         },
-        credentialId: 'cred-1',
-        environment: 'paper',
         accountId: 'acct-1',
         side: 'sell',
         quantity: 1,
@@ -78,8 +76,6 @@ describe('quick order params utilities', () => {
         apiKey: 'market-key',
         apiSecret: 'market-secret',
       },
-      credentialId: 'cred-1',
-      environment: 'paper',
       accountId: 'acct-1',
       side: 'sell',
     })
@@ -117,8 +113,6 @@ describe('quick order params utilities', () => {
         <Harness
           params={{
             provider: 'alpaca',
-            credentialId: 'cred-1',
-            environment: 'paper',
             accountId: 'acct-1',
             side: 'buy',
           }}
@@ -130,7 +124,6 @@ describe('quick order params utilities', () => {
     act(() => {
       emitQuickOrderParamsChange({
         params: {
-          credentialId: null,
           accountId: null,
           quantity: 10,
           providerParams: { orderClass: 'equity' },
@@ -142,7 +135,6 @@ describe('quick order params utilities', () => {
 
     expect(onChange).toHaveBeenCalledWith({
       provider: 'alpaca',
-      environment: 'paper',
       side: 'buy',
     })
   })
@@ -158,8 +150,6 @@ describe('quick order params utilities', () => {
             marketProvider: 'yahoo-finance',
             marketProviderParams: { region: 'US' },
             marketAuth: { apiKey: 'market-key' },
-            credentialId: 'cred-1',
-            environment: 'paper',
             accountId: 'acct-1',
             side: 'buy',
           }}
@@ -183,8 +173,6 @@ describe('quick order params utilities', () => {
     expect(onChange).toHaveBeenCalledWith({
       provider: 'alpaca',
       marketProvider: 'finnhub',
-      credentialId: 'cred-1',
-      environment: 'paper',
       accountId: 'acct-1',
       side: 'buy',
     })

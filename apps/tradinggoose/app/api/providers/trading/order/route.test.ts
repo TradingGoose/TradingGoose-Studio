@@ -6,8 +6,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMockRequest } from '@/app/api/__test-utils__/utils'
 
 const mockGetSession = vi.fn()
-const mockGetCredential = vi.fn()
-const mockRefreshAccessTokenIfNeeded = vi.fn()
+const mockGetOAuthToken = vi.fn()
 const mockListTradingAccounts = vi.fn()
 const mockFetch = vi.fn()
 
@@ -25,8 +24,7 @@ vi.mock('@/lib/auth', () => ({
 }))
 
 vi.mock('@/app/api/auth/oauth/utils', () => ({
-  getCredential: mockGetCredential,
-  refreshAccessTokenIfNeeded: mockRefreshAccessTokenIfNeeded,
+  getOAuthToken: mockGetOAuthToken,
 }))
 
 vi.mock('@/providers/trading/portfolio', async () => {
@@ -58,8 +56,7 @@ describe('Trading provider order route', () => {
     vi.clearAllMocks()
     vi.stubGlobal('fetch', mockFetch)
     mockGetSession.mockResolvedValue({ user: { id: 'user-1' } })
-    mockGetCredential.mockResolvedValue({ id: 'cred-1', providerId: 'tradier' })
-    mockRefreshAccessTokenIfNeeded.mockResolvedValue('access-token')
+    mockGetOAuthToken.mockResolvedValue('access-token')
     mockListTradingAccounts.mockResolvedValue([
       { id: 'ACC-1', name: 'Main', type: 'cash', baseCurrency: 'USD', status: 'active' },
     ])
@@ -101,8 +98,6 @@ describe('Trading provider order route', () => {
     const invalidSideResponse = await POST(
       createMockRequest('POST', {
         provider: 'tradier',
-        credentialId: 'cred-1',
-        environment: 'live',
         accountId: 'ACC-1',
         listing: stockListing,
         side: 'hold',
@@ -112,8 +107,6 @@ describe('Trading provider order route', () => {
     const numericStringResponse = await POST(
       createMockRequest('POST', {
         provider: 'tradier',
-        credentialId: 'cred-1',
-        environment: 'live',
         accountId: 'ACC-1',
         listing: stockListing,
         side: 'buy',
@@ -135,8 +128,6 @@ describe('Trading provider order route', () => {
     const response = await POST(
       createMockRequest('POST', {
         provider: 'tradier',
-        credentialId: 'cred-1',
-        environment: 'live',
         accountId: 'ACC-1',
         listing: { listing_type: 'default', listing_id: 'AAPL', base: 'AAPL' },
         side: 'buy',
@@ -157,8 +148,6 @@ describe('Trading provider order route', () => {
     const response = await POST(
       createMockRequest('POST', {
         provider: 'tradier',
-        credentialId: 'cred-1',
-        environment: 'live',
         accountId: 'ACC-1',
         listing: 'AAPL',
         side: 'buy',
@@ -180,8 +169,6 @@ describe('Trading provider order route', () => {
       const response = await POST(
         createMockRequest('POST', {
           provider: 'tradier',
-          credentialId: 'cred-1',
-          environment: 'live',
           accountId: 'ACC-1',
           listing: stockListing,
           side: 'buy',
@@ -198,14 +185,10 @@ describe('Trading provider order route', () => {
   )
 
   it('rejects unsupported listing asset classes before account discovery', async () => {
-    mockGetCredential.mockResolvedValue({ id: 'cred-1', providerId: 'alpaca' })
-
     const { POST } = await import('@/app/api/providers/trading/order/route')
     const response = await POST(
       createMockRequest('POST', {
         provider: 'alpaca',
-        credentialId: 'cred-1',
-        environment: 'paper',
         accountId: 'ACC-1',
         listing: etfListing,
         side: 'buy',
@@ -224,8 +207,6 @@ describe('Trading provider order route', () => {
     const response = await POST(
       createMockRequest('POST', {
         provider: 'tradier',
-        credentialId: 'cred-1',
-        environment: 'live',
         accountId: 'ACC-1',
         listing: stockListing,
         side: 'buy',
@@ -241,14 +222,10 @@ describe('Trading provider order route', () => {
   })
 
   it('rejects Alpaca notional trailing stop orders before account discovery', async () => {
-    mockGetCredential.mockResolvedValue({ id: 'cred-1', providerId: 'alpaca' })
-
     const { POST } = await import('@/app/api/providers/trading/order/route')
     const response = await POST(
       createMockRequest('POST', {
         provider: 'alpaca',
-        credentialId: 'cred-1',
-        environment: 'paper',
         accountId: 'ACC-1',
         listing: stockListing,
         side: 'buy',
@@ -284,8 +261,6 @@ describe('Trading provider order route', () => {
     const response = await POST(
       createMockRequest('POST', {
         provider: 'tradier',
-        credentialId: 'cred-1',
-        environment: 'live',
         accountId: 'ACC-1',
         listing: stockListing,
         side: 'buy',
@@ -304,15 +279,13 @@ describe('Trading provider order route', () => {
     vi.resetModules()
   })
 
-  it('rejects credential provider mismatches before account discovery', async () => {
-    mockGetCredential.mockResolvedValue({ id: 'cred-1', providerId: 'alpaca' })
+  it('rejects missing provider connections before account discovery', async () => {
+    mockGetOAuthToken.mockResolvedValue(null)
 
     const { POST } = await import('@/app/api/providers/trading/order/route')
     const response = await POST(
       createMockRequest('POST', {
         provider: 'tradier',
-        credentialId: 'cred-1',
-        environment: 'live',
         accountId: 'ACC-1',
         listing: stockListing,
         side: 'buy',
@@ -320,8 +293,10 @@ describe('Trading provider order route', () => {
       })
     )
 
-    expect(response.status).toBe(400)
-    await expect(response.json()).resolves.toEqual({ error: 'Credential does not match provider' })
+    expect(response.status).toBe(404)
+    await expect(response.json()).resolves.toEqual({
+      error: 'Trading provider connection not found',
+    })
     expect(mockListTradingAccounts).not.toHaveBeenCalled()
     expect(mockFetch).not.toHaveBeenCalled()
   })
@@ -331,8 +306,6 @@ describe('Trading provider order route', () => {
     const response = await POST(
       createMockRequest('POST', {
         provider: 'tradier',
-        credentialId: 'cred-1',
-        environment: 'live',
         listing: stockListing,
         side: 'buy',
         quantity: 1,
@@ -346,15 +319,13 @@ describe('Trading provider order route', () => {
     expect(mockFetch).not.toHaveBeenCalled()
   })
 
-  it('rejects accounts that do not belong to the selected credential', async () => {
+  it('rejects accounts that do not belong to the provider connection', async () => {
     mockListTradingAccounts.mockResolvedValue([{ id: 'ACC-2', type: 'cash', baseCurrency: 'USD' }])
 
     const { POST } = await import('@/app/api/providers/trading/order/route')
     const response = await POST(
       createMockRequest('POST', {
         provider: 'tradier',
-        credentialId: 'cred-1',
-        environment: 'live',
         accountId: 'ACC-1',
         listing: stockListing,
         side: 'buy',
@@ -364,7 +335,7 @@ describe('Trading provider order route', () => {
 
     expect(response.status).toBe(404)
     await expect(response.json()).resolves.toEqual({
-      error: 'Account not found for credential',
+      error: 'Account not found for provider connection',
     })
     expect(mockFetch).not.toHaveBeenCalled()
   })
@@ -388,14 +359,10 @@ describe('Trading provider order route', () => {
   ])(
     'rejects invalid Alpaca trailing stop payloads before account discovery',
     async (fields, error) => {
-      mockGetCredential.mockResolvedValue({ id: 'cred-1', providerId: 'alpaca' })
-
       const { POST } = await import('@/app/api/providers/trading/order/route')
       const response = await POST(
         createMockRequest('POST', {
           provider: 'alpaca',
-          credentialId: 'cred-1',
-          environment: 'paper',
           accountId: 'ACC-1',
           listing: stockListing,
           side: 'sell',
@@ -413,7 +380,6 @@ describe('Trading provider order route', () => {
   )
 
   it('submits valid Alpaca quantity orders without using order history', async () => {
-    mockGetCredential.mockResolvedValue({ id: 'cred-1', providerId: 'alpaca' })
     mockFetch.mockResolvedValueOnce(
       new Response(
         JSON.stringify({
@@ -431,8 +397,6 @@ describe('Trading provider order route', () => {
     const response = await POST(
       createMockRequest('POST', {
         provider: 'alpaca',
-        credentialId: 'cred-1',
-        environment: 'paper',
         accountId: 'ACC-1',
         listing: stockListing,
         side: 'buy',
@@ -443,7 +407,6 @@ describe('Trading provider order route', () => {
     expect(response.status).toBe(200)
     await expect(response.json()).resolves.toMatchObject({
       provider: 'alpaca',
-      environment: 'paper',
       accountId: 'ACC-1',
       order: {
         id: 'alpaca-order-1',
@@ -454,7 +417,7 @@ describe('Trading provider order route', () => {
     })
     expect(mockFetch).toHaveBeenCalledTimes(1)
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit]
-    expect(url).toBe('https://paper-api.alpaca.markets/v2/orders')
+    expect(url).toBe('https://api.alpaca.markets/v2/orders')
     expect(url).not.toContain('/api/tools/trading/order-history')
     expect(JSON.parse(String(init.body))).toMatchObject({
       symbol: 'AAPL',
@@ -466,7 +429,6 @@ describe('Trading provider order route', () => {
   })
 
   it('submits valid Alpaca notional orders without sending quantity', async () => {
-    mockGetCredential.mockResolvedValue({ id: 'cred-1', providerId: 'alpaca' })
     mockFetch.mockResolvedValueOnce(
       new Response(JSON.stringify({ id: 'alpaca-order-2', status: 'accepted' }), {
         status: 200,
@@ -477,8 +439,6 @@ describe('Trading provider order route', () => {
     const response = await POST(
       createMockRequest('POST', {
         provider: 'alpaca',
-        credentialId: 'cred-1',
-        environment: 'paper',
         accountId: 'ACC-1',
         listing: stockListing,
         side: 'buy',
@@ -506,8 +466,6 @@ describe('Trading provider order route', () => {
     const response = await POST(
       createMockRequest('POST', {
         provider: 'tradier',
-        credentialId: 'cred-1',
-        environment: 'live',
         accountId: 'ACC-1',
         listing: stockListing,
         side: 'buy',
@@ -519,7 +477,6 @@ describe('Trading provider order route', () => {
     expect(response.status).toBe(200)
     await expect(response.json()).resolves.toMatchObject({
       provider: 'tradier',
-      environment: 'live',
       accountId: 'ACC-1',
       message: 'Order accepted',
       order: {
@@ -545,8 +502,6 @@ describe('Trading provider order route', () => {
     const response = await POST(
       createMockRequest('POST', {
         provider: 'tradier',
-        credentialId: 'cred-1',
-        environment: 'live',
         accountId: 'ACC-1',
         listing: {
           ...stockListing,
@@ -586,8 +541,6 @@ describe('Trading provider order route', () => {
     const response = await POST(
       createMockRequest('POST', {
         provider: 'tradier',
-        credentialId: 'cred-1',
-        environment: 'live',
         accountId: 'ACC-1',
         listing: stockListing,
         side: 'buy',
@@ -610,8 +563,6 @@ describe('Trading provider order route', () => {
     const response = await POST(
       createMockRequest('POST', {
         provider: 'tradier',
-        credentialId: 'cred-1',
-        environment: 'live',
         accountId: 'ACC-1',
         listing: stockListing,
         side: 'buy',

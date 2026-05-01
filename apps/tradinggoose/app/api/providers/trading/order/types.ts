@@ -7,8 +7,6 @@ export type QuickOrderResolvedListing =
 
 export interface QuickOrderSubmitRequest {
   provider: string
-  credentialId: string
-  environment: 'paper' | 'live'
   accountId: string
   listing: QuickOrderResolvedListing
   side: 'buy' | 'sell'
@@ -26,7 +24,6 @@ export interface QuickOrderSubmitRequest {
 export interface QuickOrderSubmitResponse {
   order: TradingOrder | null
   provider: string
-  environment: 'paper' | 'live'
   accountId: string
   message?: string | null
 }

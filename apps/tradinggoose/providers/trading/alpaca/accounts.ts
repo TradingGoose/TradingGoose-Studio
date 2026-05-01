@@ -7,8 +7,7 @@ import type {
   UnifiedTradingAccountStatus,
 } from '@/providers/trading/types'
 
-export const resolveAlpacaTradingBaseUrl = (environment?: 'paper' | 'live') =>
-  environment === 'paper' ? 'https://paper-api.alpaca.markets' : 'https://api.alpaca.markets'
+export const resolveAlpacaTradingBaseUrl = () => 'https://api.alpaca.markets'
 
 export const mapAlpacaAccountStatus = (value: unknown): UnifiedTradingAccountStatus => {
   if (typeof value !== 'string') return 'unknown'
@@ -33,10 +32,7 @@ export const mapAlpacaAccountStatus = (value: unknown): UnifiedTradingAccountSta
   }
 }
 
-export const normalizeAlpacaTradingAccount = (
-  account: any,
-  environment?: 'paper' | 'live'
-): UnifiedTradingAccount => {
+export const normalizeAlpacaTradingAccount = (account: any): UnifiedTradingAccount => {
   const id = typeof account?.id === 'string' ? account.id.trim() : ''
   if (!id) {
     throw new Error('Alpaca account response missing account id')
@@ -49,8 +45,8 @@ export const normalizeAlpacaTradingAccount = (
 
   return {
     id,
-    name: `Alpaca ${environment === 'paper' ? 'Paper' : 'Live'} (${accountNumber})`,
-    type: environment === 'paper' ? 'paper' : 'unknown',
+    name: `Alpaca (${accountNumber})`,
+    type: 'unknown',
     baseCurrency:
       typeof account?.currency === 'string' && account.currency.trim()
         ? account.currency.trim().toUpperCase()
@@ -60,7 +56,7 @@ export const normalizeAlpacaTradingAccount = (
 }
 
 export async function fetchAlpacaTradingAccount(context: TradingPortfolioBaseContext) {
-  const baseUrl = resolveAlpacaTradingBaseUrl(context.environment)
+  const baseUrl = resolveAlpacaTradingBaseUrl()
   return fetchBrokerJson<any>({
     providerId: context.providerId,
     url: `${baseUrl}/v2/account`,
@@ -75,7 +71,7 @@ export async function getAlpacaTradingAccounts(
   context: TradingPortfolioBaseContext
 ): Promise<UnifiedTradingAccount[]> {
   const account = await fetchAlpacaTradingAccount(context)
-  return [normalizeAlpacaTradingAccount(account, context.environment)]
+  return [normalizeAlpacaTradingAccount(account)]
 }
 
 export const normalizeAlpacaSnapshotAccountSummary = (account: any) => {

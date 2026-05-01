@@ -5,7 +5,7 @@ import type { HttpMethod } from '@/tools/types'
 
 export type TradingProviderId = 'alpaca' | 'tradier' | (string & {})
 
-export type TradingAuthType = 'apiKey' | 'oauth'
+export type TradingAuthType = 'oauth'
 
 export type TradingOrderType =
   | 'market'
@@ -61,8 +61,6 @@ export interface TradingOrderInput extends TradingSymbolInput {
   trailPercent?: number
   environment?: 'paper' | 'live'
   accessToken?: string
-  apiKey?: string
-  apiSecret?: string
   orderClass?: string
   accountId?: string
   providerParams?: TradingProviderParams
@@ -71,8 +69,6 @@ export interface TradingOrderInput extends TradingSymbolInput {
 export interface TradingHoldingsInput {
   environment?: 'paper' | 'live'
   accessToken?: string
-  apiKey?: string
-  apiSecret?: string
   accountId?: string
   providerParams?: TradingProviderParams
 }
@@ -123,8 +119,6 @@ export interface TradingHoldingsRequest extends TradingHoldingsInput {
 export type TradingProviderRequest = TradingOrderRequest | TradingHoldingsRequest
 
 export interface TradingProviderParams {
-  apiKey?: string
-  apiSecret?: string
   accessToken?: string
   [key: string]: any
 }

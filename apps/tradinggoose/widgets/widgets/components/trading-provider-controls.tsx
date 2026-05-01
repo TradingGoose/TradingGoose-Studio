@@ -4,7 +4,6 @@ import { cn } from '@/lib/utils'
 import {
   type TradingAccountSelection,
   TradingAccountSelector,
-  type TradingEnvironmentOption,
 } from '@/widgets/widgets/components/trading-account-selector'
 import {
   type TradingProviderOption,
@@ -13,13 +12,10 @@ import {
 import { widgetHeaderButtonGroupClassName } from '@/widgets/widgets/components/widget-header-control'
 
 type TradingProviderControlsProps = {
+  workspaceId?: string | null
   providerId?: string | null
   providerOptions: TradingProviderOption[]
   onProviderChange?: (providerId: string) => void
-  credentialProviderId?: string
-  environmentOptions: TradingEnvironmentOption[]
-  credentialId?: string | null
-  environment?: string | null
   accountId?: string | null
   disabled?: boolean
   providerPlaceholder?: string
@@ -31,13 +27,10 @@ type TradingProviderControlsProps = {
 }
 
 export function TradingProviderControls({
+  workspaceId,
   providerId,
   providerOptions,
   onProviderChange,
-  credentialProviderId,
-  environmentOptions,
-  credentialId,
-  environment,
   accountId,
   disabled = false,
   providerPlaceholder,
@@ -61,11 +54,8 @@ export function TradingProviderControls({
       />
       {hasSelectedProvider ? (
         <TradingAccountSelector
+          workspaceId={workspaceId}
           providerId={selectedProviderId}
-          credentialProviderId={credentialProviderId}
-          environmentOptions={environmentOptions}
-          credentialId={credentialId}
-          environment={environment}
           accountId={accountId}
           disabled={disabled}
           placeholder={accountPlaceholder}

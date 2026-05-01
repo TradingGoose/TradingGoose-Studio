@@ -13,8 +13,6 @@ describe('sanitizeHeatmapParams', () => {
           apiSecret: '{{ ALPACA_API_SECRET }}',
         },
         tradingProvider: 'alpaca',
-        credentialId: 'credential-1',
-        environment: 'paper',
         accountId: 'account-1',
         runtime: { refreshAt: 123 },
       })
@@ -27,8 +25,6 @@ describe('sanitizeHeatmapParams', () => {
         apiSecret: '{{ ALPACA_API_SECRET }}',
       },
       tradingProvider: 'alpaca',
-      credentialId: 'credential-1',
-      environment: 'paper',
       accountId: 'account-1',
       runtime: { refreshAt: 123 },
     })

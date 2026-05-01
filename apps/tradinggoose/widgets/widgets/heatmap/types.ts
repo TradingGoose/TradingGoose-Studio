@@ -12,8 +12,6 @@ export interface HeatmapWidgetParams {
     [key: string]: unknown
   }
   tradingProvider?: string
-  credentialId?: string
-  environment?: 'paper' | 'live'
   accountId?: string
   runtime?: {
     refreshAt?: number

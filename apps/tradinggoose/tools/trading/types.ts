@@ -22,8 +22,6 @@ export interface TradingActionParams {
   // Auth
   credential?: string
   accessToken?: string
-  apiKey?: string
-  apiSecret?: string
   tradierCredential?: string
   alpacaCredential?: string
   // Provider-specific extras
@@ -36,8 +34,6 @@ export interface TradingHoldingsParams {
   provider: TradingProviderId
   environment?: 'paper' | 'live'
   accessToken?: string
-  apiKey?: string
-  apiSecret?: string
   accountId?: string
 }
 
@@ -47,8 +43,6 @@ export interface TradingOrderDetailParams {
   environment?: 'paper' | 'live'
   credential?: string
   accessToken?: string
-  apiKey?: string
-  apiSecret?: string
   tradierCredential?: string
   alpacaCredential?: string
   accountId?: string

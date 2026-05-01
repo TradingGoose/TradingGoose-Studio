@@ -1,17 +1,12 @@
-import {
-  getTradingPortfolioDefaultEnvironment,
-  getTradingPortfolioSupportedWindows,
-} from '@/providers/trading/portfolio'
+import { getTradingPortfolioSupportedWindows } from '@/providers/trading/portfolio'
 import type { TradingPortfolioPerformanceWindow } from '@/providers/trading/types'
 import {
   resolveConfiguredSeriesMarketProviderId,
   getSeriesMarketProviderOptions,
 } from '@/widgets/widgets/data_chart/options'
 import {
-  getTradingWidgetEnvironmentOptions,
   getTradingWidgetProviderAvailabilityIds,
   getTradingWidgetProviderOptions,
-  resolveTradingWidgetCredentialProvider,
   resolveTradingWidgetProviderId,
 } from '@/widgets/utils/trading-widget-providers'
 import type { PortfolioSnapshotWidgetParams } from '@/widgets/widgets/portfolio_snapshot/types'
@@ -32,13 +27,6 @@ export const resolvePortfolioSnapshotProviderId = (
   return resolveTradingWidgetProviderId(params?.provider, providerOptions)
 }
 
-export const getPortfolioSnapshotEnvironmentOptions = (providerId: string) => {
-  return getTradingWidgetEnvironmentOptions(providerId, 'holdings')
-}
-
-export const getPortfolioSnapshotDefaultEnvironment = (providerId: string) =>
-  getTradingPortfolioDefaultEnvironment(providerId)
-
 export const getPortfolioSnapshotSupportedWindows = (providerId: string) =>
   getTradingPortfolioSupportedWindows(providerId)
 
@@ -46,10 +34,6 @@ export const getPortfolioSnapshotDefaultWindow = (
   providerId: string
 ): TradingPortfolioPerformanceWindow | undefined => {
   return getPortfolioSnapshotSupportedWindows(providerId)[0]
-}
-
-export const resolvePortfolioSnapshotCredentialProvider = (providerId: string) => {
-  return resolveTradingWidgetCredentialProvider(providerId)
 }
 
 export const getPortfolioSnapshotMarketProviderOptions = () => getSeriesMarketProviderOptions()

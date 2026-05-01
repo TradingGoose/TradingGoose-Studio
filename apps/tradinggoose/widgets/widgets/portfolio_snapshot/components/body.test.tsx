@@ -7,18 +7,12 @@ import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { PortfolioSnapshotWidgetBody } from '@/widgets/widgets/portfolio_snapshot/components/body'
 
-const mockUseOAuthCredentials = vi.fn()
 const mockUseOAuthProviderAvailability = vi.fn()
 const mockUseMarketQuoteSnapshots = vi.fn()
 const mockUseTradingAccounts = vi.fn()
-const mockUseTradingHoldingsListings = vi.fn()
 const mockUseTradingPortfolioSnapshot = vi.fn()
 const mockUseTradingPortfolioPerformance = vi.fn()
 const mockEmitPortfolioSnapshotParamsChange = vi.fn()
-
-vi.mock('@/hooks/queries/oauth-credentials', () => ({
-  useOAuthCredentials: (...args: unknown[]) => mockUseOAuthCredentials(...args),
-}))
 
 vi.mock('@/hooks/queries/oauth-provider-availability', () => ({
   useOAuthProviderAvailability: (...args: unknown[]) => mockUseOAuthProviderAvailability(...args),
@@ -30,7 +24,6 @@ vi.mock('@/hooks/queries/market-quote-snapshots', () => ({
 
 vi.mock('@/hooks/queries/trading-portfolio', () => ({
   useTradingAccounts: (...args: unknown[]) => mockUseTradingAccounts(...args),
-  useTradingHoldingsListings: (...args: unknown[]) => mockUseTradingHoldingsListings(...args),
   useTradingPortfolioSnapshot: (...args: unknown[]) => mockUseTradingPortfolioSnapshot(...args),
   useTradingPortfolioPerformance: (...args: unknown[]) =>
     mockUseTradingPortfolioPerformance(...args),
@@ -78,32 +71,9 @@ describe('PortfolioSnapshotWidgetBody', () => {
         },
       })
     )
-    mockUseOAuthCredentials.mockReturnValue(
-      createQueryResult({
-        data: [{ id: 'cred-1', name: 'Primary Broker', provider: 'alpaca' }],
-      })
-    )
     mockUseTradingAccounts.mockReturnValue(
       createQueryResult({
         data: [{ id: 'acct-1', name: 'Paper', type: 'paper', baseCurrency: 'USD' }],
-      })
-    )
-    mockUseTradingHoldingsListings.mockReturnValue(
-      createQueryResult({
-        data: {
-          positionListings: [
-            {
-              listing: {
-                listing_id: 'TG_LSTG_AAPL',
-                base_id: '',
-                quote_id: '',
-                listing_type: 'default',
-              },
-              grossQuantity: 10,
-              signedQuantity: 10,
-            },
-          ],
-        },
       })
     )
     mockUseMarketQuoteSnapshots.mockReturnValue(
@@ -122,7 +92,7 @@ describe('PortfolioSnapshotWidgetBody', () => {
       createQueryResult({
         data: {
           asOf: '2026-04-22T15:30:00.000Z',
-          provider: { name: 'Alpaca', environment: 'paper' },
+          provider: { name: 'Alpaca' },
           account: {
             id: 'acct-1',
             name: 'Paper',
@@ -158,6 +128,18 @@ describe('PortfolioSnapshotWidgetBody', () => {
             totalUnrealizedPnl: 100,
           },
         },
+        positionListings: [
+          {
+            listing: {
+              listing_id: 'TG_LSTG_AAPL',
+              base_id: '',
+              quote_id: '',
+              listing_type: 'default',
+            },
+            grossQuantity: 10,
+            signedQuantity: 10,
+          },
+        ],
       })
     )
     mockUseTradingPortfolioPerformance.mockReturnValue(
@@ -199,8 +181,6 @@ describe('PortfolioSnapshotWidgetBody', () => {
           panelId='panel-1'
           params={{
             provider: 'alpaca',
-            credentialId: 'cred-1',
-            environment: 'paper',
             selectedWindow: '1D',
           }}
         />
@@ -213,15 +193,13 @@ describe('PortfolioSnapshotWidgetBody', () => {
       widgetKey: 'portfolio_snapshot',
     })
     expect(mockUseTradingPortfolioSnapshot).toHaveBeenCalledWith({
+      workspaceId: undefined,
       provider: 'alpaca',
-      credentialId: 'cred-1',
-      environment: 'paper',
       accountId: 'acct-1',
     })
     expect(mockUseTradingPortfolioPerformance).toHaveBeenCalledWith({
+      workspaceId: undefined,
       provider: 'alpaca',
-      credentialId: 'cred-1',
-      environment: 'paper',
       accountId: 'acct-1',
       selectedWindow: '1D',
     })
@@ -230,9 +208,7 @@ describe('PortfolioSnapshotWidgetBody', () => {
   it('clears provider-scoped state when it normalizes an invalid provider', async () => {
     const params = {
       provider: 'unsupported-provider',
-      credentialId: 'cred-stale',
       accountId: 'acct-stale',
-      environment: 'paper',
       selectedWindow: '1D',
     } as const
 
@@ -249,8 +225,6 @@ describe('PortfolioSnapshotWidgetBody', () => {
     expect(mockEmitPortfolioSnapshotParamsChange).toHaveBeenCalledWith({
       params: {
         provider: null,
-        environment: null,
-        credentialId: null,
         accountId: null,
         selectedWindow: null,
       },
@@ -258,9 +232,8 @@ describe('PortfolioSnapshotWidgetBody', () => {
       widgetKey: 'portfolio_snapshot',
     })
     expect(mockUseTradingAccounts).toHaveBeenCalledWith({
+      workspaceId: undefined,
       provider: undefined,
-      credentialId: undefined,
-      environment: undefined,
     })
     expect(container.textContent).toContain('Select a trading provider to get started.')
   })
@@ -273,8 +246,6 @@ describe('PortfolioSnapshotWidgetBody', () => {
           panelId='panel-1'
           params={{
             provider: 'alpaca',
-            credentialId: 'cred-1',
-            environment: 'paper',
             accountId: 'acct-1',
             selectedWindow: 'MAX',
           }}
@@ -287,110 +258,6 @@ describe('PortfolioSnapshotWidgetBody', () => {
       panelId: 'panel-1',
       widgetKey: 'portfolio_snapshot',
     })
-  })
-
-  it('renders the no-credential empty state', async () => {
-    mockUseOAuthCredentials.mockReturnValue(createQueryResult({ data: [] }))
-
-    await act(async () => {
-      root.render(
-        <PortfolioSnapshotWidgetBody
-          widget={{ key: 'portfolio_snapshot' } as any}
-          panelId='panel-1'
-          params={{
-            provider: 'alpaca',
-            environment: 'paper',
-            selectedWindow: '1D',
-          }}
-        />
-      )
-    })
-
-    expect(container.textContent).toContain('Connect Alpaca in provider settings to get started.')
-  })
-
-  it('preserves a saved credential when the credential query errors', async () => {
-    mockUseOAuthCredentials.mockReturnValue(
-      createQueryResult({
-        data: [],
-        error: new Error('credential fetch failed'),
-      })
-    )
-
-    await act(async () => {
-      root.render(
-        <PortfolioSnapshotWidgetBody
-          widget={{ key: 'portfolio_snapshot' } as any}
-          panelId='panel-1'
-          params={{
-            provider: 'alpaca',
-            credentialId: 'cred-1',
-            environment: 'paper',
-            selectedWindow: '1D',
-          }}
-        />
-      )
-    })
-
-    expect(mockEmitPortfolioSnapshotParamsChange).not.toHaveBeenCalledWith({
-      params: {
-        credentialId: null,
-        accountId: null,
-      },
-      panelId: 'panel-1',
-      widgetKey: 'portfolio_snapshot',
-    })
-    expect(mockUseTradingAccounts).toHaveBeenCalledWith({
-      provider: 'alpaca',
-      credentialId: 'cred-1',
-      environment: 'paper',
-    })
-    expect(mockUseTradingPortfolioSnapshot).toHaveBeenCalledWith({
-      provider: 'alpaca',
-      credentialId: 'cred-1',
-      environment: 'paper',
-      accountId: 'acct-1',
-    })
-    expect(container.textContent).toContain('Performance')
-  })
-
-  it('keeps a saved credential in params even when credential options are incomplete', async () => {
-    mockUseOAuthCredentials.mockReturnValue(
-      createQueryResult({
-        data: [{ id: 'cred-2', name: 'Replacement Broker', provider: 'alpaca' }],
-      })
-    )
-
-    await act(async () => {
-      root.render(
-        <PortfolioSnapshotWidgetBody
-          widget={{ key: 'portfolio_snapshot' } as any}
-          panelId='panel-1'
-          params={{
-            provider: 'alpaca',
-            credentialId: 'cred-1',
-            accountId: 'acct-1',
-            environment: 'paper',
-            selectedWindow: '1D',
-          }}
-        />
-      )
-    })
-
-    expect(mockEmitPortfolioSnapshotParamsChange).not.toHaveBeenCalledWith({
-      params: {
-        credentialId: null,
-        accountId: null,
-      },
-      panelId: 'panel-1',
-      widgetKey: 'portfolio_snapshot',
-    })
-    expect(mockUseTradingAccounts).toHaveBeenCalledWith({
-      provider: 'alpaca',
-      credentialId: 'cred-1',
-      environment: 'paper',
-    })
-    expect(container.textContent).toContain('Performance')
   })
 
   it('preserves a saved account when the accounts query errors', async () => {
@@ -408,8 +275,6 @@ describe('PortfolioSnapshotWidgetBody', () => {
           panelId='panel-1'
           params={{
             provider: 'alpaca',
-            credentialId: 'cred-1',
-            environment: 'paper',
             accountId: 'acct-1',
             selectedWindow: '1D',
           }}
@@ -438,15 +303,13 @@ describe('PortfolioSnapshotWidgetBody', () => {
           panelId='panel-1'
           params={{
             provider: 'alpaca',
-            credentialId: 'cred-1',
-            environment: 'paper',
             selectedWindow: '1D',
           }}
         />
       )
     })
 
-    expect(container.textContent).toContain('No broker accounts found for the selected credential.')
+    expect(container.textContent).toContain('No broker accounts found for this provider connection.')
   })
 
   it('renders the loaded performance and summary state', async () => {
@@ -458,8 +321,6 @@ describe('PortfolioSnapshotWidgetBody', () => {
           panelId='panel-1'
           params={{
             provider: 'alpaca',
-            credentialId: 'cred-1',
-            environment: 'paper',
             accountId: 'acct-1',
             selectedWindow: '1D',
             marketProvider: 'alpaca',
@@ -477,12 +338,11 @@ describe('PortfolioSnapshotWidgetBody', () => {
     expect(container.textContent).toContain('Day Change')
     expect(container.textContent).toContain('Day %')
     expect(container.textContent).toContain('Quoted Positions')
-    expect(container.textContent).toContain('Alpaca · paper · active · paper')
+    expect(container.textContent).toContain('Alpaca · active · paper')
     expect(container.textContent).toContain('performance-chart')
-    expect(mockUseTradingHoldingsListings).toHaveBeenCalledWith({
+    expect(mockUseTradingPortfolioSnapshot).toHaveBeenCalledWith({
+      workspaceId: 'workspace-1',
       provider: 'alpaca',
-      credentialId: 'cred-1',
-      environment: 'paper',
       accountId: 'acct-1',
     })
     expect(mockUseMarketQuoteSnapshots).toHaveBeenCalledWith({
@@ -515,8 +375,6 @@ describe('PortfolioSnapshotWidgetBody', () => {
           panelId='panel-1'
           params={{
             provider: 'alpaca',
-            credentialId: 'cred-1',
-            environment: 'paper',
             accountId: 'acct-1',
             selectedWindow: '1D',
           }}
@@ -557,7 +415,7 @@ describe('PortfolioSnapshotWidgetBody', () => {
       createQueryResult({
         data: {
           asOf: '2026-04-22T15:30:00.000Z',
-          provider: { name: 'Alpaca', environment: 'paper' },
+          provider: { name: 'Alpaca' },
           account: {
             id: 'acct-1',
             name: 'Paper',
@@ -593,6 +451,18 @@ describe('PortfolioSnapshotWidgetBody', () => {
             totalUnrealizedPnl: 100,
           },
         },
+        positionListings: [
+          {
+            listing: {
+              listing_id: 'TG_LSTG_TSLA',
+              base_id: '',
+              quote_id: '',
+              listing_type: 'default',
+            },
+            grossQuantity: 5,
+            signedQuantity: -5,
+          },
+        ],
       })
     )
     mockUseMarketQuoteSnapshots.mockReturnValue(
@@ -607,25 +477,6 @@ describe('PortfolioSnapshotWidgetBody', () => {
         },
       })
     )
-    mockUseTradingHoldingsListings.mockReturnValue(
-      createQueryResult({
-        data: {
-          positionListings: [
-            {
-              listing: {
-                listing_id: 'TG_LSTG_TSLA',
-                base_id: '',
-                quote_id: '',
-                listing_type: 'default',
-              },
-              grossQuantity: 5,
-              signedQuantity: -5,
-            },
-          ],
-        },
-      })
-    )
-
     await act(async () => {
       root.render(
         <PortfolioSnapshotWidgetBody
@@ -634,8 +485,6 @@ describe('PortfolioSnapshotWidgetBody', () => {
           panelId='panel-1'
           params={{
             provider: 'alpaca',
-            credentialId: 'cred-1',
-            environment: 'paper',
             accountId: 'acct-1',
             selectedWindow: '1D',
             marketProvider: 'alpaca',
@@ -664,8 +513,6 @@ describe('PortfolioSnapshotWidgetBody', () => {
           panelId='panel-1'
           params={{
             provider: 'alpaca',
-            credentialId: 'cred-1',
-            environment: 'paper',
             accountId: 'acct-1',
             selectedWindow: '1D',
             marketProvider: 'alpaca',
@@ -700,8 +547,6 @@ describe('PortfolioSnapshotWidgetBody', () => {
           panelId='panel-1'
           params={{
             provider: 'alpaca',
-            credentialId: 'cred-1',
-            environment: 'paper',
             accountId: 'acct-1',
             selectedWindow: '1D',
           }}
@@ -730,6 +575,7 @@ describe('PortfolioSnapshotWidgetBody', () => {
           },
         },
         refetch: snapshotRefetch,
+        positionListings: [],
       })
     )
     mockUseTradingPortfolioPerformance.mockReturnValue(
@@ -752,8 +598,6 @@ describe('PortfolioSnapshotWidgetBody', () => {
           panelId='panel-1'
           params={{
             provider: 'alpaca',
-            credentialId: 'cred-1',
-            environment: 'paper',
             accountId: 'acct-1',
             selectedWindow: '1D',
           }}
@@ -768,8 +612,6 @@ describe('PortfolioSnapshotWidgetBody', () => {
           panelId='panel-1'
           params={{
             provider: 'alpaca',
-            credentialId: 'cred-1',
-            environment: 'paper',
             accountId: 'acct-1',
             selectedWindow: '1D',
             runtime: {
@@ -803,8 +645,6 @@ describe('PortfolioSnapshotWidgetBody', () => {
           panelId='panel-1'
           params={{
             provider: 'alpaca',
-            credentialId: 'cred-1',
-            environment: 'paper',
             selectedWindow: '1D',
           }}
         />
@@ -813,19 +653,19 @@ describe('PortfolioSnapshotWidgetBody', () => {
 
     expect(container.textContent).toContain('No trading providers are configured.')
     expect(mockUseTradingAccounts).toHaveBeenCalledWith({
+      workspaceId: undefined,
       provider: undefined,
-      credentialId: undefined,
-      environment: undefined,
     })
     expect(mockUseTradingPortfolioSnapshot).toHaveBeenCalledWith({
+      workspaceId: undefined,
       provider: undefined,
-      credentialId: undefined,
-      environment: undefined,
       accountId: undefined,
     })
   })
 
   it('requires selecting a provider before loading credentials or accounts', async () => {
+    mockUseTradingAccounts.mockReturnValueOnce(createQueryResult({ data: [] }))
+
     await act(async () => {
       root.render(
         <PortfolioSnapshotWidgetBody
@@ -837,16 +677,13 @@ describe('PortfolioSnapshotWidgetBody', () => {
     })
 
     expect(container.textContent).toContain('Select a trading provider to get started.')
-    expect(mockUseOAuthCredentials).toHaveBeenCalledWith(undefined, false)
     expect(mockUseTradingAccounts).toHaveBeenCalledWith({
+      workspaceId: undefined,
       provider: undefined,
-      credentialId: undefined,
-      environment: undefined,
     })
     expect(mockUseTradingPortfolioSnapshot).toHaveBeenCalledWith({
+      workspaceId: undefined,
       provider: undefined,
-      credentialId: undefined,
-      environment: undefined,
       accountId: undefined,
     })
   })

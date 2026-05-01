@@ -11,12 +11,10 @@ import { widgetHeaderButtonGroupClassName } from '@/widgets/widgets/components/w
 import { WidgetHeaderRefreshButton } from '@/widgets/widgets/components/widget-header-refresh-button'
 import {
   getHeatmapMarketProviderOptions,
-  getHeatmapTradingEnvironmentOptions,
   getHeatmapTradingProviderAvailabilityIds,
   getHeatmapTradingProviderOptions,
   HEATMAP_SOURCE_MODES,
   HEATMAP_WATCHLIST_SIZE_METRICS,
-  resolveHeatmapCredentialProvider,
   resolveHeatmapMarketProviderId,
   resolveHeatmapSourceMode,
   resolveHeatmapTradingProviderId,
@@ -134,7 +132,7 @@ function HeatmapWatchlistSizeControls({ panelId, widgetKey, params }: HeaderCont
   )
 }
 
-function HeatmapPortfolioControls({ panelId, widgetKey, params }: HeaderControlProps) {
+function HeatmapPortfolioControls({ workspaceId, panelId, widgetKey, params }: HeaderControlProps) {
   const providerAvailabilityQuery = useOAuthProviderAvailability(
     getHeatmapTradingProviderAvailabilityIds()
   )
@@ -143,28 +141,12 @@ function HeatmapPortfolioControls({ panelId, widgetKey, params }: HeaderControlP
     [providerAvailabilityQuery.data]
   )
   const providerId = resolveHeatmapTradingProviderId(params, providerOptions)
-  const hasSelectedProvider = Boolean(providerId)
-  const areProviderOptionsReady =
-    !providerAvailabilityQuery.isLoading &&
-    !providerAvailabilityQuery.error &&
-    providerOptions.length > 0
-  const credentialProviderId =
-    hasSelectedProvider && areProviderOptionsReady
-      ? resolveHeatmapCredentialProvider(providerId)
-      : undefined
-  const environmentOptions = useMemo(
-    () => (hasSelectedProvider ? getHeatmapTradingEnvironmentOptions(providerId) : []),
-    [hasSelectedProvider, providerId]
-  )
 
   return (
     <TradingProviderControls
+      workspaceId={workspaceId}
       providerId={providerId}
       providerOptions={providerOptions}
-      credentialProviderId={credentialProviderId}
-      environmentOptions={environmentOptions}
-      credentialId={params?.credentialId}
-      environment={params?.environment}
       accountId={params?.accountId}
       toolName='Heatmap'
       onProviderChange={(nextProvider) => {
@@ -172,17 +154,15 @@ function HeatmapPortfolioControls({ panelId, widgetKey, params }: HeaderControlP
         emitHeatmapParamsChange({
           params: {
             tradingProvider: nextProvider,
-            credentialId: null,
-            environment: null,
             accountId: null,
           },
           panelId,
           widgetKey,
         })
       }}
-      onAccountSelect={({ credentialId, environment, accountId }) => {
+      onAccountSelect={({ accountId }) => {
         emitHeatmapParamsChange({
-          params: { credentialId, environment, accountId },
+          params: { accountId },
           panelId,
           widgetKey,
         })
@@ -235,7 +215,12 @@ export const renderHeatmapHeader: DashboardWidgetDefinition['renderHeader'] = ({
     right: (
       <div className={widgetHeaderButtonGroupClassName('min-w-0')}>
         {sourceMode === 'portfolio' ? (
-          <HeatmapPortfolioControls panelId={panelId} widgetKey={widgetKey} params={params} />
+          <HeatmapPortfolioControls
+            workspaceId={context?.workspaceId}
+            panelId={panelId}
+            widgetKey={widgetKey}
+            params={params}
+          />
         ) : null}
         <HeatmapRefreshControl panelId={panelId} widgetKey={widgetKey} params={params} />
       </div>

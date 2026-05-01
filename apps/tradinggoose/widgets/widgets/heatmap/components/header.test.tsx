@@ -19,8 +19,6 @@ const mockTradingAccountSelector = vi.fn(({ onAccountSelect }: MockTradingAccoun
     data-testid='trading-account-selector'
     onClick={() =>
       onAccountSelect?.({
-        credentialId: 'cred-1',
-        environment: 'paper',
         accountId: 'acct-1',
       })
     }
@@ -189,7 +187,6 @@ describe('HeatmapHeaderControls', () => {
     expect(mockTradingAccountSelector).toHaveBeenCalledWith(
       expect.objectContaining({
         providerId: 'alpaca',
-        credentialProviderId: 'alpaca',
         accountId: undefined,
       })
     )
@@ -252,7 +249,7 @@ describe('HeatmapHeaderControls', () => {
     })
   })
 
-  it('updates credential, environment, and account together from account selection', async () => {
+  it('updates the account id from account selection', async () => {
     const slots = renderHeatmapHeader?.({
       panelId: 'panel-1',
       widget: {
@@ -276,8 +273,6 @@ describe('HeatmapHeaderControls', () => {
 
     expect(mockEmitHeatmapParamsChange).toHaveBeenCalledWith({
       params: {
-        credentialId: 'cred-1',
-        environment: 'paper',
         accountId: 'acct-1',
       },
       panelId: 'panel-1',

@@ -17,7 +17,7 @@ import type {
 } from '@/providers/trading/types'
 
 async function fetchAlpacaTradingPositions(context: TradingPortfolioAccountContext) {
-  const baseUrl = resolveAlpacaTradingBaseUrl(context.environment)
+  const baseUrl = resolveAlpacaTradingBaseUrl()
   return fetchBrokerJson<any>({
     providerId: context.providerId,
     url: `${baseUrl}/v2/positions`,
@@ -38,7 +38,7 @@ export async function getAlpacaTradingAccountSnapshot(
     fetchAlpacaTradingPositions(context),
   ])
 
-  const account = normalizeAlpacaTradingAccount(accountResponse, context.environment)
+  const account = normalizeAlpacaTradingAccount(accountResponse)
   const rawPositions = Array.isArray(positionsResponse) ? positionsResponse : []
   const positions = normalizeAlpacaPositions(rawPositions)
   const summaryTotals = normalizeAlpacaSnapshotAccountSummary(accountResponse)

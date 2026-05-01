@@ -1,9 +1,6 @@
-import { getTradingPortfolioDefaultEnvironment } from '@/providers/trading/portfolio'
 import {
-  getTradingWidgetEnvironmentOptions,
   getTradingWidgetProviderAvailabilityIds,
   getTradingWidgetProviderOptions,
-  resolveTradingWidgetCredentialProvider,
 } from '@/widgets/utils/trading-widget-providers'
 import {
   resolveConfiguredSeriesMarketProviderId,
@@ -60,30 +57,3 @@ export const resolveHeatmapTradingProviderId = (
   if (!providerId) return ''
   return providerOptions.some((option) => option.id === providerId) ? providerId : ''
 }
-
-export const getHeatmapTradingEnvironmentOptions = (providerId: string) =>
-  getTradingWidgetEnvironmentOptions(providerId, 'holdings')
-
-export const getHeatmapTradingDefaultEnvironment = (providerId: string) =>
-  getTradingPortfolioDefaultEnvironment(providerId)
-
-export const resolveHeatmapEnvironment = (
-  providerId: string,
-  environment: string | null | undefined
-) => {
-  const trimmedProviderId = providerId.trim()
-  if (!trimmedProviderId) return undefined
-  const persistedEnvironment = typeof environment === 'string' ? environment.trim() : ''
-  if (
-    persistedEnvironment &&
-    getHeatmapTradingEnvironmentOptions(trimmedProviderId).some(
-      (option) => option.id === persistedEnvironment
-    )
-  ) {
-    return persistedEnvironment
-  }
-  return getHeatmapTradingDefaultEnvironment(trimmedProviderId)
-}
-
-export const resolveHeatmapCredentialProvider = (providerId: string) =>
-  resolveTradingWidgetCredentialProvider(providerId)

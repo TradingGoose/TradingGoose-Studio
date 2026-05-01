@@ -25,20 +25,11 @@ const TRADING_PORTFOLIO_SUPPORTED_WINDOWS: Record<string, TradingPortfolioPerfor
   tradier: [...TRADIER_SUPPORTED_TRADING_PORTFOLIO_WINDOWS],
 }
 
-const TRADING_PORTFOLIO_DEFAULT_ENVIRONMENTS: Record<string, 'paper' | 'live'> = {
-  alpaca: 'paper',
-  tradier: 'live',
-}
-
 export const getTradingPortfolioSupportedWindows = (
   providerId: TradingProviderId
 ): TradingPortfolioPerformanceWindow[] => {
   return [...(TRADING_PORTFOLIO_SUPPORTED_WINDOWS[providerId] ?? [])]
 }
-
-export const getTradingPortfolioDefaultEnvironment = (
-  providerId: TradingProviderId
-): 'paper' | 'live' | undefined => TRADING_PORTFOLIO_DEFAULT_ENVIRONMENTS[providerId]
 
 export const isTradingPortfolioWindowSupported = (providerId: TradingProviderId, window: string) =>
   getTradingPortfolioSupportedWindows(providerId).some(

@@ -30,7 +30,7 @@ export const tradingOrderDetailTool: ToolConfig<
       type: 'string',
       required: false,
       visibility: 'user-only',
-      description: 'Optional environment override (paper or live) for provider order-detail fetch.',
+      description: 'Trading environment for providers that expose one.',
     },
     credential: {
       type: 'string',
@@ -56,18 +56,6 @@ export const tradingOrderDetailTool: ToolConfig<
       visibility: 'hidden',
       description: 'OAuth access token (injected from credential).',
     },
-    apiKey: {
-      type: 'string',
-      required: false,
-      visibility: 'hidden',
-      description: 'Alpaca API key ID (optional if using OAuth).',
-    },
-    apiSecret: {
-      type: 'string',
-      required: false,
-      visibility: 'hidden',
-      description: 'Alpaca API secret key (optional if using OAuth).',
-    },
     accountId: {
       type: 'string',
       required: false,
@@ -87,8 +75,6 @@ export const tradingOrderDetailTool: ToolConfig<
       provider: params.provider,
       environment: params.environment,
       accessToken: params.accessToken,
-      apiKey: params.apiKey,
-      apiSecret: params.apiSecret,
       accountId: params.accountId,
     }),
   },

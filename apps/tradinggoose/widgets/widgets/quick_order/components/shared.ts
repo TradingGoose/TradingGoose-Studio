@@ -6,10 +6,8 @@ import { getTradingProviderParamDefinitions } from '@/providers/trading/provider
 import type { TradingOrderType, TradingProviderId } from '@/providers/trading/types'
 import { resolveTradingListingAssetClass } from '@/providers/trading/utils'
 import {
-  getTradingWidgetEnvironmentOptions,
   getTradingWidgetProviderAvailabilityIds,
   getTradingWidgetProviderOptions,
-  resolveTradingWidgetCredentialProvider,
   resolveTradingWidgetProviderId,
 } from '@/widgets/utils/trading-widget-providers'
 import {
@@ -35,33 +33,6 @@ export const resolveQuickOrderProviderId = (
   const providerId = provider.trim()
   const options = getQuickOrderProviderOptions(providerAvailability)
   return resolveTradingWidgetProviderId(providerId, options) || undefined
-}
-
-export const getQuickOrderEnvironmentOptions = (providerId?: string) => {
-  return getTradingWidgetEnvironmentOptions(providerId, 'order').map((option) => option.id)
-}
-
-export const getQuickOrderDefaultEnvironment = (
-  providerId?: string
-): 'paper' | 'live' | undefined => {
-  const options = getQuickOrderEnvironmentOptions(providerId)
-  if (options.includes('paper')) return 'paper'
-  return options[0]
-}
-
-export const resolveQuickOrderEnvironment = (
-  providerId?: string,
-  environment?: unknown
-): 'paper' | 'live' | undefined => {
-  const options = getQuickOrderEnvironmentOptions(providerId)
-  if (typeof environment === 'string' && options.includes(environment as 'paper' | 'live')) {
-    return environment as 'paper' | 'live'
-  }
-  return getQuickOrderDefaultEnvironment(providerId)
-}
-
-export const resolveQuickOrderCredentialProvider = (providerId?: string) => {
-  return resolveTradingWidgetCredentialProvider(providerId)
 }
 
 export const getQuickOrderMarketProviderOptions = () => getSeriesMarketProviderOptions()

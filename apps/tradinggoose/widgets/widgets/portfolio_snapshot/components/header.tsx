@@ -9,11 +9,9 @@ import { TradingProviderControls } from '@/widgets/widgets/components/trading-pr
 import { widgetHeaderButtonGroupClassName } from '@/widgets/widgets/components/widget-header-control'
 import { WidgetHeaderRefreshButton } from '@/widgets/widgets/components/widget-header-refresh-button'
 import {
-  getPortfolioSnapshotEnvironmentOptions,
   getPortfolioSnapshotMarketProviderOptions,
   getPortfolioSnapshotProviderAvailabilityIds,
   getPortfolioSnapshotProviderOptions,
-  resolvePortfolioSnapshotCredentialProvider,
   resolvePortfolioSnapshotMarketProviderId,
   resolvePortfolioSnapshotProviderId,
 } from '@/widgets/widgets/portfolio_snapshot/components/shared'
@@ -42,19 +40,10 @@ export function PortfolioSnapshotHeaderControls({
   const marketProviderOptions = useMemo(() => getPortfolioSnapshotMarketProviderOptions(), [])
   const providerId = resolvePortfolioSnapshotProviderId(params, providerOptions)
   const marketProviderId = resolvePortfolioSnapshotMarketProviderId(params, marketProviderOptions)
-  const hasSelectedProvider = Boolean(providerId)
   const areProviderOptionsReady =
     !providerAvailabilityQuery.isLoading &&
     !providerAvailabilityQuery.error &&
     providerOptions.length > 0
-  const credentialProviderId =
-    hasSelectedProvider && areProviderOptionsReady
-      ? resolvePortfolioSnapshotCredentialProvider(providerId)
-      : undefined
-  const environmentOptions = useMemo(
-    () => (hasSelectedProvider ? getPortfolioSnapshotEnvironmentOptions(providerId) : []),
-    [hasSelectedProvider, providerId]
-  )
 
   return (
     <div className={widgetHeaderButtonGroupClassName('min-w-0')}>
@@ -92,12 +81,9 @@ export function PortfolioSnapshotHeaderControls({
 
       {areProviderOptionsReady ? (
         <TradingProviderControls
+          workspaceId={workspaceId}
           providerId={providerId}
           providerOptions={providerOptions}
-          credentialProviderId={credentialProviderId}
-          environmentOptions={environmentOptions}
-          credentialId={params?.credentialId}
-          environment={params?.environment}
           accountId={params?.accountId}
           toolName='Portfolio Snapshot'
           onProviderChange={(nextProvider) => {
@@ -106,8 +92,6 @@ export function PortfolioSnapshotHeaderControls({
             emitPortfolioSnapshotParamsChange({
               params: {
                 provider: nextProvider,
-                credentialId: null,
-                environment: null,
                 accountId: null,
                 selectedWindow: null,
               },
@@ -115,9 +99,9 @@ export function PortfolioSnapshotHeaderControls({
               widgetKey,
             })
           }}
-          onAccountSelect={({ credentialId, environment, accountId }) => {
+          onAccountSelect={({ accountId }) => {
             emitPortfolioSnapshotParamsChange({
-              params: { credentialId, environment, accountId },
+              params: { accountId },
               panelId,
               widgetKey,
             })

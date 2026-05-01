@@ -84,41 +84,6 @@ const availability: TradingProviderConfig['availability'] = {
 }
 
 const params: TradingProviderConfig['params'] = {
-  shared: [
-    {
-      id: 'apiKey',
-      type: 'string',
-      title: 'API Key',
-      description: 'Alpaca API key ID.',
-      placeholder: 'APCA-API-KEY-ID',
-      required: false,
-      visibility: 'hidden',
-      password: true,
-    },
-    {
-      id: 'apiSecret',
-      type: 'string',
-      title: 'API Secret',
-      description: 'Alpaca API secret key.',
-      placeholder: 'APCA-API-SECRET-KEY',
-      required: false,
-      visibility: 'hidden',
-      password: true,
-    },
-    {
-      id: 'environment',
-      type: 'string',
-      title: 'Environment',
-      description: 'Trading environment (paper or live).',
-      required: false,
-      visibility: 'user-only',
-      inputType: 'dropdown',
-      options: [
-        { id: 'paper', label: 'Paper' },
-        { id: 'live', label: 'Live' },
-      ],
-    },
-  ],
   order: [
     {
       id: 'orderSizingMode',

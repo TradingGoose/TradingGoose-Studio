@@ -9,8 +9,6 @@ export interface QuickOrderWidgetParams {
     apiSecret?: string
     [key: string]: unknown
   }
-  credentialId?: string
-  environment?: 'paper' | 'live'
   accountId?: string
   side?: QuickOrderSide
 }

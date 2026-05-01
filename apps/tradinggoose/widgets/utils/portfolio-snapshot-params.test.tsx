@@ -54,7 +54,7 @@ describe('portfolio snapshot params helper', () => {
     expect(
       sanitizePortfolioSnapshotParams({
         provider: 'alpaca',
-        credentialId: 'cred-1',
+        accountId: 'acct-1',
         selectedWindow: '1D',
         ignored: true,
         runtime: {
@@ -64,7 +64,7 @@ describe('portfolio snapshot params helper', () => {
       })
     ).toEqual({
       provider: 'alpaca',
-      credentialId: 'cred-1',
+      accountId: 'acct-1',
       selectedWindow: '1D',
       runtime: {
         refreshAt: 123,
@@ -80,7 +80,6 @@ describe('portfolio snapshot params helper', () => {
         <Harness
           params={{
             provider: 'alpaca',
-            environment: 'paper',
             runtime: {
               refreshAt: 100,
             },
@@ -93,7 +92,6 @@ describe('portfolio snapshot params helper', () => {
     await act(async () => {
       emitPortfolioSnapshotParamsChange({
         params: {
-          credentialId: 'cred-1',
           runtime: {
             refreshAt: 200,
             ignored: 'value',
@@ -107,8 +105,6 @@ describe('portfolio snapshot params helper', () => {
 
     expect(onWidgetParamsChange).toHaveBeenCalledWith({
       provider: 'alpaca',
-      environment: 'paper',
-      credentialId: 'cred-1',
       runtime: {
         refreshAt: 200,
       },

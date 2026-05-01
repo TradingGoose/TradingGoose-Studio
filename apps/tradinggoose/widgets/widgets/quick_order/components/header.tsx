@@ -9,11 +9,9 @@ import { MarketProviderControls } from '@/widgets/widgets/components/market-prov
 import { TradingProviderControls } from '@/widgets/widgets/components/trading-provider-controls'
 import { widgetHeaderButtonGroupClassName } from '@/widgets/widgets/components/widget-header-control'
 import {
-  getQuickOrderEnvironmentOptions,
   getQuickOrderMarketProviderOptions,
   getQuickOrderProviderAvailabilityIds,
   getQuickOrderProviderOptions,
-  resolveQuickOrderCredentialProvider,
   resolveQuickOrderMarketProviderId,
   resolveQuickOrderProviderId,
 } from '@/widgets/widgets/quick_order/components/shared'
@@ -42,25 +40,10 @@ export function QuickOrderHeaderControls({
   const marketProviderOptions = useMemo(() => getQuickOrderMarketProviderOptions(), [])
   const providerId = resolveQuickOrderProviderId(params?.provider, providerAvailabilityQuery.data)
   const marketProviderId = resolveQuickOrderMarketProviderId(params, marketProviderOptions)
-  const hasSelectedProvider = Boolean(providerId)
   const areProviderOptionsReady =
     !providerAvailabilityQuery.isLoading &&
     !providerAvailabilityQuery.error &&
     providerOptions.length > 0
-  const credentialProviderId =
-    hasSelectedProvider && areProviderOptionsReady
-      ? resolveQuickOrderCredentialProvider(providerId)
-      : undefined
-  const environmentOptions = useMemo(
-    () =>
-      hasSelectedProvider
-        ? getQuickOrderEnvironmentOptions(providerId).map((environment) => ({
-            id: environment,
-            label: environment === 'paper' ? 'Paper' : 'Live',
-          }))
-        : [],
-    [hasSelectedProvider, providerId]
-  )
 
   return (
     <div className={widgetHeaderButtonGroupClassName('min-w-0')}>
@@ -96,12 +79,9 @@ export function QuickOrderHeaderControls({
 
       {areProviderOptionsReady ? (
         <TradingProviderControls
+          workspaceId={workspaceId}
           providerId={providerId}
           providerOptions={providerOptions}
-          credentialProviderId={credentialProviderId}
-          environmentOptions={environmentOptions}
-          credentialId={params?.credentialId}
-          environment={params?.environment}
           accountId={params?.accountId}
           toolName='Quick Order'
           onProviderChange={(nextProvider) => {
@@ -110,17 +90,15 @@ export function QuickOrderHeaderControls({
             emitQuickOrderParamsChange({
               params: {
                 provider: nextProvider,
-                credentialId: null,
-                environment: null,
                 accountId: null,
               },
               panelId,
               widgetKey,
             })
           }}
-          onAccountSelect={({ credentialId, environment, accountId }) => {
+          onAccountSelect={({ accountId }) => {
             emitQuickOrderParamsChange({
-              params: { credentialId, environment, accountId },
+              params: { accountId },
               panelId,
               widgetKey,
             })

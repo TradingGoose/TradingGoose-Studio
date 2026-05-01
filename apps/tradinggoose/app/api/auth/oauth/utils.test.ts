@@ -131,6 +131,100 @@ describe('OAuth Utils', () => {
     })
   })
 
+  describe('getOAuthToken', () => {
+    it('should return a valid access token for a single provider connection', async () => {
+      mockDb.limit.mockReturnValueOnce([
+        {
+          id: 'credential-id',
+          accessToken: 'valid-token',
+          refreshToken: 'refresh-token',
+          accessTokenExpiresAt: new Date(Date.now() + 3600 * 1000),
+        },
+      ])
+
+      const { getOAuthToken } = await import('@/app/api/auth/oauth/utils')
+
+      const token = await getOAuthToken('test-user-id', 'alpaca')
+
+      expect(token).toBe('valid-token')
+      expect(mockDb.limit).toHaveBeenCalledWith(2)
+      expect(mockDb.orderBy).not.toHaveBeenCalled()
+    })
+
+    it('should return null when no provider connection exists', async () => {
+      mockDb.limit.mockReturnValueOnce([])
+
+      const { getOAuthToken } = await import('@/app/api/auth/oauth/utils')
+
+      const token = await getOAuthToken('test-user-id', 'alpaca')
+
+      expect(token).toBeNull()
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        'No OAuth token found for user test-user-id, provider alpaca'
+      )
+    })
+
+    it('should reject duplicate provider connections instead of choosing one', async () => {
+      mockDb.limit.mockReturnValueOnce([
+        {
+          id: 'credential-id-1',
+          accessToken: 'first-token',
+          refreshToken: 'refresh-token-1',
+          accessTokenExpiresAt: new Date(Date.now() + 3600 * 1000),
+        },
+        {
+          id: 'credential-id-2',
+          accessToken: 'second-token',
+          refreshToken: 'refresh-token-2',
+          accessTokenExpiresAt: new Date(Date.now() + 3600 * 1000),
+        },
+      ])
+
+      const { getOAuthToken } = await import('@/app/api/auth/oauth/utils')
+
+      const token = await getOAuthToken('test-user-id', 'alpaca')
+
+      expect(token).toBeNull()
+      expect(mockRefreshOAuthToken).not.toHaveBeenCalled()
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        'Multiple OAuth connections found for user test-user-id, provider alpaca',
+        {
+          providerId: 'alpaca',
+          userId: 'test-user-id',
+        }
+      )
+    })
+
+    it('should refresh an expired token for a single provider connection', async () => {
+      mockDb.limit.mockReturnValueOnce([
+        {
+          id: 'credential-id',
+          accessToken: 'expired-token',
+          refreshToken: 'refresh-token',
+          accessTokenExpiresAt: new Date(Date.now() - 3600 * 1000),
+        },
+      ])
+      mockRefreshOAuthToken.mockResolvedValueOnce({
+        accessToken: 'new-token',
+        expiresIn: 3600,
+        refreshToken: 'new-refresh-token',
+      })
+
+      const { getOAuthToken } = await import('@/app/api/auth/oauth/utils')
+
+      const token = await getOAuthToken('test-user-id', 'alpaca')
+
+      expect(mockRefreshOAuthToken).toHaveBeenCalledWith('alpaca', 'refresh-token')
+      expect(mockDb.set).toHaveBeenCalledWith(
+        expect.objectContaining({
+          accessToken: 'new-token',
+          refreshToken: 'new-refresh-token',
+        })
+      )
+      expect(token).toBe('new-token')
+    })
+  })
+
   describe('refreshTokenIfNeeded', () => {
     it('should return valid token without refresh if not expired', async () => {
       const mockCredential = {

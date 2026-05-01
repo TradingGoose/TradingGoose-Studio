@@ -200,7 +200,7 @@ export const TRADING_PROVIDER_DEFINITIONS: Record<string, TradingProviderDefinit
   alpaca: {
     id: 'alpaca',
     name: 'Alpaca',
-    description: 'Commission-free trading via Alpaca (paper and live).',
+    description: 'Commission-free trading via Alpaca.',
     authType: 'oauth',
     oauth: {
       provider: 'alpaca',

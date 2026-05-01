@@ -20,8 +20,6 @@ const mockTradingAccountSelector = vi.fn(({ onAccountSelect }: MockTradingAccoun
     aria-label='Select trading account'
     onClick={() =>
       onAccountSelect?.({
-        credentialId: 'cred-1',
-        environment: 'paper',
         accountId: 'acct-1',
       })
     }
@@ -140,8 +138,6 @@ describe('PortfolioSnapshotHeaderControls', () => {
   const renderHeader = async (
     params: Record<string, unknown> | null = {
       provider: 'alpaca',
-      credentialId: 'cred-1',
-      environment: 'paper',
       accountId: 'acct-1',
       selectedWindow: '1D',
     }
@@ -193,8 +189,6 @@ describe('PortfolioSnapshotHeaderControls', () => {
     expect(mockEmitPortfolioSnapshotParamsChange).toHaveBeenCalledWith({
       params: {
         provider: 'tradier',
-        credentialId: null,
-        environment: null,
         accountId: null,
         selectedWindow: null,
       },
@@ -203,7 +197,7 @@ describe('PortfolioSnapshotHeaderControls', () => {
     })
   })
 
-  it('updates credential, environment, and account together from account selection', async () => {
+  it('updates the account id from account selection', async () => {
     await renderHeader()
 
     await act(async () => {
@@ -212,8 +206,6 @@ describe('PortfolioSnapshotHeaderControls', () => {
 
     expect(mockEmitPortfolioSnapshotParamsChange).toHaveBeenCalledWith({
       params: {
-        credentialId: 'cred-1',
-        environment: 'paper',
         accountId: 'acct-1',
       },
       panelId: 'panel-1',

@@ -18,7 +18,7 @@ import type { GenericOAuthConfig } from 'better-auth/plugins/generic-oauth'
 /** OAuth2 token type extracted from better-auth's GenericOAuthConfig */
 type OAuthTokens = Parameters<NonNullable<GenericOAuthConfig['getUserInfo']>>[0]
 
-import { eq } from 'drizzle-orm'
+import { and, eq, ne } from 'drizzle-orm'
 import { headers } from 'next/headers'
 import type Stripe from 'stripe'
 import {
@@ -426,6 +426,27 @@ export const auth = betterAuth({
     account: {
       create: {
         after: async (account) => {
+          try {
+            await db
+              .delete(schema.account)
+              .where(
+                and(
+                  eq(schema.account.userId, account.userId),
+                  eq(schema.account.providerId, account.providerId),
+                  ne(schema.account.id, account.id)
+                )
+              )
+          } catch (error) {
+            logger.error(
+              '[databaseHooks.account.create.after] Failed to remove older account rows',
+              {
+                accountId: account.id,
+                providerId: account.providerId,
+                error,
+              }
+            )
+          }
+
           if (!isMicrosoftProvider(account.providerId)) {
             return
           }
@@ -644,7 +665,7 @@ export const auth = betterAuth({
                 Authorization: `Bearer ${tokens.accessToken}`,
               },
             }
-            const response = await fetch('https://paper-api.alpaca.markets/v2/account', options)
+            const response = await fetch('https://api.alpaca.markets/v2/account', options)
             const data = await response.json()
             return {
               id: data.id,

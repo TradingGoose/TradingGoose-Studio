@@ -9,8 +9,6 @@ export interface PortfolioSnapshotWidgetParams {
     apiSecret?: string
     [key: string]: unknown
   }
-  credentialId?: string
-  environment?: 'paper' | 'live'
   accountId?: string
   selectedWindow?: TradingPortfolioPerformanceWindow
   runtime?: {

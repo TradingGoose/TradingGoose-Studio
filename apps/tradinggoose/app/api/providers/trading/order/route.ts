@@ -39,8 +39,6 @@ const orderListingSchema = z
 const orderSchema = z
   .object({
     provider: nonEmptyStringSchema,
-    credentialId: nonEmptyStringSchema,
-    environment: z.enum(['paper', 'live']),
     accountId: nonEmptyStringSchema,
     listing: orderListingSchema,
     side: z.enum(['buy', 'sell']),
@@ -299,7 +297,6 @@ export async function POST(request: Request) {
   const baseContext = await resolveTradingProviderContext({
     requestData,
     requestId,
-    operationKind: 'order',
   })
   if (baseContext instanceof Response) return baseContext
 
@@ -371,7 +368,6 @@ export async function POST(request: Request) {
     const response: QuickOrderSubmitResponse = {
       order,
       provider: baseContext.providerId,
-      environment: baseContext.environment,
       accountId: accountContext.accountId,
       message: extractOrderProviderMessage(rawOrder, order),
     }
