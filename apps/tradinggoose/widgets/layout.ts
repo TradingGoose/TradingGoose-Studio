@@ -102,20 +102,6 @@ const normalizeListingIdentity = (value: unknown): ListingIdentity | null => {
   return listing
 }
 
-const normalizeListingWithResolvedFields = (value: unknown): ListingIdentity | null => {
-  if (!value || typeof value !== 'object') return null
-  const identity = toListingValueObject(value as any)
-  if (!identity) return null
-
-  return {
-    ...(value as Record<string, unknown>),
-    listing_id: identity.listing_id,
-    base_id: identity.base_id,
-    quote_id: identity.quote_id,
-    listing_type: identity.listing_type,
-  } as ListingIdentity
-}
-
 const normalizeListingParamsForStorage = (
   params?: Record<string, unknown> | null
 ): Record<string, unknown> | null | undefined => {
@@ -164,9 +150,9 @@ export function normalizeColorPairsState(state?: unknown): PersistedColorPairsSt
       reviewDraftSessionId: normalizeOptionalString(nestedTarget?.reviewDraftSessionId),
     }
 
-    const hasReviewTarget = Object.values(reviewTarget).some(v => v != null)
+    const hasReviewTarget = Object.values(reviewTarget).some((v) => v != null)
 
-    const listing = normalizeListingWithResolvedFields((raw as { listing?: unknown }).listing)
+    const listing = normalizeListingIdentity((raw as { listing?: unknown }).listing)
     const indicatorId = normalizeOptionalString((raw as { indicatorId?: unknown }).indicatorId)
     const mcpServerId = normalizeOptionalString((raw as { mcpServerId?: unknown }).mcpServerId)
     const customToolId = normalizeOptionalString((raw as { customToolId?: unknown }).customToolId)
@@ -235,7 +221,8 @@ export function normalizeDashboardLayout(state?: unknown): LayoutNode {
   }
 
   const node = state as Partial<LayoutNode>
-  const persistedId = normalizeOptionalString((state as { id?: unknown }).id) ?? createLayoutNodeId()
+  const persistedId =
+    normalizeOptionalString((state as { id?: unknown }).id) ?? createLayoutNodeId()
 
   if (node.type === 'panel') {
     return {
@@ -293,11 +280,11 @@ export function serializeLayout(node: LayoutNode): PersistedLayoutNode {
             params: null,
           }
         : normalizedParams === widget.params
-        ? widget
-        : {
-            ...widget,
-            params: normalizedParams ?? null,
-          }
+          ? widget
+          : {
+              ...widget,
+              params: normalizedParams ?? null,
+            }
     return {
       id: node.id,
       type: 'panel',

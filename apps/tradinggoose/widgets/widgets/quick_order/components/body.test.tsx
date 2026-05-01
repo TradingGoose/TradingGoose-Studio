@@ -9,6 +9,7 @@ import { useListingSelectorStore } from '@/stores/market/selector/store'
 import { QuickOrderWidgetBody } from '@/widgets/widgets/quick_order/components/body'
 
 const mockUseOAuthProviderAvailability = vi.fn()
+const mockUseOAuthCredentialsByProviderIds = vi.fn()
 const mockUseMarketQuoteSnapshots = vi.fn()
 const mockUseTradingAccounts = vi.fn()
 const mockUseTradingPortfolioSnapshot = vi.fn()
@@ -39,6 +40,11 @@ let nextListing: Record<string, unknown> = stockListing
 
 vi.mock('@/hooks/queries/oauth-provider-availability', () => ({
   useOAuthProviderAvailability: (...args: unknown[]) => mockUseOAuthProviderAvailability(...args),
+}))
+
+vi.mock('@/hooks/queries/oauth-credentials', () => ({
+  useOAuthCredentialsByProviderIds: (...args: unknown[]) =>
+    mockUseOAuthCredentialsByProviderIds(...args),
 }))
 
 vi.mock('@/hooks/queries/market-quote-snapshots', () => ({
@@ -237,7 +243,16 @@ describe('QuickOrderWidgetBody', () => {
     document.body.appendChild(container)
     root = createRoot(container)
 
-    mockUseOAuthProviderAvailability.mockReturnValue(queryResult({ data: { alpaca: true } }))
+    mockUseOAuthProviderAvailability.mockReturnValue(
+      queryResult({ data: { 'alpaca-live': true, 'alpaca-paper': true } })
+    )
+    mockUseOAuthCredentialsByProviderIds.mockReturnValue(
+      queryResult({
+        data: {
+          'alpaca-live': [{ id: 'cred-1', name: 'Alpaca Live', provider: 'alpaca-live' }],
+        },
+      })
+    )
     mockUseTradingAccounts.mockReturnValue(
       queryResult({ data: [{ id: 'acct-1', name: 'Paper Account' }] })
     )
@@ -474,6 +489,7 @@ describe('QuickOrderWidgetBody', () => {
     expect(mockUseTradingPortfolioSnapshot).toHaveBeenLastCalledWith({
       workspaceId: 'workspace-1',
       provider: 'alpaca',
+      credentialServiceId: 'alpaca-live',
       accountId: 'stale-account',
     })
   })
@@ -560,6 +576,7 @@ describe('QuickOrderWidgetBody', () => {
     expect(mockMutate).toHaveBeenCalledWith(
       expect.objectContaining({
         provider: 'alpaca',
+        credentialServiceId: 'alpaca-live',
         accountId: 'acct-1',
         side: 'buy',
         listing: stockListing,

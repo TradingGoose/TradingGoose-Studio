@@ -8,6 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { PortfolioSnapshotWidgetBody } from '@/widgets/widgets/portfolio_snapshot/components/body'
 
 const mockUseOAuthProviderAvailability = vi.fn()
+const mockUseOAuthCredentialsByProviderIds = vi.fn()
 const mockUseMarketQuoteSnapshots = vi.fn()
 const mockUseTradingAccounts = vi.fn()
 const mockUseTradingPortfolioSnapshot = vi.fn()
@@ -16,6 +17,11 @@ const mockEmitPortfolioSnapshotParamsChange = vi.fn()
 
 vi.mock('@/hooks/queries/oauth-provider-availability', () => ({
   useOAuthProviderAvailability: (...args: unknown[]) => mockUseOAuthProviderAvailability(...args),
+}))
+
+vi.mock('@/hooks/queries/oauth-credentials', () => ({
+  useOAuthCredentialsByProviderIds: (...args: unknown[]) =>
+    mockUseOAuthCredentialsByProviderIds(...args),
 }))
 
 vi.mock('@/hooks/queries/market-quote-snapshots', () => ({
@@ -66,8 +72,17 @@ describe('PortfolioSnapshotWidgetBody', () => {
     mockUseOAuthProviderAvailability.mockReturnValue(
       createQueryResult({
         data: {
-          alpaca: true,
+          'alpaca-live': true,
+          'alpaca-paper': true,
           tradier: true,
+        },
+      })
+    )
+    mockUseOAuthCredentialsByProviderIds.mockReturnValue(
+      createQueryResult({
+        data: {
+          'alpaca-live': [{ id: 'cred-1', name: 'Alpaca Live', provider: 'alpaca-live' }],
+          tradier: [{ id: 'cred-2', name: 'Tradier', provider: 'tradier' }],
         },
       })
     )
@@ -188,18 +203,20 @@ describe('PortfolioSnapshotWidgetBody', () => {
     })
 
     expect(mockEmitPortfolioSnapshotParamsChange).toHaveBeenCalledWith({
-      params: { accountId: 'acct-1' },
+      params: { accountId: 'acct-1', credentialServiceId: 'alpaca-live' },
       panelId: 'panel-1',
       widgetKey: 'portfolio_snapshot',
     })
     expect(mockUseTradingPortfolioSnapshot).toHaveBeenCalledWith({
       workspaceId: undefined,
       provider: 'alpaca',
+      credentialServiceId: 'alpaca-live',
       accountId: 'acct-1',
     })
     expect(mockUseTradingPortfolioPerformance).toHaveBeenCalledWith({
       workspaceId: undefined,
       provider: 'alpaca',
+      credentialServiceId: 'alpaca-live',
       accountId: 'acct-1',
       selectedWindow: '1D',
     })
@@ -226,6 +243,7 @@ describe('PortfolioSnapshotWidgetBody', () => {
       params: {
         provider: null,
         accountId: null,
+        credentialServiceId: null,
         selectedWindow: null,
       },
       panelId: 'panel-1',
@@ -234,6 +252,8 @@ describe('PortfolioSnapshotWidgetBody', () => {
     expect(mockUseTradingAccounts).toHaveBeenCalledWith({
       workspaceId: undefined,
       provider: undefined,
+      credentialServiceId: undefined,
+      enabled: false,
     })
     expect(container.textContent).toContain('Select a trading provider to get started.')
   })
@@ -309,7 +329,9 @@ describe('PortfolioSnapshotWidgetBody', () => {
       )
     })
 
-    expect(container.textContent).toContain('No broker accounts found for this provider connection.')
+    expect(container.textContent).toContain(
+      'No broker accounts found for this provider connection.'
+    )
   })
 
   it('renders the loaded performance and summary state', async () => {
@@ -343,6 +365,7 @@ describe('PortfolioSnapshotWidgetBody', () => {
     expect(mockUseTradingPortfolioSnapshot).toHaveBeenCalledWith({
       workspaceId: 'workspace-1',
       provider: 'alpaca',
+      credentialServiceId: 'alpaca-live',
       accountId: 'acct-1',
     })
     expect(mockUseMarketQuoteSnapshots).toHaveBeenCalledWith({
@@ -655,10 +678,13 @@ describe('PortfolioSnapshotWidgetBody', () => {
     expect(mockUseTradingAccounts).toHaveBeenCalledWith({
       workspaceId: undefined,
       provider: undefined,
+      credentialServiceId: undefined,
+      enabled: false,
     })
     expect(mockUseTradingPortfolioSnapshot).toHaveBeenCalledWith({
       workspaceId: undefined,
       provider: undefined,
+      credentialServiceId: undefined,
       accountId: undefined,
     })
   })
@@ -680,10 +706,13 @@ describe('PortfolioSnapshotWidgetBody', () => {
     expect(mockUseTradingAccounts).toHaveBeenCalledWith({
       workspaceId: undefined,
       provider: undefined,
+      credentialServiceId: undefined,
+      enabled: false,
     })
     expect(mockUseTradingPortfolioSnapshot).toHaveBeenCalledWith({
       workspaceId: undefined,
       provider: undefined,
+      credentialServiceId: undefined,
       accountId: undefined,
     })
   })

@@ -82,6 +82,7 @@ export function QuickOrderHeaderControls({
           workspaceId={workspaceId}
           providerId={providerId}
           providerOptions={providerOptions}
+          credentialServiceId={params?.credentialServiceId}
           accountId={params?.accountId}
           toolName='Quick Order'
           onProviderChange={(nextProvider) => {
@@ -90,15 +91,19 @@ export function QuickOrderHeaderControls({
             emitQuickOrderParamsChange({
               params: {
                 provider: nextProvider,
+                credentialServiceId: null,
                 accountId: null,
               },
               panelId,
               widgetKey,
             })
           }}
-          onAccountSelect={({ accountId }) => {
+          onAccountSelect={({ accountId, credentialServiceId }) => {
             emitQuickOrderParamsChange({
-              params: { accountId },
+              params: {
+                accountId,
+                ...(credentialServiceId ? { credentialServiceId } : {}),
+              },
               panelId,
               widgetKey,
             })
@@ -127,7 +132,7 @@ function QuickOrderSideTabs({ panelId, widgetKey, params }: HeaderControlProps) 
             type='button'
             variant={isSelected ? 'default' : 'ghost'}
             size='sm'
-            className='h-5 min-w-14 px-3 rounded-xs text-sm'
+            className='h-5 min-w-14 rounded-xs px-3 text-sm'
             onClick={() => {
               if (option.id === side) return
               emitQuickOrderParamsChange({

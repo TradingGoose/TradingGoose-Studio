@@ -37,6 +37,7 @@ import {
   emitQuickOrderParamsChange,
   useQuickOrderParamsPersistence,
 } from '@/widgets/utils/quick-order-params'
+import { useTradingCredentialServices } from '@/widgets/widgets/components/trading-credential-services'
 import {
   getQuickOrderDefaultTimeInForce,
   getQuickOrderOrderTypeDefinitions,
@@ -224,9 +225,17 @@ export function QuickOrderWidgetBody({
     !providerAvailabilityQuery.isLoading &&
     !providerAvailabilityQuery.error &&
     providerOptions.length > 0
+  const credentialServices = useTradingCredentialServices({
+    providerId,
+    credentialServiceId: quickOrderParams?.credentialServiceId,
+    enabled: areProviderOptionsReady && hasSelectedProvider,
+  })
+  const activeCredentialServiceId = credentialServices.activeServiceId
   const accountsQuery = useTradingAccounts({
     workspaceId: workspaceId ?? undefined,
     provider: hasSelectedProvider && areProviderOptionsReady ? providerId : undefined,
+    credentialServiceId: activeCredentialServiceId,
+    enabled: Boolean(activeCredentialServiceId),
   })
   const accounts = accountsQuery.data ?? []
   const singleAccount = accounts.length === 1 ? (accounts[0] ?? null) : null
@@ -236,13 +245,19 @@ export function QuickOrderWidgetBody({
       : !quickOrderParams?.accountId
         ? singleAccount
         : null
-  const activeAccountId = quickOrderParams?.accountId ?? singleAccount?.id
+  const activeAccountId = activeCredentialServiceId
+    ? (quickOrderParams?.accountId ?? singleAccount?.id)
+    : undefined
   const accountSnapshotQuery = useTradingPortfolioSnapshot({
     workspaceId: workspaceId ?? undefined,
     provider: hasSelectedProvider && areProviderOptionsReady ? providerId : undefined,
+    credentialServiceId: activeCredentialServiceId,
     accountId: activeAccountId,
   })
-  const submitResetProviderKey = quickOrderParams?.provider ?? providerId
+  const submitResetProviderKey = [
+    quickOrderParams?.provider ?? providerId,
+    activeCredentialServiceId ?? '',
+  ].join(':')
 
   const sizingModeConfig = useMemo(
     () => (providerId ? getQuickOrderSizingModeConfig(providerId) : { options: [] }),
@@ -386,6 +401,7 @@ export function QuickOrderWidgetBody({
     emitQuickOrderParamsChange({
       params: {
         provider: null,
+        credentialServiceId: null,
         accountId: null,
       },
       panelId,
@@ -398,7 +414,10 @@ export function QuickOrderWidgetBody({
 
     if (!quickOrderParams?.accountId && accounts.length === 1 && accounts[0]) {
       emitQuickOrderParamsChange({
-        params: { accountId: accounts[0].id },
+        params: {
+          accountId: accounts[0].id,
+          credentialServiceId: activeCredentialServiceId,
+        },
         panelId,
         widgetKey,
       })
@@ -407,6 +426,7 @@ export function QuickOrderWidgetBody({
     accounts,
     accountsQuery.error,
     accountsQuery.isLoading,
+    activeCredentialServiceId,
     panelId,
     quickOrderParams?.accountId,
     widgetKey,
@@ -531,6 +551,18 @@ export function QuickOrderWidgetBody({
   }
 
   if (!activeAccountId) {
+    if (credentialServices.isLoading) {
+      return (
+        <div className={centerStateClassName}>
+          <LoadingAgent size='md' />
+        </div>
+      )
+    }
+
+    if (!activeCredentialServiceId) {
+      return <CenterState>Select a broker connection to submit an order.</CenterState>
+    }
+
     if (accountsQuery.isLoading) {
       return (
         <div className={centerStateClassName}>
@@ -557,6 +589,7 @@ export function QuickOrderWidgetBody({
     if (
       validationMessage ||
       !providerId ||
+      !activeCredentialServiceId ||
       !activeAccountId ||
       !listing
     ) {
@@ -565,6 +598,7 @@ export function QuickOrderWidgetBody({
 
     const payload: QuickOrderSubmitRequest = {
       provider: providerId,
+      credentialServiceId: activeCredentialServiceId,
       accountId: activeAccountId,
       listing,
       side,
@@ -811,10 +845,7 @@ export function QuickOrderWidgetBody({
                 {order.status ? ` · ${order.status}` : ''}
               </div>
               <div>
-                {[
-                  submitOrder.data?.provider,
-                  submitOrder.data?.accountId,
-                ]
+                {[submitOrder.data?.provider, submitOrder.data?.accountId]
                   .filter(Boolean)
                   .join(' / ')}
               </div>

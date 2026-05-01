@@ -14,6 +14,7 @@ import {
   emitHeatmapParamsChange,
   useHeatmapParamsPersistence,
 } from '@/widgets/utils/heatmap-params'
+import { useTradingCredentialServices } from '@/widgets/widgets/components/trading-credential-services'
 import { HeatmapTreemapChart } from '@/widgets/widgets/heatmap/components/heatmap-treemap-chart'
 import {
   getHeatmapTradingProviderAvailabilityIds,
@@ -124,6 +125,7 @@ export function HeatmapWidgetBody({
     emitHeatmapParamsChange({
       params: {
         tradingProvider: null,
+        credentialServiceId: null,
         accountId: null,
       },
       panelId,
@@ -131,14 +133,23 @@ export function HeatmapWidgetBody({
     })
   }, [hasInvalidPersistedTradingProvider, panelId, widgetKey])
 
+  const credentialServices = useTradingCredentialServices({
+    providerId: tradingProviderId,
+    credentialServiceId: widgetParams?.credentialServiceId,
+    enabled: sourceMode === 'portfolio' && isTradingProviderReady,
+  })
+  const activeCredentialServiceId = credentialServices.activeServiceId
   const accountsQuery = useTradingAccounts({
     workspaceId: workspaceId ?? undefined,
     provider: sourceMode === 'portfolio' && isTradingProviderReady ? tradingProviderId : undefined,
-    enabled: sourceMode === 'portfolio',
+    credentialServiceId: activeCredentialServiceId,
+    enabled: sourceMode === 'portfolio' && Boolean(activeCredentialServiceId),
   })
   const accounts = accountsQuery.data ?? []
   const singleAccount = accounts.length === 1 ? (accounts[0] ?? null) : null
-  const activeAccountId = widgetParams?.accountId ?? singleAccount?.id
+  const activeAccountId = activeCredentialServiceId
+    ? (widgetParams?.accountId ?? singleAccount?.id)
+    : undefined
 
   useEffect(() => {
     if (sourceMode !== 'portfolio') return
@@ -150,7 +161,10 @@ export function HeatmapWidgetBody({
       if (!onlyAccount) return
       if (widgetParams?.accountId) return
       emitHeatmapParamsChange({
-        params: { accountId: onlyAccount.id },
+        params: {
+          accountId: onlyAccount.id,
+          credentialServiceId: activeCredentialServiceId,
+        },
         panelId,
         widgetKey,
       })
@@ -159,6 +173,7 @@ export function HeatmapWidgetBody({
     accounts,
     accountsQuery.error,
     accountsQuery.isLoading,
+    activeCredentialServiceId,
     panelId,
     sourceMode,
     widgetKey,
@@ -168,6 +183,7 @@ export function HeatmapWidgetBody({
   const snapshotQuery = useTradingPortfolioSnapshot({
     workspaceId: workspaceId ?? undefined,
     provider: sourceMode === 'portfolio' && isTradingProviderReady ? tradingProviderId : undefined,
+    credentialServiceId: activeCredentialServiceId,
     accountId: activeAccountId,
     enabled: sourceMode === 'portfolio',
   })
@@ -302,6 +318,18 @@ export function HeatmapWidgetBody({
     }
 
     if (!activeAccountId) {
+      if (credentialServices.isLoading) {
+        return (
+          <div className='flex h-full items-center justify-center'>
+            <LoadingAgent size='md' />
+          </div>
+        )
+      }
+
+      if (!activeCredentialServiceId) {
+        return <HeatmapMessage message='Select a broker connection to load portfolio holdings.' />
+      }
+
       if (accountsQuery.isLoading && accounts.length === 0) {
         return (
           <div className='flex h-full items-center justify-center'>

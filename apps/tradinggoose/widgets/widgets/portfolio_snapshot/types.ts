@@ -2,6 +2,7 @@ import type { TradingPortfolioPerformanceWindow } from '@/providers/trading/type
 
 export interface PortfolioSnapshotWidgetParams {
   provider?: string
+  credentialServiceId?: string
   marketProvider?: string
   marketProviderParams?: Record<string, unknown>
   marketAuth?: {

@@ -121,7 +121,8 @@ describe('PortfolioSnapshotHeaderControls', () => {
     mockUseOAuthProviderAvailability.mockReturnValue(
       createQueryResult({
         data: {
-          alpaca: true,
+          'alpaca-live': true,
+          'alpaca-paper': true,
           tradier: true,
         },
       })
@@ -190,6 +191,7 @@ describe('PortfolioSnapshotHeaderControls', () => {
       params: {
         provider: 'tradier',
         accountId: null,
+        credentialServiceId: null,
         selectedWindow: null,
       },
       panelId: 'panel-1',

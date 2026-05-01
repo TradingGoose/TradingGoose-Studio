@@ -55,11 +55,13 @@ export const sanitizeQuickOrderParams = (
 
   const nextParams: Record<string, unknown> = {}
   const provider = normalizeString(params.provider)
+  const credentialServiceId = normalizeString(params.credentialServiceId)
   const marketProvider = normalizeString(params.marketProvider)
   const accountId = normalizeString(params.accountId)
   const side = normalizeString(params.side)
 
   if (provider) nextParams.provider = provider
+  if (credentialServiceId) nextParams.credentialServiceId = credentialServiceId
   if (marketProvider) nextParams.marketProvider = marketProvider
   if (accountId) nextParams.accountId = accountId
   if (side === 'buy' || side === 'sell') nextParams.side = side

@@ -136,7 +136,7 @@ describe('QuickOrderHeaderControls', () => {
     root = createRoot(container)
 
     mockUseOAuthProviderAvailability.mockReturnValue(
-      queryResult({ data: { alpaca: true, tradier: true } })
+      queryResult({ data: { 'alpaca-live': true, 'alpaca-paper': true, tradier: true } })
     )
   })
 
@@ -210,7 +210,9 @@ describe('QuickOrderHeaderControls', () => {
     })
 
     act(() => {
-      container.querySelector<HTMLButtonElement>('[data-testid="market-provider-selector"]')?.click()
+      container
+        .querySelector<HTMLButtonElement>('[data-testid="market-provider-selector"]')
+        ?.click()
       container.querySelector<HTMLButtonElement>('[data-testid="provider-selector"]')?.click()
       Array.from(container.querySelectorAll('button'))
         .find((button) => button.textContent === 'SELL')
@@ -230,6 +232,7 @@ describe('QuickOrderHeaderControls', () => {
       params: {
         provider: 'tradier',
         accountId: null,
+        credentialServiceId: null,
       },
       panelId: 'panel-1',
       widgetKey: 'quick_order',
@@ -255,7 +258,9 @@ describe('QuickOrderHeaderControls', () => {
     })
 
     act(() => {
-      container.querySelector<HTMLButtonElement>('[data-testid="market-provider-settings"]')?.click()
+      container
+        .querySelector<HTMLButtonElement>('[data-testid="market-provider-settings"]')
+        ?.click()
     })
 
     expect(mockEmitQuickOrderParamsChange).toHaveBeenCalledWith({

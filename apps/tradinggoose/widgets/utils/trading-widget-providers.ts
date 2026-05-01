@@ -1,15 +1,15 @@
-import type { TradingOperationKind } from '@/providers/trading/types'
 import {
   getAvailableTradingProviderOptions,
-  getTradingProviderOAuthServiceId,
+  getTradingProviderOAuthServiceIds,
   getTradingProviderOptionsByKind,
   getTradingProvidersByKind,
 } from '@/providers/trading/providers'
+import type { TradingOperationKind } from '@/providers/trading/types'
 
 export const getTradingWidgetProviderAvailabilityIds = (kind: TradingOperationKind): string[] =>
-  getTradingProvidersByKind(kind)
-    .map((provider) => getTradingProviderOAuthServiceId(provider.id))
-    .filter((providerId): providerId is string => Boolean(providerId))
+  getTradingProvidersByKind(kind).flatMap((provider) =>
+    getTradingProviderOAuthServiceIds(provider.id)
+  )
 
 export const getTradingWidgetProviderOptions = (
   kind: TradingOperationKind,

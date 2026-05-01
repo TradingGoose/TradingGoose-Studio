@@ -23,6 +23,7 @@ import {
   emitPortfolioSnapshotParamsChange,
   usePortfolioSnapshotParamsPersistence,
 } from '@/widgets/utils/portfolio-snapshot-params'
+import { useTradingCredentialServices } from '@/widgets/widgets/components/trading-credential-services'
 import { PortfolioSnapshotPerformanceChart } from '@/widgets/widgets/portfolio_snapshot/components/performance-chart'
 import {
   getPortfolioSnapshotDefaultWindow,
@@ -226,6 +227,7 @@ export function PortfolioSnapshotWidgetBody({
     emitPortfolioSnapshotParamsChange({
       params: {
         provider: null,
+        credentialServiceId: null,
         accountId: null,
         selectedWindow: null,
       },
@@ -262,13 +264,23 @@ export function PortfolioSnapshotWidgetBody({
     widgetParams?.selectedWindow,
   ])
 
+  const credentialServices = useTradingCredentialServices({
+    providerId,
+    credentialServiceId: widgetParams?.credentialServiceId,
+    enabled: isProviderReady,
+  })
+  const activeCredentialServiceId = credentialServices.activeServiceId
   const accountsQuery = useTradingAccounts({
     workspaceId: workspaceId ?? undefined,
     provider: isProviderReady ? providerId : undefined,
+    credentialServiceId: activeCredentialServiceId,
+    enabled: Boolean(activeCredentialServiceId),
   })
   const accounts = accountsQuery.data ?? []
   const singleAccount = accounts.length === 1 ? (accounts[0] ?? null) : null
-  const activeAccountId = widgetParams?.accountId ?? singleAccount?.id
+  const activeAccountId = activeCredentialServiceId
+    ? (widgetParams?.accountId ?? singleAccount?.id)
+    : undefined
 
   useEffect(() => {
     if (accountsQuery.isLoading) return
@@ -279,7 +291,10 @@ export function PortfolioSnapshotWidgetBody({
       if (!onlyAccount) return
       if (widgetParams?.accountId) return
       emitPortfolioSnapshotParamsChange({
-        params: { accountId: onlyAccount.id },
+        params: {
+          accountId: onlyAccount.id,
+          credentialServiceId: activeCredentialServiceId,
+        },
         panelId,
         widgetKey,
       })
@@ -288,6 +303,7 @@ export function PortfolioSnapshotWidgetBody({
     accounts,
     accountsQuery.error,
     accountsQuery.isLoading,
+    activeCredentialServiceId,
     panelId,
     widgetKey,
     widgetParams?.accountId,
@@ -296,6 +312,7 @@ export function PortfolioSnapshotWidgetBody({
   const snapshotQuery = useTradingPortfolioSnapshot({
     workspaceId: workspaceId ?? undefined,
     provider: isProviderReady ? providerId : undefined,
+    credentialServiceId: activeCredentialServiceId,
     accountId: activeAccountId,
   })
 
@@ -333,6 +350,7 @@ export function PortfolioSnapshotWidgetBody({
   const performanceQuery = useTradingPortfolioPerformance({
     workspaceId: workspaceId ?? undefined,
     provider: isProviderReady ? providerId : undefined,
+    credentialServiceId: activeCredentialServiceId,
     accountId: activeAccountId,
     selectedWindow: selectedWindow as TradingPortfolioPerformanceWindow | undefined,
   })
@@ -372,6 +390,16 @@ export function PortfolioSnapshotWidgetBody({
   }
 
   if (!activeAccountId) {
+    if (credentialServices.isLoading) {
+      return <PortfolioLoading />
+    }
+
+    if (!activeCredentialServiceId) {
+      return (
+        <PortfolioMessage message='Select a broker connection to load this portfolio snapshot.' />
+      )
+    }
+
     if (accountsQuery.isLoading && accounts.length === 0) {
       return <PortfolioLoading />
     }
@@ -589,7 +617,7 @@ export function PortfolioSnapshotWidgetBody({
             </div>
           </section>
 
-          <section className='overflow-hidden border-t border-border/70 bg-card/30'>
+          <section className='overflow-hidden border-border/70 border-t bg-card/30'>
             <div className='flex flex-wrap items-start justify-between gap-3 border-border/60 border-b px-3 py-2.5'>
               <div className='min-w-0'>
                 <div className='flex min-w-0 flex-wrap items-center gap-2'>
@@ -644,7 +672,6 @@ export function PortfolioSnapshotWidgetBody({
             <Separator className='my-3 bg-border/60' />
 
             <div className='p-3'>
-
               <div className='flex flex-wrap items-end justify-between gap-2'>
                 <div className='min-w-0'>
                   <div className='flex min-w-0 flex-wrap items-center gap-2'>

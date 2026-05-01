@@ -1,5 +1,5 @@
 import { createWithEqualityFn as create } from 'zustand/traditional'
-import type { ListingIdentity } from '@/lib/listing/identity'
+import { type ListingIdentity, toListingValueObject } from '@/lib/listing/identity'
 import type { PairColor } from '@/widgets/pair-colors'
 import { PAIR_COLORS } from '@/widgets/pair-colors'
 
@@ -48,11 +48,15 @@ const emptyContexts = PAIR_COLORS.reduce<Record<PairColor, PairColorContext>>(
 )
 
 function sanitizePairColorContext(ctx: PairColorContext): PairColorContext {
-  return Object.fromEntries(
-    Object.entries(ctx).filter(([key]) =>
-      (PAIR_CONTEXT_KEYS as readonly string[]).includes(key)
-    )
+  const next = Object.fromEntries(
+    Object.entries(ctx).filter(([key]) => (PAIR_CONTEXT_KEYS as readonly string[]).includes(key))
   ) as PairColorContext
+
+  if (Object.hasOwn(next, 'listing')) {
+    next.listing = next.listing == null ? null : toListingValueObject(next.listing)
+  }
+
+  return next
 }
 
 function normalizeContextId(value: unknown): string | null {

@@ -115,7 +115,8 @@ describe('HeatmapHeaderControls', () => {
     mockUseOAuthProviderAvailability.mockReturnValue(
       createQueryResult({
         data: {
-          alpaca: true,
+          'alpaca-live': true,
+          'alpaca-paper': true,
         },
       })
     )

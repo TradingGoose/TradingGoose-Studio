@@ -116,6 +116,41 @@ describe('normalizeColorPairsState', () => {
     })
   })
 
+  it('keeps provider and account fields out of persisted color-pair listings', () => {
+    const normalized = normalizeColorPairsState({
+      pairs: [
+        {
+          color: 'red',
+          listing: {
+            listing_id: 'AAPL',
+            base_id: 'ignored-base',
+            quote_id: 'ignored-quote',
+            listing_type: 'default',
+            provider: 'alpaca',
+            marketProvider: 'polygon',
+            tradingProvider: 'alpaca',
+            accountId: 'acct-1',
+            providerParams: { apiKey: 'secret' },
+          },
+        },
+      ],
+    })
+
+    const listing = normalized.pairs[0]?.listing
+
+    expect(listing).toEqual({
+      listing_id: 'AAPL',
+      base_id: '',
+      quote_id: '',
+      listing_type: 'default',
+    })
+    expect(listing).not.toHaveProperty('provider')
+    expect(listing).not.toHaveProperty('marketProvider')
+    expect(listing).not.toHaveProperty('tradingProvider')
+    expect(listing).not.toHaveProperty('accountId')
+    expect(listing).not.toHaveProperty('providerParams')
+  })
+
   it('reads nested reviewTarget format', () => {
     expect(
       normalizeColorPairsState({

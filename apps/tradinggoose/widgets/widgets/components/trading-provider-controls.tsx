@@ -16,6 +16,7 @@ type TradingProviderControlsProps = {
   providerId?: string | null
   providerOptions: TradingProviderOption[]
   onProviderChange?: (providerId: string) => void
+  credentialServiceId?: string | null
   accountId?: string | null
   disabled?: boolean
   providerPlaceholder?: string
@@ -31,6 +32,7 @@ export function TradingProviderControls({
   providerId,
   providerOptions,
   onProviderChange,
+  credentialServiceId,
   accountId,
   disabled = false,
   providerPlaceholder,
@@ -56,6 +58,7 @@ export function TradingProviderControls({
         <TradingAccountSelector
           workspaceId={workspaceId}
           providerId={selectedProviderId}
+          credentialServiceId={credentialServiceId}
           accountId={accountId}
           disabled={disabled}
           placeholder={accountPlaceholder}

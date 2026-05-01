@@ -1,10 +1,13 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { type PairColorContext, usePairColorStore } from '@/stores/dashboard/pair-store'
-import { type PairColor, PAIR_COLORS } from '@/widgets/pair-colors'
+import { PAIR_COLORS, type PairColor } from '@/widgets/pair-colors'
 
 function resetPairContexts() {
   usePairColorStore.setState({
-    contexts: Object.fromEntries(PAIR_COLORS.map((color) => [color, {}])) as Record<PairColor, PairColorContext>,
+    contexts: Object.fromEntries(PAIR_COLORS.map((color) => [color, {}])) as Record<
+      PairColor,
+      PairColorContext
+    >,
   })
 }
 
@@ -32,6 +35,41 @@ describe('pair-store linked context', () => {
     })
     expect(context.reviewTarget).toBeUndefined()
     expect(context.copilotChatId).toBeUndefined()
+  })
+
+  it('stores only canonical listing identity fields in linked color context', () => {
+    const { setContext } = usePairColorStore.getState()
+
+    setContext('blue', {
+      listing: {
+        listing_id: 'AAPL',
+        base_id: 'ignored-base',
+        quote_id: 'ignored-quote',
+        listing_type: 'default',
+        provider: 'alpaca',
+        marketProvider: 'polygon',
+        accountId: 'acct-1',
+        providerParams: { apiKey: 'secret' },
+      } as PairColorContext['listing'] & {
+        provider: string
+        marketProvider: string
+        accountId: string
+        providerParams: Record<string, unknown>
+      },
+    })
+
+    const listing = usePairColorStore.getState().contexts.blue.listing
+
+    expect(listing).toEqual({
+      listing_id: 'AAPL',
+      base_id: '',
+      quote_id: '',
+      listing_type: 'default',
+    })
+    expect(listing).not.toHaveProperty('provider')
+    expect(listing).not.toHaveProperty('marketProvider')
+    expect(listing).not.toHaveProperty('accountId')
+    expect(listing).not.toHaveProperty('providerParams')
   })
 
   it('preserves explicit review target when the ambient workflow changes without a replacement target', () => {

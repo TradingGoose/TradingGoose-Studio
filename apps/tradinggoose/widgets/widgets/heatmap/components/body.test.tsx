@@ -10,6 +10,7 @@ import { HeatmapWidgetBody } from '@/widgets/widgets/heatmap/components/body'
 const mockUseResolvedListings = vi.fn()
 const mockUseMarketQuoteSnapshots = vi.fn()
 const mockUseOAuthProviderAvailability = vi.fn()
+const mockUseOAuthCredentialsByProviderIds = vi.fn()
 const mockUseTradingAccounts = vi.fn()
 const mockUseTradingPortfolioSnapshot = vi.fn()
 const mockUseWatchlists = vi.fn()
@@ -26,6 +27,11 @@ vi.mock('@/hooks/queries/market-quote-snapshots', () => ({
 
 vi.mock('@/hooks/queries/oauth-provider-availability', () => ({
   useOAuthProviderAvailability: (...args: unknown[]) => mockUseOAuthProviderAvailability(...args),
+}))
+
+vi.mock('@/hooks/queries/oauth-credentials', () => ({
+  useOAuthCredentialsByProviderIds: (...args: unknown[]) =>
+    mockUseOAuthCredentialsByProviderIds(...args),
 }))
 
 vi.mock('@/hooks/queries/trading-portfolio', () => ({
@@ -90,7 +96,16 @@ describe('HeatmapWidgetBody', () => {
 
     mockUseResolvedListings.mockReturnValue(createQueryResult({ data: {} }))
     mockUseMarketQuoteSnapshots.mockReturnValue(createQueryResult({ data: {} }))
-    mockUseOAuthProviderAvailability.mockReturnValue(createQueryResult({ data: { alpaca: true } }))
+    mockUseOAuthProviderAvailability.mockReturnValue(
+      createQueryResult({ data: { 'alpaca-live': true, 'alpaca-paper': true } })
+    )
+    mockUseOAuthCredentialsByProviderIds.mockReturnValue(
+      createQueryResult({
+        data: {
+          'alpaca-live': [{ id: 'cred-1', name: 'Alpaca Live', provider: 'alpaca-live' }],
+        },
+      })
+    )
     mockUseTradingAccounts.mockReturnValue(createQueryResult({ data: [] }))
     mockUseTradingPortfolioSnapshot.mockReturnValue(
       createQueryResult({ data: undefined, positionListings: [] })
@@ -360,6 +375,7 @@ describe('HeatmapWidgetBody', () => {
     expect(mockUseTradingPortfolioSnapshot).toHaveBeenLastCalledWith({
       workspaceId: 'workspace-1',
       provider: 'alpaca',
+      credentialServiceId: 'alpaca-live',
       accountId: 'account-1',
       enabled: true,
     })

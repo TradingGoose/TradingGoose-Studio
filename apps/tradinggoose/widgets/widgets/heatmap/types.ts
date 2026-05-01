@@ -12,6 +12,7 @@ export interface HeatmapWidgetParams {
     [key: string]: unknown
   }
   tradingProvider?: string
+  credentialServiceId?: string
   accountId?: string
   runtime?: {
     refreshAt?: number
