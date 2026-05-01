@@ -82,17 +82,26 @@ export async function resolveSystemIntegrationDefinitions(
 }
 
 async function listDefinitionsById() {
+  const catalog = getSystemIntegrationCatalogSeedSnapshot()
   const rows = await db.select().from(systemIntegrationDefinition)
+  const persistedDefinitionsById = new Map(rows.map((row) => [row.id, row]))
+
   return new Map(
-    rows.map((row) => [
-      row.id,
-      {
-        id: row.id,
-        parentId: row.parentId,
-        name: row.name,
-        isEnabled: row.isEnabled,
-      } satisfies SystemIntegrationDefinitionRecord,
-    ])
+    catalog.definitions.map((definition) => {
+      const persistedDefinition = persistedDefinitionsById.get(definition.id)
+
+      return [
+        definition.id,
+        {
+          id: definition.id,
+          parentId: persistedDefinition?.parentId ?? definition.parentId,
+          name: definition.name,
+          isEnabled: definition.parentId
+            ? (persistedDefinition?.isEnabled ?? definition.isEnabled)
+            : null,
+        } satisfies SystemIntegrationDefinitionRecord,
+      ]
+    })
   )
 }
 

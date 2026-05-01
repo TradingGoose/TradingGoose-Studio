@@ -5,12 +5,7 @@ import { jwtDecode } from 'jwt-decode'
 import { type NextRequest, NextResponse } from 'next/server'
 import { checkHybridAuth } from '@/lib/auth/hybrid'
 import { createLogger } from '@/lib/logs/console/logger'
-import {
-  OAUTH_PROVIDERS,
-  type OAuthProvider,
-  type OAuthService,
-  parseProvider,
-} from '@/lib/oauth'
+import { OAUTH_PROVIDERS, type OAuthProvider, type OAuthService, parseProvider } from '@/lib/oauth'
 import { getUserEntityPermissions } from '@/lib/permissions/utils'
 import { generateRequestId } from '@/lib/utils'
 
@@ -45,6 +40,7 @@ function toCredentialResponse(
     id: acc.id,
     name: displayName,
     provider: acc.providerId,
+    serviceId: featureType,
     lastUsed: acc.updatedAt.toISOString(),
     isDefault,
     scopes,

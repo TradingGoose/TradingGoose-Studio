@@ -84,6 +84,7 @@ import {
 } from '@/lib/system-services/stripe-runtime'
 import { getResolvedSystemSettings } from '@/lib/system-settings/service'
 import { getBaseUrl } from '@/lib/urls/utils'
+import { resolveAlpacaTradingBaseUrl } from '@/providers/trading/alpaca/config'
 import { SSO_TRUSTED_PROVIDERS } from './sso/consts'
 
 const logger = createLogger('Auth')
@@ -162,6 +163,37 @@ function toSystemManagedGenericOAuthConfig(
 
 function toSystemManagedGenericOAuthConfigs(configs: SystemManagedGenericOAuthConfig[]) {
   return configs.map((config) => toSystemManagedGenericOAuthConfig(config))
+}
+
+function createAlpacaOAuthConfig(
+  providerId: 'alpaca-live' | 'alpaca-paper',
+  environment: 'live' | 'paper'
+): SystemManagedGenericOAuthConfig {
+  return {
+    providerId,
+    authorizationUrl: 'https://app.alpaca.markets/oauth/authorize',
+    authorizationUrlParams: { env: environment },
+    tokenUrl: 'https://api.alpaca.markets/oauth/token',
+    authentication: 'post',
+    scopes: getCanonicalScopesForProvider(providerId),
+    getUserInfo: async (tokens) => {
+      const response = await fetch(`${resolveAlpacaTradingBaseUrl(environment)}/v2/account`, {
+        headers: {
+          Authorization: `Bearer ${tokens.accessToken}`,
+        },
+      })
+      const data = await response.json()
+      return {
+        id: data.id,
+        name: data.account_number,
+        email: data.account_number,
+        image: '',
+        emailVerified: false,
+      }
+    },
+    responseType: 'code',
+    redirectURI: `${getBaseUrl()}/api/auth/oauth2/callback/${providerId}`,
+  }
 }
 
 function toEnvBackedSocialProviderConfig<T extends EnvBackedSocialProviderConfig>(
@@ -653,31 +685,8 @@ export const auth = betterAuth({
     }),
     genericOAuth({
       config: toSystemManagedGenericOAuthConfigs([
-        {
-          providerId: 'alpaca',
-          authorizationUrl: 'https://app.alpaca.markets/oauth/authorize',
-          tokenUrl: 'https://api.alpaca.markets/oauth/token',
-          scopes: ['account:write', 'trading', 'data'],
-          getUserInfo: async (tokens) => {
-            // Access provider-specific fields from raw token data
-            const options = {
-              headers: {
-                Authorization: `Bearer ${tokens.accessToken}`,
-              },
-            }
-            const response = await fetch('https://api.alpaca.markets/v2/account', options)
-            const data = await response.json()
-            return {
-              id: data.id,
-              name: data.account_number,
-              email: data.account_number,
-              image: '',
-              emailVerified: false,
-            }
-          },
-          responseType: 'code',
-          redirectURI: `${getBaseUrl()}/api/auth/oauth2/callback/alpaca`,
-        },
+        createAlpacaOAuthConfig('alpaca-live', 'live'),
+        createAlpacaOAuthConfig('alpaca-paper', 'paper'),
         {
           providerId: 'github-repo',
           authorizationUrl: 'https://github.com/login/oauth/authorize',

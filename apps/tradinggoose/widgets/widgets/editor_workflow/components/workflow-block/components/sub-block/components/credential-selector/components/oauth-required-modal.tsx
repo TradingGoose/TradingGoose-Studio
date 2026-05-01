@@ -13,7 +13,7 @@ import {
 import { createLogger } from '@/lib/logs/console/logger'
 import {
   getProviderIdFromServiceId,
-  getServiceIdFromScopes,
+  getServiceIdsFromScopes,
   OAUTH_PROVIDERS,
   type OAuthProvider,
   parseProvider,
@@ -29,6 +29,7 @@ export interface OAuthRequiredModalProps {
   toolName: string
   requiredScopes?: string[]
   serviceId?: string
+  serviceIds?: string[]
 }
 
 // Map of OAuth scopes to user-friendly descriptions
@@ -135,11 +136,39 @@ export function OAuthRequiredModal({
   toolName,
   requiredScopes = [],
   serviceId,
+  serviceIds,
 }: OAuthRequiredModalProps) {
-  // Get provider configuration and service
-  const effectiveServiceId = serviceId || getServiceIdFromScopes(provider, requiredScopes)
   const { baseProvider } = parseProvider(provider)
   const baseProviderConfig = OAUTH_PROVIDERS[baseProvider]
+  const resolveExplicitServiceId = (candidate?: string) => {
+    const normalized = candidate?.trim()
+    if (!normalized) return undefined
+    if (baseProviderConfig?.services[normalized]) return normalized
+    const service = Object.values(baseProviderConfig?.services ?? {}).find(
+      (item) => item.providerId === normalized
+    )
+    if (service) return service.id
+    return normalized === baseProviderConfig?.id ? undefined : normalized
+  }
+  const explicitServiceId = resolveExplicitServiceId(serviceId)
+  const explicitServiceIds = Array.from(
+    new Set(
+      (serviceIds ?? []).map(resolveExplicitServiceId).filter((id): id is string => Boolean(id))
+    )
+  )
+  const inferredServiceIds = (() => {
+    const providerServiceIds = Object.keys(baseProviderConfig?.services ?? {})
+    if (requiredScopes.length === 0 && providerServiceIds.length > 1) {
+      return providerServiceIds
+    }
+    return getServiceIdsFromScopes(provider, requiredScopes)
+  })()
+  const effectiveServiceIds = explicitServiceId
+    ? [explicitServiceId]
+    : explicitServiceIds.length
+      ? explicitServiceIds
+      : inferredServiceIds
+  const effectiveServiceId = effectiveServiceIds[0] ?? provider
 
   // Default to base provider name and icon
   let providerName = baseProviderConfig?.name || provider
@@ -148,7 +177,10 @@ export function OAuthRequiredModal({
   // Try to find the specific service
   if (baseProviderConfig) {
     for (const service of Object.values(baseProviderConfig.services)) {
-      if (service.id === effectiveServiceId || service.providerId === provider) {
+      if (
+        (effectiveServiceIds.length === 1 && service.id === effectiveServiceId) ||
+        (effectiveServiceIds.length === 1 && service.providerId === provider)
+      ) {
         providerName = service.name
         ProviderIcon = service.icon
         break
@@ -161,10 +193,15 @@ export function OAuthRequiredModal({
     (scope) => !scope.includes('userinfo.email') && !scope.includes('userinfo.profile')
   )
 
-  const handleConnectDirectly = async () => {
+  const getServiceName = (connectServiceId: string) => {
+    if (!baseProviderConfig) return connectServiceId
+    return baseProviderConfig.services[connectServiceId]?.name ?? connectServiceId
+  }
+
+  const handleConnectDirectly = async (connectServiceId: string) => {
     try {
       // Determine the appropriate serviceId and providerId
-      const providerId = getProviderIdFromServiceId(effectiveServiceId)
+      const providerId = getProviderIdFromServiceId(connectServiceId)
 
       // Close the modal
       onClose()
@@ -228,9 +265,26 @@ export function OAuthRequiredModal({
           <Button variant='outline' onClick={onClose} className='sm:order-1'>
             Cancel
           </Button>
-          <Button type='button' onClick={handleConnectDirectly} className='sm:order-3'>
-            Connect Now
-          </Button>
+          {effectiveServiceIds.length > 1 ? (
+            effectiveServiceIds.map((connectServiceId) => (
+              <Button
+                key={connectServiceId}
+                type='button'
+                onClick={() => handleConnectDirectly(connectServiceId)}
+                className='sm:order-3'
+              >
+                Connect {getServiceName(connectServiceId)}
+              </Button>
+            ))
+          ) : (
+            <Button
+              type='button'
+              onClick={() => handleConnectDirectly(effectiveServiceId)}
+              className='sm:order-3'
+            >
+              Connect Now
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>
