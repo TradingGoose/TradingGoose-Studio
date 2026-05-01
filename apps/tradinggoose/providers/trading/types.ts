@@ -309,6 +309,10 @@ export type TradingProviderResponse = TradingOrder | UnifiedTradingAccountSnapsh
 export interface TradingProviderOAuthConfig {
   provider: OAuthService
   serviceId?: OAuthService
+  credentialServices?: Array<{
+    serviceId: OAuthService
+    environment?: 'paper' | 'live'
+  }>
   scopes?: string[]
   credentialTitle?: string
   credentialPlaceholder?: string

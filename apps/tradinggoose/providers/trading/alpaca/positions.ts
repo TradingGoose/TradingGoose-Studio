@@ -1,5 +1,8 @@
 import { buildAlpacaAuthHeaders } from '@/providers/trading/alpaca/auth'
-import { alpacaTradingProviderConfig } from '@/providers/trading/alpaca/config'
+import {
+  alpacaTradingProviderConfig,
+  resolveAlpacaTradingBaseUrl,
+} from '@/providers/trading/alpaca/config'
 import { sumFiniteNumbers, toFiniteNumber } from '@/providers/trading/portfolio-utils'
 import type {
   TradingHoldingsInput,
@@ -105,10 +108,8 @@ export const sumAlpacaPositionUnrealizedPnl = (positions: UnifiedTradingPosition
 export const buildAlpacaHoldingsRequest = (params: TradingHoldingsInput): TradingRequestConfig => {
   const authHeaders = buildAlpacaAuthHeaders(params)
 
-  const baseUrl = 'https://api.alpaca.markets'
-
   return {
-    url: `${baseUrl}/v2/positions`,
+    url: `${resolveAlpacaTradingBaseUrl(params.environment)}/v2/positions`,
     method: 'GET',
     headers: authHeaders,
   }

@@ -304,19 +304,6 @@ export async function executeTool(
       throw new Error(`Tool not found: ${toolId}`)
     }
 
-    // If we have a credential parameter, fetch the access token
-    // Agents may pass provider-specific credential params (e.g., alpacaCredential); normalize first
-    if (!contextParams.credential) {
-      contextParams.credential =
-        contextParams.alpacaCredential ||
-        contextParams.tradierCredential ||
-        contextParams.credential
-
-      // Avoid leaking provider-specific credential params downstream
-      contextParams.alpacaCredential = undefined
-      contextParams.tradierCredential = undefined
-    }
-
     if (contextParams.credential) {
       logger.info(
         `[${requestId}] Tool ${toolId} needs access token for credential: ${contextParams.credential}`
@@ -371,6 +358,9 @@ export async function executeTool(
 
         const data = await response.json()
         contextParams.accessToken = data.accessToken
+        if (data.providerId) {
+          contextParams.credentialServiceId = data.providerId
+        }
         if (data.apiKey) {
           contextParams.apiKey = data.apiKey
         }

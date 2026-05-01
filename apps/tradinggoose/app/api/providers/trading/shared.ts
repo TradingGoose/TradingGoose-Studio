@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { z } from 'zod'
+import type { z } from 'zod'
 import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getOAuthToken } from '@/app/api/auth/oauth/utils'
@@ -7,6 +7,7 @@ import { listTradingAccounts } from '@/providers/trading/portfolio'
 import { TradingBrokerRequestError } from '@/providers/trading/portfolio-utils'
 import {
   getTradingProviderDefinition,
+  getTradingProviderOAuthEnvironment,
   getTradingProviderOAuthServiceId,
 } from '@/providers/trading/providers'
 import type { UnifiedTradingAccount } from '@/providers/trading/types'
@@ -15,6 +16,7 @@ const logger = createLogger('TradingProviderRoutes')
 
 type ProviderRequestData = {
   provider?: string
+  credentialServiceId?: string
 }
 
 type PreflightContext = {
@@ -94,23 +96,27 @@ export async function resolveTradingProviderContext({
     return NextResponse.json({ error: 'Unsupported provider' }, { status: 400 })
   }
 
-  const serviceId = getTradingProviderOAuthServiceId(providerId)
+  const serviceId = getTradingProviderOAuthServiceId(providerId, requestData.credentialServiceId)
   if (!serviceId) {
-    return NextResponse.json(
-      { error: 'Trading provider OAuth service is not configured' },
-      { status: 400 }
-    )
+    return NextResponse.json({ error: 'Trading provider connection is required' }, { status: 400 })
   }
 
   const accessToken = await getOAuthToken(session.user.id, serviceId)
   if (!accessToken) {
     return NextResponse.json({ error: 'Trading provider connection not found' }, { status: 404 })
   }
+  const environment = getTradingProviderOAuthEnvironment(providerId, serviceId)
+  if (!environment) {
+    return NextResponse.json(
+      { error: 'Trading provider connection is not configured' },
+      { status: 400 }
+    )
+  }
 
   return {
     requestId,
     providerId,
-    environment: 'live',
+    environment,
     accessToken,
     sessionUserId: session.user.id,
   }

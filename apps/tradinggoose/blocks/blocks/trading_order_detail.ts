@@ -19,6 +19,9 @@ const providerCredentialBlocks = (): SubBlockConfig[] => {
     .filter((provider) => provider.authType === 'oauth' && provider.oauth)
     .map((provider) => {
       const oauth = provider.oauth!
+      const serviceIds = oauth.credentialServices?.length
+        ? oauth.credentialServices.map((service) => service.serviceId)
+        : [oauth.serviceId || oauth.provider]
       return {
         id: `${provider.id}Credential`,
         title: oauth.credentialTitle || `${provider.name} Account`,
@@ -26,7 +29,7 @@ const providerCredentialBlocks = (): SubBlockConfig[] => {
         layout: 'full',
         required: true,
         provider: oauth.provider,
-        serviceId: oauth.serviceId || oauth.provider,
+        ...(serviceIds.length === 1 ? { serviceId: serviceIds[0] } : { serviceIds }),
         requiredScopes: oauth.scopes || [],
         placeholder: oauth.credentialPlaceholder || `Select or connect ${provider.name} account`,
         condition: { field: 'provider', value: provider.id },

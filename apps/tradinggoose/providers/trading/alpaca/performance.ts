@@ -1,9 +1,9 @@
 import {
   fetchAlpacaTradingAccount,
   normalizeAlpacaTradingAccount,
-  resolveAlpacaTradingBaseUrl,
 } from '@/providers/trading/alpaca/accounts'
 import { buildAlpacaAuthHeaders } from '@/providers/trading/alpaca/auth'
+import { resolveAlpacaTradingBaseUrl } from '@/providers/trading/alpaca/config'
 import {
   buildTradingPortfolioPerformance,
   createUnavailableTradingPortfolioPerformance,
@@ -152,7 +152,7 @@ export const normalizeAlpacaPortfolioHistoryResponse = ({
 export async function getAlpacaTradingAccountPerformance(
   context: TradingPortfolioAccountContext & { window: TradingPortfolioPerformanceWindow }
 ): Promise<UnifiedTradingPortfolioPerformance> {
-  const baseUrl = resolveAlpacaTradingBaseUrl()
+  const baseUrl = resolveAlpacaTradingBaseUrl(context.environment)
   const searchParams = new URLSearchParams()
 
   for (const [key, value] of Object.entries(buildAlpacaPerformanceQueryParams(context.window))) {

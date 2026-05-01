@@ -4,6 +4,7 @@ import { getBaseUrl } from '@/lib/urls/utils'
 import {
   executeTradingProviderRequest,
   getTradingProvider,
+  getTradingProviderOAuthEnvironment,
   getTradingProviderParamDefinitions,
 } from '@/providers/trading'
 import type {
@@ -17,12 +18,19 @@ import type { ToolConfig } from '@/tools/types'
 
 const logger = createLogger('TradingActionTool')
 
-const resolveProviderEnvironment = (params: TradingActionParams) =>
-  getTradingProviderParamDefinitions(params.provider, 'order').some(
+const resolveProviderEnvironment = (params: TradingActionParams) => {
+  const credentialEnvironment = getTradingProviderOAuthEnvironment(
+    params.provider,
+    params.credentialServiceId
+  )
+  if (credentialEnvironment) return credentialEnvironment
+
+  return getTradingProviderParamDefinitions(params.provider, 'order').some(
     (definition) => definition.id === 'environment'
   )
     ? params.environment
     : undefined
+}
 
 const ORDER_HISTORY_OMIT_KEYS = new Set([
   'provider',
@@ -40,9 +48,8 @@ const ORDER_HISTORY_OMIT_KEYS = new Set([
   'orderSizingMode',
   'orderClass',
   'credential',
+  'credentialServiceId',
   'accessToken',
-  'tradierCredential',
-  'alpacaCredential',
   '_context',
   '_workflowId',
   '_credentialId',
@@ -320,18 +327,6 @@ export const tradingActionTool: ToolConfig<TradingActionParams, TradingActionRes
       required: false,
       visibility: 'hidden',
       description: 'OAuth credential id for the selected broker (populated from selected account).',
-    },
-    tradierCredential: {
-      type: 'string',
-      required: false,
-      visibility: 'user-only',
-      description: 'Tradier OAuth credential id.',
-    },
-    alpacaCredential: {
-      type: 'string',
-      required: false,
-      visibility: 'user-only',
-      description: 'Alpaca OAuth credential id.',
     },
     accessToken: {
       type: 'string',

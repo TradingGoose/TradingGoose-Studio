@@ -1,5 +1,8 @@
 import { buildAlpacaAuthHeaders } from '@/providers/trading/alpaca/auth'
-import { alpacaTradingProviderConfig } from '@/providers/trading/alpaca/config'
+import {
+  alpacaTradingProviderConfig,
+  resolveAlpacaTradingBaseUrl,
+} from '@/providers/trading/alpaca/config'
 import { getAlpacaNotionalOrderTypeError } from '@/providers/trading/order-validation'
 import type {
   TradingOrder,
@@ -10,8 +13,6 @@ import { listingIdentityToTradingSymbol } from '@/providers/trading/utils'
 
 export const buildAlpacaOrderRequest = (params: TradingOrderInput): TradingRequestConfig => {
   const authHeaders = buildAlpacaAuthHeaders(params)
-
-  const baseUrl = 'https://api.alpaca.markets'
 
   const symbol = listingIdentityToTradingSymbol(alpacaTradingProviderConfig, {
     listing: params.listing,
@@ -122,7 +123,7 @@ export const buildAlpacaOrderRequest = (params: TradingOrderInput): TradingReque
   }
 
   return {
-    url: `${baseUrl}/v2/orders`,
+    url: `${resolveAlpacaTradingBaseUrl(params.environment)}/v2/orders`,
     method: 'POST',
     headers: {
       ...authHeaders,

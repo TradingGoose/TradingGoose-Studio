@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 const {
   getOAuthTokenMock,
   getTradingProviderDefinitionMock,
+  getTradingProviderOAuthEnvironmentMock,
   getTradingProviderOAuthServiceIdMock,
   getTradingPortfolioSupportedWindowsMock,
   isTradingPortfolioWindowSupportedMock,
@@ -17,6 +18,7 @@ const {
   getOAuthTokenMock: vi.fn(),
   getTradingProviderDefinitionMock: vi.fn(),
   getTradingProviderOAuthServiceIdMock: vi.fn(),
+  getTradingProviderOAuthEnvironmentMock: vi.fn(),
   getTradingPortfolioSupportedWindowsMock: vi.fn(),
   isTradingPortfolioWindowSupportedMock: vi.fn(),
   listTradingAccountsMock: vi.fn(),
@@ -54,6 +56,8 @@ vi.mock('@/providers/trading/portfolio', () => ({
 
 vi.mock('@/providers/trading/providers', () => ({
   getTradingProviderDefinition: (...args: unknown[]) => getTradingProviderDefinitionMock(...args),
+  getTradingProviderOAuthEnvironment: (...args: unknown[]) =>
+    getTradingProviderOAuthEnvironmentMock(...args),
   getTradingProviderOAuthServiceId: (...args: unknown[]) =>
     getTradingProviderOAuthServiceIdMock(...args),
 }))
@@ -131,8 +135,12 @@ describe('TradingPortfolioStreamManager', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     getOAuthTokenMock.mockResolvedValue('oauth-token')
-    getTradingProviderDefinitionMock.mockReturnValue({ id: 'alpaca', name: 'Alpaca' })
+    getTradingProviderDefinitionMock.mockReturnValue({
+      id: 'alpaca',
+      name: 'Alpaca',
+    })
     getTradingProviderOAuthServiceIdMock.mockReturnValue('alpaca')
+    getTradingProviderOAuthEnvironmentMock.mockReturnValue('live')
     getTradingPortfolioSupportedWindowsMock.mockReturnValue(['1D', '1W'])
     isTradingPortfolioWindowSupportedMock.mockReturnValue(true)
     listTradingAccountsMock.mockResolvedValue([account])

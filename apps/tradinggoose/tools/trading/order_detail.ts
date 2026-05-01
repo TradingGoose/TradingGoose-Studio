@@ -1,5 +1,14 @@
+import { getTradingProviderOAuthEnvironment } from '@/providers/trading'
 import type { TradingOrderDetailParams, TradingOrderDetailResponse } from '@/tools/trading/types'
 import type { ToolConfig } from '@/tools/types'
+
+const resolveProviderEnvironment = (params: TradingOrderDetailParams) => {
+  if (!params.provider) return params.environment
+  return (
+    getTradingProviderOAuthEnvironment(params.provider, params.credentialServiceId) ??
+    params.environment
+  )
+}
 
 export const tradingOrderDetailTool: ToolConfig<
   TradingOrderDetailParams,
@@ -38,18 +47,6 @@ export const tradingOrderDetailTool: ToolConfig<
       visibility: 'hidden',
       description: 'OAuth credential id for the selected broker (populated from selected account).',
     },
-    tradierCredential: {
-      type: 'string',
-      required: false,
-      visibility: 'user-only',
-      description: 'Tradier OAuth credential id.',
-    },
-    alpacaCredential: {
-      type: 'string',
-      required: false,
-      visibility: 'user-only',
-      description: 'Alpaca OAuth credential id.',
-    },
     accessToken: {
       type: 'string',
       required: false,
@@ -73,7 +70,7 @@ export const tradingOrderDetailTool: ToolConfig<
     body: (params) => ({
       orderId: params.orderId,
       provider: params.provider,
-      environment: params.environment,
+      environment: resolveProviderEnvironment(params),
       accessToken: params.accessToken,
       accountId: params.accountId,
     }),

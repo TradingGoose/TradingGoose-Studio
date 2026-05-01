@@ -39,6 +39,7 @@ const orderListingSchema = z
 const orderSchema = z
   .object({
     provider: nonEmptyStringSchema,
+    credentialServiceId: nonEmptyStringSchema.optional(),
     accountId: nonEmptyStringSchema,
     listing: orderListingSchema,
     side: z.enum(['buy', 'sell']),

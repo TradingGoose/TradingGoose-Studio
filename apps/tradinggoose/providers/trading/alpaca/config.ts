@@ -2,6 +2,13 @@ import type { AssetClass } from '@/providers/market/types'
 import { alpacaTradingSymbolRules } from '@/providers/trading/alpaca/rules'
 import type { TradingProviderConfig } from '@/providers/trading/providers'
 
+export const ALPACA_LIVE_TRADING_BASE_URL = 'https://api.alpaca.markets'
+export const ALPACA_PAPER_TRADING_BASE_URL = 'https://paper-api.alpaca.markets'
+export const ALPACA_TRADING_BASE_URL = ALPACA_LIVE_TRADING_BASE_URL
+
+export const resolveAlpacaTradingBaseUrl = (environment?: string | null) =>
+  environment === 'paper' ? ALPACA_PAPER_TRADING_BASE_URL : ALPACA_LIVE_TRADING_BASE_URL
+
 const availableAssetClasses: AssetClass[] = ['stock']
 const availableCryptoQuoteCodes = ['USD', 'USDC', 'USDT', 'BTC']
 const availableCryptoBaseCodes = [
@@ -131,9 +138,9 @@ export const alpacaTradingProviderConfig: TradingProviderConfig = {
   availability,
   params,
   api_endpoints: {
-    default: 'https://api.alpaca.markets',
-    order: 'https://api.alpaca.markets/v2/orders',
-    holdings: 'https://api.alpaca.markets/v2/positions',
+    default: ALPACA_TRADING_BASE_URL,
+    order: `${ALPACA_TRADING_BASE_URL}/v2/orders`,
+    holdings: `${ALPACA_TRADING_BASE_URL}/v2/positions`,
   },
   capabilities: {
     order: {

@@ -1,4 +1,5 @@
 import type React from 'react'
+import { getCanonicalScopesForProvider } from '@/lib/oauth'
 import type { AssetClass } from '@/providers/market/types'
 import { alpacaTradingProviderConfig } from '@/providers/trading/alpaca/config'
 import { tradierTradingProviderConfig } from '@/providers/trading/tradier/config'
@@ -204,8 +205,11 @@ export const TRADING_PROVIDER_DEFINITIONS: Record<string, TradingProviderDefinit
     authType: 'oauth',
     oauth: {
       provider: 'alpaca',
-      serviceId: 'alpaca',
-      scopes: ['account:write', 'trading', 'data'],
+      credentialServices: [
+        { serviceId: 'alpaca-live', environment: 'live' },
+        { serviceId: 'alpaca-paper', environment: 'paper' },
+      ],
+      scopes: getCanonicalScopesForProvider('alpaca-live'),
       credentialTitle: 'Alpaca Account',
       credentialPlaceholder: 'Select or connect Alpaca connection',
     },
@@ -290,10 +294,62 @@ export function getTradingProviders(): TradingProviderDefinition[] {
   return Object.values(TRADING_PROVIDER_DEFINITIONS)
 }
 
-export function getTradingProviderOAuthServiceId(providerId: TradingProviderId): string | null {
+export function getTradingProviderOAuthCredentialServices(providerId: TradingProviderId) {
   const provider = getTradingProviderDefinition(providerId)
   if (!provider?.oauth) return null
-  return provider.oauth.serviceId ?? provider.oauth.provider
+  if (provider.oauth.credentialServices?.length) return provider.oauth.credentialServices
+
+  const serviceId = provider.oauth.serviceId ?? provider.oauth.provider
+  return serviceId ? [{ serviceId, environment: 'live' as const }] : []
+}
+
+export function getTradingProviderOAuthServiceIds(providerId: TradingProviderId): string[] {
+  return (getTradingProviderOAuthCredentialServices(providerId) ?? []).map(
+    (service) => service.serviceId
+  )
+}
+
+export function resolveTradingProviderOAuthCredentialService(
+  providerId: TradingProviderId,
+  serviceId?: string | null
+) {
+  const services = getTradingProviderOAuthCredentialServices(providerId)
+  if (!services || services.length === 0) return null
+
+  const requestedServiceId = serviceId?.trim()
+  if (requestedServiceId) {
+    return services.find((service) => service.serviceId === requestedServiceId) ?? null
+  }
+
+  return services.length === 1 ? (services[0] ?? null) : null
+}
+
+export function getTradingProviderOAuthServiceId(
+  providerId: TradingProviderId,
+  serviceId?: string | null
+): string | null {
+  return resolveTradingProviderOAuthCredentialService(providerId, serviceId)?.serviceId ?? null
+}
+
+export function getTradingProviderOAuthEnvironment(
+  providerId: TradingProviderId,
+  serviceId?: string | null
+) {
+  return resolveTradingProviderOAuthCredentialService(providerId, serviceId)?.environment ?? null
+}
+
+export function getTradingProviderOAuthServiceIdForEnvironment(
+  providerId: TradingProviderId,
+  environment?: string | null
+) {
+  const normalizedEnvironment = environment?.trim()
+  const services = getTradingProviderOAuthCredentialServices(providerId)
+  if (!services || services.length === 0) return null
+  if (normalizedEnvironment) {
+    const service = services.find((candidate) => candidate.environment === normalizedEnvironment)
+    if (service) return service.serviceId
+  }
+  return services.length === 1 ? (services[0]?.serviceId ?? null) : null
 }
 
 export function getTradingProvidersByKind(kind: TradingOperationKind): TradingProviderDefinition[] {
@@ -320,9 +376,9 @@ export function getAvailableTradingProviders(
   const providers = kind ? getTradingProvidersByKind(kind) : getTradingProviders()
 
   return providers.filter((provider) => {
-    const oauthServiceId = getTradingProviderOAuthServiceId(provider.id)
-    if (!oauthServiceId) return true
-    return Boolean(providerAvailability[oauthServiceId])
+    const oauthServiceIds = getTradingProviderOAuthServiceIds(provider.id)
+    if (oauthServiceIds.length === 0) return true
+    return oauthServiceIds.some((oauthServiceId) => Boolean(providerAvailability[oauthServiceId]))
   })
 }
 

@@ -1,13 +1,13 @@
 import { buildAlpacaAuthHeaders } from '@/providers/trading/alpaca/auth'
+import { resolveAlpacaTradingBaseUrl } from '@/providers/trading/alpaca/config'
 import { ALPACA_DEFAULT_BASE_CURRENCY } from '@/providers/trading/alpaca/positions'
 import { fetchBrokerJson, toFiniteNumber } from '@/providers/trading/portfolio-utils'
 import type {
   TradingPortfolioBaseContext,
   UnifiedTradingAccount,
   UnifiedTradingAccountStatus,
+  UnifiedTradingAccountType,
 } from '@/providers/trading/types'
-
-export const resolveAlpacaTradingBaseUrl = () => 'https://api.alpaca.markets'
 
 export const mapAlpacaAccountStatus = (value: unknown): UnifiedTradingAccountStatus => {
   if (typeof value !== 'string') return 'unknown'
@@ -32,6 +32,29 @@ export const mapAlpacaAccountStatus = (value: unknown): UnifiedTradingAccountSta
   }
 }
 
+export const mapAlpacaAccountType = (account: any): UnifiedTradingAccountType => {
+  const multiplier = toFiniteNumber(account?.multiplier)
+  const maxMarginMultiplier = toFiniteNumber(account?.admin_configurations?.max_margin_multiplier)
+
+  if (
+    (typeof multiplier === 'number' && multiplier > 1) ||
+    (typeof maxMarginMultiplier === 'number' && maxMarginMultiplier > 1) ||
+    account?.shorting_enabled === true
+  ) {
+    return 'margin'
+  }
+
+  if (
+    multiplier === 1 ||
+    maxMarginMultiplier === 1 ||
+    account?.admin_configurations?.disable_shorting === true
+  ) {
+    return 'cash'
+  }
+
+  return 'unknown'
+}
+
 export const normalizeAlpacaTradingAccount = (account: any): UnifiedTradingAccount => {
   const id = typeof account?.id === 'string' ? account.id.trim() : ''
   if (!id) {
@@ -46,7 +69,7 @@ export const normalizeAlpacaTradingAccount = (account: any): UnifiedTradingAccou
   return {
     id,
     name: `Alpaca (${accountNumber})`,
-    type: 'unknown',
+    type: mapAlpacaAccountType(account),
     baseCurrency:
       typeof account?.currency === 'string' && account.currency.trim()
         ? account.currency.trim().toUpperCase()
@@ -56,7 +79,7 @@ export const normalizeAlpacaTradingAccount = (account: any): UnifiedTradingAccou
 }
 
 export async function fetchAlpacaTradingAccount(context: TradingPortfolioBaseContext) {
-  const baseUrl = resolveAlpacaTradingBaseUrl()
+  const baseUrl = resolveAlpacaTradingBaseUrl(context.environment)
   return fetchBrokerJson<any>({
     providerId: context.providerId,
     url: `${baseUrl}/v2/account`,

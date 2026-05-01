@@ -2,19 +2,27 @@ import { createLogger } from '@/lib/logs/console/logger'
 import {
   executeTradingProviderRequest,
   getTradingProvider,
+  getTradingProviderOAuthEnvironment,
   getTradingProviderParamDefinitions,
 } from '@/providers/trading'
-import type { ToolConfig } from '@/tools/types'
 import type { TradingHoldingsParams, TradingHoldingsResponse } from '@/tools/trading/types'
+import type { ToolConfig } from '@/tools/types'
 
 const logger = createLogger('TradingHoldingsTool')
 
-const resolveProviderEnvironment = (params: TradingHoldingsParams) =>
-  getTradingProviderParamDefinitions(params.provider, 'holdings').some(
+const resolveProviderEnvironment = (params: TradingHoldingsParams) => {
+  const credentialEnvironment = getTradingProviderOAuthEnvironment(
+    params.provider,
+    params.credentialServiceId
+  )
+  if (credentialEnvironment) return credentialEnvironment
+
+  return getTradingProviderParamDefinitions(params.provider, 'holdings').some(
     (definition) => definition.id === 'environment'
   )
     ? params.environment
     : undefined
+}
 
 const buildHoldingsRequest = (params: TradingHoldingsParams) => {
   const provider = getTradingProvider(params.provider)
@@ -61,18 +69,6 @@ export const tradingHoldingsTool: ToolConfig<TradingHoldingsParams, TradingHoldi
       required: false,
       visibility: 'hidden',
       description: 'OAuth credential id for the selected broker (populated from selected account).',
-    },
-    tradierCredential: {
-      type: 'string',
-      required: false,
-      visibility: 'user-only',
-      description: 'Tradier OAuth credential id.',
-    },
-    alpacaCredential: {
-      type: 'string',
-      required: false,
-      visibility: 'user-only',
-      description: 'Alpaca OAuth credential id.',
     },
     accessToken: {
       type: 'string',

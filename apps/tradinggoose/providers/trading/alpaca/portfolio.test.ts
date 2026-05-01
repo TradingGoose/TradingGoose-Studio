@@ -28,13 +28,33 @@ describe('Alpaca portfolio helpers', () => {
         account_number: 'PA12345',
         currency: 'usd',
         status: 'APPROVAL_PENDING',
+        multiplier: '1',
       })
     ).toEqual({
       id: 'acct-live',
       name: 'Alpaca (PA12345)',
-      type: 'unknown',
+      type: 'cash',
       baseCurrency: 'USD',
       status: 'restricted',
+    })
+  })
+
+  it('maps Alpaca margin indicators to a margin account type', () => {
+    expect(
+      normalizeAlpacaTradingAccount({
+        id: 'acct-margin',
+        account_number: 'PA67890',
+        currency: 'USD',
+        status: 'ACTIVE',
+        multiplier: '4',
+        shorting_enabled: true,
+      })
+    ).toMatchObject({
+      id: 'acct-margin',
+      name: 'Alpaca (PA67890)',
+      type: 'margin',
+      baseCurrency: 'USD',
+      status: 'active',
     })
   })
 
@@ -53,6 +73,7 @@ describe('Alpaca portfolio helpers', () => {
             equity: '10000',
             portfolio_value: '10000',
             buying_power: '15000',
+            multiplier: '2',
           }),
           { status: 200 }
         )
@@ -119,6 +140,7 @@ describe('Alpaca portfolio helpers', () => {
             equity: '9000',
             portfolio_value: '9000',
             buying_power: '0',
+            multiplier: '2',
           }),
           { status: 200 }
         )
@@ -209,6 +231,7 @@ describe('Alpaca portfolio helpers', () => {
             account_number: 'LIVE-1',
             currency: 'USD',
             status: 'ACTIVE',
+            multiplier: '2',
           }),
           { status: 200 }
         )

@@ -189,6 +189,7 @@ describe('Trading provider order route', () => {
     const response = await POST(
       createMockRequest('POST', {
         provider: 'alpaca',
+        credentialServiceId: 'alpaca-live',
         accountId: 'ACC-1',
         listing: etfListing,
         side: 'buy',
@@ -226,6 +227,7 @@ describe('Trading provider order route', () => {
     const response = await POST(
       createMockRequest('POST', {
         provider: 'alpaca',
+        credentialServiceId: 'alpaca-live',
         accountId: 'ACC-1',
         listing: stockListing,
         side: 'buy',
@@ -363,6 +365,7 @@ describe('Trading provider order route', () => {
       const response = await POST(
         createMockRequest('POST', {
           provider: 'alpaca',
+          credentialServiceId: 'alpaca-live',
           accountId: 'ACC-1',
           listing: stockListing,
           side: 'sell',
@@ -397,6 +400,7 @@ describe('Trading provider order route', () => {
     const response = await POST(
       createMockRequest('POST', {
         provider: 'alpaca',
+        credentialServiceId: 'alpaca-live',
         accountId: 'ACC-1',
         listing: stockListing,
         side: 'buy',
@@ -439,6 +443,7 @@ describe('Trading provider order route', () => {
     const response = await POST(
       createMockRequest('POST', {
         provider: 'alpaca',
+        credentialServiceId: 'alpaca-live',
         accountId: 'ACC-1',
         listing: stockListing,
         side: 'buy',

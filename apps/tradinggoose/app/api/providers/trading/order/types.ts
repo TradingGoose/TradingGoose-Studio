@@ -7,6 +7,7 @@ export type QuickOrderResolvedListing =
 
 export interface QuickOrderSubmitRequest {
   provider: string
+  credentialServiceId?: string
   accountId: string
   listing: QuickOrderResolvedListing
   side: 'buy' | 'sell'

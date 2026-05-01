@@ -1,4 +1,5 @@
 import { buildAlpacaAuthHeaders } from '@/providers/trading/alpaca/auth'
+import { resolveAlpacaTradingBaseUrl } from '@/providers/trading/alpaca/config'
 import type {
   TradingOrderDetailInput,
   TradingOrderDetailResult,
@@ -41,10 +42,8 @@ export const buildAlpacaOrderDetailRequest = (
     accessToken: params.accessToken,
   })
 
-  const baseUrl = 'https://api.alpaca.markets'
-
   return {
-    url: `${baseUrl}/v2/orders/${encodeURIComponent(providerOrderId)}`,
+    url: `${resolveAlpacaTradingBaseUrl(params.environment)}/v2/orders/${encodeURIComponent(providerOrderId)}`,
     method: 'GET',
     headers: {
       ...authHeaders,

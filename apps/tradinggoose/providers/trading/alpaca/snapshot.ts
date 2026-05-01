@@ -2,8 +2,8 @@ import {
   fetchAlpacaTradingAccount,
   normalizeAlpacaSnapshotAccountSummary,
   normalizeAlpacaTradingAccount,
-  resolveAlpacaTradingBaseUrl,
 } from '@/providers/trading/alpaca/accounts'
+import { resolveAlpacaTradingBaseUrl } from '@/providers/trading/alpaca/config'
 import {
   ALPACA_DEFAULT_BASE_CURRENCY,
   getAlpacaCurrencySymbol,
@@ -17,7 +17,7 @@ import type {
 } from '@/providers/trading/types'
 
 async function fetchAlpacaTradingPositions(context: TradingPortfolioAccountContext) {
-  const baseUrl = resolveAlpacaTradingBaseUrl()
+  const baseUrl = resolveAlpacaTradingBaseUrl(context.environment)
   return fetchBrokerJson<any>({
     providerId: context.providerId,
     url: `${baseUrl}/v2/positions`,
