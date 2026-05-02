@@ -16,23 +16,32 @@ describe('pair-store linked context', () => {
     resetPairContexts()
   })
 
-  it('ignores unsupported legacy keys instead of migrating them', () => {
+  it('ignores unsupported shared keys instead of persisting them', () => {
     const { setContext } = usePairColorStore.getState()
 
     setContext('blue', {
       workflowId: 'workflow-a',
       channelId: 'pair-blue',
+      reviewTarget: {
+        reviewSessionId: 'review-a',
+      },
       copilotChatId: 'legacy-review-session',
-    } as PairColorContext & { copilotChatId?: string })
+    } as PairColorContext & {
+      channelId?: string
+      reviewTarget?: { reviewSessionId?: string | null }
+      copilotChatId?: string
+    })
 
     const context = usePairColorStore.getState().contexts.blue as PairColorContext & {
+      channelId?: string
+      reviewTarget?: unknown
       copilotChatId?: string
     }
 
-    expect(context).toMatchObject({
+    expect(context).toEqual({
       workflowId: 'workflow-a',
-      channelId: 'pair-blue',
     })
+    expect(context.channelId).toBeUndefined()
     expect(context.reviewTarget).toBeUndefined()
     expect(context.copilotChatId).toBeUndefined()
   })
@@ -72,190 +81,63 @@ describe('pair-store linked context', () => {
     expect(listing).not.toHaveProperty('providerParams')
   })
 
-  it('preserves explicit review target when the ambient workflow changes without a replacement target', () => {
+  it('preserves allowed shared ids when workflow selection changes', () => {
     const { setContext } = usePairColorStore.getState()
 
     setContext('blue', {
       workflowId: 'workflow-a',
-      reviewTarget: {
-        reviewSessionId: 'review-a',
-        reviewEntityKind: 'workflow',
-        reviewEntityId: 'workflow-a',
-        reviewDraftSessionId: null,
-      },
       skillId: 'skill-a',
       customToolId: 'tool-a',
       mcpServerId: 'mcp-a',
       indicatorId: 'indicator-a',
-      channelId: 'pair-blue',
     })
 
     setContext('blue', {
       workflowId: 'workflow-b',
-      channelId: 'pair-blue',
     })
 
-    expect(usePairColorStore.getState().contexts.blue).toMatchObject({
+    expect(usePairColorStore.getState().contexts.blue).toEqual({
       workflowId: 'workflow-b',
       skillId: 'skill-a',
       customToolId: 'tool-a',
       mcpServerId: 'mcp-a',
       indicatorId: 'indicator-a',
-      channelId: 'pair-blue',
-      reviewTarget: {
-        reviewSessionId: 'review-a',
-        reviewEntityKind: 'workflow',
-        reviewEntityId: 'workflow-a',
-        reviewDraftSessionId: null,
-      },
     })
   })
 
-  it('preserves explicitly supplied replacement targets on an entity change', () => {
-    const { setContext } = usePairColorStore.getState()
+  it('strips stale unsupported keys that were already present before the next write', () => {
+    usePairColorStore.setState((state) => ({
+      contexts: {
+        ...state.contexts,
+        blue: {
+          workflowId: 'workflow-a',
+          skillId: 'skill-a',
+          reviewTarget: {
+            reviewSessionId: 'review-a',
+          },
+          channelId: 'pair-blue',
+        } as PairColorContext & {
+          reviewTarget?: { reviewSessionId?: string | null }
+          channelId?: string
+        },
+      },
+    }))
 
-    setContext('blue', {
+    usePairColorStore.getState().setContext('blue', {
+      indicatorId: 'indicator-b',
+    })
+
+    const context = usePairColorStore.getState().contexts.blue as PairColorContext & {
+      reviewTarget?: unknown
+      channelId?: string
+    }
+
+    expect(context).toEqual({
       workflowId: 'workflow-a',
-      reviewTarget: {
-        reviewSessionId: 'review-a',
-        reviewEntityKind: 'workflow',
-        reviewEntityId: 'workflow-a',
-        reviewDraftSessionId: null,
-      },
-    })
-
-    setContext('blue', {
-      workflowId: 'workflow-b',
-      reviewTarget: {
-        reviewSessionId: 'review-b',
-        reviewEntityKind: 'workflow',
-        reviewEntityId: 'workflow-b',
-        reviewDraftSessionId: null,
-      },
-    })
-
-    expect(usePairColorStore.getState().contexts.blue).toMatchObject({
-      workflowId: 'workflow-b',
-      reviewTarget: {
-        reviewSessionId: 'review-b',
-        reviewEntityKind: 'workflow',
-        reviewEntityId: 'workflow-b',
-        reviewDraftSessionId: null,
-      },
-    })
-  })
-
-  it('preserves explicitly supplied review targets that match the existing entity id', () => {
-    const { setContext } = usePairColorStore.getState()
-
-    setContext('blue', {
       skillId: 'skill-a',
-    })
-
-    setContext('blue', {
-      reviewTarget: {
-        reviewSessionId: 'review-skill-a',
-        reviewEntityKind: 'skill',
-        reviewEntityId: 'skill-a',
-        reviewDraftSessionId: null,
-      },
-    })
-
-    expect(usePairColorStore.getState().contexts.blue).toMatchObject({
-      skillId: 'skill-a',
-      reviewTarget: {
-        reviewSessionId: 'review-skill-a',
-        reviewEntityKind: 'skill',
-        reviewEntityId: 'skill-a',
-        reviewDraftSessionId: null,
-      },
-    })
-  })
-
-  it('keeps review state separate from other entity kinds', () => {
-    const { setContext } = usePairColorStore.getState()
-
-    setContext('blue', {
-      reviewTarget: {
-        reviewSessionId: 'review-skill-a',
-        reviewEntityKind: 'skill',
-        reviewEntityId: 'skill-a',
-        reviewDraftSessionId: null,
-      },
-      skillId: 'skill-a',
-      customToolId: 'tool-a',
-    })
-
-    setContext('blue', {
       indicatorId: 'indicator-b',
     })
-
-    expect(usePairColorStore.getState().contexts.blue).toMatchObject({
-      reviewTarget: {
-        reviewSessionId: 'review-skill-a',
-        reviewEntityKind: 'skill',
-        reviewEntityId: 'skill-a',
-        reviewDraftSessionId: null,
-      },
-      skillId: 'skill-a',
-      customToolId: 'tool-a',
-      indicatorId: 'indicator-b',
-    })
-  })
-
-  it('preserves explicit review target when the same ambient entity kind changes', () => {
-    const { setContext } = usePairColorStore.getState()
-
-    setContext('blue', {
-      reviewTarget: {
-        reviewSessionId: 'review-skill-a',
-        reviewEntityKind: 'skill',
-        reviewEntityId: 'skill-a',
-        reviewDraftSessionId: null,
-      },
-      skillId: 'skill-a',
-    })
-
-    setContext('blue', {
-      skillId: 'skill-b',
-    })
-
-    expect(usePairColorStore.getState().contexts.blue).toMatchObject({
-      skillId: 'skill-b',
-      reviewTarget: {
-        reviewSessionId: 'review-skill-a',
-        reviewEntityKind: 'skill',
-        reviewEntityId: 'skill-a',
-        reviewDraftSessionId: null,
-      },
-    })
-  })
-
-  it('preserves explicit draft review target when an ambient saved entity id is selected', () => {
-    const { setContext } = usePairColorStore.getState()
-
-    setContext('blue', {
-      reviewTarget: {
-        reviewSessionId: 'review-draft-skill',
-        reviewEntityKind: 'skill',
-        reviewEntityId: null,
-        reviewDraftSessionId: 'draft-skill',
-      },
-      skillId: null,
-    })
-
-    setContext('blue', {
-      skillId: 'skill-saved',
-    })
-
-    expect(usePairColorStore.getState().contexts.blue).toMatchObject({
-      skillId: 'skill-saved',
-      reviewTarget: {
-        reviewSessionId: 'review-draft-skill',
-        reviewEntityKind: 'skill',
-        reviewEntityId: null,
-        reviewDraftSessionId: 'draft-skill',
-      },
-    })
+    expect(context.reviewTarget).toBeUndefined()
+    expect(context.channelId).toBeUndefined()
   })
 })

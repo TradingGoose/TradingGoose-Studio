@@ -191,12 +191,6 @@ export function IndicatorList({
         if (isLinkedToColorPair) {
           setPairContext(resolvedPairColor, {
             indicatorId: null,
-            reviewTarget: {
-              reviewSessionId: null,
-              reviewEntityKind: 'indicator',
-              reviewEntityId: null,
-              reviewDraftSessionId: draftSessionId,
-            },
           })
         } else if (onWidgetParamsChange) {
           const currentParams =

@@ -1,14 +1,15 @@
 'use client'
 
-import { useEffect, useMemo } from 'react'
+import { useCallback, useEffect, useMemo } from 'react'
 import { LoadingAgent } from '@/components/ui/loading-agent'
-import { getListingIdentityKey } from '@/lib/listing/identity'
+import { getListingIdentityKey, type ListingIdentity } from '@/lib/listing/identity'
 import type { MarketQuoteSnapshot } from '@/lib/market/quote-snapshot-contract'
 import { useResolvedListings } from '@/hooks/queries/listing-resolution'
 import { useMarketQuoteSnapshots } from '@/hooks/queries/market-quote-snapshots'
 import { useOAuthProviderAvailability } from '@/hooks/queries/oauth-provider-availability'
 import { useTradingAccounts, useTradingPortfolioSnapshot } from '@/hooks/queries/trading-portfolio'
 import { useWatchlists } from '@/hooks/queries/watchlists'
+import { useSetPairColorContext } from '@/stores/dashboard/pair-store'
 import type { WidgetComponentProps } from '@/widgets/types'
 import {
   emitHeatmapParamsChange,
@@ -62,6 +63,7 @@ export function HeatmapWidgetBody({
   panelId,
   widget,
   params,
+  pairColor = 'gray',
   onWidgetParamsChange,
 }: WidgetComponentProps) {
   const workspaceId = context?.workspaceId ?? null
@@ -238,6 +240,14 @@ export function HeatmapWidgetBody({
     listings: cappedListings,
     enabled: cappedListings.length > 0,
   })
+  const setPairContext = useSetPairColorContext()
+  const handleListingSelect = useCallback(
+    (listing: ListingIdentity) => {
+      if (pairColor === 'gray') return
+      setPairContext(pairColor, { listing })
+    },
+    [pairColor, setPairContext]
+  )
   const chartItems = useMemo(
     () =>
       cappedSourceListings.map((sourceListing) => {
@@ -400,6 +410,7 @@ export function HeatmapWidgetBody({
           errorMessage={quoteErrorMessage}
           isLoading={quoteSnapshotsQuery.isLoading && !quoteSnapshotsQuery.data}
           items={chartItems}
+          onListingSelect={pairColor === 'gray' ? undefined : handleListingSelect}
           totalCount={totalCount}
         />
       </div>

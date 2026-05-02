@@ -184,14 +184,12 @@ interface ApplyAutoLayoutAndUpdateStoreParams {
   workflowId: string
   channelId?: string
   options?: AutoLayoutOptions
-  undoUserId?: string
 }
 
 export async function applyAutoLayoutAndUpdateStore({
   workflowId,
   channelId,
   options = {},
-  undoUserId,
 }: ApplyAutoLayoutAndUpdateStoreParams): Promise<{
   success: boolean
   error?: string

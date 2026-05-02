@@ -27,6 +27,14 @@ describe('chat replay safety', () => {
     expect(
       isAcceptedLiveMutationToolCall({
         id: 'tool-3',
+        name: 'edit_workflow_block',
+        state: 'success',
+      })
+    ).toBe(true)
+
+    expect(
+      isAcceptedLiveMutationToolCall({
+        id: 'tool-3b',
         name: 'set_global_workflow_variables',
         state: 'success',
       })
@@ -39,6 +47,16 @@ describe('chat replay safety', () => {
         state: 'success',
       })
     ).toBe(true)
+
+    for (const name of ['edit_skill', 'edit_custom_tool', 'edit_indicator', 'edit_mcp_server']) {
+      expect(
+        isAcceptedLiveMutationToolCall({
+          id: `tool-${name}`,
+          name,
+          state: 'success',
+        })
+      ).toBe(true)
+    }
 
     expect(
       isAcceptedLiveMutationToolCall({
@@ -53,6 +71,22 @@ describe('chat replay safety', () => {
         id: 'tool-5b',
         name: 'rename_workflow',
         state: 'accepted',
+      })
+    ).toBe(true)
+
+    expect(
+      isAcceptedLiveMutationToolCall({
+        id: 'tool-5c',
+        name: 'set_environment_variables',
+        state: 'success',
+      })
+    ).toBe(true)
+
+    expect(
+      isAcceptedLiveMutationToolCall({
+        id: 'tool-5d',
+        name: 'deploy_workflow',
+        state: 'success',
       })
     ).toBe(true)
 

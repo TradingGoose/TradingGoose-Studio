@@ -1,37 +1,23 @@
 import { createWithEqualityFn as create } from 'zustand/traditional'
-import { type ListingIdentity, toListingValueObject } from '@/lib/listing/identity'
+import {
+  type ListingIdentity,
+  type ListingInputValue,
+  toListingValueObject,
+} from '@/lib/listing/identity'
+import { normalizeOptionalString } from '@/lib/utils'
 import type { PairColor } from '@/widgets/pair-colors'
 import { PAIR_COLORS } from '@/widgets/pair-colors'
-
-export type PairReviewTarget = {
-  reviewSessionId?: string | null
-  reviewEntityKind?: string | null
-  reviewEntityId?: string | null
-  reviewDraftSessionId?: string | null
-}
 
 export type PairColorContext = {
   workflowId?: string
   listing?: ListingIdentity | null
-  updatedAt?: number
-  channelId?: string
-  reviewTarget?: PairReviewTarget | null
   indicatorId?: string | null
   mcpServerId?: string | null
   customToolId?: string | null
   skillId?: string | null
 }
 
-const ENTITY_CONTEXT_KEYS = ['indicatorId', 'mcpServerId', 'customToolId', 'skillId'] as const
-const REVIEW_ENTITY_KINDS = ['workflow', 'indicator', 'mcp_server', 'custom_tool', 'skill']
-
-const PAIR_CONTEXT_KEYS = [
-  'workflowId',
-  'listing',
-  'channelId',
-  'reviewTarget',
-  ...ENTITY_CONTEXT_KEYS,
-] as const
+type PairColorContextSource = PairColorContext | Record<string, unknown> | null | undefined
 
 interface PairStoreState {
   contexts: Record<PairColor, PairColorContext>
@@ -47,83 +33,61 @@ const emptyContexts = PAIR_COLORS.reduce<Record<PairColor, PairColorContext>>(
   {} as Record<PairColor, PairColorContext>
 )
 
-function sanitizePairColorContext(ctx: PairColorContext): PairColorContext {
-  const next = Object.fromEntries(
-    Object.entries(ctx).filter(([key]) => (PAIR_CONTEXT_KEYS as readonly string[]).includes(key))
-  ) as PairColorContext
+function sanitizePairColorContext(ctx: PairColorContextSource): PairColorContext {
+  if (!ctx || typeof ctx !== 'object' || Array.isArray(ctx)) {
+    return {}
+  }
 
-  if (Object.hasOwn(next, 'listing')) {
-    next.listing = next.listing == null ? null : toListingValueObject(next.listing)
+  const next: PairColorContext = {}
+  const workflowId = normalizeOptionalString((ctx as { workflowId?: unknown }).workflowId)
+  const listing = toListingValueObject(
+    (ctx as { listing?: unknown }).listing as ListingInputValue | null | undefined
+  )
+  const indicatorId = normalizeOptionalString((ctx as { indicatorId?: unknown }).indicatorId)
+  const mcpServerId = normalizeOptionalString((ctx as { mcpServerId?: unknown }).mcpServerId)
+  const customToolId = normalizeOptionalString((ctx as { customToolId?: unknown }).customToolId)
+  const skillId = normalizeOptionalString((ctx as { skillId?: unknown }).skillId)
+
+  if (workflowId) {
+    next.workflowId = workflowId
+  }
+
+  if (listing) {
+    next.listing = listing
+  }
+
+  if (indicatorId) {
+    next.indicatorId = indicatorId
+  }
+
+  if (mcpServerId) {
+    next.mcpServerId = mcpServerId
+  }
+
+  if (customToolId) {
+    next.customToolId = customToolId
+  }
+
+  if (skillId) {
+    next.skillId = skillId
   }
 
   return next
 }
 
-function normalizeContextId(value: unknown): string | null {
-  return typeof value === 'string' && value.trim() ? value.trim() : null
-}
-
-function omitReviewTarget(context: PairColorContext): PairColorContext {
-  const { reviewTarget: _removed, ...rest } = context
-  return rest
-}
-
-function sanitizeReviewTarget(context: PairColorContext): PairColorContext {
-  const reviewTargetKind = normalizeContextId(context.reviewTarget?.reviewEntityKind)
-  const reviewEntityId = normalizeContextId(context.reviewTarget?.reviewEntityId)
-  const reviewDraftSessionId = normalizeContextId(context.reviewTarget?.reviewDraftSessionId)
-  const reviewSessionId = normalizeContextId(context.reviewTarget?.reviewSessionId)
-
-  if (!context.reviewTarget) {
-    return context
-  }
-
-  if (
-    !reviewTargetKind ||
-    !REVIEW_ENTITY_KINDS.includes(reviewTargetKind) ||
-    (!reviewEntityId && !reviewDraftSessionId && !reviewSessionId)
-  ) {
-    return omitReviewTarget(context)
-  }
-
-  return {
-    ...context,
-    reviewTarget: {
-      reviewEntityKind: reviewTargetKind,
-      reviewEntityId,
-      reviewDraftSessionId,
-      reviewSessionId,
-    },
-  }
-}
-
-export function normalizePairColorContext(ctx: PairColorContext): PairColorContext {
-  return sanitizeReviewTarget(sanitizePairColorContext(ctx))
+export function normalizePairColorContext(ctx: PairColorContextSource): PairColorContext {
+  return sanitizePairColorContext(ctx)
 }
 
 export const usePairColorStore = create<PairStoreState>((set) => ({
   contexts: emptyContexts,
   setContext: (color, ctx) =>
     set((state) => {
-      const nextContext = sanitizePairColorContext(ctx)
-      const previous = state.contexts[color]
-      const reviewTargetChanged =
-        Object.hasOwn(nextContext, 'reviewTarget') &&
-        nextContext.reviewTarget !== previous.reviewTarget
-
-      let next: PairColorContext = {
+      const previous = sanitizePairColorContext(state.contexts[color] ?? {})
+      const next = sanitizePairColorContext({
         ...previous,
-        ...nextContext,
-        updatedAt: Date.now(),
-      }
-
-      if (reviewTargetChanged && nextContext.reviewTarget == null) {
-        next = omitReviewTarget(next)
-      } else if (reviewTargetChanged) {
-        next.reviewTarget = nextContext.reviewTarget
-      }
-
-      next = sanitizeReviewTarget(next)
+        ...ctx,
+      })
 
       return {
         contexts: {

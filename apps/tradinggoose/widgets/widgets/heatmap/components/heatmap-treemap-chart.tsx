@@ -26,6 +26,7 @@ type HeatmapTreemapChartProps = {
   errorMessage?: string | null
   cappedCount?: number
   totalCount?: number
+  onListingSelect?: (listing: HeatmapTreemapInputItem['listing']) => void
 }
 
 const resolveQuoteChange = (quote: HeatmapTreemapInputItem['quote']) => {
@@ -157,7 +158,13 @@ const useObservedElementSize = <ElementType extends HTMLElement>(
   return [elementRef, size] as const
 }
 
-const HeatmapTileButton = ({ node }: { node: HeatmapTreemapLeafNode }) => {
+const HeatmapTileButton = ({
+  node,
+  onListingSelect,
+}: {
+  node: HeatmapTreemapLeafNode
+  onListingSelect?: (listing: HeatmapTreemapInputItem['listing']) => void
+}) => {
   const tile = node.tile
   const tileWidth = node.width
   const tileHeight = node.height
@@ -189,6 +196,7 @@ const HeatmapTileButton = ({ node }: { node: HeatmapTreemapLeafNode }) => {
             'relative h-full w-full overflow-hidden rounded-sm border p-2 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring',
             color.className
           )}
+          onClick={onListingSelect ? () => onListingSelect(tile.listing) : undefined}
           aria-label={`${tile.name}: ${quoteText}; ${sourceText}`}
         >
           {iconUrl && iconSize > 0 ? (
@@ -256,16 +264,22 @@ const HeatmapTileButton = ({ node }: { node: HeatmapTreemapLeafNode }) => {
   )
 }
 
-const HeatmapTreemapPanelNode = ({ node }: { node: HeatmapTreemapNode }) => {
+const HeatmapTreemapPanelNode = ({
+  node,
+  onListingSelect,
+}: {
+  node: HeatmapTreemapNode
+  onListingSelect?: (listing: HeatmapTreemapInputItem['listing']) => void
+}) => {
   if (node.type === 'leaf') {
-    return <HeatmapTileButton node={node} />
+    return <HeatmapTileButton node={node} onListingSelect={onListingSelect} />
   }
 
   return (
     <ResizablePanelGroup
       key={node.key}
       direction={node.direction}
-      className='gap-0.5 h-full min-h-0 w-full min-w-0 overflow-hidden'
+      className='h-full min-h-0 w-full min-w-0 gap-0.5 overflow-hidden'
     >
       {node.children.map((child, index) => (
         <ResizablePanel
@@ -276,7 +290,7 @@ const HeatmapTreemapPanelNode = ({ node }: { node: HeatmapTreemapNode }) => {
           minSize={0}
           className='min-h-0 min-w-0 overflow-hidden'
         >
-          <HeatmapTreemapPanelNode node={child} />
+          <HeatmapTreemapPanelNode node={child} onListingSelect={onListingSelect} />
         </ResizablePanel>
       ))}
     </ResizablePanelGroup>
@@ -289,6 +303,7 @@ export function HeatmapTreemapChart({
   errorMessage = null,
   cappedCount = 0,
   totalCount,
+  onListingSelect,
 }: HeatmapTreemapChartProps) {
   const [containerRef, size] = useObservedElementSize<HTMLDivElement>(DEFAULT_CHART_SIZE, {
     observeParent: true,
@@ -325,7 +340,9 @@ export function HeatmapTreemapChart({
           Showing first {items.length} of {resolvedTotalCount} listings.
         </div>
       ) : null}
-      {layout ? <HeatmapTreemapPanelNode key={layout.key} node={layout} /> : null}
+      {layout ? (
+        <HeatmapTreemapPanelNode key={layout.key} node={layout} onListingSelect={onListingSelect} />
+      ) : null}
     </div>
   )
 }

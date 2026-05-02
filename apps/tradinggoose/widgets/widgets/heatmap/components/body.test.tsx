@@ -5,6 +5,8 @@
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { type PairColorContext, usePairColorStore } from '@/stores/dashboard/pair-store'
+import { PAIR_COLORS, type PairColor } from '@/widgets/pair-colors'
 import { HeatmapWidgetBody } from '@/widgets/widgets/heatmap/components/body'
 
 const mockUseResolvedListings = vi.fn()
@@ -80,6 +82,15 @@ const createListing = (symbol: string) => ({
   listing_type: 'default' as const,
 })
 
+function resetPairContexts() {
+  usePairColorStore.setState({
+    contexts: Object.fromEntries(PAIR_COLORS.map((color) => [color, {}])) as Record<
+      PairColor,
+      PairColorContext
+    >,
+  })
+}
+
 describe('HeatmapWidgetBody', () => {
   let container: HTMLDivElement
   let root: Root
@@ -111,6 +122,7 @@ describe('HeatmapWidgetBody', () => {
       createQueryResult({ data: undefined, positionListings: [] })
     )
     mockUseWatchlists.mockReturnValue(createQueryResult({ data: [] }))
+    resetPairContexts()
   })
 
   afterEach(() => {
@@ -457,6 +469,108 @@ describe('HeatmapWidgetBody', () => {
         ],
       })
     )
+  })
+
+  it('writes selected heatmap listings to the linked pair color context', async () => {
+    mockUseWatchlists.mockReturnValue(
+      createQueryResult({
+        data: [
+          {
+            id: 'watchlist-1',
+            workspaceId: 'workspace-1',
+            userId: 'user-1',
+            name: 'Watchlist',
+            isSystem: false,
+            items: [
+              {
+                id: 'watchlist-item',
+                type: 'listing' as const,
+                listing: createListing('AAPL'),
+              },
+            ],
+            settings: { showLogo: true, showTicker: true, showDescription: true },
+            createdAt: '',
+            updatedAt: '',
+          },
+        ],
+      })
+    )
+
+    await act(async () => {
+      root.render(
+        <HeatmapWidgetBody
+          context={{ workspaceId: 'workspace-1' }}
+          widget={{ key: 'heatmap' } as any}
+          panelId='panel-1'
+          pairColor='blue'
+          params={{
+            sourceMode: 'watchlist',
+            marketProvider: 'alpaca',
+          }}
+        />
+      )
+    })
+
+    const onListingSelect = mockHeatmapTreemapChart.mock.calls.at(-1)?.[0].onListingSelect
+    expect(onListingSelect).toEqual(expect.any(Function))
+
+    await act(async () => {
+      onListingSelect(createListing('AAPL'))
+    })
+
+    expect(usePairColorStore.getState().contexts.blue.listing).toEqual(createListing('AAPL'))
+    expect(usePairColorStore.getState().contexts.gray.listing).toBeUndefined()
+  })
+
+  it('does not rerender heatmap data when linked pair color context changes elsewhere', async () => {
+    mockUseWatchlists.mockReturnValue(
+      createQueryResult({
+        data: [
+          {
+            id: 'watchlist-1',
+            workspaceId: 'workspace-1',
+            userId: 'user-1',
+            name: 'Watchlist',
+            isSystem: false,
+            items: [
+              {
+                id: 'watchlist-item',
+                type: 'listing' as const,
+                listing: createListing('AAPL'),
+              },
+            ],
+            settings: { showLogo: true, showTicker: true, showDescription: true },
+            createdAt: '',
+            updatedAt: '',
+          },
+        ],
+      })
+    )
+
+    await act(async () => {
+      root.render(
+        <HeatmapWidgetBody
+          context={{ workspaceId: 'workspace-1' }}
+          widget={{ key: 'heatmap' } as any}
+          panelId='panel-1'
+          pairColor='blue'
+          params={{
+            sourceMode: 'watchlist',
+            marketProvider: 'alpaca',
+          }}
+        />
+      )
+    })
+
+    const chartRenderCount = mockHeatmapTreemapChart.mock.calls.length
+    const quoteRequestCount = mockUseMarketQuoteSnapshots.mock.calls.length
+
+    await act(async () => {
+      usePairColorStore.getState().setContext('blue', { listing: createListing('MSFT') })
+    })
+
+    expect(mockHeatmapTreemapChart).toHaveBeenCalledTimes(chartRenderCount)
+    expect(mockUseMarketQuoteSnapshots).toHaveBeenCalledTimes(quoteRequestCount)
   })
 
   it('shows empty portfolio message when portfolio mode has no listings', async () => {

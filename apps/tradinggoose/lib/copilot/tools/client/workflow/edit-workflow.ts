@@ -4,7 +4,7 @@ import {
   type BaseClientToolMetadata,
   ClientToolCallState,
 } from '@/lib/copilot/tools/client/base-tool'
-import { shouldAutoApplyWorkflowEdits } from '@/lib/copilot/access-policy'
+import { shouldBypassCopilotApproval } from '@/lib/copilot/access-policy'
 import { createLogger } from '@/lib/logs/console/logger'
 import {
   buildWorkflowDocumentToolResult,
@@ -41,10 +41,6 @@ export class EditWorkflowClientTool extends BaseClientTool {
   private hasExecuted = false
   private hasAppliedState = false
   private lastWorkflowId: string | null = null
-
-  private resolvePersistedStagedResult(): any | undefined {
-    return this.resolvePersistedResult()
-  }
 
   constructor(
     toolCallId: string,
@@ -83,7 +79,7 @@ export class EditWorkflowClientTool extends BaseClientTool {
         state: this.getState(),
         hasResult: this.lastResult !== undefined,
       })
-      const stagedResult = this.lastResult ?? this.resolvePersistedStagedResult()
+      const stagedResult = this.lastResult ?? this.resolvePersistedResult()
       if (stagedResult && !this.lastResult) {
         this.lastResult = stagedResult
       }
@@ -96,7 +92,9 @@ export class EditWorkflowClientTool extends BaseClientTool {
       const resolvedArgs = args || readStoredToolArgs<EditWorkflowArgs>(this.toolCallId)
       const requestedWorkflowId =
         resolvedArgs?.workflowId?.trim() ??
-        (typeof stagedResult?.workflowId === 'string' ? stagedResult.workflowId.trim() : undefined) ??
+        (typeof stagedResult?.workflowId === 'string'
+          ? stagedResult.workflowId.trim()
+          : undefined) ??
         this.lastWorkflowId ??
         undefined
       if (!requestedWorkflowId) {
@@ -182,12 +180,8 @@ export class EditWorkflowClientTool extends BaseClientTool {
     }
   }
 
-  protected async getPendingUserAction(): Promise<'execute'> {
-    return 'execute'
-  }
-
   protected async prepareReviewAccept(args?: EditWorkflowArgs): Promise<boolean> {
-    const stagedResult = this.lastResult ?? this.resolvePersistedStagedResult()
+    const stagedResult = this.lastResult ?? this.resolvePersistedResult()
 
     if (!stagedResult?.workflowState) {
       await this.execute(args)
@@ -229,7 +223,10 @@ export class EditWorkflowClientTool extends BaseClientTool {
           (await getReadableWorkflowState(executionContext, workflowId)).workflowState
         )
       } catch (e) {
-        logger.warn('Failed to build currentWorkflowState from readable workflow snapshot', e as any)
+        logger.warn(
+          'Failed to build currentWorkflowState from readable workflow snapshot',
+          e as any
+        )
         throw new Error('Failed to read the current workflow')
       }
 
@@ -263,7 +260,7 @@ export class EditWorkflowClientTool extends BaseClientTool {
       })
 
       const accessLevel = getCopilotStoreForToolCall(this.toolCallId).getState().accessLevel
-      if (shouldAutoApplyWorkflowEdits(accessLevel)) {
+      if (shouldBypassCopilotApproval(accessLevel)) {
         logger.info('Auto-applying workflow edits for full access session', {
           toolCallId: this.toolCallId,
         })

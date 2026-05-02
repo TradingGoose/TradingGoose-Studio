@@ -59,13 +59,35 @@ describe('resolveWidgetParamsForPairColorChange', () => {
     ).toBe(params)
   })
 
-  it('clears non chart params when switching to a linked color', () => {
+  it('preserves heatmap params when switching to a linked color', () => {
+    const params = {
+      sourceMode: 'portfolio',
+      marketProvider: 'polygon',
+      tradingProvider: 'alpaca',
+      credentialServiceId: 'cred-1',
+      accountId: 'acct-1',
+      marketProviderParams: { feed: 'sip' },
+    }
+
     expect(
       resolveWidgetParamsForPairColorChange(
         {
-          key: 'watchlist',
+          key: 'heatmap',
           pairColor: 'gray',
-          params: { provider: 'alpaca' },
+          params,
+        },
+        'red'
+      )
+    ).toBe(params)
+  })
+
+  it('clears pair-context-owned widget params when switching to a linked color', () => {
+    expect(
+      resolveWidgetParamsForPairColorChange(
+        {
+          key: 'editor_workflow',
+          pairColor: 'gray',
+          params: { workflowId: 'wf-local' },
         },
         'red'
       )
@@ -151,7 +173,7 @@ describe('normalizeColorPairsState', () => {
     expect(listing).not.toHaveProperty('providerParams')
   })
 
-  it('reads nested reviewTarget format', () => {
+  it('ignores nested reviewTarget format', () => {
     expect(
       normalizeColorPairsState({
         pairs: [
@@ -172,12 +194,6 @@ describe('normalizeColorPairsState', () => {
           color: 'green',
           workflowId: 'wf-3',
           listing: null,
-          reviewTarget: {
-            reviewSessionId: 'review-2',
-            reviewEntityKind: 'indicator',
-            reviewEntityId: 'ind-1',
-            reviewDraftSessionId: undefined,
-          },
           indicatorId: undefined,
           mcpServerId: undefined,
           customToolId: undefined,

@@ -48,7 +48,6 @@ export class RunWorkflowClientTool extends BaseClientTool {
     const logger = createLogger('RunWorkflowClientTool')
     await this.executeWithTimeout(async () => {
       const params = (args ?? {}) as Partial<RunWorkflowArgs>
-      const executionContext = this.requireExecutionContext()
       logger.debug('handleAccept() called', {
         toolCallId: this.toolCallId,
         state: this.getState(),

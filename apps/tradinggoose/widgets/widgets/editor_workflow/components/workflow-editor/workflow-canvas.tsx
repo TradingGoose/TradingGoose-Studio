@@ -12,7 +12,6 @@ import {
   useReactFlow,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
-import { useSession } from '@/lib/auth-client'
 import { createLogger } from '@/lib/logs/console/logger'
 import { TriggerUtils } from '@/lib/workflows/triggers'
 import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
@@ -444,8 +443,6 @@ const WorkflowCanvas = React.memo(
     )
 
     // Auto-layout handler - now uses frontend auto layout for immediate updates
-    const { data: session } = useSession()
-
     const handleAutoLayout = useCallback(async () => {
       if (Object.keys(blocks).length === 0) return
 
@@ -458,7 +455,6 @@ const WorkflowCanvas = React.memo(
         const result = await applyAutoLayoutAndUpdateStore({
           workflowId: activeWorkflowId!,
           channelId: resolvedChannelId,
-          undoUserId: session?.user?.id,
         })
 
         if (result.success) {

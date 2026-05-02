@@ -1,9 +1,8 @@
 /**
  * Generic resolver for entity IDs from pairContext or widget params.
  *
- * Checks `pairContext[key]` first (when the key exists on the object), then
- * falls back to `params[key]`.  Returns `null` when the value is missing,
- * not a string, or a blank/whitespace-only string.
+ * When pair context is provided, linked widgets resolve only from that shared
+ * context. Otherwise the value is read from local widget params.
  */
 export function resolveEntityId(
   key: string,
@@ -15,8 +14,8 @@ export function resolveEntityId(
     pairContext?: Record<string, unknown> | null
   }
 ): string | null {
-  if (pairContext && Object.hasOwn(pairContext, key)) {
-    const value = pairContext[key]
+  if (pairContext) {
+    const value = Object.hasOwn(pairContext, key) ? pairContext[key] : null
     return typeof value === 'string' && value.trim().length > 0 ? value : null
   }
 

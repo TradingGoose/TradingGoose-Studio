@@ -4,7 +4,7 @@
 
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { HeatmapTreemapChart } from '@/widgets/widgets/heatmap/components/heatmap-treemap-chart'
 
@@ -193,6 +193,49 @@ describe('HeatmapTreemapChart', () => {
     expect(container.textContent).toContain('AAPL')
     expect(container.textContent).toContain('MSFT')
     expect(container.querySelector('[role="separator"]')).toBeNull()
+  })
+
+  it('emits the canonical listing when a tile is clicked', async () => {
+    globalThis.ResizeObserver = undefined as unknown as typeof globalThis.ResizeObserver
+    Object.defineProperty(HTMLElement.prototype, 'getBoundingClientRect', {
+      configurable: true,
+      value: () => ({
+        bottom: 120,
+        height: 120,
+        left: 0,
+        right: 240,
+        top: 0,
+        width: 240,
+        x: 0,
+        y: 0,
+        toJSON: () => ({}),
+      }),
+    })
+
+    const onListingSelect = vi.fn()
+    const listing = {
+      listing_id: 'AAPL',
+      base_id: '',
+      quote_id: '',
+      listing_type: 'default' as const,
+    }
+
+    await act(async () => {
+      root.render(
+        <TooltipProvider>
+          <HeatmapTreemapChart
+            items={[{ key: 'default|AAPL||', listing }]}
+            onListingSelect={onListingSelect}
+          />
+        </TooltipProvider>
+      )
+    })
+
+    await act(async () => {
+      container.querySelector('button')?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    })
+
+    expect(onListingSelect).toHaveBeenCalledWith(listing)
   })
 
   it('uses ResizeObserver dimensions for tile visibility', async () => {

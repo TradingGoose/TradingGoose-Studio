@@ -1742,7 +1742,7 @@ describe('copilot streaming regressions', () => {
   it('merges explicit and live implicit contexts before sending a message', async () => {
     const channelId = 'copilot-implicit-contexts'
     const store = getCopilotStore(channelId)
-    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = typeof input === 'string' ? input : input.toString()
       if (url === '/api/copilot/chat') {
         return {
@@ -2673,7 +2673,7 @@ describe('copilot context usage', () => {
   it('fetches context usage for a generic chat without workflow context', async () => {
     const channelId = 'copilot-context-usage-generic'
     const store = getCopilotStore(channelId)
-    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = typeof input === 'string' ? input : input.toString()
       if (url === '/api/copilot/usage') {
         return {

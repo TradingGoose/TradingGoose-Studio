@@ -1,4 +1,4 @@
-import { REVIEW_ENTITY_KINDS, type ReviewEntityKind } from '@/lib/copilot/review-sessions/types'
+import type { ReviewEntityKind } from '@/lib/copilot/review-sessions/types'
 import { normalizeOptionalString } from '@/lib/utils'
 import type { ChatContext } from '@/stores/copilot/types'
 import type { PairColorContext } from '@/stores/dashboard/pair-store'
@@ -20,37 +20,6 @@ export type CopilotEditableReviewTarget = {
   draftSessionId: string | null
 }
 
-type ActiveReviewTarget = {
-  entityKind: ReviewEntityKind
-  entityId: string | null
-  reviewSessionId: string | null
-  draftSessionId: string | null
-}
-
-function readPairReviewTarget(pairContext?: PairColorContext | null): ActiveReviewTarget | null {
-  const reviewEntityKind = normalizeOptionalString(pairContext?.reviewTarget?.reviewEntityKind)
-  const reviewEntityId = normalizeOptionalString(pairContext?.reviewTarget?.reviewEntityId) ?? null
-  const reviewSessionId =
-    normalizeOptionalString(pairContext?.reviewTarget?.reviewSessionId) ?? null
-  const draftSessionId =
-    normalizeOptionalString(pairContext?.reviewTarget?.reviewDraftSessionId) ?? null
-
-  if (
-    !reviewEntityKind ||
-    !REVIEW_ENTITY_KINDS.includes(reviewEntityKind as ReviewEntityKind) ||
-    (!reviewEntityId && !reviewSessionId && !draftSessionId)
-  ) {
-    return null
-  }
-
-  return {
-    entityKind: reviewEntityKind as ReviewEntityKind,
-    entityId: reviewEntityId,
-    reviewSessionId,
-    draftSessionId,
-  }
-}
-
 export function resolveCopilotWorkflowId(
   pairContext?: PairColorContext | null
 ): string | undefined {
@@ -58,22 +27,11 @@ export function resolveCopilotWorkflowId(
 }
 
 export function buildCopilotEditableReviewTargets({
-  pairContext,
-}: Pick<BuildImplicitCopilotContextsOptions, 'pairContext'>): CopilotEditableReviewTarget[] {
-  const activeReviewTarget = readPairReviewTarget(pairContext)
-
-  if (!activeReviewTarget || activeReviewTarget.entityKind === 'workflow') {
-    return []
-  }
-
-  return [
-    {
-      entityKind: activeReviewTarget.entityKind,
-      entityId: activeReviewTarget.entityId,
-      reviewSessionId: activeReviewTarget.reviewSessionId,
-      draftSessionId: activeReviewTarget.draftSessionId,
-    },
-  ]
+  pairContext: _pairContext,
+}: {
+  pairContext?: PairColorContext | null
+}): CopilotEditableReviewTarget[] {
+  return []
 }
 
 export const buildImplicitCopilotContexts = ({

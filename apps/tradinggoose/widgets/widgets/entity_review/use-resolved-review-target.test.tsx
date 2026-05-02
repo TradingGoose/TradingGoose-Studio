@@ -36,7 +36,13 @@ function flushPromises() {
   })
 }
 
-function HookHarness({ initialPairContext }: { initialPairContext?: PairColorContext | null }) {
+function HookHarness({
+  initialPairContext,
+  initialParams = null,
+}: {
+  initialPairContext?: PairColorContext | null
+  initialParams?: Record<string, unknown> | null
+}) {
   const [pairContext, setPairContext] = useState<PairColorContext | null>(
     initialPairContext ?? {
       skillId: 'skill-1',
@@ -45,13 +51,14 @@ function HookHarness({ initialPairContext }: { initialPairContext?: PairColorCon
 
   const selectionState = readEntitySelectionState({
     pairContext,
+    params: initialParams,
     legacyIdKey: 'skillId',
   })
 
   const { descriptor, isResolving, error } = useResolvedReviewTarget({
     workspaceId: 'ws-1',
     entityKind: 'skill',
-    params: null,
+    params: initialParams,
     pairColor: 'red',
     pairContext,
     legacyIdKey: 'skillId',
@@ -61,7 +68,7 @@ function HookHarness({ initialPairContext }: { initialPairContext?: PairColorCon
     setPairContext: (_color, context) => {
       setPairContext({
         ...context,
-        updatedAt: Date.now(),
+        workflowId: 'workflow-current',
       })
     },
   })
@@ -82,11 +89,14 @@ function HookHarness({ initialPairContext }: { initialPairContext?: PairColorCon
             current
               ? {
                   ...current,
-                  updatedAt: Date.now(),
+                  workflowId:
+                    current.workflowId === 'workflow-current'
+                      ? 'workflow-next'
+                      : 'workflow-current',
                 }
               : {
                   skillId: 'skill-1',
-                  updatedAt: Date.now(),
+                  workflowId: 'workflow-current',
                 }
           )
         }
@@ -181,12 +191,12 @@ describe('useResolvedReviewTarget', () => {
         <HookHarness
           initialPairContext={{
             skillId: 'skill-2',
-            reviewTarget: {
-              reviewSessionId: 'review-1',
-              reviewEntityKind: 'skill',
-              reviewEntityId: 'skill-1',
-              reviewDraftSessionId: null,
-            },
+          }}
+          initialParams={{
+            reviewSessionId: 'review-1',
+            reviewEntityKind: 'skill',
+            reviewEntityId: 'skill-1',
+            workspaceId: 'ws-1',
           }}
         />
       )

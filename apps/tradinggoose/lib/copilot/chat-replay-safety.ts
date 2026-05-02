@@ -1,3 +1,5 @@
+import { TOOL_PROMPT_METADATA } from '@/lib/copilot/tool-prompt-metadata'
+
 interface ReplaySafetyToolCallLike {
   name?: string | null
   state?: string | null
@@ -19,28 +21,15 @@ export interface ReplaySafetyMessageLike {
 export const EDIT_REPLAY_BLOCKED_MESSAGE =
   'Cannot edit a prompt that precedes accepted live changes.'
 
-const ACCEPTED_WORKFLOW_MUTATION_STATES = new Set(['success', 'accepted'])
-const ALWAYS_UNSAFE_LIVE_MUTATION_TOOL_NAMES = new Set([
-  'create_workflow',
-  'edit_workflow',
-  'rename_workflow',
-  'set_global_workflow_variables',
-  'edit_monitor',
-  'create_skill',
-  'edit_skill',
-  'rename_skill',
-  'create_custom_tool',
-  'edit_custom_tool',
-  'rename_custom_tool',
-  'create_indicator',
-  'edit_indicator',
-  'rename_indicator',
-  'create_mcp_server',
-  'edit_mcp_server',
-  'rename_mcp_server',
-])
+const ACCEPTED_LIVE_MUTATION_STATES = new Set(['success', 'accepted'])
+const LIVE_MUTATION_KINDS = new Set(['create', 'edit', 'rename', 'deploy'])
+const LIVE_MUTATION_TOOL_NAMES = new Set(
+  Object.entries(TOOL_PROMPT_METADATA)
+    .filter(([, metadata]) => metadata.kind && LIVE_MUTATION_KINDS.has(metadata.kind))
+    .map(([toolName]) => toolName)
+)
 
-function asWorkflowToolCall(value: unknown): ReplaySafetyToolCallLike | null {
+function asToolCall(value: unknown): ReplaySafetyToolCallLike | null {
   if (!value || typeof value !== 'object') {
     return null
   }
@@ -57,19 +46,19 @@ function asToolCallBlock(value: unknown): ReplaySafetyBlockLike | null {
 }
 
 export function isAcceptedLiveMutationToolCall(toolCall: unknown): boolean {
-  const candidate = asWorkflowToolCall(toolCall)
+  const candidate = asToolCall(toolCall)
   if (!candidate) {
     return false
   }
 
   if (
     typeof candidate.state !== 'string' ||
-    !ACCEPTED_WORKFLOW_MUTATION_STATES.has(candidate.state)
+    !ACCEPTED_LIVE_MUTATION_STATES.has(candidate.state)
   ) {
     return false
   }
 
-  if (candidate.name && ALWAYS_UNSAFE_LIVE_MUTATION_TOOL_NAMES.has(candidate.name)) {
+  if (candidate.name && LIVE_MUTATION_TOOL_NAMES.has(candidate.name)) {
     return true
   }
 

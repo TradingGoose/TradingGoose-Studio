@@ -5,7 +5,7 @@ import {
 } from './review-target-utils'
 
 describe('review target utils', () => {
-  it('falls back to persisted params when pair context only contains workflow state', () => {
+  it('ignores persisted params when linked pair context is present', () => {
     expect(
       readEntitySelectionState({
         pairContext: {
@@ -21,31 +21,18 @@ describe('review target utils', () => {
         },
         legacyIdKey: 'indicatorId',
       })
-    ).toMatchObject({
-      legacyEntityId: 'indicator-1',
-      reviewSessionId: 'review-1',
-      reviewEntityId: 'indicator-1',
-      descriptor: {
-        workspaceId: 'workspace-1',
-        entityKind: 'indicator',
-        entityId: 'indicator-1',
-        reviewSessionId: 'review-1',
-        yjsSessionId: 'review-1',
-      },
+    ).toEqual({
+      legacyEntityId: null,
+      reviewSessionId: null,
+      reviewEntityId: null,
+      reviewDraftSessionId: null,
+      descriptor: null,
     })
   })
 
-  it('prefers explicit pair review target fields when they are present', () => {
+  it('reads review target descriptor from widget params in gray mode', () => {
     expect(
       readReviewTargetDescriptor({
-        pairContext: {
-          workflowId: 'workflow-1',
-          reviewTarget: {
-            reviewSessionId: 'review-pair',
-            reviewEntityKind: 'indicator',
-            reviewEntityId: 'indicator-pair',
-          },
-        },
         params: {
           reviewSessionId: 'review-param',
           reviewEntityKind: 'indicator',
@@ -55,8 +42,8 @@ describe('review target utils', () => {
       })
     ).toMatchObject({
       entityKind: 'indicator',
-      entityId: 'indicator-pair',
-      reviewSessionId: 'review-pair',
+      entityId: 'indicator-param',
+      reviewSessionId: 'review-param',
     })
   })
 })

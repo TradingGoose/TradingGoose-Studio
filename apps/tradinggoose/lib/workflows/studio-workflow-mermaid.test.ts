@@ -6,6 +6,7 @@ import {
   serializeWorkflowToTgMermaid,
   TG_MERMAID_DOCUMENT_FORMAT,
 } from '@/lib/workflows/studio-workflow-mermaid'
+import { resolveAutoLayoutDirection } from '@/lib/workflows/workflow-direction'
 
 describe('studio workflow Mermaid documents', () => {
   const workflowState: WorkflowSnapshot = {
@@ -490,6 +491,66 @@ inputTrigger --> agentBlock
 
     expect(document).toContain('flowchart LR')
     expect(document).toContain('%% TG_WORKFLOW {"direction":"LR"')
+  })
+
+  it('resolves auto-layout direction from handle orientation counts', () => {
+    const agent = (
+      id: string,
+      x: number,
+      y: number,
+      horizontalHandles = true
+    ): WorkflowSnapshot['blocks'][string] => ({
+      id,
+      type: 'agent',
+      name: id,
+      position: { x, y },
+      subBlocks: {},
+      outputs: {},
+      enabled: true,
+      horizontalHandles,
+    })
+
+    expect(resolveAutoLayoutDirection(parallelWorkflowState)).toBe('horizontal')
+
+    expect(
+      resolveAutoLayoutDirection(
+        {
+          blocks: {
+            a: agent('a', 0, 0, false),
+            b: agent('b', 420, 0, false),
+            c: agent('c', 840, 0),
+          },
+          edges: [
+            { id: 'e1', source: 'a', target: 'b' },
+            { id: 'e2', source: 'b', target: 'c' },
+          ],
+        }
+      )
+    ).toBe('vertical')
+
+    expect(
+      resolveAutoLayoutDirection(
+        {
+          blocks: {
+            a: agent('a', 0, 0),
+            b: agent('b', 420, 0, false),
+          },
+          edges: [{ id: 'e1', source: 'a', target: 'b' }],
+        }
+      )
+    ).toBe('vertical')
+
+    expect(
+      resolveAutoLayoutDirection(
+        {
+          blocks: {
+            a: agent('a', 0, 0),
+            b: agent('b', 0, 320, false),
+          },
+          edges: [{ id: 'e1', source: 'a', target: 'b' }],
+        }
+      )
+    ).toBe('horizontal')
   })
 
   it('reports missing raw-id visible edge lines using the document naming style', () => {

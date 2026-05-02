@@ -1,6 +1,5 @@
 import { type ListingIdentity, toListingValueObject } from '@/lib/listing/identity'
 import { normalizeOptionalString } from '@/lib/utils'
-import type { PairReviewTarget } from '@/stores/dashboard/pair-store'
 import type { PairColor } from '@/widgets/pair-colors'
 import { isPairColor } from '@/widgets/pair-colors'
 
@@ -16,7 +15,6 @@ export type PersistedColorPair = {
   color: LinkedPairColor
   workflowId?: string | null
   listing?: ListingIdentity | null
-  reviewTarget?: PairReviewTarget
   indicatorId?: string | null
   mcpServerId?: string | null
   customToolId?: string | null
@@ -86,9 +84,8 @@ export function resolveWidgetParamsForPairColorChange(
     return currentParams
   }
 
-  // Data Chart keeps provider and chart configuration widget-local while linked listings
-  // continue to resolve from the shared pair store.
-  if (widget?.key === 'data_chart') {
+  // Data-provider configuration stays widget-local even when listing selection is linked.
+  if (widget?.key === 'data_chart' || widget?.key === 'heatmap') {
     return currentParams
   }
 
@@ -138,20 +135,6 @@ export function normalizeColorPairsState(state?: unknown): PersistedColorPairsSt
     }
 
     const workflowId = normalizeOptionalString((raw as { workflowId?: unknown }).workflowId)
-
-    const rawTarget = (raw as { reviewTarget?: unknown }).reviewTarget
-    const nestedTarget =
-      rawTarget && typeof rawTarget === 'object' ? (rawTarget as Record<string, unknown>) : null
-
-    const reviewTarget: PairReviewTarget = {
-      reviewSessionId: normalizeOptionalString(nestedTarget?.reviewSessionId),
-      reviewEntityKind: normalizeOptionalString(nestedTarget?.reviewEntityKind),
-      reviewEntityId: normalizeOptionalString(nestedTarget?.reviewEntityId),
-      reviewDraftSessionId: normalizeOptionalString(nestedTarget?.reviewDraftSessionId),
-    }
-
-    const hasReviewTarget = Object.values(reviewTarget).some((v) => v != null)
-
     const listing = normalizeListingIdentity((raw as { listing?: unknown }).listing)
     const indicatorId = normalizeOptionalString((raw as { indicatorId?: unknown }).indicatorId)
     const mcpServerId = normalizeOptionalString((raw as { mcpServerId?: unknown }).mcpServerId)
@@ -162,7 +145,6 @@ export function normalizeColorPairsState(state?: unknown): PersistedColorPairsSt
       color: rawColor,
       workflowId,
       listing,
-      ...(hasReviewTarget ? { reviewTarget } : {}),
       indicatorId,
       mcpServerId,
       customToolId,

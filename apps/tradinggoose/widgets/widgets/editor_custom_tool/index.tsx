@@ -128,13 +128,15 @@ function EditorCustomToolWidgetBody({
 
   const paramsCustomToolId = resolveCustomToolId({ params })
   const requestedCustomToolId = isLinkedToColorPair
-    ? (pairContext?.customToolId ?? paramsCustomToolId)
+    ? (pairContext?.customToolId ?? null)
     : paramsCustomToolId
   const normalizedRequestedCustomToolId = requestedCustomToolId?.trim() ?? ''
   const hasRequestedTool =
     normalizedRequestedCustomToolId.length > 0 &&
     tools.some((tool) => tool.id === normalizedRequestedCustomToolId)
-  const selectedToolId = hasRequestedTool ? normalizedRequestedCustomToolId : (tools[0]?.id ?? null)
+  const selectedToolId = hasRequestedTool
+    ? normalizedRequestedCustomToolId
+    : (isLinkedToColorPair ? null : (tools[0]?.id ?? null))
 
   useCustomToolSelectionPersistence({
     onWidgetParamsChange,
@@ -235,7 +237,17 @@ function EditorCustomToolWidgetBody({
   }
 
   if (!selectedToolId) {
-    return <WidgetStateMessage message='No custom tools yet.' />
+    return (
+      <WidgetStateMessage
+        message={
+          isLinkedToColorPair
+            ? normalizedRequestedCustomToolId.length > 0
+              ? 'Custom tool not found.'
+              : 'This color has no shared custom tool selected yet.'
+            : 'No custom tools yet.'
+        }
+      />
+    )
   }
 
   if (!selectedTool) {
@@ -293,7 +305,7 @@ function CustomToolEditorSelector({
   const setPairContext = useSetPairColorContext()
 
   const selectedToolId = isLinkedToColorPair
-    ? resolveCustomToolId({ pairContext, params })
+    ? resolveCustomToolId({ pairContext })
     : resolveCustomToolId({ params })
 
   const handleCustomToolChange = (customToolId: string | null) => {
@@ -342,7 +354,7 @@ function CustomToolEditorSectionSwitch({
   const pairContext = usePairColorContext(resolvedPairColor)
   const [activeSection, setActiveSection] = useState<CustomToolEditorSection>('schema')
   const customToolId = isLinkedToColorPair
-    ? resolveCustomToolId({ pairContext, params })
+    ? resolveCustomToolId({ pairContext })
     : resolveCustomToolId({ params })
   const isDisabled = !customToolId || !panelId
 
@@ -410,7 +422,7 @@ function CustomToolEditorSaveButton({
   const pairContext = usePairColorContext(resolvedPairColor)
 
   const resolvedCustomToolId = isLinkedToColorPair
-    ? (pairContext?.customToolId ?? customToolId ?? null)
+    ? (pairContext?.customToolId ?? null)
     : (customToolId ?? null)
   const saveDisabled = !workspaceId || !resolvedCustomToolId || !panelId
 
@@ -460,7 +472,7 @@ function CustomToolEditorExportButton({
   const pairContext = usePairColorContext(resolvedPairColor)
 
   const resolvedCustomToolId = isLinkedToColorPair
-    ? (pairContext?.customToolId ?? customToolId ?? null)
+    ? (pairContext?.customToolId ?? null)
     : (customToolId ?? null)
   const exportDisabled = !workspaceId || !resolvedCustomToolId || !panelId
 

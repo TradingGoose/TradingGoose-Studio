@@ -101,7 +101,21 @@ export function resolveAutoLayoutDirection(
     return requestedDirection
   }
 
-  return toAutoLayoutDirection(inferMermaidDirectionFromWorkflowState(workflowState))
+  const { horizontal, vertical } = Object.values(workflowState.blocks ?? {}).reduce(
+    (counts, block) => {
+      counts[block.horizontalHandles === false ? 'vertical' : 'horizontal'] += 1
+      return counts
+    },
+    { horizontal: 0, vertical: 0 }
+  )
+
+  if (horizontal !== vertical) {
+    return horizontal > vertical ? 'horizontal' : 'vertical'
+  }
+
+  const inferredDirection = toAutoLayoutDirection(inferMermaidDirectionFromWorkflowState(workflowState))
+
+  return horizontal === 0 ? inferredDirection : inferredDirection === 'horizontal' ? 'vertical' : 'horizontal'
 }
 
 export function normalizeWorkflowStateToMermaidDirection(
