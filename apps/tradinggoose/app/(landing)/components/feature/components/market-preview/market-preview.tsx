@@ -1,9 +1,8 @@
 'use client'
 
 import React from 'react'
-import { Indicator, PineTS } from 'pinets'
+import { executeBrowserPineIndicator } from '@/lib/indicators/browser-execution'
 import { buildInputsMapFromMeta } from '@/lib/indicators/input-meta'
-import { normalizeContext } from '@/lib/indicators/normalize-context'
 import { buildIndexMaps, mapMarketSeriesToBarsMs } from '@/lib/indicators/series-data'
 import type { BarMs, NormalizedPineOutput } from '@/lib/indicators/types'
 import type { ListingOption } from '@/lib/listing/identity'
@@ -69,32 +68,6 @@ const LANDING_MARKET_LISTING: ListingOption = {
 }
 const BACKFILL_CHUNK_BARS = 1000
 const BACKFILL_WINDOW_SEGMENTS = 3
-
-let landingPreviewTriggerShimLock: Promise<void> = Promise.resolve()
-
-const acquireLandingPreviewTriggerShim = async () => {
-  const previousLock = landingPreviewTriggerShimLock
-  let releaseLock: () => void = () => {}
-  landingPreviewTriggerShimLock = new Promise<void>((resolve) => {
-    releaseLock = resolve
-  })
-  await previousLock
-
-  const previousTrigger = (globalThis as { trigger?: (() => void) | undefined }).trigger
-  ;(globalThis as { trigger?: () => void }).trigger = () => {
-    // The landing preview does not collect trigger payloads; it only needs the
-    // global symbol to exist while client-side PineTS evaluates trigger().
-  }
-
-  return () => {
-    if (previousTrigger === undefined) {
-      ;(globalThis as { trigger?: () => void }).trigger = undefined
-    } else {
-      ;(globalThis as { trigger?: () => void }).trigger = previousTrigger
-    }
-    releaseLock()
-  }
-}
 
 type IndicatorExecutionState = {
   status: 'loading' | 'ready' | 'error'
@@ -471,52 +444,18 @@ export function MarketPreview() {
           }
 
           try {
-            const pine = new PineTS(bars, 'SIM:GOOSE', '1m')
-            await pine.ready()
             const inputsMap = buildInputsMapFromMeta(
               indicator.definition.inputMeta,
               ref.inputs ?? undefined
             )
-
-            let context: any
-            const requiresTriggerShim = indicator.definition.pineCode.includes('trigger(')
-            let releaseTriggerShim: (() => void) | null = null
-            if (requiresTriggerShim) {
-              releaseTriggerShim = await acquireLandingPreviewTriggerShim()
-            }
-            try {
-              context = await pine.run(new Indicator(indicator.definition.pineCode, inputsMap))
-            } finally {
-              releaseTriggerShim?.()
-            }
-
-            const { output, warnings } = normalizeContext({
-              context,
-              ...buildIndexMaps(bars),
-              triggerSignals: [],
+            const { output, warnings } = await executeBrowserPineIndicator({
+              barsMs: bars,
+              pineCode: indicator.definition.pineCode,
+              inputsMap,
+              inputMeta: indicator.definition.inputMeta,
+              symbol: 'SIM:GOOSE',
+              interval: '1m',
             })
-
-            // Post-process: apply input.bool visibility toggles that client-side
-            // PineTS can't handle in ternaries (TimeSeries objects are always truthy).
-            // Check each bool input — if its title matches "Show X line" and the value
-            // is false, null out the matching plot's data points so the line disappears
-            // but the series (and its pane control) remains.
-            if (output && indicator.definition.inputMeta) {
-              const meta = indicator.definition.inputMeta
-              Object.entries(meta).forEach(([title, inputDef]) => {
-                if (inputDef.type !== 'bool') return
-                const inputValue = inputsMap[title]
-                if (inputValue !== false && inputValue !== 0) return
-                const match = title.match(/^show\s+(.+?)(?:\s+line)?$/i)
-                if (!match) return
-                const plotName = match[1].toLowerCase()
-                output.series.forEach((s) => {
-                  if (s.plot.title.toLowerCase().includes(plotName)) {
-                    s.points = s.points.map((p) => ({ ...p, value: null }))
-                  }
-                })
-              })
-            }
 
             return [
               ref.id,

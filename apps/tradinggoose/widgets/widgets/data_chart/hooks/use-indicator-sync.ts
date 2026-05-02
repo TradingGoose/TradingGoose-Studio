@@ -19,10 +19,12 @@ import {
   type SeriesMarker,
 } from 'lightweight-charts'
 import { getStableVibrantColorWithOffset } from '@/lib/colors'
+import { executeBrowserPineIndicator } from '@/lib/indicators/browser-execution'
 import { DEFAULT_INDICATOR_MAP } from '@/lib/indicators/default'
 import { buildInputsMapFromMeta } from '@/lib/indicators/input-meta'
 import type {
   IndicatorOptions,
+  InputMetaMap,
   NormalizedPineMarker,
   NormalizedPineOutput,
 } from '@/lib/indicators/types'
@@ -43,52 +45,9 @@ const DEFAULT_PANE_HEIGHT_PX = 100
 const EXECUTION_DEBOUNCE_MS = 0
 const MAX_EXECUTION_CHUNK_BARS = 1200
 const EXECUTION_CONTEXT_BARS = 300
-const MAX_INDICATOR_EXECUTION_RETRIES = 3
-const INDICATOR_EXECUTION_RETRY_BASE_MS = 500
-const INDICATOR_EXECUTION_RETRY_MAX_MS = 4000
 const DEFAULT_PINE_LINE_WIDTH = 1
 
 type MainSeries = ISeriesApi<'Candlestick'> | ISeriesApi<'Bar'> | ISeriesApi<'Area'>
-
-const isRetryableIndicatorExecutionStatus = (status: number) =>
-  status === 429 || status === 502 || status === 503 || status === 504
-
-const waitForIndicatorRetry = (delayMs: number, signal: AbortSignal) =>
-  new Promise<void>((resolve, reject) => {
-    if (signal.aborted) {
-      const abortError = new Error('Aborted')
-      abortError.name = 'AbortError'
-      reject(abortError)
-      return
-    }
-
-    const timeoutId = window.setTimeout(() => {
-      signal.removeEventListener('abort', onAbort)
-      resolve()
-    }, delayMs)
-
-    const onAbort = () => {
-      window.clearTimeout(timeoutId)
-      const abortError = new Error('Aborted')
-      abortError.name = 'AbortError'
-      reject(abortError)
-    }
-
-    signal.addEventListener('abort', onAbort, { once: true })
-  })
-
-const getIndicatorExecutionRetryDelayMs = (attempt: number, response?: Response) => {
-  const retryAfter = response?.headers.get('Retry-After')
-  if (retryAfter) {
-    const parsedRetryAfter = Number(retryAfter)
-    if (Number.isFinite(parsedRetryAfter) && parsedRetryAfter > 0) {
-      return Math.min(parsedRetryAfter * 1000, INDICATOR_EXECUTION_RETRY_MAX_MS)
-    }
-  }
-
-  const delayMs = INDICATOR_EXECUTION_RETRY_BASE_MS * 2 ** attempt
-  return Math.min(delayMs + Math.floor(Math.random() * 100), INDICATOR_EXECUTION_RETRY_MAX_MS)
-}
 
 const isPriceMarkerPosition = (
   position: NormalizedPineMarker['position']
@@ -248,6 +207,8 @@ type ExecuteResult = {
 
 type ExecutionInput = {
   id: string
+  pineCode: string
+  inputMeta?: InputMetaMap | null
   inputsMap: Record<string, unknown>
   accumulationBase: string
 }
@@ -926,6 +887,8 @@ export const useIndicatorSync = ({
       const defaultIndicator = DEFAULT_INDICATOR_MAP.get(id)
       if (!indicator && !defaultIndicator) return
       const inputMeta = indicator?.inputMeta ?? defaultIndicator?.inputMeta
+      const pineCode = indicator?.pineCode ?? defaultIndicator?.pineCode ?? ''
+      if (!pineCode.trim()) return
       const inputsMap = buildInputsMapFromMeta(
         inputMeta ?? undefined,
         indicatorRefMap.get(id)?.inputs
@@ -934,6 +897,8 @@ export const useIndicatorSync = ({
       const indicatorVersion = indicator?.updatedAt ?? indicator?.createdAt ?? 'default'
       indicatorInputs.push({
         id,
+        pineCode,
+        inputMeta,
         inputsMap,
         accumulationBase: `${id}:${indicatorVersion}:${inputsHash}`,
       })
@@ -991,94 +956,57 @@ export const useIndicatorSync = ({
       const resultById = new Map<string, ExecuteResult>()
       const executionErrorById = new Map<string, string>()
 
-      // Execute groups serially so reconnects or chart refreshes do not burst the
-      // per-user execution lease with parallel requests.
+      // Execute chunks serially so chart refreshes do not start multiple PineTS
+      // batches over overlapping bar windows at the same time.
       for (const group of executionGroups.values()) {
         if (controller.signal.aborted || runId !== runIdRef.current) return
 
-        const marketSeries = {
-          listing: listing ?? undefined,
-          bars: group.bars.map((bar) => ({
-            timeStamp: new Date(bar.openTime).toISOString(),
-            open: bar.open,
-            high: bar.high,
-            low: bar.low,
-            close: bar.close,
-            volume: bar.volume,
-            turnover: bar.turnover,
-          })),
-        }
+        const results = await Promise.all(
+          group.inputs.map(async (item): Promise<ExecuteResult | null> => {
+            if (controller.signal.aborted || runId !== runIdRef.current) return null
 
-        for (let attempt = 0; attempt <= MAX_INDICATOR_EXECUTION_RETRIES; attempt += 1) {
-          if (controller.signal.aborted || runId !== runIdRef.current) return
-
-          try {
-            const response = await fetch('/api/indicators/execute', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              signal: controller.signal,
-              body: JSON.stringify({
-                workspaceId,
-                indicatorIds: group.inputs.map((item) => item.id),
-                marketSeries,
-                inputsMapById: group.inputs.reduce<Record<string, Record<string, unknown>>>(
-                  (acc, item) => {
-                    acc[item.id] = item.inputsMap
-                    return acc
-                  },
-                  {}
-                ),
+            try {
+              const { output, warnings } = await executeBrowserPineIndicator({
+                barsMs: group.bars,
+                pineCode: item.pineCode,
+                inputsMap: item.inputsMap,
+                inputMeta: item.inputMeta,
+                listing,
                 interval: interval ?? undefined,
-                intervalMs: dataContext.intervalMs ?? undefined,
-              }),
-            })
-
-            const payload = await response.json().catch(() => ({}))
-            if (response.ok && payload?.success && Array.isArray(payload?.data)) {
-              ;(payload.data as ExecuteResult[]).forEach((result) => {
-                resultById.set(result.indicatorId, result)
               })
-              break
-            }
 
-            const errorMessage = payload?.error || 'Failed to execute indicators'
-            const isRetryableResponse =
-              isRetryableIndicatorExecutionStatus(response.status) &&
-              attempt < MAX_INDICATOR_EXECUTION_RETRIES
-            if (isRetryableResponse) {
-              const delayMs = getIndicatorExecutionRetryDelayMs(attempt, response)
-              await waitForIndicatorRetry(delayMs, controller.signal)
-              continue
-            }
-
-            group.inputs.forEach((item) => {
-              executionErrorById.set(item.id, errorMessage)
-            })
-            warnOnce(errorMessage)
-            break
-          } catch (error) {
-            if ((error as Error).name === 'AbortError') return
-
-            if (attempt < MAX_INDICATOR_EXECUTION_RETRIES) {
-              const delayMs = getIndicatorExecutionRetryDelayMs(attempt)
-              try {
-                await waitForIndicatorRetry(delayMs, controller.signal)
-              } catch (waitError) {
-                if ((waitError as Error).name === 'AbortError') return
-                throw waitError
+              return {
+                indicatorId: item.id,
+                output,
+                warnings,
+                unsupported: output.unsupported,
+                counts: {
+                  plots: output.series.length,
+                  markers: output.markers.length,
+                  triggers: output.triggers.length,
+                },
               }
-              continue
+            } catch (error) {
+              const errorMessage =
+                error instanceof Error ? error.message : 'Failed to execute indicators'
+              return {
+                indicatorId: item.id,
+                output: null,
+                warnings: [],
+                unsupported: { plots: [], styles: [] },
+                counts: { plots: 0, markers: 0, triggers: 0 },
+                executionError: { message: errorMessage, code: 'runtime_error' },
+              }
             }
+          })
+        )
 
-            const errorMessage =
-              error instanceof Error ? error.message : 'Failed to execute indicators'
-            group.inputs.forEach((item) => {
-              executionErrorById.set(item.id, errorMessage)
-            })
-            warnOnce(errorMessage)
-            break
-          }
-        }
+        if (controller.signal.aborted || runId !== runIdRef.current) return
+
+        results.forEach((result) => {
+          if (!result) return
+          resultById.set(result.indicatorId, result)
+        })
       }
 
       if (controller.signal.aborted || runId !== runIdRef.current) {
