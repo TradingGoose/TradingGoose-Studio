@@ -6,7 +6,7 @@ import {
   serializeWorkflowToTgMermaid,
   TG_MERMAID_DOCUMENT_FORMAT,
 } from '@/lib/workflows/studio-workflow-mermaid'
-import { resolveAutoLayoutDirection } from '@/lib/workflows/workflow-direction'
+import { applyAutoLayout } from '@/lib/workflows/autolayout'
 
 describe('studio workflow Mermaid documents', () => {
   const workflowState: WorkflowSnapshot = {
@@ -493,7 +493,7 @@ inputTrigger --> agentBlock
     expect(document).toContain('%% TG_WORKFLOW {"direction":"LR"')
   })
 
-  it('resolves auto-layout direction from handle orientation counts', () => {
+  it('keeps auto-layout lanes from each source handle orientation', () => {
     const agent = (
       id: string,
       x: number,
