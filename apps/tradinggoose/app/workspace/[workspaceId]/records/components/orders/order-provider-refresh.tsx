@@ -1,24 +1,16 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Loader2, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useProviderOrderDetail } from '@/hooks/queries/records-orders'
 import {
-  getTradingProviderOAuthServiceId,
-  getTradingProviderParamDefinitions,
+  getTradingProviderOAuthServiceIdForEnvironment,
+  getTradingProviderOAuthServiceIds,
 } from '@/providers/trading/providers'
 import type { TradingProviderId } from '@/providers/trading/types'
-import {
-  TradingAccountSelector,
-  type TradingEnvironmentOption,
-} from '@/widgets/widgets/components/trading-account-selector'
+import { TradingAccountSelector } from '@/widgets/widgets/components/trading-account-selector'
 import type { RecordsOrder } from './types'
-
-const isTradingEnvironmentOption = (option: {
-  id: string
-  label: string
-}): option is TradingEnvironmentOption => option.id === 'paper' || option.id === 'live'
 
 export function OrderProviderRefresh({
   workspaceId,
@@ -30,44 +22,30 @@ export function OrderProviderRefresh({
   active: boolean
 }) {
   const providerId = order.provider as TradingProviderId
-  const credentialProviderId = getTradingProviderOAuthServiceId(providerId)
-  const [credentialId, setCredentialId] = useState('')
-  const [environment, setEnvironment] = useState(order.environment ?? 'paper')
+  const oauthServiceIds = getTradingProviderOAuthServiceIds(providerId)
+  const credentialServiceId = getTradingProviderOAuthServiceIdForEnvironment(
+    providerId,
+    order.environment
+  )
   const [accountId, setAccountId] = useState(order.accountId ?? '')
   const [requested, setRequested] = useState(false)
-  const environmentOptions = useMemo(
-    () =>
-      getTradingProviderParamDefinitions(providerId, 'order')
-        .find((definition) => definition.id === 'environment')
-        ?.options?.filter(isTradingEnvironmentOption) ?? [],
-    [providerId]
-  )
 
   useEffect(() => {
-    setCredentialId('')
-    setEnvironment(order.environment ?? 'paper')
     setAccountId(order.accountId ?? '')
     setRequested(false)
-  }, [order.id, order.environment, order.accountId])
+  }, [order.id, order.accountId])
 
   const providerRequiresAccount = order.provider === 'tradier'
-  const canRefresh = Boolean(
-    active &&
-      credentialId &&
-      environment &&
-      (!providerRequiresAccount || accountId || order.accountId)
-  )
+  const canRefresh = Boolean(active && (!providerRequiresAccount || accountId || order.accountId))
 
   const providerDetailQuery = useProviderOrderDetail({
     workspaceId,
     orderId: order.id,
-    credentialId,
-    environment,
     accountId: accountId || order.accountId || undefined,
     enabled: active && requested && canRefresh,
   })
 
-  if (!credentialProviderId) {
+  if (oauthServiceIds.length === 0) {
     return (
       <div className='rounded-md border bg-card/40 p-4 text-muted-foreground text-sm'>
         Provider refresh is unavailable for this provider.
@@ -78,20 +56,16 @@ export function OrderProviderRefresh({
   return (
     <div className='space-y-4'>
       <TradingAccountSelector
+        workspaceId={workspaceId}
         providerId={providerId}
-        credentialProviderId={credentialProviderId}
-        environmentOptions={environmentOptions}
-        credentialId={credentialId}
-        environment={environment}
+        credentialServiceId={credentialServiceId}
         accountId={accountId}
         disabled={!active}
         placeholder={providerRequiresAccount ? 'Select account' : 'Optional account'}
         tooltipText='Select provider refresh account'
         toolName='Provider Detail Refresh'
         onAccountSelect={(selection) => {
-          setCredentialId(selection.credentialId)
-          setEnvironment(selection.environment)
-          setAccountId(selection.accountId)
+          setAccountId(selection.accountId ?? '')
           setRequested(false)
         }}
       />
@@ -110,11 +84,7 @@ export function OrderProviderRefresh({
         Refresh provider detail
       </Button>
 
-      {!credentialId ? (
-        <p className='text-muted-foreground text-sm'>
-          Select a broker account to fetch live provider detail.
-        </p>
-      ) : providerRequiresAccount && !accountId ? (
+      {providerRequiresAccount && !accountId ? (
         <p className='text-muted-foreground text-sm'>
           Select an account to fetch Tradier order detail.
         </p>

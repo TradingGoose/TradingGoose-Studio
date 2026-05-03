@@ -10,6 +10,7 @@ import {
   resolveTradingProviderSelectedAccount,
 } from '@/app/api/providers/trading/shared'
 import { executeTradingProviderOrderDetailRequest } from '@/providers/trading'
+import { getTradingProviderOAuthServiceIdForEnvironment } from '@/providers/trading/providers'
 import type { TradingOrderDetailInput, TradingOrderHistoryRecord } from '@/providers/trading/types'
 import { readOrderAccountId } from '../../order-record-utils'
 
@@ -41,8 +42,6 @@ export async function POST(
     }
 
     const body = (await request.json().catch(() => ({}))) as {
-      credentialId?: string
-      environment?: string
       accountId?: string
     }
     const { orderId } = await params
@@ -56,15 +55,14 @@ export async function POST(
       return NextResponse.json({ error: 'Not found' }, { status: 404 })
     }
 
-    const environment = body.environment ?? order.environment ?? undefined
     const baseContext = await resolveTradingProviderContext({
       requestData: {
         provider: order.provider,
-        credentialId: body.credentialId,
-        environment,
+        credentialServiceId:
+          getTradingProviderOAuthServiceIdForEnvironment(order.provider, order.environment) ??
+          undefined,
       },
       requestId,
-      operationKind: 'order',
     })
     if (baseContext instanceof Response) {
       return baseContext

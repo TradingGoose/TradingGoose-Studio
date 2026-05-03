@@ -72,7 +72,7 @@ export type SerializedOrderRecord = {
 }
 
 const SECRET_KEY_PATTERN =
-  /credential|accessToken|apiKey|apiSecret|secret|token|password|authorization|alpacaCredential|tradierCredential/i
+  /credential|accessToken|apiKey|apiSecret|secret|token|password|authorization/i
 
 export function deepRedactSecrets(value: unknown): unknown {
   if (Array.isArray(value)) {

@@ -9,6 +9,7 @@ import {
   resolveTradingProviderSelectedAccount,
 } from '@/app/api/providers/trading/shared'
 import { executeTradingProviderOrderDetailRequest } from '@/providers/trading'
+import { getTradingProviderOAuthServiceIdForEnvironment } from '@/providers/trading/providers'
 
 const mocks = vi.hoisted(() => {
   const resultsQueue: unknown[][] = []
@@ -112,6 +113,10 @@ vi.mock('@/providers/trading', () => ({
   executeTradingProviderOrderDetailRequest: vi.fn(),
 }))
 
+vi.mock('@/providers/trading/providers', () => ({
+  getTradingProviderOAuthServiceIdForEnvironment: vi.fn(),
+}))
+
 const orderRow = {
   id: 'order-1',
   workspaceId: 'workspace-1',
@@ -143,6 +148,7 @@ describe('order provider detail route', () => {
     vi.mocked(resolveTradingProviderSelectedAccount).mockResolvedValue({
       accountId: 'account-1',
     } as any)
+    vi.mocked(getTradingProviderOAuthServiceIdForEnvironment).mockReturnValue('alpaca-paper')
     vi.mocked(executeTradingProviderOrderDetailRequest).mockResolvedValue({
       providerOrderId: 'provider-order-1',
       status: 'filled',
@@ -159,8 +165,6 @@ describe('order provider detail route', () => {
         {
           body: JSON.stringify({
             accountId: 'account-1',
-            credentialId: 'credential-1',
-            environment: 'paper',
           }),
           headers: { 'Content-Type': 'application/json' },
           method: 'POST',
@@ -174,10 +178,8 @@ describe('order provider detail route', () => {
     expect(mocks.eq).toHaveBeenCalledWith('orderHistoryTable.id', 'order-1')
     expect(mocks.eq).toHaveBeenCalledWith('orderHistoryTable.workspaceId', 'workspace-1')
     expect(resolveTradingProviderContext).toHaveBeenCalledWith({
-      operationKind: 'order',
       requestData: {
-        credentialId: 'credential-1',
-        environment: 'paper',
+        credentialServiceId: 'alpaca-paper',
         provider: 'alpaca',
       },
       requestId: 'request-1',

@@ -12,8 +12,6 @@ export const recordsOrderKeys = {
   providerDetail: (
     workspaceId: string | undefined,
     orderId: string | undefined,
-    credentialId: string | undefined,
-    environment: string | undefined,
     accountId: string | undefined
   ) =>
     [
@@ -21,8 +19,6 @@ export const recordsOrderKeys = {
       'provider',
       workspaceId ?? '',
       orderId ?? '',
-      credentialId ?? '',
-      environment ?? '',
       accountId ?? '',
     ] as const,
 }
@@ -173,8 +169,6 @@ export const useOrderDetail = useRecordsOrderDetail
 export function useProviderOrderDetail(params: {
   workspaceId: string | undefined
   orderId: string | undefined
-  credentialId: string | undefined
-  environment: string | undefined
   accountId?: string | undefined
   enabled?: boolean
 }) {
@@ -182,8 +176,6 @@ export function useProviderOrderDetail(params: {
     queryKey: recordsOrderKeys.providerDetail(
       params.workspaceId,
       params.orderId,
-      params.credentialId,
-      params.environment,
       params.accountId
     ),
     queryFn: async () => {
@@ -195,8 +187,6 @@ export function useProviderOrderDetail(params: {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            credentialId: params.credentialId,
-            environment: params.environment,
             accountId: params.accountId,
           }),
         }
@@ -207,12 +197,6 @@ export function useProviderOrderDetail(params: {
       }
       return payload
     },
-    enabled: Boolean(
-      params.workspaceId &&
-        params.orderId &&
-        params.credentialId &&
-        params.environment &&
-        (params.enabled ?? true)
-    ),
+    enabled: Boolean(params.workspaceId && params.orderId && (params.enabled ?? true)),
   })
 }
