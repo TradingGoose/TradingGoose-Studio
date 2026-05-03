@@ -510,47 +510,33 @@ inputTrigger --> agentBlock
       horizontalHandles,
     })
 
-    expect(resolveAutoLayoutDirection(parallelWorkflowState)).toBe('horizontal')
+    const result = applyAutoLayout(
+      {
+        start: agent('start', 0, 0),
+        branchA: agent('branchA', 0, 0),
+        branchA2: agent('branchA2', 0, 0),
+        branchB: agent('branchB', 0, 0),
+        verticalA: agent('verticalA', 0, 0, false),
+        verticalB: agent('verticalB', 0, 0, false),
+      },
+      [
+        { id: 'start-a', source: 'start', target: 'branchA' },
+        { id: 'start-b', source: 'start', target: 'branchB' },
+        { id: 'a-a2', source: 'branchA', target: 'branchA2' },
+        { id: 'vertical-a-b', source: 'verticalA', target: 'verticalB' },
+      ]
+    )
 
-    expect(
-      resolveAutoLayoutDirection(
-        {
-          blocks: {
-            a: agent('a', 0, 0, false),
-            b: agent('b', 420, 0, false),
-            c: agent('c', 840, 0),
-          },
-          edges: [
-            { id: 'e1', source: 'a', target: 'b' },
-            { id: 'e2', source: 'b', target: 'c' },
-          ],
-        }
-      )
-    ).toBe('vertical')
+    expect(result.success).toBe(true)
+    const blocks = result.blocks
+    const centerY = (id: string) => blocks[id].position.y + 50
+    const centerX = (id: string) => blocks[id].position.x + 175
 
-    expect(
-      resolveAutoLayoutDirection(
-        {
-          blocks: {
-            a: agent('a', 0, 0),
-            b: agent('b', 420, 0, false),
-          },
-          edges: [{ id: 'e1', source: 'a', target: 'b' }],
-        }
-      )
-    ).toBe('vertical')
-
-    expect(
-      resolveAutoLayoutDirection(
-        {
-          blocks: {
-            a: agent('a', 0, 0),
-            b: agent('b', 0, 320, false),
-          },
-          edges: [{ id: 'e1', source: 'a', target: 'b' }],
-        }
-      )
-    ).toBe('horizontal')
+    expect(centerY('branchA2')).toBe(centerY('branchA'))
+    expect(centerY('branchB')).toBeGreaterThan(centerY('branchA'))
+    expect(blocks.branchA2.position.x).toBeGreaterThan(blocks.branchA.position.x)
+    expect(centerX('verticalB')).toBe(centerX('verticalA'))
+    expect(blocks.verticalB.position.y).toBeGreaterThan(blocks.verticalA.position.y)
   })
 
   it('reports missing raw-id visible edge lines using the document naming style', () => {

@@ -13,7 +13,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { type ListingIdentity, type ListingOption, toListingValue } from '@/lib/listing/identity'
+import { type ListingOption, toListingValue } from '@/lib/listing/identity'
 import { parseImportedWatchlistFile } from '@/lib/watchlists/import-export'
 import type { WatchlistRecord } from '@/lib/watchlists/types'
 import {
@@ -30,13 +30,13 @@ import { useListingSelectorStore } from '@/stores/market/selector/store'
 import type { WidgetInstance } from '@/widgets/layout'
 import type { DashboardWidgetDefinition } from '@/widgets/types'
 import { emitWatchlistParamsChange } from '@/widgets/utils/watchlist-params'
-import { ListingSelector } from '@/widgets/widgets/components/listing-selector'
 import { MarketProviderControls } from '@/widgets/widgets/components/market-provider-controls'
 import {
   widgetHeaderButtonGroupClassName,
   widgetHeaderIconButtonClassName,
 } from '@/widgets/widgets/components/widget-header-control'
 import { WidgetHeaderRefreshButton } from '@/widgets/widgets/components/widget-header-refresh-button'
+import { DataChartListingSelector } from '@/widgets/widgets/data_chart/components/listing-control'
 import {
   providerOptions,
   resolveSeriesMarketProviderId,
@@ -204,12 +204,13 @@ export const WatchlistHeaderCenterControls = ({
   )
   const ensureSelectorInstance = useListingSelectorStore((state) => state.ensureInstance)
   const updateSelectorInstance = useListingSelectorStore((state) => state.updateInstance)
+  const selectorInstance = useListingSelectorStore((state) => state.instances[selectorInstanceId])
   const addListingMutation = useAddWatchlistListing()
-  const [pendingListing, setPendingListing] = useState<ListingIdentity | null>(null)
+  const pendingListing = selectorInstance?.selectedListingValue ?? null
+  const selectorProviderId = workspaceId && selectedWatchlist ? providerId : undefined
 
   const clearPendingListing = useCallback(
     (nextProviderId = providerId) => {
-      setPendingListing(null)
       updateSelectorInstance(selectorInstanceId, {
         providerId: nextProviderId || undefined,
         query: '',
@@ -249,7 +250,10 @@ export const WatchlistHeaderCenterControls = ({
   }, [clearPendingListing, selectedWatchlist?.id])
 
   const handleListingChange = (listing: ListingOption | null) => {
-    setPendingListing(toListingValue(listing))
+    updateSelectorInstance(selectorInstanceId, {
+      selectedListingValue: toListingValue(listing),
+      selectedListing: listing,
+    })
   }
 
   const handleAddListing = async () => {
@@ -278,13 +282,11 @@ export const WatchlistHeaderCenterControls = ({
 
   return (
     <div className={widgetHeaderButtonGroupClassName('min-w-0')}>
-      <div className='w-full min-w-0 max-w-[240px]'>
-        <ListingSelector
-          instanceId={selectorInstanceId}
-          disabled={!workspaceId || !providerId || !selectedWatchlist}
-          onListingChange={handleListingChange}
-        />
-      </div>
+      <DataChartListingSelector
+        instanceId={selectorInstanceId}
+        providerId={selectorProviderId}
+        onListingChange={handleListingChange}
+      />
       <Tooltip>
         <TooltipTrigger asChild>
           <span className='inline-flex'>

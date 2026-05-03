@@ -53,7 +53,7 @@ import type {
   WatchlistSectionItem,
 } from '@/lib/watchlists/types'
 import { useListingSelectorStore } from '@/stores/market/selector/store'
-import { StockSelector } from '@/widgets/widgets/watchlist/components/stock-selector'
+import { WatchlistListingSelector } from '@/widgets/widgets/watchlist/components/watchlist-listing-selector'
 import {
   createWatchlistListingSortableId,
   createWatchlistSectionSortableId,
@@ -539,7 +539,7 @@ export const WatchlistTable = ({
 
     return (
       <div className='relative z-20 flex items-center bg-background'>
-        <StockSelector
+        <WatchlistListingSelector
           instanceId={instanceId}
           providerType='market'
           disabled={isMutating}

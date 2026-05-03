@@ -1,8 +1,6 @@
-import type { AutoLayoutDirection } from '@/lib/workflows/workflow-direction'
 import type { BlockState, Position } from '@/stores/workflows/workflow/types'
 
 export interface LayoutOptions {
-  direction?: AutoLayoutDirection
   horizontalSpacing?: number
   verticalSpacing?: number
   padding?: { x: number; y: number }
@@ -23,22 +21,6 @@ export interface Edge {
   targetHandle?: string | null
 }
 
-export interface Loop {
-  id: string
-  nodes: string[]
-  iterations: number
-  loopType: 'for' | 'forEach' | 'while' | 'doWhile'
-  forEachItems?: any[] | Record<string, any> | string // Items or expression
-  whileCondition?: string // JS expression that evaluates to boolean
-}
-
-export interface Parallel {
-  id: string
-  nodes: string[]
-  count?: number
-  parallelType?: 'count' | 'collection'
-}
-
 export interface BlockMetrics {
   width: number
   height: number
@@ -57,11 +39,6 @@ export interface BoundingBox {
   height: number
 }
 
-export interface LayerInfo {
-  layer: number
-  order: number
-}
-
 export interface GraphNode {
   id: string
   block: BlockState
@@ -70,9 +47,4 @@ export interface GraphNode {
   outgoing: Set<string>
   layer: number
   position: Position
-}
-
-export interface AdjustmentOptions extends LayoutOptions {
-  preservePositions?: boolean
-  minimalShift?: boolean
 }

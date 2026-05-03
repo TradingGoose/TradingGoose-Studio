@@ -6,6 +6,7 @@ import type { ButtonHTMLAttributes, ReactNode } from 'react'
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { useListingSelectorStore } from '@/stores/market/selector/store'
 import {
   WatchlistHeaderCenterControls,
   WatchlistHeaderRightControls,
@@ -141,6 +142,7 @@ describe('watchlist header controls', () => {
     container = document.createElement('div')
     document.body.appendChild(container)
     root = createRoot(container)
+    useListingSelectorStore.setState({ instances: {} })
 
     mockUseWatchlists.mockReturnValue({
       data: [defaultWatchlist],
@@ -159,6 +161,7 @@ describe('watchlist header controls', () => {
       root.unmount()
     })
     container.remove()
+    useListingSelectorStore.setState({ instances: {} })
   })
 
   it('adds the staged listing from the center header control', async () => {
@@ -192,6 +195,24 @@ describe('watchlist header controls', () => {
     )
 
     expect(listingButton).toBeTruthy()
+    expect(addButton?.hasAttribute('disabled')).toBe(true)
+
+    await act(async () => {
+      listingButton?.dispatchEvent(new globalThis.MouseEvent('click', { bubbles: true }))
+    })
+
+    expect(addButton?.hasAttribute('disabled')).toBe(false)
+
+    await act(async () => {
+      useListingSelectorStore
+        .getState()
+        .updateInstance('watchlist-header-listing-panel-2-watchlist-widget', {
+          query: 'ETH',
+          selectedListingValue: null,
+          selectedListing: null,
+        })
+    })
+
     expect(addButton?.hasAttribute('disabled')).toBe(true)
 
     await act(async () => {

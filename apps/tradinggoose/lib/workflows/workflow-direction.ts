@@ -2,8 +2,6 @@ import { applyAutoLayout } from '@/lib/workflows/autolayout'
 import type { WorkflowSnapshot } from '@/lib/yjs/workflow-session'
 import type { BlockState, WorkflowDirection } from '@/stores/workflows/workflow/types'
 
-export type AutoLayoutDirection = 'horizontal' | 'vertical'
-
 type WorkflowGraphState = Pick<WorkflowSnapshot, 'blocks' | 'edges'>
 
 function getAbsoluteBlockPosition(
@@ -89,35 +87,6 @@ export function inferMermaidDirectionFromWorkflowState(
   return horizontalSpread > verticalSpread ? 'LR' : 'TD'
 }
 
-function toAutoLayoutDirection(direction: WorkflowDirection): AutoLayoutDirection {
-  return direction === 'LR' ? 'horizontal' : 'vertical'
-}
-
-export function resolveAutoLayoutDirection(
-  workflowState: WorkflowGraphState,
-  requestedDirection?: AutoLayoutDirection | 'auto'
-): AutoLayoutDirection {
-  if (requestedDirection && requestedDirection !== 'auto') {
-    return requestedDirection
-  }
-
-  const { horizontal, vertical } = Object.values(workflowState.blocks ?? {}).reduce(
-    (counts, block) => {
-      counts[block.horizontalHandles === false ? 'vertical' : 'horizontal'] += 1
-      return counts
-    },
-    { horizontal: 0, vertical: 0 }
-  )
-
-  if (horizontal !== vertical) {
-    return horizontal > vertical ? 'horizontal' : 'vertical'
-  }
-
-  const inferredDirection = toAutoLayoutDirection(inferMermaidDirectionFromWorkflowState(workflowState))
-
-  return horizontal === 0 ? inferredDirection : inferredDirection === 'horizontal' ? 'vertical' : 'horizontal'
-}
-
 export function normalizeWorkflowStateToMermaidDirection(
   workflowState: WorkflowSnapshot,
   direction: WorkflowDirection
@@ -137,15 +106,7 @@ export function normalizeWorkflowStateToMermaidDirection(
     }
   }
 
-  const relayoutResult = applyAutoLayout(
-    workflowState.blocks,
-    workflowState.edges,
-    workflowState.loops,
-    workflowState.parallels,
-    {
-      direction: toAutoLayoutDirection(direction),
-    }
-  )
+  const relayoutResult = applyAutoLayout(workflowState.blocks, workflowState.edges)
 
   if (!relayoutResult.success || !relayoutResult.blocks) {
     throw new Error(relayoutResult.error || 'Failed to re-layout workflow for Mermaid direction')
