@@ -12,7 +12,7 @@ import { type NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
 import { hasWorkspaceAdminAccess } from '@/lib/permissions/utils'
 import { getBaseUrl } from '@/lib/urls/utils'
-import { defaultLocale, isLocaleCode, localizeHref, type LocaleCode } from '@/i18n/utils'
+import { defaultLocale, isLocaleCode, type LocaleCode, localizeHref } from '@/i18n/utils'
 
 // GET /api/workspaces/invitations/[invitationId] - Get invitation details OR accept via token
 export async function GET(
@@ -26,14 +26,14 @@ export async function GET(
   const token = req.nextUrl.searchParams.get('token')
   const isAcceptFlow = !!token // If token is provided, this is an acceptance flow
 
-    if (!session?.user?.id) {
-      // For token-based acceptance flows, redirect to login
-      if (isAcceptFlow) {
-        return NextResponse.redirect(
-          new URL(localizeHref(locale, `/invite/${invitationId}?token=${token}`), getBaseUrl())
-        )
-      }
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!session?.user?.id) {
+    // For token-based acceptance flows, redirect to login
+    if (isAcceptFlow) {
+      return NextResponse.redirect(
+        new URL(localizeHref(locale, `/invite/${invitationId}?token=${token}`), getBaseUrl())
+      )
+    }
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
   try {
@@ -104,7 +104,10 @@ export async function GET(
 
       if (!userData) {
         return NextResponse.redirect(
-          new URL(localizeHref(locale, `/invite/${invitation.id}?error=user-not-found`), getBaseUrl())
+          new URL(
+            localizeHref(locale, `/invite/${invitation.id}?error=user-not-found`),
+            getBaseUrl()
+          )
         )
       }
 
@@ -112,7 +115,10 @@ export async function GET(
 
       if (!isValidMatch) {
         return NextResponse.redirect(
-          new URL(localizeHref(locale, `/invite/${invitation.id}?error=email-mismatch`), getBaseUrl())
+          new URL(
+            localizeHref(locale, `/invite/${invitation.id}?error=email-mismatch`),
+            getBaseUrl()
+          )
         )
       }
 
@@ -166,7 +172,10 @@ export async function GET(
       })
 
       return NextResponse.redirect(
-        new URL(localizeHref(locale, `/workspace/${invitation.workspaceId}/dashboard`), getBaseUrl())
+        new URL(
+          localizeHref(locale, `/workspace/${invitation.workspaceId}/dashboard`),
+          getBaseUrl()
+        )
       )
     }
 

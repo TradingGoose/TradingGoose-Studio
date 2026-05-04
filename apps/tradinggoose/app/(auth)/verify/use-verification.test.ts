@@ -24,11 +24,8 @@ vi.mock('next-intl', () => ({
 }))
 
 vi.mock('next/navigation', () => ({
-  useSearchParams: mockUseSearchParams,
-}))
-
-vi.mock('@/i18n/navigation', () => ({
   useRouter: () => mockUseRouter,
+  useSearchParams: mockUseSearchParams,
 }))
 
 vi.mock('@/lib/auth-client', () => ({

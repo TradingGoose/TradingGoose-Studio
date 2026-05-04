@@ -8,6 +8,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // Keep the sitemap focused on stable public-entry pages.
   // Auth flows like /login, /signup, and /waitlist are intentionally omitted.
   const localizedRoutes = ['/', '/blog'] as const
+  // /careers is a live public landing page, so it is intentionally included here.
   const englishOnlyRoutes = ['/privacy', '/terms', '/licenses', '/careers', '/changelog'] as const
 
   const staticPages = locales.flatMap((locale) =>

@@ -1,13 +1,12 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useLocale } from 'next-intl'
 import { client, useSession } from '@/lib/auth-client'
 import { createLogger } from '@/lib/logs/console/logger'
-import { useRouter } from '@/i18n/navigation'
-import { type PublicCopy } from '@/i18n/public-copy'
-import { localizeHref, type LocaleCode } from '@/i18n/utils'
+import type { PublicCopy } from '@/i18n/public-copy'
+import { type LocaleCode, localizeHref } from '@/i18n/utils'
 
 const logger = createLogger('useVerification')
 type VerifyCopy = PublicCopy['auth']['verify']
