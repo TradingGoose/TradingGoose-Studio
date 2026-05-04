@@ -91,13 +91,11 @@ export class DeployWorkflowClientTool extends BaseClientTool {
       // Determine action text based on deployment status
       let actionText = action
       let actionTextIng = action === 'undeploy' ? 'undeploying' : 'deploying'
-      let actionTextPast = action === 'undeploy' ? 'undeployed' : 'deployed'
 
       // If already deployed and action is deploy, change to redeploy
       if (action === 'deploy' && isAlreadyDeployed) {
         actionText = 'redeploy'
         actionTextIng = 'redeploying'
-        actionTextPast = 'redeployed'
       }
 
       const actionCapitalized = actionText.charAt(0).toUpperCase() + actionText.slice(1)

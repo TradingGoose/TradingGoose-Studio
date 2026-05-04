@@ -9,7 +9,7 @@ import {
   createEmptyListingSelectorInstance,
   useListingSelectorStore,
 } from '@/stores/market/selector/store'
-import { StockSelector } from '@/widgets/widgets/watchlist/components/stock-selector'
+import { WatchlistListingSelector } from '@/widgets/widgets/watchlist/components/watchlist-listing-selector'
 
 const reactActEnvironment = globalThis as typeof globalThis & {
   IS_REACT_ACT_ENVIRONMENT?: boolean
@@ -23,7 +23,7 @@ vi.mock('@/components/listing-selector/selector/use-listing-search', () => ({
   useMarketListingSearch: vi.fn(),
 }))
 
-describe('Watchlist StockSelector', () => {
+describe('WatchlistListingSelector', () => {
   let container: HTMLDivElement
   let root: Root
 
@@ -73,7 +73,7 @@ describe('Watchlist StockSelector', () => {
 
     await act(async () => {
       root.render(
-        <StockSelector
+        <WatchlistListingSelector
           instanceId='test-selector'
           providerType='market'
           activateOnMount

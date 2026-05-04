@@ -23,7 +23,7 @@ const mockResolveListing = vi.fn()
 const mockEnsureListingSelectorInstance = vi.fn()
 const mockUpdateListingSelectorInstance = vi.fn()
 const mockResetListingSelectorInstance = vi.fn()
-const mockStockSelectorRender = vi.fn()
+const mockWatchlistListingSelectorRender = vi.fn()
 
 vi.mock('@/components/listing-selector/listing/row', () => ({
   getListingPrimary: (listing: { name?: string; listing_id?: string }) =>
@@ -41,8 +41,8 @@ vi.mock('@/components/listing-selector/listing/row', () => ({
   ),
 }))
 
-vi.mock('@/widgets/widgets/watchlist/components/stock-selector', () => ({
-  StockSelector: ({
+vi.mock('@/widgets/widgets/watchlist/components/watchlist-listing-selector', () => ({
+  WatchlistListingSelector: ({
     instanceId,
     activateOnMount,
     onListingChange,
@@ -57,15 +57,15 @@ vi.mock('@/widgets/widgets/watchlist/components/stock-selector', () => ({
       name?: string
     }) => void
   }) => {
-    mockStockSelectorRender({ instanceId, activateOnMount })
+    mockWatchlistListingSelectorRender({ instanceId, activateOnMount })
     return (
-      <div data-testid={`stock-selector-${instanceId}`}>
-        <button type='button' data-testid={`stock-selector-focus-${instanceId}`}>
-          stock-selector-focus
+      <div data-testid={`watchlist-listing-selector-${instanceId}`}>
+        <button type='button' data-testid={`watchlist-listing-selector-focus-${instanceId}`}>
+          watchlist-listing-selector-focus
         </button>
         <button
           type='button'
-          data-testid={`stock-selector-select-${instanceId}`}
+          data-testid={`watchlist-listing-selector-select-${instanceId}`}
           onClick={() =>
             onListingChange?.({
               listing_id: 'eth-id',
@@ -76,7 +76,7 @@ vi.mock('@/widgets/widgets/watchlist/components/stock-selector', () => ({
             })
           }
         >
-          stock-selector-select
+          watchlist-listing-selector-select
         </button>
       </div>
     )
@@ -481,7 +481,9 @@ describe('WatchlistTable section interactions', () => {
     const confirmButton = container.querySelector('[data-testid="confirm-delete-section"]')
 
     await act(async () => {
-      confirmButton?.dispatchEvent(new globalThis.MouseEvent('click', { bubbles: true, cancelable: true }))
+      confirmButton?.dispatchEvent(
+        new globalThis.MouseEvent('click', { bubbles: true, cancelable: true })
+      )
     })
 
     expect(onRemoveSection).toHaveBeenCalledWith('section-1')
@@ -524,7 +526,9 @@ describe('WatchlistTable section interactions', () => {
     )
 
     await act(async () => {
-      confirmButton?.dispatchEvent(new globalThis.MouseEvent('click', { bubbles: true, cancelable: true }))
+      confirmButton?.dispatchEvent(
+        new globalThis.MouseEvent('click', { bubbles: true, cancelable: true })
+      )
     })
 
     expect(onRemoveItem).toHaveBeenCalledWith('listing-1')
@@ -565,17 +569,17 @@ describe('WatchlistTable section interactions', () => {
     })
 
     const selector = container.querySelector(
-      '[data-testid="stock-selector-watchlist-listing-editor-listing-1"]'
+      '[data-testid="watchlist-listing-selector-watchlist-listing-editor-listing-1"]'
     )
 
     expect(selector).toBeTruthy()
-    expect(mockStockSelectorRender).toHaveBeenLastCalledWith({
+    expect(mockWatchlistListingSelectorRender).toHaveBeenLastCalledWith({
       instanceId: 'watchlist-listing-editor-listing-1',
       activateOnMount: true,
     })
 
     const selectButton = container.querySelector(
-      '[data-testid="stock-selector-select-watchlist-listing-editor-listing-1"]'
+      '[data-testid="watchlist-listing-selector-select-watchlist-listing-editor-listing-1"]'
     )
 
     await act(async () => {
@@ -624,7 +628,7 @@ describe('WatchlistTable section interactions', () => {
     })
 
     const selectButton = container.querySelector(
-      '[data-testid="stock-selector-select-watchlist-listing-editor-listing-1"]'
+      '[data-testid="watchlist-listing-selector-select-watchlist-listing-editor-listing-1"]'
     )
 
     await act(async () => {
@@ -722,10 +726,10 @@ describe('WatchlistTable section interactions', () => {
     })
 
     const selector = container.querySelector(
-      '[data-testid="stock-selector-watchlist-listing-editor-listing-1"]'
+      '[data-testid="watchlist-listing-selector-watchlist-listing-editor-listing-1"]'
     )
     const focusButton = container.querySelector(
-      '[data-testid="stock-selector-focus-watchlist-listing-editor-listing-1"]'
+      '[data-testid="watchlist-listing-selector-focus-watchlist-listing-editor-listing-1"]'
     )
     const editingRow = Array.from(container.querySelectorAll('tr')).find(
       (row) =>
@@ -744,7 +748,9 @@ describe('WatchlistTable section interactions', () => {
     })
 
     expect(
-      container.querySelector('[data-testid="stock-selector-watchlist-listing-editor-listing-1"]')
+      container.querySelector(
+        '[data-testid="watchlist-listing-selector-watchlist-listing-editor-listing-1"]'
+      )
     ).toBeTruthy()
     expect(onUpdateItemListing).not.toHaveBeenCalled()
 
@@ -753,7 +759,9 @@ describe('WatchlistTable section interactions', () => {
     })
 
     expect(
-      container.querySelector('[data-testid="stock-selector-watchlist-listing-editor-listing-1"]')
+      container.querySelector(
+        '[data-testid="watchlist-listing-selector-watchlist-listing-editor-listing-1"]'
+      )
     ).toBeNull()
     expect(onUpdateItemListing).not.toHaveBeenCalled()
   })

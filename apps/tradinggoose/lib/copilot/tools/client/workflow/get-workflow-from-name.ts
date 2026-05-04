@@ -4,7 +4,6 @@ import {
   type BaseClientToolMetadata,
   ClientToolCallState,
 } from '@/lib/copilot/tools/client/base-tool'
-import { createLogger } from '@/lib/logs/console/logger'
 import { serializeWorkflowToTgMermaid } from '@/lib/workflows/studio-workflow-mermaid'
 import {
   buildWorkflowSummary,
@@ -12,8 +11,6 @@ import {
   getReadableWorkflowState,
   resolveWorkflowTarget,
 } from './workflow-review-tool-utils'
-
-const logger = createLogger('GetWorkflowFromNameClientTool')
 
 interface GetWorkflowFromNameArgs {
   workflow_name: string

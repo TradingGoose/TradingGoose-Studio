@@ -20,7 +20,7 @@ export const buildQueryParams = (request: NextRequest, keys: string[]) => {
   return params
 }
 
-export const uniqueNonEmpty = (values: Array<string | null | undefined>) => {
+export const dedupeNonEmptyStrings = (values: Array<string | null | undefined>) => {
   const seen = new Set<string>()
   const result: string[] = []
   for (const value of values) {
@@ -32,10 +32,7 @@ export const uniqueNonEmpty = (values: Array<string | null | undefined>) => {
 }
 
 export const parseListParam = (searchParams: URLSearchParams, key: string) => {
-  const rawValues = [
-    ...searchParams.getAll(key),
-    ...searchParams.getAll(`${key}[]`),
-  ]
+  const rawValues = [...searchParams.getAll(key), ...searchParams.getAll(`${key}[]`)]
   if (!rawValues.length) return []
 
   const tokens: string[] = []
@@ -77,5 +74,5 @@ export const parseListParam = (searchParams: URLSearchParams, key: string) => {
     pushToken(trimmed)
   }
 
-  return uniqueNonEmpty(tokens)
+  return dedupeNonEmptyStrings(tokens)
 }

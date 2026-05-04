@@ -1,5 +1,6 @@
 import { setupConnectionHandlers } from '@/socket-server/handlers/connection'
 import { setupMarketHandlers } from '@/socket-server/handlers/market'
+import { setupTradingPortfolioHandlers } from '@/socket-server/handlers/trading'
 import type { AuthenticatedSocket } from '@/socket-server/middleware/auth'
 
 /**
@@ -9,9 +10,11 @@ import type { AuthenticatedSocket } from '@/socket-server/middleware/auth'
 export function setupAllHandlers(socket: AuthenticatedSocket) {
   setupConnectionHandlers(socket)
   setupMarketHandlers(socket)
+  setupTradingPortfolioHandlers(socket)
 }
 
 export {
   setupConnectionHandlers,
   setupMarketHandlers,
+  setupTradingPortfolioHandlers,
 }

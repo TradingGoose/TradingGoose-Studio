@@ -1,7 +1,12 @@
 import { toListingValueObject } from '@/lib/listing/identity'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getBaseUrl } from '@/lib/urls/utils'
-import { executeTradingProviderRequest, getTradingProvider } from '@/providers/trading'
+import {
+  executeTradingProviderRequest,
+  getTradingProvider,
+  getTradingProviderOAuthEnvironment,
+  getTradingProviderParamDefinitions,
+} from '@/providers/trading'
 import type {
   OrderSubmit,
   OrderSubmitRequest,
@@ -12,6 +17,20 @@ import type {
 import type { ToolConfig } from '@/tools/types'
 
 const logger = createLogger('TradingActionTool')
+
+const resolveProviderEnvironment = (params: TradingActionParams) => {
+  const credentialEnvironment = getTradingProviderOAuthEnvironment(
+    params.provider,
+    params.credentialServiceId
+  )
+  if (credentialEnvironment) return credentialEnvironment
+
+  return getTradingProviderParamDefinitions(params.provider, 'order').some(
+    (definition) => definition.id === 'environment'
+  )
+    ? params.environment
+    : undefined
+}
 
 const ORDER_HISTORY_OMIT_KEYS = new Set([
   'provider',
@@ -29,11 +48,8 @@ const ORDER_HISTORY_OMIT_KEYS = new Set([
   'orderSizingMode',
   'orderClass',
   'credential',
+  'credentialServiceId',
   'accessToken',
-  'apiKey',
-  'apiSecret',
-  'tradierCredential',
-  'alpacaCredential',
   '_context',
   '_workflowId',
   '_credentialId',
@@ -192,7 +208,11 @@ const buildOrderRequest = (params: TradingActionParams) => {
   validateOrderSizing(normalized)
   const provider = getTradingProvider(normalized.provider)
   const { provider: providerId, ...rest } = normalized
-  const request = executeTradingProviderRequest(providerId, { kind: 'order', ...rest })
+  const request = executeTradingProviderRequest(providerId, {
+    kind: 'order',
+    ...rest,
+    environment: resolveProviderEnvironment(normalized),
+  })
   logger.info(`Building order request for ${provider.id}`, {
     orderType: normalized.orderType || provider.defaults?.orderType || 'market',
     timeInForce: normalized.timeInForce || provider.defaults?.timeInForce,
@@ -300,7 +320,7 @@ export const tradingActionTool: ToolConfig<TradingActionParams, TradingActionRes
       type: 'string',
       required: false,
       visibility: 'user-only',
-      description: 'Trading environment for Alpaca (paper or live).',
+      description: 'Trading environment for providers that expose one.',
     },
     credential: {
       type: 'string',
@@ -308,35 +328,11 @@ export const tradingActionTool: ToolConfig<TradingActionParams, TradingActionRes
       visibility: 'hidden',
       description: 'OAuth credential id for the selected broker (populated from selected account).',
     },
-    tradierCredential: {
-      type: 'string',
-      required: false,
-      visibility: 'user-only',
-      description: 'Tradier OAuth credential id.',
-    },
-    alpacaCredential: {
-      type: 'string',
-      required: false,
-      visibility: 'user-only',
-      description: 'Alpaca OAuth credential id.',
-    },
     accessToken: {
       type: 'string',
       required: false,
       visibility: 'hidden',
       description: 'OAuth access token (injected from credential).',
-    },
-    apiKey: {
-      type: 'string',
-      required: false,
-      visibility: 'hidden',
-      description: 'Alpaca API key ID (optional if using OAuth).',
-    },
-    apiSecret: {
-      type: 'string',
-      required: false,
-      visibility: 'hidden',
-      description: 'Alpaca API secret key (optional if using OAuth).',
     },
     accountId: {
       type: 'string',
@@ -385,7 +381,7 @@ export const tradingActionTool: ToolConfig<TradingActionParams, TradingActionRes
 
       const orderSubmit: OrderSubmit = {
         provider: params.provider,
-        environment: params.environment,
+        environment: resolveProviderEnvironment(params),
         recordedAt: new Date().toISOString(),
         workflowId: context?.workflowId ?? (params as any)._workflowId,
         workflowExecutionId: context?.executionId,

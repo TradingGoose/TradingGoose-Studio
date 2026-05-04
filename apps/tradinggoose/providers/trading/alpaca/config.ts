@@ -2,8 +2,14 @@ import type { AssetClass } from '@/providers/market/types'
 import { alpacaTradingSymbolRules } from '@/providers/trading/alpaca/rules'
 import type { TradingProviderConfig } from '@/providers/trading/providers'
 
-const availableAssetClasses: AssetClass[] = ['stock']
-const supportsCrypto = availableAssetClasses.includes('crypto')
+export const ALPACA_LIVE_TRADING_BASE_URL = 'https://api.alpaca.markets'
+export const ALPACA_PAPER_TRADING_BASE_URL = 'https://paper-api.alpaca.markets'
+export const ALPACA_TRADING_BASE_URL = ALPACA_LIVE_TRADING_BASE_URL
+
+export const resolveAlpacaTradingBaseUrl = (environment?: string | null) =>
+  environment === 'paper' ? ALPACA_PAPER_TRADING_BASE_URL : ALPACA_LIVE_TRADING_BASE_URL
+
+const availableAssetClasses: AssetClass[] = ['stock', 'crypto']
 const availableCryptoQuoteCodes = ['USD', 'USDC', 'USDT', 'BTC']
 const availableCryptoBaseCodes = [
   'AAVE',
@@ -80,46 +86,11 @@ const availability: TradingProviderConfig['availability'] = {
   holdings: true,
   availableCurrencyBase: [],
   availableCurrencyQuote: [],
-  availableCryptoBase: supportsCrypto ? availableCryptoBaseCodes : [],
-  availableCryptoQuote: supportsCrypto ? availableCryptoQuoteCodes : [],
+  availableCryptoBase: availableCryptoBaseCodes,
+  availableCryptoQuote: availableCryptoQuoteCodes,
 }
 
 const params: TradingProviderConfig['params'] = {
-  shared: [
-    {
-      id: 'apiKey',
-      type: 'string',
-      title: 'API Key',
-      description: 'Alpaca API key ID.',
-      placeholder: 'APCA-API-KEY-ID',
-      required: false,
-      visibility: 'hidden',
-      password: true,
-    },
-    {
-      id: 'apiSecret',
-      type: 'string',
-      title: 'API Secret',
-      description: 'Alpaca API secret key.',
-      placeholder: 'APCA-API-SECRET-KEY',
-      required: false,
-      visibility: 'hidden',
-      password: true,
-    },
-    {
-      id: 'environment',
-      type: 'string',
-      title: 'Environment',
-      description: 'Trading environment (paper or live).',
-      required: false,
-      visibility: 'user-only',
-      inputType: 'dropdown',
-      options: [
-        { id: 'paper', label: 'Paper' },
-        { id: 'live', label: 'Live' },
-      ],
-    },
-  ],
   order: [
     {
       id: 'orderSizingMode',
@@ -167,9 +138,9 @@ export const alpacaTradingProviderConfig: TradingProviderConfig = {
   availability,
   params,
   api_endpoints: {
-    default: 'https://api.alpaca.markets',
-    order: 'https://api.alpaca.markets/v2/orders',
-    holdings: 'https://api.alpaca.markets/v2/positions',
+    default: ALPACA_TRADING_BASE_URL,
+    order: `${ALPACA_TRADING_BASE_URL}/v2/orders`,
+    holdings: `${ALPACA_TRADING_BASE_URL}/v2/positions`,
   },
   capabilities: {
     order: {
@@ -210,6 +181,7 @@ export const alpacaTradingProviderConfig: TradingProviderConfig = {
     },
     holdings: {
       supportsPositions: true,
+      performanceWindows: ['1D', '1W', '1M', '3M', 'YTD', '1Y'],
     },
   },
   rulePrecedence: {

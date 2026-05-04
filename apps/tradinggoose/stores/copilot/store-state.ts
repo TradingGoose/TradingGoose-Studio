@@ -1,6 +1,7 @@
 'use client'
 
 import { ClientToolCallState } from '@/lib/copilot/tools/client/base-tool'
+import { shouldRequireCopilotApproval } from '@/lib/copilot/access-policy'
 import { copilotToolSupportsState } from '@/stores/copilot/tool-registry'
 import type { CopilotChat, CopilotStore, CopilotToolCall } from '@/stores/copilot/types'
 
@@ -30,14 +31,14 @@ export function normalizeReloadedToolState(
       ? (state as ClientToolCallState)
       : ClientToolCallState.rejected
 
-  if (
-    nextState === ClientToolCallState.generating ||
-    nextState === ClientToolCallState.executing
-  ) {
+  if (nextState === ClientToolCallState.generating || nextState === ClientToolCallState.executing) {
     if (latestTurnStatus === ACTIVE_TURN_STATUS) {
       return nextState
     }
-    if (accessLevel !== 'full' && nextState === ClientToolCallState.executing) {
+    if (
+      shouldRequireCopilotApproval(accessLevel ?? 'limited') &&
+      nextState === ClientToolCallState.executing
+    ) {
       if (copilotToolSupportsState(toolName, ClientToolCallState.review)) {
         return ClientToolCallState.review
       }
@@ -54,21 +55,15 @@ export function isChatTurnInProgress(
   return chat?.latestTurnStatus === ACTIVE_TURN_STATUS
 }
 
-export function isToolCallRuntimeActive(
-  state: CopilotToolCall['state'] | undefined
-): boolean {
+export function isToolCallRuntimeActive(state: CopilotToolCall['state'] | undefined): boolean {
   return state != null && RUNTIME_ACTIVE_TOOL_STATES.has(state)
 }
 
-export function isToolCallUiActive(
-  state: CopilotToolCall['state'] | undefined
-): boolean {
+export function isToolCallUiActive(state: CopilotToolCall['state'] | undefined): boolean {
   return state != null && UI_ACTIVE_TOOL_STATES.has(state)
 }
 
-export function hasUiActiveToolCalls(
-  toolCallsById: Record<string, CopilotToolCall>
-): boolean {
+export function hasUiActiveToolCalls(toolCallsById: Record<string, CopilotToolCall>): boolean {
   return Object.values(toolCallsById).some((toolCall) => isToolCallUiActive(toolCall.state))
 }
 
@@ -109,5 +104,7 @@ export function resolveStoreTurnActivityState(
   state: Pick<CopilotStore, 'isAwaitingContinuation'>,
   toolCallsById: Record<string, CopilotToolCall>
 ): string {
-  return state.isAwaitingContinuation ? ACTIVE_TURN_STATUS : resolveTurnStatusFromToolCalls(toolCallsById)
+  return state.isAwaitingContinuation
+    ? ACTIVE_TURN_STATUS
+    : resolveTurnStatusFromToolCalls(toolCallsById)
 }

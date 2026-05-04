@@ -5,7 +5,7 @@ import type { HttpMethod } from '@/tools/types'
 
 export type TradingProviderId = 'alpaca' | 'tradier' | (string & {})
 
-export type TradingAuthType = 'apiKey' | 'oauth'
+export type TradingAuthType = 'oauth'
 
 export type TradingOrderType =
   | 'market'
@@ -61,8 +61,6 @@ export interface TradingOrderInput extends TradingSymbolInput {
   trailPercent?: number
   environment?: 'paper' | 'live'
   accessToken?: string
-  apiKey?: string
-  apiSecret?: string
   orderClass?: string
   accountId?: string
   providerParams?: TradingProviderParams
@@ -71,8 +69,6 @@ export interface TradingOrderInput extends TradingSymbolInput {
 export interface TradingHoldingsInput {
   environment?: 'paper' | 'live'
   accessToken?: string
-  apiKey?: string
-  apiSecret?: string
   accountId?: string
   providerParams?: TradingProviderParams
 }
@@ -102,6 +98,16 @@ export interface TradingHoldingsNormalizationContext extends TradingHoldingsInpu
   providerName?: string
 }
 
+export interface TradingPortfolioBaseContext {
+  providerId: TradingProviderId
+  environment?: 'paper' | 'live'
+  accessToken: string
+}
+
+export interface TradingPortfolioAccountContext extends TradingPortfolioBaseContext {
+  accountId: string
+}
+
 export interface TradingOrderRequest extends TradingOrderInput {
   kind: 'order'
 }
@@ -113,8 +119,6 @@ export interface TradingHoldingsRequest extends TradingHoldingsInput {
 export type TradingProviderRequest = TradingOrderRequest | TradingHoldingsRequest
 
 export interface TradingProviderParams {
-  apiKey?: string
-  apiSecret?: string
   accessToken?: string
   [key: string]: any
 }
@@ -183,6 +187,16 @@ export interface UnifiedTradingPosition {
   leverage?: number
   openedAt?: string
   updatedAt?: string
+}
+
+export interface UnifiedTradingPositionListing {
+  listing: ListingIdentity
+  grossQuantity: number
+  signedQuantity: number
+}
+
+export interface UnifiedTradingPositionListings {
+  positionListings: UnifiedTradingPositionListing[]
 }
 
 export type UnifiedTradingOrderType =
@@ -254,6 +268,32 @@ export interface UnifiedTradingAccountSnapshot {
   extra?: Record<string, any>
 }
 
+export type TradingPortfolioPerformanceWindow = '1D' | '1W' | '1M' | '3M' | 'YTD' | '1Y' | 'MAX'
+
+export interface UnifiedTradingPortfolioPerformancePoint {
+  timestamp: string
+  equity: number
+}
+
+export interface UnifiedTradingPortfolioPerformanceSummary {
+  currency: string
+  startEquity: number
+  endEquity: number
+  highEquity: number
+  lowEquity: number
+  absoluteReturn: number
+  percentReturn: number | null
+  asOf: string
+}
+
+export interface UnifiedTradingPortfolioPerformance {
+  window: TradingPortfolioPerformanceWindow
+  supportedWindows: TradingPortfolioPerformanceWindow[]
+  series: UnifiedTradingPortfolioPerformancePoint[]
+  summary: UnifiedTradingPortfolioPerformanceSummary | null
+  unavailableReason?: string
+}
+
 export interface TradingOrder {
   id?: string
   status?: string
@@ -269,6 +309,10 @@ export type TradingProviderResponse = TradingOrder | UnifiedTradingAccountSnapsh
 export interface TradingProviderOAuthConfig {
   provider: OAuthService
   serviceId?: OAuthService
+  credentialServices?: Array<{
+    serviceId: OAuthService
+    environment?: 'paper' | 'live'
+  }>
   scopes?: string[]
   credentialTitle?: string
   credentialPlaceholder?: string

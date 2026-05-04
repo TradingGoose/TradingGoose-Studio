@@ -287,11 +287,19 @@ describe('copilot runtime tool manifest', () => {
     expect(manifest.tools.find((tool) => tool.name === 'edit_monitor')?.description).not.toContain(
       'confirmation'
     )
-    expect(toolNames).toContain('edit_workflow')
-    expect(toolNames).toContain('edit_workflow_block')
-    expect(toolNames).toContain('create_workflow')
-    expect(toolNames).toContain('get_indicator_catalog')
-    expect(toolNames).toContain('get_indicator_metadata')
-    expect(toolNames).toContain('rename_skill')
+    expect(toolNames).toEqual(
+      expect.arrayContaining([
+        'edit_workflow',
+        'edit_workflow_block',
+        'edit_skill',
+        'edit_custom_tool',
+        'edit_indicator',
+        'edit_mcp_server',
+        'create_workflow',
+        'get_indicator_catalog',
+        'get_indicator_metadata',
+        'rename_skill',
+      ])
+    )
   })
 })

@@ -373,8 +373,4 @@ export class BaseClientTool {
   getState(): ClientToolCallState {
     return this.state
   }
-
-  hasInterrupt(): boolean {
-    return !!this.metadata.interrupt
-  }
 }

@@ -37,7 +37,7 @@ vi.mock('@/lib/logs/console/logger', () => ({
   createLogger: vi.fn(() => mockLogger),
 }))
 
-describe('market proxy search cache', () => {
+describe('market proxy TradingGoose-Market gate', () => {
   beforeEach(() => {
     vi.resetModules()
     vi.clearAllMocks()
@@ -51,8 +51,8 @@ describe('market proxy search cache', () => {
   it('returns cached search responses before hitting the market service', async () => {
     mockReadServerJsonCache.mockResolvedValue({
       body: '{"data":[{"listing_id":"AAPL"}]}',
+      headers: [['content-type', 'application/json']],
       status: 200,
-      contentType: 'application/json',
     })
 
     const { proxyMarketRequest } = await import('./proxy')
@@ -72,8 +72,8 @@ describe('market proxy search cache', () => {
   it('uses a global cache key that does not vary by caller headers', async () => {
     mockReadServerJsonCache.mockResolvedValue({
       body: '{"data":[]}',
+      headers: [['content-type', 'application/json']],
       status: 200,
-      contentType: 'application/json',
     })
 
     const { proxyMarketRequest } = await import('./proxy')
@@ -134,9 +134,70 @@ describe('market proxy search cache', () => {
     expect(mockWriteServerJsonCache).toHaveBeenCalledTimes(1)
     expect(mockWriteServerJsonCache.mock.calls[0]?.[1]).toEqual({
       body: '{"data":[]}',
+      headers: [['content-type', 'application/json']],
       status: 200,
-      contentType: 'application/json',
     })
     expect(mockWriteServerJsonCache.mock.calls[0]?.[2]).toBe(300)
+  })
+
+  it('stores successful get responses in the shared server JSON cache', async () => {
+    mockReadServerJsonCache.mockResolvedValue(null)
+    fetchMock.mockResolvedValue(
+      new Response('{"data":{"listing_id":"TG_LSTG_AAPL"}}', {
+        status: 200,
+        headers: {
+          'content-type': 'application/json',
+        },
+      })
+    )
+
+    const { proxyMarketRequest } = await import('./proxy')
+    const response = await proxyMarketRequest(
+      new NextRequest('http://localhost/api/market/get/listing?listing_id=TG_LSTG_AAPL'),
+      ['get', 'listing']
+    )
+
+    expect(response.status).toBe(200)
+    expect(await response.json()).toEqual({ data: { listing_id: 'TG_LSTG_AAPL' } })
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://market.example.com/api/get/listing?listing_id=TG_LSTG_AAPL&version=v1',
+      expect.objectContaining({
+        method: 'GET',
+      })
+    )
+    expect(mockWriteServerJsonCache).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not read or write cache for update requests', async () => {
+    mockReadServerJsonCache.mockResolvedValue({
+      body: '{"cached":true}',
+      headers: [['content-type', 'application/json']],
+      status: 200,
+    })
+    fetchMock.mockResolvedValue(
+      new Response('{"success":true}', {
+        status: 200,
+        headers: {
+          'content-type': 'application/json',
+        },
+      })
+    )
+
+    const { proxyMarketRequest } = await import('./proxy')
+    const response = await proxyMarketRequest(
+      new NextRequest('http://localhost/api/market/update/listing-rank?listing_id=TG_LSTG_AAPL', {
+        body: '{}',
+        method: 'POST',
+      }),
+      ['update', 'listing-rank'],
+      new URLSearchParams({ listing_id: 'TG_LSTG_AAPL' })
+    )
+
+    expect(response.status).toBe(200)
+    expect(await response.json()).toEqual({ success: true })
+    expect(mockReadServerJsonCache).not.toHaveBeenCalled()
+    expect(mockWriteServerJsonCache).not.toHaveBeenCalled()
+    expect(fetchMock).toHaveBeenCalledTimes(1)
   })
 })

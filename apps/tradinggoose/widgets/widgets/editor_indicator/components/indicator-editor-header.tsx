@@ -36,7 +36,7 @@ export function IndicatorEditorSelector({
   const setPairContext = useSetPairColorContext()
 
   const resolvedIndicatorId = isLinkedToColorPair
-    ? (pairContext?.indicatorId ?? indicatorId ?? null)
+    ? (pairContext?.indicatorId ?? null)
     : (indicatorId ?? null)
 
   const handleIndicatorChange = (ids: string[]) => {
@@ -107,7 +107,7 @@ export function IndicatorEditorExportButton({
   const [isDirty, setIsDirty] = useState(true)
 
   const resolvedIndicatorId = isLinkedToColorPair
-    ? (pairContext?.indicatorId ?? indicatorId ?? null)
+    ? (pairContext?.indicatorId ?? null)
     : (indicatorId ?? null)
   const indicator = useIndicatorsStore((state) =>
     workspaceId && resolvedIndicatorId
@@ -185,7 +185,7 @@ export function IndicatorEditorSaveButton({
   const pairContext = usePairColorContext(resolvedPairColor)
 
   const resolvedIndicatorId = isLinkedToColorPair
-    ? (pairContext?.indicatorId ?? indicatorId ?? null)
+    ? (pairContext?.indicatorId ?? null)
     : (indicatorId ?? null)
   const saveDisabled = !workspaceId || !resolvedIndicatorId
 
@@ -231,7 +231,7 @@ export function IndicatorEditorVerifyButton({
   const pairContext = usePairColorContext(resolvedPairColor)
 
   const resolvedIndicatorId = isLinkedToColorPair
-    ? (pairContext?.indicatorId ?? indicatorId ?? null)
+    ? (pairContext?.indicatorId ?? null)
     : (indicatorId ?? null)
   const verifyDisabled = !workspaceId || !resolvedIndicatorId
 

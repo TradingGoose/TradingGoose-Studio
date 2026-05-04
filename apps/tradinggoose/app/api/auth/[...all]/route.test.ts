@@ -13,8 +13,8 @@ const {
   mockAuthHandler: vi.fn(),
   mockLoadSystemOAuthClientCredentials: vi.fn(),
   mockRunWithSystemOAuthClientCredentials: vi.fn(),
-  mockIsSignInOAuthProviderId: vi.fn((providerId: string) =>
-    providerId === 'github' || providerId === 'google'
+  mockIsSignInOAuthProviderId: vi.fn(
+    (providerId: string) => providerId === 'github' || providerId === 'google'
   ),
 }))
 
@@ -103,6 +103,54 @@ describe('/api/auth/[...all] route', () => {
 
     expect(response.status).toBe(204)
     expect(mockLoadSystemOAuthClientCredentials).toHaveBeenCalledWith(['github-repo'])
+    expect(mockRunWithSystemOAuthClientCredentials).toHaveBeenCalledTimes(1)
+    expect(mockAuthHandler).toHaveBeenCalledTimes(1)
+  })
+
+  it('hydrates Alpaca paper credentials before delegating OAuth link routes', async () => {
+    mockAuthHandler.mockResolvedValue(new Response(null, { status: 204 }))
+    mockLoadSystemOAuthClientCredentials.mockResolvedValue({
+      'alpaca-paper': {
+        clientId: 'client-id',
+        clientSecret: 'client-secret',
+      },
+    })
+
+    const { handleAuthRequest } = await import('./route')
+    const response = await handleAuthRequest(
+      new Request('http://localhost/api/auth/oauth2/link', {
+        method: 'POST',
+        body: JSON.stringify({
+          providerId: 'alpaca-paper',
+          callbackURL: 'http://localhost/workspace',
+        }),
+      })
+    )
+
+    expect(response.status).toBe(204)
+    expect(mockLoadSystemOAuthClientCredentials).toHaveBeenCalledWith(['alpaca-paper'])
+    expect(mockRunWithSystemOAuthClientCredentials).toHaveBeenCalledTimes(1)
+    expect(mockAuthHandler).toHaveBeenCalledTimes(1)
+  })
+
+  it('hydrates Alpaca paper credentials before delegating OAuth callback routes', async () => {
+    mockAuthHandler.mockResolvedValue(new Response(null, { status: 204 }))
+    mockLoadSystemOAuthClientCredentials.mockResolvedValue({
+      'alpaca-paper': {
+        clientId: 'client-id',
+        clientSecret: 'client-secret',
+      },
+    })
+
+    const { handleAuthRequest } = await import('./route')
+    const response = await handleAuthRequest(
+      new Request('http://localhost/api/auth/oauth2/callback/alpaca-paper?code=code', {
+        method: 'GET',
+      })
+    )
+
+    expect(response.status).toBe(204)
+    expect(mockLoadSystemOAuthClientCredentials).toHaveBeenCalledWith(['alpaca-paper'])
     expect(mockRunWithSystemOAuthClientCredentials).toHaveBeenCalledTimes(1)
     expect(mockAuthHandler).toHaveBeenCalledTimes(1)
   })

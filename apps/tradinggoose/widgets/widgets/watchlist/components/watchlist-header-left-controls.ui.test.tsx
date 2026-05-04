@@ -13,31 +13,28 @@ vi.mock('@/widgets/utils/watchlist-params', () => ({
   emitWatchlistParamsChange: (...args: unknown[]) => mockEmitWatchlistParamsChange(...args),
 }))
 
-vi.mock('@/widgets/widgets/components/market-provider-selector', () => ({
-  MarketProviderSelector: () => <div>provider-selector</div>,
-}))
-
-vi.mock('@/widgets/widgets/watchlist/components/watchlist-refresh-data-button', () => ({
-  WatchlistRefreshDataButton: () => <div>refresh-button</div>,
-}))
-
-vi.mock('@/widgets/widgets/watchlist/components/provider-controls', () => ({
-  resolveWatchlistProviderCredentialDefinitions: (providerId?: string) =>
-    providerId === 'alpaca' ? [{ id: 'apiKey' }, { id: 'apiSecret' }] : [],
-  WatchlistProviderSettingsButton: (props: {
-    definitions: Array<{ id: string }>
-    onSave: (next: {
+vi.mock('@/widgets/widgets/components/market-provider-controls', () => ({
+  MarketProviderControls: (props: {
+    value?: string
+    className?: string
+    onSettingsSave: (next: {
       auth?: Record<string, unknown>
       providerParams?: Record<string, unknown>
     }) => void
   }) => {
-    if (props.definitions.length === 0) return null
+    if (props.value !== 'alpaca') {
+      return <div className={props.className}>provider-selector</div>
+    }
 
     return (
       <button
         type='button'
+        className={props.className}
         onClick={() =>
-          props.onSave({ auth: { apiKey: 'secret' }, providerParams: { feed: 'iex' } })
+          props.onSettingsSave({
+            auth: { apiKey: '{{ ALPACA_API_KEY }}' },
+            providerParams: { feed: 'iex' },
+          })
         }
       >
         provider-settings
@@ -91,6 +88,7 @@ describe('WatchlistHeaderLeftControls', () => {
     })
 
     expect(container.textContent).not.toContain('provider-settings')
+    expect(container.textContent).toContain('provider-selector')
     expect(container.firstElementChild?.className).toContain('min-w-0')
 
     await act(async () => {
@@ -139,7 +137,7 @@ describe('WatchlistHeaderLeftControls', () => {
     expect(mockEmitWatchlistParamsChange).toHaveBeenCalledWith({
       params: {
         providerParams: { feed: 'iex' },
-        auth: { apiKey: 'secret' },
+        auth: { apiKey: '{{ ALPACA_API_KEY }}' },
         runtime: {
           refreshAt: expect.any(Number),
         },

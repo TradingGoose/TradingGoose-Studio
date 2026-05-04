@@ -106,12 +106,8 @@ const getPairColorFromChannelId = (channelId?: string): PairColor | null => {
 const syncPairContextForChannel = (channelId: string | undefined, workflowId: string | null) => {
   const pairColor = getPairColorFromChannelId(channelId)
   if (!pairColor) return
-  const { contexts, setContext } = usePairColorStore.getState()
-  const current = contexts[pairColor]
-  setContext(pairColor, {
-    ...current,
-    workflowId: workflowId ?? undefined,
-  })
+  const { setContext } = usePairColorStore.getState()
+  setContext(pairColor, { workflowId: workflowId ?? undefined })
 }
 
 const syncRegistryFromPairContexts = (

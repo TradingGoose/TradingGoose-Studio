@@ -41,7 +41,7 @@ export function SkillEditorSelector({
   const setPairContext = useSetPairColorContext()
 
   const resolvedSkillId = isLinkedToColorPair
-    ? (pairContext?.skillId ?? skillId ?? null)
+    ? (pairContext?.skillId ?? null)
     : (skillId ?? null)
 
   const handleSkillChange = (nextSkillId: string | null) => {
@@ -118,7 +118,7 @@ export function SkillEditorExportButton({
   const [isDirty, setIsDirty] = useState(true)
 
   const resolvedSkillId = isLinkedToColorPair
-    ? (pairContext?.skillId ?? skillId ?? null)
+    ? (pairContext?.skillId ?? null)
     : (skillId ?? null)
   const skill = useSkillsStore((state) =>
     workspaceId && resolvedSkillId ? state.getSkill(resolvedSkillId, workspaceId) : undefined

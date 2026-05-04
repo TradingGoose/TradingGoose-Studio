@@ -1,6 +1,5 @@
 import { createLogger } from '@/lib/logs/console/logger'
-import { MARKET_API_URL_DEFAULT } from '@/lib/market/client/constants'
-import { resolveMarketApiServiceConfig } from '@/lib/system-services/runtime'
+import { requestTradingGooseMarket } from '@/lib/market/request-gate'
 import { generateRequestId } from '@/lib/utils'
 
 const logger = createLogger('MarketClient')
@@ -13,14 +12,6 @@ export interface MarketClientResponse<T = any> {
 }
 
 class MarketClient {
-  private async getServiceConfig() {
-    const config = await resolveMarketApiServiceConfig()
-    return {
-      baseUrl: config.baseUrl || MARKET_API_URL_DEFAULT,
-      apiKey: config.apiKey,
-    }
-  }
-
   async makeRequest<T = any>(
     endpoint: string,
     options: {
@@ -50,9 +41,6 @@ class MarketClient {
     }
 
     try {
-      const serviceConfig = await this.getServiceConfig()
-      const url = `${serviceConfig.baseUrl}${endpoint}`
-
       const requestHeaders: Record<string, string> = {
         ...headers,
       }
@@ -61,13 +49,8 @@ class MarketClient {
         requestHeaders['Content-Type'] = 'application/json'
       }
 
-      const key = apiKey ?? serviceConfig.apiKey
-      if (key) {
-        requestHeaders['x-api-key'] = key
-      }
-
       logger.info(`[${requestId}] Making request to market service`, {
-        url,
+        endpoint,
         method,
       })
 
@@ -80,7 +63,10 @@ class MarketClient {
         fetchOptions.body = JSON.stringify(body)
       }
 
-      const response = await fetch(url, fetchOptions)
+      const response = await requestTradingGooseMarket(endpoint, {
+        ...fetchOptions,
+        apiKey,
+      })
       const responseStatus = response.status
 
       let responseData: any

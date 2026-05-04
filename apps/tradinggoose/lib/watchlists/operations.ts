@@ -2,7 +2,11 @@ import { db } from '@tradinggoose/db'
 import { watchlistItem, watchlistTable } from '@tradinggoose/db/schema'
 import { and, asc, desc, eq, inArray, isNull } from 'drizzle-orm'
 import type { ListingIdentity, ListingInputValue } from '@/lib/listing/identity'
-import { areListingIdentitiesEqual, toListingValueObject } from '@/lib/listing/identity'
+import {
+  areListingIdentitiesEqual,
+  getListingIdentityKey,
+  toListingValueObject,
+} from '@/lib/listing/identity'
 import { DEFAULT_WATCHLIST_NAME, MAX_SYMBOLS_PER_WATCHLIST } from '@/lib/watchlists/constants'
 import type {
   WatchlistImportFileItem,
@@ -153,7 +157,10 @@ const buildItemsBySectionMap = (items: WatchlistItemRow[]) => {
   return { bySection, unsectioned }
 }
 
-const composeWatchlistItems = (sections: WatchlistRow[], items: WatchlistItemRow[]): WatchlistItem[] => {
+const composeWatchlistItems = (
+  sections: WatchlistRow[],
+  items: WatchlistItemRow[]
+): WatchlistItem[] => {
   const output: WatchlistItem[] = []
   const sortedSections = [...sections].sort((a, b) => {
     if (a.sortOrder !== b.sortOrder) {
@@ -284,9 +291,6 @@ const hasListingIdentity = (items: WatchlistItemRow[], candidate: ListingIdentit
     const existing = toListingValueObject(entry.listing as ListingInputValue)
     return existing ? areListingIdentitiesEqual(existing, candidate) : false
   })
-
-const getListingIdentityKey = (listing: ListingIdentity) =>
-  `${listing.listing_type}|${listing.listing_id}|${listing.base_id}|${listing.quote_id}`
 
 const flattenImportedWatchlistListings = (items: WatchlistImportFileItem[]) =>
   items.flatMap<WatchlistImportFileListingItem>((item) =>
@@ -536,7 +540,9 @@ export async function deleteWatchlist(scope: WatchlistScope, watchlistId: string
   await db.transaction(async (tx) => {
     const row = await fetchWatchlistRow(tx, watchlistId, scope)
     ensureMutableList(row, 'delete')
-    await tx.delete(watchlistTable).where(and(eq(watchlistTable.id, row.id), isNull(watchlistTable.parentId)))
+    await tx
+      .delete(watchlistTable)
+      .where(and(eq(watchlistTable.id, row.id), isNull(watchlistTable.parentId)))
   })
 }
 
@@ -767,9 +773,7 @@ export async function removeWatchlistSection(
 
     await tx
       .delete(watchlistItem)
-      .where(
-        and(eq(watchlistItem.watchlistId, row.id), eq(watchlistItem.containerId, sectionId))
-      )
+      .where(and(eq(watchlistItem.watchlistId, row.id), eq(watchlistItem.containerId, sectionId)))
 
     await tx
       .delete(watchlistTable)
@@ -888,9 +892,7 @@ export async function appendWatchlistItemsToWatchlist(
     for (const item of importedListings) {
       const listing = toListingValueObject(item.listing)
       const key = listing ? getListingIdentityKey(listing) : null
-      const isDuplicate = key
-        ? existingListingKeys.has(key) || plannedAdditionKeys.has(key)
-        : true
+      const isDuplicate = key ? existingListingKeys.has(key) || plannedAdditionKeys.has(key) : true
 
       if (!listing || !key || isDuplicate) {
         skippedCount += 1

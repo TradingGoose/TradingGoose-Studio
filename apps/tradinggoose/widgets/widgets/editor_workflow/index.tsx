@@ -146,6 +146,10 @@ const WorkflowEditorWidgetBody = ({
   }
 
   if (!resolvedWorkflowId) {
+    if (resolvedPairColor !== 'gray') {
+      return <WidgetStateMessage message='This color has no shared workflow selected yet.' />
+    }
+
     return (
       <div className='flex h-full w-full items-center justify-center '>
         <LoadingAgent size='md' />

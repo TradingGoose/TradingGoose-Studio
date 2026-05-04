@@ -7,6 +7,7 @@ import { createWithEqualityFn as create, useStoreWithEqualityFn } from 'zustand/
 import {
   shouldAutoExecuteCopilotTool,
   shouldAutoExecuteIntegrationTool,
+  shouldRequireCopilotApproval,
 } from '@/lib/copilot/access-policy'
 import { type CopilotChat, sendStreamingMessage } from '@/lib/copilot/api'
 import { mergeCopilotContexts } from '@/lib/copilot/chat-contexts'
@@ -265,7 +266,7 @@ function autoExecuteEligibleToolsForAccessLevel(
   accessLevel: CopilotStore['accessLevel'],
   get: () => CopilotStore
 ) {
-  if (accessLevel !== 'full') {
+  if (shouldRequireCopilotApproval(accessLevel)) {
     return
   }
 
@@ -388,7 +389,8 @@ function syncCopilotSessionState(sourceStore: StoreApi<CopilotStore>) {
   for (const store of copilotStoreRegistry.values()) {
     if (
       store === sourceStore ||
-      store.getState().currentChat?.reviewSessionId !== sharedSessionState.currentChat.reviewSessionId
+      store.getState().currentChat?.reviewSessionId !==
+        sharedSessionState.currentChat.reviewSessionId
     ) {
       continue
     }
@@ -728,12 +730,12 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
                 const preferredChat =
                   typeof preferredWorkspaceSelection === 'string'
                     ? (data.chats.find(
-                        (chat: CopilotChat) =>
-                          chat.reviewSessionId === preferredWorkspaceSelection
+                        (chat: CopilotChat) => chat.reviewSessionId === preferredWorkspaceSelection
                       ) ?? null)
                     : null
                 const availableChat =
-                  preferredChat ?? (preferredWorkspaceSelection === null ? null : (data.chats[0] ?? null))
+                  preferredChat ??
+                  (preferredWorkspaceSelection === null ? null : (data.chats[0] ?? null))
 
                 if (availableChat) {
                   const normalizedMessages = normalizeMessagesForUI(
@@ -745,7 +747,10 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
                     workspaceId: availableChat.workspaceId,
                   })
 
-                  rememberCopilotWorkspaceSelection(availableChat.workspaceId, availableChat.reviewSessionId)
+                  rememberCopilotWorkspaceSelection(
+                    availableChat.workspaceId,
+                    availableChat.reviewSessionId
+                  )
 
                   set({
                     currentChat: availableChat,
@@ -794,12 +799,7 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
       // Send a message (streaming only)
       sendMessage: async (message: string, options = {}) => {
         const { currentChat } = get()
-        const {
-          fileAttachments,
-          contexts,
-          messageId,
-          runtimeContext,
-        } = options as {
+        const { fileAttachments, contexts, messageId, runtimeContext } = options as {
           fileAttachments?: MessageFileAttachment[]
           contexts?: ChatContext[]
           messageId?: string
@@ -1043,133 +1043,6 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
             display: resolveToolDisplay(current.name, norm, id, current.params),
           }
           set({ toolCallsById: map })
-        } catch {}
-      },
-      updatePreviewToolCallState: (
-        toolCallState: 'accepted' | 'rejected' | 'error',
-        toolCallId?: string
-      ) => {
-        const stateMap: Record<string, ClientToolCallState> = {
-          accepted: ClientToolCallState.success,
-          rejected: ClientToolCallState.rejected,
-          error: ClientToolCallState.error,
-        }
-        const targetState = stateMap[toolCallState] || ClientToolCallState.success
-        const { toolCallsById } = get()
-        // Determine target tool
-        let id = toolCallId
-        if (!id) {
-          // Prefer the latest assistant message's build/edit tool_call
-          const messages = get().messages
-          outer: for (let mi = messages.length - 1; mi >= 0; mi--) {
-            const m = messages[mi]
-            if (m.role !== 'assistant' || !m.contentBlocks) continue
-            const blocks = m.contentBlocks as any[]
-            for (let bi = blocks.length - 1; bi >= 0; bi--) {
-              const b = blocks[bi]
-              if (b?.type === 'tool_call') {
-                const tn = b.toolCall?.name
-                if (tn === 'edit_workflow') {
-                  id = b.toolCall?.id
-                  break outer
-                }
-              }
-            }
-          }
-          // Fallback to map if not found in messages
-          if (!id) {
-            const candidates = Object.values(toolCallsById).filter(
-              (t) => t.name === 'edit_workflow'
-            )
-            id = candidates.length ? candidates[candidates.length - 1].id : undefined
-          }
-        }
-        if (!id) return
-        const current = toolCallsById[id]
-        if (!current) return
-        // Do not override a rejected tool with success
-        if (isRejectedState(current.state) && targetState === ClientToolCallState.success) {
-          return
-        }
-
-        // Update store map
-        const updatedMap = { ...toolCallsById }
-        const updatedDisplay = resolveToolDisplay(current.name, targetState, id, current.params)
-        updatedMap[id] = {
-          ...current,
-          state: targetState,
-          display: updatedDisplay,
-        }
-        set({ toolCallsById: updatedMap })
-
-        // Update inline content block in the latest assistant message
-        set((s) => {
-          const messages = [...s.messages]
-          for (let mi = messages.length - 1; mi >= 0; mi--) {
-            const m = messages[mi]
-            if (m.role !== 'assistant' || !m.contentBlocks) continue
-            let changed = false
-            const blocks = m.contentBlocks.map((b: any) => {
-              if (b.type === 'tool_call' && b.toolCall?.id === id) {
-                changed = true
-                const prev = b.toolCall || {}
-                return {
-                  ...b,
-                  toolCall: {
-                    ...prev,
-                    id,
-                    name: current.name,
-                    state: targetState,
-                    display: updatedDisplay,
-                    params: current.params,
-                  },
-                }
-              }
-              return b
-            })
-            if (changed) {
-              messages[mi] = { ...m, contentBlocks: blocks }
-              break
-            }
-          }
-          return { messages }
-        })
-
-        // Notify backend mark-complete to finalize tool server-side
-        try {
-          postCopilotMarkComplete({
-            toolCallId: id,
-            toolName: current.name,
-            status:
-              targetState === ClientToolCallState.success
-                ? 200
-                : targetState === ClientToolCallState.rejected
-                  ? REJECTED_TOOL_COMPLETION_STATUS
-                  : 500,
-            message: toolCallState,
-            ...(targetState === ClientToolCallState.rejected ? { data: { rejected: true } } : {}),
-          })
-            .then(async (res) => {
-              if (!res.ok) {
-                let body: string | undefined
-                try {
-                  body = await res.text()
-                } catch {}
-                logger.warn('[mark-complete] proxy responded non-OK', {
-                  toolCallId: id,
-                  toolName: current.name,
-                  status: res.status,
-                  body: body?.slice(0, 200),
-                })
-              }
-            })
-            .catch((error) => {
-              logger.warn('[mark-complete] proxy fetch failed', {
-                toolCallId: id,
-                toolName: current.name,
-                error: error instanceof Error ? error.message : String(error),
-              })
-            })
         } catch {}
       },
 

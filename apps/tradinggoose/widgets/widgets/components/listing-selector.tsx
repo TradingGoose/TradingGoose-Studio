@@ -1,26 +1,31 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
 import { ChevronDown } from 'lucide-react'
-import { cn } from '@/lib/utils'
-import { checkTagTrigger, TagDropdown } from '@/components/ui/tag-dropdown'
-import { formatDisplayText } from '@/components/ui/formatted-text'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { useAccessibleReferencePrefixes } from '@/hooks/workflow/use-accessible-reference-prefixes'
-import type { ListingIdentity, ListingOption } from '@/lib/listing/identity'
-import { areListingIdentitiesEqual, toListingValue, toListingValueObject } from '@/lib/listing/identity'
-import { requestListingResolution } from '@/components/listing-selector/selector/resolve-request'
-import {
-  createEmptyListingSelectorInstance,
-  useListingSelectorStore,
-} from '@/stores/market/selector/store'
-import { useMarketListingSearch } from '@/components/listing-selector/selector/use-listing-search'
+import { createPortal } from 'react-dom'
 import {
   triggerCryptoRankUpdate,
   triggerCurrencyRankUpdate,
   triggerListingRankUpdate,
 } from '@/components/listing-selector/listing/rank-updates'
+import { requestListingResolution } from '@/components/listing-selector/selector/resolve-request'
+import { useMarketListingSearch } from '@/components/listing-selector/selector/use-listing-search'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { formatDisplayText } from '@/components/ui/formatted-text'
+import { checkTagTrigger, TagDropdown } from '@/components/ui/tag-dropdown'
+import type { ListingIdentity, ListingOption } from '@/lib/listing/identity'
+import {
+  areListingIdentitiesEqual,
+  getListingIdentityKey,
+  toListingValue,
+  toListingValueObject,
+} from '@/lib/listing/identity'
+import { cn } from '@/lib/utils'
+import { useAccessibleReferencePrefixes } from '@/hooks/workflow/use-accessible-reference-prefixes'
+import {
+  createEmptyListingSelectorInstance,
+  useListingSelectorStore,
+} from '@/stores/market/selector/store'
 import { widgetHeaderControlClassName } from '@/widgets/widgets/components/widget-header-control'
 
 interface ListingSelectorProps {
@@ -29,13 +34,11 @@ interface ListingSelectorProps {
   disabled?: boolean
   className?: string
   providerType?: 'market' | 'trading'
+  activateOnMount?: boolean
   onListingChange?: (listing: ListingOption | null) => void
   onListingValueChange?: (value: string | null) => void
   onListingTagSelect?: (value: string) => void
 }
-
-const getListingIdentityKey = (listing: ListingIdentity) =>
-  `${listing.listing_type}|${listing.listing_id}|${listing.base_id}|${listing.quote_id}`
 
 const getListingOptionKey = (listing: ListingOption) =>
   `${getListingIdentityKey(listing)}|${listing.base ?? ''}|${listing.quote ?? ''}|${listing.name ?? ''}`
@@ -74,9 +77,7 @@ const hasListingDetails = (listing?: ListingOption | null): boolean => {
   return Boolean(quote)
 }
 
-const getFlagData = (
-  countryCode?: string | null
-): { emoji: string; codepoints: string } | null => {
+const getFlagData = (countryCode?: string | null): { emoji: string; codepoints: string } | null => {
   if (!countryCode) return null
   const code = countryCode.trim().toUpperCase()
   if (code.length !== 2) return null
@@ -106,27 +107,30 @@ const ListingSelectorRow = ({
   const companyName = listing ? getListingCompanyName(listing) : null
   const assetClassLabel = listing?.assetClass?.toUpperCase() ?? ''
   const flagData = getFlagData(listing?.countryCode)
-  const prefersFlagImage =
-    typeof navigator !== 'undefined' && /Windows/i.test(navigator.userAgent)
+  const prefersFlagImage = typeof navigator !== 'undefined' && /Windows/i.test(navigator.userAgent)
   const flagImageUrl = flagData
     ? `https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/svg/${flagData.codepoints}.svg`
     : null
 
   return (
-    <div className='flex min-w-0 flex-1 items-center gap-2 flex items-center'>
+    <div className='flex min-w-0 flex-1 items-center gap-2'>
       <Avatar className='h-4 w-4 rounded-xs bg-secondary'>
         {listing?.iconUrl ? <AvatarImage src={listing.iconUrl} alt={symbol} /> : null}
-        <AvatarFallback className='text-xs text-accent-foreground'>
+        <AvatarFallback className='text-accent-foreground text-xs'>
           {listing ? getListingFallback(listing) : '??'}
         </AvatarFallback>
       </Avatar>
       {showSecondary && companyName ? (
         <div className='min-w-0 flex-1'>
-          <span className='block min-w-0 truncate text-sm font-medium'>{listing ? symbol : 'Select listing'}</span>
-          <span className='block min-w-0 truncate text-muted-foreground text-xs'>{companyName}</span>
+          <span className='block min-w-0 truncate font-medium text-sm'>
+            {listing ? symbol : 'Select listing'}
+          </span>
+          <span className='block min-w-0 truncate text-muted-foreground text-xs'>
+            {companyName}
+          </span>
         </div>
       ) : (
-        <span className='min-w-0 truncate text-sm font-medium'>
+        <span className='min-w-0 truncate font-medium text-sm'>
           {listing ? symbol : 'Select listing'}
         </span>
       )}
@@ -141,7 +145,7 @@ const ListingSelectorRow = ({
         <span className='ml-1 text-xs'>{flagData.emoji}</span>
       ) : null}
       {assetClassLabel && listing ? (
-        <span className='ml-auto p-1 text-xs font-semibold text-muted-foreground'>
+        <span className='ml-auto p-1 font-semibold text-muted-foreground text-xs'>
           {assetClassLabel}
         </span>
       ) : null}
@@ -155,6 +159,7 @@ export function ListingSelector({
   disabled,
   className,
   providerType = 'market',
+  activateOnMount = false,
   onListingChange,
   onListingValueChange,
   onListingTagSelect,
@@ -169,14 +174,7 @@ export function ListingSelector({
   }, [ensureInstance, instanceId])
 
   const safeInstance = instance ?? createEmptyListingSelectorInstance()
-  const {
-    query,
-    results,
-    isLoading,
-    error,
-    selectedListing,
-    providerId,
-  } = safeInstance
+  const { query, results, isLoading, error, selectedListing, providerId } = safeInstance
 
   const [open, setOpen] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -192,6 +190,7 @@ export function ListingSelector({
   } | null>(null)
   const hydratedListingRef = useRef<ListingIdentity | null>(null)
   const hydrateRequestRef = useRef(0)
+  const hasActivatedOnMountRef = useRef(false)
   const accessiblePrefixes = useAccessibleReferencePrefixes(blockId)
 
   const isVariableListingInput = useCallback((value: string) => {
@@ -288,9 +287,7 @@ export function ListingSelector({
     const lastOpen = value.lastIndexOf('<')
     const lastClose = value.indexOf('>', lastOpen + 1)
     const rawTag =
-      lastOpen >= 0
-        ? value.slice(lastOpen + 1, lastClose >= 0 ? lastClose : value.length)
-        : value
+      lastOpen >= 0 ? value.slice(lastOpen + 1, lastClose >= 0 ? lastClose : value.length) : value
     const trimmedTag = rawTag.trim()
     const normalizedValue = trimmedTag ? `<${trimmedTag}>` : value
     commitVariableValue(normalizedValue, 'tag')
@@ -309,8 +306,20 @@ export function ListingSelector({
   }, [open])
 
   useEffect(() => {
-    const selectedValue =
-      safeInstance.selectedListingValue ?? safeInstance.selectedListing ?? null
+    if (!activateOnMount || disabled || hasActivatedOnMountRef.current) return
+    hasActivatedOnMountRef.current = true
+    const nextQuery = query || selectedLabel
+    if (nextQuery && query !== nextQuery) {
+      updateInstance(instanceId, { query: nextQuery })
+    }
+    setCursorPosition(nextQuery.length)
+    setShowTags(false)
+    setHighlightedIndex(-1)
+    setOpen(true)
+  }, [activateOnMount, disabled, instanceId, query, selectedLabel, updateInstance])
+
+  useEffect(() => {
+    const selectedValue = safeInstance.selectedListingValue ?? safeInstance.selectedListing ?? null
     if (!selectedValue) {
       hydratedListingRef.current = null
       return
@@ -341,7 +350,7 @@ export function ListingSelector({
           selectedListingValue: identity,
         })
       })
-      .catch(() => { })
+      .catch(() => {})
 
     return () => {
       cancelled = true
@@ -399,7 +408,7 @@ export function ListingSelector({
   const dropdown = showListingDropdown ? (
     <div
       className={cn(
-        dropdownPosition ? 'absolute z-[1000]' : 'absolute left-0 top-full z-[200] mt-1 w-full'
+        dropdownPosition ? 'absolute z-[1000]' : 'absolute top-full left-0 z-[200] mt-1 w-full'
       )}
       style={
         dropdownPosition
@@ -411,6 +420,7 @@ export function ListingSelector({
           : undefined
       }
       data-market-selector
+      data-market-selector-id={instanceId}
       onWheel={(event) => event.stopPropagation()}
     >
       <div className='allow-scroll fade-in-0 zoom-in-95 animate-in rounded-md border bg-popover text-popover-foreground shadow-lg'>
@@ -421,9 +431,9 @@ export function ListingSelector({
           onTouchMove={(event) => event.stopPropagation()}
         >
           {isLoading ? (
-            <div className='py-6 text-center text-sm text-muted-foreground'>Searching...</div>
+            <div className='py-6 text-center text-muted-foreground text-sm'>Searching...</div>
           ) : results.length === 0 ? (
-            <div className='py-6 text-center text-sm text-muted-foreground'>
+            <div className='py-6 text-center text-muted-foreground text-sm'>
               {error || 'No listings found.'}
             </div>
           ) : (
@@ -454,14 +464,17 @@ export function ListingSelector({
   ) : null
 
   return (
-    <div ref={containerRef} className={cn('relative w-full', className)} data-market-selector>
+    <div
+      ref={containerRef}
+      className={cn('relative w-full', className)}
+      data-market-selector
+      data-market-selector-id={instanceId}
+    >
       <div className='relative'>
         <input
           ref={inputRef}
           className={cn(
-            widgetHeaderControlClassName(
-              'w-full justify-center pr-9 text-sm font-medium'
-            ),
+            widgetHeaderControlClassName('w-full justify-center pr-9 font-medium text-sm'),
             hideInputText && 'text-transparent caret-transparent placeholder:text-transparent'
           )}
           name={`listing-search-${instanceId}`}
@@ -594,17 +607,17 @@ export function ListingSelector({
           disabled={disabled}
         />
         {showRichOverlay ? (
-          <div className='pointer-events-none absolute inset-y-0 left-0 flex items-center px-1 w-full'>
+          <div className='pointer-events-none absolute inset-y-0 left-0 flex w-full items-center px-1'>
             <ListingSelectorRow listing={selectedListing} />
           </div>
         ) : null}
         {showPlaceholderOverlay ? (
-          <div className='pointer-events-none absolute inset-y-0 left-0 flex items-center px-1 w-full'>
+          <div className='pointer-events-none absolute inset-y-0 left-0 flex w-full items-center px-1'>
             <ListingSelectorRow listing={null} />
           </div>
         ) : null}
         {showTagOverlay ? (
-          <div className='pointer-events-none absolute inset-y-0 left-0 flex items-center px-1 w-full'>
+          <div className='pointer-events-none absolute inset-y-0 left-0 flex w-full items-center px-1'>
             <div className='w-full truncate text-sm'>
               {formatDisplayText(query, {
                 accessiblePrefixes,
@@ -615,7 +628,7 @@ export function ListingSelector({
         ) : null}
         <button
           type='button'
-          className='absolute right-1 top-1/2 z-10 h-6 w-6 -translate-y-1/2 p-0 bg-transparent'
+          className='-translate-y-1/2 absolute top-1/2 right-1 z-10 h-6 w-6 bg-transparent p-0'
           disabled={disabled}
           onMouseDown={(event) => {
             event.preventDefault()
@@ -632,7 +645,12 @@ export function ListingSelector({
             }
           }}
         >
-          <ChevronDown className={cn('h-4 w-4 opacity-0 transition-transform', open && 'rotate-180 opacity-50')} />
+          <ChevronDown
+            className={cn(
+              'h-4 w-4 opacity-0 transition-transform',
+              open && 'rotate-180 opacity-50'
+            )}
+          />
         </button>
       </div>
 

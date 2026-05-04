@@ -110,7 +110,8 @@ describe('EditWorkflowBlockClientTool', () => {
           json: async () => ({
             success: true,
             result: {
-              workflowDocument: 'flowchart TD\n%% TG_WORKFLOW {"version":"tg-mermaid-v1","direction":"TD"}',
+              workflowDocument:
+                'flowchart TD\n%% TG_WORKFLOW {"version":"tg-mermaid-v1","direction":"TD"}',
               workflowState: {
                 direction: 'TD',
                 blocks: {
@@ -165,6 +166,7 @@ describe('EditWorkflowBlockClientTool', () => {
     })
 
     expect(tool.getState()).toBe(ClientToolCallState.review)
+    expect(tool.getInterruptDisplays()).toBeDefined()
     expect(mockSetWorkflowState).not.toHaveBeenCalled()
   })
 })

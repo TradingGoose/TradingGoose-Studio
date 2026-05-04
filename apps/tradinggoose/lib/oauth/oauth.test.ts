@@ -6,8 +6,8 @@ type MockOAuthCredentials = {
   fields: Record<string, string>
 }
 
-const mockCredentials: Record<string, MockOAuthCredentials> = {}
-const mockEnvValues: Record<string, string> = {}
+const mockCredentials: Record<string, MockOAuthCredentials | undefined> = {}
+const mockEnvValues: Record<string, string | undefined> = {}
 
 vi.mock('@/lib/oauth/system-managed-config', () => ({
   loadSystemOAuthClientCredentials: vi.fn(async (providerIds: string[]) =>
@@ -20,8 +20,8 @@ vi.mock('@/lib/oauth/system-managed-config', () => ({
       )
     )
   ),
-  loadSystemOAuthClientCredentialsForProvider: vi.fn(async (providerId: string) =>
-    mockCredentials[providerId] ?? null
+  loadSystemOAuthClientCredentialsForProvider: vi.fn(
+    async (providerId: string) => mockCredentials[providerId] ?? null
   ),
 }))
 
@@ -41,7 +41,11 @@ vi.mock('@/lib/logs/console/logger', () => ({
 const mockFetch = vi.fn()
 global.fetch = mockFetch
 
-import { getOAuthProviderSubjectId, getServiceIdFromScopes } from '@/lib/oauth/oauth'
+import {
+  getOAuthProviderSubjectId,
+  getServiceIdFromScopes,
+  getServiceIdsFromScopes,
+} from '@/lib/oauth/oauth'
 import { getOAuthProviderAvailability, refreshOAuthToken } from '@/lib/oauth/oauth.server'
 
 function setIntegration(providerIds: string[], clientId: string, clientSecret: string) {
@@ -92,7 +96,14 @@ function seedMockIntegrations() {
   )
   setIntegration(['github-repo'], 'github_repo_client_id', 'github_repo_client_secret')
   setIntegration(
-    ['microsoft-excel', 'microsoft-teams', 'microsoft-planner', 'outlook', 'onedrive', 'sharepoint'],
+    [
+      'microsoft-excel',
+      'microsoft-teams',
+      'microsoft-planner',
+      'outlook',
+      'onedrive',
+      'sharepoint',
+    ],
     'microsoft_client_id',
     'microsoft_client_secret'
   )
@@ -109,7 +120,7 @@ function seedMockIntegrations() {
   setIntegration(['wealthbox'], 'wealthbox_client_id', 'wealthbox_client_secret')
   setIntegration(['webflow'], 'webflow_client_id', 'webflow_client_secret')
   setIntegration(['tradier'], 'tradier_client_id', 'tradier_client_secret')
-  setIntegration(['alpaca'], 'alpaca_client_id', 'alpaca_client_secret')
+  setIntegration(['alpaca-live', 'alpaca-paper'], 'alpaca_client_id', 'alpaca_client_secret')
   setIntegration(['hubspot'], 'hubspot_client_id', 'hubspot_client_secret')
   setApiKeyIntegration(['trello'], 'trello_api_key')
 
@@ -175,7 +186,7 @@ describe('OAuth Provider Availability', () => {
   })
 
   it('does not make Trello available from TRELLO_API_KEY env fallback', async () => {
-    delete mockCredentials.trello
+    mockCredentials.trello = undefined
     mockEnvValues.TRELLO_API_KEY = 'env-trello-api-key'
 
     await expect(getOAuthProviderAvailability(['trello'])).resolves.toEqual({
@@ -184,8 +195,8 @@ describe('OAuth Provider Availability', () => {
   })
 
   it('returns false for env-backed social sign-in providers when required env credentials are missing', async () => {
-    delete mockEnvValues.GITHUB_CLIENT_SECRET
-    delete mockEnvValues.GOOGLE_CLIENT_ID
+    mockEnvValues.GITHUB_CLIENT_SECRET = undefined
+    mockEnvValues.GOOGLE_CLIENT_ID = undefined
 
     await expect(getOAuthProviderAvailability(['github', 'google'])).resolves.toEqual({
       github: false,
@@ -231,9 +242,22 @@ describe('OAuth Subject Normalization', () => {
   })
 
   it('keeps direct service providers stable without re-entering scope branching', () => {
-    expect(getServiceIdFromScopes('google-drive', ['https://www.googleapis.com/auth/drive.file'])).toBe(
-      'google-drive'
-    )
+    expect(
+      getServiceIdFromScopes('google-drive', ['https://www.googleapis.com/auth/drive.file'])
+    ).toBe('google-drive')
+  })
+
+  it('does not collapse ambiguous Alpaca scopes to live', () => {
+    expect(getServiceIdsFromScopes('alpaca', ['trading', 'data'])).toEqual([
+      'alpaca-live',
+      'alpaca-paper',
+    ])
+    expect(
+      getOAuthProviderSubjectId({
+        provider: 'alpaca',
+        requiredScopes: ['trading', 'data'],
+      })
+    ).toBeNull()
   })
 })
 
@@ -403,7 +427,7 @@ describe('OAuth Token Refresh', () => {
       },
       {
         name: 'Alpaca',
-        providerId: 'alpaca',
+        providerId: 'alpaca-live',
         endpoint: 'https://api.alpaca.markets/oauth/token',
         expectedClientId: 'alpaca_client_id',
         expectedClientSecret: 'alpaca_client_secret',

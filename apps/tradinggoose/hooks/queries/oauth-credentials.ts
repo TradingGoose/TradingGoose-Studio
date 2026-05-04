@@ -31,6 +31,8 @@ async function fetchJson<T>(
 
 export const oauthCredentialKeys = {
   list: (providerId?: string) => ['oauthCredentials', providerId ?? 'none'] as const,
+  listByProviderIds: (providerIds: string[]) =>
+    ['oauthCredentialsByProviderIds', providerIds] as const,
   detail: (credentialId?: string, workflowId?: string) =>
     ['oauthCredentialDetail', credentialId ?? 'none', workflowId ?? 'none'] as const,
 }
@@ -62,6 +64,27 @@ export function useOAuthCredentials(providerId?: string, enabled = true) {
     queryKey: oauthCredentialKeys.list(providerId),
     queryFn: () => fetchOAuthCredentials(providerId ?? ''),
     enabled: Boolean(providerId) && enabled,
+    staleTime: 60 * 1000,
+  })
+}
+
+export function useOAuthCredentialsByProviderIds(providerIds: string[], enabled = true) {
+  const normalizedProviderIds = Array.from(
+    new Set(providerIds.map((providerId) => providerId.trim()).filter(Boolean))
+  )
+
+  return useQuery<Record<string, Credential[]>>({
+    queryKey: oauthCredentialKeys.listByProviderIds(normalizedProviderIds),
+    queryFn: async () => {
+      const entries = await Promise.all(
+        normalizedProviderIds.map(
+          async (providerId) => [providerId, await fetchOAuthCredentials(providerId)] as const
+        )
+      )
+
+      return Object.fromEntries(entries)
+    },
+    enabled: normalizedProviderIds.length > 0 && enabled,
     staleTime: 60 * 1000,
   })
 }

@@ -3,6 +3,7 @@ import {
   AirtableIcon,
   ConfluenceIcon,
   DiscordIcon,
+  DollarIcon,
   GithubIcon,
   GmailIcon,
   GoogleCalendarIcon,
@@ -14,7 +15,6 @@ import {
   HubspotIcon,
   JiraIcon,
   LinearIcon,
-  DollarIcon,
   MicrosoftExcelIcon,
   MicrosoftIcon,
   MicrosoftOneDriveIcon,
@@ -53,7 +53,8 @@ export type OAuthProvider =
   | string
 
 export type OAuthService =
-  | 'alpaca' // <-- here
+  | 'alpaca-live'
+  | 'alpaca-paper'
   | 'google'
   | 'google-email'
   | 'google-drive'
@@ -114,12 +115,15 @@ const DEFAULT_OAUTH_CREDENTIAL_FIELDS: OAuthCredentialFieldConfig[] = [
     oauthProperty: 'clientSecret',
   },
 ]
+
+const ALPACA_OAUTH_SCOPES = ['trading', 'data']
+
 export interface OAuthProviderConfig {
   id: OAuthProvider
   name: string
   icon: (props: { className?: string }) => ReactNode
   services: Record<string, OAuthServiceConfig>
-  defaultService: string
+  defaultService?: string
   credentialProvider?: string
   credentialFields?: OAuthCredentialFieldConfig[]
 }
@@ -167,17 +171,25 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
     name: 'Alpaca',
     icon: (props) => AlpacaIcon(props),
     services: {
-      alpaca: {
-        id: 'alpaca',
-        name: 'Alpaca',
-        description: 'Trade and manage accounts with Alpaca.',
-        providerId: 'alpaca',
+      'alpaca-live': {
+        id: 'alpaca-live',
+        name: 'Alpaca Live',
+        description: 'Trade and manage an Alpaca live account.',
+        providerId: 'alpaca-live',
         icon: (props) => AlpacaIcon(props),
         baseProviderIcon: (props) => AlpacaIcon(props),
-        scopes: ['account:write', 'trading', 'data'],
+        scopes: ALPACA_OAUTH_SCOPES,
+      },
+      'alpaca-paper': {
+        id: 'alpaca-paper',
+        name: 'Alpaca Paper',
+        description: 'Trade and manage an Alpaca paper account.',
+        providerId: 'alpaca-paper',
+        icon: (props) => AlpacaIcon(props),
+        baseProviderIcon: (props) => AlpacaIcon(props),
+        scopes: ALPACA_OAUTH_SCOPES,
       },
     },
-    defaultService: 'alpaca',
   },
   google: {
     id: 'google',
@@ -723,27 +735,40 @@ export function getServiceByProviderAndId(
     getOAuthServiceLookupEntry(normalizedProvider)?.serviceId ||
     providerConfig.defaultService
 
-  return providerConfig.services[resolvedServiceId] || providerConfig.services[providerConfig.defaultService]
+  if (resolvedServiceId && providerConfig.services[resolvedServiceId]) {
+    return providerConfig.services[resolvedServiceId]
+  }
+
+  if (providerConfig.defaultService && providerConfig.services[providerConfig.defaultService]) {
+    return providerConfig.services[providerConfig.defaultService]
+  }
+
+  throw new Error(`Service ${serviceId ?? normalizedProvider} not found`)
 }
 
 // Helper function to determine service ID from scopes
 export function getServiceIdFromScopes(provider: OAuthProvider, scopes: string[]): string {
+  const serviceIds = getServiceIdsFromScopes(provider, scopes)
+  return serviceIds.length === 1 ? serviceIds[0]! : normalizeOAuthIdentifier(provider)
+}
+
+export function getServiceIdsFromScopes(provider: OAuthProvider, scopes: string[]): string[] {
   const normalizedProvider = normalizeOAuthIdentifier(provider)
   const directService = getOAuthServiceLookupEntry(normalizedProvider)
   if (directService) {
-    return directService.serviceId
+    return [directService.serviceId]
   }
 
   const providerConfig = OAUTH_PROVIDERS[normalizedProvider]
   if (!providerConfig) {
-    return normalizedProvider
+    return [normalizedProvider]
   }
 
-  const normalizedScopes = Array.from(
-    new Set(scopes.map(normalizeOAuthScope).filter(Boolean))
-  )
+  const normalizedScopes = Array.from(new Set(scopes.map(normalizeOAuthScope).filter(Boolean)))
   if (normalizedScopes.length === 0) {
     return providerConfig.defaultService
+      ? [providerConfig.defaultService]
+      : Object.keys(providerConfig.services)
   }
 
   const matchingServices = Object.values(providerConfig.services).filter((service) => {
@@ -751,16 +776,16 @@ export function getServiceIdFromScopes(provider: OAuthProvider, scopes: string[]
     return normalizedScopes.every((scope) => serviceScopes.has(scope))
   })
 
-  if (matchingServices.length === 1) {
-    return matchingServices[0]!.id
+  if (matchingServices.length > 0) {
+    return matchingServices.map((service) => service.id)
   }
 
   const hintedServiceId = resolveServiceIdFromScopeHints(providerConfig.id, normalizedScopes)
   if (hintedServiceId) {
-    return hintedServiceId
+    return [hintedServiceId]
   }
 
-  return providerConfig.defaultService
+  return providerConfig.defaultService ? [providerConfig.defaultService] : []
 }
 
 // Helper function to get provider ID from service ID
@@ -794,14 +819,15 @@ export interface ProviderConfig {
 
 export type OAuthProviderAvailability = Record<string, boolean>
 
-const OAUTH_SERVICE_ENTRIES = Object.entries(OAUTH_PROVIDERS).flatMap(([baseProvider, providerConfig]) =>
-  Object.entries(providerConfig.services).map(([featureType, service]) => ({
-    baseProvider,
-    featureType,
-    serviceId: service.id,
-    providerId: service.providerId,
-    scopes: service.scopes,
-  }))
+const OAUTH_SERVICE_ENTRIES = Object.entries(OAUTH_PROVIDERS).flatMap(
+  ([baseProvider, providerConfig]) =>
+    Object.entries(providerConfig.services).map(([featureType, service]) => ({
+      baseProvider,
+      featureType,
+      serviceId: service.id,
+      providerId: service.providerId,
+      scopes: service.scopes,
+    }))
 ) as OAuthServiceLookupEntry[]
 
 const OAUTH_PROVIDER_LOOKUP = Object.fromEntries(
@@ -851,7 +877,11 @@ const OAUTH_SCOPE_HINTS: Record<string, Array<{ serviceId: string; patterns: str
 
 function getOAuthServiceLookupEntry(identifier: string): OAuthServiceLookupEntry | null {
   const normalizedIdentifier = normalizeOAuthIdentifier(identifier)
-  return OAUTH_SERVICE_LOOKUP[normalizedIdentifier] ?? OAUTH_PROVIDER_LOOKUP[normalizedIdentifier] ?? null
+  return (
+    OAUTH_SERVICE_LOOKUP[normalizedIdentifier] ??
+    OAUTH_PROVIDER_LOOKUP[normalizedIdentifier] ??
+    null
+  )
 }
 
 function resolveOAuthProviderConfig(identifier: string) {
@@ -909,9 +939,7 @@ export function getCanonicalScopesForProvider(providerId: string): string[] {
   const serviceLookup =
     OAUTH_PROVIDER_LOOKUP[normalizedProviderId] ?? OAUTH_SERVICE_LOOKUP[normalizedProviderId]
 
-  return serviceLookup?.scopes
-    ? [...serviceLookup.scopes]
-    : []
+  return serviceLookup?.scopes ? [...serviceLookup.scopes] : []
 }
 
 export function getBaseProviderForService(providerId: string): string {
@@ -928,7 +956,8 @@ export function getBaseProviderForService(providerId: string): string {
  */
 export function parseProvider(provider: OAuthProvider): ProviderConfig {
   const normalizedProvider = normalizeOAuthIdentifier(provider)
-  const mapping = OAUTH_PROVIDER_LOOKUP[normalizedProvider] ?? OAUTH_SERVICE_LOOKUP[normalizedProvider]
+  const mapping =
+    OAUTH_PROVIDER_LOOKUP[normalizedProvider] ?? OAUTH_SERVICE_LOOKUP[normalizedProvider]
   if (mapping) {
     return {
       baseProvider: mapping.baseProvider,
@@ -961,13 +990,18 @@ export function getOAuthProviderSubjectId(input: {
     return null
   }
 
+  const directService = getOAuthServiceLookupEntry(provider)
+  if (directService) {
+    return directService.providerId
+  }
+
   if (requiredScopes.length > 0) {
-    const derivedServiceId = getServiceIdFromScopes(provider as OAuthProvider, requiredScopes)
-    return getProviderIdFromServiceId(derivedServiceId)
+    const derivedServiceIds = getServiceIdsFromScopes(provider as OAuthProvider, requiredScopes)
+    return derivedServiceIds.length === 1 ? getProviderIdFromServiceId(derivedServiceIds[0]!) : null
   }
 
   const providerConfig = resolveOAuthProviderConfig(provider)
-  if (providerConfig) {
+  if (providerConfig?.defaultService) {
     return getProviderIdFromServiceId(providerConfig.defaultService)
   }
 

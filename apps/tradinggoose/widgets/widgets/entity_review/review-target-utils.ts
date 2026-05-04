@@ -10,7 +10,7 @@ import type {
   ReviewTargetDescriptor,
 } from '@/lib/copilot/review-sessions/types'
 import { normalizeOptionalString } from '@/lib/utils'
-import type { PairColorContext, PairReviewTarget } from '@/stores/dashboard/pair-store'
+import type { PairColorContext } from '@/stores/dashboard/pair-store'
 import { REVIEW_TARGET_FIELDS } from '@/widgets/events'
 import { resolveEntityId } from '@/widgets/widgets/entity_review/resolve-entity-id'
 
@@ -20,21 +20,6 @@ export interface EntitySelectionState {
   reviewEntityId: string | null
   reviewDraftSessionId: string | null
   descriptor: ReviewTargetDescriptor | null
-}
-
-function getNestedReviewTarget(
-  pairContext?: PairColorContext | null
-): Record<string, unknown> | null {
-  if (!pairContext || typeof pairContext !== 'object') {
-    return null
-  }
-
-  const reviewTarget = pairContext.reviewTarget
-  if (!reviewTarget || typeof reviewTarget !== 'object') {
-    return null
-  }
-
-  return reviewTarget as Record<string, unknown>
 }
 
 function readOwnNormalizedString(
@@ -58,14 +43,8 @@ function resolveReviewField(
     pairContext?: PairColorContext | null
   }
 ): string | null {
-  const nestedPairTarget = readOwnNormalizedString(getNestedReviewTarget(options.pairContext), key)
-  if (nestedPairTarget.found) {
-    return nestedPairTarget.value
-  }
-
-  const pairField = readOwnNormalizedString(options.pairContext as Record<string, unknown> | null, key)
-  if (pairField.found) {
-    return pairField.value
+  if (options.pairContext) {
+    return null
   }
 
   return readOwnNormalizedString(options.params ?? null, key).value
@@ -198,16 +177,12 @@ export function buildPersistedPairContext(options: {
   }
 
   delete next.reviewTarget
-
-  if (options.descriptor) {
-    const serialized = serializeReviewTargetDescriptor(options.descriptor)
-    next.reviewTarget = {
-      reviewSessionId: serialized.reviewSessionId ?? null,
-      reviewEntityKind: serialized.reviewEntityKind ?? null,
-      reviewEntityId: serialized.reviewEntityId ?? null,
-      reviewDraftSessionId: serialized.reviewDraftSessionId ?? null,
-    }
-  }
+  delete next.reviewSessionId
+  delete next.reviewEntityKind
+  delete next.reviewEntityId
+  delete next.reviewDraftSessionId
+  delete next.workspaceId
+  delete next.yjsSessionId
 
   return next
 }

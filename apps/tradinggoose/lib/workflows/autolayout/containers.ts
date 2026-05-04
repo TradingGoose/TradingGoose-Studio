@@ -20,10 +20,9 @@ export function layoutContainers(
   edges: Edge[],
   options: LayoutOptions = {}
 ): void {
-  const { root, children } = getBlocksByParent(blocks)
+  const { children } = getBlocksByParent(blocks)
 
   const containerOptions: LayoutOptions = {
-    direction: options.direction,
     horizontalSpacing: options.horizontalSpacing ? options.horizontalSpacing * 0.85 : 400,
     verticalSpacing: options.verticalSpacing ? options.verticalSpacing : 200,
     padding: { x: CONTAINER_PADDING_X, y: CONTAINER_PADDING_Y },
@@ -52,7 +51,7 @@ export function layoutContainers(
     const childNodes = assignLayers(childBlocks, childEdges)
     prepareBlockMetrics(childNodes)
     const childLayers = groupByLayer(childNodes)
-    calculatePositions(childLayers, containerOptions)
+    calculatePositions(childLayers, childEdges, containerOptions)
 
     let minX = Number.POSITIVE_INFINITY
     let minY = Number.POSITIVE_INFINITY

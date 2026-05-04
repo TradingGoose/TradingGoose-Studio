@@ -1,6 +1,7 @@
 import {
   shouldAutoExecuteCopilotTool,
   shouldAutoExecuteIntegrationTool,
+  shouldRequireCopilotApproval,
 } from '@/lib/copilot/access-policy'
 import { normalizeFunctionCallArguments } from '@/lib/copilot/function-call-args'
 import { ClientToolCallState } from '@/lib/copilot/tools/client/base-tool'
@@ -62,11 +63,7 @@ function createOptimizedContentBlocks(contentBlocks: any[]): any[] {
   return result
 }
 
-function applyStreamingTurnState(
-  set: any,
-  status: string,
-  isAwaitingContinuation: boolean
-) {
+function applyStreamingTurnState(set: any, status: string, isAwaitingContinuation: boolean) {
   set((state: CopilotStore) => ({
     ...buildChatTurnStatusState(state, status),
     isSendingMessage: status === ACTIVE_TURN_STATUS,
@@ -270,10 +267,7 @@ function scheduleAutomaticToolExecution(
   if (isCopilotTool(toolName)) {
     try {
       const hasInterrupt = copilotToolHasInterrupt(toolName, toolCallId)
-      const entersReviewState = copilotToolSupportsState(
-        toolName,
-        ClientToolCallState.review
-      )
+      const entersReviewState = copilotToolSupportsState(toolName, ClientToolCallState.review)
       const { accessLevel } = get()
       if (shouldAutoExecuteCopilotTool(accessLevel, hasInterrupt, entersReviewState)) {
         setTimeout(() => {
@@ -344,7 +338,7 @@ export async function flushPendingAutoExecutionToolCalls(
     }
 
     if (
-      accessLevel !== 'full' &&
+      shouldRequireCopilotApproval(accessLevel) &&
       isCopilotTool(toolCall.name) &&
       copilotToolSupportsState(toolCall.name, ClientToolCallState.review)
     ) {
@@ -649,7 +643,11 @@ export function createSSEHandlers(params: {
     },
     stream_end: (_data, context, _get, set) => {
       for (const block of context.contentBlocks as any[]) {
-        if (block?.type === THINKING_BLOCK_TYPE && block.startTime && block.duration === undefined) {
+        if (
+          block?.type === THINKING_BLOCK_TYPE &&
+          block.startTime &&
+          block.duration === undefined
+        ) {
           block.duration = Date.now() - block.startTime
         }
       }

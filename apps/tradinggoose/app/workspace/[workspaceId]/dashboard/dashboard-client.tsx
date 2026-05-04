@@ -442,11 +442,13 @@ export function DashboardClient({
 
   const handlePairColorChange = useCallback((panelId: string, color: PairColor) => {
     const currentTree = latestLayoutRef.current
-    const previousColor = findPanelPairColor(currentTree, panelId)
+    const currentWidget = findPanelWidget(currentTree, panelId)
+    const previousColor = isPairColor(currentWidget?.pairColor) ? currentWidget.pairColor : undefined
     if (previousColor === color) {
       return
     }
 
+    seedPairContextForColorSwitch(previousColor, color, currentWidget)
     const nextTree = updatePanelPairColor(currentTree, panelId, color)
     if (nextTree === currentTree) {
       return
@@ -454,7 +456,6 @@ export function DashboardClient({
 
     latestLayoutRef.current = nextTree
     setTree(nextTree)
-    clonePairContextIfEmpty(previousColor, color)
   }, [])
 
   const searchKnowledgeBases = useMemo(
@@ -1169,9 +1170,7 @@ function applyPairDataToWidget(
     'reviewDraftSessionId',
   ] as const
 
-  const hasPairData =
-    pairKeys.some((k) => pairData[k] != null) ||
-    reviewKeys.some((k) => pairData.reviewTarget?.[k] != null)
+  const hasPairData = pairKeys.some((k) => pairData[k] != null)
   const hasPairParams =
     pairKeys.some((k) => k in baseParams) ||
     reviewKeys.some((k) => k in baseParams) ||
@@ -1185,7 +1184,7 @@ function applyPairDataToWidget(
     baseParams[key] = pairData[key] ?? undefined
   }
   for (const key of reviewKeys) {
-    baseParams[key] = pairData.reviewTarget?.[key] ?? undefined
+    baseParams[key] = undefined
   }
 
   const nextParams = Object.keys(baseParams).length > 0 ? baseParams : null
@@ -1201,7 +1200,6 @@ function applyPairDataToWidget(
 }
 
 function hydratePairStoreFromColorPairs(colorPairs: PersistedColorPairsState) {
-  const now = Date.now()
   const currentContexts = usePairColorStore.getState().contexts
   const nextContexts: Record<PairColor, PairColorContext> = { ...currentContexts }
 
@@ -1216,13 +1214,11 @@ function hydratePairStoreFromColorPairs(colorPairs: PersistedColorPairsState) {
       ...normalizePairColorContext({
         workflowId: pair.workflowId ?? undefined,
         listing: pair.listing ?? null,
-        reviewTarget: pair.reviewTarget,
         indicatorId: pair.indicatorId ?? null,
         mcpServerId: pair.mcpServerId ?? null,
         customToolId: pair.customToolId ?? null,
         skillId: pair.skillId ?? null,
       }),
-      updatedAt: now,
     }
   }
 
@@ -1248,12 +1244,6 @@ function buildPersistedColorPairs(layout: LayoutNode): PersistedColorPairsState 
       color,
       workflowId,
       listing,
-      reviewTarget: {
-        reviewSessionId: normalizeOptionalString(context?.reviewTarget?.reviewSessionId),
-        reviewEntityKind: normalizeOptionalString(context?.reviewTarget?.reviewEntityKind),
-        reviewEntityId: normalizeOptionalString(context?.reviewTarget?.reviewEntityId),
-        reviewDraftSessionId: normalizeOptionalString(context?.reviewTarget?.reviewDraftSessionId),
-      },
       indicatorId,
       mcpServerId,
       customToolId,
@@ -1266,17 +1256,13 @@ function buildPersistedColorPairs(layout: LayoutNode): PersistedColorPairsState 
 
 function hasLinkedColorPairs(colorPairs?: PersistedColorPairsState): boolean {
   if (!colorPairs || !Array.isArray(colorPairs.pairs)) return false
-  return colorPairs.pairs.some(
-    (pair) =>
-      pair?.color &&
-      (pair.workflowId ||
-        pair.reviewTarget?.reviewSessionId ||
-        Boolean(getListingIdentity(pair.listing)) ||
-        pair.indicatorId ||
-        pair.mcpServerId ||
-        pair.customToolId ||
-        pair.skillId)
-  )
+  return colorPairs.pairs.some((pair) => {
+    if (!pair?.color) {
+      return false
+    }
+
+    return Object.keys(normalizePairColorContext(pair)).length > 0
+  })
 }
 
 function getListingIdentity(listing?: ListingInputValue | null): ListingIdentity | null {
@@ -1306,41 +1292,68 @@ function cleanupUnusedPairContexts(layout: LayoutNode) {
     if (color === 'gray') return
     if (colorsInUse.has(color)) return
     const context = contexts[color]
-    if (hasContextData(context)) {
+    if (Object.keys(normalizePairColorContext(context)).length > 0) {
       resetContext(color)
     }
   })
 }
 
-function clonePairContextIfEmpty(previousColor: PairColor | undefined, nextColor: PairColor) {
-  if (!previousColor || previousColor === 'gray') return
-  if (nextColor === 'gray' || nextColor === previousColor) return
-
-  const { contexts, setContext } = usePairColorStore.getState()
-  const source = contexts[previousColor]
-  const target = contexts[nextColor]
-
-  if (!hasContextData(source) || hasContextData(target)) {
+function seedPairContextForColorSwitch(
+  previousColor: PairColor | undefined,
+  nextColor: PairColor,
+  currentWidget: WidgetInstance
+) {
+  if (nextColor === 'gray' || nextColor === previousColor) {
     return
   }
 
-  setContext(nextColor, { ...source })
+  const { contexts, setContext } = usePairColorStore.getState()
+  const target = normalizePairColorContext(contexts[nextColor])
+  const source =
+    previousColor && previousColor !== 'gray'
+      ? normalizePairColorContext(contexts[previousColor])
+      : normalizePairColorContext(currentWidget?.params ?? null)
+  const nextContext: PairColorContext = {}
+
+  if (source.workflowId && !target.workflowId) {
+    nextContext.workflowId = source.workflowId
+  }
+  if (source.listing && !target.listing) {
+    nextContext.listing = source.listing
+  }
+  if (source.indicatorId && !target.indicatorId) {
+    nextContext.indicatorId = source.indicatorId
+  }
+  if (source.mcpServerId && !target.mcpServerId) {
+    nextContext.mcpServerId = source.mcpServerId
+  }
+  if (source.customToolId && !target.customToolId) {
+    nextContext.customToolId = source.customToolId
+  }
+  if (source.skillId && !target.skillId) {
+    nextContext.skillId = source.skillId
+  }
+
+  if (Object.keys(nextContext).length === 0) {
+    return
+  }
+
+  setContext(nextColor, nextContext)
 }
 
-function findPanelPairColor(node: LayoutNode, panelId: string): PairColor | undefined {
+function findPanelWidget(node: LayoutNode, panelId: string): WidgetInstance {
   if (node.type === 'panel') {
-    if (node.id === panelId) {
-      return isPairColor(node.widget?.pairColor) ? node.widget?.pairColor : undefined
-    }
-    return undefined
+    return node.id === panelId ? node.widget : null
   }
 
   for (const child of node.children) {
-    const color = findPanelPairColor(child, panelId)
-    if (color) return color
+    const widget = findPanelWidget(child, panelId)
+    if (widget) {
+      return widget
+    }
   }
 
-  return undefined
+  return null
 }
 
 function findParentGroupId(
@@ -1360,11 +1373,6 @@ function findParentGroupId(
   }
 
   return null
-}
-
-function hasContextData(context?: PairColorContext): boolean {
-  if (!context) return false
-  return Object.keys(context).length > 0
 }
 
 function splitPanelIntoVerticalGroup(node: LayoutNode, panelId: string): LayoutNode {

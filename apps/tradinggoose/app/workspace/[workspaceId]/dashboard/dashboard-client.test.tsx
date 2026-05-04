@@ -229,7 +229,74 @@ describe('DashboardClient', () => {
     consoleError.mockRestore()
   })
 
-  it('preserves persisted review targets independently from ambient current ids during hydration', async () => {
+  it('fills missing shared workflow state when switching a gray widget into a partially populated color', async () => {
+    await act(async () => {
+      root.render(
+        <DashboardClient
+          initialState={{
+            id: 'group-root',
+            type: 'group',
+            direction: 'horizontal',
+            sizes: [50, 50],
+            children: [
+              createPanelLayout('panel-a', 'wf-local'),
+              {
+                id: 'panel-b',
+                type: 'panel',
+                widget: {
+                  key: 'data_chart',
+                  pairColor: 'red',
+                  params: null,
+                },
+              },
+            ],
+          }}
+          workspaceId='ws-a'
+          layoutId='layout-a'
+          initialLayouts={createLayouts('layout-a')}
+          initialColorPairs={{
+            pairs: [
+              {
+                color: 'red',
+                listing: {
+                  listing_id: 'AAPL',
+                  base_id: '',
+                  quote_id: '',
+                  listing_type: 'default',
+                },
+              },
+            ],
+          }}
+        />
+      )
+    })
+
+    const switchToRedButton = container.querySelector('[data-testid="pair-color-red-panel-a"]')
+    if (!(switchToRedButton instanceof HTMLButtonElement)) {
+      throw new Error('Expected pair color switch button to be rendered')
+    }
+
+    await act(async () => {
+      switchToRedButton.click()
+    })
+
+    expect(usePairColorStore.getState().contexts.red).toEqual({
+      workflowId: 'wf-local',
+      listing: {
+        listing_id: 'AAPL',
+        base_id: '',
+        quote_id: '',
+        listing_type: 'default',
+      },
+    })
+    expect(readWidgetSurface(container, 'panel-a')).toEqual({
+      workflowId: '',
+      workspaceId: 'ws-a',
+      pairColor: 'red',
+    })
+  })
+
+  it('ignores persisted review targets during color-pair hydration', async () => {
     await act(async () => {
       root.render(
         <DashboardClient
@@ -259,12 +326,6 @@ describe('DashboardClient', () => {
     expect(usePairColorStore.getState().contexts.red).toMatchObject({
       workflowId: 'wf-current',
       skillId: 'skill-saved',
-      reviewTarget: {
-        reviewSessionId: 'review-draft-skill',
-        reviewEntityKind: 'skill',
-        reviewEntityId: null,
-        reviewDraftSessionId: 'draft-skill',
-      },
     })
   })
 
@@ -410,8 +471,11 @@ function createLayouts(layoutId: string): LayoutTab[] {
   ]
 }
 
-function readWidgetSurface(container: HTMLDivElement) {
-  const element = container.querySelector('[data-testid^="widget-surface-"]')
+function readWidgetSurface(container: HTMLDivElement, panelId?: string) {
+  const selector = panelId
+    ? `[data-testid="widget-surface-${panelId}"]`
+    : '[data-testid^="widget-surface-"]'
+  const element = container.querySelector(selector)
   if (!(element instanceof HTMLElement)) {
     throw new Error('Expected widget surface to be rendered')
   }

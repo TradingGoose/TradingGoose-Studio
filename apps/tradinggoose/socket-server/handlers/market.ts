@@ -20,7 +20,13 @@ export function setupMarketHandlers(socket: AuthenticatedSocket) {
         userId: socket.userId,
         error: message,
       })
-      socket.emit('market-subscribe-error', { error: message })
+      socket.emit('market-subscribe-error', {
+        error: message,
+        provider: payload?.provider,
+        channel: payload?.channel,
+        clientSubscriptionId: payload?.clientSubscriptionId,
+        listing: payload?.listing,
+      })
     }
   })
 
@@ -35,7 +41,12 @@ export function setupMarketHandlers(socket: AuthenticatedSocket) {
         userId: socket.userId,
         error: message,
       })
-      socket.emit('market-unsubscribe-error', { error: message })
+      socket.emit('market-unsubscribe-error', {
+        error: message,
+        provider: payload?.provider,
+        clientSubscriptionId: payload?.clientSubscriptionId,
+        listing: payload?.listing,
+      })
     }
   })
 

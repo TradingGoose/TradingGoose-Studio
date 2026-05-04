@@ -195,10 +195,6 @@ export interface CopilotActions {
     }
   ) => Promise<void>
   abortMessage: () => void
-  updatePreviewToolCallState: (
-    toolCallState: 'accepted' | 'rejected' | 'error',
-    toolCallId?: string
-  ) => void
   setToolCallState: (toolCall: any, newState: ClientToolCallState, options?: any) => void
   saveChatMessages: (
     chatId: string,

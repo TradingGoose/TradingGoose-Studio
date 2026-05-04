@@ -9,7 +9,7 @@ export const dataChartWidget: DashboardWidgetDefinition = {
   key: 'data_chart',
   title: 'Data Chart',
   icon: CandlestickChart,
-  category: 'utility',
+  category: 'trading',
   description: 'Visualize OHLCV market data.',
   component: (props) => <DataChartWidgetBody {...props} />,
   renderHeader: renderDataChartHeader,

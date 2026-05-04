@@ -32,14 +32,14 @@ export function EditorSkillWidgetBody({
   const [isDirty, setIsDirty] = useState(false)
 
   const paramsSkillId = getSkillIdFromParams(params)
-  const requestedSkillId = isLinkedToColorPair
-    ? (pairContext?.skillId ?? paramsSkillId)
-    : paramsSkillId
+  const requestedSkillId = isLinkedToColorPair ? (pairContext?.skillId ?? null) : paramsSkillId
   const normalizedRequestedSkillId = requestedSkillId?.trim() ?? ''
   const hasRequestedSkill =
     normalizedRequestedSkillId.length > 0 &&
     skills.some((skill) => skill.id === normalizedRequestedSkillId)
-  const skillId = hasRequestedSkill ? normalizedRequestedSkillId : (skills[0]?.id ?? null)
+  const skillId = hasRequestedSkill
+    ? normalizedRequestedSkillId
+    : (isLinkedToColorPair ? null : (skills[0]?.id ?? null))
   const skill = skillId ? (skills.find((candidate) => candidate.id === skillId) ?? null) : null
 
   useEffect(() => {
@@ -136,7 +136,17 @@ export function EditorSkillWidgetBody({
   }
 
   if (!skillId) {
-    return <WidgetStateMessage message='Select a skill to edit.' />
+    return (
+      <WidgetStateMessage
+        message={
+          isLinkedToColorPair
+            ? normalizedRequestedSkillId.length > 0
+              ? 'Skill not found.'
+              : 'This color has no shared skill selected yet.'
+            : 'Select a skill to edit.'
+        }
+      />
+    )
   }
 
   if (!skill) {

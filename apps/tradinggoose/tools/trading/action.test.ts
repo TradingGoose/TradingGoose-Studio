@@ -12,7 +12,6 @@ const baseParams = {
   side: 'buy' as const,
   orderType: 'market' as const,
   timeInForce: 'day' as const,
-  environment: 'paper' as const,
   accessToken: 'test-token',
 }
 
