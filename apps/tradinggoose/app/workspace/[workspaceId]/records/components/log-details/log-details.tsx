@@ -65,8 +65,8 @@ export function LogDetails({
 
   const formattedTimestamp = useMemo(() => {
     if (!log) return null
-    return formatDate(log.startedAt)
-  }, [log?.startedAt])
+    return formatDate(log.startedAt ?? log.createdAt)
+  }, [log?.createdAt, log?.startedAt])
 
   const formattedDuration = useMemo(() => {
     if (typeof log?.durationMs !== 'number') {

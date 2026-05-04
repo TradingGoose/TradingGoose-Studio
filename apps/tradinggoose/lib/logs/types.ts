@@ -106,7 +106,7 @@ export interface WorkflowExecutionSnapshot {
   workspaceId: string
   stateHash: string
   stateData: WorkflowState
-  createdAt: string
+  createdAt?: string
 }
 
 export type WorkflowExecutionSnapshotInsert = Omit<WorkflowExecutionSnapshot, 'createdAt'>
@@ -165,7 +165,7 @@ export interface WorkflowExecutionLog {
     >
   }
   durationMs?: number | null
-  createdAt: string
+  createdAt?: string
 }
 
 export type WorkflowExecutionLogInsert = Omit<WorkflowExecutionLog, 'id' | 'createdAt'>
@@ -326,7 +326,7 @@ export interface WorkflowLog {
   level: string
   trigger: string | null
   startedAt?: string
-  createdAt?: string
+  createdAt: string
   recordCreatedAt?: string
   endedAt?: string | null
   durationMs?: number | null

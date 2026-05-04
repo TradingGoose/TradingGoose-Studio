@@ -278,7 +278,7 @@ export const logsWebhookDelivery = task({
         const needsRateLimits =
           subscriptionSnapshot.includeRateLimits && executionData.includeRateLimits
         const needsUsage = subscriptionSnapshot.includeUsageData && executionData.includeUsageData
-        if (needsRateLimits || needsUsage) {
+        if ((needsRateLimits || needsUsage) && workflowSummary.userId) {
           const { getUserLimits } = await import('@/app/api/v1/logs/meta')
           try {
             const limits = await getUserLimits(workflowSummary.userId)

@@ -152,7 +152,7 @@ export function LogsList({
                       </colgroup>
                       <TableBody>
                         {logs.map((log) => {
-                          const formattedDate = formatDate(log.startedAt)
+                          const formattedDate = formatDate(log.startedAt ?? log.createdAt)
                           const isSelected = selectedLogId === log.id
 
                           return (

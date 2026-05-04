@@ -1016,7 +1016,7 @@ export function Dashboard() {
 
                         // Filter logs for this workflow's selected segments
                         const workflowLogs = details.allLogs.filter((log) =>
-                          inAnyWindow(new Date(log.startedAt).getTime())
+                          inAnyWindow(new Date(log.startedAt ?? log.createdAt).getTime())
                         )
 
                         allLogs.push(...workflowLogs)
@@ -1060,7 +1060,9 @@ export function Dashboard() {
 
                       // Sort logs by time (most recent first)
                       allLogs.sort(
-                        (a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime()
+                        (a, b) =>
+                          new Date(b.startedAt ?? b.createdAt).getTime() -
+                          new Date(a.startedAt ?? a.createdAt).getTime()
                       )
 
                       const totalFailures = Math.max(totalExecutions - totalSuccess, 0)
@@ -1188,7 +1190,7 @@ export function Dashboard() {
                           windows.some((w) => t >= w.start && t < w.end)
 
                         logsToDisplay = details.allLogs.filter((log) =>
-                          inAnyWindow(new Date(log.startedAt).getTime())
+                          inAnyWindow(new Date(log.startedAt ?? log.createdAt).getTime())
                         )
 
                         // Build series from selected segments indices
