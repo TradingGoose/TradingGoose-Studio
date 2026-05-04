@@ -50,8 +50,8 @@ export default function WorkspacePage() {
           if (localizedCallbackPath !== pathname) {
             logger.info('Redirecting to callback URL from workspace root', { callbackUrl })
             router.replace(localizedCallbackUrl)
+            return
           }
-          return
         }
 
         if (redirectWorkflowId) {

@@ -87,6 +87,20 @@ describe('WorkspacePage', () => {
     expect(mockReplace).toHaveBeenCalledWith('/zh/workspace/ws-1/dashboard')
   })
 
+  it('continues to fetch workspaces when a localized callbackUrl matches the current pathname', async () => {
+    window.history.replaceState({}, '', '/zh/workspace?callbackUrl=/workspace')
+
+    const WorkspacePage = (await import('./page')).default
+
+    await act(async () => {
+      root.render(<WorkspacePage />)
+    })
+
+    const workspacesCall = fetchMock.mock.calls.find(([url]) => String(url) === '/api/workspaces')
+    expect(workspacesCall).toBeDefined()
+    expect(mockReplace).toHaveBeenCalledWith('/zh/workspace/ws-1/dashboard')
+  })
+
   it('creates a localized default workspace on first run', async () => {
     const copy = getPublicCopy('zh-CN')
 
