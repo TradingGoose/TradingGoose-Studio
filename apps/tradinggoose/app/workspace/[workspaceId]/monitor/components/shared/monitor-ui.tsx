@@ -72,7 +72,7 @@ export function MonitorControlBar({
           role='toolbar'
           aria-label={toolbarLabel}
           className={cn(
-            'flex min-h-11 w-max min-w-full items-center gap-1 rounded-md border bg-muted p-1 shadow-sm',
+            'flex min-h-11 w-max min-w-full items-center gap-1 rounded-xl border bg-muted p-1 shadow-sm',
             contentClassName
           )}
         >
