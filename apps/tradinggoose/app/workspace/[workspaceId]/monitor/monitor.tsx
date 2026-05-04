@@ -14,10 +14,6 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { toListingValueObject } from '@/lib/listing/identity'
-import { parseQuery, serializeQuery } from '@/lib/logs/query-parser'
-import { MONITOR_QUERY_POLICY } from '@/lib/logs/query-policy'
-import type { MonitorRowSuggestionData, WorkflowData } from '@/lib/logs/search-suggestions'
 import { type LayoutTab, LayoutTabs } from '@/app/workspace/[workspaceId]/dashboard/layout-tabs'
 import { buildConfigMonitorCards } from '@/app/workspace/[workspaceId]/monitor/components/config/config-card-model'
 import { ConfigMonitorSearch } from '@/app/workspace/[workspaceId]/monitor/components/config/config-search'
@@ -69,9 +65,9 @@ import {
 } from '@/app/workspace/[workspaceId]/monitor/components/view/view-preferences'
 import { MonitorConfigWorkspace } from '@/app/workspace/[workspaceId]/monitor/components/workspace/monitor-config-workspace'
 import { MonitorExecutionWorkspace } from '@/app/workspace/[workspaceId]/monitor/components/workspace/monitor-execution-workspace'
-import { AutocompleteSearch } from '@/app/workspace/[workspaceId]/records/components/logs-toolbar'
+import { AutocompleteSearch } from '@/app/workspace/[workspaceId]/logs/components/logs-toolbar'
 import { GlobalNavbarHeader } from '@/global-navbar'
-import { buildLogsRequestParams, useLogDetail } from '@/hooks/queries/logs'
+import { useLogDetail } from '@/hooks/queries/logs'
 
 type MonitorPageProps = {
   workspaceId: string
@@ -114,25 +110,6 @@ const replaceRowsInModeSlots = (
     )
   )
 }
-
-const getListingLabel = (listing: unknown) => {
-  const normalized = toListingValueObject(listing as any)
-  if (!normalized) return 'Unknown listing'
-  if (normalized.listing_type === 'default') {
-    return normalized.listing_id || 'Unknown listing'
-  }
-  return [normalized.base_id, normalized.quote_id].filter(Boolean).join('/') || 'Unknown listing'
-}
-
-const toMonitorRowSuggestions = (monitors: IndicatorMonitorRecord[]): MonitorRowSuggestionData[] =>
-  monitors.map((monitor) => ({
-    monitorId: monitor.monitorId,
-    monitorLabel: monitor.monitorId,
-    providerId: monitor.providerConfig.monitor.providerId,
-    interval: monitor.providerConfig.monitor.interval,
-    listing: monitor.providerConfig.monitor.listing,
-    listingLabel: getListingLabel(monitor.providerConfig.monitor.listing),
-  }))
 
 const normalizeConfigForMode = (
   mode: MonitorPageMode,
@@ -594,34 +571,16 @@ export function MonitorPage({ workspaceId, userId }: MonitorPageProps) {
     ? orderedVisibleLogIds.indexOf(selectedExecutionLogId)
     : -1
 
-  const monitorRowSuggestions = useMemo(() => toMonitorRowSuggestions(monitors), [monitors])
-  const workflowSuggestionData = useMemo<WorkflowData[]>(
+  const workflowSuggestionNames = useMemo(
     () =>
-      referenceData.workflowOptions.map((option) => ({
-        id: option.workflowId,
-        name: option.workflowName,
-      })),
+      referenceData.workflowOptions.map((option) => option.workflowName),
     [referenceData.workflowOptions]
   )
-  const parsedFilterQuery = useMemo(
-    () => parseQuery(executionViewConfig.filterQuery, MONITOR_QUERY_POLICY),
-    [executionViewConfig.filterQuery]
-  )
-  const externalQuickFilterClauses = useMemo(() => {
-    const committedClauses = new Set(parsedFilterQuery.clauses.map((clause) => clause.raw))
-    return executionViewConfig.quickFilters
-      .map(createMonitorQuickFilterClause)
-      .filter((clause) => !committedClauses.has(clause.raw))
-  }, [executionViewConfig.quickFilters, parsedFilterQuery.clauses])
   const activeQuickFilterClauseRaws = useMemo(() => {
-    const clauseRaws = new Set(parsedFilterQuery.clauses.map((clause) => clause.raw))
-
-    executionViewConfig.quickFilters.forEach((filter) => {
-      clauseRaws.add(createMonitorQuickFilterClause(filter).raw)
-    })
-
-    return clauseRaws
-  }, [executionViewConfig.quickFilters, parsedFilterQuery.clauses])
+    return new Set(
+      executionViewConfig.quickFilters.map((filter) => createMonitorQuickFilterClause(filter).raw)
+    )
+  }, [executionViewConfig.quickFilters])
 
   const commitFilterQuery = useCallback(
     (nextQuery: string) => {
@@ -642,28 +601,14 @@ export function MonitorPage({ workspaceId, userId }: MonitorPageProps) {
           values: [value],
         }
         const targetClause = createMonitorQuickFilterClause(targetFilter)
-        const parsedCurrentQuery = parseQuery(current.filterQuery, MONITOR_QUERY_POLICY)
-        const nextClauses = parsedCurrentQuery.clauses.filter(
-          (clause) => clause.raw !== targetClause.raw
-        )
         const nextQuickFilters = current.quickFilters.filter(
           (filter) => createMonitorQuickFilterClause(filter).raw !== targetClause.raw
         )
         const quickFilterRemoved = nextQuickFilters.length !== current.quickFilters.length
-        const committedClauseRemoved = nextClauses.length !== parsedCurrentQuery.clauses.length
 
-        if (quickFilterRemoved || committedClauseRemoved) {
+        if (quickFilterRemoved) {
           return {
             ...current,
-            filterQuery: committedClauseRemoved
-              ? serializeQuery(
-                  {
-                    clauses: nextClauses,
-                    textSearch: parsedCurrentQuery.textSearch,
-                  },
-                  MONITOR_QUERY_POLICY
-                )
-              : current.filterQuery,
             quickFilters: nextQuickFilters,
           }
         }
@@ -705,11 +650,14 @@ export function MonitorPage({ workspaceId, userId }: MonitorPageProps) {
   }, [loadMonitorData, persistDirtyModes, refresh, reloadViewState])
 
   const handleExportExecutionLogs = useCallback(() => {
-    const queryParams = buildLogsRequestParams(
-      workspaceId,
-      buildMonitorExecutionLogFilters(executionViewConfig),
-      { includePagination: false, includeDetails: false }
-    )
+    const filters = buildMonitorExecutionLogFilters(executionViewConfig)
+    const queryParams = new URLSearchParams({ workspaceId })
+    if (filters.triggerSource) {
+      queryParams.set('triggerSource', filters.triggerSource)
+    }
+    if (filters.searchQuery.trim()) {
+      queryParams.set('search', filters.searchQuery.trim())
+    }
     const anchor = document.createElement('a')
     anchor.href = `/api/logs/export?${queryParams}`
     anchor.download = 'logs_export.csv'
@@ -832,26 +780,6 @@ export function MonitorPage({ workspaceId, userId }: MonitorPageProps) {
       throw error instanceof Error ? error : new Error(message)
     }
   }, [])
-
-  const handleRemoveQuickFilterClause = useCallback(
-    (targetClause: ReturnType<typeof createMonitorQuickFilterClause>) => {
-      updateViewConfig((current) => {
-        const nextQuickFilters = current.quickFilters.filter(
-          (filter) => createMonitorQuickFilterClause(filter).raw !== targetClause.raw
-        )
-
-        if (nextQuickFilters.length === current.quickFilters.length) {
-          return current
-        }
-
-        return {
-          ...current,
-          quickFilters: nextQuickFilters,
-        }
-      })
-    },
-    [updateViewConfig]
-  )
 
   const handleReorderColumnCards = useCallback(
     (columnId: string, nextExecutionIds: string[]) => {
@@ -1255,13 +1183,9 @@ export function MonitorPage({ workspaceId, userId }: MonitorPageProps) {
           <AutocompleteSearch
             value={executionViewConfig.filterQuery}
             onChange={commitFilterQuery}
-            queryPolicy={MONITOR_QUERY_POLICY}
-            workflowsData={workflowSuggestionData}
-            availableMonitorRows={monitorRowSuggestions}
+            availableWorkflows={workflowSuggestionNames}
             placeholder='Search executions...'
             className='w-full'
-            externalClauses={externalQuickFilterClauses}
-            onRemoveExternalClause={handleRemoveQuickFilterClause}
           />
         </div>
       ) : referenceData.isLoading ? (

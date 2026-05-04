@@ -7,6 +7,8 @@ import type {
   ExecutionMonitorSortRule,
 } from '../view/view-config'
 
+export type MonitorExecutionOutcome = 'running' | 'success' | 'error' | 'skipped' | 'unknown'
+
 export type MonitorExecutionItem = {
   logId: string
   workflowId: string
@@ -14,7 +16,7 @@ export type MonitorExecutionItem = {
   startedAt: string
   endedAt: string | null
   durationMs: number | null
-  outcome: WorkflowLog['outcome']
+  outcome: MonitorExecutionOutcome
   trigger: string | null
   workflowName: string
   workflowColor: string

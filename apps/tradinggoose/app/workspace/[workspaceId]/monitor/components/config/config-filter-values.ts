@@ -1,5 +1,5 @@
 import { toListingValueObject } from '@/lib/listing/identity'
-import type { WorkflowLogOutcome } from '@/lib/logs/types'
+import type { MonitorExecutionOutcome } from '../data/execution-ordering'
 
 export const CONFIG_MONITOR_OUTCOMES = [
   'running',
@@ -7,7 +7,7 @@ export const CONFIG_MONITOR_OUTCOMES = [
   'error',
   'skipped',
   'unknown',
-] as const satisfies WorkflowLogOutcome[]
+] as const satisfies MonitorExecutionOutcome[]
 
 export const CONFIG_MONITOR_STATUSES = ['active', 'paused'] as const
 

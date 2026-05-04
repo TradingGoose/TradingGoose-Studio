@@ -99,32 +99,17 @@ vi.mock('@/app/workspace/[workspaceId]/dashboard/layout-tabs', () => ({
   ),
 }))
 
-vi.mock('@/app/workspace/[workspaceId]/records/components/logs-toolbar', () => ({
+vi.mock('@/app/workspace/[workspaceId]/logs/components/logs-toolbar', () => ({
   AutocompleteSearch: ({
     value,
-    workflowsData = [],
-    foldersData = [],
-    externalClauses = [],
-    onRemoveExternalClause,
+    availableWorkflows = [],
   }: {
     value: string
-    workflowsData?: Array<{ id: string; name: string }>
-    foldersData?: Array<{ id: string; name: string }>
-    externalClauses?: Array<{ id: string; raw: string }>
-    onRemoveExternalClause?: (clause: { id: string; raw: string }) => void
+    availableWorkflows?: string[]
   }) => (
     <div>
       <div data-testid='autocomplete-value'>{value}</div>
-      <div data-testid='autocomplete-workflow-count'>{workflowsData.length}</div>
-      <div data-testid='autocomplete-folder-count'>{foldersData.length}</div>
-      <div data-testid='autocomplete-external'>
-        {externalClauses.map((clause) => clause.raw).join('|')}
-      </div>
-      {externalClauses.map((clause) => (
-        <button key={clause.id} type='button' onClick={() => onRemoveExternalClause?.(clause)}>
-          Remove {clause.raw}
-        </button>
-      ))}
+      <div data-testid='autocomplete-workflow-count'>{availableWorkflows.length}</div>
     </div>
   ),
 }))
@@ -193,6 +178,9 @@ vi.mock(
       <div>
         <div data-testid='selected-execution'>{props.selectedExecutionLogId ?? 'none'}</div>
         <div data-testid='views-error'>{props.viewsError ?? 'none'}</div>
+        <div data-testid='quick-filter-active'>
+          {props.isQuickFilterActive('provider', 'alpaca') ? 'true' : 'false'}
+        </div>
         <button
           type='button'
           onClick={() =>
@@ -263,20 +251,6 @@ vi.mock(
 )
 
 vi.mock('@/hooks/queries/logs', () => ({
-  buildLogsRequestParams: (workspaceId: string, filters: any, options?: any) => {
-    const params = new URLSearchParams({ workspaceId })
-    if (options?.includePagination !== false) {
-      params.set('limit', String(filters.limit ?? 100))
-      params.set('offset', '0')
-    }
-    if (options?.includeDetails !== false) {
-      params.set('details', filters.details ?? 'basic')
-    }
-    if (filters.triggerSource) {
-      params.set('triggerSource', filters.triggerSource)
-    }
-    return params.toString()
-  },
   useLogDetail: () => ({ data: null, isLoading: false, error: null }),
 }))
 
@@ -674,16 +648,6 @@ describe('MonitorPage', () => {
     expect(fetchMock).toHaveBeenCalledTimes(2)
   })
 
-  it('does not pass folder suggestions into the monitor header search', async () => {
-    await act(async () => {
-      root.render(<MonitorPage workspaceId='workspace-1' userId='user-1' />)
-    })
-
-    expect(container.querySelector('[data-testid="autocomplete-folder-count"]')?.textContent).toBe(
-      '0'
-    )
-  })
-
   it('exports execution logs with the monitor execution filter contract', async () => {
     const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
     const appendSpy = vi.spyOn(document.body, 'appendChild')
@@ -785,7 +749,7 @@ describe('MonitorPage', () => {
     expect(findButton('config').disabled).toBe(true)
   })
 
-  it('shows quick filters alongside the shared header query and removes them from that surface', async () => {
+  it('keeps quick filters in monitor state instead of the header query text', async () => {
     mockedBootstrapMonitorViews.mockResolvedValue({
       viewStateMode: 'server',
       viewRows: [buildViewRow({ id: 'view-1', name: 'Current View', isActive: true })],
@@ -809,17 +773,15 @@ describe('MonitorPage', () => {
     })
 
     expect(autocompleteValue()).toBe('')
-    expect(container.querySelector('[data-testid="autocomplete-external"]')?.textContent).toContain(
-      'provider:#alpaca'
-    )
+    expect(container.querySelector('[data-testid="quick-filter-active"]')?.textContent).toBe('true')
 
-    await click('Remove provider:#alpaca')
-    expect(
-      container.querySelector('[data-testid="autocomplete-external"]')?.textContent
-    ).not.toContain('provider:#alpaca')
+    await click('Toggle provider filter')
+    expect(container.querySelector('[data-testid="quick-filter-active"]')?.textContent).toBe(
+      'false'
+    )
   })
 
-  it('removes a committed header query clause when the canvas toggles the same filter', async () => {
+  it('does not rewrite committed header query text when the canvas toggles a quick filter', async () => {
     mockedBootstrapMonitorViews.mockResolvedValue({
       viewStateMode: 'server',
       viewRows: [buildViewRow({ id: 'view-1', name: 'Current View', isActive: true })],
@@ -846,7 +808,8 @@ describe('MonitorPage', () => {
 
     await click('Toggle provider filter')
 
-    expect(autocompleteValue()).toBe('')
+    expect(autocompleteValue()).toBe('provider:#alpaca')
+    expect(container.querySelector('[data-testid="quick-filter-active"]')?.textContent).toBe('true')
   })
 
   it('clears execution selection when switching saved views', async () => {

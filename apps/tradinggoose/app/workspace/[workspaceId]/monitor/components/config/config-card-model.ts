@@ -1,5 +1,5 @@
-import type { WorkflowLogOutcome } from '@/lib/logs/types'
 import type { ListingIdentity } from '@/lib/listing/identity'
+import type { MonitorExecutionOutcome } from '../data/execution-ordering'
 import type { MonitorExecutionSummary } from '../data/use-monitor-execution-summaries'
 import type {
   IndicatorMonitorRecord,
@@ -31,7 +31,7 @@ export type ConfigMonitorCard = {
   auth: IndicatorMonitorRecord['providerConfig']['monitor']['auth']
   providerParams: IndicatorMonitorRecord['providerConfig']['monitor']['providerParams']
   lastExecutionAt: string | null
-  lastOutcome: WorkflowLogOutcome | null
+  lastOutcome: MonitorExecutionOutcome | null
   lastExecutionLogId: string | null
   sourceMonitor: IndicatorMonitorRecord
 }
@@ -42,7 +42,7 @@ export type ConfigAxisValue = {
   sortValue: string
 }
 
-const VALID_OUTCOMES = new Set<WorkflowLogOutcome>([
+const VALID_OUTCOMES = new Set<MonitorExecutionOutcome>([
   'running',
   'success',
   'error',
@@ -65,9 +65,9 @@ export const formatListingLabel = (listing: unknown) => {
   return pair || record.listing_id || 'Unknown listing'
 }
 
-const normalizeSummaryOutcome = (value: unknown): WorkflowLogOutcome | null =>
-  typeof value === 'string' && VALID_OUTCOMES.has(value as WorkflowLogOutcome)
-    ? (value as WorkflowLogOutcome)
+const normalizeSummaryOutcome = (value: unknown): MonitorExecutionOutcome | null =>
+  typeof value === 'string' && VALID_OUTCOMES.has(value as MonitorExecutionOutcome)
+    ? (value as MonitorExecutionOutcome)
     : null
 
 const normalizeSummaryString = (value: unknown) =>

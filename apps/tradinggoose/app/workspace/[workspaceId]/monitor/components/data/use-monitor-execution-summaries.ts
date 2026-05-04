@@ -1,11 +1,26 @@
 'use client'
 
 import { useCallback, useEffect, useMemo } from 'react'
-import { MONITOR_QUERY_POLICY } from '@/lib/logs/query-policy'
-import type { WorkflowLog, WorkflowLogOutcome } from '@/lib/logs/types'
-import { useLogsList, type LogFilters } from '@/hooks/queries/logs'
+import { useLogsList } from '@/hooks/queries/logs'
+import type { WorkflowLog } from '@/stores/logs/filters/types'
+import type { MonitorExecutionOutcome } from './execution-ordering'
 
-const VALID_OUTCOMES = new Set<WorkflowLogOutcome>([
+type MonitorWorkflowLog = WorkflowLog & {
+  startedAt?: string
+  recordCreatedAt?: string
+  outcome?: MonitorExecutionOutcome
+  executionData?: WorkflowLog['executionData'] & {
+    trigger?: {
+      data?: {
+        monitor?: {
+          id?: unknown
+        }
+      }
+    }
+  }
+}
+
+const VALID_OUTCOMES = new Set<MonitorExecutionOutcome>([
   'running',
   'success',
   'error',
@@ -17,7 +32,7 @@ export type MonitorExecutionSummary = {
   monitorId: string
   lastExecutionLogId: string | null
   lastExecutionAt: string | null
-  lastOutcome: WorkflowLogOutcome | null
+  lastOutcome: MonitorExecutionOutcome | null
 }
 
 export type UseMonitorExecutionSummariesInput = {
@@ -34,22 +49,26 @@ export type UseMonitorExecutionSummariesResult = {
   refresh: () => Promise<unknown>
 }
 
-const getMonitorId = (log: WorkflowLog) => {
+const getMonitorId = (log: MonitorWorkflowLog) => {
   const monitorId = (log.executionData as any)?.trigger?.data?.monitor?.id
   return typeof monitorId === 'string' && monitorId.trim() ? monitorId.trim() : null
 }
 
-const normalizeOutcome = (log: WorkflowLog): WorkflowLogOutcome | null => {
-  if (VALID_OUTCOMES.has(log.outcome)) return log.outcome
+const normalizeOutcome = (log: MonitorWorkflowLog): MonitorExecutionOutcome | null => {
+  if (log.outcome && VALID_OUTCOMES.has(log.outcome)) return log.outcome
   if (log.level === 'error') return 'error'
   return log.level ? 'success' : null
 }
 
-const compareLogsNewestFirst = (left: WorkflowLog, right: WorkflowLog) => {
-  const startedAtDiff = Date.parse(right.startedAt) - Date.parse(left.startedAt)
+const getLogStartedAt = (log: MonitorWorkflowLog) => log.startedAt ?? log.createdAt
+const getLogRecordCreatedAt = (log: MonitorWorkflowLog) => log.recordCreatedAt ?? log.createdAt
+
+const compareLogsNewestFirst = (left: MonitorWorkflowLog, right: MonitorWorkflowLog) => {
+  const startedAtDiff = Date.parse(getLogStartedAt(right)) - Date.parse(getLogStartedAt(left))
   if (startedAtDiff !== 0) return startedAtDiff
 
-  const createdAtDiff = Date.parse(right.recordCreatedAt) - Date.parse(left.recordCreatedAt)
+  const createdAtDiff =
+    Date.parse(getLogRecordCreatedAt(right)) - Date.parse(getLogRecordCreatedAt(left))
   if (createdAtDiff !== 0) return createdAtDiff
 
   return right.id.localeCompare(left.id)
@@ -60,7 +79,7 @@ export const shouldFetchNextMonitorSummaryPage = ({
   summariesByMonitorId,
   targetMonitorIds,
 }: {
-  loadedLogs: WorkflowLog[]
+  loadedLogs: MonitorWorkflowLog[]
   summariesByMonitorId: Record<string, MonitorExecutionSummary>
   targetMonitorIds: string[]
 }) => {
@@ -72,7 +91,7 @@ export const shouldFetchNextMonitorSummaryPage = ({
   if (!lastLoadedLog) return false
 
   return Object.values(summariesByMonitorId).some(
-    (summary) => summary.lastExecutionAt === lastLoadedLog.startedAt
+    (summary) => summary.lastExecutionAt === getLogStartedAt(lastLoadedLog)
   )
 }
 
@@ -89,7 +108,7 @@ export function useMonitorExecutionSummaries({
     () => new Set(stableTargetMonitorIds),
     [stableTargetMonitorIds]
   )
-  const filters = useMemo<LogFilters>(
+  const filters = useMemo(
     () => ({
       timeRange: 'All time',
       level: 'all',
@@ -98,13 +117,10 @@ export function useMonitorExecutionSummaries({
       triggers: [],
       searchQuery: '',
       limit: 100,
-      details: 'full',
-      queryPolicy: MONITOR_QUERY_POLICY,
-      queryPolicyKey: 'monitor',
-      triggerSource: 'indicator_trigger',
-      monitorId: stableTargetMonitorIds.join(','),
+      details: 'full' as const,
+      triggerSource: 'indicator_trigger' as const,
     }),
-    [stableTargetMonitorIds]
+    []
   )
 
   const logsQuery = useLogsList(workspaceId, filters, {
@@ -116,7 +132,9 @@ export function useMonitorExecutionSummaries({
     if (!logsQuery.data) return {}
 
     const summaries: Record<string, MonitorExecutionSummary> = {}
-    const logs = logsQuery.data.pages.flatMap((page) => page.logs).sort(compareLogsNewestFirst)
+    const logs = logsQuery.data.pages
+      .flatMap((page) => page.logs as MonitorWorkflowLog[])
+      .sort(compareLogsNewestFirst)
 
     for (const log of logs) {
       const monitorId = getMonitorId(log)
@@ -127,7 +145,7 @@ export function useMonitorExecutionSummaries({
       summaries[monitorId] = {
         monitorId,
         lastExecutionLogId: log.id,
-        lastExecutionAt: log.startedAt,
+        lastExecutionAt: getLogStartedAt(log),
         lastOutcome: normalizeOutcome(log),
       }
     }
@@ -139,7 +157,8 @@ export function useMonitorExecutionSummaries({
     if (!enabled || stableTargetMonitorIds.length === 0) return
     if (!logsQuery.hasNextPage || logsQuery.isFetchingNextPage) return
 
-    const loadedLogs = logsQuery.data?.pages.flatMap((page) => page.logs) ?? []
+    const loadedLogs =
+      logsQuery.data?.pages.flatMap((page) => page.logs as MonitorWorkflowLog[]) ?? []
     if (
       shouldFetchNextMonitorSummaryPage({
         loadedLogs,

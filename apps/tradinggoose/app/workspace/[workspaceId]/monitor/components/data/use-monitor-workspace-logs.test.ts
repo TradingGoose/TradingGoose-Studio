@@ -6,7 +6,6 @@ import { act, createElement } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useLogsList } from '@/hooks/queries/logs'
-import { MONITOR_QUERY_POLICY } from '@/lib/logs/query-policy'
 import { DEFAULT_EXECUTION_MONITOR_VIEW_CONFIG } from '../view/view-config'
 import { useMonitorWorkspaceLogs } from './use-monitor-workspace-logs'
 import type { IndicatorMonitorRecord } from '../shared/types'
@@ -105,7 +104,7 @@ describe('useMonitorWorkspaceLogs', () => {
     vi.clearAllMocks()
   })
 
-  it('merges the saved query text with quick filters before calling useLogsList', async () => {
+  it('passes the saved query text and applies quick filters to monitor executions', async () => {
     const snapshots: ReturnType<typeof useMonitorWorkspaceLogs>[] = []
 
     await act(async () => {
@@ -121,15 +120,8 @@ describe('useMonitorWorkspaceLogs', () => {
     expect(mockUseLogsList.mock.calls[0]?.[1]).toEqual(
       expect.objectContaining({
         details: 'full',
-        queryPolicy: MONITOR_QUERY_POLICY,
-        queryPolicyKey: 'monitor',
-        searchQuery: expect.stringContaining('workflow:#wf-1'),
+        searchQuery: 'workflow:#wf-1',
         triggerSource: 'indicator_trigger',
-      })
-    )
-    expect(mockUseLogsList.mock.calls[0]?.[1]).toEqual(
-      expect.objectContaining({
-        searchQuery: expect.stringContaining('provider:#alpaca'),
       })
     )
     expect(snapshots.at(-1)?.executionItems[0]?.monitorId).toBe('monitor-1')

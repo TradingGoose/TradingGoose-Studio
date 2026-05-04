@@ -17,7 +17,7 @@ import {
 import { Notice } from '@/components/ui/notice'
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
 import { Sheet, SheetContent } from '@/components/ui/sheet'
-import { LogDetails } from '@/app/workspace/[workspaceId]/records/components/log-details/log-details'
+import { LogDetails } from '@/app/workspace/[workspaceId]/logs/components/log-details/log-details'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { buildMonitorBoardSections } from '../board/board-state'
 import { MonitorBoard } from '../board/monitor-board'
