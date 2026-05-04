@@ -19,6 +19,7 @@ import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/componen
 import { Sheet, SheetContent } from '@/components/ui/sheet'
 import { LogDetails } from '@/app/workspace/[workspaceId]/logs/components/log-details/log-details'
 import { useIsMobile } from '@/hooks/use-mobile'
+import type { WorkflowLog } from '@/stores/logs/filters/types'
 import { buildMonitorBoardSections } from '../board/board-state'
 import { MonitorBoard } from '../board/monitor-board'
 import { getExecutionGroupValue, type MonitorExecutionItem } from '../data/execution-ordering'
@@ -57,7 +58,7 @@ type MonitorExecutionWorkspaceProps = {
   executionsError: string | null
   selectedExecutionLogId: string | null
   selectedExecution: MonitorExecutionItem | null
-  selectedExecutionLog: MonitorExecutionItem['sourceLog'] | null
+  selectedExecutionLog: WorkflowLog | null
   inspectorLoading: boolean
   inspectorError: string | null
   panelSizes: [number, number] | null

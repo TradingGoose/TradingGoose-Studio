@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { WorkflowLog } from '@/lib/logs/types'
+import type { WorkflowLog } from '@/stores/logs/filters/types'
 import { shouldFetchNextMonitorSummaryPage } from './use-monitor-execution-summaries'
 
 const buildLog = ({

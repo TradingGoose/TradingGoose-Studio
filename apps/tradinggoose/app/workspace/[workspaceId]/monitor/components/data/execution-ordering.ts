@@ -9,6 +9,13 @@ import type {
 
 export type MonitorExecutionOutcome = 'running' | 'success' | 'error' | 'skipped' | 'unknown'
 
+export type MonitorExecutionSourceLog =
+  | WorkflowLog
+  | (Omit<Partial<WorkflowLog>, 'workflow'> & {
+      id: string
+      workflow?: object | null
+    } & Record<string, unknown>)
+
 export type MonitorExecutionItem = {
   logId: string
   workflowId: string
@@ -30,7 +37,7 @@ export type MonitorExecutionItem = {
   cost: number | null
   isOrphaned: boolean
   isPartial: boolean
-  sourceLog: WorkflowLog
+  sourceLog: MonitorExecutionSourceLog
 }
 
 export type ExecutionGroupValue = {

@@ -202,7 +202,7 @@ const toExecutionItem = (
 
   return {
     logId: log.id,
-    workflowId: log.workflowId,
+    workflowId: log.workflowId ?? 'unknown',
     executionId: log.executionId ?? null,
     startedAt: log.startedAt ?? log.createdAt,
     endedAt: log.endedAt ?? null,

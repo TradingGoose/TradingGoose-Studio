@@ -325,27 +325,18 @@ describe('MonitorExecutionWorkspace', () => {
           }}
           selectedExecutionLog={{
             id: 'log-1',
-            workspaceId: 'workspace-1',
             workflowId: 'wf-1',
             executionId: 'exec-1',
             level: 'info',
+            duration: null,
             trigger: 'manual',
-            startedAt: '2026-04-23T00:00:00.000Z',
-            recordCreatedAt: '2026-04-23T00:00:00.000Z',
-            endedAt: null,
-            durationMs: null,
-            outcome: 'success',
+            createdAt: '2026-04-23T00:00:00.000Z',
             workflow: {
               id: 'wf-1',
               name: 'Workflow One',
               description: null,
               color: '#3972F6',
-              folderId: null,
-              folderName: null,
-              userId: 'user-1',
-              workspaceId: 'workspace-1',
-              createdAt: '2026-04-23T00:00:00.000Z',
-              updatedAt: '2026-04-23T00:00:00.000Z',
+              state: {},
             },
           }}
           inspectorLoading={false}
@@ -430,27 +421,18 @@ describe('MonitorExecutionWorkspace', () => {
           }}
           selectedExecutionLog={{
             id: 'log-1',
-            workspaceId: 'workspace-1',
             workflowId: 'wf-1',
             executionId: 'exec-1',
             level: 'info',
+            duration: '5m',
             trigger: 'manual',
-            startedAt: '2026-04-23T00:00:00.000Z',
-            recordCreatedAt: '2026-04-23T00:00:00.000Z',
-            endedAt: '2026-04-23T00:05:00.000Z',
-            durationMs: 300000,
-            outcome: 'success',
+            createdAt: '2026-04-23T00:00:00.000Z',
             workflow: {
               id: 'wf-1',
               name: 'Workflow One',
               description: null,
               color: '#3972F6',
-              folderId: null,
-              folderName: null,
-              userId: 'user-1',
-              workspaceId: 'workspace-1',
-              createdAt: '2026-04-23T00:00:00.000Z',
-              updatedAt: '2026-04-23T00:00:00.000Z',
+              state: {},
             },
           }}
           inspectorLoading={false}
