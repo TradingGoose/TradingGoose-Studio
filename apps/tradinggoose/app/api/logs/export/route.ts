@@ -47,6 +47,7 @@ const ExportParamsSchema = z.object({
   excludeProviderId: z.string().optional(),
   interval: z.string().optional(),
   excludeInterval: z.string().optional(),
+  assetType: z.string().optional(),
   assetTypes: z.string().optional(),
   excludeAssetTypes: z.string().optional(),
   hasFields: z.string().optional(),
@@ -351,7 +352,9 @@ export async function GET(request: NextRequest) {
       excludeInterval: splitCsv(params.excludeInterval),
       listings: listings ?? [],
       excludeListings: excludedListings ?? [],
-      assetTypes: splitCsv(params.assetTypes).map((entry) => entry.toLowerCase()),
+      assetTypes: [...splitCsv(params.assetTypes), ...splitCsv(params.assetType)].map((entry) =>
+        entry.toLowerCase()
+      ),
       excludeAssetTypes: splitCsv(params.excludeAssetTypes).map((entry) => entry.toLowerCase()),
       hasFields: splitCsv(params.hasFields),
       noFields: splitCsv(params.noFields),
