@@ -1,6 +1,7 @@
 'use client'
 
 import { createLogger } from '@/lib/logs/console/logger'
+import { localizeHref, stripLocaleFromPathname } from '@/i18n/utils'
 
 const logger = createLogger('AuthErrorHandler')
 let isHandlingAuthError = false
@@ -33,7 +34,7 @@ function shouldRateLimitRecovery(reason?: string) {
   if (typeof window === 'undefined') return false
 
   // Avoid infinite reload loops on the login page by rate limiting recovery attempts
-  const isOnLoginPage = window.location.pathname === '/login'
+  const isOnLoginPage = stripLocaleFromPathname(window.location.pathname).pathname === '/login'
   if (!isOnLoginPage) return false
 
   const now = Date.now()
@@ -73,7 +74,7 @@ export async function handleAuthError(reason?: string) {
   deleteBrowserAuthCookies()
   await safeServerSignOut()
 
-  if (window.location.pathname === '/login') {
+  if (stripLocaleFromPathname(window.location.pathname).pathname === '/login') {
     logger.warn('Cleared stale auth state on login page', { reason })
     isHandlingAuthError = false
     return
@@ -81,7 +82,10 @@ export async function handleAuthError(reason?: string) {
 
   const callbackUrl = `${window.location.pathname}${window.location.search}`
   logger.warn('Handling authentication error', { reason, callbackUrl })
-  window.location.replace(`/login?reauth=1&callbackUrl=${encodeURIComponent(callbackUrl)}`)
+  const locale = stripLocaleFromPathname(window.location.pathname).locale
+  window.location.replace(
+    localizeHref(locale, `/login?reauth=1&callbackUrl=${encodeURIComponent(callbackUrl)}`)
+  )
 }
 
 export function isAuthErrorStatus(status?: number | null): boolean {

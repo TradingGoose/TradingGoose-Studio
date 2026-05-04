@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { useLocale } from 'next-intl'
 import { Skeleton } from '@/components/ui'
 import { useSession } from '@/lib/auth-client'
 import { createLogger } from '@/lib/logs/console/logger'
@@ -22,6 +23,8 @@ import {
 import { usePublicBillingCatalog } from '@/hooks/queries/public-billing-catalog'
 import { useSubscriptionData } from '@/hooks/queries/subscription'
 import { useAdminWorkspaces } from '@/hooks/queries/workspace'
+import { formatTemplate, getPublicCopy } from '@/i18n/public-copy'
+import { type LocaleCode } from '@/i18n/utils'
 import {
   MemberInvitationCard,
   NoOrganizationView,
@@ -77,6 +80,8 @@ type TeamSubscriptionData = {
 }
 
 export function TeamManagement() {
+  const locale = useLocale() as LocaleCode
+  const teamCopy = getPublicCopy(locale).workspace.settingsModal.team
   const { data: session } = useSession()
   const { handleUpgrade } = useSubscriptionUpgrade()
 
@@ -240,12 +245,12 @@ export function TeamManagement() {
   const seatLimited = canInviteMembers
   const inviteUnavailableMessage =
     displayOrganization && !canInviteMembers
-      ? 'An active organization subscription is required before you can invite team members.'
+      ? teamCopy.inviteUnavailableMessage
       : null
 
   useEffect(() => {
     if (session?.user?.name && !orgName) {
-      const defaultName = `${session.user.name}'s Team`
+      const defaultName = formatTemplate(teamCopy.defaultTeamName, { name: session.user.name })
       setOrgName(defaultName)
       setOrgSlug(generateSlug(defaultName))
     }
@@ -343,8 +348,8 @@ export function TeamManagement() {
 
       const isLeavingSelf = member.user?.email === session.user.email
       const displayName = isLeavingSelf
-        ? 'yourself'
-        : member.user?.name || member.user?.email || 'this member'
+        ? teamCopy.yourself
+        : member.user?.name || member.user?.email || teamCopy.thisMember
 
       setRemoveMemberDialog({
         open: true,
@@ -491,9 +496,9 @@ export function TeamManagement() {
 
   const confirmTeamUpgrade = useCallback(
     async (seats: number) => {
-      if (!session?.user || !adjustableSeatTier) {
-        alert('No public adjustable organization tier is configured')
-        return
+    if (!session?.user || !adjustableSeatTier) {
+      alert(teamCopy.noPublicAdjustableTier)
+      return
       }
 
       logger.info('Organization tier upgrade requested', {
@@ -567,18 +572,18 @@ export function TeamManagement() {
         {currentTier?.ownerType === 'organization' && (
           <div className='rounded-sm border bg-blue-50/50 p-4 shadow-xs dark:bg-blue-950/20'>
             <div className='space-y-3'>
-              <h4 className='font-medium text-sm'>How this team billing works</h4>
+              <h4 className='font-medium text-sm'>{teamCopy.howBillingWorks}</h4>
               <ul className='ml-4 list-disc space-y-2 text-muted-foreground text-xs'>
                 <li>
-                  Your team is billed a minimum of ${(subscriptionData?.seats || 0) * seatPriceUsd}
-                  /month for {subscriptionData?.seats || 0} licensed seats
+                  {formatTemplate(teamCopy.billingHowWorksSeatCost, {
+                    amount: (subscriptionData?.seats || 0) * seatPriceUsd,
+                    seats: subscriptionData?.seats || 0,
+                    plural: (subscriptionData?.seats || 0) !== 1 ? 's' : '',
+                  })}
                 </li>
-                <li>Usage is tracked against the active included allowance for this tier</li>
-                <li>You can increase the usage limit to allow for higher usage</li>
-                <li>
-                  Any usage beyond the minimum seat cost is billed as overage at the end of the
-                  billing period
-                </li>
+                <li>{teamCopy.billingHowWorksUsageTracked}</li>
+                <li>{teamCopy.billingHowWorksIncreaseLimit}</li>
+                <li>{teamCopy.billingHowWorksOverage}</li>
               </ul>
             </div>
           </div>
@@ -632,8 +637,7 @@ export function TeamManagement() {
         {adminOrOwner && (
           <div className='mt-4 rounded-lg bg-muted/50 p-3'>
             <p className='text-muted-foreground text-xs'>
-              <span className='font-medium'>Note:</span> Users can only be part of one organization
-              at a time. They must leave their current organization before joining another.
+              <span className='font-medium'>{teamCopy.usageNote}</span> {teamCopy.usageNoteBody}
             </p>
           </div>
         )}
@@ -666,15 +670,15 @@ export function TeamManagement() {
       <div className='mt-6 flex-shrink-0 border-t pt-6'>
         <div className='space-y-3 text-xs'>
           <div className='flex justify-between'>
-            <span className='text-muted-foreground'>Team ID:</span>
+            <span className='text-muted-foreground'>{teamCopy.teamId}</span>
             <span className='font-mono'>{displayOrganization.id}</span>
           </div>
           <div className='flex justify-between'>
-            <span className='text-muted-foreground'>Created:</span>
+            <span className='text-muted-foreground'>{teamCopy.created}</span>
             <span>{new Date(displayOrganization.createdAt).toLocaleDateString()}</span>
           </div>
           <div className='flex justify-between'>
-            <span className='text-muted-foreground'>Your Role:</span>
+            <span className='text-muted-foreground'>{teamCopy.yourRole}</span>
             <span className='font-medium capitalize'>{userRole}</span>
           </div>
         </div>
@@ -715,8 +719,8 @@ export function TeamManagement() {
       <TeamSeats
         open={isAddSeatDialogOpen && isAdjustableSeatTier}
         onOpenChange={setIsAddSeatDialogOpen}
-        title='Add Team Seats'
-        description={`Each seat costs $${seatPriceUsd}/month and provides $${seatPriceUsd} in monthly inference credits. Adjust the number of licensed seats for your team.`}
+        title={teamCopy.addSeats.title}
+        description={formatTemplate(teamCopy.addSeats.description, { price: seatPriceUsd })}
         pricePerSeat={seatPriceUsd}
         minimumSeats={seatCount}
         maximumSeats={seatMaximum}
@@ -727,7 +731,7 @@ export function TeamManagement() {
           setNewSeatCount(selectedSeats)
           await confirmAddSeats(selectedSeats)
         }}
-        confirmButtonText='Update Seats'
+        confirmButtonText={teamCopy.addSeats.confirm}
         showCostBreakdown={true}
         isCancelledAtPeriodEnd={subscriptionData?.cancelAtPeriodEnd}
       />

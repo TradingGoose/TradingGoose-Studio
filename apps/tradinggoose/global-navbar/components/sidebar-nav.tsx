@@ -2,6 +2,7 @@
 
 import { useMemo } from 'react'
 import Link from 'next/link'
+import { useLocale } from 'next-intl'
 import {
   SidebarGroup,
   SidebarGroupLabel,
@@ -13,6 +14,8 @@ import {
 import { Skeleton } from '@/components/ui/skeleton'
 import { openBillingPortal } from '@/lib/billing/billing-portal'
 import { createLogger } from '@/lib/logs/console/logger'
+import { getPublicCopy } from '@/i18n/public-copy'
+import { localizeHref, type LocaleCode } from '@/i18n/utils'
 import { getBillingStatus, getSubscriptionStatus, getUsage } from '@/lib/subscription/helpers'
 import { UsageHeader } from '@/global-navbar/settings-modal/components/shared/usage-header'
 import { useOrganizationBilling, useOrganizations } from '@/hooks/queries/organization'
@@ -24,20 +27,22 @@ interface SidebarNavProps {
 }
 
 export function SidebarNav({ navItems }: SidebarNavProps) {
+  const locale = useLocale() as LocaleCode
+  const copy = getPublicCopy(locale).workspace.nav
   const workspaceItems = navItems.filter((item) => (item.section ?? 'workspace') === 'workspace')
   const adminItems = navItems.filter((item) => item.section === 'admin')
   const moreItems = navItems.filter((item) => item.section === 'more')
 
   return (
     <>
-      {renderNavGroup('Workspace', workspaceItems)}
-      {renderNavGroup('System', adminItems)}
-      {renderNavGroup('More', moreItems)}
+      {renderNavGroup(locale, copy.groups.workspace, workspaceItems)}
+      {renderNavGroup(locale, copy.groups.system, adminItems)}
+      {renderNavGroup(locale, copy.groups.more, moreItems)}
     </>
   )
 }
 
-function renderNavGroup(label: string, items: NavSection[]) {
+function renderNavGroup(locale: LocaleCode, label: string, items: NavSection[]) {
   if (!items.length) {
     return null
   }
@@ -49,9 +54,19 @@ function renderNavGroup(label: string, items: NavSection[]) {
         {items.map((item) => (
           <SidebarMenuItem key={item.title}>
             <SidebarMenuButton asChild isActive={item.isActive} tooltip={item.title}>
-              <Link href={item.url}>
+              <Link href={localizeHref(locale, item.url)}>
                 <item.icon />
-                <span>{item.title}</span>
+                {
+                  item.title === 'Files' ? (
+                    <span className='ml-1'>
+                      {item.title}
+                    </span>
+                  ) : (
+                    <span>
+                      {item.title}
+                    </span>
+                  )
+                }
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>

@@ -29,8 +29,14 @@ export function flattenNodeText(node: React.ReactNode): string {
   return ''
 }
 
-export function formatBlogDate(dateStr: string, style: 'long' | 'short' = 'long'): string {
-  return new Date(dateStr).toLocaleDateString('en-US', {
+export function formatBlogDate(
+  dateStr: string,
+  style: 'long' | 'short' = 'long',
+  locale: string = 'en-US'
+): string {
+  const resolvedLocale = locale === 'en' ? 'en-US' : locale
+
+  return new Date(dateStr).toLocaleDateString(resolvedLocale, {
     month: style === 'long' ? 'long' : 'short',
     day: 'numeric',
     year: 'numeric',

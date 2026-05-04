@@ -1,4 +1,5 @@
 import { memo, useMemo } from 'react'
+import { useLocale } from 'next-intl'
 import { Handle, type NodeProps, Position } from '@xyflow/react'
 import { getIconTileStyle } from '@/lib/ui/icon-colors'
 import { cn } from '@/lib/utils'
@@ -7,6 +8,8 @@ import type { SubBlockConfig } from '@/blocks/types'
 import { buildSubBlockRows } from '@/lib/workflows/sub-block-rows'
 import { getPreviewDiffClasses } from './preview-diff'
 import type { PreviewCanvasNode } from './preview-payload-adapter'
+import type { LocaleCode } from '@/i18n/utils'
+import { translateWorkflowLabel } from '@/widgets/workflow-labels'
 
 function extractSubBlockValue(entry: unknown): unknown {
   if (entry && typeof entry === 'object' && 'value' in entry) {
@@ -65,6 +68,7 @@ function getPreviewSubBlockStableKey(
 }
 
 export const PreviewNode = memo(function PreviewNode({ data }: NodeProps<PreviewCanvasNode>) {
+  const locale = useLocale() as LocaleCode
   const blockConfig = useMemo(() => getBlock(data.type) ?? data.config, [data.type, data.config])
   const Icon = blockConfig.icon
   const isEnabled = data.blockState?.enabled ?? true
@@ -134,6 +138,7 @@ export const PreviewNode = memo(function PreviewNode({ data }: NodeProps<Preview
           {previewSubBlocks.map((subBlock, index) => {
             const rawValue = extractSubBlockValue(previewStateRaw[subBlock.id])
             const displayValue = formatPreviewValue(rawValue)
+            const label = translateWorkflowLabel(locale, subBlock.title ?? subBlock.id)
             return (
               <div
                 key={getPreviewSubBlockStableKey(data.type, subBlock, previewStateRaw, index)}
@@ -141,9 +146,9 @@ export const PreviewNode = memo(function PreviewNode({ data }: NodeProps<Preview
               >
                 <p
                   className='min-w-0 truncate text-[11px] text-muted-foreground capitalize'
-                  title={subBlock.title ?? subBlock.id}
+                  title={label}
                 >
-                  {subBlock.title ?? subBlock.id}
+                  {label}
                 </p>
                 <p className='min-w-0 flex-1 truncate text-right text-[11px]' title={displayValue}>
                   {displayValue}
@@ -153,7 +158,9 @@ export const PreviewNode = memo(function PreviewNode({ data }: NodeProps<Preview
           })}
           {showInputHandle && (
             <div className='flex items-center gap-2'>
-              <p className='min-w-0 truncate text-[11px] text-muted-foreground capitalize'>error</p>
+              <p className='min-w-0 truncate text-[11px] text-muted-foreground capitalize'>
+                {translateWorkflowLabel(locale, 'error')}
+              </p>
             </div>
           )}
         </div>

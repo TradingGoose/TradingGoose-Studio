@@ -286,10 +286,11 @@ export function scaleLogCostBreakdown<
   }
 }
 
-export const formatDate = (dateString: string) => {
+export const formatDate = (dateString: string, locale = 'en-US') => {
   const date = new Date(dateString)
+  const relativeFormat = new Intl.RelativeTimeFormat(locale, { numeric: 'auto' })
   return {
-    full: date.toLocaleDateString('en-US', {
+    full: date.toLocaleDateString(locale, {
       month: 'short',
       day: 'numeric',
       year: 'numeric',
@@ -298,32 +299,32 @@ export const formatDate = (dateString: string) => {
       second: '2-digit',
       hour12: false,
     }),
-    time: date.toLocaleTimeString([], {
+    time: date.toLocaleTimeString(locale, {
       hour: '2-digit',
       minute: '2-digit',
       second: '2-digit',
       hour12: false,
     }),
     formatted: format(date, 'HH:mm:ss'),
-    compact: format(date, 'MMM d HH:mm:ss'),
-    compactDate: format(date, 'MMM d').toUpperCase(),
+    compact: `${date.toLocaleDateString(locale, { month: 'short', day: 'numeric' })} ${format(date, 'HH:mm:ss')}`,
+    compactDate: date.toLocaleDateString(locale, { month: 'short', day: 'numeric' }).toUpperCase(),
     compactTime: format(date, 'HH:mm:ss'),
     relative: (() => {
       const now = new Date()
       const diffMs = now.getTime() - date.getTime()
       const diffMins = Math.floor(diffMs / 60000)
 
-      if (diffMins < 1) return 'just now'
-      if (diffMins < 60) return `${diffMins}m ago`
+      if (diffMins < 1) return relativeFormat.format(0, 'second')
+      if (diffMins < 60) return relativeFormat.format(-diffMins, 'minute')
 
       const diffHours = Math.floor(diffMins / 60)
-      if (diffHours < 24) return `${diffHours}h ago`
+      if (diffHours < 24) return relativeFormat.format(-diffHours, 'hour')
 
       const diffDays = Math.floor(diffHours / 24)
-      if (diffDays === 1) return 'yesterday'
-      if (diffDays < 7) return `${diffDays}d ago`
+      if (diffDays === 1) return relativeFormat.format(-1, 'day')
+      if (diffDays < 7) return relativeFormat.format(-diffDays, 'day')
 
-      return format(date, 'MMM d')
+      return date.toLocaleDateString(locale, { month: 'short', day: 'numeric' })
     })(),
   }
 }

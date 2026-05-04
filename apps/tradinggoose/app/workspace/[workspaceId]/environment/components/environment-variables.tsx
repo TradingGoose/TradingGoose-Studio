@@ -11,6 +11,7 @@ import {
 } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { Check, Copy, Eye, EyeOff, Pencil, Plus, Trash2, X } from 'lucide-react'
+import { useLocale } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -24,6 +25,8 @@ import {
   useUpsertWorkspaceEnvironment,
   useWorkspaceEnvironment,
 } from '@/hooks/queries/environment'
+import { formatTemplate, getPublicCopy } from '@/i18n/public-copy'
+import { type LocaleCode } from '@/i18n/utils'
 import type { EnvironmentVariable } from '@/stores/settings/environment/types'
 
 type Scope = 'workspace' | 'personal'
@@ -60,11 +63,11 @@ export interface EnvironmentVariablesHandle {
 
 const logger = createLogger('EnvironmentVariables')
 
-const formatDateTime = (value?: string | null): string => {
+const formatDateTime = (value?: string | null, locale = 'en'): string => {
   if (!value) return '—'
 
   try {
-    return new Intl.DateTimeFormat('en', {
+    return new Intl.DateTimeFormat(locale, {
       month: 'short',
       day: 'numeric',
       year: 'numeric',
@@ -190,6 +193,8 @@ const EnvironmentVariablesComponent = (
   }: EnvironmentVariablesProps,
   ref: Ref<EnvironmentVariablesHandle>
 ) => {
+  const locale = useLocale() as LocaleCode
+  const environmentCopy = getPublicCopy(locale).workspace.environment
   const queryClient = useQueryClient()
   const { data, isPending: isWorkspaceLoading } = useWorkspaceEnvironment(workspaceId)
   const upsertWorkspaceMutation = useUpsertWorkspaceEnvironment()
@@ -409,8 +414,6 @@ const EnvironmentVariablesComponent = (
     }
   }
 
-  const scopeLabel = keyScope === 'workspace' ? 'Workspace' : 'Personal'
-
   const renderRows = () => {
     if (isWorkspaceLoading && rowsForScope.length === 0) {
       return [0, 1, 2].map((index) => (
@@ -441,11 +444,21 @@ const EnvironmentVariablesComponent = (
       return (
         <tr>
           <td colSpan={5} className='px-4 py-12 text-center'>
-            <p className='font-medium text-lg'>No {scopeLabel.toLowerCase()} variables yet</p>
-            <p className='mt-2 text-muted-foreground'>Create one to start configuring.</p>
+            <p className='font-medium text-lg'>
+              {keyScope === 'workspace'
+                ? environmentCopy.emptyState.workspace.title
+                : environmentCopy.emptyState.personal.title}
+            </p>
+            <p className='mt-2 text-muted-foreground'>
+              {keyScope === 'workspace'
+                ? environmentCopy.emptyState.workspace.description
+                : environmentCopy.emptyState.personal.description}
+            </p>
             <Button className='mt-6' onClick={() => addVariable(keyScope)}>
               <Plus className='mr-2 h-4 w-4' />
-              Create {scopeLabel} Environment Variable
+              {keyScope === 'workspace'
+                ? environmentCopy.create.workspace
+                : environmentCopy.create.personal}
             </Button>
           </td>
         </tr>
@@ -456,7 +469,12 @@ const EnvironmentVariablesComponent = (
       return (
         <tr>
           <td colSpan={5} className='px-4 py-12 text-center text-muted-foreground'>
-            No {scopeLabel.toLowerCase()} environment variables found matching "{searchTerm}".
+            {formatTemplate(
+              keyScope === 'workspace'
+                ? environmentCopy.searchEmpty.workspace
+                : environmentCopy.searchEmpty.personal,
+              { query: searchTerm }
+            )}
           </td>
         </tr>
       )
@@ -471,7 +489,7 @@ const EnvironmentVariablesComponent = (
       return (
         <tr key={row.id} className='border-b transition-colors hover:bg-card/30'>
           <td className='px-4 py-2 align-middle text-muted-foreground text-sm'>
-            {formatDateTime(row.createdAt)}
+            {formatDateTime(row.createdAt, locale)}
           </td>
 
           <td className='px-4 py-2 align-middle'>
@@ -498,9 +516,11 @@ const EnvironmentVariablesComponent = (
               />
             ) : (
               <div className='space-y-1'>
-                <p className='font-medium text-sm'>{row.key || 'Untitled variable'}</p>
+                <p className='font-medium text-sm'>{row.key || environmentCopy.labels.untitledVariable}</p>
                 {hasWorkspaceConflict && (
-                  <p className='text-destructive text-xs'>Overridden by workspace variable</p>
+                  <p className='text-destructive text-xs'>
+                    {environmentCopy.labels.overriddenByWorkspaceVariable}
+                  </p>
                 )}
               </div>
             )}
@@ -542,7 +562,11 @@ const EnvironmentVariablesComponent = (
                   onClick={() => toggleReveal(row.id)}
                 >
                   {isRevealed ? <EyeOff className='h-4 w-4' /> : <Eye className='h-4 w-4' />}
-                  <span className='sr-only'>{isRevealed ? 'Hide value' : 'Reveal value'}</span>
+                  <span className='sr-only'>
+                    {isRevealed
+                      ? environmentCopy.labels.hideValue
+                      : environmentCopy.labels.revealValue}
+                  </span>
                 </Button>
                 <div className='min-w-0 flex-1 rounded-md bg-muted/70 px-3 py-2'>
                   <code className='block truncate font-mono text-xs'>{displayValue}</code>
@@ -558,14 +582,14 @@ const EnvironmentVariablesComponent = (
                   }}
                 >
                   {isCopied ? <Check className='h-4 w-4' /> : <Copy className='h-4 w-4' />}
-                  <span className='sr-only'>Copy environment value</span>
+                  <span className='sr-only'>{environmentCopy.labels.copyValue}</span>
                 </Button>
               </div>
             )}
           </td>
 
           <td className='px-4 py-2 align-middle text-muted-foreground text-sm'>
-            {formatDateTime(row.updatedAt ?? row.createdAt)}
+            {formatDateTime(row.updatedAt ?? row.createdAt, locale)}
           </td>
 
           <td className='px-4 py-2 align-middle'>
@@ -583,7 +607,7 @@ const EnvironmentVariablesComponent = (
                     }}
                   >
                     <Check className='h-4 w-4' />
-                    <span className='sr-only'>Save environment variable</span>
+                    <span className='sr-only'>{environmentCopy.labels.save}</span>
                   </Button>
                   <Button
                     type='button'
@@ -593,7 +617,7 @@ const EnvironmentVariablesComponent = (
                     onClick={cancelEditing}
                   >
                     <X className='h-4 w-4' />
-                    <span className='sr-only'>Cancel editing</span>
+                    <span className='sr-only'>{environmentCopy.labels.cancel}</span>
                   </Button>
                 </>
               ) : (
@@ -606,7 +630,7 @@ const EnvironmentVariablesComponent = (
                     onClick={() => startEditingRow(keyScope, row)}
                   >
                     <Pencil className='h-4 w-4' />
-                    <span className='sr-only'>Edit environment variable</span>
+                    <span className='sr-only'>{environmentCopy.labels.edit}</span>
                   </Button>
                   <Button
                     type='button'
@@ -618,7 +642,7 @@ const EnvironmentVariablesComponent = (
                     }}
                   >
                     <Trash2 className='h-4 w-4' />
-                    <span className='sr-only'>Delete environment variable</span>
+                    <span className='sr-only'>{environmentCopy.labels.delete}</span>
                   </Button>
                 </>
               )}
@@ -644,25 +668,27 @@ const EnvironmentVariablesComponent = (
             <tr>
               <th className='px-4 pt-2 pb-3 text-left font-medium'>
                 <span className='text-muted-foreground text-xs uppercase tracking-wide'>
-                  Created At
+                  {environmentCopy.headers.createdAt}
                 </span>
               </th>
               <th className='px-4 pt-2 pb-3 text-left font-medium'>
                 <span className='text-muted-foreground text-xs uppercase tracking-wide'>
-                  Variable
+                  {environmentCopy.headers.variable}
                 </span>
               </th>
               <th className='px-4 pt-2 pb-3 text-left font-medium'>
-                <span className='text-muted-foreground text-xs uppercase tracking-wide'>Value</span>
+                <span className='text-muted-foreground text-xs uppercase tracking-wide'>
+                  {environmentCopy.headers.value}
+                </span>
               </th>
               <th className='px-4 pt-2 pb-3 text-left font-medium'>
                 <span className='text-muted-foreground text-xs uppercase tracking-wide'>
-                  Updated At
+                  {environmentCopy.headers.updatedAt}
                 </span>
               </th>
               <th className='px-4 pt-2 pb-3 text-right font-medium'>
                 <span className='text-muted-foreground text-xs uppercase tracking-wide'>
-                  Actions
+                  {environmentCopy.headers.actions}
                 </span>
               </th>
             </tr>

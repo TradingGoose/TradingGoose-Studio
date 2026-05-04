@@ -7,6 +7,7 @@ import {
 import { createLogger } from '@/lib/logs/console/logger'
 import { startOAuthConnectFlow } from '@/lib/oauth/connect'
 import { OAUTH_PROVIDERS, type OAuthServiceConfig } from '@/lib/oauth/oauth'
+import { localizeHref, stripLocaleFromPathname } from '@/i18n/utils'
 
 const logger = createLogger('OAuthRequestAccessClientTool')
 
@@ -124,10 +125,11 @@ export class OAuthRequestAccessClientTool extends BaseClientTool {
       this.setState(ClientToolCallState.executing)
 
       if (typeof window !== 'undefined') {
+        const { locale } = stripLocaleFromPathname(window.location.pathname)
         const pathMatch = window.location.pathname.match(/\/workspace\/([^/]+)/)
         const workspaceId = pathMatch?.[1]
         const callbackURL = workspaceId
-          ? `${window.location.origin}/workspace/${workspaceId}/integrations`
+          ? `${window.location.origin}${localizeHref(locale, `/workspace/${workspaceId}/integrations`)}`
           : window.location.href
 
         try {

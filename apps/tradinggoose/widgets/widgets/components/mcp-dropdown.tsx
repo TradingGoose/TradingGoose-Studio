@@ -12,6 +12,9 @@ import {
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { useLocale } from 'next-intl'
+import { getPublicCopy } from '@/i18n/public-copy'
+import type { LocaleCode } from '@/i18n/utils'
 import { cn } from '@/lib/utils'
 import { useMcpServersStore } from '@/stores/mcp-servers/store'
 import type { McpServerWithStatus } from '@/stores/mcp-servers/types'
@@ -22,7 +25,6 @@ import {
   widgetHeaderMenuTextClassName,
 } from '@/widgets/widgets/components/widget-header-control'
 
-const DEFAULT_PLACEHOLDER = 'Select MCP server'
 const DROPDOWN_MAX_HEIGHT = '20rem'
 const DROPDOWN_VIEWPORT_HEIGHT = '14rem'
 
@@ -48,18 +50,20 @@ const getServerIconColor = (status?: McpServerWithStatus['connectionStatus']) =>
   return '#64748b'
 }
 
-const getServerLabel = (server?: McpServerWithStatus | null) =>
-  server?.name || server?.id || 'Unnamed server'
+const getServerLabel = (server?: McpServerWithStatus | null, fallbackLabel?: string) =>
+  server?.name || server?.id || fallbackLabel || ''
 
 export function McpDropdown({
   workspaceId,
   value,
   onChange,
   disabled = false,
-  placeholder = DEFAULT_PLACEHOLDER,
+  placeholder,
   align = 'start',
   triggerClassName,
 }: McpDropdownProps) {
+  const locale = useLocale() as LocaleCode
+  const copy = getPublicCopy(locale).workspace.widgets.mcpDropdown
   const [searchQuery, setSearchQuery] = useState('')
   const { servers, isLoading, error, fetchServers } = useMcpServersStore(
     (state) => ({
@@ -88,12 +92,13 @@ export function McpDropdown({
   const hasServers = workspaceServers.length > 0
   const isDropdownDisabled = disabled || !workspaceId
   const tooltipText = !workspaceId
-    ? 'Select a workspace to choose MCP servers'
+    ? copy.selectWorkspaceFirst
     : error
-      ? 'Unable to load MCP servers'
+      ? copy.unableToLoad
       : disabled
-        ? 'MCP selection unavailable'
-        : 'Select MCP server'
+        ? copy.mcpSelectionUnavailable
+        : copy.selectMcpServer
+  const resolvedPlaceholder = placeholder ?? copy.selectMcpServer
 
   useEffect(() => {
     setSearchQuery('')
@@ -150,7 +155,7 @@ export function McpDropdown({
     if (!workspaceId) {
       return (
         <p className='px-2 py-4 text-center text-muted-foreground text-xs'>
-          Select a workspace first.
+          {copy.selectWorkspaceFirst}
         </p>
       )
     }
@@ -158,13 +163,13 @@ export function McpDropdown({
     if (error && !hasServers) {
       return (
         <div className='space-y-2 px-3 py-2 text-xs'>
-          <p className='text-destructive'>Unable to load MCP servers.</p>
+          <p className='text-destructive'>{copy.unableToLoad}</p>
           <button
             type='button'
             className='font-semibold text-primary text-xs hover:underline'
             onClick={handleRetry}
           >
-            Retry
+            {copy.retry}
           </button>
         </div>
       )
@@ -174,7 +179,7 @@ export function McpDropdown({
       return (
         <div className='flex items-center gap-1 px-3 py-2 text-muted-foreground text-xs'>
           <Loader2 className='h-3.5 w-3.5 animate-spin' />
-          Loading MCP servers...
+          {copy.loading}
         </div>
       )
     }
@@ -182,7 +187,7 @@ export function McpDropdown({
     if (!hasServers) {
       return (
         <p className='px-2 py-4 text-center text-muted-foreground text-xs'>
-          No MCP servers available yet.
+          {copy.noServersAvailable}
         </p>
       )
     }
@@ -190,7 +195,7 @@ export function McpDropdown({
     if (filteredServers.length === 0) {
       return (
         <p className='px-2 py-4 text-center text-muted-foreground text-xs'>
-          {searchQuery.trim() ? 'No servers found.' : 'No MCP servers available yet.'}
+          {searchQuery.trim() ? copy.noServersFound : copy.noServersAvailable}
         </p>
       )
     }
@@ -224,7 +229,7 @@ export function McpDropdown({
                   />
                 </span>
                 <span className={cn(widgetHeaderMenuTextClassName, 'truncate')}>
-                  {getServerLabel(server)}
+                  {getServerLabel(server, copy.unnamedServer)}
                 </span>
               </div>
               {isSelected ? <Check className='h-3.5 w-3.5 text-primary' /> : null}
@@ -249,11 +254,11 @@ export function McpDropdown({
   )
   const labelContent = selectedServer ? (
     <span className='min-w-0 flex-1 truncate text-left font-medium text-foreground text-sm'>
-      {getServerLabel(selectedServer)}
+      {getServerLabel(selectedServer, copy.unnamedServer)}
     </span>
   ) : (
     <span className='min-w-0 flex-1 truncate text-left font-medium text-muted-foreground text-sm'>
-      {placeholder}
+      {resolvedPlaceholder}
     </span>
   )
 
@@ -306,7 +311,7 @@ export function McpDropdown({
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
                 onKeyDown={handleSearchInputKeyDown}
-                placeholder='Search servers...'
+                placeholder={copy.searchPlaceholder}
                 className='h-6 border-0 bg-transparent px-0 text-foreground text-xs placeholder:text-muted-foreground focus-visible:ring-0 focus-visible:ring-offset-0'
                 autoComplete='off'
                 autoCorrect='off'

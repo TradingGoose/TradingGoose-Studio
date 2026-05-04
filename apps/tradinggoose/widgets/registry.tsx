@@ -4,6 +4,8 @@ import type {
   WidgetCategoryGroup,
 } from '@/widgets/types'
 import { copilotWidget } from '@/widgets/widgets/copilot'
+import { getPublicCopy } from '@/i18n/public-copy'
+import type { LocaleCode } from '@/i18n/utils'
 import { dataChartWidget } from '@/widgets/widgets/data_chart'
 import { editorCustomToolWidget } from '@/widgets/widgets/editor_custom_tool/index'
 import { editorIndicatorWidget } from '@/widgets/widgets/editor_indicator'
@@ -66,15 +68,26 @@ const widgetRegistry: Record<string, DashboardWidgetDefinition> = {
   heatmap: heatmapWidget,
 }
 
+function getLocalizedWidgetTitle(locale: LocaleCode, widget: DashboardWidgetDefinition) {
+  const widgetsCopy = getPublicCopy(locale).workspace.widgets
+  const widgetTitle = widgetsCopy.titles[widget.key as keyof typeof widgetsCopy.titles]
+  return widgetTitle ?? widget.title
+}
+
 export const getWidgetDefinition = (key: string): DashboardWidgetDefinition | undefined =>
   widgetRegistry[key]
 
 export const getAllWidgets = (): DashboardWidgetDefinition[] => Object.values(widgetRegistry)
 
-export const getWidgetCategories = (): WidgetCategoryGroup[] => {
+export const getWidgetCategories = (locale: LocaleCode): WidgetCategoryGroup[] => {
+  const widgetsCopy = getPublicCopy(locale).workspace.widgets
   const categoryMap = widgetCategoryConfig.reduce<Record<string, WidgetCategoryGroup>>(
     (acc, category) => {
-      acc[category.key] = { ...category, widgets: [] }
+      acc[category.key] = {
+        ...category,
+        title: widgetsCopy.selector.categories[category.key],
+        widgets: [],
+      }
       return acc
     },
     {}
@@ -83,7 +96,10 @@ export const getWidgetCategories = (): WidgetCategoryGroup[] => {
   for (const widget of Object.values(widgetRegistry)) {
     const category = categoryMap[widget.category]
     if (category) {
-      category.widgets.push(widget)
+      category.widgets.push({
+        ...widget,
+        title: getLocalizedWidgetTitle(locale, widget),
+      })
     }
   }
 

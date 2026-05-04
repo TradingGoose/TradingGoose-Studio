@@ -1,12 +1,14 @@
 import type React from 'react'
 import { ChevronDown, ChevronRight, Code, RepeatIcon, SplitIcon, ToolCase } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { formatTemplate } from '@/i18n/public-copy'
 import { getIconTileStyle, sanitizeSolidIconColor } from '@/lib/ui/icon-colors'
 import { cn } from '@/lib/utils'
 import {
   CollapsibleInputOutput,
   normalizeChildWorkflowSpan,
 } from '@/app/workspace/[workspaceId]/logs/components/log-details/components/trace-spans'
+import type { TraceSpansCopy } from '@/app/workspace/[workspaceId]/logs/components/log-details/components/trace-spans'
 import { scaleLogCostBreakdown } from '@/app/workspace/[workspaceId]/logs/utils'
 import { getBlock } from '@/blocks/registry'
 import { isSkillLoaderToolId } from '@/executor/handlers/agent/skills-resolver'
@@ -16,6 +18,7 @@ import { getTool } from '@/tools/utils'
 
 interface TraceSpanItemProps {
   span: TraceSpan
+  copy: TraceSpansCopy
   depth: number
   totalDuration: number
   parentStartTime: number
@@ -39,6 +42,7 @@ interface TraceSpanItemProps {
 
 export function TraceSpanItem({
   span,
+  copy,
   depth,
   totalDuration,
   parentStartTime,
@@ -120,8 +124,8 @@ export function TraceSpanItem({
   }
 
   const formatRelativeTime = (ms: number) => {
-    if (ms === 0) return 'start'
-    return `+${ms}ms`
+    if (ms === 0) return copy.start
+    return formatTemplate(copy.plusMs, { ms })
   }
 
   const getSpanColor = (type: string) => {
@@ -175,7 +179,7 @@ export function TraceSpanItem({
     if (span.type === 'tool') {
       const raw = String(span.name || '')
       if (isSkillLoaderToolId(raw)) {
-        return 'Load Skill'
+        return copy.loadSkill
       }
       const tool = getTool(raw)
       const displayName = (() => {
@@ -194,7 +198,7 @@ export function TraceSpanItem({
       if (span.name.includes('Initial response')) {
         return (
           <>
-            Initial response{' '}
+            {copy.initialResponse}{' '}
             {modelName && <span className='text-xs opacity-75'>({modelName})</span>}
           </>
         )
@@ -202,14 +206,15 @@ export function TraceSpanItem({
       if (span.name.includes('(iteration')) {
         return (
           <>
-            Model response {modelName && <span className='text-xs opacity-75'>({modelName})</span>}
+            {copy.modelResponse}{' '}
+            {modelName && <span className='text-xs opacity-75'>({modelName})</span>}
           </>
         )
       }
       if (span.name.includes('Model Generation')) {
         return (
           <>
-            Model Generation{' '}
+            {copy.modelGeneration}{' '}
             {modelName && <span className='text-xs opacity-75'>({modelName})</span>}
           </>
         )
@@ -309,7 +314,7 @@ export function TraceSpanItem({
                         {String(span.model)}
                       </span>
                     </TooltipTrigger>
-                    <TooltipContent side='top'>Model</TooltipContent>
+                    <TooltipContent side='top'>{copy.model}</TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
               )}
@@ -331,26 +336,46 @@ export function TraceSpanItem({
                     <TooltipContent side='top'>
                       {(() => {
                         const t = span.tokens
-                        if (typeof t === 'number') return <span>{t} tokens</span>
+                        if (typeof t === 'number') {
+                          return (
+                            <span className='font-normal text-xs'>
+                              {formatTemplate(copy.tokens, {
+                                count: t,
+                                plural: t !== 1 ? 's' : '',
+                              })}
+                            </span>
+                          )
+                        }
                         const hasIn = typeof t.input === 'number'
                         const hasOut = typeof t.output === 'number'
-                        const input = hasIn ? t.input : undefined
-                        const output = hasOut ? t.output : undefined
                         const total =
                           t.total ??
                           (hasIn && hasOut ? (t.input || 0) + (t.output || 0) : undefined)
 
                         if (hasIn || hasOut) {
+                          const inputValue = hasIn ? (t.input ?? '—') : '—'
+                          const outputValue = hasOut ? (t.output ?? '—') : '—'
+                          const totalSuffix =
+                            typeof total === 'number'
+                              ? formatTemplate(copy.tokensTotalSuffix, { count: total })
+                              : ''
                           return (
                             <span className='font-normal text-xs'>
-                              {`${hasIn ? input : '—'} in / ${hasOut ? output : '—'} out`}
-                              {typeof total === 'number' ? ` (total ${total})` : ''}
+                              {formatTemplate(copy.tokensInOut, { input: inputValue, output: outputValue })}
+                              {totalSuffix}
                             </span>
                           )
                         }
                         if (typeof total === 'number')
-                          return <span className='font-normal text-xs'>Total {total} tokens</span>
-                        return <span className='font-normal text-xs'>Tokens unavailable</span>
+                          return (
+                            <span className='font-normal text-xs'>
+                              {formatTemplate(copy.tokensTotal, {
+                                count: total,
+                                plural: total !== 1 ? 's' : '',
+                              })}
+                            </span>
+                          )
+                        return <span className='font-normal text-xs'>{copy.tokensUnavailable}</span>
                       })()}
                     </TooltipContent>
                   </Tooltip>
@@ -378,14 +403,18 @@ export function TraceSpanItem({
                         return (
                           <div className='space-y-0.5'>
                             {typeof input === 'number' && (
-                              <div className='text-xs'>Input: {formatCost(input)}</div>
+                              <div className='text-xs'>
+                                {copy.input}: {formatCost(input)}
+                              </div>
                             )}
                             {typeof output === 'number' && (
-                              <div className='text-xs'>Output: {formatCost(output)}</div>
+                              <div className='text-xs'>
+                                {copy.output}: {formatCost(output)}
+                              </div>
                             )}
                             {typeof total === 'number' && (
                               <div className='border-t pt-0.5 text-xs'>
-                                Total: {formatCost(total)}
+                                {copy.total}: {formatCost(total)}
                               </div>
                             )}
                           </div>
@@ -398,7 +427,7 @@ export function TraceSpanItem({
               {showRelativeChip && depth > 0 && (
                 <span className='inline-flex items-center rounded bg-secondary px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground tabular-nums'>
                   {span.relativeStartMs !== undefined
-                    ? `+${span.relativeStartMs}ms`
+                    ? formatTemplate(copy.plusMs, { ms: span.relativeStartMs })
                     : formatRelativeTime(startOffset)}
                 </span>
               )}
@@ -423,7 +452,7 @@ export function TraceSpanItem({
                     width: `${gapBeforePercent}%`,
                     zIndex: 4,
                   }}
-                  title={`${gapBeforeMs.toFixed(0)}ms between blocks`}
+                  title={formatTemplate(copy.betweenBlocks, { ms: gapBeforeMs.toFixed(0) })}
                 />
               )}
 
@@ -496,7 +525,9 @@ export function TraceSpanItem({
                           width: `${Math.max(0.1, Math.min(100, gapWidthPercent))}%`,
                           zIndex: 8,
                         }}
-                        title={`${Math.round(seg.startMs - prevEnd)}ms between blocks`}
+                        title={formatTemplate(copy.betweenBlocks, {
+                          ms: Math.round(seg.startMs - prevEnd),
+                        })}
                       />
                     )
                   }
@@ -515,9 +546,11 @@ export function TraceSpanItem({
                         opacity: 1,
                         zIndex: 6,
                       }}
-                      title={`${seg.type}${seg.name ? `: ${seg.name}` : ''} - ${Math.round(
-                        seg.endMs - seg.startMs
-                      )}ms`}
+                      title={formatTemplate(copy.segmentTimingTooltip, {
+                        type: seg.type,
+                        nameSuffix: seg.name ? `: ${seg.name}` : '',
+                        duration: Math.round(seg.endMs - seg.startMs),
+                      })}
                     />
                   )
                 }
@@ -604,7 +637,7 @@ export function TraceSpanItem({
       {expanded && (
         <div>
           {(span.input || span.output) && (
-            <CollapsibleInputOutput span={span} spanId={spanId} depth={depth} />
+            <CollapsibleInputOutput span={span} spanId={spanId} depth={depth} copy={copy} />
           )}
 
           {hasChildren && (
@@ -628,6 +661,7 @@ export function TraceSpanItem({
                   <TraceSpanItem
                     key={index}
                     span={enrichedChildSpan}
+                    copy={copy}
                     depth={depth + 1}
                     totalDuration={totalDuration}
                     parentStartTime={spanStartTime}
@@ -674,6 +708,7 @@ export function TraceSpanItem({
                   <TraceSpanItem
                     key={`tool-${index}`}
                     span={toolSpan}
+                    copy={copy}
                     depth={depth + 1}
                     totalDuration={totalDuration}
                     parentStartTime={spanStartTime}

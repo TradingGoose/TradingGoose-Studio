@@ -1,11 +1,14 @@
 'use client'
 import { ChevronsUpDown, Loader2, Pencil, Plus, Settings, Trash2 } from 'lucide-react'
 import Image from 'next/image'
+import { useLocale } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar'
 import { Skeleton } from '@/components/ui/skeleton'
+import { getPublicCopy } from '@/i18n/public-copy'
+import type { LocaleCode } from '@/i18n/utils'
 import { cn } from '@/lib/utils'
 import type { Workspace } from '../types'
 import { getInitials } from '../utils'
@@ -34,7 +37,6 @@ interface WorkspaceSwitcherProps {
   isCreatingWorkspace: boolean
   onDeleteWorkspace: (workspace: Workspace) => void
   brandName: string
-  fallbackSubtitle?: string
   fallbackImageUrl: string
 }
 
@@ -61,9 +63,10 @@ export function WorkspaceSwitcher({
   isCreatingWorkspace,
   onDeleteWorkspace,
   brandName,
-  fallbackSubtitle = 'Workspace',
   fallbackImageUrl,
 }: WorkspaceSwitcherProps) {
+  const locale = useLocale() as LocaleCode
+  const copy = getPublicCopy(locale).workspace.switcher
   return (
     <SidebarMenu>
       <SidebarMenuItem>
@@ -90,7 +93,10 @@ export function WorkspaceSwitcher({
               <div className='grid flex-1 text-left text-sm leading-tight'>
                 <span className='truncate font-semibold'>{activeWorkspace?.name ?? brandName}</span>
                 <span className='truncate text-xs'>
-                  {activeWorkspace?.role ?? fallbackSubtitle}
+                  {activeWorkspace?.role
+                    ? copy.roles[activeWorkspace.role as keyof typeof copy.roles] ??
+                      activeWorkspace.role
+                    : copy.workspaceLabel}
                 </span>
               </div>
               <ChevronsUpDown className='ml-auto' />
@@ -113,9 +119,7 @@ export function WorkspaceSwitcher({
                     </div>
                   ) : workspaces.length === 0 ? (
                     <div className='rounded-md border border-dashed p-4 text-center text-muted-foreground text-sm'>
-                      {canManageWorkspaces
-                        ? 'No workspaces yet. Create one to get started.'
-                        : 'No workspaces available.'}
+                      {canManageWorkspaces ? copy.noWorkspacesYet : copy.noWorkspacesAvailable}
                     </div>
                   ) : (
                     <div className='space-y-1'>
@@ -229,7 +233,7 @@ export function WorkspaceSwitcher({
                     disabled={!activeWorkspace || activeWorkspace.permissions !== 'admin'}
                   >
                     <Settings className='h-3.5 w-3.5' />
-                    Manage
+                    {copy.manage}
                   </Button>
                   <Button
                     variant='secondary'
@@ -240,12 +244,12 @@ export function WorkspaceSwitcher({
                     {isCreatingWorkspace ? (
                       <>
                         <Loader2 className='h-3.5 w-3.5 animate-spin' />
-                        Creating…
+                        {copy.creating}
                       </>
                     ) : (
                       <>
                         <Plus className='h-3.5 w-3.5' />
-                        Create
+                        {copy.create}
                       </>
                     )}
                   </Button>

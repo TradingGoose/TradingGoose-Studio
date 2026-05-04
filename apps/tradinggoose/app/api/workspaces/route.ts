@@ -5,6 +5,8 @@ import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
+import { getPublicCopy } from '@/i18n/public-copy'
+import { defaultLocale, isLocaleCode, type LocaleCode } from '@/i18n/utils'
 import { saveWorkflowToNormalizedTables } from '@/lib/workflows/db-helpers'
 import { buildDefaultWorkflowArtifacts } from '@/lib/workflows/defaults'
 import { toWorkspaceApiRecord } from '@/lib/workspaces/billing-owner'
@@ -20,6 +22,8 @@ const createWorkspaceSchema = z.object({
 export async function GET(request: NextRequest) {
   const session = await getSession()
   const allowWorkspaceBootstrap = request.nextUrl.searchParams.get('autoCreate') !== 'false'
+  const localeHeader = request.headers.get('x-next-intl-locale') ?? ''
+  const locale: LocaleCode = isLocaleCode(localeHeader) ? localeHeader : defaultLocale
 
   if (!session?.user?.id) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -42,7 +46,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Create a default workspace for the user
-    const defaultWorkspace = await createDefaultWorkspace(session.user.id, session.user.name)
+    const defaultWorkspace = await createDefaultWorkspace(session.user.id, locale)
 
     // Migrate existing workflows to the default workspace
     await migrateExistingWorkflows(session.user.id, defaultWorkspace.id)
@@ -77,8 +81,10 @@ export async function POST(req: Request) {
 
   try {
     const { name } = createWorkspaceSchema.parse(await req.json())
+    const localeHeader = req.headers.get('x-next-intl-locale') ?? ''
+    const locale: LocaleCode = isLocaleCode(localeHeader) ? localeHeader : defaultLocale
 
-    const newWorkspace = await createWorkspace(session.user.id, name)
+    const newWorkspace = await createWorkspace(session.user.id, name, locale)
 
     return NextResponse.json({ workspace: newWorkspace })
   } catch (error) {
@@ -88,17 +94,17 @@ export async function POST(req: Request) {
 }
 
 // Helper function to create a default workspace
-async function createDefaultWorkspace(userId: string, userName?: string | null) {
-  const firstName = userName?.split(' ')[0] || null
-  const workspaceName = firstName ? `${firstName}'s Workspace` : 'My Workspace'
-  return createWorkspace(userId, workspaceName)
+async function createDefaultWorkspace(userId: string, locale: LocaleCode = defaultLocale) {
+  const workspaceName = getPublicCopy(locale).workspace.defaults.newWorkspaceName
+  return createWorkspace(userId, workspaceName, locale)
 }
 
 // Helper function to create a workspace
-async function createWorkspace(userId: string, name: string) {
+async function createWorkspace(userId: string, name: string, locale: LocaleCode) {
   const workspaceId = crypto.randomUUID()
   const workflowId = crypto.randomUUID()
   const now = new Date()
+  const workspaceCopy = getPublicCopy(locale).workspace
 
   // Create the workspace and initial workflow in a transaction
   try {
@@ -135,7 +141,7 @@ async function createWorkspace(userId: string, name: string) {
         workspaceId,
         folderId: null,
         name: 'default-agent',
-        description: 'Your first workflow - start building here!',
+        description: workspaceCopy.defaults.defaultWorkflowDescription,
         color: '#3972F6',
         lastSynced: now,
         createdAt: now,

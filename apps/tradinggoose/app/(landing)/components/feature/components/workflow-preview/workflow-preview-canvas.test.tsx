@@ -9,6 +9,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 const mockAdaptPreviewPayloadToCanvas = vi.fn()
 let lastReactFlowProps: Record<string, any> | null = null
 
+vi.mock('next-intl', () => ({
+  useLocale: () => 'en',
+}))
+
 vi.mock(
   '@/widgets/widgets/editor_workflow/components/workflow-editor/preview/preview-payload-adapter',
   () => ({

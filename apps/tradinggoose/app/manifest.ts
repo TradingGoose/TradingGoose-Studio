@@ -40,7 +40,7 @@ export default function manifest(): MetadataRoute.Manifest {
         url: '/workspace',
       },
     ],
-    lang: 'en-US',
+    lang: 'en',
     dir: 'ltr',
   }
 }

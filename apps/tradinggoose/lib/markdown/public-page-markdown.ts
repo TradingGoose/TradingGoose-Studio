@@ -1,9 +1,10 @@
 import { getPublicBillingCatalog } from '@/lib/billing/catalog'
 import { buildHostedPricingSentence } from '@/lib/billing/public-catalog'
-import { DEFAULT_META_DESCRIPTION } from '@/lib/branding/metadata'
 import { convertHtmlToMarkdown } from '@/lib/markdown/html-to-markdown'
 import { resolveGitHubServiceConfig } from '@/lib/system-services/runtime'
 import { getAllPosts, getPostBySlug } from '@/app/(landing)/blog/lib/posts'
+import { formatTemplate, getPublicCopy } from '@/i18n/public-copy'
+import { localizeUrl, stripLocaleFromPathname, type LocaleCode } from '@/i18n/utils'
 
 interface MarkdownDocumentOptions {
   title: string
@@ -45,7 +46,8 @@ function plainTextTitle(value: string): string {
     .trim()
 }
 
-async function buildHomepageMarkdown(origin: string): Promise<string> {
+async function buildHomepageMarkdown(origin: string, locale: LocaleCode): Promise<string> {
+  const copy = getPublicCopy(locale)
   const billingCatalog = await getPublicBillingCatalog()
   const hostedPricingSentence = billingCatalog.billingEnabled
     ? buildHostedPricingSentence(billingCatalog)
@@ -53,7 +55,7 @@ async function buildHomepageMarkdown(origin: string): Promise<string> {
 
   const body = `# TradingGoose
 
-${DEFAULT_META_DESCRIPTION}
+${copy.meta.landing.description}
 
 TradingGoose is an open-source visual workflow platform built for technical LLM-driven trading.
 It lets you connect your own market data providers, write custom indicators in PineTS, monitor
@@ -81,9 +83,9 @@ ${
 
 - Documentation: https://docs.tradinggoose.ai
 - GitHub: https://github.com/TradingGoose/TradingGoose-Studio
-- Sign up: ${origin}/signup
-- Changelog: ${origin}/changelog
-- Pricing and plans: ${origin}
+- Sign up: ${localizeUrl(origin, locale, '/signup')}
+- Changelog: ${localizeUrl(origin, locale, '/changelog')}
+- Pricing and plans: ${localizeUrl(origin, locale, '/')}
 
 ## Community
 
@@ -92,24 +94,25 @@ ${
 `
 
   return buildMarkdownDocument({
-    title: 'TradingGoose - Visual Workflow Platform for Technical LLM Trading',
-    description: DEFAULT_META_DESCRIPTION,
-    url: `${origin}/`,
+    title: copy.meta.landing.title,
+    description: copy.meta.landing.description,
+    url: localizeUrl(origin, locale, '/'),
     body,
   })
 }
 
-async function buildBlogIndexMarkdown(origin: string): Promise<string> {
-  const posts = await getAllPosts()
+async function buildBlogIndexMarkdown(origin: string, locale: LocaleCode): Promise<string> {
+  const copy = getPublicCopy(locale)
+  const posts = await getAllPosts(locale)
   const lines = posts.map((post) => {
     const title = plainTextTitle(post.title)
     const description = post.description ? ` — ${post.description}` : ''
-    return `- [${title}](${origin}/blog/${post.slug}) (${post.date})${description}`
+    return `- [${title}](${localizeUrl(origin, locale, `/blog/${post.slug}`)}) (${post.date})${description}`
   })
 
-  const body = `# TradingGoose Blog
+  const body = `# ${copy.blog.pageTitle}
 
-Articles about trading automation, workflow design, and building smarter strategies.
+${formatTemplate(copy.blog.pageDescription, { count: posts.length })}
 
 ## Posts
 
@@ -117,17 +120,20 @@ ${lines.join('\n')}
 `
 
   return buildMarkdownDocument({
-    title: 'Blog | TradingGoose',
-    description:
-      'Articles about trading automation, workflow design, and building smarter strategies.',
-    url: `${origin}/blog`,
+    title: copy.meta.blog.title,
+    description: copy.meta.blog.description,
+    url: localizeUrl(origin, locale, '/blog'),
     body,
   })
 }
 
-async function buildBlogPostMarkdown(origin: string, pathname: string): Promise<string | null> {
+async function buildBlogPostMarkdown(
+  origin: string,
+  pathname: string,
+  locale: LocaleCode
+): Promise<string | null> {
   const slug = pathname.replace(/^\/blog\//, '')
-  const post = await getPostBySlug(slug)
+  const post = await getPostBySlug(slug, locale)
 
   if (!post) {
     return null
@@ -156,7 +162,7 @@ ${post.content.trim()}
   return buildMarkdownDocument({
     title,
     description: post.description,
-    url: `${origin}${pathname}`,
+    url: localizeUrl(origin, locale, pathname),
     body,
   })
 }
@@ -251,16 +257,18 @@ export async function renderPublicPageMarkdown(
   origin: string,
   pathname: string
 ): Promise<string | null> {
-  switch (pathname) {
+  const { locale, pathname: normalizedPathname } = stripLocaleFromPathname(pathname)
+
+  switch (normalizedPathname) {
     case '/':
-      return buildHomepageMarkdown(origin)
+      return buildHomepageMarkdown(origin, locale)
     case '/blog':
-      return buildBlogIndexMarkdown(origin)
+      return buildBlogIndexMarkdown(origin, locale)
     case '/changelog':
       return buildChangelogMarkdown(origin)
     default:
-      if (pathname.startsWith('/blog/')) {
-        return buildBlogPostMarkdown(origin, pathname)
+      if (normalizedPathname.startsWith('/blog/')) {
+        return buildBlogPostMarkdown(origin, normalizedPathname, locale)
       }
 
       return buildConvertedPageMarkdown(origin, pathname)

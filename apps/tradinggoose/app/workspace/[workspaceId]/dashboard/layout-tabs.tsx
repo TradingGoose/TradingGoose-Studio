@@ -22,6 +22,7 @@ interface LayoutTabsProps {
   onCreate: () => void
   onRename: (layoutId: string, name: string) => void
   onDelete: (layoutId: string) => void
+  createButtonLabel: string
 }
 
 export function LayoutTabs({
@@ -32,6 +33,7 @@ export function LayoutTabs({
   onCreate,
   onRename,
   onDelete,
+  createButtonLabel,
 }: LayoutTabsProps) {
   const tabsScrollRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -207,7 +209,7 @@ export function LayoutTabs({
           disabled={isBusy}
         >
           <Plus className='h-3.5 w-3.5' />
-          <span className='sr-only'>Create new layout</span>
+          <span className='sr-only'>{createButtonLabel}</span>
         </button>
       </div>
       <SortableOverlay>

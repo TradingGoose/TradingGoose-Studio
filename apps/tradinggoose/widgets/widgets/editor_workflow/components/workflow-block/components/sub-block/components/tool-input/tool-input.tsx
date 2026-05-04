@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { format } from 'date-fns'
 import { Server, WrenchIcon, XIcon } from 'lucide-react'
 import { useRouter } from 'next/navigation'
+import { useLocale } from 'next-intl'
 import { DateTimePicker } from '@/components/ui/datetime-picker'
 import { SimpleTimePicker } from '@/components/ui/simple-time-picker'
 import { Slider } from '@/components/ui/slider'
@@ -28,6 +29,7 @@ import { useWorkflowMutations } from '@/lib/yjs/use-workflow-doc'
 import { getAllBlocks } from '@/blocks'
 import { useCustomTools } from '@/hooks/queries/custom-tools'
 import { useMcpTools } from '@/hooks/use-mcp-tools'
+import { localizeHref, type LocaleCode } from '@/i18n/utils'
 import { getProviderFromModel, supportsToolUsageControl } from '@/providers/ai/utils'
 import type { CustomToolDefinition } from '@/stores/custom-tools/types'
 import {
@@ -492,6 +494,7 @@ export function ToolInput({ blockId, subBlockId, isConnecting, disabled = false 
   const workspaceId = useWorkspaceId()
   const workflowId = useWorkflowId()
   const router = useRouter()
+  const locale = useLocale() as LocaleCode
   const { setSubBlockValue: yjsSetSubBlockValue } = useWorkflowMutations()
   const [storeValue, setStoreValue] = useSubBlockValue(blockId, subBlockId)
   const [modelValue] = useSubBlockValue<string | null>(blockId, 'model')
@@ -725,7 +728,7 @@ export function ToolInput({ blockId, subBlockId, isConnecting, disabled = false 
 
     if (selectedId === 'action:add-mcp') {
       if (workspaceId) {
-        router.push(`/workspace/${workspaceId}/dashboard`)
+        router.push(localizeHref(locale, `/workspace/${workspaceId}/dashboard`))
       }
       setToolSelectorValue(undefined)
       return

@@ -1,16 +1,39 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
+import { useLocale } from 'next-intl'
 import { client, useSession } from '@/lib/auth-client'
 import { createLogger } from '@/lib/logs/console/logger'
+import { useRouter } from '@/i18n/navigation'
+import { type PublicCopy } from '@/i18n/public-copy'
+import { localizeHref, type LocaleCode } from '@/i18n/utils'
 
 const logger = createLogger('useVerification')
+type VerifyCopy = PublicCopy['auth']['verify']
+
+export function getVerificationErrorMessage(copy: VerifyCopy, error: unknown) {
+  const message =
+    error instanceof Error
+      ? error.message
+      : typeof error === 'string'
+        ? error
+        : error && typeof error === 'object' && 'message' in error
+          ? String((error as { message?: unknown }).message ?? '')
+          : ''
+
+  if (message.includes('expired')) return copy.errors.expired
+  if (message.includes('invalid')) return copy.errors.invalid
+  if (message.includes('attempts')) return copy.errors.attempts
+
+  return copy.errors.generic
+}
 
 interface UseVerificationParams {
   hasEmailService: boolean
   isProduction: boolean
   isEmailVerificationEnabled: boolean
+  copy: VerifyCopy
 }
 
 interface UseVerificationReturn {
@@ -33,8 +56,10 @@ export function useVerification({
   hasEmailService,
   isProduction,
   isEmailVerificationEnabled,
+  copy,
 }: UseVerificationParams): UseVerificationReturn {
   const router = useRouter()
+  const locale = useLocale() as LocaleCode
   const searchParams = useSearchParams()
   const { refetch: refetchSession } = useSession()
   const [otp, setOtp] = useState('')
@@ -120,12 +145,12 @@ export function useVerification({
           if (isInviteFlow && redirectUrl) {
             window.location.href = redirectUrl
           } else {
-            window.location.href = '/workspace'
+            router.push(localizeHref(locale, '/workspace'))
           }
         }, 1000)
       } else {
         logger.info('Setting invalid OTP state - API error response')
-        const message = 'Invalid verification code. Please check and try again.'
+        const message = copy.errors.invalid
         setIsInvalidOtp(true)
         setErrorMessage(message)
         logger.info('Error state after API error:', {
@@ -134,17 +159,8 @@ export function useVerification({
         })
         setOtp('')
       }
-    } catch (error: any) {
-      let message = 'Verification failed. Please check your code and try again.'
-
-      if (error.message?.includes('expired')) {
-        message = 'The verification code has expired. Please request a new one.'
-      } else if (error.message?.includes('invalid')) {
-        logger.info('Setting invalid OTP state - caught error')
-        message = 'Invalid verification code. Please check and try again.'
-      } else if (error.message?.includes('attempts')) {
-        message = 'Too many failed attempts. Please request a new code.'
-      }
+    } catch (error: unknown) {
+      const message = getVerificationErrorMessage(copy, error)
 
       setIsInvalidOtp(true)
       setErrorMessage(message)
@@ -171,9 +187,8 @@ export function useVerification({
         email: normalizedEmail,
         type: 'sign-in',
       })
-      .then(() => {})
       .catch(() => {
-        setErrorMessage('Failed to resend verification code. Please try again later.')
+        setErrorMessage(copy.errors.resendFailed)
       })
       .finally(() => {
         setIsLoading(false)
@@ -213,7 +228,7 @@ export function useVerification({
           if (isInviteFlow && redirectUrl) {
             window.location.href = redirectUrl
           } else {
-            router.push('/workspace')
+            router.push(localizeHref(locale, '/workspace'))
           }
         }
 

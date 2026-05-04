@@ -2,11 +2,14 @@
 
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react'
 import { Check, Pencil, X } from 'lucide-react'
+import { useLocale } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { createLogger } from '@/lib/logs/console/logger'
 import { cn } from '@/lib/utils'
 import { useUpdateOrganizationUsageLimit } from '@/hooks/queries/organization'
 import { useUpdateUsageLimit } from '@/hooks/queries/subscription'
+import { getPublicCopy } from '@/i18n/public-copy'
+import { type LocaleCode } from '@/i18n/utils'
 
 const logger = createLogger('UsageLimit')
 
@@ -37,6 +40,8 @@ export const UsageLimit = forwardRef<UsageLimitRef, UsageLimitProps>(
     },
     ref
   ) => {
+    const locale = useLocale() as LocaleCode
+    const copy = getPublicCopy(locale).workspace.settingsModal.subscription.limit
     const [inputValue, setInputValue] = useState(currentLimit.toString())
     const [hasError, setHasError] = useState(false)
     const [errorType, setErrorType] = useState<'general' | 'belowUsage' | null>(null)
@@ -230,7 +235,7 @@ export const UsageLimit = forwardRef<UsageLimitRef, UsageLimitProps>(
             ) : (
               <Pencil className='!h-3 !w-3' />
             )}
-            <span className='sr-only'>{isEditing ? 'Save limit' : 'Edit limit'}</span>
+            <span className='sr-only'>{isEditing ? copy.save : copy.edit}</span>
           </Button>
         )}
       </div>

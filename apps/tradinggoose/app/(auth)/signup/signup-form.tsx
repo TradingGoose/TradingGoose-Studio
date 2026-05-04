@@ -2,8 +2,8 @@
 
 import { Suspense, useEffect, useState } from 'react'
 import { Eye, EyeOff } from 'lucide-react'
-import Link from 'next/link'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useLocale } from 'next-intl'
+import { useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -17,6 +17,9 @@ import {
   type RegistrationMode,
 } from '@/lib/registration/shared'
 import { cn } from '@/lib/utils'
+import { Link, useRouter } from '@/i18n/navigation'
+import { getPublicCopy } from '@/i18n/public-copy'
+import { localizePathname, type LocaleCode } from '@/i18n/utils'
 import { SocialLoginButtons } from '@/app/(auth)/components/social-login-buttons'
 import { SSOLoginButton } from '@/app/(auth)/components/sso-login-button'
 import { AuthPageHeader } from '@/app/(auth)/components/auth-page-header'
@@ -26,52 +29,37 @@ import { inter } from '@/app/fonts/inter'
 const logger = createLogger('SignupForm')
 
 const PASSWORD_VALIDATIONS = {
-  minLength: { regex: /.{8,}/, message: 'Password must be at least 8 characters long.' },
-  uppercase: {
-    regex: /(?=.*?[A-Z])/,
-    message: 'Password must include at least one uppercase letter.',
-  },
-  lowercase: {
-    regex: /(?=.*?[a-z])/,
-    message: 'Password must include at least one lowercase letter.',
-  },
-  number: { regex: /(?=.*?[0-9])/, message: 'Password must include at least one number.' },
-  special: {
-    regex: /(?=.*?[#?!@$%^&*-])/,
-    message: 'Password must include at least one special character.',
-  },
+  minLength: /.{8,}/,
+  uppercase: /(?=.*?[A-Z])/,
+  lowercase: /(?=.*?[a-z])/,
+  number: /(?=.*?[0-9])/,
+  special: /(?=.*?[#?!@$%^&*-])/,
 }
 
 const NAME_VALIDATIONS = {
-  required: {
-    test: (value: string) => Boolean(value && typeof value === 'string'),
-    message: 'Name is required.',
-  },
-  notEmpty: {
-    test: (value: string) => value.trim().length > 0,
-    message: 'Name cannot be empty.',
-  },
-  validCharacters: {
-    regex: /^[\p{L}\s\-']+$/u,
-    message: 'Name can only contain letters, spaces, hyphens, and apostrophes.',
-  },
-  noConsecutiveSpaces: {
-    regex: /^(?!.*\s\s).*$/,
-    message: 'Name cannot contain consecutive spaces.',
-  },
+  required: (value: string) => Boolean(value && typeof value === 'string'),
+  notEmpty: (value: string) => value.trim().length > 0,
+  validCharacters: /^[\p{L}\s\-']+$/u,
+  noConsecutiveSpaces: /^(?!.*\s\s).*$/,
 }
 
-const validateEmailField = (emailValue: string): string[] => {
+const validateEmailField = (
+  emailValue: string,
+  messages: {
+    required: string
+    invalid: string
+  }
+): string[] => {
   const errors: string[] = []
 
   if (!emailValue || !emailValue.trim()) {
-    errors.push('Email is required.')
+    errors.push(messages.required)
     return errors
   }
 
   const validation = quickValidateEmail(emailValue.trim().toLowerCase())
   if (!validation.isValid) {
-    errors.push(validation.reason || 'Please enter a valid email address.')
+    errors.push(messages.invalid)
   }
 
   return errors
@@ -89,6 +77,11 @@ function SignupFormContent({
   registrationMode: RegistrationMode
 }) {
   const router = useRouter()
+  const locale = useLocale() as LocaleCode
+  const copy = getPublicCopy(locale)
+  const commonCopy = copy.auth.common
+  const signupCopy = copy.auth.signup
+  const defaultCallbackUrl = localizePathname(locale, '/workspace')
   const searchParams = useSearchParams()
   const { refetch: refetchSession } = useSession()
   const [isLoading, setIsLoading] = useState(false)
@@ -135,24 +128,24 @@ function SignupFormContent({
   const validatePassword = (passwordValue: string): string[] => {
     const errors: string[] = []
 
-    if (!PASSWORD_VALIDATIONS.minLength.regex.test(passwordValue)) {
-      errors.push(PASSWORD_VALIDATIONS.minLength.message)
+    if (!PASSWORD_VALIDATIONS.minLength.test(passwordValue)) {
+      errors.push(signupCopy.validation.passwordMinLength)
     }
 
-    if (!PASSWORD_VALIDATIONS.uppercase.regex.test(passwordValue)) {
-      errors.push(PASSWORD_VALIDATIONS.uppercase.message)
+    if (!PASSWORD_VALIDATIONS.uppercase.test(passwordValue)) {
+      errors.push(signupCopy.validation.passwordUppercase)
     }
 
-    if (!PASSWORD_VALIDATIONS.lowercase.regex.test(passwordValue)) {
-      errors.push(PASSWORD_VALIDATIONS.lowercase.message)
+    if (!PASSWORD_VALIDATIONS.lowercase.test(passwordValue)) {
+      errors.push(signupCopy.validation.passwordLowercase)
     }
 
-    if (!PASSWORD_VALIDATIONS.number.regex.test(passwordValue)) {
-      errors.push(PASSWORD_VALIDATIONS.number.message)
+    if (!PASSWORD_VALIDATIONS.number.test(passwordValue)) {
+      errors.push(signupCopy.validation.passwordNumber)
     }
 
-    if (!PASSWORD_VALIDATIONS.special.regex.test(passwordValue)) {
-      errors.push(PASSWORD_VALIDATIONS.special.message)
+    if (!PASSWORD_VALIDATIONS.special.test(passwordValue)) {
+      errors.push(signupCopy.validation.passwordSpecial)
     }
 
     return errors
@@ -161,22 +154,22 @@ function SignupFormContent({
   const validateName = (nameValue: string): string[] => {
     const errors: string[] = []
 
-    if (!NAME_VALIDATIONS.required.test(nameValue)) {
-      errors.push(NAME_VALIDATIONS.required.message)
+    if (!NAME_VALIDATIONS.required(nameValue)) {
+      errors.push(signupCopy.validation.nameRequired)
       return errors
     }
 
-    if (!NAME_VALIDATIONS.notEmpty.test(nameValue)) {
-      errors.push(NAME_VALIDATIONS.notEmpty.message)
+    if (!NAME_VALIDATIONS.notEmpty(nameValue)) {
+      errors.push(signupCopy.validation.nameEmpty)
       return errors
     }
 
-    if (!NAME_VALIDATIONS.validCharacters.regex.test(nameValue.trim())) {
-      errors.push(NAME_VALIDATIONS.validCharacters.message)
+    if (!NAME_VALIDATIONS.validCharacters.test(nameValue.trim())) {
+      errors.push(signupCopy.validation.nameCharacters)
     }
 
-    if (!NAME_VALIDATIONS.noConsecutiveSpaces.regex.test(nameValue)) {
-      errors.push(NAME_VALIDATIONS.noConsecutiveSpaces.message)
+    if (!NAME_VALIDATIONS.noConsecutiveSpaces.test(nameValue)) {
+      errors.push(signupCopy.validation.nameSpaces)
     }
 
     return errors
@@ -204,7 +197,10 @@ function SignupFormContent({
     const newEmail = e.target.value
     setEmail(newEmail)
 
-    const errors = validateEmailField(newEmail)
+    const errors = validateEmailField(newEmail, {
+      required: signupCopy.validation.emailRequired,
+      invalid: signupCopy.validation.emailInvalid,
+    })
     setEmailErrors(errors)
     setShowEmailValidationError(false)
 
@@ -229,7 +225,10 @@ function SignupFormContent({
     setNameErrors(nameValidationErrors)
     setShowNameValidationError(nameValidationErrors.length > 0)
 
-    const emailValidationErrors = validateEmailField(emailValue)
+    const emailValidationErrors = validateEmailField(emailValue, {
+      required: signupCopy.validation.emailRequired,
+      invalid: signupCopy.validation.emailInvalid,
+    })
     setEmailErrors(emailValidationErrors)
     setShowEmailValidationError(emailValidationErrors.length > 0)
 
@@ -261,7 +260,7 @@ function SignupFormContent({
       }
 
       if (trimmedName.length > 100) {
-        setNameErrors(['Name will be truncated to 100 characters. Please shorten your name.'])
+        setNameErrors([signupCopy.validation.nameTooLong])
         setShowNameValidationError(true)
         setIsLoading(false)
         return
@@ -278,44 +277,40 @@ function SignupFormContent({
         {
           onError: (ctx) => {
             logger.error('Signup error:', ctx.error)
-            const errorMessage: string[] = ['Failed to create account']
+            const errorMessage: string[] = [signupCopy.errors.failedToCreateAccount]
 
             if (ctx.error.code?.includes('USER_ALREADY_EXISTS')) {
-              errorMessage.push(
-                'An account with this email already exists. Please sign in instead.'
-              )
+              errorMessage.push(signupCopy.errors.accountExists)
               setEmailError(errorMessage[errorMessage.length - 1])
             } else if (
               ctx.error.code?.includes('BAD_REQUEST') ||
               ctx.error.message?.includes('Email and password sign up is not enabled')
             ) {
               if (ctx.error.message?.includes(REGISTRATION_DISABLED_MESSAGE)) {
-                errorMessage.push(REGISTRATION_DISABLED_MESSAGE)
+                errorMessage.push(signupCopy.errors.emailSignupDisabled)
               } else if (ctx.error.message?.includes(REGISTRATION_WAITLIST_MESSAGE)) {
-                errorMessage.push(
-                  'This email is not approved for signup yet. Join the waitlist first.'
-                )
+                errorMessage.push(signupCopy.errors.waitlistRequired)
               } else {
-                errorMessage.push('Email signup is currently disabled.')
+                errorMessage.push(signupCopy.errors.signupNotEnabled)
               }
               setEmailError(errorMessage[errorMessage.length - 1])
             } else if (ctx.error.code?.includes('INVALID_EMAIL')) {
-              errorMessage.push('Please enter a valid email address.')
+              errorMessage.push(signupCopy.errors.invalidEmail)
               setEmailError(errorMessage[errorMessage.length - 1])
             } else if (ctx.error.code?.includes('PASSWORD_TOO_SHORT')) {
-              errorMessage.push('Password must be at least 8 characters long.')
+              errorMessage.push(signupCopy.errors.passwordTooShort)
               setPasswordErrors(errorMessage)
               setShowValidationError(true)
             } else if (ctx.error.code?.includes('PASSWORD_TOO_LONG')) {
-              errorMessage.push('Password must be less than 128 characters long.')
+              errorMessage.push(signupCopy.errors.passwordTooLong)
               setPasswordErrors(errorMessage)
               setShowValidationError(true)
             } else if (ctx.error.code?.includes('network')) {
-              errorMessage.push('Network error. Please check your connection and try again.')
+              errorMessage.push(signupCopy.errors.network)
               setPasswordErrors(errorMessage)
               setShowValidationError(true)
             } else if (ctx.error.code?.includes('rate limit')) {
-              errorMessage.push('Too many requests. Please wait a moment before trying again.')
+              errorMessage.push(signupCopy.errors.rateLimit)
               setPasswordErrors(errorMessage)
               setShowValidationError(true)
             } else {
@@ -370,12 +365,12 @@ function SignupFormContent({
   return (
     <>
       <AuthPageHeader
-        eyebrow='Sign up'
-        title='Create an account'
+        eyebrow={signupCopy.eyebrow}
+        title={signupCopy.title}
         description={
           registrationMode === 'waitlist' && !isInviteFlow
-            ? 'Approved waitlist access required'
-            : 'Create an account or log in'
+            ? signupCopy.descriptionWaitlist
+            : signupCopy.descriptionOpen
         }
       />
 
@@ -385,16 +380,16 @@ function SignupFormContent({
         <div className='space-y-6'>
           <div className='space-y-2'>
             <div className='flex items-center justify-between'>
-              <Label htmlFor='name'>Full name</Label>
+              <Label htmlFor='name'>{commonCopy.fullName}</Label>
             </div>
             <Input
               id='name'
               name='name'
-              placeholder='Enter your name'
+              placeholder={commonCopy.enterYourName}
               type='text'
               autoCapitalize='words'
               autoComplete='name'
-              title='Name can only contain letters, spaces, hyphens, and apostrophes'
+              title={signupCopy.nameTitle}
               value={name}
               onChange={handleNameChange}
               className={cn(
@@ -414,12 +409,12 @@ function SignupFormContent({
           </div>
           <div className='space-y-2'>
             <div className='flex items-center justify-between'>
-              <Label htmlFor='email'>Email</Label>
+              <Label htmlFor='email'>{commonCopy.email}</Label>
             </div>
             <Input
               id='email'
               name='email'
-              placeholder='Enter your email'
+              placeholder={commonCopy.enterYourEmail}
               autoCapitalize='none'
               autoComplete='email'
               autoCorrect='off'
@@ -446,7 +441,7 @@ function SignupFormContent({
           </div>
           <div className='space-y-2'>
             <div className='flex items-center justify-between'>
-              <Label htmlFor='password'>Password</Label>
+              <Label htmlFor='password'>{commonCopy.password}</Label>
             </div>
             <div className='relative'>
               <Input
@@ -455,7 +450,7 @@ function SignupFormContent({
                 type={showPassword ? 'text' : 'password'}
                 autoCapitalize='none'
                 autoComplete='new-password'
-                placeholder='Enter your password'
+                placeholder={commonCopy.enterYourPassword}
                 autoCorrect='off'
                 value={password}
                 onChange={handlePasswordChange}
@@ -470,7 +465,7 @@ function SignupFormContent({
                 type='button'
                 onClick={() => setShowPassword(!showPassword)}
                 className='-translate-y-1/2 absolute top-1/2 right-3 text-gray-500 transition hover:text-gray-700'
-                aria-label={showPassword ? 'Hide password' : 'Show password'}
+                aria-label={showPassword ? commonCopy.hidePassword : commonCopy.showPassword}
               >
                 {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
@@ -486,7 +481,7 @@ function SignupFormContent({
         </div>
 
         <Button type='submit' className={primaryButtonClasses} disabled={isLoading}>
-          {isLoading ? 'Creating account...' : 'Create account'}
+          {isLoading ? signupCopy.submitting : signupCopy.submit}
         </Button>
       </form>
 
@@ -497,7 +492,7 @@ function SignupFormContent({
           </div>
           <div className='relative flex justify-center text-sm'>
             <span className='bg-background px-4 font-[340] text-muted-foreground'>
-              Or continue with
+              {signupCopy.divider}
             </span>
           </div>
         </div>
@@ -508,46 +503,50 @@ function SignupFormContent({
           <SocialLoginButtons
             githubAvailable={githubAvailable}
             googleAvailable={googleAvailable}
-            callbackURL={redirectUrl || '/workspace'}
+            callbackURL={redirectUrl || defaultCallbackUrl}
             isProduction={isProduction}
           >
             {ssoEnabled && (
-              <SSOLoginButton callbackURL={redirectUrl || '/workspace'} variant='outline' />
+              <SSOLoginButton callbackURL={redirectUrl || defaultCallbackUrl} variant='outline' />
             )}
           </SocialLoginButtons>
         </div>
       )}
 
       <div className={`${inter.className} pt-6 text-center font-light text-[14px]`}>
-        <span className='font-normal'>Already have an account? </span>
+        <span className='font-normal'>{commonCopy.alreadyHaveAccount} </span>
         <Link
-          href={isInviteFlow ? `/login?invite_flow=true&callbackUrl=${redirectUrl}` : '/login'}
+          href={
+            isInviteFlow
+              ? `/login?invite_flow=true&callbackUrl=${encodeURIComponent(redirectUrl)}`
+              : '/login'
+          }
           className='font-medium text-primary underline-offset-4 transition hover:text-primary-hover hover:underline'
         >
-          Sign in
+          {commonCopy.signIn}
         </Link>
       </div>
 
       <div
         className={`${inter.className} text-muted-foreground absolute right-0 bottom-0 left-0 px-8 pb-8 text-center font-[340] text-[13px] leading-relaxed sm:px-8 md:px-[44px]`}
       >
-        By creating an account, you agree to our{' '}
+        {commonCopy.termsLeadCreatingAccount}{' '}
         <Link
           href='/terms'
           target='_blank'
           rel='noopener noreferrer'
           className='hover:text-primary underline underline-offset-4'
         >
-          Terms of Service
+          {commonCopy.termsOfService}
         </Link>{' '}
-        and{' '}
+        {commonCopy.and}{' '}
         <Link
           href='/privacy'
           target='_blank'
           rel='noopener noreferrer'
           className='hover:text-primary underline underline-offset-4'
         >
-          Privacy Policy
+          {commonCopy.privacyPolicy}
         </Link>
       </div>
     </>

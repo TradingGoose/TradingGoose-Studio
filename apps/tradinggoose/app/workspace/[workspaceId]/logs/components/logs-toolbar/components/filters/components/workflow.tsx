@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Check, ChevronDown } from 'lucide-react'
 import { useParams } from 'next/navigation'
+import { useLocale } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import {
   Command,
@@ -16,6 +17,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { createLogger } from '@/lib/logs/console/logger'
+import { formatTemplate, getPublicCopy } from '@/i18n/public-copy'
+import { type LocaleCode } from '@/i18n/utils'
 import {
   commandListClass,
   dropdownContentClass,
@@ -33,6 +36,8 @@ interface WorkflowOption {
 }
 
 export default function Workflow() {
+  const locale = useLocale() as LocaleCode
+  const copy = getPublicCopy(locale).workspace.logs.dashboard.filters
   const triggerRef = useRef<HTMLButtonElement | null>(null)
   const { workflowIds, toggleWorkflowId, setWorkflowIds, folderIds } = useFilterStore()
   const params = useParams()
@@ -72,12 +77,15 @@ export default function Workflow() {
   }, [workspaceId, folderIds])
 
   const getSelectedWorkflowsText = () => {
-    if (workflowIds.length === 0) return 'All workflows'
+    if (workflowIds.length === 0) return copy.allWorkflows
     if (workflowIds.length === 1) {
       const selected = workflows.find((w) => w.id === workflowIds[0])
-      return selected ? selected.name : 'All workflows'
+      return selected ? selected.name : copy.allWorkflows
     }
-    return `${workflowIds.length} workflows selected`
+    return formatTemplate(copy.selectedWorkflows, {
+      count: workflowIds.length,
+      plural: workflowIds.length !== 1 ? 's' : '',
+    })
   }
 
   const isWorkflowSelected = (workflowId: string) => {
@@ -92,7 +100,7 @@ export default function Workflow() {
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button ref={triggerRef} variant='outline' size='sm' className={filterButtonClass}>
-          {loading ? 'Loading workflows...' : getSelectedWorkflowsText()}
+          {loading ? copy.loadingWorkflows : getSelectedWorkflowsText()}
           <ChevronDown className='ml-2 h-4 w-4 text-muted-foreground' />
         </Button>
       </DropdownMenuTrigger>
@@ -104,9 +112,9 @@ export default function Workflow() {
         className={dropdownContentClass}
       >
         <Command>
-          <CommandInput placeholder='Search workflows...' onValueChange={(v) => setSearch(v)} />
+          <CommandInput placeholder={copy.searchWorkflows} onValueChange={(v) => setSearch(v)} />
           <CommandList className={commandListClass} style={workflowDropdownListStyle}>
-            <CommandEmpty>{loading ? 'Loading workflows...' : 'No workflows found.'}</CommandEmpty>
+            <CommandEmpty>{loading ? copy.loadingWorkflows : copy.noWorkflows}</CommandEmpty>
             <CommandGroup>
               <CommandItem
                 value='all-workflows'
@@ -115,7 +123,7 @@ export default function Workflow() {
                 }}
                 className='cursor-pointer'
               >
-                <span>All workflows</span>
+                <span>{copy.allWorkflows}</span>
                 {workflowIds.length === 0 && (
                   <Check className='ml-auto h-4 w-4 text-muted-foreground' />
                 )}

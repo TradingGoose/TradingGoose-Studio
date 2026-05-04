@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { Check, ChevronDown, Workflow } from 'lucide-react'
+import { useLocale } from 'next-intl'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,15 +15,21 @@ import {
   widgetHeaderMenuItemClassName,
   widgetHeaderMenuTextClassName,
 } from '@/widgets/widgets/components/widget-header-control'
+import { getPublicCopy } from '@/i18n/public-copy'
+import type { LocaleCode } from '@/i18n/utils'
 import { LandingWidgetShell } from '../market-preview/landing-widget-shell'
 import { WorkflowPreviewCanvas } from './workflow-preview-canvas'
 import { TRADING_AGENT_WORKFLOW_DEMOS, type WorkflowPreviewDemo } from './workflow-preview-demos'
 
 function WorkflowSelector({
   selectedDemo,
+  demos,
+  ariaLabel,
   onSelect,
 }: {
   selectedDemo: WorkflowPreviewDemo
+  demos: WorkflowPreviewDemo[]
+  ariaLabel: string
   onSelect: (demo: WorkflowPreviewDemo) => void
 }) {
   return (
@@ -33,7 +40,7 @@ function WorkflowSelector({
           className={widgetHeaderControlClassName(
             'group flex min-w-[240px] items-center justify-between gap-1'
           )}
-          aria-label={selectedDemo.name}
+          aria-label={ariaLabel}
           aria-haspopup='listbox'
         >
           <div
@@ -62,7 +69,7 @@ function WorkflowSelector({
         sideOffset={6}
         className={`${widgetHeaderMenuContentClassName} w-[260px]`}
       >
-        {TRADING_AGENT_WORKFLOW_DEMOS.map((demo) => {
+        {demos.map((demo) => {
           const isSelected = demo.id === selectedDemo.id
 
           return (
@@ -95,7 +102,19 @@ function WorkflowSelector({
 }
 
 export function WorkflowPreview() {
-  const [selectedDemo, setSelectedDemo] = useState(TRADING_AGENT_WORKFLOW_DEMOS[0])
+  const locale = useLocale() as LocaleCode
+  const copy = getPublicCopy(locale)
+  const workflowNames = [
+    copy.landing.preview.workflow.demos.signalBriefing,
+    copy.landing.preview.workflow.demos.investmentDebate,
+    copy.landing.preview.workflow.demos.riskRouting,
+  ]
+  const workflowDemos = TRADING_AGENT_WORKFLOW_DEMOS.map((demo, index) => ({
+    ...demo,
+    name: workflowNames[index] ?? demo.name,
+  }))
+  const [selectedDemoId, setSelectedDemoId] = useState(workflowDemos[0].id)
+  const selectedDemo = workflowDemos.find((demo) => demo.id === selectedDemoId) ?? workflowDemos[0]
 
   return (
     <div className='flex h-full min-h-[560px] flex-col gap-4'>
@@ -105,7 +124,9 @@ export function WorkflowPreview() {
         headerCenter={
           <WorkflowSelector
             selectedDemo={selectedDemo}
-            onSelect={(demo) => setSelectedDemo(demo)}
+            demos={workflowDemos}
+            ariaLabel={copy.landing.preview.workflow.selectorAriaLabel}
+            onSelect={(demo) => setSelectedDemoId(demo.id)}
           />
         }
       >

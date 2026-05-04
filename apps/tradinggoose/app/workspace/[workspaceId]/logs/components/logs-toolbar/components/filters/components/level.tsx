@@ -1,3 +1,4 @@
+import { useLocale } from 'next-intl'
 import { Check, ChevronDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -7,20 +8,24 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { getPublicCopy } from '@/i18n/public-copy'
+import { type LocaleCode } from '@/i18n/utils'
 import { useFilterStore } from '@/stores/logs/filters/store'
 import type { LogLevel } from '@/stores/logs/filters/types'
 
 export default function Level() {
+  const locale = useLocale() as LocaleCode
+  const copy = getPublicCopy(locale).workspace.logs.dashboard.filters
   const { level, setLevel } = useFilterStore()
   const specificLevels: { value: LogLevel; label: string; color: string }[] = [
-    { value: 'error', label: 'Error', color: 'bg-destructive/100' },
-    { value: 'info', label: 'Info', color: 'bg-muted-foreground/100' },
+    { value: 'error', label: copy.error, color: 'bg-destructive/100' },
+    { value: 'info', label: copy.info, color: 'bg-muted-foreground/100' },
   ]
 
   const getDisplayLabel = () => {
-    if (level === 'all') return 'Any status'
+    if (level === 'all') return copy.anyStatus
     const selected = specificLevels.find((l) => l.value === level)
-    return selected ? selected.label : 'Any status'
+    return selected ? selected.label : copy.anyStatus
   }
 
   return (
@@ -47,7 +52,7 @@ export default function Level() {
           }}
           className='flex cursor-pointer items-center justify-between rounded-md px-3 py-2 font-[380] text-card-foreground text-sm hover:bg-secondary/50 focus:bg-secondary/50'
         >
-          <span>Any status</span>
+          <span>{copy.anyStatus}</span>
           {level === 'all' && <Check className='h-4 w-4 text-muted-foreground' />}
         </DropdownMenuItem>
 

@@ -1,3 +1,4 @@
+import { useLocale } from 'next-intl'
 import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import {
@@ -11,6 +12,8 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { formatTemplate, getPublicCopy } from '@/i18n/public-copy'
+import { type LocaleCode } from '@/i18n/utils'
 
 interface TeamSeatsProps {
   open: boolean
@@ -45,6 +48,8 @@ export function TeamSeats({
   showCostBreakdown = false,
   isCancelledAtPeriodEnd = false,
 }: TeamSeatsProps) {
+  const locale = useLocale() as LocaleCode
+  const teamCopy = getPublicCopy(locale).workspace.settingsModal.team
   const [selectedSeats, setSelectedSeats] = useState(initialSeats)
 
   useEffect(() => {
@@ -68,7 +73,7 @@ export function TeamSeats({
         </DialogHeader>
 
         <div className='py-4'>
-          <Label htmlFor='seats'>Number of seats</Label>
+          <Label htmlFor='seats'>{teamCopy.numberOfSeats}</Label>
           <Input
             id='seats'
             type='number'
@@ -92,27 +97,33 @@ export function TeamSeats({
           />
 
           <p className='mt-2 text-muted-foreground text-sm'>
-            Your team will have {selectedSeats} {selectedSeats === 1 ? 'seat' : 'seats'} with a
-            total of ${totalMonthlyCost} inference credits per month.
+            {formatTemplate(teamCopy.yourTeamWillHave, {
+              count: selectedSeats,
+              seatWord: selectedSeats === 1 ? teamCopy.seat : teamCopy.seats,
+              cost: totalMonthlyCost,
+            })}
           </p>
           <p className='mt-1 text-muted-foreground text-xs'>
             {maximumSeats === null
-              ? `Minimum ${minimumSeats} seats. No maximum seat cap applies to this tier.`
-              : `Choose between ${minimumSeats} and ${maximumSeats} seats for this tier.`}
+              ? formatTemplate(teamCopy.minimumSeatsNoMax, { minimum: minimumSeats })
+              : formatTemplate(teamCopy.chooseBetweenSeats, {
+                  minimum: minimumSeats,
+                  maximum: maximumSeats,
+                })}
           </p>
 
           {showCostBreakdown && currentSeats !== undefined && (
             <div className='mt-3 rounded-md bg-muted/50 p-3'>
               <div className='flex justify-between text-sm'>
-                <span>Current seats:</span>
+                <span>{teamCopy.currentSeats}</span>
                 <span>{currentSeats}</span>
               </div>
               <div className='flex justify-between text-sm'>
-                <span>New seats:</span>
+                <span>{teamCopy.newSeats}</span>
                 <span>{selectedSeats}</span>
               </div>
               <div className='mt-2 flex justify-between border-t pt-2 font-medium text-sm'>
-                <span>Monthly cost change:</span>
+                <span>{teamCopy.monthlyCostChange}</span>
                 <span>
                   {costChange > 0 ? '+' : ''}${costChange}
                 </span>
@@ -123,7 +134,7 @@ export function TeamSeats({
 
         <DialogFooter>
           <Button variant='outline' onClick={() => onOpenChange(false)} disabled={isLoading}>
-            Cancel
+            {teamCopy.cancel}
           </Button>
           <TooltipProvider>
             <Tooltip>
@@ -140,7 +151,7 @@ export function TeamSeats({
                     {isLoading ? (
                       <div className='flex items-center space-x-2'>
                         <div className='h-4 w-4 animate-spin rounded-full border-2 border-current border-b-transparent' />
-                        <span>Loading...</span>
+                        <span>{teamCopy.loading}</span>
                       </div>
                     ) : (
                       <span>{confirmButtonText}</span>
@@ -150,10 +161,7 @@ export function TeamSeats({
               </TooltipTrigger>
               {isCancelledAtPeriodEnd && (
                 <TooltipContent>
-                  <p>
-                    To update seats, go to Subscription {'>'} Manage {'>'} Keep Subscription to
-                    reactivate
-                  </p>
+                  <p>{teamCopy.reactivateSubscription}</p>
                 </TooltipContent>
               )}
             </Tooltip>

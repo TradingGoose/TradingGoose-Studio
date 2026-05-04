@@ -1,22 +1,22 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useMemo } from 'react'
 import { zodResolver } from '@hookform/resolvers/zod'
+import { useLocale } from 'next-intl'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { Form, FormField, FormItem, FormMessage } from '@/components/ui/form'
+import { getPublicCopy } from '@/i18n/public-copy'
+import type { LocaleCode } from '@/i18n/utils'
 import {
   type ApiKey,
   ApiKeySelector,
 } from '@/widgets/widgets/editor_workflow/components/control-bar/components/api-key-selector/api-key-selector'
 
-// Form schema for API key selection or creation
-const deployFormSchema = z.object({
-  apiKey: z.string().min(1, 'Please select an API key'),
-  newKeyName: z.string().optional(),
-})
-
-type DeployFormValues = z.infer<typeof deployFormSchema>
+type DeployFormValues = {
+  apiKey: string
+  newKeyName?: string
+}
 
 interface DeployFormProps {
   apiKeys: ApiKey[]
@@ -39,6 +39,16 @@ export function DeployForm({
   isDeployed = false,
   deployedApiKeyDisplay,
 }: DeployFormProps) {
+  const locale = useLocale() as LocaleCode
+  const copy = getPublicCopy(locale).workspace.widgets.apiKey
+  const deployFormSchema = useMemo(
+    () =>
+      z.object({
+        apiKey: z.string().min(1, copy.selectAnApiKey),
+        newKeyName: z.string().optional(),
+      }),
+    [copy.selectAnApiKey]
+  )
   const form = useForm<DeployFormValues>({
     resolver: zodResolver(deployFormSchema),
     defaultValues: {
@@ -77,7 +87,7 @@ export function DeployForm({
                 apiKeys={apiKeys}
                 onApiKeyCreated={onApiKeyCreated}
                 showLabel={true}
-                label='Select API Key'
+                label={copy.selectApiKey}
                 isDeployed={isDeployed}
                 deployedApiKeyDisplay={deployedApiKeyDisplay}
               />

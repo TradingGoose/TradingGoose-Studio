@@ -1,0 +1,1800 @@
+{
+  "meta": {
+    "landing": {
+      "title": "TradingGoose - 面向 LLM 交易的可视化工作流平台 | 开源",
+      "description": "面向技术型 LLM 驱动交易的开源平台。使用 PineTS 编写自定义指标，监控实时行情，并在市场信号触发时运行 AI 代理工作流。",
+      "openGraphTitle": "TradingGoose - 面向 LLM 交易的可视化工作流平台",
+      "openGraphDescription": "面向技术型 LLM 驱动交易的开源平台。使用 PineTS 编写自定义指标，监控实时行情，并在市场信号触发时运行 AI 代理工作流。",
+      "seo": {
+        "keywords": "AI 交易工作流，LLM 交易代理，技术型交易自动化，自定义交易指标，PineTS 指标，可视化交易工作流构建器，交易信号自动化，市场数据工作流，回测平台，开源交易平台，算法交易，AI 交易助手",
+        "socialPreviewAlt": "TradingGoose 社交预览",
+        "llmContentType": "面向交易的可视化工作流平台，自定义指标，面向市场的 AI 代理工作流",
+        "llmUseCases": "基于信号的交易执行，投资组合再平衡，指标提醒，策略回测，市场情绪分析，自定义交易仪表板",
+        "llmIntegrations": "OpenAI、Anthropic、Google Gemini、xAI、Mistral、Perplexity、Ollama，以及自定义市场数据提供商",
+        "llmPricing": "请查看 tradinggoose.ai 上的托管定价"
+      }
+    },
+    "blog": {
+      "title": "博客 | TradingGoose",
+      "description": "关于交易自动化、工作流设计以及构建更智能策略的文章。"
+    },
+    "privacy": {
+      "title": "隐私政策 | TradingGoose",
+      "description": "TradingGoose Studio 的隐私政策，涵盖账户数据、工作流、已连接服务、分析、账单和保留实践。"
+    }
+  },
+  "nav": {
+    "docs": "文档",
+    "blog": "博客",
+    "login": "登录",
+    "menu": "菜单",
+    "homeLabel": "首页",
+    "languageLabel": "语言"
+  },
+  "registration": {
+    "open": {
+      "primary": "开始使用",
+      "auth": "注册"
+    },
+    "waitlist": {
+      "primary": "加入等待名单",
+      "auth": "加入等待名单"
+    },
+    "disabled": {
+      "primary": "即将上线",
+      "auth": null
+    }
+  },
+  "auth": {
+    "common": {
+      "email": "邮箱",
+      "password": "密码",
+      "fullName": "全名",
+      "workEmail": "工作邮箱",
+      "enterYourEmail": "请输入邮箱",
+      "enterYourPassword": "请输入密码",
+      "enterYourName": "请输入姓名",
+      "enterYourWorkEmail": "请输入工作邮箱",
+      "forgotPassword": "忘记密码？",
+      "showPassword": "显示密码",
+      "hidePassword": "隐藏密码",
+      "continueWith": "或继续使用",
+      "or": "或",
+      "signIn": "登录",
+      "signUp": "注册",
+      "alreadyHaveAccount": "已经有账号？",
+      "dontHaveAccount": "还没有账号？",
+      "termsLeadSigningIn": "登录即表示你同意我们的",
+      "termsLeadCreatingAccount": "创建账号即表示你同意我们的",
+      "termsOfService": "服务条款",
+      "privacyPolicy": "隐私政策",
+      "and": "和",
+      "returnHome": "返回首页",
+      "backToLogin": "返回登录",
+      "backToSignup": "返回注册",
+      "verifyEmail": "验证邮箱",
+      "signInWithEmail": "使用邮箱登录",
+      "signInWithSso": "使用 SSO 登录",
+      "continueWithSso": "继续使用 SSO",
+      "requestAccess": "申请访问"
+    },
+    "error": {
+      "eyebrow": "身份验证错误",
+      "codeLabel": "错误代码",
+      "supportPrefix": "如果问题仍然存在，请联系",
+      "supportLinkLabel": "支持",
+      "supportSuffix": "并附上错误代码。",
+      "default": {
+        "title": "出了点问题",
+        "description": "我们无法完成该身份验证请求。请重新登录后再试。"
+      },
+      "groups": {
+        "accountCreation": {
+          "title": "无法创建你的账号",
+          "description": "你的注册请求未能完成。请从注册表单重试，或者如果这个邮箱已注册，请直接登录。"
+        },
+        "accountExists": {
+          "title": "账号已存在",
+          "description": "该邮箱对应的账号已经注册。请直接登录，不要再创建新账号。"
+        },
+        "emailVerification": {
+          "title": "请先验证邮箱",
+          "description": "你的账号已存在，但还需要完成邮箱验证。"
+        },
+        "invalidCallback": {
+          "title": "这个登录链接无效",
+          "description": "身份验证回调无效。请重新开始登录流程。"
+        },
+        "invalidToken": {
+          "title": "这个身份验证链接无效",
+          "description": "无法验证该链接或令牌。请重新开始身份验证流程。"
+        },
+        "expiredToken": {
+          "title": "这个身份验证链接已过期",
+          "description": "链接或令牌已过期。请重新开始身份验证流程。"
+        },
+        "sessionCreation": {
+          "title": "无法启动你的会话",
+          "description": "身份验证已成功，但无法创建会话。请重新登录。"
+        },
+        "sessionRestore": {
+          "title": "无法恢复你的会话",
+          "description": "无法加载你的会话。请重新登录。"
+        },
+        "sessionExpired": {
+          "title": "你的会话已过期",
+          "description": "请重新登录以继续。"
+        },
+        "userInfo": {
+          "title": "无法完成登录",
+          "description": "无法从提供方读取你的身份。请重新登录再试。"
+        },
+        "providerUnavailable": {
+          "title": "该登录提供方不可用",
+          "description": "请求的登录提供方当前未配置。"
+        },
+        "linkedAccount": {
+          "title": "该提供方已关联",
+          "description": "该登录提供方已经连接到另一个账号。请使用其他方式继续。"
+        },
+        "waitlistLimited": {
+          "title": "注册受限",
+          "description": "注册仅限已获批的等待名单邮箱。"
+        },
+        "registrationDisabled": {
+          "title": "注册已暂时禁用",
+          "description": "当前已禁用注册。"
+        }
+      }
+    },
+    "disabled": {
+      "title": "注册已关闭",
+      "description": "当前已禁用注册。"
+    },
+    "note": {
+      "waitlistApprovedEmail": "任何登录方式都请使用同一个已获批的等待名单邮箱。"
+    },
+    "social": {
+      "github": "GitHub",
+      "google": "Google",
+      "connecting": "连接中..."
+    },
+    "verify": {
+      "eyebrow": "验证",
+      "pendingTitle": "验证你的邮箱",
+      "verifiedTitle": "邮箱已验证！",
+      "verifiedDescription": "你的邮箱已验证。正在跳转到仪表板...",
+      "disabledDescription": "邮箱验证已禁用。正在跳转到仪表板...",
+      "codeSent": "验证码已发送到{{email}}",
+      "developmentDescription": "开发模式：请查看控制台日志中的验证码",
+      "missingServiceDescription": "错误：已启用邮箱验证，但未配置邮箱服务",
+      "instructionsWithService": "请输入 6 位验证码以验证你的账号。如果收件箱里没有，请检查垃圾邮件文件夹。",
+      "instructionsWithoutService": "请输入 6 位验证码以验证你的账号。",
+      "verifyButton": "验证邮箱",
+      "verifyingButton": "验证中...",
+      "resendPrompt": "没有收到验证码？",
+      "resendIn": "{{countdown}}秒后重新发送",
+      "resendButton": "重新发送",
+      "yourEmail": "你的邮箱",
+      "errors": {
+        "invalid": "验证码无效，请检查后重试。",
+        "expired": "验证码已过期，请申请新的验证码。",
+        "generic": "验证失败，请检查验证码后重试。",
+        "attempts": "失败次数过多，请申请新的验证码。",
+        "resendFailed": "重新发送验证码失败，请稍后再试。"
+      }
+    },
+    "login": {
+      "eyebrow": "登录",
+      "title": "欢迎回来",
+      "description": "请输入你的凭据",
+      "submit": "登录",
+      "submitting": "登录中...",
+      "divider": "或继续使用",
+      "resetDialog": {
+        "title": "重置密码",
+        "description": "输入你的邮箱，如果账号存在，我们会发送重置密码链接。",
+        "emailLabel": "邮箱",
+        "emailPlaceholder": "请输入邮箱",
+        "emailRequired": "请输入你的邮箱。",
+        "emailInvalid": "请输入有效的邮箱地址。",
+        "success": "密码重置链接已发送到你的邮箱",
+        "error": "无法请求重置密码",
+        "submit": "发送重置链接",
+        "submitting": "发送中..."
+      },
+      "validation": {
+        "emailRequired": "邮箱为必填项。",
+        "emailInvalid": "请输入有效的邮箱地址。",
+        "passwordRequired": "密码为必填项。",
+        "passwordEmpty": "密码不能为空。"
+      },
+      "errors": {
+        "sessionExpired": "你的会话已过期。请重新登录。",
+        "emailSignInDisabled": "邮箱登录当前已禁用。",
+        "invalidCredentials": "邮箱或密码无效。请重试。",
+        "noAccount": "未找到该邮箱对应的账号。请先注册。",
+        "missingCredentials": "请输入邮箱和密码。",
+        "emailPasswordDisabled": "邮箱和密码登录已禁用。",
+        "failedToCreateSession": "无法创建会话。请稍后再试。",
+        "tooManyAttempts": "登录尝试过多。请稍后再试或重置密码。",
+        "accountLocked": "你的账号因安全原因已被锁定。请重置密码。",
+        "network": "网络错误。请检查连接后重试。",
+        "rateLimit": "请求过多。请稍等片刻后再试。",
+        "unableToSignIn": "无法登录。",
+        "unableToSignInNow": "目前无法登录。请重试。"
+      }
+    },
+    "signup": {
+      "eyebrow": "注册",
+      "title": "创建账号",
+      "descriptionOpen": "创建账号或登录",
+      "descriptionWaitlist": "需要已获批的等待名单访问权限",
+      "submit": "创建账号",
+      "submitting": "创建中...",
+      "divider": "或继续使用",
+      "nameTitle": "姓名只能包含字母、空格、连字符和撇号",
+      "validation": {
+        "emailRequired": "邮箱为必填项。",
+        "emailInvalid": "请输入有效的邮箱地址。",
+        "nameRequired": "姓名为必填项。",
+        "nameEmpty": "姓名不能为空。",
+        "nameCharacters": "姓名只能包含字母、空格、连字符和撇号。",
+        "nameSpaces": "姓名不能包含连续空格。",
+        "nameTooLong": "姓名将被截断为 100 个字符。请缩短姓名。",
+        "passwordMinLength": "密码至少需要 8 个字符。",
+        "passwordUppercase": "密码必须包含至少一个大写字母。",
+        "passwordLowercase": "密码必须包含至少一个小写字母。",
+        "passwordNumber": "密码必须包含至少一个数字。",
+        "passwordSpecial": "密码必须包含至少一个特殊字符。"
+      },
+      "errors": {
+        "failedToCreateAccount": "无法创建账号",
+        "accountExists": "该邮箱已存在账号。请直接登录。",
+        "emailSignupDisabled": "邮箱注册当前已禁用。",
+        "signupNotEnabled": "邮箱和密码注册未启用。",
+        "waitlistRequired": "该邮箱尚未获批注册。请先加入等待名单。",
+        "invalidEmail": "请输入有效的邮箱地址。",
+        "passwordTooShort": "密码至少需要 8 个字符。",
+        "passwordTooLong": "密码长度必须少于 128 个字符。",
+        "network": "网络错误。请检查连接后重试。",
+        "rateLimit": "请求过多。请稍等片刻后再试。"
+      }
+    },
+    "waitlist": {
+      "eyebrow": "等待名单",
+      "title": "申请访问 TradingGoose",
+      "description": "加入平台访问队列。如果你的邮箱已经获批，可以直接从这里继续注册。",
+      "helperText": "使用你希望审核的平台访问邮箱。",
+      "submit": "申请访问",
+      "submitting": "提交中...",
+      "pending": "你已在等待名单中。我们会审核你的申请，并在可访问时通知你。",
+      "approvedPrefix": "你的邮箱已获批。继续前往",
+      "signedUpPrefix": "该邮箱已拥有访问权限。继续前往",
+      "rejected": "该等待名单申请未获批访问权限。",
+      "signUpLink": "注册",
+      "loginLink": "登录",
+      "validation": {
+        "emailRequired": "邮箱为必填项。",
+        "emailInvalid": "请输入有效的邮箱地址。"
+      }
+    },
+    "sso": {
+      "eyebrow": "SSO",
+      "title": "使用 SSO 登录",
+      "description": "输入你的工作邮箱继续",
+      "submit": "继续使用 SSO",
+      "submitting": "正在跳转到 SSO 提供方...",
+      "divider": "或",
+      "emailButton": "使用邮箱登录",
+      "validation": {
+        "emailRequired": "邮箱为必填项。",
+        "emailInvalid": "请输入有效的邮箱地址。"
+      },
+      "errors": {
+        "accountNotFound": "未找到账号。请联系管理员配置 SSO 访问。",
+        "ssoFailed": "SSO 身份验证失败。请重试。",
+        "providerNotConfigured": "SSO 提供方配置不正确。",
+        "invalidEmailDomain": "邮箱域名未配置为 SSO。请联系管理员。",
+        "network": "网络错误。请检查连接后重试。",
+        "rateLimit": "请求过多。请稍等片刻后再试。",
+        "ssoDisabled": "SSO 身份验证已禁用。请使用其他登录方式。",
+        "failed": "无法使用 SSO 登录。请重试。"
+      }
+    }
+  },
+  "localeNames": {
+    "en": "English",
+    "es": "Español",
+    "zh-CN": "简体中文"
+  },
+  "landing": {
+    "hero": {
+      "statusBadges": {
+        "disabled": "嘟嘟！TradingGoose-Studio 即将上线",
+        "waitlist": "嘟嘟！TradingGoose-Studio 介绍中",
+        "open": "嘟嘟！TradingGoose-Studio 已上线"
+      },
+      "leadWords": [
+        "构建",
+        "测试",
+        "运行"
+      ],
+      "highlightWords": [
+        "交易分析",
+        "信号检测",
+        "风险评估"
+      ],
+      "titleConnector": "你的",
+      "suffix": "，尽在 TradingGoose",
+      "description": "连接你自己的数据提供商，编写自定义指标监控市场价格，并将它们接入可触发交易、卖出、买入或任何自定义动作的工作流。",
+      "featureBadges": [
+        "AI 代理工作流",
+        "自定义指标",
+        "接入你的数据",
+        "集成"
+      ],
+      "learnMore": "了解更多"
+    },
+    "cta": {
+      "title": "让 AI 代理为你的交易策略工作。",
+      "description": "看看社区正在用 TradingGoose 构建什么。",
+      "joinDiscord": "加入 Discord",
+      "placeholder": "you@example.com",
+      "subscribe": "获取更新",
+      "subscribing": "订阅中...",
+      "success": "已订阅！请查看收件箱。",
+      "error": "出错了。"
+    },
+    "footer": {
+      "description": "面向技术型 LLM 交易的 AI 工作流平台",
+      "copyright": "© {{year}} {{brand}}。为可视化交易工作流而生。",
+      "links": {
+        "docs": "文档",
+        "blog": "博客",
+        "widgets": "组件",
+        "indicators": "指标",
+        "blocks": "模块",
+        "tools": "工具",
+        "changelog": "更新日志",
+        "privacy": "隐私政策",
+        "licenses": "许可证",
+        "terms": "服务条款"
+      },
+      "social": {
+        "discord": "Discord",
+        "github": "GitHub"
+      },
+      "hoverText": "HONK!"
+    },
+    "preview": {
+      "shell": {
+        "headerAriaLabel": "窗口小部件标题",
+        "widgetLabel": "小部件"
+      },
+      "layout": {
+        "headerAriaLabel": "窗口小部件标题",
+        "sizeLabel": "小部件尺寸"
+      },
+      "indicatorDropdown": {
+        "placeholder": "选择指标",
+        "tooltip": "选择指标",
+        "searchPlaceholder": "搜索指标...",
+        "emptyWithQuery": "未找到指标。",
+        "emptyWithoutQuery": "暂无可用指标。"
+      },
+      "market": {
+        "indicatorUnavailableError": "此展示中该指标不可用。"
+      },
+      "workflow": {
+        "zoomOut": "缩小工作流预览",
+        "zoomIn": "放大工作流预览",
+        "selectorAriaLabel": "工作流预览选择器",
+        "demos": {
+          "signalBriefing": "信号简报",
+          "investmentDebate": "投资辩论",
+          "riskRouting": "风险路由"
+        }
+      }
+    },
+    "howItWorks": {
+      "eyebrow": "工作原理",
+      "title": "从数据到决策",
+      "description": "连接您自己的数据源，使用自定义指标监控市场，让AI智能体分析关键信息，并触发代表您执行的工作流。",
+      "processes": [
+        {
+          "title": "连接数据",
+          "description": "接入任意市场数据提供商，将实时价格流式传输到工作区。"
+        },
+        {
+          "title": "用指标监控",
+          "description": "编写自定义PineTS指标，监测您关心的条件。"
+        },
+        {
+          "title": "用AI智能体分析",
+          "description": "让LLM驱动的智能体模块评估信号、衡量风险并自主做出决策。"
+        },
+        {
+          "title": "触发工作流",
+          "description": "当信号触发时，启动工作流以进行交易、告警、记录或您定义的任何其他操作。"
+        }
+      ]
+    },
+    "monitorSection": {
+      "eyebrow": "实时监控",
+      "title": "触发工作流的指标",
+      "description": "设置监视器，监控您在实时市场数据上的指标。当信号触发时，工作流自动运行——下达订单、发送告警、记录结果或任何其他操作。",
+      "bullets": [
+        "使用您自己的凭据连接任何流数据提供商",
+        "为每个标的选择要监控的指标和时间间隔",
+        "将触发路由到任何已部署的工作流"
+      ],
+      "tableHeaders": {
+        "listing": "标的",
+        "indicator": "指标",
+        "workflow": "工作流",
+        "status": "状态"
+      },
+      "statuses": {
+        "pending": "待处理",
+        "running": "运行中",
+        "success": "成功",
+        "failed": "失败"
+      },
+      "indicatorOptions": [
+        {
+          "name": "RSI < 30",
+          "color": "#8b5cf6"
+        },
+        {
+          "name": "MACD Cross",
+          "color": "#14b8a6"
+        },
+        {
+          "name": "EMA 21/50",
+          "color": "#f59e0b"
+        },
+        {
+          "name": "Supertrend",
+          "color": "#ef4444"
+        },
+        {
+          "name": "BB Squeeze",
+          "color": "#3b82f6"
+        },
+        {
+          "name": "成交量突增",
+          "color": "#10b981"
+        }
+      ],
+      "workflowOptions": [
+        {
+          "name": "情绪分析",
+          "color": "#6366f1"
+        },
+        {
+          "name": "风险评估",
+          "color": "#f59e0b"
+        },
+        {
+          "name": "投资组合再平衡",
+          "color": "#22c55e"
+        },
+        {
+          "name": "财报检查",
+          "color": "#3b82f6"
+        },
+        {
+          "name": "社交媒体扫描",
+          "color": "#8b5cf6"
+        },
+        {
+          "name": "波动率分析",
+          "color": "#ef4444"
+        },
+        {
+          "name": "板块相关性",
+          "color": "#14b8a6"
+        }
+      ]
+    },
+    "features": {
+      "eyebrow": "功能特性",
+      "title": "你的工作空间，随心配置",
+      "description": "布局、图表和工作流——每个组件既可独立运行，也可协同配合。",
+      "rows": [
+        {
+          "badge": "工作空间",
+          "title": "组件布局",
+          "description": "拆分工作空间，将组件并排或叠放。保存布局并在不同工作空间之间切换命名布局。",
+          "bullets": [
+            "递归拆分",
+            "按工作空间保存布局",
+            "共享组件操作菜单"
+          ]
+        },
+        {
+          "badge": "图表",
+          "title": "指标与实时数据",
+          "description": "内置指标及用于编写自定义指标的 PineTS 编辑器。连接您自己的数据提供商，实时监控价格。",
+          "bullets": [
+            "可配置的指标输入",
+            "每个 K 线自动重新执行",
+            "十字准线图例与图表标记"
+          ]
+        },
+        {
+          "badge": "工作流",
+          "title": "AI 驱动的工作流",
+          "description": "在画布上搭建工作流，使用能基于大语言模型做出决策的 AI 智能体模块。集成 Slack、Discord、GitHub、Gmail 等服务，并将订单路由至 Alpaca 或 Tradier。",
+          "bullets": [
+            "用于自主分析与决策的 AI 智能体模块",
+            "集成 Slack、Discord、GitHub、Gmail 等",
+            "数据、条件、循环、并行和交易操作模块"
+          ]
+        }
+      ]
+    },
+    "integrations": {
+      "eyebrow": "集成",
+      "title": "不止于提示词的大语言模型。",
+      "bullets": [
+        "每个集成都成为一个可由 AI 智能体调用的工具",
+        "内置消息、数据库、云存储、CRM 及搜索模块",
+        "您自行定义的自定义 MCP 服务器、技能和工具"
+      ],
+      "structuredData": {
+        "name": "TradingGoose 集成",
+        "description": "TradingGoose 作为可调用的工作流模块所集成的第三方服务、大语言模型提供商、数据源和工具。"
+      }
+    }
+  },
+  "blog": {
+    "pageTitle": "博客",
+    "pageDescription": "关于交易自动化、工作流设计以及构建更智能策略的见解。已有 {{count}} 篇文章，持续更新中。",
+    "searchPlaceholder": "搜索文章",
+    "emptyTitle": "暂无文章",
+    "emptyDescription": "请稍后回来查看，新的文章正在路上。",
+    "noMatches": "没有匹配“{{query}}”的文章",
+    "noMatchesDescription": "试试其他搜索词。",
+    "readTimeSuffix": "分钟阅读",
+    "viewArticle": "查看文章",
+    "home": "首页",
+    "breadcrumbBlog": "博客",
+    "articleSingular": "文章",
+    "articlePlural": "文章"
+  },
+  "privacy": {
+    "title": "隐私政策",
+    "description": "TradingGoose Studio 的隐私政策，涵盖账户数据、工作流、已连接服务、分析、账单和保留实践。",
+    "lastUpdatedLabel": "更新日期：",
+    "lastUpdated": "2026年3月28日"
+  },
+  "workspace": {
+    "entry": {
+      "loading": "正在加载工作空间..."
+    },
+    "switcher": {
+      "failedToCreateWorkspace": "无法创建工作空间",
+      "failedToRenameWorkspace": "无法重命名工作空间",
+      "failedToDeleteWorkspace": "无法删除工作空间",
+      "roles": {
+        "owner": "所有者",
+        "admin": "管理员",
+        "member": "成员",
+        "read": "只读"
+      },
+      "workspaceLabel": "工作空间",
+      "noWorkspacesYet": "还没有工作空间。",
+      "noWorkspacesAvailable": "没有可用的工作空间。",
+      "manage": "管理",
+      "create": "创建",
+      "creating": "正在创建..."
+    },
+    "nav": {
+      "groups": {
+        "workspace": "工作区",
+        "system": "系统",
+        "more": "更多"
+      },
+      "workspace": {
+        "dashboard": "仪表盘",
+        "knowledge": "知识",
+        "files": "文件",
+        "logs": "日志"
+      },
+      "more": {
+        "environment": "环境变量",
+        "apiKeys": "API 密钥",
+        "integrations": "集成"
+      },
+      "admin": {
+        "overview": "概览",
+        "billing": "账单",
+        "services": "服务",
+        "integrations": "集成",
+        "registration": "注册"
+      },
+      "systemAdmin": "系统管理员"
+    },
+    "defaults": {
+      "newWorkspaceName": "我的工作空间",
+      "defaultLayoutName": "默认布局",
+      "defaultWorkflowDescription": "你的第一个工作流 - 从这里开始构建！"
+    },
+    "naming": {
+      "workspacePrefix": "工作空间",
+      "folderPrefix": "文件夹",
+      "subfolderPrefix": "子文件夹"
+    },
+    "dashboard": {
+      "title": "仪表盘",
+      "searchPlaceholder": "搜索工作空间内容...",
+      "sections": {
+        "workspaces": "工作空间",
+        "knowledgeBases": "知识库",
+        "pages": "页面",
+        "docs": "文档"
+      },
+      "emptySearch": "没有匹配内容",
+      "pages": {
+        "logs": "日志",
+        "knowledge": "知识",
+        "templates": "模板",
+        "docs": "文档"
+      }
+    },
+    "knowledge": {
+      "title": "知识库",
+      "searchPlaceholder": "搜索知识库...",
+      "sort": {
+        "lastUpdated": "最近更新",
+        "newestFirst": "最新优先",
+        "oldestFirst": "最早优先",
+        "nameAsc": "名称（A-Z）",
+        "nameDesc": "名称（Z-A）",
+        "mostDocuments": "文档最多",
+        "leastDocuments": "文档最少"
+      },
+      "actions": {
+        "create": "创建",
+        "createTooltip": "创建知识库需要写入权限"
+      },
+      "errors": {
+        "load": "加载知识库时出错：{{error}}",
+        "retry": "重试"
+      },
+      "emptyState": {
+        "createFirst": "创建你的第一个知识库",
+        "withEditPermission": "上传文档即可为你的代理创建知识库。",
+        "withoutEditPermission": "知识库会显示在这里。请联系管理员创建知识库。",
+        "buttonCreate": "创建知识库",
+        "buttonContactAdmin": "联系管理员",
+        "noMatches": "没有符合搜索条件的知识库。"
+      }
+    },
+    "logs": {
+      "title": {
+        "logs": "日志",
+        "monitors": "监控",
+        "dashboard": "仪表盘"
+      },
+      "searchPlaceholder": "搜索日志...",
+      "live": "实时",
+      "monitorRequirement": "请配置一个使用指标作为触发器、并发出触发信号的指标的工作流，以添加监控。",
+      "actions": {
+        "addMonitor": "添加监控",
+        "refresh": "刷新",
+        "refreshing": "刷新中...",
+        "exportCsv": "导出 CSV"
+      },
+      "errors": {
+        "fetchLogs": "获取日志失败"
+      },
+      "dashboard": {
+        "title": "仪表盘",
+        "searchPlaceholder": "搜索工作流...",
+        "failedToFetchExecutionHistory": "获取执行历史失败。",
+        "loadingExecutionHistory": "正在加载执行历史...",
+        "errorLoadingData": "加载执行历史时出错。",
+        "noExecutionHistory": "未找到执行历史。",
+        "noExecutionHistoryDescription": "请尝试调整筛选条件或时间范围。",
+        "refresh": "刷新",
+        "refreshing": "正在刷新...",
+        "chart": {
+          "noData": "暂无数据。",
+          "toggleSeries": "切换系列 {{label}}"
+        },
+        "filters": {
+          "title": "筛选条件",
+          "activeFilters": "当前筛选条件",
+          "clearAll": "清除全部",
+          "suggestedFilters": "建议筛选条件",
+          "textSearch": "文本搜索",
+          "searchPlaceholder": "搜索日志...",
+          "filterOptionsPlaceholder": "未找到 {{title}} 的选项。",
+          "searchWorkflows": "搜索工作流...",
+          "searchFolders": "搜索文件夹...",
+          "searchOptions": "搜索选项...",
+          "loadingWorkflows": "正在加载工作流...",
+          "loadingFolders": "正在加载文件夹...",
+          "noWorkflows": "未找到工作流。",
+          "noFolders": "未找到文件夹。",
+          "noOptions": "未找到选项。",
+          "allWorkflows": "所有工作流",
+          "selectedWorkflows": "已选择 {{count}} 个工作流{{plural}}",
+          "allFolders": "所有文件夹",
+          "selectedFolders": "已选择 {{count}} 个文件夹{{plural}}",
+          "allTriggers": "所有触发器",
+          "selectedTriggers": "已选择 {{count}} 个触发器{{plural}}",
+          "allTime": "所有时间",
+          "past30Minutes": "过去30分钟",
+          "pastHour": "过去1小时",
+          "past6Hours": "过去6小时",
+          "past12Hours": "过去12小时",
+          "past24Hours": "过去24小时",
+          "past3Days": "过去3天",
+          "past7Days": "过去7天",
+          "past14Days": "过去14天",
+          "past30Days": "过去30天",
+          "manual": "手动",
+          "api": "API",
+          "webhook": "Webhook",
+          "schedule": "计划",
+          "chat": "聊天",
+          "error": "错误",
+          "info": "信息",
+          "anyStatus": "任意状态",
+          "level": "级别",
+          "workflow": "工作流",
+          "folder": "文件夹",
+          "trigger": "触发器",
+          "timeline": "时间线",
+          "retentionPolicy": "日志保留策略",
+          "retentionDescription": "此层级上的日志将在{{days}}天后自动删除。",
+          "upgradePlan": "升级套餐"
+        },
+        "metrics": {
+          "totalExecutions": "总执行次数",
+          "successRate": "成功率",
+          "failedExecutions": "执行失败数",
+          "activeWorkflows": "活跃工作流"
+        },
+        "workflows": {
+          "title": "工作流",
+          "legend": "每个单元格大约为所选范围的{{duration}}。点击单元格可筛选详细信息。",
+          "count": "{{count}}个工作流",
+          "countPlural": "{{count}}个工作流",
+          "filteredFrom": "（从{{count}}个中筛选）",
+          "noMatches": "未找到匹配\"{{query}}\"的工作流。",
+          "selectedSegment": "已选时段",
+          "filteredTo": "筛选至{{timestamp}}",
+          "selectedRangeMore": "（+{{count}}个片段{{plural}}）",
+          "selectedRangeExecutions": "— {{count}}次执行{{plural}}",
+          "clearFilter": "清除筛选",
+          "executions": "执行次数",
+          "success": "成功",
+          "failures": "失败",
+          "errorRate": "错误率",
+          "duration": "时长",
+          "columns": {
+            "time": "时间",
+            "status": "状态",
+            "trigger": "触发器",
+            "cost": "成本",
+            "workflow": "工作流",
+            "output": "输出",
+            "duration": "时长"
+          },
+          "noExecutions": "无执行记录",
+          "loadingMore": "加载更多...",
+          "scrollToLoadMore": "滚动以加载更多",
+          "succeeded": "{{success}}/{{total}} 成功",
+          "segment": "分段 {{index}}",
+          "allWorkflows": "所有工作流",
+          "multipleSelected": "已选择 {{count}} 个工作流",
+          "durationDay": "{{count}} 天{{plural}}",
+          "durationHour": "{{count}} 小时{{plural}}",
+          "durationMinute": "{{count}} 分钟{{plural}}"
+        }
+      },
+      "list": {
+        "headers": {
+          "time": "时间",
+          "status": "状态",
+          "workflow": "工作流",
+          "cost": "成本",
+          "trigger": "触发器",
+          "duration": "时长"
+        },
+        "loading": "正在加载日志...",
+        "loadingMore": "正在加载更多...",
+        "scrollToLoadMore": "滚动以加载更多",
+        "noLogs": "未找到日志",
+        "unknownWorkflow": "未知工作流"
+      },
+      "details": {
+        "title": "日志详情",
+        "previous": "上一条日志",
+        "next": "下一条日志",
+        "close": "关闭",
+        "selectLog": "选择一条日志查看详情",
+        "timestamp": "时间戳",
+        "workflow": "工作流",
+        "executionId": "执行ID",
+        "level": "级别",
+        "trigger": "触发器",
+        "duration": "时长",
+        "loading": "正在加载详情…",
+        "workflowState": "工作流状态",
+        "viewSnapshot": "查看快照",
+        "toolCalls": "工具调用",
+        "files": "文件",
+        "costBreakdown": "费用明细",
+        "baseExecution": "基本执行:",
+        "modelInput": "模型输入:",
+        "modelOutput": "模型输出:",
+        "total": "总计:",
+        "tokens": "令牌:",
+        "modelBreakdown": "模型明细 ({{count}})",
+        "input": "输入:",
+        "output": "输出:",
+        "totalCostNote": "总费用包含基础执行费 {{amount}} 加上模型使用费用。",
+        "unknownSize": "未知大小",
+        "unknownType": "未知类型",
+        "unknownWorkflow": "未知",
+        "unknownLevel": "未知",
+        "unknownValue": "未知",
+        "traceSpans": {
+          "workflowExecution": "工作流执行",
+          "collapseAll": "全部折叠",
+          "expandAll": "全部展开",
+          "collapse": "折叠",
+          "expand": "展开",
+          "noTraceData": "无追踪数据。",
+          "model": "模型",
+          "loadSkill": "加载技能",
+          "initialResponse": "初始响应",
+          "modelResponse": "模型响应",
+          "modelGeneration": "模型生成",
+          "tokens": "{{count}} 令牌{{plural}}",
+          "tokensUnavailable": "令牌不可用",
+          "tokensInOut": "{{input}} 输入 / {{output}} 输出",
+          "tokensTotal": "{{count}} 总令牌{{plural}}",
+          "tokensTotalSuffix": " ({{count}} 总计)",
+          "input": "输入",
+          "output": "输出",
+          "total": "总计",
+          "start": "开始",
+          "plusMs": "+{{ms}} 毫秒",
+          "betweenBlocks": "{{ms}} 毫秒间隔",
+          "inputSection": "输入",
+          "outputSection": "输出",
+          "errorSection": "错误",
+          "segmentTimingTooltip": "{{type}}{{nameSuffix}} 耗时 {{duration}} 毫秒"
+        },
+        "download": {
+          "downloading": "下载中...",
+          "download": "下载"
+        }
+      },
+      "monitors": {
+        "loading": "正在加载监控器...",
+        "noConfigured": "未配置监控器。",
+        "status": "状态",
+        "provider": "提供商",
+        "auth": "认证",
+        "listing": "列表",
+        "indicator": "指标",
+        "workflow": "工作流",
+        "actions": "操作",
+        "active": "活跃",
+        "paused": "已暂停",
+        "configured": "已配置",
+        "missing": "缺失",
+        "edit": "编辑",
+        "pause": "暂停",
+        "activate": "激活",
+        "remove": "移除",
+        "searchProviders": "搜索提供商...",
+        "noProviders": "未找到提供商。",
+        "searchOptions": "搜索选项...",
+        "noOptions": "未找到选项。",
+        "searchIntervals": "搜索间隔...",
+        "noIntervals": "未找到间隔。",
+        "searchWorkflows": "搜索工作流...",
+        "noWorkflows": "未找到工作流。",
+        "searchIndicators": "搜索指标...",
+        "noIndicators": "未找到指标。",
+        "loadRequirements": "正在加载监控器需求...",
+        "noDeployedWorkflow": "没有可用的已部署的含指标触发器的工作流，或没有支持触发功能的指标。",
+        "failedToLoad": "加载监控器失败。",
+        "failedToFetchLogs": "获取监控器日志失败。",
+        "failedToSave": "保存监控器失败。",
+        "activateDisabled": "激活此监控器前，需要有一个已部署的且包含支持触发功能的指标的工作流。",
+        "failedToUpdateState": "更新监控器状态失败。",
+        "failedToDelete": "删除监控器失败。"
+      },
+      "editor": {
+        "provider": "提供方",
+        "auth": "认证",
+        "listing": "品种",
+        "interval": "周期",
+        "workflow": "工作流",
+        "indicator": "指标",
+        "description": "配置监控详情。",
+        "feed": "数据源",
+        "selectInterval": "选择周期",
+        "selectWorkflow": "选择工作流",
+        "selectIndicator": "选择指标",
+        "save": "保存更改",
+        "create": "创建监控",
+        "saving": "保存中...",
+        "error": "错误",
+        "cancel": "取消",
+        "createTitle": "创建监控",
+        "editTitle": "编辑监控",
+        "selectProvider": "选择提供方",
+        "searchProviders": "搜索提供方...",
+        "searchOptions": "搜索选项...",
+        "searchIntervals": "搜索周期...",
+        "searchWorkflows": "搜索工作流...",
+        "searchIndicators": "搜索指标...",
+        "noProviders": "未找到提供方。",
+        "noOptions": "未找到选项。",
+        "noIntervals": "未找到时段。",
+        "noWorkflows": "未找到工作流。",
+        "noIndicators": "未找到指标。",
+        "authConfigured": "已配置",
+        "authMissing": "缺失"
+      }
+    },
+    "environment": {
+      "title": "环境变量",
+      "searchPlaceholder": "搜索变量...",
+      "scope": {
+        "workspace": "工作区",
+        "personal": "个人"
+      },
+      "create": {
+        "workspace": "创建工作区环境变量",
+        "personal": "创建个人环境变量"
+      },
+      "emptyState": {
+        "workspace": {
+          "title": "暂无工作区变量",
+          "description": "创建一个以开始配置。"
+        },
+        "personal": {
+          "title": "暂无个人变量",
+          "description": "创建一个以开始配置。"
+        }
+      },
+      "searchEmpty": {
+        "workspace": "未找到匹配“{{query}}”的工作区环境变量。",
+        "personal": "未找到匹配“{{query}}”的个人环境变量。"
+      },
+      "headers": {
+        "createdAt": "创建时间",
+        "variable": "变量",
+        "value": "值",
+        "updatedAt": "更新时间",
+        "actions": "操作"
+      },
+      "labels": {
+        "untitledVariable": "未命名的变量",
+        "overriddenByWorkspaceVariable": "被工作区变量覆盖",
+        "revealValue": "显示值",
+        "hideValue": "隐藏值",
+        "copyValue": "复制环境变量值",
+        "save": "保存环境变量",
+        "cancel": "取消编辑",
+        "edit": "编辑环境变量",
+        "delete": "删除环境变量"
+      }
+    },
+    "apiKeys": {
+      "title": "API 密钥",
+      "cardTitle": "{{scope}} API 密钥",
+      "searchPlaceholder": "搜索密钥...",
+      "scope": {
+        "workspace": "工作区",
+        "personal": "个人"
+      },
+      "create": {
+        "workspace": "创建工作区密钥",
+        "personal": "创建个人密钥"
+      },
+      "emptyState": {
+        "workspace": {
+          "title": "暂无工作区 API 密钥",
+          "description": "创建一个即可立即开始集成。",
+          "button": "创建密钥"
+        },
+        "personal": {
+          "title": "暂无个人 API 密钥",
+          "description": "创建一个即可立即开始集成。",
+          "button": "创建密钥"
+        }
+      },
+      "searchEmpty": "未找到与\"{{query}}\"匹配的{{scope}} API 密钥。",
+      "headers": {
+        "createdAt": "创建时间",
+        "name": "名称",
+        "key": "密钥",
+        "lastUpdate": "最后更新",
+        "actions": "操作"
+      },
+      "labels": {
+        "never": "从不",
+        "lastUsed": "上次使用：{{date}}",
+        "saveName": "保存API密钥名称",
+        "rename": "重命名{{scope}}API密钥",
+        "reveal": "显示{{scope}}API密钥",
+        "hide": "隐藏{{scope}}API密钥",
+        "copy": "复制{{scope}}API密钥",
+        "save": "保存{{scope}}API密钥",
+        "cancelRename": "取消重命名",
+        "delete": "删除{{scope}}API密钥",
+        "nameRequired": "名称为必填项",
+        "duplicateName": "名为\"{{name}}\"的{{scope}}API密钥已存在。",
+        "failedRename": "重命名{{scope}}API密钥失败。",
+        "unableRename": "无法重命名{{scope}}API密钥。请重试。",
+        "failedCreate": "创建{{scope}}API密钥失败。请重试。",
+        "workspaceAccess": "此密钥授予对该工作区内所有工作流和文件的访问权限。创建后立即复制，因为之后将无法再次查看。",
+        "personalAccess": "此密钥授予对您个人工作流和文件的访问权限。创建后立即复制，因为之后将无法再次查看。",
+        "onlyTimeYouWillSee": "这是您唯一一次看到完整密钥的机会。请复制并安全存储。",
+        "unableToDetermineWorkspace": "无法确定工作区。请刷新页面后重试。",
+        "workspacePermissions": "您需要编辑或管理员权限才能管理工作区API密钥。"
+      },
+      "dialogs": {
+        "createTitle": "创建{{scope}}API密钥",
+        "createNameLabel": "名称",
+        "createNamePlaceholder": "例如：Production MCP Server",
+        "createButton": "创建密钥",
+        "newKeyTitle": "您的{{scope}}API密钥",
+        "newKeyDescription": "这是您唯一一次看到完整密钥的机会。请复制并安全存储。",
+        "deleteTitle": "删除{{scope}}API密钥？",
+        "deleteDescription": "这将立即撤销使用此密钥的所有集成的访问权限。",
+        "deletePrompt": "输入{{name}}以确认。",
+        "deletePlaceholder": "API密钥名称",
+        "cancel": "取消",
+        "deleteButton": "删除密钥",
+        "copyToClipboard": "复制到剪贴板"
+      }
+    },
+    "integrations": {
+      "title": "集成",
+      "searchPlaceholder": "搜索集成...",
+      "successMessage": "账户连接成功！",
+      "actionRequired": {
+        "title": "需要操作：",
+        "description": "请连接您的账户以启用所请求的功能。所需服务已在下方高亮显示。",
+        "button": "前往服务"
+      },
+      "otherServices": "其他服务",
+      "connect": "连接",
+      "disconnect": "断开连接",
+      "emptyState": {
+        "noConnectible": "未配置可连接的集成。",
+        "noSearchMatches": "未找到与“{{query}}”匹配的服务。"
+      },
+      "errors": {
+        "loadAvailability": "加载提供商可用性失败",
+        "oauth": "账户连接失败。请重试。"
+      }
+    },
+    "files": {
+      "title": "文件",
+      "searchPlaceholder": "搜索文件...",
+      "upload": {
+        "idle": "上传文件",
+        "uploading": "正在上传...",
+        "uploadingWithCount": "正在上传 {{completed}}/{{total}}...",
+        "button": "上传文件"
+      },
+      "headers": {
+        "name": "名称",
+        "size": "大小",
+        "uploaded": "上传时间",
+        "actions": "操作"
+      },
+      "emptyState": {
+        "title": "尚未上传文件",
+        "description": "上传 PDF、文档、电子表格或演示文稿，为工作区提供支持。",
+        "button": "上传文件"
+      },
+      "searchEmpty": {
+        "title": "没有文件匹配搜索",
+        "description": "尝试其他关键词，或清空搜索输入框。"
+      },
+      "actions": {
+        "download": "下载",
+        "delete": "删除"
+      },
+      "deleteDialog": {
+        "title": "删除文件？",
+        "descriptionWithName": "删除“{{name}}”将永久将其从此工作区移除。",
+        "description": "删除此文件将永久将其从此工作区移除。",
+        "warning": "此操作无法撤消。",
+        "cancel": "取消",
+        "confirm": "删除",
+        "deleting": "正在删除..."
+      }
+    },
+    "userMenu": {
+      "accountDetail": "账户详情",
+      "helpSupport": "帮助与支持",
+      "serviceApiKeys": "服务 API 密钥",
+      "subscription": "订阅",
+      "manageBilling": "管理账单",
+      "openingBilling": "正在打开账单…",
+      "teamManagement": "团队管理",
+      "singleSignOn": "单点登录",
+      "logOut": "退出登录",
+      "loggingOut": "正在退出登录…",
+      "billingPortalSelectOrganization": "选择一个组织以管理账单。",
+      "billingPortalFailed": "打开账单门户失败",
+      "themeLabel": "主题：{{theme}}",
+      "languageLabel": "语言",
+      "themeOptions": {
+        "light": "浅色",
+        "system": "系统",
+        "dark": "深色"
+      },
+      "defaultAvatarAlt": "默认头像"
+    },
+    "settingsModal": {
+      "titles": {
+        "account": "账号设置",
+        "service": "服务 API 密钥",
+        "subscription": "订阅",
+        "team": "团队管理",
+        "sso": "单点登录",
+        "help": "帮助与支持"
+      },
+      "common": {
+        "cancel": "取消"
+      },
+      "account": {
+        "profilePicture": "头像",
+        "profilePictureAlt": "头像",
+        "dropImage": "拖放图片或点击上传",
+        "imageHint": "PNG 或 JPG，最大 5MB",
+        "profileDetails": "个人资料",
+        "profileDetailsDescription": "更新姓名并管理访问权限。",
+        "fullName": "全名",
+        "emailAddress": "邮箱地址",
+        "emailHint": "邮箱更改需联系支持团队处理。",
+        "passwordReset": "重置密码",
+        "passwordResetDescription": "我们会向您的邮箱发送安全链接。",
+        "sendLink": "发送链接",
+        "sending": "发送中…",
+        "saveName": "保存姓名",
+        "cancelEditingName": "取消编辑姓名",
+        "editName": "编辑姓名",
+        "privacy": "隐私",
+        "privacyDescription": "管理数据收集方式。",
+        "telemetry": {
+          "label": "允许匿名遥测",
+          "tooltipLabel": "了解遥测数据收集详情",
+          "tooltipBody": "我们收集有关功能使用、性能和错误的匿名数据，以改进应用程序。",
+          "body": "我们使用 OpenTelemetry 收集匿名使用数据以改进 TradingGoose。所有数据的收集均遵循我们的隐私政策，您可以随时选择退出。此设置适用于您所有设备上的账户。"
+        },
+        "status": {
+          "profileSaved": "个人资料已保存。",
+          "nameRequired": "请提供姓名。",
+          "saveError": "无法保存个人资料设置。",
+          "nameRequiredValidation": "姓名是必填项",
+          "profilePictureUpdateError": "更新个人资料图片失败",
+          "profilePictureRemoveError": "移除个人资料图片失败",
+          "unableToUpdateProfilePicture": "无法更新个人资料图片。",
+          "failedUpdateName": "更新名称失败",
+          "unableToUpdateName": "无法更新名称，请重试。",
+          "noEmail": "未找到此账户的邮箱地址。",
+          "passwordResetSent": "密码重置链接已发送到您的收件箱。",
+          "passwordResetFailed": "无法发送密码重置邮件。"
+        }
+      },
+      "help": {
+        "requestType": "请求",
+        "requestTypePlaceholder": "选择请求类型",
+        "requestTypes": {
+          "bug": "Bug 报告",
+          "feedback": "反馈",
+          "feature_request": "功能请求",
+          "other": "其他"
+        },
+        "subject": "主题",
+        "subjectPlaceholder": "简要描述您的请求",
+        "message": "消息",
+        "messagePlaceholder": "请提供有关您请求的详细信息...",
+        "attachments": "附加图片（可选）",
+        "dropImages": "将图片拖放到此处！",
+        "dropImagesBrowse": "将图片拖放到此处或点击浏览",
+        "imageHint": "JPEG、PNG、WebP、GIF（每张最大20MB）",
+        "uploadedImages": "已上传的图片",
+        "cancel": "取消",
+        "submit": "提交",
+        "submitting": "正在提交...",
+        "processing": "正在处理图片...",
+        "success": "成功",
+        "error": "错误",
+        "errorMessages": {
+          "subjectRequired": "主题为必填项",
+          "messageRequired": "消息为必填项",
+          "requestTypeRequired": "请选择请求类型",
+          "fileTooLarge": "文件 {{name}} 过大，最大支持 20MB。",
+          "unsupportedFormat": "文件 {{name}} 格式不支持，请使用 JPEG、PNG、WebP 或 GIF 格式。",
+          "processing": "处理图片时出现错误，请重试。",
+          "submitFailed": "提交帮助请求失败",
+          "unknown": "发生未知错误"
+        }
+      },
+      "service": {
+        "copilot": {
+          "title": "Copilot",
+          "description": "生成 Copilot API 访问密钥。"
+        },
+        "market": {
+          "title": "市场",
+          "description": "生成市场 API 访问密钥。"
+        },
+        "create": "创建",
+        "noKeys": "暂无 API 密钥",
+        "generateSuccessTitle": "您的 API 密钥已创建",
+        "generateSuccessDescription": "这是您唯一一次看到您的 API 密钥。请立即复制并安全存储。",
+        "copyToClipboard": "复制到剪贴板",
+        "deleteTitle": "删除 API 密钥？",
+        "deleteDescription": "删除此 API 密钥将立即撤销所有使用该密钥的集成的访问权限。此操作无法撤销。",
+        "cancel": "取消",
+        "delete": "删除"
+      },
+      "subscription": {
+        "titles": {
+          "manage": "管理订阅",
+          "restore": "恢复订阅",
+          "upgrade": "升级",
+          "increaseLimit": "增加限额",
+          "nextBillingDate": "下次计费日期",
+          "usageNotifications": "用量通知",
+          "billingOwner": "计费所有者",
+          "organizationUsage": "组织用量",
+          "custom": "自定义",
+          "seats": "席位"
+        },
+        "seatsText": "{{count}} 个席位",
+        "descriptions": {
+          "manage": "打开 Stripe Billing Portal 以取消、恢复或更新你的订阅。",
+          "usageNotifications": "当用量达到计费警告阈值时，通过邮件通知我。",
+          "customPlan": "联系你的客户团队以修改计费层级和用量限制。",
+          "teamMemberView": "联系你的团队管理员以增加限制。"
+        },
+        "limit": {
+          "save": "保存限制",
+          "edit": "编辑限制"
+        },
+        "billingOwner": {
+          "title": "计费所有者",
+          "description": "选择此工作区的计费所有者。",
+          "error": "错误",
+          "ownerLabel": "所有者",
+          "selectPlaceholder": "选择计费所有者",
+          "organization": "组织",
+          "billingNotice": "更改计费所有者会影响此工作区的付款方。",
+          "noActiveOrganization": "没有活跃组织可用于计费所有者。",
+          "invalidSelection": "计费所有者选择无效。",
+          "failedToUpdate": "更新计费所有者失败。"
+        },
+        "actions": {
+          "manage": "管理",
+          "contact": "联系",
+          "upgradeTo": "升级到{{name}}"
+        },
+        "badges": {
+          "resolvePayment": "处理付款",
+          "addPaymentMethod": "添加付款方式",
+          "activatePayg": "激活 PAYG",
+          "increaseLimit": "提高限额",
+          "manageBilling": "管理计费"
+        },
+        "errors": {
+          "openBillingPortal": "打开计费门户失败",
+          "unknown": "发生未知错误",
+          "selectOrganization": "请选择一个组织以管理计费。",
+          "activatePayg": "激活 PAYG 失败",
+          "loadBillingData": "加载计费数据失败。"
+        }
+      },
+      "team": {
+        "error": "错误",
+        "defaultTeamName": "{{name}}的团队",
+        "billingHowWorksSeatCost": "{{seats}}个席位{{plural}}每月花费${{amount}}。",
+        "billingHowWorksUsageTracked": "使用情况在组织内所有工作区中跟踪。",
+        "billingHowWorksIncreaseLimit": "当组织需要更多容量时，提高限额。",
+        "billingHowWorksOverage": "超额按当前套餐计费。",
+        "howBillingWorks": "团队计费说明",
+        "usageNote": "注意：",
+        "usageNoteBody": "用户一次只能属于一个组织。加入另一个组织前必须先离开当前组织。",
+        "teamId": "团队ID：",
+        "created": "创建时间：",
+        "yourRole": "您的角色：",
+        "upgradeToCreateTeam": "升级以创建团队",
+        "upgradeToCreateTeamDescription": "升级到组织层级以创建团队工作区。",
+        "openSubscriptionSettings": "打开订阅设置",
+        "createYourTeamWorkspace": "创建您的团队工作区",
+        "createYourTeamWorkspaceDescription": "创建一个组织以与您的团队协作。",
+        "teamName": "团队名称",
+        "teamNamePlaceholder": "我的团队",
+        "teamUrl": "团队URL",
+        "teamSlugPlaceholder": "my-team",
+        "createTeamWorkspace": "创建团队工作区",
+        "noTeamSubscriptionFound": "未找到团队订阅",
+        "subscriptionMayNeedTransfer": "您的订阅可能需要转移到此组织。",
+        "setUpTeamSubscription": "设置团队订阅",
+        "seats": "席位",
+        "pricePerSeat": "({{price}}/月/席)",
+        "used": "已使用 {{count}} 个",
+        "total": "共 {{count}} 个",
+        "removeSeat": "移除席位",
+        "addSeat": "添加席位",
+        "seat": "席位",
+        "numberOfSeats": "席位数量",
+        "yourTeamWillHave": "您的团队将拥有 {{count}} 个{{seatWord}}，每月总计 ${{cost}} 推理点数。",
+        "minimumSeatsNoMax": "最少 {{minimum}} 个席位。此层级无席位上限。",
+        "chooseBetweenSeats": "请为此层级选择 {{minimum}} 到 {{maximum}} 个席位。",
+        "currentSeats": "当前席位：",
+        "newSeats": "新席位：",
+        "monthlyCostChange": "每月费用变化：",
+        "loading": "加载中…",
+        "reactivateSubscription": "要更新席位，请前往订阅 > 管理 > 保留订阅以重新激活",
+        "leaveOrganization": "离开组织",
+        "removeTeamMember": "移除团队成员",
+        "leaveOrganizationDescription": "确定要离开此组织吗？您将失去对所有团队资源的访问权限。",
+        "removeMemberDescription": "确定要将 {{name}} 从团队中移除吗？",
+        "alsoReduceSeatCount": "同时在我的订阅中减少席位数量",
+        "reduceSeatCountDescription": "如果选中，您的团队席位数量将减少 1，从而降低您的月度账单。",
+        "thisActionCannotBeUndone": "此操作无法撤销。",
+        "cancel": "取消",
+        "remove": "移除",
+        "inviteUnavailableMessage": "需要有效的组织订阅才能邀请团队成员。",
+        "yourself": "您自己",
+        "thisMember": "此成员",
+        "noPublicAdjustableTier": "未配置公开的可调整组织层级",
+        "addSeats": {
+          "title": "添加团队席位",
+          "description": "每个席位每月费用为 ${{price}}，并提供 ${{price}} 的月度推理额度。调整您团队的许可席位数量。",
+          "confirm": "更新席位"
+        },
+        "billing": {
+          "title": "工作空间计费",
+          "description": "将工作空间分配给组织或所有者。",
+          "organizationBillingRequired": "需要组织计费才能管理工作空间计费。",
+          "organizationBilledTitle": "由组织计费",
+          "organizationBilledEmpty": "没有工作空间由组织计费。",
+          "availableOwnerBilledTitle": "所有者计费的工作空间",
+          "availableOwnerBilledEmpty": "没有可用的所有者计费工作空间。",
+          "returnToOwner": "返回所有者计费",
+          "billToOrganization": "由组织计费",
+          "organization": "组织",
+          "ownerBilling": "所有者计费",
+          "ownerLabel": "所有者："
+        },
+        "members": {
+          "title": "团队成员",
+          "empty": "暂无团队成员。",
+          "sharedUsage": "共享用量：${{amount}}",
+          "pending": "待处理",
+          "billing": "计费",
+          "usage": "用量",
+          "sharedPool": "共享池",
+          "unknown": "未知",
+          "removeMemberTooltip": "移除成员",
+          "cancelling": "正在取消...",
+          "cancelInvitationTooltip": "取消邀请",
+          "leaveOrganization": "离开组织"
+        },
+        "invitation": {
+          "title": "邀请团队成员",
+          "description": "邀请用户加入您的组织，并选择工作空间访问权限。",
+          "emailPlaceholder": "name@example.com",
+          "hideWorkspaces": "隐藏工作空间",
+          "addWorkspaces": "添加工作空间",
+          "invite": "邀请",
+          "noSeats": "无可用席位",
+          "unavailable": "邀请不可用",
+          "workspaceAccess": "工作空间访问",
+          "optional": "可选",
+          "selected": "已选择 {{count}} 个工作空间{{plural}}",
+          "grantAccess": "授予特定工作空间的访问权限，并选择权限级别。",
+          "noWorkspacesAvailable": "没有可用的工作空间。",
+          "needAdminAccess": "您需要管理员权限才能分配工作空间。",
+          "owner": "所有者",
+          "sentSuccess": "邀请已发送。",
+          "sentSuccessWithAccess": "已发送邀请，可访问 {{count}} 个工作空间{{plural}}。",
+          "invalidEmail": "请输入有效的电子邮件地址。",
+          "permissions": {
+            "read": {
+              "label": "读取",
+              "description": "可以查看工作空间内容。"
+            },
+            "write": {
+              "label": "写入",
+              "description": "可以编辑工作空间内容。"
+            },
+            "admin": {
+              "label": "管理员",
+              "description": "可以管理工作空间设置。"
+            }
+          }
+        }
+      },
+      "sso": {
+        "providerStatus": "单点登录提供方",
+        "issuerUrl": "颁发者 URL",
+        "providerId": "提供方 ID",
+        "callbackUrl": "回调 URL",
+        "callbackUrlHelp": "请在身份提供商设置中使用此回调 URL。",
+        "providerType": "提供方类型",
+        "providerTypeDescriptions": {
+          "oidc": "OpenID Connect（Okta、Azure AD、Auth0 等）",
+          "saml": "安全断言标记语言（ADFS、Shibboleth 等）"
+        },
+        "selectProviderHelp": "从可信提供方列表中选择预配置的提供方 ID。",
+        "issuerUrlHelp": "使用身份提供商提供的颁发者 URL。",
+        "providerIdPlaceholder": "选择提供商 ID",
+        "issuerUrlPlaceholder": "输入颁发者 URL",
+        "domain": "域名",
+        "domainPlaceholder": "输入域名",
+        "clientId": "客户端 ID",
+        "clientIdPlaceholder": "输入客户端 ID",
+        "clientSecret": "客户端密钥",
+        "clientSecretPlaceholder": "输入客户端密钥",
+        "scopes": "范围",
+        "selectProviderId": "选择提供商 ID",
+        "copyCallbackUrl": "复制回调 URL",
+        "showClientSecret": "显示客户端密钥",
+        "hideClientSecret": "隐藏客户端密钥",
+        "scopesPlaceholder": "openid,profile,email",
+        "scopesDescription": "以逗号分隔的 OIDC 范围列表。",
+        "entryPoint": "入口点 URL",
+        "entryPointPlaceholder": "输入入口点 URL",
+        "entryPointDescription": "提供身份提供商的 SAML 入口点 URL。",
+        "certificate": "身份提供商证书",
+        "certificatePlaceholder": "-----BEGIN CERTIFICATE-----",
+        "certificateDescription": "粘贴身份提供商提供的证书。",
+        "advancedOptions": "高级 SAML 选项",
+        "audience": "受众（实体 ID）",
+        "audiencePlaceholder": "输入受众",
+        "audienceDescription": "SAML受众限制，可选，默认为应用URL。",
+        "callbackUrlOverride": "回调URL覆盖",
+        "callbackUrlPlaceholder": "输入回调URL",
+        "callbackUrlDescription": "自定义SAML回调URL，可选，如果留空则自动生成。",
+        "requireSignedAssertions": "要求签名SAML断言",
+        "metadataXml": "身份提供商元数据XML",
+        "metadataPlaceholder": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<md:EntityDescriptor xmlns:md=\"urn:oasis:names:tc:SAML:2.0:metadata\">\n  ...\n</md:EntityDescriptor>",
+        "metadataDescription": "粘贴来自身份提供商的完整IDP元数据XML，用于高级配置。",
+        "loadingProviders": "正在加载提供商...",
+        "noProviders": "未找到提供商。",
+        "save": "保存更改",
+        "create": "配置SSO提供商",
+        "configureProvider": "配置SSO提供商",
+        "saving": "保存中...",
+        "configuring": "配置中...",
+        "selectOrganization": "您必须属于某个组织才能配置单点登录。",
+        "onlyAdmins": "只有组织所有者和管理员才能配置单点登录设置。",
+        "disabledTier": "此计费等级未启用单点登录。",
+        "providerLoadError": "加载SSO提供商配置失败",
+        "providerError": "配置SSO提供商失败",
+        "reloadError": "重新加载SSO提供商失败",
+        "validation": {
+          "fieldRequired": "{{field}}为必填项。",
+          "providerIdRequired": "提供商ID为必填项。",
+          "providerIdPattern": "仅允许使用字母、数字和短横线。",
+          "issuerUrlRequired": "签发者URL为必填项。",
+          "issuerUrlHttps": "颁发者 URL 必须使用 HTTPS。",
+          "issuerUrlValid": "输入有效的颁发者 URL，例如 https://your-identity-provider.com/oauth2/default",
+          "domainRequired": "域是必填项。",
+          "domainNoProtocol": "请勿包含协议（https://）。",
+          "domainValid": "输入有效的域，例如 your-domain.identityprovider.com",
+          "clientIdRequired": "客户端 ID 是必填项。",
+          "clientSecretRequired": "客户端密钥是必填项。",
+          "scopesRequired": "OIDC 提供商需要作用域。",
+          "entryPointRequired": "SAML 提供商需要入口点 URL。",
+          "certificateRequired": "证书是必填项。",
+          "providerLoadFailed": "加载 SSO 提供商失败",
+          "providerLoadFailedGeneric": "加载 SSO 提供商配置失败"
+        }
+      }
+    },
+    "widgets": {
+      "selector": {
+        "categories": {
+          "list": "列表",
+          "editor": "编辑器",
+          "utility": "工具"
+        },
+        "selectWidget": "选择组件",
+        "widgetSelectionUnavailable": "组件选择不可用"
+      },
+      "titles": {
+        "empty": "空白区域",
+        "data_chart": "市场数据",
+        "workflow_list": "工作流",
+        "editor_workflow": "工作流编辑器",
+        "workflow_chat": "工作流聊天",
+        "workflow_console": "工作流控制台",
+        "copilot": "协作助手",
+        "list_indicator": "指标",
+        "list_mcp": "MCP 服务器",
+        "editor_indicator": "指标编辑器",
+        "editor_mcp": "MCP 编辑器",
+        "list_custom_tool": "自定义工具",
+        "editor_custom_tool": "自定义工具编辑器",
+        "list_skill": "技能",
+        "editor_skill": "技能编辑器",
+        "workflow_variables": "工作流变量",
+        "watchlist": "观察列表"
+      },
+      "empty": {
+        "noWidgetSelected": "未选择组件",
+        "emptyWidget": "空组件",
+        "noWidgetDescription": "从图库中选择一个组件来开始使用此面板。",
+        "emptyWidgetDescription": "此组件当前为空，请选择另一个组件继续。",
+        "chooseWidget": "选择组件",
+        "surfaceTitle": "空白区域",
+        "surfaceDescription": "当面板没有分配组件时显示的占位状态。"
+      },
+      "workflowDropdown": {
+        "selectWorkspaceFirst": "请先选择一个工作空间。",
+        "unableToLoad": "无法加载工作流",
+        "workflowSelectionUnavailable": "工作流选择不可用",
+        "selectWorkflow": "选择工作流",
+        "searchPlaceholder": "搜索工作流...",
+        "failedToLoad": "无法加载工作流",
+        "retry": "重试",
+        "loading": "正在加载工作流...",
+        "noWorkflowsAvailable": "当前还没有可用的工作流。",
+        "noWorkflowsFound": "未找到工作流。",
+        "untitledWorkflow": "未命名工作流"
+      },
+      "mcpDropdown": {
+        "selectWorkspaceFirst": "请先选择一个工作空间。",
+        "unableToLoad": "无法加载 MCP 服务器",
+        "mcpSelectionUnavailable": "MCP 选择不可用",
+        "selectMcpServer": "选择 MCP 服务器",
+        "searchPlaceholder": "搜索服务器...",
+        "failedToLoad": "无法加载 MCP 服务器",
+        "retry": "重试",
+        "loading": "正在加载 MCP 服务器...",
+        "noServersAvailable": "当前还没有可用的 MCP 服务器。",
+        "noServersFound": "未找到服务器。",
+        "unnamedServer": "未命名服务器"
+      },
+      "console": {
+        "selectWorkspace": "选择一个工作空间以加载工作流。",
+        "noWorkflows": "此工作空间中没有可用的工作流。",
+        "filters": "筛选",
+        "status": "状态",
+        "error": "错误",
+        "info": "信息",
+        "blocks": "块",
+        "sortByTime": "按时间排序",
+        "structuredView": "结构化视图",
+        "toggleStructuredView": "切换结构化视图",
+        "wrapText": "自动换行",
+        "toggleWrapText": "切换自动换行",
+        "downloadConsoleCsv": "下载控制台 CSV",
+        "downloadCsv": "下载 CSV",
+        "clearConsole": "清空控制台",
+        "noResults": "未找到与 \"{{query}}\" 匹配的结果"
+      },
+      "mcpEditor": {
+        "selectWorkspaceToEdit": "选择一个工作空间来编辑 MCP 服务器。",
+        "selectServerToEdit": "选择一个 MCP 服务器进行编辑。",
+        "saveDraftHint": "保存此草稿后即可启用连接测试、工具刷新和标准化重载。",
+        "failedToLoadMcpServers": "无法加载 MCP 服务器。",
+        "tools": "工具",
+        "saveRequired": "需要保存",
+        "noToolsDiscovered": "尚未发现工具。",
+        "saveThisServerToRefreshAndInspectDiscoveredMcpTools": "保存此服务器以刷新并查看已发现的 MCP 工具。",
+        "refreshTools": "刷新工具",
+        "testConnection": "测试连接",
+        "resetForm": "重置表单",
+        "saveServer": "保存服务器",
+        "clearSelection": "清除选择",
+        "selectServer": "选择服务器",
+        "serverNameRequired": "需要服务器名称。",
+        "failedToRefreshMcpServer": "无法刷新 MCP 服务器。",
+        "failedToSaveMcpServer": "无法保存 MCP 服务器。",
+        "toolCount": "共 {{count}} 个",
+        "loading": "加载中...",
+        "connected": "已连接",
+        "error": "错误",
+        "draft": "草稿",
+        "disconnected": "未连接",
+        "unnamedServer": "未命名服务器",
+        "updated": "已更新 {{time}} 前",
+        "toolsRefreshed": "工具已刷新 {{time}} 前",
+        "lastConnected": "上次连接 {{time}} 前",
+        "lastError": "上次错误"
+      },
+      "triggerList": {
+        "coreTriggers": "核心触发器",
+        "integrationTriggers": "集成触发器",
+        "searchPlaceholder": "搜索触发器",
+        "openTriggerList": "点击添加触发器",
+        "close": "关闭",
+        "noResults": "未找到与 \"{{query}}\" 匹配的结果"
+      },
+      "workflowToolbar": {
+        "selectWorkspace": "选择一个工作空间来浏览模块",
+        "blocks": "模块",
+        "tools": "工具",
+        "triggers": "触发器",
+        "special": "特殊",
+        "browseLabel": "浏览{{label}}",
+        "searchPlaceholder": "搜索{{label}}...",
+        "noResults": "未找到{{label}}。"
+      },
+      "workflowLabels": {
+        "systemPrompt": "系统提示词",
+        "userPrompt": "用户提示词",
+        "model": "模型",
+        "temperature": "温度",
+        "apiKey": "API 密钥",
+        "skills": "技能",
+        "tools": "工具",
+        "responseFormat": "响应格式",
+        "reasoningEffort": "推理力度",
+        "verbosity": "详细程度",
+        "configured": "已配置",
+        "value": "值",
+        "items": "项目",
+        "fields": "字段",
+        "object": "对象",
+        "block": "块",
+        "type": "类型",
+        "none": "无",
+        "noValuesToDisplay": "没有可显示的值。",
+        "error": "错误",
+        "if": "如果",
+        "else": "否则",
+        "elseIf": "否则如果",
+        "addSkill": "添加技能",
+        "searchSkills": "搜索技能...",
+        "chooseModel": "选择模型",
+        "lite": "轻量",
+        "anthropic": "Anthropic",
+        "openai": "OpenAI",
+        "nextStep": "下一步",
+        "locked": "已锁定",
+        "deployed": "已部署",
+        "deployedWithVersion": "已部署（v{{version}}）",
+        "notDeployed": "未部署",
+        "disabled": "已禁用",
+        "removeSkill": "移除 {{name}}",
+        "currentWorkflow": "当前工作流",
+        "currentSkill": "当前技能",
+        "currentTool": "当前工具",
+        "currentIndicator": "当前指标",
+        "currentMcpServer": "当前 MCP 服务器",
+        "workflows": "工作流",
+        "customTools": "自定义工具",
+        "indicators": "指标",
+        "mcpServers": "MCP 服务器",
+        "allWorkflows": "所有工作流"
+      },
+      "workflowEditor": {
+        "previewInspector": "预览检查器",
+        "selectBlockToViewPreviewDetails": "选择一个块以查看其预览详情。",
+        "nodeNotFound": "未找到节点",
+        "selectedNodeUnavailable": "所选节点已不可用。",
+        "missingBlockConfiguration": "缺少 `{{type}}` 的块配置。",
+        "saveName": "保存名称",
+        "renameNode": "重命名节点",
+        "loopTypeLabel": "循环类型",
+        "parallelTypeLabel": "并行类型",
+        "selectType": "选择类型",
+        "forLoop": "For 循环",
+        "forEachLoop": "逐项循环",
+        "whileLoop": "While 循环",
+        "doWhileLoop": "Do While 循环",
+        "parallelCount": "并行计数",
+        "parallelEach": "并行遍历",
+        "loopIterations": "循环迭代次数",
+        "parallelExecutions": "并行执行次数",
+        "whileCondition": "While 条件",
+        "collectionItems": "集合项",
+        "parallelItems": "并行项",
+        "enterValueBetween": "请输入 1 到 {{max}} 之间的值",
+        "hideAdditionalFields": "隐藏附加字段",
+        "showAdditionalFields": "显示附加字段",
+        "additionalFields": "附加字段",
+        "triggerNoEditableFields": "此触发器在面板中没有可编辑字段。",
+        "blockNoEditableFields": "此块没有可编辑字段。",
+        "requiredField": "此字段为必填项",
+        "invalidJson": "JSON 无效",
+        "unknownInputType": "未知输入类型：{{type}}",
+        "loop": "循环",
+        "parallel": "并行",
+        "start": "开始",
+        "end": "结束"
+      },
+      "apiKey": {
+        "apiKey": "API 密钥",
+        "apiKeyType": "API 密钥类型",
+        "apiKeyName": "API 密钥名称",
+        "personal": "个人",
+        "workspace": "工作空间",
+        "selectApiKey": "选择 API 密钥",
+        "myApiKey": "我的 API 密钥",
+        "ownerIsBilledForUsage": "使用费用由所有者承担",
+        "keyOwnerIsBilled": "密钥所有者承担费用",
+        "createNew": "创建新密钥",
+        "loadingApiKeys": "正在加载 API 密钥...",
+        "selectAnApiKey": "选择一个 API 密钥",
+        "noApiKeysAvailable": "没有可用的 API 密钥",
+        "createNewApiKey": "创建新的 API 密钥",
+        "workspaceAccess": "此密钥可访问此工作空间中的所有工作流。创建后请立即复制，因为之后将无法再次查看。",
+        "personalAccess": "此密钥可访问你的个人工作流。创建后请立即复制，因为之后将无法再次查看。",
+        "apiKeyHasBeenCreated": "你的 API 密钥已创建",
+        "onlyTimeYouWillSeeYourApiKey": "这是你唯一一次看到该 API 密钥。",
+        "copyItNowAndStoreItSecurely": "请立即复制并妥善保存。",
+        "copyToClipboard": "复制到剪贴板",
+        "enterName": "请输入 API 密钥名称",
+        "failedToCreate": "创建 API 密钥失败",
+        "create": "创建",
+        "creating": "正在创建...",
+        "cancel": "取消",
+        "workspaceLabel": "工作空间",
+        "personalLabel": "个人"
+      },
+      "entityEditor": {
+        "undo": "撤销",
+        "redo": "重做"
+      },
+      "pairColor": {
+        "selectionUnavailable": "颜色选择不可用",
+        "selectWidgetColor": "选择组件颜色",
+        "unlinked": "未关联",
+        "red": "红色",
+        "orange": "橙色",
+        "blue": "蓝色",
+        "green": "绿色",
+        "purple": "紫色"
+      },
+      "deployment": {
+        "adminPermissionsRequiredToDeployWorkflows": "部署工作流需要管理员权限",
+        "deploying": "正在部署...",
+        "workflowChangesDetected": "检测到工作流变更",
+        "deploymentSettings": "部署设置",
+        "deployWorkflow": "部署工作流",
+        "deployApi": "部署 API",
+        "needsRedeployment": "需要重新部署",
+        "deployWorkflowTitle": "部署工作流",
+        "active": "已激活",
+        "close": "关闭",
+        "deploymentError": "部署错误",
+        "expandSidebar": "展开侧边栏",
+        "collapseSidebar": "折叠侧边栏",
+        "selectSharedDeploymentApiKeyInBillingBeforeDeployingThisApiTrigger": "在部署此 API 触发器之前，请先在计费中选择一个共享部署 API 密钥。",
+        "thisApiTriggerUsesTheSharedDeploymentApiKey": "此 API 触发器使用共享部署 API 密钥 {displayKey}。",
+        "thisApiTriggerUsesTheSharedDeploymentApiKeySelectedInBilling": "此 API 触发器使用在计费中选择的共享部署 API 密钥。",
+        "thisApiTriggerWillUseTheSharedDeploymentApiKeyCurrentlySelectedInBilling": "此 API 触发器将使用当前在计费中选择的共享部署 API 密钥。"
+      },
+      "workflowCreateMenu": {
+        "createButtonTooltip": "创建文件夹或工作流",
+        "selectWorkspaceTooltip": "选择一个工作空间来创建工作流",
+        "createWorkflow": "新建工作流",
+        "createFolder": "新建文件夹",
+        "importWorkflow": "导入工作流",
+        "creating": "正在创建...",
+        "importing": "正在导入..."
+      }
+    },
+    "layoutTabs": {
+      "createNewLayout": "创建新布局"
+    }
+  }
+}

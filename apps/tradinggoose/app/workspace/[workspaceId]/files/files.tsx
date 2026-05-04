@@ -3,6 +3,7 @@
 import { useMemo, useRef, useState } from 'react'
 import { AlertCircle, Download, FileText, Search, Trash2 } from 'lucide-react'
 import { useParams } from 'next/navigation'
+import { useLocale } from 'next-intl'
 import {
   Alert,
   AlertDescription,
@@ -33,10 +34,14 @@ import {
 } from '@/app/workspace/[workspaceId]/files/utils'
 import { getDocumentIcon } from '@/app/workspace/[workspaceId]/knowledge/components'
 import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
+import { formatTemplate, getPublicCopy } from '@/i18n/public-copy'
+import { type LocaleCode } from '@/i18n/utils'
 import { GlobalNavbarHeader } from '@/global-navbar'
 
 export function WorkspaceFiles() {
   const params = useParams<{ workspaceId: string }>()
+  const locale = useLocale() as LocaleCode
+  const filesCopy = getPublicCopy(locale).workspace.files
   const workspaceId = params.workspaceId
   const userPermissions = useUserPermissionsContext()
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -67,10 +72,13 @@ export function WorkspaceFiles() {
 
   const uploadButtonLabel =
     uploading && uploadProgress.total > 0
-      ? `Uploading ${uploadProgress.completed}/${uploadProgress.total}...`
+      ? formatTemplate(filesCopy.upload.uploadingWithCount, {
+          completed: uploadProgress.completed,
+          total: uploadProgress.total,
+        })
       : uploading
-        ? 'Uploading...'
-        : 'Upload File'
+        ? filesCopy.upload.uploading
+        : filesCopy.upload.button
 
   const handleUploadClick = () => {
     fileInputRef.current?.click()
@@ -89,13 +97,13 @@ export function WorkspaceFiles() {
     <div className='flex w-full flex-1 items-center gap-3'>
       <div className='hidden items-center gap-2 sm:flex'>
         <FileText className='h-[18px] w-[18px] text-muted-foreground' />
-        <span className='font-medium text-sm'>Files</span>
+        <span className='font-medium text-sm'>{filesCopy.title}</span>
       </div>
       <div className='flex w-full max-w-xl flex-1'>
         <div className='flex h-9 w-full items-center gap-2 rounded-lg border bg-background pr-2 pl-3'>
           <Search className='h-4 w-4 flex-shrink-0 text-muted-foreground' strokeWidth={2} />
           <Input
-            placeholder='Search files...'
+            placeholder={filesCopy.searchPlaceholder}
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             className='flex-1 border-0 bg-transparent px-0 font-[380] font-sans text-base text-foreground leading-none placeholder:text-muted-foreground focus-visible:ring-0 focus-visible:ring-offset-0'
@@ -181,23 +189,23 @@ export function WorkspaceFiles() {
                         <thead>
                           <tr>
                             <th className='px-4 pt-2 pb-3 text-left font-medium'>
-                              <span className='text-muted-foreground text-xs uppercase tracking-wide'>
-                                Name
+                                <span className='text-muted-foreground text-xs uppercase tracking-wide'>
+                                {filesCopy.headers.name}
                               </span>
                             </th>
                             <th className='px-4 pt-2 pb-3 text-left font-medium'>
                               <span className='text-muted-foreground text-xs uppercase tracking-wide'>
-                                Size
+                                {filesCopy.headers.size}
                               </span>
                             </th>
                             <th className='px-4 pt-2 pb-3 text-left font-medium'>
                               <span className='text-muted-foreground text-xs uppercase tracking-wide'>
-                                Uploaded
+                                {filesCopy.headers.uploaded}
                               </span>
                             </th>
                             <th className='px-4 pt-2 pb-3 text-left font-medium'>
                               <span className='text-muted-foreground text-xs uppercase tracking-wide'>
-                                Actions
+                                {filesCopy.headers.actions}
                               </span>
                             </th>
                           </tr>
@@ -246,14 +254,13 @@ export function WorkspaceFiles() {
                           ) : files.length === 0 ? (
                             <tr>
                               <td colSpan={4} className='px-4 py-12 text-center'>
-                                <p className='font-medium text-lg'>No files uploaded yet</p>
+                                <p className='font-medium text-lg'>{filesCopy.emptyState.title}</p>
                                 <p className='mt-2 text-muted-foreground'>
-                                  Upload PDFs, docs, spreadsheets, or slides to power your
-                                  workspace.
+                                  {filesCopy.emptyState.description}
                                 </p>
                                 {userPermissions.canEdit && (
                                   <Button className='mt-6' onClick={handleUploadClick}>
-                                    Upload File
+                                    {filesCopy.emptyState.button}
                                   </Button>
                                 )}
                               </td>
@@ -261,9 +268,9 @@ export function WorkspaceFiles() {
                           ) : filteredFiles.length === 0 ? (
                             <tr>
                               <td colSpan={4} className='px-4 py-12 text-center'>
-                                <p className='font-medium text-lg'>No files match your search</p>
+                                <p className='font-medium text-lg'>{filesCopy.searchEmpty.title}</p>
                                 <p className='mt-2 text-muted-foreground'>
-                                  Try a different keyword or clear the search input.
+                                  {filesCopy.searchEmpty.description}
                                 </p>
                               </td>
                             </tr>
@@ -301,8 +308,8 @@ export function WorkspaceFiles() {
                                         size='icon'
                                         onClick={() => downloadFile(file)}
                                         className='h-8 w-8'
-                                        title='Download'
-                                        aria-label={`Download ${file.name}`}
+                                        title={filesCopy.actions.download}
+                                        aria-label={`${filesCopy.actions.download} ${file.name}`}
                                       >
                                         <Download className='h-4 w-4 text-muted-foreground' />
                                       </Button>
@@ -312,8 +319,8 @@ export function WorkspaceFiles() {
                                           size='icon'
                                           onClick={() => setFilePendingDelete(file)}
                                           className='h-8 w-8 text-destructive hover:text-destructive'
-                                          title='Delete'
-                                          aria-label={`Delete ${file.name}`}
+                                          title={filesCopy.actions.delete}
+                                          aria-label={`${filesCopy.actions.delete} ${file.name}`}
                                         >
                                           <Trash2 className='h-4 w-4' />
                                         </Button>
@@ -345,14 +352,18 @@ export function WorkspaceFiles() {
           }
         }}
       >
-        <AlertDialogContent>
+          <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete file?</AlertDialogTitle>
+            <AlertDialogTitle>{filesCopy.deleteDialog.title}</AlertDialogTitle>
             <AlertDialogDescription>
               {filePendingDelete
-                ? `Deleting "${filePendingDelete.name}" will permanently remove it from this workspace.`
-                : 'Deleting this file will permanently remove it from this workspace.'}{' '}
-              <span className='text-red-500 dark:text-red-500'>This action cannot be undone.</span>
+                ? formatTemplate(filesCopy.deleteDialog.descriptionWithName, {
+                    name: filePendingDelete.name,
+                  })
+                : filesCopy.deleteDialog.description}{' '}
+              <span className='text-red-500 dark:text-red-500'>
+                {filesCopy.deleteDialog.warning}
+              </span>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className='flex'>
@@ -360,7 +371,7 @@ export function WorkspaceFiles() {
               className='h-9 w-full rounded-sm'
               disabled={Boolean(filePendingDelete) && deletingFileId === filePendingDelete?.id}
             >
-              Cancel
+              {filesCopy.deleteDialog.cancel}
             </AlertDialogCancel>
             <Button
               onClick={async () => {
@@ -372,8 +383,8 @@ export function WorkspaceFiles() {
               className='h-9 w-full rounded-sm bg-red-500 text-white transition-all duration-200 hover:bg-red-600 dark:bg-red-500 dark:hover:bg-red-600'
             >
               {filePendingDelete && deletingFileId === filePendingDelete.id
-                ? 'Deleting...'
-                : 'Delete'}
+                ? filesCopy.deleteDialog.deleting
+                : filesCopy.deleteDialog.confirm}
             </Button>
           </AlertDialogFooter>
         </AlertDialogContent>

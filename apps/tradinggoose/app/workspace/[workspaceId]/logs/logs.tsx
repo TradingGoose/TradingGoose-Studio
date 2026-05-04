@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Loader2, Plus, RefreshCw, Scroll } from 'lucide-react'
-import { useParams } from 'next/navigation'
+import { useParams, usePathname } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
@@ -26,6 +26,8 @@ import { useDebounce } from '@/hooks/use-debounce'
 import { useFolderStore } from '@/stores/folders/store'
 import { useFilterStore } from '@/stores/logs/filters/store'
 import type { WorkflowLog } from '@/stores/logs/filters/types'
+import { getPublicCopy } from '@/i18n/public-copy'
+import { stripLocaleFromPathname } from '@/i18n/utils'
 
 const LOGS_PER_PAGE = 50
 
@@ -43,7 +45,10 @@ const selectedRowAnimation = `
 
 export default function Logs() {
   const params = useParams()
+  const pathname = usePathname()
   const workspaceId = params.workspaceId as string
+  const locale = stripLocaleFromPathname(pathname ?? '/').locale
+  const logsCopy = getPublicCopy(locale).workspace.logs
 
   const {
     setWorkspaceId,
@@ -85,7 +90,7 @@ export default function Logs() {
     reason: string | null
   }>({
     canAdd: false,
-    reason: 'Loading monitor requirements...',
+    reason: logsCopy.monitors.loadRequirements,
   })
 
   const [availableWorkflows, setAvailableWorkflows] = useState<string[]>([])
@@ -129,7 +134,7 @@ export default function Logs() {
     logsQuery.error instanceof Error
       ? logsQuery.error.message
       : logsQuery.error
-        ? 'Failed to fetch logs'
+        ? logsCopy.errors.fetchLogs
         : null
 
   const detailedSelectedLog = logDetailQuery.data ?? selectedLog
@@ -404,21 +409,22 @@ export default function Logs() {
     ? !monitorAddState.canAdd || monitorsAddHandlerRef.current === null
     : false
   const addMonitorTooltip = isAddMonitorDisabled
-    ? monitorAddState.reason ||
-      'Please configure workflow that uses indicator as trigger and indicator that emits trigger to add monitor'
-    : 'Add monitor'
+    ? monitorAddState.reason || logsCopy.monitors.loadRequirements
+    : logsCopy.actions.addMonitor
 
   const headerLeftContent = isDashboardView ? null : (
     <div className='flex w-full flex-1 items-center gap-3'>
       <div className='hidden items-center gap-2 sm:flex'>
         <Scroll className='h-[18px] w-[18px] text-muted-foreground' />
-        <span className='font-medium text-sm'>{isMonitorsView ? 'Monitors' : 'Logs'}</span>
+        <span className='font-medium text-sm'>
+          {isMonitorsView ? logsCopy.title.monitors : logsCopy.title.logs}
+        </span>
       </div>
       <div className='flex w-full flex-1'>
         <AutocompleteSearch
           value={searchQuery}
           onChange={setSearchQuery}
-          placeholder='Search logs...'
+          placeholder={logsCopy.searchPlaceholder}
           availableWorkflows={availableWorkflows}
           availableFolders={availableFolders}
           className='w-full'
@@ -447,7 +453,7 @@ export default function Logs() {
           )}
           aria-pressed={isLive}
         >
-          Live
+          {logsCopy.live}
         </Button>
       </div>
 
@@ -464,7 +470,7 @@ export default function Logs() {
           )}
           aria-pressed={viewMode === 'logs'}
         >
-          Logs
+          {logsCopy.title.logs}
         </Button>
         <Button
           variant='ghost'
@@ -478,7 +484,7 @@ export default function Logs() {
           )}
           aria-pressed={viewMode === 'monitors'}
         >
-          Monitors
+          {logsCopy.title.monitors}
         </Button>
         <Button
           variant='ghost'
@@ -490,7 +496,7 @@ export default function Logs() {
           )}
           aria-pressed={false}
         >
-          Dashboard
+          {logsCopy.title.dashboard}
         </Button>
       </div>
     </div>
@@ -510,11 +516,11 @@ export default function Logs() {
                   monitorsAddHandlerRef.current?.()
                 }}
                 className='h-9 rounded-md hover:bg-secondary'
-                aria-label='Add monitor'
+                aria-label={logsCopy.actions.addMonitor}
                 disabled={isAddMonitorDisabled}
               >
                 <Plus className='h-5 w-5' />
-                <span className='sr-only'>Add monitor</span>
+                <span className='sr-only'>{logsCopy.actions.addMonitor}</span>
               </Button>
             </span>
           </TooltipTrigger>
@@ -536,10 +542,12 @@ export default function Logs() {
             ) : (
               <RefreshCw className='h-5 w-5' />
             )}
-            <span className='sr-only'>Refresh</span>
+            <span className='sr-only'>{logsCopy.actions.refresh}</span>
           </Button>
         </TooltipTrigger>
-        <TooltipContent>{isRefreshing ? 'Refreshing...' : 'Refresh'}</TooltipContent>
+        <TooltipContent>
+          {isRefreshing ? logsCopy.actions.refreshing : logsCopy.actions.refresh}
+        </TooltipContent>
       </Tooltip>
 
       <Tooltip>
@@ -547,10 +555,10 @@ export default function Logs() {
           <Button
             variant='ghost'
             size='icon'
-            onClick={handleExport}
-            className='h-9 rounded-md hover:bg-secondary'
-            aria-label='Export CSV'
-          >
+          onClick={handleExport}
+          className='h-9 rounded-md hover:bg-secondary'
+          aria-label={logsCopy.actions.exportCsv}
+        >
             <svg
               xmlns='http://www.w3.org/2000/svg'
               viewBox='0 0 24 24'
@@ -563,10 +571,10 @@ export default function Logs() {
               <polyline points='7 10 12 15 17 10' />
               <line x1='12' y1='15' x2='12' y2='3' />
             </svg>
-            <span className='sr-only'>Export CSV</span>
+            <span className='sr-only'>{logsCopy.actions.exportCsv}</span>
           </Button>
         </TooltipTrigger>
-        <TooltipContent>Export CSV</TooltipContent>
+        <TooltipContent>{logsCopy.actions.exportCsv}</TooltipContent>
       </Tooltip>
     </div>
   )

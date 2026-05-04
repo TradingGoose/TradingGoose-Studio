@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import {
   ChevronsUpDown,
   CreditCard,
+  ChevronDown,
   KeyRound,
   LifeBuoy,
   LogIn,
@@ -17,7 +18,8 @@ import {
   User,
   Users,
 } from 'lucide-react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { useLocale } from 'next-intl'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar'
 import { signOut } from '@/lib/auth-client'
@@ -27,10 +29,17 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { getOrganizationAccessState } from '@/lib/organization/access'
 import { getUserRole } from '@/lib/organization/helpers'
 import { getSubscriptionStatus } from '@/lib/subscription/helpers'
+import {
+  buildLocaleSwitchHref,
+  navigateToLocaleHref,
+} from '@/app/(landing)/components/nav/locale-switcher'
 import { HelpModal } from '@/global-navbar/settings-modal/components/help/help-modal'
 import type { SettingsSection } from '@/global-navbar/settings-modal/types'
 import { useOrganizationBilling, useOrganizations } from '@/hooks/queries/organization'
 import { useSubscriptionData } from '@/hooks/queries/subscription'
+import { usePathname } from '@/i18n/navigation'
+import { formatTemplate, getPublicCopy } from '@/i18n/public-copy'
+import { isLocaleCode, type LocaleCode, locales, localizeHref } from '@/i18n/utils'
 import { clearUserData } from '@/stores'
 import { useGeneralStore } from '@/stores/settings/general/store'
 import { getInitials } from '../utils'
@@ -39,27 +48,32 @@ import {
   DropdownMenuContent,
   DropdownMenuGroup,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from './resizable-dropdown'
 
 type ThemeOption = {
   value: 'light' | 'system' | 'dark'
-  label: string
   Icon: LucideIcon
 }
 
 const THEME_OPTIONS: ThemeOption[] = [
-  { value: 'light', label: 'Light', Icon: Sun },
-  { value: 'system', label: 'System', Icon: Monitor },
-  { value: 'dark', label: 'Dark', Icon: Moon },
+  { value: 'light', Icon: Sun },
+  { value: 'system', Icon: Monitor },
+  { value: 'dark', Icon: Moon },
 ]
 
-const THEME_ITEM_BASE_CLASSES =
-  'relative flex h-9 flex-1 items-center justify-center gap-0 rounded-md border px-0 py-0 text-sm transition-colors focus:bg-accent focus:text-accent-foreground'
-const THEME_ITEM_ACTIVE_CLASSES = 'border-border bg-accent text-accent-foreground shadow-sm'
-const THEME_ITEM_INACTIVE_CLASSES =
-  'border-transparent text-muted-foreground hover:bg-card hover:text-foreground'
+const SELECTOR_TRIGGER_BASE_CLASSES =
+  'flex h-9 cursor-pointer items-center rounded-md border border-border px-2 py-0 font-medium text-foreground text-sm transition-colors hover:bg-card focus:bg-accent focus:text-accent-foreground data-[state=open]:bg-accent data-[state=open]:text-accent-foreground disabled:pointer-events-none disabled:opacity-50'
+const THEME_SELECTOR_TRIGGER_CLASSES = `${SELECTOR_TRIGGER_BASE_CLASSES} w-9 justify-center px-0 [&>svg:last-child]:hidden`
+const LOCALE_SELECTOR_TRIGGER_CLASSES = `${SELECTOR_TRIGGER_BASE_CLASSES} min-w-0 flex-1 justify-between gap-2 [&>svg:last-child]:hidden`
+const SELECTOR_SUBMENU_CONTENT_CLASSES = 'w-48 rounded-lg'
 
 const DEFAULT_AVATAR_SRC = '/profile/avatar.png'
 
@@ -86,6 +100,10 @@ export function UserMenu({
   systemNavigation,
 }: UserMenuProps) {
   const router = useRouter()
+  const locale = useLocale() as LocaleCode
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+  const copy = getPublicCopy(locale)
   const [isSigningOut, setIsSigningOut] = useState(false)
   const [isOpeningBillingPortal, setIsOpeningBillingPortal] = useState(false)
   const [avatarOverride, setAvatarOverride] = useState<{
@@ -98,7 +116,11 @@ export function UserMenu({
   const isGeneralLoading = useGeneralStore((state) => state.isLoading)
   const isThemeLoading = useGeneralStore((state) => state.isThemeLoading)
   const { data: organizationsData } = useOrganizations()
-  const currentThemeLabel = THEME_OPTIONS.find((option) => option.value === theme)?.label ?? 'Theme'
+  const userMenuCopy = copy.workspace.userMenu
+  const themeOptionLabels = userMenuCopy.themeOptions
+  const currentThemeOption =
+    THEME_OPTIONS.find((option) => option.value === theme) ?? THEME_OPTIONS[0]
+  const currentThemeLabel = themeOptionLabels[currentThemeOption.value]
   const [isHelpModalOpen, setIsHelpModalOpen] = useState(false)
   const activeOrganization = organizationsData?.activeOrganization
   const activeOrganizationId = activeOrganization?.id
@@ -204,7 +226,7 @@ export function UserMenu({
     } catch (error) {
       logger.error('Error signing out:', { error })
     } finally {
-      router.push('/login?fromLogout=true')
+      router.push(localizeHref(locale, '/login?fromLogout=true'))
       setIsSigningOut(false)
     }
   }
@@ -218,6 +240,14 @@ export function UserMenu({
     }
   }
 
+  const handleLocaleChange = (nextLocale: string) => {
+    if (!isLocaleCode(nextLocale) || nextLocale === locale) {
+      return
+    }
+
+    navigateToLocaleHref(buildLocaleSwitchHref(nextLocale, pathname, searchParams))
+  }
+
   const handleOpenBillingPortal = async () => {
     if (!billingEnabled) return
     if (isOpeningBillingPortal || isSubscriptionLoading) return
@@ -227,7 +257,7 @@ export function UserMenu({
       logger.error('Cannot open billing portal without an active organization', {
         tier: subscription.tier.displayName,
       })
-      alert('Select an organization to manage billing.')
+      alert(userMenuCopy.billingPortalSelectOrganization)
       return
     }
 
@@ -239,7 +269,7 @@ export function UserMenu({
       })
     } catch (error) {
       logger.error('Failed to open billing portal from user menu', { error })
-      alert(error instanceof Error ? error.message : 'Failed to open billing portal')
+      alert(error instanceof Error ? error.message : userMenuCopy.billingPortalFailed)
     } finally {
       setIsOpeningBillingPortal(false)
     }
@@ -260,7 +290,7 @@ export function UserMenu({
                   {avatarSrc ? (
                     <AvatarImage key={avatarSrc} src={avatarSrc} alt={userName} />
                   ) : (
-                    <AvatarImage src={DEFAULT_AVATAR_SRC} alt='Default avatar' />
+                    <AvatarImage src={DEFAULT_AVATAR_SRC} alt={userMenuCopy.defaultAvatarAlt} />
                   )}
                   <AvatarFallback className='rounded-lg'>{getInitials(userName)}</AvatarFallback>
                 </Avatar>
@@ -277,34 +307,67 @@ export function UserMenu({
               align='start'
             >
               <DropdownMenuGroup>
-                <div className='flex items-center gap-1.5 px-2 pt-0.5 pb-1.5'>
-                  <DropdownMenuItem className='flex items-center gap-2 font-medium text-muted-foreground text-sm'>
-                    {currentThemeLabel}
-                  </DropdownMenuItem>
-                  {THEME_OPTIONS.map(({ value, label, Icon }) => {
-                    const isActive = theme === value
-                    const themeClasses = `${THEME_ITEM_BASE_CLASSES} ${
-                      isActive ? THEME_ITEM_ACTIVE_CLASSES : THEME_ITEM_INACTIVE_CLASSES
-                    }`
-                    return (
-                      <DropdownMenuItem
-                        key={value}
-                        aria-label={`${label} theme`}
-                        className={themeClasses}
-                        disabled={isThemeLoading || isGeneralLoading}
-                        onSelect={(event) => {
-                          if (isActive) {
-                            event.preventDefault()
-                            return
-                          }
-                          void handleThemeChange(value)
-                        }}
-                        title={label}
-                      >
-                        <Icon className='size-4' />
-                      </DropdownMenuItem>
-                    )
-                  })}
+                <div className='grid grid-cols-[2.25rem_minmax(0,1fr)] items-center gap-1.5 px-2 pt-0.5 pb-1.5'>
+                  <DropdownMenuSub>
+                    <DropdownMenuSubTrigger
+                      aria-label={formatTemplate(userMenuCopy.themeLabel, {
+                        theme: currentThemeLabel,
+                      })}
+                      className={THEME_SELECTOR_TRIGGER_CLASSES}
+                      disabled={isThemeLoading || isGeneralLoading}
+                      title={currentThemeLabel}
+                    >
+                      <currentThemeOption.Icon className='size-4' />
+                    </DropdownMenuSubTrigger>
+                    <DropdownMenuSubContent className={SELECTOR_SUBMENU_CONTENT_CLASSES}>
+                      <DropdownMenuRadioGroup value={theme}>
+                        {THEME_OPTIONS.map(({ value, Icon }) => {
+                          const label = themeOptionLabels[value]
+                          const isActive = theme === value
+
+                          return (
+                            <DropdownMenuRadioItem
+                              key={value}
+                              className='flex items-center gap-2'
+                              disabled={isThemeLoading || isGeneralLoading}
+                              onSelect={(event) => {
+                                if (isActive) {
+                                  event.preventDefault()
+                                  return
+                                }
+                                void handleThemeChange(value)
+                              }}
+                              value={value}
+                            >
+                              <Icon className='size-4' />
+                              {label}
+                            </DropdownMenuRadioItem>
+                          )
+                        })}
+                      </DropdownMenuRadioGroup>
+                    </DropdownMenuSubContent>
+                  </DropdownMenuSub>
+                  <DropdownMenuSub>
+                    <DropdownMenuSubTrigger
+                      className={LOCALE_SELECTOR_TRIGGER_CLASSES}
+                      title={copy.localeNames[locale]}
+                    >
+                      <span className='min-w-0 truncate'>{copy.localeNames[locale]}</span>
+                      <ChevronDown className='size-4 shrink-0' aria-hidden='true' />
+                    </DropdownMenuSubTrigger>
+                    <DropdownMenuSubContent className={SELECTOR_SUBMENU_CONTENT_CLASSES}>
+                      <DropdownMenuLabel className='px-2 py-1.5 font-medium text-muted-foreground text-sm'>
+                        {userMenuCopy.languageLabel}
+                      </DropdownMenuLabel>
+                      <DropdownMenuRadioGroup value={locale} onValueChange={handleLocaleChange}>
+                        {locales.map((code) => (
+                          <DropdownMenuRadioItem key={code} value={code}>
+                            {copy.localeNames[code]}
+                          </DropdownMenuRadioItem>
+                        ))}
+                      </DropdownMenuRadioGroup>
+                    </DropdownMenuSubContent>
+                  </DropdownMenuSub>
                 </div>
               </DropdownMenuGroup>
               <DropdownMenuSeparator />
@@ -322,7 +385,7 @@ export function UserMenu({
                   }}
                 >
                   <User />
-                  Account Detail
+                  {userMenuCopy.accountDetail}
                 </DropdownMenuItem>
                 {isHosted ? (
                   <DropdownMenuItem
@@ -338,7 +401,7 @@ export function UserMenu({
                     }}
                   >
                     <KeyRound />
-                    Service API Keys
+                    {userMenuCopy.serviceApiKeys}
                   </DropdownMenuItem>
                 ) : null}
               </DropdownMenuGroup>
@@ -359,7 +422,7 @@ export function UserMenu({
                       }}
                     >
                       <Star />
-                      Subscription
+                      {userMenuCopy.subscription}
                     </DropdownMenuItem>
                     <DropdownMenuItem
                       disabled={isOpeningBillingPortal || isSubscriptionLoading}
@@ -369,7 +432,9 @@ export function UserMenu({
                       }}
                     >
                       <CreditCard />
-                      {isOpeningBillingPortal ? 'Opening Billing…' : 'Manage Billing'}
+                      {isOpeningBillingPortal
+                        ? userMenuCopy.openingBilling
+                        : userMenuCopy.manageBilling}
                     </DropdownMenuItem>
                   </DropdownMenuGroup>
                 </>
@@ -392,7 +457,7 @@ export function UserMenu({
                         }}
                       >
                         <Users />
-                        Team Management
+                        {userMenuCopy.teamManagement}
                       </DropdownMenuItem>
                     ) : null}
                     {canManageSSOSettings ? (
@@ -409,7 +474,7 @@ export function UserMenu({
                         }}
                       >
                         <LogIn />
-                        Single Sign-On
+                        {userMenuCopy.singleSignOn}
                       </DropdownMenuItem>
                     ) : null}
                   </DropdownMenuGroup>
@@ -422,7 +487,7 @@ export function UserMenu({
                     <DropdownMenuItem
                       onSelect={(event) => {
                         event.preventDefault()
-                        router.push(systemNavigation.href)
+                        router.push(localizeHref(locale, systemNavigation.href))
                       }}
                     >
                       <ShieldCheck />
@@ -440,7 +505,7 @@ export function UserMenu({
                   }}
                 >
                   <LifeBuoy />
-                  Help & Support
+                  {userMenuCopy.helpSupport}
                 </DropdownMenuItem>
               </DropdownMenuGroup>
               <DropdownMenuSeparator />
@@ -453,7 +518,7 @@ export function UserMenu({
                 className='text-destructive focus:text-destructive'
               >
                 <LogOut className='text-destructive ' />
-                {isSigningOut ? 'Logging out…' : 'Log out'}
+                {isSigningOut ? userMenuCopy.loggingOut : userMenuCopy.logOut}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

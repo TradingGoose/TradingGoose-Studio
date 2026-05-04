@@ -1,11 +1,13 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
+import { useLocale } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { useBrandConfig } from '@/lib/branding/branding'
 import Nav from '@/app/(landing)/components/nav/nav'
 import { inter } from '@/app/fonts/inter'
 import { soehne } from '@/app/fonts/soehne/soehne'
+import { localizeHref, type LocaleCode } from '@/i18n/utils'
 
 interface ChatErrorStateProps {
   error: string
@@ -14,6 +16,7 @@ interface ChatErrorStateProps {
 
 export function ChatErrorState({ error, starCount }: ChatErrorStateProps) {
   const router = useRouter()
+  const locale = useLocale() as LocaleCode
   const brandConfig = useBrandConfig()
   const primaryButtonClasses =
     'bg-primary text-primary-foreground flex w-full items-center justify-center gap-2 rounded-md border border-transparent font-medium text-[15px] transition-all duration-200'
@@ -40,7 +43,7 @@ export function ChatErrorState({ error, starCount }: ChatErrorStateProps) {
             <div className='mt-8 w-full'>
               <Button
                 type='button'
-                onClick={() => router.push('/workspace')}
+                onClick={() => router.push(localizeHref(locale, '/workspace'))}
                 className={primaryButtonClasses}
               >
                 Return to Workspace

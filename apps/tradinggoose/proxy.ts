@@ -8,12 +8,26 @@ import {
   MARKDOWN_RENDER_ROUTE,
   requestAcceptsMarkdown,
 } from '@/lib/markdown/negotiation'
+import {
+  defaultLocale,
+  type LocaleCode,
+  localizePathname,
+  stripLocaleFromPathname,
+} from '@/i18n/utils'
 import { createLogger } from './lib/logs/console/logger'
 import { generateRuntimeCSP } from './lib/security/csp'
 
 const logger = createLogger('Proxy')
+const NEXT_INTL_LOCALE_HEADER = 'X-NEXT-INTL-LOCALE'
 
 const AUTH_ROUTES = new Set(['/login', '/signup'])
+const ENGLISH_ONLY_PUBLIC_ROUTES = new Set([
+  '/privacy',
+  '/terms',
+  '/licenses',
+  '/careers',
+  '/changelog',
+])
 const AUTH_COOKIE_KEYS = [
   'better-auth.session_token',
   'better-auth.session_data',
@@ -42,8 +56,58 @@ const SUSPICIOUS_UA_PATTERNS = [
   /\b(sqlmap|nikto|gobuster|dirb|nmap)\b/i, // Known scanning tools
 ] as const
 
+function createRequestHeaders(
+  request: NextRequest,
+  locale: LocaleCode,
+  extraHeaders: Record<string, string> = {}
+) {
+  const headers = new Headers(request.headers)
+  headers.set(NEXT_INTL_LOCALE_HEADER, locale)
+
+  Object.entries(extraHeaders).forEach(([key, value]) => {
+    headers.set(key, value)
+  })
+
+  return headers
+}
+
+function buildNormalizedUrl(request: NextRequest, pathname: string) {
+  const normalizedUrl = new URL(pathname, request.url)
+  normalizedUrl.search = request.nextUrl.search
+  return normalizedUrl
+}
+
+function buildLocaleAwareResponse(
+  request: NextRequest,
+  locale: LocaleCode,
+  pathname: string,
+  extraRequestHeaders: Record<string, string> = {}
+) {
+  const hasLocalePrefix = pathname !== request.nextUrl.pathname
+  const normalizedUrl = buildNormalizedUrl(request, pathname)
+
+  if (hasLocalePrefix && locale === defaultLocale) {
+    return NextResponse.redirect(normalizedUrl)
+  }
+
+  if (hasLocalePrefix) {
+    return NextResponse.rewrite(normalizedUrl, {
+      request: {
+        headers: createRequestHeaders(request, locale, extraRequestHeaders),
+      },
+    })
+  }
+
+  return NextResponse.next({
+    request: {
+      headers: createRequestHeaders(request, locale, extraRequestHeaders),
+    },
+  })
+}
+
 function buildLoginRedirect(request: NextRequest, callback?: string) {
-  const loginUrl = new URL('/login', request.url)
+  const { locale } = stripLocaleFromPathname(request.nextUrl.pathname)
+  const loginUrl = new URL(localizePathname(locale, '/login'), request.url)
   if (callback) {
     loginUrl.searchParams.set('callbackUrl', callback)
   }
@@ -51,12 +115,36 @@ function buildLoginRedirect(request: NextRequest, callback?: string) {
 }
 
 function isProtectedAppPath(pathname: string): boolean {
+  const { pathname: normalizedPathname } = stripLocaleFromPathname(pathname)
+
   return (
-    pathname.startsWith('/workspace') ||
-    pathname === '/admin' ||
-    pathname.startsWith('/admin/') ||
-    pathname === '/workspace/'
+    normalizedPathname.startsWith('/workspace') ||
+    normalizedPathname === '/admin' ||
+    normalizedPathname.startsWith('/admin/') ||
+    normalizedPathname === '/workspace/'
   )
+}
+
+function isAuthRoute(pathname: string): boolean {
+  const { pathname: normalizedPathname } = stripLocaleFromPathname(pathname)
+
+  return AUTH_ROUTES.has(normalizedPathname)
+}
+
+function getLocalizedCallbackPath(pathname: string, search: string) {
+  const { locale, pathname: normalizedPathname } = stripLocaleFromPathname(pathname)
+  return `${localizePathname(locale, normalizedPathname)}${search}`
+}
+
+function isMarkdownRequestPath(pathname: string) {
+  const { pathname: normalizedPathname } = stripLocaleFromPathname(pathname)
+
+  return isMarkdownRenderablePath(normalizedPathname)
+}
+
+function getLocalizedWorkspacePath(pathname: string) {
+  const { locale } = stripLocaleFromPathname(pathname)
+  return localizePathname(locale, '/workspace')
 }
 
 function rewriteMarkdownRequest(request: NextRequest): NextResponse | null {
@@ -76,15 +164,22 @@ function rewriteMarkdownRequest(request: NextRequest): NextResponse | null {
     return null
   }
 
-  if (!isMarkdownRenderablePath(request.nextUrl.pathname)) {
+  if (!isMarkdownRequestPath(request.nextUrl.pathname)) {
     return null
+  }
+
+  const { locale, pathname: normalizedPathname } = stripLocaleFromPathname(request.nextUrl.pathname)
+
+  if (locale === defaultLocale && normalizedPathname !== request.nextUrl.pathname) {
+    return NextResponse.redirect(buildNormalizedUrl(request, normalizedPathname))
   }
 
   const rewriteUrl = new URL(MARKDOWN_RENDER_ROUTE, request.url)
   rewriteUrl.searchParams.set('path', request.nextUrl.pathname)
 
-  const requestHeaders = new Headers(request.headers)
-  requestHeaders.set(MARKDOWN_BYPASS_HEADER, '1')
+  const requestHeaders = createRequestHeaders(request, locale, {
+    [MARKDOWN_BYPASS_HEADER]: '1',
+  })
 
   return NextResponse.rewrite(rewriteUrl, {
     request: {
@@ -100,17 +195,22 @@ function handleWorkspaceInvitationAPI(
   request: NextRequest,
   hasActiveSession: boolean
 ): NextResponse | null {
-  if (!request.nextUrl.pathname.startsWith('/api/workspaces/invitations')) {
+  const { locale, pathname: normalizedPathname } = stripLocaleFromPathname(request.nextUrl.pathname)
+
+  if (!normalizedPathname.startsWith('/api/workspaces/invitations')) {
     return null
   }
 
-  if (request.nextUrl.pathname.includes('/accept') && !hasActiveSession) {
+  if (normalizedPathname.includes('/accept') && !hasActiveSession) {
     const token = request.nextUrl.searchParams.get('token')
     if (token) {
-      return NextResponse.redirect(new URL(`/invite/${token}?token=${token}`, request.url))
+      const inviteUrl = new URL(localizePathname(locale, `/invite/${token}`), request.url)
+      inviteUrl.searchParams.set('token', token)
+      return NextResponse.redirect(inviteUrl)
     }
   }
-  return NextResponse.next()
+
+  return buildLocaleAwareResponse(request, locale, normalizedPathname)
 }
 
 /**
@@ -152,27 +252,32 @@ function handleSecurityFiltering(request: NextRequest): NextResponse | null {
 export async function proxy(request: NextRequest) {
   const url = request.nextUrl
 
+  if (url.pathname === '/zh-CN' || url.pathname.startsWith('/zh-CN/')) {
+    return new NextResponse(null, { status: 404 })
+  }
+
+  const { locale, pathname: normalizedPathname } = stripLocaleFromPathname(url.pathname)
+
   const hasActiveSession = Boolean(getSessionCookie(request))
   const isProtectedPath = isProtectedAppPath(url.pathname)
+  const reauth = url.searchParams.get('reauth') === '1'
 
   if (isProtectedPath) {
     if (!hasActiveSession) {
-      const callbackTarget = `${url.pathname}${url.search}`
+      const callbackTarget = getLocalizedCallbackPath(url.pathname, url.search)
       return buildLoginRedirect(request, callbackTarget)
     }
   }
 
-  const reauth = url.searchParams.get('reauth') === '1'
-
-  if (AUTH_ROUTES.has(url.pathname)) {
+  if (isAuthRoute(url.pathname)) {
     if (reauth) {
-      const response = NextResponse.next()
+      const response = buildLocaleAwareResponse(request, locale, normalizedPathname)
       clearAuthCookies(response)
       return response
     }
 
     if (hasActiveSession) {
-      return NextResponse.redirect(new URL('/workspace', request.url))
+      return NextResponse.redirect(new URL(getLocalizedWorkspacePath(url.pathname), request.url))
     }
   }
 
@@ -182,31 +287,35 @@ export async function proxy(request: NextRequest) {
   const securityBlock = handleSecurityFiltering(request)
   if (securityBlock) return securityBlock
 
+  if (ENGLISH_ONLY_PUBLIC_ROUTES.has(normalizedPathname) && normalizedPathname !== url.pathname) {
+    return NextResponse.redirect(buildNormalizedUrl(request, normalizedPathname))
+  }
+
   const markdownRewrite = rewriteMarkdownRequest(request)
   if (markdownRewrite) return markdownRewrite
 
-  const requestHeaders = new Headers(request.headers)
-  if (isProtectedPath) {
-    requestHeaders.set('x-auth-callback-url', `${url.pathname}${url.search}`)
+  const requestHeaders: Record<string, string> = isProtectedPath
+    ? { 'x-auth-callback-url': getLocalizedCallbackPath(url.pathname, url.search) }
+    : {}
+
+  const response = buildLocaleAwareResponse(request, locale, normalizedPathname, requestHeaders)
+
+  if (response.headers.has('location')) {
+    return response
   }
 
-  const response = NextResponse.next({
-    request: {
-      headers: requestHeaders,
-    },
-  })
   response.headers.set('Vary', appendVaryHeader(appendVaryHeader(null, 'User-Agent'), 'Accept'))
 
   if (
-    url.pathname.startsWith('/workspace') ||
-    url.pathname.startsWith('/chat') ||
-    url.pathname === '/'
+    normalizedPathname.startsWith('/workspace') ||
+    normalizedPathname.startsWith('/chat') ||
+    normalizedPathname === '/'
   ) {
     response.headers.set('Content-Security-Policy', await generateRuntimeCSP())
   }
 
-  if (url.pathname === '/') {
-    appendHomepageDiscoveryLinks(response.headers)
+  if (normalizedPathname === '/') {
+    appendHomepageDiscoveryLinks(response.headers, locale)
   }
 
   return response

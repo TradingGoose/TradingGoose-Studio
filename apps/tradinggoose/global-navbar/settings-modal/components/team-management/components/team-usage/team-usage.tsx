@@ -1,4 +1,5 @@
 import { useRef } from 'react'
+import { useLocale } from 'next-intl'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useActiveOrganization } from '@/lib/auth-client'
 import { openBillingPortal } from '@/lib/billing/billing-portal'
@@ -9,12 +10,16 @@ import {
   type UsageLimitRef,
 } from '@/global-navbar/settings-modal/components/subscription/components'
 import { useOrganizationBilling } from '@/hooks/queries/organization'
+import { formatTemplate, getPublicCopy } from '@/i18n/public-copy'
+import { type LocaleCode } from '@/i18n/utils'
 
 interface TeamUsageProps {
   hasAdminAccess: boolean
 }
 
 export function TeamUsage({ hasAdminAccess }: TeamUsageProps) {
+  const locale = useLocale() as LocaleCode
+  const subscriptionCopy = getPublicCopy(locale).workspace.settingsModal.subscription
   const { data: activeOrg } = useActiveOrganization()
   const {
     data: billingData,
@@ -51,7 +56,7 @@ export function TeamUsage({ hasAdminAccess }: TeamUsageProps) {
     return (
       <div className='rounded-sm border bg-background p-3 shadow-xs'>
         <p className='text-center text-red-500 text-xs'>
-          {error instanceof Error ? error.message : 'Failed to load billing data'}
+          {error instanceof Error ? error.message : subscriptionCopy.errors.loadBillingData}
         </p>
       </div>
     )
@@ -75,19 +80,21 @@ export function TeamUsage({ hasAdminAccess }: TeamUsageProps) {
   const status: 'ok' | 'warning' | 'exceeded' =
     percentUsed >= 100 ? 'exceeded' : percentUsed >= warningThresholdPercent ? 'warning' : 'ok'
 
-  const title = organizationBillingPayload.subscriptionTier?.displayName || 'Organization Usage'
+  const title =
+    organizationBillingPayload.subscriptionTier?.displayName ||
+    subscriptionCopy.titles.organizationUsage
   const canEditUsageLimit = canTierEditUsageLimit(organizationBillingPayload.subscriptionTier)
 
   return (
-    <UsageHeader
+      <UsageHeader
       title={title}
       gradientTitle
       showBadge={!!(hasAdminAccess && activeOrg?.id && canEditUsageLimit)}
-      badgeText={canEditUsageLimit ? 'Increase Limit' : undefined}
+      badgeText={canEditUsageLimit ? subscriptionCopy.titles.increaseLimit : undefined}
       onBadgeClick={() => {
         if (canEditUsageLimit) usageLimitRef.current?.startEdit()
       }}
-      seatsText={`${seatsCount} seats`}
+      seatsText={formatTemplate(subscriptionCopy.seatsText, { count: seatsCount })}
       current={currentUsage}
       limit={currentCap}
       isBlocked={Boolean(organizationBillingPayload?.billingBlocked)}
@@ -95,7 +102,7 @@ export function TeamUsage({ hasAdminAccess }: TeamUsageProps) {
       percentUsed={percentUsed}
       onResolvePayment={async () => {
         if (!activeOrg?.id) {
-          alert('Select an organization to manage billing.')
+          alert(subscriptionCopy.errors.selectOrganization)
           return
         }
 
@@ -105,7 +112,7 @@ export function TeamUsage({ hasAdminAccess }: TeamUsageProps) {
             organizationId: activeOrg.id,
           })
         } catch (e) {
-          alert(e instanceof Error ? e.message : 'Failed to open billing portal')
+          alert(e instanceof Error ? e.message : subscriptionCopy.errors.openBillingPortal)
         }
       }}
       rightContent={

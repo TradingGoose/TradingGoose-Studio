@@ -2,12 +2,14 @@
 
 import { Plus } from 'lucide-react'
 import { useParams } from 'next/navigation'
+import { useLocale } from 'next-intl'
 import {
   DocumentTableSkeleton,
   KnowledgeHeader,
   PrimaryButton,
   SearchInput,
 } from '@/app/workspace/[workspaceId]/knowledge/components'
+import { localizeHref, type LocaleCode } from '@/i18n/utils'
 
 interface KnowledgeBaseLoadingProps {
   knowledgeBaseName: string
@@ -15,13 +17,14 @@ interface KnowledgeBaseLoadingProps {
 
 export function KnowledgeBaseLoading({ knowledgeBaseName }: KnowledgeBaseLoadingProps) {
   const params = useParams()
+  const locale = useLocale() as LocaleCode
   const workspaceId = params?.workspaceId as string
 
   const breadcrumbs = [
     {
       id: 'knowledge-root',
       label: 'Knowledge',
-      href: `/workspace/${workspaceId}/knowledge`,
+      href: localizeHref(locale, `/workspace/${workspaceId}/knowledge`),
     },
     {
       id: 'knowledge-base-loading',

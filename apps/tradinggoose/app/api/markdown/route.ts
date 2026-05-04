@@ -8,11 +8,23 @@ import {
 } from '@/lib/markdown/negotiation'
 import { renderPublicPageMarkdown } from '@/lib/markdown/public-page-markdown'
 import { getAccurateTokenCount } from '@/lib/tokenization/estimators'
+import { stripLocaleFromPathname } from '@/i18n/utils'
 
 async function createMarkdownResponse(request: NextRequest, includeBody: boolean) {
   const pathname = normalizeMarkdownPath(request.nextUrl.searchParams.get('path'))
 
-  if (!pathname || !isMarkdownRenderablePath(pathname)) {
+  if (!pathname) {
+    return new Response('Not found', {
+      status: 404,
+      headers: {
+        'Content-Type': 'text/plain; charset=utf-8',
+      },
+    })
+  }
+
+  const { locale, pathname: normalizedPathname } = stripLocaleFromPathname(pathname)
+
+  if (!isMarkdownRenderablePath(normalizedPathname)) {
     return new Response('Not found', {
       status: 404,
       headers: {
@@ -41,8 +53,8 @@ async function createMarkdownResponse(request: NextRequest, includeBody: boolean
     'x-markdown-tokens': String(tokenCount),
   })
 
-  if (pathname === '/') {
-    appendHomepageDiscoveryLinks(headers)
+  if (normalizedPathname === '/') {
+    appendHomepageDiscoveryLinks(headers, locale)
   }
 
   return new Response(includeBody ? markdown : null, { headers })

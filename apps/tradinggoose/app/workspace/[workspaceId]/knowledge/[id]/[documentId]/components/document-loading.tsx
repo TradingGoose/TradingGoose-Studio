@@ -2,11 +2,13 @@
 
 import { Plus, Search } from 'lucide-react'
 import { useParams } from 'next/navigation'
+import { useLocale } from 'next-intl'
 import {
   ChunkTableSkeleton,
   KnowledgeHeader,
   PrimaryButton,
 } from '@/app/workspace/[workspaceId]/knowledge/components'
+import { localizeHref, type LocaleCode } from '@/i18n/utils'
 
 interface DocumentLoadingProps {
   knowledgeBaseId: string
@@ -20,18 +22,19 @@ export function DocumentLoading({
   documentName,
 }: DocumentLoadingProps) {
   const params = useParams()
+  const locale = useLocale() as LocaleCode
   const workspaceId = params?.workspaceId as string
 
   const breadcrumbs = [
     {
       id: 'knowledge-root',
       label: 'Knowledge',
-      href: `/workspace/${workspaceId}/knowledge`,
+      href: localizeHref(locale, `/workspace/${workspaceId}/knowledge`),
     },
     {
       id: `knowledge-base-${knowledgeBaseId}`,
       label: knowledgeBaseName,
-      href: `/workspace/${workspaceId}/knowledge/${knowledgeBaseId}`,
+      href: localizeHref(locale, `/workspace/${workspaceId}/knowledge/${knowledgeBaseId}`),
     },
     {
       id: `document-${knowledgeBaseId}-${documentName}`,

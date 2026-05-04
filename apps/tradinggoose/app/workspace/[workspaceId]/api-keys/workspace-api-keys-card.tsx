@@ -39,9 +39,12 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { Alert, AlertDescription, Button, Input, Label, Skeleton } from '@/components/ui'
+import { useLocale } from 'next-intl'
 import { createLogger } from '@/lib/logs/console/logger'
 import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import { cn } from '@/lib/utils'
+import { formatTemplate, getPublicCopy } from '@/i18n/public-copy'
+import { type LocaleCode } from '@/i18n/utils'
 
 interface WorkspaceApiKeysCardProps {
   workspaceId?: string
@@ -98,16 +101,18 @@ const WorkspaceApiKeysCardComponent = (
   }: WorkspaceApiKeysCardProps,
   ref: Ref<WorkspaceApiKeysCardHandle>
 ) => {
+  const locale = useLocale() as LocaleCode
+  const apiKeysCopy = getPublicCopy(locale).workspace.apiKeys
   const userPermissions = useUserPermissionsContext()
   const canManageWorkspaceKeys = userPermissions.canEdit || userPermissions.canAdmin
 
   const scope = keyScope
   const isWorkspaceScope = scope === 'workspace'
-  const scopeLabel = isWorkspaceScope ? 'Workspace' : 'Personal'
+  const scopeLabel = isWorkspaceScope ? apiKeysCopy.scope.workspace : apiKeysCopy.scope.personal
   const scopeLabelLower = scopeLabel.toLowerCase()
   const scopeDescription = isWorkspaceScope
-    ? 'Generate and manage workspace-scoped API keys for MCP servers or other integrations.'
-    : 'Generate and manage personal API keys for MCP servers or other integrations.'
+    ? apiKeysCopy.labels.workspaceAccess
+    : apiKeysCopy.labels.personalAccess
   const [apiKeys, setApiKeys] = useState<ApiKey[]>([])
   const [internalSearchTerm, setInternalSearchTerm] = useState('')
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
@@ -198,8 +203,8 @@ const WorkspaceApiKeysCardComponent = (
   )
 
   const formatDate = (dateString?: string) => {
-    if (!dateString) return 'Never'
-    return new Date(dateString).toLocaleDateString('en-US', {
+    if (!dateString) return apiKeysCopy.labels.never
+    return new Date(dateString).toLocaleDateString(locale, {
       year: 'numeric',
       month: 'short',
       day: 'numeric',
@@ -262,7 +267,7 @@ const WorkspaceApiKeysCardComponent = (
     if (!editingKeyId || (isWorkspaceScope && !workspaceId) || !canRenameKeys) return
     const trimmedName = editingKeyName.trim()
     if (!trimmedName) {
-      setRenameError('Name is required')
+      setRenameError(apiKeysCopy.labels.nameRequired)
       editKeyNameInputRef.current?.focus()
       return
     }
@@ -279,7 +284,7 @@ const WorkspaceApiKeysCardComponent = (
         const message =
           typeof errorData?.error === 'string'
             ? errorData.error
-            : `Failed to rename ${scopeLabelLower} API key.`
+            : formatTemplate(apiKeysCopy.labels.failedRename, { scope: scopeLabelLower })
         setRenameError(message)
         editKeyNameInputRef.current?.focus()
         return
@@ -291,7 +296,7 @@ const WorkspaceApiKeysCardComponent = (
       void refetchApiKeys()
     } catch (error) {
       logger.error('Error renaming API key', { error, scope })
-      setRenameError(`Unable to rename ${scopeLabelLower} API key. Please try again.`)
+      setRenameError(formatTemplate(apiKeysCopy.labels.unableRename, { scope: scopeLabelLower }))
       editKeyNameInputRef.current?.focus()
     } finally {
       setIsUpdatingKeyName(false)
@@ -305,7 +310,12 @@ const WorkspaceApiKeysCardComponent = (
     const trimmedName = newKeyName.trim()
     const isDuplicate = apiKeys.some((key) => key.name === trimmedName)
     if (isDuplicate) {
-      setCreateError(`A ${scopeLabelLower} API key named "${trimmedName}" already exists.`)
+      setCreateError(
+        formatTemplate(apiKeysCopy.labels.duplicateName, {
+          scope: scopeLabelLower,
+          name: trimmedName,
+        })
+      )
       return
     }
 
@@ -326,7 +336,7 @@ const WorkspaceApiKeysCardComponent = (
       const message =
         error instanceof Error
           ? error.message
-          : `Failed to create ${scopeLabelLower} API key. Please try again.`
+          : formatTemplate(apiKeysCopy.labels.failedCreate, { scope: scopeLabelLower })
       setCreateError(message)
     }
   }
@@ -371,8 +381,16 @@ const WorkspaceApiKeysCardComponent = (
     if (apiKeys.length === 0) {
       return (
         <div className='rounded-2xl border bg-card p-10 text-center shadow-sm'>
-          <p className='font-medium'>No {scopeLabelLower} API keys yet</p>
-          <p className='mt-2 text-muted-foreground'>Create one to start integrating right away.</p>
+          <p className='font-medium'>
+            {keyScope === 'workspace'
+              ? apiKeysCopy.emptyState.workspace.title
+              : apiKeysCopy.emptyState.personal.title}
+          </p>
+          <p className='mt-2 text-muted-foreground'>
+            {keyScope === 'workspace'
+              ? apiKeysCopy.emptyState.workspace.description
+              : apiKeysCopy.emptyState.personal.description}
+          </p>
           {canManageKeys && (
             <Button
               className='mt-4'
@@ -382,7 +400,9 @@ const WorkspaceApiKeysCardComponent = (
               }}
             >
               <Plus className='mr-2 h-4 w-4 stroke-[2px]' />
-              Create Key
+              {keyScope === 'workspace'
+                ? apiKeysCopy.emptyState.workspace.button
+                : apiKeysCopy.emptyState.personal.button}
             </Button>
           )}
         </div>
@@ -392,7 +412,10 @@ const WorkspaceApiKeysCardComponent = (
     if (resolvedSearchTerm.trim() && filteredKeys.length === 0) {
       return (
         <div className='rounded-xl border border-dashed bg-muted/40 px-6 py-4 text-center text-muted-foreground text-sm'>
-          No {scopeLabelLower} API keys found matching "{resolvedSearchTerm}".
+          {formatTemplate(apiKeysCopy.searchEmpty, {
+            scope: scopeLabelLower,
+            query: resolvedSearchTerm,
+          })}
         </div>
       )
     }
@@ -449,7 +472,7 @@ const WorkspaceApiKeysCardComponent = (
                           disabled={isUpdatingKeyName}
                         >
                           <Check className='h-3.5 w-3.5' />
-                          <span className='sr-only'>Save API key name</span>
+                          <span className='sr-only'>{apiKeysCopy.labels.saveName}</span>
                         </button>
                       </div>
                       {renameError && (
@@ -461,7 +484,7 @@ const WorkspaceApiKeysCardComponent = (
                       <div className='space-y-1'>
                         <p className='font-medium'>{key.name}</p>
                         <p className='text-muted-foreground text-xs'>
-                          Last used: {formatDate(key.lastUsed)}
+                          {formatTemplate(apiKeysCopy.labels.lastUsed, { date: formatDate(key.lastUsed) })}
                         </p>
                       </div>
                       {canRenameKeys && (
@@ -472,7 +495,9 @@ const WorkspaceApiKeysCardComponent = (
                           disabled={isUpdatingKeyName || (isWorkspaceScope && !workspaceId)}
                         >
                           <Pencil className='h-3.5 w-3.5' />
-                          <span className='sr-only'>Rename {scopeLabelLower} API key</span>
+                          <span className='sr-only'>
+                            {formatTemplate(apiKeysCopy.labels.rename, { scope: scopeLabelLower })}
+                          </span>
                         </button>
                       )}
                     </div>
@@ -493,8 +518,8 @@ const WorkspaceApiKeysCardComponent = (
                       )}
                       <span className='sr-only'>
                         {isRevealed
-                          ? `Hide ${scopeLabelLower} API key`
-                          : `Reveal ${scopeLabelLower} API key`}
+                          ? formatTemplate(apiKeysCopy.labels.hide, { scope: scopeLabelLower })
+                          : formatTemplate(apiKeysCopy.labels.reveal, { scope: scopeLabelLower })}
                       </span>
                     </button>
                     <div className='max-w-xs'>
@@ -511,7 +536,9 @@ const WorkspaceApiKeysCardComponent = (
                       ) : (
                         <Copy className='h-3.5 w-3.5' />
                       )}
-                      <span className='sr-only'>Copy {scopeLabelLower} API key</span>
+                      <span className='sr-only'>
+                        {formatTemplate(apiKeysCopy.labels.copy, { scope: scopeLabelLower })}
+                      </span>
                     </button>
                     <button
                       type='button'
@@ -523,7 +550,9 @@ const WorkspaceApiKeysCardComponent = (
                       }}
                     >
                       <Trash2 className='h-3.5 w-3.5' />
-                      <span className='sr-only'>Delete {scopeLabelLower} API key</span>
+                      <span className='sr-only'>
+                        {formatTemplate(apiKeysCopy.labels.delete, { scope: scopeLabelLower })}
+                      </span>
                     </button>
                   </div>
                 </div>
@@ -567,8 +596,16 @@ const WorkspaceApiKeysCardComponent = (
         return (
           <tr>
             <td colSpan={5} className='px-4 py-12 text-center'>
-              <p className='font-medium text-lg'>No {scopeLabelLower} API keys yet</p>
-              <p className='mt-2 text-muted-foreground'>Create one to start integrating.</p>
+              <p className='font-medium text-lg'>
+                {keyScope === 'workspace'
+                  ? apiKeysCopy.emptyState.workspace.title
+                  : apiKeysCopy.emptyState.personal.title}
+              </p>
+              <p className='mt-2 text-muted-foreground'>
+                {keyScope === 'workspace'
+                  ? apiKeysCopy.emptyState.workspace.description
+                  : apiKeysCopy.emptyState.personal.description}
+              </p>
               {canManageKeys && (
                 <Button
                   className='mt-6'
@@ -578,7 +615,9 @@ const WorkspaceApiKeysCardComponent = (
                   }}
                 >
                   <Plus className='mr-2 h-4 w-4' />
-                  Create Key
+                  {keyScope === 'workspace'
+                    ? apiKeysCopy.emptyState.workspace.button
+                    : apiKeysCopy.emptyState.personal.button}
                 </Button>
               )}
             </td>
@@ -590,7 +629,10 @@ const WorkspaceApiKeysCardComponent = (
         return (
           <tr>
             <td colSpan={5} className='px-4 py-12 text-center text-muted-foreground'>
-              No {scopeLabelLower} API keys found matching "{resolvedSearchTerm}".
+              {formatTemplate(apiKeysCopy.searchEmpty, {
+                scope: scopeLabelLower,
+                query: resolvedSearchTerm,
+              })}
             </td>
           </tr>
         )
@@ -613,7 +655,7 @@ const WorkspaceApiKeysCardComponent = (
             <td className='px-4 py-4 text-muted-foreground text-sm text-center'>
               {formatDate(key.createdAt)}
             </td>
-            <td className='px-4 py-4 align-center'>
+            <td className='px-4 py-4 align-middle'>
               {canRenameKeys && editingKeyId === key.id ? (
                 <div className='space-y-2'>
                   <div className='flex max-w-sm items-center gap-2'>
@@ -666,8 +708,8 @@ const WorkspaceApiKeysCardComponent = (
                   )}
                   <span className='sr-only'>
                     {isRevealed
-                      ? `Hide ${scopeLabelLower} API key`
-                      : `Reveal ${scopeLabelLower} API key`}
+                      ? formatTemplate(apiKeysCopy.labels.hide, { scope: scopeLabelLower })
+                      : formatTemplate(apiKeysCopy.labels.reveal, { scope: scopeLabelLower })}
                   </span>
                 </Button>
                 <div className='min-w-0 flex-1'>
@@ -686,7 +728,9 @@ const WorkspaceApiKeysCardComponent = (
                   ) : (
                     <Copy className='h-4 w-4' />
                   )}
-                  <span className='sr-only'>Copy {scopeLabelLower} API key</span>
+                  <span className='sr-only'>
+                    {formatTemplate(apiKeysCopy.labels.copy, { scope: scopeLabelLower })}
+                  </span>
                 </Button>
               </div>
             </td>
@@ -694,7 +738,7 @@ const WorkspaceApiKeysCardComponent = (
               {formatDate(key.lastUsed)}
             </td>
             <td className='px-4 py-4'>
-              <div className='flex items-center justify-centergap-1.5'>
+              <div className='flex items-center justify-center gap-1.5'>
                 {isEditing ? (
                   <>
                     <Button
@@ -706,7 +750,9 @@ const WorkspaceApiKeysCardComponent = (
                       onClick={() => void commitEditingKey()}
                     >
                       <Check className='h-4 w-4' />
-                      <span className='sr-only'>Save {scopeLabelLower} API key</span>
+                      <span className='sr-only'>
+                        {formatTemplate(apiKeysCopy.labels.save, { scope: scopeLabelLower })}
+                      </span>
                     </Button>
                     <Button
                       type='button'
@@ -717,7 +763,7 @@ const WorkspaceApiKeysCardComponent = (
                       onClick={cancelEditingKey}
                     >
                       <X className='h-4 w-4' />
-                      <span className='sr-only'>Cancel rename</span>
+                      <span className='sr-only'>{apiKeysCopy.labels.cancelRename}</span>
                     </Button>
                   </>
                 ) : (
@@ -732,7 +778,9 @@ const WorkspaceApiKeysCardComponent = (
                         onClick={() => startEditingKey(key)}
                       >
                         <Pencil className='h-4 w-4' />
-                        <span className='sr-only'>Rename {scopeLabelLower} API key</span>
+                        <span className='sr-only'>
+                          {formatTemplate(apiKeysCopy.labels.rename, { scope: scopeLabelLower })}
+                        </span>
                       </Button>
                     )}
                     <Button
@@ -747,7 +795,9 @@ const WorkspaceApiKeysCardComponent = (
                       }}
                     >
                       <Trash2 className='h-4 w-4' />
-                      <span className='sr-only'>Delete {scopeLabelLower} API key</span>
+                      <span className='sr-only'>
+                        {formatTemplate(apiKeysCopy.labels.delete, { scope: scopeLabelLower })}
+                      </span>
                     </Button>
                   </>
                 )}
@@ -773,27 +823,27 @@ const WorkspaceApiKeysCardComponent = (
               <tr>
                 <th className='px-4 pt-2 pb-3 text-center font-medium'>
                   <span className='text-muted-foreground text-xs uppercase tracking-wide'>
-                    Created At
+                    {apiKeysCopy.headers.createdAt}
                   </span>
                 </th>
                 <th className='px-4 pt-2 pb-3 text-center font-medium'>
                   <span className='text-muted-foreground text-xs uppercase tracking-wide'>
-                    Name
+                    {apiKeysCopy.headers.name}
                   </span>
                 </th>
                 <th className='px-4 pt-2 pb-3 text-center font-medium'>
                   <span className='text-muted-foreground text-xs uppercase tracking-wide'>
-                    Key
+                    {apiKeysCopy.headers.key}
                   </span>
                 </th>
                 <th className='px-4 pt-2 pb-3 text-center font-medium'>
                   <span className='text-muted-foreground text-xs uppercase tracking-wide'>
-                    Last Update
+                    {apiKeysCopy.headers.lastUpdate}
                   </span>
                 </th>
                 <th className='px-4 pt-2 pb-3 text-center font-medium'>
                   <span className='text-muted-foreground text-xs uppercase tracking-wide'>
-                    Actions
+                    {apiKeysCopy.headers.actions}
                   </span>
                 </th>
               </tr>
@@ -822,7 +872,7 @@ const WorkspaceApiKeysCardComponent = (
         <Alert variant='destructive'>
           <AlertCircle className='h-4 w-4' />
           <AlertDescription>
-            Unable to determine workspace. Please refresh the page and try again.
+            {apiKeysCopy.labels.unableToDetermineWorkspace}
           </AlertDescription>
         </Alert>
       )
@@ -850,7 +900,7 @@ const WorkspaceApiKeysCardComponent = (
           isCardVariant ? 'border-t px-6 py-3' : 'px-1 pt-3'
         )}
       >
-        You need edit or admin access to manage workspace API keys.
+        {apiKeysCopy.labels.workspacePermissions}
       </div>
     ) : null
 
@@ -861,14 +911,16 @@ const WorkspaceApiKeysCardComponent = (
           {shouldRenderHeader && (
             <div className='flex flex-col gap-4 border-b px-6 py-5 md:flex-row md:items-center md:justify-between'>
               <div>
-                <h2 className='font-semibold text-lg'>{scopeLabel} API Keys</h2>
+                <h2 className='font-semibold text-lg'>
+                  {formatTemplate(apiKeysCopy.cardTitle, { scope: scopeLabel })}
+                </h2>
                 <p className='text-muted-foreground text-sm'>{scopeDescription}</p>
               </div>
               <div className='flex flex-col gap-3 sm:flex-row sm:items-center'>
                 <div className='flex h-9 items-center gap-2 rounded-lg border bg-background pr-2 pl-3 sm:w-60'>
                   <Search className='h-4 w-4 text-muted-foreground' strokeWidth={2} />
                   <Input
-                    placeholder='Search keys...'
+                    placeholder={apiKeysCopy.searchPlaceholder}
                     value={resolvedSearchTerm}
                     onChange={(e) => handleSearchTermChange(e.target.value)}
                     className='flex-1 border-0 bg-transparent px-0 text-sm focus-visible:ring-0 focus-visible:ring-offset-0'
@@ -882,7 +934,9 @@ const WorkspaceApiKeysCardComponent = (
                   disabled={!canManageKeys}
                 >
                   <Plus className='mr-2 h-4 w-4' />
-                  Create Key
+                  {keyScope === 'workspace'
+                    ? apiKeysCopy.create.workspace
+                    : apiKeysCopy.create.personal}
                 </Button>
               </div>
             </div>
@@ -901,19 +955,19 @@ const WorkspaceApiKeysCardComponent = (
       <AlertDialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
         <AlertDialogContent className='rounded-md sm:max-w-md'>
           <AlertDialogHeader>
-            <AlertDialogTitle>Create {scopeLabelLower} API key</AlertDialogTitle>
+            <AlertDialogTitle>
+              {formatTemplate(apiKeysCopy.dialogs.createTitle, { scope: scopeLabelLower })}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              {isWorkspaceScope
-                ? 'This key grants access to all workflows and files within this workspace. Copy it immediately after creation as you will not be able to see it again.'
-                : 'This key grants access to your personal workflows and files. Copy it immediately after creation as you will not be able to see it again.'}
+              {scopeDescription}
             </AlertDialogDescription>
           </AlertDialogHeader>
 
           <div className='space-y-2'>
-            <Label>Name</Label>
+            <Label>{apiKeysCopy.dialogs.createNameLabel}</Label>
             <Input
               autoFocus
-              placeholder='e.g., Production MCP Server'
+              placeholder={apiKeysCopy.dialogs.createNamePlaceholder}
               value={newKeyName}
               onChange={(e) => {
                 setNewKeyName(e.target.value)
@@ -931,7 +985,7 @@ const WorkspaceApiKeysCardComponent = (
                 setCreateError(null)
               }}
             >
-              Cancel
+              {apiKeysCopy.dialogs.cancel}
             </AlertDialogCancel>
             <AlertDialogAction
               className='w-full rounded-sm'
@@ -940,7 +994,7 @@ const WorkspaceApiKeysCardComponent = (
               }
               onClick={handleCreateKey}
             >
-              Create Key
+              {apiKeysCopy.dialogs.createButton}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -958,9 +1012,11 @@ const WorkspaceApiKeysCardComponent = (
       >
         <AlertDialogContent className='rounded-md sm:max-w-md'>
           <AlertDialogHeader>
-            <AlertDialogTitle>Your {scopeLabelLower} API key</AlertDialogTitle>
+            <AlertDialogTitle>
+              {formatTemplate(apiKeysCopy.dialogs.newKeyTitle, { scope: scopeLabelLower })}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              This is the only time you will see the full key. Copy and store it securely.
+              {apiKeysCopy.dialogs.newKeyDescription}
             </AlertDialogDescription>
           </AlertDialogHeader>
 
@@ -976,6 +1032,7 @@ const WorkspaceApiKeysCardComponent = (
                 onClick={() => copyToClipboard(newKey.key)}
               >
                 {copySuccess ? <Check className='h-3.5 w-3.5' /> : <Copy className='h-3.5 w-3.5' />}
+                <span className='sr-only'>{apiKeysCopy.dialogs.copyToClipboard}</span>
               </Button>
             </div>
           )}
@@ -985,22 +1042,24 @@ const WorkspaceApiKeysCardComponent = (
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent className='rounded-md sm:max-w-md'>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete {scopeLabelLower} API key?</AlertDialogTitle>
+            <AlertDialogTitle>
+              {formatTemplate(apiKeysCopy.dialogs.deleteTitle, { scope: scopeLabelLower })}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              This will immediately revoke access for any integrations using this key.
+              {apiKeysCopy.dialogs.deleteDescription}
             </AlertDialogDescription>
           </AlertDialogHeader>
 
           {deleteKey && (
             <div className='py-2'>
               <p className='mb-2 text-sm'>
-                Type <span className='font-semibold'>{deleteKey.name}</span> to confirm.
+                {formatTemplate(apiKeysCopy.dialogs.deletePrompt, { name: deleteKey.name })}
               </p>
               <Input
                 autoFocus
                 value={deleteConfirmationName}
                 onChange={(e) => setDeleteConfirmationName(e.target.value)}
-                placeholder='API key name'
+                placeholder={apiKeysCopy.dialogs.deletePlaceholder}
               />
             </div>
           )}
@@ -1013,14 +1072,14 @@ const WorkspaceApiKeysCardComponent = (
                 setDeleteConfirmationName('')
               }}
             >
-              Cancel
+              {apiKeysCopy.dialogs.cancel}
             </AlertDialogCancel>
             <AlertDialogAction
               className='w-full rounded-sm bg-red-600 text-white hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600'
               disabled={!deleteKey || deleteConfirmationName !== deleteKey.name}
               onClick={handleDeleteKey}
             >
-              Delete Key
+              {apiKeysCopy.dialogs.deleteButton}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

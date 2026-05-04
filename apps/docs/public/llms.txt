@@ -31,7 +31,7 @@ Here are the key areas covered in our documentation:
 
 - Framework: Fumadocs (Next.js-based documentation platform)
 - Content: MDX files with interactive examples
-- Languages: English (primary), French, Chinese
+- Languages: English (primary), Spanish, Simplified Chinese
 - Search: AI-powered search and assistance available
 
 ## Complete Documentation

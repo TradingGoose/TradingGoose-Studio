@@ -2,14 +2,16 @@ import { useState } from 'react'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import { BlockDataDisplay } from '@/app/workspace/[workspaceId]/logs/components/log-details/components/trace-spans'
 import type { TraceSpan } from '@/stores/logs/filters/types'
+import type { TraceSpansCopy } from '@/app/workspace/[workspaceId]/logs/components/log-details/components/trace-spans'
 
 interface CollapsibleInputOutputProps {
   span: TraceSpan
   spanId: string
   depth: number
+  copy: Pick<TraceSpansCopy, 'inputSection' | 'errorSection' | 'outputSection'>
 }
 
-export function CollapsibleInputOutput({ span, spanId, depth }: CollapsibleInputOutputProps) {
+export function CollapsibleInputOutput({ span, spanId, depth, copy }: CollapsibleInputOutputProps) {
   const [inputExpanded, setInputExpanded] = useState(false)
   const [outputExpanded, setOutputExpanded] = useState(false)
 
@@ -31,7 +33,7 @@ export function CollapsibleInputOutput({ span, spanId, depth }: CollapsibleInput
             ) : (
               <ChevronRight className='h-3 w-3' />
             )}
-            Input
+            {copy.inputSection}
           </button>
           {inputExpanded && (
             <div className='mb-2 overflow-hidden rounded-md bg-secondary/30 p-3'>
@@ -52,7 +54,7 @@ export function CollapsibleInputOutput({ span, spanId, depth }: CollapsibleInput
             ) : (
               <ChevronRight className='h-3 w-3' />
             )}
-            {span.status === 'error' ? 'Error' : 'Output'}
+            {span.status === 'error' ? copy.errorSection : copy.outputSection}
           </button>
           {outputExpanded && (
             <div className='mb-2 overflow-hidden rounded-md bg-secondary/30 p-3'>

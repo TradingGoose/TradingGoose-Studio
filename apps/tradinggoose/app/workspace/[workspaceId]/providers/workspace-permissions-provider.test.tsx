@@ -9,6 +9,7 @@ const mockUseWorkspacePermissions = vi.fn()
 const mockUseUserPermissions = vi.fn()
 const mockUpdatePermissions = vi.fn()
 const mockRefetchPermissions = vi.fn()
+let mockPathname = '/zh/workspace/ws-1/dashboard'
 
 const reactActEnvironment = globalThis as typeof globalThis & {
   IS_REACT_ACT_ENVIRONMENT?: boolean
@@ -17,6 +18,7 @@ const previousActEnvironment = reactActEnvironment.IS_REACT_ACT_ENVIRONMENT
 
 vi.mock('next/navigation', () => ({
   useParams: () => ({ workspaceId: 'ws-1' }),
+  usePathname: () => mockPathname,
   useRouter: () => ({
     replace: mockReplace,
   }),
@@ -48,7 +50,8 @@ describe('WorkspacePermissionsProvider', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
-    window.history.replaceState({}, '', '/workspace/ws-1/dashboard?layoutId=layout-1')
+    mockPathname = '/zh/workspace/ws-1/dashboard'
+    window.history.replaceState({}, '', '/zh/workspace/ws-1/dashboard?layoutId=layout-1')
 
     mockUseWorkspacePermissions.mockReturnValue({
       permissions: null,
@@ -117,7 +120,7 @@ describe('WorkspacePermissionsProvider', () => {
     })
 
     expect(mockReplace).toHaveBeenCalledWith(
-      '/login?reauth=1&callbackUrl=%2Fworkspace%2Fws-1%2Fdashboard%3FlayoutId%3Dlayout-1'
+      '/zh/login?reauth=1&callbackUrl=%2Fzh%2Fworkspace%2Fws-1%2Fdashboard%3FlayoutId%3Dlayout-1'
     )
     expect(container?.textContent).toBe('')
   })
@@ -150,7 +153,7 @@ describe('WorkspacePermissionsProvider', () => {
       )
     })
 
-    expect(mockReplace).toHaveBeenCalledWith('/workspace')
+    expect(mockReplace).toHaveBeenCalledWith('/zh/workspace')
     expect(container?.textContent).toBe('')
   })
 })

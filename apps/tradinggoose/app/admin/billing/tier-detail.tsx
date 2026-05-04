@@ -2,9 +2,9 @@
 
 import { type FormEvent, useMemo, useState } from 'react'
 import { Receipt } from 'lucide-react'
-import { useRouter } from 'next/navigation'
 import { Alert, AlertDescription, Button } from '@/components/ui'
 import type { AdminBillingTierSnapshot } from '@/lib/admin/billing/types'
+import { useRouter } from '@/i18n/navigation'
 import { AdminPageShell } from '@/app/admin/page-shell'
 import { EmptyStateCard, PrimaryButton } from '@/app/workspace/[workspaceId]/knowledge/components'
 import {

@@ -2,7 +2,10 @@
 
 import type { ReactNode, WheelEvent } from 'react'
 import { useCallback } from 'react'
+import { useLocale } from 'next-intl'
 import { Card } from '@/components/ui/card'
+import { getPublicCopy } from '@/i18n/public-copy'
+import type { LocaleCode } from '@/i18n/utils'
 import { cn } from '@/lib/utils'
 import { getWidgetDefinition } from '@/widgets/registry'
 import { widgetHeaderControlClassName } from '@/widgets/widgets/components/widget-header-control'
@@ -24,6 +27,8 @@ export function LandingWidgetShell({
   children,
   className,
 }: LandingWidgetShellProps) {
+  const locale = useLocale() as LocaleCode
+  const copy = getPublicCopy(locale)
   const widgetDefinition = getWidgetDefinition(widgetKey) ?? getWidgetDefinition('empty')
   const WidgetIcon = widgetDefinition?.icon
   const handleWheel = useCallback((event: WheelEvent<HTMLDivElement>) => {
@@ -44,14 +49,14 @@ export function LandingWidgetShell({
           <div
             onWheel={handleWheel}
             className='flex w-full overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
-            aria-label='Widget header'
+            aria-label={copy.landing.preview.shell.headerAriaLabel}
           >
             <div className='flex w-full flex-nowrap items-center gap-4 py-0.5 font-medium text-accent-foreground text-sm'>
               <div className='flex h-8 flex-grow basis-0 items-center justify-start gap-1 whitespace-nowrap pl-1 text-left'>
                 <button
                   type='button'
                   className={widgetHeaderControlClassName('font-semibold')}
-                  aria-label={widgetDefinition?.title ?? 'Widget'}
+                  aria-label={widgetDefinition?.title ?? copy.landing.preview.shell.widgetLabel}
                 >
                   <span className='flex items-center gap-1 text-muted-foreground hover:text-foreground'>
                     {WidgetIcon ? <WidgetIcon className='h-4 w-4' aria-hidden='true' /> : null}

@@ -8,6 +8,7 @@ import {
   Trash2,
   Workflow as WorkflowIcon,
 } from 'lucide-react'
+import { useLocale } from 'next-intl'
 import { MarketListingRow } from '@/components/listing-selector/listing/row'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -18,6 +19,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import type { ListingOption } from '@/lib/listing/identity'
+import { getPublicCopy } from '@/i18n/public-copy'
+import { type LocaleCode } from '@/i18n/utils'
 import type {
   IndicatorMonitorRecord,
   IndicatorOption,
@@ -90,12 +93,15 @@ export function MonitorTable({
   onToggleMonitorState,
   onRemoveMonitor,
 }: MonitorTableProps) {
+  const locale = useLocale() as LocaleCode
+  const copy = getPublicCopy(locale).workspace.logs.monitors
+
   return (
     <div className='m-1 flex h-full max-h-full min-h-0 flex-col overflow-hidden rounded-lg border border-border bg-card'>
       <div className='h-full max-h-full min-h-0 overflow-auto'>
         {monitorsLoading || referenceLoading ? (
           <div className='flex h-full items-center justify-center gap-2 text-muted-foreground text-sm'>
-            Loading monitors...
+            {copy.loading}
           </div>
         ) : monitorsError ? (
           <div className='flex h-full items-center justify-center gap-2 px-4 text-destructive text-sm'>
@@ -106,25 +112,25 @@ export function MonitorTable({
             <thead className='sticky top-0 z-10 border-b bg-card'>
               <tr>
                 <th className='px-4 pt-2 pb-3 text-center align-middle font-medium'>
-                  <span className='text-muted-foreground text-xs leading-none'>Status</span>
+                  <span className='text-muted-foreground text-xs leading-none'>{copy.status}</span>
                 </th>
                 <th className='px-4 pt-2 pb-3 text-center align-middle font-medium'>
-                  <span className='text-muted-foreground text-xs leading-none'>Provider</span>
+                  <span className='text-muted-foreground text-xs leading-none'>{copy.provider}</span>
                 </th>
                 <th className='px-4 pt-2 pb-3 text-center align-middle font-medium'>
-                  <span className='text-muted-foreground text-xs leading-none'>Auth</span>
+                  <span className='text-muted-foreground text-xs leading-none'>{copy.auth}</span>
                 </th>
                 <th className='px-4 pt-2 pb-3 text-center align-middle font-medium'>
-                  <span className='text-muted-foreground text-xs leading-none'>Listing</span>
+                  <span className='text-muted-foreground text-xs leading-none'>{copy.listing}</span>
                 </th>
                 <th className='px-4 pt-2 pb-3 text-center align-middle font-medium'>
-                  <span className='text-muted-foreground text-xs leading-none'>Indicator</span>
+                  <span className='text-muted-foreground text-xs leading-none'>{copy.indicator}</span>
                 </th>
                 <th className='px-4 pt-2 pb-3 text-center align-middle font-medium'>
-                  <span className='text-muted-foreground text-xs leading-none'>Workflow</span>
+                  <span className='text-muted-foreground text-xs leading-none'>{copy.workflow}</span>
                 </th>
                 <th className='px-4 pt-2 pb-3 text-center align-middle font-medium'>
-                  <span className='text-muted-foreground text-xs leading-none'>Actions</span>
+                  <span className='text-muted-foreground text-xs leading-none'>{copy.actions}</span>
                 </th>
               </tr>
             </thead>
@@ -135,7 +141,7 @@ export function MonitorTable({
                     colSpan={7}
                     className='px-4 py-6 text-center align-middle text-muted-foreground text-sm'
                   >
-                    No monitors configured.
+                    {copy.noConfigured}
                   </td>
                 </tr>
               ) : (
@@ -170,7 +176,7 @@ export function MonitorTable({
                             : 'bg-gray-500/20 text-gray-500'
                             }`}
                         >
-                          {monitor.isActive ? 'Active' : 'Paused'}
+                          {monitor.isActive ? copy.active : copy.paused}
                         </Badge>
                       </td>
                       <td className='p-3 text-center align-middle'>
@@ -186,7 +192,7 @@ export function MonitorTable({
                           variant={authConfigured ? 'default' : 'secondary'}
                           className='h-6 items-center justify-center rounded-md px-2 text-[11px]'
                         >
-                          {authConfigured ? 'Configured' : 'Missing'}
+                          {authConfigured ? copy.configured : copy.missing}
                         </Badge>
                       </td>
                       <td className='p-3 text-center align-middle'>
@@ -195,7 +201,7 @@ export function MonitorTable({
                             listing={listingOption}
                             showAssetClass
                             className='w-full pl-1 rounded-md border border-border'
-                            placeholderTitle='Listing'
+                            placeholderTitle={copy.listing}
                           />
                         </div>
                       </td>
@@ -261,7 +267,7 @@ export function MonitorTable({
                                 }}
                               >
                                 <Pen className='mr-2 h-4 w-4' />
-                                Edit
+                                {copy.edit}
                               </DropdownMenuItem>
                               <DropdownMenuItem
                                 disabled={
@@ -276,12 +282,12 @@ export function MonitorTable({
                                 {monitor.isActive ? (
                                   <>
                                     <Pause className='mr-2 h-4 w-4' />
-                                    Pause
+                                    {copy.pause}
                                   </>
                                 ) : (
                                   <>
                                     <Play className='mr-2 h-4 w-4' />
-                                    Activate
+                                    {copy.activate}
                                   </>
                                 )}
                               </DropdownMenuItem>
@@ -294,7 +300,7 @@ export function MonitorTable({
                                 }}
                               >
                                 <Trash2 className='mr-2 h-4 w-4' />
-                                Remove
+                                {copy.remove}
                               </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>

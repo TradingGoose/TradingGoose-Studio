@@ -17,6 +17,14 @@ export type PersonalPaygUiState = {
   showUsageLimitControl: boolean
 }
 
+export type PersonalPaygUiLabels = {
+  resolvePayment: string
+  addPaymentMethod: string
+  activatePayg: string
+  increaseLimit: string
+  manageBilling: string
+}
+
 const PAYMENT_RESOLUTION_STATUSES = new Set([
   'past_due',
   'incomplete',
@@ -32,6 +40,7 @@ export function getPersonalPaygUiState(params: {
   subscriptionStatus: string | null | undefined
   canEditUsageLimit: boolean
   tierCanEditUsageLimit: boolean
+  labels: PersonalPaygUiLabels
 }): PersonalPaygUiState {
   const showBadge = params.tierCanEditUsageLimit || params.hasStripeMonthlyPriceId
   const needsPaymentResolution =
@@ -39,7 +48,7 @@ export function getPersonalPaygUiState(params: {
 
   if (needsPaymentResolution) {
     return {
-      badgeText: 'Resolve Payment',
+      badgeText: params.labels.resolvePayment,
       primaryAction: 'resolve_payment',
       showBadge,
       showUsageLimitControl: false,
@@ -48,7 +57,7 @@ export function getPersonalPaygUiState(params: {
 
   if (!params.hasPaymentMethodOnFile) {
     return {
-      badgeText: 'Add Payment Method',
+      badgeText: params.labels.addPaymentMethod,
       primaryAction: 'add_payment_method',
       showBadge,
       showUsageLimitControl: false,
@@ -57,7 +66,7 @@ export function getPersonalPaygUiState(params: {
 
   if (!params.hasStripeSubscription) {
     return {
-      badgeText: 'Activate PAYG',
+      badgeText: params.labels.activatePayg,
       primaryAction: 'activate_payg',
       showBadge,
       showUsageLimitControl: false,
@@ -66,7 +75,7 @@ export function getPersonalPaygUiState(params: {
 
   if (params.canEditUsageLimit) {
     return {
-      badgeText: 'Increase Limit',
+      badgeText: params.labels.increaseLimit,
       primaryAction: 'increase_limit',
       showBadge,
       showUsageLimitControl: true,
@@ -74,7 +83,7 @@ export function getPersonalPaygUiState(params: {
   }
 
   return {
-    badgeText: 'Manage Billing',
+    badgeText: params.labels.manageBilling,
     primaryAction: 'manage_billing',
     showBadge,
     showUsageLimitControl: false,

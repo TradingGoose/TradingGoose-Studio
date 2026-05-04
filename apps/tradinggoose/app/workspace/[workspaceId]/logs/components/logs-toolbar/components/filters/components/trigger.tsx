@@ -1,5 +1,6 @@
 import { useRef } from 'react'
 import { Check, ChevronDown } from 'lucide-react'
+import { useLocale } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -8,29 +9,36 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { formatTemplate, getPublicCopy } from '@/i18n/public-copy'
+import { type LocaleCode } from '@/i18n/utils'
 import { dropdownContentClass, filterButtonClass } from './shared'
 import { useFilterStore } from '@/stores/logs/filters/store'
 import type { TriggerType } from '@/stores/logs/filters/types'
 
 export default function Trigger() {
+  const locale = useLocale() as LocaleCode
+  const copy = getPublicCopy(locale).workspace.logs.dashboard.filters
   const { triggers, toggleTrigger, setTriggers } = useFilterStore()
   const triggerRef = useRef<HTMLButtonElement | null>(null)
   const triggerOptions: { value: TriggerType; label: string; color?: string }[] = [
-    { value: 'manual', label: 'Manual', color: 'bg-gray-500' },
-    { value: 'api', label: 'API', color: 'bg-blue-500' },
-    { value: 'webhook', label: 'Webhook', color: 'bg-orange-500' },
-    { value: 'schedule', label: 'Schedule', color: 'bg-green-500' },
-    { value: 'chat', label: 'Chat', color: 'bg-amber-500' },
+    { value: 'manual', label: copy.manual, color: 'bg-gray-500' },
+    { value: 'api', label: copy.api, color: 'bg-blue-500' },
+    { value: 'webhook', label: copy.webhook, color: 'bg-orange-500' },
+    { value: 'schedule', label: copy.schedule, color: 'bg-green-500' },
+    { value: 'chat', label: copy.chat, color: 'bg-amber-500' },
   ]
 
   // Get display text for the dropdown button
   const getSelectedTriggersText = () => {
-    if (triggers.length === 0) return 'All triggers'
+    if (triggers.length === 0) return copy.allTriggers
     if (triggers.length === 1) {
       const selected = triggerOptions.find((t) => t.value === triggers[0])
-      return selected ? selected.label : 'All triggers'
+      return selected ? selected.label : copy.allTriggers
     }
-    return `${triggers.length} triggers selected`
+    return formatTemplate(copy.selectedTriggers, {
+      count: triggers.length,
+      plural: triggers.length !== 1 ? 's' : '',
+    })
   }
 
   // Check if a trigger is selected
@@ -63,7 +71,7 @@ export default function Trigger() {
             onSelect={() => clearSelections()}
             className='flex cursor-pointer items-center justify-between rounded-md px-3 py-2 text-sm hover:bg-secondary/50 focus:bg-secondary/50'
           >
-            <span>All triggers</span>
+            <span>{copy.allTriggers}</span>
             {triggers.length === 0 && <Check className='h-4 w-4 text-muted-foreground' />}
           </DropdownMenuItem>
           <DropdownMenuSeparator />

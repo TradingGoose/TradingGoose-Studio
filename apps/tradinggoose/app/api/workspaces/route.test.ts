@@ -3,12 +3,28 @@
  */
 import { NextRequest } from 'next/server'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { getPublicCopy } from '@/i18n/public-copy'
 
 describe('Workspaces API Route', () => {
   const transactionMock = vi.fn()
   const updateWhereMock = vi.fn()
   const updateSetMock = vi.fn()
   const updateMock = vi.fn()
+  const userWorkspacesQuery = {
+    from: vi.fn(() => ({
+      innerJoin: vi.fn(() => ({
+        where: vi.fn(() => ({
+          orderBy: vi.fn(() => userWorkspaces),
+        })),
+      })),
+    })),
+  }
+  const orphanedWorkflowsQuery = {
+    from: vi.fn(() => ({
+      where: vi.fn(() => []),
+    })),
+  }
+  const insertedValues: Array<Record<string, unknown>> = []
   let userWorkspaces: Array<{
     workspace: Record<string, unknown>
     permissionType: 'admin' | 'write' | 'read'
@@ -18,22 +34,32 @@ describe('Workspaces API Route', () => {
     vi.resetModules()
     vi.clearAllMocks()
     userWorkspaces = []
+    insertedValues.length = 0
 
     updateWhereMock.mockResolvedValue([])
     updateSetMock.mockReturnValue({ where: updateWhereMock })
     updateMock.mockReturnValue({ set: updateSetMock })
+    transactionMock.mockImplementation(async (callback) => {
+      await callback({
+        insert: vi.fn((table) => ({
+          values: vi.fn(async (values) => {
+            insertedValues.push({
+              table: String(table),
+              ...(values as Record<string, unknown>),
+            })
+          }),
+        })),
+        update: vi.fn().mockReturnThis(),
+        set: vi.fn().mockReturnThis(),
+        where: vi.fn().mockResolvedValue(undefined),
+      })
+    })
 
     vi.doMock('@tradinggoose/db', () => ({
       db: {
-        select: vi.fn(() => ({
-          from: vi.fn(() => ({
-            innerJoin: vi.fn(() => ({
-              where: vi.fn(() => ({
-                orderBy: vi.fn(() => userWorkspaces),
-              })),
-            })),
-          })),
-        })),
+        select: vi.fn((selection?: Record<string, unknown>) =>
+          selection && 'workspace' in selection ? userWorkspacesQuery : orphanedWorkflowsQuery
+        ),
         update: updateMock,
         transaction: transactionMock,
       },
@@ -160,5 +186,31 @@ describe('Workspaces API Route', () => {
     })
     expect(updateMock).not.toHaveBeenCalled()
     expect(transactionMock).not.toHaveBeenCalled()
+  })
+
+  it('creates a localized default workspace when auto-bootstrapping the first workspace', async () => {
+    const copy = getPublicCopy('es')
+    const { GET } = await import('@/app/api/workspaces/route')
+
+    const response = await GET(
+      new NextRequest('http://localhost/api/workspaces', {
+        headers: {
+          'x-next-intl-locale': 'es',
+        },
+      })
+    )
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(data.workspaces).toHaveLength(1)
+    expect(data.workspaces[0].name).toBe(copy.workspace.defaults.newWorkspaceName)
+    expect(transactionMock).toHaveBeenCalled()
+    expect(
+      insertedValues.some(
+        (values) =>
+          values.description === copy.workspace.defaults.defaultWorkflowDescription &&
+          values.name === 'default-agent'
+      )
+    ).toBe(true)
   })
 })

@@ -4,7 +4,10 @@
   "engineId": "eng_RF7UdAqExlX8Wc62",
   "locale": {
     "source": "en",
-    "targets": []
+    "targets": [
+      "es",
+      "zh-CN"
+    ]
   },
   "buckets": {
     "mdx": {

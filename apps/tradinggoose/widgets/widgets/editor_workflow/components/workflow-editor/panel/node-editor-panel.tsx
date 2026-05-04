@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Check, ChevronDown, Pencil } from 'lucide-react'
 import { Panel } from '@xyflow/react'
+import { useLocale } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -24,6 +25,8 @@ import {
   buildTriggerEditingLayout,
   getTriggerAwareSubBlockStableKey,
 } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/trigger-editing-layout'
+import { formatTemplate, getPublicCopy } from '@/i18n/public-copy'
+import type { LocaleCode } from '@/i18n/utils'
 
 interface NodeEditorPanelProps {
   selectedNodeId: string | null
@@ -33,19 +36,29 @@ type LoopType = 'for' | 'forEach' | 'while' | 'doWhile'
 type ParallelType = 'count' | 'collection'
 type SubflowNodeType = 'loop' | 'parallel'
 
-const LOOP_TYPE_OPTIONS: Array<{ value: LoopType; label: string }> = [
-  { value: 'for', label: 'For Loop' },
-  { value: 'forEach', label: 'For Each' },
-  { value: 'while', label: 'While Loop' },
-  { value: 'doWhile', label: 'Do While Loop' },
-]
+type WorkflowEditorCopy = ReturnType<typeof getPublicCopy>['workspace']['widgets']['workflowEditor']
 
-const PARALLEL_TYPE_OPTIONS: Array<{ value: ParallelType; label: string }> = [
-  { value: 'count', label: 'Parallel Count' },
-  { value: 'collection', label: 'Parallel Each' },
-]
+function getLoopTypeOptions(copy: WorkflowEditorCopy): Array<{ value: LoopType; label: string }> {
+  return [
+    { value: 'for', label: copy.forLoop },
+    { value: 'forEach', label: copy.forEachLoop },
+    { value: 'while', label: copy.whileLoop },
+    { value: 'doWhile', label: copy.doWhileLoop },
+  ]
+}
+
+function getParallelTypeOptions(
+  copy: WorkflowEditorCopy
+): Array<{ value: ParallelType; label: string }> {
+  return [
+    { value: 'count', label: copy.parallelCount },
+    { value: 'collection', label: copy.parallelEach },
+  ]
+}
 
 export function NodeEditorPanel({ selectedNodeId }: NodeEditorPanelProps) {
+  const locale = useLocale() as LocaleCode
+  const copy = getPublicCopy(locale).workspace.widgets.workflowEditor
   const userPermissions = useUserPermissionsContext()
   const selectedBlock = useBlock(selectedNodeId ?? '')
   const selectedLoop = useLoop(selectedNodeId ?? '')
@@ -336,13 +349,9 @@ export function NodeEditorPanel({ selectedNodeId }: NodeEditorPanelProps) {
     })
   }, [blockConfig, selectedBlock, shouldDisableWrite])
 
-  const emptyStateMessage = useMemo(() => {
-    if (isTriggerConfigurationView) {
-      return 'This trigger has no editable fields in the panel.'
-    }
-
-    return 'No editable fields for this block.'
-  }, [isTriggerConfigurationView])
+  const emptyStateMessage = isTriggerConfigurationView
+    ? copy.triggerNoEditableFields
+    : copy.blockNoEditableFields
 
   if (!selectedNodeId) return null
 
@@ -357,7 +366,7 @@ export function NodeEditorPanel({ selectedNodeId }: NodeEditorPanelProps) {
         onWheel={stopPanelEvent}
         onTouchStart={stopPanelEvent}
       >
-        <div className='text-sm'>Node not found</div>
+        <div className='text-sm'>{copy.nodeNotFound}</div>
       </Panel>
     )
   }
@@ -376,7 +385,7 @@ export function NodeEditorPanel({ selectedNodeId }: NodeEditorPanelProps) {
         onTouchStart={stopPanelEvent}
       >
         <div className='rounded-md border border-dashed p-3 text-muted-foreground text-xs'>
-          Missing block configuration for `{selectedBlock.type}`.
+          {formatTemplate(copy.missingBlockConfiguration, { type: selectedBlock.type })}
         </div>
       </Panel>
     )
@@ -448,7 +457,7 @@ export function NodeEditorPanel({ selectedNodeId }: NodeEditorPanelProps) {
               className='h-6 w-6 bg-transparent'
               onClick={isRenaming ? handleSaveRename : handleStartRename}
               disabled={shouldDisableWrite}
-              aria-label={isRenaming ? 'Save name' : 'Rename node'}
+              aria-label={isRenaming ? copy.saveName : copy.renameNode}
             >
               {isRenaming ? (
                 <Check className='h-[14px] w-[14px]' />
@@ -464,7 +473,7 @@ export function NodeEditorPanel({ selectedNodeId }: NodeEditorPanelProps) {
           <div className='space-y-4'>
             <div className='space-y-1'>
               <Label className='font-medium text-muted-foreground text-xs'>
-                {selectedBlock.type === 'loop' ? 'Loop Type' : 'Parallel Type'}
+                {selectedBlock.type === 'loop' ? copy.loopTypeLabel : copy.parallelTypeLabel}
               </Label>
               <Select
                 value={subflowCurrentType || undefined}
@@ -472,16 +481,17 @@ export function NodeEditorPanel({ selectedNodeId }: NodeEditorPanelProps) {
                 disabled={shouldDisableWrite}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder='Select type' />
+                  <SelectValue placeholder={copy.selectType} />
                 </SelectTrigger>
                 <SelectContent>
-                  {(selectedBlock.type === 'loop' ? LOOP_TYPE_OPTIONS : PARALLEL_TYPE_OPTIONS).map(
-                    (option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    )
-                  )}
+                  {(selectedBlock.type === 'loop'
+                    ? getLoopTypeOptions(copy)
+                    : getParallelTypeOptions(copy)
+                  ).map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -489,7 +499,9 @@ export function NodeEditorPanel({ selectedNodeId }: NodeEditorPanelProps) {
             {isSubflowCountMode ? (
               <div className='space-y-1'>
                 <Label className='font-medium text-muted-foreground text-xs'>
-                  {selectedBlock.type === 'loop' ? 'Loop Iterations' : 'Parallel Executions'}
+                  {selectedBlock.type === 'loop'
+                    ? copy.loopIterations
+                    : copy.parallelExecutions}
                 </Label>
                 <Input
                   type='text'
@@ -506,17 +518,17 @@ export function NodeEditorPanel({ selectedNodeId }: NodeEditorPanelProps) {
                   placeholder='5'
                 />
                 <p className='text-[11px] text-muted-foreground'>
-                  Enter a value between 1 and {subflowMaxIterations}
+                  {formatTemplate(copy.enterValueBetween, { max: subflowMaxIterations })}
                 </p>
               </div>
             ) : (
               <div className='space-y-1'>
                 <Label className='font-medium text-muted-foreground text-xs'>
                   {isSubflowConditionMode
-                    ? 'While Condition'
+                    ? copy.whileCondition
                     : selectedBlock.type === 'loop'
-                      ? 'Collection Items'
-                      : 'Parallel Items'}
+                      ? copy.collectionItems
+                      : copy.parallelItems}
                 </Label>
                 <Textarea
                   value={subflowEditorValue}
@@ -574,7 +586,7 @@ export function NodeEditorPanel({ selectedNodeId }: NodeEditorPanelProps) {
                   onClick={handleToggleAdvancedFields}
                   className='flex items-center gap-[6px] whitespace-nowrap font-medium text-[13px] text-muted-foreground hover:text-foreground'
                 >
-                  {displayAdvancedOptions ? 'Hide additional fields' : 'Show additional fields'}
+                  {displayAdvancedOptions ? copy.hideAdditionalFields : copy.showAdditionalFields}
                   <ChevronDown
                     className={`h-[14px] w-[14px] transition-transform duration-200 ${displayAdvancedOptions ? 'rotate-180' : ''}`}
                   />
@@ -586,7 +598,7 @@ export function NodeEditorPanel({ selectedNodeId }: NodeEditorPanelProps) {
               <div className='flex items-center gap-[10px] pt-[4px]'>
                 <div className='h-px flex-1 border-border border-t border-dashed' />
                 <span className='whitespace-nowrap font-medium text-[13px] text-muted-foreground'>
-                  Additional fields
+                  {copy.additionalFields}
                 </span>
                 <div className='h-px flex-1 border-border border-t border-dashed' />
               </div>

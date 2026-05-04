@@ -174,6 +174,29 @@ describe('Workspace Invitation [invitationId] API Route', () => {
       )
     })
 
+    it('should redirect to a localized login page when unauthenticated with token and locale header', async () => {
+      const { GET } = await import('./route')
+
+      mockGetSession.mockResolvedValue(null)
+
+      const request = new NextRequest(
+        'http://localhost/api/workspaces/invitations/token-abc123?token=token-abc123',
+        {
+          headers: {
+            'x-next-intl-locale': 'zh-CN',
+          },
+        }
+      )
+      const params = Promise.resolve({ invitationId: 'token-abc123' })
+
+      const response = await GET(request, { params })
+
+      expect(response.status).toBe(307)
+      expect(response.headers.get('location')).toBe(
+        'https://test.tradinggoose.ai/zh/invite/token-abc123?token=token-abc123'
+      )
+    })
+
     it('should accept invitation when called with valid token', async () => {
       const { GET } = await import('./route')
 
@@ -206,6 +229,46 @@ describe('Workspace Invitation [invitationId] API Route', () => {
       expect(response.status).toBe(307)
       expect(response.headers.get('location')).toBe(
         'https://test.tradinggoose.ai/workspace/workspace-456/dashboard'
+      )
+    })
+
+    it('should redirect accepted invitations to a localized workspace dashboard', async () => {
+      const { GET } = await import('./route')
+
+      mockGetSession.mockResolvedValue({
+        user: { ...mockUser, email: 'invited@example.com' },
+      })
+
+      mockDbResults.push([mockInvitation])
+      mockDbResults.push([mockWorkspace])
+      mockDbResults.push([{ ...mockUser, email: 'invited@example.com' }])
+      mockDbResults.push([])
+
+      mockTransaction.mockImplementation(async (callback: any) => {
+        await callback({
+          insert: vi.fn().mockReturnThis(),
+          values: vi.fn().mockResolvedValue(undefined),
+          update: vi.fn().mockReturnThis(),
+          set: vi.fn().mockReturnThis(),
+          where: vi.fn().mockResolvedValue(undefined),
+        })
+      })
+
+      const request = new NextRequest(
+        'http://localhost/api/workspaces/invitations/token-abc123?token=token-abc123',
+        {
+          headers: {
+            'x-next-intl-locale': 'zh-CN',
+          },
+        }
+      )
+      const params = Promise.resolve({ invitationId: 'token-abc123' })
+
+      const response = await GET(request, { params })
+
+      expect(response.status).toBe(307)
+      expect(response.headers.get('location')).toBe(
+        'https://test.tradinggoose.ai/zh/workspace/workspace-456/dashboard'
       )
     })
 

@@ -1,17 +1,21 @@
 'use client'
 
 import { useEffect } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { LoadingAgent } from '@/components/ui/loading-agent'
 import { useSession } from '@/lib/auth-client'
 import { createLogger } from '@/lib/logs/console/logger'
+import { getPublicCopy } from '@/i18n/public-copy'
+import { buildLocaleRequestHeaders, localizeHref, stripLocaleFromPathname } from '@/i18n/utils'
 
 const logger = createLogger('WorkspacePage')
 
 export default function WorkspacePage() {
   const router = useRouter()
-  const searchParams = useSearchParams()
+  const pathname = usePathname()
   const { data: session, isPending, error: sessionError } = useSession()
+  const locale = stripLocaleFromPathname(pathname ?? '/').locale
+  const workspaceCopy = getPublicCopy(locale).workspace
 
   useEffect(() => {
     const redirectToFirstWorkspace = async () => {
@@ -25,7 +29,7 @@ export default function WorkspacePage() {
         logger.info('User not authenticated, redirecting to home', {
           hasSessionError: Boolean(sessionError),
         })
-        router.replace('/')
+        router.replace(localizeHref(locale, '/'))
         return
       }
 
@@ -38,10 +42,15 @@ export default function WorkspacePage() {
         if (
           callbackUrl?.startsWith('/') &&
           !callbackUrl.startsWith('//') &&
-          callbackUrl !== window.location.pathname
+          callbackUrl !== pathname
         ) {
-          logger.info('Redirecting to callback URL from workspace root', { callbackUrl })
-          router.replace(callbackUrl)
+          const localizedCallbackUrl = localizeHref(locale, callbackUrl)
+          const localizedCallbackPath = new URL(localizedCallbackUrl, window.location.origin).pathname
+
+          if (localizedCallbackPath !== pathname) {
+            logger.info('Redirecting to callback URL from workspace root', { callbackUrl })
+            router.replace(localizedCallbackUrl)
+          }
           return
         }
 
@@ -57,7 +66,7 @@ export default function WorkspacePage() {
                 logger.info(
                   `Redirecting workflow ${redirectWorkflowId} to workspace ${workspaceId} dashboard`
                 )
-                router.replace(`/workspace/${workspaceId}/dashboard`)
+                router.replace(localizeHref(locale, `/workspace/${workspaceId}/dashboard`))
                 return
               }
             }
@@ -69,13 +78,14 @@ export default function WorkspacePage() {
         // Fetch user's workspaces
         const response = await fetch('/api/workspaces', {
           credentials: 'include',
+          headers: buildLocaleRequestHeaders(locale),
         })
 
         if (response.status === 401 || response.status === 403) {
           logger.info('Unauthorized to fetch workspaces, redirecting to home', {
             status: response.status,
           })
-          router.replace('/')
+          router.replace(localizeHref(locale, '/'))
           return
         }
 
@@ -89,7 +99,7 @@ export default function WorkspacePage() {
             status: response.status,
             body: errorBody,
           })
-          router.replace('/')
+          router.replace(localizeHref(locale, '/'))
           return
         }
 
@@ -102,10 +112,10 @@ export default function WorkspacePage() {
           try {
             const createResponse = await fetch('/api/workspaces', {
               method: 'POST',
-              headers: {
+              headers: buildLocaleRequestHeaders(locale, {
                 'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({ name: 'My Workspace' }),
+              }),
+              body: JSON.stringify({ name: workspaceCopy.defaults.newWorkspaceName }),
             })
 
             if (createResponse.ok) {
@@ -116,7 +126,7 @@ export default function WorkspacePage() {
                 logger.info(
                   `Created default workspace ${newWorkspace.id}, redirecting to dashboard`
                 )
-                router.replace(`/workspace/${newWorkspace.id}/dashboard`)
+                router.replace(localizeHref(locale, `/workspace/${newWorkspace.id}/dashboard`))
                 return
               }
             }
@@ -127,7 +137,7 @@ export default function WorkspacePage() {
           }
 
           // If we can't create a workspace, redirect home to reset state
-          router.replace('/')
+          router.replace(localizeHref(locale, '/'))
           return
         }
 
@@ -136,39 +146,23 @@ export default function WorkspacePage() {
         logger.info(`Redirecting to workspace ${firstWorkspace.id} dashboard`)
 
         // Redirect to the first workspace
-        router.replace(`/workspace/${firstWorkspace.id}/dashboard`)
+        router.replace(localizeHref(locale, `/workspace/${firstWorkspace.id}/dashboard`))
       } catch (error) {
         logger.error('Error fetching workspaces for redirect:', error)
         // Any unexpected error should send the user home.
-        router.replace('/')
+        router.replace(localizeHref(locale, '/'))
       }
     }
 
-    // Only run this logic when we're at the root /workspace path
-    // If we're already in a specific workspace, the children components will handle it
-    if (typeof window !== 'undefined') {
-      const normalizedPath = window.location.pathname.replace(/\/+$/, '') || '/'
-      if (normalizedPath === '/workspace') {
-        redirectToFirstWorkspace()
-      }
-    }
-  }, [session, isPending, sessionError, router, searchParams])
+    void redirectToFirstWorkspace()
+  }, [locale, pathname, router, session, isPending, sessionError])
 
-  // Show loading state while we determine where to redirect
-  if (isPending) {
-    return (
-      <div className='flex h-screen w-full items-center justify-center'>
-        <div className='flex flex-col items-center justify-center text-center align-middle'>
-          <LoadingAgent size='lg' />
-        </div>
+  return (
+    <div className='flex h-screen w-full items-center justify-center'>
+      <div className='flex flex-col items-center justify-center text-center align-middle'>
+        <LoadingAgent size='lg' />
+        <span className='sr-only'>{workspaceCopy.entry.loading}</span>
       </div>
-    )
-  }
-
-  // If user is not authenticated, show nothing (redirect will happen)
-  if (sessionError || !session?.user) {
-    return null
-  }
-
-  return null
+    </div>
+  )
 }

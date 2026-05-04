@@ -7,7 +7,7 @@ import Image from 'next/image'
 import { notFound } from 'next/navigation'
 import { Analytics } from '@vercel/analytics/next'
 import '../global.css'
-import { i18n } from '@/lib/i18n'
+import { i18n, localizePathname } from '@/lib/i18n'
 import { source } from '@/lib/source'
 
 const inter = Inter({
@@ -25,7 +25,7 @@ const { provider } = defineI18nUI(i18n, {
     en: {
       displayName: 'English',
     },
-    zh: {
+    'zh-CN': {
       displayName: '简体中文',
     },
     es: {
@@ -108,7 +108,7 @@ export default async function Layout({ children, params }: LayoutProps) {
             }}
             nav={{
               title: 'Documentations',
-              url: `/${locale}`,
+              url: localizePathname(locale, '/'),
               logo: (
                 <div className='flex h-8 w-8 items-center justify-center bg-fd-primary rounded-md'>
                   <Image

@@ -1,7 +1,6 @@
 import type { Metadata } from 'next'
-import Link from 'next/link'
-import LegalLayout from '@/app/(landing)/components/legal-layout'
 import { getBrandConfig } from '@/lib/branding/branding'
+import LegalLayout from '@/app/(landing)/components/legal-layout'
 
 export const metadata: Metadata = {
   title: 'Privacy Policy | TradingGoose',
@@ -266,12 +265,9 @@ export default function PrivacyPolicy() {
           </p>
           <p>
             To make a privacy-related request for a project-operated deployment, contact{' '}
-            <Link
-              href={supportEmailHref}
-              className='text-primary underline hover:text-primary-hover'
-            >
+            <a href={supportEmailHref} className='text-primary underline hover:text-primary-hover'>
               {supportEmail}
-            </Link>
+            </a>
             . If you use a self-hosted or third-party deployment, contact that operator instead.
           </p>
         </section>
@@ -307,12 +303,9 @@ export default function PrivacyPolicy() {
           <p className='mb-4'>
             If you have questions, requests, or complaints regarding this Privacy Policy for a
             project-operated deployment, contact us at{' '}
-            <Link
-              href={supportEmailHref}
-              className='text-primary underline hover:text-primary-hover'
-            >
+            <a href={supportEmailHref} className='text-primary underline hover:text-primary-hover'>
               {supportEmail}
-            </Link>
+            </a>
             .
           </p>
           <p>

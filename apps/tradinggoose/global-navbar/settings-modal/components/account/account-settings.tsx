@@ -11,6 +11,7 @@ import {
   useState,
 } from 'react'
 import { AlertCircle, Check, Info, Loader2, Pencil, X } from 'lucide-react'
+import { useLocale } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -24,6 +25,8 @@ import { getBaseUrl } from '@/lib/urls/utils'
 import { useProfilePictureUpload } from '@/global-navbar/settings-modal/components/hooks/use-profile-picture-upload'
 import { useGeneralSettings } from '@/hooks/queries/general-settings'
 import { useGeneralStore } from '@/stores/settings/general/store'
+import { getPublicCopy } from '@/i18n/public-copy'
+import { type LocaleCode } from '@/i18n/utils'
 const logger = createLogger('AccountSettings')
 const DEFAULT_AVATAR_SRC = '/profile/avatar.png'
 
@@ -35,6 +38,8 @@ const toEpochMillis = (value: string | Date | null | undefined): number | null =
 }
 
 export function AccountSettings() {
+  const locale = useLocale() as LocaleCode
+  const accountCopy = getPublicCopy(locale).workspace.settingsModal.account
   const { data: session } = useSession()
   const userId = session?.user?.id ?? null
 
@@ -100,12 +105,12 @@ export function AccountSettings() {
           typeof errorData?.error === 'string'
             ? errorData.error
             : imageUrl
-              ? 'Failed to update profile picture'
-              : 'Failed to remove profile picture'
+              ? accountCopy.status.profilePictureUpdateError
+              : accountCopy.status.profilePictureRemoveError
         throw new Error(message)
       }
 
-      setMessage('Profile saved.')
+      setMessage(accountCopy.status.profileSaved)
       setUserImage(imageUrl)
       const version = Date.now()
       setAvatarVersion(version)
@@ -121,7 +126,7 @@ export function AccountSettings() {
     } catch (error) {
       logger.error('Failed to update profile picture', error)
       setProfilePictureError(
-        error instanceof Error ? error.message : 'Unable to update profile picture.'
+        error instanceof Error ? error.message : accountCopy.status.unableToUpdateProfilePicture
       )
       throw error
     }
@@ -141,7 +146,7 @@ export function AccountSettings() {
         setProfilePictureError(null)
       } catch (error) {
         setProfilePictureError(
-          error instanceof Error ? error.message : 'Unable to update profile picture.'
+          error instanceof Error ? error.message : accountCopy.status.unableToUpdateProfilePicture
         )
       }
     },
@@ -195,7 +200,7 @@ export function AccountSettings() {
 
   const handleSave = async () => {
     if (!name.trim()) {
-      setMessage('Please provide a name.')
+      setMessage(accountCopy.status.nameRequired)
       return
     }
     setIsSaving(true)
@@ -206,10 +211,10 @@ export function AccountSettings() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, email }),
       })
-      setMessage('Profile saved.')
+      setMessage(accountCopy.status.profileSaved)
     } catch (error) {
       logger.error('Failed to save profile', error)
-      setMessage('Unable to save profile settings.')
+      setMessage(accountCopy.status.saveError)
     } finally {
       setIsSaving(false)
     }
@@ -234,7 +239,7 @@ export function AccountSettings() {
   const commitEditingName = async () => {
     const trimmedName = editingNameValue.trim()
     if (!trimmedName) {
-      setNameError('Name is required')
+      setNameError(accountCopy.status.nameRequiredValidation)
       editNameInputRef.current?.focus()
       return
     }
@@ -256,7 +261,7 @@ export function AccountSettings() {
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
         const message =
-          typeof errorData?.error === 'string' ? errorData.error : 'Failed to update name'
+          typeof errorData?.error === 'string' ? errorData.error : accountCopy.status.failedUpdateName
         setNameError(message)
         editNameInputRef.current?.focus()
         return
@@ -264,7 +269,7 @@ export function AccountSettings() {
 
       setName(trimmedName)
       setIsEditingName(false)
-      setMessage('Profile saved.')
+      setMessage(accountCopy.status.profileSaved)
       if (typeof window !== 'undefined') {
         if (userId) {
           window.localStorage.setItem(`user-name-${userId}`, trimmedName)
@@ -273,7 +278,7 @@ export function AccountSettings() {
       }
     } catch (error) {
       logger.error('Error updating name:', error)
-      setNameError('Unable to update name. Please try again.')
+      setNameError(accountCopy.status.unableToUpdateName)
       editNameInputRef.current?.focus()
     } finally {
       setIsUpdatingName(false)
@@ -285,7 +290,7 @@ export function AccountSettings() {
     if (!targetEmail) {
       setPasswordResetStatus({
         type: 'error',
-        message: 'No email address found for this account.',
+        message: accountCopy.status.noEmail,
       })
       return
     }
@@ -306,18 +311,18 @@ export function AccountSettings() {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
-        throw new Error(errorData.message || 'Failed to send password reset email.')
+        throw new Error(errorData.message || accountCopy.status.passwordResetFailed)
       }
 
       setPasswordResetStatus({
         type: 'success',
-        message: 'Password reset link sent to your inbox.',
+        message: accountCopy.status.passwordResetSent,
       })
     } catch (error) {
       logger.error('Error requesting password reset:', error)
       setPasswordResetStatus({
         type: 'error',
-        message: error instanceof Error ? error.message : 'Unable to send password reset email.',
+        message: error instanceof Error ? error.message : accountCopy.status.passwordResetFailed,
       })
     } finally {
       setIsSendingReset(false)
@@ -373,7 +378,7 @@ export function AccountSettings() {
       <div className='grid gap-6 p-6 sm:grid-cols-[280px,1fr] '>
         <Card className='border-none  shadow-none'>
           <CardHeader className='pb-4'>
-            <CardTitle className='text-base font-semibold'>Profile Picture</CardTitle>
+            <CardTitle className='text-base font-semibold'>{accountCopy.profilePicture}</CardTitle>
           </CardHeader>
           <CardContent className='space-y-4'>
             <div
@@ -398,7 +403,7 @@ export function AccountSettings() {
                 {avatarSrc ? (
                   <Image
                     src={avatarSrc}
-                    alt={name || session?.user?.name || 'User'}
+                    alt={name || session?.user?.name || accountCopy.profilePictureAlt}
                     width={96}
                     height={96}
                     className='h-full w-full object-cover'
@@ -413,8 +418,8 @@ export function AccountSettings() {
                 )}
               </div>
               <div className='space-y-1'>
-                <p className='font-medium text-sm'>Drop an image or click to upload</p>
-                <p className='text-muted-foreground text-xs'>PNG or JPG, max 5MB</p>
+                <p className='font-medium text-sm'>{accountCopy.dropImage}</p>
+                <p className='text-muted-foreground text-xs'>{accountCopy.imageHint}</p>
               </div>
             </div>
 
@@ -428,13 +433,15 @@ export function AccountSettings() {
         </Card>
         <Card className='border-none shadow-none'>
           <CardHeader className='space-y-1 pb-5'>
-            <CardTitle className='text-lg font-semibold'>Profile Details</CardTitle>
-            <p className='text-muted-foreground text-sm'>Update your name and manage access.</p>
+            <CardTitle className='text-lg font-semibold'>{accountCopy.profileDetails}</CardTitle>
+            <p className='text-muted-foreground text-sm'>
+              {accountCopy.profileDetailsDescription}
+            </p>
           </CardHeader>
           <CardContent className='space-y-5'>
             <div className='space-y-3'>
               <div className='space-y-1'>
-                <Label htmlFor='accountName'>Full name</Label>
+                <Label htmlFor='accountName'>{accountCopy.fullName}</Label>
                 {isEditingName ? (
                   <div className='py-1.5'>
                     <div className='flex items-center gap-2 max-w-md'>
@@ -476,7 +483,7 @@ export function AccountSettings() {
                         disabled={isUpdatingName}
                       >
                         <Check className='h-3.5 w-3.5' />
-                        <span className='sr-only'>Save name</span>
+                        <span className='sr-only'>{accountCopy.saveName}</span>
                       </button>
                       <button
                         type='button'
@@ -488,7 +495,7 @@ export function AccountSettings() {
                         disabled={isUpdatingName}
                       >
                         <X className='h-3.5 w-3.5' />
-                        <span className='sr-only'>Cancel editing name</span>
+                        <span className='sr-only'>{accountCopy.cancelEditingName}</span>
                       </button>
                     </div>
                     {nameError && <p className='text-destructive text-xs'>{nameError}</p>}
@@ -503,25 +510,27 @@ export function AccountSettings() {
                       disabled={isUpdatingName}
                     >
                       <Pencil className='h-3.5 w-3.5' />
-                      <span className='sr-only'>Edit name</span>
+                      <span className='sr-only'>{accountCopy.editName}</span>
                     </button>
                   </div>
                 )}
               </div>
               <div className='space-y-1'>
-                <Label>Email address</Label>
+                <Label>{accountCopy.emailAddress}</Label>
                 <div className='rounded-md border bg-muted/40 px-3 py-2 text-sm text-muted-foreground'>
                   {email || '—'}
                 </div>
-                <p className='text-muted-foreground text-xs'>Email changes are handled by support.</p>
+                <p className='text-muted-foreground text-xs'>{accountCopy.emailHint}</p>
               </div>
             </div>
 
             <div className='rounded-sm border bg-muted/30 px-4 py-4'>
               <div className='flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between'>
                 <div>
-                  <Label className='text-sm font-semibold'>Password reset</Label>
-                  <p className='text-muted-foreground text-sm'>We’ll email you a secure link.</p>
+                  <Label className='text-sm font-semibold'>{accountCopy.passwordReset}</Label>
+                  <p className='text-muted-foreground text-sm'>
+                    {accountCopy.passwordResetDescription}
+                  </p>
                 </div>
                 <Button
                   type='button'
@@ -532,10 +541,10 @@ export function AccountSettings() {
                   {isSendingReset ? (
                     <>
                       <Loader2 className='mr-2 h-4 w-4 animate-spin' />
-                      Sending…
+                      {accountCopy.sending}
                     </>
                   ) : (
-                    'Send link'
+                    accountCopy.sendLink
                   )}
                 </Button>
               </div>
@@ -555,8 +564,8 @@ export function AccountSettings() {
       <div className='px-6 pb-6'>
         <Card className='border-none shadow-none'>
           <CardHeader className='space-y-1 pb-5'>
-            <CardTitle className='text-lg font-semibold'>Privacy</CardTitle>
-            <p className='text-muted-foreground text-sm'>Manage how your data is collected.</p>
+            <CardTitle className='text-lg font-semibold'>{accountCopy.privacy}</CardTitle>
+            <p className='text-muted-foreground text-sm'>{accountCopy.privacyDescription}</p>
           </CardHeader>
           <CardContent>
             <TooltipProvider>
@@ -564,7 +573,7 @@ export function AccountSettings() {
                 <div className='flex items-center justify-between'>
                   <div className='flex items-center gap-2'>
                     <Label htmlFor='telemetry' className='font-normal'>
-                      Allow anonymous telemetry
+                      {accountCopy.telemetry.label}
                     </Label>
                     <Tooltip>
                       <TooltipTrigger asChild>
@@ -572,7 +581,7 @@ export function AccountSettings() {
                           variant='ghost'
                           size='sm'
                           className='h-7 p-1 text-gray-500'
-                          aria-label='Learn more about telemetry data collection'
+                          aria-label={accountCopy.telemetry.tooltipLabel}
                           disabled={isTelemetrySettingsLoading || isTelemetryLoading}
                         >
                           <Info className='h-5 w-5' />
@@ -580,7 +589,7 @@ export function AccountSettings() {
                       </TooltipTrigger>
                       <TooltipContent side='top' className='max-w-[300px] p-3'>
                         <p className='text-sm'>
-                          We collect anonymous data about feature usage, performance, and errors to improve the application.
+                          {accountCopy.telemetry.tooltipBody}
                         </p>
                       </TooltipContent>
                     </Tooltip>
@@ -593,9 +602,7 @@ export function AccountSettings() {
                   />
                 </div>
                 <p className='text-muted-foreground text-xs'>
-                  We use OpenTelemetry to collect anonymous usage data to improve TradingGoose. All data is
-                  collected in accordance with our privacy policy, and you can opt-out at any time.
-                  This setting applies to your account on all devices.
+                  {accountCopy.telemetry.body}
                 </p>
               </div>
             </TooltipProvider>

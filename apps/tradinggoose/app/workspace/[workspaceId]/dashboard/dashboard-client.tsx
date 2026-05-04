@@ -22,7 +22,13 @@ import {
 import { usePathname, useRouter } from 'next/navigation'
 import { Input } from '@/components/ui/input'
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
-import { useBrandConfig } from '@/lib/branding/branding'
+import { getPublicCopy } from '@/i18n/public-copy'
+import {
+  buildLocaleRequestHeaders,
+  localizeDocsUrl,
+  localizeHref,
+  stripLocaleFromPathname,
+} from '@/i18n/utils'
 import {
   type ListingIdentity,
   type ListingInputValue,
@@ -50,6 +56,7 @@ import {
   type WidgetInstance,
 } from '@/widgets/layout'
 import { isPairColor, PAIR_COLORS, type PairColor } from '@/widgets/pair-colors'
+import type { LocaleCode } from '@/i18n/utils'
 import type { WidgetRuntimeContext } from '@/widgets/types'
 import { WidgetSurface } from '@/widgets/widget-surface'
 
@@ -72,6 +79,7 @@ interface DashboardNodeProps {
   node: LayoutNode
   persistGroup: (id: string, sizes: number[]) => void
   widgetContext: WidgetRuntimeContext
+  locale: LocaleCode
   updatePairColor: (panelId: string, color: PairColor) => void
   updateWidget: (panelId: string, widgetKey: string) => void
   updateWidgetParams: (panelId: string, params: Record<string, unknown> | null) => void
@@ -96,12 +104,13 @@ interface DropdownItem {
 
 const DashboardNode = memo(
   function DashboardNode({
-    node,
-    persistGroup,
-    widgetContext,
-    updatePairColor,
-    updateWidget,
-    updateWidgetParams,
+  node,
+  persistGroup,
+  widgetContext,
+  locale,
+  updatePairColor,
+  updateWidget,
+  updateWidgetParams,
     sizeHint,
     availableWidth = 100,
     availableHeight = 100,
@@ -117,6 +126,7 @@ const DashboardNode = memo(
         <WidgetSurface
           widget={node.widget}
           context={widgetContext}
+          locale={locale}
           panelId={node.id}
           onPairColorChange={(color) => updatePairColor(node.id, color)}
           onWidgetChange={(key) => updateWidget(node.id, key)}
@@ -158,6 +168,7 @@ const DashboardNode = memo(
                   node={child}
                   persistGroup={persistGroup}
                   widgetContext={widgetContext}
+                  locale={locale}
                   updatePairColor={updatePairColor}
                   updateWidget={updateWidget}
                   updateWidgetParams={updateWidgetParams}
@@ -180,7 +191,8 @@ const DashboardNode = memo(
     prev.node === next.node &&
     prev.sizeHint === next.sizeHint &&
     prev.availableWidth === next.availableWidth &&
-    prev.availableHeight === next.availableHeight
+    prev.availableHeight === next.availableHeight &&
+    prev.locale === next.locale
 )
 
 export function DashboardClient({
@@ -213,6 +225,8 @@ export function DashboardClient({
   const isCreatingLayoutRef = useRef(false)
   const pathname = usePathname()
   const router = useRouter()
+  const locale = stripLocaleFromPathname(pathname ?? '/').locale
+  const workspaceCopy = getPublicCopy(locale).workspace
   const [docs, setDocs] = useState<DropdownItem[]>([])
   const [searchWorkspaces, setSearchWorkspaces] = useState<DropdownItem[]>([])
   const [searchQuery, setSearchQuery] = useState('')
@@ -220,7 +234,6 @@ export function DashboardClient({
   const searchContainerRef = useRef<HTMLDivElement | null>(null)
   const docsLoadedRef = useRef(false)
   const docsLoadingRef = useRef(false)
-  const brand = useBrandConfig()
   const { knowledgeBases } = useKnowledgeBasesList(workspaceId)
 
   const applyLayoutData = useCallback(
@@ -296,7 +309,9 @@ export function DashboardClient({
 
     const loadWorkspacesForSearch = async () => {
       try {
-        const response = await fetch('/api/workspaces')
+        const response = await fetch('/api/workspaces', {
+          headers: buildLocaleRequestHeaders(locale),
+        })
         if (!response.ok) {
           throw new Error(`Failed to load workspaces (${response.status})`)
         }
@@ -310,7 +325,7 @@ export function DashboardClient({
             (workspace: { id: string; name: string }): DropdownItem => ({
               id: workspace.id,
               name: workspace.name,
-              href: `/workspace/${workspace.id}/dashboard`,
+              href: localizeHref(locale, `/workspace/${workspace.id}/dashboard`),
             })
           )
         )
@@ -326,7 +341,7 @@ export function DashboardClient({
     return () => {
       isMounted = false
     }
-  }, [])
+  }, [locale])
 
   useEffect(() => {
     if (hydratedDashboardIdentityRef.current === dashboardIdentity) {
@@ -464,34 +479,39 @@ export function DashboardClient({
         id: kb.id,
         name: kb.name,
         description: kb.description,
-        href: `/workspace/${workspaceId}/knowledge/${kb.id}`,
+        href: localizeHref(locale, `/workspace/${workspaceId}/knowledge/${kb.id}`),
       })),
-    [knowledgeBases, workspaceId]
+    [knowledgeBases, locale, workspaceId]
   )
 
   const pages = useMemo(
     () => [
-      { id: 'logs', name: 'Logs', icon: ScrollText, href: `/workspace/${workspaceId}/logs` },
+      {
+        id: 'logs',
+        name: workspaceCopy.dashboard.pages.logs,
+        icon: ScrollText,
+        href: localizeHref(locale, `/workspace/${workspaceId}/logs`),
+      },
       {
         id: 'knowledge',
-        name: 'Knowledge',
+        name: workspaceCopy.dashboard.pages.knowledge,
         icon: LibraryBig,
-        href: `/workspace/${workspaceId}/knowledge`,
+        href: localizeHref(locale, `/workspace/${workspaceId}/knowledge`),
       },
       {
         id: 'templates',
-        name: 'Templates',
+        name: workspaceCopy.dashboard.pages.templates,
         icon: Shapes,
-        href: `/workspace/${workspaceId}/templates`,
+        href: localizeHref(locale, `/workspace/${workspaceId}/templates`),
       },
       {
         id: 'docs',
-        name: 'Docs',
+        name: workspaceCopy.dashboard.pages.docs,
         icon: BookOpen,
-        href: brand.documentationUrl,
+        href: localizeDocsUrl(locale),
       },
     ],
-    [brand.documentationUrl, workspaceId]
+    [locale, workspaceCopy, workspaceId]
   )
 
   const loadDocs = useCallback(async () => {
@@ -742,12 +762,12 @@ export function DashboardClient({
     <div className='flex w-full flex-1 items-center gap-3'>
       <div className='hidden items-center gap-2 sm:flex'>
         <LayoutTemplate className='h-[18px] w-[18px] text-muted-foreground' />
-        <span className='font-medium text-sm'>Dashboard</span>
+        <span className='font-medium text-sm'>{workspaceCopy.dashboard.title}</span>
       </div>
       <div ref={searchContainerRef} className='relative flex flex-1'>
         <Search className='-translate-y-1/2 absolute top-1/2 left-3 h-4 w-4 text-muted-foreground' />
         <Input
-          placeholder='Search workspace content...'
+          placeholder={workspaceCopy.dashboard.searchPlaceholder}
           value={searchQuery}
           onChange={(event) => {
             setSearchQuery(event.target.value)
@@ -766,7 +786,7 @@ export function DashboardClient({
             <div className='max-h-80 overflow-y-auto'>
               <div className='space-y-2 p-2'>
                 <DropdownSection
-                  title='Workspaces'
+                  title={workspaceCopy.dashboard.sections.workspaces}
                   icon={Building2}
                   items={filteredWorkspaces}
                   onSelect={(href) => {
@@ -776,7 +796,7 @@ export function DashboardClient({
                   }}
                 />
                 <DropdownSection
-                  title='Knowledge Bases'
+                  title={workspaceCopy.dashboard.sections.knowledgeBases}
                   icon={LibraryBig}
                   items={filteredKnowledgeBases}
                   onSelect={(href) => {
@@ -786,7 +806,7 @@ export function DashboardClient({
                   }}
                 />
                 <DropdownSection
-                  title='Pages'
+                  title={workspaceCopy.dashboard.sections.pages}
                   icon={ScrollText}
                   items={filteredPages}
                   onSelect={(href) => {
@@ -798,7 +818,7 @@ export function DashboardClient({
                 {filteredDocs.length > 0 && (
                   <section>
                     <div className='mb-2 text-muted-foreground/70 text-xs uppercase tracking-wide'>
-                      Docs
+                      {workspaceCopy.dashboard.sections.docs}
                     </div>
                     <div className='space-y-1'>
                       {filteredDocs.map((doc) => (
@@ -833,7 +853,9 @@ export function DashboardClient({
                   </section>
                 )}
                 {!hasResults && (
-                  <div className='text-muted-foreground text-sm'>No matching content</div>
+                  <div className='text-muted-foreground text-sm'>
+                    {workspaceCopy.dashboard.emptySearch}
+                  </div>
                 )}
               </div>
             </div>
@@ -852,6 +874,7 @@ export function DashboardClient({
       onCreate={handleAddLayout}
       onRename={handleRenameLayout}
       onDelete={handleDeleteLayout}
+      createButtonLabel={workspaceCopy.layoutTabs.createNewLayout}
     />
   )
 
@@ -863,6 +886,7 @@ export function DashboardClient({
           node={tree}
           persistGroup={persistGroup}
           widgetContext={widgetContext}
+          locale={locale}
           updatePairColor={handlePairColorChange}
           updateWidget={handleWidgetChange}
           updateWidgetParams={handleWidgetParamsChange}

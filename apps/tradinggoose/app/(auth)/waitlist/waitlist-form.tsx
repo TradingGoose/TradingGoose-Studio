@@ -1,15 +1,22 @@
 'use client'
 
 import { useState } from 'react'
-import Link from 'next/link'
+import { useLocale } from 'next-intl'
 import { Alert, AlertDescription, Button, Input, Label } from '@/components/ui'
 import { quickValidateEmail } from '@/lib/email/validation'
 import { cn } from '@/lib/utils'
+import { Link } from '@/i18n/navigation'
+import { getPublicCopy } from '@/i18n/public-copy'
+import { type LocaleCode } from '@/i18n/utils'
 import { inter } from '@/app/fonts/inter'
 
 type WaitlistResponseStatus = 'pending' | 'approved' | 'rejected' | 'signed_up'
 
 export function WaitlistForm() {
+  const locale = useLocale() as LocaleCode
+  const copy = getPublicCopy(locale)
+  const commonCopy = copy.auth.common
+  const waitlistCopy = copy.auth.waitlist
   const [email, setEmail] = useState('')
   const [error, setError] = useState('')
   const [status, setStatus] = useState<WaitlistResponseStatus | null>(null)
@@ -17,14 +24,27 @@ export function WaitlistForm() {
   const primaryButtonClasses =
     'bg-primary text-primary-foreground flex w-full items-center justify-center gap-2 rounded-md border border-transparent font-medium text-[15px] transition-all duration-200'
 
+  const validateEmailField = (emailValue: string): string => {
+    if (!emailValue || !emailValue.trim()) {
+      return waitlistCopy.validation.emailRequired
+    }
+
+    const validation = quickValidateEmail(emailValue.trim().toLowerCase())
+    if (!validation.isValid) {
+      return waitlistCopy.validation.emailInvalid
+    }
+
+    return ''
+  }
+
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setError('')
 
     const normalizedEmail = email.trim().toLowerCase()
-    const validation = quickValidateEmail(normalizedEmail)
-    if (!validation.isValid) {
-      setError(validation.reason || 'Please enter a valid email address.')
+    const validationMessage = validateEmailField(normalizedEmail)
+    if (validationMessage) {
+      setError(validationMessage)
       return
     }
 
@@ -42,15 +62,13 @@ export function WaitlistForm() {
         | null
 
       if (!response.ok) {
-        throw new Error(payload?.error || 'Failed to join the waitlist')
+        throw new Error(waitlistCopy.rejected)
       }
 
       setStatus(payload?.status ?? 'pending')
       setEmail(normalizedEmail)
-    } catch (submissionError) {
-      setError(
-        submissionError instanceof Error ? submissionError.message : 'Failed to join the waitlist'
-      )
+    } catch {
+      setError(waitlistCopy.rejected)
     } finally {
       setIsSubmitting(false)
     }
@@ -61,14 +79,14 @@ export function WaitlistForm() {
       <form onSubmit={onSubmit} className={`${inter.className} mt-8 space-y-8`}>
         <div className='space-y-6'>
           <div className='space-y-2'>
-            <Label htmlFor='waitlist-email'>Email</Label>
+            <Label htmlFor='waitlist-email'>{commonCopy.email}</Label>
             <Input
               id='waitlist-email'
               name='email'
               type='email'
               value={email}
               onChange={(event) => setEmail(event.target.value)}
-              placeholder='Enter your email'
+              placeholder={commonCopy.enterYourEmail}
               autoComplete='email'
               autoCapitalize='none'
               autoCorrect='off'
@@ -79,13 +97,13 @@ export function WaitlistForm() {
               )}
             />
             <p className='text-muted-foreground text-sm'>
-              Use the email address you want reviewed for platform access.
+              {waitlistCopy.helperText}
             </p>
           </div>
         </div>
 
         <Button type='submit' className={primaryButtonClasses} disabled={isSubmitting}>
-          {isSubmitting ? 'Submitting...' : 'Request access'}
+          {isSubmitting ? waitlistCopy.submitting : commonCopy.requestAccess}
         </Button>
       </form>
 
@@ -97,19 +115,16 @@ export function WaitlistForm() {
 
       {status === 'pending' ? (
         <Alert className='mt-6'>
-          <AlertDescription>
-            You are on the waitlist. We will review your request and let you know when access is
-            available.
-          </AlertDescription>
+          <AlertDescription>{waitlistCopy.pending}</AlertDescription>
         </Alert>
       ) : null}
 
       {status === 'approved' ? (
         <Alert className='mt-6'>
           <AlertDescription>
-            Your email is approved. Continue to{' '}
+            {waitlistCopy.approvedPrefix}{' '}
             <Link href={`/signup?email=${encodeURIComponent(email)}`} className='font-medium underline'>
-              sign up
+              {waitlistCopy.signUpLink}
             </Link>
             .
           </AlertDescription>
@@ -119,9 +134,9 @@ export function WaitlistForm() {
       {status === 'signed_up' ? (
         <Alert className='mt-6'>
           <AlertDescription>
-            This email already has access. Continue to{' '}
+            {waitlistCopy.signedUpPrefix}{' '}
             <Link href='/login' className='font-medium underline'>
-              login
+              {waitlistCopy.loginLink}
             </Link>
             .
           </AlertDescription>
@@ -130,17 +145,17 @@ export function WaitlistForm() {
 
       {status === 'rejected' ? (
         <Alert variant='destructive' className='mt-6'>
-          <AlertDescription>This waitlist request is not approved for access.</AlertDescription>
+          <AlertDescription>{waitlistCopy.rejected}</AlertDescription>
         </Alert>
       ) : null}
 
       <div className={`${inter.className} pt-6 text-center font-light text-[14px]`}>
-        <span className='font-normal'>Already have an account? </span>
+        <span className='font-normal'>{commonCopy.alreadyHaveAccount} </span>
         <Link
           href='/login'
           className='font-medium text-primary underline-offset-4 transition hover:text-primary-hover hover:underline'
         >
-          Sign in
+          {commonCopy.signIn}
         </Link>
       </div>
     </>

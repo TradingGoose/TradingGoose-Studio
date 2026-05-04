@@ -1,12 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Info, Loader2 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
+import { useLocale } from 'next-intl'
 import { cn } from '@/lib/utils'
 import LineChart, {
   type LineChartPoint,
 } from '@/app/workspace/[workspaceId]/logs/components/dashboard/components/line-chart'
 import { getTriggerColor } from '@/app/workspace/[workspaceId]/logs/components/dashboard/utils'
 import { formatDate } from '@/app/workspace/[workspaceId]/logs/utils'
+import { formatTemplate, getPublicCopy } from '@/i18n/public-copy'
+import { localizeHref, type LocaleCode } from '@/i18n/utils'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 
 export interface ExecutionLogItem {
@@ -68,6 +71,9 @@ export function WorkflowDetails({
   isLoadingMore?: boolean
 }) {
   const router = useRouter()
+  const locale = useLocale() as LocaleCode
+  const dashboardCopy = getPublicCopy(locale).workspace.logs.dashboard
+  const copy = dashboardCopy.workflows
   const { workflows } = useWorkflowRegistry()
   const workflowColor = useMemo(
     () => workflows[expandedWorkflowId]?.color || '#3972F6',
@@ -121,7 +127,7 @@ export function WorkflowDetails({
         <div className='flex items-center justify-between'>
           <div className='flex items-center gap-2'>
             <button
-              onClick={() => router.push(`/workspace/${workspaceId}/dashboard`)}
+              onClick={() => router.push(localizeHref(locale, `/workspace/${workspaceId}/dashboard`))}
               className='group inline-flex items-center gap-2 text-left'
             >
               <span
@@ -135,15 +141,15 @@ export function WorkflowDetails({
           </div>
           <div className='flex items-center gap-2'>
             <div className='inline-flex h-7 items-center gap-2 rounded-md border px-2.5'>
-              <span className='text-[11px] text-muted-foreground'>Executions</span>
+              <span className='text-[11px] text-muted-foreground'>{copy.executions}</span>
               <span className='font-[500] text-sm leading-none'>{overview.total}</span>
             </div>
             <div className='inline-flex h-7 items-center gap-2 rounded-md border px-2.5'>
-              <span className='text-[11px] text-muted-foreground'>Success</span>
+              <span className='text-[11px] text-muted-foreground'>{copy.success}</span>
               <span className='font-[500] text-sm leading-none'>{overview.rate.toFixed(1)}%</span>
             </div>
             <div className='inline-flex h-7 items-center gap-2 rounded-md border px-2.5'>
-              <span className='text-[11px] text-muted-foreground'>Failures</span>
+              <span className='text-[11px] text-muted-foreground'>{copy.failures}</span>
               <span className='font-[500] text-sm leading-none'>{overview.failures}</span>
             </div>
           </div>
@@ -159,34 +165,39 @@ export function WorkflowDetails({
                 const tsObj = selectedSegment?.timestamp
                   ? new Date(selectedSegment.timestamp)
                   : null
-                const tsLabel =
-                  tsObj && !Number.isNaN(tsObj.getTime())
-                    ? tsObj.toLocaleString('en-US', {
-                        month: 'short',
-                        day: 'numeric',
-                        hour: 'numeric',
-                        minute: '2-digit',
-                        hour12: true,
-                      })
-                    : 'Selected segment'
+                    const tsLabel =
+                      tsObj && !Number.isNaN(tsObj.getTime())
+                        ? tsObj.toLocaleString(locale, {
+                            month: 'short',
+                            day: 'numeric',
+                            hour: 'numeric',
+                            minute: '2-digit',
+                            hour12: true,
+                          })
+                    : copy.selectedSegment
                 return (
                   <div className='mb-4 flex items-center justify-between rounded-md border bg-muted/30 px-3 py-2 text-[13px] text-foreground'>
                     <div className='flex items-center gap-2'>
                       <div className='h-1.5 w-1.5 rounded-full bg-primary ring-2 ring-primary/30' />
                       <span className='font-medium'>
-                        Filtered to {tsLabel}
+                        {formatTemplate(copy.filteredTo, { timestamp: tsLabel })}
                         {selectedSegmentIndex.length > 1
-                          ? ` (+${selectedSegmentIndex.length - 1} more segment${selectedSegmentIndex.length - 1 > 1 ? 's' : ''})`
+                          ? formatTemplate(copy.selectedRangeMore, {
+                              count: selectedSegmentIndex.length - 1,
+                              plural: selectedSegmentIndex.length - 1 > 1 ? 's' : '',
+                            })
                           : ''}
-                        — {selectedSegment.totalExecutions} execution
-                        {selectedSegment.totalExecutions !== 1 ? 's' : ''}
+                        {formatTemplate(copy.selectedRangeExecutions, {
+                          count: selectedSegment.totalExecutions,
+                          plural: selectedSegment.totalExecutions !== 1 ? 's' : '',
+                        })}
                       </span>
                     </div>
                     <button
                       onClick={clearSegmentSelection}
                       className='rounded px-2 py-1 text-foreground text-xs hover:bg-card focus:outline-none focus:ring-2 focus:ring-primary/40'
                     >
-                      Clear filter
+                      {copy.clearFilter}
                     </button>
                   </div>
                 )
@@ -201,16 +212,20 @@ export function WorkflowDetails({
                 <div className={`mb-3 grid grid-cols-1 gap-3 ${gridCols}`}>
                   <LineChart
                     data={details.errorRates}
-                    label='Error Rate'
+                    label={copy.errorRate}
                     color='#ef4444'
                     unit='%'
+                    locale={locale}
+                    copy={dashboardCopy.chart}
                   />
                   {hasDuration && (
                     <LineChart
                       data={details.durations!}
-                      label='Duration'
+                      label={copy.duration}
                       color='#3b82f6'
                       unit='ms'
+                      locale={locale}
+                      copy={dashboardCopy.chart}
                       series={
                         [
                           details.durationP50
@@ -244,16 +259,27 @@ export function WorkflowDetails({
                   )}
                   <LineChart
                     data={details.executionCounts}
-                    label='Executions'
+                    label={copy.executions}
                     color='#10b981'
                     unit='execs'
+                    locale={locale}
+                    copy={dashboardCopy.chart}
                   />
                   {(() => {
                     const failures = details.errorRates.map((e, i) => ({
                       timestamp: e.timestamp,
                       value: ((e.value || 0) / 100) * (details.executionCounts[i]?.value || 0),
                     }))
-                    return <LineChart data={failures} label='Failures' color='#f59e0b' unit='' />
+                    return (
+                      <LineChart
+                        data={failures}
+                        label={copy.failures}
+                        color='#f59e0b'
+                        unit=''
+                        locale={locale}
+                        copy={dashboardCopy.chart}
+                      />
+                    )
                   })()}
                 </div>
               )
@@ -265,25 +291,25 @@ export function WorkflowDetails({
                   <div className='border-border border-b'>
                     <div className='grid min-w-[980px] grid-cols-[140px_90px_90px_90px_180px_1fr_100px] gap-2 px-2 pb-3 md:gap-3 lg:min-w-0 lg:gap-4'>
                       <div className='font-[460] font-sans text-[13px] text-muted-foreground leading-normal'>
-                        Time
+                        {copy.columns.time}
                       </div>
                       <div className='font-[460] font-sans text-[13px] text-muted-foreground leading-normal'>
-                        Status
+                        {copy.columns.status}
                       </div>
                       <div className='font-[460] font-sans text-[13px] text-muted-foreground leading-normal'>
-                        Trigger
+                        {copy.columns.trigger}
                       </div>
                       <div className='font-[480] font-sans text-[13px] text-muted-foreground leading-normal'>
-                        Cost
+                        {copy.columns.cost}
                       </div>
                       <div className='font-[480] font-sans text-[13px] text-muted-foreground leading-normal'>
-                        Workflow
+                        {copy.columns.workflow}
                       </div>
                       <div className='font-[480] font-sans text-[13px] text-muted-foreground leading-normal'>
-                        Output
+                        {copy.columns.output}
                       </div>
                       <div className='text-right font-[480] font-sans text-[13px] text-muted-foreground leading-normal'>
-                        Duration
+                        {copy.columns.duration}
                       </div>
                     </div>
                   </div>
@@ -300,9 +326,7 @@ export function WorkflowDetails({
                         <div className='flex h-full items-center justify-center py-8'>
                           <div className='flex items-center gap-2 text-muted-foreground'>
                             <Info className='h-5 w-5' />
-                            <span className='text-sm'>
-                              No executions found in this time segment
-                            </span>
+                            <span className='text-sm'>{copy.noExecutions}</span>
                           </div>
                         </div>
                       )
@@ -312,7 +336,7 @@ export function WorkflowDetails({
                       const logDate = log?.startedAt ? new Date(log.startedAt) : null
                       const formattedDate =
                         logDate && !Number.isNaN(logDate.getTime())
-                          ? formatDate(logDate.toISOString())
+                          ? formatDate(logDate.toISOString(), locale)
                           : ({ compactDate: '—', compactTime: '' } as any)
                       const outputsStr = log.outputs ? JSON.stringify(log.outputs) : '—'
                       const errorStr = log.errorMessage || ''
@@ -444,10 +468,10 @@ export function WorkflowDetails({
                         {isLoadingMore ? (
                           <>
                             <Loader2 className='h-4 w-4 animate-spin' />
-                            <span className='text-sm'>Loading more…</span>
+                            <span className='text-sm'>{copy.loadingMore}</span>
                           </>
                         ) : (
-                          <span className='text-sm'>Scroll to load more</span>
+                          <span className='text-sm'>{copy.scrollToLoadMore}</span>
                         )}
                       </div>
                     </div>

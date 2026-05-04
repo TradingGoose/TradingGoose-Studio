@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import { Eye, EyeOff } from 'lucide-react'
-import Link from 'next/link'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useLocale } from 'next-intl'
+import { useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -19,13 +19,12 @@ import { handleAuthError } from '@/lib/auth/auth-error-handler'
 import { quickValidateEmail } from '@/lib/email/validation'
 import { getEnv, isTruthy } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
-import {
-  getAuthRegistrationHref,
-  getAuthRegistrationLabel,
-  type RegistrationMode,
-} from '@/lib/registration/shared'
+import { getAuthRegistrationHref, type RegistrationMode } from '@/lib/registration/shared'
 import { getBaseUrl } from '@/lib/urls/utils'
 import { cn } from '@/lib/utils'
+import { Link, useRouter } from '@/i18n/navigation'
+import { getAuthRegistrationLabel, getPublicCopy } from '@/i18n/public-copy'
+import { localizePathname, type LocaleCode } from '@/i18n/utils'
 import { SocialLoginButtons } from '@/app/(auth)/components/social-login-buttons'
 import { SSOLoginButton } from '@/app/(auth)/components/sso-login-button'
 import { AuthPageHeader } from '@/app/(auth)/components/auth-page-header'
@@ -34,31 +33,30 @@ import { inter } from '@/app/fonts/inter'
 
 const logger = createLogger('LoginForm')
 
-const validateEmailField = (emailValue: string): string[] => {
+const validateEmailField = (
+  emailValue: string,
+  messages: {
+    required: string
+    invalid: string
+  }
+): string[] => {
   const errors: string[] = []
 
   if (!emailValue || !emailValue.trim()) {
-    errors.push('Email is required.')
+    errors.push(messages.required)
     return errors
   }
 
-  const validation = quickValidateEmail(emailValue.trim().toLowerCase())
-  if (!validation.isValid) {
-    errors.push(validation.reason || 'Please enter a valid email address.')
+  if (!quickValidateEmail(emailValue.trim().toLowerCase()).isValid) {
+    errors.push(messages.invalid)
   }
 
   return errors
 }
 
 const PASSWORD_VALIDATIONS = {
-  required: {
-    test: (value: string) => Boolean(value && typeof value === 'string'),
-    message: 'Password is required.',
-  },
-  notEmpty: {
-    test: (value: string) => value.trim().length > 0,
-    message: 'Password cannot be empty.',
-  },
+  required: { test: (value: string) => Boolean(value && typeof value === 'string') },
+  notEmpty: { test: (value: string) => value.trim().length > 0 },
 }
 
 const validateCallbackUrl = (url: string): boolean => {
@@ -79,16 +77,22 @@ const validateCallbackUrl = (url: string): boolean => {
   }
 }
 
-const validatePassword = (passwordValue: string): string[] => {
+const validatePassword = (
+  passwordValue: string,
+  messages: {
+    required: string
+    empty: string
+  }
+): string[] => {
   const errors: string[] = []
 
   if (!PASSWORD_VALIDATIONS.required.test(passwordValue)) {
-    errors.push(PASSWORD_VALIDATIONS.required.message)
+    errors.push(messages.required)
     return errors
   }
 
   if (!PASSWORD_VALIDATIONS.notEmpty.test(passwordValue)) {
-    errors.push(PASSWORD_VALIDATIONS.notEmpty.message)
+    errors.push(messages.empty)
     return errors
   }
 
@@ -107,6 +111,12 @@ export default function LoginPage({
   registrationMode: RegistrationMode
 }) {
   const router = useRouter()
+  const locale = useLocale() as LocaleCode
+  const copy = getPublicCopy(locale)
+  const loginCopy = copy.auth.login
+  const commonCopy = copy.auth.common
+  const authRegistrationLabel = getAuthRegistrationLabel(copy, registrationMode)
+  const defaultCallbackUrl = localizePathname(locale, '/workspace')
   const searchParams = useSearchParams()
   const [isLoading, setIsLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
@@ -116,7 +126,7 @@ export default function LoginPage({
   const primaryButtonClasses =
     'bg-primary text-primary-foreground flex w-full items-center justify-center gap-2 rounded-md border border-transparent font-medium text-[15px] transition-all duration-200'
 
-  const [callbackUrl, setCallbackUrl] = useState('/workspace')
+  const [callbackUrl, setCallbackUrl] = useState(defaultCallbackUrl)
   const [isInviteFlow, setIsInviteFlow] = useState(false)
 
   const [forgotPasswordOpen, setForgotPasswordOpen] = useState(false)
@@ -164,7 +174,10 @@ export default function LoginPage({
     const newEmail = e.target.value
     setEmail(newEmail)
 
-    const errors = validateEmailField(newEmail)
+    const errors = validateEmailField(newEmail, {
+      required: loginCopy.validation.emailRequired,
+      invalid: loginCopy.validation.emailInvalid,
+    })
     setEmailErrors(errors)
     setShowEmailValidationError(false)
   }
@@ -173,7 +186,10 @@ export default function LoginPage({
     const newPassword = e.target.value
     setPassword(newPassword)
 
-    const errors = validatePassword(newPassword)
+    const errors = validatePassword(newPassword, {
+      required: loginCopy.validation.passwordRequired,
+      empty: loginCopy.validation.passwordEmpty,
+    })
     setPasswordErrors(errors)
     setShowValidationError(false)
   }
@@ -186,11 +202,17 @@ export default function LoginPage({
     const emailRaw = formData.get('email') as string
     const email = emailRaw.trim().toLowerCase()
 
-    const emailValidationErrors = validateEmailField(email)
+    const emailValidationErrors = validateEmailField(email, {
+      required: loginCopy.validation.emailRequired,
+      invalid: loginCopy.validation.emailInvalid,
+    })
     setEmailErrors(emailValidationErrors)
     setShowEmailValidationError(emailValidationErrors.length > 0)
 
-    const passwordValidationErrors = validatePassword(password)
+    const passwordValidationErrors = validatePassword(password, {
+      required: loginCopy.validation.passwordRequired,
+      empty: loginCopy.validation.passwordEmpty,
+    })
     setPasswordErrors(passwordValidationErrors)
     setShowValidationError(passwordValidationErrors.length > 0)
 
@@ -200,7 +222,7 @@ export default function LoginPage({
     }
 
     try {
-      const safeCallbackUrl = validateCallbackUrl(callbackUrl) ? callbackUrl : '/workspace'
+      const safeCallbackUrl = validateCallbackUrl(callbackUrl) ? callbackUrl : defaultCallbackUrl
 
       const result = await client.signIn.email(
         {
@@ -217,15 +239,11 @@ export default function LoginPage({
               (ctx.error as any)?.status ??
               (ctx.error as any)?.statusCode ??
               (ctx.error as any)?.response?.status
-            const message =
-              (ctx.error as any)?.message ??
-              (ctx.error as any)?.response?.statusText ??
-              (ctx.error as any)?.response?.data?.error
 
             // If the backend rejected the request due to an invalid/expired auth state, hard reset auth.
             if (status === 401) {
               handleAuthError('login-unauthorized').catch(() => {})
-              errorMessage.push('Your session expired. Please try signing in again.')
+              errorMessage.push(loginCopy.errors.sessionExpired)
             }
 
             if (ctx.error.code?.includes('EMAIL_NOT_VERIFIED')) {
@@ -235,41 +253,37 @@ export default function LoginPage({
               ctx.error.code?.includes('BAD_REQUEST') ||
               ctx.error.message?.includes('Email and password sign in is not enabled')
             ) {
-              errorMessage.push('Email sign in is currently disabled.')
+              errorMessage.push(loginCopy.errors.emailSignInDisabled)
             } else if (
               ctx.error.code?.includes('INVALID_CREDENTIALS') ||
               ctx.error.message?.includes('invalid password')
             ) {
-              errorMessage.push('Invalid email or password. Please try again.')
+              errorMessage.push(loginCopy.errors.invalidCredentials)
             } else if (
               ctx.error.code?.includes('USER_NOT_FOUND') ||
               ctx.error.message?.includes('not found')
             ) {
-              errorMessage.push('No account found with this email. Please sign up first.')
+              errorMessage.push(loginCopy.errors.noAccount)
             } else if (ctx.error.code?.includes('MISSING_CREDENTIALS')) {
-              errorMessage.push('Please enter both email and password.')
+              errorMessage.push(loginCopy.errors.missingCredentials)
             } else if (ctx.error.code?.includes('EMAIL_PASSWORD_DISABLED')) {
-              errorMessage.push('Email and password login is disabled.')
+              errorMessage.push(loginCopy.errors.emailPasswordDisabled)
             } else if (ctx.error.code?.includes('FAILED_TO_CREATE_SESSION')) {
-              errorMessage.push('Failed to create session. Please try again later.')
+              errorMessage.push(loginCopy.errors.failedToCreateSession)
             } else if (ctx.error.code?.includes('too many attempts')) {
-              errorMessage.push(
-                'Too many login attempts. Please try again later or reset your password.'
-              )
+              errorMessage.push(loginCopy.errors.tooManyAttempts)
             } else if (ctx.error.code?.includes('account locked')) {
-              errorMessage.push(
-                'Your account has been locked for security. Please reset your password.'
-              )
+              errorMessage.push(loginCopy.errors.accountLocked)
             } else if (ctx.error.code?.includes('network')) {
-              errorMessage.push('Network error. Please check your connection and try again.')
+              errorMessage.push(loginCopy.errors.network)
             } else if (ctx.error.message?.includes('rate limit')) {
-              errorMessage.push('Too many requests. Please wait a moment before trying again.')
-            } else if (message) {
-              errorMessage.push(typeof message === 'string' ? message : 'Unable to sign in.')
+              errorMessage.push(loginCopy.errors.rateLimit)
+            } else {
+              errorMessage.push(loginCopy.errors.unableToSignIn)
             }
 
             if (errorMessage.length === 0) {
-              errorMessage.push('Unable to sign in right now. Please try again.')
+              errorMessage.push(loginCopy.errors.unableToSignInNow)
             }
 
             setPasswordErrors(errorMessage)
@@ -279,13 +293,7 @@ export default function LoginPage({
       )
 
       if (!result || result.error) {
-        const message =
-          result?.error?.message ||
-          (result?.error as any)?.response?.statusText ||
-          (result?.error as any)?.response?.data?.error ||
-          'Unable to sign in right now. Please try again.'
-
-        setPasswordErrors([message])
+        setPasswordErrors([loginCopy.errors.unableToSignInNow])
         setShowValidationError(true)
         setIsLoading(false)
         return
@@ -309,7 +317,7 @@ export default function LoginPage({
     if (!forgotPasswordEmail) {
       setResetStatus({
         type: 'error',
-        message: 'Please enter your email address',
+        message: loginCopy.resetDialog.emailRequired,
       })
       return
     }
@@ -318,7 +326,7 @@ export default function LoginPage({
     if (!emailValidation.isValid) {
       setResetStatus({
         type: 'error',
-        message: 'Please enter a valid email address',
+        message: loginCopy.resetDialog.emailInvalid,
       })
       return
     }
@@ -334,34 +342,17 @@ export default function LoginPage({
         },
         body: JSON.stringify({
           email: forgotPasswordEmail,
-          redirectTo: `${getBaseUrl()}/reset-password`,
+          redirectTo: `${getBaseUrl()}${localizePathname(locale, '/reset-password')}`,
         }),
       })
 
       if (!response.ok) {
-        const errorData = await response.json()
-        let errorMessage = errorData.message || 'Failed to request password reset'
-
-        if (
-          errorMessage.includes('Invalid body parameters') ||
-          errorMessage.includes('invalid email')
-        ) {
-          errorMessage = 'Please enter a valid email address'
-        } else if (errorMessage.includes('Email is required')) {
-          errorMessage = 'Please enter your email address'
-        } else if (
-          errorMessage.includes('user not found') ||
-          errorMessage.includes('User not found')
-        ) {
-          errorMessage = 'No account found with this email address'
-        }
-
-        throw new Error(errorMessage)
+        throw new Error(loginCopy.resetDialog.error)
       }
 
       setResetStatus({
         type: 'success',
-        message: 'Password reset link sent to your email',
+        message: loginCopy.resetDialog.success,
       })
 
       setTimeout(() => {
@@ -372,7 +363,7 @@ export default function LoginPage({
       logger.error('Error requesting password reset:', { error })
       setResetStatus({
         type: 'error',
-        message: error instanceof Error ? error.message : 'Failed to request password reset',
+        message: loginCopy.resetDialog.error,
       })
     } finally {
       setIsSubmittingReset(false)
@@ -385,13 +376,17 @@ export default function LoginPage({
   const showDivider = showBottomSection
   const showWaitlistNote = registrationMode === 'waitlist' && !isInviteFlow
   const registrationHref = isInviteFlow
-    ? `/signup?invite_flow=true&callbackUrl=${callbackUrl}`
+    ? `/signup?invite_flow=true&callbackUrl=${encodeURIComponent(callbackUrl)}`
     : getAuthRegistrationHref(registrationMode)
-  const registrationLabel = isInviteFlow ? 'Sign up' : getAuthRegistrationLabel(registrationMode)
+  const registrationLabel = isInviteFlow ? commonCopy.signUp : authRegistrationLabel
 
   return (
     <>
-      <AuthPageHeader eyebrow='Sign in' title='Welcome back' description='Enter your credentials' />
+      <AuthPageHeader
+        eyebrow={loginCopy.eyebrow}
+        title={loginCopy.title}
+        description={loginCopy.description}
+      />
 
       {showWaitlistNote ? <AuthWaitlistNote /> : null}
 
@@ -399,13 +394,13 @@ export default function LoginPage({
         <div className='space-y-6'>
           <div className='space-y-2' suppressHydrationWarning>
             <div className='flex items-center justify-between'>
-              <Label htmlFor='email'>Email</Label>
+              <Label htmlFor='email'>{commonCopy.email}</Label>
             </div>
             <Input
               id='email'
               name='email'
               suppressHydrationWarning
-              placeholder='Enter your email'
+              placeholder={commonCopy.enterYourEmail}
               required
               autoCapitalize='none'
               autoComplete='email'
@@ -429,13 +424,13 @@ export default function LoginPage({
           </div>
           <div className='space-y-2'>
             <div className='flex items-center justify-between'>
-              <Label htmlFor='password'>Password</Label>
+              <Label htmlFor='password'>{commonCopy.password}</Label>
               <button
                 type='button'
                 onClick={() => setForgotPasswordOpen(true)}
                 className='font-medium text-muted-foreground text-xs transition hover:text-foreground'
               >
-                Forgot password?
+                {commonCopy.forgotPassword}
               </button>
             </div>
             <div className='relative' suppressHydrationWarning>
@@ -448,7 +443,7 @@ export default function LoginPage({
                 autoCapitalize='none'
                 autoComplete='current-password'
                 autoCorrect='off'
-                placeholder='Enter your password'
+                placeholder={commonCopy.enterYourPassword}
                 value={password}
                 onChange={handlePasswordChange}
                 className={cn(
@@ -462,7 +457,7 @@ export default function LoginPage({
                 type='button'
                 onClick={() => setShowPassword(!showPassword)}
                 className='-translate-y-1/2 absolute top-1/2 right-3 text-gray-500 transition hover:text-gray-700'
-                aria-label={showPassword ? 'Hide password' : 'Show password'}
+                aria-label={showPassword ? commonCopy.hidePassword : commonCopy.showPassword}
               >
                 {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
@@ -478,7 +473,7 @@ export default function LoginPage({
         </div>
 
         <Button type='submit' className={primaryButtonClasses} disabled={isLoading}>
-          {isLoading ? 'Signing in...' : 'Sign in'}
+          {isLoading ? loginCopy.submitting : loginCopy.submit}
         </Button>
       </form>
 
@@ -490,7 +485,7 @@ export default function LoginPage({
           </div>
           <div className='relative flex justify-center text-sm'>
             <span className='bg-background px-4 font-[340] text-muted-foreground'>
-              Or continue with
+              {loginCopy.divider}
             </span>
           </div>
         </div>
@@ -511,7 +506,7 @@ export default function LoginPage({
 
       {registrationHref && registrationLabel && (
         <div className={`${inter.className} pt-6 text-center font-light text-[14px]`}>
-          <span className='font-normal'>Don't have an account? </span>
+          <span className='font-normal'>{commonCopy.dontHaveAccount} </span>
           <Link
             href={registrationHref}
             className='font-medium text-primary underline-offset-4 transition hover:text-primary-hover hover:underline'
@@ -524,23 +519,23 @@ export default function LoginPage({
       <div
         className={`${inter.className} text-muted absolute right-0 bottom-0 left-0 px-8 pb-8 text-center font-[340] text-[13px] leading-relaxed sm:px-8 md:px-[44px]`}
       >
-        By signing in, you agree to our{' '}
+        {commonCopy.termsLeadSigningIn}{' '}
         <Link
           href='/terms'
           target='_blank'
           rel='noopener noreferrer'
           className='hover:text-primary underline underline-offset-4'
         >
-          Terms of Service
+          {commonCopy.termsOfService}
         </Link>{' '}
-        and{' '}
+        {commonCopy.and}{' '}
         <Link
           href='/privacy'
           target='_blank'
           rel='noopener noreferrer'
           className='hover:text-primary underline underline-offset-4'
         >
-          Privacy Policy
+          {commonCopy.privacyPolicy}
         </Link>
       </div>
 
@@ -548,23 +543,22 @@ export default function LoginPage({
         <DialogContent className='card card-shadow max-w-[540px] rounded-md border backdrop-blur-sm'>
           <DialogHeader>
             <DialogTitle className='text-primary font-semibold text-xl tracking-tight'>
-              Reset Password
+              {loginCopy.resetDialog.title}
             </DialogTitle>
             <DialogDescription className='text-muted-foreground text-sm'>
-              Enter your email address and we'll send you a link to reset your password if your
-              account exists.
+              {loginCopy.resetDialog.description}
             </DialogDescription>
           </DialogHeader>
           <div className='space-y-4'>
             <div className='space-y-2'>
               <div className='flex items-center justify-between'>
-                <Label htmlFor='reset-email'>Email</Label>
+                <Label htmlFor='reset-email'>{loginCopy.resetDialog.emailLabel}</Label>
               </div>
               <Input
                 id='reset-email'
                 value={forgotPasswordEmail}
                 onChange={(e) => setForgotPasswordEmail(e.target.value)}
-                placeholder='Enter your email'
+                placeholder={loginCopy.resetDialog.emailPlaceholder}
                 required
                 type='email'
                 className={cn(
@@ -590,7 +584,7 @@ export default function LoginPage({
               className={primaryButtonClasses}
               disabled={isSubmittingReset}
             >
-              {isSubmittingReset ? 'Sending...' : 'Send Reset Link'}
+              {isSubmittingReset ? loginCopy.resetDialog.submitting : loginCopy.resetDialog.submit}
             </Button>
           </div>
         </DialogContent>

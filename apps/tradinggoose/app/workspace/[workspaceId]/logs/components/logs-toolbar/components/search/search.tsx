@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Search, X } from 'lucide-react'
+import { useLocale } from 'next-intl'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
@@ -12,6 +13,8 @@ import {
   type WorkflowData,
 } from '@/lib/logs/search-suggestions'
 import { cn } from '@/lib/utils'
+import { getPublicCopy } from '@/i18n/public-copy'
+import { type LocaleCode } from '@/i18n/utils'
 import { useSearchState } from '@/app/workspace/[workspaceId]/logs/hooks/use-search-state'
 import { useFolderStore } from '@/stores/folders/store'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
@@ -31,7 +34,7 @@ interface AutocompleteSearchProps {
 export function AutocompleteSearch({
   value,
   onChange,
-  placeholder = 'Search logs...',
+  placeholder,
   availableWorkflows = [],
   availableFolders = [],
   className,
@@ -39,8 +42,11 @@ export function AutocompleteSearch({
   showActiveFilters = true,
   showTextSearchIndicator = true,
 }: AutocompleteSearchProps) {
+  const locale = useLocale() as LocaleCode
+  const copy = getPublicCopy(locale).workspace.logs.dashboard.filters
   const workflows = useWorkflowRegistry((state) => state.workflows)
   const folders = useFolderStore((state) => state.folders)
+  const getFilterLabel = (field: string) => (copy as Record<string, string>)[field] ?? field
 
   const fallbackWorkflowData = useMemo<WorkflowData[]>(() => {
     return availableWorkflows.map((name, index) => ({
@@ -206,7 +212,7 @@ export function AutocompleteSearch({
                     removeBadge(index)
                   }}
                 >
-                  <span className='text-muted-foreground'>{filter.field}:</span>
+                  <span className='text-muted-foreground'>{getFilterLabel(filter.field)}:</span>
                   <span className='text-foreground'>
                     {filter.operator !== '=' && filter.operator}
                     {filter.originalValue}
@@ -237,7 +243,7 @@ export function AutocompleteSearch({
               <input
                 ref={inputRef}
                 type='text'
-                placeholder={hasFilters || hasTextSearch ? '' : placeholder}
+                placeholder={hasFilters || hasTextSearch ? '' : placeholder || copy.searchPlaceholder}
                 value={currentInput}
                 onChange={(e) => handleInputChange(e.target.value)}
                 onKeyDown={handleKeyDown}
@@ -327,7 +333,7 @@ export function AutocompleteSearch({
                                 <div className='flex-shrink-0 font-mono text-[11px] text-muted-foreground'>
                                   {suggestion.category === 'workflow' ||
                                   suggestion.category === 'folder'
-                                    ? `${suggestion.category}:`
+                                    ? `${getFilterLabel(suggestion.category)}:`
                                     : ''}
                                 </div>
                               )}
@@ -342,7 +348,7 @@ export function AutocompleteSearch({
                 <div className='py-1'>
                   {suggestionType === 'filters' && (
                     <div className='border-b border-border/50 px-3 py-1.5 font-medium text-[11px] uppercase tracking-wide text-muted-foreground/80'>
-                      Suggested Filters
+                      {copy.suggestedFilters}
                     </div>
                   )}
 
@@ -381,14 +387,14 @@ export function AutocompleteSearch({
 
       {showActiveFilters && hasFilters && (
         <div className='mt-3 flex flex-wrap items-center gap-2'>
-          <span className='font-medium text-xs text-muted-foreground'>Active Filters:</span>
+          <span className='font-medium text-xs text-muted-foreground'>{copy.activeFilters}</span>
           {appliedFilters.map((filter, index) => (
             <Badge
               key={`${filter.field}-${filter.value}-${index}`}
               variant='secondary'
               className='h-6 border border-border/50 bg-muted/50 font-mono text-xs text-muted-foreground'
             >
-              <span className='mr-1'>{filter.field}:</span>
+              <span className='mr-1'>{getFilterLabel(filter.field)}:</span>
               <span>
                 {filter.operator !== '=' && filter.operator}
                 {filter.originalValue}
@@ -418,7 +424,7 @@ export function AutocompleteSearch({
                 initializeFromQuery(textSearch, [])
               }}
             >
-              Clear all
+              {copy.clearAll}
             </Button>
           )}
         </div>
@@ -426,7 +432,7 @@ export function AutocompleteSearch({
 
       {showTextSearchIndicator && hasTextSearch && (
         <div className='mt-2 flex items-center gap-2'>
-          <span className='font-medium text-xs text-muted-foreground'>Text Search:</span>
+          <span className='font-medium text-xs text-muted-foreground'>{copy.textSearch}</span>
           <Badge variant='outline' className='text-xs'>
             &quot;{textSearch}&quot;
           </Badge>

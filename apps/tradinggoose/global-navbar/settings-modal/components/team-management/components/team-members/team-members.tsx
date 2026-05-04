@@ -1,9 +1,14 @@
+'use client'
+
 import { useEffect, useState } from 'react'
 import { LogOut, UserX, X } from 'lucide-react'
+import { useLocale } from 'next-intl'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { createLogger } from '@/lib/logs/console/logger'
+import { formatTemplate, getPublicCopy } from '@/i18n/public-copy'
+import { type LocaleCode } from '@/i18n/utils'
 import type { Invitation, Member, Organization } from '@/stores/organization'
 
 const logger = createLogger('TeamMembers')
@@ -47,6 +52,9 @@ export function TeamMembers({
   onRemoveMember,
   onCancelInvitation,
 }: TeamMembersProps) {
+  const locale = useLocale() as LocaleCode
+  const teamCopy = getPublicCopy(locale).workspace.settingsModal.team.members
+  const roleCopy = getPublicCopy(locale).workspace.switcher.roles
   const [memberUsageData, setMemberUsageData] = useState<Record<string, number>>({})
   const [memberUsageMode, setMemberUsageMode] = useState<MemberUsageMode>('individual')
   const [sharedUsageTotal, setSharedUsageTotal] = useState<number | null>(null)
@@ -111,8 +119,8 @@ export function TeamMembers({
     organization.members.forEach((member: Member) => {
       const userId = member.user?.id
       const usageAmount = userId ? (memberUsageData[userId] ?? 0) : 0
-      const name = member.user?.name || 'Unknown'
-      const usage = memberUsageMode === 'pooled' ? 'Shared pool' : `$${usageAmount.toFixed(2)}`
+      const name = member.user?.name || teamCopy.unknown
+      const usage = memberUsageMode === 'pooled' ? teamCopy.sharedPool : `$${usageAmount.toFixed(2)}`
 
       const memberItem: MemberItem = {
         type: 'member',
@@ -154,7 +162,7 @@ export function TeamMembers({
   }
 
   if (teamItems.length === 0) {
-    return <div className='text-center text-muted-foreground text-sm'>No team members yet.</div>
+    return <div className='text-center text-muted-foreground text-sm'>{teamCopy.empty}</div>
   }
 
   // Check if current user can leave (is a member but not owner)
@@ -180,10 +188,10 @@ export function TeamMembers({
     <div className='flex flex-col gap-4'>
       {/* Header - simple like account page */}
       <div>
-        <h4 className='font-medium text-sm'>Team Members</h4>
+        <h4 className='font-medium text-sm'>{teamCopy.title}</h4>
         {isAdminOrOwner && memberUsageMode === 'pooled' && sharedUsageTotal !== null && (
           <p className='mt-1 text-muted-foreground text-xs'>
-            Shared billed usage: ${sharedUsageTotal.toFixed(2)}
+            {formatTemplate(teamCopy.sharedUsage, { amount: sharedUsageTotal.toFixed(2) })}
           </p>
         )}
       </div>
@@ -226,12 +234,12 @@ export function TeamMembers({
                           : 'bg-[var(--primary)]/10 text-muted-foreground'
                       } `}
                     >
-                      {item.role.charAt(0).toUpperCase() + item.role.slice(1)}
+                      {roleCopy[item.role as keyof typeof roleCopy] ?? item.role}
                     </span>
                   )}
                   {item.type === 'invitation' && (
                     <span className='inline-flex h-[1.125rem] items-center rounded-md bg-muted px-2 py-0 font-medium text-muted-foreground text-xs'>
-                      Pending
+                      {teamCopy.pending}
                     </span>
                   )}
                 </div>
@@ -241,10 +249,10 @@ export function TeamMembers({
               {/* Usage stats - matching subscription layout */}
               {isAdminOrOwner && (
                 <div className='hidden items-center text-xs tabular-nums sm:flex'>
-                  <div className='text-center'>
-                    <div className='text-muted-foreground'>
-                      {memberUsageMode === 'pooled' ? 'Billing' : 'Usage'}
-                    </div>
+                    <div className='text-center'>
+                      <div className='text-muted-foreground'>
+                      {memberUsageMode === 'pooled' ? teamCopy.billing : teamCopy.usage}
+                      </div>
                     <div className='font-medium'>
                       {isLoadingUsage && item.type === 'member' ? (
                         <span className='inline-block h-3 w-12 animate-pulse rounded bg-muted' />
@@ -275,7 +283,7 @@ export function TeamMembers({
                         <UserX className='h-4 w-4' />
                       </Button>
                     </TooltipTrigger>
-                    <TooltipContent side='left'>Remove Member</TooltipContent>
+                    <TooltipContent side='left'>{teamCopy.removeMemberTooltip}</TooltipContent>
                   </Tooltip>
                 )}
 
@@ -299,8 +307,8 @@ export function TeamMembers({
                   </TooltipTrigger>
                   <TooltipContent side='left'>
                     {cancellingInvitations.has(item.invitation.id)
-                      ? 'Cancelling...'
-                      : 'Cancel Invitation'}
+                      ? teamCopy.cancelling
+                      : teamCopy.cancelInvitationTooltip}
                   </TooltipContent>
                 </Tooltip>
               )}
@@ -325,7 +333,7 @@ export function TeamMembers({
             className='w-full hover:bg-card'
           >
             <LogOut className='mr-2 h-4 w-4' />
-            Leave Organization
+            {teamCopy.leaveOrganization}
           </Button>
         </div>
       )}

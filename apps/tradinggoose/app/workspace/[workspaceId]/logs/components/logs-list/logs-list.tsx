@@ -2,10 +2,13 @@
 
 import type { RefObject } from 'react'
 import { AlertCircle, Info, Loader2 } from 'lucide-react'
+import { useLocale } from 'next-intl'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import Timeline from '@/app/workspace/[workspaceId]/logs/components/logs-toolbar/components/filters/components/timeline'
 import { formatDate } from '@/app/workspace/[workspaceId]/logs/utils'
+import { getPublicCopy } from '@/i18n/public-copy'
+import { type LocaleCode } from '@/i18n/utils'
 import type { WorkflowLog } from '@/stores/logs/filters/types'
 
 const getTriggerColor = (trigger: string | null | undefined): string => {
@@ -52,6 +55,8 @@ export function LogsList({
   scrollContainerRef,
   selectedRowRef,
 }: LogsListProps) {
+  const locale = useLocale() as LocaleCode
+  const copy = getPublicCopy(locale).workspace.logs
   return (
     <div className='flex h-full max-h-full min-h-0 min-w-0 flex-1 overflow-hidden'>
       <div className='flex h-full max-h-full min-h-0 flex-1 flex-col overflow-hidden'>
@@ -78,27 +83,33 @@ export function LogsList({
                     <thead>
                       <tr>
                         <th className='px-4 pt-2 pb-3 text-center align-middle font-medium'>
-                          <span className='text-muted-foreground text-xs leading-none'>Time</span>
-                        </th>
-                        <th className='px-4 pt-2 pb-3 text-center align-middle font-medium'>
-                          <span className='text-muted-foreground text-xs leading-none'>Status</span>
-                        </th>
-                        <th className='px-4 pt-2 pb-3 text-center align-middle font-medium'>
                           <span className='text-muted-foreground text-xs leading-none'>
-                            Workflow
+                            {copy.list.headers.time}
                           </span>
                         </th>
                         <th className='px-4 pt-2 pb-3 text-center align-middle font-medium'>
-                          <span className='text-muted-foreground text-xs leading-none'>Cost</span>
-                        </th>
-                        <th className='hidden px-4 pt-2 pb-3 text-center align-middle font-medium xl:table-cell'>
                           <span className='text-muted-foreground text-xs leading-none'>
-                            Trigger
+                            {copy.list.headers.status}
+                          </span>
+                        </th>
+                        <th className='px-4 pt-2 pb-3 text-center align-middle font-medium'>
+                          <span className='text-muted-foreground text-xs leading-none'>
+                            {copy.list.headers.workflow}
+                          </span>
+                        </th>
+                        <th className='px-4 pt-2 pb-3 text-center align-middle font-medium'>
+                          <span className='text-muted-foreground text-xs leading-none'>
+                            {copy.list.headers.cost}
                           </span>
                         </th>
                         <th className='hidden px-4 pt-2 pb-3 text-center align-middle font-medium xl:table-cell'>
                           <span className='text-muted-foreground text-xs leading-none'>
-                            Duration
+                            {copy.list.headers.trigger}
+                          </span>
+                        </th>
+                        <th className='hidden px-4 pt-2 pb-3 text-center align-middle font-medium xl:table-cell'>
+                          <span className='text-muted-foreground text-xs leading-none'>
+                            {copy.list.headers.duration}
                           </span>
                         </th>
                       </tr>
@@ -115,21 +126,21 @@ export function LogsList({
                     <div className='flex h-full items-center justify-center p-5'>
                       <div className='flex items-center gap-2 text-muted-foreground'>
                         <Loader2 className='h-5 w-5 animate-spin' />
-                        <span className='text-sm'>Loading logs...</span>
+                        <span className='text-sm'>{copy.list.loading}</span>
                       </div>
                     </div>
                   ) : error ? (
                     <div className='flex h-full items-center justify-center'>
                       <div className='flex items-center gap-2 text-destructive'>
                         <AlertCircle className='h-5 w-5' />
-                        <span className='text-sm'>Error: {error}</span>
+                        <span className='text-sm'>{error}</span>
                       </div>
                     </div>
                   ) : logs.length === 0 ? (
                     <div className='flex h-full items-center justify-center'>
                       <div className='flex items-center gap-2 text-muted-foreground'>
                         <Info className='h-5 w-5' />
-                        <span className='text-sm'>No logs found</span>
+                        <span className='text-sm'>{copy.list.noLogs}</span>
                       </div>
                     </div>
                   ) : (
@@ -144,7 +155,7 @@ export function LogsList({
                       </colgroup>
                       <tbody>
                         {logs.map((log) => {
-                          const formattedDate = formatDate(log.createdAt)
+                          const formattedDate = formatDate(log.createdAt, locale)
                           const isSelected = selectedLogId === log.id
 
                           return (
@@ -184,7 +195,7 @@ export function LogsList({
                               </td>
                               <td className='px-4 py-3 text-center align-middle'>
                                 <div className='truncate font-medium text-[13px]'>
-                                  {log.workflow?.name || 'Unknown Workflow'}
+                                  {log.workflow?.name || copy.list.unknownWorkflow}
                                 </div>
                               </td>
                               <td className='px-4 py-3 text-center align-middle'>
@@ -232,10 +243,10 @@ export function LogsList({
                                 {isFetchingMore ? (
                                   <>
                                     <Loader2 className='h-4 w-4 animate-spin' />
-                                    <span className='text-sm'>Loading more...</span>
+                                    <span className='text-sm'>{copy.list.loadingMore}</span>
                                   </>
                                 ) : (
-                                  <span className='text-sm'>Scroll to load more</span>
+                                  <span className='text-sm'>{copy.list.scrollToLoadMore}</span>
                                 )}
                               </div>
                             </td>

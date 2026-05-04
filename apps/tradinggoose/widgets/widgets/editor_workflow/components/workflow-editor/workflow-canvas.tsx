@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { useLocale } from 'next-intl'
 import {
   Background,
   ConnectionLineType,
@@ -16,6 +17,7 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { TriggerUtils } from '@/lib/workflows/triggers'
 import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import { getBlock } from '@/blocks'
+import { localizeHref, type LocaleCode } from '@/i18n/utils'
 import { useWorkflowEditorActions } from '@/hooks/workflow/use-workflow-editor-actions'
 import { useOptionalWorkflowSession } from '@/lib/yjs/workflow-session-host'
 import { useStreamCleanup } from '@/hooks/use-stream-cleanup'
@@ -220,6 +222,7 @@ const WorkflowCanvas = React.memo(
 
     // Hooks
     const router = useRouter()
+    const locale = useLocale() as LocaleCode
     const { workspaceId, workflowId } = useWorkflowRoute()
     const resolvedChannelId = useMemo(() => channelId ?? DEFAULT_WORKFLOW_CHANNEL_ID, [channelId])
     const reactFlowId = useMemo(() => `workflow-${resolvedChannelId}`, [resolvedChannelId])
@@ -1140,7 +1143,7 @@ const WorkflowCanvas = React.memo(
         // If no workflows exist after loading, redirect to workspace root
         if (workflowIds.length === 0) {
           logger.info('No workflows found, redirecting to workspace root')
-          router.replace(`/workspace/${workspaceId}/dashboard`)
+          router.replace(localizeHref(locale, `/workspace/${workspaceId}/dashboard`))
           return
         }
 
@@ -1155,10 +1158,10 @@ const WorkflowCanvas = React.memo(
           })
 
           if (workspaceWorkflows.length > 0) {
-            router.replace(`/workspace/${workspaceId}/dashboard`)
+            router.replace(localizeHref(locale, `/workspace/${workspaceId}/dashboard`))
           } else {
             // No valid workflows for this workspace, redirect to workspace root
-            router.replace(`/workspace/${workspaceId}/dashboard`)
+            router.replace(localizeHref(locale, `/workspace/${workspaceId}/dashboard`))
           }
           return
         }
@@ -1170,7 +1173,7 @@ const WorkflowCanvas = React.memo(
             `Workflow ${currentId} belongs to workspace ${currentWorkflow.workspaceId}, not ${workspaceId}`
           )
           // Redirect to the correct workspace for this workflow
-          router.replace(`/workspace/${currentWorkflow.workspaceId}/dashboard`)
+          router.replace(localizeHref(locale, `/workspace/${currentWorkflow.workspaceId}/dashboard`))
           return
         }
       }
@@ -1184,6 +1187,7 @@ const WorkflowCanvas = React.memo(
       workspaceId,
       router,
       hasWorkflowsInitiallyLoaded,
+      locale,
     ])
 
     const blockConfigCache = useRef(new Map())

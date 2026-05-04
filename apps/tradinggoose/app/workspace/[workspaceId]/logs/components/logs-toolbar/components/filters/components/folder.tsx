@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from 'react'
 import { Check, ChevronDown } from 'lucide-react'
 import { useParams } from 'next/navigation'
+import { useLocale } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import {
   Command,
@@ -21,6 +22,8 @@ import {
   filterButtonClass,
   folderDropdownListStyle,
 } from './shared'
+import { formatTemplate, getPublicCopy } from '@/i18n/public-copy'
+import { type LocaleCode } from '@/i18n/utils'
 import { useFolders } from '@/hooks/queries/folders'
 import { type FolderTreeNode, useFolderStore } from '@/stores/folders/store'
 import { useFilterStore } from '@/stores/logs/filters/store'
@@ -33,6 +36,8 @@ interface FolderOption {
 }
 
 export default function FolderFilter() {
+  const locale = useLocale() as LocaleCode
+  const copy = getPublicCopy(locale).workspace.logs.dashboard.filters
   const triggerRef = useRef<HTMLButtonElement | null>(null)
   const { folderIds, toggleFolderId, setFolderIds } = useFilterStore()
   const { getFolderTree } = useFolderStore()
@@ -68,12 +73,15 @@ export default function FolderFilter() {
 
   // Get display text for the dropdown button
   const getSelectedFoldersText = () => {
-    if (folderIds.length === 0) return 'All folders'
+    if (folderIds.length === 0) return copy.allFolders
     if (folderIds.length === 1) {
       const selected = folders.find((f) => f.id === folderIds[0])
-      return selected ? selected.name : 'All folders'
+      return selected ? selected.name : copy.allFolders
     }
-    return `${folderIds.length} folders selected`
+    return formatTemplate(copy.selectedFolders, {
+      count: folderIds.length,
+      plural: folderIds.length !== 1 ? 's' : '',
+    })
   }
 
   // Check if a folder is selected
@@ -90,7 +98,7 @@ export default function FolderFilter() {
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button ref={triggerRef} variant='outline' size='sm' className={filterButtonClass}>
-          {foldersLoading ? 'Loading folders...' : getSelectedFoldersText()}
+          {foldersLoading ? copy.loadingFolders : getSelectedFoldersText()}
           <ChevronDown className='ml-2 h-4 w-4 text-muted-foreground' />
         </Button>
       </DropdownMenuTrigger>
@@ -102,9 +110,9 @@ export default function FolderFilter() {
         className={dropdownContentClass}
       >
         <Command>
-          <CommandInput placeholder='Search folders...' onValueChange={(v) => setSearch(v)} />
+          <CommandInput placeholder={copy.searchFolders} onValueChange={(v) => setSearch(v)} />
           <CommandList className={commandListClass} style={folderDropdownListStyle}>
-            <CommandEmpty>{foldersLoading ? 'Loading folders...' : 'No folders found.'}</CommandEmpty>
+            <CommandEmpty>{foldersLoading ? copy.loadingFolders : copy.noFolders}</CommandEmpty>
             <CommandGroup>
               <CommandItem
                 value='all-folders'
@@ -113,7 +121,7 @@ export default function FolderFilter() {
                 }}
                 className='cursor-pointer'
               >
-                <span>All folders</span>
+                <span>{copy.allFolders}</span>
                 {folderIds.length === 0 && (
                   <Check className='ml-auto h-4 w-4 text-muted-foreground' />
                 )}

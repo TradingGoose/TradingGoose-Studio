@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import { useLocale } from 'next-intl'
 import { shallow } from 'zustand/shallow'
 import {
   type PairColorContext,
@@ -9,6 +10,8 @@ import {
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import { WORKSPACE_BOOTSTRAP_CHANNEL } from '@/stores/workflows/registry/types'
 import { resolveWidgetChannel } from '@/widgets/hooks/use-widget-channel'
+import { getPublicCopy } from '@/i18n/public-copy'
+import type { LocaleCode } from '@/i18n/utils'
 import type { PairColor } from '@/widgets/pair-colors'
 import type { WidgetComponentProps } from '@/widgets/types'
 
@@ -35,7 +38,6 @@ type UseWorkflowWidgetStateResult = {
   activeWorkflowIdForChannel: string | null
 }
 
-const DEFAULT_LOAD_ERROR_MESSAGE = 'Unable to load workflows'
 const MAX_METADATA_LOAD_ATTEMPTS = 2
 const EMPTY_PAIR_CONTEXT: Readonly<PairColorContext> = Object.freeze({})
 
@@ -51,6 +53,8 @@ export const useWorkflowWidgetState = ({
   activateWorkflow = true,
   usePairWorkflowContext = true,
 }: UseWorkflowWidgetStateOptions): UseWorkflowWidgetStateResult => {
+  const locale = useLocale() as LocaleCode
+  const widgetsCopy = getPublicCopy(locale).workspace.widgets
   const { resolvedPairColor, channelId } = resolveWidgetChannel({
     pairColor,
     widget,
@@ -157,10 +161,7 @@ export const useWorkflowWidgetState = ({
 
       console.error(`Failed to load workflows for ${loggerScope}`, error)
       setLoadError(
-        error instanceof Error &&
-          (error.message === 'Unauthorized' || error.message === 'Forbidden')
-          ? 'Authentication required to load workflows'
-          : DEFAULT_LOAD_ERROR_MESSAGE
+        widgetsCopy.workflowDropdown.failedToLoad
       )
     })
 
@@ -175,6 +176,7 @@ export const useWorkflowWidgetState = ({
     loadWorkflows,
     loggerScope,
     metadataChannelId,
+    widgetsCopy.workflowDropdown.failedToLoad,
   ])
 
   const resolvedWorkflowId = useMemo(() => {

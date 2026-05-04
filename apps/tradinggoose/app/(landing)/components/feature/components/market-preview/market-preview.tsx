@@ -2,6 +2,7 @@
 
 import React from 'react'
 import { executeBrowserPineIndicator } from '@/lib/indicators/browser-execution'
+import { useLocale } from 'next-intl'
 import { buildInputsMapFromMeta } from '@/lib/indicators/input-meta'
 import { buildIndexMaps, mapMarketSeriesToBarsMs } from '@/lib/indicators/series-data'
 import type { BarMs, NormalizedPineOutput } from '@/lib/indicators/types'
@@ -35,6 +36,8 @@ import type {
 } from '@/widgets/widgets/data_chart/types'
 import { DEFAULT_MANUAL_DRAW_TOOLS } from '@/widgets/widgets/data_chart/utils/draw-tools'
 import { buildIndicatorRefs } from '@/widgets/widgets/data_chart/utils/indicator-refs'
+import { getPublicCopy } from '@/i18n/public-copy'
+import type { LocaleCode } from '@/i18n/utils'
 import {
   DEFAULT_LANDING_MARKET_INDICATOR_IDS,
   LANDING_MARKET_INDICATOR_MAP,
@@ -54,6 +57,9 @@ const MARKET_LISTING_LABEL = 'TradingGoose Data Chart'
 const MARKET_INTERVAL_LABEL = '1m'
 const LANDING_MARKET_PANEL_ID = 'landing-market-preview'
 const LANDING_MARKET_CHART_RESET_KEY = 'landing-market-preview'
+// Keep the landing preview seed stable so server and client render the same
+// initial bars before the post-mount live sync takes over.
+const LANDING_MARKET_PREVIEW_ANCHOR_MS = Date.UTC(2025, 0, 1, 12, 0, 0)
 const LANDING_MARKET_WIDGET: NonNullable<WidgetInstance> = {
   key: 'data_chart',
 }
@@ -198,7 +204,10 @@ function MarketHeaderChartControls({
 }
 
 export function MarketPreview() {
-  const initialBucketOpenTime = React.useMemo(() => getLiveBucketOpenTime(Date.now()), [])
+  const locale = useLocale() as LocaleCode
+  const copy = getPublicCopy(locale)
+  const indicatorUnavailableError = copy.landing.preview.market.indicatorUnavailableError
+  const initialBucketOpenTime = LANDING_MARKET_PREVIEW_ANCHOR_MS
   const mockBars = React.useMemo(
     () => buildSeedMarketBars(initialBucketOpenTime),
     [initialBucketOpenTime]
@@ -438,7 +447,7 @@ export function MarketPreview() {
                 status: 'error',
                 output: null,
                 warnings: [],
-                error: 'Indicator is not available in this showcase.',
+                error: indicatorUnavailableError,
               } satisfies IndicatorExecutionState,
             ] as const
           }
@@ -489,7 +498,7 @@ export function MarketPreview() {
     return () => {
       isActive = false
     }
-  }, [bars, selectedIndicatorRefs])
+  }, [bars, indicatorUnavailableError, selectedIndicatorRefs])
 
   const dataVersion = bars[bars.length - 1]?.openTime ?? 0
   const dataContext = React.useMemo<DataChartDataContext>(

@@ -12,7 +12,7 @@ const configDir = dirname(fileURLToPath(import.meta.url))
 loadEnvConfig(projectDir)
 
 export default defineConfig({
-  plugins: [react(), tsconfigPaths()],
+  plugins: [react(), tsconfigPaths()] as never,
   test: {
     globals: true,
     environment: 'node',

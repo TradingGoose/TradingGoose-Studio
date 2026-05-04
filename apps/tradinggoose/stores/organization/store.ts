@@ -2,6 +2,7 @@ import { createWithEqualityFn as create } from 'zustand/traditional'
 import { devtools } from 'zustand/middleware'
 import { client } from '@/lib/auth-client'
 import { createLogger } from '@/lib/logs/console/logger'
+import { buildLocaleRequestHeaders, defaultLocale, stripLocaleFromPathname } from '@/i18n/utils'
 import type { OrganizationStore, WorkspaceInvitation } from '@/stores/organization/types'
 import {
   calculateSeatUsage,
@@ -271,8 +272,15 @@ export const useOrganizationStore = create<OrganizationStore>()(
 
       loadUserWorkspaces: async (userId?: string) => {
         try {
+          const locale =
+            typeof window !== 'undefined'
+              ? stripLocaleFromPathname(window.location.pathname).locale
+              : defaultLocale
+
           // Get all workspaces the user is a member of
-          const workspacesResponse = await fetch('/api/workspaces')
+          const workspacesResponse = await fetch('/api/workspaces', {
+            headers: buildLocaleRequestHeaders(locale),
+          })
           if (!workspacesResponse.ok) {
             logger.error('Failed to fetch workspaces')
             return

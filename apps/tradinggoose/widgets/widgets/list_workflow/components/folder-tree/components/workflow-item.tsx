@@ -5,6 +5,7 @@ import clsx from 'clsx'
 import { Copy, Pencil, Trash2, Workflow } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { useLocale } from 'next-intl'
 import { shallow } from 'zustand/shallow'
 import {
   AlertDialog,
@@ -19,6 +20,7 @@ import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { createLogger } from '@/lib/logs/console/logger'
 import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
+import { localizeHref, type LocaleCode } from '@/i18n/utils'
 import { useFolderStore, useIsWorkflowSelected } from '@/stores/folders/store'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import type { WorkflowMetadata } from '@/stores/workflows/registry/types'
@@ -84,6 +86,7 @@ export function WorkflowItem({
   const dragStartedRef = useRef(false)
   const inputRef = useRef<HTMLInputElement>(null)
   const router = useRouter()
+  const locale = useLocale() as LocaleCode
   const workspaceId = useWorkspaceId()
   const { selectedWorkflows, selectOnly, toggleWorkflowSelection } = useFolderStore()
   const isSelected = useIsWorkflowSelected(workflow.id)
@@ -258,7 +261,7 @@ export function WorkflowItem({
       }
 
       if (workspaceId) {
-        router.push(`/workspace/${workspaceId}/dashboard`)
+        router.push(localizeHref(locale, `/workspace/${workspaceId}/dashboard`))
       } else if (duplicatedWorkflow && onSelect) {
         onSelect(duplicatedWorkflow)
       }
@@ -276,6 +279,7 @@ export function WorkflowItem({
     router,
     userPermissions.canEdit,
     workflow.id,
+    locale,
     workspaceId,
   ])
 
@@ -428,7 +432,7 @@ export function WorkflowItem({
           </button>
         ) : (
           <Link
-            href={`/workspace/${workspaceId}/dashboard`}
+            href={localizeHref(locale, `/workspace/${workspaceId}/dashboard`)}
             className='flex min-w-0 flex-1 items-center gap-2'
             onClick={handleClick}
             draggable={false}

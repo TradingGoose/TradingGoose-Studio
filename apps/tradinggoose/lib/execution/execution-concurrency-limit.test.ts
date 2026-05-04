@@ -50,16 +50,17 @@ describe('withExecutionConcurrencyLimit', () => {
         userId: 'user-123',
       })),
     }))
-    vi.doMock('@/lib/env', async (importOriginal) => {
-      const actual = await importOriginal<typeof import('@/lib/env')>()
-      return {
-        ...actual,
-        env: {
-          ...actual.env,
-          REDIS_URL: '',
-        },
-      }
-    })
+    vi.doMock('@/lib/env', () => ({
+      getEnv: (key: string) => process.env[key],
+      isTruthy: (value: string | boolean | number | undefined) =>
+        typeof value === 'string' ? value.toLowerCase() === 'true' || value === '1' : Boolean(value),
+      isFalsy: (value: string | boolean | number | undefined) =>
+        typeof value === 'string' ? value.toLowerCase() === 'false' || value === '0' : value === false,
+      env: {
+        NODE_ENV: 'test',
+        REDIS_URL: '',
+      },
+    }))
     vi.doMock('@/lib/redis', () => ({
       getRedisClient: vi.fn(() => null),
     }))

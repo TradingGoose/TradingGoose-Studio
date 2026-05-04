@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { ChevronDown, ChevronUp, Eye, Loader2, X } from 'lucide-react'
+import { useLocale } from 'next-intl'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { CopyButton } from '@/components/ui/copy-button'
@@ -16,6 +17,8 @@ import {
   getTraceSpanDisplayCostMultiplier,
 } from '@/app/workspace/[workspaceId]/logs/utils'
 import { formatCost } from '@/providers/ai/utils'
+import { formatTemplate, getPublicCopy } from '@/i18n/public-copy'
+import { type LocaleCode } from '@/i18n/utils'
 import type { WorkflowLog } from '@/stores/logs/filters/types'
 
 interface LogDetailsProps {
@@ -28,8 +31,8 @@ interface LogDetailsProps {
   hasPrev?: boolean
 }
 
-const formatFileSize = (bytes?: number | null): string => {
-  if (bytes === null || bytes === undefined) return 'Unknown size'
+const formatFileSize = (bytes?: number | null, unknownSize = 'Unknown size'): string => {
+  if (bytes === null || bytes === undefined) return unknownSize
   if (bytes === 0) return '0 B'
   const k = 1024
   const sizes = ['B', 'KB', 'MB', 'GB']
@@ -53,6 +56,8 @@ export function LogDetails({
   hasNext = false,
   hasPrev = false,
 }: LogDetailsProps) {
+  const locale = useLocale() as LocaleCode
+  const copy = getPublicCopy(locale).workspace.logs.details
   const [isModelsExpanded, setIsModelsExpanded] = useState(false)
   const [isFrozenCanvasOpen, setIsFrozenCanvasOpen] = useState(false)
   const scrollAreaRef = useRef<HTMLDivElement>(null)
@@ -74,8 +79,8 @@ export function LogDetails({
 
   const formattedTimestamp = useMemo(() => {
     if (!log) return null
-    return formatDate(log.createdAt)
-  }, [log?.createdAt])
+    return formatDate(log.createdAt, locale)
+  }, [log?.createdAt, locale])
 
   const isWorkflowExecutionLog = useMemo(() => {
     if (!log) return false
@@ -128,7 +133,7 @@ export function LogDetails({
   if (!log) {
     return (
       <div className='flex h-full min-h-0 min-w-0 items-center justify-center text-muted-foreground text-sm'>
-        Select a log to view details
+        {copy.selectLog}
       </div>
     )
   }
@@ -138,7 +143,7 @@ export function LogDetails({
       <div className='flex h-full min-h-0 flex-col overflow-hidden rounded-lg border border-border bg-card'>
         {/* Header */}
         <div className='z-[9] flex items-center justify-between border-b px-3 py-2'>
-          <h2 className='font-medium text-foreground text-sm'>Log Details</h2>
+          <h2 className='font-medium text-foreground text-sm'>{copy.title}</h2>
           <div className='flex items-center gap-1'>
             <TooltipProvider>
               <Tooltip>
@@ -149,12 +154,12 @@ export function LogDetails({
                     className='h-7 w-7 p-0'
                     onClick={onNavigatePrev}
                     disabled={!hasPrev}
-                    aria-label='Previous log'
+                    aria-label={copy.previous}
                   >
                     <ChevronUp className='h-4 w-4' />
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent side='bottom'>Previous log</TooltipContent>
+                <TooltipContent side='bottom'>{copy.previous}</TooltipContent>
               </Tooltip>
             </TooltipProvider>
 
@@ -167,12 +172,12 @@ export function LogDetails({
                     className='h-7 w-7 p-0'
                     onClick={onNavigateNext}
                     disabled={!hasNext}
-                    aria-label='Next log'
+                    aria-label={copy.next}
                   >
                     <ChevronDown className='h-4 w-4' />
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent side='bottom'>Next log</TooltipContent>
+                <TooltipContent side='bottom'>{copy.next}</TooltipContent>
               </Tooltip>
             </TooltipProvider>
 
@@ -181,7 +186,7 @@ export function LogDetails({
               size='icon'
               className='h-7 w-7 p-0'
               onClick={onClose}
-              aria-label='Close'
+              aria-label={copy.close}
             >
               <X className='h-4 w-4' />
             </Button>
@@ -195,15 +200,19 @@ export function LogDetails({
               {/* Timestamp & Workflow Row */}
               <div className='flex min-w-0 items-center gap-4'>
                 <div className='flex w-[140px] flex-shrink-0 flex-col gap-2'>
-                  <span className='font-medium text-muted-foreground text-xs'>Timestamp</span>
+                  <span className='font-medium text-muted-foreground text-xs'>
+                    {copy.timestamp}
+                  </span>
                   <div className='group relative flex items-center gap-2 pr-8 font-medium text-foreground text-sm'>
-                    <span>{formattedTimestamp?.compactDate || 'N/A'}</span>
-                    <span>{formattedTimestamp?.compactTime || 'N/A'}</span>
+                    <span>{formattedTimestamp?.compactDate || copy.unknownValue}</span>
+                    <span>{formattedTimestamp?.compactTime || copy.unknownValue}</span>
                   </div>
                 </div>
 
                 <div className='flex min-w-0 flex-1 flex-col gap-2'>
-                  <span className='font-medium text-muted-foreground text-xs'>Workflow</span>
+                  <span className='font-medium text-muted-foreground text-xs'>
+                    {copy.workflow}
+                  </span>
                   <div className='group relative flex min-w-0 items-center gap-2 pr-8'>
                     <span
                       className='min-w-0 truncate rounded-sm px-1 font-medium text-foreground text-sm'
@@ -212,7 +221,7 @@ export function LogDetails({
                         color: log.workflow?.color,
                       }}
                     >
-                      {log.workflow?.name || 'Unknown'}
+                      {log.workflow?.name || copy.unknownWorkflow}
                     </span>
                   </div>
                 </div>
@@ -221,7 +230,9 @@ export function LogDetails({
               {/* Execution ID */}
               {log.executionId && (
                 <div className='flex flex-col gap-1.5 rounded-md border bg-muted/30 px-3 py-2'>
-                  <span className='font-medium text-muted-foreground text-xs'>Execution ID</span>
+                  <span className='font-medium text-muted-foreground text-xs'>
+                    {copy.executionId}
+                  </span>
                   <div className='group relative pr-8 font-mono text-foreground text-sm'>
                     <CopyButton text={log.executionId} className='h-5 w-5' showLabel={false} />
                     <span className='block truncate'>{log.executionId}</span>
@@ -232,17 +243,21 @@ export function LogDetails({
               {/* Details Section */}
               <div className='-my-1 flex min-w-0 flex-col overflow-hidden rounded-md border'>
                 <div className='group relative flex h-12 items-center justify-between border-b px-3'>
-                  <span className='font-medium text-muted-foreground text-xs'>Level</span>
+                  <span className='font-medium text-muted-foreground text-xs'>
+                    {copy.level}
+                  </span>
                   <Badge
                     variant={getLevelBadgeVariant(log.level)}
                     className='h-6 rounded-md px-2 text-[11px] capitalize'
                   >
-                    {log.level || 'unknown'}
+                    {log.level || copy.unknownLevel}
                   </Badge>
                 </div>
 
                 <div className='group relative flex h-12 items-center justify-between border-b px-3'>
-                  <span className='font-medium text-muted-foreground text-xs'>Trigger</span>
+                  <span className='font-medium text-muted-foreground text-xs'>
+                    {copy.trigger}
+                  </span>
                   {log.trigger ? (
                     <>
                       <Badge
@@ -258,7 +273,9 @@ export function LogDetails({
                 </div>
 
                 <div className='group relative flex h-12 items-center justify-between px-3 pr-8'>
-                  <span className='font-medium text-muted-foreground text-xs'>Duration</span>
+                  <span className='font-medium text-muted-foreground text-xs'>
+                    {copy.duration}
+                  </span>
                   <span className='font-medium text-foreground text-sm'>{log.duration || '—'}</span>
                   {log.duration && (
                     <CopyButton text={log.duration} className='h-5 w-5' showLabel={false} />
@@ -270,21 +287,23 @@ export function LogDetails({
               {isLoadingDetails && (
                 <div className='flex items-center gap-2 rounded-md border bg-muted/30 px-3 py-2 text-muted-foreground'>
                   <Loader2 className='h-4 w-4 animate-spin' />
-                  <span className='text-xs'>Loading details…</span>
+                  <span className='text-xs'>{copy.loading}</span>
                 </div>
               )}
 
               {/* Workflow State */}
               {isWorkflowExecutionLog && log.executionId && (
                 <div className='flex flex-col gap-2 rounded-md border bg-muted/30 px-3 py-2'>
-                  <span className='font-medium text-muted-foreground text-xs'>Workflow State</span>
+                  <span className='font-medium text-muted-foreground text-xs'>
+                    {copy.workflowState}
+                  </span>
                   <Button
                     variant='secondary'
                     size='sm'
                     onClick={() => setIsFrozenCanvasOpen(true)}
                     className='w-full justify-between px-3'
                   >
-                    <span className='font-medium text-xs'>View Snapshot</span>
+                    <span className='font-medium text-xs'>{copy.viewSnapshot}</span>
                     <Eye className='h-4 w-4' />
                   </Button>
                 </div>
@@ -298,6 +317,7 @@ export function LogDetails({
                       traceSpans={log.executionData.traceSpans}
                       totalDuration={log.executionData.totalDuration}
                       costMultiplier={traceSpanCostMultiplier}
+                      copy={copy.traceSpans}
                     />
                   </div>
                 </div>
@@ -306,7 +326,9 @@ export function LogDetails({
               {/* Tool Calls (if available) */}
               {log.executionData?.toolCalls && log.executionData.toolCalls.length > 0 && (
                 <div className='flex w-full flex-col gap-2 rounded-md border bg-muted/30 px-3 py-2'>
-                  <span className='font-medium text-muted-foreground text-xs'>Tool Calls</span>
+                  <span className='font-medium text-muted-foreground text-xs'>
+                    {copy.toolCalls}
+                  </span>
                   <div className='w-full overflow-x-hidden rounded-md bg-background p-3'>
                     <ToolCallsDisplay metadata={log.executionData} />
                   </div>
@@ -317,7 +339,7 @@ export function LogDetails({
               {log.files && log.files.length > 0 && (
                 <div className='flex w-full flex-col gap-2 rounded-md border bg-muted/30 px-3 py-2'>
                   <span className='font-medium text-muted-foreground text-xs'>
-                    Files ({log.files.length})
+                    {formatTemplate(copy.files, { count: log.files.length })}
                   </span>
                   <div className='flex flex-col gap-2'>
                     {log.files.map((file, index) => (
@@ -330,17 +352,18 @@ export function LogDetails({
                             {file.name}
                           </span>
                           <span className='flex-shrink-0 text-muted-foreground text-xs'>
-                            {formatFileSize(file.size)}
+                            {formatFileSize(file.size, copy.unknownSize)}
                           </span>
                         </div>
                         <div className='flex items-center justify-between gap-2'>
                           <span className='text-[11px] text-muted-foreground'>
-                            {file.type || 'Unknown type'}
+                            {file.type || copy.unknownType}
                           </span>
                           <FileDownload
                             file={file}
                             isExecutionFile={true}
                             className='!h-6 !px-2 text-[11px]'
+                            copy={copy.download}
                           />
                         </div>
                       </div>
@@ -352,23 +375,27 @@ export function LogDetails({
               {/* Cost Information (moved to bottom) */}
               {hasCostInfo && (
                 <div className='flex flex-col gap-2'>
-                  <span className='font-medium text-muted-foreground text-xs'>Cost Breakdown</span>
+                  <span className='font-medium text-muted-foreground text-xs'>
+                    {copy.costBreakdown}
+                  </span>
                   <div className='overflow-hidden rounded-md border'>
                     <div className='flex flex-col gap-2 p-3'>
                       <div className='flex items-center justify-between'>
-                        <span className='text-muted-foreground text-xs'>Base Execution:</span>
+                        <span className='text-muted-foreground text-xs'>
+                          {copy.baseExecution}
+                        </span>
                         <span className='text-foreground text-xs'>
                           {formatCost(baseExecutionCharge)}
                         </span>
                       </div>
                       <div className='flex items-center justify-between'>
-                        <span className='text-muted-foreground text-xs'>Model Input:</span>
+                        <span className='text-muted-foreground text-xs'>{copy.modelInput}</span>
                         <span className='text-foreground text-xs'>
                           {formatCost(log.cost?.input || 0)}
                         </span>
                       </div>
                       <div className='flex items-center justify-between'>
-                        <span className='text-muted-foreground text-xs'>Model Output:</span>
+                        <span className='text-muted-foreground text-xs'>{copy.modelOutput}</span>
                         <span className='text-foreground text-xs'>
                           {formatCost(log.cost?.output || 0)}
                         </span>
@@ -379,13 +406,13 @@ export function LogDetails({
 
                     <div className='flex flex-col gap-2 p-3'>
                       <div className='flex items-center justify-between'>
-                        <span className='text-muted-foreground text-xs'>Total:</span>
+                        <span className='text-muted-foreground text-xs'>{copy.total}</span>
                         <span className='text-foreground text-xs'>
                           {formatCost(log.cost?.total || 0)}
                         </span>
                       </div>
                       <div className='flex items-center justify-between'>
-                        <span className='text-muted-foreground text-xs'>Tokens:</span>
+                        <span className='text-muted-foreground text-xs'>{copy.tokens}</span>
                         <span className='text-muted-foreground text-xs'>
                           {log.cost?.tokens?.prompt || 0} in / {log.cost?.tokens?.completion || 0}{' '}
                           out
@@ -401,7 +428,9 @@ export function LogDetails({
                           className='flex w-full items-center justify-between px-3 py-2 text-left transition-colors hover:bg-muted/40'
                         >
                           <span className='font-medium text-muted-foreground text-xs'>
-                            Model Breakdown ({Object.keys(log.cost?.models || {}).length})
+                            {formatTemplate(copy.modelBreakdown, {
+                              count: Object.keys(log.cost?.models || {}).length,
+                            })}
                           </span>
                           {isModelsExpanded ? (
                             <ChevronUp className='h-3 w-3 text-muted-foreground' />
@@ -418,21 +447,21 @@ export function LogDetails({
                                   <div className='font-medium font-mono text-xs'>{model}</div>
                                   <div className='space-y-1 text-xs'>
                                     <div className='flex justify-between'>
-                                      <span className='text-muted-foreground'>Input:</span>
+                                      <span className='text-muted-foreground'>{copy.input}</span>
                                       <span>{formatCost(cost.input || 0)}</span>
                                     </div>
                                     <div className='flex justify-between'>
-                                      <span className='text-muted-foreground'>Output:</span>
+                                      <span className='text-muted-foreground'>{copy.output}</span>
                                       <span>{formatCost(cost.output || 0)}</span>
                                     </div>
                                     <div className='flex justify-between border-t pt-1'>
-                                      <span className='text-muted-foreground'>Total:</span>
+                                      <span className='text-muted-foreground'>{copy.total}</span>
                                       <span className='font-medium'>
                                         {formatCost(cost.total || 0)}
                                       </span>
                                     </div>
                                     <div className='flex justify-between'>
-                                      <span className='text-muted-foreground'>Tokens:</span>
+                                      <span className='text-muted-foreground'>{copy.tokens}</span>
                                       <span>
                                         {cost.tokens?.prompt || 0} in /{' '}
                                         {cost.tokens?.completion || 0} out
@@ -449,8 +478,9 @@ export function LogDetails({
 
                     <div className='border-t bg-muted/40 p-2 text-[11px] text-muted-foreground'>
                       <p>
-                        Total cost includes a base execution charge of{' '}
-                        {formatCost(baseExecutionCharge)} plus any model usage costs.
+                        {formatTemplate(copy.totalCostNote, {
+                          amount: formatCost(baseExecutionCharge),
+                        })}
                       </p>
                     </div>
                   </div>

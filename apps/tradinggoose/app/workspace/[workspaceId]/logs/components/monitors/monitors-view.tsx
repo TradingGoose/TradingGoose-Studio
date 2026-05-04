@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useLocale } from 'next-intl'
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
 import { LogDetails } from '@/app/workspace/[workspaceId]/logs/components/log-details/log-details'
 import { LogsList } from '@/app/workspace/[workspaceId]/logs/components/logs-list'
@@ -13,6 +14,8 @@ import {
   type MarketProviderParamDefinition,
 } from '@/providers/market/providers'
 import type { WorkflowLog } from '@/stores/logs/filters/types'
+import { getPublicCopy } from '@/i18n/public-copy'
+import { type LocaleCode } from '@/i18n/utils'
 import { useListingSelectorStore } from '@/stores/market/selector/store'
 import { loadIndicatorOptions, loadMonitors, loadWorkflowTargetOptions } from './api'
 import { MonitorEditorModal } from './monitor-editor-modal'
@@ -49,6 +52,9 @@ export function MonitorsView({
   onExportContextChange,
   onRefreshingChange,
 }: MonitorsViewProps) {
+  const locale = useLocale() as LocaleCode
+  const copy = getPublicCopy(locale).workspace.logs.monitors
+
   const isAuthParamDefinition = useCallback((definition: MarketProviderParamDefinition) => {
     if (definition.password) return true
     const normalizedId = definition.id.replace(/\s+/g, '').toLowerCase()
@@ -143,10 +149,10 @@ export function MonitorsView({
   }, [workflowTargets])
 
   const addMonitorDisabledReason = useMemo(() => {
-    if (referenceLoading) return 'Loading monitor requirements...'
+    if (referenceLoading) return copy.loadRequirements
     if (workflowTargets.length > 0 && indicatorOptions.length > 0) return null
-    return 'No deployed workflow with indicator trigger is available, or no trigger-capable indicator exists.'
-  }, [referenceLoading, workflowTargets.length, indicatorOptions.length])
+    return copy.noDeployedWorkflow
+  }, [referenceLoading, workflowTargets.length, indicatorOptions.length, copy])
 
   const canAddMonitor = addMonitorDisabledReason === null
 
@@ -170,11 +176,11 @@ export function MonitorsView({
       const data = await loadMonitors(workspaceId)
       setMonitors(data)
     } catch (error) {
-      setMonitorsError(error instanceof Error ? error.message : 'Failed to load monitors')
+      setMonitorsError(error instanceof Error ? error.message : copy.failedToLoad)
     } finally {
       setMonitorsLoading(false)
     }
-  }, [workspaceId])
+  }, [workspaceId, copy.failedToLoad])
 
   useEffect(() => {
     let cancelled = false
@@ -196,7 +202,7 @@ export function MonitorsView({
         setWorkflowTargets(nextWorkflowTargets)
       } catch (error) {
         if (!cancelled) {
-          setMonitorsError(error instanceof Error ? error.message : 'Failed to load monitors')
+          setMonitorsError(error instanceof Error ? error.message : copy.failedToLoad)
         }
       } finally {
         if (!cancelled) {
@@ -210,7 +216,7 @@ export function MonitorsView({
     return () => {
       cancelled = true
     }
-  }, [workspaceId])
+  }, [workspaceId, copy.failedToLoad])
 
   useEffect(() => {
     if (monitors.length === 0) {
@@ -590,7 +596,7 @@ export function MonitorsView({
       setEditingDraft(null)
       setEditingErrors({})
     } catch (error) {
-      setMonitorsError(error instanceof Error ? error.message : 'Failed to save monitor')
+      setMonitorsError(error instanceof Error ? error.message : copy.failedToSave)
     } finally {
       setSaving(false)
     }
@@ -608,7 +614,7 @@ export function MonitorsView({
       const nextIsActive = !monitor.isActive
       const target = workflowTargetByKey.get(`${monitor.workflowId}:${monitor.blockId}`)
       if (nextIsActive && target?.isDeployed !== true) {
-        setMonitorsError('Activate is disabled because this monitor workflow is not deployed.')
+        setMonitorsError(copy.activateDisabled)
         return
       }
 
@@ -647,12 +653,12 @@ export function MonitorsView({
             entry.monitorId === monitor.monitorId ? { ...entry, isActive: !nextIsActive } : entry
           )
         )
-        setMonitorsError(error instanceof Error ? error.message : 'Failed to update monitor state')
+        setMonitorsError(error instanceof Error ? error.message : copy.failedToUpdateState)
       } finally {
         setTogglingMonitorId(null)
       }
     },
-    [workspaceId, upsertMonitor, workflowTargetByKey]
+    [workspaceId, upsertMonitor, workflowTargetByKey, copy.activateDisabled, copy.failedToUpdateState]
   )
 
   const removeMonitor = useCallback(async (monitorId: string) => {
@@ -670,11 +676,11 @@ export function MonitorsView({
 
       setMonitors((current) => current.filter((entry) => entry.monitorId !== monitorId))
     } catch (error) {
-      setMonitorsError(error instanceof Error ? error.message : 'Failed to delete monitor')
+      setMonitorsError(error instanceof Error ? error.message : copy.failedToDelete)
     } finally {
       setDeletingMonitorId(null)
     }
-  }, [])
+  }, [copy.failedToDelete])
 
   const selectMonitor = useCallback((monitorId: string) => {
     setSelectedMonitorId(monitorId)

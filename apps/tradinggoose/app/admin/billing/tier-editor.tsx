@@ -2,7 +2,6 @@
 
 import type { FormEvent, ReactNode } from 'react'
 import { ChevronDown, ChevronRight, ShieldCheck } from 'lucide-react'
-import Link from 'next/link'
 import {
   Badge,
   Button,
@@ -21,6 +20,7 @@ import {
 } from '@/components/ui'
 import type { AdminBillingTierMutationInput } from '@/lib/admin/billing/tier-mutations'
 import type { AdminBillingTierSnapshot } from '@/lib/admin/billing/types'
+import { Link } from '@/i18n/navigation'
 import { cn } from '@/lib/utils'
 import { ADMIN_META_BADGE_CLASSNAME, ADMIN_STATUS_BADGE_CLASSNAME } from '@/app/admin/badge-styles'
 

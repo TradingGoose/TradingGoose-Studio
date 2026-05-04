@@ -1,0 +1,1800 @@
+{
+  "meta": {
+    "landing": {
+      "title": "TradingGoose - Plataforma visual de flujos de trabajo para trading con LLM | Open Source",
+      "description": "Plataforma de código abierto para trading técnico impulsado por LLM. Indicadores personalizados en PineTS, monitores de mercado en vivo y flujos de trabajo de agentes de IA activados por señales del mercado.",
+      "openGraphTitle": "TradingGoose - Plataforma visual de flujos de trabajo para trading con LLM",
+      "openGraphDescription": "Plataforma de código abierto para trading técnico impulsado por LLM. Indicadores personalizados en PineTS, monitores de mercado en vivo y flujos de trabajo de agentes de IA activados por señales del mercado.",
+      "seo": {
+        "keywords": "flujos de trabajo de trading con IA, agentes de trading con LLM, automatización técnica de trading, indicadores de trading personalizados, indicadores PineTS, creador visual de flujos de trabajo de trading, automatización de señales de trading, flujo de trabajo de datos de mercado, plataforma de backtesting, plataforma de trading de código abierto, trading algorítmico, asistente de trading con IA",
+        "socialPreviewAlt": "Vista previa social de TradingGoose",
+        "llmContentType": "plataforma visual de flujos de trabajo para trading, indicadores personalizados, flujos de trabajo de agentes de IA para mercados",
+        "llmUseCases": "ejecución de operaciones basada en señales, rebalanceo de cartera, alertas de indicadores, backtesting de estrategias, análisis del sentimiento del mercado, paneles de trading personalizados",
+        "llmIntegrations": "OpenAI, Anthropic, Google Gemini, xAI, Mistral, Perplexity, Ollama, proveedores personalizados de datos de mercado",
+        "llmPricing": "Consulta los precios alojados en tradinggoose.ai"
+      }
+    },
+    "blog": {
+      "title": "Blog | TradingGoose",
+      "description": "Artículos sobre automatización de trading, diseño de flujos de trabajo y estrategias más inteligentes."
+    },
+    "privacy": {
+      "title": "Política de Privacidad | TradingGoose",
+      "description": "Política de privacidad de TradingGoose Studio, que cubre datos de cuentas, flujos de trabajo, servicios conectados, analítica, facturación y retención."
+    }
+  },
+  "nav": {
+    "docs": "Documentación",
+    "blog": "Blog",
+    "login": "Iniciar sesión",
+    "menu": "Menú",
+    "homeLabel": "Inicio",
+    "languageLabel": "Idioma"
+  },
+  "registration": {
+    "open": {
+      "primary": "Empezar",
+      "auth": "Registrarse"
+    },
+    "waitlist": {
+      "primary": "Unirse a la lista de espera",
+      "auth": "Unirse a la lista de espera"
+    },
+    "disabled": {
+      "primary": "Próximamente",
+      "auth": null
+    }
+  },
+  "auth": {
+    "common": {
+      "email": "Correo electrónico",
+      "password": "Contraseña",
+      "fullName": "Nombre completo",
+      "workEmail": "Correo de trabajo",
+      "enterYourEmail": "Introduce tu correo electrónico",
+      "enterYourPassword": "Introduce tu contraseña",
+      "enterYourName": "Introduce tu nombre",
+      "enterYourWorkEmail": "Introduce tu correo de trabajo",
+      "forgotPassword": "¿Olvidaste tu contraseña?",
+      "showPassword": "Mostrar contraseña",
+      "hidePassword": "Ocultar contraseña",
+      "continueWith": "O continuar con",
+      "or": "O",
+      "signIn": "Iniciar sesión",
+      "signUp": "Registrarse",
+      "alreadyHaveAccount": "¿Ya tienes una cuenta?",
+      "dontHaveAccount": "¿No tienes una cuenta?",
+      "termsLeadSigningIn": "Al iniciar sesión, aceptas nuestros",
+      "termsLeadCreatingAccount": "Al crear una cuenta, aceptas nuestros",
+      "termsOfService": "Términos de servicio",
+      "privacyPolicy": "Política de privacidad",
+      "and": "y",
+      "returnHome": "Volver al inicio",
+      "backToLogin": "Volver al inicio de sesión",
+      "backToSignup": "Volver al registro",
+      "verifyEmail": "Verificar correo",
+      "signInWithEmail": "Iniciar sesión con correo",
+      "signInWithSso": "Iniciar sesión con SSO",
+      "continueWithSso": "Continuar con SSO",
+      "requestAccess": "Solicitar acceso"
+    },
+    "error": {
+      "eyebrow": "Error de autenticación",
+      "codeLabel": "Código de error",
+      "supportPrefix": "Si esto sigue ocurriendo, contacta con",
+      "supportLinkLabel": "soporte",
+      "supportSuffix": "e incluye el código de error.",
+      "default": {
+        "title": "Algo salió mal",
+        "description": "No pudimos completar esa solicitud de autenticación. Vuelve a intentarlo iniciando sesión."
+      },
+      "groups": {
+        "accountCreation": {
+          "title": "No pudimos crear tu cuenta",
+          "description": "Tu solicitud de registro no se completó. Intenta de nuevo desde el formulario de registro o inicia sesión si este correo ya está registrado."
+        },
+        "accountExists": {
+          "title": "La cuenta ya existe",
+          "description": "Ya hay una cuenta registrada con este correo. Inicia sesión en lugar de crear una cuenta nueva."
+        },
+        "emailVerification": {
+          "title": "Verifica tu correo para continuar",
+          "description": "Tu cuenta existe, pero todavía falta completar la verificación del correo."
+        },
+        "invalidCallback": {
+          "title": "Este enlace de inicio de sesión no es válido",
+          "description": "La devolución de autenticación no era válida. Vuelve a iniciar el flujo de inicio de sesión."
+        },
+        "invalidToken": {
+          "title": "Este enlace de autenticación no es válido",
+          "description": "No se pudo verificar el enlace o token. Vuelve a iniciar el flujo de autenticación."
+        },
+        "expiredToken": {
+          "title": "Este enlace de autenticación ha caducado",
+          "description": "El enlace o token ha caducado. Vuelve a iniciar el flujo de autenticación."
+        },
+        "sessionCreation": {
+          "title": "No pudimos iniciar tu sesión",
+          "description": "La autenticación se completó, pero no se pudo crear la sesión. Vuelve a iniciar sesión."
+        },
+        "sessionRestore": {
+          "title": "No pudimos restaurar tu sesión",
+          "description": "No se pudo cargar tu sesión. Vuelve a iniciar sesión."
+        },
+        "sessionExpired": {
+          "title": "Tu sesión ha caducado",
+          "description": "Inicia sesión de nuevo para continuar."
+        },
+        "userInfo": {
+          "title": "No pudimos completar tu inicio de sesión",
+          "description": "No pudimos leer tu identidad del proveedor. Intenta iniciar sesión de nuevo."
+        },
+        "providerUnavailable": {
+          "title": "Este proveedor de inicio de sesión no está disponible",
+          "description": "El proveedor de inicio de sesión solicitado no está configurado ahora mismo."
+        },
+        "linkedAccount": {
+          "title": "Este proveedor ya está vinculado",
+          "description": "Ese proveedor de inicio de sesión ya está conectado a otra cuenta. Usa otro método para continuar."
+        },
+        "waitlistLimited": {
+          "title": "El registro está limitado",
+          "description": "El registro está limitado a correos aprobados de la lista de espera."
+        },
+        "registrationDisabled": {
+          "title": "El registro está deshabilitado actualmente",
+          "description": "El registro está deshabilitado actualmente."
+        }
+      }
+    },
+    "disabled": {
+      "title": "Registro cerrado",
+      "description": "El registro está deshabilitado actualmente."
+    },
+    "note": {
+      "waitlistApprovedEmail": "Usa el mismo correo aprobado de la lista de espera para cualquier método de inicio de sesión."
+    },
+    "social": {
+      "github": "GitHub",
+      "google": "Google",
+      "connecting": "Conectando..."
+    },
+    "verify": {
+      "eyebrow": "Verificación",
+      "pendingTitle": "Verifica tu correo",
+      "verifiedTitle": "¡Correo verificado!",
+      "verifiedDescription": "Tu correo ha sido verificado. Redirigiendo al panel...",
+      "disabledDescription": "La verificación por correo está deshabilitada. Redirigiendo al panel...",
+      "codeSent": "Se ha enviado un código de verificación a {{email}}",
+      "developmentDescription": "Modo de desarrollo: revisa los registros de la consola para ver el código de verificación",
+      "missingServiceDescription": "Error: la verificación por correo está activada pero no hay un servicio de correo configurado",
+      "instructionsWithService": "Introduce el código de 6 dígitos para verificar tu cuenta. Si no lo ves en tu bandeja de entrada, revisa la carpeta de spam.",
+      "instructionsWithoutService": "Introduce el código de 6 dígitos para verificar tu cuenta.",
+      "verifyButton": "Verificar correo",
+      "verifyingButton": "Verificando...",
+      "resendPrompt": "¿No recibiste un código?",
+      "resendIn": "Reenviar en {{countdown}}s",
+      "resendButton": "Reenviar",
+      "yourEmail": "tu correo",
+      "errors": {
+        "invalid": "El código de verificación no es válido. Compruébalo e inténtalo de nuevo.",
+        "expired": "El código de verificación ha caducado. Solicita uno nuevo.",
+        "generic": "La verificación falló. Comprueba tu código e inténtalo de nuevo.",
+        "attempts": "Demasiados intentos fallidos. Solicita un código nuevo.",
+        "resendFailed": "No se pudo reenviar el código de verificación. Vuelve a intentarlo más tarde."
+      }
+    },
+    "login": {
+      "eyebrow": "Iniciar sesión",
+      "title": "Bienvenido de nuevo",
+      "description": "Introduce tus credenciales",
+      "submit": "Iniciar sesión",
+      "submitting": "Iniciando sesión...",
+      "divider": "O continuar con",
+      "resetDialog": {
+        "title": "Restablecer contraseña",
+        "description": "Introduce tu correo electrónico y te enviaremos un enlace para restablecer tu contraseña si tu cuenta existe.",
+        "emailLabel": "Correo electrónico",
+        "emailPlaceholder": "Introduce tu correo electrónico",
+        "emailRequired": "Introduce tu correo electrónico.",
+        "emailInvalid": "Introduce una dirección de correo válida.",
+        "success": "Enlace para restablecer la contraseña enviado a tu correo",
+        "error": "No se pudo solicitar el restablecimiento de contraseña",
+        "submit": "Enviar enlace de restablecimiento",
+        "submitting": "Enviando..."
+      },
+      "validation": {
+        "emailRequired": "El correo electrónico es obligatorio.",
+        "emailInvalid": "Introduce una dirección de correo válida.",
+        "passwordRequired": "La contraseña es obligatoria.",
+        "passwordEmpty": "La contraseña no puede estar vacía."
+      },
+      "errors": {
+        "sessionExpired": "Tu sesión caducó. Vuelve a iniciar sesión.",
+        "emailSignInDisabled": "El inicio de sesión con correo está deshabilitado actualmente.",
+        "invalidCredentials": "Correo o contraseña inválidos. Inténtalo de nuevo.",
+        "noAccount": "No se encontró una cuenta con este correo. Regístrate primero.",
+        "missingCredentials": "Introduce el correo y la contraseña.",
+        "emailPasswordDisabled": "El inicio de sesión con correo y contraseña está deshabilitado.",
+        "failedToCreateSession": "No se pudo crear la sesión. Inténtalo más tarde.",
+        "tooManyAttempts": "Demasiados intentos de inicio de sesión. Inténtalo más tarde o restablece tu contraseña.",
+        "accountLocked": "Tu cuenta ha sido bloqueada por seguridad. Restablece tu contraseña.",
+        "network": "Error de red. Revisa tu conexión e inténtalo de nuevo.",
+        "rateLimit": "Demasiadas solicitudes. Espera un momento antes de volver a intentarlo.",
+        "unableToSignIn": "No se pudo iniciar sesión.",
+        "unableToSignInNow": "No se puede iniciar sesión ahora mismo. Inténtalo de nuevo."
+      }
+    },
+    "signup": {
+      "eyebrow": "Registrarse",
+      "title": "Crear una cuenta",
+      "descriptionOpen": "Crea una cuenta o inicia sesión",
+      "descriptionWaitlist": "Se requiere acceso aprobado de la lista de espera",
+      "submit": "Crear cuenta",
+      "submitting": "Creando cuenta...",
+      "divider": "O continuar con",
+      "nameTitle": "El nombre solo puede contener letras, espacios, guiones y apóstrofes",
+      "validation": {
+        "emailRequired": "El correo electrónico es obligatorio.",
+        "emailInvalid": "Introduce una dirección de correo válida.",
+        "nameRequired": "El nombre es obligatorio.",
+        "nameEmpty": "El nombre no puede estar vacío.",
+        "nameCharacters": "El nombre solo puede contener letras, espacios, guiones y apóstrofes.",
+        "nameSpaces": "El nombre no puede contener espacios consecutivos.",
+        "nameTooLong": "El nombre se truncará a 100 caracteres. Acorta tu nombre.",
+        "passwordMinLength": "La contraseña debe tener al menos 8 caracteres.",
+        "passwordUppercase": "La contraseña debe incluir al menos una letra mayúscula.",
+        "passwordLowercase": "La contraseña debe incluir al menos una letra minúscula.",
+        "passwordNumber": "La contraseña debe incluir al menos un número.",
+        "passwordSpecial": "La contraseña debe incluir al menos un carácter especial."
+      },
+      "errors": {
+        "failedToCreateAccount": "No se pudo crear la cuenta",
+        "accountExists": "Ya existe una cuenta con este correo. Inicia sesión en su lugar.",
+        "emailSignupDisabled": "El registro con correo está deshabilitado actualmente.",
+        "signupNotEnabled": "El registro con correo y contraseña no está habilitado.",
+        "waitlistRequired": "Este correo aún no está aprobado para registrarse. Únete primero a la lista de espera.",
+        "invalidEmail": "Introduce una dirección de correo válida.",
+        "passwordTooShort": "La contraseña debe tener al menos 8 caracteres.",
+        "passwordTooLong": "La contraseña debe tener menos de 128 caracteres.",
+        "network": "Error de red. Revisa tu conexión e inténtalo de nuevo.",
+        "rateLimit": "Demasiadas solicitudes. Espera un momento antes de volver a intentarlo."
+      }
+    },
+    "waitlist": {
+      "eyebrow": "Lista de espera",
+      "title": "Solicita acceso a TradingGoose",
+      "description": "Únete a la cola para obtener acceso a la plataforma. Si tu correo ya está aprobado, puedes pasar directamente al registro desde aquí.",
+      "helperText": "Usa el correo que quieres que revisen para el acceso a la plataforma.",
+      "submit": "Solicitar acceso",
+      "submitting": "Enviando...",
+      "pending": "Estás en la lista de espera. Revisaremos tu solicitud y te avisaremos cuando el acceso esté disponible.",
+      "approvedPrefix": "Tu correo está aprobado. Continúa con",
+      "signedUpPrefix": "Este correo ya tiene acceso. Continúa con",
+      "rejected": "Esta solicitud de lista de espera no está aprobada para el acceso.",
+      "signUpLink": "registrarte",
+      "loginLink": "iniciar sesión",
+      "validation": {
+        "emailRequired": "El correo electrónico es obligatorio.",
+        "emailInvalid": "Introduce una dirección de correo válida."
+      }
+    },
+    "sso": {
+      "eyebrow": "SSO",
+      "title": "Iniciar sesión con SSO",
+      "description": "Introduce tu correo de trabajo para continuar",
+      "submit": "Continuar con SSO",
+      "submitting": "Redirigiendo al proveedor SSO...",
+      "divider": "O",
+      "emailButton": "Iniciar sesión con correo",
+      "validation": {
+        "emailRequired": "El correo electrónico es obligatorio.",
+        "emailInvalid": "Introduce una dirección de correo válida."
+      },
+      "errors": {
+        "accountNotFound": "No se encontró una cuenta. Contacta con tu administrador para configurar el acceso SSO.",
+        "ssoFailed": "Falló la autenticación SSO. Inténtalo de nuevo.",
+        "providerNotConfigured": "El proveedor SSO no está configurado correctamente.",
+        "invalidEmailDomain": "El dominio del correo no está configurado para SSO. Contacta con tu administrador.",
+        "network": "Error de red. Revisa tu conexión e inténtalo de nuevo.",
+        "rateLimit": "Demasiadas solicitudes. Espera un momento antes de volver a intentarlo.",
+        "ssoDisabled": "La autenticación SSO está deshabilitada. Usa otro método de inicio de sesión.",
+        "failed": "No se pudo iniciar sesión con SSO. Inténtalo de nuevo."
+      }
+    }
+  },
+  "localeNames": {
+    "en": "English",
+    "es": "Español",
+    "zh-CN": "简体中文"
+  },
+  "landing": {
+    "hero": {
+      "statusBadges": {
+        "disabled": "¡Honk! TradingGoose-Studio llegará pronto",
+        "waitlist": "¡Honk! Presentamos TradingGoose-Studio",
+        "open": "¡Honk! TradingGoose-Studio ya está aquí"
+      },
+      "leadWords": [
+        "Construye",
+        "Prueba",
+        "Ejecuta"
+      ],
+      "highlightWords": [
+        "análisis de trading",
+        "detección de señales",
+        "evaluación de riesgo"
+      ],
+      "titleConnector": "tu",
+      "suffix": "con TradingGoose",
+      "description": "Conecta tus propios proveedores de datos, escribe indicadores personalizados para vigilar precios de mercado y llévalos a flujos de trabajo que disparen operaciones, ventas, compras o cualquier acción que definas.",
+      "featureBadges": [
+        "Flujos de trabajo con agentes de IA",
+        "Indicadores personalizados",
+        "Trae tus propios datos",
+        "Integraciones"
+      ],
+      "learnMore": "Saber más"
+    },
+    "cta": {
+      "title": "Deja que los agentes de IA trabajen tu estrategia de trading.",
+      "description": "Mira lo que la comunidad está construyendo con TradingGoose.",
+      "joinDiscord": "Unirse a Discord",
+      "placeholder": "tu@correo.com",
+      "subscribe": "Recibir novedades",
+      "subscribing": "Suscribiendo...",
+      "success": "Suscrito. Revisa tu bandeja de entrada.",
+      "error": "Algo salió mal."
+    },
+    "footer": {
+      "description": "Plataforma de flujos de trabajo de IA para trading técnico con LLM",
+      "copyright": "© {{year}} {{brand}}. Creado para flujos de trabajo visuales de trading.",
+      "links": {
+        "docs": "Documentación",
+        "blog": "Blog",
+        "widgets": "Widgets",
+        "indicators": "Indicadores",
+        "blocks": "Bloques",
+        "tools": "Herramientas",
+        "changelog": "Registro de cambios",
+        "privacy": "Política de privacidad",
+        "licenses": "Licencias",
+        "terms": "Términos de servicio"
+      },
+      "social": {
+        "discord": "Discord",
+        "github": "GitHub"
+      },
+      "hoverText": "HONK!"
+    },
+    "preview": {
+      "shell": {
+        "headerAriaLabel": "Encabezado del widget",
+        "widgetLabel": "Widget"
+      },
+      "layout": {
+        "headerAriaLabel": "Encabezado del widget",
+        "sizeLabel": "Tamaño del widget"
+      },
+      "indicatorDropdown": {
+        "placeholder": "Seleccionar indicadores",
+        "tooltip": "Seleccionar indicadores",
+        "searchPlaceholder": "Buscar indicadores...",
+        "emptyWithQuery": "No se encontraron indicadores.",
+        "emptyWithoutQuery": "Aún no hay indicadores disponibles."
+      },
+      "market": {
+        "indicatorUnavailableError": "El indicador no está disponible en esta demostración."
+      },
+      "workflow": {
+        "zoomOut": "Alejar vista previa del flujo de trabajo",
+        "zoomIn": "Acercar vista previa del flujo de trabajo",
+        "selectorAriaLabel": "Selector de vista previa del flujo de trabajo",
+        "demos": {
+          "signalBriefing": "Resumen de señales",
+          "investmentDebate": "Debate de inversión",
+          "riskRouting": "Enrutamiento de riesgos"
+        }
+      }
+    },
+    "howItWorks": {
+      "eyebrow": "Cómo funciona",
+      "title": "De los datos a la decisión",
+      "description": "Conecta tus propias fuentes de datos, monitorea los mercados con indicadores personalizados, deja que los agentes de IA analicen lo que importa y activa flujos de trabajo que actúen en tu nombre.",
+      "processes": [
+        {
+          "title": "Conecta tus datos",
+          "description": "Conecta cualquier proveedor de datos de mercado y transmite precios en vivo al espacio de trabajo."
+        },
+        {
+          "title": "Monitorea con indicadores",
+          "description": "Escribe indicadores PineTS personalizados que vigilen las condiciones que te interesan."
+        },
+        {
+          "title": "Analiza con agentes de IA",
+          "description": "Deja que los bloques de agentes impulsados por LLM evalúen señales, evalúen riesgos y tomen decisiones de forma autónoma."
+        },
+        {
+          "title": "Activar workflows",
+          "description": "Cuando se activa una señal, inicia un workflow para operar, alertar, registrar o cualquier otra acción que definas."
+        }
+      ]
+    },
+    "monitorSection": {
+      "eyebrow": "Monitores en vivo",
+      "title": "Indicadores que activan workflows",
+      "description": "Configura monitores que observan tus indicadores en datos de mercado en vivo. Cuando se activa una señal, un workflow se ejecuta automáticamente: coloca órdenes, envía alertas, registra resultados o cualquier otra acción.",
+      "bullets": [
+        "Conecta cualquier proveedor de datos en streaming con tus propias credenciales.",
+        "Elige un indicador y un intervalo para monitorear por activo.",
+        "Dirige los triggers a cualquier workflow desplegado."
+      ],
+      "tableHeaders": {
+        "listing": "Activo",
+        "indicator": "Indicador",
+        "workflow": "Workflow",
+        "status": "Estado"
+      },
+      "statuses": {
+        "pending": "Pendiente",
+        "running": "Ejecutando",
+        "success": "Éxito",
+        "failed": "Fallido"
+      },
+      "indicatorOptions": [
+        {
+          "name": "RSI < 30",
+          "color": "#8b5cf6"
+        },
+        {
+          "name": "MACD Cross",
+          "color": "#14b8a6"
+        },
+        {
+          "name": "EMA 21/50",
+          "color": "#f59e0b"
+        },
+        {
+          "name": "Supertrend",
+          "color": "#ef4444"
+        },
+        {
+          "name": "BB Squeeze",
+          "color": "#3b82f6"
+        },
+        {
+          "name": "Pico de volumen",
+          "color": "#10b981"
+        }
+      ],
+      "workflowOptions": [
+        {
+          "name": "Análisis de sentimiento",
+          "color": "#6366f1"
+        },
+        {
+          "name": "Evaluación de riesgos",
+          "color": "#f59e0b"
+        },
+        {
+          "name": "Rebalanceo de cartera",
+          "color": "#22c55e"
+        },
+        {
+          "name": "Verificación de informes de resultados",
+          "color": "#3b82f6"
+        },
+        {
+          "name": "Escaneo de redes sociales",
+          "color": "#8b5cf6"
+        },
+        {
+          "name": "Análisis de volatilidad",
+          "color": "#ef4444"
+        },
+        {
+          "name": "Correlación sectorial",
+          "color": "#14b8a6"
+        }
+      ]
+    },
+    "features": {
+      "eyebrow": "Funcionalidades",
+      "title": "Tu espacio de trabajo, a tu manera",
+      "description": "Diseños, gráficos y flujos de trabajo: cada uno diseñado para funcionar solo o en conjunto.",
+      "rows": [
+        {
+          "badge": "Espacio de trabajo",
+          "title": "Diseños de widgets",
+          "description": "Divide el espacio de trabajo para colocar widgets uno al lado del otro o apilados. Guarda y cambia entre diseños nombrados por espacio de trabajo.",
+          "bullets": [
+            "División recursiva",
+            "Diseños guardados por espacio de trabajo",
+            "Menú de acciones del widget compartido"
+          ]
+        },
+        {
+          "badge": "Gráficos",
+          "title": "Indicadores y datos en vivo",
+          "description": "Indicadores integrados y un editor PineTS para escribir indicadores personalizados. Conecta tu propio proveedor de datos y monitorea precios en tiempo real.",
+          "bullets": [
+            "Entradas de indicador configurables",
+            "Re-ejecución en vivo por barra",
+            "Leyenda de referencia cruzada y marcadores en el gráfico"
+          ]
+        },
+        {
+          "badge": "Flujos de trabajo",
+          "title": "Flujos de trabajo impulsados por IA",
+          "description": "Construye flujos de trabajo en un lienzo con bloques de agente de IA que toman decisiones basadas en LLM. Integra con Slack, Discord, GitHub, Gmail y más, luego enruta órdenes a Alpaca o Tradier.",
+          "bullets": [
+            "Bloques de agente de IA para análisis y decisiones autónomas",
+            "Integraciones con Slack, Discord, GitHub, Gmail y más",
+            "Bloques de datos, condición, bucle, paralelo y acciones de trading"
+          ]
+        }
+      ]
+    },
+    "integrations": {
+      "eyebrow": "Integraciones",
+      "title": "LLM con más que solo indicaciones.",
+      "bullets": [
+        "Cada integración se convierte en una herramienta que tus agentes de IA pueden invocar",
+        "Bloques integrados para mensajería, bases de datos, almacenamiento en la nube, CRMs y búsqueda",
+        "Servidores MCP, habilidades y herramientas personalizados que tú mismo defines"
+      ],
+      "structuredData": {
+        "name": "Integraciones de TradingGoose",
+        "description": "Servicios de terceros, proveedores de LLM, fuentes de datos y herramientas con las que TradingGoose se integra como bloques de flujo de trabajo invocables."
+      }
+    }
+  },
+  "blog": {
+    "pageTitle": "Blog",
+    "pageDescription": "Ideas sobre automatización de trading, diseño de flujos de trabajo y estrategias más inteligentes. {{count}} artículos y contando.",
+    "searchPlaceholder": "Buscar artículos",
+    "emptyTitle": "Aún no hay publicaciones",
+    "emptyDescription": "Vuelve pronto. Hay nuevos artículos en camino.",
+    "noMatches": "No hay publicaciones que coincidan con \"{{query}}\"",
+    "noMatchesDescription": "Prueba con otro término de búsqueda.",
+    "readTimeSuffix": "min de lectura",
+    "viewArticle": "Ver artículo",
+    "home": "Inicio",
+    "breadcrumbBlog": "Blog",
+    "articleSingular": "artículo",
+    "articlePlural": "artículos"
+  },
+  "privacy": {
+    "title": "Política de Privacidad",
+    "description": "Política de privacidad de TradingGoose Studio, que cubre datos de cuentas, flujos de trabajo, servicios conectados, analítica, facturación y retención.",
+    "lastUpdatedLabel": "Última actualización:",
+    "lastUpdated": "28 de marzo de 2026"
+  },
+  "workspace": {
+    "entry": {
+      "loading": "Cargando el espacio de trabajo..."
+    },
+    "switcher": {
+      "failedToCreateWorkspace": "No se pudo crear el espacio de trabajo",
+      "failedToRenameWorkspace": "No se pudo cambiar el nombre del espacio de trabajo",
+      "failedToDeleteWorkspace": "No se pudo eliminar el espacio de trabajo",
+      "roles": {
+        "owner": "Propietario",
+        "admin": "Administrador",
+        "member": "Miembro",
+        "read": "Solo lectura"
+      },
+      "workspaceLabel": "Espacio de trabajo",
+      "noWorkspacesYet": "Todavía no hay espacios de trabajo.",
+      "noWorkspacesAvailable": "No hay espacios de trabajo disponibles.",
+      "manage": "Administrar",
+      "create": "Crear",
+      "creating": "Creando..."
+    },
+    "nav": {
+      "groups": {
+        "workspace": "Espacio de trabajo",
+        "system": "Sistema",
+        "more": "Más"
+      },
+      "workspace": {
+        "dashboard": "Panel",
+        "knowledge": "Conocimiento",
+        "files": "Archivos",
+        "logs": "Registros"
+      },
+      "more": {
+        "environment": "Variables de entorno",
+        "apiKeys": "Claves API",
+        "integrations": "Integraciones"
+      },
+      "admin": {
+        "overview": "Resumen",
+        "billing": "Facturación",
+        "services": "Servicios",
+        "integrations": "Integraciones",
+        "registration": "Registro"
+      },
+      "systemAdmin": "Administrador del sistema"
+    },
+    "defaults": {
+      "newWorkspaceName": "Mi espacio de trabajo",
+      "defaultLayoutName": "Diseño predeterminado",
+      "defaultWorkflowDescription": "Tu primer flujo de trabajo: empieza a construir aquí."
+    },
+    "naming": {
+      "workspacePrefix": "Espacio de trabajo",
+      "folderPrefix": "Carpeta",
+      "subfolderPrefix": "Subcarpeta"
+    },
+    "dashboard": {
+      "title": "Panel",
+      "searchPlaceholder": "Buscar contenido del espacio de trabajo...",
+      "sections": {
+        "workspaces": "Espacios de trabajo",
+        "knowledgeBases": "Bases de conocimiento",
+        "pages": "Páginas",
+        "docs": "Documentos"
+      },
+      "emptySearch": "No hay contenido coincidente",
+      "pages": {
+        "logs": "Registros",
+        "knowledge": "Conocimiento",
+        "templates": "Plantillas",
+        "docs": "Documentos"
+      }
+    },
+    "knowledge": {
+      "title": "Conocimiento",
+      "searchPlaceholder": "Buscar bases de conocimiento...",
+      "sort": {
+        "lastUpdated": "Última actualización",
+        "newestFirst": "Más reciente primero",
+        "oldestFirst": "Más antiguo primero",
+        "nameAsc": "Nombre (A-Z)",
+        "nameDesc": "Nombre (Z-A)",
+        "mostDocuments": "Más documentos",
+        "leastDocuments": "Menos documentos"
+      },
+      "actions": {
+        "create": "Crear",
+        "createTooltip": "Se requiere permiso de escritura para crear bases de conocimiento"
+      },
+      "errors": {
+        "load": "Error al cargar las bases de conocimiento: {{error}}",
+        "retry": "Intentar de nuevo"
+      },
+      "emptyState": {
+        "createFirst": "Crea tu primera base de conocimiento",
+        "withEditPermission": "Sube tus documentos para crear una base de conocimiento para tus agentes.",
+        "withoutEditPermission": "Las bases de conocimiento aparecerán aquí. Contacta a un administrador para crearlas.",
+        "buttonCreate": "Crear base de conocimiento",
+        "buttonContactAdmin": "Contactar al administrador",
+        "noMatches": "Ninguna base de conocimiento coincide con tu búsqueda."
+      }
+    },
+    "logs": {
+      "title": {
+        "logs": "Registros",
+        "monitors": "Monitores",
+        "dashboard": "Panel"
+      },
+      "searchPlaceholder": "Buscar registros...",
+      "live": "En vivo",
+      "monitorRequirement": "Configura un flujo de trabajo que use un indicador como disparador y un indicador que emita un disparador para agregar un monitor.",
+      "actions": {
+        "addMonitor": "Agregar monitor",
+        "refresh": "Actualizar",
+        "refreshing": "Actualizando...",
+        "exportCsv": "Exportar CSV"
+      },
+      "errors": {
+        "fetchLogs": "No se pudieron cargar los registros"
+      },
+      "dashboard": {
+        "title": "Panel",
+        "searchPlaceholder": "Buscar flujos de trabajo...",
+        "failedToFetchExecutionHistory": "Error al obtener el historial de ejecuciones.",
+        "loadingExecutionHistory": "Cargando historial de ejecuciones...",
+        "errorLoadingData": "Error al cargar el historial de ejecuciones.",
+        "noExecutionHistory": "No se encontró historial de ejecuciones.",
+        "noExecutionHistoryDescription": "Intenta ajustar tus filtros o el rango de tiempo.",
+        "refresh": "Actualizar",
+        "refreshing": "Actualizando...",
+        "chart": {
+          "noData": "No hay datos disponibles.",
+          "toggleSeries": "Alternar serie {{label}}"
+        },
+        "filters": {
+          "title": "Filtros",
+          "activeFilters": "Filtros activos",
+          "clearAll": "Limpiar todo",
+          "suggestedFilters": "Filtros sugeridos",
+          "textSearch": "Búsqueda de texto",
+          "searchPlaceholder": "Buscar registros...",
+          "filterOptionsPlaceholder": "No se encontraron opciones para {{title}}.",
+          "searchWorkflows": "Buscar flujos de trabajo...",
+          "searchFolders": "Buscar carpetas...",
+          "searchOptions": "Buscar opciones...",
+          "loadingWorkflows": "Cargando flujos de trabajo...",
+          "loadingFolders": "Cargando carpetas...",
+          "noWorkflows": "No se encontraron flujos de trabajo.",
+          "noFolders": "No se encontraron carpetas.",
+          "noOptions": "No se encontraron opciones.",
+          "allWorkflows": "Todos los workflows",
+          "selectedWorkflows": "{{count}} workflow seleccionado{{plural}}",
+          "allFolders": "Todas las carpetas",
+          "selectedFolders": "{{count}} carpeta seleccionada{{plural}}",
+          "allTriggers": "Todos los triggers",
+          "selectedTriggers": "{{count}} trigger seleccionado{{plural}}",
+          "allTime": "Todo el tiempo",
+          "past30Minutes": "Últimos 30 minutos",
+          "pastHour": "Última hora",
+          "past6Hours": "Últimas 6 horas",
+          "past12Hours": "Últimas 12 horas",
+          "past24Hours": "Últimas 24 horas",
+          "past3Days": "Últimos 3 días",
+          "past7Days": "Últimos 7 días",
+          "past14Days": "Últimos 14 días",
+          "past30Days": "Últimos 30 días",
+          "manual": "Manual",
+          "api": "API",
+          "webhook": "Webhook",
+          "schedule": "Programado",
+          "chat": "Chat",
+          "error": "Error",
+          "info": "Información",
+          "anyStatus": "Cualquier estado",
+          "level": "Nivel",
+          "workflow": "Workflow",
+          "folder": "Carpeta",
+          "trigger": "Trigger",
+          "timeline": "Cronología",
+          "retentionPolicy": "Política de retención de registros",
+          "retentionDescription": "Los registros se eliminan automáticamente después de {{days}} días en este nivel.",
+          "upgradePlan": "Actualizar plan"
+        },
+        "metrics": {
+          "totalExecutions": "Ejecuciones totales",
+          "successRate": "Tasa de éxito",
+          "failedExecutions": "Ejecuciones fallidas",
+          "activeWorkflows": "Workflows activos"
+        },
+        "workflows": {
+          "title": "Workflows",
+          "legend": "Cada celda representa aproximadamente {{duration}} del rango seleccionado. Haga clic en una celda para filtrar los detalles.",
+          "count": "{{count}} workflow",
+          "countPlural": "{{count}} workflows",
+          "filteredFrom": " (filtrados de {{count}})",
+          "noMatches": "No se encontraron workflows que coincidan con \"{{query}}\".",
+          "selectedSegment": "Segmento seleccionado",
+          "filteredTo": "Filtrado a {{timestamp}}",
+          "selectedRangeMore": " (+{{count}} segmento más{{plural}})",
+          "selectedRangeExecutions": "— {{count}} ejecución{{plural}}",
+          "clearFilter": "Limpiar filtro",
+          "executions": "Ejecuciones",
+          "success": "Éxito",
+          "failures": "Fallos",
+          "errorRate": "Tasa de error",
+          "duration": "Duración",
+          "columns": {
+            "time": "Hora",
+            "status": "Estado",
+            "trigger": "Desencadenante",
+            "cost": "Costo",
+            "workflow": "Flujo de trabajo",
+            "output": "Salida",
+            "duration": "Duración"
+          },
+          "noExecutions": "Sin ejecuciones",
+          "loadingMore": "Cargando más...",
+          "scrollToLoadMore": "Desplázate para cargar más",
+          "succeeded": "{{success}}/{{total}} exitosos",
+          "segment": "Segmento {{index}}",
+          "allWorkflows": "Todos los flujos de trabajo",
+          "multipleSelected": "{{count}} flujos de trabajo seleccionados",
+          "durationDay": "{{count}} día{{plural}}",
+          "durationHour": "{{count}} hora{{plural}}",
+          "durationMinute": "{{count}} minuto{{plural}}"
+        }
+      },
+      "list": {
+        "headers": {
+          "time": "Hora",
+          "status": "Estado",
+          "workflow": "Flujo de trabajo",
+          "cost": "Costo",
+          "trigger": "Desencadenante",
+          "duration": "Duración"
+        },
+        "loading": "Cargando registros...",
+        "loadingMore": "Cargando más...",
+        "scrollToLoadMore": "Desplázate para cargar más",
+        "noLogs": "No se encontraron registros",
+        "unknownWorkflow": "Workflow desconocido"
+      },
+      "details": {
+        "title": "Detalles del registro",
+        "previous": "Registro anterior",
+        "next": "Siguiente registro",
+        "close": "Cerrar",
+        "selectLog": "Selecciona un registro para ver los detalles",
+        "timestamp": "Marca de tiempo",
+        "workflow": "Workflow",
+        "executionId": "Execution ID",
+        "level": "Nivel",
+        "trigger": "Trigger",
+        "duration": "Duración",
+        "loading": "Cargando detalles…",
+        "workflowState": "Estado del Workflow",
+        "viewSnapshot": "Ver instantánea",
+        "toolCalls": "Tool Calls",
+        "files": "Archivos",
+        "costBreakdown": "Desglose de costos",
+        "baseExecution": "Base Execution:",
+        "modelInput": "Entrada del modelo:",
+        "modelOutput": "Salida del modelo:",
+        "total": "Total:",
+        "tokens": "Tokens:",
+        "modelBreakdown": "Desglose del modelo ({{count}})",
+        "input": "Entrada:",
+        "output": "Salida:",
+        "totalCostNote": "El costo total incluye un cargo base de ejecución de {{amount}} más los costos de uso del modelo.",
+        "unknownSize": "Tamaño desconocido",
+        "unknownType": "Tipo desconocido",
+        "unknownWorkflow": "Desconocido",
+        "unknownLevel": "desconocido",
+        "unknownValue": "Desconocido",
+        "traceSpans": {
+          "workflowExecution": "Ejecución del flujo de trabajo",
+          "collapseAll": "Contraer todo",
+          "expandAll": "Expandir todo",
+          "collapse": "Contraer",
+          "expand": "Expandir",
+          "noTraceData": "No hay datos de traza disponibles.",
+          "model": "Modelo",
+          "loadSkill": "Cargar habilidad",
+          "initialResponse": "Respuesta inicial",
+          "modelResponse": "Respuesta del modelo",
+          "modelGeneration": "Generación del modelo",
+          "tokens": "{{count}} token{{plural}}",
+          "tokensUnavailable": "Tokens no disponibles",
+          "tokensInOut": "{{input}} entrada / {{output}} salida",
+          "tokensTotal": "{{count}} token{{plural}} total",
+          "tokensTotalSuffix": " ({{count}} total)",
+          "input": "Entrada",
+          "output": "Salida",
+          "total": "Total",
+          "start": "Inicio",
+          "plusMs": "+{{ms}} ms",
+          "betweenBlocks": "Intervalo de {{ms}} ms",
+          "inputSection": "Entrada",
+          "outputSection": "Salida",
+          "errorSection": "Error",
+          "segmentTimingTooltip": "{{type}}{{nameSuffix}} tomó {{duration}} ms"
+        },
+        "download": {
+          "downloading": "Descargando...",
+          "download": "Descargar"
+        }
+      },
+      "monitors": {
+        "loading": "Cargando monitores...",
+        "noConfigured": "No hay monitores configurados.",
+        "status": "Estado",
+        "provider": "Proveedor",
+        "auth": "Autenticación",
+        "listing": "Listado",
+        "indicator": "Indicador",
+        "workflow": "Workflow",
+        "actions": "Acciones",
+        "active": "Activo",
+        "paused": "Pausado",
+        "configured": "Configurado",
+        "missing": "Faltante",
+        "edit": "Editar",
+        "pause": "Pausar",
+        "activate": "Activar",
+        "remove": "Eliminar",
+        "searchProviders": "Buscar proveedores...",
+        "noProviders": "No se encontraron proveedores.",
+        "searchOptions": "Buscar opciones...",
+        "noOptions": "No se encontraron opciones.",
+        "searchIntervals": "Buscar intervalos...",
+        "noIntervals": "No se encontraron intervalos.",
+        "searchWorkflows": "Buscar flujos de trabajo...",
+        "noWorkflows": "No se encontraron flujos de trabajo.",
+        "searchIndicators": "Buscar indicadores...",
+        "noIndicators": "No se encontraron indicadores.",
+        "loadRequirements": "Cargando requisitos del monitor...",
+        "noDeployedWorkflow": "No hay ningún flujo de trabajo desplegado con un disparador de indicador disponible, o no existe ningún indicador con capacidad de disparo.",
+        "failedToLoad": "No se pudieron cargar los monitores.",
+        "failedToFetchLogs": "No se pudieron obtener los registros del monitor.",
+        "failedToSave": "No se pudo guardar el monitor.",
+        "activateDisabled": "Se requiere un flujo de trabajo desplegado con un indicador con capacidad de disparo antes de activar este monitor.",
+        "failedToUpdateState": "No se pudo actualizar el estado del monitor.",
+        "failedToDelete": "No se pudo eliminar el monitor."
+      },
+      "editor": {
+        "provider": "Proveedor",
+        "auth": "Autenticación",
+        "listing": "Listado",
+        "interval": "Intervalo",
+        "workflow": "Workflow",
+        "indicator": "Indicator",
+        "description": "Configure los detalles del monitor.",
+        "feed": "Fuente",
+        "selectInterval": "Seleccionar intervalo",
+        "selectWorkflow": "Seleccionar workflow",
+        "selectIndicator": "Seleccionar indicator",
+        "save": "Guardar cambios",
+        "create": "Crear monitor",
+        "saving": "Guardando...",
+        "error": "Error",
+        "cancel": "Cancelar",
+        "createTitle": "Crear monitor",
+        "editTitle": "Editar monitor",
+        "selectProvider": "Seleccionar proveedor",
+        "searchProviders": "Buscar proveedores...",
+        "searchOptions": "Buscar opciones...",
+        "searchIntervals": "Buscar intervalos...",
+        "searchWorkflows": "Buscar workflows...",
+        "searchIndicators": "Buscar indicators...",
+        "noProviders": "No se encontraron proveedores.",
+        "noOptions": "No se encontraron opciones.",
+        "noIntervals": "No se encontraron intervalos.",
+        "noWorkflows": "No se encontraron flujos de trabajo.",
+        "noIndicators": "No se encontraron indicadores.",
+        "authConfigured": "Configurado",
+        "authMissing": "Ausente"
+      }
+    },
+    "environment": {
+      "title": "Variables de entorno",
+      "searchPlaceholder": "Buscar variables...",
+      "scope": {
+        "workspace": "Espacio de trabajo",
+        "personal": "Personal"
+      },
+      "create": {
+        "workspace": "Crear variable de entorno del espacio de trabajo",
+        "personal": "Crear variable de entorno personal"
+      },
+      "emptyState": {
+        "workspace": {
+          "title": "Aún no hay variables del espacio de trabajo",
+          "description": "Crea una para empezar a configurar."
+        },
+        "personal": {
+          "title": "Aún no hay variables personales",
+          "description": "Crea una para empezar a configurar."
+        }
+      },
+      "searchEmpty": {
+        "workspace": "No se encontraron variables de entorno del espacio de trabajo que coincidan con \"{{query}}\".",
+        "personal": "No se encontraron variables de entorno personales que coincidan con \"{{query}}\"."
+      },
+      "headers": {
+        "createdAt": "Creado el",
+        "variable": "Variable",
+        "value": "Valor",
+        "updatedAt": "Actualizado el",
+        "actions": "Acciones"
+      },
+      "labels": {
+        "untitledVariable": "Variable sin título",
+        "overriddenByWorkspaceVariable": "Reemplazada por variable del espacio de trabajo",
+        "revealValue": "Revelar valor",
+        "hideValue": "Ocultar valor",
+        "copyValue": "Copiar valor de variable de entorno",
+        "save": "Guardar variable de entorno",
+        "cancel": "Cancelar edición",
+        "edit": "Editar variable de entorno",
+        "delete": "Eliminar variable de entorno"
+      }
+    },
+    "apiKeys": {
+      "title": "Claves API",
+      "cardTitle": "Claves API de {{scope}}",
+      "searchPlaceholder": "Buscar claves...",
+      "scope": {
+        "workspace": "Espacio de trabajo",
+        "personal": "Personal"
+      },
+      "create": {
+        "workspace": "Crear clave de espacio de trabajo",
+        "personal": "Crear clave personal"
+      },
+      "emptyState": {
+        "workspace": {
+          "title": "Aún no hay claves API del espacio de trabajo",
+          "description": "Crea una para empezar a integrar de inmediato.",
+          "button": "Crear clave"
+        },
+        "personal": {
+          "title": "Aún no hay claves API personales",
+          "description": "Crea una para empezar a integrar de inmediato.",
+          "button": "Crear clave"
+        }
+      },
+      "searchEmpty": "No se encontraron claves API de {{scope}} que coincidan con \"{{query}}\".",
+      "headers": {
+        "createdAt": "Fecha de creación",
+        "name": "Nombre",
+        "key": "Clave",
+        "lastUpdate": "Última actualización",
+        "actions": "Acciones"
+      },
+      "labels": {
+        "never": "Nunca",
+        "lastUsed": "Último uso: {{date}}",
+        "saveName": "Guardar nombre de la clave API",
+        "rename": "Renombrar clave API de {{scope}}",
+        "reveal": "Revelar clave API de {{scope}}",
+        "hide": "Ocultar clave API de {{scope}}",
+        "copy": "Copiar clave API de {{scope}}",
+        "save": "Guardar clave API de {{scope}}",
+        "cancelRename": "Cancelar cambio de nombre",
+        "delete": "Eliminar clave API de {{scope}}",
+        "nameRequired": "El nombre es obligatorio",
+        "duplicateName": "Ya existe una clave API de {{scope}} llamada \"{{name}}\".",
+        "failedRename": "Error al renombrar la clave API de {{scope}}.",
+        "unableRename": "No se puede renombrar la clave API de {{scope}}. Inténtalo de nuevo.",
+        "failedCreate": "Error al crear la clave API de {{scope}}. Inténtalo de nuevo.",
+        "workspaceAccess": "Esta clave otorga acceso a todos los flujos de trabajo y archivos dentro de este espacio de trabajo. Cópiala inmediatamente después de crearla, ya que no podrás volver a verla.",
+        "personalAccess": "Esta clave otorga acceso a tus flujos de trabajo y archivos personales. Cópiala inmediatamente después de crearla, ya que no podrás volver a verla.",
+        "onlyTimeYouWillSee": "Esta es la única vez que verás la clave completa. Cópiala y guárdala de forma segura.",
+        "unableToDetermineWorkspace": "No se puede determinar el espacio de trabajo. Actualiza la página e inténtalo de nuevo.",
+        "workspacePermissions": "Necesitas acceso de edición o administrador para gestionar las claves API del espacio de trabajo."
+      },
+      "dialogs": {
+        "createTitle": "Crear clave API de {{scope}}",
+        "createNameLabel": "Nombre",
+        "createNamePlaceholder": "p. ej., Servidor MCP de producción",
+        "createButton": "Crear clave",
+        "newKeyTitle": "Tu clave API de {{scope}}",
+        "newKeyDescription": "Esta es la única vez que verás la clave completa. Cópiala y guárdala de forma segura.",
+        "deleteTitle": "¿Eliminar la clave API de {{scope}}?",
+        "deleteDescription": "Esto revocará inmediatamente el acceso de cualquier integración que use esta clave.",
+        "deletePrompt": "Escribe {{name}} para confirmar.",
+        "deletePlaceholder": "Nombre de la clave API",
+        "cancel": "Cancelar",
+        "deleteButton": "Eliminar clave",
+        "copyToClipboard": "Copiar al portapapeles"
+      }
+    },
+    "integrations": {
+      "title": "Integraciones",
+      "searchPlaceholder": "Buscar integraciones...",
+      "successMessage": "¡Cuenta conectada con éxito!",
+      "actionRequired": {
+        "title": "Acción requerida:",
+        "description": "Conecta tu cuenta para habilitar las funciones solicitadas. El servicio requerido está resaltado a continuación.",
+        "button": "Ir al servicio"
+      },
+      "otherServices": "Otros servicios",
+      "connect": "Conectar",
+      "disconnect": "Desconectar",
+      "emptyState": {
+        "noConnectible": "No hay integraciones conectables configuradas.",
+        "noSearchMatches": "No se encontraron servicios que coincidan con \"{{query}}\""
+      },
+      "errors": {
+        "loadAvailability": "Error al cargar la disponibilidad del proveedor",
+        "oauth": "Error al conectar la cuenta. Inténtalo de nuevo."
+      }
+    },
+    "files": {
+      "title": "Archivos",
+      "searchPlaceholder": "Buscar archivos...",
+      "upload": {
+        "idle": "Subir archivo",
+        "uploading": "Subiendo...",
+        "uploadingWithCount": "Subiendo {{completed}}/{{total}}...",
+        "button": "Subir archivo"
+      },
+      "headers": {
+        "name": "Nombre",
+        "size": "Tamaño",
+        "uploaded": "Subido",
+        "actions": "Acciones"
+      },
+      "emptyState": {
+        "title": "Aún no se han subido archivos",
+        "description": "Suba PDF, documentos, hojas de cálculo o presentaciones para potenciar su espacio de trabajo.",
+        "button": "Subir archivo"
+      },
+      "searchEmpty": {
+        "title": "Ningún archivo coincide con su búsqueda",
+        "description": "Pruebe con otra palabra clave o borre la entrada de búsqueda."
+      },
+      "actions": {
+        "download": "Descargar",
+        "delete": "Eliminar"
+      },
+      "deleteDialog": {
+        "title": "¿Eliminar archivo?",
+        "descriptionWithName": "Eliminar \"{{name}}\" lo eliminará permanentemente de este espacio de trabajo.",
+        "description": "Eliminar este archivo lo eliminará permanentemente de este espacio de trabajo.",
+        "warning": "Esta acción no se puede deshacer.",
+        "cancel": "Cancelar",
+        "confirm": "Eliminar",
+        "deleting": "Eliminando..."
+      }
+    },
+    "userMenu": {
+      "accountDetail": "Detalles de la cuenta",
+      "helpSupport": "Ayuda y soporte",
+      "serviceApiKeys": "Claves de API de servicio",
+      "subscription": "Suscripción",
+      "manageBilling": "Gestionar facturación",
+      "openingBilling": "Abriendo facturación…",
+      "teamManagement": "Gestión de equipo",
+      "singleSignOn": "Inicio de sesión único",
+      "logOut": "Cerrar sesión",
+      "loggingOut": "Cerrando sesión…",
+      "billingPortalSelectOrganization": "Seleccione una organización para gestionar la facturación.",
+      "billingPortalFailed": "Error al abrir el portal de facturación",
+      "themeLabel": "Tema: {{theme}}",
+      "languageLabel": "Idioma",
+      "themeOptions": {
+        "light": "Claro",
+        "system": "Sistema",
+        "dark": "Oscuro"
+      },
+      "defaultAvatarAlt": "Avatar predeterminado"
+    },
+    "settingsModal": {
+      "titles": {
+        "account": "Configuración de cuenta",
+        "service": "Claves de API de servicio",
+        "subscription": "Suscripción",
+        "team": "Gestión de equipo",
+        "sso": "Inicio de sesión único",
+        "help": "Ayuda y soporte"
+      },
+      "common": {
+        "cancel": "Cancelar"
+      },
+      "account": {
+        "profilePicture": "Foto de perfil",
+        "profilePictureAlt": "Foto de perfil",
+        "dropImage": "Arrastre una imagen o haga clic para subir",
+        "imageHint": "PNG o JPG, máximo 5 MB",
+        "profileDetails": "Detalles del perfil",
+        "profileDetailsDescription": "Actualice su nombre y administre el acceso.",
+        "fullName": "Nombre completo",
+        "emailAddress": "Dirección de correo electrónico",
+        "emailHint": "Los cambios de correo electrónico son gestionados por el soporte.",
+        "passwordReset": "Restablecimiento de contraseña",
+        "passwordResetDescription": "Le enviaremos un enlace seguro por correo electrónico.",
+        "sendLink": "Enviar enlace",
+        "sending": "Enviando…",
+        "saveName": "Guardar nombre",
+        "cancelEditingName": "Cancelar edición del nombre",
+        "editName": "Editar nombre",
+        "privacy": "Privacidad",
+        "privacyDescription": "Gestione cómo se recopilan sus datos.",
+        "telemetry": {
+          "label": "Permitir telemetría anónima",
+          "tooltipLabel": "Obtenga más información sobre la recopilación de datos de telemetría",
+          "tooltipBody": "Recopilamos datos anónimos sobre el uso de funciones, el rendimiento y los errores para mejorar la aplicación.",
+          "body": "Usamos OpenTelemetry para recopilar datos anónimos de uso y mejorar TradingGoose. Todos los datos se recopilan de acuerdo con nuestra política de privacidad, y puede optar por no participar en cualquier momento. Esta configuración se aplica a su cuenta en todos los dispositivos."
+        },
+        "status": {
+          "profileSaved": "Perfil guardado.",
+          "nameRequired": "Proporcione un nombre.",
+          "saveError": "No se pueden guardar los ajustes del perfil.",
+          "nameRequiredValidation": "El nombre es obligatorio",
+          "profilePictureUpdateError": "Error al actualizar la foto de perfil",
+          "profilePictureRemoveError": "Error al eliminar la foto de perfil",
+          "unableToUpdateProfilePicture": "No se puede actualizar la foto de perfil.",
+          "failedUpdateName": "No se pudo actualizar el nombre",
+          "unableToUpdateName": "No se puede actualizar el nombre. Inténtalo de nuevo.",
+          "noEmail": "No se encontró una dirección de correo electrónico para esta cuenta.",
+          "passwordResetSent": "Enlace de restablecimiento de contraseña enviado a tu bandeja de entrada.",
+          "passwordResetFailed": "No se pudo enviar el correo de restablecimiento de contraseña."
+        }
+      },
+      "help": {
+        "requestType": "Solicitud",
+        "requestTypePlaceholder": "Selecciona un tipo de solicitud",
+        "requestTypes": {
+          "bug": "Reporte de error",
+          "feedback": "Comentarios",
+          "feature_request": "Solicitud de función",
+          "other": "Otro"
+        },
+        "subject": "Asunto",
+        "subjectPlaceholder": "Breve descripción de tu solicitud",
+        "message": "Mensaje",
+        "messagePlaceholder": "Proporciona detalles sobre tu solicitud...",
+        "attachments": "Adjuntar imágenes (opcional)",
+        "dropImages": "Arrastra imágenes aquí",
+        "dropImagesBrowse": "Arrastra imágenes aquí o haz clic para examinar",
+        "imageHint": "JPEG, PNG, WebP, GIF (máx. 20MB cada uno)",
+        "uploadedImages": "Imágenes subidas",
+        "cancel": "Cancelar",
+        "submit": "Enviar",
+        "submitting": "Enviando...",
+        "processing": "Procesando imágenes...",
+        "success": "Éxito",
+        "error": "Error",
+        "errorMessages": {
+          "subjectRequired": "El asunto es obligatorio",
+          "messageRequired": "El mensaje es obligatorio",
+          "requestTypeRequired": "Seleccione un tipo de solicitud",
+          "fileTooLarge": "El archivo {{name}} es demasiado grande. El tamaño máximo es 20 MB.",
+          "unsupportedFormat": "El archivo {{name}} tiene un formato no compatible. Use JPEG, PNG, WebP o GIF.",
+          "processing": "Ocurrió un error al procesar las imágenes. Inténtelo de nuevo.",
+          "submitFailed": "Error al enviar la solicitud de ayuda",
+          "unknown": "Ocurrió un error desconocido"
+        }
+      },
+      "service": {
+        "copilot": {
+          "title": "Copilot",
+          "description": "Genere claves para el acceso a la API de Copilot."
+        },
+        "market": {
+          "title": "Market",
+          "description": "Genere claves para el acceso a la API de Market."
+        },
+        "create": "Crear",
+        "noKeys": "Aún no hay claves de API",
+        "generateSuccessTitle": "Su clave de API ha sido creada",
+        "generateSuccessDescription": "Esta es la única vez que verá su clave de API. Cópiela ahora y guárdela de forma segura.",
+        "copyToClipboard": "Copiar al portapapeles",
+        "deleteTitle": "¿Eliminar clave de API?",
+        "deleteDescription": "Eliminar esta clave de API revocará inmediatamente el acceso de cualquier integración que la use. Esta acción no se puede deshacer.",
+        "cancel": "Cancelar",
+        "delete": "Eliminar"
+      },
+      "subscription": {
+        "titles": {
+          "manage": "Gestionar suscripción",
+          "restore": "Restaurar suscripción",
+          "upgrade": "Actualizar",
+          "increaseLimit": "Aumentar límite",
+          "nextBillingDate": "Próxima fecha de facturación",
+          "usageNotifications": "Notificaciones de uso",
+          "billingOwner": "Propietario de facturación",
+          "organizationUsage": "Uso de la organización",
+          "custom": "Personalizado",
+          "seats": "Asientos"
+        },
+        "seatsText": "{{count}} asientos",
+        "descriptions": {
+          "manage": "Abra el Portal de Facturación de Stripe para cancelar, restaurar o actualizar su suscripción.",
+          "usageNotifications": "Envíeme un correo electrónico cuando el uso alcance el umbral de advertencia de facturación.",
+          "customPlan": "Contacte a su equipo de cuenta para cambios de nivel de facturación y límites de uso.",
+          "teamMemberView": "Contacte al administrador de su equipo para aumentar los límites."
+        },
+        "limit": {
+          "save": "Guardar límite",
+          "edit": "Editar límite"
+        },
+        "billingOwner": {
+          "title": "Propietario de facturación",
+          "description": "Elija quién es el propietario de la facturación para este espacio de trabajo.",
+          "error": "Error",
+          "ownerLabel": "Propietario",
+          "selectPlaceholder": "Seleccione el propietario de facturación",
+          "organization": "Organización",
+          "billingNotice": "Cambiar el propietario de facturación afecta a quién paga por este espacio de trabajo.",
+          "noActiveOrganization": "No hay ninguna organización activa disponible para la propiedad de facturación.",
+          "invalidSelection": "Selección de propietario de facturación no válida.",
+          "failedToUpdate": "No se pudo actualizar el propietario de facturación."
+        },
+        "actions": {
+          "manage": "Gestionar",
+          "contact": "Contactar",
+          "upgradeTo": "Actualizar a {{name}}"
+        },
+        "badges": {
+          "resolvePayment": "Resolver pago",
+          "addPaymentMethod": "Agregar método de pago",
+          "activatePayg": "Activar PAYG",
+          "increaseLimit": "Aumentar límite",
+          "manageBilling": "Gestionar facturación"
+        },
+        "errors": {
+          "openBillingPortal": "Error al abrir el portal de facturación",
+          "unknown": "Ocurrió un error desconocido",
+          "selectOrganization": "Selecciona una organización para gestionar la facturación.",
+          "activatePayg": "Error al activar PAYG",
+          "loadBillingData": "Error al cargar los datos de facturación."
+        }
+      },
+      "team": {
+        "error": "Error",
+        "defaultTeamName": "Equipo de {{name}}",
+        "billingHowWorksSeatCost": "El costo de {{seats}} asiento{{plural}} es de ${{amount}} al mes.",
+        "billingHowWorksUsageTracked": "El uso se rastrea en todos los workspaces de la organización.",
+        "billingHowWorksIncreaseLimit": "Aumenta el límite cuando la organización necesite más capacidad.",
+        "billingHowWorksOverage": "Los excesos se facturan según el plan activo.",
+        "howBillingWorks": "Cómo funciona la facturación de este equipo",
+        "usageNote": "Nota:",
+        "usageNoteBody": "Los usuarios solo pueden pertenecer a una organización a la vez. Deben abandonar su organización actual antes de unirse a otra.",
+        "teamId": "ID del equipo:",
+        "created": "Creado:",
+        "yourRole": "Tu rol:",
+        "upgradeToCreateTeam": "Actualizar para crear un equipo",
+        "upgradeToCreateTeamDescription": "Actualiza a un plan de organización para crear un espacio de trabajo en equipo.",
+        "openSubscriptionSettings": "Abrir configuración de suscripción",
+        "createYourTeamWorkspace": "Crear tu espacio de trabajo en equipo",
+        "createYourTeamWorkspaceDescription": "Crea una organización para colaborar con tu equipo.",
+        "teamName": "Nombre del equipo",
+        "teamNamePlaceholder": "Mi equipo",
+        "teamUrl": "URL del equipo",
+        "teamSlugPlaceholder": "mi-equipo",
+        "createTeamWorkspace": "Crear espacio de trabajo en equipo",
+        "noTeamSubscriptionFound": "No se encontró ninguna suscripción de equipo",
+        "subscriptionMayNeedTransfer": "Es posible que tu suscripción deba transferirse a esta organización.",
+        "setUpTeamSubscription": "Configurar suscripción de equipo",
+        "seats": "Asientos",
+        "pricePerSeat": "({{price}}/mes cada uno)",
+        "used": "{{count}} usado",
+        "total": "{{count}} total",
+        "removeSeat": "Eliminar asiento",
+        "addSeat": "Agregar asiento",
+        "seat": "asiento",
+        "numberOfSeats": "Número de asientos",
+        "yourTeamWillHave": "Tu equipo tendrá {{count}} {{seatWord}} con un total de ${{cost}} créditos de inferencia por mes.",
+        "minimumSeatsNoMax": "Mínimo {{minimum}} asientos. No hay límite máximo de asientos para este plan.",
+        "chooseBetweenSeats": "Elige entre {{minimum}} y {{maximum}} asientos para este plan.",
+        "currentSeats": "Asientos actuales:",
+        "newSeats": "Asientos nuevos:",
+        "monthlyCostChange": "Cambio de costo mensual:",
+        "loading": "Cargando...",
+        "reactivateSubscription": "Para actualizar los asientos, ve a Suscripción > Administrar > Mantener suscripción para reactivar",
+        "leaveOrganization": "Salir de la organización",
+        "removeTeamMember": "Eliminar miembro del equipo",
+        "leaveOrganizationDescription": "¿Estás seguro de que quieres salir de esta organización? Perderás el acceso a todos los recursos del equipo.",
+        "removeMemberDescription": "¿Estás seguro de que quieres eliminar a {{name}} del equipo?",
+        "alsoReduceSeatCount": "Reducir también el número de asientos en mi suscripción",
+        "reduceSeatCountDescription": "Si se selecciona, el número de asientos de tu equipo se reducirá en 1, lo que disminuirá tu facturación mensual.",
+        "thisActionCannotBeUndone": "Esta acción no se puede deshacer.",
+        "cancel": "Cancelar",
+        "remove": "Eliminar",
+        "inviteUnavailableMessage": "Se requiere una suscripción activa de organización antes de poder invitar miembros al equipo.",
+        "yourself": "tú mismo",
+        "thisMember": "este miembro",
+        "noPublicAdjustableTier": "No hay ningún nivel de organización ajustable público configurado",
+        "addSeats": {
+          "title": "Agregar asientos de equipo",
+          "description": "Cada asiento cuesta ${{price}}/mes y proporciona ${{price}} en créditos de inferencia mensuales. Ajusta la cantidad de asientos con licencia para tu equipo.",
+          "confirm": "Actualizar asientos"
+        },
+        "billing": {
+          "title": "Facturación del espacio de trabajo",
+          "description": "Asigna espacios de trabajo a la organización o al propietario.",
+          "organizationBillingRequired": "Se requiere facturación de organización para administrar la facturación del espacio de trabajo.",
+          "organizationBilledTitle": "Facturado a la organización",
+          "organizationBilledEmpty": "No hay espacios de trabajo facturados a la organización.",
+          "availableOwnerBilledTitle": "Espacios de trabajo facturados al propietario",
+          "availableOwnerBilledEmpty": "No hay espacios de trabajo con facturación por propietario disponibles.",
+          "returnToOwner": "Volver a facturación por propietario",
+          "billToOrganization": "Facturar a la organización",
+          "organization": "Organización",
+          "ownerBilling": "Facturación por propietario",
+          "ownerLabel": "Propietario:"
+        },
+        "members": {
+          "title": "Miembros del equipo",
+          "empty": "Aún no hay miembros en el equipo.",
+          "sharedUsage": "Uso compartido: ${{amount}}",
+          "pending": "Pendiente",
+          "billing": "Facturación",
+          "usage": "Uso",
+          "sharedPool": "Fondo compartido",
+          "unknown": "Desconocido",
+          "removeMemberTooltip": "Eliminar miembro",
+          "cancelling": "Cancelando...",
+          "cancelInvitationTooltip": "Cancelar invitación",
+          "leaveOrganization": "Salir de la organización"
+        },
+        "invitation": {
+          "title": "Invitar a miembros del equipo",
+          "description": "Invita a personas a tu organización y elige el acceso a los espacios de trabajo.",
+          "emailPlaceholder": "name@example.com",
+          "hideWorkspaces": "Ocultar espacios de trabajo",
+          "addWorkspaces": "Agregar espacios de trabajo",
+          "invite": "Invitar",
+          "noSeats": "No hay plazas disponibles",
+          "unavailable": "Invitación no disponible",
+          "workspaceAccess": "Acceso al espacio de trabajo",
+          "optional": "Opcional",
+          "selected": "{{count}} workspace seleccionado{{plural}}",
+          "grantAccess": "Conceder acceso a espacios de trabajo específicos y elegir un nivel de permiso.",
+          "noWorkspacesAvailable": "No hay espacios de trabajo disponibles.",
+          "needAdminAccess": "Necesita acceso de administrador para asignar espacios de trabajo.",
+          "owner": "Propietario",
+          "sentSuccess": "Invitación enviada.",
+          "sentSuccessWithAccess": "Invitación enviada con acceso a {{count}} workspace{{plural}}.",
+          "invalidEmail": "Ingrese una dirección de correo electrónico válida.",
+          "permissions": {
+            "read": {
+              "label": "Lectura",
+              "description": "Puede ver el contenido del espacio de trabajo."
+            },
+            "write": {
+              "label": "Escritura",
+              "description": "Puede editar el contenido del espacio de trabajo."
+            },
+            "admin": {
+              "label": "Administrador",
+              "description": "Puede gestionar la configuración del espacio de trabajo."
+            }
+          }
+        }
+      },
+      "sso": {
+        "providerStatus": "Proveedor de inicio de sesión único",
+        "issuerUrl": "URL del emisor",
+        "providerId": "ID del proveedor",
+        "callbackUrl": "URL de callback",
+        "callbackUrlHelp": "Use esta URL de callback en la configuración de su proveedor de identidad.",
+        "providerType": "Tipo de proveedor",
+        "providerTypeDescriptions": {
+          "oidc": "OpenID Connect (Okta, Azure AD, Auth0, etc.)",
+          "saml": "Security Assertion Markup Language (ADFS, Shibboleth, etc.)"
+        },
+        "selectProviderHelp": "Seleccione un ID de proveedor preconfigurado de la lista de proveedores de confianza.",
+        "issuerUrlHelp": "Use la URL del emisor proporcionada por su proveedor de identidad.",
+        "providerIdPlaceholder": "Seleccionar un ID de proveedor",
+        "issuerUrlPlaceholder": "Introduzca la URL del emisor",
+        "domain": "Dominio",
+        "domainPlaceholder": "Introduzca el dominio",
+        "clientId": "ID de cliente",
+        "clientIdPlaceholder": "Introduzca el ID de cliente",
+        "clientSecret": "Secreto de cliente",
+        "clientSecretPlaceholder": "Introduzca el secreto de cliente",
+        "scopes": "Ámbitos",
+        "selectProviderId": "Seleccione un ID de proveedor",
+        "copyCallbackUrl": "Copiar URL de callback",
+        "showClientSecret": "Mostrar secreto de cliente",
+        "hideClientSecret": "Ocultar secreto de cliente",
+        "scopesPlaceholder": "openid,profile,email",
+        "scopesDescription": "Lista separada por comas de ámbitos OIDC a solicitar.",
+        "entryPoint": "URL de punto de entrada",
+        "entryPointPlaceholder": "Introduzca la URL de punto de entrada",
+        "entryPointDescription": "Proporcione la URL de punto de entrada SAML de su proveedor de identidad.",
+        "certificate": "Certificado del proveedor de identidad",
+        "certificatePlaceholder": "-----BEGIN CERTIFICATE-----",
+        "certificateDescription": "Pegue el certificado proporcionado por su proveedor de identidad.",
+        "advancedOptions": "Opciones avanzadas de SAML",
+        "audience": "Audiencia (ID de entidad)",
+        "audiencePlaceholder": "Introduzca la audiencia",
+        "audienceDescription": "La restricción de audiencia SAML, opcional y con valor predeterminado la URL de la aplicación.",
+        "callbackUrlOverride": "Anulación de URL de callback",
+        "callbackUrlPlaceholder": "Ingrese la URL de callback",
+        "callbackUrlDescription": "URL de callback SAML personalizada, opcional y generada automáticamente si está vacía.",
+        "requireSignedAssertions": "Requerir aserciones SAML firmadas",
+        "metadataXml": "XML de metadatos del proveedor de identidad",
+        "metadataPlaceholder": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<md:EntityDescriptor xmlns:md=\"urn:oasis:names:tc:SAML:2.0:metadata\">\n  ...\n</md:EntityDescriptor>",
+        "metadataDescription": "Pegue el XML de metadatos IDP completo de su proveedor de identidad para una configuración avanzada.",
+        "loadingProviders": "Cargando proveedores...",
+        "noProviders": "No se encontraron proveedores.",
+        "save": "Guardar cambios",
+        "create": "Configurar proveedor SSO",
+        "configureProvider": "Configurar proveedor SSO",
+        "saving": "Guardando...",
+        "configuring": "Configurando...",
+        "selectOrganization": "Debe ser parte de una organización para configurar el inicio de sesión único.",
+        "onlyAdmins": "Solo los propietarios y administradores de la organización pueden configurar los ajustes de inicio de sesión único.",
+        "disabledTier": "El inicio de sesión único no está habilitado para este plan de facturación.",
+        "providerLoadError": "Error al cargar la configuración del proveedor SSO",
+        "providerError": "Error al configurar el proveedor SSO",
+        "reloadError": "Error al recargar los proveedores SSO",
+        "validation": {
+          "fieldRequired": "{{field}} es obligatorio.",
+          "providerIdRequired": "El ID del proveedor es obligatorio.",
+          "providerIdPattern": "Use solo letras, números y guiones.",
+          "issuerUrlRequired": "La URL del emisor es obligatoria.",
+          "issuerUrlHttps": "La URL del emisor debe usar HTTPS.",
+          "issuerUrlValid": "Ingrese una URL de emisor válida, como https://your-identity-provider.com/oauth2/default",
+          "domainRequired": "El dominio es obligatorio.",
+          "domainNoProtocol": "No incluya el protocolo (https://).",
+          "domainValid": "Ingrese un dominio válido, como your-domain.identityprovider.com",
+          "clientIdRequired": "El ID de cliente es obligatorio.",
+          "clientSecretRequired": "El Secreto de cliente es obligatorio.",
+          "scopesRequired": "Los alcances son obligatorios para proveedores OIDC",
+          "entryPointRequired": "La URL de punto de entrada es obligatoria para proveedores SAML",
+          "certificateRequired": "El certificado es obligatorio.",
+          "providerLoadFailed": "Error al cargar proveedores SSO",
+          "providerLoadFailedGeneric": "Error al cargar la configuración del proveedor SSO"
+        }
+      }
+    },
+    "widgets": {
+      "selector": {
+        "categories": {
+          "list": "Listas",
+          "editor": "Editor",
+          "utility": "Utilidad"
+        },
+        "selectWidget": "Seleccionar widget",
+        "widgetSelectionUnavailable": "La selección de widgets no está disponible"
+      },
+      "titles": {
+        "empty": "Superficie vacía",
+        "data_chart": "Datos de mercado",
+        "workflow_list": "Flujos de trabajo",
+        "editor_workflow": "Editor de flujos",
+        "workflow_chat": "Chat de flujos",
+        "workflow_console": "Consola de flujos",
+        "copilot": "Copiloto",
+        "list_indicator": "Indicadores",
+        "list_mcp": "Servidores MCP",
+        "editor_indicator": "Editor de indicadores",
+        "editor_mcp": "Editor MCP",
+        "list_custom_tool": "Herramientas personalizadas",
+        "editor_custom_tool": "Editor de herramienta personalizada",
+        "list_skill": "Habilidades",
+        "editor_skill": "Editor de habilidad",
+        "workflow_variables": "Variables del flujo",
+        "watchlist": "Lista de seguimiento"
+      },
+      "empty": {
+        "noWidgetSelected": "No se ha seleccionado ningún widget",
+        "emptyWidget": "Widget vacío",
+        "noWidgetDescription": "Elige un widget de la galería para empezar a usar este panel.",
+        "emptyWidgetDescription": "Este widget está vacío por ahora; elige otro para continuar.",
+        "chooseWidget": "Elegir widget",
+        "surfaceTitle": "Superficie vacía",
+        "surfaceDescription": "Estado de marcador de posición cuando el panel no tiene un widget asignado."
+      },
+      "workflowDropdown": {
+        "selectWorkspaceFirst": "Selecciona primero un espacio de trabajo.",
+        "unableToLoad": "No se pudieron cargar los flujos de trabajo",
+        "workflowSelectionUnavailable": "La selección de flujos no está disponible",
+        "selectWorkflow": "Seleccionar flujo",
+        "searchPlaceholder": "Buscar flujos...",
+        "failedToLoad": "No se pudieron cargar los flujos de trabajo",
+        "retry": "Reintentar",
+        "loading": "Cargando flujos de trabajo...",
+        "noWorkflowsAvailable": "Aún no hay flujos de trabajo disponibles.",
+        "noWorkflowsFound": "No se encontraron flujos de trabajo.",
+        "untitledWorkflow": "Flujo sin título"
+      },
+      "mcpDropdown": {
+        "selectWorkspaceFirst": "Selecciona primero un espacio de trabajo.",
+        "unableToLoad": "No se pudieron cargar los servidores MCP",
+        "mcpSelectionUnavailable": "La selección de MCP no está disponible",
+        "selectMcpServer": "Seleccionar servidor MCP",
+        "searchPlaceholder": "Buscar servidores...",
+        "failedToLoad": "No se pudieron cargar los servidores MCP",
+        "retry": "Reintentar",
+        "loading": "Cargando servidores MCP...",
+        "noServersAvailable": "Aún no hay servidores MCP disponibles.",
+        "noServersFound": "No se encontraron servidores.",
+        "unnamedServer": "Servidor sin nombre"
+      },
+      "console": {
+        "selectWorkspace": "Selecciona un espacio de trabajo para cargar los flujos.",
+        "noWorkflows": "No hay flujos de trabajo disponibles en este espacio.",
+        "filters": "Filtros",
+        "status": "Estado",
+        "error": "Error",
+        "info": "Información",
+        "blocks": "Bloques",
+        "sortByTime": "Ordenar por tiempo",
+        "structuredView": "Vista estructurada",
+        "toggleStructuredView": "Alternar vista estructurada",
+        "wrapText": "Ajustar texto",
+        "toggleWrapText": "Alternar ajuste de texto",
+        "downloadConsoleCsv": "Descargar CSV de la consola",
+        "downloadCsv": "Descargar CSV",
+        "clearConsole": "Limpiar consola",
+        "noResults": "No se encontraron resultados para \"{{query}}\""
+      },
+      "mcpEditor": {
+        "selectWorkspaceToEdit": "Selecciona un espacio de trabajo para editar servidores MCP.",
+        "selectServerToEdit": "Selecciona un servidor MCP para editarlo.",
+        "saveDraftHint": "Guarda este borrador para habilitar pruebas de conexión, actualización de herramientas y recarga canónica.",
+        "failedToLoadMcpServers": "No se pudieron cargar los servidores MCP.",
+        "tools": "Herramientas",
+        "saveRequired": "Se requiere guardar",
+        "noToolsDiscovered": "Aún no se han descubierto herramientas.",
+        "saveThisServerToRefreshAndInspectDiscoveredMcpTools": "Guarda este servidor para actualizar e inspeccionar las herramientas MCP descubiertas.",
+        "refreshTools": "Actualizar herramientas",
+        "testConnection": "Probar conexión",
+        "resetForm": "Restablecer formulario",
+        "saveServer": "Guardar servidor",
+        "clearSelection": "Borrar selección",
+        "selectServer": "Seleccionar servidor",
+        "serverNameRequired": "Se requiere el nombre del servidor.",
+        "failedToRefreshMcpServer": "No se pudo actualizar el servidor MCP.",
+        "failedToSaveMcpServer": "No se pudo guardar el servidor MCP.",
+        "toolCount": "{{count}} en total",
+        "loading": "Cargando...",
+        "connected": "Conectado",
+        "error": "Error",
+        "draft": "Borrador",
+        "disconnected": "Desconectado",
+        "unnamedServer": "Servidor sin nombre",
+        "updated": "Actualizado hace {{time}}",
+        "toolsRefreshed": "Herramientas actualizadas hace {{time}}",
+        "lastConnected": "Última conexión hace {{time}}",
+        "lastError": "Último error"
+      },
+      "triggerList": {
+        "coreTriggers": "Disparadores principales",
+        "integrationTriggers": "Disparadores de integración",
+        "searchPlaceholder": "Buscar disparadores",
+        "openTriggerList": "Haz clic para agregar disparador",
+        "close": "Cerrar",
+        "noResults": "No se encontraron resultados para \"{{query}}\""
+      },
+      "workflowToolbar": {
+        "selectWorkspace": "Selecciona un espacio de trabajo para explorar bloques",
+        "blocks": "Bloques",
+        "tools": "Herramientas",
+        "triggers": "Disparadores",
+        "special": "Especial",
+        "browseLabel": "Explorar {{label}}",
+        "searchPlaceholder": "Buscar {{label}}...",
+        "noResults": "No se encontraron {{label}}."
+      },
+      "workflowLabels": {
+        "systemPrompt": "Prompt del sistema",
+        "userPrompt": "Prompt del usuario",
+        "model": "Modelo",
+        "temperature": "Temperatura",
+        "apiKey": "Clave API",
+        "skills": "Habilidades",
+        "tools": "Herramientas",
+        "responseFormat": "Formato de respuesta",
+        "reasoningEffort": "Esfuerzo de razonamiento",
+        "verbosity": "Nivel de detalle",
+        "configured": "Configurado",
+        "value": "Valor",
+        "items": "Elementos",
+        "fields": "Campos",
+        "object": "Objeto",
+        "block": "Bloque",
+        "type": "Tipo",
+        "none": "Ninguno",
+        "noValuesToDisplay": "No hay valores para mostrar.",
+        "error": "Error",
+        "if": "si",
+        "else": "sino",
+        "elseIf": "sino si",
+        "addSkill": "Agregar habilidad",
+        "searchSkills": "Buscar habilidades...",
+        "chooseModel": "Elegir modelo",
+        "lite": "Ligero",
+        "anthropic": "Anthropic",
+        "openai": "OpenAI",
+        "nextStep": "Siguiente paso",
+        "locked": "Bloqueado",
+        "deployed": "Desplegado",
+        "deployedWithVersion": "Desplegado (v{{version}})",
+        "notDeployed": "No desplegado",
+        "disabled": "Deshabilitado",
+        "removeSkill": "Eliminar {{name}}",
+        "currentWorkflow": "Flujo actual",
+        "currentSkill": "Habilidad actual",
+        "currentTool": "Herramienta actual",
+        "currentIndicator": "Indicador actual",
+        "currentMcpServer": "Servidor MCP actual",
+        "workflows": "Flujos de trabajo",
+        "customTools": "Herramientas personalizadas",
+        "indicators": "Indicadores",
+        "mcpServers": "Servidores MCP",
+        "allWorkflows": "Todos los flujos de trabajo"
+      },
+      "workflowEditor": {
+        "previewInspector": "Inspector de vista previa",
+        "selectBlockToViewPreviewDetails": "Selecciona un bloque para ver sus detalles de vista previa.",
+        "nodeNotFound": "No se encontró el nodo",
+        "selectedNodeUnavailable": "El nodo seleccionado ya no está disponible.",
+        "missingBlockConfiguration": "Falta la configuración del bloque para `{{type}}`.",
+        "saveName": "Guardar nombre",
+        "renameNode": "Renombrar nodo",
+        "loopTypeLabel": "Tipo de bucle",
+        "parallelTypeLabel": "Tipo en paralelo",
+        "selectType": "Selecciona un tipo",
+        "forLoop": "Bucle for",
+        "forEachLoop": "Bucle for each",
+        "whileLoop": "Bucle while",
+        "doWhileLoop": "Bucle do while",
+        "parallelCount": "Conteo paralelo",
+        "parallelEach": "Cada elemento en paralelo",
+        "loopIterations": "Iteraciones del bucle",
+        "parallelExecutions": "Ejecuciones en paralelo",
+        "whileCondition": "Condición while",
+        "collectionItems": "Elementos de la colección",
+        "parallelItems": "Elementos en paralelo",
+        "enterValueBetween": "Introduce un valor entre 1 y {{max}}",
+        "hideAdditionalFields": "Ocultar campos adicionales",
+        "showAdditionalFields": "Mostrar campos adicionales",
+        "additionalFields": "Campos adicionales",
+        "triggerNoEditableFields": "Este disparador no tiene campos editables en el panel.",
+        "blockNoEditableFields": "Este bloque no tiene campos editables.",
+        "requiredField": "Este campo es obligatorio",
+        "invalidJson": "JSON no válido",
+        "unknownInputType": "Tipo de entrada desconocido: {{type}}",
+        "loop": "Bucle",
+        "parallel": "Paralelo",
+        "start": "Inicio",
+        "end": "Fin"
+      },
+      "apiKey": {
+        "apiKey": "Clave API",
+        "apiKeyType": "Tipo de clave API",
+        "apiKeyName": "Nombre de la clave API",
+        "personal": "Personal",
+        "workspace": "Espacio de trabajo",
+        "selectApiKey": "Seleccionar clave API",
+        "myApiKey": "Mi clave API",
+        "ownerIsBilledForUsage": "El propietario paga el uso",
+        "keyOwnerIsBilled": "El propietario de la clave paga",
+        "createNew": "Crear nueva",
+        "loadingApiKeys": "Cargando claves API...",
+        "selectAnApiKey": "Selecciona una clave API",
+        "noApiKeysAvailable": "No hay claves API disponibles",
+        "createNewApiKey": "Crear nueva clave API",
+        "workspaceAccess": "Esta clave tendrá acceso a todos los flujos de trabajo de este espacio. Copia la clave después de crearla, ya que no podrás volver a verla.",
+        "personalAccess": "Esta clave tendrá acceso a tus flujos de trabajo personales. Copia la clave después de crearla, ya que no podrás volver a verla.",
+        "apiKeyHasBeenCreated": "Tu clave API ha sido creada",
+        "onlyTimeYouWillSeeYourApiKey": "Esta es la única vez que verás tu clave API.",
+        "copyItNowAndStoreItSecurely": "Cópiala ahora y guárdala de forma segura.",
+        "copyToClipboard": "Copiar al portapapeles",
+        "enterName": "Introduce un nombre para la clave API",
+        "failedToCreate": "No se pudo crear la clave API",
+        "create": "Crear",
+        "creating": "Creando...",
+        "cancel": "Cancelar",
+        "workspaceLabel": "Espacio de trabajo",
+        "personalLabel": "Personal"
+      },
+      "entityEditor": {
+        "undo": "Deshacer",
+        "redo": "Rehacer"
+      },
+      "pairColor": {
+        "selectionUnavailable": "La selección de color no está disponible",
+        "selectWidgetColor": "Seleccionar color del widget",
+        "unlinked": "Sin vincular",
+        "red": "Rojo",
+        "orange": "Naranja",
+        "blue": "Azul",
+        "green": "Verde",
+        "purple": "Morado"
+      },
+      "deployment": {
+        "adminPermissionsRequiredToDeployWorkflows": "Se requieren permisos de administrador para desplegar flujos",
+        "deploying": "Desplegando...",
+        "workflowChangesDetected": "Se detectaron cambios en el flujo",
+        "deploymentSettings": "Configuración de despliegue",
+        "deployWorkflow": "Desplegar flujo",
+        "deployApi": "Desplegar API",
+        "needsRedeployment": "Necesita redepliegue",
+        "deployWorkflowTitle": "Desplegar flujo",
+        "active": "activo",
+        "close": "Cerrar",
+        "deploymentError": "Error de despliegue",
+        "expandSidebar": "Expandir barra lateral",
+        "collapseSidebar": "Contraer barra lateral",
+        "selectSharedDeploymentApiKeyInBillingBeforeDeployingThisApiTrigger": "Selecciona una clave API compartida de despliegue en Facturación antes de desplegar este disparador de API.",
+        "thisApiTriggerUsesTheSharedDeploymentApiKey": "Este disparador de API usa la clave API compartida de despliegue {displayKey}.",
+        "thisApiTriggerUsesTheSharedDeploymentApiKeySelectedInBilling": "Este disparador de API usa la clave API compartida de despliegue seleccionada en Facturación.",
+        "thisApiTriggerWillUseTheSharedDeploymentApiKeyCurrentlySelectedInBilling": "Este disparador de API usará la clave API compartida de despliegue seleccionada actualmente en Facturación."
+      },
+      "workflowCreateMenu": {
+        "createButtonTooltip": "Crear carpeta o flujo de trabajo",
+        "selectWorkspaceTooltip": "Selecciona un espacio de trabajo para crear flujos",
+        "createWorkflow": "Nuevo flujo",
+        "createFolder": "Nueva carpeta",
+        "importWorkflow": "Importar flujo",
+        "creating": "Creando...",
+        "importing": "Importando..."
+      }
+    },
+    "layoutTabs": {
+      "createNewLayout": "Crear nuevo diseño"
+    }
+  }
+}

@@ -6,6 +6,10 @@ const mockUseSession = vi.fn()
 const mockUseOrganizations = vi.fn()
 const mockUseOrganizationBilling = vi.fn()
 
+vi.mock('next-intl', () => ({
+  useLocale: () => 'en',
+}))
+
 vi.mock('@/components/ui', () => ({
   Alert: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   AlertDescription: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,

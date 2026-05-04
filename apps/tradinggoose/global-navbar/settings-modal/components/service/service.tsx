@@ -1,5 +1,6 @@
 'use client'
 
+import { useLocale } from 'next-intl'
 import { useState } from 'react'
 import { Check, Copy, Plus } from 'lucide-react'
 import {
@@ -16,6 +17,8 @@ import {
 } from '@/components/ui'
 import { isHosted } from '@/lib/environment'
 import { createLogger } from '@/lib/logs/console/logger'
+import { getPublicCopy } from '@/i18n/public-copy'
+import { type LocaleCode } from '@/i18n/utils'
 import {
   type ServiceApiKey,
   type ServiceKeyKind,
@@ -25,23 +28,6 @@ import {
 } from '@/hooks/queries/service-keys'
 
 const logger = createLogger('ServiceApiKeysSettings')
-
-const SERVICE_COPY: Record<
-  ServiceKeyKind,
-  {
-    title: string
-    description: string
-  }
-> = {
-  copilot: {
-    title: 'Copilot',
-    description: 'Generate keys for Copilot API access.',
-  },
-  market: {
-    title: 'Market',
-    description: 'Generate keys for Market API access.',
-  },
-}
 
 export function Service() {
   if (!isHosted) {
@@ -59,7 +45,9 @@ export function Service() {
 }
 
 function ServiceKeyPanel({ service }: { service: ServiceKeyKind }) {
-  const copy = SERVICE_COPY[service]
+  const locale = useLocale() as LocaleCode
+  const copy = getPublicCopy(locale).workspace.settingsModal.service[service]
+  const serviceCopy = getPublicCopy(locale).workspace.settingsModal.service
   const { data: keys = [], isPending: isKeysPending } = useServiceKeys(service)
   const generateKey = useGenerateServiceKey(service)
   const deleteKeyMutation = useDeleteServiceKey(service)
@@ -115,7 +103,7 @@ function ServiceKeyPanel({ service }: { service: ServiceKeyKind }) {
           disabled={isKeysPending || generateKey.isPending || deleteKeyMutation.isPending}
         >
           <Plus className='h-3.5 w-3.5 stroke-[2px]' />
-          Create
+          {serviceCopy.create}
         </Button>
       </div>
 
@@ -126,7 +114,7 @@ function ServiceKeyPanel({ service }: { service: ServiceKeyKind }) {
             <ServiceKeySkeleton />
           </>
         ) : keys.length === 0 ? (
-          <div className='py-3 text-center text-muted-foreground text-xs'>No API keys yet</div>
+          <div className='py-3 text-center text-muted-foreground text-xs'>{serviceCopy.noKeys}</div>
         ) : (
           keys.map((key) => (
             <div key={key.id} className='flex items-center justify-between gap-4'>
@@ -142,7 +130,7 @@ function ServiceKeyPanel({ service }: { service: ServiceKeyKind }) {
                 }}
                 className='h-8 text-muted-foreground hover:text-foreground'
               >
-                Delete
+                {serviceCopy.delete}
               </Button>
             </div>
           ))
@@ -161,11 +149,8 @@ function ServiceKeyPanel({ service }: { service: ServiceKeyKind }) {
       >
         <AlertDialogContent className='rounded-md sm:max-w-lg'>
           <AlertDialogHeader>
-            <AlertDialogTitle>Your API key has been created</AlertDialogTitle>
-            <AlertDialogDescription>
-              This is the only time you will see your API key.{' '}
-              <span className='font-semibold'>Copy it now and store it securely.</span>
-            </AlertDialogDescription>
+            <AlertDialogTitle>{serviceCopy.generateSuccessTitle}</AlertDialogTitle>
+            <AlertDialogDescription>{serviceCopy.generateSuccessDescription}</AlertDialogDescription>
           </AlertDialogHeader>
 
           {newKey ? (
@@ -184,7 +169,7 @@ function ServiceKeyPanel({ service }: { service: ServiceKeyKind }) {
                 ) : (
                   <Copy className='!h-3.5 !w-3.5' />
                 )}
-                <span className='sr-only'>Copy to clipboard</span>
+                <span className='sr-only'>{serviceCopy.copyToClipboard}</span>
               </Button>
             </div>
           ) : null}
@@ -194,16 +179,13 @@ function ServiceKeyPanel({ service }: { service: ServiceKeyKind }) {
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent className='rounded-md sm:max-w-md'>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete API key?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Deleting this API key will immediately revoke access for any integrations using it.{' '}
-              <span className='text-red-500 dark:text-red-500'>This action cannot be undone.</span>
-            </AlertDialogDescription>
+            <AlertDialogTitle>{serviceCopy.deleteTitle}</AlertDialogTitle>
+            <AlertDialogDescription>{serviceCopy.deleteDescription}</AlertDialogDescription>
           </AlertDialogHeader>
 
           <AlertDialogFooter className='flex'>
             <AlertDialogCancel className='h-9 w-full rounded-sm' onClick={() => setDeleteKey(null)}>
-              Cancel
+              {serviceCopy.cancel}
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
@@ -216,7 +198,7 @@ function ServiceKeyPanel({ service }: { service: ServiceKeyKind }) {
               className='h-9 w-full rounded-sm bg-red-500 text-white transition-all duration-200 hover:bg-red-600 dark:bg-red-500 dark:hover:bg-red-600'
               disabled={deleteKeyMutation.isPending}
             >
-              Delete
+              {serviceCopy.delete}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

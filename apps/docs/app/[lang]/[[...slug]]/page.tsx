@@ -9,12 +9,19 @@ import { StructuredData } from '@/components/structured-data'
 import { AccordionHashSync } from '@/components/ui/accordion-hash-sync'
 import { CodeBlock } from '@/components/ui/code-block'
 import { CopyPageButton } from '@/components/ui/copy-page-button'
-import { i18n } from '@/lib/i18n'
-import { humanizeSlug, supportedLanguages } from '@/lib/page-tree'
+import { i18n, localizePathname, localizeUrl, stripLocaleFromPathname } from '@/lib/i18n'
+import { humanizeSlug } from '@/lib/page-tree'
 import { source } from '@/lib/source'
 
 function toOpenGraphLocale(lang: string) {
-  return lang === 'en' ? 'en_US' : `${lang}_${lang.toUpperCase()}`
+  if (lang === 'en') return 'en_US'
+  if (lang === 'zh-CN') return 'zh_CN'
+  return `${lang}_${lang.toUpperCase()}`
+}
+
+function toPublicDocsUrl(pathname: string) {
+  const { locale, pathname: strippedPathname } = stripLocaleFromPathname(pathname)
+  return localizeUrl('https://docs.tradinggoose.ai', locale, strippedPathname)
 }
 
 export default async function Page(props: { params: Promise<{ slug?: string[]; lang: string }> }) {
@@ -31,6 +38,7 @@ export default async function Page(props: { params: Promise<{ slug?: string[]; l
 
   if (!page) notFound()
 
+  const publicPageUrl = toPublicDocsUrl(page.url)
   const MDX = page.data.body
   const neighbours = pageTree ? findNeighbour(pageTree, page.url) : null
 
@@ -42,7 +50,7 @@ export default async function Page(props: { params: Promise<{ slug?: string[]; l
       <div className='flex items-center justify-between py-8'>
         {neighbours?.previous ? (
           <Link
-            href={neighbours.previous.url}
+            href={toPublicDocsUrl(neighbours.previous.url)}
             className='group flex items-center gap-2 text-muted-foreground transition-colors hover:text-foreground'
           >
             <ChevronLeft className='group-hover:-translate-x-1 h-4 w-4 transition-transform' />
@@ -54,7 +62,7 @@ export default async function Page(props: { params: Promise<{ slug?: string[]; l
 
         {neighbours?.next ? (
           <Link
-            href={neighbours.next.url}
+            href={toPublicDocsUrl(neighbours.next.url)}
             className='group flex items-center gap-2 text-muted-foreground transition-colors hover:text-foreground'
           >
             <span className='font-medium'>{neighbours.next.name}</span>
@@ -119,7 +127,7 @@ export default async function Page(props: { params: Promise<{ slug?: string[]; l
       <StructuredData
         title={page.data.title}
         description={page.data.description || ''}
-        url={`${baseUrl}${page.url}`}
+        url={publicPageUrl}
         lang={params.lang}
         breadcrumb={breadcrumbs}
       />
@@ -176,26 +184,23 @@ function generateBreadcrumbs(targetUrl: string, pageTitle: string, baseUrl: stri
     },
   ]
 
-  const urlParts = targetUrl.split('/').filter(Boolean)
+  const { locale, pathname } = stripLocaleFromPathname(targetUrl)
+  const urlParts = pathname.split('/').filter(Boolean)
   let currentPath = ''
 
   urlParts.forEach((part, index) => {
-    if (index === 0 && supportedLanguages.includes(part as (typeof supportedLanguages)[number])) {
-      currentPath = `/${part}`
-      return
-    }
-
     currentPath += `/${part}`
+    const localizedPath = localizePathname(locale, currentPath)
 
     if (index === urlParts.length - 1) {
       breadcrumbs.push({
         name: pageTitle,
-        url: `${baseUrl}${targetUrl}`,
+        url: `${baseUrl}${localizedPath}`,
       })
     } else {
       breadcrumbs.push({
         name: humanizeSlug(part),
-        url: `${baseUrl}${currentPath}`,
+        url: `${baseUrl}${localizedPath}`,
       })
     }
   })
@@ -215,6 +220,7 @@ export async function generateMetadata(props: {
   const baseUrl = 'https://docs.tradinggoose.ai'
   const defaultDescription =
     'TradingGoose visual workflow builder for AI applications documentation'
+  const locale = params.lang as (typeof i18n.languages)[number]
 
   const pageTreeRecord = source.pageTree as Record<string, PageTree.Root>
   const pageTree =
@@ -225,18 +231,13 @@ export async function generateMetadata(props: {
     (slugSegments.length === 0 ? source.getPage(['index'], params.lang) : null)
   if (!page) notFound()
 
-  const fullUrl = `${baseUrl}${page.url}`
-  const canonicalPath = page.url.replace(`/${params.lang}`, '') || '/'
+  const { pathname: strippedPathname } = stripLocaleFromPathname(page.url)
+  const fullUrl = localizeUrl(baseUrl, locale, strippedPathname)
   const alternateLocales = i18n.languages
-    .filter((lang) => lang !== params.lang)
+    .filter((lang) => lang !== locale)
     .map(toOpenGraphLocale)
   const alternateLanguages = Object.fromEntries(
-    i18n.languages.map((lang) => [
-      lang,
-      lang === i18n.defaultLanguage
-        ? `${baseUrl}${canonicalPath}`
-        : `${baseUrl}/${lang}${canonicalPath}`,
-    ])
+    i18n.languages.map((lang) => [lang, localizeUrl(baseUrl, lang, strippedPathname)])
   )
 
   return {
@@ -262,7 +263,7 @@ export async function generateMetadata(props: {
       url: fullUrl,
       siteName: 'TradingGoose Documentation',
       type: 'article',
-      locale: toOpenGraphLocale(params.lang),
+      locale: toOpenGraphLocale(locale),
       ...(alternateLocales.length > 0
         ? {
             alternateLocale: alternateLocales,
@@ -289,7 +290,7 @@ export async function generateMetadata(props: {
     alternates: {
       canonical: fullUrl,
       languages: {
-        'x-default': `${baseUrl}${canonicalPath}`,
+        'x-default': localizeUrl(baseUrl, i18n.defaultLanguage, strippedPathname),
         ...alternateLanguages,
       },
     },

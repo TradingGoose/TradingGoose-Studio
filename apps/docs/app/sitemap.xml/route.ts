@@ -1,4 +1,4 @@
-import { i18n } from '@/lib/i18n'
+import { i18n, localizePathname } from '@/lib/i18n'
 import { source } from '@/lib/source'
 
 export const revalidate = false
@@ -8,8 +8,20 @@ export async function GET() {
 
   const allPages = source.getPages()
 
+  const stripLanguagePrefix = (url: string) => {
+    const segments = url.split('/').filter(Boolean)
+    const firstSegment = segments[0]
+
+    if (firstSegment && i18n.languages.includes(firstSegment as (typeof i18n.languages)[number])) {
+      const pathname = `/${segments.slice(1).join('/')}`
+      return pathname === '/' ? '/' : pathname.replace(/\/+$/, '')
+    }
+
+    return url || '/'
+  }
+
   const getPriority = (url: string): string => {
-    if (url === '/en' || url === '/') return '1.0'
+    if (url === '/' || url === '/index') return '1.0'
     if (url === '/getting-started') return '0.9'
     if (url.match(/^\/[^/]+$/)) return '0.8'
     if (url.includes('/sdks/') || url.includes('/tools/')) return '0.7'
@@ -18,13 +30,10 @@ export async function GET() {
 
   const urls = allPages
     .flatMap((page) => {
-      const urlWithoutLang = page.url.replace(/^\/[a-z]{2}\//, '/')
+      const urlWithoutLang = stripLanguagePrefix(page.url)
 
       return i18n.languages.map((lang) => {
-        const url =
-          lang === i18n.defaultLanguage
-            ? `${baseUrl}${urlWithoutLang}`
-            : `${baseUrl}/${lang}${urlWithoutLang}`
+        const url = `${baseUrl}${localizePathname(lang, urlWithoutLang)}`
 
         return `  <url>
     <loc>${url}</loc>
@@ -53,10 +62,7 @@ ${urls}
 function generateAlternateLinks(baseUrl: string, urlWithoutLang: string): string {
   return i18n.languages
     .map((lang) => {
-      const url =
-        lang === i18n.defaultLanguage
-          ? `${baseUrl}${urlWithoutLang}`
-          : `${baseUrl}/${lang}${urlWithoutLang}`
+      const url = `${baseUrl}${localizePathname(lang, urlWithoutLang)}`
       return `    <xhtml:link rel="alternate" hreflang="${lang}" href="${url}" />`
     })
     .join('\n')

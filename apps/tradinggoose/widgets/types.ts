@@ -1,6 +1,7 @@
 import type { ComponentType, ReactNode } from 'react'
 import type { WidgetInstance } from '@/widgets/layout'
 import type { PairColor } from '@/widgets/pair-colors'
+import type { LocaleCode } from '@/i18n/utils'
 
 export type WidgetRuntimeContext = {
   workspaceId?: string
@@ -17,6 +18,7 @@ export interface WidgetCategoryDefinition {
 export interface WidgetComponentProps {
   params?: Record<string, unknown> | null
   context?: WidgetRuntimeContext
+  locale?: LocaleCode
   pairColor?: PairColor
   panelId?: string
   widget?: WidgetInstance | null
