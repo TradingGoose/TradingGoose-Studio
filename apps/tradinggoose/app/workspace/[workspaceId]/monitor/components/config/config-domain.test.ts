@@ -187,6 +187,27 @@ describe('config monitor domain', () => {
     ).toBe(true)
   })
 
+  it('applies the active lane status when creating a draft from board context', () => {
+    const resolution = resolveConfigBoardContextPatch({
+      decodedContext: {
+        version: 1,
+        sliceValue: 'all',
+        groupValue: 'all',
+        verticalGroupValue: 'all',
+        statusLane: 'active',
+      },
+      viewConfig: DEFAULT_CONFIG_MONITOR_VIEW_CONFIG,
+      referenceData,
+    })
+
+    expect(resolution.draftPatch).toMatchObject({
+      isActive: true,
+    })
+    expect(resolution.updatePatch).toMatchObject({
+      isActive: true,
+    })
+  })
+
   it('falls back to a supported interval when a provider drop changes capabilities', () => {
     const card = buildConfigMonitorCards([monitor], referenceData, {})[0]!
     const resolution = resolveConfigBoardContextPatch({

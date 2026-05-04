@@ -1,6 +1,6 @@
 import { db } from '@tradinggoose/db'
 import { permissions, workflow, workflowExecutionLogs } from '@tradinggoose/db/schema'
-import { and, desc, eq, gte, inArray, lte, type SQL, sql } from 'drizzle-orm'
+import { and, desc, eq, gte, inArray, lte, or, type SQL, sql } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { getSession } from '@/lib/auth'
@@ -24,20 +24,17 @@ const ExportParamsSchema = z.object({
   folderName: z.string().optional(),
   monitorId: z.string().optional(),
   listing: z.string().optional(),
+  assetType: z.string().optional(),
   indicatorId: z.string().optional(),
   providerId: z.string().optional(),
   interval: z.string().optional(),
-  triggerSource: z.preprocess(
-    (value) => {
-      if (typeof value !== 'string') return value
-      const trimmed = value.trim()
-      return trimmed.length === 0 ? undefined : trimmed
-    },
-    z.literal('indicator_trigger').optional()
-  ),
+  triggerSource: z.preprocess((value) => {
+    if (typeof value !== 'string') return value
+    const trimmed = value.trim()
+    return trimmed.length === 0 ? undefined : trimmed
+  }, z.literal('indicator_trigger').optional()),
   workspaceId: z.string(),
 })
-
 
 function escapeCsv(value: any): string {
   if (value === null || value === undefined) return ''
@@ -47,6 +44,12 @@ function escapeCsv(value: any): string {
   }
   return str
 }
+
+const parseCsvValues = (value: string | undefined) =>
+  value
+    ?.split(',')
+    .map((item) => item.trim())
+    .filter(Boolean) ?? []
 
 export async function GET(request: NextRequest) {
   try {
@@ -60,6 +63,7 @@ export async function GET(request: NextRequest) {
     const params = ExportParamsSchema.parse(Object.fromEntries(searchParams.entries()))
     const monitorId = normalizeOptionalString(params.monitorId)
     const listing = parseListingFilter(params.listing)
+    const assetTypes = parseCsvValues(params.assetType).map((value) => value.toLowerCase())
     const indicatorId = normalizeOptionalString(params.indicatorId)
     const providerId = normalizeOptionalString(params.providerId)
     const interval = normalizeOptionalString(params.interval)
@@ -138,6 +142,13 @@ export async function GET(request: NextRequest) {
         sql`${workflowExecutionLogs.executionData}->'trigger'->'data'->'monitor'->'listing'->>'listing_id' = ${listing.listing_id}`,
         sql`${workflowExecutionLogs.executionData}->'trigger'->'data'->'monitor'->'listing'->>'base_id' = ${listing.base_id}`,
         sql`${workflowExecutionLogs.executionData}->'trigger'->'data'->'monitor'->'listing'->>'quote_id' = ${listing.quote_id}`
+      )
+    }
+    if (assetTypes.length > 0) {
+      const assetTypeExpression = sql<string>`lower(coalesce(nullif(${workflowExecutionLogs.executionData}->'trigger'->'data'->'monitor'->'listing'->>'assetClass', ''), nullif(${workflowExecutionLogs.executionData}->'trigger'->'data'->'monitor'->'listing'->>'base_asset_class', ''), ${workflowExecutionLogs.executionData}->'trigger'->'data'->'monitor'->'listing'->>'listing_type', 'unknown'))`
+      conditions = and(
+        conditions,
+        or(...assetTypes.map((assetType) => eq(assetTypeExpression, assetType)))
       )
     }
     if (indicatorId) {

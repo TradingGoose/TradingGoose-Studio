@@ -141,9 +141,7 @@ export const resolveConfigBoardContextPatch = ({
     }
   })
 
-  if (sourceCard) {
-    draftPatch.isActive = decodedContext.statusLane === 'active'
-  }
+  draftPatch.isActive = decodedContext.statusLane === 'active'
 
   const providerId = draftPatch.providerId ?? sourceCard?.providerId
   const interval = draftPatch.interval ?? sourceCard?.interval

@@ -137,6 +137,7 @@ describe('useMonitorWorkspaceLogs', () => {
 
     applyMonitorQuickFiltersToExportParams(params, [
       { field: 'provider', operator: 'include', values: ['alpaca'] },
+      { field: 'assetType', operator: 'include', values: ['stock'] },
       { field: 'monitor', operator: 'include', values: ['monitor-1'] },
       { field: 'workflow', operator: 'include', values: ['workflow-1'] },
       { field: 'trigger', operator: 'include', values: ['manual'] },
@@ -144,6 +145,7 @@ describe('useMonitorWorkspaceLogs', () => {
     ])
 
     expect(params.get('providerId')).toBe('alpaca')
+    expect(params.get('assetType')).toBe('stock')
     expect(params.get('monitorId')).toBe('monitor-1')
     expect(params.get('workflowIds')).toBe('workflow-1')
     expect(params.get('triggers')).toBe('manual')
@@ -169,6 +171,90 @@ describe('useMonitorWorkspaceLogs', () => {
         isOrphaned: true,
       })
     )
+  })
+
+  it('reads monitor snapshots from enhanced API rows and derives endedAt from duration', async () => {
+    mockUseLogsList.mockReturnValue({
+      data: {
+        pages: [
+          {
+            logs: [
+              {
+                id: 'log-1',
+                workspaceId: 'workspace-1',
+                workflowId: 'wf-1',
+                executionId: 'exec-1',
+                level: 'info',
+                duration: '300000ms',
+                trigger: 'indicator_trigger',
+                createdAt: '2026-04-23T00:00:00.000Z',
+                workflow: { name: 'Workflow One', color: '#3972F6' },
+                cost: { total: 0.12 },
+                executionData: {
+                  enhanced: true,
+                  totalDuration: 300000,
+                  trigger: {
+                    source: 'indicator_trigger',
+                    data: {
+                      monitor: {
+                        id: 'monitor-1',
+                        providerId: 'alpaca',
+                        interval: '1m',
+                        indicatorId: 'rsi',
+                        listing: {
+                          listing_type: 'default',
+                          listing_id: 'AAPL',
+                          assetClass: 'stock',
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            ],
+          },
+        ],
+      },
+      hasNextPage: false,
+      isFetchingNextPage: false,
+      isLoading: false,
+      isFetching: false,
+      error: null,
+      fetchNextPage: vi.fn(),
+      refetch: vi.fn(),
+    } as any)
+
+    const snapshots: ReturnType<typeof useMonitorWorkspaceLogs>[] = []
+
+    await act(async () => {
+      root.render(
+        createElement(HookHarness, {
+          viewConfig: {
+            ...DEFAULT_EXECUTION_MONITOR_VIEW_CONFIG,
+            quickFilters: [{ field: 'assetType', operator: 'include', values: ['stock'] }],
+          },
+          monitors: [{ monitorId: 'monitor-1' } as IndicatorMonitorRecord],
+          onRender: (value) => {
+            snapshots.push(value)
+          },
+        })
+      )
+    })
+
+    expect(snapshots.at(-1)?.executionItems[0]).toEqual(
+      expect.objectContaining({
+        monitorId: 'monitor-1',
+        providerId: 'alpaca',
+        interval: '1m',
+        listingLabel: 'AAPL',
+        assetType: 'stock',
+        durationMs: 300000,
+        endedAt: '2026-04-23T00:05:00.000Z',
+        isOrphaned: false,
+        isPartial: false,
+      })
+    )
+    expect(snapshots.at(-1)?.orderedVisibleLogIds).toEqual(['log-1'])
   })
 
   it('keeps loading until all execution pages are fetched and exposes layout-ordered ids', async () => {

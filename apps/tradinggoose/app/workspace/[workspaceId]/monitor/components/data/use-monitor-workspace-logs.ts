@@ -31,6 +31,7 @@ const QUICK_FILTER_FIELD_TO_EXPORT_PARAM: Partial<
 > = {
   workflow: 'workflowIds',
   trigger: 'triggers',
+  assetType: 'assetType',
   provider: 'providerId',
   interval: 'interval',
   monitor: 'monitorId',
@@ -50,6 +51,7 @@ type MonitorWorkflowLog = WorkflowLog & {
   durationMs?: number | null
   outcome?: MonitorExecutionOutcome
   executionData?: WorkflowLog['executionData'] & {
+    totalDuration?: number | null
     trigger?: {
       data?: {
         monitor?: any
@@ -71,13 +73,9 @@ const getListingLabel = (listing: any) => {
 
 const normalizeFilterValue = (value: string | null | undefined) => value?.trim().toLowerCase() ?? ''
 
-const serializeQuickFilterValue = (
-  field: ExecutionMonitorQuickFilterField,
-  value: string
-) => {
+const serializeQuickFilterValue = (field: ExecutionMonitorQuickFilterField, value: string) => {
   const trimmed = value.trim()
-  const prefix =
-    field === 'workflow' || field === 'monitor' || field === 'provider' ? '#' : ''
+  const prefix = field === 'workflow' || field === 'monitor' || field === 'provider' ? '#' : ''
   const rawValue = `${prefix}${trimmed}`
   return /\s/.test(rawValue) ? JSON.stringify(rawValue) : rawValue
 }
@@ -86,6 +84,23 @@ const parseDurationMs = (duration: string | null | undefined) => {
   if (!duration) return null
   const match = /^(\d+(?:\.\d+)?)ms$/.exec(duration.trim())
   return match ? Number(match[1]) : null
+}
+
+const getDurationMs = (log: MonitorWorkflowLog) =>
+  log.durationMs ??
+  (typeof log.executionData?.totalDuration === 'number' ? log.executionData.totalDuration : null) ??
+  parseDurationMs(log.duration)
+
+const getEndedAt = (
+  startedAt: string,
+  endedAt: string | null | undefined,
+  durationMs: number | null
+) => {
+  if (endedAt) return endedAt
+  if (durationMs === null) return null
+
+  const startedAtMs = new Date(startedAt).getTime()
+  return Number.isFinite(startedAtMs) ? new Date(startedAtMs + durationMs).toISOString() : null
 }
 
 const normalizeOutcome = (log: MonitorWorkflowLog): MonitorExecutionOutcome => {
@@ -122,9 +137,8 @@ export const createMonitorQuickFilterClause = (
   }
 }
 
-export const buildMonitorWorkspaceSearchQuery = (
-  viewConfig: MonitorWorkspaceQueryConfig
-): string => viewConfig.filterQuery.trim()
+export const buildMonitorWorkspaceSearchQuery = (viewConfig: MonitorWorkspaceQueryConfig): string =>
+  viewConfig.filterQuery.trim()
 
 export const buildMonitorExecutionLogFilters = (viewConfig: ExecutionMonitorViewConfig) => ({
   timeRange: 'All time',
@@ -142,9 +156,7 @@ const mergeCsvParamValue = (current: string | null, values: string[]) => {
   const merged = new Set<string>()
   const existingValues = current ? current.split(',') : []
 
-  for (const value of [...existingValues, ...values]
-    .map((value) => value.trim())
-    .filter(Boolean)) {
+  for (const value of [...existingValues, ...values].map((value) => value.trim()).filter(Boolean)) {
     merged.add(value)
   }
 
@@ -194,11 +206,10 @@ const getQuickFilterValues = (
   }
 }
 
-const matchesQuickFilter = (
-  item: MonitorExecutionItem,
-  filter: ExecutionMonitorQuickFilter
-) => {
-  const itemValues = getQuickFilterValues(item, filter.field).map(normalizeFilterValue).filter(Boolean)
+const matchesQuickFilter = (item: MonitorExecutionItem, filter: ExecutionMonitorQuickFilter) => {
+  const itemValues = getQuickFilterValues(item, filter.field)
+    .map(normalizeFilterValue)
+    .filter(Boolean)
   const filterValues = filter.values.map(normalizeFilterValue).filter(Boolean)
 
   if (filter.operator === 'has') {
@@ -215,39 +226,44 @@ const matchesQuickFilter = (
   return filter.operator === 'exclude' ? !hasMatch : hasMatch
 }
 
-const matchesQuickFilters = (
-  item: MonitorExecutionItem,
-  filters: ExecutionMonitorQuickFilter[]
-) => filters.every((filter) => matchesQuickFilter(item, filter))
+const matchesQuickFilters = (item: MonitorExecutionItem, filters: ExecutionMonitorQuickFilter[]) =>
+  filters.every((filter) => matchesQuickFilter(item, filter))
 
 const toExecutionItem = (
   log: MonitorWorkflowLog,
   liveMonitorIds: Set<string>
 ): MonitorExecutionItem => {
   const snapshot = log.executionData?.trigger?.data?.monitor ?? null
-  const listing = toListingValueObject(snapshot?.listing ?? null)
+  const startedAt = log.startedAt ?? log.createdAt
+  const durationMs = getDurationMs(log)
+  const endedAt = getEndedAt(startedAt, log.endedAt, durationMs)
+  const rawListing = snapshot?.listing ?? null
+  const listing = toListingValueObject(rawListing)
   const monitorId = typeof snapshot?.id === 'string' ? snapshot.id : null
   const providerId = typeof snapshot?.providerId === 'string' ? snapshot.providerId : null
   const interval = typeof snapshot?.interval === 'string' ? snapshot.interval : null
   const indicatorId = typeof snapshot?.indicatorId === 'string' ? snapshot.indicatorId : null
-  const listingWithAssetClass = listing as (typeof listing & {
+  const listingWithAssetClass = rawListing as {
     assetClass?: string
     base_asset_class?: string
-  }) | null
+    listing_type?: string
+  } | null
   const assetType =
-    (typeof listingWithAssetClass?.assetClass === 'string' && listingWithAssetClass.assetClass.trim()) ||
+    (typeof listingWithAssetClass?.assetClass === 'string' &&
+      listingWithAssetClass.assetClass.trim()) ||
     (typeof listingWithAssetClass?.base_asset_class === 'string' &&
       listingWithAssetClass.base_asset_class.trim()) ||
-    (typeof listing?.listing_type === 'string' && listing.listing_type.trim()) ||
+    (typeof listingWithAssetClass?.listing_type === 'string' &&
+      listingWithAssetClass.listing_type.trim()) ||
     'unknown'
 
   return {
     logId: log.id,
     workflowId: log.workflowId ?? 'unknown',
     executionId: log.executionId ?? null,
-    startedAt: log.startedAt ?? log.createdAt,
-    endedAt: log.endedAt ?? null,
-    durationMs: log.durationMs ?? parseDurationMs(log.duration),
+    startedAt,
+    endedAt,
+    durationMs,
     outcome: normalizeOutcome(log),
     trigger: log.trigger,
     workflowName: log.workflow?.name || 'Unknown workflow',
@@ -277,14 +293,10 @@ export function useMonitorWorkspaceLogs({
 }) {
   const filters = useMemo(() => buildMonitorExecutionLogFilters(viewConfig), [viewConfig])
 
-  const logsQuery = useLogsList(
-    workspaceId,
-    filters,
-    {
-      enabled: Boolean(workspaceId),
-      refetchInterval: false,
-    }
-  )
+  const logsQuery = useLogsList(workspaceId, filters, {
+    enabled: Boolean(workspaceId),
+    refetchInterval: false,
+  })
 
   useEffect(() => {
     if (!logsQuery.hasNextPage || logsQuery.isFetchingNextPage) {
@@ -294,7 +306,10 @@ export function useMonitorWorkspaceLogs({
     void logsQuery.fetchNextPage()
   }, [logsQuery])
 
-  const liveMonitorIds = useMemo(() => new Set(monitors.map((monitor) => monitor.monitorId)), [monitors])
+  const liveMonitorIds = useMemo(
+    () => new Set(monitors.map((monitor) => monitor.monitorId)),
+    [monitors]
+  )
 
   const executionItems = useMemo(() => {
     const logs = logsQuery.data?.pages.flatMap((page) => page.logs) ?? []
@@ -302,10 +317,7 @@ export function useMonitorWorkspaceLogs({
       .map((log) => toExecutionItem(log, liveMonitorIds))
       .filter((item) => matchesQuickFilters(item, viewConfig.quickFilters))
 
-    return sortExecutionItems(
-      filteredItems,
-      viewConfig.sortBy
-    )
+    return sortExecutionItems(filteredItems, viewConfig.sortBy)
   }, [liveMonitorIds, logsQuery.data?.pages, viewConfig.quickFilters, viewConfig.sortBy])
 
   const orderedVisibleLogIds = useMemo(
