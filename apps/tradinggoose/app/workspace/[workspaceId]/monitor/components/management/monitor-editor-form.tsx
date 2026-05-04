@@ -15,9 +15,7 @@ import { Switch } from '@/components/ui/switch'
 import type { InputMetaMap } from '@/lib/indicators/types'
 import { toListingValue } from '@/lib/listing/identity'
 import { cn } from '@/lib/utils'
-import type { SubBlockConfig } from '@/blocks/types'
 import type { MarketProviderParamDefinition } from '@/providers/market/providers'
-import { ShortInput } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/components/short-input'
 import { getProviderIntervalFallback } from '../config/config-draft'
 import type {
   IndicatorOption,
@@ -42,7 +40,6 @@ type MonitorEditorFormProps = {
   nonSecretDefinitions: MarketProviderParamDefinition[]
   secretDefinitions: MarketProviderParamDefinition[]
   listingInstanceId: string | null
-  workspaceId: string
   onCancel: () => void
   onSave: () => void
   onUpdateDraft: (patch: Partial<MonitorDraft>) => void
@@ -66,7 +63,6 @@ export function MonitorEditorForm({
   nonSecretDefinitions,
   secretDefinitions,
   listingInstanceId,
-  workspaceId,
   onCancel,
   onSave,
   onUpdateDraft,
@@ -191,29 +187,21 @@ export function MonitorEditorForm({
               {secretDefinitions.map((definition) => {
                 const key = `secret:${definition.id}`
                 const normalizedId = definition.id.replace(/\s+/g, '').toLowerCase()
-                const shortInputConfig: SubBlockConfig = {
-                  id: definition.id,
-                  title: definition.title ?? definition.id,
-                  type: 'short-input',
-                  inputType: definition.type === 'number' ? 'number' : 'text',
-                  placeholder: definition.placeholder ?? definition.title ?? definition.id,
-                  connectionDroppable: false,
-                }
+                const isPassword = definition.password || normalizedId.includes('secret')
                 return (
                   <div key={definition.id} className='space-y-1'>
-                    <ShortInput
-                      blockId={`monitor-auth-${editingKey ?? 'new'}`}
-                      subBlockId={definition.id}
-                      inputId={`monitor-secret-${definition.id}`}
-                      isConnecting={false}
-                      config={shortInputConfig}
+                    <Input
+                      id={`monitor-secret-${definition.id}`}
                       value={draft.secretValues[definition.id] ?? ''}
-                      onChange={(value) => onUpdateSecretValue(definition.id, value)}
+                      onChange={(event) =>
+                        onUpdateSecretValue(definition.id, event.target.value)
+                      }
                       placeholder={definition.title || definition.id}
-                      password={definition.password || normalizedId.includes('secret')}
-                      workspaceId={workspaceId}
-                      enableTags={false}
-                      forceEnvVarDropdown
+                      type={
+                        definition.type === 'number' ? 'number' : isPassword ? 'password' : 'text'
+                      }
+                      autoComplete='off'
+                      disabled={saving}
                     />
                     {errors[key] ? (
                       <p className='text-[11px] text-destructive'>{errors[key]}</p>

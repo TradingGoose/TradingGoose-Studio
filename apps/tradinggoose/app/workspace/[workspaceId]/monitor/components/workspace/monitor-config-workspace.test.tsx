@@ -66,6 +66,39 @@ const referenceData: MonitorReferenceData = {
   warning: null,
 }
 
+const referenceDataWithProviderParams: MonitorReferenceData = {
+  ...referenceData,
+  providerParamDefinitionsByProviderId: {
+    alpaca: [
+      {
+        id: 'apiKey',
+        type: 'string',
+        title: 'API Key',
+        required: true,
+        password: true,
+      },
+      {
+        id: 'apiSecret',
+        type: 'string',
+        title: 'API Secret',
+        required: true,
+        password: true,
+      },
+      {
+        id: 'feed',
+        type: 'string',
+        title: 'Feed',
+        required: true,
+        inputType: 'dropdown',
+        options: [
+          { id: 'sip', label: 'SIP' },
+          { id: 'iex', label: 'IEX' },
+        ],
+      },
+    ],
+  },
+}
+
 const monitor = {
   monitorId: 'monitor-1',
   workflowId: 'workflow-1',
@@ -269,5 +302,48 @@ describe('MonitorConfigWorkspace', () => {
     expect(container.textContent).toContain('Active')
     expect(container.textContent).toContain('Paused')
     expect(container.querySelector('button[aria-label^="Add monitor"]')).not.toBeNull()
+  })
+
+  it('opens the real provider create form without throwing', async () => {
+    await act(async () => {
+      root.render(
+        <MonitorConfigWorkspace
+          workspaceId='workspace-1'
+          viewStateMode='server'
+          viewStateReloading={false}
+          viewsError={null}
+          effectiveConfig={DEFAULT_CONFIG_MONITOR_VIEW_CONFIG}
+          panelSizes={null}
+          monitorRecords={[]}
+          monitorsLoading={false}
+          monitorsError={null}
+          referenceData={referenceDataWithProviderParams}
+          monitorActions={{
+            createMonitor: vi.fn(),
+            updateMonitor: vi.fn(),
+            toggleMonitorState: vi.fn(),
+            deleteMonitor: vi.fn(),
+          }}
+          onPanelLayout={vi.fn()}
+          onUpdateViewConfig={vi.fn()}
+          onReloadViews={vi.fn()}
+        />
+      )
+    })
+
+    const addMonitorButton = container.querySelector('button[aria-label^="Add monitor"]')
+    if (!(addMonitorButton instanceof HTMLButtonElement)) {
+      throw new Error('Expected Add monitor button to render')
+    }
+
+    await act(async () => {
+      addMonitorButton.click()
+      await Promise.resolve()
+    })
+
+    expect(container.textContent).toContain('Create Monitor')
+    expect(container.textContent).toContain('Feed')
+    expect(container.querySelector('input#monitor-secret-apiKey')).not.toBeNull()
+    expect(container.querySelector('input#monitor-secret-apiSecret')).not.toBeNull()
   })
 })

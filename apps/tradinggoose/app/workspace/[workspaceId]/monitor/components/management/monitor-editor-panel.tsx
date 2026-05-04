@@ -18,7 +18,6 @@ import { MonitorEditorForm } from './monitor-editor-form'
 import type { MonitorEditorState } from './use-monitor-editor-state'
 
 type MonitorEditorPanelProps = {
-  workspaceId: string
   editorState: MonitorEditorState
   referenceData: MonitorReferenceData
   createDisabled?: boolean
@@ -115,7 +114,6 @@ function MonitorDetails({
 }
 
 function EditorContent({
-  workspaceId,
   createDisabled = false,
   editorState,
   referenceData,
@@ -151,7 +149,6 @@ function EditorContent({
           nonSecretDefinitions={editorState.editingNonSecretDefinitions}
           secretDefinitions={editorState.editingSecretDefinitions}
           listingInstanceId={editorState.editingListingInstanceId}
-          workspaceId={workspaceId}
           onCancel={editorState.closeEditor}
           onSave={() => void editorState.persistDraft()}
           onUpdateDraft={editorState.updateDraft}
@@ -171,7 +168,6 @@ function EditorContent({
 }
 
 export function MonitorEditorPanel({
-  workspaceId,
   createDisabled = false,
   editorState,
   referenceData,
@@ -179,7 +175,6 @@ export function MonitorEditorPanel({
   const isMobile = useIsMobile()
   const content = (
     <EditorContent
-      workspaceId={workspaceId}
       editorState={editorState}
       referenceData={{
         ...referenceData,

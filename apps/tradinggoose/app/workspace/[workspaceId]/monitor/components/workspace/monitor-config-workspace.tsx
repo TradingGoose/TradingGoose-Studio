@@ -460,7 +460,6 @@ export function MonitorConfigWorkspace({
   const hasEditorPanel = editorState.isEditorOpen || Boolean(editorState.selectedMonitor)
   const editor = hasEditorPanel ? (
     <MonitorEditorPanel
-      workspaceId={workspaceId}
       editorState={editorState}
       referenceData={referenceData}
       createDisabled={controlsDisabled}
