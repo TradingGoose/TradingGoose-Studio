@@ -371,6 +371,8 @@ describe('logs route', () => {
     expect(body.data[0]).toEqual(
       expect.objectContaining({
         id: 'log-1',
+        createdAt: '2026-04-23T00:00:00.000Z',
+        recordCreatedAt: '2026-04-23T00:00:00.000Z',
         durationMs: 300000,
         executionData: expect.objectContaining({
           traceSpans: [
@@ -383,7 +385,6 @@ describe('logs route', () => {
         }),
       })
     )
-    expect(body.data[0]?.createdAt).toBeUndefined()
   })
 
   it('fails instead of falling back to createdAt when startedAt is missing', async () => {
