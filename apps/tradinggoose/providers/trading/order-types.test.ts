@@ -68,6 +68,11 @@ describe('trading order type helpers', () => {
       getStrictTradingOrderTypeDefinitions('tradier', { listing: assetlessListing }).length
     ).toBeGreaterThan(0)
     expect(getStrictTradingOrderTypeDefinitions('alpaca', { listing: etfListing })).toEqual([])
+    expect(
+      getStrictTradingOrderTypeDefinitions('alpaca', { listing: cryptoListing }).map(
+        (definition) => definition.id
+      )
+    ).toEqual(['market', 'limit', 'stop_limit'])
     expect(getTradingOrderTypeOptions('alpaca', { listing: etfListing })).toEqual(
       expect.arrayContaining([expect.objectContaining({ id: 'market' })])
     )

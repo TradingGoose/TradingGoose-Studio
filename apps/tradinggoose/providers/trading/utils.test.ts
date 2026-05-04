@@ -94,6 +94,14 @@ describe('trading listing utility helpers', () => {
     expect(isTradingOrderListingSupported('alpaca', etfListing)).toBe(false)
     expect(isTradingOrderListingSupported('alpaca', assetlessListing)).toBe(true)
     expect(
+      isTradingOrderListingSupported('alpaca', {
+        listing_type: 'crypto',
+        listing_id: '',
+        base_id: 'BTC',
+        quote_id: 'USD',
+      })
+    ).toBe(true)
+    expect(
       isTradingOrderListingSupported('tradier', {
         listing_type: 'currency',
         listing_id: '',
