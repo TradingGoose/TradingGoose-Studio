@@ -10,6 +10,7 @@ describe('Workspaces API Route', () => {
   const updateWhereMock = vi.fn()
   const updateSetMock = vi.fn()
   const updateMock = vi.fn()
+  let sessionUserName: string | null = 'Bruz Gomez'
   const userWorkspacesQuery = {
     from: vi.fn(() => ({
       innerJoin: vi.fn(() => ({
@@ -34,6 +35,7 @@ describe('Workspaces API Route', () => {
     vi.resetModules()
     vi.clearAllMocks()
     userWorkspaces = []
+    sessionUserName = 'Bruz Gomez'
     insertedValues.length = 0
 
     updateWhereMock.mockResolvedValue([])
@@ -84,12 +86,12 @@ describe('Workspaces API Route', () => {
     }))
 
     vi.doMock('@/lib/auth', () => ({
-      getSession: vi.fn().mockResolvedValue({
+      getSession: vi.fn(async () => ({
         user: {
           id: 'user-1',
-          name: 'Bruz',
+          name: sessionUserName,
         },
-      }),
+      })),
     }))
 
     vi.doMock('@/lib/logs/console/logger', () => ({
@@ -188,7 +190,28 @@ describe('Workspaces API Route', () => {
     expect(transactionMock).not.toHaveBeenCalled()
   })
 
-  it('creates a localized default workspace when auto-bootstrapping the first workspace', async () => {
+  it("personalizes the default workspace name from the user's first name", async () => {
+    const { GET } = await import('@/app/api/workspaces/route')
+
+    const response = await GET(new NextRequest('http://localhost/api/workspaces'))
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(data.workspaces).toHaveLength(1)
+    expect(data.workspaces[0].name).toBe("Bruz's Workspace")
+    expect(transactionMock).toHaveBeenCalled()
+    expect(
+      insertedValues.some(
+        (values) =>
+          values.description ===
+            getPublicCopy('en').workspace.defaults.defaultWorkflowDescription &&
+          values.name === 'default-agent'
+      )
+    ).toBe(true)
+  })
+
+  it('falls back to localized default workspace copy when no user name is available', async () => {
+    sessionUserName = null
     const copy = getPublicCopy('es')
     const { GET } = await import('@/app/api/workspaces/route')
 
@@ -204,13 +227,5 @@ describe('Workspaces API Route', () => {
     expect(response.status).toBe(200)
     expect(data.workspaces).toHaveLength(1)
     expect(data.workspaces[0].name).toBe(copy.workspace.defaults.newWorkspaceName)
-    expect(transactionMock).toHaveBeenCalled()
-    expect(
-      insertedValues.some(
-        (values) =>
-          values.description === copy.workspace.defaults.defaultWorkflowDescription &&
-          values.name === 'default-agent'
-      )
-    ).toBe(true)
   })
 })

@@ -5,13 +5,13 @@ import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
-import { getPublicCopy } from '@/i18n/public-copy'
-import { defaultLocale, isLocaleCode, type LocaleCode } from '@/i18n/utils'
 import { saveWorkflowToNormalizedTables } from '@/lib/workflows/db-helpers'
 import { buildDefaultWorkflowArtifacts } from '@/lib/workflows/defaults'
 import { toWorkspaceApiRecord } from '@/lib/workspaces/billing-owner'
 import { tryApplyWorkflowState } from '@/lib/yjs/server/apply-workflow-state'
 import { createWorkflowSnapshot } from '@/lib/yjs/workflow-session'
+import { getPublicCopy } from '@/i18n/public-copy'
+import { defaultLocale, isLocaleCode, type LocaleCode } from '@/i18n/utils'
 
 const logger = createLogger('Workspaces')
 const createWorkspaceSchema = z.object({
@@ -46,7 +46,11 @@ export async function GET(request: NextRequest) {
     }
 
     // Create a default workspace for the user
-    const defaultWorkspace = await createDefaultWorkspace(session.user.id, locale)
+    const defaultWorkspace = await createDefaultWorkspace(
+      session.user.id,
+      session.user.name,
+      locale
+    )
 
     // Migrate existing workflows to the default workspace
     await migrateExistingWorkflows(session.user.id, defaultWorkspace.id)
@@ -94,8 +98,15 @@ export async function POST(req: Request) {
 }
 
 // Helper function to create a default workspace
-async function createDefaultWorkspace(userId: string, locale: LocaleCode = defaultLocale) {
-  const workspaceName = getPublicCopy(locale).workspace.defaults.newWorkspaceName
+async function createDefaultWorkspace(
+  userId: string,
+  userName: string | null | undefined,
+  locale: LocaleCode = defaultLocale
+) {
+  const firstName = userName?.trim().split(/\s+/)[0]
+  const workspaceName = firstName
+    ? `${firstName}'s Workspace`
+    : getPublicCopy(locale).workspace.defaults.newWorkspaceName
   return createWorkspace(userId, workspaceName, locale)
 }
 
