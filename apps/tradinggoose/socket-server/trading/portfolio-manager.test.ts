@@ -218,6 +218,50 @@ describe('TradingPortfolioStreamManager', () => {
     manager.removeSocket(secondSocket.id)
   })
 
+  it('keeps duplicate client subscription ids isolated across sockets', async () => {
+    vi.useFakeTimers()
+    const manager = new TradingPortfolioStreamManager()
+    const firstSocket = createSocket('socket-1')
+    const secondSocket = createSocket('socket-2')
+
+    const first = await manager.subscribe(firstSocket, {
+      provider: 'alpaca',
+      workspaceId: 'workspace-1',
+      accountId: 'acct-1',
+      channel: 'account-snapshot',
+      clientSubscriptionId: 'portfolio_snapshot',
+    })
+    const second = await manager.subscribe(secondSocket, {
+      provider: 'alpaca',
+      workspaceId: 'workspace-1',
+      accountId: 'acct-1',
+      channel: 'account-snapshot',
+      clientSubscriptionId: 'portfolio_snapshot',
+    })
+
+    expect(first.subscriptionId).not.toBe(second.subscriptionId)
+
+    await flushPortfolioPolls()
+
+    expect(firstSocket.emit).toHaveBeenCalledWith(
+      'trading-portfolio-snapshot',
+      expect.objectContaining({
+        subscriptionId: first.subscriptionId,
+        clientSubscriptionId: 'portfolio_snapshot',
+      })
+    )
+    expect(secondSocket.emit).toHaveBeenCalledWith(
+      'trading-portfolio-snapshot',
+      expect.objectContaining({
+        subscriptionId: second.subscriptionId,
+        clientSubscriptionId: 'portfolio_snapshot',
+      })
+    )
+
+    manager.removeSocket(firstSocket.id)
+    manager.removeSocket(secondSocket.id)
+  })
+
   it('dedupes account pulls across snapshot and performance streams for the same account', async () => {
     vi.useFakeTimers()
     const manager = new TradingPortfolioStreamManager()

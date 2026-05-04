@@ -3,20 +3,19 @@
  */
 
 import { describe, expect, it } from 'vitest'
-import { ALPACA_SUPPORTED_TRADING_PORTFOLIO_WINDOWS } from '@/providers/trading/alpaca/performance'
 import {
   getTradingPortfolioSupportedWindows,
   isTradingPortfolioWindowSupported,
 } from '@/providers/trading/portfolio'
-import { TRADIER_SUPPORTED_TRADING_PORTFOLIO_WINDOWS } from '@/providers/trading/tradier/performance'
+import { getTradingHoldingsCapabilities } from '@/providers/trading/providers'
 
 describe('Trading portfolio window contract', () => {
-  it('reuses the provider-specific supported window lists', () => {
+  it('reuses the provider definition supported window lists', () => {
     expect(getTradingPortfolioSupportedWindows('alpaca')).toEqual(
-      ALPACA_SUPPORTED_TRADING_PORTFOLIO_WINDOWS
+      getTradingHoldingsCapabilities('alpaca')?.performanceWindows
     )
     expect(getTradingPortfolioSupportedWindows('tradier')).toEqual(
-      TRADIER_SUPPORTED_TRADING_PORTFOLIO_WINDOWS
+      getTradingHoldingsCapabilities('tradier')?.performanceWindows
     )
   })
 

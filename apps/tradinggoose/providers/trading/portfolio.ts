@@ -1,15 +1,10 @@
 import { getAlpacaTradingAccounts } from '@/providers/trading/alpaca/accounts'
-import {
-  ALPACA_SUPPORTED_TRADING_PORTFOLIO_WINDOWS,
-  getAlpacaTradingAccountPerformance,
-} from '@/providers/trading/alpaca/performance'
+import { getAlpacaTradingAccountPerformance } from '@/providers/trading/alpaca/performance'
 import { getAlpacaTradingAccountSnapshot } from '@/providers/trading/alpaca/snapshot'
 import { getTradierTradingAccounts } from '@/providers/trading/tradier/accounts'
-import {
-  getTradierTradingAccountPerformance,
-  TRADIER_SUPPORTED_TRADING_PORTFOLIO_WINDOWS,
-} from '@/providers/trading/tradier/performance'
+import { getTradierTradingAccountPerformance } from '@/providers/trading/tradier/performance'
 import { getTradierTradingAccountSnapshot } from '@/providers/trading/tradier/snapshot'
+import { getTradingHoldingsCapabilities } from '@/providers/trading/providers'
 import type {
   TradingPortfolioAccountContext,
   TradingPortfolioBaseContext,
@@ -20,15 +15,10 @@ import type {
   UnifiedTradingPortfolioPerformance,
 } from '@/providers/trading/types'
 
-const TRADING_PORTFOLIO_SUPPORTED_WINDOWS: Record<string, TradingPortfolioPerformanceWindow[]> = {
-  alpaca: [...ALPACA_SUPPORTED_TRADING_PORTFOLIO_WINDOWS],
-  tradier: [...TRADIER_SUPPORTED_TRADING_PORTFOLIO_WINDOWS],
-}
-
 export const getTradingPortfolioSupportedWindows = (
   providerId: TradingProviderId
 ): TradingPortfolioPerformanceWindow[] => {
-  return [...(TRADING_PORTFOLIO_SUPPORTED_WINDOWS[providerId] ?? [])]
+  return [...(getTradingHoldingsCapabilities(providerId)?.performanceWindows ?? [])]
 }
 
 export const isTradingPortfolioWindowSupported = (providerId: TradingProviderId, window: string) =>

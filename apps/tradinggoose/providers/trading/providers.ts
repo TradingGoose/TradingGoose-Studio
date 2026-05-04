@@ -14,6 +14,7 @@ import type {
   TradingOrderDetailResult,
   TradingOrderHistoryRecord,
   TradingOrderInput,
+  TradingPortfolioPerformanceWindow,
   TradingProviderId,
   TradingProviderOAuthConfig,
   TradingRequestConfig,
@@ -43,6 +44,7 @@ export interface TradingOrderInputCapabilities {
 
 export interface TradingHoldingsInputCapabilities {
   supportsPositions?: boolean
+  performanceWindows?: TradingPortfolioPerformanceWindow[]
 }
 
 export interface TradingProviderCapabilities {
@@ -278,6 +280,12 @@ export function getTradingProviderCapabilities(
   providerId: TradingProviderId
 ): TradingProviderCapabilities | null {
   return TRADING_PROVIDER_DEFINITIONS[providerId]?.config.capabilities || null
+}
+
+export function getTradingHoldingsCapabilities(
+  providerId: TradingProviderId
+): TradingHoldingsInputCapabilities | null {
+  return getTradingProviderCapabilities(providerId)?.holdings || null
 }
 
 export function getTradingProviderKinds(providerId: TradingProviderId): TradingOperationKind[] {

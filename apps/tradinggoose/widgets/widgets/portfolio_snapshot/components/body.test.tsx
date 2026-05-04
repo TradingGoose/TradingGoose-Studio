@@ -280,6 +280,35 @@ describe('PortfolioSnapshotWidgetBody', () => {
     })
   })
 
+  it('renders performance windows from the selected trading provider', async () => {
+    await act(async () => {
+      root.render(
+        <PortfolioSnapshotWidgetBody
+          widget={{ key: 'portfolio_snapshot' } as any}
+          panelId='panel-1'
+          params={{
+            provider: 'tradier',
+            accountId: 'acct-1',
+            selectedWindow: 'MAX',
+          }}
+        />
+      )
+    })
+
+    const windows = Array.from(container.querySelectorAll('[role="tab"]')).map((button) =>
+      button.textContent?.trim()
+    )
+
+    expect(windows).toEqual(['1W', '1M', 'YTD', '1Y', 'MAX'])
+    expect(windows).not.toContain('1D')
+    expect(mockUseTradingPortfolioPerformance).toHaveBeenCalledWith(
+      expect.objectContaining({
+        provider: 'tradier',
+        selectedWindow: 'MAX',
+      })
+    )
+  })
+
   it('preserves a saved account when the accounts query errors', async () => {
     mockUseTradingAccounts.mockReturnValue(
       createQueryResult({

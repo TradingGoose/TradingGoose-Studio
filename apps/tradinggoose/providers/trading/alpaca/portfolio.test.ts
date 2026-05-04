@@ -10,6 +10,7 @@ import {
   normalizeAlpacaPortfolioHistoryResponse,
 } from '@/providers/trading/alpaca/performance'
 import { getAlpacaTradingAccountSnapshot } from '@/providers/trading/alpaca/snapshot'
+import { getTradingPortfolioSupportedWindows } from '@/providers/trading/portfolio'
 
 describe('Alpaca portfolio helpers', () => {
   beforeEach(() => {
@@ -249,5 +250,26 @@ describe('Alpaca portfolio helpers', () => {
     expect(performance.summary).toBeNull()
     expect(performance.series).toEqual([])
     expect(performance.unavailableReason).toBeTruthy()
+  })
+
+  it('returns an explicit unavailable payload for unsupported Alpaca windows', async () => {
+    const fetchMock = global.fetch as unknown as ReturnType<typeof vi.fn>
+
+    const performance = await getAlpacaTradingAccountPerformance({
+      providerId: 'alpaca',
+      environment: 'live',
+      accessToken: 'token',
+      accountId: 'acct-live',
+      window: 'MAX',
+    })
+
+    expect(fetchMock).not.toHaveBeenCalled()
+    expect(performance).toEqual({
+      window: 'MAX',
+      supportedWindows: getTradingPortfolioSupportedWindows('alpaca'),
+      series: [],
+      summary: null,
+      unavailableReason: 'Alpaca performance window MAX is not supported',
+    })
   })
 })

@@ -70,7 +70,6 @@ export async function resolveTradingProviderPreflight<T extends ProviderRequestD
   schema,
 }: {
   request: Request
-  requestId: string
   schema: z.ZodSchema<T>
 }): Promise<T | NextResponse> {
   return parseRequestBody(request, schema)

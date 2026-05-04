@@ -3,7 +3,10 @@ import {
   normalizeAlpacaTradingAccount,
 } from '@/providers/trading/alpaca/accounts'
 import { buildAlpacaAuthHeaders } from '@/providers/trading/alpaca/auth'
-import { resolveAlpacaTradingBaseUrl } from '@/providers/trading/alpaca/config'
+import {
+  alpacaTradingProviderConfig,
+  resolveAlpacaTradingBaseUrl,
+} from '@/providers/trading/alpaca/config'
 import {
   buildTradingPortfolioPerformance,
   createUnavailableTradingPortfolioPerformance,
@@ -17,14 +20,18 @@ import type {
   UnifiedTradingPortfolioPerformancePoint,
 } from '@/providers/trading/types'
 
-export const ALPACA_SUPPORTED_TRADING_PORTFOLIO_WINDOWS: TradingPortfolioPerformanceWindow[] = [
-  '1D',
-  '1W',
-  '1M',
-  '3M',
-  'YTD',
-  '1Y',
-]
+type AlpacaTradingPortfolioPerformanceWindow = Exclude<
+  TradingPortfolioPerformanceWindow,
+  'MAX'
+>
+
+const isAlpacaPerformanceWindowSupported = (
+  window: TradingPortfolioPerformanceWindow
+): window is AlpacaTradingPortfolioPerformanceWindow =>
+  window !== 'MAX' && getAlpacaSupportedPerformanceWindows().includes(window)
+
+const getAlpacaSupportedPerformanceWindows = () =>
+  alpacaTradingProviderConfig.capabilities?.holdings?.performanceWindows ?? []
 
 const getNewYorkYear = (now: Date) =>
   Number(
@@ -35,7 +42,7 @@ const getNewYorkYear = (now: Date) =>
   )
 
 export const buildAlpacaPerformanceQueryParams = (
-  window: TradingPortfolioPerformanceWindow,
+  window: AlpacaTradingPortfolioPerformanceWindow,
   now = new Date()
 ) => {
   const year = getNewYorkYear(now)
@@ -72,8 +79,6 @@ export const buildAlpacaPerformanceQueryParams = (
         period: '1A',
         timeframe: '1D',
       }
-    default:
-      throw new Error(`Unsupported Alpaca performance window: ${window}`)
   }
 }
 
@@ -117,7 +122,7 @@ export const normalizeAlpacaPortfolioHistoryResponse = ({
   if (!timestamps || !equity) {
     return createUnavailableTradingPortfolioPerformance({
       window,
-      supportedWindows: ALPACA_SUPPORTED_TRADING_PORTFOLIO_WINDOWS,
+      supportedWindows: getAlpacaSupportedPerformanceWindows(),
       unavailableReason: 'No usable performance data returned by broker',
     })
   }
@@ -142,7 +147,7 @@ export const normalizeAlpacaPortfolioHistoryResponse = ({
 
   return buildTradingPortfolioPerformance({
     window,
-    supportedWindows: ALPACA_SUPPORTED_TRADING_PORTFOLIO_WINDOWS,
+    supportedWindows: getAlpacaSupportedPerformanceWindows(),
     series,
     currency,
     unavailableReason: 'No usable performance data returned by broker',
@@ -152,6 +157,14 @@ export const normalizeAlpacaPortfolioHistoryResponse = ({
 export async function getAlpacaTradingAccountPerformance(
   context: TradingPortfolioAccountContext & { window: TradingPortfolioPerformanceWindow }
 ): Promise<UnifiedTradingPortfolioPerformance> {
+  if (!isAlpacaPerformanceWindowSupported(context.window)) {
+    return createUnavailableTradingPortfolioPerformance({
+      window: context.window,
+      supportedWindows: getAlpacaSupportedPerformanceWindows(),
+      unavailableReason: `Alpaca performance window ${context.window} is not supported`,
+    })
+  }
+
   const baseUrl = resolveAlpacaTradingBaseUrl(context.environment)
   const searchParams = new URLSearchParams()
 

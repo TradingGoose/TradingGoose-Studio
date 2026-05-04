@@ -140,7 +140,7 @@ const fetchCanonicalListing = async ({
 
   const response = await fetch(buildMarketSearchUrl(params), {
     method: 'GET',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { Accept: 'application/json' },
     signal,
   })
   if (!response.ok) return null

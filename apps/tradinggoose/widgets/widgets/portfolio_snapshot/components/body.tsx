@@ -442,7 +442,7 @@ export function PortfolioSnapshotWidgetBody({
   const snapshot = snapshotQuery.data
   const performance = performanceQuery.data
   const currency = performance?.summary?.currency ?? snapshot.account.baseCurrency ?? 'USD'
-  const activeWindows = performance?.supportedWindows ?? supportedWindows
+  const activeWindows = supportedWindows
   const quoteErrorMessage =
     quoteSnapshotsQuery.error instanceof Error
       ? quoteSnapshotsQuery.error.message

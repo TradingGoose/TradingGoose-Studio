@@ -4,6 +4,7 @@ import {
   fetchBrokerJson,
   toFiniteNumber,
 } from '@/providers/trading/portfolio-utils'
+import { tradierTradingProviderConfig } from '@/providers/trading/tradier/config'
 import { buildTradierAuthHeaders, resolveTradierBaseUrl } from '@/providers/trading/tradier/client'
 import type {
   TradingPortfolioAccountContext,
@@ -12,15 +13,22 @@ import type {
   UnifiedTradingPortfolioPerformancePoint,
 } from '@/providers/trading/types'
 
-export const TRADIER_SUPPORTED_TRADING_PORTFOLIO_WINDOWS: TradingPortfolioPerformanceWindow[] = [
-  '1W',
-  '1M',
-  'YTD',
-  '1Y',
-  'MAX',
-]
+const getTradierSupportedPerformanceWindows = () =>
+  tradierTradingProviderConfig.capabilities?.holdings?.performanceWindows ?? []
 
-export const mapTradierPerformanceWindow = (window: TradingPortfolioPerformanceWindow): string => {
+type TradierTradingPortfolioPerformanceWindow = Exclude<
+  TradingPortfolioPerformanceWindow,
+  '1D' | '3M'
+>
+
+const isTradierPerformanceWindowSupported = (
+  window: TradingPortfolioPerformanceWindow
+): window is TradierTradingPortfolioPerformanceWindow =>
+  getTradierSupportedPerformanceWindows().includes(window)
+
+export const mapTradierPerformanceWindow = (
+  window: TradierTradingPortfolioPerformanceWindow
+): string => {
   switch (window) {
     case '1W':
       return 'WEEK'
@@ -32,8 +40,6 @@ export const mapTradierPerformanceWindow = (window: TradingPortfolioPerformanceW
       return 'YEAR'
     case 'MAX':
       return 'ALL'
-    default:
-      throw new Error(`Unsupported Tradier performance window: ${window}`)
   }
 }
 
@@ -94,7 +100,7 @@ export const normalizeTradierHistoricalBalancesResponse = ({
 
   return buildTradingPortfolioPerformance({
     window,
-    supportedWindows: TRADIER_SUPPORTED_TRADING_PORTFOLIO_WINDOWS,
+    supportedWindows: getTradierSupportedPerformanceWindows(),
     series,
     currency: 'USD',
     unavailableReason: 'No usable performance data returned by broker',
@@ -104,10 +110,18 @@ export const normalizeTradierHistoricalBalancesResponse = ({
 export async function getTradierTradingAccountPerformance(
   context: TradingPortfolioAccountContext & { window: TradingPortfolioPerformanceWindow }
 ): Promise<UnifiedTradingPortfolioPerformance> {
+  if (!isTradierPerformanceWindowSupported(context.window)) {
+    return createUnavailableTradingPortfolioPerformance({
+      window: context.window,
+      supportedWindows: getTradierSupportedPerformanceWindows(),
+      unavailableReason: `Tradier performance window ${context.window} is not supported`,
+    })
+  }
+
   if (context.environment === 'paper') {
     return createUnavailableTradingPortfolioPerformance({
       window: context.window,
-      supportedWindows: TRADIER_SUPPORTED_TRADING_PORTFOLIO_WINDOWS,
+      supportedWindows: getTradierSupportedPerformanceWindows(),
       unavailableReason: 'Tradier paper performance is not implemented in portfolio_snapshot v1',
     })
   }

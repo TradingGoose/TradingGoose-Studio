@@ -181,6 +181,7 @@ export const alpacaTradingProviderConfig: TradingProviderConfig = {
     },
     holdings: {
       supportsPositions: true,
+      performanceWindows: ['1D', '1W', '1M', '3M', 'YTD', '1Y'],
     },
   },
   rulePrecedence: {

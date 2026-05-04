@@ -290,7 +290,6 @@ export async function POST(request: Request) {
   const requestId = createTradingProviderRequestId('order')
   const requestData = await resolveTradingProviderPreflight({
     request,
-    requestId,
     schema: orderSchema,
   })
   if (requestData instanceof Response) return requestData

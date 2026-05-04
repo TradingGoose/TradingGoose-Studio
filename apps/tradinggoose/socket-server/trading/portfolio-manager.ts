@@ -205,6 +205,7 @@ export class TradingPortfolioStreamManager {
     })
     const subscriptionId = createSubscriptionId({
       streamKey,
+      socketId: socket.id,
       clientSubscriptionId: payload.clientSubscriptionId,
     })
     const record: TradingPortfolioSubscriptionRecord = {
@@ -706,12 +707,14 @@ function buildAccountsCacheKey(streamState: TradingPortfolioStreamState) {
 
 function createSubscriptionId({
   streamKey,
+  socketId,
   clientSubscriptionId,
 }: {
   streamKey: string
+  socketId: string
   clientSubscriptionId?: string
 }) {
-  return [streamKey, clientSubscriptionId?.trim() || randomUUID()].join(':')
+  return [streamKey, socketId, clientSubscriptionId?.trim() || randomUUID()].join(':')
 }
 
 function mergeSnapshotAccountMetadata({

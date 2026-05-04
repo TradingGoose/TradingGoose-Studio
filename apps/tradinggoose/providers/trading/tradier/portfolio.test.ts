@@ -3,6 +3,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { getTradingPortfolioSupportedWindows } from '@/providers/trading/portfolio'
 import { normalizeTradierTradingAccount } from '@/providers/trading/tradier/accounts'
 import {
   getTradierTradingAccountPerformance,
@@ -151,5 +152,24 @@ describe('Tradier portfolio helpers', () => {
     expect(performance.unavailableReason).toBe(
       'Tradier paper performance is not implemented in portfolio_snapshot v1'
     )
+  })
+
+  it('returns an explicit unavailable payload for unsupported Tradier windows', async () => {
+    const performance = await getTradierTradingAccountPerformance({
+      providerId: 'tradier',
+      environment: 'live',
+      accessToken: 'token',
+      accountId: 'ACC-123',
+      window: '3M',
+    })
+
+    expect(performance).toEqual({
+      window: '3M',
+      supportedWindows: getTradingPortfolioSupportedWindows('tradier'),
+      series: [],
+      summary: null,
+      unavailableReason: 'Tradier performance window 3M is not supported',
+    })
+    expect(global.fetch).not.toHaveBeenCalled()
   })
 })
