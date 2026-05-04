@@ -30,6 +30,7 @@ interface LogFilters {
   triggers: string[]
   searchQuery: string
   limit: number
+  details?: 'basic' | 'full'
   monitorId?: string
   listing?: ListingIdentity
   indicatorId?: string
@@ -77,6 +78,7 @@ function buildQueryParams(workspaceId: string, filters: LogFilters, page: number
   params.set('workspaceId', workspaceId)
   params.set('limit', filters.limit.toString())
   params.set('offset', ((page - 1) * filters.limit).toString())
+  params.set('details', filters.details ?? 'basic')
 
   if (filters.level !== 'all') {
     params.set('level', filters.level)
