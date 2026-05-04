@@ -193,10 +193,11 @@ export const buildMonitorBoardSections = (
       const aggregates = Object.fromEntries(
         config.fieldSums.map((field) => [field, getExecutionAggregate(orderedItems, field)])
       ) as Partial<Record<ExecutionMonitorFieldSum, number>>
+      const limitedItems = column.limit ? orderedItems.slice(0, column.limit) : orderedItems
 
       return {
         ...column,
-        items: orderedItems,
+        items: limitedItems,
         totalCount: orderedItems.length,
         aggregates,
       }

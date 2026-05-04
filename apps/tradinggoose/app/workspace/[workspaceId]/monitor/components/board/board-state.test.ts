@@ -103,6 +103,33 @@ describe('buildMonitorBoardSections', () => {
     expect(sections[0]?.columns[0]?.items.map((item) => item.logId)).toEqual(['log-2', 'log-1'])
   })
 
+  it('limits rendered column items while preserving the column total count', () => {
+    const sections = buildMonitorBoardSections(
+      [
+        buildExecution({ logId: 'log-1' }),
+        buildExecution({ logId: 'log-2', executionId: 'exec-2' }),
+        buildExecution({ logId: 'log-3', executionId: 'exec-3' }),
+      ],
+      {
+        ...DEFAULT_EXECUTION_MONITOR_VIEW_CONFIG,
+        fieldSums: ['count'],
+        kanban: {
+          ...DEFAULT_EXECUTION_MONITOR_VIEW_CONFIG.kanban,
+          columnField: 'outcome',
+          columnLimits: {
+            success: 2,
+          },
+        },
+      }
+    )
+
+    const successColumn = sections[0]?.columns.find((column) => column.fieldId === 'success')
+
+    expect(successColumn?.items.map((item) => item.logId)).toEqual(['log-1', 'log-2'])
+    expect(successColumn?.totalCount).toBe(3)
+    expect(successColumn?.aggregates.count).toBe(3)
+  })
+
   it('uses the shared execution ordering helper for section ordering', () => {
     const sections = buildMonitorBoardSections(
       [
