@@ -31,6 +31,7 @@ import {
 } from '@/app/workspace/[workspaceId]/monitor/components/data/api'
 import { useMonitorReferenceData } from '@/app/workspace/[workspaceId]/monitor/components/data/use-monitor-reference-data'
 import {
+  applyMonitorQuickFiltersToExportParams,
   buildMonitorExecutionLogFilters,
   createMonitorQuickFilterClause,
   useMonitorWorkspaceLogs,
@@ -67,7 +68,7 @@ import { MonitorConfigWorkspace } from '@/app/workspace/[workspaceId]/monitor/co
 import { MonitorExecutionWorkspace } from '@/app/workspace/[workspaceId]/monitor/components/workspace/monitor-execution-workspace'
 import { AutocompleteSearch } from '@/app/workspace/[workspaceId]/logs/components/logs-toolbar'
 import { GlobalNavbarHeader } from '@/global-navbar'
-import { useLogDetail } from '@/hooks/queries/logs'
+import { buildLogsRequestParams, useLogDetail } from '@/hooks/queries/logs'
 
 type MonitorPageProps = {
   workspaceId: string
@@ -651,13 +652,13 @@ export function MonitorPage({ workspaceId, userId }: MonitorPageProps) {
 
   const handleExportExecutionLogs = useCallback(() => {
     const filters = buildMonitorExecutionLogFilters(executionViewConfig)
-    const queryParams = new URLSearchParams({ workspaceId })
-    if (filters.triggerSource) {
-      queryParams.set('triggerSource', filters.triggerSource)
-    }
-    if (filters.searchQuery.trim()) {
-      queryParams.set('search', filters.searchQuery.trim())
-    }
+    const queryParams = new URLSearchParams(
+      buildLogsRequestParams(workspaceId, filters, {
+        includePagination: false,
+        includeDetails: false,
+      })
+    )
+    applyMonitorQuickFiltersToExportParams(queryParams, executionViewConfig.quickFilters)
     const anchor = document.createElement('a')
     anchor.href = `/api/logs/export?${queryParams}`
     anchor.download = 'logs_export.csv'

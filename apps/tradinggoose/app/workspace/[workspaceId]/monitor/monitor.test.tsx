@@ -250,9 +250,14 @@ vi.mock(
   }
 )
 
-vi.mock('@/hooks/queries/logs', () => ({
-  useLogDetail: () => ({ data: null, isLoading: false, error: null }),
-}))
+vi.mock('@/hooks/queries/logs', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/hooks/queries/logs')>()
+
+  return {
+    ...actual,
+    useLogDetail: () => ({ data: null, isLoading: false, error: null }),
+  }
+})
 
 vi.mock('@/app/workspace/[workspaceId]/monitor/components/data/api', () => ({
   createMonitorView: vi.fn(),
@@ -651,6 +656,41 @@ describe('MonitorPage', () => {
   it('exports execution logs with the monitor execution filter contract', async () => {
     const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
     const appendSpy = vi.spyOn(document.body, 'appendChild')
+    const executionConfig = {
+      ...DEFAULT_EXECUTION_MONITOR_VIEW_CONFIG,
+      layout: 'timeline' as const,
+      filterQuery: 'workflow:"Workflow One"',
+      quickFilters: [
+        { field: 'provider' as const, operator: 'include' as const, values: ['alpaca'] },
+      ],
+    }
+    mockedBootstrapMonitorViews.mockResolvedValueOnce({
+      viewStateMode: 'server',
+      viewRows: [
+        buildViewRow({
+          id: 'view-1',
+          name: 'Current View',
+          isActive: true,
+          config: executionConfig,
+        }),
+        buildViewRow({
+          id: 'config-view-1',
+          name: 'Config',
+          isActive: true,
+          config: DEFAULT_CONFIG_MONITOR_VIEW_CONFIG,
+        }),
+      ],
+      activeViewIdsByMode: { executions: 'view-1', config: 'config-view-1' },
+      configsByMode: {
+        executions: executionConfig,
+        config: DEFAULT_CONFIG_MONITOR_VIEW_CONFIG,
+      },
+      rowStateByMode: { executions: 'server', config: 'server' },
+      errorsByMode: {},
+      renderableModes: ['executions', 'config'],
+      initialMode: 'executions',
+      viewsError: null,
+    })
 
     await act(async () => {
       root.render(<MonitorPage workspaceId='workspace-1' userId='user-1' />)
@@ -662,8 +702,13 @@ describe('MonitorPage', () => {
       .map(([node]) => node)
       .find((node): node is HTMLAnchorElement => node instanceof HTMLAnchorElement)
     expect(anchor?.href).toContain('/api/logs/export?')
-    expect(anchor?.href).toContain('workspaceId=workspace-1')
-    expect(anchor?.href).toContain('triggerSource=indicator_trigger')
+    const url = new URL(anchor?.href ?? '', 'http://localhost')
+
+    expect(url.searchParams.get('workspaceId')).toBe('workspace-1')
+    expect(url.searchParams.get('triggerSource')).toBe('indicator_trigger')
+    expect(url.searchParams.get('workflowName')).toBe('Workflow One')
+    expect(url.searchParams.get('providerId')).toBe('alpaca')
+    expect(url.searchParams.has('search')).toBe(false)
     expect(anchor?.href).not.toContain('limit=')
     expect(anchor?.href).not.toContain('details=')
     expect(anchor?.download).toBe('logs_export.csv')

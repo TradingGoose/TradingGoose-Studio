@@ -26,6 +26,15 @@ const QUICK_FILTER_FIELD_TO_QUERY_FIELD: Record<ExecutionMonitorQuickFilterField
   interval: 'interval',
   monitor: 'monitor',
 }
+const QUICK_FILTER_FIELD_TO_EXPORT_PARAM: Partial<
+  Record<ExecutionMonitorQuickFilterField, string>
+> = {
+  workflow: 'workflowIds',
+  trigger: 'triggers',
+  provider: 'providerId',
+  interval: 'interval',
+  monitor: 'monitorId',
+}
 
 type MonitorWorkspaceQueryConfig = Pick<ExecutionMonitorViewConfig, 'filterQuery' | 'quickFilters'>
 type MonitorQuickFilterClause = {
@@ -128,6 +137,38 @@ export const buildMonitorExecutionLogFilters = (viewConfig: ExecutionMonitorView
   details: 'full' as const,
   triggerSource: 'indicator_trigger' as const,
 })
+
+const mergeCsvParamValue = (current: string | null, values: string[]) => {
+  const merged = new Set<string>()
+  const existingValues = current ? current.split(',') : []
+
+  for (const value of [...existingValues, ...values]
+    .map((value) => value.trim())
+    .filter(Boolean)) {
+    merged.add(value)
+  }
+
+  return Array.from(merged).join(',')
+}
+
+export const applyMonitorQuickFiltersToExportParams = (
+  params: URLSearchParams,
+  quickFilters: ExecutionMonitorQuickFilter[]
+) => {
+  quickFilters.forEach((filter) => {
+    if (filter.operator !== 'include') return
+
+    const paramName = QUICK_FILTER_FIELD_TO_EXPORT_PARAM[filter.field]
+    if (!paramName) return
+
+    const values = filter.values.map((value) => value.trim()).filter(Boolean)
+    if (values.length === 0) return
+
+    params.set(paramName, mergeCsvParamValue(params.get(paramName), values))
+  })
+
+  return params
+}
 
 const getQuickFilterValues = (
   item: MonitorExecutionItem,

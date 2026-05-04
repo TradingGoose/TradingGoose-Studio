@@ -6,7 +6,7 @@ import { act } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { useLogsList } from '@/hooks/queries/logs'
+import { buildLogsRequestParams, useLogsList } from '@/hooks/queries/logs'
 
 const baseFilters = {
   timeRange: 'All time',
@@ -93,5 +93,28 @@ describe('useLogsList', () => {
     expect(url.searchParams.get('workspaceId')).toBe('workspace-1')
     expect(url.searchParams.get('details')).toBe('full')
     expect(url.searchParams.get('triggerSource')).toBe('indicator_trigger')
+  })
+
+  it('builds export params from parsed search syntax without list-only params', () => {
+    const rawParams = buildLogsRequestParams(
+      'workspace-1',
+      {
+        ...baseFilters,
+        searchQuery: 'workflow:"Workflow One"',
+        triggerSource: 'indicator_trigger',
+      },
+      {
+        includePagination: false,
+        includeDetails: false,
+      }
+    )
+    const params = new URLSearchParams(rawParams)
+
+    expect(params.get('workspaceId')).toBe('workspace-1')
+    expect(params.get('workflowName')).toBe('Workflow One')
+    expect(params.get('triggerSource')).toBe('indicator_trigger')
+    expect(params.has('search')).toBe(false)
+    expect(params.has('limit')).toBe(false)
+    expect(params.has('details')).toBe(false)
   })
 })

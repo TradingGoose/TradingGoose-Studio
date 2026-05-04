@@ -7,7 +7,10 @@ import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useLogsList } from '@/hooks/queries/logs'
 import { DEFAULT_EXECUTION_MONITOR_VIEW_CONFIG } from '../view/view-config'
-import { useMonitorWorkspaceLogs } from './use-monitor-workspace-logs'
+import {
+  applyMonitorQuickFiltersToExportParams,
+  useMonitorWorkspaceLogs,
+} from './use-monitor-workspace-logs'
 import type { IndicatorMonitorRecord } from '../shared/types'
 
 const reactActEnvironment = globalThis as typeof globalThis & {
@@ -127,6 +130,24 @@ describe('useMonitorWorkspaceLogs', () => {
     expect(snapshots.at(-1)?.executionItems[0]?.monitorId).toBe('monitor-1')
     expect(snapshots.at(-1)?.isSelectionResolved).toBe(true)
     expect(snapshots.at(-1)?.orderedVisibleLogIds).toEqual(['log-1'])
+  })
+
+  it('adds supported monitor quick filters to log export params', () => {
+    const params = new URLSearchParams('workspaceId=workspace-1&triggerSource=indicator_trigger')
+
+    applyMonitorQuickFiltersToExportParams(params, [
+      { field: 'provider', operator: 'include', values: ['alpaca'] },
+      { field: 'monitor', operator: 'include', values: ['monitor-1'] },
+      { field: 'workflow', operator: 'include', values: ['workflow-1'] },
+      { field: 'trigger', operator: 'include', values: ['manual'] },
+      { field: 'provider', operator: 'exclude', values: ['tradier'] },
+    ])
+
+    expect(params.get('providerId')).toBe('alpaca')
+    expect(params.get('monitorId')).toBe('monitor-1')
+    expect(params.get('workflowIds')).toBe('workflow-1')
+    expect(params.get('triggers')).toBe('manual')
+    expect(params.toString()).not.toContain('tradier')
   })
 
   it('marks historical executions as orphaned when the source monitor no longer exists', async () => {
