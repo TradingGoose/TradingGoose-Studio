@@ -17,14 +17,16 @@ import {
   SearchSuggestions,
   type WorkflowData,
 } from "@/lib/logs/search-suggestions";
+import { LOGS_QUERY_POLICY, MONITOR_QUERY_POLICY } from "@/lib/logs/query-policy";
 import { cn } from "@/lib/utils";
 import { useSearchState } from "@/app/workspace/[workspaceId]/logs/hooks/use-search-state";
 
 interface AutocompleteSearchProps {
   value: string;
   onChange: (value: string) => void;
-  queryPolicy: QueryPolicy;
+  queryPolicy?: QueryPolicy;
   placeholder?: string;
+  availableWorkflows?: string[];
   workflowsData?: WorkflowData[];
   foldersData?: FolderData[];
   availableMonitorRows?: MonitorRowSuggestionData[];
@@ -41,6 +43,7 @@ export function AutocompleteSearch({
   onChange,
   queryPolicy,
   placeholder = "Search logs...",
+  availableWorkflows = [],
   workflowsData = [],
   foldersData = [],
   availableMonitorRows = [],
@@ -51,15 +54,27 @@ export function AutocompleteSearch({
   externalClauses = [],
   onRemoveExternalClause,
 }: AutocompleteSearchProps) {
+  const effectiveQueryPolicy =
+    queryPolicy ?? (availableWorkflows.length > 0 ? MONITOR_QUERY_POLICY : LOGS_QUERY_POLICY);
+  const effectiveWorkflowsData = useMemo(
+    () =>
+      workflowsData.length > 0
+        ? workflowsData
+        : availableWorkflows.map((name) => ({
+            id: name,
+            name,
+          })),
+    [availableWorkflows, workflowsData],
+  );
   const suggestionEngine = useMemo(
     () =>
       new SearchSuggestions({
-        policy: queryPolicy,
-        workflowsData,
+        policy: effectiveQueryPolicy,
+        workflowsData: effectiveWorkflowsData,
         foldersData,
         monitorRows: availableMonitorRows,
       }),
-    [availableMonitorRows, foldersData, queryPolicy, workflowsData],
+    [availableMonitorRows, effectiveQueryPolicy, effectiveWorkflowsData, foldersData],
   );
 
   const {
@@ -85,7 +100,7 @@ export function AutocompleteSearch({
     initializeFromQuery,
     setHighlightedIndex,
   } = useSearchState({
-    queryPolicy,
+    queryPolicy: effectiveQueryPolicy,
     getSuggestions: (input) => suggestionEngine.getSuggestions(input),
   });
 
@@ -186,10 +201,10 @@ export function AutocompleteSearch({
           clauses,
           textSearch: "",
         },
-        queryPolicy,
+        effectiveQueryPolicy,
       ),
     );
-  }, [clauses, initializeFromQuery, queryPolicy]);
+  }, [clauses, effectiveQueryPolicy, initializeFromQuery]);
 
   return (
     <div className={cn("relative", className)}>

@@ -309,26 +309,29 @@ export interface WorkflowLogWorkflowSummary {
   name: string
   description: string | null
   color: string
+  state?: unknown
   folderId?: string | null
   folderName?: string | null
-  userId: string
-  workspaceId: string
-  createdAt: string
-  updatedAt: string
+  userId?: string
+  workspaceId?: string
+  createdAt?: string
+  updatedAt?: string
 }
 
 export interface WorkflowLog {
   id: string
   workflowId: string | null
-  workspaceId: string
+  workspaceId?: string
   executionId: string | null
   level: string
   trigger: string | null
-  startedAt: string
-  recordCreatedAt: string
-  endedAt: string | null
-  durationMs: number | null
-  outcome: WorkflowLogOutcome
+  startedAt?: string
+  createdAt?: string
+  recordCreatedAt?: string
+  endedAt?: string | null
+  durationMs?: number | null
+  duration?: string | null
+  outcome?: WorkflowLogOutcome
   workflow?: WorkflowLogWorkflowSummary | null
   files?: Array<{
     id: string
