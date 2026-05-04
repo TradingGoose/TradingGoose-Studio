@@ -1,3 +1,5 @@
+import { defaultLocale, type LocaleCode, localizeDocsUrl } from '@/i18n/utils'
+
 export const API_CATALOG_PATH = '/.well-known/api-catalog'
 export const API_CATALOG_CONTENT_TYPE =
   'application/linkset+json; profile="https://www.rfc-editor.org/info/rfc9727"'
@@ -14,23 +16,25 @@ type CatalogLink = {
   title?: string
 }
 
-const HOMEPAGE_LINK_TARGETS: LinkTarget[] = [
-  {
-    href: API_CATALOG_PATH,
-    rel: 'api-catalog',
-    type: 'application/linkset+json',
-  },
-  {
-    href: 'https://docs.tradinggoose.ai',
-    rel: 'service-doc',
-    type: 'text/html',
-  },
-  {
-    href: '/llms-full.txt',
-    rel: 'describedby',
-    type: 'text/plain',
-  },
-]
+function getHomepageLinkTargets(locale: LocaleCode = defaultLocale): LinkTarget[] {
+  return [
+    {
+      href: API_CATALOG_PATH,
+      rel: 'api-catalog',
+      type: 'application/linkset+json',
+    },
+    {
+      href: localizeDocsUrl(locale),
+      rel: 'service-doc',
+      type: 'text/html',
+    },
+    {
+      href: '/llms-full.txt',
+      rel: 'describedby',
+      type: 'text/plain',
+    },
+  ]
+}
 
 function formatLinkTarget(target: LinkTarget): string {
   const attributes = [`rel="${target.rel}"`]
@@ -42,8 +46,8 @@ function formatLinkTarget(target: LinkTarget): string {
   return `<${target.href}>; ${attributes.join('; ')}`
 }
 
-export function appendHomepageDiscoveryLinks(headers: Headers): void {
-  HOMEPAGE_LINK_TARGETS.forEach((target) => {
+export function appendHomepageDiscoveryLinks(headers: Headers, locale: LocaleCode = defaultLocale): void {
+  getHomepageLinkTargets(locale).forEach((target) => {
     headers.append('Link', formatLinkTarget(target))
   })
 }
@@ -66,7 +70,7 @@ const CATALOG_ITEM_LINKS: CatalogLink[] = [
   },
 ]
 
-export function getApiCatalogDocument(origin: string) {
+export function getApiCatalogDocument(origin: string, locale: LocaleCode = defaultLocale) {
   return {
     linkset: [
       {
@@ -78,7 +82,7 @@ export function getApiCatalogDocument(origin: string) {
         })),
         'service-doc': [
           {
-            href: 'https://docs.tradinggoose.ai',
+            href: localizeDocsUrl(locale),
             type: 'text/html',
             title: 'TradingGoose documentation',
           },

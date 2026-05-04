@@ -7,6 +7,9 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { useLocale } from 'next-intl'
+import { getPublicCopy } from '@/i18n/public-copy'
+import type { LocaleCode } from '@/i18n/utils'
 import { cn } from '@/lib/utils'
 import { PAIR_COLOR_META, PAIR_COLOR_OPTIONS, type PairColor } from '@/widgets/pair-colors'
 import {
@@ -22,10 +25,12 @@ interface PairColorDropdownProps {
 }
 
 export function PairColorDropdown({ color, onChange }: PairColorDropdownProps) {
+  const locale = useLocale() as LocaleCode
+  const copy = getPublicCopy(locale).workspace.widgets.pairColor
   const meta = PAIR_COLOR_META[color]
   const disabled = !onChange
 
-  const tooltipText = disabled ? 'Color selection unavailable' : 'Select widget color'
+  const tooltipText = disabled ? copy.selectionUnavailable : copy.selectWidgetColor
 
   return (
     <DropdownMenu modal={false}>
@@ -74,7 +79,14 @@ export function PairColorDropdown({ color, onChange }: PairColorDropdownProps) {
                 }}
                 aria-hidden
               />
-              <span className={widgetHeaderMenuTextClassName}>{option.label}</span>
+              {(() => {
+                const labelKey = option.value === 'gray' ? 'unlinked' : option.value
+                return (
+                  <span className={widgetHeaderMenuTextClassName}>
+                    {copy[labelKey as keyof typeof copy] ?? option.label}
+                  </span>
+                )
+              })()}
             </span>
           </DropdownMenuItem>
         ))}

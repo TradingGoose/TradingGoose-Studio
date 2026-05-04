@@ -2,7 +2,10 @@
 
 import * as React from 'react'
 import { usePathname, useRouter } from 'next/navigation'
+import { useLocale } from 'next-intl'
 import { generateWorkspaceName } from '@/lib/naming'
+import { getPublicCopy } from '@/i18n/public-copy'
+import { buildLocaleRequestHeaders, localizeHref, type LocaleCode } from '@/i18n/utils'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import type { Workspace } from './types'
 import { getWorkspaceIdFromPath, getWorkspaceSwitchPath } from './utils'
@@ -18,6 +21,8 @@ export function shouldResetWorkflowRegistryOnWorkspaceSwitch(pathname: string): 
 export function useWorkspaceSwitcher({ enabled }: UseWorkspaceSwitcherOptions) {
   const pathname = usePathname() ?? '/'
   const router = useRouter()
+  const locale = useLocale() as LocaleCode
+  const copy = getPublicCopy(locale).workspace.switcher
   const switchToWorkspace = useWorkflowRegistry((state) => state.switchToWorkspace)
   const canManageWorkspaces = true
   const workspaceId = React.useMemo(() => getWorkspaceIdFromPath(pathname), [pathname])
@@ -48,7 +53,9 @@ export function useWorkspaceSwitcher({ enabled }: UseWorkspaceSwitcherOptions) {
 
     setIsWorkspacesLoading(true)
     try {
-      const response = await fetch('/api/workspaces')
+      const response = await fetch('/api/workspaces', {
+        headers: buildLocaleRequestHeaders(locale),
+      })
       if (!response.ok) {
         setWorkspaces([])
         setActiveWorkspace(null)
@@ -77,7 +84,7 @@ export function useWorkspaceSwitcher({ enabled }: UseWorkspaceSwitcherOptions) {
     } finally {
       setIsWorkspacesLoading(false)
     }
-  }, [enabled, workspaceId])
+  }, [enabled, locale, workspaceId])
 
   React.useEffect(() => {
     void fetchWorkspaces()
@@ -100,9 +107,9 @@ export function useWorkspaceSwitcher({ enabled }: UseWorkspaceSwitcherOptions) {
         }
       }
 
-      router.push(getWorkspaceSwitchPath(pathname, workspace.id))
+      router.push(localizeHref(locale, getWorkspaceSwitchPath(pathname, workspace.id)))
     },
-    [pathname, router, switchToWorkspace, workspaceId]
+    [locale, pathname, router, switchToWorkspace, workspaceId]
   )
 
   const handleCreateWorkspace = React.useCallback(async () => {
@@ -116,16 +123,18 @@ export function useWorkspaceSwitcher({ enabled }: UseWorkspaceSwitcherOptions) {
 
     setIsCreatingWorkspace(true)
     try {
-      const workspaceName = await generateWorkspaceName()
+      const workspaceName = await generateWorkspaceName(locale)
       const response = await fetch('/api/workspaces', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: buildLocaleRequestHeaders(locale, {
+          'Content-Type': 'application/json',
+        }),
         body: JSON.stringify({ name: workspaceName }),
       })
 
       if (!response.ok) {
         const error = await response.json().catch(() => null)
-        throw new Error(error?.error ?? 'Failed to create workspace')
+        throw new Error(error?.error ?? copy.failedToCreateWorkspace)
       }
 
       const data = await response.json()
@@ -143,7 +152,7 @@ export function useWorkspaceSwitcher({ enabled }: UseWorkspaceSwitcherOptions) {
     } finally {
       setIsCreatingWorkspace(false)
     }
-  }, [canManageWorkspaces, fetchWorkspaces, handleSwitchWorkspace, isCreatingWorkspace])
+  }, [canManageWorkspaces, copy.failedToCreateWorkspace, fetchWorkspaces, handleSwitchWorkspace, isCreatingWorkspace, locale])
 
   const handleStartEditing = React.useCallback(
     (workspace: Workspace) => {
@@ -194,18 +203,19 @@ export function useWorkspaceSwitcher({ enabled }: UseWorkspaceSwitcherOptions) {
 
       if (!response.ok) {
         const error = await response.json().catch(() => null)
-        throw new Error(error?.error ?? 'Failed to rename workspace')
+        throw new Error(error?.error ?? copy.failedToRenameWorkspace)
       }
 
       await fetchWorkspaces()
       handleCancelEditing()
     } catch (error) {
-      setRenameError(error instanceof Error ? error.message : 'Failed to rename workspace')
+      setRenameError(error instanceof Error ? error.message : copy.failedToRenameWorkspace)
     } finally {
       setIsRenamingWorkspace(false)
     }
   }, [
     canManageWorkspaces,
+    copy.failedToRenameWorkspace,
     editingWorkspaceId,
     editingWorkspaceName,
     fetchWorkspaces,
@@ -278,7 +288,7 @@ export function useWorkspaceSwitcher({ enabled }: UseWorkspaceSwitcherOptions) {
 
       if (!response.ok) {
         const error = await response.json().catch(() => null)
-        throw new Error(error?.error ?? 'Failed to delete workspace')
+        throw new Error(error?.error ?? copy.failedToDeleteWorkspace)
       }
 
       await fetchWorkspaces()
@@ -287,12 +297,13 @@ export function useWorkspaceSwitcher({ enabled }: UseWorkspaceSwitcherOptions) {
       }
       handleDeleteDialogChange(false)
     } catch (error) {
-      setDeleteError(error instanceof Error ? error.message : 'Failed to delete workspace')
+      setDeleteError(error instanceof Error ? error.message : copy.failedToDeleteWorkspace)
     } finally {
       setIsDeletingWorkspace(false)
     }
   }, [
     canManageWorkspaces,
+    copy.failedToDeleteWorkspace,
     workspaceToDelete,
     fetchWorkspaces,
     activeWorkspace?.id,

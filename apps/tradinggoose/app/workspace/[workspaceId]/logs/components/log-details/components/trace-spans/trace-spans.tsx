@@ -9,13 +9,48 @@ import {
 } from '@/app/workspace/[workspaceId]/logs/components/log-details/components/trace-spans'
 import type { TraceSpan } from '@/stores/logs/filters/types'
 
+export interface TraceSpansCopy {
+  workflowExecution: string
+  collapseAll: string
+  expandAll: string
+  collapse: string
+  expand: string
+  noTraceData: string
+  model: string
+  loadSkill: string
+  initialResponse: string
+  modelResponse: string
+  modelGeneration: string
+  tokens: string
+  tokensUnavailable: string
+  tokensInOut: string
+  tokensTotal: string
+  tokensTotalSuffix: string
+  input: string
+  output: string
+  total: string
+  start: string
+  plusMs: string
+  betweenBlocks: string
+  inputSection: string
+  outputSection: string
+  errorSection: string
+  segmentTimingTooltip: string
+}
+
 interface TraceSpansProps {
   traceSpans?: TraceSpan[]
   totalDuration?: number
   costMultiplier?: number
+  copy: TraceSpansCopy
 }
 
-export function TraceSpans({ traceSpans, totalDuration = 0, costMultiplier = 1 }: TraceSpansProps) {
+export function TraceSpans({
+  traceSpans,
+  totalDuration = 0,
+  costMultiplier = 1,
+  copy,
+}: TraceSpansProps) {
   const [expandedSpans, setExpandedSpans] = useState<Set<string>>(new Set())
   const containerRef = useRef<HTMLDivElement | null>(null)
   const timelineHitboxRef = useRef<HTMLDivElement | null>(null)
@@ -44,7 +79,7 @@ export function TraceSpans({ traceSpans, totalDuration = 0, costMultiplier = 1 }
   }, [containerWidth])
 
   if (!traceSpans || traceSpans.length === 0) {
-    return <div className='text-muted-foreground text-sm'>No trace data available</div>
+    return <div className='text-muted-foreground text-sm'>{copy.noTraceData}</div>
   }
 
   const workflowStartTime = traceSpans.reduce((earliest, span) => {
@@ -137,7 +172,9 @@ export function TraceSpans({ traceSpans, totalDuration = 0, costMultiplier = 1 }
     <div className='w-full'>
       <div className='mb-2 flex items-center justify-between'>
         <div className='flex items-center gap-2'>
-          <div className='font-medium text-muted-foreground text-xs'>Workflow Execution</div>
+          <div className='font-medium text-muted-foreground text-xs'>
+            {copy.workflowExecution}
+          </div>
         </div>
         <div className='flex items-center gap-1'>
           {(() => {
@@ -146,15 +183,15 @@ export function TraceSpans({ traceSpans, totalDuration = 0, costMultiplier = 1 }
               <button
                 onClick={() => toggleAll(!anyExpanded)}
                 className='rounded px-2 py-1 text-muted-foreground text-xs transition-colors hover:bg-card'
-                title={anyExpanded ? 'Collapse all' : 'Expand all'}
+                title={anyExpanded ? copy.collapseAll : copy.expandAll}
               >
                 {anyExpanded ? (
                   <>
-                    <Minimize2 className='mr-1 inline h-3.5 w-3.5' /> Collapse
+                    <Minimize2 className='mr-1 inline h-3.5 w-3.5' /> {copy.collapse}
                   </>
                 ) : (
                   <>
-                    <Maximize2 className='mr-1 inline h-3.5 w-3.5' /> Expand
+                    <Maximize2 className='mr-1 inline h-3.5 w-3.5' /> {copy.expand}
                   </>
                 )}
               </button>
@@ -190,6 +227,7 @@ export function TraceSpans({ traceSpans, totalDuration = 0, costMultiplier = 1 }
             <TraceSpanItem
               key={index}
               span={normalizedSpan}
+              copy={copy}
               depth={0}
               totalDuration={effectiveTotalDuration}
               parentStartTime={new Date(normalizedSpan.startTime).getTime()}

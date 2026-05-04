@@ -1,5 +1,8 @@
+import { getLocale } from 'next-intl/server'
 import { getPublicBillingCatalog } from '@/lib/billing/catalog'
 import { buildHostedPricingNarrative } from '@/lib/billing/public-catalog'
+import { getPublicCopy } from '@/i18n/public-copy'
+import { localizeUrl, locales, type LocaleCode } from '@/i18n/utils'
 
 interface GitHubStats {
   stars: number | null
@@ -134,6 +137,8 @@ function buildStructuredOffers(catalog: Awaited<ReturnType<typeof getPublicBilli
 }
 
 export default async function StructuredData() {
+  const locale = (await getLocale()) as LocaleCode
+  const copy = getPublicCopy(locale)
   const [githubStats, billingCatalog] = await Promise.all([
     fetchGitHubStats(),
     getPublicBillingCatalog(),
@@ -154,9 +159,8 @@ export default async function StructuredData() {
         name: 'TradingGoose',
         alternateName: ['TradingGoose Studio', 'TradingGoose.ai'],
         legalName: 'TradingGoose Studio',
-        description:
-          'TradingGoose (also known as TradingGoose Studio) is an open-source visual workflow platform for technical LLM-driven trading, maintained at github.com/TradingGoose/TradingGoose-Studio. It is a drag-and-drop workflow builder for custom indicators, live market monitors, and AI agent automations — not to be confused with the older TradingGoose multi-agent research framework.',
-        url: 'https://tradinggoose.ai',
+        description: copy.meta.landing.description,
+        url: localizeUrl('https://tradinggoose.ai', locale, '/'),
         foundingDate: '2026-04-04',
         knowsAbout: [
           'Algorithmic trading',
@@ -186,17 +190,16 @@ export default async function StructuredData() {
         contactPoint: {
           '@type': 'ContactPoint',
           contactType: 'customer support',
-          availableLanguage: ['en'],
+          availableLanguage: locales,
         },
         ...(interactionStatistic.length > 0 && { interactionStatistic }),
       },
       {
         '@type': 'WebSite',
         '@id': 'https://tradinggoose.ai/#website',
-        url: 'https://tradinggoose.ai',
-        name: 'TradingGoose - Visual Workflow Platform for LLM Trading',
-        description:
-          'Open-source platform for technical LLM-driven trading. Connect data providers, write custom indicators in PineTS, trigger AI agent workflows on market signals.',
+        url: localizeUrl('https://tradinggoose.ai', locale, '/'),
+        name: copy.meta.landing.title,
+        description: copy.meta.landing.description,
         publisher: {
           '@id': 'https://tradinggoose.ai/#organization',
         },
@@ -211,13 +214,13 @@ export default async function StructuredData() {
             'query-input': 'required name=search_term_string',
           },
         ],
-        inLanguage: 'en-US',
+        inLanguage: locale,
       },
       {
         '@type': 'WebPage',
         '@id': 'https://tradinggoose.ai/#webpage',
-        url: 'https://tradinggoose.ai',
-        name: 'TradingGoose - Build your Trading Analysis with AI Agent Workflows',
+        url: localizeUrl('https://tradinggoose.ai', locale, '/'),
+        name: copy.meta.landing.title,
         isPartOf: {
           '@id': 'https://tradinggoose.ai/#website',
         },
@@ -226,12 +229,11 @@ export default async function StructuredData() {
         },
         datePublished: '2025-01-01T00:00:00+00:00',
         dateModified: new Date().toISOString(),
-        description:
-          'Build AI-powered trading analysis workflows with TradingGoose. Connect live data providers, write custom indicators, and deploy agents that trigger on market signals.',
+        description: copy.meta.landing.description,
         breadcrumb: {
           '@id': 'https://tradinggoose.ai/#breadcrumb',
         },
-        inLanguage: 'en-US',
+        inLanguage: locale,
         speakable: {
           '@type': 'SpeakableSpecification',
           cssSelector: ['h1', 'h2', '.hero-description'],
@@ -250,8 +252,8 @@ export default async function StructuredData() {
           {
             '@type': 'ListItem',
             position: 1,
-            name: 'Home',
-            item: 'https://tradinggoose.ai',
+            name: copy.nav.homeLabel,
+            item: localizeUrl('https://tradinggoose.ai', locale, '/'),
           },
         ],
       },
@@ -283,10 +285,12 @@ export default async function StructuredData() {
             caption: 'TradingGoose visual trading workflow builder',
           },
         ],
+        inLanguage: locale,
       },
       {
         '@type': 'FAQPage',
         '@id': 'https://tradinggoose.ai/#faq',
+        inLanguage: locale,
         mainEntity: [
           {
             '@type': 'Question',
@@ -373,16 +377,14 @@ export default async function StructuredData() {
       {
         '@type': 'Article',
         '@id': 'https://tradinggoose.ai/#article-disambiguation',
-        headline:
-          'TradingGoose Studio: open-source visual workflow platform for LLM-driven trading',
-        description:
-          'Canonical reference page for TradingGoose Studio. This is the drag-and-drop workflow builder with PineTS custom indicators, live market monitors, and AI agent automation — distinct from the older TradingGoose multi-agent LLM research framework.',
+        headline: copy.meta.landing.title,
+        description: copy.meta.landing.description,
         author: { '@id': 'https://tradinggoose.ai/#organization' },
         publisher: { '@id': 'https://tradinggoose.ai/#organization' },
         mainEntityOfPage: { '@id': 'https://tradinggoose.ai/#webpage' },
         datePublished: '2025-01-01T00:00:00+00:00',
         dateModified: new Date().toISOString(),
-        inLanguage: 'en-US',
+        inLanguage: locale,
       },
     ],
   }

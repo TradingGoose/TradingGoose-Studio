@@ -2,6 +2,7 @@
 
 import { useCallback, useMemo } from 'react'
 import { Minus, Plus } from 'lucide-react'
+import { useLocale } from 'next-intl'
 import {
   Background,
   ConnectionLineType,
@@ -14,6 +15,8 @@ import {
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { Button } from '@/components/ui/button'
+import { getPublicCopy } from '@/i18n/public-copy'
+import type { LocaleCode } from '@/i18n/utils'
 import { cn } from '@/lib/utils'
 import type { WorkflowState } from '@/stores/workflows/workflow/types'
 import { WorkflowEdge } from '@/widgets/widgets/editor_workflow/components/workflow-edge/workflow-edge'
@@ -39,6 +42,8 @@ const PREVIEW_CANVAS_EXTENT: [[number, number], [number, number]] = [
 const PREVIEW_FIT_PADDING = 0.12
 
 function WorkflowPreviewControls() {
+  const locale = useLocale() as LocaleCode
+  const copy = getPublicCopy(locale)
   const { zoomIn, zoomOut } = useReactFlow()
   const zoom = useStore((state: { transform?: number[]; viewport?: { zoom?: number } }) =>
     Array.isArray(state.transform) ? state.transform[2] : state.viewport?.zoom
@@ -54,7 +59,7 @@ function WorkflowPreviewControls() {
           onClick={() => zoomOut({ duration: 200 })}
           disabled={currentZoom <= 10}
           className='h-7 w-7 rounded-sm hover:bg-background disabled:cursor-not-allowed disabled:opacity-50'
-          aria-label='Zoom out workflow preview'
+          aria-label={copy.landing.preview.workflow.zoomOut}
         >
           <Minus className='h-3 w-3' />
         </Button>
@@ -67,7 +72,7 @@ function WorkflowPreviewControls() {
           onClick={() => zoomIn({ duration: 200 })}
           disabled={currentZoom >= 130}
           className='h-7 w-7 rounded-sm hover:bg-background disabled:cursor-not-allowed disabled:opacity-50'
-          aria-label='Zoom in workflow preview'
+          aria-label={copy.landing.preview.workflow.zoomIn}
         >
           <Plus className='h-3 w-3' />
         </Button>

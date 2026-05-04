@@ -1,5 +1,8 @@
+'use client'
+
 import React, { useMemo, useState } from 'react'
 import { CheckCircle } from 'lucide-react'
+import { useLocale } from 'next-intl'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -8,6 +11,8 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { quickValidateEmail } from '@/lib/email/validation'
 import { cn } from '@/lib/utils'
+import { formatTemplate, getPublicCopy } from '@/i18n/public-copy'
+import { type LocaleCode } from '@/i18n/utils'
 
 type PermissionType = 'read' | 'write' | 'admin'
 
@@ -20,13 +25,27 @@ interface PermissionSelectorProps {
 
 const PermissionSelector = React.memo<PermissionSelectorProps>(
   ({ value, onChange, disabled = false, className = '' }) => {
+    const locale = useLocale() as LocaleCode
+    const permissionCopy = getPublicCopy(locale).workspace.settingsModal.team.invitation.permissions
     const permissionOptions = useMemo(
       () => [
-        { value: 'read' as PermissionType, label: 'Read', description: 'View only' },
-        { value: 'write' as PermissionType, label: 'Write', description: 'Edit content' },
-        { value: 'admin' as PermissionType, label: 'Admin', description: 'Full access' },
+        {
+          value: 'read' as PermissionType,
+          label: permissionCopy.read.label,
+          description: permissionCopy.read.description,
+        },
+        {
+          value: 'write' as PermissionType,
+          label: permissionCopy.write.label,
+          description: permissionCopy.write.description,
+        },
+        {
+          value: 'admin' as PermissionType,
+          label: permissionCopy.admin.label,
+          description: permissionCopy.admin.description,
+        },
       ],
-      []
+      [permissionCopy]
     )
 
     return (
@@ -99,6 +118,8 @@ export function MemberInvitationCard({
   seatLimited,
   availableSeats = 0,
 }: MemberInvitationCardProps) {
+  const locale = useLocale() as LocaleCode
+  const copy = getPublicCopy(locale).workspace.settingsModal.team.invitation
   const selectedCount = selectedWorkspaces.length
   const hasAvailableSeats = seatLimited ? availableSeats > 0 : true
   const inviteEnabled = canInviteMembers && hasAvailableSeats
@@ -113,7 +134,7 @@ export function MemberInvitationCard({
 
     const validation = quickValidateEmail(email.trim())
     if (!validation.isValid) {
-      setEmailError(validation.reason || 'Please enter a valid email address')
+      setEmailError(copy.invalidEmail)
     } else {
       setEmailError('')
     }
@@ -146,9 +167,9 @@ export function MemberInvitationCard({
     <div className='space-y-4'>
       {/* Header - clean like account page */}
       <div>
-        <h4 className='font-medium text-sm'>Invite Team Members</h4>
+        <h4 className='font-medium text-sm'>{copy.title}</h4>
         <p className='text-muted-foreground text-xs'>
-          Add new members to your team and optionally give them access to specific workspaces
+          {copy.description}
         </p>
       </div>
 
@@ -157,7 +178,7 @@ export function MemberInvitationCard({
         <div className='flex-1'>
           <div>
             <Input
-              placeholder='Enter email address'
+              placeholder={copy.emailPlaceholder}
               value={inviteEmail}
               onChange={handleEmailChange}
               disabled={isInviting || !inviteEnabled}
@@ -180,7 +201,7 @@ export function MemberInvitationCard({
           disabled={isInviting || !inviteEnabled}
           className='h-9 shrink-0 rounded-sm text-sm'
         >
-          {showWorkspaceInvite ? 'Hide' : 'Add'} Workspaces
+          {showWorkspaceInvite ? copy.hideWorkspaces : copy.addWorkspaces}
         </Button>
         <Button
           size='sm'
@@ -189,7 +210,7 @@ export function MemberInvitationCard({
           className='h-9 shrink-0 rounded-sm'
         >
           {isInviting ? <ButtonSkeleton /> : null}
-          {canInviteMembers ? (hasAvailableSeats ? 'Invite' : 'No Seats') : 'Unavailable'}
+          {canInviteMembers ? (hasAvailableSeats ? copy.invite : copy.noSeats) : copy.unavailable}
         </Button>
       </div>
 
@@ -203,24 +224,29 @@ export function MemberInvitationCard({
         <div className='space-y-4'>
           <div className='flex items-center justify-between'>
             <div className='flex items-center gap-2'>
-              <h5 className='font-medium text-xs'>Workspace Access</h5>
+              <h5 className='font-medium text-xs'>{copy.workspaceAccess}</h5>
               <Badge variant='outline' className='h-[1.125rem] rounded-md px-2 py-0 text-xs'>
-                Optional
+                {copy.optional}
               </Badge>
             </div>
             {selectedCount > 0 && (
-              <span className='text-muted-foreground text-xs'>{selectedCount} selected</span>
+              <span className='text-muted-foreground text-xs'>
+                {formatTemplate(copy.selected, {
+                  count: selectedCount,
+                  plural: selectedCount !== 1 ? 's' : '',
+                })}
+              </span>
             )}
           </div>
           <p className='text-muted-foreground text-xs leading-relaxed'>
-            Grant access to specific workspaces. You can modify permissions later.
+            {copy.grantAccess}
           </p>
 
           {userWorkspaces.length === 0 ? (
             <div className='rounded-md border border-dashed py-8 text-center'>
-              <p className='text-muted-foreground text-sm'>No workspaces available</p>
+              <p className='text-muted-foreground text-sm'>{copy.noWorkspacesAvailable}</p>
               <p className='mt-1 text-muted-foreground text-xs'>
-                You need admin access to workspaces to invite members
+                {copy.needAdminAccess}
               </p>
             </div>
           ) : (
@@ -258,7 +284,7 @@ export function MemberInvitationCard({
                             variant='outline'
                             className='h-[1.125rem] rounded-md px-2 py-0 text-xs'
                           >
-                            Owner
+                            {copy.owner}
                           </Badge>
                         )}
                       </div>
@@ -293,9 +319,12 @@ export function MemberInvitationCard({
         <Alert className='rounded-sm border-green-200 bg-green-50 text-green-800 dark:border-green-800/50 dark:bg-green-950/20 dark:text-green-300'>
           <CheckCircle className='h-4 w-4 text-green-600 dark:text-green-400' />
           <AlertDescription>
-            Invitation sent successfully
-            {selectedCount > 0 &&
-              ` with access to ${selectedCount} workspace${selectedCount !== 1 ? 's' : ''}`}
+            {selectedCount > 0
+              ? formatTemplate(copy.sentSuccessWithAccess, {
+                  count: selectedCount,
+                  plural: selectedCount !== 1 ? 's' : '',
+                })
+              : copy.sentSuccess}
           </AlertDescription>
         </Alert>
       )}

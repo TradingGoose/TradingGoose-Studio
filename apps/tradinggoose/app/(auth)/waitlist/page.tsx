@@ -1,34 +1,42 @@
-import Link from 'next/link'
-import { redirect } from 'next/navigation'
+import { getLocale } from 'next-intl/server'
 import { Button } from '@/components/ui/button'
-import { getRegistrationModeForRender } from '@/lib/registration/service'
-import { REGISTRATION_DISABLED_MESSAGE } from '@/lib/registration/shared'
 import { AuthPageHeader } from '@/app/(auth)/components/auth-page-header'
-import { WaitlistForm } from './waitlist-form'
+import { WaitlistForm } from '@/app/(auth)/waitlist/waitlist-form'
+import { getRegistrationModeForRender } from '@/lib/registration/service'
+import { Link, redirect } from '@/i18n/navigation'
+import { getPublicCopy } from '@/i18n/public-copy'
+import { type LocaleCode } from '@/i18n/utils'
 
 export const dynamic = 'force-dynamic'
 
 export default async function WaitlistPage() {
-  const registrationMode = await getRegistrationModeForRender()
+  const [registrationMode, locale] = await Promise.all([
+    getRegistrationModeForRender(),
+    getLocale(),
+  ])
+  const copy = getPublicCopy(locale as LocaleCode)
+  const commonCopy = copy.auth.common
+  const waitlistCopy = copy.auth.waitlist
+  const disabledCopy = copy.auth.disabled
 
   if (registrationMode === 'open') {
-    redirect('/signup')
+    redirect({ href: '/signup', locale: locale as LocaleCode })
   }
 
   if (registrationMode === 'disabled') {
     return (
       <div className='space-y-6 text-center'>
         <AuthPageHeader
-          eyebrow='Waitlist'
-          title='Registration closed'
-          description={REGISTRATION_DISABLED_MESSAGE}
+          eyebrow={waitlistCopy.eyebrow}
+          title={disabledCopy.title}
+          description={disabledCopy.description}
         />
         <div className='flex items-center justify-center gap-3'>
           <Button asChild>
-            <Link href='/login'>Login</Link>
+            <Link href='/login'>{commonCopy.backToLogin}</Link>
           </Button>
           <Button variant='outline' asChild>
-            <Link href='/'>Return home</Link>
+            <Link href='/'>{commonCopy.returnHome}</Link>
           </Button>
         </div>
       </div>
@@ -38,9 +46,9 @@ export default async function WaitlistPage() {
   return (
     <div>
       <AuthPageHeader
-        eyebrow='Waitlist'
-        title='Request access to TradingGoose'
-        description='Join the queue for platform access. If your email is already approved, you can continue straight to signup from here.'
+        eyebrow={waitlistCopy.eyebrow}
+        title={waitlistCopy.title}
+        description={waitlistCopy.description}
       />
       <WaitlistForm />
     </div>

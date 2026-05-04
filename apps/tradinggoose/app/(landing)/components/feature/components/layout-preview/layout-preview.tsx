@@ -1,8 +1,11 @@
 'use client'
 
 import { Fragment, memo, useCallback, useEffect, useRef, useState } from 'react'
+import { useLocale } from 'next-intl'
 import { Card } from '@/components/ui/card'
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
+import { getPublicCopy } from '@/i18n/public-copy'
+import type { LocaleCode } from '@/i18n/utils'
 import {
   createDefaultLayoutState,
   createLayoutNodeId,
@@ -37,6 +40,8 @@ function LayoutPreviewPanelSurface({
   onPanelSplitHorizontal?: () => void
   onPanelClose?: () => void
 }) {
+  const locale = useLocale() as LocaleCode
+  const copy = getPublicCopy(locale)
   const headerScrollRef = useRef<HTMLDivElement>(null)
   const bodyRef = useRef<HTMLDivElement>(null)
   const [panelSize, setPanelSize] = useState({ width: 0, height: 0 })
@@ -76,7 +81,7 @@ function LayoutPreviewPanelSurface({
             ref={headerScrollRef}
             onWheel={handleHorizontalWheel}
             className='flex w-full overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
-            aria-label='Widget header'
+            aria-label={copy.landing.preview.layout.headerAriaLabel}
           >
             <div className='flex w-full flex-nowrap items-center gap-4 py-0.5 font-medium text-accent-foreground text-sm'>
               <div className='flex h-8 flex-grow basis-0 items-center justify-start gap-1 whitespace-nowrap pl-1 text-left' />
@@ -97,7 +102,7 @@ function LayoutPreviewPanelSurface({
         >
           <div className='space-y-1'>
             <p className='font-semibold text-[11px] text-muted-foreground uppercase tracking-[0.24em]'>
-              Widget Size
+              {copy.landing.preview.layout.sizeLabel}
             </p>
             <p className='font-medium text-2xl text-foreground tabular-nums'>
               {formatPanelDimension(panelSize.width)} × {formatPanelDimension(panelSize.height)}

@@ -2,7 +2,10 @@
 
 import type { ComponentType } from 'react'
 import { Redo2, Undo2 } from 'lucide-react'
+import { useLocale } from 'next-intl'
 import { Button } from '@/components/ui/button'
+import { getPublicCopy } from '@/i18n/public-copy'
+import type { LocaleCode } from '@/i18n/utils'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useReviewSessionUndoRedoState } from '@/widgets/widgets/entity_review/review-session-controls'
 
@@ -60,11 +63,13 @@ interface UndoRedoButtonProps {
 
 export function EntityEditorUndoButton({ reviewSessionId, onAction }: UndoRedoButtonProps) {
   const { canUndo } = useReviewSessionUndoRedoState(reviewSessionId)
+  const locale = useLocale() as LocaleCode
+  const copy = getPublicCopy(locale).workspace.widgets.entityEditor
 
   return (
     <EntityEditorHeaderButton
-      tooltip='Undo'
-      label='Undo'
+      tooltip={copy.undo}
+      label={copy.undo}
       icon={Undo2}
       disabled={!canUndo}
       onClick={onAction}
@@ -74,11 +79,13 @@ export function EntityEditorUndoButton({ reviewSessionId, onAction }: UndoRedoBu
 
 export function EntityEditorRedoButton({ reviewSessionId, onAction }: UndoRedoButtonProps) {
   const { canRedo } = useReviewSessionUndoRedoState(reviewSessionId)
+  const locale = useLocale() as LocaleCode
+  const copy = getPublicCopy(locale).workspace.widgets.entityEditor
 
   return (
     <EntityEditorHeaderButton
-      tooltip='Redo'
-      label='Redo'
+      tooltip={copy.redo}
+      label={copy.redo}
       icon={Redo2}
       disabled={!canRedo}
       onClick={onAction}

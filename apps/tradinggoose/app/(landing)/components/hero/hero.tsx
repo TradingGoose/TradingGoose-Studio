@@ -12,27 +12,18 @@ import {
   Workflow,
 } from 'lucide-react'
 import Image from 'next/image'
-import Link from 'next/link'
+import { useLocale } from 'next-intl'
+import { Link } from '@/i18n/navigation'
 import { AnimatedBeam } from '@/components/ui/animated-beam'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { WordRotate } from '@/components/ui/word-rotate'
 import {
   getRegistrationPrimaryHref,
-  getRegistrationPrimaryLabel,
   type RegistrationMode,
 } from '@/lib/registration/shared'
-
-function getHeroBadgeText(registrationMode: RegistrationMode) {
-  switch (registrationMode) {
-    case 'disabled':
-      return 'Honk! TradingGoose-Studio coming soon'
-    case 'waitlist':
-      return 'Honk! Introducing TradingGoose-Studio'
-    case 'open':
-      return 'Honk! TradingGoose-Studio is here!'
-  }
-}
+import { getPrimaryRegistrationLabel, getPublicCopy } from '@/i18n/public-copy'
+import { localizeDocsUrl, type LocaleCode } from '@/i18n/utils'
 
 const Hero = ({ registrationMode }: { registrationMode: RegistrationMode }) => {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -51,49 +42,53 @@ const Hero = ({ registrationMode }: { registrationMode: RegistrationMode }) => {
   const spanRef6 = useRef<HTMLSpanElement>(null)
   const spanRef7 = useRef<HTMLSpanElement>(null)
   const spanRef8 = useRef<HTMLSpanElement>(null)
+  const locale = useLocale() as LocaleCode
+  const copy = getPublicCopy(locale)
 
   const registrationPrimaryHref = getRegistrationPrimaryHref(registrationMode)
-  const registrationPrimaryLabel = getRegistrationPrimaryLabel(registrationMode)
+  const registrationPrimaryLabel = getPrimaryRegistrationLabel(copy, registrationMode)
+  const titleConnector = copy.landing.hero.titleConnector
+  const titleConnectorText = titleConnector ? `${titleConnector} ` : ''
 
   return (
     <section className='flex-1 pt-8 sm:pt-16 lg:pt-24'>
       <div className='relative z-10 mx-auto flex max-w-7xl flex-col items-center gap-8 px-4 sm:gap-16 sm:px-6 lg:gap-24 lg:px-8'>
         <div className='flex flex-col items-center gap-4 text-center'>
           <Badge variant='outline' className='relative z-10 bg-background font-normal text-sm'>
-            {getHeroBadgeText(registrationMode)}
+            {copy.landing.hero.statusBadges[registrationMode]}
           </Badge>
 
           <h1 className='relative z-10 font-semibold text-2xl sm:text-3xl lg:font-bold lg:text-5xl'>
-            <WordRotate words={['Build', 'Test', 'Run']} duration={4000} /> your{' '}
+            <WordRotate words={copy.landing.hero.leadWords} duration={4000} />{' '}
+            {titleConnectorText}
             <WordRotate
-              words={['Trading Analysis', 'Signal Detection', 'Risk Assessment']}
+              words={copy.landing.hero.highlightWords}
               className='underline underline-offset-3'
               duration={7000}
             />{' '}
-            with TradingGoose
+            {copy.landing.hero.suffix}
           </h1>
 
           <p className='relative z-10 max-w-3xl text-lg text-muted-foreground leading-relaxed'>
-            Connect your own data providers, write custom indicators to monitor market prices, and
-            wire them into workflows that trigger trade, sell, buy, or any action you define.
+            {copy.landing.hero.description}
           </p>
 
           <div className='relative z-10 flex flex-wrap items-center justify-center gap-2'>
             <Badge variant='secondary' className='gap-1.5 px-3 py-1 font-normal text-xs'>
               <BotMessageSquareIcon className='size-3.5' />
-              AI Agent Workflows
+              {copy.landing.hero.featureBadges[0]}
             </Badge>
             <Badge variant='secondary' className='gap-1.5 px-3 py-1 font-normal text-xs'>
               <ChartCandlestick className='size-3.5' />
-              Custom Indicators
+              {copy.landing.hero.featureBadges[1]}
             </Badge>
             <Badge variant='secondary' className='gap-1.5 px-3 py-1 font-normal text-xs'>
               <ActivityIcon className='size-3.5' />
-              Bring Your Own Data
+              {copy.landing.hero.featureBadges[2]}
             </Badge>
             <Badge variant='secondary' className='gap-1.5 px-3 py-1 font-normal text-xs'>
               <BlocksIcon className='size-3.5' />
-              Integrations
+              {copy.landing.hero.featureBadges[3]}
             </Badge>
           </div>
 
@@ -115,9 +110,9 @@ const Hero = ({ registrationMode }: { registrationMode: RegistrationMode }) => {
               className='bg-background font-semibold text-lg'
               asChild
             >
-              <Link href='https://docs.tradinggoose.ai' target='_blank' rel='noopener noreferrer'>
-                Learn More
-              </Link>
+              <a href={localizeDocsUrl(locale)} target='_blank' rel='noopener noreferrer'>
+                {copy.landing.hero.learnMore}
+              </a>
             </Button>
           </div>
         </div>

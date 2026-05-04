@@ -7,6 +7,9 @@ import { DateTimePicker } from '@/components/ui/datetime-picker'
 import { SimpleTimePicker } from '@/components/ui/simple-time-picker'
 import { Slider } from '@/components/ui/slider'
 import { Switch as UISwitch } from '@/components/ui/switch'
+import { useLocale } from 'next-intl'
+import { getPublicCopy } from '@/i18n/public-copy'
+import type { LocaleCode } from '@/i18n/utils'
 import {
   formatUtcDate,
   formatUtcDateTime,
@@ -15,6 +18,7 @@ import {
 } from '@/lib/time-format'
 import { cn } from '@/lib/utils'
 import type { SubBlockConfig } from '@/blocks/types'
+import { translateWorkflowLabel } from '@/widgets/workflow-labels'
 import {
   ChannelSelectorInput,
   CheckboxList,
@@ -239,6 +243,8 @@ function SubBlockDateTimeField({
 
 export const SubBlock = memo(
   function SubBlock({ blockId, config, isConnecting, disabled = false }: SubBlockProps) {
+    const locale = useLocale() as LocaleCode
+    const copy = getPublicCopy(locale).workspace.widgets.workflowEditor
     const [isValidJson, setIsValidJson] = useState(true)
 
     const handleMouseDown = (e: React.MouseEvent) => {
@@ -591,7 +597,7 @@ export const SubBlock = memo(
             />
           )
         default:
-          return <div>Unknown input type: {config.type}</div>
+          return <div>{copy.unknownInputType.replace('{{type}}', config.type)}</div>
       }
     }
 
@@ -603,19 +609,20 @@ export const SubBlock = memo(
       config.type !== 'market-selector' &&
       config.type !== 'order-id-selector' &&
       config.type !== 'trigger-save'
+    const label = translateWorkflowLabel(locale, config.title ?? '')
 
     return (
       <div className={cn('space-y-[6px] pt-[2px]')} onMouseDown={handleMouseDown}>
         {showLabel && (
           <Label className='flex items-center gap-1'>
-            {config.title}
+            {label}
             {required && (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <span className='cursor-help text-red-500'>*</span>
                 </TooltipTrigger>
                 <TooltipContent side='top'>
-                  <p>This field is required</p>
+                  <p>{copy.requiredField}</p>
                 </TooltipContent>
               </Tooltip>
             )}
@@ -630,7 +637,7 @@ export const SubBlock = memo(
                   />
                 </TooltipTrigger>
                 <TooltipContent side='top'>
-                  <p>Invalid JSON</p>
+                  <p>{copy.invalidJson}</p>
                 </TooltipContent>
               </Tooltip>
             )}

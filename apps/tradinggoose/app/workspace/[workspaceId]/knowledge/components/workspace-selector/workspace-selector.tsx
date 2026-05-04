@@ -10,12 +10,14 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { useLocale } from 'next-intl'
 import { createLogger } from '@/lib/logs/console/logger'
 import {
   commandListClass,
   dropdownContentClass,
   filterButtonClass,
 } from '@/app/workspace/[workspaceId]/knowledge/components/shared'
+import { buildLocaleRequestHeaders, type LocaleCode } from '@/i18n/utils'
 import { useKnowledgeStore } from '@/stores/knowledge/store'
 
 const logger = createLogger('WorkspaceSelector')
@@ -41,6 +43,7 @@ export function WorkspaceSelector({
   disabled = false,
   variant = 'default',
 }: WorkspaceSelectorProps) {
+  const locale = useLocale() as LocaleCode
   const { updateKnowledgeBase } = useKnowledgeStore()
   const [workspaces, setWorkspaces] = useState<Workspace[]>([])
   const [isLoading, setIsLoading] = useState(false)
@@ -52,7 +55,9 @@ export function WorkspaceSelector({
       try {
         setIsLoading(true)
 
-        const response = await fetch('/api/workspaces')
+        const response = await fetch('/api/workspaces', {
+          headers: buildLocaleRequestHeaders(locale),
+        })
         if (!response.ok) {
           throw new Error('Failed to fetch workspaces')
         }
@@ -77,7 +82,7 @@ export function WorkspaceSelector({
     }
 
     fetchWorkspaces()
-  }, [])
+  }, [locale])
 
   const handleWorkspaceChange = async (workspaceId: string | null) => {
     if (isUpdating || disabled) return

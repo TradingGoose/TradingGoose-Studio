@@ -1,17 +1,22 @@
 import { memo } from 'react'
 import { RepeatIcon, SplitIcon } from 'lucide-react'
+import { useLocale } from 'next-intl'
 import { Handle, type NodeProps, Position } from '@xyflow/react'
+import { getPublicCopy } from '@/i18n/public-copy'
+import type { LocaleCode } from '@/i18n/utils'
 import { cn } from '@/lib/utils'
 import { getPreviewDiffClasses } from './preview-diff'
 import type { PreviewCanvasSubflowNode } from './preview-payload-adapter'
 
 function PreviewSubflowInner({ data }: NodeProps<PreviewCanvasSubflowNode>) {
+  const locale = useLocale() as LocaleCode
+  const copy = getPublicCopy(locale).workspace.widgets.workflowEditor
   const { name, width, height, enabled, kind } = data
 
   const isLoop = kind === 'loop'
   const BlockIcon = isLoop ? RepeatIcon : SplitIcon
   const iconBackground = isLoop ? '#2FB3FF' : '#FEE12B'
-  const blockName = name || (isLoop ? 'Loop' : 'Parallel')
+  const blockName = name || (isLoop ? copy.loop : copy.parallel)
 
   const startHandleId = isLoop ? 'loop-start-source' : 'parallel-start-source'
   const endHandleId = isLoop ? 'loop-end-source' : 'parallel-end-source'
@@ -54,7 +59,7 @@ function PreviewSubflowInner({ data }: NodeProps<PreviewCanvasSubflowNode>) {
       <div className='relative h-[calc(100%-41px)] p-4' />
 
       <div className='-translate-y-1/2 absolute top-1/2 left-4 inline-flex items-center rounded-md border border-border bg-background px-3 py-1 text-xs'>
-        Start
+        {copy.start}
         <Handle
           type='source'
           position={Position.Right}
@@ -74,7 +79,7 @@ function PreviewSubflowInner({ data }: NodeProps<PreviewCanvasSubflowNode>) {
           className='!h-2 !w-2 !border-none !bg-transparent !opacity-0'
           style={{ left: -8, top: '50%', transform: 'translateY(-50%)' }}
         />
-        End
+        {copy.end}
       </div>
       <Handle
         type='source'

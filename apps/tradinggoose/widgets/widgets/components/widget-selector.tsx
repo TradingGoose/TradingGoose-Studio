@@ -2,12 +2,15 @@
 
 import { cloneElement, isValidElement, memo, type ReactElement, useMemo } from 'react'
 import { ChevronDown } from 'lucide-react'
+import { useLocale } from 'next-intl'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { getPublicCopy } from '@/i18n/public-copy'
+import type { LocaleCode } from '@/i18n/utils'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import { getWidgetCategories, getWidgetDefinition } from '@/widgets/registry'
@@ -41,7 +44,9 @@ export function WidgetSelectorComponent({
   disabled,
   renderTrigger,
 }: WidgetSelectorProps) {
-  const categories = useMemo(() => getWidgetCategories(), [])
+  const locale = useLocale() as LocaleCode
+  const categories = useMemo(() => getWidgetCategories(locale), [locale])
+  const selectorCopy = getPublicCopy(locale).workspace.widgets.selector
   const visibleCategories = useMemo(
     () =>
       categories
@@ -87,7 +92,9 @@ export function WidgetSelectorComponent({
       })
     : triggerContent
 
-  const tooltipText = triggerDisabled ? 'Widget selection unavailable' : 'Select widget'
+  const tooltipText = triggerDisabled
+    ? selectorCopy.widgetSelectionUnavailable
+    : selectorCopy.selectWidget
 
   return (
     <DropdownMenu>

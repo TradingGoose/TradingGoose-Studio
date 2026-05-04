@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from 'next'
 import Script from 'next/script'
 import { PUBLIC_ENV_KEY } from 'next-runtime-env'
+import { NextIntlClientProvider } from 'next-intl'
+import { getLocale, getMessages } from 'next-intl/server'
 import { generateBrandedMetadata } from '@/lib/branding/metadata'
 import { createLogger } from '@/lib/logs/console/logger'
 import { PostHogProvider } from '@/lib/posthog/provider'
@@ -75,11 +77,12 @@ function getPublicEnvSnapshot() {
   )
 }
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const [locale, messages] = await Promise.all([getLocale(), getMessages()])
   const publicEnv = JSON.stringify(getPublicEnvSnapshot()).replace(/</g, '\\u003c')
 
   return (
-    <html lang='en' suppressHydrationWarning>
+    <html lang={locale} suppressHydrationWarning>
       <head>
         {/* Basic head hints that are not covered by the Metadata API */}
         <meta name='color-scheme' content='light dark' />
@@ -97,7 +100,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 <ProviderModelsBootstrap />
                 <TooltipProvider delayDuration={100} skipDelayDuration={0}>
                   <ZoomPrevention />
-                  {children}
+                  <NextIntlClientProvider key={locale} locale={locale} messages={messages}>
+                    {children}
+                  </NextIntlClientProvider>
                 </TooltipProvider>
               </SessionProvider>
             </QueryProvider>

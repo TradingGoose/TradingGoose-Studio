@@ -1,3 +1,4 @@
+import { useLocale } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -7,6 +8,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { getPublicCopy } from '@/i18n/public-copy'
+import { type LocaleCode } from '@/i18n/utils'
 
 interface RemoveMemberDialogProps {
   open: boolean
@@ -31,16 +34,23 @@ export function RemoveMemberDialog({
   onCancel,
   isSelfRemoval = false,
 }: RemoveMemberDialogProps) {
+  const locale = useLocale() as LocaleCode
+  const teamCopy = getPublicCopy(locale).workspace.settingsModal.team
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{isSelfRemoval ? 'Leave Organization' : 'Remove Team Member'}</DialogTitle>
+          <DialogTitle>
+            {isSelfRemoval ? teamCopy.leaveOrganization : teamCopy.removeTeamMember}
+          </DialogTitle>
           <DialogDescription>
             {isSelfRemoval
-              ? 'Are you sure you want to leave this organization? You will lose access to all team resources.'
-              : `Are you sure you want to remove ${memberName} from the team?`}{' '}
-            <span className='text-red-500 dark:text-red-500'>This action cannot be undone.</span>
+              ? teamCopy.leaveOrganizationDescription
+              : teamCopy.removeMemberDescription.replaceAll('{{name}}', memberName)}{' '}
+            <span className='text-red-500 dark:text-red-500'>
+              {teamCopy.thisActionCannotBeUndone}
+            </span>
           </DialogDescription>
         </DialogHeader>
 
@@ -55,25 +65,25 @@ export function RemoveMemberDialog({
                 onChange={(e) => onShouldReduceSeatsChange(e.target.checked)}
               />
               <label htmlFor='reduce-seats' className='text-xs'>
-                Also reduce seat count in my subscription
+                {teamCopy.alsoReduceSeatCount}
               </label>
             </div>
             <p className='mt-1 text-muted-foreground text-xs'>
-              If selected, your team seat count will be reduced by 1, lowering your monthly billing.
+              {teamCopy.reduceSeatCountDescription}
             </p>
           </div>
         )}
 
         <DialogFooter>
           <Button variant='outline' onClick={onCancel} className='h-9 rounded-sm'>
-            Cancel
+            {teamCopy.cancel}
           </Button>
           <Button
             variant='destructive'
             onClick={() => onConfirmRemove(shouldReduceSeats)}
             className='h-9 rounded-sm bg-red-500 text-white transition-all duration-200 hover:bg-red-600 dark:bg-red-500 dark:hover:bg-red-600'
           >
-            {isSelfRemoval ? 'Leave Organization' : 'Remove'}
+            {isSelfRemoval ? teamCopy.leaveOrganization : teamCopy.remove}
           </Button>
         </DialogFooter>
       </DialogContent>

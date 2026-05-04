@@ -8,8 +8,11 @@ import {
   Trash2,
   WrapText,
 } from 'lucide-react'
+import { useLocale } from 'next-intl'
 import { LoadingAgent } from '@/components/ui/loading-agent'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { getPublicCopy } from '@/i18n/public-copy'
+import type { LocaleCode } from '@/i18n/utils'
 import { cn } from '@/lib/utils'
 import { useConsoleStore } from '@/stores/console/store'
 import { useWorkflowWidgetState } from '@/widgets/hooks/use-workflow-widget-state'
@@ -38,6 +41,8 @@ const WorkflowConsoleWidgetBody = ({
   widget,
   onWidgetParamsChange,
 }: WidgetComponentProps) => {
+  const locale = useLocale() as LocaleCode
+  const copy = getPublicCopy(locale).workspace.widgets.console
   const workspaceId = context?.workspaceId
   const {
     channelId,
@@ -82,7 +87,7 @@ const WorkflowConsoleWidgetBody = ({
   }, [])
 
   if (!workspaceId) {
-    return <WidgetStateMessage message='Select a workspace to load workflows.' />
+    return <WidgetStateMessage message={copy.selectWorkspace} />
   }
 
   if (loadError) {
@@ -98,7 +103,7 @@ const WorkflowConsoleWidgetBody = ({
   }
 
   if (workflowIds.length === 0) {
-    return <WidgetStateMessage message='No workflows available in this workspace.' />
+    return <WidgetStateMessage message={copy.noWorkflows} />
   }
 
   if (!resolvedWorkflowId) {
@@ -139,6 +144,8 @@ const WorkflowConsoleHeaderControls = ({
   widget,
   panelId,
 }: WorkflowConsoleHeaderControlsProps) => {
+  const locale = useLocale() as LocaleCode
+  const copy = getPublicCopy(locale).workspace.widgets.console
   const { resolvedWorkflowId } = useWorkflowWidgetState({
     workspaceId,
     pairColor: widget?.pairColor ?? 'gray',
@@ -230,7 +237,7 @@ const WorkflowConsoleHeaderControls = ({
             type='button'
             className={widgetHeaderIconButtonClassName()}
             onClick={toggleSort}
-            aria-label='Sort by time'
+            aria-label={copy.sortByTime}
             disabled={isDisabled || workflowEntries.length === 0}
           >
             {sortConfig.direction === 'desc' ? (
@@ -240,7 +247,7 @@ const WorkflowConsoleHeaderControls = ({
             )}
           </button>
         </TooltipTrigger>
-        <TooltipContent side='top'>Sort by time</TooltipContent>
+        <TooltipContent side='top'>{copy.sortByTime}</TooltipContent>
       </Tooltip>
 
       <Tooltip>
@@ -252,14 +259,14 @@ const WorkflowConsoleHeaderControls = ({
               detailView.structuredView && 'text-primary'
             )}
             onClick={toggleStructuredView}
-            aria-label='Toggle structured view'
+            aria-label={copy.toggleStructuredView}
             aria-pressed={detailView.structuredView}
             disabled={isDisabled}
           >
             <Braces className='h-3.5 w-3.5' />
           </button>
         </TooltipTrigger>
-        <TooltipContent side='top'>Structured view</TooltipContent>
+        <TooltipContent side='top'>{copy.structuredView}</TooltipContent>
       </Tooltip>
 
       <Tooltip>
@@ -268,14 +275,14 @@ const WorkflowConsoleHeaderControls = ({
             type='button'
             className={cn(widgetHeaderIconButtonClassName(), detailView.wrapText && 'text-primary')}
             onClick={toggleWrapText}
-            aria-label='Toggle wrap text'
+            aria-label={copy.toggleWrapText}
             aria-pressed={detailView.wrapText}
             disabled={isDisabled}
           >
             <WrapText className='h-3.5 w-3.5' />
           </button>
         </TooltipTrigger>
-        <TooltipContent side='top'>Wrap text</TooltipContent>
+        <TooltipContent side='top'>{copy.wrapText}</TooltipContent>
       </Tooltip>
 
       <Tooltip>
@@ -284,13 +291,13 @@ const WorkflowConsoleHeaderControls = ({
             type='button'
             className={widgetHeaderIconButtonClassName()}
             onClick={handleExportConsole}
-            aria-label='Download console CSV'
+            aria-label={copy.downloadConsoleCsv}
             disabled={isDisabled || !hasEntries}
           >
             <ArrowDownToLine className='h-3.5 w-3.5' />
           </button>
         </TooltipTrigger>
-        <TooltipContent side='top'>Download CSV</TooltipContent>
+        <TooltipContent side='top'>{copy.downloadCsv}</TooltipContent>
       </Tooltip>
 
       <Tooltip>
@@ -299,13 +306,13 @@ const WorkflowConsoleHeaderControls = ({
             type='button'
             className={widgetHeaderIconButtonClassName()}
             onClick={handleClearConsole}
-            aria-label='Clear console'
+            aria-label={copy.clearConsole}
             disabled={isDisabled || !hasEntries}
           >
             <Trash2 className='h-3.5 w-3.5' />
           </button>
         </TooltipTrigger>
-        <TooltipContent side='top'>Clear console</TooltipContent>
+        <TooltipContent side='top'>{copy.clearConsole}</TooltipContent>
       </Tooltip>
     </div>
   )

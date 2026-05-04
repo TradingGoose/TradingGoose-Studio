@@ -2,8 +2,11 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Loader2, Rocket } from 'lucide-react'
+import { useLocale } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { getPublicCopy } from '@/i18n/public-copy'
+import type { LocaleCode } from '@/i18n/utils'
 import { cn } from '@/lib/utils'
 import { DeployModal } from '@/widgets/widgets/editor_workflow/components/control-bar/components'
 import type { WorkspaceUserPermissions } from '@/hooks/use-user-permissions'
@@ -34,6 +37,8 @@ export function DeploymentControls({
   userPermissions,
   variant = 'workspace',
 }: DeploymentControlsProps) {
+  const locale = useLocale() as LocaleCode
+  const copy = getPublicCopy(locale).workspace.widgets.deployment
   const deploymentStatus = useWorkflowRegistry((state) =>
     state.getWorkflowDeploymentStatus(activeWorkflowId)
   )
@@ -72,18 +77,18 @@ export function DeploymentControls({
 
   const getTooltipText = () => {
     if (!canDeploy) {
-      return 'Admin permissions required to deploy workflows'
+      return copy.adminPermissionsRequiredToDeployWorkflows
     }
     if (isDeploying) {
-      return 'Deploying...'
+      return copy.deploying
     }
     if (isDeployed && workflowNeedsRedeployment) {
-      return 'Workflow changes detected'
+      return copy.workflowChangesDetected
     }
     if (isDeployed) {
-      return 'Deployment Settings'
+      return copy.deploymentSettings
     }
-    return 'Deploy Workflow'
+    return copy.deployWorkflow
   }
 
   const buttonBaseClass =
@@ -116,7 +121,7 @@ export function DeploymentControls({
               ) : (
                 <Rocket className='h-5 w-5' />
               )}
-              <span className='sr-only'>Deploy API</span>
+              <span className='sr-only'>{copy.deployApi}</span>
             </Button>
 
             {isDeployed && workflowNeedsRedeployment && (
@@ -125,7 +130,7 @@ export function DeploymentControls({
                   <div className='absolute inset-0 h-[6px] w-[6px] animate-ping rounded-full bg-yellow-500/50' />
                   <div className='zoom-in fade-in relative h-[6px] w-[6px] animate-in rounded-full bg-yellow-500/80 duration-300' />
                 </div>
-                <span className='sr-only'>Needs Redeployment</span>
+                <span className='sr-only'>{copy.needsRedeployment}</span>
               </div>
             )}
           </div>

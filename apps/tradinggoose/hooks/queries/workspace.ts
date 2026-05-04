@@ -1,4 +1,6 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useLocale } from 'next-intl'
+import { buildLocaleRequestHeaders, type LocaleCode } from '@/i18n/utils'
 
 /**
  * Query key factories for workspace-related queries
@@ -10,7 +12,8 @@ export const workspaceKeys = {
   settings: (id: string) => [...workspaceKeys.detail(id), 'settings'] as const,
   permissions: (id: string) => [...workspaceKeys.detail(id), 'permissions'] as const,
   adminLists: () => [...workspaceKeys.all, 'adminList'] as const,
-  adminList: (userId: string | undefined) => [...workspaceKeys.adminLists(), userId ?? ''] as const,
+  adminList: (userId: string | undefined, locale: LocaleCode) =>
+    [...workspaceKeys.adminLists(), userId ?? '', locale] as const,
 }
 
 /**
@@ -135,12 +138,17 @@ export interface AdminWorkspace {
 /**
  * Fetch workspaces where user has admin access
  */
-async function fetchAdminWorkspaces(userId: string | undefined): Promise<AdminWorkspace[]> {
+async function fetchAdminWorkspaces(
+  userId: string | undefined,
+  locale: LocaleCode
+): Promise<AdminWorkspace[]> {
   if (!userId) {
     return []
   }
 
-  const workspacesResponse = await fetch('/api/workspaces')
+  const workspacesResponse = await fetch('/api/workspaces', {
+    headers: buildLocaleRequestHeaders(locale),
+  })
   if (!workspacesResponse.ok) {
     throw new Error('Failed to fetch workspaces')
   }
@@ -207,9 +215,11 @@ async function fetchAdminWorkspaces(userId: string | undefined): Promise<AdminWo
  * Hook to fetch workspaces where user has admin access
  */
 export function useAdminWorkspaces(userId: string | undefined) {
+  const locale = useLocale() as LocaleCode
+
   return useQuery({
-    queryKey: workspaceKeys.adminList(userId),
-    queryFn: () => fetchAdminWorkspaces(userId),
+    queryKey: workspaceKeys.adminList(userId, locale),
+    queryFn: () => fetchAdminWorkspaces(userId, locale),
     enabled: Boolean(userId),
     staleTime: 60 * 1000, // Cache for 60 seconds
     placeholderData: keepPreviousData,

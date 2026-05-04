@@ -4,6 +4,7 @@ import { useState, type KeyboardEvent, type MouseEvent, type SyntheticEvent } fr
 import { Check, Copy, LibraryBig, Loader2, Trash2 } from 'lucide-react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
+import { useLocale } from 'next-intl'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -15,6 +16,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { WorkspaceSelector } from '@/app/workspace/[workspaceId]/knowledge/components/workspace-selector/workspace-selector'
+import { localizeHref, type LocaleCode } from '@/i18n/utils'
 import { useKnowledgeStore } from '@/stores/knowledge/store'
 
 interface BaseOverviewProps {
@@ -86,13 +88,17 @@ export function BaseOverview({
   const [isDeleting, setIsDeleting] = useState(false)
   const params = useParams()
   const workspaceSlug = params?.workspaceId as string
+  const locale = useLocale() as LocaleCode
   const { removeKnowledgeBase } = useKnowledgeStore()
   const canManage = canEdit === true && !!id
 
   const searchParams = new URLSearchParams({
     kbName: title,
   })
-  const href = `/workspace/${workspaceSlug}/knowledge/${id || title.toLowerCase().replace(/\s+/g, '-')}?${searchParams.toString()}`
+  const href = localizeHref(
+    locale,
+    `/workspace/${workspaceSlug}/knowledge/${id || title.toLowerCase().replace(/\s+/g, '-')}?${searchParams.toString()}`
+  )
 
   const handleCopy = async (e: MouseEvent) => {
     e.preventDefault()

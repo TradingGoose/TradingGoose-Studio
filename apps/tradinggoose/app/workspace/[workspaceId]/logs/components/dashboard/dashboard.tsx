@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Filter, Loader2, Scroll, RefreshCw, Search } from 'lucide-react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
+import { useLocale } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
@@ -19,6 +20,8 @@ import LevelFilter from '@/app/workspace/[workspaceId]/logs/components/logs-tool
 import { mapToExecutionLog, mapToExecutionLogAlt } from '@/app/workspace/[workspaceId]/logs/utils'
 import { GlobalNavbarHeader } from '@/global-navbar'
 import { formatCost } from '@/providers/ai/utils'
+import { formatTemplate, getPublicCopy } from '@/i18n/public-copy'
+import { type LocaleCode } from '@/i18n/utils'
 import { useFilterStore } from '@/stores/logs/filters/store'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import { LogsFilters } from '@/app/workspace/[workspaceId]/logs/components/dashboard/components/logs-filters/logs-filters'
@@ -80,6 +83,8 @@ export function Dashboard() {
   const workspaceId = params.workspaceId as string
   const router = useRouter()
   const searchParams = useSearchParams()
+  const locale = useLocale() as LocaleCode
+  const copy = getPublicCopy(locale).workspace.logs
 
   const getTimeFilterFromRange = (range: string): TimeFilter => {
     switch (range) {
@@ -269,7 +274,7 @@ export function Dashboard() {
         )
 
         if (!response.ok) {
-          throw new Error('Failed to fetch execution history')
+          throw new Error(copy.dashboard.failedToFetchExecutionHistory)
         }
 
         const data = await response.json()
@@ -701,7 +706,7 @@ export function Dashboard() {
 
   const getDateRange = () => {
     const start = getStartTime()
-    return `${start.toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })} - ${endTime.toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', year: 'numeric' })}`
+    return `${start.toLocaleDateString(locale, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })} - ${endTime.toLocaleDateString(locale, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', year: 'numeric' })}`
   }
 
   const shiftTimeWindow = (direction: 'back' | 'forward') => {
@@ -764,14 +769,14 @@ export function Dashboard() {
     <div className='flex w-full flex-1 items-center gap-3'>
       <div className='hidden items-center gap-2 sm:flex'>
         <Scroll className='h-[18px] w-[18px] text-muted-foreground' />
-        <span className='font-medium text-sm'>Logs</span>
+        <span className='font-medium text-sm'>{copy.title.logs}</span>
       </div>
       <div className='relative flex-1'>
         <Search className='-translate-y-1/2 absolute top-1/2 left-3 h-4 w-4 text-muted-foreground' />
         <Input
           value={searchQuery}
           onChange={(event) => setSearchQuery(event.target.value)}
-          placeholder='Search workflows...'
+          placeholder={copy.dashboard.searchPlaceholder}
           className='h-full w-full rounded-md border bg-background pr-3 pl-10 text-sm'
         />
       </div>
@@ -797,7 +802,7 @@ export function Dashboard() {
           )}
           aria-pressed={live}
         >
-          Live
+          {copy.live}
         </Button>
       </div>
 
@@ -814,7 +819,7 @@ export function Dashboard() {
           )}
           aria-pressed={viewMode === 'logs'}
         >
-          Logs
+          {copy.title.logs}
         </Button>
         <Button
           variant='ghost'
@@ -828,7 +833,7 @@ export function Dashboard() {
           )}
           aria-pressed={viewMode === 'monitors'}
         >
-          Monitors
+          {copy.title.monitors}
         </Button>
         <Button
           variant='ghost'
@@ -842,7 +847,7 @@ export function Dashboard() {
           )}
           aria-pressed={viewMode === 'dashboard'}
         >
-          Dashboard
+          {copy.title.dashboard}
         </Button>
       </div>
     </div>
@@ -864,10 +869,12 @@ export function Dashboard() {
             ) : (
               <RefreshCw className='h-5 w-5' />
             )}
-            <span className='sr-only'>Refresh</span>
+            <span className='sr-only'>{copy.dashboard.refresh}</span>
           </Button>
         </TooltipTrigger>
-        <TooltipContent>{isRefetching ? 'Refreshing...' : 'Refresh'}</TooltipContent>
+        <TooltipContent>
+          {isRefetching ? copy.dashboard.refreshing : copy.dashboard.refresh}
+        </TooltipContent>
       </Tooltip>
     </div>
   )
@@ -892,21 +899,21 @@ export function Dashboard() {
               <div className='flex flex-1 items-center justify-center'>
                 <div className='flex items-center gap-2 text-muted-foreground'>
                   <Loader2 className='h-5 w-5 animate-spin' />
-                  <span>Loading execution history...</span>
+                  <span>{copy.dashboard.loadingExecutionHistory}</span>
                 </div>
               </div>
             ) : error ? (
               <div className='flex flex-1 items-center justify-center'>
                 <div className='text-destructive'>
-                  <p className='font-medium'>Error loading data</p>
+                  <p className='font-medium'>{copy.dashboard.errorLoadingData}</p>
                   <p className='text-sm'>{error}</p>
                 </div>
               </div>
             ) : executions.length === 0 ? (
               <div className='flex flex-1 items-center justify-center'>
                 <div className='text-center text-muted-foreground'>
-                  <p className='font-medium'>No execution history</p>
-                  <p className='mt-1 text-sm'>Execute some workflows to see their history here</p>
+                  <p className='font-medium'>{copy.dashboard.noExecutionHistory}</p>
+                  <p className='mt-1 text-sm'>{copy.dashboard.noExecutionHistoryDescription}</p>
                 </div>
               </div>
             ) : (
@@ -945,7 +952,7 @@ export function Dashboard() {
                               className='h-9 rounded-md gap-2 border-border bg-background px-3'
                             >
                               <Filter className='h-4 w-4' />
-                              Filters
+                              {copy.dashboard.filters.title}
                             </Button>
                           </PopoverTrigger>
                           <PopoverContent className='w-[320px] p-0' align='start'>
@@ -1113,7 +1120,9 @@ export function Dashboard() {
                         <WorkflowDetails
                           workspaceId={workspaceId}
                           expandedWorkflowId={'__multi__'}
-                          workflowName={`${selectedWorkflowIds.length} workflows selected`}
+                          workflowName={formatTemplate(copy.dashboard.workflows.multipleSelected, {
+                            count: selectedWorkflowIds.length,
+                          })}
                           overview={{
                             total: totalExecutions,
                             success: totalSuccess,
@@ -1314,7 +1323,7 @@ export function Dashboard() {
                       <WorkflowDetails
                         workspaceId={workspaceId}
                         expandedWorkflowId={'all'}
-                        workflowName={'All workflows'}
+                        workflowName={copy.dashboard.workflows.allWorkflows}
                         overview={{ total: totals.total, success: totals.success, failures, rate }}
                         details={globalDetails as any}
                         selectedSegmentIndex={[]}

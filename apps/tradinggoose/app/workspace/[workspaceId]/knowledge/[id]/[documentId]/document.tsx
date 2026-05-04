@@ -14,6 +14,7 @@ import {
   X,
 } from 'lucide-react'
 import { useParams, useSearchParams } from 'next/navigation'
+import { useLocale } from 'next-intl'
 import {
   Button,
   Checkbox,
@@ -33,6 +34,7 @@ import {
 import { ActionBar } from '@/app/workspace/[workspaceId]/knowledge/[id]/components'
 import { KnowledgeHeader, KnowledgeTags, PrimaryButton } from '@/app/workspace/[workspaceId]/knowledge/components'
 import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
+import { localizeHref, type LocaleCode } from '@/i18n/utils'
 import { useDocumentChunks } from '@/hooks/use-knowledge'
 import { type ChunkData, type DocumentData, useKnowledgeStore } from '@/stores/knowledge/store'
 
@@ -68,6 +70,7 @@ export function Document({
     updateDocument: updateDocumentInStore,
   } = useKnowledgeStore()
   const { workspaceId } = useParams()
+  const locale = useLocale() as LocaleCode
   const searchParams = useSearchParams()
   const currentPageFromURL = Number.parseInt(searchParams.get('page') || '1', 10)
   const userPermissions = useUserPermissionsContext()
@@ -472,10 +475,10 @@ export function Document({
   )
 
   const breadcrumbs = [
-    { label: 'Knowledge', href: `/workspace/${workspaceId}/knowledge` },
+    { label: 'Knowledge', href: localizeHref(locale, `/workspace/${workspaceId}/knowledge`) },
     {
       label: effectiveKnowledgeBaseName,
-      href: `/workspace/${workspaceId}/knowledge/${knowledgeBaseId}`,
+      href: localizeHref(locale, `/workspace/${workspaceId}/knowledge/${knowledgeBaseId}`),
     },
     { label: effectiveDocumentName },
   ]
@@ -833,10 +836,10 @@ export function Document({
 
   if (combinedError) {
     const errorBreadcrumbs = [
-      { label: 'Knowledge', href: `/workspace/${workspaceId}/knowledge` },
+      { label: 'Knowledge', href: localizeHref(locale, `/workspace/${workspaceId}/knowledge`) },
       {
         label: effectiveKnowledgeBaseName,
-        href: `/workspace/${workspaceId}/knowledge/${knowledgeBaseId}`,
+        href: localizeHref(locale, `/workspace/${workspaceId}/knowledge/${knowledgeBaseId}`),
       },
       { label: 'Error' },
     ]

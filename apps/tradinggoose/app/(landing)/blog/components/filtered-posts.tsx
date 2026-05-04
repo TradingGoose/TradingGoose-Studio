@@ -2,11 +2,14 @@
 
 import { useState } from 'react'
 import { FileText, SearchIcon, SearchX } from 'lucide-react'
+import { useLocale } from 'next-intl'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from '@/components/ui/empty'
 import PostCard from './post-card'
 import type { Post } from '../lib/types'
+import { getPublicCopy } from '@/i18n/public-copy'
+import type { LocaleCode } from '@/i18n/utils'
 
 interface FilteredPostProps {
   posts: Post[]
@@ -14,6 +17,8 @@ interface FilteredPostProps {
 
 export default function FilteredPosts({ posts }: FilteredPostProps) {
   const [searchValue, setSearchValue] = useState('')
+  const locale = useLocale() as LocaleCode
+  const copy = getPublicCopy(locale)
 
   if (posts.length === 0) {
     return (
@@ -22,8 +27,8 @@ export default function FilteredPosts({ posts }: FilteredPostProps) {
           <EmptyMedia variant="icon">
             <FileText />
           </EmptyMedia>
-          <EmptyTitle>No posts yet</EmptyTitle>
-          <EmptyDescription>Check back soon — new articles are on the way.</EmptyDescription>
+          <EmptyTitle>{copy.blog.emptyTitle}</EmptyTitle>
+          <EmptyDescription>{copy.blog.emptyDescription}</EmptyDescription>
         </EmptyHeader>
       </Empty>
     )
@@ -40,8 +45,8 @@ export default function FilteredPosts({ posts }: FilteredPostProps) {
           type="text"
           value={searchValue}
           onChange={(e) => setSearchValue(e.target.value)}
-          placeholder="Search articles"
-          aria-label="Search articles"
+          placeholder={copy.blog.searchPlaceholder}
+          aria-label={copy.blog.searchPlaceholder}
           className="w-full pl-12"
           id="search"
         />
@@ -62,8 +67,8 @@ export default function FilteredPosts({ posts }: FilteredPostProps) {
             <EmptyMedia variant="icon">
               <SearchX />
             </EmptyMedia>
-            <EmptyTitle>No posts matching &ldquo;{searchValue}&rdquo;</EmptyTitle>
-            <EmptyDescription>Try a different search term.</EmptyDescription>
+            <EmptyTitle>{copy.blog.noMatches.replace('{{query}}', searchValue)}</EmptyTitle>
+            <EmptyDescription>{copy.blog.noMatchesDescription}</EmptyDescription>
           </EmptyHeader>
         </Empty>
       )}

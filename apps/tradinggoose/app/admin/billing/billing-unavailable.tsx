@@ -1,9 +1,9 @@
-import Link from 'next/link'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { ADMIN_META_BADGE_CLASSNAME } from '../badge-styles'
 import { AdminPageShell } from '../page-shell'
+import { Link } from '@/i18n/navigation'
 
 export function AdminBillingUnavailable({
   title,

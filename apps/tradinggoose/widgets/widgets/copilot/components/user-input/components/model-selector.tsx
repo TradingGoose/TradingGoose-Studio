@@ -1,6 +1,7 @@
 'use client'
 
 import { Brain, BrainCircuit, Zap } from 'lucide-react'
+import { useLocale } from 'next-intl'
 import {
   Button,
   DropdownMenu,
@@ -16,6 +17,11 @@ import {
 } from '@/lib/copilot/runtime-models'
 import { cn } from '@/lib/utils'
 import { useCopilotStore } from '@/stores/copilot/store'
+import type { LocaleCode } from '@/i18n/utils'
+import {
+  getWorkflowLabelCopy,
+  translateWorkflowLabel,
+} from '@/widgets/workflow-labels'
 import {
   ANTHROPIC_MODELS,
   BRAIN_CIRCUIT_MODELS,
@@ -46,7 +52,9 @@ const getModelOptionIcon = (modelValue: CopilotRuntimeModel) => {
 }
 
 export function ModelSelector({ isNearTop, panelWidth }: ModelSelectorProps) {
+  const locale = useLocale() as LocaleCode
   const { agentPrefetch, selectedModel, setAgentPrefetch, setSelectedModel } = useCopilotStore()
+  const copy = getWorkflowLabelCopy(locale)
 
   const model = COPILOT_RUNTIME_MODEL_OPTIONS.find((option) => option.value === selectedModel)
   const collapsedModeLabel = model ? model.label : DEFAULT_COPILOT_RUNTIME_MODEL
@@ -58,13 +66,13 @@ export function ModelSelector({ isNearTop, panelWidth }: ModelSelectorProps) {
           variant='outline'
           size='sm'
           className='flex h-6 bg-background hover:bg-muted/30 items-center gap-1.5 rounded-sm border px-2 py-1 font-medium text-xs focus-visible:ring-0 focus-visible:ring-offset-0'
-          title='Choose model'
+          title={translateWorkflowLabel(locale, 'Choose model')}
         >
           {getModelOptionIcon(selectedModel)}
           <span className={cn(panelWidth < 360 ? 'max-w-[72px] truncate' : '')}>
             {collapsedModeLabel}
             {agentPrefetch && !FAST_MODELS.includes(selectedModel) && (
-              <span className='ml-1 font-semibold'>Lite</span>
+              <span className='ml-1 font-semibold'>{translateWorkflowLabel(locale, 'Lite')}</span>
             )}
           </span>
         </Button>
@@ -75,12 +83,12 @@ export function ModelSelector({ isNearTop, panelWidth }: ModelSelectorProps) {
             <div className='max-h-[280px] overflow-y-auto p-2'>
               <div>
                 <div className='mb-1'>
-                  <span className='font-medium text-xs'>Model</span>
+                  <span className='font-medium text-xs'>{copy.model}</span>
                 </div>
                 <div className='space-y-2'>
                   <div>
                     <div className='px-2 py-1 font-medium text-[10px] text-muted-foreground uppercase'>
-                      Anthropic
+                      {translateWorkflowLabel(locale, 'Anthropic')}
                     </div>
                     <div className='space-y-0.5'>
                       {COPILOT_RUNTIME_MODEL_OPTIONS.filter((option) =>
@@ -108,7 +116,7 @@ export function ModelSelector({ isNearTop, panelWidth }: ModelSelectorProps) {
 
                   <div>
                     <div className='px-2 py-1 font-medium text-[10px] text-muted-foreground uppercase'>
-                      OpenAI
+                      {translateWorkflowLabel(locale, 'OpenAI')}
                     </div>
                     <div className='space-y-0.5'>
                       {COPILOT_RUNTIME_MODEL_OPTIONS.filter((option) =>

@@ -35,6 +35,10 @@ export function WordRotate({ words, duration = 3000, className, activeIndex }: W
   }, [words.length])
 
   useEffect(() => {
+    setInternalIndex(0)
+  }, [words])
+
+  useEffect(() => {
     if (activeIndex !== undefined) return
     const id = setInterval(next, duration)
     return () => clearInterval(id)

@@ -1,15 +1,20 @@
 import { getLLMText } from '@/lib/llms'
+import { i18n } from '@/lib/i18n'
 import { source } from '@/lib/source'
 
 export const revalidate = false
 
 export async function GET() {
+  const localizedLanguages = i18n.languages.filter((lang) => lang !== i18n.defaultLanguage)
+
   try {
     const pages = source.getPages().filter((page) => {
       if (!page || !page.data || !page.url) return false
 
       const pathParts = page.url.split('/').filter(Boolean)
-      const hasLangPrefix = pathParts[0] && ['es', 'fr', 'de', 'ja', 'zh'].includes(pathParts[0])
+      const hasLangPrefix =
+        pathParts[0] &&
+        localizedLanguages.includes(pathParts[0] as (typeof localizedLanguages)[number])
 
       return !hasLangPrefix
     })

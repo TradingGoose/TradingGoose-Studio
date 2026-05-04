@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { formatDate } from '@/app/workspace/[workspaceId]/logs/utils'
+import { formatTemplate } from '@/i18n/public-copy'
 
 export interface LineChartPoint {
   timestamp: string
@@ -21,12 +22,19 @@ export function LineChart({
   color,
   unit,
   series,
+  locale,
+  copy,
 }: {
   data: LineChartPoint[]
   label: string
   color: string
   unit?: string
   series?: LineChartMultiSeries[]
+  locale: string
+  copy: {
+    noData: string
+    toggleSeries: string
+  }
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null)
   const [containerWidth, setContainerWidth] = useState<number>(420)
@@ -72,7 +80,7 @@ export function LineChart({
         className='flex items-center justify-center rounded-lg border bg-card p-4'
         style={{ width, height }}
       >
-        <p className='text-muted-foreground text-sm'>No data</p>
+        <p className='text-muted-foreground text-sm'>{copy.noData}</p>
       </div>
     )
   }
@@ -152,12 +160,12 @@ export function LineChart({
   const getCompactDateLabel = (timestamp?: string) => {
     if (!timestamp) return ''
     try {
-      const f = formatDate(timestamp)
+      const f = formatDate(timestamp, locale)
       return `${f.compactDate} · ${f.compactTime}`
     } catch (e) {
       const d = new Date(timestamp)
       if (Number.isNaN(d.getTime())) return ''
-      return d.toLocaleString('en-US', {
+      return d.toLocaleString(locale, {
         month: 'short',
         day: 'numeric',
         hour: '2-digit',
@@ -186,7 +194,7 @@ export function LineChart({
                     key={`legend-${s.id}`}
                     type='button'
                     aria-pressed={activeSeriesId === s.id}
-                    aria-label={`Toggle ${s.label}`}
+                    aria-label={formatTemplate(copy.toggleSeries, { label: s.label })}
                     className='inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px]'
                     style={{
                       color: s.color,
@@ -425,16 +433,16 @@ export function LineChart({
 
               const formatTick = (d: Date) => {
                 if (spanMs <= 36 * 60 * 60 * 1000) {
-                  return d.toLocaleTimeString('en-US', {
+                  return d.toLocaleTimeString(locale, {
                     hour: '2-digit',
                     minute: '2-digit',
                     hour12: false,
                   })
                 }
                 if (spanMs <= 90 * 24 * 60 * 60 * 1000) {
-                  return d.toLocaleString('en-US', { month: 'short', day: 'numeric' })
+                  return d.toLocaleString(locale, { month: 'short', day: 'numeric' })
                 }
-                return d.toLocaleString('en-US', { month: 'short', year: 'numeric' })
+                return d.toLocaleString(locale, { month: 'short', year: 'numeric' })
               }
 
               return idx.map((i) => {
@@ -462,7 +470,7 @@ export function LineChart({
               const unitSuffix = (unit || '').trim()
               const showInTicks = unitSuffix === '%'
               const fmtCompact = (v: number) =>
-                new Intl.NumberFormat('en-US', {
+                new Intl.NumberFormat(locale, {
                   notation: 'compact',
                   maximumFractionDigits: 1,
                 })

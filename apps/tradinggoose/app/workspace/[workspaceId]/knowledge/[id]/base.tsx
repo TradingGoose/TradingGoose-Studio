@@ -19,6 +19,7 @@ import {
   X,
 } from 'lucide-react'
 import { useParams, useRouter } from 'next/navigation'
+import { useLocale } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { SearchHighlight } from '@/components/ui/search-highlight'
@@ -39,6 +40,7 @@ import {
   SearchInput,
 } from '@/app/workspace/[workspaceId]/knowledge/components'
 import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
+import { localizeHref, type LocaleCode } from '@/i18n/utils'
 import { useKnowledgeBase, useKnowledgeBaseDocuments } from '@/hooks/use-knowledge'
 import { type DocumentData } from '@/stores/knowledge/store'
 
@@ -123,6 +125,7 @@ export function KnowledgeBase({
   const userPermissions = useUserPermissionsContext()
   const params = useParams()
   const workspaceId = params.workspaceId as string
+  const locale = useLocale() as LocaleCode
 
   const [searchQuery, setSearchQuery] = useState('')
 
@@ -459,7 +462,9 @@ export function KnowledgeBase({
       kbName: knowledgeBaseName, // Use the instantly available name
       docName: document?.filename || 'Document',
     })
-    router.push(`/workspace/${workspaceId}/knowledge/${id}/${docId}?${urlParams.toString()}`)
+    router.push(
+      localizeHref(locale, `/workspace/${workspaceId}/knowledge/${id}/${docId}?${urlParams.toString()}`)
+    )
   }
 
   const handleAddDocuments = () => {
@@ -619,7 +624,7 @@ export function KnowledgeBase({
     {
       id: 'knowledge-root',
       label: 'Knowledge',
-      href: `/workspace/${workspaceId}/knowledge`,
+      href: localizeHref(locale, `/workspace/${workspaceId}/knowledge`),
     },
     {
       id: `knowledge-base-${id}`,
@@ -669,7 +674,7 @@ export function KnowledgeBase({
       {
         id: 'knowledge-root',
         label: 'Knowledge',
-        href: `/workspace/${workspaceId}/knowledge`,
+        href: localizeHref(locale, `/workspace/${workspaceId}/knowledge`),
       },
       {
         id: 'error',

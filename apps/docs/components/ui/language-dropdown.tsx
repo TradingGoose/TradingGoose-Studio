@@ -3,14 +3,12 @@
 import { useEffect, useState } from 'react'
 import { Check, ChevronRight } from 'lucide-react'
 import { useParams, usePathname, useRouter } from 'next/navigation'
+import { localizePathname, stripLocaleFromPathname } from '@/lib/i18n'
 
 const languages = {
   en: { name: 'English', flag: '🇺🇸' },
   es: { name: 'Español', flag: '🇪🇸' },
-  fr: { name: 'Français', flag: '🇫🇷' },
-  de: { name: 'Deutsch', flag: '🇩🇪' },
-  ja: { name: '日本語', flag: '🇯🇵' },
-  zh: { name: '简体中文', flag: '🇨🇳' },
+  'zh-CN': { name: '简体中文', flag: '🇨🇳' },
 }
 
 export function LanguageDropdown() {
@@ -46,20 +44,8 @@ export function LanguageDropdown() {
 
     setIsOpen(false)
 
-    const segments = pathname.split('/').filter(Boolean)
-
-    if (segments[0] && Object.keys(languages).includes(segments[0])) {
-      segments.shift()
-    }
-
-    let newPath = ''
-    if (locale === 'en') {
-      newPath = segments.length > 0 ? `/${segments.join('/')}` : ''
-    } else {
-      newPath = `/${locale}${segments.length > 0 ? `/${segments.join('/')}` : ''}`
-    }
-
-    router.push(newPath)
+    const { pathname: normalizedPathname } = stripLocaleFromPathname(pathname || '/')
+    router.push(localizePathname(locale as keyof typeof languages, normalizedPathname))
   }
 
   useEffect(() => {

@@ -1,4 +1,9 @@
+'use client'
+
 import { memo, useMemo } from 'react'
+import { useLocale } from 'next-intl'
+import { formatTemplate, getPublicCopy } from '@/i18n/public-copy'
+import { type LocaleCode } from '@/i18n/utils'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import StatusBar, {
   type StatusBarSegment,
@@ -36,24 +41,39 @@ export function WorkflowsList({
   searchQuery: string
   segmentDurationMs: number
 }) {
+  const locale = useLocale() as LocaleCode
+  const copy = getPublicCopy(locale).workspace.logs.dashboard.workflows
   const { workflows } = useWorkflowRegistry()
   const segmentsCount = filteredExecutions[0]?.segments?.length || 120
   const durationLabel = useMemo(() => {
     const segMs = Math.max(1, Math.floor(segmentDurationMs || 0))
     const days = Math.round(segMs / (24 * 60 * 60 * 1000))
-    if (days >= 1) return `${days} day${days !== 1 ? 's' : ''}`
+    if (days >= 1) {
+      return formatTemplate(copy.durationDay, {
+        count: days,
+        plural: days !== 1 ? 's' : '',
+      })
+    }
     const hours = Math.round(segMs / (60 * 60 * 1000))
-    if (hours >= 1) return `${hours} hour${hours !== 1 ? 's' : ''}`
+    if (hours >= 1) {
+      return formatTemplate(copy.durationHour, {
+        count: hours,
+        plural: hours !== 1 ? 's' : '',
+      })
+    }
     const mins = Math.max(1, Math.round(segMs / (60 * 1000)))
-    return `${mins} minute${mins !== 1 ? 's' : ''}`
-  }, [segmentDurationMs])
+    return formatTemplate(copy.durationMinute, {
+      count: mins,
+      plural: mins !== 1 ? 's' : '',
+    })
+  }, [segmentDurationMs, copy.durationDay, copy.durationHour, copy.durationMinute])
 
   // Date axis above the status bars intentionally removed for a cleaner, denser layout
 
   function DynamicLegend() {
     return (
       <p className='mt-0.5 text-[11px] text-muted-foreground'>
-        Each cell ≈ {durationLabel} of the selected range. Click a cell to filter details.
+        {formatTemplate(copy.legend, { duration: durationLabel })}
       </p>
     )
   }
@@ -65,13 +85,15 @@ export function WorkflowsList({
       <div className='flex-shrink-0 border-b bg-muted/30 px-4 py-2'>
         <div className='flex items-center justify-between'>
           <div>
-            <h3 className='font-[480] text-sm'>Workflows</h3>
+            <h3 className='font-[480] text-sm'>{copy.title}</h3>
             <DynamicLegend />
           </div>
           <span className='text-muted-foreground text-xs'>
-            {filteredExecutions.length} workflow
-            {filteredExecutions.length !== 1 ? 's' : ''}
-            {searchQuery && ` (filtered from ${executions.length})`}
+            {formatTemplate(
+              filteredExecutions.length === 1 ? copy.count : copy.countPlural,
+              { count: filteredExecutions.length }
+            )}
+            {searchQuery && formatTemplate(copy.filteredFrom, { count: executions.length })}
           </span>
         </div>
       </div>
@@ -80,7 +102,7 @@ export function WorkflowsList({
         <div className='space-y-1 p-3'>
           {filteredExecutions.length === 0 ? (
             <div className='py-8 text-center text-muted-foreground text-sm'>
-              No workflows found matching "{searchQuery}"
+              {formatTemplate(copy.noMatches, { query: searchQuery })}
             </div>
           ) : (
             filteredExecutions.map((workflow, idx) => {

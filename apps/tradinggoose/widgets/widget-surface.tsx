@@ -6,6 +6,7 @@ import type { WidgetInstance } from '@/widgets/layout'
 import { isPairColor, type PairColor } from '@/widgets/pair-colors'
 import { getWidgetDefinition } from '@/widgets/registry'
 import type { WidgetComponentProps, WidgetHeaderSlots, WidgetRuntimeContext } from '@/widgets/types'
+import type { LocaleCode } from '@/i18n/utils'
 import { PairColorDropdown } from '@/widgets/widgets/components/pair-color-dropdown'
 import { WidgetActionMenu } from '@/widgets/widgets/components/widget-action-menu'
 import { WidgetSelector } from '@/widgets/widgets/components/widget-selector'
@@ -17,6 +18,7 @@ interface WidgetSurfaceProps {
   widget: WidgetInstance
   header?: WidgetSurfaceHeader
   context?: WidgetRuntimeContext
+  locale?: LocaleCode
   onPairColorChange?: (color: PairColor) => void
   onWidgetChange?: (widgetKey: string) => void
   panelId?: string
@@ -30,6 +32,7 @@ function WidgetSurfaceComponent({
   widget,
   header,
   context,
+  locale,
   onPairColorChange,
   onWidgetChange,
   panelId,
@@ -136,6 +139,7 @@ function WidgetSurfaceComponent({
             <RenderWidgetComponent
               params={widget?.params ?? null}
               context={context}
+              locale={locale}
               pairColor={pairColor}
               panelId={panelId}
               widget={widget}
@@ -176,6 +180,7 @@ function arePropsEqual(prev: WidgetSurfaceProps, next: WidgetSurfaceProps) {
     sameWidget &&
     prev.panelId === next.panelId &&
     prev.context?.workspaceId === next.context?.workspaceId &&
+    prev.locale === next.locale &&
     prev.header === next.header &&
     prev.onPairColorChange === next.onPairColorChange &&
     prev.onWidgetChange === next.onWidgetChange &&

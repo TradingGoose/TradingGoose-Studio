@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { Check, Copy, Info, Loader2, Plus } from 'lucide-react'
+import { useLocale } from 'next-intl'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -26,6 +27,8 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui'
+import { getPublicCopy } from '@/i18n/public-copy'
+import type { LocaleCode } from '@/i18n/utils'
 import { createLogger } from '@/lib/logs/console/logger'
 import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import { useWorkspaceId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
@@ -67,10 +70,12 @@ export function ApiKeySelector({
   apiKeys = [],
   onApiKeyCreated,
   showLabel = true,
-  label = 'API Key',
+  label,
   isDeployed = false,
   deployedApiKeyDisplay,
 }: ApiKeySelectorProps) {
+  const locale = useLocale() as LocaleCode
+  const copy = getPublicCopy(locale).workspace.widgets.apiKey
   const workspaceId = useWorkspaceId()
   const userPermissions = useUserPermissionsContext()
   const canCreateWorkspaceKeys = userPermissions.canEdit || userPermissions.canAdmin
@@ -86,6 +91,7 @@ export function ApiKeySelector({
   const [keysLoaded, setKeysLoaded] = useState(false)
   const [createError, setCreateError] = useState<string | null>(null)
   const [justCreatedKeyId, setJustCreatedKeyId] = useState<string | null>(null)
+  const resolvedLabel = label ?? copy.apiKey
 
   useEffect(() => {
     fetchApiKeys()
@@ -115,7 +121,7 @@ export function ApiKeySelector({
 
   const handleCreateKey = async () => {
     if (!newKeyName.trim()) {
-      setCreateError('Please enter a name for the API key')
+      setCreateError(copy.enterName)
       return
     }
 
@@ -136,7 +142,7 @@ export function ApiKeySelector({
 
       if (!response.ok) {
         const error = await response.json()
-        throw new Error(error.error || 'Failed to create API key')
+        throw new Error(error.error || copy.failedToCreate)
       }
 
       const data = await response.json()
@@ -150,7 +156,7 @@ export function ApiKeySelector({
       await fetchApiKeys()
       onApiKeyCreated?.()
     } catch (error: any) {
-      setCreateError(error.message || 'Failed to create API key')
+      setCreateError(error.message || copy.failedToCreate)
     } finally {
       setIsSubmittingCreate(false)
     }
@@ -169,14 +175,14 @@ export function ApiKeySelector({
       <div className='space-y-1.5'>
         {showLabel && (
           <div className='flex items-center gap-1.5'>
-            <Label className='font-medium text-sm'>{label}</Label>
+            <Label className='font-medium text-sm'>{resolvedLabel}</Label>
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Info className='h-3.5 w-3.5 text-muted-foreground' />
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>Owner is billed for usage</p>
+                  <p>{copy.ownerIsBilledForUsage}</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
@@ -219,14 +225,14 @@ export function ApiKeySelector({
         {showLabel && (
           <div className='flex items-center justify-between'>
             <div className='flex items-center gap-1.5'>
-              <Label className='font-medium text-sm'>{label}</Label>
+              <Label className='font-medium text-sm'>{resolvedLabel}</Label>
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Info className='h-3.5 w-3.5 text-muted-foreground' />
                   </TooltipTrigger>
                   <TooltipContent>
-                    <p>Key Owner is Billed</p>
+                    <p>{copy.keyOwnerIsBilled}</p>
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
@@ -243,7 +249,7 @@ export function ApiKeySelector({
                 }}
               >
                 <Plus className='h-3.5 w-3.5' />
-                <span>Create new</span>
+                <span>{copy.createNew}</span>
               </Button>
             )}
           </div>
@@ -253,17 +259,17 @@ export function ApiKeySelector({
             {!keysLoaded ? (
               <div className='flex items-center space-x-2'>
                 <Loader2 className='h-3.5 w-3.5 animate-spin' />
-                <span>Loading API keys...</span>
+                <span>{copy.loadingApiKeys}</span>
               </div>
             ) : (
-              <SelectValue placeholder='Select an API key' className='text-sm' />
+              <SelectValue placeholder={copy.selectAnApiKey} className='text-sm' />
             )}
           </SelectTrigger>
           <SelectContent align='start' className='w-[var(--radix-select-trigger-width)] py-1'>
             {apiKeysData && apiKeysData.workspace.length > 0 && (
               <SelectGroup>
                 <SelectLabel className='px-3 py-1.5 font-medium text-muted-foreground text-xs uppercase tracking-wide'>
-                  Workspace
+                  {copy.workspaceLabel}
                 </SelectLabel>
                 {apiKeysData.workspace.map((apiKey) => (
                   <SelectItem
@@ -288,7 +294,7 @@ export function ApiKeySelector({
               (!apiKeysData && apiKeys.length > 0)) && (
               <SelectGroup>
                 <SelectLabel className='px-3 py-1.5 font-medium text-muted-foreground text-xs uppercase tracking-wide'>
-                  Personal
+                  {copy.personalLabel}
                 </SelectLabel>
                 {(apiKeysData ? apiKeysData.personal : apiKeys).map((apiKey) => (
                   <SelectItem
@@ -310,13 +316,17 @@ export function ApiKeySelector({
             )}
 
             {!apiKeysData && apiKeys.length === 0 && (
-              <div className='px-3 py-2 text-muted-foreground text-sm'>No API keys available</div>
+              <div className='px-3 py-2 text-muted-foreground text-sm'>
+                {copy.noApiKeysAvailable}
+              </div>
             )}
 
             {apiKeysData &&
               apiKeysData.workspace.length === 0 &&
               apiKeysData.personal.length === 0 && (
-                <div className='px-3 py-2 text-muted-foreground text-sm'>No API keys available</div>
+                <div className='px-3 py-2 text-muted-foreground text-sm'>
+                  {copy.noApiKeysAvailable}
+                </div>
               )}
           </SelectContent>
         </Select>
@@ -326,18 +336,18 @@ export function ApiKeySelector({
       <AlertDialog open={isCreatingKey} onOpenChange={setIsCreatingKey}>
         <AlertDialogContent className='rounded-md sm:max-w-md'>
           <AlertDialogHeader>
-            <AlertDialogTitle>Create new API key</AlertDialogTitle>
+            <AlertDialogTitle>{copy.createNewApiKey}</AlertDialogTitle>
             <AlertDialogDescription>
               {keyType === 'workspace'
-                ? "This key will have access to all workflows in this workspace. Make sure to copy it after creation as you won't be able to see it again."
-                : "This key will have access to your personal workflows. Make sure to copy it after creation as you won't be able to see it again."}
+                ? copy.workspaceAccess
+                : copy.personalAccess}
             </AlertDialogDescription>
           </AlertDialogHeader>
 
           <div className='space-y-4 py-2'>
             {canCreateWorkspaceKeys && (
               <div className='space-y-2'>
-                <p className='font-[360] text-sm'>API Key Type</p>
+                <p className='font-[360] text-sm'>{copy.apiKeyType}</p>
                 <div className='flex gap-2'>
                   <Button
                     type='button'
@@ -349,7 +359,7 @@ export function ApiKeySelector({
                     }}
                     className='h-8 data-[variant=outline]:border-border data-[variant=outline]:bg-background data-[variant=outline]:text-foreground data-[variant=outline]:hover:bg-card dark:data-[variant=outline]:border-border dark:data-[variant=outline]:bg-background dark:data-[variant=outline]:text-foreground dark:data-[variant=outline]:hover:bg-card/80'
                   >
-                    Personal
+                    {copy.personal}
                   </Button>
                   <Button
                     type='button'
@@ -361,17 +371,17 @@ export function ApiKeySelector({
                     }}
                     className='h-8 data-[variant=outline]:border-border data-[variant=outline]:bg-background data-[variant=outline]:text-foreground data-[variant=outline]:hover:bg-card dark:data-[variant=outline]:border-border dark:data-[variant=outline]:bg-background dark:data-[variant=outline]:text-foreground dark:data-[variant=outline]:hover:bg-card/80'
                   >
-                    Workspace
+                    {copy.workspace}
                   </Button>
                 </div>
               </div>
             )}
 
             <div className='space-y-2'>
-              <Label htmlFor='new-key-name'>API Key Name</Label>
+              <Label htmlFor='new-key-name'>{copy.apiKeyName}</Label>
               <Input
                 id='new-key-name'
-                placeholder='My API Key'
+                placeholder={copy.myApiKey}
                 value={newKeyName}
                 onChange={(e) => {
                   setNewKeyName(e.target.value)
@@ -391,7 +401,7 @@ export function ApiKeySelector({
                 setCreateError(null)
               }}
             >
-              Cancel
+              {copy.cancel}
             </AlertDialogCancel>
             <AlertDialogAction
               disabled={isSubmittingCreate || !newKeyName.trim()}
@@ -403,10 +413,10 @@ export function ApiKeySelector({
               {isSubmittingCreate ? (
                 <>
                   <Loader2 className='mr-1.5 h-3 w-3 animate-spin' />
-                  Creating...
+                  {copy.creating}
                 </>
               ) : (
-                'Create'
+                copy.create
               )}
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -430,10 +440,10 @@ export function ApiKeySelector({
       >
         <AlertDialogContent className='rounded-md sm:max-w-md'>
           <AlertDialogHeader>
-            <AlertDialogTitle>Your API key has been created</AlertDialogTitle>
+            <AlertDialogTitle>{copy.apiKeyHasBeenCreated}</AlertDialogTitle>
             <AlertDialogDescription>
-              This is the only time you will see your API key.{' '}
-              <span className='font-semibold'>Copy it now and store it securely.</span>
+              {copy.onlyTimeYouWillSeeYourApiKey}{' '}
+              <span className='font-semibold'>{copy.copyItNowAndStoreItSecurely}</span>
             </AlertDialogDescription>
           </AlertDialogHeader>
 
@@ -451,7 +461,7 @@ export function ApiKeySelector({
                 onClick={handleCopyKey}
               >
                 {copySuccess ? <Check className='h-3.5 w-3.5' /> : <Copy className='h-3.5 w-3.5' />}
-                <span className='sr-only'>Copy to clipboard</span>
+                <span className='sr-only'>{copy.copyToClipboard}</span>
               </Button>
             </div>
           )}

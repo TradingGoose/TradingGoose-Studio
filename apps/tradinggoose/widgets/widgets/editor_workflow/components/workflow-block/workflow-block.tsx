@@ -1,4 +1,5 @@
 import { type CSSProperties, memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useLocale } from 'next-intl'
 import { Handle, type Node, type NodeProps, Position, useStore, useUpdateNodeInternals } from '@xyflow/react'
 import { Badge } from '@/components/ui/badge'
 import { Card } from '@/components/ui/card'
@@ -24,6 +25,12 @@ import {
   useWorkflowChannelId,
   useWorkflowId,
 } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
+import type { LocaleCode } from '@/i18n/utils'
+import {
+  formatWorkflowTemplate,
+  getWorkflowLabelCopy,
+  translateWorkflowLabel,
+} from '@/widgets/workflow-labels'
 import { ActionBar } from './components/action-bar/action-bar'
 import { ConnectionBlocks } from './components/connection-blocks/connection-blocks'
 import { useSubBlockValue } from './components/sub-block/hooks/use-sub-block-value'
@@ -263,6 +270,7 @@ type WorkflowBlockNode = Node<WorkflowBlockProps, 'workflowBlock'>
 // Combine both interfaces into a single component - wrapped in memo for performance
 export const WorkflowBlock = memo(
   function WorkflowBlock({ id, data, selected }: NodeProps<WorkflowBlockNode>) {
+    const locale = useLocale() as LocaleCode
     const { type, config, name, isActive: dataIsActive, isPending } = data
 
     // State management
@@ -962,7 +970,7 @@ export const WorkflowBlock = memo(
               {/* Show debug indicator for pending blocks */}
               {isPending && (
                 <div className='-top-6 -translate-x-1/2 absolute left-1/2 z-10 transform rounded-t-md bg-yellow-500 px-2 py-0.5 text-white text-xs'>
-                  Next Step
+                  {translateWorkflowLabel(locale, 'Next Step')}
                 </div>
               )}
 
@@ -1083,7 +1091,7 @@ export const WorkflowBlock = memo(
                       variant='secondary'
                       className='bg-gray-100 text-gray-500 hover:bg-gray-100'
                     >
-                      Locked
+                      {translateWorkflowLabel(locale, 'Locked')}
                     </Badge>
                   )}
                   {isWorkflowSelector && childWorkflowId && (
@@ -1102,11 +1110,13 @@ export const WorkflowBlock = memo(
                         <span className='text-sm'>
                           {childIsDeployed
                             ? isLoadingChildVersion
-                              ? 'Deployed'
+                              ? translateWorkflowLabel(locale, 'Deployed')
                               : childActiveVersion != null
-                                ? `Deployed (v${childActiveVersion})`
-                                : 'Deployed'
-                            : 'Not Deployed'}
+                                ? formatWorkflowTemplate(getWorkflowLabelCopy(locale).deployedWithVersion, {
+                                    version: childActiveVersion,
+                                  })
+                                : translateWorkflowLabel(locale, 'Deployed')
+                            : translateWorkflowLabel(locale, 'Not Deployed')}
                         </span>
                       </TooltipContent>
                     </Tooltip>
@@ -1116,7 +1126,7 @@ export const WorkflowBlock = memo(
                       variant='secondary'
                       className='bg-gray-100 text-gray-500 hover:bg-gray-100'
                     >
-                      Disabled
+                      {translateWorkflowLabel(locale, 'Disabled')}
                     </Badge>
                   )}
                 </div>
@@ -1139,9 +1149,9 @@ export const WorkflowBlock = memo(
                         <div key={conditionRow.id} className='flex items-center gap-2'>
                           <p
                             className='min-w-0 truncate text-muted-foreground capitalize'
-                            title={conditionRow.title}
+                            title={translateWorkflowLabel(locale, conditionRow.title)}
                           >
-                            {conditionRow.title}
+                            {translateWorkflowLabel(locale, conditionRow.title)}
                           </p>
                           <p
                             className='min-w-0 flex-1 truncate text-right'
@@ -1168,13 +1178,13 @@ export const WorkflowBlock = memo(
                         const displayValue = subBlock.password
                           ? rawValue === null || rawValue === undefined || rawValue === ''
                             ? '-'
-                            : 'Configured'
+                            : translateWorkflowLabel(locale, 'Configured')
                           : subBlock.type === 'skill-input'
                             ? formatSkillInputValue(rawValue)
                             : formatSubBlockValue(rawValue)
 
                         if (isJsonCodeSubBlock) {
-                          const jsonTitle = subBlock.title ?? subBlock.id
+                          const jsonTitle = translateWorkflowLabel(locale, subBlock.title ?? subBlock.id)
                           return (
                             <div key={stableKey} className='flex flex-col gap-1'>
                               <p
@@ -1194,9 +1204,9 @@ export const WorkflowBlock = memo(
                                   >
                                     <p
                                       className='min-w-0 truncate text-muted-foreground'
-                                      title={jsonRow.title}
+                                      title={translateWorkflowLabel(locale, jsonRow.title)}
                                     >
-                                      {jsonRow.title}
+                                      {translateWorkflowLabel(locale, jsonRow.title)}
                                     </p>
                                     <p
                                       className='min-w-0 flex-1 truncate text-right'
@@ -1215,9 +1225,9 @@ export const WorkflowBlock = memo(
                           <div key={stableKey} className='flex items-center gap-2'>
                             <p
                               className='min-w-0 truncate text-muted-foreground capitalize'
-                              title={subBlock.title ?? subBlock.id}
+                              title={translateWorkflowLabel(locale, subBlock.title ?? subBlock.id)}
                             >
-                              {subBlock.title ?? subBlock.id}
+                              {translateWorkflowLabel(locale, subBlock.title ?? subBlock.id)}
                             </p>
                             <p
                               className='min-w-0 flex-1 truncate text-right'
@@ -1232,9 +1242,9 @@ export const WorkflowBlock = memo(
                       <div className='flex items-center gap-2'>
                         <p
                           className='min-w-0 truncate text-muted-foreground capitalize'
-                          title='error'
+                          title={translateWorkflowLabel(locale, 'error')}
                         >
-                          error
+                          {translateWorkflowLabel(locale, 'error')}
                         </p>
                         <p className='min-w-0 flex-1 truncate text-right' title='-'>
                           -

@@ -1,6 +1,10 @@
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+
+const { useLocaleMock } = vi.hoisted(() => ({
+  useLocaleMock: vi.fn(() => 'en'),
+}))
 
 vi.mock('@xyflow/react', () => ({
   Handle: ({ id, type, position }: { id: string; type: string; position: string }) =>
@@ -22,9 +26,17 @@ vi.mock('@/blocks', () => ({
   getBlock: () => undefined,
 }))
 
+vi.mock('next-intl', () => ({
+  useLocale: useLocaleMock,
+}))
+
 import { PreviewNode } from './preview-node'
 
 describe('PreviewNode', () => {
+  afterEach(() => {
+    useLocaleMock.mockReturnValue('en')
+  })
+
   it('renders canonical read-only node chrome and handles for regular blocks', () => {
     const markup = renderToStaticMarkup(
       createElement(PreviewNode as any, {
@@ -126,6 +138,57 @@ describe('PreviewNode', () => {
     expect(markup).toContain('data-handle-position="left"')
     expect(markup).toContain('data-handle-id="source"')
     expect(markup).toContain('data-handle-position="right"')
+  })
+
+  it('translates preview labels with the active locale', () => {
+    useLocaleMock.mockReturnValue('zh-CN')
+
+    const markup = renderToStaticMarkup(
+      createElement(PreviewNode as any, {
+        id: 'agent-localized',
+        data: {
+          type: 'agent',
+          name: 'Agent Localized',
+          config: {
+            category: 'blocks',
+            bgColor: '#00ccff',
+            icon: (props: any) => createElement('svg', props),
+            subBlocks: [
+              {
+                id: 'systemPrompt',
+                title: 'System Prompt',
+                type: 'long-input',
+                layout: 'full',
+              },
+              {
+                id: 'workflowTools',
+                title: 'Tools',
+                type: 'short-input',
+                layout: 'full',
+              },
+              {
+                id: 'responseFormat',
+                title: 'Response Format:',
+                type: 'short-input',
+                layout: 'full',
+              },
+            ],
+          },
+          subBlockValues: {
+            systemPrompt: { value: 'hello' },
+            workflowTools: { value: 'a,b,c' },
+            responseFormat: { value: 'json' },
+          },
+          readOnly: true,
+          isPreview: true,
+        },
+      })
+    )
+
+    expect(markup).toContain('系统提示词')
+    expect(markup).toContain('工具')
+    expect(markup).toContain('响应格式')
+    expect(markup).not.toContain('System Prompt')
   })
 
   it('filters conditional preview rows before rendering duplicate subblock ids', () => {

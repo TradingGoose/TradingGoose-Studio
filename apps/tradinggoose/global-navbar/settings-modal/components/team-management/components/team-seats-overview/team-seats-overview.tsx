@@ -1,7 +1,10 @@
+import { useLocale } from 'next-intl'
 import { Building2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { Skeleton } from '@/components/ui/skeleton'
+import { getPublicCopy, formatTemplate } from '@/i18n/public-copy'
+import { type LocaleCode } from '@/i18n/utils'
 
 type Subscription = {
   id: string
@@ -64,6 +67,8 @@ export function TeamSeatsOverview({
   onReduceSeats,
   onAddSeatDialog,
 }: TeamSeatsOverviewProps) {
+  const locale = useLocale() as LocaleCode
+  const teamCopy = getPublicCopy(locale).workspace.settingsModal.team
   const canManageSeats =
     subscriptionData?.tier?.ownerType === 'organization' &&
     subscriptionData?.tier?.seatMode === 'adjustable'
@@ -81,9 +86,9 @@ export function TeamSeatsOverview({
             <Building2 className='h-6 w-6 text-yellow-600' />
           </div>
           <div className='space-y-2'>
-            <p className='font-medium text-sm'>No Team Subscription Found</p>
+            <p className='font-medium text-sm'>{teamCopy.noTeamSubscriptionFound}</p>
             <p className='text-muted-foreground text-sm'>
-              Your subscription may need to be transferred to this organization.
+              {teamCopy.subscriptionMayNeedTransfer}
             </p>
           </div>
           <Button
@@ -93,7 +98,7 @@ export function TeamSeatsOverview({
             disabled={isLoading}
             className='h-9 rounded-sm'
           >
-            Set Up Team Subscription
+            {teamCopy.setUpTeamSubscription}
           </Button>
         </div>
       </div>
@@ -109,13 +114,19 @@ export function TeamSeatsOverview({
       <div className='space-y-2'>
         <div className='flex items-center justify-between'>
           <div className='flex items-center gap-2'>
-            <span className='font-medium text-sm'>Seats</span>
-            <span className='text-muted-foreground text-xs'>(${pricePerSeat}/month each)</span>
+            <span className='font-medium text-sm'>{teamCopy.seats}</span>
+            <span className='text-muted-foreground text-xs'>
+              {formatTemplate(teamCopy.pricePerSeat, { price: pricePerSeat })}
+            </span>
           </div>
           <div className='flex items-center gap-1 text-xs tabular-nums'>
-            <span className='text-muted-foreground'>{usedSeats} used</span>
+            <span className='text-muted-foreground'>
+              {formatTemplate(teamCopy.used, { count: usedSeats })}
+            </span>
             <span className='text-muted-foreground'>/</span>
-            <span className='text-muted-foreground'>{subscriptionData.seats || 0} total</span>
+            <span className='text-muted-foreground'>
+              {formatTemplate(teamCopy.total, { count: subscriptionData.seats || 0 })}
+            </span>
           </div>
         </div>
 
@@ -129,7 +140,7 @@ export function TeamSeatsOverview({
             disabled={(subscriptionData.seats || 0) <= 1 || isLoading}
             className='h-8 flex-1 rounded-sm'
           >
-            Remove Seat
+            {teamCopy.removeSeat}
           </Button>
           <Button
             size='sm'
@@ -137,7 +148,7 @@ export function TeamSeatsOverview({
             disabled={isLoading}
             className='h-8 flex-1 rounded-sm'
           >
-            Add Seat
+            {teamCopy.addSeat}
           </Button>
         </div>
       </div>

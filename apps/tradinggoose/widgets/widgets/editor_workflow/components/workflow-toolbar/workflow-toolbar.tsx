@@ -8,6 +8,7 @@ import {
   useMemo,
   useState,
 } from 'react'
+import { useLocale } from 'next-intl'
 import { ChevronDown, Search } from 'lucide-react'
 import {
   DropdownMenu,
@@ -33,6 +34,8 @@ import {
 } from '@/lib/workflows/trigger-utils'
 import { WorkspacePermissionsProvider } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import type { BlockConfig } from '@/blocks/types'
+import type { LocaleCode } from '@/i18n/utils'
+import { formatWorkflowTemplate, getWorkflowToolbarCopy } from '@/widgets/workflow-labels'
 import {
   widgetHeaderButtonGroupClassName,
   widgetHeaderControlClassName,
@@ -58,8 +61,6 @@ interface ToolbarListData {
 }
 
 const DEFAULT_PROVIDER_AVAILABILITY: ProviderAvailability = {}
-
-const FALLBACK_TEXT = 'Select a workspace to browse blocks'
 const DROPDOWN_MAX_HEIGHT = '20rem'
 const DROPDOWN_VIEWPORT_HEIGHT = '14.0rem'
 
@@ -114,6 +115,8 @@ function useToolbarList(
 }
 
 export function WorkflowToolbar({ workspaceId, toolbarScopeId }: WorkflowToolbarProps) {
+  const locale = useLocale() as LocaleCode
+  const copy = getWorkflowToolbarCopy(locale)
   const [providerAvailability, setProviderAvailability] = useState<ProviderAvailability>(
     DEFAULT_PROVIDER_AVAILABILITY
   )
@@ -150,7 +153,7 @@ export function WorkflowToolbar({ workspaceId, toolbarScopeId }: WorkflowToolbar
   }, [providerIds])
 
   if (!workspaceId) {
-    return <span className='text-muted-foreground text-xs'>{FALLBACK_TEXT}</span>
+    return <span className='text-muted-foreground text-xs'>{copy.selectWorkspace}</span>
   }
 
   return (
@@ -161,7 +164,7 @@ export function WorkflowToolbar({ workspaceId, toolbarScopeId }: WorkflowToolbar
             dispatchToolbarAddBlock(request, toolbarScopeId)
           }}
         >
-          <ToolbarDropdownGroup providerAvailability={providerAvailability} />
+          <ToolbarDropdownGroup providerAvailability={providerAvailability} copy={copy} />
         </ToolbarAddBlockProvider>
       </WorkspacePermissionsProvider>
     </TooltipProvider>
@@ -170,8 +173,10 @@ export function WorkflowToolbar({ workspaceId, toolbarScopeId }: WorkflowToolbar
 
 function ToolbarDropdownGroup({
   providerAvailability,
+  copy,
 }: {
   providerAvailability: ProviderAvailability
+  copy: ReturnType<typeof getWorkflowToolbarCopy>
 }) {
   const [blockSearch, setBlockSearch] = useState('')
   const [toolSearch, setToolSearch] = useState('')
@@ -183,18 +188,29 @@ function ToolbarDropdownGroup({
 
   return (
     <div className={widgetHeaderButtonGroupClassName()}>
-      <ToolbarDropdown label='Blocks' searchValue={blockSearch} onSearchChange={setBlockSearch}>
-        <ToolbarDropdownContent data={blockData} mode='blocks' />
-      </ToolbarDropdown>
-      <ToolbarDropdown label='Tools' searchValue={toolSearch} onSearchChange={setToolSearch}>
-        <ToolbarDropdownContent data={toolData} mode='tools' />
+      <ToolbarDropdown
+        label={copy.blocks}
+        copy={copy}
+        searchValue={blockSearch}
+        onSearchChange={setBlockSearch}
+      >
+        <ToolbarDropdownContent data={blockData} mode='blocks' copy={copy} />
       </ToolbarDropdown>
       <ToolbarDropdown
-        label='Triggers'
+        label={copy.tools}
+        copy={copy}
+        searchValue={toolSearch}
+        onSearchChange={setToolSearch}
+      >
+        <ToolbarDropdownContent data={toolData} mode='tools' copy={copy} />
+      </ToolbarDropdown>
+      <ToolbarDropdown
+        label={copy.triggers}
+        copy={copy}
         searchValue={triggerSearch}
         onSearchChange={setTriggerSearch}
       >
-        <ToolbarDropdownContent data={triggerData} mode='triggers' />
+        <ToolbarDropdownContent data={triggerData} mode='triggers' copy={copy} />
       </ToolbarDropdown>
     </div>
   )
@@ -202,12 +218,19 @@ function ToolbarDropdownGroup({
 
 interface ToolbarDropdownProps {
   label: string
+  copy: ReturnType<typeof getWorkflowToolbarCopy>
   searchValue: string
   onSearchChange: (value: string) => void
   children: ReactNode
 }
 
-function ToolbarDropdown({ label, searchValue, onSearchChange, children }: ToolbarDropdownProps) {
+function ToolbarDropdown({
+  label,
+  copy,
+  searchValue,
+  onSearchChange,
+  children,
+}: ToolbarDropdownProps) {
   const handleSearchInputKeyDown = useCallback((event: KeyboardEvent<HTMLInputElement>) => {
     if (event.key === 'Escape') return
 
@@ -216,7 +239,7 @@ function ToolbarDropdown({ label, searchValue, onSearchChange, children }: Toolb
     }
   }, [])
 
-  const tooltipText = `Browse ${label.toLowerCase()}`
+  const tooltipText = formatWorkflowTemplate(copy.browseLabel, { label })
 
   return (
     <DropdownMenu modal={false}>
@@ -257,7 +280,7 @@ function ToolbarDropdown({ label, searchValue, onSearchChange, children }: Toolb
               <Input
                 value={searchValue}
                 onChange={(event) => onSearchChange(event.target.value)}
-                placeholder={`Search ${label.toLowerCase()}...`}
+                placeholder={formatWorkflowTemplate(copy.searchPlaceholder, { label })}
                 className='h-6 border-0 bg-transparent px-0 text-foreground text-xs placeholder:text-muted-foreground focus-visible:ring-0 focus-visible:ring-offset-0'
                 onKeyDown={handleSearchInputKeyDown}
                 autoComplete='off'
@@ -276,11 +299,14 @@ function ToolbarDropdown({ label, searchValue, onSearchChange, children }: Toolb
 function ToolbarDropdownContent({
   data,
   mode,
+  copy,
 }: {
   data: ToolbarListData
   mode: ToolbarMode
+  copy: ReturnType<typeof getWorkflowToolbarCopy>
 }) {
   const { regularBlocks, toolBlocks, triggerBlocks, includeSpecialBlocks } = data
+  const modeLabel = mode === 'blocks' ? copy.blocks : mode === 'tools' ? copy.tools : copy.triggers
 
   const hasResults = (() => {
     if (mode === 'blocks') return regularBlocks.length > 0 || includeSpecialBlocks
@@ -291,16 +317,18 @@ function ToolbarDropdownContent({
   return (
     <ScrollArea
       className='h-full w-full px-2 py-2'
-      style={{ height: DROPDOWN_VIEWPORT_HEIGHT, maxHeight: `calc(${DROPDOWN_MAX_HEIGHT} - 4rem)` }}
-      onWheelCapture={(event) => event.stopPropagation()}
-    >
+    style={{ height: DROPDOWN_VIEWPORT_HEIGHT, maxHeight: `calc(${DROPDOWN_MAX_HEIGHT} - 4rem)` }}
+    onWheelCapture={(event) => event.stopPropagation()}
+  >
       {!hasResults && (
-        <p className='px-2 py-4 text-center text-muted-foreground text-xs'>No {mode} found.</p>
+        <p className='px-2 py-4 text-center text-muted-foreground text-xs'>
+          {formatWorkflowTemplate(copy.noResults, { label: modeLabel })}
+        </p>
       )}
 
       {mode === 'blocks' && regularBlocks.length > 0 && (
         <div className='space-y-1 pb-2'>
-          <SectionLabel title='Blocks' />
+          <SectionLabel title={copy.blocks} />
           {regularBlocks.map((block) => (
             <DropdownMenuItem key={block.type} className='p-0 focus:bg-transparent'>
               <ToolbarBlock config={block} />
@@ -311,7 +339,7 @@ function ToolbarDropdownContent({
 
       {mode === 'blocks' && includeSpecialBlocks && (
         <div className='space-y-1 pb-2'>
-          <SectionLabel title='Special' />
+          <SectionLabel title={copy.special} />
           <DropdownMenuItem className='p-0 focus:bg-transparent'>
             <LoopToolbarItem />
           </DropdownMenuItem>
@@ -323,7 +351,7 @@ function ToolbarDropdownContent({
 
       {mode === 'tools' && toolBlocks.length > 0 && (
         <div className='space-y-1 pb-2'>
-          <SectionLabel title='Tools' />
+          <SectionLabel title={copy.tools} />
           {toolBlocks.map((block) => (
             <DropdownMenuItem key={block.type} className='p-0 focus:bg-transparent'>
               <ToolbarBlock config={block} />
@@ -334,7 +362,7 @@ function ToolbarDropdownContent({
 
       {mode === 'triggers' && triggerBlocks.length > 0 && (
         <div className='space-y-1 pb-2'>
-          <SectionLabel title='Triggers' />
+          <SectionLabel title={copy.triggers} />
           {triggerBlocks.map((block) => (
             <DropdownMenuItem key={block.type} className='p-0 focus:bg-transparent'>
               <ToolbarBlock

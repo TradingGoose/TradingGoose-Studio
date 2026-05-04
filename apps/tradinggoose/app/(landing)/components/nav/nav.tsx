@@ -1,10 +1,12 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
-import { MenuIcon } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { ChevronDownIcon, Check, LanguagesIcon, MenuIcon } from 'lucide-react'
 import Image from 'next/image'
-import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useLocale } from 'next-intl'
+import { usePathname } from '@/i18n/navigation'
+import { Link } from '@/i18n/navigation'
+import { useSearchParams } from 'next/navigation'
 import { GithubIcon } from '@/components/icons/icons'
 import { Button } from '@/components/ui/button'
 import {
@@ -20,11 +22,16 @@ import { useBrandConfig } from '@/lib/branding/branding'
 import { createLogger } from '@/lib/logs/console/logger'
 import {
   getRegistrationPrimaryHref,
-  getRegistrationPrimaryLabel,
   type RegistrationMode,
 } from '@/lib/registration/shared'
 import { getFormattedGitHubStars } from '@/app/(landing)/actions/github'
 import { soehne } from '@/app/fonts/soehne/soehne'
+import { getPrimaryRegistrationLabel, getPublicCopy } from '@/i18n/public-copy'
+import { localizeDocsUrl, locales, type LocaleCode } from '@/i18n/utils'
+import {
+  buildLocaleSwitchHref,
+  navigateToLocaleHref,
+} from './locale-switcher'
 
 const logger = createLogger('nav')
 
@@ -34,20 +41,69 @@ interface NavProps {
   registrationMode?: RegistrationMode | null
 }
 
+function LanguageSwitcher() {
+  const locale = useLocale() as LocaleCode
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+  const copy = getPublicCopy(locale)
+  const [isOpen, setIsOpen] = useState(false)
+
+  const changeLocale = (nextLocale: LocaleCode) => {
+    if (nextLocale === locale) {
+      setIsOpen(false)
+      return
+    }
+
+    setIsOpen(false)
+    navigateToLocaleHref(buildLocaleSwitchHref(nextLocale, pathname, searchParams))
+  }
+
+  return (
+    <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant='outline'
+          size='sm'
+          className='rounded-md px-3 font-medium text-sm'
+        >
+          <LanguagesIcon className='h-4 w-4' />
+          <span>{copy.localeNames[locale]}</span>
+          <ChevronDownIcon className='h-4 w-4' />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align='end' className='w-48'>
+        {locales.map((code) => (
+          <DropdownMenuItem
+            key={code}
+            onSelect={() => {
+              changeLocale(code)
+            }}
+            className='flex items-center gap-2'
+          >
+            <span>{copy.localeNames[code]}</span>
+            {locale === code ? <Check className='ml-auto h-4 w-4 text-primary' /> : null}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
 export default function Nav({
   hideAuthButtons = false,
   variant = 'landing',
   registrationMode = null,
 }: NavProps = {}) {
   const [githubStars, setGithubStars] = useState('0')
-  const router = useRouter()
   const brand = useBrandConfig()
+  const locale = useLocale() as LocaleCode
+  const copy = getPublicCopy(locale)
   const hasResolvedRegistrationMode = registrationMode !== null
   const registrationPrimaryHref = registrationMode
     ? getRegistrationPrimaryHref(registrationMode)
     : null
   const registrationPrimaryLabel = registrationMode
-    ? getRegistrationPrimaryLabel(registrationMode)
+    ? getPrimaryRegistrationLabel(copy, registrationMode)
     : null
   const showStandaloneLogin = hasResolvedRegistrationMode && registrationPrimaryHref !== null
 
@@ -72,31 +128,18 @@ export default function Nav({
     return () => clearTimeout(timeoutId)
   }, [variant])
 
-  const navigateToLogin = useCallback(() => {
-    router.push('/login?reauth=1')
-  }, [router])
-
-  const navigateToPrimaryCta = useCallback(() => {
-    if (!registrationPrimaryHref) {
-      return
-    }
-
-    router.push(registrationPrimaryHref)
-  }, [registrationPrimaryHref, router])
-
   const desktopNavLinks = variant === 'landing' && (
     <div className='hidden items-center gap-6 font-medium text-muted-foreground text-sm md:flex'>
-      <Link
-        href='https://docs.tradinggoose.ai'
+      <a
+        href={localizeDocsUrl(locale)}
         target='_blank'
         rel='noopener noreferrer'
         className='transition-colors hover:text-foreground'
-        prefetch={false}
       >
-        Docs
-      </Link>
+        {copy.nav.docs}
+      </a>
       <Link href='/blog' className='transition-colors hover:text-foreground' prefetch={false}>
-        Blog
+        {copy.nav.blog}
       </Link>
       <a
         href='https://github.com/TradingGoose/TradingGoose-Studio'
@@ -115,23 +158,19 @@ export default function Nav({
     !hideAuthButtons && hasResolvedRegistrationMode && registrationPrimaryLabel ? (
       <>
         {showStandaloneLogin ? (
-          <Button
-            variant='ghost'
-            size='sm'
-            onClick={navigateToLogin}
-            className='rounded-md text-base'
-          >
-            Login
+          <Button variant='ghost' size='sm' asChild className='rounded-md text-base'>
+            <Link href='/login?reauth=1'>{copy.nav.login}</Link>
           </Button>
         ) : null}
-        <Button
-          size='sm'
-          onClick={registrationPrimaryHref ? navigateToPrimaryCta : undefined}
-          disabled={!registrationPrimaryHref}
-          className='rounded-md text-base'
-        >
-          {registrationPrimaryLabel}
-        </Button>
+        {registrationPrimaryHref ? (
+          <Button size='sm' asChild className='rounded-md text-base'>
+            <Link href={registrationPrimaryHref}>{registrationPrimaryLabel}</Link>
+          </Button>
+        ) : (
+          <Button size='sm' disabled className='rounded-md text-base'>
+            {registrationPrimaryLabel}
+          </Button>
+        )}
       </>
     ) : null
 
@@ -151,7 +190,7 @@ export default function Nav({
           prefetch={false}
         >
           <span itemProp='name' className='sr-only'>
-            {brand.name} Home
+            {brand.name} {copy.nav.homeLabel}
           </span>
           <span
             className='flex items-center gap-2 font-semibold text-[18px] text-foreground tracking-tight'
@@ -173,39 +212,41 @@ export default function Nav({
 
         <div className='flex items-center gap-3 sm:gap-4'>
           {desktopNavLinks}
+          <LanguageSwitcher />
           {variant === 'landing' && !hideAuthButtons && hasResolvedRegistrationMode ? (
             <Separator orientation='vertical' className='hidden h-6 md:block' />
           ) : null}
 
-          {registrationActions ? <div className='hidden items-center gap-2 md:flex'>{registrationActions}</div> : null}
+          {registrationActions ? (
+            <div className='hidden items-center gap-2 md:flex'>{registrationActions}</div>
+          ) : null}
 
           {variant === 'landing' ? (
             <DropdownMenu>
               <DropdownMenuTrigger className='md:hidden' asChild>
                 <Button variant='outline' size='icon'>
                   <MenuIcon className='h-5 w-5' />
-                  <span className='sr-only'>Menu</span>
+                  <span className='sr-only'>{copy.nav.menu}</span>
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent className='w-64' align='end'>
                 <DropdownMenuGroup>
-                  <DropdownMenuItem>
-                    <Link
-                      href='https://docs.tradinggoose.ai'
+                  <DropdownMenuItem asChild>
+                    <a
+                      href={localizeDocsUrl(locale)}
                       target='_blank'
                       rel='noopener noreferrer'
                       className='w-full'
-                      prefetch={false}
                     >
-                      Docs
-                    </Link>
+                      {copy.nav.docs}
+                    </a>
                   </DropdownMenuItem>
-                  <DropdownMenuItem>
+                  <DropdownMenuItem asChild>
                     <Link href='/blog' className='w-full' prefetch={false}>
-                      Blog
+                      {copy.nav.blog}
                     </Link>
                   </DropdownMenuItem>
-                  <DropdownMenuItem>
+                  <DropdownMenuItem asChild>
                     <a
                       href='https://github.com/TradingGoose/TradingGoose-Studio'
                       target='_blank'

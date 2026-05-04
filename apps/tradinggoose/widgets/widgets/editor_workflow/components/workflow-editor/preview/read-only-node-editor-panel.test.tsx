@@ -1,8 +1,16 @@
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { ReadOnlyNodeEditorPanel } from './read-only-node-editor-panel'
 import type { WorkflowState } from '@/stores/workflows/workflow/types'
+
+const { useLocaleMock } = vi.hoisted(() => ({
+  useLocaleMock: vi.fn(() => 'zh-CN'),
+}))
+
+vi.mock('next-intl', () => ({
+  useLocale: useLocaleMock,
+}))
 
 function createWorkflowState(): WorkflowState {
   return {
@@ -34,7 +42,7 @@ describe('ReadOnlyNodeEditorPanel', () => {
       })
     )
 
-    expect(markup).toContain('Select a block to view its preview details.')
+    expect(markup).toContain('选择一个块以查看其预览详情。')
   })
 
   it('renders missing-node state when selected id is not present', () => {
@@ -45,8 +53,8 @@ describe('ReadOnlyNodeEditorPanel', () => {
       })
     )
 
-    expect(markup).toContain('Node not found')
-    expect(markup).toContain('no longer available')
+    expect(markup).toContain('未找到节点')
+    expect(markup).toContain('已不可用')
   })
 
   it('renders inspector header and resolved read-only panel for selected node', () => {
@@ -57,7 +65,7 @@ describe('ReadOnlyNodeEditorPanel', () => {
       })
     )
 
-    expect(markup).toContain('Preview Inspector')
+    expect(markup).toContain('预览检查器')
     expect(markup).toContain('Agent One')
     expect(markup).toContain('prompt')
     expect(markup).toContain('hello')

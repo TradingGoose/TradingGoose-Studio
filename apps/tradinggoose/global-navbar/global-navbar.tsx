@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import { usePathname } from 'next/navigation'
+import { useLocale } from 'next-intl'
 import {
   Sidebar,
   SidebarContent,
@@ -17,6 +18,8 @@ import { getBrandConfig } from '@/lib/branding/branding'
 import { isHosted } from '@/lib/environment'
 import { getOrganizationAccessState } from '@/lib/organization/access'
 import { getUserRole } from '@/lib/organization/helpers'
+import { getPublicCopy } from '@/i18n/public-copy'
+import { localizeHref, stripLocaleFromPathname, type LocaleCode } from '@/i18n/utils'
 import { useOrganizations } from '@/hooks/queries/organization'
 import { NavbarHeader } from './components/navbar-header'
 import { SidebarNav, SidebarUsageIndicator } from './components/sidebar-nav'
@@ -48,26 +51,40 @@ export function GlobalNavbar({
   navigationMode?: 'workspace' | 'admin'
 }) {
   const pathname = usePathname() ?? '/'
+  const locale = useLocale() as LocaleCode
   const brand = React.useMemo(() => getBrandConfig(), [])
+  const workspaceCopy = React.useMemo(() => getPublicCopy(locale).workspace, [locale])
+  const { pathname: normalizedPathname } = React.useMemo(
+    () => stripLocaleFromPathname(pathname),
+    [pathname]
+  )
   const { data: sessionData, isPending: isSessionLoading } = useSession()
-  const workspaceId = React.useMemo(() => getWorkspaceIdFromPath(pathname), [pathname])
+  const workspaceId = React.useMemo(
+    () => getWorkspaceIdFromPath(normalizedPathname),
+    [normalizedPathname]
+  )
   const navItems = React.useMemo(
-    () => (navigationMode === 'admin' ? createAdminNav() : createWorkspaceNav(workspaceId)),
-    [navigationMode, workspaceId]
+    () =>
+      navigationMode === 'admin'
+        ? createAdminNav(locale)
+        : createWorkspaceNav(locale, workspaceId),
+    [locale, navigationMode, workspaceId]
   )
   const navMain = React.useMemo<NavSection[]>(
-    () => createNavSections(pathname, navItems),
-    [pathname, navItems]
+    () => createNavSections(normalizedPathname, navItems),
+    [navItems, normalizedPathname]
   )
   const activeNavItem = React.useMemo(() => navMain.find((item) => item.isActive), [navMain])
   const isAuthenticated = Boolean(sessionData?.user?.id)
   const isAuthRoute = React.useMemo(
-    () => AUTH_ROUTE_PREFIXES.some((route) => pathname.startsWith(route)),
-    [pathname]
+    () => AUTH_ROUTE_PREFIXES.some((route) => normalizedPathname.startsWith(route)),
+    [normalizedPathname]
   )
   const isLandingRoute = React.useMemo(
-    () => pathname === '/' || LANDING_ROUTE_PREFIXES.some((route) => pathname.startsWith(route)),
-    [pathname]
+    () =>
+      normalizedPathname === '/' ||
+      LANDING_ROUTE_PREFIXES.some((route) => normalizedPathname.startsWith(route)),
+    [normalizedPathname]
   )
   const isSidebarRoute = React.useMemo(() => navMain.some((item) => item.isActive), [navMain])
   const shouldRenderNavbar = isSidebarRoute && !isLandingRoute && !isAuthRoute
@@ -112,10 +129,10 @@ export function GlobalNavbar({
     }
 
     return {
-      href: '/admin',
-      label: 'System Admin',
+      href: localizeHref(locale, '/admin'),
+      label: workspaceCopy.nav.systemAdmin,
     }
-  }, [isSystemAdmin, navigationMode])
+  }, [isSystemAdmin, locale, navigationMode, workspaceCopy.nav.systemAdmin])
 
   const resolveSettingsSection = React.useCallback(
     (section: SettingsSection): SettingsSection => {

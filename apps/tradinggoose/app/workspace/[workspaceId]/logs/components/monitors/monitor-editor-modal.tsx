@@ -1,6 +1,7 @@
 'use client'
 
 import { Activity, Workflow as WorkflowIcon } from 'lucide-react'
+import { useLocale } from 'next-intl'
 import { StockSelector } from '@/components/listing-selector/selector/input'
 import { Button } from '@/components/ui/button'
 import {
@@ -18,6 +19,8 @@ import type { SubBlockConfig } from '@/blocks/types'
 import type { MarketProviderParamDefinition } from '@/providers/market/providers'
 import { getMarketSeriesCapabilities } from '@/providers/market/providers'
 import { ShortInput } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/components/short-input'
+import { getPublicCopy, formatTemplate } from '@/i18n/public-copy'
+import { type LocaleCode } from '@/i18n/utils'
 import { SearchableDropdown } from './searchable-dropdown'
 import type {
   IndicatorOption,
@@ -72,14 +75,15 @@ export function MonitorEditorModal({
   onUpdateSecretValue,
   onUpdateProviderParamValue,
 }: MonitorEditorModalProps) {
+  const locale = useLocale() as LocaleCode
+  const copy = getPublicCopy(locale).workspace.logs.editor
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className='max-w-3xl'>
         <DialogHeader>
-          <DialogTitle>{editingKey ? 'Edit Monitor' : 'Add Monitor'}</DialogTitle>
-          <DialogDescription>
-            Configure provider, auth, listing, indicator, interval, and workflow target.
-          </DialogDescription>
+          <DialogTitle>{editingKey ? copy.editTitle : copy.createTitle}</DialogTitle>
+          <DialogDescription>{copy.description}</DialogDescription>
         </DialogHeader>
 
         {draft ? (
@@ -91,7 +95,7 @@ export function MonitorEditorModal({
               )}
             >
               <div className='space-y-2'>
-                <p className='text-muted-foreground text-xs'>Provider</p>
+                <p className='text-muted-foreground text-xs'>{copy.provider}</p>
                 <SearchableDropdown
                   value={draft.providerId}
                   options={streamingProviders.map((provider) => ({
@@ -100,9 +104,9 @@ export function MonitorEditorModal({
                     icon: provider.icon,
                     searchValue: `${provider.name} ${provider.id}`,
                   }))}
-                  placeholder='Select provider'
-                  searchPlaceholder='Search providers...'
-                  emptyText='No providers found.'
+                  placeholder={copy.selectProvider}
+                  searchPlaceholder={copy.searchProviders}
+                  emptyText={copy.noProviders}
                   onValueChange={(nextProviderId) => {
                     const nextIntervals =
                       getMarketSeriesCapabilities(nextProviderId)?.intervals ?? []
@@ -127,7 +131,7 @@ export function MonitorEditorModal({
                             selected ? 'text-foreground' : 'text-muted-foreground'
                           )}
                         >
-                          {selected?.label || 'Select provider'}
+                          {selected?.label || copy.selectProvider}
                         </span>
                       </div>
                     )
@@ -152,7 +156,7 @@ export function MonitorEditorModal({
 
               {nonSecretDefinitions.length > 0 ? (
                 <div className='space-y-2'>
-                  <p className='text-muted-foreground text-xs'>Feed</p>
+                  <p className='text-muted-foreground text-xs'>{copy.feed}</p>
                   {nonSecretDefinitions.map((definition) => {
                     const key = `param:${definition.id}`
                     const value = draft.providerParamValues[definition.id] ?? ''
@@ -168,8 +172,10 @@ export function MonitorEditorModal({
                               searchValue: `${option.label} ${option.id}`,
                             }))}
                             placeholder={definition.title || definition.id}
-                            searchPlaceholder={`Search ${definition.title || definition.id}...`}
-                            emptyText='No options found.'
+                            searchPlaceholder={formatTemplate(copy.searchOptions, {
+                              title: definition.title || definition.id,
+                            })}
+                            emptyText={copy.noOptions}
                             onValueChange={(nextValue) =>
                               onUpdateProviderParamValue(definition.id, nextValue)
                             }
@@ -207,7 +213,7 @@ export function MonitorEditorModal({
 
             {secretDefinitions.length > 0 ? (
               <div className='space-y-2'>
-                <p className='text-muted-foreground text-xs'>Auth</p>
+                <p className='text-muted-foreground text-xs'>{copy.auth}</p>
                 <div
                   className={cn(
                     'grid gap-3',
@@ -254,7 +260,7 @@ export function MonitorEditorModal({
 
             <div className='grid gap-3 sm:grid-cols-2'>
               <div className='space-y-2'>
-                <p className='text-muted-foreground text-xs'>Listing</p>
+                <p className='text-muted-foreground text-xs'>{copy.listing}</p>
                 {listingInstanceId ? (
                   <StockSelector
                     instanceId={listingInstanceId}
@@ -270,16 +276,16 @@ export function MonitorEditorModal({
               </div>
 
               <div className='space-y-2'>
-                <p className='text-muted-foreground text-xs'>Interval</p>
+                <p className='text-muted-foreground text-xs'>{copy.interval}</p>
                 <SearchableDropdown
                   value={draft.interval}
                   options={providerIntervals.map((interval) => ({
                     value: interval,
                     label: interval,
                   }))}
-                  placeholder='Select interval'
-                  searchPlaceholder='Search intervals...'
-                  emptyText='No intervals found.'
+                  placeholder={copy.selectInterval}
+                  searchPlaceholder={copy.searchIntervals}
+                  emptyText={copy.noIntervals}
                   onValueChange={(value) => onUpdateDraft({ interval: value })}
                 />
                 {errors.interval ? (
@@ -290,7 +296,7 @@ export function MonitorEditorModal({
 
             <div className='grid gap-3 sm:grid-cols-2'>
               <div className='space-y-2'>
-                <p className='text-muted-foreground text-xs'>Workflow</p>
+                <p className='text-muted-foreground text-xs'>{copy.workflow}</p>
                 <SearchableDropdown
                   value={draft.workflowId}
                   options={workflowPickerOptions.map((option) => ({
@@ -299,9 +305,9 @@ export function MonitorEditorModal({
                     label: option.workflowName,
                     searchValue: `${option.workflowName} ${option.workflowId}`,
                   }))}
-                  placeholder='Select workflow'
-                  searchPlaceholder='Search workflows...'
-                  emptyText='No workflows found.'
+                  placeholder={copy.selectWorkflow}
+                  searchPlaceholder={copy.searchWorkflows}
+                  emptyText={copy.noWorkflows}
                   onValueChange={(workflowId) => {
                     const preferredTarget =
                       workflowTargets.find(
@@ -334,7 +340,7 @@ export function MonitorEditorModal({
                           selected ? 'text-foreground' : 'text-muted-foreground'
                         )}
                       >
-                        {selected?.workflowName || 'Select workflow'}
+                        {selected?.workflowName || copy.selectWorkflow}
                       </span>
                     </div>
                   )}
@@ -362,7 +368,7 @@ export function MonitorEditorModal({
               </div>
 
               <div className='space-y-2'>
-                <p className='text-muted-foreground text-xs'>Indicator</p>
+                <p className='text-muted-foreground text-xs'>{copy.indicator}</p>
                 <SearchableDropdown
                   value={draft.indicatorId}
                   options={indicatorPickerOptions.map((option) => ({
@@ -371,9 +377,9 @@ export function MonitorEditorModal({
                     label: option.name,
                     searchValue: `${option.name} ${option.id}`,
                   }))}
-                  placeholder='Select indicator'
-                  searchPlaceholder='Search indicators...'
-                  emptyText='No indicators found.'
+                  placeholder={copy.selectIndicator}
+                  searchPlaceholder={copy.searchIndicators}
+                  emptyText={copy.noIndicators}
                   onValueChange={(indicatorId) => onUpdateDraft({ indicatorId })}
                   renderTriggerValue={(selected) => (
                     <div className='flex min-w-0 items-center gap-2'>
@@ -395,7 +401,7 @@ export function MonitorEditorModal({
                           selected ? 'text-foreground' : 'text-muted-foreground'
                         )}
                       >
-                        {selected?.name || 'Select indicator'}
+                        {selected?.name || copy.selectIndicator}
                       </span>
                     </div>
                   )}
@@ -422,10 +428,10 @@ export function MonitorEditorModal({
 
         <DialogFooter>
           <Button variant='outline' onClick={onCancel} disabled={saving}>
-            Cancel
+            {copy.cancel}
           </Button>
           <Button onClick={onSave} disabled={saving}>
-            {saving ? 'Saving...' : editingKey ? 'Save Changes' : 'Create Monitor'}
+            {saving ? copy.saving : editingKey ? copy.save : copy.create}
           </Button>
         </DialogFooter>
       </DialogContent>

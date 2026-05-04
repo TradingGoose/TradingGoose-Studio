@@ -42,14 +42,3 @@ export function getAuthRegistrationHref(mode: RegistrationMode) {
       return null
   }
 }
-
-export function getAuthRegistrationLabel(mode: RegistrationMode) {
-  switch (mode) {
-    case 'open':
-      return 'Sign up'
-    case 'waitlist':
-      return 'Join waitlist'
-    case 'disabled':
-      return null
-  }
-}

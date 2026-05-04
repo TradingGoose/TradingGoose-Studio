@@ -2,13 +2,14 @@
 
 import type React from 'react'
 import { createContext, useContext, useEffect, useMemo, useState } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { useParams, usePathname, useRouter } from 'next/navigation'
 import { createLogger } from '@/lib/logs/console/logger'
 import { useUserPermissions, type WorkspaceUserPermissions } from '@/hooks/use-user-permissions'
 import {
   useWorkspacePermissions,
   type WorkspacePermissions,
 } from '@/hooks/use-workspace-permissions'
+import { localizeHref, stripLocaleFromPathname } from '@/i18n/utils'
 
 const logger = createLogger('WorkspacePermissionsProvider')
 const ACCESS_DENIED_PATTERNS = ['access denied', 'workspace not found', 'user not found']
@@ -60,8 +61,10 @@ export function WorkspacePermissionsProvider({
   workspaceId: workspaceIdProp,
 }: WorkspacePermissionsProviderProps) {
   const params = useParams()
+  const pathname = usePathname()
   const router = useRouter()
   const workspaceId = workspaceIdProp ?? (params?.workspaceId as string | undefined) ?? null
+  const locale = stripLocaleFromPathname(pathname ?? '/').locale
 
   // Manage offline mode state locally
   const [isOfflineMode, setIsOfflineMode] = useState(false)
@@ -149,17 +152,19 @@ export function WorkspacePermissionsProvider({
     }
 
     if (isAuthError) {
-      const callbackTarget =
-        typeof window === 'undefined'
-          ? `/workspace/${workspaceId}/dashboard`
-          : `${window.location.pathname}${window.location.search}`
+      const callbackTarget = `${pathname ?? '/'}${window.location.search}`
 
       setHasRedirected(true)
       logger.warn('Redirecting unauthenticated user from protected workspace route', {
         workspaceId,
         error: combinedError ?? 'missing session',
       })
-      router.replace(`/login?reauth=1&callbackUrl=${encodeURIComponent(callbackTarget)}`)
+      router.replace(
+        localizeHref(
+          locale,
+          `/login?reauth=1&callbackUrl=${encodeURIComponent(callbackTarget)}`
+        )
+      )
       return
     }
 
@@ -168,8 +173,8 @@ export function WorkspacePermissionsProvider({
       workspaceId,
       error: combinedError ?? 'missing read permissions',
     })
-    router.replace('/workspace')
-  }, [combinedError, hasRedirected, isAuthError, router, shouldTriggerRedirect, workspaceId])
+    router.replace(localizeHref(locale, '/workspace'))
+  }, [combinedError, hasRedirected, isAuthError, locale, pathname, router, shouldTriggerRedirect, workspaceId])
 
   const shouldBlockRender = hasRedirected || shouldTriggerRedirect
 

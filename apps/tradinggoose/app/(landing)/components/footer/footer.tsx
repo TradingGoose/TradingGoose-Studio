@@ -1,40 +1,60 @@
 import Image from 'next/image'
-import Link from 'next/link'
+import { getLocale } from 'next-intl/server'
 import { DiscordIcon, GithubIcon } from '@/components/icons/icons'
 import { getBrandConfig } from '@/lib/branding/branding'
 import FooterHoverText from '@/app/(landing)/components/footer/footer-hover-text'
 import { soehne } from '@/app/fonts/soehne/soehne'
+import { Link } from '@/i18n/navigation'
+import { getPublicCopy } from '@/i18n/public-copy'
+import { localizeDocsUrl, type LocaleCode } from '@/i18n/utils'
+
+type FooterLinkKey =
+  | 'docs'
+  | 'blog'
+  | 'widgets'
+  | 'indicators'
+  | 'blocks'
+  | 'tools'
+  | 'changelog'
+  | 'privacy'
+  | 'licenses'
+  | 'terms'
 
 type FooterLink = {
-  label: string
+  key: FooterLinkKey
   href: string
   external: boolean
 }
 
-const productLinks: FooterLink[] = [
-  { label: 'Docs', href: 'https://docs.tradinggoose.ai', external: true },
-  { label: 'Blog', href: '/blog', external: false },
-  { label: 'Widgets', href: 'https://docs.tradinggoose.ai/widgets', external: true },
-  { label: 'Indicators', href: 'https://docs.tradinggoose.ai/indicators', external: true },
-  { label: 'Blocks', href: 'https://docs.tradinggoose.ai/blocks', external: true },
-  { label: 'Tools', href: 'https://docs.tradinggoose.ai/tools', external: true },
-  //{ label: 'Pricing', href: '/#pricing', external: false },
-  { label: 'Changelog', href: '/changelog', external: false },
-  //{ label: 'Enterprise', href: '', external: true },
-]
+function getProductLinks(locale: LocaleCode): FooterLink[] {
+  return [
+    { key: 'docs', href: localizeDocsUrl(locale), external: true },
+    { key: 'blog', href: '/blog', external: false },
+    { key: 'widgets', href: localizeDocsUrl(locale, '/widgets'), external: true },
+    { key: 'indicators', href: localizeDocsUrl(locale, '/indicators'), external: true },
+    { key: 'blocks', href: localizeDocsUrl(locale, '/blocks'), external: true },
+    { key: 'tools', href: localizeDocsUrl(locale, '/tools'), external: true },
+    //{ label: 'Pricing', href: '/#pricing', external: false },
+    { key: 'changelog', href: '/changelog', external: false },
+    //{ label: 'Enterprise', href: '', external: true },
+  ]
+}
 
 const legalLinks: FooterLink[] = [
-  { label: 'Privacy Policy', href: '/privacy', external: false },
-  { label: 'Licenses', href: '/licenses', external: false },
-  { label: 'Terms of Service', href: '/terms', external: false },
+  { key: 'privacy', href: '/privacy', external: false },
+  { key: 'licenses', href: '/licenses', external: false },
+  { key: 'terms', href: '/terms', external: false },
 ]
 
 interface FooterProps {
   fullWidth?: boolean
 }
 
-export default function Footer({ fullWidth = false }: FooterProps) {
+export default async function Footer({ fullWidth = false }: FooterProps) {
   const brand = getBrandConfig()
+  const locale = (await getLocale()) as LocaleCode
+  const copy = getPublicCopy(locale)
+  const productLinks = getProductLinks(locale)
   const maxWidthClass = fullWidth ? 'max-w-[90vw]' : 'max-w-7xl'
 
   return (
@@ -63,7 +83,7 @@ export default function Footer({ fullWidth = false }: FooterProps) {
             </Link>
 
             <p className='max-w-[28rem] text-balance text-sm leading-relaxed'>
-              AI workflow platform for technical LLM trading
+              {copy.landing.footer.description}
             </p>
 
             <div className='flex items-center gap-4 max-sm:justify-center'>
@@ -71,7 +91,7 @@ export default function Footer({ fullWidth = false }: FooterProps) {
                 href='https://discord.gg/wavf5JWhuT'
                 target='_blank'
                 rel='noopener noreferrer'
-                aria-label='Discord'
+                aria-label={copy.landing.footer.social.discord}
                 className='transition-colors duration-300 hover:text-foreground'
               >
                 <DiscordIcon className='h-5 w-5' aria-hidden='true' />
@@ -80,7 +100,7 @@ export default function Footer({ fullWidth = false }: FooterProps) {
                 href='https://github.com/TradingGoose/TradingGoose-Studio'
                 target='_blank'
                 rel='noopener noreferrer'
-                aria-label='GitHub'
+                aria-label={copy.landing.footer.social.github}
                 className='transition-colors duration-300 hover:text-foreground'
               >
                 <GithubIcon className='h-5 w-5' aria-hidden='true' />
@@ -88,7 +108,9 @@ export default function Footer({ fullWidth = false }: FooterProps) {
             </div>
 
             <p className='max-w-[28rem] text-balance font-light text-xs leading-relaxed'>
-              {`© ${new Date().getFullYear()} ${brand.name}. Built for visual trading workflows.`}
+              {copy.landing.footer.copyright
+                .replace('{{year}}', String(new Date().getFullYear()))
+                .replace('{{brand}}', brand.name)}
             </p>
           </div>
 
@@ -97,22 +119,22 @@ export default function Footer({ fullWidth = false }: FooterProps) {
               {productLinks.map((link) =>
                 link.external ? (
                   <a
-                    key={link.label}
+                    key={link.key}
                     href={link.href}
                     target='_blank'
                     rel='noopener noreferrer'
                     className='transition-colors duration-300 hover:text-foreground'
                   >
-                    {link.label}
+                    {copy.landing.footer.links[link.key]}
                   </a>
                 ) : (
                   <Link
-                    key={link.label}
+                    key={link.key}
                     href={link.href}
                     className='transition-colors duration-300 hover:text-foreground'
                     prefetch={false}
                   >
-                    {link.label}
+                    {copy.landing.footer.links[link.key]}
                   </Link>
                 )
               )}
@@ -121,12 +143,12 @@ export default function Footer({ fullWidth = false }: FooterProps) {
             <div className='flex flex-wrap gap-x-4 gap-y-2 py-3 text-xs max-sm:justify-center'>
               {legalLinks.map((link) => (
                 <Link
-                  key={link.label}
+                  key={link.key}
                   href={link.href}
                   className='transition-colors duration-300 hover:text-foreground'
                   prefetch={false}
                 >
-                  {link.label}
+                  {copy.landing.footer.links[link.key]}
                 </Link>
               ))}
             </div>
@@ -137,7 +159,7 @@ export default function Footer({ fullWidth = false }: FooterProps) {
           aria-hidden='true'
           className='-translate-x-1/2 -translate-y-8 -pt-8 sm:-pt-16 absolute left-1/2 z-0 hidden w-full max-w-70 overflow-hidden sm:block'
         >
-          <FooterHoverText text='HONK!' />
+          <FooterHoverText text={copy.landing.footer.hoverText} />
           <div
             className='pointer-events-none absolute inset-x-0 bottom-0 h-1/3'
             style={{

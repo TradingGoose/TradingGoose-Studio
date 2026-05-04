@@ -2,8 +2,6 @@
 
 import { type FormEvent, useEffect, useMemo, useState } from 'react'
 import { Plus, Receipt } from 'lucide-react'
-import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import {
   Alert,
   AlertDescription,
@@ -18,6 +16,7 @@ import {
 } from '@/components/ui'
 import type { AdminBillingSettingsMutationInput } from '@/lib/admin/billing/settings-mutations'
 import type { AdminBillingTierSnapshot } from '@/lib/admin/billing/types'
+import { Link, useRouter } from '@/i18n/navigation'
 import { ADMIN_META_BADGE_CLASSNAME } from '@/app/admin/badge-styles'
 import { AdminPageShell } from '@/app/admin/page-shell'
 import {

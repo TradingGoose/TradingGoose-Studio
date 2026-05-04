@@ -7,6 +7,7 @@ import {
 import { createLogger } from '@/lib/logs/console/logger'
 import { resolveWorkflowTarget } from '@/lib/copilot/tools/client/workflow/workflow-review-tool-utils'
 import { getInputFormatExample } from '@/lib/workflows/operations/deployment-utils'
+import { localizeHref, stripLocaleFromPathname } from '@/i18n/utils'
 import { getCopilotStoreForToolCall } from '@/stores/copilot/store-access'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 
@@ -165,7 +166,10 @@ export class DeployWorkflowClientTool extends BaseClientTool {
    * Opens the workspace API keys page.
    */
   private openApiKeysPage(workspaceId: string): void {
-    window.location.assign(`/workspace/${encodeURIComponent(workspaceId)}/api-keys`)
+    const { locale } = stripLocaleFromPathname(window.location.pathname)
+    window.location.assign(
+      localizeHref(locale, `/workspace/${encodeURIComponent(workspaceId)}/api-keys`)
+    )
   }
 
   /**

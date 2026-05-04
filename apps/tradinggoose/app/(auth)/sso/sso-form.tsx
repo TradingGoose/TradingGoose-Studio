@@ -1,37 +1,42 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import Link from 'next/link'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useLocale } from 'next-intl'
+import { useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { client } from '@/lib/auth-client'
 import { quickValidateEmail } from '@/lib/email/validation'
 import { createLogger } from '@/lib/logs/console/logger'
-import {
-  getAuthRegistrationHref,
-  getAuthRegistrationLabel,
-  type RegistrationMode,
-} from '@/lib/registration/shared'
+import { getAuthRegistrationHref, type RegistrationMode } from '@/lib/registration/shared'
 import { cn } from '@/lib/utils'
+import { Link, useRouter } from '@/i18n/navigation'
+import { getAuthRegistrationLabel, getPublicCopy } from '@/i18n/public-copy'
+import { localizePathname, type LocaleCode } from '@/i18n/utils'
 import { AuthPageHeader } from '@/app/(auth)/components/auth-page-header'
 import { AuthWaitlistNote } from '@/app/(auth)/components/auth-waitlist-note'
 import { inter } from '@/app/fonts/inter'
 
 const logger = createLogger('SSOForm')
 
-const validateEmailField = (emailValue: string): string[] => {
+const validateEmailField = (
+  emailValue: string,
+  messages: {
+    required: string
+    invalid: string
+  }
+): string[] => {
   const errors: string[] = []
 
   if (!emailValue || !emailValue.trim()) {
-    errors.push('Email is required.')
+    errors.push(messages.required)
     return errors
   }
 
   const validation = quickValidateEmail(emailValue.trim().toLowerCase())
   if (!validation.isValid) {
-    errors.push(validation.reason || 'Please enter a valid email address.')
+    errors.push(messages.invalid)
   }
 
   return errors
@@ -57,6 +62,11 @@ const validateCallbackUrl = (url: string): boolean => {
 
 export default function SSOForm({ registrationMode }: { registrationMode: RegistrationMode }) {
   const router = useRouter()
+  const locale = useLocale() as LocaleCode
+  const copy = getPublicCopy(locale)
+  const commonCopy = copy.auth.common
+  const ssoCopy = copy.auth.sso
+  const defaultCallbackUrl = localizePathname(locale, '/workspace')
   const searchParams = useSearchParams()
   const [isLoading, setIsLoading] = useState(false)
   const [email, setEmail] = useState('')
@@ -64,9 +74,9 @@ export default function SSOForm({ registrationMode }: { registrationMode: Regist
   const [showEmailValidationError, setShowEmailValidationError] = useState(false)
   const primaryButtonClasses =
     'bg-primary text-primary-foreground flex w-full items-center justify-center gap-2 rounded-md border border-transparent font-medium text-[15px] transition-all duration-200'
-  const [callbackUrl, setCallbackUrl] = useState('/workspace')
+  const [callbackUrl, setCallbackUrl] = useState(defaultCallbackUrl)
   const registrationHref = getAuthRegistrationHref(registrationMode)
-  const registrationLabel = getAuthRegistrationLabel(registrationMode)
+  const registrationLabel = getAuthRegistrationLabel(copy, registrationMode)
 
   useEffect(() => {
     if (searchParams) {
@@ -89,22 +99,24 @@ export default function SSOForm({ registrationMode }: { registrationMode: Regist
       const error = searchParams.get('error')
       if (error) {
         const errorMessages: Record<string, string> = {
-          account_not_found:
-            'No account found. Please contact your administrator to set up SSO access.',
-          sso_failed: 'SSO authentication failed. Please try again.',
-          invalid_provider: 'SSO provider not configured correctly.',
+          account_not_found: ssoCopy.errors.accountNotFound,
+          sso_failed: ssoCopy.errors.ssoFailed,
+          invalid_provider: ssoCopy.errors.providerNotConfigured,
         }
-        setEmailErrors([errorMessages[error] || 'SSO authentication failed. Please try again.'])
+        setEmailErrors([errorMessages[error] || ssoCopy.errors.ssoFailed])
         setShowEmailValidationError(true)
       }
     }
-  }, [searchParams])
+  }, [searchParams, ssoCopy.errors.accountNotFound, ssoCopy.errors.providerNotConfigured, ssoCopy.errors.ssoFailed])
 
   const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newEmail = e.target.value
     setEmail(newEmail)
 
-    const errors = validateEmailField(newEmail)
+    const errors = validateEmailField(newEmail, {
+      required: ssoCopy.validation.emailRequired,
+      invalid: ssoCopy.validation.emailInvalid,
+    })
     setEmailErrors(errors)
     setShowEmailValidationError(false)
   }
@@ -117,7 +129,10 @@ export default function SSOForm({ registrationMode }: { registrationMode: Regist
     const emailRaw = formData.get('email') as string
     const emailValue = emailRaw.trim().toLowerCase()
 
-    const emailValidationErrors = validateEmailField(emailValue)
+    const emailValidationErrors = validateEmailField(emailValue, {
+      required: ssoCopy.validation.emailRequired,
+      invalid: ssoCopy.validation.emailInvalid,
+    })
     setEmailErrors(emailValidationErrors)
     setShowEmailValidationError(emailValidationErrors.length > 0)
 
@@ -127,30 +142,30 @@ export default function SSOForm({ registrationMode }: { registrationMode: Regist
     }
 
     try {
-      const safeCallbackUrl = validateCallbackUrl(callbackUrl) ? callbackUrl : '/workspace'
+      const safeCallbackUrl = validateCallbackUrl(callbackUrl) ? callbackUrl : defaultCallbackUrl
 
       await client.signIn.sso({
         email: emailValue,
         callbackURL: safeCallbackUrl,
-        errorCallbackURL: `/sso?error=sso_failed&callbackUrl=${encodeURIComponent(safeCallbackUrl)}`,
+        errorCallbackURL: `${localizePathname(locale, '/sso')}?error=sso_failed&callbackUrl=${encodeURIComponent(safeCallbackUrl)}`,
       })
     } catch (err) {
       logger.error('SSO sign-in failed', { error: err, email: emailValue })
 
-      let errorMessage = 'SSO sign-in failed. Please try again.'
+      let errorMessage = ssoCopy.errors.failed
       if (err instanceof Error) {
         if (err.message.includes('NO_PROVIDER_FOUND')) {
-          errorMessage = 'SSO provider not found. Please check your configuration.'
+          errorMessage = ssoCopy.errors.providerNotConfigured
         } else if (err.message.includes('INVALID_EMAIL_DOMAIN')) {
-          errorMessage = 'Email domain not configured for SSO. Please contact your administrator.'
+          errorMessage = ssoCopy.errors.invalidEmailDomain
         } else if (err.message.includes('network')) {
-          errorMessage = 'Network error. Please check your connection and try again.'
+          errorMessage = ssoCopy.errors.network
         } else if (err.message.includes('rate limit')) {
-          errorMessage = 'Too many requests. Please wait a moment before trying again.'
+          errorMessage = ssoCopy.errors.rateLimit
         } else if (err.message.includes('SSO_DISABLED')) {
-          errorMessage = 'SSO authentication is disabled. Please use another sign-in method.'
+          errorMessage = ssoCopy.errors.ssoDisabled
         } else {
-          errorMessage = err.message
+          errorMessage = ssoCopy.errors.failed
         }
       }
 
@@ -163,9 +178,9 @@ export default function SSOForm({ registrationMode }: { registrationMode: Regist
   return (
     <>
       <AuthPageHeader
-        eyebrow='SSO'
-        title='Sign in with SSO'
-        description='Enter your work email to continue'
+        eyebrow={ssoCopy.eyebrow}
+        title={ssoCopy.title}
+        description={ssoCopy.description}
       />
 
       {registrationMode === 'waitlist' ? <AuthWaitlistNote /> : null}
@@ -174,12 +189,12 @@ export default function SSOForm({ registrationMode }: { registrationMode: Regist
         <div className='space-y-6'>
           <div className='space-y-2'>
             <div className='flex items-center justify-between'>
-              <Label htmlFor='email'>Work email</Label>
+              <Label htmlFor='email'>{commonCopy.workEmail}</Label>
             </div>
             <Input
               id='email'
               name='email'
-              placeholder='Enter your work email'
+              placeholder={commonCopy.enterYourWorkEmail}
               required
               autoCapitalize='none'
               autoComplete='email'
@@ -205,7 +220,7 @@ export default function SSOForm({ registrationMode }: { registrationMode: Regist
         </div>
 
         <Button type='submit' className={primaryButtonClasses} disabled={isLoading}>
-          {isLoading ? 'Redirecting to SSO provider...' : 'Continue with SSO'}
+          {isLoading ? ssoCopy.submitting : commonCopy.continueWithSso}
         </Button>
       </form>
 
@@ -214,7 +229,7 @@ export default function SSOForm({ registrationMode }: { registrationMode: Regist
           <div className='auth-divider w-full border-t' />
         </div>
         <div className='relative flex justify-center text-sm'>
-          <span className='bg-background px-4 font-[340] text-muted-foreground'>Or</span>
+          <span className='bg-background px-4 font-[340] text-muted-foreground'>{ssoCopy.divider}</span>
         </div>
       </div>
 
@@ -227,14 +242,14 @@ export default function SSOForm({ registrationMode }: { registrationMode: Regist
             className='w-full rounded-md shadow-sm hover:bg-gray-50'
             type='button'
           >
-            Sign in with email
+            {commonCopy.signInWithEmail}
           </Button>
         </Link>
       </div>
 
       {registrationHref && registrationLabel && (
         <div className={`${inter.className} pt-6 text-center font-light text-[14px]`}>
-          <span className='font-normal'>Don't have an account? </span>
+          <span className='font-normal'>{commonCopy.dontHaveAccount} </span>
           <Link
             href={`${registrationHref}${callbackUrl ? `?callbackUrl=${encodeURIComponent(callbackUrl)}` : ''}`}
             className='font-medium text-primary underline-offset-4 transition hover:text-primary-hover hover:underline'
@@ -247,23 +262,23 @@ export default function SSOForm({ registrationMode }: { registrationMode: Regist
       <div
         className={`${inter.className} text-muted-foreground absolute right-0 bottom-0 left-0 px-8 pb-8 text-center font-[340] text-[13px] leading-relaxed sm:px-8 md:px-[44px]`}
       >
-        By signing in, you agree to our{' '}
+        {commonCopy.termsLeadSigningIn}{' '}
         <Link
           href='/terms'
           target='_blank'
           rel='noopener noreferrer'
           className='hover:text-primary underline underline-offset-4'
         >
-          Terms of Service
+          {commonCopy.termsOfService}
         </Link>{' '}
-        and{' '}
+        {commonCopy.and}{' '}
         <Link
           href='/privacy'
           target='_blank'
           rel='noopener noreferrer'
           className='hover:text-primary underline underline-offset-4'
         >
-          Privacy Policy
+          {commonCopy.privacyPolicy}
         </Link>
       </div>
     </>

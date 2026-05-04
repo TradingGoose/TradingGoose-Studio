@@ -12,8 +12,11 @@ import {
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { useLocale } from 'next-intl'
+import { getPublicCopy } from '@/i18n/public-copy'
+import type { LocaleCode } from '@/i18n/utils'
 import { cn } from '@/lib/utils'
-import { useSetPairColorContext } from '@/stores/dashboard/pair-store'
+import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import type { WorkflowMetadata } from '@/stores/workflows/registry/types'
 import { WORKSPACE_BOOTSTRAP_CHANNEL } from '@/stores/workflows/registry/types'
@@ -25,13 +28,12 @@ import {
   widgetHeaderMenuTextClassName,
 } from '@/widgets/widgets/components/widget-header-control'
 
-const DEFAULT_PLACEHOLDER = 'Select workflow'
 const DROPDOWN_MAX_HEIGHT = '20rem'
 const DROPDOWN_VIEWPORT_HEIGHT = '14rem'
 
 interface WorkflowDropdownProps {
   workspaceId?: string | null
-  value: string | null
+  value?: string | null
   onChange?: (workflowId: string, workflow?: WorkflowMetadata) => void
   disabled?: boolean
   placeholder?: string
@@ -47,13 +49,16 @@ export function WorkflowDropdown({
   value,
   onChange,
   disabled = false,
-  placeholder = DEFAULT_PLACEHOLDER,
+  placeholder,
   pairColor,
   align = 'start',
   triggerClassName,
   menuClassName,
   includeMarketplace = true,
 }: WorkflowDropdownProps) {
+  const locale = useLocale() as LocaleCode
+  const copy = getPublicCopy(locale).workspace.widgets.workflowDropdown
+  const [internalValue, setInternalValue] = useState<string | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [hasRequestedLoad, setHasRequestedLoad] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
@@ -74,6 +79,7 @@ export function WorkflowDropdown({
     shallow
   )
 
+  const pairContext = usePairColorContext(resolvedPairColor)
   const setPairContext = useSetPairColorContext()
 
   const workspaceWorkflows = useMemo(() => {
@@ -94,24 +100,56 @@ export function WorkflowDropdown({
     return scoped.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
   }, [registryWorkflows, workspaceId, includeMarketplace])
 
-  const selectedWorkflowId = value
+  const isControlled = typeof value !== 'undefined'
+  const selectedWorkflowId = isControlled ? (value ?? null) : internalValue
   const selectedWorkflow = workspaceWorkflows.find((workflow) => workflow.id === selectedWorkflowId)
   const isLoading = metadataHydrationPhase === 'metadata-loading'
   const isDropdownDisabled = disabled || !workspaceId
   const tooltipText = !workspaceId
-    ? 'Select a workspace to choose workflows'
+    ? copy.selectWorkspaceFirst
     : loadError
-      ? 'Unable to load workflows'
+      ? copy.unableToLoad
       : disabled
-        ? 'Workflow selection unavailable'
-        : 'Select workflow'
+        ? copy.workflowSelectionUnavailable
+        : copy.selectWorkflow
+  const resolvedPlaceholder = placeholder ?? copy.selectWorkflow
 
   // Reset internal state when workspace changes
   useEffect(() => {
     setLoadError(null)
     setHasRequestedLoad(false)
     setSearchQuery('')
-  }, [workspaceId])
+    if (!isControlled) {
+      setInternalValue(null)
+    }
+  }, [workspaceId, isControlled])
+
+  // Keep internal selection in sync with pair context when uncontrolled
+  useEffect(() => {
+    if (isControlled || !isPairContextActive) {
+      return
+    }
+
+    const nextId = pairContext?.workflowId ?? null
+    if (!nextId) {
+      return
+    }
+
+    if (!workspaceWorkflows.some((workflow) => workflow.id === nextId)) {
+      return
+    }
+
+    setInternalValue(nextId)
+  }, [isControlled, isPairContextActive, pairContext?.workflowId, workspaceWorkflows])
+
+  // Fallback to first available workflow when uncontrolled
+  useEffect(() => {
+    if (isControlled || internalValue || workspaceWorkflows.length === 0) {
+      return
+    }
+
+    setInternalValue(workspaceWorkflows[0].id)
+  }, [isControlled, internalValue, workspaceWorkflows])
 
   // Request workflows for workspace when needed
   useEffect(() => {
@@ -126,22 +164,36 @@ export function WorkflowDropdown({
     loadWorkflows({ workspaceId, channelId: metadataChannelId }).catch((error) => {
       if (!cancelled) {
         console.error('Failed to load workflows for workflow dropdown', error)
-        setLoadError('Failed to load workflows')
+        setLoadError(copy.failedToLoad)
       }
     })
 
     return () => {
       cancelled = true
     }
-  }, [workspaceId, workspaceWorkflows.length, hasRequestedLoad, loadWorkflows, metadataChannelId])
+  }, [
+    workspaceId,
+    workspaceWorkflows.length,
+    hasRequestedLoad,
+    loadWorkflows,
+    metadataChannelId,
+    copy.failedToLoad,
+  ])
 
   const handleSelect = (workflow: WorkflowMetadata) => {
     if (!workflow) {
       return
     }
 
+    if (!isControlled) {
+      setInternalValue(workflow.id)
+    }
+
     if (isPairContextActive) {
-      setPairContext(resolvedPairColor, { workflowId: workflow.id })
+      setPairContext(resolvedPairColor, {
+        ...(pairContext ?? {}),
+        workflowId: workflow.id,
+      })
     }
 
     onChange?.(workflow.id, workflow)
@@ -166,7 +218,7 @@ export function WorkflowDropdown({
     if (!normalizedQuery) return workspaceWorkflows
 
     return workspaceWorkflows.filter((workflow) => {
-      const name = workflow.name || 'Untitled workflow'
+      const name = workflow.name || copy.untitledWorkflow
       return (
         name.toLowerCase().includes(normalizedQuery) ||
         workflow.id.toLowerCase().includes(normalizedQuery)
@@ -178,7 +230,7 @@ export function WorkflowDropdown({
     if (!workspaceId) {
       return (
         <p className='px-2 py-4 text-center text-muted-foreground text-xs'>
-          Select a workspace first.
+          {copy.selectWorkspaceFirst}
         </p>
       )
     }
@@ -186,13 +238,13 @@ export function WorkflowDropdown({
     if (loadError) {
       return (
         <div className='space-y-2 px-3 py-2 text-xs'>
-          <p className='text-destructive'>{loadError}. Try reloading the widget.</p>
+          <p className='text-destructive'>{loadError}</p>
           <button
             type='button'
             className='font-semibold text-primary text-xs hover:underline'
             onClick={handleRetry}
           >
-            Retry
+            {copy.retry}
           </button>
         </div>
       )
@@ -204,7 +256,7 @@ export function WorkflowDropdown({
       return (
         <div className='flex items-center gap-1 px-3 py-2 text-muted-foreground text-xs'>
           <Loader2 className='h-3.5 w-3.5 animate-spin' />
-          Loading workflows…
+          {copy.loading}
         </div>
       )
     }
@@ -212,7 +264,7 @@ export function WorkflowDropdown({
     if (filteredWorkflows.length === 0) {
       return (
         <p className='px-2 py-4 text-center text-muted-foreground text-xs'>
-          {searchQuery.trim() ? 'No workflows found.' : 'No workflows available yet.'}
+          {searchQuery.trim() ? copy.noWorkflowsFound : copy.noWorkflowsAvailable}
         </p>
       )
     }
@@ -246,7 +298,7 @@ export function WorkflowDropdown({
                   />
                 </span>
                 <span className={cn(widgetHeaderMenuTextClassName, 'truncate')}>
-                  {workflow.name || 'Untitled workflow'}
+                  {workflow.name || copy.untitledWorkflow}
                 </span>
               </div>
               {isSelected ? <Check className='h-3.5 w-3.5 text-primary' /> : null}
@@ -274,11 +326,11 @@ export function WorkflowDropdown({
 
   const labelContent = selectedWorkflow ? (
     <span className='min-w-0 flex-1 truncate text-left font-medium text-foreground text-sm'>
-      {selectedWorkflow.name || 'Untitled workflow'}
+      {selectedWorkflow.name || copy.untitledWorkflow}
     </span>
   ) : (
     <span className='min-w-0 flex-1 truncate text-left font-medium text-muted-foreground text-sm'>
-      {placeholder}
+      {resolvedPlaceholder}
     </span>
   )
 
@@ -323,10 +375,10 @@ export function WorkflowDropdown({
           <div className='border-border/70 border-b p-2'>
             <div className='flex items-center gap-1 rounded-md border bg-background px-2 py-1.5 text-muted-foreground text-sm'>
               <Search className='h-3.5 w-3.5 shrink-0' />
-              <Input
+                <Input
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
-                placeholder='Search workflows...'
+                placeholder={copy.searchPlaceholder}
                 className='h-6 border-0 bg-transparent px-0 text-foreground text-xs placeholder:text-muted-foreground focus-visible:ring-0 focus-visible:ring-offset-0'
                 onKeyDown={handleSearchInputKeyDown}
                 autoComplete='off'

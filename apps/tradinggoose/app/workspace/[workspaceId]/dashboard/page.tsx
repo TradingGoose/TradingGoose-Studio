@@ -2,8 +2,11 @@ import { randomUUID } from 'crypto'
 import { db } from '@tradinggoose/db'
 import { layoutMap } from '@tradinggoose/db/schema'
 import { and, asc, eq } from 'drizzle-orm'
+import { headers } from 'next/headers'
 import { getSession } from '@/lib/auth'
 import { hydrateDashboardListingData } from '@/lib/listing/hydrate-ui'
+import { getPublicCopy } from '@/i18n/public-copy'
+import { defaultLocale, isLocaleCode, type LocaleCode } from '@/i18n/utils'
 import { DashboardClient } from '@/app/workspace/[workspaceId]/dashboard/dashboard-client'
 import {
   createDefaultColorPairsState,
@@ -21,6 +24,11 @@ export default async function WorkspaceDashboardPage({
   const { workspaceId } = await params
   const resolvedSearchParams = searchParams ? await searchParams : undefined
   const requestedLayoutId = resolvedSearchParams?.layoutId
+  const requestHeaders = await headers()
+  const localeHeader = requestHeaders.get('x-next-intl-locale')
+  const resolvedLocale = localeHeader ?? ''
+  const locale: LocaleCode = isLocaleCode(resolvedLocale) ? resolvedLocale : defaultLocale
+  const workspaceCopy = getPublicCopy(locale).workspace
   const session = await getSession()
 
   if (!session?.user?.id) {
@@ -46,7 +54,7 @@ export default async function WorkspaceDashboardPage({
         id: randomUUID(),
         workspaceId,
         userId,
-        name: 'Default Layout',
+        name: workspaceCopy.defaults.defaultLayoutName,
         sort_order: 0,
         layout: serializeLayout(defaultLayout),
         color_pair: defaultColorPairs,

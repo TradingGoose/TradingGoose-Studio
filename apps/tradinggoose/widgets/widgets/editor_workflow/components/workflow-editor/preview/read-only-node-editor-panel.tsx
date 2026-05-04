@@ -1,4 +1,7 @@
 import { useMemo } from 'react'
+import { useLocale } from 'next-intl'
+import { getPublicCopy } from '@/i18n/public-copy'
+import type { LocaleCode } from '@/i18n/utils'
 import type { WorkflowState } from '@/stores/workflows/workflow/types'
 import { resolveReadOnlyPreviewPanel } from './preview-panel-registry'
 
@@ -11,6 +14,8 @@ export function ReadOnlyNodeEditorPanel({
   selectedNodeId,
   workflowState,
 }: ReadOnlyNodeEditorPanelProps) {
+  const locale = useLocale() as LocaleCode
+  const copy = getPublicCopy(locale).workspace.widgets.workflowEditor
   const selectedBlock = useMemo(() => {
     if (!selectedNodeId) {
       return null
@@ -23,7 +28,9 @@ export function ReadOnlyNodeEditorPanel({
     return (
       <aside className='w-80 shrink-0 border-border border-l bg-background/95 p-4'>
         <div className='flex h-full items-center justify-center text-center'>
-          <p className='text-muted-foreground text-sm'>Select a block to view its preview details.</p>
+          <p className='text-muted-foreground text-sm'>
+            {copy.selectBlockToViewPreviewDetails}
+          </p>
         </div>
       </aside>
     )
@@ -33,8 +40,8 @@ export function ReadOnlyNodeEditorPanel({
     return (
       <aside className='w-80 shrink-0 border-border border-l bg-background/95 p-4'>
         <div className='space-y-2'>
-          <h3 className='font-medium text-sm'>Node not found</h3>
-          <p className='text-muted-foreground text-xs'>The selected node is no longer available.</p>
+          <h3 className='font-medium text-sm'>{copy.nodeNotFound}</h3>
+          <p className='text-muted-foreground text-xs'>{copy.selectedNodeUnavailable}</p>
         </div>
       </aside>
     )
@@ -46,7 +53,9 @@ export function ReadOnlyNodeEditorPanel({
     <aside className='w-80 shrink-0 border-border border-l bg-background/95 p-4'>
       <div className='space-y-4'>
         <header className='space-y-1'>
-          <p className='text-muted-foreground text-xs uppercase tracking-wide'>Preview Inspector</p>
+          <p className='text-muted-foreground text-xs uppercase tracking-wide'>
+            {copy.previewInspector}
+          </p>
           <h3 className='line-clamp-2 font-medium text-sm'>{selectedBlock.name}</h3>
         </header>
 

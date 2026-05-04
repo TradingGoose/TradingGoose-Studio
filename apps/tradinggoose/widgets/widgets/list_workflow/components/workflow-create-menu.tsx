@@ -2,6 +2,7 @@
 
 import { useCallback, useRef, useState } from 'react'
 import { Download, Folder, Plus } from 'lucide-react'
+import { useLocale } from 'next-intl'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,6 +15,8 @@ import { generateFolderName } from '@/lib/naming'
 import { cn } from '@/lib/utils'
 import { importWorkflowFromJsonContent } from '@/lib/workflows/import'
 import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
+import { getPublicCopy } from '@/i18n/public-copy'
+import type { LocaleCode } from '@/i18n/utils'
 import { useImportSkills } from '@/hooks/queries/skills'
 import { useFolderStore } from '@/stores/folders/store'
 import { parseWorkflowJson } from '@/stores/workflows/json/importer'
@@ -38,6 +41,8 @@ export function DashboardWorkflowCreateMenu({
   workspaceId,
   onWorkflowCreated,
 }: DashboardWorkflowCreateMenuProps) {
+  const locale = useLocale() as LocaleCode
+  const copy = getPublicCopy(locale).workspace.widgets.workflowCreateMenu
   const [isCreatingFolder, setIsCreatingFolder] = useState(false)
   const [isCreatingWorkflow, setIsCreatingWorkflow] = useState(false)
   const [isImporting, setIsImporting] = useState(false)
@@ -78,7 +83,7 @@ export function DashboardWorkflowCreateMenu({
     setIsCreatingFolder(true)
 
     try {
-      const folderName = await generateFolderName(workspaceId)
+      const folderName = await generateFolderName(workspaceId, locale)
       await createFolder({ name: folderName, workspaceId })
       logger.info(`Created folder ${folderName} from dashboard widget`)
     } catch (error) {
@@ -86,7 +91,7 @@ export function DashboardWorkflowCreateMenu({
     } finally {
       setIsCreatingFolder(false)
     }
-  }, [workspaceId, isCreatingFolder, createFolder])
+  }, [workspaceId, isCreatingFolder, createFolder, locale])
 
   const handleDirectImport = useCallback(
     async (content: string, filename?: string) => {
@@ -221,8 +226,8 @@ export function DashboardWorkflowCreateMenu({
   const createFolderDisabled = !isWorkspaceReady || isMenuDisabled || isCreatingFolder
   const importWorkflowDisabled = !isWorkspaceReady || isMenuDisabled || isImporting
   const createButtonTooltip = isWorkspaceReady
-    ? 'Create folder or workflow'
-    : 'Select a workspace to create workflows'
+    ? copy.createButtonTooltip
+    : copy.selectWorkspaceTooltip
 
   return (
     <>
@@ -237,7 +242,7 @@ export function DashboardWorkflowCreateMenu({
                   disabled={isMenuDisabled}
                 >
                   <Plus className={widgetHeaderMenuIconClassName} />
-                  <span className='sr-only'>Create workflow</span>
+                  <span className='sr-only'>{copy.createButtonTooltip}</span>
                 </button>
               </DropdownMenuTrigger>
             </span>
@@ -259,7 +264,7 @@ export function DashboardWorkflowCreateMenu({
           >
             <Plus className={widgetHeaderMenuTextClassName} />
             <span className={widgetHeaderMenuTextClassName}>
-              {isCreatingWorkflow ? 'Creating...' : 'New workflow'}
+              {isCreatingWorkflow ? copy.creating : copy.createWorkflow}
             </span>
           </DropdownMenuItem>
 
@@ -273,7 +278,7 @@ export function DashboardWorkflowCreateMenu({
           >
             <Folder className={widgetHeaderMenuTextClassName} />
             <span className={widgetHeaderMenuTextClassName}>
-              {isCreatingFolder ? 'Creating...' : 'New folder'}
+              {isCreatingFolder ? copy.creating : copy.createFolder}
             </span>
           </DropdownMenuItem>
 
@@ -287,7 +292,7 @@ export function DashboardWorkflowCreateMenu({
           >
             <Download className={widgetHeaderMenuTextClassName} />
             <span className={widgetHeaderMenuTextClassName}>
-              {isImporting ? 'Importing...' : 'Import workflow'}
+              {isImporting ? copy.importing : copy.importWorkflow}
             </span>
           </DropdownMenuItem>
         </DropdownMenuContent>

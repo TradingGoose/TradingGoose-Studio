@@ -66,6 +66,31 @@ describe('Workspace layout access guard', () => {
     expect(mockCheckWorkspaceAccess).not.toHaveBeenCalled()
   })
 
+  it('keeps locale-prefixed login redirects localized for non-default locales', async () => {
+    mockGetSession.mockResolvedValue(null)
+    mockHeaders.mockResolvedValue(
+      new Headers([
+        ['x-next-intl-locale', 'zh-CN'],
+        ['x-auth-callback-url', '/zh/workspace/ws-1/dashboard?layoutId=layout-1'],
+      ])
+    )
+
+    const WorkspaceLayout = (await import('./layout')).default
+
+    await expect(
+      WorkspaceLayout({
+        children: <div>workspace</div>,
+        params: Promise.resolve({ workspaceId: 'ws-1' }),
+      })
+    ).rejects.toThrow(
+      'redirect:/zh/login?reauth=1&callbackUrl=%2Fzh%2Fworkspace%2Fws-1%2Fdashboard%3FlayoutId%3Dlayout-1'
+    )
+
+    expect(mockRedirect).toHaveBeenCalledWith(
+      '/zh/login?reauth=1&callbackUrl=%2Fzh%2Fworkspace%2Fws-1%2Fdashboard%3FlayoutId%3Dlayout-1'
+    )
+  })
+
   it('redirects to /workspace when the user cannot access the workspace', async () => {
     mockGetSession.mockResolvedValue({
       user: {

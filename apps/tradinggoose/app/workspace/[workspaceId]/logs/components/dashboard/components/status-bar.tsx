@@ -1,4 +1,9 @@
+'use client'
+
 import { memo, useMemo, useState } from 'react'
+import { useLocale } from 'next-intl'
+import { formatTemplate, getPublicCopy } from '@/i18n/public-copy'
+import { type LocaleCode } from '@/i18n/utils'
 
 export interface StatusBarSegment {
   successRate: number
@@ -28,6 +33,8 @@ export function StatusBar({
   segmentDurationMs: number
   preferBelow?: boolean
 }) {
+  const locale = useLocale() as LocaleCode
+  const copy = getPublicCopy(locale).workspace.logs.dashboard.workflows
   const [hoverIndex, setHoverIndex] = useState<number | null>(null)
 
   const labels = useMemo(() => {
@@ -36,14 +43,17 @@ export function StatusBar({
       const end = new Date(start.getTime() + (segmentDurationMs || 0))
       const rangeLabel = Number.isNaN(start.getTime())
         ? ''
-        : `${start.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric' })} – ${end.toLocaleString('en-US', { hour: 'numeric', minute: '2-digit' })}`
+        : `${start.toLocaleString(locale, { month: 'short', day: 'numeric', hour: 'numeric' })} – ${end.toLocaleString(locale, { hour: 'numeric', minute: '2-digit' })}`
       return {
         rangeLabel,
         successLabel: `${segment.successRate.toFixed(1)}%`,
-        countsLabel: `${segment.successfulExecutions ?? 0}/${segment.totalExecutions ?? 0} succeeded`,
+        countsLabel: formatTemplate(copy.succeeded, {
+          success: segment.successfulExecutions ?? 0,
+          total: segment.totalExecutions ?? 0,
+        }),
       }
     })
-  }, [segments, segmentDurationMs])
+  }, [segments, segmentDurationMs, locale, copy.succeeded])
 
   return (
     <div className='relative'>
@@ -72,7 +82,7 @@ export function StatusBar({
               key={i}
               className={`h-6 flex-1 rounded-xs ${color} cursor-pointer transition-[opacity,transform] hover:opacity-90 ${isSelected ? 'relative z-10 ring-2 ring-primary ring-offset-1' : 'relative z-0'
                 }`}
-              aria-label={`Segment ${i + 1}`}
+              aria-label={formatTemplate(copy.segment, { index: i + 1 })}
               onMouseEnter={() => setHoverIndex(i)}
               onMouseDown={(e) => {
                 e.preventDefault()

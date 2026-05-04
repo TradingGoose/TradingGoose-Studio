@@ -46,9 +46,11 @@ import {
   Zap,
 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
+import { useLocale } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { createLogger } from '@/lib/logs/console/logger'
 import { cn } from '@/lib/utils'
+import { localizeHref, type LocaleCode } from '@/i18n/utils'
 import type { Template } from '@/app/workspace/[workspaceId]/templates/templates'
 import { categories } from '@/app/workspace/[workspaceId]/templates/templates'
 import { WorkflowPreview } from '@/app/workspace/[workspaceId]/components/workflow-preview/workflow-preview'
@@ -122,6 +124,7 @@ export default function TemplateDetails({
   currentUserId,
 }: TemplateDetailsProps) {
   const router = useRouter()
+  const locale = useLocale() as LocaleCode
   const [isStarred, setIsStarred] = useState(template?.isStarred || false)
   const [starCount, setStarCount] = useState(template?.stars || 0)
   const [isStarring, setIsStarring] = useState(false)
@@ -239,7 +242,7 @@ export default function TemplateDetails({
       const newWorkflow = await response.json()
 
       // Navigate to the new workflow
-      router.push(`/workspace/${workspaceId}/dashboard`)
+      router.push(localizeHref(locale, `/workspace/${workspaceId}/dashboard`))
     } catch (error) {
       logger.error('Error using template:', error)
       // Show error to user (could implement toast notification)

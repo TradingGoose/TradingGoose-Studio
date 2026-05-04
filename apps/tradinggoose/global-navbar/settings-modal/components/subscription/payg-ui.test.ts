@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
+import { getPublicCopy } from '@/i18n/public-copy'
 import { getPersonalPaygUiState, shouldOpenBillingPortalForPaygActivationError } from './payg-ui'
 
 describe('getPersonalPaygUiState', () => {
+  const labels = getPublicCopy('en').workspace.settingsModal.subscription.badges
   const base = {
     billingBlocked: false,
     hasPaymentMethodOnFile: true,
@@ -12,12 +14,12 @@ describe('getPersonalPaygUiState', () => {
     tierCanEditUsageLimit: true,
   } as const
 
-  it.each([
+  const testCases = [
     [
       'shows resolve payment for blocked billing',
       { billingBlocked: true },
       {
-        badgeText: 'Resolve Payment',
+        badgeText: labels.resolvePayment,
         primaryAction: 'resolve_payment',
         showBadge: true,
         showUsageLimitControl: false,
@@ -27,7 +29,7 @@ describe('getPersonalPaygUiState', () => {
       'shows add payment method before activation',
       { hasPaymentMethodOnFile: false, hasStripeSubscription: false, tierCanEditUsageLimit: false },
       {
-        badgeText: 'Add Payment Method',
+        badgeText: labels.addPaymentMethod,
         primaryAction: 'add_payment_method',
         showBadge: true,
         showUsageLimitControl: false,
@@ -37,7 +39,7 @@ describe('getPersonalPaygUiState', () => {
       'shows activate PAYG once a payment method exists',
       { hasStripeSubscription: false, tierCanEditUsageLimit: false },
       {
-        badgeText: 'Activate PAYG',
+        badgeText: labels.activatePayg,
         primaryAction: 'activate_payg',
         showBadge: true,
         showUsageLimitControl: false,
@@ -47,7 +49,7 @@ describe('getPersonalPaygUiState', () => {
       'shows increase limit when usage can be edited',
       { canEditUsageLimit: true },
       {
-        badgeText: 'Increase Limit',
+        badgeText: labels.increaseLimit,
         primaryAction: 'increase_limit',
         showBadge: true,
         showUsageLimitControl: true,
@@ -57,7 +59,7 @@ describe('getPersonalPaygUiState', () => {
       'shows manage billing for fixed Stripe-backed states',
       { subscriptionStatus: 'trialing', tierCanEditUsageLimit: false },
       {
-        badgeText: 'Manage Billing',
+        badgeText: labels.manageBilling,
         primaryAction: 'manage_billing',
         showBadge: true,
         showUsageLimitControl: false,
@@ -72,14 +74,22 @@ describe('getPersonalPaygUiState', () => {
         tierCanEditUsageLimit: false,
       },
       {
-        badgeText: 'Add Payment Method',
+        badgeText: labels.addPaymentMethod,
         primaryAction: 'add_payment_method',
         showBadge: false,
         showUsageLimitControl: false,
       },
     ],
-  ])('%s', (_name, overrides, expected) => {
-    expect(getPersonalPaygUiState({ ...base, ...overrides })).toEqual(expected)
+  ] as const
+
+  it.each(testCases)('%s', (_name, overrides, expected) => {
+    expect(
+      getPersonalPaygUiState({
+        ...base,
+        ...overrides,
+        labels,
+      })
+    ).toEqual(expected)
   })
 })
 

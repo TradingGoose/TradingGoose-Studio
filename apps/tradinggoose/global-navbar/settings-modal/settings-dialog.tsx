@@ -1,6 +1,9 @@
 'use client'
 
-import { type ReactNode, useMemo } from 'react'
+import { type ReactNode } from 'react'
+import { useLocale } from 'next-intl'
+import { getPublicCopy } from '@/i18n/public-copy'
+import { type LocaleCode } from '@/i18n/utils'
 import { AccountSettings } from './components/account/account-settings'
 import { ServiceSettings } from './components/service/service-settings'
 import { SSOSettings } from './components/sso/sso-settings'
@@ -21,41 +24,37 @@ interface SectionRenderProps {
 }
 
 type SectionConfig = {
-  title: string
   render: (props: SectionRenderProps) => ReactNode
 }
 
 const SECTION_CONFIG: Record<SettingsSection, SectionConfig> = {
   account: {
-    title: 'Account Settings',
     render: () => <AccountSettings />,
   },
   service: {
-    title: 'Service API Keys',
     render: () => <ServiceSettings />,
   },
   subscription: {
-    title: 'Subscription',
     render: ({ onOpenChange }) => <SubscriptionSettings onOpenChange={onOpenChange} />,
   },
   team: {
-    title: 'Team Management',
     render: ({ isActive }) => <TeamManagementSettings isActive={isActive} />,
   },
   sso: {
-    title: 'Single Sign-On',
     render: ({ isActive }) => <SSOSettings isActive={isActive} />,
   },
 }
 
 export function SettingsDialog({ open, section, onOpenChange }: SettingsDialogProps) {
-  const config = useMemo(() => SECTION_CONFIG[section], [section])
+  const locale = useLocale() as LocaleCode
+  const settingsCopy = getPublicCopy(locale).workspace.settingsModal
+  const config = SECTION_CONFIG[section]
 
   return (
     <SettingsModal
       open={open}
       onOpenChange={onOpenChange}
-      title={config.title}
+      title={settingsCopy.titles[section]}
       contentClassName='p-0'
     >
       {config.render({ isActive: open, onOpenChange })}

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
+import { localizeHref, stripLocaleFromPathname } from '@/i18n/utils'
 
 /**
  * Detect if the current platform is Mac
@@ -96,14 +97,15 @@ export function useGlobalShortcuts() {
       ) {
         event.preventDefault()
 
-        const pathParts = window.location.pathname.split('/')
+        const { locale, pathname } = stripLocaleFromPathname(window.location.pathname)
+        const pathParts = pathname.split('/')
         const workspaceIndex = pathParts.indexOf('workspace')
 
         if (workspaceIndex !== -1 && pathParts[workspaceIndex + 1]) {
           const workspaceId = pathParts[workspaceIndex + 1]
-          router.push(`/workspace/${workspaceId}/logs`)
+          router.push(localizeHref(locale, `/workspace/${workspaceId}/logs`))
         } else {
-          router.push('/workspace')
+          router.push(localizeHref(locale, '/workspace'))
         }
       }
     }

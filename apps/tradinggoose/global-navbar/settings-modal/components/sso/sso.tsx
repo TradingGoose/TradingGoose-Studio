@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { Check, ChevronDown, Copy, Eye, EyeOff } from 'lucide-react'
+import { useLocale } from 'next-intl'
 import { Alert, AlertDescription, Button, Input, Label } from '@/components/ui'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useSession } from '@/lib/auth-client'
@@ -11,6 +12,8 @@ import { getUserRole } from '@/lib/organization/helpers'
 import { getBaseUrl } from '@/lib/urls/utils'
 import { cn } from '@/lib/utils'
 import { useOrganizationBilling, useOrganizations } from '@/hooks/queries/organization'
+import { formatTemplate, getPublicCopy } from '@/i18n/public-copy'
+import { type LocaleCode } from '@/i18n/utils'
 
 const logger = createLogger('SSO')
 
@@ -73,6 +76,8 @@ const getSsoCallbackUrl = (providerId: string, providerType: 'oidc' | 'saml') =>
   }/${providerId}`
 
 export function SSO() {
+  const locale = useLocale() as LocaleCode
+  const copy = getPublicCopy(locale).workspace.settingsModal.sso
   const { data: session } = useSession()
   const { data: organizationsData } = useOrganizations()
   const activeOrganization = organizationsData?.activeOrganization
@@ -157,7 +162,7 @@ export function SSO() {
             errorData?.details ||
               errorData?.error ||
               response.statusText ||
-              'Failed to load SSO providers'
+              copy.providerLoadError
           )
         }
 
@@ -171,7 +176,7 @@ export function SSO() {
         if (!cancelled) {
           setProviders([])
           setProviderLoadError(
-            error instanceof Error ? error.message : 'Failed to load SSO provider configuration'
+            error instanceof Error ? error.message : copy.providerLoadError
           )
         }
       } finally {
@@ -193,7 +198,7 @@ export function SSO() {
       <div className='flex h-full items-center justify-center p-6'>
         <Alert>
           <AlertDescription>
-            You must be part of an organization to configure Single Sign-On.
+            {copy.selectOrganization}
           </AlertDescription>
         </Alert>
       </div>
@@ -205,7 +210,7 @@ export function SSO() {
       <div className='flex h-full items-center justify-center p-6'>
         <Alert>
           <AlertDescription>
-            Only organization owners and admins can configure Single Sign-On settings.
+            {copy.onlyAdmins}
           </AlertDescription>
         </Alert>
       </div>
@@ -216,7 +221,7 @@ export function SSO() {
     return (
       <div className='flex h-full items-center justify-center p-6'>
         <Alert>
-          <AlertDescription>Single Sign-On is not enabled for this billing tier.</AlertDescription>
+          <AlertDescription>{copy.disabledTier}</AlertDescription>
         </Alert>
       </div>
     )
@@ -224,38 +229,38 @@ export function SSO() {
 
   const validateProviderId = (value: string): string[] => {
     const out: string[] = []
-    if (!value || !value.trim()) out.push('Provider ID is required.')
-    if (!/^[-a-z0-9]+$/i.test(value.trim())) out.push('Use letters, numbers, and dashes only.')
+    if (!value || !value.trim()) out.push(copy.validation.providerIdRequired)
+    if (!/^[-a-z0-9]+$/i.test(value.trim())) out.push(copy.validation.providerIdPattern)
     return out
   }
 
   const validateIssuerUrl = (value: string): string[] => {
     const out: string[] = []
-    if (!value || !value.trim()) return ['Issuer URL is required.']
+    if (!value || !value.trim()) return [copy.validation.issuerUrlRequired]
     try {
       const url = new URL(value.trim())
       const isLocalhost = url.hostname === 'localhost' || url.hostname === '127.0.0.1'
       if (url.protocol !== 'https:' && !isLocalhost) {
-        out.push('Issuer URL must use HTTPS.')
+        out.push(copy.validation.issuerUrlHttps)
       }
     } catch {
-      out.push('Enter a valid issuer URL like https://your-identity-provider.com/oauth2/default')
+      out.push(copy.validation.issuerUrlValid)
     }
     return out
   }
 
   const validateDomain = (value: string): string[] => {
     const out: string[] = []
-    if (!value || !value.trim()) return ['Domain is required.']
-    if (/^https?:\/\//i.test(value.trim())) out.push('Do not include protocol (https://).')
+    if (!value || !value.trim()) return [copy.validation.domainRequired]
+    if (/^https?:\/\//i.test(value.trim())) out.push(copy.validation.domainNoProtocol)
     if (!/^[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/.test(value.trim()))
-      out.push('Enter a valid domain like your-domain.identityprovider.com')
+      out.push(copy.validation.domainValid)
     return out
   }
 
   const validateRequired = (label: string, value: string): string[] => {
     const out: string[] = []
-    if (!value || !value.trim()) out.push(`${label} is required.`)
+    if (!value || !value.trim()) out.push(formatTemplate(copy.validation.fieldRequired, { field: label }))
     return out
   }
 
@@ -275,17 +280,17 @@ export function SSO() {
     }
 
     if (data.providerType === 'oidc') {
-      newErrors.clientId = validateRequired('Client ID', data.clientId)
-      newErrors.clientSecret = validateRequired('Client Secret', data.clientSecret)
+      newErrors.clientId = validateRequired(copy.clientId, data.clientId)
+      newErrors.clientSecret = validateRequired(copy.clientSecret, data.clientSecret)
       if (!data.scopes || !data.scopes.trim()) {
-        newErrors.scopes = ['Scopes are required for OIDC providers']
+        newErrors.scopes = [copy.validation.scopesRequired]
       }
     } else if (data.providerType === 'saml') {
       newErrors.entryPoint = validateIssuerUrl(data.entryPoint || '')
       if (!newErrors.entryPoint.length && !data.entryPoint) {
-        newErrors.entryPoint = ['Entry Point URL is required for SAML providers']
+        newErrors.entryPoint = [copy.validation.entryPointRequired]
       }
-      newErrors.cert = validateRequired('Certificate', data.cert)
+      newErrors.cert = validateRequired(copy.certificate, data.cert)
     }
 
     setErrors(newErrors)
@@ -372,7 +377,7 @@ export function SSO() {
 
       if (!response.ok) {
         const errorData = await response.json()
-        throw new Error(errorData.details || errorData.error || 'Failed to configure SSO provider')
+        throw new Error(errorData.details || errorData.error || copy.providerError)
       }
 
       const result = await response.json()
@@ -402,7 +407,7 @@ export function SSO() {
           errorData?.details ||
             errorData?.error ||
             providersResponse.statusText ||
-            'Failed to reload SSO providers'
+            copy.reloadError
         )
       }
 
@@ -411,7 +416,7 @@ export function SSO() {
 
       setShowConfigForm(false)
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Unknown error occurred'
+      const message = err instanceof Error ? err.message : copy.providerError
       setError(message)
       logger.error('Failed to configure SSO provider', { error: err })
     } finally {
@@ -496,7 +501,7 @@ export function SSO() {
                 <div key={provider.id} className='rounded-lg border border-border p-6'>
                   <div className='flex items-start justify-between gap-3'>
                     <div className='flex-1'>
-                      <h3 className='font-medium text-base'>Single Sign-On Provider</h3>
+                      <h3 className='font-medium text-base'>{copy.providerStatus}</h3>
                       <p className='mt-1 text-muted-foreground text-sm'>
                         {provider.providerId} • {provider.domain}
                       </p>
@@ -506,20 +511,20 @@ export function SSO() {
                   <div className='mt-4 border-border border-t pt-4'>
                     <div className='grid grid-cols-2 gap-4 text-sm'>
                       <div>
-                        <span className='font-medium text-muted-foreground'>Issuer URL</span>
+                        <span className='font-medium text-muted-foreground'>{copy.issuerUrl}</span>
                         <p className='mt-1 break-all font-mono text-foreground text-xs'>
                           {provider.issuer}
                         </p>
                       </div>
                       <div>
-                        <span className='font-medium text-muted-foreground'>Provider ID</span>
+                        <span className='font-medium text-muted-foreground'>{copy.providerId}</span>
                         <p className='mt-1 text-foreground'>{provider.providerId}</p>
                       </div>
                     </div>
 
                     <div className='mt-4'>
                       <span className='font-medium text-muted-foreground text-sm'>
-                        Callback URL
+                        {copy.callbackUrl}
                       </span>
                       <div className='relative mt-2'>
                         <Input
@@ -536,7 +541,7 @@ export function SSO() {
                             setCopied(true)
                             setTimeout(() => setCopied(false), 1500)
                           }}
-                          aria-label='Copy callback URL'
+                          aria-label={copy.copyCallbackUrl}
                           className='-translate-y-1/2 absolute top-1/2 right-3 rounded p-1 text-muted-foreground transition hover:text-foreground'
                         >
                           {copied ? (
@@ -559,7 +564,7 @@ export function SSO() {
                 <input type='text' name='hidden' style={{ display: 'none' }} autoComplete='false' />
                 {/* Provider Type Selection */}
                 <div className='space-y-1'>
-                  <Label>Provider Type</Label>
+                  <Label>{copy.providerType}</Label>
                   <div className='flex rounded-md border border-input bg-background p-1'>
                     <button
                       type='button'
@@ -588,13 +593,13 @@ export function SSO() {
                   </div>
                   <p className='text-muted-foreground text-xs'>
                     {formData.providerType === 'oidc'
-                      ? 'OpenID Connect (Okta, Azure AD, Auth0, etc.)'
-                      : 'Security Assertion Markup Language (ADFS, Shibboleth, etc.)'}
+                      ? copy.providerTypeDescriptions.oidc
+                      : copy.providerTypeDescriptions.saml}
                   </p>
                 </div>
 
                 <div className='space-y-1'>
-                  <Label htmlFor='provider-id'>Provider ID</Label>
+                  <Label htmlFor='provider-id'>{copy.providerId}</Label>
                   <select
                     id='provider-id'
                     value={formData.providerId}
@@ -606,7 +611,7 @@ export function SSO() {
                         'border-red-500 focus:border-red-500 focus:ring-red-100 focus-visible:ring-red-500'
                     )}
                   >
-                    <option value=''>Select a provider ID</option>
+                    <option value=''>{copy.selectProviderId}</option>
                     {TRUSTED_SSO_PROVIDERS.map((providerId) => (
                       <option key={providerId} value={providerId}>
                         {providerId}
@@ -619,16 +624,16 @@ export function SSO() {
                     </div>
                   )}
                   <p className='text-muted-foreground text-xs'>
-                    Select a pre-configured provider ID from the trusted providers list
+                    {copy.selectProviderHelp}
                   </p>
                 </div>
 
                 <div className='space-y-1'>
-                  <Label htmlFor='issuer-url'>Issuer URL</Label>
+                  <Label htmlFor='issuer-url'>{copy.issuerUrl}</Label>
                   <Input
                     id='issuer-url'
                     type='url'
-                    placeholder='Enter Issuer URL'
+                    placeholder={copy.issuerUrlPlaceholder}
                     value={formData.issuerUrl}
                     name='sso_issuer_endpoint'
                     autoComplete='off'
@@ -649,15 +654,15 @@ export function SSO() {
                       <p>{errors.issuerUrl.join(' ')}</p>
                     </div>
                   )}
-                  <p className='text-muted-foreground text-xs' />
+                  <p className='text-muted-foreground text-xs'>{copy.issuerUrlHelp}</p>
                 </div>
 
                 <div className='space-y-1'>
-                  <Label htmlFor='domain'>Domain</Label>
+                  <Label htmlFor='domain'>{copy.domain}</Label>
                   <Input
                     id='domain'
                     type='text'
-                    placeholder='Enter Domain'
+                    placeholder={copy.domainPlaceholder}
                     value={formData.domain}
                     name='sso_identity_domain'
                     autoComplete='off'
@@ -684,11 +689,11 @@ export function SSO() {
                 {formData.providerType === 'oidc' ? (
                   <>
                     <div className='space-y-1'>
-                      <Label htmlFor='client-id'>Client ID</Label>
+                      <Label htmlFor='client-id'>{copy.clientId}</Label>
                       <Input
                         id='client-id'
                         type='text'
-                        placeholder='Enter Client ID'
+                        placeholder={copy.clientIdPlaceholder}
                         value={formData.clientId}
                         name='sso_client_identifier'
                         autoComplete='off'
@@ -712,12 +717,12 @@ export function SSO() {
                     </div>
 
                     <div className='space-y-1'>
-                      <Label htmlFor='client-secret'>Client Secret</Label>
+                      <Label htmlFor='client-secret'>{copy.clientSecret}</Label>
                       <div className='relative'>
                         <Input
                           id='client-secret'
                           type={showClientSecret ? 'text' : 'password'}
-                          placeholder='Enter Client Secret'
+                          placeholder={copy.clientSecretPlaceholder}
                           value={formData.clientSecret}
                           name='sso_client_key'
                           autoComplete='new-password'
@@ -741,9 +746,7 @@ export function SSO() {
                           type='button'
                           onClick={() => setShowClientSecret((s) => !s)}
                           className='-translate-y-1/2 absolute top-1/2 right-3 text-gray-500 transition hover:text-gray-700'
-                          aria-label={
-                            showClientSecret ? 'Hide client secret' : 'Show client secret'
-                          }
+                          aria-label={showClientSecret ? copy.hideClientSecret : copy.showClientSecret}
                         >
                           {showClientSecret ? <EyeOff size={18} /> : <Eye size={18} />}
                         </button>
@@ -756,11 +759,11 @@ export function SSO() {
                     </div>
 
                     <div className='space-y-1'>
-                      <Label htmlFor='scopes'>Scopes</Label>
+                      <Label htmlFor='scopes'>{copy.scopes}</Label>
                       <Input
                         id='scopes'
                         type='text'
-                        placeholder='openid,profile,email'
+                        placeholder={copy.scopesPlaceholder}
                         value={formData.scopes}
                         autoComplete='off'
                         autoCapitalize='none'
@@ -779,18 +782,18 @@ export function SSO() {
                         </div>
                       )}
                       <p className='text-muted-foreground text-xs'>
-                        Comma-separated list of OIDC scopes to request
+                        {copy.scopesDescription}
                       </p>
                     </div>
                   </>
                 ) : (
                   <>
                     <div className='space-y-1'>
-                      <Label htmlFor='entry-point'>Entry Point URL</Label>
+                      <Label htmlFor='entry-point'>{copy.entryPoint}</Label>
                       <Input
                         id='entry-point'
                         type='url'
-                        placeholder='Enter Entry Point URL'
+                        placeholder={copy.entryPointPlaceholder}
                         value={formData.entryPoint}
                         autoComplete='off'
                         autoCapitalize='none'
@@ -808,14 +811,14 @@ export function SSO() {
                           <p>{errors.entryPoint.join(' ')}</p>
                         </div>
                       )}
-                      <p className='text-muted-foreground text-xs' />
+                      <p className='text-muted-foreground text-xs'>{copy.entryPointDescription}</p>
                     </div>
 
                     <div className='space-y-1'>
-                      <Label htmlFor='cert'>Identity Provider Certificate</Label>
+                      <Label htmlFor='cert'>{copy.certificate}</Label>
                       <textarea
                         id='cert'
-                        placeholder='-----BEGIN CERTIFICATE-----&#10;MIIDBjCCAe4CAQAwDQYJKoZIhvcNAQEFBQAwEjEQMA...&#10;-----END CERTIFICATE-----'
+                        placeholder={copy.certificatePlaceholder}
                         value={formData.cert}
                         autoComplete='off'
                         autoCapitalize='none'
@@ -834,7 +837,7 @@ export function SSO() {
                           <p>{errors.cert.join(' ')}</p>
                         </div>
                       )}
-                      <p className='text-muted-foreground text-xs' />
+                      <p className='text-muted-foreground text-xs'>{copy.certificateDescription}</p>
                     </div>
 
                     {/* Advanced SAML Options */}
@@ -855,17 +858,17 @@ export function SSO() {
                             formData.showAdvanced && 'rotate-180'
                           )}
                         />
-                        Advanced SAML Options
+                        {copy.advancedOptions}
                       </button>
 
                       {formData.showAdvanced && (
                         <>
                           <div className='space-y-1'>
-                            <Label htmlFor='audience'>Audience (Entity ID)</Label>
+                            <Label htmlFor='audience'>{copy.audience}</Label>
                             <Input
                               id='audience'
                               type='text'
-                              placeholder='Enter Audience'
+                              placeholder={copy.audiencePlaceholder}
                               value={formData.audience}
                               autoComplete='off'
                               autoCapitalize='none'
@@ -873,17 +876,15 @@ export function SSO() {
                               onChange={(e) => handleInputChange('audience', e.target.value)}
                               className='rounded-md shadow-sm'
                             />
-                            <p className='text-muted-foreground text-xs'>
-                              The SAML audience restriction (optional, defaults to app URL)
-                            </p>
+                            <p className='text-muted-foreground text-xs'>{copy.audienceDescription}</p>
                           </div>
 
                           <div className='space-y-1'>
-                            <Label htmlFor='callback-url'>Callback URL Override</Label>
+                            <Label htmlFor='callback-url'>{copy.callbackUrlOverride}</Label>
                             <Input
                               id='callback-url'
                               type='url'
-                              placeholder='Enter Callback URL'
+                              placeholder={copy.callbackUrlPlaceholder}
                               value={formData.callbackUrl}
                               autoComplete='off'
                               autoCapitalize='none'
@@ -891,9 +892,7 @@ export function SSO() {
                               onChange={(e) => handleInputChange('callbackUrl', e.target.value)}
                               className='rounded-md shadow-sm'
                             />
-                            <p className='text-muted-foreground text-xs'>
-                              Custom SAML callback URL (optional, auto-generated if empty)
-                            </p>
+                            <p className='text-muted-foreground text-xs'>{copy.callbackUrlDescription}</p>
                           </div>
 
                           <div className='flex items-center space-x-2'>
@@ -910,15 +909,15 @@ export function SSO() {
                               className='rounded'
                             />
                             <Label htmlFor='want-assertions-signed' className='text-sm'>
-                              Require signed SAML assertions
+                              {copy.requireSignedAssertions}
                             </Label>
                           </div>
 
                           <div className='space-y-1'>
-                            <Label htmlFor='idp-metadata'>Identity Provider Metadata XML</Label>
+                            <Label htmlFor='idp-metadata'>{copy.metadataXml}</Label>
                             <textarea
                               id='idp-metadata'
-                              placeholder='<?xml version="1.0" encoding="UTF-8"?>&#10;<md:EntityDescriptor xmlns:md="urn:oasis:names:tc:SAML:2.0:metadata">&#10;  ...&#10;</md:EntityDescriptor>'
+                              placeholder={copy.metadataPlaceholder}
                               value={formData.idpMetadata}
                               autoComplete='off'
                               autoCapitalize='none'
@@ -927,10 +926,7 @@ export function SSO() {
                               className='min-h-[100px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background transition-colors focus:border-gray-400 focus:ring-2 focus:ring-gray-100'
                               rows={4}
                             />
-                            <p className='text-muted-foreground text-xs'>
-                              Paste the complete IDP metadata XML from your identity provider for
-                              advanced configuration
-                            </p>
+                            <p className='text-muted-foreground text-xs'>{copy.metadataDescription}</p>
                           </div>
                         </>
                       )}
@@ -943,14 +939,14 @@ export function SSO() {
                   className='w-full rounded-md'
                   disabled={isLoading || hasAnyErrors(errors) || !isFormValid()}
                 >
-                  {isLoading ? 'Configuring...' : 'Configure SSO Provider'}
+                  {isLoading ? copy.configuring : copy.configureProvider}
                 </Button>
               </form>
 
               <div className='space-y-1'>
-                <Label htmlFor='callback-url'>Callback URL</Label>
+                <Label htmlFor='callback-url'>{copy.callbackUrl}</Label>
                 <p className='text-muted-foreground text-xs'>
-                  Configure this URL in your identity provider as the callback/redirect URI
+                  {copy.callbackUrlHelp}
                 </p>
                 <div className='relative'>
                   <Input
@@ -966,7 +962,7 @@ export function SSO() {
                   <button
                     type='button'
                     onClick={copyCallback}
-                    aria-label='Copy callback URL'
+                    aria-label={copy.copyCallbackUrl}
                     className='-translate-y-1/2 absolute top-1/2 right-3 rounded p-1 text-muted-foreground transition hover:text-foreground'
                   >
                     {copied ? (

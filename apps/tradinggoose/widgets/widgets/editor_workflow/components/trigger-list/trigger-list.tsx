@@ -2,8 +2,11 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { Info, Plus, Search, X } from 'lucide-react'
+import { useLocale } from 'next-intl'
 import { Input } from '@/components/ui/input'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { getPublicCopy } from '@/i18n/public-copy'
+import type { LocaleCode } from '@/i18n/utils'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getIconTileStyle } from '@/lib/ui/icon-colors'
 import { cn } from '@/lib/utils'
@@ -27,6 +30,8 @@ interface TriggerListProps {
 }
 
 export function TriggerList({ onSelect, className }: TriggerListProps) {
+  const locale = useLocale() as LocaleCode
+  const copy = getPublicCopy(locale).workspace.widgets.triggerList
   const [searchQuery, setSearchQuery] = useState('')
   const [showList, setShowList] = useState(false)
   const [providerAvailability, setProviderAvailability] = useState<ProviderAvailability>(
@@ -205,7 +210,7 @@ export function TriggerList({ onSelect, className }: TriggerListProps) {
           )}
         >
           <Plus className='h-4 w-4' />
-          Click to Add Trigger
+          {copy.openTriggerList}
         </button>
       )}
 
@@ -225,7 +230,7 @@ export function TriggerList({ onSelect, className }: TriggerListProps) {
           <div className='flex items-center border-b px-4 py-1'>
             <Search className='h-4 w-4 font-sans text-muted-foreground text-xl' />
             <Input
-              placeholder='Search triggers'
+              placeholder={copy.searchPlaceholder}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className='!font-[350] border-0 bg-transparent font-sans text-muted-foreground leading-10 tracking-normal placeholder:text-muted-foreground focus:outline-none focus-visible:ring-0 focus-visible:ring-offset-0'
@@ -240,7 +245,7 @@ export function TriggerList({ onSelect, className }: TriggerListProps) {
             tabIndex={-1}
           >
             <X className='h-4 w-4' />
-            <span className='sr-only'>Close</span>
+            <span className='sr-only'>{copy.close}</span>
           </button>
 
           {/* Trigger List */}
@@ -253,7 +258,7 @@ export function TriggerList({ onSelect, className }: TriggerListProps) {
               {coreOptions.length > 0 && (
                 <div>
                   <h3 className='mb-2 ml-4 font-normal font-sans text-[13px] text-muted-foreground leading-none tracking-normal'>
-                    Core Triggers
+                    {copy.coreTriggers}
                   </h3>
                   <div className='px-4 pb-1'>
                     <div className='grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-2'>
@@ -269,7 +274,7 @@ export function TriggerList({ onSelect, className }: TriggerListProps) {
               {integrationOptions.length > 0 && (
                 <div>
                   <h3 className='mb-2 ml-4 font-normal font-sans text-[13px] text-muted-foreground leading-none tracking-normal'>
-                    Integration Triggers
+                    {copy.integrationTriggers}
                   </h3>
                   <div
                     className='max-h-[300px] overflow-y-auto px-4 pb-1'
@@ -286,7 +291,9 @@ export function TriggerList({ onSelect, className }: TriggerListProps) {
 
               {filteredOptions.length === 0 && (
                 <div className='ml-6 py-12 text-center'>
-                  <p className='text-muted-foreground'>No results found for "{searchQuery}"</p>
+                  <p className='text-muted-foreground'>
+                    {copy.noResults.replace('{{query}}', searchQuery)}
+                  </p>
                 </div>
               )}
             </div>

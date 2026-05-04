@@ -1,12 +1,13 @@
 'use client'
 
 import Image from 'next/image'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import imageCompression from 'browser-image-compression'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { X } from 'lucide-react'
+import { useLocale } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -20,6 +21,8 @@ import {
 import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
 import { createLogger } from '@/lib/logs/console/logger'
+import { formatTemplate, getPublicCopy } from '@/i18n/public-copy'
+import { type LocaleCode } from '@/i18n/utils'
 import { SettingsModal } from '../../settings-modal'
 
 const helpLogger = createLogger('HelpModal')
@@ -31,15 +34,11 @@ const SCROLL_DELAY_MS = 100
 const SUCCESS_RESET_DELAY_MS = 2000
 const DEFAULT_REQUEST_TYPE = 'bug'
 
-const formSchema = z.object({
-  subject: z.string().min(1, 'Subject is required'),
-  message: z.string().min(1, 'Message is required'),
-  type: z.enum(['bug', 'feedback', 'feature_request', 'other'], {
-    required_error: 'Please select a request type',
-  }),
-})
-
-type FormValues = z.infer<typeof formSchema>
+type FormValues = {
+  subject: string
+  message: string
+  type: 'bug' | 'feedback' | 'feature_request' | 'other'
+}
 
 interface ImageWithPreview extends File {
   preview: string
@@ -51,6 +50,20 @@ export interface HelpModalProps {
 }
 
 export function HelpModal({ open, onOpenChange }: HelpModalProps) {
+  const locale = useLocale() as LocaleCode
+  const copy = getPublicCopy(locale).workspace.settingsModal
+  const helpCopy = copy.help
+  const formSchema = useMemo(
+    () =>
+      z.object({
+        subject: z.string().min(1, helpCopy.errorMessages.subjectRequired),
+        message: z.string().min(1, helpCopy.errorMessages.messageRequired),
+        type: z.enum(['bug', 'feedback', 'feature_request', 'other'], {
+          required_error: helpCopy.errorMessages.requestTypeRequired,
+        }),
+      }),
+    [helpCopy]
+  )
   const fileInputRef = useRef<HTMLInputElement>(null)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const dropZoneRef = useRef<HTMLDivElement>(null)
@@ -166,14 +179,14 @@ export function HelpModal({ open, onOpenChange }: HelpModalProps) {
 
         for (const file of Array.from(files)) {
           if (file.size > MAX_FILE_SIZE) {
-            setImageError(`File ${file.name} is too large. Maximum size is 20MB.`)
+            setImageError(formatTemplate(helpCopy.errorMessages.fileTooLarge, { name: file.name }))
             hasError = true
             continue
           }
 
           if (!ACCEPTED_IMAGE_TYPES.includes(file.type)) {
             setImageError(
-              `File ${file.name} has an unsupported format. Please use JPEG, PNG, WebP, or GIF.`
+              formatTemplate(helpCopy.errorMessages.unsupportedFormat, { name: file.name })
             )
             hasError = true
             continue
@@ -192,7 +205,7 @@ export function HelpModal({ open, onOpenChange }: HelpModalProps) {
         }
       } catch (error) {
         helpLogger.error('Error processing images:', { error })
-        setImageError('An error occurred while processing images. Please try again.')
+        setImageError(helpCopy.errorMessages.processing)
       } finally {
         setIsProcessing(false)
 
@@ -201,7 +214,7 @@ export function HelpModal({ open, onOpenChange }: HelpModalProps) {
         }
       }
     },
-    [compressImage]
+    [compressImage, helpCopy]
   )
 
   const handleFileChange = useCallback(
@@ -273,7 +286,7 @@ export function HelpModal({ open, onOpenChange }: HelpModalProps) {
 
         if (!response.ok) {
           const errorData = await response.json()
-          throw new Error(errorData.error || 'Failed to submit help request')
+          throw new Error(errorData.error || helpCopy.errorMessages.submitFailed)
         }
 
         setSubmitStatus('success')
@@ -284,12 +297,12 @@ export function HelpModal({ open, onOpenChange }: HelpModalProps) {
       } catch (error) {
         helpLogger.error('Error submitting help request:', { error })
         setSubmitStatus('error')
-        setErrorMessage(error instanceof Error ? error.message : 'An unknown error occurred')
+        setErrorMessage(error instanceof Error ? error.message : helpCopy.errorMessages.unknown)
       } finally {
         setIsSubmitting(false)
       }
     },
-    [images, reset]
+    [helpCopy, images, reset]
   )
 
   const handleClose = useCallback(() => {
@@ -300,7 +313,7 @@ export function HelpModal({ open, onOpenChange }: HelpModalProps) {
     <SettingsModal
       open={open}
       onOpenChange={onOpenChange}
-      title='Help & Support'
+      title={copy.titles.help}
       contentClassName='flex h-[75vh] flex-col p-0'
     >
       <form onSubmit={handleSubmit(onSubmit)} className='flex min-h-0 flex-1 flex-col'>
@@ -308,7 +321,7 @@ export function HelpModal({ open, onOpenChange }: HelpModalProps) {
           <div className='px-6'>
             <div className='space-y-4'>
               <div className='space-y-1'>
-                <Label htmlFor='type'>Request</Label>
+                <Label htmlFor='type'>{helpCopy.requestType}</Label>
                 <Select
                   defaultValue={DEFAULT_REQUEST_TYPE}
                   onValueChange={(value) => setValue('type', value as FormValues['type'])}
@@ -317,23 +330,25 @@ export function HelpModal({ open, onOpenChange }: HelpModalProps) {
                     id='type'
                     className={cn('h-9 rounded-sm', errors.type && 'border-red-500')}
                   >
-                    <SelectValue placeholder='Select a request type' />
+                    <SelectValue placeholder={helpCopy.requestTypePlaceholder} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value='bug'>Bug Report</SelectItem>
-                    <SelectItem value='feedback'>Feedback</SelectItem>
-                    <SelectItem value='feature_request'>Feature Request</SelectItem>
-                    <SelectItem value='other'>Other</SelectItem>
+                    <SelectItem value='bug'>{helpCopy.requestTypes.bug}</SelectItem>
+                    <SelectItem value='feedback'>{helpCopy.requestTypes.feedback}</SelectItem>
+                    <SelectItem value='feature_request'>
+                      {helpCopy.requestTypes.feature_request}
+                    </SelectItem>
+                    <SelectItem value='other'>{helpCopy.requestTypes.other}</SelectItem>
                   </SelectContent>
                 </Select>
                 {errors.type && <p className='mt-1 text-red-500 text-sm'>{errors.type.message}</p>}
               </div>
 
               <div className='space-y-1'>
-                <Label htmlFor='subject'>Subject</Label>
+                <Label htmlFor='subject'>{helpCopy.subject}</Label>
                 <Input
                   id='subject'
-                  placeholder='Brief description of your request'
+                  placeholder={helpCopy.subjectPlaceholder}
                   {...register('subject')}
                   className={cn('h-9 rounded-sm', errors.subject && 'border-red-500')}
                 />
@@ -343,10 +358,10 @@ export function HelpModal({ open, onOpenChange }: HelpModalProps) {
               </div>
 
               <div className='space-y-1'>
-                <Label htmlFor='message'>Message</Label>
+                <Label htmlFor='message'>{helpCopy.message}</Label>
                 <Textarea
                   id='message'
-                  placeholder='Please provide details about your request...'
+                  placeholder={helpCopy.messagePlaceholder}
                   rows={6}
                   {...register('message')}
                   className={cn('rounded-sm', errors.message && 'border-red-500')}
@@ -357,7 +372,7 @@ export function HelpModal({ open, onOpenChange }: HelpModalProps) {
               </div>
 
               <div className='mt-6 space-y-1'>
-                <Label>Attach Images (Optional)</Label>
+                <Label>{helpCopy.attachments}</Label>
                 <div
                   ref={dropZoneRef}
                   onDragEnter={handleDragEnter}
@@ -379,24 +394,29 @@ export function HelpModal({ open, onOpenChange }: HelpModalProps) {
                     multiple
                   />
                   <p className='text-sm'>
-                    {isDragging ? 'Drop images here!' : 'Drop images here or click to browse'}
+                    {isDragging ? helpCopy.dropImages : helpCopy.dropImagesBrowse}
                   </p>
                   <p className='mt-1 text-muted-foreground text-xs'>
-                    JPEG, PNG, WebP, GIF (max 20MB each)
+                    {helpCopy.imageHint}
                   </p>
                 </div>
                 {imageError && <p className='mt-1 text-red-500 text-sm'>{imageError}</p>}
-                {isProcessing && <p className='text-muted-foreground text-sm'>Processing images...</p>}
+                {isProcessing && <p className='text-muted-foreground text-sm'>{helpCopy.processing}</p>}
               </div>
 
               {images.length > 0 && (
                 <div className='space-y-1'>
-                  <Label>Uploaded Images</Label>
+                  <Label>{helpCopy.uploadedImages}</Label>
                   <div className='grid grid-cols-2 gap-4'>
                     {images.map((image, index) => (
                       <div key={index} className='group relative overflow-hidden rounded-md border'>
                         <div className='relative aspect-video'>
-                          <Image src={image.preview} alt={`Preview ${index + 1}`} fill className='object-cover' />
+                          <Image
+                            src={image.preview}
+                            alt={`${helpCopy.uploadedImages} ${index + 1}`}
+                            fill
+                            className='object-cover'
+                          />
                           <div
                             className='absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 transition-opacity group-hover:opacity-100'
                             onClick={() => removeImage(index)}
@@ -417,7 +437,7 @@ export function HelpModal({ open, onOpenChange }: HelpModalProps) {
         <div className='border-t bg-background'>
           <div className='flex w-full items-center justify-between px-6 py-4'>
             <Button variant='outline' onClick={handleClose} type='button'>
-              Cancel
+              {helpCopy.cancel}
             </Button>
             <Button
               type='submit'
@@ -435,12 +455,12 @@ export function HelpModal({ open, onOpenChange }: HelpModalProps) {
               )}
             >
               {isSubmitting
-                ? 'Submitting...'
+                ? helpCopy.submitting
                 : submitStatus === 'error'
-                  ? 'Error'
+                  ? helpCopy.error
                   : submitStatus === 'success'
-                    ? 'Success'
-                    : 'Submit'}
+                    ? helpCopy.success
+                    : helpCopy.submit}
             </Button>
           </div>
           {submitStatus === 'error' ? (

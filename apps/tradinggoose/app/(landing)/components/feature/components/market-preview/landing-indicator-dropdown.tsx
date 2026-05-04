@@ -2,6 +2,7 @@
 
 import { type KeyboardEvent, useMemo, useState } from 'react'
 import { Activity, Check, ChevronDown, Search } from 'lucide-react'
+import { useLocale } from 'next-intl'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -18,9 +19,9 @@ import {
   widgetHeaderMenuItemClassName,
   widgetHeaderMenuTextClassName,
 } from '@/widgets/widgets/components/widget-header-control'
+import { getPublicCopy } from '@/i18n/public-copy'
+import type { LocaleCode } from '@/i18n/utils'
 import type { LandingMarketIndicatorOption } from './indicators/catalog'
-
-const DEFAULT_PLACEHOLDER = 'Select indicators'
 const DROPDOWN_MAX_HEIGHT = '20rem'
 const DROPDOWN_VIEWPORT_HEIGHT = '14rem'
 
@@ -28,7 +29,6 @@ type LandingIndicatorDropdownProps = {
   value: string[]
   options: LandingMarketIndicatorOption[]
   onChange: (ids: string[]) => void
-  placeholder?: string
   align?: 'start' | 'end'
 }
 
@@ -36,9 +36,11 @@ export function LandingIndicatorDropdown({
   value,
   options,
   onChange,
-  placeholder = DEFAULT_PLACEHOLDER,
   align = 'end',
 }: LandingIndicatorDropdownProps) {
+  const locale = useLocale() as LocaleCode
+  const copy = getPublicCopy(locale)
+  const indicatorDropdownCopy = copy.landing.preview.indicatorDropdown
   const [searchQuery, setSearchQuery] = useState('')
   const selectedIndicatorSet = new Set(value)
 
@@ -55,12 +57,12 @@ export function LandingIndicatorDropdown({
   }, [options, value])
 
   const selectionLabel = useMemo(() => {
-    if (value.length === 0) return placeholder
+    if (value.length === 0) return indicatorDropdownCopy.placeholder
     const first = options.find((option) => option.id === value[0])
-    if (!first) return placeholder
+    if (!first) return indicatorDropdownCopy.placeholder
     if (value.length === 1) return first.name
     return `${first.name} +${value.length - 1}`
-  }, [options, placeholder, value])
+  }, [indicatorDropdownCopy.placeholder, options, value])
 
   const colorBadge = (
     <div
@@ -116,7 +118,7 @@ export function LandingIndicatorDropdown({
             </DropdownMenuTrigger>
           </span>
         </TooltipTrigger>
-        <TooltipContent side='top'>Select indicators</TooltipContent>
+        <TooltipContent side='top'>{indicatorDropdownCopy.tooltip}</TooltipContent>
       </Tooltip>
       <DropdownMenuContent
         align={align}
@@ -135,7 +137,7 @@ export function LandingIndicatorDropdown({
               <Input
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
-                placeholder='Search indicators...'
+                placeholder={indicatorDropdownCopy.searchPlaceholder}
                 className='h-6 border-0 bg-transparent px-0 text-foreground text-xs placeholder:text-muted-foreground focus-visible:ring-0 focus-visible:ring-offset-0'
                 onKeyDown={handleSearchInputKeyDown}
                 autoComplete='off'
@@ -159,7 +161,9 @@ export function LandingIndicatorDropdown({
             >
               {filteredOptions.length === 0 ? (
                 <p className='px-2 py-4 text-center text-muted-foreground text-xs'>
-                  {searchQuery.trim() ? 'No indicators found.' : 'No indicators available yet.'}
+                  {searchQuery.trim()
+                    ? indicatorDropdownCopy.emptyWithQuery
+                    : indicatorDropdownCopy.emptyWithoutQuery}
                 </p>
               ) : (
                 <div className='flex w-full min-w-0 flex-col gap-1'>

@@ -4,6 +4,10 @@ import React, { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
+const { useLocaleMock } = vi.hoisted(() => ({
+  useLocaleMock: vi.fn(() => 'zh-CN'),
+}))
+
 const mockPush = vi.fn()
 let mockPathname = '/workspace/ws-1/dashboard'
 let mockSwitchToWorkspace = vi.fn()
@@ -34,6 +38,10 @@ vi.mock('next/navigation', () => ({
   }),
 }))
 
+vi.mock('next-intl', () => ({
+  useLocale: useLocaleMock,
+}))
+
 vi.mock('@/stores/workflows/registry/store', () => ({
   useWorkflowRegistry: (
     selector: (state: { switchToWorkspace: typeof mockSwitchToWorkspace }) => unknown
@@ -49,6 +57,7 @@ describe('shouldResetWorkflowRegistryOnWorkspaceSwitch', () => {
       '@/global-navbar/use-workspace-switcher'
     )
     expect(shouldResetWorkflowRegistryOnWorkspaceSwitch('/admin')).toBe(false)
+    expect(shouldResetWorkflowRegistryOnWorkspaceSwitch('/zh/admin')).toBe(false)
     expect(shouldResetWorkflowRegistryOnWorkspaceSwitch('/admin/integrations')).toBe(false)
     expect(shouldResetWorkflowRegistryOnWorkspaceSwitch('/login')).toBe(false)
   })
@@ -58,6 +67,9 @@ describe('shouldResetWorkflowRegistryOnWorkspaceSwitch', () => {
       '@/global-navbar/use-workspace-switcher'
     )
     expect(shouldResetWorkflowRegistryOnWorkspaceSwitch('/workspace/ws-1/dashboard')).toBe(true)
+    expect(shouldResetWorkflowRegistryOnWorkspaceSwitch('/zh/workspace/ws-1/dashboard')).toBe(
+      true
+    )
     expect(shouldResetWorkflowRegistryOnWorkspaceSwitch('/workspace/ws-1/w/wf-1')).toBe(true)
   })
 })
@@ -66,7 +78,8 @@ describe('useWorkspaceSwitcher', () => {
   beforeEach(() => {
     mockPush.mockReset()
     mockSwitchToWorkspace = vi.fn()
-    mockPathname = '/workspace/ws-1/dashboard'
+    mockPathname = '/zh/workspace/ws-1/dashboard'
+    useLocaleMock.mockReturnValue('zh-CN')
     latestValue = null
 
     fetchMock = vi.fn(async () => ({
@@ -123,7 +136,24 @@ describe('useWorkspaceSwitcher', () => {
     expect(latestValue).not.toBeNull()
     expect(latestValue.canManageWorkspaces).toBe(true)
     expect(latestValue.activeWorkspace?.id).toBe('ws-1')
-    expect(fetchMock.mock.calls.map(([url]) => String(url))).toContain('/api/workspaces')
+
+    const workspacesCall = fetchMock.mock.calls.find(([url]) => String(url) === '/api/workspaces')
+    expect(workspacesCall).toBeDefined()
+    const requestInit = workspacesCall?.[1] as RequestInit | undefined
+    expect(new Headers(requestInit?.headers).get('x-next-intl-locale')).toBe('zh-CN')
+
+    await act(async () => {
+      await latestValue.handleSwitchWorkspace({
+        id: 'ws-2',
+        name: 'Workspace Two',
+        ownerId: 'user-1',
+        permissions: 'admin',
+        role: 'owner',
+      })
+    })
+
+    expect(mockSwitchToWorkspace).not.toHaveBeenCalled()
+    expect(mockPush).toHaveBeenCalledWith('/zh/workspace/ws-2/dashboard')
 
     await act(async () => {
       latestValue.setWorkspaceMenuOpen(true)
@@ -135,7 +165,7 @@ describe('useWorkspaceSwitcher', () => {
     })
 
     expect(latestValue.workspaceMenuOpen).toBe(true)
-    expect(latestValue.editingWorkspaceId).toBe('ws-1')
+    expect(latestValue.editingWorkspaceId).toBe('ws-2')
     expect(latestValue.inviteDialogOpen).toBe(true)
     expect(latestValue.deleteDialogOpen).toBe(true)
   })

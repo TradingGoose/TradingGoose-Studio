@@ -22,9 +22,18 @@ interface FileDownloadProps {
   }
   isExecutionFile?: boolean // Flag to indicate this is an execution file
   className?: string
+  copy: {
+    downloading: string
+    download: string
+  }
 }
 
-export function FileDownload({ file, isExecutionFile = false, className }: FileDownloadProps) {
+export function FileDownload({
+  file,
+  isExecutionFile = false,
+  className,
+  copy,
+}: FileDownloadProps) {
   const [isDownloading, setIsDownloading] = useState(false)
 
   const handleDownload = async () => {
@@ -81,7 +90,7 @@ export function FileDownload({ file, isExecutionFile = false, className }: FileD
       ) : (
         <ArrowDown className='h-3 w-3' />
       )}
-      {isDownloading ? 'Downloading...' : 'Download'}
+      {isDownloading ? copy.downloading : copy.download}
     </Button>
   )
 }

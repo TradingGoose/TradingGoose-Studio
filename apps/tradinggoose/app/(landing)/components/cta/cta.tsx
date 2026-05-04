@@ -5,11 +5,16 @@ import { DiscordIcon } from '@/components/icons/icons'
 import { BackgroundRippleEffect } from '@/components/ui/background-ripple-effect'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { useLocale } from 'next-intl'
+import { getPublicCopy } from '@/i18n/public-copy'
+import type { LocaleCode } from '@/i18n/utils'
 
 export default function CallToAction() {
   const [email, setEmail] = useState('')
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
   const [message, setMessage] = useState('')
+  const locale = useLocale() as LocaleCode
+  const copy = getPublicCopy(locale)
 
   const handleSubscribe = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -25,16 +30,16 @@ export default function CallToAction() {
 
       if (res.ok) {
         setStatus('success')
-        setMessage('Subscribed! Check your inbox.')
+        setMessage(copy.landing.cta.success)
         setEmail('')
       } else {
         const data = await res.json()
         setStatus('error')
-        setMessage(data.error || 'Something went wrong.')
+        setMessage(data.error || copy.landing.cta.error)
       }
     } catch {
       setStatus('error')
-      setMessage('Something went wrong.')
+      setMessage(copy.landing.cta.error)
     }
   }
 
@@ -53,24 +58,24 @@ export default function CallToAction() {
           }}
         >
           <BackgroundRippleEffect cellSize={60} rows={12} cols={20} maskClassName='' interactive />
-        </div>
-        <div className='relative z-10 flex flex-col gap-y-6 px-4'>
-          <div className='space-y-2'>
-            <h2 className='text-center font-semibold text-lg tracking-tight md:text-2xl'>
-              Let AI agents work your trading strategy.
-            </h2>
-            <p className='text-balance text-center text-muted-foreground text-sm md:text-base'>
-              See what the commutity is building with TradingGoose.
-            </p>
           </div>
-          <div className='flex items-center justify-center'>
-            <Button variant='outline' className='bg-background' asChild>
-              <a href='https://discord.gg/wavf5JWhuT' target='_blank' rel='noopener noreferrer'>
-                <DiscordIcon className='size-4' />
-                Join Discord
-              </a>
-            </Button>
-          </div>
+          <div className='relative z-10 flex flex-col gap-y-6 px-4'>
+            <div className='space-y-2'>
+              <h2 className='text-center font-semibold text-lg tracking-tight md:text-2xl'>
+                {copy.landing.cta.title}
+              </h2>
+              <p className='text-balance text-center text-muted-foreground text-sm md:text-base'>
+                {copy.landing.cta.description}
+              </p>
+            </div>
+            <div className='flex items-center justify-center'>
+              <Button variant='outline' className='bg-background' asChild>
+                <a href='https://discord.gg/wavf5JWhuT' target='_blank' rel='noopener noreferrer'>
+                  <DiscordIcon className='size-4' />
+                  {copy.landing.cta.joinDiscord}
+                </a>
+              </Button>
+            </div>
           {status === 'success' ? (
             <p className='text-center text-emerald-500 text-sm'>{message}</p>
           ) : (
@@ -78,7 +83,7 @@ export default function CallToAction() {
               <Input
                 type='email'
                 required
-                placeholder='you@example.com'
+                placeholder={copy.landing.cta.placeholder}
                 value={email}
                 suppressHydrationWarning
                 onChange={(e) => {
@@ -93,7 +98,7 @@ export default function CallToAction() {
                 disabled={status === 'loading'}
                 className='h-9 shrink-0'
               >
-                {status === 'loading' ? 'Subscribing...' : 'Get updates'}
+                {status === 'loading' ? copy.landing.cta.subscribing : copy.landing.cta.subscribe}
               </Button>
             </form>
           )}

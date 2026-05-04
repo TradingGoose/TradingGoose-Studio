@@ -1,9 +1,12 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
+import { useLocale } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { getEnv, isTruthy } from '@/lib/env'
 import { cn } from '@/lib/utils'
+import { useRouter as useI18nRouter } from '@/i18n/navigation'
+import { getPublicCopy } from '@/i18n/public-copy'
+import { type LocaleCode } from '@/i18n/utils'
 
 interface SSOLoginButtonProps {
   callbackURL?: string
@@ -19,7 +22,9 @@ export function SSOLoginButton({
   className,
   variant = 'outline',
 }: SSOLoginButtonProps) {
-  const router = useRouter()
+  const router = useI18nRouter()
+  const locale = useLocale() as LocaleCode
+  const copy = getPublicCopy(locale)
 
   if (!isTruthy(getEnv('NEXT_PUBLIC_SSO_ENABLED'))) {
     return null
@@ -42,7 +47,7 @@ export function SSOLoginButton({
       variant={variant === 'outline' ? 'outline' : undefined}
       className={cn(variant === 'outline' ? outlineBtnClasses : primaryBtnClasses, className)}
     >
-      Sign in with SSO
+      {copy.auth.common.signInWithSso}
     </Button>
   )
 }

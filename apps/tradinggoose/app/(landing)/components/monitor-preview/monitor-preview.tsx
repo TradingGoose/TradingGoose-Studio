@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
+import { useLocale } from 'next-intl'
 import { fetchListings } from '@/components/listing-selector/fetchers'
 import { MarketListingRow } from '@/components/listing-selector/listing/row'
 import { Badge } from '@/components/ui/badge'
@@ -13,6 +14,8 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { getPublicCopy } from '@/i18n/public-copy'
+import type { LocaleCode } from '@/i18n/utils'
 import type { ListingOption } from '@/lib/listing/identity'
 import {
   filterToPreferredMarkets,
@@ -28,51 +31,6 @@ type MonitorEntry = {
   workflow: string
   workflowColor: string
   status: 'pending' | 'running' | 'success' | 'failed'
-}
-
-const INDICATORS = [
-  { name: 'RSI < 30', color: '#8b5cf6' },
-  { name: 'MACD Cross', color: '#14b8a6' },
-  { name: 'EMA 21/50', color: '#f59e0b' },
-  { name: 'Supertrend', color: '#ef4444' },
-  { name: 'BB Squeeze', color: '#3b82f6' },
-  { name: 'Volume Spike', color: '#10b981' },
-]
-
-const WORKFLOWS = [
-  { name: 'Sentiment Analysis', color: '#6366f1' },
-  { name: 'Risk Assessment', color: '#f59e0b' },
-  { name: 'Portfolio Rebalance', color: '#22c55e' },
-  { name: 'Earnings Report Check', color: '#3b82f6' },
-  { name: 'Social Media Scan', color: '#8b5cf6' },
-  { name: 'Volatility Analysis', color: '#ef4444' },
-  { name: 'Sector Correlation', color: '#14b8a6' },
-]
-
-const STATUS_CONFIG: Record<
-  MonitorEntry['status'],
-  { label: string; className: string; dotClassName: string }
-> = {
-  pending: {
-    label: 'Pending',
-    className: 'bg-muted text-muted-foreground',
-    dotClassName: 'bg-muted-foreground/60',
-  },
-  running: {
-    label: 'Running',
-    className: 'bg-blue-500/15 text-blue-500 border-blue-500/20',
-    dotClassName: 'bg-blue-500',
-  },
-  success: {
-    label: 'Success',
-    className: 'bg-emerald-500/15 text-emerald-500 border-emerald-500/20',
-    dotClassName: 'bg-emerald-500',
-  },
-  failed: {
-    label: 'Failed',
-    className: 'bg-destructive/15 text-destructive border-destructive/20',
-    dotClassName: 'bg-destructive',
-  },
 }
 
 const INITIAL_STATUSES: MonitorEntry['status'][] = [
@@ -100,10 +58,15 @@ function buildMarketRefreshParams(marketCode: string): Record<string, string> {
   }
 }
 
-function createRandomEntry(stocks: ListingOption[], counter: number): MonitorEntry {
+function createRandomEntry(
+  stocks: ListingOption[],
+  counter: number,
+  indicators: Array<{ name: string; color: string }>,
+  workflows: Array<{ name: string; color: string }>
+): MonitorEntry {
   const stock = stocks[Math.floor(Math.random() * stocks.length)]
-  const indicator = INDICATORS[Math.floor(Math.random() * INDICATORS.length)]
-  const workflow = WORKFLOWS[Math.floor(Math.random() * WORKFLOWS.length)]
+  const indicator = indicators[Math.floor(Math.random() * indicators.length)]
+  const workflow = workflows[Math.floor(Math.random() * workflows.length)]
 
   return {
     id: `entry-${counter}`,
@@ -126,9 +89,13 @@ function advanceStatus(status: MonitorEntry['status']): MonitorEntry['status'] {
   return status
 }
 
-function seedEntries(stocks: ListingOption[]): MonitorEntry[] {
+function seedEntries(
+  stocks: ListingOption[],
+  indicators: Array<{ name: string; color: string }>,
+  workflows: Array<{ name: string; color: string }>
+): MonitorEntry[] {
   return Array.from({ length: Math.min(INITIAL_ROWS, stocks.length) }, (_, index) => ({
-    ...createRandomEntry(stocks, index),
+    ...createRandomEntry(stocks, index, indicators, workflows),
     status: INITIAL_STATUSES[index] as MonitorEntry['status'],
   }))
 }
@@ -138,6 +105,11 @@ function isFallbackStock(stock: ListingOption): boolean {
 }
 
 export default function MonitorPreview({ stocks }: { stocks: ListingOption[] }) {
+  const locale = useLocale() as LocaleCode
+  const copy = getPublicCopy(locale)
+  const monitorCopy = copy.landing.monitorSection
+  const indicatorOptions = monitorCopy.indicatorOptions
+  const workflowOptions = monitorCopy.workflowOptions
   const [liveStocks, setLiveStocks] = useState(stocks)
   // Entries pick stock/indicator/workflow via Math.random(). Seeding in
   // useState would diverge between SSR and hydration, producing different
@@ -150,8 +122,8 @@ export default function MonitorPreview({ stocks }: { stocks: ListingOption[] }) 
   }, [stocks])
 
   useEffect(() => {
-    setEntries(seedEntries(liveStocks))
-  }, [liveStocks])
+    setEntries(seedEntries(liveStocks, indicatorOptions, workflowOptions))
+  }, [indicatorOptions, liveStocks, workflowOptions])
 
   useEffect(() => {
     if (!stocks.some(isFallbackStock)) return
@@ -186,7 +158,10 @@ export default function MonitorPreview({ stocks }: { stocks: ListingOption[] }) 
           ...entry,
           status: advanceStatus(entry.status),
         }))
-        const nextEntries = [createRandomEntry(liveStocks, Date.now()), ...updated]
+        const nextEntries = [
+          createRandomEntry(liveStocks, Date.now(), indicatorOptions, workflowOptions),
+          ...updated,
+        ]
         return nextEntries.slice(0, MAX_ROWS)
       })
 
@@ -195,7 +170,33 @@ export default function MonitorPreview({ stocks }: { stocks: ListingOption[] }) 
 
     timeoutId = setTimeout(tick, 1500 + Math.random() * 5500)
     return () => clearTimeout(timeoutId)
-  }, [liveStocks])
+  }, [indicatorOptions, liveStocks, workflowOptions])
+
+  const STATUS_CONFIG: Record<
+    MonitorEntry['status'],
+    { label: string; className: string; dotClassName: string }
+  > = {
+    pending: {
+      label: monitorCopy.statuses.pending,
+      className: 'bg-muted text-muted-foreground',
+      dotClassName: 'bg-muted-foreground/60',
+    },
+    running: {
+      label: monitorCopy.statuses.running,
+      className: 'bg-blue-500/15 text-blue-500 border-blue-500/20',
+      dotClassName: 'bg-blue-500',
+    },
+    success: {
+      label: monitorCopy.statuses.success,
+      className: 'bg-emerald-500/15 text-emerald-500 border-emerald-500/20',
+      dotClassName: 'bg-emerald-500',
+    },
+    failed: {
+      label: monitorCopy.statuses.failed,
+      className: 'bg-destructive/15 text-destructive border-destructive/20',
+      dotClassName: 'bg-destructive',
+    },
+  }
 
   return (
     <div className='relative max-h-[420px] w-full overflow-hidden rounded-lg border bg-background/50 backdrop-blur-sm'>
@@ -203,11 +204,17 @@ export default function MonitorPreview({ stocks }: { stocks: ListingOption[] }) 
       <Table className='table-fixed'>
         <TableHeader>
           <TableRow className='hover:bg-transparent'>
-            <TableHead className='w-[14rem] max-sm:w-[3rem] max-sm:px-2'>Listing</TableHead>
-            <TableHead className='w-[10rem] max-sm:w-auto max-sm:px-2'>Indicator</TableHead>
-            <TableHead className='w-[12rem] max-sm:w-auto max-sm:px-2'>Workflow</TableHead>
+            <TableHead className='w-[14rem] max-sm:w-[3rem] max-sm:px-2'>
+              {monitorCopy.tableHeaders.listing}
+            </TableHead>
+            <TableHead className='w-[10rem] max-sm:w-auto max-sm:px-2'>
+              {monitorCopy.tableHeaders.indicator}
+            </TableHead>
+            <TableHead className='w-[12rem] max-sm:w-auto max-sm:px-2'>
+              {monitorCopy.tableHeaders.workflow}
+            </TableHead>
             <TableHead className='w-[6rem] text-right max-sm:w-[3rem] max-sm:px-2'>
-              Status
+              {monitorCopy.tableHeaders.status}
             </TableHead>
           </TableRow>
         </TableHeader>

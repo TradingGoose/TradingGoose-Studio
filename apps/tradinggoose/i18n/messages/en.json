@@ -1,0 +1,1800 @@
+{
+  "meta": {
+    "landing": {
+      "title": "TradingGoose - Visual Workflow Platform for LLM Trading | Open Source",
+      "description": "Open-source platform for technical LLM-driven trading. Custom indicators in PineTS, live market monitors, and AI agent workflows triggered by market signals.",
+      "openGraphTitle": "TradingGoose - Visual Workflow Platform for LLM Trading",
+      "openGraphDescription": "Open-source platform for technical LLM-driven trading. Custom indicators in PineTS, live market monitors, AI agent workflows triggered by market signals.",
+      "seo": {
+        "keywords": "AI trading workflows, LLM trading agents, technical trading automation, custom trading indicators, PineTS indicators, visual trading workflow builder, trading signal automation, market data workflow, backtesting platform, open source trading platform, algorithmic trading, AI trading assistant",
+        "socialPreviewAlt": "TradingGoose social preview",
+        "llmContentType": "visual workflow platform for trading, custom indicators, AI agent workflows for markets",
+        "llmUseCases": "signal-driven trade execution, portfolio rebalancing, indicator alerts, strategy backtesting, market sentiment analysis, custom trading dashboards",
+        "llmIntegrations": "OpenAI, Anthropic, Google Gemini, xAI, Mistral, Perplexity, Ollama, custom market data providers",
+        "llmPricing": "See hosted pricing on tradinggoose.ai"
+      }
+    },
+    "blog": {
+      "title": "Blog | TradingGoose",
+      "description": "Articles about trading automation, workflow design, and building smarter strategies."
+    },
+    "privacy": {
+      "title": "Privacy Policy | TradingGoose",
+      "description": "Privacy Policy for TradingGoose Studio, covering account data, workflows, connected services, analytics, billing, and retention practices."
+    }
+  },
+  "nav": {
+    "docs": "Docs",
+    "blog": "Blog",
+    "login": "Login",
+    "menu": "Menu",
+    "homeLabel": "Home",
+    "languageLabel": "Language"
+  },
+  "registration": {
+    "open": {
+      "primary": "Get Started",
+      "auth": "Sign up"
+    },
+    "waitlist": {
+      "primary": "Join Waitlist",
+      "auth": "Join waitlist"
+    },
+    "disabled": {
+      "primary": "Coming soon",
+      "auth": null
+    }
+  },
+  "auth": {
+    "common": {
+      "email": "Email",
+      "password": "Password",
+      "fullName": "Full name",
+      "workEmail": "Work email",
+      "enterYourEmail": "Enter your email",
+      "enterYourPassword": "Enter your password",
+      "enterYourName": "Enter your name",
+      "enterYourWorkEmail": "Enter your work email",
+      "forgotPassword": "Forgot password?",
+      "showPassword": "Show password",
+      "hidePassword": "Hide password",
+      "continueWith": "Or continue with",
+      "or": "Or",
+      "signIn": "Sign in",
+      "signUp": "Sign up",
+      "alreadyHaveAccount": "Already have an account?",
+      "dontHaveAccount": "Don't have an account?",
+      "termsLeadSigningIn": "By signing in, you agree to our",
+      "termsLeadCreatingAccount": "By creating an account, you agree to our",
+      "termsOfService": "Terms of Service",
+      "privacyPolicy": "Privacy Policy",
+      "and": "and",
+      "returnHome": "Return home",
+      "backToLogin": "Back to login",
+      "backToSignup": "Back to signup",
+      "verifyEmail": "Verify email",
+      "signInWithEmail": "Sign in with email",
+      "signInWithSso": "Sign in with SSO",
+      "continueWithSso": "Continue with SSO",
+      "requestAccess": "Request access"
+    },
+    "error": {
+      "eyebrow": "Authentication error",
+      "codeLabel": "Error code",
+      "supportPrefix": "If this keeps happening, contact",
+      "supportLinkLabel": "support",
+      "supportSuffix": "and include the error code.",
+      "default": {
+        "title": "Something went wrong",
+        "description": "We could not complete that authentication request. Please try signing in again."
+      },
+      "groups": {
+        "accountCreation": {
+          "title": "We couldn't create your account",
+          "description": "Your sign-up request did not complete. Try again from the sign-up form, or log in if this email is already registered."
+        },
+        "accountExists": {
+          "title": "Account already exists",
+          "description": "An account with this email is already registered. Sign in instead of creating a new account."
+        },
+        "emailVerification": {
+          "title": "Verify your email to continue",
+          "description": "Your account exists, but email verification still needs to be completed."
+        },
+        "invalidCallback": {
+          "title": "This sign-in link is invalid",
+          "description": "The authentication callback was not valid. Start the sign-in flow again."
+        },
+        "invalidToken": {
+          "title": "This authentication link is invalid",
+          "description": "The link or token could not be verified. Start the authentication flow again."
+        },
+        "expiredToken": {
+          "title": "This authentication link has expired",
+          "description": "The link or token has expired. Start the authentication flow again."
+        },
+        "sessionCreation": {
+          "title": "We couldn't start your session",
+          "description": "Authentication succeeded, but the session could not be created. Try logging in again."
+        },
+        "sessionRestore": {
+          "title": "We couldn't restore your session",
+          "description": "Your session could not be loaded. Try logging in again."
+        },
+        "sessionExpired": {
+          "title": "Your session has expired",
+          "description": "Sign in again to continue."
+        },
+        "userInfo": {
+          "title": "We couldn't complete your sign-in",
+          "description": "We were unable to read your identity from the provider. Try signing in again."
+        },
+        "providerUnavailable": {
+          "title": "This sign-in provider is unavailable",
+          "description": "The requested sign-in provider is not configured right now."
+        },
+        "linkedAccount": {
+          "title": "This provider is already linked",
+          "description": "That sign-in provider is already connected to another account. Use a different method to continue."
+        },
+        "waitlistLimited": {
+          "title": "Registration is limited",
+          "description": "Registration is limited to approved waitlist emails."
+        },
+        "registrationDisabled": {
+          "title": "Registration is currently disabled",
+          "description": "Registration is currently disabled."
+        }
+      }
+    },
+    "disabled": {
+      "title": "Registration closed",
+      "description": "Registration is currently disabled."
+    },
+    "note": {
+      "waitlistApprovedEmail": "Use the same waitlist-approved email for any sign-in method."
+    },
+    "social": {
+      "github": "GitHub",
+      "google": "Google",
+      "connecting": "Connecting..."
+    },
+    "verify": {
+      "eyebrow": "Verification",
+      "pendingTitle": "Verify Your Email",
+      "verifiedTitle": "Email Verified!",
+      "verifiedDescription": "Your email has been verified. Redirecting to dashboard...",
+      "disabledDescription": "Email verification is disabled. Redirecting to dashboard...",
+      "codeSent": "A verification code has been sent to {{email}}",
+      "developmentDescription": "Development mode: Check your console logs for the verification code",
+      "missingServiceDescription": "Error: Email verification is enabled but no email service is configured",
+      "instructionsWithService": "Enter the 6-digit code to verify your account. If you don't see it in your inbox, check your spam folder.",
+      "instructionsWithoutService": "Enter the 6-digit code to verify your account.",
+      "verifyButton": "Verify Email",
+      "verifyingButton": "Verifying...",
+      "resendPrompt": "Didn't receive a code?",
+      "resendIn": "Resend in {{countdown}}s",
+      "resendButton": "Resend",
+      "yourEmail": "your email",
+      "errors": {
+        "invalid": "Invalid verification code. Please check and try again.",
+        "expired": "The verification code has expired. Please request a new one.",
+        "generic": "Verification failed. Please check your code and try again.",
+        "attempts": "Too many failed attempts. Please request a new code.",
+        "resendFailed": "Failed to resend verification code. Please try again later."
+      }
+    },
+    "login": {
+      "eyebrow": "Sign in",
+      "title": "Welcome back",
+      "description": "Enter your credentials",
+      "submit": "Sign in",
+      "submitting": "Signing in...",
+      "divider": "Or continue with",
+      "resetDialog": {
+        "title": "Reset Password",
+        "description": "Enter your email address and we'll send you a link to reset your password if your account exists.",
+        "emailLabel": "Email",
+        "emailPlaceholder": "Enter your email",
+        "emailRequired": "Please enter your email address.",
+        "emailInvalid": "Please enter a valid email address.",
+        "success": "Password reset link sent to your email",
+        "error": "Failed to request password reset",
+        "submit": "Send Reset Link",
+        "submitting": "Sending..."
+      },
+      "validation": {
+        "emailRequired": "Email is required.",
+        "emailInvalid": "Please enter a valid email address.",
+        "passwordRequired": "Password is required.",
+        "passwordEmpty": "Password cannot be empty."
+      },
+      "errors": {
+        "sessionExpired": "Your session expired. Please try signing in again.",
+        "emailSignInDisabled": "Email sign in is currently disabled.",
+        "invalidCredentials": "Invalid email or password. Please try again.",
+        "noAccount": "No account found with this email. Please sign up first.",
+        "missingCredentials": "Please enter both email and password.",
+        "emailPasswordDisabled": "Email and password login is disabled.",
+        "failedToCreateSession": "Failed to create session. Please try again later.",
+        "tooManyAttempts": "Too many login attempts. Please try again later or reset your password.",
+        "accountLocked": "Your account has been locked for security. Please reset your password.",
+        "network": "Network error. Please check your connection and try again.",
+        "rateLimit": "Too many requests. Please wait a moment before trying again.",
+        "unableToSignIn": "Unable to sign in.",
+        "unableToSignInNow": "Unable to sign in right now. Please try again."
+      }
+    },
+    "signup": {
+      "eyebrow": "Sign up",
+      "title": "Create an account",
+      "descriptionOpen": "Create an account or log in",
+      "descriptionWaitlist": "Approved waitlist access required",
+      "submit": "Create account",
+      "submitting": "Creating account...",
+      "divider": "Or continue with",
+      "nameTitle": "Name can only contain letters, spaces, hyphens, and apostrophes",
+      "validation": {
+        "emailRequired": "Email is required.",
+        "emailInvalid": "Please enter a valid email address.",
+        "nameRequired": "Name is required.",
+        "nameEmpty": "Name cannot be empty.",
+        "nameCharacters": "Name can only contain letters, spaces, hyphens, and apostrophes.",
+        "nameSpaces": "Name cannot contain consecutive spaces.",
+        "nameTooLong": "Name will be truncated to 100 characters. Please shorten your name.",
+        "passwordMinLength": "Password must be at least 8 characters long.",
+        "passwordUppercase": "Password must include at least one uppercase letter.",
+        "passwordLowercase": "Password must include at least one lowercase letter.",
+        "passwordNumber": "Password must include at least one number.",
+        "passwordSpecial": "Password must include at least one special character."
+      },
+      "errors": {
+        "failedToCreateAccount": "Failed to create account",
+        "accountExists": "An account with this email already exists. Please sign in instead.",
+        "emailSignupDisabled": "Email signup is currently disabled.",
+        "signupNotEnabled": "Email and password sign up is not enabled.",
+        "waitlistRequired": "This email is not approved for signup yet. Join the waitlist first.",
+        "invalidEmail": "Please enter a valid email address.",
+        "passwordTooShort": "Password must be at least 8 characters long.",
+        "passwordTooLong": "Password must be less than 128 characters long.",
+        "network": "Network error. Please check your connection and try again.",
+        "rateLimit": "Too many requests. Please wait a moment before trying again."
+      }
+    },
+    "waitlist": {
+      "eyebrow": "Waitlist",
+      "title": "Request access to TradingGoose",
+      "description": "Join the queue for platform access. If your email is already approved, you can continue straight to signup from here.",
+      "helperText": "Use the email address you want reviewed for platform access.",
+      "submit": "Request access",
+      "submitting": "Submitting...",
+      "pending": "You are on the waitlist. We will review your request and let you know when access is available.",
+      "approvedPrefix": "Your email is approved. Continue to",
+      "signedUpPrefix": "This email already has access. Continue to",
+      "rejected": "This waitlist request is not approved for access.",
+      "signUpLink": "sign up",
+      "loginLink": "login",
+      "validation": {
+        "emailRequired": "Email is required.",
+        "emailInvalid": "Please enter a valid email address."
+      }
+    },
+    "sso": {
+      "eyebrow": "SSO",
+      "title": "Sign in with SSO",
+      "description": "Enter your work email to continue",
+      "submit": "Continue with SSO",
+      "submitting": "Redirecting to SSO provider...",
+      "divider": "Or",
+      "emailButton": "Sign in with email",
+      "validation": {
+        "emailRequired": "Email is required.",
+        "emailInvalid": "Please enter a valid email address."
+      },
+      "errors": {
+        "accountNotFound": "No account found. Please contact your administrator to set up SSO access.",
+        "ssoFailed": "SSO authentication failed. Please try again.",
+        "providerNotConfigured": "SSO provider not configured correctly.",
+        "invalidEmailDomain": "Email domain not configured for SSO. Please contact your administrator.",
+        "network": "Network error. Please check your connection and try again.",
+        "rateLimit": "Too many requests. Please wait a moment before trying again.",
+        "ssoDisabled": "SSO authentication is disabled. Please use another sign-in method.",
+        "failed": "SSO sign-in failed. Please try again."
+      }
+    }
+  },
+  "localeNames": {
+    "en": "English",
+    "es": "Español",
+    "zh-CN": "简体中文"
+  },
+  "landing": {
+    "hero": {
+      "statusBadges": {
+        "disabled": "Honk! TradingGoose-Studio coming soon",
+        "waitlist": "Honk! Introducing TradingGoose-Studio",
+        "open": "Honk! TradingGoose-Studio is here!"
+      },
+      "leadWords": [
+        "Build",
+        "Test",
+        "Run"
+      ],
+      "highlightWords": [
+        "Trading Analysis",
+        "Signal Detection",
+        "Risk Assessment"
+      ],
+      "titleConnector": "your",
+      "suffix": "with TradingGoose",
+      "description": "Connect your own data providers, write custom indicators to monitor market prices, and wire them into workflows that trigger trade, sell, buy, or any action you define.",
+      "featureBadges": [
+        "AI Agent Workflows",
+        "Custom Indicators",
+        "Bring Your Own Data",
+        "Integrations"
+      ],
+      "learnMore": "Learn More"
+    },
+    "cta": {
+      "title": "Let AI agents work your trading strategy.",
+      "description": "See what the community is building with TradingGoose.",
+      "joinDiscord": "Join Discord",
+      "placeholder": "you@example.com",
+      "subscribe": "Get updates",
+      "subscribing": "Subscribing...",
+      "success": "Subscribed! Check your inbox.",
+      "error": "Something went wrong."
+    },
+    "footer": {
+      "description": "AI workflow platform for technical LLM trading",
+      "copyright": "© {{year}} {{brand}}. Built for visual trading workflows.",
+      "links": {
+        "docs": "Docs",
+        "blog": "Blog",
+        "widgets": "Widgets",
+        "indicators": "Indicators",
+        "blocks": "Blocks",
+        "tools": "Tools",
+        "changelog": "Changelog",
+        "privacy": "Privacy Policy",
+        "licenses": "Licenses",
+        "terms": "Terms of Service"
+      },
+      "social": {
+        "discord": "Discord",
+        "github": "GitHub"
+      },
+      "hoverText": "HONK!"
+    },
+    "preview": {
+      "shell": {
+        "headerAriaLabel": "Widget header",
+        "widgetLabel": "Widget"
+      },
+      "layout": {
+        "headerAriaLabel": "Widget header",
+        "sizeLabel": "Widget Size"
+      },
+      "indicatorDropdown": {
+        "placeholder": "Select indicators",
+        "tooltip": "Select indicators",
+        "searchPlaceholder": "Search indicators...",
+        "emptyWithQuery": "No indicators found.",
+        "emptyWithoutQuery": "No indicators available yet."
+      },
+      "market": {
+        "indicatorUnavailableError": "Indicator is not available in this showcase."
+      },
+      "workflow": {
+        "zoomOut": "Zoom out workflow preview",
+        "zoomIn": "Zoom in workflow preview",
+        "selectorAriaLabel": "Workflow preview selector",
+        "demos": {
+          "signalBriefing": "Signal Briefing",
+          "investmentDebate": "Investment Debate",
+          "riskRouting": "Risk Routing"
+        }
+      }
+    },
+    "howItWorks": {
+      "eyebrow": "How it works",
+      "title": "From data to decision",
+      "description": "Connect your own data sources, monitor markets with custom indicators, let AI agents analyze what matters, and trigger workflows that act on your behalf.",
+      "processes": [
+        {
+          "title": "Connect your data",
+          "description": "Plug in any market data provider and stream live prices into the workspace."
+        },
+        {
+          "title": "Monitor with indicators",
+          "description": "Write custom PineTS indicators that watch for the conditions you care about."
+        },
+        {
+          "title": "Analyze with AI agents",
+          "description": "Let LLM-powered agent blocks evaluate signals, assess risk, and make decisions autonomously."
+        },
+        {
+          "title": "Trigger workflows",
+          "description": "When a signal fires, kick off a workflow to trade, alert, log, or anything else you define."
+        }
+      ]
+    },
+    "monitorSection": {
+      "eyebrow": "Live monitors",
+      "title": "Indicators that trigger workflows",
+      "description": "Set up monitors that watch your indicators on live market data. When a signal fires, a workflow runs automatically - place orders, send alerts, log results, or anything else.",
+      "bullets": [
+        "Connect any streaming data provider with your own credentials",
+        "Choose an indicator and interval to monitor per listing",
+        "Route triggers to any deployed workflow"
+      ],
+      "tableHeaders": {
+        "listing": "Listing",
+        "indicator": "Indicator",
+        "workflow": "Workflow",
+        "status": "Status"
+      },
+      "statuses": {
+        "pending": "Pending",
+        "running": "Running",
+        "success": "Success",
+        "failed": "Failed"
+      },
+      "indicatorOptions": [
+        {
+          "name": "RSI < 30",
+          "color": "#8b5cf6"
+        },
+        {
+          "name": "MACD Cross",
+          "color": "#14b8a6"
+        },
+        {
+          "name": "EMA 21/50",
+          "color": "#f59e0b"
+        },
+        {
+          "name": "Supertrend",
+          "color": "#ef4444"
+        },
+        {
+          "name": "BB Squeeze",
+          "color": "#3b82f6"
+        },
+        {
+          "name": "Volume Spike",
+          "color": "#10b981"
+        }
+      ],
+      "workflowOptions": [
+        {
+          "name": "Sentiment Analysis",
+          "color": "#6366f1"
+        },
+        {
+          "name": "Risk Assessment",
+          "color": "#f59e0b"
+        },
+        {
+          "name": "Portfolio Rebalance",
+          "color": "#22c55e"
+        },
+        {
+          "name": "Earnings Report Check",
+          "color": "#3b82f6"
+        },
+        {
+          "name": "Social Media Scan",
+          "color": "#8b5cf6"
+        },
+        {
+          "name": "Volatility Analysis",
+          "color": "#ef4444"
+        },
+        {
+          "name": "Sector Correlation",
+          "color": "#14b8a6"
+        }
+      ]
+    },
+    "features": {
+      "eyebrow": "Features",
+      "title": "Your workspace, your way",
+      "description": "Layouts, charts, and workflows - each designed to work on its own or together.",
+      "rows": [
+        {
+          "badge": "Workspace",
+          "title": "Widget layouts",
+          "description": "Split the workspace to place widgets side by side or stacked. Save and switch between named layouts per workspace.",
+          "bullets": [
+            "Recursive splitting",
+            "Saved layouts per workspace",
+            "Shared widget action menu"
+          ]
+        },
+        {
+          "badge": "Charting",
+          "title": "Indicators and live data",
+          "description": "Built-in indicators and a PineTS editor for writing custom ones. Connect your own data provider and monitor prices in real time.",
+          "bullets": [
+            "Configurable indicator inputs",
+            "Live re-execution per bar",
+            "Crosshair legend and chart markers"
+          ]
+        },
+        {
+          "badge": "Workflows",
+          "title": "AI-powered workflows",
+          "description": "Build workflows on a canvas with AI agent blocks that make LLM-driven decisions. Integrate with Slack, Discord, GitHub, Gmail, and more - then route orders to Alpaca or Tradier.",
+          "bullets": [
+            "AI agent blocks for autonomous analysis and decisions",
+            "Integrations with Slack, Discord, GitHub, Gmail, and more",
+            "Data, condition, loop, parallel, and trading action blocks"
+          ]
+        }
+      ]
+    },
+    "integrations": {
+      "eyebrow": "Integrations",
+      "title": "LLM with more than just prompts.",
+      "bullets": [
+        "Every integration becomes a tool your AI agents can call",
+        "Built-in blocks for messaging, databases, cloud storage, CRMs, and search",
+        "Custom MCP servers, skills, and tools you define yourself"
+      ],
+      "structuredData": {
+        "name": "TradingGoose integrations",
+        "description": "Third-party services, LLM providers, data sources, and tools that TradingGoose integrates with as callable workflow blocks."
+      }
+    }
+  },
+  "blog": {
+    "pageTitle": "Blog",
+    "pageDescription": "Insights on trading automation, workflow design, and building smarter strategies. {{count}} articles and counting.",
+    "searchPlaceholder": "Search articles",
+    "emptyTitle": "No posts yet",
+    "emptyDescription": "Check back soon - new articles are on the way.",
+    "noMatches": "No posts matching \"{{query}}\"",
+    "noMatchesDescription": "Try a different search term.",
+    "readTimeSuffix": "min read",
+    "viewArticle": "View Article",
+    "home": "Home",
+    "breadcrumbBlog": "Blog",
+    "articleSingular": "article",
+    "articlePlural": "articles"
+  },
+  "privacy": {
+    "title": "Privacy Policy",
+    "description": "Privacy Policy for TradingGoose Studio, covering account data, workflows, connected services, analytics, billing, and retention practices.",
+    "lastUpdatedLabel": "Last Updated:",
+    "lastUpdated": "March 28, 2026"
+  },
+  "workspace": {
+    "entry": {
+      "loading": "Loading workspace..."
+    },
+    "switcher": {
+      "failedToCreateWorkspace": "Failed to create workspace",
+      "failedToRenameWorkspace": "Failed to rename workspace",
+      "failedToDeleteWorkspace": "Failed to delete workspace",
+      "roles": {
+        "owner": "Owner",
+        "admin": "Admin",
+        "member": "Member",
+        "read": "Read only"
+      },
+      "workspaceLabel": "Workspace",
+      "noWorkspacesYet": "No workspaces yet.",
+      "noWorkspacesAvailable": "No workspaces available.",
+      "manage": "Manage",
+      "create": "Create",
+      "creating": "Creating..."
+    },
+    "nav": {
+      "groups": {
+        "workspace": "Workspace",
+        "system": "System",
+        "more": "More"
+      },
+      "workspace": {
+        "dashboard": "Dashboard",
+        "knowledge": "Knowledge",
+        "files": "Files",
+        "logs": "Logs"
+      },
+      "more": {
+        "environment": "Environment Variables",
+        "apiKeys": "API Keys",
+        "integrations": "Integrations"
+      },
+      "admin": {
+        "overview": "Overview",
+        "billing": "Billing",
+        "services": "Services",
+        "integrations": "Integrations",
+        "registration": "Registration"
+      },
+      "systemAdmin": "System Admin"
+    },
+    "defaults": {
+      "newWorkspaceName": "My Workspace",
+      "defaultLayoutName": "Default Layout",
+      "defaultWorkflowDescription": "Your first workflow - start building here!"
+    },
+    "naming": {
+      "workspacePrefix": "Workspace",
+      "folderPrefix": "Folder",
+      "subfolderPrefix": "Subfolder"
+    },
+    "dashboard": {
+      "title": "Dashboard",
+      "searchPlaceholder": "Search workspace content...",
+      "sections": {
+        "workspaces": "Workspaces",
+        "knowledgeBases": "Knowledge Bases",
+        "pages": "Pages",
+        "docs": "Docs"
+      },
+      "emptySearch": "No matching content",
+      "pages": {
+        "logs": "Logs",
+        "knowledge": "Knowledge",
+        "templates": "Templates",
+        "docs": "Docs"
+      }
+    },
+    "knowledge": {
+      "title": "Knowledge",
+      "searchPlaceholder": "Search knowledge bases...",
+      "sort": {
+        "lastUpdated": "Last Updated",
+        "newestFirst": "Newest First",
+        "oldestFirst": "Oldest First",
+        "nameAsc": "Name (A-Z)",
+        "nameDesc": "Name (Z-A)",
+        "mostDocuments": "Most Documents",
+        "leastDocuments": "Least Documents"
+      },
+      "actions": {
+        "create": "Create",
+        "createTooltip": "Write permission required to create knowledge bases"
+      },
+      "errors": {
+        "load": "Error loading knowledge bases: {{error}}",
+        "retry": "Try again"
+      },
+      "emptyState": {
+        "createFirst": "Create your first knowledge base",
+        "withEditPermission": "Upload your documents to create a knowledge base for your agents.",
+        "withoutEditPermission": "Knowledge bases will appear here. Contact an admin to create knowledge bases.",
+        "buttonCreate": "Create Knowledge Base",
+        "buttonContactAdmin": "Contact Admin",
+        "noMatches": "No knowledge bases match your search."
+      }
+    },
+    "logs": {
+      "title": {
+        "logs": "Logs",
+        "monitors": "Monitors",
+        "dashboard": "Dashboard"
+      },
+      "searchPlaceholder": "Search logs...",
+      "live": "Live",
+      "monitorRequirement": "Please configure a workflow that uses an indicator as a trigger and an indicator that emits a trigger to add a monitor.",
+      "actions": {
+        "addMonitor": "Add monitor",
+        "refresh": "Refresh",
+        "refreshing": "Refreshing...",
+        "exportCsv": "Export CSV"
+      },
+      "errors": {
+        "fetchLogs": "Failed to fetch logs"
+      },
+      "dashboard": {
+        "title": "Dashboard",
+        "searchPlaceholder": "Search workflows...",
+        "failedToFetchExecutionHistory": "Failed to fetch execution history.",
+        "loadingExecutionHistory": "Loading execution history...",
+        "errorLoadingData": "Error loading execution history.",
+        "noExecutionHistory": "No execution history found.",
+        "noExecutionHistoryDescription": "Try adjusting your filters or time range.",
+        "refresh": "Refresh",
+        "refreshing": "Refreshing...",
+        "chart": {
+          "noData": "No data available.",
+          "toggleSeries": "Toggle series {{label}}"
+        },
+        "filters": {
+          "title": "Filters",
+          "activeFilters": "Active filters",
+          "clearAll": "Clear all",
+          "suggestedFilters": "Suggested filters",
+          "textSearch": "Text search",
+          "searchPlaceholder": "Search logs...",
+          "filterOptionsPlaceholder": "No options found for {{title}}.",
+          "searchWorkflows": "Search workflows...",
+          "searchFolders": "Search folders...",
+          "searchOptions": "Search options...",
+          "loadingWorkflows": "Loading workflows...",
+          "loadingFolders": "Loading folders...",
+          "noWorkflows": "No workflows found.",
+          "noFolders": "No folders found.",
+          "noOptions": "No options found.",
+          "allWorkflows": "All workflows",
+          "selectedWorkflows": "{{count}} selected workflow{{plural}}",
+          "allFolders": "All folders",
+          "selectedFolders": "{{count}} selected folder{{plural}}",
+          "allTriggers": "All triggers",
+          "selectedTriggers": "{{count}} selected trigger{{plural}}",
+          "allTime": "All time",
+          "past30Minutes": "Past 30 minutes",
+          "pastHour": "Past hour",
+          "past6Hours": "Past 6 hours",
+          "past12Hours": "Past 12 hours",
+          "past24Hours": "Past 24 hours",
+          "past3Days": "Past 3 days",
+          "past7Days": "Past 7 days",
+          "past14Days": "Past 14 days",
+          "past30Days": "Past 30 days",
+          "manual": "Manual",
+          "api": "API",
+          "webhook": "Webhook",
+          "schedule": "Schedule",
+          "chat": "Chat",
+          "error": "Error",
+          "info": "Info",
+          "anyStatus": "Any status",
+          "level": "Level",
+          "workflow": "Workflow",
+          "folder": "Folder",
+          "trigger": "Trigger",
+          "timeline": "Timeline",
+          "retentionPolicy": "Log Retention Policy",
+          "retentionDescription": "Logs are automatically deleted after {{days}} days on this tier.",
+          "upgradePlan": "Upgrade Plan"
+        },
+        "metrics": {
+          "totalExecutions": "Total executions",
+          "successRate": "Success rate",
+          "failedExecutions": "Failed executions",
+          "activeWorkflows": "Active workflows"
+        },
+        "workflows": {
+          "title": "Workflows",
+          "legend": "Each cell is approximately {{duration}} of the selected range. Click a cell to filter details.",
+          "count": "{{count}} workflow",
+          "countPlural": "{{count}} workflows",
+          "filteredFrom": " (filtered from {{count}})",
+          "noMatches": "No workflows found matching \"{{query}}\".",
+          "selectedSegment": "Selected segment",
+          "filteredTo": "Filtered to {{timestamp}}",
+          "selectedRangeMore": " (+{{count}} more segment{{plural}})",
+          "selectedRangeExecutions": "— {{count}} execution{{plural}}",
+          "clearFilter": "Clear filter",
+          "executions": "Executions",
+          "success": "Success",
+          "failures": "Failures",
+          "errorRate": "Error rate",
+          "duration": "Duration",
+          "columns": {
+            "time": "Time",
+            "status": "Status",
+            "trigger": "Trigger",
+            "cost": "Cost",
+            "workflow": "Workflow",
+            "output": "Output",
+            "duration": "Duration"
+          },
+          "noExecutions": "No executions",
+          "loadingMore": "Loading more...",
+          "scrollToLoadMore": "Scroll to load more",
+          "succeeded": "{{success}}/{{total}} succeeded",
+          "segment": "Segment {{index}}",
+          "allWorkflows": "All workflows",
+          "multipleSelected": "{{count}} workflows selected",
+          "durationDay": "{{count}} day{{plural}}",
+          "durationHour": "{{count}} hour{{plural}}",
+          "durationMinute": "{{count}} minute{{plural}}"
+        }
+      },
+      "list": {
+        "headers": {
+          "time": "Time",
+          "status": "Status",
+          "workflow": "Workflow",
+          "cost": "Cost",
+          "trigger": "Trigger",
+          "duration": "Duration"
+        },
+        "loading": "Loading logs...",
+        "loadingMore": "Loading more...",
+        "scrollToLoadMore": "Scroll to load more",
+        "noLogs": "No logs found",
+        "unknownWorkflow": "Unknown Workflow"
+      },
+      "details": {
+        "title": "Log Details",
+        "previous": "Previous log",
+        "next": "Next log",
+        "close": "Close",
+        "selectLog": "Select a log to view details",
+        "timestamp": "Timestamp",
+        "workflow": "Workflow",
+        "executionId": "Execution ID",
+        "level": "Level",
+        "trigger": "Trigger",
+        "duration": "Duration",
+        "loading": "Loading details…",
+        "workflowState": "Workflow State",
+        "viewSnapshot": "View Snapshot",
+        "toolCalls": "Tool Calls",
+        "files": "Files",
+        "costBreakdown": "Cost Breakdown",
+        "baseExecution": "Base Execution:",
+        "modelInput": "Model Input:",
+        "modelOutput": "Model Output:",
+        "total": "Total:",
+        "tokens": "Tokens:",
+        "modelBreakdown": "Model Breakdown ({{count}})",
+        "input": "Input:",
+        "output": "Output:",
+        "totalCostNote": "Total cost includes a base execution charge of {{amount}} plus any model usage costs.",
+        "unknownSize": "Unknown size",
+        "unknownType": "Unknown type",
+        "unknownWorkflow": "Unknown",
+        "unknownLevel": "unknown",
+        "unknownValue": "Unknown",
+        "traceSpans": {
+          "workflowExecution": "Workflow execution",
+          "collapseAll": "Collapse all",
+          "expandAll": "Expand all",
+          "collapse": "Collapse",
+          "expand": "Expand",
+          "noTraceData": "No trace data available.",
+          "model": "Model",
+          "loadSkill": "Load skill",
+          "initialResponse": "Initial response",
+          "modelResponse": "Model response",
+          "modelGeneration": "Model generation",
+          "tokens": "{{count}} token{{plural}}",
+          "tokensUnavailable": "Tokens unavailable",
+          "tokensInOut": "{{input}} in / {{output}} out",
+          "tokensTotal": "{{count}} total token{{plural}}",
+          "tokensTotalSuffix": " ({{count}} total)",
+          "input": "Input",
+          "output": "Output",
+          "total": "Total",
+          "start": "Start",
+          "plusMs": "+{{ms}} ms",
+          "betweenBlocks": "Gap of {{ms}} ms",
+          "inputSection": "Input",
+          "outputSection": "Output",
+          "errorSection": "Error",
+          "segmentTimingTooltip": "{{type}}{{nameSuffix}} took {{duration}} ms"
+        },
+        "download": {
+          "downloading": "Downloading...",
+          "download": "Download"
+        }
+      },
+      "monitors": {
+        "loading": "Loading monitors...",
+        "noConfigured": "No monitors configured.",
+        "status": "Status",
+        "provider": "Provider",
+        "auth": "Auth",
+        "listing": "Listing",
+        "indicator": "Indicator",
+        "workflow": "Workflow",
+        "actions": "Actions",
+        "active": "Active",
+        "paused": "Paused",
+        "configured": "Configured",
+        "missing": "Missing",
+        "edit": "Edit",
+        "pause": "Pause",
+        "activate": "Activate",
+        "remove": "Remove",
+        "searchProviders": "Search providers...",
+        "noProviders": "No providers found.",
+        "searchOptions": "Search options...",
+        "noOptions": "No options found.",
+        "searchIntervals": "Search intervals...",
+        "noIntervals": "No intervals found.",
+        "searchWorkflows": "Search workflows...",
+        "noWorkflows": "No workflows found.",
+        "searchIndicators": "Search indicators...",
+        "noIndicators": "No indicators found.",
+        "loadRequirements": "Loading monitor requirements...",
+        "noDeployedWorkflow": "No deployed workflow with indicator trigger is available, or no trigger-capable indicator exists.",
+        "failedToLoad": "Failed to load monitors.",
+        "failedToFetchLogs": "Failed to fetch monitor logs.",
+        "failedToSave": "Failed to save monitor.",
+        "activateDisabled": "A deployed workflow with a trigger-capable indicator is required before activating this monitor.",
+        "failedToUpdateState": "Failed to update monitor status.",
+        "failedToDelete": "Failed to delete monitor."
+      },
+      "editor": {
+        "provider": "Provider",
+        "auth": "Auth",
+        "listing": "Listing",
+        "interval": "Interval",
+        "workflow": "Workflow",
+        "indicator": "Indicator",
+        "description": "Configure the monitor details.",
+        "feed": "Feed",
+        "selectInterval": "Select interval",
+        "selectWorkflow": "Select workflow",
+        "selectIndicator": "Select indicator",
+        "save": "Save Changes",
+        "create": "Create Monitor",
+        "saving": "Saving...",
+        "error": "Error",
+        "cancel": "Cancel",
+        "createTitle": "Create Monitor",
+        "editTitle": "Edit Monitor",
+        "selectProvider": "Select provider",
+        "searchProviders": "Search providers...",
+        "searchOptions": "Search options...",
+        "searchIntervals": "Search intervals...",
+        "searchWorkflows": "Search workflows...",
+        "searchIndicators": "Search indicators...",
+        "noProviders": "No providers found.",
+        "noOptions": "No options found.",
+        "noIntervals": "No intervals found.",
+        "noWorkflows": "No workflows found.",
+        "noIndicators": "No indicators found.",
+        "authConfigured": "Configured",
+        "authMissing": "Missing"
+      }
+    },
+    "environment": {
+      "title": "Environment Variables",
+      "searchPlaceholder": "Search variables...",
+      "scope": {
+        "workspace": "Workspace",
+        "personal": "Personal"
+      },
+      "create": {
+        "workspace": "Create Workspace Environment Variable",
+        "personal": "Create Personal Environment Variable"
+      },
+      "emptyState": {
+        "workspace": {
+          "title": "No workspace variables yet",
+          "description": "Create one to start configuring."
+        },
+        "personal": {
+          "title": "No personal variables yet",
+          "description": "Create one to start configuring."
+        }
+      },
+      "searchEmpty": {
+        "workspace": "No workspace environment variables found matching \"{{query}}\".",
+        "personal": "No personal environment variables found matching \"{{query}}\"."
+      },
+      "headers": {
+        "createdAt": "Created At",
+        "variable": "Variable",
+        "value": "Value",
+        "updatedAt": "Updated At",
+        "actions": "Actions"
+      },
+      "labels": {
+        "untitledVariable": "Untitled variable",
+        "overriddenByWorkspaceVariable": "Overridden by workspace variable",
+        "revealValue": "Reveal value",
+        "hideValue": "Hide value",
+        "copyValue": "Copy environment value",
+        "save": "Save environment variable",
+        "cancel": "Cancel editing",
+        "edit": "Edit environment variable",
+        "delete": "Delete environment variable"
+      }
+    },
+    "apiKeys": {
+      "title": "API Keys",
+      "cardTitle": "{{scope}} API Keys",
+      "searchPlaceholder": "Search keys...",
+      "scope": {
+        "workspace": "Workspace",
+        "personal": "Personal"
+      },
+      "create": {
+        "workspace": "Create Workspace Key",
+        "personal": "Create Personal Key"
+      },
+      "emptyState": {
+        "workspace": {
+          "title": "No workspace API keys yet",
+          "description": "Create one to start integrating right away.",
+          "button": "Create Key"
+        },
+        "personal": {
+          "title": "No personal API keys yet",
+          "description": "Create one to start integrating right away.",
+          "button": "Create Key"
+        }
+      },
+      "searchEmpty": "No {{scope}} API keys found matching \"{{query}}\".",
+      "headers": {
+        "createdAt": "Created At",
+        "name": "Name",
+        "key": "Key",
+        "lastUpdate": "Last Update",
+        "actions": "Actions"
+      },
+      "labels": {
+        "never": "Never",
+        "lastUsed": "Last used: {{date}}",
+        "saveName": "Save API key name",
+        "rename": "Rename {{scope}} API key",
+        "reveal": "Reveal {{scope}} API key",
+        "hide": "Hide {{scope}} API key",
+        "copy": "Copy {{scope}} API key",
+        "save": "Save {{scope}} API key",
+        "cancelRename": "Cancel rename",
+        "delete": "Delete {{scope}} API key",
+        "nameRequired": "Name is required",
+        "duplicateName": "A {{scope}} API key named \"{{name}}\" already exists.",
+        "failedRename": "Failed to rename {{scope}} API key.",
+        "unableRename": "Unable to rename {{scope}} API key. Please try again.",
+        "failedCreate": "Failed to create {{scope}} API key. Please try again.",
+        "workspaceAccess": "This key grants access to all workflows and files within this workspace. Copy it immediately after creation as you will not be able to see it again.",
+        "personalAccess": "This key grants access to your personal workflows and files. Copy it immediately after creation as you will not be able to see it again.",
+        "onlyTimeYouWillSee": "This is the only time you will see the full key. Copy and store it securely.",
+        "unableToDetermineWorkspace": "Unable to determine workspace. Please refresh the page and try again.",
+        "workspacePermissions": "You need edit or admin access to manage workspace API keys."
+      },
+      "dialogs": {
+        "createTitle": "Create {{scope}} API key",
+        "createNameLabel": "Name",
+        "createNamePlaceholder": "e.g., Production MCP Server",
+        "createButton": "Create Key",
+        "newKeyTitle": "Your {{scope}} API key",
+        "newKeyDescription": "This is the only time you will see the full key. Copy and store it securely.",
+        "deleteTitle": "Delete {{scope}} API key?",
+        "deleteDescription": "This will immediately revoke access for any integrations using this key.",
+        "deletePrompt": "Type {{name}} to confirm.",
+        "deletePlaceholder": "API key name",
+        "cancel": "Cancel",
+        "deleteButton": "Delete Key",
+        "copyToClipboard": "Copy to clipboard"
+      }
+    },
+    "integrations": {
+      "title": "Integrations",
+      "searchPlaceholder": "Search integrations...",
+      "successMessage": "Account connected successfully!",
+      "actionRequired": {
+        "title": "Action Required:",
+        "description": "Please connect your account to enable the requested features. The required service is highlighted below.",
+        "button": "Go to service"
+      },
+      "otherServices": "Other Services",
+      "connect": "Connect",
+      "disconnect": "Disconnect",
+      "emptyState": {
+        "noConnectible": "No connectible integrations are configured.",
+        "noSearchMatches": "No services found matching \"{{query}}\""
+      },
+      "errors": {
+        "loadAvailability": "Failed to load provider availability",
+        "oauth": "Account connection failed. Please try again."
+      }
+    },
+    "files": {
+      "title": "Files",
+      "searchPlaceholder": "Search files...",
+      "upload": {
+        "idle": "Upload File",
+        "uploading": "Uploading...",
+        "uploadingWithCount": "Uploading {{completed}}/{{total}}...",
+        "button": "Upload File"
+      },
+      "headers": {
+        "name": "Name",
+        "size": "Size",
+        "uploaded": "Uploaded",
+        "actions": "Actions"
+      },
+      "emptyState": {
+        "title": "No files uploaded yet",
+        "description": "Upload PDFs, docs, spreadsheets, or slides to power your workspace.",
+        "button": "Upload File"
+      },
+      "searchEmpty": {
+        "title": "No files match your search",
+        "description": "Try a different keyword or clear the search input."
+      },
+      "actions": {
+        "download": "Download",
+        "delete": "Delete"
+      },
+      "deleteDialog": {
+        "title": "Delete file?",
+        "descriptionWithName": "Deleting \"{{name}}\" will permanently remove it from this workspace.",
+        "description": "Deleting this file will permanently remove it from this workspace.",
+        "warning": "This action cannot be undone.",
+        "cancel": "Cancel",
+        "confirm": "Delete",
+        "deleting": "Deleting..."
+      }
+    },
+    "userMenu": {
+      "accountDetail": "Account Detail",
+      "helpSupport": "Help & Support",
+      "serviceApiKeys": "Service API Keys",
+      "subscription": "Subscription",
+      "manageBilling": "Manage Billing",
+      "openingBilling": "Opening Billing…",
+      "teamManagement": "Team Management",
+      "singleSignOn": "Single Sign-On",
+      "logOut": "Log out",
+      "loggingOut": "Logging out…",
+      "billingPortalSelectOrganization": "Select an organization to manage billing.",
+      "billingPortalFailed": "Failed to open billing portal",
+      "themeLabel": "Theme: {{theme}}",
+      "languageLabel": "Language",
+      "themeOptions": {
+        "light": "Light",
+        "system": "System",
+        "dark": "Dark"
+      },
+      "defaultAvatarAlt": "Default avatar"
+    },
+    "settingsModal": {
+      "titles": {
+        "account": "Account Settings",
+        "service": "Service API Keys",
+        "subscription": "Subscription",
+        "team": "Team Management",
+        "sso": "Single Sign-On",
+        "help": "Help & Support"
+      },
+      "common": {
+        "cancel": "Cancel"
+      },
+      "account": {
+        "profilePicture": "Profile Picture",
+        "profilePictureAlt": "Profile picture",
+        "dropImage": "Drop an image or click to upload",
+        "imageHint": "PNG or JPG, max 5MB",
+        "profileDetails": "Profile Details",
+        "profileDetailsDescription": "Update your name and manage access.",
+        "fullName": "Full name",
+        "emailAddress": "Email address",
+        "emailHint": "Email changes are handled by support.",
+        "passwordReset": "Password reset",
+        "passwordResetDescription": "We’ll email you a secure link.",
+        "sendLink": "Send link",
+        "sending": "Sending…",
+        "saveName": "Save name",
+        "cancelEditingName": "Cancel editing name",
+        "editName": "Edit name",
+        "privacy": "Privacy",
+        "privacyDescription": "Manage how your data is collected.",
+        "telemetry": {
+          "label": "Allow anonymous telemetry",
+          "tooltipLabel": "Learn more about telemetry data collection",
+          "tooltipBody": "We collect anonymous data about feature usage, performance, and errors to improve the application.",
+          "body": "We use OpenTelemetry to collect anonymous usage data to improve TradingGoose. All data is collected in accordance with our privacy policy, and you can opt-out at any time. This setting applies to your account on all devices."
+        },
+        "status": {
+          "profileSaved": "Profile saved.",
+          "nameRequired": "Please provide a name.",
+          "saveError": "Unable to save profile settings.",
+          "nameRequiredValidation": "Name is required",
+          "profilePictureUpdateError": "Failed to update profile picture",
+          "profilePictureRemoveError": "Failed to remove profile picture",
+          "unableToUpdateProfilePicture": "Unable to update profile picture.",
+          "failedUpdateName": "Failed to update name",
+          "unableToUpdateName": "Unable to update name. Please try again.",
+          "noEmail": "No email address found for this account.",
+          "passwordResetSent": "Password reset link sent to your inbox.",
+          "passwordResetFailed": "Unable to send password reset email."
+        }
+      },
+      "help": {
+        "requestType": "Request",
+        "requestTypePlaceholder": "Select a request type",
+        "requestTypes": {
+          "bug": "Bug Report",
+          "feedback": "Feedback",
+          "feature_request": "Feature Request",
+          "other": "Other"
+        },
+        "subject": "Subject",
+        "subjectPlaceholder": "Brief description of your request",
+        "message": "Message",
+        "messagePlaceholder": "Please provide details about your request...",
+        "attachments": "Attach Images (Optional)",
+        "dropImages": "Drop images here!",
+        "dropImagesBrowse": "Drop images here or click to browse",
+        "imageHint": "JPEG, PNG, WebP, GIF (max 20MB each)",
+        "uploadedImages": "Uploaded Images",
+        "cancel": "Cancel",
+        "submit": "Submit",
+        "submitting": "Submitting...",
+        "processing": "Processing images...",
+        "success": "Success",
+        "error": "Error",
+        "errorMessages": {
+          "subjectRequired": "Subject is required",
+          "messageRequired": "Message is required",
+          "requestTypeRequired": "Please select a request type",
+          "fileTooLarge": "File {{name}} is too large. Maximum size is 20MB.",
+          "unsupportedFormat": "File {{name}} has an unsupported format. Please use JPEG, PNG, WebP, or GIF.",
+          "processing": "An error occurred while processing images. Please try again.",
+          "submitFailed": "Failed to submit help request",
+          "unknown": "An unknown error occurred"
+        }
+      },
+      "service": {
+        "copilot": {
+          "title": "Copilot",
+          "description": "Generate keys for Copilot API access."
+        },
+        "market": {
+          "title": "Market",
+          "description": "Generate keys for Market API access."
+        },
+        "create": "Create",
+        "noKeys": "No API keys yet",
+        "generateSuccessTitle": "Your API key has been created",
+        "generateSuccessDescription": "This is the only time you will see your API key. Copy it now and store it securely.",
+        "copyToClipboard": "Copy to clipboard",
+        "deleteTitle": "Delete API key?",
+        "deleteDescription": "Deleting this API key will immediately revoke access for any integrations using it. This action cannot be undone.",
+        "cancel": "Cancel",
+        "delete": "Delete"
+      },
+      "subscription": {
+        "titles": {
+          "manage": "Manage Subscription",
+          "restore": "Restore Subscription",
+          "upgrade": "Upgrade",
+          "increaseLimit": "Increase Limit",
+          "nextBillingDate": "Next Billing Date",
+          "usageNotifications": "Usage notifications",
+          "billingOwner": "Billing owner",
+          "organizationUsage": "Organization Usage",
+          "custom": "Custom",
+          "seats": "seats"
+        },
+        "seatsText": "{{count}} seats",
+        "descriptions": {
+          "manage": "Open Stripe Billing Portal to cancel, restore, or update your subscription.",
+          "usageNotifications": "Email me when usage reaches the billing warning threshold",
+          "customPlan": "Contact your account team for billing tier and usage limit changes",
+          "teamMemberView": "Contact your team admin to increase limits"
+        },
+        "limit": {
+          "save": "Save limit",
+          "edit": "Edit limit"
+        },
+        "billingOwner": {
+          "title": "Billing owner",
+          "description": "Choose who owns billing for this workspace.",
+          "error": "Error",
+          "ownerLabel": "Owner",
+          "selectPlaceholder": "Select billing owner",
+          "organization": "Organization",
+          "billingNotice": "Changing the billing owner affects who pays for this workspace.",
+          "noActiveOrganization": "No active organization is available for billing ownership.",
+          "invalidSelection": "Invalid billing owner selection.",
+          "failedToUpdate": "Failed to update billing owner."
+        },
+        "actions": {
+          "manage": "Manage",
+          "contact": "Contact",
+          "upgradeTo": "Upgrade to {{name}}"
+        },
+        "badges": {
+          "resolvePayment": "Resolve Payment",
+          "addPaymentMethod": "Add Payment Method",
+          "activatePayg": "Activate PAYG",
+          "increaseLimit": "Increase Limit",
+          "manageBilling": "Manage Billing"
+        },
+        "errors": {
+          "openBillingPortal": "Failed to open billing portal",
+          "unknown": "Unknown error occurred",
+          "selectOrganization": "Select an organization to manage billing.",
+          "activatePayg": "Failed to activate PAYG",
+          "loadBillingData": "Failed to load billing data."
+        }
+      },
+      "team": {
+        "error": "Error",
+        "defaultTeamName": "{{name}}'s Team",
+        "billingHowWorksSeatCost": "{{seats}} seat{{plural}} cost ${{amount}} per month.",
+        "billingHowWorksUsageTracked": "Usage is tracked across all workspaces in the organization.",
+        "billingHowWorksIncreaseLimit": "Increase the limit when the organization needs more capacity.",
+        "billingHowWorksOverage": "Overages are billed according to the active plan.",
+        "howBillingWorks": "How this team billing works",
+        "usageNote": "Note:",
+        "usageNoteBody": "Users can only be part of one organization at a time. They must leave their current organization before joining another.",
+        "teamId": "Team ID:",
+        "created": "Created:",
+        "yourRole": "Your Role:",
+        "upgradeToCreateTeam": "Upgrade To Create a Team",
+        "upgradeToCreateTeamDescription": "Upgrade to an organization tier to create a team workspace.",
+        "openSubscriptionSettings": "Open Subscription Settings",
+        "createYourTeamWorkspace": "Create Your Team Workspace",
+        "createYourTeamWorkspaceDescription": "Create an organization to collaborate with your team.",
+        "teamName": "Team Name",
+        "teamNamePlaceholder": "My Team",
+        "teamUrl": "Team URL",
+        "teamSlugPlaceholder": "my-team",
+        "createTeamWorkspace": "Create Team Workspace",
+        "noTeamSubscriptionFound": "No Team Subscription Found",
+        "subscriptionMayNeedTransfer": "Your subscription may need to be transferred to this organization.",
+        "setUpTeamSubscription": "Set Up Team Subscription",
+        "seats": "Seats",
+        "pricePerSeat": "({{price}}/month each)",
+        "used": "{{count}} used",
+        "total": "{{count}} total",
+        "removeSeat": "Remove Seat",
+        "addSeat": "Add Seat",
+        "seat": "seat",
+        "numberOfSeats": "Number of seats",
+        "yourTeamWillHave": "Your team will have {{count}} {{seatWord}} with a total of ${{cost}} inference credits per month.",
+        "minimumSeatsNoMax": "Minimum {{minimum}} seats. No maximum seat cap applies to this tier.",
+        "chooseBetweenSeats": "Choose between {{minimum}} and {{maximum}} seats for this tier.",
+        "currentSeats": "Current seats:",
+        "newSeats": "New seats:",
+        "monthlyCostChange": "Monthly cost change:",
+        "loading": "Loading...",
+        "reactivateSubscription": "To update seats, go to Subscription > Manage > Keep Subscription to reactivate",
+        "leaveOrganization": "Leave Organization",
+        "removeTeamMember": "Remove Team Member",
+        "leaveOrganizationDescription": "Are you sure you want to leave this organization? You will lose access to all team resources.",
+        "removeMemberDescription": "Are you sure you want to remove {{name}} from the team?",
+        "alsoReduceSeatCount": "Also reduce seat count in my subscription",
+        "reduceSeatCountDescription": "If selected, your team seat count will be reduced by 1, lowering your monthly billing.",
+        "thisActionCannotBeUndone": "This action cannot be undone.",
+        "cancel": "Cancel",
+        "remove": "Remove",
+        "inviteUnavailableMessage": "An active organization subscription is required before you can invite team members.",
+        "yourself": "yourself",
+        "thisMember": "this member",
+        "noPublicAdjustableTier": "No public adjustable organization tier is configured",
+        "addSeats": {
+          "title": "Add Team Seats",
+          "description": "Each seat costs ${{price}}/month and provides ${{price}} in monthly inference credits. Adjust the number of licensed seats for your team.",
+          "confirm": "Update Seats"
+        },
+        "billing": {
+          "title": "Workspace billing",
+          "description": "Assign workspaces to the organization or the owner.",
+          "organizationBillingRequired": "Organization billing is required to manage workspace billing.",
+          "organizationBilledTitle": "Billed to organization",
+          "organizationBilledEmpty": "No workspaces are billed to the organization.",
+          "availableOwnerBilledTitle": "Owner-billed workspaces",
+          "availableOwnerBilledEmpty": "No owner-billed workspaces are available.",
+          "returnToOwner": "Return to owner billing",
+          "billToOrganization": "Bill to organization",
+          "organization": "Organization",
+          "ownerBilling": "Owner billing",
+          "ownerLabel": "Owner:"
+        },
+        "members": {
+          "title": "Team members",
+          "empty": "No team members yet.",
+          "sharedUsage": "Shared usage: ${{amount}}",
+          "pending": "Pending",
+          "billing": "Billing",
+          "usage": "Usage",
+          "sharedPool": "Shared pool",
+          "unknown": "Unknown",
+          "removeMemberTooltip": "Remove member",
+          "cancelling": "Cancelling...",
+          "cancelInvitationTooltip": "Cancel invitation",
+          "leaveOrganization": "Leave organization"
+        },
+        "invitation": {
+          "title": "Invite team members",
+          "description": "Invite people to join your organization and choose workspace access.",
+          "emailPlaceholder": "name@example.com",
+          "hideWorkspaces": "Hide workspaces",
+          "addWorkspaces": "Add workspaces",
+          "invite": "Invite",
+          "noSeats": "No seats available",
+          "unavailable": "Invite unavailable",
+          "workspaceAccess": "Workspace access",
+          "optional": "Optional",
+          "selected": "{{count}} selected workspace{{plural}}",
+          "grantAccess": "Grant access to specific workspaces and choose a permission level.",
+          "noWorkspacesAvailable": "No workspaces available.",
+          "needAdminAccess": "You need admin access to assign workspaces.",
+          "owner": "Owner",
+          "sentSuccess": "Invitation sent.",
+          "sentSuccessWithAccess": "Invitation sent with access to {{count}} workspace{{plural}}.",
+          "invalidEmail": "Please enter a valid email address.",
+          "permissions": {
+            "read": {
+              "label": "Read",
+              "description": "Can view workspace content."
+            },
+            "write": {
+              "label": "Write",
+              "description": "Can edit workspace content."
+            },
+            "admin": {
+              "label": "Admin",
+              "description": "Can manage workspace settings."
+            }
+          }
+        }
+      },
+      "sso": {
+        "providerStatus": "Single Sign-On Provider",
+        "issuerUrl": "Issuer URL",
+        "providerId": "Provider ID",
+        "callbackUrl": "Callback URL",
+        "callbackUrlHelp": "Use this callback URL in your identity provider settings.",
+        "providerType": "Provider Type",
+        "providerTypeDescriptions": {
+          "oidc": "OpenID Connect (Okta, Azure AD, Auth0, etc.)",
+          "saml": "Security Assertion Markup Language (ADFS, Shibboleth, etc.)"
+        },
+        "selectProviderHelp": "Select a pre-configured provider ID from the trusted providers list.",
+        "issuerUrlHelp": "Use the issuer URL provided by your identity provider.",
+        "providerIdPlaceholder": "Select a provider ID",
+        "issuerUrlPlaceholder": "Enter Issuer URL",
+        "domain": "Domain",
+        "domainPlaceholder": "Enter Domain",
+        "clientId": "Client ID",
+        "clientIdPlaceholder": "Enter Client ID",
+        "clientSecret": "Client Secret",
+        "clientSecretPlaceholder": "Enter Client Secret",
+        "scopes": "Scopes",
+        "selectProviderId": "Select a provider ID",
+        "copyCallbackUrl": "Copy callback URL",
+        "showClientSecret": "Show client secret",
+        "hideClientSecret": "Hide client secret",
+        "scopesPlaceholder": "openid,profile,email",
+        "scopesDescription": "Comma-separated list of OIDC scopes to request.",
+        "entryPoint": "Entry Point URL",
+        "entryPointPlaceholder": "Enter Entry Point URL",
+        "entryPointDescription": "Provide the SAML entry point URL from your identity provider.",
+        "certificate": "Identity Provider Certificate",
+        "certificatePlaceholder": "-----BEGIN CERTIFICATE-----",
+        "certificateDescription": "Paste the certificate provided by your identity provider.",
+        "advancedOptions": "Advanced SAML Options",
+        "audience": "Audience (Entity ID)",
+        "audiencePlaceholder": "Enter Audience",
+        "audienceDescription": "The SAML audience restriction, optional and defaults to the app URL.",
+        "callbackUrlOverride": "Callback URL Override",
+        "callbackUrlPlaceholder": "Enter Callback URL",
+        "callbackUrlDescription": "Custom SAML callback URL, optional and auto-generated if empty.",
+        "requireSignedAssertions": "Require signed SAML assertions",
+        "metadataXml": "Identity Provider Metadata XML",
+        "metadataPlaceholder": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<md:EntityDescriptor xmlns:md=\"urn:oasis:names:tc:SAML:2.0:metadata\">\n  ...\n</md:EntityDescriptor>",
+        "metadataDescription": "Paste the complete IDP metadata XML from your identity provider for advanced configuration.",
+        "loadingProviders": "Loading providers...",
+        "noProviders": "No providers found.",
+        "save": "Save Changes",
+        "create": "Configure SSO Provider",
+        "configureProvider": "Configure SSO Provider",
+        "saving": "Saving...",
+        "configuring": "Configuring...",
+        "selectOrganization": "You must be part of an organization to configure Single Sign-On.",
+        "onlyAdmins": "Only organization owners and admins can configure Single Sign-On settings.",
+        "disabledTier": "Single Sign-On is not enabled for this billing tier.",
+        "providerLoadError": "Failed to load SSO provider configuration",
+        "providerError": "Failed to configure SSO provider",
+        "reloadError": "Failed to reload SSO providers",
+        "validation": {
+          "fieldRequired": "{{field}} is required.",
+          "providerIdRequired": "Provider ID is required.",
+          "providerIdPattern": "Use letters, numbers, and dashes only.",
+          "issuerUrlRequired": "Issuer URL is required.",
+          "issuerUrlHttps": "Issuer URL must use HTTPS.",
+          "issuerUrlValid": "Enter a valid issuer URL like https://your-identity-provider.com/oauth2/default",
+          "domainRequired": "Domain is required.",
+          "domainNoProtocol": "Do not include protocol (https://).",
+          "domainValid": "Enter a valid domain like your-domain.identityprovider.com",
+          "clientIdRequired": "Client ID is required.",
+          "clientSecretRequired": "Client Secret is required.",
+          "scopesRequired": "Scopes are required for OIDC providers",
+          "entryPointRequired": "Entry Point URL is required for SAML providers",
+          "certificateRequired": "Certificate is required.",
+          "providerLoadFailed": "Failed to load SSO providers",
+          "providerLoadFailedGeneric": "Failed to load SSO provider configuration"
+        }
+      }
+    },
+    "widgets": {
+      "selector": {
+        "categories": {
+          "list": "Lists",
+          "editor": "Editor",
+          "utility": "Utility"
+        },
+        "selectWidget": "Select widget",
+        "widgetSelectionUnavailable": "Widget selection unavailable"
+      },
+      "titles": {
+        "empty": "Empty Surface",
+        "data_chart": "Market Data",
+        "workflow_list": "Workflows",
+        "editor_workflow": "Workflow Editor",
+        "workflow_chat": "Workflow Chat",
+        "workflow_console": "Workflow Console",
+        "copilot": "Copilot",
+        "list_indicator": "Indicators",
+        "list_mcp": "MCP Servers",
+        "editor_indicator": "Indicator Editor",
+        "editor_mcp": "MCP Editor",
+        "list_custom_tool": "Custom Tools",
+        "editor_custom_tool": "Custom Tool Editor",
+        "list_skill": "Skills",
+        "editor_skill": "Skill Editor",
+        "workflow_variables": "Workflow Variables",
+        "watchlist": "Watchlist"
+      },
+      "empty": {
+        "noWidgetSelected": "No widget selected",
+        "emptyWidget": "Empty Widget",
+        "noWidgetDescription": "Pick a widget from the gallery to start using this panel.",
+        "emptyWidgetDescription": "This widget is currently empty, choose another widget to continue.",
+        "chooseWidget": "Choose Widget",
+        "surfaceTitle": "Empty Surface",
+        "surfaceDescription": "Placeholder state shown when the panel does not have a widget assigned."
+      },
+      "workflowDropdown": {
+        "selectWorkspaceFirst": "Select a workspace first.",
+        "unableToLoad": "Unable to load workflows",
+        "workflowSelectionUnavailable": "Workflow selection unavailable",
+        "selectWorkflow": "Select workflow",
+        "searchPlaceholder": "Search workflows...",
+        "failedToLoad": "Failed to load workflows",
+        "retry": "Retry",
+        "loading": "Loading workflows...",
+        "noWorkflowsAvailable": "No workflows available yet.",
+        "noWorkflowsFound": "No workflows found.",
+        "untitledWorkflow": "Untitled workflow"
+      },
+      "mcpDropdown": {
+        "selectWorkspaceFirst": "Select a workspace first.",
+        "unableToLoad": "Unable to load MCP servers",
+        "mcpSelectionUnavailable": "MCP selection unavailable",
+        "selectMcpServer": "Select MCP server",
+        "searchPlaceholder": "Search servers...",
+        "failedToLoad": "Failed to load MCP servers",
+        "retry": "Retry",
+        "loading": "Loading MCP servers...",
+        "noServersAvailable": "No MCP servers available yet.",
+        "noServersFound": "No servers found.",
+        "unnamedServer": "Unnamed server"
+      },
+      "console": {
+        "selectWorkspace": "Select a workspace to load workflows.",
+        "noWorkflows": "No workflows available in this workspace.",
+        "filters": "Filters",
+        "status": "Status",
+        "error": "Error",
+        "info": "Info",
+        "blocks": "Blocks",
+        "sortByTime": "Sort by time",
+        "structuredView": "Structured view",
+        "toggleStructuredView": "Toggle structured view",
+        "wrapText": "Wrap text",
+        "toggleWrapText": "Toggle wrap text",
+        "downloadConsoleCsv": "Download console CSV",
+        "downloadCsv": "Download CSV",
+        "clearConsole": "Clear console",
+        "noResults": "No results found for \"{{query}}\""
+      },
+      "mcpEditor": {
+        "selectWorkspaceToEdit": "Select a workspace to edit MCP servers.",
+        "selectServerToEdit": "Select an MCP server to edit.",
+        "saveDraftHint": "Save this draft to enable connection tests, tool refresh, and canonical reload.",
+        "failedToLoadMcpServers": "Failed to load MCP servers.",
+        "tools": "Tools",
+        "saveRequired": "Save required",
+        "noToolsDiscovered": "No tools discovered yet.",
+        "saveThisServerToRefreshAndInspectDiscoveredMcpTools": "Save this server to refresh and inspect discovered MCP tools.",
+        "refreshTools": "Refresh tools",
+        "testConnection": "Test connection",
+        "resetForm": "Reset form",
+        "saveServer": "Save server",
+        "clearSelection": "Clear selection",
+        "selectServer": "Select server",
+        "serverNameRequired": "Server name is required.",
+        "failedToRefreshMcpServer": "Failed to refresh MCP server.",
+        "failedToSaveMcpServer": "Failed to save MCP server.",
+        "toolCount": "{{count}} total",
+        "loading": "Loading...",
+        "connected": "Connected",
+        "error": "Error",
+        "draft": "Draft",
+        "disconnected": "Disconnected",
+        "unnamedServer": "Unnamed server",
+        "updated": "Updated {{time}}",
+        "toolsRefreshed": "Tools refreshed {{time}}",
+        "lastConnected": "Last connected {{time}}",
+        "lastError": "Last error"
+      },
+      "triggerList": {
+        "coreTriggers": "Core Triggers",
+        "integrationTriggers": "Integration Triggers",
+        "searchPlaceholder": "Search triggers",
+        "openTriggerList": "Click to Add Trigger",
+        "close": "Close",
+        "noResults": "No results found for \"{{query}}\""
+      },
+      "workflowToolbar": {
+        "selectWorkspace": "Select a workspace to browse blocks",
+        "blocks": "Blocks",
+        "tools": "Tools",
+        "triggers": "Triggers",
+        "special": "Special",
+        "browseLabel": "Browse {{label}}",
+        "searchPlaceholder": "Search {{label}}...",
+        "noResults": "No {{label}} found."
+      },
+      "workflowLabels": {
+        "systemPrompt": "System Prompt",
+        "userPrompt": "User Prompt",
+        "model": "Model",
+        "temperature": "Temperature",
+        "apiKey": "API Key",
+        "skills": "Skills",
+        "tools": "Tools",
+        "responseFormat": "Response Format",
+        "reasoningEffort": "Reasoning Effort",
+        "verbosity": "Verbosity",
+        "configured": "Configured",
+        "value": "Value",
+        "items": "Items",
+        "fields": "Fields",
+        "object": "Object",
+        "block": "Block",
+        "type": "Type",
+        "none": "None",
+        "noValuesToDisplay": "No values to display.",
+        "error": "Error",
+        "if": "if",
+        "else": "else",
+        "elseIf": "else if",
+        "addSkill": "Add Skill",
+        "searchSkills": "Search skills...",
+        "chooseModel": "Choose model",
+        "lite": "Lite",
+        "anthropic": "Anthropic",
+        "openai": "OpenAI",
+        "nextStep": "Next Step",
+        "locked": "Locked",
+        "deployed": "Deployed",
+        "deployedWithVersion": "Deployed (v{{version}})",
+        "notDeployed": "Not Deployed",
+        "disabled": "Disabled",
+        "removeSkill": "Remove {{name}}",
+        "currentWorkflow": "Current Workflow",
+        "currentSkill": "Current Skill",
+        "currentTool": "Current Tool",
+        "currentIndicator": "Current Indicator",
+        "currentMcpServer": "Current MCP Server",
+        "workflows": "Workflows",
+        "customTools": "Custom Tools",
+        "indicators": "Indicators",
+        "mcpServers": "MCP Servers",
+        "allWorkflows": "All workflows"
+      },
+      "workflowEditor": {
+        "previewInspector": "Preview Inspector",
+        "selectBlockToViewPreviewDetails": "Select a block to view its preview details.",
+        "nodeNotFound": "Node not found",
+        "selectedNodeUnavailable": "The selected node is no longer available.",
+        "missingBlockConfiguration": "Missing block configuration for `{{type}}`.",
+        "saveName": "Save name",
+        "renameNode": "Rename node",
+        "loopTypeLabel": "Loop Type",
+        "parallelTypeLabel": "Parallel Type",
+        "selectType": "Select type",
+        "forLoop": "For Loop",
+        "forEachLoop": "For Each",
+        "whileLoop": "While Loop",
+        "doWhileLoop": "Do While Loop",
+        "parallelCount": "Parallel Count",
+        "parallelEach": "Parallel Each",
+        "loopIterations": "Loop Iterations",
+        "parallelExecutions": "Parallel Executions",
+        "whileCondition": "While Condition",
+        "collectionItems": "Collection Items",
+        "parallelItems": "Parallel Items",
+        "enterValueBetween": "Enter a value between 1 and {{max}}",
+        "hideAdditionalFields": "Hide additional fields",
+        "showAdditionalFields": "Show additional fields",
+        "additionalFields": "Additional fields",
+        "triggerNoEditableFields": "This trigger has no editable fields in the panel.",
+        "blockNoEditableFields": "No editable fields for this block.",
+        "requiredField": "This field is required",
+        "invalidJson": "Invalid JSON",
+        "unknownInputType": "Unknown input type: {{type}}",
+        "loop": "Loop",
+        "parallel": "Parallel",
+        "start": "Start",
+        "end": "End"
+      },
+      "apiKey": {
+        "apiKey": "API Key",
+        "apiKeyType": "API Key Type",
+        "apiKeyName": "API Key Name",
+        "personal": "Personal",
+        "workspace": "Workspace",
+        "selectApiKey": "Select API Key",
+        "myApiKey": "My API Key",
+        "ownerIsBilledForUsage": "Owner is billed for usage",
+        "keyOwnerIsBilled": "Key owner is billed",
+        "createNew": "Create new",
+        "loadingApiKeys": "Loading API keys...",
+        "selectAnApiKey": "Select an API key",
+        "noApiKeysAvailable": "No API keys available",
+        "createNewApiKey": "Create new API key",
+        "workspaceAccess": "This key will have access to all workflows in this workspace. Make sure to copy it after creation as you won't be able to see it again.",
+        "personalAccess": "This key will have access to your personal workflows. Make sure to copy it after creation as you won't be able to see it again.",
+        "apiKeyHasBeenCreated": "Your API key has been created",
+        "onlyTimeYouWillSeeYourApiKey": "This is the only time you will see your API key.",
+        "copyItNowAndStoreItSecurely": "Copy it now and store it securely.",
+        "copyToClipboard": "Copy to clipboard",
+        "enterName": "Please enter a name for the API key",
+        "failedToCreate": "Failed to create API key",
+        "create": "Create",
+        "creating": "Creating...",
+        "cancel": "Cancel",
+        "workspaceLabel": "Workspace",
+        "personalLabel": "Personal"
+      },
+      "entityEditor": {
+        "undo": "Undo",
+        "redo": "Redo"
+      },
+      "pairColor": {
+        "selectionUnavailable": "Color selection unavailable",
+        "selectWidgetColor": "Select widget color",
+        "unlinked": "Unlinked",
+        "red": "Red",
+        "orange": "Orange",
+        "blue": "Blue",
+        "green": "Green",
+        "purple": "Purple"
+      },
+      "deployment": {
+        "adminPermissionsRequiredToDeployWorkflows": "Admin permissions required to deploy workflows",
+        "deploying": "Deploying...",
+        "workflowChangesDetected": "Workflow changes detected",
+        "deploymentSettings": "Deployment Settings",
+        "deployWorkflow": "Deploy Workflow",
+        "deployApi": "Deploy API",
+        "needsRedeployment": "Needs Redeployment",
+        "deployWorkflowTitle": "Deploy Workflow",
+        "active": "active",
+        "close": "Close",
+        "deploymentError": "Deployment Error",
+        "expandSidebar": "Expand sidebar",
+        "collapseSidebar": "Collapse sidebar",
+        "selectSharedDeploymentApiKeyInBillingBeforeDeployingThisApiTrigger": "Select a shared deployment API key in Billing before deploying this API trigger.",
+        "thisApiTriggerUsesTheSharedDeploymentApiKey": "This API trigger uses the shared deployment API key {displayKey}.",
+        "thisApiTriggerUsesTheSharedDeploymentApiKeySelectedInBilling": "This API trigger uses the shared deployment API key selected in Billing.",
+        "thisApiTriggerWillUseTheSharedDeploymentApiKeyCurrentlySelectedInBilling": "This API trigger will use the shared deployment API key currently selected in Billing."
+      },
+      "workflowCreateMenu": {
+        "createButtonTooltip": "Create folder or workflow",
+        "selectWorkspaceTooltip": "Select a workspace to create workflows",
+        "createWorkflow": "New workflow",
+        "createFolder": "New folder",
+        "importWorkflow": "Import workflow",
+        "creating": "Creating...",
+        "importing": "Importing..."
+      }
+    },
+    "layoutTabs": {
+      "createNewLayout": "Create new layout"
+    }
+  }
+}
