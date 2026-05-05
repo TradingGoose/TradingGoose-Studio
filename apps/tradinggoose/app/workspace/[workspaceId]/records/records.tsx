@@ -7,6 +7,7 @@ import { useParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { LOGS_QUERY_POLICY } from '@/lib/logs/query-policy'
 import type { FolderData, WorkflowData } from '@/lib/logs/search-suggestions'
@@ -52,6 +53,11 @@ import { useFilterStore } from '@/stores/logs/filters/store'
 import type { WorkflowLog } from '@/stores/logs/filters/types'
 
 const PAGE_SIZE = 50
+const RECORD_TAB_LABELS = {
+  orders: 'Orders',
+  logs: 'Logs',
+  stats: 'Stats',
+} satisfies Record<RecordsTab, string>
 
 const selectedRowAnimation = `
   @keyframes borderPulse {
@@ -579,24 +585,6 @@ export default function Records() {
     workspaceId,
   ])
 
-  const tabButton = (tab: RecordsTab, label: string) => (
-    <Button
-      key={tab}
-      variant='ghost'
-      size='sm'
-      onClick={() => setActiveTab(tab)}
-      className={cn(
-        'h-7 rounded-sm px-3 font-normal text-xs',
-        activeTab === tab
-          ? 'bg-background text-foreground'
-          : 'text-muted-foreground hover:text-foreground'
-      )}
-      aria-pressed={activeTab === tab}
-    >
-      {label}
-    </Button>
-  )
-
   const header = (
     <LogsToolbar
       left={
@@ -645,11 +633,15 @@ export default function Records() {
         </div>
       }
       center={
-        <div className='inline-flex h-9 items-center gap-1 rounded-md border bg-muted p-1 shadow-sm'>
-          {tabButton('orders', 'Orders')}
-          {tabButton('logs', 'Logs')}
-          {tabButton('stats', 'Stats')}
-        </div>
+        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as RecordsTab)}>
+          <TabsList aria-label='Records view' className='h-9 shrink-0 border shadow-sm'>
+            {(Object.keys(RECORD_TAB_LABELS) as RecordsTab[]).map((tab) => (
+              <TabsTrigger key={tab} value={tab} className='h-7 px-3 py-0 text-xs'>
+                {RECORD_TAB_LABELS[tab]}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
       }
       right={
         <div className='flex items-center gap-2'>
