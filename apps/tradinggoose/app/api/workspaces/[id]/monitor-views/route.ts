@@ -4,6 +4,7 @@ import { monitorView } from '@tradinggoose/db/schema'
 import { and, eq, inArray } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
+import { checkWorkspacePermission } from '@/app/api/indicators/utils'
 import {
   type CreateMonitorViewBody,
   InvalidMonitorViewConfigRequestError,
@@ -56,6 +57,13 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
   const { id: workspaceId } = await params
 
   try {
+    const permission = await checkWorkspacePermission({
+      userId,
+      workspaceId,
+      responseShape: 'errorOnly',
+    })
+    if (!permission.ok) return permission.response
+
     const rows = await listStrictMonitorViewRows(workspaceId, userId)
     return NextResponse.json({ data: rows })
   } catch (error) {
@@ -71,6 +79,16 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (!userId) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
+
+  const { id: workspaceId } = await params
+
+  const permission = await checkWorkspacePermission({
+    userId,
+    workspaceId,
+    requireWrite: true,
+    responseShape: 'errorOnly',
+  })
+  if (!permission.ok) return permission.response
 
   const body = (await request.json().catch(() => null)) as CreateMonitorViewBody | null
   if (!body || typeof body !== 'object') {
@@ -91,8 +109,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     }
     throw error
   }
-
-  const { id: workspaceId } = await params
 
   try {
     const existingRows = await listStrictMonitorViewRows(workspaceId, userId)
@@ -144,6 +160,16 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
+  const { id: workspaceId } = await params
+
+  const permission = await checkWorkspacePermission({
+    userId,
+    workspaceId,
+    requireWrite: true,
+    responseShape: 'errorOnly',
+  })
+  if (!permission.ok) return permission.response
+
   const body = await request.json().catch(() => null)
   if (!body || typeof body !== 'object') {
     return NextResponse.json({ error: 'Invalid payload' }, { status: 400 })
@@ -175,8 +201,6 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   if (!viewOrder && !activeViewId) {
     return NextResponse.json({ error: 'No updates provided' }, { status: 400 })
   }
-
-  const { id: workspaceId } = await params
 
   try {
     const rows = await listStrictMonitorViewRows(workspaceId, userId)

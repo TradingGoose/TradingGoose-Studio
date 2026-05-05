@@ -2,7 +2,7 @@
  * @vitest-environment node
  */
 
-import { NextRequest } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   DEFAULT_CONFIG_MONITOR_VIEW_CONFIG,
@@ -10,6 +10,7 @@ import {
 } from '@/app/workspace/[workspaceId]/monitor/components/view/view-config'
 
 const {
+  mockCheckWorkspacePermission,
   mockGetSession,
   mockOrderBy,
   mockTxWhere,
@@ -20,6 +21,7 @@ const {
   mockTxInsert,
   mockTransaction,
 } = vi.hoisted(() => ({
+  mockCheckWorkspacePermission: vi.fn(),
   mockGetSession: vi.fn(),
   mockOrderBy: vi.fn(),
   mockTxWhere: vi.fn(),
@@ -75,10 +77,15 @@ vi.mock('@/lib/auth', () => ({
   getSession: (...args: unknown[]) => mockGetSession(...args),
 }))
 
+vi.mock('@/app/api/indicators/utils', () => ({
+  checkWorkspacePermission: (...args: unknown[]) => mockCheckWorkspacePermission(...args),
+}))
+
 describe('monitor view collection route', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockGetSession.mockResolvedValue({ user: { id: 'user-1' } })
+    mockCheckWorkspacePermission.mockResolvedValue({ ok: true, permission: 'write' })
     mockOrderBy.mockResolvedValue([
       {
         id: 'view-1',
@@ -165,6 +172,50 @@ describe('monitor view collection route', () => {
       }
     )
   }
+
+  it.each([
+    {
+      method: 'GET',
+      callRoute: () => getCollectionRoute(),
+      requireWrite: undefined,
+    },
+    {
+      method: 'POST',
+      callRoute: () =>
+        postCollectionRoute({
+          name: 'Created View',
+          config: DEFAULT_EXECUTION_MONITOR_VIEW_CONFIG,
+        }),
+      requireWrite: true,
+    },
+    {
+      method: 'PATCH',
+      callRoute: () => patchCollectionRoute({ activeViewId: 'view-2' }),
+      requireWrite: true,
+    },
+  ])(
+    'rejects $method without workspace permission before row access',
+    async ({ callRoute, requireWrite }) => {
+      mockCheckWorkspacePermission.mockResolvedValueOnce({
+        ok: false,
+        code: 'access_denied',
+        response: NextResponse.json({ error: 'Access denied' }, { status: 403 }),
+      })
+
+      const response = await callRoute()
+
+      expect(response.status).toBe(403)
+      expect(await response.json()).toEqual({ error: 'Access denied' })
+      expect(mockCheckWorkspacePermission).toHaveBeenCalledWith({
+        userId: 'user-1',
+        workspaceId: 'workspace-1',
+        responseShape: 'errorOnly',
+        ...(requireWrite ? { requireWrite } : {}),
+      })
+      expect(mockOrderBy).not.toHaveBeenCalled()
+      expect(mockTransaction).not.toHaveBeenCalled()
+    }
+  )
 
   it('rejects reordered view ids that omit existing rows', async () => {
     const response = await patchCollectionRoute({
