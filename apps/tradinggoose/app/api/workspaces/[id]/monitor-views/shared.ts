@@ -73,7 +73,10 @@ export const clearActiveForMode = async (
   const ids = rows.filter((row) => row.mode === mode).map((row) => row.id)
   if (ids.length === 0) return
 
-  await tx.update(monitorView).set({ isActive: false }).where(inArray(monitorView.id, ids))
+  await tx
+    .update(monitorView)
+    .set({ isActive: false, updatedAt: new Date() })
+    .where(inArray(monitorView.id, ids))
 }
 
 export const groupRowsByMode = (rows: MonitorViewRow[]) =>

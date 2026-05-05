@@ -29,6 +29,8 @@ const getUserId = async () => {
   return session?.user?.id ?? null
 }
 
+const maxMonitorViewsPerMode = 50
+
 const sameStringSet = (left: string[], right: string[]) => {
   if (left.length !== right.length) return false
   const leftSet = new Set(left)
@@ -103,6 +105,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   try {
     const existingRows = await listStrictMonitorViewRows(workspaceId, userId)
     const sameModeRows = getRowsForMode(existingRows, normalizedConfig.mode)
+    if (sameModeRows.length >= maxMonitorViewsPerMode) {
+      return NextResponse.json(
+        { error: `Cannot create more than ${maxMonitorViewsPerMode} views for this mode` },
+        { status: 400 }
+      )
+    }
     const highestSortOrder = existingRows.reduce(
       (max, row) => Math.max(max, row.sortOrder ?? -1),
       -1

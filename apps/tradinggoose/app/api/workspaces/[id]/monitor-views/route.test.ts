@@ -348,6 +348,9 @@ describe('monitor view collection route', () => {
 
     expect(response.status).toBe(200)
     expect(await response.json()).toEqual({ success: true })
+    expect(mockTxSet.mock.calls[0]?.[0]).toEqual(
+      expect.objectContaining({ isActive: false, updatedAt: expect.any(Date) })
+    )
     expect(mockTxWhere.mock.calls[0]?.[0]).toMatchObject({
       type: 'inArray',
       values: ['view-1', 'view-2'],
@@ -499,6 +502,31 @@ describe('monitor view collection route', () => {
       })
     )
     expect(payload.mode).toBe(payload.config.mode)
+  })
+
+  it('rejects creating more than 50 views for one mode', async () => {
+    mockOrderBy.mockResolvedValue(
+      Array.from({ length: 50 }, (_, index) => ({
+        id: `view-${index}`,
+        name: `View ${index}`,
+        sort_order: index,
+        isActive: index === 0,
+        config: DEFAULT_EXECUTION_MONITOR_VIEW_CONFIG,
+        createdAt: new Date('2026-04-23T00:00:00.000Z'),
+        updatedAt: new Date('2026-04-23T00:00:00.000Z'),
+      }))
+    )
+
+    const response = await postCollectionRoute({
+      name: 'Created View',
+      config: DEFAULT_EXECUTION_MONITOR_VIEW_CONFIG,
+    })
+
+    expect(response.status).toBe(400)
+    expect(await response.json()).toEqual({
+      error: 'Cannot create more than 50 views for this mode',
+    })
+    expect(mockTransaction).not.toHaveBeenCalled()
   })
 
   it('defaults the first created view for a mode to active when makeActive is omitted', async () => {
