@@ -42,6 +42,17 @@ export const toStrictMonitorViewRow = (row: typeof monitorView.$inferSelect): Mo
   }
 }
 
+export const tryStrictMonitorViewRow = (row: typeof monitorView.$inferSelect) => {
+  try {
+    return toStrictMonitorViewRow(row)
+  } catch (error) {
+    if (error instanceof UnsupportedMonitorViewConfigError) {
+      return null
+    }
+    throw error
+  }
+}
+
 export const listMonitorViewRows = async (workspaceId: string, userId: string) =>
   db
     .select()

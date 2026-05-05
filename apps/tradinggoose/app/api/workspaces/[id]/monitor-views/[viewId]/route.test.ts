@@ -299,6 +299,94 @@ describe('monitor view item route', () => {
     expect(mockUpdateSet).not.toHaveBeenCalled()
   })
 
+  it('deletes an unsupported target row to recover the view list', async () => {
+    mockSelectOrderBy.mockResolvedValue([
+      {
+        id: 'view-1',
+        name: 'Executions',
+        isActive: true,
+        sort_order: 0,
+        config: DEFAULT_EXECUTION_MONITOR_VIEW_CONFIG,
+        createdAt: new Date('2026-04-23T00:00:00.000Z'),
+        updatedAt: new Date('2026-04-23T00:00:00.000Z'),
+      },
+      {
+        id: 'view-legacy',
+        name: 'Legacy',
+        isActive: false,
+        sort_order: 1,
+        config: {},
+        createdAt: new Date('2026-04-23T00:00:00.000Z'),
+        updatedAt: new Date('2026-04-23T00:00:00.000Z'),
+      },
+    ])
+
+    const { DELETE } = await import('./route')
+    const response = await DELETE(
+      new NextRequest('http://localhost/api/workspaces/workspace-1/monitor-views/view-legacy', {
+        method: 'DELETE',
+      }),
+      {
+        params: Promise.resolve({ id: 'workspace-1', viewId: 'view-legacy' }),
+      }
+    )
+
+    expect(response.status).toBe(200)
+    expect(await response.json()).toEqual({ success: true })
+    expect(mockTransaction).toHaveBeenCalledOnce()
+    expect(mockDelete).toHaveBeenCalled()
+    expect(mockUpdateSet).not.toHaveBeenCalled()
+  })
+
+  it('keeps valid target deletion blocked when another row is unsupported', async () => {
+    mockSelectOrderBy.mockResolvedValue([
+      {
+        id: 'view-1',
+        name: 'Executions',
+        isActive: true,
+        sort_order: 0,
+        config: DEFAULT_EXECUTION_MONITOR_VIEW_CONFIG,
+        createdAt: new Date('2026-04-23T00:00:00.000Z'),
+        updatedAt: new Date('2026-04-23T00:00:00.000Z'),
+      },
+      {
+        id: 'view-2',
+        name: 'Executions 2',
+        isActive: false,
+        sort_order: 1,
+        config: DEFAULT_EXECUTION_MONITOR_VIEW_CONFIG,
+        createdAt: new Date('2026-04-23T00:00:00.000Z'),
+        updatedAt: new Date('2026-04-23T00:00:00.000Z'),
+      },
+      {
+        id: 'view-legacy',
+        name: 'Legacy',
+        isActive: false,
+        sort_order: 2,
+        config: {},
+        createdAt: new Date('2026-04-23T00:00:00.000Z'),
+        updatedAt: new Date('2026-04-23T00:00:00.000Z'),
+      },
+    ])
+
+    const { DELETE } = await import('./route')
+    const response = await DELETE(
+      new NextRequest('http://localhost/api/workspaces/workspace-1/monitor-views/view-1', {
+        method: 'DELETE',
+      }),
+      {
+        params: Promise.resolve({ id: 'workspace-1', viewId: 'view-1' }),
+      }
+    )
+
+    expect(response.status).toBe(409)
+    expect(await response.json()).toEqual({
+      error:
+        'Unsupported monitor view data. Delete or reset stale mode-less monitor_view rows for this workspace before using the mode-aware monitor page.',
+    })
+    expect(mockTransaction).not.toHaveBeenCalled()
+  })
+
   it('rejects deleting the last remaining view', async () => {
     const { DELETE } = await import('./route')
     const response = await DELETE(

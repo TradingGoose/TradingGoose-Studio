@@ -6,7 +6,9 @@ import { getSession } from '@/lib/auth'
 import { checkWorkspacePermission } from '@/app/api/indicators/utils'
 import {
   InvalidMonitorViewConfigRequestError,
+  type MonitorViewRow,
   parseMonitorSavedViewConfig,
+  UnsupportedMonitorViewConfigError,
   type UpdateMonitorViewBody,
 } from '@/app/workspace/[workspaceId]/monitor/components/view/view-config'
 import {
@@ -14,8 +16,10 @@ import {
   compactRowsForPersistence,
   findStrictRowById,
   getRowsForMode,
+  listMonitorViewRows,
   listStrictMonitorViewRows,
   monitorViewErrorResponse,
+  tryStrictMonitorViewRow,
 } from '../shared'
 
 const getUserId = async () => {
@@ -132,14 +136,38 @@ export async function DELETE(
   if (!permission.ok) return permission.response
 
   try {
-    const rows = await listStrictMonitorViewRows(workspaceId, userId)
-    const index = rows.findIndex((row) => row.id === viewId)
+    const rawRows = await listMonitorViewRows(workspaceId, userId)
+    const rawRow = rawRows.find((row) => row.id === viewId)
 
-    if (index === -1) {
+    if (!rawRow) {
       return NextResponse.json({ error: 'View not found' }, { status: 404 })
     }
 
-    const row = rows[index]!
+    const strictRows = rawRows.map(tryStrictMonitorViewRow)
+    const row = strictRows.find((entry) => entry?.id === viewId) ?? null
+
+    if (!row) {
+      await db.transaction(async (tx) => {
+        await tx
+          .delete(monitorView)
+          .where(
+            and(
+              eq(monitorView.id, viewId),
+              eq(monitorView.workspaceId, workspaceId),
+              eq(monitorView.userId, userId)
+            )
+          )
+      })
+
+      return NextResponse.json({ success: true })
+    }
+
+    if (strictRows.some((entry) => !entry)) {
+      const response = monitorViewErrorResponse(new UnsupportedMonitorViewConfigError())
+      if (response) return response
+    }
+
+    const rows = strictRows.filter((entry): entry is MonitorViewRow => Boolean(entry))
     const rowMode = row.mode ?? row.config.mode
     const sameModeRows = getRowsForMode(rows, rowMode)
     if (sameModeRows.length === 1) {
