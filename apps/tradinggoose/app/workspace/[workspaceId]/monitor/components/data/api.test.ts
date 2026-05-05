@@ -12,6 +12,7 @@ import {
   isUnsupportedMonitorViewDataError,
   listMonitorViews,
   loadIndicatorOptions,
+  loadWorkflowTargetOptions,
   MonitorViewRequestError,
   removeMonitorView,
   reorderMonitorViews,
@@ -89,6 +90,69 @@ describe('monitor data api', () => {
       source: 'custom',
       color: '#3972F6',
     })
+  })
+
+  it('loads workflow targets from the workflow list response without deployed fan-out', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce({
+      ok: true,
+      json: vi.fn().mockResolvedValue({
+        data: [
+          {
+            id: 'workflow-1',
+            name: 'Momentum',
+            color: '#111111',
+            deployedState: {
+              blocks: {
+                'trigger-2': {
+                  id: 'trigger-2',
+                  type: 'indicator_trigger',
+                  name: 'RSI Trigger',
+                },
+                'trigger-1': {
+                  id: 'trigger-1',
+                  type: 'indicator_trigger',
+                  name: 'EMA Trigger',
+                },
+                'block-1': {
+                  id: 'block-1',
+                  type: 'agent',
+                  name: 'Agent',
+                },
+              },
+            },
+          },
+          {
+            id: 'workflow-2',
+            name: 'No Targets',
+            color: '#222222',
+            deployedState: { blocks: {} },
+          },
+        ],
+      }),
+    } as unknown as Response)
+
+    await expect(loadWorkflowTargetOptions('workspace 1')).resolves.toEqual([
+      {
+        workflowId: 'workflow-1',
+        blockId: 'trigger-1',
+        workflowName: 'Momentum',
+        workflowColor: '#111111',
+        isDeployed: true,
+        blockName: 'EMA Trigger',
+        label: 'Momentum - EMA Trigger',
+      },
+      {
+        workflowId: 'workflow-1',
+        blockId: 'trigger-2',
+        workflowName: 'Momentum',
+        workflowColor: '#111111',
+        isDeployed: true,
+        blockName: 'RSI Trigger',
+        label: 'Momentum - RSI Trigger',
+      },
+    ])
+    expect(fetch).toHaveBeenCalledOnce()
+    expect(fetch).toHaveBeenCalledWith('/api/workflows?workspaceId=workspace%201')
   })
 
   it('returns the strict monitor-view row from update responses', async () => {

@@ -128,15 +128,12 @@ export async function loadWorkflowTargetOptions(
   const workflows = Array.isArray(workflowsPayload?.data) ? workflowsPayload.data : []
   if (workflows.length === 0) return []
 
-  const details = await Promise.all(
-    workflows.map(async (workflowRow: any) => {
+  return workflows
+    .flatMap((workflowRow: any): WorkflowTargetOption[] => {
       const id = toTrimmed(workflowRow?.id)
       if (!id) return []
 
-      const detailResponse = await fetch(`/api/workflows/${encodeURIComponent(id)}/deployed`)
-      if (!detailResponse.ok) return []
-      const detailPayload = await detailResponse.json().catch(() => ({}))
-      const blocks = detailPayload?.deployedState?.blocks
+      const blocks = workflowRow?.deployedState?.blocks
       if (!blocks || typeof blocks !== 'object') return []
 
       return Object.entries(blocks)
@@ -158,9 +155,7 @@ export async function loadWorkflowTargetOptions(
         })
         .filter(Boolean) as WorkflowTargetOption[]
     })
-  )
-
-  return details.flat().sort((a, b) => a.label.localeCompare(b.label))
+    .sort((a: WorkflowTargetOption, b: WorkflowTargetOption) => a.label.localeCompare(b.label))
 }
 
 export async function loadWorkflowOptions(workspaceId: string): Promise<WorkflowPickerOption[]> {
