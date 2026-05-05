@@ -6,7 +6,11 @@ import { z } from 'zod'
 import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId, normalizeOptionalString } from '@/lib/utils'
-import { parseListingFilter } from '@/app/api/logs/log-utils'
+import {
+  buildPublicLogExecutionData,
+  parseListingFilter,
+  toLogExecutionDataRecord,
+} from '@/app/api/logs/log-utils'
 
 const logger = createLogger('LogsAPI')
 
@@ -384,9 +388,7 @@ export async function GET(request: NextRequest) {
       const enhancedLogs = logs.map((log) => {
         const blockExecutions = blockExecutionsByExecution[log.executionId] || []
         const storedExecutionData =
-          params.details === 'full' && log.executionData && typeof log.executionData === 'object'
-            ? (log.executionData as Record<string, unknown>)
-            : null
+          params.details === 'full' ? toLogExecutionDataRecord(log.executionData) : null
 
         // Only process trace spans and detailed cost in full mode
         let traceSpans = []
@@ -437,14 +439,13 @@ export async function GET(request: NextRequest) {
           files: params.details === 'full' ? log.files || undefined : undefined,
           workflow: workflowSummary,
           executionData: storedExecutionData
-            ? {
-                ...storedExecutionData,
+            ? buildPublicLogExecutionData({
+                storedExecutionData,
                 totalDuration: log.totalDurationMs,
                 traceSpans,
                 blockExecutions,
                 finalOutput,
-                enhanced: true,
-              }
+              })
             : undefined,
           cost:
             params.details === 'full'
