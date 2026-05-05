@@ -2,7 +2,7 @@
  * @vitest-environment node
  */
 
-import { NextRequest } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   DEFAULT_CONFIG_MONITOR_VIEW_CONFIG,
@@ -10,6 +10,7 @@ import {
 } from '@/app/workspace/[workspaceId]/monitor/components/view/view-config'
 
 const {
+  mockCheckWorkspacePermission,
   mockGetSession,
   mockSelectLimit,
   mockSelectOrderBy,
@@ -18,6 +19,7 @@ const {
   mockDelete,
   mockTransaction,
 } = vi.hoisted(() => ({
+  mockCheckWorkspacePermission: vi.fn(),
   mockGetSession: vi.fn(),
   mockSelectLimit: vi.fn(),
   mockSelectOrderBy: vi.fn(),
@@ -81,10 +83,15 @@ vi.mock('@/lib/auth', () => ({
   getSession: (...args: unknown[]) => mockGetSession(...args),
 }))
 
+vi.mock('@/app/api/indicators/utils', () => ({
+  checkWorkspacePermission: (...args: unknown[]) => mockCheckWorkspacePermission(...args),
+}))
+
 describe('monitor view item route', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockGetSession.mockResolvedValue({ user: { id: 'user-1' } })
+    mockCheckWorkspacePermission.mockResolvedValue({ ok: true, permission: 'write' })
     mockSelectLimit.mockResolvedValue([{ id: 'view-1' }])
     mockSelectOrderBy.mockResolvedValue([
       {
@@ -109,6 +116,60 @@ describe('monitor view item route', () => {
       })
     )
   })
+
+  it.each([
+    {
+      method: 'PATCH',
+      callRoute: async () => {
+        const { PATCH } = await import('./route')
+        return PATCH(
+          new NextRequest('http://localhost/api/workspaces/workspace-1/monitor-views/view-1', {
+            method: 'PATCH',
+            body: JSON.stringify({ name: 'Renamed' }),
+          }),
+          {
+            params: Promise.resolve({ id: 'workspace-1', viewId: 'view-1' }),
+          }
+        )
+      },
+    },
+    {
+      method: 'DELETE',
+      callRoute: async () => {
+        const { DELETE } = await import('./route')
+        return DELETE(
+          new NextRequest('http://localhost/api/workspaces/workspace-1/monitor-views/view-1', {
+            method: 'DELETE',
+          }),
+          {
+            params: Promise.resolve({ id: 'workspace-1', viewId: 'view-1' }),
+          }
+        )
+      },
+    },
+  ])(
+    'rejects $method without workspace write permission before row access',
+    async ({ callRoute }) => {
+      mockCheckWorkspacePermission.mockResolvedValueOnce({
+        ok: false,
+        code: 'access_denied',
+        response: NextResponse.json({ error: 'Access denied' }, { status: 403 }),
+      })
+
+      const response = await callRoute()
+
+      expect(response.status).toBe(403)
+      expect(await response.json()).toEqual({ error: 'Access denied' })
+      expect(mockCheckWorkspacePermission).toHaveBeenCalledWith({
+        userId: 'user-1',
+        workspaceId: 'workspace-1',
+        requireWrite: true,
+        responseShape: 'errorOnly',
+      })
+      expect(mockSelectOrderBy).not.toHaveBeenCalled()
+      expect(mockTransaction).not.toHaveBeenCalled()
+    }
+  )
 
   it('persists a valid saved execution-workspace config on update', async () => {
     const { PATCH } = await import('./route')

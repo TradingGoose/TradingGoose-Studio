@@ -3,6 +3,7 @@ import { monitorView } from '@tradinggoose/db/schema'
 import { and, eq, inArray } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
+import { checkWorkspacePermission } from '@/app/api/indicators/utils'
 import {
   InvalidMonitorViewConfigRequestError,
   type MonitorPageMode,
@@ -44,6 +45,16 @@ export async function PATCH(
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
+  const { id: workspaceId, viewId } = await params
+
+  const permission = await checkWorkspacePermission({
+    userId,
+    workspaceId,
+    requireWrite: true,
+    responseShape: 'errorOnly',
+  })
+  if (!permission.ok) return permission.response
+
   const body = (await request.json().catch(() => null)) as UpdateMonitorViewBody | null
   if (!body || typeof body !== 'object') {
     return NextResponse.json({ error: 'Invalid payload' }, { status: 400 })
@@ -52,8 +63,6 @@ export async function PATCH(
   if (typeof body.name === 'undefined' && typeof body.config === 'undefined') {
     return NextResponse.json({ error: 'No updates provided' }, { status: 400 })
   }
-
-  const { id: workspaceId, viewId } = await params
 
   try {
     const rows = await listStrictMonitorViewRows(workspaceId, userId)
@@ -125,6 +134,14 @@ export async function DELETE(
   }
 
   const { id: workspaceId, viewId } = await params
+
+  const permission = await checkWorkspacePermission({
+    userId,
+    workspaceId,
+    requireWrite: true,
+    responseShape: 'errorOnly',
+  })
+  if (!permission.ok) return permission.response
 
   try {
     const rows = await listStrictMonitorViewRows(workspaceId, userId)
