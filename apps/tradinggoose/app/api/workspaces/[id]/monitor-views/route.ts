@@ -1,7 +1,7 @@
 import { randomUUID } from 'crypto'
 import { db } from '@tradinggoose/db'
 import { monitorView } from '@tradinggoose/db/schema'
-import { and, eq, inArray } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
 import { checkWorkspacePermission } from '@/app/api/indicators/utils'
@@ -14,6 +14,7 @@ import {
   parseMonitorSavedViewConfig,
 } from '@/app/workspace/[workspaceId]/monitor/components/view/view-config'
 import {
+  clearActiveForMode,
   findStrictRowById,
   getRowsForMode,
   isMonitorPageMode,
@@ -34,17 +35,6 @@ const sameStringSet = (left: string[], right: string[]) => {
   const rightSet = new Set(right)
   if (leftSet.size !== left.length || rightSet.size !== right.length) return false
   return left.every((entry) => rightSet.has(entry))
-}
-
-const clearActiveForMode = async (
-  tx: Pick<typeof db, 'update'>,
-  rows: MonitorViewRow[],
-  mode: MonitorPageMode
-) => {
-  const ids = rows.filter((row) => row.mode === mode).map((row) => row.id)
-  if (ids.length === 0) return
-
-  await tx.update(monitorView).set({ isActive: false }).where(inArray(monitorView.id, ids))
 }
 
 export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {

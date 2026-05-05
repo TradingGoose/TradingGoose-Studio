@@ -1,17 +1,16 @@
 import { db } from '@tradinggoose/db'
 import { monitorView } from '@tradinggoose/db/schema'
-import { and, eq, inArray } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
 import { checkWorkspacePermission } from '@/app/api/indicators/utils'
 import {
   InvalidMonitorViewConfigRequestError,
-  type MonitorPageMode,
-  type MonitorViewRow,
   parseMonitorSavedViewConfig,
   type UpdateMonitorViewBody,
 } from '@/app/workspace/[workspaceId]/monitor/components/view/view-config'
 import {
+  clearActiveForMode,
   compactRowsForPersistence,
   findStrictRowById,
   getRowsForMode,
@@ -22,17 +21,6 @@ import {
 const getUserId = async () => {
   const session = await getSession()
   return session?.user?.id ?? null
-}
-
-const clearActiveForMode = async (
-  tx: Pick<typeof db, 'update'>,
-  rows: MonitorViewRow[],
-  mode: MonitorPageMode
-) => {
-  const ids = rows.filter((row) => row.mode === mode).map((row) => row.id)
-  if (ids.length === 0) return
-
-  await tx.update(monitorView).set({ isActive: false }).where(inArray(monitorView.id, ids))
 }
 
 export async function PATCH(

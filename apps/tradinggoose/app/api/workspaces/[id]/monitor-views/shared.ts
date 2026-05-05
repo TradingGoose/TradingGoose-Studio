@@ -1,6 +1,6 @@
 import { db } from '@tradinggoose/db'
 import { monitorView } from '@tradinggoose/db/schema'
-import { and, asc, eq } from 'drizzle-orm'
+import { and, asc, eq, inArray } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 import {
   assertStoredMonitorSavedViewConfig,
@@ -52,6 +52,17 @@ export const listMonitorViewRows = async (workspaceId: string, userId: string) =
 export const listStrictMonitorViewRows = async (workspaceId: string, userId: string) => {
   const rows = await listMonitorViewRows(workspaceId, userId)
   return rows.map(toStrictMonitorViewRow)
+}
+
+export const clearActiveForMode = async (
+  tx: Pick<typeof db, 'update'>,
+  rows: MonitorViewRow[],
+  mode: MonitorPageMode
+) => {
+  const ids = rows.filter((row) => row.mode === mode).map((row) => row.id)
+  if (ids.length === 0) return
+
+  await tx.update(monitorView).set({ isActive: false }).where(inArray(monitorView.id, ids))
 }
 
 export const groupRowsByMode = (rows: MonitorViewRow[]) =>
