@@ -3,8 +3,8 @@ import { and, eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import {
   INDICATOR_MONITOR_TRIGGER_ID,
-  IndicatorMonitorUpdateSchema,
   type IndicatorMonitorProviderConfig,
+  IndicatorMonitorUpdateSchema,
   normalizeIndicatorMonitorConfig,
 } from '@/lib/indicators/monitor-config'
 import { createLogger } from '@/lib/logs/console/logger'
@@ -140,12 +140,15 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     const providerChanged = nextProviderId !== existingMonitor.providerId
     const nextIndicatorId = payload.indicatorId ?? existingMonitor.indicatorId
     const indicatorChanged = nextIndicatorId !== existingMonitor.indicatorId
-    const authProvided = Object.prototype.hasOwnProperty.call(payload, 'auth')
-    const providerParamsProvided = Object.prototype.hasOwnProperty.call(payload, 'providerParams')
-    const indicatorInputsProvided = Object.prototype.hasOwnProperty.call(payload, 'indicatorInputs')
+    const authProvided = Object.hasOwn(payload, 'auth')
+    const providerParamsProvided = Object.hasOwn(payload, 'providerParams')
+    const indicatorInputsProvided = Object.hasOwn(payload, 'indicatorInputs')
+    const shouldNormalizeIndicatorInputs = indicatorInputsProvided || indicatorChanged
 
     await ensureTriggerCapableIndicator(workspaceId, nextIndicatorId)
-    const indicatorMetadata = await loadIndicatorInputMetadata(workspaceId, nextIndicatorId)
+    const indicatorMetadata = shouldNormalizeIndicatorInputs
+      ? await loadIndicatorInputMetadata(workspaceId, nextIndicatorId)
+      : null
 
     const nextProviderParams = providerChanged
       ? providerParamsProvided
@@ -154,13 +157,11 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       : providerParamsProvided
         ? (payload.providerParams ?? {})
         : existingMonitor.providerParams
-    const nextIndicatorInputs = indicatorChanged
+    const nextIndicatorInputs = shouldNormalizeIndicatorInputs
       ? indicatorInputsProvided
         ? (payload.indicatorInputs ?? {})
         : {}
-      : indicatorInputsProvided
-        ? (payload.indicatorInputs ?? {})
-        : existingMonitor.indicatorInputs
+      : undefined
 
     const providerConfig = await normalizeIndicatorMonitorConfig({
       triggerBlockId: nextTriggerBlockId,
@@ -171,9 +172,12 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       authInput: authProvided ? payload.auth : undefined,
       providerParams: nextProviderParams,
       indicatorInputs: nextIndicatorInputs,
-      indicatorInputMeta: indicatorMetadata.inputMeta,
+      indicatorInputMeta: indicatorMetadata?.inputMeta,
       previousAuth: providerChanged ? undefined : existingMonitor.auth,
     })
+    if (!shouldNormalizeIndicatorInputs && typeof existingMonitor.indicatorInputs !== 'undefined') {
+      providerConfig.monitor.indicatorInputs = existingMonitor.indicatorInputs
+    }
 
     const nextIsActive =
       payload.isActive === undefined
