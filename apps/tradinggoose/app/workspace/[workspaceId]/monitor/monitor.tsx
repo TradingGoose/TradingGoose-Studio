@@ -1240,11 +1240,10 @@ export function MonitorPage({ workspaceId, userId }: MonitorPageProps) {
 
   const headerRight = (
     <div className='flex items-center gap-2'>
-
       {activeMode === 'executions' ? (
         <Button
           variant='outline'
-          size='sm'
+          size='default'
           className='h-9 gap-2'
           onClick={handleExportExecutionLogs}
           disabled={!renderableModes.includes('executions') || shellActionsDisabled}
@@ -1259,7 +1258,7 @@ export function MonitorPage({ workspaceId, userId }: MonitorPageProps) {
           void handleChangeMode(value as MonitorPageMode)
         }}
       >
-        <TabsList aria-label='Monitor mode' className='shrink-0 rounded-md p-0.5'>
+        <TabsList aria-label='Monitor mode' className='shrink-0 rounded-md'>
           {(['executions', 'config'] as const).map((mode) => (
             <TabsTrigger
               key={mode}
