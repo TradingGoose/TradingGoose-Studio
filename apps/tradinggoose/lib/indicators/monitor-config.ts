@@ -250,10 +250,11 @@ export const normalizeIndicatorMonitorConfig = async (
     encryptedSecrets[fieldId] = encrypted.encrypted
   }
 
+  const replacingAuth = input.authInput !== undefined || !input.previousAuth
   const missingRequiredSecrets = requiredSecretParamIds.filter(
     (fieldId) => !encryptedSecrets[fieldId]
   )
-  if (missingRequiredSecrets.length > 0) {
+  if (replacingAuth && missingRequiredSecrets.length > 0) {
     throw new Error(
       `Missing required auth secret values for provider fields: ${missingRequiredSecrets.join(', ')}`
     )
