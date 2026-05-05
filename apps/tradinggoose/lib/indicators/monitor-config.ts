@@ -36,7 +36,7 @@ export const IndicatorMonitorCreateSchema = z.object({
   auth: MonitorAuthCreateInputSchema,
   providerParams: ProviderParamsInputSchema,
   indicatorInputs: IndicatorInputsInputSchema,
-  isActive: z.boolean(),
+  isActive: z.boolean().optional(),
 })
 
 export const IndicatorMonitorUpdateSchema = z.object({
