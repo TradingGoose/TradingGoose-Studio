@@ -14,19 +14,8 @@ import { ChevronLeft, ChevronRight, ZoomIn } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { Slider } from '@/components/ui/slider'
 import { cn } from '@/lib/utils'
-import {
-  monitorControlDropdownContentClass,
-  monitorControlSelectContentStyle,
-} from '../shared/monitor-ui'
 import {
   formatMonitorTimelineHeaderGroup,
   formatMonitorTimelinePrimaryLabel,
@@ -34,6 +23,7 @@ import {
   getMonitorTimelineBoundaryBucket,
   getMonitorTimelineHeaderGroupId,
 } from '../shared/monitor-time'
+import { MonitorControlSelect } from '../shared/monitor-ui'
 import {
   EXECUTION_MONITOR_TIMELINE_ZOOM,
   type ExecutionMonitorFieldSum,
@@ -544,31 +534,26 @@ export function KiboGantt({
             <span className='min-w-10 text-right tabular-nums'>{scale}%</span>
           </div>
 
-          <Select
+          <MonitorControlSelect
             value={zoom}
             disabled={controlsDisabled}
+            triggerClassName='h-8 w-auto shrink-0 px-2'
+            searchPlaceholder='Search zoom levels...'
+            options={EXECUTION_MONITOR_TIMELINE_ZOOM.map((timelineZoom) => ({
+              value: timelineZoom,
+              label: `Zoom: ${TIMELINE_ZOOM_LABELS[timelineZoom]}`,
+              searchValue: `${timelineZoom} ${TIMELINE_ZOOM_LABELS[timelineZoom]}`,
+            }))}
             onValueChange={(value) => onZoomChange?.(value as ExecutionMonitorTimelineZoom)}
-          >
-            <SelectTrigger
-              className='h-8 w-[120px] shrink-0'
-              aria-label={`Timeline zoom: ${TIMELINE_ZOOM_LABELS[zoom]}`}
-            >
-              <ZoomIn className='mr-2 h-4 w-4' />
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent
-              align='start'
-              side='bottom'
-              className={monitorControlDropdownContentClass}
-              style={monitorControlSelectContentStyle}
-            >
-              {EXECUTION_MONITOR_TIMELINE_ZOOM.map((timelineZoom) => (
-                <SelectItem key={timelineZoom} value={timelineZoom}>
-                  Zoom: {TIMELINE_ZOOM_LABELS[timelineZoom]}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            renderTriggerValue={(selected) => (
+              <>
+                <ZoomIn className='mr-2 h-4 w-4' />
+                <span className='shrink-0 text-foreground'>
+                  {selected?.label ?? `Zoom: ${TIMELINE_ZOOM_LABELS[zoom]}`}
+                </span>
+              </>
+            )}
+          />
 
           <Button
             type='button'

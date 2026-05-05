@@ -257,7 +257,7 @@ export function MonitorPage({ workspaceId, userId }: MonitorPageProps) {
       setViewRows((current) =>
         current.map((row) =>
           row.id === targetViewId &&
-          !areConfigsEqual(normalizeExecutionMonitorViewConfig(row.config), normalized)
+            !areConfigsEqual(normalizeExecutionMonitorViewConfig(row.config), normalized)
             ? { ...row, config: normalized, updatedAt }
             : row
         )
@@ -299,7 +299,7 @@ export function MonitorPage({ workspaceId, userId }: MonitorPageProps) {
       setViewRows((current) =>
         current.map((row) =>
           row.id === targetViewId &&
-          !areSavedConfigsEqual(normalizeConfigMonitorViewConfig(row.config), normalized)
+            !areSavedConfigsEqual(normalizeConfigMonitorViewConfig(row.config), normalized)
             ? { ...row, config: normalized, updatedAt }
             : row
         )
@@ -358,14 +358,14 @@ export function MonitorPage({ workspaceId, userId }: MonitorPageProps) {
         current.map((row) =>
           row.id === targetViewId
             ? {
-                ...row,
-                name: updatedRow.name,
-                sortOrder: updatedRow.sortOrder,
-                isActive: updatedRow.isActive,
-                config: updatedRow.config,
-                createdAt: updatedRow.createdAt,
-                updatedAt: updatedRow.updatedAt,
-              }
+              ...row,
+              name: updatedRow.name,
+              sortOrder: updatedRow.sortOrder,
+              isActive: updatedRow.isActive,
+              config: updatedRow.config,
+              createdAt: updatedRow.createdAt,
+              updatedAt: updatedRow.updatedAt,
+            }
             : row
         )
       )
@@ -979,13 +979,13 @@ export function MonitorPage({ workspaceId, userId }: MonitorPageProps) {
           current.map((row) =>
             row.id === dialogState.viewId
               ? {
-                  ...row,
-                  name: updatedRow.name,
-                  sortOrder: updatedRow.sortOrder,
-                  isActive: updatedRow.isActive,
-                  createdAt: updatedRow.createdAt,
-                  updatedAt: updatedRow.updatedAt,
-                }
+                ...row,
+                name: updatedRow.name,
+                sortOrder: updatedRow.sortOrder,
+                isActive: updatedRow.isActive,
+                createdAt: updatedRow.createdAt,
+                updatedAt: updatedRow.updatedAt,
+              }
               : row
           )
         )
@@ -1023,9 +1023,9 @@ export function MonitorPage({ workspaceId, userId }: MonitorPageProps) {
           const current = activeModeRows.find((row) => row.id === layout.id)
           return current
             ? {
-                ...current,
-                sortOrder: layout.sortOrder ?? index,
-              }
+              ...current,
+              sortOrder: layout.sortOrder ?? index,
+            }
             : null
         })
         .filter((row): row is MonitorViewRow => Boolean(row))
@@ -1240,13 +1240,26 @@ export function MonitorPage({ workspaceId, userId }: MonitorPageProps) {
 
   const headerRight = (
     <div className='flex items-center gap-2'>
+
+      {activeMode === 'executions' ? (
+        <Button
+          variant='outline'
+          size='sm'
+          className='h-9 gap-2'
+          onClick={handleExportExecutionLogs}
+          disabled={!renderableModes.includes('executions') || shellActionsDisabled}
+        >
+          <Download className='h-4 w-4' />
+          Export CSV
+        </Button>
+      ) : null}
       <Tabs
         value={activeMode}
         onValueChange={(value) => {
           void handleChangeMode(value as MonitorPageMode)
         }}
       >
-        <TabsList aria-label='Monitor mode' className='h-8 shrink-0 rounded-md p-0.5'>
+        <TabsList aria-label='Monitor mode' className='shrink-0 rounded-md p-0.5'>
           {(['executions', 'config'] as const).map((mode) => (
             <TabsTrigger
               key={mode}
@@ -1262,18 +1275,6 @@ export function MonitorPage({ workspaceId, userId }: MonitorPageProps) {
           ))}
         </TabsList>
       </Tabs>
-      {activeMode === 'executions' ? (
-        <Button
-          variant='outline'
-          size='sm'
-          className='h-9 gap-2'
-          onClick={handleExportExecutionLogs}
-          disabled={!renderableModes.includes('executions') || shellActionsDisabled}
-        >
-          <Download className='h-4 w-4' />
-          Export CSV
-        </Button>
-      ) : null}
       <Button
         variant='ghost'
         size='icon'

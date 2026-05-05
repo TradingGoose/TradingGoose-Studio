@@ -1,19 +1,9 @@
 'use client'
 
 import { useMemo } from 'react'
-import { Loader2, SquareChartGantt, SquareKanban } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
-import {
-  DropdownMenuCheckboxItem,
-  DropdownMenuLabel,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuSeparator,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
-} from '@/components/ui/dropdown-menu'
 import { Notice } from '@/components/ui/notice'
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
 import { Sheet, SheetContent } from '@/components/ui/sheet'
@@ -126,6 +116,34 @@ const VISIBLE_FIELD_LABELS = {
 } as const
 
 const DEFAULT_COLUMN_LIMITS = [0, 5, 10, 20] as const
+
+type ColumnLimitOption = {
+  columnId: string
+  columnLabel: string
+  disabled?: boolean
+  label: string
+  limit: number
+  limitLabel: string
+  searchValue: string
+  selected: boolean
+  value: string
+}
+
+const encodeColumnLimitOptionValue = (columnId: string, limit: number) =>
+  `${encodeURIComponent(columnId)}:${limit}`
+
+const decodeColumnLimitOptionValue = (value: string) => {
+  const separatorIndex = value.lastIndexOf(':')
+  if (separatorIndex === -1) return null
+
+  const columnId = decodeURIComponent(value.slice(0, separatorIndex))
+  const limit = Number.parseInt(value.slice(separatorIndex + 1), 10)
+  if (!Number.isFinite(limit)) return null
+
+  return { columnId, limit }
+}
+
+const formatColumnLimitLabel = (limit: number) => (limit === 0 ? 'No limit' : `${limit} items`)
 
 const encodeExecutionSortValue = (field: ExecutionMonitorSortField, direction: 'asc' | 'desc') =>
   `${field}:${direction}`
@@ -246,6 +264,25 @@ export function MonitorExecutionWorkspace({
       label,
     }))
   }, [effectiveConfig.kanban.columnField, executionItems])
+  const columnLimitOptions = useMemo<ColumnLimitOption[]>(
+    () =>
+      columnOptions.flatMap((option) =>
+        DEFAULT_COLUMN_LIMITS.map((limit) => {
+          const limitLabel = formatColumnLimitLabel(limit)
+          return {
+            value: encodeColumnLimitOptionValue(option.value, limit),
+            columnId: option.value,
+            columnLabel: option.label,
+            limit,
+            limitLabel,
+            label: `${option.label} - ${limitLabel}`,
+            searchValue: `${option.label} ${limitLabel}`,
+            selected: (effectiveConfig.kanban.columnLimits[option.value] ?? 0) === limit,
+          }
+        })
+      ),
+    [columnOptions, effectiveConfig.kanban.columnLimits]
+  )
 
   const resolvedInspectorLog = selectedExecutionLog ?? null
   const showDesktopInspector = !isMobile && Boolean(selectedExecution)
@@ -330,6 +367,12 @@ export function MonitorExecutionWorkspace({
         },
       }
     })
+  }
+
+  const handleColumnLimitOptionChange = (value: string) => {
+    const decoded = decodeColumnLimitOptionValue(value)
+    if (!decoded) return
+    handleColumnLimitChange(decoded.columnId, decoded.limit)
   }
 
   const handleTimelineScaleChange = (scale: number) => {
@@ -498,32 +541,21 @@ export function MonitorExecutionWorkspace({
   return (
     <div className='flex h-full w-full min-w-0 max-w-full flex-col overflow-hidden p-1.5'>
       <MonitorControlBar toolbarLabel='Monitor view controls'>
-        <MonitorControlMenu
-          iconOnly
-          srLabel={`Execution layout: ${effectiveConfig.layout}`}
-          icon={
-            effectiveConfig.layout === 'kanban' ? (
-              <SquareKanban className='h-3.5 w-3.5' />
-            ) : (
-              <SquareChartGantt className='h-3.5 w-3.5' />
-            )
-          }
+        <MonitorControlSelect
+          value={effectiveConfig.layout}
+          label='Layout'
           disabled={controlsDisabled}
-        >
-          <DropdownMenuLabel>Layout</DropdownMenuLabel>
-          <DropdownMenuRadioGroup
-            value={effectiveConfig.layout}
-            onValueChange={(value) =>
-              onUpdateViewConfig((current) => ({
-                ...current,
-                layout: value as ExecutionMonitorViewConfig['layout'],
-              }))
-            }
-          >
-            <DropdownMenuRadioItem value='kanban'>Kanban</DropdownMenuRadioItem>
-            <DropdownMenuRadioItem value='timeline'>Timeline</DropdownMenuRadioItem>
-          </DropdownMenuRadioGroup>
-        </MonitorControlMenu>
+          options={[
+            { value: 'kanban', label: 'Kanban' },
+            { value: 'timeline', label: 'Timeline' },
+          ]}
+          onValueChange={(value) =>
+            onUpdateViewConfig((current) => ({
+              ...current,
+              layout: value as ExecutionMonitorViewConfig['layout'],
+            }))
+          }
+        />
 
         <MonitorTimezoneMenu
           timezone={effectiveConfig.timezone}
@@ -615,20 +647,25 @@ export function MonitorExecutionWorkspace({
             label='Markers'
             value={summarizeTimelineMarkers(effectiveConfig.timeline.markers)}
             disabled={controlsDisabled}
-          >
-            <DropdownMenuCheckboxItem
-              checked={effectiveConfig.timeline.markers.today}
-              onCheckedChange={() => handleTimelineMarkerToggle('today')}
-            >
-              Today
-            </DropdownMenuCheckboxItem>
-            <DropdownMenuCheckboxItem
-              checked={effectiveConfig.timeline.markers.intervalBoundaries}
-              onCheckedChange={() => handleTimelineMarkerToggle('intervalBoundaries')}
-            >
-              Boundaries
-            </DropdownMenuCheckboxItem>
-          </MonitorControlMenu>
+            options={[
+              {
+                value: 'today',
+                label: 'Today',
+                selected: effectiveConfig.timeline.markers.today,
+              },
+              {
+                value: 'intervalBoundaries',
+                label: 'Boundaries',
+                selected: effectiveConfig.timeline.markers.intervalBoundaries,
+                searchValue: 'Boundaries interval boundaries',
+              },
+            ]}
+            onValueChange={(value) =>
+              handleTimelineMarkerToggle(
+                value as keyof ExecutionMonitorViewConfig['timeline']['markers']
+              )
+            }
+          />
         ) : null}
 
         {effectiveConfig.layout === 'kanban' ? (
@@ -658,17 +695,13 @@ export function MonitorExecutionWorkspace({
           label='Sums'
           value={summarizeExecutionFieldSums(effectiveConfig.fieldSums)}
           disabled={controlsDisabled}
-        >
-          {EXECUTION_MONITOR_FIELD_SUMS.map((fieldSum) => (
-            <DropdownMenuCheckboxItem
-              key={fieldSum}
-              checked={effectiveConfig.fieldSums.includes(fieldSum)}
-              onCheckedChange={() => handleFieldSumToggle(fieldSum)}
-            >
-              {FIELD_SUM_LABELS[fieldSum]}
-            </DropdownMenuCheckboxItem>
-          ))}
-        </MonitorControlMenu>
+          options={EXECUTION_MONITOR_FIELD_SUMS.map((fieldSum) => ({
+            value: fieldSum,
+            label: FIELD_SUM_LABELS[fieldSum],
+            selected: effectiveConfig.fieldSums.includes(fieldSum),
+          }))}
+          onValueChange={(value) => handleFieldSumToggle(value as ExecutionMonitorFieldSum)}
+        />
 
         {effectiveConfig.layout === 'kanban' ? (
           <MonitorControlSelect
@@ -698,17 +731,15 @@ export function MonitorExecutionWorkspace({
             label='Fields'
             value={summarizeExecutionVisibleFields(effectiveConfig.kanban.visibleFieldIds)}
             disabled={controlsDisabled}
-          >
-            {EXECUTION_MONITOR_VISIBLE_FIELDS.map((fieldId) => (
-              <DropdownMenuCheckboxItem
-                key={fieldId}
-                checked={effectiveConfig.kanban.visibleFieldIds.includes(fieldId)}
-                onCheckedChange={() => handleVisibleFieldToggle(fieldId)}
-              >
-                {VISIBLE_FIELD_LABELS[fieldId]}
-              </DropdownMenuCheckboxItem>
-            ))}
-          </MonitorControlMenu>
+            options={EXECUTION_MONITOR_VISIBLE_FIELDS.map((fieldId) => ({
+              value: fieldId,
+              label: VISIBLE_FIELD_LABELS[fieldId],
+              selected: effectiveConfig.kanban.visibleFieldIds.includes(fieldId),
+            }))}
+            onValueChange={(value) =>
+              handleVisibleFieldToggle(value as (typeof EXECUTION_MONITOR_VISIBLE_FIELDS)[number])
+            }
+          />
         ) : null}
 
         {effectiveConfig.layout === 'kanban' ? (
@@ -721,17 +752,13 @@ export function MonitorExecutionWorkspace({
                   columnOptions
                 )}
                 disabled={controlsDisabled}
-              >
-                {columnOptions.map((option) => (
-                  <DropdownMenuCheckboxItem
-                    key={option.value}
-                    checked={!effectiveConfig.kanban.hiddenColumnIds.includes(option.value)}
-                    onCheckedChange={() => handleColumnVisibilityToggle(option.value)}
-                  >
-                    {option.label}
-                  </DropdownMenuCheckboxItem>
-                ))}
-              </MonitorControlMenu>
+                options={columnOptions.map((option) => ({
+                  value: option.value,
+                  label: option.label,
+                  selected: !effectiveConfig.kanban.hiddenColumnIds.includes(option.value),
+                }))}
+                onValueChange={handleColumnVisibilityToggle}
+              />
               <MonitorControlMenu
                 label='Limits'
                 value={
@@ -740,29 +767,19 @@ export function MonitorExecutionWorkspace({
                     : `${Object.keys(effectiveConfig.kanban.columnLimits).length} set`
                 }
                 disabled={controlsDisabled}
-              >
-                <DropdownMenuLabel>Column limits</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                {columnOptions.map((option) => (
-                  <DropdownMenuSub key={`limit:${option.value}`}>
-                    <DropdownMenuSubTrigger>{option.label}</DropdownMenuSubTrigger>
-                    <DropdownMenuSubContent className='w-40'>
-                      <DropdownMenuRadioGroup
-                        value={String(effectiveConfig.kanban.columnLimits[option.value] ?? 0)}
-                        onValueChange={(value) =>
-                          handleColumnLimitChange(option.value, Number.parseInt(value, 10))
-                        }
-                      >
-                        {DEFAULT_COLUMN_LIMITS.map((limit) => (
-                          <DropdownMenuRadioItem key={limit} value={String(limit)}>
-                            {limit === 0 ? 'No limit' : `${limit} items`}
-                          </DropdownMenuRadioItem>
-                        ))}
-                      </DropdownMenuRadioGroup>
-                    </DropdownMenuSubContent>
-                  </DropdownMenuSub>
-                ))}
-              </MonitorControlMenu>
+                closeOnSelect
+                options={columnLimitOptions}
+                searchPlaceholder='Search column limits...'
+                onValueChange={handleColumnLimitOptionChange}
+                renderOption={(option) => (
+                  <>
+                    <span className='truncate'>{option.columnLabel}</span>
+                    <span className='ml-auto text-muted-foreground text-xs'>
+                      {option.limitLabel}
+                    </span>
+                  </>
+                )}
+              />
             </>
           ) : null
         ) : null}

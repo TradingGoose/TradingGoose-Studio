@@ -1,26 +1,25 @@
 'use client'
 
 import { useCallback, useMemo, useRef, useState } from 'react'
-import { Check, ClockFading } from 'lucide-react'
 import { fetchTimeZoneOptions } from '@/components/timezone-selector/fetchers'
-import { Button } from '@/components/ui/button'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
-import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 import { formatMonitorTimezoneLabel } from '../shared/monitor-time'
-import {
-  monitorControlDropdownContentClass,
-  monitorControlDropdownContentStyle,
-  monitorControlSurfaceClass,
-} from '../shared/monitor-ui'
+import { monitorControlSurfaceClass } from '../shared/monitor-ui'
+import { SearchableDropdown, type SearchableDropdownOption } from '../shared/searchable-dropdown'
 import { DEFAULT_MONITOR_TIMEZONE } from '../view/view-config'
 
 type TimeZoneOption = Awaited<ReturnType<typeof fetchTimeZoneOptions>>[number]
+type TimeZoneDropdownOption = SearchableDropdownOption & {
+  name: string
+  rightLabel?: string
+}
+
+const UTC_TIMEZONE_OPTION: TimeZoneDropdownOption = {
+  value: DEFAULT_MONITOR_TIMEZONE,
+  name: DEFAULT_MONITOR_TIMEZONE,
+  label: 'UTC',
+  searchValue: 'UTC Coordinated Universal Time UTC+00:00',
+}
 
 type MonitorTimezoneMenuProps = {
   timezone: string
@@ -37,12 +36,26 @@ export function MonitorTimezoneMenu({
 }: MonitorTimezoneMenuProps) {
   const [options, setOptions] = useState<TimeZoneOption[]>([])
   const [loading, setLoading] = useState(false)
-  const [search, setSearch] = useState('')
   const loadingRef = useRef(false)
   const selectedTimezone = timezone.trim() || DEFAULT_MONITOR_TIMEZONE
+  const dropdownOptions = useMemo<TimeZoneDropdownOption[]>(
+    () => [
+      UTC_TIMEZONE_OPTION,
+      ...options
+        .filter((option) => option.name !== DEFAULT_MONITOR_TIMEZONE)
+        .map((option) => ({
+          value: option.name,
+          name: option.name,
+          label: option.label,
+          rightLabel: option.rightLabel,
+          searchValue: option.searchLabel ?? `${option.label} ${option.name}`,
+        })),
+    ],
+    [options]
+  )
   const selectedOption = useMemo(
-    () => options.find((option) => option.name === selectedTimezone) ?? null,
-    [options, selectedTimezone]
+    () => dropdownOptions.find((option) => option.name === selectedTimezone) ?? null,
+    [dropdownOptions, selectedTimezone]
   )
   const selectedLabel = selectedOption?.label ?? formatMonitorTimezoneLabel(selectedTimezone)
 
@@ -66,94 +79,42 @@ export function MonitorTimezoneMenu({
       if (options.length === 0) {
         loadTimezones()
       }
-      return
     }
-
-    setSearch('')
   }
 
-  const filteredOptions = useMemo(() => {
-    const query = search.trim().toLowerCase()
-    if (!query) return options
-
-    return options.filter((option) => {
-      const label = option.label.toLowerCase()
-      const name = option.name.toLowerCase()
-      const searchLabel = option.searchLabel?.toLowerCase() ?? ''
-      return label.includes(query) || name.includes(query) || searchLabel.includes(query)
-    })
-  }, [options, search])
-
   return (
-    <DropdownMenu onOpenChange={handleOpenChange} modal={false}>
-      <DropdownMenuTrigger asChild>
-        <Button
-          type='button'
-          variant='outline'
-          size='sm'
-          className={cn(monitorControlSurfaceClass, className)}
-          disabled={disabled}
-          aria-label={`Timezone: ${selectedLabel}`}
-        >
-          <ClockFading className='h-4 w-4' />
+    <SearchableDropdown
+      value={selectedTimezone}
+      options={dropdownOptions}
+      placeholder='UTC'
+      searchPlaceholder='Search timezones...'
+      emptyText={loading ? 'Loading timezones...' : 'No timezones found.'}
+      disabled={disabled}
+      triggerClassName={cn(monitorControlSurfaceClass, className)}
+      triggerLabel={`Timezone: ${selectedLabel}`}
+      onOpenChange={handleOpenChange}
+      onValueChange={onTimezoneChange}
+      renderTriggerValue={() => (
+        <div className='flex shrink-0 items-center gap-2'>
+          <span className='shrink-0 text-muted-foreground text-xs'>Timezone</span>
           <span className='shrink-0 text-foreground'>{selectedLabel}</span>
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent
-        align='start'
-        side='bottom'
-        className={cn(monitorControlDropdownContentClass, 'p-0')}
-        style={monitorControlDropdownContentStyle}
-      >
-        <div className='border-b p-2'>
-          <Input
-            placeholder='Search timezones...'
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            className='h-8'
-          />
         </div>
-        <div className='max-h-72 overflow-y-auto p-1' style={{ scrollbarWidth: 'thin' }}>
-          <DropdownMenuItem
-            onSelect={() => onTimezoneChange(DEFAULT_MONITOR_TIMEZONE)}
-            className='cursor-pointer'
-          >
-            <span className='truncate'>UTC</span>
-            {selectedTimezone === DEFAULT_MONITOR_TIMEZONE ? (
-              <Check className='ml-auto h-3.5 w-3.5 text-primary' />
-            ) : null}
-          </DropdownMenuItem>
-          {loading ? (
-            <DropdownMenuItem disabled className='justify-center text-muted-foreground'>
-              Loading timezones...
-            </DropdownMenuItem>
-          ) : filteredOptions.length === 0 ? (
-            <DropdownMenuItem disabled className='justify-center text-muted-foreground'>
-              No timezones found.
-            </DropdownMenuItem>
-          ) : (
-            filteredOptions.map((option) => {
-              const isSelected = option.name === selectedTimezone
-
-              return (
-                <DropdownMenuItem
-                  key={option.id}
-                  onSelect={() => onTimezoneChange(option.name)}
-                  className='cursor-pointer gap-2'
-                >
-                  <span className='truncate'>{option.label}</span>
-                  {option.rightLabel ? (
-                    <span className='ml-auto text-[10px] text-muted-foreground'>
-                      {option.rightLabel}
-                    </span>
-                  ) : null}
-                  {isSelected ? <Check className='h-3.5 w-3.5 text-primary' /> : null}
-                </DropdownMenuItem>
-              )
-            })
-          )}
-        </div>
-      </DropdownMenuContent>
-    </DropdownMenu>
+      )}
+      renderOption={(option) => (
+        <>
+          <span className='truncate'>{option.label}</span>
+          {option.rightLabel ? (
+            <span className='ml-auto text-[10px] text-muted-foreground'>{option.rightLabel}</span>
+          ) : null}
+        </>
+      )}
+      footer={
+        loading ? (
+          <div className='px-2 py-2 text-center text-muted-foreground text-sm'>
+            Loading timezones...
+          </div>
+        ) : null
+      }
+    />
   )
 }

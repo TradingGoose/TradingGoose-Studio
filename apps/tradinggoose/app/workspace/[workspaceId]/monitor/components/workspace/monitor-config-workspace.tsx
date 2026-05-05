@@ -1,7 +1,6 @@
 'use client'
 
 import { useCallback, useMemo } from 'react'
-import { DropdownMenuCheckboxItem } from '@/components/ui/dropdown-menu'
 import { Notice } from '@/components/ui/notice'
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
 import { useIsMobile } from '@/hooks/use-mobile'
@@ -407,32 +406,24 @@ export function MonitorConfigWorkspace({
           label='Sums'
           value={summarizeConfigFieldSums(effectiveConfig.fieldSums)}
           disabled={controlsDisabled}
-        >
-          {CONFIG_MONITOR_FIELD_SUMS.map((field) => (
-            <DropdownMenuCheckboxItem
-              key={field}
-              checked={effectiveConfig.fieldSums.includes(field)}
-              onCheckedChange={() => handleFieldSumToggle(field)}
-            >
-              {FIELD_SUM_LABELS[field]}
-            </DropdownMenuCheckboxItem>
-          ))}
-        </MonitorControlMenu>
+          options={CONFIG_MONITOR_FIELD_SUMS.map((field) => ({
+            value: field,
+            label: FIELD_SUM_LABELS[field],
+            selected: effectiveConfig.fieldSums.includes(field),
+          }))}
+          onValueChange={(value) => handleFieldSumToggle(value as ConfigMonitorFieldSum)}
+        />
         <MonitorControlMenu
           label='Fields'
           value={summarizeConfigVisibleFields(effectiveConfig.kanban.visibleFieldIds)}
           disabled={controlsDisabled}
-        >
-          {CONFIG_MONITOR_VISIBLE_FIELDS.map((field) => (
-            <DropdownMenuCheckboxItem
-              key={field}
-              checked={effectiveConfig.kanban.visibleFieldIds.includes(field)}
-              onCheckedChange={() => handleVisibleFieldToggle(field)}
-            >
-              {VISIBLE_LABELS[field]}
-            </DropdownMenuCheckboxItem>
-          ))}
-        </MonitorControlMenu>
+          options={CONFIG_MONITOR_VISIBLE_FIELDS.map((field) => ({
+            value: field,
+            label: VISIBLE_LABELS[field],
+            selected: effectiveConfig.kanban.visibleFieldIds.includes(field),
+          }))}
+          onValueChange={(value) => handleVisibleFieldToggle(value as ConfigMonitorVisibleField)}
+        />
       </MonitorControlBar>
 
       {noticeMessage ? <Notice variant='warning'>{noticeMessage}</Notice> : null}

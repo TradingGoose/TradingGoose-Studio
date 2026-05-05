@@ -1,45 +1,15 @@
 'use client'
 
-import {
-  type ComponentProps,
-  type CSSProperties,
-  type ReactNode,
-  useCallback,
-  useRef,
-  type WheelEvent,
-} from 'react'
-import { ChevronDown, Loader2 } from 'lucide-react'
+import { type ComponentProps, type ReactNode, useCallback, useRef, type WheelEvent } from 'react'
+import { Loader2 } from 'lucide-react'
 import { Badge, type BadgeProps } from '@/components/ui/badge'
 import { Button, type ButtonProps } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { cn } from '@/lib/utils'
+import { SearchableDropdown, type SearchableDropdownOption } from './searchable-dropdown'
 
 export const monitorControlSurfaceClass =
   'inline-flex h-9 w-auto min-w-max shrink-0 items-center justify-between gap-2 whitespace-nowrap rounded-md border border-border bg-background px-3 font-normal text-sm text-foreground shadow-none transition-colors ring-offset-background hover:bg-card hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=open]:bg-card data-[state=open]:text-foreground [&_svg]:pointer-events-none [&_svg]:h-4 [&_svg]:w-4 [&_svg]:shrink-0'
-
-export const monitorControlDropdownContentClass = 'max-w-[calc(100vw-2rem)]'
-
-export const monitorControlDropdownContentStyle = {
-  width: 'max(var(--radix-dropdown-menu-trigger-width), 12rem)',
-  minWidth: 'var(--radix-dropdown-menu-trigger-width)',
-} satisfies CSSProperties
-
-export const monitorControlSelectContentStyle = {
-  width: 'max(var(--radix-select-trigger-width), 12rem)',
-  minWidth: 'var(--radix-select-trigger-width)',
-} satisfies CSSProperties
 
 type MonitorControlBarProps = ComponentProps<'div'> & {
   contentClassName?: string
@@ -83,50 +53,64 @@ export function MonitorControlBar({
   )
 }
 
-type MonitorControlSelectOption = {
+export type MonitorControlSelectOption = SearchableDropdownOption & {
   disabled?: boolean
   label: ReactNode
   value: string
 }
 
-type MonitorControlSelectProps = ComponentProps<typeof Select> & {
-  children?: ReactNode
+type MonitorControlSelectProps<TOption extends MonitorControlSelectOption> = {
+  disabled?: boolean
+  emptyText?: ReactNode
   label?: ReactNode
-  options?: MonitorControlSelectOption[]
-  placeholder?: string
+  onValueChange: (value: string) => void
+  options: TOption[]
+  placeholder?: ReactNode
+  renderOption?: (option: TOption, selected: boolean) => ReactNode
+  renderTriggerValue?: (selected: TOption | null) => ReactNode
+  searchPlaceholder?: string
+  triggerClassName?: string
+  value?: string | null
 }
 
-export function MonitorControlSelect({
-  children,
+const getSearchPlaceholder = (label: ReactNode) =>
+  typeof label === 'string' ? `Search ${label.toLowerCase()}...` : 'Search options...'
+
+export function MonitorControlSelect<TOption extends MonitorControlSelectOption>({
+  disabled,
+  emptyText = 'No options found.',
   label,
   options,
+  onValueChange,
   placeholder,
-  ...props
-}: MonitorControlSelectProps) {
+  renderOption,
+  renderTriggerValue,
+  searchPlaceholder = getSearchPlaceholder(label),
+  triggerClassName,
+  value,
+}: MonitorControlSelectProps<TOption>) {
   return (
-    <Select {...props}>
-      <SelectTrigger className={monitorControlSurfaceClass}>
-        <div className='flex shrink-0 items-center gap-2'>
-          {label ? <span className='shrink-0 text-muted-foreground text-xs'>{label}</span> : null}
-          <span className='shrink-0 text-foreground'>
-            <SelectValue placeholder={placeholder} />
-          </span>
-        </div>
-      </SelectTrigger>
-      <SelectContent
-        align='start'
-        side='bottom'
-        className={monitorControlDropdownContentClass}
-        style={monitorControlSelectContentStyle}
-      >
-        {options?.map((option) => (
-          <SelectItem key={option.value} value={option.value} disabled={option.disabled}>
-            {option.label}
-          </SelectItem>
-        ))}
-        {children}
-      </SelectContent>
-    </Select>
+    <SearchableDropdown
+      value={value}
+      options={options}
+      placeholder={placeholder ?? ''}
+      searchPlaceholder={searchPlaceholder}
+      emptyText={emptyText}
+      disabled={disabled}
+      triggerClassName={cn(monitorControlSurfaceClass, triggerClassName)}
+      triggerLabel={typeof label === 'string' ? label : undefined}
+      onValueChange={onValueChange}
+      renderOption={renderOption}
+      renderTriggerValue={
+        renderTriggerValue ??
+        ((selected) => (
+          <div className='flex shrink-0 items-center gap-2'>
+            {label ? <span className='shrink-0 text-muted-foreground text-xs'>{label}</span> : null}
+            <span className='shrink-0 text-foreground'>{selected?.label ?? placeholder}</span>
+          </div>
+        ))
+      }
+    />
   )
 }
 
@@ -159,60 +143,54 @@ export function MonitorControlToggle({
   )
 }
 
-type MonitorControlMenuProps = {
-  children: ReactNode
-  className?: string
+export type MonitorControlMenuOption = SearchableDropdownOption & {
+  selected?: boolean
+}
+
+type MonitorControlMenuProps<TOption extends MonitorControlMenuOption> = {
+  closeOnSelect?: boolean
   disabled?: boolean
-  icon?: ReactNode
-  iconOnly?: boolean
   label?: ReactNode
-  srLabel?: string
+  onValueChange: (value: string) => void
+  options: TOption[]
+  renderOption?: (option: TOption, selected: boolean) => ReactNode
+  searchPlaceholder?: string
+  triggerClassName?: string
   value?: ReactNode
 }
 
-export function MonitorControlMenu({
-  children,
-  className,
+export function MonitorControlMenu<TOption extends MonitorControlMenuOption>({
+  closeOnSelect = false,
   disabled,
-  icon,
-  iconOnly = false,
   label,
-  srLabel,
+  onValueChange,
+  options,
+  renderOption,
+  searchPlaceholder = getSearchPlaceholder(label),
+  triggerClassName,
   value,
-}: MonitorControlMenuProps) {
+}: MonitorControlMenuProps<TOption>) {
   return (
-    <DropdownMenu modal={false}>
-      <DropdownMenuTrigger asChild>
-        <Button
-          type='button'
-          variant='outline'
-          size='sm'
-          disabled={disabled}
-          className={cn(
-            monitorControlSurfaceClass,
-            iconOnly ? 'w-9 min-w-9 justify-center px-0' : null,
-            className
-          )}
-          aria-label={srLabel}
-        >
-          {icon}
-          {iconOnly ? <span className='sr-only'>{srLabel}</span> : null}
-          {!iconOnly && label ? (
-            <span className='shrink-0 text-muted-foreground text-xs'>{label}</span>
-          ) : null}
-          {!iconOnly && value ? <span className='shrink-0 text-foreground'>{value}</span> : null}
-          {!iconOnly ? <ChevronDown className='ml-0.5 h-4 w-4 text-muted-foreground' /> : null}
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent
-        align='start'
-        side='bottom'
-        className={monitorControlDropdownContentClass}
-        style={monitorControlDropdownContentStyle}
-      >
-        {children}
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <SearchableDropdown
+      closeOnSelect={closeOnSelect}
+      value={null}
+      options={options}
+      placeholder=''
+      searchPlaceholder={searchPlaceholder}
+      emptyText='No options found.'
+      disabled={disabled}
+      triggerClassName={cn(monitorControlSurfaceClass, triggerClassName)}
+      triggerLabel={typeof label === 'string' ? label : undefined}
+      onValueChange={onValueChange}
+      isOptionSelected={(option) => Boolean(option.selected)}
+      renderOption={renderOption}
+      renderTriggerValue={() => (
+        <>
+          {label ? <span className='shrink-0 text-muted-foreground text-xs'>{label}</span> : null}
+          {value ? <span className='shrink-0 text-foreground'>{value}</span> : null}
+        </>
+      )}
+    />
   )
 }
 
