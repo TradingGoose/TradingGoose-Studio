@@ -87,17 +87,6 @@ export const clearActiveForMode = async (
     )
 }
 
-export const groupRowsByMode = (rows: MonitorViewRow[]) =>
-  rows.reduce<Record<MonitorPageMode, MonitorViewRow[]>>(
-    (groups, row) => {
-      if (row.mode) {
-        groups[row.mode].push(row)
-      }
-      return groups
-    },
-    { executions: [], config: [] }
-  )
-
 export const findStrictRowById = (rows: MonitorViewRow[], viewId: string) =>
   rows.find((row) => row.id === viewId) ?? null
 

@@ -1,20 +1,20 @@
 import { useEffect, useMemo } from 'react'
-import { toListingValueObject } from '@/lib/listing/identity'
+import { type ListingInputValue, toListingValueObject } from '@/lib/listing/identity'
 import { useLogsList } from '@/hooks/queries/logs'
 import type { WorkflowLog } from '@/stores/logs/filters/types'
 import { buildMonitorBoardSections } from '../board/board-state'
 import type { IndicatorMonitorRecord } from '../shared/types'
-import {
-  type MonitorExecutionItem,
-  type MonitorExecutionOutcome,
-  sortExecutionItems,
-} from './execution-ordering'
 import { buildMonitorTimelineGroups } from '../timeline/timeline-state'
 import type {
   ExecutionMonitorQuickFilter,
   ExecutionMonitorQuickFilterField,
   ExecutionMonitorViewConfig,
 } from '../view/view-config'
+import {
+  type MonitorExecutionItem,
+  type MonitorExecutionOutcome,
+  sortExecutionItems,
+} from './execution-ordering'
 
 const QUICK_FILTER_FIELD_TO_QUERY_FIELD: Record<ExecutionMonitorQuickFilterField, string> = {
   outcome: 'status',
@@ -36,14 +36,21 @@ const QUICK_FILTER_FIELD_TO_EXPORT_PARAM: Partial<
   interval: 'interval',
   monitor: 'monitorId',
 }
+const MONITOR_EXECUTION_AUTO_PAGE_LIMIT = 3
 
-type MonitorWorkspaceQueryConfig = Pick<ExecutionMonitorViewConfig, 'filterQuery' | 'quickFilters'>
 type MonitorQuickFilterClause = {
   id: string
   raw: string
   field: ExecutionMonitorQuickFilterField
   operator: ExecutionMonitorQuickFilter['operator']
   values: string[]
+}
+type MonitorExecutionSnapshot = {
+  id?: unknown
+  providerId?: unknown
+  interval?: unknown
+  indicatorId?: unknown
+  listing?: unknown
 }
 type MonitorWorkflowLog = WorkflowLog & {
   startedAt?: string
@@ -54,14 +61,14 @@ type MonitorWorkflowLog = WorkflowLog & {
     totalDuration?: number | null
     trigger?: {
       data?: {
-        monitor?: any
+        monitor?: MonitorExecutionSnapshot
       }
     }
   }
 }
 
-const getListingLabel = (listing: any) => {
-  const normalized = toListingValueObject(listing)
+const getListingLabel = (listing: unknown) => {
+  const normalized = toListingValueObject(listing as ListingInputValue)
   if (!normalized) return 'Unknown listing'
 
   if (normalized.listing_type === 'default') {
@@ -137,16 +144,13 @@ export const createMonitorQuickFilterClause = (
   }
 }
 
-export const buildMonitorWorkspaceSearchQuery = (viewConfig: MonitorWorkspaceQueryConfig): string =>
-  viewConfig.filterQuery.trim()
-
 export const buildMonitorExecutionLogFilters = (viewConfig: ExecutionMonitorViewConfig) => ({
   timeRange: 'All time',
   level: 'all',
   workflowIds: [],
   folderIds: [],
   triggers: [],
-  searchQuery: buildMonitorWorkspaceSearchQuery(viewConfig),
+  searchQuery: viewConfig.filterQuery.trim(),
   limit: 100,
   details: 'full' as const,
   triggerSource: 'indicator_trigger' as const,
@@ -194,7 +198,7 @@ const getQuickFilterValues = (
     case 'trigger':
       return item.trigger ? [item.trigger] : []
     case 'listing':
-      return item.listingLabel ? [item.listingLabel] : []
+      return item.listing ? [JSON.stringify(item.listing)] : []
     case 'assetType':
       return item.assetType ? [item.assetType] : []
     case 'provider':
@@ -238,7 +242,7 @@ const toExecutionItem = (
   const durationMs = getDurationMs(log)
   const endedAt = getEndedAt(startedAt, log.endedAt, durationMs)
   const rawListing = snapshot?.listing ?? null
-  const listing = toListingValueObject(rawListing)
+  const listing = toListingValueObject(rawListing as ListingInputValue)
   const monitorId = typeof snapshot?.id === 'string' ? snapshot.id : null
   const providerId = typeof snapshot?.providerId === 'string' ? snapshot.providerId : null
   const interval = typeof snapshot?.interval === 'string' ? snapshot.interval : null
@@ -297,14 +301,27 @@ export function useMonitorWorkspaceLogs({
     enabled: Boolean(workspaceId),
     refetchInterval: false,
   })
+  const loadedPageCount = logsQuery.data?.pages.length ?? 0
+  const reachedAutoPageLimit = loadedPageCount >= MONITOR_EXECUTION_AUTO_PAGE_LIMIT
 
   useEffect(() => {
-    if (!logsQuery.hasNextPage || logsQuery.isFetchingNextPage) {
+    if (
+      loadedPageCount === 0 ||
+      reachedAutoPageLimit ||
+      !logsQuery.hasNextPage ||
+      logsQuery.isFetchingNextPage
+    ) {
       return
     }
 
     void logsQuery.fetchNextPage()
-  }, [logsQuery])
+  }, [
+    loadedPageCount,
+    logsQuery.fetchNextPage,
+    logsQuery.hasNextPage,
+    logsQuery.isFetchingNextPage,
+    reachedAutoPageLimit,
+  ])
 
   const liveMonitorIds = useMemo(
     () => new Set(monitors.map((monitor) => monitor.monitorId)),
@@ -344,7 +361,9 @@ export function useMonitorWorkspaceLogs({
     isSelectionResolved,
     isLoading:
       !logsQuery.error &&
-      (!logsQuery.data || logsQuery.hasNextPage || logsQuery.isFetchingNextPage),
+      (!logsQuery.data ||
+        (logsQuery.hasNextPage && !reachedAutoPageLimit) ||
+        logsQuery.isFetchingNextPage),
     isFetching: logsQuery.isFetching,
     error:
       logsQuery.error instanceof Error

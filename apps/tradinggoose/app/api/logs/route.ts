@@ -409,11 +409,8 @@ export async function GET(request: NextRequest) {
               ? (log.cost as any)
               : extractCostSummary(blockExecutions)
 
-          // Include finalOutput if present on executionData
-          try {
-            const fo = storedExecutionData.finalOutput
-            if (fo !== undefined) finalOutput = fo
-          } catch {}
+          const storedFinalOutput = storedExecutionData.finalOutput
+          if (storedFinalOutput !== undefined) finalOutput = storedFinalOutput
         }
 
         const workflowSummary = {

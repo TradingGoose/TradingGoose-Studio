@@ -106,6 +106,22 @@ describe('normalizeExecutionMonitorViewConfig', () => {
     expect(normalized.sortBy).toEqual([])
   })
 
+  it('normalizes duplicate execution grouping axes', () => {
+    const normalized = normalizeExecutionMonitorViewConfig({
+      ...DEFAULT_EXECUTION_MONITOR_VIEW_CONFIG,
+      groupBy: 'provider',
+      verticalGroupBy: 'provider',
+      sliceBy: 'provider',
+    })
+
+    expect(normalized).toEqual({
+      ...DEFAULT_EXECUTION_MONITOR_VIEW_CONFIG,
+      groupBy: 'provider',
+      verticalGroupBy: null,
+      sliceBy: null,
+    })
+  })
+
   it('normalizes config workspace axes, filters, and visible fields', () => {
     const normalized = normalizeConfigMonitorViewConfig({
       ...DEFAULT_CONFIG_MONITOR_VIEW_CONFIG,

@@ -15,6 +15,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { type LayoutTab, LayoutTabs } from '@/app/workspace/[workspaceId]/dashboard/layout-tabs'
+import { AutocompleteSearch } from '@/app/workspace/[workspaceId]/logs/components/logs-toolbar'
 import { buildConfigMonitorCards } from '@/app/workspace/[workspaceId]/monitor/components/config/config-card-model'
 import { ConfigMonitorSearch } from '@/app/workspace/[workspaceId]/monitor/components/config/config-search'
 import {
@@ -66,7 +67,6 @@ import {
 } from '@/app/workspace/[workspaceId]/monitor/components/view/view-preferences'
 import { MonitorConfigWorkspace } from '@/app/workspace/[workspaceId]/monitor/components/workspace/monitor-config-workspace'
 import { MonitorExecutionWorkspace } from '@/app/workspace/[workspaceId]/monitor/components/workspace/monitor-execution-workspace'
-import { AutocompleteSearch } from '@/app/workspace/[workspaceId]/logs/components/logs-toolbar'
 import { GlobalNavbarHeader } from '@/global-navbar'
 import { buildLogsRequestParams, useLogDetail } from '@/hooks/queries/logs'
 
@@ -83,9 +83,6 @@ type MonitorConfigsByMode = {
   executions: ExecutionMonitorViewConfig
   config: ConfigMonitorViewConfig
 }
-
-const areConfigsEqual = (left: ExecutionMonitorViewConfig, right: ExecutionMonitorViewConfig) =>
-  JSON.stringify(left) === JSON.stringify(right)
 
 const areSavedConfigsEqual = (
   left: ExecutionMonitorViewConfig | ConfigMonitorViewConfig,
@@ -240,11 +237,11 @@ export function MonitorPage({ workspaceId, userId }: MonitorPageProps) {
         ...latestConfigsByModeRef.current,
         executions: normalized,
       }
-      if (targetViewId && !areConfigsEqual(previous, normalized)) {
+      if (targetViewId && !areSavedConfigsEqual(previous, normalized)) {
         dirtyModesRef.current.add('executions')
       }
       setConfigsByMode((current) =>
-        areConfigsEqual(current.executions, normalized)
+        areSavedConfigsEqual(current.executions, normalized)
           ? current
           : { ...current, executions: normalized }
       )
@@ -257,7 +254,7 @@ export function MonitorPage({ workspaceId, userId }: MonitorPageProps) {
       setViewRows((current) =>
         current.map((row) =>
           row.id === targetViewId &&
-            !areConfigsEqual(normalizeExecutionMonitorViewConfig(row.config), normalized)
+          !areSavedConfigsEqual(normalizeExecutionMonitorViewConfig(row.config), normalized)
             ? { ...row, config: normalized, updatedAt }
             : row
         )
@@ -299,7 +296,7 @@ export function MonitorPage({ workspaceId, userId }: MonitorPageProps) {
       setViewRows((current) =>
         current.map((row) =>
           row.id === targetViewId &&
-            !areSavedConfigsEqual(normalizeConfigMonitorViewConfig(row.config), normalized)
+          !areSavedConfigsEqual(normalizeConfigMonitorViewConfig(row.config), normalized)
             ? { ...row, config: normalized, updatedAt }
             : row
         )
@@ -348,7 +345,7 @@ export function MonitorPage({ workspaceId, userId }: MonitorPageProps) {
           executions: nextConfig,
         }
         setConfigsByMode((current) =>
-          areConfigsEqual(current.executions, nextConfig)
+          areSavedConfigsEqual(current.executions, nextConfig)
             ? current
             : { ...current, executions: nextConfig }
         )
@@ -358,14 +355,14 @@ export function MonitorPage({ workspaceId, userId }: MonitorPageProps) {
         current.map((row) =>
           row.id === targetViewId
             ? {
-              ...row,
-              name: updatedRow.name,
-              sortOrder: updatedRow.sortOrder,
-              isActive: updatedRow.isActive,
-              config: updatedRow.config,
-              createdAt: updatedRow.createdAt,
-              updatedAt: updatedRow.updatedAt,
-            }
+                ...row,
+                name: updatedRow.name,
+                sortOrder: updatedRow.sortOrder,
+                isActive: updatedRow.isActive,
+                config: updatedRow.config,
+                createdAt: updatedRow.createdAt,
+                updatedAt: updatedRow.updatedAt,
+              }
             : row
         )
       )
@@ -573,8 +570,7 @@ export function MonitorPage({ workspaceId, userId }: MonitorPageProps) {
     : -1
 
   const workflowSuggestionNames = useMemo(
-    () =>
-      referenceData.workflowOptions.map((option) => option.workflowName),
+    () => referenceData.workflowOptions.map((option) => option.workflowName),
     [referenceData.workflowOptions]
   )
   const activeQuickFilterClauseRaws = useMemo(() => {
@@ -979,13 +975,13 @@ export function MonitorPage({ workspaceId, userId }: MonitorPageProps) {
           current.map((row) =>
             row.id === dialogState.viewId
               ? {
-                ...row,
-                name: updatedRow.name,
-                sortOrder: updatedRow.sortOrder,
-                isActive: updatedRow.isActive,
-                createdAt: updatedRow.createdAt,
-                updatedAt: updatedRow.updatedAt,
-              }
+                  ...row,
+                  name: updatedRow.name,
+                  sortOrder: updatedRow.sortOrder,
+                  isActive: updatedRow.isActive,
+                  createdAt: updatedRow.createdAt,
+                  updatedAt: updatedRow.updatedAt,
+                }
               : row
           )
         )
@@ -1023,9 +1019,9 @@ export function MonitorPage({ workspaceId, userId }: MonitorPageProps) {
           const current = activeModeRows.find((row) => row.id === layout.id)
           return current
             ? {
-              ...current,
-              sortOrder: layout.sortOrder ?? index,
-            }
+                ...current,
+                sortOrder: layout.sortOrder ?? index,
+              }
             : null
         })
         .filter((row): row is MonitorViewRow => Boolean(row))

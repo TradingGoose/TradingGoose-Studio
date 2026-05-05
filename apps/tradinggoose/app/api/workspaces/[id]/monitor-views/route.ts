@@ -111,10 +111,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         { status: 400 }
       )
     }
-    const highestSortOrder = existingRows.reduce(
-      (max, row) => Math.max(max, row.sortOrder ?? -1),
-      -1
-    )
+    const highestSortOrder = existingRows.reduce((max, row) => Math.max(max, row.sortOrder), -1)
     const shouldMakeActive =
       typeof body.makeActive === 'boolean' ? body.makeActive : sameModeRows.length === 0
 

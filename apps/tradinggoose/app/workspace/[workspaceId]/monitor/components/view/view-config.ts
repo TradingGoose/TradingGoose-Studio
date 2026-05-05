@@ -586,6 +586,22 @@ const normalizeNullableConfigDimensionField = (
     ? (value as ConfigMonitorDimensionField)
     : null
 
+const normalizeDistinctAxes = <T extends string>(
+  groupBy: T,
+  sliceBy: T | null,
+  verticalGroupBy: T | null
+) => {
+  const normalizedSliceBy = sliceBy === groupBy ? null : sliceBy
+
+  return {
+    sliceBy: normalizedSliceBy,
+    verticalGroupBy:
+      verticalGroupBy && verticalGroupBy !== groupBy && verticalGroupBy !== normalizedSliceBy
+        ? verticalGroupBy
+        : null,
+  }
+}
+
 const normalizeConfigSortBy = (value: unknown): ConfigMonitorSortRule[] => {
   if (!Array.isArray(value)) {
     return DEFAULT_CONFIG_MONITOR_VIEW_CONFIG.sortBy
@@ -668,6 +684,15 @@ export const normalizeExecutionMonitorViewConfig = (value: unknown): ExecutionMo
   const timeline = isObject(record.timeline) ? record.timeline : {}
   const timelineDateFields = isObject(timeline.dateFields) ? timeline.dateFields : {}
   const timelineMarkers = isObject(timeline.markers) ? timeline.markers : {}
+  const groupBy = normalizeExecutionGroupField(
+    record.groupBy,
+    DEFAULT_EXECUTION_MONITOR_VIEW_CONFIG.groupBy
+  )
+  const axes = normalizeDistinctAxes(
+    groupBy,
+    normalizeNullableExecutionGroupField(record.sliceBy),
+    normalizeNullableExecutionGroupField(record.verticalGroupBy)
+  )
 
   return {
     mode: 'executions',
@@ -675,12 +700,9 @@ export const normalizeExecutionMonitorViewConfig = (value: unknown): ExecutionMo
     filterQuery: typeof record.filterQuery === 'string' ? record.filterQuery.trim() : '',
     quickFilters: normalizeExecutionQuickFilters(record.quickFilters),
     sortBy: normalizeExecutionSortBy(record.sortBy),
-    groupBy: normalizeExecutionGroupField(
-      record.groupBy,
-      DEFAULT_EXECUTION_MONITOR_VIEW_CONFIG.groupBy
-    ),
-    verticalGroupBy: normalizeNullableExecutionGroupField(record.verticalGroupBy),
-    sliceBy: normalizeNullableExecutionGroupField(record.sliceBy),
+    groupBy,
+    verticalGroupBy: axes.verticalGroupBy,
+    sliceBy: axes.sliceBy,
     fieldSums: normalizeAllowedArray(
       record.fieldSums,
       EXECUTION_MONITOR_FIELD_SUMS,
@@ -734,15 +756,11 @@ export const normalizeConfigMonitorViewConfig = (value: unknown): ConfigMonitorV
     record.groupBy,
     DEFAULT_CONFIG_MONITOR_VIEW_CONFIG.groupBy
   )
-  let sliceBy = normalizeNullableConfigDimensionField(record.sliceBy)
-  let verticalGroupBy = normalizeNullableConfigDimensionField(record.verticalGroupBy)
-
-  if (sliceBy === groupBy) {
-    sliceBy = null
-  }
-  if (verticalGroupBy === groupBy || verticalGroupBy === sliceBy) {
-    verticalGroupBy = null
-  }
+  const axes = normalizeDistinctAxes(
+    groupBy,
+    normalizeNullableConfigDimensionField(record.sliceBy),
+    normalizeNullableConfigDimensionField(record.verticalGroupBy)
+  )
 
   return {
     mode: 'config',
@@ -750,8 +768,8 @@ export const normalizeConfigMonitorViewConfig = (value: unknown): ConfigMonitorV
     quickFilters: normalizeConfigQuickFilters(record.quickFilters),
     sortBy: normalizeConfigSortBy(record.sortBy),
     groupBy,
-    verticalGroupBy,
-    sliceBy,
+    verticalGroupBy: axes.verticalGroupBy,
+    sliceBy: axes.sliceBy,
     fieldSums: normalizeAllowedArray(
       record.fieldSums,
       CONFIG_MONITOR_FIELD_SUMS,
@@ -906,6 +924,11 @@ const hasValidConfigQuickFilters = (value: unknown) => {
 
 const hasValidTimezone = (value: unknown) => typeof value === 'string' && value.trim().length > 0
 
+const hasDistinctAxes = (groupBy: unknown, sliceBy: unknown, verticalGroupBy: unknown) =>
+  sliceBy !== groupBy &&
+  verticalGroupBy !== groupBy &&
+  (sliceBy === null || verticalGroupBy === null || sliceBy !== verticalGroupBy)
+
 const hasValidExecutionShape = (record: Record<string, unknown>) => {
   const kanban = record.kanban
   const timeline = record.timeline
@@ -922,6 +945,7 @@ const hasValidExecutionShape = (record: Record<string, unknown>) => {
     (record.verticalGroupBy === null ||
       isAllowedString(record.verticalGroupBy, EXECUTION_MONITOR_GROUP_FIELDS)) &&
     (record.sliceBy === null || isAllowedString(record.sliceBy, EXECUTION_MONITOR_GROUP_FIELDS)) &&
+    hasDistinctAxes(record.groupBy, record.sliceBy, record.verticalGroupBy) &&
     hasUniqueAllowedStrings(record.fieldSums, EXECUTION_MONITOR_FIELD_SUMS) &&
     hasValidTimezone(record.timezone) &&
     isAllowedString(kanban.columnField, EXECUTION_MONITOR_GROUP_FIELDS) &&
@@ -956,11 +980,7 @@ const hasValidConfigShape = (record: Record<string, unknown>) => {
     (record.verticalGroupBy === null ||
       isAllowedString(record.verticalGroupBy, CONFIG_MONITOR_DIMENSION_FIELDS)) &&
     (record.sliceBy === null || isAllowedString(record.sliceBy, CONFIG_MONITOR_DIMENSION_FIELDS)) &&
-    record.verticalGroupBy !== record.groupBy &&
-    record.sliceBy !== record.groupBy &&
-    (record.verticalGroupBy === null ||
-      record.sliceBy === null ||
-      record.verticalGroupBy !== record.sliceBy) &&
+    hasDistinctAxes(record.groupBy, record.sliceBy, record.verticalGroupBy) &&
     hasUniqueAllowedStrings(record.fieldSums, CONFIG_MONITOR_FIELD_SUMS) &&
     hasValidTimezone(record.timezone) &&
     hasValidLocalCardOrder(kanban.localCardOrder) &&

@@ -6,12 +6,12 @@ import { act, createElement } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useLogsList } from '@/hooks/queries/logs'
+import type { IndicatorMonitorRecord } from '../shared/types'
 import { DEFAULT_EXECUTION_MONITOR_VIEW_CONFIG } from '../view/view-config'
 import {
   applyMonitorQuickFiltersToExportParams,
   useMonitorWorkspaceLogs,
 } from './use-monitor-workspace-logs'
-import type { IndicatorMonitorRecord } from '../shared/types'
 
 const reactActEnvironment = globalThis as typeof globalThis & {
   IS_REACT_ACT_ENVIRONMENT?: boolean
@@ -22,6 +22,51 @@ vi.mock('@/hooks/queries/logs', () => ({
 }))
 
 const mockUseLogsList = vi.mocked(useLogsList)
+
+type MonitorLogFixtureOptions = {
+  id?: string
+  executionId?: string
+  startedAt?: string
+  endedAt?: string | null
+  costTotal?: number
+  monitorId?: string
+  listingId?: string
+}
+
+const createMonitorLog = ({
+  id = 'log-1',
+  executionId = 'exec-1',
+  startedAt = '2026-04-23T00:00:00.000Z',
+  endedAt = '2026-04-23T00:05:00.000Z',
+  costTotal = 0.12,
+  monitorId = 'monitor-1',
+  listingId = 'AAPL',
+}: MonitorLogFixtureOptions = {}) => ({
+  id,
+  workspaceId: 'workspace-1',
+  workflowId: 'wf-1',
+  executionId,
+  startedAt,
+  endedAt,
+  durationMs: 300000,
+  outcome: 'success',
+  trigger: 'manual',
+  workflow: { name: 'Workflow One', color: '#3972F6' },
+  cost: { total: costTotal },
+  executionData: {
+    trigger: {
+      data: {
+        monitor: {
+          id: monitorId,
+          providerId: 'alpaca',
+          interval: '1m',
+          indicatorId: 'rsi',
+          listing: { listing_type: 'default', listing_id: listingId },
+        },
+      },
+    },
+  },
+})
 
 function HookHarness({
   onRender,
@@ -59,34 +104,7 @@ describe('useMonitorWorkspaceLogs', () => {
       data: {
         pages: [
           {
-            logs: [
-              {
-                id: 'log-1',
-                workspaceId: 'workspace-1',
-                workflowId: 'wf-1',
-                executionId: 'exec-1',
-                startedAt: '2026-04-23T00:00:00.000Z',
-                endedAt: '2026-04-23T00:05:00.000Z',
-                durationMs: 300000,
-                outcome: 'success',
-                trigger: 'manual',
-                workflow: { name: 'Workflow One', color: '#3972F6' },
-                cost: { total: 0.12 },
-                executionData: {
-                  trigger: {
-                    data: {
-                      monitor: {
-                        id: 'monitor-1',
-                        providerId: 'alpaca',
-                        interval: '1m',
-                        indicatorId: 'rsi',
-                        listing: { listing_type: 'default', listing_id: 'AAPL' },
-                      },
-                    },
-                  },
-                },
-              },
-            ],
+            logs: [createMonitorLog()],
           },
         ],
       },
@@ -257,6 +275,39 @@ describe('useMonitorWorkspaceLogs', () => {
     expect(snapshots.at(-1)?.orderedVisibleLogIds).toEqual(['log-1'])
   })
 
+  it('matches listing quick filters against canonical listing identities', async () => {
+    const snapshots: ReturnType<typeof useMonitorWorkspaceLogs>[] = []
+
+    await act(async () => {
+      root.render(
+        createElement(HookHarness, {
+          viewConfig: {
+            ...DEFAULT_EXECUTION_MONITOR_VIEW_CONFIG,
+            quickFilters: [
+              {
+                field: 'listing',
+                operator: 'include',
+                values: [
+                  JSON.stringify({
+                    listing_id: 'AAPL',
+                    base_id: '',
+                    quote_id: '',
+                    listing_type: 'default',
+                  }),
+                ],
+              },
+            ],
+          },
+          onRender: (value) => {
+            snapshots.push(value)
+          },
+        })
+      )
+    })
+
+    expect(snapshots.at(-1)?.executionItems.map((item) => item.logId)).toEqual(['log-1'])
+  })
+
   it('keeps loading until all execution pages are fetched and exposes layout-ordered ids', async () => {
     const fetchNextPage = vi.fn()
     mockUseLogsList.mockReturnValue({
@@ -264,58 +315,16 @@ describe('useMonitorWorkspaceLogs', () => {
         pages: [
           {
             logs: [
-              {
-                id: 'log-1',
-                workspaceId: 'workspace-1',
-                workflowId: 'wf-1',
-                executionId: 'exec-1',
-                startedAt: '2026-04-23T00:00:00.000Z',
-                endedAt: '2026-04-23T00:05:00.000Z',
-                durationMs: 300000,
-                outcome: 'success',
-                trigger: 'manual',
-                workflow: { name: 'Workflow One', color: '#3972F6' },
-                cost: { total: 0.12 },
-                executionData: {
-                  trigger: {
-                    data: {
-                      monitor: {
-                        id: 'monitor-1',
-                        providerId: 'alpaca',
-                        interval: '1m',
-                        indicatorId: 'rsi',
-                        listing: { listing_type: 'default', listing_id: 'AAPL' },
-                      },
-                    },
-                  },
-                },
-              },
-              {
+              createMonitorLog(),
+              createMonitorLog({
                 id: 'log-2',
-                workspaceId: 'workspace-1',
-                workflowId: 'wf-1',
                 executionId: 'exec-2',
                 startedAt: '2026-04-23T00:10:00.000Z',
                 endedAt: '2026-04-23T00:15:00.000Z',
-                durationMs: 300000,
-                outcome: 'success',
-                trigger: 'manual',
-                workflow: { name: 'Workflow One', color: '#3972F6' },
-                cost: { total: 0.08 },
-                executionData: {
-                  trigger: {
-                    data: {
-                      monitor: {
-                        id: 'monitor-2',
-                        providerId: 'alpaca',
-                        interval: '1m',
-                        indicatorId: 'rsi',
-                        listing: { listing_type: 'default', listing_id: 'MSFT' },
-                      },
-                    },
-                  },
-                },
-              },
+                costTotal: 0.08,
+                monitorId: 'monitor-2',
+                listingId: 'MSFT',
+              }),
             ],
           },
         ],
@@ -356,5 +365,39 @@ describe('useMonitorWorkspaceLogs', () => {
     expect(snapshots.at(-1)?.isLoading).toBe(true)
     expect(snapshots.at(-1)?.isSelectionResolved).toBe(false)
     expect(snapshots.at(-1)?.orderedVisibleLogIds).toEqual(['log-2', 'log-1'])
+  })
+
+  it('stops auto-fetching monitor execution pages at the page budget', async () => {
+    const fetchNextPage = vi.fn()
+    const page = {
+      logs: [createMonitorLog()],
+    }
+
+    mockUseLogsList.mockReturnValue({
+      data: { pages: [page, page, page] },
+      hasNextPage: true,
+      isFetchingNextPage: false,
+      isLoading: false,
+      isFetching: false,
+      error: null,
+      fetchNextPage,
+      refetch: vi.fn(),
+    } as any)
+
+    const snapshots: ReturnType<typeof useMonitorWorkspaceLogs>[] = []
+
+    await act(async () => {
+      root.render(
+        createElement(HookHarness, {
+          onRender: (value) => {
+            snapshots.push(value)
+          },
+        })
+      )
+    })
+
+    expect(fetchNextPage).not.toHaveBeenCalled()
+    expect(snapshots.at(-1)?.isLoading).toBe(false)
+    expect(snapshots.at(-1)?.isSelectionResolved).toBe(false)
   })
 })

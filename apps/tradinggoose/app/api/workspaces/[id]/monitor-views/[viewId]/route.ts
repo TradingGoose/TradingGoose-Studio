@@ -168,7 +168,7 @@ export async function DELETE(
     }
 
     const rows = strictRows.filter((entry): entry is MonitorViewRow => Boolean(entry))
-    const rowMode = row.mode ?? row.config.mode
+    const rowMode = row.mode
     const sameModeRows = getRowsForMode(rows, rowMode)
     if (sameModeRows.length === 1) {
       return NextResponse.json(
