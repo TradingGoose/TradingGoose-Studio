@@ -120,7 +120,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     const inserted = await db.transaction(async (tx) => {
       if (shouldMakeActive) {
-        await clearActiveForMode(tx, existingRows, normalizedConfig.mode)
+        await clearActiveForMode(tx, existingRows, normalizedConfig.mode, workspaceId, userId)
       }
 
       const [created] = await tx
@@ -233,7 +233,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
     await db.transaction(async (tx) => {
       if (reorderedRows) {
-        for (const row of reorderedRows) {
+        for (const row of reorderedRows.filter((row) => row.mode === mode)) {
           await tx
             .update(monitorView)
             .set({ sort_order: row.sortOrder, updatedAt: new Date() })
@@ -248,7 +248,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       }
 
       if (activeViewId) {
-        await clearActiveForMode(tx, rows, activeMode)
+        await clearActiveForMode(tx, rows, activeMode, workspaceId, userId)
 
         await tx
           .update(monitorView)

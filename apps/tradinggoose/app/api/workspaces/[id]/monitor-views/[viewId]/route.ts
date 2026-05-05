@@ -211,7 +211,7 @@ export async function DELETE(
       }
 
       if (nextActiveId) {
-        await clearActiveForMode(tx, remainingRows, rowMode)
+        await clearActiveForMode(tx, remainingRows, rowMode, workspaceId, userId)
 
         await tx
           .update(monitorView)

@@ -352,12 +352,16 @@ describe('monitor view collection route', () => {
       expect.objectContaining({ isActive: false, updatedAt: expect.any(Date) })
     )
     expect(mockTxWhere.mock.calls[0]?.[0]).toMatchObject({
-      type: 'inArray',
-      values: ['view-1', 'view-2'],
+      conditions: [
+        { type: 'inArray', values: ['view-1', 'view-2'] },
+        { field: 'monitorView.workspaceId', type: 'eq', value: 'workspace-1' },
+        { field: 'monitorView.userId', type: 'eq', value: 'user-1' },
+      ],
+      type: 'and',
     })
   })
 
-  it('reorders same-mode rows and compacts global sort order', async () => {
+  it('reorders same-mode rows without updating other modes', async () => {
     mockOrderBy.mockResolvedValue([
       {
         id: 'view-1',
@@ -399,7 +403,7 @@ describe('monitor view collection route', () => {
       .filter(({ patch }) => Object.hasOwn(patch as object, 'sort_order'))
       .map(({ where }) => where.conditions[0].value)
 
-    expect(sortOrderUpdateIds).toEqual(['view-2', 'config-view-1', 'view-1'])
+    expect(sortOrderUpdateIds).toEqual(['view-2', 'view-1'])
   })
 
   it('accepts an activeViewId-only patch', async () => {

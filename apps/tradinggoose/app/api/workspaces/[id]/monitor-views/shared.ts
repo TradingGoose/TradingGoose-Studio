@@ -68,7 +68,9 @@ export const listStrictMonitorViewRows = async (workspaceId: string, userId: str
 export const clearActiveForMode = async (
   tx: Pick<typeof db, 'update'>,
   rows: MonitorViewRow[],
-  mode: MonitorPageMode
+  mode: MonitorPageMode,
+  workspaceId: string,
+  userId: string
 ) => {
   const ids = rows.filter((row) => row.mode === mode).map((row) => row.id)
   if (ids.length === 0) return
@@ -76,7 +78,13 @@ export const clearActiveForMode = async (
   await tx
     .update(monitorView)
     .set({ isActive: false, updatedAt: new Date() })
-    .where(inArray(monitorView.id, ids))
+    .where(
+      and(
+        inArray(monitorView.id, ids),
+        eq(monitorView.workspaceId, workspaceId),
+        eq(monitorView.userId, userId)
+      )
+    )
 }
 
 export const groupRowsByMode = (rows: MonitorViewRow[]) =>
