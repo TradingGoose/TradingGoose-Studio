@@ -75,7 +75,10 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
     }
 
     return NextResponse.json({
-      data: serializeWorkflowLog(row, 'full'),
+      data: {
+        ...serializeWorkflowLog(row, 'full'),
+        createdAt: undefined,
+      },
     })
   } catch (error: any) {
     logger.error(`[${requestId}] log details fetch error`, error)
