@@ -9,7 +9,7 @@ import type {
 
 export type MonitorExecutionOutcome = 'running' | 'success' | 'error' | 'skipped' | 'unknown'
 
-export type MonitorExecutionSourceLog =
+type MonitorExecutionSourceLog =
   | WorkflowLog
   | (Omit<Partial<WorkflowLog>, 'workflow'> & {
       id: string
@@ -40,7 +40,7 @@ export type MonitorExecutionItem = {
   sourceLog: MonitorExecutionSourceLog
 }
 
-export type ExecutionGroupValue = {
+type ExecutionGroupValue = {
   id: string
   label: string
   sortValue: string
@@ -121,7 +121,7 @@ export const getExecutionGroupValue = (
   }
 }
 
-export const compareExecutionGroupValues = (
+const compareExecutionGroupValues = (
   left: ExecutionGroupValue,
   right: ExecutionGroupValue,
   field: ExecutionMonitorGroupField
@@ -163,7 +163,7 @@ export const sortExecutionGroups = <T>(
   )
 }
 
-export const compareExecutionItemsByField = (
+const compareExecutionItemsByField = (
   left: MonitorExecutionItem,
   right: MonitorExecutionItem,
   field: ExecutionMonitorSortField

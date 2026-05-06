@@ -3,7 +3,7 @@
 import { type ComponentProps, type ReactNode, useCallback, useRef, type WheelEvent } from 'react'
 import { Loader2 } from 'lucide-react'
 import { Badge, type BadgeProps } from '@/components/ui/badge'
-import { Button, type ButtonProps } from '@/components/ui/button'
+import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 import { SearchableDropdown, type SearchableDropdownOption } from './searchable-dropdown'
@@ -53,7 +53,7 @@ export function MonitorControlBar({
   )
 }
 
-export type MonitorControlSelectOption = SearchableDropdownOption & {
+type MonitorControlSelectOption = SearchableDropdownOption & {
   disabled?: boolean
   label: ReactNode
   value: string
@@ -114,36 +114,7 @@ export function MonitorControlSelect<TOption extends MonitorControlSelectOption>
   )
 }
 
-type MonitorControlToggleProps = Omit<ButtonProps, 'size' | 'variant'> & {
-  pressed: boolean
-}
-
-export function MonitorControlToggle({
-  children,
-  className,
-  pressed,
-  type = 'button',
-  ...props
-}: MonitorControlToggleProps) {
-  return (
-    <Button
-      type={type}
-      variant='outline'
-      size='sm'
-      aria-pressed={pressed}
-      className={cn(
-        monitorControlSurfaceClass,
-        pressed && 'border-primary/40 bg-primary/10 text-foreground hover:bg-primary/15',
-        className
-      )}
-      {...props}
-    >
-      {children}
-    </Button>
-  )
-}
-
-export type MonitorControlMenuOption = SearchableDropdownOption & {
+type MonitorControlMenuOption = SearchableDropdownOption & {
   selected?: boolean
 }
 

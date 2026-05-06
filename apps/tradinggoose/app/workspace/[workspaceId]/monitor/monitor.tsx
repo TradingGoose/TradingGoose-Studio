@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { MONITOR_QUERY_POLICY } from '@/lib/logs/query-policy'
 import { type LayoutTab, LayoutTabs } from '@/app/workspace/[workspaceId]/dashboard/layout-tabs'
 import { AutocompleteSearch } from '@/app/workspace/[workspaceId]/logs/components/logs-toolbar'
 import { buildConfigMonitorCards } from '@/app/workspace/[workspaceId]/monitor/components/config/config-card-model'
@@ -1180,6 +1181,7 @@ export function MonitorPage({ workspaceId, userId }: MonitorPageProps) {
           <AutocompleteSearch
             value={executionViewConfig.filterQuery}
             onChange={commitFilterQuery}
+            queryPolicy={MONITOR_QUERY_POLICY}
             availableWorkflows={workflowSuggestionNames}
             placeholder='Search executions...'
             className='w-full'

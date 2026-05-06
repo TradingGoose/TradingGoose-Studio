@@ -35,13 +35,13 @@ export type MonitorExecutionSummary = {
   lastOutcome: MonitorExecutionOutcome | null
 }
 
-export type UseMonitorExecutionSummariesInput = {
+type UseMonitorExecutionSummariesInput = {
   workspaceId: string
   targetMonitorIds: string[]
   enabled: boolean
 }
 
-export type UseMonitorExecutionSummariesResult = {
+type UseMonitorExecutionSummariesResult = {
   summariesByMonitorId: Record<string, MonitorExecutionSummary>
   isLoading: boolean
   isFetching: boolean
@@ -168,12 +168,7 @@ export function useMonitorExecutionSummaries({
     ) {
       void logsQuery.fetchNextPage()
     }
-  }, [
-    enabled,
-    logsQuery,
-    stableTargetMonitorIds,
-    summariesByMonitorId,
-  ])
+  }, [enabled, logsQuery, stableTargetMonitorIds, summariesByMonitorId])
 
   const refresh = useCallback(() => logsQuery.refetch(), [logsQuery])
 

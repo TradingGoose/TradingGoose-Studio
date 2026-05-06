@@ -20,7 +20,7 @@ export type ConfigBoardContext = {
   statusLane: ConfigMonitorStatus
 }
 
-export type ConfigBoardAggregates = Partial<Record<ConfigMonitorFieldSum, number>>
+type ConfigBoardAggregates = Partial<Record<ConfigMonitorFieldSum, number>>
 
 export type ConfigBoardBucket = {
   id: string
@@ -30,7 +30,7 @@ export type ConfigBoardBucket = {
   aggregates: ConfigBoardAggregates
 }
 
-export type ConfigBoardStatusLane = {
+type ConfigBoardStatusLane = {
   id: ConfigMonitorStatus
   label: string
   buckets: ConfigBoardBucket[]
@@ -38,7 +38,7 @@ export type ConfigBoardStatusLane = {
   aggregates: ConfigBoardAggregates
 }
 
-export type ConfigBoardGroup = {
+type ConfigBoardGroup = {
   id: string
   label: string
   statusLanes: ConfigBoardStatusLane[]
@@ -88,27 +88,8 @@ const aggregateCards = (
     ])
   ) as ConfigBoardAggregates
 
-export const encodeConfigBoardBucketId = (context: ConfigBoardContext) =>
+const encodeConfigBoardBucketId = (context: ConfigBoardContext) =>
   `cfg-bucket:${encodeURIComponent(JSON.stringify(context))}`
-
-export const decodeConfigBoardBucketId = (bucketId: string): ConfigBoardContext | null => {
-  if (!bucketId.startsWith('cfg-bucket:')) return null
-  try {
-    const parsed = JSON.parse(decodeURIComponent(bucketId.slice('cfg-bucket:'.length)))
-    if (
-      parsed?.version !== 1 ||
-      (parsed.statusLane !== 'active' && parsed.statusLane !== 'paused') ||
-      typeof parsed.sliceValue !== 'string' ||
-      typeof parsed.groupValue !== 'string' ||
-      typeof parsed.verticalGroupValue !== 'string'
-    ) {
-      return null
-    }
-    return parsed as ConfigBoardContext
-  } catch {
-    return null
-  }
-}
 
 const addAxisValue = (values: Map<string, ConfigAxisValue>, value: ConfigAxisValue) => {
   if (!value.id) return

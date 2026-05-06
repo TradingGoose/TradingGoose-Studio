@@ -142,6 +142,8 @@ describe('useMonitorWorkspaceLogs', () => {
       expect.objectContaining({
         details: 'full',
         searchQuery: 'workflow:#wf-1',
+        queryPolicy: expect.objectContaining({ key: 'monitor' }),
+        queryPolicyKey: 'monitor',
         triggerSource: 'indicator_trigger',
       })
     )
@@ -152,22 +154,46 @@ describe('useMonitorWorkspaceLogs', () => {
 
   it('adds supported monitor quick filters to log export params', () => {
     const params = new URLSearchParams('workspaceId=workspace-1&triggerSource=indicator_trigger')
+    const listing = JSON.stringify({
+      listing_id: 'AAPL',
+      base_id: '',
+      quote_id: '',
+      listing_type: 'default',
+    })
+    const excludedListing = JSON.stringify({
+      listing_id: '',
+      base_id: 'BTC',
+      quote_id: 'USD',
+      listing_type: 'crypto',
+    })
 
     applyMonitorQuickFiltersToExportParams(params, [
+      { field: 'outcome', operator: 'include', values: ['success'] },
+      { field: 'outcome', operator: 'exclude', values: ['error'] },
       { field: 'provider', operator: 'include', values: ['alpaca'] },
       { field: 'assetType', operator: 'include', values: ['stock'] },
       { field: 'monitor', operator: 'include', values: ['monitor-1'] },
       { field: 'workflow', operator: 'include', values: ['workflow-1'] },
       { field: 'trigger', operator: 'include', values: ['manual'] },
+      { field: 'listing', operator: 'include', values: [listing] },
+      { field: 'listing', operator: 'exclude', values: [excludedListing] },
       { field: 'provider', operator: 'exclude', values: ['tradier'] },
+      { field: 'monitor', operator: 'has', values: [] },
+      { field: 'interval', operator: 'no', values: [] },
     ])
 
+    expect(params.get('outcomes')).toBe('success')
+    expect(params.get('excludeOutcomes')).toBe('error')
     expect(params.get('providerId')).toBe('alpaca')
-    expect(params.get('assetType')).toBe('stock')
+    expect(params.get('assetTypes')).toBe('stock')
     expect(params.get('monitorId')).toBe('monitor-1')
     expect(params.get('workflowIds')).toBe('workflow-1')
     expect(params.get('triggers')).toBe('manual')
-    expect(params.toString()).not.toContain('tradier')
+    expect(JSON.parse(params.get('listings') ?? '[]')).toEqual([JSON.parse(listing)])
+    expect(JSON.parse(params.get('excludeListings') ?? '[]')).toEqual([JSON.parse(excludedListing)])
+    expect(params.get('excludeProviderId')).toBe('tradier')
+    expect(params.get('hasFields')).toBe('monitor')
+    expect(params.get('noFields')).toBe('interval')
   })
 
   it('marks historical executions as orphaned when the source monitor no longer exists', async () => {

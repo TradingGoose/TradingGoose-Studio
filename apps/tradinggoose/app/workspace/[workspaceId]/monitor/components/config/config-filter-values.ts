@@ -1,5 +1,4 @@
 import { toListingValueObject } from '@/lib/listing/identity'
-import type { MonitorExecutionOutcome } from '../data/execution-ordering'
 
 export const CONFIG_MONITOR_OUTCOMES = [
   'running',
@@ -7,9 +6,9 @@ export const CONFIG_MONITOR_OUTCOMES = [
   'error',
   'skipped',
   'unknown',
-] as const satisfies MonitorExecutionOutcome[]
+] as const
 
-export const CONFIG_MONITOR_STATUSES = ['active', 'paused'] as const
+const CONFIG_MONITOR_STATUSES = ['active', 'paused'] as const
 
 const sortStrings = (values: string[]) =>
   [...values].sort((left, right) =>
@@ -57,10 +56,7 @@ export const normalizeConfigFilterValue = (field: string, rawValue: unknown): st
   }
 }
 
-export const normalizeConfigFilterValues = (
-  field: string,
-  rawValues: unknown
-): string[] => {
+export const normalizeConfigFilterValues = (field: string, rawValues: unknown): string[] => {
   if (!Array.isArray(rawValues)) return []
 
   const values = new Set<string>()

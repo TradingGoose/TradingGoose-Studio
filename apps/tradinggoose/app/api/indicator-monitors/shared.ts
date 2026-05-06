@@ -16,7 +16,7 @@ import { isIndicatorTriggerCapable } from '@/lib/indicators/trigger-detection'
 import type { InputMetaMap } from '@/lib/indicators/types'
 import { resolveListingIdentity } from '@/lib/listing/resolve'
 
-export const INDICATOR_PROVIDER = 'indicator'
+const INDICATOR_PROVIDER = 'indicator'
 
 type WebhookRow = typeof webhook.$inferSelect
 

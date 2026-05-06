@@ -1,5 +1,7 @@
 import { useEffect, useMemo } from 'react'
 import { type ListingInputValue, toListingValueObject } from '@/lib/listing/identity'
+import { createSearchClause, queryToApiParams } from '@/lib/logs/query-parser'
+import { MONITOR_QUERY_POLICY } from '@/lib/logs/query-policy'
 import { useLogsList } from '@/hooks/queries/logs'
 import type { WorkflowLog } from '@/stores/logs/filters/types'
 import { buildMonitorBoardSections } from '../board/board-state'
@@ -25,16 +27,6 @@ const QUICK_FILTER_FIELD_TO_QUERY_FIELD: Record<ExecutionMonitorQuickFilterField
   provider: 'provider',
   interval: 'interval',
   monitor: 'monitor',
-}
-const QUICK_FILTER_FIELD_TO_EXPORT_PARAM: Partial<
-  Record<ExecutionMonitorQuickFilterField, string>
-> = {
-  workflow: 'workflowIds',
-  trigger: 'triggers',
-  assetType: 'assetType',
-  provider: 'providerId',
-  interval: 'interval',
-  monitor: 'monitorId',
 }
 const MONITOR_EXECUTION_AUTO_PAGE_LIMIT = 3
 
@@ -151,6 +143,8 @@ export const buildMonitorExecutionLogFilters = (viewConfig: ExecutionMonitorView
   folderIds: [],
   triggers: [],
   searchQuery: viewConfig.filterQuery.trim(),
+  queryPolicy: MONITOR_QUERY_POLICY,
+  queryPolicyKey: 'monitor' as const,
   limit: 100,
   details: 'full' as const,
   triggerSource: 'indicator_trigger' as const,
@@ -167,20 +161,65 @@ const mergeCsvParamValue = (current: string | null, values: string[]) => {
   return Array.from(merged).join(',')
 }
 
+const mergeJsonArrayParamValue = (current: string | null, value: string) => {
+  try {
+    const currentValues = current ? JSON.parse(current) : []
+    const nextValues = JSON.parse(value)
+    return JSON.stringify([
+      ...(Array.isArray(currentValues) ? currentValues : []),
+      ...(Array.isArray(nextValues) ? nextValues : []),
+    ])
+  } catch {
+    return value
+  }
+}
+
+const toMonitorQuickFilterExportParams = (quickFilters: ExecutionMonitorQuickFilter[]) => {
+  const clauses = quickFilters
+    .map((filter) => {
+      const field = QUICK_FILTER_FIELD_TO_QUERY_FIELD[filter.field]
+      const fieldPolicy = MONITOR_QUERY_POLICY.fields[field]
+      if (!fieldPolicy) return null
+
+      const kind = filter.operator === 'has' || filter.operator === 'no' ? filter.operator : 'field'
+      if (!fieldPolicy.clauseKinds.includes(kind)) return null
+
+      return createSearchClause(
+        {
+          kind,
+          field,
+          negated: filter.operator === 'exclude',
+          operator: '=',
+          valueMode: filter.field === 'workflow' ? 'id' : fieldPolicy.valueKind,
+          values: kind === 'field' ? filter.values : [],
+        },
+        MONITOR_QUERY_POLICY
+      )
+    })
+    .filter((entry): entry is NonNullable<typeof entry> => Boolean(entry))
+
+  return queryToApiParams(
+    {
+      clauses,
+      textSearch: '',
+      segments: [],
+      invalidQualifierFragments: [],
+    },
+    MONITOR_QUERY_POLICY
+  )
+}
+
 export const applyMonitorQuickFiltersToExportParams = (
   params: URLSearchParams,
   quickFilters: ExecutionMonitorQuickFilter[]
 ) => {
-  quickFilters.forEach((filter) => {
-    if (filter.operator !== 'include') return
+  Object.entries(toMonitorQuickFilterExportParams(quickFilters)).forEach(([paramName, value]) => {
+    if (paramName === 'listings' || paramName === 'excludeListings') {
+      params.set(paramName, mergeJsonArrayParamValue(params.get(paramName), value))
+      return
+    }
 
-    const paramName = QUICK_FILTER_FIELD_TO_EXPORT_PARAM[filter.field]
-    if (!paramName) return
-
-    const values = filter.values.map((value) => value.trim()).filter(Boolean)
-    if (values.length === 0) return
-
-    params.set(paramName, mergeCsvParamValue(params.get(paramName), values))
+    params.set(paramName, mergeCsvParamValue(params.get(paramName), [value]))
   })
 
   return params

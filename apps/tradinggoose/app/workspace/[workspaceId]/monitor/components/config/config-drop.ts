@@ -9,7 +9,7 @@ import type { ConfigBoardContext } from './config-board-state'
 import type { ConfigMonitorCard } from './config-card-model'
 import { getProviderIntervalFallback } from './config-draft'
 
-export type ConfigDropResolution = {
+type ConfigDropResolution = {
   draftPatch: Partial<MonitorDraft>
   updatePatch: Partial<IndicatorMonitorUpdateInput>
   errors: Record<string, string>

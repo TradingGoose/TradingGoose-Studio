@@ -1,10 +1,7 @@
 import type { ListingIdentity } from '@/lib/listing/identity'
 import type { MonitorExecutionOutcome } from '../data/execution-ordering'
 import type { MonitorExecutionSummary } from '../data/use-monitor-execution-summaries'
-import type {
-  IndicatorMonitorRecord,
-  MonitorReferenceData,
-} from '../shared/types'
+import type { IndicatorMonitorRecord, MonitorReferenceData } from '../shared/types'
 import type { ConfigMonitorDimensionField, ConfigMonitorStatus } from '../view/view-config'
 import { canonicalizeListingValue } from './config-filter-values'
 
@@ -50,10 +47,9 @@ const VALID_OUTCOMES = new Set<MonitorExecutionOutcome>([
   'unknown',
 ])
 
-export const getWorkflowTargetKey = (workflowId: string, blockId: string) =>
-  `${workflowId}:${blockId}`
+const getWorkflowTargetKey = (workflowId: string, blockId: string) => `${workflowId}:${blockId}`
 
-export const formatListingLabel = (listing: unknown) => {
+const formatListingLabel = (listing: unknown) => {
   const record = listing as Partial<ListingIdentity> | null | undefined
   if (!record) return 'Unknown listing'
 

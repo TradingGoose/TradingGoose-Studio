@@ -53,12 +53,12 @@ export const IndicatorMonitorUpdateSchema = z.object({
   isActive: z.boolean().optional(),
 })
 
-export type IndicatorMonitorAuthStored = {
+type IndicatorMonitorAuthStored = {
   encryptedSecrets?: Record<string, string>
   secretVersion?: 1
 }
 
-export type IndicatorMonitorAuthPublic = {
+type IndicatorMonitorAuthPublic = {
   hasEncryptedSecrets?: boolean
   encryptedSecretFieldIds?: string[]
 }

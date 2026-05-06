@@ -33,7 +33,7 @@ import {
   MONITOR_TIMELINE_SCALE_STEP,
 } from '../view/view-config'
 
-export type KiboGanttItem = {
+type KiboGanttItem = {
   id: string
   title: string
   startAt: Date
@@ -43,7 +43,7 @@ export type KiboGanttItem = {
   color: string
 }
 
-export type KiboGanttGroup = {
+type KiboGanttGroup = {
   id: string
   label: string
   aggregates?: Partial<Record<ExecutionMonitorFieldSum, number>>
