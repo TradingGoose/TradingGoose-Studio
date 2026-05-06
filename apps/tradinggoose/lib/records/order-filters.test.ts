@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import {
   DEFAULT_ORDERS_FILTER_STATE,
+  normalizeOrderSortByValue,
   normalizeOrderStatusFilterValue,
   normalizeOrdersFilterState,
+  ORDER_SORT_BY_VALUES,
 } from './order-filters'
 
 describe('order filters', () => {
@@ -36,5 +38,14 @@ describe('order filters', () => {
     expect(normalizeOrderStatusFilterValue('Invalid')).toBe('invalid')
     expect(normalizeOrderStatusFilterValue('Expired')).toBe('expired')
     expect(normalizeOrderStatusFilterValue('Rejected')).toBe('rejected')
+  })
+
+  it('preserves canonical camelCase order sort keys', () => {
+    ORDER_SORT_BY_VALUES.forEach((sortBy) => {
+      expect(normalizeOrderSortByValue(sortBy)).toBe(sortBy)
+      expect(normalizeOrdersFilterState({ orderSortBy: sortBy }).orderSortBy).toBe(sortBy)
+    })
+
+    expect(normalizeOrderSortByValue('averagefillprice')).toBe('recordedAt')
   })
 })

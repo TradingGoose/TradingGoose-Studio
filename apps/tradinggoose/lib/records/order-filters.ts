@@ -100,17 +100,23 @@ const normalizeToken = (value: unknown) =>
 const normalizeChoice = <T extends readonly string[]>(
   value: unknown,
   allowed: T,
-  fallback: T[number]
+  defaultValue: T[number]
 ): T[number] => {
   const normalized = normalizeToken(value)
-  return (allowed as readonly string[]).includes(normalized) ? (normalized as T[number]) : fallback
+  return (allowed as readonly string[]).includes(normalized)
+    ? (normalized as T[number])
+    : defaultValue
 }
 
 export const normalizeOrderSearchValue = (value: unknown) =>
   typeof value === 'string' ? value.trim() : ''
 
-export const normalizeOrderSortByValue = (value: unknown): OrderSortBy =>
-  normalizeChoice(value, ORDER_SORT_BY_VALUES, 'recordedAt')
+export function normalizeOrderSortByValue(value: unknown): OrderSortBy {
+  const normalized = typeof value === 'string' ? value.trim() : ''
+  return (ORDER_SORT_BY_VALUES as readonly string[]).includes(normalized)
+    ? (normalized as OrderSortBy)
+    : 'recordedAt'
+}
 
 export const normalizeOrderSortOrderValue = (value: unknown): OrderSortOrder =>
   normalizeChoice(value, ORDER_SORT_ORDER_VALUES, 'desc')
