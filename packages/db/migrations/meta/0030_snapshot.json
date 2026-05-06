@@ -1,5 +1,5 @@
 {
-  "id": "a81f8570-3c94-479b-ad21-f06edc51125f",
+  "id": "98458d9c-072f-4012-877b-4ba3661848b1",
   "prevId": "16f9d29b-2b4b-48fd-b4b8-01ccd8ef8fcc",
   "version": "7",
   "dialect": "postgresql",
@@ -5621,7 +5621,8 @@
         },
         "submission_source": {
           "name": "submission_source",
-          "type": "text",
+          "type": "order_submission_source",
+          "typeSchema": "public",
           "primaryKey": false,
           "notNull": true
         },
@@ -11069,6 +11070,15 @@
         "approved",
         "rejected",
         "signed_up"
+      ]
+    },
+    "public.order_submission_source": {
+      "name": "order_submission_source",
+      "schema": "public",
+      "values": [
+        "manual",
+        "copilot",
+        "workflow"
       ]
     },
     "public.pending_execution_status": {

@@ -1,3 +1,4 @@
+CREATE TYPE "public"."order_submission_source" AS ENUM('manual', 'copilot', 'workflow');--> statement-breakpoint
 ALTER TABLE "workflow_execution_logs" DROP CONSTRAINT "workflow_execution_logs_workflow_id_workflow_id_fk";
 --> statement-breakpoint
 ALTER TABLE "workflow_execution_snapshots" DROP CONSTRAINT "workflow_execution_snapshots_workflow_id_workflow_id_fk";
@@ -12,7 +13,7 @@ ALTER TABLE "workflow_execution_snapshots" ALTER COLUMN "workflow_id" DROP NOT N
 ALTER TABLE "workflow_log_webhook_delivery" ALTER COLUMN "subscription_id" DROP NOT NULL;--> statement-breakpoint
 ALTER TABLE "workflow_log_webhook_delivery" ALTER COLUMN "workflow_id" DROP NOT NULL;--> statement-breakpoint
 ALTER TABLE "orderHistoryTable" ADD COLUMN "workspace_id" text NOT NULL;--> statement-breakpoint
-ALTER TABLE "orderHistoryTable" ADD COLUMN "submission_source" text NOT NULL;--> statement-breakpoint
+ALTER TABLE "orderHistoryTable" ADD COLUMN "submission_source" "order_submission_source" NOT NULL;--> statement-breakpoint
 ALTER TABLE "orderHistoryTable" ADD COLUMN "workflow_log_id" text;--> statement-breakpoint
 ALTER TABLE "workflow_execution_logs" ADD COLUMN "workspace_id" text NOT NULL;--> statement-breakpoint
 ALTER TABLE "workflow_execution_logs" ADD COLUMN "workflow_summary" jsonb NOT NULL;--> statement-breakpoint
