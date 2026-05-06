@@ -101,7 +101,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     if (!workspaceId) {
       return NextResponse.json({ error: 'Monitor workspace is missing' }, { status: 400 })
     }
-    if (payload.workspaceId !== workspaceId) {
+    if (payload.workspaceId !== undefined && payload.workspaceId !== workspaceId) {
       return NextResponse.json(
         { error: 'workspaceId does not match monitor workspace' },
         { status: 400 }
