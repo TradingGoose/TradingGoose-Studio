@@ -352,7 +352,7 @@ export function useMonitorWorkspaceLogs({
   const isSelectionResolved =
     Boolean(logsQuery.data) &&
     !logsQuery.error &&
-    !logsQuery.hasNextPage &&
+    (!logsQuery.hasNextPage || reachedAutoPageLimit) &&
     !logsQuery.isFetchingNextPage
 
   return {
