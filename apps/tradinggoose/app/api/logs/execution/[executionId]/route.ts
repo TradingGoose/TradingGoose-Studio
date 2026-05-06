@@ -8,7 +8,6 @@ import { and, eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
-import { loadDeployedWorkflowState } from '@/lib/workflows/db-helpers'
 
 const logger = createLogger('LogsByExecutionIdAPI')
 
@@ -70,44 +69,20 @@ export async function GET(
       return NextResponse.json({ error: 'Workflow state snapshot not found' }, { status: 404 })
     }
 
-    let workflowState = snapshot.stateData
-    const snapshotBlockCount = Object.keys((workflowState as any)?.blocks || {}).length
     const workflowSummary =
       workflowLog.workflowSummary && typeof workflowLog.workflowSummary === 'object'
         ? (workflowLog.workflowSummary as { id?: string })
         : null
     const workflowId = workflowLog.workflowId ?? workflowSummary?.id ?? null
 
-    if (snapshotBlockCount === 0 && workflowId) {
-      try {
-        const deployedData = await loadDeployedWorkflowState(workflowId)
-        if (Object.keys(deployedData.blocks || {}).length > 0) {
-          workflowState = {
-            blocks: deployedData.blocks || {},
-            edges: deployedData.edges || [],
-            loops: deployedData.loops || {},
-            parallels: deployedData.parallels || {},
-          }
-          logger.warn(
-            `Snapshot for execution ${executionId} had no blocks, using deployed state fallback`
-          )
-        }
-      } catch (fallbackError) {
-        logger.warn(
-          `Failed deployed-state fallback for execution ${executionId}; using stored snapshot`,
-          fallbackError
-        )
-      }
-    }
-
     const response = {
       workflowId,
-      workflowState,
+      workflowState: snapshot.stateData,
     }
 
     logger.debug(`Successfully fetched execution data for: ${executionId}`)
     logger.debug(
-      `Workflow state contains ${Object.keys((workflowState as any)?.blocks || {}).length} blocks`
+      `Workflow state contains ${Object.keys((snapshot.stateData as any)?.blocks || {}).length} blocks`
     )
 
     return NextResponse.json(response)

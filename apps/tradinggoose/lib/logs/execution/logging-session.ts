@@ -10,8 +10,8 @@ import {
   calculateCostSummary,
   createEnvironmentObject,
   createTriggerObject,
-  loadWorkflowSummaryForExecution,
   loadWorkflowStateForExecution,
+  loadWorkflowSummaryForExecution,
 } from '@/lib/logs/execution/logging-factory'
 import type {
   ExecutionEnvironment,
@@ -291,53 +291,9 @@ export class LoggingSession {
       return await this.start(params)
     } catch (error) {
       if (this.requestId) {
-        logger.warn(
-          `[${this.requestId}] Logging start failed - falling back to minimal session:`,
-          error
-        )
+        logger.warn(`[${this.requestId}] Logging start failed:`, error)
       }
-
-      // Fallback: create a minimal logging session without full workflow state
-      try {
-        const { userId, workspaceId, variables, triggerData } = params
-        this.trigger = createTriggerObject(this.triggerType, triggerData)
-        this.environment = createEnvironmentObject(
-          this.workflowId,
-          this.executionId,
-          userId,
-          workspaceId,
-          variables
-        )
-        // Minimal workflow state when normalized data is unavailable
-        this.workflowState = {
-          blocks: {},
-          edges: [],
-          loops: {},
-          parallels: {},
-        } as unknown as WorkflowState
-
-        const workflowSummary = await loadWorkflowSummaryForExecution(this.workflowId)
-        const { workflowLog } = await executionLogger.startWorkflowExecution({
-          workflowId: this.workflowId,
-          executionId: this.executionId,
-          trigger: this.trigger,
-          environment: this.environment,
-          workflowState: this.workflowState,
-          workflowSummary,
-        })
-
-        if (this.requestId) {
-          logger.debug(
-            `[${this.requestId}] Started minimal logging for execution ${this.executionId}`
-          )
-        }
-        return workflowLog.id
-      } catch (fallbackError) {
-        if (this.requestId) {
-          logger.error(`[${this.requestId}] Minimal logging start also failed:`, fallbackError)
-        }
-        return null
-      }
+      return null
     }
   }
 

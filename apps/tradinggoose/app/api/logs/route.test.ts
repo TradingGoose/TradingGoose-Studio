@@ -7,38 +7,53 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const {
   mockGetSession,
-  mockOrderBy,
+  mockLimit,
+  mockOffset,
   mockWhere,
   mockInnerJoin,
   mockLeftJoin,
   mockFrom,
   mockSelect,
+  setMockRows,
 } = vi.hoisted(() => {
   const mockGetSession = vi.fn()
-  const mockOrderBy = vi.fn()
+  let rows: any[] = []
   const chain: Record<string, any> = {}
-  const mockWhere = vi.fn(() => chain)
-  const mockInnerJoin = vi.fn(() => chain)
-  const mockLeftJoin = vi.fn(() => chain)
-  const mockFrom = vi.fn(() => chain)
+  const setMockRows = (nextRows: any[]) => {
+    rows = nextRows
+  }
+  const mockLimit = vi.fn((_limit: unknown) => chain)
+  const mockOffset = vi.fn((_offset: unknown) => Promise.resolve(rows))
+  const mockOrderBy = vi.fn((..._orderBy: unknown[]) => chain)
+  const mockWhere = vi.fn((_condition: unknown) => chain)
+  const mockInnerJoin = vi.fn((_table: unknown, _condition: unknown) => chain)
+  const mockLeftJoin = vi.fn((_table: unknown, _condition: unknown) => chain)
+  const mockFrom = vi.fn((_table: unknown) => chain)
   Object.assign(chain, {
     innerJoin: mockInnerJoin,
     leftJoin: mockLeftJoin,
+    limit: mockLimit,
+    offset: mockOffset,
     where: mockWhere,
     orderBy: mockOrderBy,
+    then: (resolve: (value: Array<{ total: number }>) => unknown) =>
+      Promise.resolve([{ total: rows.length }]).then(resolve),
   })
-  const mockSelect = vi.fn(() => ({
+  const mockSelect = vi.fn((_selection: unknown) => ({
     from: mockFrom,
   }))
 
   return {
     mockGetSession,
+    mockLimit,
+    mockOffset,
     mockOrderBy,
     mockWhere,
     mockInnerJoin,
     mockLeftJoin,
     mockFrom,
     mockSelect,
+    setMockRows,
   }
 })
 
@@ -104,6 +119,12 @@ vi.mock('drizzle-orm', () => ({
   lte: vi.fn((field: unknown, value: unknown) => ({
     field,
     type: 'lte',
+    value,
+  })),
+  not: vi.fn((condition: unknown) => ({ condition, type: 'not' })),
+  notInArray: vi.fn((field: unknown, value: unknown) => ({
+    field,
+    type: 'notInArray',
     value,
   })),
   or: vi.fn((...conditions: unknown[]) => ({ conditions, type: 'or' })),
@@ -195,6 +216,18 @@ const collectConditions = (value: unknown): Array<Record<string, any>> => {
   return [condition, ...nested]
 }
 
+const getLatestWhereConditions = () => {
+  const whereCall = mockWhere.mock.calls.at(-1) as [unknown] | undefined
+  return collectConditions(whereCall?.[0])
+}
+
+const hasSqlPattern = (conditions: Array<Record<string, any>>, pattern: string) =>
+  conditions.some(
+    (condition) =>
+      condition.type === 'sql' &&
+      (condition.strings?.join('').includes(pattern) || condition.values?.includes(pattern))
+  )
+
 const expectLogAnchoredWorkflowFolderJoin = () => {
   const fromCall = mockFrom.mock.calls.at(-1) as [unknown] | undefined
   const leftJoinCalls = mockLeftJoin.mock.calls as unknown as Array<[unknown, unknown]>
@@ -220,7 +253,7 @@ describe('logs route', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockGetSession.mockResolvedValue({ user: { id: 'user-1' } })
-    mockOrderBy.mockResolvedValue([
+    setMockRows([
       buildRow({
         id: 'log-1',
         folderName: 'Alpha Desk',
@@ -243,6 +276,27 @@ describe('logs route', () => {
     expect(await response.json()).toEqual({ error: 'Unauthorized' })
   })
 
+  it('uses SQL pagination and omits heavy fields for basic list requests', async () => {
+    const { GET } = await import('./route')
+    const response = await GET(
+      new NextRequest('http://localhost/api/logs?workspaceId=workspace-1&limit=25&offset=50')
+    )
+
+    expect(response.status).toBe(200)
+    expect(mockLimit).toHaveBeenCalledWith(25)
+    expect(mockOffset).toHaveBeenCalledWith(50)
+
+    const listSelect = mockSelect.mock.calls.at(-1)?.[0] as unknown as Record<string, unknown>
+    expect(listSelect).toHaveProperty('outcome')
+    expect(listSelect).not.toHaveProperty('executionData')
+    expect(listSelect).not.toHaveProperty('files')
+
+    const body = await response.json()
+    expect(body.total).toBe(2)
+    expect(body.data[0]?.executionData).toBeUndefined()
+    expect(body.data[0]?.files).toBeUndefined()
+  })
+
   it('filters logs by folder name', async () => {
     const { GET } = await import('./route')
     const response = await GET(
@@ -251,34 +305,12 @@ describe('logs route', () => {
 
     expect(response.status).toBe(200)
     expectLogAnchoredWorkflowFolderJoin()
-    expect((await response.json()).data.map((entry: { id: string }) => entry.id)).toEqual(['log-1'])
+    const conditions = getLatestWhereConditions()
+    expect(hasSqlPattern(conditions, 'ILIKE')).toBe(true)
+    expect(hasSqlPattern(conditions, '%Alpha%')).toBe(true)
   })
 
-  it('treats text-mode workflow and folder filters as OR lists', async () => {
-    const { GET } = await import('./route')
-    const workflowResponse = await GET(
-      new NextRequest(
-        'http://localhost/api/logs?workspaceId=workspace-1&workflowName=Workflow%20Alpha,Missing%20Workflow'
-      )
-    )
-    const folderResponse = await GET(
-      new NextRequest(
-        'http://localhost/api/logs?workspaceId=workspace-1&folderName=Missing%20Desk,Alpha%20Desk'
-      )
-    )
-
-    expect(workflowResponse.status).toBe(200)
-    expect((await workflowResponse.json()).data.map((entry: { id: string }) => entry.id)).toEqual([
-      'log-1',
-    ])
-
-    expect(folderResponse.status).toBe(200)
-    expect((await folderResponse.json()).data.map((entry: { id: string }) => entry.id)).toEqual([
-      'log-1',
-    ])
-  })
-
-  it('pushes workflow and folder id filters through workflowSummary fallback fields', async () => {
+  it('uses stored workflow summary fields for deleted workflow filters', async () => {
     const { GET } = await import('./route')
     const response = await GET(
       new NextRequest(
@@ -325,25 +357,12 @@ describe('logs route', () => {
     )
 
     expect(response.status).toBe(200)
-    expect((await response.json()).data.map((entry: { id: string }) => entry.id)).toEqual(['log-2'])
+    const conditions = getLatestWhereConditions()
+    expect(hasSqlPattern(conditions, 'NOT ILIKE')).toBe(true)
+    expect(hasSqlPattern(conditions, '%Alpha%')).toBe(true)
   })
 
-  it('filters basic-detail responses by monitor snapshot fields before trimming execution data', async () => {
-    mockOrderBy.mockResolvedValue([
-      buildRow({
-        id: 'log-1',
-        folderName: 'Alpha Desk',
-        workflowName: 'Workflow Alpha',
-        providerId: 'alpaca',
-      }),
-      buildRow({
-        id: 'log-2',
-        folderName: 'Beta Desk',
-        workflowName: 'Workflow Beta',
-        providerId: 'binance',
-      }),
-    ])
-
+  it('filters basic-detail responses by monitor fields without selecting execution data', async () => {
     const { GET } = await import('./route')
     const response = await GET(
       new NextRequest(
@@ -353,8 +372,17 @@ describe('logs route', () => {
 
     expect(response.status).toBe(200)
     const body = await response.json()
-    expect(body.data.map((entry: { id: string }) => entry.id)).toEqual(['log-1'])
     expect(body.data[0]?.executionData).toBeUndefined()
+
+    const conditions = getLatestWhereConditions()
+    expect(
+      conditions.some(
+        (condition) =>
+          condition.type === 'inArray' &&
+          condition.field?.strings?.join('').includes("->>'providerId'") &&
+          condition.value.includes('alpaca')
+      )
+    ).toBe(true)
   })
 
   it('serializes full-detail responses without createdAt and synthesizes trace spans', async () => {
@@ -367,6 +395,9 @@ describe('logs route', () => {
 
     expect(response.status).toBe(200)
     const body = await response.json()
+    const listSelect = mockSelect.mock.calls.at(-1)?.[0] as unknown as Record<string, unknown>
+    expect(listSelect).toHaveProperty('executionData')
+    expect(listSelect).toHaveProperty('files')
 
     expect(body.data[0]).toEqual(
       expect.objectContaining({
@@ -388,7 +419,7 @@ describe('logs route', () => {
   })
 
   it('fails instead of falling back to createdAt when startedAt is missing', async () => {
-    mockOrderBy.mockResolvedValue([
+    setMockRows([
       buildRow({
         id: 'log-1',
         folderName: 'Alpha Desk',
@@ -406,7 +437,7 @@ describe('logs route', () => {
     })
   })
 
-  it('pushes range-bound qualifiers into the SQL condition tree before in-memory filtering', async () => {
+  it('pushes range-bound qualifiers into the SQL condition tree', async () => {
     const { GET } = await import('./route')
     const response = await GET(
       new NextRequest(

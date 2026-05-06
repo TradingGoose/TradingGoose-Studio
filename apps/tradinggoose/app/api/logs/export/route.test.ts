@@ -259,7 +259,7 @@ describe('logs export route', () => {
     expect(await folderResponse.text()).toContain('Workflow Alpha')
   })
 
-  it('pushes workflow and folder id export filters through workflowSummary fallback fields', async () => {
+  it('uses stored workflow summary fields for deleted workflow export filters', async () => {
     const { GET } = await import('./route')
     const response = await GET(
       new NextRequest(

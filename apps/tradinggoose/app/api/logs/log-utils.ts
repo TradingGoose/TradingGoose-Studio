@@ -1,6 +1,5 @@
 import { type ListingIdentity, toListingValueObject } from '@/lib/listing/identity'
 import type {
-  LogsResponse,
   TraceSpan,
   WorkflowLog,
   WorkflowLogOutcome,
@@ -106,9 +105,10 @@ type RawLogRow = {
   startedAt: Date | null
   endedAt: Date | null
   totalDurationMs: number | null
-  executionData: any
+  outcome?: WorkflowLogOutcome | null
+  executionData?: any
   cost: any
-  files: any
+  files?: any
   createdAt: Date
   workflowSummary: any
   workflowName: string | null
@@ -313,6 +313,7 @@ export const serializeWorkflowLog = (row: RawLogRow, details: 'basic' | 'full'):
       '',
   }
   const executionData = details === 'full' ? buildPublicWorkflowLogExecutionData(row) : undefined
+  const outcome = row.outcome ?? deriveWorkflowLogOutcome(row)
 
   return {
     id: row.id,
@@ -326,7 +327,7 @@ export const serializeWorkflowLog = (row: RawLogRow, details: 'basic' | 'full'):
     recordCreatedAt: row.createdAt.toISOString(),
     endedAt: row.endedAt?.toISOString() ?? null,
     durationMs: row.totalDurationMs ?? null,
-    outcome: deriveWorkflowLogOutcome(row),
+    outcome,
     workflow,
     files: details === 'full' ? row.files || undefined : undefined,
     cost: row.cost || undefined,
@@ -641,21 +642,4 @@ export const matchesWorkflowLogFilters = (
   }
 
   return true
-}
-
-export const toPaginatedLogsResponse = (
-  logs: WorkflowLog[],
-  pageSize: number,
-  offset: number
-): LogsResponse => {
-  const page = Math.floor(offset / pageSize) + 1
-  const totalPages = Math.max(1, Math.ceil(logs.length / pageSize))
-
-  return {
-    data: logs.slice(offset, offset + pageSize),
-    total: logs.length,
-    page,
-    pageSize,
-    totalPages,
-  }
 }

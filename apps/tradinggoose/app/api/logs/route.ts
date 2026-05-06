@@ -5,18 +5,14 @@ import {
   workflowExecutionLogs,
   workflowFolder,
 } from '@tradinggoose/db/schema'
-import { and, desc, eq, gte, inArray, lte, or, type SQL, sql } from 'drizzle-orm'
+import { and, desc, eq, gte, inArray, lte, not, notInArray, or, type SQL, sql } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
+import type { WorkflowLogOutcome } from '@/lib/logs/types'
 import { generateRequestId, normalizeOptionalString } from '@/lib/utils'
-import {
-  matchesWorkflowLogFilters,
-  parseListingFilters,
-  serializeWorkflowLog,
-  toPaginatedLogsResponse,
-} from '@/app/api/logs/log-utils'
+import { parseListingFilters, serializeWorkflowLog } from '@/app/api/logs/log-utils'
 
 const logger = createLogger('LogsAPI')
 
@@ -24,8 +20,8 @@ export const revalidate = 0
 
 const QueryParamsSchema = z.object({
   details: z.enum(['basic', 'full']).optional().default('basic'),
-  limit: z.coerce.number().optional().default(100),
-  offset: z.coerce.number().optional().default(0),
+  limit: z.coerce.number().int().min(1).optional().default(100),
+  offset: z.coerce.number().int().min(0).optional().default(0),
   level: z.string().optional(),
   excludeLevel: z.string().optional(),
   outcomes: z.string().optional(),
@@ -89,6 +85,194 @@ const splitCsv = (value: string | undefined) =>
 const parseBooleanFlag = (value: string | undefined) => value === 'true' || value === '1'
 
 const TOTAL_COST_SQL = sql<number>`COALESCE((${workflowExecutionLogs.cost}->>'total')::double precision, 0)`
+const WORKFLOW_NAME_SQL = sql<string>`COALESCE(${workflow.name}, ${workflowExecutionLogs.workflowSummary}->>'name', 'Deleted workflow')`
+const WORKFLOW_FOLDER_ID_SQL = sql<string>`COALESCE(${workflow.folderId}, ${workflowExecutionLogs.workflowSummary}->>'folderId')`
+const WORKFLOW_FOLDER_NAME_SQL = sql<string>`COALESCE(${workflowFolder.name}, ${workflowExecutionLogs.workflowSummary}->>'folderName')`
+const MONITOR_SQL = sql`${workflowExecutionLogs.executionData}->'trigger'->'data'->'monitor'`
+const MONITOR_ID_SQL = sql<string>`${MONITOR_SQL}->>'id'`
+const MONITOR_PROVIDER_ID_SQL = sql<string>`${MONITOR_SQL}->>'providerId'`
+const MONITOR_INTERVAL_SQL = sql<string>`${MONITOR_SQL}->>'interval'`
+const MONITOR_INDICATOR_ID_SQL = sql<string>`${MONITOR_SQL}->>'indicatorId'`
+const MONITOR_LISTING_SQL = sql`${MONITOR_SQL}->'listing'`
+const MONITOR_LISTING_TYPE_SQL = sql<string>`${MONITOR_LISTING_SQL}->>'listing_type'`
+const MONITOR_LISTING_ID_SQL = sql<string>`${MONITOR_LISTING_SQL}->>'listing_id'`
+const MONITOR_LISTING_BASE_ID_SQL = sql<string>`${MONITOR_LISTING_SQL}->>'base_id'`
+const MONITOR_LISTING_QUOTE_ID_SQL = sql<string>`${MONITOR_LISTING_SQL}->>'quote_id'`
+const MONITOR_ASSET_TYPE_SQL = sql<string>`LOWER(COALESCE(NULLIF(${MONITOR_LISTING_SQL}->>'assetClass', ''), NULLIF(${MONITOR_LISTING_SQL}->>'base_asset_class', ''), NULLIF(${MONITOR_LISTING_TYPE_SQL}, ''), 'unknown'))`
+const TRACE_SPANS_SQL = sql`CASE WHEN jsonb_typeof(${workflowExecutionLogs.executionData}->'traceSpans') = 'array' THEN ${workflowExecutionLogs.executionData}->'traceSpans' ELSE '[]'::jsonb END`
+const BLOCK_EXECUTIONS_SQL = sql`CASE WHEN jsonb_typeof(${workflowExecutionLogs.executionData}->'blockExecutions') = 'array' THEN ${workflowExecutionLogs.executionData}->'blockExecutions' ELSE '[]'::jsonb END`
+const TRACE_STATUS_EXISTS_SQL = sql<boolean>`EXISTS (
+  SELECT 1 FROM jsonb_array_elements(${TRACE_SPANS_SQL}) AS trace_span(value)
+  WHERE jsonb_typeof(trace_span.value->'status') = 'string'
+)`
+const TRACE_ERROR_EXISTS_SQL = sql<boolean>`EXISTS (
+  SELECT 1 FROM jsonb_array_elements(${TRACE_SPANS_SQL}) AS trace_span(value)
+  WHERE jsonb_typeof(trace_span.value->'status') = 'string'
+    AND trace_span.value->>'status' = 'error'
+)`
+const TRACE_NON_SKIPPED_EXISTS_SQL = sql<boolean>`EXISTS (
+  SELECT 1 FROM jsonb_array_elements(${TRACE_SPANS_SQL}) AS trace_span(value)
+  WHERE jsonb_typeof(trace_span.value->'status') = 'string'
+    AND trace_span.value->>'status' <> 'skipped'
+)`
+const BLOCK_STATUS_EXISTS_SQL = sql<boolean>`EXISTS (
+  SELECT 1 FROM jsonb_array_elements(${BLOCK_EXECUTIONS_SQL}) AS block_execution(value)
+  WHERE jsonb_typeof(block_execution.value->'status') = 'string'
+)`
+const BLOCK_ERROR_EXISTS_SQL = sql<boolean>`EXISTS (
+  SELECT 1 FROM jsonb_array_elements(${BLOCK_EXECUTIONS_SQL}) AS block_execution(value)
+  WHERE jsonb_typeof(block_execution.value->'status') = 'string'
+    AND block_execution.value->>'status' = 'error'
+)`
+const BLOCK_NON_SKIPPED_EXISTS_SQL = sql<boolean>`EXISTS (
+  SELECT 1 FROM jsonb_array_elements(${BLOCK_EXECUTIONS_SQL}) AS block_execution(value)
+  WHERE jsonb_typeof(block_execution.value->'status') = 'string'
+    AND block_execution.value->>'status' <> 'skipped'
+)`
+const WORKFLOW_LOG_OUTCOME_SQL = sql<WorkflowLogOutcome>`CASE
+  WHEN ${workflowExecutionLogs.endedAt} IS NULL THEN 'running'
+  WHEN ${TRACE_ERROR_EXISTS_SQL} THEN 'error'
+  WHEN ${TRACE_STATUS_EXISTS_SQL} AND NOT ${TRACE_NON_SKIPPED_EXISTS_SQL} THEN 'skipped'
+  WHEN ${TRACE_STATUS_EXISTS_SQL} THEN 'success'
+  WHEN ${BLOCK_ERROR_EXISTS_SQL} THEN 'error'
+  WHEN ${BLOCK_STATUS_EXISTS_SQL} AND NOT ${BLOCK_NON_SKIPPED_EXISTS_SQL} THEN 'skipped'
+  WHEN ${BLOCK_STATUS_EXISTS_SQL} THEN 'success'
+  WHEN ${workflowExecutionLogs.level} = 'error' THEN 'error'
+  ELSE 'unknown'
+END`
+
+const LOG_SELECT_FIELDS = {
+  id: workflowExecutionLogs.id,
+  workflowId: workflowExecutionLogs.workflowId,
+  workspaceId: workflowExecutionLogs.workspaceId,
+  executionId: workflowExecutionLogs.executionId,
+  workflowSummary: workflowExecutionLogs.workflowSummary,
+  level: workflowExecutionLogs.level,
+  trigger: workflowExecutionLogs.trigger,
+  startedAt: workflowExecutionLogs.startedAt,
+  endedAt: workflowExecutionLogs.endedAt,
+  totalDurationMs: workflowExecutionLogs.totalDurationMs,
+  cost: workflowExecutionLogs.cost,
+  createdAt: workflowExecutionLogs.createdAt,
+  workflowName: workflow.name,
+  workflowDescription: workflow.description,
+  workflowColor: workflow.color,
+  workflowFolderId: workflow.folderId,
+  workflowFolderName: workflowFolder.name,
+  workflowUserId: workflow.userId,
+  workflowWorkspaceId: workflow.workspaceId,
+  workflowCreatedAt: workflow.createdAt,
+  workflowUpdatedAt: workflow.updatedAt,
+}
+
+const LOG_BASIC_SELECT_FIELDS = {
+  ...LOG_SELECT_FIELDS,
+  outcome: WORKFLOW_LOG_OUTCOME_SQL,
+}
+
+const LOG_FULL_SELECT_FIELDS = {
+  ...LOG_SELECT_FIELDS,
+  executionData: workflowExecutionLogs.executionData,
+  files: workflowExecutionLogs.files,
+}
+
+const LOG_ORDER_BY = [
+  desc(workflowExecutionLogs.startedAt),
+  desc(workflowExecutionLogs.createdAt),
+  desc(workflowExecutionLogs.id),
+]
+
+const escapeLikePattern = (value: string) => value.replace(/[\\%_]/g, (match) => `\\${match}`)
+
+const containsText = (expression: any, value: string) =>
+  sql`${expression} ILIKE ${`%${escapeLikePattern(value)}%`} ESCAPE '\\'`
+
+const notContainsText = (expression: any, value: string) =>
+  sql`(${expression} IS NULL OR ${expression} NOT ILIKE ${`%${escapeLikePattern(value)}%`} ESCAPE '\\')`
+
+const applyTextInclude = (conditions: SQL | undefined, expression: any, values: string[]) => {
+  if (values.length === 0) return conditions
+  return and(conditions, or(...values.map((value) => containsText(expression, value))))
+}
+
+const applyTextExclude = (conditions: SQL | undefined, expression: any, values: string[]) => {
+  if (values.length === 0) return conditions
+  return and(conditions, ...values.map((value) => notContainsText(expression, value)))
+}
+
+const applyStringInclude = (conditions: SQL | undefined, expression: any, values: string[]) => {
+  if (values.length === 0) return conditions
+  return and(conditions, inArray(expression, values))
+}
+
+const applyStringExclude = (conditions: SQL | undefined, expression: any, values: string[]) => {
+  if (values.length === 0) return conditions
+  return and(conditions, or(sql`${expression} IS NULL`, notInArray(expression, values)))
+}
+
+const applyValueFilters = (
+  conditions: SQL | undefined,
+  filters: Array<[any, string[]]>,
+  applyFilter: (conditions: SQL | undefined, expression: any, values: string[]) => SQL | undefined
+) =>
+  filters.reduce((next, [expression, values]) => applyFilter(next, expression, values), conditions)
+
+const toListingCondition = (
+  listing: NonNullable<ReturnType<typeof parseListingFilters>>[number]
+) =>
+  listing.listing_type === 'default'
+    ? and(
+        eq(MONITOR_LISTING_TYPE_SQL, listing.listing_type),
+        eq(MONITOR_LISTING_ID_SQL, listing.listing_id)
+      )
+    : and(
+        eq(MONITOR_LISTING_TYPE_SQL, listing.listing_type),
+        eq(MONITOR_LISTING_BASE_ID_SQL, listing.base_id),
+        eq(MONITOR_LISTING_QUOTE_ID_SQL, listing.quote_id)
+      )
+
+const applyListingInclude = (
+  conditions: SQL | undefined,
+  listings: NonNullable<ReturnType<typeof parseListingFilters>>
+) => {
+  if (listings.length === 0) return conditions
+  return and(conditions, or(...listings.map(toListingCondition)))
+}
+
+const applyListingExclude = (
+  conditions: SQL | undefined,
+  listings: NonNullable<ReturnType<typeof parseListingFilters>>
+) => {
+  if (listings.length === 0) return conditions
+  const condition = or(...listings.map(toListingCondition))
+  return condition ? and(conditions, sql`COALESCE(NOT (${condition}), true)`) : conditions
+}
+
+const FIELD_PRESENCE_CONDITIONS: Record<string, SQL> = {
+  monitor: sql`NULLIF(${MONITOR_ID_SQL}, '') IS NOT NULL`,
+  listing: sql`COALESCE(jsonb_typeof(${MONITOR_LISTING_SQL}) = 'object', false)`,
+  indicator: sql`NULLIF(${MONITOR_INDICATOR_ID_SQL}, '') IS NOT NULL`,
+  provider: sql`NULLIF(${MONITOR_PROVIDER_ID_SQL}, '') IS NOT NULL`,
+  interval: sql`NULLIF(${MONITOR_INTERVAL_SQL}, '') IS NOT NULL`,
+  endedAt: sql`${workflowExecutionLogs.endedAt} IS NOT NULL`,
+  cost: sql`COALESCE(jsonb_typeof(${workflowExecutionLogs.cost}->'total') = 'number', false)`,
+}
+
+const applyFieldPresenceFilters = (
+  conditions: SQL | undefined,
+  hasFields: string[],
+  noFields: string[]
+) => {
+  const requiredFields = hasFields
+    .map((field) => FIELD_PRESENCE_CONDITIONS[field])
+    .filter((condition): condition is SQL => Boolean(condition))
+  const missingFields = noFields
+    .map((field) => FIELD_PRESENCE_CONDITIONS[field])
+    .filter((condition): condition is SQL => Boolean(condition))
+    .map((condition) => not(condition))
+
+  return and(conditions, ...requiredFields, ...missingFields)
+}
 
 const applyDateLowerBound = (
   conditions: SQL | undefined,
@@ -199,13 +383,7 @@ export async function GET(request: NextRequest) {
     if (params.folderIds) {
       const folderIds = splitCsv(params.folderIds)
       if (folderIds.length > 0) {
-        conditions = and(
-          conditions,
-          inArray(
-            sql<string>`COALESCE(${workflow.folderId}, ${workflowExecutionLogs.workflowSummary}->>'folderId')`,
-            folderIds
-          )
-        )
+        conditions = and(conditions, inArray(WORKFLOW_FOLDER_ID_SQL, folderIds))
       }
     }
 
@@ -224,52 +402,44 @@ export async function GET(request: NextRequest) {
       conditions = and(conditions, lte(workflowExecutionLogs.startedAt, new Date(params.endDate)))
     }
 
-    conditions = applyDateLowerBound(
-      conditions,
-      workflowExecutionLogs.startedAt,
-      params.startedAtFrom,
-      parseBooleanFlag(params.startedAtFromExclusive)
-    )
-    conditions = applyDateUpperBound(
-      conditions,
-      workflowExecutionLogs.startedAt,
-      params.startedAtTo,
-      parseBooleanFlag(params.startedAtToExclusive)
-    )
-    conditions = applyDateLowerBound(
-      conditions,
-      workflowExecutionLogs.endedAt,
-      params.endedAtFrom,
-      parseBooleanFlag(params.endedAtFromExclusive)
-    )
-    conditions = applyDateUpperBound(
-      conditions,
-      workflowExecutionLogs.endedAt,
-      params.endedAtTo,
-      parseBooleanFlag(params.endedAtToExclusive)
-    )
-    conditions = applyNumberLowerBound(
-      conditions,
-      workflowExecutionLogs.totalDurationMs,
-      params.durationMinMs,
-      parseBooleanFlag(params.durationMinMsExclusive)
-    )
-    conditions = applyNumberUpperBound(
-      conditions,
-      workflowExecutionLogs.totalDurationMs,
-      params.durationMaxMs,
-      parseBooleanFlag(params.durationMaxMsExclusive)
-    )
-    conditions = applyCostLowerBound(
-      conditions,
-      params.costMin,
-      parseBooleanFlag(params.costMinExclusive)
-    )
-    conditions = applyCostUpperBound(
-      conditions,
-      params.costMax,
-      parseBooleanFlag(params.costMaxExclusive)
-    )
+    for (const [column, value, exclusive, upper] of [
+      [workflowExecutionLogs.startedAt, params.startedAtFrom, params.startedAtFromExclusive, false],
+      [workflowExecutionLogs.startedAt, params.startedAtTo, params.startedAtToExclusive, true],
+      [workflowExecutionLogs.endedAt, params.endedAtFrom, params.endedAtFromExclusive, false],
+      [workflowExecutionLogs.endedAt, params.endedAtTo, params.endedAtToExclusive, true],
+    ] as const) {
+      conditions = upper
+        ? applyDateUpperBound(conditions, column, value, parseBooleanFlag(exclusive))
+        : applyDateLowerBound(conditions, column, value, parseBooleanFlag(exclusive))
+    }
+
+    for (const [value, exclusive, upper] of [
+      [params.durationMinMs, params.durationMinMsExclusive, false],
+      [params.durationMaxMs, params.durationMaxMsExclusive, true],
+    ] as const) {
+      conditions = upper
+        ? applyNumberUpperBound(
+            conditions,
+            workflowExecutionLogs.totalDurationMs,
+            value,
+            parseBooleanFlag(exclusive)
+          )
+        : applyNumberLowerBound(
+            conditions,
+            workflowExecutionLogs.totalDurationMs,
+            value,
+            parseBooleanFlag(exclusive)
+          )
+    }
+
+    for (const [value, exclusive, upper] of [
+      [params.costMin, params.costMinExclusive, false],
+      [params.costMax, params.costMaxExclusive, true],
+    ] as const) {
+      conditions = upper
+        ? applyCostUpperBound(conditions, value, parseBooleanFlag(exclusive))
+        : applyCostLowerBound(conditions, value, parseBooleanFlag(exclusive))
+    }
 
     if (params.triggerSource) {
       conditions = and(
@@ -278,32 +448,94 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const rows = await db
-      .select({
-        id: workflowExecutionLogs.id,
-        workflowId: workflowExecutionLogs.workflowId,
-        workspaceId: workflowExecutionLogs.workspaceId,
-        executionId: workflowExecutionLogs.executionId,
-        workflowSummary: workflowExecutionLogs.workflowSummary,
-        level: workflowExecutionLogs.level,
-        trigger: workflowExecutionLogs.trigger,
-        startedAt: workflowExecutionLogs.startedAt,
-        endedAt: workflowExecutionLogs.endedAt,
-        totalDurationMs: workflowExecutionLogs.totalDurationMs,
-        executionData: workflowExecutionLogs.executionData,
-        cost: workflowExecutionLogs.cost,
-        files: workflowExecutionLogs.files,
-        createdAt: workflowExecutionLogs.createdAt,
-        workflowName: workflow.name,
-        workflowDescription: workflow.description,
-        workflowColor: workflow.color,
-        workflowFolderId: workflow.folderId,
-        workflowFolderName: workflowFolder.name,
-        workflowUserId: workflow.userId,
-        workflowWorkspaceId: workflow.workspaceId,
-        workflowCreatedAt: workflow.createdAt,
-        workflowUpdatedAt: workflow.updatedAt,
-      })
+    conditions = applyValueFilters(
+      conditions,
+      [
+        [workflowExecutionLogs.level, splitCsv(params.level)],
+        [WORKFLOW_LOG_OUTCOME_SQL, splitCsv(params.outcomes)],
+        [MONITOR_ID_SQL, splitCsv(params.monitorId)],
+        [MONITOR_INDICATOR_ID_SQL, splitCsv(params.indicatorId)],
+        [MONITOR_PROVIDER_ID_SQL, splitCsv(params.providerId)],
+        [MONITOR_INTERVAL_SQL, splitCsv(params.interval)],
+      ],
+      applyStringInclude
+    )
+    conditions = applyValueFilters(
+      conditions,
+      [
+        [workflowExecutionLogs.level, splitCsv(params.excludeLevel)],
+        [WORKFLOW_LOG_OUTCOME_SQL, splitCsv(params.excludeOutcomes)],
+        [workflowExecutionLogs.trigger, splitCsv(params.excludeTriggers)],
+        [
+          sql<string>`COALESCE(${workflowExecutionLogs.workflowId}, ${workflowExecutionLogs.workflowSummary}->>'id')`,
+          splitCsv(params.excludeWorkflowIds),
+        ],
+        [MONITOR_ID_SQL, splitCsv(params.excludeMonitorId)],
+        [MONITOR_PROVIDER_ID_SQL, splitCsv(params.excludeProviderId)],
+        [MONITOR_INTERVAL_SQL, splitCsv(params.excludeInterval)],
+      ],
+      applyStringExclude
+    )
+    conditions = applyValueFilters(
+      conditions,
+      [
+        [WORKFLOW_NAME_SQL, splitCsv(params.workflowName)],
+        [WORKFLOW_FOLDER_NAME_SQL, splitCsv(params.folderName)],
+      ],
+      applyTextInclude
+    )
+    conditions = applyValueFilters(
+      conditions,
+      [
+        [WORKFLOW_NAME_SQL, splitCsv(params.excludeWorkflowName)],
+        [WORKFLOW_FOLDER_NAME_SQL, splitCsv(params.excludeFolderName)],
+      ],
+      applyTextExclude
+    )
+    conditions = applyListingInclude(conditions, listings ?? [])
+    conditions = applyListingExclude(conditions, excludedListings ?? [])
+    conditions = applyStringInclude(
+      conditions,
+      MONITOR_ASSET_TYPE_SQL,
+      [...splitCsv(params.assetTypes), ...splitCsv(params.assetType)].map((entry) =>
+        entry.toLowerCase()
+      )
+    )
+    conditions = applyStringExclude(
+      conditions,
+      MONITOR_ASSET_TYPE_SQL,
+      splitCsv(params.excludeAssetTypes).map((entry) => entry.toLowerCase())
+    )
+    conditions = applyFieldPresenceFilters(
+      conditions,
+      splitCsv(params.hasFields),
+      splitCsv(params.noFields)
+    )
+
+    const search = normalizeOptionalString(params.search)
+    if (search) {
+      conditions = and(
+        conditions,
+        or(
+          containsText(workflowExecutionLogs.executionId, search),
+          containsText(WORKFLOW_NAME_SQL, search),
+          containsText(MONITOR_ID_SQL, search),
+          containsText(MONITOR_INDICATOR_ID_SQL, search),
+          containsText(MONITOR_PROVIDER_ID_SQL, search),
+          containsText(MONITOR_INTERVAL_SQL, search),
+          containsText(MONITOR_LISTING_ID_SQL, search),
+          containsText(MONITOR_LISTING_BASE_ID_SQL, search),
+          containsText(MONITOR_LISTING_QUOTE_ID_SQL, search)
+        )
+      )
+    }
+
+    const scopedConditions = and(
+      eq(workflowExecutionLogs.workspaceId, params.workspaceId),
+      conditions
+    )
+    const countRows = await db
+      .select({ total: sql<number>`count(*)::int` })
       .from(workflowExecutionLogs)
       .leftJoin(workflow, eq(workflowExecutionLogs.workflowId, workflow.id))
       .leftJoin(workflowFolder, eq(workflow.folderId, workflowFolder.id))
@@ -315,74 +547,35 @@ export async function GET(request: NextRequest) {
           eq(permissions.userId, userId)
         )
       )
-      .where(and(eq(workflowExecutionLogs.workspaceId, params.workspaceId), conditions))
-      .orderBy(
-        desc(workflowExecutionLogs.startedAt),
-        desc(workflowExecutionLogs.createdAt),
-        desc(workflowExecutionLogs.id)
+      .where(scopedConditions)
+
+    const rows = await db
+      .select(params.details === 'full' ? LOG_FULL_SELECT_FIELDS : LOG_BASIC_SELECT_FIELDS)
+      .from(workflowExecutionLogs)
+      .leftJoin(workflow, eq(workflowExecutionLogs.workflowId, workflow.id))
+      .leftJoin(workflowFolder, eq(workflow.folderId, workflowFolder.id))
+      .innerJoin(
+        permissions,
+        and(
+          eq(permissions.entityType, 'workspace'),
+          eq(permissions.entityId, workflowExecutionLogs.workspaceId),
+          eq(permissions.userId, userId)
+        )
       )
+      .where(scopedConditions)
+      .orderBy(...LOG_ORDER_BY)
+      .limit(params.limit)
+      .offset(params.offset)
 
-    const filters = {
-      search: normalizeOptionalString(params.search) ?? undefined,
-      level: splitCsv(params.level),
-      excludeLevel: splitCsv(params.excludeLevel),
-      outcomes: splitCsv(params.outcomes),
-      excludeOutcomes: splitCsv(params.excludeOutcomes),
-      triggers: splitCsv(params.triggers),
-      excludeTriggers: splitCsv(params.excludeTriggers),
-      workflowIds: splitCsv(params.workflowIds),
-      excludeWorkflowIds: splitCsv(params.excludeWorkflowIds),
-      workflowNames: splitCsv(params.workflowName),
-      excludeWorkflowNames: splitCsv(params.excludeWorkflowName),
-      folderNames: splitCsv(params.folderName),
-      excludeFolderNames: splitCsv(params.excludeFolderName),
-      monitorId: splitCsv(params.monitorId),
-      excludeMonitorId: splitCsv(params.excludeMonitorId),
-      indicatorId: splitCsv(params.indicatorId),
-      providerId: splitCsv(params.providerId),
-      excludeProviderId: splitCsv(params.excludeProviderId),
-      interval: splitCsv(params.interval),
-      excludeInterval: splitCsv(params.excludeInterval),
-      listings: listings ?? [],
-      excludeListings: excludedListings ?? [],
-      assetTypes: [...splitCsv(params.assetTypes), ...splitCsv(params.assetType)].map((entry) =>
-        entry.toLowerCase()
-      ),
-      excludeAssetTypes: splitCsv(params.excludeAssetTypes).map((entry) => entry.toLowerCase()),
-      hasFields: splitCsv(params.hasFields),
-      noFields: splitCsv(params.noFields),
-      startedAtFrom: normalizeOptionalString(params.startedAtFrom) ?? undefined,
-      startedAtFromExclusive: parseBooleanFlag(params.startedAtFromExclusive),
-      startedAtTo: normalizeOptionalString(params.startedAtTo) ?? undefined,
-      startedAtToExclusive: parseBooleanFlag(params.startedAtToExclusive),
-      endedAtFrom: normalizeOptionalString(params.endedAtFrom) ?? undefined,
-      endedAtFromExclusive: parseBooleanFlag(params.endedAtFromExclusive),
-      endedAtTo: normalizeOptionalString(params.endedAtTo) ?? undefined,
-      endedAtToExclusive: parseBooleanFlag(params.endedAtToExclusive),
-      durationMinMs: params.durationMinMs,
-      durationMinMsExclusive: parseBooleanFlag(params.durationMinMsExclusive),
-      durationMaxMs: params.durationMaxMs,
-      durationMaxMsExclusive: parseBooleanFlag(params.durationMaxMsExclusive),
-      costMin: params.costMin,
-      costMinExclusive: parseBooleanFlag(params.costMinExclusive),
-      costMax: params.costMax,
-      costMaxExclusive: parseBooleanFlag(params.costMaxExclusive),
-    }
+    const total = Number(countRows[0]?.total ?? 0)
 
-    const filteredLogs = rows.flatMap((row) => {
-      const fullLog = serializeWorkflowLog(row, 'full')
-      if (!matchesWorkflowLogFilters(fullLog, filters)) {
-        return []
-      }
-
-      if (params.details === 'full') {
-        return [fullLog]
-      }
-
-      return [serializeWorkflowLog(row, params.details)]
+    return NextResponse.json({
+      data: rows.map((row) => serializeWorkflowLog(row, params.details)),
+      total,
+      page: Math.floor(params.offset / params.limit) + 1,
+      pageSize: params.limit,
+      totalPages: Math.max(1, Math.ceil(total / params.limit)),
     })
-
-    return NextResponse.json(toPaginatedLogsResponse(filteredLogs, params.limit, params.offset))
   } catch (error: any) {
     logger.error(`[${requestId}] logs fetch error`, error)
     return NextResponse.json({ error: error.message }, { status: 500 })

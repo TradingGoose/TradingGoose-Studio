@@ -4,7 +4,6 @@
 
 import { NextRequest } from 'next/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { loadDeployedWorkflowState } from '@/lib/workflows/db-helpers'
 
 const mocks = vi.hoisted(() => {
   const selectQueue: unknown[][] = []
@@ -59,10 +58,6 @@ vi.mock('@/lib/auth', () => ({
 
 vi.mock('@/lib/logs/console/logger', () => ({
   createLogger: vi.fn(() => ({ debug: vi.fn(), error: vi.fn(), info: vi.fn(), warn: vi.fn() })),
-}))
-
-vi.mock('@/lib/workflows/db-helpers', () => ({
-  loadDeployedWorkflowState: vi.fn(),
 }))
 
 describe('logs execution route', () => {
@@ -131,43 +126,6 @@ describe('logs execution route', () => {
     expect(await response.json()).toEqual({
       workflowId: 'deleted-workflow-1',
       workflowState: { blocks: { block1: { id: 'block1' } } },
-    })
-  })
-
-  it('uses durable workflow summary id for empty deleted-workflow snapshot fallback', async () => {
-    vi.mocked(loadDeployedWorkflowState).mockResolvedValueOnce({
-      blocks: { block1: { id: 'block1' } },
-      edges: [{ id: 'edge-1' }],
-      loops: {},
-      parallels: {},
-    } as any)
-    mocks.selectQueue.push([
-      {
-        executionId: 'exec-1',
-        stateSnapshotId: 'snapshot-1',
-        workflowId: null,
-        workflowSummary: { id: 'deleted-workflow-1' },
-        workspaceId: 'workspace-1',
-      },
-    ])
-    mocks.selectQueue.push([{ id: 'permission-1' }])
-    mocks.selectQueue.push([{ stateData: { blocks: {}, edges: [], loops: {}, parallels: {} } }])
-    const { GET } = await import('./route')
-
-    const response = await GET(new NextRequest('http://localhost/api/logs/execution/exec-1'), {
-      params: Promise.resolve({ executionId: 'exec-1' }),
-    })
-
-    expect(response.status).toBe(200)
-    expect(loadDeployedWorkflowState).toHaveBeenCalledWith('deleted-workflow-1')
-    expect(await response.json()).toEqual({
-      workflowId: 'deleted-workflow-1',
-      workflowState: {
-        blocks: { block1: { id: 'block1' } },
-        edges: [{ id: 'edge-1' }],
-        loops: {},
-        parallels: {},
-      },
     })
   })
 })
