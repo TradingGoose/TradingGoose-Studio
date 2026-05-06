@@ -11,6 +11,7 @@ import {
   useState,
 } from 'react'
 import {
+  Activity,
   BookOpen,
   Building2,
   LayoutTemplate,
@@ -472,6 +473,12 @@ export function DashboardClient({
   const pages = useMemo(
     () => [
       { id: 'logs', name: 'Logs', icon: ScrollText, href: `/workspace/${workspaceId}/logs` },
+      {
+        id: 'monitor',
+        name: 'Monitor',
+        icon: Activity,
+        href: `/workspace/${workspaceId}/monitor`,
+      },
       {
         id: 'knowledge',
         name: 'Knowledge',

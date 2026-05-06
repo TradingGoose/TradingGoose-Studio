@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import type { InputMeta, InputMetaMap } from '@/lib/indicators/types'
 import type { ListingIdentity, ListingInputValue } from '@/lib/listing/identity'
 import { toListingValueObject } from '@/lib/listing/identity'
 import { encryptSecret } from '@/lib/utils-server'
@@ -11,13 +12,20 @@ import {
 
 export const INDICATOR_MONITOR_TRIGGER_ID = 'indicator_trigger' as const
 
-const MonitorAuthInputSchema = z
+const MonitorAuthCreateInputSchema = z.object({
+  secrets: z.record(z.string()),
+})
+
+const MonitorAuthUpdateInputSchema = z
   .object({
     secrets: z.record(z.string()).optional(),
   })
   .optional()
 
-export const IndicatorMonitorMutationSchema = z.object({
+const ProviderParamsInputSchema = z.record(z.unknown()).optional()
+const IndicatorInputsInputSchema = z.record(z.unknown()).optional()
+
+export const IndicatorMonitorCreateSchema = z.object({
   workspaceId: z.string().min(1),
   workflowId: z.string().min(1),
   blockId: z.string().min(1),
@@ -25,9 +33,24 @@ export const IndicatorMonitorMutationSchema = z.object({
   interval: z.string().min(1),
   indicatorId: z.string().min(1),
   listing: z.any(),
+  auth: MonitorAuthCreateInputSchema,
+  providerParams: ProviderParamsInputSchema,
+  indicatorInputs: IndicatorInputsInputSchema,
   isActive: z.boolean().optional(),
-  auth: MonitorAuthInputSchema,
-  providerParams: z.record(z.unknown()).optional(),
+})
+
+export const IndicatorMonitorUpdateSchema = z.object({
+  workspaceId: z.string().min(1),
+  workflowId: z.string().min(1).optional(),
+  blockId: z.string().min(1).optional(),
+  providerId: z.string().min(1).optional(),
+  interval: z.string().min(1).optional(),
+  indicatorId: z.string().min(1).optional(),
+  listing: z.any().optional(),
+  auth: MonitorAuthUpdateInputSchema,
+  providerParams: ProviderParamsInputSchema,
+  indicatorInputs: IndicatorInputsInputSchema,
+  isActive: z.boolean().optional(),
 })
 
 export type IndicatorMonitorAuthStored = {
@@ -38,7 +61,6 @@ export type IndicatorMonitorAuthStored = {
 export type IndicatorMonitorAuthPublic = {
   hasEncryptedSecrets?: boolean
   encryptedSecretFieldIds?: string[]
-  secretReferences?: Record<string, string>
 }
 
 export type IndicatorMonitorProviderConfig = {
@@ -52,6 +74,7 @@ export type IndicatorMonitorProviderConfig = {
     indicatorId: string
     auth?: IndicatorMonitorAuthStored
     providerParams?: Record<string, unknown>
+    indicatorInputs?: Record<string, unknown>
   }
 }
 
@@ -64,8 +87,6 @@ const normalizeProviderParams = (
   providerId: string,
   raw: Record<string, unknown> | undefined
 ): Record<string, unknown> | undefined => {
-  if (!raw || Object.keys(raw).length === 0) return undefined
-
   const definitions = getMarketProviderParamDefinitions(providerId, 'live')
   const nonSecretDefinitions = definitions.filter((definition) => !definition.password)
   const definitionMap = new Map(
@@ -73,7 +94,7 @@ const normalizeProviderParams = (
   )
   const normalized: Record<string, unknown> = {}
 
-  Object.entries(raw).forEach(([key, value]) => {
+  Object.entries(raw ?? {}).forEach(([key, value]) => {
     const definition = definitionMap.get(key)
     if (!definition) return
     const coerced = coerceMarketProviderParamValue(definition, value)
@@ -85,6 +106,69 @@ const normalizeProviderParams = (
     if (definition.required && normalized[definition.id] === undefined) {
       throw new Error(`Missing required provider param: ${definition.id}`)
     }
+  })
+
+  return Object.keys(normalized).length > 0 ? normalized : undefined
+}
+
+const normalizeIndicatorInputValue = (meta: InputMeta, value: unknown): unknown => {
+  if (value === null || typeof value === 'undefined') return undefined
+
+  if (meta.type === 'int' || meta.type === 'float') {
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      return meta.type === 'int' ? Math.trunc(value) : value
+    }
+    if (typeof value === 'string' && value.trim().length > 0) {
+      const parsed = Number(value)
+      if (Number.isFinite(parsed)) {
+        return meta.type === 'int' ? Math.trunc(parsed) : parsed
+      }
+    }
+    return undefined
+  }
+
+  if (meta.type === 'bool') {
+    if (typeof value === 'boolean') return value
+    if (typeof value === 'string') {
+      const lowered = value.toLowerCase()
+      if (lowered === 'true') return true
+      if (lowered === 'false') return false
+    }
+    return undefined
+  }
+
+  return value
+}
+
+const inputValuesEqual = (left: unknown, right: unknown): boolean => {
+  if (Object.is(left, right)) return true
+  if (!left || !right || typeof left !== 'object' || typeof right !== 'object') return false
+
+  try {
+    return JSON.stringify(left) === JSON.stringify(right)
+  } catch {
+    return false
+  }
+}
+
+export const normalizeIndicatorInputOverrides = (
+  inputMeta: InputMetaMap | undefined,
+  rawOverrides: Record<string, unknown> | undefined
+): Record<string, unknown> | undefined => {
+  if (!inputMeta || !rawOverrides || Object.keys(rawOverrides).length === 0) return undefined
+
+  const normalized: Record<string, unknown> = {}
+  Object.entries(rawOverrides).forEach(([title, value]) => {
+    const meta = inputMeta[title]
+    if (!meta) return
+
+    const coerced = normalizeIndicatorInputValue(meta, value)
+    if (typeof coerced === 'undefined') return
+
+    const defaultValue = normalizeIndicatorInputValue(meta, meta.value ?? meta.defval)
+    if (inputValuesEqual(coerced, defaultValue)) return
+
+    normalized[title] = coerced
   })
 
   return Object.keys(normalized).length > 0 ? normalized : undefined
@@ -129,7 +213,10 @@ type NormalizeMonitorConfigInput = {
     secrets?: Record<string, string>
   }
   providerParams?: Record<string, unknown>
+  indicatorInputs?: Record<string, unknown>
+  indicatorInputMeta?: InputMetaMap
   previousAuth?: IndicatorMonitorAuthStored
+  requireCompleteAuth?: boolean
 }
 
 export const normalizeIndicatorMonitorConfig = async (
@@ -151,8 +238,8 @@ export const normalizeIndicatorMonitorConfig = async (
   }
 
   const requiredSecretParamIds = getRequiredLiveSecretParamIds(input.providerId)
-  const incomingSecretValues = input.authInput?.secrets ?? {}
   const replacingAuth = input.authInput !== undefined
+  const incomingSecretValues = input.authInput?.secrets ?? {}
   const encryptedSecrets: Record<string, string> = replacingAuth
     ? {}
     : { ...(input.previousAuth?.encryptedSecrets ?? {}) }
@@ -164,18 +251,22 @@ export const normalizeIndicatorMonitorConfig = async (
     encryptedSecrets[fieldId] = encrypted.encrypted
   }
 
-  if (!input.previousAuth) {
-    const missingRequiredSecrets = requiredSecretParamIds.filter(
-      (fieldId) => !encryptedSecrets[fieldId]
+  const missingRequiredSecrets = requiredSecretParamIds.filter(
+    (fieldId) => !encryptedSecrets[fieldId]
+  )
+  const preservesPreviousAuth = !replacingAuth && Boolean(input.previousAuth)
+  const shouldRequireCompleteAuth = !preservesPreviousAuth && (input.requireCompleteAuth ?? true)
+  if (shouldRequireCompleteAuth && missingRequiredSecrets.length > 0) {
+    throw new Error(
+      `Missing required auth secret values for provider fields: ${missingRequiredSecrets.join(', ')}`
     )
-    if (missingRequiredSecrets.length > 0) {
-      throw new Error(
-        `Missing required auth secret values for provider fields: ${missingRequiredSecrets.join(', ')}`
-      )
-    }
   }
 
   const providerParams = normalizeProviderParams(input.providerId, input.providerParams)
+  const indicatorInputs = normalizeIndicatorInputOverrides(
+    input.indicatorInputMeta,
+    input.indicatorInputs
+  )
   const auth: IndicatorMonitorAuthStored | undefined =
     Object.keys(encryptedSecrets).length > 0
       ? {
@@ -195,6 +286,7 @@ export const normalizeIndicatorMonitorConfig = async (
       indicatorId: input.indicatorId,
       ...(auth ? { auth } : {}),
       ...(providerParams ? { providerParams } : {}),
+      ...(indicatorInputs ? { indicatorInputs } : {}),
     },
   }
 }

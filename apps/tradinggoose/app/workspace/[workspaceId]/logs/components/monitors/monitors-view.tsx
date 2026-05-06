@@ -480,10 +480,13 @@ export function MonitorsView({
     const requiredSecretDefinitions = editingSecretDefinitions.filter(
       (definition) => definition.required
     )
+    const replacesAuth = Object.keys(draft.secretValues).length > 0
 
     requiredSecretDefinitions.forEach((definition) => {
+      if (!draft.isActive) return
       const entered = (draft.secretValues[definition.id] || '').trim()
-      const hasExisting = draft.existingEncryptedSecretFieldIds.includes(definition.id)
+      const hasExisting =
+        !replacesAuth && draft.existingEncryptedSecretFieldIds.includes(definition.id)
       if (!entered && !hasExisting) {
         nextErrors[`secret:${definition.id}`] = `${definition.title || definition.id} is required.`
       }
@@ -512,14 +515,12 @@ export function MonitorsView({
     if (!validation.valid) return
 
     const authPayload = (() => {
+      if (editingKey && Object.keys(editingDraft.secretValues).length === 0) return undefined
       const secrets = Object.fromEntries(
         Object.entries(editingDraft.secretValues).map(
           ([key, value]) => [key, value.trim()] as const
         )
       )
-      if (!editingKey && Object.values(secrets).every((value) => value.length === 0)) {
-        return undefined
-      }
       return { secrets }
     })()
 
@@ -533,7 +534,9 @@ export function MonitorsView({
         .filter((entry): entry is [string, string] => Boolean(entry))
     )
 
-    const selectedTarget = workflowTargetByKey.get(`${editingDraft.workflowId}:${editingDraft.blockId}`)
+    const selectedTarget = workflowTargetByKey.get(
+      `${editingDraft.workflowId}:${editingDraft.blockId}`
+    )
     const payload = {
       workspaceId,
       workflowId: editingDraft.workflowId,

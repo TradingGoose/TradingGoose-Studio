@@ -6,7 +6,11 @@ import { z } from 'zod'
 import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId, normalizeOptionalString } from '@/lib/utils'
-import { parseListingFilter } from '@/app/api/logs/log-utils'
+import {
+  buildPublicLogExecutionData,
+  parseListingFilter,
+  toLogExecutionDataRecord,
+} from '@/app/api/logs/log-utils'
 
 const logger = createLogger('LogsAPI')
 
@@ -30,17 +34,13 @@ const QueryParamsSchema = z.object({
   indicatorId: z.string().optional(),
   providerId: z.string().optional(),
   interval: z.string().optional(),
-  triggerSource: z.preprocess(
-    (value) => {
-      if (typeof value !== 'string') return value
-      const trimmed = value.trim()
-      return trimmed.length === 0 ? undefined : trimmed
-    },
-    z.literal('indicator_trigger').optional()
-  ),
+  triggerSource: z.preprocess((value) => {
+    if (typeof value !== 'string') return value
+    const trimmed = value.trim()
+    return trimmed.length === 0 ? undefined : trimmed
+  }, z.literal('indicator_trigger').optional()),
   workspaceId: z.string(),
 })
-
 
 export async function GET(request: NextRequest) {
   const requestId = generateRequestId()
@@ -387,15 +387,17 @@ export async function GET(request: NextRequest) {
       // Transform to clean log format with workflow data included
       const enhancedLogs = logs.map((log) => {
         const blockExecutions = blockExecutionsByExecution[log.executionId] || []
+        const storedExecutionData =
+          params.details === 'full' ? toLogExecutionDataRecord(log.executionData) : null
 
         // Only process trace spans and detailed cost in full mode
         let traceSpans = []
         let finalOutput: any
         let costSummary = (log.cost as any) || { total: 0 }
 
-        if (params.details === 'full' && log.executionData) {
+        if (storedExecutionData) {
           // Use stored trace spans if available, otherwise create from block executions
-          const storedTraceSpans = (log.executionData as any)?.traceSpans
+          const storedTraceSpans = storedExecutionData.traceSpans
           traceSpans =
             storedTraceSpans && Array.isArray(storedTraceSpans) && storedTraceSpans.length > 0
               ? storedTraceSpans
@@ -407,11 +409,8 @@ export async function GET(request: NextRequest) {
               ? (log.cost as any)
               : extractCostSummary(blockExecutions)
 
-          // Include finalOutput if present on executionData
-          try {
-            const fo = (log.executionData as any)?.finalOutput
-            if (fo !== undefined) finalOutput = fo
-          } catch {}
+          const storedFinalOutput = storedExecutionData.finalOutput
+          if (storedFinalOutput !== undefined) finalOutput = storedFinalOutput
         }
 
         const workflowSummary = {
@@ -436,16 +435,15 @@ export async function GET(request: NextRequest) {
           createdAt: log.startedAt.toISOString(),
           files: params.details === 'full' ? log.files || undefined : undefined,
           workflow: workflowSummary,
-          executionData:
-            params.details === 'full'
-              ? {
-                  totalDuration: log.totalDurationMs,
-                  traceSpans,
-                  blockExecutions,
-                  finalOutput,
-                  enhanced: true,
-                }
-              : undefined,
+          executionData: storedExecutionData
+            ? buildPublicLogExecutionData({
+                storedExecutionData,
+                totalDuration: log.totalDurationMs,
+                traceSpans,
+                blockExecutions,
+                finalOutput,
+              })
+            : undefined,
           cost:
             params.details === 'full'
               ? (costSummary as any)

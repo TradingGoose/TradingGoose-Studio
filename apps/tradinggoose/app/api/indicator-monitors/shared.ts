@@ -7,14 +7,14 @@ import {
 } from '@tradinggoose/db/schema'
 import { and, desc, eq } from 'drizzle-orm'
 import { DEFAULT_INDICATOR_RUNTIME_MAP } from '@/lib/indicators/default/runtime'
+import { normalizeInputMetaMap } from '@/lib/indicators/input-meta'
 import {
-  type IndicatorMonitorAuthStored,
   type IndicatorMonitorProviderConfig,
   toPublicIndicatorMonitorProviderConfig,
 } from '@/lib/indicators/monitor-config'
 import { isIndicatorTriggerCapable } from '@/lib/indicators/trigger-detection'
+import type { InputMetaMap } from '@/lib/indicators/types'
 import { resolveListingIdentity } from '@/lib/listing/resolve'
-import { decryptSecret } from '@/lib/utils-server'
 
 export const INDICATOR_PROVIDER = 'indicator'
 
@@ -53,7 +53,9 @@ export const listIndicatorMonitorRows = async ({
   if (!blockId) return rows
   return rows.filter((row) => {
     try {
-      return parseIndicatorProviderConfig(row.webhook.providerConfig).monitor.triggerBlockId === blockId
+      return (
+        parseIndicatorProviderConfig(row.webhook.providerConfig).monitor.triggerBlockId === blockId
+      )
     } catch {
       return false
     }
@@ -97,7 +99,9 @@ const getActiveDeployedState = async (workflowId: string) => {
   return rows[0]?.state as Record<string, unknown> | undefined
 }
 
-const getDeployedIndicatorTriggerBlockIds = (deployedState: Record<string, unknown> | undefined) => {
+const getDeployedIndicatorTriggerBlockIds = (
+  deployedState: Record<string, unknown> | undefined
+) => {
   const blocks =
     deployedState && typeof deployedState === 'object'
       ? ((deployedState.blocks as Record<string, unknown> | undefined) ?? undefined)
@@ -179,6 +183,41 @@ export const ensureTriggerCapableIndicator = async (workspaceId: string, indicat
   }
 }
 
+export const loadIndicatorInputMetadata = async (
+  workspaceId: string,
+  indicatorId: string
+): Promise<{ id: string; inputMeta?: InputMetaMap }> => {
+  const defaultIndicator = DEFAULT_INDICATOR_RUNTIME_MAP.get(indicatorId)
+  if (defaultIndicator) {
+    return {
+      id: indicatorId,
+      ...(defaultIndicator.inputMeta && Object.keys(defaultIndicator.inputMeta).length > 0
+        ? { inputMeta: defaultIndicator.inputMeta }
+        : {}),
+    }
+  }
+
+  const rows = await db
+    .select({
+      id: pineIndicators.id,
+      inputMeta: pineIndicators.inputMeta,
+    })
+    .from(pineIndicators)
+    .where(and(eq(pineIndicators.id, indicatorId), eq(pineIndicators.workspaceId, workspaceId)))
+    .limit(1)
+
+  const row = rows[0]
+  if (!row) {
+    throw new Error(`Indicator ${indicatorId} not found.`)
+  }
+
+  const inputMeta = normalizeInputMetaMap(row.inputMeta)
+  return {
+    id: row.id,
+    ...(inputMeta && Object.keys(inputMeta).length > 0 ? { inputMeta } : {}),
+  }
+}
+
 const parseIndicatorProviderConfig = (
   providerConfig: WebhookRow['providerConfig']
 ): IndicatorMonitorProviderConfig => {
@@ -188,31 +227,8 @@ const parseIndicatorProviderConfig = (
   return providerConfig as IndicatorMonitorProviderConfig
 }
 
-const deriveSecretReferences = async (
-  auth?: IndicatorMonitorAuthStored
-): Promise<Record<string, string> | undefined> => {
-  if (!auth?.encryptedSecrets || Object.keys(auth.encryptedSecrets).length === 0) {
-    return undefined
-  }
-
-  const references: Record<string, string> = {}
-  for (const [fieldId, encryptedValue] of Object.entries(auth.encryptedSecrets)) {
-    try {
-      const decrypted = (await decryptSecret(encryptedValue)).decrypted?.trim()
-      if (decrypted) {
-        references[fieldId] = decrypted
-      }
-    } catch {
-      // ignore decrypt failures for unreadable values
-    }
-  }
-
-  return Object.keys(references).length > 0 ? references : undefined
-}
-
 export const toIndicatorMonitorRecord = async (webhookRow: WebhookRow) => {
   const providerConfig = parseIndicatorProviderConfig(webhookRow.providerConfig)
-  const derivedSecretReferences = await deriveSecretReferences(providerConfig.monitor.auth)
   const publicProviderConfig = toPublicIndicatorMonitorProviderConfig(providerConfig)
   const resolvedListing = await resolveListingIdentity(publicProviderConfig.monitor.listing).catch(
     () => null
@@ -221,7 +237,6 @@ export const toIndicatorMonitorRecord = async (webhookRow: WebhookRow) => {
     if (!resolvedListing) return publicProviderConfig.monitor.listing
     return resolvedListing
   })()
-  const auth = publicProviderConfig.monitor.auth
 
   return {
     monitorId: webhookRow.id,
@@ -232,14 +247,6 @@ export const toIndicatorMonitorRecord = async (webhookRow: WebhookRow) => {
       ...publicProviderConfig,
       monitor: {
         ...publicProviderConfig.monitor,
-        ...(derivedSecretReferences
-          ? {
-              auth: {
-                ...(auth ?? {}),
-                secretReferences: derivedSecretReferences,
-              },
-            }
-          : {}),
         listing: listingForResponse,
       },
     },

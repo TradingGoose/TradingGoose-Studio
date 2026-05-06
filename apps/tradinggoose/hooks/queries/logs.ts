@@ -22,7 +22,7 @@ export const logKeys = {
     [...logKeys.all, 'global-logs', workspaceId ?? '', filters] as const,
 }
 
-interface LogFilters {
+export interface LogFilters {
   timeRange: string
   level: string
   workflowIds: string[]
@@ -30,6 +30,7 @@ interface LogFilters {
   triggers: string[]
   searchQuery: string
   limit: number
+  details?: 'basic' | 'full'
   monitorId?: string
   listing?: ListingIdentity
   indicatorId?: string
@@ -38,45 +39,28 @@ interface LogFilters {
   triggerSource?: 'indicator_trigger'
 }
 
-async function fetchLogsPage(
+export function buildLogsRequestParams(
   workspaceId: string,
   filters: LogFilters,
-  page: number
-): Promise<{ logs: WorkflowLog[]; hasMore: boolean; nextPage: number | undefined }> {
-  const queryParams = buildQueryParams(workspaceId, filters, page)
-  const response = await fetch(`/api/logs?${queryParams}`)
-
-  if (!response.ok) {
-    throw new Error('Failed to fetch logs')
+  options?: {
+    page?: number
+    includePagination?: boolean
+    includeDetails?: boolean
   }
-
-  const apiData: LogsResponse = await response.json()
-  const hasMore = apiData.data.length === filters.limit && apiData.page < apiData.totalPages
-
-  return {
-    logs: apiData.data || [],
-    hasMore,
-    nextPage: hasMore ? page + 1 : undefined,
-  }
-}
-
-async function fetchLogDetail(logId: string): Promise<WorkflowLog> {
-  const response = await fetch(`/api/logs/${logId}`)
-
-  if (!response.ok) {
-    throw new Error('Failed to fetch log details')
-  }
-
-  const { data } = await response.json()
-  return data
-}
-
-function buildQueryParams(workspaceId: string, filters: LogFilters, page: number): string {
+): string {
   const params = new URLSearchParams()
+  const currentPage = options?.page ?? 1
+  const includePagination = options?.includePagination ?? true
+  const includeDetails = options?.includeDetails ?? true
 
   params.set('workspaceId', workspaceId)
-  params.set('limit', filters.limit.toString())
-  params.set('offset', ((page - 1) * filters.limit).toString())
+  if (includePagination) {
+    params.set('limit', filters.limit.toString())
+    params.set('offset', ((currentPage - 1) * filters.limit).toString())
+  }
+  if (includeDetails) {
+    params.set('details', filters.details ?? 'basic')
+  }
 
   if (filters.level !== 'all') {
     params.set('level', filters.level)
@@ -161,6 +145,39 @@ function buildQueryParams(workspaceId: string, filters: LogFilters, page: number
   })
 
   return params.toString()
+}
+
+async function fetchLogsPage(
+  workspaceId: string,
+  filters: LogFilters,
+  page: number
+): Promise<{ logs: WorkflowLog[]; hasMore: boolean; nextPage: number | undefined }> {
+  const queryParams = buildLogsRequestParams(workspaceId, filters, { page })
+  const response = await fetch(`/api/logs?${queryParams}`)
+
+  if (!response.ok) {
+    throw new Error('Failed to fetch logs')
+  }
+
+  const apiData: LogsResponse = await response.json()
+  const hasMore = apiData.data.length === filters.limit && apiData.page < apiData.totalPages
+
+  return {
+    logs: apiData.data || [],
+    hasMore,
+    nextPage: hasMore ? page + 1 : undefined,
+  }
+}
+
+async function fetchLogDetail(logId: string): Promise<WorkflowLog> {
+  const response = await fetch(`/api/logs/${logId}`)
+
+  if (!response.ok) {
+    throw new Error('Failed to fetch log details')
+  }
+
+  const { data } = await response.json()
+  return data
 }
 
 interface UseLogsListOptions {

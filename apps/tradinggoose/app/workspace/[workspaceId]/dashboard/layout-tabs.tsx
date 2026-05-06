@@ -12,6 +12,7 @@ export type LayoutTab = {
   name: string
   sortOrder: number
   isActive: boolean
+  hasDraft?: boolean
 }
 
 interface LayoutTabsProps {
@@ -20,8 +21,9 @@ interface LayoutTabsProps {
   onSelect: (layoutId: string) => void
   onReorder: (nextLayouts: LayoutTab[]) => void
   onCreate: () => void
-  onRename: (layoutId: string, name: string) => void
-  onDelete: (layoutId: string) => void
+  onRename?: (layoutId: string, name: string) => void
+  onRequestRename?: (layoutId: string) => void
+  onDelete?: (layoutId: string) => void
 }
 
 export function LayoutTabs({
@@ -31,6 +33,7 @@ export function LayoutTabs({
   onReorder,
   onCreate,
   onRename,
+  onRequestRename,
   onDelete,
 }: LayoutTabsProps) {
   const tabsScrollRef = useRef<HTMLDivElement>(null)
@@ -77,6 +80,13 @@ export function LayoutTabs({
   }, [editingId])
 
   const startEdit = (layout: LayoutTab) => {
+    if (onRequestRename) {
+      onRequestRename(layout.id)
+      return
+    }
+
+    if (!onRename) return
+
     setEditingId(layout.id)
     setEditValue(layout.name)
   }
@@ -87,6 +97,11 @@ export function LayoutTabs({
   }
 
   const commitEdit = (layout: LayoutTab) => {
+    if (!onRename) {
+      cancelEdit()
+      return
+    }
+
     const trimmed = editValue.trim()
     if (!trimmed || trimmed === layout.name) {
       cancelEdit()
@@ -159,6 +174,9 @@ export function LayoutTabs({
                       <span className='min-w-0 flex-1 truncate pr-1 pb-1 font-md text-md'>
                         {layout.name}
                       </span>
+                      {layout.isActive && layout.hasDraft ? (
+                        <span className='ml-1 inline-flex h-1.5 w-1.5 rounded-full bg-amber-500' />
+                      ) : null}
                     </button>
                   )}
                   {editingId === layout.id ? (
@@ -171,9 +189,10 @@ export function LayoutTabs({
                     >
                       <Check className='h-3.5 w-3.5' />
                     </button>
-                  ) : layout.isActive ? (
+                  ) : layout.isActive && (onRename || onRequestRename) ? (
                     <button
                       type='button'
+                      aria-label={`Rename ${layout.name}`}
                       className='pointer-events-none inline-flex h-full w-0 shrink-0 items-center justify-center overflow-hidden text-muted-foreground opacity-0 transition-[width,opacity,color] hover:text-foreground focus-visible:pointer-events-auto focus-visible:w-4 focus-visible:opacity-100 group-hover:pointer-events-auto group-hover:w-4 group-hover:opacity-100'
                       onClick={() => startEdit(layout)}
                       disabled={isBusy}
@@ -181,9 +200,10 @@ export function LayoutTabs({
                     >
                       <Pencil className='h-3.5 w-3.5' />
                     </button>
-                  ) : (
+                  ) : onDelete ? (
                     <button
                       type='button'
+                      aria-label={`Delete ${layout.name}`}
                       className='pointer-events-none inline-flex h-full w-0 shrink-0 items-center justify-center overflow-hidden text-muted-foreground opacity-0 transition-[width,opacity,color] hover:text-destructive focus-visible:pointer-events-auto focus-visible:w-4 focus-visible:opacity-100 group-hover:pointer-events-auto group-hover:w-4 group-hover:opacity-100'
                       onClick={() => onDelete(layout.id)}
                       disabled={isBusy}
@@ -191,6 +211,8 @@ export function LayoutTabs({
                     >
                       <X className='h-4 w-4' />
                     </button>
+                  ) : (
+                    <span className='inline-flex h-full w-0 shrink-0' />
                   )}
                 </SortableItem>
               ))}

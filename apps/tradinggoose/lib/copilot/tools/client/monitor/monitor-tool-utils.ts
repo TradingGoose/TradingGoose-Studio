@@ -26,7 +26,8 @@ export type IndicatorMonitorRecord = {
       listing: Record<string, unknown>
       indicatorId: string
       auth?: {
-        secretReferences?: Record<string, string>
+        hasEncryptedSecrets?: boolean
+        encryptedSecretFieldIds?: string[]
       }
       providerParams?: Record<string, unknown>
     }
@@ -71,7 +72,6 @@ export function buildMonitorName(record: IndicatorMonitorRecord): string {
 }
 
 export function toMonitorDocumentFields(record: IndicatorMonitorRecord) {
-  const authSecrets = record.providerConfig.monitor.auth?.secretReferences
   return {
     workflowId: record.workflowId,
     blockId: record.blockId,
@@ -83,7 +83,6 @@ export function toMonitorDocumentFields(record: IndicatorMonitorRecord) {
     ...(record.providerConfig.monitor.providerParams
       ? { providerParams: record.providerConfig.monitor.providerParams }
       : {}),
-    ...(authSecrets ? { auth: { secrets: authSecrets } } : {}),
   }
 }
 
