@@ -276,6 +276,21 @@ describe('logs route', () => {
     expect(await response.json()).toEqual({ error: 'Unauthorized' })
   })
 
+  it.each([
+    ['missing workspaceId', 'http://localhost/api/logs'],
+    ['invalid details', 'http://localhost/api/logs?workspaceId=workspace-1&details=summary'],
+    ['invalid limit', 'http://localhost/api/logs?workspaceId=workspace-1&limit=0'],
+  ])('returns 400 for invalid query params: %s', async (_label, url) => {
+    const { GET } = await import('./route')
+    const response = await GET(new NextRequest(url))
+
+    expect(response.status).toBe(400)
+    const body = await response.json()
+    expect(body.error).toBe('Invalid parameters')
+    expect(body.details.length).toBeGreaterThan(0)
+    expect(mockSelect).not.toHaveBeenCalled()
+  })
+
   it('uses SQL pagination and omits heavy fields for basic list requests', async () => {
     const { GET } = await import('./route')
     const response = await GET(

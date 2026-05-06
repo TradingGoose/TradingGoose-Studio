@@ -356,7 +356,14 @@ export async function GET(request: NextRequest) {
 
     const userId = session.user.id
     const { searchParams } = new URL(request.url)
-    const params = QueryParamsSchema.parse(Object.fromEntries(searchParams.entries()))
+    const validationResult = QueryParamsSchema.safeParse(Object.fromEntries(searchParams.entries()))
+    if (!validationResult.success) {
+      return NextResponse.json(
+        { error: 'Invalid parameters', details: validationResult.error.errors },
+        { status: 400 }
+      )
+    }
+    const params = validationResult.data
 
     const listings = parseListingFilters(params.listings)
     const excludedListings = parseListingFilters(params.excludeListings)

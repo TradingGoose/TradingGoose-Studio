@@ -20,6 +20,7 @@ import {
 const logger = createLogger('LogsExportAPI')
 
 export const revalidate = 0
+const EXPORT_PAGE_SIZE = 1000
 
 const ExportParamsSchema = z.object({
   level: z.string().optional(),
@@ -285,50 +286,6 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const rows = await db
-      .select({
-        id: workflowExecutionLogs.id,
-        workflowId: workflowExecutionLogs.workflowId,
-        workspaceId: workflowExecutionLogs.workspaceId,
-        executionId: workflowExecutionLogs.executionId,
-        workflowSummary: workflowExecutionLogs.workflowSummary,
-        level: workflowExecutionLogs.level,
-        trigger: workflowExecutionLogs.trigger,
-        startedAt: workflowExecutionLogs.startedAt,
-        endedAt: workflowExecutionLogs.endedAt,
-        totalDurationMs: workflowExecutionLogs.totalDurationMs,
-        executionData: workflowExecutionLogs.executionData,
-        cost: workflowExecutionLogs.cost,
-        files: workflowExecutionLogs.files,
-        createdAt: workflowExecutionLogs.createdAt,
-        workflowName: workflow.name,
-        workflowDescription: workflow.description,
-        workflowColor: workflow.color,
-        workflowFolderId: workflow.folderId,
-        workflowFolderName: workflowFolder.name,
-        workflowUserId: workflow.userId,
-        workflowWorkspaceId: workflow.workspaceId,
-        workflowCreatedAt: workflow.createdAt,
-        workflowUpdatedAt: workflow.updatedAt,
-      })
-      .from(workflowExecutionLogs)
-      .leftJoin(workflow, eq(workflowExecutionLogs.workflowId, workflow.id))
-      .leftJoin(workflowFolder, eq(workflow.folderId, workflowFolder.id))
-      .innerJoin(
-        permissions,
-        and(
-          eq(permissions.entityType, 'workspace'),
-          eq(permissions.entityId, workflowExecutionLogs.workspaceId),
-          eq(permissions.userId, userId)
-        )
-      )
-      .where(conditions)
-      .orderBy(
-        desc(workflowExecutionLogs.startedAt),
-        desc(workflowExecutionLogs.createdAt),
-        desc(workflowExecutionLogs.id)
-      )
-
     const filters = {
       search: normalizeOptionalString(params.search) ?? undefined,
       level: splitCsv(params.level),
@@ -376,14 +333,31 @@ export async function GET(request: NextRequest) {
       costMaxExclusive: parseBooleanFlag(params.costMaxExclusive),
     }
 
-    const filteredLogs = rows.flatMap((row) => {
-      const fullLog = serializeWorkflowLog(row, 'full')
-      if (!matchesWorkflowLogFilters(fullLog, filters)) {
-        return []
-      }
-
-      return [fullLog]
-    })
+    const selectColumns = {
+      id: workflowExecutionLogs.id,
+      workflowId: workflowExecutionLogs.workflowId,
+      workspaceId: workflowExecutionLogs.workspaceId,
+      executionId: workflowExecutionLogs.executionId,
+      workflowSummary: workflowExecutionLogs.workflowSummary,
+      level: workflowExecutionLogs.level,
+      trigger: workflowExecutionLogs.trigger,
+      startedAt: workflowExecutionLogs.startedAt,
+      endedAt: workflowExecutionLogs.endedAt,
+      totalDurationMs: workflowExecutionLogs.totalDurationMs,
+      executionData: workflowExecutionLogs.executionData,
+      cost: workflowExecutionLogs.cost,
+      files: workflowExecutionLogs.files,
+      createdAt: workflowExecutionLogs.createdAt,
+      workflowName: workflow.name,
+      workflowDescription: workflow.description,
+      workflowColor: workflow.color,
+      workflowFolderId: workflow.folderId,
+      workflowFolderName: workflowFolder.name,
+      workflowUserId: workflow.userId,
+      workflowWorkspaceId: workflow.workspaceId,
+      workflowCreatedAt: workflow.createdAt,
+      workflowUpdatedAt: workflow.updatedAt,
+    }
 
     const header = [
       'startedAt',
@@ -399,23 +373,60 @@ export async function GET(request: NextRequest) {
 
     const encoder = new TextEncoder()
     const stream = new ReadableStream<Uint8Array>({
-      start(controller) {
+      start: async (controller) => {
         controller.enqueue(encoder.encode(`${header}\n`))
-        filteredLogs.forEach((log) => {
-          const line = [
-            escapeCsv(log.startedAt),
-            escapeCsv(log.level),
-            escapeCsv(log.outcome),
-            escapeCsv(log.workflow?.name),
-            escapeCsv(log.trigger),
-            escapeCsv(log.durationMs),
-            escapeCsv(log.cost?.total),
-            escapeCsv(log.workflowId),
-            escapeCsv(log.executionId),
-          ].join(',')
-          controller.enqueue(encoder.encode(`${line}\n`))
-        })
-        controller.close()
+        let offset = 0
+
+        try {
+          while (true) {
+            const rows = await db
+              .select(selectColumns)
+              .from(workflowExecutionLogs)
+              .leftJoin(workflow, eq(workflowExecutionLogs.workflowId, workflow.id))
+              .leftJoin(workflowFolder, eq(workflow.folderId, workflowFolder.id))
+              .innerJoin(
+                permissions,
+                and(
+                  eq(permissions.entityType, 'workspace'),
+                  eq(permissions.entityId, workflowExecutionLogs.workspaceId),
+                  eq(permissions.userId, userId)
+                )
+              )
+              .where(conditions)
+              .orderBy(
+                desc(workflowExecutionLogs.startedAt),
+                desc(workflowExecutionLogs.createdAt),
+                desc(workflowExecutionLogs.id)
+              )
+              .limit(EXPORT_PAGE_SIZE)
+              .offset(offset)
+
+            for (const row of rows) {
+              const log = serializeWorkflowLog(row, 'full')
+              if (!matchesWorkflowLogFilters(log, filters)) continue
+
+              const line = [
+                escapeCsv(log.startedAt),
+                escapeCsv(log.level),
+                escapeCsv(log.outcome),
+                escapeCsv(log.workflow?.name),
+                escapeCsv(log.trigger),
+                escapeCsv(log.durationMs),
+                escapeCsv(log.cost?.total),
+                escapeCsv(log.workflowId),
+                escapeCsv(log.executionId),
+              ].join(',')
+              controller.enqueue(encoder.encode(`${line}\n`))
+            }
+
+            if (rows.length < EXPORT_PAGE_SIZE) break
+            offset += EXPORT_PAGE_SIZE
+          }
+          controller.close()
+        } catch (error: any) {
+          logger.error('Export stream error', { error: error?.message })
+          controller.error(error)
+        }
       },
     })
 

@@ -7,6 +7,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const {
   mockGetSession,
+  mockOffset,
+  mockLimit,
   mockOrderBy,
   mockWhere,
   mockInnerJoin,
@@ -15,8 +17,10 @@ const {
   mockSelect,
 } = vi.hoisted(() => {
   const mockGetSession = vi.fn()
-  const mockOrderBy = vi.fn()
   const chain: Record<string, any> = {}
+  const mockOffset = vi.fn()
+  const mockLimit = vi.fn(() => chain)
+  const mockOrderBy = vi.fn(() => chain)
   const mockWhere = vi.fn(() => chain)
   const mockInnerJoin = vi.fn(() => chain)
   const mockLeftJoin = vi.fn(() => chain)
@@ -26,6 +30,8 @@ const {
     leftJoin: mockLeftJoin,
     where: mockWhere,
     orderBy: mockOrderBy,
+    limit: mockLimit,
+    offset: mockOffset,
   })
   const mockSelect = vi.fn(() => ({
     from: mockFrom,
@@ -33,6 +39,8 @@ const {
 
   return {
     mockGetSession,
+    mockOffset,
+    mockLimit,
     mockOrderBy,
     mockWhere,
     mockInnerJoin,
@@ -203,7 +211,7 @@ describe('logs export route', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockGetSession.mockResolvedValue({ user: { id: 'user-1' } })
-    mockOrderBy.mockResolvedValue([
+    mockOffset.mockResolvedValue([
       buildRow({
         id: 'log-1',
         folderName: 'Alpha Desk',
@@ -239,6 +247,39 @@ describe('logs export route', () => {
     const body = await response.text()
     expect(body).toContain('Workflow Alpha')
     expect(body).not.toContain('Workflow Beta')
+  })
+
+  it('exports logs in bounded pages', async () => {
+    const firstPage = Array.from({ length: 1000 }, (_, index) =>
+      buildRow({
+        id: `log-${index + 1}`,
+        folderName: 'Alpha Desk',
+        workflowName: `Workflow ${index + 1}`,
+      })
+    )
+    mockOffset.mockResolvedValueOnce(firstPage).mockResolvedValueOnce([
+      buildRow({
+        id: 'log-1001',
+        folderName: 'Beta Desk',
+        workflowName: 'Workflow 1001',
+      }),
+    ])
+
+    const { GET } = await import('./route')
+    const response = await GET(
+      new NextRequest('http://localhost/api/logs/export?workspaceId=workspace-1')
+    )
+
+    expect(response.status).toBe(200)
+    const body = await response.text()
+
+    expect(mockLimit).toHaveBeenNthCalledWith(1, 1000)
+    expect(mockLimit).toHaveBeenNthCalledWith(2, 1000)
+    expect(mockOffset).toHaveBeenNthCalledWith(1, 0)
+    expect(mockOffset).toHaveBeenNthCalledWith(2, 1000)
+    expect(mockOffset).toHaveBeenCalledTimes(2)
+    expect(body).toContain('Workflow 1')
+    expect(body).toContain('Workflow 1001')
   })
 
   it('treats text-mode workflow and folder filters as OR lists during export', async () => {
@@ -314,7 +355,7 @@ describe('logs export route', () => {
   })
 
   it('respects explicit start-date windows during export', async () => {
-    mockOrderBy.mockResolvedValue([
+    mockOffset.mockResolvedValue([
       buildRow({
         id: 'log-1',
         folderName: 'Alpha Desk',
