@@ -429,7 +429,7 @@ export function buildOrderWhereCondition(workspaceId: string, filters: OrdersFil
     const search = `%${normalized.orderSearch}%`
     conditions.push(
       or(
-        sql`${orderHistoryTable.id} ILIKE ${search}`,
+        sql`${orderHistoryTable.id}::text ILIKE ${search}`,
         sql`COALESCE(${orderHistoryTable.workflowExecutionId}, '') ILIKE ${search}`,
         sql`COALESCE(${orderHistoryTable.provider}, '') ILIKE ${search}`,
         sql`COALESCE(${orderHistoryTable.environment}, '') ILIKE ${search}`,

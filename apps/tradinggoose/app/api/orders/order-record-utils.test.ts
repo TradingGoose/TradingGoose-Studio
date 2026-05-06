@@ -173,4 +173,36 @@ describe('order record utils', () => {
     expect(mocks.isNotNull).toHaveBeenCalledWith('orderHistoryTable.workflowLogId')
     expect(mocks.or).toHaveBeenCalled()
   })
+
+  it('casts order record ids to text before search matching', async () => {
+    const { buildOrderWhereCondition } = await import('./order-record-utils')
+
+    buildOrderWhereCondition('workspace-1', {
+      endDate: '',
+      environment: '',
+      linkedLog: '',
+      orderSearch: 'order-1',
+      orderSortBy: 'recordedAt',
+      orderSortOrder: 'desc',
+      orderType: '',
+      provider: '',
+      side: '',
+      startDate: '',
+      status: '',
+      submissionSource: '',
+      timeInForce: '',
+    })
+
+    expect(
+      mocks.sql.mock.calls.some((call: unknown[]) => {
+        const [strings, ...values] = call as [TemplateStringsArray, ...unknown[]]
+        const template = Array.from(strings as TemplateStringsArray).join('')
+        return (
+          template.includes('::text ILIKE') &&
+          values.includes('orderHistoryTable.id') &&
+          values.includes('%order-1%')
+        )
+      })
+    ).toBe(true)
+  })
 })
