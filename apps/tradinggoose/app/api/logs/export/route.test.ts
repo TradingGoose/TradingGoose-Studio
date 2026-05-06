@@ -249,6 +249,20 @@ describe('logs export route', () => {
     expect(body).not.toContain('Workflow Beta')
   })
 
+  it('ignores all sentinel values for export level and trigger filters', async () => {
+    const { GET } = await import('./route')
+    const response = await GET(
+      new NextRequest(
+        'http://localhost/api/logs/export?workspaceId=workspace-1&level=all&triggers=all'
+      )
+    )
+
+    expect(response.status).toBe(200)
+    const body = await response.text()
+    expect(body).toContain('Workflow Alpha')
+    expect(body).toContain('Workflow Beta')
+  })
+
   it('exports logs in bounded pages', async () => {
     const firstPage = Array.from({ length: 1000 }, (_, index) =>
       buildRow({

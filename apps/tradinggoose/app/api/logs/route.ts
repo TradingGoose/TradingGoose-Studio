@@ -80,7 +80,7 @@ const splitCsv = (value: string | undefined) =>
   (value ?? '')
     .split(',')
     .map((entry) => entry.trim())
-    .filter(Boolean)
+    .filter((entry) => entry && entry !== 'all')
 
 const parseBooleanFlag = (value: string | undefined) => value === 'true' || value === '1'
 
@@ -396,7 +396,7 @@ export async function GET(request: NextRequest) {
 
     if (params.triggers) {
       const triggers = splitCsv(params.triggers)
-      if (triggers.length > 0 && !triggers.includes('all')) {
+      if (triggers.length > 0) {
         conditions = and(conditions, inArray(workflowExecutionLogs.trigger, triggers))
       }
     }

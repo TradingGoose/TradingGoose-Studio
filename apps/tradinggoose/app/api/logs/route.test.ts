@@ -228,6 +228,15 @@ const hasSqlPattern = (conditions: Array<Record<string, any>>, pattern: string) 
       (condition.strings?.join('').includes(pattern) || condition.values?.includes(pattern))
   )
 
+const hasInArrayFilter = (conditions: Array<Record<string, any>>, field: string, value: string) =>
+  conditions.some(
+    (condition) =>
+      condition.type === 'inArray' &&
+      condition.field === field &&
+      Array.isArray(condition.value) &&
+      condition.value.includes(value)
+  )
+
 const expectLogAnchoredWorkflowFolderJoin = () => {
   const fromCall = mockFrom.mock.calls.at(-1) as [unknown] | undefined
   const leftJoinCalls = mockLeftJoin.mock.calls as unknown as Array<[unknown, unknown]>
@@ -310,6 +319,30 @@ describe('logs route', () => {
     expect(body.total).toBe(2)
     expect(body.data[0]?.executionData).toBeUndefined()
     expect(body.data[0]?.files).toBeUndefined()
+  })
+
+  it('ignores all sentinel values for log level filters', async () => {
+    const { GET } = await import('./route')
+    const response = await GET(
+      new NextRequest('http://localhost/api/logs?workspaceId=workspace-1&level=all')
+    )
+
+    expect(response.status).toBe(200)
+    expect(hasInArrayFilter(getLatestWhereConditions(), 'workflowExecutionLogs.level', 'all')).toBe(
+      false
+    )
+  })
+
+  it('applies concrete log level filters', async () => {
+    const { GET } = await import('./route')
+    const response = await GET(
+      new NextRequest('http://localhost/api/logs?workspaceId=workspace-1&level=error')
+    )
+
+    expect(response.status).toBe(200)
+    expect(
+      hasInArrayFilter(getLatestWhereConditions(), 'workflowExecutionLogs.level', 'error')
+    ).toBe(true)
   })
 
   it('filters logs by folder name', async () => {
