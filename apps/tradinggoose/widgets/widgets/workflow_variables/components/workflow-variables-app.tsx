@@ -2,13 +2,13 @@
 
 import { useCallback, useEffect } from 'react'
 import { useSession } from '@/lib/auth-client'
-import Providers from '@/app/workspace/[workspaceId]/providers/providers'
-import { Variables } from '@/widgets/widgets/workflow_variables/components/variables/variables'
-import { WorkflowRouteProvider } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 import { WorkflowSessionProvider } from '@/lib/yjs/workflow-session-host'
+import Providers from '@/app/workspace/[workspaceId]/providers/providers'
 import { useWorkflowEditorActions } from '@/hooks/workflow/use-workflow-editor-actions'
-import { WORKFLOW_VARIABLES_ADD_EVENT } from '@/widgets/events'
 import { DEFAULT_WORKFLOW_CHANNEL_ID } from '@/stores/workflows/workflow/types'
+import { WORKFLOW_VARIABLES_ADD_EVENT } from '@/widgets/events'
+import { WorkflowRouteProvider } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
+import { Variables } from '@/widgets/widgets/workflow_variables/components/variables/variables'
 
 interface WorkflowVariablesAppProps {
   workspaceId: string
@@ -27,19 +27,15 @@ const WorkflowVariablesApp = ({
 
   const user = session.data?.user
     ? {
-      id: session.data.user.id,
-      name: session.data.user.name ?? undefined,
-      email: session.data.user.email,
-    }
+        id: session.data.user.id,
+        name: session.data.user.name ?? undefined,
+        email: session.data.user.email,
+      }
     : undefined
 
   return (
     <Providers workspaceId={workspaceId}>
-      <WorkflowSessionProvider
-        workspaceId={workspaceId}
-        workflowId={workflowId}
-        user={user}
-      >
+      <WorkflowSessionProvider workspaceId={workspaceId} workflowId={workflowId} user={user}>
         <WorkflowRouteProvider
           workspaceId={workspaceId}
           workflowId={workflowId}
@@ -72,7 +68,7 @@ const WorkflowVariablesAppContent = ({
 
     collaborativeAddVariable({
       name: '',
-      type: 'string',
+      type: 'plain',
       value: '',
       workflowId,
     })
@@ -94,7 +90,7 @@ const WorkflowVariablesAppContent = ({
   }, [channelId, panelId, handleAddVariable])
 
   return (
-    <div className='flex h-full w-full flex-col overflow-hidden  px-3 py-2'>
+    <div className='flex h-full w-full flex-col overflow-hidden px-3 py-2'>
       <Variables workflowId={workflowId} hideAddButtons />
     </div>
   )

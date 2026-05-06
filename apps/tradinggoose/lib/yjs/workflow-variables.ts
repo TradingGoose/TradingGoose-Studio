@@ -1,21 +1,20 @@
 /**
  * Pure workflow-variable mutation helpers that operate on a Yjs document.
  *
- * These preserve the retired variables-store mutation semantics so that
- * collaborative edits via Yjs produce identical results:
+ * These preserve the variables-store mutation semantics so that collaborative
+ * edits via Yjs produce identical results:
  *
  *  - autoGenerateVariableName: `variable1`, `variable2`, ...
  *  - ensureUniqueVariableName: appends ` (N)` suffixes on collision
- *  - coerceVariableType: maps deprecated `'string'` -> `'plain'`
  *  - validateVariableValue: format validation without value mutation
  *  - rewriteVariableReferences: `<variable.foo>` reference rewriting in blocks
  */
 
-import * as Y from 'yjs'
-import type { Variable } from '@/stores/variables/types'
+import type * as Y from 'yjs'
 import { escapeRegExp } from '@/lib/utils'
-import { getVariablesMap, getWorkflowMap, getWorkflowTextFieldsMap } from './workflow-session'
+import type { Variable } from '@/stores/variables/types'
 import { rewriteWorkflowContentReferences } from './workflow-reference-rewrite'
+import { getVariablesMap, getWorkflowMap, getWorkflowTextFieldsMap } from './workflow-session'
 
 // ---------------------------------------------------------------------------
 // Name generation
@@ -32,7 +31,7 @@ export function autoGenerateVariableName(existingNames: string[]): string {
   const existingNumbers = existingNames
     .map((name) => {
       const match = name.match(/^variable(\d+)$/)
-      return match ? parseInt(match[1], 10) : 0
+      return match ? Number.parseInt(match[1], 10) : 0
     })
     .filter((n) => !Number.isNaN(n))
 
@@ -62,18 +61,6 @@ export function ensureUniqueVariableName(name: string, existingNames: string[]):
 }
 
 // ---------------------------------------------------------------------------
-// Type coercion
-// ---------------------------------------------------------------------------
-
-/**
- * Coerces the deprecated `'string'` variable type to `'plain'`.
- * All other types pass through unchanged.
- */
-export function coerceVariableType(type: string): string {
-  return type === 'string' ? 'plain' : type
-}
-
-// ---------------------------------------------------------------------------
 // Validation
 // ---------------------------------------------------------------------------
 
@@ -84,11 +71,9 @@ export function coerceVariableType(type: string): string {
  * This mirrors the `validateVariable` helper in the Zustand store -- it never
  * mutates the value, only inspects it.
  */
-export function validateVariableValue(type: string, value: any): string | null {
-  const effectiveType = coerceVariableType(type)
-
+export function validateVariableValue(type: Variable['type'], value: any): string | null {
   try {
-    switch (effectiveType) {
+    switch (type) {
       case 'number': {
         if (Number.isNaN(Number(value))) {
           return 'Not a valid number'
@@ -200,7 +185,7 @@ export function addWorkflowVariable(
       : variable.name
 
   const uniqueName = ensureUniqueVariableName(baseName, existingNames)
-  const type = coerceVariableType(variable.type)
+  const type = variable.type
   const value = variable.value ?? ''
   const validationError = validateVariableValue(type, value)
 
@@ -208,7 +193,7 @@ export function addWorkflowVariable(
     id,
     workflowId: variable.workflowId,
     name: uniqueName,
-    type: type as Variable['type'],
+    type,
     value,
     ...(validationError ? { validationError } : {}),
   }
@@ -242,7 +227,7 @@ export function updateWorkflowVariable(
     )
   }
 
-  const nextType = coerceVariableType(update.type ?? current.type) as Variable['type']
+  const nextType = update.type ?? current.type
   const nextValue = update.value !== undefined ? update.value : current.value
   const shouldValidate = update.type !== undefined || update.value !== undefined
   const validationError = shouldValidate ? validateVariableValue(nextType, nextValue) : null
@@ -260,10 +245,10 @@ export function updateWorkflowVariable(
       if (validationError) {
         nextVariable.validationError = validationError
       } else {
-        delete nextVariable.validationError
+        nextVariable.validationError = undefined
       }
     } else {
-      delete nextVariable.validationError
+      nextVariable.validationError = undefined
     }
 
     vMap.set(id, nextVariable)

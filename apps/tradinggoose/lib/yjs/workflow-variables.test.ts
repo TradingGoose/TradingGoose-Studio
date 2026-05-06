@@ -57,12 +57,12 @@ function createDoc() {
 }
 
 describe('workflow variable Yjs mutations', () => {
-  it('adds variables with generated unique names and coerced plain-text types', () => {
+  it('adds variables with generated unique names', () => {
     const doc = createDoc()
 
     addWorkflowVariable(
       doc,
-      { workflowId: 'wf-1', name: '', type: 'string', value: '' },
+      { workflowId: 'wf-1', name: '', type: 'plain', value: '' },
       'var-1',
       'test'
     )
