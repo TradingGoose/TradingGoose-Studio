@@ -344,7 +344,6 @@ describe('config monitor domain', () => {
           ...monitor.providerConfig.monitor,
           auth: {
             encryptedSecretFieldIds: ['apiKey'],
-            secretReferences: { apiKey: 'OLD_API_KEY' },
           },
           providerParams: { feed: 'iex' },
         },
@@ -428,7 +427,6 @@ describe('config monitor domain', () => {
           ...monitor.providerConfig.monitor,
           auth: {
             encryptedSecretFieldIds: ['apiKey'],
-            secretReferences: { apiKey: 'OLD_API_KEY' },
           },
           providerParams: { feed: 'iex' },
         },
@@ -469,6 +467,61 @@ describe('config monitor domain', () => {
     })
     expect(payload).not.toHaveProperty('auth')
     expect(payload).not.toHaveProperty('providerParams')
+  })
+
+  it('treats touched secret fields as replace-all auth updates', () => {
+    const sourceMonitor: IndicatorMonitorRecord = {
+      ...monitor,
+      providerConfig: {
+        ...monitor.providerConfig,
+        monitor: {
+          ...monitor.providerConfig.monitor,
+          auth: {
+            encryptedSecretFieldIds: ['apiKey', 'apiSecret'],
+          },
+        },
+      },
+    }
+    const nextReferenceData: MonitorReferenceData = {
+      ...referenceData,
+      providerParamDefinitionsByProviderId: {
+        alpaca: [
+          { id: 'apiKey', type: 'string', title: 'API Key', required: true, password: true },
+          {
+            id: 'apiSecret',
+            type: 'string',
+            title: 'API Secret',
+            required: true,
+            password: true,
+          },
+        ],
+      },
+    }
+    const clearedDraft = buildDraftFromMonitorWithPatch(
+      { ...sourceMonitor, isActive: false },
+      { secretValues: { apiKey: '', apiSecret: '' }, isActive: false },
+      nextReferenceData
+    )
+    const partialActiveDraft = buildDraftFromMonitorWithPatch(
+      sourceMonitor,
+      { secretValues: { apiKey: 'new-key' }, isActive: true },
+      nextReferenceData
+    )
+
+    expect(
+      validateMonitorDraft({ draft: clearedDraft, referenceData: nextReferenceData }).valid
+    ).toBe(true)
+    expect(
+      buildMonitorUpdatePayloadFromDraft({
+        workspaceId: 'workspace-1',
+        draft: clearedDraft,
+        originalMonitor: sourceMonitor,
+        referenceData: nextReferenceData,
+      }).auth
+    ).toEqual({ secrets: {} })
+    expect(
+      validateMonitorDraft({ draft: partialActiveDraft, referenceData: nextReferenceData }).errors
+    ).toMatchObject({ 'secret:apiSecret': 'API Secret is required.' })
   })
 
   it('clears stale indicator inputs when an indicator board drop changes indicators', () => {

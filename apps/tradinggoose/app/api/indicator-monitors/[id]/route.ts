@@ -162,6 +162,10 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         ? (payload.indicatorInputs ?? {})
         : {}
       : undefined
+    const nextIsActive =
+      payload.isActive === undefined
+        ? row.webhook.isActive
+        : payload.isActive && workflowRow.isDeployed
 
     const providerConfig = await normalizeIndicatorMonitorConfig({
       triggerBlockId: nextTriggerBlockId,
@@ -174,15 +178,11 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       indicatorInputs: nextIndicatorInputs,
       indicatorInputMeta: indicatorMetadata?.inputMeta,
       previousAuth: providerChanged ? undefined : existingMonitor.auth,
+      requireCompleteAuth: nextIsActive,
     })
     if (!shouldNormalizeIndicatorInputs && typeof existingMonitor.indicatorInputs !== 'undefined') {
       providerConfig.monitor.indicatorInputs = existingMonitor.indicatorInputs
     }
-
-    const nextIsActive =
-      payload.isActive === undefined
-        ? row.webhook.isActive
-        : payload.isActive && workflowRow.isDeployed
 
     const [updatedMonitor] = await db
       .update(webhook)

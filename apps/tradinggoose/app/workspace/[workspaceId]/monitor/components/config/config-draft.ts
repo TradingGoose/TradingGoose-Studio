@@ -136,6 +136,7 @@ export const validateMonitorDraft = ({
   if (!draft) return { valid: false, errors: { draft: 'Missing draft state.' } }
 
   const errors: Record<string, string> = {}
+  const replacesAuth = Object.keys(draft.secretValues).length > 0
   if (!draft.workflowId) errors.workflowId = 'Workflow is required.'
   if (!draft.blockId) errors.blockId = 'Block target is required.'
   if (!draft.providerId) errors.providerId = 'Provider is required.'
@@ -171,8 +172,10 @@ export const validateMonitorDraft = ({
       if (definition.visibility === 'hidden' || definition.visibility === 'llm-only') return
 
       if (isAuthParamDefinition(definition)) {
+        if (!draft.isActive) return
         const entered = (draft.secretValues[definition.id] || '').trim()
-        const hasExisting = draft.existingEncryptedSecretFieldIds.includes(definition.id)
+        const hasExisting =
+          !replacesAuth && draft.existingEncryptedSecretFieldIds.includes(definition.id)
         if (!entered && !hasExisting) {
           errors[`secret:${definition.id}`] = `${definition.title || definition.id} is required.`
         }
@@ -236,6 +239,7 @@ export const buildMonitorUpdatePayloadFromDraft = ({
   const nextProviderParams = trimRecordValues(draft.providerParamValues)
   const previousProviderParams = mapProviderParamsToComparableValues(originalConfig.providerParams)
   const nextSecrets = trimRecordValues(draft.secretValues)
+  const secretsTouched = Object.keys(draft.secretValues).length > 0
   const indicatorInputsChanged = !areJsonEqual(
     draft.indicatorInputs,
     originalConfig.indicatorInputs ?? {}
@@ -249,7 +253,7 @@ export const buildMonitorUpdatePayloadFromDraft = ({
     interval: draft.interval,
     indicatorId: draft.indicatorId,
     listing: draft.listing as ListingIdentity,
-    ...(Object.keys(nextSecrets).length > 0 ? { auth: { secrets: nextSecrets } } : {}),
+    ...(secretsTouched ? { auth: { secrets: nextSecrets } } : {}),
     ...((providerChanged && Object.keys(nextProviderParams).length > 0) ||
     (!providerChanged && !areJsonEqual(nextProviderParams, previousProviderParams))
       ? { providerParams: nextProviderParams }

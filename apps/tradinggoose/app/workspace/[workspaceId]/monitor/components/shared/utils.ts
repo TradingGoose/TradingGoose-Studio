@@ -87,7 +87,7 @@ export const buildDraftFromMonitor = (monitor: IndicatorMonitorRecord): MonitorD
     interval: monitor.providerConfig.monitor.interval,
     indicatorId: monitor.providerConfig.monitor.indicatorId,
     listing: monitor.providerConfig.monitor.listing,
-    secretValues: { ...(auth?.secretReferences ?? {}) },
+    secretValues: {},
     providerParamValues: mapProviderParamsToDraftValues(
       monitor.providerConfig.monitor.providerParams
     ),

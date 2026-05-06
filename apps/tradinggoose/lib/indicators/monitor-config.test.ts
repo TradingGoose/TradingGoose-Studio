@@ -99,6 +99,63 @@ describe('normalizeIndicatorMonitorConfig', () => {
     )
   })
 
+  it('replaces stored auth when explicit auth is provided', async () => {
+    const result = await normalizeIndicatorMonitorConfig({
+      ...baseInput,
+      authInput: {
+        secrets: { apiKey: 'new-api-key' },
+      },
+      previousAuth: {
+        encryptedSecrets: {
+          apiKey: 'encrypted-api-key',
+          apiSecret: 'encrypted-api-secret',
+        },
+        secretVersion: 1,
+      },
+      requireCompleteAuth: false,
+    })
+
+    expect(Object.keys(result.monitor.auth?.encryptedSecrets ?? {})).toEqual(['apiKey'])
+    expect(result.monitor.auth?.encryptedSecrets?.apiKey).toEqual(expect.any(String))
+    expect(result.monitor.auth?.encryptedSecrets?.apiKey).not.toBe('encrypted-api-key')
+  })
+
+  it('clears stored auth when explicit empty auth is provided and complete auth is not required', async () => {
+    const result = await normalizeIndicatorMonitorConfig({
+      ...baseInput,
+      authInput: { secrets: {} },
+      previousAuth: {
+        encryptedSecrets: {
+          apiKey: 'encrypted-api-key',
+          apiSecret: 'encrypted-api-secret',
+        },
+        secretVersion: 1,
+      },
+      requireCompleteAuth: false,
+    })
+
+    expect(result.monitor.auth).toBeUndefined()
+  })
+
+  it('rejects incomplete explicit auth when complete auth is required', async () => {
+    await expect(
+      normalizeIndicatorMonitorConfig({
+        ...baseInput,
+        authInput: {
+          secrets: { apiKey: 'new-api-key' },
+        },
+        previousAuth: {
+          encryptedSecrets: {
+            apiKey: 'encrypted-api-key',
+            apiSecret: 'encrypted-api-secret',
+          },
+          secretVersion: 1,
+        },
+        requireCompleteAuth: true,
+      })
+    ).rejects.toThrow('Missing required auth secret values for provider fields: apiSecret')
+  })
+
   it('still rejects missing required secrets when no previous auth is preserved', async () => {
     await expect(normalizeIndicatorMonitorConfig(baseInput)).rejects.toThrow(
       'Missing required auth secret values for provider fields: apiKey, apiSecret'

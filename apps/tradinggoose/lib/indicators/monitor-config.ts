@@ -61,7 +61,6 @@ export type IndicatorMonitorAuthStored = {
 export type IndicatorMonitorAuthPublic = {
   hasEncryptedSecrets?: boolean
   encryptedSecretFieldIds?: string[]
-  secretReferences?: Record<string, string>
 }
 
 export type IndicatorMonitorProviderConfig = {
@@ -217,6 +216,7 @@ type NormalizeMonitorConfigInput = {
   indicatorInputs?: Record<string, unknown>
   indicatorInputMeta?: InputMetaMap
   previousAuth?: IndicatorMonitorAuthStored
+  requireCompleteAuth?: boolean
 }
 
 export const normalizeIndicatorMonitorConfig = async (
@@ -238,10 +238,11 @@ export const normalizeIndicatorMonitorConfig = async (
   }
 
   const requiredSecretParamIds = getRequiredLiveSecretParamIds(input.providerId)
+  const replacingAuth = input.authInput !== undefined
   const incomingSecretValues = input.authInput?.secrets ?? {}
-  const encryptedSecrets: Record<string, string> = {
-    ...(input.previousAuth?.encryptedSecrets ?? {}),
-  }
+  const encryptedSecrets: Record<string, string> = replacingAuth
+    ? {}
+    : { ...(input.previousAuth?.encryptedSecrets ?? {}) }
 
   for (const [fieldId, secretValue] of Object.entries(incomingSecretValues)) {
     const trimmed = secretValue?.trim()
@@ -250,11 +251,12 @@ export const normalizeIndicatorMonitorConfig = async (
     encryptedSecrets[fieldId] = encrypted.encrypted
   }
 
-  const replacingAuth = input.authInput !== undefined || !input.previousAuth
   const missingRequiredSecrets = requiredSecretParamIds.filter(
     (fieldId) => !encryptedSecrets[fieldId]
   )
-  if (replacingAuth && missingRequiredSecrets.length > 0) {
+  const preservesPreviousAuth = !replacingAuth && Boolean(input.previousAuth)
+  const shouldRequireCompleteAuth = !preservesPreviousAuth && (input.requireCompleteAuth ?? true)
+  if (shouldRequireCompleteAuth && missingRequiredSecrets.length > 0) {
     throw new Error(
       `Missing required auth secret values for provider fields: ${missingRequiredSecrets.join(', ')}`
     )

@@ -104,6 +104,7 @@ export async function POST(request: NextRequest) {
       payload.workspaceId,
       payload.indicatorId
     )
+    const nextIsActive = (payload.isActive ?? true) && workflowRow.isDeployed === true
 
     const providerConfig = await normalizeIndicatorMonitorConfig({
       triggerBlockId: payload.blockId,
@@ -115,12 +116,11 @@ export async function POST(request: NextRequest) {
       providerParams: payload.providerParams,
       indicatorInputs: payload.indicatorInputs,
       indicatorInputMeta: indicatorMetadata.inputMeta,
+      requireCompleteAuth: nextIsActive,
     })
 
     const monitorId = nanoid()
     const monitorPath = `indicator-monitor-${monitorId}`
-
-    const nextIsActive = (payload.isActive ?? true) && workflowRow.isDeployed === true
 
     const [createdMonitor] = await db
       .insert(webhook)

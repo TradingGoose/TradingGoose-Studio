@@ -39,7 +39,6 @@ export type IndicatorMonitorRecord = {
       auth?: {
         hasEncryptedSecrets?: boolean
         encryptedSecretFieldIds?: string[]
-        secretReferences?: Record<string, string>
       }
       providerParams?: Record<string, unknown>
     }
@@ -133,9 +132,7 @@ export type MonitorRecordMutationOptions = {
 }
 
 export type MonitorRecordActions = {
-  createMonitor: (
-    input: IndicatorMonitorCreateInput
-  ) => Promise<IndicatorMonitorRecord | null>
+  createMonitor: (input: IndicatorMonitorCreateInput) => Promise<IndicatorMonitorRecord | null>
   updateMonitor: (
     monitorId: string,
     input: IndicatorMonitorUpdateInput,
