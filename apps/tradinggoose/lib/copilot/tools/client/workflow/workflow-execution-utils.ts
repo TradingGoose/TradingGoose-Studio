@@ -4,35 +4,17 @@
  */
 
 import { v4 as uuidv4 } from 'uuid'
+import { getReadableWorkflowState } from '@/lib/copilot/tools/client/workflow/workflow-review-tool-utils'
 import { createLogger } from '@/lib/logs/console/logger'
 import { buildTraceSpans } from '@/lib/logs/execution/trace-spans/trace-spans'
-import type { BlockOutput } from '@/blocks/types'
-import { Executor } from '@/executor'
-import type {
-  ExecutionContextExtensions,
-  ExecutionResult,
-  StreamingExecution,
-} from '@/executor/types'
+import type { WorkflowSnapshot } from '@/lib/yjs/workflow-session'
+import { Executor, type ExecutorOptions } from '@/executor'
+import type { ExecutionResult, StreamingExecution } from '@/executor/types'
 import { Serializer } from '@/serializer'
-import type { SerializedWorkflow } from '@/serializer/types'
-import {
-  getReadableWorkflowState,
-} from '@/lib/copilot/tools/client/workflow/workflow-review-tool-utils'
 import { useExecutionStore } from '@/stores/execution/store'
 import { useEnvironmentStore } from '@/stores/settings/environment/store'
-import type { WorkflowSnapshot } from '@/lib/yjs/workflow-session'
 
 const logger = createLogger('WorkflowExecutionUtils')
-
-// Interface for executor options (copied from useWorkflowExecution)
-interface ExecutorOptions {
-  workflow: SerializedWorkflow
-  currentBlockStates?: Record<string, BlockOutput>
-  envVarValues?: Record<string, string>
-  workflowInput?: any
-  workflowVariables?: Record<string, any>
-  contextExtensions?: ExecutionContextExtensions
-}
 
 export interface WorkflowExecutionOptions {
   workflowInput?: any
@@ -65,15 +47,14 @@ export async function getWorkflowExecutionContext(
     workflowState: currentWorkflow,
     variables: workflowVariables,
     workspaceId,
-  } =
-    await getReadableWorkflowState(
-      {
-        toolCallId: 'workflow-execution-context',
-        toolName: 'run_workflow',
-        workflowId: activeWorkflowId,
-      },
-      activeWorkflowId
-    )
+  } = await getReadableWorkflowState(
+    {
+      toolCallId: 'workflow-execution-context',
+      toolName: 'run_workflow',
+      workflowId: activeWorkflowId,
+    },
+    activeWorkflowId
+  )
 
   const { getAllVariables } = useEnvironmentStore.getState()
   const { setExecutor } = useExecutionStore.getState()

@@ -3,6 +3,12 @@ import { Executor } from '@/executor'
 import { BlockType } from '@/executor/consts'
 import type { SerializedWorkflow } from '@/serializer/types'
 
+const createTestExecutor = (workflow: SerializedWorkflow) =>
+  new Executor({
+    workflow,
+    contextExtensions: { workspaceId: 'test-workspace-id' },
+  })
+
 describe('Full Executor Test', () => {
   let workflow: SerializedWorkflow
   let executor: Executor
@@ -152,7 +158,7 @@ describe('Full Executor Test', () => {
       },
     }
 
-    executor = new Executor(workflow)
+    executor = createTestExecutor(workflow)
   })
 
   it('should test the full executor flow and see what happens', async () => {

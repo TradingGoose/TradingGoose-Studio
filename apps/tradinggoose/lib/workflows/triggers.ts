@@ -60,21 +60,21 @@ export class TriggerUtils {
   }
 
   /**
-   * Check if a block is a chat-compatible trigger
+   * Check if a block is a chat trigger
    */
   static isChatTrigger(block: { type: string; subBlocks?: any }): boolean {
     return block.type === TRIGGER_TYPES.CHAT
   }
 
   /**
-   * Check if a block is a manual-compatible trigger
+   * Check if a block is a manual trigger
    */
   static isManualTrigger(block: { type: string; subBlocks?: any }): boolean {
     return block.type === TRIGGER_TYPES.INPUT || block.type === TRIGGER_TYPES.MANUAL
   }
 
   /**
-   * Check if a block is an API-compatible trigger
+   * Check if a block is an API trigger
    * @param block - Block to check
    * @param isChildWorkflow - Whether this is being called from a child workflow context
    */
@@ -91,33 +91,15 @@ export class TriggerUtils {
    * Get the default name for a trigger type
    */
   static getDefaultTriggerName(triggerType: string): string | null {
-    // Use the block's actual name from the registry
     const block = getBlock(triggerType)
     if (block) {
-      // Special case for generic_webhook - show as "Webhook" in UI
       if (triggerType === 'generic_webhook') {
         return 'Webhook'
       }
       return block.name
     }
 
-    // Fallback for legacy or unknown types
-    switch (triggerType) {
-      case TRIGGER_TYPES.CHAT:
-        return 'Chat'
-      case TRIGGER_TYPES.INPUT:
-        return 'Input Trigger'
-      case TRIGGER_TYPES.MANUAL:
-        return 'Manual'
-      case TRIGGER_TYPES.API:
-        return 'API'
-      case TRIGGER_TYPES.WEBHOOK:
-        return 'Webhook'
-      case TRIGGER_TYPES.SCHEDULE:
-        return 'Schedule'
-      default:
-        return null
-    }
+    return null
   }
 
   /**

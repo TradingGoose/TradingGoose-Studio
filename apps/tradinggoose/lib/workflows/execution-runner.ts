@@ -366,7 +366,7 @@ export async function runPreparedWorkflowExecution(params: {
           executionConcurrencyController,
           isDeployedContext: params.blueprint.executionTarget !== 'live',
           triggerType: params.triggerType,
-          workflowDepth: 0,
+          workflowDepth: params.contextExtensions?.workflowDepth ?? 0,
           submissionSource: 'workflow',
         }
 

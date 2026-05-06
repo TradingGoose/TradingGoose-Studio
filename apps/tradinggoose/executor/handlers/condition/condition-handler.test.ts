@@ -82,7 +82,9 @@ describe('ConditionBlockHandler', () => {
     mockPathTracker = new MockPathTracker(mockWorkflow as SerializedWorkflow) as Mocked<PathTracker>
     mockResolver = new MockInputResolver(
       mockWorkflow as SerializedWorkflow,
-      {}
+      {},
+      {},
+      new Map()
     ) as Mocked<InputResolver>
 
     // Ensure the methods exist as mock functions on the instance

@@ -37,9 +37,9 @@ import type {
 } from '@/executor/types'
 import { streamingResponseFormatProcessor } from '@/executor/utils'
 import { VirtualBlockUtils } from '@/executor/utils/virtual-blocks'
-import type { SerializedBlock, SerializedWorkflow } from '@/serializer/types'
-import { useExecutionStore } from '@/stores/execution/store'
+import type { SerializedBlock, SerializedParallel, SerializedWorkflow } from '@/serializer/types'
 import { useConsoleStore } from '@/stores/console/store'
+import { useExecutionStore } from '@/stores/execution/store'
 
 const logger = createLogger('Executor')
 
@@ -103,6 +103,15 @@ function isDeferredBlockExecution(value: unknown): value is DeferredBlockExecuti
   )
 }
 
+export type ExecutorOptions = {
+  workflow: SerializedWorkflow
+  currentBlockStates?: Record<string, BlockOutput>
+  envVarValues?: Record<string, string>
+  workflowInput?: any
+  workflowVariables?: Record<string, any>
+  contextExtensions: ExecutionContextExtensions
+}
+
 /**
  * Core execution engine that runs workflow blocks in topological order.
  *
@@ -116,8 +125,11 @@ export class Executor {
   private pathTracker: PathTracker
   private blockHandlers: BlockHandler[]
   private workflowInput: any
+  private initialBlockStates: Record<string, BlockOutput> = {}
+  private environmentVariables: Record<string, string> = {}
+  private workflowVariables: Record<string, any> = {}
   private isDebugging = false
-  private contextExtensions: Partial<ExecutionContextExtensions> = {}
+  private contextExtensions: ExecutionContextExtensions
   private actualWorkflow: SerializedWorkflow
   private isCancelled = false
   private isChildExecution = false
@@ -202,7 +214,9 @@ export class Executor {
     })
 
     const matchingLog = entry.startedAt
-      ? context.blockLogs.find((log) => log.blockId === blockId && log.startedAt === entry.startedAt)
+      ? context.blockLogs.find(
+          (log) => log.blockId === blockId && log.startedAt === entry.startedAt
+        )
       : context.blockLogs.find((log) => log.blockId === blockId)
     if (matchingLog) {
       matchingLog.endedAt = endedAt
@@ -217,45 +231,14 @@ export class Executor {
     this.consoleEntryIdByBlockId.delete(blockId)
   }
 
-  constructor(
-    private workflowParam:
-      | SerializedWorkflow
-      | {
-        workflow: SerializedWorkflow
-        currentBlockStates?: Record<string, BlockOutput>
-        envVarValues?: Record<string, string>
-        workflowInput?: any
-        workflowVariables?: Record<string, any>
-        contextExtensions?: ExecutionContextExtensions
-      },
-    private initialBlockStates: Record<string, BlockOutput> = {},
-    private environmentVariables: Record<string, string> = {},
-    workflowInput?: any,
-    private workflowVariables: Record<string, any> = {}
-  ) {
-    // Handle new constructor format with options object
-    if (typeof workflowParam === 'object' && 'workflow' in workflowParam) {
-      const options = workflowParam
-      this.actualWorkflow = options.workflow
-      this.initialBlockStates = options.currentBlockStates || {}
-      this.environmentVariables = options.envVarValues || {}
-      this.workflowInput = options.workflowInput || {}
-      this.workflowVariables = options.workflowVariables || {}
-
-      // Store context extensions for streaming and output selection
-      if (options.contextExtensions) {
-        this.contextExtensions = options.contextExtensions
-        this.isChildExecution = options.contextExtensions.isChildExecution || false
-      }
-    } else {
-      this.actualWorkflow = workflowParam
-
-      if (workflowInput) {
-        this.workflowInput = workflowInput
-      } else {
-        this.workflowInput = {}
-      }
-    }
+  constructor(options: ExecutorOptions) {
+    this.actualWorkflow = options.workflow
+    this.initialBlockStates = options.currentBlockStates || {}
+    this.environmentVariables = options.envVarValues || {}
+    this.workflowInput = options.workflowInput || {}
+    this.workflowVariables = options.workflowVariables || {}
+    this.contextExtensions = options.contextExtensions
+    this.isChildExecution = options.contextExtensions.isChildExecution || false
 
     this.validateWorkflow()
 
@@ -271,8 +254,8 @@ export class Executor {
       this.actualWorkflow,
       this.environmentVariables,
       this.workflowVariables,
-      this.loopManager,
-      accessibleBlocksMap
+      accessibleBlocksMap,
+      this.loopManager
     )
     this.pathTracker = new PathTracker(this.actualWorkflow)
 
@@ -724,7 +707,6 @@ export class Executor {
       throw new Error('Workflow must include at least one trigger block')
     }
 
-    // General graph validations
     const blockIds = new Set(this.actualWorkflow.blocks.map((block) => block.id))
     for (const conn of this.actualWorkflow.connections) {
       if (!blockIds.has(conn.source)) {
@@ -752,6 +734,14 @@ export class Executor {
           (typeof loop.forEachItems === 'string' && loop.forEachItems.trim() === '')
         ) {
           throw new Error(`forEach loop ${loopId} requires a collection to iterate over`)
+        }
+      }
+    }
+
+    for (const [parallelId, parallel] of Object.entries(this.actualWorkflow.parallels || {})) {
+      for (const nodeId of parallel.nodes) {
+        if (!blockIds.has(nodeId)) {
+          throw new Error(`Parallel ${parallelId} references non-existent block: ${nodeId}`)
         }
       }
     }
@@ -839,8 +829,8 @@ export class Executor {
         throw new Error('Child workflow has multiple Input Trigger blocks. Keep only one.')
       }
     } else {
-      const triggerBlocks = this.actualWorkflow.blocks.filter(
-        (block) => isSerializedTriggerBlock(block)
+      const triggerBlocks = this.actualWorkflow.blocks.filter((block) =>
+        isSerializedTriggerBlock(block)
       )
       if (triggerBlocks.length > 0) {
         initBlock = triggerBlocks[0]
@@ -857,214 +847,86 @@ export class Executor {
     }
 
     if (!context.blockStates.has(initBlock.id)) {
-      try {
-        // Get inputFormat from either old location (config.params) or new location (metadata.subBlocks)
-        const blockParams = initBlock.config.params
-        let inputFormat = blockParams?.inputFormat
+      const blockParams = initBlock.config.params
+      let inputFormat = blockParams?.inputFormat
 
-        // For trigger blocks (api_trigger, etc), inputFormat can live in metadata subBlocks
-        const metadataWithSubBlocks = initBlock.metadata as any
-        if (!inputFormat && metadataWithSubBlocks?.subBlocks?.inputFormat?.value) {
-          inputFormat = metadataWithSubBlocks.subBlocks.inputFormat.value
-        }
+      const metadataWithSubBlocks = initBlock.metadata as any
+      if (!inputFormat && metadataWithSubBlocks?.subBlocks?.inputFormat?.value) {
+        inputFormat = metadataWithSubBlocks.subBlocks.inputFormat.value
+      }
 
-        // If input format is defined, structure the input according to the schema
-        if (inputFormat && Array.isArray(inputFormat) && inputFormat.length > 0) {
-          // Create structured input based on input format
-          const structuredInput: Record<string, any> = {}
+      if (inputFormat && Array.isArray(inputFormat) && inputFormat.length > 0) {
+        const structuredInput: Record<string, any> = {}
 
-          // Process each field in the input format
-          for (const field of inputFormat) {
-            if (field.name && field.type) {
-              // Get the field value from workflow input if available
-              // First try to access via input.field, then directly from field
-              // This handles both input formats: { input: { field: value } } and { field: value }
-              let inputValue =
-                this.workflowInput?.input?.[field.name] !== undefined
-                  ? this.workflowInput.input[field.name] // Try to get from input.field
-                  : this.workflowInput?.[field.name] // Fallback to direct field access
+        for (const field of inputFormat) {
+          if (field.name && field.type) {
+            let inputValue =
+              this.workflowInput?.input?.[field.name] !== undefined
+                ? this.workflowInput.input[field.name]
+                : this.workflowInput?.[field.name]
 
-              if (inputValue === undefined || inputValue === null) {
-                if (Object.hasOwn(field, 'value')) {
-                  inputValue = (field as any).value
-                }
+            if (inputValue === undefined || inputValue === null) {
+              if (Object.hasOwn(field, 'value')) {
+                inputValue = (field as any).value
               }
-
-              let typedValue = inputValue
-              if (inputValue !== undefined && inputValue !== null) {
-                if (field.type === 'string' && typeof inputValue !== 'string') {
-                  typedValue = String(inputValue)
-                } else if (field.type === 'number' && typeof inputValue !== 'number') {
-                  const num = Number(inputValue)
-                  typedValue = Number.isNaN(num) ? inputValue : num
-                } else if (field.type === 'boolean' && typeof inputValue !== 'boolean') {
-                  typedValue =
-                    inputValue === 'true' ||
-                    inputValue === true ||
-                    inputValue === 1 ||
-                    inputValue === '1'
-                } else if (
-                  (field.type === 'object' || field.type === 'array') &&
-                  typeof inputValue === 'string'
-                ) {
-                  try {
-                    typedValue = JSON.parse(inputValue)
-                  } catch (e) {
-                    logger.warn(`Failed to parse ${field.type} input for field ${field.name}:`, e)
-                  }
-                }
-              }
-
-              // Add the field to structured input
-              structuredInput[field.name] = typedValue
-            }
-          }
-
-          // Check if we managed to process any fields - if not, use the raw input
-          const hasProcessedFields = Object.keys(structuredInput).length > 0
-
-          // If no fields matched the input format, extract the raw input to use instead
-          const rawInputData =
-            this.workflowInput?.input !== undefined
-              ? this.workflowInput.input // Use the input value
-              : this.workflowInput // Fallback to direct input
-
-          // Use the structured input if we processed fields, otherwise use raw input
-          const finalInput = hasProcessedFields ? structuredInput : rawInputData
-
-          // Initialize the starting block with structured input
-          let blockOutput: any
-
-          const isStructuredTrigger =
-            initBlock.metadata?.id === 'api_trigger' ||
-            initBlock.metadata?.id === 'input_trigger'
-
-          if (isStructuredTrigger) {
-            const isObject =
-              finalInput !== null && typeof finalInput === 'object' && !Array.isArray(finalInput)
-            if (isObject) {
-              blockOutput = { ...finalInput }
-              // Provide a mirrored input object for universal <start.input> references
-              blockOutput.input = { ...finalInput }
-            } else {
-              // Primitive input: only expose under input
-              blockOutput = { input: finalInput }
-            }
-          } else {
-            blockOutput = {
-              input: finalInput,
-              conversationId: this.workflowInput?.conversationId, // Add conversationId to root
-              ...finalInput, // Add input fields directly at top level
-            }
-          }
-
-          // Add files if present (for all trigger types)
-          if (this.workflowInput?.files && Array.isArray(this.workflowInput.files)) {
-            blockOutput.files = this.workflowInput.files
-          }
-
-          context.blockStates.set(initBlock.id, {
-            output: blockOutput,
-            executed: true,
-            executionTime: 0,
-          })
-
-          this.createInitBlockWithFilesLog(initBlock, blockOutput, context)
-        } else {
-          // Handle triggers without inputFormat
-          let triggerOutput: any
-
-          // Handle different trigger types
-          if (initBlock.metadata?.id === 'chat_trigger') {
-            triggerOutput = {
-              input: this.workflowInput?.input || '',
-              conversationId: this.workflowInput?.conversationId || '',
             }
 
-            if (this.workflowInput?.files && Array.isArray(this.workflowInput.files)) {
-              triggerOutput.files = this.workflowInput.files
-            }
-          } else if (
-            initBlock.metadata?.id === 'api_trigger' ||
-            initBlock.metadata?.id === 'input_trigger'
-          ) {
-            const rawCandidate =
-              this.workflowInput?.input !== undefined
-                ? this.workflowInput.input
-                : this.workflowInput
-            const isObject =
-              rawCandidate !== null &&
-              typeof rawCandidate === 'object' &&
-              !Array.isArray(rawCandidate)
-            if (isObject) {
-              triggerOutput = {
-                ...(rawCandidate as Record<string, any>),
-                input: { ...(rawCandidate as Record<string, any>) },
-              }
-            } else {
-              triggerOutput = { input: rawCandidate }
-            }
-          } else if (initBlock.metadata?.id === 'manual_trigger') {
-            triggerOutput = { input: this.workflowInput ?? {} }
-          } else {
-            if (this.workflowInput && typeof this.workflowInput === 'object') {
-              if (
-                Object.hasOwn(this.workflowInput, 'input') &&
-                Object.hasOwn(this.workflowInput, 'conversationId')
+            let typedValue = inputValue
+            if (inputValue !== undefined && inputValue !== null) {
+              if (field.type === 'string' && typeof inputValue !== 'string') {
+                typedValue = String(inputValue)
+              } else if (field.type === 'number' && typeof inputValue !== 'number') {
+                const num = Number(inputValue)
+                typedValue = Number.isNaN(num) ? inputValue : num
+              } else if (field.type === 'boolean' && typeof inputValue !== 'boolean') {
+                typedValue =
+                  inputValue === 'true' ||
+                  inputValue === true ||
+                  inputValue === 1 ||
+                  inputValue === '1'
+              } else if (
+                (field.type === 'object' || field.type === 'array') &&
+                typeof inputValue === 'string'
               ) {
-                triggerOutput = {
-                  input: this.workflowInput.input,
-                  conversationId: this.workflowInput.conversationId,
+                try {
+                  typedValue = JSON.parse(inputValue)
+                } catch (e) {
+                  logger.warn(`Failed to parse ${field.type} input for field ${field.name}:`, e)
                 }
-
-                if (this.workflowInput.files && Array.isArray(this.workflowInput.files)) {
-                  triggerOutput.files = this.workflowInput.files
-                }
-              } else {
-                triggerOutput = { ...this.workflowInput }
-              }
-            } else {
-              triggerOutput = {
-                input: this.workflowInput,
               }
             }
-          }
 
-          context.blockStates.set(initBlock.id, {
-            output: triggerOutput,
-            executed: true,
-            executionTime: 0,
-          })
-
-          if (triggerOutput.files) {
-            this.createInitBlockWithFilesLog(initBlock, triggerOutput, context)
+            structuredInput[field.name] = typedValue
           }
         }
-      } catch (e) {
-        logger.warn('Error processing trigger block input format:', e)
 
-        // Error handler fallback - use appropriate structure
+        const finalInput =
+          Object.keys(structuredInput).length > 0
+            ? structuredInput
+            : this.workflowInput?.input !== undefined
+              ? this.workflowInput.input
+              : this.workflowInput
         let blockOutput: any
-        if (this.workflowInput && typeof this.workflowInput === 'object') {
-          if (
-            Object.hasOwn(this.workflowInput, 'input') &&
-            Object.hasOwn(this.workflowInput, 'conversationId')
-          ) {
-            blockOutput = {
-              input: this.workflowInput.input,
-              conversationId: this.workflowInput.conversationId,
-            }
 
-            if (this.workflowInput.files && Array.isArray(this.workflowInput.files)) {
-              blockOutput.files = this.workflowInput.files
-            }
-          } else {
-            blockOutput = { ...this.workflowInput }
-          }
+        if (
+          initBlock.metadata?.id === 'api_trigger' ||
+          initBlock.metadata?.id === 'input_trigger'
+        ) {
+          const isObject =
+            finalInput !== null && typeof finalInput === 'object' && !Array.isArray(finalInput)
+          blockOutput = isObject
+            ? { ...finalInput, input: { ...finalInput } }
+            : { input: finalInput }
         } else {
           blockOutput = {
-            input: this.workflowInput,
+            input: finalInput,
+            conversationId: this.workflowInput?.conversationId,
+            ...finalInput,
           }
+        }
+
+        if (this.workflowInput?.files && Array.isArray(this.workflowInput.files)) {
+          blockOutput.files = this.workflowInput.files
         }
 
         context.blockStates.set(initBlock.id, {
@@ -1072,7 +934,60 @@ export class Executor {
           executed: true,
           executionTime: 0,
         })
+
         this.createInitBlockWithFilesLog(initBlock, blockOutput, context)
+      } else {
+        let triggerOutput: any
+
+        if (initBlock.metadata?.id === 'chat_trigger') {
+          triggerOutput = {
+            input: this.workflowInput?.input || '',
+            conversationId: this.workflowInput?.conversationId || '',
+          }
+        } else if (
+          initBlock.metadata?.id === 'api_trigger' ||
+          initBlock.metadata?.id === 'input_trigger'
+        ) {
+          const rawCandidate =
+            this.workflowInput?.input !== undefined ? this.workflowInput.input : this.workflowInput
+          const isObject =
+            rawCandidate !== null &&
+            typeof rawCandidate === 'object' &&
+            !Array.isArray(rawCandidate)
+          triggerOutput = isObject
+            ? {
+                ...(rawCandidate as Record<string, any>),
+                input: { ...(rawCandidate as Record<string, any>) },
+              }
+            : { input: rawCandidate }
+        } else if (initBlock.metadata?.id === 'manual_trigger') {
+          triggerOutput = { input: this.workflowInput ?? {} }
+        } else if (this.workflowInput && typeof this.workflowInput === 'object') {
+          triggerOutput =
+            Object.hasOwn(this.workflowInput, 'input') &&
+            Object.hasOwn(this.workflowInput, 'conversationId')
+              ? {
+                  input: this.workflowInput.input,
+                  conversationId: this.workflowInput.conversationId,
+                }
+              : { ...this.workflowInput }
+        } else {
+          triggerOutput = { input: this.workflowInput }
+        }
+
+        if (this.workflowInput?.files && Array.isArray(this.workflowInput.files)) {
+          triggerOutput.files = this.workflowInput.files
+        }
+
+        context.blockStates.set(initBlock.id, {
+          output: triggerOutput,
+          executed: true,
+          executionTime: 0,
+        })
+
+        if (triggerOutput.files) {
+          this.createInitBlockWithFilesLog(initBlock, triggerOutput, context)
+        }
       }
     }
 
@@ -1222,8 +1137,7 @@ export class Executor {
     pendingBlocks: Set<string>
   ): void {
     for (const [parallelId, parallelState] of activeParallels) {
-      const parallel = this.actualWorkflow.parallels?.[parallelId]
-      if (!parallel) continue
+      const parallel = this.actualWorkflow.parallels![parallelId]!
 
       // Process all incomplete iterations concurrently
       // Each iteration maintains proper dependency order internally
@@ -1252,13 +1166,9 @@ export class Executor {
   private isIterationComplete(
     parallelId: string,
     iteration: number,
-    parallel: any,
+    parallel: SerializedParallel,
     context: ExecutionContext
   ): boolean {
-    if (!parallel || !parallel.nodes) {
-      return true
-    }
-
     const expectedBlocks = this.getExpectedBlocksForIteration(
       parallelId,
       iteration,
@@ -1290,23 +1200,16 @@ export class Executor {
   private getExpectedBlocksForIteration(
     parallelId: string,
     iteration: number,
-    parallel: any,
+    parallel: SerializedParallel,
     context: ExecutionContext
   ): string[] {
-    if (!parallel || !parallel.nodes) {
-      return []
-    }
-
     const expectedBlocks: string[] = []
 
     for (const nodeId of parallel.nodes) {
       const block = this.actualWorkflow.blocks.find((b) => b.id === nodeId)
 
-      // If block doesn't exist in workflow, fall back to original behavior (assume it should execute)
-      // This maintains compatibility with tests and edge cases
       if (!block) {
-        expectedBlocks.push(nodeId)
-        continue
+        throw new Error(`Parallel ${parallelId} references non-existent block: ${nodeId}`)
       }
 
       if (!block.enabled) {
@@ -1323,23 +1226,7 @@ export class Executor {
 
       // Check if this block should execute based on the active execution path
       // We need to check if the original block is reachable based on current routing decisions
-      try {
-        const shouldExecute = this.shouldBlockExecuteInParallelIteration(
-          nodeId,
-          parallelId,
-          iteration,
-          context
-        )
-
-        if (shouldExecute) {
-          expectedBlocks.push(nodeId)
-        }
-      } catch (error) {
-        // If path checking fails, default to including the block to maintain existing behavior
-        logger.warn(
-          `Path check failed for block ${nodeId} in parallel ${parallelId}, iteration ${iteration}:`,
-          error
-        )
+      if (this.shouldBlockExecuteInParallelIteration(nodeId, parallelId, iteration, context)) {
         expectedBlocks.push(nodeId)
       }
     }
@@ -1366,12 +1253,9 @@ export class Executor {
     iteration: number,
     context: ExecutionContext
   ): boolean {
-    const parallel = this.actualWorkflow.parallels?.[parallelId]
-    if (!parallel) return false
-
     return ParallelRoutingUtils.shouldBlockExecuteInParallelIteration(
       nodeId,
-      parallel,
+      this.actualWorkflow.parallels![parallelId]!,
       iteration,
       context
     )
@@ -1785,11 +1669,9 @@ export class Executor {
           })
         }
 
-        await (
-          this.contextExtensions.executionConcurrencyController?.runWithoutLease(
-            deferredWaitTask
-          ) ?? deferredWaitTask()
-        )
+        await (this.contextExtensions.executionConcurrencyController?.runWithoutLease(
+          deferredWaitTask
+        ) ?? deferredWaitTask())
       }
 
       // If there were any errors, log them but don't throw immediately

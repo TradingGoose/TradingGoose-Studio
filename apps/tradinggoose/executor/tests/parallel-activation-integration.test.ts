@@ -27,7 +27,7 @@ describe('Parallel Activation Integration - shouldSkipConnection behavior', () =
         BlockType.API,
         BlockType.EVALUATOR,
         BlockType.RESPONSE,
-        BlockType.WORKFLOW,
+        BlockType.WORKFLOW_INPUT,
       ]
 
       regularBlocks.forEach((sourceBlockType) => {

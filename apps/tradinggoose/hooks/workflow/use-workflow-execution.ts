@@ -5,17 +5,10 @@ import { buildTraceSpans } from '@/lib/logs/execution/trace-spans/trace-spans'
 import { processStreamingBlockLogs } from '@/lib/tokenization'
 import { TriggerUtils } from '@/lib/workflows/triggers'
 import { useWorkflowVariables } from '@/lib/yjs/use-workflow-doc'
-import type { BlockOutput } from '@/blocks/types'
-import { Executor } from '@/executor'
-import type {
-  BlockLog,
-  ExecutionContextExtensions,
-  ExecutionResult,
-  StreamingExecution,
-} from '@/executor/types'
+import { Executor, type ExecutorOptions } from '@/executor'
+import type { BlockLog, ExecutionResult, StreamingExecution } from '@/executor/types'
 import { useLatestRef } from '@/hooks/use-latest-ref'
 import { Serializer, WorkflowValidationError } from '@/serializer'
-import type { SerializedWorkflow } from '@/serializer/types'
 import { useConsoleStore } from '@/stores/console/store'
 import { useExecutionStore } from '@/stores/execution/store'
 import { useEnvironmentStore } from '@/stores/settings/environment/store'
@@ -25,16 +18,6 @@ import { useWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/work
 import { useCurrentWorkflow } from './use-current-workflow'
 
 const logger = createLogger('useWorkflowExecution')
-
-// Interface for executor options
-interface ExecutorOptions {
-  workflow: SerializedWorkflow
-  currentBlockStates?: Record<string, BlockOutput>
-  envVarValues?: Record<string, string>
-  workflowInput?: any
-  workflowVariables?: Record<string, any>
-  contextExtensions?: ExecutionContextExtensions
-}
 
 // Debug state validation result
 interface DebugValidationResult {

@@ -146,7 +146,7 @@ describe('runPreparedWorkflowExecution', () => {
     })
   })
 
-  it('threads required workspace and workflow log context into executor runs', async () => {
+  it('threads required workspace and workflow log context into executor runs without resetting workflow depth', async () => {
     await runPreparedWorkflowExecution({
       blueprint,
       actorUserId: 'user-1',
@@ -161,6 +161,7 @@ describe('runPreparedWorkflowExecution', () => {
         workspaceId: 'spoofed-workspace',
         workflowLogId: 'spoofed-log',
         submissionSource: 'manual',
+        workflowDepth: 3,
       },
     })
 
@@ -187,7 +188,7 @@ describe('runPreparedWorkflowExecution', () => {
           concurrencyLeaseInherited: true,
           executionConcurrencyController: mocks.executionConcurrencyController,
           triggerType: 'webhook',
-          workflowDepth: 0,
+          workflowDepth: 3,
           isDeployedContext: true,
         }),
       })

@@ -47,7 +47,7 @@ export const setupHandlerMocks = () => {
     ApiBlockHandler: createMockHandler('api'),
     LoopBlockHandler: createMockHandler('loop'),
     ParallelBlockHandler: createMockHandler('parallel'),
-    WorkflowBlockHandler: createMockHandler('workflow'),
+    WorkflowBlockHandler: createMockHandler('workflow_input'),
     VariablesBlockHandler: createMockHandler('variables'),
     WaitBlockHandler: createMockHandler('wait'),
     GenericBlockHandler: createMockHandler('generic'),

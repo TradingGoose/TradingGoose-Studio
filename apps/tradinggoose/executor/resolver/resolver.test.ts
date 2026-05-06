@@ -1,9 +1,22 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { BlockPathCalculator } from '@/lib/block-path-calculator'
 import { getBlock } from '@/blocks/index'
 import { BlockType } from '@/executor/consts'
 import { InputResolver } from '@/executor/resolver/resolver'
 import type { ExecutionContext } from '@/executor/types'
 import type { SerializedBlock, SerializedWorkflow } from '@/serializer/types'
+
+const createInputResolver = (
+  workflow: SerializedWorkflow,
+  environmentVariables: Record<string, string> = {},
+  workflowVariables: Record<string, any> = {}
+) =>
+  new InputResolver(
+    workflow,
+    environmentVariables,
+    workflowVariables,
+    BlockPathCalculator.calculateAccessibleBlocksForWorkflow(workflow)
+  )
 
 describe('InputResolver', () => {
   let sampleWorkflow: SerializedWorkflow
@@ -102,7 +115,7 @@ describe('InputResolver', () => {
         id: 'var1',
         workflowId: 'test-workflow',
         name: 'stringVar',
-        type: 'string',
+        type: 'plain',
         value: 'Hello',
       },
       numberVar: {
@@ -161,7 +174,6 @@ describe('InputResolver', () => {
       sampleWorkflow,
       mockEnvironmentVars,
       mockWorkflowVars,
-      undefined,
       accessibleBlocksMap
     )
   })
@@ -746,7 +758,7 @@ describe('InputResolver', () => {
         },
       }
 
-      const resolver = new InputResolver(workflow, {})
+      const resolver = createInputResolver(workflow)
       const context: ExecutionContext = {
         workflowId: 'test',
         workspaceId: 'test-workspace-id',
@@ -808,7 +820,7 @@ describe('InputResolver', () => {
         },
       }
 
-      const resolver = new InputResolver(workflow, {})
+      const resolver = createInputResolver(workflow)
       const context: ExecutionContext = {
         workflowId: 'test',
         workspaceId: 'test-workspace-id',
@@ -872,7 +884,7 @@ describe('InputResolver', () => {
         },
       }
 
-      const resolver = new InputResolver(workflow, {})
+      const resolver = createInputResolver(workflow)
       const loopItemsMap = new Map<string, any>()
       loopItemsMap.set('loop-1', 'item1')
       loopItemsMap.set('loop-1_items', items)
@@ -898,7 +910,7 @@ describe('InputResolver', () => {
       expect(resolvedInputs.allItems).toEqual(items) // Direct array, not stringified
     })
 
-    it('should handle missing loop-1_items gracefully', () => {
+    it('uses loop configuration when cached loop items are absent', () => {
       const loopBlock: SerializedBlock = {
         id: 'loop-1',
         position: { x: 0, y: 0 },
@@ -940,11 +952,9 @@ describe('InputResolver', () => {
         },
       }
 
-      const resolver = new InputResolver(workflow, {})
+      const resolver = createInputResolver(workflow)
       const loopItemsMap = new Map<string, any>()
       loopItemsMap.set('loop-1', 'item1')
-      // Note: loop-1_items is NOT set to test fallback behavior
-
       const context: ExecutionContext = {
         workflowId: 'test',
         workspaceId: 'test-workspace-id',
@@ -1003,7 +1013,7 @@ describe('InputResolver', () => {
         },
       }
 
-      const resolver = new InputResolver(workflow, {})
+      const resolver = createInputResolver(workflow)
       const context: ExecutionContext = {
         workflowId: 'test',
         workspaceId: 'test-workspace-id',
@@ -1012,12 +1022,23 @@ describe('InputResolver', () => {
         metadata: { duration: 0 },
         environmentVariables: {},
         decisions: { router: new Map(), condition: new Map() },
-        loopIterations: new Map(),
-        loopItems: new Map([['parallel-1', ['test-item']]]),
+        loopIterations: new Map([['parallel-1', 0]]),
+        loopItems: new Map([['parallel-1_iteration_0', ['test-item']]]),
         completedLoops: new Set(),
         executedBlocks: new Set(),
         activeExecutionPath: new Set(['function-1']),
         workflow,
+        currentVirtualBlockId: 'function-1_parallel_parallel-1_iteration_0',
+        parallelBlockMapping: new Map([
+          [
+            'function-1_parallel_parallel-1_iteration_0',
+            {
+              originalBlockId: 'function-1',
+              parallelId: 'parallel-1',
+              iterationIndex: 0,
+            },
+          ],
+        ]),
       }
 
       const block = workflow.blocks[1]
@@ -1089,7 +1110,7 @@ describe('InputResolver', () => {
         accessibilityMap.set(testId, accessibleBlocks)
       })
 
-      const resolver = new InputResolver(workflow, {}, {}, undefined, accessibilityMap)
+      const resolver = new InputResolver(workflow, {}, {}, accessibilityMap)
       const context: ExecutionContext = {
         workflowId: 'test',
         workspaceId: 'test-workspace-id',
@@ -1180,7 +1201,7 @@ describe('InputResolver', () => {
         accessibilityMap.set(testId, accessibleBlocks)
       })
 
-      const resolver = new InputResolver(workflow, {}, {}, undefined, accessibilityMap)
+      const resolver = new InputResolver(workflow, {}, {}, accessibilityMap)
       const context: ExecutionContext = {
         workflowId: 'test',
         workspaceId: 'test-workspace-id',
@@ -1313,13 +1334,7 @@ describe('InputResolver', () => {
         accessibleBlocksMap.set(testId, accessibleBlocks)
       })
 
-      connectionResolver = new InputResolver(
-        workflowWithConnections,
-        {},
-        {},
-        undefined,
-        accessibleBlocksMap
-      )
+      connectionResolver = new InputResolver(workflowWithConnections, {}, {}, accessibleBlocksMap)
       contextWithConnections = {
         workflowId: 'test-workflow',
         workspaceId: 'test-workspace-id',
@@ -1689,13 +1704,7 @@ describe('InputResolver', () => {
         extendedAccessibilityMap.set(testId, accessibleBlocks)
       })
 
-      const extendedResolver = new InputResolver(
-        extendedWorkflow,
-        {},
-        {},
-        undefined,
-        extendedAccessibilityMap
-      )
+      const extendedResolver = new InputResolver(extendedWorkflow, {}, {}, extendedAccessibilityMap)
       const responseBlock = extendedWorkflow.blocks[4] // response-1
       const testBlock: SerializedBlock = {
         ...responseBlock,
@@ -1848,7 +1857,7 @@ describe('InputResolver', () => {
         loopAccessibilityMap.set(testId, accessibleBlocks)
       })
 
-      const loopResolver = new InputResolver(loopWorkflow, {}, {}, undefined, loopAccessibilityMap)
+      const loopResolver = new InputResolver(loopWorkflow, {}, {}, loopAccessibilityMap)
       const testBlock: SerializedBlock = {
         ...loopWorkflow.blocks[2],
         config: {
@@ -2430,7 +2439,6 @@ describe('InputResolver', () => {
         extendedWorkflow,
         mockEnvironmentVars,
         mockWorkflowVars,
-        undefined,
         extendedAccessibilityMap
       )
 
@@ -2735,9 +2743,7 @@ describe('InputResolver', () => {
       )
     })
 
-    it.concurrent('should maintain backward compatibility with single array indexing', () => {
-      // Data is already set up in beforeEach
-
+    it.concurrent('should support single array indexing', () => {
       const block: SerializedBlock = {
         id: 'test-block',
         metadata: { id: 'generic', name: 'Test Block' },
@@ -2829,93 +2835,6 @@ describe('InputResolver', () => {
     })
   })
 
-  describe('Trigger reference array property fallback', () => {
-    it.concurrent(
-      'should resolve first file property when referencing trigger files without index',
-      () => {
-        const chatWorkflow: SerializedWorkflow = {
-          version: '1.0',
-          blocks: [
-            {
-              id: 'chat-block',
-              metadata: { id: 'chat_trigger', name: 'Chat', category: 'triggers' },
-              position: { x: 0, y: 0 },
-              config: { tool: 'chat_trigger', params: {} },
-              inputs: {},
-              outputs: {},
-              enabled: true,
-            },
-            {
-              id: 'consumer-block',
-              metadata: { id: 'generic', name: 'Consumer' },
-              position: { x: 200, y: 0 },
-              config: {
-                tool: 'generic',
-                params: {
-                  fileUrl: '<chat.files.url>',
-                },
-              },
-              inputs: {
-                fileUrl: 'string',
-              },
-              outputs: {},
-              enabled: true,
-            },
-          ],
-          connections: [{ source: 'chat-block', target: 'consumer-block' }],
-          loops: {},
-        }
-
-        const file = {
-          id: 'file-1',
-          url: 'https://example.com/file.txt',
-          name: 'file.txt',
-          size: 123,
-          type: 'text/plain',
-          key: 'uploads/file-1',
-          uploadedAt: new Date().toISOString(),
-          expiresAt: new Date(Date.now() + 3600_000).toISOString(),
-        }
-
-        const chatContext: ExecutionContext = {
-          workflowId: 'chat-workflow',
-          workspaceId: 'test-workspace-id',
-          workflow: chatWorkflow,
-          blockStates: new Map([
-            [
-              'chat-block',
-              {
-                output: {
-                  input: 'hello world',
-                  conversationId: 'conv-123',
-                  files: [file],
-                },
-                executed: true,
-                executionTime: 0,
-              },
-            ],
-          ]),
-          activeExecutionPath: new Set(['chat-block', 'consumer-block']),
-          blockLogs: [],
-          metadata: { duration: 0 },
-          environmentVariables: {},
-          decisions: { router: new Map(), condition: new Map() },
-          loopIterations: new Map(),
-          loopItems: new Map(),
-          completedLoops: new Set(),
-          executedBlocks: new Set(['chat-block']),
-        }
-
-        const triggerResolver = new InputResolver(chatWorkflow, {}, {})
-
-        const consumerBlock = chatWorkflow.blocks[1]
-        const result = triggerResolver.resolveInputs(consumerBlock, chatContext)
-
-        expect(result.fileUrl).toBe(file.url)
-      }
-    )
-  })
-
   describe('Variable Reference Validation', () => {
     it.concurrent('should allow block references without dots like <start>', () => {
       const block: SerializedBlock = {
@@ -2984,7 +2903,6 @@ describe('InputResolver', () => {
         extendedWorkflow,
         mockEnvironmentVars,
         mockWorkflowVars,
-        undefined,
         testAccessibility
       )
 
@@ -3282,7 +3200,7 @@ describe('InputResolver', () => {
         ]),
       }
 
-      resolver = new InputResolver(parallelWorkflow, {})
+      resolver = createInputResolver(parallelWorkflow)
     })
 
     it('should resolve references to blocks within same parallel iteration', () => {
@@ -3307,7 +3225,7 @@ describe('InputResolver', () => {
       expect(result.code).toBe('return 2 * 2')
     })
 
-    it('should fall back to regular resolution for blocks outside parallel', () => {
+    it('resolves references from blocks outside parallel through standard state', () => {
       const function2Block: SerializedBlock = {
         ...parallelWorkflow.blocks[3],
         config: {
@@ -3328,17 +3246,18 @@ describe('InputResolver', () => {
       expect(result.code).toBe('return "external-value"')
     })
 
-    it('should handle missing virtual block mapping gracefully', () => {
+    it('throws when a virtual block mapping is missing', () => {
       const function2Block = parallelWorkflow.blocks[3] // function2-block
 
       parallelContext.parallelBlockMapping = new Map()
       parallelContext.currentVirtualBlockId = 'function2-block_parallel_parallel-block_iteration_0'
 
-      const result = resolver.resolveInputs(function2Block, parallelContext)
-      expect(result.code).toBe('return "should-not-use-this" * 2') // Uses regular block state
+      expect(() => resolver.resolveInputs(function2Block, parallelContext)).toThrow(
+        /No parallel mapping found/
+      )
     })
 
-    it('should handle missing virtual block state gracefully', () => {
+    it('throws when a virtual block state is missing', () => {
       const function2Block = parallelWorkflow.blocks[3] // function2-block
 
       parallelContext.blockStates.delete('function1-block_parallel_parallel-block_iteration_0')
@@ -3410,7 +3329,7 @@ describe('InputResolver', () => {
 
       parallelContext.currentVirtualBlockId = 'function3-block_parallel_parallel-block_iteration_1'
 
-      const updatedResolver = new InputResolver(updatedWorkflow, {})
+      const updatedResolver = createInputResolver(updatedWorkflow)
       const result = updatedResolver.resolveInputs(function3Block, parallelContext)
 
       expect(result.code).toBe('return 1 + 2')
@@ -3430,7 +3349,7 @@ describe('InputResolver', () => {
         },
       }
 
-      const modifiedResolver = new InputResolver(modifiedWorkflow, {})
+      const modifiedResolver = createInputResolver(modifiedWorkflow)
       parallelContext.workflow = modifiedWorkflow
       parallelContext.currentVirtualBlockId = 'function2-block_parallel_parallel-block_iteration_0'
 

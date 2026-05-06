@@ -205,7 +205,6 @@ export class ParallelManager {
       // Store the current item for this specific iteration
       const iterationKey = `${parallelInfo.parallelId}_iteration_${parallelInfo.iterationIndex}`
       context.loopItems.set(iterationKey, currentItem)
-      context.loopItems.set(parallelInfo.parallelId, currentItem) // Backward compatibility
       context.loopIterations.set(parallelInfo.parallelId, parallelInfo.iterationIndex)
 
       logger.info(`Set up iteration context for ${iterationKey} with item:`, currentItem)

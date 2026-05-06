@@ -58,30 +58,25 @@ export class ResponseBlockHandler implements BlockHandler {
   private parseResponseData(inputs: Record<string, any>): any {
     const dataMode = inputs.dataMode || 'structured'
 
-    if (dataMode === 'json' && inputs.data) {
+    if (dataMode === 'json') {
       // Handle JSON mode - data comes from code editor
       if (typeof inputs.data === 'string') {
-        try {
-          return JSON.parse(inputs.data)
-        } catch (error) {
-          logger.warn('Failed to parse JSON data, returning as string:', error)
-          return inputs.data
-        }
-      } else if (typeof inputs.data === 'object' && inputs.data !== null) {
+        return inputs.data.trim() ? JSON.parse(inputs.data) : {}
+      }
+      if (typeof inputs.data === 'object' && inputs.data !== null) {
         // Data is already an object, return as-is
         return inputs.data
       }
-      return inputs.data
+      return {}
     }
 
-    if (dataMode === 'structured' && inputs.builderData) {
+    if (dataMode === 'structured') {
       // Handle structured mode - convert builderData to JSON
       const convertedData = this.convertBuilderDataToJson(inputs.builderData)
       return this.parseObjectStrings(convertedData)
     }
 
-    // Fallback to inputs.data for backward compatibility
-    return inputs.data || {}
+    throw new Error(`Unsupported response data mode: ${dataMode}`)
   }
 
   private convertBuilderDataToJson(builderData: JSONProperty[]): any {
@@ -154,7 +149,7 @@ export class ResponseBlockHandler implements BlockHandler {
     }
 
     if (typeof value === 'string' && !this.isVariableReference(value)) {
-      return this.tryParseJson(value, value)
+      return JSON.parse(value)
     }
 
     // Keep variable references or other values as-is (they'll be resolved later)
@@ -167,7 +162,7 @@ export class ResponseBlockHandler implements BlockHandler {
     }
 
     if (typeof value === 'string' && !this.isVariableReference(value)) {
-      const parsed = this.tryParseJson(value, value)
+      const parsed = JSON.parse(value)
       return Array.isArray(parsed) ? parsed : value
     }
 
@@ -208,14 +203,6 @@ export class ResponseBlockHandler implements BlockHandler {
     }
 
     return value === 'true' || value === true
-  }
-
-  private tryParseJson(jsonString: string, fallback: any): any {
-    try {
-      return JSON.parse(jsonString)
-    } catch {
-      return fallback
-    }
   }
 
   private isVariableReference(value: any): boolean {

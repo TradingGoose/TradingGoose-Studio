@@ -1,18 +1,7 @@
 import { BlockPathCalculator } from '@/lib/block-path-calculator'
-import { createLogger } from '@/lib/logs/console/logger'
+import { extractFieldsFromSchema, type Field } from '@/lib/response-format'
 import { getBlockOutputs } from '@/lib/workflows/block-outputs'
-import {
-  useWorkflowBlocks,
-  useWorkflowEdges,
-} from '@/lib/yjs/use-workflow-doc'
-
-const logger = createLogger('useBlockConnections')
-
-interface Field {
-  name: string
-  type: string
-  description?: string
-}
+import { useWorkflowBlocks, useWorkflowEdges } from '@/lib/yjs/use-workflow-doc'
 
 export interface ConnectedBlock {
   id: string
@@ -20,7 +9,6 @@ export interface ConnectedBlock {
   outputType: string | string[]
   name: string
   responseFormat?: {
-    // Support both formats
     fields?: Field[]
     name?: string
     schema?: {
@@ -31,7 +19,7 @@ export interface ConnectedBlock {
   }
 }
 
-function parseResponseFormatSafely(responseFormatValue: any, blockId: string): any {
+function parseResponseFormatSafely(responseFormatValue: any): any {
   if (!responseFormatValue) {
     return undefined
   }
@@ -53,136 +41,55 @@ function parseResponseFormatSafely(responseFormatValue: any, blockId: string): a
 
     try {
       return JSON.parse(trimmedValue)
-    } catch (error) {
+    } catch {
       return undefined
     }
   }
   return undefined
 }
 
-// Helper function to extract fields from JSON Schema
-function extractFieldsFromSchema(schema: any): Field[] {
-  if (!schema || typeof schema !== 'object') {
-    return []
-  }
-
-  // Handle legacy format with fields array
-  if (Array.isArray(schema.fields)) {
-    return schema.fields
-  }
-
-  // Handle new JSON Schema format
-  const schemaObj = schema.schema || schema
-  if (!schemaObj || !schemaObj.properties || typeof schemaObj.properties !== 'object') {
-    return []
-  }
-
-  // Extract fields from schema properties
-  return Object.entries(schemaObj.properties).map(([name, prop]: [string, any]) => ({
-    name,
-    type: prop.type || 'string',
-    description: prop.description,
-  }))
-}
-
 export function useBlockConnections(blockId: string) {
   const blocks = useWorkflowBlocks()
   const edges = useWorkflowEdges()
 
-  // Find all blocks along paths leading to this block
   const allPathNodeIds = BlockPathCalculator.findAllPathNodes(edges, blockId)
 
-  // Map each path node to a ConnectedBlock structure
-  const allPathConnections = allPathNodeIds
-    .map((sourceId) => {
-      const sourceBlock = blocks[sourceId]
-      if (!sourceBlock) return null
+  const toConnectedBlock = (sourceId: string): ConnectedBlock | null => {
+    const sourceBlock = blocks[sourceId]
+    if (!sourceBlock) return null
 
-      const mergedSubBlocks = blocks[sourceId]?.subBlocks || {}
-
-      const responseFormatValue = blocks[sourceId]?.subBlocks?.responseFormat?.value
-
-      // Safely parse response format with proper error handling
-      const responseFormat = parseResponseFormatSafely(responseFormatValue, sourceId)
-
-      // Use getBlockOutputs to properly handle dynamic outputs from inputFormat
-      const blockOutputs = getBlockOutputs(
-        sourceBlock.type,
-        mergedSubBlocks,
-        sourceBlock.triggerMode
-      )
-
-      // Extract fields from the response format if available, otherwise use block outputs
-      let outputFields: Field[]
-      if (responseFormat) {
-        outputFields = extractFieldsFromSchema(responseFormat)
-      } else {
-        // Convert block outputs to field format
-        outputFields = Object.entries(blockOutputs).map(([key, value]: [string, any]) => ({
-          name: key,
+    const mergedSubBlocks = blocks[sourceId]?.subBlocks || {}
+    const responseFormat = parseResponseFormatSafely(
+      blocks[sourceId]?.subBlocks?.responseFormat?.value
+    )
+    const blockOutputs = getBlockOutputs(sourceBlock.type, mergedSubBlocks, sourceBlock.triggerMode)
+    const outputFields = responseFormat
+      ? extractFieldsFromSchema(responseFormat)
+      : Object.entries(blockOutputs).map(([name, value]: [string, any]) => ({
+          name,
           type: value && typeof value === 'object' && 'type' in value ? value.type : 'string',
           description:
             value && typeof value === 'object' && 'description' in value
               ? value.description
               : undefined,
         }))
-      }
 
-      return {
-        id: sourceBlock.id,
-        type: sourceBlock.type,
-        outputType: outputFields.map((field: Field) => field.name),
-        name: sourceBlock.name,
-        responseFormat,
-      }
-    })
+    return {
+      id: sourceBlock.id,
+      type: sourceBlock.type,
+      outputType: outputFields.map((field: Field) => field.name),
+      name: sourceBlock.name,
+      responseFormat,
+    }
+  }
+
+  const allPathConnections = allPathNodeIds
+    .map(toConnectedBlock)
     .filter(Boolean) as ConnectedBlock[]
-
-  // Keep the original incoming connections for compatibility
   const directIncomingConnections = edges
     .filter((edge) => edge.target === blockId)
-    .map((edge) => {
-      const sourceBlock = blocks[edge.source]
-      if (!sourceBlock) return null
-
-      const mergedSubBlocks = blocks[edge.source]?.subBlocks || {}
-
-      const responseFormatValue = blocks[edge.source]?.subBlocks?.responseFormat?.value
-
-      // Safely parse response format with proper error handling
-      const responseFormat = parseResponseFormatSafely(responseFormatValue, edge.source)
-
-      // Use getBlockOutputs to properly handle dynamic outputs from inputFormat
-      const blockOutputs = getBlockOutputs(
-        sourceBlock.type,
-        mergedSubBlocks,
-        sourceBlock.triggerMode
-      )
-
-      // Extract fields from the response format if available, otherwise use block outputs
-      let outputFields: Field[]
-      if (responseFormat) {
-        outputFields = extractFieldsFromSchema(responseFormat)
-      } else {
-        // Convert block outputs to field format
-        outputFields = Object.entries(blockOutputs).map(([key, value]: [string, any]) => ({
-          name: key,
-          type: value && typeof value === 'object' && 'type' in value ? value.type : 'string',
-          description:
-            value && typeof value === 'object' && 'description' in value
-              ? value.description
-              : undefined,
-        }))
-      }
-
-      return {
-        id: sourceBlock.id,
-        type: sourceBlock.type,
-        outputType: outputFields.map((field: Field) => field.name),
-        name: sourceBlock.name,
-        responseFormat,
-      }
-    })
+    .map((edge) => edge.source)
+    .map(toConnectedBlock)
     .filter(Boolean) as ConnectedBlock[]
 
   return {
