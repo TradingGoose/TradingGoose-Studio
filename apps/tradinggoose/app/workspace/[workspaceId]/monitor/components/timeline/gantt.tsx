@@ -33,7 +33,7 @@ import {
   MONITOR_TIMELINE_SCALE_STEP,
 } from '../view/view-config'
 
-type KiboGanttItem = {
+type GanttItem = {
   id: string
   title: string
   startAt: Date
@@ -43,15 +43,15 @@ type KiboGanttItem = {
   color: string
 }
 
-type KiboGanttGroup = {
+type GanttGroup = {
   id: string
   label: string
   aggregates?: Partial<Record<ExecutionMonitorFieldSum, number>>
-  items: KiboGanttItem[]
+  items: GanttItem[]
 }
 
-type KiboGanttProps = {
-  groups: KiboGanttGroup[]
+type GanttProps = {
+  groups: GanttGroup[]
   zoom: ExecutionMonitorTimelineZoom
   scale: number
   timezone: string
@@ -80,6 +80,7 @@ type TimelineDensity = {
 }
 
 const MINUTE_MS = 60_000
+const MAX_TIMELINE_COLUMNS = 360
 const TIMELINE_ITEM_HEIGHT = 32
 const TIMELINE_ITEM_GAP = 8
 const TIMELINE_ROW_PADDING = 10
@@ -161,7 +162,10 @@ const getBaseUnitMinutes = (zoom: ExecutionMonitorTimelineZoom) => {
   }
 }
 
-const getTimelineDensity = (zoom: ExecutionMonitorTimelineZoom, scale: number): TimelineDensity => {
+const getBaseTimelineDensity = (
+  zoom: ExecutionMonitorTimelineZoom,
+  scale: number
+): TimelineDensity => {
   switch (zoom) {
     case 'day':
       if (scale >= 160) return { bucketMinutes: 15 }
@@ -177,6 +181,31 @@ const getTimelineDensity = (zoom: ExecutionMonitorTimelineZoom, scale: number): 
   }
 }
 
+const TIMELINE_BUCKET_STEPS_BY_ZOOM: Record<ExecutionMonitorTimelineZoom, number[]> = {
+  day: [15, 30, 60, 120, 240, 360, 720, 1440, 2880, 10080, 43_200],
+  week: [360, 720, 1440, 2880, 10080, 43_200],
+  month: [1440, 10_080, 43_200],
+}
+
+const getTimelineDensity = (
+  zoom: ExecutionMonitorTimelineZoom,
+  scale: number,
+  window: TimelineWindow
+): TimelineDensity => {
+  const baseDensity = getBaseTimelineDensity(zoom, scale)
+  const rangeMinutes = Math.max(
+    baseDensity.bucketMinutes,
+    Math.ceil((window.end.getTime() - window.start.getTime()) / MINUTE_MS)
+  )
+  const minimumBucketMinutes = Math.ceil(rangeMinutes / (MAX_TIMELINE_COLUMNS - 1))
+  const bucketMinutes =
+    TIMELINE_BUCKET_STEPS_BY_ZOOM[zoom].find(
+      (step) => step >= baseDensity.bucketMinutes && step >= minimumBucketMinutes
+    ) ?? minimumBucketMinutes
+
+  return { bucketMinutes }
+}
+
 const getColumnWidth = (
   zoom: ExecutionMonitorTimelineZoom,
   scale: number,
@@ -190,7 +219,7 @@ const getColumnWidth = (
     )
   )
 
-const getTimelineSeed = (groups: KiboGanttGroup[]) =>
+const getTimelineSeed = (groups: GanttGroup[]) =>
   groups
     .flatMap((group) =>
       group.items.map((item) => [item.id, item.startAt.getTime(), item.endAt.getTime()])
@@ -199,7 +228,7 @@ const getTimelineSeed = (groups: KiboGanttGroup[]) =>
     .join(':')
 
 const getTimelineBounds = (
-  groups: KiboGanttGroup[],
+  groups: GanttGroup[],
   zoom: ExecutionMonitorTimelineZoom
 ): TimelineWindow => {
   const items = groups.flatMap((group) => group.items)
@@ -339,7 +368,7 @@ const getDateOffset = (
 }
 
 const getItemMetrics = (
-  item: KiboGanttItem,
+  item: GanttItem,
   columns: Date[],
   density: TimelineDensity,
   columnWidth: number
@@ -374,7 +403,7 @@ const formatAggregateValue = (field: string, value: unknown) => {
 const differenceInColumnUnits = (right: Date, left: Date, density: TimelineDensity) =>
   Math.ceil((right.getTime() - left.getTime()) / (density.bucketMinutes * MINUTE_MS))
 
-export function KiboGantt({
+export function Gantt({
   groups,
   zoom,
   scale,
@@ -386,18 +415,21 @@ export function KiboGantt({
   onSelectItem,
   onZoomChange,
   onScaleChange,
-}: KiboGanttProps) {
+}: GanttProps) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const pendingScrollAdjustmentRef = useRef(0)
   const centeredSeedRef = useRef<string | null>(null)
   const renderedGroups = groups.length
     ? groups
     : [{ id: 'current-view', label: 'Current view', aggregates: {}, items: [] }]
-  const timelineDensity = useMemo(() => getTimelineDensity(zoom, scale), [scale, zoom])
   const timelineSeed = useMemo(() => getTimelineSeed(groups), [groups])
   const initialWindow = useMemo(() => getTimelineBounds(groups, zoom), [timelineSeed, zoom])
   const initialWindowKey = `${zoom}:${initialWindow.start.toISOString()}:${initialWindow.end.toISOString()}`
   const [timelineWindow, setTimelineWindow] = useState<TimelineWindow>(initialWindow)
+  const timelineDensity = useMemo(
+    () => getTimelineDensity(zoom, scale, timelineWindow),
+    [scale, timelineWindow, zoom]
+  )
   const columns = useMemo(
     () => buildColumns(timelineWindow.start, timelineWindow.end, timelineDensity),
     [timelineDensity, timelineWindow.end, timelineWindow.start]
@@ -636,7 +668,7 @@ export function KiboGantt({
 
         <div
           ref={scrollRef}
-          data-testid='kibo-timeline-scroll'
+          data-testid='timeline-scroll'
           className='min-h-0 min-w-0 flex-1 overflow-auto'
           onScroll={handleScroll}
         >
@@ -645,7 +677,7 @@ export function KiboGantt({
               {headerGroups.map((group) => (
                 <div
                   key={`${zoom}:group:${group.id}`}
-                  data-testid='kibo-timeline-header-group'
+                  data-testid='timeline-header-group'
                   className='flex shrink-0 items-center border-r px-3 font-medium text-muted-foreground text-xs'
                   style={{ width: group.columnCount * columnWidth }}
                 >
@@ -653,7 +685,7 @@ export function KiboGantt({
                 </div>
               ))}
             </div>
-            <div className='flex h-8' data-testid='kibo-timeline-column-grid'>
+            <div className='flex h-8' data-testid='timeline-column-grid'>
               {columns.map((column, index) => {
                 const showTick = shouldShowColumnTick({
                   columnWidth,
@@ -666,7 +698,7 @@ export function KiboGantt({
                 return (
                   <div
                     key={`${zoom}:${column.toISOString()}`}
-                    data-testid='kibo-timeline-column'
+                    data-testid='timeline-column'
                     className='flex shrink-0 items-center justify-center overflow-hidden border-r border-b px-0.5 text-center font-medium text-[11px] text-muted-foreground'
                     style={{ width: columnWidth }}
                   >
@@ -689,7 +721,7 @@ export function KiboGantt({
             {showTodayMarker ? (
               <div
                 className='pointer-events-none absolute top-0 bottom-0 z-30 w-px bg-primary'
-                data-testid='kibo-today-marker'
+                data-testid='today-marker'
                 style={{ left: todayOffset }}
               />
             ) : null}
@@ -697,7 +729,7 @@ export function KiboGantt({
               <div
                 key={`boundary:${zoom}:${index}`}
                 className='pointer-events-none absolute top-0 bottom-0 z-30 w-px bg-foreground/20'
-                data-testid='kibo-interval-boundary-marker'
+                data-testid='interval-boundary-marker'
                 style={{ left: index * columnWidth }}
               />
             ))}
@@ -709,7 +741,7 @@ export function KiboGantt({
                 <div
                   key={group.id}
                   className='relative'
-                  data-testid={`kibo-row-${group.id}`}
+                  data-testid={`timeline-row-${group.id}`}
                   style={{
                     minWidth: columns.length * columnWidth,
                     height: rowHeight,
@@ -718,7 +750,7 @@ export function KiboGantt({
                   <div
                     className='absolute inset-0 flex'
                     aria-hidden='true'
-                    data-testid={`kibo-row-${group.id}-grid`}
+                    data-testid={`timeline-row-${group.id}-grid`}
                   >
                     {columns.map((column) => (
                       <div

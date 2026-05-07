@@ -1,8 +1,8 @@
 'use client'
 
-import { KiboGantt } from './kibo-gantt'
-import type { MonitorTimelineGroup } from './timeline-state'
 import type { ExecutionMonitorTimelineZoom, ExecutionMonitorViewConfig } from '../view/view-config'
+import { Gantt } from './gantt'
+import type { MonitorTimelineGroup } from './timeline-state'
 
 type MonitorTimelineProps = {
   groups: MonitorTimelineGroup[]
@@ -24,7 +24,7 @@ export function MonitorTimeline({
   onTimelineScaleChange,
 }: MonitorTimelineProps) {
   return (
-    <KiboGantt
+    <Gantt
       groups={groups.map((group) => ({
         id: group.id,
         label: group.label,

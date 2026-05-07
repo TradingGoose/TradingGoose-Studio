@@ -5,8 +5,8 @@
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { KiboGantt } from './kibo-gantt'
 import type { ExecutionMonitorTimelineZoom } from '../view/view-config'
+import { Gantt } from './gantt'
 
 const reactActEnvironment = globalThis as typeof globalThis & {
   IS_REACT_ACT_ENVIRONMENT?: boolean
@@ -19,7 +19,7 @@ const ResizeObserverMock = class {
   disconnect() {}
 } as unknown as typeof ResizeObserver
 
-describe('KiboGantt', () => {
+describe('Gantt', () => {
   let container: HTMLDivElement
   let root: Root
   let originalResizeObserver: typeof ResizeObserver | undefined
@@ -62,7 +62,7 @@ describe('KiboGantt', () => {
 
     await act(async () => {
       root.render(
-        <KiboGantt
+        <Gantt
           groups={[
             {
               id: 'success',
@@ -116,9 +116,7 @@ describe('KiboGantt', () => {
     })
 
     expect(container.textContent).toContain('Jan')
-    expect(
-      container.querySelectorAll('[data-testid="kibo-timeline-column"]').length
-    ).toBeGreaterThan(20)
+    expect(container.querySelectorAll('[data-testid="timeline-column"]').length).toBeGreaterThan(20)
 
     await act(async () => {
       button.click()
@@ -135,12 +133,10 @@ describe('KiboGantt', () => {
     })
 
     const headerGroups = Array.from(
-      container.querySelectorAll('[data-testid="kibo-timeline-header-group"]')
+      container.querySelectorAll('[data-testid="timeline-header-group"]')
     )
-    const columns = Array.from(container.querySelectorAll('[data-testid="kibo-timeline-column"]'))
-    const visibleTicks = columns
-      .map((column) => column.textContent?.trim() ?? '')
-      .filter(Boolean)
+    const columns = Array.from(container.querySelectorAll('[data-testid="timeline-column"]'))
+    const visibleTicks = columns.map((column) => column.textContent?.trim() ?? '').filter(Boolean)
 
     expect(headerGroups.some((group) => group.textContent?.includes('Fri, Apr 24, 2026'))).toBe(
       true
@@ -161,10 +157,8 @@ describe('KiboGantt', () => {
       endAt: new Date('2026-04-24T10:00:00.000Z'),
     })
 
-    const coarseColumnCount = container.querySelectorAll(
-      '[data-testid="kibo-timeline-column"]'
-    ).length
-    const coarseTicks = Array.from(container.querySelectorAll('[data-testid="kibo-timeline-column"]'))
+    const coarseColumnCount = container.querySelectorAll('[data-testid="timeline-column"]').length
+    const coarseTicks = Array.from(container.querySelectorAll('[data-testid="timeline-column"]'))
       .map((column) => column.textContent?.trim() ?? '')
       .filter(Boolean)
 
@@ -175,9 +169,8 @@ describe('KiboGantt', () => {
       endAt: new Date('2026-04-24T10:00:00.000Z'),
     })
 
-    const denseColumnCount = container.querySelectorAll('[data-testid="kibo-timeline-column"]')
-      .length
-    const denseTicks = Array.from(container.querySelectorAll('[data-testid="kibo-timeline-column"]'))
+    const denseColumnCount = container.querySelectorAll('[data-testid="timeline-column"]').length
+    const denseTicks = Array.from(container.querySelectorAll('[data-testid="timeline-column"]'))
       .map((column) => column.textContent?.trim() ?? '')
       .filter(Boolean)
 
@@ -192,7 +185,7 @@ describe('KiboGantt', () => {
       endAt: new Date('2026-04-24T10:00:00.000Z'),
     })
 
-    const fineTicks = Array.from(container.querySelectorAll('[data-testid="kibo-timeline-column"]'))
+    const fineTicks = Array.from(container.querySelectorAll('[data-testid="timeline-column"]'))
       .map((column) => column.textContent?.trim() ?? '')
       .filter(Boolean)
 
@@ -207,14 +200,12 @@ describe('KiboGantt', () => {
       startAt: new Date('2026-01-10T00:00:00.000Z'),
       endAt: new Date('2026-03-12T00:00:00.000Z'),
     })
-    const columnLabels = Array.from(
-      container.querySelectorAll('[data-testid="kibo-timeline-column"]')
-    )
+    const columnLabels = Array.from(container.querySelectorAll('[data-testid="timeline-column"]'))
       .map((column) => column.textContent?.trim() ?? '')
       .filter(Boolean)
 
     expect(
-      Array.from(container.querySelectorAll('[data-testid="kibo-timeline-header-group"]')).some(
+      Array.from(container.querySelectorAll('[data-testid="timeline-header-group"]')).some(
         (group) => group.textContent?.includes('January 2026')
       )
     ).toBe(true)
@@ -231,11 +222,11 @@ describe('KiboGantt', () => {
       endAt: new Date('2026-04-23T00:05:00.000Z'),
     })
 
-    const grid = container.querySelector('[data-testid="kibo-timeline-column-grid"]')
-    const column = container.querySelector('[data-testid="kibo-timeline-column"]')
-    const row = container.querySelector('[data-testid="kibo-row-success"]')
-    const rowGrid = container.querySelector('[data-testid="kibo-row-success-grid"]')
-    const columnCount = container.querySelectorAll('[data-testid="kibo-timeline-column"]').length
+    const grid = container.querySelector('[data-testid="timeline-column-grid"]')
+    const column = container.querySelector('[data-testid="timeline-column"]')
+    const row = container.querySelector('[data-testid="timeline-row-success"]')
+    const rowGrid = container.querySelector('[data-testid="timeline-row-success-grid"]')
+    const columnCount = container.querySelectorAll('[data-testid="timeline-column"]').length
 
     if (
       !(grid instanceof HTMLElement) ||
@@ -256,8 +247,8 @@ describe('KiboGantt', () => {
       true
     )
     expect(row.className).not.toContain('border-b')
-    expect(container.querySelector('[data-testid="kibo-timeline-header-separators"]')).toBeNull()
-    expect(container.querySelector('[data-testid="kibo-row-success-separators"]')).toBeNull()
+    expect(container.querySelector('[data-testid="timeline-header-separators"]')).toBeNull()
+    expect(container.querySelector('[data-testid="timeline-row-success-separators"]')).toBeNull()
     expect(grid.style.backgroundImage).not.toContain('repeating-linear-gradient')
     expect(row.style.backgroundImage).not.toContain('repeating-linear-gradient')
   })
@@ -277,7 +268,7 @@ describe('KiboGantt', () => {
   it('shows a primary-colored today marker even when the current view has no executions', async () => {
     await act(async () => {
       root.render(
-        <KiboGantt
+        <Gantt
           groups={[]}
           zoom='week'
           scale={100}
@@ -291,8 +282,8 @@ describe('KiboGantt', () => {
       )
     })
 
-    const marker = container.querySelector('[data-testid="kibo-today-marker"]')
-    const emptyRow = container.querySelector('[data-testid="kibo-row-current-view"]')
+    const marker = container.querySelector('[data-testid="today-marker"]')
+    const emptyRow = container.querySelector('[data-testid="timeline-row-current-view"]')
 
     expect(marker).toBeTruthy()
     expect(marker?.className).toContain('bg-primary')
@@ -312,7 +303,7 @@ describe('KiboGantt', () => {
 
     await act(async () => {
       root.render(
-        <KiboGantt
+        <Gantt
           groups={[
             {
               id: 'success',
@@ -384,7 +375,7 @@ describe('KiboGantt', () => {
   it('positions same-day executions by hour in day zoom', async () => {
     await act(async () => {
       root.render(
-        <KiboGantt
+        <Gantt
           groups={[
             {
               id: 'success',
@@ -453,10 +444,25 @@ describe('KiboGantt', () => {
       })
 
       expect(
-        container.querySelectorAll('[data-testid="kibo-interval-boundary-marker"]').length
+        container.querySelectorAll('[data-testid="interval-boundary-marker"]').length
       ).toBeGreaterThan(0)
     }
   )
+
+  it('coarsens long day ranges before rendering timeline columns', async () => {
+    await renderSingleItem({
+      zoom: 'day',
+      startAt: new Date('2026-01-10T12:00:00.000Z'),
+      endAt: new Date('2026-09-15T12:00:00.000Z'),
+    })
+
+    expect(
+      container.querySelectorAll('[data-testid="timeline-column"]').length
+    ).toBeLessThanOrEqual(360)
+    expect(
+      container.querySelectorAll('[data-testid="interval-boundary-marker"]').length
+    ).toBeGreaterThan(0)
+  })
 
   it('scales timeline columns horizontally without changing the selected range', async () => {
     const { button } = await renderSingleItem({
@@ -495,14 +501,12 @@ describe('KiboGantt', () => {
       endAt: new Date('2026-01-12T15:00:00.000Z'),
     })
 
-    const scrollElement = container.querySelector('[data-testid="kibo-timeline-scroll"]')
+    const scrollElement = container.querySelector('[data-testid="timeline-scroll"]')
     if (!(scrollElement instanceof HTMLDivElement)) {
       throw new Error('Expected timeline scroll element to render')
     }
 
-    const initialColumnCount = container.querySelectorAll(
-      '[data-testid="kibo-timeline-column"]'
-    ).length
+    const initialColumnCount = container.querySelectorAll('[data-testid="timeline-column"]').length
 
     Object.defineProperty(scrollElement, 'clientWidth', {
       configurable: true,
@@ -518,15 +522,15 @@ describe('KiboGantt', () => {
       scrollElement.dispatchEvent(new Event('scroll', { bubbles: true }))
     })
 
-    expect(
-      container.querySelectorAll('[data-testid="kibo-timeline-column"]').length
-    ).toBeGreaterThan(initialColumnCount)
+    expect(container.querySelectorAll('[data-testid="timeline-column"]').length).toBeGreaterThan(
+      initialColumnCount
+    )
   })
 
   it('expands dense timeline rows so stacked executions do not clip', async () => {
     await act(async () => {
       root.render(
-        <KiboGantt
+        <Gantt
           groups={[
             {
               id: 'success',
@@ -554,7 +558,7 @@ describe('KiboGantt', () => {
       )
     })
 
-    const row = container.querySelector('[data-testid="kibo-row-success"]')
+    const row = container.querySelector('[data-testid="timeline-row-success"]')
     const lastButton = Array.from(container.querySelectorAll('button')).find((node) =>
       node.textContent?.includes('Item 8')
     )
