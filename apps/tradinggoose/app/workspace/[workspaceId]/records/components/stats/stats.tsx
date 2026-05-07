@@ -44,6 +44,7 @@ interface WorkflowDetailsDataLocal {
   logs: WorkflowLog[]
   allLogs: WorkflowLog[]
   __meta?: { offset: number; hasMore: boolean }
+  __loading?: boolean
 }
 
 type StatsProps = {
@@ -382,16 +383,19 @@ export function Stats({ searchQuery, live, refreshRequest, onRefetchingChange }:
   // Infinite scroll for details logs
   const loadMoreLogs = useCallback(
     async (workflowId: string) => {
-      const details = (workflowDetails as any)[workflowId]
+      const details = workflowDetails[workflowId]
       if (!details) return
       if (details.__loading) return
       if (!details.__meta?.hasMore) return
       try {
-        // mark loading to prevent duplicate fetches
-        setWorkflowDetails((prev) => ({
-          ...prev,
-          [workflowId]: { ...(prev as any)[workflowId], __loading: true },
-        }))
+        setWorkflowDetails((prev) => {
+          const cur = prev[workflowId]
+          if (!cur) return prev
+          return {
+            ...prev,
+            [workflowId]: { ...cur, __loading: true },
+          }
+        })
         const startTime = getStartTime()
         const offset = details.__meta.offset || 0
         const qp = new URLSearchParams({
@@ -412,8 +416,9 @@ export function Stats({ searchQuery, live, refreshRequest, onRefetchingChange }:
 
         setWorkflowDetails((prev) => {
           const cur = prev[workflowId]
+          if (!cur) return prev
           const seen = new Set<string>()
-          const dedup = [...(cur?.allLogs || []), ...more].filter((x) => {
+          const dedup = [...cur.allLogs, ...more].filter((x) => {
             const id = x.id
             if (seen.has(id)) return false
             seen.add(id)
@@ -426,18 +431,23 @@ export function Stats({ searchQuery, live, refreshRequest, onRefetchingChange }:
               logs: dedup,
               allLogs: dedup,
               __meta: {
-                offset: (cur?.__meta?.offset || 0) + more.length,
+                offset: (cur.__meta?.offset || 0) + more.length,
                 hasMore: more.length === 50,
               },
-              __loading: false,
             },
           }
         })
       } catch {
-        setWorkflowDetails((prev) => ({
-          ...prev,
-          [workflowId]: { ...(prev as any)[workflowId], __loading: false },
-        }))
+        // ignore
+      } finally {
+        setWorkflowDetails((prev) => {
+          const cur = prev[workflowId]
+          if (!cur?.__loading) return prev
+          return {
+            ...prev,
+            [workflowId]: { ...cur, __loading: false },
+          }
+        })
       }
     },
     [workspaceId, endTime, getStartTime, triggers, workflowDetails]
@@ -1102,8 +1112,8 @@ export function Stats({ searchQuery, live, refreshRequest, onRefetchingChange }:
                         }}
                         formatCost={formatCost}
                         onLoadMore={() => loadMoreLogs(expandedWorkflowId)}
-                        hasMore={(workflowDetails as any)[expandedWorkflowId]?.__meta?.hasMore}
-                        isLoadingMore={(workflowDetails as any)[expandedWorkflowId]?.__loading}
+                        hasMore={workflowDetails[expandedWorkflowId]?.__meta?.hasMore}
+                        isLoadingMore={workflowDetails[expandedWorkflowId]?.__loading}
                       />
                     )
                   }

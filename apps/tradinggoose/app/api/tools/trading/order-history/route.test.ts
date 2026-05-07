@@ -118,7 +118,7 @@ describe('order history support route', () => {
     expect(mocks.insert).not.toHaveBeenCalled()
   })
 
-  it('rejects workflow and body workspace mismatches before checking write access', async () => {
+  it('rejects workflow and body workspace mismatches after checking write access', async () => {
     mocks.selectQueue.push([{ workspaceId: 'workspace-2' }])
     const { POST } = await import('./route')
 
@@ -129,7 +129,26 @@ describe('order history support route', () => {
       success: false,
       error: { message: 'workflowId does not belong to workspaceId' },
     })
-    expect(mocks.checkWorkspaceAccess).not.toHaveBeenCalled()
+    expect(mocks.checkWorkspaceAccess).toHaveBeenCalledWith('workspace-1', 'user-1')
+    expect(mocks.checkWorkspaceAccess.mock.invocationCallOrder[0]).toBeLessThan(
+      mocks.select.mock.invocationCallOrder[0]
+    )
+    expect(mocks.insert).not.toHaveBeenCalled()
+  })
+
+  it('rejects inaccessible POST workspace scope before reading workflow ownership', async () => {
+    mocks.checkWorkspaceAccess.mockResolvedValue({ exists: true, hasAccess: true, canWrite: false })
+    const { POST } = await import('./route')
+
+    const response = await POST(postRequest({ ...baseBody, workflowId: 'workflow-1' }))
+
+    expect(response.status).toBe(404)
+    expect(await response.json()).toMatchObject({
+      success: false,
+      error: { message: 'Not found' },
+    })
+    expect(mocks.checkWorkspaceAccess).toHaveBeenCalledWith('workspace-1', 'user-1')
+    expect(mocks.select).not.toHaveBeenCalled()
     expect(mocks.insert).not.toHaveBeenCalled()
   })
 

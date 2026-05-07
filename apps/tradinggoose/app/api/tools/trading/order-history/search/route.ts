@@ -254,6 +254,11 @@ export async function GET(request: NextRequest) {
       )
     }
 
+    const access = await checkWorkspaceAccess(workspaceId, session.user.id)
+    if (!access.exists || !access.hasAccess) {
+      return NextResponse.json({ success: false, error: { message: 'Not found' } }, { status: 404 })
+    }
+
     if (workflowId) {
       const workflowWorkspaceId = await readWorkflowWorkspaceId(workflowId)
       if (!workflowWorkspaceId) {
@@ -268,11 +273,6 @@ export async function GET(request: NextRequest) {
           { status: 400 }
         )
       }
-    }
-
-    const access = await checkWorkspaceAccess(workspaceId, session.user.id)
-    if (!access.exists || !access.hasAccess) {
-      return NextResponse.json({ success: false, error: { message: 'Not found' } }, { status: 404 })
     }
 
     const conditions: SQL[] = [eq(orderHistoryTable.workspaceId, workspaceId)]

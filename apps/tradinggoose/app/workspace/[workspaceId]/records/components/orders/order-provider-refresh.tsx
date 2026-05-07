@@ -28,11 +28,9 @@ export function OrderProviderRefresh({
     order.environment
   )
   const [accountId, setAccountId] = useState(order.accountId ?? '')
-  const [requested, setRequested] = useState(false)
 
   useEffect(() => {
     setAccountId(order.accountId ?? '')
-    setRequested(false)
   }, [order.id, order.accountId])
 
   const providerRequiresAccount = order.provider === 'tradier'
@@ -42,7 +40,7 @@ export function OrderProviderRefresh({
     workspaceId,
     orderId: order.id,
     accountId: accountId || order.accountId || undefined,
-    enabled: active && requested && canRefresh,
+    enabled: false,
   })
 
   if (oauthServiceIds.length === 0) {
@@ -66,7 +64,6 @@ export function OrderProviderRefresh({
         toolName='Provider Detail Refresh'
         onAccountSelect={(selection) => {
           setAccountId(selection.accountId ?? '')
-          setRequested(false)
         }}
       />
 
@@ -74,7 +71,7 @@ export function OrderProviderRefresh({
         size='sm'
         className='gap-2'
         disabled={!canRefresh || providerDetailQuery.isFetching}
-        onClick={() => setRequested(true)}
+        onClick={() => void providerDetailQuery.refetch()}
       >
         {providerDetailQuery.isFetching ? (
           <Loader2 className='h-4 w-4 animate-spin' />

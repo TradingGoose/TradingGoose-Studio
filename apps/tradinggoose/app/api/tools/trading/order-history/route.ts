@@ -232,6 +232,11 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    const access = await checkWorkspaceAccess(workspaceId, auth.userId)
+    if (!access.exists || !access.canWrite) {
+      return NextResponse.json({ success: false, error: { message: 'Not found' } }, { status: 404 })
+    }
+
     if (workflowId) {
       const workflowWorkspaceId = await readWorkflowWorkspaceId(workflowId)
       if (!workflowWorkspaceId) {
@@ -258,11 +263,6 @@ export async function POST(request: NextRequest) {
         },
         { status: 400 }
       )
-    }
-
-    const access = await checkWorkspaceAccess(workspaceId, auth.userId)
-    if (!access.exists || !access.canWrite) {
-      return NextResponse.json({ success: false, error: { message: 'Not found' } }, { status: 404 })
     }
 
     if (!provider) {

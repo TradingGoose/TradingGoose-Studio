@@ -143,7 +143,29 @@ describe('order history search route', () => {
       success: false,
       error: { message: 'workflowId does not belong to workspaceId' },
     })
-    expect(mocks.checkWorkspaceAccess).not.toHaveBeenCalled()
+    expect(mocks.checkWorkspaceAccess).toHaveBeenCalledWith('workspace-1', 'user-1')
+    expect(mocks.checkWorkspaceAccess.mock.invocationCallOrder[0]).toBeLessThan(
+      mocks.select.mock.invocationCallOrder[0]
+    )
+  })
+
+  it('rejects inaccessible workspace filters before reading workflow ownership', async () => {
+    mocks.checkWorkspaceAccess.mockResolvedValue({ exists: true, hasAccess: false })
+    const { GET } = await import('./route')
+
+    const response = await GET(
+      new NextRequest(
+        'http://localhost/api/tools/trading/order-history/search?workspaceId=workspace-1&workflowId=workflow-1'
+      )
+    )
+
+    expect(response.status).toBe(404)
+    expect(await response.json()).toMatchObject({
+      success: false,
+      error: { message: 'Not found' },
+    })
+    expect(mocks.checkWorkspaceAccess).toHaveBeenCalledWith('workspace-1', 'user-1')
+    expect(mocks.select).not.toHaveBeenCalled()
   })
 
   it('rejects workflow filters without explicit workspace scope', async () => {
