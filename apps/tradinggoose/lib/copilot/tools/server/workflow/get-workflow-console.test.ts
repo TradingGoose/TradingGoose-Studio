@@ -7,6 +7,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const mocks = vi.hoisted(() => {
   const chain: Record<string, any> = {}
   chain.from = vi.fn(() => chain)
+  chain.innerJoin = vi.fn(() => chain)
   chain.where = vi.fn(() => chain)
   chain.orderBy = vi.fn(() => chain)
   chain.limit = vi.fn(() =>
@@ -27,6 +28,7 @@ const mocks = vi.hoisted(() => {
 
   return {
     chain,
+    and: vi.fn((...conditions: unknown[]) => ({ conditions, type: 'and' })),
     eq: vi.fn((field: unknown, value: unknown) => ({ field, type: 'eq', value })),
     or: vi.fn((...conditions: unknown[]) => ({ conditions, type: 'or' })),
     select: vi.fn(() => chain),
@@ -40,9 +42,15 @@ vi.mock('@tradinggoose/db', () => ({
 }))
 
 vi.mock('@tradinggoose/db/schema', () => ({
+  permissions: {
+    entityType: 'permissions.entityType',
+    entityId: 'permissions.entityId',
+    userId: 'permissions.userId',
+  },
   workflowExecutionLogs: {
     id: 'workflowExecutionLogs.id',
     workflowId: 'workflowExecutionLogs.workflowId',
+    workspaceId: 'workflowExecutionLogs.workspaceId',
     workflowSummary: 'workflowExecutionLogs.workflowSummary',
     executionId: 'workflowExecutionLogs.executionId',
     level: 'workflowExecutionLogs.level',
@@ -65,6 +73,7 @@ const sql = vi.hoisted(() => {
 })
 
 vi.mock('drizzle-orm', () => ({
+  and: mocks.and,
   desc: vi.fn((value: unknown) => ({ type: 'desc', value })),
   eq: mocks.eq,
   or: mocks.or,
@@ -82,16 +91,39 @@ describe('getWorkflowConsoleServerTool', () => {
 
   it('matches console logs by live workflow id or durable workflow summary id', async () => {
     const { getWorkflowConsoleServerTool } = await import('./get-workflow-console')
-    const result = await getWorkflowConsoleServerTool.execute({
-      workflowId: 'deleted-workflow-1',
-      includeDetails: false,
-    })
+    const result = await getWorkflowConsoleServerTool.execute(
+      {
+        workflowId: 'deleted-workflow-1',
+        includeDetails: false,
+      },
+      { userId: 'user-1' }
+    )
 
+    expect(mocks.chain.innerJoin).toHaveBeenCalled()
+    expect(mocks.eq).toHaveBeenCalledWith('permissions.entityType', 'workspace')
+    expect(mocks.eq).toHaveBeenCalledWith(
+      'permissions.entityId',
+      'workflowExecutionLogs.workspaceId'
+    )
+    expect(mocks.eq).toHaveBeenCalledWith('permissions.userId', 'user-1')
     expect(mocks.eq).toHaveBeenCalledWith('workflowExecutionLogs.workflowId', 'deleted-workflow-1')
     expect(mocks.or).toHaveBeenCalled()
     expect(result).toMatchObject({
       totalEntries: 1,
       workflowId: 'deleted-workflow-1',
     })
+  })
+
+  it('requires authenticated server-tool context before reading console logs', async () => {
+    const { getWorkflowConsoleServerTool } = await import('./get-workflow-console')
+
+    await expect(
+      getWorkflowConsoleServerTool.execute({
+        workflowId: 'deleted-workflow-1',
+        includeDetails: false,
+      })
+    ).rejects.toThrow('Authenticated user context is required')
+
+    expect(mocks.select).not.toHaveBeenCalled()
   })
 })

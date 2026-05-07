@@ -4,7 +4,10 @@ import {
   copilotReviewSessions,
   document,
   knowledgeBase,
+  permissions,
   templates,
+  workflow,
+  workflowExecutionLogs,
 } from '@tradinggoose/db/schema'
 import { and, asc, eq, isNull } from 'drizzle-orm'
 import { REVIEW_ITEM_KINDS } from '@/lib/copilot/review-sessions/thread-history'
@@ -103,6 +106,7 @@ export async function processContextsServer(
       if (ctx.kind === 'logs' && (ctx as any).executionId) {
         return await processExecutionLogFromDb(
           (ctx as any).executionId,
+          userId,
           ctx.label ? `@${ctx.label}` : '@'
         )
       }
@@ -583,11 +587,10 @@ async function processWorkflowBlockFromDb(
 
 async function processExecutionLogFromDb(
   executionId: string,
+  userId: string,
   tag: string
 ): Promise<AgentContext | null> {
   try {
-    const { workflowExecutionLogs, workflow } = await import('@tradinggoose/db/schema')
-    const { db } = await import('@tradinggoose/db')
     const rows = await db
       .select({
         id: workflowExecutionLogs.id,
@@ -605,6 +608,14 @@ async function processExecutionLogFromDb(
       })
       .from(workflowExecutionLogs)
       .leftJoin(workflow, eq(workflowExecutionLogs.workflowId, workflow.id))
+      .innerJoin(
+        permissions,
+        and(
+          eq(permissions.entityType, 'workspace'),
+          eq(permissions.entityId, workflowExecutionLogs.workspaceId),
+          eq(permissions.userId, userId)
+        )
+      )
       .where(eq(workflowExecutionLogs.executionId, executionId))
       .limit(1)
 

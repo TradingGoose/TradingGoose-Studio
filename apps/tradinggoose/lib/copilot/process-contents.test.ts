@@ -7,10 +7,13 @@ const mockGetBlocksMetadataExecute = vi.fn()
 const mockLoadSkill = vi.fn()
 const mockLoadWorkflowStateWithFallback = vi.fn()
 const mockSanitizeForCopilot = vi.fn((value) => value)
+const mockAnd = vi.fn((...conditions: unknown[]) => ({ conditions, type: 'and' }))
+const mockEq = vi.fn((field: unknown, value: unknown) => ({ field, type: 'eq', value }))
 const mockLogRowsQueue: unknown[][] = []
 const mockSelectChain: Record<string, any> = {}
 mockSelectChain.from = vi.fn(() => mockSelectChain)
 mockSelectChain.leftJoin = vi.fn(() => mockSelectChain)
+mockSelectChain.innerJoin = vi.fn(() => mockSelectChain)
 mockSelectChain.where = vi.fn(() => mockSelectChain)
 mockSelectChain.limit = vi.fn(() => Promise.resolve(mockLogRowsQueue.shift() ?? []))
 const mockDbSelect = vi.fn(() => mockSelectChain)
@@ -26,6 +29,11 @@ vi.mock('@tradinggoose/db/schema', () => ({
   copilotReviewSessions: {},
   document: {},
   knowledgeBase: {},
+  permissions: {
+    entityType: 'permissions.entityType',
+    entityId: 'permissions.entityId',
+    userId: 'permissions.userId',
+  },
   templates: {},
   workflow: {
     id: 'workflow.id',
@@ -34,6 +42,7 @@ vi.mock('@tradinggoose/db/schema', () => ({
   workflowExecutionLogs: {
     id: 'workflowExecutionLogs.id',
     workflowId: 'workflowExecutionLogs.workflowId',
+    workspaceId: 'workflowExecutionLogs.workspaceId',
     executionId: 'workflowExecutionLogs.executionId',
     level: 'workflowExecutionLogs.level',
     trigger: 'workflowExecutionLogs.trigger',
@@ -47,9 +56,9 @@ vi.mock('@tradinggoose/db/schema', () => ({
 }))
 
 vi.mock('drizzle-orm', () => ({
-  and: vi.fn(),
+  and: mockAnd,
   asc: vi.fn(),
-  eq: vi.fn(),
+  eq: mockEq,
   isNull: vi.fn(),
 }))
 
@@ -90,9 +99,12 @@ describe('processContextsServer', () => {
     mockLoadSkill.mockReset()
     mockLoadWorkflowStateWithFallback.mockReset()
     mockSanitizeForCopilot.mockClear()
+    mockAnd.mockClear()
+    mockEq.mockClear()
     mockLogRowsQueue.length = 0
     mockDbSelect.mockClear()
     mockSelectChain.leftJoin.mockClear()
+    mockSelectChain.innerJoin.mockClear()
   })
 
   it('expands block contexts through the canonical blockIds path', async () => {
@@ -262,6 +274,10 @@ describe('processContextsServer', () => {
     )
 
     expect(mockSelectChain.leftJoin).toHaveBeenCalled()
+    expect(mockSelectChain.innerJoin).toHaveBeenCalled()
+    expect(mockEq).toHaveBeenCalledWith('permissions.entityType', 'workspace')
+    expect(mockEq).toHaveBeenCalledWith('permissions.entityId', 'workflowExecutionLogs.workspaceId')
+    expect(mockEq).toHaveBeenCalledWith('permissions.userId', 'user-1')
     expect(result).toHaveLength(1)
     const content = JSON.parse(result[0]!.content)
     expect(content).toMatchObject({
