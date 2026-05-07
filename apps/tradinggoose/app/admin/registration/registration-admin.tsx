@@ -287,7 +287,7 @@ export function AdminRegistration() {
         ) : null}
 
         {snapshot ? (
-          <div className='min-h-0 flex-1 overflow-hidden rounded-lg border bg-background'>
+          <div className='flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border bg-background'>
             <div className='flex flex-col gap-3 border-b bg-muted/10 px-4 py-3 lg:flex-row lg:items-center'>
               <div className='flex flex-1 flex-wrap items-center gap-3 lg:min-w-0 lg:flex-nowrap'>
                 <p className='text-muted-foreground text-sm lg:flex-shrink-0'>
@@ -371,7 +371,7 @@ export function AdminRegistration() {
               </div>
             </div>
 
-            <div className='min-h-0 overflow-auto'>
+            <div className='min-h-0 flex-1 overflow-auto'>
               <Table>
                 <TableHeader className='sticky top-0 z-10 bg-background'>
                   <TableRow>
