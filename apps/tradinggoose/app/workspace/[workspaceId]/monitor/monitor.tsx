@@ -33,7 +33,6 @@ import {
 } from '@/app/workspace/[workspaceId]/monitor/components/data/api'
 import { useMonitorReferenceData } from '@/app/workspace/[workspaceId]/monitor/components/data/use-monitor-reference-data'
 import {
-  applyMonitorQuickFiltersToExportParams,
   buildMonitorExecutionLogFilters,
   createMonitorQuickFilterClause,
   useMonitorWorkspaceLogs,
@@ -655,7 +654,6 @@ export function MonitorPage({ workspaceId, userId }: MonitorPageProps) {
         includeDetails: false,
       })
     )
-    applyMonitorQuickFiltersToExportParams(queryParams, executionViewConfig.quickFilters)
     const anchor = document.createElement('a')
     anchor.href = `/api/logs/export?${queryParams}`
     anchor.download = 'logs_export.csv'

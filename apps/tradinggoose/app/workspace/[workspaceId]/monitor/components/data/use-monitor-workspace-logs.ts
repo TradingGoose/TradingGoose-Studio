@@ -1,7 +1,8 @@
 import { useEffect, useMemo } from 'react'
 import { type ListingInputValue, toListingValueObject } from '@/lib/listing/identity'
-import { createSearchClause, queryToApiParams } from '@/lib/logs/query-parser'
+import { createSearchClause, serializeQuery } from '@/lib/logs/query-parser'
 import { MONITOR_QUERY_POLICY } from '@/lib/logs/query-policy'
+import type { SearchClause } from '@/lib/logs/query-types'
 import { useLogsList } from '@/hooks/queries/logs'
 import type { WorkflowLog } from '@/stores/logs/filters/types'
 import { buildMonitorBoardSections } from '../board/board-state'
@@ -70,15 +71,6 @@ const getListingLabel = (listing: unknown) => {
   return [normalized.base_id, normalized.quote_id].filter(Boolean).join('/') || 'Unknown listing'
 }
 
-const normalizeFilterValue = (value: string | null | undefined) => value?.trim().toLowerCase() ?? ''
-
-const serializeQuickFilterValue = (field: ExecutionMonitorQuickFilterField, value: string) => {
-  const trimmed = value.trim()
-  const prefix = field === 'workflow' || field === 'monitor' || field === 'provider' ? '#' : ''
-  const rawValue = `${prefix}${trimmed}`
-  return /\s/.test(rawValue) ? JSON.stringify(rawValue) : rawValue
-}
-
 const parseDurationMs = (duration: string | null | undefined) => {
   if (!duration) return null
   const match = /^(\d+(?:\.\d+)?)ms$/.exec(duration.trim())
@@ -119,22 +111,52 @@ const normalizeOutcome = (log: MonitorWorkflowLog): MonitorExecutionOutcome => {
 export const createMonitorQuickFilterClause = (
   filter: ExecutionMonitorQuickFilter
 ): MonitorQuickFilterClause => {
-  const field = QUICK_FILTER_FIELD_TO_QUERY_FIELD[filter.field]
   const values = filter.values.map((value) => value.trim()).filter(Boolean)
-  const serializedValues = values.map((value) => serializeQuickFilterValue(filter.field, value))
-  const raw =
-    filter.operator === 'has' || filter.operator === 'no'
-      ? `${filter.operator}:${field}`
-      : `${filter.operator === 'exclude' ? '-' : ''}${field}:${serializedValues.join('|')}`
+  const clause = toMonitorQuickFilterSearchClause({ ...filter, values })
 
   return {
-    id: raw,
-    raw,
+    id: clause.raw,
+    raw: clause.raw,
     field: filter.field,
     operator: filter.operator,
     values,
   }
 }
+
+const toMonitorQuickFilterSearchClause = (filter: ExecutionMonitorQuickFilter): SearchClause => {
+  const field = QUICK_FILTER_FIELD_TO_QUERY_FIELD[filter.field]
+  const fieldPolicy = MONITOR_QUERY_POLICY.fields[field]
+  const kind: SearchClause['kind'] =
+    filter.operator === 'has' || filter.operator === 'no' ? filter.operator : 'field'
+
+  if (!fieldPolicy || !fieldPolicy.clauseKinds.includes(kind)) {
+    throw new Error(`Unsupported monitor quick filter: ${filter.field}`)
+  }
+
+  return createSearchClause(
+    {
+      kind,
+      field,
+      negated: filter.operator === 'exclude',
+      operator: '=',
+      valueMode: filter.field === 'workflow' ? 'id' : fieldPolicy.valueKind,
+      values: kind === 'field' ? filter.values : [],
+    },
+    MONITOR_QUERY_POLICY
+  )
+}
+
+const toMonitorQuickFilterSearchClauses = (quickFilters: ExecutionMonitorQuickFilter[]) =>
+  quickFilters.map(toMonitorQuickFilterSearchClause)
+
+const buildMonitorExecutionSearchQuery = (viewConfig: ExecutionMonitorViewConfig) =>
+  serializeQuery(
+    {
+      clauses: toMonitorQuickFilterSearchClauses(viewConfig.quickFilters),
+      textSearch: viewConfig.filterQuery.trim(),
+    },
+    MONITOR_QUERY_POLICY
+  )
 
 export const buildMonitorExecutionLogFilters = (viewConfig: ExecutionMonitorViewConfig) => ({
   timeRange: 'All time',
@@ -142,135 +164,13 @@ export const buildMonitorExecutionLogFilters = (viewConfig: ExecutionMonitorView
   workflowIds: [],
   folderIds: [],
   triggers: [],
-  searchQuery: viewConfig.filterQuery.trim(),
+  searchQuery: buildMonitorExecutionSearchQuery(viewConfig),
   queryPolicy: MONITOR_QUERY_POLICY,
   queryPolicyKey: 'monitor' as const,
   limit: 100,
   details: 'full' as const,
   triggerSource: 'indicator_trigger' as const,
 })
-
-const mergeCsvParamValue = (current: string | null, values: string[]) => {
-  const merged = new Set<string>()
-  const existingValues = current ? current.split(',') : []
-
-  for (const value of [...existingValues, ...values].map((value) => value.trim()).filter(Boolean)) {
-    merged.add(value)
-  }
-
-  return Array.from(merged).join(',')
-}
-
-const mergeJsonArrayParamValue = (current: string | null, value: string) => {
-  try {
-    const currentValues = current ? JSON.parse(current) : []
-    const nextValues = JSON.parse(value)
-    return JSON.stringify([
-      ...(Array.isArray(currentValues) ? currentValues : []),
-      ...(Array.isArray(nextValues) ? nextValues : []),
-    ])
-  } catch {
-    return value
-  }
-}
-
-const toMonitorQuickFilterExportParams = (quickFilters: ExecutionMonitorQuickFilter[]) => {
-  const clauses = quickFilters
-    .map((filter) => {
-      const field = QUICK_FILTER_FIELD_TO_QUERY_FIELD[filter.field]
-      const fieldPolicy = MONITOR_QUERY_POLICY.fields[field]
-      if (!fieldPolicy) return null
-
-      const kind = filter.operator === 'has' || filter.operator === 'no' ? filter.operator : 'field'
-      if (!fieldPolicy.clauseKinds.includes(kind)) return null
-
-      return createSearchClause(
-        {
-          kind,
-          field,
-          negated: filter.operator === 'exclude',
-          operator: '=',
-          valueMode: filter.field === 'workflow' ? 'id' : fieldPolicy.valueKind,
-          values: kind === 'field' ? filter.values : [],
-        },
-        MONITOR_QUERY_POLICY
-      )
-    })
-    .filter((entry): entry is NonNullable<typeof entry> => Boolean(entry))
-
-  return queryToApiParams(
-    {
-      clauses,
-      textSearch: '',
-      segments: [],
-      invalidQualifierFragments: [],
-    },
-    MONITOR_QUERY_POLICY
-  )
-}
-
-export const applyMonitorQuickFiltersToExportParams = (
-  params: URLSearchParams,
-  quickFilters: ExecutionMonitorQuickFilter[]
-) => {
-  Object.entries(toMonitorQuickFilterExportParams(quickFilters)).forEach(([paramName, value]) => {
-    if (paramName === 'listings' || paramName === 'excludeListings') {
-      params.set(paramName, mergeJsonArrayParamValue(params.get(paramName), value))
-      return
-    }
-
-    params.set(paramName, mergeCsvParamValue(params.get(paramName), [value]))
-  })
-
-  return params
-}
-
-const getQuickFilterValues = (
-  item: MonitorExecutionItem,
-  field: ExecutionMonitorQuickFilterField
-) => {
-  switch (field) {
-    case 'outcome':
-      return [item.outcome]
-    case 'workflow':
-      return [item.workflowId, item.workflowName]
-    case 'trigger':
-      return item.trigger ? [item.trigger] : []
-    case 'listing':
-      return item.listing ? [JSON.stringify(item.listing)] : []
-    case 'assetType':
-      return item.assetType ? [item.assetType] : []
-    case 'provider':
-      return item.providerId ? [item.providerId] : []
-    case 'interval':
-      return item.interval ? [item.interval] : []
-    case 'monitor':
-      return item.monitorId ? [item.monitorId] : []
-  }
-}
-
-const matchesQuickFilter = (item: MonitorExecutionItem, filter: ExecutionMonitorQuickFilter) => {
-  const itemValues = getQuickFilterValues(item, filter.field)
-    .map(normalizeFilterValue)
-    .filter(Boolean)
-  const filterValues = filter.values.map(normalizeFilterValue).filter(Boolean)
-
-  if (filter.operator === 'has') {
-    return itemValues.length > 0
-  }
-  if (filter.operator === 'no') {
-    return itemValues.length === 0
-  }
-  if (filterValues.length === 0) {
-    return true
-  }
-
-  const hasMatch = filterValues.some((value) => itemValues.includes(value))
-  return filter.operator === 'exclude' ? !hasMatch : hasMatch
-}
-
-const matchesQuickFilters = (item: MonitorExecutionItem, filters: ExecutionMonitorQuickFilter[]) =>
-  filters.every((filter) => matchesQuickFilter(item, filter))
 
 const toExecutionItem = (
   log: MonitorWorkflowLog,
@@ -369,12 +269,10 @@ export function useMonitorWorkspaceLogs({
 
   const executionItems = useMemo(() => {
     const logs = logsQuery.data?.pages.flatMap((page) => page.logs) ?? []
-    const filteredItems = logs
-      .map((log) => toExecutionItem(log, liveMonitorIds))
-      .filter((item) => matchesQuickFilters(item, viewConfig.quickFilters))
+    const items = logs.map((log) => toExecutionItem(log, liveMonitorIds))
 
-    return sortExecutionItems(filteredItems, viewConfig.sortBy)
-  }, [liveMonitorIds, logsQuery.data?.pages, viewConfig.quickFilters, viewConfig.sortBy])
+    return sortExecutionItems(items, viewConfig.sortBy)
+  }, [liveMonitorIds, logsQuery.data?.pages, viewConfig.sortBy])
 
   const orderedVisibleLogIds = useMemo(
     () =>

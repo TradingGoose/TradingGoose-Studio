@@ -5,11 +5,13 @@
 import { act, createElement } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { parseQuery, queryToApiParams } from '@/lib/logs/query-parser'
+import { MONITOR_QUERY_POLICY } from '@/lib/logs/query-policy'
 import { useLogsList } from '@/hooks/queries/logs'
 import type { IndicatorMonitorRecord } from '../shared/types'
 import { DEFAULT_EXECUTION_MONITOR_VIEW_CONFIG } from '../view/view-config'
 import {
-  applyMonitorQuickFiltersToExportParams,
+  buildMonitorExecutionLogFilters,
   useMonitorWorkspaceLogs,
 } from './use-monitor-workspace-logs'
 
@@ -125,7 +127,7 @@ describe('useMonitorWorkspaceLogs', () => {
     vi.clearAllMocks()
   })
 
-  it('passes the saved query text and applies quick filters to monitor executions', async () => {
+  it('passes the saved query text and quick filters to monitor log fetches', async () => {
     const snapshots: ReturnType<typeof useMonitorWorkspaceLogs>[] = []
 
     await act(async () => {
@@ -141,7 +143,7 @@ describe('useMonitorWorkspaceLogs', () => {
     expect(mockUseLogsList.mock.calls[0]?.[1]).toEqual(
       expect.objectContaining({
         details: 'full',
-        searchQuery: 'workflow:#wf-1',
+        searchQuery: 'provider:#alpaca workflow:#wf-1',
         queryPolicy: expect.objectContaining({ key: 'monitor' }),
         queryPolicyKey: 'monitor',
         triggerSource: 'indicator_trigger',
@@ -152,8 +154,7 @@ describe('useMonitorWorkspaceLogs', () => {
     expect(snapshots.at(-1)?.orderedVisibleLogIds).toEqual(['log-1'])
   })
 
-  it('adds supported monitor quick filters to log export params', () => {
-    const params = new URLSearchParams('workspaceId=workspace-1&triggerSource=indicator_trigger')
+  it('adds supported monitor quick filters to log request params', () => {
     const listing = JSON.stringify({
       listing_id: 'AAPL',
       base_id: '',
@@ -167,33 +168,40 @@ describe('useMonitorWorkspaceLogs', () => {
       listing_type: 'crypto',
     })
 
-    applyMonitorQuickFiltersToExportParams(params, [
-      { field: 'outcome', operator: 'include', values: ['success'] },
-      { field: 'outcome', operator: 'exclude', values: ['error'] },
-      { field: 'provider', operator: 'include', values: ['alpaca'] },
-      { field: 'assetType', operator: 'include', values: ['stock'] },
-      { field: 'monitor', operator: 'include', values: ['monitor-1'] },
-      { field: 'workflow', operator: 'include', values: ['workflow-1'] },
-      { field: 'trigger', operator: 'include', values: ['manual'] },
-      { field: 'listing', operator: 'include', values: [listing] },
-      { field: 'listing', operator: 'exclude', values: [excludedListing] },
-      { field: 'provider', operator: 'exclude', values: ['tradier'] },
-      { field: 'monitor', operator: 'has', values: [] },
-      { field: 'interval', operator: 'no', values: [] },
-    ])
+    const filters = buildMonitorExecutionLogFilters({
+      ...DEFAULT_EXECUTION_MONITOR_VIEW_CONFIG,
+      quickFilters: [
+        { field: 'outcome', operator: 'include', values: ['success'] },
+        { field: 'outcome', operator: 'exclude', values: ['error'] },
+        { field: 'provider', operator: 'include', values: ['alpaca'] },
+        { field: 'assetType', operator: 'include', values: ['stock'] },
+        { field: 'monitor', operator: 'include', values: ['monitor-1'] },
+        { field: 'workflow', operator: 'include', values: ['workflow-1'] },
+        { field: 'trigger', operator: 'include', values: ['manual'] },
+        { field: 'listing', operator: 'include', values: [listing] },
+        { field: 'listing', operator: 'exclude', values: [excludedListing] },
+        { field: 'provider', operator: 'exclude', values: ['tradier'] },
+        { field: 'monitor', operator: 'has', values: [] },
+        { field: 'interval', operator: 'no', values: [] },
+      ],
+    })
+    const params = queryToApiParams(
+      parseQuery(filters.searchQuery, MONITOR_QUERY_POLICY),
+      MONITOR_QUERY_POLICY
+    )
 
-    expect(params.get('outcomes')).toBe('success')
-    expect(params.get('excludeOutcomes')).toBe('error')
-    expect(params.get('providerId')).toBe('alpaca')
-    expect(params.get('assetTypes')).toBe('stock')
-    expect(params.get('monitorId')).toBe('monitor-1')
-    expect(params.get('workflowIds')).toBe('workflow-1')
-    expect(params.get('triggers')).toBe('manual')
-    expect(JSON.parse(params.get('listings') ?? '[]')).toEqual([JSON.parse(listing)])
-    expect(JSON.parse(params.get('excludeListings') ?? '[]')).toEqual([JSON.parse(excludedListing)])
-    expect(params.get('excludeProviderId')).toBe('tradier')
-    expect(params.get('hasFields')).toBe('monitor')
-    expect(params.get('noFields')).toBe('interval')
+    expect(params.outcomes).toBe('success')
+    expect(params.excludeOutcomes).toBe('error')
+    expect(params.providerId).toBe('alpaca')
+    expect(params.assetTypes).toBe('stock')
+    expect(params.monitorId).toBe('monitor-1')
+    expect(params.workflowIds).toBe('workflow-1')
+    expect(params.triggers).toBe('manual')
+    expect(JSON.parse(params.listings ?? '[]')).toEqual([JSON.parse(listing)])
+    expect(JSON.parse(params.excludeListings ?? '[]')).toEqual([JSON.parse(excludedListing)])
+    expect(params.excludeProviderId).toBe('tradier')
+    expect(params.hasFields).toBe('monitor')
+    expect(params.noFields).toBe('interval')
   })
 
   it('marks historical executions as orphaned when the source monitor no longer exists', async () => {
@@ -301,7 +309,7 @@ describe('useMonitorWorkspaceLogs', () => {
     expect(snapshots.at(-1)?.orderedVisibleLogIds).toEqual(['log-1'])
   })
 
-  it('matches listing quick filters against canonical listing identities', async () => {
+  it('serializes listing quick filters with canonical listing identities', async () => {
     const snapshots: ReturnType<typeof useMonitorWorkspaceLogs>[] = []
 
     await act(async () => {
@@ -331,6 +339,12 @@ describe('useMonitorWorkspaceLogs', () => {
       )
     })
 
+    expect(mockUseLogsList.mock.calls[0]?.[1]).toEqual(
+      expect.objectContaining({
+        searchQuery: expect.stringContaining('listing:'),
+      })
+    )
+    expect(mockUseLogsList.mock.calls[0]?.[1].searchQuery).toContain('AAPL')
     expect(snapshots.at(-1)?.executionItems.map((item) => item.logId)).toEqual(['log-1'])
   })
 

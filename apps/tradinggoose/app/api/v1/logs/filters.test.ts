@@ -5,6 +5,8 @@
 import { describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
+  asc: vi.fn((value: unknown) => ({ type: 'asc', value })),
+  desc: vi.fn((value: unknown) => ({ type: 'desc', value })),
   eq: vi.fn((field: unknown, value: unknown) => ({ field, type: 'eq', value })),
   inArray: vi.fn((field: unknown, value: unknown) => ({ field, type: 'inArray', value })),
   or: vi.fn((...conditions: unknown[]) => ({ conditions, type: 'or' })),
@@ -40,7 +42,8 @@ const sql = vi.hoisted(() => {
 
 vi.mock('drizzle-orm', () => ({
   and: vi.fn((...conditions: unknown[]) => ({ conditions, type: 'and' })),
-  desc: vi.fn((value: unknown) => ({ type: 'desc', value })),
+  asc: mocks.asc,
+  desc: mocks.desc,
   eq: mocks.eq,
   gte: vi.fn((field: unknown, value: unknown) => ({ field, type: 'gte', value })),
   inArray: mocks.inArray,
@@ -67,5 +70,22 @@ describe('v1 log filters', () => {
       ['workflow-1']
     )
     expect(mocks.or).toHaveBeenCalled()
+  })
+
+  it('orders cursor pages by the complete startedAt and id tuple', async () => {
+    const { getOrderBy } = await import('./filters')
+
+    expect(getOrderBy('desc')).toEqual([
+      { type: 'desc', value: 'workflowExecutionLogs.startedAt' },
+      { type: 'desc', value: 'workflowExecutionLogs.id' },
+    ])
+    expect(getOrderBy('asc')).toEqual([
+      { type: 'asc', value: 'workflowExecutionLogs.startedAt' },
+      { type: 'asc', value: 'workflowExecutionLogs.id' },
+    ])
+    expect(mocks.desc).toHaveBeenCalledWith('workflowExecutionLogs.startedAt')
+    expect(mocks.desc).toHaveBeenCalledWith('workflowExecutionLogs.id')
+    expect(mocks.asc).toHaveBeenCalledWith('workflowExecutionLogs.startedAt')
+    expect(mocks.asc).toHaveBeenCalledWith('workflowExecutionLogs.id')
   })
 })

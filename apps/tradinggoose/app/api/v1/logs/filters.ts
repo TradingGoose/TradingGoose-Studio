@@ -1,5 +1,5 @@
 import { workflow, workflowExecutionLogs } from '@tradinggoose/db/schema'
-import { and, desc, eq, gte, inArray, lte, or, type SQL, sql } from 'drizzle-orm'
+import { and, asc, desc, eq, gte, inArray, lte, or, type SQL, sql } from 'drizzle-orm'
 import type { ListingIdentity } from '@/lib/listing/identity'
 
 export interface LogFilters {
@@ -162,6 +162,6 @@ export function buildLogFilters(filters: LogFilters): SQL<unknown> {
 
 export function getOrderBy(order: 'desc' | 'asc' = 'desc') {
   return order === 'desc'
-    ? desc(workflowExecutionLogs.startedAt)
-    : sql`${workflowExecutionLogs.startedAt} ASC`
+    ? [desc(workflowExecutionLogs.startedAt), desc(workflowExecutionLogs.id)]
+    : [asc(workflowExecutionLogs.startedAt), asc(workflowExecutionLogs.id)]
 }

@@ -184,7 +184,7 @@ export async function GET(request: NextRequest) {
     const logsQueryStartedAt = Date.now()
     const logs = await baseQuery
       .where(conditions)
-      .orderBy(orderBy)
+      .orderBy(...orderBy)
       .limit(params.limit + 1)
     const logsQueryDurationMs = Date.now() - logsQueryStartedAt
 
