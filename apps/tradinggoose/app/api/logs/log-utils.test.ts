@@ -129,4 +129,38 @@ describe('serializeWorkflowLog executionData', () => {
       serializeWorkflowLog(buildRow({ executionData: ['not', 'a', 'record'] }), 'full')
     ).toEqual(expect.objectContaining({ executionData: undefined }))
   })
+
+  it('derives error outcome from nested trace span children', () => {
+    const log = serializeWorkflowLog(
+      buildRow({
+        executionData: {
+          traceSpans: [
+            {
+              id: 'span-1',
+              name: 'Workflow',
+              type: 'workflow',
+              duration: 250,
+              startTime: '2026-05-05T00:00:00.000Z',
+              endTime: '2026-05-05T00:00:01.000Z',
+              status: 'success',
+              children: [
+                {
+                  id: 'child-span-1',
+                  name: 'HTTP',
+                  type: 'block',
+                  duration: 100,
+                  startTime: '2026-05-05T00:00:00.100Z',
+                  endTime: '2026-05-05T00:00:00.200Z',
+                  status: 'error',
+                },
+              ],
+            },
+          ],
+        },
+      }),
+      'full'
+    )
+
+    expect(log.outcome).toBe('error')
+  })
 })

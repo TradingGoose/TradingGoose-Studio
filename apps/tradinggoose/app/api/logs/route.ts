@@ -99,21 +99,21 @@ const MONITOR_LISTING_ID_SQL = sql<string>`${MONITOR_LISTING_SQL}->>'listing_id'
 const MONITOR_LISTING_BASE_ID_SQL = sql<string>`${MONITOR_LISTING_SQL}->>'base_id'`
 const MONITOR_LISTING_QUOTE_ID_SQL = sql<string>`${MONITOR_LISTING_SQL}->>'quote_id'`
 const MONITOR_ASSET_TYPE_SQL = sql<string>`LOWER(COALESCE(NULLIF(${MONITOR_LISTING_SQL}->>'assetClass', ''), NULLIF(${MONITOR_LISTING_SQL}->>'base_asset_class', ''), NULLIF(${MONITOR_LISTING_TYPE_SQL}, ''), 'unknown'))`
-const TRACE_SPANS_SQL = sql`CASE WHEN jsonb_typeof(${workflowExecutionLogs.executionData}->'traceSpans') = 'array' THEN ${workflowExecutionLogs.executionData}->'traceSpans' ELSE '[]'::jsonb END`
 const BLOCK_EXECUTIONS_SQL = sql`CASE WHEN jsonb_typeof(${workflowExecutionLogs.executionData}->'blockExecutions') = 'array' THEN ${workflowExecutionLogs.executionData}->'blockExecutions' ELSE '[]'::jsonb END`
+const TRACE_STATUSES_SQL = sql`jsonb_path_query(${workflowExecutionLogs.executionData}, '$.traceSpans[*].**.status')`
 const TRACE_STATUS_EXISTS_SQL = sql<boolean>`EXISTS (
-  SELECT 1 FROM jsonb_array_elements(${TRACE_SPANS_SQL}) AS trace_span(value)
-  WHERE jsonb_typeof(trace_span.value->'status') = 'string'
+  SELECT 1 FROM ${TRACE_STATUSES_SQL} AS trace_status(value)
+  WHERE jsonb_typeof(trace_status.value) = 'string'
 )`
 const TRACE_ERROR_EXISTS_SQL = sql<boolean>`EXISTS (
-  SELECT 1 FROM jsonb_array_elements(${TRACE_SPANS_SQL}) AS trace_span(value)
-  WHERE jsonb_typeof(trace_span.value->'status') = 'string'
-    AND trace_span.value->>'status' = 'error'
+  SELECT 1 FROM ${TRACE_STATUSES_SQL} AS trace_status(value)
+  WHERE jsonb_typeof(trace_status.value) = 'string'
+    AND trace_status.value = '"error"'::jsonb
 )`
 const TRACE_NON_SKIPPED_EXISTS_SQL = sql<boolean>`EXISTS (
-  SELECT 1 FROM jsonb_array_elements(${TRACE_SPANS_SQL}) AS trace_span(value)
-  WHERE jsonb_typeof(trace_span.value->'status') = 'string'
-    AND trace_span.value->>'status' <> 'skipped'
+  SELECT 1 FROM ${TRACE_STATUSES_SQL} AS trace_status(value)
+  WHERE jsonb_typeof(trace_status.value) = 'string'
+    AND trace_status.value <> '"skipped"'::jsonb
 )`
 const BLOCK_STATUS_EXISTS_SQL = sql<boolean>`EXISTS (
   SELECT 1 FROM jsonb_array_elements(${BLOCK_EXECUTIONS_SQL}) AS block_execution(value)

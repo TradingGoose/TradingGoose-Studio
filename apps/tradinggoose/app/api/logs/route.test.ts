@@ -228,6 +228,17 @@ const hasSqlPattern = (conditions: Array<Record<string, any>>, pattern: string) 
       (condition.strings?.join('').includes(pattern) || condition.values?.includes(pattern))
   )
 
+const stringifySql = (value: unknown): string => {
+  if (typeof value === 'string') return value
+  if (!value || typeof value !== 'object') return ''
+
+  const node = value as Record<string, any>
+  return [
+    Array.isArray(node.strings) ? node.strings.join('') : '',
+    ...(Array.isArray(node.values) ? node.values.map(stringifySql) : []),
+  ].join(' ')
+}
+
 const hasInArrayFilter = (conditions: Array<Record<string, any>>, field: string, value: string) =>
   conditions.some(
     (condition) =>
@@ -319,6 +330,18 @@ describe('logs route', () => {
     expect(body.total).toBe(2)
     expect(body.data[0]?.executionData).toBeUndefined()
     expect(body.data[0]?.files).toBeUndefined()
+  })
+
+  it('derives SQL outcome from nested trace span statuses', async () => {
+    const { GET } = await import('./route')
+    const response = await GET(new NextRequest('http://localhost/api/logs?workspaceId=workspace-1'))
+
+    expect(response.status).toBe(200)
+    const listSelect = mockSelect.mock.calls.at(-1)?.[0] as unknown as Record<string, unknown>
+    const outcomeSql = stringifySql(listSelect.outcome)
+
+    expect(outcomeSql).toContain('jsonb_path_query')
+    expect(outcomeSql).toContain('$.traceSpans[*].**.status')
   })
 
   it('ignores all sentinel values for log level filters', async () => {

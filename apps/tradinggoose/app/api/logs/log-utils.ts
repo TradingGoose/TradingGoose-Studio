@@ -127,12 +127,16 @@ export const getMonitorSnapshot = (executionData: unknown) => {
   return snapshot && typeof snapshot === 'object' ? snapshot : null
 }
 
+const collectTraceSpanStatuses = (spans: unknown): string[] => {
+  if (!Array.isArray(spans)) return []
+  return spans.flatMap((span: any) => [
+    ...(typeof span?.status === 'string' ? [span.status] : []),
+    ...collectTraceSpanStatuses(span?.children),
+  ])
+}
+
 const collectStatuses = (executionData: unknown): string[] => {
-  const traceSpanStatuses = Array.isArray((executionData as any)?.traceSpans)
-    ? (executionData as any).traceSpans
-        .map((span: any) => (typeof span?.status === 'string' ? span.status : null))
-        .filter((status: string | null): status is string => Boolean(status))
-    : []
+  const traceSpanStatuses = collectTraceSpanStatuses((executionData as any)?.traceSpans)
 
   if (traceSpanStatuses.length > 0) {
     return traceSpanStatuses
