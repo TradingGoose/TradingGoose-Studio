@@ -209,4 +209,59 @@ describe('order history search route', () => {
       },
     })
   })
+
+  it('searches provider order id paths when the query is a UUID', async () => {
+    const providerOrderId = '550e8400-e29b-41d4-a716-446655440000'
+    mocks.selectQueue.push([orderRow])
+    const { GET } = await import('./route')
+
+    const response = await GET(
+      new NextRequest(
+        `http://localhost/api/tools/trading/order-history/search?workspaceId=workspace-1&q=${providerOrderId}`
+      )
+    )
+
+    expect(response.status).toBe(200)
+    expect(mocks.eq).toHaveBeenCalledWith('orderHistoryTable.id', providerOrderId)
+
+    const sqlCalls = (sql.mock.calls as [TemplateStringsArray, ...unknown[]][]).map((call) => {
+      const [strings, ...values] = call
+      return {
+        text: Array.from(strings).join(''),
+        values,
+      }
+    })
+
+    expect(
+      sqlCalls.some(
+        (call) =>
+          call.values.includes('orderHistoryTable.response') && call.text.includes("->>'orderId'")
+      )
+    ).toBe(true)
+    expect(
+      sqlCalls.some(
+        (call) =>
+          call.values.includes('orderHistoryTable.normalizedOrder') && call.text.includes("->>'id'")
+      )
+    ).toBe(true)
+    expect(
+      sqlCalls.some(
+        (call) => call.text.includes('NULLIF(') && call.values.includes(providerOrderId)
+      )
+    ).toBe(true)
+    expect(
+      sqlCalls.some(
+        (call) =>
+          call.text.includes('::text') &&
+          call.values.some((value) =>
+            [
+              'orderHistoryTable.listingIdentity',
+              'orderHistoryTable.normalizedOrder',
+              'orderHistoryTable.response',
+              'orderHistoryTable.request',
+            ].includes(value as string)
+          )
+      )
+    ).toBe(false)
+  })
 })

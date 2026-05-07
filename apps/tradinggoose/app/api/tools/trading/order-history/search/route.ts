@@ -218,6 +218,65 @@ const buildDateSearchCondition = (query: string): SQL | null => {
   return and(gte(orderHistoryTable.recordedAt, start), lt(orderHistoryTable.recordedAt, end)) as SQL
 }
 
+const textSearchConditions = (query: string, values: SQL[]): SQL[] => {
+  if (isUuid(query)) {
+    return values.map((value) => sql`NULLIF(${value}, '') = ${query}`)
+  }
+
+  const searchTerm = `%${query}%`
+  return values.map((value) => sql`COALESCE(${value}, '') ILIKE ${searchTerm}`)
+}
+
+const buildSearchConditions = (query: string): SQL[] => {
+  const uuidQuery = isUuid(query)
+  const searchTerm = `%${query}%`
+  const conditions: SQL[] = [
+    uuidQuery
+      ? eq(orderHistoryTable.id, query)
+      : sql`${orderHistoryTable.id}::text ILIKE ${searchTerm}`,
+    ...textSearchConditions(query, [
+      sql`${orderHistoryTable.listingIdentity}->>'listing_id'`,
+      sql`${orderHistoryTable.listingIdentity}->>'base_id'`,
+      sql`${orderHistoryTable.listingIdentity}->>'quote_id'`,
+      sql`${orderHistoryTable.listingIdentity}->>'listing_type'`,
+      sql`(${orderHistoryTable.listingIdentity}->>'base_id') || ':' || (${orderHistoryTable.listingIdentity}->>'quote_id')`,
+      sql`${orderHistoryTable.normalizedOrder}->>'id'`,
+      sql`${orderHistoryTable.normalizedOrder}->>'orderId'`,
+      sql`${orderHistoryTable.normalizedOrder}->'raw'->>'id'`,
+      sql`${orderHistoryTable.normalizedOrder}->>'symbol'`,
+      sql`${orderHistoryTable.normalizedOrder}->>'quote'`,
+      sql`${orderHistoryTable.normalizedOrder}->>'side'`,
+      sql`${orderHistoryTable.response}->>'orderId'`,
+      sql`${orderHistoryTable.response}->>'clientOrderId'`,
+      sql`${orderHistoryTable.response}->>'symbol'`,
+      sql`${orderHistoryTable.response}->>'quote'`,
+      sql`${orderHistoryTable.response}->'raw'->>'id'`,
+      sql`${orderHistoryTable.response}->'raw'->>'order_id'`,
+      sql`${orderHistoryTable.response}->'raw'->'order'->>'id'`,
+      sql`${orderHistoryTable.response}->'raw'->'order'->>'order_id'`,
+      sql`${orderHistoryTable.response}->'raw'->'order'->>'client_order_id'`,
+      sql`${orderHistoryTable.response}->'raw'->'order'->>'symbol'`,
+      sql`${orderHistoryTable.request}->>'symbol'`,
+      sql`${orderHistoryTable.request}->>'side'`,
+    ]),
+  ]
+
+  if (!uuidQuery) {
+    conditions.push(
+      sql`to_char(${orderHistoryTable.recordedAt}, 'YYYY-MM-DD') ILIKE ${searchTerm}`,
+      sql`to_char(${orderHistoryTable.recordedAt}, 'Mon DD') ILIKE ${searchTerm}`,
+      sql`to_char(${orderHistoryTable.recordedAt}, 'Mon D') ILIKE ${searchTerm}`
+    )
+
+    const dateSearchCondition = buildDateSearchCondition(query)
+    if (dateSearchCondition) {
+      conditions.push(dateSearchCondition)
+    }
+  }
+
+  return conditions
+}
+
 async function readWorkflowWorkspaceId(workflowId: string) {
   const [row] = await db
     .select({ workspaceId: workflow.workspaceId })
@@ -282,33 +341,7 @@ export async function GET(request: NextRequest) {
     }
 
     if (query) {
-      if (isUuid(query)) {
-        conditions.push(eq(orderHistoryTable.id, query))
-      } else {
-        const searchTerm = `%${query}%`
-        const dateSearchCondition = buildDateSearchCondition(query)
-        const searchConditions: SQL[] = [
-          sql`${orderHistoryTable.id}::text ILIKE ${searchTerm}`,
-          sql`COALESCE(${orderHistoryTable.listingIdentity}::text, '') ILIKE ${searchTerm}`,
-          sql`COALESCE(${orderHistoryTable.listingIdentity}->>'listing_id', '') ILIKE ${searchTerm}`,
-          sql`COALESCE(${orderHistoryTable.listingIdentity}->>'base_id', '') ILIKE ${searchTerm}`,
-          sql`COALESCE(${orderHistoryTable.listingIdentity}->>'quote_id', '') ILIKE ${searchTerm}`,
-          sql`COALESCE(${orderHistoryTable.listingIdentity}->>'listing_type', '') ILIKE ${searchTerm}`,
-          sql`COALESCE((${orderHistoryTable.listingIdentity}->>'base_id') || ':' || (${orderHistoryTable.listingIdentity}->>'quote_id'), '') ILIKE ${searchTerm}`,
-          sql`${orderHistoryTable.normalizedOrder}::text ILIKE ${searchTerm}`,
-          sql`${orderHistoryTable.response}::text ILIKE ${searchTerm}`,
-          sql`${orderHistoryTable.request}::text ILIKE ${searchTerm}`,
-          sql`to_char(${orderHistoryTable.recordedAt}, 'YYYY-MM-DD') ILIKE ${searchTerm}`,
-          sql`to_char(${orderHistoryTable.recordedAt}, 'Mon DD') ILIKE ${searchTerm}`,
-          sql`to_char(${orderHistoryTable.recordedAt}, 'Mon D') ILIKE ${searchTerm}`,
-        ]
-
-        if (dateSearchCondition) {
-          searchConditions.push(dateSearchCondition)
-        }
-
-        conditions.push(or(...searchConditions) as SQL)
-      }
+      conditions.push(or(...buildSearchConditions(query)) as SQL)
     }
 
     const whereClause = conditions.length ? and(...conditions) : undefined
