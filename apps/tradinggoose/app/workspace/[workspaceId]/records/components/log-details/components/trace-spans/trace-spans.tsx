@@ -15,7 +15,11 @@ interface TraceSpansProps {
   costMultiplier?: number
 }
 
-export function TraceSpans({ traceSpans, totalDuration = 0, costMultiplier = 1 }: TraceSpansProps) {
+export function TraceSpans({
+  traceSpans = [],
+  totalDuration = 0,
+  costMultiplier = 1,
+}: TraceSpansProps) {
   const [expandedSpans, setExpandedSpans] = useState<Set<string>>(new Set())
   const containerRef = useRef<HTMLDivElement | null>(null)
   const timelineHitboxRef = useRef<HTMLDivElement | null>(null)
@@ -43,10 +47,6 @@ export function TraceSpans({ traceSpans, totalDuration = 0, costMultiplier = 1 }
     }
   }, [containerWidth])
 
-  if (!traceSpans || traceSpans.length === 0) {
-    return <div className='text-muted-foreground text-sm'>No trace data available</div>
-  }
-
   const workflowStartTime = traceSpans.reduce((earliest, span) => {
     const startTime = new Date(span.startTime).getTime()
     return startTime < earliest ? startTime : earliest
@@ -71,7 +71,6 @@ export function TraceSpans({ traceSpans, totalDuration = 0, costMultiplier = 1 }
   }
 
   const toggleAll = (expand: boolean) => {
-    if (!traceSpans) return
     const next = new Set<string>()
     if (expand) {
       const collect = (spans: TraceSpan[]) => {
@@ -132,6 +131,10 @@ export function TraceSpans({ traceSpans, totalDuration = 0, costMultiplier = 1 }
     setContainerWidth(el.clientWidth)
     return () => ro.disconnect()
   }, [])
+
+  if (traceSpans.length === 0) {
+    return <div className='text-muted-foreground text-sm'>No trace data available</div>
+  }
 
   return (
     <div className='w-full'>
