@@ -12,7 +12,11 @@ import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { WorkflowLogOutcome } from '@/lib/logs/types'
 import { generateRequestId, normalizeOptionalString } from '@/lib/utils'
-import { parseListingFilters, serializeWorkflowLog } from '@/app/api/logs/log-utils'
+import {
+  parseListingFilters,
+  serializeWorkflowLog,
+  parseWorkflowLogFilterValues as splitCsv,
+} from '@/app/api/logs/log-utils'
 
 const logger = createLogger('LogsAPI')
 
@@ -75,12 +79,6 @@ const QueryParamsSchema = z.object({
   }, z.literal('indicator_trigger').optional()),
   workspaceId: z.string(),
 })
-
-const splitCsv = (value: string | undefined) =>
-  (value ?? '')
-    .split(',')
-    .map((entry) => entry.trim())
-    .filter((entry) => entry && entry !== 'all')
 
 const parseBooleanFlag = (value: string | undefined) => value === 'true' || value === '1'
 

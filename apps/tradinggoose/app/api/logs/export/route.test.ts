@@ -312,21 +312,31 @@ describe('logs export route', () => {
   })
 
   it('treats text-mode workflow and folder filters as OR lists during export', async () => {
+    mockOffset.mockResolvedValue([
+      buildRow({
+        id: 'log-1',
+        folderName: 'North, South',
+        workflowName: 'Alpha, Inc.',
+      }),
+    ])
+    const workflowName = encodeURIComponent('"Alpha, Inc.",Missing Workflow')
+    const folderName = encodeURIComponent('Missing Desk,"North, South"')
+
     const { GET } = await import('./route')
     const workflowResponse = await GET(
       new NextRequest(
-        'http://localhost/api/logs/export?workspaceId=workspace-1&workflowName=Workflow%20Alpha,Missing%20Workflow'
+        `http://localhost/api/logs/export?workspaceId=workspace-1&workflowName=${workflowName}`
       )
     )
     const folderResponse = await GET(
       new NextRequest(
-        'http://localhost/api/logs/export?workspaceId=workspace-1&folderName=Missing%20Desk,Alpha%20Desk'
+        `http://localhost/api/logs/export?workspaceId=workspace-1&folderName=${folderName}`
       )
     )
 
     expect(workflowResponse.status).toBe(200)
-    expect(await workflowResponse.text()).toContain('Workflow Alpha')
-    expect(await folderResponse.text()).toContain('Workflow Alpha')
+    expect(await workflowResponse.text()).toContain('Alpha, Inc.')
+    expect(await folderResponse.text()).toContain('Alpha, Inc.')
   })
 
   it('uses stored workflow summary fields for deleted workflow export filters', async () => {

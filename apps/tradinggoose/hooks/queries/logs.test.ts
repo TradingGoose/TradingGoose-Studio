@@ -49,13 +49,14 @@ describe("buildLogsRequestParams", () => {
       workflowIds: ["workflow-1"],
       folderIds: [],
       triggers: ["manual"],
-      searchQuery: "workflow:#wf-2 trigger:api needs-review",
+      searchQuery: 'workflow:#wf-2 workflow:"Alpha, Inc." trigger:api needs-review',
       limit: 50,
     });
 
     const params = new URLSearchParams(queryString);
 
     expect(params.get("workflowIds")).toBe("workflow-1,wf-2");
+    expect(params.get("workflowName")).toBe('"Alpha, Inc."');
     expect(params.get("triggers")).toBe("manual,api");
     expect(params.get("search")).toBe("needs-review");
   });

@@ -15,6 +15,7 @@ import {
   matchesWorkflowLogFilters,
   parseListingFilters,
   serializeWorkflowLog,
+  parseWorkflowLogFilterValues as splitCsv,
 } from '@/app/api/logs/log-utils'
 
 const logger = createLogger('LogsExportAPI')
@@ -76,12 +77,6 @@ const ExportParamsSchema = z.object({
   }, z.literal('indicator_trigger').optional()),
   workspaceId: z.string(),
 })
-
-const splitCsv = (value: string | undefined) =>
-  (value ?? '')
-    .split(',')
-    .map((entry) => entry.trim())
-    .filter((entry) => entry && entry !== 'all')
 
 const parseBooleanFlag = (value: string | undefined) => value === 'true' || value === '1'
 

@@ -1,4 +1,5 @@
 import { type ListingIdentity, toListingValueObject } from '@/lib/listing/identity'
+import { splitQueryParamValues } from '@/lib/logs/query-parser'
 import type {
   TraceSpan,
   WorkflowLog,
@@ -70,6 +71,9 @@ export const parseListingFilters = (
     return null
   }
 }
+
+export const parseWorkflowLogFilterValues = (value: string | undefined) =>
+  splitQueryParamValues(value).filter((entry) => entry !== 'all')
 
 const toPublicMonitorTrigger = (storedExecutionData: Record<string, unknown>) => {
   const trigger = storedExecutionData.trigger

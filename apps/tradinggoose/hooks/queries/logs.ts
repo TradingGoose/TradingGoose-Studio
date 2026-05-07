@@ -8,7 +8,12 @@ import {
   type ListingIdentity,
 } from "@/lib/listing/identity";
 import { LOGS_QUERY_POLICY } from "@/lib/logs/query-policy";
-import { parseQuery, queryToApiParams } from "@/lib/logs/query-parser";
+import {
+  parseQuery,
+  queryToApiParams,
+  serializeQueryParamValues,
+  splitQueryParamValues,
+} from "@/lib/logs/query-parser";
 import type { QueryPolicy } from "@/lib/logs/query-types";
 import type { LogsResponse, WorkflowLog } from "@/stores/logs/filters/types";
 
@@ -132,18 +137,13 @@ const MULTI_VALUE_QUERY_PARAMS = new Set([
   "noFields",
 ]);
 
-const mergeCsvValues = (left: string | null, right: string) => {
+const mergeParamValues = (left: string | null, right: string) => {
   const values = new Set<string>();
 
-  [left ?? "", right].forEach((entry) => {
-    entry
-      .split(",")
-      .map((value) => value.trim())
-      .filter(Boolean)
-      .forEach((value) => values.add(value));
-  });
+  splitQueryParamValues(left ?? "").forEach((value) => values.add(value));
+  splitQueryParamValues(right).forEach((value) => values.add(value));
 
-  return Array.from(values).join(",");
+  return serializeQueryParamValues(values);
 };
 
 const mergeQueryParam = (
@@ -156,7 +156,7 @@ const mergeQueryParam = (
     return;
   }
 
-  params.set(key, mergeCsvValues(params.get(key), value));
+  params.set(key, mergeParamValues(params.get(key), value));
 };
 
 export function buildLogsRequestParams(

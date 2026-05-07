@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { LOGS_QUERY_POLICY, MONITOR_QUERY_POLICY } from './query-policy'
 import { parseQuery, queryToApiParams, serializeQuery } from './query-parser'
+import { LOGS_QUERY_POLICY, MONITOR_QUERY_POLICY } from './query-policy'
 
 describe('queryToApiParams', () => {
   it('emits exclusive lower and upper bound flags for strict comparisons', () => {
@@ -45,8 +45,7 @@ describe('queryToApiParams', () => {
   })
 
   it('round-trips monitor-policy quick filters and range clauses', () => {
-    const query =
-      'status:success provider:#alpaca assetType:stock has:monitor date:*..2026-04-30'
+    const query = 'status:success provider:#alpaca assetType:stock has:monitor date:*..2026-04-30'
     const parsed = parseQuery(query, MONITOR_QUERY_POLICY)
 
     expect(serializeQuery(parsed, MONITOR_QUERY_POLICY)).toBe(query)
@@ -80,13 +79,13 @@ describe('queryToApiParams', () => {
   })
 
   it('round-trips comma-separated OR clauses for the logs policy', () => {
-    const query = 'workflow:"Alpha Desk",Beta folder:"North Folder","South Folder" level:error,info'
+    const query = 'workflow:"Alpha, Inc.",Beta folder:"North, South" level:error,info'
     const parsed = parseQuery(query, LOGS_QUERY_POLICY)
 
     expect(serializeQuery(parsed, LOGS_QUERY_POLICY)).toBe(query)
     expect(queryToApiParams(parsed, LOGS_QUERY_POLICY)).toEqual({
-      workflowName: 'Alpha Desk,Beta',
-      folderName: 'North Folder,South Folder',
+      workflowName: '"Alpha, Inc.",Beta',
+      folderName: '"North, South"',
       level: 'error,info',
     })
   })
@@ -132,11 +131,7 @@ describe('queryToApiParams', () => {
     const parsed = parseQuery(query, MONITOR_QUERY_POLICY)
 
     expect(serializeQuery(parsed, MONITOR_QUERY_POLICY)).toBe(query)
-    expect(
-      JSON.parse(
-        queryToApiParams(parsed, MONITOR_QUERY_POLICY).listings as string
-      )
-    ).toEqual([
+    expect(JSON.parse(queryToApiParams(parsed, MONITOR_QUERY_POLICY).listings as string)).toEqual([
       {
         listing_id: 'AAPL',
         base_id: '',

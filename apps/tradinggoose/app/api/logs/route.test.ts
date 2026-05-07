@@ -386,17 +386,21 @@ describe('logs route', () => {
     ).toBe(true)
   })
 
-  it('filters logs by folder name', async () => {
+  it('keeps quoted comma-containing folder names as one text filter value', async () => {
+    const folderName = encodeURIComponent('"Alpha, Inc."')
+
     const { GET } = await import('./route')
     const response = await GET(
-      new NextRequest('http://localhost/api/logs?workspaceId=workspace-1&folderName=Alpha')
+      new NextRequest(`http://localhost/api/logs?workspaceId=workspace-1&folderName=${folderName}`)
     )
 
     expect(response.status).toBe(200)
     expectLogAnchoredWorkflowFolderJoin()
     const conditions = getLatestWhereConditions()
     expect(hasSqlPattern(conditions, 'ILIKE')).toBe(true)
-    expect(hasSqlPattern(conditions, '%Alpha%')).toBe(true)
+    expect(hasSqlPattern(conditions, '%Alpha, Inc.%')).toBe(true)
+    expect(hasSqlPattern(conditions, '%Alpha%')).toBe(false)
+    expect(hasSqlPattern(conditions, '%Inc.%')).toBe(false)
   })
 
   it('uses stored workflow summary fields for deleted workflow filters', async () => {

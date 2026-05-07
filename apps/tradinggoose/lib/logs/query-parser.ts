@@ -61,7 +61,7 @@ const quoteIfNeeded = (value: string) => {
   return value
 }
 
-const splitOrValues = (value: string) => {
+export const splitQueryParamValues = (value: string | undefined = '') => {
   const values: string[] = []
   let current = ''
   let inQuotes = false
@@ -77,7 +77,7 @@ const splitOrValues = (value: string) => {
 
     if (character === ',' && !inQuotes) {
       if (current.trim().length > 0) {
-        values.push(current.trim())
+        values.push(unquote(current.trim()))
       }
       current = ''
       continue
@@ -87,11 +87,16 @@ const splitOrValues = (value: string) => {
   }
 
   if (current.trim().length > 0) {
-    values.push(current.trim())
+    values.push(unquote(current.trim()))
   }
 
   return values
 }
+
+export const serializeQueryParamValues = (values: Iterable<string>) =>
+  Array.from(values)
+    .map((value) => (/[,"]/.test(value) ? `"${value.replace(/"/g, '\\"')}"` : value))
+    .join(',')
 
 const uniqueValues = (values: string[]) => {
   const unique = new Set<string>()
@@ -154,7 +159,7 @@ const parseFieldValue = (
   }
 
   let valueMode: SearchClause['valueMode'] = policy.valueKind
-  let values = policy.supportsOr ? splitOrValues(valuePayload) : [valuePayload]
+  let values = policy.supportsOr ? splitQueryParamValues(valuePayload) : [valuePayload]
 
   const normalizedValues = values.map((value) => {
     const trimmed = value.trim()
@@ -416,7 +421,11 @@ export const serializeQuery = (
   return [...clauseStrings, ...(textSearch ? [textSearch] : [])].join(' ').trim()
 }
 
-const pushMultiValue = (map: Map<string, Set<string>>, key: string | undefined, values: string[]) => {
+const pushMultiValue = (
+  map: Map<string, Set<string>>,
+  key: string | undefined,
+  values: string[]
+) => {
   if (!key || values.length === 0) return
   const existing = map.get(key) ?? new Set<string>()
   values.forEach((value) => {
@@ -474,7 +483,10 @@ const applyRangeParams = (
   }
 }
 
-export function queryToApiParams(parsedQuery: ParsedQuery, policy: QueryPolicy): Record<string, string> {
+export function queryToApiParams(
+  parsedQuery: ParsedQuery,
+  policy: QueryPolicy
+): Record<string, string> {
   const params: Record<string, string> = {}
   const multiValueParams = new Map<string, Set<string>>()
   const listingValues = new Set<string>()
@@ -545,7 +557,7 @@ export function queryToApiParams(parsedQuery: ParsedQuery, policy: QueryPolicy):
 
   multiValueParams.forEach((values, key) => {
     if (values.size > 0) {
-      params[key] = Array.from(values).join(',')
+      params[key] = serializeQueryParamValues(values)
     }
   })
 
