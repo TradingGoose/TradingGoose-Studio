@@ -118,6 +118,14 @@ const sortValues = (values: string[]) =>
     })
   )
 
+const DATE_ONLY_PATTERN = /^\d{4}-\d{2}-\d{2}$/
+
+const nextUtcDate = (value: string) => {
+  const date = new Date(`${value}T00:00:00.000Z`)
+  date.setUTCDate(date.getUTCDate() + 1)
+  return date.toISOString().slice(0, 10)
+}
+
 const parseFieldValue = (
   policy: QueryFieldPolicy,
   rawValue: string
@@ -448,15 +456,23 @@ const applyRangeParams = (
 
   const lowerKey = policy.api.range?.lower
   const upperKey = policy.api.range?.upper
+  const applyUpper = (value: string) => {
+    if (!upperKey || !value.trim()) return
+    const trimmed = value.trim()
+    if (policy.valueKind === 'date' && DATE_ONLY_PATTERN.test(trimmed)) {
+      params[upperKey] = nextUtcDate(trimmed)
+      params[`${upperKey}Exclusive`] = 'true'
+      return
+    }
+    params[upperKey] = trimmed
+  }
 
   if (clause.operator === 'range') {
     const [lower, upper] = clause.values
     if (lowerKey && lower?.trim()) {
       params[lowerKey] = lower.trim()
     }
-    if (upperKey && upper?.trim()) {
-      params[upperKey] = upper.trim()
-    }
+    if (upper) applyUpper(upper)
     return
   }
 
@@ -471,7 +487,11 @@ const applyRangeParams = (
   }
 
   if ((clause.operator === '<' || clause.operator === '<=') && upperKey) {
-    params[upperKey] = value
+    if (clause.operator === '<=') {
+      applyUpper(value)
+    } else {
+      params[upperKey] = value
+    }
     if (clause.operator === '<') {
       params[`${upperKey}Exclusive`] = 'true'
     }
@@ -479,7 +499,7 @@ const applyRangeParams = (
 
   if (clause.operator === '=' && lowerKey && upperKey) {
     params[lowerKey] = value
-    params[upperKey] = value
+    applyUpper(value)
   }
 }
 

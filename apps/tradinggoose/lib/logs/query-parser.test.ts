@@ -55,9 +55,20 @@ describe('queryToApiParams', () => {
         providerId: 'alpaca',
         assetTypes: 'stock',
         hasFields: 'monitor',
-        startedAtTo: '2026-04-30',
+        startedAtTo: '2026-05-01',
+        startedAtToExclusive: 'true',
       })
     )
+  })
+
+  it('maps date-only equality to a full UTC day window', () => {
+    const parsed = parseQuery('date:2026-04-30', MONITOR_QUERY_POLICY)
+
+    expect(queryToApiParams(parsed, MONITOR_QUERY_POLICY)).toEqual({
+      startedAtFrom: '2026-04-30',
+      startedAtTo: '2026-05-01',
+      startedAtToExclusive: 'true',
+    })
   })
 
   it('preserves invalid qualifiers separately from valid clauses', () => {
