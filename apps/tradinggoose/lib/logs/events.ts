@@ -9,8 +9,9 @@ import { logsWebhookDelivery } from '@/background/logs-webhook-delivery'
 const logger = createLogger('LogsEventEmitter')
 
 export async function emitWorkflowExecutionCompleted(log: WorkflowExecutionLog): Promise<void> {
+  const workflowId = log.workflowId ?? log.workflowSummary.id
+
   try {
-    const workflowId = log.workflowId ?? log.workflowSummary.id
     if (!workflowId) {
       logger.warn('Skipping workflow log webhook delivery without workflow identity', {
         logId: log.id,
@@ -77,7 +78,7 @@ export async function emitWorkflowExecutionCompleted(log: WorkflowExecutionLog):
   } catch (error) {
     logger.error('Failed to emit workflow execution completed event', {
       error,
-      workflowId: log.workflowId ?? log.workflowSummary.id,
+      workflowId,
       executionId: log.executionId,
     })
   }
