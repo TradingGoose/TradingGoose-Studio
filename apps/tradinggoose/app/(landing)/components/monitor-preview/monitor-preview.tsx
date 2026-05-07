@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { fetchListings } from '@/components/listing-selector/fetchers'
 import { MarketListingRow } from '@/components/listing-selector/listing/row'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -14,11 +13,6 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import type { ListingOption } from '@/lib/listing/identity'
-import {
-  filterToPreferredMarkets,
-  PREFERRED_MARKET_CODES,
-  sortMonitorListings,
-} from '@/app/(landing)/components/monitor-preview/listing-preference'
 
 type MonitorEntry = {
   id: string
@@ -87,19 +81,6 @@ const RANDOM_STATUSES: MonitorEntry['status'][] = ['pending', 'pending', 'runnin
 const INITIAL_ROWS = 6
 const MAX_ROWS = 20
 
-const MONITOR_REFRESH_PER_MARKET_LIMIT = 10
-
-function buildMarketRefreshParams(marketCode: string): Record<string, string> {
-  return {
-    search_query: 'a',
-    filters: JSON.stringify({
-      limit: MONITOR_REFRESH_PER_MARKET_LIMIT,
-      asset_class: ['stock'],
-      market: [marketCode],
-    }),
-  }
-}
-
 function createRandomEntry(stocks: ListingOption[], counter: number): MonitorEntry {
   const stock = stocks[Math.floor(Math.random() * stocks.length)]
   const indicator = INDICATORS[Math.floor(Math.random() * INDICATORS.length)]
@@ -127,23 +108,25 @@ function advanceStatus(status: MonitorEntry['status']): MonitorEntry['status'] {
 }
 
 function seedEntries(stocks: ListingOption[]): MonitorEntry[] {
-  return Array.from({ length: Math.min(INITIAL_ROWS, stocks.length) }, (_, index) => ({
-    ...createRandomEntry(stocks, index),
-    status: INITIAL_STATUSES[index] as MonitorEntry['status'],
-  }))
-}
+  return stocks.slice(0, INITIAL_ROWS).map((stock, index) => {
+    const indicator = INDICATORS[index % INDICATORS.length]
+    const workflow = WORKFLOWS[(index * 2) % WORKFLOWS.length]
 
-function isFallbackStock(stock: ListingOption): boolean {
-  return stock.listing_id.startsWith('fallback-')
+    return {
+      id: `initial-${index}-${stock.listing_type}-${stock.listing_id || stock.base_id}`,
+      stock,
+      indicator: indicator.name,
+      indicatorColor: indicator.color,
+      workflow: workflow.name,
+      workflowColor: workflow.color,
+      status: INITIAL_STATUSES[index] as MonitorEntry['status'],
+    }
+  })
 }
 
 export default function MonitorPreview({ stocks }: { stocks: ListingOption[] }) {
   const [liveStocks, setLiveStocks] = useState(stocks)
-  // Entries pick stock/indicator/workflow via Math.random(). Seeding in
-  // useState would diverge between SSR and hydration, producing different
-  // text on server vs. client → React hydration mismatch. Start empty so
-  // SSR output is deterministic, then seed once on the client after mount.
-  const [entries, setEntries] = useState<MonitorEntry[]>([])
+  const [entries, setEntries] = useState<MonitorEntry[]>(() => seedEntries(stocks))
 
   useEffect(() => {
     setLiveStocks(stocks)
@@ -152,28 +135,6 @@ export default function MonitorPreview({ stocks }: { stocks: ListingOption[] }) 
   useEffect(() => {
     setEntries(seedEntries(liveStocks))
   }, [liveStocks])
-
-  useEffect(() => {
-    if (!stocks.some(isFallbackStock)) return
-
-    const controller = new AbortController()
-
-    void Promise.allSettled(
-      PREFERRED_MARKET_CODES.map((code) =>
-        fetchListings(buildMarketRefreshParams(code), controller.signal)
-      )
-    )
-      .then((results) => {
-        const combined = results.flatMap((result) =>
-          result.status === 'fulfilled' ? result.value : []
-        )
-        const filtered = sortMonitorListings(filterToPreferredMarkets(combined))
-        if (filtered.length > 0) setLiveStocks(filtered.slice(0, MAX_ROWS))
-      })
-      .catch(() => { })
-
-    return () => controller.abort()
-  }, [stocks])
 
   useEffect(() => {
     if (liveStocks.length === 0) return
@@ -227,7 +188,7 @@ export default function MonitorPreview({ stocks }: { stocks: ListingOption[] }) 
                   <TableCell className='min-w-0 max-sm:w-10 max-sm:px-2 max-sm:[&_.flex-col]:hidden'>
                     <MarketListingRow listing={entry.stock} className='w-full min-w-0 pr-0' />
                   </TableCell>
-                  <TableCell className='max-w-[7rem] min-w-0 max-sm:max-w-[5rem] max-sm:px-2'>
+                  <TableCell className='min-w-0 max-w-[7rem] max-sm:max-w-[5rem] max-sm:px-2'>
                     <div className='flex min-w-0 items-center gap-2'>
                       <span
                         className='size-2 shrink-0 rounded-full'
@@ -238,7 +199,7 @@ export default function MonitorPreview({ stocks }: { stocks: ListingOption[] }) 
                       </span>
                     </div>
                   </TableCell>
-                  <TableCell className='max-w-[8rem] min-w-0 max-sm:max-w-[5rem] max-sm:px-2'>
+                  <TableCell className='min-w-0 max-w-[8rem] max-sm:max-w-[5rem] max-sm:px-2'>
                     <div className='flex min-w-0 items-center gap-2'>
                       <span
                         className='size-2 shrink-0 rounded-full'
