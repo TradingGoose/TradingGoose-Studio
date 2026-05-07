@@ -1,6 +1,6 @@
 import { db, orderHistoryTable } from '@tradinggoose/db'
 import { workflowExecutionLogs } from '@tradinggoose/db/schema'
-import { and, eq } from 'drizzle-orm'
+import { and, eq, sql } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
@@ -63,7 +63,11 @@ export async function GET(request: NextRequest) {
       endDate: searchParams.get('endDate') ?? undefined,
     })
 
-    const whereCondition = buildOrderWhereCondition(workspaceId, filters)
+    const whereCondition = buildOrderWhereCondition(workspaceId, filters, {
+      joinedSearchExpressions: [
+        sql`COALESCE(${workflowExecutionLogs.workflowSummary}->>'name', '')`,
+      ],
+    })
     const orderBy = buildOrderOrderBy(filters)
 
     const rows = await db

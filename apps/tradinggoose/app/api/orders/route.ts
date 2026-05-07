@@ -69,7 +69,11 @@ export async function GET(request: NextRequest) {
       startDate: searchParams.get('startDate') ?? undefined,
       endDate: searchParams.get('endDate') ?? undefined,
     })
-    const whereCondition = buildOrderWhereCondition(workspaceId, filters)
+    const whereCondition = buildOrderWhereCondition(workspaceId, filters, {
+      joinedSearchExpressions: [
+        sql`COALESCE(${workflowExecutionLogs.workflowSummary}->>'name', '')`,
+      ],
+    })
     const orderBy = buildOrderOrderBy(filters)
 
     const baseQuery = () =>

@@ -1,10 +1,6 @@
 import { createHmac } from 'crypto'
 import { db } from '@tradinggoose/db'
-import {
-  workflowExecutionLogs,
-  workflowLogWebhook,
-  workflowLogWebhookDelivery,
-} from '@tradinggoose/db/schema'
+import { workflowExecutionLogs, workflowLogWebhookDelivery } from '@tradinggoose/db/schema'
 import { task, wait } from '@trigger.dev/sdk'
 import { and, eq, isNull, lte, or, sql } from 'drizzle-orm'
 import { v4 as uuidv4 } from 'uuid'
@@ -128,48 +124,33 @@ export const logsWebhookDelivery = task({
 
       const attempts = delivery.attempts
       const workflowSummary = delivery.workflowSummary as WorkflowExecutionLog['workflowSummary']
-      let subscriptionSnapshot = delivery.subscriptionSnapshot as SubscriptionSnapshot
+      const subscriptionSnapshot = delivery.subscriptionSnapshot as SubscriptionSnapshot | null
 
-      if (delivery.subscriptionId) {
-        const [subscription] = await db
-          .select()
-          .from(workflowLogWebhook)
-          .where(eq(workflowLogWebhook.id, delivery.subscriptionId))
-          .limit(1)
+      if (!subscriptionSnapshot) {
+        await db
+          .update(workflowLogWebhookDelivery)
+          .set({
+            status: 'failed',
+            attempts,
+            lastAttemptAt: new Date(),
+            errorMessage: 'Webhook delivery is missing subscription snapshot',
+            updatedAt: new Date(),
+          })
+          .where(
+            and(
+              eq(workflowLogWebhookDelivery.id, deliveryId),
+              eq(workflowLogWebhookDelivery.status, 'in_progress')
+            )
+          )
 
-        if (subscription) {
-          if (!subscription.active) {
-            await db
-              .update(workflowLogWebhookDelivery)
-              .set({
-                status: 'failed',
-                attempts,
-                lastAttemptAt: new Date(),
-                errorMessage: 'Webhook subscription is inactive',
-                updatedAt: new Date(),
-              })
-              .where(
-                and(
-                  eq(workflowLogWebhookDelivery.id, deliveryId),
-                  eq(workflowLogWebhookDelivery.status, 'in_progress')
-                )
-              )
-
-            logger.info(`Webhook delivery ${deliveryId} skipped because subscription is inactive`, {
-              subscriptionId: delivery.subscriptionId,
-            })
-            return { success: false }
+        logger.error(
+          `Webhook delivery ${deliveryId} failed because subscription snapshot is missing`,
+          {
+            executionId: delivery.executionId,
+            workspaceId: delivery.workspaceId,
           }
-
-          subscriptionSnapshot = {
-            url: subscription.url,
-            secret: subscription.secret,
-            includeFinalOutput: subscription.includeFinalOutput,
-            includeTraceSpans: subscription.includeTraceSpans,
-            includeRateLimits: subscription.includeRateLimits,
-            includeUsageData: subscription.includeUsageData,
-          }
-        }
+        )
+        return { success: false }
       }
 
       const [logRow] = await db

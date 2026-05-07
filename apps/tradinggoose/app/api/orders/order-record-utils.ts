@@ -1,5 +1,4 @@
 import { orderHistoryTable } from '@tradinggoose/db'
-import { workflowExecutionLogs } from '@tradinggoose/db/schema'
 import { and, eq, gte, isNotNull, isNull, lte, or, type SQL, sql } from 'drizzle-orm'
 import {
   normalizeOrderDateFilterValue,
@@ -430,7 +429,11 @@ const averageFillPriceExpr = () =>
     sql`${orderHistoryTable.response}->'raw'->'order'->>'average_fill_price'`
   )
 
-export function buildOrderWhereCondition(workspaceId: string, filters: OrdersFilterState) {
+export function buildOrderWhereCondition(
+  workspaceId: string,
+  filters: OrdersFilterState,
+  options: { joinedSearchExpressions?: SQL[] } = {}
+) {
   const normalized = normalizeOrdersFilterState(filters)
   const conditions: SQL[] = [eq(orderHistoryTable.workspaceId, workspaceId)]
   const baseConditions = buildBaseOrderConditions({
@@ -469,7 +472,9 @@ export function buildOrderWhereCondition(workspaceId: string, filters: OrdersFil
         sql`${orderTypeExpr()} ILIKE ${search}`,
         sql`${timeInForceExpr()} ILIKE ${search}`,
         sql`${orderMessageExpr()} ILIKE ${search}`,
-        sql`COALESCE(${workflowExecutionLogs.workflowSummary}->>'name', '') ILIKE ${search}`
+        ...(options.joinedSearchExpressions ?? []).map(
+          (expression) => sql`${expression} ILIKE ${search}`
+        )
       ) as SQL
     )
   }

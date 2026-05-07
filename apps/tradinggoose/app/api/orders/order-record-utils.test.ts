@@ -46,12 +46,6 @@ vi.mock('@tradinggoose/db', () => ({
   },
 }))
 
-vi.mock('@tradinggoose/db/schema', () => ({
-  workflowExecutionLogs: {
-    workflowSummary: 'workflowExecutionLogs.workflowSummary',
-  },
-}))
-
 vi.mock('drizzle-orm', () => ({
   and: mocks.and,
   eq: mocks.eq,
@@ -239,5 +233,63 @@ describe('order record utils', () => {
         return template.includes('::text') && values.some((value) => jsonColumns.has(String(value)))
       })
     ).toBe(false)
+  })
+
+  it('does not reference joined workflow log columns unless the caller supplies them', async () => {
+    const { buildOrderWhereCondition } = await import('./order-record-utils')
+
+    buildOrderWhereCondition('workspace-1', {
+      endDate: '',
+      environment: '',
+      linkedLog: '',
+      orderSearch: 'Workflow',
+      orderSortBy: 'recordedAt',
+      orderSortOrder: 'desc',
+      orderType: '',
+      provider: '',
+      side: '',
+      startDate: '',
+      status: '',
+      submissionSource: '',
+      timeInForce: '',
+    })
+
+    expect(
+      mocks.sql.mock.calls.some((call: unknown[]) =>
+        call.some((value) => String(value).includes('workflowExecutionLogs'))
+      )
+    ).toBe(false)
+  })
+
+  it('adds caller-owned joined search expressions explicitly', async () => {
+    const { buildOrderWhereCondition } = await import('./order-record-utils')
+    const joinedExpression = { type: 'joined-search-expression' } as any
+
+    buildOrderWhereCondition(
+      'workspace-1',
+      {
+        endDate: '',
+        environment: '',
+        linkedLog: '',
+        orderSearch: 'Workflow',
+        orderSortBy: 'recordedAt',
+        orderSortOrder: 'desc',
+        orderType: '',
+        provider: '',
+        side: '',
+        startDate: '',
+        status: '',
+        submissionSource: '',
+        timeInForce: '',
+      },
+      { joinedSearchExpressions: [joinedExpression] }
+    )
+
+    expect(
+      mocks.sql.mock.calls.some((call: unknown[]) => {
+        const [strings, ...values] = call as [TemplateStringsArray, ...unknown[]]
+        return Array.from(strings).join('').includes('ILIKE') && values.includes(joinedExpression)
+      })
+    ).toBe(true)
   })
 })
