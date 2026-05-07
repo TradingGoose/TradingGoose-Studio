@@ -1,5 +1,5 @@
-import type { TraceSpan } from '@/lib/logs/types'
 import type { ExecutionConcurrencyController } from '@/lib/execution/execution-concurrency-limit'
+import type { TraceSpan } from '@/lib/logs/types'
 import type { BlockOutput } from '@/blocks/types'
 import type { SerializedBlock, SerializedWorkflow } from '@/serializer/types'
 import type { TriggerType } from '@/services/queue'

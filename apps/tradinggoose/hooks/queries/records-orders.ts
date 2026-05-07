@@ -173,11 +173,7 @@ export function useProviderOrderDetail(params: {
   enabled?: boolean
 }) {
   return useQuery({
-    queryKey: recordsOrderKeys.providerDetail(
-      params.workspaceId,
-      params.orderId,
-      params.accountId
-    ),
+    queryKey: recordsOrderKeys.providerDetail(params.workspaceId, params.orderId, params.accountId),
     queryFn: async () => {
       const response = await fetch(
         `/api/orders/${params.orderId}/provider-detail?workspaceId=${encodeURIComponent(

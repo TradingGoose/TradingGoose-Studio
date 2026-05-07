@@ -1,9 +1,6 @@
 import type { QueryFieldPolicy, QueryPolicy } from '@/lib/logs/query-types'
 
-const makePolicy = (
-  key: QueryPolicy['key'],
-  fields: QueryFieldPolicy[]
-): QueryPolicy => ({
+const makePolicy = (key: QueryPolicy['key'], fields: QueryFieldPolicy[]): QueryPolicy => ({
   key,
   fields: Object.fromEntries(fields.map((field) => [field.key, field])),
   orderedFields: fields,

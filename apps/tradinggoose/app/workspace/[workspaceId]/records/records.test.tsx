@@ -140,9 +140,12 @@ vi.mock('@/app/workspace/[workspaceId]/records/components/stats', () => ({
   ),
 }))
 
-vi.mock('@/app/workspace/[workspaceId]/records/components/stats/components/logs-filters/logs-filters', () => ({
-  LogsFilters: () => <div data-testid='stats-filters'>stats-filters</div>,
-}))
+vi.mock(
+  '@/app/workspace/[workspaceId]/records/components/stats/components/logs-filters/logs-filters',
+  () => ({
+    LogsFilters: () => <div data-testid='stats-filters'>stats-filters</div>,
+  })
+)
 
 vi.mock('@/hooks/queries/folders', () => ({
   useFolders: () => ({ data: mocks.foldersData }),

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { LOGS_QUERY_POLICY, MONITOR_QUERY_POLICY } from './query-policy'
 import { createSearchClause } from './query-parser'
+import { LOGS_QUERY_POLICY, MONITOR_QUERY_POLICY } from './query-policy'
 import { SearchSuggestions } from './search-suggestions'
 
 describe('SearchSuggestions', () => {
@@ -38,17 +38,19 @@ describe('SearchSuggestions', () => {
   it('returns presence suggestions for indicator and endedAt fields', () => {
     const result = engine.getSuggestions('has:')
     expect(result?.type).toBe('values')
-    expect(result?.suggestions.some((suggestion) => suggestion.value === 'has:indicator')).toBe(true)
+    expect(result?.suggestions.some((suggestion) => suggestion.value === 'has:indicator')).toBe(
+      true
+    )
     expect(result?.suggestions.some((suggestion) => suggestion.value === 'has:endedAt')).toBe(true)
   })
 
   it('keeps partial presence suggestions available after the colon', () => {
-    expect(engine.getSuggestions('has:mo')?.suggestions.map((suggestion) => suggestion.value)).toEqual([
-      'has:monitor',
-    ])
-    expect(engine.getSuggestions('no:co')?.suggestions.map((suggestion) => suggestion.value)).toEqual(
-      ['no:cost']
-    )
+    expect(
+      engine.getSuggestions('has:mo')?.suggestions.map((suggestion) => suggestion.value)
+    ).toEqual(['has:monitor'])
+    expect(
+      engine.getSuggestions('no:co')?.suggestions.map((suggestion) => suggestion.value)
+    ).toEqual(['no:cost'])
   })
 
   it('does not expose presence-only fields as bare qualifier suggestions', () => {
@@ -87,26 +89,33 @@ describe('SearchSuggestions', () => {
   it('matches the policy-defined static-options and examples-only suggestion sources', () => {
     const policies = [
       { engine: new SearchSuggestions({ policy: LOGS_QUERY_POLICY }), policy: LOGS_QUERY_POLICY },
-      { engine: new SearchSuggestions({ policy: MONITOR_QUERY_POLICY }), policy: MONITOR_QUERY_POLICY },
+      {
+        engine: new SearchSuggestions({ policy: MONITOR_QUERY_POLICY }),
+        policy: MONITOR_QUERY_POLICY,
+      },
     ]
 
     policies.forEach(({ engine: policyEngine, policy }) => {
       policy.orderedFields
         .filter((field) => field.suggestionSource === 'staticOptions')
         .forEach((field) => {
-          expect(policyEngine.getSuggestions(`${field.key}:`)?.suggestions.map((suggestion) => suggestion.value)).toEqual(
-            (field.staticOptions ?? []).map((option) => `${field.key}:${option.value}`)
-          )
+          expect(
+            policyEngine
+              .getSuggestions(`${field.key}:`)
+              ?.suggestions.map((suggestion) => suggestion.value)
+          ).toEqual((field.staticOptions ?? []).map((option) => `${field.key}:${option.value}`))
         })
 
       policy.orderedFields
         .filter(
-          (field) =>
-            field.suggestionSource === 'examplesOnly' &&
-            (field.examples?.length ?? 0) > 0
+          (field) => field.suggestionSource === 'examplesOnly' && (field.examples?.length ?? 0) > 0
         )
         .forEach((field) => {
-          expect(policyEngine.getSuggestions(`${field.key}:`)?.suggestions.map((suggestion) => suggestion.value)).toEqual(
+          expect(
+            policyEngine
+              .getSuggestions(`${field.key}:`)
+              ?.suggestions.map((suggestion) => suggestion.value)
+          ).toEqual(
             (field.examples ?? []).map((example) =>
               example.startsWith(`${field.key}:`) ? example : `${field.key}:${example}`
             )
@@ -131,7 +140,9 @@ describe('SearchSuggestions', () => {
       ],
     })
 
-    expect(workflowEngine.getSuggestions('workflow:#wf')?.suggestions[0]?.value).toBe('workflow:#wf-1')
+    expect(workflowEngine.getSuggestions('workflow:#wf')?.suggestions[0]?.value).toBe(
+      'workflow:#wf-1'
+    )
     expect(workflowEngine.getSuggestions('monitor:#monitor')?.suggestions[0]?.value).toBe(
       'monitor:#monitor-1'
     )

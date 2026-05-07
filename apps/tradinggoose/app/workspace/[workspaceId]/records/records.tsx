@@ -24,8 +24,8 @@ import {
   LogsToolbar,
 } from '@/app/workspace/[workspaceId]/records/components/logs-toolbar'
 import {
-  OrderFilterMenu,
   OrderDetails,
+  OrderFilterMenu,
   OrderFilters,
   OrdersTable,
   type RecordsOrder,
@@ -594,10 +594,7 @@ export default function Records() {
             <span className='font-medium text-sm'>Records</span>
           </div>
           {activeTab === 'orders' ? (
-            <OrderFilters
-              searchValue={orderSearchInput}
-              onSearchChange={setOrderSearchInput}
-            />
+            <OrderFilters searchValue={orderSearchInput} onSearchChange={setOrderSearchInput} />
           ) : activeTab === 'logs' ? (
             <AutocompleteSearch
               value={logSearchQuery}

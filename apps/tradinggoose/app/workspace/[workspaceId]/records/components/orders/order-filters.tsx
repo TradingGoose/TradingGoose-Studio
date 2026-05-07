@@ -133,10 +133,7 @@ function FilterSelect({
   )
 }
 
-export function OrderFilters({
-  searchValue,
-  onSearchChange,
-}: OrderFiltersProps) {
+export function OrderFilters({ searchValue, onSearchChange }: OrderFiltersProps) {
   return (
     <div className='flex min-w-0 flex-1'>
       <div className='relative min-w-[160px] flex-1'>

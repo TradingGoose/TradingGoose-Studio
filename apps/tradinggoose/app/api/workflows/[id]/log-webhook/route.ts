@@ -235,8 +235,8 @@ export async function DELETE(
       .where(
         and(
           eq(workflowLogWebhookDelivery.subscriptionId, webhookId),
-          inArray(workflowLogWebhookDelivery.status, ['pending', 'in_progress']),
-        ),
+          inArray(workflowLogWebhookDelivery.status, ['pending', 'in_progress'])
+        )
       )
 
     const deleted = await db
