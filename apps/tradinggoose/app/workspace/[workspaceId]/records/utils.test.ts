@@ -60,11 +60,11 @@ describe('records URL helpers', () => {
     })
   })
 
-  it('syncs records tab while preserving order-owned query state and dropping stale view', () => {
+  it('syncs records tab while preserving order-owned query state', () => {
     window.history.replaceState(
       {},
       '',
-      '/workspace/ws-1/records?tab=orders&view=dashboard&orderSearch=AAPL&side=buy'
+      '/workspace/ws-1/records?tab=orders&orderSearch=AAPL&side=buy'
     )
 
     syncRecordsTabToUrl('logs')
@@ -73,15 +73,10 @@ describe('records URL helpers', () => {
     expect(params.get('tab')).toBe('logs')
     expect(params.get('orderSearch')).toBe('AAPL')
     expect(params.get('side')).toBe('buy')
-    expect(params.has('view')).toBe(false)
   })
 
   it('syncs order state to compact non-default URL params without deleting logs filters', () => {
-    window.history.replaceState(
-      {},
-      '',
-      '/workspace/ws-1/records?tab=logs&view=dashboard&level=error'
-    )
+    window.history.replaceState({}, '', '/workspace/ws-1/records?tab=logs&level=error')
 
     syncOrdersStateToUrl({
       endDate: '',
@@ -108,6 +103,5 @@ describe('records URL helpers', () => {
     expect(params.get('side')).toBe('buy')
     expect(params.get('orderType')).toBe('limit')
     expect(params.get('timeInForce')).toBe('day')
-    expect(params.has('view')).toBe(false)
   })
 })

@@ -99,17 +99,17 @@ vi.mock('@/app/workspace/[workspaceId]/dashboard/layout-tabs', () => ({
   ),
 }))
 
-vi.mock('@/app/workspace/[workspaceId]/logs/components/logs-toolbar', () => ({
+vi.mock('@/app/workspace/[workspaceId]/records/components/logs-toolbar', () => ({
   AutocompleteSearch: ({
     value,
-    availableWorkflows = [],
+    workflowsData = [],
   }: {
     value: string
-    availableWorkflows?: string[]
+    workflowsData?: Array<{ id: string; name: string }>
   }) => (
     <div>
       <div data-testid='autocomplete-value'>{value}</div>
-      <div data-testid='autocomplete-workflow-count'>{availableWorkflows.length}</div>
+      <div data-testid='autocomplete-workflow-count'>{workflowsData.length}</div>
     </div>
   ),
 }))

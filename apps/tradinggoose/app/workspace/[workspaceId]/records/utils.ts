@@ -28,7 +28,6 @@ const replaceCurrentUrlSearch = (params: URLSearchParams) => {
 
 export function syncRecordsTabToUrl(tab: RecordsTab) {
   const params = getCurrentSearchParams()
-  params.delete('view')
   if (tab === 'orders') {
     params.delete('tab')
   } else {
@@ -71,7 +70,6 @@ const setParamWhenNonDefault = (
 export function syncOrdersStateToUrl(state: OrdersUrlState) {
   const normalized = normalizeOrdersFilterState(state)
   const params = getCurrentSearchParams()
-  params.delete('view')
 
   const tab = params.get('tab')
   if (tab !== 'logs' && tab !== 'stats') {

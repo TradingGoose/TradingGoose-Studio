@@ -9,7 +9,6 @@ const resetFilterStore = () => {
   useFilterStore.setState({
     logs: [],
     workspaceId: '',
-    viewMode: 'logs',
     timeRange: 'All time',
     level: 'all',
     workflowIds: [],
@@ -31,11 +30,11 @@ describe('logs filter store', () => {
     window.history.replaceState({}, '', '/workspace/ws-1/records')
   })
 
-  it('drops stale view params while preserving records-owned params', () => {
+  it('preserves records-owned params while syncing log filters', () => {
     window.history.replaceState(
       {},
       '',
-      `/workspace/ws-1/records?tab=logs&view=${'dashboard'}&timeRange=past-24-hours&orderSearch=AAPL&orderSortBy=provider`
+      '/workspace/ws-1/records?tab=logs&timeRange=past-24-hours&orderSearch=AAPL&orderSortBy=provider'
     )
 
     useFilterStore.getState().initializeFromURL()
@@ -45,7 +44,6 @@ describe('logs filter store', () => {
     expect(params.get('timeRange')).toBe('past-24-hours')
     expect(params.get('orderSearch')).toBe('AAPL')
     expect(params.get('orderSortBy')).toBe('provider')
-    expect(params.has('view')).toBe(false)
   })
 
   it('canonicalizes default records tab values during log filter sync', () => {
@@ -69,7 +67,6 @@ describe('logs filter store', () => {
       '',
       [
         '/workspace/ws-1/records?tab=logs',
-        'view=monitors',
         'orderSearch=AAPL',
         'orderSortBy=side',
         'orderSortOrder=asc',
@@ -104,7 +101,6 @@ describe('logs filter store', () => {
 
     const params = new URLSearchParams(window.location.search)
     expect(params.get('tab')).toBe('logs')
-    expect(params.has('view')).toBe(false)
     expect(params.get('orderSearch')).toBe('AAPL')
     expect(params.get('orderSortBy')).toBe('side')
     expect(params.get('orderSortOrder')).toBe('asc')
