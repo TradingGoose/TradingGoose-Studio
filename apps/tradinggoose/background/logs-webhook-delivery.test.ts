@@ -124,6 +124,23 @@ const workflowSummary = {
   userId: 'user-1',
 }
 
+const buildLogRow = (executionData: Record<string, unknown>) => ({
+  id: 'log-1',
+  workflowId: null,
+  workspaceId: 'workspace-1',
+  executionId: 'execution-1',
+  stateSnapshotId: 'snapshot-1',
+  level: 'info',
+  trigger: 'manual',
+  startedAt: new Date('2026-04-23T00:00:00.000Z'),
+  endedAt: new Date('2026-04-23T00:01:00.000Z'),
+  totalDurationMs: 60_000,
+  executionData,
+  cost: { total: 0.01 },
+  files: null,
+  createdAt: new Date('2026-04-23T00:01:00.000Z'),
+})
+
 describe('logsWebhookDelivery task', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -165,25 +182,10 @@ describe('logsWebhookDelivery task', () => {
       },
     ])
     mockSelectQueue.push([
-      {
-        id: 'log-1',
-        workflowId: null,
-        workspaceId: 'workspace-1',
-        executionId: 'execution-1',
-        stateSnapshotId: 'snapshot-1',
-        level: 'info',
-        trigger: 'manual',
-        startedAt: new Date('2026-04-23T00:00:00.000Z'),
-        endedAt: new Date('2026-04-23T00:01:00.000Z'),
-        totalDurationMs: 60_000,
-        executionData: {
-          finalOutput: { orderId: 'order-1' },
-          traceSpans: [{ id: 'span-1' }],
-        },
-        cost: { total: 0.01 },
-        files: null,
-        createdAt: new Date('2026-04-23T00:01:00.000Z'),
-      },
+      buildLogRow({
+        finalOutput: { orderId: 'order-1' },
+        traceSpans: [{ id: 'span-1' }],
+      }),
     ])
   })
 
@@ -218,6 +220,34 @@ describe('logsWebhookDelivery task', () => {
     )
     expect(body.data.finalOutput).toBeUndefined()
     expect(mockTaskTrigger).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    ['false', false],
+    ['zero', 0],
+    ['empty string', ''],
+    ['null', null],
+  ])('includes %s finalOutput values when opted in', async (_label, finalOutput) => {
+    mockSelectQueue.length = 0
+    mockSelectQueue.push([
+      {
+        active: true,
+        url: 'https://example.com/live-webhook',
+        secret: null,
+        includeFinalOutput: true,
+        includeTraceSpans: false,
+        includeRateLimits: false,
+        includeUsageData: false,
+      },
+    ])
+    mockSelectQueue.push([buildLogRow({ finalOutput })])
+    const { logsWebhookDelivery } = await import('./logs-webhook-delivery')
+
+    await (logsWebhookDelivery as any).run({ deliveryId: 'delivery-1' })
+
+    const request = mockFetch.mock.calls[0][1] as RequestInit
+    const body = JSON.parse(String(request.body))
+    expect(body.data).toHaveProperty('finalOutput', finalOutput)
   })
 
   it('fails delivery without fetching when the live subscription is inactive', async () => {

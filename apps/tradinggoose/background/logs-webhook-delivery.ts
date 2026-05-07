@@ -204,7 +204,7 @@ export const logsWebhookDelivery = task({
 
       const executionData = (logRow.executionData ?? {}) as Record<string, any>
       const webhookExecutionData: Record<string, any> = {}
-      if (subscriptionSnapshot.includeFinalOutput && executionData.finalOutput) {
+      if (subscriptionSnapshot.includeFinalOutput && executionData.finalOutput !== undefined) {
         webhookExecutionData.finalOutput = executionData.finalOutput
       }
       if (subscriptionSnapshot.includeTraceSpans && executionData.traceSpans) {
