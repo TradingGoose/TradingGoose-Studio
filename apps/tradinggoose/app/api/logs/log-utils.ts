@@ -58,9 +58,12 @@ export const parseListingFilters = (
       return null
     }
 
-    const listings = parsed
-      .map((entry) => toListingValueObject(entry))
-      .filter((entry): entry is ListingIdentity => Boolean(entry))
+    const listings: ListingIdentity[] = []
+    for (const entry of parsed) {
+      const listing = toListingValueObject(entry)
+      if (!listing) return null
+      listings.push(listing)
+    }
 
     return listings
   } catch {

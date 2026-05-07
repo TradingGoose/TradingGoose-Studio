@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { serializeWorkflowLog } from './log-utils'
+import { parseListingFilters, serializeWorkflowLog } from './log-utils'
 
 const buildRow = (overrides: Record<string, unknown> = {}) =>
   ({
@@ -162,5 +162,33 @@ describe('serializeWorkflowLog executionData', () => {
     )
 
     expect(log.outcome).toBe('error')
+  })
+})
+
+describe('parseListingFilters', () => {
+  it('returns null when any JSON array entry is not a valid listing identity', () => {
+    expect(parseListingFilters(JSON.stringify([{ listing_type: 'default' }]))).toBeNull()
+    expect(
+      parseListingFilters(
+        JSON.stringify([
+          { listing_type: 'default', listing_id: 'AAPL' },
+          { listing_type: 'crypto', base_id: 'BTC' },
+        ])
+      )
+    ).toBeNull()
+  })
+
+  it('keeps every valid listing identity from JSON arrays', () => {
+    expect(
+      parseListingFilters(
+        JSON.stringify([
+          { listing_type: 'default', listing_id: 'AAPL' },
+          { listing_type: 'crypto', base_id: 'BTC', quote_id: 'USD' },
+        ])
+      )
+    ).toEqual([
+      { listing_type: 'default', listing_id: 'AAPL', base_id: '', quote_id: '' },
+      { listing_type: 'crypto', listing_id: '', base_id: 'BTC', quote_id: 'USD' },
+    ])
   })
 })

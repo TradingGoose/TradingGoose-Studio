@@ -263,6 +263,21 @@ describe('logs export route', () => {
     expect(body).toContain('Workflow Beta')
   })
 
+  it('returns 400 when export listing filter arrays contain malformed entries', async () => {
+    const invalidListings = encodeURIComponent(JSON.stringify([{ listing_type: 'default' }]))
+
+    const { GET } = await import('./route')
+    const response = await GET(
+      new NextRequest(
+        `http://localhost/api/logs/export?workspaceId=workspace-1&excludeListings=${invalidListings}`
+      )
+    )
+
+    expect(response.status).toBe(400)
+    expect(await response.json()).toEqual({ error: 'Invalid listing filter' })
+    expect(mockSelect).not.toHaveBeenCalled()
+  })
+
   it('exports logs in bounded pages', async () => {
     const firstPage = Array.from({ length: 1000 }, (_, index) =>
       buildRow({

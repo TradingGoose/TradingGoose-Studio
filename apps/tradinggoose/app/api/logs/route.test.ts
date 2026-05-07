@@ -340,8 +340,26 @@ describe('logs route', () => {
     const listSelect = mockSelect.mock.calls.at(-1)?.[0] as unknown as Record<string, unknown>
     const outcomeSql = stringifySql(listSelect.outcome)
 
-    expect(outcomeSql).toContain('jsonb_path_query')
-    expect(outcomeSql).toContain('$.traceSpans[*].**.status')
+    expect(outcomeSql).toContain('WITH RECURSIVE trace_spans')
+    expect(outcomeSql).toContain("trace_spans.span->'children'")
+    expect(outcomeSql).toContain("trace_spans.span->'status'")
+    expect(outcomeSql).not.toContain('**.status')
+    expect(outcomeSql).not.toContain('jsonb_path_query')
+  })
+
+  it('returns 400 when listing filter arrays contain malformed entries', async () => {
+    const invalidListings = encodeURIComponent(JSON.stringify([{ listing_type: 'default' }]))
+
+    const { GET } = await import('./route')
+    const response = await GET(
+      new NextRequest(
+        `http://localhost/api/logs?workspaceId=workspace-1&listings=${invalidListings}`
+      )
+    )
+
+    expect(response.status).toBe(400)
+    expect(await response.json()).toEqual({ error: 'Invalid listing filter' })
+    expect(mockSelect).not.toHaveBeenCalled()
   })
 
   it('ignores all sentinel values for log level filters', async () => {
