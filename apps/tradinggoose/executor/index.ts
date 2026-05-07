@@ -1715,7 +1715,7 @@ export class Executor {
    */
   private async executeBlock(
     blockId: string,
-    context: ExecutionContext
+    sharedContext: ExecutionContext
   ): Promise<NormalizedBlockOutput | StreamingExecution | DeferredBlockExecution> {
     // Check if this is a virtual block ID for parallel execution
     let actualBlockId = blockId
@@ -1723,20 +1723,18 @@ export class Executor {
       | { originalBlockId: string; parallelId: string; iterationIndex: number }
       | undefined
 
-    if (context.parallelBlockMapping?.has(blockId)) {
-      parallelInfo = context.parallelBlockMapping.get(blockId)
+    if (sharedContext.parallelBlockMapping?.has(blockId)) {
+      parallelInfo = sharedContext.parallelBlockMapping.get(blockId)
       actualBlockId = parallelInfo!.originalBlockId
+    }
 
-      // Set the current virtual block ID in context so resolver can access it
-      context.currentVirtualBlockId = blockId
+    const context: ExecutionContext = parallelInfo
+      ? { ...sharedContext, currentVirtualBlockId: blockId }
+      : sharedContext
 
-      // Set up iteration-specific context BEFORE resolving inputs
-      if (parallelInfo) {
-        this.parallelManager.setupIterationContext(context, parallelInfo)
-      }
-    } else {
-      // Clear currentVirtualBlockId for non-virtual blocks
-      context.currentVirtualBlockId = undefined
+    // Set up iteration-specific context BEFORE resolving inputs.
+    if (parallelInfo) {
+      this.parallelManager.setupIterationContext(context, parallelInfo)
     }
 
     const block = this.actualWorkflow.blocks.find((b) => b.id === actualBlockId)

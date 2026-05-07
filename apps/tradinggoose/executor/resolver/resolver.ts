@@ -7,6 +7,7 @@ import type { SubBlockCondition } from '@/blocks/types'
 import type { LoopManager } from '@/executor/loops/loops'
 import type { ExecutionContext } from '@/executor/types'
 import type { SerializedBlock, SerializedWorkflow } from '@/serializer/types'
+import type { VariableType } from '@/stores/variables/types'
 import { normalizeBlockName } from '@/stores/workflows/utils'
 
 const logger = createLogger('InputResolver')
@@ -306,13 +307,7 @@ export class InputResolver {
       return variable?.value // Return null or undefined as is
     }
 
-    try {
-      // Use the centralized VariableManager to resolve variable values
-      return VariableManager.resolveForExecution(variable.value, variable.type)
-    } catch (error) {
-      logger.error(`Error processing variable ${variable.name} (type: ${variable.type}):`, error)
-      return variable.value // Fallback to original value on error
-    }
+    return VariableManager.resolveForExecution(variable.value, variable.type)
   }
 
   /**
@@ -327,29 +322,23 @@ export class InputResolver {
    */
   private formatValueForInterpolation(
     value: any,
-    type: string,
+    type: VariableType,
     currentBlock?: SerializedBlock
   ): string {
-    try {
-      // For plain text, use exactly what's entered without modifications
-      if (type === 'plain' && typeof value === 'string') {
-        return value
-      }
-
-      // Determine if this needs special handling for code contexts
-      const needsCodeStringLiteral = this.needsCodeStringLiteral(currentBlock, String(value))
-      const isFunctionBlock = currentBlock?.metadata?.id === 'function'
-
-      // Always use code formatting for function blocks
-      if (isFunctionBlock || needsCodeStringLiteral) {
-        return VariableManager.formatForCodeContext(value, type as any)
-      }
-      return VariableManager.formatForTemplateInterpolation(value, type as any)
-    } catch (error) {
-      logger.error(`Error formatting value for interpolation (type: ${type}):`, error)
-      // Fallback to simple string conversion
-      return String(value)
+    // For plain text, use exactly what's entered without modifications
+    if (type === 'plain' && typeof value === 'string') {
+      return value
     }
+
+    // Determine if this needs special handling for code contexts
+    const needsCodeStringLiteral = this.needsCodeStringLiteral(currentBlock, String(value))
+    const isFunctionBlock = currentBlock?.metadata?.id === 'function'
+
+    // Always use code formatting for function blocks
+    if (isFunctionBlock || needsCodeStringLiteral) {
+      return VariableManager.formatForCodeContext(value, type)
+    }
+    return VariableManager.formatForTemplateInterpolation(value, type)
   }
 
   /**
@@ -512,20 +501,12 @@ export class InputResolver {
                   'trigger block'
                 )
               } else {
-                // Regular property access with FileReference mapping
-                const directValue = resolvePropertyAccess(replacementValue, part)
-
-                // If we're working with an array and no direct property match, fall back to first item property access.
-                if (directValue === undefined && Array.isArray(replacementValue)) {
-                  const firstItem = replacementValue[0]
-                  if (firstItem && typeof firstItem === 'object' && part in firstItem) {
-                    replacementValue = (firstItem as any)[part]
-                  } else {
-                    replacementValue = directValue
-                  }
-                } else {
-                  replacementValue = directValue
+                if (Array.isArray(replacementValue)) {
+                  throw new Error(
+                    `Array path "${path}" in trigger block must use an explicit index.`
+                  )
                 }
+                replacementValue = resolvePropertyAccess(replacementValue, part)
               }
 
               if (replacementValue === undefined) {
@@ -738,6 +719,11 @@ export class InputResolver {
             sourceBlock.metadata?.name || sourceBlock.id
           )
         } else {
+          if (Array.isArray(replacementValue)) {
+            throw new Error(
+              `Array path "${path}" in block "${sourceBlock.metadata?.name || sourceBlock.id}" must use an explicit index.`
+            )
+          }
           replacementValue = resolvePropertyAccess(replacementValue, part)
         }
 

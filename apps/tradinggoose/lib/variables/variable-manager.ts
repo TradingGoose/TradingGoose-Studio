@@ -101,7 +101,7 @@ export class VariableManager {
         }
 
       default:
-        return unquoted
+        throw new Error(`Unsupported variable type: ${String(type)}`)
     }
   }
 
@@ -146,7 +146,7 @@ export class VariableManager {
         return JSON.stringify(typedValue)
 
       default:
-        return String(typedValue)
+        throw new Error(`Unsupported variable type: ${String(type)}`)
     }
   }
 

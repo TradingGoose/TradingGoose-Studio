@@ -367,6 +367,32 @@ const accountExpr = () =>
     sql`${orderHistoryTable.response}->'raw'->'order'->>'account_id'`
   )
 
+const providerOrderIdExpr = () =>
+  coalesceText(
+    sql`${orderHistoryTable.normalizedOrder}->>'id'`,
+    sql`${orderHistoryTable.normalizedOrder}->>'orderId'`,
+    sql`${orderHistoryTable.response}->>'orderId'`,
+    sql`${orderHistoryTable.response}->'raw'->>'id'`,
+    sql`${orderHistoryTable.response}->'raw'->>'order_id'`,
+    sql`${orderHistoryTable.response}->'raw'->'order'->>'id'`
+  )
+
+const clientOrderIdExpr = () =>
+  coalesceText(
+    sql`${orderHistoryTable.response}->>'clientOrderId'`,
+    sql`${orderHistoryTable.response}->'raw'->>'client_order_id'`,
+    sql`${orderHistoryTable.response}->'raw'->'order'->>'client_order_id'`
+  )
+
+const orderMessageExpr = () =>
+  coalesceText(
+    sql`${orderHistoryTable.response}->>'errorMessage'`,
+    sql`${orderHistoryTable.response}->>'message'`,
+    sql`${orderHistoryTable.response}->'raw'->>'message'`,
+    sql`${orderHistoryTable.response}->'raw'->>'error'`,
+    sql`${orderHistoryTable.response}->'raw'->'order'->>'message'`
+  )
+
 const submittedAtExpr = () =>
   sql<Date>`COALESCE(
     ${timestampText(sql`NULLIF(${orderHistoryTable.normalizedOrder}->>'submittedAt', '')`)},
@@ -433,10 +459,16 @@ export function buildOrderWhereCondition(workspaceId: string, filters: OrdersFil
         sql`COALESCE(${orderHistoryTable.workflowExecutionId}, '') ILIKE ${search}`,
         sql`COALESCE(${orderHistoryTable.provider}, '') ILIKE ${search}`,
         sql`COALESCE(${orderHistoryTable.environment}, '') ILIKE ${search}`,
-        sql`COALESCE(${orderHistoryTable.listingIdentity}::text, '') ILIKE ${search}`,
-        sql`COALESCE(${orderHistoryTable.request}::text, '') ILIKE ${search}`,
-        sql`COALESCE(${orderHistoryTable.response}::text, '') ILIKE ${search}`,
-        sql`COALESCE(${orderHistoryTable.normalizedOrder}::text, '') ILIKE ${search}`,
+        sql`COALESCE(${orderHistoryTable.submissionSource}, '') ILIKE ${search}`,
+        sql`${listingExpr()} ILIKE ${search}`,
+        sql`${accountExpr()} ILIKE ${search}`,
+        sql`${providerOrderIdExpr()} ILIKE ${search}`,
+        sql`${clientOrderIdExpr()} ILIKE ${search}`,
+        sql`${orderStatusExpr()} ILIKE ${search}`,
+        sql`${orderSideExpr()} ILIKE ${search}`,
+        sql`${orderTypeExpr()} ILIKE ${search}`,
+        sql`${timeInForceExpr()} ILIKE ${search}`,
+        sql`${orderMessageExpr()} ILIKE ${search}`,
         sql`COALESCE(${workflowExecutionLogs.workflowSummary}->>'name', '') ILIKE ${search}`
       ) as SQL
     )

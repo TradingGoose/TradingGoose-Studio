@@ -2771,6 +2771,29 @@ describe('InputResolver', () => {
       expect(result.third).toBe('third')
     })
 
+    it.concurrent('requires explicit index before accessing array properties', () => {
+      const block: SerializedBlock = {
+        id: 'test-block',
+        metadata: { id: 'generic', name: 'Test Block' },
+        position: { x: 0, y: 0 },
+        config: {
+          tool: 'generic',
+          params: {
+            value: '<single-array-block.items.name>',
+          },
+        },
+        inputs: {
+          value: 'string',
+        },
+        outputs: {},
+        enabled: true,
+      }
+
+      expect(() => arrayResolver.resolveInputs(block, arrayContext)).toThrow(
+        /must use an explicit index/
+      )
+    })
+
     it.concurrent('should handle mixed single and multi-dimensional access in same block', () => {
       const block: SerializedBlock = {
         id: 'test-block',

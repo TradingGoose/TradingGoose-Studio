@@ -130,6 +130,12 @@ describe('VariableManager', () => {
       expect(VariableManager.resolveForExecution(null, 'plain')).toBe(null)
       expect(VariableManager.resolveForExecution(undefined, 'number')).toBe(undefined)
     })
+
+    it.concurrent('throws for unsupported variable types', () => {
+      expect(() => VariableManager.resolveForExecution('hello', 'string' as any)).toThrow(
+        /Unsupported variable type/
+      )
+    })
   })
 
   describe('formatForTemplateInterpolation', () => {
@@ -181,6 +187,12 @@ describe('VariableManager', () => {
     it.concurrent('should handle null and undefined', () => {
       expect(VariableManager.formatForCodeContext(null, 'plain')).toBe('null')
       expect(VariableManager.formatForCodeContext(undefined, 'number')).toBe('undefined')
+    })
+
+    it.concurrent('throws for unsupported variable types', () => {
+      expect(() => VariableManager.formatForCodeContext('hello', 'string' as any)).toThrow(
+        /Unsupported variable type/
+      )
     })
   })
 })

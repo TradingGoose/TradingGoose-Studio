@@ -121,9 +121,11 @@ export function validateVariableValue(type: Variable['type'], value: any): strin
         break
       }
 
-      // 'plain' and any unknown types have no validation constraints
-      default:
+      case 'plain':
         break
+
+      default:
+        throw new Error(`Unsupported variable type: ${String(type)}`)
     }
 
     return null

@@ -14,17 +14,17 @@ import {
 import { checkTagTrigger, TagDropdown } from '@/components/ui/tag-dropdown'
 import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
+import { useWorkflowVariables } from '@/lib/yjs/use-workflow-doc'
+import { useAccessibleReferencePrefixes } from '@/hooks/workflow/use-accessible-reference-prefixes'
+import type { Variable, VariableType } from '@/stores/variables/types'
 import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
 import { useWorkflowId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
-import { useAccessibleReferencePrefixes } from '@/hooks/workflow/use-accessible-reference-prefixes'
-import { useWorkflowVariables } from '@/lib/yjs/use-workflow-doc'
-import type { Variable } from '@/stores/variables/types'
 
 interface VariableAssignment {
   id: string
   variableId?: string
   variableName: string
-  type: 'string' | 'plain' | 'number' | 'boolean' | 'object' | 'array' | 'json'
+  type: VariableType
   value: string
   isExisting: boolean
 }
@@ -40,7 +40,7 @@ interface VariablesInputProps {
 
 const DEFAULT_ASSIGNMENT: Omit<VariableAssignment, 'id'> = {
   variableName: '',
-  type: 'string',
+  type: 'plain',
   value: '',
   isExisting: false,
 }
@@ -114,7 +114,7 @@ export function VariablesInput({
       updateAssignment(assignmentId, {
         variableId: selectedVariable.id,
         variableName: selectedVariable.name,
-        type: selectedVariable.type as any,
+        type: selectedVariable.type,
         isExisting: true,
       })
     }

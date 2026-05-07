@@ -205,4 +205,39 @@ describe('order record utils', () => {
       })
     ).toBe(true)
   })
+
+  it('does not search full JSON blobs as text', async () => {
+    const { buildOrderWhereCondition } = await import('./order-record-utils')
+
+    buildOrderWhereCondition('workspace-1', {
+      endDate: '',
+      environment: '',
+      linkedLog: '',
+      orderSearch: 'provider-order-1',
+      orderSortBy: 'recordedAt',
+      orderSortOrder: 'desc',
+      orderType: '',
+      provider: '',
+      side: '',
+      startDate: '',
+      status: '',
+      submissionSource: '',
+      timeInForce: '',
+    })
+
+    const jsonColumns = new Set([
+      'orderHistoryTable.listingIdentity',
+      'orderHistoryTable.request',
+      'orderHistoryTable.response',
+      'orderHistoryTable.normalizedOrder',
+    ])
+
+    expect(
+      mocks.sql.mock.calls.some((call: unknown[]) => {
+        const [strings, ...values] = call as [TemplateStringsArray, ...unknown[]]
+        const template = Array.from(strings as TemplateStringsArray).join('')
+        return template.includes('::text') && values.some((value) => jsonColumns.has(String(value)))
+      })
+    ).toBe(false)
+  })
 })

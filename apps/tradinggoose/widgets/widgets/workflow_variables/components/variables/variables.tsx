@@ -107,7 +107,7 @@ export function Variables({
       case 'array':
         return '[ ]'
       default:
-        return '?'
+        throw new Error(`Unsupported variable type: ${String(type)}`)
     }
   }
 
@@ -124,7 +124,7 @@ export function Variables({
       case 'array':
         return '[\n  1,\n  2,\n  3\n]'
       default:
-        return ''
+        throw new Error(`Unsupported variable type: ${String(type)}`)
     }
   }
 
@@ -138,7 +138,7 @@ export function Variables({
       case 'number':
         return 'javascript'
       default:
-        return 'plaintext'
+        throw new Error(`Unsupported variable type: ${String(type)}`)
     }
   }
 
