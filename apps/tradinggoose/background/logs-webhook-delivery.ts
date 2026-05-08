@@ -174,7 +174,12 @@ export const logsWebhookDelivery = task({
             errorMessage: 'Workflow execution log not found',
             updatedAt: new Date(),
           })
-          .where(eq(workflowLogWebhookDelivery.id, deliveryId))
+          .where(
+            and(
+              eq(workflowLogWebhookDelivery.id, deliveryId),
+              eq(workflowLogWebhookDelivery.status, 'in_progress')
+            )
+          )
 
         logger.error(`Webhook delivery ${deliveryId} failed because log row was missing`, {
           executionId: delivery.executionId,
@@ -282,6 +287,20 @@ export const logsWebhookDelivery = task({
         const { decrypted } = await decryptSecret(subscriptionSnapshot.secret)
         const signature = generateSignature(decrypted, timestamp, body)
         headers['tradinggoose-signature'] = `t=${timestamp},v1=${signature}`
+      }
+
+      const [currentDelivery] = await db
+        .select({ status: workflowLogWebhookDelivery.status })
+        .from(workflowLogWebhookDelivery)
+        .where(eq(workflowLogWebhookDelivery.id, deliveryId))
+        .limit(1)
+
+      if (currentDelivery?.status !== 'in_progress') {
+        logger.info(`Webhook delivery ${deliveryId} skipped before send`, {
+          status: currentDelivery?.status ?? 'missing',
+          executionId: log.executionId,
+        })
+        return { success: false }
       }
 
       logger.info(`Attempting webhook delivery ${deliveryId} (attempt ${attempts})`, {
@@ -458,7 +477,12 @@ export const logsWebhookDelivery = task({
           errorMessage: `Unexpected error: ${error.message}`,
           updatedAt: new Date(),
         })
-        .where(eq(workflowLogWebhookDelivery.id, deliveryId))
+        .where(
+          and(
+            eq(workflowLogWebhookDelivery.id, deliveryId),
+            eq(workflowLogWebhookDelivery.status, 'in_progress')
+          )
+        )
 
       return { success: false, error: error.message }
     }

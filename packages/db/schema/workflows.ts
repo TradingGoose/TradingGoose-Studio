@@ -342,6 +342,7 @@ export const webhookDeliveryStatusEnum = pgEnum('webhook_delivery_status', [
   'in_progress',
   'success',
   'failed',
+  'cancelled',
 ])
 
 export const pendingExecutionStatusEnum = pgEnum('pending_execution_status', [

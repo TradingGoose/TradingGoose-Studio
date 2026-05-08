@@ -166,6 +166,7 @@ describe('logsWebhookDelivery task', () => {
         traceSpans: [{ id: 'span-1' }],
       }),
     ])
+    mockSelectQueue.push([{ status: 'in_progress' }])
   })
 
   it('uses the stored subscription snapshot and log row before sending the webhook', async () => {
@@ -174,7 +175,7 @@ describe('logsWebhookDelivery task', () => {
     await (logsWebhookDelivery as any).run({ deliveryId: 'delivery-1' })
 
     expect(mockUpdateReturning).toHaveBeenCalledTimes(1)
-    expect(mockSelect).toHaveBeenCalledTimes(1)
+    expect(mockSelect).toHaveBeenCalledTimes(2)
     expect(mockFetch).toHaveBeenCalledWith(
       'https://example.com/webhook',
       expect.objectContaining({
@@ -209,6 +210,7 @@ describe('logsWebhookDelivery task', () => {
   ])('includes %s finalOutput values when opted in', async (_label, finalOutput) => {
     mockSelectQueue.length = 0
     mockSelectQueue.push([buildLogRow({ finalOutput })])
+    mockSelectQueue.push([{ status: 'in_progress' }])
     const { logsWebhookDelivery } = await import('./logs-webhook-delivery')
 
     await (logsWebhookDelivery as any).run({ deliveryId: 'delivery-1' })
@@ -238,5 +240,17 @@ describe('logsWebhookDelivery task', () => {
     expect(result).toEqual({ success: false })
     expect(mockFetch).not.toHaveBeenCalled()
     expect(mockSelect).not.toHaveBeenCalled()
+  })
+
+  it('skips the outbound request when the delivery is cancelled after claim', async () => {
+    mockSelectQueue.length = 0
+    mockSelectQueue.push([buildLogRow({ finalOutput: { orderId: 'order-1' } })])
+    mockSelectQueue.push([{ status: 'cancelled' }])
+    const { logsWebhookDelivery } = await import('./logs-webhook-delivery')
+
+    const result = await (logsWebhookDelivery as any).run({ deliveryId: 'delivery-1' })
+
+    expect(result).toEqual({ success: false })
+    expect(mockFetch).not.toHaveBeenCalled()
   })
 })
