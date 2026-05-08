@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const {
+  mockCheckWorkspaceAccess,
   mockExecuteTool,
   mockGetEffectiveDecryptedEnv,
   mockGetSession,
@@ -13,6 +14,7 @@ const {
   mockGetToolAsync,
   mockVerifyWorkflowAccess,
 } = vi.hoisted(() => ({
+  mockCheckWorkspaceAccess: vi.fn(),
   mockExecuteTool: vi.fn(),
   mockGetEffectiveDecryptedEnv: vi.fn(),
   mockGetSession: vi.fn(),
@@ -73,6 +75,10 @@ vi.mock('@/lib/logs/console/logger', () => ({
   })),
 }))
 
+vi.mock('@/lib/permissions/utils', () => ({
+  checkWorkspaceAccess: (...args: unknown[]) => mockCheckWorkspaceAccess(...args),
+}))
+
 vi.mock('@/lib/trello/auth', () => ({
   getTrelloApiKey: vi.fn(),
 }))
@@ -98,10 +104,12 @@ describe('copilot execute-tool route', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockGetSession.mockResolvedValue({ user: { id: 'user-1' } })
+    mockCheckWorkspaceAccess.mockResolvedValue({ exists: true, hasAccess: true, canWrite: true })
+    mockGetEffectiveDecryptedEnv.mockResolvedValue({})
     mockVerifyWorkflowAccess.mockResolvedValue({ hasAccess: true, workspaceId: null })
   })
 
-  it('rejects trading tools without resolved workspace before loading env or executing', async () => {
+  it('rejects order placement without workspace scope before loading env or executing', async () => {
     const { POST } = await import('./route')
 
     const response = await POST(
@@ -109,8 +117,7 @@ describe('copilot execute-tool route', () => {
         body: JSON.stringify({
           arguments: {},
           toolCallId: 'tool-call-1',
-          toolName: 'trading_order_history',
-          workflowId: 'workflow-1',
+          toolName: 'trading_place_order',
         }),
         method: 'POST',
       })
@@ -118,12 +125,45 @@ describe('copilot execute-tool route', () => {
 
     expect(response.status).toBe(400)
     expect(await response.json()).toEqual({
-      error: 'trading_order_history requires workspace scope',
+      error: 'trading_place_order requires workspaceId',
       success: false,
       toolCallId: 'tool-call-1',
     })
     expect(mockGetEffectiveDecryptedEnv).not.toHaveBeenCalled()
     expect(mockGetTool).not.toHaveBeenCalled()
     expect(mockExecuteTool).not.toHaveBeenCalled()
+  })
+
+  it('executes copilot order placement with workspace scope and no workflow requirement', async () => {
+    mockGetTool.mockReturnValue({ id: 'trading_place_order', params: {} })
+    mockExecuteTool.mockResolvedValue({ success: true, output: { order: { id: 'order-1' } } })
+    const { POST } = await import('./route')
+
+    const response = await POST(
+      new NextRequest('http://localhost/api/copilot/execute-tool', {
+        body: JSON.stringify({
+          arguments: { provider: 'alpaca' },
+          toolCallId: 'tool-call-1',
+          toolName: 'trading_place_order',
+          workspaceId: 'workspace-1',
+        }),
+        method: 'POST',
+      })
+    )
+
+    expect(response.status).toBe(200)
+    expect(mockCheckWorkspaceAccess).toHaveBeenCalledWith('workspace-1', 'user-1')
+    expect(mockVerifyWorkflowAccess).not.toHaveBeenCalled()
+    expect(mockExecuteTool).toHaveBeenCalledWith(
+      'trading_place_order',
+      expect.objectContaining({
+        _context: expect.objectContaining({
+          submissionSource: 'copilot',
+          userId: 'user-1',
+          workspaceId: 'workspace-1',
+        }),
+        provider: 'alpaca',
+      })
+    )
   })
 })

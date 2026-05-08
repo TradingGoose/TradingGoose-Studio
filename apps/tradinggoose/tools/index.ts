@@ -307,10 +307,10 @@ export async function executeTool(
     }
 
     if (
-      (toolId === 'trading_order_history' || toolId === 'trading_order_detail') &&
-      (!scope.workflowId || !scope.workspaceId)
+      (toolId === 'trading_place_order' || toolId === 'trading_order_history') &&
+      !scope.workspaceId
     ) {
-      throw new Error(`${toolId} requires workflow and workspace execution context`)
+      throw new Error(`${toolId} requires workspace execution context`)
     }
 
     // Validate the tool and its parameters

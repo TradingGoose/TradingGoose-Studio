@@ -17,6 +17,7 @@ import {
 import { getEffectiveDecryptedEnv } from '@/lib/environment/utils'
 import { DEFAULT_EXECUTION_TIMEOUT_MS } from '@/lib/execution/constants'
 import { createLogger } from '@/lib/logs/console/logger'
+import { checkWorkspaceAccess } from '@/lib/permissions/utils'
 import { getTrelloApiKey } from '@/lib/trello/auth'
 import { generateRequestId } from '@/lib/utils'
 import { refreshTokenIfNeeded } from '@/app/api/auth/oauth/utils'
@@ -30,6 +31,7 @@ const ExecuteToolSchema = z.object({
   toolName: z.string(),
   arguments: z.record(z.any()).optional().default({}),
   workflowId: z.string().optional(),
+  workspaceId: z.string().optional(),
 })
 
 function resolveEnvVarReferences(value: any, envVars: Record<string, string>): any {
@@ -79,41 +81,53 @@ export async function POST(req: NextRequest) {
       logger.debug(`[${tracker.requestId}] Incoming execute-tool request`, { preview })
     } catch {}
 
-    const { toolCallId, toolName, arguments: toolArgs, workflowId } = ExecuteToolSchema.parse(body)
+    const {
+      toolCallId,
+      toolName,
+      arguments: toolArgs,
+      workflowId,
+      workspaceId: requestedWorkspaceId,
+    } = ExecuteToolSchema.parse(body)
 
-    if (
-      (toolName === 'trading_order_history' || toolName === 'trading_order_detail') &&
-      !workflowId
-    ) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: `${toolName} requires workflowId`,
-          toolCallId,
-        },
-        { status: 400 }
-      )
-    }
-    const requiresTradingWorkspace =
-      toolName === 'trading_order_history' || toolName === 'trading_order_detail'
+    const placesTradingOrder = toolName === 'trading_place_order'
+    const requiresTradingWorkspace = placesTradingOrder || toolName === 'trading_order_history'
 
-    let workspaceId: string | undefined
+    let workspaceId = requestedWorkspaceId?.trim() || undefined
     if (workflowId) {
       const { hasAccess, workspaceId: resolvedWorkspaceId } = await verifyWorkflowAccess(
         userId,
-        workflowId
+        workflowId,
+        { requireWrite: placesTradingOrder }
       )
       if (!hasAccess) {
         const message = createPermissionError('run tools in')
         return NextResponse.json({ error: message }, { status: 403 })
       }
+      if (workspaceId && resolvedWorkspaceId && workspaceId !== resolvedWorkspaceId) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'workspaceId does not match workflow workspace',
+            toolCallId,
+          },
+          { status: 400 }
+        )
+      }
       workspaceId = resolvedWorkspaceId ?? undefined
+    } else if (workspaceId) {
+      const access = await checkWorkspaceAccess(workspaceId, userId)
+      if (!access.exists || !access.hasAccess || (placesTradingOrder && !access.canWrite)) {
+        return NextResponse.json(
+          { success: false, error: 'Workspace not found', toolCallId },
+          { status: 404 }
+        )
+      }
     }
     if (requiresTradingWorkspace && !workspaceId) {
       return NextResponse.json(
         {
           success: false,
-          error: `${toolName} requires workspace scope`,
+          error: `${toolName} requires workspaceId`,
           toolCallId,
         },
         { status: 400 }
