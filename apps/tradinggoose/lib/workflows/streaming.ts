@@ -153,18 +153,21 @@ export async function createStreamingResponse(
           processStreamingBlockLogs(result.logs, streamedContent)
         }
 
-        // Complete the logging session with updated trace spans that include cost data
         if (result._streamingMetadata?.loggingSession) {
           const { buildTraceSpans } = await import('@/lib/logs/execution/trace-spans/trace-spans')
           const { traceSpans, totalDuration } = buildTraceSpans(result)
 
-          await result._streamingMetadata.loggingSession.complete({
-            endedAt: new Date().toISOString(),
-            totalDurationMs: totalDuration || 0,
-            finalOutput: result.output === undefined ? {} : result.output,
-            traceSpans: (traceSpans || []) as any,
-            workflowInput: result._streamingMetadata.processedInput,
-          })
+          await result._streamingMetadata.loggingSession
+            .complete({
+              endedAt: new Date().toISOString(),
+              totalDurationMs: totalDuration || 0,
+              finalOutput: result.output === undefined ? {} : result.output,
+              traceSpans: (traceSpans || []) as any,
+              workflowInput: result._streamingMetadata.processedInput,
+            })
+            .catch((error: unknown) =>
+              logger.error(`[${requestId}] Streamed workflow log completion failed`, error)
+            )
 
           result._streamingMetadata = undefined
         }

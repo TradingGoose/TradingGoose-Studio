@@ -116,6 +116,14 @@ describe('workflow log route', () => {
       workflowLogId: 'workflow-log-1',
     })
     expect(mocks.start).not.toHaveBeenCalled()
+    const { LoggingSession } = await import('@/lib/logs/execution/logging-session')
+    expect(LoggingSession).toHaveBeenCalledWith(
+      'workflow-1',
+      'execution-1',
+      'chat',
+      'request-1',
+      'workflow-log-1'
+    )
     expect(mocks.complete).toHaveBeenCalledWith({
       actorUserId: 'user-1',
       endedAt: expect.any(String),

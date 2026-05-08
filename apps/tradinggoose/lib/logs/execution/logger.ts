@@ -29,7 +29,6 @@ import type {
   BlockOutputData,
   ExecutionEnvironment,
   ExecutionTrigger,
-  ExecutionLoggerService as IExecutionLoggerService,
   TraceSpan,
   WorkflowExecutionLog,
   WorkflowExecutionSnapshot,
@@ -75,7 +74,7 @@ function readExecutionActorUserId(executionData: Record<string, unknown>): strin
   return typeof userId === 'string' && userId.length > 0 ? userId : null
 }
 
-export class ExecutionLogger implements IExecutionLoggerService {
+export class ExecutionLogger {
   async startWorkflowExecution(params: {
     workflowId: string
     executionId: string
@@ -143,7 +142,10 @@ export class ExecutionLogger implements IExecutionLoggerService {
   }
 
   async completeWorkflowExecution(params: {
+    workflowLogId: string
     executionId: string
+    workflowId: string
+    workspaceId: string
     endedAt: string
     totalDurationMs: number
     costSummary: {
@@ -171,6 +173,9 @@ export class ExecutionLogger implements IExecutionLoggerService {
   }): Promise<WorkflowExecutionLog> {
     const {
       executionId,
+      workflowLogId,
+      workflowId,
+      workspaceId,
       endedAt,
       totalDurationMs,
       costSummary,
@@ -180,6 +185,12 @@ export class ExecutionLogger implements IExecutionLoggerService {
     } = params
 
     logger.debug(`Completing workflow execution ${executionId}`)
+    const workflowLogWhere = and(
+      eq(workflowExecutionLogs.id, workflowLogId),
+      eq(workflowExecutionLogs.executionId, executionId),
+      eq(workflowExecutionLogs.workflowId, workflowId),
+      eq(workflowExecutionLogs.workspaceId, workspaceId)
+    )
 
     // Determine if workflow failed by checking trace spans for errors
     const hasErrors = traceSpans?.some((span: any) => {
@@ -207,7 +218,7 @@ export class ExecutionLogger implements IExecutionLoggerService {
         executionData: workflowExecutionLogs.executionData,
       })
       .from(workflowExecutionLogs)
-      .where(eq(workflowExecutionLogs.executionId, executionId))
+      .where(workflowLogWhere)
       .limit(1)
 
     if (!existingLog) {
@@ -254,7 +265,7 @@ export class ExecutionLogger implements IExecutionLoggerService {
           models: costSummary.models,
         },
       })
-      .where(eq(workflowExecutionLogs.executionId, executionId))
+      .where(workflowLogWhere)
       .returning()
 
     if (!updatedLog) {

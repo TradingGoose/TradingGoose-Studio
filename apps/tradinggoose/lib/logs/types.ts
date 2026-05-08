@@ -449,32 +449,3 @@ export interface SnapshotCreationResult {
   snapshot: WorkflowExecutionSnapshot
   isNew: boolean
 }
-
-export interface ExecutionLoggerService {
-  startWorkflowExecution(params: {
-    workflowId: string
-    executionId: string
-    trigger: ExecutionTrigger
-    environment: ExecutionEnvironment
-    workflowState: WorkflowState
-    workflowSummary: WorkflowLogWorkflowSummary
-  }): Promise<{
-    workflowLog: WorkflowExecutionLog
-    snapshot: WorkflowExecutionSnapshot
-  }>
-
-  completeWorkflowExecution(params: {
-    executionId: string
-    endedAt: string
-    totalDurationMs: number
-
-    costSummary: {
-      totalCost: number
-      totalInputCost: number
-      totalOutputCost: number
-      totalTokens: number
-    }
-    finalOutput: BlockOutputData
-    traceSpans?: TraceSpan[]
-  }): Promise<WorkflowExecutionLog>
-}

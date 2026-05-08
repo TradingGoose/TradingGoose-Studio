@@ -5,6 +5,7 @@ import { v4 as uuidv4 } from 'uuid'
 import { checkServerSideUsageLimits } from '@/lib/billing'
 import { getPersonalAndWorkspaceEnv } from '@/lib/environment/utils'
 import { withExecutionConcurrencyController } from '@/lib/execution/execution-concurrency-limit'
+import { createLogger } from '@/lib/logs/console/logger'
 import { LoggingSession } from '@/lib/logs/execution/logging-session'
 import { buildTraceSpans } from '@/lib/logs/execution/trace-spans/trace-spans'
 import { decryptSecret } from '@/lib/utils-server'
@@ -24,6 +25,8 @@ import type {
 import { Serializer } from '@/serializer'
 import type { TriggerType } from '@/services/queue'
 import { mergeSubblockState } from '@/stores/workflows/server-utils'
+
+const logger = createLogger('WorkflowExecutionRunner')
 
 type WorkflowExecutionTarget = 'deployed' | 'live'
 
@@ -407,7 +410,9 @@ export async function runPreparedWorkflowExecution(params: {
         const { traceSpans, totalDuration } = buildTraceSpans(result)
 
         if (result.success) {
-          await updateWorkflowRunCounts(params.blueprint.workflowId)
+          await updateWorkflowRunCounts(params.blueprint.workflowId).catch((error) =>
+            logger.error(`[${requestId}] Workflow run count update failed after execution`, error)
+          )
         }
 
         if (params.stream?.skipLoggingComplete) {
@@ -416,13 +421,17 @@ export async function runPreparedWorkflowExecution(params: {
             processedInput: params.workflowInput,
           }
         } else {
-          await loggingSession.complete({
-            endedAt: new Date().toISOString(),
-            totalDurationMs: totalDuration || 0,
-            finalOutput: result.output === undefined ? {} : result.output,
-            traceSpans: traceSpans || [],
-            workflowInput: params.workflowInput,
-          })
+          await loggingSession
+            .complete({
+              endedAt: new Date().toISOString(),
+              totalDurationMs: totalDuration || 0,
+              finalOutput: result.output === undefined ? {} : result.output,
+              traceSpans: traceSpans || [],
+              workflowInput: params.workflowInput,
+            })
+            .catch((error) =>
+              logger.error(`[${requestId}] Workflow log completion failed after execution`, error)
+            )
         }
 
         return {
@@ -440,15 +449,19 @@ export async function runPreparedWorkflowExecution(params: {
         const { traceSpans } = buildTraceSpans(executionResultForError)
 
         if (workflowLogStarted) {
-          await loggingSession.completeWithError({
-            endedAt: new Date().toISOString(),
-            totalDurationMs: 0,
-            error: {
-              message: error.message || 'Workflow execution failed',
-              stackTrace: error.stack,
-            },
-            traceSpans,
-          })
+          await loggingSession
+            .completeWithError({
+              endedAt: new Date().toISOString(),
+              totalDurationMs: 0,
+              error: {
+                message: error.message || 'Workflow execution failed',
+                stackTrace: error.stack,
+              },
+              traceSpans,
+            })
+            .catch((loggingError) =>
+              logger.error(`[${requestId}] Workflow error log completion failed`, loggingError)
+            )
         }
 
         throw error

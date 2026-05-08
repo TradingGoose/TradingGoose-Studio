@@ -141,10 +141,15 @@ describe('runPreparedWorkflowExecution', () => {
       output: { result: 'ok' },
       logs: [],
     })
+    mocks.complete.mockResolvedValue(undefined)
+    mocks.completeWithError.mockResolvedValue(undefined)
+    mocks.updateWorkflowRunCounts.mockResolvedValue(undefined)
   })
 
   it('threads required workspace and workflow log context into executor runs without resetting workflow depth', async () => {
-    await runPreparedWorkflowExecution({
+    mocks.complete.mockRejectedValueOnce(new Error('log boom'))
+
+    const result = await runPreparedWorkflowExecution({
       blueprint,
       actorUserId: 'user-1',
       triggerType: 'webhook',
@@ -197,6 +202,9 @@ describe('runPreparedWorkflowExecution', () => {
         workflowInput: { symbol: 'AAPL' },
       })
     )
+    expect(mocks.completeWithError).not.toHaveBeenCalled()
+    expect(result.result.success).toBe(true)
+    expect(result.result.output).toEqual({ result: 'ok' })
   })
 })
 

@@ -59,14 +59,13 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       return createErrorResponse('Workflow is missing workspace scope', 400)
     }
 
-    const loggingSession = new LoggingSession(id, executionId, triggerType, requestId)
-
     if (phase === 'start') {
       logger.info(`[${requestId}] Starting execution log for workflow: ${id}`, {
         executionId,
         triggerType,
       })
 
+      const loggingSession = new LoggingSession(id, executionId, triggerType, requestId)
       const workflowLogId = await loggingSession.start({
         userId,
         workspaceId,
@@ -92,6 +91,13 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       success: result.success,
     })
 
+    const loggingSession = new LoggingSession(
+      id,
+      executionId,
+      triggerType,
+      requestId,
+      workflowLogId
+    )
     const { traceSpans, totalDuration } = buildTraceSpans(result)
     const completionScope = { workspaceId, actorUserId: userId ?? null }
     const totalDurationMs = totalDuration || result.metadata?.duration || 0

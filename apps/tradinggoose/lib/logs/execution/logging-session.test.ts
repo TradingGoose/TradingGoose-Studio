@@ -207,6 +207,9 @@ describe('LoggingSession', () => {
           type: 'workflow',
         }),
       ],
+      workflowId: 'workflow-1',
+      workflowLogId: 'log-1',
+      workspaceId: 'workspace-1',
     })
     expect(mocks.trackPlatformEvent).toHaveBeenCalledWith(
       'platform.workflow.executed',
@@ -220,7 +223,7 @@ describe('LoggingSession', () => {
 
   it('completes execution logs with explicit workspace scope after a separate start request', async () => {
     mocks.getResolvedBillingSettings.mockResolvedValue({ billingEnabled: true })
-    const session = new LoggingSession('workflow-1', 'execution-1', 'manual', 'request-1')
+    const session = new LoggingSession('workflow-1', 'execution-1', 'manual', 'request-1', 'log-1')
 
     await session.complete({
       actorUserId: 'user-1',
@@ -241,6 +244,9 @@ describe('LoggingSession', () => {
         executionId: 'execution-1',
         finalOutput: { ok: true },
         totalDurationMs: 1000,
+        workflowId: 'workflow-1',
+        workflowLogId: 'log-1',
+        workspaceId: 'workspace-1',
       })
     )
   })

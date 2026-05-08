@@ -198,6 +198,16 @@ export async function executeWorkflowWithFullLogging(
     executionId,
     triggerType
   )
+  const completeLog = (result: ExecutionResult) =>
+    completeWorkflowExecutionLog({
+      executionId,
+      result,
+      triggerType,
+      workflowId: context.activeWorkflowId,
+      workflowLogId,
+    }).catch((err) => {
+      logger.error('Error persisting logs:', { error: err })
+    })
 
   try {
     const result = await executeWorkflowWithLogging(context, {
@@ -208,16 +218,7 @@ export async function executeWorkflowWithFullLogging(
     })
 
     const executionResult = 'success' in result ? result : result.execution
-
-    completeWorkflowExecutionLog({
-      executionId,
-      result: executionResult,
-      triggerType,
-      workflowId: context.activeWorkflowId,
-      workflowLogId,
-    }).catch((err) => {
-      logger.error('Error persisting logs:', { error: err })
-    })
+    completeLog(executionResult)
 
     return result
   } catch (error: any) {
@@ -228,16 +229,7 @@ export async function executeWorkflowWithFullLogging(
       logs: [],
       metadata: { duration: 0, startTime: new Date().toISOString() },
     }
-
-    completeWorkflowExecutionLog({
-      executionId,
-      result: errorResult,
-      triggerType,
-      workflowId: context.activeWorkflowId,
-      workflowLogId,
-    }).catch((err) => {
-      logger.error('Error persisting logs:', { error: err })
-    })
+    completeLog(errorResult)
 
     throw error
   }
