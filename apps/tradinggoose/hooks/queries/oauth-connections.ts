@@ -73,27 +73,6 @@ async function fetchOAuthConnections(): Promise<ServiceInfo[]> {
         }
       }
 
-      const connectionWithScopes = connections.find((conn: any) => {
-        if (!conn.baseProvider || !service.providerId.startsWith(conn.baseProvider)) {
-          return false
-        }
-
-        if (conn.scopes && service.scopes) {
-          return service.scopes.every((scope) => conn.scopes.includes(scope))
-        }
-
-        return false
-      })
-
-      if (connectionWithScopes) {
-        return {
-          ...service,
-          isConnected: connectionWithScopes.accounts?.length > 0,
-          accounts: connectionWithScopes.accounts || [],
-          lastConnected: connectionWithScopes.lastConnected,
-        }
-      }
-
       return service
     })
 

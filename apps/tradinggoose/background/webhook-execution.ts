@@ -8,10 +8,7 @@ import { toListingValueObject } from '@/lib/listing/identity'
 import { createLogger } from '@/lib/logs/console/logger'
 import { LoggingSession } from '@/lib/logs/execution/logging-session'
 import { WebhookAttachmentProcessor } from '@/lib/webhooks/attachment-processor'
-import {
-  fetchAndProcessAirtablePayloads,
-  formatWebhookInput,
-} from '@/lib/webhooks/utils'
+import { fetchAndProcessAirtablePayloads, formatWebhookInput } from '@/lib/webhooks/utils'
 import {
   loadWorkflowExecutionBlueprint,
   runPreparedWorkflowExecution,
@@ -30,7 +27,7 @@ async function processTriggerFileOutputs(
     executionId: string
     requestId: string
   },
-  path = '',
+  path = ''
 ): Promise<any> {
   if (!input || typeof input !== 'object') {
     return input
@@ -45,35 +42,23 @@ async function processTriggerFileOutputs(
 
     if (outputDef?.type === 'file[]' && Array.isArray(val)) {
       try {
-        processed[key] = await WebhookAttachmentProcessor.processAttachments(
-          val as any,
-          context,
-        )
+        processed[key] = await WebhookAttachmentProcessor.processAttachments(val as any, context)
       } catch {
         processed[key] = []
       }
     } else if (outputDef?.type === 'file' && val) {
       try {
-        const [processedFile] =
-          await WebhookAttachmentProcessor.processAttachments(
-            [val as any],
-            context,
-          )
+        const [processedFile] = await WebhookAttachmentProcessor.processAttachments(
+          [val as any],
+          context
+        )
         processed[key] = processedFile
       } catch (error) {
-        logger.error(
-          `[${context.requestId}] Error processing ${currentPath}:`,
-          error,
-        )
+        logger.error(`[${context.requestId}] Error processing ${currentPath}:`, error)
         processed[key] = val
       }
     } else if (outputDef && typeof outputDef === 'object' && !outputDef.type) {
-      processed[key] = await processTriggerFileOutputs(
-        val,
-        outputDef,
-        context,
-        currentPath,
-      )
+      processed[key] = await processTriggerFileOutputs(val, outputDef, context, currentPath)
     } else {
       processed[key] = val
     }
@@ -98,9 +83,7 @@ export type WebhookExecutionPayload = {
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
 
-export function isWebhookExecutionPayload(
-  value: unknown,
-): value is WebhookExecutionPayload {
+export function isWebhookExecutionPayload(value: unknown): value is WebhookExecutionPayload {
   if (!value || typeof value !== 'object') {
     return false
   }
@@ -121,7 +104,7 @@ const toTrimmedString = (value: unknown): string | null => {
 }
 
 const buildIndicatorTriggerData = (
-  payload: WebhookExecutionPayload,
+  payload: WebhookExecutionPayload
 ): Record<string, unknown> | null => {
   if (payload.provider !== 'indicator') return null
   if (!isRecord(payload.body)) {
@@ -144,9 +127,7 @@ const buildIndicatorTriggerData = (
   }
 
   const monitorMetadata = Object.fromEntries(
-    Object.entries(monitor).filter(
-      ([, value]) => typeof value === 'string' && value.length > 0,
-    ),
+    Object.entries(monitor).filter(([, value]) => typeof value === 'string' && value.length > 0)
   )
 
   return {
@@ -164,7 +145,7 @@ async function completeSkippedWebhookExecution(params: {
   payload: WebhookExecutionPayload
   executionId: string
   requestId: string
-  workspaceId?: string | null
+  workspaceId: string
   triggerData: Record<string, unknown>
   message: string
 }) {
@@ -172,17 +153,17 @@ async function completeSkippedWebhookExecution(params: {
     params.payload.workflowId,
     params.executionId,
     'webhook',
-    params.requestId,
+    params.requestId
   )
 
-  await loggingSession.safeStart({
+  await loggingSession.start({
     userId: params.payload.userId,
-    workspaceId: params.workspaceId || '',
+    workspaceId: params.workspaceId,
     variables: {},
     triggerData: params.triggerData,
   })
 
-  await loggingSession.safeComplete({
+  await loggingSession.complete({
     endedAt: new Date().toISOString(),
     totalDurationMs: 0,
     finalOutput: { message: params.message },
@@ -203,7 +184,7 @@ async function logWebhookFailure(params: {
   payload: WebhookExecutionPayload
   executionId: string
   requestId: string
-  workspaceId?: string | null
+  workspaceId: string
   triggerData: Record<string, unknown>
   error: Error
 }) {
@@ -212,17 +193,17 @@ async function logWebhookFailure(params: {
       params.payload.workflowId,
       params.executionId,
       'webhook',
-      params.requestId,
+      params.requestId
     )
 
-    await loggingSession.safeStart({
+    await loggingSession.start({
       userId: params.payload.userId,
-      workspaceId: params.workspaceId || '',
+      workspaceId: params.workspaceId,
       variables: {},
       triggerData: params.triggerData,
     })
 
-    await loggingSession.safeCompleteWithError({
+    await loggingSession.completeWithError({
       endedAt: new Date().toISOString(),
       totalDurationMs: 0,
       error: {
@@ -232,10 +213,7 @@ async function logWebhookFailure(params: {
       traceSpans: [],
     })
   } catch (loggingError) {
-    logger.error(
-      `[${params.requestId}] Failed to complete webhook failure logging`,
-      loggingError,
-    )
+    logger.error(`[${params.requestId}] Failed to complete webhook failure logging`, loggingError)
   }
 }
 
@@ -260,19 +238,26 @@ export async function executeWebhookJob(payload: WebhookExecutionPayload) {
   }
 
   let runnerInvoked = false
-  let workspaceId: string | null | undefined
+  let workspaceId: string | null = null
 
   try {
+    const blueprint = await loadWorkflowExecutionBlueprint({
+      workflowId: payload.workflowId,
+      executionTarget,
+    })
+    const scopedWorkspaceId = blueprint.workflowContext.workspaceId
+    if (!scopedWorkspaceId) {
+      throw new Error(`Workflow ${payload.workflowId} is missing workspace scope`)
+    }
+
+    workspaceId = scopedWorkspaceId
+
     return await withExecutionConcurrencyLimit({
       userId: payload.userId,
       workflowId: payload.workflowId,
+      workspaceId: scopedWorkspaceId,
       task: async () => {
-        const blueprint = await loadWorkflowExecutionBlueprint({
-          workflowId: payload.workflowId,
-          executionTarget,
-        })
         const blocks = blueprint.workflowData.blocks
-        workspaceId = blueprint.workflowContext.workspaceId
 
         const webhookRows = await db
           .select()
@@ -300,7 +285,7 @@ export async function executeWebhookJob(payload: WebhookExecutionPayload) {
           }
 
           logger.info(
-            `[${requestId}] Processing Airtable webhook via fetchAndProcessAirtablePayloads`,
+            `[${requestId}] Processing Airtable webhook via fetchAndProcessAirtablePayloads`
           )
 
           const airtableInput = await fetchAndProcessAirtablePayloads(
@@ -310,7 +295,7 @@ export async function executeWebhookJob(payload: WebhookExecutionPayload) {
               providerConfig: webhookRows[0].providerConfig,
             },
             workflowRef,
-            requestId,
+            requestId
           )
 
           if (!airtableInput) {
@@ -319,7 +304,7 @@ export async function executeWebhookJob(payload: WebhookExecutionPayload) {
               payload,
               executionId,
               requestId,
-              workspaceId,
+              workspaceId: scopedWorkspaceId,
               triggerData,
               message: 'No Airtable changes to process',
             })
@@ -364,18 +349,16 @@ export async function executeWebhookJob(payload: WebhookExecutionPayload) {
           webhookRecord,
           workflowRef,
           payload.body,
-          mockRequest,
+          mockRequest
         )
 
         if (!input && payload.provider === 'whatsapp') {
-          logger.info(
-            `[${requestId}] No messages in WhatsApp payload, skipping execution`,
-          )
+          logger.info(`[${requestId}] No messages in WhatsApp payload, skipping execution`)
           return completeSkippedWebhookExecution({
             payload,
             executionId,
             requestId,
-            workspaceId,
+            workspaceId: scopedWorkspaceId,
             triggerData,
             message: 'No messages in WhatsApp payload',
           })
@@ -390,56 +373,39 @@ export async function executeWebhookJob(payload: WebhookExecutionPayload) {
               const triggerConfig = getTrigger(triggerId)
 
               if (triggerConfig?.outputs) {
-                logger.debug(
-                  `[${requestId}] Processing trigger ${triggerId} file outputs`,
-                )
+                logger.debug(`[${requestId}] Processing trigger ${triggerId} file outputs`)
                 const processedInput = await processTriggerFileOutputs(
                   input,
                   triggerConfig.outputs,
                   {
-                    workspaceId: workspaceId || '',
+                    workspaceId: scopedWorkspaceId,
                     workflowId: payload.workflowId,
                     executionId,
                     requestId,
-                  },
+                  }
                 )
                 Object.assign(input, processedInput)
               }
             }
           } catch (error) {
-            logger.error(
-              `[${requestId}] Error processing trigger file outputs:`,
-              error,
-            )
+            logger.error(`[${requestId}] Error processing trigger file outputs:`, error)
           }
         }
 
-        if (
-          input &&
-          payload.provider === 'generic' &&
-          payload.blockId &&
-          blocks[payload.blockId]
-        ) {
+        if (input && payload.provider === 'generic' && payload.blockId && blocks[payload.blockId]) {
           try {
             const triggerBlock = blocks[payload.blockId]
 
             if (triggerBlock?.subBlocks?.inputFormat?.value) {
-              const inputFormat = triggerBlock.subBlocks.inputFormat
-                .value as Array<{
+              const inputFormat = triggerBlock.subBlocks.inputFormat.value as Array<{
                 name: string
                 type: 'string' | 'number' | 'boolean' | 'object' | 'array' | 'files'
               }>
-              const fileFields = inputFormat.filter(
-                (field) => field.type === 'files',
-              )
+              const fileFields = inputFormat.filter((field) => field.type === 'files')
 
-              if (
-                fileFields.length > 0 &&
-                typeof input === 'object' &&
-                input !== null
-              ) {
+              if (fileFields.length > 0 && typeof input === 'object' && input !== null) {
                 const executionContext = {
-                  workspaceId: workspaceId || '',
+                  workspaceId: scopedWorkspaceId,
                   workflowId: payload.workflowId,
                   executionId,
                 }
@@ -451,13 +417,13 @@ export async function executeWebhookJob(payload: WebhookExecutionPayload) {
                     const uploadedFiles = await processExecutionFiles(
                       fieldValue,
                       executionContext,
-                      requestId,
+                      requestId
                     )
 
                     if (uploadedFiles.length > 0) {
                       input[fileField.name] = uploadedFiles
                       logger.info(
-                        `[${requestId}] Successfully processed ${uploadedFiles.length} file(s) for field: ${fileField.name}`,
+                        `[${requestId}] Successfully processed ${uploadedFiles.length} file(s) for field: ${fileField.name}`
                       )
                     }
                   }
@@ -465,10 +431,7 @@ export async function executeWebhookJob(payload: WebhookExecutionPayload) {
               }
             }
           } catch (error) {
-            logger.error(
-              `[${requestId}] Error processing generic webhook files:`,
-              error,
-            )
+            logger.error(`[${requestId}] Error processing generic webhook files:`, error)
           }
         }
 
@@ -512,7 +475,7 @@ export async function executeWebhookJob(payload: WebhookExecutionPayload) {
       provider: payload.provider,
     })
 
-    if (!runnerInvoked && error instanceof Error) {
+    if (!runnerInvoked && error instanceof Error && workspaceId) {
       await logWebhookFailure({
         payload,
         executionId,

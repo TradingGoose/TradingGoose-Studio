@@ -117,7 +117,7 @@ describe('buildImplicitCopilotContexts', () => {
     ])
   })
 
-  it('does not emit current context for draft-only review targets', () => {
+  it('does not emit current context for review-target-only payloads', () => {
     expect(
       buildImplicitCopilotContexts({
         workspaceId: 'workspace-1',
@@ -147,7 +147,7 @@ describe('buildCopilotEditableReviewTargets', () => {
     ).toEqual([])
   })
 
-  it('preserves saved and draft entity review targets', () => {
+  it('ignores review metadata even when it is forced into pair context', () => {
     expect(
       buildCopilotEditableReviewTargets({
         pairContext: {
@@ -159,36 +159,6 @@ describe('buildCopilotEditableReviewTargets', () => {
           },
         } as any,
       })
-    ).toEqual([
-      {
-        entityKind: 'indicator',
-        entityId: null,
-        reviewSessionId: 'review-indicator-1',
-        draftSessionId: 'draft-indicator-1',
-      },
-    ])
-  })
-
-  it('keeps editable review targets separate from current entity ids', () => {
-    expect(
-      buildCopilotEditableReviewTargets({
-        pairContext: {
-          skillId: 'skill-saved',
-          reviewTarget: {
-            reviewEntityKind: 'skill',
-            reviewEntityId: null,
-            reviewSessionId: 'review-draft-skill',
-            reviewDraftSessionId: 'draft-skill',
-          },
-        } as any,
-      })
-    ).toEqual([
-      {
-        entityKind: 'skill',
-        entityId: null,
-        reviewSessionId: 'review-draft-skill',
-        draftSessionId: 'draft-skill',
-      },
-    ])
+    ).toEqual([])
   })
 })

@@ -4,7 +4,7 @@ import { useCallback, useRef, useState } from 'react'
 import { cn } from '@/lib/utils'
 
 const BASE_CONTROL_CLASS =
-  'inline-flex h-7 items-center gap-1 rounded-sm border border-border/70 bg-background px-2 p-1 text-xs font-medium text-foreground transition-colors hover:bg-card  disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0 hover:border-border hover:shadwow-sm'
+  'inline-flex h-7 items-center gap-1 rounded-sm border border-border/70 bg-background px-2 p-1 text-xs font-medium text-foreground transition-colors hover:bg-card  disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0 hover:border-border hover:shadow-sm'
 const ICON_BUTTON_CLASS = cn(
   BASE_CONTROL_CLASS,
   'h-7 w-7 shrink-0 justify-center shadow-xs text-muted-foreground hover:text-foreground'

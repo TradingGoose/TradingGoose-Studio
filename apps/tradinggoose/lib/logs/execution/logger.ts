@@ -21,7 +21,7 @@ import {
   getTierUsageAllowanceUsd,
   isFreeBillingTier,
 } from '@/lib/billing/tiers'
-import { resolveWorkflowBillingContext } from '@/lib/billing/workspace-billing'
+import { resolveWorkspaceBillingContext } from '@/lib/billing/workspace-billing'
 import { createLogger } from '@/lib/logs/console/logger'
 import { emitWorkflowExecutionCompleted } from '@/lib/logs/events'
 import { snapshotService } from '@/lib/logs/execution/snapshot/service'
@@ -29,7 +29,6 @@ import type {
   BlockOutputData,
   ExecutionEnvironment,
   ExecutionTrigger,
-  ExecutionLoggerService as IExecutionLoggerService,
   TraceSpan,
   WorkflowExecutionLog,
   WorkflowExecutionSnapshot,
@@ -75,25 +74,27 @@ function readExecutionActorUserId(executionData: Record<string, unknown>): strin
   return typeof userId === 'string' && userId.length > 0 ? userId : null
 }
 
-export class ExecutionLogger implements IExecutionLoggerService {
+export class ExecutionLogger {
   async startWorkflowExecution(params: {
     workflowId: string
     executionId: string
     trigger: ExecutionTrigger
     environment: ExecutionEnvironment
     workflowState: WorkflowState
+    workflowSummary: WorkflowExecutionLog['workflowSummary']
   }): Promise<{
     workflowLog: WorkflowExecutionLog
     snapshot: WorkflowExecutionSnapshot
   }> {
-    const { workflowId, executionId, trigger, environment, workflowState } = params
+    const { workflowId, executionId, trigger, environment, workflowState, workflowSummary } = params
 
     logger.debug(`Starting workflow execution ${executionId} for workflow ${workflowId}`)
 
-    const snapshotResult = await snapshotService.createSnapshotWithDeduplication(
+    const snapshotResult = await snapshotService.createSnapshotWithDeduplication({
       workflowId,
-      workflowState
-    )
+      workspaceId: environment.workspaceId,
+      state: workflowState,
+    })
 
     const startTime = new Date()
 
@@ -102,8 +103,10 @@ export class ExecutionLogger implements IExecutionLoggerService {
       .values({
         id: uuidv4(),
         workflowId,
+        workspaceId: environment.workspaceId,
         executionId,
         stateSnapshotId: snapshotResult.snapshot.id,
+        workflowSummary,
         level: 'info',
         trigger: trigger.type,
         startedAt: startTime,
@@ -122,8 +125,10 @@ export class ExecutionLogger implements IExecutionLoggerService {
       workflowLog: {
         id: workflowLog.id,
         workflowId: workflowLog.workflowId,
+        workspaceId: workflowLog.workspaceId,
         executionId: workflowLog.executionId,
         stateSnapshotId: workflowLog.stateSnapshotId,
+        workflowSummary: workflowLog.workflowSummary as WorkflowExecutionLog['workflowSummary'],
         level: workflowLog.level as 'info' | 'error',
         trigger: workflowLog.trigger as ExecutionTrigger['type'],
         startedAt: workflowLog.startedAt.toISOString(),
@@ -137,7 +142,10 @@ export class ExecutionLogger implements IExecutionLoggerService {
   }
 
   async completeWorkflowExecution(params: {
+    workflowLogId: string
     executionId: string
+    workflowId: string
+    workspaceId: string
     endedAt: string
     totalDurationMs: number
     costSummary: {
@@ -165,6 +173,9 @@ export class ExecutionLogger implements IExecutionLoggerService {
   }): Promise<WorkflowExecutionLog> {
     const {
       executionId,
+      workflowLogId,
+      workflowId,
+      workspaceId,
       endedAt,
       totalDurationMs,
       costSummary,
@@ -174,6 +185,12 @@ export class ExecutionLogger implements IExecutionLoggerService {
     } = params
 
     logger.debug(`Completing workflow execution ${executionId}`)
+    const workflowLogWhere = and(
+      eq(workflowExecutionLogs.id, workflowLogId),
+      eq(workflowExecutionLogs.executionId, executionId),
+      eq(workflowExecutionLogs.workflowId, workflowId),
+      eq(workflowExecutionLogs.workspaceId, workspaceId)
+    )
 
     // Determine if workflow failed by checking trace spans for errors
     const hasErrors = traceSpans?.some((span: any) => {
@@ -195,10 +212,13 @@ export class ExecutionLogger implements IExecutionLoggerService {
     const [existingLog] = await db
       .select({
         id: workflowExecutionLogs.id,
+        workflowId: workflowExecutionLogs.workflowId,
+        workspaceId: workflowExecutionLogs.workspaceId,
+        workflowSummary: workflowExecutionLogs.workflowSummary,
         executionData: workflowExecutionLogs.executionData,
       })
       .from(workflowExecutionLogs)
-      .where(eq(workflowExecutionLogs.executionId, executionId))
+      .where(workflowLogWhere)
       .limit(1)
 
     if (!existingLog) {
@@ -245,7 +265,7 @@ export class ExecutionLogger implements IExecutionLoggerService {
           models: costSummary.models,
         },
       })
-      .where(eq(workflowExecutionLogs.executionId, executionId))
+      .where(workflowLogWhere)
       .returning()
 
     if (!updatedLog) {
@@ -254,8 +274,8 @@ export class ExecutionLogger implements IExecutionLoggerService {
 
     if (await isBillingEnabledForRuntime()) {
       try {
-        const billingContext = await resolveWorkflowBillingContext({
-          workflowId: updatedLog.workflowId,
+        const billingContext = await resolveWorkspaceBillingContext({
+          workspaceId: updatedLog.workspaceId,
           actorUserId,
         })
         const [billingUser] = await db
@@ -271,6 +291,7 @@ export class ExecutionLogger implements IExecutionLoggerService {
           const before = await checkUsageStatus(billingContext.billingUserId)
 
           await this.updateUsageLedger(
+            updatedLog.workspaceId,
             updatedLog.workflowId,
             costSummary,
             updatedLog.trigger as ExecutionTrigger['type'],
@@ -299,6 +320,7 @@ export class ExecutionLogger implements IExecutionLoggerService {
           const organizationBillingOwner = getOrganizationBillingOwner(billingContext.billingOwner)
 
           await this.updateUsageLedger(
+            updatedLog.workspaceId,
             updatedLog.workflowId,
             costSummary,
             updatedLog.trigger as ExecutionTrigger['type'],
@@ -356,6 +378,7 @@ export class ExecutionLogger implements IExecutionLoggerService {
           const orgUsageBeforeNum = billingLedger?.currentPeriodCost ?? 0
 
           await this.updateUsageLedger(
+            updatedLog.workspaceId,
             updatedLog.workflowId,
             costSummary,
             updatedLog.trigger as ExecutionTrigger['type'],
@@ -380,6 +403,7 @@ export class ExecutionLogger implements IExecutionLoggerService {
           })
         } else {
           await this.updateUsageLedger(
+            updatedLog.workspaceId,
             updatedLog.workflowId,
             costSummary,
             updatedLog.trigger as ExecutionTrigger['type'],
@@ -389,6 +413,7 @@ export class ExecutionLogger implements IExecutionLoggerService {
       } catch (e) {
         try {
           await this.updateUsageLedger(
+            updatedLog.workspaceId,
             updatedLog.workflowId,
             costSummary,
             updatedLog.trigger as ExecutionTrigger['type'],
@@ -404,8 +429,10 @@ export class ExecutionLogger implements IExecutionLoggerService {
     const completedLog: WorkflowExecutionLog = {
       id: updatedLog.id,
       workflowId: updatedLog.workflowId,
+      workspaceId: updatedLog.workspaceId,
       executionId: updatedLog.executionId,
       stateSnapshotId: updatedLog.stateSnapshotId,
+      workflowSummary: updatedLog.workflowSummary as WorkflowExecutionLog['workflowSummary'],
       level: updatedLog.level as 'info' | 'error',
       trigger: updatedLog.trigger as ExecutionTrigger['type'],
       startedAt: updatedLog.startedAt.toISOString(),
@@ -438,8 +465,10 @@ export class ExecutionLogger implements IExecutionLoggerService {
     return {
       id: workflowLog.id,
       workflowId: workflowLog.workflowId,
+      workspaceId: workflowLog.workspaceId,
       executionId: workflowLog.executionId,
       stateSnapshotId: workflowLog.stateSnapshotId,
+      workflowSummary: workflowLog.workflowSummary as WorkflowExecutionLog['workflowSummary'],
       level: workflowLog.level as 'info' | 'error',
       trigger: workflowLog.trigger as ExecutionTrigger['type'],
       startedAt: workflowLog.startedAt.toISOString(),
@@ -456,7 +485,8 @@ export class ExecutionLogger implements IExecutionLoggerService {
    * Maintains the same runtime billing accounting path for both user and organization scopes.
    */
   private async updateUsageLedger(
-    workflowId: string,
+    workspaceId: string,
+    workflowId: string | null,
     costSummary: {
       totalCost: number
       totalInputCost: number
@@ -481,8 +511,8 @@ export class ExecutionLogger implements IExecutionLoggerService {
     }
 
     try {
-      const billingContext = await resolveWorkflowBillingContext({
-        workflowId,
+      const billingContext = await resolveWorkspaceBillingContext({
+        workspaceId,
         actorUserId,
       })
       const isOrganizationScope = billingContext.scopeType === 'organization'

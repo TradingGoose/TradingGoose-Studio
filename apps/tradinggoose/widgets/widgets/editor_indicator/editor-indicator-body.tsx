@@ -31,7 +31,7 @@ export function EditorIndicatorWidgetBody({
 
   const paramsIndicatorId = getIndicatorIdFromParams(params)
   const requestedIndicatorId = isLinkedToColorPair
-    ? (pairContext?.indicatorId ?? paramsIndicatorId)
+    ? (pairContext?.indicatorId ?? null)
     : paramsIndicatorId
 
   const workspaceIndicators = workspaceId
@@ -43,7 +43,7 @@ export function EditorIndicatorWidgetBody({
     workspaceIndicators.some((indicator) => indicator.id === normalizedRequestedIndicatorId)
   const indicatorId = hasRequestedIndicator
     ? normalizedRequestedIndicatorId
-    : (workspaceIndicators[0]?.id ?? null)
+    : (isLinkedToColorPair ? null : (workspaceIndicators[0]?.id ?? null))
   const indicator = indicatorId
     ? (workspaceIndicators.find((candidate) => candidate.id === indicatorId) ?? null)
     : null
@@ -132,7 +132,17 @@ export function EditorIndicatorWidgetBody({
   }
 
   if (!indicatorId) {
-    return <WidgetStateMessage message='Select an indicator to edit.' />
+    return (
+      <WidgetStateMessage
+        message={
+          isLinkedToColorPair
+            ? normalizedRequestedIndicatorId.length > 0
+              ? 'Indicator not found.'
+              : 'This color has no shared indicator selected yet.'
+            : 'Select an indicator to edit.'
+        }
+      />
+    )
   }
 
   if (!indicator) {

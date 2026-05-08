@@ -23,6 +23,14 @@ export {
 } from './breadcrumb'
 export { Button, buttonVariants } from './button'
 export { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from './card'
+export {
+  type ChartConfig,
+  ChartContainer,
+  ChartLegend,
+  ChartLegendContent,
+  ChartTooltip,
+  ChartTooltipContent,
+} from './chart'
 export { Checkbox } from './checkbox'
 export { CodeBlock } from './code-block'
 export { Collapsible, CollapsibleContent, CollapsibleTrigger } from './collapsible'

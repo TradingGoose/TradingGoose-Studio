@@ -14,14 +14,6 @@ vi.mock('@tradinggoose/db', () => ({
   },
 }))
 
-vi.mock('@/lib/logs/execution/logging-session', () => ({
-  LoggingSession: vi.fn().mockImplementation(() => ({
-    safeStart: vi.fn().mockResolvedValue(undefined),
-    safeComplete: vi.fn().mockResolvedValue(undefined),
-    safeCompleteWithError: vi.fn().mockResolvedValue(undefined),
-  })),
-}))
-
 vi.mock('@/executor', () => ({
   Executor: vi.fn(),
 }))

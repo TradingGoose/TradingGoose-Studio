@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { generateInternalToken } from '@/lib/auth/internal'
 import type { ToolConfig } from '@/tools/types'
 import {
   createCustomToolRequestBody,
@@ -6,6 +7,7 @@ import {
   executeRequest,
   formatRequestParams,
   getClientEnvVars,
+  getToolAsync,
   transformTable,
   validateRequiredParametersAfterMerge,
 } from '@/tools/utils'
@@ -17,6 +19,10 @@ vi.mock('@/lib/logs/console/logger', () => ({
     warn: vi.fn(),
     error: vi.fn(),
   }),
+}))
+
+vi.mock('@/lib/auth/internal', () => ({
+  generateInternalToken: vi.fn().mockResolvedValue('mock-internal-token'),
 }))
 
 vi.mock('@/stores/settings/environment/store', () => {
@@ -719,5 +725,59 @@ describe('createCustomToolRequestBody', () => {
       blockNameMapping: {},
       isCustomTool: true,
     })
+  })
+
+  it.concurrent('passes full execution provenance into custom tool request bodies', () => {
+    const customTool = {
+      code: 'return params',
+      schema: {
+        function: {
+          parameters: { type: 'object', properties: {} },
+        },
+      },
+    }
+
+    const bodyFn = createCustomToolRequestBody(customTool, false, 'workflow-default')
+    const result = bodyFn({
+      _context: {
+        submissionSource: 'copilot',
+        userId: 'user-1',
+        workflowId: 'workflow-1',
+        workflowLogId: 'log-1',
+        workspaceId: 'workspace-1',
+      },
+    })
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        submissionSource: 'copilot',
+        userId: 'user-1',
+        workflowId: 'workflow-1',
+        workflowLogId: 'log-1',
+        workspaceId: 'workspace-1',
+      })
+    )
+  })
+
+  it('fails closed before fetching custom tools when internal auth generation fails', async () => {
+    const serverWindow = global.window
+    const fetchSpy = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValue(new Response(JSON.stringify({ data: [] }), { status: 200 }) as any)
+    vi.mocked(generateInternalToken).mockRejectedValueOnce(new Error('token boom'))
+
+    try {
+      ;(global as any).window = undefined
+
+      await expect(
+        getToolAsync('custom_custom-tool-123', undefined, 'workspace-456', 'user-123')
+      ).resolves.toBeUndefined()
+
+      expect(generateInternalToken).toHaveBeenCalledWith('user-123')
+      expect(fetchSpy).not.toHaveBeenCalled()
+    } finally {
+      global.window = serverWindow
+      fetchSpy.mockRestore()
+    }
   })
 })

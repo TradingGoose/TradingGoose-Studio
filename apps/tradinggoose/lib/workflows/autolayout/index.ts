@@ -1,10 +1,9 @@
 import { createLogger } from '@/lib/logs/console/logger'
 import type { BlockState } from '@/stores/workflows/workflow/types'
 import { layoutContainers } from './containers'
-import { adjustForNewBlock as adjustForNewBlockInternal, compactHorizontally } from './incremental'
 import { assignLayers, groupByLayer } from './layering'
 import { calculatePositions } from './positioning'
-import type { AdjustmentOptions, Edge, LayoutOptions, LayoutResult, Loop, Parallel } from './types'
+import type { Edge, LayoutOptions, LayoutResult } from './types'
 import { getBlocksByParent, prepareBlockMetrics } from './utils'
 
 const logger = createLogger('AutoLayout')
@@ -12,19 +11,17 @@ const logger = createLogger('AutoLayout')
 export function applyAutoLayout(
   blocks: Record<string, BlockState>,
   edges: Edge[],
-  loops: Record<string, Loop> = {},
-  parallels: Record<string, Parallel> = {},
   options: LayoutOptions = {}
 ): LayoutResult {
   try {
     logger.info('Starting auto layout', {
       blockCount: Object.keys(blocks).length,
       edgeCount: edges.length,
-      loopCount: Object.keys(loops).length,
-      parallelCount: Object.keys(parallels).length,
     })
 
     const blocksCopy: Record<string, BlockState> = JSON.parse(JSON.stringify(blocks))
+
+    layoutContainers(blocksCopy, edges, options)
 
     const { root: rootBlockIds } = getBlocksByParent(blocksCopy)
 
@@ -41,7 +38,7 @@ export function applyAutoLayout(
       const nodes = assignLayers(rootBlocks, rootEdges)
       prepareBlockMetrics(nodes)
       const layers = groupByLayer(nodes)
-      calculatePositions(layers, options)
+      calculatePositions(layers, rootEdges, options)
 
       for (const node of nodes.values()) {
         blocksCopy[node.id].position = node.position
@@ -68,38 +65,5 @@ export function applyAutoLayout(
   }
 }
 
-export function adjustForNewBlock(
-  blocks: Record<string, BlockState>,
-  edges: Edge[],
-  newBlockId: string,
-  options: AdjustmentOptions = {}
-): LayoutResult {
-  try {
-    logger.info('Adjusting layout for new block', { newBlockId })
-
-    const blocksCopy: Record<string, BlockState> = JSON.parse(JSON.stringify(blocks))
-
-    adjustForNewBlockInternal(blocksCopy, edges, newBlockId, options)
-
-    if (!options.preservePositions) {
-      compactHorizontally(blocksCopy, edges)
-    }
-
-    return {
-      blocks: blocksCopy,
-      success: true,
-    }
-  } catch (error) {
-    logger.error('Failed to adjust layout for new block', { newBlockId, error })
-    return {
-      blocks,
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
-    }
-  }
-}
-
-export type { LayoutOptions, LayoutResult, AdjustmentOptions, Edge, Loop, Parallel }
-export type { TargetedLayoutOptions } from './targeted'
-export { applyTargetedLayout } from './targeted'
+export type { LayoutOptions, LayoutResult, Edge }
 export { getBlockMetrics, isContainerType } from './utils'

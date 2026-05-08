@@ -64,14 +64,18 @@ It is built for analytics, research, charting, monitoring, and workflow automati
 bun install
 ```
 
-#### 2. Start PostgreSQL database
+#### 2. Start PostgreSQL database and Redis
 ```
 docker run --name tradinggoose-db `
-  -e POSTGRES_PASSWORD=postgres `
+  -e POSTGRES_USER=tradinggoose `
+  -e POSTGRES_PASSWORD=<your-postgres-password> `
   -e POSTGRES_DB=tradinggoose `
   -p 5432:5432 `
   -d pgvector/pgvector:pg17
+
+docker run -d --name tradinggoose-redis -p 6379:6379 redis
 ```
+
 #### 3. Setup environment variables
 ```
 cd apps/tradinggoose && cp .env.example .env
@@ -89,6 +93,25 @@ bunx drizzle-kit migrate --config=./drizzle.config.ts
 cd ../..
 bun run dev:full
 ```
+
+## Docker Compose
+
+If you use Docker Compose, copy `apps/tradinggoose/.env.example.docker` to
+`apps/tradinggoose/.env` and set the required secrets before running the
+compose manifests. The `.env` must include `POSTGRES_*`,
+`NEXT_PUBLIC_APP_URL`, `NEXT_PUBLIC_SOCKET_URL`, `BETTER_AUTH_SECRET`,
+`ENCRYPTION_KEY`, `API_ENCRYPTION_KEY`, and `INTERNAL_API_SECRET`. The
+`ENCRYPTION_KEY` value is shared by both the app and realtime containers, and
+`API_ENCRYPTION_KEY` enables encrypted API-key storage in the app container.
+`NEXT_PUBLIC_SOCKET_URL` should point at `http://localhost:3002` for local
+Compose runs; production deployments must override it with a browser-reachable
+public URL. The prod and Ollama compose files also require `IMAGE_TAG` and
+`OLLAMA_IMAGE_TAG` respectively.
+
+```
+docker compose --env-file ./apps/tradinggoose/.env -f docker-compose.local.yml up
+```
+
 
 ## Contributing
 

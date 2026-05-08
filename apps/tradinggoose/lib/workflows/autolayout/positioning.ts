@@ -1,6 +1,5 @@
 import { createLogger } from '@/lib/logs/console/logger'
-import type { AutoLayoutDirection } from '@/lib/workflows/workflow-direction'
-import type { GraphNode, LayoutOptions } from './types'
+import type { Edge, GraphNode, LayoutOptions } from './types'
 import { boxesOverlap, createBoundingBox } from './utils'
 
 const logger = createLogger('AutoLayout:Positioning')
@@ -8,57 +7,23 @@ const logger = createLogger('AutoLayout:Positioning')
 const DEFAULT_HORIZONTAL_SPACING = 550
 const DEFAULT_VERTICAL_SPACING = 200
 const DEFAULT_PADDING = { x: 150, y: 150 }
+type LayoutAxis = 'horizontal' | 'vertical'
 
 export function calculatePositions(
   layers: Map<number, GraphNode[]>,
+  edges: Edge[],
   options: LayoutOptions = {}
 ): void {
-  const direction = options.direction ?? 'horizontal'
   const horizontalSpacing = options.horizontalSpacing ?? DEFAULT_HORIZONTAL_SPACING
   const verticalSpacing = options.verticalSpacing ?? DEFAULT_VERTICAL_SPACING
   const padding = options.padding ?? DEFAULT_PADDING
   const alignment = options.alignment ?? 'center'
 
   const layerNumbers = Array.from(layers.keys()).sort((a, b) => a - b)
+  let xPosition = padding.x
 
-  // Calculate positions for each layer
   for (const layerNum of layerNumbers) {
     const nodesInLayer = layers.get(layerNum)!
-    if (direction === 'vertical') {
-      const yPosition = padding.y + layerNum * verticalSpacing
-      const totalWidth = nodesInLayer.reduce(
-        (sum, node, idx) => sum + node.metrics.width + (idx > 0 ? horizontalSpacing : 0),
-        0
-      )
-
-      let xOffset: number
-      switch (alignment) {
-        case 'start':
-          xOffset = padding.x
-          break
-        case 'center':
-          xOffset = Math.max(padding.x, 300 - totalWidth / 2)
-          break
-        case 'end':
-          xOffset = 900 - totalWidth - padding.x
-          break
-        default:
-          xOffset = padding.x
-          break
-      }
-
-      for (const node of nodesInLayer) {
-        node.position = {
-          x: xOffset,
-          y: yPosition,
-        }
-
-        xOffset += node.metrics.width + horizontalSpacing
-      }
-      continue
-    }
-
-    const xPosition = padding.x + layerNum * horizontalSpacing
     const totalHeight = nodesInLayer.reduce(
       (sum, node, idx) => sum + node.metrics.height + (idx > 0 ? verticalSpacing : 0),
       0
@@ -88,15 +53,115 @@ export function calculatePositions(
 
       yOffset += node.metrics.height + verticalSpacing
     }
+
+    xPosition += Math.max(
+      horizontalSpacing,
+      Math.max(0, ...nodesInLayer.map((node) => node.metrics.width)) + 120
+    )
   }
 
-  // Resolve any overlaps
-  resolveOverlaps(Array.from(layers.values()).flat(), direction, horizontalSpacing, verticalSpacing)
+  const incomingAxes = applyEdgeConstraints(layers, edges, horizontalSpacing, verticalSpacing)
+
+  resolveOverlaps(
+    Array.from(layers.values()).flat(),
+    incomingAxes,
+    horizontalSpacing,
+    verticalSpacing
+  )
+}
+
+function applyEdgeConstraints(
+  layers: Map<number, GraphNode[]>,
+  edges: Edge[],
+  horizontalSpacing: number,
+  verticalSpacing: number
+): Map<string, LayoutAxis | 'mixed'> {
+  const nodesById = new Map(Array.from(layers.values()).flat().map((node) => [node.id, node]))
+  const incomingEdges = new Map<string, Edge[]>()
+  const incomingAxes = new Map<string, LayoutAxis | 'mixed'>()
+
+  for (const edge of edges) {
+    if (!incomingEdges.has(edge.target)) {
+      incomingEdges.set(edge.target, [])
+    }
+    incomingEdges.get(edge.target)!.push(edge)
+  }
+
+  for (const layerNum of Array.from(layers.keys()).sort((a, b) => a - b)) {
+    const layer = layers.get(layerNum)!
+    for (const node of layer) {
+      const nodeIncomingEdges = incomingEdges.get(node.id) ?? []
+      let horizontalX: number | null = null
+      let horizontalY: number | null = null
+      let verticalX: number | null = null
+      let verticalY: number | null = null
+
+      for (const edge of nodeIncomingEdges) {
+        const source = nodesById.get(edge.source)
+        if (!source) continue
+
+        const axis = getEdgeAxis(edge, source)
+        const currentAxis = incomingAxes.get(node.id)
+        incomingAxes.set(node.id, !currentAxis || currentAxis === axis ? axis : 'mixed')
+
+        if (axis === 'horizontal') {
+          horizontalX = Math.max(
+            horizontalX ?? Number.NEGATIVE_INFINITY,
+            source.position.x + source.metrics.width + horizontalSpacing
+          )
+          horizontalY = Math.max(
+            horizontalY ?? Number.NEGATIVE_INFINITY,
+            source.position.y + source.metrics.height / 2 - node.metrics.height / 2
+          )
+        } else {
+          verticalY = Math.max(
+            verticalY ?? Number.NEGATIVE_INFINITY,
+            source.position.y + source.metrics.height + verticalSpacing
+          )
+          verticalX = Math.max(
+            verticalX ?? Number.NEGATIVE_INFINITY,
+            source.position.x + source.metrics.width / 2 - node.metrics.width / 2
+          )
+        }
+      }
+
+      if (horizontalX !== null) {
+        node.position.x = horizontalX
+      } else if (verticalX !== null) {
+        node.position.x = verticalX
+      }
+
+      if (verticalY !== null) {
+        node.position.y = verticalY
+      } else if (horizontalY !== null) {
+        node.position.y = horizontalY
+      }
+    }
+  }
+
+  return incomingAxes
+}
+
+function getEdgeAxis(edge: Edge, source: GraphNode): LayoutAxis {
+  if (
+    edge.sourceHandle?.startsWith('condition-') ||
+    edge.sourceHandle === 'loop-start-source' ||
+    edge.sourceHandle === 'loop-end-source' ||
+    edge.sourceHandle === 'parallel-start-source' ||
+    edge.sourceHandle === 'parallel-end-source' ||
+    source.block.type === 'condition' ||
+    source.block.type === 'loop' ||
+    source.block.type === 'parallel'
+  ) {
+    return 'horizontal'
+  }
+
+  return source.block.horizontalHandles === false ? 'vertical' : 'horizontal'
 }
 
 function resolveOverlaps(
   nodes: GraphNode[],
-  direction: AutoLayoutDirection,
+  incomingAxes: Map<string, LayoutAxis | 'mixed'>,
   horizontalSpacing: number,
   verticalSpacing: number
 ): void {
@@ -111,7 +176,7 @@ function resolveOverlaps(
     // Sort nodes by position for consistent processing
     const sortedNodes = [...nodes].sort((a, b) => {
       if (a.layer !== b.layer) return a.layer - b.layer
-      return direction === 'vertical' ? a.position.x - b.position.x : a.position.y - b.position.y
+      return a.position.y - b.position.y || a.position.x - b.position.x
     })
 
     for (let i = 0; i < sortedNodes.length; i++) {
@@ -125,34 +190,23 @@ function resolveOverlaps(
         // Check for overlap with margin
         if (boxesOverlap(box1, box2, 30)) {
           hasOverlap = true
+          const separateHorizontally =
+            incomingAxes.get(node1.id) === 'vertical' &&
+            incomingAxes.get(node2.id) === 'vertical'
 
-          if (node1.layer === node2.layer && direction === 'vertical') {
-            const midpoint = (node1.position.x + node2.position.x) / 2
-
-            node1.position.x = midpoint - node1.metrics.width / 2 - horizontalSpacing / 2
-            node2.position.x = midpoint + node2.metrics.width / 2 + horizontalSpacing / 2
-          } else if (node1.layer === node2.layer) {
-            const totalHeight = node1.metrics.height + node2.metrics.height + verticalSpacing
-            const midpoint = (node1.position.y + node2.position.y) / 2
-
-            node1.position.y = midpoint - node1.metrics.height / 2 - verticalSpacing / 2
-            node2.position.y = midpoint + node2.metrics.height / 2 + verticalSpacing / 2
-          } else if (direction === 'vertical') {
-            const requiredSpace = box1.x + box1.width + horizontalSpacing
-            if (node2.position.x < requiredSpace) {
-              node2.position.x = requiredSpace
-            }
+          if (separateHorizontally) {
+            node2.position.x = Math.max(
+              node2.position.x,
+              box1.x + box1.width + horizontalSpacing
+            )
           } else {
-            const requiredSpace = box1.y + box1.height + verticalSpacing
-            if (node2.position.y < requiredSpace) {
-              node2.position.y = requiredSpace
-            }
+            node2.position.y = Math.max(node2.position.y, box1.y + box1.height + verticalSpacing)
           }
 
           logger.debug('Resolved overlap between blocks', {
             block1: node1.id,
             block2: node2.id,
-            samLayer: node1.layer === node2.layer,
+            sameLayer: node1.layer === node2.layer,
             iteration,
           })
         }

@@ -236,6 +236,56 @@ describe('InlineToolCall', () => {
     expect(container.querySelector('[data-testid="workflow-preview"]')).toBeNull()
   })
 
+  it('renders block edit approval details for staged edit_workflow_block results', async () => {
+    await act(async () => {
+      root.render(
+        <InlineToolCall
+          toolCall={{
+            id: 'tool-block-review',
+            name: 'edit_workflow_block',
+            state: ClientToolCallState.review,
+            params: {
+              workflowId: 'wf-1',
+              blockId: 'fn1',
+              blockType: 'function',
+              name: 'Compute Market Indicators',
+              enabled: false,
+              subBlocks: {
+                code: 'return { rsi: 50 }',
+              },
+            },
+            result: {
+              workflowState: {
+                blocks: {
+                  fn1: {
+                    id: 'fn1',
+                    type: 'function',
+                    name: 'Compute Market Indicators',
+                  },
+                },
+                edges: [],
+                loops: {},
+                parallels: {},
+              },
+            },
+          }}
+        />
+      )
+    })
+
+    expect(container.textContent).toContain('Proposed Workflow Block Changes')
+    expect(container.textContent).toContain('fn1')
+    expect(container.textContent).toContain('function')
+    expect(container.textContent).toContain('Compute Market Indicators')
+    expect(container.textContent).toContain('Enabled')
+    expect(container.textContent).toContain('false')
+    expect(container.textContent).toContain('subBlocks.code')
+    expect(container.textContent).toContain('return { rsi: 50 }')
+    expect(container.querySelector('[data-testid="workflow-preview"]')?.textContent).toContain(
+      'fn1'
+    )
+  })
+
   it('renders entity diffs in the copilot widget for pending entity edits', async () => {
     mockEntitySession.doc = { id: 'entity-doc' }
     mockEntitySession.descriptor = {

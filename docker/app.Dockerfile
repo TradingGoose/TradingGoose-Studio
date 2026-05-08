@@ -1,7 +1,7 @@
 # ========================================
 # Base Stage: Alpine Linux with Bun
 # ========================================
-FROM oven/bun:1.2.22-alpine AS base
+FROM oven/bun:1.3.11-alpine AS base
 
 # ========================================
 # Dependencies Stage: Install Dependencies
@@ -9,9 +9,6 @@ FROM oven/bun:1.2.22-alpine AS base
 FROM base AS deps
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
-
-# Install turbo globally
-RUN bun install -g turbo
 
 COPY package.json bun.lock ./
 RUN mkdir -p apps
@@ -26,7 +23,7 @@ FROM base AS builder
 WORKDIR /app
 
 # Install turbo globally in builder stage
-RUN bun install -g turbo
+RUN bun install -g turbo@2.5.8
 
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
@@ -36,7 +33,7 @@ RUN bun install --omit dev --ignore-scripts
 
 # Required for standalone nextjs build
 WORKDIR /app/apps/tradinggoose
-RUN bun install sharp
+RUN bun install sharp@0.34.3
 
 ENV NEXT_TELEMETRY_DISABLED=1 \
     VERCEL_TELEMETRY_DISABLED=1 \
@@ -57,14 +54,27 @@ ENV NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL}
 RUN bun run build
 
 # ========================================
+# Guardrails Stage: Build Presidio runtime
+# ========================================
+FROM base AS guardrails
+RUN apk add --no-cache python3 py3-pip bash
+WORKDIR /app/lib/guardrails
+
+COPY apps/tradinggoose/lib/guardrails/setup.sh ./setup.sh
+COPY apps/tradinggoose/lib/guardrails/requirements.txt ./requirements.txt
+COPY apps/tradinggoose/lib/guardrails/validate_pii.py ./validate_pii.py
+
+RUN chmod +x ./setup.sh && ./setup.sh
+
+# ========================================
 # Runner Stage: Run the actual app
 # ========================================
 
 FROM base AS runner
 WORKDIR /app
 
-# Install Python and dependencies for guardrails PII detection
-RUN apk add --no-cache python3 py3-pip bash
+# Install Python runtime for guardrails PII detection
+RUN apk add --no-cache python3
 
 ENV NODE_ENV=production
 
@@ -75,21 +85,17 @@ RUN addgroup -g 1001 -S nodejs && \
 COPY --from=builder --chown=nextjs:nodejs /app/apps/tradinggoose/public ./apps/tradinggoose/public
 COPY --from=builder --chown=nextjs:nodejs /app/apps/tradinggoose/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/apps/tradinggoose/.next/static ./apps/tradinggoose/.next/static
+# Preserve Bun's workspace target for lib0 so yjs can resolve it at runtime.
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/.bun/lib0@0.2.102/node_modules/lib0 ./node_modules/.bun/lib0@0.2.102/node_modules/lib0
+COPY --from=builder --chown=nextjs:nodejs /app/apps/tradinggoose/node_modules/lib0 ./apps/tradinggoose/node_modules/lib0
 
-# Guardrails setup (files need to be owned by nextjs for runtime)
-COPY --from=builder --chown=nextjs:nodejs /app/apps/tradinggoose/lib/guardrails/setup.sh ./apps/tradinggoose/lib/guardrails/setup.sh
-COPY --from=builder --chown=nextjs:nodejs /app/apps/tradinggoose/lib/guardrails/requirements.txt ./apps/tradinggoose/lib/guardrails/requirements.txt
-COPY --from=builder --chown=nextjs:nodejs /app/apps/tradinggoose/lib/guardrails/validate_pii.py ./apps/tradinggoose/lib/guardrails/validate_pii.py
+# Guardrails runtime assets
+COPY --from=guardrails --chown=nextjs:nodejs /app/lib/guardrails/venv ./lib/guardrails/venv
+COPY --from=guardrails --chown=nextjs:nodejs /app/lib/guardrails/validate_pii.py ./lib/guardrails/validate_pii.py
 
-# Run guardrails setup as root, then fix ownership of generated venv files
-RUN chmod +x ./apps/tradinggoose/lib/guardrails/setup.sh && \
-    cd ./apps/tradinggoose/lib/guardrails && \
-    ./setup.sh && \
-    chown -R nextjs:nodejs /app/apps/tradinggoose/lib/guardrails
-
-# Create .next/cache directory with correct ownership
+# Create the writable .next/cache directory for the non-root runtime user
 RUN mkdir -p apps/tradinggoose/.next/cache && \
-    chown -R nextjs:nodejs /app
+    chown nextjs:nodejs apps/tradinggoose/.next/cache
 
 # Switch to non-root user
 USER nextjs

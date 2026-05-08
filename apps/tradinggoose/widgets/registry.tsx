@@ -3,6 +3,7 @@ import type {
   WidgetCategoryDefinition,
   WidgetCategoryGroup,
 } from '@/widgets/types'
+import { copilotWidget } from '@/widgets/widgets/copilot'
 import { dataChartWidget } from '@/widgets/widgets/data_chart'
 import { editorCustomToolWidget } from '@/widgets/widgets/editor_custom_tool/index'
 import { editorIndicatorWidget } from '@/widgets/widgets/editor_indicator'
@@ -15,13 +16,19 @@ import { listIndicatorWidget } from '@/widgets/widgets/list_indicator'
 import { listMcpWidget } from '@/widgets/widgets/list_mcp'
 import { listSkillWidget } from '@/widgets/widgets/list_skill'
 import { workflowListWidget } from '@/widgets/widgets/list_workflow'
+import { portfolioSnapshotWidget } from '@/widgets/widgets/portfolio_snapshot'
+import { quickOrderWidget } from '@/widgets/widgets/quick_order'
+import { heatmapWidget } from '@/widgets/widgets/heatmap'
 import { watchlistWidget } from '@/widgets/widgets/watchlist'
 import { chatWidget } from '@/widgets/widgets/workflow_chat'
 import { workflowConsoleWidget } from '@/widgets/widgets/workflow_console'
-import { copilotWidget } from '@/widgets/widgets/copilot'
 import { workflowVariablesWidget } from '@/widgets/widgets/workflow_variables'
 
 const widgetCategoryConfig: WidgetCategoryDefinition[] = [
+  {
+    key: 'trading',
+    title: 'Trading',
+  },
   {
     key: 'list',
     title: 'Lists',
@@ -32,7 +39,7 @@ const widgetCategoryConfig: WidgetCategoryDefinition[] = [
   },
   {
     key: 'utility',
-    title: 'Utility',
+    title: 'Utils',
   },
 ]
 
@@ -54,6 +61,9 @@ const widgetRegistry: Record<string, DashboardWidgetDefinition> = {
   editor_skill: editorSkillWidget,
   workflow_variables: workflowVariablesWidget,
   watchlist: watchlistWidget,
+  portfolio_snapshot: portfolioSnapshotWidget,
+  quick_order: quickOrderWidget,
+  heatmap: heatmapWidget,
 }
 
 export const getWidgetDefinition = (key: string): DashboardWidgetDefinition | undefined =>

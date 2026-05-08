@@ -1,125 +1,207 @@
 import { describe, expect, it } from 'vitest'
-import { normalizeAlpacaHoldings } from '@/providers/trading/alpaca/positions'
+import type { ListingResolved } from '@/lib/listing/identity'
 import { alpacaTradingProviderConfig } from '@/providers/trading/alpaca/config'
-import { normalizeTradierHoldings } from '@/providers/trading/tradier/positions'
-import { tradierTradingProviderConfig } from '@/providers/trading/tradier/config'
 import {
+  isTradingOrderListingSupported,
   listingIdentityToTradingSymbol,
+  resolveTradingListingAssetClass,
   tradingSymbolToListingIdentity,
 } from '@/providers/trading/utils'
 
-describe('listingIdentityToTradingSymbol', () => {
-  it('maps default listing identities to stock provider symbols', () => {
-    const symbol = listingIdentityToTradingSymbol(tradierTradingProviderConfig, {
-      listing: {
-        listing_id: 'SPY',
-        base_id: '',
-        quote_id: '',
-        listing_type: 'default',
-      },
-    })
+const stockListing: ListingResolved = {
+  listing_type: 'default',
+  listing_id: 'AAPL',
+  base_id: '',
+  quote_id: '',
+  base: 'AAPL',
+  quote: 'USD',
+  assetClass: 'stock',
+}
 
-    expect(symbol).toBe('SPY')
-  })
+const etfListing: ListingResolved = {
+  listing_type: 'default',
+  listing_id: 'SPY',
+  base_id: '',
+  quote_id: '',
+  base: 'SPY',
+  quote: 'USD',
+  assetClass: 'etf',
+}
 
-  it('maps crypto listing identities to provider symbols without provider-local wrappers', () => {
-    const symbol = listingIdentityToTradingSymbol(alpacaTradingProviderConfig, {
-      listing: {
+const assetlessListing: ListingResolved = {
+  listing_type: 'default',
+  listing_id: 'AAPL',
+  base_id: '',
+  quote_id: '',
+  base: 'AAPL',
+  quote: 'USD',
+}
+
+describe('trading listing utility helpers', () => {
+  it('resolves asset class from enriched listing fields without legacy equity mapping', () => {
+    expect(resolveTradingListingAssetClass(assetlessListing)).toBeUndefined()
+    expect(resolveTradingListingAssetClass(stockListing)).toBe('stock')
+    expect(resolveTradingListingAssetClass(stockListing, 'etf')).toBe('etf')
+    expect(
+      resolveTradingListingAssetClass({
+        listing_type: 'crypto',
         listing_id: '',
         base_id: 'BTC',
         quote_id: 'USD',
-        listing_type: 'crypto',
-      },
-    })
-
-    expect(symbol).toBe('BTC/USD')
+      })
+    ).toBe('crypto')
+    expect(
+      resolveTradingListingAssetClass({
+        listing_type: 'currency',
+        listing_id: '',
+        base_id: 'EUR',
+        quote_id: 'USD',
+      })
+    ).toBe('currency')
+    expect(
+      resolveTradingListingAssetClass({
+        listing_type: 'default',
+        listing_id: 'ES',
+        base_asset_class: 'future',
+      } as any)
+    ).toBe('future')
+    expect(
+      resolveTradingListingAssetClass({
+        listing_type: 'default',
+        listing_id: 'SPX',
+        assetClass: 'indice',
+      } as any)
+    ).toBe('indice')
+    expect(
+      resolveTradingListingAssetClass({
+        listing_type: 'default',
+        listing_id: 'VTSAX',
+        assetClass: 'mutualfund',
+      } as any)
+    ).toBe('mutualfund')
+    expect(
+      resolveTradingListingAssetClass({
+        listing_type: 'default',
+        listing_id: 'SPX',
+        assetClass: 'us_equity',
+      } as any)
+    ).toBeUndefined()
+    expect(resolveTradingListingAssetClass({ listing_type: 'equity' } as any)).toBeUndefined()
   })
-})
 
-describe('tradingSymbolToListingIdentity', () => {
-  it('maps provider crypto symbols back to listing identities', () => {
+  it('validates provider support only after an asset class can be resolved', () => {
+    expect(isTradingOrderListingSupported('alpaca', stockListing)).toBe(true)
+    expect(isTradingOrderListingSupported('alpaca', etfListing)).toBe(false)
+    expect(isTradingOrderListingSupported('alpaca', assetlessListing)).toBe(true)
+    expect(
+      isTradingOrderListingSupported('alpaca', {
+        listing_type: 'crypto',
+        listing_id: '',
+        base_id: 'BTC',
+        quote_id: 'USD',
+      })
+    ).toBe(true)
+    expect(
+      isTradingOrderListingSupported('tradier', {
+        listing_type: 'currency',
+        listing_id: '',
+        base_id: 'EUR',
+        quote_id: 'USD',
+      })
+    ).toBe(false)
+    expect(
+      isTradingOrderListingSupported('tradier', {
+        listing_type: 'default',
+        listing_id: 'ES',
+        assetClass: 'future',
+      } as any)
+    ).toBe(false)
+  })
+
+  it('keeps generic symbol conversion independent from quick-order asset-class strictness', () => {
+    expect(
+      listingIdentityToTradingSymbol(alpacaTradingProviderConfig, {
+        listing: {
+          listing_type: 'default',
+          listing_id: 'AAPL',
+          base_id: '',
+          quote_id: '',
+        },
+      })
+    ).toBe('AAPL')
+
+    expect(
+      listingIdentityToTradingSymbol(alpacaTradingProviderConfig, {
+        listing: {
+          listing_type: 'crypto',
+          listing_id: '',
+          base_id: 'BTC',
+          quote_id: 'USD',
+        },
+        assetClass: 'crypto',
+      })
+    ).toBe('BTC/USD')
+
     expect(
       tradingSymbolToListingIdentity(alpacaTradingProviderConfig, {
         symbol: 'BTC/USD',
         assetClass: 'crypto',
       })
     ).toMatchObject({
-      base: 'BTC',
-      quote: 'USD',
-      assetClass: 'crypto',
       listing: {
-        listing_id: '',
+        listing_type: 'crypto',
         base_id: 'BTC',
         quote_id: 'USD',
-        listing_type: 'crypto',
       },
+      assetClass: 'crypto',
     })
-  })
 
-  it('maps provider stock symbols back to default listing identities', () => {
     expect(
-      tradingSymbolToListingIdentity(tradierTradingProviderConfig, {
-        symbol: 'AAPL',
+      tradingSymbolToListingIdentity(alpacaTradingProviderConfig, {
+        symbol: 'DOGEUSD',
+        assetClass: 'crypto',
       })
     ).toMatchObject({
-      base: 'AAPL',
-      quote: 'USD',
-      assetClass: 'stock',
       listing: {
-        listing_id: 'AAPL',
-        base_id: '',
-        quote_id: '',
-        listing_type: 'default',
+        listing_type: 'crypto',
+        base_id: 'DOGE',
+        quote_id: 'USD',
       },
-    })
-  })
-})
-
-describe('provider holdings normalization', () => {
-  it('preserves the canonical listing identity for Alpaca positions', () => {
-    const snapshot = normalizeAlpacaHoldings([
-      {
-        symbol: 'BTC/USD',
-        asset_class: 'crypto',
-        qty: '1.5',
-        side: 'long',
-      },
-    ])
-
-    expect(snapshot.positions[0]?.symbol).toMatchObject({
-      base: 'BTC',
+      base: 'DOGE',
       quote: 'USD',
       assetClass: 'crypto',
+    })
+
+    expect(
+      tradingSymbolToListingIdentity(alpacaTradingProviderConfig, {
+        symbol: 'BTCUSDT',
+        assetClass: 'crypto',
+      })
+    ).toMatchObject({
       listing: {
-        listing_id: '',
-        base_id: 'BTC',
-        quote_id: 'USD',
         listing_type: 'crypto',
+        base_id: 'BTC',
+        quote_id: 'USDT',
       },
-    })
-  })
-
-  it('preserves the canonical listing identity for Tradier positions', () => {
-    const snapshot = normalizeTradierHoldings({
-      positions: {
-        position: {
-          symbol: 'SPY',
-          quantity: '2',
-          cost_basis: '1000',
-        },
-      },
+      base: 'BTC',
+      quote: 'USDT',
+      assetClass: 'crypto',
     })
 
-    expect(snapshot.positions[0]?.symbol).toMatchObject({
-      base: 'SPY',
-      quote: 'USD',
-      assetClass: 'stock',
+    expect(
+      tradingSymbolToListingIdentity(alpacaTradingProviderConfig, {
+        symbol: 'SOLUSD',
+        assetClass: 'crypto',
+      })
+    ).toMatchObject({
       listing: {
-        listing_id: 'SPY',
-        base_id: '',
-        quote_id: '',
-        listing_type: 'default',
+        listing_type: 'crypto',
+        base_id: 'SOL',
+        quote_id: 'USD',
       },
+      base: 'SOL',
+      quote: 'USD',
+      assetClass: 'crypto',
     })
   })
 })

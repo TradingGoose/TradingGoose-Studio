@@ -258,10 +258,11 @@ export function createCustomToolRequestBody(
   getStore?: () => any
 ) {
   return (params: Record<string, any>) => {
-    // Get environment variables - try multiple sources in order of preference:
-    // 1. envVars parameter (passed from provider/agent context)
-    // 2. Client-side store (if running in browser)
-    // 3. Empty object (fallback)
+    const context =
+      params._context && typeof params._context === 'object'
+        ? (params._context as Record<string, unknown>)
+        : {}
+    // Get environment variables from explicit execution params or the client-side store.
     const envVars = params.envVars || (isClient ? getClientEnvVars(getStore) : {})
 
     // Get workflow variables from params (passed from execution context)
@@ -280,9 +281,17 @@ export function createCustomToolRequestBody(
       workflowVariables: workflowVariables, // Workflow variables for <variable.name> resolution
       blockData: blockData, // Runtime block outputs for <block.field> resolution
       blockNameMapping: blockNameMapping, // Block name to ID mapping
-      workflowId: params._context?.workflowId || workflowId, // Pass workflowId for server-side context
-      userId: params._context?.userId, // Pass userId for auth context
-      ...(params._context?.workspaceId ? { workspaceId: params._context.workspaceId } : {}),
+      workflowId: context.workflowId ?? workflowId, // Pass workflowId for server-side context
+      userId: context.userId, // Pass userId for auth context
+      ...(typeof context.workspaceId === 'string' && context.workspaceId
+        ? { workspaceId: context.workspaceId }
+        : {}),
+      ...(typeof context.workflowLogId === 'string' && context.workflowLogId
+        ? { workflowLogId: context.workflowLogId }
+        : {}),
+      ...(typeof context.submissionSource === 'string' && context.submissionSource
+        ? { submissionSource: context.submissionSource }
+        : {}),
       isCustomTool: true, // Flag to indicate this is a custom tool execution
     }
   }
@@ -403,6 +412,7 @@ async function getCustomTool(
         headers.Authorization = `Bearer ${internalToken}`
       } catch (error) {
         logger.warn('Failed to generate internal token for custom tools fetch', { error })
+        throw error
       }
     }
 

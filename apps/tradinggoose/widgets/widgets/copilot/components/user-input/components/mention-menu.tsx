@@ -337,7 +337,7 @@ const renderMentionItemContent = (type: MentionSubmenu, item: MentionItem) => {
         )}
         <span className='min-w-0 truncate'>{log.workflowName}</span>
         <span className='text-muted-foreground'>·</span>
-        <span className='whitespace-nowrap'>{formatTimestamp(log.createdAt)}</span>
+        <span className='whitespace-nowrap'>{formatTimestamp(log.startedAt)}</span>
         <span className='text-muted-foreground'>·</span>
         <span className='capitalize'>{(log.trigger || 'manual').toLowerCase()}</span>
       </>

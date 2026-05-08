@@ -1,6 +1,12 @@
 name: tradinggoose-with-ollama
-
 services:
+  redis:
+    image: redis:7.2.1-alpine
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 5
   # Main TradingGoose Studio Application
   tradinggoose:
     build:
@@ -8,21 +14,23 @@ services:
       dockerfile: docker/app.Dockerfile
     ports:
       - '3000:3000'
-    deploy:
-      resources:
-        limits:
-          memory: 8G
     environment:
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-tradinggoose}
+      - NODE_ENV=production
+      - DATABASE_URL=postgresql://${POSTGRES_USER:?set POSTGRES_USER in .env}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@db:5432/${POSTGRES_DB:-tradinggoose}
       - BETTER_AUTH_URL=${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
       - NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
-      - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET:-tradinggoose_auth_secret_$(openssl rand -hex 16)}
-      - ENCRYPTION_KEY=${ENCRYPTION_KEY:-$(openssl rand -hex 32)}
-      - COPILOT_API_KEY=${COPILOT_API_KEY}
-      - COPILOT_API_URL=${COPILOT_API_URL}
+      - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET:?set BETTER_AUTH_SECRET in .env}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY:?set ENCRYPTION_KEY in .env}
+      - INTERNAL_API_SECRET=${INTERNAL_API_SECRET:?set INTERNAL_API_SECRET in .env}
+      - REDIS_URL=redis://redis:6379
+      - COPILOT_API_KEY=${COPILOT_API_KEY:-}
+      - COPILOT_API_URL=${COPILOT_API_URL:-}
       - OLLAMA_URL=http://ollama:11434
-      - NEXT_PUBLIC_SOCKET_URL=${NEXT_PUBLIC_SOCKET_URL:-}
+      - NEXT_PUBLIC_SOCKET_URL=${NEXT_PUBLIC_SOCKET_URL:-http://localhost:3002}
+      - API_ENCRYPTION_KEY=${API_ENCRYPTION_KEY:-}
     depends_on:
+      redis:
+        condition: service_healthy
       db:
         condition: service_healthy
       migrations:
@@ -43,20 +51,22 @@ services:
       context: .
       dockerfile: docker/realtime.Dockerfile
     environment:
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-tradinggoose}
+      - NODE_ENV=production
+      - DATABASE_URL=postgresql://${POSTGRES_USER:?set POSTGRES_USER in .env}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@db:5432/${POSTGRES_DB:-tradinggoose}
       - NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
-      - BETTER_AUTH_URL=${BETTER_AUTH_URL:-http://localhost:3000}
-      - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET:-tradinggoose_auth_secret_$(openssl rand -hex 16)}
+      - BETTER_AUTH_URL=${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
+      - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET:?set BETTER_AUTH_SECRET in .env}
+      - INTERNAL_API_SECRET=${INTERNAL_API_SECRET:?set INTERNAL_API_SECRET in .env}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY:?set ENCRYPTION_KEY in .env}
+      - REDIS_URL=redis://redis:6379
     depends_on:
+      redis:
+        condition: service_healthy
       db:
         condition: service_healthy
     restart: unless-stopped
     ports:
       - '3002:3002'
-    deploy:
-      resources:
-        limits:
-          memory: 8G
     healthcheck:
       test: ['CMD', 'wget', '--spider', '--quiet', 'http://127.0.0.1:3002/health']
       interval: 90s
@@ -70,7 +80,7 @@ services:
       context: .
       dockerfile: docker/db.Dockerfile
     environment:
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-tradinggoose}
+      - DATABASE_URL=postgresql://${POSTGRES_USER:?set POSTGRES_USER in .env}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@db:5432/${POSTGRES_DB:-tradinggoose}
     depends_on:
       db:
         condition: service_healthy
@@ -81,16 +91,14 @@ services:
   db:
     image: pgvector/pgvector:pg17
     restart: always
-    ports:
-      - '${POSTGRES_PORT:-5432}:5432'
     environment:
-      - POSTGRES_USER=${POSTGRES_USER:-postgres}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
+      - POSTGRES_USER=${POSTGRES_USER:?set POSTGRES_USER in .env}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
       - POSTGRES_DB=${POSTGRES_DB:-tradinggoose}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U postgres']
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:?set POSTGRES_USER in .env}']
       interval: 5s
       timeout: 5s
       retries: 5
@@ -99,19 +107,9 @@ services:
   ollama:
     profiles:
       - gpu
-    image: ollama/ollama:latest
-    pull_policy: always
+    image: ollama/ollama:${OLLAMA_IMAGE_TAG:?set OLLAMA_IMAGE_TAG in .env}
     volumes:
       - ollama_data:/root/.ollama
-    ports:
-      - '11434:11434'
-    environment:
-      - NVIDIA_DRIVER_CAPABILITIES=all
-      - OLLAMA_LOAD_TIMEOUT=-1
-      - OLLAMA_KEEP_ALIVE=-1
-      - OLLAMA_DEBUG=1
-      - OLLAMA_HOST=0.0.0.0:11434
-    command: 'serve'
     deploy:
       resources:
         reservations:
@@ -119,6 +117,12 @@ services:
             - driver: nvidia
               count: all
               capabilities: [gpu]
+    environment:
+      - NVIDIA_DRIVER_CAPABILITIES=all
+      - OLLAMA_LOAD_TIMEOUT=-1
+      - OLLAMA_KEEP_ALIVE=-1
+      - OLLAMA_HOST=0.0.0.0:11434
+    command: 'serve'
     healthcheck:
       test: ['CMD', 'ollama', 'list']
       interval: 10s
@@ -127,20 +131,16 @@ services:
       start_period: 30s
     restart: unless-stopped
 
-  # Ollama CPU-only version (use with --profile cpu profile)
+  # Ollama CPU-only version (use with --profile cpu)
   ollama-cpu:
     profiles:
       - cpu
-    image: ollama/ollama:latest
-    pull_policy: always
+    image: ollama/ollama:${OLLAMA_IMAGE_TAG:?set OLLAMA_IMAGE_TAG in .env}
     volumes:
       - ollama_data:/root/.ollama
-    ports:
-      - '11434:11434'
     environment:
       - OLLAMA_LOAD_TIMEOUT=-1
       - OLLAMA_KEEP_ALIVE=-1
-      - OLLAMA_DEBUG=1
       - OLLAMA_HOST=0.0.0.0:11434
     command: 'serve'
     healthcheck:
@@ -157,7 +157,7 @@ services:
 
   # Helper container to pull models automatically
   model-setup:
-    image: ollama/ollama:latest
+    image: ollama/ollama:${OLLAMA_IMAGE_TAG:?set OLLAMA_IMAGE_TAG in .env}
     profiles:
       - setup
     volumes:
@@ -172,7 +172,7 @@ services:
         echo 'Pulling gemma3:4b model (recommended starter model)...' &&
         ollama pull gemma3:4b &&
         echo 'Model setup complete! You can now use gemma3:4b in TradingGoose.' &&
-        echo 'To add more models, run: docker compose -f docker-compose.ollama.yml exec ollama ollama pull <model-name>'
+        echo 'To add more models, run: docker compose -f docker-compose.ollama.yml exec <ollama-service> ollama pull <model-name>'
       "
     restart: 'no'
 

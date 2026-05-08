@@ -1,6 +1,6 @@
 import { db } from '@tradinggoose/db'
 import { account, workflow } from '@tradinggoose/db/schema'
-import { and, desc, eq } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
 import {
@@ -128,12 +128,18 @@ export async function getOAuthToken(userId: string, providerId: string): Promise
     })
     .from(account)
     .where(and(eq(account.userId, userId), eq(account.providerId, providerId)))
-    // Always use the most recently updated credential for this provider
-    .orderBy(desc(account.updatedAt))
-    .limit(1)
+    .limit(2)
 
   if (connections.length === 0) {
     logger.warn(`No OAuth token found for user ${userId}, provider ${providerId}`)
+    return null
+  }
+
+  if (connections.length > 1) {
+    logger.error(`Multiple OAuth connections found for user ${userId}, provider ${providerId}`, {
+      providerId,
+      userId,
+    })
     return null
   }
 

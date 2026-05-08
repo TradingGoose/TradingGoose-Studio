@@ -6,7 +6,7 @@ export type WidgetRuntimeContext = {
   workspaceId?: string
 }
 
-export type WidgetCategory = 'editor' | 'list' | 'utility'
+export type WidgetCategory = 'editor' | 'list' | 'utility' | 'trading'
 
 export interface WidgetCategoryDefinition {
   key: WidgetCategory

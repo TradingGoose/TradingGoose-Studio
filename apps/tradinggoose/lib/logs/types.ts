@@ -40,6 +40,41 @@ export interface ToolCall {
   error?: string
 }
 
+export interface ToolCallMetadata {
+  toolCalls?: ToolCall[]
+}
+
+export interface CostMetadata {
+  baseExecutionCharge?: number
+  models?: Record<
+    string,
+    {
+      input?: number
+      output?: number
+      total?: number
+      tokens?: {
+        prompt?: number
+        completion?: number
+        total?: number
+      }
+    }
+  >
+  input?: number
+  output?: number
+  total?: number
+  tokens?: {
+    prompt?: number
+    completion?: number
+    total?: number
+  }
+  pricing?: {
+    input: number
+    output: number
+    cachedInput?: number
+    updatedAt: string
+  }
+}
+
 export type BlockInputData = Record<string, any>
 export type BlockOutputData = NormalizedBlockOutput | null
 
@@ -67,10 +102,11 @@ export interface ExecutionStatus {
 
 export interface WorkflowExecutionSnapshot {
   id: string
-  workflowId: string
+  workflowId: string | null
+  workspaceId: string
   stateHash: string
   stateData: WorkflowState
-  createdAt: string
+  createdAt?: string
 }
 
 export type WorkflowExecutionSnapshotInsert = Omit<WorkflowExecutionSnapshot, 'createdAt'>
@@ -78,9 +114,11 @@ export type WorkflowExecutionSnapshotSelect = WorkflowExecutionSnapshot
 
 export interface WorkflowExecutionLog {
   id: string
-  workflowId: string
+  workflowId: string | null
+  workspaceId: string
   executionId: string
   stateSnapshotId: string
+  workflowSummary: WorkflowLogWorkflowSummary
   level: 'info' | 'error'
   trigger: ExecutionTrigger['type']
   startedAt: string
@@ -126,8 +164,8 @@ export interface WorkflowExecutionLog {
       }
     >
   }
-  duration?: string
-  createdAt: string
+  durationMs?: number | null
+  createdAt?: string
 }
 
 export type WorkflowExecutionLogInsert = Omit<WorkflowExecutionLog, 'id' | 'createdAt'>
@@ -180,7 +218,8 @@ export interface TraceSpan {
 
 export interface WorkflowExecutionSummary {
   id: string
-  workflowId: string
+  workflowId: string | null
+  workspaceId: string
   workflowName: string
   executionId: string
   trigger: ExecutionTrigger['type']
@@ -263,6 +302,80 @@ export interface WorkflowExecutionFilters {
   hasErrors?: boolean
 }
 
+export type WorkflowLogOutcome = 'running' | 'success' | 'error' | 'skipped' | 'unknown'
+
+export interface WorkflowLogWorkflowSummary {
+  id: string
+  name: string
+  description: string | null
+  color: string
+  state?: unknown
+  folderId?: string | null
+  folderName?: string | null
+  userId?: string
+  workspaceId?: string
+  createdAt?: string
+  updatedAt?: string
+}
+
+export interface WorkflowLog {
+  id: string
+  workflowId: string | null
+  workspaceId?: string
+  executionId: string | null
+  level: string
+  trigger: string | null
+  startedAt?: string
+  createdAt: string
+  recordCreatedAt?: string
+  endedAt?: string | null
+  durationMs?: number | null
+  duration?: string | null
+  outcome?: WorkflowLogOutcome
+  workflow?: WorkflowLogWorkflowSummary | null
+  files?: Array<{
+    id: string
+    name: string
+    size: number
+    type: string
+    url: string
+    key: string
+    uploadedAt: string
+    expiresAt: string
+    storageProvider?: 's3' | 'azure' | 'vercel' | 'local'
+    bucketName?: string
+  }>
+  cost?: CostMetadata
+  executionData?: ToolCallMetadata & {
+    traceSpans?: TraceSpan[]
+    blockInput?: Record<string, unknown>
+    blockExecutions?: Array<{
+      id: string
+      blockId: string
+      blockName: string
+      blockType: string
+      startedAt: string
+      endedAt: string
+      durationMs: number
+      status: 'success' | 'error' | 'skipped'
+      errorMessage?: string
+      errorStackTrace?: string
+      inputData: unknown
+      outputData: unknown
+      cost?: CostMetadata
+      metadata: Record<string, unknown>
+    }>
+  }
+}
+
+export interface LogsResponse {
+  data: WorkflowLog[]
+  total: number
+  page: number
+  pageSize: number
+  totalPages: number
+}
+
 export interface PaginationParams {
   page: number
   pageSize: number
@@ -317,9 +430,17 @@ export interface BatchInsertResult<T> {
 }
 
 export interface SnapshotService {
-  createSnapshot(workflowId: string, state: WorkflowState): Promise<WorkflowExecutionSnapshot>
+  createSnapshot(params: {
+    workflowId: string
+    workspaceId: string
+    state: WorkflowState
+  }): Promise<WorkflowExecutionSnapshot>
   getSnapshot(id: string): Promise<WorkflowExecutionSnapshot | null>
-  getSnapshotByHash(workflowId: string, hash: string): Promise<WorkflowExecutionSnapshot | null>
+  getSnapshotByHash(params: {
+    workflowId: string
+    workspaceId: string
+    hash: string
+  }): Promise<WorkflowExecutionSnapshot | null>
   computeStateHash(state: WorkflowState): string
   cleanupOrphanedSnapshots(olderThanDays: number): Promise<number>
 }
@@ -327,32 +448,4 @@ export interface SnapshotService {
 export interface SnapshotCreationResult {
   snapshot: WorkflowExecutionSnapshot
   isNew: boolean
-}
-
-export interface ExecutionLoggerService {
-  startWorkflowExecution(params: {
-    workflowId: string
-    executionId: string
-    trigger: ExecutionTrigger
-    environment: ExecutionEnvironment
-    workflowState: WorkflowState
-  }): Promise<{
-    workflowLog: WorkflowExecutionLog
-    snapshot: WorkflowExecutionSnapshot
-  }>
-
-  completeWorkflowExecution(params: {
-    executionId: string
-    endedAt: string
-    totalDurationMs: number
-
-    costSummary: {
-      totalCost: number
-      totalInputCost: number
-      totalOutputCost: number
-      totalTokens: number
-    }
-    finalOutput: BlockOutputData
-    traceSpans?: TraceSpan[]
-  }): Promise<WorkflowExecutionLog>
 }

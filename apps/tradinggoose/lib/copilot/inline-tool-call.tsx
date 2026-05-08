@@ -5,7 +5,7 @@ import { Loader2 } from 'lucide-react'
 import useDrivePicker from 'react-google-drive-picker'
 import { GoogleDriveIcon } from '@/components/icons/icons'
 import { Button } from '@/components/ui/button'
-import type { CopilotAccessLevel } from '@/lib/copilot/access-policy'
+import { shouldRequireCopilotApproval, type CopilotAccessLevel } from '@/lib/copilot/access-policy'
 import {
   buildEntityReviewDiffLines,
   buildEntityReviewDiffPayload,
@@ -39,7 +39,6 @@ interface InlineToolCallProps {
   toolCall?: CopilotToolCall
   toolCallId?: string
   onStateChange?: (state: any) => void
-  context?: Record<string, any>
 }
 
 const ACTION_VERBS = [
@@ -198,15 +197,11 @@ function shouldShowRunSkipButtons(
     return true
   }
 
-  if (hasInterrupt && toolCall.state === 'pending' && options.accessLevel === 'limited') {
-    return true
-  }
-
-  if (options.isIntegration && toolCall.state === 'pending' && options.accessLevel === 'limited') {
-    return true
-  }
-
-  return false
+  return (
+    toolCall.state === 'pending' &&
+    shouldRequireCopilotApproval(options.accessLevel) &&
+    (hasInterrupt || options.isIntegration)
+  )
 }
 
 function getStateVerb(state: string): string {
@@ -245,7 +240,7 @@ function getEntityDiffLineClasses(type: 'context' | 'removed' | 'added'): string
 }
 
 function readWorkflowReviewPayload(toolCall: CopilotToolCall): WorkflowReviewPayload | null {
-  if (toolCall.name !== 'edit_workflow') {
+  if (toolCall.name !== 'edit_workflow' && toolCall.name !== 'edit_workflow_block') {
     return null
   }
 
@@ -496,7 +491,6 @@ export function InlineToolCall({
   toolCall: toolCallProp,
   toolCallId,
   onStateChange,
-  context,
 }: InlineToolCallProps) {
   const [, forceUpdate] = useState({})
   const liveToolCall = useCopilotStore((s) =>
@@ -545,6 +539,32 @@ export function InlineToolCall({
   const params = (toolCall as any).parameters || (toolCall as any).input || toolCall.params || {}
   const workflowReviewPayload = readWorkflowReviewPayload(toolCall)
   const showWorkflowReview = workflowReviewPayload && toolCall.state === ClientToolCallState.review
+  const workflowBlockEditRows =
+    toolCall.name === 'edit_workflow_block'
+      ? [
+          ...(typeof params.name === 'string' && params.name.trim()
+            ? [{ key: 'name', label: 'Name', value: params.name.trim() }]
+            : []),
+          ...(typeof params.enabled === 'boolean'
+            ? [{ key: 'enabled', label: 'Enabled', value: String(params.enabled) }]
+            : []),
+          ...(params.subBlocks &&
+          typeof params.subBlocks === 'object' &&
+          !Array.isArray(params.subBlocks)
+            ? Object.entries(params.subBlocks)
+                .sort(([a], [b]) => a.localeCompare(b))
+                .map(([key, value]) => ({
+                  key: `subBlocks.${key}`,
+                  label: `subBlocks.${key}`,
+                  value: typeof value === 'string' ? value : (JSON.stringify(value, null, 2) ?? ''),
+                }))
+            : []),
+        ]
+      : []
+  const showWorkflowBlockEditRequest =
+    workflowBlockEditRows.length > 0 &&
+    (toolCall.state === ClientToolCallState.pending ||
+      toolCall.state === ClientToolCallState.review)
   const entityReviewDiffPayload =
     entitySession.doc && entitySession.descriptor
       ? buildEntityReviewDiffPayload(
@@ -808,6 +828,35 @@ export function InlineToolCall({
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      ) : null}
+      {showWorkflowBlockEditRequest ? (
+        <div className='pr-1 pl-5'>
+          <div className='flex flex-col gap-2 rounded-md border border-orange-200/70 bg-card/60 p-3 dark:border-orange-900/50'>
+            <div className='flex flex-wrap items-center gap-2'>
+              <div className='font-medium text-[11px] text-muted-foreground uppercase tracking-wide'>
+                Proposed Workflow Block Changes
+              </div>
+              <span className='rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground'>
+                {String(params.blockId || '')}
+              </span>
+              {typeof params.blockType === 'string' && params.blockType.trim() ? (
+                <span className='rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground'>
+                  {params.blockType.trim()}
+                </span>
+              ) : null}
+            </div>
+            <div className='divide-y divide-muted/60 overflow-hidden rounded-md border border-border/60 bg-background/70'>
+              {workflowBlockEditRows.map((row) => (
+                <div key={row.key} className='grid gap-1 px-2 py-1.5'>
+                  <div className='font-medium text-[11px] text-muted-foreground'>{row.label}</div>
+                  <div className='max-h-48 overflow-auto whitespace-pre-wrap break-words font-mono text-[11px] text-foreground'>
+                    {row.value || ' '}
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       ) : null}

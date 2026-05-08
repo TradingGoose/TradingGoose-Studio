@@ -1,9 +1,9 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef } from 'react'
+import { useCallback, useEffect, useMemo } from 'react'
 import { LoadingAgent } from '@/components/ui/loading-agent'
 import { areListingIdentitiesEqual, type ListingIdentity } from '@/lib/listing/identity'
-import { useWatchlistQuotes } from '@/hooks/queries/watchlist-quotes'
+import { useMarketQuoteSnapshots } from '@/hooks/queries/market-quote-snapshots'
 import {
   useRemoveWatchlistItem,
   useRemoveWatchlistSection,
@@ -19,7 +19,10 @@ import {
   emitWatchlistParamsChange,
   useWatchlistParamsPersistence,
 } from '@/widgets/utils/watchlist-params'
-import { providerOptions } from '@/widgets/widgets/data_chart/options'
+import {
+  providerOptions,
+  resolveSeriesMarketProviderId,
+} from '@/widgets/widgets/data_chart/options'
 import {
   resolveSelectedWatchlist,
   resolveSelectedWatchlistId,
@@ -34,9 +37,7 @@ const WatchlistMessage = ({ message }: { message: string }) => (
 )
 
 const resolveProviderId = (params: WatchlistWidgetParams | null) => {
-  const fromParams = typeof params?.provider === 'string' ? params.provider.trim() : ''
-  if (fromParams) return fromParams
-  return providerOptions[0]?.id ?? ''
+  return resolveSeriesMarketProviderId(params?.provider, providerOptions)
 }
 
 export const WatchlistWidgetBody = ({
@@ -69,7 +70,6 @@ export const WatchlistWidgetBody = ({
   const removeItemMutation = useRemoveWatchlistItem()
   const renameSectionMutation = useRenameWatchlistSection()
   const removeSectionMutation = useRemoveWatchlistSection()
-  const lastRefreshAtRef = useRef<number | null>(null)
 
   useWatchlistParamsPersistence({
     onWidgetParamsChange,
@@ -121,27 +121,21 @@ export const WatchlistWidgetBody = ({
       (selectedWatchlist?.items ?? [])
         .filter((item) => item.type === 'listing')
         .map((item) => ({
-          itemId: item.id,
+          key: item.id,
           listing: item.listing,
         })),
     [selectedWatchlist]
   )
 
-  const { data: quotes = {}, refetch: refetchQuotes } = useWatchlistQuotes({
+  const { data: quotes = {} } = useMarketQuoteSnapshots({
     workspaceId: workspaceId ?? undefined,
     provider: providerId || undefined,
     items: quoteItems,
     auth: widgetParams?.auth,
     providerParams: widgetParams?.providerParams,
-    enabled: Boolean(selectedWatchlist),
+    refreshKey: refreshAt,
+    enabled: Boolean(providerId && selectedWatchlist),
   })
-
-  useEffect(() => {
-    if (refreshAt == null) return
-    if (lastRefreshAtRef.current === refreshAt) return
-    lastRefreshAtRef.current = refreshAt
-    void refetchQuotes()
-  }, [refreshAt, refetchQuotes])
 
   const isMutating =
     reorderMutation.isPending ||
@@ -243,23 +237,19 @@ export const WatchlistWidgetBody = ({
   }
 
   return (
-    <div className='flex h-full min-h-0 flex-col'>
-      <div className='min-h-0 flex-1'>
-        <WatchlistTable
-          watchlist={selectedWatchlist}
-          quotes={quotes}
-          providerId={providerId}
-          onUpdateItemListing={handleUpdateItemListing}
-          onReorderItems={handleReorderItems}
-          onRemoveItem={handleRemoveItem}
-          onRenameSection={handleRenameSection}
-          onRemoveSection={handleRemoveSection}
-          isMutating={isMutating}
-          selectedListing={selectedListing}
-          isLinkedSelection={isLinkedToColorPair}
-          onSelectListing={handleSelectListing}
-        />
-      </div>
-    </div>
+    <WatchlistTable
+      watchlist={selectedWatchlist}
+      quotes={quotes}
+      providerId={providerId}
+      onUpdateItemListing={handleUpdateItemListing}
+      onReorderItems={handleReorderItems}
+      onRemoveItem={handleRemoveItem}
+      onRenameSection={handleRenameSection}
+      onRemoveSection={handleRemoveSection}
+      isMutating={isMutating}
+      selectedListing={selectedListing}
+      isLinkedSelection={isLinkedToColorPair}
+      onSelectListing={handleSelectListing}
+    />
   )
 }

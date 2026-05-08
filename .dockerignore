@@ -1,11 +1,51 @@
-LICENSE
-NOTICE
-.prettierrc
-.prettierignore
-README.md
-.gitignore
-.husky
+# Git / workspace metadata
+.git
 .github
 .devcontainer
-.env.example
+.husky
+.codex
+.vscode
+
+# Dependency installs and caches
 node_modules
+**/node_modules
+.turbo
+**/.turbo
+**/.next
+**/out
+**/build
+**/dist
+**/standalone
+**/coverage
+
+# Docs and generated content
+LICENSE
+NOTICE
+README.md
+.prettierrc
+.prettierignore
+.gitignore
+.env.example
+/apps/docs/.source
+/apps/docs/.contentlayer
+/apps/docs/.content-collections
+/apps/docs/.next
+/apps/docs/out
+/apps/docs/build
+/apps/docs/coverage
+
+# Environment and local secrets
+.env
+*.env
+.env.local
+.env.development
+.env.test
+.env.production
+
+# Miscellaneous
+*.log
+*.map
+.DS_Store
+*.pem
+**/postgres_data/
+CURSOR_MEMORY

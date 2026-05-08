@@ -60,7 +60,7 @@ describe('Workflow Execution API Route', () => {
     })
     updateApiKeyLastUsedMock = vi.fn().mockResolvedValue(undefined)
     withExecutionConcurrencyLimitMock = vi.fn(
-      async ({ task }: { task: () => Promise<unknown> }) => await task(),
+      async ({ task }: { task: () => Promise<unknown> }) => await task()
     )
     withExecutionConcurrencyControllerMock = vi.fn(
       async ({
@@ -71,9 +71,8 @@ describe('Workflow Execution API Route', () => {
         }) => Promise<unknown>
       }) =>
         await task({
-          runWithoutLease: async <T>(releasedTask: () => Promise<T>) =>
-            await releasedTask(),
-        }),
+          runWithoutLease: async <T>(releasedTask: () => Promise<T>) => await releasedTask(),
+        })
     )
 
     vi.doMock('@/app/api/workflows/middleware', () => ({
@@ -81,7 +80,7 @@ describe('Workflow Execution API Route', () => {
         workflow: {
           id: 'workflow-id',
           userId: 'user-id',
-          workspaceId: null,
+          workspaceId: 'workspace-id',
         },
       }),
     }))
@@ -93,10 +92,8 @@ describe('Workflow Execution API Route', () => {
     }))
 
     vi.doMock('@/lib/api-key/service', () => ({
-      authenticateApiKeyFromHeader: (...args: any[]) =>
-        authenticateApiKeyFromHeaderMock(...args),
-      updateApiKeyLastUsed: (...args: any[]) =>
-        updateApiKeyLastUsedMock(...args),
+      authenticateApiKeyFromHeader: (...args: any[]) => authenticateApiKeyFromHeaderMock(...args),
+      updateApiKeyLastUsed: (...args: any[]) => updateApiKeyLastUsedMock(...args),
     }))
 
     vi.doMock('@/services/queue', () => ({
@@ -104,16 +101,14 @@ describe('Workflow Execution API Route', () => {
     }))
 
     vi.doMock('@/lib/billing', () => ({
-      checkServerSideUsageLimits: (...args: any[]) =>
-        checkServerSideUsageLimitsMock(...args),
+      checkServerSideUsageLimits: (...args: any[]) => checkServerSideUsageLimitsMock(...args),
     }))
 
     vi.doMock('@/lib/execution/execution-concurrency-limit', () => ({
       ExecutionGateError: MockExecutionGateError,
       enforceServerExecutionRateLimit: (...args: any[]) =>
         enforceServerExecutionRateLimitMock(...args),
-      withExecutionConcurrencyLimit: (...args: any[]) =>
-        withExecutionConcurrencyLimitMock(...args),
+      withExecutionConcurrencyLimit: (...args: any[]) => withExecutionConcurrencyLimitMock(...args),
       withExecutionConcurrencyController: (...args: any[]) =>
         withExecutionConcurrencyControllerMock(...args),
     }))
@@ -130,6 +125,11 @@ describe('Workflow Execution API Route', () => {
     }))
 
     vi.doMock('@tradinggoose/db/schema', () => ({
+      workflow: {
+        id: 'id',
+        variables: 'variables',
+        workspaceId: 'workspaceId',
+      },
       subscription: {
         billingTierId: 'billingTierId',
         referenceId: 'referenceId',
@@ -221,10 +221,9 @@ describe('Workflow Execution API Route', () => {
 
     vi.doMock('@/lib/logs/execution/logging-session', () => ({
       LoggingSession: vi.fn().mockImplementation(() => ({
-        safeStart: vi.fn().mockResolvedValue(undefined),
-        safeComplete: vi.fn().mockResolvedValue(undefined),
-        safeCompleteWithError: vi.fn().mockResolvedValue(undefined),
-        setupExecutor: vi.fn(),
+        start: vi.fn().mockResolvedValue(undefined),
+        complete: vi.fn().mockResolvedValue(undefined),
+        completeWithError: vi.fn().mockResolvedValue(undefined),
       })),
     }))
 
@@ -358,10 +357,7 @@ describe('Workflow Execution API Route', () => {
     try {
       data = await response.json()
     } catch (e) {
-      console.error(
-        'Response could not be parsed as JSON:',
-        await response.text(),
-      )
+      console.error('Response could not be parsed as JSON:', await response.text())
       throw e
     }
 
@@ -371,13 +367,9 @@ describe('Workflow Execution API Route', () => {
       expect(data.output).toHaveProperty('response')
     }
 
-    const validateWorkflowAccess = (
-      await import('@/app/api/workflows/middleware')
-    ).validateWorkflowAccess
-    expect(validateWorkflowAccess).toHaveBeenCalledWith(
-      expect.any(Object),
-      'workflow-id',
-    )
+    const validateWorkflowAccess = (await import('@/app/api/workflows/middleware'))
+      .validateWorkflowAccess
+    expect(validateWorkflowAccess).toHaveBeenCalledWith(expect.any(Object), 'workflow-id')
 
     const Executor = (await import('@/executor')).Executor
     expect(Executor).toHaveBeenCalled()
@@ -410,10 +402,7 @@ describe('Workflow Execution API Route', () => {
     try {
       data = await response.json()
     } catch (e) {
-      console.error(
-        'Response could not be parsed as JSON:',
-        await response.text(),
-      )
+      console.error('Response could not be parsed as JSON:', await response.text())
       throw e
     }
 
@@ -423,13 +412,9 @@ describe('Workflow Execution API Route', () => {
       expect(data.output).toHaveProperty('response')
     }
 
-    const validateWorkflowAccess = (
-      await import('@/app/api/workflows/middleware')
-    ).validateWorkflowAccess
-    expect(validateWorkflowAccess).toHaveBeenCalledWith(
-      expect.any(Object),
-      'workflow-id',
-    )
+    const validateWorkflowAccess = (await import('@/app/api/workflows/middleware'))
+      .validateWorkflowAccess
+    expect(validateWorkflowAccess).toHaveBeenCalledWith(expect.any(Object), 'workflow-id')
 
     const Executor = (await import('@/executor')).Executor
     expect(Executor).toHaveBeenCalled()
@@ -447,7 +432,7 @@ describe('Workflow Execution API Route', () => {
           userId: 'user-id',
           concurrencyLeaseInherited: true,
         }),
-      }),
+      })
     )
   })
 
@@ -486,7 +471,7 @@ describe('Workflow Execution API Route', () => {
         workflowInput: structuredInput, // processedInput (direct input, not wrapped)
         workflowVariables: expect.any(Object),
         contextExtensions: expect.any(Object), // Allow any context extensions object
-      }),
+      })
     )
   })
 
@@ -517,7 +502,7 @@ describe('Workflow Execution API Route', () => {
         workflowInput: expect.objectContaining({}), // processedInput with empty input
         workflowVariables: expect.any(Object),
         contextExtensions: expect.any(Object), // Allow any context extensions object
-      }),
+      })
     )
   })
 
@@ -526,16 +511,13 @@ describe('Workflow Execution API Route', () => {
    */
   it('should handle invalid JSON in request body', async () => {
     // Create a mock request with invalid JSON text
-    const req = new NextRequest(
-      'https://example.com/api/workflows/workflow-id/execute',
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: 'this is not valid JSON',
+    const req = new NextRequest('https://example.com/api/workflows/workflow-id/execute', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
       },
-    )
+      body: 'this is not valid JSON',
+    })
 
     const params = Promise.resolve({ id: 'workflow-id' })
 
@@ -588,13 +570,12 @@ describe('Workflow Execution API Route', () => {
       },
     }))
 
-    const mockSafeCompleteWithError = vi.fn().mockResolvedValue({})
+    const mockCompleteWithError = vi.fn().mockResolvedValue({})
     vi.doMock('@/lib/logs/execution/logging-session', () => ({
       LoggingSession: vi.fn().mockImplementation(() => ({
-        safeStart: vi.fn().mockResolvedValue({}),
-        safeComplete: vi.fn().mockResolvedValue({}),
-        safeCompleteWithError: mockSafeCompleteWithError,
-        setupExecutor: vi.fn(),
+        start: vi.fn().mockResolvedValue({}),
+        complete: vi.fn().mockResolvedValue({}),
+        completeWithError: mockCompleteWithError,
       })),
     }))
 
@@ -618,7 +599,7 @@ describe('Workflow Execution API Route', () => {
     expect(data).toHaveProperty('error')
     expect(data.error).toContain('Execution failed')
 
-    expect(mockSafeCompleteWithError).toHaveBeenCalled()
+    expect(mockCompleteWithError).toHaveBeenCalled()
   })
 
   /**
@@ -629,8 +610,8 @@ describe('Workflow Execution API Route', () => {
       variable1: {
         id: 'var1',
         name: 'variable1',
-        type: 'string',
-        value: '"test value"',
+        type: 'plain',
+        value: 'test value',
       },
       variable2: {
         id: 'var2',
@@ -645,7 +626,7 @@ describe('Workflow Execution API Route', () => {
         workflow: {
           id: 'workflow-with-vars-id',
           userId: 'user-id',
-          workspaceId: null,
+          workspaceId: 'workspace-id',
           variables: workflowVariables,
         },
       }),
@@ -727,29 +708,26 @@ describe('Workflow Execution API Route', () => {
     expect(lastCall[0]).toEqual(
       expect.objectContaining({
         workflowVariables: workflowVariables,
-      }),
+      })
     )
   })
 
   it('returns a usage-limit response when api execution cannot resolve billing context', async () => {
     enforceServerExecutionRateLimitMock.mockRejectedValueOnce(
       new MockExecutionGateError(
-        'No active subscription found for this workspace. Please configure billing before executing workflows.',
-      ),
+        'No active subscription found for this workspace. Please configure billing before executing workflows.'
+      )
     )
 
     const { getSession } = await import('@/lib/auth')
     vi.mocked(getSession).mockResolvedValueOnce(null)
 
-    const req = new NextRequest(
-      'https://example.com/api/workflows/workflow-id/execute',
-      {
-        method: 'GET',
-        headers: {
-          'X-API-Key': 'test-api-key',
-        },
+    const req = new NextRequest('https://example.com/api/workflows/workflow-id/execute', {
+      method: 'GET',
+      headers: {
+        'X-API-Key': 'test-api-key',
       },
-    )
+    })
     const params = Promise.resolve({ id: 'workflow-id' })
 
     const { GET } = await import('@/app/api/workflows/[id]/execute/route')
@@ -758,9 +736,6 @@ describe('Workflow Execution API Route', () => {
 
     expect(response.status).toBe(402)
     expect(payload.code).toBe('USAGE_LIMIT_EXCEEDED')
-    expect(payload.error).toContain(
-      'No active subscription found for this workspace',
-    )
+    expect(payload.error).toContain('No active subscription found for this workspace')
   })
-
 })

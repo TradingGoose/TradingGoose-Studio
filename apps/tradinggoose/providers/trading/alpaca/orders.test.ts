@@ -11,7 +11,6 @@ const baseParams = {
   side: 'buy' as const,
   orderType: 'market' as const,
   timeInForce: 'day' as const,
-  environment: 'paper' as const,
   accessToken: 'test-token',
 }
 
@@ -22,7 +21,7 @@ describe('buildAlpacaOrderRequest', () => {
       notional: 500.75,
     })
 
-    expect(request.url).toBe('https://paper-api.alpaca.markets/v2/orders')
+    expect(request.url).toBe('https://api.alpaca.markets/v2/orders')
     expect(request.body).toMatchObject({
       notional: 500.75,
       side: 'buy',

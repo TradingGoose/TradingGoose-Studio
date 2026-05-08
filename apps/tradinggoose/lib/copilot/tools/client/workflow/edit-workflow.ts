@@ -1,23 +1,23 @@
 import { Grid2x2, Grid2x2Check, Grid2x2X, Loader2, MinusCircle, XCircle } from 'lucide-react'
+import { shouldBypassCopilotApproval } from '@/lib/copilot/access-policy'
 import {
   BaseClientTool,
   type BaseClientToolMetadata,
   ClientToolCallState,
 } from '@/lib/copilot/tools/client/base-tool'
-import { shouldAutoApplyWorkflowEdits } from '@/lib/copilot/access-policy'
-import { createLogger } from '@/lib/logs/console/logger'
+import {
+  executeCopilotServerTool,
+  getCopilotServerToolErrorStatus,
+} from '@/lib/copilot/tools/client/server-tool-response'
 import {
   buildWorkflowDocumentToolResult,
   getReadableWorkflowState,
   resolveWorkflowTarget,
 } from '@/lib/copilot/tools/client/workflow/workflow-review-tool-utils'
-import {
-  executeCopilotServerTool,
-  getCopilotServerToolErrorStatus,
-} from '@/lib/copilot/tools/client/server-tool-response'
+import { createLogger } from '@/lib/logs/console/logger'
+import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
 import { setWorkflowState } from '@/lib/yjs/workflow-session'
 import { getRegisteredWorkflowSession } from '@/lib/yjs/workflow-session-registry'
-import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
 import { getCopilotStoreForToolCall } from '@/stores/copilot/store-access'
 
 interface EditWorkflowArgs {
@@ -41,10 +41,6 @@ export class EditWorkflowClientTool extends BaseClientTool {
   private hasExecuted = false
   private hasAppliedState = false
   private lastWorkflowId: string | null = null
-
-  private resolvePersistedStagedResult(): any | undefined {
-    return this.resolvePersistedResult()
-  }
 
   constructor(
     toolCallId: string,
@@ -83,7 +79,7 @@ export class EditWorkflowClientTool extends BaseClientTool {
         state: this.getState(),
         hasResult: this.lastResult !== undefined,
       })
-      const stagedResult = this.lastResult ?? this.resolvePersistedStagedResult()
+      const stagedResult = this.lastResult ?? this.resolvePersistedResult()
       if (stagedResult && !this.lastResult) {
         this.lastResult = stagedResult
       }
@@ -96,7 +92,9 @@ export class EditWorkflowClientTool extends BaseClientTool {
       const resolvedArgs = args || readStoredToolArgs<EditWorkflowArgs>(this.toolCallId)
       const requestedWorkflowId =
         resolvedArgs?.workflowId?.trim() ??
-        (typeof stagedResult?.workflowId === 'string' ? stagedResult.workflowId.trim() : undefined) ??
+        (typeof stagedResult?.workflowId === 'string'
+          ? stagedResult.workflowId.trim()
+          : undefined) ??
         this.lastWorkflowId ??
         undefined
       if (!requestedWorkflowId) {
@@ -182,12 +180,8 @@ export class EditWorkflowClientTool extends BaseClientTool {
     }
   }
 
-  protected async getPendingUserAction(): Promise<'execute'> {
-    return 'execute'
-  }
-
   protected async prepareReviewAccept(args?: EditWorkflowArgs): Promise<boolean> {
-    const stagedResult = this.lastResult ?? this.resolvePersistedStagedResult()
+    const stagedResult = this.lastResult ?? this.resolvePersistedResult()
 
     if (!stagedResult?.workflowState) {
       await this.execute(args)
@@ -229,17 +223,22 @@ export class EditWorkflowClientTool extends BaseClientTool {
           (await getReadableWorkflowState(executionContext, workflowId)).workflowState
         )
       } catch (e) {
-        logger.warn('Failed to build currentWorkflowState from readable workflow snapshot', e as any)
+        logger.warn(
+          'Failed to build currentWorkflowState from readable workflow snapshot',
+          e as any
+        )
         throw new Error('Failed to read the current workflow')
       }
 
-      const fallbackWorkflowDocument = args?.workflowDocument?.trim()
       const result = (await executeCopilotServerTool({
         toolName: this.getServerToolName(),
         payload: this.buildServerPayload(workflowId, args, currentWorkflowState),
       })) as any
       if (!result.workflowState) {
         throw new Error('No workflow state returned from server')
+      }
+      if (typeof result.workflowDocument !== 'string') {
+        throw new Error('No workflow document returned from server')
       }
 
       this.lastResult = {
@@ -248,10 +247,7 @@ export class EditWorkflowClientTool extends BaseClientTool {
           workflowId,
           workflowName,
           workspaceId,
-          workflowDocument:
-            typeof result?.workflowDocument === 'string'
-              ? result.workflowDocument
-              : fallbackWorkflowDocument || '',
+          workflowDocument: result.workflowDocument,
         }),
       }
       this.hasAppliedState = false
@@ -263,7 +259,7 @@ export class EditWorkflowClientTool extends BaseClientTool {
       })
 
       const accessLevel = getCopilotStoreForToolCall(this.toolCallId).getState().accessLevel
-      if (shouldAutoApplyWorkflowEdits(accessLevel)) {
+      if (shouldBypassCopilotApproval(accessLevel)) {
         logger.info('Auto-applying workflow edits for full access session', {
           toolCallId: this.toolCallId,
         })

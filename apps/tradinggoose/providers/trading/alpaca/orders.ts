@@ -1,5 +1,9 @@
 import { buildAlpacaAuthHeaders } from '@/providers/trading/alpaca/auth'
-import { alpacaTradingProviderConfig } from '@/providers/trading/alpaca/config'
+import {
+  alpacaTradingProviderConfig,
+  resolveAlpacaTradingBaseUrl,
+} from '@/providers/trading/alpaca/config'
+import { getAlpacaNotionalOrderTypeError } from '@/providers/trading/order-validation'
 import type {
   TradingOrder,
   TradingOrderInput,
@@ -9,11 +13,6 @@ import { listingIdentityToTradingSymbol } from '@/providers/trading/utils'
 
 export const buildAlpacaOrderRequest = (params: TradingOrderInput): TradingRequestConfig => {
   const authHeaders = buildAlpacaAuthHeaders(params)
-
-  const baseUrl =
-    params.environment === 'paper'
-      ? 'https://paper-api.alpaca.markets'
-      : 'https://api.alpaca.markets'
 
   const symbol = listingIdentityToTradingSymbol(alpacaTradingProviderConfig, {
     listing: params.listing,
@@ -64,10 +63,8 @@ export const buildAlpacaOrderRequest = (params: TradingOrderInput): TradingReque
   const isTrailingStop = orderType === 'trailing_stop'
 
   if (useNotional) {
-    const supportedTypes = new Set(['market', 'limit', 'stop', 'stop_limit'])
-    if (!supportedTypes.has(orderType)) {
-      throw new Error('Alpaca notional orders support market, limit, stop, or stop_limit types.')
-    }
+    const orderTypeError = getAlpacaNotionalOrderTypeError(orderType)
+    if (orderTypeError) throw new Error(orderTypeError)
     if (timeInForce !== 'day') {
       throw new Error('Alpaca notional orders require time_in_force=day.')
     }
@@ -126,7 +123,7 @@ export const buildAlpacaOrderRequest = (params: TradingOrderInput): TradingReque
   }
 
   return {
-    url: `${baseUrl}/v2/orders`,
+    url: `${resolveAlpacaTradingBaseUrl(params.environment)}/v2/orders`,
     method: 'POST',
     headers: {
       ...authHeaders,

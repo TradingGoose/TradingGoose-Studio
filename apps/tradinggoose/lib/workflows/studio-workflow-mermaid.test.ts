@@ -6,6 +6,7 @@ import {
   serializeWorkflowToTgMermaid,
   TG_MERMAID_DOCUMENT_FORMAT,
 } from '@/lib/workflows/studio-workflow-mermaid'
+import { applyAutoLayout } from '@/lib/workflows/autolayout'
 
 describe('studio workflow Mermaid documents', () => {
   const workflowState: WorkflowSnapshot = {
@@ -490,6 +491,52 @@ inputTrigger --> agentBlock
 
     expect(document).toContain('flowchart LR')
     expect(document).toContain('%% TG_WORKFLOW {"direction":"LR"')
+  })
+
+  it('keeps auto-layout lanes from each source handle orientation', () => {
+    const agent = (
+      id: string,
+      x: number,
+      y: number,
+      horizontalHandles = true
+    ): WorkflowSnapshot['blocks'][string] => ({
+      id,
+      type: 'agent',
+      name: id,
+      position: { x, y },
+      subBlocks: {},
+      outputs: {},
+      enabled: true,
+      horizontalHandles,
+    })
+
+    const result = applyAutoLayout(
+      {
+        start: agent('start', 0, 0),
+        branchA: agent('branchA', 0, 0),
+        branchA2: agent('branchA2', 0, 0),
+        branchB: agent('branchB', 0, 0),
+        verticalA: agent('verticalA', 0, 0, false),
+        verticalB: agent('verticalB', 0, 0, false),
+      },
+      [
+        { id: 'start-a', source: 'start', target: 'branchA' },
+        { id: 'start-b', source: 'start', target: 'branchB' },
+        { id: 'a-a2', source: 'branchA', target: 'branchA2' },
+        { id: 'vertical-a-b', source: 'verticalA', target: 'verticalB' },
+      ]
+    )
+
+    expect(result.success).toBe(true)
+    const blocks = result.blocks
+    const centerY = (id: string) => blocks[id].position.y + 50
+    const centerX = (id: string) => blocks[id].position.x + 175
+
+    expect(centerY('branchA2')).toBe(centerY('branchA'))
+    expect(centerY('branchB')).toBeGreaterThan(centerY('branchA'))
+    expect(blocks.branchA2.position.x).toBeGreaterThan(blocks.branchA.position.x)
+    expect(centerX('verticalB')).toBe(centerX('verticalA'))
+    expect(blocks.verticalB.position.y).toBeGreaterThan(blocks.verticalA.position.y)
   })
 
   it('reports missing raw-id visible edge lines using the document naming style', () => {

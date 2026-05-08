@@ -87,10 +87,13 @@ export async function POST(request: NextRequest) {
 
       // Priority 1: Execution-scoped storage (temporary, 5 min expiry)
       if (workflowId && executionId) {
+        if (!workspaceId) {
+          throw new InvalidRequestError('workspaceId is required for execution-scoped uploads')
+        }
         const { uploadExecutionFile } = await import('@/lib/uploads/contexts/execution')
         const userFile = await uploadExecutionFile(
           {
-            workspaceId: workspaceId || '',
+            workspaceId,
             workflowId,
             executionId,
           },

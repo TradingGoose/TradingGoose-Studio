@@ -52,7 +52,12 @@ export async function POST(request: NextRequest) {
       const { accessToken } = await refreshTokenIfNeeded(requestId, credential, credentialId)
       const apiKey = credential.providerId === 'trello' ? await getTrelloApiKey() : undefined
       return NextResponse.json(
-        { accessToken, idToken: credential.idToken || undefined, apiKey },
+        {
+          accessToken,
+          idToken: credential.idToken || undefined,
+          apiKey,
+          providerId: credential.providerId,
+        },
         { status: 200 }
       )
     } catch (error) {
@@ -103,7 +108,12 @@ export async function GET(request: NextRequest) {
       const { accessToken } = await refreshTokenIfNeeded(requestId, credential, credentialId)
       const apiKey = credential.providerId === 'trello' ? await getTrelloApiKey() : undefined
       return NextResponse.json(
-        { accessToken, idToken: credential.idToken || undefined, apiKey },
+        {
+          accessToken,
+          idToken: credential.idToken || undefined,
+          apiKey,
+          providerId: credential.providerId,
+        },
         { status: 200 }
       )
     } catch (_error) {

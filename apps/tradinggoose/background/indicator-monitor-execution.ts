@@ -1,6 +1,8 @@
 import { db } from '@tradinggoose/db'
 import { webhook } from '@tradinggoose/db/schema'
 import { and, eq } from 'drizzle-orm'
+import { checkServerSideUsageLimits } from '@/lib/billing'
+import { withExecutionConcurrencyLimit } from '@/lib/execution/execution-concurrency-limit'
 import {
   applyIndicatorTriggerPayloadBudget,
   buildIndicatorTriggerDispatchPayload,
@@ -11,8 +13,6 @@ import { executeCompiledIndicator } from '@/lib/indicators/execution/compile-exe
 import { normalizeBarsMs } from '@/lib/indicators/series-data'
 import type { BarMs, NormalizedPineSignal } from '@/lib/indicators/types'
 import type { ListingIdentity } from '@/lib/listing/identity'
-import { checkServerSideUsageLimits } from '@/lib/billing'
-import { withExecutionConcurrencyLimit } from '@/lib/execution/execution-concurrency-limit'
 import { createLogger } from '@/lib/logs/console/logger'
 import {
   loadWorkflowExecutionBlueprint,
@@ -75,9 +75,7 @@ const isMonitor = (value: unknown): value is IndicatorMonitorExecutionMonitor =>
   )
 }
 
-const isIndicator = (
-  value: unknown,
-): value is IndicatorMonitorExecutionIndicator => {
+const isIndicator = (value: unknown): value is IndicatorMonitorExecutionIndicator => {
   if (!isRecord(value)) {
     return false
   }
@@ -90,7 +88,7 @@ const isIndicator = (
 }
 
 export function isIndicatorMonitorExecutionPayload(
-  value: unknown,
+  value: unknown
 ): value is IndicatorMonitorExecutionPayload {
   if (!isRecord(value)) {
     return false
@@ -115,10 +113,8 @@ const toMarketSeries = ({
   marketCode?: string
   timezone?: string
 }): MarketSeries => {
-  const listingBase =
-    listing.listing_type === 'default' ? listing.listing_id : listing.base_id
-  const listingQuote =
-    listing.listing_type === 'default' ? undefined : listing.quote_id
+  const listingBase = listing.listing_type === 'default' ? listing.listing_id : listing.base_id
+  const listingQuote = listing.listing_type === 'default' ? undefined : listing.quote_id
 
   return {
     listing,
@@ -127,9 +123,7 @@ const toMarketSeries = ({
     marketCode,
     timezone,
     start: bars[0] ? new Date(bars[0].openTime).toISOString() : undefined,
-    end: bars[bars.length - 1]
-      ? new Date(bars[bars.length - 1].openTime).toISOString()
-      : undefined,
+    end: bars[bars.length - 1] ? new Date(bars[bars.length - 1].openTime).toISOString() : undefined,
     bars: bars.map((bar) => ({
       timeStamp: new Date(bar.openTime).toISOString(),
       open: bar.open,
@@ -152,24 +146,24 @@ const chooseCandidate = ({
     return null
   }
 
-  const latestCandidates = triggers.filter(
-    (signal) => signal.time === latestBarOpenTimeSec,
-  )
+  const latestCandidates = triggers.filter((signal) => signal.time === latestBarOpenTimeSec)
   if (latestCandidates.length === 0) {
     return null
   }
 
-  return [...latestCandidates].sort((a, b) => {
-    if (a.time !== b.time) return a.time - b.time
-    if (a.event !== b.event) return a.event.localeCompare(b.event)
-    return a.signal.localeCompare(b.signal)
-  })[0] ?? null
+  return (
+    [...latestCandidates].sort((a, b) => {
+      if (a.time !== b.time) return a.time - b.time
+      if (a.event !== b.event) return a.event.localeCompare(b.event)
+      return a.signal.localeCompare(b.signal)
+    })[0] ?? null
+  )
 }
 
 async function disableMonitor(
   monitorId: string,
   reason: string,
-  metadata: Record<string, unknown> = {},
+  metadata: Record<string, unknown> = {}
 ) {
   await db
     .update(webhook)
@@ -186,10 +180,12 @@ async function disableMonitor(
   })
 }
 
-export async function executeIndicatorMonitorJob(
-  payload: IndicatorMonitorExecutionPayload,
-) {
+export async function executeIndicatorMonitorJob(payload: IndicatorMonitorExecutionPayload) {
   const requestId = (payload.executionId ?? payload.monitor.id).slice(0, 8)
+  const workspaceId = payload.monitor.workspaceId.trim()
+  if (!workspaceId) {
+    throw new Error('Indicator monitor execution requires workspaceId')
+  }
   const bars = normalizeBarsMs(payload.bars, payload.monitor.intervalMs ?? undefined)
 
   logger.info(`[${requestId}] Starting indicator monitor execution`, {
@@ -201,7 +197,7 @@ export async function executeIndicatorMonitorJob(
   return withExecutionConcurrencyLimit({
     userId: payload.monitor.actorUserId,
     workflowId: payload.monitor.workflowId,
-    workspaceId: payload.monitor.workspaceId,
+    workspaceId,
     task: async () => {
       const compiled = await executeCompiledIndicator({
         pineCode: payload.indicator.pineCode,
@@ -288,7 +284,7 @@ export async function executeIndicatorMonitorJob(
       const usageCheck = await checkServerSideUsageLimits({
         userId: payload.monitor.actorUserId,
         workflowId: payload.monitor.workflowId,
-        workspaceId: payload.monitor.workspaceId,
+        workspaceId,
       })
       if (usageCheck.isExceeded) {
         await disableMonitor(payload.monitor.id, 'usage_limit_exceeded', {
@@ -302,6 +298,7 @@ export async function executeIndicatorMonitorJob(
       const blueprint = await loadWorkflowExecutionBlueprint({
         workflowId: payload.monitor.workflowId,
         executionTarget: 'deployed',
+        workflowContext: { workspaceId },
       })
       const blocks = blueprint.workflowData.blocks as Record<string, unknown>
       if (!blocks[payload.monitor.blockId]) {

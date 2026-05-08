@@ -204,6 +204,27 @@
       "when": 1776700802190,
       "tag": "0028_nervous_forge",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1776890319593,
+      "tag": "0029_yellow_korg",
+      "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1778084621623,
+      "tag": "0030_lethal_ikaris",
+      "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1778224331010,
+      "tag": "0031_chilly_cloak",
+      "breakpoints": true
     }
   ]
 }

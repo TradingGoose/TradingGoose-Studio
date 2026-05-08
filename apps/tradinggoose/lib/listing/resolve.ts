@@ -1,4 +1,9 @@
-import type { ListingIdentity, ListingResolved } from '@/lib/listing/identity'
+import {
+  getListingIdentityKey,
+  type ListingIdentity,
+  type ListingResolved,
+  toListingValueObject,
+} from '@/lib/listing/identity'
 import { MARKET_API_VERSION } from '@/lib/market/client/constants'
 import { getBaseUrl } from '@/lib/urls/utils'
 
@@ -24,6 +29,12 @@ type MarketSearchResponse<T> = {
 
 type CodeRow = { code?: string; name?: string | null; iconUrl?: string | null }
 
+export type ListingResolutionRowMaps = {
+  listings: Record<string, unknown | null>
+  currencies: Record<string, unknown | null>
+  cryptos: Record<string, unknown | null>
+}
+
 const buildMarketGetUrl = (path: string, params: URLSearchParams) => {
   const relativeUrl = `/api/market/get/${path}?${params.toString()}`
   if (typeof window !== 'undefined') {
@@ -33,7 +44,7 @@ const buildMarketGetUrl = (path: string, params: URLSearchParams) => {
   return new URL(relativeUrl, getBaseUrl()).toString()
 }
 
-const uniqueNonEmpty = (values: string[]) => {
+export const uniqueNonEmpty = (values: string[]) => {
   const seen = new Set<string>()
   const result: string[] = []
   for (const value of values) {
@@ -45,13 +56,17 @@ const uniqueNonEmpty = (values: string[]) => {
   return result
 }
 
-const toCodeRow = (row: unknown): CodeRow | null => {
+export const toCodeRow = (row: unknown): CodeRow | null => {
   if (!row || typeof row !== 'object') return null
   const record = row as CodeRow
   return { code: record.code, name: record.name ?? null, iconUrl: record.iconUrl ?? null }
 }
 
-const fetchMarketSearch = async <T>(path: string, params: URLSearchParams): Promise<T | null> => {
+export const fetchMarketSearch = async <T>(
+  path: string,
+  params: URLSearchParams,
+  signal?: AbortSignal
+): Promise<T | null> => {
   if (!params.get('version')) {
     params.set('version', MARKET_API_VERSION)
   }
@@ -61,6 +76,7 @@ const fetchMarketSearch = async <T>(path: string, params: URLSearchParams): Prom
     headers: {
       'Content-Type': 'application/json',
     },
+    signal,
   })
 
   let payload: MarketSearchResponse<T> | null = null
@@ -81,10 +97,11 @@ const fetchMarketSearch = async <T>(path: string, params: URLSearchParams): Prom
   return payload.data ?? null
 }
 
-const fetchMarketBatch = async <T>(
+export const fetchMarketBatch = async <T>(
   path: string,
   paramName: string,
-  ids: string[]
+  ids: string[],
+  signal?: AbortSignal
 ): Promise<Record<string, T | null>> => {
   const uniqueIds = uniqueNonEmpty(ids)
   const result: Record<string, T | null> = {}
@@ -92,7 +109,7 @@ const fetchMarketBatch = async <T>(
 
   const params = new URLSearchParams()
   uniqueIds.forEach((id) => params.append(paramName, id))
-  const data = await fetchMarketSearch<any>(path, params)
+  const data = await fetchMarketSearch<any>(path, params, signal)
 
   if (!data) {
     uniqueIds.forEach((id) => {
@@ -122,14 +139,19 @@ const fetchMarketBatch = async <T>(
   return result
 }
 
-const getBatchRow = async <T>(path: string, paramName: string, id: string): Promise<T | null> => {
-  const records = await fetchMarketBatch<T>(path, paramName, [id])
+export const getBatchRow = async <T>(
+  path: string,
+  paramName: string,
+  id: string,
+  signal?: AbortSignal
+): Promise<T | null> => {
+  const records = await fetchMarketBatch<T>(path, paramName, [id], signal)
   return records[id] ?? null
 }
 
-const resolveListingById = async (listingId: string): Promise<ResolvedListingDetails | null> => {
-  const listing = await getBatchRow<any>('listing', 'listing_id', listingId)
-  if (!listing || typeof listing !== 'object') return null
+const buildListingDetailsFromListingRow = (row: unknown): ResolvedListingDetails | null => {
+  if (!row || typeof row !== 'object') return null
+  const listing = row as ResolvedListingDetails
   return {
     base: listing.base,
     quote: listing.quote ?? null,
@@ -144,25 +166,17 @@ const resolveListingById = async (listingId: string): Promise<ResolvedListingDet
   }
 }
 
-const resolveCurrencyById = async (
-  currencyId: string
-): Promise<{ code?: string; name?: string | null; iconUrl?: string | null } | null> => {
-  return toCodeRow(await getBatchRow<any>('currency', 'currency_id', currencyId))
-}
-
-const resolveCryptoById = async (
-  cryptoId: string
-): Promise<{ code?: string; name?: string | null; iconUrl?: string | null } | null> => {
-  return toCodeRow(await getBatchRow<any>('crypto', 'crypto_id', cryptoId))
-}
-
-const resolveCurrencyPair = async (
-  baseId: string,
-  quoteId: string
-): Promise<ResolvedListingDetails | null> => {
-  const records = await fetchMarketBatch<any>('currency', 'currency_id', [baseId, quoteId])
-  const baseRow = toCodeRow(records[baseId])
-  const quoteRow = toCodeRow(records[quoteId])
+const buildPairDetails = ({
+  baseRow,
+  quoteRow,
+  assetClass,
+  quoteAssetClass,
+}: {
+  baseRow: CodeRow | null
+  quoteRow: CodeRow | null
+  assetClass: 'currency' | 'crypto'
+  quoteAssetClass: 'currency' | 'crypto'
+}): ResolvedListingDetails | null => {
   if (!baseRow?.code || !quoteRow?.code) return null
   const baseName = baseRow.name?.trim() || baseRow.code
   const quoteName = quoteRow.name?.trim() || quoteRow.code
@@ -171,89 +185,150 @@ const resolveCurrencyPair = async (
     quote: quoteRow.code,
     name: `${baseName} to ${quoteName} pair`,
     iconUrl: baseRow.iconUrl ?? null,
-    assetClass: 'currency',
-    base_asset_class: 'currency',
-    quote_asset_class: 'currency',
+    assetClass,
+    base_asset_class: assetClass,
+    quote_asset_class: quoteAssetClass,
   }
 }
 
-const resolveCryptoPair = async (
-  baseId: string,
-  quoteId: string
-): Promise<ResolvedListingDetails | null> => {
-  const records = await fetchMarketBatch<any>('crypto', 'crypto_id', [baseId, quoteId])
-  const baseRow = toCodeRow(records[baseId])
-  const quoteRow = toCodeRow(records[quoteId])
-  if (!baseRow?.code || !quoteRow?.code) return null
-  const baseName = baseRow.name?.trim() || baseRow.code
-  const quoteName = quoteRow.name?.trim() || quoteRow.code
-  return {
-    base: baseRow.code,
-    quote: quoteRow.code,
-    name: baseName && quoteName ? `${baseName} to ${quoteName} pair` : null,
-    iconUrl: baseRow.iconUrl ?? null,
-    assetClass: 'crypto',
-    base_asset_class: 'crypto',
-    quote_asset_class: 'crypto',
-  }
-}
-
-const resolveCryptoWithCurrencyQuote = async (
-  baseId: string,
-  quoteId: string
-): Promise<ResolvedListingDetails | null> => {
-  const [cryptoRecords, currencyRecords] = await Promise.all([
-    fetchMarketBatch<any>('crypto', 'crypto_id', [baseId]),
-    fetchMarketBatch<any>('currency', 'currency_id', [quoteId]),
-  ])
-  const baseRow = toCodeRow(cryptoRecords[baseId])
-  const quoteRow = toCodeRow(currencyRecords[quoteId])
-  if (!baseRow?.code || !quoteRow?.code) return null
-  const baseName = baseRow.name?.trim() || baseRow.code
-  const quoteName = quoteRow.name?.trim() || quoteRow.code
-  return {
-    base: baseRow.code,
-    quote: quoteRow.code,
-    name: `${baseName} to ${quoteName} pair`,
-    iconUrl: baseRow.iconUrl ?? null,
-    assetClass: 'crypto',
-    base_asset_class: 'crypto',
-    quote_asset_class: 'currency',
-  }
-}
-
-export async function resolveListingIdentity(
-  listing: ListingIdentity
-): Promise<ListingResolved | null> {
-  if (!listing) return null
-
+export const buildListingDetailsFromRows = (
+  listing: ListingIdentity,
+  rows: ListingResolutionRowMaps
+): ResolvedListingDetails | null => {
   const listingType = listing.listing_type
-  const listingId = listing.listing_id?.trim()
-  const baseId = listing.base_id?.trim()
-  const quoteId = listing.quote_id?.trim()
+  const listingId = listing.listing_id.trim()
+  const baseId = listing.base_id.trim()
+  const quoteId = listing.quote_id.trim()
 
   if (listingType === 'default') {
     if (!listingId) return null
-    const details = await resolveListingById(listingId)
-    return details ? buildResolvedListing(listing, details) : null
+    return buildListingDetailsFromListingRow(rows.listings[listingId])
   }
 
   if (!baseId || !quoteId) return null
 
   if (listingType === 'currency') {
-    const details = await resolveCurrencyPair(baseId, quoteId)
-    return details ? buildResolvedListing(listing, details) : null
+    return buildPairDetails({
+      baseRow: toCodeRow(rows.currencies[baseId]),
+      quoteRow: toCodeRow(rows.currencies[quoteId]),
+      assetClass: 'currency',
+      quoteAssetClass: 'currency',
+    })
   }
 
   if (listingType === 'crypto') {
     const isCryptoQuote = quoteId.toUpperCase().includes('CRYP')
-    const details = isCryptoQuote
-      ? await resolveCryptoPair(baseId, quoteId)
-      : await resolveCryptoWithCurrencyQuote(baseId, quoteId)
-    return details ? buildResolvedListing(listing, details) : null
+    return buildPairDetails({
+      baseRow: toCodeRow(rows.cryptos[baseId]),
+      quoteRow: toCodeRow(isCryptoQuote ? rows.cryptos[quoteId] : rows.currencies[quoteId]),
+      assetClass: 'crypto',
+      quoteAssetClass: isCryptoQuote ? 'crypto' : 'currency',
+    })
   }
 
   return null
+}
+
+export const buildResolvedListingFromRows = (
+  listing: ListingIdentity,
+  rows: ListingResolutionRowMaps
+): ListingResolved | null => {
+  const details = buildListingDetailsFromRows(listing, rows)
+  return details ? buildResolvedListing(listing, details) : null
+}
+
+export async function resolveListingIdentity(
+  listing: ListingIdentity,
+  signal?: AbortSignal
+): Promise<ListingResolved | null> {
+  const normalized = toListingValueObject(listing)
+  if (!normalized) return null
+  const rowMaps = await fetchListingResolutionRowMaps([normalized], signal)
+  try {
+    return buildResolvedListingFromRows(normalized, rowMaps)
+  } catch {
+    return null
+  }
+}
+
+const fetchListingResolutionRowMaps = async (
+  listings: readonly ListingIdentity[],
+  signal?: AbortSignal
+): Promise<ListingResolutionRowMaps> => {
+  const identities = new Map<string, ListingIdentity>()
+
+  for (const listing of listings) {
+    const normalized = toListingValueObject(listing)
+    if (!normalized) continue
+    const key = getListingIdentityKey(normalized)
+    if (!identities.has(key)) {
+      identities.set(key, normalized)
+    }
+  }
+
+  const listingIds: string[] = []
+  const currencyIds: string[] = []
+  const cryptoIds: string[] = []
+
+  identities.forEach((listing) => {
+    if (listing.listing_type === 'default') {
+      listingIds.push(listing.listing_id)
+      return
+    }
+
+    if (listing.listing_type === 'currency') {
+      currencyIds.push(listing.base_id, listing.quote_id)
+      return
+    }
+
+    cryptoIds.push(listing.base_id)
+    if (listing.quote_id.toUpperCase().includes('CRYP')) {
+      cryptoIds.push(listing.quote_id)
+    } else {
+      currencyIds.push(listing.quote_id)
+    }
+  })
+
+  const [listingRows, currencyRows, cryptoRows] = await Promise.all([
+    fetchMarketBatch<any>('listing', 'listing_id', listingIds, signal),
+    fetchMarketBatch<any>('currency', 'currency_id', currencyIds, signal),
+    fetchMarketBatch<any>('crypto', 'crypto_id', cryptoIds, signal),
+  ])
+
+  return {
+    listings: listingRows,
+    currencies: currencyRows,
+    cryptos: cryptoRows,
+  }
+}
+
+export async function resolveListingIdentities(
+  listings: readonly ListingIdentity[],
+  signal?: AbortSignal
+): Promise<Record<string, ListingResolved | null>> {
+  const identities = new Map<string, ListingIdentity>()
+
+  for (const listing of listings) {
+    const normalized = toListingValueObject(listing)
+    if (!normalized) continue
+    const key = getListingIdentityKey(normalized)
+    if (!identities.has(key)) {
+      identities.set(key, normalized)
+    }
+  }
+
+  const rowMaps = await fetchListingResolutionRowMaps(Array.from(identities.values()), signal)
+
+  const resolved: Record<string, ListingResolved | null> = {}
+  identities.forEach((listing, key) => {
+    try {
+      resolved[key] = buildResolvedListingFromRows(listing, rowMaps)
+    } catch {
+      resolved[key] = null
+    }
+  })
+
+  return resolved
 }
 
 function buildResolvedListing(

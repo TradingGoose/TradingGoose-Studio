@@ -132,6 +132,7 @@
     "react-markdown": "^10.1.0",
     "react-resizable-panels": "3.0.6",
     "react-use": "17.6.0",
+    "recharts": "3.8.1",
     "remark-gfm": "4.0.1",
     "resend": "6.10.0",
     "sharp": "0.34.3",

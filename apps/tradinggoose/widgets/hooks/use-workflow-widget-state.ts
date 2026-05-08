@@ -5,7 +5,6 @@ import { shallow } from 'zustand/shallow'
 import {
   type PairColorContext,
   usePairColorStore,
-  useSetPairColorContext,
 } from '@/stores/dashboard/pair-store'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import { WORKSPACE_BOOTSTRAP_CHANNEL } from '@/stores/workflows/registry/types'
@@ -65,7 +64,6 @@ export const useWorkflowWidgetState = ({
   const pairContext = usePairColorStore((state) =>
     shouldUsePairWorkflowContext ? state.contexts[resolvedPairColor] : EMPTY_PAIR_CONTEXT
   )
-  const setPairContext = useSetPairColorContext()
   const { workflows, loadWorkflows, setActiveWorkflow } = useWorkflowRegistry(
     (state) => ({
       workflows: state.workflows,
@@ -195,6 +193,10 @@ export const useWorkflowWidgetState = ({
       return pairWorkflowId
     }
 
+    if (shouldUsePairWorkflowContext) {
+      return null
+    }
+
     const channelWorkflowId =
       rawActiveWorkflowIdForChannel && workspaceWorkflowMap[rawActiveWorkflowIdForChannel]
         ? rawActiveWorkflowIdForChannel
@@ -252,30 +254,6 @@ export const useWorkflowWidgetState = ({
     }
     return hasRequestedLoad && metadataHydration.phase !== 'metadata-loading'
   }, [workspaceId, workspaceHasWorkflows, loadError, hasRequestedLoad, metadataHydration.phase])
-
-  useEffect(() => {
-    if (!shouldUsePairWorkflowContext || !resolvedWorkflowId) {
-      return
-    }
-
-    if (pairContext.workflowId === resolvedWorkflowId) {
-      return
-    }
-
-    setPairContext(resolvedPairColor, {
-      ...pairContext,
-      workflowId: resolvedWorkflowId,
-      listing: pairContext.listing,
-      channelId,
-    })
-  }, [
-    shouldUsePairWorkflowContext,
-    resolvedWorkflowId,
-    pairContext.workflowId,
-    pairContext.listing,
-    setPairContext,
-    channelId,
-  ])
 
   useEffect(() => {
     if (resolvedPairColor !== 'gray' || !resolvedWorkflowId || !onWidgetParamsChange) {

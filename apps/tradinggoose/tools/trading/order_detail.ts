@@ -1,5 +1,14 @@
+import { getTradingProviderOAuthEnvironment } from '@/providers/trading'
 import type { TradingOrderDetailParams, TradingOrderDetailResponse } from '@/tools/trading/types'
 import type { ToolConfig } from '@/tools/types'
+
+const resolveProviderEnvironment = (params: TradingOrderDetailParams) => {
+  if (!params.provider) return params.environment
+  return (
+    getTradingProviderOAuthEnvironment(params.provider, params.credentialServiceId) ??
+    params.environment
+  )
+}
 
 export const tradingOrderDetailTool: ToolConfig<
   TradingOrderDetailParams,
@@ -30,7 +39,7 @@ export const tradingOrderDetailTool: ToolConfig<
       type: 'string',
       required: false,
       visibility: 'user-only',
-      description: 'Optional environment override (paper or live) for provider order-detail fetch.',
+      description: 'Trading environment for providers that expose one.',
     },
     credential: {
       type: 'string',
@@ -38,35 +47,11 @@ export const tradingOrderDetailTool: ToolConfig<
       visibility: 'hidden',
       description: 'OAuth credential id for the selected broker (populated from selected account).',
     },
-    tradierCredential: {
-      type: 'string',
-      required: false,
-      visibility: 'user-only',
-      description: 'Tradier OAuth credential id.',
-    },
-    alpacaCredential: {
-      type: 'string',
-      required: false,
-      visibility: 'user-only',
-      description: 'Alpaca OAuth credential id.',
-    },
     accessToken: {
       type: 'string',
       required: false,
       visibility: 'hidden',
       description: 'OAuth access token (injected from credential).',
-    },
-    apiKey: {
-      type: 'string',
-      required: false,
-      visibility: 'hidden',
-      description: 'Alpaca API key ID (optional if using OAuth).',
-    },
-    apiSecret: {
-      type: 'string',
-      required: false,
-      visibility: 'hidden',
-      description: 'Alpaca API secret key (optional if using OAuth).',
     },
     accountId: {
       type: 'string',
@@ -85,10 +70,8 @@ export const tradingOrderDetailTool: ToolConfig<
     body: (params) => ({
       orderId: params.orderId,
       provider: params.provider,
-      environment: params.environment,
+      environment: resolveProviderEnvironment(params),
       accessToken: params.accessToken,
-      apiKey: params.apiKey,
-      apiSecret: params.apiSecret,
       accountId: params.accountId,
     }),
   },
@@ -100,6 +83,8 @@ export const tradingOrderDetailTool: ToolConfig<
     const provider = data.provider || ''
     const appOrderId = data.appOrderId || ''
     const providerOrderId = data.providerOrderId || ''
+    const workspaceId = data.workspaceId || null
+    const logId = data.logId || null
     const orderDetail = data.orderDetail || {}
 
     return {
@@ -109,6 +94,8 @@ export const tradingOrderDetailTool: ToolConfig<
         provider,
         appOrderId,
         providerOrderId,
+        workspaceId,
+        logId,
         orderDetail,
       },
     }
@@ -121,6 +108,14 @@ export const tradingOrderDetailTool: ToolConfig<
     providerOrderId: {
       type: 'string',
       description: 'Provider-native order ID used for the API lookup.',
+    },
+    workspaceId: {
+      type: 'string',
+      description: 'Workspace that owns the recorded order.',
+    },
+    logId: {
+      type: 'string',
+      description: 'Linked log ID, when one exists.',
     },
     orderDetail: {
       type: 'json',

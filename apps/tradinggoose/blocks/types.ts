@@ -232,6 +232,7 @@ export interface SubBlockConfig {
   // OAuth specific properties
   provider?: string
   serviceId?: string
+  serviceIds?: string[]
   requiredScopes?: string[]
   supportsCredentialSets?: boolean
   // File selector specific properties

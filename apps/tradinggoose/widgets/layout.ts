@@ -1,6 +1,5 @@
 import { type ListingIdentity, toListingValueObject } from '@/lib/listing/identity'
 import { normalizeOptionalString } from '@/lib/utils'
-import type { PairReviewTarget } from '@/stores/dashboard/pair-store'
 import type { PairColor } from '@/widgets/pair-colors'
 import { isPairColor } from '@/widgets/pair-colors'
 
@@ -16,7 +15,6 @@ export type PersistedColorPair = {
   color: LinkedPairColor
   workflowId?: string | null
   listing?: ListingIdentity | null
-  reviewTarget?: PairReviewTarget
   indicatorId?: string | null
   mcpServerId?: string | null
   customToolId?: string | null
@@ -86,9 +84,8 @@ export function resolveWidgetParamsForPairColorChange(
     return currentParams
   }
 
-  // Data Chart keeps provider and chart configuration widget-local while linked listings
-  // continue to resolve from the shared pair store.
-  if (widget?.key === 'data_chart') {
+  // Data-provider configuration stays widget-local even when listing selection is linked.
+  if (widget?.key === 'data_chart' || widget?.key === 'heatmap') {
     return currentParams
   }
 
@@ -100,20 +97,6 @@ const normalizeListingIdentity = (value: unknown): ListingIdentity | null => {
   const listing = toListingValueObject(value as any)
   if (!listing) return null
   return listing
-}
-
-const normalizeListingWithResolvedFields = (value: unknown): ListingIdentity | null => {
-  if (!value || typeof value !== 'object') return null
-  const identity = toListingValueObject(value as any)
-  if (!identity) return null
-
-  return {
-    ...(value as Record<string, unknown>),
-    listing_id: identity.listing_id,
-    base_id: identity.base_id,
-    quote_id: identity.quote_id,
-    listing_type: identity.listing_type,
-  } as ListingIdentity
 }
 
 const normalizeListingParamsForStorage = (
@@ -152,21 +135,7 @@ export function normalizeColorPairsState(state?: unknown): PersistedColorPairsSt
     }
 
     const workflowId = normalizeOptionalString((raw as { workflowId?: unknown }).workflowId)
-
-    const rawTarget = (raw as { reviewTarget?: unknown }).reviewTarget
-    const nestedTarget =
-      rawTarget && typeof rawTarget === 'object' ? (rawTarget as Record<string, unknown>) : null
-
-    const reviewTarget: PairReviewTarget = {
-      reviewSessionId: normalizeOptionalString(nestedTarget?.reviewSessionId),
-      reviewEntityKind: normalizeOptionalString(nestedTarget?.reviewEntityKind),
-      reviewEntityId: normalizeOptionalString(nestedTarget?.reviewEntityId),
-      reviewDraftSessionId: normalizeOptionalString(nestedTarget?.reviewDraftSessionId),
-    }
-
-    const hasReviewTarget = Object.values(reviewTarget).some(v => v != null)
-
-    const listing = normalizeListingWithResolvedFields((raw as { listing?: unknown }).listing)
+    const listing = normalizeListingIdentity((raw as { listing?: unknown }).listing)
     const indicatorId = normalizeOptionalString((raw as { indicatorId?: unknown }).indicatorId)
     const mcpServerId = normalizeOptionalString((raw as { mcpServerId?: unknown }).mcpServerId)
     const customToolId = normalizeOptionalString((raw as { customToolId?: unknown }).customToolId)
@@ -176,7 +145,6 @@ export function normalizeColorPairsState(state?: unknown): PersistedColorPairsSt
       color: rawColor,
       workflowId,
       listing,
-      ...(hasReviewTarget ? { reviewTarget } : {}),
       indicatorId,
       mcpServerId,
       customToolId,
@@ -235,7 +203,8 @@ export function normalizeDashboardLayout(state?: unknown): LayoutNode {
   }
 
   const node = state as Partial<LayoutNode>
-  const persistedId = normalizeOptionalString((state as { id?: unknown }).id) ?? createLayoutNodeId()
+  const persistedId =
+    normalizeOptionalString((state as { id?: unknown }).id) ?? createLayoutNodeId()
 
   if (node.type === 'panel') {
     return {
@@ -293,11 +262,11 @@ export function serializeLayout(node: LayoutNode): PersistedLayoutNode {
             params: null,
           }
         : normalizedParams === widget.params
-        ? widget
-        : {
-            ...widget,
-            params: normalizedParams ?? null,
-          }
+          ? widget
+          : {
+              ...widget,
+              params: normalizedParams ?? null,
+            }
     return {
       id: node.id,
       type: 'panel',

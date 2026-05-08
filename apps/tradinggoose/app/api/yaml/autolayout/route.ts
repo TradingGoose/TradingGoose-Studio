@@ -3,9 +3,6 @@ import { z } from 'zod'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
 import { applyAutoLayout } from '@/lib/workflows/autolayout'
-import {
-  resolveAutoLayoutDirection,
-} from '@/lib/workflows/workflow-direction'
 
 const logger = createLogger('YamlAutoLayoutAPI')
 
@@ -18,13 +15,10 @@ const AutoLayoutRequestSchema = z.object({
   }),
   options: z
     .object({
-      strategy: z.enum(['smart', 'hierarchical', 'layered', 'force-directed']).optional(),
-      direction: z.enum(['horizontal', 'vertical', 'auto']).optional(),
       spacing: z
         .object({
           horizontal: z.number().optional(),
           vertical: z.number().optional(),
-          layer: z.number().optional(),
         })
         .optional(),
       alignment: z.enum(['start', 'center', 'end']).optional(),
@@ -48,31 +42,21 @@ export async function POST(request: NextRequest) {
     logger.info(`[${requestId}] Applying auto layout`, {
       blockCount: Object.keys(workflowState.blocks).length,
       edgeCount: workflowState.edges.length,
-      strategy: options?.strategy || 'smart',
     })
 
     const autoLayoutOptions = {
-      direction: resolveAutoLayoutDirection(
-        {
-          blocks: workflowState.blocks,
-          edges: workflowState.edges,
-        },
-        options?.direction
-      ),
-      horizontalSpacing: options?.spacing?.horizontal || 550,
-      verticalSpacing: options?.spacing?.vertical || 200,
+      horizontalSpacing: options?.spacing?.horizontal ?? 550,
+      verticalSpacing: options?.spacing?.vertical ?? 200,
       padding: {
-        x: options?.padding?.x || 150,
-        y: options?.padding?.y || 150,
+        x: options?.padding?.x ?? 150,
+        y: options?.padding?.y ?? 150,
       },
-      alignment: options?.alignment || 'center',
+      alignment: options?.alignment ?? 'center',
     }
 
     const layoutResult = applyAutoLayout(
       workflowState.blocks,
       workflowState.edges,
-      workflowState.loops || {},
-      workflowState.parallels || {},
       autoLayoutOptions
     )
 

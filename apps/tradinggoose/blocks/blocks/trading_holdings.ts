@@ -43,6 +43,9 @@ const providerCredentialBlocks = (): SubBlockConfig[] => {
     .filter((provider) => provider.authType === 'oauth' && provider.oauth)
     .map((provider) => {
       const oauth = provider.oauth!
+      const serviceIds = oauth.credentialServices?.length
+        ? oauth.credentialServices.map((service) => service.serviceId)
+        : [oauth.serviceId || oauth.provider]
       return {
         id: `${provider.id}Credential`,
         title: oauth.credentialTitle || `${provider.name} Account`,
@@ -50,7 +53,7 @@ const providerCredentialBlocks = (): SubBlockConfig[] => {
         layout: 'full',
         required: true,
         provider: oauth.provider,
-        serviceId: oauth.serviceId || oauth.provider,
+        ...(serviceIds.length === 1 ? { serviceId: serviceIds[0] } : { serviceIds }),
         requiredScopes: oauth.scopes || [],
         placeholder: oauth.credentialPlaceholder || `Select or connect ${provider.name} account`,
         condition: { field: 'provider', value: provider.id },
@@ -64,8 +67,7 @@ export const TradingHoldingsBlock: BlockConfig<TradingHoldingsResponse> = {
   name: 'Trading Holdings',
   description: 'Fetch a unified account snapshot from supported brokers.',
   authMode: AuthMode.OAuth,
-  longDescription:
-    'Unified holdings block that returns an account snapshot for Alpaca or Tradier.',
+  longDescription: 'Unified holdings block that returns an account snapshot for Alpaca or Tradier.',
   category: 'tools',
   bgColor: '#115e59',
   icon: DollarIcon,
@@ -114,13 +116,16 @@ export const TradingHoldingsBlock: BlockConfig<TradingHoldingsResponse> = {
             .find((value) => value !== undefined)
         }
         const credential = resolveCredential()
-        const extraFields = getProviderFields(provider, 'holdings').reduce((acc, field) => {
-          const key = `${provider}_${field.id}`
-          if (params[key] !== undefined) {
-            acc[field.id] = params[key]
-          }
-          return acc
-        }, {} as Record<string, any>)
+        const extraFields = getProviderFields(provider, 'holdings').reduce(
+          (acc, field) => {
+            const key = `${provider}_${field.id}`
+            if (params[key] !== undefined) {
+              acc[field.id] = params[key]
+            }
+            return acc
+          },
+          {} as Record<string, any>
+        )
 
         return {
           provider,

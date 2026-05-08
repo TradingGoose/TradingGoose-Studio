@@ -8,13 +8,10 @@ import { getTool } from '@/tools/utils'
 const logger = createLogger('GenericBlockHandler')
 
 /**
- * Generic handler for any block types not covered by specialized handlers.
- * Acts as a fallback for custom or future block types.
+ * Generic handler for configured tool-backed block types.
  */
 export class GenericBlockHandler implements BlockHandler {
   canHandle(block: SerializedBlock): boolean {
-    // This handler can handle any block type
-    // It should be the last handler checked.
     return true
   }
 
@@ -59,13 +56,7 @@ export class GenericBlockHandler implements BlockHandler {
     try {
       const result = await executeTool(
         block.config.tool,
-        {
-          ...finalInputs,
-          _context: {
-            workflowId: context.workflowId,
-            workspaceId: context.workspaceId,
-          },
-        },
+        finalInputs,
         false, // skipPostProcess
         context // execution context for file processing
       )

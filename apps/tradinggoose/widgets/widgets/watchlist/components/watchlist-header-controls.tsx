@@ -13,7 +13,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { type ListingIdentity, type ListingOption, toListingValue } from '@/lib/listing/identity'
+import { type ListingOption, toListingValue } from '@/lib/listing/identity'
 import { parseImportedWatchlistFile } from '@/lib/watchlists/import-export'
 import type { WatchlistRecord } from '@/lib/watchlists/types'
 import {
@@ -30,20 +30,19 @@ import { useListingSelectorStore } from '@/stores/market/selector/store'
 import type { WidgetInstance } from '@/widgets/layout'
 import type { DashboardWidgetDefinition } from '@/widgets/types'
 import { emitWatchlistParamsChange } from '@/widgets/utils/watchlist-params'
-import { ListingSelector } from '@/widgets/widgets/components/listing-selector'
-import { MarketProviderSelector } from '@/widgets/widgets/components/market-provider-selector'
+import { MarketProviderControls } from '@/widgets/widgets/components/market-provider-controls'
 import {
   widgetHeaderButtonGroupClassName,
   widgetHeaderIconButtonClassName,
 } from '@/widgets/widgets/components/widget-header-control'
-import { providerOptions } from '@/widgets/widgets/data_chart/options'
+import { WidgetHeaderRefreshButton } from '@/widgets/widgets/components/widget-header-refresh-button'
+import { DataChartListingSelector } from '@/widgets/widgets/data_chart/components/listing-control'
 import {
-  resolveWatchlistProviderCredentialDefinitions,
-  WatchlistProviderSettingsButton,
-} from '@/widgets/widgets/watchlist/components/provider-controls'
+  providerOptions,
+  resolveSeriesMarketProviderId,
+} from '@/widgets/widgets/data_chart/options'
 import { WatchlistListActionsButton } from '@/widgets/widgets/watchlist/components/watchlist-list-actions-button'
 import { WatchlistListSelector } from '@/widgets/widgets/watchlist/components/watchlist-list-selector'
-import { WatchlistRefreshDataButton } from '@/widgets/widgets/watchlist/components/watchlist-refresh-data-button'
 import {
   resolveSelectedWatchlist,
   resolveSelectedWatchlistId,
@@ -57,9 +56,7 @@ type WatchlistHeaderControlsSlotProps = {
 }
 
 const resolveProviderId = (params: WatchlistWidgetParams | null | undefined) => {
-  const fromParams = typeof params?.provider === 'string' ? params.provider.trim() : ''
-  if (fromParams) return fromParams
-  return providerOptions[0]?.id ?? ''
+  return resolveSeriesMarketProviderId(params?.provider, providerOptions)
 }
 
 const toEpochMs = (value?: string | null) => {
@@ -144,29 +141,12 @@ export const WatchlistHeaderLeftControls = ({
   const widgetKey = widget?.key ?? 'watchlist'
   const params = resolveWatchlistParams(widget)
   const providerId = resolveProviderId(params)
-  const credentialDefinitions = useMemo(
-    () => resolveWatchlistProviderCredentialDefinitions(providerId),
-    [providerId]
-  )
 
   const handleProviderChange = (nextProvider: string) => {
     if (!nextProvider || nextProvider === providerId) return
     emitWatchlistParamsChange({
       params: {
         provider: nextProvider,
-      },
-      panelId,
-      widgetKey,
-    })
-  }
-
-  const handleRefreshData = () => {
-    if (!providerId) return
-    emitWatchlistParamsChange({
-      params: {
-        runtime: {
-          refreshAt: Date.now(),
-        },
       },
       panelId,
       widgetKey,
@@ -194,27 +174,17 @@ export const WatchlistHeaderLeftControls = ({
   }
 
   return (
-    <div className={widgetHeaderButtonGroupClassName('min-w-0')}>
-      <WatchlistProviderSettingsButton
-        providerId={providerId}
-        providerParams={params?.providerParams}
-        authParams={params?.auth}
-        definitions={credentialDefinitions}
-        workspaceId={workspaceId}
-        onSave={handleSaveProviderSettings}
-      />
-      <MarketProviderSelector
-        value={providerId}
-        options={providerOptions}
-        onChange={handleProviderChange}
-        disabled={!workspaceId}
-      />
-
-      <WatchlistRefreshDataButton
-        onClick={handleRefreshData}
-        disabled={!workspaceId || !providerId}
-      />
-    </div>
+    <MarketProviderControls
+      className='min-w-0'
+      value={providerId}
+      options={providerOptions}
+      onChange={handleProviderChange}
+      disabled={!workspaceId}
+      providerParams={params?.providerParams}
+      authParams={params?.auth}
+      workspaceId={workspaceId}
+      onSettingsSave={handleSaveProviderSettings}
+    />
   )
 }
 
@@ -234,12 +204,13 @@ export const WatchlistHeaderCenterControls = ({
   )
   const ensureSelectorInstance = useListingSelectorStore((state) => state.ensureInstance)
   const updateSelectorInstance = useListingSelectorStore((state) => state.updateInstance)
+  const selectorInstance = useListingSelectorStore((state) => state.instances[selectorInstanceId])
   const addListingMutation = useAddWatchlistListing()
-  const [pendingListing, setPendingListing] = useState<ListingIdentity | null>(null)
+  const pendingListing = selectorInstance?.selectedListingValue ?? null
+  const selectorProviderId = workspaceId && selectedWatchlist ? providerId : undefined
 
   const clearPendingListing = useCallback(
     (nextProviderId = providerId) => {
-      setPendingListing(null)
       updateSelectorInstance(selectorInstanceId, {
         providerId: nextProviderId || undefined,
         query: '',
@@ -279,7 +250,10 @@ export const WatchlistHeaderCenterControls = ({
   }, [clearPendingListing, selectedWatchlist?.id])
 
   const handleListingChange = (listing: ListingOption | null) => {
-    setPendingListing(toListingValue(listing))
+    updateSelectorInstance(selectorInstanceId, {
+      selectedListingValue: toListingValue(listing),
+      selectedListing: listing,
+    })
   }
 
   const handleAddListing = async () => {
@@ -308,13 +282,11 @@ export const WatchlistHeaderCenterControls = ({
 
   return (
     <div className={widgetHeaderButtonGroupClassName('min-w-0')}>
-      <div className='w-full min-w-0 max-w-[240px]'>
-        <ListingSelector
-          instanceId={selectorInstanceId}
-          disabled={!workspaceId || !providerId || !selectedWatchlist}
-          onListingChange={handleListingChange}
-        />
-      </div>
+      <DataChartListingSelector
+        instanceId={selectorInstanceId}
+        providerId={selectorProviderId}
+        onListingChange={handleListingChange}
+      />
       <Tooltip>
         <TooltipTrigger asChild>
           <span className='inline-flex'>
@@ -348,6 +320,7 @@ export const WatchlistHeaderRightControls = ({
 
   const widgetKey = widget?.key ?? 'watchlist'
   const params = resolveWatchlistParams(widget)
+  const providerId = resolveProviderId(params)
   const selectedWatchlistId = resolveSelectedWatchlistId(params)
 
   const { watchlists, selectedWatchlist } = useWatchlistSelection(workspaceId, selectedWatchlistId)
@@ -511,6 +484,19 @@ export const WatchlistHeaderRightControls = ({
     }
   }
 
+  const handleRefreshData = () => {
+    if (!providerId) return
+    emitWatchlistParamsChange({
+      params: {
+        runtime: {
+          refreshAt: Date.now(),
+        },
+      },
+      panelId,
+      widgetKey,
+    })
+  }
+
   const handleDeleteWatchlist = async () => {
     if (!workspaceId || !selectedWatchlist || selectedWatchlist.isSystem) return
     const deleted = await handleDeleteWatchlistById(selectedWatchlist.id)
@@ -555,6 +541,11 @@ export const WatchlistHeaderRightControls = ({
         onDeleteWatchlist={() => {
           setDeleteDialogOpen(true)
         }}
+      />
+
+      <WidgetHeaderRefreshButton
+        onClick={handleRefreshData}
+        disabled={!workspaceId || !providerId}
       />
 
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>

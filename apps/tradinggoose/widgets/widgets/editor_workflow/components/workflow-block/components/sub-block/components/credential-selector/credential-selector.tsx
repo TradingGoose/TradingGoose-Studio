@@ -16,15 +16,18 @@ import { createLogger } from '@/lib/logs/console/logger'
 import {
   type Credential,
   getProviderIdFromServiceId,
+  getServiceByProviderAndId,
   getServiceIdFromScopes,
+  getServiceIdsFromScopes,
   OAUTH_PROVIDERS,
   type OAuthProvider,
+  type OAuthService,
   parseProvider,
 } from '@/lib/oauth'
+import type { SubBlockConfig } from '@/blocks/types'
 import { OAuthRequiredModal } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/components/credential-selector/components/oauth-required-modal'
 import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
 import { useWorkflowId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
-import type { SubBlockConfig } from '@/blocks/types'
 
 const logger = createLogger('CredentialSelector')
 
@@ -55,64 +58,79 @@ export function CredentialSelector({
   const requiredScopes = subBlock.requiredScopes || []
   const label = subBlock.placeholder || 'Select credential'
   const serviceId = subBlock.serviceId
+  const serviceIds = subBlock.serviceIds
 
   // Initialize selectedId with the current store value
   useEffect(() => {
     setSelectedId(storeValue || '')
   }, [storeValue])
 
-  // Derive service and provider IDs using useMemo
-  const effectiveServiceId = useMemo(() => {
-    return serviceId || getServiceIdFromScopes(provider, requiredScopes)
-  }, [provider, requiredScopes, serviceId])
+  const effectiveServiceIds = useMemo(() => {
+    const configuredServiceIds = Array.isArray(serviceIds)
+      ? serviceIds.map((id) => id.trim()).filter(Boolean)
+      : []
+    if (configuredServiceIds.length > 0) return Array.from(new Set(configuredServiceIds))
+    if (serviceId?.trim()) return [serviceId.trim()]
+    return getServiceIdsFromScopes(provider, requiredScopes)
+  }, [provider, requiredScopes, serviceId, serviceIds])
 
-  const effectiveProviderId = useMemo(() => {
-    return getProviderIdFromServiceId(effectiveServiceId)
-  }, [effectiveServiceId])
+  const primaryServiceId =
+    effectiveServiceIds[0] ?? getServiceIdFromScopes(provider, requiredScopes)
+
+  const effectiveProviderIds = useMemo(
+    () => Array.from(new Set(effectiveServiceIds.map((id) => getProviderIdFromServiceId(id)))),
+    [effectiveServiceIds]
+  )
+
+  const [oauthModalServiceId, setOAuthModalServiceId] = useState<OAuthService | null>(null)
 
   // Fetch available credentials for this provider
   const fetchCredentials = useCallback(async () => {
     setIsLoading(true)
     try {
-      const response = await fetch(`/api/auth/oauth/credentials?provider=${effectiveProviderId}`)
-      if (response.ok) {
-        const data = await response.json()
-        const creds = data.credentials as Credential[]
-        let foreignMetaFound = false
+      const responses = await Promise.all(
+        effectiveProviderIds.map(async (providerId) => {
+          const response = await fetch(`/api/auth/oauth/credentials?provider=${providerId}`)
+          if (!response.ok) return [] as Credential[]
+          const data = await response.json()
+          return (data.credentials ?? []) as Credential[]
+        })
+      )
+      const creds = responses.flat()
+      let foreignMetaFound = false
 
-        // If persisted selection is not among viewer's credentials, attempt to fetch its metadata
-        if (
-          selectedId &&
-          !(creds || []).some((cred: Credential) => cred.id === selectedId) &&
-          activeWorkflowId
-        ) {
-          try {
-            const metaResp = await fetch(
-              `/api/auth/oauth/credentials?credentialId=${selectedId}&workflowId=${activeWorkflowId}`
-            )
-            if (metaResp.ok) {
-              const meta = await metaResp.json()
-              if (meta.credentials?.length) {
-                // Mark as foreign, but do NOT merge into list to avoid leaking owner email
-                foreignMetaFound = true
-              }
+      // If persisted selection is not among viewer's credentials, attempt to fetch its metadata
+      if (
+        selectedId &&
+        !(creds || []).some((cred: Credential) => cred.id === selectedId) &&
+        activeWorkflowId
+      ) {
+        try {
+          const metaResp = await fetch(
+            `/api/auth/oauth/credentials?credentialId=${selectedId}&workflowId=${activeWorkflowId}`
+          )
+          if (metaResp.ok) {
+            const meta = await metaResp.json()
+            if (meta.credentials?.length) {
+              // Mark as foreign, but do NOT merge into list to avoid leaking owner email
+              foreignMetaFound = true
             }
-          } catch {
-            // ignore meta errors
           }
+        } catch {
+          // ignore meta errors
         }
-
-        setHasForeignMeta(foreignMetaFound)
-        setCredentials(creds)
-
-        // Do not auto-select or reset. We only show what's persisted.
       }
+
+      setHasForeignMeta(foreignMetaFound)
+      setCredentials(creds)
+
+      // Do not auto-select or reset. We only show what's persisted.
     } catch (error) {
       logger.error('Error fetching credentials:', { error })
     } finally {
       setIsLoading(false)
     }
-  }, [effectiveProviderId, selectedId, activeWorkflowId])
+  }, [effectiveProviderIds, selectedId, activeWorkflowId])
 
   // Fetch credentials on initial mount and whenever the subblock value changes externally
   useEffect(() => {
@@ -122,30 +140,30 @@ export function CredentialSelector({
   // When the selectedId changes (e.g., collaborator saved a credential), determine if it's foreign
   useEffect(() => {
     let aborted = false
-      ; (async () => {
-        try {
-          if (!selectedId) {
-            setHasForeignMeta(false)
-            return
-          }
-          // If the selected credential exists in viewer's list, it's not foreign
-          if ((credentials || []).some((cred) => cred.id === selectedId)) {
-            setHasForeignMeta(false)
-            return
-          }
-          if (!activeWorkflowId) return
-          const metaResp = await fetch(
-            `/api/auth/oauth/credentials?credentialId=${selectedId}&workflowId=${activeWorkflowId}`
-          )
-          if (aborted) return
-          if (metaResp.ok) {
-            const meta = await metaResp.json()
-            setHasForeignMeta(!!meta.credentials?.length)
-          }
-        } catch {
-          // ignore
+    ;(async () => {
+      try {
+        if (!selectedId) {
+          setHasForeignMeta(false)
+          return
         }
-      })()
+        // If the selected credential exists in viewer's list, it's not foreign
+        if ((credentials || []).some((cred) => cred.id === selectedId)) {
+          setHasForeignMeta(false)
+          return
+        }
+        if (!activeWorkflowId) return
+        const metaResp = await fetch(
+          `/api/auth/oauth/credentials?credentialId=${selectedId}&workflowId=${activeWorkflowId}`
+        )
+        if (aborted) return
+        if (metaResp.ok) {
+          const meta = await metaResp.json()
+          setHasForeignMeta(!!meta.credentials?.length)
+        }
+      } catch {
+        // ignore
+      }
+    })()
     return () => {
       aborted = true
     }
@@ -209,8 +227,9 @@ export function CredentialSelector({
   }
 
   // Handle adding a new credential
-  const handleAddCredential = () => {
+  const handleAddCredential = (connectServiceId: OAuthService) => {
     // Show the OAuth modal
+    setOAuthModalServiceId(connectServiceId)
     setShowOAuthModal(true)
     setOpen(false)
   }
@@ -242,6 +261,16 @@ export function CredentialSelector({
       .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
       .join(' ')
   }
+
+  const getServiceName = (connectServiceId: string) => {
+    try {
+      return getServiceByProviderAndId(provider, connectServiceId).name
+    } catch {
+      return getProviderName(connectServiceId)
+    }
+  }
+
+  const showServiceNames = effectiveServiceIds.length > 1
 
   return (
     <>
@@ -295,9 +324,14 @@ export function CredentialSelector({
                       value={cred.id}
                       onSelect={() => handleSelect(cred.id)}
                     >
-                      <div className='flex items-center gap-1'>
+                      <div className='flex min-w-0 items-center gap-1'>
                         {getProviderIcon(cred.provider)}
-                        <span className='font-normal'>{cred.name}</span>
+                        <span className='min-w-0 truncate font-normal'>{cred.name}</span>
+                        {showServiceNames ? (
+                          <span className='shrink-0 text-muted-foreground text-xs'>
+                            {getServiceName(cred.provider)}
+                          </span>
+                        ) : null}
                       </div>
                       {cred.id === selectedId && <Check className='ml-auto h-4 w-4' />}
                     </CommandItem>
@@ -306,12 +340,32 @@ export function CredentialSelector({
               )}
               {credentials.length === 0 && (
                 <CommandGroup>
-                  <CommandItem onSelect={handleAddCredential}>
-                    <div className='flex items-center gap-1 text-foreground'>
-                      {getProviderIcon(provider)}
-                      <span>Connect {getProviderName(provider)} account</span>
-                    </div>
-                  </CommandItem>
+                  {effectiveServiceIds.map((connectServiceId) => (
+                    <CommandItem
+                      key={connectServiceId}
+                      onSelect={() => handleAddCredential(connectServiceId)}
+                    >
+                      <div className='flex items-center gap-1 text-foreground'>
+                        {getProviderIcon(connectServiceId)}
+                        <span>Connect {getServiceName(connectServiceId)} account</span>
+                      </div>
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              )}
+              {credentials.length > 0 && showServiceNames && (
+                <CommandGroup>
+                  {effectiveServiceIds.map((connectServiceId) => (
+                    <CommandItem
+                      key={`connect-${connectServiceId}`}
+                      onSelect={() => handleAddCredential(connectServiceId)}
+                    >
+                      <div className='flex items-center gap-1 text-foreground'>
+                        {getProviderIcon(connectServiceId)}
+                        <span>Connect {getServiceName(connectServiceId)} account</span>
+                      </div>
+                    </CommandItem>
+                  ))}
                 </CommandGroup>
               )}
             </CommandList>
@@ -326,7 +380,10 @@ export function CredentialSelector({
           provider={provider}
           toolName={getProviderName(provider)}
           requiredScopes={requiredScopes}
-          serviceId={effectiveServiceId}
+          serviceId={
+            oauthModalServiceId ?? (effectiveServiceIds.length === 1 ? primaryServiceId : undefined)
+          }
+          serviceIds={effectiveServiceIds}
         />
       )}
     </>

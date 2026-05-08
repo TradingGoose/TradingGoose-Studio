@@ -4,6 +4,8 @@ import { eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { DEFAULT_INDICATOR_RUNTIME_ENTRIES } from '@/lib/indicators/default/runtime'
+import { normalizeInputMetaMap } from '@/lib/indicators/input-meta'
+import type { InputMetaMap } from '@/lib/indicators/types'
 import { isIndicatorTriggerCapable } from '@/lib/indicators/trigger-detection'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
@@ -27,6 +29,7 @@ type IndicatorOptionRecord = {
   editable?: boolean
   callableInFunctionBlock?: boolean
   inputTitles?: string[]
+  inputMeta?: InputMetaMap
   entityId?: string
   runtimeId?: string
 }
@@ -65,16 +68,22 @@ export async function GET(request: NextRequest) {
 
     const defaultOptions: IndicatorOptionRecord[] = DEFAULT_INDICATOR_RUNTIME_ENTRIES.filter(
       (entry) => copilotSurface || isIndicatorTriggerCapable(entry.pineCode)
-    ).map((entry) => ({
-      id: entry.id,
-      name: entry.name,
-      source: 'default',
-      color: '#3972F6',
-      editable: false,
-      callableInFunctionBlock: true,
-      inputTitles: Object.keys(entry.inputMeta ?? {}),
-      runtimeId: entry.id,
-    }))
+    ).map((entry) => {
+      const inputMeta = entry.inputMeta
+      const inputTitles = Object.keys(inputMeta ?? {})
+
+      return {
+        id: entry.id,
+        name: entry.name,
+        source: 'default',
+        color: '#3972F6',
+        editable: false,
+        callableInFunctionBlock: true,
+        inputTitles,
+        ...(inputMeta && inputTitles.length > 0 ? { inputMeta } : {}),
+        runtimeId: entry.id,
+      }
+    })
 
     const customRows = await db
       .select({
@@ -89,19 +98,22 @@ export async function GET(request: NextRequest) {
 
     const customOptions: IndicatorOptionRecord[] = customRows
       .filter((row) => copilotSurface || isIndicatorTriggerCapable(row.pineCode))
-      .map((row) => ({
-        id: row.id,
-        name: row.name,
-        source: 'custom',
-        color: row.color?.trim() || '#3972F6',
-        editable: true,
-        callableInFunctionBlock: false,
-        inputTitles:
-          row.inputMeta && typeof row.inputMeta === 'object' && !Array.isArray(row.inputMeta)
-            ? Object.keys(row.inputMeta)
-            : [],
-        entityId: row.id,
-      }))
+      .map((row) => {
+        const inputMeta = normalizeInputMetaMap(row.inputMeta)
+        const inputTitles = Object.keys(inputMeta ?? {})
+
+        return {
+          id: row.id,
+          name: row.name,
+          source: 'custom',
+          color: row.color?.trim() || '#3972F6',
+          editable: true,
+          callableInFunctionBlock: false,
+          inputTitles,
+          ...(inputMeta && inputTitles.length > 0 ? { inputMeta } : {}),
+          entityId: row.id,
+        }
+      })
 
     const merged = [...defaultOptions, ...customOptions].sort((a, b) =>
       a.name.localeCompare(b.name)

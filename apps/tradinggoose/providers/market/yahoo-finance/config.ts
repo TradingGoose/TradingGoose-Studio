@@ -374,6 +374,12 @@ export const YahooFinanceProviderConfig: MarketProviderConfig = {
         },
       },
     },
+    live: {
+      supportsPolling: true,
+      channels: ['quote-snapshots'],
+      supportsInterval: false,
+      pollingIntervalMs: 15_000,
+    },
   },
   rulePrecedence: {
     default: ['market', 'currency', 'assetClass', 'country', 'city', 'listing'],

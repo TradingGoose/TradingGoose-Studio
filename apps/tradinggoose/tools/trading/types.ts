@@ -21,11 +21,8 @@ export interface TradingActionParams {
   environment?: 'paper' | 'live'
   // Auth
   credential?: string
+  credentialServiceId?: string
   accessToken?: string
-  apiKey?: string
-  apiSecret?: string
-  tradierCredential?: string
-  alpacaCredential?: string
   // Provider-specific extras
   accountId?: string
   orderSizingMode?: string
@@ -36,8 +33,7 @@ export interface TradingHoldingsParams {
   provider: TradingProviderId
   environment?: 'paper' | 'live'
   accessToken?: string
-  apiKey?: string
-  apiSecret?: string
+  credentialServiceId?: string
   accountId?: string
 }
 
@@ -46,11 +42,8 @@ export interface TradingOrderDetailParams {
   provider?: TradingProviderId
   environment?: 'paper' | 'live'
   credential?: string
+  credentialServiceId?: string
   accessToken?: string
-  apiKey?: string
-  apiSecret?: string
-  tradierCredential?: string
-  alpacaCredential?: string
   accountId?: string
 }
 
@@ -88,6 +81,8 @@ export interface TradingOrderDetailResponse {
     provider: TradingProviderId | string
     appOrderId: string
     providerOrderId: string
+    workspaceId: string | null
+    logId: string | null
     orderDetail: TradingOrderDetailOutput
   }
   error?: string
@@ -122,11 +117,12 @@ export interface OrderSubmitResponse {
 
 export interface OrderSubmit {
   id?: string
+  workspaceId: string
   provider: TradingProviderId
   environment?: 'paper' | 'live' | string
   recordedAt: string
-  workflowId?: string
-  workflowExecutionId?: string
+  submissionSource: 'manual' | 'copilot' | 'workflow'
+  logId?: string
   listingIdentity?: ListingIdentity | null
   request: OrderSubmitRequest
   response: OrderSubmitResponse

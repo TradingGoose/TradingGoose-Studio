@@ -7,6 +7,7 @@ import type { SubBlockCondition } from '@/blocks/types'
 import type { LoopManager } from '@/executor/loops/loops'
 import type { ExecutionContext } from '@/executor/types'
 import type { SerializedBlock, SerializedWorkflow } from '@/serializer/types'
+import type { VariableType } from '@/stores/variables/types'
 import { normalizeBlockName } from '@/stores/workflows/utils'
 
 const logger = createLogger('InputResolver')
@@ -24,9 +25,9 @@ export class InputResolver {
   constructor(
     private workflow: SerializedWorkflow,
     private environmentVariables: Record<string, string>,
-    private workflowVariables: Record<string, any> = {},
-    private loopManager?: LoopManager,
-    public accessibleBlocksMap?: Map<string, Set<string>>
+    private workflowVariables: Record<string, any>,
+    public accessibleBlocksMap: Map<string, Set<string>>,
+    private loopManager?: LoopManager
   ) {
     // Create maps for efficient lookups
     this.blockById = new Map(workflow.blocks.map((block) => [block.id, block]))
@@ -306,16 +307,7 @@ export class InputResolver {
       return variable?.value // Return null or undefined as is
     }
 
-    try {
-      // Handle 'string' type the same as 'plain' for backward compatibility
-      const type = variable.type === 'string' ? 'plain' : variable.type
-
-      // Use the centralized VariableManager to resolve variable values
-      return VariableManager.resolveForExecution(variable.value, type)
-    } catch (error) {
-      logger.error(`Error processing variable ${variable.name} (type: ${variable.type}):`, error)
-      return variable.value // Fallback to original value on error
-    }
+    return VariableManager.resolveForExecution(variable.value, variable.type)
   }
 
   /**
@@ -330,32 +322,23 @@ export class InputResolver {
    */
   private formatValueForInterpolation(
     value: any,
-    type: string,
+    type: VariableType,
     currentBlock?: SerializedBlock
   ): string {
-    try {
-      // Handle 'string' type the same as 'plain' for backward compatibility
-      const normalizedType = type === 'string' ? 'plain' : type
-
-      // For plain text, use exactly what's entered without modifications
-      if (normalizedType === 'plain' && typeof value === 'string') {
-        return value
-      }
-
-      // Determine if this needs special handling for code contexts
-      const needsCodeStringLiteral = this.needsCodeStringLiteral(currentBlock, String(value))
-      const isFunctionBlock = currentBlock?.metadata?.id === 'function'
-
-      // Always use code formatting for function blocks
-      if (isFunctionBlock || needsCodeStringLiteral) {
-        return VariableManager.formatForCodeContext(value, normalizedType as any)
-      }
-      return VariableManager.formatForTemplateInterpolation(value, normalizedType as any)
-    } catch (error) {
-      logger.error(`Error formatting value for interpolation (type: ${type}):`, error)
-      // Fallback to simple string conversion
-      return String(value)
+    // For plain text, use exactly what's entered without modifications
+    if (type === 'plain' && typeof value === 'string') {
+      return value
     }
+
+    // Determine if this needs special handling for code contexts
+    const needsCodeStringLiteral = this.needsCodeStringLiteral(currentBlock, String(value))
+    const isFunctionBlock = currentBlock?.metadata?.id === 'function'
+
+    // Always use code formatting for function blocks
+    if (isFunctionBlock || needsCodeStringLiteral) {
+      return VariableManager.formatForCodeContext(value, type)
+    }
+    return VariableManager.formatForTemplateInterpolation(value, type)
   }
 
   /**
@@ -518,20 +501,12 @@ export class InputResolver {
                   'trigger block'
                 )
               } else {
-                // Regular property access with FileReference mapping
-                const directValue = resolvePropertyAccess(replacementValue, part)
-
-                // If we're working with an array and no direct property match, fall back to first item property access.
-                if (directValue === undefined && Array.isArray(replacementValue)) {
-                  const firstItem = replacementValue[0]
-                  if (firstItem && typeof firstItem === 'object' && part in firstItem) {
-                    replacementValue = (firstItem as any)[part]
-                  } else {
-                    replacementValue = directValue
-                  }
-                } else {
-                  replacementValue = directValue
+                if (Array.isArray(replacementValue)) {
+                  throw new Error(
+                    `Array path "${path}" in trigger block must use an explicit index.`
+                  )
                 }
+                replacementValue = resolvePropertyAccess(replacementValue, part)
               }
 
               if (replacementValue === undefined) {
@@ -680,20 +655,19 @@ export class InputResolver {
 
       // If we're in parallel execution and the source block is also in the same parallel,
       // try to get the virtual block state for the same iteration
-      if (
-        context.currentVirtualBlockId &&
-        context.parallelBlockMapping?.has(context.currentVirtualBlockId)
-      ) {
-        const currentParallelInfo = context.parallelBlockMapping.get(context.currentVirtualBlockId)
-        if (currentParallelInfo) {
-          // Check if the source block is in the same parallel
-          const parallel = context.workflow?.parallels?.[currentParallelInfo.parallelId]
-          if (parallel?.nodes.includes(sourceBlock.id)) {
-            // Try to get the virtual block state for the same iteration
-            virtualSourceBlockId = `${sourceBlock.id}_parallel_${currentParallelInfo.parallelId}_iteration_${currentParallelInfo.iterationIndex}`
-            attemptedVirtualSourceState = true
-            blockState = context.blockStates.get(virtualSourceBlockId)
-          }
+      if (context.currentVirtualBlockId) {
+        const currentParallelInfo = context.parallelBlockMapping?.get(context.currentVirtualBlockId)
+        if (!currentParallelInfo) {
+          throw new Error(`No parallel mapping found for block "${context.currentVirtualBlockId}"`)
+        }
+
+        // Check if the source block is in the same parallel
+        const parallel = context.workflow?.parallels?.[currentParallelInfo.parallelId]
+        if (parallel?.nodes.includes(sourceBlock.id)) {
+          // Try to get the virtual block state for the same iteration
+          virtualSourceBlockId = `${sourceBlock.id}_parallel_${currentParallelInfo.parallelId}_iteration_${currentParallelInfo.iterationIndex}`
+          attemptedVirtualSourceState = true
+          blockState = context.blockStates.get(virtualSourceBlockId)
         }
       }
 
@@ -745,20 +719,12 @@ export class InputResolver {
             sourceBlock.metadata?.name || sourceBlock.id
           )
         } else {
-          // Regular property access with FileReference mapping
-          const directValue = resolvePropertyAccess(replacementValue, part)
-
-          // If working with an array, allow property access on the first element as a compatibility fallback.
-          if (directValue === undefined && Array.isArray(replacementValue)) {
-            const firstItem = replacementValue[0]
-            if (firstItem && typeof firstItem === 'object' && part in firstItem) {
-              replacementValue = (firstItem as any)[part]
-            } else {
-              replacementValue = directValue
-            }
-          } else {
-            replacementValue = directValue
+          if (Array.isArray(replacementValue)) {
+            throw new Error(
+              `Array path "${path}" in block "${sourceBlock.metadata?.name || sourceBlock.id}" must use an explicit index.`
+            )
           }
+          replacementValue = resolvePropertyAccess(replacementValue, part)
         }
 
         if (replacementValue === undefined) {
@@ -1016,62 +982,11 @@ export class InputResolver {
     return foundVariable ? foundVariable[1] : undefined
   }
 
-  /**
-   * Gets all blocks that the current block can reference.
-   * Uses pre-calculated accessible blocks if available, otherwise falls back to legacy calculation.
-   *
-   * @param currentBlockId - ID of the block requesting references
-   * @returns Set of accessible block IDs
-   */
   private getAccessibleBlocks(currentBlockId: string): Set<string> {
-    // Use pre-calculated accessible blocks if available
-    if (this.accessibleBlocksMap?.has(currentBlockId)) {
-      return this.accessibleBlocksMap.get(currentBlockId)!
+    const accessibleBlocks = this.accessibleBlocksMap.get(currentBlockId)
+    if (!accessibleBlocks) {
+      throw new Error(`Missing accessible block map for ${currentBlockId}`)
     }
-
-    // Fallback to legacy calculation for backward compatibility
-    return this.calculateAccessibleBlocksLegacy(currentBlockId)
-  }
-
-  /**
-   * Legacy method for calculating accessible blocks (for backward compatibility).
-   * This method is kept for cases where pre-calculated data is not available.
-   *
-   * @param currentBlockId - ID of the block requesting references
-   * @returns Set of accessible block IDs
-   */
-  private calculateAccessibleBlocksLegacy(currentBlockId: string): Set<string> {
-    const accessibleBlocks = new Set<string>()
-
-    // Add blocks that have outgoing connections TO this block
-    for (const connection of this.workflow.connections) {
-      if (connection.target === currentBlockId) {
-        accessibleBlocks.add(connection.source)
-      }
-    }
-
-    // Special case: blocks in the same loop can reference each other
-    const currentBlockLoop = this.loopsByBlockId.get(currentBlockId)
-    if (currentBlockLoop) {
-      const loop = this.workflow.loops?.[currentBlockLoop]
-      if (loop) {
-        for (const nodeId of loop.nodes) {
-          accessibleBlocks.add(nodeId)
-        }
-      }
-    }
-
-    // Special case: blocks in the same parallel can reference each other
-    const currentBlockParallel = this.parallelsByBlockId.get(currentBlockId)
-    if (currentBlockParallel) {
-      const parallel = this.workflow.parallels?.[currentBlockParallel]
-      if (parallel) {
-        for (const nodeId of parallel.nodes) {
-          accessibleBlocks.add(nodeId)
-        }
-      }
-    }
-
     return accessibleBlocks
   }
 
@@ -1202,22 +1117,6 @@ export class InputResolver {
           }
         } catch (e) {
           logger.error('Error evaluating forEach items:', e)
-        }
-      }
-    }
-
-    // As a fallback, look for the most recent array or object in any block's output
-    // This is less reliable but might help in some cases
-    for (const [_blockId, blockState] of context.blockStates.entries()) {
-      const output = blockState.output
-      if (output) {
-        for (const [_key, value] of Object.entries(output)) {
-          if (Array.isArray(value) && value.length > 0) {
-            return value
-          }
-          if (typeof value === 'object' && value !== null && Object.keys(value).length > 0) {
-            return value
-          }
         }
       }
     }
@@ -1469,8 +1368,7 @@ export class InputResolver {
 
     switch (property) {
       case 'currentItem': {
-        // Try to find the current item for this parallel execution
-        let currentItem = context.loopItems.get(parallelId)
+        let currentItem: unknown
 
         // If we have a current virtual block ID, use it to get the exact iteration
         if (context.currentVirtualBlockId && context.parallelBlockMapping) {
@@ -1480,32 +1378,6 @@ export class InputResolver {
             const iterationItem = context.loopItems.get(iterationKey)
             if (iterationItem !== undefined) {
               currentItem = iterationItem
-            }
-          }
-        } else if (parallel.nodes.includes(currentBlock.id)) {
-          // Fallback: if we're inside a parallel execution but don't have currentVirtualBlockId
-          // This shouldn't happen in normal execution but provides backward compatibility
-          for (const [_, mapping] of context.parallelBlockMapping || new Map()) {
-            if (mapping.originalBlockId === currentBlock.id && mapping.parallelId === parallelId) {
-              const iterationKey = `${parallelId}_iteration_${mapping.iterationIndex}`
-              const iterationItem = context.loopItems.get(iterationKey)
-              if (iterationItem !== undefined) {
-                currentItem = iterationItem
-                break
-              }
-            }
-          }
-        }
-
-        // If not found directly, try to find it with parallel iteration suffix (backward compatibility)
-        if (currentItem === undefined) {
-          // Check for parallel-specific keys like "parallelId_parallel_0", "parallelId_parallel_1", etc.
-          for (let i = 0; i < 100; i++) {
-            // Reasonable upper limit
-            const parallelKey = `${parallelId}_parallel_${i}`
-            if (context.loopItems.has(parallelKey)) {
-              currentItem = context.loopItems.get(parallelKey)
-              break
             }
           }
         }
@@ -1573,24 +1445,13 @@ export class InputResolver {
 
       case 'index': {
         // Get the current parallel index
-        let index = context.loopIterations.get(parallelId)
+        let index: number | undefined
 
         // If we have a current virtual block ID, use it to get the exact iteration
         if (context.currentVirtualBlockId && context.parallelBlockMapping) {
           const mapping = context.parallelBlockMapping.get(context.currentVirtualBlockId)
           if (mapping && mapping.parallelId === parallelId) {
             index = mapping.iterationIndex
-          }
-        } else {
-          // Fallback: try to find it with parallel iteration suffix
-          if (index === undefined) {
-            for (let i = 0; i < 100; i++) {
-              const parallelKey = `${parallelId}_parallel_${i}`
-              if (context.loopIterations.has(parallelKey)) {
-                index = context.loopIterations.get(parallelKey)
-                break
-              }
-            }
           }
         }
 

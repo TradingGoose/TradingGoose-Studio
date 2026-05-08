@@ -10,6 +10,7 @@ describe('Parallel Block Activation Regression Tests', () => {
 
   const createMockContext = (workflow: SerializedWorkflow): ExecutionContext => ({
     workflowId: 'test-workflow',
+    workspaceId: 'test-workspace-id',
     blockStates: new Map(),
     blockLogs: [],
     metadata: { duration: 0 },
@@ -331,7 +332,7 @@ describe('Parallel Block Activation Regression Tests', () => {
       { blockType: BlockType.API, name: 'API' },
       { blockType: BlockType.EVALUATOR, name: 'Evaluator' },
       { blockType: BlockType.RESPONSE, name: 'Response' },
-      { blockType: BlockType.WORKFLOW, name: 'Workflow' },
+      { blockType: BlockType.WORKFLOW_INPUT, name: 'Workflow' },
     ])('should allow $name → Parallel activation', ({ blockType, name }) => {
       const workflow: SerializedWorkflow = {
         version: '2.0',

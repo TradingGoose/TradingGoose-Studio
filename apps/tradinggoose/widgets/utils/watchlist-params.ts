@@ -1,9 +1,13 @@
-import { useEffect } from 'react'
-import type { WidgetInstance } from '@/widgets/layout'
+import { useEffect, useRef } from 'react'
+import {
+  sanitizeMarketProviderAuth,
+  sanitizeMarketProviderParamsForWidget,
+} from '@/lib/market/market-provider-settings'
 import {
   WATCHLIST_WIDGET_UPDATE_PARAMS_EVENT,
   type WatchlistWidgetUpdateEventDetail,
 } from '@/widgets/events'
+import type { WidgetInstance } from '@/widgets/layout'
 
 interface UseWatchlistParamsPersistenceOptions {
   onWidgetParamsChange?: (params: Record<string, unknown> | null) => void
@@ -12,28 +16,109 @@ interface UseWatchlistParamsPersistenceOptions {
   params?: Record<string, unknown> | null
 }
 
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value)
+
+const areValuesEqual = (left: unknown, right: unknown): boolean => {
+  if (Object.is(left, right)) return true
+
+  if (Array.isArray(left) || Array.isArray(right)) {
+    if (!Array.isArray(left) || !Array.isArray(right)) return false
+    if (left.length !== right.length) return false
+    return left.every((value, index) => areValuesEqual(value, right[index]))
+  }
+
+  if (isRecord(left) || isRecord(right)) {
+    if (!isRecord(left) || !isRecord(right)) return false
+    const leftKeys = Object.keys(left)
+    const rightKeys = Object.keys(right)
+    if (leftKeys.length !== rightKeys.length) return false
+    return leftKeys.every((key) => key in right && areValuesEqual(left[key], right[key]))
+  }
+
+  return false
+}
+
+const normalizeString = (value: unknown) => {
+  if (typeof value !== 'string') return undefined
+  const trimmed = value.trim()
+  return trimmed || undefined
+}
+
+export const sanitizeWatchlistParams = (
+  params: Record<string, unknown> | null | undefined
+): Record<string, unknown> | null => {
+  if (!params || !isRecord(params)) return null
+
+  const provider = normalizeString(params.provider)
+  const watchlistId = normalizeString(params.watchlistId)
+  const providerParams = sanitizeMarketProviderParamsForWidget(provider, params.providerParams)
+  const auth = sanitizeMarketProviderAuth(params.auth)
+  const runtime = isRecord(params.runtime) ? params.runtime : null
+  const refreshAt =
+    typeof runtime?.refreshAt === 'number' && Number.isFinite(runtime.refreshAt)
+      ? runtime.refreshAt
+      : undefined
+
+  const nextParams: Record<string, unknown> = {}
+  if (provider) nextParams.provider = provider
+  if (watchlistId) nextParams.watchlistId = watchlistId
+  if (providerParams) nextParams.providerParams = providerParams
+  if (auth) nextParams.auth = auth
+  if (refreshAt !== undefined) nextParams.runtime = { refreshAt }
+
+  return Object.keys(nextParams).length > 0 ? nextParams : null
+}
+
+const mergeWatchlistParams = (
+  currentParams: Record<string, unknown> | null | undefined,
+  incomingParams: Record<string, unknown>
+) => {
+  const currentRuntime = isRecord(currentParams?.runtime) ? currentParams.runtime : null
+  const incomingRuntime = isRecord(incomingParams.runtime) ? incomingParams.runtime : null
+  const mergedRuntime =
+    currentRuntime || incomingRuntime
+      ? {
+          ...(currentRuntime ?? {}),
+          ...(incomingRuntime ?? {}),
+        }
+      : undefined
+
+  return sanitizeWatchlistParams({
+    ...(currentParams ?? {}),
+    ...incomingParams,
+    ...(mergedRuntime ? { runtime: mergedRuntime } : {}),
+  })
+}
+
 export function useWatchlistParamsPersistence({
   onWidgetParamsChange,
   panelId,
   widget,
   params,
 }: UseWatchlistParamsPersistenceOptions) {
+  const latestParamsRef = useRef<Record<string, unknown> | null>(sanitizeWatchlistParams(params))
+
+  useEffect(() => {
+    latestParamsRef.current = sanitizeWatchlistParams(params)
+  }, [params])
+
   useEffect(() => {
     if (!onWidgetParamsChange) return
 
     const handleParamsUpdate = (event: Event) => {
       const detail = (event as CustomEvent<WatchlistWidgetUpdateEventDetail>).detail
-      if (!detail?.params || typeof detail.params !== 'object') return
+      if (!detail?.params || !isRecord(detail.params)) return
       if (panelId && detail.panelId && detail.panelId !== panelId) return
       if (widget?.key && detail.widgetKey && detail.widgetKey !== widget.key) return
 
-      const currentParams =
-        params && typeof params === 'object' ? (params as Record<string, unknown>) : {}
+      const currentParams = latestParamsRef.current
+      const nextParams = mergeWatchlistParams(currentParams, detail.params)
 
-      onWidgetParamsChange({
-        ...currentParams,
-        ...detail.params,
-      })
+      if (areValuesEqual(currentParams, nextParams)) return
+
+      latestParamsRef.current = nextParams
+      onWidgetParamsChange(nextParams)
     }
 
     window.addEventListener(
@@ -47,7 +132,7 @@ export function useWatchlistParamsPersistence({
         handleParamsUpdate as EventListener
       )
     }
-  }, [onWidgetParamsChange, panelId, widget?.key, params])
+  }, [onWidgetParamsChange, panelId, widget?.key])
 }
 
 interface EmitWatchlistParamsOptions {

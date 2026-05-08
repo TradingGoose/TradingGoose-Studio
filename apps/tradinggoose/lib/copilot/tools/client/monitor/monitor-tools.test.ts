@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { ClientToolCallState } from '@/lib/copilot/tools/client/base-tool'
 import { ToolArgSchemas, ToolResultSchemas } from '@/lib/copilot/registry'
+import { ClientToolCallState } from '@/lib/copilot/tools/client/base-tool'
 import { EditMonitorClientTool } from '@/lib/copilot/tools/client/monitor/edit-monitor'
 import { GetMonitorClientTool } from '@/lib/copilot/tools/client/monitor/get-monitor'
 import { ListMonitorsClientTool } from '@/lib/copilot/tools/client/monitor/list-monitors'
@@ -145,9 +145,8 @@ describe('monitor tools', () => {
                     quote_id: '',
                   },
                   auth: {
-                    secretReferences: {
-                      apiKey: 'secret-value',
-                    },
+                    hasEncryptedSecrets: true,
+                    encryptedSecretFieldIds: ['apiKey'],
                   },
                   providerParams: {
                     exchange: 'NASDAQ',
@@ -198,7 +197,7 @@ describe('monitor tools', () => {
     })
     expect(body.data.monitorDocument).toContain('"providerId": "alpaca"')
     expect(body.data.monitorDocument).toContain('"interval": "5m"')
-    expect(body.data.monitorDocument).toContain('"secrets"')
+    expect(body.data.monitorDocument).not.toContain('"secrets"')
   })
 
   it('edit_monitor patches the monitor after accept', async () => {

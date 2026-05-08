@@ -13,7 +13,7 @@ import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
-import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
+import { useSetPairColorContext } from '@/stores/dashboard/pair-store'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import type { WorkflowMetadata } from '@/stores/workflows/registry/types'
 import { WORKSPACE_BOOTSTRAP_CHANNEL } from '@/stores/workflows/registry/types'
@@ -31,7 +31,7 @@ const DROPDOWN_VIEWPORT_HEIGHT = '14rem'
 
 interface WorkflowDropdownProps {
   workspaceId?: string | null
-  value?: string | null
+  value: string | null
   onChange?: (workflowId: string, workflow?: WorkflowMetadata) => void
   disabled?: boolean
   placeholder?: string
@@ -54,7 +54,6 @@ export function WorkflowDropdown({
   menuClassName,
   includeMarketplace = true,
 }: WorkflowDropdownProps) {
-  const [internalValue, setInternalValue] = useState<string | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [hasRequestedLoad, setHasRequestedLoad] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
@@ -75,7 +74,6 @@ export function WorkflowDropdown({
     shallow
   )
 
-  const pairContext = usePairColorContext(resolvedPairColor)
   const setPairContext = useSetPairColorContext()
 
   const workspaceWorkflows = useMemo(() => {
@@ -96,8 +94,7 @@ export function WorkflowDropdown({
     return scoped.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
   }, [registryWorkflows, workspaceId, includeMarketplace])
 
-  const isControlled = typeof value !== 'undefined'
-  const selectedWorkflowId = isControlled ? (value ?? null) : internalValue
+  const selectedWorkflowId = value
   const selectedWorkflow = workspaceWorkflows.find((workflow) => workflow.id === selectedWorkflowId)
   const isLoading = metadataHydrationPhase === 'metadata-loading'
   const isDropdownDisabled = disabled || !workspaceId
@@ -114,10 +111,7 @@ export function WorkflowDropdown({
     setLoadError(null)
     setHasRequestedLoad(false)
     setSearchQuery('')
-    if (!isControlled) {
-      setInternalValue(null)
-    }
-  }, [workspaceId, isControlled])
+  }, [workspaceId])
 
   // Request workflows for workspace when needed
   useEffect(() => {
@@ -141,47 +135,13 @@ export function WorkflowDropdown({
     }
   }, [workspaceId, workspaceWorkflows.length, hasRequestedLoad, loadWorkflows, metadataChannelId])
 
-  // Keep internal selection in sync with pair context when uncontrolled
-  useEffect(() => {
-    if (isControlled || !isPairContextActive) {
-      return
-    }
-
-    const nextId = pairContext?.workflowId ?? null
-    if (!nextId) {
-      return
-    }
-
-    if (!workspaceWorkflows.some((workflow) => workflow.id === nextId)) {
-      return
-    }
-
-    setInternalValue(nextId)
-  }, [isControlled, resolvedPairColor, pairContext?.workflowId, workspaceWorkflows])
-
-  // Fallback to first available workflow when uncontrolled
-  useEffect(() => {
-    if (isControlled || internalValue || workspaceWorkflows.length === 0) {
-      return
-    }
-
-    setInternalValue(workspaceWorkflows[0].id)
-  }, [isControlled, internalValue, workspaceWorkflows])
-
   const handleSelect = (workflow: WorkflowMetadata) => {
     if (!workflow) {
       return
     }
 
-    if (!isControlled) {
-      setInternalValue(workflow.id)
-    }
-
     if (isPairContextActive) {
-      setPairContext(resolvedPairColor, {
-        ...(pairContext ?? {}),
-        workflowId: workflow.id,
-      })
+      setPairContext(resolvedPairColor, { workflowId: workflow.id })
     }
 
     onChange?.(workflow.id, workflow)

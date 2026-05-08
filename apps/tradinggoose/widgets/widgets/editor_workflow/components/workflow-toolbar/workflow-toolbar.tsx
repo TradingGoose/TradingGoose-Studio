@@ -19,8 +19,6 @@ import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
-import { dispatchToolbarAddBlock } from '@/widgets/widgets/editor_workflow/components/workflow-toolbar/toolbar-add-block-dispatcher'
-import { ToolbarAddBlockProvider } from '@/widgets/widgets/editor_workflow/components/workflow-toolbar/toolbar-add-block-context'
 import {
   getProviderIdsForBlocks,
   isBlockAvailable,
@@ -42,6 +40,8 @@ import {
 import { ToolbarBlock } from '@/widgets/widgets/editor_workflow/components/toolbar/toolbar-block'
 import LoopToolbarItem from '@/widgets/widgets/editor_workflow/components/toolbar/toolbar-loop-block'
 import ParallelToolbarItem from '@/widgets/widgets/editor_workflow/components/toolbar/toolbar-parallel-block'
+import { ToolbarAddBlockProvider } from '@/widgets/widgets/editor_workflow/components/workflow-toolbar/toolbar-add-block-context'
+import { dispatchToolbarAddBlock } from '@/widgets/widgets/editor_workflow/components/workflow-toolbar/toolbar-add-block-dispatcher'
 
 interface WorkflowToolbarProps {
   workspaceId?: string
@@ -241,7 +241,6 @@ function ToolbarDropdown({ label, searchValue, onSearchChange, children }: Toolb
         <TooltipContent side='top'>{tooltipText}</TooltipContent>
       </Tooltip>
       <DropdownMenuContent
-        align='start'
         sideOffset={6}
         className={cn(
           widgetHeaderMenuContentClassName,
@@ -273,13 +272,7 @@ function ToolbarDropdown({ label, searchValue, onSearchChange, children }: Toolb
   )
 }
 
-function ToolbarDropdownContent({
-  data,
-  mode,
-}: {
-  data: ToolbarListData
-  mode: ToolbarMode
-}) {
+function ToolbarDropdownContent({ data, mode }: { data: ToolbarListData; mode: ToolbarMode }) {
   const { regularBlocks, toolBlocks, triggerBlocks, includeSpecialBlocks } = data
 
   const hasResults = (() => {
@@ -337,10 +330,7 @@ function ToolbarDropdownContent({
           <SectionLabel title='Triggers' />
           {triggerBlocks.map((block) => (
             <DropdownMenuItem key={block.type} className='p-0 focus:bg-transparent'>
-              <ToolbarBlock
-                config={block}
-                enableTriggerMode={hasTriggerCapability(block)}
-              />
+              <ToolbarBlock config={block} enableTriggerMode={hasTriggerCapability(block)} />
             </DropdownMenuItem>
           ))}
         </div>

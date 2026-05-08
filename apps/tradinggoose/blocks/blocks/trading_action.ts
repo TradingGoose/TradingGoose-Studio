@@ -1,12 +1,12 @@
 import { DollarIcon } from '@/components/icons/icons'
+import type { ListingInputValue } from '@/lib/listing/identity'
 import type { BlockConfig, SubBlockCondition, SubBlockConfig } from '@/blocks/types'
 import { AuthMode } from '@/blocks/types'
 import { buildInputsFromToolParams } from '@/blocks/utils'
-import type { ListingInputValue } from '@/lib/listing/identity'
 import {
+  getTradingProviderIdsForParam,
   getTradingProviderParamCatalog,
   getTradingProviderParamDefinitions,
-  getTradingProviderIdsForParam,
   getTradingProviders,
 } from '@/providers/trading'
 import { getTradingOrderTypeOptions } from '@/providers/trading/order-types'
@@ -185,8 +185,7 @@ const providerParamBlocks = (): SubBlockConfig[] =>
 
       const inputType = resolveParamInputType(definition)
       const numericInputType =
-        (inputType === 'short-input' || inputType === 'long-input') &&
-        definition.type === 'number'
+        (inputType === 'short-input' || inputType === 'long-input') && definition.type === 'number'
           ? 'number'
           : undefined
       const providerCondition = entry.providers.length
@@ -225,6 +224,9 @@ const providerCredentialBlocks = (): SubBlockConfig[] => {
     .filter((provider) => provider.authType === 'oauth' && provider.oauth)
     .map((provider) => {
       const oauth = provider.oauth!
+      const serviceIds = oauth.credentialServices?.length
+        ? oauth.credentialServices.map((service) => service.serviceId)
+        : [oauth.serviceId || oauth.provider]
       return {
         id: `${provider.id}Credential`,
         title: oauth.credentialTitle || `${provider.name} Account`,
@@ -232,7 +234,7 @@ const providerCredentialBlocks = (): SubBlockConfig[] => {
         layout: 'full',
         required: true,
         provider: oauth.provider,
-        serviceId: oauth.serviceId || oauth.provider,
+        ...(serviceIds.length === 1 ? { serviceId: serviceIds[0] } : { serviceIds }),
         requiredScopes: oauth.scopes || [],
         placeholder: oauth.credentialPlaceholder || `Select or connect ${provider.name} account`,
         condition: { field: 'provider', value: provider.id },
@@ -279,7 +281,7 @@ export const TradingActionBlock: BlockConfig<TradingActionResponse> = {
     },
 
     ...providerCredentialBlocks(),
-    
+
     {
       id: 'side',
       title: 'Action',

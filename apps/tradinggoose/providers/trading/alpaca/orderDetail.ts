@@ -1,6 +1,6 @@
 import { buildAlpacaAuthHeaders } from '@/providers/trading/alpaca/auth'
+import { resolveAlpacaTradingBaseUrl } from '@/providers/trading/alpaca/config'
 import type {
-  TradingHoldingsInput,
   TradingOrderDetailInput,
   TradingOrderDetailResult,
   TradingOrderHistoryRecord,
@@ -38,26 +38,12 @@ export const buildAlpacaOrderDetailRequest = (
   historyRecord: TradingOrderHistoryRecord,
   params: TradingOrderDetailInput
 ): TradingRequestConfig => {
-  const environment =
-    params.environment ||
-    firstDefinedString(
-      historyRecord.environment,
-      historyRecord.request?.providerParams?.environment,
-      historyRecord.request?.environment
-    ) ||
-    undefined
-
   const authHeaders = buildAlpacaAuthHeaders({
     accessToken: params.accessToken,
-    apiKey: params.apiKey,
-    apiSecret: params.apiSecret,
-  } as TradingHoldingsInput)
-
-  const baseUrl =
-    environment === 'paper' ? 'https://paper-api.alpaca.markets' : 'https://api.alpaca.markets'
+  })
 
   return {
-    url: `${baseUrl}/v2/orders/${encodeURIComponent(providerOrderId)}`,
+    url: `${resolveAlpacaTradingBaseUrl(params.environment)}/v2/orders/${encodeURIComponent(providerOrderId)}`,
     method: 'GET',
     headers: {
       ...authHeaders,
@@ -145,6 +131,11 @@ export const alpacaOrderDetailRequest = async (
 
   return {
     providerOrderId,
-    orderDetail: normalizeAlpacaOrderDetail(historyRecord.id, providerOrderId, historyRecord, rawOrder),
+    orderDetail: normalizeAlpacaOrderDetail(
+      historyRecord.id,
+      providerOrderId,
+      historyRecord,
+      rawOrder
+    ),
   }
 }

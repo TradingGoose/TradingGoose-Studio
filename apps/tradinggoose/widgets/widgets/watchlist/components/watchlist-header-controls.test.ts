@@ -3,7 +3,7 @@ import {
   resolveNextSectionName,
   resolveNextWatchlistName,
 } from '@/widgets/widgets/watchlist/components/watchlist-header-controls'
-import { resolveWatchlistProviderCredentialDefinitions } from '@/widgets/widgets/watchlist/components/provider-controls'
+import { resolveMarketProviderSettingsDefinitions } from '@/lib/market/market-provider-settings'
 
 describe('watchlist header naming helpers', () => {
   it('resolves the next available watchlist number', () => {
@@ -50,13 +50,13 @@ describe('watchlist header naming helpers', () => {
     ).toBe('Section 2')
   })
 
-  it('keeps only credential fields for watchlist provider settings', () => {
+  it('resolves market provider settings fields for watchlist controls', () => {
     expect(
-      resolveWatchlistProviderCredentialDefinitions('alpaca').map((definition) => definition.id)
-    ).toEqual(['apiKey', 'apiSecret'])
+      resolveMarketProviderSettingsDefinitions('alpaca').map((definition) => definition.id)
+    ).toEqual(['apiKey', 'apiSecret', 'feed'])
     expect(
-      resolveWatchlistProviderCredentialDefinitions('finnhub').map((definition) => definition.id)
+      resolveMarketProviderSettingsDefinitions('finnhub').map((definition) => definition.id)
     ).toEqual(['apiKey'])
-    expect(resolveWatchlistProviderCredentialDefinitions('yahoo-finance')).toEqual([])
+    expect(resolveMarketProviderSettingsDefinitions('yahoo-finance')).toEqual([])
   })
 })

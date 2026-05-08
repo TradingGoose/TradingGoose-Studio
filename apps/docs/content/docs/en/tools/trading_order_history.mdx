@@ -54,7 +54,7 @@ import { ShowcaseCard } from "@/components/ui/showcase-card"
 
 ### `trading_order_history`
 
-Retrieve order submissions recorded for a workflow within a datetime range.
+Retrieve workspace order submissions within a datetime range.
 
 #### Input
 
@@ -62,7 +62,6 @@ Retrieve order submissions recorded for a workflow within a datetime range.
 | --------- | ---- | -------- | ----------- |
 | `startDate` | string | Yes | Start datetime \(ISO 8601\). |
 | `endDate` | string | Yes | End datetime \(ISO 8601\). |
-| `workflowId` | string | No | Optional workflow ID to filter by. Defaults to the current workflow execution context. |
 
 #### Output
 
@@ -71,13 +70,12 @@ Retrieve order submissions recorded for a workflow within a datetime range.
 | `id` | string | Order history record ID |
 | `provider` | string | Trading provider |
 | `recordedAt` | string | Recorded timestamp |
-| `workflowId` | string | Workflow ID |
-| `workflowExecutionId` | string | Workflow execution ID |
+| `logId` | string | Linked workflow log ID |
 
 
 ## Usage Instructions
 
-Fetches order submission history recorded by the Trading Action tool for the selected workflow and date range.
+Fetches order submission history recorded by the Trading Action tool for the workspace and date range.
 
 
 

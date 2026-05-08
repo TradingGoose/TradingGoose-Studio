@@ -108,9 +108,6 @@ export class ParallelBlockHandler implements BlockHandler {
         if (context.loopItems.has(`${block.id}_items`)) {
           context.loopItems.delete(`${block.id}_items`)
         }
-        if (context.loopItems.has(block.id)) {
-          context.loopItems.delete(block.id)
-        }
         if (context.loopIterations.has(block.id)) {
           context.loopIterations.delete(block.id)
         }
@@ -285,9 +282,6 @@ export class ParallelBlockHandler implements BlockHandler {
         // Clean up iteration data
         if (context.loopItems.has(`${block.id}_items`)) {
           context.loopItems.delete(`${block.id}_items`)
-        }
-        if (context.loopItems.has(block.id)) {
-          context.loopItems.delete(block.id)
         }
         if (context.loopIterations.has(block.id)) {
           context.loopIterations.delete(block.id)

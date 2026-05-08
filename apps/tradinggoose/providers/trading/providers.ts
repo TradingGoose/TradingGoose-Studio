@@ -1,18 +1,20 @@
 import type React from 'react'
+import { getCanonicalScopesForProvider } from '@/lib/oauth'
 import type { AssetClass } from '@/providers/market/types'
 import { alpacaTradingProviderConfig } from '@/providers/trading/alpaca/config'
 import { tradierTradingProviderConfig } from '@/providers/trading/tradier/config'
 import type {
   TradingAuthType,
-  TradingOrderDetailInput,
-  TradingOrderDetailResult,
-  TradingOrderHistoryRecord,
   TradingFieldDefinition,
   TradingHoldingsInput,
   TradingHoldingsNormalizationContext,
   TradingOperationKind,
   TradingOrder,
+  TradingOrderDetailInput,
+  TradingOrderDetailResult,
+  TradingOrderHistoryRecord,
   TradingOrderInput,
+  TradingPortfolioPerformanceWindow,
   TradingProviderId,
   TradingProviderOAuthConfig,
   TradingRequestConfig,
@@ -42,6 +44,7 @@ export interface TradingOrderInputCapabilities {
 
 export interface TradingHoldingsInputCapabilities {
   supportsPositions?: boolean
+  performanceWindows?: TradingPortfolioPerformanceWindow[]
 }
 
 export interface TradingProviderCapabilities {
@@ -200,14 +203,17 @@ export const TRADING_PROVIDER_DEFINITIONS: Record<string, TradingProviderDefinit
   alpaca: {
     id: 'alpaca',
     name: 'Alpaca',
-    description: 'Commission-free trading via Alpaca (paper and live).',
+    description: 'Commission-free trading via Alpaca.',
     authType: 'oauth',
     oauth: {
       provider: 'alpaca',
-      serviceId: 'alpaca',
-      scopes: ['account:write', 'trading', 'data'],
+      credentialServices: [
+        { serviceId: 'alpaca-live', environment: 'live' },
+        { serviceId: 'alpaca-paper', environment: 'paper' },
+      ],
+      scopes: getCanonicalScopesForProvider('alpaca-live'),
       credentialTitle: 'Alpaca Account',
-      credentialPlaceholder: 'Select Alpaca account',
+      credentialPlaceholder: 'Select or connect Alpaca connection',
     },
     credentialFields: [],
     defaults: {
@@ -226,7 +232,7 @@ export const TRADING_PROVIDER_DEFINITIONS: Record<string, TradingProviderDefinit
       serviceId: 'tradier',
       scopes: ['read', 'write', 'trade'],
       credentialTitle: 'Tradier Account',
-      credentialPlaceholder: 'Select or connect Tradier account',
+      credentialPlaceholder: 'Select or connect Tradier connection',
     },
     fields: [
       {
@@ -276,6 +282,12 @@ export function getTradingProviderCapabilities(
   return TRADING_PROVIDER_DEFINITIONS[providerId]?.config.capabilities || null
 }
 
+export function getTradingHoldingsCapabilities(
+  providerId: TradingProviderId
+): TradingHoldingsInputCapabilities | null {
+  return getTradingProviderCapabilities(providerId)?.holdings || null
+}
+
 export function getTradingProviderKinds(providerId: TradingProviderId): TradingOperationKind[] {
   const availability = getTradingProviderAvailability(providerId)
   const kinds = new Set<TradingOperationKind>()
@@ -290,11 +302,62 @@ export function getTradingProviders(): TradingProviderDefinition[] {
   return Object.values(TRADING_PROVIDER_DEFINITIONS)
 }
 
-export function getTradingProviderOptions(): Array<{ id: string; name: string }> {
-  return Object.values(TRADING_PROVIDER_DEFINITIONS).map((provider) => ({
-    id: provider.id,
-    name: provider.name,
-  }))
+export function getTradingProviderOAuthCredentialServices(providerId: TradingProviderId) {
+  const provider = getTradingProviderDefinition(providerId)
+  if (!provider?.oauth) return null
+  if (provider.oauth.credentialServices?.length) return provider.oauth.credentialServices
+
+  const serviceId = provider.oauth.serviceId ?? provider.oauth.provider
+  return serviceId ? [{ serviceId, environment: 'live' as const }] : []
+}
+
+export function getTradingProviderOAuthServiceIds(providerId: TradingProviderId): string[] {
+  return (getTradingProviderOAuthCredentialServices(providerId) ?? []).map(
+    (service) => service.serviceId
+  )
+}
+
+export function resolveTradingProviderOAuthCredentialService(
+  providerId: TradingProviderId,
+  serviceId?: string | null
+) {
+  const services = getTradingProviderOAuthCredentialServices(providerId)
+  if (!services || services.length === 0) return null
+
+  const requestedServiceId = serviceId?.trim()
+  if (requestedServiceId) {
+    return services.find((service) => service.serviceId === requestedServiceId) ?? null
+  }
+
+  return services.length === 1 ? (services[0] ?? null) : null
+}
+
+export function getTradingProviderOAuthServiceId(
+  providerId: TradingProviderId,
+  serviceId?: string | null
+): string | null {
+  return resolveTradingProviderOAuthCredentialService(providerId, serviceId)?.serviceId ?? null
+}
+
+export function getTradingProviderOAuthEnvironment(
+  providerId: TradingProviderId,
+  serviceId?: string | null
+) {
+  return resolveTradingProviderOAuthCredentialService(providerId, serviceId)?.environment ?? null
+}
+
+export function getTradingProviderOAuthServiceIdForEnvironment(
+  providerId: TradingProviderId,
+  environment?: string | null
+) {
+  const normalizedEnvironment = environment?.trim()
+  const services = getTradingProviderOAuthCredentialServices(providerId)
+  if (!services || services.length === 0) return null
+  if (normalizedEnvironment) {
+    const service = services.find((candidate) => candidate.environment === normalizedEnvironment)
+    if (service) return service.serviceId
+  }
+  return services.length === 1 ? (services[0]?.serviceId ?? null) : null
 }
 
 export function getTradingProvidersByKind(kind: TradingOperationKind): TradingProviderDefinition[] {
@@ -309,6 +372,29 @@ export function getTradingProviderOptionsByKind(
   kind: TradingOperationKind
 ): Array<{ id: string; name: string }> {
   return getTradingProvidersByKind(kind).map((provider) => ({
+    id: provider.id,
+    name: provider.name,
+  }))
+}
+
+export function getAvailableTradingProviders(
+  providerAvailability: Record<string, boolean>,
+  kind?: TradingOperationKind
+): TradingProviderDefinition[] {
+  const providers = kind ? getTradingProvidersByKind(kind) : getTradingProviders()
+
+  return providers.filter((provider) => {
+    const oauthServiceIds = getTradingProviderOAuthServiceIds(provider.id)
+    if (oauthServiceIds.length === 0) return true
+    return oauthServiceIds.some((oauthServiceId) => Boolean(providerAvailability[oauthServiceId]))
+  })
+}
+
+export function getAvailableTradingProviderOptions(
+  providerAvailability: Record<string, boolean>,
+  kind?: TradingOperationKind
+): Array<{ id: string; name: string }> {
+  return getAvailableTradingProviders(providerAvailability, kind).map((provider) => ({
     id: provider.id,
     name: provider.name,
   }))

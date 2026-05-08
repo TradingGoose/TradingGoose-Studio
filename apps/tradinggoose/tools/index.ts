@@ -43,17 +43,21 @@ function resolveExecutionScope(
   workspaceId?: string
   userId?: string
   executionId?: string
+  workflowLogId?: string
+  submissionSource?: string
   concurrencyLeaseInherited?: boolean
 } {
   const context = params._context || {}
 
   return {
-    workflowId: context.workflowId ?? executionContext?.workflowId,
-    workspaceId: context.workspaceId ?? executionContext?.workspaceId,
-    userId: context.userId ?? executionContext?.userId,
-    executionId: context.executionId ?? executionContext?.executionId,
+    workflowId: executionContext?.workflowId ?? context.workflowId,
+    workspaceId: executionContext?.workspaceId ?? context.workspaceId,
+    userId: executionContext?.userId ?? context.userId,
+    executionId: executionContext?.executionId ?? context.executionId,
+    workflowLogId: executionContext?.workflowLogId ?? context.workflowLogId,
+    submissionSource: executionContext?.submissionSource ?? context.submissionSource,
     concurrencyLeaseInherited:
-      context.concurrencyLeaseInherited ?? executionContext?.concurrencyLeaseInherited,
+      executionContext?.concurrencyLeaseInherited ?? context.concurrencyLeaseInherited,
   }
 }
 
@@ -275,25 +279,38 @@ export async function executeTool(
 
     // Ensure context is preserved if it exists
     const contextParams = { ...params }
-    if (executionContext) {
+    if (executionContext || (contextParams as any)._context) {
       const existingContext = (contextParams as any)._context || {}
       const mergedContext = {
         ...existingContext,
-        workflowId: existingContext.workflowId ?? scope.workflowId,
-        workspaceId: existingContext.workspaceId ?? scope.workspaceId,
-        userId: existingContext.userId ?? scope.userId,
-        executionId: existingContext.executionId ?? scope.executionId,
-        concurrencyLeaseInherited:
-          existingContext.concurrencyLeaseInherited ?? scope.concurrencyLeaseInherited,
+        workflowId: scope.workflowId,
+        workspaceId: scope.workspaceId,
+        userId: scope.userId,
+        executionId: scope.executionId,
+        workflowLogId: scope.workflowLogId,
+        submissionSource: scope.submissionSource,
+        concurrencyLeaseInherited: scope.concurrencyLeaseInherited,
       }
       if (
         mergedContext.workflowId ||
         mergedContext.workspaceId ||
         mergedContext.executionId ||
+        mergedContext.workflowLogId ||
+        mergedContext.submissionSource ||
         mergedContext.concurrencyLeaseInherited
       ) {
         ;(contextParams as any)._context = mergedContext
       }
+    }
+
+    if (
+      (toolId === 'trading_place_order' || toolId === 'trading_order_history') &&
+      !scope.workspaceId
+    ) {
+      throw new Error(`${toolId} requires workspace execution context`)
+    }
+    if (toolId === 'trading_place_order' && !scope.submissionSource) {
+      throw new Error('trading_place_order requires explicit submission source')
     }
 
     // Validate the tool and its parameters
@@ -302,19 +319,6 @@ export async function executeTool(
     // After validation, we know tool exists
     if (!tool) {
       throw new Error(`Tool not found: ${toolId}`)
-    }
-
-    // If we have a credential parameter, fetch the access token
-    // Agents may pass provider-specific credential params (e.g., alpacaCredential); normalize first
-    if (!contextParams.credential) {
-      contextParams.credential =
-        contextParams.alpacaCredential ||
-        contextParams.tradierCredential ||
-        contextParams.credential
-
-      // Avoid leaking provider-specific credential params downstream
-      contextParams.alpacaCredential = undefined
-      contextParams.tradierCredential = undefined
     }
 
     if (contextParams.credential) {
@@ -330,7 +334,7 @@ export async function executeTool(
         }
 
         // Add workflowId if it exists in params, context, or executionContext
-        const workflowId = contextParams.workflowId || contextParams._context?.workflowId || scope.workflowId
+        const workflowId = scope.workflowId
         if (workflowId) {
           tokenPayload.workflowId = workflowId
         }
@@ -349,8 +353,9 @@ export async function executeTool(
           try {
             const internalToken = await generateInternalToken(scope.userId)
             tokenHeaders.Authorization = `Bearer ${internalToken}`
-          } catch (_e) {
-            // Swallow token generation errors; the request will fail and be reported upstream
+          } catch (error) {
+            logger.error(`[${requestId}] Failed to generate internal auth for ${toolId}:`, error)
+            throw error
           }
         }
 
@@ -371,6 +376,9 @@ export async function executeTool(
 
         const data = await response.json()
         contextParams.accessToken = data.accessToken
+        if (data.providerId) {
+          contextParams.credentialServiceId = data.providerId
+        }
         if (data.apiKey) {
           contextParams.apiKey = data.apiKey
         }
@@ -383,9 +391,6 @@ export async function executeTool(
         // so we don't leak it to external services.
         if (contextParams.credential) {
           ;(contextParams as any)._credentialId = contextParams.credential
-        }
-        if (workflowId) {
-          ;(contextParams as any)._workflowId = workflowId
         }
         // Clean up params we don't need to pass to the actual tool
         contextParams.credential = undefined
@@ -623,6 +628,7 @@ async function addInternalAuthIfNeeded(
         logger.info(`[${requestId}] Added internal auth token for ${context}`)
       } catch (error) {
         logger.error(`[${requestId}] Failed to generate internal token for ${context}:`, error)
+        throw error
       }
     } else {
       logger.info(`[${requestId}] Skipping internal auth token for external URL: ${context}`)
@@ -653,9 +659,12 @@ async function executeToolRequest(
     const isInternalRoute = endpointUrl.startsWith('/api/')
 
     if (isInternalRoute) {
-      const workflowId = params._context?.workflowId
+      const workflowId = scope.workflowId
       if (workflowId) {
         fullUrlObj.searchParams.set('workflowId', workflowId)
+      }
+      if (scope.workspaceId) {
+        fullUrlObj.searchParams.set('workspaceId', scope.workspaceId)
       }
     }
 
@@ -979,8 +988,9 @@ async function executeMcpTool(
       )
     }
 
-    const workspaceId = params._context?.workspaceId || executionContext?.workspaceId
-    const workflowId = params._context?.workflowId || executionContext?.workflowId
+    const scope = resolveExecutionScope(params, executionContext)
+    const workspaceId = scope.workspaceId
+    const workflowId = scope.workflowId
 
     if (!workspaceId) {
       return {

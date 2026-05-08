@@ -12,7 +12,7 @@ import {
   DEFAULT_COPILOT_CHANNEL_ID,
   useCopilotStoreApi,
 } from '@/stores/copilot/store'
-import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
+import { usePairColorContext } from '@/stores/dashboard/pair-store'
 import type { PairColor } from '@/widgets/pair-colors'
 import {
   buildCopilotEditableReviewTargets,
@@ -88,24 +88,17 @@ const CopilotAppContent = ({
     | undefined
 }) => {
   const pairContext = usePairColorContext(pairColor)
-  const setPairColorContext = useSetPairColorContext()
   const copilotStoreApi = useCopilotStoreApi()
   const workflowId = resolveCopilotWorkflowId(pairContext) ?? null
   const editableReviewTargets = useMemo(
     () => buildCopilotEditableReviewTargets({ pairContext }),
-    [
-      pairContext?.reviewTarget?.reviewSessionId,
-      pairContext?.reviewTarget?.reviewEntityKind,
-      pairContext?.reviewTarget?.reviewEntityId,
-      pairContext?.reviewTarget?.reviewDraftSessionId,
-    ]
+    [pairContext]
   )
   const [resolvedEntityTargets, setResolvedEntityTargets] = useState<{
     key: string
     descriptors: ReviewTargetDescriptor[]
   } | null>(null)
   const lastRejectedResolutionKeyRef = useRef<string | null>(null)
-  const pairContextRef = useRef(pairContext)
   // Copilot history is workspace-scoped, while runtime edits still follow the
   // active widget channel through pair/panel context.
   const entityTargetResolution = useMemo(() => {
@@ -147,10 +140,6 @@ const CopilotAppContent = ({
   }, [editableReviewTargets, workspaceId])
 
   useEffect(() => {
-    pairContextRef.current = pairContext
-  }, [pairContext])
-
-  useEffect(() => {
     if (!entityTargetResolution.unresolvedKey) {
       setResolvedEntityTargets(null)
       lastRejectedResolutionKeyRef.current = null
@@ -189,11 +178,6 @@ const CopilotAppContent = ({
 
           if (lastRejectedResolutionKeyRef.current !== rejectedKey) {
             lastRejectedResolutionKeyRef.current = rejectedKey
-            setPairColorContext(pairColor, {
-              ...(pairContextRef.current ?? {}),
-              reviewTarget: null,
-            })
-
             const noticeContent = buildRejectedReviewTargetMessage(
               entityTargetResolution.unresolved
             )
@@ -240,7 +224,7 @@ const CopilotAppContent = ({
     return () => {
       cancelled = true
     }
-  }, [copilotStoreApi, entityTargetResolution, pairColor, setPairColorContext])
+  }, [copilotStoreApi, entityTargetResolution])
 
   const entityDescriptors = useMemo(
     () => [

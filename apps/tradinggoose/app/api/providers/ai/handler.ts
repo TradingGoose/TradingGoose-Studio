@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createLogger } from '@/lib/logs/console/logger'
-import type { StreamingExecution } from '@/executor/types'
+import type { ExecutionSubmissionSource, StreamingExecution } from '@/executor/types'
 import { executeProviderRequest as executeAIProviderRequest } from '@/providers/ai'
 import { getProvider } from '@/providers/ai/utils'
 import { getApiKey } from '@/providers/ai/utils-server'
@@ -29,6 +29,8 @@ export interface ProviderRouteBody {
   responseFormat?: any
   workflowId?: string
   workspaceId?: string
+  workflowLogId?: string
+  submissionSource?: ExecutionSubmissionSource
   stream?: boolean
   messages?: any[]
   query?: Record<string, any>
@@ -47,6 +49,7 @@ interface HandleAIProviderParams {
   providerId: string
   requestId: string
   startTime: number
+  authUserId?: string
 }
 
 export async function handleAIProviderRequest({
@@ -54,6 +57,7 @@ export async function handleAIProviderRequest({
   providerId,
   requestId,
   startTime,
+  authUserId,
 }: HandleAIProviderParams) {
   const {
     model,
@@ -73,6 +77,8 @@ export async function handleAIProviderRequest({
     responseFormat,
     workflowId,
     workspaceId,
+    workflowLogId,
+    submissionSource,
     stream,
     messages,
     environmentVariables,
@@ -164,6 +170,9 @@ export async function handleAIProviderRequest({
     responseFormat,
     workflowId,
     workspaceId,
+    workflowLogId,
+    submissionSource,
+    userId: authUserId,
     stream,
     messages,
     environmentVariables,

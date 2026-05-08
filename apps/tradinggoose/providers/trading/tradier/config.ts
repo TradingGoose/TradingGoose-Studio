@@ -136,6 +136,7 @@ export const tradierTradingProviderConfig: TradingProviderConfig = {
     },
     holdings: {
       supportsPositions: true,
+      performanceWindows: ['1W', '1M', 'YTD', '1Y', 'MAX'],
     },
   },
   rulePrecedence: {

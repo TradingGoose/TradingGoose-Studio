@@ -38,13 +38,10 @@ export const workflowFolder = pgTable(
     userIdx: index('workflow_folder_user_idx').on(table.userId),
     workspaceParentIdx: index('workflow_folder_workspace_parent_idx').on(
       table.workspaceId,
-      table.parentId,
+      table.parentId
     ),
-    parentSortIdx: index('workflow_folder_parent_sort_idx').on(
-      table.parentId,
-      table.sortOrder,
-    ),
-  }),
+    parentSortIdx: index('workflow_folder_parent_sort_idx').on(table.parentId, table.sortOrder),
+  })
 )
 
 export const workflow = pgTable(
@@ -82,11 +79,8 @@ export const workflow = pgTable(
   (table) => ({
     userIdIdx: index('workflow_user_id_idx').on(table.userId),
     workspaceIdIdx: index('workflow_workspace_id_idx').on(table.workspaceId),
-    userWorkspaceIdx: index('workflow_user_workspace_idx').on(
-      table.userId,
-      table.workspaceId,
-    ),
-  }),
+    userWorkspaceIdx: index('workflow_user_workspace_idx').on(table.userId, table.workspaceId),
+  })
 )
 
 export const workflowBlocks = pgTable(
@@ -119,14 +113,9 @@ export const workflowBlocks = pgTable(
     updatedAt: timestamp('updated_at').notNull().defaultNow(),
   },
   (table) => ({
-    workflowIdIdx: index('workflow_blocks_workflow_id_idx').on(
-      table.workflowId,
-    ),
-    workflowTypeIdx: index('workflow_blocks_workflow_type_idx').on(
-      table.workflowId,
-      table.type,
-    ),
-  }),
+    workflowIdIdx: index('workflow_blocks_workflow_id_idx').on(table.workflowId),
+    workflowTypeIdx: index('workflow_blocks_workflow_type_idx').on(table.workflowId, table.type),
+  })
 )
 
 export const workflowEdges = pgTable(
@@ -152,13 +141,13 @@ export const workflowEdges = pgTable(
     workflowIdIdx: index('workflow_edges_workflow_id_idx').on(table.workflowId),
     workflowSourceIdx: index('workflow_edges_workflow_source_idx').on(
       table.workflowId,
-      table.sourceBlockId,
+      table.sourceBlockId
     ),
     workflowTargetIdx: index('workflow_edges_workflow_target_idx').on(
       table.workflowId,
-      table.targetBlockId,
+      table.targetBlockId
     ),
-  }),
+  })
 )
 
 export const workflowSubflows = pgTable(
@@ -176,53 +165,53 @@ export const workflowSubflows = pgTable(
     updatedAt: timestamp('updated_at').notNull().defaultNow(),
   },
   (table) => ({
-    workflowIdIdx: index('workflow_subflows_workflow_id_idx').on(
-      table.workflowId,
-    ),
-    workflowTypeIdx: index('workflow_subflows_workflow_type_idx').on(
-      table.workflowId,
-      table.type,
-    ),
-  }),
+    workflowIdIdx: index('workflow_subflows_workflow_id_idx').on(table.workflowId),
+    workflowTypeIdx: index('workflow_subflows_workflow_type_idx').on(table.workflowId, table.type),
+  })
 )
 
 export const workflowExecutionSnapshots = pgTable(
   'workflow_execution_snapshots',
   {
     id: text('id').primaryKey(),
-    workflowId: text('workflow_id')
+    workflowId: text('workflow_id').references(() => workflow.id, {
+      onDelete: 'set null',
+    }),
+    workspaceId: text('workspace_id')
       .notNull()
-      .references(() => workflow.id, { onDelete: 'cascade' }),
+      .references(() => workspace.id, { onDelete: 'cascade' }),
     stateHash: text('state_hash').notNull(),
     stateData: jsonb('state_data').notNull(),
     createdAt: timestamp('created_at').notNull().defaultNow(),
   },
   (table) => ({
-    workflowIdIdx: index('workflow_snapshots_workflow_id_idx').on(
-      table.workflowId,
-    ),
+    workflowIdIdx: index('workflow_snapshots_workflow_id_idx').on(table.workflowId),
     stateHashIdx: index('workflow_snapshots_hash_idx').on(table.stateHash),
+    workspaceIdIdx: index('workflow_snapshots_workspace_id_idx').on(table.workspaceId),
     workflowHashUnique: uniqueIndex('workflow_snapshots_workflow_hash_idx').on(
       table.workflowId,
-      table.stateHash,
+      table.workspaceId,
+      table.stateHash
     ),
-    createdAtIdx: index('workflow_snapshots_created_at_idx').on(
-      table.createdAt,
-    ),
-  }),
+    createdAtIdx: index('workflow_snapshots_created_at_idx').on(table.createdAt),
+  })
 )
 
 export const workflowExecutionLogs = pgTable(
   'workflow_execution_logs',
   {
     id: text('id').primaryKey(),
-    workflowId: text('workflow_id')
+    workflowId: text('workflow_id').references(() => workflow.id, {
+      onDelete: 'set null',
+    }),
+    workspaceId: text('workspace_id')
       .notNull()
-      .references(() => workflow.id, { onDelete: 'cascade' }),
+      .references(() => workspace.id, { onDelete: 'cascade' }),
     executionId: text('execution_id').notNull(),
     stateSnapshotId: text('state_snapshot_id')
       .notNull()
       .references(() => workflowExecutionSnapshots.id),
+    workflowSummary: jsonb('workflow_summary').notNull(),
 
     level: text('level').notNull(), // 'info', 'error'
     trigger: text('trigger').notNull(), // 'api', 'webhook', 'schedule', 'manual', 'chat'
@@ -237,28 +226,28 @@ export const workflowExecutionLogs = pgTable(
     createdAt: timestamp('created_at').notNull().defaultNow(),
   },
   (table) => ({
-    workflowIdIdx: index('workflow_execution_logs_workflow_id_idx').on(
-      table.workflowId,
+    workflowIdIdx: index('workflow_execution_logs_workflow_id_idx').on(table.workflowId),
+    workspaceIdIdx: index('workflow_execution_logs_workspace_id_idx').on(table.workspaceId),
+    executionIdIdx: index('workflow_execution_logs_execution_id_idx').on(table.executionId),
+    stateSnapshotIdIdx: index('workflow_execution_logs_state_snapshot_id_idx').on(
+      table.stateSnapshotId
     ),
-    executionIdIdx: index('workflow_execution_logs_execution_id_idx').on(
-      table.executionId,
-    ),
-    stateSnapshotIdIdx: index(
-      'workflow_execution_logs_state_snapshot_id_idx',
-    ).on(table.stateSnapshotId),
     triggerIdx: index('workflow_execution_logs_trigger_idx').on(table.trigger),
     levelIdx: index('workflow_execution_logs_level_idx').on(table.level),
-    startedAtIdx: index('workflow_execution_logs_started_at_idx').on(
-      table.startedAt,
+    startedAtIdx: index('workflow_execution_logs_started_at_idx').on(table.startedAt),
+    executionIdUnique: uniqueIndex('workflow_execution_logs_execution_id_unique').on(
+      table.executionId
     ),
-    executionIdUnique: uniqueIndex(
-      'workflow_execution_logs_execution_id_unique',
-    ).on(table.executionId),
     // Composite index for the new join-based query pattern
-    workflowStartedAtIdx: index(
-      'workflow_execution_logs_workflow_started_at_idx',
-    ).on(table.workflowId, table.startedAt),
-  }),
+    workflowStartedAtIdx: index('workflow_execution_logs_workflow_started_at_idx').on(
+      table.workflowId,
+      table.startedAt
+    ),
+    workspaceStartedAtIdx: index('workflow_execution_logs_workspace_started_at_idx').on(
+      table.workspaceId,
+      table.startedAt
+    ),
+  })
 )
 
 export const workflowSchedule = pgTable(
@@ -284,11 +273,12 @@ export const workflowSchedule = pgTable(
   },
   (table) => {
     return {
-      workflowBlockUnique: uniqueIndex(
-        'workflow_schedule_workflow_block_unique',
-      ).on(table.workflowId, table.blockId),
+      workflowBlockUnique: uniqueIndex('workflow_schedule_workflow_block_unique').on(
+        table.workflowId,
+        table.blockId
+      ),
     }
-  },
+  }
 )
 
 export const webhook = pgTable(
@@ -313,7 +303,7 @@ export const webhook = pgTable(
       // Ensure webhook paths are unique
       pathIdx: uniqueIndex('path_idx').on(table.path),
     }
-  },
+  }
 )
 
 export const workflowLogWebhook = pgTable(
@@ -325,9 +315,7 @@ export const workflowLogWebhook = pgTable(
       .references(() => workflow.id, { onDelete: 'cascade' }),
     url: text('url').notNull(),
     secret: text('secret'),
-    includeFinalOutput: boolean('include_final_output')
-      .notNull()
-      .default(false),
+    includeFinalOutput: boolean('include_final_output').notNull().default(false),
     includeTraceSpans: boolean('include_trace_spans').notNull().default(false),
     includeRateLimits: boolean('include_rate_limits').notNull().default(false),
     includeUsageData: boolean('include_usage_data').notNull().default(false),
@@ -338,19 +326,15 @@ export const workflowLogWebhook = pgTable(
     triggerFilter: text('trigger_filter')
       .array()
       .notNull()
-      .default(
-        sql`ARRAY['api', 'webhook', 'schedule', 'manual', 'chat']::text[]`,
-      ),
+      .default(sql`ARRAY['api', 'webhook', 'schedule', 'manual', 'chat']::text[]`),
     active: boolean('active').notNull().default(true),
     createdAt: timestamp('created_at').notNull().defaultNow(),
     updatedAt: timestamp('updated_at').notNull().defaultNow(),
   },
   (table) => ({
-    workflowIdIdx: index('workflow_log_webhook_workflow_id_idx').on(
-      table.workflowId,
-    ),
+    workflowIdIdx: index('workflow_log_webhook_workflow_id_idx').on(table.workflowId),
     activeIdx: index('workflow_log_webhook_active_idx').on(table.active),
-  }),
+  })
 )
 
 export const webhookDeliveryStatusEnum = pgEnum('webhook_delivery_status', [
@@ -358,6 +342,7 @@ export const webhookDeliveryStatusEnum = pgEnum('webhook_delivery_status', [
   'in_progress',
   'success',
   'failed',
+  'cancelled',
 ])
 
 export const pendingExecutionStatusEnum = pgEnum('pending_execution_status', [
@@ -367,17 +352,28 @@ export const pendingExecutionStatusEnum = pgEnum('pending_execution_status', [
   'failed',
 ])
 
+export const orderSubmissionSourceEnum = pgEnum('order_submission_source', [
+  'manual',
+  'copilot',
+  'workflow',
+])
+
 export const workflowLogWebhookDelivery = pgTable(
   'workflow_log_webhook_delivery',
   {
     id: text('id').primaryKey(),
-    subscriptionId: text('subscription_id')
+    subscriptionId: text('subscription_id').references(() => workflowLogWebhook.id, {
+      onDelete: 'set null',
+    }),
+    workflowId: text('workflow_id').references(() => workflow.id, {
+      onDelete: 'set null',
+    }),
+    workspaceId: text('workspace_id')
       .notNull()
-      .references(() => workflowLogWebhook.id, { onDelete: 'cascade' }),
-    workflowId: text('workflow_id')
-      .notNull()
-      .references(() => workflow.id, { onDelete: 'cascade' }),
+      .references(() => workspace.id, { onDelete: 'cascade' }),
     executionId: text('execution_id').notNull(),
+    workflowSummary: jsonb('workflow_summary').notNull(),
+    subscriptionSnapshot: jsonb('subscription_snapshot').notNull(),
     status: webhookDeliveryStatusEnum('status').notNull().default('pending'),
     attempts: integer('attempts').notNull().default(0),
     lastAttemptAt: timestamp('last_attempt_at'),
@@ -389,19 +385,14 @@ export const workflowLogWebhookDelivery = pgTable(
     updatedAt: timestamp('updated_at').notNull().defaultNow(),
   },
   (table) => ({
-    subscriptionIdIdx: index(
-      'workflow_log_webhook_delivery_subscription_id_idx',
-    ).on(table.subscriptionId),
-    executionIdIdx: index('workflow_log_webhook_delivery_execution_id_idx').on(
-      table.executionId,
+    subscriptionIdIdx: index('workflow_log_webhook_delivery_subscription_id_idx').on(
+      table.subscriptionId
     ),
-    statusIdx: index('workflow_log_webhook_delivery_status_idx').on(
-      table.status,
-    ),
-    nextAttemptIdx: index('workflow_log_webhook_delivery_next_attempt_idx').on(
-      table.nextAttemptAt,
-    ),
-  }),
+    executionIdIdx: index('workflow_log_webhook_delivery_execution_id_idx').on(table.executionId),
+    workspaceIdIdx: index('workflow_log_webhook_delivery_workspace_id_idx').on(table.workspaceId),
+    statusIdx: index('workflow_log_webhook_delivery_status_idx').on(table.status),
+    nextAttemptIdx: index('workflow_log_webhook_delivery_next_attempt_idx').on(table.nextAttemptAt),
+  })
 )
 
 export const pendingExecution = pgTable(
@@ -438,18 +429,18 @@ export const pendingExecution = pgTable(
       table.billingScopeId,
       table.status,
       table.nextAttemptAt,
-      table.createdAt,
+      table.createdAt
     ),
     workflowIdx: index('pending_execution_workflow_idx').on(table.workflowId),
     orderingKeyIdx: index('pending_execution_ordering_key_idx').on(
       table.billingScopeId,
       table.orderingKey,
       table.status,
-      table.createdAt,
+      table.createdAt
     ),
     sourceIdx: index('pending_execution_source_idx').on(table.source),
     statusIdx: index('pending_execution_status_idx').on(table.status),
-  }),
+  })
 )
 
 export const marketplace = pgTable('marketplace', {
@@ -495,23 +486,26 @@ export const memory = pgTable(
       // Compound unique index to ensure keys are unique per workflow
       uniqueKeyPerWorkflowIdx: uniqueIndex('memory_workflow_key_idx').on(
         table.workflowId,
-        table.key,
+        table.key
       ),
     }
-  },
+  }
 )
 
 export const orderHistoryTable = pgTable(
   'orderHistoryTable',
   {
     id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => workspace.id, { onDelete: 'cascade' }),
     provider: text('provider').notNull(),
     environment: text('environment'),
     recordedAt: timestamp('recorded_at').notNull().defaultNow(),
-    workflowId: text('workflow_id').references(() => workflow.id, {
+    submissionSource: orderSubmissionSourceEnum('submission_source').notNull(),
+    logId: text('log_id').references(() => workflowExecutionLogs.id, {
       onDelete: 'set null',
     }),
-    workflowExecutionId: text('workflow_execution_id'),
     listingIdentity: jsonb('listing_identity'),
     request: jsonb('request').notNull(),
     response: jsonb('response').notNull(),
@@ -519,16 +513,14 @@ export const orderHistoryTable = pgTable(
   },
   (table) => ({
     providerIdx: index('order_history_provider_idx').on(table.provider),
-    workflowIdx: index('order_history_workflow_idx').on(table.workflowId),
-    workflowExecutionIdx: index('order_history_execution_idx').on(
-      table.workflowExecutionId,
-    ),
+    workspaceIdx: index('order_history_workspace_idx').on(table.workspaceId),
+    logIdx: index('order_history_log_idx').on(table.logId),
     recordedAtIdx: index('order_history_recorded_at_idx').on(table.recordedAt),
-    workflowRecordedIdx: index('order_history_workflow_recorded_idx').on(
-      table.workflowId,
-      table.recordedAt,
+    workspaceRecordedIdx: index('order_history_workspace_recorded_idx').on(
+      table.workspaceId,
+      table.recordedAt
     ),
-  }),
+  })
 )
 
 // Tracks immutable deployment versions for each workflow
@@ -547,19 +539,17 @@ export const workflowDeploymentVersion = pgTable(
     createdBy: text('created_by'),
   },
   (table) => ({
-    workflowIdIdx: index('workflow_deployment_version_workflow_id_idx').on(
+    workflowIdIdx: index('workflow_deployment_version_workflow_id_idx').on(table.workflowId),
+    workflowVersionUnique: uniqueIndex('workflow_deployment_version_workflow_version_unique').on(
       table.workflowId,
+      table.version
     ),
-    workflowVersionUnique: uniqueIndex(
-      'workflow_deployment_version_workflow_version_unique',
-    ).on(table.workflowId, table.version),
-    workflowActiveIdx: index(
-      'workflow_deployment_version_workflow_active_idx',
-    ).on(table.workflowId, table.isActive),
-    createdAtIdx: index('workflow_deployment_version_created_at_idx').on(
-      table.createdAt,
+    workflowActiveIdx: index('workflow_deployment_version_workflow_active_idx').on(
+      table.workflowId,
+      table.isActive
     ),
-  }),
+    createdAtIdx: index('workflow_deployment_version_created_at_idx').on(table.createdAt),
+  })
 )
 
 export const chat = pgTable(
@@ -572,7 +562,7 @@ export const chat = pgTable(
     triggerBlockId: text('trigger_block_id'),
     deploymentVersionId: text('deployment_version_id').references(
       () => workflowDeploymentVersion.id,
-      { onDelete: 'set null' },
+      { onDelete: 'set null' }
     ),
     userId: text('user_id')
       .notNull()
@@ -600,13 +590,11 @@ export const chat = pgTable(
       identifierIdx: uniqueIndex('identifier_idx').on(table.identifier),
       workflowTriggerUnique: uniqueIndex('chat_workflow_trigger_unique').on(
         table.workflowId,
-        table.triggerBlockId,
+        table.triggerBlockId
       ),
-      deploymentVersionIdx: index('chat_deployment_version_idx').on(
-        table.deploymentVersionId,
-      ),
+      deploymentVersionIdx: index('chat_deployment_version_idx').on(table.deploymentVersionId),
     }
-  },
+  }
 )
 
 export const templates = pgTable(
@@ -640,23 +628,14 @@ export const templates = pgTable(
     starsIdx: index('templates_stars_idx').on(table.stars),
 
     // Composite indexes for common queries
-    categoryViewsIdx: index('templates_category_views_idx').on(
-      table.category,
-      table.views,
-    ),
-    categoryStarsIdx: index('templates_category_stars_idx').on(
-      table.category,
-      table.stars,
-    ),
-    userCategoryIdx: index('templates_user_category_idx').on(
-      table.userId,
-      table.category,
-    ),
+    categoryViewsIdx: index('templates_category_views_idx').on(table.category, table.views),
+    categoryStarsIdx: index('templates_category_stars_idx').on(table.category, table.stars),
+    userCategoryIdx: index('templates_user_category_idx').on(table.userId, table.category),
 
     // Temporal indexes
     createdAtIdx: index('templates_created_at_idx').on(table.createdAt),
     updatedAtIdx: index('templates_updated_at_idx').on(table.updatedAt),
-  }),
+  })
 )
 
 export const templateStars = pgTable(
@@ -678,27 +657,22 @@ export const templateStars = pgTable(
     templateIdIdx: index('template_stars_template_id_idx').on(table.templateId),
 
     // Composite indexes for common queries
-    userTemplateIdx: index('template_stars_user_template_idx').on(
-      table.userId,
-      table.templateId,
-    ),
-    templateUserIdx: index('template_stars_template_user_idx').on(
-      table.templateId,
-      table.userId,
-    ),
+    userTemplateIdx: index('template_stars_user_template_idx').on(table.userId, table.templateId),
+    templateUserIdx: index('template_stars_template_user_idx').on(table.templateId, table.userId),
 
     // Temporal indexes for analytics
     starredAtIdx: index('template_stars_starred_at_idx').on(table.starredAt),
     templateStarredAtIdx: index('template_stars_template_starred_at_idx').on(
       table.templateId,
-      table.starredAt,
+      table.starredAt
     ),
 
     // Uniqueness constraint - prevent duplicate stars
-    uniqueUserTemplateConstraint: uniqueIndex(
-      'template_stars_user_template_unique',
-    ).on(table.userId, table.templateId),
-  }),
+    uniqueUserTemplateConstraint: uniqueIndex('template_stars_user_template_unique').on(
+      table.userId,
+      table.templateId
+    ),
+  })
 )
 
 // Idempotency keys for preventing duplicate processing across all webhooks and triggers
@@ -712,15 +686,12 @@ export const idempotencyKey = pgTable(
   },
   (table) => ({
     // Primary key is combination of key and namespace
-    keyNamespacePk: uniqueIndex('idempotency_key_namespace_unique').on(
-      table.key,
-      table.namespace,
-    ),
+    keyNamespacePk: uniqueIndex('idempotency_key_namespace_unique').on(table.key, table.namespace),
 
     // Index for cleanup operations by creation time
     createdAtIdx: index('idempotency_key_created_at_idx').on(table.createdAt),
 
     // Index for namespace-based queries
     namespaceIdx: index('idempotency_key_namespace_idx').on(table.namespace),
-  }),
+  })
 )

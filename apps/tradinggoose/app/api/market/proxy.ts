@@ -1,20 +1,10 @@
-import { createHash } from 'crypto'
 import { type NextRequest, NextResponse } from 'next/server'
-import { readServerJsonCache, writeServerJsonCache } from '@/lib/cache/server-json-cache'
 import { createLogger } from '@/lib/logs/console/logger'
-import { MARKET_API_URL_DEFAULT, MARKET_API_VERSION } from '@/lib/market/client/constants'
-import { resolveMarketApiServiceConfig } from '@/lib/system-services/runtime'
+import { MARKET_API_VERSION } from '@/lib/market/client/constants'
+import { requestTradingGooseMarket } from '@/lib/market/request-gate'
 import { generateRequestId } from '@/lib/utils'
 
 const logger = createLogger('MarketProxyAPI')
-const MARKET_SEARCH_CACHE_PREFIX = 'market:search:'
-const MARKET_SEARCH_CACHE_TTL_SECONDS = 60 * 5
-
-type CachedSearchResponse = {
-  body: string
-  contentType: string | null
-  status: number
-}
 
 const hopByHopHeaders = new Set([
   'connection',
@@ -49,49 +39,56 @@ const resolveVersion = (body: unknown, params?: URLSearchParams | null) => {
   return normalizeVersion(raw || MARKET_API_VERSION)
 }
 
-const buildSearchCacheKey = (targetUrl: string) =>
-  `${MARKET_SEARCH_CACHE_PREFIX}${createHash('sha256').update(targetUrl).digest('hex')}`
-
-const buildSearchCacheTarget = (
-  pathSegments: string[] | undefined,
-  params: URLSearchParams
-) => {
+const buildMarketEndpoint = (pathSegments?: string[], overrideSearchParams?: URLSearchParams) => {
   const path = pathSegments?.length ? `/${pathSegments.join('/')}` : ''
-  const search = params.toString()
+  const search = overrideSearchParams?.toString()
   return `/api${path}${search ? `?${search}` : ''}`
 }
 
-const buildTargetUrl = (
-  marketApiUrl: string,
+const buildMarketEndpointFromRequest = (
   request: NextRequest,
   pathSegments?: string[],
   overrideSearchParams?: URLSearchParams
 ) => {
   const path = pathSegments?.length ? `/${pathSegments.join('/')}` : ''
-  const target = new URL(`/api${path}`, marketApiUrl)
+  const endpoint = new URL(`/api${path}`, 'https://local.tradinggoose')
   if (overrideSearchParams) {
     const search = overrideSearchParams.toString()
-    target.search = search ? `?${search}` : ''
+    endpoint.search = search ? `?${search}` : ''
   } else {
-    target.search = request.nextUrl.search ?? ''
+    endpoint.search = request.nextUrl.search ?? ''
   }
-  return target.toString()
+  return `${endpoint.pathname}${endpoint.search}`
 }
 
-const buildForwardHeaders = (request: NextRequest, apiKey: string | null) => {
+const buildForwardHeaders = (request: NextRequest) => {
   const headers = new Headers()
   request.headers.forEach((value, key) => {
     if (!hopByHopHeaders.has(key.toLowerCase())) {
       headers.set(key, value)
     }
   })
-  if (apiKey) {
-    headers.set('x-api-key', apiKey)
-  }
   if (!headers.get('content-type')) {
     headers.set('content-type', 'application/json')
   }
   return headers
+}
+
+const buildProxyResponse = async (response: Response) => {
+  const responseHeaders = new Headers()
+  response.headers.forEach((value, key) => {
+    if (!hopByHopHeaders.has(key.toLowerCase())) {
+      responseHeaders.set(key, value)
+    }
+  })
+
+  responseHeaders.delete('content-encoding')
+  responseHeaders.delete('content-length')
+
+  return new NextResponse(await response.text(), {
+    status: response.status,
+    headers: responseHeaders,
+  })
 }
 
 export const proxyMarketRequest = async (
@@ -138,6 +135,8 @@ export const proxyMarketRequest = async (
       )
     }
 
+    const headers = buildForwardHeaders(request)
+
     if (method === 'GET') {
       const targetSearchParams = new URLSearchParams(
         (overrideSearchParams ?? request.nextUrl.searchParams).toString()
@@ -145,87 +144,26 @@ export const proxyMarketRequest = async (
       if (!targetSearchParams.get('version')) {
         targetSearchParams.set('version', version)
       }
-      if (isSearch) {
-        const cacheKey = buildSearchCacheKey(buildSearchCacheTarget(pathSegments, targetSearchParams))
-        const cached = await readServerJsonCache<CachedSearchResponse>(cacheKey)
-        if (cached) {
-          return new NextResponse(cached.body, {
-            status: cached.status,
-            headers: cached.contentType
-              ? { 'content-type': cached.contentType }
-              : undefined,
-          })
+      const response = await requestTradingGooseMarket(
+        buildMarketEndpoint(pathSegments, targetSearchParams),
+        {
+          method,
+          headers,
         }
-      }
-      const marketApi = await resolveMarketApiServiceConfig()
-      const targetUrl = buildTargetUrl(
-        marketApi.baseUrl || MARKET_API_URL_DEFAULT,
-        request,
-        pathSegments,
-        targetSearchParams
       )
-      const headers = buildForwardHeaders(request, marketApi.apiKey)
-      const response = await fetch(targetUrl, {
-        method,
-        headers,
-      })
-
-      const responseHeaders = new Headers()
-      response.headers.forEach((value, key) => {
-        if (!hopByHopHeaders.has(key.toLowerCase())) {
-          responseHeaders.set(key, value)
-        }
-      })
-
-      responseHeaders.delete('content-encoding')
-      responseHeaders.delete('content-length')
-
-      const responseBody = await response.text()
-
-      if (isSearch && response.ok) {
-        await writeServerJsonCache(buildSearchCacheKey(buildSearchCacheTarget(pathSegments, targetSearchParams)), {
-          body: responseBody,
-          status: response.status,
-          contentType: responseHeaders.get('content-type'),
-        }, MARKET_SEARCH_CACHE_TTL_SECONDS)
-      }
-
-      return new NextResponse(responseBody, {
-        status: response.status,
-        headers: responseHeaders,
-      })
+      return buildProxyResponse(response)
     }
 
-    const marketApi = await resolveMarketApiServiceConfig()
-    const targetUrl = buildTargetUrl(
-      marketApi.baseUrl || MARKET_API_URL_DEFAULT,
-      request,
-      pathSegments,
-      overrideSearchParams
-    )
-    const headers = buildForwardHeaders(request, marketApi.apiKey)
     const forwardBody = JSON.stringify({ ...bodyPayload, version })
-    const response = await fetch(targetUrl, {
-      method,
-      headers,
-      body: forwardBody,
-    })
-
-    const responseHeaders = new Headers()
-    response.headers.forEach((value, key) => {
-      if (!hopByHopHeaders.has(key.toLowerCase())) {
-        responseHeaders.set(key, value)
+    const response = await requestTradingGooseMarket(
+      buildMarketEndpointFromRequest(request, pathSegments, overrideSearchParams),
+      {
+        method,
+        headers,
+        body: forwardBody,
       }
-    })
-
-    // Avoid content decoding mismatches when proxying compressed responses.
-    responseHeaders.delete('content-encoding')
-    responseHeaders.delete('content-length')
-
-    return new NextResponse(response.body, {
-      status: response.status,
-      headers: responseHeaders,
-    })
+    )
+    return buildProxyResponse(response)
   } catch (error) {
     logger.error(`[${requestId}] Market proxy failed`, {
       error: error instanceof Error ? error.message : String(error),

@@ -47,7 +47,7 @@ export const setupHandlerMocks = () => {
     ApiBlockHandler: createMockHandler('api'),
     LoopBlockHandler: createMockHandler('loop'),
     ParallelBlockHandler: createMockHandler('parallel'),
-    WorkflowBlockHandler: createMockHandler('workflow'),
+    WorkflowBlockHandler: createMockHandler('workflow_input'),
     VariablesBlockHandler: createMockHandler('variables'),
     WaitBlockHandler: createMockHandler('wait'),
     GenericBlockHandler: createMockHandler('generic'),
@@ -463,6 +463,7 @@ export const createWorkflowWithResponse = (): SerializedWorkflow => ({
  */
 export interface MockContextOptions {
   workflowId?: string
+  workspaceId?: string
   loopIterations?: Map<string, number>
   loopItems?: Map<string, any>
   executedBlocks?: Set<string>
@@ -480,6 +481,7 @@ export const createMockContext = (options: MockContextOptions = {}) => {
 
   return {
     workflowId: options.workflowId || 'test-workflow-id',
+    workspaceId: options.workspaceId || 'test-workspace-id',
     blockStates: options.blockStates || new Map(),
     blockLogs: [],
     metadata: { startTime: new Date().toISOString(), duration: 0 },

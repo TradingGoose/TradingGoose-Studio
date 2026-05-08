@@ -5,8 +5,8 @@ import {
   ClientToolCallState,
   WORKFLOW_EXECUTION_TIMEOUT_MS,
 } from '@/lib/copilot/tools/client/base-tool'
-import { createLogger } from '@/lib/logs/console/logger'
 import { executeWorkflowWithFullLogging } from '@/lib/copilot/tools/client/workflow/workflow-execution-utils'
+import { createLogger } from '@/lib/logs/console/logger'
 import { useExecutionStore } from '@/stores/execution/store'
 
 interface RunWorkflowArgs {
@@ -48,7 +48,6 @@ export class RunWorkflowClientTool extends BaseClientTool {
     const logger = createLogger('RunWorkflowClientTool')
     await this.executeWithTimeout(async () => {
       const params = (args ?? {}) as Partial<RunWorkflowArgs>
-      const executionContext = this.requireExecutionContext()
       logger.debug('handleAccept() called', {
         toolCallId: this.toolCallId,
         state: this.getState(),
@@ -113,6 +112,7 @@ export class RunWorkflowClientTool extends BaseClientTool {
         const result = await executeWorkflowWithFullLogging({
           workflowInput,
           executionId: this.toolCallId,
+          triggerType: 'chat',
           workflowId: activeWorkflowId,
         })
 

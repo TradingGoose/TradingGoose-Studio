@@ -26,8 +26,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'User not authenticated' }, { status: 401 })
     }
 
-    // Get the provider, providerId, and accountId from the request body
-    const { provider, providerId, accountId } = await request.json()
+    const { provider, providerId } = await request.json()
 
     if (!provider) {
       logger.warn(`[${requestId}] Missing provider in disconnect request`)
@@ -39,13 +38,7 @@ export async function POST(request: NextRequest) {
       hasProviderId: !!providerId,
     })
 
-    // If a specific account row ID is provided, delete that exact account
-    if (accountId) {
-      await db
-        .delete(account)
-        .where(and(eq(account.userId, session.user.id), eq(account.id, accountId)))
-    } else if (providerId) {
-      // If a specific providerId is provided, delete accounts for that provider ID
+    if (providerId) {
       await db
         .delete(account)
         .where(and(eq(account.userId, session.user.id), eq(account.providerId, providerId)))

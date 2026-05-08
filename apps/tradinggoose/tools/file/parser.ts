@@ -100,13 +100,18 @@ export const fileParserTool: ToolConfig<FileParserInput, FileParserOutput> = {
         throw new Error('Missing required parameter: filePath')
       }
 
+      const context =
+        params._context && typeof params._context === 'object'
+          ? (params._context as NonNullable<ToolBodyParams['_context']>)
+          : {}
+
       logger.info('Tool body determined filePath:', determinedFilePath)
       return {
         filePath: determinedFilePath,
         fileType: determinedFileType,
-        workspaceId: params.workspaceId || params._context?.workspaceId,
-        workflowId: params._context?.workflowId,
-        executionId: params._context?.executionId,
+        workspaceId: context.workspaceId,
+        workflowId: context.workflowId,
+        executionId: context.executionId,
       }
     },
   },

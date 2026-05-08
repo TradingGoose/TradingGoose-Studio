@@ -1,191 +1,32 @@
 import { AsyncLocalStorage } from 'node:async_hooks'
 import { Context } from 'pinets'
-import type {
-  IndicatorTriggerSignal,
-  PineWarning,
-  SeriesMarkerPosition,
-} from '@/lib/indicators/types'
+import {
+  captureIndicatorTriggerCall,
+  createIndicatorTriggerSentinel,
+  type IndicatorTriggerCapture,
+  isIndicatorTriggerCallId,
+  TG_INDICATOR_TRIGGER_SENTINEL,
+  type TriggerCollectorState,
+} from '@/lib/indicators/trigger-capture'
+import type { PineWarning } from '@/lib/indicators/types'
 
-export const TG_INDICATOR_TRIGGER_SENTINEL = '__tg_indicator_trigger__'
+export {
+  createIndicatorTriggerSentinel,
+  INDICATOR_TRIGGER_EVENT_PATTERN,
+  INDICATOR_TRIGGER_VALID_POSITIONS,
+  INDICATOR_TRIGGER_VALID_SIGNALS,
+  type IndicatorTriggerCapture,
+  TG_INDICATOR_TRIGGER_SENTINEL,
+} from '@/lib/indicators/trigger-capture'
 
-export const INDICATOR_TRIGGER_EVENT_PATTERN = /^[a-z][a-z0-9_]{0,63}$/
-export const INDICATOR_TRIGGER_VALID_SIGNALS = ['long', 'short', 'flat'] as const
-export const INDICATOR_TRIGGER_VALID_POSITIONS = ['aboveBar', 'belowBar', 'inBar'] as const
-
-const VALID_SIGNALS = new Set<IndicatorTriggerSignal>(INDICATOR_TRIGGER_VALID_SIGNALS)
-const VALID_POSITIONS = new Set<SeriesMarkerPosition>(INDICATOR_TRIGGER_VALID_POSITIONS)
 const CONTEXT_CALL_PATCH_FLAG = '__tg_indicator_trigger_call_patched__'
-const TRIGGER_CALL_ID_PATTERN = /(^|[.$])trigger$/i
-
-type TriggerCollectorState = {
-  events: IndicatorTriggerCapture[]
-  warnings: PineWarning[]
-}
-
-export type IndicatorTriggerCapture = {
-  event: string
-  input: string
-  signal: IndicatorTriggerSignal
-  position: SeriesMarkerPosition
-  color?: string
-  time: number
-  barIndex: number
-}
-
 const collectorStorage = new AsyncLocalStorage<TriggerCollectorState>()
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
-
-const pushWarning = (state: TriggerCollectorState, code: string, message: string) => {
-  state.warnings.push({ code, message })
-}
-
-const resolveCurrentValue = (context: any, value: unknown): unknown => {
-  try {
-    if (context && typeof context.get === 'function') {
-      return context.get(value, 0)
-    }
-  } catch {
-    return undefined
-  }
-  return value
-}
-
-const resolveTimeSeconds = (context: any): number | null => {
-  const primary = resolveCurrentValue(context, context?.data?.openTime)
-  if (typeof primary === 'number' && Number.isFinite(primary)) {
-    return Math.floor(primary / 1000)
-  }
-
-  const fallback = resolveCurrentValue(context, context?.data?.time)
-  if (typeof fallback === 'number' && Number.isFinite(fallback)) {
-    return Math.floor(fallback / 1000)
-  }
-
-  return null
-}
-
-const resolvePosition = (rawValue: unknown): SeriesMarkerPosition => {
-  if (typeof rawValue !== 'string') return 'aboveBar'
-  const normalized = rawValue.trim() as SeriesMarkerPosition
-  if (!VALID_POSITIONS.has(normalized)) return 'aboveBar'
-  return normalized
-}
-
-const resolveColor = (rawValue: unknown): string | undefined => {
-  if (typeof rawValue !== 'string') return undefined
-  const trimmed = rawValue.trim()
-  return trimmed.length > 0 ? trimmed : undefined
-}
 
 const captureTriggerCall = (context: any, args: unknown[]) => {
   const state = collectorStorage.getStore()
   if (!state) return
-
-  const [eventArg, optionsArg] = args
-
-  const resolvedEvent = resolveCurrentValue(context, eventArg)
-  const event = typeof resolvedEvent === 'string' ? resolvedEvent.trim() : ''
-  if (!event || !INDICATOR_TRIGGER_EVENT_PATTERN.test(event)) {
-    pushWarning(
-      state,
-      'indicator_trigger_invalid_event',
-      'trigger(event, options) requires event to match /^[a-z][a-z0-9_]{0,63}$/'
-    )
-    return
-  }
-
-  const resolvedOptions = resolveCurrentValue(context, optionsArg)
-  if (!isRecord(resolvedOptions)) {
-    pushWarning(
-      state,
-      'indicator_trigger_invalid_options',
-      'trigger(event, options) requires an options object.'
-    )
-    return
-  }
-
-  let conditionValue: unknown
-  try {
-    conditionValue = resolveCurrentValue(context, resolvedOptions.condition)
-  } catch {
-    pushWarning(
-      state,
-      'indicator_trigger_condition_unresolved',
-      'trigger options.condition could not be resolved for current bar.'
-    )
-    return
-  }
-  if (!conditionValue) {
-    return
-  }
-
-  const resolvedInput = resolveCurrentValue(context, resolvedOptions.input)
-  const input = typeof resolvedInput === 'string' ? resolvedInput.trim() : ''
-  if (!input) {
-    pushWarning(
-      state,
-      'indicator_trigger_invalid_input',
-      'trigger options.input is required and must be a non-empty string.'
-    )
-    return
-  }
-
-  const resolvedSignal = resolveCurrentValue(context, resolvedOptions.signal)
-  const signal =
-    typeof resolvedSignal === 'string' ? (resolvedSignal.trim() as IndicatorTriggerSignal) : null
-  if (!signal || !VALID_SIGNALS.has(signal)) {
-    pushWarning(
-      state,
-      'indicator_trigger_invalid_signal',
-      'trigger options.signal must be one of long | short | flat.'
-    )
-    return
-  }
-
-  const resolvedTimeSeconds = resolveTimeSeconds(context)
-  if (resolvedTimeSeconds === null) {
-    pushWarning(
-      state,
-      'indicator_trigger_invalid_time',
-      'trigger call dropped because current bar open time is unavailable.'
-    )
-    return
-  }
-
-  const barIndex = Number.isFinite(context?.idx) ? Number(context.idx) : 0
-  const position = resolvePosition(resolveCurrentValue(context, resolvedOptions.position))
-  const color = resolveColor(resolveCurrentValue(context, resolvedOptions.color))
-
-  state.events.push({
-    event,
-    input,
-    signal,
-    position,
-    color,
-    time: resolvedTimeSeconds,
-    barIndex,
-  })
+  captureIndicatorTriggerCall(state, context, args)
 }
-
-export const createIndicatorTriggerSentinel = () => {
-  const sentinel = function indicatorTriggerSentinelNoop() {
-    return undefined
-  } as ((...args: unknown[]) => void) & Record<string, unknown>
-
-  Object.defineProperty(sentinel, TG_INDICATOR_TRIGGER_SENTINEL, {
-    value: true,
-    writable: false,
-    enumerable: false,
-    configurable: false,
-  })
-
-  return sentinel
-}
-
-const isTriggerCallId = (id: unknown) =>
-  typeof id === 'string' && TRIGGER_CALL_ID_PATTERN.test(id.trim())
 
 export const installIndicatorTriggerSentinel = (target: Record<string, unknown>) => {
   const existing = target.trigger
@@ -208,9 +49,7 @@ export const installIndicatorTriggerSentinel = (target: Record<string, unknown>)
 
 const patchContextCallForTriggerCapture = () => {
   const contextPrototype = Context.prototype as unknown as Record<string, unknown>
-  if (contextPrototype[CONTEXT_CALL_PATCH_FLAG]) {
-    return
-  }
+  if (contextPrototype[CONTEXT_CALL_PATCH_FLAG]) return
 
   const originalCall = contextPrototype.call as
     | ((this: any, fn: (...args: unknown[]) => unknown, id: string, ...args: unknown[]) => unknown)
@@ -230,7 +69,7 @@ const patchContextCallForTriggerCapture = () => {
       typeof fn === 'function' &&
       ((fn as unknown as Record<string, unknown>)[TG_INDICATOR_TRIGGER_SENTINEL] === true ||
         fn === globalTrigger)
-    const triggerById = isTriggerCallId(id)
+    const triggerById = isIndicatorTriggerCallId(id)
 
     if (markedAsTrigger || triggerById) {
       captureTriggerCall(this, args)

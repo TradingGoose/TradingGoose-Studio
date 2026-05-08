@@ -1,19 +1,14 @@
-import { MARKET_API_URL_DEFAULT, MARKET_API_VERSION } from '@/lib/market/client/constants'
-import { resolveMarketApiServiceConfig } from '@/lib/system-services/runtime'
+import { MARKET_API_VERSION } from '@/lib/market/client/constants'
+import { requestTradingGooseMarket } from '@/lib/market/request-gate'
 
 type RemoteServiceKey = {
   id: string
   apiKey: string
 }
 
-async function createRequestInit(body?: Record<string, unknown>): Promise<RequestInit> {
-  const marketApi = await resolveMarketApiServiceConfig()
+function createRequestInit(body?: Record<string, unknown>): RequestInit {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-  }
-
-  if (marketApi.apiKey) {
-    headers['x-api-key'] = marketApi.apiKey
   }
 
   return {
@@ -23,13 +18,8 @@ async function createRequestInit(body?: Record<string, unknown>): Promise<Reques
   }
 }
 
-async function getMarketApiUrl(endpoint: string) {
-  const marketApi = await resolveMarketApiServiceConfig()
-  return new URL(endpoint, marketApi.baseUrl || MARKET_API_URL_DEFAULT).toString()
-}
-
 export async function proxyMarketApiKeysRequest(endpoint: string, body?: Record<string, unknown>) {
-  return fetch(await getMarketApiUrl(endpoint), await createRequestInit(body))
+  return requestTradingGooseMarket(endpoint, createRequestInit(body))
 }
 
 export function maskServiceKeys(apiKeys: RemoteServiceKey[]) {

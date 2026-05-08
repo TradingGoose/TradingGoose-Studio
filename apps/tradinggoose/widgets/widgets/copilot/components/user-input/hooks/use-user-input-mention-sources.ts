@@ -213,7 +213,7 @@ export function useUserInputMentionSources({ workspaceId }: UseUserInputMentionS
           executionId: item.executionId || item.id,
           level: item.level,
           trigger: item.trigger || null,
-          createdAt: item.createdAt,
+          startedAt: item.startedAt,
           workflowName:
             (item.workflow && (item.workflow.name || item.workflow.title)) ||
             item.workflowName ||

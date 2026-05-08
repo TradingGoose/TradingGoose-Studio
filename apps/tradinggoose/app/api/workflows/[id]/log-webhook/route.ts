@@ -7,6 +7,7 @@ import { z } from 'zod'
 import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
 import { encryptSecret } from '@/lib/utils-server'
+import { cancelActiveWebhookDeliveries } from './delivery-cancellation'
 
 const logger = createLogger('WorkflowLogWebhookAPI')
 
@@ -224,6 +225,8 @@ export async function DELETE(
     if (hasAccess.length === 0) {
       return NextResponse.json({ error: 'Workflow not found' }, { status: 404 })
     }
+
+    await cancelActiveWebhookDeliveries(workflowId, webhookId)
 
     const deleted = await db
       .delete(workflowLogWebhook)
