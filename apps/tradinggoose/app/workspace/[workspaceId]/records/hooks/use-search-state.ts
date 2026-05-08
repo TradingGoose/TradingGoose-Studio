@@ -1,5 +1,5 @@
 import type React from 'react'
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { parseQuery, serializeQuery } from '@/lib/logs/query-parser'
 import type { QueryPolicy, QuerySegment } from '@/lib/logs/query-types'
 import type {
@@ -56,13 +56,26 @@ export function useSearchState({
 
   const inputRef = useRef<HTMLInputElement>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
-  const debounceRef = useRef<NodeJS.Timeout | null>(null)
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const blurRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const clauses = useMemo(() => getClausesFromSegments(segments), [segments])
   const textSearch = useMemo(() => getTextSearchFromSegments(segments), [segments])
   const committedQuery = useMemo(
     () => serializeQuery({ clauses, textSearch, segments }, queryPolicy),
     [clauses, queryPolicy, segments, textSearch]
+  )
+
+  useEffect(
+    () => () => {
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current)
+      }
+      if (blurRef.current) {
+        clearTimeout(blurRef.current)
+      }
+    },
+    []
   )
 
   const updateSuggestions = useCallback(
@@ -116,6 +129,7 @@ export function useSearchState({
       }
 
       debounceRef.current = setTimeout(() => {
+        debounceRef.current = null
         updateSuggestions(value)
       }, debounceMs)
     },
@@ -267,7 +281,12 @@ export function useSearchState({
   }, [currentInput, updateSuggestions])
 
   const handleBlur = useCallback(() => {
-    setTimeout(() => {
+    if (blurRef.current) {
+      clearTimeout(blurRef.current)
+    }
+
+    blurRef.current = setTimeout(() => {
+      blurRef.current = null
       commitCurrentInput()
       setIsOpen(false)
       setHighlightedIndex(-1)
