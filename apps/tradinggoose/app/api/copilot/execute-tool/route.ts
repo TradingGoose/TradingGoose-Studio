@@ -135,12 +135,7 @@ export async function POST(req: NextRequest) {
     }
 
     const toolConfig = toolName.startsWith('custom_')
-      ? await getToolAsync(toolName, workflowId, workspaceId, userId, {
-          workflowId,
-          workspaceId,
-          userId,
-          submissionSource: 'copilot',
-        })
+      ? await getToolAsync(toolName, workflowId, workspaceId, userId)
       : getTool(toolName)
     const isMcpTool = toolName.startsWith('mcp-')
 

@@ -158,6 +158,7 @@ describe('tradingActionTool sizing normalization', () => {
       {
         ...baseParams,
         _context: {
+          submissionSource: 'manual',
           userId: 'user-1',
           workspaceId: 'workspace-1',
         },
@@ -168,7 +169,7 @@ describe('tradingActionTool sizing normalization', () => {
     expect(processed).toBe(result)
   })
 
-  it('uses explicit submission source instead of inferring workflow from logId', async () => {
+  it('maps explicit workflow log context to order log id', async () => {
     global.fetch = vi.fn().mockResolvedValue({ ok: true }) as typeof fetch
 
     const result = {
@@ -188,37 +189,20 @@ describe('tradingActionTool sizing normalization', () => {
       {
         ...baseParams,
         _context: {
-          logId: 'log-1',
           submissionSource: 'workflow',
           userId: 'user-1',
-          workspaceId: 'workspace-1',
-        },
-      } as any,
-      vi.fn()
-    )
-    await tradingActionTool.postProcess?.(
-      result,
-      {
-        ...baseParams,
-        _context: {
-          logId: 'log-2',
-          userId: 'user-1',
+          workflowLogId: 'log-1',
           workspaceId: 'workspace-1',
         },
       } as any,
       vi.fn()
     )
 
-    const firstBody = JSON.parse(String(vi.mocked(global.fetch).mock.calls[0]![1]?.body))
-    const secondBody = JSON.parse(String(vi.mocked(global.fetch).mock.calls[1]![1]?.body))
+    const body = JSON.parse(String(vi.mocked(global.fetch).mock.calls[0]![1]?.body))
 
-    expect(firstBody).toMatchObject({
+    expect(body).toMatchObject({
       submissionSource: 'workflow',
       logId: 'log-1',
-    })
-    expect(secondBody).toMatchObject({
-      logId: 'log-2',
-      submissionSource: 'manual',
     })
   })
 })

@@ -7,14 +7,6 @@ import type { TableRow, ToolConfig, ToolResponse } from '@/tools/types'
 
 const logger = createLogger('ToolsUtils')
 
-type CustomToolExecutionScope = {
-  workflowId?: string
-  workspaceId?: string
-  userId?: string
-  workflowLogId?: string
-  submissionSource?: string
-}
-
 /**
  * Transforms a table from the store format to a key-value object
  * @param table Array of table rows from the store
@@ -263,19 +255,14 @@ export function createCustomToolRequestBody(
   customTool: any,
   isClient = true,
   workflowId?: string,
-  getStore?: () => any,
-  authoritativeScope?: CustomToolExecutionScope
+  getStore?: () => any
 ) {
   return (params: Record<string, any>) => {
-    const rawContext =
+    const context =
       params._context && typeof params._context === 'object'
         ? (params._context as Record<string, unknown>)
         : {}
-    const context = authoritativeScope ?? rawContext
-    // Get environment variables - try multiple sources in order of preference:
-    // 1. envVars parameter (passed from provider/agent context)
-    // 2. Client-side store (if running in browser)
-    // 3. Empty object (fallback)
+    // Get environment variables from explicit execution params or the client-side store.
     const envVars = params.envVars || (isClient ? getClientEnvVars(getStore) : {})
 
     // Get workflow variables from params (passed from execution context)
@@ -345,8 +332,7 @@ export async function getToolAsync(
   toolId: string,
   workflowId?: string,
   workspaceId?: string,
-  userId?: string,
-  authoritativeScope?: CustomToolExecutionScope
+  userId?: string
 ): Promise<ToolConfig | undefined> {
   // Check for built-in tools
   const builtInTool = tools[toolId]
@@ -354,7 +340,7 @@ export async function getToolAsync(
 
   // Check if it's a custom tool
   if (toolId.startsWith('custom_')) {
-    return getCustomTool(toolId, workflowId, workspaceId, userId, authoritativeScope)
+    return getCustomTool(toolId, workflowId, workspaceId, userId)
   }
 
   return undefined
@@ -403,8 +389,7 @@ async function getCustomTool(
   customToolId: string,
   workflowId?: string,
   workspaceId?: string,
-  userId?: string,
-  authoritativeScope?: CustomToolExecutionScope
+  userId?: string
 ): Promise<ToolConfig | undefined> {
   const identifier = customToolId.replace('custom_', '')
 
@@ -471,13 +456,7 @@ async function getCustomTool(
         url: '/api/function/execute',
         method: 'POST',
         headers: () => ({ 'Content-Type': 'application/json' }),
-        body: createCustomToolRequestBody(
-          customTool,
-          false,
-          workflowId,
-          undefined,
-          authoritativeScope ?? { workflowId, workspaceId, userId }
-        ),
+        body: createCustomToolRequestBody(customTool, false, workflowId),
       },
 
       // Same response handling as client-side

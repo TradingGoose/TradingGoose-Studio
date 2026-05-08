@@ -737,7 +737,7 @@ describe('createCustomToolRequestBody', () => {
       },
     }
 
-    const bodyFn = createCustomToolRequestBody(customTool, false, 'workflow-fallback')
+    const bodyFn = createCustomToolRequestBody(customTool, false, 'workflow-default')
     const result = bodyFn({
       _context: {
         submissionSource: 'copilot',
@@ -755,44 +755,6 @@ describe('createCustomToolRequestBody', () => {
         workflowId: 'workflow-1',
         workflowLogId: 'log-1',
         workspaceId: 'workspace-1',
-      })
-    )
-  })
-
-  it.concurrent('uses authoritative custom tool scope over stale request context', () => {
-    const customTool = {
-      code: 'return params',
-      schema: {
-        function: {
-          parameters: { type: 'object', properties: {} },
-        },
-      },
-    }
-
-    const bodyFn = createCustomToolRequestBody(customTool, false, 'workflow-fallback', undefined, {
-      submissionSource: 'workflow',
-      userId: 'authoritative-user',
-      workflowId: 'authoritative-workflow',
-      workflowLogId: 'authoritative-log',
-      workspaceId: 'authoritative-workspace',
-    })
-    const result = bodyFn({
-      _context: {
-        submissionSource: 'manual',
-        userId: 'stale-user',
-        workflowId: 'stale-workflow',
-        workflowLogId: 'stale-log',
-        workspaceId: 'stale-workspace',
-      },
-    })
-
-    expect(result).toEqual(
-      expect.objectContaining({
-        submissionSource: 'workflow',
-        userId: 'authoritative-user',
-        workflowId: 'authoritative-workflow',
-        workflowLogId: 'authoritative-log',
-        workspaceId: 'authoritative-workspace',
       })
     )
   })

@@ -320,7 +320,6 @@ describe('executeTool Function', () => {
       expect.any(Object),
       expect.objectContaining({
         _context: expect.objectContaining({
-          logId: 'log-1',
           submissionSource: 'workflow',
           userId: 'user-123',
           workflowId: 'test-workflow',

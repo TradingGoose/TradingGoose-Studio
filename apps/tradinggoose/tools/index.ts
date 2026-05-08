@@ -256,7 +256,7 @@ export async function executeTool(
 
     // If it's a custom tool, use the async version with workflowId
     if (toolId.startsWith('custom_')) {
-      tool = await getToolAsync(toolId, scope.workflowId, scope.workspaceId, scope.userId, scope)
+      tool = await getToolAsync(toolId, scope.workflowId, scope.workspaceId, scope.userId)
       if (!tool) {
         logger.error(`[${requestId}] Custom tool not found: ${toolId}`)
       }
@@ -283,22 +283,19 @@ export async function executeTool(
       const existingContext = (contextParams as any)._context || {}
       const mergedContext = {
         ...existingContext,
-        workflowId: scope.workflowId ?? existingContext.workflowId,
-        workspaceId: scope.workspaceId ?? existingContext.workspaceId,
-        userId: scope.userId ?? existingContext.userId,
-        executionId: scope.executionId ?? existingContext.executionId,
-        workflowLogId: scope.workflowLogId ?? existingContext.workflowLogId,
-        logId: scope.workflowLogId ?? existingContext.logId,
-        submissionSource: scope.submissionSource ?? existingContext.submissionSource,
-        concurrencyLeaseInherited:
-          scope.concurrencyLeaseInherited ?? existingContext.concurrencyLeaseInherited,
+        workflowId: scope.workflowId,
+        workspaceId: scope.workspaceId,
+        userId: scope.userId,
+        executionId: scope.executionId,
+        workflowLogId: scope.workflowLogId,
+        submissionSource: scope.submissionSource,
+        concurrencyLeaseInherited: scope.concurrencyLeaseInherited,
       }
       if (
         mergedContext.workflowId ||
         mergedContext.workspaceId ||
         mergedContext.executionId ||
         mergedContext.workflowLogId ||
-        mergedContext.logId ||
         mergedContext.submissionSource ||
         mergedContext.concurrencyLeaseInherited
       ) {
@@ -311,6 +308,9 @@ export async function executeTool(
       !scope.workspaceId
     ) {
       throw new Error(`${toolId} requires workspace execution context`)
+    }
+    if (toolId === 'trading_place_order' && !scope.submissionSource) {
+      throw new Error('trading_place_order requires explicit submission source')
     }
 
     // Validate the tool and its parameters

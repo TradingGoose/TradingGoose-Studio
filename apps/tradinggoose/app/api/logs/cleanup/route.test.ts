@@ -13,7 +13,7 @@ const {
   mockSnapshotCleanup,
 } = vi.hoisted(() => {
   const mockOrderHistoryTable = {
-    workflowLogId: 'orderHistoryTable.workflowLogId',
+    logId: 'orderHistoryTable.logId',
   }
   const mockOldLogsLimit = vi.fn()
   const mockOldLogsWhere = vi.fn(() => ({
@@ -177,7 +177,7 @@ describe('logs cleanup route', () => {
           condition.type === 'sql' &&
           condition.strings?.join('').includes('NOT EXISTS') &&
           condition.values?.includes(mockOrderHistoryTable) &&
-          condition.values?.includes('orderHistoryTable.workflowLogId') &&
+          condition.values?.includes('orderHistoryTable.logId') &&
           condition.values?.includes('workflowExecutionLogs.id')
       )
     ).toBe(true)
