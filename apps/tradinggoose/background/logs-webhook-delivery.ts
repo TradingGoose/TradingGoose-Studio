@@ -234,6 +234,12 @@ export const logsWebhookDelivery = task({
           totalDurationMs: log.totalDurationMs,
           cost: log.cost,
           files: (log as any).files,
+          ...(webhookExecutionData.finalOutput !== undefined
+            ? { finalOutput: webhookExecutionData.finalOutput }
+            : {}),
+          ...(subscriptionSnapshot.includeTraceSpans && webhookExecutionData.traceSpans
+            ? { traceSpans: webhookExecutionData.traceSpans }
+            : {}),
         },
         links: {
           log: `/v1/logs/${log.id}`,
@@ -241,24 +247,12 @@ export const logsWebhookDelivery = task({
         },
       }
 
-      if (subscriptionSnapshot.includeFinalOutput && log.executionData) {
-        payload.data.finalOutput = (log.executionData as any).finalOutput
-      }
-
-      if (subscriptionSnapshot.includeTraceSpans && log.executionData) {
-        payload.data.traceSpans = (log.executionData as any).traceSpans
-      }
-
       // Fetch rate limits and usage data if requested
-      if (
-        (subscriptionSnapshot.includeRateLimits || subscriptionSnapshot.includeUsageData) &&
-        log.executionData
-      ) {
-        const executionData = log.executionData as any
-
+      if (subscriptionSnapshot.includeRateLimits || subscriptionSnapshot.includeUsageData) {
         const needsRateLimits =
-          subscriptionSnapshot.includeRateLimits && executionData.includeRateLimits
-        const needsUsage = subscriptionSnapshot.includeUsageData && executionData.includeUsageData
+          subscriptionSnapshot.includeRateLimits && webhookExecutionData.includeRateLimits
+        const needsUsage =
+          subscriptionSnapshot.includeUsageData && webhookExecutionData.includeUsageData
         if ((needsRateLimits || needsUsage) && workflowSummary.userId) {
           const { getUserLimits } = await import('@/app/api/v1/logs/meta')
           try {
