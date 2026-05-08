@@ -1,7 +1,11 @@
 import { type NextRequest, NextResponse } from 'next/server'
+import { checkSessionOrInternalAuth } from '@/lib/auth/hybrid'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
-import { handleAIProviderRequest, type ProviderRouteBody as AIProviderRouteBody } from '@/app/api/providers/ai/handler'
+import {
+  type ProviderRouteBody as AIProviderRouteBody,
+  handleAIProviderRequest,
+} from '@/app/api/providers/ai/handler'
 import {
   handleMarketProviderRequest,
   type MarketProviderRouteBody,
@@ -47,11 +51,19 @@ export async function POST(request: NextRequest) {
     })
 
     if (namespace === 'ai') {
+      const aiBody = body as AIProviderRouteBody
+      const auth = aiBody.tools?.length
+        ? await checkSessionOrInternalAuth(request, { requireWorkflowId: false })
+        : null
+      if (auth && (!auth.success || !auth.userId)) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      }
       return handleAIProviderRequest({
-        body: body as AIProviderRouteBody,
+        body: aiBody,
         providerId,
         requestId,
         startTime,
+        authUserId: auth?.userId,
       })
     }
 

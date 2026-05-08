@@ -589,6 +589,8 @@ export class AgentBlockHandler implements BlockHandler {
       responseFormat,
       workflowId: context.workflowId,
       workspaceId: context.workspaceId,
+      workflowLogId: context.workflowLogId,
+      submissionSource: context.submissionSource,
       stream: streaming,
       messages,
       environmentVariables: context.environmentVariables || {},
@@ -693,9 +695,14 @@ export class AgentBlockHandler implements BlockHandler {
     logger.info('Using HTTP provider request')
 
     const url = new URL('/api/providers', getBaseUrl())
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+    if (typeof window === 'undefined') {
+      const { generateInternalToken } = await import('@/lib/auth/internal')
+      headers.Authorization = `Bearer ${await generateInternalToken(context.userId)}`
+    }
     const response = await fetch(url.toString(), {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify(providerRequest),
       signal: AbortSignal.timeout(REQUEST_TIMEOUT),
     })

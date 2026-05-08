@@ -1,4 +1,4 @@
-import type { StreamingExecution } from '@/executor/types'
+import type { ExecutionSubmissionSource, StreamingExecution } from '@/executor/types'
 
 export type ProviderId =
   | 'openai'
@@ -157,6 +157,8 @@ export interface ProviderRequest {
   local_execution?: boolean
   workflowId?: string // Optional workflow ID for authentication context
   workspaceId?: string // Optional workspace ID for MCP tool scoping
+  workflowLogId?: string
+  submissionSource?: ExecutionSubmissionSource
   chatId?: string // Optional chat ID for checkpoint context
   userId?: string // Optional user ID for tool execution context
   stream?: boolean
