@@ -250,11 +250,6 @@ export class AgentBlockHandler implements BlockHandler {
             blockData,
             blockNameMapping,
             isCustomTool: true,
-            _context: {
-              workflowId: context.workflowId,
-              workspaceId: context.workspaceId,
-              userId: context.userId,
-            },
           },
           false, // skipPostProcess
           context // execution context for file processing

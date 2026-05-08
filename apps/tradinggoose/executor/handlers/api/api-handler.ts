@@ -95,13 +95,7 @@ export class ApiBlockHandler implements BlockHandler {
 
       const result = await executeTool(
         block.config.tool,
-        {
-          ...processedInputs,
-          _context: {
-            workflowId: context.workflowId,
-            workspaceId: context.workspaceId,
-          },
-        },
+        processedInputs,
         false, // skipPostProcess
         context // execution context for file processing
       )

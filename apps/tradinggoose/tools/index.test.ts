@@ -277,6 +277,61 @@ describe('executeTool Function', () => {
     expect(vi.mocked(generateInternalToken)).toHaveBeenCalledWith('user-123')
   })
 
+  it('hydrates execution provenance into built-in tool post-processing', async () => {
+    const originalTool = (tools as any).test_context_tool
+    const postProcess = vi.fn((result) => result)
+    ;(tools as any).test_context_tool = {
+      id: 'test_context_tool',
+      name: 'Test Context Tool',
+      description: 'Captures execution context',
+      version: '1.0.0',
+      params: {},
+      request: {
+        url: 'https://api.example.com/context',
+        method: 'GET',
+      },
+      transformResponse: vi.fn().mockResolvedValue({
+        success: true,
+        output: { result: 'ok' },
+      }),
+      postProcess,
+    }
+
+    try {
+      await executeTool(
+        'test_context_tool',
+        {},
+        false,
+        createMockExecutionContext({
+          submissionSource: 'workflow',
+          userId: 'user-123',
+          workflowLogId: 'log-1',
+        })
+      )
+    } finally {
+      if (originalTool) {
+        ;(tools as any).test_context_tool = originalTool
+      } else {
+        ;(tools as any).test_context_tool = undefined
+      }
+    }
+
+    expect(postProcess).toHaveBeenCalledWith(
+      expect.any(Object),
+      expect.objectContaining({
+        _context: expect.objectContaining({
+          logId: 'log-1',
+          submissionSource: 'workflow',
+          userId: 'user-123',
+          workflowId: 'test-workflow',
+          workflowLogId: 'log-1',
+          workspaceId: 'workspace-456',
+        }),
+      }),
+      expect.any(Function)
+    )
+  })
+
   it('fails internal route execution when internal auth cannot be generated', async () => {
     const mockContext = createMockExecutionContext({ userId: 'user-123' })
     const originalWindow = global.window

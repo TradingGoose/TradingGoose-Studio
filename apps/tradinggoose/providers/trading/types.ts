@@ -83,7 +83,7 @@ export interface TradingOrderHistoryRecord {
   workspaceId: string
   provider: string
   environment?: string | null
-  submissionSource: 'manual' | 'copilot' | 'workflow' | string
+  submissionSource: 'manual' | 'copilot' | 'workflow'
   logId?: string | null
   request?: Record<string, any> | null
   response?: Record<string, any> | null

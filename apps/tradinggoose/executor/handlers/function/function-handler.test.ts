@@ -82,7 +82,6 @@ describe('FunctionBlockHandler', () => {
       workflowVariables: {},
       blockData: {},
       blockNameMapping: {},
-      _context: { workflowId: mockContext.workflowId, workspaceId: mockContext.workspaceId },
     }
     const expectedOutput: any = { result: 'Success' }
 
@@ -113,7 +112,6 @@ describe('FunctionBlockHandler', () => {
       workflowVariables: {},
       blockData: {},
       blockNameMapping: {},
-      _context: { workflowId: mockContext.workflowId, workspaceId: mockContext.workspaceId },
     }
     const expectedOutput: any = { result: 'Success' }
 
@@ -152,7 +150,6 @@ describe('FunctionBlockHandler', () => {
       workflowVariables: {},
       blockData: {},
       blockNameMapping: {},
-      _context: { workflowId: mockContext.workflowId, workspaceId: mockContext.workspaceId },
     }
 
     await handler.execute(mockBlock, inputs, mockContext)

@@ -388,7 +388,7 @@ export const tradingActionTool: ToolConfig<TradingActionParams, TradingActionRes
         throw new Error('Order history recording requires workspace context')
       }
       const logId = context?.logId
-      const submissionSource = context?.submissionSource ?? (logId ? 'workflow' : 'manual')
+      const submissionSource = context?.submissionSource ?? 'manual'
 
       const orderSubmit: OrderSubmit = {
         workspaceId,
@@ -410,15 +410,22 @@ export const tradingActionTool: ToolConfig<TradingActionParams, TradingActionRes
       }
 
       if (typeof window === 'undefined') {
+        if (!context?.userId) {
+          throw new Error('Order history recording requires user context')
+        }
         const { generateInternalToken } = await import('@/lib/auth/internal')
-        headers.Authorization = `Bearer ${await generateInternalToken(context?.userId)}`
+        headers.Authorization = `Bearer ${await generateInternalToken(context.userId)}`
       }
 
-      await fetch(recordUrl, {
+      const response = await fetch(recordUrl, {
         method: 'POST',
         headers,
         body: JSON.stringify(orderSubmit),
       })
+
+      if (!response.ok) {
+        throw new Error(`Order history recording failed with HTTP ${response.status}`)
+      }
     } catch (error: any) {
       logger.warn('Failed to record order history entry', {
         error: error instanceof Error ? error.message : String(error),

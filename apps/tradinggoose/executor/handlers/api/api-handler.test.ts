@@ -106,7 +106,6 @@ describe('ApiBlockHandler', () => {
       {
         ...inputs,
         body: { key: 'value' }, // Expect parsed body
-        _context: { workflowId: mockContext.workflowId, workspaceId: mockContext.workspaceId },
       },
       false, // skipPostProcess
       mockContext // execution context

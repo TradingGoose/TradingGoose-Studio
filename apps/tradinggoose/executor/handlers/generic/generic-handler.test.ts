@@ -85,10 +85,6 @@ describe('GenericBlockHandler', () => {
 
   it.concurrent('should execute generic block by calling its associated tool', async () => {
     const inputs = { param1: 'resolvedValue1' }
-    const expectedToolParams = {
-      ...inputs,
-      _context: { workflowId: mockContext.workflowId, workspaceId: mockContext.workspaceId },
-    }
     const expectedOutput: any = { customResult: 'OK' }
 
     const result = await handler.execute(mockBlock, inputs, mockContext)
@@ -96,7 +92,7 @@ describe('GenericBlockHandler', () => {
     expect(mockGetTool).toHaveBeenCalledWith('some_custom_tool')
     expect(mockExecuteTool).toHaveBeenCalledWith(
       'some_custom_tool',
-      expectedToolParams,
+      inputs,
       false, // skipPostProcess
       mockContext // execution context
     )
