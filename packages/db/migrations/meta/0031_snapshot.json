@@ -1,5 +1,5 @@
 {
-  "id": "40d9bf31-863b-4a0f-810e-2851cca178c9",
+  "id": "56d8e105-5216-48fd-bb94-f4aa53c78a30",
   "prevId": "98458d9c-072f-4012-877b-4ba3661848b1",
   "version": "7",
   "dialect": "postgresql",
@@ -11022,7 +11022,8 @@
         "pending",
         "in_progress",
         "success",
-        "failed"
+        "failed",
+        "cancelled"
       ]
     },
     "public.permission_type": {

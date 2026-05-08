@@ -1,3 +1,4 @@
+ALTER TYPE "public"."webhook_delivery_status" ADD VALUE 'cancelled';--> statement-breakpoint
 ALTER TABLE "orderHistoryTable" RENAME COLUMN "workflow_log_id" TO "log_id";--> statement-breakpoint
 ALTER TABLE "orderHistoryTable" DROP CONSTRAINT "orderHistoryTable_workflow_id_workflow_id_fk";
 --> statement-breakpoint
