@@ -158,10 +158,10 @@ export async function createStreamingResponse(
           const { buildTraceSpans } = await import('@/lib/logs/execution/trace-spans/trace-spans')
           const { traceSpans, totalDuration } = buildTraceSpans(result)
 
-          await result._streamingMetadata.loggingSession.safeComplete({
+          await result._streamingMetadata.loggingSession.complete({
             endedAt: new Date().toISOString(),
             totalDurationMs: totalDuration || 0,
-            finalOutput: result.output || {},
+            finalOutput: result.output === undefined ? {} : result.output,
             traceSpans: (traceSpans || []) as any,
             workflowInput: result._streamingMetadata.processedInput,
           })

@@ -329,6 +329,7 @@ export async function runPreparedWorkflowExecution(params: {
         )
       }
 
+      let workflowLogStarted = false
       try {
         const { personalEncrypted, workspaceEncrypted } = await getPersonalAndWorkspaceEnv(
           params.actorUserId,
@@ -350,12 +351,13 @@ export async function runPreparedWorkflowExecution(params: {
         )
         const workflowVariables = normalizeVariables(params.blueprint.workflowContext.variables)
 
-        const workflowLogId = await loggingSession.safeStart({
+        const workflowLogId = await loggingSession.start({
           userId: params.actorUserId,
           workspaceId,
           variables: encryptedEnvVars,
           triggerData: params.triggerData,
         })
+        workflowLogStarted = true
 
         const contextExtensions: ExecutionContextExtensions = {
           ...params.contextExtensions,
@@ -368,10 +370,7 @@ export async function runPreparedWorkflowExecution(params: {
           triggerType: params.triggerType,
           workflowDepth: params.contextExtensions?.workflowDepth ?? 0,
           submissionSource: 'workflow',
-        }
-
-        if (workflowLogId) {
-          contextExtensions.workflowLogId = workflowLogId
+          workflowLogId,
         }
 
         if (params.stream) {
@@ -393,8 +392,6 @@ export async function runPreparedWorkflowExecution(params: {
           workflowVariables,
           contextExtensions,
         })
-
-        loggingSession.setupExecutor(executor)
 
         const startBlockId = resolveStartBlockId({
           mergedStates,
@@ -419,10 +416,10 @@ export async function runPreparedWorkflowExecution(params: {
             processedInput: params.workflowInput,
           }
         } else {
-          await loggingSession.safeComplete({
+          await loggingSession.complete({
             endedAt: new Date().toISOString(),
             totalDurationMs: totalDuration || 0,
-            finalOutput: result.output || {},
+            finalOutput: result.output === undefined ? {} : result.output,
             traceSpans: traceSpans || [],
             workflowInput: params.workflowInput,
           })
@@ -442,15 +439,17 @@ export async function runPreparedWorkflowExecution(params: {
         }
         const { traceSpans } = buildTraceSpans(executionResultForError)
 
-        await loggingSession.safeCompleteWithError({
-          endedAt: new Date().toISOString(),
-          totalDurationMs: 0,
-          error: {
-            message: error.message || 'Workflow execution failed',
-            stackTrace: error.stack,
-          },
-          traceSpans,
-        })
+        if (workflowLogStarted) {
+          await loggingSession.completeWithError({
+            endedAt: new Date().toISOString(),
+            totalDurationMs: 0,
+            error: {
+              message: error.message || 'Workflow execution failed',
+              stackTrace: error.stack,
+            },
+            traceSpans,
+          })
+        }
 
         throw error
       }

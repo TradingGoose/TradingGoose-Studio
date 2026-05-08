@@ -5,43 +5,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const mocks = vi.hoisted(() => {
-  const where = vi.fn(() => Promise.resolve())
-  const set = vi.fn(() => ({ where }))
-  const update = vi.fn(() => ({ set }))
-
-  return {
-    and: vi.fn((...conditions: unknown[]) => ({ conditions, type: 'and' })),
-    buildTraceSpans: vi.fn(() => ({ totalDuration: 42, traceSpans: [] })),
-    eq: vi.fn((field: unknown, value: unknown) => ({ field, type: 'eq', value })),
-    getSession: vi.fn(),
-    isNull: vi.fn((field: unknown) => ({ field, type: 'isNull' })),
-    safeComplete: vi.fn(() => Promise.resolve()),
-    safeCompleteWithError: vi.fn(() => Promise.resolve()),
-    safeStart: vi.fn(),
-    set,
-    update,
-    validateWorkflowAccess: vi.fn(),
-    where,
-  }
-})
-
-vi.mock('@tradinggoose/db', () => ({
-  db: {
-    update: mocks.update,
-  },
-  orderHistoryTable: {
-    workflowExecutionId: 'orderHistoryTable.workflowExecutionId',
-    workflowId: 'orderHistoryTable.workflowId',
-    workflowLogId: 'orderHistoryTable.workflowLogId',
-    workspaceId: 'orderHistoryTable.workspaceId',
-  },
-}))
-
-vi.mock('drizzle-orm', () => ({
-  and: mocks.and,
-  eq: mocks.eq,
-  isNull: mocks.isNull,
+const mocks = vi.hoisted(() => ({
+  buildTraceSpans: vi.fn(() => ({ totalDuration: 42, traceSpans: [] })),
+  complete: vi.fn(() => Promise.resolve()),
+  completeWithError: vi.fn(() => Promise.resolve()),
+  getSession: vi.fn(),
+  start: vi.fn(),
+  validateWorkflowAccess: vi.fn(),
 }))
 
 vi.mock('@/app/api/workflows/middleware', () => ({
@@ -64,9 +34,9 @@ vi.mock('@/lib/logs/console/logger', () => ({
 
 vi.mock('@/lib/logs/execution/logging-session', () => ({
   LoggingSession: vi.fn(() => ({
-    safeComplete: mocks.safeComplete,
-    safeCompleteWithError: mocks.safeCompleteWithError,
-    safeStart: mocks.safeStart,
+    complete: mocks.complete,
+    completeWithError: mocks.completeWithError,
+    start: mocks.start,
   })),
 }))
 
@@ -89,7 +59,7 @@ describe('workflow log route', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mocks.getSession.mockResolvedValue({ user: { id: 'user-1' } })
-    mocks.safeStart.mockResolvedValue('workflow-log-1')
+    mocks.start.mockResolvedValue('workflow-log-1')
     mocks.validateWorkflowAccess.mockResolvedValue({
       workflow: {
         userId: 'owner-1',
@@ -98,17 +68,14 @@ describe('workflow log route', () => {
     })
   })
 
-  it('links existing order history rows by workflow execution id after creating a workflow log', async () => {
+  it('starts a workflow log before client-side execution', async () => {
     const { POST } = await import('./route')
 
     const response = await POST(
       postRequest({
         executionId: 'execution-1',
-        result: {
-          metadata: { duration: 100, source: 'manual' },
-          output: { ok: true },
-          success: true,
-        },
+        phase: 'start',
+        triggerType: 'manual',
       }),
       { params: Promise.resolve({ id: 'workflow-1' }) }
     )
@@ -117,30 +84,66 @@ describe('workflow log route', () => {
     expect(await response.json()).toMatchObject({
       workflowLogId: 'workflow-log-1',
     })
-    expect(mocks.safeStart).toHaveBeenCalledWith({
+    expect(mocks.start).toHaveBeenCalledWith({
       userId: 'user-1',
       workspaceId: 'workspace-1',
       variables: {},
     })
-    expect(mocks.update).toHaveBeenCalledWith(expect.anything())
-    expect(mocks.set).toHaveBeenCalledWith({ workflowLogId: 'workflow-log-1' })
-    expect(mocks.eq).toHaveBeenCalledWith('orderHistoryTable.workspaceId', 'workspace-1')
-    expect(mocks.eq).toHaveBeenCalledWith('orderHistoryTable.workflowId', 'workflow-1')
-    expect(mocks.eq).toHaveBeenCalledWith('orderHistoryTable.workflowExecutionId', 'execution-1')
-    expect(mocks.isNull).toHaveBeenCalledWith('orderHistoryTable.workflowLogId')
-    expect(mocks.where).toHaveBeenCalledWith(
-      expect.objectContaining({
-        conditions: expect.arrayContaining([
-          expect.objectContaining({ field: 'orderHistoryTable.workspaceId', value: 'workspace-1' }),
-          expect.objectContaining({ field: 'orderHistoryTable.workflowId', value: 'workflow-1' }),
-          expect.objectContaining({
-            field: 'orderHistoryTable.workflowExecutionId',
-            value: 'execution-1',
-          }),
-          expect.objectContaining({ field: 'orderHistoryTable.workflowLogId', type: 'isNull' }),
-        ]),
-      })
+    expect(mocks.complete).not.toHaveBeenCalled()
+    expect(mocks.completeWithError).not.toHaveBeenCalled()
+  })
+
+  it('completes the pre-created workflow log without starting another row', async () => {
+    const { POST } = await import('./route')
+
+    const response = await POST(
+      postRequest({
+        executionId: 'execution-1',
+        phase: 'complete',
+        result: {
+          metadata: { duration: 100 },
+          output: { ok: true },
+          success: true,
+        },
+        triggerType: 'chat',
+        workflowLogId: 'workflow-log-1',
+      }),
+      { params: Promise.resolve({ id: 'workflow-1' }) }
     )
-    expect(mocks.safeComplete).toHaveBeenCalled()
+
+    expect(response.status).toBe(200)
+    expect(await response.json()).toMatchObject({
+      workflowLogId: 'workflow-log-1',
+    })
+    expect(mocks.start).not.toHaveBeenCalled()
+    expect(mocks.complete).toHaveBeenCalledWith({
+      actorUserId: 'user-1',
+      endedAt: expect.any(String),
+      finalOutput: { ok: true },
+      totalDurationMs: 42,
+      traceSpans: [],
+      workspaceId: 'workspace-1',
+    })
+  })
+
+  it('rejects completion without the pre-created workflow log id', async () => {
+    const { POST } = await import('./route')
+
+    const response = await POST(
+      postRequest({
+        executionId: 'execution-1',
+        phase: 'complete',
+        result: { output: {}, success: true },
+        triggerType: 'manual',
+      }),
+      { params: Promise.resolve({ id: 'workflow-1' }) }
+    )
+
+    expect(response.status).toBe(400)
+    expect(await response.json()).toMatchObject({
+      error: 'Workflow log id is required',
+    })
+    expect(mocks.start).not.toHaveBeenCalled()
+    expect(mocks.complete).not.toHaveBeenCalled()
   })
 })

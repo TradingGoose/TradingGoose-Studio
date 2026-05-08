@@ -6,7 +6,11 @@
 import { v4 as uuidv4 } from 'uuid'
 import { getReadableWorkflowState } from '@/lib/copilot/tools/client/workflow/workflow-review-tool-utils'
 import { createLogger } from '@/lib/logs/console/logger'
-import { buildTraceSpans } from '@/lib/logs/execution/trace-spans/trace-spans'
+import {
+  completeWorkflowExecutionLog,
+  startWorkflowExecutionLog,
+  type WorkflowLogTriggerType,
+} from '@/lib/workflows/execution-log-client'
 import type { WorkflowSnapshot } from '@/lib/yjs/workflow-session'
 import { Executor, type ExecutorOptions } from '@/executor'
 import type { ExecutionResult, StreamingExecution } from '@/executor/types'
@@ -16,14 +20,15 @@ import { useEnvironmentStore } from '@/stores/settings/environment/store'
 
 const logger = createLogger('WorkflowExecutionUtils')
 
-export interface WorkflowExecutionOptions {
+type WorkflowExecutionOptions = {
   workflowInput?: any
   executionId?: string
+  triggerType: WorkflowLogTriggerType
   onStream?: (se: StreamingExecution) => Promise<void>
-  workflowId?: string
+  workflowId: string
 }
 
-export interface WorkflowExecutionContext {
+type WorkflowExecutionContext = {
   activeWorkflowId: string
   currentWorkflow: WorkflowSnapshot
   workspaceId: string
@@ -32,12 +37,12 @@ export interface WorkflowExecutionContext {
   setExecutor: (executor: Executor) => void
 }
 
-/**
- * Get the current workflow execution context from stores
- */
-export async function getWorkflowExecutionContext(
-  workflowId?: string
-): Promise<WorkflowExecutionContext> {
+type WorkflowExecutionRunOptions = WorkflowExecutionOptions & {
+  executionId: string
+  workflowLogId: string
+}
+
+async function getWorkflowExecutionContext(workflowId: string): Promise<WorkflowExecutionContext> {
   const activeWorkflowId = workflowId
   if (!activeWorkflowId) {
     throw new Error('Workflow target is required')
@@ -73,13 +78,9 @@ export async function getWorkflowExecutionContext(
   }
 }
 
-/**
- * Execute a workflow with proper state management and logging
- * This is the core execution logic extracted from useWorkflowExecution
- */
-export async function executeWorkflowWithLogging(
+async function executeWorkflowWithLogging(
   context: WorkflowExecutionContext,
-  options: WorkflowExecutionOptions = {}
+  options: WorkflowExecutionRunOptions
 ): Promise<ExecutionResult | StreamingExecution> {
   const {
     activeWorkflowId,
@@ -89,11 +90,7 @@ export async function executeWorkflowWithLogging(
     getAllVariables,
     setExecutor,
   } = context
-  const { workflowInput, onStream, executionId } = options
-
-  if (!workspaceId) {
-    throw new Error('Workflow execution requires workspaceId')
-  }
+  const { workflowInput, onStream, executionId, workflowLogId, triggerType } = options
 
   const {
     blocks: workflowBlocks,
@@ -102,7 +99,6 @@ export async function executeWorkflowWithLogging(
     parallels: workflowParallels,
   } = currentWorkflow
 
-  // Filter out blocks without type (these are layout-only blocks)
   const validBlocks = Object.entries(workflowBlocks).reduce(
     (acc, [blockId, block]) => {
       if (block && typeof block === 'object' && 'type' in block && block.type) {
@@ -139,10 +135,8 @@ export async function executeWorkflowWithLogging(
     {} as Record<string, Record<string, any>>
   )
 
-  // Get environment variables with workspace precedence
-  const workspaceEnv = workspaceId
-    ? (await useEnvironmentStore.getState().loadWorkspaceEnvironment(workspaceId)).workspace
-    : {}
+  const workspaceEnv = (await useEnvironmentStore.getState().loadWorkspaceEnvironment(workspaceId))
+    .workspace
   const envVarValues = Object.entries(getAllVariables()).reduce(
     (acc, [key, variable]: [string, any]) => {
       acc[key] = variable.value
@@ -152,8 +146,6 @@ export async function executeWorkflowWithLogging(
   )
   Object.assign(envVarValues, workspaceEnv)
 
-  // Get workflow variables
-  // Create serialized workflow with filtered blocks and edges
   const workflow = new Serializer().serializeWorkflow(
     mergedStates,
     workflowEdges,
@@ -161,15 +153,12 @@ export async function executeWorkflowWithLogging(
     workflowParallels
   )
 
-  // If this is a chat execution, get the selected outputs
   let selectedOutputs: string[] | undefined
   if (isExecutingFromChat) {
-    // Get selected outputs from chat store
     const chatStore = await import('@/stores/chat/store').then((mod) => mod.useChatStore)
     selectedOutputs = chatStore.getState().getSelectedWorkflowOutput(activeWorkflowId)
   }
 
-  // Create executor options
   const executorOptions: ExecutorOptions = {
     workflow,
     currentBlockStates,
@@ -186,109 +175,49 @@ export async function executeWorkflowWithLogging(
       onStream,
       executionId,
       workspaceId,
-      submissionSource: 'copilot',
+      workflowLogId,
+      triggerType,
+      submissionSource: 'workflow',
     },
   }
 
-  // Create executor and store in global state
   const newExecutor = new Executor(executorOptions)
   setExecutor(newExecutor)
 
-  // Execute workflow
   return newExecutor.execute(activeWorkflowId)
 }
 
-/**
- * Persist execution logs to the backend
- */
-export async function persistExecutionLogs(
-  activeWorkflowId: string,
-  executionId: string,
-  result: ExecutionResult,
-  streamContent?: string
-): Promise<string> {
-  try {
-    // Build trace spans from execution logs
-    const { traceSpans, totalDuration } = buildTraceSpans(result)
-
-    // Add trace spans to the execution result
-    const enrichedResult = {
-      ...result,
-      traceSpans,
-      totalDuration,
-    }
-
-    // If this was a streaming response and we have the final content, update it
-    if (streamContent && result.output && typeof streamContent === 'string') {
-      // Update the content with the final streaming content
-      enrichedResult.output.content = streamContent
-
-      // Also update any block logs to include the content where appropriate
-      if (enrichedResult.logs) {
-        // Get the streaming block ID from metadata if available
-        const streamingBlockId = (result.metadata as any)?.streamingBlockId || null
-
-        for (const log of enrichedResult.logs) {
-          // Only update the specific LLM block (agent/router) that was streamed
-          const isStreamingBlock = streamingBlockId && log.blockId === streamingBlockId
-          if (
-            isStreamingBlock &&
-            (log.blockType === 'agent' || log.blockType === 'router') &&
-            log.output
-          ) {
-            log.output.content = streamContent
-          }
-        }
-      }
-    }
-
-    const response = await fetch(`/api/workflows/${activeWorkflowId}/log`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        executionId,
-        result: enrichedResult,
-      }),
-    })
-
-    if (!response.ok) {
-      throw new Error('Failed to persist logs')
-    }
-
-    return executionId
-  } catch (error) {
-    logger.error('Error persisting logs:', error)
-    return executionId
-  }
-}
-
-/**
- * Execute workflow with full logging support
- * This combines execution + log persistence in a single function
- */
 export async function executeWorkflowWithFullLogging(
-  options: WorkflowExecutionOptions = {}
+  options: WorkflowExecutionOptions
 ): Promise<ExecutionResult | StreamingExecution> {
   const context = await getWorkflowExecutionContext(options.workflowId)
   const executionId = options.executionId || uuidv4()
+  const triggerType = options.triggerType
+  const workflowLogId = await startWorkflowExecutionLog(
+    context.activeWorkflowId,
+    executionId,
+    triggerType
+  )
 
   try {
     const result = await executeWorkflowWithLogging(context, {
       ...options,
       executionId,
+      triggerType,
+      workflowLogId,
     })
 
-    // For ExecutionResult (not streaming), persist logs
-    if (result && 'success' in result) {
-      // Don't await log persistence to avoid blocking the UI
-      persistExecutionLogs(context.activeWorkflowId, executionId, result as ExecutionResult).catch(
-        (err) => {
-          logger.error('Error persisting logs:', { error: err })
-        }
-      )
-    }
+    const executionResult = 'success' in result ? result : result.execution
+
+    completeWorkflowExecutionLog({
+      executionId,
+      result: executionResult,
+      triggerType,
+      workflowId: context.activeWorkflowId,
+      workflowLogId,
+    }).catch((err) => {
+      logger.error('Error persisting logs:', { error: err })
+    })
 
     return result
   } catch (error: any) {
@@ -300,7 +229,13 @@ export async function executeWorkflowWithFullLogging(
       metadata: { duration: 0, startTime: new Date().toISOString() },
     }
 
-    persistExecutionLogs(context.activeWorkflowId, executionId, errorResult).catch((err) => {
+    completeWorkflowExecutionLog({
+      executionId,
+      result: errorResult,
+      triggerType,
+      workflowId: context.activeWorkflowId,
+      workflowLogId,
+    }).catch((err) => {
       logger.error('Error persisting logs:', { error: err })
     })
 

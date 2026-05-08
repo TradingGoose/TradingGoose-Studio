@@ -156,14 +156,14 @@ async function completeSkippedWebhookExecution(params: {
     params.requestId
   )
 
-  await loggingSession.safeStart({
+  await loggingSession.start({
     userId: params.payload.userId,
     workspaceId: params.workspaceId,
     variables: {},
     triggerData: params.triggerData,
   })
 
-  await loggingSession.safeComplete({
+  await loggingSession.complete({
     endedAt: new Date().toISOString(),
     totalDurationMs: 0,
     finalOutput: { message: params.message },
@@ -196,14 +196,14 @@ async function logWebhookFailure(params: {
       params.requestId
     )
 
-    await loggingSession.safeStart({
+    await loggingSession.start({
       userId: params.payload.userId,
       workspaceId: params.workspaceId,
       variables: {},
       triggerData: params.triggerData,
     })
 
-    await loggingSession.safeCompleteWithError({
+    await loggingSession.completeWithError({
       endedAt: new Date().toISOString(),
       totalDurationMs: 0,
       error: {

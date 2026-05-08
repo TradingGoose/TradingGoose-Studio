@@ -221,10 +221,9 @@ describe('Workflow Execution API Route', () => {
 
     vi.doMock('@/lib/logs/execution/logging-session', () => ({
       LoggingSession: vi.fn().mockImplementation(() => ({
-        safeStart: vi.fn().mockResolvedValue(undefined),
-        safeComplete: vi.fn().mockResolvedValue(undefined),
-        safeCompleteWithError: vi.fn().mockResolvedValue(undefined),
-        setupExecutor: vi.fn(),
+        start: vi.fn().mockResolvedValue(undefined),
+        complete: vi.fn().mockResolvedValue(undefined),
+        completeWithError: vi.fn().mockResolvedValue(undefined),
       })),
     }))
 
@@ -571,13 +570,12 @@ describe('Workflow Execution API Route', () => {
       },
     }))
 
-    const mockSafeCompleteWithError = vi.fn().mockResolvedValue({})
+    const mockCompleteWithError = vi.fn().mockResolvedValue({})
     vi.doMock('@/lib/logs/execution/logging-session', () => ({
       LoggingSession: vi.fn().mockImplementation(() => ({
-        safeStart: vi.fn().mockResolvedValue({}),
-        safeComplete: vi.fn().mockResolvedValue({}),
-        safeCompleteWithError: mockSafeCompleteWithError,
-        setupExecutor: vi.fn(),
+        start: vi.fn().mockResolvedValue({}),
+        complete: vi.fn().mockResolvedValue({}),
+        completeWithError: mockCompleteWithError,
       })),
     }))
 
@@ -601,7 +599,7 @@ describe('Workflow Execution API Route', () => {
     expect(data).toHaveProperty('error')
     expect(data.error).toContain('Execution failed')
 
-    expect(mockSafeCompleteWithError).toHaveBeenCalled()
+    expect(mockCompleteWithError).toHaveBeenCalled()
   })
 
   /**

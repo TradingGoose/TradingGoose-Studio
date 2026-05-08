@@ -1,8 +1,12 @@
 import { useCallback, useState } from 'react'
 import { v4 as uuidv4 } from 'uuid'
 import { createLogger } from '@/lib/logs/console/logger'
-import { buildTraceSpans } from '@/lib/logs/execution/trace-spans/trace-spans'
 import { processStreamingBlockLogs } from '@/lib/tokenization'
+import {
+  completeWorkflowExecutionLog,
+  startWorkflowExecutionLog,
+  type WorkflowLogTriggerType,
+} from '@/lib/workflows/execution-log-client'
 import { TriggerUtils } from '@/lib/workflows/triggers'
 import { useWorkflowVariables } from '@/lib/yjs/use-workflow-doc'
 import { Executor, type ExecutorOptions } from '@/executor'
@@ -84,15 +88,8 @@ export function useWorkflowExecution() {
   const { toggleConsole, cancelRunningEntries } = useConsoleStore()
   const { getAllVariables, loadWorkspaceEnvironment } = useEnvironmentStore()
   const yjsVariables = useWorkflowVariables()
-  // Store in a ref so the callback below can always read the latest value
-  // without being recreated on every Yjs variables change.
   const yjsVariablesRef = useLatestRef(yjsVariables)
-  // Parameter unused: variables are always sourced from the current Yjs doc,
-  // but the signature satisfies the WorkflowExecutionContext contract.
-  const getVariablesByWorkflowId = useCallback(
-    (_workflowId: string) => Object.values(yjsVariablesRef.current),
-    []
-  )
+  const getWorkflowVariables = useCallback(() => Object.values(yjsVariablesRef.current), [])
   const {
     isExecuting,
     isDebugging,
@@ -175,13 +172,14 @@ export function useWorkflowExecution() {
       logger.info('Debug session complete')
       setExecutionResult(result)
 
-      // Persist logs
-      await persistLogs(uuidv4(), result)
+      if (debugContext?.executionId && debugContext.workflowLogId) {
+        await persistLogs(debugContext.executionId, result, debugContext.workflowLogId, 'manual')
+      }
 
       // Reset debug state
       resetDebugState()
     },
-    [activeWorkflowId, resetDebugState]
+    [activeWorkflowId, debugContext, resetDebugState]
   )
 
   /**
@@ -221,8 +219,14 @@ export function useWorkflowExecution() {
 
       setExecutionResult(errorResult)
 
-      // Persist logs
-      await persistLogs(uuidv4(), errorResult)
+      if (debugContext?.executionId && debugContext.workflowLogId) {
+        await persistLogs(
+          debugContext.executionId,
+          errorResult,
+          debugContext.workflowLogId,
+          'manual'
+        )
+      }
 
       // Reset debug state
       resetDebugState()
@@ -233,61 +237,19 @@ export function useWorkflowExecution() {
   const persistLogs = async (
     executionId: string,
     result: ExecutionResult,
-    streamContent?: string
+    workflowLogId: string,
+    triggerType: WorkflowLogTriggerType
   ) => {
     try {
-      // Build trace spans from execution logs
-      const { traceSpans, totalDuration } = buildTraceSpans(result)
-
-      // Add trace spans to the execution result
-      const enrichedResult = {
-        ...result,
-        traceSpans,
-        totalDuration,
-      }
-
-      // If this was a streaming response and we have the final content, update it
-      if (streamContent && result.output && typeof streamContent === 'string') {
-        // Update the content with the final streaming content
-        enrichedResult.output.content = streamContent
-
-        // Also update any block logs to include the content where appropriate
-        if (enrichedResult.logs) {
-          // Get the streaming block ID from metadata if available
-          const streamingBlockId = (result.metadata as any)?.streamingBlockId || null
-
-          for (const log of enrichedResult.logs) {
-            // Only update the specific LLM block (agent/router) that was streamed
-            const isStreamingBlock = streamingBlockId && log.blockId === streamingBlockId
-            if (
-              isStreamingBlock &&
-              (log.blockType === 'agent' || log.blockType === 'router') &&
-              log.output
-            )
-              log.output.content = streamContent
-          }
-        }
-      }
-
-      const response = await fetch(`/api/workflows/${activeWorkflowId}/log`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          executionId,
-          result: enrichedResult,
-        }),
+      await completeWorkflowExecutionLog({
+        executionId,
+        result,
+        triggerType,
+        workflowId: activeWorkflowId!,
+        workflowLogId,
       })
-
-      if (!response.ok) {
-        throw new Error('Failed to persist logs')
-      }
-
-      return executionId
     } catch (error) {
       logger.error('Error persisting logs:', error)
-      return executionId
     }
   }
 
@@ -324,6 +286,7 @@ export function useWorkflowExecution() {
             const executionId = uuidv4()
             const streamedContent = new Map<string, string>()
             const streamReadingPromises: Promise<void>[] = []
+            let workflowLogId: string | null = null
 
             // Handle file uploads if present
             const uploadedFiles: any[] = []
@@ -499,12 +462,14 @@ export function useWorkflowExecution() {
             }
 
             try {
+              workflowLogId = await startWorkflowExecutionLog(activeWorkflowId, executionId, 'chat')
               const result = await executeWorkflow(
                 workflowInput,
                 onStream,
                 executionId,
                 onBlockComplete,
-                'chat'
+                'chat',
+                workflowLogId
               )
 
               // Check if execution was cancelled
@@ -515,17 +480,13 @@ export function useWorkflowExecution() {
                 result.error === 'Workflow execution was cancelled'
               ) {
                 controller.enqueue(encodeSSE({ event: 'cancelled', data: result }))
+                void persistLogs(executionId, result, workflowLogId, 'chat')
                 return
               }
 
               await Promise.all(streamReadingPromises)
 
               if (result && 'success' in result) {
-                if (!result.metadata) {
-                  result.metadata = { duration: 0, startTime: new Date().toISOString() }
-                }
-                ;(result.metadata as any).source = 'chat'
-
                 // Update block logs with actual stream completion times
                 if (result.logs && streamCompletionTimes.size > 0) {
                   const streamCompletionEndTime = new Date(
@@ -586,9 +547,7 @@ export function useWorkflowExecution() {
 
                 const { encodeSSE } = await import('@/lib/utils')
                 controller.enqueue(encodeSSE({ event: 'final', data: result }))
-                persistLogs(executionId, result).catch((err) =>
-                  logger.error('Error persisting logs:', err)
-                )
+                void persistLogs(executionId, result, workflowLogId, 'chat')
               }
             } catch (error: any) {
               // Create a proper error result for logging
@@ -600,7 +559,6 @@ export function useWorkflowExecution() {
                 metadata: {
                   duration: 0,
                   startTime: new Date().toISOString(),
-                  source: 'chat' as const,
                 },
               }
 
@@ -609,9 +567,9 @@ export function useWorkflowExecution() {
               controller.enqueue(encodeSSE({ event: 'final', data: errorResult }))
 
               // Persist the error to logs so it shows up in the logs page
-              persistLogs(executionId, errorResult).catch((err) =>
-                logger.error('Error persisting error logs:', err)
-              )
+              if (workflowLogId) {
+                void persistLogs(executionId, errorResult, workflowLogId, 'chat')
+              }
 
               // Do not error the controller to allow consumers to process the final event
             } finally {
@@ -627,13 +585,16 @@ export function useWorkflowExecution() {
 
       // For manual (non-chat) execution
       const executionId = uuidv4()
+      let workflowLogId: string | null = null
       try {
+        workflowLogId = await startWorkflowExecutionLog(activeWorkflowId, executionId, 'manual')
         const result = await executeWorkflow(
           workflowInput,
           undefined,
           executionId,
           undefined,
-          'manual'
+          'manual',
+          workflowLogId
         )
         if (result && 'metadata' in result && result.metadata?.isDebugSession) {
           setDebugContext(result.metadata.context || null)
@@ -647,23 +608,14 @@ export function useWorkflowExecution() {
           setIsDebugging(false)
           setActiveBlocks(new Set())
 
-          if (isChatExecution) {
-            if (!result.metadata) {
-              result.metadata = { duration: 0, startTime: new Date().toISOString() }
-            }
-            ;(result.metadata as any).source = 'chat'
-          }
-
-          persistLogs(executionId, result).catch((err) => {
-            logger.error('Error persisting logs:', { error: err })
-          })
+          void persistLogs(executionId, result, workflowLogId, 'manual')
         }
         return result
       } catch (error: any) {
         const errorResult = handleExecutionError(error, { executionId })
-        persistLogs(executionId, errorResult).catch((err) => {
-          logger.error('Error persisting logs:', { error: err })
-        })
+        if (workflowLogId) {
+          void persistLogs(executionId, errorResult, workflowLogId, 'manual')
+        }
         return errorResult
       }
     },
@@ -673,7 +625,7 @@ export function useWorkflowExecution() {
       toggleConsole,
       getAllVariables,
       loadWorkspaceEnvironment,
-      getVariablesByWorkflowId,
+      getWorkflowVariables,
       setIsExecuting,
       setIsDebugging,
       setDebugContext,
@@ -684,11 +636,12 @@ export function useWorkflowExecution() {
   )
 
   const executeWorkflow = async (
-    workflowInput?: any,
-    onStream?: (se: StreamingExecution) => Promise<void>,
-    executionId?: string,
-    onBlockComplete?: (blockId: string, output: any) => Promise<void>,
-    overrideTriggerType?: 'chat' | 'manual' | 'api'
+    workflowInput: any,
+    onStream: ((se: StreamingExecution) => Promise<void>) | undefined,
+    executionId: string,
+    onBlockComplete: ((blockId: string, output: any) => Promise<void>) | undefined,
+    overrideTriggerType: WorkflowLogTriggerType,
+    workflowLogId: string
   ): Promise<ExecutionResult | StreamingExecution> => {
     const { blocks: workflowBlocks, edges: workflowEdges } = currentWorkflow
 
@@ -789,7 +742,7 @@ export function useWorkflowExecution() {
     const envVarValues = { ...personalEnvValues, ...workspaceEnvValues }
 
     // Get workflow variables
-    const workflowVars = activeWorkflowId ? getVariablesByWorkflowId(activeWorkflowId) : []
+    const workflowVars = activeWorkflowId ? getWorkflowVariables() : []
     const workflowVariables = workflowVars.reduce(
       (acc, variable) => {
         acc[variable.id] = variable
@@ -988,7 +941,9 @@ export function useWorkflowExecution() {
         onBlockComplete,
         executionId,
         workspaceId,
-        submissionSource: isExecutingFromChat ? 'copilot' : 'manual',
+        workflowLogId,
+        triggerType: overrideTriggerType,
+        submissionSource: 'workflow',
       },
     }
 

@@ -35,6 +35,8 @@ export interface SessionCompleteParams {
   finalOutput?: any
   traceSpans?: any[]
   workflowInput?: any
+  workspaceId?: string
+  actorUserId?: string | null
 }
 
 export interface SessionErrorCompleteParams {
@@ -45,6 +47,8 @@ export interface SessionErrorCompleteParams {
     stackTrace?: string
   }
   traceSpans?: TraceSpan[]
+  workspaceId?: string
+  actorUserId?: string | null
 }
 
 export class LoggingSession {
@@ -105,18 +109,10 @@ export class LoggingSession {
     }
   }
 
-  /**
-   * Set up logging on an executor instance
-   * Note: Logging now works through trace spans only, no direct executor integration needed
-   */
-  setupExecutor(executor: any): void {
-    // No longer setting logger on executor - trace spans handle everything
-    if (this.requestId) {
-      logger.debug(`[${this.requestId}] Logging session ready for execution ${this.executionId}`)
-    }
-  }
-
-  private async resolveWorkflowExecutionPricing(): Promise<{
+  private async resolveWorkflowExecutionPricing(params?: {
+    workspaceId?: string
+    actorUserId?: string | null
+  }): Promise<{
     workflowExecutionChargeUsd: number
     workflowModelCostMultiplier: number
   }> {
@@ -129,14 +125,14 @@ export class LoggingSession {
       }
     }
 
-    const workspaceId = this.environment?.workspaceId
+    const workspaceId = params?.workspaceId ?? this.environment?.workspaceId
     if (!workspaceId) {
       throw new Error('Workflow execution billing requires workspaceId')
     }
 
     const billingContext = await resolveWorkspaceBillingContext({
       workspaceId,
-      actorUserId: this.environment?.userId ?? null,
+      actorUserId: params?.actorUserId ?? this.environment?.userId ?? null,
     })
 
     return {
@@ -148,11 +144,19 @@ export class LoggingSession {
   }
 
   async complete(params: SessionCompleteParams = {}): Promise<void> {
-    const { endedAt, totalDurationMs, finalOutput, traceSpans, workflowInput } = params
+    const {
+      endedAt,
+      totalDurationMs,
+      finalOutput,
+      traceSpans,
+      workflowInput,
+      workspaceId,
+      actorUserId,
+    } = params
 
     try {
       const { workflowExecutionChargeUsd, workflowModelCostMultiplier } =
-        await this.resolveWorkflowExecutionPricing()
+        await this.resolveWorkflowExecutionPricing({ workspaceId, actorUserId })
       const costSummary = calculateCostSummary(
         traceSpans || [],
         workflowExecutionChargeUsd,
@@ -166,7 +170,7 @@ export class LoggingSession {
         endedAt: endTime,
         totalDurationMs: duration,
         costSummary,
-        finalOutput: finalOutput || {},
+        finalOutput: finalOutput === undefined ? {} : finalOutput,
         traceSpans: traceSpans || [],
         workflowInput,
       })
@@ -209,17 +213,21 @@ export class LoggingSession {
       if (this.requestId) {
         logger.error(`[${this.requestId}] Failed to complete logging:`, error)
       }
+      throw error
     }
   }
 
   async completeWithError(params: SessionErrorCompleteParams = {}): Promise<void> {
     try {
-      const { endedAt, totalDurationMs, error, traceSpans } = params
+      const { endedAt, totalDurationMs, error, traceSpans, workspaceId, actorUserId } = params
 
       const endTime = endedAt ? new Date(endedAt) : new Date()
       const durationMs = typeof totalDurationMs === 'number' ? totalDurationMs : 0
       const startTime = new Date(endTime.getTime() - Math.max(1, durationMs))
-      const { workflowExecutionChargeUsd } = await this.resolveWorkflowExecutionPricing()
+      const { workflowExecutionChargeUsd } = await this.resolveWorkflowExecutionPricing({
+        workspaceId,
+        actorUserId,
+      })
 
       const costSummary = {
         totalCost: workflowExecutionChargeUsd,
@@ -283,37 +291,7 @@ export class LoggingSession {
       if (this.requestId) {
         logger.error(`[${this.requestId}] Failed to complete logging:`, enhancedError)
       }
-    }
-  }
-
-  async safeStart(params: SessionStartParams): Promise<string | null> {
-    try {
-      return await this.start(params)
-    } catch (error) {
-      if (this.requestId) {
-        logger.warn(`[${this.requestId}] Logging start failed:`, error)
-      }
-      return null
-    }
-  }
-
-  async safeComplete(params: SessionCompleteParams = {}): Promise<void> {
-    try {
-      await this.complete(params)
-    } catch (error) {
-      if (this.requestId) {
-        logger.error(`[${this.requestId}] Logging completion failed:`, error)
-      }
-    }
-  }
-
-  async safeCompleteWithError(error?: SessionErrorCompleteParams): Promise<void> {
-    try {
-      await this.completeWithError(error)
-    } catch (enhancedError) {
-      if (this.requestId) {
-        logger.error(`[${this.requestId}] Logging error completion failed:`, enhancedError)
-      }
+      throw enhancedError
     }
   }
 }

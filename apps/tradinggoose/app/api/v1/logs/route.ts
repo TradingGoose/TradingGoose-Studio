@@ -246,7 +246,7 @@ export async function GET(request: NextRequest) {
 
         if (log.executionData) {
           const execData = log.executionData as any
-          if (params.includeFinalOutput && execData.finalOutput) {
+          if (params.includeFinalOutput && execData.finalOutput !== undefined) {
             result.finalOutput = execData.finalOutput
           }
           if (params.includeTraceSpans && execData.traceSpans) {

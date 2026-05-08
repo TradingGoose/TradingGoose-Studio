@@ -4,10 +4,9 @@ import { loadWorkflowExecutionBlueprint, runPreparedWorkflowExecution } from './
 
 const mocks = vi.hoisted(() => {
   const execute = vi.fn()
-  const setupExecutor = vi.fn()
-  const safeStart = vi.fn()
-  const safeComplete = vi.fn()
-  const safeCompleteWithError = vi.fn()
+  const start = vi.fn()
+  const complete = vi.fn()
+  const completeWithError = vi.fn()
   const dbRowsQueue: unknown[][] = []
   const dbChain: Record<string, any> = {}
   dbChain.from = vi.fn(() => dbChain)
@@ -19,10 +18,9 @@ const mocks = vi.hoisted(() => {
 
   return {
     execute,
-    setupExecutor,
-    safeStart,
-    safeComplete,
-    safeCompleteWithError,
+    start,
+    complete,
+    completeWithError,
     dbRowsQueue,
     executionConcurrencyController,
     dbSelect: vi.fn(() => dbChain),
@@ -57,10 +55,9 @@ vi.mock('@/lib/logs/execution/logging-session', () => ({
   LoggingSession: vi.fn().mockImplementation((...args) => {
     mocks.loggingSessionConstructor(...args)
     return {
-      safeStart: mocks.safeStart,
-      setupExecutor: mocks.setupExecutor,
-      safeComplete: mocks.safeComplete,
-      safeCompleteWithError: mocks.safeCompleteWithError,
+      start: mocks.start,
+      complete: mocks.complete,
+      completeWithError: mocks.completeWithError,
     }
   }),
 }))
@@ -138,7 +135,7 @@ describe('runPreparedWorkflowExecution', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mocks.dbRowsQueue.length = 0
-    mocks.safeStart.mockResolvedValue('workflow-log-1')
+    mocks.start.mockResolvedValue('workflow-log-1')
     mocks.execute.mockResolvedValue({
       success: true,
       output: { result: 'ok' },
@@ -171,7 +168,7 @@ describe('runPreparedWorkflowExecution', () => {
       'webhook',
       'executio'
     )
-    expect(mocks.safeStart).toHaveBeenCalledWith(
+    expect(mocks.start).toHaveBeenCalledWith(
       expect.objectContaining({
         userId: 'user-1',
         workspaceId: 'workspace-1',
@@ -193,8 +190,7 @@ describe('runPreparedWorkflowExecution', () => {
         }),
       })
     )
-    expect(mocks.setupExecutor).toHaveBeenCalled()
-    expect(mocks.safeComplete).toHaveBeenCalledWith(
+    expect(mocks.complete).toHaveBeenCalledWith(
       expect.objectContaining({
         totalDurationMs: 12,
         finalOutput: { result: 'ok' },

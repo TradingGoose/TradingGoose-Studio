@@ -179,19 +179,6 @@ describe('LoggingSession', () => {
     })
   })
 
-  it('safeStart returns null instead of writing a log without workspace scope', async () => {
-    const session = new LoggingSession('workflow-1', 'execution-1', 'manual', 'request-1')
-
-    await expect(
-      session.safeStart({
-        userId: 'user-1',
-        workspaceId: '',
-      })
-    ).resolves.toBeNull()
-
-    expect(mocks.startWorkflowExecution).not.toHaveBeenCalled()
-  })
-
   it('completes failed executions with a root error span and final output', async () => {
     const session = new LoggingSession('workflow-1', 'execution-1', 'manual', 'request-1')
     await session.start({ userId: 'user-1', workspaceId: 'workspace-1' })
@@ -227,6 +214,33 @@ describe('LoggingSession', () => {
         'execution.error_message': 'boom',
         'execution.status': 'error',
         'workflow.id': 'workflow-1',
+      })
+    )
+  })
+
+  it('completes execution logs with explicit workspace scope after a separate start request', async () => {
+    mocks.getResolvedBillingSettings.mockResolvedValue({ billingEnabled: true })
+    const session = new LoggingSession('workflow-1', 'execution-1', 'manual', 'request-1')
+
+    await session.complete({
+      actorUserId: 'user-1',
+      endedAt: '2026-04-23T00:00:01.000Z',
+      finalOutput: { ok: true },
+      totalDurationMs: 1000,
+      traceSpans: [],
+      workspaceId: 'workspace-1',
+    })
+
+    expect(mocks.resolveWorkspaceBillingContext).toHaveBeenCalledWith({
+      actorUserId: 'user-1',
+      workspaceId: 'workspace-1',
+    })
+    expect(mocks.completeWorkflowExecution).toHaveBeenCalledWith(
+      expect.objectContaining({
+        endedAt: '2026-04-23T00:00:01.000Z',
+        executionId: 'execution-1',
+        finalOutput: { ok: true },
+        totalDurationMs: 1000,
       })
     )
   })
