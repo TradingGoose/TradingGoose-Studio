@@ -60,7 +60,7 @@ export function OrderRowActions({
             size='icon'
             variant='ghost'
             className='h-8 w-8'
-            disabled={!order.workflowLogId}
+            disabled={!order.logId}
             onClick={(event) => {
               stop(event)
               onOpenLog(order)
@@ -70,7 +70,7 @@ export function OrderRowActions({
             <span className='sr-only'>Log detail</span>
           </Button>
         </TooltipTrigger>
-        <TooltipContent>{order.workflowLogId ? 'Log detail' : 'No linked log'}</TooltipContent>
+        <TooltipContent>{order.logId ? 'Log detail' : 'No linked log'}</TooltipContent>
       </Tooltip>
 
       <Tooltip>

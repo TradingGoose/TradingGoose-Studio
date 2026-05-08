@@ -58,7 +58,6 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const workflowId = url.searchParams.get('workflowId')
     const whereClause = requestedWorkspaceId
       ? and(
           eq(orderHistoryTable.id, orderId),
@@ -69,18 +68,6 @@ export async function POST(request: NextRequest) {
     const [historyRecord] = await db.select().from(orderHistoryTable).where(whereClause).limit(1)
 
     if (!historyRecord) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: {
-            message: 'Order history record not found',
-          },
-        },
-        { status: 404 }
-      )
-    }
-
-    if (workflowId && historyRecord.workflowId !== workflowId) {
       return NextResponse.json(
         {
           success: false,
@@ -135,7 +122,7 @@ export async function POST(request: NextRequest) {
           orderHistoryRecord: historyRecord,
           provider: historyRecord.provider,
           workspaceId: historyRecord.workspaceId,
-          workflowLogId: historyRecord.workflowLogId,
+          logId: historyRecord.logId,
           appOrderId: historyRecord.id,
           providerOrderId: resolved.providerOrderId,
           orderDetail: resolved.orderDetail,

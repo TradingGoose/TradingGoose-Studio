@@ -288,6 +288,7 @@ export async function executeTool(
         userId: scope.userId ?? existingContext.userId,
         executionId: scope.executionId ?? existingContext.executionId,
         workflowLogId: scope.workflowLogId ?? existingContext.workflowLogId,
+        logId: scope.workflowLogId ?? existingContext.logId,
         submissionSource: scope.submissionSource ?? existingContext.submissionSource,
         concurrencyLeaseInherited:
           scope.concurrencyLeaseInherited ?? existingContext.concurrencyLeaseInherited,
@@ -297,6 +298,7 @@ export async function executeTool(
         mergedContext.workspaceId ||
         mergedContext.executionId ||
         mergedContext.workflowLogId ||
+        mergedContext.logId ||
         mergedContext.submissionSource ||
         mergedContext.concurrencyLeaseInherited
       ) {

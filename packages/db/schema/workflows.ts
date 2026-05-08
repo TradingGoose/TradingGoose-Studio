@@ -502,11 +502,7 @@ export const orderHistoryTable = pgTable(
     environment: text('environment'),
     recordedAt: timestamp('recorded_at').notNull().defaultNow(),
     submissionSource: orderSubmissionSourceEnum('submission_source').notNull(),
-    workflowId: text('workflow_id').references(() => workflow.id, {
-      onDelete: 'set null',
-    }),
-    workflowExecutionId: text('workflow_execution_id'),
-    workflowLogId: text('workflow_log_id').references(() => workflowExecutionLogs.id, {
+    logId: text('log_id').references(() => workflowExecutionLogs.id, {
       onDelete: 'set null',
     }),
     listingIdentity: jsonb('listing_identity'),
@@ -517,16 +513,10 @@ export const orderHistoryTable = pgTable(
   (table) => ({
     providerIdx: index('order_history_provider_idx').on(table.provider),
     workspaceIdx: index('order_history_workspace_idx').on(table.workspaceId),
-    workflowIdx: index('order_history_workflow_idx').on(table.workflowId),
-    workflowLogIdx: index('order_history_workflow_log_idx').on(table.workflowLogId),
-    workflowExecutionIdx: index('order_history_execution_idx').on(table.workflowExecutionId),
+    logIdx: index('order_history_log_idx').on(table.logId),
     recordedAtIdx: index('order_history_recorded_at_idx').on(table.recordedAt),
     workspaceRecordedIdx: index('order_history_workspace_recorded_idx').on(
       table.workspaceId,
-      table.recordedAt
-    ),
-    workflowRecordedIdx: index('order_history_workflow_recorded_idx').on(
-      table.workflowId,
       table.recordedAt
     ),
   })

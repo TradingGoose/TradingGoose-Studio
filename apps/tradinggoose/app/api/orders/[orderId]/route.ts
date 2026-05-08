@@ -52,7 +52,7 @@ export async function GET(
       .leftJoin(
         workflowExecutionLogs,
         and(
-          eq(orderHistoryTable.workflowLogId, workflowExecutionLogs.id),
+          eq(orderHistoryTable.logId, workflowExecutionLogs.id),
           eq(orderHistoryTable.workspaceId, workflowExecutionLogs.workspaceId)
         )
       )

@@ -57,9 +57,7 @@ const order: RecordsOrder = {
   submittedPrice: '184.25',
   timeInForce: 'day',
   updatedAt: '2026-04-23T00:02:00.000Z',
-  workflowExecutionId: 'execution-1',
-  workflowId: 'workflow-1',
-  workflowLogId: 'log-1',
+  logId: 'log-1',
   workspaceId: 'workspace-1',
 }
 

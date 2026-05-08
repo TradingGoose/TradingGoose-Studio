@@ -26,9 +26,7 @@ export type SerializedOrderRecord = {
   environment: string | null
   recordedAt: string
   submissionSource: string
-  workflowId: string | null
-  workflowExecutionId: string | null
-  workflowLogId: string | null
+  logId: string | null
   listingIdentity: unknown
   listing: {
     symbol: string | null
@@ -192,9 +190,7 @@ export function serializeOrderRecord(
     environment: row.environment,
     recordedAt: row.recordedAt.toISOString(),
     submissionSource: row.submissionSource,
-    workflowId: row.workflowId,
-    workflowExecutionId: row.workflowExecutionId,
-    workflowLogId: row.workflowLogId,
+    logId: row.logId,
     listingIdentity: row.listingIdentity,
     listing,
     providerOrderId,
@@ -261,9 +257,9 @@ export function serializeOrderRecord(
       raw.error,
       rawOrder.message
     ),
-    hasLinkedLog: Boolean(row.workflowLogId),
+    hasLinkedLog: Boolean(row.logId),
     linkedLog:
-      row.linkedLog?.id && row.linkedLog.id === row.workflowLogId
+      row.linkedLog?.id && row.linkedLog.id === row.logId
         ? {
             id: row.linkedLog.id,
             executionId: row.linkedLog.executionId,
@@ -294,8 +290,8 @@ export function buildBaseOrderConditions(params: {
 
   if (startDate) conditions.push(gte(orderHistoryTable.recordedAt, new Date(startDate)))
   if (endDate) conditions.push(lte(orderHistoryTable.recordedAt, new Date(endDate)))
-  if (params.linkedLog === 'true') conditions.push(isNotNull(orderHistoryTable.workflowLogId))
-  if (params.linkedLog === 'false') conditions.push(isNull(orderHistoryTable.workflowLogId))
+  if (params.linkedLog === 'true') conditions.push(isNotNull(orderHistoryTable.logId))
+  if (params.linkedLog === 'false') conditions.push(isNull(orderHistoryTable.logId))
 
   return conditions.length ? and(...conditions) : undefined
 }
@@ -459,7 +455,6 @@ export function buildOrderWhereCondition(
     conditions.push(
       or(
         sql`${orderHistoryTable.id}::text ILIKE ${search}`,
-        sql`COALESCE(${orderHistoryTable.workflowExecutionId}, '') ILIKE ${search}`,
         sql`COALESCE(${orderHistoryTable.provider}, '') ILIKE ${search}`,
         sql`COALESCE(${orderHistoryTable.environment}, '') ILIKE ${search}`,
         sql`COALESCE(${orderHistoryTable.submissionSource}, '') ILIKE ${search}`,

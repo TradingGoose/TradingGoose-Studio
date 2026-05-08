@@ -55,9 +55,7 @@ const order = {
   submittedPrice: '184.25',
   timeInForce: 'day',
   updatedAt: '2026-04-23T00:02:00.000Z',
-  workflowExecutionId: 'execution-1',
-  workflowId: 'workflow-1',
-  workflowLogId: null,
+  logId: null,
   workspaceId: 'workspace-1',
 }
 

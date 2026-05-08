@@ -84,7 +84,7 @@ export const tradingOrderDetailTool: ToolConfig<
     const appOrderId = data.appOrderId || ''
     const providerOrderId = data.providerOrderId || ''
     const workspaceId = data.workspaceId || null
-    const workflowLogId = data.workflowLogId || null
+    const logId = data.logId || null
     const orderDetail = data.orderDetail || {}
 
     return {
@@ -95,7 +95,7 @@ export const tradingOrderDetailTool: ToolConfig<
         appOrderId,
         providerOrderId,
         workspaceId,
-        workflowLogId,
+        logId,
         orderDetail,
       },
     }
@@ -113,9 +113,9 @@ export const tradingOrderDetailTool: ToolConfig<
       type: 'string',
       description: 'Workspace that owns the recorded order.',
     },
-    workflowLogId: {
+    logId: {
       type: 'string',
-      description: 'Linked workflow execution log ID, when one exists.',
+      description: 'Linked log ID, when one exists.',
     },
     orderDetail: {
       type: 'json',

@@ -32,9 +32,7 @@ export type RecordsOrder = {
   environment: string | null
   recordedAt: string
   submissionSource: string
-  workflowId: string | null
-  workflowExecutionId: string | null
-  workflowLogId: string | null
+  logId: string | null
   listing: { symbol: string | null; name: string | null; listingType: string | null }
   listingIdentity?: unknown
   providerOrderId: string | null

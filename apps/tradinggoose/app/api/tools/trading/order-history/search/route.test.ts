@@ -32,19 +32,11 @@ vi.mock('@tradinggoose/db', () => ({
   orderHistoryTable: {
     id: 'orderHistoryTable.id',
     workspaceId: 'orderHistoryTable.workspaceId',
-    workflowId: 'orderHistoryTable.workflowId',
     listingIdentity: 'orderHistoryTable.listingIdentity',
     normalizedOrder: 'orderHistoryTable.normalizedOrder',
     response: 'orderHistoryTable.response',
     request: 'orderHistoryTable.request',
     recordedAt: 'orderHistoryTable.recordedAt',
-  },
-}))
-
-vi.mock('@tradinggoose/db/schema', () => ({
-  workflow: {
-    id: 'workflow.id',
-    workspaceId: 'workflow.workspaceId',
   },
 }))
 
@@ -128,35 +120,12 @@ describe('order history search route', () => {
     })
   })
 
-  it('rejects workflow filters outside the requested workspace', async () => {
-    mocks.selectQueue.push([{ workspaceId: 'workspace-2' }])
-    const { GET } = await import('./route')
-
-    const response = await GET(
-      new NextRequest(
-        'http://localhost/api/tools/trading/order-history/search?workspaceId=workspace-1&workflowId=workflow-1'
-      )
-    )
-
-    expect(response.status).toBe(400)
-    expect(await response.json()).toMatchObject({
-      success: false,
-      error: { message: 'workflowId does not belong to workspaceId' },
-    })
-    expect(mocks.checkWorkspaceAccess).toHaveBeenCalledWith('workspace-1', 'user-1')
-    expect(mocks.checkWorkspaceAccess.mock.invocationCallOrder[0]).toBeLessThan(
-      mocks.select.mock.invocationCallOrder[0]
-    )
-  })
-
-  it('rejects inaccessible workspace filters before reading workflow ownership', async () => {
+  it('rejects inaccessible workspace filters before reading order rows', async () => {
     mocks.checkWorkspaceAccess.mockResolvedValue({ exists: true, hasAccess: false })
     const { GET } = await import('./route')
 
     const response = await GET(
-      new NextRequest(
-        'http://localhost/api/tools/trading/order-history/search?workspaceId=workspace-1&workflowId=workflow-1'
-      )
+      new NextRequest('http://localhost/api/tools/trading/order-history/search?workspaceId=ws-1')
     )
 
     expect(response.status).toBe(404)
@@ -164,17 +133,15 @@ describe('order history search route', () => {
       success: false,
       error: { message: 'Not found' },
     })
-    expect(mocks.checkWorkspaceAccess).toHaveBeenCalledWith('workspace-1', 'user-1')
+    expect(mocks.checkWorkspaceAccess).toHaveBeenCalledWith('ws-1', 'user-1')
     expect(mocks.select).not.toHaveBeenCalled()
   })
 
-  it('rejects workflow filters without explicit workspace scope', async () => {
+  it('rejects searches without explicit workspace scope', async () => {
     const { GET } = await import('./route')
 
     const response = await GET(
-      new NextRequest(
-        'http://localhost/api/tools/trading/order-history/search?workflowId=workflow-1'
-      )
+      new NextRequest('http://localhost/api/tools/trading/order-history/search?q=AAPL')
     )
 
     expect(response.status).toBe(400)
@@ -186,26 +153,22 @@ describe('order history search route', () => {
     expect(mocks.checkWorkspaceAccess).not.toHaveBeenCalled()
   })
 
-  it('keeps workflow filtering after validating explicit workspace ownership', async () => {
-    mocks.selectQueue.push([{ workspaceId: 'workspace-1' }])
+  it('searches only within the requested workspace', async () => {
     mocks.selectQueue.push([orderRow])
     const { GET } = await import('./route')
 
     const response = await GET(
-      new NextRequest(
-        'http://localhost/api/tools/trading/order-history/search?workspaceId=workspace-1&workflowId=workflow-1'
-      )
+      new NextRequest('http://localhost/api/tools/trading/order-history/search?workspaceId=ws-1')
     )
 
     expect(response.status).toBe(200)
-    expect(mocks.checkWorkspaceAccess).toHaveBeenCalledWith('workspace-1', 'user-1')
-    expect(mocks.eq).toHaveBeenCalledWith('orderHistoryTable.workflowId', 'workflow-1')
+    expect(mocks.checkWorkspaceAccess).toHaveBeenCalledWith('ws-1', 'user-1')
+    expect(mocks.eq).toHaveBeenCalledWith('orderHistoryTable.workspaceId', 'ws-1')
     expect(await response.json()).toMatchObject({
       success: true,
       data: {
         count: 1,
-        workflowId: 'workflow-1',
-        workspaceId: 'workspace-1',
+        workspaceId: 'ws-1',
       },
     })
   })

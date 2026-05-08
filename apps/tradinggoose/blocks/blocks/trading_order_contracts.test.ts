@@ -9,24 +9,24 @@ describe('trading order block contracts', () => {
     expect(orderHistoryTool.outputs).toHaveProperty('workspaceId')
     expect(orderHistoryTool.outputs?.history.items?.properties).toEqual(
       expect.objectContaining({
+        logId: expect.any(Object),
         submissionSource: expect.any(Object),
-        workflowLogId: expect.any(Object),
         workspaceId: expect.any(Object),
       })
     )
     expect(TradingOrderHistoryBlock.outputs).toHaveProperty('workspaceId')
   })
 
-  it('exposes workspace and workflow-log provenance on order-detail outputs', () => {
+  it('exposes workspace and log provenance on order-detail outputs', () => {
     expect(tradingOrderDetailTool.outputs).toEqual(
       expect.objectContaining({
-        workflowLogId: expect.any(Object),
+        logId: expect.any(Object),
         workspaceId: expect.any(Object),
       })
     )
     expect(TradingOrderDetailBlock.outputs).toEqual(
       expect.objectContaining({
-        workflowLogId: expect.any(Object),
+        logId: expect.any(Object),
         workspaceId: expect.any(Object),
       })
     )

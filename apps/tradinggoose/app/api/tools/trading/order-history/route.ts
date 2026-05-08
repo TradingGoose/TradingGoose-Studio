@@ -1,5 +1,5 @@
 import { db, orderHistoryTable } from '@tradinggoose/db'
-import { workflow, workflowExecutionLogs } from '@tradinggoose/db/schema'
+import { workflowExecutionLogs } from '@tradinggoose/db/schema'
 import { and, eq, gte, lte } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { checkSessionOrInternalAuth } from '@/lib/auth/hybrid'
@@ -20,51 +20,20 @@ const isOrderSubmissionSource = (value: string): value is OrderSubmissionSource 
 
 const readString = (value: unknown) => (typeof value === 'string' ? value.trim() : '')
 
-async function readWorkflowWorkspaceId(workflowId: string) {
-  const [row] = await db
-    .select({ workspaceId: workflow.workspaceId })
-    .from(workflow)
-    .where(eq(workflow.id, workflowId))
-    .limit(1)
-
-  return row?.workspaceId?.trim() || null
-}
-
-async function resolveWorkflowLogId(params: {
-  workspaceId: string
-  workflowLogId: string
-  workflowExecutionId: string
-}) {
-  if (params.workflowLogId) {
-    const [log] = await db
-      .select({ id: workflowExecutionLogs.id, workspaceId: workflowExecutionLogs.workspaceId })
-      .from(workflowExecutionLogs)
-      .where(eq(workflowExecutionLogs.id, params.workflowLogId))
-      .limit(1)
-
-    if (!log || log.workspaceId !== params.workspaceId) {
-      return { ok: false as const, error: 'workflowLogId does not belong to the workspace' }
-    }
-
-    return { ok: true as const, workflowLogId: log.id }
-  }
-
-  if (!params.workflowExecutionId) {
-    return { ok: true as const, workflowLogId: null }
-  }
+async function resolveOrderLogId(params: { workspaceId: string; logId: string }) {
+  if (!params.logId) return { ok: true as const, logId: null }
 
   const [log] = await db
-    .select({ id: workflowExecutionLogs.id })
+    .select({ id: workflowExecutionLogs.id, workspaceId: workflowExecutionLogs.workspaceId })
     .from(workflowExecutionLogs)
-    .where(
-      and(
-        eq(workflowExecutionLogs.executionId, params.workflowExecutionId),
-        eq(workflowExecutionLogs.workspaceId, params.workspaceId)
-      )
-    )
+    .where(eq(workflowExecutionLogs.id, params.logId))
     .limit(1)
 
-  return { ok: true as const, workflowLogId: log?.id ?? null }
+  if (!log || log.workspaceId !== params.workspaceId) {
+    return { ok: false as const, error: 'logId does not belong to the workspace' }
+  }
+
+  return { ok: true as const, logId: log.id }
 }
 
 export async function GET(request: NextRequest) {
@@ -83,7 +52,6 @@ export async function GET(request: NextRequest) {
     const workspaceId = url.searchParams.get('workspaceId')
     const startDate = url.searchParams.get('startDate')
     const endDate = url.searchParams.get('endDate')
-    const workflowId = url.searchParams.get('workflowId')
 
     if (!workspaceId) {
       return NextResponse.json(
@@ -109,22 +77,6 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    if (workflowId) {
-      const workflowWorkspaceId = await readWorkflowWorkspaceId(workflowId)
-      if (!workflowWorkspaceId) {
-        return NextResponse.json(
-          { success: false, error: { message: 'Workflow not found' } },
-          { status: 404 }
-        )
-      }
-      if (workflowWorkspaceId !== workspaceId) {
-        return NextResponse.json(
-          { success: false, error: { message: 'workflowId does not belong to workspaceId' } },
-          { status: 400 }
-        )
-      }
-    }
-
     const start = new Date(startDate)
     const end = new Date(endDate)
     if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
@@ -139,20 +91,16 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    let conditions = and(
-      eq(orderHistoryTable.workspaceId, workspaceId),
-      gte(orderHistoryTable.recordedAt, start),
-      lte(orderHistoryTable.recordedAt, end)
-    )
-
-    if (workflowId) {
-      conditions = and(conditions, eq(orderHistoryTable.workflowId, workflowId))
-    }
-
     const history = await db
       .select()
       .from(orderHistoryTable)
-      .where(conditions)
+      .where(
+        and(
+          eq(orderHistoryTable.workspaceId, workspaceId),
+          gte(orderHistoryTable.recordedAt, start),
+          lte(orderHistoryTable.recordedAt, end)
+        )
+      )
       .orderBy(orderHistoryTable.recordedAt)
 
     return NextResponse.json(
@@ -161,7 +109,6 @@ export async function GET(request: NextRequest) {
         data: {
           history,
           count: history.length,
-          workflowId: workflowId || null,
           workspaceId,
           startDate,
           endDate,
@@ -211,10 +158,8 @@ export async function POST(request: NextRequest) {
 
     const provider = body.provider
     const bodyWorkspaceId = readString(body.workspaceId)
-    const workflowId = readString(body.workflowId)
     const submissionSource = readString(body.submissionSource)
-    const workflowExecutionId = readString(body.workflowExecutionId)
-    const requestedWorkflowLogId = readString(body.workflowLogId)
+    const requestedLogId = readString(body.logId)
     const orderRequest = body.request
     const orderResponse = body.response
     const recordedAtRaw = body.recordedAt
@@ -235,22 +180,6 @@ export async function POST(request: NextRequest) {
     const access = await checkWorkspaceAccess(workspaceId, auth.userId)
     if (!access.exists || !access.canWrite) {
       return NextResponse.json({ success: false, error: { message: 'Not found' } }, { status: 404 })
-    }
-
-    if (workflowId) {
-      const workflowWorkspaceId = await readWorkflowWorkspaceId(workflowId)
-      if (!workflowWorkspaceId) {
-        return NextResponse.json(
-          { success: false, error: { message: 'Workflow not found' } },
-          { status: 404 }
-        )
-      }
-      if (workflowWorkspaceId !== workspaceId) {
-        return NextResponse.json(
-          { success: false, error: { message: 'workflowId does not belong to workspaceId' } },
-          { status: 400 }
-        )
-      }
     }
 
     if (!isOrderSubmissionSource(submissionSource)) {
@@ -306,15 +235,14 @@ export async function POST(request: NextRequest) {
       recordedAt = parsed
     }
 
-    const resolvedWorkflowLog = await resolveWorkflowLogId({
+    const resolvedOrderLog = await resolveOrderLogId({
       workspaceId,
-      workflowLogId: requestedWorkflowLogId,
-      workflowExecutionId,
+      logId: requestedLogId,
     })
 
-    if (!resolvedWorkflowLog.ok) {
+    if (!resolvedOrderLog.ok) {
       return NextResponse.json(
-        { success: false, error: { message: resolvedWorkflowLog.error } },
+        { success: false, error: { message: resolvedOrderLog.error } },
         { status: 400 }
       )
     }
@@ -327,9 +255,7 @@ export async function POST(request: NextRequest) {
         environment: body.environment,
         recordedAt,
         submissionSource,
-        workflowId: workflowId || null,
-        workflowExecutionId: workflowExecutionId || null,
-        workflowLogId: resolvedWorkflowLog.workflowLogId,
+        logId: resolvedOrderLog.logId,
         listingIdentity: body.listingIdentity,
         request: orderRequest,
         response: orderResponse,

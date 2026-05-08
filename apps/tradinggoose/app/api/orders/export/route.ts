@@ -86,7 +86,7 @@ export async function GET(request: NextRequest) {
       .leftJoin(
         workflowExecutionLogs,
         and(
-          eq(orderHistoryTable.workflowLogId, workflowExecutionLogs.id),
+          eq(orderHistoryTable.logId, workflowExecutionLogs.id),
           eq(orderHistoryTable.workspaceId, workflowExecutionLogs.workspaceId)
         )
       )
@@ -113,7 +113,7 @@ export async function GET(request: NextRequest) {
       'Average Fill Price',
       'Recorded At',
       'Submitted At',
-      'Workflow Log ID',
+      'Log ID',
     ]
     const lines = [
       headers.map(csvValue).join(','),
@@ -134,7 +134,7 @@ export async function GET(request: NextRequest) {
           record.averageFillPrice,
           record.recordedAt,
           record.submittedAt,
-          record.workflowLogId,
+          record.logId,
         ]
           .map(csvValue)
           .join(',')

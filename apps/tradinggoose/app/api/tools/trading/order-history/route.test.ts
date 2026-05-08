@@ -38,18 +38,13 @@ vi.mock('@tradinggoose/db', () => ({
   orderHistoryTable: {
     workspaceId: 'orderHistoryTable.workspaceId',
     recordedAt: 'orderHistoryTable.recordedAt',
-    workflowId: 'orderHistoryTable.workflowId',
+    logId: 'orderHistoryTable.logId',
   },
 }))
 
 vi.mock('@tradinggoose/db/schema', () => ({
-  workflow: {
-    id: 'workflow.id',
-    workspaceId: 'workflow.workspaceId',
-  },
   workflowExecutionLogs: {
     id: 'workflowExecutionLogs.id',
-    executionId: 'workflowExecutionLogs.executionId',
     workspaceId: 'workflowExecutionLogs.workspaceId',
   },
 }))
@@ -105,9 +100,7 @@ describe('order history support route', () => {
   it('rejects inserts without explicit workspace scope', async () => {
     const { POST } = await import('./route')
 
-    const response = await POST(
-      postRequest({ ...baseBody, workspaceId: undefined, workflowId: 'workflow-1' })
-    )
+    const response = await POST(postRequest({ ...baseBody, workspaceId: undefined }))
 
     expect(response.status).toBe(400)
     expect(await response.json()).toMatchObject({
@@ -118,29 +111,11 @@ describe('order history support route', () => {
     expect(mocks.insert).not.toHaveBeenCalled()
   })
 
-  it('rejects workflow and body workspace mismatches after checking write access', async () => {
-    mocks.selectQueue.push([{ workspaceId: 'workspace-2' }])
-    const { POST } = await import('./route')
-
-    const response = await POST(postRequest({ ...baseBody, workflowId: 'workflow-1' }))
-
-    expect(response.status).toBe(400)
-    expect(await response.json()).toMatchObject({
-      success: false,
-      error: { message: 'workflowId does not belong to workspaceId' },
-    })
-    expect(mocks.checkWorkspaceAccess).toHaveBeenCalledWith('workspace-1', 'user-1')
-    expect(mocks.checkWorkspaceAccess.mock.invocationCallOrder[0]).toBeLessThan(
-      mocks.select.mock.invocationCallOrder[0]
-    )
-    expect(mocks.insert).not.toHaveBeenCalled()
-  })
-
-  it('rejects inaccessible POST workspace scope before reading workflow ownership', async () => {
+  it('rejects inaccessible POST workspace scope before reading log ownership', async () => {
     mocks.checkWorkspaceAccess.mockResolvedValue({ exists: true, hasAccess: true, canWrite: false })
     const { POST } = await import('./route')
 
-    const response = await POST(postRequest({ ...baseBody, workflowId: 'workflow-1' }))
+    const response = await POST(postRequest({ ...baseBody, logId: 'log-1' }))
 
     expect(response.status).toBe(404)
     expect(await response.json()).toMatchObject({
@@ -152,33 +127,28 @@ describe('order history support route', () => {
     expect(mocks.insert).not.toHaveBeenCalled()
   })
 
-  it('rejects requested workflow logs from another workspace', async () => {
-    mocks.selectQueue.push([{ workspaceId: 'workspace-1' }])
+  it('rejects requested logs from another workspace', async () => {
     mocks.selectQueue.push([{ id: 'log-2', workspaceId: 'workspace-2' }])
     const { POST } = await import('./route')
 
-    const response = await POST(
-      postRequest({ ...baseBody, workflowId: 'workflow-1', workflowLogId: 'log-2' })
-    )
+    const response = await POST(postRequest({ ...baseBody, logId: 'log-2' }))
 
     expect(response.status).toBe(400)
     expect(await response.json()).toMatchObject({
       success: false,
-      error: { message: 'workflowLogId does not belong to the workspace' },
+      error: { message: 'logId does not belong to the workspace' },
     })
     expect(mocks.insert).not.toHaveBeenCalled()
   })
 
-  it('resolves workflow log links by execution id within the same workspace', async () => {
-    mocks.selectQueue.push([{ workspaceId: 'workspace-1' }])
-    mocks.selectQueue.push([{ id: 'workflow-log-1' }])
+  it('stores explicit log links within the same workspace', async () => {
+    mocks.selectQueue.push([{ id: 'log-1', workspaceId: 'workspace-1' }])
     const { POST } = await import('./route')
 
     const response = await POST(
       postRequest({
         ...baseBody,
-        workflowId: 'workflow-1',
-        workflowExecutionId: 'execution-1',
+        logId: 'log-1',
       })
     )
 
@@ -186,29 +156,30 @@ describe('order history support route', () => {
     expect(mocks.values).toHaveBeenCalledWith(
       expect.objectContaining({
         workspaceId: 'workspace-1',
-        workflowId: 'workflow-1',
-        workflowExecutionId: 'execution-1',
-        workflowLogId: 'workflow-log-1',
+        logId: 'log-1',
         submissionSource: 'workflow',
       })
     )
   })
 
-  it('rejects GET workflow filters that do not belong to the requested workspace', async () => {
+  it('returns workspace history without log-specific filters', async () => {
     mocks.checkWorkspaceAccess.mockResolvedValue({ exists: true, hasAccess: true })
-    mocks.selectQueue.push([{ workspaceId: 'workspace-2' }])
+    mocks.selectQueue.push([{ id: 'order-history-1' }])
     const { GET } = await import('./route')
 
     const response = await GET(
       new NextRequest(
-        'http://localhost/api/tools/trading/order-history?workspaceId=workspace-1&workflowId=workflow-1&startDate=2026-04-01T00:00:00.000Z&endDate=2026-04-02T00:00:00.000Z'
+        'http://localhost/api/tools/trading/order-history?workspaceId=workspace-1&startDate=2026-04-01T00:00:00.000Z&endDate=2026-04-02T00:00:00.000Z'
       )
     )
 
-    expect(response.status).toBe(400)
+    expect(response.status).toBe(200)
     expect(await response.json()).toMatchObject({
-      success: false,
-      error: { message: 'workflowId does not belong to workspaceId' },
+      success: true,
+      data: {
+        count: 1,
+        workspaceId: 'workspace-1',
+      },
     })
   })
 })

@@ -40,8 +40,7 @@ vi.mock('@tradinggoose/db', () => ({
     request: 'orderHistoryTable.request',
     response: 'orderHistoryTable.response',
     submissionSource: 'orderHistoryTable.submissionSource',
-    workflowExecutionId: 'orderHistoryTable.workflowExecutionId',
-    workflowLogId: 'orderHistoryTable.workflowLogId',
+    logId: 'orderHistoryTable.logId',
     workspaceId: 'orderHistoryTable.workspaceId',
   },
 }))
@@ -100,9 +99,7 @@ describe('order record utils', () => {
           raw: { filled_avg_price: '184.25', status: 'filled' },
         },
         submissionSource: 'workflow',
-        workflowExecutionId: 'execution-1',
-        workflowId: 'workflow-1',
-        workflowLogId: 'log-1',
+        logId: 'log-1',
         workspaceId: 'workspace-1',
       } as any,
       'full'
@@ -164,7 +161,7 @@ describe('order record utils', () => {
     expect(mocks.eq).toHaveBeenCalledWith(expect.any(Object), 'buy')
     expect(mocks.eq).toHaveBeenCalledWith(expect.any(Object), 'limit')
     expect(mocks.eq).toHaveBeenCalledWith(expect.any(Object), 'day')
-    expect(mocks.isNotNull).toHaveBeenCalledWith('orderHistoryTable.workflowLogId')
+    expect(mocks.isNotNull).toHaveBeenCalledWith('orderHistoryTable.logId')
     expect(mocks.or).toHaveBeenCalled()
   })
 

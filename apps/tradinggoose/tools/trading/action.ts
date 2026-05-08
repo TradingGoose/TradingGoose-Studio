@@ -376,11 +376,10 @@ export const tradingActionTool: ToolConfig<TradingActionParams, TradingActionRes
 
       const context = (params as any)._context as
         | {
-            workflowId?: string
             workspaceId?: string
             userId?: string
             executionId?: string
-            workflowLogId?: string
+            logId?: string
             submissionSource?: 'manual' | 'copilot' | 'workflow'
           }
         | undefined
@@ -388,8 +387,8 @@ export const tradingActionTool: ToolConfig<TradingActionParams, TradingActionRes
       if (!workspaceId) {
         throw new Error('Order history recording requires workspace context')
       }
-      const workflowLogId = context?.workflowLogId
-      const submissionSource = context?.submissionSource ?? (workflowLogId ? 'workflow' : 'manual')
+      const logId = context?.logId
+      const submissionSource = context?.submissionSource ?? (logId ? 'workflow' : 'manual')
 
       const orderSubmit: OrderSubmit = {
         workspaceId,
@@ -397,9 +396,7 @@ export const tradingActionTool: ToolConfig<TradingActionParams, TradingActionRes
         environment: resolveProviderEnvironment(params),
         recordedAt: new Date().toISOString(),
         submissionSource,
-        workflowId: context?.workflowId,
-        workflowExecutionId: context?.executionId,
-        workflowLogId,
+        logId,
         listingIdentity,
         request: buildOrderSubmitRequest(params),
         response: responsePayload,

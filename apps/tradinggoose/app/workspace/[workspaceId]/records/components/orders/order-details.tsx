@@ -97,8 +97,8 @@ function OrderData({
             </h2>
             <OrderStatusBadge status={active.status} />
             <Badge variant='secondary'>{titleCase(active.submissionSource)}</Badge>
-            <Badge variant={active.workflowLogId ? 'default' : 'outline'}>
-              {active.workflowLogId ? 'Workflow log connected' : 'No workflow log connected'}
+            <Badge variant={active.logId ? 'default' : 'outline'}>
+              {active.logId ? 'Log connected' : 'No log connected'}
             </Badge>
           </div>
           <p className='text-muted-foreground text-sm'>
@@ -133,10 +133,9 @@ function OrderData({
         </section>
 
         <section className='rounded-md border bg-card/40 p-3'>
-          <DetailRow label='Workflow log id' value={active.workflowLogId ?? '—'} />
+          <DetailRow label='Log id' value={active.logId ?? '—'} />
           <DetailRow label='Log execution id' value={active.linkedLog?.executionId ?? '—'} />
           <DetailRow label='Workflow name' value={active.linkedLog?.workflowName ?? '—'} />
-          <DetailRow label='Workflow execution id' value={active.workflowExecutionId ?? '—'} />
         </section>
 
         <div className='space-y-3'>
@@ -169,7 +168,7 @@ export function OrderDetails({
   onRetryDetails,
   onRetryLog,
 }: OrderDetailsProps) {
-  const hasLinkedLog = Boolean(order.workflowLogId)
+  const hasLinkedLog = Boolean(order.logId)
 
   if (mode === 'log') {
     if (!hasLinkedLog) {
@@ -186,7 +185,7 @@ export function OrderDetails({
             hasPrev={hasPrev}
           />
           <div className='flex flex-1 items-center justify-center p-6 text-center text-muted-foreground text-sm'>
-            No workflow log is connected to this order.
+            No log is connected to this order.
           </div>
         </div>
       )
@@ -320,7 +319,7 @@ function OrderPanelHeader({
         <Button
           size='sm'
           variant={mode === 'log' ? 'secondary' : 'ghost'}
-          disabled={!order.workflowLogId}
+          disabled={!order.logId}
           onClick={() => onModeChange('log')}
         >
           Log detail

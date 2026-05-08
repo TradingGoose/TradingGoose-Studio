@@ -82,7 +82,7 @@ describe('tradingActionTool sizing normalization', () => {
     expect(body).not.toHaveProperty('qty')
   })
 
-  it('keeps legacy quantity precedence when orderSizingMode is omitted', () => {
+  it('keeps quantity precedence when orderSizingMode is omitted', () => {
     const body = buildBody({
       quantity: 2,
       notional: 150,
@@ -92,7 +92,7 @@ describe('tradingActionTool sizing normalization', () => {
     expect(body).not.toHaveProperty('notional')
   })
 
-  it('records workflow provenance only from normalized execution context', async () => {
+  it('records workspace order history without workflow identity', async () => {
     global.fetch = vi.fn().mockResolvedValue({ ok: true }) as typeof fetch
 
     await tradingActionTool.postProcess?.(
@@ -114,7 +114,6 @@ describe('tradingActionTool sizing normalization', () => {
           userId: 'user-1',
           workspaceId: 'workspace-1',
         },
-        _workflowId: 'legacy-workflow-1',
       } as any,
       vi.fn()
     )
@@ -131,9 +130,10 @@ describe('tradingActionTool sizing normalization', () => {
       workspaceId: 'workspace-1',
     })
     expect(body).not.toHaveProperty('workflowId')
+    expect(body).not.toHaveProperty('workflowExecutionId')
   })
 
-  it('infers workflow submission source only when workflowLogId is present', async () => {
+  it('infers workflow submission source only when logId is present', async () => {
     global.fetch = vi.fn().mockResolvedValue({ ok: true }) as typeof fetch
 
     const result = {
@@ -153,9 +153,9 @@ describe('tradingActionTool sizing normalization', () => {
       {
         ...baseParams,
         _context: {
+          logId: 'log-1',
           userId: 'user-1',
           workspaceId: 'workspace-1',
-          workflowLogId: 'log-1',
         },
       } as any,
       vi.fn()
@@ -165,7 +165,6 @@ describe('tradingActionTool sizing normalization', () => {
       {
         ...baseParams,
         _context: {
-          executionId: 'execution-1',
           userId: 'user-1',
           workspaceId: 'workspace-1',
         },
@@ -178,12 +177,11 @@ describe('tradingActionTool sizing normalization', () => {
 
     expect(firstBody).toMatchObject({
       submissionSource: 'workflow',
-      workflowLogId: 'log-1',
+      logId: 'log-1',
     })
     expect(secondBody).toMatchObject({
       submissionSource: 'manual',
-      workflowExecutionId: 'execution-1',
     })
-    expect(secondBody).not.toHaveProperty('workflowLogId')
+    expect(secondBody).not.toHaveProperty('logId')
   })
 })

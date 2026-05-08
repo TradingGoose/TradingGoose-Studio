@@ -313,8 +313,8 @@ export function OrdersTable({
                         <div>Recorded {formatCompactDateTime(order.recordedAt)}</div>
                       </TableCell>
                       <TableCell className='px-3 py-3 text-center'>
-                        <Badge variant={order.workflowLogId ? 'default' : 'outline'}>
-                          {order.workflowLogId ? 'Linked' : 'Unlinked'}
+                        <Badge variant={order.logId ? 'default' : 'outline'}>
+                          {order.logId ? 'Linked' : 'Unlinked'}
                         </Badge>
                       </TableCell>
                       <TableCell className='px-3 py-3 text-right'>

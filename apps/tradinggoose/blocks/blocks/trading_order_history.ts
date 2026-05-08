@@ -9,7 +9,7 @@ export const TradingOrderHistoryBlock: BlockConfig<OrderHistoryResponse> = {
   name: 'Trading Order History',
   description: 'Retrieve recorded trading order submissions for a date range.',
   longDescription:
-    'Fetches order submission history recorded by the Trading Action tool for the selected workflow and date range.',
+    'Fetches order submission history recorded by the Trading Action tool for the selected date range.',
   category: 'tools',
   bgColor: '#0f766e',
   icon: DollarIcon,
@@ -30,14 +30,6 @@ export const TradingOrderHistoryBlock: BlockConfig<OrderHistoryResponse> = {
       placeholder: 'YYYY-MM-DDTHH:mm:ssZ',
       required: true,
     },
-    {
-      id: 'workflowId',
-      title: 'Workflow ID',
-      type: 'short-input',
-      layout: 'full',
-      placeholder: 'Defaults to current workflow',
-      required: false,
-    },
   ],
   tools: {
     access: ['trading_order_history'],
@@ -46,7 +38,6 @@ export const TradingOrderHistoryBlock: BlockConfig<OrderHistoryResponse> = {
       params: (params) => ({
         startDate: params.startDate,
         endDate: params.endDate,
-        workflowId: params.workflowId,
       }),
     },
   },
@@ -56,7 +47,6 @@ export const TradingOrderHistoryBlock: BlockConfig<OrderHistoryResponse> = {
     count: { type: 'number', description: 'Number of records returned.' },
     startDate: { type: 'string', description: 'Start datetime used for filtering.' },
     endDate: { type: 'string', description: 'End datetime used for filtering.' },
-    workflowId: { type: 'string', description: 'Workflow ID used for filtering.' },
     workspaceId: { type: 'string', description: 'Workspace ID used for filtering.' },
   },
 }

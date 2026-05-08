@@ -183,7 +183,7 @@ export async function GET(request: NextRequest) {
               )`,
               sql`NOT EXISTS (
                 SELECT 1 FROM ${orderHistoryTable}
-                WHERE ${orderHistoryTable.workflowLogId} = ${workflowExecutionLogs.id}
+                WHERE ${orderHistoryTable.logId} = ${workflowExecutionLogs.id}
               )`
             )
           )

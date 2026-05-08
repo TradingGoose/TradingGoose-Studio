@@ -63,9 +63,7 @@ const order: RecordsOrder = {
   submittedPrice: '184.25',
   timeInForce: 'day',
   updatedAt: '2026-04-23T00:02:00.000Z',
-  workflowExecutionId: 'execution-1',
-  workflowId: 'workflow-1',
-  workflowLogId: 'log-1',
+  logId: 'log-1',
   workspaceId: 'workspace-1',
 }
 
@@ -116,7 +114,7 @@ describe('OrderDetails', () => {
     expect(container.textContent).toContain('Limit')
     expect(container.textContent).toContain('Time in force')
     expect(container.textContent).toContain('DAY')
-    expect(container.textContent).toContain('Workflow log connected')
+    expect(container.textContent).toContain('Log connected')
 
     const providerButton = Array.from(container.querySelectorAll('button')).find(
       (node) => node.textContent === 'Provider'

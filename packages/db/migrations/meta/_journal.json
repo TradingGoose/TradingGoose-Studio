@@ -218,6 +218,13 @@
       "when": 1778084621623,
       "tag": "0030_lethal_ikaris",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1778205331448,
+      "tag": "0031_light_stone_men",
+      "breakpoints": true
     }
   ]
 }

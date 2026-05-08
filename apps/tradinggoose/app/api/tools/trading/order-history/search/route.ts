@@ -1,5 +1,4 @@
 import { db, orderHistoryTable } from '@tradinggoose/db'
-import { workflow } from '@tradinggoose/db/schema'
 import { and, desc, eq, gte, lt, or, type SQL, sql } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
@@ -277,16 +276,6 @@ const buildSearchConditions = (query: string): SQL[] => {
   return conditions
 }
 
-async function readWorkflowWorkspaceId(workflowId: string) {
-  const [row] = await db
-    .select({ workspaceId: workflow.workspaceId })
-    .from(workflow)
-    .where(eq(workflow.id, workflowId))
-    .limit(1)
-
-  return row?.workspaceId?.trim() || null
-}
-
 export async function GET(request: NextRequest) {
   const requestId = generateRequestId()
 
@@ -301,7 +290,6 @@ export async function GET(request: NextRequest) {
 
     const url = new URL(request.url)
     const requestedWorkspaceId = readString(url.searchParams.get('workspaceId'))
-    const workflowId = readString(url.searchParams.get('workflowId'))
     const query = readString(url.searchParams.get('q')) ?? ''
     const limit = parseLimit(url.searchParams.get('limit'))
 
@@ -318,46 +306,18 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ success: false, error: { message: 'Not found' } }, { status: 404 })
     }
 
-    if (workflowId) {
-      const workflowWorkspaceId = await readWorkflowWorkspaceId(workflowId)
-      if (!workflowWorkspaceId) {
-        return NextResponse.json(
-          { success: false, error: { message: 'Workflow not found' } },
-          { status: 404 }
-        )
-      }
-      if (workspaceId !== workflowWorkspaceId) {
-        return NextResponse.json(
-          { success: false, error: { message: 'workflowId does not belong to workspaceId' } },
-          { status: 400 }
-        )
-      }
-    }
-
     const conditions: SQL[] = [eq(orderHistoryTable.workspaceId, workspaceId)]
-
-    if (workflowId) {
-      conditions.push(eq(orderHistoryTable.workflowId, workflowId))
-    }
 
     if (query) {
       conditions.push(or(...buildSearchConditions(query)) as SQL)
     }
 
-    const whereClause = conditions.length ? and(...conditions) : undefined
-
-    const rows = whereClause
-      ? await db
-          .select()
-          .from(orderHistoryTable)
-          .where(whereClause)
-          .orderBy(desc(orderHistoryTable.recordedAt))
-          .limit(limit)
-      : await db
-          .select()
-          .from(orderHistoryTable)
-          .orderBy(desc(orderHistoryTable.recordedAt))
-          .limit(limit)
+    const rows = await db
+      .select()
+      .from(orderHistoryTable)
+      .where(and(...conditions))
+      .orderBy(desc(orderHistoryTable.recordedAt))
+      .limit(limit)
 
     const listingCache: Array<{ identity: ListingIdentity; resolved: ListingResolved | null }> = []
     const results = await Promise.all(rows.map((row) => mapOrderRow(row, listingCache)))
@@ -369,7 +329,6 @@ export async function GET(request: NextRequest) {
           results,
           count: results.length,
           workspaceId,
-          workflowId: workflowId ?? null,
           query,
           limit,
         },

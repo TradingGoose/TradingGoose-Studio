@@ -84,8 +84,7 @@ export interface TradingOrderHistoryRecord {
   provider: string
   environment?: string | null
   submissionSource: 'manual' | 'copilot' | 'workflow' | string
-  workflowId?: string | null
-  workflowLogId?: string | null
+  logId?: string | null
   request?: Record<string, any> | null
   response?: Record<string, any> | null
   normalizedOrder?: Record<string, any> | null

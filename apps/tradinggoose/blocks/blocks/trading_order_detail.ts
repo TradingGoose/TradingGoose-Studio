@@ -129,9 +129,9 @@ export const TradingOrderDetailBlock: BlockConfig<TradingOrderDetailResponse> = 
     appOrderId: { type: 'string', description: 'Trading Goose order ID.' },
     providerOrderId: { type: 'string', description: 'Provider order ID.' },
     workspaceId: { type: 'string', description: 'Workspace that owns the recorded order.' },
-    workflowLogId: {
+    logId: {
       type: 'string',
-      description: 'Linked workflow execution log ID, when one exists.',
+      description: 'Linked log ID, when one exists.',
     },
     orderDetail: { type: 'json', description: 'Normalized order detail payload.' },
   },

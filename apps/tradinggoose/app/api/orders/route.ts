@@ -93,7 +93,7 @@ export async function GET(request: NextRequest) {
         .leftJoin(
           workflowExecutionLogs,
           and(
-            eq(orderHistoryTable.workflowLogId, workflowExecutionLogs.id),
+            eq(orderHistoryTable.logId, workflowExecutionLogs.id),
             eq(orderHistoryTable.workspaceId, workflowExecutionLogs.workspaceId)
           )
         )
@@ -110,7 +110,7 @@ export async function GET(request: NextRequest) {
       .leftJoin(
         workflowExecutionLogs,
         and(
-          eq(orderHistoryTable.workflowLogId, workflowExecutionLogs.id),
+          eq(orderHistoryTable.logId, workflowExecutionLogs.id),
           eq(orderHistoryTable.workspaceId, workflowExecutionLogs.workspaceId)
         )
       )
