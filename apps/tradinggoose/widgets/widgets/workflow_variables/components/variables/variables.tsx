@@ -11,6 +11,7 @@ import {
   Plus,
   Trash,
 } from 'lucide-react'
+import { MonacoEditor } from '@/components/monaco-editor'
 import {
   Button,
   DropdownMenu,
@@ -23,11 +24,10 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui'
-import { MonacoEditor } from '@/components/monaco-editor'
 import { createLogger } from '@/lib/logs/console/logger'
 import { validateName } from '@/lib/utils'
-import { useWorkflowEditorActions } from '@/hooks/workflow/use-workflow-editor-actions'
 import { useWorkflowVariables } from '@/lib/yjs/use-workflow-doc'
+import { useWorkflowEditorActions } from '@/hooks/workflow/use-workflow-editor-actions'
 import type { Variable, VariableType } from '@/stores/variables/types'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 
@@ -38,7 +38,10 @@ type VariablesProps = {
   hideAddButtons?: boolean
 }
 
-export function Variables({ workflowId: workflowIdProp, hideAddButtons = false }: VariablesProps = {}) {
+export function Variables({
+  workflowId: workflowIdProp,
+  hideAddButtons = false,
+}: VariablesProps = {}) {
   const activeWorkflowId = useWorkflowRegistry((state) => state.getActiveWorkflowId())
   const workflowId = workflowIdProp ?? activeWorkflowId
   const yjsVariables = useWorkflowVariables()
@@ -83,7 +86,7 @@ export function Variables({ workflowId: workflowIdProp, hideAddButtons = false }
 
     const id = collaborativeAddVariable({
       name: '',
-      type: 'string',
+      type: 'plain',
       value: '',
       workflowId,
     })
@@ -103,10 +106,8 @@ export function Variables({ workflowId: workflowIdProp, hideAddButtons = false }
         return '{ }'
       case 'array':
         return '[ ]'
-      case 'string':
-        return 'Abc'
       default:
-        return '?'
+        throw new Error(`Unsupported variable type: ${String(type)}`)
     }
   }
 
@@ -122,17 +123,14 @@ export function Variables({ workflowId: workflowIdProp, hideAddButtons = false }
         return '{\n  "key": "value"\n}'
       case 'array':
         return '[\n  1,\n  2,\n  3\n]'
-      case 'string':
-        return 'Plain text value'
       default:
-        return ''
+        throw new Error(`Unsupported variable type: ${String(type)}`)
     }
   }
 
   const getEditorLanguage = (type: VariableType) => {
     switch (type) {
       case 'plain':
-      case 'string':
         return 'plaintext'
       case 'object':
       case 'array':
@@ -140,7 +138,7 @@ export function Variables({ workflowId: workflowIdProp, hideAddButtons = false }
       case 'number':
         return 'javascript'
       default:
-        return 'plaintext'
+        throw new Error(`Unsupported variable type: ${String(type)}`)
     }
   }
 
@@ -239,7 +237,7 @@ export function Variables({ workflowId: workflowIdProp, hideAddButtons = false }
           <div className='flex h-full items-center justify-center'>
             <Button
               onClick={handleAddVariable}
-              className='h-9 rounded-lg border border-[#E5E5E5] bg-background px-3 py-1.5 font-normal text-muted-foreground text-sm shadow-xs transition-colors hover:text-muted-foreground dark:border-[#414141]  dark:hover:text-muted-foreground'
+              className='h-9 rounded-lg border border-[#E5E5E5] bg-background px-3 py-1.5 font-normal text-muted-foreground text-sm shadow-xs transition-colors hover:text-muted-foreground dark:border-[#414141] dark:hover:text-muted-foreground'
               variant='outline'
             >
               <Plus className='h-4 w-4' />
@@ -417,7 +415,7 @@ export function Variables({ workflowId: workflowIdProp, hideAddButtons = false }
             {!hideAddButtons ? (
               <Button
                 onClick={handleAddVariable}
-                className='mt-2 h-9 w-full rounded-lg border border-[#E5E5E5] bg-background px-3 py-1.5 font-[380] text-muted-foreground text-sm shadow-xs transition-colors hover:text-muted-foreground dark:border-[#414141]  dark:hover:text-muted-foreground'
+                className='mt-2 h-9 w-full rounded-lg border border-[#E5E5E5] bg-background px-3 py-1.5 font-[380] text-muted-foreground text-sm shadow-xs transition-colors hover:text-muted-foreground dark:border-[#414141] dark:hover:text-muted-foreground'
                 variant='outline'
               >
                 <Plus className='h-4 w-4' />

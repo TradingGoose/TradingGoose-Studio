@@ -1,12 +1,12 @@
 import {
-  sortExecutionGroups,
   getExecutionAggregate,
   getExecutionGroupValue,
   type MonitorExecutionItem,
+  sortExecutionGroups,
 } from '../data/execution-ordering'
 import type { ExecutionMonitorFieldSum, ExecutionMonitorViewConfig } from '../view/view-config'
 
-export type MonitorTimelineItem = {
+type MonitorTimelineItem = {
   id: string
   title: string
   startAt: Date
@@ -23,7 +23,7 @@ export type MonitorTimelineGroup = {
 
 export const buildMonitorTimelineGroups = (
   items: MonitorExecutionItem[],
-  config: ExecutionMonitorViewConfig,
+  config: ExecutionMonitorViewConfig
 ): MonitorTimelineGroup[] => {
   const groups = new Map<string, MonitorTimelineGroup>()
   const groupField = config.sliceBy ?? config.groupBy
@@ -59,17 +59,16 @@ export const buildMonitorTimelineGroups = (
         label: group.label,
         sortValue: group.label,
       }
-  )
-    .map((group) => ({
-      ...group,
-      aggregates: Object.fromEntries(
-        config.fieldSums.map((field) => [
-          field,
-          getExecutionAggregate(
-            group.items.map((item) => item.item),
-            field,
-          )
-        ]),
-      ) as Partial<Record<ExecutionMonitorFieldSum, number>>,
-    }))
+  ).map((group) => ({
+    ...group,
+    aggregates: Object.fromEntries(
+      config.fieldSums.map((field) => [
+        field,
+        getExecutionAggregate(
+          group.items.map((item) => item.item),
+          field
+        ),
+      ])
+    ) as Partial<Record<ExecutionMonitorFieldSum, number>>,
+  }))
 }

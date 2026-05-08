@@ -81,6 +81,8 @@ export interface TradingOrderDetailResponse {
     provider: TradingProviderId | string
     appOrderId: string
     providerOrderId: string
+    workspaceId: string | null
+    logId: string | null
     orderDetail: TradingOrderDetailOutput
   }
   error?: string
@@ -115,11 +117,12 @@ export interface OrderSubmitResponse {
 
 export interface OrderSubmit {
   id?: string
+  workspaceId: string
   provider: TradingProviderId
   environment?: 'paper' | 'live' | string
   recordedAt: string
-  workflowId?: string
-  workflowExecutionId?: string
+  submissionSource: 'manual' | 'copilot' | 'workflow'
+  logId?: string
   listingIdentity?: ListingIdentity | null
   request: OrderSubmitRequest
   response: OrderSubmitResponse

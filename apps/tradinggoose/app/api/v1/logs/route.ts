@@ -37,14 +37,11 @@ const QueryParamsSchema = z.object({
   indicatorId: z.string().optional(),
   providerId: z.string().optional(),
   interval: z.string().optional(),
-  triggerSource: z.preprocess(
-    (value) => {
-      if (typeof value !== 'string') return value
-      const trimmed = value.trim()
-      return trimmed.length === 0 ? undefined : trimmed
-    },
-    z.literal('indicator_trigger').optional()
-  ),
+  triggerSource: z.preprocess((value) => {
+    if (typeof value !== 'string') return value
+    const trimmed = value.trim()
+    return trimmed.length === 0 ? undefined : trimmed
+  }, z.literal('indicator_trigger').optional()),
   limit: z.coerce.number().optional().default(100),
   cursor: z.string().optional(),
   order: z.enum(['desc', 'asc']).optional().default('desc'),
@@ -54,6 +51,15 @@ interface CursorData {
   startedAt: string
   id: string
 }
+
+type WorkflowSummary = {
+  id?: string | null
+  name?: string | null
+  description?: string | null
+}
+
+const readWorkflowSummary = (value: unknown): WorkflowSummary =>
+  value && typeof value === 'object' && !Array.isArray(value) ? (value as WorkflowSummary) : {}
 
 function encodeCursor(data: CursorData): string {
   return Buffer.from(JSON.stringify(data)).toString('base64')
@@ -66,7 +72,6 @@ function decodeCursor(cursor: string): CursorData | null {
     return null
   }
 }
-
 
 export async function GET(request: NextRequest) {
   const requestId = crypto.randomUUID().slice(0, 8)
@@ -154,11 +159,13 @@ export async function GET(request: NextRequest) {
         cost: workflowExecutionLogs.cost,
         files: workflowExecutionLogs.files,
         executionData: params.details === 'full' ? workflowExecutionLogs.executionData : sql`null`,
+        workspaceId: workflowExecutionLogs.workspaceId,
+        workflowSummary: workflowExecutionLogs.workflowSummary,
         workflowName: workflow.name,
         workflowDescription: workflow.description,
       })
       .from(workflowExecutionLogs)
-      .innerJoin(
+      .leftJoin(
         workflow,
         and(
           eq(workflowExecutionLogs.workflowId, workflow.id),
@@ -169,7 +176,7 @@ export async function GET(request: NextRequest) {
         permissions,
         and(
           eq(permissions.entityType, 'workspace'),
-          eq(permissions.entityId, params.workspaceId),
+          eq(permissions.entityId, workflowExecutionLogs.workspaceId),
           eq(permissions.userId, userId)
         )
       )
@@ -177,7 +184,7 @@ export async function GET(request: NextRequest) {
     const logsQueryStartedAt = Date.now()
     const logs = await baseQuery
       .where(conditions)
-      .orderBy(orderBy)
+      .orderBy(...orderBy)
       .limit(params.limit + 1)
     const logsQueryDurationMs = Date.now() - logsQueryStartedAt
 
@@ -211,9 +218,11 @@ export async function GET(request: NextRequest) {
     }
 
     const formattedLogs = data.map((log) => {
+      const workflowSummary = readWorkflowSummary(log.workflowSummary)
+      const workflowId = log.workflowId ?? workflowSummary.id ?? null
       const result: any = {
         id: log.id,
-        workflowId: log.workflowId,
+        workflowId,
         executionId: log.executionId,
         level: log.level,
         trigger: log.trigger,
@@ -226,9 +235,9 @@ export async function GET(request: NextRequest) {
 
       if (params.details === 'full') {
         result.workflow = {
-          id: log.workflowId,
-          name: log.workflowName,
-          description: log.workflowDescription,
+          id: workflowId,
+          name: log.workflowName ?? workflowSummary.name ?? null,
+          description: log.workflowDescription ?? workflowSummary.description ?? null,
         }
 
         if (log.cost) {
@@ -237,7 +246,7 @@ export async function GET(request: NextRequest) {
 
         if (log.executionData) {
           const execData = log.executionData as any
-          if (params.includeFinalOutput && execData.finalOutput) {
+          if (params.includeFinalOutput && execData.finalOutput !== undefined) {
             result.finalOutput = execData.finalOutput
           }
           if (params.includeTraceSpans && execData.traceSpans) {

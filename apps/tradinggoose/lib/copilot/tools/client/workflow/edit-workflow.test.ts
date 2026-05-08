@@ -136,6 +136,7 @@ describe('EditWorkflowClientTool approval gating', () => {
                 loops: {},
                 parallels: {},
               },
+              workflowDocument,
             },
           }),
         }
@@ -185,7 +186,7 @@ describe('EditWorkflowClientTool approval gating', () => {
     expect(rejectBody.data).toEqual({ rejected: true })
   })
 
-  it('stages workflow edits from a persisted workflow fallback when no live session is registered yet', async () => {
+  it('stages workflow edits from a readable workflow snapshot when no live session is registered yet', async () => {
     mockGetReadableWorkflowState.mockResolvedValueOnce({
       workflowId: 'wf-1',
       source: 'api',
@@ -235,6 +236,7 @@ describe('EditWorkflowClientTool approval gating', () => {
                 loops: {},
                 parallels: {},
               },
+              workflowDocument,
             },
           }),
         }
@@ -244,9 +246,9 @@ describe('EditWorkflowClientTool approval gating', () => {
     })
     vi.stubGlobal('fetch', fetchMock)
 
-    const tool = new EditWorkflowClientTool('tool-db-fallback')
+    const tool = new EditWorkflowClientTool('tool-readable-state')
     tool.setExecutionContext({
-      toolCallId: 'tool-db-fallback',
+      toolCallId: 'tool-readable-state',
       toolName: 'edit_workflow',
       channelId: 'pair-1',
       workflowId: 'wf-1',
@@ -293,6 +295,7 @@ describe('EditWorkflowClientTool approval gating', () => {
             success: true,
             result: {
               workflowState: nextWorkflowState,
+              workflowDocument,
             },
           }),
         }
@@ -370,6 +373,7 @@ describe('EditWorkflowClientTool approval gating', () => {
                 loops: {},
                 parallels: {},
               },
+              workflowDocument,
             },
           }),
         }
@@ -436,6 +440,7 @@ describe('EditWorkflowClientTool approval gating', () => {
                 loops: {},
                 parallels: {},
               },
+              workflowDocument,
             },
           }),
         }

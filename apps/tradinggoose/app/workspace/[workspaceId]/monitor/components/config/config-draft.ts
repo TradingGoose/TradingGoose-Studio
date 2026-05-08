@@ -8,7 +8,7 @@ import type {
 } from '../shared/types'
 import { buildDefaultDraft, buildDraftFromMonitor, isAuthParamDefinition } from '../shared/utils'
 
-export type MonitorDraftValidationResult = {
+type MonitorDraftValidationResult = {
   valid: boolean
   errors: Record<string, string>
 }

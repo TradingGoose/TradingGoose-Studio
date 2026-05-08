@@ -245,10 +245,8 @@ export async function DELETE(
         }
       }
 
-      // Delete all workflows in the workspace - database cascade will handle all workflow-related data
-      // The database cascade will handle deleting related workflow_blocks, workflow_edges, workflow_subflows,
-      // workflow_logs, workflow_execution_snapshots, workflow_execution_logs, workflow_execution_trace_spans,
-      // workflow_schedule, webhook, marketplace, chat, and memory records
+      // Delete live workflow definitions first. Durable execution logs and snapshots
+      // remain workspace-owned until the workspace row is deleted below.
       await tx.delete(workflow).where(eq(workflow.workspaceId, workspaceId))
 
       // Clear workspace ID from knowledge bases instead of deleting them

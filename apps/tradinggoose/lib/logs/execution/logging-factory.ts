@@ -1,3 +1,6 @@
+import { db } from '@tradinggoose/db'
+import { workflow, workflowFolder } from '@tradinggoose/db/schema'
+import { eq } from 'drizzle-orm'
 import type { ExecutionEnvironment, ExecutionTrigger, WorkflowState } from '@/lib/logs/types'
 import {
   loadDeployedWorkflowState,
@@ -30,12 +33,53 @@ export function createEnvironmentObject(
   workspaceId?: string,
   variables?: Record<string, string>
 ): ExecutionEnvironment {
+  if (!workspaceId) {
+    throw new Error('Workflow execution logging requires workspaceId')
+  }
+
   return {
     variables: variables || {},
     workflowId,
     executionId,
     userId: userId || '',
-    workspaceId: workspaceId || '',
+    workspaceId,
+  }
+}
+
+export async function loadWorkflowSummaryForExecution(workflowId: string) {
+  const [row] = await db
+    .select({
+      id: workflow.id,
+      name: workflow.name,
+      description: workflow.description,
+      color: workflow.color,
+      folderId: workflow.folderId,
+      folderName: workflowFolder.name,
+      userId: workflow.userId,
+      workspaceId: workflow.workspaceId,
+      createdAt: workflow.createdAt,
+      updatedAt: workflow.updatedAt,
+    })
+    .from(workflow)
+    .leftJoin(workflowFolder, eq(workflow.folderId, workflowFolder.id))
+    .where(eq(workflow.id, workflowId))
+    .limit(1)
+
+  if (!row?.workspaceId) {
+    throw new Error(`Workflow ${workflowId} is missing workspaceId`)
+  }
+
+  return {
+    id: row.id,
+    name: row.name,
+    description: row.description,
+    color: row.color,
+    folderId: row.folderId,
+    folderName: row.folderName,
+    userId: row.userId,
+    workspaceId: row.workspaceId,
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
   }
 }
 

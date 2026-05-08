@@ -82,6 +82,7 @@ describe('PathTracker', () => {
 
     mockContext = {
       workflowId: 'test-workflow',
+      workspaceId: 'test-workspace-id',
       blockStates: new Map(),
       blockLogs: [],
       metadata: { duration: 0 },
@@ -493,6 +494,7 @@ describe('PathTracker', () => {
       pathTracker = new PathTracker(mockWorkflow)
       mockContext = {
         workflowId: 'test-router-workflow',
+        workspaceId: 'test-workspace-id',
         blockStates: new Map(),
         blockLogs: [],
         metadata: { duration: 0 },
@@ -688,6 +690,7 @@ describe('PathTracker', () => {
       pathTracker = new PathTracker(mockWorkflow)
       mockContext = {
         workflowId: 'test-condition-workflow',
+        workspaceId: 'test-workspace-id',
         blockStates: new Map(),
         blockLogs: [],
         metadata: { duration: 0 },

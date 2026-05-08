@@ -80,9 +80,11 @@ export interface TradingOrderDetailInput extends TradingHoldingsInput {
 
 export interface TradingOrderHistoryRecord {
   id: string
+  workspaceId: string
   provider: string
   environment?: string | null
-  workflowId?: string | null
+  submissionSource: 'manual' | 'copilot' | 'workflow'
+  logId?: string | null
   request?: Record<string, any> | null
   response?: Record<string, any> | null
   normalizedOrder?: Record<string, any> | null

@@ -160,6 +160,7 @@ describe('Router and Condition Block Path Selection in Complex Workflows', () =>
 
     mockContext = {
       workflowId: 'test-workflow',
+      workspaceId: 'test-workspace-id',
       blockStates: new Map(),
       blockLogs: [],
       metadata: { duration: 0 },

@@ -62,8 +62,8 @@ describe('Router → Workflow Block Execution Fix', () => {
         {
           id: 'workflow-2',
           position: { x: 300, y: 50 },
-          metadata: { id: BlockType.WORKFLOW, name: 'Workflow 2' },
-          config: { tool: BlockType.WORKFLOW, params: {} },
+          metadata: { id: BlockType.WORKFLOW_INPUT, name: 'Workflow 2' },
+          config: { tool: BlockType.WORKFLOW_INPUT, params: {} },
           inputs: {},
           outputs: {},
           enabled: true,
@@ -84,6 +84,7 @@ describe('Router → Workflow Block Execution Fix', () => {
 
     mockContext = {
       workflowId: 'test-workflow',
+      workspaceId: 'test-workspace-id',
       blockStates: new Map(),
       blockLogs: [],
       metadata: { duration: 0 },
@@ -105,9 +106,9 @@ describe('Router → Workflow Block Execution Fix', () => {
 
   it('should categorize workflow blocks as flow control blocks requiring active path checks', () => {
     // Verify that workflow blocks now have the correct routing behavior
-    expect(Routing.getCategory(BlockType.WORKFLOW)).toBe('flow-control')
-    expect(Routing.requiresActivePathCheck(BlockType.WORKFLOW)).toBe(true)
-    expect(Routing.shouldSkipInSelectiveActivation(BlockType.WORKFLOW)).toBe(true)
+    expect(Routing.getCategory(BlockType.WORKFLOW_INPUT)).toBe('flow-control')
+    expect(Routing.requiresActivePathCheck(BlockType.WORKFLOW_INPUT)).toBe(true)
+    expect(Routing.shouldSkipInSelectiveActivation(BlockType.WORKFLOW_INPUT)).toBe(true)
   })
 
   it('should prevent workflow blocks from executing when not selected by router', () => {
@@ -212,7 +213,7 @@ describe('Router → Workflow Block Execution Fix', () => {
       output: {
         selectedPath: {
           blockId: 'workflow-2',
-          blockType: BlockType.WORKFLOW,
+          blockType: BlockType.WORKFLOW_INPUT,
           blockTitle: 'Workflow 2',
         },
       },

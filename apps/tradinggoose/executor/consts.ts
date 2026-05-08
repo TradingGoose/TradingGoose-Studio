@@ -12,8 +12,7 @@ export enum BlockType {
   API = 'api',
   EVALUATOR = 'evaluator',
   RESPONSE = 'response',
-  WORKFLOW = 'workflow', // Deprecated - kept for backwards compatibility
-  WORKFLOW_INPUT = 'workflow_input', // Current workflow block type
+  WORKFLOW_INPUT = 'workflow_input',
   VARIABLES = 'variables',
   WAIT = 'wait',
 }
@@ -30,9 +29,6 @@ export function isValidBlockType(type: string): type is BlockType {
   return ALL_BLOCK_TYPES.includes(type)
 }
 
-/**
- * Helper to check if a block type is a workflow block (current or deprecated)
- */
 export function isWorkflowBlockType(blockType: string | undefined): boolean {
-  return blockType === BlockType.WORKFLOW || blockType === BlockType.WORKFLOW_INPUT
+  return blockType === BlockType.WORKFLOW_INPUT
 }

@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { generateInternalToken } from '@/lib/auth/internal'
 import { BlockType } from '@/executor/consts'
 import { WorkflowBlockHandler } from '@/executor/handlers/workflow/workflow-handler'
 import type { ExecutionContext } from '@/executor/types'
 import type { SerializedBlock } from '@/serializer/types'
-import { generateInternalToken } from '@/lib/auth/internal'
 
 vi.mock('@/lib/auth/internal', () => ({
   generateInternalToken: vi.fn().mockResolvedValue('test-token'),
@@ -11,18 +11,6 @@ vi.mock('@/lib/auth/internal', () => ({
 
 vi.mock('@/lib/urls/utils', () => ({
   getBaseUrl: vi.fn(() => 'http://localhost:3000'),
-}))
-
-vi.mock('@/stores/workflows/registry/store', () => ({
-  useWorkflowRegistry: {
-    getState: vi.fn(() => ({
-      workflows: {
-        'child-workflow-id': {
-          name: 'Child Workflow',
-        },
-      },
-    })),
-  },
 }))
 
 global.fetch = vi.fn()
@@ -38,9 +26,9 @@ describe('WorkflowBlockHandler', () => {
 
     mockBlock = {
       id: 'workflow-block-1',
-      metadata: { id: BlockType.WORKFLOW, name: 'Workflow Block' },
+      metadata: { id: BlockType.WORKFLOW_INPUT, name: 'Workflow Block' },
       position: { x: 0, y: 0 },
-      config: { tool: BlockType.WORKFLOW, params: {} },
+      config: { tool: BlockType.WORKFLOW_INPUT, params: {} },
       inputs: { workflowId: 'string' },
       outputs: {},
       enabled: true,
@@ -48,6 +36,7 @@ describe('WorkflowBlockHandler', () => {
 
     mockContext = {
       workflowId: 'parent-workflow-id',
+      workspaceId: 'test-workspace-id',
       userId: 'user-1',
       executionId: 'execution-1',
       workflowDepth: 0,

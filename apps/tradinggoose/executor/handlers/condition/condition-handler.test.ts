@@ -82,7 +82,9 @@ describe('ConditionBlockHandler', () => {
     mockPathTracker = new MockPathTracker(mockWorkflow as SerializedWorkflow) as Mocked<PathTracker>
     mockResolver = new MockInputResolver(
       mockWorkflow as SerializedWorkflow,
-      {}
+      {},
+      {},
+      new Map()
     ) as Mocked<InputResolver>
 
     // Ensure the methods exist as mock functions on the instance
@@ -95,6 +97,7 @@ describe('ConditionBlockHandler', () => {
     // Define mock context *after* workflow and blocks are set up
     mockContext = {
       workflowId: 'test-workflow-id',
+      workspaceId: 'test-workspace-id',
       blockStates: new Map<string, BlockState>([
         [
           mockSourceBlock.id,

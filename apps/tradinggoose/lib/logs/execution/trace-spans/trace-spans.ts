@@ -249,11 +249,6 @@ export function buildTraceSpans(result: ExecutionResult): {
       try {
         if (log.output?.toolCalls?.list) {
           toolCallsList = log.output.toolCalls.list
-        } else if (Array.isArray(log.output?.toolCalls)) {
-          toolCallsList = log.output.toolCalls
-        } else if (log.output?.executionData?.output?.toolCalls) {
-          const tcObj = log.output.executionData.output.toolCalls
-          toolCallsList = Array.isArray(tcObj) ? tcObj : tcObj.list || []
         }
 
         if (toolCallsList && !Array.isArray(toolCallsList)) {

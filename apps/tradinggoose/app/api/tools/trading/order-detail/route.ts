@@ -1,7 +1,9 @@
 import { db, orderHistoryTable } from '@tradinggoose/db'
 import { and, eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
+import { checkSessionOrInternalAuth } from '@/lib/auth/hybrid'
 import { createLogger } from '@/lib/logs/console/logger'
+import { checkWorkspaceAccess } from '@/lib/permissions/utils'
 import { generateRequestId } from '@/lib/utils'
 import { executeTradingProviderOrderDetailRequest } from '@/providers/trading'
 import type { TradingOrderDetailInput, TradingOrderHistoryRecord } from '@/providers/trading/types'
@@ -27,8 +29,22 @@ export async function POST(request: NextRequest) {
   const requestId = generateRequestId()
 
   try {
-    const body = (await request.json().catch(() => null)) as TradingOrderDetailParams | null
+    const auth = await checkSessionOrInternalAuth(request, { requireWorkflowId: false })
+    if (!auth.success || !auth.userId) {
+      return NextResponse.json(
+        { success: false, error: { message: 'Unauthorized' } },
+        { status: 401 }
+      )
+    }
+
+    const url = new URL(request.url)
+    const body = (await request.json().catch(() => null)) as
+      | (TradingOrderDetailParams & { workspaceId?: string })
+      | null
     const orderId = typeof body?.orderId === 'string' ? body.orderId.trim() : ''
+    const requestedWorkspaceId =
+      url.searchParams.get('workspaceId')?.trim() ||
+      (typeof body?.workspaceId === 'string' ? body.workspaceId.trim() : '')
 
     if (!orderId) {
       return NextResponse.json(
@@ -42,9 +58,11 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const workflowId = new URL(request.url).searchParams.get('workflowId')
-    const whereClause = workflowId
-      ? and(eq(orderHistoryTable.id, orderId), eq(orderHistoryTable.workflowId, workflowId))
+    const whereClause = requestedWorkspaceId
+      ? and(
+          eq(orderHistoryTable.id, orderId),
+          eq(orderHistoryTable.workspaceId, requestedWorkspaceId)
+        )
       : eq(orderHistoryTable.id, orderId)
 
     const [historyRecord] = await db.select().from(orderHistoryTable).where(whereClause).limit(1)
@@ -59,6 +77,24 @@ export async function POST(request: NextRequest) {
         },
         { status: 404 }
       )
+    }
+
+    const workspaceId = historyRecord.workspaceId
+    if (!workspaceId) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: {
+            message: 'Order history record is missing workspace scope',
+          },
+        },
+        { status: 400 }
+      )
+    }
+
+    const access = await checkWorkspaceAccess(workspaceId, auth.userId)
+    if (!access.exists || !access.hasAccess) {
+      return NextResponse.json({ success: false, error: { message: 'Not found' } }, { status: 404 })
     }
 
     if (body?.provider && body.provider !== historyRecord.provider) {
@@ -85,6 +121,8 @@ export async function POST(request: NextRequest) {
         data: {
           orderHistoryRecord: historyRecord,
           provider: historyRecord.provider,
+          workspaceId: historyRecord.workspaceId,
+          logId: historyRecord.logId,
           appOrderId: historyRecord.id,
           providerOrderId: resolved.providerOrderId,
           orderDetail: resolved.orderDetail,

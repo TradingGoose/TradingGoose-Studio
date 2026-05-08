@@ -13,6 +13,13 @@ import { checkRateLimit, createRateLimitResponse } from '@/app/api/v1/middleware
 
 const logger = createLogger('V1ExecutionAPI')
 
+type WorkflowSummary = {
+  id?: string | null
+}
+
+const readWorkflowSummary = (value: unknown): WorkflowSummary =>
+  value && typeof value === 'object' && !Array.isArray(value) ? (value as WorkflowSummary) : {}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ executionId: string }> }
@@ -34,12 +41,12 @@ export async function GET(
         workflow: workflow,
       })
       .from(workflowExecutionLogs)
-      .innerJoin(workflow, eq(workflowExecutionLogs.workflowId, workflow.id))
+      .leftJoin(workflow, eq(workflowExecutionLogs.workflowId, workflow.id))
       .innerJoin(
         permissions,
         and(
           eq(permissions.entityType, 'workspace'),
-          eq(permissions.entityId, workflow.workspaceId),
+          eq(permissions.entityId, workflowExecutionLogs.workspaceId),
           eq(permissions.userId, userId)
         )
       )
@@ -55,7 +62,12 @@ export async function GET(
     const [snapshot] = await db
       .select()
       .from(workflowExecutionSnapshots)
-      .where(eq(workflowExecutionSnapshots.id, workflowLog.stateSnapshotId))
+      .where(
+        and(
+          eq(workflowExecutionSnapshots.id, workflowLog.stateSnapshotId),
+          eq(workflowExecutionSnapshots.workspaceId, workflowLog.workspaceId)
+        )
+      )
       .limit(1)
 
     if (!snapshot) {
@@ -64,7 +76,8 @@ export async function GET(
 
     const response = {
       executionId,
-      workflowId: workflowLog.workflowId,
+      workflowId:
+        workflowLog.workflowId ?? readWorkflowSummary(workflowLog.workflowSummary).id ?? null,
       workflowState: snapshot.stateData,
       executionMetadata: {
         trigger: workflowLog.trigger,

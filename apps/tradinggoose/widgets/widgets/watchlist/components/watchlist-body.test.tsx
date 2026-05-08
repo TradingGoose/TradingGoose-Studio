@@ -243,7 +243,7 @@ describe('WatchlistWidgetBody', () => {
       button?.dispatchEvent(new globalThis.MouseEvent('click', { bubbles: true }))
     })
 
-    expect(usePairColorStore.getState().contexts.red.listing).toBeNull()
+    expect(usePairColorStore.getState().contexts.red.listing).toBeUndefined()
     expect(mockWatchlistTable).toHaveBeenLastCalledWith(
       expect.objectContaining({
         isLinkedSelection: true,

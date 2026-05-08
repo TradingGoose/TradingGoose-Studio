@@ -4,13 +4,8 @@ import type { TraceSpan } from '@/lib/logs/types'
 import { getBaseUrl } from '@/lib/urls/utils'
 import type { BlockOutput } from '@/blocks/types'
 import { BlockType } from '@/executor/consts'
-import type {
-  BlockHandler,
-  DeferredBlockExecution,
-  ExecutionContext,
-} from '@/executor/types'
+import type { BlockHandler, DeferredBlockExecution, ExecutionContext } from '@/executor/types'
 import type { SerializedBlock } from '@/serializer/types'
-import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 
 const logger = createLogger('WorkflowBlockHandler')
 
@@ -31,7 +26,7 @@ type QueuedWorkflowExecutionResult = {
 
 type QueueWorkflowResponse = {
   taskId: string
-  workflowName?: string
+  workflowName: string
 }
 
 type JobStatusResponse = {
@@ -53,8 +48,7 @@ export class WorkflowBlockHandler implements BlockHandler {
   }
 
   canHandle(block: SerializedBlock): boolean {
-    const id = block.metadata?.id
-    return id === BlockType.WORKFLOW || id === 'workflow_input'
+    return block.metadata?.id === BlockType.WORKFLOW_INPUT
   }
 
   async execute(
@@ -75,7 +69,6 @@ export class WorkflowBlockHandler implements BlockHandler {
     }
 
     const childWorkflowInput = this.resolveChildWorkflowInput(inputs)
-    const fallbackChildWorkflowName = this.resolveChildWorkflowName(workflowId)
 
     return {
       kind: 'deferred',
@@ -94,7 +87,7 @@ export class WorkflowBlockHandler implements BlockHandler {
             parentBlockId: block.id,
           })
 
-          const childWorkflowName = queueResponse.workflowName || fallbackChildWorkflowName
+          const childWorkflowName = queueResponse.workflowName
           const childResult = await this.waitForQueuedWorkflowResult(queueResponse.taskId, headers)
           const childTraceSpans = this.transformChildWorkflowSpans(
             childResult.traceSpans,
@@ -125,17 +118,16 @@ export class WorkflowBlockHandler implements BlockHandler {
         } catch (error: any) {
           logger.error(`Error executing child workflow ${workflowId}:`, error)
 
-          const childWorkflowName =
-            error?.childWorkflowName || this.resolveChildWorkflowName(workflowId)
           const originalError = error?.message || 'Unknown error'
 
           if (originalError.startsWith('Error in child workflow')) {
             throw error
           }
 
-          const wrappedError = new Error(
-            `Error in child workflow "${childWorkflowName}": ${originalError}`
-          ) as Error & {
+          const errorPrefix = error?.childWorkflowName
+            ? `Error in child workflow "${error.childWorkflowName}"`
+            : `Error executing child workflow ${workflowId}`
+          const wrappedError = new Error(`${errorPrefix}: ${originalError}`) as Error & {
             childTraceSpans?: WorkflowTraceSpan[]
             childWorkflowName?: string
           }
@@ -143,7 +135,9 @@ export class WorkflowBlockHandler implements BlockHandler {
           if (Array.isArray(error?.childTraceSpans)) {
             wrappedError.childTraceSpans = error.childTraceSpans
           }
-          wrappedError.childWorkflowName = childWorkflowName
+          if (error?.childWorkflowName) {
+            wrappedError.childWorkflowName = error.childWorkflowName
+          }
 
           throw wrappedError
         }
@@ -167,13 +161,8 @@ export class WorkflowBlockHandler implements BlockHandler {
     return {}
   }
 
-  private resolveChildWorkflowName(workflowId: string): string {
-    const workflowMetadata = useWorkflowRegistry.getState().workflows[workflowId]
-    return workflowMetadata?.name || workflowId
-  }
-
   private async buildHeaders(
-    context: Pick<ExecutionContext, 'userId'>,
+    context: Pick<ExecutionContext, 'userId'>
   ): Promise<Record<string, string>> {
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
@@ -230,6 +219,9 @@ export class WorkflowBlockHandler implements BlockHandler {
     const body = (await response.json()) as QueueWorkflowResponse
     if (!body?.taskId) {
       throw new Error('Child workflow queue response is missing taskId')
+    }
+    if (!body?.workflowName) {
+      throw new Error('Child workflow queue response is missing workflowName')
     }
 
     return body

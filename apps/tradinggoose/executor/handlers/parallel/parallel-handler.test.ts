@@ -26,6 +26,7 @@ describe('ParallelBlockHandler', () => {
 
   const createMockContext = (parallel?: SerializedParallel): ExecutionContext => ({
     workflowId: 'test-workflow',
+    workspaceId: 'test-workspace-id',
     blockStates: new Map(),
     blockLogs: [],
     metadata: { duration: 0 },
@@ -381,6 +382,7 @@ describe('ParallelBlockHandler', () => {
       // Set up context with both parallels
       const context: ExecutionContext = {
         workflowId: 'test-workflow',
+        workspaceId: 'test-workspace-id',
         blockStates: new Map(),
         blockLogs: [],
         metadata: { duration: 0 },

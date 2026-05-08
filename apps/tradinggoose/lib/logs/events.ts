@@ -9,12 +9,22 @@ import { logsWebhookDelivery } from '@/background/logs-webhook-delivery'
 const logger = createLogger('LogsEventEmitter')
 
 export async function emitWorkflowExecutionCompleted(log: WorkflowExecutionLog): Promise<void> {
+  const workflowId = log.workflowId ?? log.workflowSummary.id
+
   try {
+    if (!workflowId) {
+      logger.warn('Skipping workflow log webhook delivery without workflow identity', {
+        logId: log.id,
+        executionId: log.executionId,
+      })
+      return
+    }
+
     const subscriptions = await db
       .select()
       .from(workflowLogWebhook)
       .where(
-        and(eq(workflowLogWebhook.workflowId, log.workflowId), eq(workflowLogWebhook.active, true))
+        and(eq(workflowLogWebhook.workflowId, workflowId), eq(workflowLogWebhook.active, true))
       )
 
     if (subscriptions.length === 0) {
@@ -22,7 +32,7 @@ export async function emitWorkflowExecutionCompleted(log: WorkflowExecutionLog):
     }
 
     logger.debug(
-      `Found ${subscriptions.length} active webhook subscriptions for workflow ${log.workflowId}`
+      `Found ${subscriptions.length} active webhook subscriptions for workflow ${workflowId}`
     )
 
     for (const subscription of subscriptions) {
@@ -44,57 +54,31 @@ export async function emitWorkflowExecutionCompleted(log: WorkflowExecutionLog):
       await db.insert(workflowLogWebhookDelivery).values({
         id: deliveryId,
         subscriptionId: subscription.id,
-        workflowId: log.workflowId,
+        workflowId,
+        workspaceId: log.workspaceId,
         executionId: log.executionId,
+        workflowSummary: log.workflowSummary,
+        subscriptionSnapshot: {
+          url: subscription.url,
+          secret: subscription.secret,
+          includeFinalOutput: subscription.includeFinalOutput,
+          includeTraceSpans: subscription.includeTraceSpans,
+          includeRateLimits: subscription.includeRateLimits,
+          includeUsageData: subscription.includeUsageData,
+        },
         status: 'pending',
         attempts: 0,
         nextAttemptAt: new Date(),
       })
 
-      // Prepare the log data based on subscription settings
-      const webhookLog = {
-        ...log,
-        executionData: {},
-      }
-
-      // Only include executionData fields that are requested
-      if (log.executionData) {
-        const data = log.executionData as any
-        const webhookData: any = {}
-
-        if (subscription.includeFinalOutput && data.finalOutput) {
-          webhookData.finalOutput = data.finalOutput
-        }
-
-        if (subscription.includeTraceSpans && data.traceSpans) {
-          webhookData.traceSpans = data.traceSpans
-        }
-
-        // For rate limits and usage, we'll need to fetch them in the webhook delivery
-        // since they're user-specific and may change
-        if (subscription.includeRateLimits) {
-          webhookData.includeRateLimits = true
-        }
-
-        if (subscription.includeUsageData) {
-          webhookData.includeUsageData = true
-        }
-
-        webhookLog.executionData = webhookData
-      }
-
-      await logsWebhookDelivery.trigger({
-        deliveryId,
-        subscriptionId: subscription.id,
-        log: webhookLog,
-      })
+      await logsWebhookDelivery.trigger({ deliveryId })
 
       logger.info(`Enqueued webhook delivery ${deliveryId} for subscription ${subscription.id}`)
     }
   } catch (error) {
     logger.error('Failed to emit workflow execution completed event', {
       error,
-      workflowId: log.workflowId,
+      workflowId,
       executionId: log.executionId,
     })
   }

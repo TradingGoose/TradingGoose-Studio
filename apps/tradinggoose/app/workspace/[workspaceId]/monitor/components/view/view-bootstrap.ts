@@ -19,7 +19,7 @@ type BootstrapMonitorViewsInput = {
   createMonitorView: (workspaceId: string, body: CreateMonitorViewBody) => Promise<MonitorViewRow>
 }
 
-export type BootstrapMonitorViewsResult = {
+type BootstrapMonitorViewsResult = {
   viewStateMode: 'server' | 'partial-error' | 'error'
   viewRows: MonitorViewRow[]
   activeViewIdsByMode: Partial<Record<MonitorPageMode, string | null>>

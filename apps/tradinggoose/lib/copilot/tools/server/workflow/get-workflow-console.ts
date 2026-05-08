@@ -1,7 +1,10 @@
 import { db } from '@tradinggoose/db'
-import { workflowExecutionLogs } from '@tradinggoose/db/schema'
-import { desc, eq } from 'drizzle-orm'
-import type { BaseServerTool } from '@/lib/copilot/tools/server/base-tool'
+import { permissions, workflowExecutionLogs } from '@tradinggoose/db/schema'
+import { and, desc, eq, or, sql } from 'drizzle-orm'
+import type {
+  BaseServerTool,
+  ServerToolExecutionContext,
+} from '@/lib/copilot/tools/server/base-tool'
 import { createLogger } from '@/lib/logs/console/logger'
 
 interface GetWorkflowConsoleArgs {
@@ -87,7 +90,7 @@ function normalizeErrorMessage(errorValue: unknown): string | undefined {
   if (typeof errorValue === 'object') {
     try {
       return JSON.stringify(errorValue)
-    } catch { }
+    } catch {}
   }
   try {
     return String(errorValue)
@@ -216,7 +219,10 @@ function deriveExecutionErrorSummary(params: {
 
 export const getWorkflowConsoleServerTool: BaseServerTool<GetWorkflowConsoleArgs, any> = {
   name: 'get_workflow_console',
-  async execute(rawArgs: GetWorkflowConsoleArgs): Promise<any> {
+  async execute(
+    rawArgs: GetWorkflowConsoleArgs,
+    context?: ServerToolExecutionContext
+  ): Promise<any> {
     const logger = createLogger('GetWorkflowConsoleServerTool')
     const {
       workflowId,
@@ -226,6 +232,9 @@ export const getWorkflowConsoleServerTool: BaseServerTool<GetWorkflowConsoleArgs
 
     if (!workflowId || typeof workflowId !== 'string') {
       throw new Error('workflowId is required')
+    }
+    if (!context?.userId) {
+      throw new Error('Authenticated user context is required')
     }
 
     logger.info('Fetching workflow console logs', { workflowId, limit, includeDetails })
@@ -243,7 +252,20 @@ export const getWorkflowConsoleServerTool: BaseServerTool<GetWorkflowConsoleArgs
         cost: workflowExecutionLogs.cost,
       })
       .from(workflowExecutionLogs)
-      .where(eq(workflowExecutionLogs.workflowId, workflowId))
+      .innerJoin(
+        permissions,
+        and(
+          eq(permissions.entityType, 'workspace'),
+          eq(permissions.entityId, workflowExecutionLogs.workspaceId),
+          eq(permissions.userId, context.userId)
+        )
+      )
+      .where(
+        or(
+          eq(workflowExecutionLogs.workflowId, workflowId),
+          sql`${workflowExecutionLogs.workflowSummary}->>'id' = ${workflowId}`
+        )
+      )
       .orderBy(desc(workflowExecutionLogs.startedAt))
       .limit(limit)
 

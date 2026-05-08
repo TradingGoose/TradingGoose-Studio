@@ -776,6 +776,8 @@ describe('Tool Management', () => {
         {
           workflowId: 'workflow-1',
           workspaceId: 'workspace-1',
+          workflowLogId: 'workflow-log-1',
+          submissionSource: 'workflow',
           chatId: 'chat-1',
           userId: 'user-1',
           environmentVariables: { API_KEY: 'secret' },
@@ -789,6 +791,8 @@ describe('Tool Management', () => {
         _context: {
           workflowId: 'workflow-1',
           workspaceId: 'workspace-1',
+          workflowLogId: 'workflow-log-1',
+          submissionSource: 'workflow',
           chatId: 'chat-1',
           userId: 'user-1',
         },

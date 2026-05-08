@@ -11,6 +11,18 @@ const logger = createLogger('WorkflowLogAPI')
 
 export const dynamic = 'force-dynamic'
 
+type WorkflowLogTriggerType = 'manual' | 'chat' | 'api'
+
+const WORKFLOW_LOG_TRIGGER_TYPES = new Set<WorkflowLogTriggerType>(['manual', 'chat', 'api'])
+
+function readNonEmptyString(value: unknown): string | null {
+  return typeof value === 'string' && value.trim() ? value.trim() : null
+}
+
+function isWorkflowLogTriggerType(value: string): value is WorkflowLogTriggerType {
+  return WORKFLOW_LOG_TRIGGER_TYPES.has(value as WorkflowLogTriggerType)
+}
+
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const requestId = generateRequestId()
   const { id } = await params
@@ -23,63 +35,92 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     }
 
     const body = await request.json()
-    const { logs, executionId, result } = body
+    const phase = readNonEmptyString(body.phase)
+    const executionId = readNonEmptyString(body.executionId)
+    const triggerType = readNonEmptyString(body.triggerType)
 
-    if (result) {
-      logger.info(`[${requestId}] Persisting execution result for workflow: ${id}`, {
+    if (phase !== 'start' && phase !== 'complete') {
+      return createErrorResponse('Invalid workflow log phase', 400)
+    }
+
+    if (!executionId) {
+      return createErrorResponse('Execution id is required', 400)
+    }
+
+    if (!triggerType || !isWorkflowLogTriggerType(triggerType)) {
+      return createErrorResponse('Invalid workflow log trigger type', 400)
+    }
+
+    const session = await getSession()
+    const userId = session?.user?.id ?? validation.workflow.userId
+    const workspaceId = validation.workflow.workspaceId
+
+    if (!workspaceId) {
+      return createErrorResponse('Workflow is missing workspace scope', 400)
+    }
+
+    if (phase === 'start') {
+      logger.info(`[${requestId}] Starting execution log for workflow: ${id}`, {
         executionId,
-        success: result.success,
+        triggerType,
       })
 
-      const isChatExecution = result.metadata?.source === 'chat'
-
-      const triggerType = isChatExecution ? 'chat' : 'manual'
       const loggingSession = new LoggingSession(id, executionId, triggerType, requestId)
-
-      const session = await getSession()
-      const userId = session?.user?.id ?? validation.workflow.userId
-      const workspaceId = validation.workflow.workspaceId || ''
-
-      await loggingSession.safeStart({
+      const workflowLogId = await loggingSession.start({
         userId,
         workspaceId,
         variables: {},
       })
 
-      const { traceSpans, totalDuration } = buildTraceSpans(result)
+      return createSuccessResponse({ workflowLogId })
+    }
 
-      if (result.success === false) {
-        const message = result.error || 'Workflow execution failed'
-        await loggingSession.safeCompleteWithError({
-          endedAt: new Date().toISOString(),
-          totalDurationMs: totalDuration || result.metadata?.duration || 0,
-          error: { message },
-          traceSpans,
-        })
-      } else {
-        await loggingSession.safeComplete({
-          endedAt: new Date().toISOString(),
-          totalDurationMs: totalDuration || result.metadata?.duration || 0,
-          finalOutput: result.output || {},
-          traceSpans,
-        })
-      }
+    const { result } = body
+    const workflowLogId = readNonEmptyString(body.workflowLogId)
 
-      return createSuccessResponse({
-        message: 'Execution logs persisted successfully',
+    if (!workflowLogId) {
+      return createErrorResponse('Workflow log id is required', 400)
+    }
+
+    if (!result) {
+      return createErrorResponse('Execution result is required', 400)
+    }
+
+    logger.info(`[${requestId}] Persisting execution result for workflow: ${id}`, {
+      executionId,
+      success: result.success,
+    })
+
+    const loggingSession = new LoggingSession(
+      id,
+      executionId,
+      triggerType,
+      requestId,
+      workflowLogId
+    )
+    const { traceSpans, totalDuration } = buildTraceSpans(result)
+    const completionScope = { workspaceId, actorUserId: userId ?? null }
+    const totalDurationMs = totalDuration || result.metadata?.duration || 0
+
+    if (result.success === false) {
+      await loggingSession.completeWithError({
+        ...completionScope,
+        endedAt: new Date().toISOString(),
+        totalDurationMs,
+        error: { message: result.error || 'Workflow execution failed' },
+        traceSpans,
+      })
+    } else {
+      await loggingSession.complete({
+        ...completionScope,
+        endedAt: new Date().toISOString(),
+        totalDurationMs,
+        finalOutput: result.output === undefined ? {} : result.output,
+        traceSpans,
       })
     }
 
-    if (!logs || !Array.isArray(logs) || logs.length === 0) {
-      logger.warn(`[${requestId}] No logs provided for workflow: ${id}`)
-      return createErrorResponse('No logs provided', 400)
-    }
-
-    logger.info(`[${requestId}] Persisting ${logs.length} logs for workflow: ${id}`, {
-      executionId,
-    })
-
-    return createSuccessResponse({ message: 'Logs persisted successfully' })
+    return createSuccessResponse({ workflowLogId })
   } catch (error: any) {
     logger.error(`[${requestId}] Error persisting logs for workflow: ${id}`, error)
     return createErrorResponse(error.message || 'Failed to persist logs', 500)

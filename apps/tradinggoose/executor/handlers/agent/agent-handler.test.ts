@@ -88,6 +88,7 @@ describe('AgentBlockHandler', () => {
     } as SerializedBlock
     mockContext = {
       workflowId: 'test-workflow',
+      workspaceId: 'test-workspace-id',
       blockStates: new Map(),
       blockLogs: [],
       metadata: { startTime: new Date().toISOString(), duration: 0 },

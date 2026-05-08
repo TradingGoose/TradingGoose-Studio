@@ -444,7 +444,9 @@ export function DashboardClient({
   const handlePairColorChange = useCallback((panelId: string, color: PairColor) => {
     const currentTree = latestLayoutRef.current
     const currentWidget = findPanelWidget(currentTree, panelId)
-    const previousColor = isPairColor(currentWidget?.pairColor) ? currentWidget.pairColor : undefined
+    const previousColor = isPairColor(currentWidget?.pairColor)
+      ? currentWidget.pairColor
+      : undefined
     if (previousColor === color) {
       return
     }
@@ -472,7 +474,12 @@ export function DashboardClient({
 
   const pages = useMemo(
     () => [
-      { id: 'logs', name: 'Logs', icon: ScrollText, href: `/workspace/${workspaceId}/logs` },
+      {
+        id: 'records',
+        name: 'Records',
+        icon: ScrollText,
+        href: `/workspace/${workspaceId}/records`,
+      },
       {
         id: 'monitor',
         name: 'Monitor',

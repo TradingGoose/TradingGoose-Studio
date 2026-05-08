@@ -1,6 +1,6 @@
 import { db } from '@tradinggoose/db'
 import { permissions, workflow, workflowExecutionLogs } from '@tradinggoose/db/schema'
-import { and, eq, gte, inArray, lte } from 'drizzle-orm'
+import { and, eq, gte, inArray, lte, or, sql } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { getSession } from '@/lib/auth'
@@ -54,14 +54,14 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     if (!permission) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
+    const workflowIds = qp.workflowIds?.split(',').filter(Boolean) ?? []
+    const folderIds = qp.folderIds?.split(',').filter(Boolean) ?? []
     const wfWhere = [eq(workflow.workspaceId, workspaceId)] as any[]
-    if (qp.folderIds) {
-      const folderList = qp.folderIds.split(',').filter(Boolean)
-      wfWhere.push(inArray(workflow.folderId, folderList))
+    if (folderIds.length > 0) {
+      wfWhere.push(inArray(workflow.folderId, folderIds))
     }
-    if (qp.workflowIds) {
-      const wfList = qp.workflowIds.split(',').filter(Boolean)
-      wfWhere.push(inArray(workflow.id, wfList))
+    if (workflowIds.length > 0) {
+      wfWhere.push(inArray(workflow.id, workflowIds))
     }
 
     const workflows = await db
@@ -69,22 +69,27 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       .from(workflow)
       .where(and(...wfWhere))
 
-    if (workflows.length === 0) {
-      return NextResponse.json({
-        workflows: [],
-        startTime: start.toISOString(),
-        endTime: end.toISOString(),
-        segmentMs,
-      })
-    }
-
-    const workflowIdList = workflows.map((w) => w.id)
-
     const logWhere = [
-      inArray(workflowExecutionLogs.workflowId, workflowIdList),
+      eq(workflowExecutionLogs.workspaceId, workspaceId),
       gte(workflowExecutionLogs.startedAt, start),
       lte(workflowExecutionLogs.startedAt, end),
     ] as any[]
+    if (workflowIds.length > 0) {
+      logWhere.push(
+        or(
+          inArray(workflowExecutionLogs.workflowId, workflowIds),
+          inArray(sql<string>`${workflowExecutionLogs.workflowSummary}->>'id'`, workflowIds)
+        )
+      )
+    }
+    if (folderIds.length > 0) {
+      logWhere.push(
+        inArray(
+          sql<string>`COALESCE(${workflow.folderId}, ${workflowExecutionLogs.workflowSummary}->>'folderId')`,
+          folderIds
+        )
+      )
+    }
     if (qp.triggers) {
       const t = qp.triggers.split(',').filter(Boolean)
       logWhere.push(inArray(workflowExecutionLogs.trigger, t))
@@ -93,11 +98,14 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     const logs = await db
       .select({
         workflowId: workflowExecutionLogs.workflowId,
+        workflowSummary: workflowExecutionLogs.workflowSummary,
+        workflowName: workflow.name,
         level: workflowExecutionLogs.level,
         startedAt: workflowExecutionLogs.startedAt,
         totalDurationMs: workflowExecutionLogs.totalDurationMs,
       })
       .from(workflowExecutionLogs)
+      .leftJoin(workflow, eq(workflowExecutionLogs.workflowId, workflow.id))
       .where(and(...logWhere))
 
     type Bucket = {
@@ -108,6 +116,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     }
 
     const wfIdToBuckets = new Map<string, Bucket[]>()
+    const workflowNameById = new Map(workflows.map((wf) => [wf.id, wf.name]))
     for (const wf of workflows) {
       const buckets: Bucket[] = Array.from({ length: segments }, (_, i) => ({
         timestamp: new Date(start.getTime() + i * segmentMs).toISOString(),
@@ -119,11 +128,30 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     }
 
     for (const log of logs) {
+      const workflowSummary = log.workflowSummary as { id?: string; name?: string } | null
+      const workflowId = log.workflowId ?? workflowSummary?.id
+      if (!workflowId) continue
+      if (!workflowNameById.has(workflowId)) {
+        workflowNameById.set(
+          workflowId,
+          log.workflowName ?? workflowSummary?.name ?? 'Deleted workflow'
+        )
+      }
+
       const idx = Math.min(
         segments - 1,
         Math.max(0, Math.floor((log.startedAt.getTime() - start.getTime()) / segmentMs))
       )
-      const buckets = wfIdToBuckets.get(log.workflowId)
+      let buckets = wfIdToBuckets.get(workflowId)
+      if (!buckets) {
+        buckets = Array.from({ length: segments }, (_, i) => ({
+          timestamp: new Date(start.getTime() + i * segmentMs).toISOString(),
+          totalExecutions: 0,
+          successfulExecutions: 0,
+          durations: [],
+        }))
+        wfIdToBuckets.set(workflowId, buckets)
+      }
       if (!buckets) continue
       const b = buckets[idx]
       b.totalExecutions += 1
@@ -138,8 +166,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       return sorted[idx]
     }
 
-    const result = workflows.map((wf) => {
-      const buckets = wfIdToBuckets.get(wf.id) as Bucket[]
+    const result = Array.from(wfIdToBuckets.entries()).map(([workflowId, buckets]) => {
       const segmentsOut = buckets.map((b) => {
         const avg =
           b.durations.length > 0
@@ -158,7 +185,11 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
           p99Ms: p99,
         }
       })
-      return { workflowId: wf.id, workflowName: wf.name, segments: segmentsOut }
+      return {
+        workflowId,
+        workflowName: workflowNameById.get(workflowId) ?? 'Deleted workflow',
+        segments: segmentsOut,
+      }
     })
 
     return NextResponse.json({

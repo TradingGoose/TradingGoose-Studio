@@ -3,6 +3,14 @@ import { BlockType } from '@/executor/consts'
 import { Executor } from '@/executor/index'
 import type { SerializedWorkflow } from '@/serializer/types'
 
+const createTestExecutor = (workflow: SerializedWorkflow) =>
+  new Executor({
+    workflow,
+    currentBlockStates: {},
+    envVarValues: {},
+    contextExtensions: { workspaceId: 'test-workspace-id' },
+  })
+
 describe('Multi-Input Routing Scenarios', () => {
   let workflow: SerializedWorkflow
   let executor: Executor
@@ -87,7 +95,7 @@ describe('Multi-Input Routing Scenarios', () => {
       parallels: {},
     }
 
-    executor = new Executor(workflow, {}, {})
+    executor = createTestExecutor(workflow)
   })
 
   it('should handle multi-input target when router selects function-1', async () => {

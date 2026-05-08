@@ -241,7 +241,6 @@ export const DataChartChartControls = ({
         workspaceId={workspaceId}
         value={selectedIndicatorIds}
         onChange={handleIndicatorChange}
-        align='end'
         selectionMode='multiple'
         includeDefaults
       />

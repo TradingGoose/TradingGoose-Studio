@@ -2,23 +2,58 @@ import { beforeEach, describe, expect, test, vi } from 'vitest'
 import { SnapshotService } from '@/lib/logs/execution/snapshot/service'
 import type { WorkflowState } from '@/lib/logs/types'
 
+const { mockDelete, mockDeleteWhere, mockDeleteReturning } = vi.hoisted(() => {
+  const mockDeleteReturning = vi.fn()
+  const mockDeleteWhere = vi.fn(() => ({
+    returning: mockDeleteReturning,
+  }))
+  const mockDelete = vi.fn(() => ({
+    where: mockDeleteWhere,
+  }))
+
+  return {
+    mockDelete,
+    mockDeleteWhere,
+    mockDeleteReturning,
+  }
+})
+
 vi.mock('@tradinggoose/db', () => ({
-  db: {},
+  db: {
+    delete: mockDelete,
+  },
 }))
 
 vi.mock('@tradinggoose/db/schema', () => ({
-  workflowExecutionSnapshots: {
-    id: 'id',
-    workflowId: 'workflowId',
-    stateHash: 'stateHash',
-    createdAt: 'createdAt',
+  workflowExecutionLogs: {
+    stateSnapshotId: 'workflowExecutionLogs.stateSnapshotId',
   },
+  workflowExecutionSnapshots: {
+    id: 'workflowExecutionSnapshots.id',
+    workflowId: 'workflowExecutionSnapshots.workflowId',
+    workspaceId: 'workflowExecutionSnapshots.workspaceId',
+    stateHash: 'workflowExecutionSnapshots.stateHash',
+    createdAt: 'workflowExecutionSnapshots.createdAt',
+  },
+}))
+
+vi.mock('drizzle-orm', () => ({
+  and: vi.fn((...conditions: unknown[]) => ({ conditions, type: 'and' })),
+  eq: vi.fn((field: unknown, value: unknown) => ({ field, type: 'eq', value })),
+  lt: vi.fn((field: unknown, value: unknown) => ({ field, type: 'lt', value })),
+  sql: vi.fn((strings: TemplateStringsArray, ...values: unknown[]) => ({
+    strings,
+    type: 'sql',
+    values,
+  })),
 }))
 
 describe('SnapshotService', () => {
   let service: SnapshotService
 
   beforeEach(() => {
+    vi.clearAllMocks()
+    mockDeleteReturning.mockResolvedValue([{ id: 'snapshot-1' }, { id: 'snapshot-2' }])
     service = new SnapshotService()
   })
 
@@ -227,6 +262,42 @@ describe('SnapshotService', () => {
       // Should be consistent
       const hash2 = service.computeStateHash(complexState)
       expect(hash).toBe(hash2)
+    })
+  })
+
+  describe('cleanupOrphanedSnapshots', () => {
+    test('does not delete snapshots still referenced by workflow logs', async () => {
+      const deletedCount = await service.cleanupOrphanedSnapshots(30)
+
+      expect(deletedCount).toBe(2)
+      expect(mockDelete).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: 'workflowExecutionSnapshots.id',
+        })
+      )
+
+      const whereCondition = (mockDeleteWhere.mock.calls as unknown as Array<[unknown]>).at(
+        -1
+      )?.[0] as { conditions?: Array<Record<string, any>> } | undefined
+      const conditions = whereCondition?.conditions ?? []
+
+      expect(conditions).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            field: 'workflowExecutionSnapshots.createdAt',
+            type: 'lt',
+          }),
+        ])
+      )
+      expect(
+        conditions.some(
+          (condition) =>
+            condition.type === 'sql' &&
+            condition.strings?.join('').includes('NOT EXISTS') &&
+            condition.values?.includes('workflowExecutionLogs.stateSnapshotId') &&
+            condition.values?.includes('workflowExecutionSnapshots.id')
+        )
+      ).toBe(true)
     })
   })
 })

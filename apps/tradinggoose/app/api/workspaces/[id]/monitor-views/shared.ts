@@ -10,10 +10,10 @@ import {
   UnsupportedMonitorViewConfigError,
 } from '@/app/workspace/[workspaceId]/monitor/components/view/view-config'
 
-export const unsupportedMonitorViewDataMessage =
+const unsupportedMonitorViewDataMessage =
   'Unsupported monitor view data. Delete or reset stale mode-less monitor_view rows for this workspace before using the mode-aware monitor page.'
 
-export const invalidMonitorViewConfigMessage = 'Invalid monitor view config.'
+const invalidMonitorViewConfigMessage = 'Invalid monitor view config.'
 
 export const monitorViewErrorResponse = (error: unknown) => {
   if (error instanceof UnsupportedMonitorViewConfigError) {
@@ -96,7 +96,7 @@ export const getRowsForMode = (rows: MonitorViewRow[], mode: MonitorPageMode) =>
 export const isMonitorPageMode = (value: unknown): value is MonitorPageMode =>
   value === 'executions' || value === 'config'
 
-export const sortRowsForPersistence = (rows: MonitorViewRow[]) =>
+const sortRowsForPersistence = (rows: MonitorViewRow[]) =>
   [...rows].sort((left, right) => {
     if (left.sortOrder !== right.sortOrder) return left.sortOrder - right.sortOrder
     return left.createdAt.localeCompare(right.createdAt)

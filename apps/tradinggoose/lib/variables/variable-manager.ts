@@ -29,7 +29,7 @@ export class VariableManager {
         return value
       }
       // For storage/display, convert to empty string for text types
-      return type === 'plain' || type === 'string' ? '' : value
+      return type === 'plain' ? '' : value
     }
 
     // For 'plain' type, we want to preserve quotes exactly as entered
@@ -41,9 +41,6 @@ export class VariableManager {
     const unquoted = typeof value === 'string' ? value.replace(/^["'](.*)["']$/s, '$1') : value
 
     switch (type) {
-      case 'string': // Handle string type the same as plain for compatibility
-        return String(unquoted)
-
       case 'number': {
         if (typeof unquoted === 'number') return unquoted
         if (unquoted === '') return '' // Special case for empty string input
@@ -104,7 +101,7 @@ export class VariableManager {
         }
 
       default:
-        return unquoted
+        throw new Error(`Unsupported variable type: ${String(type)}`)
     }
   }
 
@@ -135,10 +132,6 @@ export class VariableManager {
     const typedValue = VariableManager.convertToNativeType(value, type, false)
 
     switch (type) {
-      case 'string': // Handle string type the same as plain for compatibility
-        // For plain text and strings, we don't add quotes in any context
-        return String(typedValue)
-
       case 'number':
       case 'boolean':
         return String(typedValue)
@@ -153,7 +146,7 @@ export class VariableManager {
         return JSON.stringify(typedValue)
 
       default:
-        return String(typedValue)
+        throw new Error(`Unsupported variable type: ${String(type)}`)
     }
   }
 
@@ -224,12 +217,6 @@ export class VariableManager {
     if (type === 'plain') {
       return typeof value === 'string' ? value : String(value)
     }
-    if (type === 'string') {
-      return typeof value === 'string'
-        ? JSON.stringify(value)
-        : VariableManager.formatValue(value, type, 'code')
-    }
-
     return VariableManager.formatValue(value, type, 'code')
   }
 }

@@ -4,7 +4,7 @@ import { normalizeConfigFilterValues } from '../config/config-filter-values'
 export const MONITOR_PAGE_MODES = ['executions', 'config'] as const
 export type MonitorPageMode = (typeof MONITOR_PAGE_MODES)[number]
 
-export const EXECUTION_MONITOR_LAYOUTS = ['kanban', 'timeline'] as const
+const EXECUTION_MONITOR_LAYOUTS = ['kanban', 'timeline'] as const
 export const EXECUTION_MONITOR_GROUP_FIELDS = [
   'outcome',
   'workflow',
@@ -25,7 +25,7 @@ export const EXECUTION_MONITOR_SORT_FIELDS = [
   'interval',
   'listingLabel',
 ] as const
-export const EXECUTION_MONITOR_SORT_DIRECTIONS = ['asc', 'desc'] as const
+const EXECUTION_MONITOR_SORT_DIRECTIONS = ['asc', 'desc'] as const
 export const EXECUTION_MONITOR_FIELD_SUMS = ['count', 'durationMs', 'cost'] as const
 export const EXECUTION_MONITOR_TIMELINE_ZOOM = ['day', 'week', 'month'] as const
 export const MONITOR_TIMELINE_SCALE_MIN = 60
@@ -44,7 +44,7 @@ export const EXECUTION_MONITOR_VISIBLE_FIELDS = [
   'cost',
   'monitor',
 ] as const
-export const EXECUTION_MONITOR_QUICK_FILTER_FIELDS = [
+const EXECUTION_MONITOR_QUICK_FILTER_FIELDS = [
   'outcome',
   'workflow',
   'trigger',
@@ -54,7 +54,7 @@ export const EXECUTION_MONITOR_QUICK_FILTER_FIELDS = [
   'interval',
   'monitor',
 ] as const
-export const EXECUTION_MONITOR_QUICK_FILTER_OPERATORS = ['include', 'exclude', 'has', 'no'] as const
+const EXECUTION_MONITOR_QUICK_FILTER_OPERATORS = ['include', 'exclude', 'has', 'no'] as const
 
 export const CONFIG_MONITOR_DIMENSION_FIELDS = [
   'workflowTarget',
@@ -63,15 +63,15 @@ export const CONFIG_MONITOR_DIMENSION_FIELDS = [
   'provider',
   'interval',
 ] as const
-export const CONFIG_MONITOR_STATUS = ['active', 'paused'] as const
-export const CONFIG_MONITOR_FILTER_FIELDS = [
+const CONFIG_MONITOR_STATUS = ['active', 'paused'] as const
+const CONFIG_MONITOR_FILTER_FIELDS = [
   ...CONFIG_MONITOR_DIMENSION_FIELDS,
   'status',
   'lastExecutionAt',
   'lastOutcome',
   'lastExecutionLogId',
 ] as const
-export const CONFIG_MONITOR_FILTER_OPERATORS = ['=', '!=', 'has', 'no'] as const
+const CONFIG_MONITOR_FILTER_OPERATORS = ['=', '!=', 'has', 'no'] as const
 export const CONFIG_MONITOR_SORT_FIELDS = [
   'createdAt',
   'updatedAt',
@@ -84,7 +84,7 @@ export const CONFIG_MONITOR_SORT_FIELDS = [
   'lastExecutionAt',
   'lastOutcome',
 ] as const
-export const CONFIG_MONITOR_SORT_DIRECTIONS = ['asc', 'desc'] as const
+const CONFIG_MONITOR_SORT_DIRECTIONS = ['asc', 'desc'] as const
 export const CONFIG_MONITOR_VISIBLE_FIELDS = [
   'workflowTarget',
   'indicator',
@@ -99,17 +99,16 @@ export const CONFIG_MONITOR_VISIBLE_FIELDS = [
 ] as const
 export const CONFIG_MONITOR_FIELD_SUMS = ['count', 'activeCount', 'pausedCount'] as const
 
-export type ExecutionMonitorLayout = (typeof EXECUTION_MONITOR_LAYOUTS)[number]
+type ExecutionMonitorLayout = (typeof EXECUTION_MONITOR_LAYOUTS)[number]
 export type ExecutionMonitorGroupField = (typeof EXECUTION_MONITOR_GROUP_FIELDS)[number]
 export type ExecutionMonitorSortField = (typeof EXECUTION_MONITOR_SORT_FIELDS)[number]
-export type ExecutionMonitorSortDirection = (typeof EXECUTION_MONITOR_SORT_DIRECTIONS)[number]
+type ExecutionMonitorSortDirection = (typeof EXECUTION_MONITOR_SORT_DIRECTIONS)[number]
 export type ExecutionMonitorFieldSum = (typeof EXECUTION_MONITOR_FIELD_SUMS)[number]
 export type ExecutionMonitorTimelineZoom = (typeof EXECUTION_MONITOR_TIMELINE_ZOOM)[number]
 export type ExecutionMonitorVisibleFieldId = (typeof EXECUTION_MONITOR_VISIBLE_FIELDS)[number]
 export type ExecutionMonitorQuickFilterField =
   (typeof EXECUTION_MONITOR_QUICK_FILTER_FIELDS)[number]
-export type ExecutionMonitorQuickFilterOperator =
-  (typeof EXECUTION_MONITOR_QUICK_FILTER_OPERATORS)[number]
+type ExecutionMonitorQuickFilterOperator = (typeof EXECUTION_MONITOR_QUICK_FILTER_OPERATORS)[number]
 
 export type ExecutionMonitorQuickFilter = {
   field: ExecutionMonitorQuickFilterField
@@ -154,7 +153,6 @@ export type ExecutionMonitorViewConfig = {
   }
 }
 
-export type WorkflowTargetKey = `${string}:${string}`
 export type ConfigMonitorDimensionField = (typeof CONFIG_MONITOR_DIMENSION_FIELDS)[number]
 export type ConfigMonitorStatus = (typeof CONFIG_MONITOR_STATUS)[number]
 export type ConfigMonitorFilterField = (typeof CONFIG_MONITOR_FILTER_FIELDS)[number]
@@ -165,7 +163,7 @@ export type ConfigMonitorFilter = {
   values: string[]
 }
 export type ConfigMonitorSortField = (typeof CONFIG_MONITOR_SORT_FIELDS)[number]
-export type ConfigMonitorSortDirection = (typeof CONFIG_MONITOR_SORT_DIRECTIONS)[number]
+type ConfigMonitorSortDirection = (typeof CONFIG_MONITOR_SORT_DIRECTIONS)[number]
 export type ConfigMonitorSortRule = {
   field: ConfigMonitorSortField
   direction: ConfigMonitorSortDirection
@@ -209,10 +207,8 @@ export type MonitorViewRow = {
   updatedAt: string
 }
 
-export type MonitorViewRowResponse = MonitorViewRow
-
 export type MonitorViewsListResponse = {
-  data: MonitorViewRowResponse[]
+  data: MonitorViewRow[]
 }
 
 export type CreateMonitorViewBody = {

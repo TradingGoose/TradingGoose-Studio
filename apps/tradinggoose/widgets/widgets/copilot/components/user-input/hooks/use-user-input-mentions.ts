@@ -472,7 +472,7 @@ export function useUserInputMentions({
     executionId?: string
     level: string
     trigger: string | null
-    createdAt: string
+    startedAt: string
     workflowName: string
   }) => {
     const label = log.workflowName

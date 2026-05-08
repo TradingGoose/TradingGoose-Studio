@@ -10,12 +10,6 @@ describe('VariableManager', () => {
       expect(VariableManager.parseInputForStorage('{"foo":"bar"}', 'plain')).toBe('{"foo":"bar"}')
     })
 
-    it.concurrent('should handle string type variables', () => {
-      expect(VariableManager.parseInputForStorage('hello world', 'string')).toBe('hello world')
-      expect(VariableManager.parseInputForStorage('"hello world"', 'string')).toBe('hello world')
-      expect(VariableManager.parseInputForStorage("'hello world'", 'string')).toBe('hello world')
-    })
-
     it.concurrent('should handle number type variables', () => {
       expect(VariableManager.parseInputForStorage('42', 'number')).toBe(42)
       expect(VariableManager.parseInputForStorage('-3.14', 'number')).toBe(-3.14)
@@ -47,7 +41,7 @@ describe('VariableManager', () => {
     })
 
     it.concurrent('should handle empty values', () => {
-      expect(VariableManager.parseInputForStorage('', 'string')).toBe('')
+      expect(VariableManager.parseInputForStorage('', 'plain')).toBe('')
       expect(VariableManager.parseInputForStorage('', 'number')).toBe('')
       expect(VariableManager.parseInputForStorage(null as any, 'boolean')).toBe('')
       expect(VariableManager.parseInputForStorage(undefined as any, 'object')).toBe('')
@@ -59,12 +53,6 @@ describe('VariableManager', () => {
       expect(VariableManager.formatForEditor('hello world', 'plain')).toBe('hello world')
       expect(VariableManager.formatForEditor(42, 'plain')).toBe('42')
       expect(VariableManager.formatForEditor(true, 'plain')).toBe('true')
-    })
-
-    it.concurrent('should format string type variables for editor', () => {
-      expect(VariableManager.formatForEditor('hello world', 'string')).toBe('hello world')
-      expect(VariableManager.formatForEditor(42, 'string')).toBe('42')
-      expect(VariableManager.formatForEditor(true, 'string')).toBe('true')
     })
 
     it.concurrent('should format number type variables for editor', () => {
@@ -99,7 +87,7 @@ describe('VariableManager', () => {
     })
 
     it.concurrent('should handle empty values', () => {
-      expect(VariableManager.formatForEditor(null, 'string')).toBe('')
+      expect(VariableManager.formatForEditor(null, 'plain')).toBe('')
       expect(VariableManager.formatForEditor(undefined, 'number')).toBe('')
     })
   })
@@ -109,12 +97,6 @@ describe('VariableManager', () => {
       expect(VariableManager.resolveForExecution('hello world', 'plain')).toBe('hello world')
       expect(VariableManager.resolveForExecution(42, 'plain')).toBe('42')
       expect(VariableManager.resolveForExecution(true, 'plain')).toBe('true')
-    })
-
-    it.concurrent('should resolve string type variables for execution', () => {
-      expect(VariableManager.resolveForExecution('hello world', 'string')).toBe('hello world')
-      expect(VariableManager.resolveForExecution(42, 'string')).toBe('42')
-      expect(VariableManager.resolveForExecution(true, 'string')).toBe('true')
     })
 
     it.concurrent('should resolve number type variables for execution', () => {
@@ -145,8 +127,14 @@ describe('VariableManager', () => {
     })
 
     it.concurrent('should handle null and undefined', () => {
-      expect(VariableManager.resolveForExecution(null, 'string')).toBe(null)
+      expect(VariableManager.resolveForExecution(null, 'plain')).toBe(null)
       expect(VariableManager.resolveForExecution(undefined, 'number')).toBe(undefined)
+    })
+
+    it.concurrent('throws for unsupported variable types', () => {
+      expect(() => VariableManager.resolveForExecution('hello', 'string' as any)).toThrow(
+        /Unsupported variable type/
+      )
     })
   })
 
@@ -159,14 +147,6 @@ describe('VariableManager', () => {
       expect(VariableManager.formatForTemplateInterpolation(true, 'plain')).toBe('true')
     })
 
-    it.concurrent('should format string type variables for interpolation', () => {
-      expect(VariableManager.formatForTemplateInterpolation('hello world', 'string')).toBe(
-        'hello world'
-      )
-      expect(VariableManager.formatForTemplateInterpolation(42, 'string')).toBe('42')
-      expect(VariableManager.formatForTemplateInterpolation(true, 'string')).toBe('true')
-    })
-
     it.concurrent('should format object type variables for interpolation', () => {
       expect(VariableManager.formatForTemplateInterpolation({ foo: 'bar' }, 'object')).toBe(
         '{"foo":"bar"}'
@@ -177,7 +157,7 @@ describe('VariableManager', () => {
     })
 
     it.concurrent('should handle empty values', () => {
-      expect(VariableManager.formatForTemplateInterpolation(null, 'string')).toBe('')
+      expect(VariableManager.formatForTemplateInterpolation(null, 'plain')).toBe('')
       expect(VariableManager.formatForTemplateInterpolation(undefined, 'number')).toBe('')
     })
   })
@@ -187,12 +167,6 @@ describe('VariableManager', () => {
       expect(VariableManager.formatForCodeContext('hello world', 'plain')).toBe('hello world')
       expect(VariableManager.formatForCodeContext(42, 'plain')).toBe('42')
       expect(VariableManager.formatForCodeContext(true, 'plain')).toBe('true')
-    })
-
-    it.concurrent('should format string type variables for code context', () => {
-      expect(VariableManager.formatForCodeContext('hello world', 'string')).toBe('"hello world"')
-      expect(VariableManager.formatForCodeContext(42, 'string')).toBe('42')
-      expect(VariableManager.formatForCodeContext(true, 'string')).toBe('true')
     })
 
     it.concurrent('should format number type variables for code context', () => {
@@ -211,8 +185,14 @@ describe('VariableManager', () => {
     })
 
     it.concurrent('should handle null and undefined', () => {
-      expect(VariableManager.formatForCodeContext(null, 'string')).toBe('null')
+      expect(VariableManager.formatForCodeContext(null, 'plain')).toBe('null')
       expect(VariableManager.formatForCodeContext(undefined, 'number')).toBe('undefined')
+    })
+
+    it.concurrent('throws for unsupported variable types', () => {
+      expect(() => VariableManager.formatForCodeContext('hello', 'string' as any)).toThrow(
+        /Unsupported variable type/
+      )
     })
   })
 })

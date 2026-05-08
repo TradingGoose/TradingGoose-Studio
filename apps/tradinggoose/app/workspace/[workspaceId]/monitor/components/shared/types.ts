@@ -127,7 +127,7 @@ export type MonitorReferenceData = {
   warning: string | null
 }
 
-export type MonitorRecordMutationOptions = {
+type MonitorRecordMutationOptions = {
   optimisticRecord?: IndicatorMonitorRecord
 }
 

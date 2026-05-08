@@ -1,10 +1,6 @@
 import { createHmac } from 'crypto'
 import { db } from '@tradinggoose/db'
-import {
-  workflowLogWebhook,
-  workflowLogWebhookDelivery,
-  workflow as workflowTable,
-} from '@tradinggoose/db/schema'
+import { workflowExecutionLogs, workflowLogWebhookDelivery } from '@tradinggoose/db/schema'
 import { task, wait } from '@trigger.dev/sdk'
 import { and, eq, isNull, lte, or, sql } from 'drizzle-orm'
 import { v4 as uuidv4 } from 'uuid'
@@ -74,6 +70,15 @@ interface WebhookPayload {
   }
 }
 
+type SubscriptionSnapshot = {
+  url: string
+  secret: string | null
+  includeFinalOutput: boolean
+  includeTraceSpans: boolean
+  includeRateLimits: boolean
+  includeUsageData: boolean
+}
+
 function generateSignature(secret: string, timestamp: number, body: string): string {
   const signatureBase = `${timestamp}.${body}`
   const hmac = createHmac('sha256', secret)
@@ -86,35 +91,12 @@ export const logsWebhookDelivery = task({
   retry: {
     maxAttempts: 1, // We handle retries manually within the task
   },
-  run: async (params: {
-    deliveryId: string
-    subscriptionId: string
-    log: WorkflowExecutionLog
-  }) => {
-    const { deliveryId, subscriptionId, log } = params
+  run: async (params: { deliveryId: string }) => {
+    const { deliveryId } = params
 
     try {
-      const [subscription] = await db
-        .select()
-        .from(workflowLogWebhook)
-        .where(eq(workflowLogWebhook.id, subscriptionId))
-        .limit(1)
-
-      if (!subscription || !subscription.active) {
-        logger.warn(`Subscription ${subscriptionId} not found or inactive`)
-        await db
-          .update(workflowLogWebhookDelivery)
-          .set({
-            status: 'failed',
-            errorMessage: 'Subscription not found or inactive',
-            updatedAt: new Date(),
-          })
-          .where(eq(workflowLogWebhookDelivery.id, deliveryId))
-        return
-      }
-
       // Atomically claim this delivery row for processing and increment attempts
-      const claimed = await db
+      const [delivery] = await db
         .update(workflowLogWebhookDelivery)
         .set({
           status: 'in_progress',
@@ -133,23 +115,121 @@ export const logsWebhookDelivery = task({
             )
           )
         )
-        .returning({ attempts: workflowLogWebhookDelivery.attempts })
+        .returning()
 
-      if (claimed.length === 0) {
+      if (!delivery) {
         logger.info(`Delivery ${deliveryId} not claimable (already in progress or not due)`)
         return
       }
 
-      const attempts = claimed[0].attempts
+      const attempts = delivery.attempts
+      const workflowSummary = delivery.workflowSummary as WorkflowExecutionLog['workflowSummary']
+      const subscriptionSnapshot = delivery.subscriptionSnapshot as SubscriptionSnapshot | null
+
+      if (!subscriptionSnapshot) {
+        await db
+          .update(workflowLogWebhookDelivery)
+          .set({
+            status: 'failed',
+            attempts,
+            lastAttemptAt: new Date(),
+            errorMessage: 'Webhook delivery is missing subscription snapshot',
+            updatedAt: new Date(),
+          })
+          .where(
+            and(
+              eq(workflowLogWebhookDelivery.id, deliveryId),
+              eq(workflowLogWebhookDelivery.status, 'in_progress')
+            )
+          )
+
+        logger.error(
+          `Webhook delivery ${deliveryId} failed because subscription snapshot is missing`,
+          {
+            executionId: delivery.executionId,
+            workspaceId: delivery.workspaceId,
+          }
+        )
+        return { success: false }
+      }
+
+      const [logRow] = await db
+        .select()
+        .from(workflowExecutionLogs)
+        .where(
+          and(
+            eq(workflowExecutionLogs.executionId, delivery.executionId),
+            eq(workflowExecutionLogs.workspaceId, delivery.workspaceId)
+          )
+        )
+        .limit(1)
+
+      if (!logRow) {
+        await db
+          .update(workflowLogWebhookDelivery)
+          .set({
+            status: 'failed',
+            attempts,
+            lastAttemptAt: new Date(),
+            errorMessage: 'Workflow execution log not found',
+            updatedAt: new Date(),
+          })
+          .where(
+            and(
+              eq(workflowLogWebhookDelivery.id, deliveryId),
+              eq(workflowLogWebhookDelivery.status, 'in_progress')
+            )
+          )
+
+        logger.error(`Webhook delivery ${deliveryId} failed because log row was missing`, {
+          executionId: delivery.executionId,
+          workspaceId: delivery.workspaceId,
+        })
+        return { success: false }
+      }
+
+      const executionData = (logRow.executionData ?? {}) as Record<string, any>
+      const webhookExecutionData: Record<string, any> = {}
+      if (subscriptionSnapshot.includeFinalOutput && executionData.finalOutput !== undefined) {
+        webhookExecutionData.finalOutput = executionData.finalOutput
+      }
+      if (subscriptionSnapshot.includeTraceSpans && executionData.traceSpans) {
+        webhookExecutionData.traceSpans = executionData.traceSpans
+      }
+      if (subscriptionSnapshot.includeRateLimits) {
+        webhookExecutionData.includeRateLimits = true
+      }
+      if (subscriptionSnapshot.includeUsageData) {
+        webhookExecutionData.includeUsageData = true
+      }
+
+      const log: WorkflowExecutionLog = {
+        id: logRow.id,
+        workflowId: logRow.workflowId,
+        workspaceId: logRow.workspaceId,
+        executionId: logRow.executionId,
+        stateSnapshotId: logRow.stateSnapshotId,
+        workflowSummary,
+        level: logRow.level as WorkflowExecutionLog['level'],
+        trigger: logRow.trigger as WorkflowExecutionLog['trigger'],
+        startedAt: logRow.startedAt.toISOString(),
+        endedAt: logRow.endedAt?.toISOString() ?? logRow.startedAt.toISOString(),
+        totalDurationMs: logRow.totalDurationMs ?? 0,
+        executionData: webhookExecutionData as WorkflowExecutionLog['executionData'],
+        cost: logRow.cost as WorkflowExecutionLog['cost'],
+        files: (logRow.files ?? undefined) as WorkflowExecutionLog['files'],
+        createdAt: logRow.createdAt.toISOString(),
+      }
       const timestamp = Date.now()
       const eventId = `evt_${uuidv4()}`
+      const workflowId = log.workflowId ?? workflowSummary.id
 
       const payload: WebhookPayload = {
         id: eventId,
         type: 'workflow.execution.completed',
         timestamp,
         data: {
-          workflowId: log.workflowId,
+          workflowId,
           executionId: log.executionId,
           status: log.level === 'error' ? 'error' : 'success',
           level: log.level,
@@ -159,6 +239,12 @@ export const logsWebhookDelivery = task({
           totalDurationMs: log.totalDurationMs,
           cost: log.cost,
           files: (log as any).files,
+          ...(webhookExecutionData.finalOutput !== undefined
+            ? { finalOutput: webhookExecutionData.finalOutput }
+            : {}),
+          ...(subscriptionSnapshot.includeTraceSpans && webhookExecutionData.traceSpans
+            ? { traceSpans: webhookExecutionData.traceSpans }
+            : {}),
         },
         links: {
           log: `/v1/logs/${log.id}`,
@@ -166,40 +252,24 @@ export const logsWebhookDelivery = task({
         },
       }
 
-      if (subscription.includeFinalOutput && log.executionData) {
-        payload.data.finalOutput = (log.executionData as any).finalOutput
-      }
-
-      if (subscription.includeTraceSpans && log.executionData) {
-        payload.data.traceSpans = (log.executionData as any).traceSpans
-      }
-
       // Fetch rate limits and usage data if requested
-      if ((subscription.includeRateLimits || subscription.includeUsageData) && log.executionData) {
-        const executionData = log.executionData as any
-
-        const needsRateLimits = subscription.includeRateLimits && executionData.includeRateLimits
-        const needsUsage = subscription.includeUsageData && executionData.includeUsageData
-        if (needsRateLimits || needsUsage) {
+      if (subscriptionSnapshot.includeRateLimits || subscriptionSnapshot.includeUsageData) {
+        const needsRateLimits =
+          subscriptionSnapshot.includeRateLimits && webhookExecutionData.includeRateLimits
+        const needsUsage =
+          subscriptionSnapshot.includeUsageData && webhookExecutionData.includeUsageData
+        if ((needsRateLimits || needsUsage) && workflowSummary.userId) {
           const { getUserLimits } = await import('@/app/api/v1/logs/meta')
-          const workflow = await db
-            .select()
-            .from(workflowTable)
-            .where(eq(workflowTable.id, log.workflowId))
-            .limit(1)
-
-          if (workflow.length > 0) {
-            try {
-              const limits = await getUserLimits(workflow[0].userId)
-              if (needsRateLimits) {
-                payload.data.rateLimits = limits.executionRateLimit
-              }
-              if (needsUsage) {
-                payload.data.usage = limits.usage
-              }
-            } catch (error) {
-              logger.warn('Failed to fetch limits/usage for webhook', { error })
+          try {
+            const limits = await getUserLimits(workflowSummary.userId)
+            if (needsRateLimits) {
+              payload.data.rateLimits = limits.executionRateLimit
             }
+            if (needsUsage) {
+              payload.data.usage = limits.usage
+            }
+          } catch (error) {
+            logger.warn('Failed to fetch limits/usage for webhook', { error })
           }
         }
       }
@@ -213,14 +283,28 @@ export const logsWebhookDelivery = task({
         'Idempotency-Key': deliveryId,
       }
 
-      if (subscription.secret) {
-        const { decrypted } = await decryptSecret(subscription.secret)
+      if (subscriptionSnapshot.secret) {
+        const { decrypted } = await decryptSecret(subscriptionSnapshot.secret)
         const signature = generateSignature(decrypted, timestamp, body)
         headers['tradinggoose-signature'] = `t=${timestamp},v1=${signature}`
       }
 
+      const [currentDelivery] = await db
+        .select({ status: workflowLogWebhookDelivery.status })
+        .from(workflowLogWebhookDelivery)
+        .where(eq(workflowLogWebhookDelivery.id, deliveryId))
+        .limit(1)
+
+      if (currentDelivery?.status !== 'in_progress') {
+        logger.info(`Webhook delivery ${deliveryId} skipped before send`, {
+          status: currentDelivery?.status ?? 'missing',
+          executionId: log.executionId,
+        })
+        return { success: false }
+      }
+
       logger.info(`Attempting webhook delivery ${deliveryId} (attempt ${attempts})`, {
-        url: subscription.url,
+        url: subscriptionSnapshot.url,
         executionId: log.executionId,
       })
 
@@ -228,7 +312,7 @@ export const logsWebhookDelivery = task({
       const timeoutId = setTimeout(() => controller.abort(), 30000)
 
       try {
-        const response = await fetch(subscription.url, {
+        const response = await fetch(subscriptionSnapshot.url, {
           method: 'POST',
           headers,
           body,
@@ -326,8 +410,6 @@ export const logsWebhookDelivery = task({
         // Recursively call the task for retry
         await logsWebhookDelivery.trigger({
           deliveryId,
-          subscriptionId,
-          log,
         })
 
         return { success: false, retrying: true }
@@ -377,8 +459,6 @@ export const logsWebhookDelivery = task({
         // Recursively call the task for retry
         await logsWebhookDelivery.trigger({
           deliveryId,
-          subscriptionId,
-          log,
         })
 
         return { success: false, retrying: true }
@@ -397,7 +477,12 @@ export const logsWebhookDelivery = task({
           errorMessage: `Unexpected error: ${error.message}`,
           updatedAt: new Date(),
         })
-        .where(eq(workflowLogWebhookDelivery.id, deliveryId))
+        .where(
+          and(
+            eq(workflowLogWebhookDelivery.id, deliveryId),
+            eq(workflowLogWebhookDelivery.status, 'in_progress')
+          )
+        )
 
       return { success: false, error: error.message }
     }

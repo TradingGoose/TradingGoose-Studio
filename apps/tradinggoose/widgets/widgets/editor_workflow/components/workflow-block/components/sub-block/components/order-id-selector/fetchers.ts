@@ -25,7 +25,7 @@ const isResultContainer = (
 export async function fetchOrderHistorySearchOptions(
   params: {
     query?: string
-    workflowId?: string | null
+    workspaceId: string
     limit?: number
   },
   signal?: AbortSignal
@@ -36,9 +36,7 @@ export async function fetchOrderHistorySearchOptions(
     query.set('q', params.query.trim())
   }
 
-  if (params.workflowId?.trim()) {
-    query.set('workflowId', params.workflowId.trim())
-  }
+  query.set('workspaceId', params.workspaceId.trim())
 
   query.set('limit', String(params.limit ?? 20))
 

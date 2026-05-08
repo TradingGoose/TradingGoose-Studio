@@ -7,9 +7,21 @@ const mockGetBlocksMetadataExecute = vi.fn()
 const mockLoadSkill = vi.fn()
 const mockLoadWorkflowStateWithFallback = vi.fn()
 const mockSanitizeForCopilot = vi.fn((value) => value)
+const mockAnd = vi.fn((...conditions: unknown[]) => ({ conditions, type: 'and' }))
+const mockEq = vi.fn((field: unknown, value: unknown) => ({ field, type: 'eq', value }))
+const mockLogRowsQueue: unknown[][] = []
+const mockSelectChain: Record<string, any> = {}
+mockSelectChain.from = vi.fn(() => mockSelectChain)
+mockSelectChain.leftJoin = vi.fn(() => mockSelectChain)
+mockSelectChain.innerJoin = vi.fn(() => mockSelectChain)
+mockSelectChain.where = vi.fn(() => mockSelectChain)
+mockSelectChain.limit = vi.fn(() => Promise.resolve(mockLogRowsQueue.shift() ?? []))
+const mockDbSelect = vi.fn(() => mockSelectChain)
 
 vi.mock('@tradinggoose/db', () => ({
-  db: {},
+  db: {
+    select: mockDbSelect,
+  },
 }))
 
 vi.mock('@tradinggoose/db/schema', () => ({
@@ -17,13 +29,36 @@ vi.mock('@tradinggoose/db/schema', () => ({
   copilotReviewSessions: {},
   document: {},
   knowledgeBase: {},
+  permissions: {
+    entityType: 'permissions.entityType',
+    entityId: 'permissions.entityId',
+    userId: 'permissions.userId',
+  },
   templates: {},
+  workflow: {
+    id: 'workflow.id',
+    name: 'workflow.name',
+  },
+  workflowExecutionLogs: {
+    id: 'workflowExecutionLogs.id',
+    workflowId: 'workflowExecutionLogs.workflowId',
+    workspaceId: 'workflowExecutionLogs.workspaceId',
+    executionId: 'workflowExecutionLogs.executionId',
+    level: 'workflowExecutionLogs.level',
+    trigger: 'workflowExecutionLogs.trigger',
+    startedAt: 'workflowExecutionLogs.startedAt',
+    endedAt: 'workflowExecutionLogs.endedAt',
+    totalDurationMs: 'workflowExecutionLogs.totalDurationMs',
+    executionData: 'workflowExecutionLogs.executionData',
+    cost: 'workflowExecutionLogs.cost',
+    workflowSummary: 'workflowExecutionLogs.workflowSummary',
+  },
 }))
 
 vi.mock('drizzle-orm', () => ({
-  and: vi.fn(),
+  and: mockAnd,
   asc: vi.fn(),
-  eq: vi.fn(),
+  eq: mockEq,
   isNull: vi.fn(),
 }))
 
@@ -64,6 +99,12 @@ describe('processContextsServer', () => {
     mockLoadSkill.mockReset()
     mockLoadWorkflowStateWithFallback.mockReset()
     mockSanitizeForCopilot.mockClear()
+    mockAnd.mockClear()
+    mockEq.mockClear()
+    mockLogRowsQueue.length = 0
+    mockDbSelect.mockClear()
+    mockSelectChain.leftJoin.mockClear()
+    mockSelectChain.innerJoin.mockClear()
   })
 
   it('expands block contexts through the canonical blockIds path', async () => {
@@ -203,5 +244,45 @@ describe('processContextsServer', () => {
         ),
       },
     ])
+  })
+
+  it('hydrates deleted workflow log contexts from the durable workflow summary', async () => {
+    mockLogRowsQueue.push([
+      {
+        id: 'log-1',
+        workflowId: null,
+        executionId: 'execution-1',
+        level: 'info',
+        trigger: 'manual',
+        startedAt: new Date('2026-04-23T00:00:00.000Z'),
+        endedAt: null,
+        totalDurationMs: null,
+        executionData: {},
+        cost: null,
+        workflowSummary: {
+          id: 'deleted-workflow-1',
+          name: 'Deleted workflow',
+        },
+        workflowName: null,
+      },
+    ])
+
+    const { processContextsServer } = await import('@/lib/copilot/process-contents')
+    const result = await processContextsServer(
+      [{ kind: 'logs', executionId: 'execution-1', label: 'Deleted Run' } as any],
+      'user-1'
+    )
+
+    expect(mockSelectChain.leftJoin).toHaveBeenCalled()
+    expect(mockSelectChain.innerJoin).toHaveBeenCalled()
+    expect(mockEq).toHaveBeenCalledWith('permissions.entityType', 'workspace')
+    expect(mockEq).toHaveBeenCalledWith('permissions.entityId', 'workflowExecutionLogs.workspaceId')
+    expect(mockEq).toHaveBeenCalledWith('permissions.userId', 'user-1')
+    expect(result).toHaveLength(1)
+    const content = JSON.parse(result[0]!.content)
+    expect(content).toMatchObject({
+      workflowId: 'deleted-workflow-1',
+      workflowName: 'Deleted workflow',
+    })
   })
 })

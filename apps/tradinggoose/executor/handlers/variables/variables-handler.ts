@@ -3,8 +3,18 @@ import type { BlockOutput } from '@/blocks/types'
 import { BlockType } from '@/executor/consts'
 import type { BlockHandler, ExecutionContext } from '@/executor/types'
 import type { SerializedBlock } from '@/serializer/types'
+import type { VariableType } from '@/stores/variables/types'
 
 const logger = createLogger('VariablesBlockHandler')
+const VARIABLE_TYPES = new Set<VariableType>(['plain', 'number', 'boolean', 'object', 'array'])
+
+function assertVariableType(type: unknown, variableName: string): asserts type is VariableType {
+  if (typeof type !== 'string' || !VARIABLE_TYPES.has(type as VariableType)) {
+    throw new Error(
+      `Unsupported variable type for "${variableName || 'unknown'}": ${String(type)}.`
+    )
+  }
+}
 
 export class VariablesBlockHandler implements BlockHandler {
   canHandle(block: SerializedBlock): boolean {
@@ -77,9 +87,13 @@ export class VariablesBlockHandler implements BlockHandler {
 
   private parseAssignments(
     assignmentsInput: any
-  ): Array<{ variableId?: string; variableName: string; type: string; value: any }> {
-    const result: Array<{ variableId?: string; variableName: string; type: string; value: any }> =
-      []
+  ): Array<{ variableId?: string; variableName: string; type: VariableType; value: any }> {
+    const result: Array<{
+      variableId?: string
+      variableName: string
+      type: VariableType
+      value: any
+    }> = []
 
     if (!assignmentsInput || !Array.isArray(assignmentsInput)) {
       return result
@@ -88,7 +102,8 @@ export class VariablesBlockHandler implements BlockHandler {
     for (const assignment of assignmentsInput) {
       if (assignment?.variableName?.trim()) {
         const name = assignment.variableName.trim()
-        const type = assignment.type || 'string'
+        const type = assignment.type
+        assertVariableType(type, name)
         const value = this.parseValueByType(assignment.value, type, name)
 
         result.push({
@@ -103,7 +118,7 @@ export class VariablesBlockHandler implements BlockHandler {
     return result
   }
 
-  private parseValueByType(value: any, type: string, variableName?: string): any {
+  private parseValueByType(value: any, type: VariableType, variableName?: string): any {
     if (value === null || value === undefined || value === '') {
       if (type === 'number') return 0
       if (type === 'boolean') return false
@@ -112,7 +127,7 @@ export class VariablesBlockHandler implements BlockHandler {
       return ''
     }
 
-    if (type === 'string' || type === 'plain') {
+    if (type === 'plain') {
       return typeof value === 'string' ? value : String(value)
     }
 
@@ -184,6 +199,7 @@ export class VariablesBlockHandler implements BlockHandler {
       return type === 'array' ? [] : {}
     }
 
-    return value
+    const unsupportedType: never = type
+    throw new Error(`Unsupported variable type: ${String(unsupportedType)}`)
   }
 }

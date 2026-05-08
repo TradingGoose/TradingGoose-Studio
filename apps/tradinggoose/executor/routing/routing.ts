@@ -78,7 +78,7 @@ export class Routing {
     // Flow control blocks
     [BlockType.PARALLEL]: BlockCategory.FLOW_CONTROL,
     [BlockType.LOOP]: BlockCategory.FLOW_CONTROL,
-    [BlockType.WORKFLOW]: BlockCategory.FLOW_CONTROL,
+    [BlockType.WORKFLOW_INPUT]: BlockCategory.FLOW_CONTROL,
 
     // Routing blocks
     [BlockType.ROUTER]: BlockCategory.ROUTING_BLOCK,

@@ -10,7 +10,7 @@ import {
   normalizeConfigFilterValues,
 } from './config-filter-values'
 
-export type ParsedConfigQuery = {
+type ParsedConfigQuery = {
   filters: ConfigMonitorFilter[]
   invalidTokens: string[]
   textSearch: string
@@ -257,7 +257,7 @@ const getCardFieldValue = (card: ConfigMonitorCard, field: ConfigMonitorFilterFi
   }
 }
 
-export const cardMatchesConfigFilter = (card: ConfigMonitorCard, filter: ConfigMonitorFilter) => {
+const cardMatchesConfigFilter = (card: ConfigMonitorCard, filter: ConfigMonitorFilter) => {
   const value = getCardFieldValue(card, filter.field)
 
   if (filter.operator === 'has') return value !== null && value !== ''

@@ -40,9 +40,7 @@ export type ScheduleExecutionPayload = {
   now: string
 }
 
-export function isScheduleExecutionPayload(
-  value: unknown,
-): value is ScheduleExecutionPayload {
+export function isScheduleExecutionPayload(value: unknown): value is ScheduleExecutionPayload {
   if (!value || typeof value !== 'object') {
     return false
   }
@@ -59,11 +57,9 @@ export function isScheduleExecutionPayload(
 async function calculateNextRunTime(
   schedule: { cronExpression?: string; lastRanAt?: string },
   blocks: Record<string, BlockState>,
-  timezone: string,
+  timezone: string
 ): Promise<Date> {
-  const scheduleBlock = Object.values(blocks).find(
-    (block) => block.type === 'schedule',
-  )
+  const scheduleBlock = Object.values(blocks).find((block) => block.type === 'schedule')
   if (!scheduleBlock) throw new Error('No schedule trigger block found')
 
   const scheduleType = getSubBlockValue(scheduleBlock, 'scheduleType')
@@ -75,18 +71,12 @@ async function calculateNextRunTime(
       utcOffset: utcOffsetMinutes,
     })
     const nextDate = cron.nextRun()
-    if (!nextDate)
-      throw new Error('Invalid cron expression or no future occurrences')
+    if (!nextDate) throw new Error('Invalid cron expression or no future occurrences')
     return nextDate
   }
 
   const lastRanAt = schedule.lastRanAt ? new Date(schedule.lastRanAt) : null
-  return calculateNextTime(
-    scheduleType,
-    scheduleValues,
-    lastRanAt,
-    utcOffsetMinutes,
-  )
+  return calculateNextTime(scheduleType, scheduleValues, lastRanAt, utcOffsetMinutes)
 }
 
 async function updateScheduleNextRun(params: {
@@ -104,9 +94,7 @@ async function updateScheduleNextRun(params: {
       updatedAt: params.now,
       nextRunAt: params.nextRunAt,
       ...(params.lastRanAt ? { lastRanAt: params.lastRanAt } : {}),
-      ...(typeof params.failedCount === 'number'
-        ? { failedCount: params.failedCount }
-        : {}),
+      ...(typeof params.failedCount === 'number' ? { failedCount: params.failedCount } : {}),
       ...(params.lastFailedAt ? { lastFailedAt: params.lastFailedAt } : {}),
       ...(params.status ? { status: params.status } : {}),
     })
@@ -120,22 +108,16 @@ async function resolveFallbackNextRunAt(params: {
   now: Date
 }) {
   if (params.blocks) {
-    return calculateNextRunTime(
-      params.payload,
-      params.blocks,
-      params.payload.timezone,
-    )
+    return calculateNextRunTime(params.payload, params.blocks, params.payload.timezone)
   }
 
   if (params.workflowIsDeployed) {
     try {
-      const deployedData = await loadDeployedWorkflowState(
-        params.payload.workflowId,
-      )
+      const deployedData = await loadDeployedWorkflowState(params.payload.workflowId)
       return await calculateNextRunTime(
         params.payload,
         deployedData.blocks as Record<string, BlockState>,
-        params.payload.timezone,
+        params.payload.timezone
       )
     } catch {}
   }
@@ -154,9 +136,7 @@ export async function executeScheduleJob(payload: ScheduleExecutionPayload) {
     executionId,
   })
 
-  const rescheduleSkippedExecution = async (
-    blocks?: Record<string, BlockState>,
-  ) => {
+  const rescheduleSkippedExecution = async (blocks?: Record<string, BlockState>) => {
     try {
       const nextRunAt = await resolveFallbackNextRunAt({
         payload,
@@ -172,7 +152,7 @@ export async function executeScheduleJob(payload: ScheduleExecutionPayload) {
     } catch (calcErr) {
       logger.warn(
         `[${requestId}] Unable to calculate nextRunAt while skipping schedule ${payload.scheduleId}`,
-        calcErr,
+        calcErr
       )
     }
   }
@@ -189,13 +169,16 @@ export async function executeScheduleJob(payload: ScheduleExecutionPayload) {
       return
     }
 
-    const actorUserId = await getApiKeyOwnerUserId(
-      workflowRecord.pinnedApiKeyId,
-    )
+    if (!workflowRecord.workspaceId) {
+      logger.warn(`[${requestId}] Workflow ${payload.workflowId} is missing workspaceId`)
+      return
+    }
+
+    const actorUserId = await getApiKeyOwnerUserId(workflowRecord.pinnedApiKeyId)
 
     if (!actorUserId) {
       logger.warn(
-        `[${requestId}] Skipping schedule ${payload.scheduleId}: pinned API key required to attribute usage.`,
+        `[${requestId}] Skipping schedule ${payload.scheduleId}: pinned API key required to attribute usage.`
       )
       return
     }
@@ -210,14 +193,11 @@ export async function executeScheduleJob(payload: ScheduleExecutionPayload) {
           workflowContext: workflowRecord,
           executionTarget: 'deployed',
         })
-        const scheduleBlocks = blueprint.workflowData.blocks as Record<
-          string,
-          BlockState
-        >
+        const scheduleBlocks = blueprint.workflowData.blocks as Record<string, BlockState>
 
         if (payload.blockId && !scheduleBlocks[payload.blockId]) {
           logger.warn(
-            `[${requestId}] Schedule trigger block ${payload.blockId} not found in deployed workflow ${payload.workflowId}. Skipping execution.`,
+            `[${requestId}] Schedule trigger block ${payload.blockId} not found in deployed workflow ${payload.workflowId}. Skipping execution.`
           )
           return
         }
@@ -241,15 +221,9 @@ export async function executeScheduleJob(payload: ScheduleExecutionPayload) {
         })
 
         if (result.success) {
-          logger.info(
-            `[${requestId}] Workflow ${payload.workflowId} executed successfully`,
-          )
+          logger.info(`[${requestId}] Workflow ${payload.workflowId} executed successfully`)
 
-          const nextRunAt = await calculateNextRunTime(
-            payload,
-            scheduleBlocks,
-            payload.timezone,
-          )
+          const nextRunAt = await calculateNextRunTime(payload, scheduleBlocks, payload.timezone)
 
           await updateScheduleNextRun({
             scheduleId: payload.scheduleId,
@@ -262,21 +236,15 @@ export async function executeScheduleJob(payload: ScheduleExecutionPayload) {
           return
         }
 
-        logger.warn(
-          `[${requestId}] Workflow ${payload.workflowId} execution failed`,
-        )
+        logger.warn(`[${requestId}] Workflow ${payload.workflowId} execution failed`)
 
         const newFailedCount = (payload.failedCount || 0) + 1
         const shouldDisable = newFailedCount >= MAX_CONSECUTIVE_FAILURES
-        const nextRunAt = await calculateNextRunTime(
-          payload,
-          scheduleBlocks,
-          payload.timezone,
-        )
+        const nextRunAt = await calculateNextRunTime(payload, scheduleBlocks, payload.timezone)
 
         if (shouldDisable) {
           logger.warn(
-            `[${requestId}] Disabling schedule for workflow ${payload.workflowId} after ${MAX_CONSECUTIVE_FAILURES} consecutive failures`,
+            `[${requestId}] Disabling schedule for workflow ${payload.workflowId} after ${MAX_CONSECUTIVE_FAILURES} consecutive failures`
           )
         }
 
@@ -303,7 +271,7 @@ export async function executeScheduleJob(payload: ScheduleExecutionPayload) {
         }`,
         {
           workflowId: payload.workflowId,
-        },
+        }
       )
       throw error
     }
@@ -314,26 +282,20 @@ export async function executeScheduleJob(payload: ScheduleExecutionPayload) {
         {
           workflowId: payload.workflowId,
           message: error.message,
-        },
+        }
       )
       await rescheduleSkippedExecution()
       return
     }
 
     if (error.message?.includes('Service overloaded')) {
-      logger.warn(
-        `[${requestId}] Service overloaded while executing schedule`,
-        {
-          workflowId: payload.workflowId,
-        },
-      )
+      logger.warn(`[${requestId}] Service overloaded while executing schedule`, {
+        workflowId: payload.workflowId,
+      })
       throw error
     }
 
-    logger.error(
-      `[${requestId}] Error executing scheduled workflow ${payload.workflowId}`,
-      error,
-    )
+    logger.error(`[${requestId}] Error executing scheduled workflow ${payload.workflowId}`, error)
 
     const [workflowRecord] = await db
       .select()
@@ -352,7 +314,7 @@ export async function executeScheduleJob(payload: ScheduleExecutionPayload) {
 
     if (shouldDisable) {
       logger.warn(
-        `[${requestId}] Disabling schedule for workflow ${payload.workflowId} after ${MAX_CONSECUTIVE_FAILURES} consecutive failures`,
+        `[${requestId}] Disabling schedule for workflow ${payload.workflowId} after ${MAX_CONSECUTIVE_FAILURES} consecutive failures`
       )
     }
 

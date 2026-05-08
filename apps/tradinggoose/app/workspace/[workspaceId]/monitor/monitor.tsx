@@ -14,8 +14,8 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { MONITOR_QUERY_POLICY } from '@/lib/logs/query-policy'
 import { type LayoutTab, LayoutTabs } from '@/app/workspace/[workspaceId]/dashboard/layout-tabs'
-import { AutocompleteSearch } from '@/app/workspace/[workspaceId]/logs/components/logs-toolbar'
 import { buildConfigMonitorCards } from '@/app/workspace/[workspaceId]/monitor/components/config/config-card-model'
 import { ConfigMonitorSearch } from '@/app/workspace/[workspaceId]/monitor/components/config/config-search'
 import {
@@ -32,7 +32,6 @@ import {
 } from '@/app/workspace/[workspaceId]/monitor/components/data/api'
 import { useMonitorReferenceData } from '@/app/workspace/[workspaceId]/monitor/components/data/use-monitor-reference-data'
 import {
-  applyMonitorQuickFiltersToExportParams,
   buildMonitorExecutionLogFilters,
   createMonitorQuickFilterClause,
   useMonitorWorkspaceLogs,
@@ -67,6 +66,7 @@ import {
 } from '@/app/workspace/[workspaceId]/monitor/components/view/view-preferences'
 import { MonitorConfigWorkspace } from '@/app/workspace/[workspaceId]/monitor/components/workspace/monitor-config-workspace'
 import { MonitorExecutionWorkspace } from '@/app/workspace/[workspaceId]/monitor/components/workspace/monitor-execution-workspace'
+import { AutocompleteSearch } from '@/app/workspace/[workspaceId]/records/components/logs-toolbar'
 import { GlobalNavbarHeader } from '@/global-navbar'
 import { buildLogsRequestParams, useLogDetail } from '@/hooks/queries/logs'
 
@@ -569,8 +569,12 @@ export function MonitorPage({ workspaceId, userId }: MonitorPageProps) {
     ? orderedVisibleLogIds.indexOf(selectedExecutionLogId)
     : -1
 
-  const workflowSuggestionNames = useMemo(
-    () => referenceData.workflowOptions.map((option) => option.workflowName),
+  const workflowSuggestions = useMemo(
+    () =>
+      referenceData.workflowOptions.map((option) => ({
+        id: option.workflowId,
+        name: option.workflowName,
+      })),
     [referenceData.workflowOptions]
   )
   const activeQuickFilterClauseRaws = useMemo(() => {
@@ -654,7 +658,6 @@ export function MonitorPage({ workspaceId, userId }: MonitorPageProps) {
         includeDetails: false,
       })
     )
-    applyMonitorQuickFiltersToExportParams(queryParams, executionViewConfig.quickFilters)
     const anchor = document.createElement('a')
     anchor.href = `/api/logs/export?${queryParams}`
     anchor.download = 'logs_export.csv'
@@ -1180,7 +1183,8 @@ export function MonitorPage({ workspaceId, userId }: MonitorPageProps) {
           <AutocompleteSearch
             value={executionViewConfig.filterQuery}
             onChange={commitFilterQuery}
-            availableWorkflows={workflowSuggestionNames}
+            queryPolicy={MONITOR_QUERY_POLICY}
+            workflowsData={workflowSuggestions}
             placeholder='Search executions...'
             className='w-full'
           />

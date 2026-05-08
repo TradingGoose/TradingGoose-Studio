@@ -50,7 +50,6 @@ interface IndicatorDropdownProps {
   onChange?: (ids: string[]) => void
   disabled?: boolean
   placeholder?: string
-  align?: 'start' | 'end'
   triggerClassName?: string
   menuClassName?: string
   selectionMode?: 'single' | 'multiple'
@@ -63,7 +62,6 @@ export function IndicatorDropdown({
   onChange,
   disabled = false,
   placeholder = DEFAULT_PLACEHOLDER,
-  align = 'start',
   triggerClassName,
   menuClassName,
   selectionMode = 'multiple',
@@ -289,7 +287,6 @@ export function IndicatorDropdown({
         <TooltipContent side='top'>{tooltipText}</TooltipContent>
       </Tooltip>
       <DropdownMenuContent
-        align={align}
         sideOffset={6}
         className={cn(
           widgetHeaderMenuContentClassName,

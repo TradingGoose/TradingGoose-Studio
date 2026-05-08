@@ -2,6 +2,7 @@ import type { ChatCompletionChunk } from 'openai/resources/chat/completions'
 import type { CompletionUsage } from 'openai/resources/completions'
 import { getEnv, isTruthy } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
+import type { ExecutionSubmissionSource } from '@/executor/types'
 import {
   getEmbeddingModelPricing,
   getHostedModels as getHostedModelsFromDefinitions,
@@ -10,9 +11,9 @@ import {
   getModelsWithDeepResearch,
   getModelsWithReasoningEffort,
   getModelsWithTemperatureSupport,
-  getModelsWithThinking,
   getModelsWithTempRange01,
   getModelsWithTempRange02,
+  getModelsWithThinking,
   getModelsWithVerbosity,
   getProviderModels as getProviderModelsFromDefinitions,
   getProvidersWithToolUsageControl,
@@ -933,6 +934,8 @@ export function prepareToolExecution(
   request: {
     workflowId?: string
     workspaceId?: string // Add workspaceId for MCP tools
+    workflowLogId?: string
+    submissionSource?: ExecutionSubmissionSource
     chatId?: string
     userId?: string
     environmentVariables?: Record<string, any>
@@ -953,6 +956,8 @@ export function prepareToolExecution(
   const context = {
     ...(request.workflowId ? { workflowId: request.workflowId } : {}),
     ...(request.workspaceId ? { workspaceId: request.workspaceId } : {}),
+    ...(request.workflowLogId ? { workflowLogId: request.workflowLogId } : {}),
+    ...(request.submissionSource ? { submissionSource: request.submissionSource } : {}),
     ...(request.chatId ? { chatId: request.chatId } : {}),
     ...(request.userId ? { userId: request.userId } : {}),
   }

@@ -44,13 +44,13 @@ import { cn } from '@/lib/utils'
 
 export type KanbanDropDirection = 'none' | 'top' | 'bottom'
 
-export type KanbanDragLocation = {
+type KanbanDragLocation = {
   columnId: string
   cardId: string | null
   direction: KanbanDropDirection
 }
 
-export type KanbanCardData = {
+type KanbanCardData = {
   id: string
   columnId: string
 }
@@ -63,7 +63,7 @@ export type KanbanDragEvent<TItem extends KanbanCardData = KanbanCardData> = {
   overColumnId: string | null
 }
 
-export type KanbanDndMonitorEventHandler<TItem extends KanbanCardData = KanbanCardData> = {
+type KanbanDndMonitorEventHandler<TItem extends KanbanCardData = KanbanCardData> = {
   onDragStart?: (event: KanbanDragEvent<TItem>) => void
   onDragMove?: (event: KanbanDragEvent<TItem>) => void
   onDragOver?: (event: KanbanDragEvent<TItem>) => void
@@ -556,7 +556,7 @@ export function KanbanBoard({ className, ...props }: ComponentProps<'div'>) {
   )
 }
 
-export function KanbanHeader({
+function KanbanHeader({
   columnId,
   count,
   title,

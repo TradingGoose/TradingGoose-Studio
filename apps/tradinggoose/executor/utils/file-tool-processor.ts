@@ -104,6 +104,9 @@ export class FileToolProcessor {
     outputKey: string
   ): Promise<UserFile> {
     logger.info(`Processing file data for output '${outputKey}': ${fileData.name}`)
+    if (!context.workspaceId) {
+      throw new Error('File output processing requires workspaceId')
+    }
     try {
       // Convert various formats to Buffer
       let buffer: Buffer
@@ -166,7 +169,7 @@ export class FileToolProcessor {
       // Store in execution filesystem
       const userFile = await uploadExecutionFile(
         {
-          workspaceId: context.workspaceId || '',
+          workspaceId: context.workspaceId,
           workflowId: context.workflowId,
           executionId: context.executionId || '',
         },

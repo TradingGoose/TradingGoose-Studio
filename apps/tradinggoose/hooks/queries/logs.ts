@@ -1,6 +1,13 @@
 import { keepPreviousData, useInfiniteQuery, useQuery } from '@tanstack/react-query'
-import { toListingValueObject, type ListingIdentity } from '@/lib/listing/identity'
-import { parseQuery, queryToApiParams } from '@/lib/logs/query-parser'
+import { type ListingIdentity, toListingValueObject } from '@/lib/listing/identity'
+import {
+  parseQuery,
+  queryToApiParams,
+  serializeQueryParamValues,
+  splitQueryParamValues,
+} from '@/lib/logs/query-parser'
+import { LOGS_QUERY_POLICY } from '@/lib/logs/query-policy'
+import type { QueryPolicy } from '@/lib/logs/query-types'
 import type { LogsResponse, WorkflowLog } from '@/stores/logs/filters/types'
 
 export const logKeys = {
@@ -31,12 +38,103 @@ export interface LogFilters {
   searchQuery: string
   limit: number
   details?: 'basic' | 'full'
+  queryPolicy?: QueryPolicy
+  queryPolicyKey?: 'logs' | 'monitor'
   monitorId?: string
-  listing?: ListingIdentity
+  listings?: ListingIdentity[]
   indicatorId?: string
   providerId?: string
   interval?: string
   triggerSource?: 'indicator_trigger'
+}
+
+const resolveLogFilters = (
+  filters: LogFilters
+): Required<Pick<LogFilters, 'details' | 'queryPolicy' | 'queryPolicyKey'>> & LogFilters => ({
+  ...filters,
+  details: filters.details ?? 'basic',
+  queryPolicy: filters.queryPolicy ?? LOGS_QUERY_POLICY,
+  queryPolicyKey: filters.queryPolicyKey ?? 'logs',
+})
+
+const getLogFilterQueryKey = (filters: ReturnType<typeof resolveLogFilters>) => ({
+  ...filters,
+  queryPolicy: undefined,
+})
+
+const resolveTimeRangeStartDate = (timeRange: string) => {
+  if (timeRange === 'All time') {
+    return null
+  }
+
+  const now = new Date()
+
+  switch (timeRange) {
+    case 'Past 30 minutes':
+      return new Date(now.getTime() - 30 * 60 * 1000)
+    case 'Past hour':
+      return new Date(now.getTime() - 60 * 60 * 1000)
+    case 'Past 6 hours':
+      return new Date(now.getTime() - 6 * 60 * 60 * 1000)
+    case 'Past 12 hours':
+      return new Date(now.getTime() - 12 * 60 * 60 * 1000)
+    case 'Past 24 hours':
+      return new Date(now.getTime() - 24 * 60 * 60 * 1000)
+    case 'Past 3 days':
+      return new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000)
+    case 'Past 7 days':
+      return new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+    case 'Past 14 days':
+      return new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000)
+    case 'Past 30 days':
+      return new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+    default:
+      return new Date(0)
+  }
+}
+
+const MULTI_VALUE_QUERY_PARAMS = new Set([
+  'level',
+  'excludeLevel',
+  'outcomes',
+  'excludeOutcomes',
+  'workflowIds',
+  'excludeWorkflowIds',
+  'folderIds',
+  'triggers',
+  'excludeTriggers',
+  'workflowName',
+  'excludeWorkflowName',
+  'folderName',
+  'excludeFolderName',
+  'monitorId',
+  'excludeMonitorId',
+  'providerId',
+  'excludeProviderId',
+  'interval',
+  'excludeInterval',
+  'assetTypes',
+  'excludeAssetTypes',
+  'hasFields',
+  'noFields',
+])
+
+const mergeParamValues = (left: string | null, right: string) => {
+  const values = new Set<string>()
+
+  splitQueryParamValues(left ?? '').forEach((value) => values.add(value))
+  splitQueryParamValues(right).forEach((value) => values.add(value))
+
+  return serializeQueryParamValues(values)
+}
+
+const mergeQueryParam = (params: URLSearchParams, key: string, value: string) => {
+  if (!MULTI_VALUE_QUERY_PARAMS.has(key) || !params.has(key)) {
+    params.set(key, value)
+    return
+  }
+
+  params.set(key, mergeParamValues(params.get(key), value))
 }
 
 export function buildLogsRequestParams(
@@ -47,7 +145,8 @@ export function buildLogsRequestParams(
     includePagination?: boolean
     includeDetails?: boolean
   }
-): string {
+) {
+  const resolvedFilters = resolveLogFilters(filters)
   const params = new URLSearchParams()
   const currentPage = options?.page ?? 1
   const includePagination = options?.includePagination ?? true
@@ -55,86 +154,54 @@ export function buildLogsRequestParams(
 
   params.set('workspaceId', workspaceId)
   if (includePagination) {
-    params.set('limit', filters.limit.toString())
-    params.set('offset', ((currentPage - 1) * filters.limit).toString())
+    params.set('limit', resolvedFilters.limit.toString())
+    params.set('offset', ((currentPage - 1) * resolvedFilters.limit).toString())
   }
   if (includeDetails) {
-    params.set('details', filters.details ?? 'basic')
+    params.set('details', resolvedFilters.details)
   }
 
-  if (filters.level !== 'all') {
-    params.set('level', filters.level)
+  if (resolvedFilters.level !== 'all') {
+    params.set('level', resolvedFilters.level)
   }
 
-  if (filters.triggers.length > 0) {
-    params.set('triggers', filters.triggers.join(','))
+  if (resolvedFilters.triggers.length > 0) {
+    params.set('triggers', resolvedFilters.triggers.join(','))
   }
 
-  if (filters.workflowIds.length > 0) {
-    params.set('workflowIds', filters.workflowIds.join(','))
+  if (resolvedFilters.workflowIds.length > 0) {
+    params.set('workflowIds', resolvedFilters.workflowIds.join(','))
   }
 
-  if (filters.folderIds.length > 0) {
-    params.set('folderIds', filters.folderIds.join(','))
+  if (resolvedFilters.folderIds.length > 0) {
+    params.set('folderIds', resolvedFilters.folderIds.join(','))
   }
 
-  if (filters.timeRange !== 'All time') {
-    const now = new Date()
-    let startDate: Date
-
-    switch (filters.timeRange) {
-      case 'Past 30 minutes':
-        startDate = new Date(now.getTime() - 30 * 60 * 1000)
-        break
-      case 'Past hour':
-        startDate = new Date(now.getTime() - 60 * 60 * 1000)
-        break
-      case 'Past 6 hours':
-        startDate = new Date(now.getTime() - 6 * 60 * 60 * 1000)
-        break
-      case 'Past 12 hours':
-        startDate = new Date(now.getTime() - 12 * 60 * 60 * 1000)
-        break
-      case 'Past 24 hours':
-        startDate = new Date(now.getTime() - 24 * 60 * 60 * 1000)
-        break
-      case 'Past 3 days':
-        startDate = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000)
-        break
-      case 'Past 7 days':
-        startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
-        break
-      case 'Past 14 days':
-        startDate = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000)
-        break
-      case 'Past 30 days':
-        startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
-        break
-      default:
-        startDate = new Date(0)
-    }
-
+  const startDate = resolveTimeRangeStartDate(resolvedFilters.timeRange)
+  if (startDate) {
     params.set('startDate', startDate.toISOString())
   }
 
-  if (filters.searchQuery.trim()) {
-    const parsedQuery = parseQuery(filters.searchQuery.trim())
-    const searchParams = queryToApiParams(parsedQuery)
+  if (resolvedFilters.searchQuery.trim()) {
+    const parsedQuery = parseQuery(resolvedFilters.searchQuery.trim(), resolvedFilters.queryPolicy)
+    const searchParams = queryToApiParams(parsedQuery, resolvedFilters.queryPolicy)
 
     for (const [key, value] of Object.entries(searchParams)) {
-      params.set(key, value)
+      mergeQueryParam(params, key, value)
     }
   }
 
-  const normalizedListing = toListingValueObject(filters.listing ?? null)
+  const normalizedListings = (resolvedFilters.listings ?? [])
+    .map((listing) => toListingValueObject(listing))
+    .filter((listing): listing is ListingIdentity => Boolean(listing))
 
   const monitorFilters: Array<[string, string | undefined]> = [
-    ['monitorId', filters.monitorId],
-    ['listing', normalizedListing ? JSON.stringify(normalizedListing) : undefined],
-    ['indicatorId', filters.indicatorId],
-    ['providerId', filters.providerId],
-    ['interval', filters.interval],
-    ['triggerSource', filters.triggerSource],
+    ['monitorId', resolvedFilters.monitorId],
+    ['listings', normalizedListings.length > 0 ? JSON.stringify(normalizedListings) : undefined],
+    ['indicatorId', resolvedFilters.indicatorId],
+    ['providerId', resolvedFilters.providerId],
+    ['interval', resolvedFilters.interval],
+    ['triggerSource', resolvedFilters.triggerSource],
   ]
 
   monitorFilters.forEach(([key, value]) => {
@@ -151,7 +218,11 @@ async function fetchLogsPage(
   workspaceId: string,
   filters: LogFilters,
   page: number
-): Promise<{ logs: WorkflowLog[]; hasMore: boolean; nextPage: number | undefined }> {
+): Promise<{
+  logs: WorkflowLog[]
+  hasMore: boolean
+  nextPage: number | undefined
+}> {
   const queryParams = buildLogsRequestParams(workspaceId, filters, { page })
   const response = await fetch(`/api/logs?${queryParams}`)
 
@@ -190,9 +261,11 @@ export function useLogsList(
   filters: LogFilters,
   options?: UseLogsListOptions
 ) {
+  const resolvedFilters = resolveLogFilters(filters)
+
   return useInfiniteQuery({
-    queryKey: logKeys.list(workspaceId, filters),
-    queryFn: ({ pageParam }) => fetchLogsPage(workspaceId as string, filters, pageParam),
+    queryKey: logKeys.list(workspaceId, getLogFilterQueryKey(resolvedFilters)),
+    queryFn: ({ pageParam }) => fetchLogsPage(workspaceId as string, resolvedFilters, pageParam),
     enabled: Boolean(workspaceId) && (options?.enabled ?? true),
     refetchInterval: options?.refetchInterval ?? false,
     staleTime: 0, // Always consider stale for real-time logs
@@ -207,7 +280,6 @@ export function useLogDetail(logId: string | undefined) {
     queryFn: () => fetchLogDetail(logId as string),
     enabled: Boolean(logId),
     staleTime: 30 * 1000, // Details can be slightly stale (30 seconds)
-    placeholderData: keepPreviousData,
   })
 }
 

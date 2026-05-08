@@ -61,11 +61,6 @@ const parseStringArrayFromURL = (value: string | null): string[] => {
   return value.split(',').filter(Boolean)
 }
 
-const parseViewModeFromURL = (value: string | null): 'logs' | 'dashboard' => {
-  if (value === 'dashboard') return 'dashboard'
-  return 'logs'
-}
-
 const timeRangeToURL = (timeRange: TimeRange): string => {
   switch (timeRange) {
     case 'Past 30 minutes':
@@ -94,7 +89,6 @@ const timeRangeToURL = (timeRange: TimeRange): string => {
 export const useFilterStore = create<FilterState>((set, get) => ({
   logs: [],
   workspaceId: '',
-  viewMode: 'logs',
   timeRange: DEFAULT_TIME_RANGE,
   level: 'all',
   workflowIds: [],
@@ -119,13 +113,6 @@ export const useFilterStore = create<FilterState>((set, get) => ({
   },
 
   setWorkspaceId: (workspaceId) => set({ workspaceId }),
-
-  setViewMode: (viewMode) => {
-    set({ viewMode })
-    if (!get()._isInitializing) {
-      get().syncWithURL()
-    }
-  },
 
   setTimeRange: (timeRange) => {
     set({ timeRange })
@@ -251,11 +238,8 @@ export const useFilterStore = create<FilterState>((set, get) => ({
     const folderIds = parseStringArrayFromURL(params.get('folderIds'))
     const triggers = parseTriggerArrayFromURL(params.get('triggers'))
     const searchQuery = params.get('search') || ''
-    const rawViewMode = params.get('view')
-    const viewMode = parseViewModeFromURL(rawViewMode)
 
     set({
-      viewMode,
       timeRange,
       level,
       workflowIds,
@@ -269,36 +253,48 @@ export const useFilterStore = create<FilterState>((set, get) => ({
   },
 
   syncWithURL: () => {
-    const { timeRange, level, workflowIds, folderIds, triggers, searchQuery, viewMode } = get()
-    const params = new URLSearchParams()
+    const { timeRange, level, workflowIds, folderIds, triggers, searchQuery } = get()
+    const params = getSearchParams()
 
-    // Only add non-default values to keep URL clean
-    if (viewMode !== 'logs') {
-      params.set('view', viewMode)
+    const tab = params.get('tab')
+    if (tab !== 'logs' && tab !== 'stats') {
+      params.delete('tab')
     }
 
     if (timeRange !== DEFAULT_TIME_RANGE) {
       params.set('timeRange', timeRangeToURL(timeRange))
+    } else {
+      params.delete('timeRange')
     }
 
     if (level !== 'all') {
       params.set('level', level)
+    } else {
+      params.delete('level')
     }
 
     if (workflowIds.length > 0) {
       params.set('workflowIds', workflowIds.join(','))
+    } else {
+      params.delete('workflowIds')
     }
 
     if (folderIds.length > 0) {
       params.set('folderIds', folderIds.join(','))
+    } else {
+      params.delete('folderIds')
     }
 
     if (triggers.length > 0) {
       params.set('triggers', triggers.join(','))
+    } else {
+      params.delete('triggers')
     }
 
     if (searchQuery.trim()) {
       params.set('search', searchQuery.trim())
+    } else {
+      params.delete('search')
     }
 
     updateURL(params)

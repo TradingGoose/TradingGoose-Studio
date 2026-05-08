@@ -1,8 +1,4 @@
-/**
- * Variable types supported in the application
- * Note: 'string' is deprecated - use 'plain' for text values instead
- */
-export type VariableType = 'plain' | 'number' | 'boolean' | 'object' | 'array' | 'string'
+export type VariableType = 'plain' | 'number' | 'boolean' | 'object' | 'array'
 
 /**
  * Represents a workflow variable with workflow-specific naming

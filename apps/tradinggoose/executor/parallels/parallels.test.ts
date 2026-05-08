@@ -17,6 +17,7 @@ vi.mock('@/lib/logs/console/logger', () => ({
 describe('ParallelManager', () => {
   const createMockContext = (): ExecutionContext => ({
     workflowId: 'test-workflow',
+    workspaceId: 'test-workspace-id',
     blockStates: new Map(),
     blockLogs: [],
     metadata: { startTime: new Date().toISOString(), duration: 0 },
@@ -266,7 +267,7 @@ describe('ParallelManager', () => {
       })
 
       expect(context.loopItems.get('parallel-1_iteration_1')).toBe('banana')
-      expect(context.loopItems.get('parallel-1')).toBe('banana')
+      expect(context.loopItems.has('parallel-1')).toBe(false)
       expect(context.loopIterations.get('parallel-1')).toBe(1)
     })
 
@@ -287,7 +288,7 @@ describe('ParallelManager', () => {
       })
 
       expect(context.loopItems.get('parallel-1_iteration_0')).toEqual(['key1', 'value1'])
-      expect(context.loopItems.get('parallel-1')).toEqual(['key1', 'value1'])
+      expect(context.loopItems.has('parallel-1')).toBe(false)
       expect(context.loopIterations.get('parallel-1')).toBe(0)
     })
   })

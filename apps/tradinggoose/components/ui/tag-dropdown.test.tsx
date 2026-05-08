@@ -955,7 +955,7 @@ describe('TagDropdown Parallel Suggestions', () => {
 describe('TagDropdown Variable Suggestions', () => {
   it.concurrent('should generate variable tags with correct format', () => {
     const variables = [
-      { id: 'var1', name: 'User Name', type: 'string' },
+      { id: 'var1', name: 'User Name', type: 'plain' },
       { id: 'var2', name: 'User Age', type: 'number' },
       { id: 'var3', name: 'Is Active', type: 'boolean' },
     ]
@@ -970,7 +970,7 @@ describe('TagDropdown Variable Suggestions', () => {
 
   it.concurrent('should create variable info map correctly', () => {
     const variables = [
-      { id: 'var1', name: 'User Name', type: 'string' },
+      { id: 'var1', name: 'User Name', type: 'plain' },
       { id: 'var2', name: 'User Age', type: 'number' },
     ]
 
@@ -988,7 +988,7 @@ describe('TagDropdown Variable Suggestions', () => {
     )
 
     expect(variableInfoMap).toEqual({
-      'variable.UserName': { type: 'string', id: 'var1' },
+      'variable.UserName': { type: 'plain', id: 'var1' },
       'variable.UserAge': { type: 'number', id: 'var2' },
     })
   })
@@ -1404,19 +1404,16 @@ describe('TagDropdown Response Format Support', () => {
     }
   )
 
-  it.concurrent(
-    'should fallback to default outputs when response format parsing fails',
-    async () => {
-      // Test with invalid JSON
-      const invalidFormat = parseResponseFormatSafely('invalid json', 'agent1')
-      expect(invalidFormat).toBeNull()
+  it.concurrent('uses default outputs when response format parsing fails', async () => {
+    // Test with invalid JSON
+    const invalidFormat = parseResponseFormatSafely('invalid json', 'agent1')
+    expect(invalidFormat).toBeNull()
 
-      // Test with null/undefined values
-      expect(parseResponseFormatSafely(null, 'agent1')).toBeNull()
-      expect(parseResponseFormatSafely(undefined, 'agent1')).toBeNull()
-      expect(parseResponseFormatSafely('', 'agent1')).toBeNull()
-    }
-  )
+    // Test with null/undefined values
+    expect(parseResponseFormatSafely(null, 'agent1')).toBeNull()
+    expect(parseResponseFormatSafely(undefined, 'agent1')).toBeNull()
+    expect(parseResponseFormatSafely('', 'agent1')).toBeNull()
+  })
 
   it.concurrent('should handle response format with nested schema correctly', async () => {
     const responseFormat = {

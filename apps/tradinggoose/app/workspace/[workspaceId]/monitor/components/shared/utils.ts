@@ -36,33 +36,6 @@ export const isAuthParamDefinition = (definition: MarketProviderParamDefinition)
   ].some((pattern) => normalized.includes(pattern))
 }
 
-export const parseIntervalDurationMs = (interval: string | null | undefined): number | null => {
-  if (!interval) return null
-
-  const trimmed = interval.trim().toLowerCase()
-  if (!trimmed) return null
-
-  const match = /^(\d+)(m|h|d|w|mo)$/.exec(trimmed)
-  if (!match) return null
-
-  const amount = Number.parseInt(match[1] ?? '', 10)
-  if (!Number.isFinite(amount) || amount <= 0) return null
-
-  const unit = match[2]
-  const unitMs =
-    unit === 'm'
-      ? 60 * 1000
-      : unit === 'h'
-        ? 60 * 60 * 1000
-        : unit === 'd'
-          ? 24 * 60 * 60 * 1000
-          : unit === 'w'
-            ? 7 * 24 * 60 * 60 * 1000
-            : 30 * 24 * 60 * 60 * 1000
-
-  return amount * unitMs
-}
-
 const mapProviderParamsToDraftValues = (
   providerParams: Record<string, unknown> | undefined
 ): Record<string, string> => {
