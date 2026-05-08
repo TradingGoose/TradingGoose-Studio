@@ -21,12 +21,11 @@ ALTER TABLE "workflow_execution_snapshots" ADD COLUMN "workspace_id" text;--> st
 ALTER TABLE "workflow_log_webhook_delivery" ADD COLUMN "workspace_id" text;--> statement-breakpoint
 ALTER TABLE "workflow_log_webhook_delivery" ADD COLUMN "workflow_summary" jsonb;--> statement-breakpoint
 ALTER TABLE "workflow_log_webhook_delivery" ADD COLUMN "subscription_snapshot" jsonb;--> statement-breakpoint
+UPDATE "orderHistoryTable" SET "submission_source" = CASE WHEN "workflow_id" IS NULL THEN 'manual'::"order_submission_source" ELSE 'workflow'::"order_submission_source" END;--> statement-breakpoint
 UPDATE "orderHistoryTable" AS "order_history"
 SET "workspace_id" = "workflow"."workspace_id"
 FROM "workflow"
 WHERE "order_history"."workflow_id" = "workflow"."id";--> statement-breakpoint
-DELETE FROM "orderHistoryTable" WHERE "workspace_id" IS NULL;--> statement-breakpoint
-UPDATE "orderHistoryTable" SET "submission_source" = 'workflow'::"order_submission_source";--> statement-breakpoint
 UPDATE "workflow_execution_logs" AS "execution_log"
 SET
   "workspace_id" = "workflow"."workspace_id",
