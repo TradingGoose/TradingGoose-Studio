@@ -15,7 +15,7 @@ import {
   type OrderHistorySearchOption,
 } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/components/order-id-selector/types'
 import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
-import { useWorkflowId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
+import { useWorkspaceId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 
 interface OrderIdSelectorInputProps {
   blockId: string
@@ -43,7 +43,7 @@ export function OrderIdSelectorInput({
   disabled = false,
   config,
 }: OrderIdSelectorInputProps) {
-  const workflowId = useWorkflowId()
+  const workspaceId = useWorkspaceId()
   const [storeValue, setStoreValue] = useSubBlockValue<string | null>(blockId, subBlockId)
 
   const normalizedPropValue = value ?? null
@@ -139,7 +139,7 @@ export function OrderIdSelectorInput({
 
     const requestQuery =
       open && selectedOrderId && equalsIgnoreCase(trimmed, selectedOrderId) ? '' : trimmed
-    const requestKey = `${workflowId ?? ''}|${requestQuery}|${open ? 'open' : 'closed'}`
+    const requestKey = `${workspaceId}|${requestQuery}|${open ? 'open' : 'closed'}`
     requestKeyRef.current = requestKey
 
     setIsLoading(true)
@@ -148,7 +148,7 @@ export function OrderIdSelectorInput({
     fetchOrderHistorySearchOptions(
       {
         query: requestQuery,
-        workflowId,
+        workspaceId,
         limit: 20,
       },
       controller.signal
@@ -190,7 +190,7 @@ export function OrderIdSelectorInput({
     return () => {
       controller.abort()
     }
-  }, [currentValue, debouncedQuery, open, selectedOrderId, setOrderIdValue, workflowId])
+  }, [currentValue, debouncedQuery, open, selectedOrderId, setOrderIdValue, workspaceId])
 
   useEffect(() => {
     setHighlightedIndex((previous) => {
