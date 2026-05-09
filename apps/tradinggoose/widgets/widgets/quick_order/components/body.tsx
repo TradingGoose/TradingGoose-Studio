@@ -19,9 +19,8 @@ import type { QuickOrderSubmitRequest } from '@/app/api/providers/trading/order/
 import { useMarketQuoteSnapshots } from '@/hooks/queries/market-quote-snapshots'
 import { useOAuthProviderAvailability } from '@/hooks/queries/oauth-provider-availability'
 import {
+  usePortfolioDetail,
   useSubmitTradingOrder,
-  useTradingAccounts,
-  useTradingPortfolioSnapshot,
 } from '@/hooks/queries/trading-portfolio'
 import {
   ALPACA_TRAILING_STOP_TRAIL_VALUE_ERROR,
@@ -37,7 +36,7 @@ import {
   emitQuickOrderParamsChange,
   useQuickOrderParamsPersistence,
 } from '@/widgets/utils/quick-order-params'
-import { useTradingCredentialServices } from '@/widgets/widgets/components/trading-credential-services'
+import { usePortfolioIdentitySelection } from '@/widgets/widgets/components/use-portfolio-identity-selection'
 import {
   getQuickOrderDefaultTimeInForce,
   getQuickOrderOrderTypeDefinitions,
@@ -225,34 +224,28 @@ export function QuickOrderWidgetBody({
     !providerAvailabilityQuery.isLoading &&
     !providerAvailabilityQuery.error &&
     providerOptions.length > 0
-  const credentialServices = useTradingCredentialServices({
+  const {
+    accountsQuery,
+    activeCredentialServiceId,
+    activePortfolioIdentity,
+    credentialServices,
+    portfolioIdentities,
+    selectedPortfolioAccount,
+  } = usePortfolioIdentitySelection({
+    workspaceId,
     providerId,
     credentialServiceId: quickOrderParams?.credentialServiceId,
+    portfolioIdentity: quickOrderParams?.portfolioIdentity,
     enabled: areProviderOptionsReady && hasSelectedProvider,
+    panelId,
+    widgetKey,
+    emitParamsChange: emitQuickOrderParamsChange,
   })
-  const activeCredentialServiceId = credentialServices.activeServiceId
-  const accountsQuery = useTradingAccounts({
+  const accountSnapshotQuery = usePortfolioDetail({
     workspaceId: workspaceId ?? undefined,
     provider: hasSelectedProvider && areProviderOptionsReady ? providerId : undefined,
     credentialServiceId: activeCredentialServiceId,
-    enabled: Boolean(activeCredentialServiceId),
-  })
-  const accounts = accountsQuery.data ?? []
-  const singleAccount = accounts.length === 1 ? (accounts[0] ?? null) : null
-  const selectedAccount =
-    quickOrderParams?.accountId && !accountsQuery.isLoading && !accountsQuery.error
-      ? (accounts.find((account) => account.id === quickOrderParams.accountId) ?? null)
-      : !quickOrderParams?.accountId
-        ? singleAccount
-        : null
-  const activeAccountId = activeCredentialServiceId
-    ? (quickOrderParams?.accountId ?? singleAccount?.id)
-    : undefined
-  const accountSnapshotQuery = useTradingPortfolioSnapshot({
-    workspaceId: workspaceId ?? undefined,
-    provider: hasSelectedProvider && areProviderOptionsReady ? providerId : undefined,
-    credentialServiceId: activeCredentialServiceId,
-    accountId: activeAccountId,
+    portfolioIdentity: activePortfolioIdentity,
   })
   const submitResetProviderKey = [
     quickOrderParams?.provider ?? providerId,
@@ -368,11 +361,11 @@ export function QuickOrderWidgetBody({
       : undefined
   const accountSnapshot = accountSnapshotQuery.data
   const accountCurrency =
-    accountSnapshot?.account.baseCurrency ?? selectedAccount?.baseCurrency ?? 'USD'
+    accountSnapshot?.baseCurrency ?? selectedPortfolioAccount?.baseCurrency ?? 'USD'
   const cashBuyingPower =
-    typeof accountSnapshot?.accountSummary.buyingPower === 'number'
-      ? accountSnapshot.accountSummary.buyingPower
-      : accountSnapshot?.accountSummary.totalCashValue
+    typeof accountSnapshot?.summary.buyingPower === 'number'
+      ? accountSnapshot.summary.buyingPower
+      : accountSnapshot?.summary.totalCashValue
   const estimatedReferencePrice = parsedLimitPrice ?? parsedStopPrice ?? marketPrice
   const estimatedOrderValue =
     selectedSizingMode === 'notional'
@@ -382,7 +375,7 @@ export function QuickOrderWidgetBody({
         : undefined
   const validationMessage = getValidationMessage({
     providerId,
-    accountId: activeAccountId,
+    accountId: activePortfolioIdentity?.accountId,
     listing,
     orderType,
     timeInForce,
@@ -402,35 +395,12 @@ export function QuickOrderWidgetBody({
       params: {
         provider: null,
         credentialServiceId: null,
-        accountId: null,
+        portfolioIdentity: null,
       },
       panelId,
       widgetKey,
     })
   }, [areProviderOptionsReady, panelId, providerId, quickOrderParams?.provider, widgetKey])
-
-  useEffect(() => {
-    if (accountsQuery.isLoading || accountsQuery.error) return
-
-    if (!quickOrderParams?.accountId && accounts.length === 1 && accounts[0]) {
-      emitQuickOrderParamsChange({
-        params: {
-          accountId: accounts[0].id,
-          credentialServiceId: activeCredentialServiceId,
-        },
-        panelId,
-        widgetKey,
-      })
-    }
-  }, [
-    accounts,
-    accountsQuery.error,
-    accountsQuery.isLoading,
-    activeCredentialServiceId,
-    panelId,
-    quickOrderParams?.accountId,
-    widgetKey,
-  ])
 
   useEffect(() => {
     if (previousProviderRef.current === providerId) return
@@ -512,7 +482,7 @@ export function QuickOrderWidgetBody({
     listing,
     notionalInput,
     orderType,
-    quickOrderParams?.accountId,
+    quickOrderParams?.portfolioIdentity,
     quantityInput,
     side,
     sizingMode,
@@ -550,7 +520,7 @@ export function QuickOrderWidgetBody({
     return <CenterState>Select a trading provider to get started.</CenterState>
   }
 
-  if (!activeAccountId) {
+  if (!activePortfolioIdentity) {
     if (credentialServices.isLoading) {
       return (
         <div className={centerStateClassName}>
@@ -575,7 +545,7 @@ export function QuickOrderWidgetBody({
       return <CenterState>Failed to load broker accounts.</CenterState>
     }
 
-    if (accounts.length === 0) {
+    if (portfolioIdentities.length === 0) {
       return <CenterState>No broker accounts found for this provider connection.</CenterState>
     }
 
@@ -590,7 +560,7 @@ export function QuickOrderWidgetBody({
       validationMessage ||
       !providerId ||
       !activeCredentialServiceId ||
-      !activeAccountId ||
+      !activePortfolioIdentity ||
       !listing
     ) {
       return
@@ -599,7 +569,7 @@ export function QuickOrderWidgetBody({
     const payload: QuickOrderSubmitRequest = {
       provider: providerId,
       credentialServiceId: activeCredentialServiceId,
-      accountId: activeAccountId,
+      accountId: activePortfolioIdentity.accountId,
       listing,
       side,
       orderType,

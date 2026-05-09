@@ -34,7 +34,6 @@ export interface TradingHoldingsParams {
   environment?: 'paper' | 'live'
   accessToken?: string
   credentialServiceId?: string
-  accountId?: string
 }
 
 export interface TradingOrderDetailParams {

@@ -83,7 +83,7 @@ export function QuickOrderHeaderControls({
           providerId={providerId}
           providerOptions={providerOptions}
           credentialServiceId={params?.credentialServiceId}
-          accountId={params?.accountId}
+          portfolioIdentity={params?.portfolioIdentity}
           toolName='Quick Order'
           onProviderChange={(nextProvider) => {
             if (!nextProvider || nextProvider === providerId) return
@@ -92,16 +92,16 @@ export function QuickOrderHeaderControls({
               params: {
                 provider: nextProvider,
                 credentialServiceId: null,
-                accountId: null,
+                portfolioIdentity: null,
               },
               panelId,
               widgetKey,
             })
           }}
-          onAccountSelect={({ accountId, credentialServiceId }) => {
+          onAccountSelect={({ credentialServiceId, portfolioIdentity }) => {
             emitQuickOrderParamsChange({
               params: {
-                accountId,
+                portfolioIdentity,
                 ...(credentialServiceId ? { credentialServiceId } : {}),
               },
               panelId,

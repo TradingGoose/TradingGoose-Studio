@@ -10,10 +10,15 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import {
+  arePortfolioIdentitiesEqual,
+  getPortfolioIdentityKey,
+  type PortfolioIdentity,
+  toPortfolioValueObject,
+} from '@/providers/trading/portfolio-identity'
 import { cn } from '@/lib/utils'
-import { useTradingAccounts } from '@/hooks/queries/trading-portfolio'
+import { usePortfolioIdentities } from '@/hooks/queries/trading-portfolio'
 import { getTradingProviderDefinition } from '@/providers/trading/providers'
-import type { UnifiedTradingAccount } from '@/providers/trading/types'
 import {
   getTradingCredentialServiceName,
   useTradingCredentialServices,
@@ -27,15 +32,15 @@ import {
 import { OAuthRequiredModal } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/components/credential-selector/components/oauth-required-modal'
 
 export type TradingAccountSelection = {
-  accountId?: string | null
   credentialServiceId?: string | null
+  portfolioIdentity?: PortfolioIdentity | null
 }
 
 type TradingAccountSelectorProps = {
   workspaceId?: string | null
   providerId?: string | null
   credentialServiceId?: string | null
-  accountId?: string | null
+  portfolioIdentity?: PortfolioIdentity | null
   disabled?: boolean
   placeholder?: string
   tooltipText?: string
@@ -43,15 +48,20 @@ type TradingAccountSelectorProps = {
   onAccountSelect?: (selection: TradingAccountSelection) => void
 }
 
-const getAccountName = (account: UnifiedTradingAccount) => account.name ?? account.id
+const getAccountName = (portfolioIdentity: PortfolioIdentity) =>
+  portfolioIdentity.accountName ?? portfolioIdentity.accountId
 
 const getAccountDescriptionPart = (value?: string | null) => {
   const trimmed = typeof value === 'string' ? value.trim() : ''
   return trimmed && trimmed !== 'unknown' ? trimmed : null
 }
 
-const getAccountDescription = (account: UnifiedTradingAccount) =>
-  [account.type, account.status, account.baseCurrency]
+const getAccountDescription = (portfolioIdentity: PortfolioIdentity) =>
+  [
+    portfolioIdentity.accountType,
+    portfolioIdentity.accountStatus,
+    portfolioIdentity.baseCurrency,
+  ]
     .map(getAccountDescriptionPart)
     .filter(Boolean)
     .join(' - ')
@@ -60,7 +70,7 @@ export function TradingAccountSelector({
   workspaceId,
   providerId,
   credentialServiceId,
-  accountId,
+  portfolioIdentity,
   disabled = false,
   placeholder = 'Select account',
   tooltipText = 'Select trading account',
@@ -85,19 +95,21 @@ export function TradingAccountSelector({
   const activeServiceId = credentialServices.activeServiceId
   const hasConnection =
     Boolean(activeServiceId) && credentialServices.connectedServiceIds.includes(activeServiceId!)
-  const accountsQuery = useTradingAccounts({
+  const accountsQuery = usePortfolioIdentities({
     workspaceId: trimmedWorkspaceId || undefined,
     provider: trimmedProviderId || undefined,
     credentialServiceId: activeServiceId,
     enabled: isEnabled && hasConnection,
   })
-  const accounts = accountsQuery.data ?? []
-  const selectedAccountId =
-    typeof accountId === 'string' && accountId.trim() ? accountId.trim() : ''
-  const selectedOption = accounts.find((account) => account.id === selectedAccountId) ?? null
+  const portfolioIdentities = accountsQuery.data ?? []
+  const selectedPortfolioIdentity = toPortfolioValueObject(portfolioIdentity)
+  const selectedOption =
+    portfolioIdentities.find((account) =>
+      arePortfolioIdentitiesEqual(account, selectedPortfolioIdentity)
+    ) ?? null
   const isLoadingAccounts =
     credentialServices.isLoading || accountsQuery.isLoading || accountsQuery.isFetching
-  const hasUnresolvedSelectedAccount = Boolean(selectedAccountId && !selectedOption)
+  const hasUnresolvedSelectedAccount = Boolean(selectedPortfolioIdentity && !selectedOption)
   const buttonLabel = selectedOption
     ? getAccountName(selectedOption)
     : hasUnresolvedSelectedAccount && isLoadingAccounts
@@ -179,7 +191,7 @@ export function TradingAccountSelector({
                   key={serviceId}
                   className={cn(widgetHeaderMenuItemClassName, 'items-center justify-between')}
                   onSelect={() => {
-                    onAccountSelect?.({ accountId: null, credentialServiceId: serviceId })
+                    onAccountSelect?.({ portfolioIdentity: null, credentialServiceId: serviceId })
                   }}
                 >
                   <span className='truncate text-foreground'>
@@ -197,25 +209,25 @@ export function TradingAccountSelector({
               <RefreshCw className='h-3.5 w-3.5 animate-spin' />
               Loading broker accounts...
             </div>
-          ) : accounts.length === 0 ? (
+          ) : portfolioIdentities.length === 0 ? (
             <div className='px-3 py-2 text-muted-foreground text-xs'>
               {accountsQuery.error
                 ? 'Unable to load broker accounts.'
                 : 'No broker accounts found.'}
             </div>
           ) : (
-            accounts.map((account) => {
-              const isSelected = account.id === selectedAccountId
+            portfolioIdentities.map((account) => {
+              const isSelected = arePortfolioIdentitiesEqual(account, selectedPortfolioIdentity)
               const accountDescription = getAccountDescription(account)
               return (
                 <DropdownMenuItem
-                  key={account.id}
+                  key={getPortfolioIdentityKey(account)}
                   className={cn(widgetHeaderMenuItemClassName, 'items-center justify-between')}
                   onSelect={() => {
                     if (isSelected) return
                     onAccountSelect?.({
-                      accountId: account.id,
                       credentialServiceId: activeServiceId,
+                      portfolioIdentity: account,
                     })
                   }}
                 >

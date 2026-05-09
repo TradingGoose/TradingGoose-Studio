@@ -67,7 +67,11 @@ const mockTradingAccountSelector = vi.fn(({ onAccountSelect }: MockTradingAccoun
     data-testid='account-selector'
     onClick={() =>
       onAccountSelect?.({
-        accountId: 'acct-1',
+        portfolioIdentity: {
+          providerId: 'alpaca',
+          credentialServiceId: 'alpaca-live',
+          accountId: 'acct-1',
+        },
       })
     }
   >
@@ -136,7 +140,14 @@ describe('QuickOrderHeaderControls', () => {
     root = createRoot(container)
 
     mockUseOAuthProviderAvailability.mockReturnValue(
-      queryResult({ data: { 'alpaca-live': true, 'alpaca-paper': true, tradier: true } })
+      queryResult({
+        data: {
+          'alpaca-live': true,
+          'alpaca-paper': true,
+          'tradier-live': true,
+          'tradier-paper': true,
+        },
+      })
     )
   })
 
@@ -231,7 +242,7 @@ describe('QuickOrderHeaderControls', () => {
     expect(mockEmitQuickOrderParamsChange).toHaveBeenCalledWith({
       params: {
         provider: 'tradier',
-        accountId: null,
+        portfolioIdentity: null,
         credentialServiceId: null,
       },
       panelId: 'panel-1',
@@ -360,7 +371,11 @@ describe('QuickOrderHeaderControls', () => {
 
     expect(mockEmitQuickOrderParamsChange).toHaveBeenCalledWith({
       params: {
-        accountId: 'acct-1',
+        portfolioIdentity: {
+          providerId: 'alpaca',
+          credentialServiceId: 'alpaca-live',
+          accountId: 'acct-1',
+        },
       },
       panelId: 'panel-1',
       widgetKey: 'quick_order',

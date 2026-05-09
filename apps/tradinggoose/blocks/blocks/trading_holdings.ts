@@ -2,11 +2,7 @@ import { DollarIcon } from '@/components/icons/icons'
 import type { BlockConfig, SubBlockConfig } from '@/blocks/types'
 import { AuthMode } from '@/blocks/types'
 import { buildInputsFromToolParams } from '@/blocks/utils'
-import {
-  getProviderFields,
-  getTradingProviderIdsForParam,
-  getTradingProviders,
-} from '@/providers/trading'
+import { getTradingProviders } from '@/providers/trading'
 import { tradingHoldingsTool } from '@/tools/trading'
 import type { TradingHoldingsResponse } from '@/tools/trading/types'
 
@@ -15,37 +11,13 @@ const providerOptions = getTradingProviders().map((provider) => ({
   id: provider.id,
 }))
 
-const providersWithEnvironment = getTradingProviderIdsForParam('holdings', 'environment')
-
-const providerFieldBlocks = (): SubBlockConfig[] => {
-  const providers = getTradingProviders()
-  return providers.flatMap((provider) =>
-    (provider.fields || [])
-      .filter((field) => field.for === 'holdings' || field.for === 'both')
-      .map((field) => ({
-        id: field.id,
-        title: field.label,
-        type: field.type === 'dropdown' ? 'dropdown' : 'short-input',
-        layout: 'full',
-        required: field.required,
-        placeholder: field.placeholder,
-        description: field.description,
-        options: field.options?.map((option) => ({ label: option.label, id: option.id })),
-        condition: { field: 'provider', value: provider.id },
-        canonicalParamId: field.id,
-      }))
-  )
-}
-
 const providerCredentialBlocks = (): SubBlockConfig[] => {
   const providers = getTradingProviders()
   return providers
     .filter((provider) => provider.authType === 'oauth' && provider.oauth)
     .map((provider) => {
       const oauth = provider.oauth!
-      const serviceIds = oauth.credentialServices?.length
-        ? oauth.credentialServices.map((service) => service.serviceId)
-        : [oauth.serviceId || oauth.provider]
+      const serviceIds = oauth.credentialServices?.map((service) => service.serviceId) ?? []
       return {
         id: `${provider.id}Credential`,
         title: oauth.credentialTitle || `${provider.name} Account`,
@@ -65,9 +37,9 @@ const providerCredentialBlocks = (): SubBlockConfig[] => {
 export const TradingHoldingsBlock: BlockConfig<TradingHoldingsResponse> = {
   type: 'trading_holdings',
   name: 'Trading Holdings',
-  description: 'Fetch a unified account snapshot from supported brokers.',
+  description: 'Fetch canonical portfolio detail from supported brokers.',
   authMode: AuthMode.OAuth,
-  longDescription: 'Unified holdings block that returns an account snapshot for Alpaca or Tradier.',
+  longDescription: 'Trading holdings block that returns canonical portfolio detail for Alpaca or Tradier.',
   category: 'tools',
   bgColor: '#115e59',
   icon: DollarIcon,
@@ -80,24 +52,7 @@ export const TradingHoldingsBlock: BlockConfig<TradingHoldingsResponse> = {
       options: providerOptions,
       required: true,
     },
-    {
-      id: 'environment',
-      title: 'Environment',
-      type: 'dropdown',
-      layout: 'half',
-      options: [
-        { label: 'Paper (Sandbox)', id: 'paper' },
-        { label: 'Live Trading', id: 'live' },
-      ],
-      condition: providersWithEnvironment.length
-        ? { field: 'provider', value: providersWithEnvironment }
-        : undefined,
-      hidden: providersWithEnvironment.length === 0,
-      placeholder: 'Select environment',
-      required: false,
-    },
     ...providerCredentialBlocks(),
-    ...providerFieldBlocks(),
   ],
   tools: {
     access: ['trading_get_holdings'],
@@ -116,22 +71,9 @@ export const TradingHoldingsBlock: BlockConfig<TradingHoldingsResponse> = {
             .find((value) => value !== undefined)
         }
         const credential = resolveCredential()
-        const extraFields = getProviderFields(provider, 'holdings').reduce(
-          (acc, field) => {
-            const key = `${provider}_${field.id}`
-            if (params[key] !== undefined) {
-              acc[field.id] = params[key]
-            }
-            return acc
-          },
-          {} as Record<string, any>
-        )
-
         return {
           provider,
           credential,
-          environment: params.environment,
-          ...extraFields,
         }
       },
     },
@@ -142,6 +84,6 @@ export const TradingHoldingsBlock: BlockConfig<TradingHoldingsResponse> = {
   outputs: {
     summary: { type: 'string', description: 'Status of holdings retrieval' },
     provider: { type: 'string', description: 'Provider used' },
-    holdings: { type: 'json', description: 'Unified account snapshot payload' },
+    holdings: { type: 'json', description: 'Canonical portfolio detail payload' },
   },
 }

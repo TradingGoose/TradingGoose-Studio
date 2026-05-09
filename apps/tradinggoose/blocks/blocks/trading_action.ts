@@ -4,7 +4,6 @@ import type { BlockConfig, SubBlockCondition, SubBlockConfig } from '@/blocks/ty
 import { AuthMode } from '@/blocks/types'
 import { buildInputsFromToolParams } from '@/blocks/utils'
 import {
-  getTradingProviderIdsForParam,
   getTradingProviderParamCatalog,
   getTradingProviderParamDefinitions,
   getTradingProviders,
@@ -19,12 +18,9 @@ const providerOptions = getTradingProviders().map((provider) => ({
   id: provider.id,
 }))
 
-const providersWithEnvironment = getTradingProviderIdsForParam('order', 'environment')
-
 const BLOCK_RESERVED_PARAM_IDS = new Set([
   'provider',
   'credential',
-  'environment',
   'side',
   'listing',
   'orderType',
@@ -38,7 +34,6 @@ const BLOCK_RESERVED_PARAM_IDS = new Set([
 const TOOL_RESERVED_PARAM_IDS = new Set([
   'provider',
   'credential',
-  'environment',
   'side',
   'listing',
   'quantity',
@@ -224,9 +219,7 @@ const providerCredentialBlocks = (): SubBlockConfig[] => {
     .filter((provider) => provider.authType === 'oauth' && provider.oauth)
     .map((provider) => {
       const oauth = provider.oauth!
-      const serviceIds = oauth.credentialServices?.length
-        ? oauth.credentialServices.map((service) => service.serviceId)
-        : [oauth.serviceId || oauth.provider]
+      const serviceIds = oauth.credentialServices?.map((service) => service.serviceId) ?? []
       return {
         id: `${provider.id}Credential`,
         title: oauth.credentialTitle || `${provider.name} Account`,
@@ -263,23 +256,6 @@ export const TradingActionBlock: BlockConfig<TradingActionResponse> = {
       required: true,
       value: () => 'alpaca',
     },
-    {
-      id: 'environment',
-      title: 'Environment',
-      type: 'dropdown',
-      layout: 'half',
-      options: [
-        { label: 'Paper (Sandbox)', id: 'paper' },
-        { label: 'Live Trading', id: 'live' },
-      ],
-      condition: providersWithEnvironment.length
-        ? { field: 'provider', value: providersWithEnvironment }
-        : undefined,
-      hidden: providersWithEnvironment.length === 0,
-      placeholder: 'Select environment',
-      required: false,
-    },
-
     ...providerCredentialBlocks(),
 
     {
@@ -401,7 +377,6 @@ export const TradingActionBlock: BlockConfig<TradingActionResponse> = {
         return {
           provider,
           credential,
-          environment: params.environment,
           side: params.side,
           listing: params.listing,
           quantity: toOptionalNumber(params.quantity),

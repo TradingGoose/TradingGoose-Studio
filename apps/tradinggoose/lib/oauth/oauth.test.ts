@@ -119,7 +119,7 @@ function seedMockIntegrations() {
   setIntegration(['reddit'], 'reddit_client_id', 'reddit_client_secret')
   setIntegration(['wealthbox'], 'wealthbox_client_id', 'wealthbox_client_secret')
   setIntegration(['webflow'], 'webflow_client_id', 'webflow_client_secret')
-  setIntegration(['tradier'], 'tradier_client_id', 'tradier_client_secret')
+  setIntegration(['tradier-live', 'tradier-paper'], 'tradier_client_id', 'tradier_client_secret')
   setIntegration(['alpaca-live', 'alpaca-paper'], 'alpaca_client_id', 'alpaca_client_secret')
   setIntegration(['hubspot'], 'hubspot_client_id', 'hubspot_client_secret')
   setApiKeyIntegration(['trello'], 'trello_api_key')
@@ -331,6 +331,13 @@ describe('OAuth Token Refresh', () => {
         expectedClientId: 'reddit_client_id',
         expectedClientSecret: 'reddit_client_secret',
       },
+      {
+        name: 'Tradier',
+        providerId: 'tradier-live',
+        endpoint: 'https://api.tradier.com/v1/oauth/refreshtoken',
+        expectedClientId: 'tradier_client_id',
+        expectedClientSecret: 'tradier_client_secret',
+      },
     ]
 
     basicAuthProviders.forEach(
@@ -417,13 +424,6 @@ describe('OAuth Token Refresh', () => {
         endpoint: 'https://slack.com/api/oauth.v2.access',
         expectedClientId: 'slack_client_id',
         expectedClientSecret: 'slack_client_secret',
-      },
-      {
-        name: 'Tradier',
-        providerId: 'tradier',
-        endpoint: 'https://api.tradier.com/v1/oauth/token',
-        expectedClientId: 'tradier_client_id',
-        expectedClientSecret: 'tradier_client_secret',
       },
       {
         name: 'Alpaca',

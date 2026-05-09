@@ -1,14 +1,9 @@
 import { buildAlpacaAuthHeaders } from '@/providers/trading/alpaca/auth'
 import {
   alpacaTradingProviderConfig,
-  resolveAlpacaTradingBaseUrl,
 } from '@/providers/trading/alpaca/config'
 import { sumFiniteNumbers, toFiniteNumber } from '@/providers/trading/portfolio-utils'
 import type {
-  TradingHoldingsInput,
-  TradingHoldingsNormalizationContext,
-  TradingRequestConfig,
-  UnifiedTradingAccountSnapshot,
   UnifiedTradingPosition,
   UnifiedTradingSymbol,
 } from '@/providers/trading/types'
@@ -99,58 +94,5 @@ export const normalizeAlpacaPositions = (positions: unknown): UnifiedTradingPosi
   })
 }
 
-export const sumAlpacaPositionMarketValues = (positions: UnifiedTradingPosition[]) =>
-  sumFiniteNumbers(positions.map((position) => position.marketValue))
-
 export const sumAlpacaPositionUnrealizedPnl = (positions: UnifiedTradingPosition[]) =>
   sumFiniteNumbers(positions.map((position) => position.unrealizedPnl))
-
-export const buildAlpacaHoldingsRequest = (params: TradingHoldingsInput): TradingRequestConfig => {
-  const authHeaders = buildAlpacaAuthHeaders(params)
-
-  return {
-    url: `${resolveAlpacaTradingBaseUrl(params.environment)}/v2/positions`,
-    method: 'GET',
-    headers: authHeaders,
-  }
-}
-
-export const normalizeAlpacaHoldings = (
-  data: any,
-  context?: TradingHoldingsNormalizationContext
-): UnifiedTradingAccountSnapshot => {
-  const positions = Array.isArray(data) ? data : data?.positions || data
-  const list = Array.isArray(positions) ? positions : []
-  const normalizedPositions = normalizeAlpacaPositions(list)
-  const totalHoldingsValue = sumAlpacaPositionMarketValues(normalizedPositions)
-  const totalUnrealizedPnl = sumAlpacaPositionUnrealizedPnl(normalizedPositions)
-  const totalCashValue = 0
-  const totalPortfolioValue = totalHoldingsValue + totalCashValue
-
-  return {
-    asOf: new Date().toISOString(),
-    provider: {
-      name: context?.providerName ?? 'Alpaca',
-      environment: context?.environment ?? 'unknown',
-    },
-    account: {
-      id: context?.accountId || 'unknown',
-      type: 'unknown',
-      baseCurrency: ALPACA_DEFAULT_BASE_CURRENCY,
-      status: 'unknown',
-    },
-    cashBalances: [],
-    positions: normalizedPositions,
-    orders: [],
-    accountSummary: {
-      totalPortfolioValue,
-      totalCashValue,
-      totalHoldingsValue,
-      totalUnrealizedPnl,
-      equity: totalPortfolioValue,
-    },
-    extra: {
-      rawPositions: list,
-    },
-  }
-}

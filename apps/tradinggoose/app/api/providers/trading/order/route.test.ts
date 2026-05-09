@@ -7,7 +7,7 @@ import { createMockRequest } from '@/app/api/__test-utils__/utils'
 
 const mockGetSession = vi.fn()
 const mockGetOAuthToken = vi.fn()
-const mockListTradingAccounts = vi.fn()
+const mockListPortfolioIdentities = vi.fn()
 const mockFetch = vi.fn()
 
 vi.mock('@/lib/logs/console/logger', () => ({
@@ -31,7 +31,7 @@ vi.mock('@/providers/trading/portfolio', async () => {
   const actual = await vi.importActual('@/providers/trading/portfolio')
   return {
     ...(actual as object),
-    listTradingAccounts: mockListTradingAccounts,
+    listPortfolioIdentities: mockListPortfolioIdentities,
   }
 })
 
@@ -57,8 +57,25 @@ describe('Trading provider order route', () => {
     vi.stubGlobal('fetch', mockFetch)
     mockGetSession.mockResolvedValue({ user: { id: 'user-1' } })
     mockGetOAuthToken.mockResolvedValue('access-token')
-    mockListTradingAccounts.mockResolvedValue([
-      { id: 'ACC-1', name: 'Main', type: 'cash', baseCurrency: 'USD', status: 'active' },
+    mockListPortfolioIdentities.mockResolvedValue([
+      {
+        providerId: 'alpaca',
+        credentialServiceId: 'alpaca-live',
+        accountId: 'ACC-1',
+        accountName: 'Main',
+        accountType: 'cash',
+        baseCurrency: 'USD',
+        accountStatus: 'active',
+      },
+      {
+        providerId: 'tradier',
+        credentialServiceId: 'tradier-live',
+        accountId: 'ACC-1',
+        accountName: 'Main',
+        accountType: 'cash',
+        baseCurrency: 'USD',
+        accountStatus: 'active',
+      },
     ])
     mockFetch.mockResolvedValue(
       new Response(
@@ -89,7 +106,7 @@ describe('Trading provider order route', () => {
     expect(response.status).toBe(400)
     await expect(response.json()).resolves.toEqual({ error: 'Invalid request data' })
     expect(mockGetSession).not.toHaveBeenCalled()
-    expect(mockListTradingAccounts).not.toHaveBeenCalled()
+    expect(mockListPortfolioIdentities).not.toHaveBeenCalled()
     expect(mockFetch).not.toHaveBeenCalled()
   })
 
@@ -98,6 +115,7 @@ describe('Trading provider order route', () => {
     const invalidSideResponse = await POST(
       createMockRequest('POST', {
         provider: 'tradier',
+        credentialServiceId: 'tradier-live',
         accountId: 'ACC-1',
         listing: stockListing,
         side: 'hold',
@@ -107,6 +125,7 @@ describe('Trading provider order route', () => {
     const numericStringResponse = await POST(
       createMockRequest('POST', {
         provider: 'tradier',
+        credentialServiceId: 'tradier-live',
         accountId: 'ACC-1',
         listing: stockListing,
         side: 'buy',
@@ -119,7 +138,7 @@ describe('Trading provider order route', () => {
     expect(numericStringResponse.status).toBe(400)
     await expect(numericStringResponse.json()).resolves.toEqual({ error: 'Invalid request data' })
     expect(mockGetSession).not.toHaveBeenCalled()
-    expect(mockListTradingAccounts).not.toHaveBeenCalled()
+    expect(mockListPortfolioIdentities).not.toHaveBeenCalled()
     expect(mockFetch).not.toHaveBeenCalled()
   })
 
@@ -128,6 +147,7 @@ describe('Trading provider order route', () => {
     const response = await POST(
       createMockRequest('POST', {
         provider: 'tradier',
+        credentialServiceId: 'tradier-live',
         accountId: 'ACC-1',
         listing: { listing_type: 'default', listing_id: 'AAPL', base: 'AAPL' },
         side: 'buy',
@@ -139,7 +159,7 @@ describe('Trading provider order route', () => {
     await expect(response.json()).resolves.toEqual({
       error: 'Resolved listing asset class is required',
     })
-    expect(mockListTradingAccounts).not.toHaveBeenCalled()
+    expect(mockListPortfolioIdentities).not.toHaveBeenCalled()
     expect(mockFetch).not.toHaveBeenCalled()
   })
 
@@ -158,7 +178,7 @@ describe('Trading provider order route', () => {
     expect(response.status).toBe(400)
     await expect(response.json()).resolves.toEqual({ error: 'Invalid request data' })
     expect(mockGetSession).not.toHaveBeenCalled()
-    expect(mockListTradingAccounts).not.toHaveBeenCalled()
+    expect(mockListPortfolioIdentities).not.toHaveBeenCalled()
     expect(mockFetch).not.toHaveBeenCalled()
   })
 
@@ -179,7 +199,7 @@ describe('Trading provider order route', () => {
 
       expect(response.status).toBe(400)
       await expect(response.json()).resolves.toEqual({ error: 'Invalid request data' })
-      expect(mockListTradingAccounts).not.toHaveBeenCalled()
+      expect(mockListPortfolioIdentities).not.toHaveBeenCalled()
       expect(mockFetch).not.toHaveBeenCalled()
     }
   )
@@ -199,7 +219,7 @@ describe('Trading provider order route', () => {
 
     expect(response.status).toBe(400)
     await expect(response.json()).resolves.toEqual({ error: 'Unsupported listing for provider' })
-    expect(mockListTradingAccounts).not.toHaveBeenCalled()
+    expect(mockListPortfolioIdentities).not.toHaveBeenCalled()
     expect(mockFetch).not.toHaveBeenCalled()
   })
 
@@ -208,6 +228,7 @@ describe('Trading provider order route', () => {
     const response = await POST(
       createMockRequest('POST', {
         provider: 'tradier',
+        credentialServiceId: 'tradier-live',
         accountId: 'ACC-1',
         listing: stockListing,
         side: 'buy',
@@ -218,7 +239,7 @@ describe('Trading provider order route', () => {
 
     expect(response.status).toBe(400)
     await expect(response.json()).resolves.toEqual({ error: 'Unsupported order type' })
-    expect(mockListTradingAccounts).not.toHaveBeenCalled()
+    expect(mockListPortfolioIdentities).not.toHaveBeenCalled()
     expect(mockFetch).not.toHaveBeenCalled()
   })
 
@@ -243,7 +264,7 @@ describe('Trading provider order route', () => {
     await expect(response.json()).resolves.toEqual({
       error: 'Alpaca notional orders support market, limit, stop, or stop_limit types.',
     })
-    expect(mockListTradingAccounts).not.toHaveBeenCalled()
+    expect(mockListPortfolioIdentities).not.toHaveBeenCalled()
     expect(mockFetch).not.toHaveBeenCalled()
   })
 
@@ -263,6 +284,7 @@ describe('Trading provider order route', () => {
     const response = await POST(
       createMockRequest('POST', {
         provider: 'tradier',
+        credentialServiceId: 'tradier-live',
         accountId: 'ACC-1',
         listing: stockListing,
         side: 'buy',
@@ -274,7 +296,7 @@ describe('Trading provider order route', () => {
     await expect(response.json()).resolves.toEqual({
       error: 'No supported order types for listing',
     })
-    expect(mockListTradingAccounts).not.toHaveBeenCalled()
+    expect(mockListPortfolioIdentities).not.toHaveBeenCalled()
     expect(mockFetch).not.toHaveBeenCalled()
 
     vi.doUnmock('@/providers/trading/order-types')
@@ -288,6 +310,7 @@ describe('Trading provider order route', () => {
     const response = await POST(
       createMockRequest('POST', {
         provider: 'tradier',
+        credentialServiceId: 'tradier-live',
         accountId: 'ACC-1',
         listing: stockListing,
         side: 'buy',
@@ -299,7 +322,7 @@ describe('Trading provider order route', () => {
     await expect(response.json()).resolves.toEqual({
       error: 'Trading provider connection not found',
     })
-    expect(mockListTradingAccounts).not.toHaveBeenCalled()
+    expect(mockListPortfolioIdentities).not.toHaveBeenCalled()
     expect(mockFetch).not.toHaveBeenCalled()
   })
 
@@ -317,17 +340,24 @@ describe('Trading provider order route', () => {
     expect(response.status).toBe(400)
     await expect(response.json()).resolves.toEqual({ error: 'Invalid request data' })
     expect(mockGetSession).not.toHaveBeenCalled()
-    expect(mockListTradingAccounts).not.toHaveBeenCalled()
+    expect(mockListPortfolioIdentities).not.toHaveBeenCalled()
     expect(mockFetch).not.toHaveBeenCalled()
   })
 
   it('rejects accounts that do not belong to the provider connection', async () => {
-    mockListTradingAccounts.mockResolvedValue([{ id: 'ACC-2', type: 'cash', baseCurrency: 'USD' }])
+    mockListPortfolioIdentities.mockResolvedValue([
+      {
+        providerId: 'tradier',
+        credentialServiceId: 'tradier-live',
+        accountId: 'ACC-2',
+      },
+    ])
 
     const { POST } = await import('@/app/api/providers/trading/order/route')
     const response = await POST(
       createMockRequest('POST', {
         provider: 'tradier',
+        credentialServiceId: 'tradier-live',
         accountId: 'ACC-1',
         listing: stockListing,
         side: 'buy',
@@ -377,7 +407,7 @@ describe('Trading provider order route', () => {
 
       expect(response.status).toBe(400)
       await expect(response.json()).resolves.toEqual({ error })
-      expect(mockListTradingAccounts).not.toHaveBeenCalled()
+      expect(mockListPortfolioIdentities).not.toHaveBeenCalled()
       expect(mockFetch).not.toHaveBeenCalled()
     }
   )
@@ -471,6 +501,7 @@ describe('Trading provider order route', () => {
     const response = await POST(
       createMockRequest('POST', {
         provider: 'tradier',
+        credentialServiceId: 'tradier-live',
         accountId: 'ACC-1',
         listing: stockListing,
         side: 'buy',
@@ -507,6 +538,7 @@ describe('Trading provider order route', () => {
     const response = await POST(
       createMockRequest('POST', {
         provider: 'tradier',
+        credentialServiceId: 'tradier-live',
         accountId: 'ACC-1',
         listing: {
           ...stockListing,
@@ -546,6 +578,7 @@ describe('Trading provider order route', () => {
     const response = await POST(
       createMockRequest('POST', {
         provider: 'tradier',
+        credentialServiceId: 'tradier-live',
         accountId: 'ACC-1',
         listing: stockListing,
         side: 'buy',
@@ -568,6 +601,7 @@ describe('Trading provider order route', () => {
     const response = await POST(
       createMockRequest('POST', {
         provider: 'tradier',
+        credentialServiceId: 'tradier-live',
         accountId: 'ACC-1',
         listing: stockListing,
         side: 'buy',

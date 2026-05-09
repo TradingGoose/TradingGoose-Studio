@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { Loader2, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useProviderOrderDetail } from '@/hooks/queries/records-orders'
+import type { PortfolioIdentity } from '@/providers/trading/portfolio-identity'
 import {
   getTradingProviderOAuthServiceIdForEnvironment,
   getTradingProviderOAuthServiceIds,
@@ -28,6 +29,14 @@ export function OrderProviderRefresh({
     order.environment
   )
   const [accountId, setAccountId] = useState(order.accountId ?? '')
+  const selectedPortfolioIdentity: PortfolioIdentity | null =
+    accountId && credentialServiceId
+      ? {
+          providerId,
+          credentialServiceId,
+          accountId,
+        }
+      : null
 
   useEffect(() => {
     setAccountId(order.accountId ?? '')
@@ -57,13 +66,13 @@ export function OrderProviderRefresh({
         workspaceId={workspaceId}
         providerId={providerId}
         credentialServiceId={credentialServiceId}
-        accountId={accountId}
+        portfolioIdentity={selectedPortfolioIdentity}
         disabled={!active}
         placeholder={providerRequiresAccount ? 'Select account' : 'Optional account'}
         tooltipText='Select provider refresh account'
         toolName='Provider Detail Refresh'
         onAccountSelect={(selection) => {
-          setAccountId(selection.accountId ?? '')
+          setAccountId(selection.portfolioIdentity?.accountId ?? '')
         }}
       />
 

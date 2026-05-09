@@ -5,10 +5,6 @@ import {
   normalizeTradierOrder,
 } from '@/providers/trading/tradier/orders'
 import { tradierOrderDetailRequest } from '@/providers/trading/tradier/orderDetail'
-import {
-  buildTradierHoldingsRequest,
-  normalizeTradierHoldings,
-} from '@/providers/trading/tradier/positions'
 
 export const tradierProvider: TradingProvider = {
   id: 'tradier',
@@ -19,8 +15,6 @@ export const tradierProvider: TradingProvider = {
     timeInForce: 'day',
   },
   buildOrderRequest: buildTradierOrderRequest,
-  buildHoldingsRequest: buildTradierHoldingsRequest,
   orderDetailRequest: tradierOrderDetailRequest,
   normalizeOrder: normalizeTradierOrder,
-  normalizeHoldings: normalizeTradierHoldings,
 }

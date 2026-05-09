@@ -11,11 +11,36 @@ import { QuickOrderWidgetBody } from '@/widgets/widgets/quick_order/components/b
 const mockUseOAuthProviderAvailability = vi.fn()
 const mockUseOAuthCredentialsByProviderIds = vi.fn()
 const mockUseMarketQuoteSnapshots = vi.fn()
-const mockUseTradingAccounts = vi.fn()
-const mockUseTradingPortfolioSnapshot = vi.fn()
+const mockUsePortfolioIdentities = vi.fn()
+const mockUsePortfolioDetail = vi.fn()
 const mockUseSubmitTradingOrder = vi.fn()
 const mockMutate = vi.fn()
 const mockReset = vi.fn()
+
+const portfolioIdentity = {
+  providerId: 'alpaca',
+  credentialServiceId: 'alpaca-live',
+  accountId: 'acct-1',
+  providerName: null,
+  accountName: 'Paper Account',
+  accountType: 'paper' as const,
+  baseCurrency: 'USD',
+  accountStatus: 'active' as const,
+}
+
+const createPortfolioDetail = () => ({
+  ...portfolioIdentity,
+  environment: 'live' as const,
+  asOf: '2026-04-25T12:00:00.000Z',
+  cashBalances: [],
+  positions: [],
+  orders: [],
+  summary: {
+    totalPortfolioValue: 1000,
+    totalCashValue: 62.77,
+    buyingPower: 62.77,
+  },
+})
 
 const stockListing = {
   listing_type: 'default',
@@ -52,8 +77,8 @@ vi.mock('@/hooks/queries/market-quote-snapshots', () => ({
 }))
 
 vi.mock('@/hooks/queries/trading-portfolio', () => ({
-  useTradingAccounts: (...args: unknown[]) => mockUseTradingAccounts(...args),
-  useTradingPortfolioSnapshot: (...args: unknown[]) => mockUseTradingPortfolioSnapshot(...args),
+  usePortfolioIdentities: (...args: unknown[]) => mockUsePortfolioIdentities(...args),
+  usePortfolioDetail: (...args: unknown[]) => mockUsePortfolioDetail(...args),
   useSubmitTradingOrder: (...args: unknown[]) => mockUseSubmitTradingOrder(...args),
 }))
 
@@ -253,30 +278,8 @@ describe('QuickOrderWidgetBody', () => {
         },
       })
     )
-    mockUseTradingAccounts.mockReturnValue(
-      queryResult({ data: [{ id: 'acct-1', name: 'Paper Account' }] })
-    )
-    mockUseTradingPortfolioSnapshot.mockReturnValue(
-      queryResult({
-        data: {
-          asOf: '2026-04-25T12:00:00.000Z',
-          account: {
-            id: 'acct-1',
-            name: 'Paper Account',
-            type: 'paper',
-            baseCurrency: 'USD',
-          },
-          cashBalances: [],
-          positions: [],
-          orders: [],
-          accountSummary: {
-            totalPortfolioValue: 1000,
-            totalCashValue: 62.77,
-            buyingPower: 62.77,
-          },
-        },
-      })
-    )
+    mockUsePortfolioIdentities.mockReturnValue(queryResult({ data: [portfolioIdentity] }))
+    mockUsePortfolioDetail.mockReturnValue(queryResult({ data: createPortfolioDetail() }))
     mockUseMarketQuoteSnapshots.mockReturnValue(
       queryResult({
         data: {
@@ -309,7 +312,7 @@ describe('QuickOrderWidgetBody', () => {
   it('renders order body controls and keeps the submit footer pinned as a sibling', async () => {
     await renderBody(container, root, {
       provider: 'alpaca',
-      accountId: 'acct-1',
+      portfolioIdentity,
       side: 'buy',
     })
 
@@ -324,7 +327,7 @@ describe('QuickOrderWidgetBody', () => {
   it('keeps listing selector state scoped to a stable trading instance and resets on unmount', async () => {
     await renderBody(container, root, {
       provider: 'alpaca',
-      accountId: 'acct-1',
+      portfolioIdentity,
       side: 'buy',
     })
 
@@ -356,7 +359,7 @@ describe('QuickOrderWidgetBody', () => {
   it('shows disabled order type placeholders before submit-ready listings', async () => {
     await renderBody(container, root, {
       provider: 'alpaca',
-      accountId: 'acct-1',
+      portfolioIdentity,
       side: 'buy',
     })
 
@@ -380,7 +383,7 @@ describe('QuickOrderWidgetBody', () => {
   it('clears unresolved listing values from submit readiness', async () => {
     await renderBody(container, root, {
       provider: 'alpaca',
-      accountId: 'acct-1',
+      portfolioIdentity,
       side: 'buy',
     })
 
@@ -404,7 +407,7 @@ describe('QuickOrderWidgetBody', () => {
       marketProvider: 'finnhub',
       marketProviderParams: { region: 'US' },
       marketAuth: { apiKey: 'market-key' },
-      accountId: 'acct-1',
+      portfolioIdentity,
       side: 'buy',
     })
 
@@ -432,7 +435,7 @@ describe('QuickOrderWidgetBody', () => {
   it('does not use trading provider settings for market quote websocket subscriptions', async () => {
     await renderBody(container, root, {
       provider: 'alpaca',
-      accountId: 'acct-1',
+      portfolioIdentity,
       side: 'buy',
     })
 
@@ -452,14 +455,14 @@ describe('QuickOrderWidgetBody', () => {
     )
   })
 
-  it('clears invalid providers without deleting account params from async lookups', async () => {
+  it('clears invalid providers and stale portfolio identities', async () => {
     const onInvalidProviderChange = vi.fn()
     await renderBody(
       container,
       root,
       {
         provider: 'missing-provider',
-        accountId: 'acct-1',
+        portfolioIdentity,
         side: 'buy',
       },
       onInvalidProviderChange
@@ -472,32 +475,41 @@ describe('QuickOrderWidgetBody', () => {
     root = createRoot(container)
 
     const onIncompleteAccountOptionsChange = vi.fn()
-    mockUseTradingAccounts.mockReturnValueOnce(
-      queryResult({ data: [{ id: 'acct-2', name: 'Other Account' }] })
+    const stalePortfolioIdentity = { ...portfolioIdentity, accountId: 'stale-account' }
+    const otherPortfolioIdentity = {
+      ...portfolioIdentity,
+      accountId: 'acct-2',
+      accountName: 'Other Account',
+    }
+    mockUsePortfolioIdentities.mockReturnValue(
+      queryResult({ data: [otherPortfolioIdentity] })
     )
     await renderBody(
       container,
       root,
       {
         provider: 'alpaca',
-        accountId: 'stale-account',
+        portfolioIdentity: stalePortfolioIdentity,
         side: 'buy',
       },
       onIncompleteAccountOptionsChange
     )
-    expect(onIncompleteAccountOptionsChange).not.toHaveBeenCalled()
-    expect(mockUseTradingPortfolioSnapshot).toHaveBeenLastCalledWith({
+    expect(onIncompleteAccountOptionsChange).toHaveBeenCalledWith({
+      provider: 'alpaca',
+      side: 'buy',
+    })
+    expect(mockUsePortfolioDetail).toHaveBeenLastCalledWith({
       workspaceId: 'workspace-1',
       provider: 'alpaca',
       credentialServiceId: 'alpaca-live',
-      accountId: 'stale-account',
+      portfolioIdentity: stalePortfolioIdentity,
     })
   })
 
   it('keeps invalid numeric text from becoming a submit payload', async () => {
     await renderBody(container, root, {
       provider: 'alpaca',
-      accountId: 'acct-1',
+      portfolioIdentity,
       side: 'buy',
     })
 
@@ -520,7 +532,7 @@ describe('QuickOrderWidgetBody', () => {
   it('rejects Alpaca notional trailing stop orders before submit', async () => {
     await renderBody(container, root, {
       provider: 'alpaca',
-      accountId: 'acct-1',
+      portfolioIdentity,
       side: 'buy',
     })
 
@@ -555,7 +567,7 @@ describe('QuickOrderWidgetBody', () => {
       marketProvider: 'finnhub',
       marketProviderParams: { region: 'US' },
       marketAuth: { apiKey: 'market-key' },
-      accountId: 'acct-1',
+      portfolioIdentity,
       side: 'buy',
     })
 
@@ -618,7 +630,7 @@ describe('QuickOrderWidgetBody', () => {
 
     await renderBody(container, root, {
       provider: 'alpaca',
-      accountId: 'acct-1',
+      portfolioIdentity,
       side: 'buy',
     })
 

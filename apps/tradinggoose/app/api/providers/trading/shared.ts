@@ -3,14 +3,14 @@ import type { z } from 'zod'
 import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getOAuthToken } from '@/app/api/auth/oauth/utils'
-import { listTradingAccounts } from '@/providers/trading/portfolio'
+import type { PortfolioIdentity } from '@/providers/trading/portfolio-identity'
+import { listPortfolioIdentities } from '@/providers/trading/portfolio'
 import { TradingBrokerRequestError } from '@/providers/trading/portfolio-utils'
 import {
   getTradingProviderDefinition,
   getTradingProviderOAuthEnvironment,
   getTradingProviderOAuthServiceId,
 } from '@/providers/trading/providers'
-import type { UnifiedTradingAccount } from '@/providers/trading/types'
 
 const logger = createLogger('TradingProviderRoutes')
 
@@ -22,6 +22,7 @@ type ProviderRequestData = {
 type PreflightContext = {
   requestId: string
   providerId: string
+  credentialServiceId: string
   environment: 'paper' | 'live'
   accessToken: string
   sessionUserId: string
@@ -31,7 +32,7 @@ export type TradingProviderBaseRouteContext = PreflightContext
 
 export type TradingAccountRouteContext = PreflightContext & {
   accountId: string
-  account: UnifiedTradingAccount
+  portfolioIdentity: PortfolioIdentity
 }
 
 const parseRequestBody = async <T extends ProviderRequestData>(
@@ -115,6 +116,7 @@ export async function resolveTradingProviderContext({
   return {
     requestId,
     providerId,
+    credentialServiceId: serviceId,
     environment,
     accessToken,
     sessionUserId: session.user.id,
@@ -131,14 +133,15 @@ export async function resolveTradingProviderSelectedAccount({
   const selectedAccountId = requireStringField({ accountId }, 'accountId')
   if (selectedAccountId instanceof NextResponse) return selectedAccountId
 
-  const accounts = await listTradingAccounts({
-    providerId: baseContext.providerId,
-    environment: baseContext.environment,
-    accessToken: baseContext.accessToken,
-  })
+  const portfolioIdentities = await listPortfolioIdentities(baseContext)
 
-  const account = accounts.find((candidate) => candidate.id === selectedAccountId)
-  if (!account) {
+  const portfolioIdentity = portfolioIdentities.find(
+    (candidate) =>
+      candidate.providerId === baseContext.providerId &&
+      candidate.credentialServiceId === baseContext.credentialServiceId &&
+      candidate.accountId === selectedAccountId
+  )
+  if (!portfolioIdentity) {
     return NextResponse.json(
       { error: 'Account not found for provider connection' },
       { status: 404 }
@@ -148,7 +151,7 @@ export async function resolveTradingProviderSelectedAccount({
   return {
     ...baseContext,
     accountId: selectedAccountId,
-    account,
+    portfolioIdentity,
   }
 }
 

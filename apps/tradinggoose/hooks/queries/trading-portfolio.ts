@@ -5,12 +5,16 @@ import type {
   QuickOrderSubmitResponse,
 } from '@/app/api/providers/trading/order/types'
 import { useSocket } from '@/contexts/socket-context'
+import {
+  arePortfolioIdentitiesEqual,
+  getPortfolioIdentityKey,
+  type PortfolioDetail,
+  type PortfolioIdentity,
+  toPortfolioValueObject,
+} from '@/providers/trading/portfolio-identity'
 import type {
   TradingPortfolioPerformanceWindow,
-  UnifiedTradingAccount,
-  UnifiedTradingAccountSnapshot,
   UnifiedTradingPortfolioPerformance,
-  UnifiedTradingPositionListings,
 } from '@/providers/trading/types'
 
 type TradingPortfolioChannel = 'accounts' | 'account-snapshot' | 'portfolio-performance'
@@ -24,7 +28,7 @@ type TradingAccountsRequest = {
 }
 
 type TradingSnapshotRequest = TradingAccountsRequest & {
-  accountId?: string
+  portfolioIdentity?: PortfolioIdentity | null
 }
 
 type TradingPerformanceRequest = TradingSnapshotRequest & {
@@ -38,7 +42,7 @@ type TradingPortfolioSubscribedPayload = {
   channel?: TradingPortfolioChannel
   subscriptionId?: string
   clientSubscriptionId?: string
-  accountId?: string
+  portfolioIdentity?: PortfolioIdentity | null
   window?: TradingPortfolioPerformanceWindow
 }
 
@@ -49,13 +53,12 @@ type TradingPortfolioErrorPayload = TradingPortfolioSubscribedPayload & {
 
 type TradingPortfolioAccountsPayload = TradingPortfolioSubscribedPayload & {
   channel?: 'accounts'
-  accounts?: UnifiedTradingAccount[]
+  portfolioIdentities?: PortfolioIdentity[]
 }
 
 type TradingPortfolioSnapshotPayload = TradingPortfolioSubscribedPayload & {
   channel?: 'account-snapshot'
-  snapshot?: UnifiedTradingAccountSnapshot
-  positionListings?: UnifiedTradingPositionListings['positionListings']
+  portfolioDetail?: PortfolioDetail
 }
 
 type TradingPortfolioPerformancePayload = TradingPortfolioSubscribedPayload & {
@@ -78,18 +81,13 @@ type SocketSubscriptionRef = {
   credentialServiceId?: string
   workspaceId: string
   channel: TradingPortfolioChannel
-  accountId?: string
+  portfolioIdentity?: PortfolioIdentity
 }
 
-const getAccountsPayloadData = (payload: TradingPortfolioAccountsPayload) => payload.accounts
+const getAccountsPayloadData = (payload: TradingPortfolioAccountsPayload) => payload.portfolioIdentities
 
 const getSnapshotPayloadData = (payload: TradingPortfolioSnapshotPayload) =>
-  payload.snapshot
-    ? {
-        snapshot: payload.snapshot,
-        positionListings: payload.positionListings ?? [],
-      }
-    : undefined
+  payload.portfolioDetail
 
 const getPerformancePayloadData = (payload: TradingPortfolioPerformancePayload) =>
   payload.performance
@@ -119,7 +117,7 @@ function useTradingPortfolioSocketData<T>({
   provider,
   credentialServiceId,
   workspaceId,
-  accountId,
+  portfolioIdentity,
   window,
   refreshKey,
   enabled = true,
@@ -130,7 +128,7 @@ function useTradingPortfolioSocketData<T>({
   provider?: string
   credentialServiceId?: string
   workspaceId?: string
-  accountId?: string
+  portfolioIdentity?: PortfolioIdentity | null
   window?: TradingPortfolioPerformanceWindow
   refreshKey?: number | string | null
   enabled?: boolean
@@ -154,13 +152,13 @@ function useTradingPortfolioSocketData<T>({
   const normalizedProvider = provider?.trim()
   const normalizedCredentialServiceId = credentialServiceId?.trim()
   const normalizedWorkspaceId = workspaceId?.trim()
-  const normalizedAccountId = accountId?.trim()
+  const normalizedPortfolioIdentity = toPortfolioValueObject(portfolioIdentity)
   const requestKey = [
     channel,
     normalizedWorkspaceId ?? '',
     normalizedProvider ?? '',
     normalizedCredentialServiceId ?? '',
-    normalizedAccountId ?? '',
+    normalizedPortfolioIdentity ? getPortfolioIdentityKey(normalizedPortfolioIdentity) : '',
     window ?? '',
   ].join('|')
   const data = dataState.key === requestKey ? dataState.data : undefined
@@ -168,7 +166,7 @@ function useTradingPortfolioSocketData<T>({
     enabled &&
     Boolean(normalizedProvider) &&
     Boolean(normalizedWorkspaceId) &&
-    (channel === 'accounts' || Boolean(normalizedAccountId)) &&
+    (channel === 'accounts' || Boolean(normalizedPortfolioIdentity)) &&
     (channel !== 'portfolio-performance' || Boolean(window))
 
   useEffect(() => {
@@ -195,7 +193,7 @@ function useTradingPortfolioSocketData<T>({
       channel,
       runId,
       normalizedProvider,
-      normalizedAccountId ?? 'accounts',
+      normalizedPortfolioIdentity ? getPortfolioIdentityKey(normalizedPortfolioIdentity) : 'accounts',
       window ?? '',
     ].join(':')
 
@@ -205,7 +203,7 @@ function useTradingPortfolioSocketData<T>({
       credentialServiceId: normalizedCredentialServiceId,
       workspaceId: normalizedWorkspaceId as string,
       channel,
-      accountId: normalizedAccountId,
+      portfolioIdentity: normalizedPortfolioIdentity ?? undefined,
     }
 
     setDataState({ key: requestKey, data: undefined })
@@ -223,7 +221,12 @@ function useTradingPortfolioSocketData<T>({
         return false
       }
       if (payload.workspaceId && payload.workspaceId !== normalizedWorkspaceId) return false
-      if (payload.accountId && normalizedAccountId && payload.accountId !== normalizedAccountId) {
+      const payloadPortfolioIdentity = toPortfolioValueObject(payload.portfolioIdentity)
+      if (
+        payloadPortfolioIdentity &&
+        normalizedPortfolioIdentity &&
+        !arePortfolioIdentitiesEqual(payloadPortfolioIdentity, normalizedPortfolioIdentity)
+      ) {
         return false
       }
       if (payload.clientSubscriptionId) {
@@ -242,7 +245,7 @@ function useTradingPortfolioSocketData<T>({
         credentialServiceId: normalizedCredentialServiceId,
         workspaceId: normalizedWorkspaceId,
         channel,
-        accountId: normalizedAccountId,
+        portfolioIdentity: normalizedPortfolioIdentity,
         window,
         clientSubscriptionId,
         forceRefresh,
@@ -304,21 +307,20 @@ function useTradingPortfolioSocketData<T>({
           provider: current.provider,
           credentialServiceId: current.credentialServiceId,
           channel: current.channel,
-          accountId: current.accountId,
+          portfolioIdentity: current.portfolioIdentity,
           clientSubscriptionId: current.clientSubscriptionId,
         })
       }
       subscriptionRef.current = null
     }
   }, [
-    accountId,
     channel,
     credentialServiceId,
     dataEvent,
     enabled,
     getData,
-    normalizedAccountId,
     normalizedCredentialServiceId,
+    normalizedPortfolioIdentity,
     normalizedProvider,
     normalizedWorkspaceId,
     refetchNonce,
@@ -339,7 +341,7 @@ function useTradingPortfolioSocketData<T>({
         provider: current.provider,
         credentialServiceId: current.credentialServiceId,
         channel: current.channel,
-        accountId: current.accountId,
+        portfolioIdentity: current.portfolioIdentity,
       })
     } else {
       setRefetchNonce((value) => value + 1)
@@ -356,8 +358,8 @@ function useTradingPortfolioSocketData<T>({
   }
 }
 
-export function useTradingAccounts(request: TradingAccountsRequest) {
-  return useTradingPortfolioSocketData<UnifiedTradingAccount[]>({
+export function usePortfolioIdentities(request: TradingAccountsRequest) {
+  return useTradingPortfolioSocketData<PortfolioIdentity[]>({
     channel: 'accounts',
     provider: request.provider,
     credentialServiceId: request.credentialServiceId,
@@ -369,36 +371,27 @@ export function useTradingAccounts(request: TradingAccountsRequest) {
   })
 }
 
-export function useTradingPortfolioSnapshot(request: TradingSnapshotRequest) {
-  const result = useTradingPortfolioSocketData<{
-    snapshot: UnifiedTradingAccountSnapshot
-    positionListings: UnifiedTradingPositionListings['positionListings']
-  }>({
+export function usePortfolioDetail(request: TradingSnapshotRequest) {
+  return useTradingPortfolioSocketData<PortfolioDetail>({
     channel: 'account-snapshot',
     provider: request.provider,
     credentialServiceId: request.credentialServiceId,
     workspaceId: request.workspaceId,
-    accountId: request.accountId,
+    portfolioIdentity: request.portfolioIdentity,
     refreshKey: request.refreshKey,
     enabled: request.enabled,
     dataEvent: 'trading-portfolio-snapshot',
     getData: getSnapshotPayloadData,
   })
-
-  return {
-    ...result,
-    data: result.data?.snapshot,
-    positionListings: result.data?.positionListings ?? [],
-  }
 }
 
-export function useTradingPortfolioPerformance(request: TradingPerformanceRequest) {
+export function usePortfolioPerformance(request: TradingPerformanceRequest) {
   return useTradingPortfolioSocketData<UnifiedTradingPortfolioPerformance>({
     channel: 'portfolio-performance',
     provider: request.provider,
     credentialServiceId: request.credentialServiceId,
     workspaceId: request.workspaceId,
-    accountId: request.accountId,
+    portfolioIdentity: request.portfolioIdentity,
     window: request.selectedWindow,
     refreshKey: request.refreshKey,
     enabled: request.enabled,

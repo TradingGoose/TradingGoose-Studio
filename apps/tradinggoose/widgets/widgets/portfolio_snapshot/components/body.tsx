@@ -12,18 +12,18 @@ import { cn } from '@/lib/utils'
 import { useMarketQuoteSnapshots } from '@/hooks/queries/market-quote-snapshots'
 import { useOAuthProviderAvailability } from '@/hooks/queries/oauth-provider-availability'
 import {
-  useTradingAccounts,
-  useTradingPortfolioPerformance,
-  useTradingPortfolioSnapshot,
+  usePortfolioDetail,
+  usePortfolioPerformance,
 } from '@/hooks/queries/trading-portfolio'
 import { getTradingProviderDefinition } from '@/providers/trading/providers'
+import { getPortfolioListingExposures } from '@/providers/trading/portfolio-selectors'
 import type { TradingPortfolioPerformanceWindow } from '@/providers/trading/types'
 import type { WidgetComponentProps } from '@/widgets/types'
 import {
   emitPortfolioSnapshotParamsChange,
   usePortfolioSnapshotParamsPersistence,
 } from '@/widgets/utils/portfolio-snapshot-params'
-import { useTradingCredentialServices } from '@/widgets/widgets/components/trading-credential-services'
+import { usePortfolioIdentitySelection } from '@/widgets/widgets/components/use-portfolio-identity-selection'
 import { PortfolioSnapshotPerformanceChart } from '@/widgets/widgets/portfolio_snapshot/components/performance-chart'
 import {
   getPortfolioSnapshotDefaultWindow,
@@ -228,7 +228,7 @@ export function PortfolioSnapshotWidgetBody({
       params: {
         provider: null,
         credentialServiceId: null,
-        accountId: null,
+        portfolioIdentity: null,
         selectedWindow: null,
       },
       panelId,
@@ -264,65 +264,41 @@ export function PortfolioSnapshotWidgetBody({
     widgetParams?.selectedWindow,
   ])
 
-  const credentialServices = useTradingCredentialServices({
+  const {
+    accountsQuery,
+    activeCredentialServiceId,
+    activePortfolioIdentity,
+    credentialServices,
+    portfolioIdentities,
+  } = usePortfolioIdentitySelection({
+    workspaceId,
     providerId,
     credentialServiceId: widgetParams?.credentialServiceId,
+    portfolioIdentity: widgetParams?.portfolioIdentity,
     enabled: isProviderReady,
-  })
-  const activeCredentialServiceId = credentialServices.activeServiceId
-  const accountsQuery = useTradingAccounts({
-    workspaceId: workspaceId ?? undefined,
-    provider: isProviderReady ? providerId : undefined,
-    credentialServiceId: activeCredentialServiceId,
-    enabled: Boolean(activeCredentialServiceId),
-  })
-  const accounts = accountsQuery.data ?? []
-  const singleAccount = accounts.length === 1 ? (accounts[0] ?? null) : null
-  const activeAccountId = activeCredentialServiceId
-    ? (widgetParams?.accountId ?? singleAccount?.id)
-    : undefined
-
-  useEffect(() => {
-    if (accountsQuery.isLoading) return
-    if (accountsQuery.error) return
-
-    if (accounts.length === 1) {
-      const onlyAccount = accounts[0]
-      if (!onlyAccount) return
-      if (widgetParams?.accountId) return
-      emitPortfolioSnapshotParamsChange({
-        params: {
-          accountId: onlyAccount.id,
-          credentialServiceId: activeCredentialServiceId,
-        },
-        panelId,
-        widgetKey,
-      })
-    }
-  }, [
-    accounts,
-    accountsQuery.error,
-    accountsQuery.isLoading,
-    activeCredentialServiceId,
     panelId,
     widgetKey,
-    widgetParams?.accountId,
-  ])
+    emitParamsChange: emitPortfolioSnapshotParamsChange,
+  })
 
-  const snapshotQuery = useTradingPortfolioSnapshot({
+  const snapshotQuery = usePortfolioDetail({
     workspaceId: workspaceId ?? undefined,
     provider: isProviderReady ? providerId : undefined,
     credentialServiceId: activeCredentialServiceId,
-    accountId: activeAccountId,
+    portfolioIdentity: activePortfolioIdentity,
   })
 
+  const listingExposures = useMemo(
+    () => getPortfolioListingExposures(snapshotQuery.data),
+    [snapshotQuery.data]
+  )
   const quotePositions = useMemo(
     () =>
-      snapshotQuery.positionListings.map((position) => ({
+      listingExposures.map((position) => ({
         ...position,
         key: getListingIdentityKey(position.listing),
       })),
-    [snapshotQuery.positionListings]
+    [listingExposures]
   )
   const cappedQuotePositions = useMemo(
     () => quotePositions.slice(0, PORTFOLIO_SNAPSHOT_QUOTE_CAP),
@@ -344,14 +320,14 @@ export function PortfolioSnapshotWidgetBody({
     auth: widgetParams?.marketAuth,
     providerParams: widgetParams?.marketProviderParams,
     refreshKey: refreshAt,
-    enabled: Boolean(marketProviderId && activeAccountId && quoteItems.length > 0),
+    enabled: Boolean(marketProviderId && activePortfolioIdentity && quoteItems.length > 0),
   })
 
-  const performanceQuery = useTradingPortfolioPerformance({
+  const performanceQuery = usePortfolioPerformance({
     workspaceId: workspaceId ?? undefined,
     provider: isProviderReady ? providerId : undefined,
     credentialServiceId: activeCredentialServiceId,
-    accountId: activeAccountId,
+    portfolioIdentity: activePortfolioIdentity,
     selectedWindow: selectedWindow as TradingPortfolioPerformanceWindow | undefined,
   })
 
@@ -359,11 +335,11 @@ export function PortfolioSnapshotWidgetBody({
     if (refreshAt == null) return
     if (lastRefreshAtRef.current === refreshAt) return
     lastRefreshAtRef.current = refreshAt
-    if (activeAccountId) {
+    if (activePortfolioIdentity) {
       void snapshotQuery.refetch()
       void performanceQuery.refetch()
     }
-  }, [activeAccountId, performanceQuery, refreshAt, snapshotQuery])
+  }, [activePortfolioIdentity, performanceQuery, refreshAt, snapshotQuery])
 
   if (providerAvailabilityQuery.isLoading) {
     return <PortfolioLoading />
@@ -389,7 +365,7 @@ export function PortfolioSnapshotWidgetBody({
     return <PortfolioMessage message='Select a trading provider to get started.' />
   }
 
-  if (!activeAccountId) {
+  if (!activePortfolioIdentity) {
     if (credentialServices.isLoading) {
       return <PortfolioLoading />
     }
@@ -400,7 +376,7 @@ export function PortfolioSnapshotWidgetBody({
       )
     }
 
-    if (accountsQuery.isLoading && accounts.length === 0) {
+    if (accountsQuery.isLoading && portfolioIdentities.length === 0) {
       return <PortfolioLoading />
     }
 
@@ -416,7 +392,7 @@ export function PortfolioSnapshotWidgetBody({
       )
     }
 
-    if (accounts.length === 0) {
+    if (portfolioIdentities.length === 0) {
       return <PortfolioMessage message='No broker accounts found for this provider connection.' />
     }
 
@@ -441,7 +417,7 @@ export function PortfolioSnapshotWidgetBody({
 
   const snapshot = snapshotQuery.data
   const performance = performanceQuery.data
-  const currency = performance?.summary?.currency ?? snapshot.account.baseCurrency ?? 'USD'
+  const currency = performance?.summary?.currency ?? snapshot.baseCurrency ?? 'USD'
   const activeWindows = supportedWindows
   const quoteErrorMessage =
     quoteSnapshotsQuery.error instanceof Error
@@ -488,13 +464,13 @@ export function PortfolioSnapshotWidgetBody({
         : (quotedPositionsHint ??
           (marketProviderId
             ? quoteItems.length > 0
-              ? `${quoteSummary.quotedPositions}/${cappedQuotePositions.length} quoted`
+          ? `${quoteSummary.quotedPositions}/${cappedQuotePositions.length} quoted`
               : 'No holdings with market listings'
             : 'No market provider')))
   const accountMetaText = [
-    snapshot.provider?.name ?? providerDefinition?.name ?? providerId,
-    snapshot.account.status ?? 'unknown',
-    snapshot.account.type,
+    snapshot.providerName ?? providerDefinition?.name ?? providerId,
+    snapshot.accountStatus ?? 'unknown',
+    snapshot.accountType ?? 'unknown',
   ].join(' · ')
   const performanceTone = getNumberTone(performance?.summary?.absoluteReturn)
   const quoteDayTone = getNumberTone(quoteDayChange)
@@ -523,7 +499,7 @@ export function PortfolioSnapshotWidgetBody({
                   ) : null}
                 </div>
                 <div className='mt-1 truncate text-muted-foreground text-xs'>
-                  {snapshot.account.name ?? snapshot.account.id}
+                  {snapshot.accountName ?? snapshot.accountId}
                 </div>
               </div>
 
@@ -626,14 +602,14 @@ export function PortfolioSnapshotWidgetBody({
                     variant='outline'
                     className='rounded-sm px-1.5 py-0 font-medium text-[10px]'
                   >
-                    {snapshot.account.status ?? 'unknown'}
+                    {snapshot.accountStatus ?? 'unknown'}
                   </Badge>
                 </div>
                 <div className='mt-1 truncate text-muted-foreground text-xs'>{accountMetaText}</div>
               </div>
               <div className='text-right text-muted-foreground text-xs'>
                 <div className='font-medium text-foreground'>
-                  {snapshot.account.name ?? snapshot.account.id}
+                  {snapshot.accountName ?? snapshot.accountId}
                 </div>
                 <div>As of {formatAsOf(snapshot.asOf)}</div>
               </div>
@@ -643,29 +619,29 @@ export function PortfolioSnapshotWidgetBody({
               <MetricGroup>
                 <MetricTile
                   label='Portfolio Value'
-                  value={formatCurrency(snapshot.accountSummary.totalPortfolioValue, currency)}
+                  value={formatCurrency(snapshot.summary.totalPortfolioValue, currency)}
                 />
                 <MetricTile
                   label='Cash'
-                  value={formatCurrency(snapshot.accountSummary.totalCashValue, currency)}
+                  value={formatCurrency(snapshot.summary.totalCashValue, currency)}
                 />
                 <MetricTile
                   label='Holdings'
-                  value={formatCurrency(snapshot.accountSummary.totalHoldingsValue, currency)}
+                  value={formatCurrency(snapshot.summary.totalHoldingsValue, currency)}
                 />
                 <MetricTile
                   label='Buying Power'
-                  value={formatCurrency(snapshot.accountSummary.buyingPower, currency)}
+                  value={formatCurrency(snapshot.summary.buyingPower, currency)}
                 />
                 <MetricTile
                   label='Unrealized P&L'
-                  value={formatSignedCurrency(snapshot.accountSummary.totalUnrealizedPnl, currency)}
-                  tone={getNumberTone(snapshot.accountSummary.totalUnrealizedPnl)}
+                  value={formatSignedCurrency(snapshot.summary.totalUnrealizedPnl, currency)}
+                  tone={getNumberTone(snapshot.summary.totalUnrealizedPnl)}
                 />
                 <MetricTile
                   label='Positions'
                   value={String(snapshot.positions.length)}
-                  hint={snapshot.account.id}
+                  hint={snapshot.accountId}
                 />
               </MetricGroup>
             </div>

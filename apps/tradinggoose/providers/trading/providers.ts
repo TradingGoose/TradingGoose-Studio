@@ -5,9 +5,6 @@ import { alpacaTradingProviderConfig } from '@/providers/trading/alpaca/config'
 import { tradierTradingProviderConfig } from '@/providers/trading/tradier/config'
 import type {
   TradingAuthType,
-  TradingFieldDefinition,
-  TradingHoldingsInput,
-  TradingHoldingsNormalizationContext,
   TradingOperationKind,
   TradingOrder,
   TradingOrderDetailInput,
@@ -18,10 +15,7 @@ import type {
   TradingProviderId,
   TradingProviderOAuthConfig,
   TradingRequestConfig,
-  UnifiedTradingAccountSnapshot,
 } from '@/providers/trading/types'
-
-export type TradingProviderResponse = TradingOrder | UnifiedTradingAccountSnapshot
 
 export interface TradingProviderAvailability {
   assetClass: AssetClass[]
@@ -166,16 +160,11 @@ export interface TradingProvider {
     timeInForce?: string
   }
   buildOrderRequest?: (params: TradingOrderInput) => TradingRequestConfig
-  buildHoldingsRequest?: (params: TradingHoldingsInput) => TradingRequestConfig
   orderDetailRequest?: (
     historyRecord: TradingOrderHistoryRecord,
     params: TradingOrderDetailInput
   ) => Promise<TradingOrderDetailResult>
   normalizeOrder?: (data: any) => TradingOrder
-  normalizeHoldings?: (
-    data: any,
-    context?: TradingHoldingsNormalizationContext
-  ) => UnifiedTradingAccountSnapshot
 }
 
 export interface TradingProviderDefinition {
@@ -190,7 +179,6 @@ export interface TradingProviderDefinition {
     secret?: boolean
     description?: string
   }>
-  fields?: TradingFieldDefinition[]
   defaults?: {
     orderType?: string
     timeInForce?: string
@@ -229,21 +217,14 @@ export const TRADING_PROVIDER_DEFINITIONS: Record<string, TradingProviderDefinit
     authType: 'oauth',
     oauth: {
       provider: 'tradier',
-      serviceId: 'tradier',
-      scopes: ['read', 'write', 'trade'],
+      credentialServices: [
+        { serviceId: 'tradier-live', environment: 'live' },
+        { serviceId: 'tradier-paper', environment: 'paper' },
+      ],
+      scopes: getCanonicalScopesForProvider('tradier-live'),
       credentialTitle: 'Tradier Account',
       credentialPlaceholder: 'Select or connect Tradier connection',
     },
-    fields: [
-      {
-        id: 'accountId',
-        label: 'Tradier Account ID',
-        type: 'string',
-        for: 'both',
-        required: true,
-        description: 'Account number used in Tradier endpoints.',
-      },
-    ],
     defaults: {
       orderType: 'market',
       timeInForce: 'day',
@@ -288,27 +269,13 @@ export function getTradingHoldingsCapabilities(
   return getTradingProviderCapabilities(providerId)?.holdings || null
 }
 
-export function getTradingProviderKinds(providerId: TradingProviderId): TradingOperationKind[] {
-  const availability = getTradingProviderAvailability(providerId)
-  const kinds = new Set<TradingOperationKind>()
-
-  if (availability.order) kinds.add('order')
-  if (availability.holdings) kinds.add('holdings')
-
-  return Array.from(kinds)
-}
-
 export function getTradingProviders(): TradingProviderDefinition[] {
   return Object.values(TRADING_PROVIDER_DEFINITIONS)
 }
 
 export function getTradingProviderOAuthCredentialServices(providerId: TradingProviderId) {
   const provider = getTradingProviderDefinition(providerId)
-  if (!provider?.oauth) return null
-  if (provider.oauth.credentialServices?.length) return provider.oauth.credentialServices
-
-  const serviceId = provider.oauth.serviceId ?? provider.oauth.provider
-  return serviceId ? [{ serviceId, environment: 'live' as const }] : []
+  return provider?.oauth?.credentialServices ?? []
 }
 
 export function getTradingProviderOAuthServiceIds(providerId: TradingProviderId): string[] {
@@ -520,14 +487,6 @@ export function getTradingProviderParamRegistry(
   return getTradingProviderParamCatalog(kind).registry
 }
 
-export function getTradingProviderIdsForParam(
-  kind: TradingOperationKind,
-  paramId: string
-): TradingProviderId[] {
-  const registry = getTradingProviderParamRegistry(kind)
-  return (registry[paramId]?.providers ?? []) as TradingProviderId[]
-}
-
 export function coerceTradingProviderParamValue(
   definition: TradingProviderParamDefinition,
   value: unknown
@@ -562,41 +521,4 @@ export function coerceTradingProviderParamValue(
     default:
       return value
   }
-}
-
-function mapParamTypeToFieldType(
-  paramType: TradingProviderParamType
-): TradingFieldDefinition['type'] {
-  switch (paramType) {
-    case 'number':
-      return 'number'
-    case 'boolean':
-      return 'dropdown'
-    default:
-      return 'string'
-  }
-}
-
-export function getProviderFields(
-  providerId: TradingProviderId,
-  forOperation: TradingOperationKind
-): TradingFieldDefinition[] {
-  const provider = getTradingProviderDefinition(providerId)
-  if (!provider) return []
-
-  if (provider.fields?.length) {
-    return provider.fields.filter((field) => field.for === forOperation || field.for === 'both')
-  }
-
-  const definitions = getTradingProviderParamDefinitions(providerId, forOperation)
-  return definitions.map((param) => ({
-    id: param.id,
-    label: param.title || param.id,
-    type: mapParamTypeToFieldType(param.type),
-    for: forOperation,
-    required: param.required,
-    placeholder: param.placeholder,
-    description: param.description,
-    options: param.options,
-  }))
 }

@@ -10,10 +10,9 @@ const {
   getTradingProviderOAuthServiceIdMock,
   getTradingPortfolioSupportedWindowsMock,
   isTradingPortfolioWindowSupportedMock,
-  listTradingAccountsMock,
-  getTradingAccountSnapshotMock,
+  listPortfolioIdentitiesMock,
+  getPortfolioDetailMock,
   getTradingAccountPerformanceMock,
-  resolveTradingPositionListingIdentityMock,
 } = vi.hoisted(() => ({
   getOAuthTokenMock: vi.fn(),
   getTradingProviderDefinitionMock: vi.fn(),
@@ -21,10 +20,9 @@ const {
   getTradingProviderOAuthEnvironmentMock: vi.fn(),
   getTradingPortfolioSupportedWindowsMock: vi.fn(),
   isTradingPortfolioWindowSupportedMock: vi.fn(),
-  listTradingAccountsMock: vi.fn(),
-  getTradingAccountSnapshotMock: vi.fn(),
+  listPortfolioIdentitiesMock: vi.fn(),
+  getPortfolioDetailMock: vi.fn(),
   getTradingAccountPerformanceMock: vi.fn(),
-  resolveTradingPositionListingIdentityMock: vi.fn(),
 }))
 
 vi.mock('@/app/api/auth/oauth/utils', () => ({
@@ -39,19 +37,14 @@ vi.mock('@/lib/logs/console/logger', () => ({
   })),
 }))
 
-vi.mock('@/providers/trading/listing-resolution', () => ({
-  resolveTradingPositionListingIdentity: (...args: unknown[]) =>
-    resolveTradingPositionListingIdentityMock(...args),
-}))
-
 vi.mock('@/providers/trading/portfolio', () => ({
+  getPortfolioDetail: (...args: unknown[]) => getPortfolioDetailMock(...args),
   getTradingAccountPerformance: (...args: unknown[]) => getTradingAccountPerformanceMock(...args),
-  getTradingAccountSnapshot: (...args: unknown[]) => getTradingAccountSnapshotMock(...args),
   getTradingPortfolioSupportedWindows: (...args: unknown[]) =>
     getTradingPortfolioSupportedWindowsMock(...args),
   isTradingPortfolioWindowSupported: (...args: unknown[]) =>
     isTradingPortfolioWindowSupportedMock(...args),
-  listTradingAccounts: (...args: unknown[]) => listTradingAccountsMock(...args),
+  listPortfolioIdentities: (...args: unknown[]) => listPortfolioIdentitiesMock(...args),
 }))
 
 vi.mock('@/providers/trading/providers', () => ({
@@ -62,32 +55,36 @@ vi.mock('@/providers/trading/providers', () => ({
     getTradingProviderOAuthServiceIdMock(...args),
 }))
 
-import { buildTradingPositionListings, TradingPortfolioStreamManager } from './portfolio-manager'
+import type { PortfolioIdentity } from '@/providers/trading/portfolio-identity'
+import { TradingPortfolioStreamManager } from './portfolio-manager'
 
-const account = {
-  id: 'acct-1',
-  name: 'Primary',
-  type: 'paper' as const,
+const portfolioIdentity: PortfolioIdentity = {
+  providerId: 'alpaca',
+  credentialServiceId: 'alpaca-live',
+  accountId: 'acct-1',
+  providerName: 'Alpaca',
+  accountName: 'Primary',
+  accountType: 'paper',
   baseCurrency: 'USD',
-  status: 'active' as const,
+  accountStatus: 'active',
 }
 
-const snapshot = {
+const portfolioDetail = {
+  ...portfolioIdentity,
+  environment: 'live',
   asOf: '2026-04-30T12:00:00.000Z',
-  provider: { name: 'Alpaca' },
-  account: {
-    id: 'acct-1',
-    name: 'Primary',
-    type: 'paper' as const,
-    baseCurrency: 'USD',
-    status: 'active' as const,
-  },
   cashBalances: [],
   positions: [
     {
       symbol: {
         base: 'AAPL',
         quote: 'USD',
+        listing: {
+          listing_id: 'TG_LSTG_AAPL',
+          base_id: '',
+          quote_id: '',
+          listing_type: 'default',
+        },
         assetClass: 'stock' as const,
         active: true,
         rank: 0,
@@ -96,7 +93,7 @@ const snapshot = {
     },
   ],
   orders: [],
-  accountSummary: {
+  summary: {
     totalPortfolioValue: 1000,
     totalCashValue: 100,
   },
@@ -139,26 +136,20 @@ describe('TradingPortfolioStreamManager', () => {
       id: 'alpaca',
       name: 'Alpaca',
     })
-    getTradingProviderOAuthServiceIdMock.mockReturnValue('alpaca')
+    getTradingProviderOAuthServiceIdMock.mockReturnValue('alpaca-live')
     getTradingProviderOAuthEnvironmentMock.mockReturnValue('live')
     getTradingPortfolioSupportedWindowsMock.mockReturnValue(['1D', '1W'])
     isTradingPortfolioWindowSupportedMock.mockReturnValue(true)
-    listTradingAccountsMock.mockResolvedValue([account])
-    getTradingAccountSnapshotMock.mockResolvedValue(snapshot)
+    listPortfolioIdentitiesMock.mockResolvedValue([portfolioIdentity])
+    getPortfolioDetailMock.mockResolvedValue(portfolioDetail)
     getTradingAccountPerformanceMock.mockResolvedValue(performance)
-    resolveTradingPositionListingIdentityMock.mockResolvedValue({
-      listing_id: 'TG_LSTG_AAPL',
-      base_id: '',
-      quote_id: '',
-      listing_type: 'default',
-    })
   })
 
   afterEach(() => {
     vi.useRealTimers()
   })
 
-  it('shares one snapshot poll for duplicate account snapshot subscribers', async () => {
+  it('shares one snapshot poll for duplicate portfolio snapshot subscribers', async () => {
     vi.useFakeTimers()
     const manager = new TradingPortfolioStreamManager()
     const firstSocket = createSocket('socket-1')
@@ -166,15 +157,17 @@ describe('TradingPortfolioStreamManager', () => {
 
     await manager.subscribe(firstSocket, {
       provider: 'alpaca',
+      credentialServiceId: 'alpaca-live',
+      portfolioIdentity,
       workspaceId: 'workspace-1',
-      accountId: 'acct-1',
       channel: 'account-snapshot',
       clientSubscriptionId: 'snapshot-1',
     })
     await manager.subscribe(secondSocket, {
       provider: 'alpaca',
+      credentialServiceId: 'alpaca-live',
+      portfolioIdentity,
       workspaceId: 'workspace-1',
-      accountId: 'acct-1',
       channel: 'account-snapshot',
       clientSubscriptionId: 'snapshot-2',
     })
@@ -182,10 +175,11 @@ describe('TradingPortfolioStreamManager', () => {
     await flushPortfolioPolls()
 
     expect(getOAuthTokenMock).toHaveBeenCalledTimes(1)
-    expect(listTradingAccountsMock).toHaveBeenCalledTimes(1)
-    expect(getTradingAccountSnapshotMock).toHaveBeenCalledTimes(1)
-    expect(getTradingAccountSnapshotMock).toHaveBeenCalledWith({
+    expect(listPortfolioIdentitiesMock).toHaveBeenCalledTimes(1)
+    expect(getPortfolioDetailMock).toHaveBeenCalledTimes(1)
+    expect(getPortfolioDetailMock).toHaveBeenCalledWith({
       providerId: 'alpaca',
+      credentialServiceId: 'alpaca-live',
       environment: 'live',
       accessToken: 'oauth-token',
       accountId: 'acct-1',
@@ -194,17 +188,12 @@ describe('TradingPortfolioStreamManager', () => {
       'trading-portfolio-snapshot',
       expect.objectContaining({
         provider: 'alpaca',
+        credentialServiceId: 'alpaca-live',
         workspaceId: 'workspace-1',
         channel: 'account-snapshot',
-        accountId: 'acct-1',
+        portfolioIdentity,
+        portfolioDetail: expect.objectContaining({ accountId: 'acct-1' }),
         clientSubscriptionId: 'snapshot-1',
-        snapshot: expect.objectContaining({ account: expect.objectContaining({ id: 'acct-1' }) }),
-        positionListings: [
-          expect.objectContaining({
-            grossQuantity: 2,
-            signedQuantity: 2,
-          }),
-        ],
       })
     )
     expect(secondSocket.emit).toHaveBeenCalledWith(
@@ -226,15 +215,17 @@ describe('TradingPortfolioStreamManager', () => {
 
     const first = await manager.subscribe(firstSocket, {
       provider: 'alpaca',
+      credentialServiceId: 'alpaca-live',
+      portfolioIdentity,
       workspaceId: 'workspace-1',
-      accountId: 'acct-1',
       channel: 'account-snapshot',
       clientSubscriptionId: 'portfolio_snapshot',
     })
     const second = await manager.subscribe(secondSocket, {
       provider: 'alpaca',
+      credentialServiceId: 'alpaca-live',
+      portfolioIdentity,
       workspaceId: 'workspace-1',
-      accountId: 'acct-1',
       channel: 'account-snapshot',
       clientSubscriptionId: 'portfolio_snapshot',
     })
@@ -262,22 +253,24 @@ describe('TradingPortfolioStreamManager', () => {
     manager.removeSocket(secondSocket.id)
   })
 
-  it('dedupes account pulls across snapshot and performance streams for the same account', async () => {
+  it('dedupes account pulls across snapshot and performance streams for the same portfolio', async () => {
     vi.useFakeTimers()
     const manager = new TradingPortfolioStreamManager()
     const socket = createSocket('socket-1')
 
     await manager.subscribe(socket, {
       provider: 'alpaca',
+      credentialServiceId: 'alpaca-live',
+      portfolioIdentity,
       workspaceId: 'workspace-1',
-      accountId: 'acct-1',
       channel: 'account-snapshot',
       clientSubscriptionId: 'snapshot-1',
     })
     await manager.subscribe(socket, {
       provider: 'alpaca',
+      credentialServiceId: 'alpaca-live',
+      portfolioIdentity,
       workspaceId: 'workspace-1',
-      accountId: 'acct-1',
       channel: 'portfolio-performance',
       window: '1D',
       clientSubscriptionId: 'performance-1',
@@ -285,56 +278,22 @@ describe('TradingPortfolioStreamManager', () => {
 
     await flushPortfolioPolls()
 
-    expect(listTradingAccountsMock).toHaveBeenCalledTimes(1)
-    expect(getTradingAccountSnapshotMock).toHaveBeenCalledTimes(1)
+    expect(listPortfolioIdentitiesMock).toHaveBeenCalledTimes(1)
+    expect(getPortfolioDetailMock).toHaveBeenCalledTimes(1)
     expect(getTradingAccountPerformanceMock).toHaveBeenCalledTimes(1)
     expect(socket.emit).toHaveBeenCalledWith(
       'trading-portfolio-performance',
       expect.objectContaining({
         provider: 'alpaca',
+        credentialServiceId: 'alpaca-live',
         workspaceId: 'workspace-1',
         channel: 'portfolio-performance',
-        accountId: 'acct-1',
+        portfolioIdentity,
         window: '1D',
         performance,
       })
     )
 
     manager.removeSocket(socket.id)
-  })
-})
-
-describe('buildTradingPositionListings', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-    resolveTradingPositionListingIdentityMock.mockImplementation((symbol: { base: string }) => ({
-      listing_id: `TG_LSTG_${symbol.base}`,
-      base_id: '',
-      quote_id: '',
-      listing_type: 'default',
-    }))
-  })
-
-  it('maps widget-local broker positions into canonical listing totals', async () => {
-    const listings = await buildTradingPositionListings({
-      ...snapshot,
-      positions: [
-        { ...snapshot.positions[0], quantity: 3, multiplier: 2 },
-        { ...snapshot.positions[0], quantity: -1 },
-      ],
-    })
-
-    expect(listings).toEqual([
-      {
-        listing: {
-          listing_id: 'TG_LSTG_AAPL',
-          base_id: '',
-          quote_id: '',
-          listing_type: 'default',
-        },
-        grossQuantity: 7,
-        signedQuantity: 5,
-      },
-    ])
   })
 })

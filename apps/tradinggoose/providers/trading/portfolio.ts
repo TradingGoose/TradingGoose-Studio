@@ -6,12 +6,14 @@ import { getTradierTradingAccountPerformance } from '@/providers/trading/tradier
 import { getTradierTradingAccountSnapshot } from '@/providers/trading/tradier/snapshot'
 import { getTradingHoldingsCapabilities } from '@/providers/trading/providers'
 import type {
+  PortfolioDetail,
+  PortfolioIdentity,
+} from '@/providers/trading/portfolio-identity'
+import type {
   TradingPortfolioAccountContext,
   TradingPortfolioBaseContext,
   TradingPortfolioPerformanceWindow,
   TradingProviderId,
-  UnifiedTradingAccount,
-  UnifiedTradingAccountSnapshot,
   UnifiedTradingPortfolioPerformance,
 } from '@/providers/trading/types'
 
@@ -26,9 +28,9 @@ export const isTradingPortfolioWindowSupported = (providerId: TradingProviderId,
     (supportedWindow) => supportedWindow === window
   )
 
-export async function listTradingAccounts(
+export async function listPortfolioIdentities(
   context: TradingPortfolioBaseContext
-): Promise<UnifiedTradingAccount[]> {
+): Promise<PortfolioIdentity[]> {
   switch (context.providerId) {
     case 'alpaca':
       return getAlpacaTradingAccounts(context)
@@ -39,9 +41,9 @@ export async function listTradingAccounts(
   }
 }
 
-export async function getTradingAccountSnapshot(
+export async function getPortfolioDetail(
   context: TradingPortfolioAccountContext
-): Promise<UnifiedTradingAccountSnapshot> {
+): Promise<PortfolioDetail> {
   switch (context.providerId) {
     case 'alpaca':
       return getAlpacaTradingAccountSnapshot(context)

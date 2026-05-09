@@ -25,7 +25,7 @@ export function setupTradingPortfolioHandlers(socket: AuthenticatedSocket) {
         provider: payload?.provider,
         credentialServiceId: payload?.credentialServiceId,
         channel: payload?.channel,
-        accountId: payload?.accountId,
+        portfolioIdentity: payload?.portfolioIdentity,
         window: payload?.window,
         clientSubscriptionId: payload?.clientSubscriptionId,
       })
@@ -48,7 +48,7 @@ export function setupTradingPortfolioHandlers(socket: AuthenticatedSocket) {
         provider: payload?.provider,
         credentialServiceId: payload?.credentialServiceId,
         channel: payload?.channel,
-        accountId: payload?.accountId,
+        portfolioIdentity: payload?.portfolioIdentity,
         clientSubscriptionId: payload?.clientSubscriptionId,
       })
     }
@@ -70,7 +70,7 @@ export function setupTradingPortfolioHandlers(socket: AuthenticatedSocket) {
         provider: payload?.provider,
         credentialServiceId: payload?.credentialServiceId,
         channel: payload?.channel,
-        accountId: payload?.accountId,
+        portfolioIdentity: payload?.portfolioIdentity,
         clientSubscriptionId: payload?.clientSubscriptionId,
       })
     }

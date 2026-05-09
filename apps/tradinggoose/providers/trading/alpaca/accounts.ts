@@ -1,10 +1,10 @@
 import { buildAlpacaAuthHeaders } from '@/providers/trading/alpaca/auth'
 import { resolveAlpacaTradingBaseUrl } from '@/providers/trading/alpaca/config'
+import type { PortfolioIdentity } from '@/providers/trading/portfolio-identity'
 import { ALPACA_DEFAULT_BASE_CURRENCY } from '@/providers/trading/alpaca/positions'
 import { fetchBrokerJson, toFiniteNumber } from '@/providers/trading/portfolio-utils'
 import type {
   TradingPortfolioBaseContext,
-  UnifiedTradingAccount,
   UnifiedTradingAccountStatus,
   UnifiedTradingAccountType,
 } from '@/providers/trading/types'
@@ -55,7 +55,10 @@ export const mapAlpacaAccountType = (account: any): UnifiedTradingAccountType =>
   return 'unknown'
 }
 
-export const normalizeAlpacaTradingAccount = (account: any): UnifiedTradingAccount => {
+export const normalizeAlpacaTradingAccount = (
+  account: any,
+  context: Pick<TradingPortfolioBaseContext, 'credentialServiceId' | 'providerId'>
+): PortfolioIdentity => {
   const id = typeof account?.id === 'string' ? account.id.trim() : ''
   if (!id) {
     throw new Error('Alpaca account response missing account id')
@@ -67,14 +70,17 @@ export const normalizeAlpacaTradingAccount = (account: any): UnifiedTradingAccou
       : id
 
   return {
-    id,
-    name: `Alpaca (${accountNumber})`,
-    type: mapAlpacaAccountType(account),
+    providerId: context.providerId,
+    credentialServiceId: context.credentialServiceId ?? '',
+    accountId: id,
+    providerName: 'Alpaca',
+    accountName: `Alpaca (${accountNumber})`,
+    accountType: mapAlpacaAccountType(account),
     baseCurrency:
       typeof account?.currency === 'string' && account.currency.trim()
         ? account.currency.trim().toUpperCase()
         : ALPACA_DEFAULT_BASE_CURRENCY,
-    status: mapAlpacaAccountStatus(account?.status),
+    accountStatus: mapAlpacaAccountStatus(account?.status),
   }
 }
 
@@ -92,9 +98,9 @@ export async function fetchAlpacaTradingAccount(context: TradingPortfolioBaseCon
 
 export async function getAlpacaTradingAccounts(
   context: TradingPortfolioBaseContext
-): Promise<UnifiedTradingAccount[]> {
+): Promise<PortfolioIdentity[]> {
   const account = await fetchAlpacaTradingAccount(context)
-  return [normalizeAlpacaTradingAccount(account)]
+  return [normalizeAlpacaTradingAccount(account, context)]
 }
 
 export const normalizeAlpacaSnapshotAccountSummary = (account: any) => {

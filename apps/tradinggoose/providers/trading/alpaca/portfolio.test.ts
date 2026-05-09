@@ -12,9 +12,24 @@ import {
 import { getAlpacaTradingAccountSnapshot } from '@/providers/trading/alpaca/snapshot'
 import { getTradingPortfolioSupportedWindows } from '@/providers/trading/portfolio'
 
+const { resolveTradingPositionListingIdentityMock } = vi.hoisted(() => ({
+  resolveTradingPositionListingIdentityMock: vi.fn(),
+}))
+
+vi.mock('@/providers/trading/listing-resolution', () => ({
+  resolveTradingPositionListingIdentity: (...args: unknown[]) =>
+    resolveTradingPositionListingIdentityMock(...args),
+}))
+
 describe('Alpaca portfolio helpers', () => {
   beforeEach(() => {
     vi.stubGlobal('fetch', vi.fn())
+    resolveTradingPositionListingIdentityMock.mockImplementation((symbol: { base: string }) => ({
+      listing_id: symbol.base,
+      base_id: '',
+      quote_id: '',
+      listing_type: 'default',
+    }))
   })
 
   afterEach(() => {
@@ -30,13 +45,19 @@ describe('Alpaca portfolio helpers', () => {
         currency: 'usd',
         status: 'APPROVAL_PENDING',
         multiplier: '1',
+      }, {
+        providerId: 'alpaca',
+        credentialServiceId: 'alpaca-live',
       })
     ).toEqual({
-      id: 'acct-live',
-      name: 'Alpaca (PA12345)',
-      type: 'cash',
+      providerId: 'alpaca',
+      credentialServiceId: 'alpaca-live',
+      accountId: 'acct-live',
+      providerName: 'Alpaca',
+      accountName: 'Alpaca (PA12345)',
+      accountType: 'cash',
       baseCurrency: 'USD',
-      status: 'restricted',
+      accountStatus: 'restricted',
     })
   })
 
@@ -49,13 +70,16 @@ describe('Alpaca portfolio helpers', () => {
         status: 'ACTIVE',
         multiplier: '4',
         shorting_enabled: true,
+      }, {
+        providerId: 'alpaca',
+        credentialServiceId: 'alpaca-live',
       })
     ).toMatchObject({
-      id: 'acct-margin',
-      name: 'Alpaca (PA67890)',
-      type: 'margin',
+      accountId: 'acct-margin',
+      accountName: 'Alpaca (PA67890)',
+      accountType: 'margin',
       baseCurrency: 'USD',
-      status: 'active',
+      accountStatus: 'active',
     })
   })
 
@@ -106,8 +130,8 @@ describe('Alpaca portfolio helpers', () => {
       accountId: 'acct-paper',
     })
 
-    expect(snapshot.account.id).toBe('acct-paper')
-    expect(snapshot.accountSummary).toMatchObject({
+    expect(snapshot.accountId).toBe('acct-paper')
+    expect(snapshot.summary).toMatchObject({
       totalCashValue: 2500,
       totalPortfolioValue: 10000,
       totalHoldingsValue: 7500,
@@ -123,7 +147,6 @@ describe('Alpaca portfolio helpers', () => {
       quote_id: '',
       listing_type: 'default',
     })
-    expect(snapshot.extra).toBeUndefined()
   })
 
   it('preserves negative holdings value for net-short Alpaca snapshots', async () => {
@@ -173,7 +196,7 @@ describe('Alpaca portfolio helpers', () => {
       accountId: 'acct-short',
     })
 
-    expect(snapshot.accountSummary).toMatchObject({
+    expect(snapshot.summary).toMatchObject({
       totalCashValue: 12000,
       totalPortfolioValue: 9000,
       totalHoldingsValue: -3000,

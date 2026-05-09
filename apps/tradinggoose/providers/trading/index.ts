@@ -7,7 +7,7 @@ import type {
   TradingOrderDetailResult,
   TradingOrderHistoryRecord,
   TradingProviderId,
-  TradingProviderRequest,
+  TradingOrderRequest,
   TradingRequestConfig,
 } from '@/providers/trading/types'
 
@@ -34,35 +34,21 @@ export function getTradingProvider(providerId: TradingProviderId): TradingProvid
 
 export function executeTradingProviderRequest(
   providerId: TradingProviderId,
-  request: TradingProviderRequest
+  request: TradingOrderRequest
 ): TradingRequestConfig {
   const provider = getTradingProvider(providerId)
   const availability = provider.config.availability
-  const supportsKind = availability[request.kind] ?? false
+  const supportsKind = availability.order
 
   if (!supportsKind) {
     throw new Error(`Provider ${providerId} does not support ${request.kind}`)
   }
 
-  switch (request.kind) {
-    case 'order': {
-      if (!provider.buildOrderRequest) {
-        throw new Error(`Provider ${providerId} does not support order requests`)
-      }
-      return provider.buildOrderRequest(request)
-    }
-    case 'holdings': {
-      if (!provider.buildHoldingsRequest) {
-        throw new Error(`Provider ${providerId} does not support holdings requests`)
-      }
-      return provider.buildHoldingsRequest(request)
-    }
-    default: {
-      const kind = (request as { kind?: string }).kind ?? 'unknown'
-      logger.warn('Unknown trading request kind', { providerId, kind })
-      throw new Error(`Unsupported trading request kind: ${kind}`)
-    }
+  if (!provider.buildOrderRequest) {
+    throw new Error(`Provider ${providerId} does not support order requests`)
   }
+
+  return provider.buildOrderRequest(request)
 }
 
 export async function executeTradingProviderOrderDetailRequest(

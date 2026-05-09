@@ -1,5 +1,8 @@
 import { fetchBrokerJson, toFiniteNumber } from '@/providers/trading/portfolio-utils'
+import { buildPortfolioDetail } from '@/providers/trading/portfolio-detail'
+import type { PortfolioDetail } from '@/providers/trading/portfolio-identity'
 import { buildTradierAuthHeaders, resolveTradierBaseUrl } from '@/providers/trading/tradier/client'
+import { normalizeTradierTradingAccount } from '@/providers/trading/tradier/accounts'
 import {
   extractTradierBalances,
   extractTradierPositions,
@@ -11,10 +14,7 @@ import {
   sumTradierPositionUnrealizedPnl,
   TRADIER_DEFAULT_BASE_CURRENCY,
 } from '@/providers/trading/tradier/positions'
-import type {
-  TradingPortfolioAccountContext,
-  UnifiedTradingAccountSnapshot,
-} from '@/providers/trading/types'
+import type { TradingPortfolioAccountContext } from '@/providers/trading/types'
 
 async function fetchTradierBalances(context: TradingPortfolioAccountContext) {
   const baseUrl = resolveTradierBaseUrl(context.environment)
@@ -48,7 +48,7 @@ async function fetchTradierPositions(context: TradingPortfolioAccountContext) {
 
 export async function getTradierTradingAccountSnapshot(
   context: TradingPortfolioAccountContext
-): Promise<UnifiedTradingAccountSnapshot> {
+): Promise<PortfolioDetail> {
   const [balancesResponse, positionsResponse] = await Promise.all([
     fetchTradierBalances(context),
     fetchTradierPositions(context),
@@ -77,21 +77,27 @@ export async function getTradierTradingAccountSnapshot(
   const equity = toFiniteNumber(balances?.equity) ?? totalPortfolioValue
   const totalUnrealizedPnl =
     toFiniteNumber(balances?.open_pl) ?? sumTradierPositionUnrealizedPnl(positions)
-
-  return {
-    asOf: new Date().toISOString(),
-    provider: {
-      name: 'Tradier',
-      environment: context.environment ?? 'unknown',
-    },
-    account: {
-      id:
+  const identity = normalizeTradierTradingAccount(
+    {
+      account_number:
         (typeof balances?.account_number === 'string' && balances.account_number.trim()) ||
         context.accountId,
-      type: mapTradierAccountType(balances?.account_type),
-      baseCurrency: TRADIER_DEFAULT_BASE_CURRENCY,
-      status: 'unknown',
+      classification: balances?.account_type,
+      type: balances?.account_type,
+      status: balances?.status,
     },
+    context
+  )
+
+  return buildPortfolioDetail({
+    identity: {
+      ...identity,
+      accountType: mapTradierAccountType(balances?.account_type),
+      baseCurrency: TRADIER_DEFAULT_BASE_CURRENCY,
+      accountStatus: identity.accountStatus ?? 'unknown',
+    },
+    environment: context.environment ?? 'live',
+    asOf: new Date().toISOString(),
     cashBalances: [
       {
         currency: TRADIER_DEFAULT_BASE_CURRENCY,
@@ -102,8 +108,7 @@ export async function getTradierTradingAccountSnapshot(
       },
     ],
     positions,
-    orders: [],
-    accountSummary: {
+    summary: {
       totalCashValue,
       totalHoldingsValue,
       totalPortfolioValue,
@@ -114,5 +119,5 @@ export async function getTradierTradingAccountSnapshot(
       totalRealizedPnl: toFiniteNumber(balances?.close_pl),
       totalUnrealizedPnl,
     },
-  }
+  })
 }

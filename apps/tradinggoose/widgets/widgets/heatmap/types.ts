@@ -1,3 +1,5 @@
+import type { PortfolioIdentity } from '@/providers/trading/portfolio-identity'
+
 export type HeatmapSourceMode = 'watchlist' | 'portfolio'
 export type HeatmapWatchlistSizeMetric = 'volume' | 'volumeUsd'
 
@@ -13,7 +15,7 @@ export interface HeatmapWidgetParams {
   }
   tradingProvider?: string
   credentialServiceId?: string
-  accountId?: string
+  portfolioIdentity?: PortfolioIdentity
   runtime?: {
     refreshAt?: number
   }

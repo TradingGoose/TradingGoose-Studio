@@ -2,7 +2,7 @@ import { DollarIcon } from '@/components/icons/icons'
 import type { BlockConfig, SubBlockConfig } from '@/blocks/types'
 import { AuthMode } from '@/blocks/types'
 import { buildInputsFromToolParams } from '@/blocks/utils'
-import { getTradingProviderIdsForParam, getTradingProviders } from '@/providers/trading'
+import { getTradingProviders } from '@/providers/trading'
 import { tradingOrderDetailTool } from '@/tools/trading'
 import type { TradingOrderDetailResponse } from '@/tools/trading/types'
 
@@ -11,17 +11,13 @@ const providerOptions = getTradingProviders().map((provider) => ({
   id: provider.id,
 }))
 
-const providersWithEnvironment = getTradingProviderIdsForParam('order', 'environment')
-
 const providerCredentialBlocks = (): SubBlockConfig[] => {
   const providers = getTradingProviders()
   return providers
     .filter((provider) => provider.authType === 'oauth' && provider.oauth)
     .map((provider) => {
       const oauth = provider.oauth!
-      const serviceIds = oauth.credentialServices?.length
-        ? oauth.credentialServices.map((service) => service.serviceId)
-        : [oauth.serviceId || oauth.provider]
+      const serviceIds = oauth.credentialServices?.map((service) => service.serviceId) ?? []
       return {
         id: `${provider.id}Credential`,
         title: oauth.credentialTitle || `${provider.name} Account`,
@@ -66,22 +62,6 @@ export const TradingOrderDetailBlock: BlockConfig<TradingOrderDetailResponse> = 
       required: true,
       placeholder: 'Select the broker used for this order',
     },
-    {
-      id: 'environment',
-      title: 'Environment',
-      type: 'dropdown',
-      layout: 'half',
-      options: [
-        { label: 'Paper (Sandbox)', id: 'paper' },
-        { label: 'Live Trading', id: 'live' },
-      ],
-      condition: providersWithEnvironment.length
-        ? { field: 'provider', value: providersWithEnvironment }
-        : undefined,
-      hidden: providersWithEnvironment.length === 0,
-      required: false,
-      placeholder: 'Optional environment override',
-    },
     ...providerCredentialBlocks(),
     {
       id: 'accountId',
@@ -114,7 +94,6 @@ export const TradingOrderDetailBlock: BlockConfig<TradingOrderDetailResponse> = 
           orderId: params.orderId,
           provider,
           credential: resolveCredential(),
-          environment: params.environment,
           accountId: params.accountId,
         }
       },

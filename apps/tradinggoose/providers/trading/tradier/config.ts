@@ -29,19 +29,6 @@ const params: TradingProviderConfig['params'] = {
       required: true,
       visibility: 'user-or-llm',
     },
-    {
-      id: 'environment',
-      type: 'string',
-      title: 'Environment',
-      description: 'Trading environment (paper or live).',
-      required: false,
-      visibility: 'user-only',
-      inputType: 'dropdown',
-      options: [
-        { id: 'paper', label: 'Paper (Sandbox)' },
-        { id: 'live', label: 'Live' },
-      ],
-    },
   ],
   order: [
     {

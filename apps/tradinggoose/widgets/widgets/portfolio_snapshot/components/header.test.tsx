@@ -20,7 +20,11 @@ const mockTradingAccountSelector = vi.fn(({ onAccountSelect }: MockTradingAccoun
     aria-label='Select trading account'
     onClick={() =>
       onAccountSelect?.({
-        accountId: 'acct-1',
+        portfolioIdentity: {
+          providerId: 'alpaca',
+          credentialServiceId: 'alpaca-live',
+          accountId: 'acct-1',
+        },
       })
     }
   >
@@ -123,7 +127,8 @@ describe('PortfolioSnapshotHeaderControls', () => {
         data: {
           'alpaca-live': true,
           'alpaca-paper': true,
-          tradier: true,
+          'tradier-live': true,
+          'tradier-paper': true,
         },
       })
     )
@@ -139,7 +144,11 @@ describe('PortfolioSnapshotHeaderControls', () => {
   const renderHeader = async (
     params: Record<string, unknown> | null = {
       provider: 'alpaca',
-      accountId: 'acct-1',
+      portfolioIdentity: {
+        providerId: 'alpaca',
+        credentialServiceId: 'alpaca-live',
+        accountId: 'acct-1',
+      },
       selectedWindow: '1D',
     }
   ) => {
@@ -190,7 +199,7 @@ describe('PortfolioSnapshotHeaderControls', () => {
     expect(mockEmitPortfolioSnapshotParamsChange).toHaveBeenCalledWith({
       params: {
         provider: 'tradier',
-        accountId: null,
+        portfolioIdentity: null,
         credentialServiceId: null,
         selectedWindow: null,
       },
@@ -208,7 +217,11 @@ describe('PortfolioSnapshotHeaderControls', () => {
 
     expect(mockEmitPortfolioSnapshotParamsChange).toHaveBeenCalledWith({
       params: {
-        accountId: 'acct-1',
+        portfolioIdentity: {
+          providerId: 'alpaca',
+          credentialServiceId: 'alpaca-live',
+          accountId: 'acct-1',
+        },
       },
       panelId: 'panel-1',
       widgetKey: 'portfolio_snapshot',

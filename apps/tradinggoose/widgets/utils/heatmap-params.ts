@@ -3,6 +3,7 @@ import {
   sanitizeMarketProviderAuth,
   sanitizeMarketProviderParamsForWidget,
 } from '@/lib/market/market-provider-settings'
+import { toPortfolioValueObject } from '@/providers/trading/portfolio-identity'
 import {
   HEATMAP_WIDGET_UPDATE_PARAMS_EVENT,
   type HeatmapWidgetUpdateEventDetail,
@@ -55,7 +56,7 @@ export const sanitizeHeatmapParams = (
   const marketProvider = normalizeString(params.marketProvider)
   const tradingProvider = normalizeString(params.tradingProvider)
   const credentialServiceId = normalizeString(params.credentialServiceId)
-  const accountId = normalizeString(params.accountId)
+  const portfolioIdentity = toPortfolioValueObject(params.portfolioIdentity)
   const marketProviderParams = sanitizeMarketProviderParamsForWidget(
     marketProvider,
     params.marketProviderParams
@@ -77,7 +78,7 @@ export const sanitizeHeatmapParams = (
   if (marketAuth) nextParams.marketAuth = marketAuth
   if (tradingProvider) nextParams.tradingProvider = tradingProvider
   if (credentialServiceId) nextParams.credentialServiceId = credentialServiceId
-  if (accountId) nextParams.accountId = accountId
+  if (portfolioIdentity) nextParams.portfolioIdentity = portfolioIdentity
   if (refreshAt !== undefined) nextParams.runtime = { refreshAt }
 
   return Object.keys(nextParams).length > 0 ? nextParams : null

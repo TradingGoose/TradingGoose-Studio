@@ -3,6 +3,7 @@ import {
   sanitizeMarketProviderAuth,
   sanitizeMarketProviderParamsForWidget,
 } from '@/lib/market/market-provider-settings'
+import { toPortfolioValueObject } from '@/providers/trading/portfolio-identity'
 import {
   QUICK_ORDER_WIDGET_UPDATE_PARAMS_EVENT,
   type QuickOrderWidgetUpdateEventDetail,
@@ -56,14 +57,14 @@ export const sanitizeQuickOrderParams = (
   const nextParams: Record<string, unknown> = {}
   const provider = normalizeString(params.provider)
   const credentialServiceId = normalizeString(params.credentialServiceId)
+  const portfolioIdentity = toPortfolioValueObject(params.portfolioIdentity)
   const marketProvider = normalizeString(params.marketProvider)
-  const accountId = normalizeString(params.accountId)
   const side = normalizeString(params.side)
 
   if (provider) nextParams.provider = provider
   if (credentialServiceId) nextParams.credentialServiceId = credentialServiceId
+  if (portfolioIdentity) nextParams.portfolioIdentity = portfolioIdentity
   if (marketProvider) nextParams.marketProvider = marketProvider
-  if (accountId) nextParams.accountId = accountId
   if (side === 'buy' || side === 'sell') nextParams.side = side
   const marketProviderParams = sanitizeMarketProviderParamsForWidget(
     marketProvider,

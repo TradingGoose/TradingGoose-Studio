@@ -5,7 +5,6 @@ import {
   executeTradingProviderRequest,
   getTradingProvider,
   getTradingProviderOAuthEnvironment,
-  getTradingProviderParamDefinitions,
 } from '@/providers/trading'
 import type {
   OrderSubmit,
@@ -19,17 +18,10 @@ import type { ToolConfig } from '@/tools/types'
 const logger = createLogger('TradingActionTool')
 
 const resolveProviderEnvironment = (params: TradingActionParams) => {
-  const credentialEnvironment = getTradingProviderOAuthEnvironment(
-    params.provider,
-    params.credentialServiceId
+  return (
+    getTradingProviderOAuthEnvironment(params.provider, params.credentialServiceId) ??
+    params.environment
   )
-  if (credentialEnvironment) return credentialEnvironment
-
-  return getTradingProviderParamDefinitions(params.provider, 'order').some(
-    (definition) => definition.id === 'environment'
-  )
-    ? params.environment
-    : undefined
 }
 
 const ORDER_HISTORY_OMIT_KEYS = new Set([

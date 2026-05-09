@@ -12,9 +12,24 @@ import {
 } from '@/providers/trading/tradier/performance'
 import { getTradierTradingAccountSnapshot } from '@/providers/trading/tradier/snapshot'
 
+const { resolveTradingPositionListingIdentityMock } = vi.hoisted(() => ({
+  resolveTradingPositionListingIdentityMock: vi.fn(),
+}))
+
+vi.mock('@/providers/trading/listing-resolution', () => ({
+  resolveTradingPositionListingIdentity: (...args: unknown[]) =>
+    resolveTradingPositionListingIdentityMock(...args),
+}))
+
 describe('Tradier portfolio helpers', () => {
   beforeEach(() => {
     vi.stubGlobal('fetch', vi.fn())
+    resolveTradingPositionListingIdentityMock.mockImplementation((symbol: { base: string }) => ({
+      listing_id: symbol.base,
+      base_id: '',
+      quote_id: '',
+      listing_type: 'default',
+    }))
   })
 
   afterEach(() => {
@@ -29,13 +44,19 @@ describe('Tradier portfolio helpers', () => {
         classification: 'Individual',
         type: 'margin',
         status: 'active',
+      }, {
+        providerId: 'tradier',
+        credentialServiceId: 'tradier-live',
       })
     ).toEqual({
-      id: 'ACC-123',
-      name: 'Individual (ACC-123)',
-      type: 'margin',
+      providerId: 'tradier',
+      credentialServiceId: 'tradier-live',
+      accountId: 'ACC-123',
+      providerName: 'Tradier',
+      accountName: 'Individual (ACC-123)',
+      accountType: 'margin',
       baseCurrency: 'USD',
-      status: 'active',
+      accountStatus: 'active',
     })
   })
 
@@ -90,7 +111,7 @@ describe('Tradier portfolio helpers', () => {
       accountId: 'ACC-123',
     })
 
-    expect(snapshot.accountSummary).toMatchObject({
+    expect(snapshot.summary).toMatchObject({
       totalCashValue: 1200,
       totalHoldingsValue: 4200,
       totalPortfolioValue: 5400,
@@ -106,7 +127,6 @@ describe('Tradier portfolio helpers', () => {
       quote_id: '',
       listing_type: 'default',
     })
-    expect(snapshot.extra).toBeUndefined()
   })
 
   it('maps supported windows and normalizes Tradier history rows', () => {
