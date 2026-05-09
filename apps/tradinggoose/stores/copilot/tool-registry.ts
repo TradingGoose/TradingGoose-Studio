@@ -43,8 +43,8 @@ import { SERVER_TOOL_METADATA } from '@/lib/copilot/tools/client/server-tool-met
 import { CheckDeploymentStatusClientTool } from '@/lib/copilot/tools/client/workflow/check-deployment-status'
 import { CreateWorkflowClientTool } from '@/lib/copilot/tools/client/workflow/create-workflow'
 import { DeployWorkflowClientTool } from '@/lib/copilot/tools/client/workflow/deploy-workflow'
-import { EditWorkflowBlockClientTool } from '@/lib/copilot/tools/client/workflow/edit-workflow-block'
 import { EditWorkflowClientTool } from '@/lib/copilot/tools/client/workflow/edit-workflow'
+import { EditWorkflowBlockClientTool } from '@/lib/copilot/tools/client/workflow/edit-workflow-block'
 import { GetBlockOutputsClientTool } from '@/lib/copilot/tools/client/workflow/get-block-outputs'
 import { GetBlockUpstreamReferencesClientTool } from '@/lib/copilot/tools/client/workflow/get-block-upstream-references'
 import { GetGlobalWorkflowVariablesClientTool } from '@/lib/copilot/tools/client/workflow/get-global-workflow-variables'
@@ -287,20 +287,6 @@ export function getToolInterruptDisplays(
   } catch {}
 
   return getCopilotToolMetadata(toolName)?.interrupt
-}
-
-export function copilotToolHasInterrupt(
-  toolName: string | undefined,
-  toolCallId?: string
-): boolean {
-  return !!getToolInterruptDisplays(toolName, toolCallId)
-}
-
-export function copilotToolSupportsState(
-  toolName: string | undefined,
-  state: ClientToolCallState
-): boolean {
-  return !!getCopilotToolMetadata(toolName)?.displayNames?.[state]
 }
 
 export function resolveToolDisplay(

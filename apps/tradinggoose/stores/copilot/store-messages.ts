@@ -1,15 +1,14 @@
 'use client'
 
-import { ensureClientToolInstance, resolveToolDisplay } from '@/stores/copilot/tool-registry'
 import {
   buildTurnProvenanceFromContexts,
   withPinnedToolExecutionProvenance,
 } from '@/stores/copilot/store-provenance'
 import { normalizeReloadedToolState } from '@/stores/copilot/store-state'
+import { ensureClientToolInstance, resolveToolDisplay } from '@/stores/copilot/tool-registry'
 import type {
   ChatContext,
   CopilotMessage,
-  CopilotStore,
   CopilotToolCall,
   CopilotToolExecutionProvenance,
   MessageFileAttachment,
@@ -131,8 +130,7 @@ function getMessageBlockTimestamp(message: CopilotMessage): number {
 
 export function normalizeMessagesForUI(
   messages: CopilotMessage[],
-  latestTurnStatus?: string | null,
-  accessLevel?: CopilotStore['accessLevel']
+  latestTurnStatus?: string | null
 ): CopilotMessage[] {
   try {
     return messages.map((message) => {
@@ -156,12 +154,7 @@ export function normalizeMessagesForUI(
             if (b?.type === 'tool_call' && b.toolCall) {
               const normalizedToolCall = {
                 ...b.toolCall,
-                state: normalizeReloadedToolState(
-                  b.toolCall?.name,
-                  b.toolCall?.state,
-                  latestTurnStatus,
-                  accessLevel
-                ),
+                state: normalizeReloadedToolState(b.toolCall?.state, latestTurnStatus),
               }
 
               const instance = ensureClientToolInstance(
@@ -204,12 +197,7 @@ export function normalizeMessagesForUI(
         ? (message as any).toolCalls.map((tc: any) => {
             const normalizedToolCall = {
               ...tc,
-              state: normalizeReloadedToolState(
-                tc?.name,
-                tc?.state,
-                latestTurnStatus,
-                accessLevel
-              ),
+              state: normalizeReloadedToolState(tc?.state, latestTurnStatus),
             }
 
             const instance = ensureClientToolInstance(

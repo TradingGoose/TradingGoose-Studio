@@ -217,10 +217,7 @@ export const TRADING_PROVIDER_DEFINITIONS: Record<string, TradingProviderDefinit
     authType: 'oauth',
     oauth: {
       provider: 'tradier',
-      credentialServices: [
-        { serviceId: 'tradier-live', environment: 'live' },
-        { serviceId: 'tradier-paper', environment: 'paper' },
-      ],
+      credentialServices: [{ serviceId: 'tradier-live', environment: 'live' }],
       scopes: getCanonicalScopesForProvider('tradier-live'),
       credentialTitle: 'Tradier Account',
       credentialPlaceholder: 'Select or connect Tradier connection',

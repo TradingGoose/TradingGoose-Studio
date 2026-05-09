@@ -126,7 +126,7 @@ export async function getTradierTradingAccountPerformance(
     })
   }
 
-  const baseUrl = resolveTradierBaseUrl(context.environment)
+  const baseUrl = resolveTradierBaseUrl()
   const period = mapTradierPerformanceWindow(context.window)
   const historyResponse = await fetchBrokerJson<any>({
     providerId: context.providerId,

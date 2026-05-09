@@ -70,7 +70,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
     const { contextUsage, createNewChat } = useCopilotStore()
     const message = controlledValue !== undefined ? controlledValue : internalMessage
     const setMessage =
-      controlledValue !== undefined ? onControlledChange || (() => { }) : setInternalMessage
+      controlledValue !== undefined ? onControlledChange || (() => {}) : setInternalMessage
 
     const {
       attachedFiles,
@@ -128,8 +128,8 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
     const effectivePlaceholder =
       placeholder ||
       (accessLevel === 'limited'
-        ? 'Ask questions or request workflow, skill, indicator, or tool changes'
-        : 'Describe the workflow, skill, indicator, MCP, or custom-tool changes to run')
+        ? 'Ask questions or review tools before they run'
+        : 'Ask questions or let tools run without extra approval')
 
     useImperativeHandle(
       ref,
@@ -432,7 +432,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
           className={cn(
             'relative rounded-md border border-input bg-muted/40 p-2 shadow-xs transition-all duration-200 ',
             isDragging &&
-            'border-primary-hover bg-yellow-50/50 dark:border-primary-hover dark:bg-yellow-950/20'
+              'border-primary-hover bg-yellow-50/50 dark:border-primary-hover dark:bg-yellow-950/20'
           )}
           onDragEnter={handleDragEnter}
           onDragLeave={handleDragLeave}
@@ -456,7 +456,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
 
           <div className='relative'>
             {!message && (
-              <div className='pointer-events-none truncate absolute inset-x-[2px] top-1 z-[1] pr-14 font-sans text-muted-foreground text-sm leading-[1.25rem]'>
+              <div className='pointer-events-none absolute inset-x-[2px] top-1 z-[1] truncate pr-14 font-sans text-muted-foreground text-sm leading-[1.25rem]'>
                 {isDragging ? 'Drop files here...' : effectivePlaceholder}
               </div>
             )}

@@ -1,8 +1,8 @@
 import { DollarIcon } from '@/components/icons/icons'
 import type { BlockConfig } from '@/blocks/types'
 import { buildInputsFromToolParams } from '@/blocks/utils'
-import { orderHistoryTool } from '@/tools/trading'
 import type { OrderHistoryResponse } from '@/tools/trading/order_history'
+import { orderHistoryTool } from '@/tools/trading/order_history'
 
 export const TradingOrderHistoryBlock: BlockConfig<OrderHistoryResponse> = {
   type: 'trading_order_history',

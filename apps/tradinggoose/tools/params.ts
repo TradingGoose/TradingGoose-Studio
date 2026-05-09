@@ -1,19 +1,23 @@
 import { createLogger } from '@/lib/logs/console/logger'
 import type { TimeFormat } from '@/lib/time-format'
-import type { ParameterVisibility, ToolConfig } from '@/tools/types'
-import { getTool } from '@/tools/utils'
+import type { TradingProviderParamDefinition } from '@/providers/trading/providers'
 import {
   getTradingProviderParamCatalog,
   getTradingProviderParamDefinitions,
 } from '@/providers/trading/providers'
-import type { TradingProviderParamDefinition } from '@/providers/trading/providers'
+import type { ParameterVisibility, ToolConfig } from '@/tools/types'
+import { getTool } from '@/tools/utils'
 
 const logger = createLogger('ToolsParams')
 
 export interface Option {
   label: string
   id: string
-  value?: string
+  value?: unknown
+  searchLabel?: string
+  rightLabel?: string
+  disabled?: boolean
+  group?: string
 }
 
 export interface ComponentCondition {
@@ -39,6 +43,8 @@ export interface UIComponentConfig {
   requiredScopes?: string[]
   providerType?: 'market' | 'trading'
   providerFieldId?: string
+  enableSearch?: boolean
+  searchPlaceholder?: string
   mimeType?: string
   columns?: string[]
   min?: number
@@ -63,12 +69,13 @@ export interface UIComponentConfig {
   acceptedTypes?: string[]
   multiple?: boolean
   maxSize?: number
+  autoSelectFirstOption?: boolean
   dependsOn?: string[]
   fetchOptions?: (
     blockId: string,
     subBlockId: string,
     contextValues?: Record<string, any>
-  ) => Promise<Array<{ label: string; id: string }>>
+  ) => Promise<Option[]>
 }
 
 export interface SubBlockConfig {
@@ -88,6 +95,8 @@ export interface SubBlockConfig {
   requiredScopes?: string[]
   providerType?: 'market' | 'trading'
   providerFieldId?: string
+  enableSearch?: boolean
+  searchPlaceholder?: string
   mimeType?: string
   columns?: string[]
   min?: number
@@ -111,12 +120,13 @@ export interface SubBlockConfig {
   acceptedTypes?: string[]
   multiple?: boolean
   maxSize?: number
+  autoSelectFirstOption?: boolean
   dependsOn?: string[]
   fetchOptions?: (
     blockId: string,
     subBlockId: string,
     contextValues?: Record<string, any>
-  ) => Promise<Array<{ label: string; id: string }>>
+  ) => Promise<Option[]>
 }
 
 export interface BlockConfig {
@@ -321,9 +331,7 @@ export function getToolParametersConfig(
         )
 
         if (firstProviderIndex >= 0) {
-          const remainingIds = baseParamIds.filter(
-            (paramId) => !providerParamIds.includes(paramId)
-          )
+          const remainingIds = baseParamIds.filter((paramId) => !providerParamIds.includes(paramId))
           const reorderedIds = [
             ...remainingIds.slice(0, firstProviderIndex),
             ...providerOrder,
@@ -341,153 +349,152 @@ export function getToolParametersConfig(
     }
 
     // Convert tool params to our standard format with UI component info
-    const allParameters: ToolParameterConfig[] = orderedParamEntries.map(
-      ([paramId, param]) => {
-        const toolParam: ToolParameterConfig = {
-          id: paramId,
-          type: param.type,
-          required: param.required ?? false,
-          visibility: param.visibility ?? (param.required ? 'user-or-llm' : 'user-only'),
-          description: param.description,
-          default: param.default,
-        }
-
-        // Add UI component information from block config if available
-        if (blockConfig) {
-          // For multi-operation tools, find the subblock that matches both the parameter ID
-          // and the current tool operation
-          let subBlock = blockConfig.subBlocks?.find((sb: SubBlockConfig) => {
-            if (sb.id !== paramId) return false
-
-            // If there's a condition, check if it matches the current tool
-            if (sb.condition && sb.condition.field === 'operation') {
-              // First try exact match with full tool ID
-              if (sb.condition.value === toolId) return true
-
-              // Then try extracting operation from tool ID
-              // For tools like 'google_calendar_quick_add', extract 'quick_add'
-              const parts = toolId.split('_')
-              if (parts.length >= 3) {
-                // Join everything after the provider prefix (e.g., 'google_calendar_')
-                const operation = parts.slice(2).join('_')
-                if (sb.condition.value === operation) return true
-              }
-
-              // Fallback to last part only
-              const operation = parts[parts.length - 1]
-              return sb.condition.value === operation
-            }
-
-            // If no condition, it's a global parameter (like apiKey)
-            return !sb.condition
-          })
-
-          // Fallback: if no operation-specific match, find any matching parameter
-          if (!subBlock) {
-            subBlock = blockConfig.subBlocks?.find((sb: SubBlockConfig) => sb.id === paramId)
-          }
-
-          // Special case: Check if this boolean parameter is part of a checkbox-list
-          if (!subBlock && param.type === 'boolean' && blockConfig) {
-            // Look for a checkbox-list that includes this parameter as an option
-            const checkboxListBlock = blockConfig.subBlocks?.find(
-              (sb: SubBlockConfig) =>
-                sb.type === 'checkbox-list' &&
-                Array.isArray(sb.options) &&
-                sb.options.some((opt: any) => opt.id === paramId)
-            )
-
-            if (checkboxListBlock) {
-              subBlock = checkboxListBlock
-            }
-          }
-
-          if (subBlock) {
-            toolParam.uiComponent = {
-              type: subBlock.type,
-              options: subBlock.options,
-              placeholder: subBlock.placeholder,
-              password: subBlock.password,
-              condition: subBlock.condition,
-              title: subBlock.title,
-              layout: subBlock.layout,
-              value: subBlock.value,
-              provider: subBlock.provider,
-              serviceId: subBlock.serviceId,
-              requiredScopes: subBlock.requiredScopes,
-              providerType: subBlock.providerType,
-              providerFieldId: subBlock.providerFieldId,
-              mimeType: subBlock.mimeType,
-              columns: subBlock.columns,
-              min: subBlock.min,
-              max: subBlock.max,
-              step: subBlock.step,
-              integer: subBlock.integer,
-              format: subBlock.format,
-              timezone: subBlock.timezone,
-              clearable: subBlock.clearable,
-              hideCalendarIcon: subBlock.hideCalendarIcon,
-              language: subBlock.language,
-              generationType: subBlock.generationType,
-              acceptedTypes: subBlock.acceptedTypes,
-              multiple: subBlock.multiple,
-              maxSize: subBlock.maxSize,
-              dependsOn: subBlock.dependsOn,
-              fetchOptions: subBlock.fetchOptions,
-            }
-          }
-        }
-
-        if (tradingProviderContext?.providerCatalog) {
-          const providerDefinitions = tradingProviderContext.providerDefinitions ?? []
-          const providerDefinition = providerDefinitions.find(
-            (definition) => definition.id === paramId
-          )
-          const registryEntry = tradingProviderContext.providerCatalog.registry[paramId]
-          const providerCondition =
-            registryEntry?.providers?.length > 0
-              ? ({
-                  field: 'provider',
-                  value: registryEntry.providers,
-                } as ComponentCondition)
-              : undefined
-          const definitionCondition = providerDefinition?.condition as
-            | ComponentCondition
-            | undefined
-          const mergedCondition = combineConditions(definitionCondition, providerCondition)
-
-          if (providerDefinition) {
-            toolParam.description = providerDefinition.description || toolParam.description
-            if (providerDefinition.defaultValue !== undefined) {
-              toolParam.default = providerDefinition.defaultValue
-            }
-          }
-
-          if (!toolParam.uiComponent && (providerDefinition || providerCondition)) {
-            const baseDefinition =
-              providerDefinition ??
-              ({
-                id: paramId,
-                type: param.type,
-                title: undefined,
-                description: toolParam.description,
-                placeholder: undefined,
-                required: param.required,
-                visibility: param.visibility,
-              } as TradingProviderParamDefinition)
-
-            toolParam.uiComponent = buildProviderUiComponent(baseDefinition, mergedCondition)
-          } else if (toolParam.uiComponent && mergedCondition) {
-            toolParam.uiComponent.condition = combineConditions(
-              mergedCondition,
-              toolParam.uiComponent.condition
-            )
-          }
-        }
-
-        return toolParam
+    const allParameters: ToolParameterConfig[] = orderedParamEntries.map(([paramId, param]) => {
+      const toolParam: ToolParameterConfig = {
+        id: paramId,
+        type: param.type,
+        required: param.required ?? false,
+        visibility: param.visibility ?? (param.required ? 'user-or-llm' : 'user-only'),
+        description: param.description,
+        default: param.default,
       }
-    )
+
+      // Add UI component information from block config if available
+      if (blockConfig) {
+        // For multi-operation tools, find the subblock that matches both the parameter ID
+        // and the current tool operation
+        let subBlock = blockConfig.subBlocks?.find((sb: SubBlockConfig) => {
+          if (sb.id !== paramId) return false
+
+          // If there's a condition, check if it matches the current tool
+          if (sb.condition && sb.condition.field === 'operation') {
+            // First try exact match with full tool ID
+            if (sb.condition.value === toolId) return true
+
+            // Then try extracting operation from tool ID
+            // For tools like 'google_calendar_quick_add', extract 'quick_add'
+            const parts = toolId.split('_')
+            if (parts.length >= 3) {
+              // Join everything after the provider prefix (e.g., 'google_calendar_')
+              const operation = parts.slice(2).join('_')
+              if (sb.condition.value === operation) return true
+            }
+
+            // Fallback to last part only
+            const operation = parts[parts.length - 1]
+            return sb.condition.value === operation
+          }
+
+          // If no condition, it's a global parameter (like apiKey)
+          return !sb.condition
+        })
+
+        // Fallback: if no operation-specific match, find any matching parameter
+        if (!subBlock) {
+          subBlock = blockConfig.subBlocks?.find((sb: SubBlockConfig) => sb.id === paramId)
+        }
+
+        // Special case: Check if this boolean parameter is part of a checkbox-list
+        if (!subBlock && param.type === 'boolean' && blockConfig) {
+          // Look for a checkbox-list that includes this parameter as an option
+          const checkboxListBlock = blockConfig.subBlocks?.find(
+            (sb: SubBlockConfig) =>
+              sb.type === 'checkbox-list' &&
+              Array.isArray(sb.options) &&
+              sb.options.some((opt: any) => opt.id === paramId)
+          )
+
+          if (checkboxListBlock) {
+            subBlock = checkboxListBlock
+          }
+        }
+
+        if (subBlock) {
+          toolParam.uiComponent = {
+            type: subBlock.type,
+            options: subBlock.options,
+            placeholder: subBlock.placeholder,
+            password: subBlock.password,
+            condition: subBlock.condition,
+            title: subBlock.title,
+            layout: subBlock.layout,
+            value: subBlock.value,
+            provider: subBlock.provider,
+            serviceId: subBlock.serviceId,
+            requiredScopes: subBlock.requiredScopes,
+            providerType: subBlock.providerType,
+            providerFieldId: subBlock.providerFieldId,
+            enableSearch: subBlock.enableSearch,
+            searchPlaceholder: subBlock.searchPlaceholder,
+            mimeType: subBlock.mimeType,
+            columns: subBlock.columns,
+            min: subBlock.min,
+            max: subBlock.max,
+            step: subBlock.step,
+            integer: subBlock.integer,
+            format: subBlock.format,
+            timezone: subBlock.timezone,
+            clearable: subBlock.clearable,
+            hideCalendarIcon: subBlock.hideCalendarIcon,
+            language: subBlock.language,
+            generationType: subBlock.generationType,
+            acceptedTypes: subBlock.acceptedTypes,
+            multiple: subBlock.multiple,
+            maxSize: subBlock.maxSize,
+            autoSelectFirstOption: subBlock.autoSelectFirstOption,
+            dependsOn: subBlock.dependsOn,
+            fetchOptions: subBlock.fetchOptions,
+          }
+        }
+      }
+
+      if (tradingProviderContext?.providerCatalog) {
+        const providerDefinitions = tradingProviderContext.providerDefinitions ?? []
+        const providerDefinition = providerDefinitions.find(
+          (definition) => definition.id === paramId
+        )
+        const registryEntry = tradingProviderContext.providerCatalog.registry[paramId]
+        const providerCondition =
+          registryEntry?.providers?.length > 0
+            ? ({
+                field: 'provider',
+                value: registryEntry.providers,
+              } as ComponentCondition)
+            : undefined
+        const definitionCondition = providerDefinition?.condition as ComponentCondition | undefined
+        const mergedCondition = combineConditions(definitionCondition, providerCondition)
+
+        if (providerDefinition) {
+          toolParam.description = providerDefinition.description || toolParam.description
+          if (providerDefinition.defaultValue !== undefined) {
+            toolParam.default = providerDefinition.defaultValue
+          }
+        }
+
+        if (!toolParam.uiComponent && (providerDefinition || providerCondition)) {
+          const baseDefinition =
+            providerDefinition ??
+            ({
+              id: paramId,
+              type: param.type,
+              title: undefined,
+              description: toolParam.description,
+              placeholder: undefined,
+              required: param.required,
+              visibility: param.visibility,
+            } as TradingProviderParamDefinition)
+
+          toolParam.uiComponent = buildProviderUiComponent(baseDefinition, mergedCondition)
+        } else if (toolParam.uiComponent && mergedCondition) {
+          toolParam.uiComponent.condition = combineConditions(
+            mergedCondition,
+            toolParam.uiComponent.condition
+          )
+        }
+      }
+
+      return toolParam
+    })
 
     // Parameters that should be shown to the user for input
     const userInputParameters = allParameters.filter(

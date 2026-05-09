@@ -12,7 +12,6 @@ import { getBlock } from '@/blocks/registry'
 import { isSkillLoaderToolId } from '@/executor/handlers/agent/skills-resolver'
 import { formatCost, getProviderIcon } from '@/providers/ai/utils'
 import type { TraceSpan } from '@/stores/logs/filters/types'
-import { getTool } from '@/tools/utils'
 
 interface TraceSpanItemProps {
   span: TraceSpan
@@ -149,7 +148,6 @@ export function TraceSpanItem({
     }
   }
 
-  // Prefer registry-provided block color; fallback to legacy per-type colors
   const getBlockColor = (type: string) => {
     try {
       const block = getBlock(type)
@@ -177,17 +175,9 @@ export function TraceSpanItem({
       if (isSkillLoaderToolId(raw)) {
         return 'Load Skill'
       }
-      const tool = getTool(raw)
-      const displayName = (() => {
-        if (tool?.name) return tool.name
-        const parts = raw.split('_')
-        const label = parts.slice(1).join(' ')
-        if (label) {
-          return label.replace(/\b\w/g, (c) => c.toUpperCase())
-        }
-        return raw.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
-      })()
-      return displayName
+      const parts = raw.split('_')
+      const label = parts.slice(1).join(' ') || raw.replace(/_/g, ' ')
+      return label.replace(/\b\w/g, (c) => c.toUpperCase())
     }
     if (span.type === 'model') {
       const modelName = extractModelName(span.name)

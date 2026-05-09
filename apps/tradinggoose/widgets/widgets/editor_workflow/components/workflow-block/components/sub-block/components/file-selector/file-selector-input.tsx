@@ -3,6 +3,10 @@
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { getEnv } from '@/lib/env'
 import { getProviderIdFromServiceId } from '@/lib/oauth'
+import type { SubBlockConfig } from '@/blocks/types'
+import { useWorkflowEditorActions } from '@/hooks/workflow/use-workflow-editor-actions'
+import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
+import { DEFAULT_WORKFLOW_CHANNEL_ID } from '@/stores/workflows/workflow/types'
 import {
   ConfluenceFileSelector,
   GoogleCalendarSelector,
@@ -16,10 +20,6 @@ import { useDependsOnGate } from '@/widgets/widgets/editor_workflow/components/w
 import { useForeignCredential } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-foreign-credential'
 import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
 import { useOptionalWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
-import type { SubBlockConfig } from '@/blocks/types'
-import { useWorkflowEditorActions } from '@/hooks/workflow/use-workflow-editor-actions'
-import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
-import { DEFAULT_WORKFLOW_CHANNEL_ID } from '@/stores/workflows/workflow/types'
 
 interface FileSelectorInputProps {
   blockId: string
@@ -41,6 +41,13 @@ export function FileSelectorInput({
     state.getActiveWorkflowId(resolvedChannelId)
   )
   const workflowIdFromUrl = routeContext?.workflowId || registryWorkflowId || ''
+  const getContextValue = (key: string) => {
+    const value = contextValues?.[key]
+    if (value && typeof value === 'object' && 'value' in value) {
+      return (value as { value?: unknown }).value
+    }
+    return value
+  }
   // Central dependsOn gating for this selector instance
   const { finalDisabled } = useDependsOnGate(blockId, subBlock, { disabled, contextValues })
 
@@ -96,7 +103,7 @@ export function FileSelectorInput({
   // For Confluence and Jira, we need the domain and credentials
   const domain =
     isConfluence || isJira
-      ? (contextValues?.domain?.value as string | undefined) || (domainValue as string) || ''
+      ? (getContextValue('domain') as string | undefined) || (domainValue as string) || ''
       : ''
 
   // Discord channel selector removed; no special values used here
@@ -437,7 +444,7 @@ export function FileSelectorInput({
 
   // Default to Google Drive picker
   {
-    const credential = ((contextValues?.credential?.value as string | undefined) ||
+    const credential = ((getContextValue('credential') as string | undefined) ||
       (connectedCredential as string) ||
       '') as string
 

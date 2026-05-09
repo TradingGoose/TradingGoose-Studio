@@ -137,6 +137,19 @@ export interface BlockOptionLoaderContext {
   contextValues?: Record<string, unknown>
 }
 
+export interface SubBlockOption {
+  label: string
+  id: string
+  value?: unknown
+  icon?: React.ComponentType<{ className?: string }>
+  group?: string
+  disabled?: boolean
+  dstOn?: boolean
+  observesDst?: boolean
+  searchLabel?: string
+  rightLabel?: string
+}
+
 export interface SubBlockConfig {
   id: string
   title?: string
@@ -169,25 +182,13 @@ export interface SubBlockConfig {
         }
       })
   defaultValue?: string | number | boolean | Record<string, unknown> | Array<unknown>
-  options?:
-    | {
-        label: string
-        id: string
-        icon?: React.ComponentType<{ className?: string }>
-        group?: string
-      }[]
-    | (() => {
-        label: string
-        id: string
-        icon?: React.ComponentType<{ className?: string }>
-        group?: string
-      }[])
+  options?: SubBlockOption[] | (() => SubBlockOption[])
   // Async options loader for dropdown/combobox-like inputs
   fetchOptions?: (
     blockId: string,
     subBlockId: string,
     context: BlockOptionLoaderContext
-  ) => Promise<Array<{ label: string; id: string }>>
+  ) => Promise<SubBlockOption[]>
   optionsStore?: 'marketProviders'
   min?: number
   max?: number
@@ -212,6 +213,7 @@ export interface SubBlockConfig {
   showCopyButton?: boolean
   enableSearch?: boolean
   searchPlaceholder?: string
+  autoSelectFirstOption?: boolean
   connectionDroppable?: boolean
   hidden?: boolean
   hideFromPreview?: boolean
@@ -271,7 +273,7 @@ export interface SubBlockConfig {
     blockId: string,
     subBlockId: string,
     optionId: string
-  ) => Promise<{ label: string; id: string } | null>
+  ) => Promise<SubBlockOption | null>
 }
 
 export interface BlockConfig<T extends ToolResponse = ToolResponse> {

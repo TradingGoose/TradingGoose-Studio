@@ -3,7 +3,7 @@ import type { BlockConfig, SubBlockConfig } from '@/blocks/types'
 import { AuthMode } from '@/blocks/types'
 import { buildInputsFromToolParams } from '@/blocks/utils'
 import { getTradingProviders } from '@/providers/trading'
-import { tradingOrderDetailTool } from '@/tools/trading'
+import { tradingOrderDetailTool } from '@/tools/trading/order_detail'
 import type { TradingOrderDetailResponse } from '@/tools/trading/types'
 
 const providerOptions = getTradingProviders().map((provider) => ({

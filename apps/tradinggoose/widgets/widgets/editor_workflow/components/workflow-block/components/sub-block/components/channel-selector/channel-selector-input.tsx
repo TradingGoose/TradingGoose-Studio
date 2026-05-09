@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import type { SubBlockConfig } from '@/blocks/types'
 import {
   type SlackChannelInfo,
   SlackChannelSelector,
@@ -10,7 +10,6 @@ import { useDependsOnGate } from '@/widgets/widgets/editor_workflow/components/w
 import { useForeignCredential } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-foreign-credential'
 import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
 import { useWorkflowId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
-import type { SubBlockConfig } from '@/blocks/types'
 
 interface ChannelSelectorInputProps {
   blockId: string
@@ -41,7 +40,6 @@ export function ChannelSelectorInput({
 
   // Get provider-specific values
   const provider = subBlock.provider || 'slack'
-  const isSlack = provider === 'slack'
   // Central dependsOn gating
   const { finalDisabled, dependsOn, dependencyValues } = useDependsOnGate(blockId, subBlock, {
     disabled,
@@ -84,44 +82,23 @@ export function ChannelSelectorInput({
     onChannelSelect?.(channelId)
   }
 
-  // Render Slack channel selector
-  if (isSlack) {
-    return (
-      <TooltipProvider>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <div className='w-full'>
-              <SlackChannelSelector
-                value={selectedChannelId}
-                onChange={(channelId: string, channelInfo?: SlackChannelInfo) => {
-                  handleChannelChange(channelId, channelInfo)
-                }}
-                credential={credential}
-                label={subBlock.placeholder || 'Select Slack channel'}
-                disabled={finalDisabled}
-                workflowId={workflowIdFromUrl}
-                isForeignCredential={isForeignCredential}
-              />
-            </div>
-          </TooltipTrigger>
-        </Tooltip>
-      </TooltipProvider>
-    )
+  if (provider !== 'slack') {
+    return null
   }
 
-  // Default fallback for unsupported providers
   return (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <div className='w-full rounded border border-dashed p-4 text-center text-muted-foreground text-sm'>
-            Channel selector not supported for provider: {provider}
-          </div>
-        </TooltipTrigger>
-        <TooltipContent side='top'>
-          <p>This channel selector is not yet implemented for {provider}</p>
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
+    <div className='w-full'>
+      <SlackChannelSelector
+        value={selectedChannelId}
+        onChange={(channelId: string, channelInfo?: SlackChannelInfo) => {
+          handleChannelChange(channelId, channelInfo)
+        }}
+        credential={credential}
+        label={subBlock.placeholder || 'Select Slack channel'}
+        disabled={finalDisabled}
+        workflowId={workflowIdFromUrl}
+        isForeignCredential={isForeignCredential}
+      />
+    </div>
   )
 }

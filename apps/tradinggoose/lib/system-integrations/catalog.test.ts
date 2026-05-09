@@ -44,12 +44,6 @@ describe('system integration catalog seed', () => {
           name: 'Tradier Live',
           isEnabled: true,
         }),
-        expect.objectContaining({
-          id: 'tradier-paper',
-          parentId: 'bundle:tradier',
-          name: 'Tradier Paper',
-          isEnabled: true,
-        }),
       ])
     )
 

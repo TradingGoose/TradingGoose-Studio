@@ -155,7 +155,7 @@ const EditWorkflowArgs = z
   })
   .strict()
   .describe(
-    'Full workflow document replacement tool. Do not use this to rename one existing block or patch one block\'s `enabled` or `subBlocks`; use `edit_workflow_block` instead.'
+    "Full workflow document replacement tool. Do not use this to rename one existing block or patch one block's `enabled` or `subBlocks`; use `edit_workflow_block` instead."
   )
 
 const EditWorkflowBlockArgs = z
@@ -768,10 +768,8 @@ export const ToolResultSchemas = {
     results: z.array(z.any()),
     query: z.string().optional(),
     type: z.string().optional(),
-    requestedType: z.string().optional(),
     totalResults: z.number().optional(),
-    source: z.enum(['exa', 'serper', 'duckduckgo']).optional(),
-    warnings: z.array(z.string()).optional(),
+    source: z.enum(['exa', 'serper']).optional(),
   }),
   make_api_request: z.object({
     status: z.number(),

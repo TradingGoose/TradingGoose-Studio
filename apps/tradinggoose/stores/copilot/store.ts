@@ -4,11 +4,7 @@ import { createContext, createElement, type ReactNode, useContext, useMemo } fro
 import type { StoreApi } from 'zustand'
 import { devtools } from 'zustand/middleware'
 import { createWithEqualityFn as create, useStoreWithEqualityFn } from 'zustand/traditional'
-import {
-  shouldAutoExecuteCopilotTool,
-  shouldAutoExecuteIntegrationTool,
-  shouldRequireCopilotApproval,
-} from '@/lib/copilot/access-policy'
+import { shouldAutoExecuteTool } from '@/lib/copilot/access-policy'
 import { type CopilotChat, sendStreamingMessage } from '@/lib/copilot/api'
 import { mergeCopilotContexts } from '@/lib/copilot/chat-contexts'
 import { DEFAULT_COPILOT_RUNTIME_MODEL } from '@/lib/copilot/runtime-models'
@@ -26,16 +22,13 @@ import {
 import { createLogger } from '@/lib/logs/console/logger'
 import {
   maybeHandleCopilotMarkCompleteContinuation,
+  postCopilotMarkCompleteRequest,
   registerCopilotMarkCompleteContinuationHandler,
 } from '@/stores/copilot/mark-complete'
 import {
   getCopilotStoreForToolCall,
   registerCopilotStoreForToolCallResolver,
 } from '@/stores/copilot/store-access'
-import {
-  getCopilotWorkspaceSelection,
-  rememberCopilotWorkspaceSelection,
-} from '@/stores/copilot/workspace-selection'
 import {
   buildPinnedToolCallsById,
   createErrorMessage,
@@ -70,8 +63,6 @@ import {
 import { reportClientManagedToolFailure } from '@/stores/copilot/tool-failure'
 import {
   bindClientToolExecutionContext,
-  copilotToolHasInterrupt,
-  copilotToolSupportsState,
   createExecutionContext,
   ensureClientToolInstance,
   isBackgroundState,
@@ -91,6 +82,10 @@ import type {
   CopilotToolExecutionProvenance,
   MessageFileAttachment,
 } from '@/stores/copilot/types'
+import {
+  getCopilotWorkspaceSelection,
+  rememberCopilotWorkspaceSelection,
+} from '@/stores/copilot/workspace-selection'
 import { useEnvironmentStore } from '@/stores/settings/environment/store'
 
 const logger = createLogger('CopilotStore')
@@ -158,17 +153,17 @@ async function postCopilotMarkComplete(params: {
   message?: unknown
   data?: unknown
 }): Promise<Response> {
-  const response = await fetch('/api/copilot/tools/mark-complete', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      id: params.toolCallId,
-      name: params.toolName,
-      status: params.status,
-      message: params.message,
-      data: params.data,
-    }),
-  })
+  const targetStore = getCopilotStoreForToolCall(params.toolCallId)
+  if (
+    targetStore.getState().toolCallsById[params.toolCallId]?.state === ClientToolCallState.aborted
+  ) {
+    return Response.json({ success: true, aborted: true })
+  }
+
+  const response = await postCopilotMarkCompleteRequest(
+    params,
+    targetStore.getState().abortController?.signal
+  )
 
   let continued = false
   if (response.ok) {
@@ -179,24 +174,21 @@ async function postCopilotMarkComplete(params: {
   }
 
   if (!continued) {
-    const targetStore = getCopilotStoreForToolCall(params.toolCallId)
-    if (targetStore) {
-      const state = targetStore.getState()
-      if (state.isAwaitingContinuation) {
-        const latestTurnStatus = resolveTurnStatusFromToolCalls(state.toolCallsById)
-        if (latestTurnStatus !== ACTIVE_TURN_STATUS) {
-          targetStore.setState((currentState) => ({
-            ...buildChatTurnStatusState(currentState, latestTurnStatus),
-            isSendingMessage: false,
-            isAwaitingContinuation: false,
-          }))
+    const state = targetStore.getState()
+    if (state.isAwaitingContinuation) {
+      const latestTurnStatus = resolveTurnStatusFromToolCalls(state.toolCallsById)
+      if (latestTurnStatus !== ACTIVE_TURN_STATUS) {
+        targetStore.setState((currentState) => ({
+          ...buildChatTurnStatusState(currentState, latestTurnStatus),
+          isSendingMessage: false,
+          isAwaitingContinuation: false,
+        }))
 
-          const currentChat = targetStore.getState().currentChat
-          if (currentChat?.reviewSessionId) {
-            void targetStore.getState().saveChatMessages(currentChat.reviewSessionId, {
-              latestTurnStatus,
-            })
-          }
+        const currentChat = targetStore.getState().currentChat
+        if (currentChat?.reviewSessionId) {
+          void targetStore.getState().saveChatMessages(currentChat.reviewSessionId, {
+            latestTurnStatus,
+          })
         }
       }
     }
@@ -205,68 +197,86 @@ async function postCopilotMarkComplete(params: {
   return response
 }
 
+function postCopilotAbort(
+  chat: Pick<CopilotChat, 'reviewSessionId' | 'conversationId' | 'workspaceId'> | null | undefined
+) {
+  if (!chat?.reviewSessionId && !chat?.conversationId) return
+
+  void fetch('/api/copilot/chat/abort', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      chatId: chat.reviewSessionId,
+      conversationId: chat.conversationId,
+      workspaceId: chat.workspaceId,
+    }),
+  }).catch((error) => {
+    logger.warn('Failed to abort copilot turn on service', {
+      error: error instanceof Error ? error.message : String(error),
+    })
+  })
+}
+
 // Helper: abort all in-progress client tools and keep message-level tool state aligned.
 function abortAllInProgressTools(
   set: any,
   get: () => CopilotStore,
   options?: { includeReview?: boolean }
 ) {
-  try {
-    const { toolCallsById } = get()
-    const updatedMap = { ...toolCallsById }
-    const abortedIds: string[] = []
-    for (const [id, tc] of Object.entries(toolCallsById)) {
-      const st = tc.state as any
-      const isTerminal =
-        st === ClientToolCallState.success ||
-        st === ClientToolCallState.error ||
-        st === ClientToolCallState.rejected ||
-        st === ClientToolCallState.aborted ||
-        (!options?.includeReview && isReviewState(st))
-      if (!isTerminal) {
-        abortedIds.push(id)
-        updatedMap[id] = {
-          ...tc,
-          state: ClientToolCallState.aborted,
-          display: resolveToolDisplay(tc.name, ClientToolCallState.aborted, id, (tc as any).params),
-        }
+  const { toolCallsById } = get()
+  const updatedMap = { ...toolCallsById }
+  const abortedIds: string[] = []
+  for (const [id, tc] of Object.entries(toolCallsById)) {
+    const st = tc.state as any
+    const isTerminal =
+      st === ClientToolCallState.success ||
+      st === ClientToolCallState.error ||
+      st === ClientToolCallState.rejected ||
+      st === ClientToolCallState.aborted ||
+      (!options?.includeReview && isReviewState(st))
+    if (!isTerminal) {
+      abortedIds.push(id)
+      updatedMap[id] = {
+        ...tc,
+        state: ClientToolCallState.aborted,
+        display: resolveToolDisplay(tc.name, ClientToolCallState.aborted, id, (tc as any).params),
       }
     }
-    if (abortedIds.length > 0) {
-      set((s: CopilotStore) => {
-        const nextChatState = buildChatTurnStatusState(s, COMPLETED_TURN_STATUS)
-        let nextMessages = s.messages
-        for (const toolCallId of abortedIds) {
-          nextMessages = updateMessagesForToolCallState(
-            nextMessages,
-            toolCallId,
-            ClientToolCallState.aborted
-          )
-        }
+  }
+  if (abortedIds.length > 0) {
+    set((s: CopilotStore) => {
+      const nextChatState = buildChatTurnStatusState(s, COMPLETED_TURN_STATUS)
+      let nextMessages = s.messages
+      for (const toolCallId of abortedIds) {
+        nextMessages = updateMessagesForToolCallState(
+          nextMessages,
+          toolCallId,
+          ClientToolCallState.aborted
+        )
+      }
 
-        const nextCurrentChat = nextChatState.currentChat
-          ? {
-              ...nextChatState.currentChat,
-              messages: nextMessages,
-            }
-          : null
+      const nextCurrentChat = nextChatState.currentChat
+        ? {
+            ...nextChatState.currentChat,
+            messages: nextMessages,
+          }
+        : null
 
-        return {
-          toolCallsById: updatedMap,
-          messages: nextMessages,
-          chats: nextChatState.chats,
-          currentChat: nextCurrentChat,
-        }
-      })
-    }
-  } catch {}
+      return {
+        toolCallsById: updatedMap,
+        messages: nextMessages,
+        chats: nextChatState.chats,
+        currentChat: nextCurrentChat,
+      }
+    })
+  }
 }
 
 function autoExecuteEligibleToolsForAccessLevel(
   accessLevel: CopilotStore['accessLevel'],
   get: () => CopilotStore
 ) {
-  if (shouldRequireCopilotApproval(accessLevel)) {
+  if (!shouldAutoExecuteTool(accessLevel)) {
     return
   }
 
@@ -284,17 +294,11 @@ function autoExecuteEligibleToolsForAccessLevel(
     }
 
     if (isCopilotTool(toolCall.name)) {
-      const hasInterrupt = copilotToolHasInterrupt(toolCall.name, id)
-      const entersReviewState = copilotToolSupportsState(toolCall.name, ClientToolCallState.review)
-      if (shouldAutoExecuteCopilotTool(accessLevel, hasInterrupt, entersReviewState)) {
-        copilotToolIds.push(id)
-      }
+      copilotToolIds.push(id)
       continue
     }
 
-    if (shouldAutoExecuteIntegrationTool(accessLevel)) {
-      integrationToolIds.push(id)
-    }
+    integrationToolIds.push(id)
   }
 
   if (copilotToolIds.length === 0 && integrationToolIds.length === 0) {
@@ -505,8 +509,7 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
         const previousMessages = get().messages
         const normalizedMessages = normalizeMessagesForUI(
           chat.messages || [],
-          chat.latestTurnStatus,
-          get().accessLevel
+          chat.latestTurnStatus
         )
         const optimisticToolCallsById = buildPinnedToolCallsById(normalizedMessages, {
           workspaceId: chat.workspaceId,
@@ -559,8 +562,7 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
             if (latestChat) {
               const normalizedMessages = normalizeMessagesForUI(
                 latestChat.messages || [],
-                latestChat.latestTurnStatus,
-                get().accessLevel
+                latestChat.latestTurnStatus
               )
               const toolCallsById = buildPinnedToolCallsById(normalizedMessages, {
                 workspaceId: latestChat.workspaceId,
@@ -710,8 +712,7 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
                 } else {
                   const normalizedMessages = normalizeMessagesForUI(
                     updatedCurrentChat.messages || [],
-                    updatedCurrentChat.latestTurnStatus,
-                    get().accessLevel
+                    updatedCurrentChat.latestTurnStatus
                   )
                   const toolCallsById = buildPinnedToolCallsById(normalizedMessages, {
                     workspaceId: updatedCurrentChat.workspaceId,
@@ -740,8 +741,7 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
                 if (availableChat) {
                   const normalizedMessages = normalizeMessagesForUI(
                     availableChat.messages || [],
-                    availableChat.latestTurnStatus,
-                    get().accessLevel
+                    availableChat.latestTurnStatus
                   )
                   const toolCallsById = buildPinnedToolCallsById(normalizedMessages, {
                     workspaceId: availableChat.workspaceId,
@@ -882,7 +882,8 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
               result.stream,
               streamingMessage.id,
               false,
-              turnProvenance
+              turnProvenance,
+              abortController.signal
             )
           } else {
             if (result.error === 'Request was aborted') {
@@ -954,55 +955,28 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
         const hasActiveToolCalls = hasUiActiveToolCalls(toolCallsById)
         if (!isSendingMessage && !isChatTurnInProgress(currentChat) && !hasActiveToolCalls) return
         set({ isAborting: true })
-        try {
-          abortController?.abort()
-          const lastMessage = messages[messages.length - 1]
-          if (lastMessage && lastMessage.role === 'assistant') {
-            const textContent =
-              lastMessage.contentBlocks
-                ?.filter((b) => b.type === 'text')
-                .map((b: any) => b.content)
-                .join('') || ''
-            set((state) => ({
-              messages: state.messages.map((msg) =>
-                msg.id === lastMessage.id
-                  ? { ...msg, content: textContent.trim() || 'Message was aborted' }
-                  : msg
-              ),
-              ...buildChatTurnStatusState(state, COMPLETED_TURN_STATUS),
-              isSendingMessage: false,
-              isAwaitingContinuation: false,
-              isAborting: false,
-              abortController: null,
-            }))
-          } else {
-            set((state) => ({
-              ...buildChatTurnStatusState(state, COMPLETED_TURN_STATUS),
-              isSendingMessage: false,
-              isAwaitingContinuation: false,
-              isAborting: false,
-              abortController: null,
-            }))
-          }
-
-          // Immediately put all in-progress tools into aborted state
-          abortAllInProgressTools(set, get, { includeReview: true })
-
-          const { currentChat } = get()
-          if (currentChat) {
-            void get().saveChatMessages(currentChat.reviewSessionId, {
-              latestTurnStatus: COMPLETED_TURN_STATUS,
-            })
-          }
-
-          // Fetch context usage after abort
-          logger.info('[Context Usage] Message aborted, fetching usage')
-          get()
-            .fetchContextUsage()
-            .catch((err) => {
-              logger.warn('[Context Usage] Failed to fetch after abort', err)
-            })
-        } catch {
+        abortController?.abort()
+        postCopilotAbort(currentChat)
+        const lastMessage = messages[messages.length - 1]
+        if (lastMessage && lastMessage.role === 'assistant') {
+          const textContent =
+            lastMessage.contentBlocks
+              ?.filter((b) => b.type === 'text')
+              .map((b: any) => b.content)
+              .join('') || ''
+          set((state) => ({
+            messages: state.messages.map((msg) =>
+              msg.id === lastMessage.id
+                ? { ...msg, content: textContent.trim() || 'Message was aborted' }
+                : msg
+            ),
+            ...buildChatTurnStatusState(state, COMPLETED_TURN_STATUS),
+            isSendingMessage: false,
+            isAwaitingContinuation: false,
+            isAborting: false,
+            abortController: null,
+          }))
+        } else {
           set((state) => ({
             ...buildChatTurnStatusState(state, COMPLETED_TURN_STATUS),
             isSendingMessage: false,
@@ -1011,9 +985,24 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
             abortController: null,
           }))
         }
+
+        abortAllInProgressTools(set, get, { includeReview: true })
+
+        const { currentChat: updatedChat } = get()
+        if (updatedChat) {
+          void get().saveChatMessages(updatedChat.reviewSessionId, {
+            latestTurnStatus: COMPLETED_TURN_STATUS,
+          })
+        }
+
+        logger.info('[Context Usage] Message aborted, fetching usage')
+        get()
+          .fetchContextUsage()
+          .catch((err) => {
+            logger.warn('[Context Usage] Failed to fetch after abort', err)
+          })
       },
 
-      // Tool-call related APIs are stubbed for now
       setToolCallState: (toolCall: any, newState: any) => {
         try {
           const id: string | undefined = toolCall?.id
@@ -1084,10 +1073,14 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
         stream: ReadableStream,
         assistantMessageId: string,
         isContinuation = false,
-        turnProvenance?: CopilotToolExecutionProvenance
+        turnProvenance?: CopilotToolExecutionProvenance,
+        abortSignal?: AbortSignal
       ) => {
         const reader = stream.getReader()
         const decoder = new TextDecoder()
+        const cancelReader = () => {
+          void reader.cancel().catch(() => {})
+        }
 
         const timeoutId = setTimeout(() => {
           logger.warn('Stream timeout reached, completing response')
@@ -1095,6 +1088,12 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
         }, 600000)
 
         try {
+          if (abortSignal?.aborted) {
+            cancelReader()
+            return
+          }
+          abortSignal?.addEventListener('abort', cancelReader, { once: true })
+
           const context: StreamingContext = {
             messageId: assistantMessageId,
             provenance: turnProvenance,
@@ -1117,18 +1116,29 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
           }
 
           for await (const data of parseSSEStream(reader, decoder, logger)) {
-            const { abortController } = get()
-            if (abortController?.signal.aborted) break
+            if (abortSignal?.aborted) {
+              resetStreamingQueue()
+              return
+            }
 
             const handler = sseHandlers[data.type] || sseHandlers.default
             await handler(data, context, get, set)
             if (context.streamComplete) break
           }
 
+          if (abortSignal?.aborted) {
+            resetStreamingQueue()
+            return
+          }
+
           if (sseHandlers.stream_end) sseHandlers.stream_end({}, context, get, set)
 
           resetStreamingQueue()
           const finalContent = getStreamingAssistantContent(context)
+          const { latestTurnStatus, isAwaitingContinuation } = resolveFinalStreamTurnState(
+            context,
+            get().toolCallsById
+          )
           set((state) => ({
             messages: state.messages.map((msg) =>
               msg.id === assistantMessageId
@@ -1139,7 +1149,7 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
                   }
                 : msg
             ),
-            abortController: null,
+            abortController: latestTurnStatus === ACTIVE_TURN_STATUS ? state.abortController : null,
           }))
 
           if (context.newReviewSessionId && !get().currentChat) {
@@ -1150,11 +1160,6 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
           }
 
           await flushPendingAutoExecutionToolCalls(context, get, logger)
-
-          const { latestTurnStatus, isAwaitingContinuation } = resolveFinalStreamTurnState(
-            context,
-            get().toolCallsById
-          )
 
           set((state) => ({
             ...buildChatTurnStatusState(state, latestTurnStatus),
@@ -1188,6 +1193,7 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
             await get().fetchContextUsage(billingOptions)
           }
         } finally {
+          abortSignal?.removeEventListener('abort', cancelReader)
           clearTimeout(timeoutId)
         }
       },
@@ -1484,6 +1490,7 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
         }
 
         try {
+          const stateBeforeUserAction = toolCallsById[id]?.state
           if (typeof instance.hydratePersistedToolCall === 'function') {
             instance.hydratePersistedToolCall(toolCallsById[id])
           }
@@ -1499,6 +1506,15 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
             await instance.execute(preparedArgs)
           }
           syncClientToolInstanceState(id, instance)
+          if (
+            stateBeforeUserAction !== ClientToolCallState.review &&
+            shouldAutoExecuteTool(get().accessLevel) &&
+            get().toolCallsById[id]?.state === ClientToolCallState.review &&
+            typeof instance.handleUserAction === 'function'
+          ) {
+            await instance.handleUserAction(preparedArgs)
+            syncClientToolInstanceState(id, instance)
+          }
         } catch (error) {
           const errorMap = { ...get().toolCallsById }
           if (
@@ -1684,11 +1700,9 @@ registerCopilotStoreForToolCallResolver(
 
 registerCopilotMarkCompleteContinuationHandler(async ({ toolCallId, response }) => {
   const targetStore = getCopilotStoreForToolCall(toolCallId)
-  const turnProvenance = targetStore.getState().toolCallsById[toolCallId]?.provenance
-  const assistantMessageId = findAssistantMessageIdForToolCall(
-    targetStore.getState().messages,
-    toolCallId
-  )
+  const state = targetStore.getState()
+  const turnProvenance = state.toolCallsById[toolCallId]?.provenance
+  const assistantMessageId = findAssistantMessageIdForToolCall(state.messages, toolCallId)
 
   if (!assistantMessageId || !response.body) {
     logger.warn('Skipping copilot continuation stream; assistant message not found', {
@@ -1698,9 +1712,30 @@ registerCopilotMarkCompleteContinuationHandler(async ({ toolCallId, response }) 
     return
   }
 
+  if (!isChatTurnInProgress(state.currentChat)) {
+    await response.body.cancel().catch(() => {})
+    return
+  }
+
+  const abortController =
+    state.abortController && !state.abortController.signal.aborted
+      ? state.abortController
+      : new AbortController()
+  targetStore.setState({
+    abortController,
+    isSendingMessage: true,
+    isAwaitingContinuation: false,
+  })
+
   await targetStore
     .getState()
-    .handleStreamingResponse(response.body, assistantMessageId, true, turnProvenance)
+    .handleStreamingResponse(
+      response.body,
+      assistantMessageId,
+      true,
+      turnProvenance,
+      abortController.signal
+    )
 })
 
 const CopilotStoreContext = createContext<StoreApi<CopilotStore> | null>(null)

@@ -1,16 +1,10 @@
-import {
-  shouldAutoExecuteCopilotTool,
-  shouldAutoExecuteIntegrationTool,
-  shouldRequireCopilotApproval,
-} from '@/lib/copilot/access-policy'
+import { shouldAutoExecuteTool } from '@/lib/copilot/access-policy'
 import { normalizeFunctionCallArguments } from '@/lib/copilot/function-call-args'
 import { ClientToolCallState } from '@/lib/copilot/tools/client/base-tool'
 import { withPinnedToolExecutionProvenance } from '@/stores/copilot/store-provenance'
 import { ACTIVE_TURN_STATUS, buildChatTurnStatusState } from '@/stores/copilot/store-state'
 import {
   bindClientToolExecutionContext,
-  copilotToolHasInterrupt,
-  copilotToolSupportsState,
   createExecutionContext,
   ensureClientToolInstance,
   isBackgroundState,
@@ -264,52 +258,31 @@ function scheduleAutomaticToolExecution(
   get: () => CopilotStore,
   logger: StreamingLogger
 ) {
-  if (isCopilotTool(toolName)) {
-    try {
-      const hasInterrupt = copilotToolHasInterrupt(toolName, toolCallId)
-      const entersReviewState = copilotToolSupportsState(toolName, ClientToolCallState.review)
-      const { accessLevel } = get()
-      if (shouldAutoExecuteCopilotTool(accessLevel, hasInterrupt, entersReviewState)) {
-        setTimeout(() => {
-          void get().executeCopilotToolCall(toolCallId)
-        }, 0)
-      } else {
-        logger.info('[copilot access] copilot tool awaiting confirmation', {
-          accessLevel,
-          id: toolCallId,
-          name: toolName,
-        })
-      }
-    } catch (error) {
-      logger.warn('Copilot tool auto-exec check failed', {
-        id: toolCallId,
-        name: toolName,
-        error,
-      })
-    }
-    return
-  }
-
   try {
     const { accessLevel } = get()
-    if (shouldAutoExecuteIntegrationTool(accessLevel)) {
-      logger.info('[copilot access] auto-executing integration tool', {
+    if (!shouldAutoExecuteTool(accessLevel)) {
+      logger.info('[copilot access] tool awaiting confirmation', {
         accessLevel,
         id: toolCallId,
         name: toolName,
       })
-      setTimeout(() => {
-        void get().executeIntegrationTool(toolCallId)
-      }, 0)
-    } else {
-      logger.info('[copilot access] integration tool awaiting confirmation', {
-        accessLevel,
-        id: toolCallId,
-        name: toolName,
-      })
+      return
     }
+
+    logger.info('[copilot access] auto-executing tool', {
+      accessLevel,
+      id: toolCallId,
+      name: toolName,
+    })
+    setTimeout(() => {
+      if (isCopilotTool(toolName)) {
+        void get().executeCopilotToolCall(toolCallId)
+      } else {
+        void get().executeIntegrationTool(toolCallId)
+      }
+    }, 0)
   } catch (error) {
-    logger.warn('Integration tool access check failed', {
+    logger.warn('Tool auto-exec check failed', {
       id: toolCallId,
       name: toolName,
       error,
@@ -330,19 +303,9 @@ export async function flushPendingAutoExecutionToolCalls(
   const pendingIds = [...pendingToolCallIds]
   pendingToolCallIds.clear()
   const toolCallsById = get().toolCallsById
-  const { accessLevel } = get()
   for (const toolCallId of pendingIds) {
     const toolCall = toolCallsById[toolCallId]
     if (!toolCall || toolCall.state !== ClientToolCallState.pending) {
-      continue
-    }
-
-    if (
-      shouldRequireCopilotApproval(accessLevel) &&
-      isCopilotTool(toolCall.name) &&
-      copilotToolSupportsState(toolCall.name, ClientToolCallState.review)
-    ) {
-      await get().executeCopilotToolCall(toolCallId)
       continue
     }
 

@@ -35,7 +35,7 @@ export const buildTradierOrderRequest = (params: TradingOrderInput): TradingRequ
   }
 
   const authHeaders = buildTradierAuthHeaders(params)
-  const baseUrl = resolveTradierBaseUrl(params.environment)
+  const baseUrl = resolveTradierBaseUrl()
 
   const symbol = listingIdentityToTradingSymbol(tradierTradingProviderConfig, {
     listing: params.listing,

@@ -7,7 +7,6 @@ const PREVIEW_RUNTIME_FILES = [
   'widgets/widgets/editor_workflow/components/workflow-editor/preview/preview-node.tsx',
   'widgets/widgets/editor_workflow/components/workflow-editor/preview/preview-subflow.tsx',
   'widgets/widgets/editor_workflow/components/workflow-editor/preview/read-only-node-editor-panel.tsx',
-  'widgets/widgets/editor_workflow/components/workflow-editor/preview/preview-panel-registry.ts',
   'widgets/widgets/editor_workflow/components/workflow-editor/preview/preview-payload-adapter.ts',
 ]
 
@@ -55,26 +54,5 @@ describe('preview read-only guards', () => {
     })
 
     expect(violations).toEqual([])
-  })
-
-  it('enforces explicit readOnly=true when rendering preview panel components', () => {
-    const rootDir = process.cwd()
-    const relativePath =
-      'widgets/widgets/editor_workflow/components/workflow-editor/preview/read-only-node-editor-panel.tsx'
-    const content = fs.readFileSync(path.join(rootDir, relativePath), 'utf8')
-
-    expect(content.includes('readOnly={true}')).toBe(true)
-    expect(content.includes('readOnly={false}')).toBe(false)
-    expect(content.includes('readOnly={readOnly}')).toBe(false)
-  })
-
-  it('keeps preview panel prop contract read-only only', () => {
-    const rootDir = process.cwd()
-    const relativePath =
-      'widgets/widgets/editor_workflow/components/workflow-editor/preview/preview-panel-registry.ts'
-    const content = fs.readFileSync(path.join(rootDir, relativePath), 'utf8')
-
-    expect(content.includes('readOnly?: true')).toBe(true)
-    expect(content.includes('readOnly?: boolean')).toBe(false)
   })
 })

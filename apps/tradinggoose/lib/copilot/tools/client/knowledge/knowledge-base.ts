@@ -1,4 +1,3 @@
-import { createLogger } from '@/lib/logs/console/logger'
 import { Database, Loader2, MinusCircle, PlusCircle, XCircle } from 'lucide-react'
 import {
   BaseClientTool,
@@ -6,12 +5,11 @@ import {
   ClientToolCallState,
 } from '@/lib/copilot/tools/client/base-tool'
 import {
-  type KnowledgeBaseArgs,
-} from '@/lib/copilot/tools/shared/schemas'
-import {
   executeCopilotServerTool,
   getCopilotServerToolErrorStatus,
 } from '@/lib/copilot/tools/client/server-tool-response'
+import type { KnowledgeBaseArgs } from '@/lib/copilot/tools/shared/schemas'
+import { createLogger } from '@/lib/logs/console/logger'
 import { getCopilotStoreForToolCall } from '@/stores/copilot/store-access'
 
 /**
@@ -24,15 +22,11 @@ export class KnowledgeBaseClientTool extends BaseClientTool {
     super(toolCallId, KnowledgeBaseClientTool.id, KnowledgeBaseClientTool.metadata)
   }
 
-  /**
-   * Only show interrupt for create operation
-   */
   getInterruptDisplays(): BaseClientToolMetadata['interrupt'] | undefined {
     const toolCallsById = getCopilotStoreForToolCall(this.toolCallId).getState().toolCallsById
     const toolCall = toolCallsById[this.toolCallId]
     const params = toolCall?.params as KnowledgeBaseArgs | undefined
 
-    // Only require confirmation for create operation
     if (params?.operation === 'create') {
       const name = params?.args?.name || 'new knowledge base'
       return {
@@ -41,7 +35,6 @@ export class KnowledgeBaseClientTool extends BaseClientTool {
       }
     }
 
-    // No interrupt for list, get, query - auto-execute
     return undefined
   }
 

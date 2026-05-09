@@ -2910,9 +2910,9 @@ export function getProvidersWithToolUsageControl(): string[] {
 
 export function getHostedModels(): string[] {
   return [
-    ...getProviderModels('openai'),
-    ...getProviderModels('anthropic'),
-    ...getProviderModels('google'),
+    // ...getProviderModels('openai'),
+    // ...getProviderModels('anthropic'),
+    // ...getProviderModels('google'),
   ]
 }
 

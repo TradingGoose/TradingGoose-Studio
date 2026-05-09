@@ -1,6 +1,8 @@
 import { useMemo } from 'react'
+import { buildSubBlockRows } from '@/lib/workflows/sub-block-rows'
+import { getBlock } from '@/blocks'
 import type { WorkflowState } from '@/stores/workflows/workflow/types'
-import { resolveReadOnlyPreviewPanel } from './preview-panel-registry'
+import { SubBlockSummaryRows } from '@/widgets/widgets/editor_workflow/components/workflow-render/sub-block-summary-rows'
 
 interface ReadOnlyNodeEditorPanelProps {
   selectedNodeId: string | null
@@ -23,7 +25,9 @@ export function ReadOnlyNodeEditorPanel({
     return (
       <aside className='w-80 shrink-0 border-border border-l bg-background/95 p-4'>
         <div className='flex h-full items-center justify-center text-center'>
-          <p className='text-muted-foreground text-sm'>Select a block to view its preview details.</p>
+          <p className='text-muted-foreground text-sm'>
+            Select a block to view its preview details.
+          </p>
         </div>
       </aside>
     )
@@ -40,7 +44,22 @@ export function ReadOnlyNodeEditorPanel({
     )
   }
 
-  const PanelComponent = resolveReadOnlyPreviewPanel(selectedBlock.type)
+  const blockConfig = getBlock(selectedBlock.type)
+  const previewSubBlocks = blockConfig
+    ? buildSubBlockRows({
+        subBlocks: blockConfig.subBlocks || [],
+        stateToUse: selectedBlock.subBlocks || {},
+        isAdvancedMode: selectedBlock.advancedMode ?? false,
+        isTriggerMode:
+          Boolean(selectedBlock.triggerMode) ||
+          blockConfig.category === 'triggers' ||
+          selectedBlock.type === 'starter',
+        isPureTriggerBlock: blockConfig.category === 'triggers',
+        availableTriggerIds: blockConfig.triggers?.available,
+        hideFromPreview: true,
+        triggerSubBlockOwner: 'all',
+      }).flat()
+    : []
 
   return (
     <aside className='w-80 shrink-0 border-border border-l bg-background/95 p-4'>
@@ -50,10 +69,18 @@ export function ReadOnlyNodeEditorPanel({
           <h3 className='line-clamp-2 font-medium text-sm'>{selectedBlock.name}</h3>
         </header>
 
-        <PanelComponent
-          block={selectedBlock}
-          readOnly={true}
-        />
+        {previewSubBlocks.length > 0 ? (
+          <div className='space-y-2'>
+            <SubBlockSummaryRows
+              blockId={selectedBlock.id}
+              subBlocks={previewSubBlocks}
+              stateToUse={selectedBlock.subBlocks || {}}
+              availableTriggerIds={blockConfig?.triggers?.available}
+            />
+          </div>
+        ) : (
+          <p className='text-muted-foreground text-xs'>No values to display.</p>
+        )}
       </div>
     </aside>
   )

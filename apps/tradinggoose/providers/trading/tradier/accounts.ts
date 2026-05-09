@@ -51,7 +51,7 @@ export const normalizeTradierTradingAccount = (
 }
 
 export async function fetchTradierTradingProfile(context: TradingPortfolioBaseContext) {
-  const baseUrl = resolveTradierBaseUrl(context.environment)
+  const baseUrl = resolveTradierBaseUrl()
   return fetchBrokerJson<any>({
     providerId: context.providerId,
     url: `${baseUrl}/user/profile`,

@@ -17,7 +17,7 @@ import {
 import type { TradingPortfolioAccountContext } from '@/providers/trading/types'
 
 async function fetchTradierBalances(context: TradingPortfolioAccountContext) {
-  const baseUrl = resolveTradierBaseUrl(context.environment)
+  const baseUrl = resolveTradierBaseUrl()
   return fetchBrokerJson<any>({
     providerId: context.providerId,
     url: `${baseUrl}/accounts/${context.accountId}/balances`,
@@ -32,7 +32,7 @@ async function fetchTradierBalances(context: TradingPortfolioAccountContext) {
 }
 
 async function fetchTradierPositions(context: TradingPortfolioAccountContext) {
-  const baseUrl = resolveTradierBaseUrl(context.environment)
+  const baseUrl = resolveTradierBaseUrl()
   return fetchBrokerJson<any>({
     providerId: context.providerId,
     url: `${baseUrl}/accounts/${context.accountId}/positions`,

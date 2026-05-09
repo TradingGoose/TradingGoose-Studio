@@ -13,10 +13,10 @@ import {
 } from '@/components/icons/icons'
 import { Button } from '@/components/ui/button'
 import { createLogger } from '@/lib/logs/console/logger'
+import { useWorkflowMutations } from '@/lib/yjs/use-workflow-doc'
 import { WebhookModal } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/components/webhook/components'
 import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
 import { useWorkflowId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
-import { useWorkflowMutations } from '@/lib/yjs/use-workflow-doc'
 
 const logger = createLogger('WebhookConfig')
 
@@ -469,32 +469,15 @@ export function WebhookConfig({
       // Update previous provider to the new provider
       setPreviousProvider(webhookProvider)
 
-        // Delete existing webhook AFTER clearing the path to prevent race condition
-        // The webhook check useEffect won't restore the path if we clear it first
-        // Execute deletion asynchronously but don't block the UI
+      // Delete existing webhook AFTER clearing the path to prevent race condition
+      // The webhook check useEffect won't restore the path if we clear it first
+      // Execute deletion asynchronously but don't block the UI
 
-        ; (async () => {
-          await deleteExistingWebhook()
-        })()
+      ;(async () => {
+        await deleteExistingWebhook()
+      })()
     }
   }, [webhookProvider, previousProvider, blockId, webhookId, isPreview])
-
-  // Reset provider config when provider changes (legacy effect - keeping for safety)
-  useEffect(() => {
-    if (webhookProvider) {
-      // Reset the provider config when the provider changes
-      setProviderConfig({})
-
-      // Clear webhook ID and actual provider when switching providers
-      // This ensures the webhook status is properly reset
-      if (webhookProvider !== actualProvider) {
-        setWebhookId(null)
-        setActualProvider(null)
-      }
-
-      // Provider config is reset - webhook status will be determined by provider + path existence
-    }
-  }, [webhookProvider, webhookId, actualProvider])
 
   // Check if webhook exists in the database
   useEffect(() => {

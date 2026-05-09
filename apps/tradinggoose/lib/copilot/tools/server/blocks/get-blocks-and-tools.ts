@@ -1,11 +1,11 @@
 import type { BaseServerTool } from '@/lib/copilot/tools/server/base-tool'
+import { listWorkflowBlockCatalogItems } from '@/lib/copilot/tools/server/blocks/block-mermaid-catalog'
 import {
   type BlockMermaidCatalogItemType,
   GetBlocksAndToolsInput,
   GetBlocksAndToolsResult,
 } from '@/lib/copilot/tools/shared/schemas'
 import { createLogger } from '@/lib/logs/console/logger'
-import { listWorkflowBlockCatalogItems } from '@/lib/copilot/tools/server/blocks/block-mermaid-catalog'
 
 type RankedBlock = {
   block: BlockMermaidCatalogItemType
@@ -73,7 +73,10 @@ export const getBlocksAndToolsServerTool: BaseServerTool<
         }
       })
       .filter((entry): entry is RankedBlock => entry !== null)
-      .sort((left, right) => right.score - left.score || left.block.blockType.localeCompare(right.block.blockType))
+      .sort(
+        (left, right) =>
+          right.score - left.score || left.block.blockType.localeCompare(right.block.blockType)
+      )
       .map(({ block }) => block)
 
     return GetBlocksAndToolsResult.parse({ blocks })

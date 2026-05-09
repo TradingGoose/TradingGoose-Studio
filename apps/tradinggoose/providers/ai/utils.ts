@@ -369,9 +369,10 @@ export async function transformBlockTool(
     getAllBlocks: () => any[]
     getTool: (toolId: string) => any
     getToolAsync?: (toolId: string) => Promise<any>
+    createLLMToolSchema: (toolConfig: any, userProvidedParams: Record<string, unknown>) => any
   }
 ): Promise<ProviderToolConfig | null> {
-  const { selectedOperation, getAllBlocks, getTool, getToolAsync } = options
+  const { selectedOperation, getAllBlocks, getTool, getToolAsync, createLLMToolSchema } = options
 
   // Get the block definition
   const blockDef = getAllBlocks().find((b: any) => b.type === block.type)
@@ -429,9 +430,6 @@ export async function transformBlockTool(
     logger.warn(`Tool config not found for ID: ${toolId}`)
     return null
   }
-
-  // Import the new tool parameter utilities
-  const { createLLMToolSchema } = await import('@/tools/params')
 
   // Get user-provided parameters from the block
   const userProvidedParams = block.params || {}

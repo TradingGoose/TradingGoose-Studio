@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { isEqual } from 'lodash'
 import { Check, ChevronDown } from 'lucide-react'
 import {
   DropdownMenu,
@@ -9,30 +10,21 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
-import type { SubBlockConfig } from '@/blocks/types'
+import { useWorkflowBlocks } from '@/lib/yjs/use-workflow-doc'
+import type { SubBlockConfig, SubBlockOption } from '@/blocks/types'
 import { ResponseBlockHandler } from '@/executor/handlers/response/response-handler'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import { DEFAULT_WORKFLOW_CHANNEL_ID } from '@/stores/workflows/workflow/types'
-import { useWorkflowBlocks } from '@/lib/yjs/use-workflow-doc'
 import { useDependsOnGate } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-depends-on-gate'
 import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
 import { useOptionalWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 
-type DropdownOptionObject = {
-  label: string
-  id: string
-  icon?: React.ComponentType<{ className?: string }>
-  group?: string
-  disabled?: boolean
-  dstOn?: boolean
-  observesDst?: boolean
-  searchLabel?: string
-  rightLabel?: string
-}
+type DropdownOptionObject = SubBlockOption
 
 type DropdownOption = {
   id: string
   label: string
+  value: unknown
   searchLabel?: string
   rightLabel?: string
   icon?: React.ComponentType<{ className?: string }>
@@ -40,18 +32,21 @@ type DropdownOption = {
   disabled?: boolean
 }
 
+const hasExplicitValue = (option: object): option is { value: unknown } =>
+  Object.hasOwn(option, 'value')
+
 interface DropdownProps {
   options: Array<string | DropdownOptionObject> | (() => Array<string | DropdownOptionObject>)
-  defaultValue?: string
+  defaultValue?: any
   blockId: string
   subBlockId: string
-  value?: string
+  value?: any
   disabled?: boolean
   placeholder?: string
   config?: SubBlockConfig
   useStore?: boolean
-  valueOverride?: string
-  onChange?: (value: string) => void
+  valueOverride?: any
+  onChange?: (value: any) => void
   enableSearch?: boolean
   searchPlaceholder?: string
   contextValues?: Record<string, any>
@@ -74,7 +69,7 @@ export function Dropdown({
   searchPlaceholder = 'Search...',
   contextValues,
 }: DropdownProps & { className?: string }) {
-  const [storeValue, setStoreValue] = useSubBlockValue<string>(blockId, subBlockId)
+  const [storeValue, setStoreValue] = useSubBlockValue<any>(blockId, subBlockId)
   const [storeInitialized, setStoreInitialized] = useState(false)
   const previousModeRef = useRef<string | null>(null)
   const previousDependencyValuesRef = useRef<string>('')
@@ -124,11 +119,7 @@ export function Dropdown({
   })
 
   const isControlled = !useStore
-  const value = isControlled
-    ? valueOverride
-    : propValue !== undefined
-      ? propValue
-      : storeValue
+  const value = isControlled ? valueOverride : propValue !== undefined ? propValue : storeValue
 
   const fetchOptions = resolvedConfig.fetchOptions
   const [fetchedOptions, setFetchedOptions] = useState<DropdownOptionObject[]>([])
@@ -179,6 +170,7 @@ export function Dropdown({
     return fetchedOptions.map((opt) => ({
       id: opt.id,
       label: opt.label,
+      value: opt.value,
       icon: opt.icon,
       group: opt.group,
       disabled: opt.disabled,
@@ -202,12 +194,13 @@ export function Dropdown({
       | {
           label: string
           id: string
+          value?: unknown
           icon?: React.ComponentType<{ className?: string }>
           group?: string
           disabled?: boolean
         }
   ) => {
-    return typeof option === 'string' ? option : option.id
+    return typeof option === 'string' ? option : hasExplicitValue(option) ? option.value : option.id
   }
 
   const optionsReady = fetchOptions ? hasFetchedOptions && !isLoadingOptions && !fetchError : true
@@ -219,17 +212,21 @@ export function Dropdown({
       return defaultValue
     }
 
+    if (resolvedConfig.autoSelectFirstOption === false) {
+      return undefined
+    }
+
     if (availableOptions.length > 0) {
       return getOptionValue(availableOptions[0] as any)
     }
 
     return undefined
-  }, [defaultValue, availableOptions, getOptionValue])
+  }, [defaultValue, availableOptions, getOptionValue, resolvedConfig.autoSelectFirstOption])
 
   useEffect(() => {
     if (!optionsReady || !hasValue) return
     if (fetchOptions && dependsOn.length > 0) return
-    const isValid = availableOptions.some((option) => getOptionValue(option as any) === value)
+    const isValid = availableOptions.some((option) => isEqual(getOptionValue(option as any), value))
     if (!isValid) {
       blockAutoDefaultRef.current = true
       if (useStore) {
@@ -390,7 +387,7 @@ export function Dropdown({
   }, [storeValue, subBlockId, disabled, setData, setBuilderData])
 
   // Event handlers
-  const handleSelect = (selectedValue: string) => {
+  const handleSelect = (selectedValue: any) => {
     if (!finalDisabled && useStore) {
       setStoreValue(selectedValue)
     }
@@ -426,11 +423,12 @@ export function Dropdown({
   const dropdownOptions = useMemo<DropdownOption[]>(() => {
     return availableOptions.map((option) => {
       if (typeof option === 'string') {
-        return { id: option, label: option }
+        return { id: option, label: option, value: option }
       }
       return {
         id: option.id,
         label: option.label,
+        value: hasExplicitValue(option) ? option.value : option.id,
         searchLabel: option.searchLabel,
         rightLabel: option.rightLabel,
         icon: resolveStatusIcon(option),
@@ -440,7 +438,7 @@ export function Dropdown({
     })
   }, [availableOptions])
 
-  const selectedOption = dropdownOptions.find((option) => option.id === value) ?? null
+  const selectedOption = dropdownOptions.find((option) => isEqual(option.value, value)) ?? null
 
   const normalizedSearch = searchTerm.trim().toLowerCase()
   const shouldFilter = enableSearch && normalizedSearch.length > 0
@@ -489,7 +487,7 @@ export function Dropdown({
         <button
           type='button'
           className={cn(
-            'flex h-10 w-full items-center rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm transition-colors',
+            'flex h-10 w-full items-center rounded-md border border-input bg-background px-3 py-2 text-foreground text-sm shadow-sm transition-colors',
             'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
             finalDisabled && 'cursor-not-allowed opacity-50',
             className
@@ -521,7 +519,7 @@ export function Dropdown({
         }}
       >
         {enableSearch && (
-          <div className='border-b border-border p-2'>
+          <div className='border-border border-b p-2'>
             <Input
               ref={searchInputRef}
               placeholder={searchPlaceholder || 'Search...'}
@@ -549,12 +547,12 @@ export function Dropdown({
               return (
                 <div key={group}>
                   {groupedOptions.groupOrder.length > 1 && (
-                    <DropdownMenuLabel className='px-2 pb-0.5 pt-2.5 text-xs font-medium text-muted-foreground'>
+                    <DropdownMenuLabel className='px-2 pt-2.5 pb-0.5 font-medium text-muted-foreground text-xs'>
                       {group}
                     </DropdownMenuLabel>
                   )}
                   {groupOptions.map((option) => {
-                    const isSelected = option.id === value
+                    const isSelected = isEqual(option.value, value)
                     return (
                       <DropdownMenuItem
                         key={option.id}
@@ -562,7 +560,7 @@ export function Dropdown({
                         className='flex items-center'
                         onSelect={() => {
                           if (option.disabled) return
-                          handleSelect(option.id)
+                          handleSelect(option.value)
                         }}
                       >
                         {option.icon ? <option.icon className='mr-2 h-3 w-3' /> : null}

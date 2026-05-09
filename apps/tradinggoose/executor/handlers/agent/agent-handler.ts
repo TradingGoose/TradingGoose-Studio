@@ -14,6 +14,7 @@ import type { BlockHandler, ExecutionContext, StreamingExecution } from '@/execu
 import { getProviderFromModel, transformBlockTool } from '@/providers/ai/utils'
 import type { SerializedBlock } from '@/serializer/types'
 import { executeTool } from '@/tools'
+import { createLLMToolSchema } from '@/tools/params'
 import { getTool, getToolAsync } from '@/tools/utils'
 import {
   buildLoadSkillTool,
@@ -404,6 +405,7 @@ export class AgentBlockHandler implements BlockHandler {
       getToolAsync: (toolId: string) =>
         getToolAsync(toolId, context.workflowId, context.workspaceId, context.userId),
       getTool,
+      createLLMToolSchema,
     })
 
     if (transformedTool) {

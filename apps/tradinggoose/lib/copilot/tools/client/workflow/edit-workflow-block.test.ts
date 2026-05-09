@@ -7,8 +7,6 @@ const mockResolveWorkflowTarget = vi.fn()
 const mockSetWorkflowState = vi.fn()
 const mockGetRegisteredWorkflowSession = vi.fn()
 
-let accessLevel: 'limited' | 'full' = 'limited'
-
 vi.mock('@/lib/copilot/tools/client/workflow/workflow-review-tool-utils', () => ({
   getReadableWorkflowState: (...args: any[]) => mockGetReadableWorkflowState(...args),
   resolveWorkflowTarget: (...args: any[]) => mockResolveWorkflowTarget(...args),
@@ -43,7 +41,6 @@ vi.mock('@/lib/yjs/workflow-session', () => ({
 vi.mock('@/stores/copilot/store-access', () => ({
   getCopilotStoreForToolCall: () => ({
     getState: () => ({
-      accessLevel,
       toolCallsById: {},
     }),
   }),
@@ -53,7 +50,6 @@ describe('EditWorkflowBlockClientTool', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
     vi.unstubAllGlobals?.()
-    accessLevel = 'limited'
     mockGetReadableWorkflowState.mockReset()
     mockResolveWorkflowTarget.mockReset()
     mockSetWorkflowState.mockReset()

@@ -135,7 +135,6 @@ describe('PortfolioSnapshotWidgetBody', () => {
           'alpaca-live': true,
           'alpaca-paper': true,
           'tradier-live': true,
-          'tradier-paper': true,
         },
       })
     )

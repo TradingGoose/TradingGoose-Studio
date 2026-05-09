@@ -6,9 +6,15 @@ import { getBlock } from '@/blocks'
 import type { SubBlockConfig } from '@/blocks/types'
 import type { SerializedBlock, SerializedWorkflow } from '@/serializer/types'
 import type { BlockState, Loop, Parallel } from '@/stores/workflows/workflow/types'
-import { getTool } from '@/tools/utils'
 
 const logger = createLogger('Serializer')
+
+type SerializerCondition = {
+  field: string
+  value: any
+  not?: boolean
+  and?: SerializerCondition | SerializerCondition[]
+}
 
 /**
  * Structured validation error for pre-execution workflow validation
@@ -453,108 +459,44 @@ export class Serializer {
       return
     }
 
-    // Get the tool configuration to check parameter visibility
-    const toolAccess = blockConfig.tools?.access
-    if (!toolAccess || toolAccess.length === 0) {
-      return // No tools to validate against
-    }
-
-    // Determine the current tool ID using the same logic as the serializer
-    let currentToolId = ''
-    try {
-      currentToolId = blockConfig.tools.config?.tool
-        ? blockConfig.tools.config.tool(params)
-        : blockConfig.tools.access[0]
-    } catch (error) {
-      logger.warn('Tool selection failed during validation, using default:', {
-        error: error instanceof Error ? error.message : String(error),
-      })
-      currentToolId = blockConfig.tools.access[0]
-    }
-
-    // Get the specific tool to validate against
-    const currentTool = getTool(currentToolId)
-    if (!currentTool) {
-      return // Tool not found, skip validation
-    }
-
-    // Check required user-only parameters for the current tool
     const missingFields: string[] = []
 
-    // Iterate through the tool's parameters, not the block's subBlocks
-    Object.entries(currentTool.params || {}).forEach(([paramId, paramConfig]) => {
-      if (paramConfig.required && paramConfig.visibility === 'user-only') {
-        const subBlockConfig = blockConfig.subBlocks?.find((sb: any) => sb.id === paramId)
+    const evalCond = (
+      condition: SerializerCondition | (() => SerializerCondition) | undefined,
+      values: Record<string, any>
+    ): boolean => {
+      if (!condition) return true
+      const actual = typeof condition === 'function' ? condition() : condition
+      const fieldValue = values[actual.field]
 
-        let shouldValidateParam = true
+      const valueMatch = Array.isArray(actual.value)
+        ? fieldValue != null &&
+          (actual.not ? !actual.value.includes(fieldValue) : actual.value.includes(fieldValue))
+        : actual.not
+          ? fieldValue !== actual.value
+          : fieldValue === actual.value
 
-        if (subBlockConfig) {
-          const isAdvancedMode = block.advancedMode ?? false
-          const includedByMode = shouldIncludeField(subBlockConfig, isAdvancedMode)
+      const andList = Array.isArray(actual.and) ? actual.and : actual.and ? [actual.and] : []
+      const andMatch = andList.every((entry) => evalCond(entry, values))
 
-          const includedByCondition = (() => {
-            const evalCond = (
-              condition:
-                | {
-                    field: string
-                    value: any
-                    not?: boolean
-                    and?: { field: string; value: any; not?: boolean }
-                  }
-                | (() => {
-                    field: string
-                    value: any
-                    not?: boolean
-                    and?: { field: string; value: any; not?: boolean }
-                  })
-                | undefined,
-              values: Record<string, any>
-            ): boolean => {
-              if (!condition) return true
-              const actual = typeof condition === 'function' ? condition() : condition
-              const fieldValue = values[actual.field]
+      return valueMatch && andMatch
+    }
 
-              const valueMatch = Array.isArray(actual.value)
-                ? fieldValue != null &&
-                  (actual.not
-                    ? !actual.value.includes(fieldValue)
-                    : actual.value.includes(fieldValue))
-                : actual.not
-                  ? fieldValue !== actual.value
-                  : fieldValue === actual.value
+    blockConfig.subBlocks?.forEach((subBlockConfig: SubBlockConfig) => {
+      if (!subBlockConfig.required || subBlockConfig.hidden) return
+      if (!shouldIncludeField(subBlockConfig, block.advancedMode ?? false)) return
+      if (!evalCond(subBlockConfig.condition, params)) return
 
-              const andMatch = !actual.and
-                ? true
-                : (() => {
-                    const andFieldValue = values[actual.and!.field]
-                    return Array.isArray(actual.and!.value)
-                      ? andFieldValue != null &&
-                          (actual.and!.not
-                            ? !actual.and!.value.includes(andFieldValue)
-                            : actual.and!.value.includes(andFieldValue))
-                      : actual.and!.not
-                        ? andFieldValue !== actual.and!.value
-                        : andFieldValue === actual.and!.value
-                  })()
+      const isRequired =
+        subBlockConfig.required === true ||
+        (typeof subBlockConfig.required === 'object' &&
+          evalCond(subBlockConfig.required, params)) ||
+        (typeof subBlockConfig.required === 'function' && evalCond(subBlockConfig.required, params))
+      if (!isRequired) return
 
-              return valueMatch && andMatch
-            }
-
-            return evalCond(subBlockConfig.condition, params)
-          })()
-
-          shouldValidateParam = includedByMode && includedByCondition
-        }
-
-        if (!shouldValidateParam) {
-          return
-        }
-
-        const fieldValue = params[paramId]
-        if (fieldValue === undefined || fieldValue === null || fieldValue === '') {
-          const displayName = subBlockConfig?.title || paramId
-          missingFields.push(displayName)
-        }
+      const fieldValue = params[subBlockConfig.id]
+      if (fieldValue === undefined || fieldValue === null || fieldValue === '') {
+        missingFields.push(subBlockConfig.title || subBlockConfig.id)
       }
     })
 

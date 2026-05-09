@@ -1,14 +1,10 @@
-import { z } from 'zod'
 import type { BaseServerTool } from '@/lib/copilot/tools/server/base-tool'
+import { listWorkflowBlockCatalogItems } from '@/lib/copilot/tools/server/blocks/block-mermaid-catalog'
+import {
+  type GetTriggerBlocksInput,
+  GetTriggerBlocksResult,
+} from '@/lib/copilot/tools/shared/schemas'
 import { createLogger } from '@/lib/logs/console/logger'
-import { registry as blockRegistry } from '@/blocks/registry'
-import type { BlockConfig } from '@/blocks/types'
-
-// Define input and result schemas
-export const GetTriggerBlocksInput = z.object({})
-export const GetTriggerBlocksResult = z.object({
-  triggerBlockIds: z.array(z.string()),
-})
 
 export const getTriggerBlocksServerTool: BaseServerTool<
   ReturnType<typeof GetTriggerBlocksInput.parse>,
@@ -19,24 +15,9 @@ export const getTriggerBlocksServerTool: BaseServerTool<
     const logger = createLogger('GetTriggerBlocksServerTool')
     logger.debug('Executing get_trigger_blocks')
 
-    const triggerBlockIds: string[] = []
-
-    Object.entries(blockRegistry).forEach(([blockType, blockConfig]: [string, BlockConfig]) => {
-      // Skip hidden blocks
-      if (blockConfig.hideFromToolbar) return
-
-      // Check if it's a trigger block (category: 'triggers')
-      if (blockConfig.category === 'triggers') {
-        triggerBlockIds.push(blockType)
-      }
-      // Check if it's a tool with trigger capability (triggerAllowed: true)
-      else if ('triggerAllowed' in blockConfig && blockConfig.triggerAllowed === true) {
-        triggerBlockIds.push(blockType)
-      }
-    })
-
-    // Sort alphabetically for consistency
-    triggerBlockIds.sort()
+    const triggerBlockIds = (await listWorkflowBlockCatalogItems())
+      .filter((block) => block.triggerAllowed === true)
+      .map((block) => block.blockType)
 
     logger.debug(`Found ${triggerBlockIds.length} trigger blocks`)
     return GetTriggerBlocksResult.parse({ triggerBlockIds })

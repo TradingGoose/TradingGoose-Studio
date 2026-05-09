@@ -22,7 +22,7 @@ const MarkCompleteSchema = z.object({
   data: z.any().optional(),
 })
 
-function createTurnStateStream(body: ReadableStream<Uint8Array>) {
+function createTurnStateStream(body: ReadableStream<Uint8Array>, abortUpstream: () => void) {
   let reader: ReadableStreamDefaultReader<Uint8Array> | null = null
 
   return new ReadableStream<Uint8Array>({
@@ -104,6 +104,7 @@ function createTurnStateStream(body: ReadableStream<Uint8Array>) {
       controller.close()
     },
     cancel() {
+      abortUpstream()
       if (reader) {
         void reader.cancel().catch(() => {})
       }
@@ -117,6 +118,18 @@ function createTurnStateStream(body: ReadableStream<Uint8Array>) {
  */
 export async function POST(req: NextRequest) {
   const tracker = createRequestTracker()
+  const upstreamAbortController = new AbortController()
+  const abortUpstream = () => {
+    if (!upstreamAbortController.signal.aborted) {
+      upstreamAbortController.abort()
+    }
+  }
+
+  if (req.signal.aborted) {
+    abortUpstream()
+  } else {
+    req.signal.addEventListener('abort', abortUpstream, { once: true })
+  }
 
   try {
     const { userId, isAuthenticated } = await authenticateCopilotRequestSessionOnly()
@@ -132,7 +145,7 @@ export async function POST(req: NextRequest) {
       logger.debug(`[${tracker.requestId}] Incoming mark-complete raw body preview`, {
         preview: `${bodyPreview}${bodyPreview.length === 300 ? '...' : ''}`,
       })
-    } catch { }
+    } catch {}
 
     const parsed = MarkCompleteSchema.parse(body)
 
@@ -160,6 +173,7 @@ export async function POST(req: NextRequest) {
     const agentRes = await proxyCopilotRequest({
       endpoint: '/api/tools/mark-complete',
       body: parsed,
+      signal: upstreamAbortController.signal,
     })
 
     const contentType = agentRes.headers.get('content-type') || ''
@@ -168,7 +182,7 @@ export async function POST(req: NextRequest) {
         toolCallId: parsed.id,
         toolName: parsed.name,
       })
-      return new NextResponse(createTurnStateStream(agentRes.body), {
+      return new NextResponse(createTurnStateStream(agentRes.body, abortUpstream), {
         status: agentRes.status,
         headers: {
           ...SSE_HEADERS,
@@ -186,7 +200,7 @@ export async function POST(req: NextRequest) {
     } catch (_) {
       try {
         agentText = await agentRes.text()
-      } catch { }
+      } catch {}
     }
 
     logger.info(`[${tracker.requestId}] Agent responded to mark-complete`, {
@@ -211,6 +225,10 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ success: false, error: errorMessage }, { status })
   } catch (error) {
+    if (upstreamAbortController.signal.aborted || req.signal.aborted) {
+      return new NextResponse(null, { status: 204 })
+    }
+
     if (error instanceof z.ZodError) {
       logger.warn(`[${tracker.requestId}] Invalid mark-complete request body`, {
         issues: error.issues,
@@ -219,5 +237,7 @@ export async function POST(req: NextRequest) {
     }
     logger.error(`[${tracker.requestId}] Failed to proxy mark-complete:`, error)
     return createInternalServerErrorResponse('Failed to mark tool as complete')
+  } finally {
+    req.signal.removeEventListener('abort', abortUpstream)
   }
 }

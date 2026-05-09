@@ -1,10 +1,13 @@
 import type { BaseServerTool } from '@/lib/copilot/tools/server/base-tool'
 import {
+  getWorkflowBlockCatalogAvailability,
+  getWorkflowBlockProfile,
+} from '@/lib/copilot/tools/server/blocks/block-mermaid-catalog'
+import {
   type GetBlocksMetadataInput,
   GetBlocksMetadataResult,
 } from '@/lib/copilot/tools/shared/schemas'
 import { createLogger } from '@/lib/logs/console/logger'
-import { getWorkflowBlockProfile } from '@/lib/copilot/tools/server/blocks/block-mermaid-catalog'
 
 export const getBlocksMetadataServerTool: BaseServerTool<
   ReturnType<typeof GetBlocksMetadataInput.parse>,
@@ -19,12 +22,13 @@ export const getBlocksMetadataServerTool: BaseServerTool<
     const logger = createLogger('GetBlocksMetadataServerTool')
     logger.debug('Executing get_blocks_metadata', { count: blockIds?.length })
 
+    const availability = await getWorkflowBlockCatalogAvailability()
     const entries = await Promise.all(
       Array.from(new Set(blockIds || []))
         .filter(Boolean)
         .map(async (blockType) => {
           try {
-            return [blockType, await getWorkflowBlockProfile(blockType)] as const
+            return [blockType, await getWorkflowBlockProfile(blockType, availability)] as const
           } catch (error) {
             logger.debug('Skipping unknown block in get_blocks_metadata', { blockType, error })
             return null

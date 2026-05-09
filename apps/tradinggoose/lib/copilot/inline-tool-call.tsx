@@ -5,7 +5,7 @@ import { Loader2 } from 'lucide-react'
 import useDrivePicker from 'react-google-drive-picker'
 import { GoogleDriveIcon } from '@/components/icons/icons'
 import { Button } from '@/components/ui/button'
-import { shouldRequireCopilotApproval, type CopilotAccessLevel } from '@/lib/copilot/access-policy'
+import { type CopilotAccessLevel, shouldRequireCopilotApproval } from '@/lib/copilot/access-policy'
 import {
   buildEntityReviewDiffLines,
   buildEntityReviewDiffPayload,
@@ -188,20 +188,15 @@ function ShimmerOverlayText({
 
 function shouldShowRunSkipButtons(
   toolCall: CopilotToolCall,
-  options: { accessLevel: CopilotAccessLevel; isIntegration: boolean }
+  accessLevel: CopilotAccessLevel
 ): boolean {
   const hasInterrupt = !!getToolInterruptDisplays(toolCall.name, toolCall.id)
 
-  // Show accept/reject for tools in review state that declare interrupt metadata
   if (hasInterrupt && toolCall.state === 'review') {
     return true
   }
 
-  return (
-    toolCall.state === 'pending' &&
-    shouldRequireCopilotApproval(options.accessLevel) &&
-    (hasInterrupt || options.isIntegration)
-  )
+  return toolCall.state === 'pending' && shouldRequireCopilotApproval(accessLevel)
 }
 
 function getStateVerb(state: string): string {
@@ -521,10 +516,16 @@ export function InlineToolCall({
   // Guard: nothing to render without a toolCall
   if (!toolCall) return null
 
-  // Skip rendering some internal tools
-  if (toolCall.name === 'checkoff_todo' || toolCall.name === 'mark_todo_in_progress') return null
+  const isHiddenInternalTool =
+    toolCall.name === 'checkoff_todo' || toolCall.name === 'mark_todo_in_progress'
+  if (
+    isHiddenInternalTool &&
+    !(toolCall.state === 'pending' && shouldRequireCopilotApproval(accessLevel))
+  ) {
+    return null
+  }
 
-  const showButtons = shouldShowRunSkipButtons(toolCall, { accessLevel, isIntegration })
+  const showButtons = shouldShowRunSkipButtons(toolCall, accessLevel)
   const showMoveToBackground =
     toolCall.name === 'run_workflow' &&
     (toolCall.state === (ClientToolCallState.executing as any) ||

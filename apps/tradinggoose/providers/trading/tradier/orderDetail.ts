@@ -55,8 +55,7 @@ export const buildTradierOrderDetailRequest = (
     )
   }
 
-  const environment = params.environment || firstDefinedString(historyRecord.environment) || undefined
-  const baseUrl = resolveTradierBaseUrl(environment ?? undefined)
+  const baseUrl = resolveTradierBaseUrl()
   const authHeaders = buildTradierAuthHeaders({
     accessToken: params.accessToken,
   } as TradingHoldingsInput)

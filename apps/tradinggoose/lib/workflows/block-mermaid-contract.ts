@@ -5,9 +5,9 @@ import {
   TG_EDGE_PREFIX,
   TG_WORKFLOW_PREFIX,
 } from '@/lib/workflows/studio-workflow-mermaid'
-import type { SubBlockConfig } from '@/blocks/types'
 import type { WorkflowSnapshot } from '@/lib/yjs/workflow-session'
 import { getBlock } from '@/blocks'
+import type { SubBlockConfig } from '@/blocks/types'
 import type { BlockState, Loop, Parallel } from '@/stores/workflows/workflow/types'
 
 export type WorkflowBlockMermaidRenderKind =
@@ -20,12 +20,6 @@ export interface WorkflowBlockMermaidContract {
   renderKind: WorkflowBlockMermaidRenderKind
   requiresSubgraph: boolean
   childrenPlacement: 'none' | 'inside_container' | 'outside_container'
-  incomingEdgeTarget: 'block' | 'container_start'
-  outgoingEdgeSource: 'block' | 'container_end' | 'condition_branch'
-  conditionBranchNodePattern?: string
-  conditionBranchHandlePattern?: string
-  containerStartNodePattern?: string
-  containerEndNodePattern?: string
   canonicalCommentPrefixes: {
     workflow: string
     block: string
@@ -453,27 +447,21 @@ function buildContainerWorkflowExamples(
         source: containerId,
         target: childId,
         sourceHandle:
-          params.renderKind === 'loop_container'
-            ? 'loop-start-source'
-            : 'parallel-start-source',
+          params.renderKind === 'loop_container' ? 'loop-start-source' : 'parallel-start-source',
       }),
       createEdge({
         id: 'c_child-source-b_container-end-target',
         source: childId,
         target: containerId,
         targetHandle:
-          params.renderKind === 'loop_container'
-            ? 'loop-end-target'
-            : 'parallel-end-target',
+          params.renderKind === 'loop_container' ? 'loop-end-target' : 'parallel-end-target',
       }),
       createEdge({
         id: 'b_container-end-d_next-target',
         source: containerId,
         target: 'd_next',
         sourceHandle:
-          params.renderKind === 'loop_container'
-            ? 'loop-end-source'
-            : 'parallel-end-source',
+          params.renderKind === 'loop_container' ? 'loop-end-source' : 'parallel-end-source',
       }),
     ],
     loops:
@@ -531,10 +519,6 @@ export function buildWorkflowBlockMermaidShape(params: ExampleParams): WorkflowB
           renderKind,
           requiresSubgraph: true,
           childrenPlacement: 'outside_container',
-          incomingEdgeTarget: 'block',
-          outgoingEdgeSource: 'condition_branch',
-          conditionBranchNodePattern: '<alias>__condition_<branchKey>',
-          conditionBranchHandlePattern: 'condition-<blockId>-<branchKey>',
           ...baseContract,
         },
         mermaidExamples: buildConditionWorkflowExamples(params),
@@ -545,10 +529,6 @@ export function buildWorkflowBlockMermaidShape(params: ExampleParams): WorkflowB
           renderKind,
           requiresSubgraph: true,
           childrenPlacement: 'inside_container',
-          incomingEdgeTarget: 'container_start',
-          outgoingEdgeSource: 'container_end',
-          containerStartNodePattern: '<alias>__loop_start',
-          containerEndNodePattern: '<alias>__loop_end',
           ...baseContract,
         },
         mermaidExamples: buildContainerWorkflowExamples({
@@ -562,10 +542,6 @@ export function buildWorkflowBlockMermaidShape(params: ExampleParams): WorkflowB
           renderKind,
           requiresSubgraph: true,
           childrenPlacement: 'inside_container',
-          incomingEdgeTarget: 'container_start',
-          outgoingEdgeSource: 'container_end',
-          containerStartNodePattern: '<alias>__parallel_start',
-          containerEndNodePattern: '<alias>__parallel_end',
           ...baseContract,
         },
         mermaidExamples: buildContainerWorkflowExamples({
@@ -579,8 +555,6 @@ export function buildWorkflowBlockMermaidShape(params: ExampleParams): WorkflowB
           renderKind,
           requiresSubgraph: false,
           childrenPlacement: 'none',
-          incomingEdgeTarget: 'block',
-          outgoingEdgeSource: 'block',
           ...baseContract,
         },
         mermaidExamples: buildStandardWorkflowExamples(params),

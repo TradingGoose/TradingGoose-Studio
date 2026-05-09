@@ -1,10 +1,10 @@
-import { createLogger } from '@/lib/logs/console/logger'
 import { Loader2, MinusCircle, Moon, XCircle } from 'lucide-react'
 import {
   BaseClientTool,
   type BaseClientToolMetadata,
   ClientToolCallState,
 } from '@/lib/copilot/tools/client/base-tool'
+import { createLogger } from '@/lib/logs/console/logger'
 
 /** Maximum sleep duration in seconds (3 minutes) */
 const MAX_SLEEP_SECONDS = 180
@@ -44,7 +44,6 @@ export class SleepClientTool extends BaseClientTool {
       [ClientToolCallState.aborted]: { text: 'Sleep aborted', icon: MinusCircle },
       [ClientToolCallState.background]: { text: 'Resumed', icon: Moon },
     },
-    // No interrupt - auto-execute immediately
     getDynamicText: (params, state) => {
       const seconds = params?.seconds
       if (typeof seconds === 'number' && seconds > 0) {
@@ -138,7 +137,6 @@ export class SleepClientTool extends BaseClientTool {
   }
 
   async execute(args?: SleepArgs): Promise<void> {
-    // Auto-execute without confirmation - go straight to executing
     await this.handleAccept(args)
   }
 }

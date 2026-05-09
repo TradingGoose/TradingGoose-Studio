@@ -1,8 +1,6 @@
 'use client'
 
 import { ClientToolCallState } from '@/lib/copilot/tools/client/base-tool'
-import { shouldRequireCopilotApproval } from '@/lib/copilot/access-policy'
-import { copilotToolSupportsState } from '@/stores/copilot/tool-registry'
 import type { CopilotChat, CopilotStore, CopilotToolCall } from '@/stores/copilot/types'
 
 export const ACTIVE_TURN_STATUS = 'in_progress'
@@ -21,10 +19,8 @@ const UI_ACTIVE_TOOL_STATES = new Set<ClientToolCallState>([
 ])
 
 export function normalizeReloadedToolState(
-  toolName: string | undefined,
   state: unknown,
-  latestTurnStatus?: string | null,
-  accessLevel?: CopilotStore['accessLevel']
+  latestTurnStatus?: string | null
 ): ClientToolCallState {
   const nextState =
     typeof state === 'string' && VALID_TOOL_CALL_STATES.has(state)
@@ -34,14 +30,6 @@ export function normalizeReloadedToolState(
   if (nextState === ClientToolCallState.generating || nextState === ClientToolCallState.executing) {
     if (latestTurnStatus === ACTIVE_TURN_STATUS) {
       return nextState
-    }
-    if (
-      shouldRequireCopilotApproval(accessLevel ?? 'limited') &&
-      nextState === ClientToolCallState.executing
-    ) {
-      if (copilotToolSupportsState(toolName, ClientToolCallState.review)) {
-        return ClientToolCallState.review
-      }
     }
     return ClientToolCallState.aborted
   }

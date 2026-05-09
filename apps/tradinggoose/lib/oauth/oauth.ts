@@ -83,7 +83,6 @@ export type OAuthService =
   | 'onedrive'
   | 'webflow'
   | 'tradier-live'
-  | 'tradier-paper'
   | string
 
 export interface OAuthCredentialFieldConfig {
@@ -624,16 +623,8 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
         baseProviderIcon: (props) => DollarIcon(props),
         scopes: TRADIER_OAUTH_SCOPES,
       },
-      'tradier-paper': {
-        id: 'tradier-paper',
-        name: 'Tradier Paper',
-        description: 'Trade equities and retrieve account data from a Tradier paper account.',
-        providerId: 'tradier-paper',
-        icon: (props) => DollarIcon(props),
-        baseProviderIcon: (props) => DollarIcon(props),
-        scopes: TRADIER_OAUTH_SCOPES,
-      },
     },
+    defaultService: 'tradier-live',
   },
   hubspot: {
     id: 'hubspot',

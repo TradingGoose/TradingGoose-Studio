@@ -1,5 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+const mockGetOAuthProviderAvailability = vi.hoisted(() => vi.fn())
+
+vi.mock('@/lib/oauth/oauth.server', () => ({
+  getOAuthProviderAvailability: mockGetOAuthProviderAvailability,
+}))
+
 vi.mock('@/blocks/registry', () => {
   const registry = {
     github: {
@@ -57,6 +63,49 @@ vi.mock('@/blocks/registry', () => {
       },
       outputs: {},
     },
+    reddit: {
+      name: 'Reddit',
+      description: 'Read Reddit posts.',
+      authMode: 'oauth',
+      subBlocks: [
+        {
+          id: 'credential',
+          type: 'oauth-input',
+          provider: 'reddit',
+          serviceId: 'reddit',
+          required: true,
+        },
+      ],
+      outputs: {},
+    },
+    slack: {
+      name: 'Slack',
+      description: 'Send Slack messages.',
+      authMode: 'oauth',
+      subBlocks: [
+        {
+          id: 'authMethod',
+          type: 'dropdown',
+          options: [
+            { id: 'oauth', label: 'TradingGoose Bot' },
+            { id: 'bot_token', label: 'Custom Bot' },
+          ],
+        },
+        {
+          id: 'credential',
+          type: 'oauth-input',
+          provider: 'slack',
+          serviceId: 'slack',
+          condition: { field: 'authMethod', value: 'oauth' },
+        },
+        {
+          id: 'botToken',
+          type: 'short-input',
+          condition: { field: 'authMethod', value: 'bot_token' },
+        },
+      ],
+      outputs: {},
+    },
   }
 
   return {
@@ -79,6 +128,9 @@ vi.mock('@/tools/registry', () => ({
 describe('getBlocksMetadataServerTool', () => {
   beforeEach(() => {
     vi.resetModules()
+    mockGetOAuthProviderAvailability.mockImplementation(async (providerIds: string[]) =>
+      Object.fromEntries(providerIds.map((providerId) => [providerId, false]))
+    )
   })
 
   it('returns Mermaid profiles and operation variants instead of schema-shaped metadata', async () => {
@@ -87,7 +139,16 @@ describe('getBlocksMetadataServerTool', () => {
     )
 
     const result = await getBlocksMetadataServerTool.execute({
-      blockIds: ['github', 'condition', 'input_trigger', 'function', 'loop', 'parallel'],
+      blockIds: [
+        'github',
+        'condition',
+        'input_trigger',
+        'function',
+        'reddit',
+        'slack',
+        'loop',
+        'parallel',
+      ],
     })
 
     expect(result.metadata.github).toEqual(
@@ -114,6 +175,8 @@ describe('getBlocksMetadataServerTool', () => {
     expect(result.metadata.github).not.toHaveProperty('inputs')
     expect(result.metadata.github).not.toHaveProperty('outputs')
     expect(result.metadata.github).not.toHaveProperty('inputSchema')
+    expect(result.metadata.reddit).toBeUndefined()
+    expect(result.metadata.slack).toBeUndefined()
 
     expect(result.metadata.condition?.mermaidContract.renderKind).toBe('condition')
     expect(result.metadata.input_trigger?.mermaidExamples.minimalDocument).toContain(
@@ -147,14 +210,17 @@ describe('getBlocksMetadataServerTool', () => {
     expect(result.metadata.loop?.mermaidContract.renderKind).toBe('loop_container')
     expect(result.metadata.loop?.bestPractices).toContain('Loop Start')
     expect(result.metadata.loop?.bestPractices).toContain('Loop End')
-    expect(result.metadata.loop?.mermaidExamples.connectedDocument).toContain(
+    expect(result.metadata.loop?.bestPractices).toContain('target the Loop block alias itself')
+    expect(result.metadata.loop?.mermaidExamples.connectedDocument).toContain('n1 --> n2')
+    expect(result.metadata.loop?.mermaidExamples.connectedDocument).not.toContain(
       'n1 --> n2__loop_start'
     )
-    expect(result.metadata.loop?.mermaidExamples.connectedDocument).toContain(
-      'n3 --> n2__loop_end'
-    )
+    expect(result.metadata.loop?.mermaidExamples.connectedDocument).toContain('n3 --> n2__loop_end')
     expect(result.metadata.parallel?.bestPractices).toContain('Parallel Start')
     expect(result.metadata.parallel?.bestPractices).toContain('Parallel End')
+    expect(result.metadata.parallel?.bestPractices).toContain(
+      'target the Parallel block alias itself'
+    )
     expect(result.metadata.function?.inputReferenceGrammar?.blockSpecificRules).toEqual(
       expect.arrayContaining([
         expect.objectContaining({

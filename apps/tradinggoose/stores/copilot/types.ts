@@ -216,7 +216,8 @@ export interface CopilotActions {
     stream: ReadableStream,
     messageId: string,
     isContinuation?: boolean,
-    turnProvenance?: CopilotToolExecutionProvenance
+    turnProvenance?: CopilotToolExecutionProvenance,
+    abortSignal?: AbortSignal
   ) => Promise<void>
   handleNewReviewSessionCreation: (
     newReviewSessionId: string,

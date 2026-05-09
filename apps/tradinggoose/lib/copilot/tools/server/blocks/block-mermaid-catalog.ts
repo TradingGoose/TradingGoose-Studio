@@ -1,13 +1,19 @@
 import { existsSync, readFileSync } from 'fs'
 import { join } from 'path'
-import { registry as blockRegistry } from '@/blocks/registry'
-import { AuthMode, type BlockConfig } from '@/blocks/types'
-import { tools as toolsRegistry } from '@/tools/registry'
 import type {
   BlockMermaidCatalogItemType,
   BlockMermaidOperationType,
   BlockMermaidProfileType,
 } from '@/lib/copilot/tools/shared/schemas'
+import { getOAuthProviderAvailability } from '@/lib/oauth/provider-availability.server'
+import {
+  getProviderIdsForBlocks,
+  isBlockAvailable,
+  type ProviderAvailability,
+} from '@/lib/workflows/block-availability'
+import { registry as blockRegistry } from '@/blocks/registry'
+import { AuthMode, type BlockConfig } from '@/blocks/types'
+import { tools as toolsRegistry } from '@/tools/registry'
 
 type BlockAuthType = 'OAuth' | 'API Key' | 'Bot Token'
 
@@ -38,19 +44,22 @@ type BlockCatalogDefinition = {
   }>
 }
 
-const SPECIAL_BLOCK_DEFINITIONS: Record<string, Omit<BlockCatalogDefinition, 'blockType' | 'yamlDocumentation' | 'operationChoices'>> = {
+const SPECIAL_BLOCK_DEFINITIONS: Record<
+  string,
+  Omit<BlockCatalogDefinition, 'blockType' | 'yamlDocumentation' | 'operationChoices'>
+> = {
   loop: {
     blockName: 'Loop',
     blockDescription: 'Control-flow container for iterating over child blocks.',
     bestPractices:
-      'Keep child blocks inside the loop container. Incoming edges enter through Loop Start. Child outputs reconnect to Loop End before leaving the container.',
+      'Keep child blocks inside the loop container. Incoming outer workflow edges target the Loop block alias itself, not Loop Start or Loop End. Loop Start only connects from the loop container to child blocks. Child outputs reconnect to Loop End before leaving the container.',
     triggerAllowed: false,
   },
   parallel: {
     blockName: 'Parallel',
     blockDescription: 'Control-flow container for running child branches in parallel.',
     bestPractices:
-      'Keep child blocks inside the parallel container. Incoming edges enter through Parallel Start. Child outputs reconnect to Parallel End before leaving the container.',
+      'Keep child blocks inside the parallel container. Incoming outer workflow edges target the Parallel block alias itself, not Parallel Start or Parallel End. Parallel Start only connects from the parallel container to child blocks. Child outputs reconnect to Parallel End before leaving the container.',
     triggerAllowed: false,
   },
 }
@@ -238,7 +247,7 @@ function buildInputReferenceGrammar(
       sourceTools: ['get_environment_variables'],
     },
     ...(blockType === 'function'
-        ? {
+      ? {
           blockSpecificRules: [
             {
               title: 'Use built-in indicators with full Historical Data output',
@@ -285,10 +294,41 @@ function resolveBlockCatalogDefinition(blockType: string): BlockCatalogDefinitio
     bestPractices: blockConfig.bestPractices || undefined,
     triggerAllowed: 'triggerAllowed' in blockConfig ? !!blockConfig.triggerAllowed : false,
     authType,
-    requiredCredentials: buildRequiredCredentials(authType, blockType, blockConfig.name || blockType),
+    requiredCredentials: buildRequiredCredentials(
+      authType,
+      blockType,
+      blockConfig.name || blockType
+    ),
     yamlDocumentation: readBlockDocumentation(blockType),
     operationChoices: resolveOperationChoices(blockConfig),
   }
+}
+
+export async function getWorkflowBlockCatalogAvailability(): Promise<ProviderAvailability> {
+  const providerIds = getProviderIdsForBlocks(
+    Object.values(blockRegistry).filter((blockConfig): blockConfig is BlockConfig =>
+      Boolean(blockConfig && !blockConfig.hideFromToolbar)
+    )
+  )
+
+  if (providerIds.length === 0) {
+    return {}
+  }
+
+  return getOAuthProviderAvailability(providerIds)
+}
+
+function isCatalogBlockAvailable(blockType: string, availability: ProviderAvailability): boolean {
+  if (SPECIAL_BLOCK_DEFINITIONS[blockType]) {
+    return true
+  }
+
+  const blockConfig = blockRegistry[blockType]
+  if (!blockConfig || blockConfig.hideFromToolbar) {
+    return false
+  }
+
+  return isBlockAvailable(blockConfig, availability)
 }
 
 async function loadWorkflowBlockMermaidShape(params: {
@@ -318,6 +358,7 @@ async function buildOperationSummaries(
 }
 
 export async function listWorkflowBlockCatalogItems(): Promise<BlockCatalogItem[]> {
+  const availability = await getWorkflowBlockCatalogAvailability()
   const blockTypes = [
     ...Object.keys(blockRegistry).filter((blockType) => !blockRegistry[blockType]?.hideFromToolbar),
     ...Object.keys(SPECIAL_BLOCK_DEFINITIONS),
@@ -327,46 +368,48 @@ export async function listWorkflowBlockCatalogItems(): Promise<BlockCatalogItem[
     Array.from(new Set(blockTypes))
       .sort((left, right) => left.localeCompare(right))
       .map(async (blockType) => {
-      const definition = resolveBlockCatalogDefinition(blockType)
-      if (!definition) {
-        return null
-      }
+        if (!isCatalogBlockAvailable(blockType, availability)) {
+          return null
+        }
 
-      const shape = await loadWorkflowBlockMermaidShape({
-        blockType,
-        blockName: definition.blockName,
+        const definition = resolveBlockCatalogDefinition(blockType)
+        if (!definition) {
+          return null
+        }
+
+        const shape = await loadWorkflowBlockMermaidShape({
+          blockType,
+          blockName: definition.blockName,
+        })
+
+        return {
+          blockType,
+          blockName: definition.blockName,
+          ...(definition.blockDescription ? { blockDescription: definition.blockDescription } : {}),
+          ...(definition.triggerAllowed !== undefined
+            ? { triggerAllowed: definition.triggerAllowed }
+            : {}),
+          mermaidContract: shape.mermaidContract,
+          ...(definition.operationChoices.length > 0
+            ? { operationIds: definition.operationChoices.map((operation) => operation.id) }
+            : {}),
+        }
       })
-
-      return {
-        blockType,
-        blockName: definition.blockName,
-        ...(definition.blockDescription ? { blockDescription: definition.blockDescription } : {}),
-        ...(definition.triggerAllowed !== undefined
-          ? { triggerAllowed: definition.triggerAllowed }
-          : {}),
-        mermaidContract: shape.mermaidContract,
-        ...(definition.operationChoices.length > 0
-          ? { operationIds: definition.operationChoices.map((operation) => operation.id) }
-          : {}),
-      }
-    })
   )
 
   return items.filter((item): item is BlockCatalogItem => item !== null)
 }
 
-export async function getWorkflowBlockOperationSummaries(
-  blockType: string
-): Promise<BlockOperationSummary[]> {
-  const definition = resolveBlockCatalogDefinition(blockType)
-  if (!definition) {
+export async function getWorkflowBlockProfile(
+  blockType: string,
+  availability?: ProviderAvailability
+): Promise<BlockProfile> {
+  const resolvedAvailability = availability ?? (await getWorkflowBlockCatalogAvailability())
+
+  if (!isCatalogBlockAvailable(blockType, resolvedAvailability)) {
     throw new Error(`Block not found: ${blockType}`)
   }
 
-  return buildOperationSummaries(blockType, definition.blockName, definition.operationChoices)
-}
-
-export async function getWorkflowBlockProfile(blockType: string): Promise<BlockProfile> {
   const definition = resolveBlockCatalogDefinition(blockType)
   if (!definition) {
     throw new Error(`Block not found: ${blockType}`)
@@ -385,7 +428,9 @@ export async function getWorkflowBlockProfile(blockType: string): Promise<BlockP
     blockName: definition.blockName,
     ...(definition.blockDescription ? { blockDescription: definition.blockDescription } : {}),
     ...(definition.bestPractices ? { bestPractices: definition.bestPractices } : {}),
-    ...(definition.triggerAllowed !== undefined ? { triggerAllowed: definition.triggerAllowed } : {}),
+    ...(definition.triggerAllowed !== undefined
+      ? { triggerAllowed: definition.triggerAllowed }
+      : {}),
     ...(definition.authType ? { authType: definition.authType } : {}),
     ...(definition.requiredCredentials
       ? { requiredCredentials: definition.requiredCredentials }

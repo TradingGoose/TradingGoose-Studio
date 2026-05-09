@@ -59,6 +59,7 @@ interface SubBlockProps {
   config: SubBlockConfig
   isConnecting: boolean
   disabled?: boolean
+  contextValues?: Record<string, any>
 }
 
 function SubBlockSwitchField({
@@ -238,7 +239,13 @@ function SubBlockDateTimeField({
 }
 
 export const SubBlock = memo(
-  function SubBlock({ blockId, config, isConnecting, disabled = false }: SubBlockProps) {
+  function SubBlock({
+    blockId,
+    config,
+    isConnecting,
+    disabled = false,
+    contextValues,
+  }: SubBlockProps) {
     const [isValidJson, setIsValidJson] = useState(true)
 
     const handleMouseDown = (e: React.MouseEvent) => {
@@ -304,6 +311,7 @@ export const SubBlock = memo(
                 searchPlaceholder={config.searchPlaceholder}
                 disabled={isDisabled}
                 config={config}
+                contextValues={contextValues}
               />
             </div>
           )
@@ -484,7 +492,14 @@ export const SubBlock = memo(
         case 'oauth-input':
           return <CredentialSelector blockId={blockId} subBlock={config} disabled={isDisabled} />
         case 'file-selector':
-          return <FileSelectorInput blockId={blockId} subBlock={config} disabled={isDisabled} />
+          return (
+            <FileSelectorInput
+              blockId={blockId}
+              subBlock={config}
+              disabled={isDisabled}
+              contextValues={contextValues}
+            />
+          )
         case 'project-selector':
           return <ProjectSelectorInput blockId={blockId} subBlock={config} disabled={isDisabled} />
         case 'folder-selector':
@@ -555,7 +570,14 @@ export const SubBlock = memo(
             />
           )
         case 'channel-selector':
-          return <ChannelSelectorInput blockId={blockId} subBlock={config} disabled={isDisabled} />
+          return (
+            <ChannelSelectorInput
+              blockId={blockId}
+              subBlock={config}
+              disabled={isDisabled}
+              contextValues={contextValues}
+            />
+          )
         case 'mcp-server-selector':
           return <McpServerSelector blockId={blockId} subBlock={config} disabled={isDisabled} />
         case 'mcp-tool-selector':
@@ -666,7 +688,8 @@ export const SubBlock = memo(
       prevProps.blockId === nextProps.blockId &&
       prevProps.config === nextProps.config &&
       prevProps.isConnecting === nextProps.isConnecting &&
-      prevProps.disabled === nextProps.disabled
+      prevProps.disabled === nextProps.disabled &&
+      prevProps.contextValues === nextProps.contextValues
     )
   }
 )

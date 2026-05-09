@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import type { WorkflowSnapshot } from '@/lib/yjs/workflow-session'
+import { applyAutoLayout } from '@/lib/workflows/autolayout'
 import {
   buildWorkflowDocumentPreviewDiff,
   parseTgMermaidToWorkflow,
   serializeWorkflowToTgMermaid,
   TG_MERMAID_DOCUMENT_FORMAT,
 } from '@/lib/workflows/studio-workflow-mermaid'
-import { applyAutoLayout } from '@/lib/workflows/autolayout'
+import type { WorkflowSnapshot } from '@/lib/yjs/workflow-session'
 
 describe('studio workflow Mermaid documents', () => {
   const workflowState: WorkflowSnapshot = {
@@ -232,6 +232,9 @@ describe('studio workflow Mermaid documents', () => {
     expect(document).toContain('flowchart LR')
     expect(document).toContain('Loop Start')
     expect(document).toContain('Loop End')
+    expect(document).toContain('n1__condition_if --> n3')
+    expect(document).not.toContain('n1__condition_if --> n3__loop_start')
+    expect(document).not.toContain('n1__condition_if --> n3__loop_end')
     expect(document).toContain('id: condition-gate-if')
     expect(document).toContain('value: {{market_open}} === true')
     expect(document).toMatch(/subgraph sg_n\d+\["Market Hours\?<br\/>id: gate<br\/>type: condition/)
@@ -287,9 +290,10 @@ describe('studio workflow Mermaid documents', () => {
     )
 
     const parsed = parseTgMermaidToWorkflow(editedDocument)
-    const conditions = JSON.parse(
-      String(parsed.blocks.gate.subBlocks.conditions.value)
-    ) as Array<{ title: string; value: string }>
+    const conditions = JSON.parse(String(parsed.blocks.gate.subBlocks.conditions.value)) as Array<{
+      title: string
+      value: string
+    }>
 
     expect(conditions.find((entry) => entry.title === 'if')?.value).toBe(
       '{{market_open}} === true && {{volume}} > 1000'
@@ -301,6 +305,9 @@ describe('studio workflow Mermaid documents', () => {
 
     expect(document).toContain('Parallel Start')
     expect(document).toContain('Parallel End')
+    expect(document).toContain('n1 --> n2')
+    expect(document).not.toContain('n1 --> n2__parallel_start')
+    expect(document).not.toContain('n1 --> n2__parallel_end')
     expect(document).toContain('n2 --> n4')
     expect(document).toContain('n2 --> n3')
 
@@ -380,6 +387,28 @@ n3 --> n4
         target: 'sink',
       },
     ])
+  })
+
+  it('rejects visible external edges into container internal endpoint nodes', () => {
+    const invalidDocument = serializeWorkflowToTgMermaid(parallelWorkflowState).replace(
+      '\n  n1 --> n2',
+      '\n  n1 --> n2__parallel_end'
+    )
+
+    expect(() => parseTgMermaidToWorkflow(invalidDocument)).toThrow(
+      'Invalid container edge: parallel1 end handle only accepts edges from blocks inside that container. Target the parallel1 container block without targetHandle for incoming outer edges.'
+    )
+  })
+
+  it('rejects canonical external edges into container internal end handles', () => {
+    const invalidDocument = serializeWorkflowToTgMermaid(parallelWorkflowState).replace(
+      '%% TG_EDGE {"id":"e-input-parallel","source":"inputTrigger","target":"parallel1"}',
+      '%% TG_EDGE {"id":"e-input-parallel","source":"inputTrigger","target":"parallel1","targetHandle":"parallel-end-target"}'
+    )
+
+    expect(() => parseTgMermaidToWorkflow(invalidDocument)).toThrow(
+      'Invalid container edge: parallel1 end handle only accepts edges from blocks inside that container. Target the parallel1 container block without targetHandle for incoming outer edges.'
+    )
   })
 
   it('rejects TG_BLOCK payloads that omit the canonical type field', () => {

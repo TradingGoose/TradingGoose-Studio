@@ -21,14 +21,20 @@ describe('buildAssistantMessageSegments', () => {
         startTime: 20,
       },
       {
+        type: 'thinking',
+        content: '   ',
+        timestamp: 3,
+        itemId: 'empty-thinking',
+      },
+      {
         type: 'text',
         content: 'I found the workflow.',
-        timestamp: 3,
+        timestamp: 4,
         itemId: 'text-1',
       },
       {
         type: 'tool_call',
-        timestamp: 4,
+        timestamp: 5,
         toolCall: {
           id: 'tool-1',
           name: 'get_user_workflow',
@@ -38,7 +44,7 @@ describe('buildAssistantMessageSegments', () => {
       {
         type: 'text',
         content: 'I am ready to update it.',
-        timestamp: 5,
+        timestamp: 6,
         itemId: 'text-2',
       },
     ])

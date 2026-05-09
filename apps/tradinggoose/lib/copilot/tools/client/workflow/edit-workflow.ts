@@ -1,5 +1,4 @@
 import { Grid2x2, Grid2x2Check, Grid2x2X, Loader2, MinusCircle, XCircle } from 'lucide-react'
-import { shouldBypassCopilotApproval } from '@/lib/copilot/access-policy'
 import {
   BaseClientTool,
   type BaseClientToolMetadata,
@@ -258,16 +257,6 @@ export class EditWorkflowClientTool extends BaseClientTool {
           : 0,
       })
 
-      const accessLevel = getCopilotStoreForToolCall(this.toolCallId).getState().accessLevel
-      if (shouldBypassCopilotApproval(accessLevel)) {
-        logger.info('Auto-applying workflow edits for full access session', {
-          toolCallId: this.toolCallId,
-        })
-        await this.handleAccept()
-        return
-      }
-
-      // Move into review state and wait for user approval/rejection to mark complete
       this.setState(ClientToolCallState.review, { result: this.lastResult })
     } catch (error: any) {
       const message = error instanceof Error ? error.message : String(error)

@@ -9,7 +9,6 @@ describe('trading widget provider helpers', () => {
     const options = getTradingWidgetProviderOptions('holdings', {
       'alpaca-paper': true,
       'tradier-live': false,
-      'tradier-paper': false,
     })
 
     expect(options.map((option) => option.id)).toEqual(['alpaca'])

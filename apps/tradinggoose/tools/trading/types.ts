@@ -34,7 +34,9 @@ export interface TradingHoldingsParams {
   provider: TradingProviderId
   portfolioIdentity?: PortfolioIdentity | null
   accessToken?: string
-  credentialServiceId?: string
+  _context?: {
+    userId?: string
+  }
 }
 
 export interface TradingOrderDetailParams {

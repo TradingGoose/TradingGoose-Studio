@@ -2,14 +2,13 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { ClientToolCallState } from '@/lib/copilot/tools/client/base-tool'
 import { unregisterClientTool } from '@/lib/copilot/tools/client/manager'
 import {
-  copilotToolHasInterrupt,
   createExecutionContext,
   ensureClientToolInstance,
   getToolInterruptDisplays,
   prepareCopilotToolArgs,
 } from '@/stores/copilot/tool-registry'
 
-describe('copilotToolHasInterrupt', () => {
+describe('tool-registry', () => {
   const toolCallId = 'tool-registry-edit-workflow'
 
   afterEach(() => {
@@ -20,7 +19,7 @@ describe('copilotToolHasInterrupt', () => {
     const instance = ensureClientToolInstance('edit_workflow', toolCallId)
 
     expect(instance).toBeDefined()
-    expect(copilotToolHasInterrupt('edit_workflow', toolCallId)).toBe(false)
+    expect(getToolInterruptDisplays('edit_workflow', toolCallId)).toBeUndefined()
 
     instance?.setState(ClientToolCallState.review, {
       result: {
@@ -33,7 +32,7 @@ describe('copilotToolHasInterrupt', () => {
       },
     })
 
-    expect(copilotToolHasInterrupt('edit_workflow', toolCallId)).toBe(true)
+    expect(getToolInterruptDisplays('edit_workflow', toolCallId)).toBeDefined()
   })
 
   it('rehydrates review interrupts from persisted workflow tool state', () => {
@@ -54,7 +53,6 @@ describe('copilotToolHasInterrupt', () => {
     })
 
     expect(getToolInterruptDisplays('edit_workflow', toolCallId)).toBeDefined()
-    expect(copilotToolHasInterrupt('edit_workflow', toolCallId)).toBe(true)
   })
 
   it('surfaces review interrupts for edit_workflow_block once staged', () => {
@@ -72,7 +70,6 @@ describe('copilotToolHasInterrupt', () => {
     })
 
     expect(getToolInterruptDisplays('edit_workflow_block', toolCallId)).toBeDefined()
-    expect(copilotToolHasInterrupt('edit_workflow_block', toolCallId)).toBe(true)
   })
 
   it('does not inject workflow ids into server tool args from execution provenance', () => {
@@ -108,11 +105,7 @@ describe('copilotToolHasInterrupt', () => {
     })
 
     expect(
-      prepareCopilotToolArgs(
-        'read_gdrive_file',
-        { fileId: 'file-1', type: 'doc' },
-        context
-      )
+      prepareCopilotToolArgs('read_gdrive_file', { fileId: 'file-1', type: 'doc' }, context)
     ).toEqual({ fileId: 'file-1', type: 'doc' })
   })
 })

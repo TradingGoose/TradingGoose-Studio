@@ -16,7 +16,7 @@ vi.mock('@/providers/trading/portfolio', () => ({
   getPortfolioDetail: (...args: unknown[]) => getPortfolioDetailMock(...args),
 }))
 
-import { tradingHoldingsTool } from '@/tools/trading/holdings'
+import { executeTradingHoldings } from '@/tools/trading/holdings'
 
 const portfolioIdentity = {
   providerId: 'tradier',
@@ -32,9 +32,8 @@ describe('tradingHoldingsTool', () => {
   })
 
   it('fetches holdings for the selected portfolioIdentity account', async () => {
-    const result = await tradingHoldingsTool.directExecution?.({
+    const result = await executeTradingHoldings({
       provider: 'tradier',
-      credentialServiceId: 'tradier-live',
       accessToken: 'access-token',
       portfolioIdentity,
     })
@@ -49,17 +48,29 @@ describe('tradingHoldingsTool', () => {
     })
   })
 
-  it('rejects portfolioIdentity from a different credential service', async () => {
-    const result = await tradingHoldingsTool.directExecution?.({
+  it('requires the route-resolved access token', async () => {
+    const result = await executeTradingHoldings({
       provider: 'tradier',
-      credentialServiceId: 'tradier-paper',
+      portfolioIdentity,
+    })
+
+    expect(result).toMatchObject({
+      success: false,
+      error: 'Trading provider access token is required',
+    })
+    expect(getPortfolioDetailMock).not.toHaveBeenCalled()
+  })
+
+  it('rejects portfolioIdentity from a different provider', async () => {
+    const result = await executeTradingHoldings({
+      provider: 'alpaca',
       accessToken: 'access-token',
       portfolioIdentity,
     })
 
     expect(result).toMatchObject({
       success: false,
-      error: 'Portfolio identity does not match provider connection',
+      error: 'Portfolio identity does not match provider',
     })
     expect(getPortfolioDetailMock).not.toHaveBeenCalled()
   })

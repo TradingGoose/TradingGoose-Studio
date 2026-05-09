@@ -1,8 +1,8 @@
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
-import { ReadOnlyNodeEditorPanel } from './read-only-node-editor-panel'
 import type { WorkflowState } from '@/stores/workflows/workflow/types'
+import { ReadOnlyNodeEditorPanel } from './read-only-node-editor-panel'
 
 function createWorkflowState(): WorkflowState {
   return {
@@ -13,7 +13,7 @@ function createWorkflowState(): WorkflowState {
         name: 'Agent One',
         position: { x: 0, y: 0 },
         subBlocks: {
-          prompt: { id: 'prompt', type: 'long-input', value: 'hello' } as any,
+          responseFormat: { id: 'responseFormat', type: 'code', value: 'hello' } as any,
         },
         outputs: {} as any,
         enabled: true,
@@ -49,7 +49,7 @@ describe('ReadOnlyNodeEditorPanel', () => {
     expect(markup).toContain('no longer available')
   })
 
-  it('renders inspector header and resolved read-only panel for selected node', () => {
+  it('renders inspector header and canonical summary rows for selected node', () => {
     const markup = renderToStaticMarkup(
       createElement(ReadOnlyNodeEditorPanel, {
         selectedNodeId: 'agent_1',
@@ -59,7 +59,7 @@ describe('ReadOnlyNodeEditorPanel', () => {
 
     expect(markup).toContain('Preview Inspector')
     expect(markup).toContain('Agent One')
-    expect(markup).toContain('prompt')
+    expect(markup).toContain('responseFormat')
     expect(markup).toContain('hello')
   })
 })

@@ -99,7 +99,7 @@ describe('entity document tools', () => {
     mockEntityFieldState.values = {}
   })
 
-  it('list_skills auto-executes and returns generic entity list results', async () => {
+  it('list_skills returns generic entity list results', async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = typeof input === 'string' ? input : input.toString()
       const method = init?.method || 'GET'
@@ -241,10 +241,7 @@ describe('entity document tools', () => {
       const url = typeof input === 'string' ? input : input.toString()
       const method = init?.method || 'GET'
 
-      if (
-        url === '/api/indicators/options?workspaceId=ws-1&surface=copilot' &&
-        method === 'GET'
-      ) {
+      if (url === '/api/indicators/options?workspaceId=ws-1&surface=copilot' && method === 'GET') {
         return {
           ok: true,
           status: 200,

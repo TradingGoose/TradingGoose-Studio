@@ -13,10 +13,10 @@ import {
   CommandList,
 } from '@/components/ui/command'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
-import { useWorkspaceId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 import type { SubBlockConfig } from '@/blocks/types'
 import { type KnowledgeBaseData, useKnowledgeStore } from '@/stores/knowledge/store'
+import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
+import { useWorkspaceId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 
 interface KnowledgeBaseSelectorProps {
   blockId: string
@@ -53,9 +53,9 @@ export function KnowledgeBaseSelector({
         typeof storeValue === 'string'
           ? storeValue.includes(',')
             ? storeValue
-              .split(',')
-              .map((id) => id.trim())
-              .filter((id) => id.length > 0)
+                .split(',')
+                .map((id) => id.trim())
+                .filter((id) => id.length > 0)
             : [storeValue]
           : []
 
@@ -111,7 +111,6 @@ export function KnowledgeBaseSelector({
     }
   }
 
-  // Handle single knowledge base selection (for backward compatibility)
   const handleSelectSingleKnowledgeBase = (knowledgeBase: KnowledgeBaseData) => {
     // Use the hook's setter which handles collaborative updates
     setStoreValue(knowledgeBase.id)

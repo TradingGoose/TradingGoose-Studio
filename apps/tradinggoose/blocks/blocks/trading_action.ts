@@ -10,7 +10,7 @@ import {
 } from '@/providers/trading'
 import { getTradingOrderTypeOptions } from '@/providers/trading/order-types'
 import type { TradingProviderParamDefinition } from '@/providers/trading/providers'
-import { tradingActionTool } from '@/tools/trading'
+import { tradingActionTool } from '@/tools/trading/action'
 import type { TradingActionResponse } from '@/tools/trading/types'
 
 const providerOptions = getTradingProviders().map((provider) => ({

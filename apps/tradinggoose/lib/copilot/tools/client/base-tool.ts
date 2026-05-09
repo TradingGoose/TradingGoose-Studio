@@ -1,8 +1,12 @@
-// Lazy require in setState to avoid circular init issues
-import { createLogger } from '@/lib/logs/console/logger'
-import { maybeHandleCopilotMarkCompleteContinuation } from '@/stores/copilot/mark-complete'
-import type { ReviewEntityKind } from '@/lib/copilot/review-sessions/types'
 import type { LucideIcon } from 'lucide-react'
+import type { ReviewEntityKind } from '@/lib/copilot/review-sessions/types'
+import { createLogger } from '@/lib/logs/console/logger'
+import {
+  maybeHandleCopilotMarkCompleteContinuation,
+  postCopilotMarkCompleteRequest,
+} from '@/stores/copilot/mark-complete'
+import { getCopilotStoreForToolCall } from '@/stores/copilot/store-access'
+import { syncToolState } from './manager'
 
 const baseToolLogger = createLogger('BaseClientTool')
 
@@ -204,31 +208,34 @@ export class BaseClientTool {
       return true
     }
 
+    const storeState = getCopilotStoreForToolCall(this.toolCallId).getState()
+    if (storeState.toolCallsById[this.toolCallId]?.state === ClientToolCallState.aborted) {
+      this.isMarkedComplete = true
+      return true
+    }
+
     this.isMarkedComplete = true
 
-    try {
-      baseToolLogger.info('markToolComplete called', {
-        toolCallId: this.toolCallId,
-        toolName: this.name,
-        state: this.state,
-        status,
-        hasMessage: message !== undefined,
-        hasData: data !== undefined,
-      })
-    } catch {}
+    baseToolLogger.info('markToolComplete called', {
+      toolCallId: this.toolCallId,
+      toolName: this.name,
+      state: this.state,
+      status,
+      hasMessage: message !== undefined,
+      hasData: data !== undefined,
+    })
 
     try {
-      const res = await fetch('/api/copilot/tools/mark-complete', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id: this.toolCallId,
-          name: this.name,
+      const res = await postCopilotMarkCompleteRequest(
+        {
+          toolCallId: this.toolCallId,
+          toolName: this.name,
           status,
           message,
           data,
-        }),
-      })
+        },
+        storeState.abortController?.signal
+      )
 
       if (!res.ok) {
         // Try to surface server error
@@ -286,9 +293,7 @@ export class BaseClientTool {
     return this.resolvePersistedToolState() ?? this.state
   }
 
-  protected async getPendingUserAction(
-    _args?: Record<string, any>
-  ): Promise<'accept' | 'execute'> {
+  protected async getPendingUserAction(_args?: Record<string, any>): Promise<'accept' | 'execute'> {
     return this.getInterruptDisplays() ? 'accept' : 'execute'
   }
 
@@ -325,9 +330,13 @@ export class BaseClientTool {
 
   // Reject (skip) for interrupt flows: mark complete with a standard skip message
   async handleReject(): Promise<void> {
-    await this.markToolComplete(REJECTED_TOOL_COMPLETION_STATUS, this.getRejectCompletionMessage(), {
-      rejected: true,
-    })
+    await this.markToolComplete(
+      REJECTED_TOOL_COMPLETION_STATUS,
+      this.getRejectCompletionMessage(),
+      {
+        rejected: true,
+      }
+    )
     this.setState(ClientToolCallState.rejected)
   }
 
@@ -351,22 +360,15 @@ export class BaseClientTool {
       state: next,
     }
 
-    // Notify store via manager to avoid import cycles
-    try {
-      const { syncToolState } = require('@/lib/copilot/tools/client/manager')
-      syncToolState(this.toolCallId, next, options)
-    } catch {}
+    syncToolState(this.toolCallId, next, options)
 
-    // Log transition after syncing
-    try {
-      baseToolLogger.info('setState transition', {
-        toolCallId: this.toolCallId,
-        toolName: this.name,
-        prev,
-        next,
-        hasResult: options?.result !== undefined,
-      })
-    } catch {}
+    baseToolLogger.info('setState transition', {
+      toolCallId: this.toolCallId,
+      toolName: this.name,
+      prev,
+      next,
+      hasResult: options?.result !== undefined,
+    })
   }
 
   // Expose current state

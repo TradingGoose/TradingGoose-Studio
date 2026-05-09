@@ -1,19 +1,8 @@
 import { getTradingProvider, getTradingProviderOAuthEnvironment } from '@/providers/trading'
-import { toPortfolioValueObject } from '@/providers/trading/portfolio-identity'
 import { getPortfolioDetail } from '@/providers/trading/portfolio'
+import { toPortfolioValueObject } from '@/providers/trading/portfolio-identity'
 import type { TradingHoldingsParams, TradingHoldingsResponse } from '@/tools/trading/types'
 import type { ToolConfig, ToolResponse } from '@/tools/types'
-
-const readPortfolioIdentityParam = (value: unknown) => {
-  if (typeof value !== 'string') return toPortfolioValueObject(value)
-  const trimmed = value.trim()
-  if (!trimmed) return null
-  try {
-    return toPortfolioValueObject(JSON.parse(trimmed))
-  } catch {
-    return null
-  }
-}
 
 const failure = (summary: string, provider: string, error = summary): ToolResponse => ({
   success: false,
@@ -42,81 +31,37 @@ export const tradingHoldingsTool: ToolConfig<TradingHoldingsParams, TradingHoldi
       type: 'json',
       required: true,
       visibility: 'user-only',
-      description: 'Canonical portfolioIdentity for the brokerage account to fetch.',
-    },
-    credential: {
-      type: 'string',
-      required: false,
-      visibility: 'hidden',
-      description: 'OAuth credential id for the selected broker (populated from selected account).',
-    },
-    credentialServiceId: {
-      type: 'string',
-      required: false,
-      visibility: 'hidden',
-      description: 'OAuth service id for the selected broker connection.',
+      description: 'Canonical portfolioIdentity selected by the broker account field.',
     },
     accessToken: {
       type: 'string',
       required: false,
       visibility: 'hidden',
-      description: 'OAuth access token (injected from credential).',
+      description: 'OAuth access token resolved from the selected portfolioIdentity connection.',
     },
   },
 
   request: {
-    url: '',
-    method: 'GET',
-    headers: () => ({}),
+    url: '/api/tools/trading/holdings',
+    method: 'POST',
+    headers: () => ({
+      'Content-Type': 'application/json',
+    }),
+    body: (params) => ({
+      provider: params.provider,
+      portfolioIdentity: params.portfolioIdentity,
+    }),
   },
 
-  directExecution: async (params) => {
-    if (!params) {
-      return failure('Missing tool parameters for holdings request', '')
-    }
-
-    if (!params.accessToken) {
-      return failure('Trading provider access token is required', params.provider)
-    }
-
-    const provider = getTradingProvider(params.provider)
-    const portfolioIdentity = readPortfolioIdentityParam(params.portfolioIdentity)
-
-    if (!portfolioIdentity) {
-      return failure('Portfolio identity is required', provider.id)
-    }
-
-    if (portfolioIdentity.providerId !== provider.id) {
-      return failure('Portfolio identity does not match provider', provider.id)
-    }
-
-    if (!params.credentialServiceId) {
-      return failure('Trading provider connection is required', provider.id)
-    }
-
-    if (params.credentialServiceId !== portfolioIdentity.credentialServiceId) {
-      return failure('Portfolio identity does not match provider connection', provider.id)
-    }
-
-    const environment = getTradingProviderOAuthEnvironment(provider.id, params.credentialServiceId)
-    if (!environment) {
-      return failure('Trading provider connection is not configured', provider.id)
-    }
-
-    const holdings = await getPortfolioDetail({
-      providerId: provider.id,
-      credentialServiceId: portfolioIdentity.credentialServiceId,
-      environment,
-      accessToken: params.accessToken,
-      accountId: portfolioIdentity.accountId,
-    })
-
+  transformResponse: async (response): Promise<TradingHoldingsResponse> => {
+    const result = await response.json()
+    const data = result.data || result
     return {
       success: true,
       output: {
-        summary: `Fetched portfolio detail from ${provider.name}`,
-        provider: provider.id,
-        holdings,
+        summary: data.summary || 'Fetched portfolio detail',
+        provider: data.provider || '',
+        holdings: data.holdings ?? null,
       },
     }
   },
@@ -124,6 +69,60 @@ export const tradingHoldingsTool: ToolConfig<TradingHoldingsParams, TradingHoldi
   outputs: {
     summary: { type: 'string', description: 'Status message for holdings retrieval.' },
     provider: { type: 'string', description: 'Broker/provider used for the request.' },
-    holdings: { type: 'json', description: 'Canonical portfolio detail with cash, positions, and summary.' },
+    holdings: {
+      type: 'json',
+      description: 'Canonical portfolio detail with cash, positions, and summary.',
+    },
   },
+}
+
+export const executeTradingHoldings = async ({
+  accessToken,
+  ...params
+}: Omit<TradingHoldingsParams, 'accessToken'> & {
+  accessToken?: string | null
+}): Promise<ToolResponse> => {
+  if (!params) {
+    return failure('Missing tool parameters for holdings request', '')
+  }
+
+  const provider = getTradingProvider(params.provider)
+  const portfolioIdentity = toPortfolioValueObject(params.portfolioIdentity)
+
+  if (!portfolioIdentity) {
+    return failure('Portfolio identity is required', provider.id)
+  }
+
+  if (portfolioIdentity.providerId !== provider.id) {
+    return failure('Portfolio identity does not match provider', provider.id)
+  }
+
+  if (!accessToken) {
+    return failure('Trading provider access token is required', provider.id)
+  }
+
+  const environment = getTradingProviderOAuthEnvironment(
+    provider.id,
+    portfolioIdentity.credentialServiceId
+  )
+  if (!environment) {
+    return failure('Trading provider connection is not configured', provider.id)
+  }
+
+  const holdings = await getPortfolioDetail({
+    providerId: provider.id,
+    credentialServiceId: portfolioIdentity.credentialServiceId,
+    environment,
+    accessToken,
+    accountId: portfolioIdentity.accountId,
+  })
+
+  return {
+    success: true,
+    output: {
+      summary: `Fetched portfolio detail from ${provider.name}`,
+      provider: provider.id,
+      holdings,
+    },
+  }
 }

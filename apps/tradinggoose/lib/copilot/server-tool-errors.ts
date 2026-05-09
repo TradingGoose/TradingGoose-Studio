@@ -68,8 +68,7 @@ function buildInvalidToolPayloadError(
     body: {
       code: 'invalid_tool_payload',
       error: `Invalid ${displayName} payload: ${issueSummary || 'Payload did not match the tool schema.'}`,
-      hint:
-        'Match the payload exactly to the active tool manifest. Use only allowed top-level properties, include required fields, and respect enum/value constraints.',
+      hint: 'Match the payload exactly to the active tool manifest. Use only allowed top-level properties, include required fields, and respect enum/value constraints.',
       retryable: true,
       issues: formattedIssues,
     },
@@ -83,8 +82,7 @@ function buildEditWorkflowError(message: string): CopilotServerToolErrorResponse
       body: {
         code: 'invalid_workflow_document_missing_metadata',
         error: 'Workflow document is missing a standalone `%% TG_WORKFLOW {...}` metadata line.',
-        hint:
-          'Send raw `tg-mermaid-v1` Mermaid text with real newlines, and keep `%% TG_WORKFLOW {...}` on its own line near the top of the document.',
+        hint: 'Send raw `tg-mermaid-v1` Mermaid text with real newlines, and keep `%% TG_WORKFLOW {...}` on its own line near the top of the document.',
         retryable: true,
       },
     }
@@ -95,9 +93,9 @@ function buildEditWorkflowError(message: string): CopilotServerToolErrorResponse
       status: 422,
       body: {
         code: 'invalid_workflow_document_missing_blocks',
-        error: 'Workflow document did not contain any standalone `%% TG_BLOCK {...}` block entries.',
-        hint:
-          'Emit canonical `%% TG_BLOCK {...}` comment lines for each block. Do not embed `TG_BLOCK` JSON inside node labels or send simplified block metadata.',
+        error:
+          'Workflow document did not contain any standalone `%% TG_BLOCK {...}` block entries.',
+        hint: 'Emit canonical `%% TG_BLOCK {...}` comment lines for each block. Do not embed `TG_BLOCK` JSON inside node labels or send simplified block metadata.',
         retryable: true,
       },
     }
@@ -109,8 +107,7 @@ function buildEditWorkflowError(message: string): CopilotServerToolErrorResponse
       body: {
         code: 'invalid_workflow_document_block_payload',
         error: message,
-        hint:
-          'Each `TG_BLOCK` payload must be canonical workflow state with `id`, `type`, `name`, `position`, `subBlocks`, `outputs`, and `enabled`.',
+        hint: 'Each `TG_BLOCK` payload must be canonical workflow state with `id`, `type`, `name`, `position`, `subBlocks`, `outputs`, and `enabled`.',
         retryable: true,
       },
     }
@@ -122,8 +119,7 @@ function buildEditWorkflowError(message: string): CopilotServerToolErrorResponse
       body: {
         code: 'invalid_workflow_document_edge_payload',
         error: message,
-        hint:
-          'Each `TG_EDGE` payload must be a standalone JSON object with string `source` and `target` fields that matches the visible Mermaid connection.',
+        hint: 'Each `TG_EDGE` payload must be a standalone JSON object with string `source` and `target` fields that matches the visible Mermaid connection.',
         retryable: true,
       },
     }
@@ -138,8 +134,7 @@ function buildEditWorkflowError(message: string): CopilotServerToolErrorResponse
       body: {
         code: 'invalid_workflow_document_missing_edge_metadata',
         error: message,
-        hint:
-          'When the diagram shows visible Mermaid connections, include matching standalone `%% TG_EDGE {...}` lines for each connection.',
+        hint: 'When the diagram shows visible Mermaid connections, include matching standalone `%% TG_EDGE {...}` lines for each connection.',
         retryable: true,
       },
     }
@@ -151,9 +146,21 @@ function buildEditWorkflowError(message: string): CopilotServerToolErrorResponse
       body: {
         code: 'invalid_workflow_document_edge_mismatch',
         error: message,
-        hint:
-          'Keep the visible Mermaid connection lines and the canonical `%% TG_EDGE {...}` payloads in logical sync. Loop and parallel child blocks must stay inside their container subgraphs and cross container boundaries through the container handles, while condition blocks keep their diamond-and-branch structure.',
+        hint: 'Keep the visible Mermaid connection lines and the canonical `%% TG_EDGE {...}` payloads in logical sync. Loop and parallel child blocks must stay inside their container subgraphs and cross container boundaries through the container handles, while condition blocks keep their diamond-and-branch structure.',
         retryable: true,
+      },
+    }
+  }
+
+  if (message.startsWith('Invalid container edge:')) {
+    return {
+      status: 422,
+      body: {
+        code: 'invalid_workflow_document_container_edge',
+        error: message,
+        hint: 'For loop and parallel containers, incoming outer workflow edges must target the container block alias itself. Use Start nodes only as sources to child blocks, and End nodes only for child-to-container completion before leaving the container.',
+        retryable: true,
+        issues: [{ path: 'workflowDocument.edges', message }],
       },
     }
   }

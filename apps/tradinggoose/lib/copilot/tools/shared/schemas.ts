@@ -30,12 +30,6 @@ export const BlockMermaidContractSchema = z.object({
   renderKind: z.enum(['standard', 'condition', 'loop_container', 'parallel_container']),
   requiresSubgraph: z.boolean(),
   childrenPlacement: z.enum(['none', 'inside_container', 'outside_container']),
-  incomingEdgeTarget: z.enum(['block', 'container_start']),
-  outgoingEdgeSource: z.enum(['block', 'container_end', 'condition_branch']),
-  conditionBranchNodePattern: z.string().optional(),
-  conditionBranchHandlePattern: z.string().optional(),
-  containerStartNodePattern: z.string().optional(),
-  containerEndNodePattern: z.string().optional(),
   canonicalCommentPrefixes: z.object({
     workflow: z.string(),
     block: z.string(),

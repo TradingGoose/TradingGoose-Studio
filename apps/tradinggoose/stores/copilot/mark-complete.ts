@@ -1,25 +1,46 @@
-type ContinuationHandler = (params: {
+type ContinuationHandler = (params: { toolCallId: string; response: Response }) => Promise<void>
+
+export type CopilotMarkCompleteRequest = {
   toolCallId: string
-  response: Response
-}) => Promise<void>
+  toolName: string
+  status: number
+  message?: unknown
+  data?: unknown
+}
 
 let continuationHandler: ContinuationHandler | null = null
 
-export function registerCopilotMarkCompleteContinuationHandler(
-  handler: ContinuationHandler
-): void {
+export function registerCopilotMarkCompleteContinuationHandler(handler: ContinuationHandler): void {
   continuationHandler = handler
+}
+
+export function postCopilotMarkCompleteRequest(
+  params: CopilotMarkCompleteRequest,
+  signal?: AbortSignal
+): Promise<Response> {
+  return fetch('/api/copilot/tools/mark-complete', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    signal,
+    body: JSON.stringify({
+      id: params.toolCallId,
+      name: params.toolName,
+      status: params.status,
+      message: params.message,
+      data: params.data,
+    }),
+  })
 }
 
 export async function maybeHandleCopilotMarkCompleteContinuation(params: {
   toolCallId: string
-  response: Response | { headers?: { get?: (name: string) => string | null }; body?: unknown }
+  response: Response
 }): Promise<boolean> {
-  const contentType = params.response.headers?.get?.('content-type') || ''
+  const contentType = params.response.headers.get('content-type') || ''
   if (!contentType.includes('text/event-stream') || !params.response.body || !continuationHandler) {
     return false
   }
 
-  await continuationHandler(params as { toolCallId: string; response: Response })
+  await continuationHandler(params)
   return true
 }

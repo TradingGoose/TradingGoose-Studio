@@ -197,10 +197,8 @@ function createAlpacaOAuthConfig(
   }
 }
 
-function createTradierOAuthConfig(
-  providerId: 'tradier-live' | 'tradier-paper',
-  environment: 'live' | 'paper'
-): SystemManagedGenericOAuthConfig {
+function createTradierOAuthConfig(): SystemManagedGenericOAuthConfig {
+  const providerId = 'tradier-live'
   return {
     providerId,
     authorizationUrl: 'https://api.tradier.com/v1/oauth/authorize',
@@ -208,7 +206,7 @@ function createTradierOAuthConfig(
     authentication: 'basic',
     scopes: getCanonicalScopesForProvider(providerId),
     getUserInfo: async (tokens) => {
-      const response = await fetch(`${resolveTradierBaseUrl(environment)}/user/profile`, {
+      const response = await fetch(`${resolveTradierBaseUrl()}/user/profile`, {
         headers: {
           Authorization: `Bearer ${tokens.accessToken}`,
           Accept: 'application/json',
@@ -731,8 +729,7 @@ export const auth = betterAuth({
       config: toSystemManagedGenericOAuthConfigs([
         createAlpacaOAuthConfig('alpaca-live', 'live'),
         createAlpacaOAuthConfig('alpaca-paper', 'paper'),
-        createTradierOAuthConfig('tradier-live', 'live'),
-        createTradierOAuthConfig('tradier-paper', 'paper'),
+        createTradierOAuthConfig(),
         {
           providerId: 'github-repo',
           authorizationUrl: 'https://github.com/login/oauth/authorize',
