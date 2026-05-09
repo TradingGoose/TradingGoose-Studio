@@ -53,6 +53,18 @@ export const TradingHoldingsBlock: BlockConfig<TradingHoldingsResponse> = {
       required: true,
     },
     ...providerCredentialBlocks(),
+    {
+      id: 'portfolioIdentity',
+      title: 'Portfolio Identity',
+      type: 'code',
+      language: 'json',
+      generationType: 'json-object',
+      layout: 'full',
+      required: true,
+      placeholder:
+        '{\n  "providerId": "alpaca",\n  "credentialServiceId": "alpaca-live",\n  "accountId": "ACCOUNT_ID"\n}',
+      description: 'Canonical portfolioIdentity for the brokerage account to fetch.',
+    },
   ],
   tools: {
     access: ['trading_get_holdings'],
@@ -74,6 +86,7 @@ export const TradingHoldingsBlock: BlockConfig<TradingHoldingsResponse> = {
         return {
           provider,
           credential,
+          portfolioIdentity: params.portfolioIdentity,
         }
       },
     },

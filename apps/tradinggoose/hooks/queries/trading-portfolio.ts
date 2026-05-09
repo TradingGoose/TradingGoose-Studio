@@ -153,12 +153,15 @@ function useTradingPortfolioSocketData<T>({
   const normalizedCredentialServiceId = credentialServiceId?.trim()
   const normalizedWorkspaceId = workspaceId?.trim()
   const normalizedPortfolioIdentity = toPortfolioValueObject(portfolioIdentity)
+  const normalizedPortfolioIdentityKey = normalizedPortfolioIdentity
+    ? getPortfolioIdentityKey(normalizedPortfolioIdentity)
+    : ''
   const requestKey = [
     channel,
     normalizedWorkspaceId ?? '',
     normalizedProvider ?? '',
     normalizedCredentialServiceId ?? '',
-    normalizedPortfolioIdentity ? getPortfolioIdentityKey(normalizedPortfolioIdentity) : '',
+    normalizedPortfolioIdentityKey,
     window ?? '',
   ].join('|')
   const data = dataState.key === requestKey ? dataState.data : undefined
@@ -166,7 +169,7 @@ function useTradingPortfolioSocketData<T>({
     enabled &&
     Boolean(normalizedProvider) &&
     Boolean(normalizedWorkspaceId) &&
-    (channel === 'accounts' || Boolean(normalizedPortfolioIdentity)) &&
+    (channel === 'accounts' || Boolean(normalizedPortfolioIdentityKey)) &&
     (channel !== 'portfolio-performance' || Boolean(window))
 
   useEffect(() => {
@@ -193,7 +196,7 @@ function useTradingPortfolioSocketData<T>({
       channel,
       runId,
       normalizedProvider,
-      normalizedPortfolioIdentity ? getPortfolioIdentityKey(normalizedPortfolioIdentity) : 'accounts',
+      normalizedPortfolioIdentityKey || 'accounts',
       window ?? '',
     ].join(':')
 
@@ -315,12 +318,10 @@ function useTradingPortfolioSocketData<T>({
     }
   }, [
     channel,
-    credentialServiceId,
     dataEvent,
-    enabled,
     getData,
     normalizedCredentialServiceId,
-    normalizedPortfolioIdentity,
+    normalizedPortfolioIdentityKey,
     normalizedProvider,
     normalizedWorkspaceId,
     refetchNonce,

@@ -23,11 +23,8 @@ const portfolioIdentity = {
   providerId: 'alpaca',
   credentialServiceId: 'alpaca-live',
   accountId: 'account-1',
-  providerName: null,
   accountName: 'Paper',
-  accountType: null,
   baseCurrency: 'USD',
-  accountStatus: null,
 }
 
 const createPortfolioPosition = (listing: ReturnType<typeof createListing>, quantity: number) => ({

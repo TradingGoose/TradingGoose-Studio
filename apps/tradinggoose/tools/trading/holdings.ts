@@ -1,14 +1,29 @@
 import { getTradingProvider, getTradingProviderOAuthEnvironment } from '@/providers/trading'
-import { getPortfolioDetail, listPortfolioIdentities } from '@/providers/trading/portfolio'
+import { toPortfolioValueObject } from '@/providers/trading/portfolio-identity'
+import { getPortfolioDetail } from '@/providers/trading/portfolio'
 import type { TradingHoldingsParams, TradingHoldingsResponse } from '@/tools/trading/types'
-import type { ToolConfig } from '@/tools/types'
+import type { ToolConfig, ToolResponse } from '@/tools/types'
 
-const resolveProviderEnvironment = (params: TradingHoldingsParams) => {
-  return (
-    getTradingProviderOAuthEnvironment(params.provider, params.credentialServiceId) ??
-    params.environment
-  )
+const readPortfolioIdentityParam = (value: unknown) => {
+  if (typeof value !== 'string') return toPortfolioValueObject(value)
+  const trimmed = value.trim()
+  if (!trimmed) return null
+  try {
+    return toPortfolioValueObject(JSON.parse(trimmed))
+  } catch {
+    return null
+  }
 }
+
+const failure = (summary: string, provider: string, error = summary): ToolResponse => ({
+  success: false,
+  output: {
+    summary,
+    provider,
+    holdings: null,
+  },
+  error,
+})
 
 export const tradingHoldingsTool: ToolConfig<TradingHoldingsParams, TradingHoldingsResponse> = {
   id: 'trading_get_holdings',
@@ -23,17 +38,23 @@ export const tradingHoldingsTool: ToolConfig<TradingHoldingsParams, TradingHoldi
       visibility: 'user-only',
       description: 'Trading provider id (alpaca or tradier).',
     },
-    environment: {
-      type: 'string',
-      required: false,
+    portfolioIdentity: {
+      type: 'json',
+      required: true,
       visibility: 'user-only',
-      description: 'Trading environment for providers that expose one.',
+      description: 'Canonical portfolioIdentity for the brokerage account to fetch.',
     },
     credential: {
       type: 'string',
       required: false,
       visibility: 'hidden',
       description: 'OAuth credential id for the selected broker (populated from selected account).',
+    },
+    credentialServiceId: {
+      type: 'string',
+      required: false,
+      visibility: 'hidden',
+      description: 'OAuth service id for the selected broker connection.',
     },
     accessToken: {
       type: 'string',
@@ -51,49 +72,35 @@ export const tradingHoldingsTool: ToolConfig<TradingHoldingsParams, TradingHoldi
 
   directExecution: async (params) => {
     if (!params) {
-      return {
-        success: false,
-        output: {
-          summary: 'Missing tool parameters for holdings request',
-          provider: '',
-          holdings: null,
-        },
-        error: 'Missing tool parameters for holdings request',
-      }
+      return failure('Missing tool parameters for holdings request', '')
     }
 
     if (!params.accessToken) {
-      return {
-        success: false,
-        output: {
-          summary: 'Trading provider access token is required',
-          provider: params.provider,
-          holdings: null,
-        },
-        error: 'Trading provider access token is required',
-      }
+      return failure('Trading provider access token is required', params.provider)
     }
 
     const provider = getTradingProvider(params.provider)
-    const environment = resolveProviderEnvironment(params)
-    const portfolioIdentities = await listPortfolioIdentities({
-      providerId: provider.id,
-      credentialServiceId: params.credentialServiceId,
-      environment,
-      accessToken: params.accessToken,
-    })
-    const portfolioIdentity = portfolioIdentities[0] ?? null
+    const portfolioIdentity = readPortfolioIdentityParam(params.portfolioIdentity)
 
     if (!portfolioIdentity) {
-      return {
-        success: false,
-        output: {
-          summary: 'Portfolio account not found for provider connection',
-          provider: provider.id,
-          holdings: null,
-        },
-        error: 'Portfolio account not found for provider connection',
-      }
+      return failure('Portfolio identity is required', provider.id)
+    }
+
+    if (portfolioIdentity.providerId !== provider.id) {
+      return failure('Portfolio identity does not match provider', provider.id)
+    }
+
+    if (!params.credentialServiceId) {
+      return failure('Trading provider connection is required', provider.id)
+    }
+
+    if (params.credentialServiceId !== portfolioIdentity.credentialServiceId) {
+      return failure('Portfolio identity does not match provider connection', provider.id)
+    }
+
+    const environment = getTradingProviderOAuthEnvironment(provider.id, params.credentialServiceId)
+    if (!environment) {
+      return failure('Trading provider connection is not configured', provider.id)
     }
 
     const holdings = await getPortfolioDetail({

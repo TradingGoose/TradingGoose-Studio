@@ -11,6 +11,12 @@ import {
   useQuickOrderParamsPersistence,
 } from '@/widgets/utils/quick-order-params'
 
+const portfolioIdentity = {
+  providerId: 'alpaca',
+  credentialServiceId: 'alpaca-live',
+  accountId: 'acct-1',
+}
+
 function Harness({
   params,
   onChange,
@@ -60,7 +66,8 @@ describe('quick order params utilities', () => {
           apiKey: 'market-key',
           apiSecret: 'market-secret',
         },
-        accountId: 'acct-1',
+        credentialServiceId: 'alpaca-live',
+        portfolioIdentity,
         side: 'sell',
         quantity: 1,
         orderClass: 'equity',
@@ -76,7 +83,8 @@ describe('quick order params utilities', () => {
         apiKey: 'market-key',
         apiSecret: 'market-secret',
       },
-      accountId: 'acct-1',
+      credentialServiceId: 'alpaca-live',
+      portfolioIdentity,
       side: 'sell',
     })
   })
@@ -113,7 +121,8 @@ describe('quick order params utilities', () => {
         <Harness
           params={{
             provider: 'alpaca',
-            accountId: 'acct-1',
+            credentialServiceId: 'alpaca-live',
+            portfolioIdentity,
             side: 'buy',
           }}
           onChange={onChange}
@@ -124,7 +133,7 @@ describe('quick order params utilities', () => {
     act(() => {
       emitQuickOrderParamsChange({
         params: {
-          accountId: null,
+          portfolioIdentity: null,
           quantity: 10,
           providerParams: { orderClass: 'equity' },
         },
@@ -135,6 +144,7 @@ describe('quick order params utilities', () => {
 
     expect(onChange).toHaveBeenCalledWith({
       provider: 'alpaca',
+      credentialServiceId: 'alpaca-live',
       side: 'buy',
     })
   })
@@ -150,7 +160,8 @@ describe('quick order params utilities', () => {
             marketProvider: 'yahoo-finance',
             marketProviderParams: { region: 'US' },
             marketAuth: { apiKey: 'market-key' },
-            accountId: 'acct-1',
+            credentialServiceId: 'alpaca-live',
+            portfolioIdentity,
             side: 'buy',
           }}
           onChange={onChange}
@@ -173,7 +184,8 @@ describe('quick order params utilities', () => {
     expect(onChange).toHaveBeenCalledWith({
       provider: 'alpaca',
       marketProvider: 'finnhub',
-      accountId: 'acct-1',
+      credentialServiceId: 'alpaca-live',
+      portfolioIdentity,
       side: 'buy',
     })
   })

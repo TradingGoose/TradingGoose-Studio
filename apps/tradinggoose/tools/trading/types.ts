@@ -1,4 +1,5 @@
 import type { ListingIdentity, ListingInputValue } from '@/lib/listing/identity'
+import type { PortfolioIdentity } from '@/providers/trading/portfolio-identity'
 import type {
   TradingActionResponse,
   TradingHoldingsResponse,
@@ -31,7 +32,7 @@ export interface TradingActionParams {
 
 export interface TradingHoldingsParams {
   provider: TradingProviderId
-  environment?: 'paper' | 'live'
+  portfolioIdentity?: PortfolioIdentity | null
   accessToken?: string
   credentialServiceId?: string
 }

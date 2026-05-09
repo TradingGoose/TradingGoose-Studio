@@ -50,16 +50,27 @@ export const toPortfolioValueObject = (value: unknown): PortfolioIdentity | null
     return null
   }
 
-  return {
+  const identity: PortfolioIdentity = {
     providerId: providerId as TradingProviderId,
     credentialServiceId,
     accountId,
-    providerName: readText(record, 'providerName') ?? null,
-    accountName: readText(record, 'accountName') ?? null,
-    accountType: (readText(record, 'accountType') as UnifiedTradingAccountType) ?? null,
-    baseCurrency: readText(record, 'baseCurrency') ?? null,
-    accountStatus: (readText(record, 'accountStatus') as UnifiedTradingAccountStatus) ?? null,
   }
+
+  const providerName = readText(record, 'providerName')
+  const accountName = readText(record, 'accountName')
+  const accountType = readText(record, 'accountType') as UnifiedTradingAccountType | undefined
+  const baseCurrency = readText(record, 'baseCurrency')
+  const accountStatus = readText(record, 'accountStatus') as
+    | UnifiedTradingAccountStatus
+    | undefined
+
+  if (providerName) identity.providerName = providerName
+  if (accountName) identity.accountName = accountName
+  if (accountType) identity.accountType = accountType
+  if (baseCurrency) identity.baseCurrency = baseCurrency
+  if (accountStatus) identity.accountStatus = accountStatus
+
+  return identity
 }
 
 export const getPortfolioIdentityKey = (portfolio: PortfolioIdentity) =>

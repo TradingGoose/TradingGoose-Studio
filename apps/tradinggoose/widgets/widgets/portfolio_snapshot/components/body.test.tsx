@@ -19,7 +19,6 @@ const selectedPortfolioIdentity = {
   providerId: 'alpaca',
   credentialServiceId: 'alpaca-live',
   accountId: 'acct-1',
-  providerName: null,
   accountName: 'Paper',
   accountType: 'paper' as const,
   baseCurrency: 'USD',
