@@ -65,4 +65,18 @@ describe('buildSubBlockRows', () => {
   it('returns both editor-managed and deploy-managed trigger fields for preview rows', () => {
     expect(getVisibleIds('all')).toEqual(['selectedTriggerId', 'contentType', 'inputFormat'])
   })
+
+  it('does not show trigger-specific fields for unavailable persisted trigger ids', () => {
+    const rows = buildSubBlockRows({
+      ...baseArgs,
+      stateToUse: {
+        selectedTriggerId: { value: 'github_issue_closed' },
+        contentType: { value: 'application/json' },
+        inputFormat: { value: 'payload' },
+      },
+      triggerSubBlockOwner: 'all',
+    })
+
+    expect(rows.flat().map((subBlock) => subBlock.id)).toEqual(['selectedTriggerId'])
+  })
 })

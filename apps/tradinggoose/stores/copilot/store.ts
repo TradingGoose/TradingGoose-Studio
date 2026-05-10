@@ -1370,7 +1370,7 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
         }
       },
 
-      executeCopilotToolCall: async (toolCallId: string) => {
+      executeCopilotToolCall: async (toolCallId: string, actionArgs?: Record<string, any>) => {
         const { toolCallsById } = get()
         const toolCall = toolCallsById[toolCallId]
         const provenance = toolCall?.provenance
@@ -1382,7 +1382,10 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
           toolName: name,
           provenance: provenance ?? {},
         })
-        const preparedArgs = prepareCopilotToolArgs(name, params, executionContext)
+        const preparedArgs = {
+          ...prepareCopilotToolArgs(name, params, executionContext),
+          ...(actionArgs || {}),
+        }
         const targetStore = getCopilotStore(storeChannelId)
 
         applyToolStateUpdate(targetStore, id, ClientToolCallState.executing)

@@ -12,11 +12,41 @@
 
 import { useCallback, useEffect, useMemo, useRef } from 'react'
 import type { Edge } from '@xyflow/react'
-import * as Y from 'yjs'
-import { getBlock } from '@/blocks'
-import { resolveOutputType } from '@/blocks/utils'
-import { getBlockOutputs } from '@/lib/workflows/block-outputs'
+import type * as Y from 'yjs'
 import { escapeRegExp } from '@/lib/utils'
+import { getBlockOutputs, resolveBlockRuntimeState } from '@/lib/workflows/block-outputs'
+import { resolveInitialSubBlockValue } from '@/lib/workflows/subblock-values'
+import { YJS_ORIGINS, type YjsOrigin } from '@/lib/yjs/transaction-origins'
+import { useYjsSubscription } from '@/lib/yjs/use-yjs-subscription'
+import { rewriteWorkflowContentReferences } from '@/lib/yjs/workflow-reference-rewrite'
+import {
+  createWorkflowSnapshot,
+  createWorkflowTextFieldKey,
+  ensureWorkflowTextField,
+  getVariablesMap,
+  getWorkflowMap,
+  getWorkflowSnapshot,
+  getWorkflowTextField,
+  getWorkflowTextFieldFromMap,
+  getWorkflowTextFieldsMap,
+  materializeWorkflowBlockTextFields,
+  parseWorkflowTextFieldKey,
+  readWorkflowTextFieldValue,
+  replaceWorkflowTextField,
+  setWorkflowState,
+  type WorkflowSnapshot,
+  YJS_KEYS,
+} from '@/lib/yjs/workflow-session'
+import { useOptionalWorkflowSession, useWorkflowSession } from '@/lib/yjs/workflow-session-host'
+import {
+  addWorkflowVariable,
+  deleteWorkflowVariable,
+  duplicateWorkflowVariable,
+  updateWorkflowVariable,
+} from '@/lib/yjs/workflow-variables'
+import { getBlock } from '@/blocks'
+import type { BlockConfig } from '@/blocks/types'
+import { resolveOutputType } from '@/blocks/utils'
 import type { Variable } from '@/stores/variables/types'
 import { getUniqueBlockName, normalizeBlockName } from '@/stores/workflows/utils'
 import type {
@@ -33,35 +63,7 @@ import {
   generateParallelBlocks,
   isBlockProtected,
 } from '@/stores/workflows/workflow/utils'
-import { resolveInitialSubBlockValue } from '@/lib/workflows/subblock-values'
-import { useWorkflowSession, useOptionalWorkflowSession } from '@/lib/yjs/workflow-session-host'
-import {
-  YJS_KEYS,
-  createWorkflowTextFieldKey,
-  ensureWorkflowTextField,
-  getWorkflowTextField,
-  getWorkflowTextFieldFromMap,
-  getWorkflowTextFieldsMap,
-  getWorkflowMap,
-  materializeWorkflowBlockTextFields,
-  parseWorkflowTextFieldKey,
-  readWorkflowTextFieldValue,
-  replaceWorkflowTextField,
-  getVariablesMap,
-  createWorkflowSnapshot,
-  getWorkflowSnapshot,
-  setWorkflowState,
-  type WorkflowSnapshot,
-} from '@/lib/yjs/workflow-session'
-import { rewriteWorkflowContentReferences } from '@/lib/yjs/workflow-reference-rewrite'
-import {
-  addWorkflowVariable,
-  deleteWorkflowVariable,
-  duplicateWorkflowVariable,
-  updateWorkflowVariable,
-} from '@/lib/yjs/workflow-variables'
-import { YJS_ORIGINS, type YjsOrigin } from '@/lib/yjs/transaction-origins'
-import { useYjsSubscription } from '@/lib/yjs/use-yjs-subscription'
+import { persistSingletonTriggerSelection } from '@/triggers/resolution'
 
 // ---------------------------------------------------------------------------
 // Helpers shared across mutations (no hook state captured)
@@ -71,6 +73,44 @@ const regenLoops = (wMap: Y.Map<any>, blocks: Record<string, any>) =>
   wMap.set(YJS_KEYS.LOOPS, generateLoopBlocks(blocks))
 const regenParallels = (wMap: Y.Map<any>, blocks: Record<string, any>) =>
   wMap.set(YJS_KEYS.PARALLELS, generateParallelBlocks(blocks))
+
+function writeSharedTextValue(text: Y.Text, value: unknown): void {
+  const nextTextValue = typeof value === 'string' ? value : value == null ? '' : String(value)
+  if (text.toString() === nextTextValue) {
+    return
+  }
+
+  if (text.length > 0) {
+    text.delete(0, text.length)
+  }
+  if (nextTextValue) {
+    text.insert(0, nextTextValue)
+  }
+}
+
+function resolveUpdatedWorkflowBlockRuntimeState(args: {
+  blockId: string
+  block: any
+  blockConfig: BlockConfig
+  subBlocks: Record<string, SubBlockState>
+  textFields?: Y.Map<any>
+}): any {
+  const triggerMode = args.block.triggerMode === true
+  const subBlocks = persistSingletonTriggerSelection(args.subBlocks, args.blockConfig, triggerMode)
+  const outputSubBlocks = args.textFields
+    ? (materializeWorkflowBlockTextFields(
+        args.blockId,
+        { ...args.block, subBlocks },
+        args.textFields
+      )?.subBlocks ?? subBlocks)
+    : subBlocks
+
+  return {
+    ...args.block,
+    subBlocks,
+    outputs: resolveOutputType(getBlockOutputs(args.block.type, outputSubBlocks, triggerMode)),
+  }
+}
 
 export function getLoopCollectionDataUpdate(
   loopType: 'for' | 'forEach' | 'while' | 'doWhile' | undefined,
@@ -139,9 +179,7 @@ function areWorkflowBlocksStructurallyEqual(
     return false
   }
 
-  return aKeys.every(
-    (key, index) => key === bKeys[index] && Object.is(a[key], b[key])
-  )
+  return aKeys.every((key, index) => key === bKeys[index] && Object.is(a[key], b[key]))
 }
 
 function useWorkflowRecordEntry<T>(
@@ -801,7 +839,7 @@ export function useWorkflowMutations() {
         const blocks: Record<string, any> = { ...(wMap.get(YJS_KEYS.BLOCKS) ?? {}) }
 
         const blockConfig = getBlock(type)
-        const subBlocks: Record<string, SubBlockState> = {}
+        let subBlocks: Record<string, SubBlockState> = {}
         const outputs: Record<string, any> = {}
         const resolvedSubBlockParams: Record<string, any> = {}
 
@@ -823,10 +861,14 @@ export function useWorkflowMutations() {
             resolvedSubBlockParams[subBlock.id] = resolvedInitialValue
           })
 
-          Object.assign(
-            outputs,
-            resolveOutputType(getBlockOutputs(type, subBlocks, blockProperties?.triggerMode))
-          )
+          const runtimeState = resolveBlockRuntimeState({
+            blockType: type,
+            blockConfig,
+            subBlocks,
+            triggerMode: blockProperties?.triggerMode ?? false,
+          })
+          subBlocks = runtimeState.subBlocks
+          Object.assign(outputs, runtimeState.outputs)
         }
 
         const block: BlockState = {
@@ -1036,8 +1078,43 @@ export function useWorkflowMutations() {
   )
 
   const setBlockTriggerMode = useCallback(
-    (id: string, triggerMode: boolean) => patchBlock(id, (b) => ({ ...b, triggerMode })),
-    [patchBlock]
+    (id: string, triggerMode: boolean) => {
+      transactWorkflow((d) => {
+        const wMap = getWorkflowMap(d)
+        const blocks: Record<string, any> = { ...(wMap.get(YJS_KEYS.BLOCKS) ?? {}) }
+        const block = blocks[id]
+        const blockConfig = block ? getBlock(block.type) : undefined
+        if (!block || !blockConfig) return
+
+        const runtimeState = resolveBlockRuntimeState({
+          blockType: block.type,
+          blockConfig,
+          subBlocks: block.subBlocks ?? {},
+          triggerMode,
+        })
+        const updated = {
+          ...block,
+          subBlocks: runtimeState.subBlocks,
+          outputs: runtimeState.outputs,
+          triggerMode,
+        }
+
+        blocks[id] = updated
+        wMap.set(YJS_KEYS.BLOCKS, blocks)
+
+        if (triggerMode) {
+          const edges: Edge[] = [...(wMap.get(YJS_KEYS.EDGES) ?? [])]
+          wMap.set(
+            YJS_KEYS.EDGES,
+            edges.filter((edge) => edge.target !== id)
+          )
+        }
+
+        regenLoops(wMap, blocks)
+        regenParallels(wMap, blocks)
+      }, YJS_ORIGINS.USER)
+    },
+    [transactWorkflow]
   )
 
   const toggleBlockWide = useCallback(
@@ -1075,8 +1152,13 @@ export function useWorkflowMutations() {
           return { ...b, data: { ...b.data, parentId, extent } }
         }
 
-        const { parentId: _parentId, extent: _extent, width: _width, height: _height, ...data } =
-          b.data ?? {}
+        const {
+          parentId: _parentId,
+          extent: _extent,
+          width: _width,
+          height: _height,
+          ...data
+        } = b.data ?? {}
         return { ...b, data }
       }),
     [patchBlock]
@@ -1118,16 +1200,7 @@ export function useWorkflowMutations() {
         const textFields = getWorkflowTextFieldsMap(d)
         const sharedText = getWorkflowTextFieldFromMap(textFields, blockId, subBlockId)
         if (sharedText) {
-          const nextTextValue =
-            typeof value === 'string' ? value : value == null ? '' : String(value)
-          if (sharedText.toString() !== nextTextValue) {
-            if (sharedText.length > 0) {
-              sharedText.delete(0, sharedText.length)
-            }
-            if (nextTextValue) {
-              sharedText.insert(0, nextTextValue)
-            }
-          }
+          writeSharedTextValue(sharedText, value)
         }
 
         const wMap = getWorkflowMap(d)
@@ -1135,19 +1208,43 @@ export function useWorkflowMutations() {
         const block = blocks[blockId]
         if (!block) return
 
-        if (sharedText) {
+        const blockConfig = getBlock(block.type)
+        if (!blockConfig) {
+          if (sharedText) {
+            return
+          }
+
+          const subBlocks = block.subBlocks ?? {}
+          const existingSubBlock = subBlocks[subBlockId] ?? { id: subBlockId }
+          blocks[blockId] = {
+            ...block,
+            subBlocks: {
+              ...subBlocks,
+              [subBlockId]: { ...existingSubBlock, value },
+            },
+          }
+          wMap.set(YJS_KEYS.BLOCKS, blocks)
           return
         }
 
         const subBlocks = block.subBlocks ?? {}
-        const existingSubBlock = subBlocks[subBlockId] ?? { id: subBlockId }
-        blocks[blockId] = {
-          ...block,
-          subBlocks: {
-            ...subBlocks,
-            [subBlockId]: { ...existingSubBlock, value },
-          },
-        }
+        const nextSubBlocks = sharedText
+          ? subBlocks
+          : {
+              ...subBlocks,
+              [subBlockId]: {
+                ...(subBlocks[subBlockId] ?? { id: subBlockId }),
+                value,
+              },
+            }
+
+        blocks[blockId] = resolveUpdatedWorkflowBlockRuntimeState({
+          blockId,
+          block,
+          blockConfig,
+          subBlocks: nextSubBlocks,
+          textFields,
+        })
         wMap.set(YJS_KEYS.BLOCKS, blocks)
       }, YJS_ORIGINS.USER),
     [transactWorkflow]
@@ -1166,29 +1263,40 @@ export function useWorkflowMutations() {
           if (!block) continue
           const sharedText = getWorkflowTextFieldFromMap(textFields, blockId, subBlockId)
           if (sharedText) {
-            const nextTextValue =
-              typeof value === 'string' ? value : value == null ? '' : String(value)
-            if (sharedText.toString() !== nextTextValue) {
-              if (sharedText.length > 0) {
-                sharedText.delete(0, sharedText.length)
-              }
-              if (nextTextValue) {
-                sharedText.insert(0, nextTextValue)
-              }
-            }
+            writeSharedTextValue(sharedText, value)
           }
-          if (sharedText) {
+
+          const subBlocks = block.subBlocks ?? {}
+          const nextSubBlocks = sharedText
+            ? subBlocks
+            : {
+                ...subBlocks,
+                [subBlockId]: {
+                  ...(subBlocks[subBlockId] ?? { id: subBlockId }),
+                  value,
+                },
+              }
+          const blockConfig = getBlock(block.type)
+          if (!blockConfig) {
+            if (sharedText) {
+              continue
+            }
+
+            blocks[blockId] = {
+              ...block,
+              subBlocks: nextSubBlocks,
+            }
+            changed = true
             continue
           }
-          const subBlocks = block.subBlocks ?? {}
-          const existingSubBlock = subBlocks[subBlockId] ?? { id: subBlockId }
-          blocks[blockId] = {
-            ...block,
-            subBlocks: {
-              ...subBlocks,
-              [subBlockId]: { ...existingSubBlock, value },
-            },
-          }
+
+          blocks[blockId] = resolveUpdatedWorkflowBlockRuntimeState({
+            blockId,
+            block,
+            blockConfig,
+            subBlocks: nextSubBlocks,
+            textFields,
+          })
           changed = true
         }
         if (changed) {

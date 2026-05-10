@@ -101,9 +101,9 @@ export const ConfluenceBlock: BlockConfig<ConfluenceResponse> = {
         }
       },
       params: (params) => {
-        const { credential, pageId, manualPageId, ...rest } = params
+        const { credential, pageId, ...rest } = params
 
-        const effectivePageId = (pageId || manualPageId || '').trim()
+        const effectivePageId = (pageId || '').trim()
 
         if (!effectivePageId) {
           throw new Error('Page ID is required. Please select a page or enter a page ID manually.')
@@ -122,7 +122,6 @@ export const ConfluenceBlock: BlockConfig<ConfluenceResponse> = {
     domain: { type: 'string', description: 'Confluence domain' },
     credential: { type: 'string', description: 'Confluence access token' },
     pageId: { type: 'string', description: 'Page identifier' },
-    manualPageId: { type: 'string', description: 'Manual page identifier' },
     title: { type: 'string', description: 'New page title' },
     content: { type: 'string', description: 'New page content' },
   },

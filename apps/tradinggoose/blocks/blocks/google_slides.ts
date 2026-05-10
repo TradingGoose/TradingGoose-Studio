@@ -385,8 +385,6 @@ Return ONLY the JSON array - no explanations, no markdown, no extra text.`,
         const {
           credential,
           presentationId,
-          manualPresentationId,
-          folderSelector,
           folderId,
           slideIndex,
           createContent,
@@ -396,12 +394,9 @@ Return ONLY the JSON array - no explanations, no markdown, no extra text.`,
           ...rest
         } = params
 
-        const effectivePresentationId = (presentationId || manualPresentationId || '').trim()
-        const effectiveFolderId = (folderSelector || folderId || '').trim()
-
         const result: Record<string, any> = {
           ...rest,
-          presentationId: effectivePresentationId || undefined,
+          presentationId: (presentationId || '').trim() || undefined,
           credential,
         }
 
@@ -411,7 +406,7 @@ Return ONLY the JSON array - no explanations, no markdown, no extra text.`,
         }
 
         if (params.operation === 'create') {
-          result.folderId = effectiveFolderId || undefined
+          result.folderId = (folderId || '').trim() || undefined
           if (createContent) {
             result.content = createContent
           }
@@ -448,13 +443,11 @@ Return ONLY the JSON array - no explanations, no markdown, no extra text.`,
     operation: { type: 'string', description: 'Operation to perform' },
     credential: { type: 'string', description: 'Google Slides access token' },
     presentationId: { type: 'string', description: 'Presentation identifier' },
-    manualPresentationId: { type: 'string', description: 'Manual presentation identifier' },
     // Write operation
     slideIndex: { type: 'number', description: 'Slide index to write to' },
     content: { type: 'string', description: 'Slide content' },
     // Create operation
     title: { type: 'string', description: 'Presentation title' },
-    folderSelector: { type: 'string', description: 'Selected folder' },
     folderId: { type: 'string', description: 'Folder identifier' },
     createContent: { type: 'string', description: 'Initial slide content' },
     // Replace all text operation

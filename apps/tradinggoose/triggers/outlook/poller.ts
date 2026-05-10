@@ -1,5 +1,5 @@
-import { createLogger } from '@/lib/logs/console/logger'
 import { OutlookIcon } from '@/components/icons/icons'
+import { createLogger } from '@/lib/logs/console/logger'
 import { readActiveSubBlockValue } from '@/lib/yjs/workflow-session-registry'
 import type { TriggerConfig } from '@/triggers/types'
 
@@ -49,9 +49,7 @@ export const outlookPollingTrigger: TriggerConfig = {
       required: false,
       options: [], // Will be populated dynamically
       fetchOptions: async (blockId: string, subBlockId: string) => {
-        const credentialId = readActiveSubBlockValue(blockId, 'triggerCredentials') as
-          | string
-          | null
+        const credentialId = readActiveSubBlockValue(blockId, 'triggerCredentials') as string | null
         if (!credentialId) {
           throw new Error('No Outlook credential selected')
         }
@@ -118,7 +116,6 @@ export const outlookPollingTrigger: TriggerConfig = {
       type: 'trigger-save',
       hideFromPreview: true,
       mode: 'trigger',
-      triggerId: 'outlook_poller',
     },
     {
       id: 'triggerInstructions',

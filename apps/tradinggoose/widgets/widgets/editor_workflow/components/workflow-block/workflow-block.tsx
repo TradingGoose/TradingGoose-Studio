@@ -505,6 +505,7 @@ export const WorkflowBlock = memo(
       const isPureTriggerBlock = config.category === 'triggers'
       const effectiveTrigger = displayTriggerMode || isPureTriggerBlock
       const rows = buildSubBlockRows({
+        blockId: id,
         subBlocks: config.subBlocks,
         stateToUse,
         isAdvancedMode: displayAdvancedMode,

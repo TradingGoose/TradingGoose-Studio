@@ -1,8 +1,8 @@
 import { OutlookIcon } from '@/components/icons/icons'
 import type { BlockConfig } from '@/blocks/types'
 import { AuthMode } from '@/blocks/types'
-import { getTrigger } from '@/triggers'
 import type { OutlookResponse } from '@/tools/outlook/types'
+import { getTrigger } from '@/triggers'
 
 export const OutlookBlock: BlockConfig<OutlookResponse> = {
   type: 'outlook',
@@ -226,10 +226,9 @@ export const OutlookBlock: BlockConfig<OutlookResponse> = {
         }
       },
       params: (params) => {
-        const { credential, folder, manualFolder, ...rest } = params
+        const { credential, folder, ...rest } = params
 
-        // Handle both selector and manual folder input
-        const effectiveFolder = (folder || manualFolder || '').trim()
+        const effectiveFolder = (folder || '').trim()
 
         if (rest.operation === 'read_outlook') {
           rest.folder = effectiveFolder || 'INBOX'
@@ -256,7 +255,6 @@ export const OutlookBlock: BlockConfig<OutlookResponse> = {
     comment: { type: 'string', description: 'Optional comment for forwarding' },
     // Read operation inputs
     folder: { type: 'string', description: 'Email folder' },
-    manualFolder: { type: 'string', description: 'Manual folder name' },
     maxResults: { type: 'number', description: 'Maximum emails' },
     includeAttachments: { type: 'boolean', description: 'Include email attachments' },
   },

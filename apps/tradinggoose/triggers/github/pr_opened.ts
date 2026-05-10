@@ -81,7 +81,6 @@ export const githubPROpenedTrigger: TriggerConfig = {
       type: 'trigger-save',
       hideFromPreview: true,
       mode: 'trigger',
-      triggerId: 'github_pr_opened',
       condition: {
         field: 'selectedTriggerId',
         value: 'github_pr_opened',

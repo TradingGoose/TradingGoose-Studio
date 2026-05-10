@@ -194,19 +194,16 @@ export const MicrosoftTeamsBlock: BlockConfig<MicrosoftTeamsResponse> = {
           credential,
           operation,
           teamId,
-          manualTeamId,
           chatId,
-          manualChatId,
           channelId,
-          manualChannelId,
           attachmentFiles,
           files,
           ...rest
         } = params
 
-        const effectiveTeamId = (teamId || manualTeamId || '').trim()
-        const effectiveChatId = (chatId || manualChatId || '').trim()
-        const effectiveChannelId = (channelId || manualChannelId || '').trim()
+        const effectiveTeamId = (teamId || '').trim()
+        const effectiveChatId = (chatId || '').trim()
+        const effectiveChannelId = (channelId || '').trim()
 
         const baseParams: Record<string, any> = {
           ...rest,
@@ -245,11 +242,8 @@ export const MicrosoftTeamsBlock: BlockConfig<MicrosoftTeamsResponse> = {
     credential: { type: 'string', description: 'Microsoft Teams access token' },
     messageId: { type: 'string', description: 'Message identifier' },
     chatId: { type: 'string', description: 'Chat identifier' },
-    manualChatId: { type: 'string', description: 'Manual chat identifier' },
     channelId: { type: 'string', description: 'Channel identifier' },
-    manualChannelId: { type: 'string', description: 'Manual channel identifier' },
     teamId: { type: 'string', description: 'Team identifier' },
-    manualTeamId: { type: 'string', description: 'Manual team identifier' },
     content: { type: 'string', description: 'Message content' },
     attachmentFiles: { type: 'json', description: 'Files to attach (UI upload)' },
     files: { type: 'json', description: 'Files to attach (UserFile array)' },

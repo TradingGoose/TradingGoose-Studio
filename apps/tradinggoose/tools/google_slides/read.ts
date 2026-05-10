@@ -30,7 +30,7 @@ export const readTool: ToolConfig<GoogleSlidesToolParams, GoogleSlidesReadRespon
   request: {
     url: (params) => {
       // Ensure presentationId is valid
-      const presentationId = params.presentationId?.trim() || params.manualPresentationId?.trim()
+      const presentationId = params.presentationId?.trim()
       if (!presentationId) {
         throw new Error('Presentation ID is required')
       }

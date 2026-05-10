@@ -43,7 +43,6 @@ export const calendlyWebhookTrigger: TriggerConfig = {
       type: 'trigger-save',
       hideFromPreview: true,
       mode: 'trigger',
-      triggerId: 'calendly_webhook',
       condition: {
         field: 'selectedTriggerId',
         value: 'calendly_webhook',

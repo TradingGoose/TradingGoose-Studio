@@ -25,7 +25,7 @@ export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
   },
   get_user_workflow: {
     description:
-      'Read a workflow by exact `workflowId` and return Mermaid in `workflowDocument` and `entityDocument`, plus `workflowSummary.blocks` with block ids, types, names, enabled state, parent ids, and current sub-block ids.',
+      'Read a workflow by exact `workflowId` and return Mermaid in `workflowDocument` and `entityDocument`, plus `workflowSummary.blocks` and exact `workflowSummary.edges` handles.',
     kind: 'read',
     entityKind: 'workflow',
   },
@@ -130,7 +130,7 @@ export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
   },
   get_workflow_from_name: {
     description:
-      'Read a workflow by exact `workflow_name` and return the same Mermaid document payload and `workflowSummary.blocks` shape as `get_user_workflow`.',
+      'Read a workflow by exact `workflow_name` and return the same Mermaid document payload and workflow summary shape as `get_user_workflow`.',
     kind: 'read',
     entityKind: 'workflow',
   },

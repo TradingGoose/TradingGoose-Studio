@@ -151,7 +151,6 @@ export interface SharepointReadSiteResponse extends ToolResponse {
 export interface SharepointToolParams {
   accessToken: string
   siteId?: string
-  siteSelector?: string
   pageId?: string
   pageName?: string
   pageContent?: string

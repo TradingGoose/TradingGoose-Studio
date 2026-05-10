@@ -37,7 +37,6 @@ export const whatsappWebhookTrigger: TriggerConfig = {
       type: 'trigger-save',
       hideFromPreview: true,
       mode: 'trigger',
-      triggerId: 'whatsapp_webhook',
     },
     {
       id: 'triggerInstructions',

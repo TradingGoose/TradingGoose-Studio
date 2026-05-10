@@ -1,22 +1,14 @@
 import { createLogger } from '@/lib/logs/console/logger'
+import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
+import { patchWorkflowBlock } from '@/lib/yjs/workflow-session'
 import {
   getRegisteredWorkflowSession,
   readSubBlockValue,
 } from '@/lib/yjs/workflow-session-registry'
-import { patchWorkflowBlock } from '@/lib/yjs/workflow-session'
-import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
 import { getTrigger, isTriggerValid } from '@/triggers'
 import { SYSTEM_SUBBLOCK_IDS } from '@/triggers/constants'
 
 const logger = createLogger('useTriggerConfigAggregation')
-
-function mapOldFieldNameToNewSubBlockId(oldFieldName: string): string {
-  const fieldMapping: Record<string, string> = {
-    credentialId: 'triggerCredentials',
-    includeCellValuesInFieldIds: 'includeCellValues',
-  }
-  return fieldMapping[oldFieldName] || oldFieldName
-}
 
 export function useTriggerConfigAggregation(
   blockId: string,
@@ -105,19 +97,7 @@ export function populateTriggerFieldsFromConfig(
   triggerDef.subBlocks
     .filter((sb) => sb.mode === 'trigger' && !SYSTEM_SUBBLOCK_IDS.includes(sb.id))
     .forEach((subBlock) => {
-      let configValue: any
-
-      if (subBlock.id in triggerConfig) {
-        configValue = triggerConfig[subBlock.id]
-      } else {
-        for (const [oldFieldName, value] of Object.entries(triggerConfig)) {
-          const mappedFieldName = mapOldFieldNameToNewSubBlockId(oldFieldName)
-          if (mappedFieldName === subBlock.id) {
-            configValue = value
-            break
-          }
-        }
-      }
+      const configValue = triggerConfig[subBlock.id]
 
       if (configValue !== undefined) {
         const currentValue = readSubBlockValue(workflowId, blockId, subBlock.id)

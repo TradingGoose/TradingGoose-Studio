@@ -98,7 +98,6 @@ export const hubspotConversationDeletionTrigger: TriggerConfig = {
       title: '',
       type: 'trigger-save',
       mode: 'trigger',
-      triggerId: 'hubspot_conversation_deletion',
       condition: {
         field: 'selectedTriggerId',
         value: 'hubspot_conversation_deletion',

@@ -23,6 +23,16 @@ export function getTrigger(triggerId: string): TriggerConfig | undefined {
     subBlocks: [...trigger.subBlocks],
   }
 
+  if (!clonedTrigger.subBlocks.some((subBlock) => subBlock.id === 'selectedTriggerId')) {
+    clonedTrigger.subBlocks.unshift({
+      id: 'selectedTriggerId',
+      title: 'Trigger Type',
+      type: 'dropdown',
+      mode: 'trigger',
+      hidden: true,
+    })
+  }
+
   if (
     clonedTrigger.subBlocks &&
     (trigger.webhook ||
@@ -150,7 +160,6 @@ export function buildTriggerSubBlocks(options: BuildTriggerSubBlocksOptions): Su
     type: 'trigger-save',
     hideFromPreview: true,
     mode: 'trigger',
-    triggerId: triggerId,
     condition: { field: 'selectedTriggerId', value: triggerId },
   })
 

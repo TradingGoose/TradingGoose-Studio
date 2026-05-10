@@ -304,6 +304,7 @@ export function DeployModal({
       }
 
       const triggerEditingLayout = buildTriggerEditingLayout({
+        blockId: block.id,
         blockConfig,
         blockState: block,
         shouldDisableWrite: shouldDisableTriggerWrite,
@@ -382,16 +383,18 @@ export function DeployModal({
       const savedTriggerConfig = requiresSavedConfig
         ? (block?.subBlocks?.triggerConfig?.value ?? null)
         : null
+      const savedTriggerId = getSavedTriggerConfigValue(savedTriggerConfig, 'triggerId')
       const hasUnsavedDeployConfig =
         requiresSavedConfig &&
-        configurableSubBlocks.some((subBlock) => {
-          if (subBlock.id === 'triggerCredentials') {
-            return false
-          }
-          const currentValue = block?.subBlocks?.[subBlock.id]?.value ?? null
-          const savedValue = getSavedTriggerConfigValue(savedTriggerConfig, subBlock.id)
-          return !areConfigValuesEqual(currentValue, savedValue)
-        })
+        (savedTriggerId !== tab.triggerId ||
+          configurableSubBlocks.some((subBlock) => {
+            if (subBlock.id === 'triggerCredentials') {
+              return false
+            }
+            const currentValue = block?.subBlocks?.[subBlock.id]?.value ?? null
+            const savedValue = getSavedTriggerConfigValue(savedTriggerConfig, subBlock.id)
+            return !areConfigValuesEqual(currentValue, savedValue)
+          }))
 
       return {
         key: tab.key,

@@ -31,7 +31,6 @@ export const grainWebhookTrigger: TriggerConfig = {
       type: 'trigger-save',
       hideFromPreview: true,
       mode: 'trigger',
-      triggerId: 'grain_webhook',
       condition: {
         field: 'selectedTriggerId',
         value: 'grain_webhook',

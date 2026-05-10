@@ -1,4 +1,3 @@
-import { resolveActiveTriggerId, withResolvedTriggerState } from '@/lib/workflows/sub-block-keys'
 import { buildSubBlockRows } from '@/lib/workflows/sub-block-rows'
 import type { BlockConfig, SubBlockConfig } from '@/blocks/types'
 
@@ -15,12 +14,14 @@ interface TriggerEditableBlockState {
 }
 
 interface BuildTriggerEditingLayoutParams {
+  blockId?: string
   blockConfig?: Pick<BlockConfig, 'category' | 'subBlocks' | 'triggers'>
   blockState?: TriggerEditableBlockState | null
   shouldDisableWrite: boolean
 }
 
 export function buildTriggerEditingLayout({
+  blockId,
   blockConfig,
   blockState,
   shouldDisableWrite,
@@ -39,12 +40,6 @@ export function buildTriggerEditingLayout({
   const blockStateForConditions = blockState?.subBlocks || {}
   const isPureTriggerBlock = blockConfig.category === 'triggers'
   const effectiveTrigger = Boolean(blockState?.triggerMode) || isPureTriggerBlock
-  const activeTriggerId = effectiveTrigger
-    ? resolveActiveTriggerId(blockStateForConditions, blockConfig.triggers?.available)
-    : null
-  const normalizedConditionState = effectiveTrigger
-    ? withResolvedTriggerState(blockStateForConditions, activeTriggerId)
-    : blockStateForConditions
   const effectiveAdvanced = Boolean(blockState?.advancedMode)
   const advancedValuesPresent = blockConfig.subBlocks.some((subBlock) => {
     if (subBlock.mode !== 'advanced') return false
@@ -63,8 +58,9 @@ export function buildTriggerEditingLayout({
   )
 
   const regularRows = buildSubBlockRows({
+    blockId,
     subBlocks: blockConfig.subBlocks,
-    stateToUse: normalizedConditionState,
+    stateToUse: blockStateForConditions,
     isAdvancedMode: false,
     isTriggerMode: effectiveTrigger,
     isPureTriggerBlock,
@@ -73,8 +69,9 @@ export function buildTriggerEditingLayout({
     triggerSubBlockOwner: 'all',
   })
   const advancedRows = buildSubBlockRows({
+    blockId,
     subBlocks: advancedOnlySubBlocks,
-    stateToUse: normalizedConditionState,
+    stateToUse: blockStateForConditions,
     isAdvancedMode: true,
     isTriggerMode: effectiveTrigger,
     isPureTriggerBlock,
@@ -86,7 +83,7 @@ export function buildTriggerEditingLayout({
   return {
     regularRows,
     advancedRows,
-    stateToUse: normalizedConditionState,
+    stateToUse: blockStateForConditions,
     displayAdvancedOptions: advancedVisibility,
     hasAdvancedOnlyFields: advancedRows.length > 0,
     isTriggerConfigurationView: effectiveTrigger,

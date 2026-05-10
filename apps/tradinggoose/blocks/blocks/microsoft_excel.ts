@@ -148,10 +148,9 @@ export const MicrosoftExcelBlock: BlockConfig<MicrosoftExcelResponse> = {
         }
       },
       params: (params) => {
-        const { credential, values, spreadsheetId, manualSpreadsheetId, tableName, ...rest } =
-          params
+        const { credential, values, spreadsheetId, tableName, ...rest } = params
 
-        const effectiveSpreadsheetId = (spreadsheetId || manualSpreadsheetId || '').trim()
+        const effectiveSpreadsheetId = (spreadsheetId || '').trim()
 
         let parsedValues
         try {
@@ -190,7 +189,6 @@ export const MicrosoftExcelBlock: BlockConfig<MicrosoftExcelResponse> = {
     operation: { type: 'string', description: 'Operation to perform' },
     credential: { type: 'string', description: 'Microsoft Excel access token' },
     spreadsheetId: { type: 'string', description: 'Spreadsheet identifier' },
-    manualSpreadsheetId: { type: 'string', description: 'Manual spreadsheet identifier' },
     range: { type: 'string', description: 'Cell range' },
     tableName: { type: 'string', description: 'Table name' },
     values: { type: 'string', description: 'Cell values data' },

@@ -276,9 +276,7 @@ export const SharepointBlock: BlockConfig<SharepointResponse> = {
         }
       },
       params: (params) => {
-        const { credential, siteSelector, manualSiteId, mimeType, ...rest } = params
-
-        const effectiveSiteId = (siteSelector || manualSiteId || '').trim()
+        const { credential, siteId, mimeType, ...rest } = params
 
         const {
           itemId: providedItemId,
@@ -320,7 +318,7 @@ export const SharepointBlock: BlockConfig<SharepointResponse> = {
         if (others.operation === 'update_list' || others.operation === 'add_list_items') {
           try {
             logger.info('SharepointBlock list item param check', {
-              siteId: effectiveSiteId || undefined,
+              siteId: (siteId || '').trim() || undefined,
               listId: (others as any)?.listId,
               listTitle: (others as any)?.listTitle,
               itemId: sanitizedItemId,
@@ -330,14 +328,14 @@ export const SharepointBlock: BlockConfig<SharepointResponse> = {
                   ? Object.keys(parsedItemFields)
                   : [],
             })
-          } catch { }
+          } catch {}
         }
 
         // Handle file upload files parameter
         const fileParam = uploadFiles || files
         const baseParams = {
           credential,
-          siteId: effectiveSiteId || undefined,
+          siteId: (siteId || '').trim() || undefined,
           pageSize: others.pageSize ? Number.parseInt(others.pageSize as string, 10) : undefined,
           mimeType: mimeType,
           ...others,
@@ -363,8 +361,7 @@ export const SharepointBlock: BlockConfig<SharepointResponse> = {
     pageContent: { type: 'string', description: 'Page content' },
     pageTitle: { type: 'string', description: 'Page title' },
     pageId: { type: 'string', description: 'Page ID' },
-    siteSelector: { type: 'string', description: 'Site selector' },
-    manualSiteId: { type: 'string', description: 'Manual site ID' },
+    siteId: { type: 'string', description: 'Site ID' },
     pageSize: { type: 'number', description: 'Results per page' },
     listDisplayName: { type: 'string', description: 'List display name' },
     listDescription: { type: 'string', description: 'List description' },

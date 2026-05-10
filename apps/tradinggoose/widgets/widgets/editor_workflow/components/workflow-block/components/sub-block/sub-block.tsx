@@ -269,6 +269,7 @@ export const SubBlock = memo(
 
     const renderInput = () => {
       const isDisabled = disabled
+      const valueContext = contextValues ?? {}
 
       switch (config.type) {
         case 'short-input':
@@ -305,7 +306,9 @@ export const SubBlock = memo(
                 blockId={blockId}
                 subBlockId={config.id}
                 options={config.options as { label: string; id: string }[]}
-                defaultValue={typeof config.value === 'function' ? config.value({}) : config.value}
+                defaultValue={
+                  typeof config.value === 'function' ? config.value(valueContext) : config.value
+                }
                 placeholder={config.placeholder}
                 enableSearch={config.enableSearch}
                 searchPlaceholder={config.searchPlaceholder}
@@ -322,7 +325,9 @@ export const SubBlock = memo(
                 blockId={blockId}
                 subBlockId={config.id}
                 options={config.options as { label: string; id: string }[]}
-                defaultValue={typeof config.value === 'function' ? config.value({}) : config.value}
+                defaultValue={
+                  typeof config.value === 'function' ? config.value(valueContext) : config.value
+                }
                 placeholder={config.placeholder}
                 disabled={isDisabled}
                 isConnecting={isConnecting}
@@ -361,7 +366,7 @@ export const SubBlock = memo(
               placeholder={config.placeholder}
               language={config.language}
               generationType={config.generationType}
-              value={typeof config.value === 'function' ? config.value({}) : undefined}
+              value={typeof config.value === 'function' ? config.value(valueContext) : undefined}
               disabled={isDisabled}
               onValidationChange={handleValidationChange}
               readOnly={config.readOnly}
@@ -598,20 +603,13 @@ export const SubBlock = memo(
               subBlockId={config.id}
               content={
                 typeof config.value === 'function'
-                  ? config.value({})
+                  ? config.value(valueContext)
                   : (config.defaultValue as string) || ''
               }
             />
           )
         case 'trigger-save':
-          return (
-            <TriggerSave
-              blockId={blockId}
-              subBlockId={config.id}
-              triggerId={config.triggerId}
-              disabled={isDisabled}
-            />
-          )
+          return <TriggerSave blockId={blockId} subBlockId={config.id} disabled={isDisabled} />
         default:
           return <div>Unknown input type: {config.type}</div>
       }
@@ -625,6 +623,7 @@ export const SubBlock = memo(
       config.type !== 'market-selector' &&
       config.type !== 'order-id-selector' &&
       config.type !== 'trigger-save'
+    const tooltipText = config.tooltip || config.description
 
     return (
       <div className={cn('space-y-[6px] pt-[2px]')} onMouseDown={handleMouseDown}>
@@ -656,7 +655,7 @@ export const SubBlock = memo(
                 </TooltipContent>
               </Tooltip>
             )}
-            {(config.tooltip || config.description) && (
+            {tooltipText && (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Info className='h-4 w-4 cursor-pointer text-muted-foreground' />
@@ -665,7 +664,7 @@ export const SubBlock = memo(
                   side='top'
                   className='max-w-[400px] select-text whitespace-pre-wrap'
                 >
-                  {(config.tooltip || config.description || '').split('\n').map((line, idx) => (
+                  {tooltipText.split('\n').map((line, idx) => (
                     <p
                       key={idx}
                       className={idx === 0 ? 'mb-1 text-sm' : 'text-muted-foreground text-xs'}

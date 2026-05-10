@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { resolveDisplayedSubBlockValue, resolveInitialSubBlockValue } from './subblock-values'
+import {
+  buildConfiguredSubBlockParams,
+  resolveDisplayedSubBlockValue,
+  resolveInitialSubBlockValue,
+} from './subblock-values'
 
 describe('resolveInitialSubBlockValue', () => {
   it('uses defaultValue when no explicit or configured value exists', () => {
@@ -41,6 +45,20 @@ describe('resolveInitialSubBlockValue', () => {
       )
     ).toBe('override')
   })
+
+  it('does not initialize selectedTriggerId from configured values', () => {
+    expect(
+      resolveInitialSubBlockValue(
+        {
+          id: 'selectedTriggerId',
+          type: 'dropdown',
+          value: () => 'github_webhook',
+          defaultValue: 'github_webhook',
+        },
+        {}
+      )
+    ).toBe('')
+  })
 })
 
 describe('resolveDisplayedSubBlockValue', () => {
@@ -78,5 +96,22 @@ describe('resolveDisplayedSubBlockValue', () => {
         null
       )
     ).toEqual({ example: true })
+  })
+})
+
+describe('buildConfiguredSubBlockParams', () => {
+  it('does not synthesize selectedTriggerId from configured subblock defaults', () => {
+    expect(
+      buildConfiguredSubBlockParams({
+        subBlockConfigs: [
+          {
+            id: 'selectedTriggerId',
+            type: 'dropdown',
+            value: () => 'github_webhook',
+          },
+        ],
+        subBlocks: {},
+      })
+    ).toEqual({})
   })
 })

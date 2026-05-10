@@ -104,8 +104,9 @@ export function ToolSubBlockRenderer({
     () => ({
       ...subBlock,
       id: syntheticId,
+      canonicalParamId: effectiveParamId,
     }),
-    [subBlock, syntheticId]
+    [effectiveParamId, subBlock, syntheticId]
   )
 
   return (

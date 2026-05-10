@@ -1,4 +1,6 @@
+import { useMemo } from 'react'
 import { getTriggerAwareSubBlockStableKey } from '@/lib/workflows/sub-block-keys'
+import { buildConfiguredSubBlockParams } from '@/lib/workflows/subblock-values'
 import type { SubBlockConfig } from '@/blocks/types'
 import { SubBlock } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/sub-block'
 
@@ -21,6 +23,16 @@ export function SubBlockEditRows({
   isConnecting = false,
   availableTriggerIds,
 }: SubBlockEditRowsProps) {
+  const contextValues = useMemo(
+    () =>
+      buildConfiguredSubBlockParams({
+        blockId,
+        subBlockConfigs: rows.flat(),
+        subBlocks: stateToUse,
+      }),
+    [blockId, rows, stateToUse]
+  )
+
   return (
     <>
       {rows.map((row, rowIndex) => (
@@ -40,6 +52,7 @@ export function SubBlockEditRows({
                 config={subBlock}
                 isConnecting={isConnecting}
                 disabled={disabled}
+                contextValues={contextValues}
               />
             </div>
           ))}

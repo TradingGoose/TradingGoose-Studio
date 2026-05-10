@@ -160,7 +160,14 @@ describe('workflow-review-tool-utils', () => {
               outputs: {},
             },
           },
-          edges: [],
+          edges: [
+            {
+              id: 'edge-trigger-self',
+              source: 'trigger',
+              target: 'trigger',
+              targetHandle: 'input',
+            },
+          ],
           loops: {},
           parallels: {},
         }),
@@ -185,6 +192,7 @@ describe('workflow-review-tool-utils', () => {
             subBlockIds: ['ticker', 'tradeDate'],
           },
         ],
+        edges: [{ source: 'trigger', target: 'trigger', targetHandle: 'input' }],
       },
     })
   })

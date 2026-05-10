@@ -1,8 +1,8 @@
 import { GmailIcon } from '@/components/icons/icons'
 import type { BlockConfig } from '@/blocks/types'
-import { getTrigger } from '@/triggers'
 import { AuthMode } from '@/blocks/types'
 import type { GmailToolResponse } from '@/tools/gmail/types'
+import { getTrigger } from '@/triggers'
 
 export const GmailBlock: BlockConfig<GmailToolResponse> = {
   type: 'gmail',
@@ -218,10 +218,9 @@ export const GmailBlock: BlockConfig<GmailToolResponse> = {
         }
       },
       params: (params) => {
-        const { credential, folder, manualFolder, ...rest } = params
+        const { credential, folder, ...rest } = params
 
-        // Handle both selector and manual folder input
-        const effectiveFolder = (folder || manualFolder || '').trim()
+        const effectiveFolder = (folder || '').trim()
 
         if (rest.operation === 'read_gmail') {
           rest.folder = effectiveFolder || 'INBOX'
@@ -246,7 +245,6 @@ export const GmailBlock: BlockConfig<GmailToolResponse> = {
     attachments: { type: 'json', description: 'Files to attach (UserFile array)' },
     // Read operation inputs
     folder: { type: 'string', description: 'Gmail folder' },
-    manualFolder: { type: 'string', description: 'Manual folder name' },
     messageId: { type: 'string', description: 'Message identifier' },
     unreadOnly: { type: 'boolean', description: 'Unread messages only' },
     includeAttachments: { type: 'boolean', description: 'Include email attachments' },

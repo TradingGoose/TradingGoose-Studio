@@ -351,9 +351,7 @@ function RunSkipButtons({
       <div className='flex items-center gap-2'>
         <Button
           onClick={async () => {
-            const instance = getClientTool(toolCall.id)
-            if (!instance) return
-            await instance.handleAccept?.({
+            await executeCopilotToolCall(toolCall.id, {
               openDrivePicker: async (accessToken: string) => {
                 try {
                   const clientId = getEnv('NEXT_PUBLIC_GOOGLE_CLIENT_ID') || ''

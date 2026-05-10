@@ -150,7 +150,6 @@ export const MicrosoftPlannerBlock: BlockConfig<MicrosoftPlannerResponse> = {
           operation,
           planId,
           taskId,
-          manualTaskId,
           title,
           description,
           dueDateTime,
@@ -164,8 +163,7 @@ export const MicrosoftPlannerBlock: BlockConfig<MicrosoftPlannerResponse> = {
           credential,
         }
 
-        // Handle both selector and manual task ID
-        const effectiveTaskId = (taskId || manualTaskId || '').trim()
+        const effectiveTaskId = (taskId || '').trim()
 
         // For read operations
         if (operation === 'read_task') {
@@ -227,7 +225,6 @@ export const MicrosoftPlannerBlock: BlockConfig<MicrosoftPlannerResponse> = {
     credential: { type: 'string', description: 'Microsoft account credential' },
     planId: { type: 'string', description: 'Plan ID' },
     taskId: { type: 'string', description: 'Task ID' },
-    manualTaskId: { type: 'string', description: 'Manual Task ID' },
     title: { type: 'string', description: 'Task title' },
     description: { type: 'string', description: 'Task description' },
     dueDateTime: { type: 'string', description: 'Due date' },

@@ -224,7 +224,7 @@ export interface CopilotActions {
     workspaceId?: string | null
   ) => Promise<void>
 
-  executeCopilotToolCall: (toolCallId: string) => Promise<void>
+  executeCopilotToolCall: (toolCallId: string, actionArgs?: Record<string, any>) => Promise<void>
   skipCopilotToolCall: (toolCallId: string) => Promise<void>
   executeIntegrationTool: (toolCallId: string) => Promise<void>
   skipIntegrationTool: (toolCallId: string) => void

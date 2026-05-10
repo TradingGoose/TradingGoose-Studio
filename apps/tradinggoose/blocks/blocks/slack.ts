@@ -1,8 +1,8 @@
 import { SlackIcon } from '@/components/icons/icons'
 import type { BlockConfig } from '@/blocks/types'
 import { AuthMode } from '@/blocks/types'
-import { getTrigger } from '@/triggers'
 import type { SlackResponse } from '@/tools/slack/types'
+import { getTrigger } from '@/triggers'
 
 export const SlackBlock: BlockConfig<SlackResponse> = {
   type: 'slack',
@@ -207,7 +207,6 @@ export const SlackBlock: BlockConfig<SlackResponse> = {
           botToken,
           operation,
           channel,
-          manualChannel,
           title,
           content,
           limit,
@@ -217,8 +216,7 @@ export const SlackBlock: BlockConfig<SlackResponse> = {
           ...rest
         } = params
 
-        // Handle both selector and manual channel input
-        const effectiveChannel = (channel || manualChannel || '').trim()
+        const effectiveChannel = (channel || '').trim()
 
         if (!effectiveChannel) {
           throw new Error('Channel is required.')
@@ -288,7 +286,6 @@ export const SlackBlock: BlockConfig<SlackResponse> = {
     credential: { type: 'string', description: 'Slack access token' },
     botToken: { type: 'string', description: 'Bot token' },
     channel: { type: 'string', description: 'Channel identifier' },
-    manualChannel: { type: 'string', description: 'Manual channel identifier' },
     text: { type: 'string', description: 'Message text' },
     attachmentFiles: { type: 'json', description: 'Files to attach (UI upload)' },
     files: { type: 'json', description: 'Files to attach (UserFile array)' },

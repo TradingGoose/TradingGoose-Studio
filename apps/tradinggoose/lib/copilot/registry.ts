@@ -541,6 +541,14 @@ const WorkflowDocumentEnvelope = WorkflowTargetEnvelope.extend({
           subBlockIds: z.array(z.string()),
         })
       ),
+      edges: z.array(
+        z.object({
+          source: z.string(),
+          target: z.string(),
+          sourceHandle: z.string().optional(),
+          targetHandle: z.string().optional(),
+        })
+      ),
     })
     .optional(),
 })

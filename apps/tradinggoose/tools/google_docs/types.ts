@@ -32,11 +32,9 @@ export interface GoogleDocsCreateResponse extends ToolResponse {
 export interface GoogleDocsToolParams {
   accessToken: string
   documentId?: string
-  manualDocumentId?: string
   title?: string
   content?: string
   folderId?: string
-  folderSelector?: string
 }
 
 export type GoogleDocsResponse =

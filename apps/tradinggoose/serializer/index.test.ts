@@ -201,14 +201,25 @@ vi.mock('@/blocks', () => ({
           },
         },
         subBlocks: [
-          { id: 'channel', type: 'dropdown', title: 'Channel', mode: 'basic' },
-          { id: 'manualChannel', type: 'short-input', title: 'Channel ID', mode: 'advanced' },
+          {
+            id: 'channel',
+            type: 'dropdown',
+            title: 'Channel',
+            mode: 'basic',
+            canonicalParamId: 'channel',
+          },
+          {
+            id: 'manualChannel',
+            type: 'short-input',
+            title: 'Channel ID',
+            mode: 'advanced',
+            canonicalParamId: 'channel',
+          },
           { id: 'text', type: 'long-input', title: 'Message' }, // mode: 'both' (default)
           { id: 'username', type: 'short-input', title: 'Username', mode: 'both' },
         ],
         inputs: {
           channel: { type: 'string' },
-          manualChannel: { type: 'string' },
           text: { type: 'string' },
           username: { type: 'string' },
         },
@@ -798,13 +809,47 @@ describe('Serializer', () => {
       expect(serialized.blocks[0].config.params.credential).toBe('credential-1')
       expect(serialized.blocks[0].config.params.alpacaCredential).toBeUndefined()
     })
+
+    it.concurrent('should deserialize canonical param ids back into source subblocks', () => {
+      const serializer = new Serializer()
+
+      const { blocks } = serializer.deserializeWorkflow({
+        version: '1.0',
+        blocks: [
+          {
+            id: 'test-block',
+            position: { x: 0, y: 0 },
+            config: {
+              tool: 'canonical_credential',
+              params: {
+                provider: 'alpaca',
+                credential: 'credential-1',
+              },
+            },
+            inputs: {},
+            outputs: {},
+            metadata: {
+              id: 'canonicalCredential',
+              name: 'Test Canonical Credential Block',
+              category: 'tools',
+            },
+            enabled: false,
+          },
+        ],
+        connections: [],
+        loops: {},
+      })
+
+      expect(blocks['test-block'].enabled).toBe(false)
+      expect(blocks['test-block'].subBlocks.alpacaCredential.value).toBe('credential-1')
+    })
   })
 
   /**
    * Advanced mode field filtering tests
    */
   describe('advanced mode field filtering', () => {
-    it.concurrent('should include all fields when block is in advanced mode', () => {
+    it.concurrent('should serialize advanced source fields through canonical param ids', () => {
       const serializer = new Serializer()
 
       const advancedModeBlock: any = {
@@ -828,9 +873,8 @@ describe('Serializer', () => {
       const slackBlock = serialized.blocks.find((b) => b.id === 'slack-1')
       expect(slackBlock).toBeDefined()
 
-      // In advanced mode, should include ALL fields (basic, advanced, and both)
-      expect(slackBlock?.config.params.channel).toBe('general') // basic mode field included
-      expect(slackBlock?.config.params.manualChannel).toBe('C1234567890') // advanced mode field included
+      expect(slackBlock?.config.params.channel).toBe('C1234567890')
+      expect(slackBlock?.config.params.manualChannel).toBeUndefined()
       expect(slackBlock?.config.params.text).toBe('Hello world') // both mode field included
       expect(slackBlock?.config.params.username).toBe('bot') // both mode field included
     })
@@ -861,7 +905,7 @@ describe('Serializer', () => {
 
       // In basic mode, should include basic-only fields and exclude advanced-only fields
       expect(slackBlock?.config.params.channel).toBe('general') // basic mode field included
-      expect(slackBlock?.config.params.manualChannel).toBeUndefined() // advanced mode field excluded
+      expect(slackBlock?.config.params.manualChannel).toBeUndefined()
       expect(slackBlock?.config.params.text).toBe('Hello world') // both mode field included
       expect(slackBlock?.config.params.username).toBe('bot') // both mode field included
     })
@@ -894,7 +938,7 @@ describe('Serializer', () => {
 
         // Should default to basic mode behavior (include basic + both, exclude advanced)
         expect(slackBlock?.config.params.channel).toBe('general') // basic mode field included
-        expect(slackBlock?.config.params.manualChannel).toBeUndefined() // advanced mode field excluded
+        expect(slackBlock?.config.params.manualChannel).toBeUndefined()
         expect(slackBlock?.config.params.text).toBe('Hello world') // both mode field included
         expect(slackBlock?.config.params.username).toBe('bot') // both mode field included
       }

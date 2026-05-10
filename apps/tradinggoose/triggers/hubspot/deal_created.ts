@@ -98,7 +98,6 @@ export const hubspotDealCreatedTrigger: TriggerConfig = {
       title: '',
       type: 'trigger-save',
       mode: 'trigger',
-      triggerId: 'hubspot_deal_created',
       condition: {
         field: 'selectedTriggerId',
         value: 'hubspot_deal_created',

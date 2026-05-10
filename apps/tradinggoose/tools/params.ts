@@ -31,6 +31,8 @@ export interface UIComponentConfig {
   type: string
   options?: Option[]
   placeholder?: string
+  description?: string
+  tooltip?: string
   format?: TimeFormat
   password?: boolean
   inputType?: 'text' | 'number'
@@ -80,10 +82,13 @@ export interface UIComponentConfig {
 
 export interface SubBlockConfig {
   id: string
+  canonicalParamId?: string
   type: string
   title?: string
   options?: Option[]
   placeholder?: string
+  description?: string
+  tooltip?: string
   format?: TimeFormat
   password?: boolean
   inputType?: 'text' | 'number'
@@ -252,6 +257,9 @@ function getBlockConfigurations(): Record<string, BlockConfig> {
   return blockConfigCache
 }
 
+const getCanonicalSubBlockParamId = (subBlock: SubBlockConfig): string =>
+  subBlock.canonicalParamId ?? subBlock.id
+
 /**
  * Gets all parameters for a tool, categorized by their usage
  * Also includes UI component information from block configurations
@@ -364,7 +372,7 @@ export function getToolParametersConfig(
         // For multi-operation tools, find the subblock that matches both the parameter ID
         // and the current tool operation
         let subBlock = blockConfig.subBlocks?.find((sb: SubBlockConfig) => {
-          if (sb.id !== paramId) return false
+          if (getCanonicalSubBlockParamId(sb) !== paramId) return false
 
           // If there's a condition, check if it matches the current tool
           if (sb.condition && sb.condition.field === 'operation') {
@@ -391,7 +399,9 @@ export function getToolParametersConfig(
 
         // Fallback: if no operation-specific match, find any matching parameter
         if (!subBlock) {
-          subBlock = blockConfig.subBlocks?.find((sb: SubBlockConfig) => sb.id === paramId)
+          subBlock = blockConfig.subBlocks?.find(
+            (sb: SubBlockConfig) => getCanonicalSubBlockParamId(sb) === paramId
+          )
         }
 
         // Special case: Check if this boolean parameter is part of a checkbox-list
@@ -414,6 +424,8 @@ export function getToolParametersConfig(
             type: subBlock.type,
             options: subBlock.options,
             placeholder: subBlock.placeholder,
+            description: subBlock.description,
+            tooltip: subBlock.tooltip,
             password: subBlock.password,
             condition: subBlock.condition,
             title: subBlock.title,

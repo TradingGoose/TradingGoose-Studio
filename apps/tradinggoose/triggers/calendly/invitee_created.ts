@@ -53,7 +53,6 @@ export const calendlyInviteeCreatedTrigger: TriggerConfig = {
       type: 'trigger-save',
       hideFromPreview: true,
       mode: 'trigger',
-      triggerId: 'calendly_invitee_created',
       condition: {
         field: 'selectedTriggerId',
         value: 'calendly_invitee_created',

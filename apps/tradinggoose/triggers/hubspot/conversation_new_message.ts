@@ -98,7 +98,6 @@ export const hubspotConversationNewMessageTrigger: TriggerConfig = {
       title: '',
       type: 'trigger-save',
       mode: 'trigger',
-      triggerId: 'hubspot_conversation_new_message',
       condition: {
         field: 'selectedTriggerId',
         value: 'hubspot_conversation_new_message',

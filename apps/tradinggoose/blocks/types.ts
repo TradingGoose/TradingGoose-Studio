@@ -268,8 +268,6 @@ export interface SubBlockConfig {
   dependsOn?: string[] | { all?: string[]; any?: string[] }
   // Copyable-text specific: Use webhook URL from webhook management hook
   useWebhookUrl?: boolean
-  // Trigger-save specific: The trigger ID for validation and saving
-  triggerId?: string
   // Dropdown/Combobox: Function to fetch a single option's label by ID (for hydration)
   fetchOptionById?: (
     blockId: string,

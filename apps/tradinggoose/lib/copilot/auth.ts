@@ -3,8 +3,6 @@ import { authenticateApiKeyFromHeader, updateApiKeyLastUsed } from '@/lib/api-ke
 import { getSession } from '@/lib/auth'
 import { generateRequestId } from '@/lib/utils'
 
-export type { NotificationStatus } from '@/lib/copilot/types'
-
 export interface CopilotAuthResult {
   userId: string | null
   isAuthenticated: boolean

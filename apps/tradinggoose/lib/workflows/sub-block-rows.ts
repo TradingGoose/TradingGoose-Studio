@@ -1,10 +1,12 @@
-import type { SubBlockConfig, SubBlockCondition } from '@/blocks/types'
 import { getEnv, isTruthy } from '@/lib/env'
 import { buildConfiguredSubBlockParams } from '@/lib/workflows/subblock-values'
+import type { SubBlockCondition, SubBlockConfig } from '@/blocks/types'
 import { getTrigger } from '@/triggers'
 import { isDeployManagedTriggerSubBlock } from '@/triggers/constants'
+import { resolveTriggerIdFromSubBlocks } from '@/triggers/resolution'
 
 interface BuildSubBlockRowsParams {
+  blockId?: string
   subBlocks: SubBlockConfig[]
   stateToUse: Record<string, any>
   isAdvancedMode: boolean
@@ -37,6 +39,7 @@ const evaluateMatch = (
 }
 
 export function buildSubBlockRows({
+  blockId,
   subBlocks,
   stateToUse,
   isAdvancedMode,
@@ -47,27 +50,26 @@ export function buildSubBlockRows({
   triggerSubBlockOwner = 'editor',
 }: BuildSubBlockRowsParams): SubBlockConfig[][] {
   const resolvedParams = buildConfiguredSubBlockParams({
+    blockId,
     subBlockConfigs: subBlocks,
     subBlocks: stateToUse,
+    isAdvancedMode,
   })
-  const selectedTriggerId = resolvedParams.selectedTriggerId
-  const triggerIdFromState = resolvedParams.triggerId
-  const activeTriggerId =
-    typeof selectedTriggerId === 'string'
-      ? selectedTriggerId
-      : typeof triggerIdFromState === 'string'
-        ? triggerIdFromState
-        : availableTriggerIds?.[0]
+  const activeTriggerId = resolveTriggerIdFromSubBlocks(resolvedParams, availableTriggerIds)
   const hasTriggerDefinition = !!(activeTriggerId && getTrigger(activeTriggerId))
 
   const getConditionFieldValue = (field: string) => {
     const normalizedValue = normalizeValue(resolvedParams[field])
-    if (
-      field === 'selectedTriggerId' &&
-      (normalizedValue === undefined || normalizedValue === null || normalizedValue === '')
-    ) {
-      return activeTriggerId
+    if (field === 'selectedTriggerId') {
+      if (availableTriggerIds !== undefined) {
+        return activeTriggerId ?? undefined
+      }
+
+      if (activeTriggerId) {
+        return activeTriggerId
+      }
     }
+
     return normalizedValue
   }
 

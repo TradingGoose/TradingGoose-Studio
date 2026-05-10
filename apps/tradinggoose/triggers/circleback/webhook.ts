@@ -54,7 +54,6 @@ export const circlebackWebhookTrigger: TriggerConfig = {
       type: 'trigger-save',
       hideFromPreview: true,
       mode: 'trigger',
-      triggerId: 'circleback_webhook',
       condition: {
         field: 'selectedTriggerId',
         value: 'circleback_webhook',

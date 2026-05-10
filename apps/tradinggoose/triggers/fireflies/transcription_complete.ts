@@ -36,7 +36,6 @@ export const firefliesTranscriptionCompleteTrigger: TriggerConfig = {
       type: 'trigger-save',
       hideFromPreview: true,
       mode: 'trigger',
-      triggerId: 'fireflies_transcription_complete',
     },
     {
       id: 'triggerInstructions',

@@ -29,17 +29,11 @@ export const readPageTool: ToolConfig<SharepointToolParams, SharepointReadPageRe
       visibility: 'hidden',
       description: 'The access token for the SharePoint API',
     },
-    siteSelector: {
-      type: 'string',
-      required: false,
-      visibility: 'user-only',
-      description: 'Select the SharePoint site',
-    },
     siteId: {
       type: 'string',
       required: false,
-      visibility: 'hidden',
-      description: 'The ID of the SharePoint site (internal use)',
+      visibility: 'user-only',
+      description: 'The ID of the SharePoint site',
     },
     pageId: {
       type: 'string',
@@ -65,7 +59,7 @@ export const readPageTool: ToolConfig<SharepointToolParams, SharepointReadPageRe
   request: {
     url: (params) => {
       // Use specific site if provided, otherwise use root site
-      const siteId = params.siteId || params.siteSelector || 'root'
+      const siteId = params.siteId || 'root'
 
       let baseUrl: string
       if (params.pageId) {
@@ -163,7 +157,7 @@ export const readPageTool: ToolConfig<SharepointToolParams, SharepointReadPageRe
     if (!data.value || data.value.length === 0) {
       logger.info('No pages found', {
         searchName: params?.pageName,
-        siteId: params?.siteId || params?.siteSelector || 'root',
+        siteId: params?.siteId || 'root',
         totalResults: data.value?.length || 0,
       })
       const message = params?.pageName
@@ -189,7 +183,7 @@ export const readPageTool: ToolConfig<SharepointToolParams, SharepointReadPageRe
     if (params?.pageName) {
       // Search by name - return single page (first match)
       const pageData = data.value[0]
-      const siteId = params?.siteId || params?.siteSelector || 'root'
+      const siteId = params?.siteId || 'root'
       const contentUrl = `https://graph.microsoft.com/v1.0/sites/${siteId}/pages/${pageData.id}/microsoft.graph.sitePage?$expand=canvasLayout`
 
       logger.info('Making API call to get page content for searched page', {
@@ -236,7 +230,7 @@ export const readPageTool: ToolConfig<SharepointToolParams, SharepointReadPageRe
       }
     }
     // List all pages - return multiple pages with content
-    const siteId = params?.siteId || params?.siteSelector || 'root'
+    const siteId = params?.siteId || 'root'
     const pagesWithContent = []
 
     logger.info('Fetching content for all pages', {

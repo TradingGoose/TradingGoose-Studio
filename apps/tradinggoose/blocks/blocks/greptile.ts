@@ -21,13 +21,11 @@ export const GreptileBlock: BlockConfig<GreptileResponse> = {
       type: 'dropdown',
       options: [
         { label: 'Query', id: 'greptile_query' },
-        // { label: 'Search', id: 'greptile_search' }, // Disabled: Greptile search endpoint returning v1 deprecation error
         { label: 'Index Repository', id: 'greptile_index_repo' },
         { label: 'Check Status', id: 'greptile_status' },
       ],
       value: () => 'greptile_query',
     },
-    // Query operation inputs
     {
       id: 'query',
       title: 'Query',
@@ -57,37 +55,6 @@ export const GreptileBlock: BlockConfig<GreptileResponse> = {
       type: 'switch',
       condition: { field: 'operation', value: 'greptile_query' },
     },
-    // Search operation inputs - Disabled: Greptile search endpoint returning v1 deprecation error
-    // {
-    //   id: 'query',
-    //   title: 'Search Query',
-    //   type: 'long-input',
-    //   placeholder: 'Search for code patterns, functions, or concepts...',
-    //   condition: { field: 'operation', value: 'greptile_search' },
-    //   required: true,
-    // },
-    // {
-    //   id: 'repositories',
-    //   title: 'Repositories',
-    //   type: 'long-input',
-    //   placeholder: 'owner/repo, github:main:owner/repo (comma-separated)',
-    //   condition: { field: 'operation', value: 'greptile_search' },
-    //   required: true,
-    // },
-    // {
-    //   id: 'sessionId',
-    //   title: 'Session ID',
-    //   type: 'short-input',
-    //   placeholder: 'Optional session ID for conversation continuity',
-    //   condition: { field: 'operation', value: 'greptile_search' },
-    // },
-    // {
-    //   id: 'genius',
-    //   title: 'Genius Mode',
-    //   type: 'switch',
-    //   condition: { field: 'operation', value: 'greptile_search' },
-    // },
-    // Index operation inputs
     {
       id: 'remote',
       title: 'Git Remote',
@@ -127,7 +94,6 @@ export const GreptileBlock: BlockConfig<GreptileResponse> = {
       type: 'switch',
       condition: { field: 'operation', value: 'greptile_index_repo' },
     },
-    // Status operation inputs
     {
       id: 'remote',
       title: 'Git Remote',
@@ -155,7 +121,6 @@ export const GreptileBlock: BlockConfig<GreptileResponse> = {
       condition: { field: 'operation', value: 'greptile_status' },
       required: true,
     },
-    // API Keys (common)
     {
       id: 'apiKey',
       title: 'Greptile API Key',
@@ -174,7 +139,7 @@ export const GreptileBlock: BlockConfig<GreptileResponse> = {
     },
   ],
   tools: {
-    access: ['greptile_query', /* 'greptile_search', */ 'greptile_index_repo', 'greptile_status'],
+    access: ['greptile_query', 'greptile_index_repo', 'greptile_status'],
     config: {
       tool: (params) => params.operation,
     },
@@ -183,12 +148,10 @@ export const GreptileBlock: BlockConfig<GreptileResponse> = {
     operation: { type: 'string', description: 'Operation to perform' },
     apiKey: { type: 'string', description: 'Greptile API key' },
     githubToken: { type: 'string', description: 'GitHub Personal Access Token' },
-    // Query/Search inputs
     query: { type: 'string', description: 'Natural language query or search term' },
     repositories: { type: 'string', description: 'Comma-separated list of repositories' },
     sessionId: { type: 'string', description: 'Session ID for conversation continuity' },
     genius: { type: 'boolean', description: 'Enable genius mode for more thorough analysis' },
-    // Index/Status inputs
     remote: { type: 'string', description: 'Git remote type (github/gitlab)' },
     repository: { type: 'string', description: 'Repository in owner/repo format' },
     branch: { type: 'string', description: 'Branch name' },
@@ -196,20 +159,16 @@ export const GreptileBlock: BlockConfig<GreptileResponse> = {
     notify: { type: 'boolean', description: 'Send email notification' },
   },
   outputs: {
-    // Query output
     message: { type: 'string', description: 'AI-generated answer to the query' },
-    // Query/Search output
     sources: {
       type: 'json',
       description: 'Relevant code references with filepath, line numbers, and summary',
     },
-    // Index output
     repositoryId: {
       type: 'string',
       description: 'Repository identifier (format: remote:branch:owner/repo)',
     },
     statusEndpoint: { type: 'string', description: 'URL endpoint to check indexing status' },
-    // Status output
     status: {
       type: 'string',
       description: 'Indexing status: submitted, cloning, processing, completed, or failed',

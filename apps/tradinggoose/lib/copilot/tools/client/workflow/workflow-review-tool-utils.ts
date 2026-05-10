@@ -28,6 +28,12 @@ export type WorkflowSummary = {
     parentId?: string
     subBlockIds: string[]
   }>
+  edges: Array<{
+    source: string
+    target: string
+    sourceHandle?: string
+    targetHandle?: string
+  }>
 }
 
 function normalizeWorkflowTargetValue(value?: string | null): string | undefined {
@@ -106,6 +112,12 @@ export function buildWorkflowSummary(workflowState: WorkflowSnapshot): WorkflowS
         subBlockIds: Object.keys(block.subBlocks ?? {}).sort(),
       }))
       .sort((left, right) => left.blockId.localeCompare(right.blockId)),
+    edges: (workflowState.edges ?? []).map((edge) => ({
+      source: edge.source,
+      target: edge.target,
+      ...(typeof edge.sourceHandle === 'string' ? { sourceHandle: edge.sourceHandle } : {}),
+      ...(typeof edge.targetHandle === 'string' ? { targetHandle: edge.targetHandle } : {}),
+    })),
   }
 }
 

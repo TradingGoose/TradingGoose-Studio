@@ -3,9 +3,8 @@ import type { StateCreator } from 'zustand'
 import { devtools } from 'zustand/middleware'
 import { createStore, type StoreApi } from 'zustand/vanilla'
 import { createLogger } from '@/lib/logs/console/logger'
-import { getBlockOutputs } from '@/lib/workflows/block-outputs'
+import { resolveBlockRuntimeState } from '@/lib/workflows/block-outputs'
 import { getBlock } from '@/blocks'
-import { resolveOutputType } from '@/blocks/utils'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import { useSubBlockStore } from '@/stores/workflows/subblock/store'
 import {
@@ -119,7 +118,7 @@ const createWorkflowStoreState =
         ...(parentId && { parentId, extent: extent || 'parent' }),
       }
 
-      const subBlocks: Record<string, SubBlockState> = {}
+      let subBlocks: Record<string, SubBlockState> = {}
       blockConfig.subBlocks.forEach((subBlock) => {
         const subBlockId = subBlock.id
         subBlocks[subBlockId] = {
@@ -129,11 +128,15 @@ const createWorkflowStoreState =
         }
       })
 
-      // Get outputs based on trigger mode
       const triggerMode = blockProperties?.triggerMode ?? false
-      const outputs = triggerMode
-        ? getBlockOutputs(type, subBlocks, triggerMode)
-        : resolveOutputType(blockConfig.outputs)
+      const runtimeState = resolveBlockRuntimeState({
+        blockType: type,
+        blockConfig,
+        subBlocks,
+        triggerMode,
+      })
+      subBlocks = runtimeState.subBlocks
+      const outputs = runtimeState.outputs
 
       const newState = {
         blocks: {
@@ -794,17 +797,34 @@ const createWorkflowStoreState =
     },
 
     setBlockTriggerMode: (id: string, triggerMode: boolean) => {
-      set((state) => ({
-        blocks: {
-          ...state.blocks,
-          [id]: {
-            ...state.blocks[id],
-            triggerMode,
+      set((state) => {
+        const block = state.blocks[id]
+        const blockConfig = block ? getBlock(block.type) : undefined
+        if (!block || !blockConfig) {
+          return state
+        }
+
+        const runtimeState = resolveBlockRuntimeState({
+          blockType: block.type,
+          blockConfig,
+          subBlocks: block.subBlocks,
+          triggerMode,
+        })
+
+        return {
+          blocks: {
+            ...state.blocks,
+            [id]: {
+              ...block,
+              subBlocks: runtimeState.subBlocks,
+              outputs: runtimeState.outputs,
+              triggerMode,
+            },
           },
-        },
-        edges: [...state.edges],
-        loops: { ...state.loops },
-      }))
+          edges: [...state.edges],
+          loops: { ...state.loops },
+        }
+      })
       get().updateLastSaved()
       // Note: Socket.IO handles real-time sync automatically
     },
@@ -1033,7 +1053,16 @@ const createWorkflowStoreState =
       const block = get().blocks[id]
       if (!block) return
 
+      const blockConfig = getBlock(block.type)
+      if (!blockConfig) return
+
       const newTriggerMode = !block.triggerMode
+      const runtimeState = resolveBlockRuntimeState({
+        blockType: block.type,
+        blockConfig,
+        subBlocks: block.subBlocks,
+        triggerMode: newTriggerMode,
+      })
 
       // When switching TO trigger mode, remove all incoming connections
       let filteredEdges = [...get().edges]
@@ -1054,6 +1083,8 @@ const createWorkflowStoreState =
           ...get().blocks,
           [id]: {
             ...block,
+            subBlocks: runtimeState.subBlocks,
+            outputs: runtimeState.outputs,
             triggerMode: newTriggerMode,
           },
         },

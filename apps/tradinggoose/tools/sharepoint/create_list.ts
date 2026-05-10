@@ -30,14 +30,8 @@ export const createListTool: ToolConfig<SharepointToolParams, SharepointCreateLi
     siteId: {
       type: 'string',
       required: false,
-      visibility: 'hidden',
-      description: 'The ID of the SharePoint site (internal use)',
-    },
-    siteSelector: {
-      type: 'string',
-      required: false,
       visibility: 'user-only',
-      description: 'Select the SharePoint site',
+      description: 'The ID of the SharePoint site',
     },
     listDisplayName: {
       type: 'string',
@@ -68,7 +62,7 @@ export const createListTool: ToolConfig<SharepointToolParams, SharepointCreateLi
 
   request: {
     url: (params) => {
-      const siteId = params.siteSelector || params.siteId || 'root'
+      const siteId = params.siteId || 'root'
       return `https://graph.microsoft.com/v1.0/sites/${siteId}/lists`
     },
     method: 'POST',

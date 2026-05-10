@@ -327,6 +327,7 @@ export function NodeEditorPanel({ selectedNodeId }: NodeEditorPanelProps) {
     isTriggerConfigurationView,
   } = useMemo(() => {
     return buildTriggerEditingLayout({
+      blockId: selectedBlock?.id,
       blockConfig,
       blockState: selectedBlock,
       shouldDisableWrite,

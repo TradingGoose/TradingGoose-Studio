@@ -2,14 +2,14 @@
 
 import React, { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
-import * as Y from 'yjs'
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import * as Y from 'yjs'
+import { createYjsUndoTrackedOrigins, YJS_ORIGINS } from './transaction-origins'
 import {
   bindWorkflowTextObserver,
   getLoopCollectionDataUpdate,
   getParallelCollectionDataUpdate,
 } from './use-workflow-doc'
-import { createYjsUndoTrackedOrigins, YJS_ORIGINS } from './transaction-origins'
 import { createWorkflowTextFieldKey, getWorkflowTextFieldsMap } from './workflow-session'
 
 let container: HTMLDivElement | null = null
@@ -32,6 +32,7 @@ afterEach(async () => {
   container = null
   vi.resetModules()
   vi.unmock('@/lib/yjs/workflow-session-host')
+  vi.unmock('@/blocks')
 })
 
 afterAll(() => {
@@ -441,9 +442,7 @@ describe('useWorkflowMutations', () => {
     expect(blocks['block-2']?.subBlocks?.prompt?.value).toBe(
       'Use <humanfriendlyname.result> and <humanfriendlyname>'
     )
-    expect(blocks['block-2']?.subBlocks?.code?.value).toBe(
-      'return <humanfriendlyname.output>'
-    )
+    expect(blocks['block-2']?.subBlocks?.code?.value).toBe('return <humanfriendlyname.output>')
     expect(sharedText.toString()).toBe('return <humanfriendlyname.output>')
   })
 

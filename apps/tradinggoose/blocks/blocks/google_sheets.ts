@@ -176,11 +176,11 @@ export const GoogleSheetsBlock: BlockConfig<GoogleSheetsResponse> = {
         }
       },
       params: (params) => {
-        const { credential, values, spreadsheetId, manualSpreadsheetId, ...rest } = params
+        const { credential, values, spreadsheetId, ...rest } = params
 
         const parsedValues = values ? JSON.parse(values as string) : undefined
 
-        const effectiveSpreadsheetId = (spreadsheetId || manualSpreadsheetId || '').trim()
+        const effectiveSpreadsheetId = (spreadsheetId || '').trim()
 
         if (!effectiveSpreadsheetId) {
           throw new Error('Spreadsheet ID is required.')
@@ -199,7 +199,6 @@ export const GoogleSheetsBlock: BlockConfig<GoogleSheetsResponse> = {
     operation: { type: 'string', description: 'Operation to perform' },
     credential: { type: 'string', description: 'Google Sheets access token' },
     spreadsheetId: { type: 'string', description: 'Spreadsheet identifier' },
-    manualSpreadsheetId: { type: 'string', description: 'Manual spreadsheet identifier' },
     range: { type: 'string', description: 'Cell range' },
     values: { type: 'string', description: 'Cell values data' },
     valueInputOption: { type: 'string', description: 'Value input option' },

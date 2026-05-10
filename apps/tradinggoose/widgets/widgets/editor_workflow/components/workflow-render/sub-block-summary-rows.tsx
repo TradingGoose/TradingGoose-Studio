@@ -324,7 +324,7 @@ export function SubBlockSummaryRows({
                     )}
                     title={title}
                   >
-                    {title}:
+                    {title}
                   </p>
                   <div className='ml-3 overflow-hidden rounded-md border border-border bg-background'>
                     {buildJsonPreviewFieldRows(rawValue).map((jsonRow, jsonRowIndex) => (

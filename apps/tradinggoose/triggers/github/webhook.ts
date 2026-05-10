@@ -78,7 +78,6 @@ export const githubWebhookTrigger: TriggerConfig = {
       type: 'trigger-save',
       hideFromPreview: true,
       mode: 'trigger',
-      triggerId: 'github_webhook',
       condition: {
         field: 'selectedTriggerId',
         value: 'github_webhook',

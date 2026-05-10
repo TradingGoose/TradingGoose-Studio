@@ -31,17 +31,11 @@ export const listTool: ToolConfig<OneDriveToolParams, OneDriveListResponse> = {
       visibility: 'hidden',
       description: 'The access token for the OneDrive API',
     },
-    folderSelector: {
+    folderId: {
       type: 'string',
       required: false,
       visibility: 'user-only',
-      description: 'Select the folder to list files from',
-    },
-    manualFolderId: {
-      type: 'string',
-      required: false,
-      visibility: 'hidden',
-      description: 'The manually entered folder ID (advanced mode)',
+      description: 'The folder ID to list files from',
     },
     query: {
       type: 'string',
@@ -60,8 +54,7 @@ export const listTool: ToolConfig<OneDriveToolParams, OneDriveListResponse> = {
   request: {
     url: (params) => {
       // Use specific folder if provided, otherwise use root
-      const folderId = params.manualFolderId || params.folderSelector
-      const encodedFolderId = folderId ? encodeURIComponent(folderId) : ''
+      const encodedFolderId = params.folderId ? encodeURIComponent(params.folderId) : ''
       const baseUrl = encodedFolderId
         ? `https://graph.microsoft.com/v1.0/me/drive/items/${encodedFolderId}/children`
         : 'https://graph.microsoft.com/v1.0/me/drive/root/children'

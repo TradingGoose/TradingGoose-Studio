@@ -15,13 +15,13 @@ export const PreviewNode = memo(function PreviewNode({ id, data }: NodeProps<Pre
   const isAdvancedMode = data.blockState?.advancedMode ?? false
   const useHorizontalHandles = data.blockState?.horizontalHandles ?? false
   const isPureTriggerBlock = blockConfig.category === 'triggers'
-  const isTriggerMode =
-    Boolean(data.blockState?.triggerMode) || isPureTriggerBlock || data.type === 'starter'
+  const isTriggerMode = Boolean(data.blockState?.triggerMode) || isPureTriggerBlock
   const previewStateRaw = data.subBlockValues ?? data.blockState?.subBlocks ?? {}
   const showInputHandle = blockConfig.category !== 'triggers'
   const showOutputHandles = data.type !== 'condition' && data.type !== 'response'
   const previewSubBlocks = useMemo(() => {
     return buildSubBlockRows({
+      blockId: id,
       subBlocks: blockConfig.subBlocks || [],
       stateToUse: previewStateRaw,
       isAdvancedMode,

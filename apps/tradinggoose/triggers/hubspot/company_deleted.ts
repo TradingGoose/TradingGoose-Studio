@@ -98,7 +98,6 @@ export const hubspotCompanyDeletedTrigger: TriggerConfig = {
       title: '',
       type: 'trigger-save',
       mode: 'trigger',
-      triggerId: 'hubspot_company_deleted',
       condition: {
         field: 'selectedTriggerId',
         value: 'hubspot_company_deleted',

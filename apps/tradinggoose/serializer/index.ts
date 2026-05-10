@@ -2,6 +2,7 @@ import type { Edge } from '@xyflow/react'
 import { BlockPathCalculator } from '@/lib/block-path-calculator'
 import { createLogger } from '@/lib/logs/console/logger'
 import { sanitizeSolidIconColor } from '@/lib/ui/icon-colors'
+import { buildConfiguredSubBlockParams } from '@/lib/workflows/subblock-values'
 import { getBlock } from '@/blocks'
 import type { SubBlockConfig } from '@/blocks/types'
 import type { SerializedBlock, SerializedWorkflow } from '@/serializer/types'
@@ -283,7 +284,6 @@ export class Serializer {
         inputs[key] = config.type
       })
     }
-
     return {
       id: block.id,
       position: block.position,
@@ -365,77 +365,23 @@ export class Serializer {
       throw new Error(`Invalid block type: ${block.type}`)
     }
 
-    const params: Record<string, any> = {}
     const isAdvancedMode = block.advancedMode ?? false
-
-    // First collect all current values from subBlocks, filtering by mode
-    Object.entries(block.subBlocks).forEach(([id, subBlock]) => {
-      // Find the corresponding subblock config to check its mode
-      const subBlockConfig = blockConfig.subBlocks.find((config) => config.id === id)
-
-      const hasInputFormatValues =
-        subBlockConfig?.id === 'inputFormat' &&
-        Array.isArray(subBlock.value) &&
-        subBlock.value.length > 0
-
-      if (
-        subBlockConfig &&
-        (shouldIncludeField(subBlockConfig, isAdvancedMode) || hasInputFormatValues)
-      ) {
-        params[id] = subBlock.value
-      }
+    const params = buildConfiguredSubBlockParams({
+      blockId: block.id,
+      subBlockConfigs: blockConfig.subBlocks,
+      subBlocks: block.subBlocks,
+      isAdvancedMode,
     })
 
-    // Then check for any subBlocks with default values
     blockConfig.subBlocks.forEach((subBlockConfig) => {
-      const id = subBlockConfig.id
+      const paramId = subBlockConfig.canonicalParamId ?? subBlockConfig.id
       if (
-        (params[id] === null || params[id] === undefined) &&
+        (params[paramId] === null || params[paramId] === undefined) &&
         subBlockConfig.value &&
         shouldIncludeField(subBlockConfig, isAdvancedMode)
       ) {
-        // If the value is absent and there's a default value function, use it
-        params[id] = subBlockConfig.value(params)
+        params[paramId] = subBlockConfig.value(params)
       }
-    })
-
-    // Finally, consolidate canonical parameters (e.g., selector and manual ID into a single param)
-    const canonicalGroups: Record<string, { basic?: string; advanced: string[] }> = {}
-    blockConfig.subBlocks.forEach((sb) => {
-      if (!sb.canonicalParamId) return
-      const key = sb.canonicalParamId
-      if (!canonicalGroups[key]) canonicalGroups[key] = { basic: undefined, advanced: [] }
-      if (sb.mode === 'advanced') canonicalGroups[key].advanced.push(sb.id)
-      else canonicalGroups[key].basic = sb.id
-    })
-
-    Object.entries(canonicalGroups).forEach(([canonicalKey, group]) => {
-      const basicId = group.basic
-      const advancedIds = group.advanced
-      const basicVal = basicId ? params[basicId] : undefined
-      const advancedVal = advancedIds
-        .map((id) => params[id])
-        .find(
-          (v) => v !== undefined && v !== null && (typeof v !== 'string' || v.trim().length > 0)
-        )
-
-      let chosen: any
-      if (advancedVal !== undefined && basicVal !== undefined) {
-        chosen = isAdvancedMode ? advancedVal : basicVal
-      } else if (advancedVal !== undefined) {
-        chosen = advancedVal
-      } else if (basicVal !== undefined) {
-        chosen = isAdvancedMode ? undefined : basicVal
-      } else {
-        chosen = undefined
-      }
-
-      const sourceIds = [basicId, ...advancedIds].filter(Boolean) as string[]
-      sourceIds.forEach((id) => {
-        if (id !== canonicalKey) delete params[id]
-      })
-      if (chosen !== undefined) params[canonicalKey] = chosen
-      else delete params[canonicalKey]
     })
 
     return params
@@ -607,10 +553,11 @@ export class Serializer {
 
     const subBlocks: Record<string, any> = {}
     blockConfig.subBlocks.forEach((subBlock) => {
+      const paramId = subBlock.canonicalParamId ?? subBlock.id
       subBlocks[subBlock.id] = {
         id: subBlock.id,
         type: subBlock.type,
-        value: serializedBlock.config.params[subBlock.id] ?? null,
+        value: serializedBlock.config.params[paramId] ?? null,
       }
     })
 
@@ -621,7 +568,7 @@ export class Serializer {
       position: serializedBlock.position,
       subBlocks,
       outputs: serializedBlock.outputs,
-      enabled: true,
+      enabled: serializedBlock.enabled ?? true,
       triggerMode:
         serializedBlock.config?.params?.triggerMode === true ||
         serializedBlock.metadata?.category === 'triggers',

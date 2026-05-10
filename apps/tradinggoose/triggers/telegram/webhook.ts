@@ -36,7 +36,6 @@ export const telegramWebhookTrigger: TriggerConfig = {
       type: 'trigger-save',
       hideFromPreview: true,
       mode: 'trigger',
-      triggerId: 'telegram_webhook',
     },
     {
       id: 'triggerInstructions',
