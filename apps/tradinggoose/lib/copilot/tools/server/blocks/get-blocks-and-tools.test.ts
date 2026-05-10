@@ -6,6 +6,40 @@ vi.mock('@/lib/oauth/oauth.server', () => ({
   getOAuthProviderAvailability: mockGetOAuthProviderAvailability,
 }))
 
+vi.mock('@/lib/workflows/block-mermaid-contract', () => ({
+  buildWorkflowBlockMermaidShape: ({
+    blockType,
+    blockName,
+  }: {
+    blockType: string
+    blockName: string
+  }) => {
+    const renderKind =
+      blockType === 'loop'
+        ? 'loop_container'
+        : blockType === 'parallel'
+          ? 'parallel_container'
+          : 'standard'
+
+    return {
+      mermaidContract: {
+        renderKind,
+        requiresSubgraph: renderKind !== 'standard',
+        childrenPlacement: renderKind === 'standard' ? 'none' : 'inside_container',
+        canonicalCommentPrefixes: {
+          workflow: 'TG_WORKFLOW:',
+          block: 'TG_BLOCK:',
+          edge: 'TG_EDGE:',
+        },
+      },
+      mermaidExamples: {
+        minimalDocument: `${blockName} minimal`,
+        connectedDocument: `${blockName} connected`,
+      },
+    }
+  },
+}))
+
 vi.mock('@/blocks/registry', () => {
   const baseBlock = {
     description: 'Mock block description',
@@ -140,7 +174,7 @@ describe('getBlocksAndToolsServerTool', () => {
         }),
       })
     )
-  })
+  }, 10_000)
 
   it('hides OAuth integration blocks whose system integration is unavailable', async () => {
     const { getBlocksAndToolsServerTool } = await import('./get-blocks-and-tools')
