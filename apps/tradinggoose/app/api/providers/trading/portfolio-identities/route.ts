@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
+import { createLogger } from '@/lib/logs/console/logger'
 import { getOAuthToken } from '@/app/api/auth/oauth/utils'
 import { listPortfolioIdentities } from '@/providers/trading/portfolio'
 import {
@@ -13,6 +14,8 @@ import {
 import type { TradingProviderId } from '@/providers/trading/types'
 
 export const dynamic = 'force-dynamic'
+
+const logger = createLogger('TradingPortfolioIdentitiesRoute')
 
 const getAccountLabel = (portfolioIdentity: PortfolioIdentity) =>
   portfolioIdentity.accountName ?? portfolioIdentity.accountId
@@ -44,16 +47,25 @@ export async function GET(request: Request) {
   const portfolioIdentities = (
     await Promise.all(
       provider.oauth.credentialServices.map(async ({ serviceId }) => {
-        const accessToken = await getOAuthToken(session.user.id, serviceId)
-        const environment = getTradingProviderOAuthEnvironment(providerId, serviceId)
-        if (!accessToken || !environment) return []
+        try {
+          const accessToken = await getOAuthToken(session.user.id, serviceId)
+          const environment = getTradingProviderOAuthEnvironment(providerId, serviceId)
+          if (!accessToken || !environment) return []
 
-        return listPortfolioIdentities({
-          providerId,
-          credentialServiceId: serviceId,
-          environment,
-          accessToken,
-        })
+          return await listPortfolioIdentities({
+            providerId,
+            credentialServiceId: serviceId,
+            environment,
+            accessToken,
+          })
+        } catch (error) {
+          logger.warn('Failed to list portfolio identities for credential service', {
+            providerId,
+            credentialServiceId: serviceId,
+            error: error instanceof Error ? error.message : String(error),
+          })
+          return []
+        }
       })
     )
   ).flat()
