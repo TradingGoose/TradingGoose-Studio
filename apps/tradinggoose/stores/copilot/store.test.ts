@@ -876,7 +876,7 @@ describe('copilot streaming regressions', () => {
     expect(store.getState().messages[0]?.contentBlocks?.[0]?.type).toBe('text')
   })
 
-  it('keeps limited-access server tools without interrupts pending after awaiting_tools', async () => {
+  it('auto-executes limited-access non-gated server tools after awaiting_tools', async () => {
     const channelId = 'copilot-awaiting-tools-pending-approval'
     const assistantMessageId = 'assistant-message-awaiting-pending'
     const reviewSessionId = 'review-awaiting-pending'
@@ -896,6 +896,22 @@ describe('copilot streaming regressions', () => {
           ok: true,
           status: 200,
           json: async () => ({ tokensUsed: 10, percentage: 1 }),
+        }
+      }
+
+      if (url === '/api/copilot/execute-copilot-server-tool') {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ success: true, result: { tools: [] } }),
+        }
+      }
+
+      if (url === '/api/copilot/tools/mark-complete') {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ success: true }),
         }
       }
 
@@ -962,6 +978,19 @@ describe('copilot streaming regressions', () => {
     )
     expect(store.getState().isSendingMessage).toBe(true)
     expect(store.getState().isAwaitingContinuation).toBe(true)
+
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    await Promise.resolve()
+
+    expect(
+      fetchMock.mock.calls.some(([input]) => {
+        const url = typeof input === 'string' ? input : input.toString()
+        return url === '/api/copilot/execute-copilot-server-tool'
+      })
+    ).toBe(true)
+    expect(store.getState().toolCallsById['pending-approval-tool']?.state).toBe(
+      ClientToolCallState.success
+    )
   })
 
   it('cancels queued in-progress persistence after a send failure persists completed state', async () => {

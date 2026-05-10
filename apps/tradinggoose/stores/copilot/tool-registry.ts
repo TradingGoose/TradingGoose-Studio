@@ -68,21 +68,27 @@ type ClientToolCtor = {
 
 interface CopilotToolDefinition {
   execution: ToolExecutionKind
+  gated: boolean
   metadata: BaseClientToolMetadata
   createInstance?: (toolCallId: string) => BaseClientTool
 }
 
-function clientTool(Ctor: ClientToolCtor): CopilotToolDefinition {
+function clientTool(Ctor: ClientToolCtor, gated = false): CopilotToolDefinition {
   return {
     execution: 'client',
+    gated,
     metadata: Ctor.metadata,
     createInstance: (toolCallId) => new Ctor(toolCallId),
   }
 }
 
-function serverTool(toolName: keyof typeof SERVER_TOOL_METADATA): CopilotToolDefinition {
+function serverTool(
+  toolName: keyof typeof SERVER_TOOL_METADATA,
+  gated = false
+): CopilotToolDefinition {
   return {
     execution: 'server',
+    gated,
     metadata: SERVER_TOOL_METADATA[toolName],
   }
 }
@@ -96,7 +102,7 @@ function cloneArgs(args: Record<string, any> | undefined): Record<string, any> {
 }
 
 const COPILOT_TOOL_REGISTRY: Record<ToolId, CopilotToolDefinition> = {
-  run_workflow: clientTool(RunWorkflowClientTool),
+  run_workflow: clientTool(RunWorkflowClientTool, true),
   get_workflow_console: serverTool('get_workflow_console'),
   get_blocks_and_tools: serverTool('get_blocks_and_tools'),
   get_blocks_metadata: serverTool('get_blocks_metadata'),
@@ -106,51 +112,51 @@ const COPILOT_TOOL_REGISTRY: Record<ToolId, CopilotToolDefinition> = {
   search_online: serverTool('search_online'),
   search_documentation: serverTool('search_documentation'),
   get_environment_variables: serverTool('get_environment_variables'),
-  set_environment_variables: serverTool('set_environment_variables'),
+  set_environment_variables: serverTool('set_environment_variables', true),
   get_credentials: serverTool('get_credentials'),
-  knowledge_base: clientTool(KnowledgeBaseClientTool),
+  knowledge_base: clientTool(KnowledgeBaseClientTool, true),
   list_custom_tools: clientTool(ListCustomToolsClientTool),
   get_custom_tool: clientTool(GetCustomToolClientTool),
-  create_custom_tool: clientTool(CreateCustomToolClientTool),
-  edit_custom_tool: clientTool(EditCustomToolClientTool),
-  rename_custom_tool: clientTool(RenameCustomToolClientTool),
+  create_custom_tool: clientTool(CreateCustomToolClientTool, true),
+  edit_custom_tool: clientTool(EditCustomToolClientTool, true),
+  rename_custom_tool: clientTool(RenameCustomToolClientTool, true),
   list_monitors: clientTool(ListMonitorsClientTool),
   get_monitor: clientTool(GetMonitorClientTool),
-  edit_monitor: clientTool(EditMonitorClientTool),
+  edit_monitor: clientTool(EditMonitorClientTool, true),
   list_indicators: clientTool(ListIndicatorsClientTool),
   get_indicator: clientTool(GetIndicatorClientTool),
-  create_indicator: clientTool(CreateIndicatorClientTool),
-  edit_indicator: clientTool(EditIndicatorClientTool),
-  rename_indicator: clientTool(RenameIndicatorClientTool),
+  create_indicator: clientTool(CreateIndicatorClientTool, true),
+  edit_indicator: clientTool(EditIndicatorClientTool, true),
+  rename_indicator: clientTool(RenameIndicatorClientTool, true),
   list_skills: clientTool(ListSkillsClientTool),
   get_skill: clientTool(GetSkillClientTool),
-  create_skill: clientTool(CreateSkillClientTool),
-  edit_skill: clientTool(EditSkillClientTool),
-  rename_skill: clientTool(RenameSkillClientTool),
+  create_skill: clientTool(CreateSkillClientTool, true),
+  edit_skill: clientTool(EditSkillClientTool, true),
+  rename_skill: clientTool(RenameSkillClientTool, true),
   list_mcp_servers: clientTool(ListMcpServersClientTool),
   get_mcp_server: clientTool(GetMcpServerClientTool),
-  create_mcp_server: clientTool(CreateMcpServerClientTool),
-  edit_mcp_server: clientTool(EditMcpServerClientTool),
-  rename_mcp_server: clientTool(RenameMcpServerClientTool),
+  create_mcp_server: clientTool(CreateMcpServerClientTool, true),
+  edit_mcp_server: clientTool(EditMcpServerClientTool, true),
+  rename_mcp_server: clientTool(RenameMcpServerClientTool, true),
   list_gdrive_files: serverTool('list_gdrive_files'),
   read_gdrive_file: serverTool('read_gdrive_file'),
   get_oauth_credentials: serverTool('get_oauth_credentials'),
-  make_api_request: serverTool('make_api_request'),
+  make_api_request: serverTool('make_api_request', true),
   plan: clientTool(PlanClientTool),
   checkoff_todo: clientTool(CheckoffTodoClientTool),
   mark_todo_in_progress: clientTool(MarkTodoInProgressClientTool),
-  gdrive_request_access: clientTool(GDriveRequestAccessClientTool),
-  oauth_request_access: clientTool(OAuthRequestAccessClientTool),
-  create_workflow: clientTool(CreateWorkflowClientTool),
-  edit_workflow: clientTool(EditWorkflowClientTool),
-  edit_workflow_block: clientTool(EditWorkflowBlockClientTool),
-  rename_workflow: clientTool(RenameWorkflowClientTool),
+  gdrive_request_access: clientTool(GDriveRequestAccessClientTool, true),
+  oauth_request_access: clientTool(OAuthRequestAccessClientTool, true),
+  create_workflow: clientTool(CreateWorkflowClientTool, true),
+  edit_workflow: clientTool(EditWorkflowClientTool, true),
+  edit_workflow_block: clientTool(EditWorkflowBlockClientTool, true),
+  rename_workflow: clientTool(RenameWorkflowClientTool, true),
   get_user_workflow: clientTool(GetUserWorkflowClientTool),
   list_user_workflows: clientTool(ListUserWorkflowsClientTool),
   get_workflow_from_name: clientTool(GetWorkflowFromNameClientTool),
   get_global_workflow_variables: clientTool(GetGlobalWorkflowVariablesClientTool),
-  set_global_workflow_variables: clientTool(SetGlobalWorkflowVariablesClientTool),
-  deploy_workflow: clientTool(DeployWorkflowClientTool),
+  set_global_workflow_variables: clientTool(SetGlobalWorkflowVariablesClientTool, true),
+  deploy_workflow: clientTool(DeployWorkflowClientTool, true),
   check_deployment_status: clientTool(CheckDeploymentStatusClientTool),
   sleep: clientTool(SleepClientTool),
   get_block_outputs: clientTool(GetBlockOutputsClientTool),
@@ -214,6 +220,10 @@ export function getCopilotToolDefinition(
 
 export function isCopilotTool(toolName: string | undefined): boolean {
   return !!getCopilotToolDefinition(toolName)
+}
+
+export function isGatedTool(toolName: string | undefined): boolean {
+  return getCopilotToolDefinition(toolName)?.gated ?? true
 }
 
 export function isClientManagedCopilotTool(toolName: string | undefined): boolean {
@@ -310,22 +320,6 @@ export function resolveToolDisplay(
         return { text: dynamicText, icon: stateDisplay.icon }
       }
       return { text: stateDisplay.text, icon: stateDisplay.icon }
-    }
-
-    const fallbackOrder: ClientToolCallState[] = [
-      ClientToolCallState.generating,
-      ClientToolCallState.executing,
-      ClientToolCallState.review,
-      ClientToolCallState.success,
-      ClientToolCallState.error,
-      ClientToolCallState.rejected,
-    ]
-
-    for (const fallbackState of fallbackOrder) {
-      const fallbackDisplay = displayNames?.[fallbackState]
-      if (fallbackDisplay?.text || fallbackDisplay?.icon) {
-        return { text: fallbackDisplay.text, icon: fallbackDisplay.icon }
-      }
     }
   } catch {}
 

@@ -5,7 +5,7 @@ import { Loader2 } from 'lucide-react'
 import useDrivePicker from 'react-google-drive-picker'
 import { GoogleDriveIcon } from '@/components/icons/icons'
 import { Button } from '@/components/ui/button'
-import { type CopilotAccessLevel, shouldRequireCopilotApproval } from '@/lib/copilot/access-policy'
+import { type CopilotAccessLevel, shouldRequireToolApproval } from '@/lib/copilot/access-policy'
 import {
   buildEntityReviewDiffLines,
   buildEntityReviewDiffPayload,
@@ -21,6 +21,7 @@ import {
   getCopilotToolMetadata,
   getToolInterruptDisplays,
   isCopilotTool,
+  isGatedTool,
 } from '@/stores/copilot/tool-registry'
 import type { CopilotToolCall } from '@/stores/copilot/types'
 import { PreviewWorkflow } from '@/widgets/widgets/editor_workflow/components/workflow-editor/preview/preview-workflow'
@@ -196,7 +197,10 @@ function shouldShowRunSkipButtons(
     return true
   }
 
-  return toolCall.state === 'pending' && shouldRequireCopilotApproval(accessLevel)
+  return (
+    toolCall.state === 'pending' &&
+    shouldRequireToolApproval(accessLevel, isGatedTool(toolCall.name))
+  )
 }
 
 function getStateVerb(state: string): string {
@@ -317,12 +321,7 @@ function RunSkipButtons({
   const [isProcessing, setIsProcessing] = useState(false)
   const [buttonsHidden, setButtonsHidden] = useState(false)
   const actionInProgressRef = useRef(false)
-  const {
-    executeCopilotToolCall,
-    executeIntegrationTool,
-    skipCopilotToolCall,
-    skipIntegrationTool,
-  } = useCopilotStore()
+  const { executeCopilotToolCall, executeIntegrationTool, skipCopilotToolCall } = useCopilotStore()
   const [openPicker] = useDrivePicker()
 
   const onRun = async () => {
@@ -462,13 +461,8 @@ function RunSkipButtons({
       <Button
         onClick={async () => {
           setButtonsHidden(true)
-          if (isIntegration) {
-            onStateChange?.('rejected')
-            skipIntegrationTool(toolCall.id)
-          } else {
-            await skipCopilotToolCall(toolCall.id)
-            onStateChange?.('rejected')
-          }
+          await skipCopilotToolCall(toolCall.id)
+          onStateChange?.('rejected')
         }}
         disabled={isProcessing}
         size='sm'
@@ -513,15 +507,6 @@ export function InlineToolCall({
 
   // Guard: nothing to render without a toolCall
   if (!toolCall) return null
-
-  const isHiddenInternalTool =
-    toolCall.name === 'checkoff_todo' || toolCall.name === 'mark_todo_in_progress'
-  if (
-    isHiddenInternalTool &&
-    !(toolCall.state === 'pending' && shouldRequireCopilotApproval(accessLevel))
-  ) {
-    return null
-  }
 
   const showButtons = shouldShowRunSkipButtons(toolCall, accessLevel)
   const showMoveToBackground =

@@ -1546,10 +1546,7 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
 
         const { id, name } = toolCall
         const targetStore = getCopilotStore(storeChannelId)
-
-        if (isServerManagedCopilotTool(name)) {
-          applyToolStateUpdate(targetStore, id, ClientToolCallState.rejected)
-
+        const markSkipped = () =>
           postCopilotMarkComplete({
             toolCallId: id,
             toolName: name || 'unknown_tool',
@@ -1557,6 +1554,10 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
             message: 'Tool execution was skipped by the user',
             data: { rejected: true, skipped: true },
           }).catch(() => {})
+
+        if (!isCopilotTool(name) || isServerManagedCopilotTool(name)) {
+          applyToolStateUpdate(targetStore, id, ClientToolCallState.rejected)
+          markSkipped()
           return
         }
 
@@ -1567,6 +1568,7 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
         }
 
         applyToolStateUpdate(targetStore, id, ClientToolCallState.rejected)
+        markSkipped()
       },
 
       executeIntegrationTool: async (toolCallId: string) => {
@@ -1647,25 +1649,6 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
           applyToolStateUpdate(targetStore, id, ClientToolCallState.error)
           logger.error('Integration tool execution failed', { id, name, error })
         }
-      },
-
-      skipIntegrationTool: (toolCallId: string) => {
-        const { toolCallsById } = get()
-        const toolCall = toolCallsById[toolCallId]
-        if (!toolCall) return
-
-        const { id, name } = toolCall
-
-        applyToolStateUpdate(getCopilotStore(storeChannelId), id, ClientToolCallState.rejected)
-        logger.info('[toolCallsById] pending → rejected (integration tool skipped)', { id, name })
-
-        postCopilotMarkComplete({
-          toolCallId: id,
-          toolName: name || 'unknown_tool',
-          status: REJECTED_TOOL_COMPLETION_STATUS,
-          message: 'Tool execution skipped by user',
-          data: { rejected: true, skipped: true },
-        }).catch(() => {})
       },
     }))
   )

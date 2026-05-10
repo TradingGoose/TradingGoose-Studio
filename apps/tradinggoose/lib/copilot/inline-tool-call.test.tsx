@@ -17,7 +17,6 @@ const mockUseCopilotStoreState = {
   executeCopilotToolCall: vi.fn(),
   executeIntegrationTool: vi.fn(),
   skipCopilotToolCall: vi.fn(),
-  skipIntegrationTool: vi.fn(),
   toolCallsById: {},
 }
 
@@ -56,6 +55,7 @@ vi.mock('@/stores/copilot/tool-registry', () => ({
   getCopilotToolMetadata: () => undefined,
   getToolInterruptDisplays: () => undefined,
   isCopilotTool: () => true,
+  isGatedTool: () => true,
 }))
 
 vi.mock('@/lib/copilot/review-sessions/entity-session-host', () => ({

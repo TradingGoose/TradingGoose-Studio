@@ -4,6 +4,9 @@ export function shouldAutoExecuteTool(accessLevel: CopilotAccessLevel): boolean 
   return accessLevel === 'full'
 }
 
-export function shouldRequireCopilotApproval(accessLevel: CopilotAccessLevel): boolean {
-  return !shouldAutoExecuteTool(accessLevel)
+export function shouldRequireToolApproval(
+  accessLevel: CopilotAccessLevel,
+  gated: boolean
+): boolean {
+  return gated && !shouldAutoExecuteTool(accessLevel)
 }

@@ -1,4 +1,4 @@
-import { shouldAutoExecuteTool } from '@/lib/copilot/access-policy'
+import { shouldRequireToolApproval } from '@/lib/copilot/access-policy'
 import { normalizeFunctionCallArguments } from '@/lib/copilot/function-call-args'
 import { ClientToolCallState } from '@/lib/copilot/tools/client/base-tool'
 import { withPinnedToolExecutionProvenance } from '@/stores/copilot/store-provenance'
@@ -9,6 +9,7 @@ import {
   ensureClientToolInstance,
   isBackgroundState,
   isCopilotTool,
+  isGatedTool,
   isRejectedState,
   isReviewState,
   resolveToolDisplay,
@@ -260,7 +261,7 @@ function scheduleAutomaticToolExecution(
 ) {
   try {
     const { accessLevel } = get()
-    if (!shouldAutoExecuteTool(accessLevel)) {
+    if (shouldRequireToolApproval(accessLevel, isGatedTool(toolName))) {
       logger.info('[copilot access] tool awaiting confirmation', {
         accessLevel,
         id: toolCallId,

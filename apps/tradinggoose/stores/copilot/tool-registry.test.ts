@@ -5,6 +5,7 @@ import {
   createExecutionContext,
   ensureClientToolInstance,
   getToolInterruptDisplays,
+  isGatedTool,
   prepareCopilotToolArgs,
 } from '@/stores/copilot/tool-registry'
 
@@ -107,5 +108,14 @@ describe('tool-registry', () => {
     expect(
       prepareCopilotToolArgs('read_gdrive_file', { fileId: 'file-1', type: 'doc' }, context)
     ).toEqual({ fileId: 'file-1', type: 'doc' })
+  })
+
+  it('classifies gated and non-gated tools explicitly', () => {
+    expect(isGatedTool('make_api_request')).toBe(true)
+    expect(isGatedTool('edit_workflow')).toBe(true)
+    expect(isGatedTool('checkoff_todo')).toBe(false)
+    expect(isGatedTool('mark_todo_in_progress')).toBe(false)
+    expect(isGatedTool('get_blocks_metadata')).toBe(false)
+    expect(isGatedTool('unknown_integration_tool')).toBe(true)
   })
 })
