@@ -1,7 +1,7 @@
 import { DollarIcon } from '@/components/icons/icons'
 import type { BlockConfig, SubBlockConfig } from '@/blocks/types'
 import { AuthMode } from '@/blocks/types'
-import { buildInputsFromToolParams } from '@/blocks/utils'
+import { buildInputsFromToolParams, requiredUserOnlyInput } from '@/blocks/utils'
 import { getTradingProviders } from '@/providers/trading'
 import { tradingOrderDetailTool } from '@/tools/trading/order_detail'
 import type { TradingOrderDetailResponse } from '@/tools/trading/types'
@@ -99,9 +99,16 @@ export const TradingOrderDetailBlock: BlockConfig<TradingOrderDetailResponse> = 
       },
     },
   },
-  inputs: buildInputsFromToolParams(tradingOrderDetailTool.params, {
-    include: ['credential'],
-  }),
+  inputs: {
+    ...buildInputsFromToolParams(tradingOrderDetailTool.params, {
+      include: ['credential'],
+    }),
+    provider: requiredUserOnlyInput('string', 'Trading provider id used for this order.'),
+    credential: requiredUserOnlyInput(
+      'string',
+      'OAuth credential id selected by the broker account field.'
+    ),
+  },
   outputs: {
     summary: { type: 'string', description: 'Status of order detail retrieval.' },
     provider: { type: 'string', description: 'Provider used for the order detail request.' },

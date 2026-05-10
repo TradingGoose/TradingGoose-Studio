@@ -1,6 +1,7 @@
 import { DollarIcon } from '@/components/icons/icons'
 import type { BlockConfig } from '@/blocks/types'
 import { AuthMode } from '@/blocks/types'
+import { requiredUserOnlyInput } from '@/blocks/utils'
 import { getTradingProvidersByKind } from '@/providers/trading'
 import type { TradingHoldingsResponse } from '@/tools/trading/types'
 
@@ -75,14 +76,11 @@ export const TradingHoldingsBlock: BlockConfig<TradingHoldingsResponse> = {
     },
   },
   inputs: {
-    provider: {
-      type: 'string',
-      description: 'Trading provider id (alpaca or tradier).',
-    },
-    portfolioIdentity: {
-      type: 'json',
-      description: 'Canonical portfolioIdentity selected by the broker account field.',
-    },
+    provider: requiredUserOnlyInput('string', 'Trading provider id (alpaca or tradier).'),
+    portfolioIdentity: requiredUserOnlyInput(
+      'json',
+      'Canonical portfolioIdentity selected by the broker account field.'
+    ),
   },
   outputs: {
     summary: { type: 'string', description: 'Status of holdings retrieval' },

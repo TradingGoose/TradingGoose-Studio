@@ -1,7 +1,14 @@
 import { RedditIcon } from '@/components/icons/icons'
 import type { BlockConfig } from '@/blocks/types'
 import { AuthMode } from '@/blocks/types'
+import { buildInputsFromToolParams, requiredUserOnlyInput } from '@/blocks/utils'
+import { getCommentsTool } from '@/tools/reddit/get_comments'
+import { getPostsTool } from '@/tools/reddit/get_posts'
 import type { RedditResponse } from '@/tools/reddit/types'
+
+const redditPostInputs = buildInputsFromToolParams(getPostsTool.params)
+const redditCommentInputs = buildInputsFromToolParams(getCommentsTool.params)
+const redditCredentialInput = requiredUserOnlyInput('string', 'Reddit OAuth credential id')
 
 export const RedditBlock: BlockConfig<RedditResponse> = {
   type: 'reddit',
@@ -71,7 +78,6 @@ export const RedditBlock: BlockConfig<RedditResponse> = {
         field: 'operation',
         value: 'get_posts',
       },
-      required: true,
     },
     {
       id: 'time',
@@ -187,15 +193,18 @@ export const RedditBlock: BlockConfig<RedditResponse> = {
     },
   },
   inputs: {
-    operation: { type: 'string', description: 'Operation to perform' },
-    credential: { type: 'string', description: 'Reddit access token' },
-    subreddit: { type: 'string', description: 'Subreddit name' },
-    sort: { type: 'string', description: 'Sort order' },
-    time: { type: 'string', description: 'Time filter' },
-    limit: { type: 'number', description: 'Maximum posts' },
-    postId: { type: 'string', description: 'Post identifier' },
-    commentSort: { type: 'string', description: 'Comment sort order' },
-    commentLimit: { type: 'number', description: 'Maximum comments' },
+    operation: {
+      type: 'string',
+      description: 'Operation to perform',
+    },
+    credential: redditCredentialInput,
+    subreddit: redditPostInputs.subreddit,
+    sort: redditPostInputs.sort,
+    time: redditPostInputs.time,
+    limit: redditPostInputs.limit,
+    postId: redditCommentInputs.postId,
+    commentSort: redditCommentInputs.sort,
+    commentLimit: redditCommentInputs.limit,
   },
   outputs: {
     subreddit: { type: 'string', description: 'Subreddit name' },

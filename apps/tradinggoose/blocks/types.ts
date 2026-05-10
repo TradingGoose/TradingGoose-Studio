@@ -1,6 +1,6 @@
 import type { JSX, SVGProps } from 'react'
 import type { TimeFormat } from '@/lib/time-format'
-import type { ToolResponse } from '@/tools/types'
+import type { ParameterVisibility, ToolResponse } from '@/tools/types'
 
 export type BlockIcon = (props: SVGProps<SVGSVGElement>) => JSX.Element
 export type ParamType = 'string' | 'number' | 'boolean' | 'json' | 'array'
@@ -117,6 +117,8 @@ export type OutputFieldDefinition =
 export interface ParamConfig {
   type: ParamType
   description?: string
+  required?: boolean
+  visibility?: ParameterVisibility
   schema?: {
     type: string
     properties: Record<string, any>

@@ -7,18 +7,15 @@ export function resolveOutputType(
   const resolvedOutputs: Record<string, BlockOutput> = {}
 
   for (const [key, outputType] of Object.entries(outputs)) {
-    // Handle new format: { type: 'string', description: '...' }
     if (typeof outputType === 'object' && outputType !== null && 'type' in outputType) {
       resolvedOutputs[key] = outputType.type as BlockOutput
     } else {
-      // Handle old format: just the type as string, or other object formats
       resolvedOutputs[key] = outputType as BlockOutput
     }
   }
 
   return resolvedOutputs
 }
-
 
 interface ToolInputOptions {
   includeHidden?: boolean
@@ -30,6 +27,13 @@ const toParamType = (type: string): ParamType => {
   const allowed: ParamType[] = ['string', 'number', 'boolean', 'json', 'array']
   return allowed.includes(type as ParamType) ? (type as ParamType) : 'string'
 }
+
+export const requiredUserOnlyInput = (type: ParamType, description: string): ParamConfig => ({
+  type,
+  description,
+  required: true,
+  visibility: 'user-only',
+})
 
 export const buildInputsFromToolParams = (
   params: ToolConfig['params'],
@@ -51,6 +55,8 @@ export const buildInputsFromToolParams = (
         {
           type: toParamType(config.type),
           description: config.description,
+          required: config.required ?? false,
+          visibility: config.visibility ?? (config.required ? 'user-or-llm' : 'user-only'),
         } satisfies ParamConfig,
       ])
   )

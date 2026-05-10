@@ -135,8 +135,8 @@ vi.mock('@/blocks', () => ({
           { id: 'apiKey', type: 'short-input', title: 'API Key', required: true },
         ],
         inputs: {
-          url: { type: 'string' },
-          apiKey: { type: 'string' },
+          url: { type: 'string', required: true, visibility: 'user-or-llm' },
+          apiKey: { type: 'string', required: true, visibility: 'user-only' },
         },
       },
       reddit: {
@@ -156,9 +156,36 @@ vi.mock('@/blocks', () => ({
           { id: 'subreddit', type: 'short-input', title: 'Subreddit', required: true },
         ],
         inputs: {
-          operation: { type: 'string' },
-          credential: { type: 'string' },
-          subreddit: { type: 'string' },
+          operation: { type: 'string', required: true, visibility: 'user-only' },
+          credential: { type: 'string', required: true, visibility: 'user-only' },
+          subreddit: { type: 'string', required: true, visibility: 'user-or-llm' },
+        },
+      },
+      canonicalCredential: {
+        name: 'Canonical Credential',
+        description: 'Validates canonical param ids',
+        category: 'tools',
+        bgColor: '#333333',
+        tools: {
+          access: ['canonical_credential'],
+          config: {
+            tool: () => 'canonical_credential',
+          },
+        },
+        subBlocks: [
+          { id: 'provider', type: 'dropdown', title: 'Provider', required: true },
+          {
+            id: 'alpacaCredential',
+            type: 'oauth-input',
+            title: 'Alpaca Account',
+            required: true,
+            canonicalParamId: 'credential',
+            condition: { field: 'provider', value: 'alpaca' },
+          },
+        ],
+        inputs: {
+          provider: { type: 'string', required: true, visibility: 'user-only' },
+          credential: { type: 'string', required: true, visibility: 'user-only' },
         },
       },
       // Mock block with both basic and advanced mode fields for testing
@@ -214,28 +241,6 @@ vi.mock('@/blocks', () => ({
     }
 
     return mockConfigs[type] || null
-  },
-}))
-
-// Mock getTool function
-vi.mock('@/tools/utils', () => ({
-  getTool: (toolId: string) => {
-    // Mock tool configurations for testing
-    const mockTools: Record<string, any> = {
-      jina_read_url: {
-        params: {
-          url: { visibility: 'user-or-llm', required: true },
-          apiKey: { visibility: 'user-only', required: true },
-        },
-      },
-      reddit_get_posts: {
-        params: {
-          subreddit: { visibility: 'user-or-llm', required: true },
-          credential: { visibility: 'user-only', required: true },
-        },
-      },
-    }
-    return mockTools[toolId] || null
   },
 }))
 
@@ -764,6 +769,34 @@ describe('Serializer', () => {
       expect(() => {
         serializer.serializeWorkflow({ 'test-block': mixedBlock }, [], {}, undefined, true)
       }).toThrow('Test Reddit Block is missing required fields: Reddit Account')
+    })
+
+    it.concurrent('should validate canonical param ids after source ids are consolidated', () => {
+      const serializer = new Serializer()
+
+      const blockWithCanonicalCredential: any = {
+        id: 'test-block',
+        type: 'canonicalCredential',
+        name: 'Test Canonical Credential Block',
+        position: { x: 0, y: 0 },
+        subBlocks: {
+          provider: { value: 'alpaca' },
+          alpacaCredential: { value: 'credential-1' },
+        },
+        outputs: {},
+        enabled: true,
+      }
+
+      const serialized = serializer.serializeWorkflow(
+        { 'test-block': blockWithCanonicalCredential },
+        [],
+        {},
+        undefined,
+        true
+      )
+
+      expect(serialized.blocks[0].config.params.credential).toBe('credential-1')
+      expect(serialized.blocks[0].config.params.alpacaCredential).toBeUndefined()
     })
   })
 

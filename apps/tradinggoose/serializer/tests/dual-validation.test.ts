@@ -27,8 +27,8 @@ vi.mock('@/blocks', () => ({
           { id: 'apiKey', type: 'short-input', title: 'API Key', required: true },
         ],
         inputs: {
-          url: { type: 'string' },
-          apiKey: { type: 'string' },
+          url: { type: 'string', required: true, visibility: 'user-or-llm' },
+          apiKey: { type: 'string', required: true, visibility: 'user-only' },
         },
       },
       reddit: {
@@ -45,61 +45,15 @@ vi.mock('@/blocks', () => ({
           { id: 'subreddit', type: 'short-input', title: 'Subreddit', required: true },
         ],
         inputs: {
-          operation: { type: 'string' },
-          credential: { type: 'string' },
-          subreddit: { type: 'string' },
+          operation: { type: 'string', required: true, visibility: 'user-only' },
+          credential: { type: 'string', required: true, visibility: 'user-only' },
+          subreddit: { type: 'string', required: true, visibility: 'user-or-llm' },
         },
       },
     }
     return mockConfigs[type] || null
   },
 }))
-
-vi.mock('@/tools/utils', async () => {
-  const actual = await vi.importActual('@/tools/utils')
-  return {
-    ...actual,
-    getTool: (toolId: string) => {
-      const mockTools: Record<string, any> = {
-        jina_read_url: {
-          name: 'Jina Reader',
-          params: {
-            url: {
-              type: 'string',
-              visibility: 'user-or-llm',
-              required: true,
-              description: 'URL to extract content from',
-            },
-            apiKey: {
-              type: 'string',
-              visibility: 'user-only',
-              required: true,
-              description: 'Your Jina API key',
-            },
-          },
-        },
-        reddit_get_posts: {
-          name: 'Reddit Posts',
-          params: {
-            subreddit: {
-              type: 'string',
-              visibility: 'user-or-llm',
-              required: true,
-              description: 'Subreddit name',
-            },
-            credential: {
-              type: 'string',
-              visibility: 'user-only',
-              required: true,
-              description: 'Reddit credentials',
-            },
-          },
-        },
-      }
-      return mockTools[toolId] || null
-    },
-  }
-})
 
 describe('Validation Integration Tests', () => {
   it.concurrent('early validation should catch missing user-only fields', () => {

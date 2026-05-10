@@ -460,6 +460,7 @@ export class Serializer {
     }
 
     const missingFields: string[] = []
+    const missingParamIds = new Set<string>()
 
     const evalCond = (
       condition: SerializerCondition | (() => SerializerCondition) | undefined,
@@ -483,19 +484,31 @@ export class Serializer {
     }
 
     blockConfig.subBlocks?.forEach((subBlockConfig: SubBlockConfig) => {
-      if (!subBlockConfig.required || subBlockConfig.hidden) return
+      if (subBlockConfig.hidden) return
       if (!shouldIncludeField(subBlockConfig, block.advancedMode ?? false)) return
       if (!evalCond(subBlockConfig.condition, params)) return
 
+      const paramId = subBlockConfig.canonicalParamId ?? subBlockConfig.id
+      const paramConfig = blockConfig.inputs?.[paramId] ?? blockConfig.inputs?.[subBlockConfig.id]
+      if (
+        paramConfig?.visibility !== 'user-only' ||
+        paramConfig.required !== true ||
+        missingParamIds.has(paramId)
+      ) {
+        return
+      }
+
       const isRequired =
+        subBlockConfig.required === undefined ||
         subBlockConfig.required === true ||
         (typeof subBlockConfig.required === 'object' &&
           evalCond(subBlockConfig.required, params)) ||
         (typeof subBlockConfig.required === 'function' && evalCond(subBlockConfig.required, params))
       if (!isRequired) return
 
-      const fieldValue = params[subBlockConfig.id]
+      const fieldValue = params[paramId]
       if (fieldValue === undefined || fieldValue === null || fieldValue === '') {
+        missingParamIds.add(paramId)
         missingFields.push(subBlockConfig.title || subBlockConfig.id)
       }
     })

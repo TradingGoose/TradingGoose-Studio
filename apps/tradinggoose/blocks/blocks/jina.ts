@@ -1,5 +1,7 @@
 import { JinaAIIcon } from '@/components/icons/icons'
 import { AuthMode, type BlockConfig } from '@/blocks/types'
+import { buildInputsFromToolParams } from '@/blocks/utils'
+import { readUrlTool } from '@/tools/jina/read_url'
 import type { ReadUrlResponse } from '@/tools/jina/types'
 
 export const JinaBlock: BlockConfig<ReadUrlResponse> = {
@@ -45,13 +47,7 @@ export const JinaBlock: BlockConfig<ReadUrlResponse> = {
   tools: {
     access: ['jina_read_url'],
   },
-  inputs: {
-    url: { type: 'string', description: 'URL to extract' },
-    useReaderLMv2: { type: 'boolean', description: 'Use Reader LM v2' },
-    gatherLinks: { type: 'boolean', description: 'Gather page links' },
-    jsonResponse: { type: 'boolean', description: 'JSON response format' },
-    apiKey: { type: 'string', description: 'Jina API key' },
-  },
+  inputs: buildInputsFromToolParams(readUrlTool.params),
   outputs: {
     content: { type: 'string', description: 'Extracted content' },
   },

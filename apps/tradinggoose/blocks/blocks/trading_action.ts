@@ -2,7 +2,7 @@ import { DollarIcon } from '@/components/icons/icons'
 import type { ListingInputValue } from '@/lib/listing/identity'
 import type { BlockConfig, SubBlockCondition, SubBlockConfig } from '@/blocks/types'
 import { AuthMode } from '@/blocks/types'
-import { buildInputsFromToolParams } from '@/blocks/utils'
+import { buildInputsFromToolParams, requiredUserOnlyInput } from '@/blocks/utils'
 import {
   getTradingProviderParamCatalog,
   getTradingProviderParamDefinitions,
@@ -392,9 +392,15 @@ export const TradingActionBlock: BlockConfig<TradingActionResponse> = {
       },
     },
   },
-  inputs: buildInputsFromToolParams(tradingActionTool.params, {
-    include: ['credential'], // include hidden credential to allow wiring while keeping accessToken hidden
-  }),
+  inputs: {
+    ...buildInputsFromToolParams(tradingActionTool.params, {
+      include: ['credential'],
+    }),
+    credential: requiredUserOnlyInput(
+      'string',
+      'OAuth credential id selected by the broker account field.'
+    ),
+  },
   outputs: {
     summary: { type: 'string', description: 'Order submission status' },
     provider: { type: 'string', description: 'Provider used' },
