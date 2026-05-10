@@ -25,7 +25,7 @@ export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
   },
   get_user_workflow: {
     description:
-      'Read a workflow by exact `workflowId` and return Mermaid in `workflowDocument` and `entityDocument`, plus `workflowSummary.blocks` with block ids, types, names, enabled state, and current sub-block ids.',
+      'Read a workflow by exact `workflowId` and return Mermaid in `workflowDocument` and `entityDocument`, plus `workflowSummary.blocks` with block ids, types, names, enabled state, parent ids, and current sub-block ids.',
     kind: 'read',
     entityKind: 'workflow',
   },

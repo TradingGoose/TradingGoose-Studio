@@ -537,6 +537,7 @@ const WorkflowDocumentEnvelope = WorkflowTargetEnvelope.extend({
           blockType: z.string(),
           blockName: z.string(),
           enabled: z.boolean().optional(),
+          parentId: z.string().optional(),
           subBlockIds: z.array(z.string()),
         })
       ),

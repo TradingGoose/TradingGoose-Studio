@@ -152,6 +152,7 @@ describe('workflow-review-tool-utils', () => {
               name: 'Input Form',
               position: { x: 0, y: 0 },
               enabled: true,
+              data: { parentId: 'loop' },
               subBlocks: {
                 ticker: { id: 'ticker', type: 'short-input', value: 'AAPL' },
                 tradeDate: { id: 'tradeDate', type: 'short-input', value: '2026-04-18' },
@@ -180,6 +181,7 @@ describe('workflow-review-tool-utils', () => {
             blockType: 'input_trigger',
             blockName: 'Input Form',
             enabled: true,
+            parentId: 'loop',
             subBlockIds: ['ticker', 'tradeDate'],
           },
         ],

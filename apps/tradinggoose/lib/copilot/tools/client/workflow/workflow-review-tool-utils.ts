@@ -8,8 +8,8 @@ import {
   type WorkflowSnapshot,
 } from '@/lib/yjs/workflow-session'
 import {
-  getVariablesForWorkflow,
   getRegisteredWorkflowSession,
+  getVariablesForWorkflow,
 } from '@/lib/yjs/workflow-session-registry'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 
@@ -25,6 +25,7 @@ export type WorkflowSummary = {
     blockType: string
     blockName: string
     enabled?: boolean
+    parentId?: string
     subBlockIds: string[]
   }>
 }
@@ -101,6 +102,7 @@ export function buildWorkflowSummary(workflowState: WorkflowSnapshot): WorkflowS
           normalizeWorkflowTargetValue(typeof block.name === 'string' ? block.name : undefined) ??
           blockId,
         ...(typeof block.enabled === 'boolean' ? { enabled: block.enabled } : {}),
+        ...(typeof block.data?.parentId === 'string' ? { parentId: block.data.parentId } : {}),
         subBlockIds: Object.keys(block.subBlocks ?? {}).sort(),
       }))
       .sort((left, right) => left.blockId.localeCompare(right.blockId)),
@@ -156,9 +158,12 @@ export async function resolveWorkflowTarget(
   const requestedWorkflowId = normalizeWorkflowTargetValue(options.workflowId)
   if (requestedWorkflowId) {
     const metadata = workflowTargetFromRegistry(requestedWorkflowId)
-    return metadata ?? (await workflowTargetFromApi(requestedWorkflowId)) ?? {
-      workflowId: requestedWorkflowId,
-    }
+    return (
+      metadata ??
+      (await workflowTargetFromApi(requestedWorkflowId)) ?? {
+        workflowId: requestedWorkflowId,
+      }
+    )
   }
 
   const requestedWorkflowName = normalizeWorkflowTargetValue(options.workflow_name)
