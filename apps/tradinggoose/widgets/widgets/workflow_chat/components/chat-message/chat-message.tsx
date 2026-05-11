@@ -15,7 +15,6 @@ interface ChatMessageProps {
     content: any
     timestamp: string | Date
     type: 'user' | 'workflow'
-    isStreaming?: boolean
     attachments?: ChatAttachment[]
   }
 }
@@ -181,9 +180,6 @@ export function ChatMessage({ message }: ChatMessageProps) {
           <div className='rounded-md bg-muted px-3 py-2'>
             <div className='whitespace-pre-wrap break-words text-foreground'>
               <WordWrap text={formattedContent} />
-              {message.isStreaming && (
-                <span className='ml-1 inline-block h-4 w-2 animate-pulse bg-gray-400 dark:bg-gray-300' />
-              )}
             </div>
           </div>
         </div>

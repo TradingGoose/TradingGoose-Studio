@@ -281,9 +281,6 @@ export function Chat({ chatMessage, setChatMessage, hideScrollbar = true }: Chat
         input: sentMessage,
         conversationId: conversationId,
       }
-      if (selectedOutputs.length > 0) {
-        workflowInput.selectedOutputs = selectedOutputs
-      }
 
       // Add files if any (pass the File objects directly)
       if (chatFiles.length > 0) {
@@ -305,7 +302,11 @@ export function Chat({ chatMessage, setChatMessage, hideScrollbar = true }: Chat
       focusInput(10)
 
       // Execute the workflow to generate a response
-      result = await handleRunWorkflow(workflowInput)
+      result = await handleRunWorkflow({
+        input: workflowInput,
+        triggerType: 'chat',
+        selectedOutputs,
+      })
     } catch (error) {
       logger.error('Error in handleSendMessage:', error)
       setIsUploadingFiles(false)

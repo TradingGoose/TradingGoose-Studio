@@ -15,6 +15,12 @@ import { useCurrentWorkflow } from './use-current-workflow'
 
 const logger = createLogger('useWorkflowExecution')
 const WORKFLOW_EXECUTION_FAILURE_MESSAGE = 'Workflow execution failed'
+type WorkflowExecutionTriggerType = 'chat' | 'manual'
+type WorkflowExecutionRequest = {
+  input?: unknown
+  triggerType?: WorkflowExecutionTriggerType
+  selectedOutputs?: string[]
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
@@ -286,7 +292,7 @@ export function useWorkflowExecution() {
   )
 
   const buildExecutionRequest = useCallback(
-    async (workflowInput: unknown, triggerType: 'chat' | 'manual') => {
+    async (workflowInput: unknown, triggerType: WorkflowExecutionTriggerType) => {
       if (!activeWorkflowId) throw new Error('Workflow target is required')
 
       const workspaceId = workflows[activeWorkflowId]?.workspaceId
@@ -307,7 +313,6 @@ export function useWorkflowExecution() {
       const isChatExecution = triggerType === 'chat'
       let startBlockId: string | undefined
       let finalWorkflowInput = workflowInput
-      let selectedOutputs: string[] | undefined
 
       if (isChatExecution) {
         const startBlock = TriggerUtils.findStartBlock(validBlocks, 'chat')
@@ -315,19 +320,6 @@ export function useWorkflowExecution() {
           throw new Error(TriggerUtils.getTriggerValidationMessage('chat', 'missing'))
         }
         startBlockId = startBlock.blockId
-
-        if (isRecord(workflowInput) && Array.isArray(workflowInput.selectedOutputs)) {
-          selectedOutputs = [
-            ...new Set(
-              workflowInput.selectedOutputs.filter(
-                (output): output is string => typeof output === 'string' && output.length > 0
-              )
-            ),
-          ]
-          const inputWithoutSelectedOutputs = { ...workflowInput }
-          delete inputWithoutSelectedOutputs.selectedOutputs
-          finalWorkflowInput = inputWithoutSelectedOutputs
-        }
       } else {
         const entries = Object.entries(validBlocks)
         const apiTriggers = TriggerUtils.findTriggersByType(validBlocks, 'api')
@@ -404,7 +396,6 @@ export function useWorkflowExecution() {
           loops: generateLoopBlocks(validBlocks),
           parallels: generateParallelBlocks(validBlocks),
         },
-        selectedOutputs,
       }
     },
     [
@@ -479,7 +470,7 @@ export function useWorkflowExecution() {
   )
 
   const handleRunWorkflow = useCallback(
-    async (workflowInput?: any) => {
+    async (request: WorkflowExecutionRequest = {}) => {
       if (!activeWorkflowId) return
 
       const executionId = createExecutionId()
@@ -493,11 +484,8 @@ export function useWorkflowExecution() {
       const streamedContentByBlock = new Map<string, string>()
 
       try {
-        const triggerType =
-          workflowInput && typeof workflowInput === 'object' && 'input' in workflowInput
-            ? 'chat'
-            : 'manual'
-        const executionRequest = await buildExecutionRequest(workflowInput, triggerType)
+        const triggerType = request.triggerType ?? 'manual'
+        const executionRequest = await buildExecutionRequest(request.input, triggerType)
         const input =
           triggerType === 'chat'
             ? await uploadChatFiles(
@@ -517,7 +505,7 @@ export function useWorkflowExecution() {
             workflowData: executionRequest.workflowData,
             workflowVariables: executionRequest.workflowVariables,
             startBlockId: executionRequest.startBlockId,
-            selectedOutputs: executionRequest.selectedOutputs,
+            selectedOutputs: request.selectedOutputs,
             signal: abortController.signal,
           },
           {

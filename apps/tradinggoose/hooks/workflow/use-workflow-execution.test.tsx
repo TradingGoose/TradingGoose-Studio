@@ -161,9 +161,12 @@ describe('useWorkflowExecution', () => {
 
     await act(async () => {
       await execution?.handleRunWorkflow({
-        input: 'hello',
-        conversationId: 'conversation-1',
-        selectedOutputs: ['agent-1_content', 'agent-1_content'],
+        input: {
+          input: 'hello',
+          conversationId: 'conversation-1',
+        },
+        triggerType: 'chat',
+        selectedOutputs: ['agent-1_content'],
       })
     })
 

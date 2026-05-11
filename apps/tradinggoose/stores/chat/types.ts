@@ -13,13 +13,7 @@ export interface ChatMessage {
   type: 'user' | 'workflow'
   timestamp: string
   blockId?: string
-  isStreaming?: boolean
   attachments?: ChatAttachment[]
-}
-
-export interface OutputConfig {
-  blockId: string
-  path: string
 }
 
 export interface ChatStore {
@@ -32,8 +26,6 @@ export interface ChatStore {
   readWorkflowMessages: (workflowId: string) => ChatMessage[]
   setSelectedWorkflowOutput: (workflowId: string, outputIds: string[]) => void
   getSelectedWorkflowOutput: (workflowId: string) => string[]
-  appendMessageContent: (messageId: string, content: string) => void
-  finalizeMessageStream: (messageId: string) => void
   getConversationId: (workflowId: string) => string
   generateNewConversationId: (workflowId: string) => string
 }

@@ -175,41 +175,6 @@ export const useChatStore = create<ChatStore>()(
           })
           return newId
         },
-
-        appendMessageContent: (messageId, content) => {
-          set((state) => {
-            const newMessages = state.messages.map((message) => {
-              if (message.id === messageId) {
-                return {
-                  ...message,
-                  content:
-                    typeof message.content === 'string'
-                      ? message.content + content
-                      : message.content
-                        ? String(message.content) + content
-                        : content,
-                }
-              }
-              return message
-            })
-
-            return { messages: newMessages }
-          })
-        },
-
-        finalizeMessageStream: (messageId) => {
-          set((state) => {
-            const newMessages = state.messages.map((message) => {
-              if (message.id === messageId) {
-                const { isStreaming, ...rest } = message
-                return rest
-              }
-              return message
-            })
-
-            return { messages: newMessages }
-          })
-        },
       }),
       {
         name: 'chat-store',
