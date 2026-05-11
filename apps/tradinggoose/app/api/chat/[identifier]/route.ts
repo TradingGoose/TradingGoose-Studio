@@ -3,9 +3,22 @@ import { chat, workflow } from '@tradinggoose/db/schema'
 import { eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { getApiKeyOwnerUserId } from '@/lib/api-key/service'
+import {
+  enqueuePendingExecution,
+  isPendingExecutionLimitError,
+} from '@/lib/execution/pending-execution'
+import { readWorkflowExecutionEventState } from '@/lib/execution/workflow-execution-events'
 import { createLogger } from '@/lib/logs/console/logger'
+import { isExecutionResult } from '@/lib/workflows/execution-result'
+import {
+  extractBlockIdFromOutputId,
+  extractPathFromOutputId,
+  traverseObjectPath,
+} from '@/lib/response-format'
+import { TriggerExecutionUnavailableError } from '@/lib/trigger/settings'
 import { ChatFiles } from '@/lib/uploads'
-import { generateRequestId } from '@/lib/utils'
+import { encodeSSE, generateRequestId, SSE_HEADERS } from '@/lib/utils'
+import type { BlockLog, ExecutionResult } from '@/executor/types'
 import {
   addCorsHeaders,
   setChatAuthCookie,
@@ -18,9 +31,192 @@ import {
 } from '@/app/api/workflows/utils'
 
 const logger = createLogger('ChatIdentifierAPI')
+const CHAT_QUEUE_POLL_INTERVAL_MS = 500
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
+
+function formatChatContent(value: unknown) {
+  if (typeof value === 'string') return value
+  if (value === undefined || value === null) return ''
+  return JSON.stringify(value, null, 2)
+}
+
+function resolveSelectedChatOutput(result: ExecutionResult, selectedOutputs: string[]) {
+  const output: string[] = []
+
+  for (const outputId of selectedOutputs) {
+    const blockId = extractBlockIdFromOutputId(outputId)
+    const path = extractPathFromOutputId(outputId, blockId)
+    const log = result.logs?.find((entry: BlockLog) => entry.blockId === blockId)
+    if (!log) continue
+
+    const value = path ? traverseObjectPath(log.output, path) : log.output
+    const content = formatChatContent(value)
+    if (content) {
+      output.push(content)
+    }
+  }
+
+  return output.join('\n\n')
+}
+
+function selectedOutputsForBlock(selectedOutputs: string[], blockId: string) {
+  return selectedOutputs.filter((outputId) => extractBlockIdFromOutputId(outputId) === blockId)
+}
+
+function canStreamSelectedBlock(selectedOutputs: string[], blockId: string) {
+  if (selectedOutputs.length === 0) return true
+  return selectedOutputsForBlock(selectedOutputs, blockId).some((outputId) => {
+    const path = extractPathFromOutputId(outputId, blockId)
+    return !path || path === 'content'
+  })
+}
+
+function resolveSelectedBlockOutput(params: {
+  blockId: string
+  output: unknown
+  selectedOutputs: string[]
+}) {
+  if (params.selectedOutputs.length === 0) {
+    return formatChatContent(params.output)
+  }
+
+  return selectedOutputsForBlock(params.selectedOutputs, params.blockId)
+    .map((outputId) => {
+      const path = extractPathFromOutputId(outputId, params.blockId)
+      const value = path ? traverseObjectPath(params.output, path) : params.output
+      return formatChatContent(value)
+    })
+    .filter(Boolean)
+    .join('\n\n')
+}
+
+function createQueuedChatStream(params: {
+  taskId: string
+  workflowId: string
+  selectedOutputs: string[]
+  requestId: string
+}) {
+  return new ReadableStream({
+    async start(controller) {
+      let lastEventId = 0
+      let emittedContent = false
+      const streamedBlocks = new Set<string>()
+
+      try {
+        while (true) {
+          const state = await readWorkflowExecutionEventState({
+            pendingExecutionId: params.taskId,
+            workflowId: params.workflowId,
+            afterEventId: lastEventId,
+          })
+
+          if (!state) {
+            throw new Error('Queued chat execution was not found')
+          }
+
+          for (const entry of state.events) {
+            lastEventId = entry.eventId
+            const event = entry.event
+
+            if (event.type === 'stream:chunk') {
+              if (canStreamSelectedBlock(params.selectedOutputs, event.data.blockId)) {
+                streamedBlocks.add(event.data.blockId)
+                emittedContent = true
+                controller.enqueue(
+                  encodeSSE({
+                    blockId: event.data.blockId,
+                    chunk: event.data.chunk,
+                  })
+                )
+              }
+              continue
+            }
+
+            if (event.type === 'block:completed') {
+              if (!streamedBlocks.has(event.data.blockId)) {
+                const content = resolveSelectedBlockOutput({
+                  blockId: event.data.blockId,
+                  output: event.data.output,
+                  selectedOutputs: params.selectedOutputs,
+                })
+                if (content) {
+                  emittedContent = true
+                  controller.enqueue(encodeSSE({ blockId: event.data.blockId, chunk: content }))
+                }
+              }
+              continue
+            }
+
+            if (event.type === 'execution:completed') {
+              const result = event.data.result
+              if (!isExecutionResult(result)) {
+                throw new Error('Queued chat execution result is missing')
+              }
+
+              if (!emittedContent) {
+                const content = params.selectedOutputs.length
+                  ? resolveSelectedChatOutput(result, params.selectedOutputs)
+                  : formatChatContent(result.output)
+                if (content) {
+                  controller.enqueue(encodeSSE({ blockId: 'workflow', chunk: content }))
+                }
+              }
+
+              controller.enqueue(encodeSSE({ event: 'final', data: result }))
+              controller.close()
+              return
+            }
+
+            if (event.type === 'execution:error') {
+              controller.enqueue(
+                encodeSSE({
+                  event: 'error',
+                  error: event.data.error || 'Chat workflow execution failed',
+                })
+              )
+              controller.close()
+              return
+            }
+
+            if (event.type === 'execution:cancelled') {
+              controller.enqueue(
+                encodeSSE({
+                  event: 'error',
+                  error: 'Chat workflow execution was cancelled',
+                })
+              )
+              controller.close()
+              return
+            }
+          }
+
+          if (state.status === 'failed') {
+            throw new Error(state.errorMessage ?? 'Chat workflow execution failed')
+          }
+
+          if (state.status === 'completed') {
+            throw new Error('Queued chat execution completed without a terminal stream event')
+          }
+
+          await sleep(CHAT_QUEUE_POLL_INTERVAL_MS)
+        }
+      } catch (error) {
+        logger.error(`[${params.requestId}] Queued chat stream failed`, error)
+        controller.enqueue(
+          encodeSSE({
+            event: 'error',
+            error: error instanceof Error ? error.message : 'Chat workflow execution failed',
+          })
+        )
+        controller.close()
+      }
+    },
+  })
+}
 
 // This endpoint handles chat interactions via the identifier
 export async function POST(
@@ -166,10 +362,6 @@ export async function POST(
         }
       }
 
-      const { createStreamingResponse } =
-        await import('@/lib/workflows/streaming')
-      const { SSE_HEADERS } = await import('@/lib/utils')
-
       // Generate executionId early so it can be used for file uploads and workflow execution
       const executionId = crypto.randomUUID()
       const workspaceId = workflowResult[0].workspaceId
@@ -208,32 +400,57 @@ export async function POST(
         }
       }
 
-      const workflowForExecution = {
-        id: deployment.workflowId,
-        userId: deployment.userId,
+      const handle = await enqueuePendingExecution({
+        executionType: 'workflow',
+        pendingExecutionId: executionId,
+        workflowId: deployment.workflowId,
         workspaceId,
-        isDeployed: true,
-        variables: workflowResult[0].variables || {},
-      }
-
-      const stream = await createStreamingResponse({
+        userId: executingUserId,
+        source: 'published_chat',
         requestId,
-        workflow: workflowForExecution,
-        input: workflowInput,
-        executingUserId,
-        streamConfig: {
+        payload: {
+          executionId,
+          workflowId: deployment.workflowId,
+          userId: executingUserId,
+          workspaceId,
+          input: workflowInput,
+          triggerType: 'chat',
+          executionTarget: 'deployed',
           selectedOutputs,
-          workflowTriggerType: 'chat',
+          workflowVariables:
+            workflowResult[0].variables && typeof workflowResult[0].variables === 'object'
+              ? (workflowResult[0].variables as Record<string, unknown>)
+              : undefined,
+          metadata: {
+            source: 'published_chat',
+            chatId: deployment.id,
+          },
         },
-        executionId,
       })
 
+      const stream = createQueuedChatStream({
+        taskId: handle.pendingExecutionId,
+        workflowId: deployment.workflowId,
+        selectedOutputs,
+        requestId,
+      })
       const streamResponse = new NextResponse(stream, {
         status: 200,
         headers: SSE_HEADERS,
       })
       return addCorsHeaders(streamResponse, request)
     } catch (error: any) {
+      if (isPendingExecutionLimitError(error)) {
+        return addCorsHeaders(
+          createErrorResponse('Pending execution backlog is full', error.statusCode),
+          request
+        )
+      }
+
+      if (error instanceof TriggerExecutionUnavailableError) {
+        return addCorsHeaders(createErrorResponse(error.message, error.statusCode), request)
+      }
+
       logger.error(`[${requestId}] Error processing chat request:`, error)
       return addCorsHeaders(
         createErrorResponse(error.message || 'Failed to process request', 500),

@@ -1,19 +1,30 @@
 import { v4 as uuidv4 } from 'uuid'
+import { createWorkflowExecutionEventWriter } from '@/lib/execution/workflow-execution-events'
+import { isPendingWorkflowExecutionCancellationRequested } from '@/lib/execution/pending-execution'
 import { createLogger } from '@/lib/logs/console/logger'
 import { buildTraceSpans } from '@/lib/logs/execution/trace-spans/trace-spans'
-import { runWorkflowExecution } from '@/lib/workflows/execution-runner'
+import {
+  runWorkflowExecution,
+  type WorkflowExecutionBlueprint,
+  type WorkflowStart,
+} from '@/lib/workflows/execution-runner'
+import type { TriggerType } from '@/services/queue'
 
 const logger = createLogger('TriggerWorkflowExecution')
 
 export type WorkflowExecutionPayload = {
   workflowId: string
   userId: string
+  workspaceId?: string | null
   executionId?: string
   input?: any
-  triggerType?: 'api' | 'webhook' | 'schedule' | 'manual' | 'chat'
+  triggerType?: TriggerType
   startBlockId?: string
   executionTarget?: 'deployed' | 'live'
+  workflowData?: WorkflowExecutionBlueprint['workflowData']
+  workflowVariables?: Record<string, unknown>
   workflowDepth?: number
+  selectedOutputs?: string[]
   triggerData?: Record<string, unknown>
   metadata?: Record<string, any>
 }
@@ -36,49 +47,118 @@ export async function executeWorkflowJob(payload: WorkflowExecutionPayload) {
   const workflowId = payload.workflowId
   const executionId = payload.executionId ?? uuidv4()
   const requestId = executionId.slice(0, 8)
+  const eventWriter = await createWorkflowExecutionEventWriter({
+    pendingExecutionId: executionId,
+    workflowId,
+  })
   const isChildExecution = payload.metadata?.source === 'workflow_block'
+  const triggerType = payload.triggerType ?? 'api'
+  const start: WorkflowStart =
+    payload.startBlockId || isChildExecution
+      ? {
+          kind: 'block',
+          blockId: payload.startBlockId,
+        }
+      : {
+          kind: 'trigger',
+          triggerType: triggerType === 'chat' ? 'chat' : 'api',
+        }
 
   logger.info(`[${requestId}] Starting workflow execution: ${workflowId}`, {
     userId: payload.userId,
-    triggerType: payload.triggerType,
+    triggerType,
     executionId,
   })
 
-  const { result } = await runWorkflowExecution({
-    workflowId,
-    actorUserId: payload.userId,
-    requestId,
-    executionId,
-    executionTarget: payload.executionTarget ?? 'deployed',
-    triggerType: payload.triggerType ?? 'api',
-    workflowInput: payload.input ?? {},
-    start: {
-      kind: 'block',
-      blockId: payload.startBlockId,
-    },
-    triggerData: payload.triggerData,
-    contextExtensions: {
-      workflowDepth: payload.workflowDepth ?? 0,
-      isChildExecution,
+  await eventWriter.write({
+    type: 'execution:started',
+    data: {
+      startTime: new Date().toISOString(),
     },
   })
 
-  const { traceSpans } = buildTraceSpans(result)
+  try {
+    const { result } = await runWorkflowExecution({
+      workflowId,
+      actorUserId: payload.userId,
+      requestId,
+      executionId,
+      executionTarget: payload.executionTarget ?? 'deployed',
+      triggerType,
+      workflowInput: payload.input ?? {},
+      workflowContext:
+        payload.workspaceId || payload.workflowVariables
+          ? {
+              workspaceId: payload.workspaceId,
+              variables: payload.workflowVariables,
+            }
+          : undefined,
+      workflowData: payload.workflowData,
+      start,
+      triggerData: payload.triggerData,
+      contextExtensions: {
+        workflowDepth: payload.workflowDepth ?? 0,
+        isChildExecution,
+        stream: true,
+        selectedOutputs: payload.selectedOutputs ?? [],
+        shouldCancelExecution: () =>
+          isPendingWorkflowExecutionCancellationRequested(executionId),
+        onExecutionEvent: async (event) => {
+          await eventWriter.write(event)
+        },
+      },
+    })
 
-  logger.info(`[${requestId}] Workflow execution completed: ${workflowId}`, {
-    success: result.success,
-    executionTime: result.metadata?.duration,
-    executionId,
-  })
+    const { traceSpans } = buildTraceSpans(result)
+    const queuedResult = {
+      ...result,
+      success: result.success,
+      workflowId: payload.workflowId,
+      executionId,
+      output: result.output,
+      error: result.error,
+      traceSpans: traceSpans || [],
+      executedAt: new Date().toISOString(),
+      metadata: {
+        ...(result.metadata ?? {}),
+        queuedExecution: payload.metadata,
+      },
+    }
 
-  return {
-    success: result.success,
-    workflowId: payload.workflowId,
-    executionId,
-    output: result.output,
-    error: result.error,
-    traceSpans: traceSpans || [],
-    executedAt: new Date().toISOString(),
-    metadata: payload.metadata,
+    if (result.success) {
+      await eventWriter.write({
+        type: 'execution:completed',
+        data: { result: queuedResult },
+      })
+    } else if (result.error === 'Workflow execution was cancelled') {
+      await eventWriter.write({
+        type: 'execution:cancelled',
+        data: { result: queuedResult },
+      })
+    } else {
+      await eventWriter.write({
+        type: 'execution:error',
+        data: {
+          error: result.error || 'Workflow execution failed',
+          result: queuedResult,
+        },
+      })
+    }
+
+    logger.info(`[${requestId}] Workflow execution completed: ${workflowId}`, {
+      success: result.success,
+      executionTime: result.metadata?.duration,
+      executionId,
+    })
+
+    return queuedResult
+  } catch (error) {
+    await eventWriter.write({
+      type: 'execution:error',
+      data: {
+        error: error instanceof Error ? error.message : 'Workflow execution failed',
+      },
+    })
+    throw error
   }
 }

@@ -2,22 +2,27 @@
 
 import React, { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
-import * as Y from 'yjs'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import { createWorkflowTextFieldKey, getWorkflowSnapshot, getWorkflowTextFieldsMap } from '@/lib/yjs/workflow-session'
+import * as Y from 'yjs'
 import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
+import {
+  createWorkflowTextFieldKey,
+  readWorkflowSnapshot,
+  readWorkflowTextFieldsMap,
+} from '@/lib/yjs/workflow-session'
 
 const mockAddBlock = vi.hoisted(() => vi.fn())
 const mockUpdateBlockPosition = vi.hoisted(() => vi.fn())
 const mockUpdateBlockPositions = vi.hoisted(() => vi.fn())
 const mockSession = vi.hoisted(() => ({
-  getWorkflowSnapshot: vi.fn(),
+  readWorkflowSnapshot: vi.fn(),
 }))
 const mockUseWorkflowRegistry = vi.hoisted(() =>
-  vi.fn((selector: (state: { getActiveWorkflowId: (channelId?: string) => string | null }) => any) =>
-    selector({
-      getActiveWorkflowId: () => null,
-    })
+  vi.fn(
+    (selector: (state: { getActiveWorkflowId: (channelId?: string) => string | null }) => any) =>
+      selector({
+        getActiveWorkflowId: () => null,
+      })
   )
 )
 const mockWorkflowRoute = vi.hoisted(() => ({
@@ -59,7 +64,7 @@ describe('useWorkflowEditorActions', () => {
     mockAddBlock.mockReset()
     mockUpdateBlockPosition.mockReset()
     mockUpdateBlockPositions.mockReset()
-    mockSession.getWorkflowSnapshot.mockReset()
+    mockSession.readWorkflowSnapshot.mockReset()
     mockUseWorkflowRegistry.mockClear()
   })
 
@@ -82,7 +87,7 @@ describe('useWorkflowEditorActions', () => {
   it('duplicates blocks from the materialized live workflow snapshot', async () => {
     const doc = new Y.Doc()
     const workflowMap = doc.getMap('workflow')
-    const textFields = getWorkflowTextFieldsMap(doc)
+    const textFields = readWorkflowTextFieldsMap(doc)
 
     workflowMap.set('blocks', {
       'block-1': {
@@ -114,7 +119,7 @@ describe('useWorkflowEditorActions', () => {
     sharedText.insert(0, 'live-ytext-value')
     textFields.set(createWorkflowTextFieldKey('block-1', 'code'), sharedText)
 
-    mockSession.getWorkflowSnapshot.mockReturnValue(getWorkflowSnapshot(doc))
+    mockSession.readWorkflowSnapshot.mockReturnValue(readWorkflowSnapshot(doc))
 
     const { useWorkflowEditorActions } = await import('./use-workflow-editor-actions')
 
@@ -164,21 +169,16 @@ describe('useWorkflowEditorActions', () => {
     workflowMap.set('loops', {})
     workflowMap.set('parallels', {})
 
-    mockSession.getWorkflowSnapshot.mockReturnValue(getWorkflowSnapshot(doc))
-    mockUpdateBlockPosition.mockImplementation(
-      (
-        id: string,
-        position: { x: number; y: number }
-      ) => {
-        const blocks = { ...(workflowMap.get('blocks') as Record<string, any>) }
-        if (!blocks[id]) {
-          return
-        }
-
-        blocks[id] = { ...blocks[id], position }
-        workflowMap.set('blocks', blocks)
+    mockSession.readWorkflowSnapshot.mockReturnValue(readWorkflowSnapshot(doc))
+    mockUpdateBlockPosition.mockImplementation((id: string, position: { x: number; y: number }) => {
+      const blocks = { ...(workflowMap.get('blocks') as Record<string, any>) }
+      if (!blocks[id]) {
+        return
       }
-    )
+
+      blocks[id] = { ...blocks[id], position }
+      workflowMap.set('blocks', blocks)
+    })
 
     const { useWorkflowEditorActions } = await import('./use-workflow-editor-actions')
 

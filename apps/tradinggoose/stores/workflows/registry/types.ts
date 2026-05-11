@@ -80,7 +80,7 @@ export interface WorkflowRegistryActions {
     metadata: Partial<WorkflowMetadata>
   ) => Promise<string>
   duplicateWorkflow: (sourceId: string) => Promise<string | null>
-  getWorkflowDeploymentStatus: (workflowId: string | null) => DeploymentStatus | null
+  readWorkflowDeploymentStatus: (workflowId: string | null) => DeploymentStatus | null
   setDeploymentStatus: (
     workflowId: string | null,
     isDeployed: boolean,

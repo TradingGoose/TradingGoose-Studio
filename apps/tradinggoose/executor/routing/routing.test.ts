@@ -7,6 +7,7 @@ describe('Routing', () => {
     it.concurrent('should categorize flow control blocks correctly', () => {
       expect(Routing.getCategory(BlockType.PARALLEL)).toBe(BlockCategory.FLOW_CONTROL)
       expect(Routing.getCategory(BlockType.LOOP)).toBe(BlockCategory.FLOW_CONTROL)
+      expect(Routing.getCategory(BlockType.WORKFLOW)).toBe(BlockCategory.FLOW_CONTROL)
       expect(Routing.getCategory(BlockType.WORKFLOW_INPUT)).toBe(BlockCategory.FLOW_CONTROL)
     })
 
@@ -38,6 +39,7 @@ describe('Routing', () => {
     it.concurrent('should return false for flow control blocks', () => {
       expect(Routing.shouldActivateDownstream(BlockType.PARALLEL)).toBe(false)
       expect(Routing.shouldActivateDownstream(BlockType.LOOP)).toBe(false)
+      expect(Routing.shouldActivateDownstream(BlockType.WORKFLOW)).toBe(false)
       expect(Routing.shouldActivateDownstream(BlockType.WORKFLOW_INPUT)).toBe(false)
     })
 
@@ -56,6 +58,7 @@ describe('Routing', () => {
     it.concurrent('should return true for flow control blocks', () => {
       expect(Routing.requiresActivePathCheck(BlockType.PARALLEL)).toBe(true)
       expect(Routing.requiresActivePathCheck(BlockType.LOOP)).toBe(true)
+      expect(Routing.requiresActivePathCheck(BlockType.WORKFLOW)).toBe(true)
       expect(Routing.requiresActivePathCheck(BlockType.WORKFLOW_INPUT)).toBe(true)
     })
 
@@ -79,6 +82,7 @@ describe('Routing', () => {
     it.concurrent('should return true for flow control blocks', () => {
       expect(Routing.shouldSkipInSelectiveActivation(BlockType.PARALLEL)).toBe(true)
       expect(Routing.shouldSkipInSelectiveActivation(BlockType.LOOP)).toBe(true)
+      expect(Routing.shouldSkipInSelectiveActivation(BlockType.WORKFLOW)).toBe(true)
       expect(Routing.shouldSkipInSelectiveActivation(BlockType.WORKFLOW_INPUT)).toBe(true)
     })
 

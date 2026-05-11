@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 describe('Workflow Apply Live State API Route', () => {
   const mockApplyWorkflowState = vi.fn()
-  const mockGetWorkflowAccessContext = vi.fn()
+  const mockReadWorkflowAccessContext = vi.fn()
 
   const createRequest = (body: Record<string, unknown>) =>
     new NextRequest('http://localhost:3000/api/workflows/workflow-id/apply-live-state', {
@@ -22,7 +22,7 @@ describe('Workflow Apply Live State API Route', () => {
     vi.clearAllMocks()
 
     mockApplyWorkflowState.mockResolvedValue(undefined)
-    mockGetWorkflowAccessContext.mockResolvedValue({
+    mockReadWorkflowAccessContext.mockResolvedValue({
       isOwner: true,
       workflow: {
         id: 'workflow-id',
@@ -46,7 +46,7 @@ describe('Workflow Apply Live State API Route', () => {
     }))
 
     vi.doMock('@/lib/workflows/utils', () => ({
-      getWorkflowAccessContext: mockGetWorkflowAccessContext,
+      readWorkflowAccessContext: mockReadWorkflowAccessContext,
     }))
 
     vi.doMock('@/lib/yjs/server/apply-workflow-state', () => ({
@@ -86,7 +86,7 @@ describe('Workflow Apply Live State API Route', () => {
   })
 
   it('returns 403 when the caller lacks workflow write access', async () => {
-    mockGetWorkflowAccessContext.mockResolvedValueOnce({
+    mockReadWorkflowAccessContext.mockResolvedValueOnce({
       isOwner: false,
       workspacePermission: 'read',
       workflow: {

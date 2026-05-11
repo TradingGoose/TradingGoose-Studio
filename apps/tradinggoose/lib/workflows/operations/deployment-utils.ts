@@ -7,14 +7,9 @@ const logger = createLogger('DeploymentUtils')
 /**
  * Build a curl -d example payload based on the API trigger input format.
  */
-export function getInputFormatExample(
-  includeStreaming = false,
-  selectedStreamingOutputs: string[] = [],
-  workflowId?: string
-): string {
+export function getInputFormatExample(workflowId?: string): string {
   let inputFormatExample = ''
   try {
-    // Read workflow blocks from the active Yjs session
     const targetWorkflowId = workflowId || useWorkflowRegistry.getState().getActiveWorkflowId()
     const snapshot = targetWorkflowId ? getSnapshotForWorkflow(targetWorkflowId) : null
     const blocks = Object.values(snapshot?.blocks ?? {})
@@ -59,31 +54,6 @@ export function getInputFormatExample(
             }
           }
         })
-      }
-
-      if (includeStreaming && selectedStreamingOutputs.length > 0) {
-        exampleData.stream = true
-        const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i
-
-        const convertedOutputs = selectedStreamingOutputs.map((outputId) => {
-          if (UUID_REGEX.test(outputId)) {
-            const underscoreIndex = outputId.indexOf('_')
-            if (underscoreIndex === -1) return outputId
-
-            const blockId = outputId.substring(0, underscoreIndex)
-            const attribute = outputId.substring(underscoreIndex + 1)
-
-            const block = blocks.find((b) => b.id === blockId)
-            if (block?.name) {
-              const normalizedBlockName = block.name.toLowerCase().replace(/\s+/g, '')
-              return `${normalizedBlockName}.${attribute}`
-            }
-          }
-
-          return outputId
-        })
-
-        exampleData.selectedOutputs = convertedOutputs
       }
 
       if (Object.keys(exampleData).length > 0) {

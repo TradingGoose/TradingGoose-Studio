@@ -47,7 +47,7 @@ const WORKFLOW_TEXT_FIELD_SEPARATOR = '::'
 // Top-level map accessors
 // ---------------------------------------------------------------------------
 
-export function getWorkflowMap(doc: Y.Doc): Y.Map<any> {
+export function readWorkflowMap(doc: Y.Doc): Y.Map<any> {
   return doc.getMap(YJS_KEYS.WORKFLOW)
 }
 
@@ -55,7 +55,7 @@ export function getVariablesMap(doc: Y.Doc): Y.Map<any> {
   return doc.getMap(YJS_KEYS.VARIABLES)
 }
 
-export function getWorkflowTextFieldsMap(doc: Y.Doc): Y.Map<any> {
+export function readWorkflowTextFieldsMap(doc: Y.Doc): Y.Map<any> {
   return doc.getMap(YJS_KEYS.TEXT_FIELDS)
 }
 
@@ -81,7 +81,7 @@ export function parseWorkflowTextFieldKey(
   }
 }
 
-export function getWorkflowTextFieldFromMap(
+export function readWorkflowTextFieldFromMap(
   textFields: Y.Map<any>,
   blockId: string,
   subBlockId: string
@@ -90,8 +90,8 @@ export function getWorkflowTextFieldFromMap(
   return existing instanceof Y.Text ? existing : null
 }
 
-export function getWorkflowTextField(doc: Y.Doc, blockId: string, subBlockId: string): Y.Text | null {
-  return getWorkflowTextFieldFromMap(getWorkflowTextFieldsMap(doc), blockId, subBlockId)
+export function readWorkflowTextField(doc: Y.Doc, blockId: string, subBlockId: string): Y.Text | null {
+  return readWorkflowTextFieldFromMap(readWorkflowTextFieldsMap(doc), blockId, subBlockId)
 }
 
 function writeYTextValue(text: Y.Text, value: string): void {
@@ -114,8 +114,8 @@ export function ensureWorkflowTextField(
   subBlockId: string,
   initialValue = ''
 ): Y.Text {
-  const textFields = getWorkflowTextFieldsMap(doc)
-  const existing = getWorkflowTextFieldFromMap(textFields, blockId, subBlockId)
+  const textFields = readWorkflowTextFieldsMap(doc)
+  const existing = readWorkflowTextFieldFromMap(textFields, blockId, subBlockId)
   if (existing) {
     return existing
   }
@@ -150,7 +150,7 @@ export function readWorkflowTextFieldValue(
   blockId: string,
   subBlockId: string
 ): string | null {
-  const text = getWorkflowTextField(doc, blockId, subBlockId)
+  const text = readWorkflowTextField(doc, blockId, subBlockId)
   return text ? text.toString() : null
 }
 
@@ -166,7 +166,7 @@ export function materializeWorkflowBlockTextFields(
   let nextBlock = block
 
   for (const subBlockId of Object.keys(block.subBlocks)) {
-    const sharedText = getWorkflowTextFieldFromMap(textFields, blockId, subBlockId)
+    const sharedText = readWorkflowTextFieldFromMap(textFields, blockId, subBlockId)
     if (!sharedText) {
       continue
     }
@@ -242,7 +242,7 @@ export interface WorkflowSnapshot {
 
 /**
  * Applies safe defaults to a partial snapshot.  Used by both
- * `createWorkflowSnapshot` and `getWorkflowSnapshot` so the defaulting
+ * `createWorkflowSnapshot` and `readWorkflowSnapshot` so the defaulting
  * logic is defined in exactly one place.
  */
 function applySnapshotDefaults(partial: Partial<WorkflowSnapshot>): WorkflowSnapshot {
@@ -278,11 +278,11 @@ export function createWorkflowSnapshot(
  *
  * The returned data references the underlying Y.Map values directly.
  * **Callers must treat the result as read-only.** If you need to mutate
- * any field, use `getWorkflowSnapshotCloned` instead.
+ * any field, use `readWorkflowSnapshotCloned` instead.
  */
-export function getWorkflowSnapshot(doc: Y.Doc): WorkflowSnapshot {
-  const wMap = getWorkflowMap(doc)
-  const textFields = getWorkflowTextFieldsMap(doc)
+export function readWorkflowSnapshot(doc: Y.Doc): WorkflowSnapshot {
+  const wMap = readWorkflowMap(doc)
+  const textFields = readWorkflowTextFieldsMap(doc)
   const blocks = materializeWorkflowTextFields(wMap.get(YJS_KEYS.BLOCKS) ?? {}, textFields)
 
   return applySnapshotDefaults({
@@ -298,12 +298,12 @@ export function getWorkflowSnapshot(doc: Y.Doc): WorkflowSnapshot {
 }
 
 /**
- * Like `getWorkflowSnapshot`, but deep-clones the mutable collections so the
+ * Like `readWorkflowSnapshot`, but deep-clones the mutable collections so the
  * caller can safely mutate the returned data.
  */
-export function getWorkflowSnapshotCloned(doc: Y.Doc): WorkflowSnapshot {
-  const wMap = getWorkflowMap(doc)
-  const textFields = getWorkflowTextFieldsMap(doc)
+export function readWorkflowSnapshotCloned(doc: Y.Doc): WorkflowSnapshot {
+  const wMap = readWorkflowMap(doc)
+  const textFields = readWorkflowTextFieldsMap(doc)
 
   const { blocks, edges, loops, parallels } = structuredClone({
     blocks: wMap.get(YJS_KEYS.BLOCKS) ?? {},
@@ -334,8 +334,8 @@ export function getWorkflowSnapshotCloned(doc: Y.Doc): WorkflowSnapshot {
  */
 export function setWorkflowState(doc: Y.Doc, state: WorkflowSnapshot, origin?: string): void {
   doc.transact(() => {
-    const wMap = getWorkflowMap(doc)
-    const textFields = getWorkflowTextFieldsMap(doc)
+    const wMap = readWorkflowMap(doc)
+    const textFields = readWorkflowTextFieldsMap(doc)
     if (state.direction !== undefined) wMap.set(YJS_KEYS.DIRECTION, state.direction)
     wMap.set(YJS_KEYS.BLOCKS, state.blocks ?? {})
     wMap.set(YJS_KEYS.EDGES, state.edges ?? [])
@@ -395,7 +395,7 @@ export function patchWorkflowBlock(
   origin?: string
 ): void {
   doc.transact(() => {
-    const wMap = getWorkflowMap(doc)
+    const wMap = readWorkflowMap(doc)
     const existing = wMap.get(YJS_KEYS.BLOCKS) ?? {}
     const block = existing[blockId]
     if (!block) return
@@ -419,7 +419,7 @@ export function patchWorkflowBlocks(
   origin?: string
 ): void {
   doc.transact(() => {
-    const wMap = getWorkflowMap(doc)
+    const wMap = readWorkflowMap(doc)
     const blocks: Record<string, any> = { ...(wMap.get(YJS_KEYS.BLOCKS) ?? {}) }
     let changed = false
     for (const [blockId, updater] of Object.entries(patches)) {
@@ -490,7 +490,7 @@ export interface PersistedDocState {
 }
 
 export function extractPersistedStateFromDoc(doc: Y.Doc): PersistedDocState {
-  const snapshot = getWorkflowSnapshot(doc)
+  const snapshot = readWorkflowSnapshot(doc)
   const variables = getVariablesSnapshot(doc)
   const lastSaved = resolveStoredDateValue(snapshot.lastSaved)?.getTime() ?? Date.now()
 

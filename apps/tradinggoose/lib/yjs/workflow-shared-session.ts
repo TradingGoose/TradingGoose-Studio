@@ -5,7 +5,7 @@ import type { WebsocketProvider } from 'y-websocket'
 import type { ReviewTargetDescriptor } from '@/lib/copilot/review-sessions/types'
 import { deriveUserColor } from '@/lib/utils'
 import { bootstrapYjsProvider, type YjsProviderBootstrapResult } from '@/lib/yjs/provider'
-import { getVariablesMap, getWorkflowMap, getWorkflowTextFieldsMap } from '@/lib/yjs/workflow-session'
+import { getVariablesMap, readWorkflowMap, readWorkflowTextFieldsMap } from '@/lib/yjs/workflow-session'
 import { createYjsUndoTrackedOrigins } from '@/lib/yjs/transaction-origins'
 import {
   registerWorkflowSession,
@@ -166,7 +166,7 @@ async function initializeSharedSession(entry: SharedWorkflowSessionEntry): Promi
     }
 
     const undoManager = new Y.UndoManager(
-      [getWorkflowMap(result.doc), getWorkflowTextFieldsMap(result.doc), getVariablesMap(result.doc)],
+      [readWorkflowMap(result.doc), readWorkflowTextFieldsMap(result.doc), getVariablesMap(result.doc)],
       {
         trackedOrigins: createYjsUndoTrackedOrigins(),
       }

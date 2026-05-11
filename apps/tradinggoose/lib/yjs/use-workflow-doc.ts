@@ -14,7 +14,7 @@ import { useCallback, useEffect, useMemo, useRef } from 'react'
 import type { Edge } from '@xyflow/react'
 import type * as Y from 'yjs'
 import { escapeRegExp } from '@/lib/utils'
-import { getBlockOutputs, resolveBlockRuntimeState } from '@/lib/workflows/block-outputs'
+import { readBlockOutputs, resolveBlockRuntimeState } from '@/lib/workflows/block-outputs'
 import { resolveInitialSubBlockValue } from '@/lib/workflows/subblock-values'
 import { YJS_ORIGINS, type YjsOrigin } from '@/lib/yjs/transaction-origins'
 import { useYjsSubscription } from '@/lib/yjs/use-yjs-subscription'
@@ -24,11 +24,11 @@ import {
   createWorkflowTextFieldKey,
   ensureWorkflowTextField,
   getVariablesMap,
-  getWorkflowMap,
-  getWorkflowSnapshot,
-  getWorkflowTextField,
-  getWorkflowTextFieldFromMap,
-  getWorkflowTextFieldsMap,
+  readWorkflowMap,
+  readWorkflowSnapshot,
+  readWorkflowTextField,
+  readWorkflowTextFieldFromMap,
+  readWorkflowTextFieldsMap,
   materializeWorkflowBlockTextFields,
   parseWorkflowTextFieldKey,
   readWorkflowTextFieldValue,
@@ -108,7 +108,7 @@ function resolveUpdatedWorkflowBlockRuntimeState(args: {
   return {
     ...args.block,
     subBlocks,
-    outputs: resolveOutputType(getBlockOutputs(args.block.type, outputSubBlocks, triggerMode)),
+    outputs: resolveOutputType(readBlockOutputs(args.block.type, outputSubBlocks, triggerMode)),
   }
 }
 
@@ -231,7 +231,7 @@ export function bindWorkflowTextObserver(
   }
 
   const rebind = () => {
-    const nextText = getWorkflowTextFieldFromMap(textFields, blockId, subBlockId)
+    const nextText = readWorkflowTextFieldFromMap(textFields, blockId, subBlockId)
     if (nextText === observedText) {
       return
     }
@@ -256,8 +256,8 @@ export function useWorkflowBlocks(): Record<string, BlockState> {
   const subscribe = useMemo(() => {
     if (!doc) return (cb: () => void) => () => {}
 
-    const workflowMap = getWorkflowMap(doc)
-    const textFields = getWorkflowTextFieldsMap(doc)
+    const workflowMap = readWorkflowMap(doc)
+    const textFields = readWorkflowTextFieldsMap(doc)
 
     return (cb: () => void) => {
       let textObserversCleanup = () => {}
@@ -276,7 +276,7 @@ export function useWorkflowBlocks(): Record<string, BlockState> {
           }
 
           for (const subBlockId of Object.keys(block.subBlocks)) {
-            const sharedText = getWorkflowTextFieldFromMap(textFields, blockId, subBlockId)
+            const sharedText = readWorkflowTextFieldFromMap(textFields, blockId, subBlockId)
             if (!sharedText) {
               continue
             }
@@ -329,7 +329,7 @@ export function useWorkflowBlocks(): Record<string, BlockState> {
   const extract = useCallback(() => {
     if (!doc) return EMPTY_BLOCKS
 
-    return getWorkflowSnapshot(doc).blocks
+    return readWorkflowSnapshot(doc).blocks
   }, [doc])
 
   return useYjsSubscription(subscribe, extract, EMPTY_BLOCKS, areWorkflowBlocksStructurallyEqual)
@@ -365,8 +365,8 @@ export function useBlock(blockId: string): BlockState | null {
 
   const subscribe = useMemo(() => {
     if (!doc) return (cb: () => void) => () => {}
-    const workflowMap = getWorkflowMap(doc)
-    const textFields = getWorkflowTextFieldsMap(doc)
+    const workflowMap = readWorkflowMap(doc)
+    const textFields = readWorkflowTextFieldsMap(doc)
 
     return (cb: () => void) => {
       let textObserversCleanup = () => {}
@@ -383,7 +383,7 @@ export function useBlock(blockId: string): BlockState | null {
 
         const observers: Array<() => void> = []
         for (const subBlockId of Object.keys(block.subBlocks)) {
-          const sharedText = getWorkflowTextFieldFromMap(textFields, blockId, subBlockId)
+          const sharedText = readWorkflowTextFieldFromMap(textFields, blockId, subBlockId)
           if (!sharedText) continue
           const handler = () => cb()
           sharedText.observe(handler)
@@ -426,11 +426,11 @@ export function useBlock(blockId: string): BlockState | null {
 
   const extract = useCallback(() => {
     if (!doc) return null
-    const blocks = getWorkflowMap(doc).get(YJS_KEYS.BLOCKS) as
+    const blocks = readWorkflowMap(doc).get(YJS_KEYS.BLOCKS) as
       | Record<string, BlockState>
       | undefined
     const block = blocks?.[blockId] ?? null
-    return materializeWorkflowBlockTextFields(blockId, block, getWorkflowTextFieldsMap(doc))
+    return materializeWorkflowBlockTextFields(blockId, block, readWorkflowTextFieldsMap(doc))
   }, [blockId, doc])
 
   const isEqual = useCallback((a: BlockState | null, b: BlockState | null) => {
@@ -506,7 +506,7 @@ export function useSubBlockValue(blockId: string, subBlockId: string): any {
   const subscribe = useMemo(() => {
     if (!doc) return (cb: () => void) => () => {}
     const ymap = doc.getMap(YJS_KEYS.WORKFLOW)
-    const textFields = getWorkflowTextFieldsMap(doc)
+    const textFields = readWorkflowTextFieldsMap(doc)
     return (cb: () => void) => {
       const textObserver = bindWorkflowTextObserver(textFields, blockId, subBlockId, cb)
 
@@ -592,8 +592,8 @@ export function useWorkflowTextField(
   const subscribe = useMemo(() => {
     if (!doc) return (cb: () => void) => () => {}
 
-    const workflowMap = getWorkflowMap(doc)
-    const textFields = getWorkflowTextFieldsMap(doc)
+    const workflowMap = readWorkflowMap(doc)
+    const textFields = readWorkflowTextFieldsMap(doc)
 
     return (cb: () => void) => {
       const textObserver = bindWorkflowTextObserver(textFields, blockId, subBlockId, cb)
@@ -629,7 +629,7 @@ export function useWorkflowTextField(
       return textValue
     }
 
-    const blocks = getWorkflowMap(doc).get(YJS_KEYS.BLOCKS) as Record<string, any> | undefined
+    const blocks = readWorkflowMap(doc).get(YJS_KEYS.BLOCKS) as Record<string, any> | undefined
     const rawValue = blocks?.[blockId]?.subBlocks?.[subBlockId]?.value
     if (typeof rawValue === 'string') {
       return rawValue
@@ -644,7 +644,7 @@ export function useWorkflowTextField(
 
   const yText = useMemo(() => {
     if (!doc) return null
-    return getWorkflowTextField(doc, blockId, subBlockId)
+    return readWorkflowTextField(doc, blockId, subBlockId)
   }, [blockId, doc, subBlockId, value])
 
   const setValue = useCallback(
@@ -656,7 +656,7 @@ export function useWorkflowTextField(
   )
 
   useEffect(() => {
-    if (!doc || !autoCreate || getWorkflowTextField(doc, blockId, subBlockId)) {
+    if (!doc || !autoCreate || readWorkflowTextField(doc, blockId, subBlockId)) {
       return
     }
 
@@ -669,7 +669,7 @@ export function useWorkflowTextField(
     }
 
     const timeoutId = setTimeout(() => {
-      const wMap = getWorkflowMap(doc)
+      const wMap = readWorkflowMap(doc)
       const blocks: Record<string, any> = { ...(wMap.get(YJS_KEYS.BLOCKS) ?? {}) }
       const block = blocks[blockId]
       if (!block?.subBlocks?.[subBlockId]) return
@@ -768,7 +768,7 @@ export function useWorkflowSnapshotReader(): () => WorkflowSnapshot | null {
   const session = useOptionalWorkflowSession()
   return useCallback(() => {
     if (!session?.doc) return null
-    return getWorkflowSnapshot(session.doc)
+    return readWorkflowSnapshot(session.doc)
   }, [session?.doc])
 }
 
@@ -799,7 +799,7 @@ export function useWorkflowMutations() {
       }
     ) => {
       transactWorkflow((d) => {
-        const wMap = getWorkflowMap(d)
+        const wMap = readWorkflowMap(d)
         const blocks: Record<string, any> = { ...(wMap.get(YJS_KEYS.BLOCKS) ?? {}) }
         const block = blocks[id]
         if (!block) return
@@ -835,7 +835,7 @@ export function useWorkflowMutations() {
       }
     ) => {
       transactWorkflow((d) => {
-        const wMap = getWorkflowMap(d)
+        const wMap = readWorkflowMap(d)
         const blocks: Record<string, any> = { ...(wMap.get(YJS_KEYS.BLOCKS) ?? {}) }
 
         const blockConfig = getBlock(type)
@@ -903,8 +903,8 @@ export function useWorkflowMutations() {
   const removeBlock = useCallback(
     (id: string) => {
       transactWorkflow((d) => {
-        const wMap = getWorkflowMap(d)
-        const textFields = getWorkflowTextFieldsMap(d)
+        const wMap = readWorkflowMap(d)
+        const textFields = readWorkflowTextFieldsMap(d)
         const blocks: Record<string, any> = { ...(wMap.get(YJS_KEYS.BLOCKS) ?? {}) }
         const edges: Edge[] = [...(wMap.get(YJS_KEYS.EDGES) ?? [])]
 
@@ -943,7 +943,7 @@ export function useWorkflowMutations() {
   const addEdge = useCallback(
     (edge: Edge) => {
       transactWorkflow((d) => {
-        const wMap = getWorkflowMap(d)
+        const wMap = readWorkflowMap(d)
         const edges: Edge[] = [...(wMap.get(YJS_KEYS.EDGES) ?? [])]
 
         // Don't add duplicate edges
@@ -971,7 +971,7 @@ export function useWorkflowMutations() {
   const removeEdge = useCallback(
     (edgeId: string) => {
       transactWorkflow((d) => {
-        const wMap = getWorkflowMap(d)
+        const wMap = readWorkflowMap(d)
         const edges: Edge[] = (wMap.get(YJS_KEYS.EDGES) ?? []).filter((e: Edge) => e.id !== edgeId)
         wMap.set(YJS_KEYS.EDGES, edges)
       }, YJS_ORIGINS.USER)
@@ -998,7 +998,7 @@ export function useWorkflowMutations() {
       }
     ) => {
       transactWorkflow((d) => {
-        const wMap = getWorkflowMap(d)
+        const wMap = readWorkflowMap(d)
         const blocks: Record<string, any> = { ...(wMap.get(YJS_KEYS.BLOCKS) ?? {}) }
         for (const { id, position } of updates) {
           if (blocks[id]) {
@@ -1022,7 +1022,7 @@ export function useWorkflowMutations() {
       // to avoid a TOCTOU race in collaborative sessions where another user
       // could mutate blocks between the read and the write.
       transactWorkflow((d) => {
-        const wm = getWorkflowMap(d)
+        const wm = readWorkflowMap(d)
         const blocks: Record<string, any> = wm.get(YJS_KEYS.BLOCKS) ?? {}
         const block = blocks[id]
         if (!block) return
@@ -1048,7 +1048,7 @@ export function useWorkflowMutations() {
           const regex = new RegExp(`<${escapeRegExp(normalizedOld)}(?=(?:>|\\.))`, 'gi')
           const replacement = `<${normalizedNew}`
 
-          rewriteWorkflowContentReferences(wm, getWorkflowTextFieldsMap(d), regex, replacement)
+          rewriteWorkflowContentReferences(wm, readWorkflowTextFieldsMap(d), regex, replacement)
         }
         success = true
       }, YJS_ORIGINS.USER)
@@ -1080,7 +1080,7 @@ export function useWorkflowMutations() {
   const setBlockTriggerMode = useCallback(
     (id: string, triggerMode: boolean) => {
       transactWorkflow((d) => {
-        const wMap = getWorkflowMap(d)
+        const wMap = readWorkflowMap(d)
         const blocks: Record<string, any> = { ...(wMap.get(YJS_KEYS.BLOCKS) ?? {}) }
         const block = blocks[id]
         const blockConfig = block ? getBlock(block.type) : undefined
@@ -1167,7 +1167,7 @@ export function useWorkflowMutations() {
   const updateParentIds = useCallback(
     (updates: Array<{ id: string; parentId: string; extent: 'parent' }>) => {
       transactWorkflow((d) => {
-        const wMap = getWorkflowMap(d)
+        const wMap = readWorkflowMap(d)
         const blocks: Record<string, any> = { ...(wMap.get(YJS_KEYS.BLOCKS) ?? {}) }
         for (const { id, parentId, extent } of updates) {
           if (blocks[id]) {
@@ -1197,13 +1197,13 @@ export function useWorkflowMutations() {
   const setSubBlockValue = useCallback(
     (blockId: string, subBlockId: string, value: any) =>
       transactWorkflow((d) => {
-        const textFields = getWorkflowTextFieldsMap(d)
-        const sharedText = getWorkflowTextFieldFromMap(textFields, blockId, subBlockId)
+        const textFields = readWorkflowTextFieldsMap(d)
+        const sharedText = readWorkflowTextFieldFromMap(textFields, blockId, subBlockId)
         if (sharedText) {
           writeSharedTextValue(sharedText, value)
         }
 
-        const wMap = getWorkflowMap(d)
+        const wMap = readWorkflowMap(d)
         const blocks: Record<string, any> = { ...(wMap.get(YJS_KEYS.BLOCKS) ?? {}) }
         const block = blocks[blockId]
         if (!block) return
@@ -1254,14 +1254,14 @@ export function useWorkflowMutations() {
   const batchSetSubBlockValues = useCallback(
     (updates: Array<{ blockId: string; subBlockId: string; value: any }>) => {
       transactWorkflow((d) => {
-        const wMap = getWorkflowMap(d)
-        const textFields = getWorkflowTextFieldsMap(d)
+        const wMap = readWorkflowMap(d)
+        const textFields = readWorkflowTextFieldsMap(d)
         const blocks: Record<string, any> = { ...(wMap.get(YJS_KEYS.BLOCKS) ?? {}) }
         let changed = false
         for (const { blockId, subBlockId, value } of updates) {
           const block = blocks[blockId]
           if (!block) continue
-          const sharedText = getWorkflowTextFieldFromMap(textFields, blockId, subBlockId)
+          const sharedText = readWorkflowTextFieldFromMap(textFields, blockId, subBlockId)
           if (sharedText) {
             writeSharedTextValue(sharedText, value)
           }
@@ -1417,7 +1417,7 @@ export function useWorkflowMutations() {
 
   const clear = useCallback(() => {
     transactWorkflow((d) => {
-      const wMap = getWorkflowMap(d)
+      const wMap = readWorkflowMap(d)
       wMap.set(YJS_KEYS.BLOCKS, {})
       wMap.set(YJS_KEYS.EDGES, [])
       wMap.set(YJS_KEYS.LOOPS, {})
@@ -1505,18 +1505,18 @@ export function useWorkflowDoc() {
     ...mutations,
 
     // Compat: methods that still exist on the type but map to Yjs
-    getWorkflowState: (): WorkflowState => {
+    readWorkflowState: (): WorkflowState => {
       if (!session?.doc) {
         return createWorkflowSnapshot()
       }
 
-      return getWorkflowSnapshot(session.doc)
+      return readWorkflowSnapshot(session.doc)
     },
 
     triggerUpdate: () => {}, // no-op, Yjs observer handles reactivity
     updateLastSaved: () => {
       if (!session?.doc) return
-      const wMap = getWorkflowMap(session.doc)
+      const wMap = readWorkflowMap(session.doc)
       session.doc.transact(() => {
         wMap.set(YJS_KEYS.LAST_SAVED, Date.now())
       }, YJS_ORIGINS.SYSTEM)

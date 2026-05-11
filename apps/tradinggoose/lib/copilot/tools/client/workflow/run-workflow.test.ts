@@ -22,6 +22,12 @@ vi.mock('@/stores/execution/store', () => ({
   },
 }))
 
+vi.mock('@/stores/copilot/store-access', () => ({
+  getCopilotStoreForToolCall: () => ({
+    getState: () => ({ toolCallsById: {} }),
+  }),
+}))
+
 describe('RunWorkflowClientTool channel-safe workflow scoping', () => {
   beforeEach(() => {
     vi.restoreAllMocks()

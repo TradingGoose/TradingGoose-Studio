@@ -12,7 +12,7 @@ import {
   saveWorkflowToNormalizedTables,
   toISOStringOrUndefined,
 } from '@/lib/workflows/db-helpers'
-import { getWorkflowAccessContext } from '@/lib/workflows/utils'
+import { readWorkflowAccessContext } from '@/lib/workflows/utils'
 import { sanitizeAgentToolsInBlocks } from '@/lib/workflows/validation'
 import { tryApplyWorkflowState } from '@/lib/yjs/server/apply-workflow-state'
 import type { WorkflowSnapshot } from '@/lib/yjs/workflow-session'
@@ -145,7 +145,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     const state = WorkflowStateSchema.parse(body)
 
     // Fetch the workflow to check ownership/access
-    const accessContext = await getWorkflowAccessContext(workflowId, userId)
+    const accessContext = await readWorkflowAccessContext(workflowId, userId)
     const workflowData = accessContext?.workflow
 
     if (!workflowData) {

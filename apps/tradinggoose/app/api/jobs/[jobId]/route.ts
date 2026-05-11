@@ -3,6 +3,7 @@ import { pendingExecution } from '@tradinggoose/db/schema'
 import { and, eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { checkHybridAuth } from '@/lib/auth/hybrid'
+import { cancelPendingWorkflowExecution } from '@/lib/execution/pending-execution'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
 import { createErrorResponse } from '@/app/api/workflows/utils'
@@ -69,5 +70,40 @@ export async function GET(
   } catch (error: any) {
     logger.error(`[${requestId}] Error fetching task status:`, error)
     return createErrorResponse('Failed to fetch task status', 500)
+  }
+}
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ jobId: string }> },
+) {
+  const { jobId: taskId } = await params
+  const requestId = generateRequestId()
+
+  try {
+    logger.debug(`[${requestId}] Cancelling task: ${taskId}`)
+
+    const auth = await checkHybridAuth(request, { requireWorkflowId: false })
+    if (!auth.success || !auth.userId) {
+      return createErrorResponse('Authentication required', 401)
+    }
+
+    const result = await cancelPendingWorkflowExecution({
+      pendingExecutionId: taskId,
+      userId: auth.userId,
+    })
+
+    if (result.status === 'not_found') {
+      return createErrorResponse('Task not found', 404)
+    }
+
+    return NextResponse.json({
+      success: true,
+      taskId,
+      status: result.status,
+    })
+  } catch (error: any) {
+    logger.error(`[${requestId}] Error cancelling task:`, error)
+    return createErrorResponse('Failed to cancel task', 500)
   }
 }

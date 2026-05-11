@@ -43,8 +43,6 @@ export function Chat({ chatMessage, setChatMessage, hideScrollbar = true }: Chat
     messages,
     addMessage,
     getSelectedWorkflowOutput,
-    appendMessageContent,
-    finalizeMessageStream,
     getConversationId,
   } = useChatStore()
   const { entries } = useConsoleStore()
@@ -283,6 +281,9 @@ export function Chat({ chatMessage, setChatMessage, hideScrollbar = true }: Chat
         input: sentMessage,
         conversationId: conversationId,
       }
+      if (selectedOutputs.length > 0) {
+        workflowInput.selectedOutputs = selectedOutputs
+      }
 
       // Add files if any (pass the File objects directly)
       if (chatFiles.length > 0) {
@@ -312,86 +313,7 @@ export function Chat({ chatMessage, setChatMessage, hideScrollbar = true }: Chat
       return
     }
 
-    // Check if we got a streaming response
-    if (result && 'stream' in result && result.stream instanceof ReadableStream) {
-      // Create a single message for all outputs (like chat client does)
-      const responseMessageId = crypto.randomUUID()
-      let accumulatedContent = ''
-
-      // Add initial streaming message
-      addMessage({
-        id: responseMessageId,
-        content: '',
-        workflowId: currentWorkflowId,
-        type: 'workflow',
-        isStreaming: true,
-      })
-
-      const reader = result.stream.getReader()
-      const decoder = new TextDecoder()
-
-      const processStream = async () => {
-        while (true) {
-          const { done, value } = await reader.read()
-          if (done) {
-            // Finalize the streaming message
-            finalizeMessageStream(responseMessageId)
-            break
-          }
-
-          const chunk = decoder.decode(value)
-          const lines = chunk.split('\n\n')
-
-          for (const line of lines) {
-            if (line.startsWith('data: ')) {
-              const data = line.substring(6)
-
-              if (data === '[DONE]') {
-                continue
-              }
-
-              try {
-                const json = JSON.parse(data)
-                const { blockId, chunk: contentChunk, event, data: eventData } = json
-
-                if (event === 'final' && eventData) {
-                  const result = eventData as ExecutionResult
-
-                  // If final result is a failure, surface error and stop
-                  if ('success' in result && !result.success) {
-                    // Update the existing message with error
-                    appendMessageContent(
-                      responseMessageId,
-                      `${accumulatedContent ? '\n\n' : ''}Error: ${result.error || 'Workflow execution failed'}`
-                    )
-                    finalizeMessageStream(responseMessageId)
-
-                    // Stop processing
-                    return
-                  }
-
-                  // Final event just marks completion, content already streamed
-                  finalizeMessageStream(responseMessageId)
-                } else if (blockId && contentChunk) {
-                  // Accumulate all content into the single message
-                  accumulatedContent += contentChunk
-                  appendMessageContent(responseMessageId, contentChunk)
-                }
-              } catch (e) {
-                logger.error('Error parsing stream data:', e)
-              }
-            }
-          }
-        }
-      }
-
-      processStream()
-        .catch((e) => logger.error('Error processing stream:', e))
-        .finally(() => {
-          // Restore focus after streaming completes
-          focusInput(100)
-        })
-    } else if (result && 'success' in result && result.success && 'logs' in result) {
+    if (result && 'success' in result && result.success && 'logs' in result) {
       const finalOutputs: any[] = []
 
       if (selectedOutputs?.length > 0) {
@@ -424,10 +346,9 @@ export function Chat({ chatMessage, setChatMessage, hideScrollbar = true }: Chat
             }
           }
         }
+      } else if ((result as ExecutionResult).output !== undefined) {
+        finalOutputs.push((result as ExecutionResult).output)
       }
-
-      // Only show outputs if something was explicitly selected
-      // If no outputs are selected, don't show anything
 
       // Add a new message for each resolved output
       finalOutputs.forEach((output) => {
@@ -468,8 +389,6 @@ export function Chat({ chatMessage, setChatMessage, hideScrollbar = true }: Chat
     addMessage,
     handleRunWorkflow,
     selectedOutputs,
-    appendMessageContent,
-    finalizeMessageStream,
     focusInput,
     setChatMessage,
     setChatFiles,

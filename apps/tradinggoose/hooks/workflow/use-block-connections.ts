@@ -1,6 +1,6 @@
 import { BlockPathCalculator } from '@/lib/block-path-calculator'
 import { extractFieldsFromSchema, type Field } from '@/lib/response-format'
-import { getBlockOutputs } from '@/lib/workflows/block-outputs'
+import { readBlockOutputs } from '@/lib/workflows/block-outputs'
 import { useWorkflowBlocks, useWorkflowEdges } from '@/lib/yjs/use-workflow-doc'
 
 export interface ConnectedBlock {
@@ -62,7 +62,11 @@ export function useBlockConnections(blockId: string) {
     const responseFormat = parseResponseFormatSafely(
       blocks[sourceId]?.subBlocks?.responseFormat?.value
     )
-    const blockOutputs = getBlockOutputs(sourceBlock.type, mergedSubBlocks, sourceBlock.triggerMode)
+    const blockOutputs = readBlockOutputs(
+      sourceBlock.type,
+      mergedSubBlocks,
+      sourceBlock.triggerMode
+    )
     const outputFields = responseFormat
       ? extractFieldsFromSchema(responseFormat)
       : Object.entries(blockOutputs).map(([name, value]: [string, any]) => ({

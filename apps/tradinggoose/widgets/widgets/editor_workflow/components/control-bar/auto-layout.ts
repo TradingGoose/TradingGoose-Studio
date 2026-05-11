@@ -156,7 +156,7 @@ export async function applyAutoLayoutAndUpdateStore({
 
   try {
     const { getRegisteredWorkflowSession } = await import('@/lib/yjs/workflow-session-registry')
-    const { getWorkflowSnapshot, getWorkflowMap } = await import('@/lib/yjs/workflow-session')
+    const { readWorkflowSnapshot, readWorkflowMap } = await import('@/lib/yjs/workflow-session')
     const { YJS_ORIGINS } = await import('@/lib/yjs/transaction-origins')
     const { useWorkflowRegistry } = await import('@/stores/workflows/registry/store')
 
@@ -185,7 +185,7 @@ export async function applyAutoLayoutAndUpdateStore({
       return { success: false, error: 'No active workflow session' }
     }
 
-    const snapshot = getWorkflowSnapshot(session.doc)
+    const snapshot = readWorkflowSnapshot(session.doc)
     const { blocks, edges } = snapshot
     const hasLockedBlocks = Object.values(blocks).some((block) => Boolean(block.locked))
 
@@ -218,7 +218,7 @@ export async function applyAutoLayoutAndUpdateStore({
 
     const doc = session.doc
     doc.transact(() => {
-      const wMap = getWorkflowMap(doc)
+      const wMap = readWorkflowMap(doc)
       wMap.set('blocks', result.layoutedBlocks!)
       wMap.set('lastSaved', Date.now())
     }, YJS_ORIGINS.USER)
@@ -229,7 +229,7 @@ export async function applyAutoLayoutAndUpdateStore({
     })
 
     try {
-      const updatedSnapshot = getWorkflowSnapshot(doc)
+      const updatedSnapshot = readWorkflowSnapshot(doc)
 
       const stateToSave = {
         ...updatedSnapshot,
@@ -290,7 +290,7 @@ export async function applyAutoLayoutAndUpdateStore({
       })
 
       doc.transact(() => {
-        const wMap = getWorkflowMap(doc)
+        const wMap = readWorkflowMap(doc)
         wMap.set('blocks', blocks)
       }, YJS_ORIGINS.SYSTEM)
 

@@ -252,7 +252,7 @@ function normalizeWorkflowSkillValue(
   }
 }
 
-function getWorkflowSkillValues(
+function readWorkflowSkillValues(
   blockId: string,
   block: { subBlocks?: Record<string, { value?: unknown }> } | null | undefined
 ): WorkflowSkillValue[] {
@@ -283,7 +283,7 @@ function collectWorkflowSkillIds(state: WorkflowState): string[] {
   const seenSkillIds = new Set<string>()
 
   Object.entries(state.blocks).forEach(([blockId, block]) => {
-    const skillValues = getWorkflowSkillValues(blockId, block)
+    const skillValues = readWorkflowSkillValues(blockId, block)
 
     skillValues.forEach((skillValue) => {
       if (seenSkillIds.has(skillValue.skillId)) {
@@ -306,7 +306,7 @@ function rewriteWorkflowSkillValues(
 
   Object.entries(clonedState.blocks).forEach(([blockId, block]) => {
     const workflowBlock = block as any
-    const skillValues = getWorkflowSkillValues(blockId, workflowBlock)
+    const skillValues = readWorkflowSkillValues(blockId, workflowBlock)
     if (skillValues.length === 0) {
       return
     }

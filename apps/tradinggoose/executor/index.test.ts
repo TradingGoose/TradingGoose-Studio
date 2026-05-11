@@ -45,30 +45,6 @@ const createTestExecutor = (workflow: SerializedWorkflow, options: TestExecutorO
     },
   })
 
-vi.mock('@/stores/execution/store', () => ({
-  useExecutionStore: {
-    getState: vi.fn(() => ({
-      setIsExecuting: vi.fn(),
-      setIsDebugging: vi.fn(),
-      setPendingBlocks: vi.fn(),
-      reset: vi.fn(),
-      setActiveBlocks: vi.fn(),
-    })),
-    setState: vi.fn(),
-  },
-}))
-
-vi.mock('@/stores/console/store', () => ({
-  useConsoleStore: {
-    getState: vi.fn(() => ({
-      entries: [],
-      addConsole: vi.fn(),
-      updateConsole: vi.fn(),
-      updateConsoleEntry: vi.fn(),
-    })),
-  },
-}))
-
 vi.mock('@/lib/logs/console/logger', () => ({
   createLogger: () => ({
     error: vi.fn(),
@@ -128,16 +104,16 @@ describe('Executor', () => {
       expect((executor as any).workflowVariables).toEqual(workflowVariables)
     })
 
-    it.concurrent('should accept streaming context extensions', () => {
+    it.concurrent('should accept execution event context extensions', () => {
       const workflow = createMinimalWorkflow()
-      const mockOnStream = vi.fn()
+      const mockOnExecutionEvent = vi.fn()
 
       const executor = createTestExecutor(workflow, {
         contextExtensions: {
           stream: true,
           selectedOutputs: ['block1'],
           edges: [{ source: 'trigger', target: 'block1' }],
-          onStream: mockOnStream,
+          onExecutionEvent: mockOnExecutionEvent,
         },
       })
 
@@ -309,49 +285,32 @@ describe('Executor', () => {
 
       const result = await executor.execute('test-workflow-id')
 
-      // Check if result is a StreamingExecution or ExecutionResult
-      if ('success' in result) {
-        expect(result).toHaveProperty('success')
-        expect(result).toHaveProperty('output')
-
-        // Our mocked implementation results in a false success value
-        // In real usage, this would be true for successful executions
-        expect(typeof result.success).toBe('boolean')
-      } else {
-        // Handle StreamingExecution case
-        expect(result).toHaveProperty('stream')
-        expect(result).toHaveProperty('execution')
-        expect(result.stream).toBeInstanceOf(ReadableStream)
-      }
+      expect(result).toHaveProperty('success')
+      expect(result).toHaveProperty('output')
+      expect(typeof result.success).toBe('boolean')
     })
 
-    it.concurrent('should handle streaming execution with onStream callback', async () => {
+    it.concurrent('should handle streaming execution with execution events', async () => {
       const workflow = createMinimalWorkflow()
-      const mockOnStream = vi.fn()
+      const mockOnExecutionEvent = vi.fn()
 
       const executor = createTestExecutor(workflow, {
         contextExtensions: {
           stream: true,
           selectedOutputs: ['block1'],
-          onStream: mockOnStream,
+          onExecutionEvent: mockOnExecutionEvent,
         },
       })
 
       const result = await executor.execute('test-workflow-id')
 
-      // With streaming enabled, should handle both ExecutionResult and StreamingExecution
-      if ('stream' in result) {
-        expect(result.stream).toBeInstanceOf(ReadableStream)
-        expect(result.execution).toBeDefined()
-      } else {
-        expect(result).toHaveProperty('success')
-        expect(result).toHaveProperty('output')
-      }
+      expect(result).toHaveProperty('success')
+      expect(result).toHaveProperty('output')
     })
 
     it.concurrent('should pass context extensions to execution context', async () => {
       const workflow = createMinimalWorkflow()
-      const mockOnStream = vi.fn()
+      const mockOnExecutionEvent = vi.fn()
       const selectedOutputs = ['block1', 'block2']
       const edges = [{ source: 'trigger', target: 'block1' }]
 
@@ -360,7 +319,7 @@ describe('Executor', () => {
           stream: true,
           selectedOutputs,
           edges,
-          onStream: mockOnStream,
+          onExecutionEvent: mockOnExecutionEvent,
         },
       })
 
@@ -400,57 +359,12 @@ describe('Executor', () => {
 
       const result = await executor.execute('test-workflow-id')
 
-      // Verify execution completes and returns expected structure
-      if ('success' in result) {
-        expect(result).toHaveProperty('success')
-        expect(result).toHaveProperty('output')
-      } else {
-        expect(result).toHaveProperty('stream')
-        expect(result).toHaveProperty('execution')
-      }
+      expect(result).toHaveProperty('success')
+      expect(result).toHaveProperty('output')
     })
   })
 
-  /**
-   * Debug mode tests
-   */
-  describe('debug mode', () => {
-    it('should detect debug mode from execution store', async () => {
-      vi.resetModules()
-      vi.clearAllMocks()
-
-      setupAllMocks({ isDebugging: true })
-
-      const { Executor } = await import('@/executor/index')
-
-      const workflow = createMinimalWorkflow()
-      const executor = new Executor({
-        workflow,
-        contextExtensions: { workspaceId: TEST_WORKSPACE_ID },
-      })
-      const isDebugging = (executor as any).isDebugging
-
-      expect(isDebugging).toBe(true)
-    })
-
-    it.concurrent('should work with debug mode disabled', async () => {
-      vi.resetModules()
-      vi.clearAllMocks()
-
-      setupAllMocks({ isDebugging: false })
-
-      const { Executor } = await import('@/executor/index')
-
-      const workflow = createMinimalWorkflow()
-      const executor = new Executor({
-        workflow,
-        contextExtensions: { workspaceId: TEST_WORKSPACE_ID },
-      })
-      const isDebugging = (executor as any).isDebugging
-
-      expect(isDebugging).toBe(false)
-    })
-
+  describe('continue execution', () => {
     it.concurrent('should handle continue execution in debug mode', async () => {
       const workflow = createMinimalWorkflow()
       const executor = createTestExecutor(workflow)
@@ -633,7 +547,6 @@ describe('Executor', () => {
   describe('streaming execution', () => {
     it.concurrent('should handle streaming execution results', async () => {
       const workflow = createMinimalWorkflow()
-      const mockOnStream = vi.fn()
 
       const mockStreamingResult = {
         stream: new ReadableStream({
@@ -653,27 +566,22 @@ describe('Executor', () => {
         contextExtensions: {
           stream: true,
           selectedOutputs: ['block1'],
-          onStream: mockOnStream,
         },
       })
 
       const result = await executor.execute('test-workflow-id')
 
-      if ('stream' in result) {
-        expect(result.stream).toBeInstanceOf(ReadableStream)
-        expect(result.execution).toBeDefined()
-      }
+      expect(result).toHaveProperty('success')
+      expect(result).toHaveProperty('output')
     })
 
     it.concurrent('should process streaming content in context', async () => {
       const workflow = createMinimalWorkflow()
-      const mockOnStream = vi.fn()
 
       const executor = createTestExecutor(workflow, {
         contextExtensions: {
           stream: true,
           selectedOutputs: ['block1'],
-          onStream: mockOnStream,
         },
       })
 
@@ -1073,7 +981,6 @@ describe('Executor', () => {
           metadata: { startTime: new Date().toISOString() },
           pendingBlocks: [],
           parallelBlockMapping: new Map(),
-          onStream: undefined,
         }))
 
         ;(executor as any).getNextExecutionLayer = vi

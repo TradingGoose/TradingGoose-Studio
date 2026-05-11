@@ -27,7 +27,7 @@ export function resolveBlockRuntimeState<TSubBlocks extends WorkflowRuntimeSubBl
 
   return {
     subBlocks,
-    outputs: resolveOutputType(getBlockOutputs(args.blockType, subBlocks, args.triggerMode)),
+    outputs: resolveOutputType(readBlockOutputs(args.blockType, subBlocks, args.triggerMode)),
   }
 }
 
@@ -35,7 +35,7 @@ export function resolveBlockRuntimeState<TSubBlocks extends WorkflowRuntimeSubBl
  * Get the effective outputs for a block, including dynamic outputs from inputFormat
  * and trigger outputs for blocks in trigger mode
  */
-export function getBlockOutputs(
+export function readBlockOutputs(
   blockType: string,
   subBlocks?: Record<string, any>,
   triggerMode?: boolean
@@ -138,7 +138,7 @@ export function getBlockOutputPaths(
   subBlocks?: Record<string, any>,
   triggerMode?: boolean
 ): string[] {
-  const outputs = getBlockOutputs(blockType, subBlocks, triggerMode)
+  const outputs = readBlockOutputs(blockType, subBlocks, triggerMode)
 
   // Recursively collect all paths from nested outputs
   const paths: string[] = []
@@ -188,7 +188,7 @@ export function getBlockOutputType(
   subBlocks?: Record<string, any>,
   triggerMode?: boolean
 ): string {
-  const outputs = getBlockOutputs(blockType, subBlocks, triggerMode)
+  const outputs = readBlockOutputs(blockType, subBlocks, triggerMode)
 
   const arrayIndexRegex = /\[(\d+)\]/g
   const cleanPath = outputPath.replace(arrayIndexRegex, '')

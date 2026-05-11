@@ -14,7 +14,7 @@ const mockDeploymentStatus = {
 
 const mockWorkflowRegistry = {
   getState: vi.fn(() => ({
-    getWorkflowDeploymentStatus: vi.fn((workflowId) => mockDeploymentStatus),
+    readWorkflowDeploymentStatus: vi.fn((workflowId) => mockDeploymentStatus),
   })),
 }
 
@@ -81,7 +81,7 @@ describe('DeploymentControls Change Detection Logic', () => {
 
       const deploymentStatus = mockWorkflowRegistry
         .getState()
-        .getWorkflowDeploymentStatus('test-id')
+        .readWorkflowDeploymentStatus('test-id')
 
       expect(deploymentStatus.isDeployed).toBe(true)
       expect(deploymentStatus.needsRedeployment).toBe(false)
@@ -90,7 +90,7 @@ describe('DeploymentControls Change Detection Logic', () => {
     it('should handle missing deployment status', () => {
       const tempMockRegistry = {
         getState: vi.fn(() => ({
-          getWorkflowDeploymentStatus: vi.fn(() => null),
+          readWorkflowDeploymentStatus: vi.fn(() => null),
         })),
       }
 
@@ -100,7 +100,7 @@ describe('DeploymentControls Change Detection Logic', () => {
 
       const deploymentStatus = mockWorkflowRegistry
         .getState()
-        .getWorkflowDeploymentStatus('test-id')
+        .readWorkflowDeploymentStatus('test-id')
 
       expect(deploymentStatus).toBe(null)
 
@@ -109,12 +109,12 @@ describe('DeploymentControls Change Detection Logic', () => {
 
     it('should handle undefined deployment status properties', () => {
       mockWorkflowRegistry.getState = vi.fn(() => ({
-        getWorkflowDeploymentStatus: vi.fn(() => ({})),
+        readWorkflowDeploymentStatus: vi.fn(() => ({})),
       })) as any
 
       const deploymentStatus = mockWorkflowRegistry
         .getState()
-        .getWorkflowDeploymentStatus('test-id')
+        .readWorkflowDeploymentStatus('test-id')
 
       const isDeployed = deploymentStatus?.isDeployed || false
       expect(isDeployed).toBe(false)
@@ -176,7 +176,7 @@ describe('DeploymentControls Change Detection Logic', () => {
 
   describe('Error Handling', () => {
     it('should handle null activeWorkflowId gracefully', () => {
-      const deploymentStatus = mockWorkflowRegistry.getState().getWorkflowDeploymentStatus(null)
+      const deploymentStatus = mockWorkflowRegistry.getState().readWorkflowDeploymentStatus(null)
 
       expect(deploymentStatus).toBeDefined()
     })

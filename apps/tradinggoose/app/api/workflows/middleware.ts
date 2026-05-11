@@ -3,7 +3,7 @@ import { authenticateApiKey } from '@/lib/api-key/auth'
 import { authenticateApiKeyFromHeader, updateApiKeyLastUsed } from '@/lib/api-key/service'
 import { env } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
-import { getWorkflowById } from '@/lib/workflows/utils'
+import { readWorkflowById } from '@/lib/workflows/utils'
 
 const logger = createLogger('WorkflowMiddleware')
 
@@ -18,7 +18,7 @@ export async function validateWorkflowAccess(
   requireDeployment = true
 ): Promise<ValidationResult> {
   try {
-    const workflow = await getWorkflowById(workflowId)
+    const workflow = await readWorkflowById(workflowId)
     if (!workflow) {
       return {
         error: {

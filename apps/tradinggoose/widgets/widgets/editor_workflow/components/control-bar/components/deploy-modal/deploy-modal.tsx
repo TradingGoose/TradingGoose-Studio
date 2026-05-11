@@ -239,7 +239,7 @@ export function DeployModal({
   const workspaceId = useWorkspaceId()
   const userPermissions = useUserPermissionsContext()
   const deploymentStatus = useWorkflowRegistry((state) =>
-    state.getWorkflowDeploymentStatus(workflowId)
+    state.readWorkflowDeploymentStatus(workflowId)
   )
   const setDeploymentStatus = useWorkflowRegistry((state) => state.setDeploymentStatus)
   const currentBlocks = useWorkflowBlocks()
@@ -255,7 +255,6 @@ export function DeployModal({
   const [apiDeployError, setApiDeployError] = useState<string | null>(null)
   const [publishedChat, setPublishedChat] = useState<PublishedChatDeployment | null>(null)
   const [isChatConfigBusy, setIsChatConfigBusy] = useState(false)
-  const [selectedStreamingOutputs, setSelectedStreamingOutputs] = useState<string[]>([])
   const [isViewingActiveDeployment, setIsViewingActiveDeployment] = useState(false)
   const [showUndeployConfirm, setShowUndeployConfirm] = useState(false)
 
@@ -626,7 +625,7 @@ export function DeployModal({
     }
   }, [editingVersion])
 
-  const getInputFormatExample = (includeStreaming = false) => {
+  const getInputFormatExample = () => {
     let inputFormatExample = ''
     try {
       const blocks = Object.values(currentBlocks)
@@ -672,37 +671,6 @@ export function DeployModal({
               }
             }
           })
-        }
-
-        // Add streaming parameters if enabled and outputs are selected
-        if (includeStreaming && selectedStreamingOutputs.length > 0) {
-          exampleData.stream = true
-          // Convert blockId_attribute format to blockName.attribute format for display
-          const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i
-
-          const convertedOutputs = selectedStreamingOutputs.map((outputId) => {
-            // If it starts with a UUID, convert to blockName.attribute format
-            if (UUID_REGEX.test(outputId)) {
-              const underscoreIndex = outputId.indexOf('_')
-              if (underscoreIndex === -1) return outputId
-
-              const blockId = outputId.substring(0, underscoreIndex)
-              const attribute = outputId.substring(underscoreIndex + 1)
-
-              // Find the block by ID and get its name
-              const block = blocks.find((b) => b.id === blockId)
-              if (block?.name) {
-                // Normalize block name: lowercase and remove spaces
-                const normalizedBlockName = block.name.toLowerCase().replace(/\s+/g, '')
-                return `${normalizedBlockName}.${attribute}`
-              }
-            }
-
-            // Already in blockName.attribute format or couldn't convert
-            return outputId
-          })
-
-          exampleData.selectedOutputs = convertedOutputs
         }
 
         if (Object.keys(exampleData).length > 0) {
@@ -846,7 +814,7 @@ export function DeployModal({
         }
 
         const endpoint = `${getEnv('NEXT_PUBLIC_APP_URL')}/api/workflows/${workflowId}/execute`
-        const inputFormatExample = getInputFormatExample(selectedStreamingOutputs.length > 0)
+        const inputFormatExample = getInputFormatExample()
 
         setDeploymentInfo({
           isDeployed: data.isDeployed,
@@ -926,7 +894,7 @@ export function DeployModal({
       if (deploymentInfoResponse.ok) {
         const deploymentData = await deploymentInfoResponse.json()
         const apiEndpoint = `${getEnv('NEXT_PUBLIC_APP_URL')}/api/workflows/${workflowId}/execute`
-        const inputFormatExample = getInputFormatExample(selectedStreamingOutputs.length > 0)
+        const inputFormatExample = getInputFormatExample()
 
         setDeploymentInfo({
           isDeployed: deploymentData.isDeployed,
@@ -1488,10 +1456,7 @@ export function DeployModal({
                               <DeploymentInfo
                                 isLoading={isLoading}
                                 deploymentInfo={deploymentInfo}
-                                workflowId={workflowId}
                                 getInputFormatExample={getInputFormatExample}
-                                selectedStreamingOutputs={selectedStreamingOutputs}
-                                onSelectedStreamingOutputsChange={setSelectedStreamingOutputs}
                                 showApiKeyInfo={true}
                                 showApiAccessInfo={false}
                               />
@@ -1540,10 +1505,7 @@ export function DeployModal({
                             <DeploymentInfo
                               isLoading={isLoading}
                               deploymentInfo={deploymentInfo}
-                              workflowId={workflowId}
                               getInputFormatExample={getInputFormatExample}
-                              selectedStreamingOutputs={selectedStreamingOutputs}
-                              onSelectedStreamingOutputsChange={setSelectedStreamingOutputs}
                               showApiKeyInfo={false}
                               showApiAccessInfo={true}
                             />

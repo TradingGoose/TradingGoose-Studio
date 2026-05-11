@@ -87,7 +87,7 @@ function mapWorkflowRow(row: WorkflowRow | undefined): WorkflowWithPinnedKey | u
   }
 }
 
-export async function getWorkflowById(id: string) {
+export async function readWorkflowById(id: string) {
   const rows = await db
     .select(WORKFLOW_BASE_SELECTION)
     .from(workflowTable)
@@ -98,7 +98,7 @@ export async function getWorkflowById(id: string) {
   return mapWorkflowRow(rows[0] as WorkflowRow | undefined)
 }
 
-type WorkflowRecord = ReturnType<typeof getWorkflowById> extends Promise<infer R>
+type WorkflowRecord = ReturnType<typeof readWorkflowById> extends Promise<infer R>
   ? NonNullable<R>
   : never
 
@@ -110,7 +110,7 @@ export interface WorkflowAccessContext {
   isWorkspaceOwner: boolean
 }
 
-export async function getWorkflowAccessContext(
+export async function readWorkflowAccessContext(
   workflowId: string,
   userId?: string
 ): Promise<WorkflowAccessContext | null> {
@@ -170,7 +170,7 @@ export async function getWorkflowAccessContext(
 
 export async function updateWorkflowRunCounts(workflowId: string, runs = 1) {
   try {
-    const workflow = await getWorkflowById(workflowId)
+    const workflow = await readWorkflowById(workflowId)
     if (!workflow) {
       logger.error(`Workflow ${workflowId} not found`)
       throw new Error(`Workflow ${workflowId} not found`)
@@ -560,7 +560,7 @@ export async function validateWorkflowPermissions(
     }
   }
 
-  const accessContext = await getWorkflowAccessContext(workflowId, session.user.id)
+  const accessContext = await readWorkflowAccessContext(workflowId, session.user.id)
   if (!accessContext) {
     logger.warn(`[${requestId}] Workflow ${workflowId} not found`)
     return {

@@ -76,6 +76,15 @@ describe('WorkflowBlockHandler', () => {
     ).rejects.toThrow('Maximum workflow nesting depth of 10 exceeded')
   })
 
+  it('handles the original workflow block type through the queue path', () => {
+    expect(
+      handler.canHandle({
+        ...mockBlock,
+        metadata: { id: BlockType.WORKFLOW, name: 'Workflow Block' },
+      })
+    ).toBe(true)
+  })
+
   it('queues the child workflow and maps the completed result', async () => {
     const fetchMock = vi.mocked(global.fetch)
     fetchMock
@@ -122,6 +131,18 @@ describe('WorkflowBlockHandler', () => {
         }),
       })
     )
+    const queueBody = JSON.parse(
+      (fetchMock.mock.calls[0]?.[1] as RequestInit).body as string
+    )
+    expect(queueBody).toMatchObject({
+      input: { symbol: 'AAPL' },
+      executionTarget: 'live',
+      triggerType: 'manual',
+      workflowDepth: 1,
+    })
+    expect(queueBody).not.toHaveProperty('parentWorkflowId')
+    expect(queueBody).not.toHaveProperty('parentExecutionId')
+    expect(queueBody).not.toHaveProperty('parentBlockId')
     expect(fetchMock).toHaveBeenNthCalledWith(
       2,
       'http://localhost:3000/api/jobs/job-1',
@@ -135,7 +156,14 @@ describe('WorkflowBlockHandler', () => {
       result: { value: 42 },
       childTraceSpans: [],
     })
-    expect(generateInternalToken).toHaveBeenCalledWith('user-1')
+    expect(generateInternalToken).toHaveBeenCalledWith('user-1', {
+      workflowExecution: {
+        source: 'workflow_block',
+        parentWorkflowId: 'parent-workflow-id',
+        parentExecutionId: 'execution-1',
+        parentBlockId: 'workflow-block-1',
+      },
+    })
   })
 
   it('wraps failed child workflow executions', async () => {

@@ -1093,7 +1093,7 @@ function isContainerEndSourceHandle(handle: string | null | undefined): boolean 
   return handle === 'loop-end-source' || handle === 'parallel-end-source'
 }
 
-function getContainerBoundaryEdgeViolation(
+export function readWorkflowContainerBoundaryEdgeViolation(
   edge: Pick<Edge, 'source' | 'target' | 'sourceHandle' | 'targetHandle'>,
   blocks: Record<string, BlockState>
 ): string | null {
@@ -1306,7 +1306,7 @@ function normalizeLogicalWorkflowEdges(
   >()
 
   for (const edge of edges) {
-    const violation = getContainerBoundaryEdgeViolation(edge, blocks)
+    const violation = readWorkflowContainerBoundaryEdgeViolation(edge, blocks)
     if (violation) {
       throw new Error(violation)
     }

@@ -1,4 +1,7 @@
-import { generateInternalToken } from '@/lib/auth/internal'
+import {
+  generateInternalToken,
+  type InternalWorkflowExecutionContext,
+} from '@/lib/auth/internal'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { TraceSpan } from '@/lib/logs/types'
 import { getBaseUrl } from '@/lib/urls/utils'
@@ -48,7 +51,10 @@ export class WorkflowBlockHandler implements BlockHandler {
   }
 
   canHandle(block: SerializedBlock): boolean {
-    return block.metadata?.id === BlockType.WORKFLOW_INPUT
+    return (
+      block.metadata?.id === BlockType.WORKFLOW ||
+      block.metadata?.id === BlockType.WORKFLOW_INPUT
+    )
   }
 
   async execute(
@@ -74,7 +80,13 @@ export class WorkflowBlockHandler implements BlockHandler {
       kind: 'deferred',
       wait: async () => {
         try {
-          const headers = await this.buildHeaders(context)
+          const workflowExecution: InternalWorkflowExecutionContext = {
+            source: 'workflow_block',
+            parentWorkflowId: context.workflowId,
+            parentExecutionId: context.executionId,
+            parentBlockId: block.id,
+          }
+          const headers = await this.buildHeaders(context, workflowExecution)
           const queueResponse = await this.queueChildWorkflowExecution({
             headers,
             workflowId,
@@ -82,9 +94,6 @@ export class WorkflowBlockHandler implements BlockHandler {
             executionTarget: context.isDeployedContext ? 'deployed' : 'live',
             triggerType: context.triggerType ?? 'manual',
             workflowDepth: currentDepth + 1,
-            parentWorkflowId: context.workflowId,
-            parentExecutionId: context.executionId,
-            parentBlockId: block.id,
           })
 
           const childWorkflowName = queueResponse.workflowName
@@ -162,14 +171,15 @@ export class WorkflowBlockHandler implements BlockHandler {
   }
 
   private async buildHeaders(
-    context: Pick<ExecutionContext, 'userId'>
+    context: Pick<ExecutionContext, 'userId'>,
+    workflowExecution: InternalWorkflowExecutionContext
   ): Promise<Record<string, string>> {
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
     }
 
     if (typeof window === 'undefined') {
-      const token = await generateInternalToken(context.userId)
+      const token = await generateInternalToken(context.userId, { workflowExecution })
       headers.Authorization = `Bearer ${token}`
     }
 
@@ -183,9 +193,6 @@ export class WorkflowBlockHandler implements BlockHandler {
     executionTarget: 'deployed' | 'live'
     triggerType: string
     workflowDepth: number
-    parentWorkflowId?: string
-    parentExecutionId?: string
-    parentBlockId: string
   }): Promise<QueueWorkflowResponse> {
     const response = await fetch(`${getBaseUrl()}/api/workflows/${params.workflowId}/queue`, {
       method: 'POST',
@@ -195,9 +202,6 @@ export class WorkflowBlockHandler implements BlockHandler {
         executionTarget: params.executionTarget,
         triggerType: params.triggerType,
         workflowDepth: params.workflowDepth,
-        parentWorkflowId: params.parentWorkflowId,
-        parentExecutionId: params.parentExecutionId,
-        parentBlockId: params.parentBlockId,
       }),
       cache: 'no-store',
     })

@@ -6,11 +6,13 @@ import { NextResponse } from 'next/server'
 
 const {
   checkHybridAuthMock,
+  cancelPendingWorkflowExecutionMock,
   eqMock,
   andMock,
   limitMock,
 } = vi.hoisted(() => ({
   checkHybridAuthMock: vi.fn(),
+  cancelPendingWorkflowExecutionMock: vi.fn(),
   eqMock: vi.fn((field, value) => ({ field, value })),
   andMock: vi.fn((...args) => ({ args })),
   limitMock: vi.fn(),
@@ -50,6 +52,10 @@ vi.mock('@/lib/auth/hybrid', () => ({
   checkHybridAuth: checkHybridAuthMock,
 }))
 
+vi.mock('@/lib/execution/pending-execution', () => ({
+  cancelPendingWorkflowExecution: cancelPendingWorkflowExecutionMock,
+}))
+
 vi.mock('@/lib/logs/console/logger', () => ({
   createLogger: vi.fn(() => ({
     debug: vi.fn(),
@@ -67,7 +73,7 @@ vi.mock('@/app/api/workflows/utils', () => ({
     NextResponse.json({ message }, { status }),
 }))
 
-import { GET } from './route'
+import { DELETE, GET } from './route'
 
 describe('GET /api/jobs/[jobId]', () => {
   beforeEach(() => {
@@ -122,6 +128,63 @@ describe('GET /api/jobs/[jobId]', () => {
       taskId: 'job-1',
       status: 'failed',
       error: 'Function execution failed',
+    })
+  })
+})
+
+describe('DELETE /api/jobs/[jobId]', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    checkHybridAuthMock.mockResolvedValue({
+      success: true,
+      userId: 'user-1',
+    })
+    cancelPendingWorkflowExecutionMock.mockResolvedValue({ status: 'cancelling' })
+  })
+
+  it('requires authentication', async () => {
+    checkHybridAuthMock.mockResolvedValue({
+      success: false,
+      userId: null,
+    })
+
+    const response = await DELETE(new Request('http://localhost/api/jobs/job-1') as any, {
+      params: Promise.resolve({ jobId: 'job-1' }),
+    })
+
+    expect(response.status).toBe(401)
+    await expect(response.json()).resolves.toEqual({
+      message: 'Authentication required',
+    })
+  })
+
+  it('cancels workflow jobs for the authenticated user', async () => {
+    const response = await DELETE(new Request('http://localhost/api/jobs/job-1') as any, {
+      params: Promise.resolve({ jobId: 'job-1' }),
+    })
+
+    expect(cancelPendingWorkflowExecutionMock).toHaveBeenCalledWith({
+      pendingExecutionId: 'job-1',
+      userId: 'user-1',
+    })
+    expect(response.status).toBe(200)
+    await expect(response.json()).resolves.toEqual({
+      success: true,
+      taskId: 'job-1',
+      status: 'cancelling',
+    })
+  })
+
+  it('returns not found when the job does not belong to the user', async () => {
+    cancelPendingWorkflowExecutionMock.mockResolvedValue({ status: 'not_found' })
+
+    const response = await DELETE(new Request('http://localhost/api/jobs/job-1') as any, {
+      params: Promise.resolve({ jobId: 'job-1' }),
+    })
+
+    expect(response.status).toBe(404)
+    await expect(response.json()).resolves.toEqual({
+      message: 'Task not found',
     })
   })
 })

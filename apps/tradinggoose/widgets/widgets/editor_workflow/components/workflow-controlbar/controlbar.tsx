@@ -13,7 +13,7 @@ import { isPairColor, type PairColor } from '@/widgets/pair-colors'
 
 const FALLBACK_TEXT_CLASS = widgetHeaderControlClassName('text-muted-foreground/80')
 
-export const getWorkflowWidgetChannelId = (
+export const readWorkflowWidgetChannelId = (
   pairColor: PairColor,
   widgetKey: string,
   panelId?: string
@@ -42,7 +42,7 @@ export function WorkflowWidgetControlBar({
   const resolvedPairColor = isPairColor(widget?.pairColor) ? widget?.pairColor : 'gray'
   const widgetKey = widget?.key ?? 'workflow-editor'
   const channelId = useMemo(
-    () => getWorkflowWidgetChannelId(resolvedPairColor, widgetKey, panelId),
+    () => readWorkflowWidgetChannelId(resolvedPairColor, widgetKey, panelId),
     [resolvedPairColor, widgetKey, panelId]
   )
 

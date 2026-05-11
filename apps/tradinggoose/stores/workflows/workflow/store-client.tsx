@@ -5,14 +5,14 @@ import { useStoreWithEqualityFn } from 'zustand/traditional'
 import type { StoreApi } from 'zustand/vanilla'
 import {
   DEFAULT_WORKFLOW_CHANNEL_ID,
-  getWorkflowStoreForChannel,
-  getWorkflowStoreState,
+  readWorkflowStoreForChannel,
+  readWorkflowStoreState,
   setWorkflowStoreState,
   subscribeToWorkflowStore,
 } from '@/stores/workflows/workflow/store'
 import type { WorkflowStore } from '@/stores/workflows/workflow/types'
 
-const WorkflowStoreContext = createContext<StoreApi<WorkflowStore>>(getWorkflowStoreForChannel())
+const WorkflowStoreContext = createContext<StoreApi<WorkflowStore>>(readWorkflowStoreForChannel())
 
 export function WorkflowStoreProvider({
   channelId = DEFAULT_WORKFLOW_CHANNEL_ID,
@@ -24,7 +24,7 @@ export function WorkflowStoreProvider({
   children: ReactNode
 }) {
   const store = useMemo(
-    () => getWorkflowStoreForChannel(channelId, workflowId),
+    () => readWorkflowStoreForChannel(channelId, workflowId),
     [channelId, workflowId]
   )
   return <WorkflowStoreContext.Provider value={store}>{children}</WorkflowStoreContext.Provider>
@@ -70,7 +70,7 @@ type UseWorkflowStoreHook = typeof useWorkflowStoreBase & {
 
 export const useWorkflowStore = useWorkflowStoreBase as UseWorkflowStoreHook
 
-useWorkflowStore.getState = (channelId?: string) => getWorkflowStoreState(channelId)
+useWorkflowStore.getState = (channelId?: string) => readWorkflowStoreState(channelId)
 
 useWorkflowStore.setState = (partial, replace) => setWorkflowStoreState(partial, undefined, replace)
 

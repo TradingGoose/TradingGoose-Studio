@@ -20,7 +20,6 @@ import { Executor } from '@/executor'
 import type {
   ExecutionContextExtensions,
   ExecutionResult,
-  StreamingExecution,
 } from '@/executor/types'
 import { Serializer } from '@/serializer'
 import type { TriggerType } from '@/services/queue'
@@ -28,7 +27,7 @@ import { mergeSubblockState } from '@/stores/workflows/server-utils'
 
 const logger = createLogger('WorkflowExecutionRunner')
 
-type WorkflowExecutionTarget = 'deployed' | 'live'
+export type WorkflowExecutionTarget = 'deployed' | 'live'
 
 type WorkflowContextHint = {
   workspaceId?: string | null
@@ -40,7 +39,7 @@ type ResolvedWorkflowExecutionContext = {
   variables: unknown
 }
 
-type WorkflowStart =
+export type WorkflowStart =
   | {
       kind: 'trigger'
       triggerType: 'api' | 'chat'
@@ -49,13 +48,6 @@ type WorkflowStart =
       kind: 'block'
       blockId?: string
     }
-
-type WorkflowStreamOptions = {
-  selectedOutputs?: string[]
-  onStream?: (streamingExec: StreamingExecution) => Promise<void>
-  onBlockComplete?: (blockId: string, output: unknown) => Promise<void>
-  skipLoggingComplete?: boolean
-}
 
 export type WorkflowExecutionBlueprint = {
   workflowId: string
@@ -69,12 +61,7 @@ export type WorkflowExecutionBlueprint = {
   }
 }
 
-export type WorkflowRunnerExecutionResult = ExecutionResult & {
-  _streamingMetadata?: {
-    loggingSession: LoggingSession
-    processedInput: unknown
-  }
-}
+export type WorkflowRunnerExecutionResult = ExecutionResult
 
 export type WorkflowRunnerResult = {
   executionId: string
@@ -261,6 +248,7 @@ export async function loadWorkflowExecutionBlueprint(params: {
   workflowId: string
   executionTarget?: WorkflowExecutionTarget
   workflowContext?: WorkflowContextHint
+  workflowData?: WorkflowExecutionBlueprint['workflowData']
 }): Promise<WorkflowExecutionBlueprint> {
   const executionTarget = params.executionTarget ?? 'deployed'
   const workflowContext = await resolveRequiredWorkflowExecutionContext(
@@ -268,9 +256,10 @@ export async function loadWorkflowExecutionBlueprint(params: {
     params.workflowContext
   )
   const workflowData =
-    executionTarget === 'live'
+    params.workflowData ??
+    (executionTarget === 'live'
       ? await loadWorkflowFromNormalizedTables(params.workflowId)
-      : await loadDeployedWorkflowState(params.workflowId)
+      : await loadDeployedWorkflowState(params.workflowId))
 
   if (!workflowData) {
     throw new Error(`Workflow ${params.workflowId} has no ${executionTarget} state`)
@@ -298,7 +287,6 @@ export async function runPreparedWorkflowExecution(params: {
   requestId?: string
   executionId?: string
   triggerData?: Record<string, unknown>
-  stream?: WorkflowStreamOptions
   contextExtensions?: Partial<ExecutionContextExtensions>
   concurrencyLeaseInherited?: boolean
 }): Promise<WorkflowRunnerResult> {
@@ -376,15 +364,11 @@ export async function runPreparedWorkflowExecution(params: {
           workflowLogId,
         }
 
-        if (params.stream) {
-          contextExtensions.stream = true
-          contextExtensions.selectedOutputs = params.stream.selectedOutputs || []
+        if (contextExtensions.stream) {
           contextExtensions.edges = params.blueprint.workflowData.edges.map((edge: any) => ({
             source: edge.source,
             target: edge.target,
           }))
-          contextExtensions.onStream = params.stream.onStream
-          contextExtensions.onBlockComplete = params.stream.onBlockComplete
         }
 
         const executor = new Executor({
@@ -402,10 +386,7 @@ export async function runPreparedWorkflowExecution(params: {
           start: params.start,
         })
 
-        const rawResult = await executor.execute(params.blueprint.workflowId, startBlockId)
-        const result = (
-          'stream' in rawResult && 'execution' in rawResult ? rawResult.execution : rawResult
-        ) as WorkflowRunnerExecutionResult
+        const result = await executor.execute(params.blueprint.workflowId, startBlockId)
 
         const { traceSpans, totalDuration } = buildTraceSpans(result)
 
@@ -415,24 +396,17 @@ export async function runPreparedWorkflowExecution(params: {
           )
         }
 
-        if (params.stream?.skipLoggingComplete) {
-          result._streamingMetadata = {
-            loggingSession,
-            processedInput: params.workflowInput,
-          }
-        } else {
-          await loggingSession
-            .complete({
-              endedAt: new Date().toISOString(),
-              totalDurationMs: totalDuration || 0,
-              finalOutput: result.output === undefined ? {} : result.output,
-              traceSpans: traceSpans || [],
-              workflowInput: params.workflowInput,
-            })
-            .catch((error) =>
-              logger.error(`[${requestId}] Workflow log completion failed after execution`, error)
-            )
-        }
+        await loggingSession
+          .complete({
+            endedAt: new Date().toISOString(),
+            totalDurationMs: totalDuration || 0,
+            finalOutput: result.output === undefined ? {} : result.output,
+            traceSpans: traceSpans || [],
+            workflowInput: params.workflowInput,
+          })
+          .catch((error) =>
+            logger.error(`[${requestId}] Workflow log completion failed after execution`, error)
+          )
 
         return {
           executionId,
@@ -478,10 +452,10 @@ export async function runWorkflowExecution(params: {
   start: WorkflowStart
   executionTarget?: WorkflowExecutionTarget
   workflowContext?: WorkflowContextHint
+  workflowData?: WorkflowExecutionBlueprint['workflowData']
   requestId?: string
   executionId?: string
   triggerData?: Record<string, unknown>
-  stream?: WorkflowStreamOptions
   contextExtensions?: Partial<ExecutionContextExtensions>
   concurrencyLeaseInherited?: boolean
 }): Promise<WorkflowRunnerResult> {
@@ -489,6 +463,7 @@ export async function runWorkflowExecution(params: {
     workflowId: params.workflowId,
     executionTarget: params.executionTarget,
     workflowContext: params.workflowContext,
+    workflowData: params.workflowData,
   })
 
   return runPreparedWorkflowExecution({
@@ -500,7 +475,6 @@ export async function runWorkflowExecution(params: {
     requestId: params.requestId,
     executionId: params.executionId,
     triggerData: params.triggerData,
-    stream: params.stream,
     contextExtensions: params.contextExtensions,
     concurrencyLeaseInherited: params.concurrencyLeaseInherited,
   })

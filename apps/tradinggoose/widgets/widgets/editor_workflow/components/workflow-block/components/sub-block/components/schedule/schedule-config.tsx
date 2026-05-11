@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button'
 import { createLogger } from '@/lib/logs/console/logger'
 import { parseCronToHumanReadable } from '@/lib/schedules/utils'
 import { formatDateTime } from '@/lib/utils'
-import { getWorkflowWithValues } from '@/stores/workflows'
+import { readWorkflowWithValues } from '@/stores/workflows'
 import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
 import { useWorkflowDoc } from '@/lib/yjs/use-workflow-doc'
 import {
@@ -241,7 +241,7 @@ export function ScheduleConfig({
 
       // Get the fully merged current state with updated values
       // This ensures we send the complete, correct workflow state to the backend
-      const currentWorkflowWithValues = getWorkflowWithValues(workflowId, channelId)
+      const currentWorkflowWithValues = readWorkflowWithValues(workflowId, channelId)
       if (!currentWorkflowWithValues) {
         setError('Failed to get current workflow state')
         return false

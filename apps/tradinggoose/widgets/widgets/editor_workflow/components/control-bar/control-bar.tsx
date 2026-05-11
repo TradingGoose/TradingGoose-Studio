@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { Bug, LayoutDashboard, Play, RefreshCw, SkipForward, StepForward, X } from 'lucide-react'
+import { LayoutDashboard, Play, RefreshCw, X } from 'lucide-react'
 import { Button, Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui'
 import { useSession } from '@/lib/auth-client'
 import { createLogger } from '@/lib/logs/console/logger'
@@ -12,7 +12,6 @@ import {
   useKeyboardShortcuts,
 } from '@/app/workspace/[workspaceId]/components/use-keyboard-shortcuts'
 import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
-import { getBlock } from '@/blocks'
 import { useWorkflowExecution } from '@/hooks/workflow/use-workflow-execution'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import type { WorkflowState } from '@/stores/workflows/workflow/types'
@@ -87,12 +86,7 @@ export function ControlBar({
   const activeWorkflowId = workflowId
   const {
     isExecuting,
-    isDebugging,
-    pendingBlocks,
     handleRunWorkflow,
-    handleStepDebug,
-    handleResumeDebug,
-    handleCancelDebug,
     handleCancelExecution,
   } = useWorkflowExecution()
 
@@ -138,7 +132,7 @@ export function ControlBar({
 
   // Get deployment status from registry
   const deploymentStatus = useWorkflowRegistry((state) =>
-    state.getWorkflowDeploymentStatus(activeWorkflowId)
+    state.readWorkflowDeploymentStatus(activeWorkflowId)
   )
   const isDeployed = deploymentStatus?.isDeployed || false
 
@@ -334,13 +328,7 @@ export function ControlBar({
    */
   const renderAutoLayoutButton = () => {
     const handleAutoLayoutClick = async () => {
-      if (
-        isExecuting ||
-        isDebugging ||
-        !userPermissions.canEdit ||
-        isAutoLayouting ||
-        hasLockedBlocks
-      ) {
+      if (isExecuting || !userPermissions.canEdit || isAutoLayouting || hasLockedBlocks) {
         return
       }
 
@@ -371,12 +359,11 @@ export function ControlBar({
     }
 
     const canEdit = userPermissions.canEdit
-    const isDisabled = isExecuting || isDebugging || !canEdit || isAutoLayouting || hasLockedBlocks
+    const isDisabled = isExecuting || !canEdit || isAutoLayouting || hasLockedBlocks
 
     const getTooltipText = () => {
       if (!canEdit) return 'Admin permission required to use auto-layout'
       if (hasLockedBlocks) return 'Auto-layout is disabled when blocks are locked'
-      if (isDebugging) return 'Cannot auto-layout while debugging'
       if (isExecuting) return 'Cannot auto-layout while workflow is running'
       if (isAutoLayouting) return 'Applying auto-layout...'
       return 'Auto layout'
@@ -409,132 +396,7 @@ export function ControlBar({
             </Button>
           )}
         </TooltipTrigger>
-        <TooltipContent command={`${isDebugging ? '' : 'Shift+L'}`}>
-          {getTooltipText()}
-        </TooltipContent>
-      </Tooltip>
-    )
-  }
-
-  const handleDebugToggle = useCallback(() => {
-    if (!userPermissions.canRead) {
-      return
-    }
-
-    if (isDebugging) {
-      handleCancelDebug()
-      return
-    }
-
-    const hasExecutableBlocks = Object.values(currentBlocks).some((block) => {
-      const blockConfig = getBlock(block.type)
-      return block.enabled !== false && blockConfig?.category !== 'triggers'
-    })
-
-    if (!hasExecutableBlocks) {
-      return
-    }
-
-    if (usageExceeded) {
-      openSubscriptionSettings()
-      return
-    }
-
-    void handleRunWorkflow(undefined, true)
-  }, [
-    currentBlocks,
-    handleCancelDebug,
-    handleRunWorkflow,
-    isDebugging,
-    usageExceeded,
-    userPermissions.canRead,
-  ])
-
-  const renderDebugControlsBar = () => {
-    const pendingCount = pendingBlocks.length
-    const isControlDisabled = pendingCount === 0
-
-    const debugButtonClass = cn(
-      getIconButtonClass('bg-primary  hover:bg-primary-hover'),
-      'font-semibold transition-all duration-200',
-      'disabled:opacity-50'
-    )
-
-    return (
-      <div className='flex items-center gap-1'>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              onClick={() => void handleStepDebug()}
-              className={debugButtonClass}
-              disabled={isControlDisabled}
-            >
-              <StepForward className='h-5 w-5' />
-              <span className='sr-only'>Step Forward</span>
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>Step Forward</TooltipContent>
-        </Tooltip>
-
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              onClick={() => void handleResumeDebug()}
-              className={debugButtonClass}
-              disabled={isControlDisabled}
-            >
-              <SkipForward className='h-5 w-5' />
-              <span className='sr-only'>Resume Until End</span>
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>Resume Until End</TooltipContent>
-        </Tooltip>
-
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button onClick={handleCancelDebug} className={debugButtonClass}>
-              <X className='h-5 w-5' />
-              <span className='sr-only'>Cancel Debugging</span>
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>Cancel Debugging</TooltipContent>
-        </Tooltip>
-      </div>
-    )
-  }
-
-  const renderDebugModeToggle = () => {
-    const canDebug = userPermissions.canRead
-    const hasExecutableBlocks = Object.values(currentBlocks).some((block) => {
-      const blockConfig = getBlock(block.type)
-      return block.enabled !== false && blockConfig?.category !== 'triggers'
-    })
-
-    const isDisabled = isExecuting || !canDebug || !hasExecutableBlocks
-
-    const getTooltipText = () => {
-      if (!canDebug) return 'Read permission required to use debug mode'
-      if (!hasExecutableBlocks) return 'Add blocks to enable debug mode'
-      return isDebugging ? 'Stop debugging' : 'Start debugging'
-    }
-
-    const buttonClass = cn(getIconButtonClass(), isDebugging && 'text-yellow-500')
-
-    return (
-      <Tooltip>
-        <TooltipTrigger asChild>
-          {isDisabled ? (
-            <div className={cn(getDisabledIconButtonClass(), isDebugging && 'text-yellow-500')}>
-              <Bug className='h-4 w-4' />
-            </div>
-          ) : (
-            <Button variant='outline' onClick={handleDebugToggle} className={buttonClass}>
-              <Bug className='h-5 w-5' />
-              <span className='sr-only'>{getTooltipText()}</span>
-            </Button>
-          )}
-        </TooltipTrigger>
-        <TooltipContent>{getTooltipText()}</TooltipContent>
+        <TooltipContent command='Shift+L'>{getTooltipText()}</TooltipContent>
       </Tooltip>
     )
   }
@@ -628,9 +490,8 @@ export function ControlBar({
     <div className={containerClass}>
       {showOptionalControls && <ExportControls variant={variant} />}
       {showOptionalControls && renderAutoLayoutButton()}
-      {!isDebugging && renderDebugModeToggle()}
       {renderDeployButton()}
-      {isDebugging ? renderDebugControlsBar() : renderRunButton()}
+      {renderRunButton()}
     </div>
   )
 }

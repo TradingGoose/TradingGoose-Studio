@@ -602,7 +602,7 @@ export const useWorkflowRegistry = create<WorkflowRegistry>()(
       },
 
       // Method to get deployment status for a specific workflow
-      getWorkflowDeploymentStatus: (workflowId: string | null): DeploymentStatus | null => {
+      readWorkflowDeploymentStatus: (workflowId: string | null): DeploymentStatus | null => {
         if (!workflowId) {
           // If no workflow ID provided, check the active workflow
           workflowId = getActiveWorkflowIdFromState(get())
@@ -1138,7 +1138,7 @@ export const useWorkflowRegistry = create<WorkflowRegistry>()(
         // Get the current workflow state from the Yjs session
         const { getRegisteredWorkflowSession: getYjsSession } =
           require('@/lib/yjs/workflow-session-registry') as typeof import('@/lib/yjs/workflow-session-registry')
-        const { getWorkflowSnapshot: getYjsSnapshot } =
+        const { readWorkflowSnapshot: getYjsSnapshot } =
           require('@/lib/yjs/workflow-session') as typeof import('@/lib/yjs/workflow-session')
         const yjsSession = getYjsSession(sourceId)
         const currentWorkflowState = yjsSession?.doc ? getYjsSnapshot(yjsSession.doc) : null

@@ -4,7 +4,7 @@ import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
 import { applyWorkflowState } from '@/lib/yjs/server/apply-workflow-state'
 import { createWorkflowSnapshot } from '@/lib/yjs/workflow-session'
-import { getWorkflowAccessContext } from '@/lib/workflows/utils'
+import { readWorkflowAccessContext } from '@/lib/workflows/utils'
 
 const logger = createLogger('WorkflowApplyLiveStateAPI')
 
@@ -42,7 +42,7 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const accessContext = await getWorkflowAccessContext(workflowId, session.user.id)
+    const accessContext = await readWorkflowAccessContext(workflowId, session.user.id)
     const workflowData = accessContext?.workflow
 
     if (!workflowData) {

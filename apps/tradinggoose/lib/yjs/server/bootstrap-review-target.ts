@@ -16,7 +16,7 @@ import type {
 import { getReviewTargetRuntimeState } from '@/lib/copilot/review-sessions/runtime'
 import { seedEntitySession } from '@/lib/yjs/entity-session'
 import {
-  getMetadataMap as getWorkflowMetadataMap,
+  getMetadataMap as readWorkflowMetadataMap,
   setVariables,
   setWorkflowState,
 } from '@/lib/yjs/workflow-session'
@@ -168,7 +168,7 @@ async function bootstrapWorkflowTarget(
   setVariables(doc, ((workflowRow.variables as Record<string, any> | null) ?? {}) as Record<string, any>, 'bootstrap')
 
   doc.transact(() => {
-    getWorkflowMetadataMap(doc).set('reseededFromCanonical', true)
+    readWorkflowMetadataMap(doc).set('reseededFromCanonical', true)
   }, 'bootstrap')
 
   await persistDoc(workflowId, doc)

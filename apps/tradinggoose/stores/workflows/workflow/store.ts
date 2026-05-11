@@ -438,7 +438,7 @@ const createWorkflowStoreState =
     },
 
     // Add method to get current workflow state (eliminates duplication in diff store)
-    getWorkflowState: (): WorkflowState => {
+    readWorkflowState: (): WorkflowState => {
       const state = get()
       return {
         blocks: state.blocks,
@@ -957,7 +957,7 @@ const createWorkflowStoreState =
       // Preserving the workflow-specific deployment status if it exists
       const deploymentStatus = useWorkflowRegistry
         .getState()
-        .getWorkflowDeploymentStatus(activeWorkflowId)
+        .readWorkflowDeploymentStatus(activeWorkflowId)
 
       const newState = {
         blocks: deployedState.blocks,
@@ -1254,7 +1254,7 @@ const getStoreForWorkflow = (channelKey: string, workflowId: string) => {
   return workflowStoreByWorkflowId.get(bindingKey)!
 }
 
-export const getWorkflowStoreForChannel = (channelId?: string, workflowId?: string) => {
+export const readWorkflowStoreForChannel = (channelId?: string, workflowId?: string) => {
   const key = resolveChannelKey(channelId)
 
   if (workflowId) {
@@ -1273,20 +1273,20 @@ export const getWorkflowStoreForChannel = (channelId?: string, workflowId?: stri
   return workflowStoreMap.get(key)!
 }
 
-export const getWorkflowStoreState = (channelId?: string) =>
-  getWorkflowStoreForChannel(channelId).getState()
+export const readWorkflowStoreState = (channelId?: string) =>
+  readWorkflowStoreForChannel(channelId).getState()
 
 export const setWorkflowStoreState = (
   partial: Parameters<StoreApi<WorkflowStore>['setState']>[0],
   channelId?: string,
   replace?: Parameters<StoreApi<WorkflowStore>['setState']>[1],
   workflowId?: string
-) => getWorkflowStoreForChannel(channelId, workflowId).setState(partial as any, replace)
+) => readWorkflowStoreForChannel(channelId, workflowId).setState(partial as any, replace)
 
 export const subscribeToWorkflowStore = (
   listener: Parameters<StoreApi<WorkflowStore>['subscribe']>[0],
   channelId?: string
-) => getWorkflowStoreForChannel(channelId).subscribe(listener)
+) => readWorkflowStoreForChannel(channelId).subscribe(listener)
 
 type SetStateParam = Parameters<StoreApi<WorkflowStore>['setState']>[0]
 type SetStateReplace = Parameters<StoreApi<WorkflowStore>['setState']>[1]
@@ -1305,7 +1305,7 @@ type WorkflowStoreAccessor = {
 }
 
 export const useWorkflowStore: WorkflowStoreAccessor = {
-  getState: (channelId) => getWorkflowStoreState(channelId),
+  getState: (channelId) => readWorkflowStoreState(channelId),
   setState: (partial, replace) => setWorkflowStoreState(partial, undefined, replace),
   setStateForChannel: (partial, channelId, replace, workflowId) =>
     setWorkflowStoreState(partial, channelId, replace, workflowId),

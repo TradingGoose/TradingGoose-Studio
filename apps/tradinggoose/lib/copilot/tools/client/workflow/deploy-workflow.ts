@@ -4,8 +4,8 @@ import {
   type BaseClientToolMetadata,
   ClientToolCallState,
 } from '@/lib/copilot/tools/client/base-tool'
-import { createLogger } from '@/lib/logs/console/logger'
 import { resolveWorkflowTarget } from '@/lib/copilot/tools/client/workflow/workflow-review-tool-utils'
+import { createLogger } from '@/lib/logs/console/logger'
 import { getInputFormatExample } from '@/lib/workflows/operations/deployment-utils'
 import { getCopilotStoreForToolCall } from '@/stores/copilot/store-access'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
@@ -37,7 +37,7 @@ export class DeployWorkflowClientTool extends BaseClientTool {
     // Check if workflow is already deployed
     const workflowId = params?.workflowId?.trim()
     const isAlreadyDeployed = workflowId
-      ? useWorkflowRegistry.getState().getWorkflowDeploymentStatus(workflowId)?.isDeployed
+      ? useWorkflowRegistry.getState().readWorkflowDeploymentStatus(workflowId)?.isDeployed
       : false
 
     let buttonText = action.charAt(0).toUpperCase() + action.slice(1)
@@ -85,7 +85,7 @@ export class DeployWorkflowClientTool extends BaseClientTool {
       // Check if workflow is already deployed
       const workflowId = params?.workflowId
       const isAlreadyDeployed = workflowId
-        ? useWorkflowRegistry.getState().getWorkflowDeploymentStatus(workflowId)?.isDeployed
+        ? useWorkflowRegistry.getState().readWorkflowDeploymentStatus(workflowId)?.isDeployed
         : false
 
       // Determine action text based on deployment status
@@ -270,7 +270,7 @@ export class DeployWorkflowClientTool extends BaseClientTool {
         const apiKeyPlaceholder = '$TRADINGGOOSE_API_KEY'
 
         // Get input format example (returns empty string if no inputs, or -d flag with example data)
-        const inputExample = getInputFormatExample(false, [], workflowId)
+        const inputExample = getInputFormatExample(workflowId)
 
         // Match the exact format from deploy modal
         const curlCommand = `curl -X POST -H "X-API-Key: ${apiKeyPlaceholder}" -H "Content-Type: application/json"${inputExample} ${endpoint}`

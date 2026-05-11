@@ -5,11 +5,13 @@ import { and, asc, eq, inArray, lte, sql } from 'drizzle-orm'
 import { isBillingEnabledForRuntime } from '@/lib/billing/settings'
 import type { BillingTierRecord } from '@/lib/billing/tiers'
 import { resolveServerExecutionBillingContext } from '@/lib/execution/execution-concurrency-limit'
+import { appendWorkflowExecutionEventToPayload } from '@/lib/execution/workflow-execution-events'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getTriggerExecutionState } from '@/lib/trigger/settings'
 
 export const PENDING_EXECUTION_DRAIN_TASK_ID = 'pending-execution-drain'
 export const PENDING_EXECUTION_RETRY_DELAY_MS = 15_000
+export const WORKFLOW_EXECUTION_CANCELLED_ERROR = 'Workflow execution was cancelled'
 
 const CLAIM_ATTEMPT_LIMIT = 5
 const STALE_PROCESSING_WINDOW_MS = 30 * 60 * 1000
@@ -69,6 +71,12 @@ type PendingExecutionRow = {
 export type PendingExecutionClaim = PendingExecutionRow & {
   payload: PendingExecutionPayload
 }
+
+export type PendingExecutionCancellationResult =
+  | { status: 'not_found' }
+  | { status: 'cancelled' }
+  | { status: 'cancelling' }
+  | { status: 'finished' }
 
 export class PendingExecutionLimitError extends Error {
   statusCode = 429
@@ -357,6 +365,126 @@ export async function retryPendingExecution(params: {
       updatedAt: new Date(),
     })
     .where(eq(pendingExecution.id, params.pendingExecutionId))
+}
+
+function withCancellationRequest(payload: unknown, cancelledAt: string): PendingExecutionPayload {
+  return {
+    ...(isPendingExecutionPayload(payload) ? payload : {}),
+    cancelRequestedAt: cancelledAt,
+  }
+}
+
+export async function isPendingWorkflowExecutionCancellationRequested(
+  pendingExecutionId: string,
+) {
+  const [row] = await db
+    .select({
+      status: pendingExecution.status,
+      payload: pendingExecution.payload,
+      errorMessage: pendingExecution.errorMessage,
+    })
+    .from(pendingExecution)
+    .where(eq(pendingExecution.id, pendingExecutionId))
+    .limit(1)
+
+  if (!row) return false
+  if (row.status === 'failed' && row.errorMessage === WORKFLOW_EXECUTION_CANCELLED_ERROR) {
+    return true
+  }
+
+  const payload = isPendingExecutionPayload(row.payload) ? row.payload : {}
+  return typeof payload.cancelRequestedAt === 'string'
+}
+
+export async function cancelPendingWorkflowExecution(params: {
+  pendingExecutionId: string
+  userId: string
+}): Promise<PendingExecutionCancellationResult> {
+  const [row] = await db
+    .select({
+      id: pendingExecution.id,
+      status: pendingExecution.status,
+      payload: pendingExecution.payload,
+      workflowId: pendingExecution.workflowId,
+    })
+    .from(pendingExecution)
+    .where(
+      and(
+        eq(pendingExecution.id, params.pendingExecutionId),
+        eq(pendingExecution.userId, params.userId),
+        eq(pendingExecution.executionType, 'workflow'),
+      ),
+    )
+    .limit(1)
+
+  if (!row || !row.workflowId) {
+    return { status: 'not_found' }
+  }
+
+  if (row.status === 'completed' || row.status === 'failed') {
+    return { status: 'finished' }
+  }
+
+  const cancelledAt = new Date().toISOString()
+  const payload = withCancellationRequest(row.payload, cancelledAt)
+
+  if (row.status === 'pending') {
+    const result = {
+      success: false,
+      output: {},
+      error: WORKFLOW_EXECUTION_CANCELLED_ERROR,
+      logs: [],
+      workflowId: row.workflowId,
+      executionId: row.id,
+      executedAt: cancelledAt,
+    }
+    const { payload: cancelledPayload } = appendWorkflowExecutionEventToPayload({
+      payload,
+      pendingExecutionId: row.id,
+      workflowId: row.workflowId,
+      input: {
+        type: 'execution:cancelled',
+        timestamp: cancelledAt,
+        data: { result },
+      },
+    })
+
+    await db
+      .update(pendingExecution)
+      .set({
+        status: 'failed',
+        payload: cancelledPayload,
+        errorMessage: WORKFLOW_EXECUTION_CANCELLED_ERROR,
+        result,
+        processingStartedAt: null,
+        completedAt: new Date(cancelledAt),
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(pendingExecution.id, row.id),
+          eq(pendingExecution.status, 'pending'),
+        ),
+      )
+
+    return { status: 'cancelled' }
+  }
+
+  await db
+    .update(pendingExecution)
+    .set({
+      payload,
+      errorMessage: WORKFLOW_EXECUTION_CANCELLED_ERROR,
+      updatedAt: new Date(),
+    })
+    .where(
+      and(
+        eq(pendingExecution.id, row.id),
+        eq(pendingExecution.status, 'processing'),
+      ),
+    )
+
+  return { status: 'cancelling' }
 }
 
 export async function failPendingExecution(params: {

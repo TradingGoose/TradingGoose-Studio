@@ -6,11 +6,11 @@ import { NextRequest } from 'next/server'
 
 const {
   checkSessionOrInternalAuthMock,
-  getWorkflowAccessContextMock,
+  readWorkflowAccessContextMock,
   enqueuePendingExecutionMock,
 } = vi.hoisted(() => ({
   checkSessionOrInternalAuthMock: vi.fn(),
-  getWorkflowAccessContextMock: vi.fn(),
+  readWorkflowAccessContextMock: vi.fn(),
   enqueuePendingExecutionMock: vi.fn(),
 }))
 
@@ -19,7 +19,7 @@ vi.mock('@/lib/auth/hybrid', () => ({
 }))
 
 vi.mock('@/lib/workflows/utils', () => ({
-  getWorkflowAccessContext: getWorkflowAccessContextMock,
+  readWorkflowAccessContext: readWorkflowAccessContextMock,
 }))
 
 vi.mock('@/lib/execution/pending-execution', () => ({
@@ -53,7 +53,7 @@ describe('POST /api/workflows/[id]/queue', () => {
       userId: 'user-1',
       authType: 'session',
     })
-    getWorkflowAccessContextMock.mockResolvedValue({
+    readWorkflowAccessContextMock.mockResolvedValue({
       workflow: {
         id: 'workflow-1',
         name: 'Child Workflow',
@@ -85,7 +85,18 @@ describe('POST /api/workflows/[id]/queue', () => {
     })
   })
 
-  it('queues a child workflow execution for an authenticated session', async () => {
+  it('does not let read-only session callers spoof child workflow execution metadata', async () => {
+    readWorkflowAccessContextMock.mockResolvedValue({
+      workflow: {
+        id: 'workflow-1',
+        name: 'Child Workflow',
+        workspaceId: 'workspace-1',
+        isDeployed: true,
+      },
+      isOwner: false,
+      workspacePermission: 'read',
+    })
+
     const response = await POST(
       new NextRequest('http://localhost/api/workflows/workflow-1/queue', {
         method: 'POST',
@@ -100,6 +111,43 @@ describe('POST /api/workflows/[id]/queue', () => {
         }),
         headers: {
           'Content-Type': 'application/json',
+        },
+      }),
+      {
+        params: Promise.resolve({ id: 'workflow-1' }),
+      }
+    )
+
+    expect(response.status).toBe(403)
+    await expect(response.json()).resolves.toEqual({ error: 'Unauthorized' })
+    expect(enqueuePendingExecutionMock).not.toHaveBeenCalled()
+  })
+
+  it('queues a child workflow execution authenticated with an internal JWT', async () => {
+    checkSessionOrInternalAuthMock.mockResolvedValue({
+      success: true,
+      userId: 'user-1',
+      authType: 'internal_jwt',
+      internalWorkflowExecution: {
+        source: 'workflow_block',
+        parentWorkflowId: 'parent-1',
+        parentExecutionId: 'execution-1',
+        parentBlockId: 'block-1',
+      },
+    })
+
+    const response = await POST(
+      new NextRequest('http://localhost/api/workflows/workflow-1/queue', {
+        method: 'POST',
+        body: JSON.stringify({
+          input: { symbol: 'AAPL' },
+          executionTarget: 'live',
+          triggerType: 'manual',
+          workflowDepth: 2,
+        }),
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: 'Bearer internal-token',
         },
       }),
       {
@@ -132,6 +180,7 @@ describe('POST /api/workflows/[id]/queue', () => {
     await expect(response.json()).resolves.toEqual({
       success: true,
       taskId: 'pending-1',
+      executionId: expect.any(String),
       workflowName: 'Child Workflow',
       status: 'queued',
       createdAt: expect.any(String),
@@ -141,24 +190,30 @@ describe('POST /api/workflows/[id]/queue', () => {
     })
   })
 
-  it('still accepts internal workflow calls authenticated with an internal JWT', async () => {
-    checkSessionOrInternalAuthMock.mockResolvedValue({
-      success: true,
-      userId: 'user-1',
-      authType: 'internal_jwt',
-    })
+  it('queues editor live executions with the canonical workflow payload', async () => {
+    const workflowData = {
+      blocks: {
+        'trigger-1': { id: 'trigger-1', type: 'manual_trigger' },
+      },
+      edges: [],
+      loops: {},
+      parallels: {},
+    }
 
     const response = await POST(
       new NextRequest('http://localhost/api/workflows/workflow-1/queue', {
         method: 'POST',
         body: JSON.stringify({
-          input: { symbol: 'MSFT' },
+          executionId: 'execution-1',
+          input: { symbol: 'AAPL' },
           executionTarget: 'live',
-          parentBlockId: 'block-1',
+          triggerType: 'manual',
+          workflowData,
+          workflowVariables: { risk: { value: 1 } },
+          startBlockId: 'trigger-1',
         }),
         headers: {
           'Content-Type': 'application/json',
-          Authorization: 'Bearer internal-token',
         },
       }),
       {
@@ -169,9 +224,17 @@ describe('POST /api/workflows/[id]/queue', () => {
     expect(response.status).toBe(202)
     expect(enqueuePendingExecutionMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        userId: 'user-1',
-        source: 'workflow_block',
-      }),
+        pendingExecutionId: 'execution-1',
+        source: 'workflow_queue',
+        payload: expect.objectContaining({
+          executionId: 'execution-1',
+          input: { symbol: 'AAPL' },
+          executionTarget: 'live',
+          workflowData,
+          workflowVariables: { risk: { value: 1 } },
+          startBlockId: 'trigger-1',
+        }),
+      })
     )
   })
 })
