@@ -1,8 +1,9 @@
 /**
  * @vitest-environment node
  */
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+
 import { NextRequest } from 'next/server'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const {
   addCorsHeadersMock,
@@ -140,7 +141,10 @@ describe('/api/chat/[identifier]', () => {
       title: 'Market Chat',
       description: 'Chat description',
       customizations: { welcomeMessage: 'Welcome' },
-      outputConfigs: [{ blockId: 'agent-1', path: 'content' }],
+      outputConfigs: [
+        { blockId: 'agent-1', path: 'content' },
+        { blockId: 'agent-1', path: 'summary' },
+      ],
     })
     workflowRows.push({
       isDeployed: true,
@@ -156,21 +160,47 @@ describe('/api/chat/[identifier]', () => {
         {
           eventId: 1,
           event: {
-            type: 'execution:completed',
+            type: 'stream:chunk',
             executionId: 'chat-execution-1',
             workflowId: 'workflow-1',
             timestamp: new Date().toISOString(),
             eventId: 1,
             data: {
+              blockId: 'agent-1',
+              chunk: 'streamed content',
+            },
+          },
+        },
+        {
+          eventId: 2,
+          event: {
+            type: 'block:completed',
+            executionId: 'chat-execution-1',
+            workflowId: 'workflow-1',
+            timestamp: new Date().toISOString(),
+            eventId: 2,
+            data: {
+              blockId: 'agent-1',
+              output: {
+                content: 'streamed content',
+                summary: 'completed summary',
+              },
+            },
+          },
+        },
+        {
+          eventId: 3,
+          event: {
+            type: 'execution:completed',
+            executionId: 'chat-execution-1',
+            workflowId: 'workflow-1',
+            timestamp: new Date().toISOString(),
+            eventId: 3,
+            data: {
               result: {
                 success: true,
-                output: { content: 'Hello from queued chat' },
-                logs: [
-                  {
-                    blockId: 'agent-1',
-                    output: { content: 'Selected queued chat output' },
-                  },
-                ],
+                output: {},
+                logs: [],
               },
             },
           },
@@ -188,10 +218,9 @@ describe('/api/chat/[identifier]', () => {
 
   it('returns chat metadata for a valid identifier', async () => {
     const { GET } = await import('./route')
-    const response = await GET(
-      new NextRequest('https://example.com/api/chat/test-chat'),
-      { params: Promise.resolve({ identifier: 'test-chat' }) }
-    )
+    const response = await GET(new NextRequest('https://example.com/api/chat/test-chat'), {
+      params: Promise.resolve({ identifier: 'test-chat' }),
+    })
 
     expect(response.status).toBe(200)
     await expect(response.json()).resolves.toMatchObject({
@@ -238,10 +267,10 @@ describe('/api/chat/[identifier]', () => {
       })
     )
 
-    const reader = response.body!.getReader()
-    const chunk = new TextDecoder().decode((await reader.read()).value)
-    reader.releaseLock()
-    expect(chunk).toContain('Selected queued chat output')
+    const body = await response.text()
+
+    expect(body).toContain('streamed content')
+    expect(body).toContain('completed summary')
   })
 
   it('requires a pinned API key owner for queued chat execution attribution', async () => {

@@ -1,6 +1,6 @@
 import { db } from '@tradinggoose/db'
 import { pendingExecution } from '@tradinggoose/db/schema'
-import { and, eq } from 'drizzle-orm'
+import { and, eq, sql } from 'drizzle-orm'
 import type {
   WorkflowExecutionEvent,
   WorkflowExecutionEventEntry,
@@ -84,38 +84,42 @@ export async function createWorkflowExecutionEventWriter(params: {
     throw new Error(`Pending workflow execution ${params.pendingExecutionId} was not found`)
   }
 
-  const write = async (input: WorkflowExecutionEventInput): Promise<WorkflowExecutionEventEntry> => {
-    const [latestRow] = await db
-      .select({
-        payload: pendingExecution.payload,
+  let nextEventId =
+    readPayloadEvents(row.payload).reduce((max, entry) => Math.max(max, entry.eventId), 0) + 1
+
+  const write = async (
+    input: WorkflowExecutionEventInput
+  ): Promise<WorkflowExecutionEventEntry> => {
+    const eventId = nextEventId++
+    const event = {
+      ...input,
+      executionId: params.pendingExecutionId,
+      workflowId: params.workflowId,
+      timestamp: input.timestamp ?? new Date().toISOString(),
+      eventId,
+    } as WorkflowExecutionEvent
+    const entry = { eventId, event }
+
+    await db
+      .update(pendingExecution)
+      .set({
+        payload: sql`
+          jsonb_set(
+            coalesce(${pendingExecution.payload}, '{}'::jsonb),
+            '{executionEvents}',
+            coalesce(${pendingExecution.payload}->'executionEvents', '[]'::jsonb)
+              || ${JSON.stringify([entry])}::jsonb,
+            true
+          )
+        `,
+        updatedAt: new Date(),
       })
-      .from(pendingExecution)
       .where(
         and(
           eq(pendingExecution.id, params.pendingExecutionId),
           eq(pendingExecution.workflowId, params.workflowId)
         )
       )
-      .limit(1)
-
-    if (!latestRow) {
-      throw new Error(`Pending workflow execution ${params.pendingExecutionId} was not found`)
-    }
-
-    const { payload, entry } = appendWorkflowExecutionEventToPayload({
-      payload: latestRow.payload,
-      pendingExecutionId: params.pendingExecutionId,
-      workflowId: params.workflowId,
-      input,
-    })
-
-    await db
-      .update(pendingExecution)
-      .set({
-        payload,
-        updatedAt: new Date(),
-      })
-      .where(eq(pendingExecution.id, params.pendingExecutionId))
 
     return entry
   }

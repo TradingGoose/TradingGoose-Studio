@@ -9,7 +9,6 @@ import {
 } from '@/lib/execution/pending-execution'
 import { readWorkflowExecutionEventState } from '@/lib/execution/workflow-execution-events'
 import { createLogger } from '@/lib/logs/console/logger'
-import { isExecutionResult } from '@/lib/workflows/execution-result'
 import {
   extractBlockIdFromOutputId,
   extractPathFromOutputId,
@@ -18,17 +17,15 @@ import {
 import { TriggerExecutionUnavailableError } from '@/lib/trigger/settings'
 import { ChatFiles } from '@/lib/uploads'
 import { encodeSSE, generateRequestId, SSE_HEADERS } from '@/lib/utils'
-import type { BlockLog, ExecutionResult } from '@/executor/types'
+import { isExecutionResult } from '@/lib/workflows/execution-result'
 import {
   addCorsHeaders,
   setChatAuthCookie,
   validateAuthToken,
   validateChatAuth,
 } from '@/app/api/chat/utils'
-import {
-  createErrorResponse,
-  createSuccessResponse,
-} from '@/app/api/workflows/utils'
+import { createErrorResponse, createSuccessResponse } from '@/app/api/workflows/utils'
+import type { BlockLog, ExecutionResult } from '@/executor/types'
 
 const logger = createLogger('ChatIdentifierAPI')
 const CHAT_QUEUE_POLL_INTERVAL_MS = 500
@@ -67,24 +64,30 @@ function selectedOutputsForBlock(selectedOutputs: string[], blockId: string) {
   return selectedOutputs.filter((outputId) => extractBlockIdFromOutputId(outputId) === blockId)
 }
 
+function isStreamedOutput(outputId: string, blockId: string) {
+  const path = extractPathFromOutputId(outputId, blockId)
+  return !path || path === 'content'
+}
+
 function canStreamSelectedBlock(selectedOutputs: string[], blockId: string) {
   if (selectedOutputs.length === 0) return true
-  return selectedOutputsForBlock(selectedOutputs, blockId).some((outputId) => {
-    const path = extractPathFromOutputId(outputId, blockId)
-    return !path || path === 'content'
-  })
+  return selectedOutputsForBlock(selectedOutputs, blockId).some((outputId) =>
+    isStreamedOutput(outputId, blockId)
+  )
 }
 
 function resolveSelectedBlockOutput(params: {
   blockId: string
   output: unknown
   selectedOutputs: string[]
+  skipStreamedOutput?: boolean
 }) {
   if (params.selectedOutputs.length === 0) {
-    return formatChatContent(params.output)
+    return params.skipStreamedOutput ? '' : formatChatContent(params.output)
   }
 
   return selectedOutputsForBlock(params.selectedOutputs, params.blockId)
+    .filter((outputId) => !params.skipStreamedOutput || !isStreamedOutput(outputId, params.blockId))
     .map((outputId) => {
       const path = extractPathFromOutputId(outputId, params.blockId)
       const value = path ? traverseObjectPath(params.output, path) : params.output
@@ -137,16 +140,15 @@ function createQueuedChatStream(params: {
             }
 
             if (event.type === 'block:completed') {
-              if (!streamedBlocks.has(event.data.blockId)) {
-                const content = resolveSelectedBlockOutput({
-                  blockId: event.data.blockId,
-                  output: event.data.output,
-                  selectedOutputs: params.selectedOutputs,
-                })
-                if (content) {
-                  emittedContent = true
-                  controller.enqueue(encodeSSE({ blockId: event.data.blockId, chunk: content }))
-                }
+              const content = resolveSelectedBlockOutput({
+                blockId: event.data.blockId,
+                output: event.data.output,
+                selectedOutputs: params.selectedOutputs,
+                skipStreamedOutput: streamedBlocks.has(event.data.blockId),
+              })
+              if (content) {
+                emittedContent = true
+                controller.enqueue(encodeSSE({ blockId: event.data.blockId, chunk: content }))
               }
               continue
             }
@@ -221,25 +223,20 @@ function createQueuedChatStream(params: {
 // This endpoint handles chat interactions via the identifier
 export async function POST(
   request: NextRequest,
-  { params }: { params: Promise<{ identifier: string }> },
+  { params }: { params: Promise<{ identifier: string }> }
 ) {
   const { identifier } = await params
   const requestId = generateRequestId()
 
   try {
-    logger.debug(
-      `[${requestId}] Processing chat request for identifier: ${identifier}`,
-    )
+    logger.debug(`[${requestId}] Processing chat request for identifier: ${identifier}`)
 
     // Parse the request body once
     let parsedBody
     try {
       parsedBody = await request.json()
     } catch (_error) {
-      return addCorsHeaders(
-        createErrorResponse('Invalid request body', 400),
-        request,
-      )
+      return addCorsHeaders(createErrorResponse('Invalid request body', 400), request)
     }
 
     // Find the chat deployment for this identifier
@@ -268,23 +265,15 @@ export async function POST(
     // Check if the chat is active
     if (!deployment.isActive) {
       logger.warn(`[${requestId}] Chat is not active: ${identifier}`)
-      return addCorsHeaders(
-        createErrorResponse('This chat is currently unavailable', 403),
-        request,
-      )
+      return addCorsHeaders(createErrorResponse('This chat is currently unavailable', 403), request)
     }
 
     // Validate authentication with the parsed body
-    const authResult = await validateChatAuth(
-      requestId,
-      deployment,
-      request,
-      parsedBody,
-    )
+    const authResult = await validateChatAuth(requestId, deployment, request, parsedBody)
     if (!authResult.authorized) {
       return addCorsHeaders(
         createErrorResponse(authResult.error || 'Authentication required', 401),
-        request,
+        request
       )
     }
 
@@ -294,10 +283,7 @@ export async function POST(
     // If this is an authentication request (has password or email but no input),
     // set auth cookie and return success
     if ((password || email) && !input) {
-      const response = addCorsHeaders(
-        createSuccessResponse({ authenticated: true }),
-        request,
-      )
+      const response = addCorsHeaders(createSuccessResponse({ authenticated: true }), request)
 
       // Set authentication cookie
       setChatAuthCookie(response, deployment.id, deployment.authType)
@@ -307,10 +293,7 @@ export async function POST(
 
     // For chat messages, create regular response (allow empty input if files are present)
     if (!input && (!files || files.length === 0)) {
-      return addCorsHeaders(
-        createErrorResponse('No input provided', 400),
-        request,
-      )
+      return addCorsHeaders(createErrorResponse('No input provided', 400), request)
     }
 
     // Get the workflow for this chat
@@ -326,28 +309,21 @@ export async function POST(
       .limit(1)
 
     if (workflowResult.length === 0 || !workflowResult[0].isDeployed) {
-      logger.warn(
-        `[${requestId}] Workflow not found or not deployed: ${deployment.workflowId}`,
-      )
-      return addCorsHeaders(
-        createErrorResponse('Chat workflow is not available', 503),
-        request,
-      )
+      logger.warn(`[${requestId}] Workflow not found or not deployed: ${deployment.workflowId}`)
+      return addCorsHeaders(createErrorResponse('Chat workflow is not available', 503), request)
     }
 
-    const executingUserId = await getApiKeyOwnerUserId(
-      workflowResult[0].pinnedApiKeyId,
-    )
+    const executingUserId = await getApiKeyOwnerUserId(workflowResult[0].pinnedApiKeyId)
     if (!executingUserId) {
       logger.warn(
-        `[${requestId}] Chat deployment missing valid pinned API key for billing attribution: ${deployment.workflowId}`,
+        `[${requestId}] Chat deployment missing valid pinned API key for billing attribution: ${deployment.workflowId}`
       )
       return addCorsHeaders(
         createErrorResponse(
           'API key is required. Please create or select an API key before deploying.',
-          503,
+          503
         ),
-        request,
+        request
       )
     }
 
@@ -367,13 +343,8 @@ export async function POST(
       const workspaceId = workflowResult[0].workspaceId
 
       if (!workspaceId) {
-        logger.warn(
-          `[${requestId}] Chat workflow is missing a workspace: ${deployment.workflowId}`,
-        )
-        return addCorsHeaders(
-          createErrorResponse('Chat workflow is not available', 503),
-          request,
-        )
+        logger.warn(`[${requestId}] Chat workflow is missing a workspace: ${deployment.workflowId}`)
+        return addCorsHeaders(createErrorResponse('Chat workflow is not available', 503), request)
       }
 
       const workflowInput: any = { input, conversationId }
@@ -386,17 +357,11 @@ export async function POST(
           executionId,
         }
 
-        const uploadedFiles = await ChatFiles.processChatFiles(
-          files,
-          executionContext,
-          requestId,
-        )
+        const uploadedFiles = await ChatFiles.processChatFiles(files, executionContext, requestId)
 
         if (uploadedFiles.length > 0) {
           workflowInput.files = uploadedFiles
-          logger.info(
-            `[${requestId}] Successfully processed ${uploadedFiles.length} files`,
-          )
+          logger.info(`[${requestId}] Successfully processed ${uploadedFiles.length} files`)
         }
       }
 
@@ -454,14 +419,14 @@ export async function POST(
       logger.error(`[${requestId}] Error processing chat request:`, error)
       return addCorsHeaders(
         createErrorResponse(error.message || 'Failed to process request', 500),
-        request,
+        request
       )
     }
   } catch (error: any) {
     logger.error(`[${requestId}] Error processing chat request:`, error)
     return addCorsHeaders(
       createErrorResponse(error.message || 'Failed to process request', 500),
-      request,
+      request
     )
   }
 }
@@ -469,15 +434,13 @@ export async function POST(
 // This endpoint returns information about the chat
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ identifier: string }> },
+  { params }: { params: Promise<{ identifier: string }> }
 ) {
   const { identifier } = await params
   const requestId = generateRequestId()
 
   try {
-    logger.debug(
-      `[${requestId}] Fetching chat info for identifier: ${identifier}`,
-    )
+    logger.debug(`[${requestId}] Fetching chat info for identifier: ${identifier}`)
 
     // Find the chat deployment for this identifier
     const deploymentResult = await db
@@ -507,10 +470,7 @@ export async function GET(
     // Check if the chat is active
     if (!deployment.isActive) {
       logger.warn(`[${requestId}] Chat is not active: ${identifier}`)
-      return addCorsHeaders(
-        createErrorResponse('This chat is currently unavailable', 403),
-        request,
-      )
+      return addCorsHeaders(createErrorResponse('This chat is currently unavailable', 403), request)
     }
 
     // Check for auth cookie first
@@ -532,7 +492,7 @@ export async function GET(
           authType: deployment.authType,
           outputConfigs: deployment.outputConfigs,
         }),
-        request,
+        request
       )
     }
 
@@ -540,11 +500,11 @@ export async function GET(
     const authResult = await validateChatAuth(requestId, deployment, request)
     if (!authResult.authorized) {
       logger.info(
-        `[${requestId}] Authentication required for chat: ${identifier}, type: ${deployment.authType}`,
+        `[${requestId}] Authentication required for chat: ${identifier}, type: ${deployment.authType}`
       )
       return addCorsHeaders(
         createErrorResponse(authResult.error || 'Authentication required', 401),
-        request,
+        request
       )
     }
 
@@ -558,16 +518,13 @@ export async function GET(
         authType: deployment.authType,
         outputConfigs: deployment.outputConfigs,
       }),
-      request,
+      request
     )
   } catch (error: any) {
     logger.error(`[${requestId}] Error fetching chat info:`, error)
     return addCorsHeaders(
-      createErrorResponse(
-        error.message || 'Failed to fetch chat information',
-        500,
-      ),
-      request,
+      createErrorResponse(error.message || 'Failed to fetch chat information', 500),
+      request
     )
   }
 }
