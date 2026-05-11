@@ -7,9 +7,12 @@ import { checkWorkspaceAccess } from '@/lib/permissions/utils'
 import { generateRequestId } from '@/lib/utils'
 import { resolveTradingProviderContext } from '@/app/api/providers/trading/shared'
 import { executeTradingProviderOrderDetailRequest } from '@/providers/trading'
-import { getTradingProviderOAuthServiceIdForEnvironment } from '@/providers/trading/providers'
 import type { TradingOrderDetailInput, TradingOrderHistoryRecord } from '@/providers/trading/types'
-import { readOrderAccountId } from '../../order-record-utils'
+import {
+  readOrderAccountId,
+  readOrderCredentialId,
+  readOrderCredentialServiceId,
+} from '../../order-record-utils'
 
 const logger = createLogger('OrderProviderDetailAPI')
 
@@ -38,9 +41,6 @@ export async function POST(
       return NextResponse.json({ error: 'Not found' }, { status: 404 })
     }
 
-    const body = (await request.json().catch(() => ({}))) as {
-      provider?: string
-    }
     const { orderId } = await params
     const [order] = await db
       .select()
@@ -52,15 +52,6 @@ export async function POST(
       return NextResponse.json({ error: 'Not found' }, { status: 404 })
     }
 
-    if (body.provider && body.provider !== order.provider) {
-      return NextResponse.json(
-        {
-          error: `Provided provider "${body.provider}" does not match the order provider "${order.provider}".`,
-        },
-        { status: 400 }
-      )
-    }
-
     if (order.provider === 'tradier' && !readOrderAccountId(order)) {
       return NextResponse.json(
         { error: 'Tradier order history record is missing accountId' },
@@ -68,12 +59,20 @@ export async function POST(
       )
     }
 
+    const credentialId = readOrderCredentialId(order)
+    const credentialServiceId = readOrderCredentialServiceId(order)
+    if (!credentialId || !credentialServiceId) {
+      return NextResponse.json(
+        { error: 'Order history record is missing trading credential context' },
+        { status: 400 }
+      )
+    }
+
     const baseContext = await resolveTradingProviderContext({
       requestData: {
         provider: order.provider,
-        credentialServiceId:
-          getTradingProviderOAuthServiceIdForEnvironment(order.provider, order.environment) ??
-          undefined,
+        credentialId,
+        credentialServiceId,
       },
       requestId,
       userId: auth.userId,

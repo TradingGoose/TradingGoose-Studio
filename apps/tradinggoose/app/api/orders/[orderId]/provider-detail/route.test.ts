@@ -6,7 +6,6 @@ import { NextRequest } from 'next/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { resolveTradingProviderContext } from '@/app/api/providers/trading/shared'
 import { executeTradingProviderOrderDetailRequest } from '@/providers/trading'
-import { getTradingProviderOAuthServiceIdForEnvironment } from '@/providers/trading/providers'
 
 const mocks = vi.hoisted(() => {
   const resultsQueue: unknown[][] = []
@@ -107,10 +106,6 @@ vi.mock('@/providers/trading', () => ({
   executeTradingProviderOrderDetailRequest: vi.fn(),
 }))
 
-vi.mock('@/providers/trading/providers', () => ({
-  getTradingProviderOAuthServiceIdForEnvironment: vi.fn(),
-}))
-
 const orderRow = {
   id: 'order-1',
   workspaceId: 'workspace-1',
@@ -120,7 +115,12 @@ const orderRow = {
   submissionSource: 'workflow',
   logId: 'log-1',
   listingIdentity: { listing_type: 'stock', listing_id: 'AAPL' },
-  request: { accountId: 'account-1', side: 'buy' },
+  request: {
+    accountId: 'account-1',
+    credentialId: 'credential-1',
+    credentialServiceId: 'alpaca-paper',
+    side: 'buy',
+  },
   response: { orderId: 'provider-order-1' },
   normalizedOrder: { symbol: 'AAPL', status: 'filled' },
 }
@@ -137,7 +137,6 @@ describe('order provider detail route', () => {
       environment: 'paper',
       provider: 'alpaca',
     } as any)
-    vi.mocked(getTradingProviderOAuthServiceIdForEnvironment).mockReturnValue('alpaca-paper')
     vi.mocked(executeTradingProviderOrderDetailRequest).mockResolvedValue({
       providerOrderId: 'provider-order-1',
       orderDetail: { status: 'filled' },
@@ -151,13 +150,7 @@ describe('order provider detail route', () => {
     const response = await POST(
       new NextRequest(
         'http://localhost/api/orders/order-1/provider-detail?workspaceId=workspace-1',
-        {
-          body: JSON.stringify({
-            provider: 'alpaca',
-          }),
-          headers: { 'Content-Type': 'application/json' },
-          method: 'POST',
-        }
+        { method: 'POST' }
       ),
       { params: Promise.resolve({ orderId: 'order-1' }) }
     )
@@ -171,6 +164,7 @@ describe('order provider detail route', () => {
     expect(mocks.eq).toHaveBeenCalledWith('orderHistoryTable.workspaceId', 'workspace-1')
     expect(resolveTradingProviderContext).toHaveBeenCalledWith({
       requestData: {
+        credentialId: 'credential-1',
         credentialServiceId: 'alpaca-paper',
         provider: 'alpaca',
       },
@@ -202,5 +196,24 @@ describe('order provider detail route', () => {
         workspaceId: 'workspace-1',
       },
     })
+  })
+
+  it('rejects provider-detail refresh when the order record has no credential context', async () => {
+    mocks.resultsQueue.push([{ ...orderRow, request: { accountId: 'account-1' } }])
+    const { POST } = await import('./route')
+
+    const response = await POST(
+      new NextRequest(
+        'http://localhost/api/orders/order-1/provider-detail?workspaceId=workspace-1',
+        { method: 'POST' }
+      ),
+      { params: Promise.resolve({ orderId: 'order-1' }) }
+    )
+
+    expect(response.status).toBe(400)
+    await expect(response.json()).resolves.toEqual({
+      error: 'Order history record is missing trading credential context',
+    })
+    expect(resolveTradingProviderContext).not.toHaveBeenCalled()
   })
 })

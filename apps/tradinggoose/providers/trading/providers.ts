@@ -310,20 +310,6 @@ export function getTradingProviderOAuthEnvironment(
   return resolveTradingProviderOAuthCredentialService(providerId, serviceId)?.environment ?? null
 }
 
-export function getTradingProviderOAuthServiceIdForEnvironment(
-  providerId: TradingProviderId,
-  environment?: string | null
-) {
-  const normalizedEnvironment = environment?.trim()
-  const services = getTradingProviderOAuthCredentialServices(providerId)
-  if (!services || services.length === 0) return null
-  if (normalizedEnvironment) {
-    const service = services.find((candidate) => candidate.environment === normalizedEnvironment)
-    if (service) return service.serviceId
-  }
-  return services.length === 1 ? (services[0]?.serviceId ?? null) : null
-}
-
 export function getTradingProvidersByKind(kind: TradingOperationKind): TradingProviderDefinition[] {
   return Object.values(TRADING_PROVIDER_DEFINITIONS).filter((provider) => {
     const availability = provider.config.availability

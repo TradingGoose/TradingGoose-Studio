@@ -1,15 +1,9 @@
 import { DollarIcon } from '@/components/icons/icons'
 import type { BlockConfig } from '@/blocks/types'
 import { AuthMode } from '@/blocks/types'
-import { buildInputsFromToolParams, requiredUserOnlyInput } from '@/blocks/utils'
-import { getTradingProviders } from '@/providers/trading'
+import { buildInputsFromToolParams } from '@/blocks/utils'
 import { tradingOrderDetailTool } from '@/tools/trading/order_detail'
 import type { TradingOrderDetailResponse } from '@/tools/trading/types'
-
-const providerOptions = getTradingProviders().map((provider) => ({
-  label: provider.name,
-  id: provider.id,
-}))
 
 export const TradingOrderDetailBlock: BlockConfig<TradingOrderDetailResponse> = {
   type: 'trading_order_detail',
@@ -30,15 +24,6 @@ export const TradingOrderDetailBlock: BlockConfig<TradingOrderDetailResponse> = 
       placeholder: 'Search by order ID, symbol, ticker, quote, or date',
       required: true,
     },
-    {
-      id: 'provider',
-      title: 'Broker',
-      type: 'dropdown',
-      layout: 'full',
-      options: providerOptions,
-      required: true,
-      placeholder: 'Select the broker used for this order',
-    },
   ],
   tools: {
     access: ['trading_order_detail'],
@@ -46,14 +31,10 @@ export const TradingOrderDetailBlock: BlockConfig<TradingOrderDetailResponse> = 
       tool: () => 'trading_order_detail',
       params: (params) => ({
         orderId: params.orderId,
-        provider: params.provider,
       }),
     },
   },
-  inputs: {
-    ...buildInputsFromToolParams(tradingOrderDetailTool.params),
-    provider: requiredUserOnlyInput('string', 'Trading provider id used for this order.'),
-  },
+  inputs: buildInputsFromToolParams(tradingOrderDetailTool.params),
   outputs: {
     summary: { type: 'string', description: 'Status of order detail retrieval.' },
     provider: { type: 'string', description: 'Provider used for the order detail request.' },

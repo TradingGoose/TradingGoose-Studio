@@ -171,7 +171,7 @@ const getOrderSizingMode = (providerId: string, data: OrderRequestData) =>
   providerId === 'alpaca' ? (data.orderSizingMode ?? 'quantity') : undefined
 
 const validateTradierSizing = (data: OrderRequestData): NextResponse | null => {
-  if (data.orderSizingMode || hasNumber(data.notional)) {
+  if (data.orderSizingMode === 'notional' || hasNumber(data.notional)) {
     return errorResponse('Notional sizing is only supported for Alpaca')
   }
   return hasNumber(data.quantity) ? null : errorResponse('quantity is required')
@@ -484,6 +484,8 @@ export async function POST(request: Request) {
     logId: requestData.logId,
     listingIdentity,
     request: compactRecord({
+      credentialId: baseContext.credentialId,
+      credentialServiceId: baseContext.credentialServiceId,
       accountId: accountContext.accountId,
       side: requestData.side,
       orderType: orderTypeResult.orderType,

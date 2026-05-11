@@ -548,6 +548,8 @@ describe('Trading provider order route', () => {
         submissionSource: 'manual',
         request: expect.objectContaining({
           accountId: 'ACC-1',
+          credentialId: 'alpaca-credential-1',
+          credentialServiceId: 'alpaca-live',
           orderType: 'market',
           quantity: 3,
           side: 'buy',
@@ -631,6 +633,7 @@ describe('Trading provider order route', () => {
         portfolioIdentity: portfolioIdentityFor('tradier'),
         listing: bareStockListing,
         side: 'buy',
+        orderSizingMode: 'quantity',
         quantity: 3,
         limitPrice: 100,
       })
@@ -667,6 +670,8 @@ describe('Trading provider order route', () => {
         submissionSource: 'manual',
         request: expect.objectContaining({
           accountId: 'ACC-1',
+          credentialId: 'tradier-credential-1',
+          credentialServiceId: 'tradier-live',
           orderClass: 'equity',
           quantity: 3,
           side: 'buy',

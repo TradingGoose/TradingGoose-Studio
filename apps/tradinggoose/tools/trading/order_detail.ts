@@ -19,23 +19,12 @@ export const tradingOrderDetailTool: ToolConfig<
       description:
         'Trading Goose order ID (orderHistoryTable.id) created when the order was submitted.',
     },
-    provider: {
-      type: 'string',
-      required: false,
-      visibility: 'user-only',
-      description: 'Expected provider for this order. Used for mismatch validation.',
-    },
   },
 
   request: {
     url: (params) => `/api/orders/${encodeURIComponent(params.orderId)}/provider-detail`,
     method: 'POST',
-    headers: () => ({
-      'Content-Type': 'application/json',
-    }),
-    body: (params) => ({
-      provider: params.provider,
-    }),
+    headers: () => ({}),
   },
 
   transformResponse: async (response): Promise<TradingOrderDetailResponse> => {

@@ -2,25 +2,14 @@ import { describe, expect, it } from 'vitest'
 import { tradingOrderDetailTool } from '@/tools/trading/order_detail'
 
 describe('tradingOrderDetailTool contract', () => {
-  it('uses the canonical provider-detail route without duplicated account or environment selectors', () => {
+  it('uses the canonical provider-detail route without duplicated provider, account, or environment selectors', () => {
     expect(
       typeof tradingOrderDetailTool.request.url === 'function'
-        ? tradingOrderDetailTool.request.url({ orderId: 'order/1', provider: 'alpaca' })
+        ? tradingOrderDetailTool.request.url({ orderId: 'order/1' })
         : tradingOrderDetailTool.request.url
     ).toBe('/api/orders/order%2F1/provider-detail')
 
-    expect(
-      tradingOrderDetailTool.request.body?.({
-        accessToken: 'token',
-        accountId: 'ACC-1',
-        credentialServiceId: 'alpaca-paper',
-        environment: 'live',
-        orderId: 'order-1',
-        provider: 'alpaca',
-      } as any)
-    ).toEqual({
-      provider: 'alpaca',
-    })
+    expect(tradingOrderDetailTool.request.body).toBeUndefined()
   })
 
   it('preserves workspace and log ids from the route response', async () => {

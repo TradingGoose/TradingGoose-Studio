@@ -142,10 +142,19 @@ const readListing = (listingIdentity: unknown, normalized: JsonRecord, response:
   }
 }
 
-export function readOrderAccountId(row: Pick<RecordsOrderRow, 'request'>) {
+const readOrderRequestString = (row: Pick<RecordsOrderRow, 'request'>, key: string) => {
   const request = toRecord(row.request)
-  return readString(request.accountId)
+  return readString(request[key])
 }
+
+export const readOrderAccountId = (row: Pick<RecordsOrderRow, 'request'>) =>
+  readOrderRequestString(row, 'accountId')
+
+export const readOrderCredentialId = (row: Pick<RecordsOrderRow, 'request'>) =>
+  readOrderRequestString(row, 'credentialId')
+
+export const readOrderCredentialServiceId = (row: Pick<RecordsOrderRow, 'request'>) =>
+  readOrderRequestString(row, 'credentialServiceId')
 
 export function serializeOrderRecord(
   row: RecordsOrderRow,

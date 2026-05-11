@@ -42,7 +42,6 @@ export interface TradingHoldingsParams {
 
 export interface TradingOrderDetailParams {
   orderId: string
-  provider?: TradingProviderId
 }
 
 export interface TradingOrderDetailOutput {
