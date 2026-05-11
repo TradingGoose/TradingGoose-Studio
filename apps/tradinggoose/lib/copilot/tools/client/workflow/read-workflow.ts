@@ -1,29 +1,29 @@
 import { Loader2, Workflow as WorkflowIcon, X, XCircle } from 'lucide-react'
+import { CopilotTool } from '@/lib/copilot/registry'
 import {
   BaseClientTool,
   type BaseClientToolMetadata,
   ClientToolCallState,
 } from '@/lib/copilot/tools/client/base-tool'
 import {
-  buildWorkflowSummary,
   buildWorkflowDocumentToolResult,
+  buildWorkflowSummary,
   getReadableWorkflowState,
-  resolveWorkflowTarget,
 } from '@/lib/copilot/tools/client/workflow/workflow-review-tool-utils'
 import { createLogger } from '@/lib/logs/console/logger'
 import { serializeWorkflowToTgMermaid } from '@/lib/workflows/studio-workflow-mermaid'
 
-interface GetUserWorkflowArgs {
+interface ReadWorkflowArgs {
   workflowId: string
 }
 
-const logger = createLogger('GetUserWorkflowClientTool')
+const logger = createLogger('ReadWorkflowClientTool')
 
-export class GetUserWorkflowClientTool extends BaseClientTool {
-  static readonly id = 'get_user_workflow'
+export class ReadWorkflowClientTool extends BaseClientTool {
+  static readonly id = CopilotTool.read_workflow
 
   constructor(toolCallId: string) {
-    super(toolCallId, GetUserWorkflowClientTool.id, GetUserWorkflowClientTool.metadata)
+    super(toolCallId, ReadWorkflowClientTool.id, ReadWorkflowClientTool.metadata)
   }
 
   static readonly metadata: BaseClientToolMetadata = {
@@ -38,41 +38,24 @@ export class GetUserWorkflowClientTool extends BaseClientTool {
     },
   }
 
-  async execute(args?: GetUserWorkflowArgs): Promise<void> {
+  async execute(args?: ReadWorkflowArgs): Promise<void> {
     try {
       this.setState(ClientToolCallState.executing)
       const executionContext = this.requireExecutionContext()
+      const requestedWorkflowId = args?.workflowId?.trim()
 
-      const { workflowId, workflowName, workspaceId } = await resolveWorkflowTarget(
-        executionContext,
-        {
-          workflowId: args?.workflowId,
-        }
-      )
-
-      logger.info('Fetching user workflow from readable workflow snapshot', {
-        workflowId,
-        workflowName,
-      })
-
-      const { workflowState, source } = await getReadableWorkflowState(
-        executionContext,
-        workflowId
-      )
-
-      logger.info('Validating workflow state', {
-        workflowId,
-        source,
-        hasWorkflowState: !!workflowState,
-        hasBlocks: !!workflowState?.blocks,
-        workflowStateType: typeof workflowState,
-      })
-
-      if (!workflowState || !workflowState.blocks) {
-        await this.markToolComplete(422, 'Workflow state is empty or invalid')
+      if (!requestedWorkflowId) {
+        await this.markToolComplete(400, 'workflowId is required')
         this.setState(ClientToolCallState.error)
         return
       }
+
+      logger.info('Reading workflow from readable workflow snapshot', {
+        workflowId: requestedWorkflowId,
+      })
+
+      const { workflowId, workflowName, workflowState, workspaceId } =
+        await getReadableWorkflowState(executionContext, requestedWorkflowId)
 
       let workflowDocument = ''
       try {
@@ -93,17 +76,15 @@ export class GetUserWorkflowClientTool extends BaseClientTool {
       }
 
       // Mark complete with data; keep state success for store render
-      await this.markToolComplete(
-        200,
-        'Workflow analyzed',
-        buildWorkflowDocumentToolResult({
+      await this.markToolComplete(200, 'Workflow analyzed', {
+        ...buildWorkflowDocumentToolResult({
           workflowId,
           workflowName,
           workspaceId,
           workflowDocument,
-          workflowSummary: buildWorkflowSummary(workflowState),
-        })
-      )
+        }),
+        workflowSummary: buildWorkflowSummary(workflowState),
+      })
       this.setState(ClientToolCallState.success)
     } catch (error: any) {
       const message = error instanceof Error ? error.message : String(error)
@@ -112,7 +93,7 @@ export class GetUserWorkflowClientTool extends BaseClientTool {
         error,
         message,
       })
-      await this.markToolComplete(500, message || 'Failed to fetch workflow')
+      await this.markToolComplete(500, message || 'Failed to read workflow')
       this.setState(ClientToolCallState.error)
     }
   }

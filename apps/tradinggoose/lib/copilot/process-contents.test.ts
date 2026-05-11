@@ -71,7 +71,7 @@ vi.mock('@/lib/logs/console/logger', () => ({
   })),
 }))
 
-vi.mock('@/lib/copilot/tools/server/blocks/get-blocks-metadata-tool', () => ({
+vi.mock('@/lib/copilot/tools/server/blocks/get-blocks-metadata', () => ({
   getBlocksMetadataServerTool: {
     execute: mockGetBlocksMetadataExecute,
   },
@@ -107,7 +107,7 @@ describe('processContextsServer', () => {
     mockSelectChain.innerJoin.mockClear()
   })
 
-  it('expands block contexts through the canonical blockIds path', async () => {
+  it('expands block contexts through the canonical blockTypes path', async () => {
     mockGetBlocksMetadataExecute.mockResolvedValue({
       metadata: {
         'block-1': {
@@ -120,11 +120,11 @@ describe('processContextsServer', () => {
 
     const { processContextsServer } = await import('@/lib/copilot/process-contents')
     const result = await processContextsServer(
-      [{ kind: 'blocks', blockIds: ['block-1'], label: 'RSI' }],
+      [{ kind: 'blocks', blockTypes: ['block-1'], label: 'RSI' }],
       'user-1'
     )
 
-    expect(mockGetBlocksMetadataExecute).toHaveBeenCalledWith({ blockIds: ['block-1'] })
+    expect(mockGetBlocksMetadataExecute).toHaveBeenCalledWith({ blockTypes: ['block-1'] })
     expect(result).toEqual([
       {
         type: 'blocks',

@@ -2,9 +2,10 @@
 
 import type { ClientToolExecutionContext } from '@/lib/copilot/tools/client/base-tool'
 import { TG_MERMAID_DOCUMENT_FORMAT } from '@/lib/workflows/document-format'
+import { readWorkflowContainerBoundaryEdgeViolation } from '@/lib/workflows/studio-workflow-mermaid'
 import {
   createWorkflowSnapshot,
-  getWorkflowSnapshot,
+  readWorkflowSnapshot,
   type WorkflowSnapshot,
 } from '@/lib/yjs/workflow-session'
 import {
@@ -34,6 +35,14 @@ export type WorkflowSummary = {
     sourceHandle?: string
     targetHandle?: string
   }>
+  connectionIssues: Array<{
+    edgeIndex: number
+    source: string
+    target: string
+    sourceHandle?: string
+    targetHandle?: string
+    message: string
+  }>
 }
 
 function normalizeWorkflowTargetValue(value?: string | null): string | undefined {
@@ -52,36 +61,11 @@ function workflowTargetFromRegistry(workflowId: string): WorkflowTarget | undefi
     : undefined
 }
 
-async function workflowTargetFromApi(workflowId: string): Promise<WorkflowTarget | undefined> {
-  const response = await fetch(`/api/workflows/${encodeURIComponent(workflowId)}`, {
-    method: 'GET',
-  })
-
-  if (!response.ok) return undefined
-
-  const payload = (await response.json().catch(() => null)) as {
-    data?: {
-      id?: string | null
-      name?: string | null
-      workspaceId?: string | null
-    } | null
-  } | null
-  const resolvedWorkflowId = normalizeWorkflowTargetValue(payload?.data?.id)
-  if (!resolvedWorkflowId) return undefined
-
-  return {
-    workflowId: resolvedWorkflowId,
-    workflowName: payload?.data?.name || 'Untitled Workflow',
-    workspaceId: payload?.data?.workspaceId ?? null,
-  }
-}
-
 export function buildWorkflowDocumentToolResult(options: {
   workflowId: string
   workflowName?: string
   workspaceId?: string | null
   workflowDocument: string
-  workflowSummary?: WorkflowSummary
 }) {
   const workflowName = normalizeWorkflowTargetValue(options.workflowName)
 
@@ -94,11 +78,17 @@ export function buildWorkflowDocumentToolResult(options: {
     workflowId: options.workflowId,
     workflowDocument: options.workflowDocument,
     documentFormat: TG_MERMAID_DOCUMENT_FORMAT,
-    ...(options.workflowSummary ? { workflowSummary: options.workflowSummary } : {}),
   }
 }
 
 export function buildWorkflowSummary(workflowState: WorkflowSnapshot): WorkflowSummary {
+  const edges = (workflowState.edges ?? []).map((edge) => ({
+    source: edge.source,
+    target: edge.target,
+    ...(typeof edge.sourceHandle === 'string' ? { sourceHandle: edge.sourceHandle } : {}),
+    ...(typeof edge.targetHandle === 'string' ? { targetHandle: edge.targetHandle } : {}),
+  }))
+
   return {
     blocks: Object.entries(workflowState.blocks ?? {})
       .map(([blockId, block]) => ({
@@ -112,12 +102,11 @@ export function buildWorkflowSummary(workflowState: WorkflowSnapshot): WorkflowS
         subBlockIds: Object.keys(block.subBlocks ?? {}).sort(),
       }))
       .sort((left, right) => left.blockId.localeCompare(right.blockId)),
-    edges: (workflowState.edges ?? []).map((edge) => ({
-      source: edge.source,
-      target: edge.target,
-      ...(typeof edge.sourceHandle === 'string' ? { sourceHandle: edge.sourceHandle } : {}),
-      ...(typeof edge.targetHandle === 'string' ? { targetHandle: edge.targetHandle } : {}),
-    })),
+    edges,
+    connectionIssues: edges.flatMap((edge, edgeIndex) => {
+      const message = readWorkflowContainerBoundaryEdgeViolation(edge, workflowState.blocks ?? {})
+      return message ? [{ edgeIndex, ...edge, message }] : []
+    }),
   }
 }
 
@@ -146,7 +135,7 @@ export async function listWorkflowsForExecutionContext(
 
   if (!response.ok) {
     const bodyText = await response.text().catch(() => '')
-    throw new Error(payload?.error || bodyText || `Failed to fetch workflows: ${response.status}`)
+    throw new Error(payload?.error || bodyText || `Failed to list workflows: ${response.status}`)
   }
 
   return (payload?.data ?? []).flatMap((workflow) => {
@@ -165,37 +154,16 @@ export async function listWorkflowsForExecutionContext(
 
 export async function resolveWorkflowTarget(
   executionContext: ClientToolExecutionContext,
-  options: { workflowId?: string; workflow_name?: string } = {}
+  options: { workflowId?: string } = {}
 ): Promise<WorkflowTarget> {
   const requestedWorkflowId = normalizeWorkflowTargetValue(options.workflowId)
   if (requestedWorkflowId) {
-    const metadata = workflowTargetFromRegistry(requestedWorkflowId)
     return (
-      metadata ??
-      (await workflowTargetFromApi(requestedWorkflowId)) ?? {
+      workflowTargetFromRegistry(requestedWorkflowId) ?? {
         workflowId: requestedWorkflowId,
+        workspaceId: executionContext.workspaceId ?? null,
       }
     )
-  }
-
-  const requestedWorkflowName = normalizeWorkflowTargetValue(options.workflow_name)
-  if (requestedWorkflowName) {
-    const matches = (await listWorkflowsForExecutionContext(executionContext)).filter(
-      (workflow) =>
-        workflow.workflowName?.trim().toLowerCase() === requestedWorkflowName.toLowerCase()
-    )
-
-    if (matches.length === 0) {
-      throw new Error(`Workflow not found: ${requestedWorkflowName}`)
-    }
-
-    if (matches.length > 1) {
-      throw new Error(
-        `Multiple workflows named "${requestedWorkflowName}" found. Provide workflowId explicitly.`
-      )
-    }
-
-    return matches[0]
   }
 
   throw new Error('Workflow target is required')
@@ -214,6 +182,7 @@ export async function getReadableWorkflowState(
   workflowId?: string
 ): Promise<{
   workflowId: string
+  workflowName?: string
   workflowState: WorkflowSnapshot
   workspaceId: string | null
   variables: Record<string, any>
@@ -230,7 +199,8 @@ export async function getReadableWorkflowState(
   if (liveSession) {
     return {
       workflowId: liveSession.workflowId,
-      workflowState: getWorkflowSnapshot(liveSession.doc),
+      ...(registryWorkflow?.name ? { workflowName: registryWorkflow.name } : {}),
+      workflowState: readWorkflowSnapshot(liveSession.doc),
       workspaceId: registryWorkflow?.workspaceId ?? executionContext.workspaceId ?? null,
       variables: getVariablesForWorkflow(liveSession.workflowId) ?? {},
       source: 'live',
@@ -243,13 +213,12 @@ export async function getReadableWorkflowState(
 
   if (!response.ok) {
     const bodyText = await response.text().catch(() => '')
-    throw new Error(
-      bodyText || `Failed to fetch workflow ${resolvedWorkflowId}: ${response.status}`
-    )
+    throw new Error(bodyText || `Failed to read workflow ${resolvedWorkflowId}: ${response.status}`)
   }
 
   const payload = (await response.json().catch(() => null)) as {
     data?: {
+      name?: string | null
       workspaceId?: string | null
       state?: (Partial<WorkflowSnapshot> & { variables?: unknown }) | null
     } | null
@@ -259,6 +228,7 @@ export async function getReadableWorkflowState(
 
   return {
     workflowId: resolvedWorkflowId,
+    ...(payload?.data?.name ? { workflowName: payload.data.name } : {}),
     workflowState: createWorkflowSnapshot(snapshotState),
     workspaceId: payload?.data?.workspaceId ?? executionContext.workspaceId ?? null,
     variables: normalizeWorkflowVariables(variables),

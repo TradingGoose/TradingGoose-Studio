@@ -12,14 +12,14 @@ describe('copilot runtime tool manifest', () => {
     expect(manifest.tools).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          name: 'get_user_workflow',
+          name: 'read_workflow',
           description: expect.stringContaining('workflowSummary.blocks'),
           parameters: expect.objectContaining({
             required: expect.arrayContaining(['workflowId']),
           }),
         }),
         expect.objectContaining({
-          name: 'get_blocks_and_tools',
+          name: 'get_available_blocks',
           description: expect.stringContaining('canonical workflow block catalog'),
           kind: 'inspect',
           entityKind: 'workflow',
@@ -27,6 +27,9 @@ describe('copilot runtime tool manifest', () => {
             properties: expect.objectContaining({
               query: expect.objectContaining({
                 description: expect.stringContaining('capability search query'),
+              }),
+              category: expect.objectContaining({
+                enum: ['block', 'tool', 'trigger'],
               }),
             }),
           }),
@@ -36,21 +39,35 @@ describe('copilot runtime tool manifest', () => {
           description: expect.stringContaining('input reference grammar'),
           kind: 'inspect',
           entityKind: 'workflow',
+          parameters: expect.objectContaining({
+            required: expect.arrayContaining(['blockTypes']),
+            properties: expect.objectContaining({
+              blockTypes: expect.objectContaining({
+                description: expect.stringContaining('Canonical workflow block type ids'),
+              }),
+            }),
+          }),
         }),
         expect.objectContaining({
-          name: 'get_environment_variables',
+          name: 'get_agent_accessory_catalog',
+          description: expect.stringContaining('Agent block accessories'),
+          kind: 'inspect',
+          entityKind: 'workflow',
+        }),
+        expect.objectContaining({
+          name: 'read_environment_variables',
           description: expect.stringContaining('{{ENV_VAR_NAME}}'),
           kind: 'read',
           entityKind: 'environment',
         }),
         expect.objectContaining({
-          name: 'get_global_workflow_variables',
+          name: 'read_workflow_variables',
           description: expect.stringContaining('<variable.name>'),
           kind: 'read',
           entityKind: 'workflow',
         }),
         expect.objectContaining({
-          name: 'get_block_outputs',
+          name: 'read_block_outputs',
           description: expect.stringContaining('outputs[].path'),
           kind: 'inspect',
           entityKind: 'workflow',
@@ -63,7 +80,7 @@ describe('copilot runtime tool manifest', () => {
           }),
         }),
         expect.objectContaining({
-          name: 'get_block_upstream_references',
+          name: 'read_block_upstream_references',
           description: expect.stringContaining('accessibleBlocks.outputs[].path'),
           kind: 'inspect',
           entityKind: 'workflow',
@@ -106,7 +123,7 @@ describe('copilot runtime tool manifest', () => {
           entityKind: 'indicator',
         }),
         expect.objectContaining({
-          name: 'get_indicator',
+          name: 'read_indicator',
           description: expect.stringContaining('pass `runtimeId` from `list_indicators`'),
           kind: 'read',
           entityKind: 'indicator',
@@ -185,7 +202,7 @@ describe('copilot runtime tool manifest', () => {
           }),
         }),
         expect.objectContaining({
-          name: 'get_skill',
+          name: 'read_skill',
           description: expect.stringContaining('editable document payload'),
           kind: 'read',
           entityKind: 'skill',
@@ -281,9 +298,9 @@ describe('copilot runtime tool manifest', () => {
           (validator) => validator.kind === 'string_requires_line_prefix_if_substring_present'
         )
     ).toBe(false)
-    expect(manifest.tools.find((tool) => tool.name === 'edit_workflow_block')?.description).toContain(
-      'without changing workflow connections'
-    )
+    expect(
+      manifest.tools.find((tool) => tool.name === 'edit_workflow_block')?.description
+    ).toContain('without changing workflow connections')
     expect(manifest.tools.find((tool) => tool.name === 'edit_monitor')?.description).not.toContain(
       'confirmation'
     )
@@ -296,6 +313,7 @@ describe('copilot runtime tool manifest', () => {
         'edit_indicator',
         'edit_mcp_server',
         'create_workflow',
+        'get_agent_accessory_catalog',
         'get_indicator_catalog',
         'get_indicator_metadata',
         'rename_skill',

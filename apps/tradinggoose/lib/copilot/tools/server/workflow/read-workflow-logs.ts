@@ -1,13 +1,14 @@
 import { db } from '@tradinggoose/db'
 import { permissions, workflowExecutionLogs } from '@tradinggoose/db/schema'
 import { and, desc, eq, or, sql } from 'drizzle-orm'
+import { CopilotTool } from '@/lib/copilot/registry'
 import type {
   BaseServerTool,
   ServerToolExecutionContext,
 } from '@/lib/copilot/tools/server/base-tool'
 import { createLogger } from '@/lib/logs/console/logger'
 
-interface GetWorkflowConsoleArgs {
+interface ReadWorkflowLogsArgs {
   workflowId: string
   limit?: number
   includeDetails?: boolean
@@ -217,18 +218,11 @@ function deriveExecutionErrorSummary(params: {
   return {}
 }
 
-export const getWorkflowConsoleServerTool: BaseServerTool<GetWorkflowConsoleArgs, any> = {
-  name: 'get_workflow_console',
-  async execute(
-    rawArgs: GetWorkflowConsoleArgs,
-    context?: ServerToolExecutionContext
-  ): Promise<any> {
-    const logger = createLogger('GetWorkflowConsoleServerTool')
-    const {
-      workflowId,
-      limit = 3,
-      includeDetails = true,
-    } = rawArgs || ({} as GetWorkflowConsoleArgs)
+export const readWorkflowLogsServerTool: BaseServerTool<ReadWorkflowLogsArgs, any> = {
+  name: CopilotTool.read_workflow_logs,
+  async execute(rawArgs: ReadWorkflowLogsArgs, context?: ServerToolExecutionContext): Promise<any> {
+    const logger = createLogger('ReadWorkflowLogsServerTool')
+    const { workflowId, limit = 3, includeDetails = true } = rawArgs || ({} as ReadWorkflowLogsArgs)
 
     if (!workflowId || typeof workflowId !== 'string') {
       throw new Error('workflowId is required')
@@ -237,7 +231,7 @@ export const getWorkflowConsoleServerTool: BaseServerTool<GetWorkflowConsoleArgs
       throw new Error('Authenticated user context is required')
     }
 
-    logger.info('Fetching workflow console logs', { workflowId, limit, includeDetails })
+    logger.info('Reading workflow logs', { workflowId, limit, includeDetails })
 
     const executionLogs = await db
       .select({
@@ -312,7 +306,7 @@ export const getWorkflowConsoleServerTool: BaseServerTool<GetWorkflowConsoleArgs
     })
 
     const resultSize = JSON.stringify(formattedEntries).length
-    logger.info('Workflow console result prepared', {
+    logger.info('Workflow logs result prepared', {
       entryCount: formattedEntries.length,
       resultSizeKB: Math.round(resultSize / 1024),
       hasBlockDetails: includeDetails,

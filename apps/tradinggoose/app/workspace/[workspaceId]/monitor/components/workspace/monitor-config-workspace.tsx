@@ -129,14 +129,14 @@ export function MonitorConfigWorkspace({
   onReloadViews,
 }: MonitorConfigWorkspaceProps) {
   const isMobile = useIsMobile()
-  const targetMonitorIds = useMemo(
+  const tarreadMonitorIds = useMemo(
     () => Array.from(new Set(monitorRecords.map((monitor) => monitor.monitorId))).sort(),
     [monitorRecords]
   )
   const summaries = useMonitorExecutionSummaries({
     workspaceId,
-    targetMonitorIds,
-    enabled: viewStateMode === 'server' && targetMonitorIds.length > 0,
+    tarreadMonitorIds,
+    enabled: viewStateMode === 'server' && tarreadMonitorIds.length > 0,
   })
   const cards = useMemo(
     () => buildConfigMonitorCards(monitorRecords, referenceData, summaries.summariesByMonitorId),

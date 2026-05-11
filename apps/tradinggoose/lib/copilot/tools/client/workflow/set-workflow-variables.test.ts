@@ -1,11 +1,20 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ClientToolCallState } from '@/lib/copilot/tools/client/base-tool'
-import { SetGlobalWorkflowVariablesClientTool } from '@/lib/copilot/tools/client/workflow/set-global-workflow-variables'
+import { SetWorkflowVariablesClientTool } from '@/lib/copilot/tools/client/workflow/set-workflow-variables'
 import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
 
 const mockGetRegisteredWorkflowSession = vi.fn()
 const mockGetVariablesForWorkflow = vi.fn()
 const mockSetVariables = vi.fn()
+const mockCopilotState = {
+  toolCallsById: {} as Record<string, { params?: Record<string, unknown>; state?: string }>,
+}
+
+vi.mock('@/stores/copilot/store-access', () => ({
+  getCopilotStoreForToolCall: () => ({
+    getState: () => mockCopilotState,
+  }),
+}))
 
 vi.mock('@/lib/yjs/workflow-session-registry', () => ({
   getRegisteredWorkflowSession: (...args: any[]) => mockGetRegisteredWorkflowSession(...args),
@@ -17,13 +26,14 @@ vi.mock('@/lib/yjs/workflow-session', () => ({
   setVariables: (...args: any[]) => mockSetVariables(...args),
 }))
 
-describe('SetGlobalWorkflowVariablesClientTool', () => {
+describe('SetWorkflowVariablesClientTool', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
     vi.unstubAllGlobals?.()
     mockGetRegisteredWorkflowSession.mockReset()
     mockGetVariablesForWorkflow.mockReset()
     mockSetVariables.mockReset()
+    mockCopilotState.toolCallsById = {}
   })
 
   it('uses explicit workflowId and writes variables only through the live Yjs session', async () => {
@@ -60,10 +70,10 @@ describe('SetGlobalWorkflowVariablesClientTool', () => {
     vi.stubGlobal('fetch', fetchMock)
 
     const toolCallId = 'set-vars-tool-call'
-    const tool = new SetGlobalWorkflowVariablesClientTool(toolCallId)
+    const tool = new SetWorkflowVariablesClientTool(toolCallId)
     tool.setExecutionContext({
       toolCallId,
-      toolName: 'set_global_workflow_variables',
+      toolName: 'set_workflow_variables',
       channelId: 'pair-purple',
       workflowId: 'wf-context',
       log: vi.fn(),

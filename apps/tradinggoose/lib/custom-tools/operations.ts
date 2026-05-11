@@ -30,6 +30,14 @@ interface ImportCustomToolsParams {
   requestId?: string
 }
 
+export async function listCustomTools(params: { workspaceId: string }) {
+  return db
+    .select()
+    .from(customTools)
+    .where(eq(customTools.workspaceId, params.workspaceId))
+    .orderBy(desc(customTools.createdAt))
+}
+
 /**
  * Create or update custom tools scoped to a workspace.
  */

@@ -1,3 +1,4 @@
+import type { ToolId } from '@/lib/copilot/registry'
 import { verifyWorkflowAccess } from '@/lib/copilot/review-sessions/permissions'
 import { normalizeOptionalString } from '@/lib/utils'
 
@@ -29,6 +30,6 @@ export async function resolveServerWorkflowScope(
 }
 
 export interface BaseServerTool<TArgs = any, TResult = any> {
-  name: string
+  name: ToolId
   execute(args: TArgs, context?: ServerToolExecutionContext): Promise<TResult>
 }

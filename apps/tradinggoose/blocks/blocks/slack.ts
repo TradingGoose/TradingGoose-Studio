@@ -15,7 +15,6 @@ export const SlackBlock: BlockConfig<SlackResponse> = {
   category: 'tools',
   bgColor: '',
   icon: SlackIcon,
-  triggerAllowed: true,
   subBlocks: [
     {
       id: 'operation',

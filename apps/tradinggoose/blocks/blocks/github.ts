@@ -1,8 +1,8 @@
 import { GithubIcon } from '@/components/icons/icons'
 import type { BlockConfig } from '@/blocks/types'
-import { getTrigger } from '@/triggers'
 import { AuthMode } from '@/blocks/types'
 import type { GitHubResponse } from '@/tools/github/types'
+import { getTrigger } from '@/triggers'
 
 export const GitHubBlock: BlockConfig<GitHubResponse> = {
   type: 'github',
@@ -15,7 +15,6 @@ export const GitHubBlock: BlockConfig<GitHubResponse> = {
   category: 'tools',
   bgColor: undefined,
   icon: GithubIcon,
-  triggerAllowed: true,
   subBlocks: [
     {
       id: 'operation',

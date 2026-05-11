@@ -6,21 +6,24 @@ export const ExecuteResponseSuccessSchema = z.object({
   result: z.unknown(),
 })
 
-// get_blocks_and_tools
-export const GetBlocksAndToolsInput = z.object({
-  query: z
-    .string()
-    .trim()
-    .min(1)
-    .optional()
-    .describe(
-      'Optional capability search query used to narrow the canonical workflow block catalog, for example "historical OHLCV", "indicator function", or "Slack notification".'
+// get_available_blocks
+export const BlockCatalogCategorySchema = z.enum(['block', 'tool', 'trigger'])
+export type BlockCatalogCategory = z.infer<typeof BlockCatalogCategorySchema>
+export const GetAvailableBlocksInput = z
+  .object({
+    query: z
+      .string()
+      .trim()
+      .min(1)
+      .optional()
+      .describe(
+        'Optional capability search query used to narrow the canonical workflow block catalog, for example "historical OHLCV", "indicator function", or "Slack notification".'
+      ),
+    category: BlockCatalogCategorySchema.optional().describe(
+      'Optional catalog category filter: core workflow blocks, tool-backed blocks, or trigger blocks.'
     ),
-  triggerAllowed: z
-    .boolean()
-    .optional()
-    .describe('Optional filter for blocks that can start a workflow or be used as triggers.'),
-})
+  })
+  .strict()
 export const BlockRequiredCredentialsSchema = z.object({
   type: z.enum(['oauth', 'api_key', 'bot_token']),
   service: z.string().optional(),
@@ -65,10 +68,10 @@ export const BlockInputReferencePatternSchema = z.object({
   sourceTools: z
     .array(
       z.enum([
-        'get_block_outputs',
-        'get_block_upstream_references',
-        'get_global_workflow_variables',
-        'get_environment_variables',
+        'read_block_outputs',
+        'read_block_upstream_references',
+        'read_workflow_variables',
+        'read_environment_variables',
       ])
     )
     .min(1),
@@ -97,8 +100,8 @@ export type BlockMermaidOperationType = z.infer<typeof BlockMermaidOperationSche
 export const BlockMermaidCatalogItemSchema = z.object({
   blockType: z.string(),
   blockName: z.string(),
+  category: BlockCatalogCategorySchema,
   blockDescription: z.string().optional(),
-  triggerAllowed: z.boolean().optional(),
   mermaidContract: BlockMermaidContractSchema,
   operationIds: z.array(z.string()).optional(),
 })
@@ -114,29 +117,58 @@ export const BlockMermaidProfileSchema = BlockMermaidCatalogItemSchema.extend({
   operations: z.array(BlockMermaidOperationSchema).optional(),
 })
 export type BlockMermaidProfileType = z.infer<typeof BlockMermaidProfileSchema>
-export const GetBlocksAndToolsResult = z.object({
+export const GetAvailableBlocksResult = z.object({
   blocks: z.array(BlockMermaidCatalogItemSchema),
 })
-export type GetBlocksAndToolsResultType = z.infer<typeof GetBlocksAndToolsResult>
+export type GetAvailableBlocksResultType = z.infer<typeof GetAvailableBlocksResult>
 
 // get_blocks_metadata
 export const GetBlocksMetadataInput = z.object({
-  blockIds: z
+  blockTypes: z
     .array(
       z
         .string()
         .min(1)
         .describe(
-          'Canonical block type id from `get_blocks_and_tools`, such as `historical_data` or `function`, not a workflow instance block id.'
+          'Canonical block type id from `get_available_blocks`, such as `historical_data` or `function`, not a workflow instance block id.'
         )
     )
     .min(1)
     .describe(
-      'Canonical workflow block type ids to inspect in detail. Use `get_blocks_and_tools` first when the available built-in options are not yet known.'
+      'Canonical workflow block type ids to inspect in detail. Use `get_available_blocks` first when the available built-in options are not yet known.'
     ),
 })
-export const GetBlocksMetadataResult = z.object({ metadata: z.record(BlockMermaidProfileSchema) })
+export const GetBlocksMetadataResult = z.object({
+  metadata: z.record(BlockMermaidProfileSchema),
+})
 export type GetBlocksMetadataResultType = z.infer<typeof GetBlocksMetadataResult>
+
+// get_agent_accessory_catalog
+export const GetAgentAccessoryCatalogInput = z
+  .object({
+    workflowId: z.string().trim().min(1).optional(),
+  })
+  .strict()
+
+const AgentToolAccessoryOptionSchema = z.object({
+  id: z.string(),
+  source: z.enum(['block', 'custom_tool', 'mcp']),
+  title: z.string(),
+  value: z.record(z.any()),
+})
+const AgentSkillAccessoryOptionSchema = z.object({
+  id: z.string(),
+  source: z.literal('skill'),
+  title: z.string(),
+  value: z.record(z.any()),
+})
+
+export const GetAgentAccessoryCatalogResult = z.object({
+  tools: z.array(AgentToolAccessoryOptionSchema),
+  skills: z.array(AgentSkillAccessoryOptionSchema),
+})
+export type GetAgentAccessoryCatalogInputType = z.infer<typeof GetAgentAccessoryCatalogInput>
+export type GetAgentAccessoryCatalogResultType = z.infer<typeof GetAgentAccessoryCatalogResult>
 
 // get_indicator_catalog / get_indicator_metadata
 export const IndicatorCatalogSectionIdSchema = z.enum([
@@ -266,13 +298,6 @@ export const GetIndicatorMetadataResult = z.object({
 })
 export type GetIndicatorMetadataResultType = z.infer<typeof GetIndicatorMetadataResult>
 
-// get_trigger_blocks
-export const GetTriggerBlocksInput = z.object({})
-export const GetTriggerBlocksResult = z.object({
-  triggerBlockIds: z.array(z.string()),
-})
-export type GetTriggerBlocksResultType = z.infer<typeof GetTriggerBlocksResult>
-
 // knowledge_base - shared schema used by client tool, server tool, and registry
 export const KnowledgeBaseArgsSchema = z.object({
   operation: z.enum(['create', 'list', 'get', 'query']),
@@ -310,19 +335,19 @@ export const KnowledgeBaseResultSchema = z.object({
 })
 export type KnowledgeBaseResult = z.infer<typeof KnowledgeBaseResultSchema>
 
-export const GetBlockOutputsInput = z.object({
+export const ReadBlockOutputsInput = z.object({
   blockIds: z
     .array(z.string())
     .optional()
     .describe(
-      'Optional exact workflow instance block ids from `get_user_workflow.workflowSummary.blocks`. Omit to inspect every block output in the workflow.'
+      'Optional exact workflow instance block ids from `read_workflow.workflowSummary.blocks`. Omit to inspect every block output in the workflow.'
     ),
 })
 const BlockOutputReferenceSchema = z.object({
   path: z.string(),
   type: z.string(),
 })
-export const GetBlockOutputsResult = z.object({
+export const ReadBlockOutputsResult = z.object({
   blocks: z.array(
     z.object({
       blockId: z.string(),
@@ -344,18 +369,18 @@ export const GetBlockOutputsResult = z.object({
     )
     .optional(),
 })
-export type GetBlockOutputsInputType = z.infer<typeof GetBlockOutputsInput>
-export type GetBlockOutputsResultType = z.infer<typeof GetBlockOutputsResult>
+export type ReadBlockOutputsInputType = z.infer<typeof ReadBlockOutputsInput>
+export type ReadBlockOutputsResultType = z.infer<typeof ReadBlockOutputsResult>
 
-export const GetBlockUpstreamReferencesInput = z.object({
+export const ReadBlockUpstreamReferencesInput = z.object({
   blockIds: z
     .array(z.string())
     .min(1)
     .describe(
-      'Exact workflow instance block ids from `get_user_workflow.workflowSummary.blocks` whose accessible upstream references should be resolved.'
+      'Exact workflow instance block ids from `read_workflow.workflowSummary.blocks` whose accessible upstream references should be resolved.'
     ),
 })
-export const GetBlockUpstreamReferencesResult = z.object({
+export const ReadBlockUpstreamReferencesResult = z.object({
   results: z.array(
     z.object({
       blockId: z.string(),
@@ -389,5 +414,7 @@ export const GetBlockUpstreamReferencesResult = z.object({
     })
   ),
 })
-export type GetBlockUpstreamReferencesInputType = z.infer<typeof GetBlockUpstreamReferencesInput>
-export type GetBlockUpstreamReferencesResultType = z.infer<typeof GetBlockUpstreamReferencesResult>
+export type ReadBlockUpstreamReferencesInputType = z.infer<typeof ReadBlockUpstreamReferencesInput>
+export type ReadBlockUpstreamReferencesResultType = z.infer<
+  typeof ReadBlockUpstreamReferencesResult
+>

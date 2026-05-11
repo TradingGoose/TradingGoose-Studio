@@ -84,14 +84,14 @@ vi.mock('@/lib/logs/console/logger', () => ({
   createLogger: vi.fn(() => ({ error: vi.fn(), info: vi.fn(), warn: vi.fn() })),
 }))
 
-describe('getWorkflowConsoleServerTool', () => {
+describe('readWorkflowLogsServerTool', () => {
   beforeEach(() => {
     vi.clearAllMocks()
   })
 
   it('matches console logs by live workflow id or durable workflow summary id', async () => {
-    const { getWorkflowConsoleServerTool } = await import('./get-workflow-console')
-    const result = await getWorkflowConsoleServerTool.execute(
+    const { readWorkflowLogsServerTool } = await import('./read-workflow-logs')
+    const result = await readWorkflowLogsServerTool.execute(
       {
         workflowId: 'deleted-workflow-1',
         includeDetails: false,
@@ -115,10 +115,10 @@ describe('getWorkflowConsoleServerTool', () => {
   })
 
   it('requires authenticated server-tool context before reading console logs', async () => {
-    const { getWorkflowConsoleServerTool } = await import('./get-workflow-console')
+    const { readWorkflowLogsServerTool } = await import('./read-workflow-logs')
 
     await expect(
-      getWorkflowConsoleServerTool.execute({
+      readWorkflowLogsServerTool.execute({
         workflowId: 'deleted-workflow-1',
         includeDetails: false,
       })

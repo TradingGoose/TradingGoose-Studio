@@ -1,16 +1,17 @@
 import { Loader2, Settings2, X, XCircle } from 'lucide-react'
+import { CopilotTool } from '@/lib/copilot/registry'
 import {
   BaseClientTool,
   type BaseClientToolMetadata,
   ClientToolCallState,
 } from '@/lib/copilot/tools/client/base-tool'
 import { createLogger } from '@/lib/logs/console/logger'
+import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
+import { setVariables } from '@/lib/yjs/workflow-session'
 import {
   getRegisteredWorkflowSession,
   getVariablesForWorkflow,
 } from '@/lib/yjs/workflow-session-registry'
-import { setVariables } from '@/lib/yjs/workflow-session'
-import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
 
 interface OperationItem {
   operation: 'add' | 'edit' | 'delete'
@@ -19,20 +20,16 @@ interface OperationItem {
   value?: string
 }
 
-interface SetGlobalVarsArgs {
+interface SetWorkflowVariablesArgs {
   operations: OperationItem[]
   workflowId: string
 }
 
-export class SetGlobalWorkflowVariablesClientTool extends BaseClientTool {
-  static readonly id = 'set_global_workflow_variables'
+export class SetWorkflowVariablesClientTool extends BaseClientTool {
+  static readonly id = CopilotTool.set_workflow_variables
 
   constructor(toolCallId: string) {
-    super(
-      toolCallId,
-      SetGlobalWorkflowVariablesClientTool.id,
-      SetGlobalWorkflowVariablesClientTool.metadata
-    )
+    super(toolCallId, SetWorkflowVariablesClientTool.id, SetWorkflowVariablesClientTool.metadata)
   }
 
   static readonly metadata: BaseClientToolMetadata = {
@@ -54,11 +51,11 @@ export class SetGlobalWorkflowVariablesClientTool extends BaseClientTool {
     },
   }
 
-  async handleAccept(args?: SetGlobalVarsArgs): Promise<void> {
-    const logger = createLogger('SetGlobalWorkflowVariablesClientTool')
+  async handleAccept(args?: SetWorkflowVariablesArgs): Promise<void> {
+    const logger = createLogger('SetWorkflowVariablesClientTool')
     try {
       this.setState(ClientToolCallState.executing)
-      const payload = { ...(args || { operations: [] }) } as Partial<SetGlobalVarsArgs>
+      const payload = { ...(args || { operations: [] }) } as Partial<SetWorkflowVariablesArgs>
       payload.workflowId = payload.workflowId?.trim()
       if (!payload.workflowId) {
         throw new Error('workflowId is required')
@@ -168,7 +165,7 @@ export class SetGlobalWorkflowVariablesClientTool extends BaseClientTool {
     }
   }
 
-  async execute(args?: SetGlobalVarsArgs): Promise<void> {
+  async execute(args?: SetWorkflowVariablesArgs): Promise<void> {
     await this.handleAccept(args)
   }
 }

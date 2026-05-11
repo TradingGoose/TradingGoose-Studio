@@ -92,11 +92,11 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
         workspaceId: normalizeOptionalString(workspaceId) ?? null,
         reviewTarget: reviewTarget
           ? {
-            entityKind: reviewTarget.entityKind,
-            entityId: reviewTarget.entityId,
-            reviewSessionId: reviewTarget.reviewSessionId ?? null,
-            draftSessionId: reviewTarget.draftSessionId,
-          }
+              entityKind: reviewTarget.entityKind,
+              entityId: reviewTarget.entityId,
+              reviewSessionId: reviewTarget.reviewSessionId ?? null,
+              draftSessionId: reviewTarget.draftSessionId,
+            }
           : null,
       }),
       [reviewTarget, workflowId, workspaceId]
@@ -562,10 +562,10 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
                     <Button
                       onClick={() => scrollToBottom()}
                       size='sm'
-                      variant='secondary'
-                      className='flex items-center gap-1 rounded-lg border border-border px-3 py-1 shadow-lg transition-all'
+                      variant='default'
+                      className='flex items-center bg-background hover:bg-muted gap-1 rounded-lg border border-border h-7 w-7 shadow-lg transition-all'
                     >
-                      <ArrowDown className='h-3.5 w-3.5 text-gray-700 dark:text-gray-300' />
+                      <ArrowDown className='h-3.5 w-3.5  font-bold text-gray-700 dark:text-gray-300' />
                       <span className='sr-only'>Scroll to bottom</span>
                     </Button>
                   </div>

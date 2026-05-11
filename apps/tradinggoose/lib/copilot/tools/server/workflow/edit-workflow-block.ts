@@ -1,13 +1,10 @@
-import { getBlock } from '@/blocks'
 import { StructuredServerToolError } from '@/lib/copilot/server-tool-errors'
 import type { BaseServerTool } from '@/lib/copilot/tools/server/base-tool'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getAllowedSubBlockIds } from '@/lib/workflows/block-config-canonicalization'
 import { createWorkflowSnapshot } from '@/lib/yjs/workflow-session'
-import {
-  buildWorkflowMutationResult,
-  loadBaseWorkflowState,
-} from './workflow-mutation-utils'
+import { getBlock } from '@/blocks'
+import { buildWorkflowMutationResult, loadBaseWorkflowState } from './workflow-mutation-utils'
 
 interface EditWorkflowBlockParams {
   workflowId: string
@@ -45,7 +42,8 @@ export const editWorkflowBlockServerTool: BaseServerTool<EditWorkflowBlockParams
   name: 'edit_workflow_block',
   async execute(params: EditWorkflowBlockParams): Promise<any> {
     const logger = createLogger('EditWorkflowBlockServerTool')
-    const { workflowId, blockId, blockType, name, enabled, subBlocks, currentWorkflowState } = params
+    const { workflowId, blockId, blockType, name, enabled, subBlocks, currentWorkflowState } =
+      params
 
     if (!workflowId) {
       throw new Error('workflowId is required')
@@ -64,8 +62,7 @@ export const editWorkflowBlockServerTool: BaseServerTool<EditWorkflowBlockParams
       throwInvalidBlockEdit({
         error:
           'Workflow block edit did not include any supported updates. Provide `name`, `enabled`, or `subBlocks`.',
-        hint:
-          'Use `edit_workflow_block` only for existing block config changes. Keep graph edits in `edit_workflow`.',
+        hint: 'Use `edit_workflow_block` only for existing block config changes. Keep graph edits in `edit_workflow`.',
         issues: [
           {
             path: '$',
@@ -120,11 +117,12 @@ export const editWorkflowBlockServerTool: BaseServerTool<EditWorkflowBlockParams
     if (invalidSubBlockIds.length > 0) {
       throwInvalidBlockEdit({
         error: `Workflow block edit used non-canonical sub-block ids: ${invalidSubBlockIds.join(', ')}.`,
-        hint:
-          'Use `get_blocks_metadata` for the block type and send only canonical sub-block ids in `subBlocks`.',
+        hint: 'Use `get_blocks_metadata` for the block type and send only canonical sub-block ids in `subBlocks`.',
         issues: invalidSubBlockIds.map((subBlockId) => ({
           path: `subBlocks.${subBlockId}`,
-          message: `Unknown sub-block id for block type "${currentBlock.type}". Allowed ids: ${[...allowedSubBlockIds]
+          message: `Unknown sub-block id for block type "${currentBlock.type}". Allowed ids: ${[
+            ...allowedSubBlockIds,
+          ]
             .sort()
             .join(', ')}.`,
         })),
@@ -151,12 +149,12 @@ export const editWorkflowBlockServerTool: BaseServerTool<EditWorkflowBlockParams
 
       throwInvalidBlockEdit({
         error: `Workflow block sub-block "${subBlockId}" cannot be created from this patch shape.`,
-        hint:
-          'Patch the canonical parent sub-block id returned by `get_blocks_metadata`, or read the current block and update an existing derived entry.',
+        hint: 'Patch the canonical parent sub-block id returned by `get_blocks_metadata`, or read the current block and update an existing derived entry.',
         issues: [
           {
             path: `subBlocks.${subBlockId}`,
-            message: 'Derived runtime sub-block entries must already exist before they can be patched.',
+            message:
+              'Derived runtime sub-block entries must already exist before they can be patched.',
           },
         ],
       })
@@ -213,8 +211,7 @@ export const editWorkflowBlockServerTool: BaseServerTool<EditWorkflowBlockParams
 
       throwInvalidBlockEdit({
         error: message,
-        hint:
-          'Patch only canonical sub-block ids for the existing block, and use the exact value format required by that block metadata.',
+        hint: 'Patch only canonical sub-block ids for the existing block, and use the exact value format required by that block metadata.',
         issues,
       })
     }

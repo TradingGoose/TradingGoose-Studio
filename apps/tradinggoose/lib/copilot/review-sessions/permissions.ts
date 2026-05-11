@@ -3,8 +3,8 @@ import { copilotReviewSessions, permissions, workflow, workspace } from '@tradin
 import { and, eq } from 'drizzle-orm'
 import type { ReviewEntityKind, ReviewTargetDescriptor } from '@/lib/copilot/review-sessions/types'
 import { createLogger } from '@/lib/logs/console/logger'
-import { getWorkflowAccessContext } from '@/lib/workflows/utils'
 import type { PermissionType } from '@/lib/permissions/utils'
+import { readWorkflowAccessContext } from '@/lib/workflows/utils'
 
 const logger = createLogger('ReviewSessionPermissions')
 
@@ -209,7 +209,7 @@ export async function verifyWorkflowAccess(
   { requireWrite = false }: VerifyAccessOptions = {}
 ): Promise<ReviewAccessResult> {
   try {
-    const accessContext = await getWorkflowAccessContext(workflowId, userId)
+    const accessContext = await readWorkflowAccessContext(workflowId, userId)
     if (!accessContext) {
       logger.warn('Attempt to access non-existent workflow', { userId, workflowId })
       return { hasAccess: false, userPermission: null, workspaceId: null, isOwner: false }
@@ -234,8 +234,7 @@ export async function verifyReviewTargetAccess(
 ): Promise<ReviewAccessResult> {
   if (reviewTarget.entityKind === 'workflow') {
     const workflowId =
-      reviewTarget.entityId ??
-      ('yjsSessionId' in reviewTarget ? reviewTarget.yjsSessionId : null)
+      reviewTarget.entityId ?? ('yjsSessionId' in reviewTarget ? reviewTarget.yjsSessionId : null)
 
     if (!workflowId) {
       logger.warn('Workflow review target missing workflow id', { userId, reviewTarget })
@@ -337,16 +336,16 @@ export async function verifyReviewSessionOwnership<
 ): Promise<
   T extends undefined
     ? typeof copilotReviewSessions.$inferSelect | null
-    : Pick<typeof copilotReviewSessions.$inferSelect, Extract<keyof T, keyof typeof copilotReviewSessions.$inferSelect>> | null
+    : Pick<
+        typeof copilotReviewSessions.$inferSelect,
+        Extract<keyof T, keyof typeof copilotReviewSessions.$inferSelect>
+      > | null
 > {
   const query = columns
     ? db
         .select(
           Object.fromEntries(
-            Object.keys(columns).map((col) => [
-              col,
-              (copilotReviewSessions as any)[col],
-            ])
+            Object.keys(columns).map((col) => [col, (copilotReviewSessions as any)[col]])
           )
         )
         .from(copilotReviewSessions)
@@ -354,10 +353,7 @@ export async function verifyReviewSessionOwnership<
 
   const [session] = await query
     .where(
-      and(
-        eq(copilotReviewSessions.id, reviewSessionId),
-        eq(copilotReviewSessions.userId, userId)
-      )
+      and(eq(copilotReviewSessions.id, reviewSessionId), eq(copilotReviewSessions.userId, userId))
     )
     .limit(1)
 

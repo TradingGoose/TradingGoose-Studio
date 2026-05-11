@@ -14,7 +14,6 @@ export const TwilioVoiceBlock: BlockConfig<ToolResponse> = {
   category: 'tools',
   bgColor: '#F22F46', // Twilio brand color
   icon: TwilioIcon,
-  triggerAllowed: true,
   subBlocks: [
     ...(getTrigger('twilio_voice_webhook')?.subBlocks ?? []),
     {

@@ -1,5 +1,6 @@
-import { createLogger } from '@/lib/logs/console/logger'
 import { GitBranch, Loader2, X, XCircle } from 'lucide-react'
+import { BlockPathCalculator } from '@/lib/block-path-calculator'
+import { CopilotTool } from '@/lib/copilot/registry'
 import {
   BaseClientTool,
   type BaseClientToolMetadata,
@@ -9,32 +10,32 @@ import {
   computeBlockOutputReferences,
   getSubflowInsideOutputReferences,
   getSubflowOutsideOutputReferences,
-  getWorkflowSubBlockValues,
-  getWorkflowVariableOutputs,
+  readWorkflowSubBlockValues,
+  readWorkflowVariableOutputs,
 } from '@/lib/copilot/tools/client/workflow/block-output-utils'
 import { getReadableWorkflowState } from '@/lib/copilot/tools/client/workflow/workflow-review-tool-utils'
 import {
-  GetBlockUpstreamReferencesResult,
-  type GetBlockUpstreamReferencesResultType,
+  ReadBlockUpstreamReferencesResult,
+  type ReadBlockUpstreamReferencesResultType,
 } from '@/lib/copilot/tools/shared/schemas'
-import { BlockPathCalculator } from '@/lib/block-path-calculator'
+import { createLogger } from '@/lib/logs/console/logger'
 import type { Loop, Parallel } from '@/stores/workflows/workflow/types'
 
-const logger = createLogger('GetBlockUpstreamReferencesClientTool')
+const logger = createLogger('ReadBlockUpstreamReferencesClientTool')
 
-interface GetBlockUpstreamReferencesArgs {
+interface ReadBlockUpstreamReferencesArgs {
   blockIds: string[]
   workflowId: string
 }
 
-export class GetBlockUpstreamReferencesClientTool extends BaseClientTool {
-  static readonly id = 'get_block_upstream_references'
+export class ReadBlockUpstreamReferencesClientTool extends BaseClientTool {
+  static readonly id = CopilotTool.read_block_upstream_references
 
   constructor(toolCallId: string) {
     super(
       toolCallId,
-      GetBlockUpstreamReferencesClientTool.id,
-      GetBlockUpstreamReferencesClientTool.metadata
+      ReadBlockUpstreamReferencesClientTool.id,
+      ReadBlockUpstreamReferencesClientTool.metadata
     )
   }
 
@@ -67,7 +68,7 @@ export class GetBlockUpstreamReferencesClientTool extends BaseClientTool {
     },
   }
 
-  async execute(args?: GetBlockUpstreamReferencesArgs): Promise<void> {
+  async execute(args?: ReadBlockUpstreamReferencesArgs): Promise<void> {
     try {
       this.setState(ClientToolCallState.executing)
       const executionContext = this.requireExecutionContext()
@@ -78,19 +79,22 @@ export class GetBlockUpstreamReferencesClientTool extends BaseClientTool {
         return
       }
 
-      const { workflowId: activeWorkflowId, workflowState: snapshot, variables } =
-        await getReadableWorkflowState(executionContext, args.workflowId)
+      const {
+        workflowId: activeWorkflowId,
+        workflowState: snapshot,
+        variables,
+      } = await getReadableWorkflowState(executionContext, args.workflowId)
       const blocks = snapshot.blocks || {}
       const edges = snapshot.edges || []
       const loops = snapshot.loops || {}
       const parallels = snapshot.parallels || {}
-      const subBlockValues = getWorkflowSubBlockValues(activeWorkflowId, snapshot)
+      const subBlockValues = readWorkflowSubBlockValues(activeWorkflowId, snapshot)
 
       const ctx = { blocks, loops, parallels, subBlockValues }
-      const variableOutputs = getWorkflowVariableOutputs(variables)
+      const variableOutputs = readWorkflowVariableOutputs(variables)
       const graphEdges = edges.map((edge) => ({ source: edge.source, target: edge.target }))
 
-      const results: GetBlockUpstreamReferencesResultType['results'] = []
+      const results: ReadBlockUpstreamReferencesResultType['results'] = []
 
       for (const blockId of args.blockIds) {
         const targetBlock = blocks[blockId]
@@ -145,7 +149,7 @@ export class GetBlockUpstreamReferencesClientTool extends BaseClientTool {
           parallels[parallelId]?.nodes?.forEach((nodeId) => accessibleIds.add(nodeId))
         })
 
-        const accessibleBlocks: GetBlockUpstreamReferencesResultType['results'][0]['accessibleBlocks'] =
+        const accessibleBlocks: ReadBlockUpstreamReferencesResultType['results'][0]['accessibleBlocks'] =
           []
 
         for (const accessibleBlockId of accessibleIds) {
@@ -157,7 +161,7 @@ export class GetBlockUpstreamReferencesClientTool extends BaseClientTool {
 
           const blockName = block.name || block.type
           let accessContext: 'inside' | 'outside' | undefined
-          let outputs: GetBlockUpstreamReferencesResultType['results'][0]['accessibleBlocks'][0]['outputs']
+          let outputs: ReadBlockUpstreamReferencesResultType['results'][0]['accessibleBlocks'][0]['outputs']
 
           if (block.type === 'loop' || block.type === 'parallel') {
             const isInside =
@@ -178,18 +182,19 @@ export class GetBlockUpstreamReferencesClientTool extends BaseClientTool {
             outputs = computeBlockOutputReferences(block, ctx, variableOutputs)
           }
 
-          const entry: GetBlockUpstreamReferencesResultType['results'][0]['accessibleBlocks'][0] = {
-            blockId: accessibleBlockId,
-            blockName,
-            blockType: block.type,
-            outputs,
-          }
+          const entry: ReadBlockUpstreamReferencesResultType['results'][0]['accessibleBlocks'][0] =
+            {
+              blockId: accessibleBlockId,
+              blockName,
+              blockType: block.type,
+              outputs,
+            }
 
           if (accessContext) entry.accessContext = accessContext
           accessibleBlocks.push(entry)
         }
 
-        const resultEntry: GetBlockUpstreamReferencesResultType['results'][0] = {
+        const resultEntry: ReadBlockUpstreamReferencesResultType['results'][0] = {
           blockId,
           blockName: targetBlock.name || targetBlock.type,
           accessibleBlocks,
@@ -200,7 +205,7 @@ export class GetBlockUpstreamReferencesClientTool extends BaseClientTool {
         results.push(resultEntry)
       }
 
-      const result = GetBlockUpstreamReferencesResult.parse({ results })
+      const result = ReadBlockUpstreamReferencesResult.parse({ results })
 
       logger.info('Retrieved upstream references', {
         blockIds: args.blockIds,

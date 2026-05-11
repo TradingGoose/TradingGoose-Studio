@@ -67,13 +67,11 @@ vi.mock('@/blocks/registry', () => {
       ...baseBlock,
       name: 'Webhook',
       category: 'triggers',
-      triggerAllowed: true,
     },
     gmail: {
       ...baseBlock,
       name: 'Gmail',
       category: 'tools',
-      triggerAllowed: true,
       subBlocks: [
         {
           id: 'credential',
@@ -102,7 +100,6 @@ vi.mock('@/blocks/registry', () => {
       ...baseBlock,
       name: 'Slack',
       category: 'tools',
-      triggerAllowed: true,
       subBlocks: [
         {
           id: 'authMethod',
@@ -138,7 +135,7 @@ vi.mock('@/blocks/registry', () => {
   }
 })
 
-describe('getBlocksAndToolsServerTool', () => {
+describe('getAvailableBlocksServerTool', () => {
   beforeEach(() => {
     vi.resetModules()
     mockGetOAuthProviderAvailability.mockImplementation(async (providerIds: string[]) =>
@@ -147,8 +144,8 @@ describe('getBlocksAndToolsServerTool', () => {
   })
 
   it('lists available blocks with Mermaid contracts instead of schema metadata', async () => {
-    const { getBlocksAndToolsServerTool } = await import('./get-blocks-and-tools')
-    const result = await getBlocksAndToolsServerTool.execute({})
+    const { getAvailableBlocksServerTool } = await import('./get-available-blocks')
+    const result = await getAvailableBlocksServerTool.execute({})
 
     expect(result.blocks.length).toBeGreaterThan(0)
 
@@ -156,6 +153,7 @@ describe('getBlocksAndToolsServerTool', () => {
     expect(agentBlock).toEqual(
       expect.objectContaining({
         blockType: 'agent',
+        category: 'block',
         mermaidContract: expect.objectContaining({
           renderKind: 'standard',
         }),
@@ -169,6 +167,7 @@ describe('getBlocksAndToolsServerTool', () => {
       expect.objectContaining({
         blockType: 'loop',
         blockName: 'Loop',
+        category: 'block',
         mermaidContract: expect.objectContaining({
           renderKind: 'loop_container',
         }),
@@ -177,8 +176,8 @@ describe('getBlocksAndToolsServerTool', () => {
   }, 10_000)
 
   it('hides OAuth integration blocks whose system integration is unavailable', async () => {
-    const { getBlocksAndToolsServerTool } = await import('./get-blocks-and-tools')
-    const result = await getBlocksAndToolsServerTool.execute({})
+    const { getAvailableBlocksServerTool } = await import('./get-available-blocks')
+    const result = await getAvailableBlocksServerTool.execute({})
 
     expect(mockGetOAuthProviderAvailability).toHaveBeenCalledWith(
       expect.arrayContaining(['google-email', 'reddit', 'slack'])
@@ -188,17 +187,31 @@ describe('getBlocksAndToolsServerTool', () => {
     expect(result.blocks.some((block) => block.blockType === 'slack')).toBe(false)
   })
 
-  it('uses the same availability filter for trigger block discovery', async () => {
-    const { getTriggerBlocksServerTool } = await import('./get-trigger-blocks')
-    const result = await getTriggerBlocksServerTool.execute({})
+  it('filters blocks by catalog category', async () => {
+    const { getAvailableBlocksServerTool } = await import('./get-available-blocks')
+    const triggerResult = await getAvailableBlocksServerTool.execute({ category: 'trigger' })
+    const toolResult = await getAvailableBlocksServerTool.execute({ category: 'tool' })
+    const blockResult = await getAvailableBlocksServerTool.execute({ category: 'block' })
 
-    expect(result.triggerBlockIds).not.toContain('gmail')
-    expect(result.triggerBlockIds).not.toContain('slack')
+    expect(triggerResult.blocks.map((block) => block.blockType)).toEqual(
+      expect.arrayContaining(['generic_webhook'])
+    )
+    expect(triggerResult.blocks.every((block) => block.category === 'trigger')).toBe(true)
+    expect(toolResult.blocks.map((block) => block.blockType)).toEqual(
+      expect.arrayContaining(['reddit'])
+    )
+    expect(toolResult.blocks.every((block) => block.category === 'tool')).toBe(true)
+    expect(blockResult.blocks.map((block) => block.blockType)).toEqual(
+      expect.arrayContaining(['agent', 'function'])
+    )
+    expect(blockResult.blocks.every((block) => block.category === 'block')).toBe(true)
+    expect(toolResult.blocks.map((block) => block.blockType)).not.toContain('gmail')
+    expect(toolResult.blocks.map((block) => block.blockType)).not.toContain('slack')
   })
 
   it('matches mixed capability queries across different built-in blocks', async () => {
-    const { getBlocksAndToolsServerTool } = await import('./get-blocks-and-tools')
-    const result = await getBlocksAndToolsServerTool.execute({
+    const { getAvailableBlocksServerTool } = await import('./get-available-blocks')
+    const result = await getAvailableBlocksServerTool.execute({
       query: 'OHLCV indicator',
     })
 

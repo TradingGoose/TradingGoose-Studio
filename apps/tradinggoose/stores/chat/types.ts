@@ -29,7 +29,7 @@ export interface ChatStore {
   addMessage: (message: Omit<ChatMessage, 'id' | 'timestamp'> & { id?: string }) => void
   clearChat: (workflowId: string | null) => void
   exportChatCSV: (workflowId: string) => void
-  getWorkflowMessages: (workflowId: string) => ChatMessage[]
+  readWorkflowMessages: (workflowId: string) => ChatMessage[]
   setSelectedWorkflowOutput: (workflowId: string, outputIds: string[]) => void
   getSelectedWorkflowOutput: (workflowId: string) => string[]
   appendMessageContent: (messageId: string, content: string) => void

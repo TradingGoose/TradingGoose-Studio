@@ -1,9 +1,10 @@
+import { CopilotTool } from '@/lib/copilot/registry'
 import type { BaseServerTool } from '@/lib/copilot/tools/server/base-tool'
 import { listWorkflowBlockCatalogItems } from '@/lib/copilot/tools/server/blocks/block-mermaid-catalog'
 import {
   type BlockMermaidCatalogItemType,
-  GetBlocksAndToolsInput,
-  GetBlocksAndToolsResult,
+  GetAvailableBlocksInput,
+  GetAvailableBlocksResult,
 } from '@/lib/copilot/tools/shared/schemas'
 import { createLogger } from '@/lib/logs/console/logger'
 
@@ -16,15 +17,15 @@ const QUERY_TERM_ALIASES: Record<string, string[]> = {
   ohlcv: ['open', 'high', 'low', 'close', 'volume'],
 }
 
-export const getBlocksAndToolsServerTool: BaseServerTool<
-  ReturnType<typeof GetBlocksAndToolsInput.parse>,
-  ReturnType<typeof GetBlocksAndToolsResult.parse>
+export const getAvailableBlocksServerTool: BaseServerTool<
+  ReturnType<typeof GetAvailableBlocksInput.parse>,
+  ReturnType<typeof GetAvailableBlocksResult.parse>
 > = {
-  name: 'get_blocks_and_tools',
+  name: CopilotTool.get_available_blocks,
   async execute(input) {
-    const logger = createLogger('GetBlocksAndToolsServerTool')
-    const { query, triggerAllowed } = GetBlocksAndToolsInput.parse(input ?? {})
-    logger.debug('Executing get_blocks_and_tools', { query, triggerAllowed })
+    const logger = createLogger('GetAvailableBlocksServerTool')
+    const { query, category } = GetAvailableBlocksInput.parse(input ?? {})
+    logger.debug('Executing get_available_blocks', { query, category })
 
     const normalizedQuery = query?.trim().toLowerCase()
     const queryTerms = normalizedQuery
@@ -39,10 +40,7 @@ export const getBlocksAndToolsServerTool: BaseServerTool<
       : []
     const blocks = (await listWorkflowBlockCatalogItems())
       .map((block) => {
-        if (
-          typeof triggerAllowed === 'boolean' &&
-          Boolean(block.triggerAllowed) !== triggerAllowed
-        ) {
+        if (category && block.category !== category) {
           return null
         }
 
@@ -79,6 +77,6 @@ export const getBlocksAndToolsServerTool: BaseServerTool<
       )
       .map(({ block }) => block)
 
-    return GetBlocksAndToolsResult.parse({ blocks })
+    return GetAvailableBlocksResult.parse({ blocks })
   },
 }

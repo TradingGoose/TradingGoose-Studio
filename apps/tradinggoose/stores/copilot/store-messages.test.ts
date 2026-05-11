@@ -97,7 +97,7 @@ describe('normalizeMessagesForUI', () => {
           timestamp: 1,
           toolCall: {
             id: 'tool-1',
-            name: 'get_user_workflow',
+            name: 'read_workflow',
             state: ClientToolCallState.success,
           },
         },

@@ -37,7 +37,7 @@ describe('buildAssistantMessageSegments', () => {
         timestamp: 5,
         toolCall: {
           id: 'tool-1',
-          name: 'get_user_workflow',
+          name: 'read_workflow',
           state: 'success' as any,
         },
       },

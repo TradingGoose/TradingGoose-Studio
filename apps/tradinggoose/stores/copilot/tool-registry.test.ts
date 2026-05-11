@@ -76,19 +76,19 @@ describe('tool-registry', () => {
   it('does not inject workflow ids into server tool args from execution provenance', () => {
     const context = createExecutionContext({
       toolCallId,
-      toolName: 'get_workflow_console',
+      toolName: 'read_workflow_logs',
       provenance: { contextWorkflowId: 'wf-current' },
     })
 
     expect(context.contextWorkflowId).toBe('wf-current')
-    expect(prepareCopilotToolArgs('get_workflow_console', {}, context)).toEqual({})
+    expect(prepareCopilotToolArgs('read_workflow_logs', {}, context)).toEqual({})
     expect(
       prepareCopilotToolArgs(
-        'get_workflow_console',
+        'read_workflow_logs',
         {},
         createExecutionContext({
           toolCallId,
-          toolName: 'get_workflow_console',
+          toolName: 'read_workflow_logs',
           provenance: {
             workflowId: 'wf-1',
             contextWorkflowId: 'wf-current',
@@ -116,6 +116,7 @@ describe('tool-registry', () => {
     expect(isGatedTool('checkoff_todo')).toBe(false)
     expect(isGatedTool('mark_todo_in_progress')).toBe(false)
     expect(isGatedTool('get_blocks_metadata')).toBe(false)
+    expect(isGatedTool('get_agent_accessory_catalog')).toBe(false)
     expect(isGatedTool('unknown_integration_tool')).toBe(true)
   })
 })

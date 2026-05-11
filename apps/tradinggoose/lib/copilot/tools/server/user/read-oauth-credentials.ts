@@ -2,27 +2,28 @@ import { db } from '@tradinggoose/db'
 import { account, user } from '@tradinggoose/db/schema'
 import { eq } from 'drizzle-orm'
 import { jwtDecode } from 'jwt-decode'
+import { CopilotTool } from '@/lib/copilot/registry'
 import { createPermissionError } from '@/lib/copilot/review-sessions/permissions'
 import {
   type BaseServerTool,
-  type ServerToolExecutionContext,
   resolveServerWorkflowScope,
+  type ServerToolExecutionContext,
 } from '@/lib/copilot/tools/server/base-tool'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
 import { refreshTokenIfNeeded } from '@/app/api/auth/oauth/utils'
 
-interface GetOAuthCredentialsParams {
+interface ReadOAuthCredentialsParams {
   workflowId?: string
 }
 
-export const getOAuthCredentialsServerTool: BaseServerTool<GetOAuthCredentialsParams, any> = {
-  name: 'get_oauth_credentials',
+export const readOAuthCredentialsServerTool: BaseServerTool<ReadOAuthCredentialsParams, any> = {
+  name: CopilotTool.read_oauth_credentials,
   async execute(
-    params: GetOAuthCredentialsParams,
+    params: ReadOAuthCredentialsParams,
     context?: ServerToolExecutionContext
   ): Promise<any> {
-    const logger = createLogger('GetOAuthCredentialsServerTool')
+    const logger = createLogger('ReadOAuthCredentialsServerTool')
 
     if (!context?.userId) {
       logger.error(
@@ -45,7 +46,7 @@ export const getOAuthCredentialsServerTool: BaseServerTool<GetOAuthCredentialsPa
 
     const userId = authenticatedUserId
 
-    logger.info('Fetching OAuth credentials for authenticated user', {
+    logger.info('Reading OAuth credentials for authenticated user', {
       userId,
       workflowId: workflowScope?.workflowId,
     })

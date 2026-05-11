@@ -121,7 +121,7 @@ export function SkillEditorExportButton({
     ? (pairContext?.skillId ?? null)
     : (skillId ?? null)
   const skill = useSkillsStore((state) =>
-    workspaceId && resolvedSkillId ? state.getSkill(resolvedSkillId, workspaceId) : undefined
+    workspaceId && resolvedSkillId ? state.readSkill(resolvedSkillId, workspaceId) : undefined
   )
 
   useSkillEditorState({

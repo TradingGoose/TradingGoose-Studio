@@ -185,7 +185,7 @@ function buildEditWorkflowError(message: string): CopilotServerToolErrorResponse
     const hint = details.includes('non-canonical sub-block')
       ? 'Use only the canonical sub-block ids from `get_blocks_metadata` for that block type. Keep the existing canonical ids and remove invented keys.'
       : details.includes('unknown block type')
-        ? 'Use block types exactly as returned by `get_blocks_and_tools` or `get_blocks_metadata`. Keep `TG_BLOCK.type` unchanged unless you are intentionally replacing the block with another valid type.'
+        ? 'Use block types exactly as returned by `get_available_blocks` or `get_blocks_metadata`. Keep `TG_BLOCK.type` unchanged unless you are intentionally replacing the block with another valid type.'
         : details.includes('Edge references non-existent')
           ? 'Every `TG_EDGE` source and target must match an existing `TG_BLOCK`, `TG_LOOP`, or `TG_PARALLEL` id in the same document.'
           : 'Return a complete canonical workflow document that validates as workflow state. Preserve required block fields, canonical ids, and valid edge references.'

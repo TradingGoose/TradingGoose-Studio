@@ -491,13 +491,13 @@ export function InlineToolCall({
     toolState === 'pending' &&
     (toolName === 'make_api_request' ||
       toolName === 'set_environment_variables' ||
-      toolName === 'set_global_workflow_variables')
+      toolName === 'set_workflow_variables')
 
   const [expanded, setExpanded] = useState(isExpandablePending)
   const isExpandableTool =
     toolName === 'make_api_request' ||
     toolName === 'set_environment_variables' ||
-    toolName === 'set_global_workflow_variables'
+    toolName === 'set_workflow_variables'
 
   const accessLevel = useCopilotStore((s) => s.accessLevel)
   const entitySession = useEntitySession()
@@ -641,7 +641,7 @@ export function InlineToolCall({
       )
     }
 
-    if (toolCall.name === 'set_global_workflow_variables') {
+    if (toolCall.name === 'set_workflow_variables') {
       const ops = Array.isArray(params.operations) ? (params.operations as any[]) : []
       return (
         <div className='mt-0.5 w-full overflow-hidden rounded border border-muted bg-card'>

@@ -15,7 +15,6 @@ export const GmailBlock: BlockConfig<GmailToolResponse> = {
   category: 'tools',
   bgColor: undefined,
   icon: GmailIcon,
-  triggerAllowed: true,
   subBlocks: [
     // Operation selector
     {

@@ -63,7 +63,7 @@ const isValidMonitorShellWorkingState = (value: unknown): value is MonitorShellW
   )
 }
 
-export const getMonitorWorkingStateKey = (workspaceId: string, userId: string) =>
+export const readMonitorWorkingStateKey = (workspaceId: string, userId: string) =>
   `${MONITOR_WORKING_STATE_PREFIX}:${workspaceId}:${userId}`
 
 export const readMonitorWorkingState = (
@@ -74,7 +74,7 @@ export const readMonitorWorkingState = (
     return DEFAULT_MONITOR_SHELL_WORKING_STATE
   }
 
-  const storageKey = getMonitorWorkingStateKey(workspaceId, userId)
+  const storageKey = readMonitorWorkingStateKey(workspaceId, userId)
   const rawValue = BrowserStorage.getItem<unknown | null>(storageKey, null)
 
   if (rawValue === null) {
@@ -97,7 +97,7 @@ export const writeMonitorWorkingState = (
   if (!workspaceId || !userId) return false
 
   return BrowserStorage.setItem(
-    getMonitorWorkingStateKey(workspaceId, userId),
+    readMonitorWorkingStateKey(workspaceId, userId),
     normalizeMonitorShellWorkingState(state)
   )
 }

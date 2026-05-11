@@ -287,7 +287,6 @@ export interface BlockConfig<T extends ToolResponse = ToolResponse> {
   bgColor: string | undefined
   icon: BlockIcon
   subBlocks: SubBlockConfig[]
-  triggerAllowed?: boolean
   authMode?: AuthMode
   tools: {
     access: string[]

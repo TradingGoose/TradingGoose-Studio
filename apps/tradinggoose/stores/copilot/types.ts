@@ -86,7 +86,7 @@ type WorkspaceEntityChatContext =
 export type ChatContext =
   | { kind: 'past_chat'; reviewSessionId: string; label: string }
   | WorkspaceEntityChatContext
-  | { kind: 'blocks'; blockIds: string[]; label: string }
+  | { kind: 'blocks'; blockTypes: string[]; label: string }
   | { kind: 'logs'; executionId?: string; label: string }
   | { kind: 'workflow_block'; workflowId: string; blockId: string; label: string }
   | { kind: 'knowledge'; knowledgeId?: string; label: string }

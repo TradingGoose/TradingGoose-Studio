@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { getEnvironmentVariablesServerTool } from './get-environment-variables'
+import { readEnvironmentVariablesServerTool } from './read-environment-variables'
 
 const mocks = vi.hoisted(() => ({
   createPermissionError: vi.fn(() => 'permission denied'),
@@ -27,7 +27,7 @@ vi.mock('@/lib/logs/console/logger', () => ({
   }),
 }))
 
-describe('getEnvironmentVariablesServerTool', () => {
+describe('readEnvironmentVariablesServerTool', () => {
   beforeEach(() => {
     vi.clearAllMocks()
   })
@@ -44,10 +44,13 @@ describe('getEnvironmentVariablesServerTool', () => {
     })
 
     await expect(
-      getEnvironmentVariablesServerTool.execute({}, {
-        userId: 'auth-user',
-        contextWorkflowId: 'workflow-1',
-      })
+      readEnvironmentVariablesServerTool.execute(
+        {},
+        {
+          userId: 'auth-user',
+          contextWorkflowId: 'workflow-1',
+        }
+      )
     ).resolves.toEqual({
       variableNames: ['PERSONAL_KEY', 'WORKSPACE_KEY'],
       count: 2,

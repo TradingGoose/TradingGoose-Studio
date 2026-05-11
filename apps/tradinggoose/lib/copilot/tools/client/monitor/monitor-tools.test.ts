@@ -2,8 +2,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ToolArgSchemas, ToolResultSchemas } from '@/lib/copilot/registry'
 import { ClientToolCallState } from '@/lib/copilot/tools/client/base-tool'
 import { EditMonitorClientTool } from '@/lib/copilot/tools/client/monitor/edit-monitor'
-import { GetMonitorClientTool } from '@/lib/copilot/tools/client/monitor/get-monitor'
 import { ListMonitorsClientTool } from '@/lib/copilot/tools/client/monitor/list-monitors'
+import { ReadMonitorClientTool } from '@/lib/copilot/tools/client/monitor/read-monitor'
 
 const mockRegistryState = {
   workflows: {} as Record<string, { workspaceId?: string }>,
@@ -118,7 +118,7 @@ describe('monitor tools', () => {
     })
   })
 
-  it('get_monitor returns a monitor document', async () => {
+  it('read_monitor returns a monitor document', async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = typeof input === 'string' ? input : input.toString()
       const method = init?.method || 'GET'
@@ -172,10 +172,10 @@ describe('monitor tools', () => {
     })
     vi.stubGlobal('fetch', fetchMock)
 
-    const tool = new GetMonitorClientTool('get-monitor')
+    const tool = new ReadMonitorClientTool('read-monitor')
     tool.setExecutionContext({
-      toolCallId: 'get-monitor',
-      toolName: 'get_monitor',
+      toolCallId: 'read-monitor',
+      toolName: 'read_monitor',
       channelId: 'pair-green',
       workspaceId: 'ws-1',
       log: vi.fn(),
@@ -334,7 +334,7 @@ describe('monitor tools', () => {
     })
 
     expect(
-      ToolResultSchemas.get_monitor.parse({
+      ToolResultSchemas.read_monitor.parse({
         surfaceKind: 'monitor',
         monitorId: 'monitor-1',
         monitorName: 'rsi on AAPL (1m)',

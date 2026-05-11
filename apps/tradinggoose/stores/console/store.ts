@@ -362,7 +362,7 @@ export const useConsoleStore = create<ConsoleStore>()(
           }
         },
 
-        getWorkflowEntries: (workflowId) => {
+        readWorkflowEntries: (workflowId) => {
           return get().entries.filter((entry) => entry.workflowId === workflowId)
         },
 

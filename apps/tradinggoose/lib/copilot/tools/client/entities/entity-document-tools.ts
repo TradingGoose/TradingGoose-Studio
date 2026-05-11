@@ -1,3 +1,4 @@
+import type { LucideIcon } from 'lucide-react'
 import {
   BarChart3,
   BookOpen,
@@ -9,14 +10,14 @@ import {
   X,
   XCircle,
 } from 'lucide-react'
-import type { LucideIcon } from 'lucide-react'
 import {
+  type EntityDocumentKind,
   getEntityDocumentFormat,
   getEntityDocumentName,
   parseEntityDocument,
   serializeEntityDocument,
-  type EntityDocumentKind,
 } from '@/lib/copilot/entity-documents'
+import { CopilotTool } from '@/lib/copilot/registry'
 import {
   ENTITY_KIND_CUSTOM_TOOL,
   ENTITY_KIND_INDICATOR,
@@ -32,8 +33,8 @@ import {
   applyEntityFieldsToSession,
   type EntityReadTarget,
   getActiveEntitySession,
-  listCopilotIndicators,
   listCanonicalEntityEntries,
+  listCopilotIndicators,
   readEntityFieldsFromContext,
   resolveWorkspaceIdFromExecutionContext,
 } from '@/lib/copilot/tools/client/entities/entity-document-tool-utils'
@@ -233,13 +234,13 @@ function createListEntityTool(toolId: string, config: EntityToolConfig) {
   }
 }
 
-function createGetEntityDocumentTool(toolId: string, config: EntityToolConfig) {
-  return class GetEntityDocumentClientTool extends BaseClientTool {
+function createReadEntityDocumentTool(toolId: string, config: EntityToolConfig) {
+  return class ReadEntityDocumentClientTool extends BaseClientTool {
     static readonly id = toolId
     static readonly metadata = createReadMetadata(config)
 
     constructor(toolCallId: string) {
-      super(toolCallId, toolId, GetEntityDocumentClientTool.metadata)
+      super(toolCallId, toolId, ReadEntityDocumentClientTool.metadata)
     }
 
     async execute(args?: ReadEntityDocumentArgs): Promise<void> {
@@ -383,7 +384,10 @@ const mcpServerToolConfig: EntityToolConfig = {
 }
 
 export const ListSkillsClientTool = createListEntityTool('list_skills', skillToolConfig)
-export const GetSkillClientTool = createGetEntityDocumentTool('get_skill', skillToolConfig)
+export const ReadSkillClientTool = createReadEntityDocumentTool(
+  CopilotTool.read_skill,
+  skillToolConfig
+)
 export const EditSkillClientTool = createEntityDocumentMutationTool(
   'edit_skill',
   skillToolConfig,
@@ -401,8 +405,8 @@ export const RenameSkillClientTool = createEntityDocumentMutationTool(
 )
 
 export const ListCustomToolsClientTool = createListEntityTool('list_custom_tools', customToolConfig)
-export const GetCustomToolClientTool = createGetEntityDocumentTool(
-  'get_custom_tool',
+export const ReadCustomToolClientTool = createReadEntityDocumentTool(
+  CopilotTool.read_custom_tool,
   customToolConfig
 )
 export const EditCustomToolClientTool = createEntityDocumentMutationTool(
@@ -422,7 +426,7 @@ export const RenameCustomToolClientTool = createEntityDocumentMutationTool(
 )
 
 export class ListIndicatorsClientTool extends BaseClientTool {
-  static readonly id = 'list_indicators'
+  static readonly id = CopilotTool.list_indicators
   static readonly metadata = createListMetadata(indicatorToolConfig)
 
   constructor(toolCallId: string) {
@@ -449,8 +453,8 @@ export class ListIndicatorsClientTool extends BaseClientTool {
     }
   }
 }
-export const GetIndicatorClientTool = createGetEntityDocumentTool(
-  'get_indicator',
+export const ReadIndicatorClientTool = createReadEntityDocumentTool(
+  CopilotTool.read_indicator,
   indicatorToolConfig
 )
 export const EditIndicatorClientTool = createEntityDocumentMutationTool(
@@ -473,8 +477,8 @@ export const ListMcpServersClientTool = createListEntityTool(
   'list_mcp_servers',
   mcpServerToolConfig
 )
-export const GetMcpServerClientTool = createGetEntityDocumentTool(
-  'get_mcp_server',
+export const ReadMcpServerClientTool = createReadEntityDocumentTool(
+  CopilotTool.read_mcp_server,
   mcpServerToolConfig
 )
 export const EditMcpServerClientTool = createEntityDocumentMutationTool(

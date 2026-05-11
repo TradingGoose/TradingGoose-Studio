@@ -282,7 +282,7 @@ describe('copilot tool execution provenance', () => {
           item: {
             type: 'function_call',
             call_id: toolCallId,
-            name: 'get_user_workflow',
+            name: 'read_workflow',
             arguments: JSON.stringify({
               workflowId: 'wf-stringified-explicit',
               entityId: 'entity-stringified-explicit',
@@ -380,7 +380,7 @@ describe('copilot tool execution provenance', () => {
       item: {
         type: 'function_call',
         call_id: toolCallId,
-        name: 'get_user_workflow',
+        name: 'read_workflow',
         arguments: {},
       },
     })
@@ -680,7 +680,7 @@ describe('copilot streaming regressions', () => {
           item: {
             type: 'function_call',
             call_id: 'tool-1',
-            name: 'get_user_workflow',
+            name: 'read_workflow',
             arguments: { workflowId: 'wf-stream-order' },
           },
         },
@@ -1982,7 +1982,7 @@ describe('copilot streaming regressions', () => {
       item: {
         type: 'function_call',
         call_id: toolCallId,
-        name: 'list_user_workflows',
+        name: 'list_workflows',
         arguments: {},
       },
     })
@@ -2507,7 +2507,7 @@ describe('copilot streaming regressions', () => {
       item: {
         type: 'function_call',
         call_id: toolCallId,
-        name: 'list_user_workflows',
+        name: 'list_workflows',
         arguments: {},
       },
     })

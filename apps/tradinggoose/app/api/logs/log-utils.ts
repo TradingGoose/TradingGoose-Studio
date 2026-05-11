@@ -129,7 +129,7 @@ type RawLogRow = {
   workflowUpdatedAt?: Date | null
 }
 
-export const getMonitorSnapshot = (executionData: unknown) => {
+export const readMonitorSnapshot = (executionData: unknown) => {
   const snapshot = (executionData as any)?.trigger?.data?.monitor
   return snapshot && typeof snapshot === 'object' ? snapshot : null
 }
@@ -428,7 +428,7 @@ export const matchesWorkflowLogFilters = (
     costMaxExclusive?: boolean
   }
 ) => {
-  const monitorSnapshot = getMonitorSnapshot(log.executionData)
+  const monitorSnapshot = readMonitorSnapshot(log.executionData)
 
   if (filters.search) {
     const haystack = [

@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from 'fs'
 import { join } from 'path'
 import type {
+  BlockCatalogCategory,
   BlockMermaidCatalogItemType,
   BlockMermaidOperationType,
   BlockMermaidProfileType,
@@ -31,9 +32,9 @@ type BlockSubBlockSummary = NonNullable<BlockProfile['subBlocks']>[number]
 type BlockCatalogDefinition = {
   blockType: string
   blockName: string
+  category: BlockCatalogCategory
   blockDescription?: string
   bestPractices?: string
-  triggerAllowed?: boolean
   authType?: BlockAuthType
   requiredCredentials?: BlockRequiredCredentials
   yamlDocumentation?: string
@@ -50,17 +51,17 @@ const SPECIAL_BLOCK_DEFINITIONS: Record<
 > = {
   loop: {
     blockName: 'Loop',
+    category: 'block',
     blockDescription: 'Control-flow container for iterating over child blocks.',
     bestPractices:
       'Keep child blocks inside the loop container. Incoming outer workflow edges target the Loop block alias itself, not Loop Start or Loop End. Loop Start only connects from the loop container to child blocks. Child outputs reconnect to Loop End before leaving the container.',
-    triggerAllowed: false,
   },
   parallel: {
     blockName: 'Parallel',
+    category: 'block',
     blockDescription: 'Control-flow container for running child branches in parallel.',
     bestPractices:
       'Keep child blocks inside the parallel container. Incoming outer workflow edges target the Parallel block alias itself, not Parallel Start or Parallel End. Parallel Start only connects from the parallel container to child blocks. Child outputs reconnect to Parallel End before leaving the container.',
-    triggerAllowed: false,
   },
 }
 
@@ -158,6 +159,17 @@ function resolveOperationChoices(
   })
 }
 
+function toCatalogCategory(category: BlockConfig['category']): BlockCatalogCategory {
+  switch (category) {
+    case 'blocks':
+      return 'block'
+    case 'tools':
+      return 'tool'
+    case 'triggers':
+      return 'trigger'
+  }
+}
+
 function resolveSubBlockOptions(subBlock: BlockConfig['subBlocks'][number]) {
   const options = typeof subBlock.options === 'function' ? subBlock.options() : subBlock.options
   if (!Array.isArray(options) || options.length === 0) {
@@ -228,23 +240,23 @@ function buildInputReferenceGrammar(
     workflowOutputs: {
       syntax: '<block.output>',
       summary:
-        'Copy the exact `path` returned by `get_block_outputs` or `get_block_upstream_references`, such as `agent.content`, and wrap it once as `<agent.content>`. Use the returned `type` to choose valid fields. Do not add `block.`, `previousBlock`, `output`, or workflow block ids.',
+        'Copy the exact `path` returned by `read_block_outputs` or `read_block_upstream_references`, such as `agent.content`, and wrap it once as `<agent.content>`. Use the returned `type` to choose valid fields. Do not add `block.`, `previousBlock`, `output`, or workflow block ids.',
       examples: ['<agent.content>', '<historical_data.close>'],
-      sourceTools: ['get_block_outputs', 'get_block_upstream_references'],
+      sourceTools: ['read_block_outputs', 'read_block_upstream_references'],
     },
     workflowVariables: {
       syntax: '<variable.name>',
       summary:
         'Copy the exact workflow variable tag, such as `variable.riskLimit`, and wrap it once as `<variable.riskLimit>`.',
       examples: ['<variable.riskLimit>', '<variable.companyName>'],
-      sourceTools: ['get_global_workflow_variables'],
+      sourceTools: ['read_workflow_variables'],
     },
     environmentVariables: {
       syntax: '{{ENV_VAR_NAME}}',
       summary:
         'Reference environment variables with double curly braces and the exact environment variable name.',
       examples: ['{{OPENAI_API_KEY}}', '{{SERVICE_API_KEY}}'],
-      sourceTools: ['get_environment_variables'],
+      sourceTools: ['read_environment_variables'],
     },
     ...(blockType === 'function'
       ? {
@@ -290,9 +302,9 @@ function resolveBlockCatalogDefinition(blockType: string): BlockCatalogDefinitio
   return {
     blockType,
     blockName: blockConfig.name || blockType,
+    category: toCatalogCategory(blockConfig.category),
     blockDescription: blockConfig.longDescription || blockConfig.description || undefined,
     bestPractices: blockConfig.bestPractices || undefined,
-    triggerAllowed: 'triggerAllowed' in blockConfig ? !!blockConfig.triggerAllowed : false,
     authType,
     requiredCredentials: buildRequiredCredentials(
       authType,
@@ -304,7 +316,7 @@ function resolveBlockCatalogDefinition(blockType: string): BlockCatalogDefinitio
   }
 }
 
-export async function getWorkflowBlockCatalogAvailability(): Promise<ProviderAvailability> {
+export async function readWorkflowBlockCatalogAvailability(): Promise<ProviderAvailability> {
   const providerIds = getProviderIdsForBlocks(
     Object.values(blockRegistry).filter((blockConfig): blockConfig is BlockConfig =>
       Boolean(blockConfig && !blockConfig.hideFromToolbar)
@@ -358,7 +370,7 @@ async function buildOperationSummaries(
 }
 
 export async function listWorkflowBlockCatalogItems(): Promise<BlockCatalogItem[]> {
-  const availability = await getWorkflowBlockCatalogAvailability()
+  const availability = await readWorkflowBlockCatalogAvailability()
   const blockTypes = [
     ...Object.keys(blockRegistry).filter((blockType) => !blockRegistry[blockType]?.hideFromToolbar),
     ...Object.keys(SPECIAL_BLOCK_DEFINITIONS),
@@ -385,10 +397,8 @@ export async function listWorkflowBlockCatalogItems(): Promise<BlockCatalogItem[
         return {
           blockType,
           blockName: definition.blockName,
+          category: definition.category,
           ...(definition.blockDescription ? { blockDescription: definition.blockDescription } : {}),
-          ...(definition.triggerAllowed !== undefined
-            ? { triggerAllowed: definition.triggerAllowed }
-            : {}),
           mermaidContract: shape.mermaidContract,
           ...(definition.operationChoices.length > 0
             ? { operationIds: definition.operationChoices.map((operation) => operation.id) }
@@ -400,11 +410,11 @@ export async function listWorkflowBlockCatalogItems(): Promise<BlockCatalogItem[
   return items.filter((item): item is BlockCatalogItem => item !== null)
 }
 
-export async function getWorkflowBlockProfile(
+export async function readWorkflowBlockProfile(
   blockType: string,
   availability?: ProviderAvailability
 ): Promise<BlockProfile> {
-  const resolvedAvailability = availability ?? (await getWorkflowBlockCatalogAvailability())
+  const resolvedAvailability = availability ?? (await readWorkflowBlockCatalogAvailability())
 
   if (!isCatalogBlockAvailable(blockType, resolvedAvailability)) {
     throw new Error(`Block not found: ${blockType}`)
@@ -426,11 +436,9 @@ export async function getWorkflowBlockProfile(
   return {
     blockType,
     blockName: definition.blockName,
+    category: definition.category,
     ...(definition.blockDescription ? { blockDescription: definition.blockDescription } : {}),
     ...(definition.bestPractices ? { bestPractices: definition.bestPractices } : {}),
-    ...(definition.triggerAllowed !== undefined
-      ? { triggerAllowed: definition.triggerAllowed }
-      : {}),
     ...(definition.authType ? { authType: definition.authType } : {}),
     ...(definition.requiredCredentials
       ? { requiredCredentials: definition.requiredCredentials }

@@ -50,7 +50,7 @@ vi.mock('@/lib/logs/console/logger', () => ({
 }))
 
 vi.mock('@/lib/workflows/utils', () => ({
-  getWorkflowAccessContext: vi.fn(),
+  readWorkflowAccessContext: vi.fn(),
 }))
 
 import { db } from '@tradinggoose/db'

@@ -12,7 +12,7 @@ vi.mock('@/blocks/registry', () => {
       name: 'GitHub',
       longDescription: 'Interact with GitHub repositories.',
       bestPractices: 'Use explicit repository owner and repo names.',
-      triggerAllowed: true,
+      category: 'tools',
       authMode: 'apiKey',
       subBlocks: [
         {
@@ -33,13 +33,14 @@ vi.mock('@/blocks/registry', () => {
     condition: {
       name: 'Condition',
       description: 'Branch on a condition.',
+      category: 'blocks',
       subBlocks: [],
       outputs: {},
     },
     input_trigger: {
       name: 'Input Form',
       description: 'Collect structured workflow input.',
-      triggerAllowed: true,
+      category: 'triggers',
       subBlocks: [
         {
           id: 'inputFormat',
@@ -52,6 +53,7 @@ vi.mock('@/blocks/registry', () => {
       name: 'Function',
       description: 'Run custom logic.',
       longDescription: 'Execute custom code.',
+      category: 'blocks',
       subBlocks: [
         {
           id: 'code',
@@ -66,6 +68,7 @@ vi.mock('@/blocks/registry', () => {
     reddit: {
       name: 'Reddit',
       description: 'Read Reddit posts.',
+      category: 'tools',
       authMode: 'oauth',
       subBlocks: [
         {
@@ -81,6 +84,7 @@ vi.mock('@/blocks/registry', () => {
     slack: {
       name: 'Slack',
       description: 'Send Slack messages.',
+      category: 'tools',
       authMode: 'oauth',
       subBlocks: [
         {
@@ -135,11 +139,11 @@ describe('getBlocksMetadataServerTool', () => {
 
   it('returns Mermaid profiles and operation variants instead of schema-shaped metadata', async () => {
     const { getBlocksMetadataServerTool } = await import(
-      '@/lib/copilot/tools/server/blocks/get-blocks-metadata-tool'
+      '@/lib/copilot/tools/server/blocks/get-blocks-metadata'
     )
 
     const result = await getBlocksMetadataServerTool.execute({
-      blockIds: [
+      blockTypes: [
         'github',
         'condition',
         'input_trigger',
@@ -192,18 +196,18 @@ describe('getBlocksMetadataServerTool', () => {
           syntax: '<block.output>',
           summary: expect.stringMatching(/Copy the exact `path` returned[\s\S]*returned `type`/),
           sourceTools: expect.arrayContaining([
-            'get_block_outputs',
-            'get_block_upstream_references',
+            'read_block_outputs',
+            'read_block_upstream_references',
           ]),
         }),
         workflowVariables: expect.objectContaining({
           syntax: '<variable.name>',
           summary: expect.stringContaining('Copy the exact workflow variable tag'),
-          sourceTools: ['get_global_workflow_variables'],
+          sourceTools: ['read_workflow_variables'],
         }),
         environmentVariables: expect.objectContaining({
           syntax: '{{ENV_VAR_NAME}}',
-          sourceTools: ['get_environment_variables'],
+          sourceTools: ['read_environment_variables'],
         }),
       })
     )

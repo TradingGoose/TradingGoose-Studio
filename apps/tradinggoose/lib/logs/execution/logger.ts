@@ -453,7 +453,7 @@ export class ExecutionLogger {
     return completedLog
   }
 
-  async getWorkflowExecution(executionId: string): Promise<WorkflowExecutionLog | null> {
+  async readWorkflowExecution(executionId: string): Promise<WorkflowExecutionLog | null> {
     const [workflowLog] = await db
       .select()
       .from(workflowExecutionLogs)

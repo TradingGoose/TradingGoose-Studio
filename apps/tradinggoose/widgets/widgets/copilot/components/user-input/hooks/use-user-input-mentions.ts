@@ -403,12 +403,12 @@ export function useUserInputMentions({
     replaceActiveMentionWith(label)
     setSelectedContexts((prev) => {
       if (
-        prev.some((context) => context.kind === 'blocks' && context.blockIds.includes(block.id))
+        prev.some((context) => context.kind === 'blocks' && context.blockTypes.includes(block.id))
       ) {
         return prev
       }
 
-      return [...prev, { kind: 'blocks', blockIds: [block.id], label } as ChatContext]
+      return [...prev, { kind: 'blocks', blockTypes: [block.id], label } as ChatContext]
     })
     closeMentionMenu()
   }

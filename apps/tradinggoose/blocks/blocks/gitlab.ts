@@ -8,7 +8,6 @@ export const GitLabBlock: BlockConfig<GitLabResponse> = {
   name: 'GitLab',
   description: 'Interact with GitLab projects, issues, merge requests, and pipelines',
   authMode: AuthMode.ApiKey,
-  triggerAllowed: false,
   longDescription:
     'Integrate GitLab into the workflow. Can manage projects, issues, merge requests, pipelines, and add comments. Supports all core GitLab DevOps operations.',
   docsLink: 'https://docs.tradinggoose.ai/tools/gitlab',

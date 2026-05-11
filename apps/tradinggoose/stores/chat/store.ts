@@ -131,7 +131,7 @@ export const useChatStore = create<ChatStore>()(
           }
         },
 
-        getWorkflowMessages: (workflowId) => {
+        readWorkflowMessages: (workflowId) => {
           return get().messages.filter((message) => message.workflowId === workflowId)
         },
 

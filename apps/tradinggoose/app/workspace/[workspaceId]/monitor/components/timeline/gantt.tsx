@@ -20,8 +20,8 @@ import {
   formatMonitorTimelineHeaderGroup,
   formatMonitorTimelinePrimaryLabel,
   formatMonitorTimelineTickTitle,
-  getMonitorTimelineBoundaryBucket,
-  getMonitorTimelineHeaderGroupId,
+  readMonitorTimelineBoundaryBucket,
+  readMonitorTimelineHeaderGroupId,
 } from '../shared/monitor-time'
 import { MonitorControlSelect } from '../shared/monitor-ui'
 import {
@@ -274,7 +274,7 @@ const getGroupItemTop = (index: number) =>
   TIMELINE_ROW_PADDING + index * (TIMELINE_ITEM_HEIGHT + TIMELINE_ITEM_GAP)
 
 const getBoundaryBucket = (column: Date, zoom: ExecutionMonitorTimelineZoom, timezone: string) =>
-  getMonitorTimelineBoundaryBucket(column, zoom, timezone)
+  readMonitorTimelineBoundaryBucket(column, zoom, timezone)
 
 const buildHeaderGroups = (
   columns: Date[],
@@ -285,7 +285,7 @@ const buildHeaderGroups = (
   const groups: TimelineHeaderGroup[] = []
 
   columns.forEach((column, index) => {
-    const groupId = headerGroupIds[index] ?? getMonitorTimelineHeaderGroupId(column, zoom, timezone)
+    const groupId = headerGroupIds[index] ?? readMonitorTimelineHeaderGroupId(column, zoom, timezone)
     const current = groups[groups.length - 1]
 
     if (current?.id === groupId) {
@@ -435,7 +435,7 @@ export function Gantt({
     [timelineDensity, timelineWindow.end, timelineWindow.start]
   )
   const headerGroupIds = useMemo(
-    () => columns.map((column) => getMonitorTimelineHeaderGroupId(column, zoom, timezone)),
+    () => columns.map((column) => readMonitorTimelineHeaderGroupId(column, zoom, timezone)),
     [columns, timezone, zoom]
   )
   const headerGroups = useMemo(

@@ -21,7 +21,7 @@ export interface WorkflowDetailsData {
   allLogs: WorkflowLog[]
 }
 
-const getWorkflowLogOutputText = (log: WorkflowLog) => {
+const readWorkflowLogOutputText = (log: WorkflowLog) => {
   const output = extractOutput(log)
   if (output === null || typeof output === 'undefined') {
     return '—'
@@ -30,7 +30,7 @@ const getWorkflowLogOutputText = (log: WorkflowLog) => {
   return typeof output === 'string' ? output : JSON.stringify(output)
 }
 
-const getWorkflowLogErrorText = (log: WorkflowLog) => {
+const readWorkflowLogErrorText = (log: WorkflowLog) => {
   const blockExecutions = Array.isArray(log.executionData?.blockExecutions)
     ? log.executionData.blockExecutions
     : []
@@ -318,8 +318,8 @@ export function WorkflowDetails({
                         logDate && !Number.isNaN(logDate.getTime())
                           ? formatDate(logDate.toISOString())
                           : ({ compactDate: '—', compactTime: '' } as any)
-                      const outputsStr = getWorkflowLogOutputText(log)
-                      const errorStr = getWorkflowLogErrorText(log) || ''
+                      const outputsStr = readWorkflowLogOutputText(log)
+                      const errorStr = readWorkflowLogErrorText(log) || ''
                       const isExpanded = expandedRowId === log.id
 
                       return (

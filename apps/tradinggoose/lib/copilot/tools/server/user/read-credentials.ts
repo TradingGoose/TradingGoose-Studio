@@ -1,27 +1,28 @@
 import { db } from '@tradinggoose/db'
 import { account, user } from '@tradinggoose/db/schema'
-import { createLogger } from '@/lib/logs/console/logger'
 import { eq } from 'drizzle-orm'
 import { jwtDecode } from 'jwt-decode'
+import { CopilotTool } from '@/lib/copilot/registry'
 import { createPermissionError } from '@/lib/copilot/review-sessions/permissions'
 import {
   type BaseServerTool,
-  type ServerToolExecutionContext,
   resolveServerWorkflowScope,
+  type ServerToolExecutionContext,
 } from '@/lib/copilot/tools/server/base-tool'
-import { generateRequestId } from '@/lib/utils'
 import { getPersonalAndWorkspaceEnv } from '@/lib/environment/utils'
+import { createLogger } from '@/lib/logs/console/logger'
 import { OAUTH_PROVIDERS } from '@/lib/oauth/oauth'
+import { generateRequestId } from '@/lib/utils'
 import { refreshTokenIfNeeded } from '@/app/api/auth/oauth/utils'
 
-interface GetCredentialsParams {
+interface ReadCredentialsParams {
   workflowId?: string
 }
 
-export const getCredentialsServerTool: BaseServerTool<GetCredentialsParams, any> = {
-  name: 'get_credentials',
-  async execute(params: GetCredentialsParams, context?: ServerToolExecutionContext): Promise<any> {
-    const logger = createLogger('GetCredentialsServerTool')
+export const readCredentialsServerTool: BaseServerTool<ReadCredentialsParams, any> = {
+  name: CopilotTool.read_credentials,
+  async execute(params: ReadCredentialsParams, context?: ServerToolExecutionContext): Promise<any> {
+    const logger = createLogger('ReadCredentialsServerTool')
 
     if (!context?.userId) {
       logger.error('Unauthorized attempt to access credentials - no authenticated user context')

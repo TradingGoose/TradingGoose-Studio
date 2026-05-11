@@ -2,6 +2,7 @@ import {
   Blocks,
   BookOpen,
   BookOpenText,
+  Bot,
   FileSearch,
   FileText,
   FolderOpen,
@@ -17,41 +18,48 @@ import {
   X,
   XCircle,
 } from 'lucide-react'
+import { CopilotTool } from '@/lib/copilot/registry'
 import {
   type BaseClientToolMetadata,
   ClientToolCallState,
 } from '@/lib/copilot/tools/client/base-tool'
 
 export const SERVER_TOOL_METADATA = {
-  get_workflow_console: {
+  [CopilotTool.read_workflow_logs]: {
     displayNames: {
-      [ClientToolCallState.generating]: { text: 'Fetching workflow console', icon: Loader2 },
-      [ClientToolCallState.executing]: { text: 'Fetching workflow console', icon: Loader2 },
-      [ClientToolCallState.success]: { text: 'Workflow console fetched', icon: TerminalSquare },
-      [ClientToolCallState.error]: { text: 'Failed to read workflow console', icon: XCircle },
+      [ClientToolCallState.generating]: { text: 'Reading workflow logs', icon: Loader2 },
+      [ClientToolCallState.executing]: { text: 'Reading workflow logs', icon: Loader2 },
+      [ClientToolCallState.success]: { text: 'Read workflow logs', icon: TerminalSquare },
+      [ClientToolCallState.error]: { text: 'Failed to read workflow logs', icon: XCircle },
       [ClientToolCallState.rejected]: {
-        text: 'Skipped reading workflow console',
+        text: 'Skipped reading workflow logs',
         icon: MinusCircle,
       },
       [ClientToolCallState.aborted]: {
-        text: 'Aborted reading workflow console',
+        text: 'Aborted reading workflow logs',
         icon: MinusCircle,
       },
-      [ClientToolCallState.pending]: { text: 'Fetching workflow console', icon: Loader2 },
+      [ClientToolCallState.pending]: { text: 'Reading workflow logs', icon: Loader2 },
     },
   },
-  get_blocks_and_tools: {
+  [CopilotTool.get_available_blocks]: {
     displayNames: {
       [ClientToolCallState.generating]: { text: 'Exploring workflow blocks', icon: Loader2 },
       [ClientToolCallState.pending]: { text: 'Exploring workflow blocks', icon: Loader2 },
       [ClientToolCallState.executing]: { text: 'Exploring workflow blocks', icon: Loader2 },
       [ClientToolCallState.success]: { text: 'Explored workflow blocks', icon: Blocks },
       [ClientToolCallState.error]: { text: 'Failed to explore workflow blocks', icon: XCircle },
-      [ClientToolCallState.aborted]: { text: 'Aborted exploring workflow blocks', icon: MinusCircle },
-      [ClientToolCallState.rejected]: { text: 'Skipped exploring workflow blocks', icon: MinusCircle },
+      [ClientToolCallState.aborted]: {
+        text: 'Aborted exploring workflow blocks',
+        icon: MinusCircle,
+      },
+      [ClientToolCallState.rejected]: {
+        text: 'Skipped exploring workflow blocks',
+        icon: MinusCircle,
+      },
     },
   },
-  get_blocks_metadata: {
+  [CopilotTool.get_blocks_metadata]: {
     displayNames: {
       [ClientToolCallState.generating]: { text: 'Inspecting block shapes', icon: Loader2 },
       [ClientToolCallState.pending]: { text: 'Inspecting block shapes', icon: Loader2 },
@@ -65,7 +73,24 @@ export const SERVER_TOOL_METADATA = {
       },
     },
   },
-  get_indicator_catalog: {
+  [CopilotTool.get_agent_accessory_catalog]: {
+    displayNames: {
+      [ClientToolCallState.generating]: { text: 'Exploring agent accessories', icon: Loader2 },
+      [ClientToolCallState.pending]: { text: 'Exploring agent accessories', icon: Loader2 },
+      [ClientToolCallState.executing]: { text: 'Exploring agent accessories', icon: Loader2 },
+      [ClientToolCallState.success]: { text: 'Explored agent accessories', icon: Bot },
+      [ClientToolCallState.error]: { text: 'Failed to explore agent accessories', icon: XCircle },
+      [ClientToolCallState.aborted]: {
+        text: 'Aborted exploring agent accessories',
+        icon: MinusCircle,
+      },
+      [ClientToolCallState.rejected]: {
+        text: 'Skipped exploring agent accessories',
+        icon: MinusCircle,
+      },
+    },
+  },
+  [CopilotTool.get_indicator_catalog]: {
     displayNames: {
       [ClientToolCallState.generating]: { text: 'Exploring indicator catalog', icon: Loader2 },
       [ClientToolCallState.pending]: { text: 'Exploring indicator catalog', icon: Loader2 },
@@ -82,7 +107,7 @@ export const SERVER_TOOL_METADATA = {
       },
     },
   },
-  get_indicator_metadata: {
+  [CopilotTool.get_indicator_metadata]: {
     displayNames: {
       [ClientToolCallState.generating]: { text: 'Inspecting indicator metadata', icon: Loader2 },
       [ClientToolCallState.pending]: { text: 'Inspecting indicator metadata', icon: Loader2 },
@@ -97,17 +122,6 @@ export const SERVER_TOOL_METADATA = {
         text: 'Skipped inspecting indicator metadata',
         icon: MinusCircle,
       },
-    },
-  },
-  get_trigger_blocks: {
-    displayNames: {
-      [ClientToolCallState.generating]: { text: 'Finding trigger blocks', icon: Loader2 },
-      [ClientToolCallState.pending]: { text: 'Finding trigger blocks', icon: Loader2 },
-      [ClientToolCallState.executing]: { text: 'Finding trigger blocks', icon: Loader2 },
-      [ClientToolCallState.success]: { text: 'Found trigger blocks', icon: ListFilter },
-      [ClientToolCallState.error]: { text: 'Failed to find trigger blocks', icon: XCircle },
-      [ClientToolCallState.aborted]: { text: 'Aborted finding trigger blocks', icon: MinusCircle },
-      [ClientToolCallState.rejected]: { text: 'Skipped finding trigger blocks', icon: MinusCircle },
     },
   },
   search_online: {
@@ -132,7 +146,7 @@ export const SERVER_TOOL_METADATA = {
       [ClientToolCallState.rejected]: { text: 'Skipped documentation search', icon: MinusCircle },
     },
   },
-  get_environment_variables: {
+  [CopilotTool.read_environment_variables]: {
     displayNames: {
       [ClientToolCallState.generating]: {
         text: 'Reading environment variables',
@@ -176,22 +190,22 @@ export const SERVER_TOOL_METADATA = {
       reject: { text: 'Skip', icon: XCircle },
     },
   },
-  get_credentials: {
+  [CopilotTool.read_credentials]: {
     displayNames: {
-      [ClientToolCallState.generating]: { text: 'Fetching connected integrations', icon: Loader2 },
-      [ClientToolCallState.pending]: { text: 'Fetching connected integrations', icon: Loader2 },
-      [ClientToolCallState.executing]: { text: 'Fetching connected integrations', icon: Loader2 },
-      [ClientToolCallState.success]: { text: 'Fetched connected integrations', icon: Key },
+      [ClientToolCallState.generating]: { text: 'Reading connected integrations', icon: Loader2 },
+      [ClientToolCallState.pending]: { text: 'Reading connected integrations', icon: Loader2 },
+      [ClientToolCallState.executing]: { text: 'Reading connected integrations', icon: Loader2 },
+      [ClientToolCallState.success]: { text: 'Read connected integrations', icon: Key },
       [ClientToolCallState.error]: {
         text: 'Failed to fetch connected integrations',
         icon: XCircle,
       },
       [ClientToolCallState.aborted]: {
-        text: 'Aborted fetching connected integrations',
+        text: 'Aborted reading connected integrations',
         icon: MinusCircle,
       },
       [ClientToolCallState.rejected]: {
-        text: 'Skipped fetching connected integrations',
+        text: 'Skipped reading connected integrations',
         icon: MinusCircle,
       },
     },
@@ -220,19 +234,19 @@ export const SERVER_TOOL_METADATA = {
       },
     },
   },
-  get_oauth_credentials: {
+  [CopilotTool.read_oauth_credentials]: {
     displayNames: {
-      [ClientToolCallState.generating]: { text: 'Fetching OAuth credentials', icon: Loader2 },
-      [ClientToolCallState.pending]: { text: 'Fetching OAuth credentials', icon: Loader2 },
+      [ClientToolCallState.generating]: { text: 'Reading OAuth credentials', icon: Loader2 },
+      [ClientToolCallState.pending]: { text: 'Reading OAuth credentials', icon: Loader2 },
       [ClientToolCallState.executing]: { text: 'Retrieving login IDs', icon: Loader2 },
       [ClientToolCallState.success]: { text: 'Retrieved login IDs', icon: Key },
       [ClientToolCallState.error]: { text: 'Failed to retrieve login IDs', icon: XCircle },
       [ClientToolCallState.aborted]: {
-        text: 'Aborted fetching OAuth credentials',
+        text: 'Aborted reading OAuth credentials',
         icon: MinusCircle,
       },
       [ClientToolCallState.rejected]: {
-        text: 'Skipped fetching OAuth credentials',
+        text: 'Skipped reading OAuth credentials',
         icon: MinusCircle,
       },
     },

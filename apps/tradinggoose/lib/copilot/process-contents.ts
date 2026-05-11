@@ -94,8 +94,8 @@ export async function processContextsServer(
           ctx.label ? `@${ctx.label}` : '@'
         )
       }
-      if (ctx.kind === 'blocks' && ctx.blockIds.length > 0) {
-        return await processBlocksMetadata(ctx.blockIds, ctx.label ? `@${ctx.label}` : '@')
+      if (ctx.kind === 'blocks' && ctx.blockTypes.length > 0) {
+        return await processBlocksMetadata(ctx.blockTypes, ctx.label ? `@${ctx.label}` : '@')
       }
       if (ctx.kind === 'templates' && (ctx as any).templateId) {
         return await processTemplateFromDb(
@@ -438,7 +438,7 @@ async function processWorkflowContext(
       loops: workflowState.loops || {},
       parallels: workflowState.parallels || {},
     })
-    // Match get-user-workflow format: just the workflow state JSON
+    // Match read-workflow format: just the workflow state JSON
     const content = JSON.stringify(sanitizedState, null, 2)
     logger.info('Processed sanitized workflow context', {
       workflowId,
@@ -495,20 +495,20 @@ async function processKnowledgeFromDb(
 }
 
 async function processBlocksMetadata(
-  blockIds: string[],
+  blockTypes: string[],
   tag: string
 ): Promise<AgentContext | null> {
   try {
     const { getBlocksMetadataServerTool } = await import(
-      '@/lib/copilot/tools/server/blocks/get-blocks-metadata-tool'
+      '@/lib/copilot/tools/server/blocks/get-blocks-metadata'
     )
 
-    const uniqueBlockIds = Array.from(new Set(blockIds.filter(Boolean)))
-    if (uniqueBlockIds.length === 0) {
+    const uniqueBlockTypes = Array.from(new Set(blockTypes.filter(Boolean)))
+    if (uniqueBlockTypes.length === 0) {
       return null
     }
 
-    const result = await getBlocksMetadataServerTool.execute({ blockIds: uniqueBlockIds })
+    const result = await getBlocksMetadataServerTool.execute({ blockTypes: uniqueBlockTypes })
     if (!result?.metadata || Object.keys(result.metadata).length === 0) {
       return null
     }
@@ -516,7 +516,7 @@ async function processBlocksMetadata(
     const content = JSON.stringify(result)
     return { type: 'blocks', tag, content }
   } catch (error) {
-    logger.error('Error processing block metadata', { blockIds, error })
+    logger.error('Error processing block metadata', { blockTypes, error })
     return null
   }
 }
@@ -542,7 +542,7 @@ async function processTemplateFromDb(
     const t = rows?.[0]
     if (!t) return null
     const workflowState = (t as any).state || {}
-    // Match get-user-workflow format: just the workflow state JSON
+    // Match read-workflow format: just the workflow state JSON
     const summary = {
       id: t.id,
       name: t.name,

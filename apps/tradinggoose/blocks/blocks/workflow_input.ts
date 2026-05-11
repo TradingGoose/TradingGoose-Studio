@@ -55,7 +55,7 @@ export const WorkflowInputBlock: BlockConfig = {
     },
   ],
   tools: {
-    access: ['workflow_executor'],
+    access: [],
   },
   inputs: {
     workflowId: { type: 'string', description: 'ID of the child workflow' },

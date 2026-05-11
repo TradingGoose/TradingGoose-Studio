@@ -1,4 +1,5 @@
 import { ListChecks, Loader2, X, XCircle } from 'lucide-react'
+import { CopilotTool } from '@/lib/copilot/registry'
 import {
   BaseClientTool,
   type BaseClientToolMetadata,
@@ -7,13 +8,13 @@ import {
 import { createLogger } from '@/lib/logs/console/logger'
 import { listWorkflowsForExecutionContext } from './workflow-review-tool-utils'
 
-const logger = createLogger('ListUserWorkflowsClientTool')
+const logger = createLogger('ListWorkflowsClientTool')
 
-export class ListUserWorkflowsClientTool extends BaseClientTool {
-  static readonly id = 'list_user_workflows'
+export class ListWorkflowsClientTool extends BaseClientTool {
+  static readonly id = CopilotTool.list_workflows
 
   constructor(toolCallId: string) {
-    super(toolCallId, ListUserWorkflowsClientTool.id, ListUserWorkflowsClientTool.metadata)
+    super(toolCallId, ListWorkflowsClientTool.id, ListWorkflowsClientTool.metadata)
   }
 
   static readonly metadata: BaseClientToolMetadata = {

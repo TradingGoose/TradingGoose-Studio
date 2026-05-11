@@ -47,7 +47,7 @@ export const useIndicatorsStore = create<IndicatorsStore>()(
         })
       },
 
-      getIndicator: (id, workspaceId) => {
+      readIndicator: (id, workspaceId) => {
         const targetWorkspace = workspaceId ?? get().activeWorkspaceId
         if (!targetWorkspace) return undefined
         return get().indicatorsByWorkspace[targetWorkspace]?.find((indicator) => indicator.id === id)

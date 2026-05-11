@@ -1,22 +1,23 @@
 import { FileJson, Loader2, X, XCircle } from 'lucide-react'
 import {
+  MONITOR_DOCUMENT_FORMAT,
+  readMonitorDocumentName,
+  serializeMonitorDocument,
+} from '@/lib/copilot/monitor/monitor-documents'
+import { CopilotTool } from '@/lib/copilot/registry'
+import {
   BaseClientTool,
   type BaseClientToolMetadata,
   ClientToolCallState,
 } from '@/lib/copilot/tools/client/base-tool'
-import {
-  getMonitorDocumentName,
-  MONITOR_DOCUMENT_FORMAT,
-  serializeMonitorDocument,
-} from '@/lib/copilot/monitor/monitor-documents'
 import {
   fetchMonitorById,
   type ReadMonitorArgs,
   toMonitorDocumentFields,
 } from '@/lib/copilot/tools/client/monitor/monitor-tool-utils'
 
-export class GetMonitorClientTool extends BaseClientTool {
-  static readonly id = 'get_monitor'
+export class ReadMonitorClientTool extends BaseClientTool {
+  static readonly id = CopilotTool.read_monitor
 
   static readonly metadata: BaseClientToolMetadata = {
     displayNames: {
@@ -31,7 +32,7 @@ export class GetMonitorClientTool extends BaseClientTool {
   }
 
   constructor(toolCallId: string) {
-    super(toolCallId, GetMonitorClientTool.id, GetMonitorClientTool.metadata)
+    super(toolCallId, ReadMonitorClientTool.id, ReadMonitorClientTool.metadata)
   }
 
   async execute(args?: ReadMonitorArgs): Promise<void> {
@@ -48,7 +49,7 @@ export class GetMonitorClientTool extends BaseClientTool {
       await this.markToolComplete(200, 'Monitor document ready', {
         surfaceKind: 'monitor',
         monitorId: monitor.monitorId,
-        monitorName: getMonitorDocumentName(fields),
+        monitorName: readMonitorDocumentName(fields),
         documentFormat: MONITOR_DOCUMENT_FORMAT,
         monitorDocument: serializeMonitorDocument(fields),
       })

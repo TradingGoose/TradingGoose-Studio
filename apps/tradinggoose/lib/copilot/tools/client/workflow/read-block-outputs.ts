@@ -1,5 +1,5 @@
-import { createLogger } from '@/lib/logs/console/logger'
 import { Loader2, Tag, X, XCircle } from 'lucide-react'
+import { CopilotTool } from '@/lib/copilot/registry'
 import {
   BaseClientTool,
   type BaseClientToolMetadata,
@@ -9,27 +9,28 @@ import {
   computeBlockOutputReferences,
   getSubflowInsideOutputReferences,
   getSubflowOutsideOutputReferences,
-  getWorkflowSubBlockValues,
-  getWorkflowVariableOutputs,
+  readWorkflowSubBlockValues,
+  readWorkflowVariableOutputs,
 } from '@/lib/copilot/tools/client/workflow/block-output-utils'
 import { getReadableWorkflowState } from '@/lib/copilot/tools/client/workflow/workflow-review-tool-utils'
 import {
-  GetBlockOutputsResult,
-  type GetBlockOutputsResultType,
+  ReadBlockOutputsResult,
+  type ReadBlockOutputsResultType,
 } from '@/lib/copilot/tools/shared/schemas'
+import { createLogger } from '@/lib/logs/console/logger'
 
-const logger = createLogger('GetBlockOutputsClientTool')
+const logger = createLogger('ReadBlockOutputsClientTool')
 
-interface GetBlockOutputsArgs {
+interface ReadBlockOutputsArgs {
   blockIds?: string[]
   workflowId: string
 }
 
-export class GetBlockOutputsClientTool extends BaseClientTool {
-  static readonly id = 'get_block_outputs'
+export class ReadBlockOutputsClientTool extends BaseClientTool {
+  static readonly id = CopilotTool.read_block_outputs
 
   constructor(toolCallId: string) {
-    super(toolCallId, GetBlockOutputsClientTool.id, GetBlockOutputsClientTool.metadata)
+    super(toolCallId, ReadBlockOutputsClientTool.id, ReadBlockOutputsClientTool.metadata)
   }
 
   static readonly metadata: BaseClientToolMetadata = {
@@ -61,24 +62,27 @@ export class GetBlockOutputsClientTool extends BaseClientTool {
     },
   }
 
-  async execute(args?: GetBlockOutputsArgs): Promise<void> {
+  async execute(args?: ReadBlockOutputsArgs): Promise<void> {
     try {
       this.setState(ClientToolCallState.executing)
       const executionContext = this.requireExecutionContext()
 
-      const { workflowId: activeWorkflowId, workflowState: snapshot, variables } =
-        await getReadableWorkflowState(executionContext, args?.workflowId)
+      const {
+        workflowId: activeWorkflowId,
+        workflowState: snapshot,
+        variables,
+      } = await getReadableWorkflowState(executionContext, args?.workflowId)
       const blocks = snapshot.blocks || {}
       const loops = snapshot.loops || {}
       const parallels = snapshot.parallels || {}
-      const subBlockValues = getWorkflowSubBlockValues(activeWorkflowId, snapshot)
-      const variableOutputs = getWorkflowVariableOutputs(variables)
+      const subBlockValues = readWorkflowSubBlockValues(activeWorkflowId, snapshot)
+      const variableOutputs = readWorkflowVariableOutputs(variables)
 
       const ctx = { blocks, loops, parallels, subBlockValues }
       const targetBlockIds =
         args?.blockIds && args.blockIds.length > 0 ? args.blockIds : Object.keys(blocks)
 
-      const blockOutputs: GetBlockOutputsResultType['blocks'] = []
+      const blockOutputs: ReadBlockOutputsResultType['blocks'] = []
 
       for (const blockId of targetBlockIds) {
         const block = blocks[blockId]
@@ -86,7 +90,7 @@ export class GetBlockOutputsClientTool extends BaseClientTool {
 
         const blockName = block.name || block.type
 
-        const blockOutput: GetBlockOutputsResultType['blocks'][0] = {
+        const blockOutput: ReadBlockOutputsResultType['blocks'][0] = {
           blockId,
           blockName,
           blockType: block.type,
@@ -112,7 +116,7 @@ export class GetBlockOutputsClientTool extends BaseClientTool {
       const includeVariables = !args?.blockIds || args.blockIds.length === 0
       const resultData: {
         blocks: typeof blockOutputs
-        variables?: ReturnType<typeof getWorkflowVariableOutputs>
+        variables?: ReturnType<typeof readWorkflowVariableOutputs>
       } = {
         blocks: blockOutputs,
       }
@@ -120,7 +124,7 @@ export class GetBlockOutputsClientTool extends BaseClientTool {
         resultData.variables = variableOutputs
       }
 
-      const result = GetBlockOutputsResult.parse(resultData)
+      const result = ReadBlockOutputsResult.parse(resultData)
 
       logger.info('Retrieved block outputs', {
         blockCount: blockOutputs.length,

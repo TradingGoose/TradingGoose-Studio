@@ -1,7 +1,8 @@
+import { CopilotTool } from '@/lib/copilot/registry'
 import type { BaseServerTool } from '@/lib/copilot/tools/server/base-tool'
 import {
-  getWorkflowBlockCatalogAvailability,
-  getWorkflowBlockProfile,
+  readWorkflowBlockCatalogAvailability,
+  readWorkflowBlockProfile,
 } from '@/lib/copilot/tools/server/blocks/block-mermaid-catalog'
 import {
   type GetBlocksMetadataInput,
@@ -13,22 +14,22 @@ export const getBlocksMetadataServerTool: BaseServerTool<
   ReturnType<typeof GetBlocksMetadataInput.parse>,
   ReturnType<typeof GetBlocksMetadataResult.parse>
 > = {
-  name: 'get_blocks_metadata',
+  name: CopilotTool.get_blocks_metadata,
   async execute({
-    blockIds,
+    blockTypes,
   }: ReturnType<typeof GetBlocksMetadataInput.parse>): Promise<
     ReturnType<typeof GetBlocksMetadataResult.parse>
   > {
     const logger = createLogger('GetBlocksMetadataServerTool')
-    logger.debug('Executing get_blocks_metadata', { count: blockIds?.length })
+    logger.debug('Executing get_blocks_metadata', { count: blockTypes?.length })
 
-    const availability = await getWorkflowBlockCatalogAvailability()
+    const availability = await readWorkflowBlockCatalogAvailability()
     const entries = await Promise.all(
-      Array.from(new Set(blockIds || []))
+      Array.from(new Set(blockTypes || []))
         .filter(Boolean)
         .map(async (blockType) => {
           try {
-            return [blockType, await getWorkflowBlockProfile(blockType, availability)] as const
+            return [blockType, await readWorkflowBlockProfile(blockType, availability)] as const
           } catch (error) {
             logger.debug('Skipping unknown block in get_blocks_metadata', { blockType, error })
             return null
@@ -38,7 +39,7 @@ export const getBlocksMetadataServerTool: BaseServerTool<
 
     const metadata = Object.fromEntries(
       entries.filter(
-        (entry): entry is readonly [string, Awaited<ReturnType<typeof getWorkflowBlockProfile>>] =>
+        (entry): entry is readonly [string, Awaited<ReturnType<typeof readWorkflowBlockProfile>>] =>
           entry !== null
       )
     )

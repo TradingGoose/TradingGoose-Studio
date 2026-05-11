@@ -35,7 +35,7 @@ describe('chat replay safety', () => {
     expect(
       isAcceptedLiveMutationToolCall({
         id: 'tool-3b',
-        name: 'set_global_workflow_variables',
+        name: 'set_workflow_variables',
         state: 'success',
       })
     ).toBe(true)

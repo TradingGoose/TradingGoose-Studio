@@ -4,11 +4,11 @@ import { ClientToolCallState } from '@/lib/copilot/tools/client/base-tool'
 import {
   CreateSkillClientTool,
   EditSkillClientTool,
-  GetCustomToolClientTool,
-  GetIndicatorClientTool,
-  GetSkillClientTool,
   ListIndicatorsClientTool,
   ListSkillsClientTool,
+  ReadCustomToolClientTool,
+  ReadIndicatorClientTool,
+  ReadSkillClientTool,
   RenameSkillClientTool,
 } from '@/lib/copilot/tools/client/entities/entity-document-tools'
 
@@ -165,7 +165,7 @@ describe('entity document tools', () => {
     ])
   })
 
-  it('get_custom_tool reads the explicit target entity and returns an entity document', async () => {
+  it('read_custom_tool reads the explicit target entity and returns an entity document', async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = typeof input === 'string' ? input : input.toString()
       const method = init?.method || 'GET'
@@ -207,10 +207,10 @@ describe('entity document tools', () => {
     vi.stubGlobal('fetch', fetchMock)
 
     const toolCallId = 'get-custom-tool'
-    const tool = new GetCustomToolClientTool(toolCallId)
+    const tool = new ReadCustomToolClientTool(toolCallId)
     tool.setExecutionContext({
       toolCallId,
-      toolName: 'get_custom_tool',
+      toolName: 'read_custom_tool',
       channelId: 'pair-orange',
       workflowId: 'wf-context',
       log: vi.fn(),
@@ -329,7 +329,7 @@ describe('entity document tools', () => {
     ])
   })
 
-  it('get_indicator reads a built-in default indicator by runtimeId', async () => {
+  it('read_indicator reads a built-in default indicator by runtimeId', async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = typeof input === 'string' ? input : input.toString()
       const method = init?.method || 'GET'
@@ -347,10 +347,10 @@ describe('entity document tools', () => {
     vi.stubGlobal('fetch', fetchMock)
 
     const toolCallId = 'get-indicator-default'
-    const tool = new GetIndicatorClientTool(toolCallId)
+    const tool = new ReadIndicatorClientTool(toolCallId)
     tool.setExecutionContext({
       toolCallId,
-      toolName: 'get_indicator',
+      toolName: 'read_indicator',
       channelId: 'pair-yellow',
       workflowId: 'wf-context',
       log: vi.fn(),
@@ -376,7 +376,7 @@ describe('entity document tools', () => {
     expect(markCompleteBody.data.entityDocument).toContain('"Length"')
   })
 
-  it('get_custom_tool reads a matching live entity session by explicit entityId', async () => {
+  it('read_custom_tool reads a matching live entity session by explicit entityId', async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = typeof input === 'string' ? input : input.toString()
       const method = init?.method || 'GET'
@@ -418,10 +418,10 @@ describe('entity document tools', () => {
     }
 
     const toolCallId = 'get-custom-tool-live-session'
-    const tool = new GetCustomToolClientTool(toolCallId)
+    const tool = new ReadCustomToolClientTool(toolCallId)
     tool.setExecutionContext({
       toolCallId,
-      toolName: 'get_custom_tool',
+      toolName: 'read_custom_tool',
       channelId: 'pair-orange',
       workspaceId: 'ws-1',
       log: vi.fn(),
@@ -535,7 +535,7 @@ describe('entity document tools', () => {
     })
   })
 
-  it('get_skill reads an unsaved draft from the active review session without a DB entityId', async () => {
+  it('read_skill reads an unsaved draft from the active review session without a DB entityId', async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = typeof input === 'string' ? input : input.toString()
       const method = init?.method || 'GET'
@@ -572,10 +572,10 @@ describe('entity document tools', () => {
     }
 
     const toolCallId = 'get-skill-unsaved-draft'
-    const tool = new GetSkillClientTool(toolCallId)
+    const tool = new ReadSkillClientTool(toolCallId)
     tool.setExecutionContext({
       toolCallId,
-      toolName: 'get_skill',
+      toolName: 'read_skill',
       channelId: 'pair-purple',
       workspaceId: 'ws-1',
       reviewSessionId: 'review-draft',
@@ -912,11 +912,11 @@ describe('entity document tools', () => {
 
   it('registry schemas accept optional explicit entity ids for entity document tools', () => {
     expect(ToolArgSchemas.list_skills.parse({})).toMatchObject({})
-    expect(ToolArgSchemas.get_skill.parse({ entityId: 'skill-1' })).toMatchObject({
+    expect(ToolArgSchemas.read_skill.parse({ entityId: 'skill-1' })).toMatchObject({
       entityId: 'skill-1',
     })
-    expect(ToolArgSchemas.get_skill.parse({})).toMatchObject({})
-    expect(ToolArgSchemas.get_indicator.parse({ runtimeId: 'RSI' })).toMatchObject({
+    expect(ToolArgSchemas.read_skill.parse({})).toMatchObject({})
+    expect(ToolArgSchemas.read_indicator.parse({ runtimeId: 'RSI' })).toMatchObject({
       runtimeId: 'RSI',
     })
     expect(
@@ -944,7 +944,7 @@ describe('entity document tools', () => {
     })
 
     expect(
-      ToolResultSchemas.get_custom_tool.parse({
+      ToolResultSchemas.read_custom_tool.parse({
         entityKind: 'custom_tool',
         entityId: 'tool-1',
         entityName: 'market-tool',
