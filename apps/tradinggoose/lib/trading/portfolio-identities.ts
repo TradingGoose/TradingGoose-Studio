@@ -1,7 +1,7 @@
 import { db } from '@tradinggoose/db'
 import { account } from '@tradinggoose/db/schema'
 import { and, eq, inArray } from 'drizzle-orm'
-import { getOAuthTokenByCredentialId } from '@/app/api/auth/oauth/utils'
+import { getOAuthTokenByCredentialId } from '@/lib/oauth/tokens'
 import { listPortfolioIdentities } from '@/providers/trading/portfolio'
 import {
   getTradingProviderDefinition,
@@ -43,7 +43,9 @@ export async function listUserTradingPortfolioIdentities({
   const identities = await Promise.allSettled(
     credentials.map(async (credential) => {
       const environment = getTradingProviderOAuthEnvironment(providerId, credential.providerId)
-      if (!environment) return []
+      if (!environment) {
+        throw new Error(`Unsupported trading credential service: ${credential.providerId}`)
+      }
 
       const accessToken = await getOAuthTokenByCredentialId({
         userId,
@@ -51,7 +53,9 @@ export async function listUserTradingPortfolioIdentities({
         providerId: credential.providerId,
         requestId,
       })
-      if (!accessToken) return []
+      if (!accessToken) {
+        throw new Error(`Trading credential token unavailable: ${credential.id}`)
+      }
 
       return listPortfolioIdentities({
         providerId,
@@ -63,5 +67,13 @@ export async function listUserTradingPortfolioIdentities({
     })
   )
 
-  return identities.flatMap((result) => (result.status === 'fulfilled' ? result.value : []))
+  const fulfilled = identities.flatMap((result) =>
+    result.status === 'fulfilled' ? [result.value] : []
+  )
+  const hasRejectedIdentityLoad = identities.some((result) => result.status === 'rejected')
+  if ((credentialServiceId || !fulfilled.length) && hasRejectedIdentityLoad) {
+    throw new Error('Failed to load trading portfolio identities')
+  }
+
+  return fulfilled.flat()
 }

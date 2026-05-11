@@ -1,9 +1,9 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { checkSessionOrInternalAuth } from '@/lib/auth/hybrid'
 import { createLogger } from '@/lib/logs/console/logger'
+import { isTradingServiceError } from '@/lib/trading/errors'
+import { getTradingHoldings, type TradingHoldingsRequest } from '@/lib/trading/holdings'
 import { generateRequestId } from '@/lib/utils'
-import { executeTradingHoldings } from '@/tools/trading/holdings'
-import type { TradingHoldingsParams } from '@/tools/trading/types'
 
 const logger = createLogger('TradingHoldingsAPI')
 
@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const body = (await request.json().catch(() => null)) as TradingHoldingsParams | null
+    const body = (await request.json().catch(() => null)) as TradingHoldingsRequest | null
     if (!body?.portfolioIdentity) {
       return NextResponse.json(
         { success: false, error: { message: 'portfolioIdentity is required' } },
@@ -30,19 +30,15 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const result = await executeTradingHoldings(body)
+    const holdings = await getTradingHoldings(body)
 
-    if (!result.success) {
-      return NextResponse.json(
-        { success: false, error: { message: result.error || 'Failed to fetch holdings' } },
-        { status: 400 }
-      )
-    }
-
-    return NextResponse.json({ success: true, data: result.output }, { status: 200 })
+    return NextResponse.json({ success: true, data: holdings }, { status: 200 })
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to fetch holdings'
     logger.error(`[${requestId}] Failed to fetch holdings`, { error: message })
-    return NextResponse.json({ success: false, error: { message } }, { status: 500 })
+    return NextResponse.json(
+      { success: false, error: { message } },
+      { status: isTradingServiceError(error) ? error.status : 500 }
+    )
   }
 }

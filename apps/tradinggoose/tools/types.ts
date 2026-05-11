@@ -38,6 +38,14 @@ export interface OAuthConfig {
   additionalScopes?: string[] // Additional scopes required for the tool
 }
 
+export interface ToolExecutionConfig {
+  workspace?: {
+    required: true
+    access: 'read' | 'write'
+  }
+  submissionSource?: 'required'
+}
+
 export interface ToolConfig<P = any, R = any> {
   // Basic tool identification
   id: string
@@ -85,6 +93,8 @@ export interface ToolConfig<P = any, R = any> {
 
   // OAuth configuration for this tool (if it requires authentication)
   oauth?: OAuthConfig
+
+  execution?: ToolExecutionConfig
 
   // Error extractor to use for this tool's error responses
   // If specified, only this extractor will be used (deterministic)

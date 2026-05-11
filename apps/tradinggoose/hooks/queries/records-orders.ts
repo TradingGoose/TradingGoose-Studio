@@ -27,7 +27,6 @@ export type RecordsOrder = {
   listingIdentity?: unknown
   providerOrderId: string | null
   clientOrderId: string | null
-  accountId: string | null
   side: string | null
   status: string | null
   orderType: string | null

@@ -4,7 +4,7 @@
 
 import { NextRequest } from 'next/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { resolveTradingProviderContext } from '@/app/api/providers/trading/shared'
+import { resolveTradingProviderContext } from '@/lib/trading/context'
 import { executeTradingProviderOrderDetailRequest } from '@/providers/trading'
 
 const mocks = vi.hoisted(() => {
@@ -82,7 +82,7 @@ vi.mock('drizzle-orm', () => ({
   ),
 }))
 
-vi.mock('@/app/api/providers/trading/shared', () => ({
+vi.mock('@/lib/trading/context', () => ({
   resolveTradingProviderContext: vi.fn(),
 }))
 

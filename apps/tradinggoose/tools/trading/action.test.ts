@@ -9,7 +9,6 @@ const portfolioIdentity = {
 }
 
 const baseParams = {
-  provider: 'alpaca' as const,
   portfolioIdentity,
   credential: 'credential-1',
   listing: {
@@ -55,7 +54,7 @@ describe('tradingActionTool canonical order route payload', () => {
     expect(body).not.toHaveProperty('accountId')
   })
 
-  it('maps workflow context to canonical route fields without workflow identity aliases', () => {
+  it('maps workflow context to canonical route fields', () => {
     const body = buildBody({
       quantity: 1,
       _context: {
@@ -79,6 +78,13 @@ describe('tradingActionTool canonical order route payload', () => {
   it('uses the canonical order submission route', () => {
     expect(tradingActionTool.request.url).toBe('/api/providers/trading/order')
     expect(tradingActionTool.directExecution).toBeUndefined()
+  })
+
+  it('declares workspace write execution policy on the tool config', () => {
+    expect(tradingActionTool.execution).toEqual({
+      workspace: { required: true, access: 'write' },
+      submissionSource: 'required',
+    })
   })
 
   it('transforms canonical route responses into tool output', async () => {

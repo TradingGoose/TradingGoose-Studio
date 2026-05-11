@@ -1,7 +1,7 @@
 import { createHash, randomUUID } from 'crypto'
 import { createLogger } from '@/lib/logs/console/logger'
-import { listUserTradingPortfolioIdentities } from '@/lib/trading/portfolio-identities.server'
-import { getOAuthTokenByCredentialId } from '@/app/api/auth/oauth/utils'
+import { getOAuthTokenByCredentialId } from '@/lib/oauth/tokens'
+import { listUserTradingPortfolioIdentities } from '@/lib/trading/portfolio-identities'
 import {
   getPortfolioDetail,
   getTradingAccountPerformance,

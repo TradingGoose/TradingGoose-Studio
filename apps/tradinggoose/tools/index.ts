@@ -18,11 +18,6 @@ import {
 } from '@/tools/utils'
 
 const logger = createLogger('Tools')
-const WORKSPACE_SCOPED_TRADING_TOOLS = new Set([
-  'trading_place_order',
-  'trading_order_history',
-  'trading_order_detail',
-])
 
 /**
  * Maximum request body size in bytes before we warn/error about size limits.
@@ -276,20 +271,18 @@ export async function executeTool(
       }
     }
 
-    if (WORKSPACE_SCOPED_TRADING_TOOLS.has(toolId) && !scope.workspaceId) {
-      throw new Error(`${toolId} requires workspace execution context`)
-    }
-    if (toolId === 'trading_place_order' && !scope.submissionSource) {
-      throw new Error('trading_place_order requires explicit submission source')
-    }
-
-    // Validate the tool and its parameters
-    validateRequiredParametersAfterMerge(toolId, tool, contextParams)
-
-    // After validation, we know tool exists
     if (!tool) {
       throw new Error(`Tool not found: ${toolId}`)
     }
+
+    if (tool.execution?.workspace?.required && !scope.workspaceId) {
+      throw new Error(`${toolId} requires workspace execution context`)
+    }
+    if (tool.execution?.submissionSource === 'required' && !scope.submissionSource) {
+      throw new Error(`${toolId} requires explicit submission source`)
+    }
+
+    validateRequiredParametersAfterMerge(toolId, tool, contextParams)
 
     const tokenCredentialId =
       typeof contextParams.credential === 'string' ? contextParams.credential.trim() : ''
@@ -372,11 +365,7 @@ export async function executeTool(
 
       // Apply post-processing if available and not skipped
       let finalResult = result
-      if (
-        tool.postProcess &&
-        !skipPostProcess &&
-        (result.success || toolId === 'trading_place_order')
-      ) {
+      if (tool.postProcess && !skipPostProcess && result.success) {
         try {
           finalResult = await tool.postProcess(result, contextParams, executeTool)
         } catch (error) {
@@ -409,11 +398,7 @@ export async function executeTool(
 
     // Apply post-processing if available and not skipped
     let finalResult = result
-    if (
-      tool.postProcess &&
-      !skipPostProcess &&
-      (result.success || toolId === 'trading_place_order')
-    ) {
+    if (tool.postProcess && !skipPostProcess && result.success) {
       try {
         finalResult = await tool.postProcess(result, contextParams, executeTool)
       } catch (error) {

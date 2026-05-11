@@ -345,9 +345,11 @@ export const TradingActionBlock: BlockConfig<TradingActionResponse> = {
     config: {
       tool: () => 'trading_place_order',
       params: (params) => {
-        const provider = params.provider
         const portfolioIdentity = toPortfolioValueObject(params.portfolioIdentity)
-        const extraFields = getTradingProviderParamDefinitions(provider, 'order').reduce(
+        const provider = portfolioIdentity?.providerId
+        const extraFields = (
+          provider ? getTradingProviderParamDefinitions(provider, 'order') : []
+        ).reduce(
           (acc, definition) => {
             if (!shouldIncludeProviderParam(definition, TOOL_RESERVED_PARAM_IDS)) return acc
             if (params[definition.id] !== undefined) {
@@ -359,7 +361,6 @@ export const TradingActionBlock: BlockConfig<TradingActionResponse> = {
         )
 
         return {
-          provider,
           portfolioIdentity,
           credential: portfolioIdentity?.credentialId,
           side: params.side,

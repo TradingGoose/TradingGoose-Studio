@@ -17,19 +17,14 @@ import {
 import { getEffectiveDecryptedEnv } from '@/lib/environment/utils'
 import { DEFAULT_EXECUTION_TIMEOUT_MS } from '@/lib/execution/constants'
 import { createLogger } from '@/lib/logs/console/logger'
+import { refreshTokenIfNeeded } from '@/lib/oauth/tokens'
 import { checkWorkspaceAccess } from '@/lib/permissions/utils'
 import { getTrelloApiKey } from '@/lib/trello/auth'
 import { generateRequestId } from '@/lib/utils'
-import { refreshTokenIfNeeded } from '@/app/api/auth/oauth/utils'
 import { executeTool } from '@/tools'
 import { getTool, getToolAsync } from '@/tools/utils'
 
 const logger = createLogger('CopilotExecuteToolAPI')
-const WORKSPACE_SCOPED_TRADING_TOOLS = new Set([
-  'trading_place_order',
-  'trading_order_history',
-  'trading_order_detail',
-])
 
 const ExecuteToolSchema = z.object({
   toolCallId: z.string(),
@@ -94,6 +89,9 @@ export async function POST(req: NextRequest) {
       workspaceId: requestedWorkspaceId,
     } = ExecuteToolSchema.parse(body)
 
+    const isCustomTool = toolName.startsWith('custom_')
+    const isMcpTool = toolName.startsWith('mcp-')
+
     let workspaceId = requestedWorkspaceId?.trim() || undefined
     if (workflowId) {
       const { hasAccess, workspaceId: resolvedWorkspaceId } = await verifyWorkflowAccess(
@@ -116,16 +114,22 @@ export async function POST(req: NextRequest) {
         )
       }
       workspaceId = resolvedWorkspaceId ?? undefined
-    } else if (workspaceId) {
+    }
+
+    let toolConfig = !isCustomTool && !isMcpTool ? getTool(toolName) : undefined
+    const workspacePolicy = toolConfig?.execution?.workspace
+
+    if (!workflowId && workspaceId) {
       const access = await checkWorkspaceAccess(workspaceId, userId)
-      if (!access.exists || !access.hasAccess || !access.canWrite) {
+      const requiresWriteAccess = workspacePolicy?.access === 'write'
+      if (!access.exists || !access.hasAccess || (requiresWriteAccess && !access.canWrite)) {
         return NextResponse.json(
           { success: false, error: 'Workspace not found', toolCallId },
           { status: 404 }
         )
       }
     }
-    if (!workspaceId && WORKSPACE_SCOPED_TRADING_TOOLS.has(toolName)) {
+    if (!workspaceId && workspacePolicy?.required) {
       return NextResponse.json(
         {
           success: false,
@@ -136,10 +140,9 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const toolConfig = toolName.startsWith('custom_')
-      ? await getToolAsync(toolName, workflowId, workspaceId, userId)
-      : getTool(toolName)
-    const isMcpTool = toolName.startsWith('mcp-')
+    if (isCustomTool) {
+      toolConfig = await getToolAsync(toolName, workflowId, workspaceId, userId)
+    }
 
     if (!toolConfig && !isMcpTool) {
       let similarTools: string[] = []

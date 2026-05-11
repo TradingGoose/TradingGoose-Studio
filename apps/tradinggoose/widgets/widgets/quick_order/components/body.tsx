@@ -15,7 +15,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { getListingIdentityKey, type ListingOption } from '@/lib/listing/identity'
-import type { TradingOrderSubmitRequest } from '@/app/api/providers/trading/order/types'
+import type { TradingOrderSubmitRequest } from '@/lib/trading/order-types'
 import { useMarketQuoteSnapshots } from '@/hooks/queries/market-quote-snapshots'
 import { useOAuthProviderAvailability } from '@/hooks/queries/oauth-provider-availability'
 import { usePortfolioDetail, useSubmitTradingOrder } from '@/hooks/queries/trading-portfolio'

@@ -25,11 +25,11 @@ const {
   getTradingAccountPerformanceMock: vi.fn(),
 }))
 
-vi.mock('@/app/api/auth/oauth/utils', () => ({
+vi.mock('@/lib/oauth/tokens', () => ({
   getOAuthTokenByCredentialId: (...args: unknown[]) => getOAuthTokenByCredentialIdMock(...args),
 }))
 
-vi.mock('@/lib/trading/portfolio-identities.server', () => ({
+vi.mock('@/lib/trading/portfolio-identities', () => ({
   listUserTradingPortfolioIdentities: (...args: unknown[]) =>
     listUserTradingPortfolioIdentitiesMock(...args),
 }))

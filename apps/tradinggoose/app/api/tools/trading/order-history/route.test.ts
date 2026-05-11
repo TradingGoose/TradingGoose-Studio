@@ -32,6 +32,10 @@ vi.mock('@tradinggoose/db', () => ({
     workspaceId: 'orderHistoryTable.workspaceId',
     recordedAt: 'orderHistoryTable.recordedAt',
   },
+  workflowExecutionLogs: {
+    id: 'workflowExecutionLogs.id',
+    workspaceId: 'workflowExecutionLogs.workspaceId',
+  },
 }))
 
 vi.mock('drizzle-orm', () => ({
@@ -66,7 +70,27 @@ describe('order history support route', () => {
   })
 
   it('returns workspace history without log-specific filters', async () => {
-    mocks.selectQueue.push([{ id: 'order-history-1' }])
+    mocks.selectQueue.push([
+      {
+        id: 'order-history-1',
+        workspaceId: 'workspace-1',
+        provider: 'alpaca',
+        environment: 'paper',
+        recordedAt: new Date('2026-04-01T00:00:00.000Z'),
+        submissionSource: 'workflow',
+        logId: null,
+        listingIdentity: { listing_id: 'AAPL', listing_type: 'stock' },
+        request: {
+          accountId: 'account-1',
+          credentialId: 'credential-1',
+          credentialServiceId: 'alpaca-paper',
+          quantity: 1,
+          side: 'buy',
+        },
+        response: { orderId: 'provider-order-1' },
+        normalizedOrder: { status: 'filled', symbol: 'AAPL' },
+      },
+    ])
     const { GET } = await import('./route')
 
     const response = await GET(
@@ -80,6 +104,13 @@ describe('order history support route', () => {
       success: true,
       data: {
         count: 1,
+        history: [
+          expect.not.objectContaining({
+            accountId: 'account-1',
+            credentialId: 'credential-1',
+            credentialServiceId: 'alpaca-paper',
+          }),
+        ],
         workspaceId: 'workspace-1',
       },
     })

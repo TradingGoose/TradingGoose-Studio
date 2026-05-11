@@ -9,12 +9,12 @@ import {
   DEFAULT_ORDERS_FILTER_STATE,
   normalizeOrdersFilterState,
 } from '@/lib/records/order-filters'
-import { generateRequestId } from '@/lib/utils'
 import {
   buildOrderOrderBy,
   buildOrderWhereCondition,
   serializeOrderRecord,
-} from '../order-record-utils'
+} from '@/lib/trading/order-records'
+import { generateRequestId } from '@/lib/utils'
 
 const logger = createLogger('OrdersExportAPI')
 
@@ -107,7 +107,6 @@ export async function GET(request: NextRequest) {
       'Submission Source',
       'Provider',
       'Environment',
-      'Account',
       'Side',
       'Status',
       'Order Type',
@@ -128,7 +127,6 @@ export async function GET(request: NextRequest) {
           record.submissionSource,
           record.provider,
           record.environment,
-          record.accountId,
           record.side,
           record.status,
           record.orderType,

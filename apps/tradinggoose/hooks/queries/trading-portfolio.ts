@@ -3,7 +3,7 @@ import { useMutation } from '@tanstack/react-query'
 import type {
   TradingOrderSubmitRequest,
   TradingOrderSubmitResponse,
-} from '@/app/api/providers/trading/order/types'
+} from '@/lib/trading/order-types'
 import { useSocket } from '@/contexts/socket-context'
 import {
   arePortfolioIdentitiesEqual,

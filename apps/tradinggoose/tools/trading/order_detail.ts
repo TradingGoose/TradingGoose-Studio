@@ -10,6 +10,9 @@ export const tradingOrderDetailTool: ToolConfig<
   description:
     'Retrieve all provider-available details for a previously recorded trading order by Trading Goose order ID.',
   version: '1.0.0',
+  execution: {
+    workspace: { required: true, access: 'read' },
+  },
 
   params: {
     orderId: {

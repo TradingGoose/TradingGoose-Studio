@@ -62,7 +62,7 @@ describe('order record utils', () => {
   })
 
   it('serializes linked order records and redacts secrets from full detail payloads', async () => {
-    const { serializeOrderRecord } = await import('./order-record-utils')
+    const { serializeOrderRecord } = await import('./order-records')
 
     const record = serializeOrderRecord(
       {
@@ -108,7 +108,6 @@ describe('order record utils', () => {
     )
 
     expect(record).toMatchObject({
-      accountId: 'account-1',
       averageFillPrice: '184.25',
       hasLinkedLog: true,
       id: 'order-1',
@@ -126,8 +125,9 @@ describe('order record utils', () => {
       timeInForce: 'day',
       workspaceId: 'workspace-1',
     })
+    expect(record).not.toHaveProperty('accountId')
     expect(record.request).toMatchObject({
-      accountId: 'account-1',
+      accountId: '[redacted]',
       accessToken: '[redacted]',
       credentialId: '[redacted]',
       credentialServiceId: '[redacted]',
@@ -139,7 +139,7 @@ describe('order record utils', () => {
   })
 
   it('builds SQL filters for workspace, side, order type, time in force, and linked logs', async () => {
-    const { buildOrderWhereCondition } = await import('./order-record-utils')
+    const { buildOrderWhereCondition } = await import('./order-records')
 
     buildOrderWhereCondition('workspace-1', {
       endDate: '',
@@ -170,7 +170,7 @@ describe('order record utils', () => {
   })
 
   it('casts order record ids to text before search matching', async () => {
-    const { buildOrderWhereCondition } = await import('./order-record-utils')
+    const { buildOrderWhereCondition } = await import('./order-records')
 
     buildOrderWhereCondition('workspace-1', {
       endDate: '',
@@ -202,7 +202,7 @@ describe('order record utils', () => {
   })
 
   it('does not search full JSON blobs as text', async () => {
-    const { buildOrderWhereCondition } = await import('./order-record-utils')
+    const { buildOrderWhereCondition } = await import('./order-records')
 
     buildOrderWhereCondition('workspace-1', {
       endDate: '',
@@ -237,7 +237,7 @@ describe('order record utils', () => {
   })
 
   it('does not reference joined workflow log columns unless the caller supplies them', async () => {
-    const { buildOrderWhereCondition } = await import('./order-record-utils')
+    const { buildOrderWhereCondition } = await import('./order-records')
 
     buildOrderWhereCondition('workspace-1', {
       endDate: '',
@@ -263,7 +263,7 @@ describe('order record utils', () => {
   })
 
   it('adds caller-owned joined search expressions explicitly', async () => {
-    const { buildOrderWhereCondition } = await import('./order-record-utils')
+    const { buildOrderWhereCondition } = await import('./order-records')
     const joinedExpression = { type: 'joined-search-expression' } as any
 
     buildOrderWhereCondition(

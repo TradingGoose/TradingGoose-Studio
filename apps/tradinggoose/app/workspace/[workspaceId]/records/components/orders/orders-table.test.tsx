@@ -19,7 +19,6 @@ const reactActEnvironment = globalThis as typeof globalThis & {
 }
 
 const order: RecordsOrder = {
-  accountId: 'account-1',
   averageFillPrice: '184.25',
   clientOrderId: 'client-order-1',
   environment: 'paper',

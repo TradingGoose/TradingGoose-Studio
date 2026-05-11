@@ -1,29 +1,14 @@
-import type { ListingInputValue } from '@/lib/listing/identity'
-import type { PortfolioIdentity } from '@/providers/trading/portfolio-identity'
+import type { TradingHoldingsRequest } from '@/lib/trading/holdings'
+import type { TradingOrderSubmitRequest } from '@/lib/trading/order-types'
 import type {
   TradingActionResponse,
   TradingHoldingsResponse,
-  TradingOrderType,
   TradingProviderId,
 } from '@/providers/trading/types'
 
-export interface TradingActionParams {
-  provider: TradingProviderId
-  portfolioIdentity: PortfolioIdentity
-  listing: ListingInputValue
-  side: 'buy' | 'sell'
-  quantity?: number
-  notional?: number
-  orderType?: TradingOrderType
-  timeInForce?: string
-  limitPrice?: number
-  stopPrice?: number
-  trailPrice?: number
-  trailPercent?: number
+export interface TradingActionParams
+  extends Omit<TradingOrderSubmitRequest, 'workspaceId' | 'submissionSource' | 'logId'> {
   credential?: string
-  accessToken?: string
-  orderSizingMode?: string
-  orderClass?: string
   _context?: {
     workspaceId?: string
     userId?: string
@@ -33,12 +18,7 @@ export interface TradingActionParams {
   }
 }
 
-export interface TradingHoldingsParams {
-  provider: TradingProviderId
-  portfolioIdentity?: PortfolioIdentity | null
-  credential?: string
-  accessToken?: string
-}
+export type TradingHoldingsParams = TradingHoldingsRequest
 
 export interface TradingOrderDetailParams {
   orderId: string

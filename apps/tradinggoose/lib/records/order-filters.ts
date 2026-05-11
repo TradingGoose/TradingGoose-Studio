@@ -4,7 +4,6 @@ export const ORDER_SORT_BY_VALUES = [
   'listing',
   'provider',
   'environment',
-  'account',
   'status',
   'side',
   'orderType',

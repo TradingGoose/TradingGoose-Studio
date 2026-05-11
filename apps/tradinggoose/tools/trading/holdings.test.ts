@@ -16,7 +16,8 @@ vi.mock('@/providers/trading/portfolio', () => ({
   getPortfolioDetail: (...args: unknown[]) => getPortfolioDetailMock(...args),
 }))
 
-import { executeTradingHoldings, tradingHoldingsTool } from '@/tools/trading/holdings'
+import { getTradingHoldings } from '@/lib/trading/holdings'
+import { tradingHoldingsTool } from '@/tools/trading/holdings'
 
 const portfolioIdentity = {
   providerId: 'tradier',
@@ -33,13 +34,16 @@ describe('tradingHoldingsTool', () => {
   })
 
   it('fetches holdings for the selected portfolioIdentity account', async () => {
-    const result = await executeTradingHoldings({
+    const result = await getTradingHoldings({
       provider: 'tradier',
       accessToken: 'access-token',
       portfolioIdentity,
     })
 
-    expect(result?.success).toBe(true)
+    expect(result).toMatchObject({
+      provider: 'tradier',
+      holdings: { accountId: 'ACC-2' },
+    })
     expect(getPortfolioDetailMock).toHaveBeenCalledWith({
       providerId: 'tradier',
       credentialId: 'credential-1',
@@ -73,29 +77,25 @@ describe('tradingHoldingsTool', () => {
   })
 
   it('requires the tool-resolved access token', async () => {
-    const result = await executeTradingHoldings({
-      provider: 'tradier',
-      portfolioIdentity,
-    })
+    await expect(
+      getTradingHoldings({
+        provider: 'tradier',
+        portfolioIdentity,
+      })
+    ).rejects.toThrow('Trading provider access token is required')
 
-    expect(result).toMatchObject({
-      success: false,
-      error: 'Trading provider access token is required',
-    })
     expect(getPortfolioDetailMock).not.toHaveBeenCalled()
   })
 
   it('rejects portfolioIdentity from a different provider', async () => {
-    const result = await executeTradingHoldings({
-      provider: 'alpaca',
-      accessToken: 'access-token',
-      portfolioIdentity,
-    })
+    await expect(
+      getTradingHoldings({
+        provider: 'alpaca',
+        accessToken: 'access-token',
+        portfolioIdentity,
+      })
+    ).rejects.toThrow('Portfolio identity does not match provider')
 
-    expect(result).toMatchObject({
-      success: false,
-      error: 'Portfolio identity does not match provider',
-    })
     expect(getPortfolioDetailMock).not.toHaveBeenCalled()
   })
 })

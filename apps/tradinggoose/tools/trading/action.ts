@@ -29,14 +29,12 @@ export const tradingActionTool: ToolConfig<TradingActionParams, TradingActionRes
   name: 'Trading: Place Order',
   description: 'Place buy or sell orders via Alpaca or Tradier.',
   version: '1.0.0',
+  execution: {
+    workspace: { required: true, access: 'write' },
+    submissionSource: 'required',
+  },
 
   params: {
-    provider: {
-      type: 'string',
-      required: true,
-      visibility: 'user-only',
-      description: 'Trading provider id (alpaca or tradier).',
-    },
     portfolioIdentity: {
       type: 'json',
       required: true,

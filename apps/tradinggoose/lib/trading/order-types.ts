@@ -2,7 +2,9 @@ import type { ListingIdentity, ListingResolved } from '@/lib/listing/identity'
 import type { PortfolioIdentity } from '@/providers/trading/portfolio-identity'
 import type { TradingOrder } from '@/providers/trading/types'
 
-export type TradingOrderSubmitListing = ListingResolved | (ListingIdentity & Record<string, unknown>)
+export type TradingOrderSubmitListing =
+  | ListingResolved
+  | (ListingIdentity & Record<string, unknown>)
 
 export interface TradingOrderSubmitRequest {
   workspaceId: string

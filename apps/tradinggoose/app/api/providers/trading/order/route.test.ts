@@ -25,7 +25,7 @@ vi.mock('@/lib/auth', () => ({
   getSession: mockGetSession,
 }))
 
-vi.mock('@/app/api/auth/oauth/utils', () => ({
+vi.mock('@/lib/oauth/tokens', () => ({
   getOAuthTokenByCredentialId: mockGetOAuthTokenByCredentialId,
 }))
 
@@ -33,7 +33,7 @@ vi.mock('@/lib/permissions/utils', () => ({
   checkWorkspaceAccess: mockCheckWorkspaceAccess,
 }))
 
-vi.mock('@/lib/records/order-history.server', () => ({
+vi.mock('@/lib/trading/order-history', () => ({
   recordOrderHistory: mockRecordOrderHistory,
 }))
 

@@ -35,7 +35,6 @@ export type SerializedOrderRecord = {
   }
   providerOrderId: string | null
   clientOrderId: string | null
-  accountId: string | null
   side: string | null
   status: string | null
   orderType: string | null
@@ -69,7 +68,7 @@ export type SerializedOrderRecord = {
 }
 
 const SECRET_KEY_PATTERN =
-  /credential|accessToken|apiKey|apiSecret|secret|token|password|authorization/i
+  /credential|accountId|accessToken|apiKey|apiSecret|secret|token|password|authorization/i
 
 export function deepRedactSecrets(value: unknown): unknown {
   if (Array.isArray(value)) {
@@ -196,7 +195,6 @@ export function serializeOrderRecord(
       raw.client_order_id,
       rawOrder.client_order_id
     ),
-    accountId: readOrderAccountId(row),
     side: normalizeText(readString(normalized.side, request.side, raw.side, rawOrder.side)),
     status,
     orderType: normalizeText(
@@ -349,13 +347,6 @@ const listingExpr = () =>
     sql`${orderHistoryTable.listingIdentity}->>'base_id'`
   )
 
-const accountExpr = () =>
-  coalesceText(
-    sql`${orderHistoryTable.request}->>'accountId'`,
-    sql`${orderHistoryTable.response}->'raw'->>'account_id'`,
-    sql`${orderHistoryTable.response}->'raw'->'order'->>'account_id'`
-  )
-
 const providerOrderIdExpr = () =>
   coalesceText(
     sql`${orderHistoryTable.normalizedOrder}->>'id'`,
@@ -453,7 +444,6 @@ export function buildOrderWhereCondition(
         sql`COALESCE(${orderHistoryTable.environment}, '') ILIKE ${search}`,
         sql`COALESCE(${orderHistoryTable.submissionSource}, '') ILIKE ${search}`,
         sql`${listingExpr()} ILIKE ${search}`,
-        sql`${accountExpr()} ILIKE ${search}`,
         sql`${providerOrderIdExpr()} ILIKE ${search}`,
         sql`${clientOrderIdExpr()} ILIKE ${search}`,
         sql`${orderStatusExpr()} ILIKE ${search}`,
@@ -476,7 +466,6 @@ const sortExpression = (sortBy: OrdersFilterState['orderSortBy']): SQL => {
   if (sortBy === 'listing') return listingExpr()
   if (sortBy === 'provider') return sql`${orderHistoryTable.provider}`
   if (sortBy === 'environment') return sql`${orderHistoryTable.environment}`
-  if (sortBy === 'account') return accountExpr()
   if (sortBy === 'status') return orderStatusExpr()
   if (sortBy === 'side') return orderSideExpr()
   if (sortBy === 'orderType') return orderTypeExpr()

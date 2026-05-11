@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
-import { listUserTradingPortfolioIdentities } from '@/lib/trading/portfolio-identities.server'
+import { listUserTradingPortfolioIdentities } from '@/lib/trading/portfolio-identities'
 import { generateRequestId } from '@/lib/utils'
 import {
   getPortfolioIdentityKey,
@@ -42,17 +42,20 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Unsupported trading provider' }, { status: 400 })
   }
 
-  const portfolioIdentities = await listUserTradingPortfolioIdentities({
-    userId: session.user.id,
-    providerId,
-    requestId,
-  }).catch((error) => {
+  let portfolioIdentities: PortfolioIdentity[]
+  try {
+    portfolioIdentities = await listUserTradingPortfolioIdentities({
+      userId: session.user.id,
+      providerId,
+      requestId,
+    })
+  } catch (error) {
     logger.warn('Failed to list portfolio identities', {
       providerId,
       error: error instanceof Error ? error.message : String(error),
     })
-    return []
-  })
+    return NextResponse.json({ error: 'Failed to load trading accounts' }, { status: 502 })
+  }
 
   return NextResponse.json({
     options: portfolioIdentities.map((portfolioIdentity) => {

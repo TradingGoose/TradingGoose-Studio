@@ -1,18 +1,5 @@
-import { getTradingProvider, getTradingProviderOAuthEnvironment } from '@/providers/trading'
-import { getPortfolioDetail } from '@/providers/trading/portfolio'
-import { toPortfolioValueObject } from '@/providers/trading/portfolio-identity'
 import type { TradingHoldingsParams, TradingHoldingsResponse } from '@/tools/trading/types'
-import type { ToolConfig, ToolResponse } from '@/tools/types'
-
-const failure = (summary: string, provider: string, error = summary): ToolResponse => ({
-  success: false,
-  output: {
-    summary,
-    provider,
-    holdings: null,
-  },
-  error,
-})
+import type { ToolConfig } from '@/tools/types'
 
 export const tradingHoldingsTool: ToolConfig<TradingHoldingsParams, TradingHoldingsResponse> = {
   id: 'trading_get_holdings',
@@ -81,52 +68,4 @@ export const tradingHoldingsTool: ToolConfig<TradingHoldingsParams, TradingHoldi
       description: 'Canonical portfolio detail with cash, positions, and summary.',
     },
   },
-}
-
-export const executeTradingHoldings = async ({
-  accessToken,
-  ...params
-}: Omit<TradingHoldingsParams, 'accessToken'> & {
-  accessToken?: string | null
-}): Promise<ToolResponse> => {
-  const provider = getTradingProvider(params.provider)
-  const portfolioIdentity = toPortfolioValueObject(params.portfolioIdentity)
-
-  if (!portfolioIdentity) {
-    return failure('Portfolio identity is required', provider.id)
-  }
-
-  if (portfolioIdentity.providerId !== provider.id) {
-    return failure('Portfolio identity does not match provider', provider.id)
-  }
-
-  if (!accessToken) {
-    return failure('Trading provider access token is required', provider.id)
-  }
-
-  const environment = getTradingProviderOAuthEnvironment(
-    provider.id,
-    portfolioIdentity.credentialServiceId
-  )
-  if (!environment) {
-    return failure('Trading provider connection is not configured', provider.id)
-  }
-
-  const holdings = await getPortfolioDetail({
-    providerId: provider.id,
-    credentialId: portfolioIdentity.credentialId,
-    credentialServiceId: portfolioIdentity.credentialServiceId,
-    environment,
-    accessToken,
-    accountId: portfolioIdentity.accountId,
-  })
-
-  return {
-    success: true,
-    output: {
-      summary: `Fetched portfolio detail from ${provider.name}`,
-      provider: provider.id,
-      holdings,
-    },
-  }
 }

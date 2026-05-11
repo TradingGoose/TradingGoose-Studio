@@ -2,6 +2,12 @@ import { describe, expect, it } from 'vitest'
 import { tradingOrderDetailTool } from '@/tools/trading/order_detail'
 
 describe('tradingOrderDetailTool contract', () => {
+  it('declares workspace read execution policy on the tool config', () => {
+    expect(tradingOrderDetailTool.execution).toEqual({
+      workspace: { required: true, access: 'read' },
+    })
+  })
+
   it('uses the canonical provider-detail route without duplicated provider, account, or environment selectors', () => {
     expect(
       typeof tradingOrderDetailTool.request.url === 'function'

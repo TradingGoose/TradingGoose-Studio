@@ -1,6 +1,8 @@
-import { db, orderHistoryTable } from '@tradinggoose/db'
-import { workflowExecutionLogs } from '@tradinggoose/db/schema'
-import { eq } from 'drizzle-orm'
+import { db, orderHistoryTable, workflowExecutionLogs } from '@tradinggoose/db'
+import { and, eq, gte, lte } from 'drizzle-orm'
+import { checkWorkspaceAccess } from '@/lib/permissions/utils'
+import { TradingServiceError } from '@/lib/trading/errors'
+import { serializeOrderRecord } from '@/lib/trading/order-records'
 
 export const ORDER_SUBMISSION_SOURCES = ['manual', 'copilot', 'workflow'] as const
 export type OrderSubmissionSource = (typeof ORDER_SUBMISSION_SOURCES)[number]
@@ -73,4 +75,55 @@ export async function recordOrderHistory(input: OrderHistoryInput) {
     .returning()
 
   return { ok: true as const, record }
+}
+
+export async function listTradingOrderHistory({
+  endDate,
+  startDate,
+  userId,
+  workspaceId,
+}: {
+  endDate?: string | null
+  startDate?: string | null
+  userId: string
+  workspaceId?: string | null
+}) {
+  if (!workspaceId) {
+    throw new TradingServiceError('workspaceId is required')
+  }
+
+  const access = await checkWorkspaceAccess(workspaceId, userId)
+  if (!access.exists || !access.hasAccess) {
+    throw new TradingServiceError('Not found', 404)
+  }
+
+  if (!startDate || !endDate) {
+    throw new TradingServiceError('startDate and endDate are required')
+  }
+
+  const start = new Date(startDate)
+  const end = new Date(endDate)
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+    throw new TradingServiceError('startDate and endDate must be valid ISO timestamps')
+  }
+
+  const history = await db
+    .select()
+    .from(orderHistoryTable)
+    .where(
+      and(
+        eq(orderHistoryTable.workspaceId, workspaceId),
+        gte(orderHistoryTable.recordedAt, start),
+        lte(orderHistoryTable.recordedAt, end)
+      )
+    )
+    .orderBy(orderHistoryTable.recordedAt)
+
+  return {
+    history: history.map((row) => serializeOrderRecord(row)),
+    count: history.length,
+    workspaceId,
+    startDate,
+    endDate,
+  }
 }

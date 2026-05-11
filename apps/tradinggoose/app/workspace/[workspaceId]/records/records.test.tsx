@@ -24,7 +24,6 @@ const mocks = vi.hoisted(() => ({
 }))
 
 const order = {
-  accountId: 'account-1',
   averageFillPrice: '184.25',
   clientOrderId: 'client-order-1',
   environment: 'paper',
