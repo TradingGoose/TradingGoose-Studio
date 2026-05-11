@@ -100,6 +100,7 @@ export function useWorkflowExecution() {
 
       if (event.type === 'block:started') {
         const data = event.data
+        streamedContentByBlock.delete(`${event.executionId}:${data.blockId}`)
         addConsole({
           workflowId: event.workflowId,
           executionId: event.executionId,
@@ -135,6 +136,7 @@ export function useWorkflowExecution() {
 
       if (event.type === 'block:completed') {
         const data = event.data
+        streamedContentByBlock.delete(`${event.executionId}:${data.blockId}`)
         const hasEntry = useConsoleStore
           .getState()
           .entries.some(
@@ -183,6 +185,7 @@ export function useWorkflowExecution() {
 
       if (event.type === 'block:error') {
         const data = event.data
+        streamedContentByBlock.delete(`${event.executionId}:${data.blockId}`)
         const hasEntry = useConsoleStore
           .getState()
           .entries.some(

@@ -92,6 +92,29 @@ describe('useWorkflowExecution', () => {
   let root: Root | null = null
   const previousActEnvironment = (globalThis as any).IS_REACT_ACT_ENVIRONMENT
 
+  async function renderExecutionHook() {
+    const { useWorkflowExecution } = await import('./use-workflow-execution')
+    const state: { execution: ReturnType<typeof useWorkflowExecution> | null } = {
+      execution: null,
+    }
+
+    function Harness() {
+      state.execution = useWorkflowExecution()
+      return null
+    }
+
+    container = document.createElement('div')
+    document.body.appendChild(container)
+    root = createRoot(container)
+
+    await act(async () => {
+      root?.render(React.createElement(Harness))
+    })
+
+    if (!state.execution) throw new Error('useWorkflowExecution did not render')
+    return state.execution
+  }
+
   beforeAll(() => {
     ;(globalThis as any).IS_REACT_ACT_ENVIRONMENT = true
   })
@@ -143,24 +166,10 @@ describe('useWorkflowExecution', () => {
   })
 
   it('forwards chat selected outputs as queue metadata without adding them to workflow input', async () => {
-    const { useWorkflowExecution } = await import('./use-workflow-execution')
-    let execution: ReturnType<typeof useWorkflowExecution> | null = null
-
-    function Harness() {
-      execution = useWorkflowExecution()
-      return null
-    }
-
-    container = document.createElement('div')
-    document.body.appendChild(container)
-    root = createRoot(container)
+    const execution = await renderExecutionHook()
 
     await act(async () => {
-      root?.render(React.createElement(Harness))
-    })
-
-    await act(async () => {
-      await execution?.handleRunWorkflow({
+      await execution.handleRunWorkflow({
         input: {
           input: 'hello',
           conversationId: 'conversation-1',
@@ -205,25 +214,11 @@ describe('useWorkflowExecution', () => {
       }
     })
 
-    const { useWorkflowExecution } = await import('./use-workflow-execution')
-    let execution: ReturnType<typeof useWorkflowExecution> | null = null
     const onEvent = vi.fn()
-
-    function Harness() {
-      execution = useWorkflowExecution()
-      return null
-    }
-
-    container = document.createElement('div')
-    document.body.appendChild(container)
-    root = createRoot(container)
+    const execution = await renderExecutionHook()
 
     await act(async () => {
-      root?.render(React.createElement(Harness))
-    })
-
-    await act(async () => {
-      await execution?.handleRunWorkflow({
+      await execution.handleRunWorkflow({
         input: {
           input: 'hello',
           conversationId: 'conversation-1',
@@ -237,6 +232,78 @@ describe('useWorkflowExecution', () => {
     expect(mockConsoleState.updateConsole).toHaveBeenCalledWith(
       'agent-1',
       { content: 'streamed content' },
+      'execution-1'
+    )
+  })
+
+  it('starts a fresh streamed content buffer for each block start event', async () => {
+    const blockStarted = {
+      type: 'block:started',
+      executionId: 'execution-1',
+      workflowId: 'workflow-1',
+      timestamp: new Date().toISOString(),
+      data: {
+        blockId: 'agent-1',
+        blockName: 'Agent',
+        blockType: 'agent',
+        input: {},
+        startedAt: '2026-04-01T00:00:00.000Z',
+        iterationCurrent: 1,
+        iterationTotal: 2,
+      },
+    }
+    mockRunQueuedWorkflowExecution.mockImplementationOnce(async (_request, callbacks) => {
+      await callbacks.onEvent(blockStarted)
+      await callbacks.onEvent({
+        type: 'stream:chunk',
+        executionId: 'execution-1',
+        workflowId: 'workflow-1',
+        timestamp: new Date().toISOString(),
+        data: { blockId: 'agent-1', chunk: 'first' },
+      })
+      await callbacks.onEvent({
+        ...blockStarted,
+        data: {
+          ...blockStarted.data,
+          iterationCurrent: 2,
+        },
+      })
+      await callbacks.onEvent({
+        type: 'stream:chunk',
+        executionId: 'execution-1',
+        workflowId: 'workflow-1',
+        timestamp: new Date().toISOString(),
+        data: { blockId: 'agent-1', chunk: 'second' },
+      })
+      return {
+        success: true,
+        output: {},
+        logs: [],
+      }
+    })
+
+    const execution = await renderExecutionHook()
+
+    await act(async () => {
+      await execution.handleRunWorkflow({
+        input: {
+          input: 'hello',
+          conversationId: 'conversation-1',
+        },
+        triggerType: 'chat',
+      })
+    })
+
+    expect(mockConsoleState.updateConsole).toHaveBeenNthCalledWith(
+      1,
+      'agent-1',
+      { content: 'first' },
+      'execution-1'
+    )
+    expect(mockConsoleState.updateConsole).toHaveBeenNthCalledWith(
+      2,
+      'agent-1',
+      { content: 'second' },
       'execution-1'
     )
   })
