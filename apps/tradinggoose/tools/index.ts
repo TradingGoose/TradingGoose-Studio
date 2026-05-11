@@ -6,14 +6,12 @@ import { parseMcpToolId } from '@/lib/mcp/utils'
 import { validateExternalUrl } from '@/lib/security/input-validation'
 import { getBaseUrl } from '@/lib/urls/utils'
 import { generateRequestId } from '@/lib/utils'
-import {
-  isSkillLoaderExecution,
-  resolveSkillContent,
-} from '@/executor/handlers/agent/skills-resolver'
+import { isSkillLoaderExecution } from '@/executor/handlers/agent/skill-loader'
+import { resolveSkillContent } from '@/executor/handlers/agent/skills-resolver'
 import type { ExecutionContext } from '@/executor/types'
 import type { ErrorInfo } from '@/tools/error-extractors'
 import { extractErrorMessage } from '@/tools/error-extractors'
-import type { OAuthTokenPayload, ToolConfig, ToolResponse } from '@/tools/types'
+import type { ToolConfig, ToolResponse } from '@/tools/types'
 import {
   formatRequestParams,
   getTool,
@@ -239,7 +237,7 @@ export async function executeTool(
         }
       }
 
-      const content = await resolveSkillContent(skillName, scope.workspaceId, scope.workflowId)
+      const content = await resolveSkillContent(skillName, scope.workspaceId)
       if (!content) {
         return {
           success: false,
@@ -321,33 +319,28 @@ export async function executeTool(
       throw new Error(`Tool not found: ${toolId}`)
     }
 
-    if (contextParams.credential) {
+    const tokenCredentialId =
+      typeof contextParams.credential === 'string' ? contextParams.credential.trim() : ''
+    const tokenServiceId =
+      typeof contextParams.serviceId === 'string' ? contextParams.serviceId.trim() : ''
+    if (tokenCredentialId || tokenServiceId) {
       logger.info(
-        `[${requestId}] Tool ${toolId} needs access token for credential: ${contextParams.credential}`
+        `[${requestId}] Tool ${toolId} needs access token for ${
+          tokenCredentialId ? `credential: ${tokenCredentialId}` : `service: ${tokenServiceId}`
+        }`
       )
       try {
         const baseUrl = getBaseUrl()
 
-        // Prepare the token payload
-        const tokenPayload: OAuthTokenPayload = {
-          credentialId: contextParams.credential,
-        }
-
-        // Add workflowId if it exists in params, context, or executionContext
-        const workflowId = scope.workflowId
-        if (workflowId) {
-          tokenPayload.workflowId = workflowId
+        const tokenPayload = {
+          ...(tokenCredentialId
+            ? { credentialId: tokenCredentialId }
+            : { serviceId: tokenServiceId }),
+          ...(tokenCredentialId && scope.workflowId ? { workflowId: scope.workflowId } : {}),
         }
 
         logger.info(`[${requestId}] Fetching access token from ${baseUrl}/api/auth/oauth/token`)
 
-        // Build token URL and also include workflowId in query so server auth can read it
-        const tokenUrlObj = new URL('/api/auth/oauth/token', baseUrl)
-        if (workflowId) {
-          tokenUrlObj.searchParams.set('workflowId', workflowId)
-        }
-
-        // Always send Content-Type; add internal auth on server-side runs
         const tokenHeaders: Record<string, string> = { 'Content-Type': 'application/json' }
         if (typeof window === 'undefined') {
           try {
@@ -359,7 +352,7 @@ export async function executeTool(
           }
         }
 
-        const response = await fetch(tokenUrlObj.toString(), {
+        const response = await fetch(new URL('/api/auth/oauth/token', baseUrl).toString(), {
           method: 'POST',
           headers: tokenHeaders,
           body: JSON.stringify(tokenPayload),
@@ -387,19 +380,16 @@ export async function executeTool(
           `[${requestId}] Successfully got access token for ${toolId}, length: ${data.accessToken?.length || 0}`
         )
 
-        // Preserve credential for downstream transforms while removing it from request payload
-        // so we don't leak it to external services.
-        if (contextParams.credential) {
-          ;(contextParams as any)._credentialId = contextParams.credential
+        if (tokenCredentialId) {
+          ;(contextParams as any)._credentialId = tokenCredentialId
         }
-        // Clean up params we don't need to pass to the actual tool
         contextParams.credential = undefined
+        contextParams.serviceId = undefined
         if (contextParams.workflowId) contextParams.workflowId = undefined
       } catch (error: any) {
         logger.error(`[${requestId}] Error fetching access token for ${toolId}:`, {
           error: error instanceof Error ? error.message : String(error),
         })
-        // Re-throw the error to fail the tool execution if token fetching fails
         throw new Error(
           `Failed to obtain credential for tool ${toolId}: ${error instanceof Error ? error.message : String(error)}`
         )

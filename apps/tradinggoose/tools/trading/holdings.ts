@@ -33,6 +33,12 @@ export const tradingHoldingsTool: ToolConfig<TradingHoldingsParams, TradingHoldi
       visibility: 'user-only',
       description: 'Canonical portfolioIdentity selected by the broker account field.',
     },
+    serviceId: {
+      type: 'string',
+      required: false,
+      visibility: 'hidden',
+      description: 'OAuth service selected by portfolioIdentity.',
+    },
     accessToken: {
       type: 'string',
       required: false,
@@ -50,6 +56,7 @@ export const tradingHoldingsTool: ToolConfig<TradingHoldingsParams, TradingHoldi
     body: (params) => ({
       provider: params.provider,
       portfolioIdentity: params.portfolioIdentity,
+      accessToken: params.accessToken,
     }),
   },
 

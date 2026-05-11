@@ -9,7 +9,7 @@ import {
 } from '@/app/workspace/[workspaceId]/records/components/log-details/components/trace-spans'
 import { scaleLogCostBreakdown } from '@/app/workspace/[workspaceId]/records/utils'
 import { getBlock } from '@/blocks/registry'
-import { isSkillLoaderToolId } from '@/executor/handlers/agent/skills-resolver'
+import { isSkillLoaderToolId } from '@/executor/handlers/agent/skill-loader'
 import { formatCost, getProviderIcon } from '@/providers/ai/utils'
 import type { TraceSpan } from '@/stores/logs/filters/types'
 

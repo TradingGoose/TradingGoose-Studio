@@ -2,7 +2,6 @@ import { type NextRequest, NextResponse } from 'next/server'
 import { checkSessionOrInternalAuth } from '@/lib/auth/hybrid'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
-import { getOAuthToken } from '@/app/api/auth/oauth/utils'
 import { executeTradingHoldings } from '@/tools/trading/holdings'
 import type { TradingHoldingsParams } from '@/tools/trading/types'
 
@@ -16,7 +15,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const auth = await checkSessionOrInternalAuth(request, { requireWorkflowId: false })
-    if (!auth.success || !auth.userId) {
+    if (!auth.success) {
       return NextResponse.json(
         { success: false, error: { message: 'Unauthorized' } },
         { status: 401 }
@@ -31,23 +30,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const credentialServiceId =
-      typeof body.portfolioIdentity === 'object' &&
-      body.portfolioIdentity &&
-      'credentialServiceId' in body.portfolioIdentity &&
-      typeof body.portfolioIdentity.credentialServiceId === 'string'
-        ? body.portfolioIdentity.credentialServiceId
-        : ''
-
-    if (!credentialServiceId) {
-      return NextResponse.json(
-        { success: false, error: { message: 'portfolioIdentity.credentialServiceId is required' } },
-        { status: 400 }
-      )
-    }
-
-    const accessToken = await getOAuthToken(auth.userId, credentialServiceId)
-    const result = await executeTradingHoldings({ ...body, accessToken })
+    const result = await executeTradingHoldings(body)
 
     if (!result.success) {
       return NextResponse.json(

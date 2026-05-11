@@ -199,7 +199,7 @@ describe('PortfolioSnapshotWidgetBody', () => {
     container.remove()
   })
 
-  it('auto-selects and immediately uses the single returned account when none is persisted', async () => {
+  it('requires explicit account selection when none is persisted', async () => {
     await act(async () => {
       root.render(
         <PortfolioSnapshotWidgetBody
@@ -213,23 +213,76 @@ describe('PortfolioSnapshotWidgetBody', () => {
       )
     })
 
-    expect(mockEmitPortfolioSnapshotParamsChange).toHaveBeenCalledWith({
-      params: { portfolioIdentity: selectedPortfolioIdentity, credentialServiceId: 'alpaca-live' },
-      panelId: 'panel-1',
-      widgetKey: 'portfolio_snapshot',
-    })
+    expect(mockEmitPortfolioSnapshotParamsChange).not.toHaveBeenCalled()
     expect(mockUsePortfolioDetail).toHaveBeenCalledWith({
       workspaceId: undefined,
       provider: 'alpaca',
       credentialServiceId: 'alpaca-live',
-      portfolioIdentity: selectedPortfolioIdentity,
+      portfolioIdentity: undefined,
     })
     expect(mockUsePortfolioPerformance).toHaveBeenCalledWith({
       workspaceId: undefined,
       provider: 'alpaca',
       credentialServiceId: 'alpaca-live',
-      portfolioIdentity: selectedPortfolioIdentity,
+      portfolioIdentity: undefined,
       selectedWindow: '1D',
+    })
+  })
+
+  it('clears the saved account when the saved service has disconnected', async () => {
+    const connectedPaperIdentity = {
+      ...selectedPortfolioIdentity,
+      credentialServiceId: 'alpaca-paper',
+      accountId: 'paper-acct',
+      accountName: 'Paper Account',
+    }
+    mockUseOAuthCredentialsByProviderIds.mockReturnValue(
+      createQueryResult({
+        data: {
+          'alpaca-paper': [{ id: 'cred-paper', name: 'Alpaca Paper', provider: 'alpaca-paper' }],
+        },
+      })
+    )
+    mockUsePortfolioIdentities.mockReturnValue(
+      createQueryResult({
+        data: [connectedPaperIdentity],
+      })
+    )
+
+    await act(async () => {
+      root.render(
+        <PortfolioSnapshotWidgetBody
+          widget={{ key: 'portfolio_snapshot' } as any}
+          panelId='panel-1'
+          params={{
+            provider: 'alpaca',
+            credentialServiceId: 'alpaca-live',
+            portfolioIdentity: selectedPortfolioIdentity,
+            selectedWindow: '1D',
+          }}
+        />
+      )
+    })
+
+    expect(mockUsePortfolioIdentities).toHaveBeenCalledWith({
+      workspaceId: undefined,
+      provider: 'alpaca',
+      credentialServiceId: 'alpaca-paper',
+      enabled: true,
+    })
+    expect(mockUsePortfolioDetail).toHaveBeenCalledWith({
+      workspaceId: undefined,
+      provider: 'alpaca',
+      credentialServiceId: 'alpaca-paper',
+      portfolioIdentity: undefined,
+    })
+    expect(mockEmitPortfolioSnapshotParamsChange).toHaveBeenCalledWith({
+      params: {
+        credentialServiceId: 'alpaca-paper',
+        portfolioIdentity: null,
+      },
+      panelId: 'panel-1',
+      widgetKey: 'portfolio_snapshot',
     })
   })
 
@@ -292,6 +345,17 @@ describe('PortfolioSnapshotWidgetBody', () => {
   })
 
   it('renders performance windows from the selected trading provider', async () => {
+    const tradierPortfolioIdentity = {
+      ...selectedPortfolioIdentity,
+      providerId: 'tradier',
+      credentialServiceId: 'tradier-live',
+    }
+    mockUsePortfolioIdentities.mockReturnValue(
+      createQueryResult({
+        data: [tradierPortfolioIdentity],
+      })
+    )
+
     await act(async () => {
       root.render(
         <PortfolioSnapshotWidgetBody
@@ -299,11 +363,7 @@ describe('PortfolioSnapshotWidgetBody', () => {
           panelId='panel-1'
           params={{
             provider: 'tradier',
-            portfolioIdentity: {
-              ...selectedPortfolioIdentity,
-              providerId: 'tradier',
-              credentialServiceId: 'tradier-live',
-            },
+            portfolioIdentity: tradierPortfolioIdentity,
             selectedWindow: 'MAX',
           }}
         />

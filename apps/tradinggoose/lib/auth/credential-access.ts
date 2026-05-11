@@ -21,18 +21,25 @@ export interface CredentialAccessResult {
  * - Authorization rules:
  *   - session/api_key: allow if requester owns the credential; otherwise require workflowId and
  *     verify BOTH requester and owner have access to the workflow's workspace
- *   - internal_jwt: require workflowId (by default) and verify credential owner has access to the
+ *   - internal_jwt: require workflowId and verify credential owner has access to the
  *     workflow's workspace (requester identity is the system/workflow)
  */
 export async function authorizeCredentialUse(
   request: NextRequest,
-  params: { credentialId: string; workflowId?: string; requireWorkflowIdForInternal?: boolean }
+  params: { credentialId: string; workflowId?: string }
 ): Promise<CredentialAccessResult> {
-  const { credentialId, workflowId, requireWorkflowIdForInternal = true } = params
+  const { credentialId, workflowId } = params
 
-  const auth = await checkHybridAuth(request, { requireWorkflowId: requireWorkflowIdForInternal })
-  if (!auth.success || !auth.userId) {
+  const auth = await checkHybridAuth(request, { requireWorkflowId: false })
+  if (!auth.success) {
     return { ok: false, error: auth.error || 'Authentication required' }
+  }
+  const requesterUserId = auth.userId
+  if (auth.authType !== 'internal_jwt' && !requesterUserId) {
+    return { ok: false, error: 'Authentication required' }
+  }
+  if (auth.authType === 'internal_jwt' && !workflowId) {
+    return { ok: false, error: 'workflowId is required' }
   }
 
   // Lookup credential owner
@@ -49,11 +56,11 @@ export async function authorizeCredentialUse(
   const credentialOwnerUserId = credRow.userId
 
   // If requester owns the credential, allow immediately
-  if (auth.authType !== 'internal_jwt' && auth.userId === credentialOwnerUserId) {
+  if (auth.authType !== 'internal_jwt' && requesterUserId === credentialOwnerUserId) {
     return {
       ok: true,
       authType: auth.authType,
-      requesterUserId: auth.userId,
+      requesterUserId,
       credentialOwnerUserId,
     }
   }
@@ -86,14 +93,18 @@ export async function authorizeCredentialUse(
     return {
       ok: true,
       authType: auth.authType,
-      requesterUserId: auth.userId,
+      requesterUserId,
       credentialOwnerUserId,
       workspaceId: wf.workspaceId,
     }
   }
 
+  if (!requesterUserId) {
+    return { ok: false, error: 'Authentication required' }
+  }
+
   // Session/API key: verify BOTH requester and owner belong to the workflow's workspace
-  const requesterPerm = await getUserEntityPermissions(auth.userId, 'workspace', wf.workspaceId)
+  const requesterPerm = await getUserEntityPermissions(requesterUserId, 'workspace', wf.workspaceId)
   const ownerPerm = await getUserEntityPermissions(
     credentialOwnerUserId,
     'workspace',
@@ -106,7 +117,7 @@ export async function authorizeCredentialUse(
   return {
     ok: true,
     authType: auth.authType,
-    requesterUserId: auth.userId,
+    requesterUserId,
     credentialOwnerUserId,
     workspaceId: wf.workspaceId,
   }

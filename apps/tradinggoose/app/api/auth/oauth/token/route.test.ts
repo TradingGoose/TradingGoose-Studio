@@ -7,8 +7,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMockRequest } from '@/app/api/__test-utils__/utils'
 
 describe('OAuth Token API Routes', () => {
-  const mockGetUserId = vi.fn()
   const mockGetCredential = vi.fn()
+  const mockGetOAuthToken = vi.fn()
   const mockRefreshTokenIfNeeded = vi.fn()
   const mockAuthorizeCredentialUse = vi.fn()
   const mockCheckHybridAuth = vi.fn()
@@ -31,8 +31,8 @@ describe('OAuth Token API Routes', () => {
     })
 
     vi.doMock('@/app/api/auth/oauth/utils', () => ({
-      getUserId: mockGetUserId,
       getCredential: mockGetCredential,
+      getOAuthToken: mockGetOAuthToken,
       refreshTokenIfNeeded: mockRefreshTokenIfNeeded,
     }))
 
@@ -53,9 +53,6 @@ describe('OAuth Token API Routes', () => {
     vi.clearAllMocks()
   })
 
-  /**
-   * POST route tests
-   */
   describe('POST handler', () => {
     it('should return access token successfully', async () => {
       mockAuthorizeCredentialUse.mockResolvedValueOnce({
@@ -77,24 +74,19 @@ describe('OAuth Token API Routes', () => {
         refreshed: false,
       })
 
-      // Create mock request
       const req = createMockRequest('POST', {
         credentialId: 'credential-id',
       })
 
-      // Import handler after setting up mocks
       const { POST } = await import('@/app/api/auth/oauth/token/route')
 
-      // Call handler
       const response = await POST(req)
       const data = await response.json()
 
-      // Verify request was handled correctly
       expect(response.status).toBe(200)
       expect(data).toHaveProperty('accessToken', 'fresh-token')
       expect(data).toHaveProperty('idToken', 'id-token-value')
 
-      // Verify mocks were called correctly
       expect(mockAuthorizeCredentialUse).toHaveBeenCalled()
       expect(mockGetCredential).toHaveBeenCalled()
       expect(mockRefreshTokenIfNeeded).toHaveBeenCalled()
@@ -136,7 +128,57 @@ describe('OAuth Token API Routes', () => {
       expect(mockGetCredential).toHaveBeenCalled()
     })
 
-    it('should handle missing credentialId', async () => {
+    it('should resolve access token by serviceId for internal workflow calls', async () => {
+      mockCheckHybridAuth.mockResolvedValueOnce({
+        success: true,
+        authType: 'internal_jwt',
+        userId: 'acting-user-id',
+      })
+      mockGetOAuthToken.mockResolvedValueOnce('service-token')
+
+      const req = createMockRequest('POST', {
+        serviceId: 'alpaca-live',
+        workflowId: 'workflow-id',
+      })
+
+      const { POST } = await import('@/app/api/auth/oauth/token/route')
+
+      const response = await POST(req)
+      const data = await response.json()
+
+      expect(response.status).toBe(200)
+      expect(data).toMatchObject({
+        accessToken: 'service-token',
+        providerId: 'alpaca-live',
+      })
+      expect(mockGetOAuthToken).toHaveBeenCalledWith('acting-user-id', 'alpaca-live')
+      expect(mockAuthorizeCredentialUse).not.toHaveBeenCalled()
+      expect(mockGetCredential).not.toHaveBeenCalled()
+    })
+
+    it('should reject serviceId lookup when the internal token has no acting user', async () => {
+      mockCheckHybridAuth.mockResolvedValueOnce({
+        success: true,
+        authType: 'internal_jwt',
+      })
+
+      const req = createMockRequest('POST', {
+        serviceId: 'alpaca-live',
+        workflowId: 'workflow-id',
+      })
+
+      const { POST } = await import('@/app/api/auth/oauth/token/route')
+
+      const response = await POST(req)
+      const data = await response.json()
+
+      expect(response.status).toBe(401)
+      expect(data).toMatchObject({ error: 'User not authenticated' })
+      expect(mockGetOAuthToken).not.toHaveBeenCalled()
+      expect(mockAuthorizeCredentialUse).not.toHaveBeenCalled()
+    })
+
+    it('should handle missing credentialId and serviceId', async () => {
       const req = createMockRequest('POST', {})
 
       const { POST } = await import('@/app/api/auth/oauth/token/route')
@@ -145,7 +187,7 @@ describe('OAuth Token API Routes', () => {
       const data = await response.json()
 
       expect(response.status).toBe(400)
-      expect(data).toHaveProperty('error', 'Credential ID is required')
+      expect(data).toHaveProperty('error', 'Credential ID or service ID is required')
       expect(mockLogger.warn).toHaveBeenCalled()
     })
 
@@ -233,155 +275,6 @@ describe('OAuth Token API Routes', () => {
 
       expect(response.status).toBe(401)
       expect(data).toHaveProperty('error', 'Failed to refresh access token')
-    })
-  })
-
-  /**
-   * GET route tests
-   */
-  describe('GET handler', () => {
-    it('should return access token successfully', async () => {
-      mockCheckHybridAuth.mockResolvedValueOnce({
-        success: true,
-        authType: 'session',
-        userId: 'test-user-id',
-      })
-      mockGetCredential.mockResolvedValueOnce({
-        id: 'credential-id',
-        accessToken: 'test-token',
-        refreshToken: 'refresh-token',
-        accessTokenExpiresAt: new Date(Date.now() + 3600 * 1000),
-        providerId: 'google',
-        idToken: 'id-token-value',
-      })
-      mockRefreshTokenIfNeeded.mockResolvedValueOnce({
-        accessToken: 'fresh-token',
-        refreshed: false,
-      })
-
-      const req = new Request(
-        'http://localhost:3000/api/auth/oauth/token?credentialId=credential-id'
-      )
-
-      const { GET } = await import('@/app/api/auth/oauth/token/route')
-
-      const response = await GET(req as any)
-      const data = await response.json()
-
-      expect(response.status).toBe(200)
-      expect(data).toHaveProperty('accessToken', 'fresh-token')
-      expect(data).toHaveProperty('idToken', 'id-token-value')
-
-      expect(mockCheckHybridAuth).toHaveBeenCalled()
-      expect(mockGetCredential).toHaveBeenCalledWith(mockRequestId, 'credential-id', 'test-user-id')
-      expect(mockRefreshTokenIfNeeded).toHaveBeenCalled()
-    })
-
-    it('should handle missing credentialId', async () => {
-      const req = new Request('http://localhost:3000/api/auth/oauth/token')
-
-      const { GET } = await import('@/app/api/auth/oauth/token/route')
-
-      const response = await GET(req as any)
-      const data = await response.json()
-
-      expect(response.status).toBe(400)
-      expect(data).toHaveProperty('error', 'Credential ID is required')
-      expect(mockLogger.warn).toHaveBeenCalled()
-    })
-
-    it('should handle authentication failure', async () => {
-      mockCheckHybridAuth.mockResolvedValueOnce({
-        success: false,
-        error: 'Authentication required',
-      })
-
-      const req = new Request(
-        'http://localhost:3000/api/auth/oauth/token?credentialId=credential-id'
-      )
-
-      const { GET } = await import('@/app/api/auth/oauth/token/route')
-
-      const response = await GET(req as any)
-      const data = await response.json()
-
-      expect(response.status).toBe(401)
-      expect(data).toHaveProperty('error')
-    })
-
-    it('should handle credential not found', async () => {
-      mockCheckHybridAuth.mockResolvedValueOnce({
-        success: true,
-        authType: 'session',
-        userId: 'test-user-id',
-      })
-      mockGetCredential.mockResolvedValueOnce(undefined)
-
-      const req = new Request(
-        'http://localhost:3000/api/auth/oauth/token?credentialId=nonexistent-credential-id'
-      )
-
-      const { GET } = await import('@/app/api/auth/oauth/token/route')
-
-      const response = await GET(req as any)
-      const data = await response.json()
-
-      expect(response.status).toBe(404)
-      expect(data).toHaveProperty('error')
-    })
-
-    it('should handle missing access token', async () => {
-      mockCheckHybridAuth.mockResolvedValueOnce({
-        success: true,
-        authType: 'session',
-        userId: 'test-user-id',
-      })
-      mockGetCredential.mockResolvedValueOnce({
-        id: 'credential-id',
-        accessToken: null,
-        refreshToken: 'refresh-token',
-        providerId: 'google',
-      })
-
-      const req = new Request(
-        'http://localhost:3000/api/auth/oauth/token?credentialId=credential-id'
-      )
-
-      const { GET } = await import('@/app/api/auth/oauth/token/route')
-
-      const response = await GET(req as any)
-      const data = await response.json()
-
-      expect(response.status).toBe(400)
-      expect(data).toHaveProperty('error')
-    })
-
-    it('should handle token refresh failure', async () => {
-      mockCheckHybridAuth.mockResolvedValueOnce({
-        success: true,
-        authType: 'session',
-        userId: 'test-user-id',
-      })
-      mockGetCredential.mockResolvedValueOnce({
-        id: 'credential-id',
-        accessToken: 'test-token',
-        refreshToken: 'refresh-token',
-        accessTokenExpiresAt: new Date(Date.now() - 3600 * 1000), // Expired
-        providerId: 'google',
-      })
-      mockRefreshTokenIfNeeded.mockRejectedValueOnce(new Error('Refresh failure'))
-
-      const req = new Request(
-        'http://localhost:3000/api/auth/oauth/token?credentialId=credential-id'
-      )
-
-      const { GET } = await import('@/app/api/auth/oauth/token/route')
-
-      const response = await GET(req as any)
-      const data = await response.json()
-
-      expect(response.status).toBe(401)
-      expect(data).toHaveProperty('error')
     })
   })
 })

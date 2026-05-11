@@ -20,8 +20,8 @@ import {
   buildLoadSkillTool,
   buildSkillsSystemPromptSection,
   createSkillLoaderToolId,
-  resolveSkillMetadata,
-} from './skills-resolver'
+} from './skill-loader'
+import { resolveSkillMetadata } from './skills-resolver'
 
 const logger = createLogger('AgentBlockHandler')
 
@@ -81,7 +81,7 @@ export class AgentBlockHandler implements BlockHandler {
       : []
     const skillMetadata =
       skillInputs.length > 0 && context.workspaceId
-        ? await resolveSkillMetadata(skillInputs, context.workspaceId, context.workflowId)
+        ? await resolveSkillMetadata(skillInputs, context.workspaceId)
         : []
     const skillLoaderToolId =
       skillMetadata.length > 0
@@ -415,14 +415,16 @@ export class AgentBlockHandler implements BlockHandler {
   }
 
   private getStreamingConfig(block: SerializedBlock, context: ExecutionContext): StreamingConfig {
+    const selectedOutputs = context.selectedOutputs ?? []
     const isBlockSelectedForOutput =
-      context.selectedOutputs?.some((outputId) => {
+      selectedOutputs.length === 0 ||
+      selectedOutputs.some((outputId) => {
         if (outputId === block.id) return true
         const firstUnderscoreIndex = outputId.indexOf('_')
         return (
           firstUnderscoreIndex !== -1 && outputId.substring(0, firstUnderscoreIndex) === block.id
         )
-      }) ?? false
+      })
 
     const hasOutgoingConnections = context.edges?.some((edge) => edge.source === block.id) ?? false
     const shouldUseStreaming = Boolean(context.stream) && isBlockSelectedForOutput

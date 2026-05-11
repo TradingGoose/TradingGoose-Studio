@@ -480,9 +480,7 @@ describe('QuickOrderWidgetBody', () => {
       accountId: 'acct-2',
       accountName: 'Other Account',
     }
-    mockUsePortfolioIdentities.mockReturnValue(
-      queryResult({ data: [otherPortfolioIdentity] })
-    )
+    mockUsePortfolioIdentities.mockReturnValue(queryResult({ data: [otherPortfolioIdentity] }))
     await renderBody(
       container,
       root,
@@ -494,6 +492,7 @@ describe('QuickOrderWidgetBody', () => {
       onIncompleteAccountOptionsChange
     )
     expect(onIncompleteAccountOptionsChange).toHaveBeenCalledWith({
+      credentialServiceId: 'alpaca-live',
       provider: 'alpaca',
       side: 'buy',
     })
@@ -501,7 +500,7 @@ describe('QuickOrderWidgetBody', () => {
       workspaceId: 'workspace-1',
       provider: 'alpaca',
       credentialServiceId: 'alpaca-live',
-      portfolioIdentity: stalePortfolioIdentity,
+      portfolioIdentity: undefined,
     })
   })
 

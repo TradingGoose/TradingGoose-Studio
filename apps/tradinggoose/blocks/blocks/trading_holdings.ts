@@ -3,6 +3,7 @@ import type { BlockConfig } from '@/blocks/types'
 import { AuthMode } from '@/blocks/types'
 import { requiredUserOnlyInput } from '@/blocks/utils'
 import { getTradingProvidersByKind } from '@/providers/trading'
+import { toPortfolioValueObject } from '@/providers/trading/portfolio-identity'
 import type { TradingHoldingsResponse } from '@/tools/trading/types'
 
 const providerOptions = getTradingProvidersByKind('holdings').map((provider) => ({
@@ -68,9 +69,11 @@ export const TradingHoldingsBlock: BlockConfig<TradingHoldingsResponse> = {
     config: {
       tool: () => 'trading_get_holdings',
       params: (params) => {
+        const portfolioIdentity = toPortfolioValueObject(params.portfolioIdentity)
         return {
           provider: params.provider,
-          portfolioIdentity: params.portfolioIdentity,
+          portfolioIdentity,
+          serviceId: portfolioIdentity?.credentialServiceId,
         }
       },
     },

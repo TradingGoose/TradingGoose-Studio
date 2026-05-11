@@ -124,11 +124,6 @@ export interface TableRow {
   }
 }
 
-export interface OAuthTokenPayload {
-  credentialId: string
-  workflowId?: string
-}
-
 /**
  * File data that tools can return for file-typed outputs
  */

@@ -84,10 +84,10 @@ type SocketSubscriptionRef = {
   portfolioIdentity?: PortfolioIdentity
 }
 
-const getAccountsPayloadData = (payload: TradingPortfolioAccountsPayload) => payload.portfolioIdentities
+const getAccountsPayloadData = (payload: TradingPortfolioAccountsPayload) =>
+  payload.portfolioIdentities
 
-const getSnapshotPayloadData = (payload: TradingPortfolioSnapshotPayload) =>
-  payload.portfolioDetail
+const getSnapshotPayloadData = (payload: TradingPortfolioSnapshotPayload) => payload.portfolioDetail
 
 const getPerformancePayloadData = (payload: TradingPortfolioPerformancePayload) =>
   payload.performance
@@ -171,6 +171,7 @@ function useTradingPortfolioSocketData<T>({
     Boolean(normalizedWorkspaceId) &&
     (channel === 'accounts' || Boolean(normalizedPortfolioIdentityKey)) &&
     (channel !== 'portfolio-performance' || Boolean(window))
+  const isCurrentRequestResolved = dataState.key === requestKey
 
   useEffect(() => {
     subscriptionRef.current = null
@@ -353,7 +354,7 @@ function useTradingPortfolioSocketData<T>({
   return {
     data,
     error,
-    isLoading: shouldSubscribe && isFetching && data === undefined,
+    isLoading: shouldSubscribe && data === undefined && (isFetching || !isCurrentRequestResolved),
     isFetching,
     refetch,
   }

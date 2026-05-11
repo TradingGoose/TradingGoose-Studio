@@ -16,7 +16,7 @@ vi.mock('@/providers/trading/portfolio', () => ({
   getPortfolioDetail: (...args: unknown[]) => getPortfolioDetailMock(...args),
 }))
 
-import { executeTradingHoldings } from '@/tools/trading/holdings'
+import { executeTradingHoldings, tradingHoldingsTool } from '@/tools/trading/holdings'
 
 const portfolioIdentity = {
   providerId: 'tradier',
@@ -48,7 +48,30 @@ describe('tradingHoldingsTool', () => {
     })
   })
 
-  it('requires the route-resolved access token', async () => {
+  it('sends the tool-resolved access token to the holdings route', () => {
+    expect(
+      tradingHoldingsTool.request.body?.({
+        provider: 'tradier',
+        serviceId: 'tradier-live',
+        accessToken: 'access-token',
+        portfolioIdentity,
+      })
+    ).toMatchObject({
+      provider: 'tradier',
+      accessToken: 'access-token',
+      portfolioIdentity,
+    })
+  })
+
+  it('resolves OAuth by portfolioIdentity service id instead of credential id', () => {
+    expect(tradingHoldingsTool.params.serviceId).toMatchObject({
+      type: 'string',
+      visibility: 'hidden',
+    })
+    expect(tradingHoldingsTool.params.credential).toBeUndefined()
+  })
+
+  it('requires the tool-resolved access token', async () => {
     const result = await executeTradingHoldings({
       provider: 'tradier',
       portfolioIdentity,

@@ -38,14 +38,15 @@ export function usePortfolioIdentitySelection({
     () => toPortfolioValueObject(portfolioIdentity),
     [portfolioIdentity]
   )
+  const hasSelectedPortfolioIdentity = portfolioIdentity !== undefined && portfolioIdentity !== null
+  const requestedCredentialServiceId =
+    credentialServiceId ?? selectedPortfolioIdentity?.credentialServiceId
   const credentialServices = useTradingCredentialServices({
     providerId,
-    credentialServiceId: credentialServiceId ?? selectedPortfolioIdentity?.credentialServiceId,
+    credentialServiceId: requestedCredentialServiceId,
     enabled,
   })
-  const activeCredentialServiceId = enabled
-    ? (selectedPortfolioIdentity?.credentialServiceId ?? credentialServices.activeServiceId)
-    : undefined
+  const activeCredentialServiceId = enabled ? credentialServices.activeServiceId : undefined
   const accountsQuery = usePortfolioIdentities({
     workspaceId: workspaceId ?? undefined,
     provider: enabled ? (providerId ?? undefined) : undefined,
@@ -53,71 +54,40 @@ export function usePortfolioIdentitySelection({
     enabled: enabled && Boolean(activeCredentialServiceId),
   })
   const portfolioIdentities = accountsQuery.data ?? []
-  const singlePortfolioIdentity =
-    portfolioIdentities.length === 1 ? (portfolioIdentities[0] ?? null) : null
-  const selectedPortfolioAccount =
-    selectedPortfolioIdentity && !accountsQuery.isLoading && !accountsQuery.error
+  const hasResolvedPortfolioIdentities =
+    accountsQuery.data !== undefined && !accountsQuery.isLoading && !accountsQuery.error
+  const resolvedPortfolioIdentity =
+    selectedPortfolioIdentity && hasResolvedPortfolioIdentities
       ? (portfolioIdentities.find((identity) =>
           arePortfolioIdentitiesEqual(identity, selectedPortfolioIdentity)
         ) ?? null)
-      : !selectedPortfolioIdentity
-        ? singlePortfolioIdentity
-        : null
+      : null
   const activePortfolioIdentity = activeCredentialServiceId
-    ? selectedPortfolioIdentity ?? singlePortfolioIdentity ?? undefined
+    ? (resolvedPortfolioIdentity ?? undefined)
     : undefined
 
   useEffect(() => {
-    if (!enabled || accountsQuery.isLoading || accountsQuery.error) return
-    if (selectedPortfolioIdentity || portfolioIdentities.length !== 1) return
+    if (!enabled || !hasResolvedPortfolioIdentities) return
+    if (!activeCredentialServiceId) return
+    if (selectedPortfolioIdentity && resolvedPortfolioIdentity) return
+    if (!hasSelectedPortfolioIdentity) return
 
-    const onlyAccount = portfolioIdentities[0]
-    if (!onlyAccount) return
     emitParamsChange({
       params: {
         credentialServiceId: activeCredentialServiceId,
-        portfolioIdentity: onlyAccount,
-      },
-      panelId,
-      widgetKey,
-    })
-  }, [
-    accountsQuery.error,
-    accountsQuery.isLoading,
-    activeCredentialServiceId,
-    emitParamsChange,
-    enabled,
-    panelId,
-    portfolioIdentities,
-    selectedPortfolioIdentity,
-    widgetKey,
-  ])
-
-  useEffect(() => {
-    if (!enabled || accountsQuery.isLoading || accountsQuery.error || !selectedPortfolioIdentity) {
-      return
-    }
-    if (
-      portfolioIdentities.some((identity) =>
-        arePortfolioIdentitiesEqual(identity, selectedPortfolioIdentity)
-      )
-    ) {
-      return
-    }
-    emitParamsChange({
-      params: {
         portfolioIdentity: null,
       },
       panelId,
       widgetKey,
     })
   }, [
-    accountsQuery.error,
-    accountsQuery.isLoading,
+    activeCredentialServiceId,
     emitParamsChange,
     enabled,
+    hasResolvedPortfolioIdentities,
+    hasSelectedPortfolioIdentity,
     panelId,
-    portfolioIdentities,
+    resolvedPortfolioIdentity,
     selectedPortfolioIdentity,
     widgetKey,
   ])
@@ -128,7 +98,5 @@ export function usePortfolioIdentitySelection({
     activePortfolioIdentity,
     credentialServices,
     portfolioIdentities,
-    selectedPortfolioAccount,
-    selectedPortfolioIdentity,
   }
 }

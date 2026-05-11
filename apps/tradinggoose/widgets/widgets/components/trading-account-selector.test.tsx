@@ -40,7 +40,6 @@ describe('TradingAccountSelector', () => {
     root = createRoot(container)
 
     mockUseTradingCredentialServices.mockReturnValue({
-      providerName: 'Alpaca',
       serviceIds: ['alpaca-live', 'alpaca-paper'],
       connectedServiceIds: ['alpaca-live'],
       activeServiceId: 'alpaca-live',

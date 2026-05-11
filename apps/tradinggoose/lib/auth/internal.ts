@@ -11,17 +11,51 @@ const getJwtSecret = () => {
   return secret
 }
 
+export type InternalWorkflowExecutionContext = {
+  source: 'workflow_block'
+  parentWorkflowId?: string
+  parentExecutionId?: string
+  parentBlockId: string
+}
+
+type GenerateInternalTokenOptions = {
+  workflowExecution?: InternalWorkflowExecutionContext
+}
+
+function isInternalWorkflowExecutionContext(
+  value: unknown
+): value is InternalWorkflowExecutionContext {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    !Array.isArray(value) &&
+    (value as Record<string, unknown>).source === 'workflow_block' &&
+    typeof (value as Record<string, unknown>).parentBlockId === 'string' &&
+    ((value as Record<string, unknown>).parentBlockId as string).length > 0
+  )
+}
+
 /**
  * Generate an internal JWT token for server-side API calls
  * Token expires in 5 minutes to keep it short-lived
  * @param userId Optional user ID to embed in the token payload
  */
-export async function generateInternalToken(userId?: string): Promise<string> {
+export async function generateInternalToken(
+  userId?: string,
+  options: GenerateInternalTokenOptions = {}
+): Promise<string> {
   const secret = getJwtSecret()
-  const payload: { type: 'internal'; userId?: string } = { type: 'internal' }
+  const payload: {
+    type: 'internal'
+    userId?: string
+    workflowExecution?: InternalWorkflowExecutionContext
+  } = { type: 'internal' }
 
   if (userId) {
     payload.userId = userId
+  }
+  if (options.workflowExecution) {
+    payload.workflowExecution = options.workflowExecution
   }
 
   const token = await new SignJWT(payload)
@@ -41,6 +75,7 @@ export async function generateInternalToken(userId?: string): Promise<string> {
 export interface InternalTokenVerificationResult {
   valid: boolean
   userId?: string
+  workflowExecution?: InternalWorkflowExecutionContext
 }
 
 /**
@@ -62,6 +97,9 @@ export async function verifyInternalTokenDetailed(
       return {
         valid: true,
         userId: typeof payload.userId === 'string' ? payload.userId : undefined,
+        workflowExecution: isInternalWorkflowExecutionContext(payload.workflowExecution)
+          ? payload.workflowExecution
+          : undefined,
       }
     }
 
@@ -70,14 +108,6 @@ export async function verifyInternalTokenDetailed(
     // Token verification failed
     return { valid: false }
   }
-}
-
-/**
- * Backward-compatible boolean verifier for existing call sites.
- */
-export async function verifyInternalToken(token: string): Promise<boolean> {
-  const verification = await verifyInternalTokenDetailed(token)
-  return verification.valid
 }
 
 /**

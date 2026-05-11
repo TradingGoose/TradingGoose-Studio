@@ -18,10 +18,7 @@ import { getListingIdentityKey, type ListingOption } from '@/lib/listing/identit
 import type { QuickOrderSubmitRequest } from '@/app/api/providers/trading/order/types'
 import { useMarketQuoteSnapshots } from '@/hooks/queries/market-quote-snapshots'
 import { useOAuthProviderAvailability } from '@/hooks/queries/oauth-provider-availability'
-import {
-  usePortfolioDetail,
-  useSubmitTradingOrder,
-} from '@/hooks/queries/trading-portfolio'
+import { usePortfolioDetail, useSubmitTradingOrder } from '@/hooks/queries/trading-portfolio'
 import {
   ALPACA_TRAILING_STOP_TRAIL_VALUE_ERROR,
   getAlpacaNotionalOrderTypeError,
@@ -230,7 +227,6 @@ export function QuickOrderWidgetBody({
     activePortfolioIdentity,
     credentialServices,
     portfolioIdentities,
-    selectedPortfolioAccount,
   } = usePortfolioIdentitySelection({
     workspaceId,
     providerId,
@@ -361,7 +357,7 @@ export function QuickOrderWidgetBody({
       : undefined
   const accountSnapshot = accountSnapshotQuery.data
   const accountCurrency =
-    accountSnapshot?.baseCurrency ?? selectedPortfolioAccount?.baseCurrency ?? 'USD'
+    accountSnapshot?.baseCurrency ?? activePortfolioIdentity?.baseCurrency ?? 'USD'
   const cashBuyingPower =
     typeof accountSnapshot?.summary.buyingPower === 'number'
       ? accountSnapshot.summary.buyingPower

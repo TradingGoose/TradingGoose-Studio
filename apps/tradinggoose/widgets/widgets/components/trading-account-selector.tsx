@@ -10,14 +10,14 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { cn } from '@/lib/utils'
+import { usePortfolioIdentities } from '@/hooks/queries/trading-portfolio'
 import {
   arePortfolioIdentitiesEqual,
   getPortfolioIdentityKey,
   type PortfolioIdentity,
   toPortfolioValueObject,
 } from '@/providers/trading/portfolio-identity'
-import { cn } from '@/lib/utils'
-import { usePortfolioIdentities } from '@/hooks/queries/trading-portfolio'
 import { getTradingProviderDefinition } from '@/providers/trading/providers'
 import {
   getTradingCredentialServiceName,
@@ -57,11 +57,7 @@ const getAccountDescriptionPart = (value?: string | null) => {
 }
 
 const getAccountDescription = (portfolioIdentity: PortfolioIdentity) =>
-  [
-    portfolioIdentity.accountType,
-    portfolioIdentity.accountStatus,
-    portfolioIdentity.baseCurrency,
-  ]
+  [portfolioIdentity.accountType, portfolioIdentity.accountStatus, portfolioIdentity.baseCurrency]
     .map(getAccountDescriptionPart)
     .filter(Boolean)
     .join(' - ')
@@ -87,14 +83,16 @@ export function TradingAccountSelector({
   const providerName = providerDefinition?.name ?? 'broker'
   const oauthProvider = providerDefinition?.oauth?.provider
   const isEnabled = Boolean(trimmedWorkspaceId && trimmedProviderId) && !disabled
+  const selectedPortfolioIdentity = toPortfolioValueObject(portfolioIdentity)
+  const requestedCredentialServiceId =
+    credentialServiceId ?? selectedPortfolioIdentity?.credentialServiceId
   const credentialServices = useTradingCredentialServices({
     providerId: trimmedProviderId,
-    credentialServiceId,
+    credentialServiceId: requestedCredentialServiceId,
     enabled: isEnabled,
   })
   const activeServiceId = credentialServices.activeServiceId
-  const hasConnection =
-    Boolean(activeServiceId) && credentialServices.connectedServiceIds.includes(activeServiceId!)
+  const hasConnection = Boolean(activeServiceId)
   const accountsQuery = usePortfolioIdentities({
     workspaceId: trimmedWorkspaceId || undefined,
     provider: trimmedProviderId || undefined,
@@ -102,7 +100,6 @@ export function TradingAccountSelector({
     enabled: isEnabled && hasConnection,
   })
   const portfolioIdentities = accountsQuery.data ?? []
-  const selectedPortfolioIdentity = toPortfolioValueObject(portfolioIdentity)
   const selectedOption =
     portfolioIdentities.find((account) =>
       arePortfolioIdentitiesEqual(account, selectedPortfolioIdentity)
@@ -181,7 +178,9 @@ export function TradingAccountSelector({
             <div className='px-3 py-2 text-muted-foreground text-xs'>
               Unable to load provider connection.
             </div>
-          ) : credentialServices.serviceIds.length > 1 && !activeServiceId ? (
+          ) : credentialServices.serviceIds.length > 1 &&
+            credentialServices.connectedServiceIds.length > 0 &&
+            !activeServiceId ? (
             <>
               <div className='px-3 py-2 text-muted-foreground text-xs'>
                 Select a {providerName} connection.

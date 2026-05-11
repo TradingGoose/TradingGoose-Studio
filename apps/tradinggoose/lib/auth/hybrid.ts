@@ -1,10 +1,11 @@
-import { db } from '@tradinggoose/db'
-import { workflow } from '@tradinggoose/db/schema'
-import { eq } from 'drizzle-orm'
 import type { NextRequest } from 'next/server'
 import { authenticateApiKeyFromHeader, updateApiKeyLastUsed } from '@/lib/api-key/service'
 import { getSession } from '@/lib/auth'
-import { verifyInternalTokenDetailed } from '@/lib/auth/internal'
+import {
+  type InternalTokenVerificationResult,
+  type InternalWorkflowExecutionContext,
+  verifyInternalTokenDetailed,
+} from '@/lib/auth/internal'
 import { createLogger } from '@/lib/logs/console/logger'
 
 const logger = createLogger('HybridAuth')
@@ -28,18 +29,23 @@ export interface AuthResult {
   userEmail?: string | null
   authType?: (typeof AuthType)[keyof typeof AuthType]
   apiKeyType?: 'personal' | 'workspace'
+  internalWorkflowExecution?: InternalWorkflowExecutionContext
   error?: string
 }
 
 function resolveInternalAuthResult(
-  userId: string | undefined,
+  verification: InternalTokenVerificationResult,
   options: { requireWorkflowId?: boolean } = {}
 ): AuthResult {
+  const userId = verification.userId
+  const internalWorkflowExecution = verification.workflowExecution
+
   if (userId) {
     return {
       success: true,
       userId,
       authType: AuthType.INTERNAL_JWT,
+      internalWorkflowExecution,
     }
   }
 
@@ -53,31 +59,7 @@ function resolveInternalAuthResult(
   return {
     success: true,
     authType: AuthType.INTERNAL_JWT,
-  }
-}
-
-async function getWorkflowIdFromRequest(request: NextRequest): Promise<string | null> {
-  const { searchParams } = new URL(request.url)
-  const workflowId = searchParams.get('workflowId')
-  if (workflowId) {
-    return workflowId
-  }
-
-  if (request.method !== 'POST') {
-    return null
-  }
-
-  try {
-    const clonedRequest = request.clone()
-    const bodyText = await clonedRequest.text()
-    if (!bodyText) {
-      return null
-    }
-
-    const body = JSON.parse(bodyText)
-    return typeof body.workflowId === 'string' ? body.workflowId : null
-  } catch {
-    return null
+    internalWorkflowExecution,
   }
 }
 
@@ -115,7 +97,7 @@ export async function checkInternalAuth(
       }
     }
 
-    return resolveInternalAuthResult(verification.userId, options)
+    return resolveInternalAuthResult(verification, options)
   } catch (error) {
     logger.error('Error in internal authentication:', error)
     return {
@@ -147,7 +129,7 @@ export async function checkSessionOrInternalAuth(
       const token = authHeader.split(' ')[1]
       const verification = await verifyInternalTokenDetailed(token)
       if (verification.valid) {
-        return resolveInternalAuthResult(verification.userId, options)
+        return resolveInternalAuthResult(verification, options)
       }
     }
 
@@ -181,8 +163,7 @@ export async function checkSessionOrInternalAuth(
  * 2. API key authentication (X-API-Key header)
  * 3. Internal JWT authentication (Authorization: Bearer header)
  *
- * For internal JWT calls, uses userId directly when present and falls back to
- * workflow lookup for older tokens that do not carry a userId claim.
+ * Internal JWT calls resolve the authenticated user from the token userId.
  */
 export async function checkHybridAuth(
   request: NextRequest,
@@ -195,47 +176,7 @@ export async function checkHybridAuth(
       const verification = await verifyInternalTokenDetailed(token)
 
       if (verification.valid) {
-        if (verification.userId) {
-          return {
-            success: true,
-            userId: verification.userId,
-            authType: AuthType.INTERNAL_JWT,
-          }
-        }
-
-        const workflowId = await getWorkflowIdFromRequest(request)
-        if (!workflowId && options.requireWorkflowId !== false) {
-          return {
-            success: false,
-            error: 'workflowId required for internal JWT calls',
-          }
-        }
-
-        if (workflowId) {
-          const [workflowData] = await db
-            .select({ userId: workflow.userId })
-            .from(workflow)
-            .where(eq(workflow.id, workflowId))
-            .limit(1)
-
-          if (!workflowData) {
-            return {
-              success: false,
-              error: 'Workflow not found',
-            }
-          }
-
-          return {
-            success: true,
-            userId: workflowData.userId,
-            authType: AuthType.INTERNAL_JWT,
-          }
-        }
-
-        return {
-          success: true,
-          authType: AuthType.INTERNAL_JWT,
-        }
+        return resolveInternalAuthResult(verification, options)
       }
     }
 
