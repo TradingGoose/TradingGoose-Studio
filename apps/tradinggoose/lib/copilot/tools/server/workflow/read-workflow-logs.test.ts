@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => {
   const chain: Record<string, any> = {}
   chain.from = vi.fn(() => chain)
   chain.innerJoin = vi.fn(() => chain)
+  chain.leftJoin = vi.fn(() => chain)
   chain.where = vi.fn(() => chain)
   chain.orderBy = vi.fn(() => chain)
   chain.limit = vi.fn(() =>
@@ -61,6 +62,10 @@ vi.mock('@tradinggoose/db/schema', () => ({
     executionData: 'workflowExecutionLogs.executionData',
     cost: 'workflowExecutionLogs.cost',
   },
+  workspace: {
+    id: 'workspace.id',
+    ownerId: 'workspace.ownerId',
+  },
 }))
 
 const sql = vi.hoisted(() => {
@@ -99,13 +104,32 @@ describe('readWorkflowLogsServerTool', () => {
       { userId: 'user-1' }
     )
 
-    expect(mocks.chain.innerJoin).toHaveBeenCalled()
+    expect(mocks.chain.innerJoin).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'workspace.id',
+        ownerId: 'workspace.ownerId',
+      }),
+      {
+        field: 'workspace.id',
+        type: 'eq',
+        value: 'workflowExecutionLogs.workspaceId',
+      }
+    )
+    expect(mocks.chain.leftJoin).toHaveBeenCalledWith(
+      expect.objectContaining({
+        entityId: 'permissions.entityId',
+        entityType: 'permissions.entityType',
+        userId: 'permissions.userId',
+      }),
+      expect.objectContaining({ type: 'and' })
+    )
     expect(mocks.eq).toHaveBeenCalledWith('permissions.entityType', 'workspace')
     expect(mocks.eq).toHaveBeenCalledWith(
       'permissions.entityId',
       'workflowExecutionLogs.workspaceId'
     )
     expect(mocks.eq).toHaveBeenCalledWith('permissions.userId', 'user-1')
+    expect(mocks.eq).toHaveBeenCalledWith('workspace.ownerId', 'user-1')
     expect(mocks.eq).toHaveBeenCalledWith('workflowExecutionLogs.workflowId', 'deleted-workflow-1')
     expect(mocks.or).toHaveBeenCalled()
     expect(result).toMatchObject({

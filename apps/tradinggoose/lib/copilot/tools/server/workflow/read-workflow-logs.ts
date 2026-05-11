@@ -1,5 +1,5 @@
 import { db } from '@tradinggoose/db'
-import { permissions, workflowExecutionLogs } from '@tradinggoose/db/schema'
+import { permissions, workflowExecutionLogs, workspace } from '@tradinggoose/db/schema'
 import { and, desc, eq, or, sql } from 'drizzle-orm'
 import { CopilotTool } from '@/lib/copilot/registry'
 import type {
@@ -7,6 +7,7 @@ import type {
   ServerToolExecutionContext,
 } from '@/lib/copilot/tools/server/base-tool'
 import { createLogger } from '@/lib/logs/console/logger'
+import { buildWorkspaceAccessScope } from '@/lib/permissions/utils'
 
 interface ReadWorkflowLogsArgs {
   workflowId: string
@@ -233,6 +234,10 @@ export const readWorkflowLogsServerTool: BaseServerTool<ReadWorkflowLogsArgs, an
 
     logger.info('Reading workflow logs', { workflowId, limit, includeDetails })
 
+    const workspaceAccess = buildWorkspaceAccessScope(
+      context.userId,
+      workflowExecutionLogs.workspaceId
+    )
     const executionLogs = await db
       .select({
         id: workflowExecutionLogs.id,
@@ -246,18 +251,15 @@ export const readWorkflowLogsServerTool: BaseServerTool<ReadWorkflowLogsArgs, an
         cost: workflowExecutionLogs.cost,
       })
       .from(workflowExecutionLogs)
-      .innerJoin(
-        permissions,
-        and(
-          eq(permissions.entityType, 'workspace'),
-          eq(permissions.entityId, workflowExecutionLogs.workspaceId),
-          eq(permissions.userId, context.userId)
-        )
-      )
+      .innerJoin(workspace, workspaceAccess.workspaceJoin)
+      .leftJoin(permissions, workspaceAccess.permissionJoin)
       .where(
-        or(
-          eq(workflowExecutionLogs.workflowId, workflowId),
-          sql`${workflowExecutionLogs.workflowSummary}->>'id' = ${workflowId}`
+        and(
+          or(
+            eq(workflowExecutionLogs.workflowId, workflowId),
+            sql`${workflowExecutionLogs.workflowSummary}->>'id' = ${workflowId}`
+          ),
+          workspaceAccess.accessFilter
         )
       )
       .orderBy(desc(workflowExecutionLogs.startedAt))
