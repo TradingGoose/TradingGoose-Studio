@@ -8,12 +8,36 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { generateInternalToken } from '@/lib/auth/internal'
-import { buildLoadSkillTool } from '@/executor/handlers/agent/skills-resolver'
+import { buildLoadSkillTool } from '@/executor/handlers/agent/skill-loader'
 import type { ExecutionContext } from '@/executor/types'
 import { mockEnvironmentVariables } from '@/tools/__test-utils__/test-tools'
 import { executeTool } from '@/tools/index'
 import { tools } from '@/tools/registry'
 import { getTool } from '@/tools/utils'
+
+const dbMocks = vi.hoisted(() => {
+  let rows: unknown[] = []
+  const setRows = (nextRows: unknown[]) => {
+    rows = nextRows
+  }
+  const limit = vi.fn(() => Promise.resolve(rows))
+  const whereResult = {
+    limit,
+    then: (resolve: (value: unknown[]) => unknown, reject?: (reason: unknown) => unknown) =>
+      Promise.resolve(rows).then(resolve, reject),
+  }
+  const where = vi.fn(() => whereResult)
+  const from = vi.fn(() => ({ where }))
+  const select = vi.fn(() => ({ from }))
+
+  return { from, limit, select, setRows, where }
+})
+
+vi.mock('@tradinggoose/db', () => ({
+  db: {
+    select: dbMocks.select,
+  },
+}))
 
 vi.mock('@/lib/auth/internal', () => ({
   generateInternalToken: vi.fn().mockResolvedValue('mock-internal-token'),
@@ -164,6 +188,15 @@ describe('executeTool Function', () => {
 
   beforeEach(() => {
     vi.mocked(generateInternalToken).mockResolvedValue('mock-internal-token')
+    dbMocks.setRows([])
+    dbMocks.select.mockImplementation(() => ({ from: dbMocks.from }))
+    dbMocks.from.mockImplementation(() => ({ where: dbMocks.where }))
+    dbMocks.where.mockImplementation(() => ({
+      limit: dbMocks.limit,
+      then: (resolve: (value: unknown[]) => unknown, reject?: (reason: unknown) => unknown) =>
+        Promise.resolve([]).then(resolve, reject),
+    }))
+    dbMocks.limit.mockImplementation(() => Promise.resolve([]))
 
     // Mock fetch
     global.fetch = Object.assign(
@@ -415,47 +448,148 @@ describe('executeTool Function', () => {
     }
   })
 
-  it('should load skill content through the skills API', async () => {
+  it('uses workflow-scoped internal auth for credential token lookup without user context', async () => {
+    const mockContext = createMockExecutionContext({ userId: undefined })
+    const originalWindow = global.window
+    const originalTool = (tools as any).test_credential_tool
+    ;(tools as any).test_credential_tool = {
+      id: 'test_credential_tool',
+      name: 'Test Credential Tool',
+      description: 'A test tool that needs an OAuth credential token',
+      version: '1.0.0',
+      params: {},
+      request: {
+        url: 'https://api.example.com/secure',
+        method: 'GET',
+        headers: () => ({ 'Content-Type': 'application/json' }),
+      },
+    }
+
+    Object.defineProperty(global, 'window', {
+      value: undefined,
+      writable: true,
+      configurable: true,
+    })
+
+    try {
+      const result = await executeTool(
+        'test_credential_tool',
+        { credential: 'credential-1' },
+        false,
+        mockContext
+      )
+
+      expect(result.success).toBe(true)
+      expect(vi.mocked(generateInternalToken)).toHaveBeenCalledWith(undefined)
+      expect(global.fetch).toHaveBeenCalledWith(
+        'http://localhost:3000/api/auth/oauth/token',
+        expect.objectContaining({
+          body: JSON.stringify({
+            credentialId: 'credential-1',
+            workflowId: 'test-workflow',
+          }),
+        })
+      )
+    } finally {
+      if (originalTool) {
+        ;(tools as any).test_credential_tool = originalTool
+      } else {
+        Reflect.deleteProperty(tools as any, 'test_credential_tool')
+      }
+      Object.defineProperty(global, 'window', {
+        value: originalWindow,
+        writable: true,
+        configurable: true,
+      })
+    }
+  })
+
+  it('uses serviceId for service-scoped OAuth token lookup', async () => {
+    const mockContext = createMockExecutionContext({ userId: 'user-123' })
+    const originalWindow = global.window
+    const originalTool = (tools as any).test_service_tool
+    ;(tools as any).test_service_tool = {
+      id: 'test_service_tool',
+      name: 'Test Service Tool',
+      description: 'A test tool that resolves OAuth by service id',
+      version: '1.0.0',
+      params: {},
+      request: {
+        url: 'https://api.example.com/service',
+        method: 'GET',
+        headers: () => ({ 'Content-Type': 'application/json' }),
+      },
+    }
+
+    Object.defineProperty(global, 'window', {
+      value: undefined,
+      writable: true,
+      configurable: true,
+    })
+
+    try {
+      const result = await executeTool(
+        'test_service_tool',
+        { serviceId: 'alpaca-live' },
+        false,
+        mockContext
+      )
+
+      expect(result.success).toBe(true)
+      expect(vi.mocked(generateInternalToken)).toHaveBeenCalledWith('user-123')
+      expect(global.fetch).toHaveBeenCalledWith(
+        'http://localhost:3000/api/auth/oauth/token',
+        expect.objectContaining({
+          body: JSON.stringify({
+            serviceId: 'alpaca-live',
+          }),
+        })
+      )
+    } finally {
+      if (originalTool) {
+        ;(tools as any).test_service_tool = originalTool
+      } else {
+        Reflect.deleteProperty(tools as any, 'test_service_tool')
+      }
+      Object.defineProperty(global, 'window', {
+        value: originalWindow,
+        writable: true,
+        configurable: true,
+      })
+    }
+  })
+
+  it('should load skill content from workspace storage', async () => {
     const skillLoaderTool = buildLoadSkillTool('tradinggoose_internal_load_skill', [
       'market-research',
     ])
+    const skillRows = [
+      {
+        content: 'Investigate the market and summarize the setup.',
+      },
+    ]
+    dbMocks.where.mockImplementationOnce(() => ({
+      limit: vi.fn().mockResolvedValueOnce(skillRows),
+      then: (resolve: (value: unknown[]) => unknown, reject?: (reason: unknown) => unknown) =>
+        Promise.resolve(skillRows).then(resolve, reject),
+    }))
 
     global.fetch = Object.assign(
-      vi.fn().mockImplementation(async (url) => {
-        if (url.toString().includes('/api/skills')) {
-          return {
-            ok: true,
-            status: 200,
-            json: () =>
-              Promise.resolve({
-                data: [
-                  {
-                    id: 'skill-123',
-                    name: 'market-research',
-                    description: 'Research a market before acting',
-                    content: 'Investigate the market and summarize the setup.',
-                  },
-                ],
-              }),
-          }
-        }
-
-        return {
-          ok: true,
-          status: 200,
-          json: () =>
-            Promise.resolve({
-              success: true,
-              output: { result: 'Direct request successful' },
-            }),
-          headers: {
-            get: () => 'application/json',
-            forEach: () => {},
-          },
-          clone: function () {
-            return { ...this }
-          },
-        }
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: () =>
+          Promise.resolve({
+            success: true,
+            output: { result: 'Direct request successful' },
+          }),
+        headers: {
+          get: () => 'application/json',
+          forEach: () => {},
+        },
+        clone: function () {
+          return { ...this }
+        },
       }),
       { preconnect: vi.fn() }
     ) as typeof fetch
@@ -474,10 +608,7 @@ describe('executeTool Function', () => {
     expect(result.output).toEqual({
       content: 'Investigate the market and summarize the setup.',
     })
-    expect(global.fetch).toHaveBeenCalledWith(
-      expect.stringContaining('/api/skills?workspaceId=workspace-456'),
-      expect.objectContaining({ method: 'GET' })
-    )
+    expect(global.fetch).not.toHaveBeenCalled()
   })
 
   it('should handle non-existent tool', async () => {

@@ -33,10 +33,8 @@ export interface TradingActionParams {
 export interface TradingHoldingsParams {
   provider: TradingProviderId
   portfolioIdentity?: PortfolioIdentity | null
+  serviceId?: string
   accessToken?: string
-  _context?: {
-    userId?: string
-  }
 }
 
 export interface TradingOrderDetailParams {
