@@ -137,14 +137,13 @@ vi.mock('@/providers/ai/xai', () => ({
 }))
 
 import { executeProviderRequest } from '@/providers/ai'
-import { calculateCost } from '@/providers/ai/utils'
 
 describe('executeProviderRequest', () => {
   beforeEach(() => {
     vi.clearAllMocks()
   })
 
-  it('returns raw model cost without any hidden environment multiplier', async () => {
+  it('does not bill model usage when no platform-hosted models are configured', async () => {
     mockOpenAIExecuteRequest.mockResolvedValue({
       content: 'ok',
       model: 'gpt-4o',
@@ -164,9 +163,16 @@ describe('executeProviderRequest', () => {
     expect(response).not.toBeInstanceOf(ReadableStream)
     expect('stream' in (response as object)).toBe(false)
 
-    const expectedCost = calculateCost('gpt-4o', 1200, 300, false)
     expect(response).toMatchObject({
-      cost: expectedCost,
+      cost: {
+        input: 0,
+        output: 0,
+        total: 0,
+        pricing: {
+          input: 0,
+          output: 0,
+        },
+      },
     })
   })
 })

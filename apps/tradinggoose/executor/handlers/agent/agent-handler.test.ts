@@ -10,6 +10,8 @@ import { executeTool } from '@/tools'
 
 process.env.NEXT_PUBLIC_APP_URL = 'http://localhost:3000'
 
+const mockResolveSkillMetadata = vi.hoisted(() => vi.fn())
+
 vi.mock('@/lib/environment', () => ({
   isHosted: vi.fn().mockReturnValue(false),
   isProd: vi.fn().mockReturnValue(false),
@@ -17,25 +19,10 @@ vi.mock('@/lib/environment', () => ({
   isTest: vi.fn().mockReturnValue(false),
 }))
 
-vi.mock('@/providers/ai/utils', () => ({
+vi.mock('@/providers/ai/utils', async () => ({
+  ...(await vi.importActual<typeof import('@/providers/ai/utils')>('@/providers/ai/utils')),
   getProviderFromModel: vi.fn().mockReturnValue('mock-provider'),
   transformBlockTool: vi.fn(),
-  getBaseModelProviders: vi.fn().mockReturnValue({ openai: {}, anthropic: {} }),
-  getApiKey: vi.fn().mockReturnValue('mock-api-key'),
-  getProvider: vi.fn().mockReturnValue({
-    chat: {
-      completions: {
-        create: vi.fn().mockResolvedValue({
-          content: 'Mocked response content',
-          model: 'mock-model',
-          tokens: { prompt: 10, completion: 20, total: 30 },
-          toolCalls: [],
-          cost: 0.001,
-          timing: { total: 100 },
-        }),
-      },
-    },
-  }),
 }))
 
 vi.mock('@/blocks', () => ({
@@ -44,6 +31,10 @@ vi.mock('@/blocks', () => ({
 
 vi.mock('@/tools', () => ({
   executeTool: vi.fn(),
+}))
+
+vi.mock('@/executor/handlers/agent/skills-resolver', () => ({
+  resolveSkillMetadata: mockResolveSkillMetadata,
 }))
 
 global.fetch = Object.assign(vi.fn(), { preconnect: vi.fn() }) as typeof fetch
@@ -108,6 +99,7 @@ describe('AgentBlockHandler', () => {
     }
     mockIsHosted.mockReturnValue(false)
     mockGetProviderFromModel.mockReturnValue('mock-provider')
+    mockResolveSkillMetadata.mockResolvedValue([])
 
     mockFetch.mockImplementation(() => {
       return Promise.resolve({
@@ -216,6 +208,12 @@ describe('AgentBlockHandler', () => {
 
     it('should generate a unique internal skill loader tool id when the reserved id is already in use', async () => {
       mockContext.workspaceId = 'workspace-123'
+      mockResolveSkillMetadata.mockResolvedValueOnce([
+        {
+          name: 'market-research',
+          description: 'Research the market before acting',
+        },
+      ])
 
       const providerRequests: any[] = []
       mockTransformBlockTool.mockImplementationOnce(() => ({
@@ -227,23 +225,6 @@ describe('AgentBlockHandler', () => {
 
       mockFetch.mockImplementation((input, init) => {
         const url = String(input)
-
-        if (url.includes('/api/skills')) {
-          return Promise.resolve({
-            ok: true,
-            json: () =>
-              Promise.resolve({
-                data: [
-                  {
-                    id: 'skill-1',
-                    name: 'market-research',
-                    description: 'Research the market before acting',
-                    content: 'Investigate the market before making a decision.',
-                  },
-                ],
-              }),
-          })
-        }
 
         if (url.includes('/api/providers')) {
           providerRequests.push(JSON.parse(String(init?.body || '{}')))

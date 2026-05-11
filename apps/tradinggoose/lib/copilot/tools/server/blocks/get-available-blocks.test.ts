@@ -7,6 +7,25 @@ vi.mock('@/lib/oauth/oauth.server', () => ({
 }))
 
 vi.mock('@/lib/workflows/block-mermaid-contract', () => ({
+  buildWorkflowBlockMermaidContract: (blockType: string) => {
+    const renderKind =
+      blockType === 'loop'
+        ? 'loop_container'
+        : blockType === 'parallel'
+          ? 'parallel_container'
+          : 'standard'
+
+    return {
+      renderKind,
+      requiresSubgraph: renderKind !== 'standard',
+      childrenPlacement: renderKind === 'standard' ? 'none' : 'inside_container',
+      canonicalCommentPrefixes: {
+        workflow: 'TG_WORKFLOW:',
+        block: 'TG_BLOCK:',
+        edge: 'TG_EDGE:',
+      },
+    }
+  },
   buildWorkflowBlockMermaidShape: ({
     blockType,
     blockName,

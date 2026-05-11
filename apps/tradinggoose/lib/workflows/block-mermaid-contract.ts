@@ -501,9 +501,8 @@ function resolveRenderKind(blockType: string): WorkflowBlockMermaidRenderKind {
   return 'standard'
 }
 
-export function buildWorkflowBlockMermaidShape(params: ExampleParams): WorkflowBlockMermaidShape {
-  const renderKind = resolveRenderKind(params.blockType)
-
+export function buildWorkflowBlockMermaidContract(blockType: string): WorkflowBlockMermaidContract {
+  const renderKind = resolveRenderKind(blockType)
   const baseContract = {
     canonicalCommentPrefixes: {
       workflow: TG_WORKFLOW_PREFIX,
@@ -515,48 +514,50 @@ export function buildWorkflowBlockMermaidShape(params: ExampleParams): WorkflowB
   switch (renderKind) {
     case 'condition':
       return {
-        mermaidContract: {
-          renderKind,
-          requiresSubgraph: true,
-          childrenPlacement: 'outside_container',
-          ...baseContract,
-        },
+        renderKind,
+        requiresSubgraph: true,
+        childrenPlacement: 'outside_container',
+        ...baseContract,
+      }
+    case 'loop_container':
+    case 'parallel_container':
+      return {
+        renderKind,
+        requiresSubgraph: true,
+        childrenPlacement: 'inside_container',
+        ...baseContract,
+      }
+    default:
+      return {
+        renderKind,
+        requiresSubgraph: false,
+        childrenPlacement: 'none',
+        ...baseContract,
+      }
+  }
+}
+
+export function buildWorkflowBlockMermaidShape(params: ExampleParams): WorkflowBlockMermaidShape {
+  const mermaidContract = buildWorkflowBlockMermaidContract(params.blockType)
+
+  switch (mermaidContract.renderKind) {
+    case 'condition':
+      return {
+        mermaidContract,
         mermaidExamples: buildConditionWorkflowExamples(params),
       }
     case 'loop_container':
-      return {
-        mermaidContract: {
-          renderKind,
-          requiresSubgraph: true,
-          childrenPlacement: 'inside_container',
-          ...baseContract,
-        },
-        mermaidExamples: buildContainerWorkflowExamples({
-          ...params,
-          renderKind,
-        }),
-      }
     case 'parallel_container':
       return {
-        mermaidContract: {
-          renderKind,
-          requiresSubgraph: true,
-          childrenPlacement: 'inside_container',
-          ...baseContract,
-        },
+        mermaidContract,
         mermaidExamples: buildContainerWorkflowExamples({
           ...params,
-          renderKind,
+          renderKind: mermaidContract.renderKind,
         }),
       }
     default:
       return {
-        mermaidContract: {
-          renderKind,
-          requiresSubgraph: false,
-          childrenPlacement: 'none',
-          ...baseContract,
-        },
+        mermaidContract,
         mermaidExamples: buildStandardWorkflowExamples(params),
       }
   }

@@ -12,9 +12,12 @@ import {
   isBlockAvailable,
   type ProviderAvailability,
 } from '@/lib/workflows/block-availability'
+import {
+  buildWorkflowBlockMermaidContract,
+  buildWorkflowBlockMermaidShape,
+} from '@/lib/workflows/block-mermaid-contract'
 import { registry as blockRegistry } from '@/blocks/registry'
 import { AuthMode, type BlockConfig } from '@/blocks/types'
-import { tools as toolsRegistry } from '@/tools/registry'
 
 type BlockAuthType = 'OAuth' | 'API Key' | 'Bot Token'
 
@@ -128,7 +131,8 @@ function readBlockDocumentation(blockType: string): string | undefined {
 }
 
 function resolveOperationChoices(
-  blockConfig: BlockConfig | undefined
+  blockConfig: BlockConfig | undefined,
+  toolsRegistry?: Record<string, { description?: string }>
 ): BlockCatalogDefinition['operationChoices'] {
   const operationSubBlock = blockConfig?.subBlocks?.find((subBlock) => subBlock.id === 'operation')
   if (!operationSubBlock || !Array.isArray(operationSubBlock.options)) {
@@ -142,7 +146,7 @@ function resolveOperationChoices(
 
     try {
       const toolSelector = blockConfig?.tools?.config?.tool
-      if (typeof toolSelector === 'function') {
+      if (toolsRegistry && typeof toolSelector === 'function') {
         const toolId = toolSelector({ operation: operationId })
         const tool = typeof toolId === 'string' ? toolsRegistry[toolId] : undefined
         description = tool?.description
@@ -157,6 +161,11 @@ function resolveOperationChoices(
       ...(description ? { description } : {}),
     }
   })
+}
+
+function hasOperationChoices(blockConfig: BlockConfig | undefined): boolean {
+  const operationSubBlock = blockConfig?.subBlocks?.find((subBlock) => subBlock.id === 'operation')
+  return Array.isArray(operationSubBlock?.options)
 }
 
 function toCatalogCategory(category: BlockConfig['category']): BlockCatalogCategory {
@@ -282,13 +291,21 @@ function buildInputReferenceGrammar(
   }
 }
 
-function resolveBlockCatalogDefinition(blockType: string): BlockCatalogDefinition | null {
+function resolveBlockCatalogDefinition(
+  blockType: string,
+  options: {
+    includeDocumentation?: boolean
+    toolsRegistry?: Record<string, { description?: string }>
+  } = {}
+): BlockCatalogDefinition | null {
   const specialDefinition = SPECIAL_BLOCK_DEFINITIONS[blockType]
   if (specialDefinition) {
     return {
       blockType,
       operationChoices: [],
-      yamlDocumentation: readBlockDocumentation(blockType),
+      yamlDocumentation: options.includeDocumentation
+        ? readBlockDocumentation(blockType)
+        : undefined,
       ...specialDefinition,
     }
   }
@@ -311,8 +328,8 @@ function resolveBlockCatalogDefinition(blockType: string): BlockCatalogDefinitio
       blockType,
       blockConfig.name || blockType
     ),
-    yamlDocumentation: readBlockDocumentation(blockType),
-    operationChoices: resolveOperationChoices(blockConfig),
+    yamlDocumentation: options.includeDocumentation ? readBlockDocumentation(blockType) : undefined,
+    operationChoices: resolveOperationChoices(blockConfig, options.toolsRegistry),
   }
 }
 
@@ -343,30 +360,19 @@ function isCatalogBlockAvailable(blockType: string, availability: ProviderAvaila
   return isBlockAvailable(blockConfig, availability)
 }
 
-async function loadWorkflowBlockMermaidShape(params: {
-  blockType: string
-  blockName: string
-  operation?: string
-}) {
-  const { buildWorkflowBlockMermaidShape } = await import('@/lib/workflows/block-mermaid-contract')
-  return buildWorkflowBlockMermaidShape(params)
-}
-
-async function buildOperationSummaries(
+function buildOperationSummaries(
   blockType: string,
   blockName: string,
   operationChoices: BlockCatalogDefinition['operationChoices']
-): Promise<BlockOperationSummary[]> {
-  return Promise.all(
-    operationChoices.map(async (operation) => ({
-      ...operation,
-      ...(await loadWorkflowBlockMermaidShape({
-        blockType,
-        blockName,
-        operation: operation.id,
-      })),
-    }))
-  )
+): BlockOperationSummary[] {
+  return operationChoices.map((operation) => ({
+    ...operation,
+    ...buildWorkflowBlockMermaidShape({
+      blockType,
+      blockName,
+      operation: operation.id,
+    }),
+  }))
 }
 
 export async function listWorkflowBlockCatalogItems(): Promise<BlockCatalogItem[]> {
@@ -376,36 +382,29 @@ export async function listWorkflowBlockCatalogItems(): Promise<BlockCatalogItem[
     ...Object.keys(SPECIAL_BLOCK_DEFINITIONS),
   ]
 
-  const items = await Promise.all(
-    Array.from(new Set(blockTypes))
-      .sort((left, right) => left.localeCompare(right))
-      .map(async (blockType) => {
-        if (!isCatalogBlockAvailable(blockType, availability)) {
-          return null
-        }
+  const items = Array.from(new Set(blockTypes))
+    .sort((left, right) => left.localeCompare(right))
+    .map((blockType) => {
+      if (!isCatalogBlockAvailable(blockType, availability)) {
+        return null
+      }
 
-        const definition = resolveBlockCatalogDefinition(blockType)
-        if (!definition) {
-          return null
-        }
+      const definition = resolveBlockCatalogDefinition(blockType)
+      if (!definition) {
+        return null
+      }
 
-        const shape = await loadWorkflowBlockMermaidShape({
-          blockType,
-          blockName: definition.blockName,
-        })
-
-        return {
-          blockType,
-          blockName: definition.blockName,
-          category: definition.category,
-          ...(definition.blockDescription ? { blockDescription: definition.blockDescription } : {}),
-          mermaidContract: shape.mermaidContract,
-          ...(definition.operationChoices.length > 0
-            ? { operationIds: definition.operationChoices.map((operation) => operation.id) }
-            : {}),
-        }
-      })
-  )
+      return {
+        blockType,
+        blockName: definition.blockName,
+        category: definition.category,
+        ...(definition.blockDescription ? { blockDescription: definition.blockDescription } : {}),
+        mermaidContract: buildWorkflowBlockMermaidContract(blockType),
+        ...(definition.operationChoices.length > 0
+          ? { operationIds: definition.operationChoices.map((operation) => operation.id) }
+          : {}),
+      }
+    })
 
   return items.filter((item): item is BlockCatalogItem => item !== null)
 }
@@ -420,15 +419,21 @@ export async function readWorkflowBlockProfile(
     throw new Error(`Block not found: ${blockType}`)
   }
 
-  const definition = resolveBlockCatalogDefinition(blockType)
+  const blockConfig = blockRegistry[blockType]
+  const toolsRegistry = hasOperationChoices(blockConfig)
+    ? (await import('@/tools/registry')).tools
+    : undefined
+  const definition = resolveBlockCatalogDefinition(blockType, {
+    includeDocumentation: true,
+    toolsRegistry,
+  })
   if (!definition) {
     throw new Error(`Block not found: ${blockType}`)
   }
-  const blockConfig = blockRegistry[blockType]
   const subBlocks = buildSubBlockSummaries(blockConfig)
   const inputReferenceGrammar = buildInputReferenceGrammar(blockType, blockConfig)
 
-  const shape = await loadWorkflowBlockMermaidShape({
+  const shape = buildWorkflowBlockMermaidShape({
     blockType,
     blockName: definition.blockName,
   })
@@ -449,7 +454,7 @@ export async function readWorkflowBlockProfile(
     ...shape,
     ...(definition.operationChoices.length > 0
       ? {
-          operations: await buildOperationSummaries(
+          operations: buildOperationSummaries(
             blockType,
             definition.blockName,
             definition.operationChoices

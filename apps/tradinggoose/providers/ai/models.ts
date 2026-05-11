@@ -2725,8 +2725,9 @@ function normalizeCatalogLookupModelId(modelId: string): string {
     return normalizedModelId
   }
 
-  const baseModelId =
-    normalizedModelId.includes('/') ? normalizedModelId.split('/').pop() || normalizedModelId : normalizedModelId
+  const baseModelId = normalizedModelId.includes('/')
+    ? normalizedModelId.split('/').pop() || normalizedModelId
+    : normalizedModelId
   if (/^claude-(opus|sonnet|haiku)-\d+\.\d+$/.test(baseModelId)) {
     return baseModelId.replace(/\./g, '-')
   }
