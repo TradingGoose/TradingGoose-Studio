@@ -1,14 +1,5 @@
-import { getTradingProviderOAuthEnvironment } from '@/providers/trading'
 import type { TradingOrderDetailParams, TradingOrderDetailResponse } from '@/tools/trading/types'
 import type { ToolConfig } from '@/tools/types'
-
-const resolveProviderEnvironment = (params: TradingOrderDetailParams) => {
-  if (!params.provider) return params.environment
-  return (
-    getTradingProviderOAuthEnvironment(params.provider, params.credentialServiceId) ??
-    params.environment
-  )
-}
 
 export const tradingOrderDetailTool: ToolConfig<
   TradingOrderDetailParams,
@@ -32,47 +23,18 @@ export const tradingOrderDetailTool: ToolConfig<
       type: 'string',
       required: false,
       visibility: 'user-only',
-      description:
-        'Expected provider for this order. Used for credential selection and mismatch validation.',
-    },
-    environment: {
-      type: 'string',
-      required: false,
-      visibility: 'user-only',
-      description: 'Trading environment for providers that expose one.',
-    },
-    credential: {
-      type: 'string',
-      required: false,
-      visibility: 'hidden',
-      description: 'OAuth credential id for the selected broker (populated from selected account).',
-    },
-    accessToken: {
-      type: 'string',
-      required: false,
-      visibility: 'hidden',
-      description: 'OAuth access token (injected from credential).',
-    },
-    accountId: {
-      type: 'string',
-      required: false,
-      visibility: 'user-or-llm',
-      description: 'Tradier account ID override if not present in stored order metadata.',
+      description: 'Expected provider for this order. Used for mismatch validation.',
     },
   },
 
   request: {
-    url: '/api/tools/trading/order-detail',
+    url: (params) => `/api/orders/${encodeURIComponent(params.orderId)}/provider-detail`,
     method: 'POST',
     headers: () => ({
       'Content-Type': 'application/json',
     }),
     body: (params) => ({
-      orderId: params.orderId,
       provider: params.provider,
-      environment: resolveProviderEnvironment(params),
-      accessToken: params.accessToken,
-      accountId: params.accountId,
     }),
   },
 

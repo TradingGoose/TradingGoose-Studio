@@ -1,14 +1,11 @@
 import { db, orderHistoryTable } from '@tradinggoose/db'
 import { and, eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
-import { getSession } from '@/lib/auth'
+import { checkSessionOrInternalAuth } from '@/lib/auth/hybrid'
 import { createLogger } from '@/lib/logs/console/logger'
 import { checkWorkspaceAccess } from '@/lib/permissions/utils'
 import { generateRequestId } from '@/lib/utils'
-import {
-  resolveTradingProviderContext,
-  resolveTradingProviderSelectedAccount,
-} from '@/app/api/providers/trading/shared'
+import { resolveTradingProviderContext } from '@/app/api/providers/trading/shared'
 import { executeTradingProviderOrderDetailRequest } from '@/providers/trading'
 import { getTradingProviderOAuthServiceIdForEnvironment } from '@/providers/trading/providers'
 import type { TradingOrderDetailInput, TradingOrderHistoryRecord } from '@/providers/trading/types'
@@ -26,8 +23,8 @@ export async function POST(
   const requestId = generateRequestId()
 
   try {
-    const session = await getSession()
-    if (!session?.user?.id) {
+    const auth = await checkSessionOrInternalAuth(request, { requireWorkflowId: false })
+    if (!auth.success || !auth.userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -36,13 +33,13 @@ export async function POST(
       return NextResponse.json({ error: 'workspaceId is required' }, { status: 400 })
     }
 
-    const access = await checkWorkspaceAccess(workspaceId, session.user.id)
+    const access = await checkWorkspaceAccess(workspaceId, auth.userId)
     if (!access.exists || !access.hasAccess) {
       return NextResponse.json({ error: 'Not found' }, { status: 404 })
     }
 
     const body = (await request.json().catch(() => ({}))) as {
-      accountId?: string
+      provider?: string
     }
     const { orderId } = await params
     const [order] = await db
@@ -55,6 +52,22 @@ export async function POST(
       return NextResponse.json({ error: 'Not found' }, { status: 404 })
     }
 
+    if (body.provider && body.provider !== order.provider) {
+      return NextResponse.json(
+        {
+          error: `Provided provider "${body.provider}" does not match the order provider "${order.provider}".`,
+        },
+        { status: 400 }
+      )
+    }
+
+    if (order.provider === 'tradier' && !readOrderAccountId(order)) {
+      return NextResponse.json(
+        { error: 'Tradier order history record is missing accountId' },
+        { status: 400 }
+      )
+    }
+
     const baseContext = await resolveTradingProviderContext({
       requestData: {
         provider: order.provider,
@@ -63,28 +76,10 @@ export async function POST(
           undefined,
       },
       requestId,
-      userId: session.user.id,
+      userId: auth.userId,
     })
     if (baseContext instanceof Response) {
       return baseContext
-    }
-
-    const candidateAccountId = body.accountId ?? readOrderAccountId(order)
-    let accountId = candidateAccountId ?? undefined
-    if (candidateAccountId) {
-      const accountContext = await resolveTradingProviderSelectedAccount({
-        baseContext,
-        accountId: candidateAccountId,
-      })
-      if (accountContext instanceof Response) {
-        return accountContext
-      }
-      accountId = accountContext.accountId
-    } else if (order.provider === 'tradier') {
-      return NextResponse.json(
-        { error: 'accountId is required for Tradier order detail' },
-        { status: 400 }
-      )
     }
 
     const detailInput: TradingOrderDetailInput = {
@@ -92,7 +87,6 @@ export async function POST(
       provider: order.provider,
       environment: baseContext.environment,
       accessToken: baseContext.accessToken,
-      accountId,
     }
     const providerDetail = await executeTradingProviderOrderDetailRequest(
       order.provider,
@@ -102,9 +96,14 @@ export async function POST(
 
     return NextResponse.json({
       data: {
+        appOrderId: order.id,
+        logId: order.logId,
         orderId,
+        orderDetail: providerDetail.orderDetail,
         provider: order.provider,
+        providerOrderId: providerDetail.providerOrderId,
         providerDetail,
+        workspaceId: order.workspaceId,
       },
     })
   } catch (error) {

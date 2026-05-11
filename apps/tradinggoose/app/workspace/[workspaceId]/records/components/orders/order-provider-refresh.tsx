@@ -1,16 +1,10 @@
 'use client'
 
-import { useEffect, useState } from 'react'
 import { Loader2, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useProviderOrderDetail } from '@/hooks/queries/records-orders'
-import type { PortfolioIdentity } from '@/providers/trading/portfolio-identity'
-import {
-  getTradingProviderOAuthServiceIdForEnvironment,
-  getTradingProviderOAuthServiceIds,
-} from '@/providers/trading/providers'
+import { getTradingProviderOAuthServiceIds } from '@/providers/trading/providers'
 import type { TradingProviderId } from '@/providers/trading/types'
-import { TradingAccountSelector } from '@/widgets/widgets/components/trading-account-selector'
 import type { RecordsOrder } from './types'
 
 export function OrderProviderRefresh({
@@ -24,31 +18,10 @@ export function OrderProviderRefresh({
 }) {
   const providerId = order.provider as TradingProviderId
   const oauthServiceIds = getTradingProviderOAuthServiceIds(providerId)
-  const credentialServiceId = getTradingProviderOAuthServiceIdForEnvironment(
-    providerId,
-    order.environment
-  )
-  const [accountId, setAccountId] = useState(order.accountId ?? '')
-  const selectedPortfolioIdentity: PortfolioIdentity | null =
-    accountId && credentialServiceId
-      ? {
-          providerId,
-          credentialServiceId,
-          accountId,
-        }
-      : null
-
-  useEffect(() => {
-    setAccountId(order.accountId ?? '')
-  }, [order.id, order.accountId])
-
-  const providerRequiresAccount = order.provider === 'tradier'
-  const canRefresh = Boolean(active && (!providerRequiresAccount || accountId || order.accountId))
 
   const providerDetailQuery = useProviderOrderDetail({
     workspaceId,
     orderId: order.id,
-    accountId: accountId || order.accountId || undefined,
     enabled: false,
   })
 
@@ -62,24 +35,10 @@ export function OrderProviderRefresh({
 
   return (
     <div className='space-y-4'>
-      <TradingAccountSelector
-        workspaceId={workspaceId}
-        providerId={providerId}
-        credentialServiceId={credentialServiceId}
-        portfolioIdentity={selectedPortfolioIdentity}
-        disabled={!active}
-        placeholder={providerRequiresAccount ? 'Select account' : 'Optional account'}
-        tooltipText='Select provider refresh account'
-        toolName='Provider Detail Refresh'
-        onAccountSelect={(selection) => {
-          setAccountId(selection.portfolioIdentity?.accountId ?? '')
-        }}
-      />
-
       <Button
         size='sm'
         className='gap-2'
-        disabled={!canRefresh || providerDetailQuery.isFetching}
+        disabled={!active || providerDetailQuery.isFetching}
         onClick={() => void providerDetailQuery.refetch()}
       >
         {providerDetailQuery.isFetching ? (
@@ -89,12 +48,6 @@ export function OrderProviderRefresh({
         )}
         Refresh provider detail
       </Button>
-
-      {providerRequiresAccount && !accountId ? (
-        <p className='text-muted-foreground text-sm'>
-          Select an account to fetch Tradier order detail.
-        </p>
-      ) : null}
 
       {providerDetailQuery.error ? (
         <p className='text-destructive text-sm'>

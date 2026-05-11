@@ -43,11 +43,6 @@ export interface TradingHoldingsParams {
 export interface TradingOrderDetailParams {
   orderId: string
   provider?: TradingProviderId
-  environment?: 'paper' | 'live'
-  credential?: string
-  credentialServiceId?: string
-  accessToken?: string
-  accountId?: string
 }
 
 export interface TradingOrderDetailOutput {

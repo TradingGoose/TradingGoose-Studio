@@ -4,10 +4,7 @@
 
 import { NextRequest } from 'next/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import {
-  resolveTradingProviderContext,
-  resolveTradingProviderSelectedAccount,
-} from '@/app/api/providers/trading/shared'
+import { resolveTradingProviderContext } from '@/app/api/providers/trading/shared'
 import { executeTradingProviderOrderDetailRequest } from '@/providers/trading'
 import { getTradingProviderOAuthServiceIdForEnvironment } from '@/providers/trading/providers'
 
@@ -27,9 +24,9 @@ const mocks = vi.hoisted(() => {
 
   return {
     chains,
+    checkAuth: vi.fn(),
     checkWorkspaceAccess: vi.fn(),
     eq: vi.fn((field: unknown, value: unknown) => ({ field, type: 'eq', value })),
-    getSession: vi.fn(),
     resultsQueue,
     select: vi.fn(makeChain),
   }
@@ -88,11 +85,10 @@ vi.mock('drizzle-orm', () => ({
 
 vi.mock('@/app/api/providers/trading/shared', () => ({
   resolveTradingProviderContext: vi.fn(),
-  resolveTradingProviderSelectedAccount: vi.fn(),
 }))
 
-vi.mock('@/lib/auth', () => ({
-  getSession: (...args: unknown[]) => mocks.getSession(...args),
+vi.mock('@/lib/auth/hybrid', () => ({
+  checkSessionOrInternalAuth: (...args: unknown[]) => mocks.checkAuth(...args),
 }))
 
 vi.mock('@/lib/logs/console/logger', () => ({
@@ -134,24 +130,21 @@ describe('order provider detail route', () => {
     vi.clearAllMocks()
     mocks.chains.length = 0
     mocks.resultsQueue.length = 0
-    mocks.getSession.mockResolvedValue({ user: { id: 'user-1' } })
+    mocks.checkAuth.mockResolvedValue({ success: true, userId: 'user-1' })
     mocks.checkWorkspaceAccess.mockResolvedValue({ exists: true, hasAccess: true })
     vi.mocked(resolveTradingProviderContext).mockResolvedValue({
       accessToken: 'access-token-1',
       environment: 'paper',
       provider: 'alpaca',
     } as any)
-    vi.mocked(resolveTradingProviderSelectedAccount).mockResolvedValue({
-      accountId: 'account-1',
-    } as any)
     vi.mocked(getTradingProviderOAuthServiceIdForEnvironment).mockReturnValue('alpaca-paper')
     vi.mocked(executeTradingProviderOrderDetailRequest).mockResolvedValue({
       providerOrderId: 'provider-order-1',
-      status: 'filled',
+      orderDetail: { status: 'filled' },
     } as any)
   })
 
-  it('loads the workspace order and requests live provider detail with selected account context', async () => {
+  it('loads the workspace order and requests live provider detail from recorded order context', async () => {
     mocks.resultsQueue.push([orderRow])
     const { POST } = await import('./route')
 
@@ -160,7 +153,7 @@ describe('order provider detail route', () => {
         'http://localhost/api/orders/order-1/provider-detail?workspaceId=workspace-1',
         {
           body: JSON.stringify({
-            accountId: 'account-1',
+            provider: 'alpaca',
           }),
           headers: { 'Content-Type': 'application/json' },
           method: 'POST',
@@ -170,6 +163,9 @@ describe('order provider detail route', () => {
     )
 
     expect(response.status).toBe(200)
+    expect(mocks.checkAuth).toHaveBeenCalledWith(expect.any(NextRequest), {
+      requireWorkflowId: false,
+    })
     expect(mocks.checkWorkspaceAccess).toHaveBeenCalledWith('workspace-1', 'user-1')
     expect(mocks.eq).toHaveBeenCalledWith('orderHistoryTable.id', 'order-1')
     expect(mocks.eq).toHaveBeenCalledWith('orderHistoryTable.workspaceId', 'workspace-1')
@@ -181,16 +177,11 @@ describe('order provider detail route', () => {
       requestId: 'request-1',
       userId: 'user-1',
     })
-    expect(resolveTradingProviderSelectedAccount).toHaveBeenCalledWith({
-      accountId: 'account-1',
-      baseContext: expect.objectContaining({ accessToken: 'access-token-1' }),
-    })
     expect(executeTradingProviderOrderDetailRequest).toHaveBeenCalledWith(
       'alpaca',
       expect.objectContaining({ id: 'order-1', workspaceId: 'workspace-1' }),
       expect.objectContaining({
         accessToken: 'access-token-1',
-        accountId: 'account-1',
         environment: 'paper',
         orderId: 'order-1',
         provider: 'alpaca',
@@ -198,12 +189,17 @@ describe('order provider detail route', () => {
     )
     expect(await response.json()).toEqual({
       data: {
+        appOrderId: 'order-1',
+        logId: 'log-1',
         orderId: 'order-1',
+        orderDetail: { status: 'filled' },
         provider: 'alpaca',
+        providerOrderId: 'provider-order-1',
         providerDetail: {
           providerOrderId: 'provider-order-1',
-          status: 'filled',
+          orderDetail: { status: 'filled' },
         },
+        workspaceId: 'workspace-1',
       },
     })
   })

@@ -1,5 +1,5 @@
 import { DollarIcon } from '@/components/icons/icons'
-import type { BlockConfig, SubBlockConfig } from '@/blocks/types'
+import type { BlockConfig } from '@/blocks/types'
 import { AuthMode } from '@/blocks/types'
 import { buildInputsFromToolParams, requiredUserOnlyInput } from '@/blocks/utils'
 import { getTradingProviders } from '@/providers/trading'
@@ -10,29 +10,6 @@ const providerOptions = getTradingProviders().map((provider) => ({
   label: provider.name,
   id: provider.id,
 }))
-
-const providerCredentialBlocks = (): SubBlockConfig[] => {
-  const providers = getTradingProviders()
-  return providers
-    .filter((provider) => provider.authType === 'oauth' && provider.oauth)
-    .map((provider) => {
-      const oauth = provider.oauth!
-      const serviceIds = oauth.credentialServices?.map((service) => service.serviceId) ?? []
-      return {
-        id: `${provider.id}Credential`,
-        title: oauth.credentialTitle || `${provider.name} Account`,
-        type: 'oauth-input',
-        layout: 'full',
-        required: true,
-        provider: oauth.provider,
-        ...(serviceIds.length === 1 ? { serviceId: serviceIds[0] } : { serviceIds }),
-        requiredScopes: oauth.scopes || [],
-        placeholder: oauth.credentialPlaceholder || `Select or connect ${provider.name} account`,
-        condition: { field: 'provider', value: provider.id },
-        canonicalParamId: 'credential',
-      }
-    })
-}
 
 export const TradingOrderDetailBlock: BlockConfig<TradingOrderDetailResponse> = {
   type: 'trading_order_detail',
@@ -62,52 +39,20 @@ export const TradingOrderDetailBlock: BlockConfig<TradingOrderDetailResponse> = 
       required: true,
       placeholder: 'Select the broker used for this order',
     },
-    ...providerCredentialBlocks(),
-    {
-      id: 'accountId',
-      title: 'Account ID',
-      type: 'short-input',
-      layout: 'full',
-      required: false,
-      placeholder: 'Optional Tradier account ID override',
-      condition: { field: 'provider', value: 'tradier' },
-    },
   ],
   tools: {
     access: ['trading_order_detail'],
     config: {
       tool: () => 'trading_order_detail',
-      params: (params) => {
-        const provider = params.provider
-        const resolveCredential = () => {
-          if (params.credential) return params.credential
-          if (provider) {
-            const providerKey = `${provider}Credential`
-            if (params[providerKey] !== undefined) return params[providerKey]
-          }
-          return getTradingProviders()
-            .map((definition) => params[`${definition.id}Credential`])
-            .find((value) => value !== undefined)
-        }
-
-        return {
-          orderId: params.orderId,
-          provider,
-          credential: resolveCredential(),
-          accountId: params.accountId,
-        }
-      },
+      params: (params) => ({
+        orderId: params.orderId,
+        provider: params.provider,
+      }),
     },
   },
   inputs: {
-    ...buildInputsFromToolParams(tradingOrderDetailTool.params, {
-      include: ['credential'],
-    }),
+    ...buildInputsFromToolParams(tradingOrderDetailTool.params),
     provider: requiredUserOnlyInput('string', 'Trading provider id used for this order.'),
-    credential: requiredUserOnlyInput(
-      'string',
-      'OAuth credential id selected by the broker account field.'
-    ),
   },
   outputs: {
     summary: { type: 'string', description: 'Status of order detail retrieval.' },

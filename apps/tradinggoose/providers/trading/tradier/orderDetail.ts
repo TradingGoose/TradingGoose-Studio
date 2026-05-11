@@ -21,14 +21,9 @@ const firstDefinedString = (...values: unknown[]): string | null => {
 }
 
 const resolveTradierAccountId = (
-  historyRecord: TradingOrderHistoryRecord,
-  params: TradingOrderDetailInput
+  historyRecord: TradingOrderHistoryRecord
 ): string | null =>
-  firstDefinedString(
-    params.accountId,
-    historyRecord.response?.raw?.account_id,
-    historyRecord.response?.raw?.order?.account_id
-  )
+  firstDefinedString(historyRecord.request?.accountId)
 
 export const resolveTradierOrderDetailProviderOrderId = (
   historyRecord: TradingOrderHistoryRecord
@@ -45,11 +40,9 @@ export const buildTradierOrderDetailRequest = (
   historyRecord: TradingOrderHistoryRecord,
   params: TradingOrderDetailInput
 ): TradingRequestConfig => {
-  const accountId = resolveTradierAccountId(historyRecord, params)
+  const accountId = resolveTradierAccountId(historyRecord)
   if (!accountId) {
-    throw new Error(
-      'Tradier accountId is required to fetch order details. Provide accountId or use an order recorded with account metadata.'
-    )
+    throw new Error('Tradier order history record is missing accountId.')
   }
 
   const baseUrl = resolveTradierBaseUrl()

@@ -38,12 +38,17 @@ export const buildAlpacaOrderDetailRequest = (
   historyRecord: TradingOrderHistoryRecord,
   params: TradingOrderDetailInput
 ): TradingRequestConfig => {
+  const environment = historyRecord.environment
+  if (environment !== 'paper' && environment !== 'live') {
+    throw new Error('Alpaca order history record is missing trading environment.')
+  }
+
   const authHeaders = buildAlpacaAuthHeaders({
     accessToken: params.accessToken,
   })
 
   return {
-    url: `${resolveAlpacaTradingBaseUrl(params.environment)}/v2/orders/${encodeURIComponent(providerOrderId)}`,
+    url: `${resolveAlpacaTradingBaseUrl(environment)}/v2/orders/${encodeURIComponent(providerOrderId)}`,
     method: 'GET',
     headers: {
       ...authHeaders,

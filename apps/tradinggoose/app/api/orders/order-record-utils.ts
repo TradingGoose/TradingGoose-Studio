@@ -142,16 +142,9 @@ const readListing = (listingIdentity: unknown, normalized: JsonRecord, response:
   }
 }
 
-export function readOrderAccountId(row: Pick<RecordsOrderRow, 'request' | 'response'>) {
+export function readOrderAccountId(row: Pick<RecordsOrderRow, 'request'>) {
   const request = toRecord(row.request)
-  const response = toRecord(row.response)
-  const raw = toRecord(response.raw)
-  const rawOrder = toRecord(raw.order)
-  return readString(
-    request.accountId,
-    raw.account_id,
-    rawOrder.account_id
-  )
+  return readString(request.accountId)
 }
 
 export function serializeOrderRecord(

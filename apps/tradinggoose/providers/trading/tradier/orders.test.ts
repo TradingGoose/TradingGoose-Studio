@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { ListingResolved } from '@/lib/listing/identity'
+import { buildTradierOrderDetailRequest } from '@/providers/trading/tradier/orderDetail'
 import { buildTradierOrderRequest } from '@/providers/trading/tradier/orders'
 
 const stockListing: ListingResolved = {
@@ -56,5 +57,28 @@ describe('Tradier order request builder', () => {
     expect(request.body).toContain('type=limit')
     expect(request.body).toContain('duration=day')
     expect(request.body).toContain('price=123.45')
+  })
+})
+
+describe('Tradier order detail request builder', () => {
+  it('uses the account id recorded with the order history request', () => {
+    const request = buildTradierOrderDetailRequest(
+      'provider-order-1',
+      {
+        id: 'order-1',
+        workspaceId: 'workspace-1',
+        provider: 'tradier',
+        environment: 'live',
+        submissionSource: 'workflow',
+        request: { accountId: 'ACC-RECORDED' },
+        response: null,
+        normalizedOrder: null,
+      },
+      { orderId: 'order-1', accessToken: 'token', accountId: 'ACC-OVERRIDE' }
+    )
+
+    expect(request.url).toBe(
+      'https://api.tradier.com/v1/accounts/ACC-RECORDED/orders/provider-order-1'
+    )
   })
 })
