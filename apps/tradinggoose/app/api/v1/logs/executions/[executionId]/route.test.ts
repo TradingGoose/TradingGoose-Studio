@@ -50,11 +50,16 @@ vi.mock('@tradinggoose/db/schema', () => ({
     id: 'workflowExecutionSnapshots.id',
     workspaceId: 'workflowExecutionSnapshots.workspaceId',
   },
+  workspace: {
+    id: 'workspace.id',
+    ownerId: 'workspace.ownerId',
+  },
 }))
 
 vi.mock('drizzle-orm', () => ({
   and: vi.fn((...conditions: unknown[]) => ({ conditions, type: 'and' })),
   eq: mocks.eq,
+  or: vi.fn((...conditions: unknown[]) => ({ conditions, type: 'or' })),
 }))
 
 vi.mock('@/lib/logs/console/logger', () => ({
@@ -105,10 +110,22 @@ describe('v1 execution route', () => {
 
     expect(response.status).toBe(200)
     expect(mocks.chain.leftJoin).toHaveBeenCalled()
+    expect(mocks.chain.innerJoin).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'workspace.id',
+        ownerId: 'workspace.ownerId',
+      }),
+      {
+        field: 'workspace.id',
+        type: 'eq',
+        value: 'workflowExecutionLogs.workspaceId',
+      }
+    )
     expect(mocks.eq).toHaveBeenCalledWith(
       'permissions.entityId',
       'workflowExecutionLogs.workspaceId'
     )
+    expect(mocks.eq).toHaveBeenCalledWith('workspace.ownerId', 'user-1')
     expect(mocks.eq).toHaveBeenCalledWith('workflowExecutionSnapshots.workspaceId', 'workspace-1')
     expect(await response.json()).toMatchObject({
       workflowId: 'deleted-workflow-1',

@@ -15,6 +15,7 @@ const mocks = vi.hoisted(() => {
   return {
     and: vi.fn((...conditions: unknown[]) => ({ conditions, type: 'and' })),
     eq: vi.fn((field: unknown, value: unknown) => ({ field, type: 'eq', value })),
+    checkWorkspaceAccess: vi.fn(),
     getSession: vi.fn(),
     select: vi.fn(() => chain),
     selectQueue,
@@ -28,12 +29,6 @@ vi.mock('@tradinggoose/db', () => ({
 }))
 
 vi.mock('@tradinggoose/db/schema', () => ({
-  permissions: {
-    id: 'permissions.id',
-    entityId: 'permissions.entityId',
-    entityType: 'permissions.entityType',
-    userId: 'permissions.userId',
-  },
   workflowExecutionLogs: {
     executionId: 'workflowExecutionLogs.executionId',
     stateSnapshotId: 'workflowExecutionLogs.stateSnapshotId',
@@ -60,10 +55,15 @@ vi.mock('@/lib/logs/console/logger', () => ({
   createLogger: vi.fn(() => ({ debug: vi.fn(), error: vi.fn(), info: vi.fn(), warn: vi.fn() })),
 }))
 
+vi.mock('@/lib/permissions/utils', () => ({
+  checkWorkspaceAccess: (...args: unknown[]) => mocks.checkWorkspaceAccess(...args),
+}))
+
 describe('logs execution route', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mocks.selectQueue.length = 0
+    mocks.checkWorkspaceAccess.mockResolvedValue({ hasAccess: true })
     mocks.getSession.mockResolvedValue({ user: { id: 'user-1' } })
   })
 
@@ -90,7 +90,7 @@ describe('logs execution route', () => {
         workspaceId: 'workspace-1',
       },
     ])
-    mocks.selectQueue.push([])
+    mocks.checkWorkspaceAccess.mockResolvedValue({ hasAccess: false })
     const { GET } = await import('./route')
 
     const response = await GET(new NextRequest('http://localhost/api/logs/execution/exec-1'), {
@@ -99,8 +99,7 @@ describe('logs execution route', () => {
 
     expect(response.status).toBe(403)
     expect(await response.json()).toEqual({ error: 'Forbidden' })
-    expect(mocks.eq).toHaveBeenCalledWith('permissions.entityId', 'workspace-1')
-    expect(mocks.eq).toHaveBeenCalledWith('permissions.userId', 'user-1')
+    expect(mocks.checkWorkspaceAccess).toHaveBeenCalledWith('workspace-1', 'user-1')
   })
 
   it('scopes snapshot lookup to the authorized log workspace', async () => {
@@ -113,7 +112,6 @@ describe('logs execution route', () => {
         workspaceId: 'workspace-1',
       },
     ])
-    mocks.selectQueue.push([{ id: 'permission-1' }])
     mocks.selectQueue.push([{ stateData: { blocks: { block1: { id: 'block1' } } } }])
     const { GET } = await import('./route')
 
@@ -122,6 +120,7 @@ describe('logs execution route', () => {
     })
 
     expect(response.status).toBe(200)
+    expect(mocks.checkWorkspaceAccess).toHaveBeenCalledWith('workspace-1', 'user-1')
     expect(mocks.eq).toHaveBeenCalledWith('workflowExecutionSnapshots.workspaceId', 'workspace-1')
     expect(await response.json()).toEqual({
       workflowId: 'deleted-workflow-1',

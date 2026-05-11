@@ -100,6 +100,10 @@ vi.mock('@tradinggoose/db/schema', () => ({
     id: 'workflowFolder.id',
     name: 'workflowFolder.name',
   },
+  workspace: {
+    id: 'workspace.id',
+    ownerId: 'workspace.ownerId',
+  },
 }))
 
 vi.mock('drizzle-orm', () => ({
@@ -266,6 +270,17 @@ const expectLogAnchoredWorkflowFolderJoin = () => {
   )
   expect(mockLeftJoin.mock.invocationCallOrder[1]).toBeLessThan(
     mockInnerJoin.mock.invocationCallOrder[0]!
+  )
+  expect(mockInnerJoin).toHaveBeenCalledWith(
+    expect.objectContaining({
+      id: 'workspace.id',
+      ownerId: 'workspace.ownerId',
+    }),
+    {
+      field: 'workspace.id',
+      type: 'eq',
+      value: 'workflowExecutionLogs.workspaceId',
+    }
   )
 }
 

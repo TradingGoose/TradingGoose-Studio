@@ -8,10 +8,12 @@ import {
   templates,
   workflow,
   workflowExecutionLogs,
+  workspace,
 } from '@tradinggoose/db/schema'
 import { and, asc, eq, isNull } from 'drizzle-orm'
 import { REVIEW_ITEM_KINDS } from '@/lib/copilot/review-sessions/thread-history'
 import { createLogger } from '@/lib/logs/console/logger'
+import { buildWorkspaceAccessScope } from '@/lib/permissions/utils'
 import { escapeRegExp } from '@/lib/utils'
 import { loadWorkflowStateWithFallback } from '@/lib/workflows/db-helpers'
 import { sanitizeForCopilot } from '@/lib/workflows/json-sanitizer'
@@ -148,10 +150,10 @@ export async function processContextsServer(
 
 function resolveContextWorkspaceId(
   contextWorkspaceId: string | undefined,
-  fallbackWorkspaceId: string | undefined,
+  requestWorkspaceId: string | undefined,
   context: ChatContext
 ): string | null {
-  const resolvedWorkspaceId = contextWorkspaceId ?? fallbackWorkspaceId ?? null
+  const resolvedWorkspaceId = contextWorkspaceId ?? requestWorkspaceId ?? null
   if (!resolvedWorkspaceId) {
     logger.warn('Skipping copilot entity context without workspaceId', {
       kind: context.kind,
@@ -479,7 +481,6 @@ async function processKnowledgeFromDb(
       .limit(20)
 
     const sampleDocuments = docRows.map((d: any) => d.filename).filter(Boolean)
-    // We don't have total via this quick select; fallback to sample count
     const summary = {
       id: kb.id,
       name: kb.name,
@@ -591,6 +592,7 @@ async function processExecutionLogFromDb(
   tag: string
 ): Promise<AgentContext | null> {
   try {
+    const workspaceAccess = buildWorkspaceAccessScope(userId, workflowExecutionLogs.workspaceId)
     const rows = await db
       .select({
         id: workflowExecutionLogs.id,
@@ -608,15 +610,9 @@ async function processExecutionLogFromDb(
       })
       .from(workflowExecutionLogs)
       .leftJoin(workflow, eq(workflowExecutionLogs.workflowId, workflow.id))
-      .innerJoin(
-        permissions,
-        and(
-          eq(permissions.entityType, 'workspace'),
-          eq(permissions.entityId, workflowExecutionLogs.workspaceId),
-          eq(permissions.userId, userId)
-        )
-      )
-      .where(eq(workflowExecutionLogs.executionId, executionId))
+      .innerJoin(workspace, workspaceAccess.workspaceJoin)
+      .leftJoin(permissions, workspaceAccess.permissionJoin)
+      .where(and(eq(workflowExecutionLogs.executionId, executionId), workspaceAccess.accessFilter))
       .limit(1)
 
     const log = rows?.[0] as any

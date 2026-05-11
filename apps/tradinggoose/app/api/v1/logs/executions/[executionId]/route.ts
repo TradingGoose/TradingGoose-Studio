@@ -4,10 +4,12 @@ import {
   workflow,
   workflowExecutionLogs,
   workflowExecutionSnapshots,
+  workspace,
 } from '@tradinggoose/db/schema'
 import { and, eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { createLogger } from '@/lib/logs/console/logger'
+import { buildWorkspaceAccessScope } from '@/lib/permissions/utils'
 import { createApiResponse, getUserLimits } from '@/app/api/v1/logs/meta'
 import { checkRateLimit, createRateLimitResponse } from '@/app/api/v1/middleware'
 
@@ -32,6 +34,7 @@ export async function GET(
 
     const userId = rateLimit.userId!
     const { executionId } = await params
+    const workspaceAccess = buildWorkspaceAccessScope(userId, workflowExecutionLogs.workspaceId)
 
     logger.debug(`Fetching execution data for: ${executionId}`)
 
@@ -42,15 +45,9 @@ export async function GET(
       })
       .from(workflowExecutionLogs)
       .leftJoin(workflow, eq(workflowExecutionLogs.workflowId, workflow.id))
-      .innerJoin(
-        permissions,
-        and(
-          eq(permissions.entityType, 'workspace'),
-          eq(permissions.entityId, workflowExecutionLogs.workspaceId),
-          eq(permissions.userId, userId)
-        )
-      )
-      .where(eq(workflowExecutionLogs.executionId, executionId))
+      .innerJoin(workspace, workspaceAccess.workspaceJoin)
+      .leftJoin(permissions, workspaceAccess.permissionJoin)
+      .where(and(eq(workflowExecutionLogs.executionId, executionId), workspaceAccess.accessFilter))
       .limit(1)
 
     if (rows.length === 0) {

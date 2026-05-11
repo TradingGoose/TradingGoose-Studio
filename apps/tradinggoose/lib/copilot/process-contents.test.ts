@@ -9,6 +9,7 @@ const mockLoadWorkflowStateWithFallback = vi.fn()
 const mockSanitizeForCopilot = vi.fn((value) => value)
 const mockAnd = vi.fn((...conditions: unknown[]) => ({ conditions, type: 'and' }))
 const mockEq = vi.fn((field: unknown, value: unknown) => ({ field, type: 'eq', value }))
+const mockOr = vi.fn((...conditions: unknown[]) => ({ conditions, type: 'or' }))
 const mockLogRowsQueue: unknown[][] = []
 const mockSelectChain: Record<string, any> = {}
 mockSelectChain.from = vi.fn(() => mockSelectChain)
@@ -53,6 +54,10 @@ vi.mock('@tradinggoose/db/schema', () => ({
     cost: 'workflowExecutionLogs.cost',
     workflowSummary: 'workflowExecutionLogs.workflowSummary',
   },
+  workspace: {
+    id: 'workspace.id',
+    ownerId: 'workspace.ownerId',
+  },
 }))
 
 vi.mock('drizzle-orm', () => ({
@@ -60,6 +65,7 @@ vi.mock('drizzle-orm', () => ({
   asc: vi.fn(),
   eq: mockEq,
   isNull: vi.fn(),
+  or: mockOr,
 }))
 
 vi.mock('@/lib/logs/console/logger', () => ({
@@ -101,6 +107,7 @@ describe('processContextsServer', () => {
     mockSanitizeForCopilot.mockClear()
     mockAnd.mockClear()
     mockEq.mockClear()
+    mockOr.mockClear()
     mockLogRowsQueue.length = 0
     mockDbSelect.mockClear()
     mockSelectChain.leftJoin.mockClear()
@@ -273,11 +280,30 @@ describe('processContextsServer', () => {
       'user-1'
     )
 
-    expect(mockSelectChain.leftJoin).toHaveBeenCalled()
-    expect(mockSelectChain.innerJoin).toHaveBeenCalled()
+    expect(mockSelectChain.innerJoin).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'workspace.id',
+        ownerId: 'workspace.ownerId',
+      }),
+      {
+        field: 'workspace.id',
+        type: 'eq',
+        value: 'workflowExecutionLogs.workspaceId',
+      }
+    )
+    expect(mockSelectChain.leftJoin).toHaveBeenCalledWith(
+      expect.objectContaining({
+        entityId: 'permissions.entityId',
+        entityType: 'permissions.entityType',
+        userId: 'permissions.userId',
+      }),
+      expect.objectContaining({ type: 'and' })
+    )
     expect(mockEq).toHaveBeenCalledWith('permissions.entityType', 'workspace')
     expect(mockEq).toHaveBeenCalledWith('permissions.entityId', 'workflowExecutionLogs.workspaceId')
     expect(mockEq).toHaveBeenCalledWith('permissions.userId', 'user-1')
+    expect(mockEq).toHaveBeenCalledWith('workspace.ownerId', 'user-1')
+    expect(mockOr).toHaveBeenCalled()
     expect(result).toHaveLength(1)
     const content = JSON.parse(result[0]!.content)
     expect(content).toMatchObject({

@@ -1,12 +1,10 @@
 import { db } from '@tradinggoose/db'
 import { permissions, type permissionTypeEnum, user, workspace } from '@tradinggoose/db/schema'
-import { and, eq } from 'drizzle-orm'
+import { and, eq, or, type SQLWrapper } from 'drizzle-orm'
 
 export type PermissionType = (typeof permissionTypeEnum.enumValues)[number]
 
 export type WorkspaceRecord = typeof workspace.$inferSelect
-
-export type WorkspaceWithOwner = WorkspaceRecord
 
 export interface WorkspaceAccess {
   exists: boolean
@@ -40,15 +38,11 @@ export async function getWorkspaceById(workspaceId: string): Promise<WorkspaceRe
   return await selectWorkspaceById(workspaceId)
 }
 
-export async function getWorkspaceWithOwner(workspaceId: string): Promise<WorkspaceWithOwner | null> {
-  return await selectWorkspaceById(workspaceId)
-}
-
 export async function checkWorkspaceAccess(
   workspaceId: string,
   userId: string
 ): Promise<WorkspaceAccess> {
-  const ws = await getWorkspaceWithOwner(workspaceId)
+  const ws = await selectWorkspaceById(workspaceId)
 
   if (!ws) {
     return { exists: false, hasAccess: false, canWrite: false, workspace: null }
@@ -78,6 +72,18 @@ export async function checkWorkspaceAccess(
     permissionRow.permissionType === 'write' || permissionRow.permissionType === 'admin'
 
   return { exists: true, hasAccess: true, canWrite, workspace: ws }
+}
+
+export function buildWorkspaceAccessScope(userId: string, workspaceIdColumn: SQLWrapper) {
+  return {
+    workspaceJoin: eq(workspace.id, workspaceIdColumn),
+    permissionJoin: and(
+      eq(permissions.userId, userId),
+      eq(permissions.entityType, 'workspace'),
+      eq(permissions.entityId, workspaceIdColumn)
+    ),
+    accessFilter: or(eq(workspace.ownerId, userId), eq(permissions.userId, userId)),
+  }
 }
 
 export async function assertActiveWorkspaceAccess(
@@ -206,7 +212,7 @@ export async function hasWorkspaceAdminAccess(
   userId: string,
   workspaceId: string
 ): Promise<boolean> {
-  const ws = await getWorkspaceWithOwner(workspaceId)
+  const ws = await selectWorkspaceById(workspaceId)
 
   if (!ws) {
     return false

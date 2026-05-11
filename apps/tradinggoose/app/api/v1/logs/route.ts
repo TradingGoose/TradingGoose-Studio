@@ -1,9 +1,10 @@
 import { db } from '@tradinggoose/db'
-import { permissions, workflow, workflowExecutionLogs } from '@tradinggoose/db/schema'
+import { permissions, workflow, workflowExecutionLogs, workspace } from '@tradinggoose/db/schema'
 import { and, eq, sql } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createLogger } from '@/lib/logs/console/logger'
+import { buildWorkspaceAccessScope } from '@/lib/permissions/utils'
 import { normalizeOptionalString } from '@/lib/utils'
 import { parseListingFilter } from '@/app/api/logs/log-utils'
 import { buildLogFilters, getOrderBy } from '@/app/api/v1/logs/filters'
@@ -144,6 +145,7 @@ export async function GET(request: NextRequest) {
 
     const conditions = buildLogFilters(filters)
     const orderBy = getOrderBy(params.order)
+    const workspaceAccess = buildWorkspaceAccessScope(userId, workflowExecutionLogs.workspaceId)
 
     // Build and execute query
     const baseQuery = db
@@ -172,18 +174,12 @@ export async function GET(request: NextRequest) {
           eq(workflow.workspaceId, params.workspaceId)
         )
       )
-      .innerJoin(
-        permissions,
-        and(
-          eq(permissions.entityType, 'workspace'),
-          eq(permissions.entityId, workflowExecutionLogs.workspaceId),
-          eq(permissions.userId, userId)
-        )
-      )
+      .innerJoin(workspace, workspaceAccess.workspaceJoin)
+      .leftJoin(permissions, workspaceAccess.permissionJoin)
 
     const logsQueryStartedAt = Date.now()
     const logs = await baseQuery
-      .where(conditions)
+      .where(and(conditions, workspaceAccess.accessFilter))
       .orderBy(...orderBy)
       .limit(params.limit + 1)
     const logsQueryDurationMs = Date.now() - logsQueryStartedAt

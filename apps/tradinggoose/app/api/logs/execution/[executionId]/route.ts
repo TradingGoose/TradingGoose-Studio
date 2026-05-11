@@ -1,13 +1,10 @@
 import { db } from '@tradinggoose/db'
-import {
-  permissions,
-  workflowExecutionLogs,
-  workflowExecutionSnapshots,
-} from '@tradinggoose/db/schema'
+import { workflowExecutionLogs, workflowExecutionSnapshots } from '@tradinggoose/db/schema'
 import { and, eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
+import { checkWorkspaceAccess } from '@/lib/permissions/utils'
 
 const logger = createLogger('LogsByExecutionIdAPI')
 
@@ -37,19 +34,8 @@ export async function GET(
       return NextResponse.json({ error: 'Workflow execution not found' }, { status: 404 })
     }
 
-    const [permission] = await db
-      .select({ id: permissions.id })
-      .from(permissions)
-      .where(
-        and(
-          eq(permissions.entityType, 'workspace'),
-          eq(permissions.entityId, workflowLog.workspaceId),
-          eq(permissions.userId, userId)
-        )
-      )
-      .limit(1)
-
-    if (!permission) {
+    const access = await checkWorkspaceAccess(workflowLog.workspaceId, userId)
+    if (!access.hasAccess) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 

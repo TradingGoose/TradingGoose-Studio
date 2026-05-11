@@ -64,11 +64,16 @@ vi.mock('@tradinggoose/db/schema', () => ({
     workspaceId: 'workflowExecutionLogs.workspaceId',
     workflowSummary: 'workflowExecutionLogs.workflowSummary',
   },
+  workspace: {
+    id: 'workspace.id',
+    ownerId: 'workspace.ownerId',
+  },
 }))
 
 vi.mock('drizzle-orm', () => ({
   and: vi.fn((...conditions: unknown[]) => ({ conditions, type: 'and' })),
   eq: mocks.eq,
+  or: vi.fn((...conditions: unknown[]) => ({ conditions, type: 'or' })),
 }))
 
 vi.mock('@/lib/logs/console/logger', () => ({
@@ -123,7 +128,7 @@ describe('v1 log detail route', () => {
     ])
   })
 
-  it('uses log workspace permission and workflow summary fallback for detached logs', async () => {
+  it('uses log workspace permission and persisted workflow summary for detached logs', async () => {
     const { GET } = await import('./route')
 
     const response = await GET(new NextRequest('http://localhost/api/v1/logs/log-1'), {
@@ -132,10 +137,22 @@ describe('v1 log detail route', () => {
 
     expect(response.status).toBe(200)
     expect(mocks.chain.leftJoin).toHaveBeenCalled()
+    expect(mocks.chain.innerJoin).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'workspace.id',
+        ownerId: 'workspace.ownerId',
+      }),
+      {
+        field: 'workspace.id',
+        type: 'eq',
+        value: 'workflowExecutionLogs.workspaceId',
+      }
+    )
     expect(mocks.eq).toHaveBeenCalledWith(
       'permissions.entityId',
       'workflowExecutionLogs.workspaceId'
     )
+    expect(mocks.eq).toHaveBeenCalledWith('workspace.ownerId', 'user-1')
     expect(await response.json()).toMatchObject({
       data: {
         workflowId: 'deleted-workflow-1',
