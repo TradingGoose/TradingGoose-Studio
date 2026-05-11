@@ -1,8 +1,9 @@
 /**
  * @vitest-environment node
  */
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+
 import { NextRequest } from 'next/server'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const {
   checkSessionOrInternalAuthMock,
@@ -75,9 +76,12 @@ describe('POST /api/workflows/[id]/queue', () => {
       error: 'Unauthorized',
     })
 
-    const response = await POST(new NextRequest('http://localhost/api/workflows/workflow-1/queue'), {
-      params: Promise.resolve({ id: 'workflow-1' }),
-    })
+    const response = await POST(
+      new NextRequest('http://localhost/api/workflows/workflow-1/queue'),
+      {
+        params: Promise.resolve({ id: 'workflow-1' }),
+      }
+    )
 
     expect(response.status).toBe(401)
     await expect(response.json()).resolves.toEqual({

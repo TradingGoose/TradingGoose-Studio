@@ -1,5 +1,5 @@
-import { type NextRequest, NextResponse } from 'next/server'
 import { randomUUID } from 'node:crypto'
+import { type NextRequest, NextResponse } from 'next/server'
 import { checkSessionOrInternalAuth } from '@/lib/auth/hybrid'
 import {
   enqueuePendingExecution,
@@ -25,10 +25,7 @@ type QueueRequestBody = {
   workflowDepth?: number
 }
 
-export async function POST(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const requestId = generateRequestId()
   const { id: workflowId } = await params
 
@@ -57,10 +54,7 @@ export async function POST(
     const source = childWorkflowExecution ? 'workflow_block' : 'workflow_queue'
 
     if (executionTarget === 'deployed' && !accessContext.workflow.isDeployed) {
-      return NextResponse.json(
-        { error: 'Workflow is not deployed' },
-        { status: 403 }
-      )
+      return NextResponse.json({ error: 'Workflow is not deployed' }, { status: 403 })
     }
 
     if (
@@ -100,8 +94,7 @@ export async function POST(
           typeof body.startBlockId === 'string' && body.startBlockId.length > 0
             ? body.startBlockId
             : undefined,
-        workflowDepth:
-          typeof body.workflowDepth === 'number' ? body.workflowDepth : 0,
+        workflowDepth: typeof body.workflowDepth === 'number' ? body.workflowDepth : 0,
         metadata: {
           source,
           parentWorkflowId: childWorkflowExecution?.parentWorkflowId ?? null,
