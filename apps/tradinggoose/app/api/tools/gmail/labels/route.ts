@@ -4,8 +4,8 @@ import { and, eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
+import { refreshAccessTokenIfNeeded } from '@/lib/oauth/tokens'
 import { generateRequestId } from '@/lib/utils'
-import { refreshAccessTokenIfNeeded } from '@/app/api/auth/oauth/utils'
 export const dynamic = 'force-dynamic'
 
 const logger = createLogger('GmailLabelsAPI')
@@ -108,8 +108,8 @@ export async function GET(request: NextRequest) {
 
     const filteredLabels = query
       ? labels.filter((label: GmailLabel) =>
-        label.name.toLowerCase().includes((query as string).toLowerCase())
-      )
+          label.name.toLowerCase().includes((query as string).toLowerCase())
+        )
       : labels
 
     return NextResponse.json({ labels: filteredLabels }, { status: 200 })

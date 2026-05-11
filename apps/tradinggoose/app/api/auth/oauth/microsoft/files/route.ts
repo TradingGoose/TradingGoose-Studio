@@ -4,8 +4,8 @@ import { eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
+import { refreshAccessTokenIfNeeded } from '@/lib/oauth/tokens'
 import { generateRequestId } from '@/lib/utils'
-import { refreshAccessTokenIfNeeded } from '@/app/api/auth/oauth/utils'
 
 export const dynamic = 'force-dynamic'
 
@@ -123,11 +123,11 @@ export async function GET(request: NextRequest) {
         size: file.size?.toString(),
         owners: file.createdBy
           ? [
-            {
-              displayName: file.createdBy.user?.displayName || 'Unknown',
-              emailAddress: file.createdBy.user?.email || '',
-            },
-          ]
+              {
+                displayName: file.createdBy.user?.displayName || 'Unknown',
+                emailAddress: file.createdBy.user?.email || '',
+              },
+            ]
           : [],
       }))
 

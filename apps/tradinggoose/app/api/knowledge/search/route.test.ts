@@ -132,7 +132,7 @@ describe('Knowledge Search API Route', () => {
       db: mockDbChain,
     }))
 
-    vi.doMock('@/app/api/auth/oauth/utils', () => ({
+    vi.doMock('@/lib/oauth/tokens', () => ({
       getUserId: mockGetUserId,
     }))
 

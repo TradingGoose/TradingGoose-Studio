@@ -1,11 +1,11 @@
 import { createPermissionError } from '@/lib/copilot/review-sessions/permissions'
 import {
   type BaseServerTool,
-  type ServerToolExecutionContext,
   resolveServerWorkflowScope,
+  type ServerToolExecutionContext,
 } from '@/lib/copilot/tools/server/base-tool'
 import { createLogger } from '@/lib/logs/console/logger'
-import { getOAuthToken } from '@/app/api/auth/oauth/utils'
+import { getOAuthToken } from '@/lib/oauth/tokens'
 import { executeTool } from '@/tools'
 
 interface ListGDriveFilesParams {
@@ -39,14 +39,11 @@ export const listGDriveFilesServerTool: BaseServerTool<ListGDriveFilesParams, an
       )
     }
 
-    const result = await executeTool(
-      'google_drive_list',
-      {
-        accessToken,
-        ...(query ? { query } : {}),
-        ...(typeof pageSize === 'number' ? { pageSize } : {}),
-      }
-    )
+    const result = await executeTool('google_drive_list', {
+      accessToken,
+      ...(query ? { query } : {}),
+      ...(typeof pageSize === 'number' ? { pageSize } : {}),
+    })
     if (!result.success) {
       throw new Error(result.error || 'Failed to list Google Drive files')
     }

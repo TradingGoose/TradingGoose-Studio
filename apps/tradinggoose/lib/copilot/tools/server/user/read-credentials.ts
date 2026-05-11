@@ -12,8 +12,8 @@ import {
 import { getPersonalAndWorkspaceEnv } from '@/lib/environment/utils'
 import { createLogger } from '@/lib/logs/console/logger'
 import { OAUTH_PROVIDERS } from '@/lib/oauth/oauth'
+import { refreshTokenIfNeeded } from '@/lib/oauth/tokens'
 import { generateRequestId } from '@/lib/utils'
-import { refreshTokenIfNeeded } from '@/app/api/auth/oauth/utils'
 
 interface ReadCredentialsParams {
   workflowId?: string

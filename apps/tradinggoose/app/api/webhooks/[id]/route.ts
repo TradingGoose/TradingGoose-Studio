@@ -4,10 +4,10 @@ import { eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
+import { getOAuthToken } from '@/lib/oauth/tokens'
 import { getUserEntityPermissions } from '@/lib/permissions/utils'
 import { getBaseUrl } from '@/lib/urls/utils'
 import { generateRequestId } from '@/lib/utils'
-import { getOAuthToken } from '@/app/api/auth/oauth/utils'
 
 const logger = createLogger('WebhookAPI')
 

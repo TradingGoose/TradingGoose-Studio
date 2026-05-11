@@ -10,8 +10,8 @@ import {
   type ServerToolExecutionContext,
 } from '@/lib/copilot/tools/server/base-tool'
 import { createLogger } from '@/lib/logs/console/logger'
+import { refreshTokenIfNeeded } from '@/lib/oauth/tokens'
 import { generateRequestId } from '@/lib/utils'
-import { refreshTokenIfNeeded } from '@/app/api/auth/oauth/utils'
 
 interface ReadOAuthCredentialsParams {
   workflowId?: string

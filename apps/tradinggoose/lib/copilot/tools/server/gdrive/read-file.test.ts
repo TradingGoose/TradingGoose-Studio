@@ -9,7 +9,7 @@ const mocks = vi.hoisted(() => ({
   createPermissionError: vi.fn(() => 'permission denied'),
 }))
 
-vi.mock('@/app/api/auth/oauth/utils', () => ({
+vi.mock('@/lib/oauth/tokens', () => ({
   getOAuthToken: mocks.getOAuthToken,
   getUserId: mocks.getUserId,
 }))

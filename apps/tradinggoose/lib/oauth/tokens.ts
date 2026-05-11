@@ -10,7 +10,7 @@ import {
 } from '@/lib/oauth/oauth'
 import { refreshOAuthToken } from '@/lib/oauth/oauth.server'
 
-const logger = createLogger('OAuthUtilsAPI')
+const logger = createLogger('OAuthTokens')
 
 function getValidAccessToken(credential: any): string | null {
   if (!credential?.accessToken) {

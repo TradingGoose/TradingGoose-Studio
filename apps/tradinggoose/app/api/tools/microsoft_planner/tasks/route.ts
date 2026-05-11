@@ -5,8 +5,8 @@ import { eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
+import { refreshAccessTokenIfNeeded } from '@/lib/oauth/tokens'
 import { validateMicrosoftGraphId } from '@/lib/security/input-validation'
-import { refreshAccessTokenIfNeeded } from '@/app/api/auth/oauth/utils'
 import type { PlannerTask } from '@/tools/microsoft_planner/types'
 
 const logger = createLogger('MicrosoftPlannerTasksAPI')

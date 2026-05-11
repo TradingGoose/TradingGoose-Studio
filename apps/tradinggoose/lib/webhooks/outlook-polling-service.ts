@@ -5,8 +5,8 @@ import { htmlToText } from 'html-to-text'
 import { nanoid } from 'nanoid'
 import { pollingIdempotency } from '@/lib/idempotency'
 import { createLogger } from '@/lib/logs/console/logger'
+import { getOAuthToken, refreshAccessTokenIfNeeded } from '@/lib/oauth/tokens'
 import { getBaseUrl } from '@/lib/urls/utils'
-import { getOAuthToken, refreshAccessTokenIfNeeded } from '@/app/api/auth/oauth/utils'
 
 const logger = createLogger('OutlookPollingService')
 

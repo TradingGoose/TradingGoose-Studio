@@ -2,13 +2,9 @@ import { type NextRequest, NextResponse } from 'next/server'
 import { authorizeCredentialUse } from '@/lib/auth/credential-access'
 import { checkHybridAuth } from '@/lib/auth/hybrid'
 import { createLogger } from '@/lib/logs/console/logger'
+import { getCredential, getOAuthToken, refreshTokenIfNeeded } from '@/lib/oauth/tokens'
 import { getTrelloApiKey } from '@/lib/trello/auth'
 import { generateRequestId } from '@/lib/utils'
-import {
-  getCredential,
-  getOAuthToken,
-  refreshTokenIfNeeded,
-} from '@/app/api/auth/oauth/utils'
 
 export const dynamic = 'force-dynamic'
 

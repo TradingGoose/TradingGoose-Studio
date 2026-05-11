@@ -1,11 +1,11 @@
 import { createPermissionError } from '@/lib/copilot/review-sessions/permissions'
 import {
   type BaseServerTool,
-  type ServerToolExecutionContext,
   resolveServerWorkflowScope,
+  type ServerToolExecutionContext,
 } from '@/lib/copilot/tools/server/base-tool'
 import { createLogger } from '@/lib/logs/console/logger'
-import { getOAuthToken } from '@/app/api/auth/oauth/utils'
+import { getOAuthToken } from '@/lib/oauth/tokens'
 import { executeTool } from '@/tools'
 
 interface ReadGDriveFileParams {
@@ -60,10 +60,11 @@ export const readGDriveFileServerTool: BaseServerTool<ReadGDriveFileParams, any>
         throw new Error(
           'No Google Sheets connection found for this user. Please connect Google Sheets in settings.'
         )
-      const result = await executeTool(
-        'google_sheets_read',
-        { accessToken, spreadsheetId: fileId, ...(params?.range ? { range: params.range } : {}) }
-      )
+      const result = await executeTool('google_sheets_read', {
+        accessToken,
+        spreadsheetId: fileId,
+        ...(params?.range ? { range: params.range } : {}),
+      })
       if (!result.success) throw new Error(result.error || 'Failed to read Google Sheets data')
       const output = (result as any).output || result
       const rows: string[][] = output?.output?.data?.values || output?.data?.values || []

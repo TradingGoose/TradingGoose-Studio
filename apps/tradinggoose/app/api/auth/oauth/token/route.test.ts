@@ -30,7 +30,7 @@ describe('OAuth Token API Routes', () => {
       randomUUID: vi.fn().mockReturnValue(mockUUID),
     })
 
-    vi.doMock('@/app/api/auth/oauth/utils', () => ({
+    vi.doMock('@/lib/oauth/tokens', () => ({
       getCredential: mockGetCredential,
       getOAuthToken: mockGetOAuthToken,
       refreshTokenIfNeeded: mockRefreshTokenIfNeeded,
