@@ -18,6 +18,11 @@ import {
 } from '@/tools/utils'
 
 const logger = createLogger('Tools')
+const WORKSPACE_SCOPED_TRADING_TOOLS = new Set([
+  'trading_place_order',
+  'trading_order_history',
+  'trading_order_detail',
+])
 
 /**
  * Maximum request body size in bytes before we warn/error about size limits.
@@ -271,10 +276,7 @@ export async function executeTool(
       }
     }
 
-    if (
-      (toolId === 'trading_place_order' || toolId === 'trading_order_history') &&
-      !scope.workspaceId
-    ) {
+    if (WORKSPACE_SCOPED_TRADING_TOOLS.has(toolId) && !scope.workspaceId) {
       throw new Error(`${toolId} requires workspace execution context`)
     }
     if (toolId === 'trading_place_order' && !scope.submissionSource) {

@@ -25,6 +25,11 @@ import { executeTool } from '@/tools'
 import { getTool, getToolAsync } from '@/tools/utils'
 
 const logger = createLogger('CopilotExecuteToolAPI')
+const WORKSPACE_SCOPED_TRADING_TOOLS = new Set([
+  'trading_place_order',
+  'trading_order_history',
+  'trading_order_detail',
+])
 
 const ExecuteToolSchema = z.object({
   toolCallId: z.string(),
@@ -89,15 +94,12 @@ export async function POST(req: NextRequest) {
       workspaceId: requestedWorkspaceId,
     } = ExecuteToolSchema.parse(body)
 
-    const placesTradingOrder = toolName === 'trading_place_order'
-    const requiresTradingWorkspace = placesTradingOrder || toolName === 'trading_order_history'
-
     let workspaceId = requestedWorkspaceId?.trim() || undefined
     if (workflowId) {
       const { hasAccess, workspaceId: resolvedWorkspaceId } = await verifyWorkflowAccess(
         userId,
         workflowId,
-        { requireWrite: placesTradingOrder }
+        { requireWrite: true }
       )
       if (!hasAccess) {
         const message = createPermissionError('run tools in')
@@ -116,14 +118,14 @@ export async function POST(req: NextRequest) {
       workspaceId = resolvedWorkspaceId ?? undefined
     } else if (workspaceId) {
       const access = await checkWorkspaceAccess(workspaceId, userId)
-      if (!access.exists || !access.hasAccess || (placesTradingOrder && !access.canWrite)) {
+      if (!access.exists || !access.hasAccess || !access.canWrite) {
         return NextResponse.json(
           { success: false, error: 'Workspace not found', toolCallId },
           { status: 404 }
         )
       }
     }
-    if (requiresTradingWorkspace && !workspaceId) {
+    if (!workspaceId && WORKSPACE_SCOPED_TRADING_TOOLS.has(toolName)) {
       return NextResponse.json(
         {
           success: false,

@@ -100,6 +100,12 @@ vi.mock('@/tools/utils', () => ({
   getToolAsync: (...args: unknown[]) => mockGetToolAsync(...args),
 }))
 
+const postExecuteTool = (body: Record<string, unknown>) =>
+  new NextRequest('http://localhost/api/copilot/execute-tool', {
+    body: JSON.stringify(body),
+    method: 'POST',
+  })
+
 describe('copilot execute-tool route', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -109,30 +115,30 @@ describe('copilot execute-tool route', () => {
     mockVerifyWorkflowAccess.mockResolvedValue({ hasAccess: true, workspaceId: null })
   })
 
-  it('rejects order placement without workspace scope before loading env or executing', async () => {
-    const { POST } = await import('./route')
+  it.each(['trading_place_order', 'trading_order_history', 'trading_order_detail'])(
+    'rejects %s without workspace scope before loading env or executing',
+    async (toolName) => {
+      const { POST } = await import('./route')
 
-    const response = await POST(
-      new NextRequest('http://localhost/api/copilot/execute-tool', {
-        body: JSON.stringify({
+      const response = await POST(
+        postExecuteTool({
           arguments: {},
           toolCallId: 'tool-call-1',
-          toolName: 'trading_place_order',
-        }),
-        method: 'POST',
-      })
-    )
+          toolName,
+        })
+      )
 
-    expect(response.status).toBe(400)
-    expect(await response.json()).toEqual({
-      error: 'trading_place_order requires workspaceId',
-      success: false,
-      toolCallId: 'tool-call-1',
-    })
-    expect(mockGetEffectiveDecryptedEnv).not.toHaveBeenCalled()
-    expect(mockGetTool).not.toHaveBeenCalled()
-    expect(mockExecuteTool).not.toHaveBeenCalled()
-  })
+      expect(response.status).toBe(400)
+      expect(await response.json()).toEqual({
+        error: `${toolName} requires workspaceId`,
+        success: false,
+        toolCallId: 'tool-call-1',
+      })
+      expect(mockGetEffectiveDecryptedEnv).not.toHaveBeenCalled()
+      expect(mockGetTool).not.toHaveBeenCalled()
+      expect(mockExecuteTool).not.toHaveBeenCalled()
+    }
+  )
 
   it('executes copilot order placement with workspace scope and no workflow requirement', async () => {
     mockGetTool.mockReturnValue({ id: 'trading_place_order', params: {} })
@@ -140,14 +146,11 @@ describe('copilot execute-tool route', () => {
     const { POST } = await import('./route')
 
     const response = await POST(
-      new NextRequest('http://localhost/api/copilot/execute-tool', {
-        body: JSON.stringify({
-          arguments: { provider: 'alpaca' },
-          toolCallId: 'tool-call-1',
-          toolName: 'trading_place_order',
-          workspaceId: 'workspace-1',
-        }),
-        method: 'POST',
+      postExecuteTool({
+        arguments: { provider: 'alpaca' },
+        toolCallId: 'tool-call-1',
+        toolName: 'trading_place_order',
+        workspaceId: 'workspace-1',
       })
     )
 
@@ -165,5 +168,63 @@ describe('copilot execute-tool route', () => {
         provider: 'alpaca',
       })
     )
+  })
+
+  it('rejects workspace-scoped tools without write access before loading env or executing', async () => {
+    mockCheckWorkspaceAccess.mockResolvedValue({
+      exists: true,
+      hasAccess: true,
+      canWrite: false,
+    })
+    const { POST } = await import('./route')
+
+    const response = await POST(
+      postExecuteTool({
+        arguments: { query: 'secret-backed request' },
+        toolCallId: 'tool-call-2',
+        toolName: 'http_request',
+        workspaceId: 'workspace-1',
+      })
+    )
+
+    expect(response.status).toBe(404)
+    expect(await response.json()).toEqual({
+      error: 'Workspace not found',
+      success: false,
+      toolCallId: 'tool-call-2',
+    })
+    expect(mockCheckWorkspaceAccess).toHaveBeenCalledWith('workspace-1', 'user-1')
+    expect(mockGetEffectiveDecryptedEnv).not.toHaveBeenCalled()
+    expect(mockGetTool).not.toHaveBeenCalled()
+    expect(mockGetToolAsync).not.toHaveBeenCalled()
+    expect(mockExecuteTool).not.toHaveBeenCalled()
+  })
+
+  it('requires workflow write access before resolving tools or workspace env', async () => {
+    mockVerifyWorkflowAccess.mockResolvedValue({
+      hasAccess: false,
+      workspaceId: 'workspace-1',
+    })
+    const { POST } = await import('./route')
+
+    const response = await POST(
+      postExecuteTool({
+        arguments: { query: 'workflow-scoped request' },
+        toolCallId: 'tool-call-3',
+        toolName: 'http_request',
+        workflowId: 'workflow-1',
+      })
+    )
+
+    expect(response.status).toBe(403)
+    expect(await response.json()).toEqual({ error: 'Forbidden' })
+    expect(mockVerifyWorkflowAccess).toHaveBeenCalledWith('user-1', 'workflow-1', {
+      requireWrite: true,
+    })
+    expect(mockCheckWorkspaceAccess).not.toHaveBeenCalled()
+    expect(mockGetEffectiveDecryptedEnv).not.toHaveBeenCalled()
+    expect(mockGetTool).not.toHaveBeenCalled()
+    expect(mockGetToolAsync).not.toHaveBeenCalled()
+    expect(mockExecuteTool).not.toHaveBeenCalled()
   })
 })
