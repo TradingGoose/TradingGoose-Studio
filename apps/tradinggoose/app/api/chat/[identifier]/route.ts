@@ -9,14 +9,14 @@ import {
 } from '@/lib/execution/pending-execution'
 import { readWorkflowExecutionEventState } from '@/lib/execution/workflow-execution-events'
 import { createLogger } from '@/lib/logs/console/logger'
-import {
-  extractBlockIdFromOutputId,
-  extractPathFromOutputId,
-  traverseObjectPath,
-} from '@/lib/response-format'
 import { TriggerExecutionUnavailableError } from '@/lib/trigger/settings'
 import { ChatFiles } from '@/lib/uploads'
 import { encodeSSE, generateRequestId, SSE_HEADERS } from '@/lib/utils'
+import {
+  canStreamSelectedBlock,
+  resolveExecutionResultChatOutput,
+  resolveSelectedBlockOutput,
+} from '@/lib/workflows/chat-output'
 import { isExecutionResult } from '@/lib/workflows/execution-result'
 import {
   addCorsHeaders,
@@ -25,7 +25,6 @@ import {
   validateChatAuth,
 } from '@/app/api/chat/utils'
 import { createErrorResponse, createSuccessResponse } from '@/app/api/workflows/utils'
-import type { BlockLog, ExecutionResult } from '@/executor/types'
 
 const logger = createLogger('ChatIdentifierAPI')
 const CHAT_QUEUE_POLL_INTERVAL_MS = 500
@@ -34,68 +33,6 @@ export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
-
-function formatChatContent(value: unknown) {
-  if (typeof value === 'string') return value
-  if (value === undefined || value === null) return ''
-  return JSON.stringify(value, null, 2)
-}
-
-function resolveSelectedChatOutput(result: ExecutionResult, selectedOutputs: string[]) {
-  const output: string[] = []
-
-  for (const outputId of selectedOutputs) {
-    const blockId = extractBlockIdFromOutputId(outputId)
-    const path = extractPathFromOutputId(outputId, blockId)
-    const log = result.logs?.find((entry: BlockLog) => entry.blockId === blockId)
-    if (!log) continue
-
-    const value = path ? traverseObjectPath(log.output, path) : log.output
-    const content = formatChatContent(value)
-    if (content) {
-      output.push(content)
-    }
-  }
-
-  return output.join('\n\n')
-}
-
-function selectedOutputsForBlock(selectedOutputs: string[], blockId: string) {
-  return selectedOutputs.filter((outputId) => extractBlockIdFromOutputId(outputId) === blockId)
-}
-
-function isStreamedOutput(outputId: string, blockId: string) {
-  const path = extractPathFromOutputId(outputId, blockId)
-  return !path || path === 'content'
-}
-
-function canStreamSelectedBlock(selectedOutputs: string[], blockId: string) {
-  if (selectedOutputs.length === 0) return true
-  return selectedOutputsForBlock(selectedOutputs, blockId).some((outputId) =>
-    isStreamedOutput(outputId, blockId)
-  )
-}
-
-function resolveSelectedBlockOutput(params: {
-  blockId: string
-  output: unknown
-  selectedOutputs: string[]
-  skipStreamedOutput?: boolean
-}) {
-  if (params.selectedOutputs.length === 0) {
-    return params.skipStreamedOutput ? '' : formatChatContent(params.output)
-  }
-
-  return selectedOutputsForBlock(params.selectedOutputs, params.blockId)
-    .filter((outputId) => !params.skipStreamedOutput || !isStreamedOutput(outputId, params.blockId))
-    .map((outputId) => {
-      const path = extractPathFromOutputId(outputId, params.blockId)
-      const value = path ? traverseObjectPath(params.output, path) : params.output
-      return formatChatContent(value)
-    })
-    .filter(Boolean)
-    .join('\n\n')
-}
 
 function createQueuedChatStream(params: {
   taskId: string
@@ -160,9 +97,7 @@ function createQueuedChatStream(params: {
               }
 
               if (!emittedContent) {
-                const content = params.selectedOutputs.length
-                  ? resolveSelectedChatOutput(result, params.selectedOutputs)
-                  : formatChatContent(result.output)
+                const content = resolveExecutionResultChatOutput(result, params.selectedOutputs)
                 if (content) {
                   controller.enqueue(encodeSSE({ blockId: 'workflow', chunk: content }))
                 }

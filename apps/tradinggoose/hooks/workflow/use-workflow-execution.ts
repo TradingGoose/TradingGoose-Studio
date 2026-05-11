@@ -1,8 +1,8 @@
 import { useCallback, useRef, useState } from 'react'
 import { createLogger } from '@/lib/logs/console/logger'
-import { TriggerUtils } from '@/lib/workflows/triggers'
-import { runQueuedWorkflowExecution } from '@/lib/workflows/queued-execution-client'
 import type { WorkflowExecutionEvent } from '@/lib/workflows/execution-events'
+import { runQueuedWorkflowExecution } from '@/lib/workflows/queued-execution-client'
+import { TriggerUtils } from '@/lib/workflows/triggers'
 import { useWorkflowVariables } from '@/lib/yjs/use-workflow-doc'
 import type { ExecutionResult } from '@/executor/types'
 import { useLatestRef } from '@/hooks/use-latest-ref'
@@ -20,6 +20,7 @@ type WorkflowExecutionRequest = {
   input?: unknown
   triggerType?: WorkflowExecutionTriggerType
   selectedOutputs?: string[]
+  onEvent?: (event: WorkflowExecutionEvent) => void | Promise<void>
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -60,7 +61,7 @@ function normalizeErrorMessage(error: unknown): string {
 }
 
 function createExecutionId() {
-  return globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`
+  return globalThis.crypto.randomUUID()
 }
 
 function getInputFormatTestValues(inputFormatValue: unknown): Record<string, unknown> {
@@ -89,13 +90,8 @@ export function useWorkflowExecution() {
   const yjsVariables = useWorkflowVariables()
   const yjsVariablesRef = useLatestRef(yjsVariables)
   const abortControllerRef = useRef<AbortController | null>(null)
-  const {
-    isExecuting,
-    setIsExecuting,
-    setIsDebugging,
-    setPendingBlocks,
-    setActiveBlocks,
-  } = useExecutionStore()
+  const { isExecuting, setIsExecuting, setIsDebugging, setPendingBlocks, setActiveBlocks } =
+    useExecutionStore()
   const [executionResult, setExecutionResult] = useState<ExecutionResult | null>(null)
 
   const applyExecutionEvent = useCallback(
@@ -336,9 +332,7 @@ export function useWorkflowExecution() {
           selectedTrigger = apiTriggers[0]
           selectedBlockId = entries.find(([, block]) => block === selectedTrigger)?.[0] ?? null
 
-          const testInput = getInputFormatTestValues(
-            selectedTrigger.subBlocks?.inputFormat?.value
-          )
+          const testInput = getInputFormatTestValues(selectedTrigger.subBlocks?.inputFormat?.value)
           if (Object.keys(testInput).length > 0) {
             finalWorkflowInput = testInput
           }
@@ -398,12 +392,7 @@ export function useWorkflowExecution() {
         },
       }
     },
-    [
-      activeWorkflowId,
-      currentWorkflow.blocks,
-      currentWorkflow.edges,
-      workflows,
-    ]
+    [activeWorkflowId, currentWorkflow.blocks, currentWorkflow.edges, workflows]
   )
 
   const uploadChatFiles = useCallback(
@@ -430,34 +419,31 @@ export function useWorkflowExecution() {
           })
 
           if (!response.ok) {
-            const message = `Failed to upload ${fileData.name}: ${response.status} ${await response.text()}`
-            logger.error(message)
-            onUploadError?.(message)
-            continue
+            throw new Error(
+              `Failed to upload ${fileData.name}: ${response.status} ${await response.text()}`
+            )
           }
 
           const uploadResult = await response.json()
-          const normalizeUploadResult = (result: any) => ({
-            id:
-              result.id || `file_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
-            name: result.name,
-            url: result.url,
-            size: result.size,
-            type: result.type,
-            key: result.key,
-            uploadedAt: result.uploadedAt,
-            expiresAt: result.expiresAt,
-          })
-
-          if (uploadResult.files && Array.isArray(uploadResult.files)) {
-            uploadedFiles.push(...uploadResult.files.map(normalizeUploadResult))
-          } else if (uploadResult.path || uploadResult.url) {
-            uploadedFiles.push(normalizeUploadResult(uploadResult))
+          if (!isRecord(uploadResult) || typeof uploadResult.id !== 'string') {
+            throw new Error(`Upload response for ${fileData.name} is missing file id`)
           }
+
+          uploadedFiles.push({
+            id: uploadResult.id,
+            name: uploadResult.name,
+            url: uploadResult.url,
+            size: uploadResult.size,
+            type: uploadResult.type,
+            key: uploadResult.key,
+            uploadedAt: uploadResult.uploadedAt,
+            expiresAt: uploadResult.expiresAt,
+          })
         }
       } catch (error) {
         logger.error('Error uploading files:', error)
-        onUploadError?.('Unexpected error uploading files')
+        onUploadError?.(normalizeErrorMessage(error))
+        throw error
       }
 
       return {
@@ -509,7 +495,10 @@ export function useWorkflowExecution() {
             signal: abortController.signal,
           },
           {
-            onEvent: (event) => applyExecutionEvent(event, streamedContentByBlock),
+            onEvent: async (event) => {
+              applyExecutionEvent(event, streamedContentByBlock)
+              await request.onEvent?.(event)
+            },
           }
         )
 

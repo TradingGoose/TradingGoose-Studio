@@ -1,13 +1,16 @@
 /**
  * @vitest-environment node
  */
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+
 import { NextRequest } from 'next/server'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const {
   validateWorkflowAccessMock,
   authenticateApiKeyFromHeaderMock,
   enqueuePendingExecutionMock,
+  loadDeployedWorkflowStateMock,
+  uploadExecutionFileMock,
   readWorkflowExecutionEventStateMock,
   workflowHasResponseBlockMock,
   createHttpResponseFromBlockMock,
@@ -15,6 +18,8 @@ const {
   validateWorkflowAccessMock: vi.fn(),
   authenticateApiKeyFromHeaderMock: vi.fn(),
   enqueuePendingExecutionMock: vi.fn(),
+  loadDeployedWorkflowStateMock: vi.fn(),
+  uploadExecutionFileMock: vi.fn(),
   readWorkflowExecutionEventStateMock: vi.fn(),
   workflowHasResponseBlockMock: vi.fn(),
   createHttpResponseFromBlockMock: vi.fn(),
@@ -37,6 +42,14 @@ vi.mock('@/lib/execution/workflow-execution-events', () => ({
   readWorkflowExecutionEventState: readWorkflowExecutionEventStateMock,
 }))
 
+vi.mock('@/lib/uploads/contexts/execution', () => ({
+  uploadExecutionFile: uploadExecutionFileMock,
+}))
+
+vi.mock('@/lib/workflows/db-helpers', () => ({
+  loadDeployedWorkflowState: loadDeployedWorkflowStateMock,
+}))
+
 vi.mock('@/lib/workflows/utils', () => ({
   workflowHasResponseBlock: workflowHasResponseBlockMock,
   createHttpResponseFromBlock: createHttpResponseFromBlockMock,
@@ -50,7 +63,10 @@ vi.mock('@/lib/trigger/settings', () => ({
 
 vi.mock('@/lib/logs/console/logger', () => ({
   createLogger: vi.fn(() => ({
+    debug: vi.fn(),
     error: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
   })),
 }))
 
@@ -77,6 +93,13 @@ describe('/api/workflows/[id]/execute', () => {
     enqueuePendingExecutionMock.mockResolvedValue({
       pendingExecutionId: 'workflow_execution_1',
       billingScopeId: 'workspace-1',
+    })
+    loadDeployedWorkflowStateMock.mockResolvedValue({
+      blocks: {},
+      edges: [],
+      loops: {},
+      parallels: {},
+      isFromNormalizedTables: false,
     })
     readWorkflowExecutionEventStateMock.mockResolvedValue({
       status: 'completed',
@@ -120,6 +143,40 @@ describe('/api/workflows/[id]/execute', () => {
   })
 
   it('executes POST input through the queue and returns the deployed result contract', async () => {
+    const rawFile = {
+      type: 'file',
+      data: 'data:text/plain;base64,SGVsbG8=',
+      name: 'hello.txt',
+      mime: 'text/plain',
+    }
+    const executionFile = {
+      id: 'file-1',
+      name: 'hello.txt',
+      url: 'https://files.example.com/hello.txt',
+      key: 'execution/hello.txt',
+      size: 5,
+      type: 'text/plain',
+      uploadedAt: '2026-01-01T00:00:00.000Z',
+      expiresAt: '2026-01-08T00:00:00.000Z',
+    }
+    loadDeployedWorkflowStateMock.mockResolvedValue({
+      blocks: {
+        trigger: {
+          type: 'api_trigger',
+          subBlocks: {
+            inputFormat: {
+              value: [{ name: 'documents', type: 'files' }],
+            },
+          },
+        },
+      },
+      edges: [],
+      loops: {},
+      parallels: {},
+      isFromNormalizedTables: false,
+    })
+    uploadExecutionFileMock.mockResolvedValue(executionFile)
+
     const { POST } = await import('./route')
     const response = await POST(
       new NextRequest('https://example.com/api/workflows/workflow-1/execute', {
@@ -128,7 +185,7 @@ describe('/api/workflows/[id]/execute', () => {
           'Content-Type': 'application/json',
           'X-API-Key': 'key-1',
         },
-        body: JSON.stringify({ symbol: 'AAPL' }),
+        body: JSON.stringify({ symbol: 'AAPL', documents: [rawFile] }),
       }),
       { params: Promise.resolve({ id: 'workflow-1' }) }
     )
@@ -153,11 +210,21 @@ describe('/api/workflows/[id]/execute', () => {
           workflowId: 'workflow-1',
           userId: 'user-1',
           workspaceId: 'workspace-1',
-          input: { symbol: 'AAPL' },
+          input: { symbol: 'AAPL', documents: [executionFile] },
           triggerType: 'api',
           executionTarget: 'deployed',
         }),
       })
+    )
+    expect(uploadExecutionFileMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        workspaceId: 'workspace-1',
+        workflowId: 'workflow-1',
+        executionId: expect.stringMatching(/^workflow_execution_/),
+      }),
+      expect.any(Buffer),
+      'hello.txt',
+      'text/plain'
     )
     expect(readWorkflowExecutionEventStateMock).toHaveBeenCalledWith({
       pendingExecutionId: expect.stringMatching(/^workflow_execution_/),

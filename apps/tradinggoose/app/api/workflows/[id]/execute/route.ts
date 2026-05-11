@@ -1,5 +1,5 @@
-import { type NextRequest, NextResponse } from 'next/server'
 import { randomUUID } from 'node:crypto'
+import { type NextRequest, NextResponse } from 'next/server'
 import { authenticateApiKeyFromHeader } from '@/lib/api-key/service'
 import {
   enqueuePendingExecution,
@@ -9,20 +9,12 @@ import { readWorkflowExecutionEventState } from '@/lib/execution/workflow-execut
 import { createLogger } from '@/lib/logs/console/logger'
 import { TriggerExecutionUnavailableError } from '@/lib/trigger/settings'
 import { generateRequestId } from '@/lib/utils'
-import {
-  createHttpResponseFromBlock,
-  workflowHasResponseBlock,
-} from '@/lib/workflows/utils'
-import {
-  createPublicExecutionResult,
-  isExecutionResult,
-} from '@/lib/workflows/execution-result'
-import type { ExecutionResult } from '@/executor/types'
+import { createPublicExecutionResult, isExecutionResult } from '@/lib/workflows/execution-result'
+import { processDeployedApiTriggerInputFiles } from '@/lib/workflows/input-format-files'
+import { createHttpResponseFromBlock, workflowHasResponseBlock } from '@/lib/workflows/utils'
 import { validateWorkflowAccess } from '@/app/api/workflows/middleware'
-import {
-  createErrorResponse,
-  createSuccessResponse,
-} from '@/app/api/workflows/utils'
+import { createErrorResponse, createSuccessResponse } from '@/app/api/workflows/utils'
+import type { ExecutionResult } from '@/executor/types'
 
 const logger = createLogger('WorkflowExecuteAPI')
 const API_EXECUTION_POLL_INTERVAL_MS = 500
@@ -46,10 +38,7 @@ export const runtime = 'nodejs'
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
-async function waitForApiWorkflowResult(params: {
-  executionId: string
-  workflowId: string
-}) {
+async function waitForApiWorkflowResult(params: { executionId: string; workflowId: string }) {
   const startedAt = Date.now()
 
   while (Date.now() - startedAt < API_EXECUTION_WAIT_TIMEOUT_MS) {
@@ -92,17 +81,18 @@ function findUnsupportedApiExecuteField(body: Record<string, unknown>) {
 }
 
 function resolveWorkflowInput(body: Record<string, unknown>) {
-  if (body.input !== undefined) {
-    return body.input
+  const input = body.input !== undefined ? body.input : body
+  if (!input || typeof input !== 'object' || Array.isArray(input)) {
+    return createErrorResponse('Workflow input must be an object', 400)
   }
 
-  return body
+  return input as Record<string, unknown>
 }
 
 async function executeApiWorkflowThroughQueue(params: {
   request: NextRequest
   workflowId: string
-  input?: unknown
+  input: Record<string, unknown>
   requestId: string
 }) {
   const validation = await validateWorkflowAccess(params.request, params.workflowId)
@@ -124,6 +114,14 @@ async function executeApiWorkflowThroughQueue(params: {
   }
 
   const executionId = `workflow_execution_${randomUUID()}`
+  const input = await processDeployedApiTriggerInputFiles({
+    input: params.input,
+    workspaceId: validation.workflow.workspaceId,
+    workflowId: validation.workflow.id,
+    executionId,
+    requestId: params.requestId,
+  })
+
   await enqueuePendingExecution({
     executionType: 'workflow',
     pendingExecutionId: executionId,
@@ -137,7 +135,7 @@ async function executeApiWorkflowThroughQueue(params: {
       workflowId: validation.workflow.id,
       userId: apiKeyAuth.userId,
       workspaceId: validation.workflow.workspaceId,
-      input: params.input ?? {},
+      input,
       triggerType: 'api',
       executionTarget: 'deployed',
       metadata: {
@@ -154,10 +152,7 @@ async function executeApiWorkflowThroughQueue(params: {
   return createApiWorkflowResponse(result)
 }
 
-export async function POST(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const requestId = generateRequestId()
   const { id: workflowId } = await params
 
@@ -177,11 +172,13 @@ export async function POST(
         400
       )
     }
+    const input = resolveWorkflowInput(body)
+    if (input instanceof Response) return input
 
     return await executeApiWorkflowThroughQueue({
       request,
       workflowId,
-      input: resolveWorkflowInput(body),
+      input,
       requestId,
     })
   } catch (error) {

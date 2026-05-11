@@ -184,4 +184,60 @@ describe('useWorkflowExecution', () => {
       expect.any(Object)
     )
   })
+
+  it('forwards queued execution events to the workflow caller', async () => {
+    const streamEvent = {
+      type: 'stream:chunk',
+      executionId: 'execution-1',
+      workflowId: 'workflow-1',
+      timestamp: new Date().toISOString(),
+      data: {
+        blockId: 'agent-1',
+        chunk: 'streamed content',
+      },
+    }
+    mockRunQueuedWorkflowExecution.mockImplementationOnce(async (_request, callbacks) => {
+      await callbacks.onEvent(streamEvent)
+      return {
+        success: true,
+        output: {},
+        logs: [],
+      }
+    })
+
+    const { useWorkflowExecution } = await import('./use-workflow-execution')
+    let execution: ReturnType<typeof useWorkflowExecution> | null = null
+    const onEvent = vi.fn()
+
+    function Harness() {
+      execution = useWorkflowExecution()
+      return null
+    }
+
+    container = document.createElement('div')
+    document.body.appendChild(container)
+    root = createRoot(container)
+
+    await act(async () => {
+      root?.render(React.createElement(Harness))
+    })
+
+    await act(async () => {
+      await execution?.handleRunWorkflow({
+        input: {
+          input: 'hello',
+          conversationId: 'conversation-1',
+        },
+        triggerType: 'chat',
+        onEvent,
+      })
+    })
+
+    expect(onEvent).toHaveBeenCalledWith(streamEvent)
+    expect(mockConsoleState.updateConsole).toHaveBeenCalledWith(
+      'agent-1',
+      { content: 'streamed content' },
+      'execution-1'
+    )
+  })
 })

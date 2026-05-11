@@ -14,7 +14,7 @@ type WorkflowExecutionOptions = {
 }
 
 function createExecutionId() {
-  return globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`
+  return globalThis.crypto.randomUUID()
 }
 
 function resolveStartBlockId(

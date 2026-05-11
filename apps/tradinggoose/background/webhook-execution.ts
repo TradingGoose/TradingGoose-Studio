@@ -3,7 +3,6 @@ import { webhook } from '@tradinggoose/db/schema'
 import { eq } from 'drizzle-orm'
 import { v4 as uuidv4 } from 'uuid'
 import { withExecutionConcurrencyLimit } from '@/lib/execution/execution-concurrency-limit'
-import { processExecutionFiles } from '@/lib/execution/files'
 import { toListingValueObject } from '@/lib/listing/identity'
 import { createLogger } from '@/lib/logs/console/logger'
 import { LoggingSession } from '@/lib/logs/execution/logging-session'
@@ -13,6 +12,7 @@ import {
   loadWorkflowExecutionBlueprint,
   runPreparedWorkflowExecution,
 } from '@/lib/workflows/execution-runner'
+import { processWorkflowInputFormatFiles } from '@/lib/workflows/input-format-files'
 import { getTrigger } from '@/triggers'
 import { resolveTriggerIdForBlock } from '@/triggers/resolution'
 
@@ -26,8 +26,7 @@ async function processTriggerFileOutputs(
     workflowId: string
     executionId: string
     requestId: string
-  },
-  path = ''
+  }
 ): Promise<any> {
   if (!input || typeof input !== 'object') {
     return input
@@ -36,29 +35,19 @@ async function processTriggerFileOutputs(
   const processed: any = Array.isArray(input) ? [] : {}
 
   for (const [key, value] of Object.entries(input)) {
-    const currentPath = path ? `${path}.${key}` : key
     const outputDef = triggerOutputs[key]
     const val: any = value
 
     if (outputDef?.type === 'file[]' && Array.isArray(val)) {
-      try {
-        processed[key] = await WebhookAttachmentProcessor.processAttachments(val as any, context)
-      } catch {
-        processed[key] = []
-      }
+      processed[key] = await WebhookAttachmentProcessor.processAttachments(val as any, context)
     } else if (outputDef?.type === 'file' && val) {
-      try {
-        const [processedFile] = await WebhookAttachmentProcessor.processAttachments(
-          [val as any],
-          context
-        )
-        processed[key] = processedFile
-      } catch (error) {
-        logger.error(`[${context.requestId}] Error processing ${currentPath}:`, error)
-        processed[key] = val
-      }
+      const [processedFile] = await WebhookAttachmentProcessor.processAttachments(
+        [val as any],
+        context
+      )
+      processed[key] = processedFile
     } else if (outputDef && typeof outputDef === 'object' && !outputDef.type) {
-      processed[key] = await processTriggerFileOutputs(val, outputDef, context, currentPath)
+      processed[key] = await processTriggerFileOutputs(val, outputDef, context)
     } else {
       processed[key] = val
     }
@@ -365,74 +354,45 @@ export async function executeWebhookJob(payload: WebhookExecutionPayload) {
         }
 
         if (input && payload.blockId && blocks[payload.blockId]) {
-          try {
-            const triggerBlock = blocks[payload.blockId]
-            const triggerId = resolveTriggerIdForBlock(triggerBlock)
+          const triggerBlock = blocks[payload.blockId]
+          const triggerId = resolveTriggerIdForBlock(triggerBlock)
 
-            if (triggerId && typeof triggerId === 'string') {
-              const triggerConfig = getTrigger(triggerId)
+          if (triggerId && typeof triggerId === 'string') {
+            const triggerConfig = getTrigger(triggerId)
 
-              if (triggerConfig?.outputs) {
-                logger.debug(`[${requestId}] Processing trigger ${triggerId} file outputs`)
-                const processedInput = await processTriggerFileOutputs(
-                  input,
-                  triggerConfig.outputs,
-                  {
-                    workspaceId: scopedWorkspaceId,
-                    workflowId: payload.workflowId,
-                    executionId,
-                    requestId,
-                  }
-                )
-                Object.assign(input, processedInput)
-              }
+            if (triggerConfig?.outputs) {
+              logger.debug(`[${requestId}] Processing trigger ${triggerId} file outputs`)
+              const processedInput = await processTriggerFileOutputs(input, triggerConfig.outputs, {
+                workspaceId: scopedWorkspaceId,
+                workflowId: payload.workflowId,
+                executionId,
+                requestId,
+              })
+              Object.assign(input, processedInput)
             }
-          } catch (error) {
-            logger.error(`[${requestId}] Error processing trigger file outputs:`, error)
           }
         }
 
-        if (input && payload.provider === 'generic' && payload.blockId && blocks[payload.blockId]) {
-          try {
-            const triggerBlock = blocks[payload.blockId]
-
-            if (triggerBlock?.subBlocks?.inputFormat?.value) {
-              const inputFormat = triggerBlock.subBlocks.inputFormat.value as Array<{
-                name: string
-                type: 'string' | 'number' | 'boolean' | 'object' | 'array' | 'files'
-              }>
-              const fileFields = inputFormat.filter((field) => field.type === 'files')
-
-              if (fileFields.length > 0 && typeof input === 'object' && input !== null) {
-                const executionContext = {
-                  workspaceId: scopedWorkspaceId,
-                  workflowId: payload.workflowId,
-                  executionId,
-                }
-
-                for (const fileField of fileFields) {
-                  const fieldValue = input[fileField.name]
-
-                  if (fieldValue && typeof fieldValue === 'object') {
-                    const uploadedFiles = await processExecutionFiles(
-                      fieldValue,
-                      executionContext,
-                      requestId
-                    )
-
-                    if (uploadedFiles.length > 0) {
-                      input[fileField.name] = uploadedFiles
-                      logger.info(
-                        `[${requestId}] Successfully processed ${uploadedFiles.length} file(s) for field: ${fileField.name}`
-                      )
-                    }
-                  }
-                }
-              }
-            }
-          } catch (error) {
-            logger.error(`[${requestId}] Error processing generic webhook files:`, error)
-          }
+        if (
+          input &&
+          typeof input === 'object' &&
+          !Array.isArray(input) &&
+          payload.provider === 'generic' &&
+          payload.blockId &&
+          blocks[payload.blockId]
+        ) {
+          const processedInput = await processWorkflowInputFormatFiles({
+            input,
+            blocks,
+            blockId: payload.blockId,
+            executionContext: {
+              workspaceId: scopedWorkspaceId,
+              workflowId: payload.workflowId,
+              executionId,
+            },
+            requestId,
+          })
+          Object.assign(input, processedInput)
         }
 
         runnerInvoked = true
