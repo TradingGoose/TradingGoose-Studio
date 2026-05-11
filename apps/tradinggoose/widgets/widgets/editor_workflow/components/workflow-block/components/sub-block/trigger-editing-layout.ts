@@ -53,10 +53,6 @@ export function buildTriggerEditingLayout({
   const advancedVisibility = shouldDisableWrite
     ? effectiveAdvanced || advancedValuesPresent
     : effectiveAdvanced
-  const advancedOnlySubBlocks = blockConfig.subBlocks.filter(
-    (subBlock) => subBlock.mode === 'advanced'
-  )
-
   const regularRows = buildSubBlockRows({
     blockId,
     subBlocks: blockConfig.subBlocks,
@@ -70,7 +66,7 @@ export function buildTriggerEditingLayout({
   })
   const advancedRows = buildSubBlockRows({
     blockId,
-    subBlocks: advancedOnlySubBlocks,
+    subBlocks: blockConfig.subBlocks,
     stateToUse: blockStateForConditions,
     isAdvancedMode: true,
     isTriggerMode: effectiveTrigger,

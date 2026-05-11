@@ -49,17 +49,16 @@ export function buildSubBlockRows({
   hideFromPreview = false,
   triggerSubBlockOwner = 'editor',
 }: BuildSubBlockRowsParams): SubBlockConfig[][] {
-  const resolvedParams = buildConfiguredSubBlockParams({
+  const conditionParams = buildConfiguredSubBlockParams({
     blockId,
     subBlockConfigs: subBlocks,
     subBlocks: stateToUse,
-    isAdvancedMode,
   })
-  const activeTriggerId = resolveTriggerIdFromSubBlocks(resolvedParams, availableTriggerIds)
+  const activeTriggerId = resolveTriggerIdFromSubBlocks(conditionParams, availableTriggerIds)
   const hasTriggerDefinition = !!(activeTriggerId && getTrigger(activeTriggerId))
 
   const getConditionFieldValue = (field: string) => {
-    const normalizedValue = normalizeValue(resolvedParams[field])
+    const normalizedValue = normalizeValue(conditionParams[field])
     if (field === 'selectedTriggerId') {
       if (availableTriggerIds !== undefined) {
         return activeTriggerId ?? undefined

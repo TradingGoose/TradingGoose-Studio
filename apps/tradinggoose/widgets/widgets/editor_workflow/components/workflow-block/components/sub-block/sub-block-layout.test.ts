@@ -79,4 +79,32 @@ describe('buildSubBlockRows', () => {
 
     expect(rows.flat().map((subBlock) => subBlock.id)).toEqual(['selectedTriggerId'])
   })
+
+  it('evaluates advanced field conditions against basic configured values', () => {
+    const rows = buildSubBlockRows({
+      subBlocks: [
+        {
+          id: 'operation',
+          title: 'Operation',
+          type: 'dropdown',
+          mode: 'basic',
+        },
+        {
+          id: 'files',
+          title: 'Files',
+          type: 'file-selector',
+          mode: 'advanced',
+          condition: { field: 'operation', value: 'send' },
+        },
+      ],
+      stateToUse: {
+        operation: { value: 'send' },
+      },
+      isAdvancedMode: true,
+      isTriggerMode: false,
+      isPureTriggerBlock: false,
+    })
+
+    expect(rows.flat().map((subBlock) => subBlock.id)).toEqual(['files'])
+  })
 })
