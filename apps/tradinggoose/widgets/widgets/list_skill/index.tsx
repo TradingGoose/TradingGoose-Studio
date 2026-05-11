@@ -90,9 +90,9 @@ const SkillListHeaderRight = ({
             resolvedPairColor,
             buildPersistedPairContext({
               existing: pairContext,
-              legacyIdKey: 'skillId',
+              entityIdKey: 'skillId',
               descriptor: null,
-              legacyEntityId: createdSkillId,
+              selectedEntityId: createdSkillId,
             })
           )
           return

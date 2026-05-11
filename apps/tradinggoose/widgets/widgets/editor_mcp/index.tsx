@@ -6,19 +6,19 @@ import type { PairColor } from '@/widgets/pair-colors'
 import type { DashboardWidgetDefinition } from '@/widgets/types'
 import { emitMcpEditorAction } from '@/widgets/utils/mcp-editor-actions'
 import { emitMcpSelectionChange } from '@/widgets/utils/mcp-selection'
-import { McpDropdown } from '@/widgets/widgets/components/mcp-dropdown'
-import {
-  EntityEditorHeaderButton,
-  EntityEditorRedoButton,
-  EntityEditorUndoButton,
-} from '@/widgets/widgets/components/entity-editor-buttons'
-import { widgetHeaderButtonGroupClassName } from '@/widgets/widgets/components/widget-header-control'
-import { EditorMcpWidgetBody } from '@/widgets/widgets/editor_mcp/editor-mcp-body'
 import {
   buildPersistedPairContext,
   readEntitySelectionState,
   resolveMcpServerId,
 } from '@/widgets/widgets/_shared/mcp/utils'
+import {
+  EntityEditorHeaderButton,
+  EntityEditorRedoButton,
+  EntityEditorUndoButton,
+} from '@/widgets/widgets/components/entity-editor-buttons'
+import { McpDropdown } from '@/widgets/widgets/components/mcp-dropdown'
+import { widgetHeaderButtonGroupClassName } from '@/widgets/widgets/components/widget-header-control'
+import { EditorMcpWidgetBody } from '@/widgets/widgets/editor_mcp/editor-mcp-body'
 
 const McpEditorSelector = ({
   workspaceId,
@@ -50,9 +50,9 @@ const McpEditorSelector = ({
         resolvedPairColor,
         buildPersistedPairContext({
           existing: pairContext,
-          legacyIdKey: 'mcpServerId',
+          entityIdKey: 'mcpServerId',
           descriptor: null,
-          legacyEntityId: nextServerId,
+          selectedEntityId: nextServerId,
         })
       )
       return
@@ -94,13 +94,13 @@ const McpEditorHeaderActions = ({
   const selectionState = readEntitySelectionState({
     params,
     pairContext: resolvedPairColor !== 'gray' ? pairContext : null,
-    legacyIdKey: 'mcpServerId',
+    entityIdKey: 'mcpServerId',
   })
   const hasSelection =
-    !!selectionState.legacyEntityId ||
+    !!selectionState.selectedEntityId ||
     !!selectionState.reviewSessionId ||
     !!selectionState.reviewDraftSessionId
-  const hasCanonicalEntity = !!(selectionState.reviewEntityId ?? selectionState.legacyEntityId)
+  const hasCanonicalEntity = !!(selectionState.reviewEntityId ?? selectionState.selectedEntityId)
 
   const emitAction = (
     action: 'save' | 'refresh' | 'close' | 'reset' | 'test' | 'undo' | 'redo'

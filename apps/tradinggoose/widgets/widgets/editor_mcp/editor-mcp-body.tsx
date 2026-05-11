@@ -1,20 +1,26 @@
 'use client'
 
 import {
+  type Dispatch,
+  type SetStateAction,
   useCallback,
   useEffect,
   useMemo,
   useRef,
   useState,
-  type Dispatch,
-  type SetStateAction,
 } from 'react'
 import { LoadingAgent } from '@/components/ui/loading-agent'
-import { ENTITY_KIND_MCP_SERVER, type ReviewTargetDescriptor } from '@/lib/copilot/review-sessions/types'
+import { useEntitySession } from '@/lib/copilot/review-sessions/entity-session-host'
 import {
-  useEntitySession,
-} from '@/lib/copilot/review-sessions/entity-session-host'
-import { useYjsBooleanField, useYjsField, useYjsNumberField, useYjsStringField } from '@/lib/yjs/use-entity-fields'
+  ENTITY_KIND_MCP_SERVER,
+  type ReviewTargetDescriptor,
+} from '@/lib/copilot/review-sessions/types'
+import {
+  useYjsBooleanField,
+  useYjsField,
+  useYjsNumberField,
+  useYjsStringField,
+} from '@/lib/yjs/use-entity-fields'
 import { useMcpServerTest } from '@/hooks/use-mcp-server-test'
 import { useMcpTools } from '@/hooks/use-mcp-tools'
 import { useMcpServersStore } from '@/stores/mcp-servers/store'
@@ -22,7 +28,6 @@ import type { McpServerWithStatus } from '@/stores/mcp-servers/types'
 import type { WidgetComponentProps } from '@/widgets/types'
 import { useMcpEditorActions } from '@/widgets/utils/mcp-editor-actions'
 import { useMcpSelectionPersistence } from '@/widgets/utils/mcp-selection'
-import { WidgetStateMessage } from '@/widgets/widgets/editor_indicator/components/widget-state-message'
 import { McpServerForm } from '@/widgets/widgets/_shared/mcp/components/mcp-server-form'
 import {
   buildPersistedPairContext,
@@ -35,6 +40,7 @@ import {
   EntityEditorShell,
   type EntityEditorShellConfig,
 } from '@/widgets/widgets/components/entity-editor-shell'
+import { WidgetStateMessage } from '@/widgets/widgets/editor_indicator/components/widget-state-message'
 import { useGuardedUndoRedo } from '@/widgets/widgets/entity_review/use-guarded-undo-redo'
 
 type EditorMcpWidgetBodyProps = WidgetComponentProps
@@ -99,7 +105,7 @@ const refreshServerApi = async (serverId: string, workspaceId: string) => {
 const MCP_SHELL_CONFIG: EntityEditorShellConfig = {
   entityKind: ENTITY_KIND_MCP_SERVER,
   fallbackWidgetKey: 'editor_mcp',
-  legacyIdKey: 'mcpServerId',
+  entityIdKey: 'mcpServerId',
   buildWidgetParams: buildPersistedReviewParams,
   buildPairContext: buildPersistedPairContext,
   readEntitySelectionState,
@@ -140,9 +146,9 @@ export function EditorMcpWidgetBody(props: EditorMcpWidgetBodyProps) {
               resolvedPairColor,
               buildPersistedPairContext({
                 existing: pairContext,
-                legacyIdKey: 'mcpServerId',
+                entityIdKey: 'mcpServerId',
                 descriptor: null,
-                legacyEntityId: serverId,
+                selectedEntityId: serverId,
               })
             )
           },
@@ -379,9 +385,7 @@ function McpEditorSession({
         onReviewTargetChange?.(responsePayload.reviewTarget as ReviewTargetDescriptor)
       }
     } catch (saveError) {
-      setSaveError(
-        saveError instanceof Error ? saveError.message : 'Failed to save MCP server.'
-      )
+      setSaveError(saveError instanceof Error ? saveError.message : 'Failed to save MCP server.')
     }
   }, [
     descriptor.draftSessionId,
@@ -422,7 +426,7 @@ function McpEditorSession({
   }
 
   const displayStatus = descriptor.entityId
-    ? selectedServer?.connectionStatus ?? 'disconnected'
+    ? (selectedServer?.connectionStatus ?? 'disconnected')
     : 'draft'
 
   return (

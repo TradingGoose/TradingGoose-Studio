@@ -59,9 +59,9 @@ export function SkillList({
         resolvedPairColor,
         buildPersistedPairContext({
           existing: pairContext,
-          legacyIdKey: 'skillId',
+          entityIdKey: 'skillId',
           descriptor: null,
-          legacyEntityId: skillId,
+          selectedEntityId: skillId,
         })
       )
     },
@@ -82,9 +82,9 @@ export function SkillList({
             resolvedPairColor,
             buildPersistedPairContext({
               existing: pairContext,
-              legacyIdKey: 'skillId',
+              entityIdKey: 'skillId',
               descriptor: null,
-              legacyEntityId: skillId,
+              selectedEntityId: skillId,
             })
           )
         }

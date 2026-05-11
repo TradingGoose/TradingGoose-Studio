@@ -1,3 +1,4 @@
+import { REVIEW_ENTITY_KINDS, type ReviewEntityKind } from '@/lib/copilot/review-sessions/types'
 import { type ListingIdentity, toListingValueObject } from '@/lib/listing/identity'
 import { normalizeOptionalString } from '@/lib/utils'
 import type { PairColor } from '@/widgets/pair-colors'
@@ -19,6 +20,10 @@ export type PersistedColorPair = {
   mcpServerId?: string | null
   customToolId?: string | null
   skillId?: string | null
+  reviewSessionId?: string | null
+  reviewEntityKind?: ReviewEntityKind | null
+  reviewEntityId?: string | null
+  reviewDraftSessionId?: string | null
 }
 
 export type PersistedColorPairsState = {
@@ -140,6 +145,22 @@ export function normalizeColorPairsState(state?: unknown): PersistedColorPairsSt
     const mcpServerId = normalizeOptionalString((raw as { mcpServerId?: unknown }).mcpServerId)
     const customToolId = normalizeOptionalString((raw as { customToolId?: unknown }).customToolId)
     const skillId = normalizeOptionalString((raw as { skillId?: unknown }).skillId)
+    const reviewSessionId = normalizeOptionalString(
+      (raw as { reviewSessionId?: unknown }).reviewSessionId
+    )
+    const rawReviewEntityKind = normalizeOptionalString(
+      (raw as { reviewEntityKind?: unknown }).reviewEntityKind
+    )
+    const validReviewEntityKind =
+      rawReviewEntityKind && REVIEW_ENTITY_KINDS.includes(rawReviewEntityKind as ReviewEntityKind)
+        ? (rawReviewEntityKind as ReviewEntityKind)
+        : undefined
+    const reviewEntityId = normalizeOptionalString(
+      (raw as { reviewEntityId?: unknown }).reviewEntityId
+    )
+    const reviewDraftSessionId = normalizeOptionalString(
+      (raw as { reviewDraftSessionId?: unknown }).reviewDraftSessionId
+    )
 
     normalized.push({
       color: rawColor,
@@ -149,6 +170,10 @@ export function normalizeColorPairsState(state?: unknown): PersistedColorPairsSt
       mcpServerId,
       customToolId,
       skillId,
+      reviewSessionId: validReviewEntityKind ? reviewSessionId : undefined,
+      reviewEntityKind: validReviewEntityKind,
+      reviewEntityId: validReviewEntityKind ? reviewEntityId : undefined,
+      reviewDraftSessionId: validReviewEntityKind ? reviewDraftSessionId : undefined,
     })
     seen.add(rawColor)
   }

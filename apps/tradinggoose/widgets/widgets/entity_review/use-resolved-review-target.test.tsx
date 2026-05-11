@@ -2,9 +2,8 @@
  * @vitest-environment jsdom
  */
 
-import { act } from 'react'
+import { act, useState } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
-import { useState } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { PairColorContext } from '@/stores/dashboard/pair-store'
 import {
@@ -20,9 +19,9 @@ const reactActEnvironment = globalThis as typeof globalThis & {
 const mockResolveEntityReviewTarget = vi.fn()
 
 vi.mock('@/widgets/widgets/entity_review/review-target-utils', async () => {
-  const actual = await vi.importActual<typeof import('@/widgets/widgets/entity_review/review-target-utils')>(
-    '@/widgets/widgets/entity_review/review-target-utils'
-  )
+  const actual = await vi.importActual<
+    typeof import('@/widgets/widgets/entity_review/review-target-utils')
+  >('@/widgets/widgets/entity_review/review-target-utils')
 
   return {
     ...actual,
@@ -52,7 +51,7 @@ function HookHarness({
   const selectionState = readEntitySelectionState({
     pairContext,
     params: initialParams,
-    legacyIdKey: 'skillId',
+    entityIdKey: 'skillId',
   })
 
   const { descriptor, isResolving, error } = useResolvedReviewTarget({
@@ -61,7 +60,7 @@ function HookHarness({
     params: initialParams,
     pairColor: 'red',
     pairContext,
-    legacyIdKey: 'skillId',
+    entityIdKey: 'skillId',
     selectionState,
     buildWidgetParams: () => null,
     buildPairContext: buildPersistedPairContext,

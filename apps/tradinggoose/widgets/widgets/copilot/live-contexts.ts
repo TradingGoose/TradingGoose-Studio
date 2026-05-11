@@ -1,4 +1,10 @@
-import type { ReviewEntityKind } from '@/lib/copilot/review-sessions/types'
+import {
+  ENTITY_KIND_CUSTOM_TOOL,
+  ENTITY_KIND_INDICATOR,
+  ENTITY_KIND_MCP_SERVER,
+  ENTITY_KIND_SKILL,
+  type ReviewEntityKind,
+} from '@/lib/copilot/review-sessions/types'
 import { normalizeOptionalString } from '@/lib/utils'
 import type { ChatContext } from '@/stores/copilot/types'
 import type { PairColorContext } from '@/stores/dashboard/pair-store'
@@ -27,11 +33,42 @@ export function resolveCopilotWorkflowId(
 }
 
 export function buildCopilotEditableReviewTargets({
-  pairContext: _pairContext,
+  pairContext,
 }: {
   pairContext?: PairColorContext | null
 }): CopilotEditableReviewTarget[] {
-  return []
+  const entityKind = normalizeOptionalString(pairContext?.reviewEntityKind)
+  if (!isEditableReviewEntityKind(entityKind)) {
+    return []
+  }
+
+  const entityId = normalizeOptionalString(pairContext?.reviewEntityId) ?? null
+  const reviewSessionId = normalizeOptionalString(pairContext?.reviewSessionId) ?? null
+  const draftSessionId = normalizeOptionalString(pairContext?.reviewDraftSessionId) ?? null
+
+  if (!entityId && !reviewSessionId && !draftSessionId) {
+    return []
+  }
+
+  return [
+    {
+      entityKind,
+      entityId,
+      reviewSessionId,
+      draftSessionId,
+    },
+  ]
+}
+
+function isEditableReviewEntityKind(
+  value: string | null | undefined
+): value is Exclude<ReviewEntityKind, 'workflow'> {
+  return (
+    value === ENTITY_KIND_SKILL ||
+    value === ENTITY_KIND_CUSTOM_TOOL ||
+    value === ENTITY_KIND_INDICATOR ||
+    value === ENTITY_KIND_MCP_SERVER
+  )
 }
 
 export const buildImplicitCopilotContexts = ({

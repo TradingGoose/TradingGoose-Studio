@@ -56,11 +56,11 @@ vi.mock('@/components/ui/loading-agent', () => ({
 const TEST_CONFIG: EntityEditorShellConfig = {
   entityKind: 'skill',
   fallbackWidgetKey: 'editor_skill',
-  legacyIdKey: 'skillId',
+  entityIdKey: 'skillId',
   buildWidgetParams: () => null,
   buildPairContext: () => ({}),
   readEntitySelectionState: () => ({
-    legacyEntityId: 'skill-1',
+    selectedEntityId: 'skill-1',
     reviewSessionId: 'review-1',
     reviewEntityId: 'skill-1',
     reviewDraftSessionId: null,
@@ -159,11 +159,7 @@ describe('EntityEditorShell', () => {
 
     await act(async () => {
       root.render(
-        <EntityEditorShell
-          context={{ workspaceId: 'ws-1' }}
-          pairColor='red'
-          config={TEST_CONFIG}
-        >
+        <EntityEditorShell context={{ workspaceId: 'ws-1' }} pairColor='red' config={TEST_CONFIG}>
           {() => <div data-testid='editor-child'>editor</div>}
         </EntityEditorShell>
       )

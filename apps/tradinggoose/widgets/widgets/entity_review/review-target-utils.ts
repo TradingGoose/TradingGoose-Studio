@@ -15,7 +15,7 @@ import { REVIEW_TARGET_FIELDS } from '@/widgets/events'
 import { resolveEntityId } from '@/widgets/widgets/entity_review/resolve-entity-id'
 
 export interface EntitySelectionState {
-  legacyEntityId: string | null
+  selectedEntityId: string | null
   reviewSessionId: string | null
   reviewEntityId: string | null
   reviewDraftSessionId: string | null
@@ -43,11 +43,10 @@ function resolveReviewField(
     pairContext?: PairColorContext | null
   }
 ): string | null {
-  if (options.pairContext) {
-    return null
-  }
-
-  return readOwnNormalizedString(options.params ?? null, key).value
+  return readOwnNormalizedString(
+    options.pairContext ? (options.pairContext as Record<string, unknown>) : options.params,
+    key
+  ).value
 }
 
 export function readReviewTargetDescriptor(options: {
@@ -55,10 +54,8 @@ export function readReviewTargetDescriptor(options: {
   pairContext?: PairColorContext | null
 }): ReviewTargetDescriptor | null {
   const payload: Record<string, string | undefined> = {
-    workspaceId:
-      resolveReviewField('workspaceId', options) ?? undefined,
-    yjsSessionId:
-      resolveReviewField('yjsSessionId', options) ?? undefined,
+    workspaceId: resolveReviewField('workspaceId', options) ?? undefined,
+    yjsSessionId: resolveReviewField('yjsSessionId', options) ?? undefined,
   }
   for (const key of REVIEW_TARGET_FIELDS) {
     payload[key] = resolveReviewField(key, options) ?? undefined
@@ -108,52 +105,44 @@ export function buildReviewTargetDescriptorFromState(options: {
 export function readEntitySelectionState(options: {
   params?: Record<string, unknown> | null
   pairContext?: PairColorContext | null
-  legacyIdKey: keyof PairColorContext | string
+  entityIdKey: keyof PairColorContext | string
 }): EntitySelectionState {
   const descriptor = readReviewTargetDescriptor(options)
-  const rawLegacyValue = resolveEntityId(options.legacyIdKey, {
+  const selectedEntityId = resolveEntityId(options.entityIdKey, {
     params: options.params,
     pairContext: options.pairContext as Record<string, unknown> | null | undefined,
   })
 
   return {
-    legacyEntityId: rawLegacyValue ?? null,
+    selectedEntityId: selectedEntityId ?? null,
     reviewSessionId:
-      descriptor?.reviewSessionId ??
-      resolveReviewField('reviewSessionId', options) ??
-      null,
-    reviewEntityId:
-      descriptor?.entityId ??
-      resolveReviewField('reviewEntityId', options) ??
-      null,
+      descriptor?.reviewSessionId ?? resolveReviewField('reviewSessionId', options) ?? null,
+    reviewEntityId: descriptor?.entityId ?? resolveReviewField('reviewEntityId', options) ?? null,
     reviewDraftSessionId:
-      descriptor?.draftSessionId ??
-      resolveReviewField('reviewDraftSessionId', options) ??
-      null,
+      descriptor?.draftSessionId ?? resolveReviewField('reviewDraftSessionId', options) ?? null,
     descriptor,
   }
 }
 
 export function buildPersistedReviewParams(options: {
   currentParams?: Record<string, unknown> | null
-  legacyIdKey: string
+  entityIdKey: string
   descriptor: ReviewTargetDescriptor | null
-  legacyEntityId?: string | null
+  selectedEntityId?: string | null
 }): Record<string, unknown> | null {
-  const current = { ...(options.currentParams ?? {}) }
+  const current = Object.fromEntries(
+    Object.entries(options.currentParams ?? {}).filter(
+      ([key]) =>
+        key !== options.entityIdKey &&
+        key !== 'yjsSessionId' &&
+        !(REVIEW_TARGET_FIELDS as readonly string[]).includes(key)
+    )
+  )
   const serialized = options.descriptor ? serializeReviewTargetDescriptor(options.descriptor) : {}
 
-  if (options.legacyEntityId) {
-    current[options.legacyIdKey] = options.legacyEntityId
-  } else {
-    delete current[options.legacyIdKey]
+  if (options.selectedEntityId) {
+    current[options.entityIdKey] = options.selectedEntityId
   }
-
-  delete current.reviewSessionId
-  delete current.reviewEntityKind
-  delete current.reviewEntityId
-  delete current.reviewDraftSessionId
-  delete current.yjsSessionId
 
   Object.assign(current, serialized)
 
@@ -162,27 +151,34 @@ export function buildPersistedReviewParams(options: {
 
 export function buildPersistedPairContext(options: {
   existing?: PairColorContext | null
-  legacyIdKey: keyof PairColorContext
+  entityIdKey: keyof PairColorContext
   descriptor: ReviewTargetDescriptor | null
-  legacyEntityId?: string | null
+  selectedEntityId?: string | null
 }): PairColorContext {
-  const next = {
-    ...(options.existing ?? {}),
-  } as PairColorContext & Record<string, unknown>
+  const next = Object.fromEntries(
+    Object.entries(options.existing ?? {}).filter(
+      ([key]) =>
+        key !== options.entityIdKey && !(REVIEW_TARGET_FIELDS as readonly string[]).includes(key)
+    )
+  ) as PairColorContext & Record<string, unknown>
+  const nextRecord = next as Record<string, unknown>
 
-  if (options.legacyEntityId) {
-    ;(next as Record<string, unknown>)[options.legacyIdKey] = options.legacyEntityId
-  } else {
-    delete (next as Record<string, unknown>)[options.legacyIdKey]
+  if (options.selectedEntityId) {
+    nextRecord[options.entityIdKey] = options.selectedEntityId
   }
 
-  delete next.reviewTarget
-  delete next.reviewSessionId
-  delete next.reviewEntityKind
-  delete next.reviewEntityId
-  delete next.reviewDraftSessionId
-  delete next.workspaceId
-  delete next.yjsSessionId
+  if (options.descriptor) {
+    next.reviewEntityKind = options.descriptor.entityKind
+    if (options.descriptor.reviewSessionId) {
+      next.reviewSessionId = options.descriptor.reviewSessionId
+    }
+    if (options.descriptor.entityId) {
+      next.reviewEntityId = options.descriptor.entityId
+    }
+    if (options.descriptor.draftSessionId) {
+      next.reviewDraftSessionId = options.descriptor.draftSessionId
+    }
+  }
 
   return next
 }

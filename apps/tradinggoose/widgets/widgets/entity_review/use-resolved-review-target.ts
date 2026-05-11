@@ -1,13 +1,13 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { PairColorContext } from '@/stores/dashboard/pair-store'
-import type { PairColor } from '@/widgets/pair-colors'
 import type {
   ResolvedReviewTarget,
   ReviewEntityKind,
   ReviewTargetDescriptor,
 } from '@/lib/copilot/review-sessions/types'
+import type { PairColorContext } from '@/stores/dashboard/pair-store'
+import type { PairColor } from '@/widgets/pair-colors'
 import { resolveEntityReviewTarget } from '@/widgets/widgets/entity_review/review-target-utils'
 
 interface UseResolvedReviewTargetOptions {
@@ -18,9 +18,9 @@ interface UseResolvedReviewTargetOptions {
   pairContext?: PairColorContext | null
   onWidgetParamsChange?: (params: Record<string, unknown> | null) => void
   setPairContext?: (color: PairColor, context: PairColorContext) => void
-  legacyIdKey: keyof PairColorContext & string
+  entityIdKey: keyof PairColorContext & string
   selectionState: {
-    legacyEntityId: string | null
+    selectedEntityId: string | null
     reviewSessionId: string | null
     reviewEntityId: string | null
     reviewDraftSessionId: string | null
@@ -28,15 +28,15 @@ interface UseResolvedReviewTargetOptions {
   }
   buildWidgetParams: (options: {
     currentParams?: Record<string, unknown> | null
-    legacyIdKey: string
+    entityIdKey: string
     descriptor: ReviewTargetDescriptor | null
-    legacyEntityId?: string | null
+    selectedEntityId?: string | null
   }) => Record<string, unknown> | null
   buildPairContext: (options: {
     existing?: PairColorContext | null
-    legacyIdKey: keyof PairColorContext
+    entityIdKey: keyof PairColorContext
     descriptor: ReviewTargetDescriptor | null
-    legacyEntityId?: string | null
+    selectedEntityId?: string | null
   }) => PairColorContext
 }
 
@@ -53,7 +53,10 @@ function doesResolvedTargetMatchRequest(options: {
     return false
   }
 
-  if (descriptor.workspaceId !== options.workspaceId || descriptor.entityKind !== options.entityKind) {
+  if (
+    descriptor.workspaceId !== options.workspaceId ||
+    descriptor.entityKind !== options.entityKind
+  ) {
     return false
   }
 
@@ -96,7 +99,7 @@ export function useResolvedReviewTarget({
   pairContext,
   onWidgetParamsChange,
   setPairContext,
-  legacyIdKey,
+  entityIdKey,
   selectionState,
   buildWidgetParams,
   buildPairContext,
@@ -108,12 +111,12 @@ export function useResolvedReviewTarget({
 
   const isLinkedToColorPair = pairColor !== 'gray'
   const hasConflictingEntitySelection =
-    !!selectionState.legacyEntityId &&
+    !!selectionState.selectedEntityId &&
     !!selectionState.reviewEntityId &&
-    selectionState.legacyEntityId !== selectionState.reviewEntityId
+    selectionState.selectedEntityId !== selectionState.reviewEntityId
   const requestedEntityId = hasConflictingEntitySelection
-    ? selectionState.legacyEntityId
-    : (selectionState.reviewEntityId ?? selectionState.legacyEntityId)
+    ? selectionState.selectedEntityId
+    : (selectionState.reviewEntityId ?? selectionState.selectedEntityId)
   const requestedDraftSessionId = hasConflictingEntitySelection
     ? null
     : selectionState.reviewDraftSessionId
@@ -122,7 +125,7 @@ export function useResolvedReviewTarget({
     : selectionState.reviewSessionId
 
   const persistDescriptor = useCallback(
-    (descriptor: ReviewTargetDescriptor | null, legacyEntityId?: string | null) => {
+    (descriptor: ReviewTargetDescriptor | null, selectedEntityId?: string | null) => {
       if (isLinkedToColorPair) {
         if (!setPairContext) {
           return
@@ -132,9 +135,9 @@ export function useResolvedReviewTarget({
           pairColor,
           buildPairContext({
             existing: pairContext,
-            legacyIdKey,
+            entityIdKey,
             descriptor,
-            legacyEntityId: legacyEntityId ?? descriptor?.entityId ?? null,
+            selectedEntityId: selectedEntityId ?? descriptor?.entityId ?? null,
           })
         )
         return
@@ -143,9 +146,9 @@ export function useResolvedReviewTarget({
       onWidgetParamsChange?.(
         buildWidgetParams({
           currentParams: params,
-          legacyIdKey,
+          entityIdKey,
           descriptor,
-          legacyEntityId: legacyEntityId ?? descriptor?.entityId ?? null,
+          selectedEntityId: selectedEntityId ?? descriptor?.entityId ?? null,
         })
       )
     },
@@ -153,7 +156,7 @@ export function useResolvedReviewTarget({
       buildPairContext,
       buildWidgetParams,
       isLinkedToColorPair,
-      legacyIdKey,
+      entityIdKey,
       onWidgetParamsChange,
       pairColor,
       pairContext,

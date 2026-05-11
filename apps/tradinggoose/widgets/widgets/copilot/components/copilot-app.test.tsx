@@ -168,22 +168,27 @@ describe('CopilotApp', () => {
     )
   })
 
-  it('ignores forced pair review metadata now that review state is widget-local', async () => {
+  it('mounts canonical pair review metadata as an editable entity target', async () => {
     mockPairContext = {
       workflowId: null,
       skillId: 'skill-current-context',
-      reviewTarget: {
-        reviewSessionId: 'review-1',
-        reviewEntityKind: 'skill',
-        reviewEntityId: null,
-        reviewDraftSessionId: 'draft-1',
-      },
+      reviewSessionId: 'review-1',
+      reviewEntityKind: 'skill',
+      reviewEntityId: null,
+      reviewDraftSessionId: 'draft-1',
     }
 
     await renderApp()
 
     expect(mockResolveEntityReviewTarget).not.toHaveBeenCalled()
-    expect(container.querySelector('[data-testid="entity-session-host"]')).toBeNull()
+    expect(container.querySelector('[data-testid="entity-session-host"]')).toHaveAttribute(
+      'data-review-session-id',
+      'review-1'
+    )
+    expect(container.querySelector('[data-testid="entity-session-host"]')).toHaveAttribute(
+      'data-draft-session-id',
+      'draft-1'
+    )
     expect(container.querySelector('[data-testid="copilot"]')).toHaveAttribute(
       'data-input-disabled',
       'false'

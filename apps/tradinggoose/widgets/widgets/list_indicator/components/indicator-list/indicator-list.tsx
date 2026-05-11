@@ -3,11 +3,7 @@
 import { useCallback, useMemo, useState } from 'react'
 import { LoadingAgent } from '@/components/ui/loading-agent'
 import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
-import {
-  useDeleteIndicator,
-  useIndicators,
-  useUpdateIndicator,
-} from '@/hooks/queries/indicators'
+import { useDeleteIndicator, useIndicators, useUpdateIndicator } from '@/hooks/queries/indicators'
 import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
 import { useIndicatorsStore } from '@/stores/indicators/store'
 import type { IndicatorDefinition } from '@/stores/indicators/types'
@@ -61,9 +57,9 @@ export function IndicatorList({
         resolvedPairColor,
         buildPersistedPairContext({
           existing: pairContext,
-          legacyIdKey: 'indicatorId',
+          entityIdKey: 'indicatorId',
           descriptor: null,
-          legacyEntityId: indicatorId,
+          selectedEntityId: indicatorId,
         })
       )
     },
@@ -90,9 +86,9 @@ export function IndicatorList({
             resolvedPairColor,
             buildPersistedPairContext({
               existing: pairContext,
-              legacyIdKey: 'indicatorId',
+              entityIdKey: 'indicatorId',
               descriptor: null,
-              legacyEntityId: indicatorId,
+              selectedEntityId: indicatorId,
             })
           )
         }

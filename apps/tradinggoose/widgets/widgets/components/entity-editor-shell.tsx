@@ -1,21 +1,16 @@
 'use client'
 
-import { useEffect, type ReactNode } from 'react'
+import { type ReactNode, useEffect } from 'react'
 import { LoadingAgent } from '@/components/ui/loading-agent'
 import { useSession } from '@/lib/auth-client'
-import type {
-  ReviewEntityKind,
-  ReviewTargetDescriptor,
-} from '@/lib/copilot/review-sessions/types'
+import { EntitySessionHost } from '@/lib/copilot/review-sessions/entity-session-host'
+import type { ReviewEntityKind, ReviewTargetDescriptor } from '@/lib/copilot/review-sessions/types'
+import { normalizeOptionalString } from '@/lib/utils'
 import {
-  EntitySessionHost,
-} from '@/lib/copilot/review-sessions/entity-session-host'
-import {
+  type PairColorContext,
   usePairColorContext,
   useSetPairColorContext,
-  type PairColorContext,
 } from '@/stores/dashboard/pair-store'
-import { normalizeOptionalString } from '@/lib/utils'
 import { useWidgetChannel } from '@/widgets/hooks/use-widget-channel'
 import type { PairColor } from '@/widgets/pair-colors'
 import type { WidgetComponentProps } from '@/widgets/types'
@@ -28,7 +23,7 @@ import { useResolvedReviewTarget } from '@/widgets/widgets/entity_review/use-res
 
 /** Selection state read from widget params or pair context. */
 export interface EntitySelectionState {
-  legacyEntityId: string | null
+  selectedEntityId: string | null
   reviewSessionId: string | null
   reviewEntityId: string | null
   reviewDraftSessionId: string | null
@@ -48,30 +43,30 @@ export interface EntityEditorShellConfig {
   /** Widget key used as fallback for useWidgetChannel. */
   fallbackWidgetKey: string
 
-  /** Key on PairColorContext that stores the legacy entity id. */
-  legacyIdKey: keyof PairColorContext & string
+  /** Key on PairColorContext that stores the selected entity id. */
+  entityIdKey: keyof PairColorContext & string
 
   /** Build widget params to persist the review target. */
   buildWidgetParams: (options: {
     currentParams?: Record<string, unknown> | null
-    legacyIdKey: string
+    entityIdKey: string
     descriptor: ReviewTargetDescriptor | null
-    legacyEntityId?: string | null
+    selectedEntityId?: string | null
   }) => Record<string, unknown> | null
 
   /** Build pair context to persist the review target. */
   buildPairContext: (options: {
     existing?: PairColorContext | null
-    legacyIdKey: keyof PairColorContext
+    entityIdKey: keyof PairColorContext
     descriptor: ReviewTargetDescriptor | null
-    legacyEntityId?: string | null
+    selectedEntityId?: string | null
   }) => PairColorContext
 
   /** Read the entity selection from params/pairContext. */
   readEntitySelectionState: (options: {
     params?: Record<string, unknown> | null
     pairContext?: PairColorContext | null
-    legacyIdKey: string
+    entityIdKey: string
   }) => EntitySelectionState
 
   /** Message shown when no workspace is available. */
@@ -177,13 +172,13 @@ export function EntityEditorShell({
   const selectionState = config.readEntitySelectionState({
     params,
     pairContext: isLinkedToColorPair ? pairContext : null,
-    legacyIdKey: config.legacyIdKey,
+    entityIdKey: config.entityIdKey,
   })
   const selectedEntityId =
     normalizeOptionalString(selectionState.reviewEntityId) ??
-    normalizeOptionalString(selectionState.legacyEntityId)
+    normalizeOptionalString(selectionState.selectedEntityId)
   const currentPairEntityId = normalizeOptionalString(
-    pairContext?.[config.legacyIdKey] as string | null | undefined
+    pairContext?.[config.entityIdKey] as string | null | undefined
   )
 
   useEffect(() => {
@@ -192,10 +187,10 @@ export function EntityEditorShell({
     }
 
     setPairContext(resolvedPairColor, {
-      [config.legacyIdKey]: selectedEntityId,
+      [config.entityIdKey]: selectedEntityId,
     } as PairColorContext)
   }, [
-    config.legacyIdKey,
+    config.entityIdKey,
     currentPairEntityId,
     isLinkedToColorPair,
     resolvedPairColor,
@@ -204,7 +199,7 @@ export function EntityEditorShell({
   ])
 
   const hasSelection =
-    !!selectionState.legacyEntityId ||
+    !!selectionState.selectedEntityId ||
     !!selectionState.reviewSessionId ||
     !!selectionState.reviewDraftSessionId
   const { descriptor, isResolving, error, persistDescriptor } = useResolvedReviewTarget({
@@ -215,7 +210,7 @@ export function EntityEditorShell({
     pairContext: isLinkedToColorPair ? pairContext : null,
     onWidgetParamsChange,
     setPairContext,
-    legacyIdKey: config.legacyIdKey,
+    entityIdKey: config.entityIdKey,
     selectionState,
     buildWidgetParams: config.buildWidgetParams,
     buildPairContext: config.buildPairContext,

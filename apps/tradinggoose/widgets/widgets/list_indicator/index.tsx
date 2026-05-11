@@ -87,9 +87,9 @@ const IndicatorListHeaderRight = ({
             resolvedPairColor,
             buildPersistedPairContext({
               existing: pairContext,
-              legacyIdKey: 'indicatorId',
+              entityIdKey: 'indicatorId',
               descriptor: null,
-              legacyEntityId: createdIndicatorId,
+              selectedEntityId: createdIndicatorId,
             })
           )
           return

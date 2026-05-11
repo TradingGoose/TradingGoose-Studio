@@ -238,9 +238,9 @@ function CustomToolListHeaderRight({
             resolvedPairColor,
             buildPersistedPairContext({
               existing: pairContext,
-              legacyIdKey: 'customToolId',
+              entityIdKey: 'customToolId',
               descriptor: null,
-              legacyEntityId: createdToolId,
+              selectedEntityId: createdToolId,
             })
           )
           return
@@ -374,9 +374,9 @@ function ListCustomToolWidgetBodyInner({
         resolvedPairColor,
         buildPersistedPairContext({
           existing: pairContext,
-          legacyIdKey: 'customToolId',
+          entityIdKey: 'customToolId',
           descriptor: null,
-          legacyEntityId: customToolId,
+          selectedEntityId: customToolId,
         })
       )
     },
@@ -390,9 +390,9 @@ function ListCustomToolWidgetBodyInner({
             resolvedPairColor,
             buildPersistedPairContext({
               existing: pairContext,
-              legacyIdKey: 'customToolId',
+              entityIdKey: 'customToolId',
               descriptor: null,
-              legacyEntityId: customToolId,
+              selectedEntityId: customToolId,
             })
           )
         }

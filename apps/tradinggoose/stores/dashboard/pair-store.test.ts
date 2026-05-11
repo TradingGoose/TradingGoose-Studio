@@ -22,28 +22,37 @@ describe('pair-store linked context', () => {
     setContext('blue', {
       workflowId: 'workflow-a',
       channelId: 'pair-blue',
-      reviewTarget: {
-        reviewSessionId: 'review-a',
-      },
-      copilotChatId: 'legacy-review-session',
     } as PairColorContext & {
       channelId?: string
-      reviewTarget?: { reviewSessionId?: string | null }
-      copilotChatId?: string
     })
 
     const context = usePairColorStore.getState().contexts.blue as PairColorContext & {
       channelId?: string
-      reviewTarget?: unknown
-      copilotChatId?: string
     }
 
     expect(context).toEqual({
       workflowId: 'workflow-a',
     })
     expect(context.channelId).toBeUndefined()
-    expect(context.reviewTarget).toBeUndefined()
-    expect(context.copilotChatId).toBeUndefined()
+  })
+
+  it('preserves canonical review target fields in linked color context', () => {
+    const { setContext } = usePairColorStore.getState()
+
+    setContext('blue', {
+      skillId: 'skill-a',
+      reviewEntityKind: 'skill',
+      reviewSessionId: 'review-a',
+      reviewEntityId: null,
+      reviewDraftSessionId: 'draft-a',
+    })
+
+    expect(usePairColorStore.getState().contexts.blue).toEqual({
+      skillId: 'skill-a',
+      reviewEntityKind: 'skill',
+      reviewSessionId: 'review-a',
+      reviewDraftSessionId: 'draft-a',
+    })
   })
 
   it('stores only canonical listing identity fields in linked color context', () => {
@@ -112,12 +121,10 @@ describe('pair-store linked context', () => {
         blue: {
           workflowId: 'workflow-a',
           skillId: 'skill-a',
-          reviewTarget: {
-            reviewSessionId: 'review-a',
-          },
+          reviewSessionId: 'review-a',
+          reviewEntityKind: 'skill',
           channelId: 'pair-blue',
         } as PairColorContext & {
-          reviewTarget?: { reviewSessionId?: string | null }
           channelId?: string
         },
       },
@@ -128,7 +135,6 @@ describe('pair-store linked context', () => {
     })
 
     const context = usePairColorStore.getState().contexts.blue as PairColorContext & {
-      reviewTarget?: unknown
       channelId?: string
     }
 
@@ -136,8 +142,9 @@ describe('pair-store linked context', () => {
       workflowId: 'workflow-a',
       skillId: 'skill-a',
       indicatorId: 'indicator-b',
+      reviewSessionId: 'review-a',
+      reviewEntityKind: 'skill',
     })
-    expect(context.reviewTarget).toBeUndefined()
     expect(context.channelId).toBeUndefined()
   })
 })

@@ -60,13 +60,11 @@ describe('buildImplicitCopilotContexts', () => {
           workflowId: 'workflow-pair',
           indicatorId: 'indicator-stale',
           skillId: 'skill-live',
-          reviewTarget: {
-            reviewEntityKind: 'skill',
-            reviewEntityId: 'skill-live',
-            reviewSessionId: 'review-skill-1',
-            reviewDraftSessionId: 'draft-skill-1',
-          },
-        } as any,
+          reviewEntityKind: 'skill',
+          reviewEntityId: 'skill-live',
+          reviewSessionId: 'review-skill-1',
+          reviewDraftSessionId: 'draft-skill-1',
+        },
       })
     ).toEqual([
       {
@@ -93,13 +91,10 @@ describe('buildImplicitCopilotContexts', () => {
   it('uses only pair workflow id for current workflow context', () => {
     const pairContext = {
       workflowId: 'workflow-pair',
-      reviewTarget: {
-        reviewEntityKind: 'workflow',
-        reviewEntityId: 'workflow-review',
-        reviewSessionId: 'review-workflow-1',
-        reviewDraftSessionId: null,
-      },
-    } as any
+      reviewEntityKind: 'workflow' as const,
+      reviewEntityId: 'workflow-review',
+      reviewSessionId: 'review-workflow-1',
+    }
 
     expect(resolveCopilotWorkflowId(pairContext)).toBe('workflow-pair')
     expect(
@@ -122,13 +117,9 @@ describe('buildImplicitCopilotContexts', () => {
       buildImplicitCopilotContexts({
         workspaceId: 'workspace-1',
         pairContext: {
-          reviewTarget: {
-            reviewEntityKind: 'skill',
-            reviewEntityId: null,
-            reviewSessionId: null,
-            reviewDraftSessionId: 'draft-skill',
-          },
-        } as any,
+          reviewEntityKind: 'skill',
+          reviewDraftSessionId: 'draft-skill',
+        },
       })
     ).toEqual([])
   })
@@ -147,17 +138,34 @@ describe('buildCopilotEditableReviewTargets', () => {
     ).toEqual([])
   })
 
-  it('ignores review metadata even when it is forced into pair context', () => {
+  it('emits canonical non-workflow review metadata as an editable target', () => {
     expect(
       buildCopilotEditableReviewTargets({
         pairContext: {
-          reviewTarget: {
-            reviewEntityKind: 'indicator',
-            reviewEntityId: null,
-            reviewSessionId: 'review-indicator-1',
-            reviewDraftSessionId: 'draft-indicator-1',
-          },
-        } as any,
+          reviewEntityKind: 'indicator',
+          reviewEntityId: null,
+          reviewSessionId: 'review-indicator-1',
+          reviewDraftSessionId: 'draft-indicator-1',
+        },
+      })
+    ).toEqual([
+      {
+        entityKind: 'indicator',
+        entityId: null,
+        reviewSessionId: 'review-indicator-1',
+        draftSessionId: 'draft-indicator-1',
+      },
+    ])
+  })
+
+  it('does not mount workflow review metadata as an entity target', () => {
+    expect(
+      buildCopilotEditableReviewTargets({
+        pairContext: {
+          reviewEntityKind: 'workflow',
+          reviewEntityId: 'workflow-review',
+          reviewSessionId: 'review-workflow-1',
+        },
       })
     ).toEqual([])
   })

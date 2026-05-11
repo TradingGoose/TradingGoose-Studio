@@ -40,9 +40,7 @@ export function SkillEditorSelector({
   const pairContext = usePairColorContext(resolvedPairColor)
   const setPairContext = useSetPairColorContext()
 
-  const resolvedSkillId = isLinkedToColorPair
-    ? (pairContext?.skillId ?? null)
-    : (skillId ?? null)
+  const resolvedSkillId = isLinkedToColorPair ? (pairContext?.skillId ?? null) : (skillId ?? null)
 
   const handleSkillChange = (nextSkillId: string | null) => {
     if (isLinkedToColorPair) {
@@ -51,9 +49,9 @@ export function SkillEditorSelector({
         resolvedPairColor,
         buildPersistedPairContext({
           existing: pairContext,
-          legacyIdKey: 'skillId',
+          entityIdKey: 'skillId',
           descriptor: null,
-          legacyEntityId: nextSkillId,
+          selectedEntityId: nextSkillId,
         })
       )
       return
@@ -117,9 +115,7 @@ export function SkillEditorExportButton({
   const pairContext = usePairColorContext(resolvedPairColor)
   const [isDirty, setIsDirty] = useState(true)
 
-  const resolvedSkillId = isLinkedToColorPair
-    ? (pairContext?.skillId ?? null)
-    : (skillId ?? null)
+  const resolvedSkillId = isLinkedToColorPair ? (pairContext?.skillId ?? null) : (skillId ?? null)
   const skill = useSkillsStore((state) =>
     workspaceId && resolvedSkillId ? state.readSkill(resolvedSkillId, workspaceId) : undefined
   )
@@ -196,9 +192,9 @@ export function SkillEditorSaveButton({
   const selectionState = readEntitySelectionState({
     params,
     pairContext: isLinkedToColorPair ? pairContext : null,
-    legacyIdKey: 'skillId',
+    entityIdKey: 'skillId',
   })
-  const resolvedSkillId = selectionState.legacyEntityId ?? skillId ?? null
+  const resolvedSkillId = selectionState.selectedEntityId ?? skillId ?? null
   const saveDisabled =
     !workspaceId &&
     !resolvedSkillId &&

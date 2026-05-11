@@ -34,6 +34,7 @@ import type { PairColor } from '@/widgets/pair-colors'
 import type { DashboardWidgetDefinition, WidgetComponentProps } from '@/widgets/types'
 import { MCP_SERVER_DEFAULTS } from '@/widgets/utils/draft-defaults'
 import { emitMcpSelectionChange, useMcpSelectionPersistence } from '@/widgets/utils/mcp-selection'
+import { buildPersistedPairContext, resolveMcpServerId } from '@/widgets/widgets/_shared/mcp/utils'
 import {
   widgetHeaderButtonGroupClassName,
   widgetHeaderIconButtonClassName,
@@ -42,10 +43,6 @@ import {
   widgetHeaderMenuItemClassName,
   widgetHeaderMenuTextClassName,
 } from '@/widgets/widgets/components/widget-header-control'
-import {
-  buildPersistedPairContext,
-  resolveMcpServerId,
-} from '@/widgets/widgets/_shared/mcp/utils'
 
 const DEFAULT_MCP_SERVER = {
   ...MCP_SERVER_DEFAULTS,
@@ -136,9 +133,9 @@ const ListMcpHeaderRightContent = ({
             resolvedPairColor,
             buildPersistedPairContext({
               existing: pairContext,
-              legacyIdKey: 'mcpServerId',
+              entityIdKey: 'mcpServerId',
               descriptor: null,
-              legacyEntityId: createdServerId,
+              selectedEntityId: createdServerId,
             })
           )
           return
@@ -278,9 +275,9 @@ const ListMcpWidgetContent = ({
         resolvedPairColor,
         buildPersistedPairContext({
           existing: pairContext,
-          legacyIdKey: 'mcpServerId',
+          entityIdKey: 'mcpServerId',
           descriptor: null,
-          legacyEntityId: serverId,
+          selectedEntityId: serverId,
         })
       )
     },
@@ -300,9 +297,9 @@ const ListMcpWidgetContent = ({
           resolvedPairColor,
           buildPersistedPairContext({
             existing: pairContext,
-            legacyIdKey: 'mcpServerId',
+            entityIdKey: 'mcpServerId',
             descriptor: null,
-            legacyEntityId: null,
+            selectedEntityId: null,
           })
         )
       }
@@ -339,9 +336,9 @@ const ListMcpWidgetContent = ({
             resolvedPairColor,
             buildPersistedPairContext({
               existing: pairContext,
-              legacyIdKey: 'mcpServerId',
+              entityIdKey: 'mcpServerId',
               descriptor: null,
-              legacyEntityId: serverId,
+              selectedEntityId: serverId,
             })
           )
         }
@@ -364,12 +361,12 @@ const ListMcpWidgetContent = ({
     },
     [
       isLinkedToColorPair,
-    onWidgetParamsChange,
-    panelId,
-    pairContext?.mcpServerId,
-    pairContext,
-    params,
-    resolvedPairColor,
+      onWidgetParamsChange,
+      panelId,
+      pairContext?.mcpServerId,
+      pairContext,
+      params,
+      resolvedPairColor,
       setPairContext,
     ]
   )
