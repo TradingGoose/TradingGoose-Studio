@@ -6,7 +6,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMockRequest } from '@/app/api/__test-utils__/utils'
 
 const mockGetSession = vi.fn()
-const mockGetOAuthToken = vi.fn()
+const mockGetOAuthTokenByCredentialId = vi.fn()
 const mockListPortfolioIdentities = vi.fn()
 const mockCheckWorkspaceAccess = vi.fn()
 const mockRecordOrderHistory = vi.fn()
@@ -26,7 +26,7 @@ vi.mock('@/lib/auth', () => ({
 }))
 
 vi.mock('@/app/api/auth/oauth/utils', () => ({
-  getOAuthToken: mockGetOAuthToken,
+  getOAuthTokenByCredentialId: mockGetOAuthTokenByCredentialId,
 }))
 
 vi.mock('@/lib/permissions/utils', () => ({
@@ -53,6 +53,11 @@ const stockListing = {
   assetClass: 'stock',
 }
 
+const bareStockListing = {
+  listing_type: 'default',
+  listing_id: 'AAPL',
+}
+
 const etfListing = {
   listing_type: 'default',
   listing_id: 'SPY',
@@ -65,16 +70,29 @@ const workspaceId = 'workspace-1'
 
 const portfolioIdentityFor = (providerId: 'alpaca' | 'tradier', accountId = 'ACC-1') => ({
   providerId,
+  credentialId: `${providerId}-credential-1`,
   credentialServiceId: `${providerId}-live`,
   accountId,
 })
+
+const marketListingRow = {
+  listing_id: 'TG_LSTG_AAPL',
+  base_id: null,
+  quote_id: null,
+  listing_type: 'default',
+  base: 'AAPL',
+  quote: 'USD',
+  assetClass: 'stock',
+}
+
+const jsonResponse = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status })
 
 describe('Trading provider order route', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.stubGlobal('fetch', mockFetch)
     mockGetSession.mockResolvedValue({ user: { id: 'user-1' } })
-    mockGetOAuthToken.mockResolvedValue('access-token')
+    mockGetOAuthTokenByCredentialId.mockResolvedValue('access-token')
     mockCheckWorkspaceAccess.mockResolvedValue({
       exists: true,
       hasAccess: true,
@@ -88,6 +106,7 @@ describe('Trading provider order route', () => {
     mockListPortfolioIdentities.mockResolvedValue([
       {
         providerId: 'alpaca',
+        credentialId: 'alpaca-credential-1',
         credentialServiceId: 'alpaca-live',
         accountId: 'ACC-1',
         accountName: 'Main',
@@ -97,6 +116,7 @@ describe('Trading provider order route', () => {
       },
       {
         providerId: 'tradier',
+        credentialId: 'tradier-credential-1',
         credentialServiceId: 'tradier-live',
         accountId: 'ACC-1',
         accountName: 'Main',
@@ -106,19 +126,16 @@ describe('Trading provider order route', () => {
       },
     ])
     mockFetch.mockResolvedValue(
-      new Response(
-        JSON.stringify({
-          order: {
-            id: 'order-1',
-            status: 'submitted',
-            symbol: 'AAPL',
-            side: 'buy',
-            create_date: '2026-04-25T12:00:00.000Z',
-            message: 'Order accepted',
-          },
-        }),
-        { status: 200 }
-      )
+      jsonResponse({
+        order: {
+          id: 'order-1',
+          status: 'submitted',
+          symbol: 'AAPL',
+          side: 'buy',
+          create_date: '2026-04-25T12:00:00.000Z',
+          message: 'Order accepted',
+        },
+      })
     )
   })
 
@@ -187,13 +204,15 @@ describe('Trading provider order route', () => {
     expect(mockFetch).not.toHaveBeenCalled()
   })
 
-  it('rejects listings without resolved asset class before account discovery', async () => {
+  it('rejects unresolved listings that cannot be hydrated before account discovery', async () => {
+    mockFetch.mockResolvedValueOnce(jsonResponse({ data: [] }))
+
     const { POST } = await import('@/app/api/providers/trading/order/route')
     const response = await POST(
       createMockRequest('POST', {
         workspaceId,
         portfolioIdentity: portfolioIdentityFor('tradier'),
-        listing: { listing_type: 'default', listing_id: 'AAPL', base: 'AAPL' },
+        listing: { listing_type: 'default', listing_id: 'UNKNOWN', base: 'UNKNOWN' },
         side: 'buy',
         quantity: 1,
       })
@@ -201,10 +220,10 @@ describe('Trading provider order route', () => {
 
     expect(response.status).toBe(400)
     await expect(response.json()).resolves.toEqual({
-      error: 'Resolved listing asset class is required',
+      error: 'Unable to resolve listing details for order',
     })
     expect(mockListPortfolioIdentities).not.toHaveBeenCalled()
-    expect(mockFetch).not.toHaveBeenCalled()
+    expect(mockFetch).toHaveBeenCalledTimes(1)
   })
 
   it('rejects raw string listings before auth or broker calls', async () => {
@@ -344,7 +363,7 @@ describe('Trading provider order route', () => {
   })
 
   it('rejects missing provider connections before account discovery', async () => {
-    mockGetOAuthToken.mockResolvedValue(null)
+    mockGetOAuthTokenByCredentialId.mockResolvedValue(null)
 
     const { POST } = await import('@/app/api/providers/trading/order/route')
     const response = await POST(
@@ -413,6 +432,7 @@ describe('Trading provider order route', () => {
     mockListPortfolioIdentities.mockResolvedValue([
       {
         providerId: 'tradier',
+        credentialId: 'tradier-credential-1',
         credentialServiceId: 'tradier-live',
         accountId: 'ACC-2',
       },
@@ -513,6 +533,13 @@ describe('Trading provider order route', () => {
       },
     })
     expect(mockFetch).toHaveBeenCalledTimes(1)
+    expect(mockGetOAuthTokenByCredentialId).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user-1',
+        credentialId: 'alpaca-credential-1',
+        providerId: 'alpaca-live',
+      })
+    )
     expect(mockRecordOrderHistory).toHaveBeenCalledWith(
       expect.objectContaining({
         workspaceId,
@@ -581,12 +608,28 @@ describe('Trading provider order route', () => {
   })
 
   it('submits valid Tradier equity quantity orders through the canonical route', async () => {
+    mockFetch
+      .mockResolvedValueOnce(jsonResponse({ data: [marketListingRow] }))
+      .mockResolvedValueOnce(jsonResponse({ data: marketListingRow }))
+      .mockResolvedValueOnce(
+        jsonResponse({
+          order: {
+            id: 'order-1',
+            status: 'submitted',
+            symbol: 'AAPL',
+            side: 'buy',
+            create_date: '2026-04-25T12:00:00.000Z',
+            message: 'Order accepted',
+          },
+        })
+      )
+
     const { POST } = await import('@/app/api/providers/trading/order/route')
     const response = await POST(
       createMockRequest('POST', {
         workspaceId,
         portfolioIdentity: portfolioIdentityFor('tradier'),
-        listing: stockListing,
+        listing: bareStockListing,
         side: 'buy',
         quantity: 3,
         limitPrice: 100,
@@ -606,8 +649,10 @@ describe('Trading provider order route', () => {
       },
     })
 
-    expect(mockFetch).toHaveBeenCalledTimes(1)
-    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit]
+    expect(mockFetch).toHaveBeenCalledTimes(3)
+    expect(String(mockFetch.mock.calls[0]?.[0])).toContain('/api/market/search?')
+    expect(String(mockFetch.mock.calls[1]?.[0])).toContain('/api/market/get/listing?')
+    const [url, init] = mockFetch.mock.calls[2] as [string, RequestInit]
     expect(url).toContain('/accounts/ACC-1/orders')
     expect(url).not.toContain('/api/tools/trading/order-history')
     expect(String(init.body)).toContain('class=equity')

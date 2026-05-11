@@ -1,5 +1,5 @@
-import { fetchBrokerJson } from '@/providers/trading/portfolio-utils'
 import type { PortfolioIdentity } from '@/providers/trading/portfolio-identity'
+import { fetchBrokerJson } from '@/providers/trading/portfolio-utils'
 import { buildTradierAuthHeaders, resolveTradierBaseUrl } from '@/providers/trading/tradier/client'
 import {
   mapTradierAccountType,
@@ -27,7 +27,7 @@ const toTradierAccountsArray = (profileResponse: any) => {
 
 export const normalizeTradierTradingAccount = (
   account: any,
-  context: Pick<TradingPortfolioBaseContext, 'credentialServiceId' | 'providerId'>
+  context: Pick<TradingPortfolioBaseContext, 'credentialId' | 'credentialServiceId' | 'providerId'>
 ): PortfolioIdentity => {
   const accountNumber =
     typeof account?.account_number === 'string' ? account.account_number.trim() : ''
@@ -40,7 +40,8 @@ export const normalizeTradierTradingAccount = (
 
   return {
     providerId: context.providerId,
-    credentialServiceId: context.credentialServiceId ?? '',
+    credentialId: context.credentialId,
+    credentialServiceId: context.credentialServiceId,
     accountId: accountNumber,
     providerName: 'Tradier',
     accountName: classification ? `${classification} (${accountNumber})` : accountNumber,
@@ -69,5 +70,7 @@ export async function getTradierTradingAccounts(
   context: TradingPortfolioBaseContext
 ): Promise<PortfolioIdentity[]> {
   const profile = await fetchTradierTradingProfile(context)
-  return toTradierAccountsArray(profile).map((account) => normalizeTradierTradingAccount(account, context))
+  return toTradierAccountsArray(profile).map((account) =>
+    normalizeTradierTradingAccount(account, context)
+  )
 }

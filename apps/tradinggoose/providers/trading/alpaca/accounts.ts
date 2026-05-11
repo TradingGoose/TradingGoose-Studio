@@ -1,7 +1,7 @@
 import { buildAlpacaAuthHeaders } from '@/providers/trading/alpaca/auth'
 import { resolveAlpacaTradingBaseUrl } from '@/providers/trading/alpaca/config'
-import type { PortfolioIdentity } from '@/providers/trading/portfolio-identity'
 import { ALPACA_DEFAULT_BASE_CURRENCY } from '@/providers/trading/alpaca/positions'
+import type { PortfolioIdentity } from '@/providers/trading/portfolio-identity'
 import { fetchBrokerJson, toFiniteNumber } from '@/providers/trading/portfolio-utils'
 import type {
   TradingPortfolioBaseContext,
@@ -57,7 +57,7 @@ export const mapAlpacaAccountType = (account: any): UnifiedTradingAccountType =>
 
 export const normalizeAlpacaTradingAccount = (
   account: any,
-  context: Pick<TradingPortfolioBaseContext, 'credentialServiceId' | 'providerId'>
+  context: Pick<TradingPortfolioBaseContext, 'credentialId' | 'credentialServiceId' | 'providerId'>
 ): PortfolioIdentity => {
   const id = typeof account?.id === 'string' ? account.id.trim() : ''
   if (!id) {
@@ -71,7 +71,8 @@ export const normalizeAlpacaTradingAccount = (
 
   return {
     providerId: context.providerId,
-    credentialServiceId: context.credentialServiceId ?? '',
+    credentialId: context.credentialId,
+    credentialServiceId: context.credentialServiceId,
     accountId: id,
     providerName: 'Alpaca',
     accountName: `Alpaca (${accountNumber})`,

@@ -21,6 +21,7 @@ const mockEmitHeatmapParamsChange = vi.fn()
 
 const portfolioIdentity = {
   providerId: 'alpaca',
+  credentialId: 'credential-1',
   credentialServiceId: 'alpaca-live',
   accountId: 'account-1',
   accountName: 'Paper',

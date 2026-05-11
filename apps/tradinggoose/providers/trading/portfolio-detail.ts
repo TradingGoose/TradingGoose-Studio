@@ -1,4 +1,4 @@
-import { resolveTradingPositionListingIdentity } from '@/providers/trading/listing-resolution'
+import { resolveTradingListingIdentity } from '@/providers/trading/listing-resolution'
 import type {
   PortfolioDetail,
   PortfolioEnvironment,
@@ -14,7 +14,7 @@ import type {
 const resolvePortfolioPositions = async (positions: UnifiedTradingPosition[]) =>
   Promise.all(
     positions.map(async (position) => {
-      const listing = await resolveTradingPositionListingIdentity(position.symbol)
+      const listing = await resolveTradingListingIdentity(position.symbol)
       if (!listing) return position
 
       return {

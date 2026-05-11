@@ -1,16 +1,13 @@
 import { NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
-import { getOAuthToken } from '@/app/api/auth/oauth/utils'
-import { listPortfolioIdentities } from '@/providers/trading/portfolio'
+import { listUserTradingPortfolioIdentities } from '@/lib/trading/portfolio-identities.server'
+import { generateRequestId } from '@/lib/utils'
 import {
   getPortfolioIdentityKey,
   type PortfolioIdentity,
 } from '@/providers/trading/portfolio-identity'
-import {
-  getTradingProviderDefinition,
-  getTradingProviderOAuthEnvironment,
-} from '@/providers/trading/providers'
+import { getTradingProviderDefinition } from '@/providers/trading/providers'
 import type { TradingProviderId } from '@/providers/trading/types'
 
 export const dynamic = 'force-dynamic'
@@ -27,6 +24,7 @@ const getAccountDescription = (portfolioIdentity: PortfolioIdentity) =>
     .join(' - ')
 
 export async function GET(request: Request) {
+  const requestId = generateRequestId()
   const { searchParams } = new URL(request.url)
   const providerId = searchParams.get('provider')?.trim() as TradingProviderId | undefined
 
@@ -44,31 +42,17 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Unsupported trading provider' }, { status: 400 })
   }
 
-  const portfolioIdentities = (
-    await Promise.all(
-      provider.oauth.credentialServices.map(async ({ serviceId }) => {
-        try {
-          const accessToken = await getOAuthToken(session.user.id, serviceId)
-          const environment = getTradingProviderOAuthEnvironment(providerId, serviceId)
-          if (!accessToken || !environment) return []
-
-          return await listPortfolioIdentities({
-            providerId,
-            credentialServiceId: serviceId,
-            environment,
-            accessToken,
-          })
-        } catch (error) {
-          logger.warn('Failed to list portfolio identities for credential service', {
-            providerId,
-            credentialServiceId: serviceId,
-            error: error instanceof Error ? error.message : String(error),
-          })
-          return []
-        }
-      })
-    )
-  ).flat()
+  const portfolioIdentities = await listUserTradingPortfolioIdentities({
+    userId: session.user.id,
+    providerId,
+    requestId,
+  }).catch((error) => {
+    logger.warn('Failed to list portfolio identities', {
+      providerId,
+      error: error instanceof Error ? error.message : String(error),
+    })
+    return []
+  })
 
   return NextResponse.json({
     options: portfolioIdentities.map((portfolioIdentity) => {
@@ -81,6 +65,7 @@ export async function GET(request: Request) {
           getAccountLabel(portfolioIdentity),
           description,
           portfolioIdentity.providerName,
+          portfolioIdentity.credentialId,
           portfolioIdentity.credentialServiceId,
           portfolioIdentity.accountId,
         ]

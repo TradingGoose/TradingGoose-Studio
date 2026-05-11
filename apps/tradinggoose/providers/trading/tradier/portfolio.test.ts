@@ -12,19 +12,18 @@ import {
 } from '@/providers/trading/tradier/performance'
 import { getTradierTradingAccountSnapshot } from '@/providers/trading/tradier/snapshot'
 
-const { resolveTradingPositionListingIdentityMock } = vi.hoisted(() => ({
-  resolveTradingPositionListingIdentityMock: vi.fn(),
+const { resolveTradingListingIdentityMock } = vi.hoisted(() => ({
+  resolveTradingListingIdentityMock: vi.fn(),
 }))
 
 vi.mock('@/providers/trading/listing-resolution', () => ({
-  resolveTradingPositionListingIdentity: (...args: unknown[]) =>
-    resolveTradingPositionListingIdentityMock(...args),
+  resolveTradingListingIdentity: (...args: unknown[]) => resolveTradingListingIdentityMock(...args),
 }))
 
 describe('Tradier portfolio helpers', () => {
   beforeEach(() => {
     vi.stubGlobal('fetch', vi.fn())
-    resolveTradingPositionListingIdentityMock.mockImplementation((symbol: { base: string }) => ({
+    resolveTradingListingIdentityMock.mockImplementation((symbol: { base: string }) => ({
       listing_id: symbol.base,
       base_id: '',
       quote_id: '',
@@ -39,17 +38,22 @@ describe('Tradier portfolio helpers', () => {
 
   it('normalizes profile accounts for selector display', () => {
     expect(
-      normalizeTradierTradingAccount({
-        account_number: 'ACC-123',
-        classification: 'Individual',
-        type: 'margin',
-        status: 'active',
-      }, {
-        providerId: 'tradier',
-        credentialServiceId: 'tradier-live',
-      })
+      normalizeTradierTradingAccount(
+        {
+          account_number: 'ACC-123',
+          classification: 'Individual',
+          type: 'margin',
+          status: 'active',
+        },
+        {
+          providerId: 'tradier',
+          credentialId: 'credential-1',
+          credentialServiceId: 'tradier-live',
+        }
+      )
     ).toEqual({
       providerId: 'tradier',
+      credentialId: 'credential-1',
       credentialServiceId: 'tradier-live',
       accountId: 'ACC-123',
       providerName: 'Tradier',
@@ -60,7 +64,7 @@ describe('Tradier portfolio helpers', () => {
     })
   })
 
-  it('builds snapshot totals from balances and positions with the documented fallback ladder', async () => {
+  it('builds snapshot totals from balances and positions with the documented priority order', async () => {
     const fetchMock = global.fetch as unknown as ReturnType<typeof vi.fn>
 
     fetchMock
@@ -106,6 +110,8 @@ describe('Tradier portfolio helpers', () => {
 
     const snapshot = await getTradierTradingAccountSnapshot({
       providerId: 'tradier',
+      credentialId: 'credential-1',
+      credentialServiceId: 'tradier-live',
       environment: 'live',
       accessToken: 'token',
       accountId: 'ACC-123',
@@ -161,6 +167,8 @@ describe('Tradier portfolio helpers', () => {
   it('returns an explicit unavailable payload for Tradier paper performance in v1', async () => {
     const performance = await getTradierTradingAccountPerformance({
       providerId: 'tradier',
+      credentialId: 'credential-1',
+      credentialServiceId: 'tradier-live',
       environment: 'paper',
       accessToken: 'token',
       accountId: 'ACC-123',
@@ -177,6 +185,8 @@ describe('Tradier portfolio helpers', () => {
   it('returns an explicit unavailable payload for unsupported Tradier windows', async () => {
     const performance = await getTradierTradingAccountPerformance({
       providerId: 'tradier',
+      credentialId: 'credential-1',
+      credentialServiceId: 'tradier-live',
       environment: 'live',
       accessToken: 'token',
       accountId: 'ACC-123',

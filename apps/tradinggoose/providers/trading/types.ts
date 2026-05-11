@@ -84,7 +84,8 @@ export interface TradingOrderDetailResult {
 
 export interface TradingPortfolioBaseContext {
   providerId: TradingProviderId
-  credentialServiceId?: string
+  credentialId: string
+  credentialServiceId: string
   environment?: 'paper' | 'live'
   accessToken: string
 }

@@ -52,7 +52,9 @@ async function getConcurrentRefreshAccessToken(
     return null
   }
 
-  logger.warn(`[${requestId}] Refresh attempt failed, checking if another concurrent request succeeded`)
+  logger.warn(
+    `[${requestId}] Refresh attempt failed, checking if another concurrent request succeeded`
+  )
 
   const freshCredential = await getCredential(requestId, credentialId, userId)
   const concurrentAccessToken = getValidAccessToken(freshCredential)
@@ -209,6 +211,44 @@ export async function getOAuthToken(userId: string, providerId: string): Promise
 
   logger.info(`Found valid OAuth token for user ${userId}, provider ${providerId}`)
   return credential.accessToken
+}
+
+export async function getOAuthTokenByCredentialId({
+  userId,
+  credentialId,
+  providerId,
+  requestId,
+}: {
+  userId: string
+  credentialId: string
+  providerId: string
+  requestId: string
+}): Promise<string | null> {
+  const credential = await getCredential(requestId, credentialId, userId)
+  if (!credential) {
+    return null
+  }
+
+  if (credential.providerId !== providerId) {
+    logger.warn(`[${requestId}] Credential provider mismatch`, {
+      credentialId,
+      expectedProviderId: providerId,
+      actualProviderId: credential.providerId,
+    })
+    return null
+  }
+
+  try {
+    const { accessToken } = await refreshTokenIfNeeded(requestId, credential, credentialId)
+    return accessToken || null
+  } catch (error) {
+    logger.error(`[${requestId}] Failed to resolve OAuth token by credential id`, {
+      credentialId,
+      providerId,
+      error: error instanceof Error ? error.message : String(error),
+    })
+    return null
+  }
 }
 
 /**

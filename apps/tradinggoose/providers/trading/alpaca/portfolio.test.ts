@@ -12,19 +12,18 @@ import {
 import { getAlpacaTradingAccountSnapshot } from '@/providers/trading/alpaca/snapshot'
 import { getTradingPortfolioSupportedWindows } from '@/providers/trading/portfolio'
 
-const { resolveTradingPositionListingIdentityMock } = vi.hoisted(() => ({
-  resolveTradingPositionListingIdentityMock: vi.fn(),
+const { resolveTradingListingIdentityMock } = vi.hoisted(() => ({
+  resolveTradingListingIdentityMock: vi.fn(),
 }))
 
 vi.mock('@/providers/trading/listing-resolution', () => ({
-  resolveTradingPositionListingIdentity: (...args: unknown[]) =>
-    resolveTradingPositionListingIdentityMock(...args),
+  resolveTradingListingIdentity: (...args: unknown[]) => resolveTradingListingIdentityMock(...args),
 }))
 
 describe('Alpaca portfolio helpers', () => {
   beforeEach(() => {
     vi.stubGlobal('fetch', vi.fn())
-    resolveTradingPositionListingIdentityMock.mockImplementation((symbol: { base: string }) => ({
+    resolveTradingListingIdentityMock.mockImplementation((symbol: { base: string }) => ({
       listing_id: symbol.base,
       base_id: '',
       quote_id: '',
@@ -39,18 +38,23 @@ describe('Alpaca portfolio helpers', () => {
 
   it('normalizes account discovery metadata conservatively', () => {
     expect(
-      normalizeAlpacaTradingAccount({
-        id: 'acct-live',
-        account_number: 'PA12345',
-        currency: 'usd',
-        status: 'APPROVAL_PENDING',
-        multiplier: '1',
-      }, {
-        providerId: 'alpaca',
-        credentialServiceId: 'alpaca-live',
-      })
+      normalizeAlpacaTradingAccount(
+        {
+          id: 'acct-live',
+          account_number: 'PA12345',
+          currency: 'usd',
+          status: 'APPROVAL_PENDING',
+          multiplier: '1',
+        },
+        {
+          providerId: 'alpaca',
+          credentialId: 'credential-1',
+          credentialServiceId: 'alpaca-live',
+        }
+      )
     ).toEqual({
       providerId: 'alpaca',
+      credentialId: 'credential-1',
       credentialServiceId: 'alpaca-live',
       accountId: 'acct-live',
       providerName: 'Alpaca',
@@ -63,17 +67,21 @@ describe('Alpaca portfolio helpers', () => {
 
   it('maps Alpaca margin indicators to a margin account type', () => {
     expect(
-      normalizeAlpacaTradingAccount({
-        id: 'acct-margin',
-        account_number: 'PA67890',
-        currency: 'USD',
-        status: 'ACTIVE',
-        multiplier: '4',
-        shorting_enabled: true,
-      }, {
-        providerId: 'alpaca',
-        credentialServiceId: 'alpaca-live',
-      })
+      normalizeAlpacaTradingAccount(
+        {
+          id: 'acct-margin',
+          account_number: 'PA67890',
+          currency: 'USD',
+          status: 'ACTIVE',
+          multiplier: '4',
+          shorting_enabled: true,
+        },
+        {
+          providerId: 'alpaca',
+          credentialId: 'credential-1',
+          credentialServiceId: 'alpaca-live',
+        }
+      )
     ).toMatchObject({
       accountId: 'acct-margin',
       accountName: 'Alpaca (PA67890)',
@@ -125,6 +133,8 @@ describe('Alpaca portfolio helpers', () => {
 
     const snapshot = await getAlpacaTradingAccountSnapshot({
       providerId: 'alpaca',
+      credentialId: 'credential-1',
+      credentialServiceId: 'alpaca-live',
       environment: 'live',
       accessToken: 'token',
       accountId: 'acct-paper',
@@ -191,6 +201,8 @@ describe('Alpaca portfolio helpers', () => {
 
     const snapshot = await getAlpacaTradingAccountSnapshot({
       providerId: 'alpaca',
+      credentialId: 'credential-1',
+      credentialServiceId: 'alpaca-live',
       environment: 'live',
       accessToken: 'token',
       accountId: 'acct-short',
@@ -264,6 +276,8 @@ describe('Alpaca portfolio helpers', () => {
 
     const performance = await getAlpacaTradingAccountPerformance({
       providerId: 'alpaca',
+      credentialId: 'credential-1',
+      credentialServiceId: 'alpaca-live',
       environment: 'live',
       accessToken: 'token',
       accountId: 'acct-live',
@@ -280,6 +294,8 @@ describe('Alpaca portfolio helpers', () => {
 
     const performance = await getAlpacaTradingAccountPerformance({
       providerId: 'alpaca',
+      credentialId: 'credential-1',
+      credentialServiceId: 'alpaca-live',
       environment: 'live',
       accessToken: 'token',
       accountId: 'acct-live',

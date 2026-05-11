@@ -20,6 +20,7 @@ import { executeTradingHoldings, tradingHoldingsTool } from '@/tools/trading/hol
 
 const portfolioIdentity = {
   providerId: 'tradier',
+  credentialId: 'credential-1',
   credentialServiceId: 'tradier-live',
   accountId: 'ACC-2',
 }
@@ -41,6 +42,7 @@ describe('tradingHoldingsTool', () => {
     expect(result?.success).toBe(true)
     expect(getPortfolioDetailMock).toHaveBeenCalledWith({
       providerId: 'tradier',
+      credentialId: 'credential-1',
       credentialServiceId: 'tradier-live',
       environment: 'live',
       accessToken: 'access-token',
@@ -52,7 +54,7 @@ describe('tradingHoldingsTool', () => {
     expect(
       tradingHoldingsTool.request.body?.({
         provider: 'tradier',
-        serviceId: 'tradier-live',
+        credential: 'credential-1',
         accessToken: 'access-token',
         portfolioIdentity,
       })
@@ -63,12 +65,11 @@ describe('tradingHoldingsTool', () => {
     })
   })
 
-  it('resolves OAuth by portfolioIdentity service id instead of credential id', () => {
-    expect(tradingHoldingsTool.params.serviceId).toMatchObject({
+  it('resolves OAuth by portfolioIdentity credential id', () => {
+    expect(tradingHoldingsTool.params.credential).toMatchObject({
       type: 'string',
       visibility: 'hidden',
     })
-    expect(tradingHoldingsTool.params.credential).toBeUndefined()
   })
 
   it('requires the tool-resolved access token', async () => {

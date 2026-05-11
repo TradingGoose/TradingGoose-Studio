@@ -26,7 +26,6 @@ const providerOptions = getTradingProviders().map((provider) => ({
 const BLOCK_RESERVED_PARAM_IDS = new Set([
   'provider',
   'portfolioIdentity',
-  'serviceId',
   'side',
   'listing',
   'orderType',
@@ -40,7 +39,7 @@ const BLOCK_RESERVED_PARAM_IDS = new Set([
 const TOOL_RESERVED_PARAM_IDS = new Set([
   'provider',
   'portfolioIdentity',
-  'serviceId',
+  'credential',
   'side',
   'listing',
   'quantity',
@@ -225,7 +224,8 @@ export const TradingActionBlock: BlockConfig<TradingActionResponse> = {
   name: 'Trading Action',
   description: 'Place buy/sell orders via Alpaca or Tradier.',
   authMode: AuthMode.OAuth,
-  longDescription: 'Unified trading action block that submits orders from a selected broker account.',
+  longDescription:
+    'Unified trading action block that submits orders from a selected broker account.',
   category: 'tools',
   bgColor: '#ff766e',
   icon: DollarIcon,
@@ -361,7 +361,7 @@ export const TradingActionBlock: BlockConfig<TradingActionResponse> = {
         return {
           provider,
           portfolioIdentity,
-          serviceId: portfolioIdentity?.credentialServiceId,
+          credential: portfolioIdentity?.credentialId,
           side: params.side,
           listing: params.listing,
           quantity: toOptionalNumber(params.quantity),

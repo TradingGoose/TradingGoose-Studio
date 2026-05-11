@@ -20,7 +20,7 @@ export interface TradingActionParams {
   stopPrice?: number
   trailPrice?: number
   trailPercent?: number
-  serviceId?: string
+  credential?: string
   accessToken?: string
   orderSizingMode?: string
   orderClass?: string
@@ -36,7 +36,7 @@ export interface TradingActionParams {
 export interface TradingHoldingsParams {
   provider: TradingProviderId
   portfolioIdentity?: PortfolioIdentity | null
-  serviceId?: string
+  credential?: string
   accessToken?: string
 }
 

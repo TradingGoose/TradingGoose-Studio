@@ -3,6 +3,7 @@ import { tradingActionTool } from '@/tools/trading/action'
 
 const portfolioIdentity = {
   providerId: 'alpaca' as const,
+  credentialId: 'credential-1',
   credentialServiceId: 'alpaca-live',
   accountId: 'ACC-1',
 }
@@ -10,7 +11,7 @@ const portfolioIdentity = {
 const baseParams = {
   provider: 'alpaca' as const,
   portfolioIdentity,
-  serviceId: 'alpaca-live',
+  credential: 'credential-1',
   listing: {
     listing_type: 'default' as const,
     listing_id: 'AAPL',

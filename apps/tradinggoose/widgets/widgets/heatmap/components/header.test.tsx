@@ -19,6 +19,7 @@ type MockTradingAccountSelectorProps = {
 }
 const selectedPortfolioIdentity: PortfolioIdentity = {
   providerId: 'alpaca',
+  credentialId: 'credential-1',
   credentialServiceId: 'alpaca-paper',
   accountId: 'acct-1',
 }
@@ -139,7 +140,7 @@ describe('HeatmapHeaderControls', () => {
     container.remove()
   })
 
-  it('does not normalize an invalid market provider to a fallback provider', async () => {
+  it('does not normalize an invalid market provider to a default provider', async () => {
     const slots = renderHeatmapHeader?.({
       panelId: 'panel-1',
       widget: {

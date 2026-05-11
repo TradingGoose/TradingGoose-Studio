@@ -43,11 +43,11 @@ export const tradingActionTool: ToolConfig<TradingActionParams, TradingActionRes
       visibility: 'user-only',
       description: 'Canonical broker account identity selected for this order.',
     },
-    serviceId: {
+    credential: {
       type: 'string',
       required: false,
       visibility: 'hidden',
-      description: 'OAuth credential service id from the selected broker account.',
+      description: 'OAuth credential id from the selected broker account.',
     },
     listing: {
       type: 'json',

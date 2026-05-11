@@ -17,6 +17,7 @@ const mockEmitPortfolioSnapshotParamsChange = vi.fn()
 
 const selectedPortfolioIdentity = {
   providerId: 'alpaca',
+  credentialId: 'credential-1',
   credentialServiceId: 'alpaca-live',
   accountId: 'acct-1',
   accountName: 'Paper',
@@ -232,6 +233,7 @@ describe('PortfolioSnapshotWidgetBody', () => {
   it('clears the saved account when the saved service has disconnected', async () => {
     const connectedPaperIdentity = {
       ...selectedPortfolioIdentity,
+      credentialId: 'cred-paper',
       credentialServiceId: 'alpaca-paper',
       accountId: 'paper-acct',
       accountName: 'Paper Account',
@@ -348,6 +350,7 @@ describe('PortfolioSnapshotWidgetBody', () => {
     const tradierPortfolioIdentity = {
       ...selectedPortfolioIdentity,
       providerId: 'tradier',
+      credentialId: 'credential-2',
       credentialServiceId: 'tradier-live',
     }
     mockUsePortfolioIdentities.mockReturnValue(

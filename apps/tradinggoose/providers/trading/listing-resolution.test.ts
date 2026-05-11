@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { resolveTradingPositionListingIdentity } from '@/providers/trading/listing-resolution'
+import { resolveTradingListingIdentity } from '@/providers/trading/listing-resolution'
 
 describe('trading listing resolution', () => {
   afterEach(() => {
@@ -10,7 +10,7 @@ describe('trading listing resolution', () => {
     const fetchMock = vi.spyOn(globalThis, 'fetch')
 
     await expect(
-      resolveTradingPositionListingIdentity({
+      resolveTradingListingIdentity({
         base: 'AAPL',
         quote: 'USD',
         assetClass: 'stock',
@@ -51,7 +51,7 @@ describe('trading listing resolution', () => {
     )
 
     await expect(
-      resolveTradingPositionListingIdentity({
+      resolveTradingListingIdentity({
         base: 'AMZN',
         quote: 'USD',
         assetClass: 'stock',
@@ -101,7 +101,7 @@ describe('trading listing resolution', () => {
     )
 
     await expect(
-      resolveTradingPositionListingIdentity({
+      resolveTradingListingIdentity({
         base: 'ETH',
         quote: 'USD',
         assetClass: 'crypto',

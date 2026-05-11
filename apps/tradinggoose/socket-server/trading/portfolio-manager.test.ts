@@ -4,29 +4,34 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const {
-  getOAuthTokenMock,
+  getOAuthTokenByCredentialIdMock,
   getTradingProviderDefinitionMock,
   getTradingProviderOAuthEnvironmentMock,
   getTradingProviderOAuthServiceIdMock,
   getTradingPortfolioSupportedWindowsMock,
   isTradingPortfolioWindowSupportedMock,
-  listPortfolioIdentitiesMock,
+  listUserTradingPortfolioIdentitiesMock,
   getPortfolioDetailMock,
   getTradingAccountPerformanceMock,
 } = vi.hoisted(() => ({
-  getOAuthTokenMock: vi.fn(),
+  getOAuthTokenByCredentialIdMock: vi.fn(),
   getTradingProviderDefinitionMock: vi.fn(),
   getTradingProviderOAuthServiceIdMock: vi.fn(),
   getTradingProviderOAuthEnvironmentMock: vi.fn(),
   getTradingPortfolioSupportedWindowsMock: vi.fn(),
   isTradingPortfolioWindowSupportedMock: vi.fn(),
-  listPortfolioIdentitiesMock: vi.fn(),
+  listUserTradingPortfolioIdentitiesMock: vi.fn(),
   getPortfolioDetailMock: vi.fn(),
   getTradingAccountPerformanceMock: vi.fn(),
 }))
 
 vi.mock('@/app/api/auth/oauth/utils', () => ({
-  getOAuthToken: (...args: unknown[]) => getOAuthTokenMock(...args),
+  getOAuthTokenByCredentialId: (...args: unknown[]) => getOAuthTokenByCredentialIdMock(...args),
+}))
+
+vi.mock('@/lib/trading/portfolio-identities.server', () => ({
+  listUserTradingPortfolioIdentities: (...args: unknown[]) =>
+    listUserTradingPortfolioIdentitiesMock(...args),
 }))
 
 vi.mock('@/lib/logs/console/logger', () => ({
@@ -44,7 +49,6 @@ vi.mock('@/providers/trading/portfolio', () => ({
     getTradingPortfolioSupportedWindowsMock(...args),
   isTradingPortfolioWindowSupported: (...args: unknown[]) =>
     isTradingPortfolioWindowSupportedMock(...args),
-  listPortfolioIdentities: (...args: unknown[]) => listPortfolioIdentitiesMock(...args),
 }))
 
 vi.mock('@/providers/trading/providers', () => ({
@@ -60,6 +64,7 @@ import { TradingPortfolioStreamManager } from './portfolio-manager'
 
 const portfolioIdentity: PortfolioIdentity = {
   providerId: 'alpaca',
+  credentialId: 'credential-1',
   credentialServiceId: 'alpaca-live',
   accountId: 'acct-1',
   providerName: 'Alpaca',
@@ -131,7 +136,7 @@ const flushPortfolioPolls = async () => {
 describe('TradingPortfolioStreamManager', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    getOAuthTokenMock.mockResolvedValue('oauth-token')
+    getOAuthTokenByCredentialIdMock.mockResolvedValue('oauth-token')
     getTradingProviderDefinitionMock.mockReturnValue({
       id: 'alpaca',
       name: 'Alpaca',
@@ -140,7 +145,7 @@ describe('TradingPortfolioStreamManager', () => {
     getTradingProviderOAuthEnvironmentMock.mockReturnValue('live')
     getTradingPortfolioSupportedWindowsMock.mockReturnValue(['1D', '1W'])
     isTradingPortfolioWindowSupportedMock.mockReturnValue(true)
-    listPortfolioIdentitiesMock.mockResolvedValue([portfolioIdentity])
+    listUserTradingPortfolioIdentitiesMock.mockResolvedValue([portfolioIdentity])
     getPortfolioDetailMock.mockResolvedValue(portfolioDetail)
     getTradingAccountPerformanceMock.mockResolvedValue(performance)
   })
@@ -174,11 +179,12 @@ describe('TradingPortfolioStreamManager', () => {
 
     await flushPortfolioPolls()
 
-    expect(getOAuthTokenMock).toHaveBeenCalledTimes(1)
-    expect(listPortfolioIdentitiesMock).toHaveBeenCalledTimes(1)
+    expect(getOAuthTokenByCredentialIdMock).toHaveBeenCalledTimes(1)
+    expect(listUserTradingPortfolioIdentitiesMock).toHaveBeenCalledTimes(1)
     expect(getPortfolioDetailMock).toHaveBeenCalledTimes(1)
     expect(getPortfolioDetailMock).toHaveBeenCalledWith({
       providerId: 'alpaca',
+      credentialId: 'credential-1',
       credentialServiceId: 'alpaca-live',
       environment: 'live',
       accessToken: 'oauth-token',
@@ -278,7 +284,7 @@ describe('TradingPortfolioStreamManager', () => {
 
     await flushPortfolioPolls()
 
-    expect(listPortfolioIdentitiesMock).toHaveBeenCalledTimes(1)
+    expect(listUserTradingPortfolioIdentitiesMock).toHaveBeenCalledTimes(1)
     expect(getPortfolioDetailMock).toHaveBeenCalledTimes(1)
     expect(getTradingAccountPerformanceMock).toHaveBeenCalledTimes(1)
     expect(socket.emit).toHaveBeenCalledWith(

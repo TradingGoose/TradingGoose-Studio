@@ -33,11 +33,11 @@ export const tradingHoldingsTool: ToolConfig<TradingHoldingsParams, TradingHoldi
       visibility: 'user-only',
       description: 'Canonical portfolioIdentity selected by the broker account field.',
     },
-    serviceId: {
+    credential: {
       type: 'string',
       required: false,
       visibility: 'hidden',
-      description: 'OAuth service selected by portfolioIdentity.',
+      description: 'OAuth credential selected by portfolioIdentity.',
     },
     accessToken: {
       type: 'string',
@@ -89,10 +89,6 @@ export const executeTradingHoldings = async ({
 }: Omit<TradingHoldingsParams, 'accessToken'> & {
   accessToken?: string | null
 }): Promise<ToolResponse> => {
-  if (!params) {
-    return failure('Missing tool parameters for holdings request', '')
-  }
-
   const provider = getTradingProvider(params.provider)
   const portfolioIdentity = toPortfolioValueObject(params.portfolioIdentity)
 
@@ -118,6 +114,7 @@ export const executeTradingHoldings = async ({
 
   const holdings = await getPortfolioDetail({
     providerId: provider.id,
+    credentialId: portfolioIdentity.credentialId,
     credentialServiceId: portfolioIdentity.credentialServiceId,
     environment,
     accessToken,

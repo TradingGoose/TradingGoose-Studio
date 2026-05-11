@@ -225,6 +225,64 @@ describe('OAuth Utils', () => {
     })
   })
 
+  describe('getOAuthTokenByCredentialId', () => {
+    it('should return a valid access token for the selected credential row', async () => {
+      mockDb.limit.mockReturnValueOnce([
+        {
+          id: 'credential-id',
+          userId: 'test-user-id',
+          providerId: 'alpaca-live',
+          accessToken: 'valid-token',
+          refreshToken: 'refresh-token',
+          accessTokenExpiresAt: new Date(Date.now() + 3600 * 1000),
+        },
+      ])
+
+      const { getOAuthTokenByCredentialId } = await import('@/app/api/auth/oauth/utils')
+
+      const token = await getOAuthTokenByCredentialId({
+        userId: 'test-user-id',
+        credentialId: 'credential-id',
+        providerId: 'alpaca-live',
+        requestId: 'request-id',
+      })
+
+      expect(token).toBe('valid-token')
+      expect(mockDb.limit).toHaveBeenCalledWith(1)
+      expect(mockRefreshOAuthToken).not.toHaveBeenCalled()
+    })
+
+    it('should reject credentials from a different service id', async () => {
+      mockDb.limit.mockReturnValueOnce([
+        {
+          id: 'credential-id',
+          userId: 'test-user-id',
+          providerId: 'alpaca-paper',
+          accessToken: 'valid-token',
+          refreshToken: 'refresh-token',
+          accessTokenExpiresAt: new Date(Date.now() + 3600 * 1000),
+        },
+      ])
+
+      const { getOAuthTokenByCredentialId } = await import('@/app/api/auth/oauth/utils')
+
+      const token = await getOAuthTokenByCredentialId({
+        userId: 'test-user-id',
+        credentialId: 'credential-id',
+        providerId: 'alpaca-live',
+        requestId: 'request-id',
+      })
+
+      expect(token).toBeNull()
+      expect(mockRefreshOAuthToken).not.toHaveBeenCalled()
+      expect(mockLogger.warn).toHaveBeenCalledWith('[request-id] Credential provider mismatch', {
+        credentialId: 'credential-id',
+        expectedProviderId: 'alpaca-live',
+        actualProviderId: 'alpaca-paper',
+      })
+    })
+  })
+
   describe('refreshTokenIfNeeded', () => {
     it('should return valid token without refresh if not expired', async () => {
       const mockCredential = {
@@ -500,16 +558,14 @@ describe('OAuth Utils', () => {
         providerId: 'google',
         userId: 'test-user-id',
       }
-      mockDb.limit
-        .mockReturnValueOnce([mockCredential])
-        .mockReturnValueOnce([
-          {
-            ...mockCredential,
-            accessToken: 'concurrent-token',
-            refreshToken: 'rotated-refresh-token',
-            accessTokenExpiresAt: new Date(Date.now() + 3600 * 1000),
-          },
-        ])
+      mockDb.limit.mockReturnValueOnce([mockCredential]).mockReturnValueOnce([
+        {
+          ...mockCredential,
+          accessToken: 'concurrent-token',
+          refreshToken: 'rotated-refresh-token',
+          accessTokenExpiresAt: new Date(Date.now() + 3600 * 1000),
+        },
+      ])
 
       mockRefreshOAuthToken.mockResolvedValueOnce(null)
 

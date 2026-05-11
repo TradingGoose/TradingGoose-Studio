@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server'
 import type { z } from 'zod'
 import { createLogger } from '@/lib/logs/console/logger'
-import { getOAuthToken } from '@/app/api/auth/oauth/utils'
-import type { PortfolioIdentity } from '@/providers/trading/portfolio-identity'
+import { getOAuthTokenByCredentialId } from '@/app/api/auth/oauth/utils'
 import { listPortfolioIdentities } from '@/providers/trading/portfolio'
+import type { PortfolioIdentity } from '@/providers/trading/portfolio-identity'
 import { TradingBrokerRequestError } from '@/providers/trading/portfolio-utils'
 import {
   getTradingProviderDefinition,
@@ -15,12 +15,14 @@ const logger = createLogger('TradingProviderRoutes')
 
 type ProviderRequestData = {
   provider?: string
+  credentialId?: string
   credentialServiceId?: string
 }
 
 type PreflightContext = {
   requestId: string
   providerId: string
+  credentialId: string
   credentialServiceId: string
   environment: 'paper' | 'live'
   accessToken: string
@@ -99,7 +101,18 @@ export async function resolveTradingProviderContext({
     return NextResponse.json({ error: 'Trading provider connection is required' }, { status: 400 })
   }
 
-  const resolvedAccessToken = accessToken?.trim() || (await getOAuthToken(userId, serviceId))
+  const credentialId = requireStringField(requestData, 'credentialId')
+  if (credentialId instanceof NextResponse) return credentialId
+
+  const resolvedAccessToken =
+    typeof accessToken === 'string'
+      ? accessToken.trim()
+      : await getOAuthTokenByCredentialId({
+          userId,
+          credentialId,
+          providerId: serviceId,
+          requestId,
+        })
   if (!resolvedAccessToken) {
     return NextResponse.json({ error: 'Trading provider connection not found' }, { status: 404 })
   }
@@ -114,6 +127,7 @@ export async function resolveTradingProviderContext({
   return {
     requestId,
     providerId,
+    credentialId,
     credentialServiceId: serviceId,
     environment,
     accessToken: resolvedAccessToken,
@@ -136,6 +150,7 @@ export async function resolveTradingProviderSelectedAccount({
   const portfolioIdentity = portfolioIdentities.find(
     (candidate) =>
       candidate.providerId === baseContext.providerId &&
+      candidate.credentialId === baseContext.credentialId &&
       candidate.credentialServiceId === baseContext.credentialServiceId &&
       candidate.accountId === selectedAccountId
   )

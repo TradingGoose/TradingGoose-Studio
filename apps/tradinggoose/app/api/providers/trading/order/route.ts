@@ -1,8 +1,11 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
+import { AuthType, checkSessionOrInternalAuth } from '@/lib/auth/hybrid'
 import type { ListingInputValue } from '@/lib/listing/identity'
 import { toListingValueObject } from '@/lib/listing/identity'
 import { resolveListingIdentity } from '@/lib/listing/resolve'
+import { checkWorkspaceAccess } from '@/lib/permissions/utils'
+import { recordOrderHistory } from '@/lib/records/order-history.server'
 import type { TradingOrderSubmitResponse } from '@/app/api/providers/trading/order/types'
 import {
   createTradingProviderRequestId,
@@ -11,17 +14,15 @@ import {
   resolveTradingProviderPreflight,
   resolveTradingProviderSelectedAccount,
 } from '@/app/api/providers/trading/shared'
-import { AuthType, checkSessionOrInternalAuth } from '@/lib/auth/hybrid'
-import { checkWorkspaceAccess } from '@/lib/permissions/utils'
-import { recordOrderHistory } from '@/lib/records/order-history.server'
 import { executeTradingProviderRequest, getTradingProvider } from '@/providers/trading'
+import { resolveTradingListingIdentity } from '@/providers/trading/listing-resolution'
 import { getStrictTradingOrderTypeDefinitions } from '@/providers/trading/order-types'
 import {
   ALPACA_TRAILING_STOP_TRAIL_VALUE_ERROR,
   getAlpacaNotionalOrderTypeError,
 } from '@/providers/trading/order-validation'
-import { TradingBrokerRequestError, fetchBrokerJson } from '@/providers/trading/portfolio-utils'
 import { toPortfolioValueObject } from '@/providers/trading/portfolio-identity'
+import { fetchBrokerJson, TradingBrokerRequestError } from '@/providers/trading/portfolio-utils'
 import { getTradingProviderConfig } from '@/providers/trading/providers'
 import type { TradingOrder, TradingOrderType } from '@/providers/trading/types'
 import {
@@ -44,6 +45,7 @@ const orderListingSchema = z
 const portfolioIdentitySchema = z
   .object({
     providerId: nonEmptyStringSchema,
+    credentialId: nonEmptyStringSchema,
     credentialServiceId: nonEmptyStringSchema,
     accountId: nonEmptyStringSchema,
   })
@@ -96,16 +98,17 @@ const resolveTimeInForce = (
   }
 
   const provider = getTradingProvider(providerId)
-  const fallback = provider.defaults?.timeInForce ?? timeInForceOptions[0]
-  return fallback || errorResponse('timeInForce is required')
+  const defaultTimeInForce = provider.defaults?.timeInForce ?? timeInForceOptions[0]
+  return defaultTimeInForce || errorResponse('timeInForce is required')
 }
 
 const resolveOrderType = (
   providerId: string,
-  data: OrderRequestData
+  data: OrderRequestData,
+  listing: ListingInputValue
 ): { orderType: TradingOrderType; requires: string[] } | NextResponse => {
   const context = {
-    listing: data.listing as ListingInputValue,
+    listing,
     orderClass: providerId === 'tradier' ? (data.orderClass ?? 'equity') : undefined,
   }
   const strictDefinitions = getStrictTradingOrderTypeDefinitions(providerId, context)
@@ -224,6 +227,11 @@ const toRecord = (value: unknown): Record<string, any> | undefined =>
     ? (value as Record<string, any>)
     : undefined
 
+const readRecordText = (record: Record<string, unknown> | undefined, key: string) => {
+  const value = record?.[key]
+  return typeof value === 'string' && value.trim() ? value.trim() : undefined
+}
+
 const compactRecord = (record: Record<string, unknown>) =>
   Object.fromEntries(Object.entries(record).filter(([, value]) => value !== undefined))
 
@@ -232,23 +240,32 @@ const hasResolvedListingDetails = (record: Record<string, unknown>): boolean => 
   if (!listingType) return false
   const base = typeof record.base === 'string' ? record.base.trim() : ''
   if (!base) return false
-  if (listingType === 'default') return true
+  if (listingType === 'default') {
+    return Boolean(resolveTradingListingAssetClass(record as ListingInputValue))
+  }
   const quote = typeof record.quote === 'string' ? record.quote.trim() : ''
   return Boolean(quote)
 }
 
 const resolveOrderListing = async (
-  providerId: string,
   listing: ListingInputValue
 ): Promise<ListingInputValue | NextResponse> => {
-  if (providerId !== 'alpaca') return listing
-  if (listing && typeof listing === 'object' && hasResolvedListingDetails(listing)) return listing
+  const record = toRecord(listing)
+  if (record && hasResolvedListingDetails(record)) return listing
 
   const identity = toListingValueObject(listing)
   if (!identity) return errorResponse('Resolved listing is required')
 
-  const resolved = await resolveListingIdentity(identity).catch(() => null)
-  return resolved ?? errorResponse('Unable to resolve listing details for Alpaca order')
+  const tradingIdentity = await resolveTradingListingIdentity({
+    listing: identity,
+    base: readRecordText(record, 'base'),
+    quote: readRecordText(record, 'quote'),
+    assetClass: resolveTradingListingAssetClass(listing),
+  }).catch(() => null)
+  if (!tradingIdentity) return errorResponse('Unable to resolve listing details for order')
+
+  const resolved = await resolveListingIdentity(tradingIdentity).catch(() => null)
+  return resolved ?? errorResponse('Unable to resolve listing details for order')
 }
 
 const buildOrderRequest = ({
@@ -343,7 +360,9 @@ export async function POST(request: Request) {
   })
   if (requestData instanceof Response) return requestData
 
-  const auth = await checkSessionOrInternalAuth(request as NextRequest, { requireWorkflowId: false })
+  const auth = await checkSessionOrInternalAuth(request as NextRequest, {
+    requireWorkflowId: false,
+  })
   if (!auth.success || !auth.userId) {
     return errorResponse(auth.error || 'Unauthorized', 401)
   }
@@ -356,6 +375,7 @@ export async function POST(request: Request) {
   const baseContext = await resolveTradingProviderContext({
     requestData: {
       provider: portfolioIdentity.providerId,
+      credentialId: portfolioIdentity.credentialId,
       credentialServiceId: portfolioIdentity.credentialServiceId,
     },
     requestId,
@@ -369,10 +389,7 @@ export async function POST(request: Request) {
     return errorResponse('Not found', 404)
   }
 
-  const resolvedListing = await resolveOrderListing(
-    baseContext.providerId,
-    requestData.listing as ListingInputValue
-  )
+  const resolvedListing = await resolveOrderListing(requestData.listing as ListingInputValue)
   if (resolvedListing instanceof Response) return resolvedListing
 
   const resolvedListingForRequest = resolvedListing as ListingInputValue
@@ -390,7 +407,11 @@ export async function POST(request: Request) {
     return errorResponse('Unsupported listing for provider')
   }
 
-  const orderTypeResult = resolveOrderType(baseContext.providerId, requestData)
+  const orderTypeResult = resolveOrderType(
+    baseContext.providerId,
+    requestData,
+    resolvedListingForRequest
+  )
   if (orderTypeResult instanceof Response) return orderTypeResult
 
   const timeInForce = resolveTimeInForce(baseContext.providerId, requestData.timeInForce)

@@ -350,9 +350,6 @@ export async function executeTool(
           `[${requestId}] Successfully got access token for ${toolId}, length: ${data.accessToken?.length || 0}`
         )
 
-        if (tokenCredentialId) {
-          ;(contextParams as any)._credentialId = tokenCredentialId
-        }
         contextParams.credential = undefined
         contextParams.serviceId = undefined
         if (contextParams.workflowId) contextParams.workflowId = undefined

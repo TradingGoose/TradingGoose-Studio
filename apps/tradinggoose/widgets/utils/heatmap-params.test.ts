@@ -3,6 +3,7 @@ import { sanitizeHeatmapParams } from '@/widgets/utils/heatmap-params'
 
 const portfolioIdentity = {
   providerId: 'alpaca',
+  credentialId: 'credential-1',
   credentialServiceId: 'alpaca-live',
   accountId: 'account-1',
 }
