@@ -28,6 +28,7 @@ import { createErrorResponse, createSuccessResponse } from '@/app/api/workflows/
 
 const logger = createLogger('ChatIdentifierAPI')
 const CHAT_QUEUE_POLL_INTERVAL_MS = 500
+const CHAT_QUEUE_MAX_POLL_DURATION_MS = 55 * 60 * 1000
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -40,19 +41,29 @@ function createQueuedChatStream(params: {
   selectedOutputs: string[]
   requestId: string
 }) {
+  let closed = false
+
   return new ReadableStream({
     async start(controller) {
       let lastEventId = 0
       let emittedContent = false
       const streamedBlocks = new Set<string>()
+      const deadline = Date.now() + CHAT_QUEUE_MAX_POLL_DURATION_MS
+
+      const close = () => {
+        if (closed) return
+        closed = true
+        controller.close()
+      }
 
       try {
-        while (true) {
+        while (!closed && Date.now() < deadline) {
           const state = await readWorkflowExecutionEventState({
             pendingExecutionId: params.taskId,
             workflowId: params.workflowId,
             afterEventId: lastEventId,
           })
+          if (closed) return
 
           if (!state) {
             throw new Error('Queued chat execution was not found')
@@ -104,7 +115,7 @@ function createQueuedChatStream(params: {
               }
 
               controller.enqueue(encodeSSE({ event: 'final', data: result }))
-              controller.close()
+              close()
               return
             }
 
@@ -115,7 +126,7 @@ function createQueuedChatStream(params: {
                   error: event.data.error || 'Chat workflow execution failed',
                 })
               )
-              controller.close()
+              close()
               return
             }
 
@@ -126,7 +137,7 @@ function createQueuedChatStream(params: {
                   error: 'Chat workflow execution was cancelled',
                 })
               )
-              controller.close()
+              close()
               return
             }
           }
@@ -141,7 +152,12 @@ function createQueuedChatStream(params: {
 
           await sleep(CHAT_QUEUE_POLL_INTERVAL_MS)
         }
+
+        if (!closed) {
+          throw new Error('Queued chat stream timed out before completion')
+        }
       } catch (error) {
+        if (closed) return
         logger.error(`[${params.requestId}] Queued chat stream failed`, error)
         controller.enqueue(
           encodeSSE({
@@ -149,8 +165,11 @@ function createQueuedChatStream(params: {
             error: error instanceof Error ? error.message : 'Chat workflow execution failed',
           })
         )
-        controller.close()
+        close()
       }
+    },
+    cancel() {
+      closed = true
     },
   })
 }

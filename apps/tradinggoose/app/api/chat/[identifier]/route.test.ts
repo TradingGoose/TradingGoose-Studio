@@ -126,6 +126,14 @@ vi.mock('@/lib/utils', () => ({
   },
 }))
 
+const chatParams = () => ({ params: Promise.resolve({ identifier: 'test-chat' }) })
+const postChatRequest = (body: Record<string, unknown>) =>
+  new NextRequest('https://example.com/api/chat/test-chat', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+
 describe('/api/chat/[identifier]', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -218,9 +226,10 @@ describe('/api/chat/[identifier]', () => {
 
   it('returns chat metadata for a valid identifier', async () => {
     const { GET } = await import('./route')
-    const response = await GET(new NextRequest('https://example.com/api/chat/test-chat'), {
-      params: Promise.resolve({ identifier: 'test-chat' }),
-    })
+    const response = await GET(
+      new NextRequest('https://example.com/api/chat/test-chat'),
+      chatParams()
+    )
 
     expect(response.status).toBe(200)
     await expect(response.json()).resolves.toMatchObject({
@@ -233,15 +242,11 @@ describe('/api/chat/[identifier]', () => {
   it('queues chat workflow messages and returns an SSE response from queued result', async () => {
     const { POST } = await import('./route')
     const response = await POST(
-      new NextRequest('https://example.com/api/chat/test-chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          input: 'Hello',
-          conversationId: 'conversation-1',
-        }),
+      postChatRequest({
+        input: 'Hello',
+        conversationId: 'conversation-1',
       }),
-      { params: Promise.resolve({ identifier: 'test-chat' }) }
+      chatParams()
     )
 
     expect(response.status).toBe(200)
@@ -273,18 +278,44 @@ describe('/api/chat/[identifier]', () => {
     expect(body).toContain('completed summary')
   })
 
+  it('stops polling when the queued chat stream is cancelled', async () => {
+    vi.useFakeTimers()
+    readWorkflowExecutionEventStateMock.mockResolvedValue({
+      status: 'pending',
+      result: null,
+      errorMessage: null,
+      events: [],
+    })
+
+    try {
+      const { POST } = await import('./route')
+      const response = await POST(
+        postChatRequest({
+          input: 'Hello',
+          conversationId: 'conversation-1',
+        }),
+        chatParams()
+      )
+
+      expect(response.status).toBe(200)
+      await Promise.resolve()
+      const callsBeforeCancel = readWorkflowExecutionEventStateMock.mock.calls.length
+      expect(callsBeforeCancel).toBeGreaterThan(0)
+
+      await response.body?.cancel()
+      await vi.advanceTimersByTimeAsync(1500)
+
+      expect(readWorkflowExecutionEventStateMock).toHaveBeenCalledTimes(callsBeforeCancel)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('requires a pinned API key owner for queued chat execution attribution', async () => {
     getApiKeyOwnerUserIdMock.mockResolvedValueOnce(null)
 
     const { POST } = await import('./route')
-    const response = await POST(
-      new NextRequest('https://example.com/api/chat/test-chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ input: 'Hello' }),
-      }),
-      { params: Promise.resolve({ identifier: 'test-chat' }) }
-    )
+    const response = await POST(postChatRequest({ input: 'Hello' }), chatParams())
 
     expect(response.status).toBe(503)
     expect(enqueuePendingExecutionMock).not.toHaveBeenCalled()
