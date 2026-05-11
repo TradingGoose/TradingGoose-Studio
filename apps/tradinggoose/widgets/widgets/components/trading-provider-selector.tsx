@@ -52,7 +52,7 @@ type TradingProviderSelectorProps = {
   menuClassName?: string
 }
 
-const DEFAULT_PLACEHOLDER = 'Select provider'
+const DEFAULT_PLACEHOLDER = 'Select Trading Provider'
 
 export function TradingProviderSelector({
   value,

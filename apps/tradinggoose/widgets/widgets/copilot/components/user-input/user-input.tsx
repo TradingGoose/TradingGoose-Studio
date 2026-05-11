@@ -70,7 +70,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
     const { contextUsage, createNewChat } = useCopilotStore()
     const message = controlledValue !== undefined ? controlledValue : internalMessage
     const setMessage =
-      controlledValue !== undefined ? onControlledChange || (() => {}) : setInternalMessage
+      controlledValue !== undefined ? onControlledChange || (() => { }) : setInternalMessage
 
     const {
       attachedFiles,
@@ -432,7 +432,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
           className={cn(
             'relative rounded-md border border-input bg-muted/40 p-2 shadow-xs transition-all duration-200 ',
             isDragging &&
-              'border-primary-hover bg-yellow-50/50 dark:border-primary-hover dark:bg-yellow-950/20'
+            'border-primary-hover bg-yellow-50/50 dark:border-primary-hover dark:bg-yellow-950/20'
           )}
           onDragEnter={handleDragEnter}
           onDragLeave={handleDragLeave}
@@ -569,7 +569,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
               </Button>
             </div>
 
-            <div className='flex items-center gap-1.5'>
+            <div className='pl-1.5 flex items-center gap-1.5'>
               <Button
                 variant='ghost'
                 size='icon'

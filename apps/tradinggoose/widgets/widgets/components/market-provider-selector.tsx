@@ -34,7 +34,7 @@ interface MarketProviderSelectorProps {
   menuClassName?: string
 }
 
-const DEFAULT_PLACEHOLDER = 'Select market'
+const DEFAULT_PLACEHOLDER = 'Select Market Provider'
 
 export function MarketProviderSelector({
   value,
