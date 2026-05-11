@@ -1574,10 +1574,15 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
       executeIntegrationTool: async (toolCallId: string) => {
         const { toolCallsById } = get()
         const toolCall = toolCallsById[toolCallId]
-        const workflowId = toolCall?.provenance?.workflowId
-        if (!toolCall || !workflowId) return
+        if (!toolCall) return
 
         const { id, name, params } = toolCall
+        const executionContext = createExecutionContext({
+          toolCallId: id,
+          toolName: name,
+          provenance: toolCall.provenance ?? {},
+        })
+
         const targetStore = getCopilotStore(storeChannelId)
 
         applyToolStateUpdate(targetStore, id, ClientToolCallState.executing)
@@ -1591,7 +1596,10 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
               toolCallId: id,
               toolName: name,
               arguments: params || {},
-              workflowId,
+              ...(executionContext.workflowId ? { workflowId: executionContext.workflowId } : {}),
+              ...(executionContext.workspaceId
+                ? { workspaceId: executionContext.workspaceId }
+                : {}),
             }),
           })
 

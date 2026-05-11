@@ -29,7 +29,7 @@ const getOAuthProviderSubjectIds = (subBlock: BlockConfig['subBlocks'][number]) 
 
 const getBlockOAuthProviderGroups = (block: BlockConfig) =>
   block.subBlocks
-    .filter((subBlock) => subBlock.type === 'oauth-input')
+    .filter((subBlock) => subBlock.type === 'oauth-input' && !subBlock.condition)
     .map(getOAuthProviderSubjectIds)
     .filter((providerIds) => providerIds.length > 0)
 

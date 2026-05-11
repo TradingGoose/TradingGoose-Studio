@@ -194,16 +194,19 @@ describe('getAvailableBlocksServerTool', () => {
     )
   }, 10_000)
 
-  it('hides OAuth integration blocks whose system integration is unavailable', async () => {
+  it('hides only unconditionally OAuth-gated blocks whose system integration is unavailable', async () => {
     const { getAvailableBlocksServerTool } = await import('./get-available-blocks')
     const result = await getAvailableBlocksServerTool.execute({})
 
     expect(mockGetOAuthProviderAvailability).toHaveBeenCalledWith(
-      expect.arrayContaining(['google-email', 'reddit', 'slack'])
+      expect.arrayContaining(['google-email', 'reddit'])
+    )
+    expect(mockGetOAuthProviderAvailability).not.toHaveBeenCalledWith(
+      expect.arrayContaining(['slack'])
     )
     expect(result.blocks.some((block) => block.blockType === 'reddit')).toBe(true)
     expect(result.blocks.some((block) => block.blockType === 'gmail')).toBe(false)
-    expect(result.blocks.some((block) => block.blockType === 'slack')).toBe(false)
+    expect(result.blocks.some((block) => block.blockType === 'slack')).toBe(true)
   })
 
   it('filters blocks by catalog category', async () => {
@@ -217,7 +220,7 @@ describe('getAvailableBlocksServerTool', () => {
     )
     expect(triggerResult.blocks.every((block) => block.category === 'trigger')).toBe(true)
     expect(toolResult.blocks.map((block) => block.blockType)).toEqual(
-      expect.arrayContaining(['reddit'])
+      expect.arrayContaining(['reddit', 'slack'])
     )
     expect(toolResult.blocks.every((block) => block.category === 'tool')).toBe(true)
     expect(blockResult.blocks.map((block) => block.blockType)).toEqual(
@@ -225,7 +228,6 @@ describe('getAvailableBlocksServerTool', () => {
     )
     expect(blockResult.blocks.every((block) => block.category === 'block')).toBe(true)
     expect(toolResult.blocks.map((block) => block.blockType)).not.toContain('gmail')
-    expect(toolResult.blocks.map((block) => block.blockType)).not.toContain('slack')
   })
 
   it('matches mixed capability queries across different built-in blocks', async () => {

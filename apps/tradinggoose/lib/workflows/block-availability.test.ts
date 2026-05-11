@@ -108,10 +108,10 @@ describe('block availability', () => {
     expect(isBlockAvailable(githubWebhookTriggerBlock, {})).toBe(true)
   })
 
-  it('requires conditional oauth integrations even when a non-oauth auth mode exists', () => {
-    expect(getProviderIdsForBlocks([slackBlock])).toEqual(['slack'])
-    expect(isBlockAvailable(slackBlock, {})).toBe(false)
-    expect(isBlockAvailable(slackBlock, { slack: true })).toBe(true)
+  it('does not use conditional oauth inputs as block-level availability requirements', () => {
+    expect(getProviderIdsForBlocks([slackBlock])).toEqual([])
+    expect(isBlockAvailable(slackBlock, {})).toBe(true)
+    expect(isBlockAvailable(slackBlock, { slack: false })).toBe(true)
   })
 
   it('allows service-id alternatives when at least one referenced service is available', () => {

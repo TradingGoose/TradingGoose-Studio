@@ -153,12 +153,8 @@ describe('copilot contract registry', () => {
     expect(isToolId('get_agent_accessory_catalog')).toBe(true)
     expect(isToolId('get_indicator_catalog')).toBe(true)
     expect(isToolId('get_indicator_metadata')).toBe(true)
-    expect(isToolId('get_block_tool_metadata')).toBe(false)
-    expect(isToolId('get_available_trigger_blocks')).toBe(false)
-    expect(isToolId('get_block_options')).toBe(false)
-    expect(isToolId('get_block_config')).toBe(false)
-    expect(isToolId('get_block_best_practices')).toBe(false)
-    expect(getToolContract('get_block_best_practices')).toBeUndefined()
+    expect(isToolId('unknown_tool')).toBe(false)
+    expect(getToolContract('unknown_tool')).toBeUndefined()
   })
 
   it('reuses the shared block schemas in the central contract', () => {

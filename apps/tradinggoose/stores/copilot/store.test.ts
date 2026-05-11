@@ -99,7 +99,6 @@ function createDeferredSseStream() {
   }
 }
 
-// TODO: move to shared vitest setup (e.g. vitest.setup.ts) if other test files need this
 function ensureRequestAnimationFrame() {
   ;(globalThis as any).requestAnimationFrame = (callback: FrameRequestCallback) => {
     callback(0)
@@ -167,11 +166,26 @@ describe('copilot tool execution provenance', () => {
     expect(context.contextWorkflowId).toBe('wf-current-a')
   })
 
-  it('executeIntegrationTool sends pinned workflow id', async () => {
-    const channelId = 'copilot-provenance-channel-b'
-    const toolCallId = 'copilot-provenance-tool-b'
+  it.each([
+    {
+      scope: 'workflow',
+      provenance: { workflowId: 'wf-origin-b' },
+      expected: { workflowId: 'wf-origin-b', workspaceId: undefined },
+    },
+    {
+      scope: 'workspace',
+      provenance: { workspaceId: 'workspace-origin' },
+      expected: { workflowId: undefined, workspaceId: 'workspace-origin' },
+    },
+    {
+      scope: 'unscoped',
+      provenance: {},
+      expected: { workflowId: undefined, workspaceId: undefined },
+    },
+  ])('executeIntegrationTool sends $scope execution context to the server', async (testCase) => {
+    const channelId = `copilot-provenance-channel-${testCase.scope}`
+    const toolCallId = `copilot-provenance-tool-${testCase.scope}`
     const store = getCopilotStore(channelId)
-
     const fetchMock = vi.fn(async (input: RequestInfo | URL, _init?: RequestInit) => {
       const url = typeof input === 'string' ? input : input.toString()
       if (url.includes('/api/copilot/execute-tool')) {
@@ -203,9 +217,7 @@ describe('copilot tool execution provenance', () => {
           name: 'some_integration_tool',
           state: ClientToolCallState.pending,
           params: { foo: 'bar' },
-          provenance: {
-            workflowId: 'wf-origin-b',
-          },
+          provenance: testCase.provenance,
         },
       },
     })
@@ -217,7 +229,8 @@ describe('copilot tool execution provenance', () => {
       return url.includes('/api/copilot/execute-tool')
     })
     const body = parseJsonRequestBody(executeRequest)
-    expect(body.workflowId).toBe('wf-origin-b')
+    expect(body.workflowId).toBe(testCase.expected.workflowId)
+    expect(body.workspaceId).toBe(testCase.expected.workspaceId)
   })
 
   it('returns the first matching store when duplicate toolCallId exists', () => {
@@ -1853,7 +1866,7 @@ describe('copilot streaming regressions', () => {
   })
 
   it('does not send workflowId when only non-workflow live context is present', async () => {
-    const channelId = 'copilot-no-workflow-fallback'
+    const channelId = 'copilot-no-workflow-context'
     const store = getCopilotStore(channelId)
     const fetchMock = vi.fn(async (input: RequestInfo | URL, _init?: RequestInit) => {
       const url = typeof input === 'string' ? input : input.toString()

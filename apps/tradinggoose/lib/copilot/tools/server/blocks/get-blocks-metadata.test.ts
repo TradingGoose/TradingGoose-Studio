@@ -180,7 +180,12 @@ describe('getBlocksMetadataServerTool', () => {
     expect(result.metadata.github).not.toHaveProperty('outputs')
     expect(result.metadata.github).not.toHaveProperty('inputSchema')
     expect(result.metadata.reddit).toBeUndefined()
-    expect(result.metadata.slack).toBeUndefined()
+    expect(result.metadata.slack).toEqual(
+      expect.objectContaining({
+        blockType: 'slack',
+        blockName: 'Slack',
+      })
+    )
 
     expect(result.metadata.condition?.mermaidContract.renderKind).toBe('condition')
     expect(result.metadata.input_trigger?.mermaidExamples.minimalDocument).toContain(
