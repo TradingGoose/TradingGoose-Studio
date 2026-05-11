@@ -86,9 +86,9 @@ describe('order record utils', () => {
         provider: 'alpaca',
         recordedAt: new Date('2026-04-23T00:00:00.000Z'),
         request: {
+          accountId: 'account-1',
           accessToken: 'secret-token',
           orderType: 'limit',
-          providerParams: { accountId: 'account-1', apiKey: 'secret-key' },
           quantity: '5',
           side: 'buy',
           timeInForce: 'day',
@@ -125,8 +125,8 @@ describe('order record utils', () => {
       workspaceId: 'workspace-1',
     })
     expect(record.request).toMatchObject({
+      accountId: 'account-1',
       accessToken: '[redacted]',
-      providerParams: { accountId: 'account-1', apiKey: '[redacted]' },
     })
     expect(record.response).toMatchObject({
       apiSecret: '[redacted]',

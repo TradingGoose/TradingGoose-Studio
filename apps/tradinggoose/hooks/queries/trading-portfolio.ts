@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import type {
-  QuickOrderSubmitRequest,
-  QuickOrderSubmitResponse,
+  TradingOrderSubmitRequest,
+  TradingOrderSubmitResponse,
 } from '@/app/api/providers/trading/order/types'
 import { useSocket } from '@/contexts/socket-context'
 import {
@@ -403,8 +403,8 @@ export function usePortfolioPerformance(request: TradingPerformanceRequest) {
 }
 
 export function useSubmitTradingOrder() {
-  return useMutation<QuickOrderSubmitResponse, Error, QuickOrderSubmitRequest>({
+  return useMutation<TradingOrderSubmitResponse, Error, TradingOrderSubmitRequest>({
     mutationFn: (request) =>
-      postJson<QuickOrderSubmitResponse>('/api/providers/trading/order', request),
+      postJson<TradingOrderSubmitResponse>('/api/providers/trading/order', request),
   })
 }

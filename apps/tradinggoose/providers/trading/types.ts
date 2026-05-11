@@ -52,14 +52,12 @@ export interface TradingOrderInput extends TradingSymbolInput {
   accessToken?: string
   orderClass?: string
   accountId?: string
-  providerParams?: TradingProviderParams
 }
 
 export interface TradingHoldingsInput {
   environment?: 'paper' | 'live'
   accessToken?: string
   accountId?: string
-  providerParams?: TradingProviderParams
 }
 
 export interface TradingOrderDetailInput extends TradingHoldingsInput {
@@ -97,11 +95,6 @@ export interface TradingPortfolioAccountContext extends TradingPortfolioBaseCont
 
 export interface TradingOrderRequest extends TradingOrderInput {
   kind: 'order'
-}
-
-export interface TradingProviderParams {
-  accessToken?: string
-  [key: string]: any
 }
 
 export type UnifiedTradingEnvironment = 'live' | 'paper' | 'demo' | 'unknown'
@@ -267,6 +260,7 @@ export interface TradingActionResponse {
   output: {
     summary: string
     provider: TradingProviderId
+    appOrderId?: string
     order?: Record<string, any>
   }
   error?: string

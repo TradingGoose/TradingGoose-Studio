@@ -1,6 +1,4 @@
 import { generateInternalToken } from '@/lib/auth/internal'
-import { toListingValueObject } from '@/lib/listing/identity'
-import { resolveListingIdentity } from '@/lib/listing/resolve'
 import { createLogger } from '@/lib/logs/console/logger'
 import { parseMcpToolId } from '@/lib/mcp/utils'
 import { validateExternalUrl } from '@/lib/security/input-validation'
@@ -122,34 +120,6 @@ const MCP_SYSTEM_PARAMETERS = new Set([
   'blockData',
   'blockNameMapping',
 ])
-
-const hasResolvedListingDetails = (record: Record<string, unknown>): boolean => {
-  const listingType = typeof record.listing_type === 'string' ? record.listing_type : null
-  if (!listingType) return false
-  const base = typeof record.base === 'string' ? record.base.trim() : ''
-  if (!base) return false
-  if (listingType === 'default') return true
-  const quote = typeof record.quote === 'string' ? record.quote.trim() : ''
-  return Boolean(quote)
-}
-
-const hydrateAlpacaOrderListing = async (params: Record<string, any>): Promise<void> => {
-  const listingValue = params.listing
-  if (!listingValue || typeof listingValue !== 'object') return
-  const record = listingValue as Record<string, unknown>
-
-  if (hasResolvedListingDetails(record)) return
-
-  const identity = toListingValueObject(listingValue)
-  if (!identity) return
-
-  const resolved = await resolveListingIdentity(identity).catch(() => null)
-  if (!resolved) {
-    throw new Error('Unable to resolve listing details for Alpaca order.')
-  }
-
-  params.listing = resolved
-}
 
 /**
  * Create an Error instance from errorInfo and attach useful context
@@ -436,10 +406,6 @@ export async function executeTool(
     }
 
     // Execute the tool request directly (internal routes use regular fetch)
-    if (toolId === 'trading_place_order' && contextParams.provider === 'alpaca') {
-      await hydrateAlpacaOrderListing(contextParams)
-    }
-
     const result = await executeToolRequest(toolId, tool, contextParams, executionContext)
 
     // Apply post-processing if available and not skipped

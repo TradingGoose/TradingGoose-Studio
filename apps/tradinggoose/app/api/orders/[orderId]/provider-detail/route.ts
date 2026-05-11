@@ -63,6 +63,7 @@ export async function POST(
           undefined,
       },
       requestId,
+      userId: session.user.id,
     })
     if (baseContext instanceof Response) {
       return baseContext

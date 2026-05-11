@@ -585,9 +585,8 @@ describe('QuickOrderWidgetBody', () => {
 
     expect(mockMutate).toHaveBeenCalledWith(
       expect.objectContaining({
-        provider: 'alpaca',
-        credentialServiceId: 'alpaca-live',
-        accountId: 'acct-1',
+        workspaceId: 'workspace-1',
+        portfolioIdentity,
         side: 'buy',
         listing: stockListing,
         orderType: 'market',
@@ -598,7 +597,10 @@ describe('QuickOrderWidgetBody', () => {
     )
     expect(mockMutate.mock.calls[0][0]).not.toHaveProperty('orderClass')
     expect(mockMutate.mock.calls[0][0]).not.toHaveProperty('credentialId')
+    expect(mockMutate.mock.calls[0][0]).not.toHaveProperty('credentialServiceId')
     expect(mockMutate.mock.calls[0][0]).not.toHaveProperty('environment')
+    expect(mockMutate.mock.calls[0][0]).not.toHaveProperty('accountId')
+    expect(mockMutate.mock.calls[0][0]).not.toHaveProperty('provider')
     expect(mockMutate.mock.calls[0][0]).not.toHaveProperty('providerParams')
     expect(mockMutate.mock.calls[0][0]).not.toHaveProperty('marketProvider')
     expect(mockMutate.mock.calls[0][0]).not.toHaveProperty('marketProviderParams')
@@ -611,6 +613,7 @@ describe('QuickOrderWidgetBody', () => {
       reset: mockReset,
       isPending: false,
       data: {
+        appOrderId: 'app-order-1',
         provider: 'alpaca',
         accountId: 'acct-1',
         message: 'Order accepted',

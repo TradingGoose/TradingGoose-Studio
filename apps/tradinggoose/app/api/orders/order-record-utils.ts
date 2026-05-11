@@ -144,15 +144,11 @@ const readListing = (listingIdentity: unknown, normalized: JsonRecord, response:
 
 export function readOrderAccountId(row: Pick<RecordsOrderRow, 'request' | 'response'>) {
   const request = toRecord(row.request)
-  const providerParams = toRecord(request.providerParams)
   const response = toRecord(row.response)
   const raw = toRecord(response.raw)
   const rawOrder = toRecord(raw.order)
   return readString(
     request.accountId,
-    providerParams.accountId,
-    providerParams.account_id,
-    providerParams.account,
     raw.account_id,
     rawOrder.account_id
   )
@@ -163,7 +159,6 @@ export function serializeOrderRecord(
   details: 'basic' | 'full' = 'basic'
 ): SerializedOrderRecord {
   const request = toRecord(row.request)
-  const providerParams = toRecord(request.providerParams)
   const response = toRecord(row.response)
   const raw = toRecord(response.raw)
   const rawOrder = toRecord(raw.order)
@@ -355,9 +350,6 @@ const listingExpr = () =>
 const accountExpr = () =>
   coalesceText(
     sql`${orderHistoryTable.request}->>'accountId'`,
-    sql`${orderHistoryTable.request}->'providerParams'->>'accountId'`,
-    sql`${orderHistoryTable.request}->'providerParams'->>'account_id'`,
-    sql`${orderHistoryTable.request}->'providerParams'->>'account'`,
     sql`${orderHistoryTable.response}->'raw'->>'account_id'`,
     sql`${orderHistoryTable.response}->'raw'->'order'->>'account_id'`
   )

@@ -15,7 +15,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { getListingIdentityKey, type ListingOption } from '@/lib/listing/identity'
-import type { QuickOrderSubmitRequest } from '@/app/api/providers/trading/order/types'
+import type { TradingOrderSubmitRequest } from '@/app/api/providers/trading/order/types'
 import { useMarketQuoteSnapshots } from '@/hooks/queries/market-quote-snapshots'
 import { useOAuthProviderAvailability } from '@/hooks/queries/oauth-provider-availability'
 import { usePortfolioDetail, useSubmitTradingOrder } from '@/hooks/queries/trading-portfolio'
@@ -548,13 +548,14 @@ export function QuickOrderWidgetBody({
     return <CenterState>Select a broker account to submit an order.</CenterState>
   }
 
-  const canSubmit = !validationMessage && !submitOrder.isPending
+  const canSubmit = Boolean(workspaceId) && !validationMessage && !submitOrder.isPending
   const order = submitOrder.data?.order
 
   const handleSubmit = () => {
     if (
       validationMessage ||
       !providerId ||
+      !workspaceId ||
       !activeCredentialServiceId ||
       !activePortfolioIdentity ||
       !listing
@@ -562,10 +563,9 @@ export function QuickOrderWidgetBody({
       return
     }
 
-    const payload: QuickOrderSubmitRequest = {
-      provider: providerId,
-      credentialServiceId: activeCredentialServiceId,
-      accountId: activePortfolioIdentity.accountId,
+    const payload: TradingOrderSubmitRequest = {
+      workspaceId,
+      portfolioIdentity: activePortfolioIdentity,
       listing,
       side,
       orderType,

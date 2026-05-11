@@ -1,15 +1,13 @@
 import type { ListingIdentity, ListingResolved } from '@/lib/listing/identity'
+import type { PortfolioIdentity } from '@/providers/trading/portfolio-identity'
 import type { TradingOrder } from '@/providers/trading/types'
 
-export type QuickOrderResolvedListing =
-  | ListingResolved
-  | (ListingIdentity & Record<string, unknown>)
+export type TradingOrderSubmitListing = ListingResolved | (ListingIdentity & Record<string, unknown>)
 
-export interface QuickOrderSubmitRequest {
-  provider: string
-  credentialServiceId?: string
-  accountId: string
-  listing: QuickOrderResolvedListing
+export interface TradingOrderSubmitRequest {
+  workspaceId: string
+  portfolioIdentity: PortfolioIdentity
+  listing: TradingOrderSubmitListing
   side: 'buy' | 'sell'
   quantity?: number
   notional?: number
@@ -20,9 +18,14 @@ export interface QuickOrderSubmitRequest {
   stopPrice?: number
   trailPrice?: number
   trailPercent?: number
+  orderClass?: string
+  accessToken?: string
+  submissionSource?: 'manual' | 'copilot' | 'workflow'
+  logId?: string
 }
 
-export interface QuickOrderSubmitResponse {
+export interface TradingOrderSubmitResponse {
+  appOrderId: string
   order: TradingOrder | null
   provider: string
   accountId: string

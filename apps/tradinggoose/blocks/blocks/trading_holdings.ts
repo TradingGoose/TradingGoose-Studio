@@ -1,7 +1,7 @@
 import { DollarIcon } from '@/components/icons/icons'
 import type { BlockConfig } from '@/blocks/types'
 import { AuthMode } from '@/blocks/types'
-import { requiredUserOnlyInput } from '@/blocks/utils'
+import { fetchTradingPortfolioIdentityOptions, requiredUserOnlyInput } from '@/blocks/utils'
 import { getTradingProvidersByKind } from '@/providers/trading'
 import { toPortfolioValueObject } from '@/providers/trading/portfolio-identity'
 import type { TradingHoldingsResponse } from '@/tools/trading/types'
@@ -41,27 +41,7 @@ export const TradingHoldingsBlock: BlockConfig<TradingHoldingsResponse> = {
       autoSelectFirstOption: false,
       placeholder: 'Select broker account',
       description: 'Broker account used to fetch canonical portfolio detail.',
-      fetchOptions: async (_blockId, _subBlockId, context) => {
-        const providerEntry = context.contextValues?.provider
-        const provider =
-          typeof providerEntry === 'string'
-            ? providerEntry
-            : providerEntry && typeof providerEntry === 'object' && 'value' in providerEntry
-              ? String(providerEntry.value ?? '')
-              : ''
-        if (!provider) return []
-
-        const response = await fetch(
-          `/api/providers/trading/portfolio-identities?provider=${encodeURIComponent(provider)}`,
-          { cache: 'no-store' }
-        )
-        if (!response.ok) return []
-
-        const data = (await response.json()) as {
-          options?: Array<{ label: string; id: string; value?: unknown; searchLabel?: string }>
-        }
-        return data.options ?? []
-      },
+      fetchOptions: fetchTradingPortfolioIdentityOptions,
     },
   ],
   tools: {

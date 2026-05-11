@@ -7,12 +7,11 @@ export const resolveTradierBaseUrl = () => TRADIER_BASE_URL
 export const buildTradierAuthHeaders = (
   params: TradingOrderInput | TradingHoldingsInput
 ): Record<string, string> => {
-  const accessToken = params.accessToken ?? params.providerParams?.accessToken
-  if (!accessToken) {
+  if (!params.accessToken) {
     throw new Error('Tradier access token is required')
   }
 
   return {
-    Authorization: `Bearer ${accessToken}`,
+    Authorization: `Bearer ${params.accessToken}`,
   }
 }

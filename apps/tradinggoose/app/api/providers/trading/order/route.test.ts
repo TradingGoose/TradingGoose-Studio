@@ -8,6 +8,8 @@ import { createMockRequest } from '@/app/api/__test-utils__/utils'
 const mockGetSession = vi.fn()
 const mockGetOAuthToken = vi.fn()
 const mockListPortfolioIdentities = vi.fn()
+const mockCheckWorkspaceAccess = vi.fn()
+const mockRecordOrderHistory = vi.fn()
 const mockFetch = vi.fn()
 
 vi.mock('@/lib/logs/console/logger', () => ({
@@ -25,6 +27,14 @@ vi.mock('@/lib/auth', () => ({
 
 vi.mock('@/app/api/auth/oauth/utils', () => ({
   getOAuthToken: mockGetOAuthToken,
+}))
+
+vi.mock('@/lib/permissions/utils', () => ({
+  checkWorkspaceAccess: mockCheckWorkspaceAccess,
+}))
+
+vi.mock('@/lib/records/order-history.server', () => ({
+  recordOrderHistory: mockRecordOrderHistory,
 }))
 
 vi.mock('@/providers/trading/portfolio', async () => {
@@ -51,12 +61,30 @@ const etfListing = {
   assetClass: 'etf',
 }
 
+const workspaceId = 'workspace-1'
+
+const portfolioIdentityFor = (providerId: 'alpaca' | 'tradier', accountId = 'ACC-1') => ({
+  providerId,
+  credentialServiceId: `${providerId}-live`,
+  accountId,
+})
+
 describe('Trading provider order route', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.stubGlobal('fetch', mockFetch)
     mockGetSession.mockResolvedValue({ user: { id: 'user-1' } })
     mockGetOAuthToken.mockResolvedValue('access-token')
+    mockCheckWorkspaceAccess.mockResolvedValue({
+      exists: true,
+      hasAccess: true,
+      canWrite: true,
+      workspace: { id: workspaceId },
+    })
+    mockRecordOrderHistory.mockResolvedValue({
+      ok: true,
+      record: { id: 'app-order-1' },
+    })
     mockListPortfolioIdentities.mockResolvedValue([
       {
         providerId: 'alpaca',
@@ -114,9 +142,8 @@ describe('Trading provider order route', () => {
     const { POST } = await import('@/app/api/providers/trading/order/route')
     const invalidSideResponse = await POST(
       createMockRequest('POST', {
-        provider: 'tradier',
-        credentialServiceId: 'tradier-live',
-        accountId: 'ACC-1',
+        workspaceId,
+        portfolioIdentity: portfolioIdentityFor('tradier'),
         listing: stockListing,
         side: 'hold',
         quantity: 1,
@@ -124,9 +151,8 @@ describe('Trading provider order route', () => {
     )
     const numericStringResponse = await POST(
       createMockRequest('POST', {
-        provider: 'tradier',
-        credentialServiceId: 'tradier-live',
-        accountId: 'ACC-1',
+        workspaceId,
+        portfolioIdentity: portfolioIdentityFor('tradier'),
         listing: stockListing,
         side: 'buy',
         quantity: '1',
@@ -142,13 +168,31 @@ describe('Trading provider order route', () => {
     expect(mockFetch).not.toHaveBeenCalled()
   })
 
+  it('requires workspaceId before auth or broker calls', async () => {
+    const { POST } = await import('@/app/api/providers/trading/order/route')
+    const response = await POST(
+      createMockRequest('POST', {
+        portfolioIdentity: portfolioIdentityFor('tradier'),
+        listing: stockListing,
+        side: 'buy',
+        quantity: 1,
+      })
+    )
+
+    expect(response.status).toBe(400)
+    await expect(response.json()).resolves.toEqual({ error: 'Invalid request data' })
+    expect(mockGetSession).not.toHaveBeenCalled()
+    expect(mockCheckWorkspaceAccess).not.toHaveBeenCalled()
+    expect(mockListPortfolioIdentities).not.toHaveBeenCalled()
+    expect(mockFetch).not.toHaveBeenCalled()
+  })
+
   it('rejects listings without resolved asset class before account discovery', async () => {
     const { POST } = await import('@/app/api/providers/trading/order/route')
     const response = await POST(
       createMockRequest('POST', {
-        provider: 'tradier',
-        credentialServiceId: 'tradier-live',
-        accountId: 'ACC-1',
+        workspaceId,
+        portfolioIdentity: portfolioIdentityFor('tradier'),
         listing: { listing_type: 'default', listing_id: 'AAPL', base: 'AAPL' },
         side: 'buy',
         quantity: 1,
@@ -167,8 +211,8 @@ describe('Trading provider order route', () => {
     const { POST } = await import('@/app/api/providers/trading/order/route')
     const response = await POST(
       createMockRequest('POST', {
-        provider: 'tradier',
-        accountId: 'ACC-1',
+        workspaceId,
+        portfolioIdentity: portfolioIdentityFor('tradier'),
         listing: 'AAPL',
         side: 'buy',
         quantity: 1,
@@ -188,8 +232,8 @@ describe('Trading provider order route', () => {
       const { POST } = await import('@/app/api/providers/trading/order/route')
       const response = await POST(
         createMockRequest('POST', {
-          provider: 'tradier',
-          accountId: 'ACC-1',
+          workspaceId,
+          portfolioIdentity: portfolioIdentityFor('tradier'),
           listing: stockListing,
           side: 'buy',
           quantity: 1,
@@ -208,9 +252,8 @@ describe('Trading provider order route', () => {
     const { POST } = await import('@/app/api/providers/trading/order/route')
     const response = await POST(
       createMockRequest('POST', {
-        provider: 'alpaca',
-        credentialServiceId: 'alpaca-live',
-        accountId: 'ACC-1',
+        workspaceId,
+        portfolioIdentity: portfolioIdentityFor('alpaca'),
         listing: etfListing,
         side: 'buy',
         quantity: 1,
@@ -227,9 +270,8 @@ describe('Trading provider order route', () => {
     const { POST } = await import('@/app/api/providers/trading/order/route')
     const response = await POST(
       createMockRequest('POST', {
-        provider: 'tradier',
-        credentialServiceId: 'tradier-live',
-        accountId: 'ACC-1',
+        workspaceId,
+        portfolioIdentity: portfolioIdentityFor('tradier'),
         listing: stockListing,
         side: 'buy',
         quantity: 1,
@@ -247,9 +289,8 @@ describe('Trading provider order route', () => {
     const { POST } = await import('@/app/api/providers/trading/order/route')
     const response = await POST(
       createMockRequest('POST', {
-        provider: 'alpaca',
-        credentialServiceId: 'alpaca-live',
-        accountId: 'ACC-1',
+        workspaceId,
+        portfolioIdentity: portfolioIdentityFor('alpaca'),
         listing: stockListing,
         side: 'buy',
         orderSizingMode: 'notional',
@@ -283,9 +324,8 @@ describe('Trading provider order route', () => {
     const { POST } = await import('@/app/api/providers/trading/order/route')
     const response = await POST(
       createMockRequest('POST', {
-        provider: 'tradier',
-        credentialServiceId: 'tradier-live',
-        accountId: 'ACC-1',
+        workspaceId,
+        portfolioIdentity: portfolioIdentityFor('tradier'),
         listing: stockListing,
         side: 'buy',
         quantity: 1,
@@ -309,9 +349,8 @@ describe('Trading provider order route', () => {
     const { POST } = await import('@/app/api/providers/trading/order/route')
     const response = await POST(
       createMockRequest('POST', {
-        provider: 'tradier',
-        credentialServiceId: 'tradier-live',
-        accountId: 'ACC-1',
+        workspaceId,
+        portfolioIdentity: portfolioIdentityFor('tradier'),
         listing: stockListing,
         side: 'buy',
         quantity: 1,
@@ -326,11 +365,37 @@ describe('Trading provider order route', () => {
     expect(mockFetch).not.toHaveBeenCalled()
   })
 
-  it('requires accountId before account discovery', async () => {
+  it('requires workspace write access before account discovery', async () => {
+    mockCheckWorkspaceAccess.mockResolvedValue({
+      exists: true,
+      hasAccess: true,
+      canWrite: false,
+      workspace: { id: workspaceId },
+    })
+
     const { POST } = await import('@/app/api/providers/trading/order/route')
     const response = await POST(
       createMockRequest('POST', {
-        provider: 'tradier',
+        workspaceId,
+        portfolioIdentity: portfolioIdentityFor('tradier'),
+        listing: stockListing,
+        side: 'buy',
+        quantity: 1,
+      })
+    )
+
+    expect(response.status).toBe(404)
+    await expect(response.json()).resolves.toEqual({ error: 'Not found' })
+    expect(mockCheckWorkspaceAccess).toHaveBeenCalledWith(workspaceId, 'user-1')
+    expect(mockListPortfolioIdentities).not.toHaveBeenCalled()
+    expect(mockFetch).not.toHaveBeenCalled()
+  })
+
+  it('requires portfolioIdentity before account discovery', async () => {
+    const { POST } = await import('@/app/api/providers/trading/order/route')
+    const response = await POST(
+      createMockRequest('POST', {
+        workspaceId,
         listing: stockListing,
         side: 'buy',
         quantity: 1,
@@ -356,9 +421,8 @@ describe('Trading provider order route', () => {
     const { POST } = await import('@/app/api/providers/trading/order/route')
     const response = await POST(
       createMockRequest('POST', {
-        provider: 'tradier',
-        credentialServiceId: 'tradier-live',
-        accountId: 'ACC-1',
+        workspaceId,
+        portfolioIdentity: portfolioIdentityFor('tradier'),
         listing: stockListing,
         side: 'buy',
         quantity: 1,
@@ -394,9 +458,8 @@ describe('Trading provider order route', () => {
       const { POST } = await import('@/app/api/providers/trading/order/route')
       const response = await POST(
         createMockRequest('POST', {
-          provider: 'alpaca',
-          credentialServiceId: 'alpaca-live',
-          accountId: 'ACC-1',
+          workspaceId,
+          portfolioIdentity: portfolioIdentityFor('alpaca'),
           listing: stockListing,
           side: 'sell',
           quantity: 1,
@@ -412,7 +475,7 @@ describe('Trading provider order route', () => {
     }
   )
 
-  it('submits valid Alpaca quantity orders without using order history', async () => {
+  it('submits valid Alpaca quantity orders through the canonical route', async () => {
     mockFetch.mockResolvedValueOnce(
       new Response(
         JSON.stringify({
@@ -429,9 +492,8 @@ describe('Trading provider order route', () => {
     const { POST } = await import('@/app/api/providers/trading/order/route')
     const response = await POST(
       createMockRequest('POST', {
-        provider: 'alpaca',
-        credentialServiceId: 'alpaca-live',
-        accountId: 'ACC-1',
+        workspaceId,
+        portfolioIdentity: portfolioIdentityFor('alpaca'),
         listing: stockListing,
         side: 'buy',
         quantity: 3,
@@ -440,6 +502,7 @@ describe('Trading provider order route', () => {
 
     expect(response.status).toBe(200)
     await expect(response.json()).resolves.toMatchObject({
+      appOrderId: 'app-order-1',
       provider: 'alpaca',
       accountId: 'ACC-1',
       order: {
@@ -450,6 +513,25 @@ describe('Trading provider order route', () => {
       },
     })
     expect(mockFetch).toHaveBeenCalledTimes(1)
+    expect(mockRecordOrderHistory).toHaveBeenCalledWith(
+      expect.objectContaining({
+        workspaceId,
+        provider: 'alpaca',
+        environment: 'live',
+        submissionSource: 'manual',
+        request: expect.objectContaining({
+          accountId: 'ACC-1',
+          orderType: 'market',
+          quantity: 3,
+          side: 'buy',
+          timeInForce: 'day',
+        }),
+        response: expect.objectContaining({
+          orderId: 'alpaca-order-1',
+          success: true,
+        }),
+      })
+    )
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit]
     expect(url).toBe('https://api.alpaca.markets/v2/orders')
     expect(url).not.toContain('/api/tools/trading/order-history')
@@ -472,12 +554,12 @@ describe('Trading provider order route', () => {
     const { POST } = await import('@/app/api/providers/trading/order/route')
     const response = await POST(
       createMockRequest('POST', {
-        provider: 'alpaca',
-        credentialServiceId: 'alpaca-live',
-        accountId: 'ACC-1',
+        workspaceId,
+        portfolioIdentity: portfolioIdentityFor('alpaca'),
         listing: stockListing,
         side: 'buy',
         orderSizingMode: 'notional',
+        quantity: 3,
         notional: 100.5,
         timeInForce: 'day',
       })
@@ -494,15 +576,16 @@ describe('Trading provider order route', () => {
       notional: 100.5,
     })
     expect(JSON.parse(String(init.body))).not.toHaveProperty('qty')
+    const recordInput = mockRecordOrderHistory.mock.calls[0]?.[0]
+    expect(recordInput.request).not.toHaveProperty('quantity')
   })
 
-  it('submits valid Tradier equity quantity orders without using order history', async () => {
+  it('submits valid Tradier equity quantity orders through the canonical route', async () => {
     const { POST } = await import('@/app/api/providers/trading/order/route')
     const response = await POST(
       createMockRequest('POST', {
-        provider: 'tradier',
-        credentialServiceId: 'tradier-live',
-        accountId: 'ACC-1',
+        workspaceId,
+        portfolioIdentity: portfolioIdentityFor('tradier'),
         listing: stockListing,
         side: 'buy',
         quantity: 3,
@@ -531,15 +614,28 @@ describe('Trading provider order route', () => {
     expect(String(init.body)).toContain('symbol=AAPL')
     expect(String(init.body)).toContain('quantity=3')
     expect(String(init.body)).not.toContain('price=')
+    expect(mockRecordOrderHistory).toHaveBeenCalledWith(
+      expect.objectContaining({
+        workspaceId,
+        provider: 'tradier',
+        environment: 'live',
+        submissionSource: 'manual',
+        request: expect.objectContaining({
+          accountId: 'ACC-1',
+          orderClass: 'equity',
+          quantity: 3,
+          side: 'buy',
+        }),
+      })
+    )
   })
 
   it('preserves listing enrichment fields in provider builders', async () => {
     const { POST } = await import('@/app/api/providers/trading/order/route')
     const response = await POST(
       createMockRequest('POST', {
-        provider: 'tradier',
-        credentialServiceId: 'tradier-live',
-        accountId: 'ACC-1',
+        workspaceId,
+        portfolioIdentity: portfolioIdentityFor('tradier'),
         listing: {
           ...stockListing,
           listing_id: 'IGNORED',
@@ -577,9 +673,8 @@ describe('Trading provider order route', () => {
     const { POST } = await import('@/app/api/providers/trading/order/route')
     const response = await POST(
       createMockRequest('POST', {
-        provider: 'tradier',
-        credentialServiceId: 'tradier-live',
-        accountId: 'ACC-1',
+        workspaceId,
+        portfolioIdentity: portfolioIdentityFor('tradier'),
         listing: stockListing,
         side: 'buy',
         quantity: 1,
@@ -600,9 +695,8 @@ describe('Trading provider order route', () => {
     const { POST } = await import('@/app/api/providers/trading/order/route')
     const response = await POST(
       createMockRequest('POST', {
-        provider: 'tradier',
-        credentialServiceId: 'tradier-live',
-        accountId: 'ACC-1',
+        workspaceId,
+        portfolioIdentity: portfolioIdentityFor('tradier'),
         listing: stockListing,
         side: 'buy',
         quantity: 1,
@@ -611,5 +705,6 @@ describe('Trading provider order route', () => {
 
     expect(response.status).toBe(502)
     await expect(response.json()).resolves.toEqual({ error: 'Broker request failed' })
+    expect(mockRecordOrderHistory).not.toHaveBeenCalled()
   })
 })

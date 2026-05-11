@@ -1,5 +1,6 @@
-import type { OrderHistory } from '@/tools/trading/types'
 import type { ToolConfig } from '@/tools/types'
+
+type OrderHistory = Array<Record<string, unknown>>
 
 export interface OrderHistoryParams {
   startDate: string

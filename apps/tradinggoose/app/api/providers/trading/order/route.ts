@@ -1,8 +1,9 @@
-import { NextResponse } from 'next/server'
+import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import type { ListingInputValue } from '@/lib/listing/identity'
 import { toListingValueObject } from '@/lib/listing/identity'
-import type { QuickOrderSubmitResponse } from '@/app/api/providers/trading/order/types'
+import { resolveListingIdentity } from '@/lib/listing/resolve'
+import type { TradingOrderSubmitResponse } from '@/app/api/providers/trading/order/types'
 import {
   createTradingProviderRequestId,
   logBrokerRequestFailure,
@@ -10,15 +11,19 @@ import {
   resolveTradingProviderPreflight,
   resolveTradingProviderSelectedAccount,
 } from '@/app/api/providers/trading/shared'
+import { AuthType, checkSessionOrInternalAuth } from '@/lib/auth/hybrid'
+import { checkWorkspaceAccess } from '@/lib/permissions/utils'
+import { recordOrderHistory } from '@/lib/records/order-history.server'
 import { executeTradingProviderRequest, getTradingProvider } from '@/providers/trading'
 import { getStrictTradingOrderTypeDefinitions } from '@/providers/trading/order-types'
 import {
   ALPACA_TRAILING_STOP_TRAIL_VALUE_ERROR,
   getAlpacaNotionalOrderTypeError,
 } from '@/providers/trading/order-validation'
-import { fetchBrokerJson, TradingBrokerRequestError } from '@/providers/trading/portfolio-utils'
+import { TradingBrokerRequestError, fetchBrokerJson } from '@/providers/trading/portfolio-utils'
+import { toPortfolioValueObject } from '@/providers/trading/portfolio-identity'
 import { getTradingProviderConfig } from '@/providers/trading/providers'
-import type { TradingOrder, TradingOrderRequest, TradingOrderType } from '@/providers/trading/types'
+import type { TradingOrder, TradingOrderType } from '@/providers/trading/types'
 import {
   isTradingOrderListingSupported,
   resolveTradingListingAssetClass,
@@ -36,11 +41,18 @@ const orderListingSchema = z
   })
   .passthrough()
 
+const portfolioIdentitySchema = z
+  .object({
+    providerId: nonEmptyStringSchema,
+    credentialServiceId: nonEmptyStringSchema,
+    accountId: nonEmptyStringSchema,
+  })
+  .passthrough()
+
 const orderSchema = z
   .object({
-    provider: nonEmptyStringSchema,
-    credentialServiceId: nonEmptyStringSchema.optional(),
-    accountId: nonEmptyStringSchema,
+    workspaceId: nonEmptyStringSchema,
+    portfolioIdentity: portfolioIdentitySchema,
     listing: orderListingSchema,
     side: z.enum(['buy', 'sell']),
     quantity: positiveNumberSchema.optional(),
@@ -52,6 +64,10 @@ const orderSchema = z
     stopPrice: positiveNumberSchema.optional(),
     trailPrice: positiveNumberSchema.optional(),
     trailPercent: positiveNumberSchema.optional(),
+    orderClass: nonEmptyStringSchema.optional(),
+    accessToken: nonEmptyStringSchema.optional(),
+    submissionSource: z.enum(['manual', 'copilot', 'workflow']).optional(),
+    logId: nonEmptyStringSchema.optional(),
   })
   .strict()
 
@@ -90,7 +106,7 @@ const resolveOrderType = (
 ): { orderType: TradingOrderType; requires: string[] } | NextResponse => {
   const context = {
     listing: data.listing as ListingInputValue,
-    orderClass: providerId === 'tradier' ? 'equity' : undefined,
+    orderClass: providerId === 'tradier' ? (data.orderClass ?? 'equity') : undefined,
   }
   const strictDefinitions = getStrictTradingOrderTypeDefinitions(providerId, context)
   if (!strictDefinitions.length) {
@@ -148,6 +164,9 @@ const validateAlpacaSizing = (
   return hasNumber(data.quantity) ? null : errorResponse('quantity is required')
 }
 
+const getOrderSizingMode = (providerId: string, data: OrderRequestData) =>
+  providerId === 'alpaca' ? (data.orderSizingMode ?? 'quantity') : undefined
+
 const validateTradierSizing = (data: OrderRequestData): NextResponse | null => {
   if (data.orderSizingMode || hasNumber(data.notional)) {
     return errorResponse('Notional sizing is only supported for Alpaca')
@@ -195,55 +214,85 @@ const validateOrderFields = (
   return null
 }
 
-const buildOrderRequest = (
+const toFetchBody = (body: string | Record<string, any> | undefined) => {
+  if (typeof body === 'string' || body === undefined) return body
+  return JSON.stringify(body)
+}
+
+const toRecord = (value: unknown): Record<string, any> | undefined =>
+  value && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, any>)
+    : undefined
+
+const compactRecord = (record: Record<string, unknown>) =>
+  Object.fromEntries(Object.entries(record).filter(([, value]) => value !== undefined))
+
+const hasResolvedListingDetails = (record: Record<string, unknown>): boolean => {
+  const listingType = typeof record.listing_type === 'string' ? record.listing_type : null
+  if (!listingType) return false
+  const base = typeof record.base === 'string' ? record.base.trim() : ''
+  if (!base) return false
+  if (listingType === 'default') return true
+  const quote = typeof record.quote === 'string' ? record.quote.trim() : ''
+  return Boolean(quote)
+}
+
+const resolveOrderListing = async (
   providerId: string,
-  data: OrderRequestData,
-  context: {
-    accessToken: string
-    accountId: string
-    environment: 'paper' | 'live'
-  },
-  orderType: TradingOrderType,
+  listing: ListingInputValue
+): Promise<ListingInputValue | NextResponse> => {
+  if (providerId !== 'alpaca') return listing
+  if (listing && typeof listing === 'object' && hasResolvedListingDetails(listing)) return listing
+
+  const identity = toListingValueObject(listing)
+  if (!identity) return errorResponse('Resolved listing is required')
+
+  const resolved = await resolveListingIdentity(identity).catch(() => null)
+  return resolved ?? errorResponse('Unable to resolve listing details for Alpaca order')
+}
+
+const buildOrderRequest = ({
+  providerId,
+  data,
+  listing,
+  accountId,
+  accessToken,
+  environment,
+  orderType,
+  timeInForce,
+}: {
+  providerId: string
+  data: OrderRequestData
+  listing: ListingInputValue
+  accountId: string
+  accessToken: string
+  environment: 'paper' | 'live'
+  orderType: TradingOrderType
   timeInForce: string
-): TradingOrderRequest => {
+}) => {
   const usesLimitPrice = orderType === 'limit' || orderType === 'stop_limit'
   const usesStopPrice = orderType === 'stop' || orderType === 'stop_limit'
   const usesTrailValue = orderType === 'trailing_stop'
-  const request: TradingOrderRequest = {
+  const orderSizingMode = getOrderSizingMode(providerId, data)
+
+  return executeTradingProviderRequest(providerId, {
     kind: 'order',
-    listing: data.listing as ListingInputValue,
-    assetClass: resolveTradingListingAssetClass(data.listing as ListingInputValue),
+    accessToken,
+    accountId,
+    environment,
+    listing,
     side: data.side,
+    quantity: orderSizingMode === 'notional' ? undefined : data.quantity,
+    notional: orderSizingMode === 'notional' ? data.notional : undefined,
+    orderSizingMode,
     orderType,
     timeInForce,
-    quantity: data.quantity,
     limitPrice: usesLimitPrice ? data.limitPrice : undefined,
     stopPrice: usesStopPrice ? data.stopPrice : undefined,
     trailPrice: usesTrailValue ? data.trailPrice : undefined,
     trailPercent: usesTrailValue ? data.trailPercent : undefined,
-    environment: context.environment,
-    accessToken: context.accessToken,
-    accountId: context.accountId,
-  }
-
-  if (providerId === 'alpaca') {
-    request.orderSizingMode = data.orderSizingMode ?? 'quantity'
-    if (request.orderSizingMode === 'notional') {
-      request.quantity = undefined
-      request.notional = data.notional
-    }
-  }
-
-  if (providerId === 'tradier') {
-    request.providerParams = { orderClass: 'equity' }
-  }
-
-  return request
-}
-
-const toFetchBody = (body: string | Record<string, any> | undefined) => {
-  if (typeof body === 'string' || body === undefined) return body
-  return JSON.stringify(body)
+    orderClass: providerId === 'tradier' ? (data.orderClass ?? 'equity') : data.orderClass,
+  })
 }
 
 const MESSAGE_KEYS = ['message', 'status_message', 'reason', 'reject_reason', 'error'] as const
@@ -294,13 +343,39 @@ export async function POST(request: Request) {
   })
   if (requestData instanceof Response) return requestData
 
+  const auth = await checkSessionOrInternalAuth(request as NextRequest, { requireWorkflowId: false })
+  if (!auth.success || !auth.userId) {
+    return errorResponse(auth.error || 'Unauthorized', 401)
+  }
+
+  const portfolioIdentity = toPortfolioValueObject(requestData.portfolioIdentity)
+  if (!portfolioIdentity) {
+    return errorResponse('portfolioIdentity is required')
+  }
+
   const baseContext = await resolveTradingProviderContext({
-    requestData,
+    requestData: {
+      provider: portfolioIdentity.providerId,
+      credentialServiceId: portfolioIdentity.credentialServiceId,
+    },
     requestId,
+    userId: auth.userId,
+    accessToken: auth.authType === AuthType.INTERNAL_JWT ? requestData.accessToken : undefined,
   })
   if (baseContext instanceof Response) return baseContext
 
-  const resolvedListingForRequest = requestData.listing as ListingInputValue
+  const workspaceAccess = await checkWorkspaceAccess(requestData.workspaceId, auth.userId)
+  if (!workspaceAccess.exists || !workspaceAccess.canWrite) {
+    return errorResponse('Not found', 404)
+  }
+
+  const resolvedListing = await resolveOrderListing(
+    baseContext.providerId,
+    requestData.listing as ListingInputValue
+  )
+  if (resolvedListing instanceof Response) return resolvedListing
+
+  const resolvedListingForRequest = resolvedListing as ListingInputValue
   const listingIdentity = toListingValueObject(resolvedListingForRequest)
   if (!listingIdentity) {
     return errorResponse('Resolved listing is required')
@@ -332,28 +407,30 @@ export async function POST(request: Request) {
 
   const accountContext = await resolveTradingProviderSelectedAccount({
     baseContext,
-    accountId: requestData.accountId,
+    accountId: portfolioIdentity.accountId,
   })
   if (accountContext instanceof Response) return accountContext
 
-  try {
-    const provider = getTradingProvider(baseContext.providerId)
-    const providerRequest = executeTradingProviderRequest(
-      baseContext.providerId,
-      buildOrderRequest(
-        baseContext.providerId,
-        requestData,
-        {
-          accessToken: baseContext.accessToken,
-          accountId: accountContext.accountId,
-          environment: baseContext.environment,
-        },
-        orderTypeResult.orderType,
-        timeInForce
-      )
-    )
+  const submissionSource =
+    requestData.submissionSource ?? (auth.authType === AuthType.SESSION ? 'manual' : undefined)
+  if (!submissionSource) {
+    return errorResponse('submissionSource is required')
+  }
 
-    const rawOrder = await fetchBrokerJson<unknown>({
+  let rawOrder: unknown
+  let normalizedOrder: TradingOrder
+  try {
+    const providerRequest = buildOrderRequest({
+      providerId: baseContext.providerId,
+      data: requestData,
+      listing: resolvedListingForRequest,
+      accountId: accountContext.accountId,
+      accessToken: baseContext.accessToken,
+      environment: baseContext.environment,
+      orderType: orderTypeResult.orderType,
+      timeInForce,
+    })
+    rawOrder = await fetchBrokerJson<unknown>({
       providerId: baseContext.providerId,
       url: providerRequest.url,
       init: {
@@ -362,17 +439,10 @@ export async function POST(request: Request) {
         body: toFetchBody(providerRequest.body),
       },
     })
-
-    const order = provider.normalizeOrder?.(rawOrder) ?? null
-
-    const response: QuickOrderSubmitResponse = {
-      order,
-      provider: baseContext.providerId,
-      accountId: accountContext.accountId,
-      message: extractOrderProviderMessage(rawOrder, order),
-    }
-
-    return NextResponse.json(response)
+    const provider = getTradingProvider(baseContext.providerId)
+    normalizedOrder = provider.normalizeOrder
+      ? provider.normalizeOrder(rawOrder)
+      : ({ raw: rawOrder } as TradingOrder)
   } catch (error) {
     logBrokerRequestFailure('order', error)
     if (error instanceof TradingBrokerRequestError) {
@@ -380,4 +450,53 @@ export async function POST(request: Request) {
     }
     return errorResponse(error instanceof Error ? error.message : 'Order submission failed')
   }
+
+  const rawOrderRecord = toRecord(rawOrder)
+  const normalizedOrderRecord = toRecord(normalizedOrder)
+  const orderSizingMode = getOrderSizingMode(baseContext.providerId, requestData)
+  const recordResult = await recordOrderHistory({
+    workspaceId: requestData.workspaceId,
+    provider: baseContext.providerId,
+    environment: baseContext.environment,
+    recordedAt: new Date().toISOString(),
+    submissionSource,
+    logId: requestData.logId,
+    listingIdentity,
+    request: compactRecord({
+      accountId: accountContext.accountId,
+      side: requestData.side,
+      orderType: orderTypeResult.orderType,
+      timeInForce,
+      quantity: orderSizingMode === 'notional' ? undefined : requestData.quantity,
+      notional: orderSizingMode === 'notional' ? requestData.notional : undefined,
+      limitPrice: requestData.limitPrice,
+      stopPrice: requestData.stopPrice,
+      trailPrice: requestData.trailPrice,
+      trailPercent: requestData.trailPercent,
+      orderSizingMode,
+      orderClass:
+        baseContext.providerId === 'tradier'
+          ? (requestData.orderClass ?? 'equity')
+          : requestData.orderClass,
+    }),
+    response: {
+      success: true,
+      orderId: normalizedOrderRecord?.id ?? rawOrderRecord?.id ?? rawOrderRecord?.order_id ?? null,
+      raw: rawOrderRecord ?? normalizedOrderRecord,
+    },
+    normalizedOrder: normalizedOrderRecord,
+  })
+  if (!recordResult.ok) {
+    return errorResponse(recordResult.error, 500)
+  }
+
+  const response: TradingOrderSubmitResponse = {
+    appOrderId: recordResult.record.id,
+    order: normalizedOrder,
+    provider: baseContext.providerId,
+    accountId: accountContext.accountId,
+    message: extractOrderProviderMessage(rawOrder, normalizedOrder),
+  }
+
+  return NextResponse.json(response)
 }

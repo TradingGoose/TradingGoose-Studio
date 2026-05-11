@@ -179,6 +179,7 @@ describe('order provider detail route', () => {
         provider: 'alpaca',
       },
       requestId: 'request-1',
+      userId: 'user-1',
     })
     expect(resolveTradingProviderSelectedAccount).toHaveBeenCalledWith({
       accountId: 'account-1',

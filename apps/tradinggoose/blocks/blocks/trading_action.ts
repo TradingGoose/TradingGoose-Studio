@@ -2,13 +2,18 @@ import { DollarIcon } from '@/components/icons/icons'
 import type { ListingInputValue } from '@/lib/listing/identity'
 import type { BlockConfig, SubBlockCondition, SubBlockConfig } from '@/blocks/types'
 import { AuthMode } from '@/blocks/types'
-import { buildInputsFromToolParams, requiredUserOnlyInput } from '@/blocks/utils'
+import {
+  buildInputsFromToolParams,
+  fetchTradingPortfolioIdentityOptions,
+  requiredUserOnlyInput,
+} from '@/blocks/utils'
 import {
   getTradingProviderParamCatalog,
   getTradingProviderParamDefinitions,
   getTradingProviders,
 } from '@/providers/trading'
 import { getTradingOrderTypeOptions } from '@/providers/trading/order-types'
+import { toPortfolioValueObject } from '@/providers/trading/portfolio-identity'
 import type { TradingProviderParamDefinition } from '@/providers/trading/providers'
 import { tradingActionTool } from '@/tools/trading/action'
 import type { TradingActionResponse } from '@/tools/trading/types'
@@ -20,7 +25,8 @@ const providerOptions = getTradingProviders().map((provider) => ({
 
 const BLOCK_RESERVED_PARAM_IDS = new Set([
   'provider',
-  'credential',
+  'portfolioIdentity',
+  'serviceId',
   'side',
   'listing',
   'orderType',
@@ -33,7 +39,8 @@ const BLOCK_RESERVED_PARAM_IDS = new Set([
 
 const TOOL_RESERVED_PARAM_IDS = new Set([
   'provider',
-  'credential',
+  'portfolioIdentity',
+  'serviceId',
   'side',
   'listing',
   'quantity',
@@ -213,36 +220,12 @@ const providerParamBlocks = (): SubBlockConfig[] =>
     })
     .filter((block): block is SubBlockConfig => Boolean(block))
 
-const providerCredentialBlocks = (): SubBlockConfig[] => {
-  const providers = getTradingProviders()
-  return providers
-    .filter((provider) => provider.authType === 'oauth' && provider.oauth)
-    .map((provider) => {
-      const oauth = provider.oauth!
-      const serviceIds = oauth.credentialServices?.map((service) => service.serviceId) ?? []
-      return {
-        id: `${provider.id}Credential`,
-        title: oauth.credentialTitle || `${provider.name} Account`,
-        type: 'oauth-input',
-        layout: 'full',
-        required: true,
-        provider: oauth.provider,
-        ...(serviceIds.length === 1 ? { serviceId: serviceIds[0] } : { serviceIds }),
-        requiredScopes: oauth.scopes || [],
-        placeholder: oauth.credentialPlaceholder || `Select or connect ${provider.name} account`,
-        condition: { field: 'provider', value: provider.id },
-        canonicalParamId: 'credential',
-      }
-    })
-}
-
 export const TradingActionBlock: BlockConfig<TradingActionResponse> = {
   type: 'trading_action',
   name: 'Trading Action',
   description: 'Place buy/sell orders via Alpaca or Tradier.',
   authMode: AuthMode.OAuth,
-  longDescription:
-    'Unified trading action block that supports multiple brokerages with either OAuth or API-key authentication.',
+  longDescription: 'Unified trading action block that submits orders from a selected broker account.',
   category: 'tools',
   bgColor: '#ff766e',
   icon: DollarIcon,
@@ -256,8 +239,19 @@ export const TradingActionBlock: BlockConfig<TradingActionResponse> = {
       required: true,
       value: () => 'alpaca',
     },
-    ...providerCredentialBlocks(),
-
+    {
+      id: 'portfolioIdentity',
+      title: 'Broker Account',
+      type: 'dropdown',
+      layout: 'full',
+      required: true,
+      dependsOn: ['provider'],
+      enableSearch: true,
+      autoSelectFirstOption: false,
+      placeholder: 'Select broker account',
+      description: 'Broker account used to submit this order.',
+      fetchOptions: fetchTradingPortfolioIdentityOptions,
+    },
     {
       id: 'side',
       title: 'Action',
@@ -352,17 +346,7 @@ export const TradingActionBlock: BlockConfig<TradingActionResponse> = {
       tool: () => 'trading_place_order',
       params: (params) => {
         const provider = params.provider
-        const resolveCredential = () => {
-          if (params.credential) return params.credential
-          if (provider) {
-            const providerKey = `${provider}Credential`
-            if (params[providerKey] !== undefined) return params[providerKey]
-          }
-          return getTradingProviders()
-            .map((definition) => params[`${definition.id}Credential`])
-            .find((value) => value !== undefined)
-        }
-        const credential = resolveCredential()
+        const portfolioIdentity = toPortfolioValueObject(params.portfolioIdentity)
         const extraFields = getTradingProviderParamDefinitions(provider, 'order').reduce(
           (acc, definition) => {
             if (!shouldIncludeProviderParam(definition, TOOL_RESERVED_PARAM_IDS)) return acc
@@ -376,7 +360,8 @@ export const TradingActionBlock: BlockConfig<TradingActionResponse> = {
 
         return {
           provider,
-          credential,
+          portfolioIdentity,
+          serviceId: portfolioIdentity?.credentialServiceId,
           side: params.side,
           listing: params.listing,
           quantity: toOptionalNumber(params.quantity),
@@ -394,11 +379,11 @@ export const TradingActionBlock: BlockConfig<TradingActionResponse> = {
   },
   inputs: {
     ...buildInputsFromToolParams(tradingActionTool.params, {
-      include: ['credential'],
+      include: ['portfolioIdentity'],
     }),
-    credential: requiredUserOnlyInput(
-      'string',
-      'OAuth credential id selected by the broker account field.'
+    portfolioIdentity: requiredUserOnlyInput(
+      'json',
+      'Canonical portfolioIdentity selected by the broker account field.'
     ),
   },
   outputs: {

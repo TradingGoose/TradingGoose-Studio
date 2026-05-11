@@ -11,25 +11,6 @@ const availability: TradingProviderConfig['availability'] = {
 }
 
 const params: TradingProviderConfig['params'] = {
-  shared: [
-    {
-      id: 'accessToken',
-      type: 'string',
-      title: 'Access Token',
-      description: 'OAuth access token (injected from credential).',
-      required: false,
-      visibility: 'hidden',
-      password: true,
-    },
-    {
-      id: 'accountId',
-      type: 'string',
-      title: 'Account ID',
-      description: 'Account number used in Tradier endpoints.',
-      required: true,
-      visibility: 'user-or-llm',
-    },
-  ],
   order: [
     {
       id: 'orderClass',

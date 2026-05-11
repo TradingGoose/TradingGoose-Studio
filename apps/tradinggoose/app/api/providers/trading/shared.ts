@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server'
 import type { z } from 'zod'
-import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getOAuthToken } from '@/app/api/auth/oauth/utils'
 import type { PortfolioIdentity } from '@/providers/trading/portfolio-identity'
@@ -35,7 +34,7 @@ export type TradingAccountRouteContext = PreflightContext & {
   portfolioIdentity: PortfolioIdentity
 }
 
-const parseRequestBody = async <T extends ProviderRequestData>(
+const parseRequestBody = async <T extends Record<string, unknown>>(
   request: Request,
   schema: z.ZodSchema<T>
 ): Promise<T | NextResponse> => {
@@ -66,7 +65,7 @@ const requireStringField = (
   return value
 }
 
-export async function resolveTradingProviderPreflight<T extends ProviderRequestData>({
+export async function resolveTradingProviderPreflight<T extends Record<string, unknown>>({
   request,
   schema,
 }: {
@@ -79,17 +78,16 @@ export async function resolveTradingProviderPreflight<T extends ProviderRequestD
 export async function resolveTradingProviderContext({
   requestData,
   requestId,
+  userId,
+  accessToken,
 }: {
   requestData: ProviderRequestData
   requestId: string
+  userId: string
+  accessToken?: string
 }): Promise<PreflightContext | NextResponse> {
   const providerId = requireStringField(requestData, 'provider')
   if (providerId instanceof NextResponse) return providerId
-
-  const session = await getSession()
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
 
   const providerDefinition = getTradingProviderDefinition(providerId)
   if (!providerDefinition) {
@@ -101,8 +99,8 @@ export async function resolveTradingProviderContext({
     return NextResponse.json({ error: 'Trading provider connection is required' }, { status: 400 })
   }
 
-  const accessToken = await getOAuthToken(session.user.id, serviceId)
-  if (!accessToken) {
+  const resolvedAccessToken = accessToken?.trim() || (await getOAuthToken(userId, serviceId))
+  if (!resolvedAccessToken) {
     return NextResponse.json({ error: 'Trading provider connection not found' }, { status: 404 })
   }
   const environment = getTradingProviderOAuthEnvironment(providerId, serviceId)
@@ -118,8 +116,8 @@ export async function resolveTradingProviderContext({
     providerId,
     credentialServiceId: serviceId,
     environment,
-    accessToken,
-    sessionUserId: session.user.id,
+    accessToken: resolvedAccessToken,
+    sessionUserId: userId,
   }
 }
 

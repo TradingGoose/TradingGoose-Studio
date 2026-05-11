@@ -26,9 +26,6 @@ const resolveTradierAccountId = (
 ): string | null =>
   firstDefinedString(
     params.accountId,
-    historyRecord.request?.providerParams?.accountId,
-    historyRecord.request?.providerParams?.account_id,
-    historyRecord.request?.providerParams?.account,
     historyRecord.response?.raw?.account_id,
     historyRecord.response?.raw?.order?.account_id
   )

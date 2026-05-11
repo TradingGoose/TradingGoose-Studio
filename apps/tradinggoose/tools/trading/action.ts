@@ -1,224 +1,27 @@
-import { toListingValueObject } from '@/lib/listing/identity'
-import { createLogger } from '@/lib/logs/console/logger'
-import { getBaseUrl } from '@/lib/urls/utils'
-import {
-  executeTradingProviderRequest,
-  getTradingProvider,
-  getTradingProviderOAuthEnvironment,
-} from '@/providers/trading'
-import type {
-  OrderSubmit,
-  OrderSubmitRequest,
-  OrderSubmitResponse,
-  TradingActionParams,
-  TradingActionResponse,
-} from '@/tools/trading/types'
+import type { TradingActionParams, TradingActionResponse } from '@/tools/trading/types'
 import type { ToolConfig } from '@/tools/types'
 
-const logger = createLogger('TradingActionTool')
-
-const resolveProviderEnvironment = (params: TradingActionParams) => {
-  return (
-    getTradingProviderOAuthEnvironment(params.provider, params.credentialServiceId) ??
-    params.environment
-  )
-}
-
-const ORDER_HISTORY_OMIT_KEYS = new Set([
-  'provider',
-  'environment',
-  'side',
-  'listing',
-  'quantity',
-  'notional',
-  'orderType',
-  'limitPrice',
-  'stopPrice',
-  'trailPrice',
-  'trailPercent',
-  'timeInForce',
-  'orderSizingMode',
-  'orderClass',
-  'credential',
-  'credentialServiceId',
-  'accessToken',
-  '_context',
-  '_credentialId',
-])
-
-const extractProviderParams = (params: TradingActionParams): Record<string, unknown> => {
-  const extras: Record<string, unknown> = {}
-  for (const [key, value] of Object.entries(params as unknown as Record<string, unknown>)) {
-    if (ORDER_HISTORY_OMIT_KEYS.has(key) || key.startsWith('_')) continue
-    if (value !== undefined) {
-      extras[key] = value
-    }
-  }
-  return extras
-}
-
-const buildOrderSubmitRequest = (params: TradingActionParams): OrderSubmitRequest => {
-  const providerParams = extractProviderParams(params)
-  const normalized = normalizeOrderSizing(params)
-  return {
+const buildOrderRoutePayload = (params: TradingActionParams) => {
+  const payload = {
+    workspaceId: params._context?.workspaceId,
+    portfolioIdentity: params.portfolioIdentity,
+    listing: params.listing,
     side: params.side,
+    quantity: params.quantity,
+    notional: params.notional,
+    orderSizingMode: params.orderSizingMode,
     orderType: params.orderType,
     timeInForce: params.timeInForce,
-    quantity: normalized.quantity,
-    notional: normalized.notional,
-    limitPrice: normalizeSizingValue(params.limitPrice),
-    stopPrice: normalizeSizingValue(params.stopPrice),
-    trailPrice: normalizeSizingValue(params.trailPrice),
-    trailPercent: normalizeSizingValue(params.trailPercent),
-    orderSizingMode: params.orderSizingMode,
+    limitPrice: params.limitPrice,
+    stopPrice: params.stopPrice,
+    trailPrice: params.trailPrice,
+    trailPercent: params.trailPercent,
     orderClass: params.orderClass,
-    providerParams: Object.keys(providerParams).length ? providerParams : undefined,
+    accessToken: params.accessToken,
+    submissionSource: params._context?.submissionSource,
+    logId: params._context?.workflowLogId,
   }
-}
-
-const buildOrderSubmitResponse = (
-  normalizedOrder: Record<string, any> | undefined,
-  rawOrder: Record<string, any> | undefined,
-  success = true,
-  errorMessage?: string | null
-): OrderSubmitResponse => {
-  const orderId =
-    normalizedOrder?.id ?? rawOrder?.id ?? rawOrder?.order_id ?? rawOrder?.order?.id ?? null
-  const clientOrderId =
-    rawOrder?.client_order_id ?? rawOrder?.clientOrderId ?? rawOrder?.order?.client_order_id ?? null
-  const createdAt =
-    rawOrder?.created_at ??
-    rawOrder?.create_date ??
-    rawOrder?.createdAt ??
-    rawOrder?.order?.created_at ??
-    rawOrder?.order?.create_date ??
-    null
-  const submittedAt =
-    normalizedOrder?.submittedAt ??
-    rawOrder?.submitted_at ??
-    rawOrder?.submittedAt ??
-    rawOrder?.order?.submitted_at ??
-    null
-  const symbol = normalizedOrder?.symbol ?? rawOrder?.symbol ?? rawOrder?.order?.symbol ?? null
-  const status =
-    normalizedOrder?.status ??
-    rawOrder?.status ??
-    rawOrder?.state ??
-    rawOrder?.order?.status ??
-    null
-
-  return {
-    success,
-    orderId,
-    clientOrderId,
-    createdAt,
-    submittedAt,
-    symbol,
-    status,
-    errorMessage: errorMessage ?? null,
-    raw: rawOrder ?? normalizedOrder,
-  }
-}
-
-const normalizeSizingValue = (value: unknown): number | undefined => {
-  if (value === null || value === undefined) return undefined
-  if (typeof value === 'string' && value.trim() === '') return undefined
-  const parsed = typeof value === 'string' ? Number(value) : value
-  return typeof parsed === 'number' && Number.isFinite(parsed) ? parsed : undefined
-}
-
-const resolveOrderSizingMode = (
-  mode: unknown
-): TradingActionParams['orderSizingMode'] | undefined => {
-  if (mode === 'quantity' || mode === 'notional') return mode
-  if (typeof mode !== 'string') return undefined
-
-  const normalized = mode.trim().toLowerCase()
-  if (normalized === 'quantity' || normalized === 'notional') return normalized
-  return undefined
-}
-
-const normalizeOrderSizing = (params: TradingActionParams): TradingActionParams => {
-  const quantity = normalizeSizingValue(params.quantity)
-  const notional = normalizeSizingValue(params.notional)
-  const orderSizingMode = resolveOrderSizingMode(params.orderSizingMode)
-
-  if (orderSizingMode === 'notional') {
-    return {
-      ...params,
-      orderSizingMode,
-      quantity: undefined,
-      notional,
-    }
-  }
-
-  if (orderSizingMode === 'quantity') {
-    return {
-      ...params,
-      orderSizingMode,
-      quantity,
-      notional: undefined,
-    }
-  }
-
-  return {
-    ...params,
-    quantity,
-    notional: quantity !== undefined ? undefined : notional,
-  }
-}
-
-const validateOrderSizing = (params: TradingActionParams) => {
-  const hasQuantity = params.quantity !== undefined && params.quantity !== null
-  const hasNotional = params.notional !== undefined && params.notional !== null
-  const orderSizingMode = resolveOrderSizingMode(params.orderSizingMode)
-
-  if (params.provider === 'alpaca') {
-    if (orderSizingMode === 'quantity' && !hasQuantity) {
-      throw new Error('Alpaca orders require qty when orderSizingMode=quantity.')
-    }
-    if (orderSizingMode === 'notional' && !hasNotional) {
-      throw new Error('Alpaca orders require notional when orderSizingMode=notional.')
-    }
-    if (!hasQuantity && !hasNotional) {
-      throw new Error('Quantity or notional is required for Alpaca orders.')
-    }
-    return
-  }
-
-  if (hasNotional) {
-    throw new Error('Notional orders are only supported for Alpaca.')
-  }
-  if (!hasQuantity) {
-    throw new Error('Quantity is required for this provider.')
-  }
-}
-
-const buildOrderRequest = (params: TradingActionParams) => {
-  const normalized = normalizeOrderSizing(params)
-  validateOrderSizing(normalized)
-  const provider = getTradingProvider(normalized.provider)
-  const { provider: providerId, ...rest } = normalized
-  const request = executeTradingProviderRequest(providerId, {
-    kind: 'order',
-    ...rest,
-    environment: resolveProviderEnvironment(normalized),
-  })
-  logger.info(`Building order request for ${provider.id}`, {
-    orderType: normalized.orderType || provider.defaults?.orderType || 'market',
-    timeInForce: normalized.timeInForce || provider.defaults?.timeInForce,
-    sizing: normalized.notional !== undefined ? 'notional' : 'quantity',
-  })
-  return request
-}
-
-const resolveOrderRequest = (params: TradingActionParams) => {
-  const cacheKey = '_tradingOrderRequest'
-  const existing = (params as any)[cacheKey]
-  if (existing) return existing
-  const built = buildOrderRequest(params)
-  ;(params as any)[cacheKey] = built
-  return built
+  return Object.fromEntries(Object.entries(payload).filter(([, value]) => value !== undefined))
 }
 
 export const tradingActionTool: ToolConfig<TradingActionParams, TradingActionResponse> = {
@@ -233,6 +36,18 @@ export const tradingActionTool: ToolConfig<TradingActionParams, TradingActionRes
       required: true,
       visibility: 'user-only',
       description: 'Trading provider id (alpaca or tradier).',
+    },
+    portfolioIdentity: {
+      type: 'json',
+      required: true,
+      visibility: 'user-only',
+      description: 'Canonical broker account identity selected for this order.',
+    },
+    serviceId: {
+      type: 'string',
+      required: false,
+      visibility: 'hidden',
+      description: 'OAuth credential service id from the selected broker account.',
     },
     listing: {
       type: 'json',
@@ -307,141 +122,30 @@ export const tradingActionTool: ToolConfig<TradingActionParams, TradingActionRes
       visibility: 'user-or-llm',
       description: 'Trailing stop percent offset (Alpaca trailing_stop).',
     },
-    environment: {
-      type: 'string',
-      required: false,
-      visibility: 'user-only',
-      description: 'Trading environment for providers that expose one.',
-    },
-    credential: {
-      type: 'string',
-      required: false,
-      visibility: 'hidden',
-      description: 'OAuth credential id for the selected broker (populated from selected account).',
-    },
     accessToken: {
       type: 'string',
       required: false,
       visibility: 'hidden',
-      description: 'OAuth access token (injected from credential).',
-    },
-    accountId: {
-      type: 'string',
-      required: false,
-      visibility: 'user-or-llm',
-      description: 'Account ID (Tradier).',
+      description: 'OAuth access token injected from the selected broker account.',
     },
   },
 
   request: {
-    url: (params) => resolveOrderRequest(params).url,
-    method: (params) => resolveOrderRequest(params).method,
-    headers: (params) => resolveOrderRequest(params).headers,
-    body: (params) => resolveOrderRequest(params).body,
+    url: '/api/providers/trading/order',
+    method: 'POST',
+    headers: () => ({ 'Content-Type': 'application/json' }),
+    body: buildOrderRoutePayload,
   },
 
-  postProcess: async (result, params) => {
-    try {
-      const normalizedOrder =
-        result.output && typeof result.output === 'object'
-          ? (result.output as any).order
-          : undefined
-      const rawOrder =
-        normalizedOrder && typeof normalizedOrder === 'object' && 'raw' in normalizedOrder
-          ? (normalizedOrder as any).raw
-          : normalizedOrder
-
-      const listingIdentity = toListingValueObject(params.listing)
-
-      const errorPayload = result.success
-        ? undefined
-        : {
-            error: result.error,
-            output: result.output,
-          }
-      const responsePayload = buildOrderSubmitResponse(
-        normalizedOrder as Record<string, any> | undefined,
-        (rawOrder as Record<string, any> | undefined) ?? (errorPayload as any),
-        result.success,
-        result.success ? undefined : result.error
-      )
-
-      const context = (params as any)._context as
-        | {
-            workspaceId?: string
-            userId?: string
-            executionId?: string
-            workflowLogId?: string
-            submissionSource?: 'manual' | 'copilot' | 'workflow'
-          }
-        | undefined
-      const workspaceId = context?.workspaceId
-      if (!workspaceId) {
-        throw new Error('Order history recording requires workspace context')
-      }
-      if (!context?.submissionSource) {
-        throw new Error('Order history recording requires submission source')
-      }
-
-      const orderSubmit: OrderSubmit = {
-        workspaceId,
-        provider: params.provider,
-        environment: resolveProviderEnvironment(params),
-        recordedAt: new Date().toISOString(),
-        submissionSource: context.submissionSource,
-        logId: context.workflowLogId,
-        listingIdentity,
-        request: buildOrderSubmitRequest(params),
-        response: responsePayload,
-        normalizedOrder: normalizedOrder as Record<string, any> | undefined,
-      }
-
-      const baseUrl = getBaseUrl()
-      const recordUrl = new URL('/api/tools/trading/order-history', baseUrl).toString()
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-      }
-
-      if (typeof window === 'undefined') {
-        if (!context?.userId) {
-          throw new Error('Order history recording requires user context')
-        }
-        const { generateInternalToken } = await import('@/lib/auth/internal')
-        headers.Authorization = `Bearer ${await generateInternalToken(context.userId)}`
-      }
-
-      const response = await fetch(recordUrl, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(orderSubmit),
-      })
-
-      if (!response.ok) {
-        throw new Error(`Order history recording failed with HTTP ${response.status}`)
-      }
-    } catch (error: any) {
-      logger.warn('Failed to record order history entry', {
-        error: error instanceof Error ? error.message : String(error),
-      })
-    }
-
-    return result
-  },
-
-  transformResponse: async (response, params) => {
-    if (!params) {
-      throw new Error('Missing tool parameters for order request')
-    }
-    const provider = getTradingProvider(params.provider)
-    const raw = await response.json().catch(() => ({}))
-    const normalized = provider.normalizeOrder ? provider.normalizeOrder(raw) : { raw }
-
+  transformResponse: async (response) => {
+    const data = await response.json()
     return {
       success: true,
       output: {
-        summary: `Order submitted to ${provider.name}`,
-        provider: provider.id,
-        order: normalized,
+        summary: `Order submitted to ${data.provider}`,
+        provider: data.provider,
+        appOrderId: data.appOrderId,
+        order: data.order,
       },
     }
   },
@@ -449,6 +153,7 @@ export const tradingActionTool: ToolConfig<TradingActionParams, TradingActionRes
   outputs: {
     summary: { type: 'string', description: 'Status message for the order submission.' },
     provider: { type: 'string', description: 'Broker/provider used for the order.' },
+    appOrderId: { type: 'string', description: 'Trading Goose order ID.' },
     order: { type: 'json', description: 'Normalized order details and raw response.' },
   },
 }
