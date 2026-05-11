@@ -167,4 +167,35 @@ describe('orders export route', () => {
     expect(csv).toContain('"App Order ID","Provider Order ID","Listing"')
     expect(csv).toContain('"order-1","provider-order-1","AAPL","workflow","alpaca"')
   })
+
+  it('neutralizes spreadsheet formulas in exported cells', async () => {
+    mocks.resultsQueue.push([
+      {
+        order: {
+          ...orderRow,
+          id: 'order-2',
+          listingIdentity: { listing_type: 'stock', listing_id: '=1+1' },
+          normalizedOrder: {
+            ...orderRow.normalizedOrder,
+            symbol: '=1+1',
+          },
+          response: {
+            ...orderRow.response,
+            orderId: '+SUM(1,1)',
+          },
+        },
+        linkedLog: null,
+      },
+    ])
+    const { GET } = await import('./route')
+
+    const response = await GET(
+      new NextRequest('http://localhost/api/orders/export?workspaceId=workspace-1')
+    )
+    const csv = await response.text()
+
+    expect(response.status).toBe(200)
+    expect(csv).toContain("\"'+SUM(1,1)\"")
+    expect(csv).toContain("\"'=1+1\"")
+  })
 })

@@ -21,9 +21,12 @@ const logger = createLogger('OrdersExportAPI')
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
+const CSV_FORMULA_PREFIX = /^[\s]*[=+\-@]/
+
 const csvValue = (value: unknown) => {
   const text = value === null || value === undefined ? '' : String(value)
-  return `"${text.replace(/"/g, '""')}"`
+  const safeText = CSV_FORMULA_PREFIX.test(text) ? `'${text}` : text
+  return `"${safeText.replace(/"/g, '""')}"`
 }
 
 export async function GET(request: NextRequest) {
