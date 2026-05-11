@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { LayoutDashboard, Play, RefreshCw, X } from 'lucide-react'
 import { Button, Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui'
 import { useSession } from '@/lib/auth-client'
@@ -84,11 +84,7 @@ export function ControlBar({
   const { workflowId, channelId } = useWorkflowRoute()
   const isRegistryLoading = useWorkflowRegistry((state) => state.isLoading)
   const activeWorkflowId = workflowId
-  const {
-    isExecuting,
-    handleRunWorkflow,
-    handleCancelExecution,
-  } = useWorkflowExecution()
+  const { isExecuting, handleRunWorkflow, handleCancelExecution } = useWorkflowExecution()
 
   // User permissions - use stable activeWorkspaceId from registry instead of deriving from currentWorkflow
   const userPermissions = useUserPermissionsContext()
@@ -119,16 +115,10 @@ export function ControlBar({
 
   // Register keyboard shortcut for running workflow
   useKeyboardShortcuts(() => {
-    if (!isWorkflowBlocked) {
+    if (!isWorkflowBlocked && userPermissions.canEdit) {
       handleRunWorkflow()
     }
-  }, isWorkflowBlocked)
-
-  // // Check if the current user is the owner of the published workflow
-  // const isWorkflowOwner = () => {
-  //   const marketplaceData = getMarketplaceData()
-  //   return marketplaceData?.status === 'owner'
-  // }
+  }, isWorkflowBlocked || !userPermissions.canEdit)
 
   // Get deployment status from registry
   const deploymentStatus = useWorkflowRegistry((state) =>
@@ -405,10 +395,7 @@ export function ControlBar({
    * Render run workflow button or cancel button when executing
    */
   const renderRunButton = () => {
-    const canRun = userPermissions.canRead // Running only requires read permissions
-    const isLoadingPermissions = userPermissions.isLoading
-    const isButtonDisabled =
-      !isExecuting && (isWorkflowBlocked || (!canRun && !isLoadingPermissions))
+    const isButtonDisabled = !isExecuting && (isWorkflowBlocked || !userPermissions.canEdit)
 
     // If currently executing, show cancel button
     if (isExecuting) {
@@ -437,8 +424,12 @@ export function ControlBar({
         )
       }
 
-      if (!canRun && !isLoadingPermissions) {
-        return 'Read permission required to run workflows'
+      if (userPermissions.isLoading) {
+        return 'Checking workflow permissions'
+      }
+
+      if (!userPermissions.canEdit) {
+        return 'Write permission required to run workflows'
       }
 
       if (usageExceeded) {
