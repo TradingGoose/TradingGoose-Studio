@@ -2,7 +2,6 @@ import { randomUUID } from 'node:crypto'
 import { type NextRequest, NextResponse } from 'next/server'
 import { authenticateApiKeyFromHeader } from '@/lib/api-key/service'
 import {
-  cancelPendingWorkflowExecution,
   enqueuePendingExecution,
   isPendingExecutionLimitError,
 } from '@/lib/execution/pending-execution'
@@ -43,7 +42,7 @@ class ApiWorkflowExecutionTimeoutError extends Error {
   statusCode = 504
 
   constructor() {
-    super('Workflow execution timed out and was cancelled')
+    super('Workflow execution did not complete before the HTTP wait timeout')
     this.name = 'ApiWorkflowExecutionTimeoutError'
   }
 }
@@ -51,11 +50,10 @@ class ApiWorkflowExecutionTimeoutError extends Error {
 async function waitForApiWorkflowResult(params: {
   executionId: string
   workflowId: string
-  onTimeout: () => Promise<void>
 }) {
   const startedAt = Date.now()
 
-  while (Date.now() - startedAt < API_EXECUTION_WAIT_TIMEOUT_MS) {
+  const readTerminalResult = async () => {
     const state = await readWorkflowExecutionEventState({
       pendingExecutionId: params.executionId,
       workflowId: params.workflowId,
@@ -76,10 +74,19 @@ async function waitForApiWorkflowResult(params: {
       throw new Error(state.errorMessage || 'Workflow execution failed')
     }
 
+    return null
+  }
+
+  while (Date.now() - startedAt < API_EXECUTION_WAIT_TIMEOUT_MS) {
+    const result = await readTerminalResult()
+    if (result) return result
+
     await sleep(API_EXECUTION_POLL_INTERVAL_MS)
   }
 
-  await params.onTimeout()
+  const finalResult = await readTerminalResult()
+  if (finalResult) return finalResult
+
   throw new ApiWorkflowExecutionTimeoutError()
 }
 
@@ -164,12 +171,6 @@ async function executeApiWorkflowThroughQueue(params: {
   const result = await waitForApiWorkflowResult({
     executionId,
     workflowId: validation.workflow.id,
-    onTimeout: async () => {
-      await cancelPendingWorkflowExecution({
-        pendingExecutionId: executionId,
-        userId: apiUserId,
-      })
-    },
   })
   return createApiWorkflowResponse(result)
 }
