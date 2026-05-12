@@ -1,10 +1,10 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
+import { checkWorkspaceAccess } from '@/lib/permissions/utils'
 import { StorageService } from '@/lib/uploads'
 import { getWorkspaceFile } from '@/lib/uploads/contexts/workspace'
 import { generateRequestId } from '@/lib/utils'
-import { verifyWorkspaceMembership } from '@/app/api/workflows/utils'
 
 export const dynamic = 'force-dynamic'
 
@@ -29,8 +29,8 @@ export async function POST(
     }
 
     // Check workspace permissions (requires read)
-    const userPermission = await verifyWorkspaceMembership(session.user.id, workspaceId)
-    if (!userPermission) {
+    const workspaceAccess = await checkWorkspaceAccess(workspaceId, session.user.id)
+    if (!workspaceAccess.hasAccess) {
       logger.warn(
         `[${requestId}] User ${session.user.id} lacks permission for workspace ${workspaceId}`
       )

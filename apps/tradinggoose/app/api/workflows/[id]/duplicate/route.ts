@@ -6,11 +6,11 @@ import { z } from 'zod'
 import { getSession } from '@/lib/auth'
 import { getStableVibrantColor } from '@/lib/colors'
 import { createLogger } from '@/lib/logs/console/logger'
-import { getUserEntityPermissions } from '@/lib/permissions/utils'
+import { checkWorkspaceAccess } from '@/lib/permissions/utils'
 import { generateRequestId } from '@/lib/utils'
 import { normalizeVariables } from '@/lib/workflows/variable-utils'
 import {
-  loadWorkflowStateWithFallback,
+  loadWorkflowState,
   regenerateWorkflowStateIds,
   remapVariableIds,
   saveWorkflowToNormalizedTables,
@@ -38,7 +38,7 @@ async function loadSourceWorkflowArtifacts(
   variables: Record<string, Variable>
   source: 'yjs' | 'normalized'
 }> {
-  const stateWithSource = await loadWorkflowStateWithFallback(sourceWorkflowId)
+  const stateWithSource = await loadWorkflowState(sourceWorkflowId)
   if (!stateWithSource) {
     throw new Error('Failed to load source workflow state')
   }
@@ -102,12 +102,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     }
 
     if (!canAccessSource && source.workspaceId) {
-      const userPermission = await getUserEntityPermissions(
-        session.user.id,
-        'workspace',
-        source.workspaceId
-      )
-      if (userPermission === 'admin' || userPermission === 'write') {
+      const workspaceAccess = await checkWorkspaceAccess(source.workspaceId, session.user.id)
+      if (workspaceAccess.canWrite) {
         canAccessSource = true
       }
     }

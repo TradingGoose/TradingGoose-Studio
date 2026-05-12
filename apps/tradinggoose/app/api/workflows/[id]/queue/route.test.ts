@@ -229,6 +229,49 @@ describe('POST /api/workflows/[id]/queue', () => {
     })
   })
 
+  it('rejects child workflow execution when the actor cannot write the child workflow workspace', async () => {
+    checkSessionOrInternalAuthMock.mockResolvedValue({
+      success: true,
+      userId: 'user-1',
+      authType: 'internal_jwt',
+      internalWorkflowExecution: {
+        source: 'workflow_block',
+        parentWorkflowId: 'parent-1',
+        parentExecutionId: 'execution-1',
+        parentBlockId: 'block-1',
+      },
+    })
+    readWorkflowAccessContextMock.mockResolvedValue({
+      workflow: {
+        id: 'workflow-1',
+        name: 'Child Workflow',
+        workspaceId: 'workspace-1',
+        isDeployed: true,
+      },
+      isOwner: false,
+      isWorkspaceOwner: false,
+      workspacePermission: 'read',
+    })
+
+    const response = await POST(
+      new NextRequest('http://localhost/api/workflows/workflow-1/queue', {
+        method: 'POST',
+        body: JSON.stringify({
+          input: { symbol: 'AAPL' },
+          executionTarget: 'live',
+          triggerType: 'manual',
+          workflowDepth: 2,
+        }),
+      }),
+      {
+        params: Promise.resolve({ id: 'workflow-1' }),
+      }
+    )
+
+    expect(response.status).toBe(403)
+    expect(enqueuePendingExecutionMock).not.toHaveBeenCalled()
+  })
+
   it('queues editor live executions with the canonical workflow payload', async () => {
     const workflowData = {
       blocks: {

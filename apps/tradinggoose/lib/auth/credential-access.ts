@@ -3,7 +3,7 @@ import { account, workflow as workflowTable } from '@tradinggoose/db/schema'
 import { eq } from 'drizzle-orm'
 import type { NextRequest } from 'next/server'
 import { checkHybridAuth } from '@/lib/auth/hybrid'
-import { getUserEntityPermissions } from '@/lib/permissions/utils'
+import { checkWorkspaceAccess } from '@/lib/permissions/utils'
 
 export interface CredentialAccessResult {
   ok: boolean
@@ -82,12 +82,8 @@ export async function authorizeCredentialUse(
 
   if (auth.authType === 'internal_jwt') {
     // Internal calls: verify credential owner belongs to the workflow's workspace
-    const ownerPerm = await getUserEntityPermissions(
-      credentialOwnerUserId,
-      'workspace',
-      wf.workspaceId
-    )
-    if (ownerPerm === null) {
+    const ownerAccess = await checkWorkspaceAccess(wf.workspaceId, credentialOwnerUserId)
+    if (!ownerAccess.hasAccess) {
       return { ok: false, error: 'Unauthorized' }
     }
     return {
@@ -104,13 +100,11 @@ export async function authorizeCredentialUse(
   }
 
   // Session/API key: verify BOTH requester and owner belong to the workflow's workspace
-  const requesterPerm = await getUserEntityPermissions(requesterUserId, 'workspace', wf.workspaceId)
-  const ownerPerm = await getUserEntityPermissions(
-    credentialOwnerUserId,
-    'workspace',
-    wf.workspaceId
-  )
-  if (requesterPerm === null || ownerPerm === null) {
+  const [requesterAccess, ownerAccess] = await Promise.all([
+    checkWorkspaceAccess(wf.workspaceId, requesterUserId),
+    checkWorkspaceAccess(wf.workspaceId, credentialOwnerUserId),
+  ])
+  if (!requesterAccess.hasAccess || !ownerAccess.hasAccess) {
     return { ok: false, error: 'Unauthorized' }
   }
 

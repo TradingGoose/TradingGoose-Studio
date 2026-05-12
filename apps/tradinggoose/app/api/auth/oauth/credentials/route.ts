@@ -6,7 +6,7 @@ import { type NextRequest, NextResponse } from 'next/server'
 import { checkHybridAuth } from '@/lib/auth/hybrid'
 import { createLogger } from '@/lib/logs/console/logger'
 import { OAUTH_PROVIDERS, type OAuthProvider, type OAuthService, parseProvider } from '@/lib/oauth'
-import { getUserEntityPermissions } from '@/lib/permissions/utils'
+import { checkWorkspaceAccess } from '@/lib/permissions/utils'
 import { generateRequestId } from '@/lib/utils'
 
 export const dynamic = 'force-dynamic'
@@ -96,8 +96,8 @@ export async function GET(request: NextRequest) {
           return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
         }
 
-        const perm = await getUserEntityPermissions(requesterUserId, 'workspace', wf.workspaceId)
-        if (perm === null) {
+        const workspaceAccess = await checkWorkspaceAccess(wf.workspaceId, requesterUserId)
+        if (!workspaceAccess.hasAccess) {
           logger.warn(`[${requestId}] Forbidden credentials request - no workspace access`, {
             requesterUserId,
             workspaceId: wf.workspaceId,

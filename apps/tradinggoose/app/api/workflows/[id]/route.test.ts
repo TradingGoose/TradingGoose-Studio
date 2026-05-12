@@ -19,7 +19,7 @@ describe('Workflow By ID API Route', () => {
   const mockReadWorkflowById = vi.fn()
   const mockReadWorkflowAccessContext = vi.fn()
   const mockDeleteYjsSessionInSocketServer = vi.fn()
-  const mockLoadWorkflowStateWithFallback = vi.fn()
+  const mockLoadWorkflowState = vi.fn()
 
   beforeEach(() => {
     vi.resetModules()
@@ -33,7 +33,7 @@ describe('Workflow By ID API Route', () => {
     }))
 
     vi.doMock('@/lib/workflows/db-helpers', () => ({
-      loadWorkflowStateWithFallback: mockLoadWorkflowStateWithFallback,
+      loadWorkflowState: mockLoadWorkflowState,
     }))
 
     vi.doMock('@tradinggoose/db', () => ({
@@ -66,9 +66,9 @@ describe('Workflow By ID API Route', () => {
     mockReadWorkflowById.mockReset()
     mockReadWorkflowAccessContext.mockReset()
     mockDeleteYjsSessionInSocketServer.mockReset()
-    mockLoadWorkflowStateWithFallback.mockReset()
+    mockLoadWorkflowState.mockReset()
     mockDeleteYjsSessionInSocketServer.mockResolvedValue(undefined)
-    mockLoadWorkflowStateWithFallback.mockResolvedValue(null)
+    mockLoadWorkflowState.mockResolvedValue(null)
 
     vi.doMock('@/lib/yjs/server/snapshot-bridge', () => ({
       deleteYjsSessionInSocketServer: mockDeleteYjsSessionInSocketServer,
@@ -159,7 +159,7 @@ describe('Workflow By ID API Route', () => {
         isWorkspaceOwner: false,
       })
 
-      mockLoadWorkflowStateWithFallback.mockResolvedValueOnce(mockWorkflowState)
+      mockLoadWorkflowState.mockResolvedValueOnce(mockWorkflowState)
 
       mockReadWorkflowById.mockResolvedValueOnce(mockWorkflow)
       mockReadWorkflowAccessContext.mockResolvedValueOnce({
@@ -212,7 +212,7 @@ describe('Workflow By ID API Route', () => {
         isWorkspaceOwner: false,
       })
 
-      mockLoadWorkflowStateWithFallback.mockResolvedValueOnce(mockWorkflowState)
+      mockLoadWorkflowState.mockResolvedValueOnce(mockWorkflowState)
 
       mockReadWorkflowById.mockResolvedValueOnce(mockWorkflow)
       mockReadWorkflowAccessContext.mockResolvedValueOnce({
@@ -222,11 +222,6 @@ describe('Workflow By ID API Route', () => {
         isOwner: false,
         isWorkspaceOwner: false,
       })
-
-      vi.doMock('@/lib/permissions/utils', () => ({
-        getUserEntityPermissions: vi.fn().mockResolvedValue('read'),
-        hasAdminPermission: vi.fn().mockResolvedValue(false),
-      }))
 
       const req = new NextRequest('http://localhost:3000/api/workflows/workflow-123')
       const params = Promise.resolve({ id: 'workflow-123' })
@@ -304,7 +299,7 @@ describe('Workflow By ID API Route', () => {
         isWorkspaceOwner: false,
       })
 
-      mockLoadWorkflowStateWithFallback.mockResolvedValueOnce(mockWorkflowState)
+      mockLoadWorkflowState.mockResolvedValueOnce(mockWorkflowState)
 
       const req = new NextRequest('http://localhost:3000/api/workflows/workflow-123')
       const params = Promise.resolve({ id: 'workflow-123' })

@@ -5,7 +5,7 @@ import { NextRequest } from 'next/server'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 describe('Workflow Duplicate API Route', () => {
-  let loadWorkflowStateWithFallbackMock: ReturnType<typeof vi.fn>
+  let loadWorkflowStateMock: ReturnType<typeof vi.fn>
   let remapVariableIdsMock: ReturnType<typeof vi.fn>
   let regenerateWorkflowStateIdsMock: ReturnType<typeof vi.fn>
   let saveWorkflowToNormalizedTablesMock: ReturnType<typeof vi.fn>
@@ -43,7 +43,7 @@ describe('Workflow Duplicate API Route', () => {
     vi.resetModules()
     vi.clearAllMocks()
 
-    loadWorkflowStateWithFallbackMock = vi.fn()
+    loadWorkflowStateMock = vi.fn()
     remapVariableIdsMock = vi.fn((variables, newWorkflowId: string) =>
       Object.fromEntries(
         Object.values(variables as Record<string, any>).map((variable, index) => [
@@ -110,7 +110,11 @@ describe('Workflow Duplicate API Route', () => {
     }))
 
     vi.doMock('@/lib/permissions/utils', () => ({
-      getUserEntityPermissions: vi.fn().mockResolvedValue('write'),
+      checkWorkspaceAccess: vi.fn().mockResolvedValue({
+        exists: true,
+        hasAccess: true,
+        canWrite: true,
+      }),
     }))
 
     vi.doMock('@/lib/utils', () => ({
@@ -118,7 +122,7 @@ describe('Workflow Duplicate API Route', () => {
     }))
 
     vi.doMock('@/lib/workflows/db-helpers', () => ({
-      loadWorkflowStateWithFallback: loadWorkflowStateWithFallbackMock,
+      loadWorkflowState: loadWorkflowStateMock,
       remapVariableIds: remapVariableIdsMock,
       regenerateWorkflowStateIds: regenerateWorkflowStateIdsMock,
       saveWorkflowToNormalizedTables: saveWorkflowToNormalizedTablesMock,
@@ -138,7 +142,7 @@ describe('Workflow Duplicate API Route', () => {
   })
 
   it('prefers the live Yjs source graph and variables when duplicating a workflow', async () => {
-    loadWorkflowStateWithFallbackMock.mockResolvedValue({
+    loadWorkflowStateMock.mockResolvedValue({
       blocks: {
         'live-block': {
           id: 'live-block',
@@ -209,7 +213,7 @@ describe('Workflow Duplicate API Route', () => {
   })
 
   it('keeps the duplicate when canonical persistence succeeds but Yjs sync fails', async () => {
-    loadWorkflowStateWithFallbackMock.mockResolvedValue({
+    loadWorkflowStateMock.mockResolvedValue({
       blocks: {},
       edges: [],
       loops: {},

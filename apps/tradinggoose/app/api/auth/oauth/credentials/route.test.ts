@@ -9,7 +9,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 describe('OAuth Credentials API Route', () => {
   const mockCheckHybridAuth = vi.fn()
-  const mockGetUserEntityPermissions = vi.fn()
+  const mockCheckWorkspaceAccess = vi.fn()
   const mockParseProvider = vi.fn()
   const mockDb = {
     select: vi.fn().mockReturnThis(),
@@ -56,7 +56,7 @@ describe('OAuth Credentials API Route', () => {
     }))
 
     vi.doMock('@/lib/permissions/utils', () => ({
-      getUserEntityPermissions: mockGetUserEntityPermissions,
+      checkWorkspaceAccess: mockCheckWorkspaceAccess,
     }))
 
     vi.doMock('@/lib/oauth', () => ({
@@ -246,7 +246,7 @@ describe('OAuth Credentials API Route', () => {
       userId: 'collaborator-1',
     })
     mockDb.limit.mockResolvedValueOnce([{ userId: 'owner-1', workspaceId: 'workspace-1' }])
-    mockGetUserEntityPermissions.mockResolvedValueOnce({ role: 'reader' })
+    mockCheckWorkspaceAccess.mockResolvedValueOnce({ hasAccess: true })
     mockDb.where.mockImplementationOnce(() => mockDb)
     mockDb.where.mockResolvedValueOnce([
       {

@@ -100,8 +100,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     }
 
     if (
-      source === 'workflow_queue' &&
       !accessContext.isOwner &&
+      !accessContext.isWorkspaceOwner &&
       accessContext.workspacePermission !== 'write' &&
       accessContext.workspacePermission !== 'admin'
     ) {

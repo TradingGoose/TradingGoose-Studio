@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
-import { getUserEntityPermissions } from '@/lib/permissions/utils'
+import { checkWorkspaceAccess } from '@/lib/permissions/utils'
 import { deleteWorkspaceFile } from '@/lib/uploads/contexts/workspace'
 import { generateRequestId } from '@/lib/utils'
 
@@ -27,8 +27,8 @@ export async function DELETE(
     }
 
     // Check workspace permissions (requires write)
-    const userPermission = await getUserEntityPermissions(session.user.id, 'workspace', workspaceId)
-    if (userPermission !== 'admin' && userPermission !== 'write') {
+    const workspaceAccess = await checkWorkspaceAccess(workspaceId, session.user.id)
+    if (!workspaceAccess.canWrite) {
       logger.warn(
         `[${requestId}] User ${session.user.id} lacks write permission for workspace ${workspaceId}`
       )

@@ -49,9 +49,6 @@ describe('Workflow API Route', () => {
       workflow: {
         id: 'workflow.id',
       },
-      workspace: {
-        id: 'workspace.id',
-      },
     }))
 
     vi.doMock('drizzle-orm', () => ({
@@ -78,7 +75,11 @@ describe('Workflow API Route', () => {
     }))
 
     vi.doMock('@/lib/permissions/utils', () => ({
-      getUserEntityPermissions: vi.fn().mockResolvedValue('write'),
+      checkWorkspaceAccess: vi.fn().mockResolvedValue({
+        exists: true,
+        hasAccess: true,
+        canWrite: true,
+      }),
     }))
 
     vi.doMock('@/lib/utils', () => ({

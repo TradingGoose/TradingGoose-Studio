@@ -1,19 +1,18 @@
 import { db } from '@tradinggoose/db'
-import { workflow, workspace } from '@tradinggoose/db/schema'
+import { workflow } from '@tradinggoose/db/schema'
 import { eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { getSession } from '@/lib/auth'
 import { getStableVibrantColor } from '@/lib/colors'
 import { createLogger } from '@/lib/logs/console/logger'
-import { getUserEntityPermissions } from '@/lib/permissions/utils'
+import { checkWorkspaceAccess } from '@/lib/permissions/utils'
 import { generateRequestId } from '@/lib/utils'
 import { remapVariableIds, saveWorkflowToNormalizedTables } from '@/lib/workflows/db-helpers'
 import { normalizeVariables } from '@/lib/workflows/variable-utils'
 import { tryApplyWorkflowState } from '@/lib/yjs/server/apply-workflow-state'
 import { createWorkflowSnapshot } from '@/lib/yjs/workflow-session'
 import type { WorkflowState } from '@/stores/workflows/workflow/types'
-import { verifyWorkspaceMembership } from './utils'
 
 const logger = createLogger('WorkflowAPI')
 
@@ -84,13 +83,8 @@ export async function GET(request: Request) {
     const userId = session.user.id
 
     if (workspaceId) {
-      const workspaceExists = await db
-        .select({ id: workspace.id })
-        .from(workspace)
-        .where(eq(workspace.id, workspaceId))
-        .then((rows) => rows.length > 0)
-
-      if (!workspaceExists) {
+      const workspaceAccess = await checkWorkspaceAccess(workspaceId, userId)
+      if (!workspaceAccess.exists) {
         logger.warn(
           `[${requestId}] Attempt to fetch workflows for non-existent workspace: ${workspaceId}`
         )
@@ -100,9 +94,7 @@ export async function GET(request: Request) {
         )
       }
 
-      const userRole = await verifyWorkspaceMembership(userId, workspaceId)
-
-      if (!userRole) {
+      if (!workspaceAccess.hasAccess) {
         logger.warn(
           `[${requestId}] User ${userId} attempted to access workspace ${workspaceId} without membership`
         )
@@ -144,13 +136,19 @@ export async function POST(req: NextRequest) {
     const { name, description, color, workspaceId, folderId, initialWorkflowState } = CreateWorkflowSchema.parse(body)
 
     if (workspaceId) {
-      const workspacePermission = await getUserEntityPermissions(
-        session.user.id,
-        'workspace',
-        workspaceId
-      )
+      const workspaceAccess = await checkWorkspaceAccess(workspaceId, session.user.id)
 
-      if (!workspacePermission || workspacePermission === 'read') {
+      if (!workspaceAccess.exists) {
+        logger.warn(
+          `[${requestId}] User ${session.user.id} attempted to create workflow in missing workspace ${workspaceId}`
+        )
+        return NextResponse.json(
+          { error: 'Workspace not found', code: 'WORKSPACE_NOT_FOUND' },
+          { status: 404 }
+        )
+      }
+
+      if (!workspaceAccess.canWrite) {
         logger.warn(
           `[${requestId}] User ${session.user.id} attempted to create workflow in workspace ${workspaceId} without write permissions`
         )
