@@ -7,6 +7,12 @@ const portfolioIdentity = {
   credentialServiceId: 'alpaca-live',
   accountId: 'ACC-1',
 }
+const tradierPortfolioIdentity = {
+  providerId: 'tradier' as const,
+  credentialId: 'credential-2',
+  credentialServiceId: 'tradier-live',
+  accountId: 'ACC-2',
+}
 
 const baseParams = {
   portfolioIdentity,
@@ -71,6 +77,22 @@ describe('tradingActionTool canonical order route payload', () => {
     })
     expect(body).not.toHaveProperty('workflowId')
     expect(body).not.toHaveProperty('workflowExecutionId')
+  })
+
+  it('does not forward Alpaca sizing fields for non-Alpaca providers', () => {
+    const body = buildBody({
+      portfolioIdentity: tradierPortfolioIdentity,
+      quantity: 2,
+      orderSizingMode: 'notional',
+      notional: 100,
+    })
+
+    expect(body).toMatchObject({
+      portfolioIdentity: tradierPortfolioIdentity,
+      quantity: 2,
+    })
+    expect(body).not.toHaveProperty('orderSizingMode')
+    expect(body).not.toHaveProperty('notional')
   })
 
   it('uses the canonical order submission route', () => {

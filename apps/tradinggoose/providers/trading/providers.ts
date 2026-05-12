@@ -377,6 +377,13 @@ function mergeParamVisibility(
   return priority[current] <= priority[next] ? current : next
 }
 
+function mergeParamCondition(
+  current?: TradingProviderParamCondition,
+  next?: TradingProviderParamCondition
+): TradingProviderParamCondition | undefined {
+  return JSON.stringify(current ?? null) === JSON.stringify(next ?? null) ? current : undefined
+}
+
 function mergeParamDefinition(
   current: TradingProviderParamDefinition,
   next: TradingProviderParamDefinition
@@ -399,7 +406,7 @@ function mergeParamDefinition(
     integer: current.integer ?? next.integer,
     rows: current.rows ?? next.rows,
     dependsOn: current.dependsOn ?? next.dependsOn,
-    condition: current.condition ?? next.condition,
+    condition: mergeParamCondition(current.condition, next.condition),
     displayOrder: current.displayOrder ?? next.displayOrder,
   }
 

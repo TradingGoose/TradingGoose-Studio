@@ -38,4 +38,37 @@ describe('trading order block contracts', () => {
 
     expect(orderType?.dependsOn).toEqual(['provider', 'listing'])
   })
+
+  it('does not merge Alpaca sizing conditions into shared quantity input', () => {
+    const quantity = TradingActionBlock.subBlocks.find((subBlock) => subBlock.id === 'quantity')
+    const notional = TradingActionBlock.subBlocks.find((subBlock) => subBlock.id === 'notional')
+
+    expect(quantity?.condition).toEqual({ field: 'provider', value: ['alpaca', 'tradier'] })
+    expect(notional?.condition).toEqual(
+      expect.objectContaining({
+        field: 'orderSizingMode',
+        value: 'notional',
+      })
+    )
+  })
+
+  it('serializes trading action sizing through the selected provider only', () => {
+    const params = TradingActionBlock.tools.config!.params!({
+      portfolioIdentity: {
+        providerId: 'tradier',
+        credentialId: 'credential-1',
+        credentialServiceId: 'tradier-live',
+        accountId: 'ACC-1',
+      },
+      side: 'buy',
+      listing: { listing_type: 'default', listing_id: 'AAPL', base_id: '', quote_id: '' },
+      quantity: '2',
+      orderSizingMode: 'notional',
+      notional: '100',
+    } as any)
+
+    expect(params).toMatchObject({ quantity: 2 })
+    expect(params).not.toHaveProperty('orderSizingMode')
+    expect(params).not.toHaveProperty('notional')
+  })
 })

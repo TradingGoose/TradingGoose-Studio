@@ -7,16 +7,11 @@ import {
   fetchTradingPortfolioIdentityOptions,
   requiredUserOnlyInput,
 } from '@/blocks/utils'
-import {
-  getTradingProviderParamCatalog,
-  getTradingProviderParamDefinitions,
-  getTradingProviders,
-} from '@/providers/trading'
+import { getTradingProviderParamCatalog, getTradingProviders } from '@/providers/trading'
 import { getTradingOrderTypeOptions } from '@/providers/trading/order-types'
-import { toPortfolioValueObject } from '@/providers/trading/portfolio-identity'
 import type { TradingProviderParamDefinition } from '@/providers/trading/providers'
 import type { TradingActionResponse } from '@/providers/trading/types'
-import { tradingActionTool } from '@/tools/trading/action'
+import { buildOrderRoutePayload, tradingActionTool } from '@/tools/trading/action'
 
 const providerOptions = getTradingProviders().map((provider) => ({
   label: provider.name,
@@ -28,21 +23,6 @@ const BLOCK_RESERVED_PARAM_IDS = new Set([
   'portfolioIdentity',
   'side',
   'listing',
-  'orderType',
-  'limitPrice',
-  'stopPrice',
-  'trailPrice',
-  'trailPercent',
-  'timeInForce',
-])
-
-const TOOL_RESERVED_PARAM_IDS = new Set([
-  'provider',
-  'portfolioIdentity',
-  'side',
-  'listing',
-  'quantity',
-  'notional',
   'orderType',
   'limitPrice',
   'stopPrice',
@@ -165,13 +145,6 @@ const mergeParamConditions = (
     ...baseCondition,
     and: [...baseAnd, providerCondition],
   }
-}
-
-const toOptionalNumber = (value: unknown): number | undefined => {
-  if (value === null || value === undefined) return undefined
-  if (typeof value === 'string' && value.trim() === '') return undefined
-  const parsed = Number(value)
-  return Number.isFinite(parsed) ? parsed : undefined
 }
 
 const providerParamBlocks = (): SubBlockConfig[] =>
@@ -337,37 +310,7 @@ export const TradingActionBlock: BlockConfig<TradingActionResponse> = {
     access: ['trading_place_order'],
     config: {
       tool: () => 'trading_place_order',
-      params: (params) => {
-        const portfolioIdentity = toPortfolioValueObject(params.portfolioIdentity)
-        const provider = portfolioIdentity?.providerId
-        const extraFields = (
-          provider ? getTradingProviderParamDefinitions(provider, 'order') : []
-        ).reduce(
-          (acc, definition) => {
-            if (!shouldIncludeProviderParam(definition, TOOL_RESERVED_PARAM_IDS)) return acc
-            if (params[definition.id] !== undefined) {
-              acc[definition.id] = params[definition.id]
-            }
-            return acc
-          },
-          {} as Record<string, any>
-        )
-
-        return {
-          portfolioIdentity,
-          side: params.side,
-          listing: params.listing,
-          quantity: toOptionalNumber(params.quantity),
-          notional: toOptionalNumber(params.notional),
-          orderType: params.orderType,
-          limitPrice: toOptionalNumber(params.limitPrice),
-          stopPrice: toOptionalNumber(params.stopPrice),
-          trailPrice: toOptionalNumber(params.trailPrice),
-          trailPercent: toOptionalNumber(params.trailPercent),
-          timeInForce: params.timeInForce,
-          ...extraFields,
-        }
-      },
+      params: (params) => buildOrderRoutePayload(params),
     },
   },
   inputs: {

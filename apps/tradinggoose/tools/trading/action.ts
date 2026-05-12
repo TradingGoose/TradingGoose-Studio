@@ -1,22 +1,39 @@
 import type { TradingActionResponse } from '@/providers/trading/types'
+import { toPortfolioValueObject } from '@/providers/trading/portfolio-identity'
 import type { TradingActionParams } from '@/tools/trading/types'
 import type { ToolConfig } from '@/tools/types'
 
-const buildOrderRoutePayload = (params: TradingActionParams) => {
+type TradingOrderRoutePayloadParams = Partial<TradingActionParams>
+
+const toOptionalNumber = (value: unknown): number | undefined => {
+  if (value === null || value === undefined) return undefined
+  if (typeof value === 'string' && value.trim() === '') return undefined
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : undefined
+}
+
+export const buildOrderRoutePayload = (params: TradingOrderRoutePayloadParams) => {
+  const portfolioIdentity = toPortfolioValueObject(params.portfolioIdentity)
+  const isAlpaca = portfolioIdentity?.providerId === 'alpaca'
+  const orderSizingMode =
+    isAlpaca && (params.orderSizingMode === 'quantity' || params.orderSizingMode === 'notional')
+      ? params.orderSizingMode
+      : undefined
+  const useNotional = orderSizingMode === 'notional'
   const payload = {
     workspaceId: params._context?.workspaceId,
-    portfolioIdentity: params.portfolioIdentity,
+    portfolioIdentity,
     listing: params.listing,
     side: params.side,
-    quantity: params.quantity,
-    notional: params.notional,
-    orderSizingMode: params.orderSizingMode,
+    quantity: useNotional ? undefined : toOptionalNumber(params.quantity),
+    notional: useNotional ? toOptionalNumber(params.notional) : undefined,
+    orderSizingMode,
     orderType: params.orderType,
     timeInForce: params.timeInForce,
-    limitPrice: params.limitPrice,
-    stopPrice: params.stopPrice,
-    trailPrice: params.trailPrice,
-    trailPercent: params.trailPercent,
+    limitPrice: toOptionalNumber(params.limitPrice),
+    stopPrice: toOptionalNumber(params.stopPrice),
+    trailPrice: toOptionalNumber(params.trailPrice),
+    trailPercent: toOptionalNumber(params.trailPercent),
     submissionSource: params._context?.submissionSource,
     logId: params._context?.workflowLogId,
   }
