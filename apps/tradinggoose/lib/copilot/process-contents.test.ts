@@ -171,6 +171,14 @@ describe('processContextsServer', () => {
     ])
   })
 
+  it('skips block contexts without block types', async () => {
+    const { processContextsServer } = await import('@/lib/copilot/process-contents')
+    const result = await processContextsServer([{ kind: 'blocks', label: 'Blocks' }], 'user-1')
+
+    expect(mockGetBlocksMetadataExecute).not.toHaveBeenCalled()
+    expect(result).toEqual([])
+  })
+
   it('hydrates current entity contexts from the canonical entity loader', async () => {
     mockLoadEntityByKind.mockResolvedValue({
       id: 'skill-1',

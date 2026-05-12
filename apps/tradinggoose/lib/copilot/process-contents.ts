@@ -100,8 +100,8 @@ export async function processContextsServer(
           ctx.label ? `@${ctx.label}` : '@'
         )
       }
-      if (ctx.kind === 'blocks' && ctx.blockTypes.length > 0) {
-        return await processBlocksMetadata(ctx.blockTypes, ctx.label ? `@${ctx.label}` : '@')
+      if (ctx.kind === 'blocks') {
+        return await processBlocksMetadata(ctx.blockTypes ?? [], ctx.label ? `@${ctx.label}` : '@')
       }
       if (ctx.kind === 'templates' && ctx.templateId) {
         return await processTemplateFromDb(
@@ -498,15 +498,15 @@ async function processBlocksMetadata(
   blockTypes: string[],
   tag: string
 ): Promise<AgentContext | null> {
+  const uniqueBlockTypes = Array.from(new Set(blockTypes.filter(Boolean)))
+  if (uniqueBlockTypes.length === 0) {
+    return null
+  }
+
   try {
     const { getBlocksMetadataServerTool } = await import(
       '@/lib/copilot/tools/server/blocks/get-blocks-metadata'
     )
-
-    const uniqueBlockTypes = Array.from(new Set(blockTypes.filter(Boolean)))
-    if (uniqueBlockTypes.length === 0) {
-      return null
-    }
 
     const result = await getBlocksMetadataServerTool.execute({ blockTypes: uniqueBlockTypes })
     if (!result?.metadata || Object.keys(result.metadata).length === 0) {
