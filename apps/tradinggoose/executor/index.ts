@@ -177,7 +177,9 @@ export class Executor {
     }
   }
 
-  private async emitExecutionEvent(event: Parameters<NonNullable<ExecutionContextExtensions['onExecutionEvent']>>[0]) {
+  private async emitExecutionEvent(
+    event: Parameters<NonNullable<ExecutionContextExtensions['onExecutionEvent']>>[0]
+  ) {
     await this.contextExtensions.onExecutionEvent?.(event)
   }
 
@@ -225,7 +227,6 @@ export class Executor {
       new WaitBlockHandler(),
       new GenericBlockHandler(),
     ]
-
   }
 
   /**
@@ -1409,95 +1410,91 @@ export class Executor {
     blockIds: string[],
     context: ExecutionContext
   ): Promise<NormalizedBlockOutput[]> {
-    try {
-      const settledResults = await Promise.allSettled(
-        blockIds.map((blockId) => this.executeBlock(blockId, context))
-      )
+    const settledResults = await Promise.allSettled(
+      blockIds.map((blockId) => this.executeBlock(blockId, context))
+    )
 
-      // Extract successful results and collect any errors
-      const results: NormalizedBlockOutput[] = []
-      const errors: Error[] = []
-      const deferredResultIndexes: number[] = []
+    // Extract successful results and collect any errors
+    const results: NormalizedBlockOutput[] = []
+    const errors: Error[] = []
+    const deferredResultIndexes: number[] = []
 
-      settledResults.forEach((result) => {
-        if (result.status === 'fulfilled') {
-          if (isDeferredBlockExecution(result.value)) {
-            deferredResultIndexes.push(results.length)
-            results.push({ status: 102, result: 'Deferred block execution pending' })
-          } else {
-            results.push(result.value)
-          }
+    settledResults.forEach((result) => {
+      if (result.status === 'fulfilled') {
+        if (isDeferredBlockExecution(result.value)) {
+          deferredResultIndexes.push(results.length)
+          results.push({ status: 102, result: 'Deferred block execution pending' })
         } else {
-          errors.push(result.reason)
-          // For failed blocks, we still need to add a placeholder result
-          // so the results array matches the blockIds array length
-          results.push({
-            error: result.reason?.message || 'Block execution failed',
-            status: 500,
-          })
+          results.push(result.value)
         }
-      })
-
-      if (deferredResultIndexes.length > 0) {
-        const deferredWaitTask = async () => {
-          const waitedResults = await Promise.allSettled(
-            deferredResultIndexes.map(async (index) => {
-              const deferred = settledResults[index]
-              if (deferred?.status !== 'fulfilled' || !isDeferredBlockExecution(deferred.value)) {
-                throw new Error('Deferred workflow execution was not available')
-              }
-
-              return deferred.value.wait()
-            })
-          )
-
-          waitedResults.forEach((waitedResult, waitedIndex) => {
-            const resultIndex = deferredResultIndexes[waitedIndex]
-
-            if (waitedResult.status === 'fulfilled') {
-              results[resultIndex] =
-                typeof waitedResult.value === 'object' && waitedResult.value !== null
-                  ? waitedResult.value
-                  : { result: waitedResult.value }
-              return
-            }
-
-            errors.push(waitedResult.reason)
-            results[resultIndex] = {
-              error: waitedResult.reason?.message || 'Block execution failed',
-              status: 500,
-            }
-          })
-        }
-
-        await (this.contextExtensions.executionConcurrencyController?.runWithoutLease(
-          deferredWaitTask
-        ) ?? deferredWaitTask())
+      } else {
+        errors.push(result.reason)
+        // For failed blocks, we still need to add a placeholder result
+        // so the results array matches the blockIds array length
+        results.push({
+          error: result.reason?.message || 'Block execution failed',
+          status: 500,
+        })
       }
+    })
 
-      // If there were any errors, log them but don't throw immediately
-      // This allows successful blocks to complete their streaming
-      if (errors.length > 0) {
-        logger.warn(
-          `Layer execution completed with ${errors.length} failed blocks out of ${blockIds.length} total`
+    if (deferredResultIndexes.length > 0) {
+      const deferredWaitTask = async () => {
+        const waitedResults = await Promise.allSettled(
+          deferredResultIndexes.map(async (index) => {
+            const deferred = settledResults[index]
+            if (deferred?.status !== 'fulfilled' || !isDeferredBlockExecution(deferred.value)) {
+              throw new Error('Deferred workflow execution was not available')
+            }
+
+            return deferred.value.wait()
+          })
         )
 
-        // Only throw if ALL blocks failed
-        if (errors.length === blockIds.length) {
-          throw errors[0] // Throw the first error if all blocks failed
-        }
+        waitedResults.forEach((waitedResult, waitedIndex) => {
+          const resultIndex = deferredResultIndexes[waitedIndex]
+
+          if (waitedResult.status === 'fulfilled') {
+            results[resultIndex] =
+              typeof waitedResult.value === 'object' && waitedResult.value !== null
+                ? waitedResult.value
+                : { result: waitedResult.value }
+            return
+          }
+
+          errors.push(waitedResult.reason)
+          results[resultIndex] = {
+            error: waitedResult.reason?.message || 'Block execution failed',
+            status: 500,
+          }
+        })
       }
 
-      blockIds.forEach((blockId) => {
-        context.executedBlocks.add(blockId)
-      })
-
-      this.pathTracker.updateExecutionPaths(blockIds, context)
-
-      return results
-    } catch (error) {
-      throw error
+      await (this.contextExtensions.executionConcurrencyController?.runWithoutLease(
+        deferredWaitTask
+      ) ?? deferredWaitTask())
     }
+
+    // If there were any errors, log them but don't throw immediately
+    // This allows successful blocks to complete their streaming
+    if (errors.length > 0) {
+      logger.warn(
+        `Layer execution completed with ${errors.length} failed blocks out of ${blockIds.length} total`
+      )
+
+      // Only throw if ALL blocks failed
+      if (errors.length === blockIds.length) {
+        throw errors[0] // Throw the first error if all blocks failed
+      }
+    }
+
+    blockIds.forEach((blockId) => {
+      context.executedBlocks.add(blockId)
+    })
+
+    this.pathTracker.updateExecutionPaths(blockIds, context)
+
+    return results
   }
 
   /**
@@ -1705,7 +1702,6 @@ export class Executor {
           durationMs: Math.round(executionTime),
           success: true,
         })
-
       }
 
       handleBlockFailure = async (error: any): Promise<NormalizedBlockOutput> => {
@@ -1919,6 +1915,21 @@ export class Executor {
         const reader = streamingExec.stream.getReader()
         const decoder = new TextDecoder()
         let fullContent = ''
+        let pendingStreamChunk = ''
+        let lastStreamFlushAt = performance.now()
+        const flushStreamChunk = async () => {
+          if (!pendingStreamChunk) return
+          const chunk = pendingStreamChunk
+          pendingStreamChunk = ''
+          lastStreamFlushAt = performance.now()
+          await this.emitExecutionEvent({
+            type: 'stream:chunk',
+            data: {
+              blockId: consoleBlockId,
+              chunk,
+            },
+          })
+        }
 
         try {
           while (true) {
@@ -1929,17 +1940,19 @@ export class Executor {
             if (!chunk) continue
 
             fullContent += chunk
-            await this.emitExecutionEvent({
-              type: 'stream:chunk',
-              data: {
-                blockId: consoleBlockId,
-                chunk,
-              },
-            })
+            pendingStreamChunk += chunk
+            if (
+              pendingStreamChunk.length >= STREAM_CHUNK_FLUSH_SIZE ||
+              performance.now() - lastStreamFlushAt >= STREAM_CHUNK_FLUSH_INTERVAL_MS
+            ) {
+              await flushStreamChunk()
+            }
           }
+          await flushStreamChunk()
         } catch (readerError: any) {
           logger.error('Error reading stream for executor:', readerError)
         } finally {
+          await flushStreamChunk()
           try {
             reader.releaseLock()
           } catch {}
