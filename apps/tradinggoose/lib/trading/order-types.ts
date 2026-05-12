@@ -30,4 +30,5 @@ export interface TradingOrderSubmitResponse {
   provider: string
   accountId: string
   message?: string | null
+  historyWarning?: string | null
 }

@@ -22,6 +22,13 @@ type OrderHistoryInput = {
   normalizedOrder?: Record<string, unknown>
 }
 
+type OrderHistoryResultInput = {
+  id: string
+  workspaceId: string
+  response: Record<string, unknown>
+  normalizedOrder?: Record<string, unknown>
+}
+
 async function resolveOrderLogId(params: { workspaceId: string; logId?: string | null }) {
   if (!params.logId) return { ok: true as const, logId: null }
 
@@ -75,6 +82,25 @@ export async function recordOrderHistory(input: OrderHistoryInput) {
       normalizedOrder: input.normalizedOrder,
     })
     .returning()
+
+  return record
+}
+
+export async function updateOrderHistoryResult(input: OrderHistoryResultInput) {
+  const [record] = await db
+    .update(orderHistoryTable)
+    .set({
+      response: input.response,
+      normalizedOrder: input.normalizedOrder,
+    })
+    .where(
+      and(eq(orderHistoryTable.id, input.id), eq(orderHistoryTable.workspaceId, input.workspaceId))
+    )
+    .returning()
+
+  if (!record) {
+    throw new TradingServiceError('Order history record not found', 404)
+  }
 
   return record
 }

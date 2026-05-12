@@ -67,8 +67,24 @@ export type SerializedOrderRecord = {
   normalizedOrder?: unknown
 }
 
-const SECRET_KEY_PATTERN =
-  /credential|accountId|accessToken|apiKey|apiSecret|secret|token|password|authorization/i
+const SECRET_KEY_EXACT_KEYS = new Set([
+  'accountid',
+  'accountnumber',
+  'accesstoken',
+  'apikey',
+  'apisecret',
+  'authorization',
+  'credentialid',
+  'credentialserviceid',
+  'password',
+  'refreshtoken',
+])
+const SECRET_KEY_PATTERN = /credential|secret|token|password|authorization/i
+
+const shouldRedactKey = (key: string) => {
+  const normalized = key.replace(/[-_\s]/g, '').toLowerCase()
+  return SECRET_KEY_EXACT_KEYS.has(normalized) || SECRET_KEY_PATTERN.test(key)
+}
 
 export function deepRedactSecrets(value: unknown): unknown {
   if (Array.isArray(value)) {
@@ -80,7 +96,7 @@ export function deepRedactSecrets(value: unknown): unknown {
   return Object.fromEntries(
     Object.entries(value as JsonRecord).map(([key, entry]) => [
       key,
-      SECRET_KEY_PATTERN.test(key) ? '[redacted]' : deepRedactSecrets(entry),
+      shouldRedactKey(key) ? '[redacted]' : deepRedactSecrets(entry),
     ])
   )
 }

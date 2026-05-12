@@ -592,7 +592,11 @@ export function QuickOrderWidgetBody({
     }
 
     resetSubmitOrder()
-    submitOrder.mutate(payload)
+    submitOrder.mutate(payload, {
+      onSuccess: () => {
+        void accountSnapshotQuery.refetch()
+      },
+    })
   }
 
   return (

@@ -1,6 +1,7 @@
 import type { ListingInputValue } from '@/lib/listing/identity'
 import { toListingValueObject } from '@/lib/listing/identity'
 import { resolveListingIdentity } from '@/lib/listing/resolve'
+import { createLogger } from '@/lib/logs/console/logger'
 import { checkWorkspaceAccess } from '@/lib/permissions/utils'
 import {
   logTradingBrokerRequestFailure,
@@ -8,7 +9,11 @@ import {
   resolveTradingProviderSelectedAccount,
 } from '@/lib/trading/context'
 import { TradingServiceError } from '@/lib/trading/errors'
-import { recordOrderHistory, resolveOrderHistoryContext } from '@/lib/trading/order-history'
+import {
+  recordOrderHistory,
+  resolveOrderHistoryContext,
+  updateOrderHistoryResult,
+} from '@/lib/trading/order-history'
 import type {
   TradingOrderSubmitRequest,
   TradingOrderSubmitResponse,
@@ -28,6 +33,8 @@ import {
   isTradingOrderListingSupported,
   resolveTradingListingAssetClass,
 } from '@/providers/trading/utils'
+
+const logger = createLogger('TradingOrders')
 
 const hasNumber = (value: number | undefined): value is number =>
   typeof value === 'number' && Number.isFinite(value)
@@ -385,6 +392,16 @@ export async function submitTradingOrder({
     trailPercent: requestData.trailPercent,
     orderSizingMode,
   })
+  const orderHistoryRecord = await recordOrderHistory({
+    workspaceId: requestData.workspaceId,
+    provider: baseContext.providerId,
+    environment: baseContext.environment,
+    submissionSource: orderHistoryContext.submissionSource,
+    logId: orderHistoryContext.logId,
+    listingIdentity,
+    request: orderHistoryRequest,
+    response: { success: false, status: 'pending' },
+  })
 
   let rawOrder: unknown
   let normalizedOrder: TradingOrder
@@ -414,23 +431,25 @@ export async function submitTradingOrder({
       : ({ raw: rawOrder } as TradingOrder)
   } catch (error) {
     logTradingBrokerRequestFailure('order', error)
-    await recordOrderHistory({
-      workspaceId: requestData.workspaceId,
-      provider: baseContext.providerId,
-      environment: baseContext.environment,
-      submissionSource: orderHistoryContext.submissionSource,
-      logId: orderHistoryContext.logId,
-      listingIdentity,
-      request: orderHistoryRequest,
-      response: compactRecord({
-        success: false,
-        errorMessage: error instanceof Error ? error.message : 'Order submission failed',
-        status: error instanceof TradingBrokerRequestError ? error.status : undefined,
-        raw:
-          (error instanceof TradingBrokerRequestError && toRecord(error.payload)) ||
-          toRecord(rawOrder),
-      }),
-    })
+    try {
+      await updateOrderHistoryResult({
+        id: orderHistoryRecord.id,
+        workspaceId: requestData.workspaceId,
+        response: compactRecord({
+          success: false,
+          errorMessage: error instanceof Error ? error.message : 'Order submission failed',
+          status: error instanceof TradingBrokerRequestError ? error.status : undefined,
+          raw:
+            (error instanceof TradingBrokerRequestError && toRecord(error.payload)) ||
+            toRecord(rawOrder),
+        }),
+      })
+    } catch (recordError) {
+      logger.error('Failed to update failed order history record', {
+        appOrderId: orderHistoryRecord.id,
+        error: recordError instanceof Error ? recordError.message : String(recordError),
+      })
+    }
     if (error instanceof TradingBrokerRequestError) {
       throw new TradingServiceError('Broker request failed', 502)
     }
@@ -441,21 +460,27 @@ export async function submitTradingOrder({
 
   const rawOrderRecord = toRecord(rawOrder)
   const normalizedOrderRecord = toRecord(normalizedOrder)
-  const orderHistoryRecord = await recordOrderHistory({
-    workspaceId: requestData.workspaceId,
-    provider: baseContext.providerId,
-    environment: baseContext.environment,
-    submissionSource: orderHistoryContext.submissionSource,
-    logId: orderHistoryContext.logId,
-    listingIdentity,
-    request: orderHistoryRequest,
-    response: {
-      success: true,
-      orderId: normalizedOrderRecord?.id ?? rawOrderRecord?.id ?? rawOrderRecord?.order_id ?? null,
-      raw: rawOrderRecord ?? normalizedOrderRecord,
-    },
-    normalizedOrder: normalizedOrderRecord,
-  })
+  let historyWarning: string | null = null
+  try {
+    await updateOrderHistoryResult({
+      id: orderHistoryRecord.id,
+      workspaceId: requestData.workspaceId,
+      response: {
+        success: true,
+        orderId:
+          normalizedOrderRecord?.id ?? rawOrderRecord?.id ?? rawOrderRecord?.order_id ?? null,
+        raw: rawOrderRecord ?? normalizedOrderRecord,
+      },
+      normalizedOrder: normalizedOrderRecord,
+    })
+  } catch (error) {
+    historyWarning =
+      'Order was accepted by the broker, but Trading Goose could not update order history.'
+    logger.error('Failed to update accepted order history record', {
+      appOrderId: orderHistoryRecord.id,
+      error: error instanceof Error ? error.message : String(error),
+    })
+  }
 
   return {
     appOrderId: orderHistoryRecord.id,
@@ -463,5 +488,6 @@ export async function submitTradingOrder({
     provider: baseContext.providerId,
     accountId: accountContext.accountId,
     message: extractOrderProviderMessage(rawOrder, normalizedOrder),
+    historyWarning,
   }
 }

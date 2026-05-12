@@ -96,9 +96,15 @@ describe('order record utils', () => {
           timeInForce: 'day',
         },
         response: {
+          api_key: 'raw-api-key',
           apiSecret: 'secret-value',
           orderId: 'provider-order-1',
-          raw: { filled_avg_price: '184.25', status: 'filled' },
+          raw: {
+            account_id: 'raw-account-id',
+            account_number: 'raw-account-number',
+            filled_avg_price: '184.25',
+            status: 'filled',
+          },
         },
         submissionSource: 'workflow',
         logId: 'log-1',
@@ -133,8 +139,13 @@ describe('order record utils', () => {
       credentialServiceId: '[redacted]',
     })
     expect(record.response).toMatchObject({
+      api_key: '[redacted]',
       apiSecret: '[redacted]',
       orderId: 'provider-order-1',
+      raw: {
+        account_id: '[redacted]',
+        account_number: '[redacted]',
+      },
     })
   })
 

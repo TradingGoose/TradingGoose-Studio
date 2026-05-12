@@ -12,6 +12,7 @@ const mockListPortfolioIdentities = vi.fn()
 const mockCheckWorkspaceAccess = vi.fn()
 const mockResolveOrderHistoryContext = vi.fn()
 const mockRecordOrderHistory = vi.fn()
+const mockUpdateOrderHistoryResult = vi.fn()
 const mockFetch = vi.fn()
 
 vi.mock('@/lib/logs/console/logger', () => ({
@@ -38,6 +39,7 @@ vi.mock('@/lib/permissions/utils', () => ({
 vi.mock('@/lib/trading/order-history', () => ({
   resolveOrderHistoryContext: mockResolveOrderHistoryContext,
   recordOrderHistory: mockRecordOrderHistory,
+  updateOrderHistoryResult: mockUpdateOrderHistoryResult,
 }))
 
 vi.mock('@/providers/trading/portfolio', async () => {
@@ -107,6 +109,7 @@ describe('Trading provider order route', () => {
       logId: null,
     })
     mockRecordOrderHistory.mockResolvedValue({ id: 'app-order-1' })
+    mockUpdateOrderHistoryResult.mockResolvedValue({ id: 'app-order-1' })
     mockListPortfolioIdentities.mockResolvedValue([
       {
         providerId: 'alpaca',
@@ -615,6 +618,19 @@ describe('Trading provider order route', () => {
           side: 'buy',
           timeInForce: 'day',
         }),
+        response: {
+          success: false,
+          status: 'pending',
+        },
+      })
+    )
+    expect(mockRecordOrderHistory.mock.invocationCallOrder[0]).toBeLessThan(
+      mockFetch.mock.invocationCallOrder[0]
+    )
+    expect(mockUpdateOrderHistoryResult).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'app-order-1',
+        workspaceId,
         response: expect.objectContaining({
           orderId: 'alpaca-order-1',
           success: true,
@@ -819,12 +835,58 @@ describe('Trading provider order route', () => {
         workspaceId,
         provider: 'tradier',
         environment: 'live',
+        response: {
+          success: false,
+          status: 'pending',
+        },
+      })
+    )
+    expect(mockUpdateOrderHistoryResult).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'app-order-1',
+        workspaceId,
         response: expect.objectContaining({
           success: false,
           status: 500,
           raw: { error: 'Broker unavailable' },
         }),
       })
+    )
+  })
+
+  it('returns accepted broker orders when local history update fails after submission', async () => {
+    mockUpdateOrderHistoryResult.mockRejectedValueOnce(new Error('database unavailable'))
+    mockFetch.mockResolvedValueOnce(
+      new Response(JSON.stringify({ id: 'alpaca-order-3', status: 'accepted' }), {
+        status: 200,
+      })
+    )
+
+    const { POST } = await import('@/app/api/providers/trading/order/route')
+    const response = await POST(
+      createMockRequest('POST', {
+        workspaceId,
+        portfolioIdentity: portfolioIdentityFor('alpaca'),
+        listing: stockListing,
+        side: 'buy',
+        quantity: 1,
+      })
+    )
+
+    expect(response.status).toBe(200)
+    await expect(response.json()).resolves.toMatchObject({
+      appOrderId: 'app-order-1',
+      provider: 'alpaca',
+      historyWarning:
+        'Order was accepted by the broker, but Trading Goose could not update order history.',
+      order: {
+        id: 'alpaca-order-3',
+        status: 'accepted',
+      },
+    })
+    expect(mockFetch).toHaveBeenCalledTimes(1)
+    expect(mockRecordOrderHistory.mock.invocationCallOrder[0]).toBeLessThan(
+      mockFetch.mock.invocationCallOrder[0]
     )
   })
 })

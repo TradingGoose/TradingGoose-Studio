@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import type {
   TradingOrderSubmitRequest,
   TradingOrderSubmitResponse,
 } from '@/lib/trading/order-types'
 import { useSocket } from '@/contexts/socket-context'
+import { recordsOrderKeys } from '@/hooks/queries/records-orders'
 import {
   arePortfolioIdentitiesEqual,
   getPortfolioIdentityKey,
@@ -403,8 +404,13 @@ export function usePortfolioPerformance(request: TradingPerformanceRequest) {
 }
 
 export function useSubmitTradingOrder() {
+  const queryClient = useQueryClient()
+
   return useMutation<TradingOrderSubmitResponse, Error, TradingOrderSubmitRequest>({
     mutationFn: (request) =>
       postJson<TradingOrderSubmitResponse>('/api/providers/trading/order', request),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: recordsOrderKeys.all })
+    },
   })
 }

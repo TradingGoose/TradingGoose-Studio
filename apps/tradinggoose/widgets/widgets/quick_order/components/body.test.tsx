@@ -15,6 +15,7 @@ const mockUsePortfolioIdentities = vi.fn()
 const mockUsePortfolioDetail = vi.fn()
 const mockUseSubmitTradingOrder = vi.fn()
 const mockMutate = vi.fn()
+const mockPortfolioRefetch = vi.fn()
 const mockReset = vi.fn()
 
 const portfolioIdentity = {
@@ -279,7 +280,9 @@ describe('QuickOrderWidgetBody', () => {
       })
     )
     mockUsePortfolioIdentities.mockReturnValue(queryResult({ data: [portfolioIdentity] }))
-    mockUsePortfolioDetail.mockReturnValue(queryResult({ data: createPortfolioDetail() }))
+    mockUsePortfolioDetail.mockReturnValue(
+      queryResult({ data: createPortfolioDetail(), refetch: mockPortfolioRefetch })
+    )
     mockUseMarketQuoteSnapshots.mockReturnValue(
       queryResult({
         data: {
@@ -594,8 +597,15 @@ describe('QuickOrderWidgetBody', () => {
         timeInForce: 'day',
         orderSizingMode: 'quantity',
         quantity: 2,
+      }),
+      expect.objectContaining({
+        onSuccess: expect.any(Function),
       })
     )
+    await act(async () => {
+      mockMutate.mock.calls[0][1].onSuccess()
+    })
+    expect(mockPortfolioRefetch).toHaveBeenCalled()
     expect(mockMutate.mock.calls[0][0]).not.toHaveProperty('credentialId')
     expect(mockMutate.mock.calls[0][0]).not.toHaveProperty('credentialServiceId')
     expect(mockMutate.mock.calls[0][0]).not.toHaveProperty('environment')
