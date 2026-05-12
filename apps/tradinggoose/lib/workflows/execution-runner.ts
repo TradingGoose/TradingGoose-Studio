@@ -42,7 +42,7 @@ type ResolvedWorkflowExecutionContext = {
 export type WorkflowStart =
   | {
       kind: 'trigger'
-      triggerType: 'api' | 'chat'
+      triggerType: 'api' | 'chat' | 'manual'
     }
   | {
       kind: 'block'
@@ -204,10 +204,14 @@ function resolveStartBlockId(params: {
     )
 
     if (!startBlock) {
-      throw new Error(
+      const triggerName =
         params.start.triggerType === 'api'
-          ? 'No API trigger block found. Add an API Trigger block to this workflow.'
-          : 'No chat trigger block found. Add a Chat Trigger block to this workflow.'
+          ? 'API'
+          : params.start.triggerType === 'chat'
+            ? 'Chat'
+            : 'Manual'
+      throw new Error(
+        `No ${triggerName} trigger block found. Add a ${triggerName} Trigger block to this workflow.`
       )
     }
 

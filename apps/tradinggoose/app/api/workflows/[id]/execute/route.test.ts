@@ -118,9 +118,13 @@ describe('/api/workflows/[id]/execute', () => {
             success: true,
           },
         ],
+        traceSpans: [{ id: 'span-1' }],
+        executionId: 'workflow_execution_1',
+        executedAt: '2026-01-01T00:00:00.000Z',
         metadata: {
           duration: 10,
           workflowConnections: [{ source: 'a', target: 'b' }],
+          queuedExecution: { source: 'workflow_execute_api' },
         },
       },
     })
@@ -198,7 +202,11 @@ describe('/api/workflows/[id]/execute', () => {
       metadata: { duration: 10 },
     })
     expect(body.logs).toBeUndefined()
+    expect(body.traceSpans).toBeUndefined()
+    expect(body.executionId).toBeUndefined()
+    expect(body.executedAt).toBeUndefined()
     expect(body.metadata.workflowConnections).toBeUndefined()
+    expect(body.metadata.queuedExecution).toBeUndefined()
     expect(enqueuePendingExecutionMock).toHaveBeenCalledWith(
       expect.objectContaining({
         executionType: 'workflow',
@@ -329,5 +337,40 @@ describe('/api/workflows/[id]/execute', () => {
       error: 'Field "workflowTriggerType" is not supported by the deployed API execute endpoint',
     })
     expect(enqueuePendingExecutionMock).not.toHaveBeenCalled()
+  })
+
+  it('bounds synchronous API execution polling with a gateway timeout', async () => {
+    vi.useFakeTimers()
+    readWorkflowExecutionEventStateMock.mockResolvedValue({
+      status: 'processing',
+      errorMessage: null,
+      events: [],
+      result: null,
+    })
+
+    try {
+      const { POST } = await import('./route')
+      const responsePromise = POST(
+        new NextRequest('https://example.com/api/workflows/workflow-1/execute', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-API-Key': 'key-1',
+          },
+          body: JSON.stringify({ symbol: 'AAPL' }),
+        }),
+        { params: Promise.resolve({ id: 'workflow-1' }) }
+      )
+
+      await vi.advanceTimersByTimeAsync(26_000)
+      const response = await responsePromise
+
+      expect(response.status).toBe(504)
+      await expect(response.json()).resolves.toMatchObject({
+        error: 'Workflow execution timed out',
+      })
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })

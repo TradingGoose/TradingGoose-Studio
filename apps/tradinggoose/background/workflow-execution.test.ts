@@ -148,6 +148,27 @@ describe('executeWorkflowJob', () => {
     )
   })
 
+  it('preserves manual queued starts when no explicit start block is supplied', async () => {
+    await executeWorkflowJob({
+      workflowId: 'workflow-1',
+      userId: 'user-1',
+      triggerType: 'manual',
+      metadata: {
+        source: 'workflow_queue',
+      },
+    })
+
+    expect(runWorkflowExecutionMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        triggerType: 'manual',
+        start: {
+          kind: 'trigger',
+          triggerType: 'manual',
+        },
+      })
+    )
+  })
+
   it('checks queued cancellation state through the execution id', async () => {
     await executeWorkflowJob({
       workflowId: 'workflow-1',

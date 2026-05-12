@@ -46,6 +46,13 @@ type PendingExecutionHandle = {
   billingScopeId: string
 }
 
+export type PendingWorkflowExecutionAccessContext = {
+  id: string
+  userId: string
+  workflowId: string
+  workspaceId: string | null
+}
+
 type PendingExecutionRow = {
   id: string
   billingScopeId: string
@@ -102,6 +109,37 @@ export function getTierPendingExecutionLimits(tier: BillingTierRecord) {
   return {
     maxPendingAgeSeconds: tier.maxPendingAgeSeconds ?? null,
     maxPendingCount: tier.maxPendingCount ?? null,
+  }
+}
+
+export async function readPendingWorkflowExecutionAccessContext(params: {
+  pendingExecutionId: string
+  workflowId: string
+}): Promise<PendingWorkflowExecutionAccessContext | null> {
+  const [row] = await db
+    .select({
+      id: pendingExecution.id,
+      userId: pendingExecution.userId,
+      workflowId: pendingExecution.workflowId,
+      workspaceId: pendingExecution.workspaceId,
+    })
+    .from(pendingExecution)
+    .where(
+      and(
+        eq(pendingExecution.id, params.pendingExecutionId),
+        eq(pendingExecution.workflowId, params.workflowId),
+        eq(pendingExecution.executionType, 'workflow')
+      )
+    )
+    .limit(1)
+
+  if (!row?.workflowId) return null
+
+  return {
+    id: row.id,
+    userId: row.userId,
+    workflowId: row.workflowId,
+    workspaceId: row.workspaceId,
   }
 }
 

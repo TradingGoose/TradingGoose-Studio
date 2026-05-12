@@ -1,5 +1,7 @@
 import type { ExecutionResult } from '@/executor/types'
 
+const PUBLIC_EXECUTION_METADATA_KEYS = ['duration', 'startTime', 'endTime'] as const
+
 export function isExecutionResult(value: unknown): value is ExecutionResult {
   return (
     value !== null &&
@@ -11,14 +13,18 @@ export function isExecutionResult(value: unknown): value is ExecutionResult {
 }
 
 export function createPublicExecutionResult(result: ExecutionResult) {
+  const metadata = result.metadata
+    ? Object.fromEntries(
+        PUBLIC_EXECUTION_METADATA_KEYS.flatMap((key) =>
+          result.metadata?.[key] === undefined ? [] : [[key, result.metadata[key]]]
+        )
+      )
+    : undefined
+
   return {
-    ...result,
-    logs: undefined,
-    metadata: result.metadata
-      ? {
-          ...result.metadata,
-          workflowConnections: undefined,
-        }
-      : undefined,
+    success: result.success,
+    output: result.output,
+    ...(result.error ? { error: result.error } : {}),
+    ...(metadata && Object.keys(metadata).length > 0 ? { metadata } : {}),
   }
 }

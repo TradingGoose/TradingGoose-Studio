@@ -1,17 +1,38 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { checkSessionOrInternalAuth } from '@/lib/auth/hybrid'
+import {
+  readPendingWorkflowExecutionAccessContext,
+  type PendingWorkflowExecutionAccessContext,
+} from '@/lib/execution/pending-execution'
 import { openWorkflowExecutionEventStream } from '@/lib/execution/workflow-execution-stream'
 import { createLogger } from '@/lib/logs/console/logger'
 import { SSE_HEADERS } from '@/lib/utils'
-import { readWorkflowAccessContext } from '@/lib/workflows/utils'
+import {
+  readWorkflowAccessContext,
+  type WorkflowAccessContext,
+} from '@/lib/workflows/utils'
 
 const logger = createLogger('WorkflowExecutionStreamAPI')
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
-const hasReadAccess = (accessContext: Awaited<ReturnType<typeof readWorkflowAccessContext>>) =>
-  Boolean(accessContext && (accessContext.isOwner || accessContext.workspacePermission !== null))
+function canReadPendingWorkflowExecution(params: {
+  accessContext: WorkflowAccessContext
+  pendingExecution: PendingWorkflowExecutionAccessContext
+  userId: string
+}) {
+  if (params.pendingExecution.userId === params.userId) return true
+  if (!params.pendingExecution.workspaceId) return false
+  if (params.pendingExecution.workspaceId !== params.accessContext.workflow.workspaceId) {
+    return false
+  }
+  return (
+    params.accessContext.isOwner ||
+    params.accessContext.isWorkspaceOwner ||
+    params.accessContext.workspacePermission !== null
+  )
+}
 
 function parseFromEventId(request: NextRequest) {
   const value = request.nextUrl.searchParams.get('from')
@@ -36,12 +57,26 @@ export async function GET(
       return NextResponse.json({ error: auth.error || 'Unauthorized' }, { status: 401 })
     }
 
+    const pendingExecution = await readPendingWorkflowExecutionAccessContext({
+      pendingExecutionId: executionId,
+      workflowId,
+    })
+    if (!pendingExecution) {
+      return NextResponse.json({ error: 'Workflow execution not found' }, { status: 404 })
+    }
+
     const accessContext = await readWorkflowAccessContext(workflowId, auth.userId)
     if (!accessContext?.workflow) {
       return NextResponse.json({ error: 'Workflow not found' }, { status: 404 })
     }
 
-    if (!hasReadAccess(accessContext)) {
+    if (
+      !canReadPendingWorkflowExecution({
+        accessContext,
+        pendingExecution,
+        userId: auth.userId,
+      })
+    ) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
     }
 

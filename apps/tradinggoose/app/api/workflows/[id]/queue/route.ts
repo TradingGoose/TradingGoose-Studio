@@ -13,16 +13,43 @@ import { readWorkflowAccessContext } from '@/lib/workflows/utils'
 
 const logger = createLogger('WorkflowQueueAPI')
 
+type QueuedWorkflowTriggerType = 'api' | 'manual' | 'chat'
+type QueuedWorkflowExecutionTarget = 'deployed' | 'live'
+
 type QueueRequestBody = {
   executionId?: string
   input?: unknown
-  executionTarget?: 'deployed' | 'live'
-  triggerType?: 'api' | 'webhook' | 'schedule' | 'manual' | 'chat'
+  executionTarget?: unknown
+  triggerType?: unknown
   workflowData?: WorkflowExecutionBlueprint['workflowData']
   workflowVariables?: Record<string, unknown>
   startBlockId?: string
   selectedOutputs?: string[]
   workflowDepth?: number
+}
+
+function readQueuedWorkflowTriggerType(value: unknown): QueuedWorkflowTriggerType | null {
+  if (value === undefined) return 'manual'
+  if (value === 'api' || value === 'manual' || value === 'chat') return value
+  return null
+}
+
+function readQueuedWorkflowExecutionTarget(value: unknown): QueuedWorkflowExecutionTarget | null {
+  if (value === undefined) return 'deployed'
+  if (value === 'deployed' || value === 'live') return value
+  return null
+}
+
+function parseQueueRequestBody(value: string): QueueRequestBody | null {
+  if (!value) return {}
+  try {
+    const parsed = JSON.parse(value)
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+      ? (parsed as QueueRequestBody)
+      : null
+  } catch {
+    return null
+  }
 }
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -47,9 +74,24 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
     }
 
-    const body = ((await request.json().catch(() => ({}))) || {}) as QueueRequestBody
-    const executionTarget = body.executionTarget === 'live' ? 'live' : 'deployed'
-    const triggerType = body.triggerType ?? 'manual'
+    const body = parseQueueRequestBody(await request.text())
+    if (!body) {
+      return NextResponse.json({ error: 'Invalid JSON in request body' }, { status: 400 })
+    }
+    const executionTarget = readQueuedWorkflowExecutionTarget(body.executionTarget)
+    if (!executionTarget) {
+      return NextResponse.json(
+        { error: 'Unsupported queued workflow execution target' },
+        { status: 400 }
+      )
+    }
+    const triggerType = readQueuedWorkflowTriggerType(body.triggerType)
+    if (!triggerType) {
+      return NextResponse.json(
+        { error: 'Unsupported queued workflow trigger type' },
+        { status: 400 }
+      )
+    }
     const childWorkflowExecution = auth.internalWorkflowExecution
     const source = childWorkflowExecution ? 'workflow_block' : 'workflow_queue'
 

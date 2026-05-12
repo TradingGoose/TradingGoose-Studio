@@ -17,8 +17,8 @@ import { createErrorResponse, createSuccessResponse } from '@/app/api/workflows/
 import type { ExecutionResult } from '@/executor/types'
 
 const logger = createLogger('WorkflowExecuteAPI')
-const API_EXECUTION_POLL_INTERVAL_MS = 500
-const API_EXECUTION_WAIT_TIMEOUT_MS = 55 * 60 * 1000
+const API_EXECUTION_POLL_INTERVAL_MS = 1_000
+const API_EXECUTION_WAIT_TIMEOUT_MS = 25 * 1000
 const UNSUPPORTED_API_EXECUTE_FIELDS = [
   'stream',
   'selectedOutputs',
@@ -37,6 +37,15 @@ export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
+
+class ApiWorkflowExecutionTimeoutError extends Error {
+  statusCode = 504
+
+  constructor() {
+    super('Workflow execution timed out')
+    this.name = 'ApiWorkflowExecutionTimeoutError'
+  }
+}
 
 async function waitForApiWorkflowResult(params: { executionId: string; workflowId: string }) {
   const startedAt = Date.now()
@@ -65,7 +74,7 @@ async function waitForApiWorkflowResult(params: { executionId: string; workflowI
     await sleep(API_EXECUTION_POLL_INTERVAL_MS)
   }
 
-  throw new Error('Workflow execution timed out')
+  throw new ApiWorkflowExecutionTimeoutError()
 }
 
 function createApiWorkflowResponse(result: ExecutionResult) {
@@ -187,6 +196,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     }
 
     if (error instanceof TriggerExecutionUnavailableError) {
+      return createErrorResponse(error.message, error.statusCode)
+    }
+
+    if (error instanceof ApiWorkflowExecutionTimeoutError) {
       return createErrorResponse(error.message, error.statusCode)
     }
 

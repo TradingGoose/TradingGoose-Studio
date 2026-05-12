@@ -127,6 +127,41 @@ describe('POST /api/workflows/[id]/queue', () => {
     expect(enqueuePendingExecutionMock).not.toHaveBeenCalled()
   })
 
+  it.each([
+    {
+      name: 'unsupported trigger type',
+      body: JSON.stringify({ triggerType: 'webhook' }),
+      error: 'Unsupported queued workflow trigger type',
+    },
+    {
+      name: 'unsupported execution target',
+      body: JSON.stringify({ executionTarget: 'draft' }),
+      error: 'Unsupported queued workflow execution target',
+    },
+    {
+      name: 'malformed JSON',
+      body: '{',
+      error: 'Invalid JSON in request body',
+    },
+  ])('rejects $name', async ({ body, error }) => {
+    const response = await POST(
+      new NextRequest('http://localhost/api/workflows/workflow-1/queue', {
+        method: 'POST',
+        body,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }),
+      {
+        params: Promise.resolve({ id: 'workflow-1' }),
+      }
+    )
+
+    expect(response.status).toBe(400)
+    await expect(response.json()).resolves.toEqual({ error })
+    expect(enqueuePendingExecutionMock).not.toHaveBeenCalled()
+  })
+
   it('queues a child workflow execution authenticated with an internal JWT', async () => {
     checkSessionOrInternalAuthMock.mockResolvedValue({
       success: true,

@@ -12,6 +12,8 @@ import type { TriggerType } from '@/services/queue'
 
 const logger = createLogger('TriggerWorkflowExecution')
 
+type WorkflowStartTriggerType = Extract<WorkflowStart, { kind: 'trigger' }>['triggerType']
+
 export type WorkflowExecutionPayload = {
   workflowId: string
   userId: string
@@ -27,6 +29,13 @@ export type WorkflowExecutionPayload = {
   selectedOutputs?: string[]
   triggerData?: Record<string, unknown>
   metadata?: Record<string, any>
+}
+
+function resolveWorkflowStartTriggerType(triggerType: TriggerType): WorkflowStartTriggerType {
+  if (triggerType === 'chat') return 'chat'
+  if (triggerType === 'api' || triggerType === 'api-endpoint') return 'api'
+  if (triggerType === 'manual') return 'manual'
+  throw new Error(`Queued ${triggerType} workflow execution requires an explicit start block`)
 }
 
 export function isWorkflowExecutionPayload(
@@ -52,17 +61,16 @@ export async function executeWorkflowJob(payload: WorkflowExecutionPayload) {
     workflowId,
   })
   const isChildExecution = payload.metadata?.source === 'workflow_block'
-  const triggerType = payload.triggerType ?? 'api'
-  const start: WorkflowStart =
-    payload.startBlockId || isChildExecution
-      ? {
-          kind: 'block',
-          blockId: payload.startBlockId,
-        }
-      : {
-          kind: 'trigger',
-          triggerType: triggerType === 'chat' ? 'chat' : 'api',
-        }
+  const triggerType = payload.triggerType ?? 'manual'
+  const start: WorkflowStart = payload.startBlockId
+    ? {
+        kind: 'block',
+        blockId: payload.startBlockId,
+      }
+    : {
+        kind: 'trigger',
+        triggerType: resolveWorkflowStartTriggerType(triggerType),
+      }
 
   logger.info(`[${requestId}] Starting workflow execution: ${workflowId}`, {
     userId: payload.userId,

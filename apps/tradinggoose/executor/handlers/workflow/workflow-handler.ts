@@ -92,7 +92,6 @@ export class WorkflowBlockHandler implements BlockHandler {
             workflowId,
             input: childWorkflowInput,
             executionTarget: context.isDeployedContext ? 'deployed' : 'live',
-            triggerType: context.triggerType ?? 'manual',
             workflowDepth: currentDepth + 1,
           })
 
@@ -191,7 +190,6 @@ export class WorkflowBlockHandler implements BlockHandler {
     workflowId: string
     input: Record<string, any>
     executionTarget: 'deployed' | 'live'
-    triggerType: string
     workflowDepth: number
   }): Promise<QueueWorkflowResponse> {
     const response = await fetch(`${getBaseUrl()}/api/workflows/${params.workflowId}/queue`, {
@@ -200,7 +198,7 @@ export class WorkflowBlockHandler implements BlockHandler {
       body: JSON.stringify({
         input: params.input,
         executionTarget: params.executionTarget,
-        triggerType: params.triggerType,
+        triggerType: 'manual',
         workflowDepth: params.workflowDepth,
       }),
       cache: 'no-store',
