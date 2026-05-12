@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from 'crypto'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getOAuthTokenByCredentialId } from '@/lib/oauth/tokens'
+import { checkWorkspaceAccess } from '@/lib/permissions/utils'
 import { listUserTradingPortfolioIdentities } from '@/lib/trading/portfolio-identities'
 import {
   getPortfolioDetail,
@@ -142,6 +143,11 @@ export class TradingPortfolioStreamManager {
 
     const providerId = resolveTradingProviderId(payload.provider, payload.portfolioIdentity)
     const workspaceId = resolveWorkspaceId(payload.workspaceId)
+    const workspaceAccess = await checkWorkspaceAccess(workspaceId, userId)
+    if (!workspaceAccess.exists || !workspaceAccess.hasAccess) {
+      throw new Error('Workspace not found')
+    }
+
     const channel = resolveChannel(payload.channel)
     const credentialServiceId = resolveCredentialServiceId(
       providerId,

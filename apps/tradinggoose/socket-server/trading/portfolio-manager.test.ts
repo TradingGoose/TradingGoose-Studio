@@ -13,6 +13,7 @@ const {
   listUserTradingPortfolioIdentitiesMock,
   getPortfolioDetailMock,
   getTradingAccountPerformanceMock,
+  checkWorkspaceAccessMock,
 } = vi.hoisted(() => ({
   getOAuthTokenByCredentialIdMock: vi.fn(),
   getTradingProviderDefinitionMock: vi.fn(),
@@ -23,6 +24,7 @@ const {
   listUserTradingPortfolioIdentitiesMock: vi.fn(),
   getPortfolioDetailMock: vi.fn(),
   getTradingAccountPerformanceMock: vi.fn(),
+  checkWorkspaceAccessMock: vi.fn(),
 }))
 
 vi.mock('@/lib/oauth/tokens', () => ({
@@ -32,6 +34,10 @@ vi.mock('@/lib/oauth/tokens', () => ({
 vi.mock('@/lib/trading/portfolio-identities', () => ({
   listUserTradingPortfolioIdentities: (...args: unknown[]) =>
     listUserTradingPortfolioIdentitiesMock(...args),
+}))
+
+vi.mock('@/lib/permissions/utils', () => ({
+  checkWorkspaceAccess: (...args: unknown[]) => checkWorkspaceAccessMock(...args),
 }))
 
 vi.mock('@/lib/logs/console/logger', () => ({
@@ -148,6 +154,7 @@ describe('TradingPortfolioStreamManager', () => {
     listUserTradingPortfolioIdentitiesMock.mockResolvedValue([portfolioIdentity])
     getPortfolioDetailMock.mockResolvedValue(portfolioDetail)
     getTradingAccountPerformanceMock.mockResolvedValue(performance)
+    checkWorkspaceAccessMock.mockResolvedValue({ exists: true, hasAccess: true })
   })
 
   afterEach(() => {
@@ -301,5 +308,24 @@ describe('TradingPortfolioStreamManager', () => {
     )
 
     manager.removeSocket(socket.id)
+  })
+
+  it('rejects subscriptions without workspace access before broker calls', async () => {
+    const manager = new TradingPortfolioStreamManager()
+    const socket = createSocket('socket-1')
+    checkWorkspaceAccessMock.mockResolvedValue({ exists: true, hasAccess: false })
+
+    await expect(
+      manager.subscribe(socket, {
+        provider: 'alpaca',
+        credentialServiceId: 'alpaca-live',
+        portfolioIdentity,
+        workspaceId: 'workspace-1',
+        channel: 'account-snapshot',
+      })
+    ).rejects.toThrow('Workspace not found')
+
+    expect(getOAuthTokenByCredentialIdMock).not.toHaveBeenCalled()
+    expect(getPortfolioDetailMock).not.toHaveBeenCalled()
   })
 })

@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const auth = await checkSessionOrInternalAuth(request, { requireWorkflowId: false })
-    if (!auth.success) {
+    if (!auth.success || !auth.userId) {
       return NextResponse.json(
         { success: false, error: { message: 'Unauthorized' } },
         { status: 401 }
@@ -30,7 +30,20 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const holdings = await getTradingHoldings(body)
+    const workspaceId = new URL(request.url).searchParams.get('workspaceId')?.trim()
+    if (!workspaceId) {
+      return NextResponse.json(
+        { success: false, error: { message: 'workspaceId is required' } },
+        { status: 400 }
+      )
+    }
+
+    const holdings = await getTradingHoldings({
+      requestData: body,
+      requestId,
+      userId: auth.userId,
+      workspaceId,
+    })
 
     return NextResponse.json({ success: true, data: holdings }, { status: 200 })
   } catch (error) {

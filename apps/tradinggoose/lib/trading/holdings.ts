@@ -1,4 +1,9 @@
-import { getTradingProvider, getTradingProviderOAuthEnvironment } from '@/providers/trading'
+import { checkWorkspaceAccess } from '@/lib/permissions/utils'
+import {
+  resolveTradingProviderContext,
+  resolveTradingProviderSelectedAccount,
+} from '@/lib/trading/context'
+import { getTradingProvider } from '@/providers/trading'
 import { getPortfolioDetail } from '@/providers/trading/portfolio'
 import type { PortfolioDetail, PortfolioIdentity } from '@/providers/trading/portfolio-identity'
 import { toPortfolioValueObject } from '@/providers/trading/portfolio-identity'
@@ -8,8 +13,6 @@ import { TradingServiceError } from './errors'
 export interface TradingHoldingsRequest {
   provider: TradingProviderId
   portfolioIdentity?: PortfolioIdentity | null
-  credential?: string
-  accessToken?: string
 }
 
 export type TradingHoldingsResult = {
@@ -19,13 +22,23 @@ export type TradingHoldingsResult = {
 }
 
 export async function getTradingHoldings({
-  accessToken,
-  ...params
-}: Omit<TradingHoldingsRequest, 'accessToken'> & {
-  accessToken?: string | null
+  requestData,
+  requestId,
+  userId,
+  workspaceId,
+}: {
+  requestData: TradingHoldingsRequest
+  requestId: string
+  userId: string
+  workspaceId: string
 }): Promise<TradingHoldingsResult> {
-  const provider = getTradingProvider(params.provider)
-  const portfolioIdentity = toPortfolioValueObject(params.portfolioIdentity)
+  const workspaceAccess = await checkWorkspaceAccess(workspaceId, userId)
+  if (!workspaceAccess.exists || !workspaceAccess.hasAccess) {
+    throw new TradingServiceError('Not found', 404)
+  }
+
+  const provider = getTradingProvider(requestData.provider)
+  const portfolioIdentity = toPortfolioValueObject(requestData.portfolioIdentity)
 
   if (!portfolioIdentity) {
     throw new TradingServiceError('Portfolio identity is required')
@@ -35,25 +48,27 @@ export async function getTradingHoldings({
     throw new TradingServiceError('Portfolio identity does not match provider')
   }
 
-  if (!accessToken) {
-    throw new TradingServiceError('Trading provider access token is required')
-  }
-
-  const environment = getTradingProviderOAuthEnvironment(
-    provider.id,
-    portfolioIdentity.credentialServiceId
-  )
-  if (!environment) {
-    throw new TradingServiceError('Trading provider connection is not configured')
-  }
+  const baseContext = await resolveTradingProviderContext({
+    requestData: {
+      provider: portfolioIdentity.providerId,
+      credentialId: portfolioIdentity.credentialId,
+      credentialServiceId: portfolioIdentity.credentialServiceId,
+    },
+    requestId,
+    userId,
+  })
+  const accountContext = await resolveTradingProviderSelectedAccount({
+    baseContext,
+    accountId: portfolioIdentity.accountId,
+  })
 
   const holdings = await getPortfolioDetail({
-    providerId: provider.id,
-    credentialId: portfolioIdentity.credentialId,
-    credentialServiceId: portfolioIdentity.credentialServiceId,
-    environment,
-    accessToken,
-    accountId: portfolioIdentity.accountId,
+    providerId: baseContext.providerId,
+    credentialId: baseContext.credentialId,
+    credentialServiceId: baseContext.credentialServiceId,
+    environment: baseContext.environment,
+    accessToken: baseContext.accessToken,
+    accountId: accountContext.accountId,
   })
 
   return {

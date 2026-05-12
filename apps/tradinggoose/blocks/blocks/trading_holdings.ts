@@ -53,7 +53,6 @@ export const TradingHoldingsBlock: BlockConfig<TradingHoldingsResponse> = {
         return {
           provider: params.provider,
           portfolioIdentity,
-          credential: portfolioIdentity?.credentialId,
         }
       },
     },

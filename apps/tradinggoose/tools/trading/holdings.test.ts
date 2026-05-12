@@ -1,19 +1,29 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const getPortfolioDetailMock = vi.fn()
-const getTradingProviderOAuthEnvironmentMock = vi.fn()
+const checkWorkspaceAccessMock = vi.fn()
+const resolveTradingProviderContextMock = vi.fn()
+const resolveTradingProviderSelectedAccountMock = vi.fn()
 
 vi.mock('@/providers/trading', () => ({
   getTradingProvider: (providerId: string) => ({
     id: providerId,
     name: providerId === 'tradier' ? 'Tradier' : 'Alpaca',
   }),
-  getTradingProviderOAuthEnvironment: (...args: unknown[]) =>
-    getTradingProviderOAuthEnvironmentMock(...args),
 }))
 
 vi.mock('@/providers/trading/portfolio', () => ({
   getPortfolioDetail: (...args: unknown[]) => getPortfolioDetailMock(...args),
+}))
+
+vi.mock('@/lib/permissions/utils', () => ({
+  checkWorkspaceAccess: (...args: unknown[]) => checkWorkspaceAccessMock(...args),
+}))
+
+vi.mock('@/lib/trading/context', () => ({
+  resolveTradingProviderContext: (...args: unknown[]) => resolveTradingProviderContextMock(...args),
+  resolveTradingProviderSelectedAccount: (...args: unknown[]) =>
+    resolveTradingProviderSelectedAccountMock(...args),
 }))
 
 import { getTradingHoldings } from '@/lib/trading/holdings'
@@ -29,15 +39,32 @@ const portfolioIdentity = {
 describe('tradingHoldingsTool', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    getTradingProviderOAuthEnvironmentMock.mockReturnValue('live')
     getPortfolioDetailMock.mockResolvedValue({ accountId: 'ACC-2' })
+    checkWorkspaceAccessMock.mockResolvedValue({ exists: true, hasAccess: true })
+    resolveTradingProviderContextMock.mockResolvedValue({
+      requestId: 'request-1',
+      providerId: 'tradier',
+      credentialId: 'credential-1',
+      credentialServiceId: 'tradier-live',
+      environment: 'live',
+      accessToken: 'access-token',
+      sessionUserId: 'user-1',
+    })
+    resolveTradingProviderSelectedAccountMock.mockResolvedValue({
+      accountId: 'ACC-2',
+      portfolioIdentity,
+    })
   })
 
   it('fetches holdings for the selected portfolioIdentity account', async () => {
     const result = await getTradingHoldings({
-      provider: 'tradier',
-      accessToken: 'access-token',
-      portfolioIdentity,
+      requestData: {
+        provider: 'tradier',
+        portfolioIdentity,
+      },
+      requestId: 'request-1',
+      userId: 'user-1',
+      workspaceId: 'workspace-1',
     })
 
     expect(result).toMatchObject({
@@ -54,45 +81,53 @@ describe('tradingHoldingsTool', () => {
     })
   })
 
-  it('sends the tool-resolved access token to the holdings route', () => {
+  it('sends only canonical holdings request data to the holdings route', () => {
     expect(
       tradingHoldingsTool.request.body?.({
         provider: 'tradier',
-        credential: 'credential-1',
-        accessToken: 'access-token',
         portfolioIdentity,
       })
     ).toMatchObject({
       provider: 'tradier',
-      accessToken: 'access-token',
       portfolioIdentity,
     })
   })
 
-  it('resolves OAuth by portfolioIdentity credential id', () => {
-    expect(tradingHoldingsTool.params.credential).toMatchObject({
-      type: 'string',
-      visibility: 'hidden',
+  it('requires workspace execution context', () => {
+    expect(tradingHoldingsTool.execution).toEqual({
+      workspace: { required: true, access: 'read' },
     })
   })
 
-  it('requires the tool-resolved access token', async () => {
+  it('rejects missing workspace access before broker calls', async () => {
+    checkWorkspaceAccessMock.mockResolvedValue({ exists: true, hasAccess: false })
+
     await expect(
       getTradingHoldings({
-        provider: 'tradier',
-        portfolioIdentity,
+        requestData: {
+          provider: 'tradier',
+          portfolioIdentity,
+        },
+        requestId: 'request-1',
+        userId: 'user-1',
+        workspaceId: 'workspace-1',
       })
-    ).rejects.toThrow('Trading provider access token is required')
+    ).rejects.toThrow('Not found')
 
+    expect(resolveTradingProviderContextMock).not.toHaveBeenCalled()
     expect(getPortfolioDetailMock).not.toHaveBeenCalled()
   })
 
   it('rejects portfolioIdentity from a different provider', async () => {
     await expect(
       getTradingHoldings({
-        provider: 'alpaca',
-        accessToken: 'access-token',
-        portfolioIdentity,
+        requestData: {
+          provider: 'alpaca',
+          portfolioIdentity,
+        },
+        requestId: 'request-1',
+        userId: 'user-1',
+        workspaceId: 'workspace-1',
       })
     ).rejects.toThrow('Portfolio identity does not match provider')
 

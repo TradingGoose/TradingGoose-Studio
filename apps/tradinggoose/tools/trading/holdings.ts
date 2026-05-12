@@ -6,6 +6,9 @@ export const tradingHoldingsTool: ToolConfig<TradingHoldingsParams, TradingHoldi
   name: 'Trading: Get Holdings',
   description: 'Fetch canonical portfolio detail from Alpaca or Tradier.',
   version: '1.0.0',
+  execution: {
+    workspace: { required: true, access: 'read' },
+  },
 
   params: {
     provider: {
@@ -20,18 +23,6 @@ export const tradingHoldingsTool: ToolConfig<TradingHoldingsParams, TradingHoldi
       visibility: 'user-only',
       description: 'Canonical portfolioIdentity selected by the broker account field.',
     },
-    credential: {
-      type: 'string',
-      required: false,
-      visibility: 'hidden',
-      description: 'OAuth credential selected by portfolioIdentity.',
-    },
-    accessToken: {
-      type: 'string',
-      required: false,
-      visibility: 'hidden',
-      description: 'OAuth access token resolved from the selected portfolioIdentity connection.',
-    },
   },
 
   request: {
@@ -43,7 +34,6 @@ export const tradingHoldingsTool: ToolConfig<TradingHoldingsParams, TradingHoldi
     body: (params) => ({
       provider: params.provider,
       portfolioIdentity: params.portfolioIdentity,
-      accessToken: params.accessToken,
     }),
   },
 
