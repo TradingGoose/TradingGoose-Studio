@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { type NextRequest, NextResponse } from 'next/server'
 import { authenticateApiKeyFromHeader } from '@/lib/api-key/service'
 import {
+  cancelPendingWorkflowExecution,
   enqueuePendingExecution,
   isPendingExecutionLimitError,
 } from '@/lib/execution/pending-execution'
@@ -42,12 +43,16 @@ class ApiWorkflowExecutionTimeoutError extends Error {
   statusCode = 504
 
   constructor() {
-    super('Workflow execution timed out')
+    super('Workflow execution timed out and was cancelled')
     this.name = 'ApiWorkflowExecutionTimeoutError'
   }
 }
 
-async function waitForApiWorkflowResult(params: { executionId: string; workflowId: string }) {
+async function waitForApiWorkflowResult(params: {
+  executionId: string
+  workflowId: string
+  onTimeout: () => Promise<void>
+}) {
   const startedAt = Date.now()
 
   while (Date.now() - startedAt < API_EXECUTION_WAIT_TIMEOUT_MS) {
@@ -74,6 +79,7 @@ async function waitForApiWorkflowResult(params: { executionId: string; workflowI
     await sleep(API_EXECUTION_POLL_INTERVAL_MS)
   }
 
+  await params.onTimeout()
   throw new ApiWorkflowExecutionTimeoutError()
 }
 
@@ -122,6 +128,7 @@ async function executeApiWorkflowThroughQueue(params: {
     return createErrorResponse('Unauthorized', 401)
   }
 
+  const apiUserId = apiKeyAuth.userId
   const executionId = `workflow_execution_${randomUUID()}`
   const input = await processDeployedApiTriggerInputFiles({
     input: params.input,
@@ -136,13 +143,13 @@ async function executeApiWorkflowThroughQueue(params: {
     pendingExecutionId: executionId,
     workflowId: validation.workflow.id,
     workspaceId: validation.workflow.workspaceId,
-    userId: apiKeyAuth.userId,
+    userId: apiUserId,
     source: 'workflow_execute_api',
     requestId: params.requestId,
     payload: {
       executionId,
       workflowId: validation.workflow.id,
-      userId: apiKeyAuth.userId,
+      userId: apiUserId,
       workspaceId: validation.workflow.workspaceId,
       input,
       triggerType: 'api',
@@ -157,6 +164,12 @@ async function executeApiWorkflowThroughQueue(params: {
   const result = await waitForApiWorkflowResult({
     executionId,
     workflowId: validation.workflow.id,
+    onTimeout: async () => {
+      await cancelPendingWorkflowExecution({
+        pendingExecutionId: executionId,
+        userId: apiUserId,
+      })
+    },
   })
   return createApiWorkflowResponse(result)
 }

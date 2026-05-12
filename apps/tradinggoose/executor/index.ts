@@ -617,6 +617,7 @@ export class Executor {
       selectedOutputs: this.contextExtensions.selectedOutputs || [],
       edges: this.contextExtensions.edges || [],
       onExecutionEvent: this.contextExtensions.onExecutionEvent,
+      shouldCancelExecution: this.contextExtensions.shouldCancelExecution,
     }
 
     Object.entries(this.initialBlockStates).forEach(([blockId, output]) => {

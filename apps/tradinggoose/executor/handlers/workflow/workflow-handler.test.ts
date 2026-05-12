@@ -131,9 +131,7 @@ describe('WorkflowBlockHandler', () => {
         }),
       })
     )
-    const queueBody = JSON.parse(
-      (fetchMock.mock.calls[0]?.[1] as RequestInit).body as string
-    )
+    const queueBody = JSON.parse((fetchMock.mock.calls[0]?.[1] as RequestInit).body as string)
     expect(queueBody).toMatchObject({
       input: { symbol: 'AAPL' },
       executionTarget: 'live',
@@ -199,5 +197,90 @@ describe('WorkflowBlockHandler', () => {
     await expect(
       (deferred as { wait: () => Promise<Record<string, unknown>> }).wait()
     ).rejects.toThrow('Error in child workflow "Child Workflow": Child failed')
+  })
+
+  it('cancels queued child workflows when the parent is cancelled', async () => {
+    const fetchMock = vi.mocked(global.fetch)
+    fetchMock
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            taskId: 'job-3',
+            workflowName: 'Child Workflow',
+          }),
+      } as Response)
+      .mockResolvedValueOnce({ ok: true } as Response)
+
+    const deferred = await handler.execute(
+      mockBlock,
+      { workflowId: 'child-workflow-id' },
+      {
+        ...mockContext,
+        shouldCancelExecution: vi.fn().mockResolvedValue(true),
+      }
+    )
+
+    await expect(
+      (deferred as { wait: () => Promise<Record<string, unknown>> }).wait()
+    ).rejects.toThrow('Child workflow execution was cancelled')
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      'http://localhost:3000/api/jobs/job-3',
+      expect.objectContaining({
+        method: 'DELETE',
+      })
+    )
+  })
+
+  it('cancels queued child workflows when child polling reaches its deadline', async () => {
+    vi.useFakeTimers()
+    const nowSpy = vi.spyOn(Date, 'now')
+    let now = 0
+    nowSpy.mockImplementation(() => now)
+    const fetchMock = vi.mocked(global.fetch)
+    fetchMock
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            taskId: 'job-4',
+            workflowName: 'Child Workflow',
+          }),
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ status: 'processing' }),
+      } as Response)
+      .mockResolvedValueOnce({ ok: true } as Response)
+
+    try {
+      const deferred = await handler.execute(
+        mockBlock,
+        { workflowId: 'child-workflow-id' },
+        mockContext
+      )
+
+      const waitPromise = (deferred as { wait: () => Promise<Record<string, unknown>> }).wait()
+      const errorPromise = waitPromise.catch((error) => error as Error)
+      await vi.advanceTimersByTimeAsync(0)
+      now = 30 * 60 * 1000 + 1
+      await vi.advanceTimersByTimeAsync(1_000)
+
+      await expect(errorPromise).resolves.toMatchObject({
+        message: expect.stringContaining('Child workflow execution timed out'),
+      })
+      expect(fetchMock).toHaveBeenNthCalledWith(
+        3,
+        'http://localhost:3000/api/jobs/job-4',
+        expect.objectContaining({
+          method: 'DELETE',
+        })
+      )
+    } finally {
+      nowSpy.mockRestore()
+      vi.useRealTimers()
+    }
   })
 })

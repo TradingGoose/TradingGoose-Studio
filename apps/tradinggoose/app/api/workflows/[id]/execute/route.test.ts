@@ -8,6 +8,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const {
   validateWorkflowAccessMock,
   authenticateApiKeyFromHeaderMock,
+  cancelPendingWorkflowExecutionMock,
   enqueuePendingExecutionMock,
   loadDeployedWorkflowStateMock,
   uploadExecutionFileMock,
@@ -17,6 +18,7 @@ const {
 } = vi.hoisted(() => ({
   validateWorkflowAccessMock: vi.fn(),
   authenticateApiKeyFromHeaderMock: vi.fn(),
+  cancelPendingWorkflowExecutionMock: vi.fn(),
   enqueuePendingExecutionMock: vi.fn(),
   loadDeployedWorkflowStateMock: vi.fn(),
   uploadExecutionFileMock: vi.fn(),
@@ -34,6 +36,7 @@ vi.mock('@/lib/api-key/service', () => ({
 }))
 
 vi.mock('@/lib/execution/pending-execution', () => ({
+  cancelPendingWorkflowExecution: cancelPendingWorkflowExecutionMock,
   enqueuePendingExecution: enqueuePendingExecutionMock,
   isPendingExecutionLimitError: vi.fn(() => false),
 }))
@@ -94,6 +97,7 @@ describe('/api/workflows/[id]/execute', () => {
       pendingExecutionId: 'workflow_execution_1',
       billingScopeId: 'workspace-1',
     })
+    cancelPendingWorkflowExecutionMock.mockResolvedValue({ status: 'cancelling' })
     loadDeployedWorkflowStateMock.mockResolvedValue({
       blocks: {},
       edges: [],
@@ -339,7 +343,7 @@ describe('/api/workflows/[id]/execute', () => {
     expect(enqueuePendingExecutionMock).not.toHaveBeenCalled()
   })
 
-  it('bounds synchronous API execution polling with a gateway timeout', async () => {
+  it('cancels queued API executions before returning a gateway timeout', async () => {
     vi.useFakeTimers()
     readWorkflowExecutionEventStateMock.mockResolvedValue({
       status: 'processing',
@@ -367,7 +371,11 @@ describe('/api/workflows/[id]/execute', () => {
 
       expect(response.status).toBe(504)
       await expect(response.json()).resolves.toMatchObject({
-        error: 'Workflow execution timed out',
+        error: 'Workflow execution timed out and was cancelled',
+      })
+      expect(cancelPendingWorkflowExecutionMock).toHaveBeenCalledWith({
+        pendingExecutionId: expect.stringMatching(/^workflow_execution_/),
+        userId: 'user-1',
       })
     } finally {
       vi.useRealTimers()

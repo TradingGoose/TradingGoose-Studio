@@ -187,6 +187,7 @@ export interface ExecutionContext {
   edges?: Array<{ source: string; target: string }> // Workflow edge connections
 
   onExecutionEvent?: (event: WorkflowExecutionEventInput) => Promise<void>
+  shouldCancelExecution?: () => Promise<boolean>
 }
 
 /**
