@@ -8,9 +8,9 @@ import {
   ListSkillsClientTool,
   ReadCustomToolClientTool,
   ReadIndicatorClientTool,
-  ReadSkillClientTool,
   RenameSkillClientTool,
 } from '@/lib/copilot/tools/client/entities/entity-document-tools'
+import { getActiveEntitySession } from '@/lib/copilot/tools/client/entities/entity-document-tool-utils'
 
 const mockRegistryState = {
   workflows: {} as Record<string, { workspaceId?: string }>,
@@ -473,6 +473,45 @@ describe('entity document tools', () => {
     expect(markCompleteBody.data.entityDocument).toContain('"name": "Relative Strength Index"')
     expect(markCompleteBody.data.entityDocument).toContain('"pineCode"')
     expect(markCompleteBody.data.entityDocument).toContain('"Length"')
+  })
+
+  it('matches active unsaved draft review targets by review session', () => {
+    mockEntitySessionRegistry.session = {
+      descriptor: {
+        workspaceId: 'ws-1',
+        entityKind: 'skill',
+        entityId: null,
+        reviewSessionId: 'review-draft',
+        draftSessionId: 'draft-1',
+        yjsSessionId: 'review-draft',
+      },
+      doc: {},
+    }
+
+    expect(
+      getActiveEntitySession(
+        {
+          toolCallId: 'read-draft-skill',
+          toolName: 'read_skill',
+          reviewSessionId: 'review-draft',
+          draftSessionId: 'draft-1',
+          workspaceId: 'ws-1',
+        },
+        'skill'
+      )
+    ).toBe(mockEntitySessionRegistry.session)
+    expect(
+      getActiveEntitySession(
+        {
+          toolCallId: 'read-other-draft',
+          toolName: 'read_skill',
+          reviewSessionId: 'review-draft',
+          draftSessionId: 'draft-2',
+          workspaceId: 'ws-1',
+        },
+        'skill'
+      )
+    ).toBeNull()
   })
 
   it('read_custom_tool reads a matching live entity session by explicit entityId', async () => {

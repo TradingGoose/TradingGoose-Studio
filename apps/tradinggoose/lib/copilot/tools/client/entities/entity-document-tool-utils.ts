@@ -317,6 +317,7 @@ export function getActiveEntitySession(
 ): RegisteredEntitySession | null {
   const requestedEntityId = entityId?.trim() || undefined
   const requestedReviewSessionId = executionContext.reviewSessionId
+  const requestedDraftSessionId = executionContext.draftSessionId
 
   if (requestedReviewSessionId) {
     const session = getRegisteredEntitySession(requestedReviewSessionId)
@@ -330,7 +331,11 @@ export function getActiveEntitySession(
       matchesWorkspace &&
       (requestedEntityId
         ? session.descriptor.entityId === requestedEntityId
-        : !!session.descriptor.entityId)
+        : !!session.descriptor.entityId ||
+          (session.descriptor.entityId === null &&
+            !!session.descriptor.draftSessionId &&
+            (!requestedDraftSessionId ||
+              session.descriptor.draftSessionId === requestedDraftSessionId)))
 
     if (matchesReviewSession) {
       return session
