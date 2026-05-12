@@ -7,13 +7,7 @@ import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { createLogger } from '@/lib/logs/console/logger'
 import { cn } from '@/lib/utils'
-import {
-  canStreamSelectedBlock,
-  resolveExecutionResultChatOutput,
-  resolveSelectedBlockOutput,
-} from '@/lib/workflows/chat-output'
-import type { WorkflowExecutionEvent } from '@/lib/workflows/execution-events'
-import type { ExecutionResult } from '@/executor/types'
+import { createChatOutputEventReader } from '@/lib/workflows/chat-output'
 import { useWorkflowExecution } from '@/hooks/workflow/use-workflow-execution'
 import { useChatStore } from '@/stores/chat/store'
 import type { ChatMessage as StoredChatMessage } from '@/stores/chat/types'
@@ -211,18 +205,13 @@ export function Chat({ chatMessage, setChatMessage, hideScrollbar = true }: Chat
       id: crypto.randomUUID(),
       content: '',
       timestamp: new Date().toISOString(),
-      streamedBlocks: new Set<string>(),
-      emittedContent: false,
       errorShown: false,
     }
-    const appendStreamContent = (content: string, blockId: string, separate = false) => {
+    const outputReader = createChatOutputEventReader(selectedOutputs)
+    const appendStreamContent = (content: string, blockId: string) => {
       if (!content) return
 
-      streamState.content =
-        separate && streamState.content
-          ? `${streamState.content}\n\n${content}`
-          : `${streamState.content}${content}`
-      streamState.emittedContent = true
+      streamState.content = `${streamState.content}${content}`
       setStreamingMessage({
         id: streamState.id,
         content: streamState.content,
@@ -235,42 +224,13 @@ export function Chat({ chatMessage, setChatMessage, hideScrollbar = true }: Chat
     const appendStreamError = (message: string, blockId = 'workflow') => {
       if (streamState.errorShown) return
       streamState.errorShown = true
-      appendStreamContent(`Error: ${message}`, blockId, true)
+      const prefix = streamState.content ? '\n\n' : ''
+      appendStreamContent(`${prefix}Error: ${message}`, blockId)
     }
-    const handleExecutionEvent = (event: WorkflowExecutionEvent) => {
-      if (event.type === 'stream:chunk') {
-        if (canStreamSelectedBlock(selectedOutputs, event.data.blockId)) {
-          streamState.streamedBlocks.add(event.data.blockId)
-          appendStreamContent(event.data.chunk, event.data.blockId)
-        }
-        return
-      }
-
-      if (event.type === 'block:completed' && selectedOutputs.length > 0) {
-        const content = resolveSelectedBlockOutput({
-          blockId: event.data.blockId,
-          output: event.data.output,
-          selectedOutputs,
-          skipStreamedOutput: streamState.streamedBlocks.has(event.data.blockId),
-        })
-        appendStreamContent(content, event.data.blockId, true)
-        return
-      }
-
-      if (event.type === 'block:error') {
-        if (canStreamSelectedBlock(selectedOutputs, event.data.blockId)) {
-          appendStreamError(event.data.error || 'Block execution failed', event.data.blockId)
-        }
-        return
-      }
-
-      if (event.type === 'execution:error') {
-        appendStreamError(event.data.error || 'Workflow execution failed')
-        return
-      }
-
-      if (event.type === 'execution:cancelled') {
-        appendStreamError('Workflow execution was cancelled')
+    const appendOutputEvents = (events: ReturnType<typeof outputReader.readEvent>) => {
+      for (const event of events) {
+        if (event.type === 'content') appendStreamContent(event.content, event.blockId)
+        if (event.type === 'error') appendStreamError(event.message, event.blockId)
       }
     }
 
@@ -342,14 +302,14 @@ export function Chat({ chatMessage, setChatMessage, hideScrollbar = true }: Chat
         input: workflowInput,
         triggerType: 'chat',
         selectedOutputs,
-        onEvent: handleExecutionEvent,
+        onEvent: (event) => appendOutputEvents(outputReader.readEvent(event)),
       })
     } catch (error) {
       logger.error('Error in handleSendMessage:', error)
       return
     }
 
-    if (streamState.emittedContent) {
+    if (outputReader.hasEmittedContent()) {
       if (result && 'success' in result && !result.success && !streamState.errorShown) {
         appendStreamError('error' in result ? result.error : 'Workflow execution failed.')
       }
@@ -359,15 +319,6 @@ export function Chat({ chatMessage, setChatMessage, hideScrollbar = true }: Chat
         type: 'workflow',
       })
       setStreamingMessage(null)
-    } else if (result && 'success' in result && result.success) {
-      const content = resolveExecutionResultChatOutput(result as ExecutionResult, selectedOutputs)
-      if (content) {
-        addMessage({
-          content,
-          workflowId: currentWorkflowId,
-          type: 'workflow',
-        })
-      }
     } else if (result && 'success' in result && !result.success) {
       addMessage({
         content: `Error: ${'error' in result ? result.error : 'Workflow execution failed.'}`,

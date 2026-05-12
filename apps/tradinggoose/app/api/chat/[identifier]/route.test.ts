@@ -191,7 +191,9 @@ describe('/api/chat/[identifier]', () => {
               blockId: 'agent-1',
               output: {
                 content: 'streamed content',
-                summary: 'completed summary',
+                response: {
+                  summary: 'completed summary',
+                },
               },
             },
           },
@@ -207,8 +209,16 @@ describe('/api/chat/[identifier]', () => {
             data: {
               result: {
                 success: true,
-                output: {},
-                logs: [],
+                output: { unselected: 'private output' },
+                logs: [
+                  {
+                    blockId: 'secret-block',
+                    output: { secret: 'private log' },
+                  },
+                ],
+                metadata: {
+                  traceSpans: [{ name: 'private span' }],
+                },
               },
             },
           },
@@ -276,6 +286,12 @@ describe('/api/chat/[identifier]', () => {
 
     expect(body).toContain('streamed content')
     expect(body).toContain('completed summary')
+    expect(body).toContain('"chunk":"\\n\\ncompleted summary"')
+    expect(body).toContain('"event":"final"')
+    expect(body).toContain('"data":{"success":true}')
+    expect(body).not.toContain('private output')
+    expect(body).not.toContain('private log')
+    expect(body).not.toContain('private span')
   })
 
   it('stops polling when the queued chat stream is cancelled', async () => {

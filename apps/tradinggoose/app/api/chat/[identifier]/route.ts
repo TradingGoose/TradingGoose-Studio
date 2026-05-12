@@ -7,17 +7,13 @@ import {
   enqueuePendingExecution,
   isPendingExecutionLimitError,
 } from '@/lib/execution/pending-execution'
-import { readWorkflowExecutionEventState } from '@/lib/execution/workflow-execution-events'
+import { openWorkflowExecutionEventStream } from '@/lib/execution/workflow-execution-stream'
 import { createLogger } from '@/lib/logs/console/logger'
 import { TriggerExecutionUnavailableError } from '@/lib/trigger/settings'
 import { ChatFiles } from '@/lib/uploads'
 import { encodeSSE, generateRequestId, SSE_HEADERS } from '@/lib/utils'
-import {
-  canStreamSelectedBlock,
-  resolveExecutionResultChatOutput,
-  resolveSelectedBlockOutput,
-} from '@/lib/workflows/chat-output'
-import { isExecutionResult } from '@/lib/workflows/execution-result'
+import { createChatOutputEventReader } from '@/lib/workflows/chat-output'
+import type { WorkflowExecutionEventEntry } from '@/lib/workflows/execution-events'
 import {
   addCorsHeaders,
   setChatAuthCookie,
@@ -27,151 +23,22 @@ import {
 import { createErrorResponse, createSuccessResponse } from '@/app/api/workflows/utils'
 
 const logger = createLogger('ChatIdentifierAPI')
-const CHAT_QUEUE_POLL_INTERVAL_MS = 500
-const CHAT_QUEUE_MAX_POLL_DURATION_MS = 55 * 60 * 1000
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
-const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
-
-function createQueuedChatStream(params: {
-  taskId: string
-  workflowId: string
-  selectedOutputs: string[]
-  requestId: string
-}) {
-  let closed = false
-
-  return new ReadableStream({
-    async start(controller) {
-      let lastEventId = 0
-      let emittedContent = false
-      const streamedBlocks = new Set<string>()
-      const deadline = Date.now() + CHAT_QUEUE_MAX_POLL_DURATION_MS
-
-      const close = () => {
-        if (closed) return
-        closed = true
-        controller.close()
+function createChatSSEEventFormatter(selectedOutputs: string[]) {
+  const outputReader = createChatOutputEventReader(selectedOutputs)
+  return (entry: WorkflowExecutionEventEntry) =>
+    outputReader.readEvent(entry.event).map((event) => {
+      if (event.type === 'content') {
+        return encodeSSE({ blockId: event.blockId, chunk: event.content })
       }
-
-      try {
-        while (!closed && Date.now() < deadline) {
-          const state = await readWorkflowExecutionEventState({
-            pendingExecutionId: params.taskId,
-            workflowId: params.workflowId,
-            afterEventId: lastEventId,
-          })
-          if (closed) return
-
-          if (!state) {
-            throw new Error('Queued chat execution was not found')
-          }
-
-          for (const entry of state.events) {
-            lastEventId = entry.eventId
-            const event = entry.event
-
-            if (event.type === 'stream:chunk') {
-              if (canStreamSelectedBlock(params.selectedOutputs, event.data.blockId)) {
-                streamedBlocks.add(event.data.blockId)
-                emittedContent = true
-                controller.enqueue(
-                  encodeSSE({
-                    blockId: event.data.blockId,
-                    chunk: event.data.chunk,
-                  })
-                )
-              }
-              continue
-            }
-
-            if (event.type === 'block:completed') {
-              const content = resolveSelectedBlockOutput({
-                blockId: event.data.blockId,
-                output: event.data.output,
-                selectedOutputs: params.selectedOutputs,
-                skipStreamedOutput: streamedBlocks.has(event.data.blockId),
-              })
-              if (content) {
-                emittedContent = true
-                controller.enqueue(encodeSSE({ blockId: event.data.blockId, chunk: content }))
-              }
-              continue
-            }
-
-            if (event.type === 'execution:completed') {
-              const result = event.data.result
-              if (!isExecutionResult(result)) {
-                throw new Error('Queued chat execution result is missing')
-              }
-
-              if (!emittedContent) {
-                const content = resolveExecutionResultChatOutput(result, params.selectedOutputs)
-                if (content) {
-                  controller.enqueue(encodeSSE({ blockId: 'workflow', chunk: content }))
-                }
-              }
-
-              controller.enqueue(encodeSSE({ event: 'final', data: result }))
-              close()
-              return
-            }
-
-            if (event.type === 'execution:error') {
-              controller.enqueue(
-                encodeSSE({
-                  event: 'error',
-                  error: event.data.error || 'Chat workflow execution failed',
-                })
-              )
-              close()
-              return
-            }
-
-            if (event.type === 'execution:cancelled') {
-              controller.enqueue(
-                encodeSSE({
-                  event: 'error',
-                  error: 'Chat workflow execution was cancelled',
-                })
-              )
-              close()
-              return
-            }
-          }
-
-          if (state.status === 'failed') {
-            throw new Error(state.errorMessage ?? 'Chat workflow execution failed')
-          }
-
-          if (state.status === 'completed') {
-            throw new Error('Queued chat execution completed without a terminal stream event')
-          }
-
-          await sleep(CHAT_QUEUE_POLL_INTERVAL_MS)
-        }
-
-        if (!closed) {
-          throw new Error('Queued chat stream timed out before completion')
-        }
-      } catch (error) {
-        if (closed) return
-        logger.error(`[${params.requestId}] Queued chat stream failed`, error)
-        controller.enqueue(
-          encodeSSE({
-            event: 'error',
-            error: error instanceof Error ? error.message : 'Chat workflow execution failed',
-          })
-        )
-        close()
+      if (event.type === 'error') {
+        return encodeSSE({ event: 'error', error: event.message })
       }
-    },
-    cancel() {
-      closed = true
-    },
-  })
+      return encodeSSE({ event: 'final', data: { success: event.success } })
+    })
 }
 
 // This endpoint handles chat interactions via the identifier
@@ -347,13 +214,21 @@ export async function POST(
         },
       })
 
-      const stream = createQueuedChatStream({
-        taskId: handle.pendingExecutionId,
+      const streamResult = await openWorkflowExecutionEventStream({
+        pendingExecutionId: handle.pendingExecutionId,
         workflowId: deployment.workflowId,
-        selectedOutputs,
         requestId,
+        formatEvent: createChatSSEEventFormatter(selectedOutputs),
+        formatError: (error) =>
+          encodeSSE({
+            event: 'error',
+            error: error instanceof Error ? error.message : 'Chat workflow execution failed',
+          }),
       })
-      const streamResponse = new NextResponse(stream, {
+      if (!streamResult.ok) {
+        throw new Error('Queued chat execution was not found')
+      }
+      const streamResponse = new NextResponse(streamResult.stream, {
         status: 200,
         headers: SSE_HEADERS,
       })
