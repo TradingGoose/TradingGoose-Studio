@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { TradingActionBlock } from '@/blocks/blocks/trading_action'
 import { TradingOrderDetailBlock } from '@/blocks/blocks/trading_order_detail'
 import { TradingOrderHistoryBlock } from '@/blocks/blocks/trading_order_history'
 import { tradingOrderDetailTool } from '@/tools/trading/order_detail'
@@ -30,5 +31,11 @@ describe('trading order block contracts', () => {
         workspaceId: expect.any(Object),
       })
     )
+  })
+
+  it('invalidates order type options when the selected listing changes', () => {
+    const orderType = TradingActionBlock.subBlocks.find((subBlock) => subBlock.id === 'orderType')
+
+    expect(orderType?.dependsOn).toEqual(['provider', 'listing'])
   })
 })
