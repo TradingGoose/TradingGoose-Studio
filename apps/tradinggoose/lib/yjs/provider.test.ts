@@ -64,9 +64,9 @@ vi.mock('y-websocket', () => ({
   WebsocketProvider: MockWebsocketProvider,
 }))
 
-function jsonResponse(body: unknown): Response {
+function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
-    status: 200,
+    status,
     headers: { 'Content-Type': 'application/json' },
   })
 }
@@ -156,7 +156,7 @@ describe('bootstrapYjsProvider', () => {
     expect(provider.connect).toHaveBeenCalledTimes(2)
   })
 
-  it('refreshes the one-time token after a connection error', async () => {
+  it('accepts a 410 snapshot response before reconnecting after an error', async () => {
     const tokens = ['token-1', 'token-2']
 
     fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
@@ -167,11 +167,7 @@ describe('bootstrapYjsProvider', () => {
       }
 
       if (url.startsWith('/api/yjs/sessions/workflow-1/snapshot?')) {
-        return jsonResponse({
-          snapshotBase64: '',
-          descriptor,
-          runtime,
-        })
+        return jsonResponse({ snapshotBase64: '', descriptor, runtime }, 410)
       }
 
       throw new Error(`Unexpected fetch: ${url}`)

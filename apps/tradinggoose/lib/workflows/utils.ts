@@ -41,6 +41,7 @@ const WORKFLOW_BASE_SELECTION = {
   pinnedApiKeyName: apiKey.name,
   pinnedApiKeyType: apiKey.type,
   pinnedApiKeyWorkspaceId: apiKey.workspaceId,
+  pinnedApiKeyUserId: apiKey.userId,
 }
 
 type WorkflowSelection = InferSelectModel<typeof workflowTable>
@@ -51,10 +52,14 @@ type WorkflowRow = WorkflowSelection & {
   pinnedApiKeyName: ApiKeySelection['name'] | null
   pinnedApiKeyType: ApiKeySelection['type'] | null
   pinnedApiKeyWorkspaceId: ApiKeySelection['workspaceId'] | null
+  pinnedApiKeyUserId: ApiKeySelection['userId'] | null
 }
 
 type WorkflowWithPinnedKey = WorkflowSelection & {
-  pinnedApiKey: Pick<ApiKeySelection, 'id' | 'name' | 'key' | 'type' | 'workspaceId'> | null
+  pinnedApiKey: Pick<
+    ApiKeySelection,
+    'id' | 'name' | 'key' | 'type' | 'workspaceId' | 'userId'
+  > | null
 }
 
 function mapWorkflowRow(row: WorkflowRow | undefined): WorkflowWithPinnedKey | undefined {
@@ -67,18 +72,24 @@ function mapWorkflowRow(row: WorkflowRow | undefined): WorkflowWithPinnedKey | u
     pinnedApiKeyName,
     pinnedApiKeyType,
     pinnedApiKeyWorkspaceId,
+    pinnedApiKeyUserId,
     ...workflowWithoutDerived
   } = row
 
   const pinnedApiKey =
-    workflowWithoutDerived.pinnedApiKeyId && pinnedApiKeyKey && pinnedApiKeyName && pinnedApiKeyType
+    workflowWithoutDerived.pinnedApiKeyId &&
+    pinnedApiKeyKey &&
+    pinnedApiKeyName &&
+    pinnedApiKeyType &&
+    pinnedApiKeyUserId
       ? {
-        id: workflowWithoutDerived.pinnedApiKeyId,
-        name: pinnedApiKeyName,
-        key: pinnedApiKeyKey,
-        type: pinnedApiKeyType,
-        workspaceId: pinnedApiKeyWorkspaceId,
-      }
+          id: workflowWithoutDerived.pinnedApiKeyId,
+          name: pinnedApiKeyName,
+          key: pinnedApiKeyKey,
+          type: pinnedApiKeyType,
+          workspaceId: pinnedApiKeyWorkspaceId,
+          userId: pinnedApiKeyUserId,
+        }
       : null
 
   return {
@@ -489,12 +500,7 @@ export function hasWorkflowChanged(
   }
 
   // 6. Compare global workflow variables
-  const deployedStateIncludesVariables = Object.prototype.hasOwnProperty.call(
-    deployedState,
-    'variables'
-  )
   if (
-    deployedStateIncludesVariables &&
     normalizedStringify(currentState.variables || {}) !==
       normalizedStringify(deployedState.variables || {})
   ) {

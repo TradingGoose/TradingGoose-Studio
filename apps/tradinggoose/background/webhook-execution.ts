@@ -11,6 +11,7 @@ import { fetchAndProcessAirtablePayloads, formatWebhookInput } from '@/lib/webho
 import {
   loadWorkflowExecutionBlueprint,
   runPreparedWorkflowExecution,
+  type WorkflowExecutionBlueprint,
 } from '@/lib/workflows/execution-runner'
 import { processWorkflowInputFormatFiles } from '@/lib/workflows/input-format-files'
 import { getTrigger } from '@/triggers'
@@ -135,6 +136,7 @@ async function completeSkippedWebhookExecution(params: {
   executionId: string
   requestId: string
   workspaceId: string
+  workflowState: WorkflowExecutionBlueprint['workflowData']
   triggerData: Record<string, unknown>
   message: string
 }) {
@@ -148,6 +150,7 @@ async function completeSkippedWebhookExecution(params: {
   await loggingSession.start({
     userId: params.payload.userId,
     workspaceId: params.workspaceId,
+    workflowState: params.workflowState,
     variables: {},
     triggerData: params.triggerData,
   })
@@ -174,6 +177,7 @@ async function logWebhookFailure(params: {
   executionId: string
   requestId: string
   workspaceId: string
+  workflowState: WorkflowExecutionBlueprint['workflowData']
   triggerData: Record<string, unknown>
   error: Error
 }) {
@@ -188,6 +192,7 @@ async function logWebhookFailure(params: {
     await loggingSession.start({
       userId: params.payload.userId,
       workspaceId: params.workspaceId,
+      workflowState: params.workflowState,
       variables: {},
       triggerData: params.triggerData,
     })
@@ -228,6 +233,7 @@ export async function executeWebhookJob(payload: WebhookExecutionPayload) {
 
   let runnerInvoked = false
   let workspaceId: string | null = null
+  let workflowState: WorkflowExecutionBlueprint['workflowData'] | null = null
 
   try {
     const blueprint = await loadWorkflowExecutionBlueprint({
@@ -240,6 +246,7 @@ export async function executeWebhookJob(payload: WebhookExecutionPayload) {
     }
 
     workspaceId = scopedWorkspaceId
+    workflowState = blueprint.workflowData
 
     return await withExecutionConcurrencyLimit({
       userId: payload.userId,
@@ -294,6 +301,7 @@ export async function executeWebhookJob(payload: WebhookExecutionPayload) {
               executionId,
               requestId,
               workspaceId: scopedWorkspaceId,
+              workflowState: blueprint.workflowData,
               triggerData,
               message: 'No Airtable changes to process',
             })
@@ -348,6 +356,7 @@ export async function executeWebhookJob(payload: WebhookExecutionPayload) {
             executionId,
             requestId,
             workspaceId: scopedWorkspaceId,
+            workflowState: blueprint.workflowData,
             triggerData,
             message: 'No messages in WhatsApp payload',
           })
@@ -435,12 +444,13 @@ export async function executeWebhookJob(payload: WebhookExecutionPayload) {
       provider: payload.provider,
     })
 
-    if (!runnerInvoked && error instanceof Error && workspaceId) {
+    if (!runnerInvoked && error instanceof Error && workspaceId && workflowState) {
       await logWebhookFailure({
         payload,
         executionId,
         requestId,
         workspaceId,
+        workflowState,
         triggerData,
         error,
       })

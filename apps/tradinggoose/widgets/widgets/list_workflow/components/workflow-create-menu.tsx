@@ -89,7 +89,7 @@ export function DashboardWorkflowCreateMenu({
   }, [workspaceId, isCreatingFolder, createFolder])
 
   const handleDirectImport = useCallback(
-    async (content: string, filename?: string) => {
+    async (content: string) => {
       if (!workspaceId) {
         logger.error('Workspace ID is required to import workflows')
         return
@@ -127,7 +127,6 @@ export function DashboardWorkflowCreateMenu({
 
           const newWorkflowId = await importWorkflowFromJsonContent({
             content,
-            filename,
             workspaceId,
             existingWorkflowNames,
             importedSkillsBySourceName,
@@ -159,7 +158,6 @@ export function DashboardWorkflowCreateMenu({
 
         const newWorkflowId = await importWorkflowFromJsonContent({
           content,
-          filename,
           workspaceId,
           existingWorkflowNames,
           createWorkflow,
@@ -205,7 +203,7 @@ export function DashboardWorkflowCreateMenu({
 
       try {
         const content = await file.text()
-        await handleDirectImport(content, file.name)
+        await handleDirectImport(content)
       } catch (error) {
         logger.error('Failed to read workflow file:', { error })
       } finally {

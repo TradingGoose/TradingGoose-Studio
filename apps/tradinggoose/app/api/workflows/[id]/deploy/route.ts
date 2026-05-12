@@ -7,7 +7,7 @@ import {
 } from '@/lib/chat/published-deployment'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
-import { deployWorkflow, loadWorkflowStateWithFallback } from '@/lib/workflows/db-helpers'
+import { deployWorkflow, loadWorkflowState } from '@/lib/workflows/db-helpers'
 import { hasWorkflowChanged, validateWorkflowPermissions } from '@/lib/workflows/utils'
 import { notifyIndicatorMonitorsReconcile } from '@/app/api/indicator-monitors/reconcile'
 import { pauseMonitorsMissingDeployedIndicatorTrigger } from '@/app/api/indicator-monitors/shared'
@@ -99,7 +99,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       .limit(1)
 
     if (active?.state) {
-      const currentState = await loadWorkflowStateWithFallback(id, workflowData.lastSynced)
+      const currentState = await loadWorkflowState(id, workflowData.lastSynced)
       if (currentState) {
         needsRedeployment = hasWorkflowChanged(currentState, active.state as any)
       }

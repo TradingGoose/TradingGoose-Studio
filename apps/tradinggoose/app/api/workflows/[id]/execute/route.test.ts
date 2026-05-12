@@ -7,8 +7,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const {
   validateWorkflowAccessMock,
-  authenticateApiKeyFromHeaderMock,
   enqueuePendingExecutionMock,
+  enforceServerExecutionRateLimitMock,
+  openWorkflowExecutionEventStreamMock,
   loadDeployedWorkflowStateMock,
   uploadExecutionFileMock,
   readWorkflowExecutionEventStateMock,
@@ -16,8 +17,9 @@ const {
   createHttpResponseFromBlockMock,
 } = vi.hoisted(() => ({
   validateWorkflowAccessMock: vi.fn(),
-  authenticateApiKeyFromHeaderMock: vi.fn(),
   enqueuePendingExecutionMock: vi.fn(),
+  enforceServerExecutionRateLimitMock: vi.fn(),
+  openWorkflowExecutionEventStreamMock: vi.fn(),
   loadDeployedWorkflowStateMock: vi.fn(),
   uploadExecutionFileMock: vi.fn(),
   readWorkflowExecutionEventStateMock: vi.fn(),
@@ -29,13 +31,26 @@ vi.mock('@/app/api/workflows/middleware', () => ({
   validateWorkflowAccess: validateWorkflowAccessMock,
 }))
 
-vi.mock('@/lib/api-key/service', () => ({
-  authenticateApiKeyFromHeader: authenticateApiKeyFromHeaderMock,
+vi.mock('@/lib/auth/hybrid', () => ({
+  AuthType: {
+    API_KEY: 'api_key',
+  },
+}))
+
+vi.mock('@/lib/execution/execution-concurrency-limit', () => ({
+  ExecutionGateError: class ExecutionGateError extends Error {
+    statusCode = 402
+  },
+  enforceServerExecutionRateLimit: enforceServerExecutionRateLimitMock,
 }))
 
 vi.mock('@/lib/execution/pending-execution', () => ({
   enqueuePendingExecution: enqueuePendingExecutionMock,
   isPendingExecutionLimitError: vi.fn(() => false),
+}))
+
+vi.mock('@/lib/execution/workflow-execution-stream', () => ({
+  openWorkflowExecutionEventStream: openWorkflowExecutionEventStreamMock,
 }))
 
 vi.mock('@/lib/execution/workflow-execution-events', () => ({
@@ -71,7 +86,9 @@ vi.mock('@/lib/logs/console/logger', () => ({
 }))
 
 vi.mock('@/lib/utils', () => ({
+  encodeSSE: vi.fn((payload: unknown) => `data: ${JSON.stringify(payload)}\n\n`),
   generateRequestId: vi.fn(() => 'request-1'),
+  SSE_HEADERS: { 'Content-Type': 'text/event-stream' },
 }))
 
 describe('/api/workflows/[id]/execute', () => {
@@ -84,15 +101,24 @@ describe('/api/workflows/[id]/execute', () => {
         userId: 'owner-1',
         workspaceId: 'workspace-1',
       },
-    })
-    authenticateApiKeyFromHeaderMock.mockResolvedValue({
-      success: true,
-      userId: 'user-1',
-      keyId: 'api-key-1',
+      apiKeyAuth: {
+        success: true,
+        userId: 'user-1',
+        keyId: 'api-key-1',
+      },
     })
     enqueuePendingExecutionMock.mockResolvedValue({
       pendingExecutionId: 'workflow_execution_1',
       billingScopeId: 'workspace-1',
+    })
+    enforceServerExecutionRateLimitMock.mockResolvedValue(undefined)
+    openWorkflowExecutionEventStreamMock.mockResolvedValue({
+      ok: true,
+      stream: new ReadableStream({
+        start(controller) {
+          controller.close()
+        },
+      }),
     })
     loadDeployedWorkflowStateMock.mockResolvedValue({
       blocks: {},
@@ -224,6 +250,15 @@ describe('/api/workflows/[id]/execute', () => {
         }),
       })
     )
+    expect(enforceServerExecutionRateLimitMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actorUserId: 'user-1',
+        authType: 'api_key',
+        workflowId: 'workflow-1',
+        workspaceId: 'workspace-1',
+        triggerType: 'api',
+      })
+    )
     expect(uploadExecutionFileMock).toHaveBeenCalledWith(
       expect.objectContaining({
         workspaceId: 'workspace-1',
@@ -339,7 +374,7 @@ describe('/api/workflows/[id]/execute', () => {
     expect(enqueuePendingExecutionMock).not.toHaveBeenCalled()
   })
 
-  it('returns an HTTP wait timeout without cancelling queued API executions', async () => {
+  it('returns a queued handle when API execution remains running after the HTTP wait window', async () => {
     vi.useFakeTimers()
     readWorkflowExecutionEventStateMock.mockResolvedValue({
       status: 'processing',
@@ -365,12 +400,53 @@ describe('/api/workflows/[id]/execute', () => {
       await vi.advanceTimersByTimeAsync(26_000)
       const response = await responsePromise
 
-      expect(response.status).toBe(504)
+      expect(response.status).toBe(202)
       await expect(response.json()).resolves.toMatchObject({
-        error: 'Workflow execution did not complete before the HTTP wait timeout',
+        success: true,
+        status: 'queued',
+        taskId: expect.stringMatching(/^workflow_execution_/),
+        links: {
+          status: expect.stringMatching(/^\/api\/jobs\/workflow_execution_/),
+        },
       })
     } finally {
       vi.useRealTimers()
     }
+  })
+
+  it('streams queued API executions through the public execute endpoint', async () => {
+    const { POST } = await import('./route')
+    const response = await POST(
+      new NextRequest('https://example.com/api/workflows/workflow-1/execute', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-API-Key': 'key-1',
+        },
+        body: JSON.stringify({
+          input: { symbol: 'AAPL' },
+          stream: true,
+          selectedOutputs: ['agent-1_content'],
+        }),
+      }),
+      { params: Promise.resolve({ id: 'workflow-1' }) }
+    )
+
+    expect(response.status).toBe(200)
+    expect(response.headers.get('Content-Type')).toContain('text/event-stream')
+    expect(openWorkflowExecutionEventStreamMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        pendingExecutionId: expect.stringMatching(/^workflow_execution_/),
+        workflowId: 'workflow-1',
+      })
+    )
+    expect(enqueuePendingExecutionMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        payload: expect.objectContaining({
+          input: { symbol: 'AAPL' },
+          selectedOutputs: ['agent-1_content'],
+        }),
+      })
+    )
   })
 })

@@ -349,13 +349,19 @@ export async function runPreparedWorkflowExecution(params: {
         )
         const workflowVariables = normalizeVariables(params.blueprint.workflowContext.variables)
 
-        const workflowLogId = await loggingSession.start({
-          userId: params.actorUserId,
-          workspaceId,
-          variables: encryptedEnvVars,
-          triggerData: params.triggerData,
-        })
-        workflowLogStarted = true
+        let workflowLogId: string | undefined
+        try {
+          workflowLogId = await loggingSession.start({
+            userId: params.actorUserId,
+            workspaceId,
+            workflowState: params.blueprint.workflowData,
+            variables: encryptedEnvVars,
+            triggerData: params.triggerData,
+          })
+          workflowLogStarted = true
+        } catch (error) {
+          logger.error(`[${requestId}] Workflow log start failed before execution`, error)
+        }
 
         const contextExtensions: ExecutionContextExtensions = {
           ...params.contextExtensions,
@@ -368,7 +374,7 @@ export async function runPreparedWorkflowExecution(params: {
           triggerType: params.triggerType,
           workflowDepth: params.contextExtensions?.workflowDepth ?? 0,
           submissionSource: 'workflow',
-          workflowLogId,
+          ...(workflowLogId ? { workflowLogId } : {}),
         }
 
         if (contextExtensions.stream) {
@@ -404,17 +410,21 @@ export async function runPreparedWorkflowExecution(params: {
           )
         }
 
-        await loggingSession
-          .complete({
-            endedAt: new Date().toISOString(),
-            totalDurationMs: totalDuration || 0,
-            finalOutput: result.output === undefined ? {} : result.output,
-            traceSpans: traceSpans || [],
-            workflowInput: params.workflowInput,
-          })
-          .catch((error) =>
-            logger.error(`[${requestId}] Workflow log completion failed after execution`, error)
-          )
+        if (workflowLogStarted) {
+          await loggingSession
+            .complete({
+              endedAt: new Date().toISOString(),
+              totalDurationMs: totalDuration || 0,
+              finalOutput: result.output === undefined ? {} : result.output,
+              traceSpans: traceSpans || [],
+              workflowInput: params.workflowInput,
+              workspaceId,
+              actorUserId: params.actorUserId,
+            })
+            .catch((error) =>
+              logger.error(`[${requestId}] Workflow log completion failed after execution`, error)
+            )
+        }
 
         return {
           executionId,
@@ -440,6 +450,8 @@ export async function runPreparedWorkflowExecution(params: {
                 stackTrace: error.stack,
               },
               traceSpans,
+              workspaceId,
+              actorUserId: params.actorUserId,
             })
             .catch((loggingError) =>
               logger.error(`[${requestId}] Workflow error log completion failed`, loggingError)

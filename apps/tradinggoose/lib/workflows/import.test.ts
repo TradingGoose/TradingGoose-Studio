@@ -80,7 +80,6 @@ describe('workflow import orchestration', () => {
 
     const workflowId = await importWorkflowFromJsonContent({
       content: JSON.stringify(payload),
-      filename: 'Primary Workflow.json',
       workspaceId: 'workspace-1',
       existingWorkflowNames: ['Primary Workflow'],
       createWorkflow,
@@ -222,7 +221,6 @@ describe('workflow import orchestration', () => {
 
     const workflowId = await importWorkflowFromJsonContent({
       content: JSON.stringify(payload),
-      filename: 'Primary Workflow.json',
       workspaceId: 'workspace-1',
       existingWorkflowNames: ['Primary Workflow'],
       importedSkillsBySourceName,

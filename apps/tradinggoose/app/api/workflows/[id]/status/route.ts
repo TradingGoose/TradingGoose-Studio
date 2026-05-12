@@ -3,7 +3,7 @@ import { and, desc, eq } from 'drizzle-orm'
 import type { NextRequest } from 'next/server'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
-import { loadWorkflowStateWithFallback } from '@/lib/workflows/db-helpers'
+import { loadWorkflowState } from '@/lib/workflows/db-helpers'
 import { hasWorkflowChanged } from '@/lib/workflows/utils'
 import { validateWorkflowAccess } from '@/app/api/workflows/middleware'
 import { createErrorResponse, createSuccessResponse } from '@/app/api/workflows/utils'
@@ -29,7 +29,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       // Load current state (Yjs-first, fall back to normalized tables) and
       // the active deployment version in parallel.
       const [currentState, [active]] = await Promise.all([
-        loadWorkflowStateWithFallback(id),
+        loadWorkflowState(id),
         db
           .select({ state: workflowDeploymentVersion.state })
           .from(workflowDeploymentVersion)

@@ -112,14 +112,6 @@ const WorkflowImportEnvelopeSchema = TradingGooseExportEnvelopeSchema.extend({
   })
 })
 
-const LegacyWorkflowImportEnvelopeSchema = z
-  .object({
-    version: z.literal('1.0'),
-    exportedAt: z.string().datetime(),
-    state: z.unknown(),
-  })
-  .strict()
-
 type WorkflowSkillValue = {
   skillId: string
   name?: string
@@ -412,41 +404,6 @@ function parseUnifiedWorkflowImport(input: unknown): ParseWorkflowImportResult {
   }
 }
 
-function parseLegacyWorkflowImport(
-  input: unknown,
-  fallbackName?: string
-): ParseWorkflowImportResult {
-  const parsed = LegacyWorkflowImportEnvelopeSchema.safeParse(input)
-
-  if (!parsed.success) {
-    return { data: null, errors: [], matched: false }
-  }
-
-  const stateResult = validateWorkflowState(parsed.data.state)
-
-  if (stateResult.errors.length > 0 || !stateResult.data) {
-    return {
-      data: null,
-      errors: stateResult.errors,
-      matched: true,
-    }
-  }
-
-  const resolvedFallbackName = normalizeInlineWhitespace(fallbackName ?? 'Imported Workflow')
-
-  return {
-    data: {
-      name: resolvedFallbackName.length > 0 ? resolvedFallbackName : 'Imported Workflow',
-      description: 'Workflow imported from JSON',
-      color: '',
-      state: stateResult.data,
-      skills: [],
-    },
-    errors: [],
-    matched: true,
-  }
-}
-
 export function createWorkflowExportFile({
   workflow,
   skills = [],
@@ -500,10 +457,10 @@ export function exportWorkflowAsJson({
   return JSON.stringify(createWorkflowExportFile({ workflow, skills, exportedFrom }), null, 2)
 }
 
-export function parseImportedWorkflowFile(
-  input: unknown,
-  options: { fallbackName?: string } = {}
-): { data: WorkflowTransferRecord | null; errors: string[] } {
+export function parseImportedWorkflowFile(input: unknown): {
+  data: WorkflowTransferRecord | null
+  errors: string[]
+} {
   const unifiedResult = parseUnifiedWorkflowImport(input)
   if (unifiedResult.data) {
     return {
@@ -519,26 +476,9 @@ export function parseImportedWorkflowFile(
     }
   }
 
-  const legacyResult = parseLegacyWorkflowImport(input, options.fallbackName)
-  if (legacyResult.data) {
-    return {
-      data: legacyResult.data,
-      errors: [],
-    }
-  }
-
-  if (legacyResult.matched && legacyResult.errors.length > 0) {
-    return {
-      data: null,
-      errors: legacyResult.errors,
-    }
-  }
-
   return {
     data: null,
-    errors: [
-      'Unsupported JSON format: expected a unified TradingGoose export with workflows or a legacy workflow export with version and state fields',
-    ],
+    errors: ['Unsupported JSON format: expected a unified TradingGoose export with workflows'],
   }
 }
 

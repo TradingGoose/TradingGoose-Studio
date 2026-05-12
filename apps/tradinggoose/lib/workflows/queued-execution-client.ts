@@ -31,13 +31,13 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
 }
 
-async function readError(response: Response, fallback: string) {
+async function readError(response: Response, defaultMessage: string) {
   const payload = await response.json().catch(() => null)
   if (isRecord(payload)) {
     if (typeof payload.error === 'string') return payload.error
     if (typeof payload.message === 'string') return payload.message
   }
-  return fallback
+  return defaultMessage
 }
 
 export async function queueWorkflowExecution(

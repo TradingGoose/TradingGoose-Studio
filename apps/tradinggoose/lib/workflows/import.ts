@@ -11,17 +11,6 @@ type ImportedWorkflowSkill = {
   name: string
 }
 
-const deriveFallbackWorkflowName = (filename?: string) => {
-  if (typeof filename === 'string') {
-    const nameWithoutExtension = filename.replace(/\.json$/i, '').trim()
-    if (nameWithoutExtension.length > 0) {
-      return nameWithoutExtension
-    }
-  }
-
-  return `Imported Workflow - ${new Date().toLocaleString()}`
-}
-
 type CreateWorkflowParams = {
   name: string
   description: string
@@ -31,7 +20,6 @@ type CreateWorkflowParams = {
 
 type ImportWorkflowFromJsonContentParams = {
   content: string
-  filename?: string
   workspaceId: string
   existingWorkflowNames: Iterable<string>
   importedSkillsBySourceName?: Map<string, ImportedWorkflowSkill>
@@ -100,7 +88,6 @@ function relinkWorkflowSkillValues(
 
 export async function importWorkflowFromJsonContent({
   content,
-  filename,
   workspaceId,
   existingWorkflowNames,
   importedSkillsBySourceName,
@@ -111,10 +98,7 @@ export async function importWorkflowFromJsonContent({
     throw new Error('Workspace ID is required to import workflows')
   }
 
-  const fallbackName = deriveFallbackWorkflowName(filename)
-  const { data: parsedWorkflowData, errors } = parseWorkflowJson(content, true, {
-    fallbackName,
-  })
+  const { data: parsedWorkflowData, errors } = parseWorkflowJson(content, true)
   let workflowData = parsedWorkflowData
 
   if (!workflowData || errors.length > 0) {

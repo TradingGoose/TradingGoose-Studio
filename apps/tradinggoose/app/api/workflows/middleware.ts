@@ -1,6 +1,10 @@
 import type { NextRequest } from 'next/server'
 import { authenticateApiKey } from '@/lib/api-key/auth'
-import { authenticateApiKeyFromHeader, updateApiKeyLastUsed } from '@/lib/api-key/service'
+import {
+  type ApiKeyAuthResult,
+  authenticateApiKeyFromHeader,
+  updateApiKeyLastUsed,
+} from '@/lib/api-key/service'
 import { env } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
 import { readWorkflowById } from '@/lib/workflows/utils'
@@ -10,6 +14,7 @@ const logger = createLogger('WorkflowMiddleware')
 export interface ValidationResult {
   error?: { message: string; status: number }
   workflow?: any
+  apiKeyAuth?: ApiKeyAuthResult
 }
 
 export async function validateWorkflowAccess(
@@ -71,6 +76,16 @@ export async function validateWorkflowAccess(
             },
           }
         }
+        return {
+          workflow,
+          apiKeyAuth: {
+            success: true,
+            userId: workflow.pinnedApiKey.userId,
+            keyId: workflow.pinnedApiKey.id,
+            keyType: workflow.pinnedApiKey.type === 'workspace' ? 'workspace' : 'personal',
+            workspaceId: workflow.pinnedApiKey.workspaceId || undefined,
+          },
+        }
       } else {
         // Try personal keys first
         const personalResult = await authenticateApiKeyFromHeader(apiKeyHeader, {
@@ -104,6 +119,7 @@ export async function validateWorkflowAccess(
         }
 
         await updateApiKeyLastUsed(validResult.keyId!)
+        return { workflow, apiKeyAuth: validResult }
       }
     }
     return { workflow }

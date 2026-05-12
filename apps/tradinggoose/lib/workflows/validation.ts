@@ -43,22 +43,9 @@ export function sanitizeAgentToolsInBlocks(blocks: Record<string, any>): {
       const toolsSubBlock = subBlocks.tools
       if (!toolsSubBlock) continue
 
-      let value = toolsSubBlock.value
-
-      // Parse legacy string format
-      if (typeof value === 'string') {
-        try {
-          value = JSON.parse(value)
-        } catch (_e) {
-          warnings.push(
-            `Block ${block.name || blockId}: invalid tools JSON; resetting tools to empty array`
-          )
-          value = []
-        }
-      }
+      const value = toolsSubBlock.value
 
       if (!Array.isArray(value)) {
-        // Force to array to keep client safe
         warnings.push(`Block ${block.name || blockId}: tools value is not an array; resetting`)
         toolsSubBlock.value = []
         continue

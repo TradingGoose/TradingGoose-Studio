@@ -143,7 +143,7 @@ export type WorkflowStateWithSource = PersistedWorkflowState & {
 
 /**
  * Loads the current workflow state from Yjs (live doc or persisted session),
- * falling back to the normalized DB tables + workflow row variables.
+ * then from the normalized DB tables + workflow row variables.
  *
  * Callers that already have the workflow row can pass `lastSynced` to avoid
  * an extra staleness-check query on the common fresh-Yjs path.
@@ -156,7 +156,7 @@ export type WorkflowStateWithSource = PersistedWorkflowState & {
  * while risking returning stale normalized-table data if the concurrent
  * result were used by mistake.
  */
-export async function loadWorkflowStateWithFallback(
+export async function loadWorkflowState(
   workflowId: string,
   lastSynced?: Date
 ): Promise<WorkflowStateWithSource | null> {
@@ -209,7 +209,7 @@ export async function loadWorkflowStateWithFallback(
     }
   } catch (error) {
     logger.warn(
-      `Failed to load authoritative Yjs state for workflow ${workflowId}; falling back to normalized tables`,
+      `Failed to load authoritative Yjs state for workflow ${workflowId}; loading normalized state`,
       error
     )
   }
@@ -663,7 +663,7 @@ export async function loadDeployedWorkflowState(
 
 /**
  * Load workflow state from normalized tables
- * Returns null if no data found (fallback to JSON blob)
+ * Returns null if no normalized data exists.
  */
 export async function loadWorkflowFromNormalizedTables(
   workflowId: string
@@ -1047,9 +1047,7 @@ export async function deployWorkflow(params: {
   } = params
 
   try {
-    // Prefer Yjs state from a live editor or persisted session before falling
-    // back to the normalized tables snapshot.
-    const stateWithSource = await loadWorkflowStateWithFallback(workflowId)
+    const stateWithSource = await loadWorkflowState(workflowId)
     if (!stateWithSource) {
       return { success: false, error: 'Failed to load workflow state' }
     }

@@ -7,7 +7,7 @@ const mockGetBlocksMetadataExecute = vi.fn()
 const mockCheckWorkspaceAccess = vi.fn()
 const mockVerifyWorkflowAccess = vi.fn()
 const mockLoadEntityByKind = vi.fn()
-const mockLoadWorkflowStateWithFallback = vi.fn()
+const mockLoadWorkflowState = vi.fn()
 const mockSanitizeForCopilot = vi.fn((value) => value)
 const mockAnd = vi.fn((...conditions: unknown[]) => ({ conditions, type: 'and' }))
 const mockEq = vi.fn((field: unknown, value: unknown) => ({ field, type: 'eq', value }))
@@ -99,7 +99,7 @@ vi.mock('@/lib/copilot/review-sessions/entity-loaders', () => ({
 }))
 
 vi.mock('@/lib/workflows/db-helpers', () => ({
-  loadWorkflowStateWithFallback: mockLoadWorkflowStateWithFallback,
+  loadWorkflowState: mockLoadWorkflowState,
 }))
 
 vi.mock('@/lib/workflows/json-sanitizer', () => ({
@@ -113,7 +113,7 @@ describe('processContextsServer', () => {
     mockCheckWorkspaceAccess.mockReset()
     mockVerifyWorkflowAccess.mockReset()
     mockLoadEntityByKind.mockReset()
-    mockLoadWorkflowStateWithFallback.mockReset()
+    mockLoadWorkflowState.mockReset()
     mockSanitizeForCopilot.mockClear()
     mockAnd.mockClear()
     mockEq.mockClear()
@@ -249,7 +249,7 @@ describe('processContextsServer', () => {
   })
 
   it('hydrates workflow contexts after verifying workflow read access', async () => {
-    mockLoadWorkflowStateWithFallback.mockResolvedValue({
+    mockLoadWorkflowState.mockResolvedValue({
       source: 'db',
       blocks: {
         trigger: {
@@ -276,7 +276,7 @@ describe('processContextsServer', () => {
     )
 
     expect(mockVerifyWorkflowAccess).toHaveBeenCalledWith('user-1', 'workflow-1')
-    expect(mockLoadWorkflowStateWithFallback).toHaveBeenCalledWith('workflow-1')
+    expect(mockLoadWorkflowState).toHaveBeenCalledWith('workflow-1')
     expect(mockSanitizeForCopilot).toHaveBeenCalledWith({
       blocks: {
         trigger: {
@@ -340,7 +340,7 @@ describe('processContextsServer', () => {
     const result = await processContextsServer([context], 'user-1')
 
     expect(mockVerifyWorkflowAccess).toHaveBeenCalledWith('user-1', 'workflow-1')
-    expect(mockLoadWorkflowStateWithFallback).not.toHaveBeenCalled()
+    expect(mockLoadWorkflowState).not.toHaveBeenCalled()
     expect(result).toEqual([])
   })
 

@@ -16,7 +16,7 @@ import { REVIEW_ITEM_KINDS } from '@/lib/copilot/review-sessions/thread-history'
 import { createLogger } from '@/lib/logs/console/logger'
 import { buildWorkspaceAccessScope, checkWorkspaceAccess } from '@/lib/permissions/utils'
 import { escapeRegExp } from '@/lib/utils'
-import { loadWorkflowStateWithFallback } from '@/lib/workflows/db-helpers'
+import { loadWorkflowState } from '@/lib/workflows/db-helpers'
 import { sanitizeForCopilot } from '@/lib/workflows/json-sanitizer'
 import type { ChatContext } from '@/stores/copilot/types'
 import { readCopilotWorkspaceEntityContext } from '@/widgets/widgets/copilot/workspace-entities'
@@ -47,7 +47,7 @@ export interface AgentContext {
 }
 
 const logger = createLogger('ProcessContents')
-type CopilotWorkflowState = NonNullable<Awaited<ReturnType<typeof loadWorkflowStateWithFallback>>>
+type CopilotWorkflowState = NonNullable<Awaited<ReturnType<typeof loadWorkflowState>>>
 
 // Server-side variant (recommended for use in API routes)
 export async function processContextsServer(
@@ -599,7 +599,7 @@ async function loadCopilotWorkflowState(
     return null
   }
 
-  const workflowState = await loadWorkflowStateWithFallback(workflowId)
+  const workflowState = await loadWorkflowState(workflowId)
   if (!workflowState) {
     logger.warn('No workflow data found for copilot context', { workflowId })
   }
