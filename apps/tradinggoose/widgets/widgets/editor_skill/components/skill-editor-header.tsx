@@ -11,7 +11,6 @@ import type { PairColor } from '@/widgets/pair-colors'
 import { emitSkillEditorAction, useSkillEditorState } from '@/widgets/utils/skill-editor-actions'
 import { emitSkillSelectionChange } from '@/widgets/utils/skill-selection'
 import {
-  buildPersistedPairContext,
   readEntitySelectionState,
   SKILL_EDITOR_WIDGET_KEY,
 } from '@/widgets/widgets/_shared/skill/utils'
@@ -45,15 +44,7 @@ export function SkillEditorSelector({
   const handleSkillChange = (nextSkillId: string | null) => {
     if (isLinkedToColorPair) {
       if (pairContext?.skillId === nextSkillId) return
-      setPairContext(
-        resolvedPairColor,
-        buildPersistedPairContext({
-          existing: pairContext,
-          entityIdKey: 'skillId',
-          descriptor: null,
-          selectedEntityId: nextSkillId,
-        })
-      )
+      setPairContext(resolvedPairColor, { skillId: nextSkillId })
       return
     }
 
@@ -195,21 +186,14 @@ export function SkillEditorSaveButton({
     entityIdKey: 'skillId',
   })
   const resolvedSkillId = selectionState.selectedEntityId ?? skillId ?? null
-  const saveDisabled =
-    !workspaceId &&
-    !resolvedSkillId &&
-    !selectionState.reviewSessionId &&
-    !selectionState.reviewDraftSessionId
-  const disabled =
-    !workspaceId ||
-    (!resolvedSkillId && !selectionState.reviewSessionId && !selectionState.reviewDraftSessionId)
+  const disabled = !workspaceId || !resolvedSkillId
 
   return (
     <EntityEditorHeaderButton
       tooltip='Save skill'
       label='Save skill'
       icon={Save}
-      disabled={disabled || saveDisabled}
+      disabled={disabled}
       variant='default'
       onClick={() => emitSkillEditorAction({ action: 'save', panelId, widgetKey })}
     />

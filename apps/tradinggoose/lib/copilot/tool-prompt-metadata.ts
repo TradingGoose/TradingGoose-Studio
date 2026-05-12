@@ -179,7 +179,7 @@ export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
   },
   create_custom_tool: {
     description:
-      'Create a new custom tool by sending a full custom tool document into the active unsaved draft review session, then return the resulting document.',
+      'Create a new custom tool in the current workspace from a full custom tool document and return the created document.',
     kind: 'create',
     entityKind: 'custom_tool',
   },
@@ -227,7 +227,7 @@ export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
   },
   create_indicator: {
     description:
-      'Create a new custom indicator by sending a full indicator document into the active unsaved draft review session, then return the resulting document. Use this when no built-in default indicator fits the needed behavior.',
+      'Create a new custom indicator in the current workspace from a full indicator document and return the created document.',
     kind: 'create',
     entityKind: 'indicator',
   },
@@ -256,7 +256,7 @@ export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
   },
   create_skill: {
     description:
-      'Create a new skill by sending a full skill document into the active unsaved draft review session, then return the resulting document.',
+      'Create a new skill in the current workspace from a full skill document and return the created document.',
     kind: 'create',
     entityKind: 'skill',
   },
@@ -285,7 +285,7 @@ export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
   },
   create_mcp_server: {
     description:
-      'Create a new MCP server by sending a full server document into the active unsaved draft review session, then return the resulting document.',
+      'Create a new MCP server in the current workspace from a full MCP server document and return the created document.',
     kind: 'create',
     entityKind: 'mcp_server',
   },

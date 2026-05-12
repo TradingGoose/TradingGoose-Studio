@@ -24,10 +24,6 @@ import { useResolvedReviewTarget } from '@/widgets/widgets/entity_review/use-res
 /** Selection state read from widget params or pair context. */
 export interface EntitySelectionState {
   selectedEntityId: string | null
-  reviewSessionId: string | null
-  reviewEntityId: string | null
-  reviewDraftSessionId: string | null
-  descriptor: ReviewTargetDescriptor | null
 }
 
 /**
@@ -45,22 +41,6 @@ export interface EntityEditorShellConfig {
 
   /** Key on PairColorContext that stores the selected entity id. */
   entityIdKey: keyof PairColorContext & string
-
-  /** Build widget params to persist the review target. */
-  buildWidgetParams: (options: {
-    currentParams?: Record<string, unknown> | null
-    entityIdKey: string
-    descriptor: ReviewTargetDescriptor | null
-    selectedEntityId?: string | null
-  }) => Record<string, unknown> | null
-
-  /** Build pair context to persist the review target. */
-  buildPairContext: (options: {
-    existing?: PairColorContext | null
-    entityIdKey: keyof PairColorContext
-    descriptor: ReviewTargetDescriptor | null
-    selectedEntityId?: string | null
-  }) => PairColorContext
 
   /** Read the entity selection from params/pairContext. */
   readEntitySelectionState: (options: {
@@ -174,46 +154,40 @@ export function EntityEditorShell({
     pairContext: isLinkedToColorPair ? pairContext : null,
     entityIdKey: config.entityIdKey,
   })
-  const selectedEntityId =
-    normalizeOptionalString(selectionState.reviewEntityId) ??
-    normalizeOptionalString(selectionState.selectedEntityId)
   const currentPairEntityId = normalizeOptionalString(
     pairContext?.[config.entityIdKey] as string | null | undefined
   )
 
   useEffect(() => {
-    if (!isLinkedToColorPair || !selectedEntityId || currentPairEntityId === selectedEntityId) {
+    if (
+      !isLinkedToColorPair ||
+      !selectionState.selectedEntityId ||
+      currentPairEntityId === selectionState.selectedEntityId
+    ) {
       return
     }
 
     setPairContext(resolvedPairColor, {
-      [config.entityIdKey]: selectedEntityId,
+      [config.entityIdKey]: selectionState.selectedEntityId,
     } as PairColorContext)
   }, [
     config.entityIdKey,
     currentPairEntityId,
     isLinkedToColorPair,
     resolvedPairColor,
-    selectedEntityId,
+    selectionState.selectedEntityId,
     setPairContext,
   ])
 
-  const hasSelection =
-    !!selectionState.selectedEntityId ||
-    !!selectionState.reviewSessionId ||
-    !!selectionState.reviewDraftSessionId
+  const hasSelection = !!selectionState.selectedEntityId
   const { descriptor, isResolving, error, persistDescriptor } = useResolvedReviewTarget({
     workspaceId,
     entityKind: config.entityKind,
-    params,
     pairColor: resolvedPairColor,
-    pairContext: isLinkedToColorPair ? pairContext : null,
     onWidgetParamsChange,
     setPairContext,
     entityIdKey: config.entityIdKey,
     selectionState,
-    buildWidgetParams: config.buildWidgetParams,
-    buildPairContext: config.buildPairContext,
   })
 
   if (!workspaceId) {

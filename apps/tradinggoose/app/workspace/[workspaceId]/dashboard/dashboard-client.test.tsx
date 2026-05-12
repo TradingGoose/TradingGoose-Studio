@@ -296,7 +296,7 @@ describe('DashboardClient', () => {
     })
   })
 
-  it('hydrates persisted review targets from color pairs', async () => {
+  it('hydrates stable entity ids from color pairs', async () => {
     await act(async () => {
       root.render(
         <DashboardClient
@@ -310,10 +310,6 @@ describe('DashboardClient', () => {
                 color: 'red',
                 workflowId: 'wf-current',
                 skillId: 'skill-saved',
-                reviewSessionId: 'review-draft-skill',
-                reviewEntityKind: 'skill',
-                reviewEntityId: null,
-                reviewDraftSessionId: 'draft-skill',
               },
             ],
           }}
@@ -324,9 +320,6 @@ describe('DashboardClient', () => {
     expect(usePairColorStore.getState().contexts.red).toMatchObject({
       workflowId: 'wf-current',
       skillId: 'skill-saved',
-      reviewSessionId: 'review-draft-skill',
-      reviewEntityKind: 'skill',
-      reviewDraftSessionId: 'draft-skill',
     })
   })
 

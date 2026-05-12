@@ -16,7 +16,7 @@ import {
 import { createLogger } from '@/lib/logs/console/logger'
 import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
 import { setWorkflowState } from '@/lib/yjs/workflow-session'
-import { getRegisteredWorkflowSession } from '@/lib/yjs/workflow-session-registry'
+import { acquireSharedWorkflowSessionLease } from '@/lib/yjs/workflow-shared-session'
 import { getCopilotStoreForToolCall } from '@/stores/copilot/store-access'
 
 interface EditWorkflowArgs {
@@ -103,14 +103,25 @@ export class EditWorkflowClientTool extends BaseClientTool {
         workflowId: requestedWorkflowId,
       })
       this.lastWorkflowId = workflowId
-      const session = getRegisteredWorkflowSession(workflowId)
+      const lease = await acquireSharedWorkflowSessionLease({
+        workflowId,
+        workspaceId:
+          (typeof stagedResult.workspaceId === 'string' ? stagedResult.workspaceId : undefined) ??
+          executionContext.workspaceId ??
+          null,
+      })
 
-      if (session && !this.hasAppliedState) {
-        setWorkflowState(session.doc, stagedResult.workflowState, YJS_ORIGINS.COPILOT_REVIEW_ACCEPT)
-        this.hasAppliedState = true
-      }
-      if (!session) {
-        await this.applyAcceptedWorkflowState(workflowId, stagedResult.workflowState)
+      try {
+        if (!this.hasAppliedState) {
+          setWorkflowState(
+            lease.session.doc,
+            stagedResult.workflowState,
+            YJS_ORIGINS.COPILOT_REVIEW_ACCEPT
+          )
+          this.hasAppliedState = true
+        }
+      } finally {
+        lease.release()
       }
 
       this.setState(ClientToolCallState.success)
@@ -126,31 +137,6 @@ export class EditWorkflowClientTool extends BaseClientTool {
       this.setState(ClientToolCallState.error)
       await this.markToolComplete(500, message || 'Failed to apply workflow edits')
     }
-  }
-
-  private async applyAcceptedWorkflowState(workflowId: string, workflowState: Record<string, any>) {
-    const response = await fetch(`/api/workflows/${workflowId}/apply-live-state`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        workflowState,
-      }),
-    })
-
-    if (response.ok) {
-      return
-    }
-
-    let errorMessage = `Failed to apply accepted workflow edits (${response.status})`
-
-    try {
-      const errorData = await response.json()
-      if (errorData?.error) {
-        errorMessage = String(errorData.error)
-      }
-    } catch {}
-
-    throw new Error(errorMessage)
   }
 
   protected getRejectCompletionMessage(): string {
@@ -216,6 +202,10 @@ export class EditWorkflowClientTool extends BaseClientTool {
       this.lastWorkflowId = workflowId
 
       let currentWorkflowState: string | undefined
+      const lease = await acquireSharedWorkflowSessionLease({
+        workflowId,
+        workspaceId: workspaceId ?? executionContext.workspaceId ?? null,
+      })
 
       try {
         currentWorkflowState = JSON.stringify(
@@ -227,6 +217,8 @@ export class EditWorkflowClientTool extends BaseClientTool {
           e as any
         )
         throw new Error('Failed to read the current workflow')
+      } finally {
+        lease.release()
       }
 
       const result = (await executeCopilotServerTool({

@@ -1175,16 +1175,8 @@ function applyPairDataToWidget(
     'skillId',
   ] as const
 
-  const reviewKeys = [
-    'reviewSessionId',
-    'reviewEntityKind',
-    'reviewEntityId',
-    'reviewDraftSessionId',
-  ] as const
-
   const hasPairData = pairKeys.some((k) => pairData[k] != null)
-  const hasPairParams =
-    pairKeys.some((k) => k in baseParams) || reviewKeys.some((k) => k in baseParams)
+  const hasPairParams = pairKeys.some((k) => k in baseParams)
 
   if (!hasPairData && !hasPairParams) {
     return widget
@@ -1192,9 +1184,6 @@ function applyPairDataToWidget(
 
   for (const key of pairKeys) {
     baseParams[key] = pairData[key] ?? undefined
-  }
-  for (const key of reviewKeys) {
-    baseParams[key] = undefined
   }
 
   const nextParams = Object.keys(baseParams).length > 0 ? baseParams : null
@@ -1228,10 +1217,6 @@ function hydratePairStoreFromColorPairs(colorPairs: PersistedColorPairsState) {
         mcpServerId: pair.mcpServerId ?? null,
         customToolId: pair.customToolId ?? null,
         skillId: pair.skillId ?? null,
-        reviewSessionId: pair.reviewSessionId ?? null,
-        reviewEntityKind: pair.reviewEntityKind ?? null,
-        reviewEntityId: pair.reviewEntityId ?? null,
-        reviewDraftSessionId: pair.reviewDraftSessionId ?? null,
       }),
     }
   }
@@ -1253,10 +1238,6 @@ function buildPersistedColorPairs(layout: LayoutNode): PersistedColorPairsState 
     const mcpServerId = normalizeOptionalString(context?.mcpServerId)
     const customToolId = normalizeOptionalString(context?.customToolId)
     const skillId = normalizeOptionalString(context?.skillId)
-    const reviewSessionId = normalizeOptionalString(context?.reviewSessionId)
-    const reviewEntityKind = context?.reviewEntityKind ?? undefined
-    const reviewEntityId = normalizeOptionalString(context?.reviewEntityId)
-    const reviewDraftSessionId = normalizeOptionalString(context?.reviewDraftSessionId)
 
     pairs.push({
       color,
@@ -1266,10 +1247,6 @@ function buildPersistedColorPairs(layout: LayoutNode): PersistedColorPairsState 
       mcpServerId,
       customToolId,
       skillId,
-      reviewSessionId,
-      reviewEntityKind,
-      reviewEntityId,
-      reviewDraftSessionId,
     })
   })
 

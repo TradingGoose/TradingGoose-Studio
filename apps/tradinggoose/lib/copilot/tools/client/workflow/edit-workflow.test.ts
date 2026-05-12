@@ -10,6 +10,7 @@ const mockGetReadableWorkflowState = vi.fn()
 const mockResolveWorkflowTarget = vi.fn()
 const mockSetWorkflowState = vi.fn()
 const mockGetRegisteredWorkflowSession = vi.fn()
+const mockAcquireSharedWorkflowSessionLease = vi.fn()
 
 const workflowDocument = [
   'flowchart TD',
@@ -46,6 +47,11 @@ vi.mock('@/lib/yjs/workflow-session-registry', () => ({
   getRegisteredWorkflowSession: (...args: any[]) => mockGetRegisteredWorkflowSession(...args),
 }))
 
+vi.mock('@/lib/yjs/workflow-shared-session', () => ({
+  acquireSharedWorkflowSessionLease: (...args: any[]) =>
+    mockAcquireSharedWorkflowSessionLease(...args),
+}))
+
 vi.mock('@/lib/yjs/workflow-session', () => ({
   setWorkflowState: (...args: any[]) => mockSetWorkflowState(...args),
 }))
@@ -67,6 +73,7 @@ describe('EditWorkflowClientTool approval gating', () => {
     mockResolveWorkflowTarget.mockReset()
     mockSetWorkflowState.mockReset()
     mockGetRegisteredWorkflowSession.mockReset()
+    mockAcquireSharedWorkflowSessionLease.mockReset()
 
     mockResolveWorkflowTarget.mockResolvedValue({
       workflowId: 'wf-1',
@@ -104,6 +111,13 @@ describe('EditWorkflowClientTool approval gating', () => {
       provider: null,
       undoManager: null,
     })
+    mockAcquireSharedWorkflowSessionLease.mockImplementation(async ({ workflowId }) => ({
+      session: {
+        workflowId,
+        doc: { id: workflowId === 'wf-target' ? 'doc-target' : 'doc-1' },
+      },
+      release: vi.fn(),
+    }))
   })
 
   it('stages workflow edits for review through the unified user-action handler', async () => {
@@ -431,13 +445,12 @@ describe('EditWorkflowClientTool approval gating', () => {
       workflowId: options?.workflowId ?? 'wf-current',
       workflowName: 'Workflow',
     }))
-    mockGetRegisteredWorkflowSession.mockImplementation((workflowId: string) => ({
-      workflowId,
-      channelId: 'pair-1',
-      yjsSessionId: workflowId,
-      doc: { id: workflowId === 'wf-target' ? 'doc-target' : 'doc-current' },
-      provider: null,
-      undoManager: null,
+    mockAcquireSharedWorkflowSessionLease.mockImplementation(async ({ workflowId }) => ({
+      session: {
+        workflowId,
+        doc: { id: workflowId === 'wf-target' ? 'doc-target' : 'doc-current' },
+      },
+      release: vi.fn(),
     }))
 
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {

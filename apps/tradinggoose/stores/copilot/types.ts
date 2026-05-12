@@ -108,17 +108,9 @@ export interface CopilotChat {
   updatedAt: Date
 }
 
-export interface CopilotLiveReviewTarget {
-  entityKind: Exclude<ReviewEntityKind, 'workflow'>
-  entityId: string | null
-  reviewSessionId: string
-  draftSessionId: string | null
-}
-
 export interface CopilotLiveContext {
   workflowId: string | null
   workspaceId: string | null
-  reviewTarget?: CopilotLiveReviewTarget | null
 }
 
 export interface CopilotSendRuntimeContext {

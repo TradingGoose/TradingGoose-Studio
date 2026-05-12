@@ -7,7 +7,6 @@ import {
   buildReviewTargetDescriptorFromEnvelope,
   buildYjsTransportEnvelope,
   deriveYjsSessionId,
-  parseReviewTargetDescriptor,
 } from '@/lib/copilot/review-sessions/identity'
 
 describe('review target identity helpers', () => {
@@ -63,24 +62,5 @@ describe('review target identity helpers', () => {
     expect(buildReviewTargetDescriptorFromEnvelope(buildYjsTransportEnvelope(descriptor))).toEqual(
       descriptor
     )
-  })
-
-  it('canonicalizes stale serialized saved-entity yjs session ids back to reviewSessionId', () => {
-    expect(
-      parseReviewTargetDescriptor({
-        workspaceId: 'ws-1',
-        reviewEntityKind: 'skill',
-        reviewEntityId: 'skill-1',
-        reviewSessionId: 'review-1',
-        yjsSessionId: 'skill-1',
-      })
-    ).toEqual({
-      workspaceId: 'ws-1',
-      entityKind: 'skill',
-      entityId: 'skill-1',
-      draftSessionId: null,
-      reviewSessionId: 'review-1',
-      yjsSessionId: 'review-1',
-    })
   })
 })

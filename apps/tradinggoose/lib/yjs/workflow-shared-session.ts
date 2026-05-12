@@ -10,6 +10,7 @@ import { createYjsUndoTrackedOrigins } from '@/lib/yjs/transaction-origins'
 import {
   registerWorkflowSession,
   unregisterWorkflowSession,
+  type RegisteredWorkflowSession,
 } from '@/lib/yjs/workflow-session-registry'
 
 export interface SharedWorkflowSessionState {
@@ -292,6 +293,41 @@ export function acquireSharedWorkflowSession(args: {
     }
     released = true
     releaseSharedSession(args.workflowId)
+  }
+}
+
+export async function acquireSharedWorkflowSessionLease(args: {
+  workflowId: string
+  workspaceId: string | null
+}): Promise<{ session: RegisteredWorkflowSession; release: () => void }> {
+  const entry = ensureSessionEntry(args)
+  entry.refCount += 1
+  ensureSharedSessionInitialized(entry)
+
+  let released = false
+  const release = () => {
+    if (released) {
+      return
+    }
+    released = true
+    releaseSharedSession(args.workflowId)
+  }
+
+  if (entry.initPromise) {
+    await entry.initPromise
+  }
+
+  if (!entry.result?.doc) {
+    release()
+    throw new Error(entry.state.error || 'Failed to initialize workflow Yjs session')
+  }
+
+  return {
+    session: {
+      workflowId: entry.workflowId,
+      doc: entry.result.doc,
+    },
+    release,
   }
 }
 

@@ -5,11 +5,7 @@ import { encodeSSE } from '@/lib/utils'
 import { getCopilotStore } from '@/stores/copilot/store'
 import { getCopilotStoreForToolCall } from '@/stores/copilot/store-access'
 import { createExecutionContext } from '@/stores/copilot/tool-registry'
-import type {
-  ChatContext,
-  CopilotLiveReviewTarget,
-  CopilotSendRuntimeContext,
-} from '@/stores/copilot/types'
+import type { ChatContext, CopilotSendRuntimeContext } from '@/stores/copilot/types'
 import { resetCopilotWorkspaceSelectionState } from '@/stores/copilot/workspace-selection'
 import { useEnvironmentStore } from '@/stores/settings/environment/store'
 
@@ -126,18 +122,15 @@ function createRuntimeContext({
   workspaceId = null,
   workflowId = null,
   implicitContexts = [],
-  reviewTarget = null,
 }: {
   workspaceId?: string | null
   workflowId?: string | null
   implicitContexts?: ChatContext[]
-  reviewTarget?: CopilotLiveReviewTarget | null
 } = {}): CopilotSendRuntimeContext {
   return {
     liveContext: {
       workflowId,
       workspaceId,
-      reviewTarget,
     },
     implicitContexts,
   }
@@ -511,7 +504,7 @@ describe('copilot tool execution provenance', () => {
     expect(store.getState().toolCallsById[toolCallId].provenance).not.toHaveProperty('entityId')
   })
 
-  it('pins the explicit unsaved review target session for draft entity tools', async () => {
+  it('does not derive entity edit provenance from live widget context', async () => {
     const channelId = 'copilot-unsaved-review-target'
     const toolCallId = 'copilot-unsaved-review-target-tool'
     const store = getCopilotStore(channelId)
@@ -556,12 +549,6 @@ describe('copilot tool execution provenance', () => {
       runtimeContext: createRuntimeContext({
         workspaceId: 'workspace-1',
         workflowId: 'wf-current',
-        reviewTarget: {
-          entityKind: 'skill',
-          entityId: null,
-          reviewSessionId: 'review-draft',
-          draftSessionId: 'draft-1',
-        },
         implicitContexts: [
           {
             kind: 'current_skill',
@@ -595,11 +582,15 @@ describe('copilot tool execution provenance', () => {
       provenance: {
         contextWorkflowId: 'wf-current',
         workspaceId: 'workspace-1',
-        entityKind: 'skill',
-        reviewSessionId: 'review-draft',
-        draftSessionId: 'draft-1',
       },
     })
+    expect(store.getState().toolCallsById[toolCallId].provenance).not.toHaveProperty('entityKind')
+    expect(store.getState().toolCallsById[toolCallId].provenance).not.toHaveProperty(
+      'reviewSessionId'
+    )
+    expect(store.getState().toolCallsById[toolCallId].provenance).not.toHaveProperty(
+      'draftSessionId'
+    )
     expect(store.getState().toolCallsById[toolCallId].provenance).not.toHaveProperty('entityId')
     expect(store.getState().toolCallsById[toolCallId].provenance).not.toHaveProperty('workflowId')
   })

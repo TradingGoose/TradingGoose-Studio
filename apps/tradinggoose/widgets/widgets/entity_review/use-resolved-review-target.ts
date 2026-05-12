@@ -13,40 +13,20 @@ import { resolveEntityReviewTarget } from '@/widgets/widgets/entity_review/revie
 interface UseResolvedReviewTargetOptions {
   workspaceId: string | null
   entityKind: Exclude<ReviewEntityKind, 'workflow'>
-  params?: Record<string, unknown> | null
   pairColor: PairColor
-  pairContext?: PairColorContext | null
   onWidgetParamsChange?: (params: Record<string, unknown> | null) => void
   setPairContext?: (color: PairColor, context: PairColorContext) => void
   entityIdKey: keyof PairColorContext & string
   selectionState: {
     selectedEntityId: string | null
-    reviewSessionId: string | null
-    reviewEntityId: string | null
-    reviewDraftSessionId: string | null
-    descriptor: ReviewTargetDescriptor | null
   }
-  buildWidgetParams: (options: {
-    currentParams?: Record<string, unknown> | null
-    entityIdKey: string
-    descriptor: ReviewTargetDescriptor | null
-    selectedEntityId?: string | null
-  }) => Record<string, unknown> | null
-  buildPairContext: (options: {
-    existing?: PairColorContext | null
-    entityIdKey: keyof PairColorContext
-    descriptor: ReviewTargetDescriptor | null
-    selectedEntityId?: string | null
-  }) => PairColorContext
 }
 
 function doesResolvedTargetMatchRequest(options: {
   resolvedTarget: ResolvedReviewTarget | null
   workspaceId: string
   entityKind: Exclude<ReviewEntityKind, 'workflow'>
-  entityId?: string | null
-  draftSessionId?: string | null
-  reviewSessionId?: string | null
+  entityId: string
 }): boolean {
   const descriptor = options.resolvedTarget?.descriptor
   if (!descriptor) {
@@ -60,49 +40,33 @@ function doesResolvedTargetMatchRequest(options: {
     return false
   }
 
-  if (options.reviewSessionId != null && descriptor.reviewSessionId !== options.reviewSessionId) {
-    return false
-  }
-
-  if (options.entityId != null && descriptor.entityId !== options.entityId) {
-    return false
-  }
-
-  if (options.draftSessionId != null && descriptor.draftSessionId !== options.draftSessionId) {
-    return false
-  }
-
-  return true
+  return descriptor.entityId === options.entityId
 }
 
 function buildResolveRequestKey(options: {
   workspaceId: string
   entityKind: Exclude<ReviewEntityKind, 'workflow'>
-  entityId?: string | null
-  draftSessionId?: string | null
-  reviewSessionId?: string | null
+  entityId: string
 }): string {
   return JSON.stringify({
     workspaceId: options.workspaceId,
     entityKind: options.entityKind,
-    entityId: options.entityId ?? null,
-    draftSessionId: options.draftSessionId ?? null,
-    reviewSessionId: options.reviewSessionId ?? null,
+    entityId: options.entityId,
   })
+}
+
+function buildSelectedEntityParams(entityIdKey: string, selectedEntityId: string | null) {
+  return selectedEntityId ? { [entityIdKey]: selectedEntityId } : null
 }
 
 export function useResolvedReviewTarget({
   workspaceId,
   entityKind,
-  params,
   pairColor,
-  pairContext,
   onWidgetParamsChange,
   setPairContext,
   entityIdKey,
   selectionState,
-  buildWidgetParams,
-  buildPairContext,
 }: UseResolvedReviewTargetOptions) {
   const [resolvedTarget, setResolvedTarget] = useState<ResolvedReviewTarget | null>(null)
   const [isResolving, setIsResolving] = useState(false)
@@ -110,57 +74,33 @@ export function useResolvedReviewTarget({
   const lastSatisfiedRequestKeyRef = useRef<string | null>(null)
 
   const isLinkedToColorPair = pairColor !== 'gray'
-  const hasConflictingEntitySelection =
-    !!selectionState.selectedEntityId &&
-    !!selectionState.reviewEntityId &&
-    selectionState.selectedEntityId !== selectionState.reviewEntityId
-  const requestedEntityId = hasConflictingEntitySelection
-    ? selectionState.selectedEntityId
-    : (selectionState.reviewEntityId ?? selectionState.selectedEntityId)
-  const requestedDraftSessionId = hasConflictingEntitySelection
-    ? null
-    : selectionState.reviewDraftSessionId
-  const requestedReviewSessionId = hasConflictingEntitySelection
-    ? null
-    : selectionState.reviewSessionId
+  const requestedEntityId = selectionState.selectedEntityId
 
   const persistDescriptor = useCallback(
     (descriptor: ReviewTargetDescriptor | null, selectedEntityId?: string | null) => {
+      setResolvedTarget(descriptor ? { descriptor, runtime: null } : null)
+      setError(null)
+      lastSatisfiedRequestKeyRef.current = null
+      const nextEntityId = selectedEntityId ?? descriptor?.entityId ?? null
+
       if (isLinkedToColorPair) {
         if (!setPairContext) {
           return
         }
 
-        setPairContext(
-          pairColor,
-          buildPairContext({
-            existing: pairContext,
-            entityIdKey,
-            descriptor,
-            selectedEntityId: selectedEntityId ?? descriptor?.entityId ?? null,
-          })
-        )
+        setPairContext(pairColor, {
+          [entityIdKey]: nextEntityId,
+        } as PairColorContext)
         return
       }
 
-      onWidgetParamsChange?.(
-        buildWidgetParams({
-          currentParams: params,
-          entityIdKey,
-          descriptor,
-          selectedEntityId: selectedEntityId ?? descriptor?.entityId ?? null,
-        })
-      )
+      onWidgetParamsChange?.(buildSelectedEntityParams(entityIdKey, nextEntityId))
     },
     [
-      buildPairContext,
-      buildWidgetParams,
       isLinkedToColorPair,
       entityIdKey,
       onWidgetParamsChange,
       pairColor,
-      pairContext,
-      params,
       setPairContext,
     ]
   )
@@ -168,12 +108,6 @@ export function useResolvedReviewTarget({
 
   useEffect(() => {
     persistDescriptorRef.current = persistDescriptor
-  }, [persistDescriptor])
-
-  const clearSelection = useCallback(() => {
-    setResolvedTarget(null)
-    setError(null)
-    persistDescriptor(null, null)
   }, [persistDescriptor])
 
   useEffect(() => {
@@ -187,7 +121,7 @@ export function useResolvedReviewTarget({
       return
     }
 
-    if (!requestedEntityId && !requestedDraftSessionId && !requestedReviewSessionId) {
+    if (!requestedEntityId) {
       setResolvedTarget(null)
       setError(null)
       setIsResolving(false)
@@ -199,8 +133,6 @@ export function useResolvedReviewTarget({
       workspaceId,
       entityKind,
       entityId: requestedEntityId,
-      draftSessionId: requestedDraftSessionId,
-      reviewSessionId: requestedReviewSessionId,
     })
 
     if (lastSatisfiedRequestKeyRef.current === requestKey) {
@@ -215,8 +147,6 @@ export function useResolvedReviewTarget({
         workspaceId,
         entityKind,
         entityId: requestedEntityId,
-        draftSessionId: requestedDraftSessionId,
-        reviewSessionId: requestedReviewSessionId,
       })
     ) {
       setError(null)
@@ -231,8 +161,6 @@ export function useResolvedReviewTarget({
       workspaceId,
       entityKind,
       entityId: requestedEntityId,
-      draftSessionId: requestedDraftSessionId,
-      reviewSessionId: requestedReviewSessionId,
     })
       .then((resolved) => {
         if (cancelled) {
@@ -263,28 +191,15 @@ export function useResolvedReviewTarget({
     return () => {
       cancelled = true
     }
-  }, [
-    entityKind,
-    resolvedTarget,
-    requestedDraftSessionId,
-    requestedEntityId,
-    requestedReviewSessionId,
-    workspaceId,
-  ])
+  }, [entityKind, resolvedTarget, requestedEntityId, workspaceId])
 
-  const descriptor = useMemo(
-    () =>
-      resolvedTarget?.descriptor ??
-      (hasConflictingEntitySelection ? null : selectionState.descriptor),
-    [hasConflictingEntitySelection, resolvedTarget?.descriptor, selectionState.descriptor]
-  )
+  const descriptor = useMemo(() => resolvedTarget?.descriptor ?? null, [resolvedTarget?.descriptor])
 
   return {
     descriptor,
     runtime: resolvedTarget?.runtime ?? null,
     isResolving,
     error,
-    clearSelection,
     persistDescriptor,
   }
 }

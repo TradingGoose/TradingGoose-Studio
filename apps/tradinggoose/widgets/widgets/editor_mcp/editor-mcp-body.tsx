@@ -30,8 +30,6 @@ import { useMcpEditorActions } from '@/widgets/utils/mcp-editor-actions'
 import { useMcpSelectionPersistence } from '@/widgets/utils/mcp-selection'
 import { McpServerForm } from '@/widgets/widgets/_shared/mcp/components/mcp-server-form'
 import {
-  buildPersistedPairContext,
-  buildPersistedReviewParams,
   createMcpSavePayload,
   type McpServerFormData,
   readEntitySelectionState,
@@ -106,8 +104,6 @@ const MCP_SHELL_CONFIG: EntityEditorShellConfig = {
   entityKind: ENTITY_KIND_MCP_SERVER,
   fallbackWidgetKey: 'editor_mcp',
   entityIdKey: 'mcpServerId',
-  buildWidgetParams: buildPersistedReviewParams,
-  buildPairContext: buildPersistedPairContext,
   readEntitySelectionState,
   noWorkspaceMessage: 'Select a workspace to edit MCP servers.',
   noSelectionMessage: 'Select an MCP server to edit.',
@@ -142,15 +138,7 @@ export function EditorMcpWidgetBody(props: EditorMcpWidgetBodyProps) {
               return
             }
 
-            setPairContext(
-              resolvedPairColor,
-              buildPersistedPairContext({
-                existing: pairContext,
-                entityIdKey: 'mcpServerId',
-                descriptor: null,
-                selectedEntityId: serverId,
-              })
-            )
+            setPairContext(resolvedPairColor, { mcpServerId: serverId })
           },
         })
       }}

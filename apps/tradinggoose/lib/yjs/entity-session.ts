@@ -19,7 +19,7 @@
 import * as Y from 'yjs'
 import type { ReviewEntityKind } from '@/lib/copilot/review-sessions/types'
 import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
-import { MCP_SERVER_DEFAULTS } from '@/widgets/utils/draft-defaults'
+import { MCP_SERVER_DEFAULTS } from '@/widgets/utils/mcp-defaults'
 
 // ---------------------------------------------------------------------------
 // Top-level map accessors

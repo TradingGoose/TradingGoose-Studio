@@ -3,7 +3,6 @@
 import { normalizeOptionalString } from '@/lib/utils'
 import type {
   ChatContext,
-  CopilotLiveReviewTarget,
   CopilotMessage,
   CopilotToolCall,
   CopilotToolExecutionProvenance,
@@ -47,32 +46,9 @@ function getContextTurnProvenance(context: ChatContext): ContextTurnProvenance |
   }
 }
 
-function applyLiveReviewTargetProvenance(
-  provenance: CopilotToolExecutionProvenance,
-  reviewTarget: CopilotLiveReviewTarget | null | undefined
-): boolean {
-  const entityKind = reviewTarget?.entityKind
-  const reviewSessionId = normalizeOptionalString(reviewTarget?.reviewSessionId)
-  const draftSessionId = normalizeOptionalString(reviewTarget?.draftSessionId)
-
-  if (!entityKind || !reviewSessionId) {
-    return false
-  }
-
-  provenance.entityKind = entityKind
-  provenance.reviewSessionId = reviewSessionId
-
-  if (draftSessionId) {
-    provenance.draftSessionId = draftSessionId
-  }
-
-  return true
-}
-
 export function buildTurnProvenanceFromContexts(
   contexts: ChatContext[] | undefined,
   workspaceId?: string | null,
-  reviewTarget?: CopilotLiveReviewTarget | null,
   contextWorkflowId?: string | null
 ): CopilotToolExecutionProvenance | undefined {
   const normalizedWorkspaceId = normalizeOptionalString(workspaceId)
@@ -89,8 +65,6 @@ export function buildTurnProvenanceFromContexts(
       hasContext = applyContextTurnProvenance(provenance, entityContext) || hasContext
     }
   }
-
-  hasContext = applyLiveReviewTargetProvenance(provenance, reviewTarget) || hasContext
 
   return hasContext ? provenance : undefined
 }

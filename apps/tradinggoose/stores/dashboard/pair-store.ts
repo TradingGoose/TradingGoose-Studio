@@ -1,5 +1,4 @@
 import { createWithEqualityFn as create } from 'zustand/traditional'
-import { REVIEW_ENTITY_KINDS, type ReviewEntityKind } from '@/lib/copilot/review-sessions/types'
 import {
   type ListingIdentity,
   type ListingInputValue,
@@ -16,10 +15,6 @@ export type PairColorContext = {
   mcpServerId?: string | null
   customToolId?: string | null
   skillId?: string | null
-  reviewSessionId?: string | null
-  reviewEntityKind?: ReviewEntityKind | null
-  reviewEntityId?: string | null
-  reviewDraftSessionId?: string | null
 }
 
 type PairColorContextSource = PairColorContext | Record<string, unknown> | null | undefined
@@ -52,22 +47,6 @@ function sanitizePairColorContext(ctx: PairColorContextSource): PairColorContext
   const mcpServerId = normalizeOptionalString((ctx as { mcpServerId?: unknown }).mcpServerId)
   const customToolId = normalizeOptionalString((ctx as { customToolId?: unknown }).customToolId)
   const skillId = normalizeOptionalString((ctx as { skillId?: unknown }).skillId)
-  const reviewSessionId = normalizeOptionalString(
-    (ctx as { reviewSessionId?: unknown }).reviewSessionId
-  )
-  const reviewEntityKind = normalizeOptionalString(
-    (ctx as { reviewEntityKind?: unknown }).reviewEntityKind
-  )
-  const reviewEntityId = normalizeOptionalString(
-    (ctx as { reviewEntityId?: unknown }).reviewEntityId
-  )
-  const reviewDraftSessionId = normalizeOptionalString(
-    (ctx as { reviewDraftSessionId?: unknown }).reviewDraftSessionId
-  )
-  const validReviewEntityKind =
-    reviewEntityKind && REVIEW_ENTITY_KINDS.includes(reviewEntityKind as ReviewEntityKind)
-      ? (reviewEntityKind as ReviewEntityKind)
-      : undefined
 
   if (workflowId) {
     next.workflowId = workflowId
@@ -93,13 +72,6 @@ function sanitizePairColorContext(ctx: PairColorContextSource): PairColorContext
     next.skillId = skillId
   }
 
-  if (validReviewEntityKind) {
-    next.reviewEntityKind = validReviewEntityKind
-    if (reviewSessionId) next.reviewSessionId = reviewSessionId
-    if (reviewEntityId) next.reviewEntityId = reviewEntityId
-    if (reviewDraftSessionId) next.reviewDraftSessionId = reviewDraftSessionId
-  }
-
   return next
 }
 
@@ -116,6 +88,11 @@ export const usePairColorStore = create<PairStoreState>((set) => ({
         ...previous,
         ...ctx,
       })
+      for (const key of Object.keys(ctx) as (keyof PairColorContext)[]) {
+        if (ctx[key] == null) {
+          delete next[key]
+        }
+      }
 
       return {
         contexts: {

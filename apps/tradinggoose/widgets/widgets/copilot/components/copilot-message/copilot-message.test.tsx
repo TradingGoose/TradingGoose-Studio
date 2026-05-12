@@ -21,7 +21,6 @@ const runtimeContext: CopilotSendRuntimeContext = {
   liveContext: {
     workflowId: null,
     workspaceId: 'ws-1',
-    reviewTarget: null,
   },
   implicitContexts: [],
 }

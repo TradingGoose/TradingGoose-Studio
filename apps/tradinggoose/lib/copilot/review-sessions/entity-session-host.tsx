@@ -12,12 +12,6 @@ import { bootstrapYjsProvider, type YjsProviderBootstrapResult } from '@/lib/yjs
 import { getFieldsMap, getEntityMetadataMap } from '@/lib/yjs/entity-session'
 import { createYjsUndoTrackedOrigins } from '@/lib/yjs/transaction-origins'
 import {
-  getCurrentTabId,
-  readSeed,
-  clearSeed,
-  clearStaleSeed,
-} from '@/widgets/utils/draft-bootstrap-seeds'
-import {
   registerEntitySession,
   unregisterEntitySession,
   updateRegisteredEntitySession,
@@ -135,19 +129,6 @@ interface EntitySessionHostProps {
  *   - Cleans up the provider and doc on unmount or descriptor change
  */
 export function EntitySessionHost({ descriptor, user, children }: EntitySessionHostProps) {
-  const draftSeed = useMemo(() => {
-    if (!descriptor.draftSessionId) {
-      return null
-    }
-
-    clearStaleSeed(descriptor.draftSessionId, getCurrentTabId())
-    const seed = readSeed(descriptor.draftSessionId)
-    if (!seed || seed.entityKind !== descriptor.entityKind) {
-      return null
-    }
-
-    return seed
-  }, [descriptor.draftSessionId, descriptor.entityKind])
   const [state, setState] = useState<EntitySessionContextValue>(() =>
     buildPendingEntitySessionState(descriptor)
   )
@@ -175,14 +156,7 @@ export function EntitySessionHost({ descriptor, user, children }: EntitySessionH
 
     async function init() {
       try {
-        result = await bootstrapYjsProvider(descriptor, {
-          draftSeed: draftSeed
-            ? {
-                entityKind: draftSeed.entityKind,
-                payload: draftSeed.payload,
-              }
-            : null,
-        })
+        result = await bootstrapYjsProvider(descriptor)
         if (cancelled) {
           result.provider.destroy()
           result.doc.destroy()
@@ -238,13 +212,6 @@ export function EntitySessionHost({ descriptor, user, children }: EntitySessionH
         // Track sync status
         result.provider.on('sync', (isSynced: boolean) => {
           if (!cancelled) {
-            if (isSynced && result?.descriptor.draftSessionId) {
-              const bootstrapTouch = getEntityMetadataMap(result.doc).get('bootstrap-touch')
-              if (bootstrapTouch) {
-                clearSeed(result.descriptor.draftSessionId)
-              }
-            }
-
             setState((prev) => ({ ...prev, isSynced }))
             updateRegisteredEntitySession(result?.descriptor.reviewSessionId, { isSynced })
           }
@@ -312,14 +279,17 @@ export function EntitySessionHost({ descriptor, user, children }: EntitySessionH
       if (result && syncRuntimeState) {
         getEntityMetadataMap(result.doc).unobserve(syncRuntimeState)
       }
-      unregisterEntitySession(result?.descriptor.reviewSessionId ?? descriptor.reviewSessionId)
+      unregisterEntitySession(
+        result?.descriptor.reviewSessionId ?? descriptor.reviewSessionId,
+        result?.doc
+      )
       if (result) {
         result.provider.disconnect()
         result.provider.destroy()
         result.doc.destroy()
       }
     }
-  }, [descriptor.reviewSessionId, descriptor.yjsSessionId, descriptor.draftSessionId, draftSeed])
+  }, [descriptor.reviewSessionId, descriptor.yjsSessionId])
 
   useEffect(() => {
     syncEntitySessionUser(visibleState.awareness, user)

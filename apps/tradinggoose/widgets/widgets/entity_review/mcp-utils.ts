@@ -1,7 +1,7 @@
 import type { McpServerWithStatus } from '@/stores/mcp-servers/types'
 import type { McpTransport } from '@/lib/mcp/types'
 import { normalizeStringArray, sanitizeRecord } from '@/lib/utils'
-import { MCP_SERVER_DEFAULTS } from '@/widgets/utils/draft-defaults'
+import { MCP_SERVER_DEFAULTS } from '@/widgets/utils/mcp-defaults'
 import { resolveEntityId } from '@/widgets/widgets/entity_review/resolve-entity-id'
 
 export interface McpServerFormData {

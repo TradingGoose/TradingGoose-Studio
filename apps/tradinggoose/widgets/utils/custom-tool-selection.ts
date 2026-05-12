@@ -1,8 +1,4 @@
-import {
-  CUSTOM_TOOL_WIDGET_SELECT_EVENT,
-  type CustomToolWidgetSelectEventDetail,
-  type ReviewTargetEventFields,
-} from '@/widgets/events'
+import { CUSTOM_TOOL_WIDGET_SELECT_EVENT } from '@/widgets/events'
 import type { PairColor } from '@/widgets/pair-colors'
 import {
   createSelectionPersistenceHook,
@@ -47,7 +43,7 @@ const emitGeneric = createEmitSelectionChange({
   detailIdKey: 'customToolId',
 })
 
-interface EmitCustomToolSelectionOptions extends ReviewTargetEventFields {
+interface EmitCustomToolSelectionOptions {
   customToolId?: string | null
   panelId?: string
   widgetKey: string

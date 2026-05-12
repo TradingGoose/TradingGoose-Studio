@@ -116,15 +116,25 @@ const EntityReviewTargetArgs = z.object({
 })
 
 function buildEntityDocumentMutationArgs<TDocumentFormat extends string>(
-  documentFormat: TDocumentFormat,
-  options?: { includeEntityId?: boolean }
+  documentFormat: TDocumentFormat
 ) {
   const shape = {
     entityDocument: z.string().min(1),
     documentFormat: z.literal(documentFormat).optional(),
   }
 
-  return options?.includeEntityId === false ? z.object(shape) : EntityReviewTargetArgs.extend(shape)
+  return EntityReviewTargetArgs.extend(shape)
+}
+
+function buildEntityDocumentCreateArgs<TDocumentFormat extends string>(
+  documentFormat: TDocumentFormat
+) {
+  return z
+    .object({
+      entityDocument: z.string().min(1),
+      documentFormat: z.literal(documentFormat).optional(),
+    })
+    .strict()
 }
 
 const CreateWorkflowArgs = z
@@ -193,9 +203,7 @@ const EditWorkflowBlockArgs = z
   )
 
 const EditCustomToolArgs = buildEntityDocumentMutationArgs(CUSTOM_TOOL_DOCUMENT_FORMAT)
-const CreateCustomToolArgs = buildEntityDocumentMutationArgs(CUSTOM_TOOL_DOCUMENT_FORMAT, {
-  includeEntityId: false,
-})
+const CreateCustomToolArgs = buildEntityDocumentCreateArgs(CUSTOM_TOOL_DOCUMENT_FORMAT)
 const GetIndicatorArgs = z
   .object({
     entityId: RequiredId.optional(),
@@ -210,17 +218,11 @@ const GetIndicatorArgs = z
   })
   .strict()
 const EditIndicatorArgs = buildEntityDocumentMutationArgs(INDICATOR_DOCUMENT_FORMAT)
-const CreateIndicatorArgs = buildEntityDocumentMutationArgs(INDICATOR_DOCUMENT_FORMAT, {
-  includeEntityId: false,
-})
+const CreateIndicatorArgs = buildEntityDocumentCreateArgs(INDICATOR_DOCUMENT_FORMAT)
 const EditSkillArgs = buildEntityDocumentMutationArgs(SKILL_DOCUMENT_FORMAT)
-const CreateSkillArgs = buildEntityDocumentMutationArgs(SKILL_DOCUMENT_FORMAT, {
-  includeEntityId: false,
-})
+const CreateSkillArgs = buildEntityDocumentCreateArgs(SKILL_DOCUMENT_FORMAT)
 const EditMcpServerArgs = buildEntityDocumentMutationArgs(MCP_SERVER_DOCUMENT_FORMAT)
-const CreateMcpServerArgs = buildEntityDocumentMutationArgs(MCP_SERVER_DOCUMENT_FORMAT, {
-  includeEntityId: false,
-})
+const CreateMcpServerArgs = buildEntityDocumentCreateArgs(MCP_SERVER_DOCUMENT_FORMAT)
 
 // Tool argument schemas for the Studio runtime tool surface
 export const ToolArgSchemas = {
@@ -691,7 +693,6 @@ const McpServerDocumentEnvelope = EntityDocumentEnvelopeBase.extend({
 const EditEntityDocumentResultBase = z.object({
   success: z.boolean(),
   reviewSessionId: z.string().optional(),
-  draftSessionId: z.string().optional(),
 })
 
 const WorkflowMutationResult = WorkflowTargetEnvelope.extend({

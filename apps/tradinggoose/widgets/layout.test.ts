@@ -172,38 +172,6 @@ describe('normalizeColorPairsState', () => {
     expect(listing).not.toHaveProperty('providerParams')
   })
 
-  it('keeps canonical review target fields in persisted color pairs', () => {
-    expect(
-      normalizeColorPairsState({
-        pairs: [
-          {
-            color: 'green',
-            workflowId: 'wf-3',
-            reviewSessionId: 'review-2',
-            reviewEntityKind: 'indicator',
-            reviewEntityId: 'ind-1',
-            reviewDraftSessionId: 'draft-1',
-          },
-        ],
-      })
-    ).toEqual({
-      pairs: [
-        {
-          color: 'green',
-          workflowId: 'wf-3',
-          listing: null,
-          indicatorId: undefined,
-          mcpServerId: undefined,
-          customToolId: undefined,
-          skillId: undefined,
-          reviewSessionId: 'review-2',
-          reviewEntityKind: 'indicator',
-          reviewEntityId: 'ind-1',
-          reviewDraftSessionId: 'draft-1',
-        },
-      ],
-    })
-  })
 })
 
 describe('normalizeDashboardLayout', () => {

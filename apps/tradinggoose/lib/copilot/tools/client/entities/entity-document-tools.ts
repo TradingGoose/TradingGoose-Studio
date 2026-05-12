@@ -32,10 +32,11 @@ import {
 import {
   applyEntityFieldsToSession,
   type EntityReadTarget,
-  getActiveEntitySession,
+  createCanonicalEntityFromFields,
   listCanonicalEntityEntries,
   listCopilotIndicators,
   readEntityFieldsFromContext,
+  resolveCopilotEntityYjsSessionLease,
   resolveWorkspaceIdFromExecutionContext,
 } from '@/lib/copilot/tools/client/entities/entity-document-tool-utils'
 import { getEntityFields } from '@/lib/yjs/entity-session'
@@ -55,7 +56,7 @@ type EditEntityDocumentArgs = ReadEntityDocumentArgs & {
   documentFormat?: string
 }
 
-type EntityMutationAction = 'edit' | 'create' | 'rename'
+type EntityMutationAction = 'create' | 'edit' | 'rename'
 
 function readStoredToolArgs<TArgs>(toolCallId: string): TArgs | undefined {
   try {
@@ -316,35 +317,57 @@ function createEntityDocumentMutationTool(
 
         const executionContext = this.requireExecutionContext()
         const entityId = resolvedArgs.entityId?.trim()
-        const session = getActiveEntitySession(executionContext, config.kind, entityId)
+        const nextFields = parseEntityDocument(config.kind, resolvedArgs.entityDocument)
 
-        if (!session) {
-          if (!entityId) {
-            throw new Error(`entityId is required to update a saved ${config.singularLabel}`)
+        if (action === 'create') {
+          if (entityId) {
+            throw new Error(`${toolId} does not accept entityId`)
           }
 
-          throw new Error(
-            `No active ${config.singularLabel} review session found for ${entityId}. Open the ${config.singularLabel} review before updating.`
+          const workspaceId = resolveWorkspaceIdFromExecutionContext(executionContext)
+          const created = await createCanonicalEntityFromFields(
+            config.kind,
+            workspaceId,
+            nextFields
           )
+
+          await this.markToolComplete(200, `${config.singularLabel} document created`, {
+            success: true,
+            entityKind: config.kind,
+            entityId: created.entityId,
+            entityName: created.entityName,
+            documentFormat: getEntityDocumentFormat(config.kind),
+            entityDocument: serializeEntityDocument(config.kind, created.fields),
+          })
+          this.setState(ClientToolCallState.success)
+          return
         }
 
-        const nextFields = parseEntityDocument(config.kind, resolvedArgs.entityDocument)
-        applyEntityFieldsToSession(session, config.kind, nextFields)
-        const persistedFields = getEntityFields(session.doc, config.kind)
-        const entityName = getEntityDocumentName(config.kind, persistedFields)
+        const lease = await resolveCopilotEntityYjsSessionLease(
+          executionContext,
+          config.kind,
+          entityId
+        )
+        try {
+          applyEntityFieldsToSession(lease.session, config.kind, nextFields)
+          const persistedFields = getEntityFields(lease.session.doc, config.kind)
+          const entityName = getEntityDocumentName(config.kind, persistedFields)
+          const descriptor = lease.session.descriptor
 
-        await this.markToolComplete(200, `${config.singularLabel} document updated`, {
-          success: true,
-          entityKind: config.kind,
-          ...((session.descriptor.entityId ?? entityId)
-            ? { entityId: session.descriptor.entityId ?? entityId }
-            : {}),
-          entityName,
-          documentFormat: getEntityDocumentFormat(config.kind),
-          entityDocument: serializeEntityDocument(config.kind, persistedFields),
-          reviewSessionId: session.descriptor.reviewSessionId,
-          draftSessionId: session.descriptor.draftSessionId,
-        })
+          await this.markToolComplete(200, `${config.singularLabel} document updated`, {
+            success: true,
+            entityKind: config.kind,
+            ...((descriptor.entityId ?? entityId)
+              ? { entityId: descriptor.entityId ?? entityId }
+              : {}),
+            entityName,
+            documentFormat: getEntityDocumentFormat(config.kind),
+            entityDocument: serializeEntityDocument(config.kind, persistedFields),
+            reviewSessionId: descriptor.reviewSessionId,
+          })
+        } finally {
+          lease.release()
+        }
         this.setState(ClientToolCallState.success)
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error)
@@ -388,15 +411,15 @@ export const ReadSkillClientTool = createReadEntityDocumentTool(
   CopilotTool.read_skill,
   skillToolConfig
 )
-export const EditSkillClientTool = createEntityDocumentMutationTool(
-  'edit_skill',
-  skillToolConfig,
-  'edit'
-)
 export const CreateSkillClientTool = createEntityDocumentMutationTool(
   'create_skill',
   skillToolConfig,
   'create'
+)
+export const EditSkillClientTool = createEntityDocumentMutationTool(
+  'edit_skill',
+  skillToolConfig,
+  'edit'
 )
 export const RenameSkillClientTool = createEntityDocumentMutationTool(
   'rename_skill',
@@ -409,15 +432,15 @@ export const ReadCustomToolClientTool = createReadEntityDocumentTool(
   CopilotTool.read_custom_tool,
   customToolConfig
 )
-export const EditCustomToolClientTool = createEntityDocumentMutationTool(
-  'edit_custom_tool',
-  customToolConfig,
-  'edit'
-)
 export const CreateCustomToolClientTool = createEntityDocumentMutationTool(
   'create_custom_tool',
   customToolConfig,
   'create'
+)
+export const EditCustomToolClientTool = createEntityDocumentMutationTool(
+  'edit_custom_tool',
+  customToolConfig,
+  'edit'
 )
 export const RenameCustomToolClientTool = createEntityDocumentMutationTool(
   'rename_custom_tool',
@@ -457,15 +480,15 @@ export const ReadIndicatorClientTool = createReadEntityDocumentTool(
   CopilotTool.read_indicator,
   indicatorToolConfig
 )
-export const EditIndicatorClientTool = createEntityDocumentMutationTool(
-  'edit_indicator',
-  indicatorToolConfig,
-  'edit'
-)
 export const CreateIndicatorClientTool = createEntityDocumentMutationTool(
   'create_indicator',
   indicatorToolConfig,
   'create'
+)
+export const EditIndicatorClientTool = createEntityDocumentMutationTool(
+  'edit_indicator',
+  indicatorToolConfig,
+  'edit'
 )
 export const RenameIndicatorClientTool = createEntityDocumentMutationTool(
   'rename_indicator',
@@ -481,15 +504,15 @@ export const ReadMcpServerClientTool = createReadEntityDocumentTool(
   CopilotTool.read_mcp_server,
   mcpServerToolConfig
 )
-export const EditMcpServerClientTool = createEntityDocumentMutationTool(
-  'edit_mcp_server',
-  mcpServerToolConfig,
-  'edit'
-)
 export const CreateMcpServerClientTool = createEntityDocumentMutationTool(
   'create_mcp_server',
   mcpServerToolConfig,
   'create'
+)
+export const EditMcpServerClientTool = createEntityDocumentMutationTool(
+  'edit_mcp_server',
+  mcpServerToolConfig,
+  'edit'
 )
 export const RenameMcpServerClientTool = createEntityDocumentMutationTool(
   'rename_mcp_server',

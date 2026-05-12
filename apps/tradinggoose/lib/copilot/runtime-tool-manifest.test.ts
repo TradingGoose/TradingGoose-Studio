@@ -209,6 +209,7 @@ describe('copilot runtime tool manifest', () => {
         }),
         expect.objectContaining({
           name: 'create_skill',
+          description: expect.stringContaining('Create a new skill'),
           kind: 'create',
           entityKind: 'skill',
           semanticValidators: expect.arrayContaining([
@@ -308,9 +309,13 @@ describe('copilot runtime tool manifest', () => {
       expect.arrayContaining([
         'edit_workflow',
         'edit_workflow_block',
+        'create_skill',
         'edit_skill',
+        'create_custom_tool',
         'edit_custom_tool',
+        'create_indicator',
         'edit_indicator',
+        'create_mcp_server',
         'edit_mcp_server',
         'create_workflow',
         'get_agent_accessory_catalog',

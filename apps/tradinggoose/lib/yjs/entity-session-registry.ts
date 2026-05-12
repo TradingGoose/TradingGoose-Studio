@@ -40,14 +40,24 @@ export function registerEntitySession(session: RegisteredEntitySession): void {
   emitChange()
 }
 
-export function unregisterEntitySession(reviewSessionId: string | null | undefined): void {
+export function unregisterEntitySession(
+  reviewSessionId: string | null | undefined,
+  doc?: Y.Doc | null
+): void {
   if (!reviewSessionId) {
     return
   }
 
-  if (!sessions.delete(reviewSessionId)) {
+  const existingSession = sessions.get(reviewSessionId)
+  if (!existingSession) {
     return
   }
+
+  if (doc && existingSession.doc !== doc) {
+    return
+  }
+
+  sessions.delete(reviewSessionId)
 
   emitChange()
 }

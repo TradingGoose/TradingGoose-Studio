@@ -820,7 +820,6 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
         const turnProvenance = buildTurnProvenanceFromContexts(
           resolvedContexts,
           liveContext.workspaceId,
-          liveContext.reviewTarget,
           liveContext.workflowId
         )
         const contextsToSend = resolvedContexts.length > 0 ? resolvedContexts : undefined

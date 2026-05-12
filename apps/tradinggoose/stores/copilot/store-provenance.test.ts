@@ -15,7 +15,6 @@ describe('buildTurnProvenanceFromContexts', () => {
           }),
         ],
         null,
-        null,
         null
       )
     ).toEqual({
@@ -36,7 +35,6 @@ describe('buildTurnProvenanceFromContexts', () => {
           }),
         ],
         'workspace-1',
-        null,
         'workflow-live'
       )
     ).toEqual({

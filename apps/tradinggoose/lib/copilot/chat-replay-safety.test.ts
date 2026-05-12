@@ -40,15 +40,16 @@ describe('chat replay safety', () => {
       })
     ).toBe(true)
 
-    expect(
-      isAcceptedLiveMutationToolCall({
-        id: 'tool-4',
-        name: 'create_skill',
-        state: 'success',
-      })
-    ).toBe(true)
-
-    for (const name of ['edit_skill', 'edit_custom_tool', 'edit_indicator', 'edit_mcp_server']) {
+    for (const name of [
+      'create_skill',
+      'edit_skill',
+      'create_custom_tool',
+      'edit_custom_tool',
+      'create_indicator',
+      'edit_indicator',
+      'create_mcp_server',
+      'edit_mcp_server',
+    ]) {
       expect(
         isAcceptedLiveMutationToolCall({
           id: `tool-${name}`,

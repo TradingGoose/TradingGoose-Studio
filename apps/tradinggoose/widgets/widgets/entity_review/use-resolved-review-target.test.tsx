@@ -6,10 +6,7 @@ import { act, useState } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { PairColorContext } from '@/stores/dashboard/pair-store'
-import {
-  buildPersistedPairContext,
-  readEntitySelectionState,
-} from '@/widgets/widgets/entity_review/review-target-utils'
+import { readEntitySelectionState } from '@/widgets/widgets/entity_review/review-target-utils'
 import { useResolvedReviewTarget } from './use-resolved-review-target'
 
 const reactActEnvironment = globalThis as typeof globalThis & {
@@ -57,13 +54,9 @@ function HookHarness({
   const { descriptor, isResolving, error } = useResolvedReviewTarget({
     workspaceId: 'ws-1',
     entityKind: 'skill',
-    params: initialParams,
     pairColor: 'red',
-    pairContext,
     entityIdKey: 'skillId',
     selectionState,
-    buildWidgetParams: () => null,
-    buildPairContext: buildPersistedPairContext,
     setPairContext: (_color, context) => {
       setPairContext({
         ...context,
@@ -168,7 +161,7 @@ describe('useResolvedReviewTarget', () => {
     expect(stateNode?.getAttribute('data-error')).toBe('')
   })
 
-  it('resolves the current entity id instead of a stale review target entity id', async () => {
+  it('resolves the current linked entity id', async () => {
     mockResolveEntityReviewTarget.mockResolvedValueOnce({
       descriptor: {
         workspaceId: 'ws-1',
@@ -191,12 +184,6 @@ describe('useResolvedReviewTarget', () => {
           initialPairContext={{
             skillId: 'skill-2',
           }}
-          initialParams={{
-            reviewSessionId: 'review-1',
-            reviewEntityKind: 'skill',
-            reviewEntityId: 'skill-1',
-            workspaceId: 'ws-1',
-          }}
         />
       )
       await flushPromises()
@@ -208,8 +195,6 @@ describe('useResolvedReviewTarget', () => {
       workspaceId: 'ws-1',
       entityKind: 'skill',
       entityId: 'skill-2',
-      draftSessionId: null,
-      reviewSessionId: null,
     })
     expect(container.querySelector('[data-testid="state"]')).toHaveAttribute(
       'data-entity-id',

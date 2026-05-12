@@ -181,26 +181,6 @@ export function buildReviewTargetDescriptorFromEnvelope(
 }
 
 /**
- * Serializes a ReviewTargetDescriptor into a flat key/value record
- * suitable for persisting in widget params, pair state, and query strings.
- */
-export function serializeReviewTargetDescriptor(
-  descriptor: ReviewTargetDescriptor
-): Record<string, string> {
-  const result: Record<string, string> = {
-    reviewEntityKind: descriptor.entityKind,
-    yjsSessionId: descriptor.yjsSessionId,
-  }
-
-  if (descriptor.workspaceId != null) result.workspaceId = descriptor.workspaceId
-  if (descriptor.entityId != null) result.reviewEntityId = descriptor.entityId
-  if (descriptor.draftSessionId != null) result.reviewDraftSessionId = descriptor.draftSessionId
-  if (descriptor.reviewSessionId != null) result.reviewSessionId = descriptor.reviewSessionId
-
-  return result
-}
-
-/**
  * Serializes a YjsTransportEnvelope into a flat key/value record
  * suitable for websocket query params and snapshot query strings.
  */
@@ -220,33 +200,6 @@ export function serializeYjsTransportEnvelope(
   if (envelope.draftSessionId != null) result.draftSessionId = envelope.draftSessionId
 
   return result
-}
-
-/**
- * Parses a flat serialized record back into a ReviewTargetDescriptor.
- */
-export function parseReviewTargetDescriptor(
-  payload: Record<string, string | undefined>
-): ReviewTargetDescriptor {
-  const entityKind = requireReviewEntityKind(payload.reviewEntityKind)
-  const reviewSessionId = normalizeNullableString(payload.reviewSessionId)
-  const entityId = normalizeNullableString(payload.reviewEntityId)
-  const draftSessionId = normalizeNullableString(payload.reviewDraftSessionId)
-  const derivedYjsSessionId = deriveYjsSessionId({ entityKind, entityId, reviewSessionId })
-  const serializedYjsSessionId = normalizeOptionalString(payload.yjsSessionId)
-  const yjsSessionId =
-    serializedYjsSessionId === derivedYjsSessionId
-      ? serializedYjsSessionId
-      : derivedYjsSessionId
-
-  return {
-    workspaceId: normalizeNullableString(payload.workspaceId),
-    entityKind,
-    entityId,
-    draftSessionId,
-    reviewSessionId,
-    yjsSessionId,
-  }
 }
 
 /**

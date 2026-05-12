@@ -78,9 +78,6 @@ describe('copilotWidget', () => {
           {Component?.({
             params: {
               workflowId: 'wf-stale',
-              reviewSessionId: 'review-stale',
-              reviewEntityKind: 'skill',
-              reviewEntityId: 'skill-stale',
             },
             context: { workspaceId: 'ws-1' },
             pairColor: 'blue',
@@ -90,7 +87,6 @@ describe('copilotWidget', () => {
               pairColor: 'blue',
               params: {
                 workflowId: 'wf-stale',
-                reviewSessionId: 'review-stale',
               },
             },
             onWidgetParamsChange: vi.fn(),

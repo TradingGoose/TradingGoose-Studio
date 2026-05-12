@@ -36,25 +36,6 @@ describe('pair-store linked context', () => {
     expect(context.channelId).toBeUndefined()
   })
 
-  it('preserves canonical review target fields in linked color context', () => {
-    const { setContext } = usePairColorStore.getState()
-
-    setContext('blue', {
-      skillId: 'skill-a',
-      reviewEntityKind: 'skill',
-      reviewSessionId: 'review-a',
-      reviewEntityId: null,
-      reviewDraftSessionId: 'draft-a',
-    })
-
-    expect(usePairColorStore.getState().contexts.blue).toEqual({
-      skillId: 'skill-a',
-      reviewEntityKind: 'skill',
-      reviewSessionId: 'review-a',
-      reviewDraftSessionId: 'draft-a',
-    })
-  })
-
   it('stores only canonical listing identity fields in linked color context', () => {
     const { setContext } = usePairColorStore.getState()
 
@@ -121,8 +102,6 @@ describe('pair-store linked context', () => {
         blue: {
           workflowId: 'workflow-a',
           skillId: 'skill-a',
-          reviewSessionId: 'review-a',
-          reviewEntityKind: 'skill',
           channelId: 'pair-blue',
         } as PairColorContext & {
           channelId?: string
@@ -142,8 +121,6 @@ describe('pair-store linked context', () => {
       workflowId: 'workflow-a',
       skillId: 'skill-a',
       indicatorId: 'indicator-b',
-      reviewSessionId: 'review-a',
-      reviewEntityKind: 'skill',
     })
     expect(context.channelId).toBeUndefined()
   })
