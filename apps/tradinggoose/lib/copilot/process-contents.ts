@@ -11,9 +11,10 @@ import {
   workspace,
 } from '@tradinggoose/db/schema'
 import { and, asc, eq, isNull } from 'drizzle-orm'
+import { verifyWorkflowAccess } from '@/lib/copilot/review-sessions/permissions'
 import { REVIEW_ITEM_KINDS } from '@/lib/copilot/review-sessions/thread-history'
 import { createLogger } from '@/lib/logs/console/logger'
-import { buildWorkspaceAccessScope } from '@/lib/permissions/utils'
+import { buildWorkspaceAccessScope, checkWorkspaceAccess } from '@/lib/permissions/utils'
 import { escapeRegExp } from '@/lib/utils'
 import { loadWorkflowStateWithFallback } from '@/lib/workflows/db-helpers'
 import { sanitizeForCopilot } from '@/lib/workflows/json-sanitizer'
@@ -46,6 +47,7 @@ export interface AgentContext {
 }
 
 const logger = createLogger('ProcessContents')
+type CopilotWorkflowState = NonNullable<Awaited<ReturnType<typeof loadWorkflowStateWithFallback>>>
 
 // Server-side variant (recommended for use in API routes)
 export async function processContextsServer(
@@ -63,17 +65,19 @@ export async function processContextsServer(
         const entityKind = entityContext.entityKind
 
         if (entityKind === 'workflow') {
-          return await processWorkflowContext(
-            entityContext.entityId,
+          return await processWorkflowContext({
+            workflowId: entityContext.entityId,
+            userId,
             tag,
-            entityContext.current ? 'current_workflow' : 'workflow'
-          )
+            kind: entityContext.current ? 'current_workflow' : 'workflow',
+          })
         }
 
         return await processEntityContext({
           contextKind: ctx.kind as Parameters<typeof processEntityContext>[0]['contextKind'],
           entityKind,
           entityId: entityContext.entityId,
+          userId,
           workspaceId: resolveContextWorkspaceId(
             entityContext.workspaceId ?? undefined,
             workspaceId,
@@ -90,30 +94,30 @@ export async function processContextsServer(
           ctx.label ? `@${ctx.label}` : '@'
         )
       }
-      if (ctx.kind === 'knowledge' && (ctx as any).knowledgeId) {
+      if (ctx.kind === 'knowledge' && ctx.knowledgeId) {
         return await processKnowledgeFromDb(
-          (ctx as any).knowledgeId,
+          ctx.knowledgeId,
           ctx.label ? `@${ctx.label}` : '@'
         )
       }
       if (ctx.kind === 'blocks' && ctx.blockTypes.length > 0) {
         return await processBlocksMetadata(ctx.blockTypes, ctx.label ? `@${ctx.label}` : '@')
       }
-      if (ctx.kind === 'templates' && (ctx as any).templateId) {
+      if (ctx.kind === 'templates' && ctx.templateId) {
         return await processTemplateFromDb(
-          (ctx as any).templateId,
+          ctx.templateId,
           ctx.label ? `@${ctx.label}` : '@'
         )
       }
-      if (ctx.kind === 'logs' && (ctx as any).executionId) {
+      if (ctx.kind === 'logs' && ctx.executionId) {
         return await processExecutionLogFromDb(
-          (ctx as any).executionId,
+          ctx.executionId,
           userId,
           ctx.label ? `@${ctx.label}` : '@'
         )
       }
       if (ctx.kind === 'workflow_block' && ctx.workflowId && ctx.blockId) {
-        return await processWorkflowBlockFromDb(ctx.workflowId, ctx.blockId, ctx.label)
+        return await processWorkflowBlockFromDb(ctx.workflowId, ctx.blockId, userId, ctx.label)
       }
       if (ctx.kind === 'docs') {
         try {
@@ -174,7 +178,8 @@ async function processEntityContext(params: {
     | 'mcp_server'
     | 'current_mcp_server'
   entityKind: 'skill' | 'indicator' | 'custom_tool' | 'mcp_server'
-  entityId: string | null
+  entityId: string
+  userId: string
   workspaceId: string | null
   tag: string
 }): Promise<AgentContext | null> {
@@ -182,34 +187,23 @@ async function processEntityContext(params: {
     return null
   }
 
-  if (!params.entityId) {
-    logger.warn('Skipping copilot entity context without entityId', {
-      entityKind: params.entityKind,
-      contextKind: params.contextKind,
-    })
-    return null
-  }
-
   try {
-    const { loadCustomTool, loadIndicator, loadMcpServer, loadSkill } = await import(
+    const access = await checkWorkspaceAccess(params.workspaceId, params.userId)
+    if (!access.exists || !access.hasAccess) {
+      logger.warn('Skipping unauthorized copilot entity context', {
+        entityKind: params.entityKind,
+        entityId: params.entityId,
+        workspaceId: params.workspaceId,
+        userId: params.userId,
+      })
+      return null
+    }
+
+    const { loadEntityByKind } = await import(
       '@/lib/copilot/review-sessions/entity-loaders'
     )
 
-    let row: Record<string, unknown> | null = null
-    switch (params.entityKind) {
-      case 'skill':
-        row = await loadSkill(params.entityId, params.workspaceId)
-        break
-      case 'indicator':
-        row = await loadIndicator(params.entityId, params.workspaceId)
-        break
-      case 'custom_tool':
-        row = await loadCustomTool(params.entityId, params.workspaceId)
-        break
-      case 'mcp_server':
-        row = await loadMcpServer(params.entityId, params.workspaceId)
-        break
-    }
+    const row = await loadEntityByKind(params.entityKind, params.entityId, params.workspaceId)
 
     if (!row) {
       logger.warn('No entity data found for copilot context', {
@@ -421,15 +415,20 @@ async function processPastChatFromDb(
   }
 }
 
-async function processWorkflowContext(
-  workflowId: string,
-  tag: string,
-  kind: 'workflow' | 'current_workflow' = 'workflow'
-): Promise<AgentContext | null> {
+async function processWorkflowContext({
+  workflowId,
+  userId,
+  tag,
+  kind,
+}: {
+  workflowId: string
+  userId: string
+  tag: string
+  kind: 'workflow' | 'current_workflow'
+}): Promise<AgentContext | null> {
   try {
-    const workflowState = await loadWorkflowStateWithFallback(workflowId)
+    const workflowState = await loadCopilotWorkflowState(workflowId, userId)
     if (!workflowState) {
-      logger.warn('No workflow data found for copilot context', { workflowId })
       return null
     }
 
@@ -564,10 +563,11 @@ async function processTemplateFromDb(
 async function processWorkflowBlockFromDb(
   workflowId: string,
   blockId: string,
+  userId: string,
   label?: string
 ): Promise<AgentContext | null> {
   try {
-    const workflowState = await loadWorkflowStateWithFallback(workflowId)
+    const workflowState = await loadCopilotWorkflowState(workflowId, userId)
     if (!workflowState) return null
     const block = (workflowState.blocks as any)[blockId]
     if (!block) return null
@@ -576,7 +576,7 @@ async function processWorkflowBlockFromDb(
     // Build content: isolate the block and include its subBlocks fully
     const contentObj = {
       workflowId,
-      block: block,
+      block,
     }
     const content = JSON.stringify(contentObj)
     return { type: 'workflow_block', tag, content }
@@ -584,6 +584,27 @@ async function processWorkflowBlockFromDb(
     logger.error('Error processing workflow_block context', { workflowId, blockId, error })
     return null
   }
+}
+
+async function loadCopilotWorkflowState(
+  workflowId: string,
+  userId: string
+): Promise<CopilotWorkflowState | null> {
+  const access = await verifyWorkflowAccess(userId, workflowId)
+  if (!access.hasAccess) {
+    logger.warn('Skipping unauthorized copilot workflow context', {
+      workflowId,
+      userId,
+    })
+    return null
+  }
+
+  const workflowState = await loadWorkflowStateWithFallback(workflowId)
+  if (!workflowState) {
+    logger.warn('No workflow data found for copilot context', { workflowId })
+  }
+
+  return workflowState
 }
 
 async function processExecutionLogFromDb(

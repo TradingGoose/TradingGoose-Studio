@@ -4,7 +4,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mockGetBlocksMetadataExecute = vi.fn()
-const mockLoadSkill = vi.fn()
+const mockCheckWorkspaceAccess = vi.fn()
+const mockVerifyWorkflowAccess = vi.fn()
+const mockLoadEntityByKind = vi.fn()
 const mockLoadWorkflowStateWithFallback = vi.fn()
 const mockSanitizeForCopilot = vi.fn((value) => value)
 const mockAnd = vi.fn((...conditions: unknown[]) => ({ conditions, type: 'and' }))
@@ -77,6 +79,15 @@ vi.mock('@/lib/logs/console/logger', () => ({
   })),
 }))
 
+vi.mock('@/lib/permissions/utils', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/permissions/utils')>()),
+  checkWorkspaceAccess: mockCheckWorkspaceAccess,
+}))
+
+vi.mock('@/lib/copilot/review-sessions/permissions', () => ({
+  verifyWorkflowAccess: mockVerifyWorkflowAccess,
+}))
+
 vi.mock('@/lib/copilot/tools/server/blocks/get-blocks-metadata', () => ({
   getBlocksMetadataServerTool: {
     execute: mockGetBlocksMetadataExecute,
@@ -84,10 +95,7 @@ vi.mock('@/lib/copilot/tools/server/blocks/get-blocks-metadata', () => ({
 }))
 
 vi.mock('@/lib/copilot/review-sessions/entity-loaders', () => ({
-  loadSkill: mockLoadSkill,
-  loadIndicator: vi.fn(),
-  loadCustomTool: vi.fn(),
-  loadMcpServer: vi.fn(),
+  loadEntityByKind: mockLoadEntityByKind,
 }))
 
 vi.mock('@/lib/workflows/db-helpers', () => ({
@@ -102,7 +110,9 @@ describe('processContextsServer', () => {
   beforeEach(() => {
     vi.resetModules()
     mockGetBlocksMetadataExecute.mockReset()
-    mockLoadSkill.mockReset()
+    mockCheckWorkspaceAccess.mockReset()
+    mockVerifyWorkflowAccess.mockReset()
+    mockLoadEntityByKind.mockReset()
     mockLoadWorkflowStateWithFallback.mockReset()
     mockSanitizeForCopilot.mockClear()
     mockAnd.mockClear()
@@ -112,6 +122,18 @@ describe('processContextsServer', () => {
     mockDbSelect.mockClear()
     mockSelectChain.leftJoin.mockClear()
     mockSelectChain.innerJoin.mockClear()
+    mockCheckWorkspaceAccess.mockResolvedValue({
+      exists: true,
+      hasAccess: true,
+      canWrite: false,
+      workspace: { id: 'workspace-1', ownerId: 'owner-1' },
+    })
+    mockVerifyWorkflowAccess.mockResolvedValue({
+      hasAccess: true,
+      userPermission: 'read',
+      workspaceId: 'workspace-1',
+      isOwner: false,
+    })
   })
 
   it('expands block contexts through the canonical blockTypes path', async () => {
@@ -150,7 +172,7 @@ describe('processContextsServer', () => {
   })
 
   it('hydrates current entity contexts from the canonical entity loader', async () => {
-    mockLoadSkill.mockResolvedValue({
+    mockLoadEntityByKind.mockResolvedValue({
       id: 'skill-1',
       workspaceId: 'workspace-1',
       name: 'Canonical Skill',
@@ -171,7 +193,8 @@ describe('processContextsServer', () => {
       'user-1'
     )
 
-    expect(mockLoadSkill).toHaveBeenCalledWith('skill-1', 'workspace-1')
+    expect(mockCheckWorkspaceAccess).toHaveBeenCalledWith('workspace-1', 'user-1')
+    expect(mockLoadEntityByKind).toHaveBeenCalledWith('skill', 'skill-1', 'workspace-1')
     expect(result).toEqual([
       {
         type: 'current_skill',
@@ -191,7 +214,33 @@ describe('processContextsServer', () => {
     ])
   })
 
-  it('hydrates workflow contexts through the shared workspace entity path', async () => {
+  it('skips workspace entity contexts without read access', async () => {
+    mockCheckWorkspaceAccess.mockResolvedValueOnce({
+      exists: true,
+      hasAccess: false,
+      canWrite: false,
+      workspace: { id: 'workspace-1', ownerId: 'owner-1' },
+    })
+
+    const { processContextsServer } = await import('@/lib/copilot/process-contents')
+    const result = await processContextsServer(
+      [
+        {
+          kind: 'current_skill',
+          label: 'Current Skill',
+          workspaceId: 'workspace-1',
+          skillId: 'skill-1',
+        },
+      ],
+      'user-1'
+    )
+
+    expect(mockCheckWorkspaceAccess).toHaveBeenCalledWith('workspace-1', 'user-1')
+    expect(mockLoadEntityByKind).not.toHaveBeenCalled()
+    expect(result).toEqual([])
+  })
+
+  it('hydrates workflow contexts after verifying workflow read access', async () => {
     mockLoadWorkflowStateWithFallback.mockResolvedValue({
       source: 'db',
       blocks: {
@@ -218,6 +267,7 @@ describe('processContextsServer', () => {
       'user-1'
     )
 
+    expect(mockVerifyWorkflowAccess).toHaveBeenCalledWith('user-1', 'workflow-1')
     expect(mockLoadWorkflowStateWithFallback).toHaveBeenCalledWith('workflow-1')
     expect(mockSanitizeForCopilot).toHaveBeenCalledWith({
       blocks: {
@@ -253,6 +303,39 @@ describe('processContextsServer', () => {
     ])
   })
 
+  it.each([
+    {
+      context: {
+        kind: 'workflow',
+        workflowId: 'workflow-1',
+        workspaceId: 'workspace-1',
+        label: 'Attached Workflow',
+      } as const,
+    },
+    {
+      context: {
+        kind: 'workflow_block',
+        workflowId: 'workflow-1',
+        blockId: 'block-1',
+        label: 'Attached Block',
+      } as const,
+    },
+  ])('skips workflow-derived contexts without workflow read access', async ({ context }) => {
+    mockVerifyWorkflowAccess.mockResolvedValueOnce({
+      hasAccess: false,
+      userPermission: null,
+      workspaceId: null,
+      isOwner: false,
+    })
+
+    const { processContextsServer } = await import('@/lib/copilot/process-contents')
+    const result = await processContextsServer([context], 'user-1')
+
+    expect(mockVerifyWorkflowAccess).toHaveBeenCalledWith('user-1', 'workflow-1')
+    expect(mockLoadWorkflowStateWithFallback).not.toHaveBeenCalled()
+    expect(result).toEqual([])
+  })
+
   it('hydrates deleted workflow log contexts from the durable workflow summary', async () => {
     mockLogRowsQueue.push([
       {
@@ -276,7 +359,7 @@ describe('processContextsServer', () => {
 
     const { processContextsServer } = await import('@/lib/copilot/process-contents')
     const result = await processContextsServer(
-      [{ kind: 'logs', executionId: 'execution-1', label: 'Deleted Run' } as any],
+      [{ kind: 'logs', executionId: 'execution-1', label: 'Deleted Run' }],
       'user-1'
     )
 
