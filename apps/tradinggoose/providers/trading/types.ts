@@ -8,15 +8,7 @@ export type TradingProviderId = 'alpaca' | 'tradier' | (string & {})
 
 export type TradingAuthType = 'oauth'
 
-export type TradingOrderType =
-  | 'market'
-  | 'limit'
-  | 'stop'
-  | 'stop_limit'
-  | 'trailing_stop'
-  | 'debit'
-  | 'credit'
-  | 'even'
+export type TradingOrderType = 'market' | 'limit' | 'stop' | 'stop_limit' | 'trailing_stop'
 
 export interface TradingRequestConfig {
   url: string
@@ -50,7 +42,6 @@ export interface TradingOrderInput extends TradingSymbolInput {
   trailPercent?: number
   environment?: 'paper' | 'live'
   accessToken?: string
-  orderClass?: string
   accountId?: string
 }
 

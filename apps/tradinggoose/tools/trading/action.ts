@@ -16,8 +16,6 @@ const buildOrderRoutePayload = (params: TradingActionParams) => {
     stopPrice: params.stopPrice,
     trailPrice: params.trailPrice,
     trailPercent: params.trailPercent,
-    orderClass: params.orderClass,
-    accessToken: params.accessToken,
     submissionSource: params._context?.submissionSource,
     logId: params._context?.workflowLogId,
   }
@@ -40,12 +38,6 @@ export const tradingActionTool: ToolConfig<TradingActionParams, TradingActionRes
       required: true,
       visibility: 'user-only',
       description: 'Canonical broker account identity selected for this order.',
-    },
-    credential: {
-      type: 'string',
-      required: false,
-      visibility: 'hidden',
-      description: 'OAuth credential id from the selected broker account.',
     },
     listing: {
       type: 'json',
@@ -77,18 +69,12 @@ export const tradingActionTool: ToolConfig<TradingActionParams, TradingActionRes
       visibility: 'user-or-llm',
       description: 'Order sizing mode (quantity or notional) for Alpaca.',
     },
-    orderClass: {
-      type: 'string',
-      required: false,
-      visibility: 'user-or-llm',
-      description: 'Order class for providers that support it (e.g., equity, option, multileg).',
-    },
     orderType: {
       type: 'string',
       required: false,
       visibility: 'user-or-llm',
       description:
-        'Order type (provider-specific, e.g., market, limit, stop, stop_limit, trailing_stop, debit, credit, even).',
+        'Order type (provider-specific, e.g., market, limit, stop, stop_limit, trailing_stop).',
     },
     timeInForce: {
       type: 'string',
@@ -119,12 +105,6 @@ export const tradingActionTool: ToolConfig<TradingActionParams, TradingActionRes
       required: false,
       visibility: 'user-or-llm',
       description: 'Trailing stop percent offset (Alpaca trailing_stop).',
-    },
-    accessToken: {
-      type: 'string',
-      required: false,
-      visibility: 'hidden',
-      description: 'OAuth access token injected from the selected broker account.',
     },
   },
 

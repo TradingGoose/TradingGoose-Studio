@@ -10,7 +10,6 @@ const portfolioIdentity = {
 
 const baseParams = {
   portfolioIdentity,
-  credential: 'credential-1',
   listing: {
     listing_type: 'default' as const,
     listing_id: 'AAPL',
@@ -23,7 +22,6 @@ const baseParams = {
   side: 'buy' as const,
   orderType: 'market' as const,
   timeInForce: 'day' as const,
-  accessToken: 'test-token',
 }
 
 const requestBodyBuilder = tradingActionTool.request?.body
@@ -51,6 +49,7 @@ describe('tradingActionTool canonical order route payload', () => {
       quantity: 2,
     })
     expect(body).not.toHaveProperty('credential')
+    expect(body).not.toHaveProperty('accessToken')
     expect(body).not.toHaveProperty('accountId')
   })
 
@@ -67,7 +66,6 @@ describe('tradingActionTool canonical order route payload', () => {
     expect(body).toMatchObject({
       workspaceId: 'workspace-1',
       portfolioIdentity,
-      accessToken: 'test-token',
       submissionSource: 'workflow',
       logId: 'log-1',
     })

@@ -14,9 +14,8 @@ type OrderHistoryInput = {
   workspaceId: string
   provider: string
   environment?: string | null
-  recordedAt?: string
   submissionSource: OrderSubmissionSource
-  logId?: string | null
+  logId: string | null
   listingIdentity?: unknown
   request: Record<string, unknown>
   response: Record<string, unknown>
@@ -39,34 +38,37 @@ async function resolveOrderLogId(params: { workspaceId: string; logId?: string |
   return { ok: true as const, logId: log.id }
 }
 
-export async function recordOrderHistory(input: OrderHistoryInput) {
-  let recordedAt: Date | undefined
-  if (input.recordedAt) {
-    const parsed = new Date(input.recordedAt)
-    if (Number.isNaN(parsed.getTime())) {
-      return { ok: false as const, error: 'recordedAt must be a valid ISO timestamp' }
-    }
-    recordedAt = parsed
+export async function resolveOrderHistoryContext({
+  logId,
+  submissionSource,
+  workspaceId,
+}: {
+  logId?: string | null
+  submissionSource?: string
+  workspaceId: string
+}): Promise<{ submissionSource: OrderSubmissionSource; logId: string | null }> {
+  const source = submissionSource?.trim()
+  if (!source || !isOrderSubmissionSource(source)) {
+    throw new TradingServiceError('submissionSource is required')
   }
 
-  const resolvedOrderLog = await resolveOrderLogId({
-    workspaceId: input.workspaceId,
-    logId: input.logId,
-  })
-
+  const resolvedOrderLog = await resolveOrderLogId({ workspaceId, logId })
   if (!resolvedOrderLog.ok) {
-    return { ok: false as const, error: resolvedOrderLog.error }
+    throw new TradingServiceError(resolvedOrderLog.error)
   }
 
+  return { submissionSource: source, logId: resolvedOrderLog.logId }
+}
+
+export async function recordOrderHistory(input: OrderHistoryInput) {
   const [record] = await db
     .insert(orderHistoryTable)
     .values({
       workspaceId: input.workspaceId,
       provider: input.provider,
       environment: input.environment,
-      recordedAt,
       submissionSource: input.submissionSource,
-      logId: resolvedOrderLog.logId,
+      logId: input.logId,
       listingIdentity: input.listingIdentity,
       request: input.request,
       response: input.response,
@@ -74,7 +76,7 @@ export async function recordOrderHistory(input: OrderHistoryInput) {
     })
     .returning()
 
-  return { ok: true as const, record }
+  return record
 }
 
 export async function listTradingOrderHistory({

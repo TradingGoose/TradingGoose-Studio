@@ -35,9 +35,6 @@ export const ORDER_TYPE_FILTER_VALUES = [
   'stop',
   'stop_limit',
   'trailing_stop',
-  'debit',
-  'credit',
-  'even',
 ] as const
 export const ORDER_TIME_IN_FORCE_FILTER_VALUES = [
   '',

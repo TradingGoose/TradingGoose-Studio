@@ -31,13 +31,9 @@ export interface TradingProviderAvailability {
 export interface TradingOrderInputCapabilities {
   orderTypes?: TradingOrderTypeDefinition[]
   timeInForce?: string[]
-  supportsLimit?: boolean
-  supportsStop?: boolean
-  supportsFractional?: boolean
 }
 
 export interface TradingHoldingsInputCapabilities {
-  supportsPositions?: boolean
   performanceWindows?: TradingPortfolioPerformanceWindow[]
 }
 
@@ -106,7 +102,6 @@ export interface TradingOrderTypeDefinition {
   id: string
   label: string
   assetClasses?: AssetClass[]
-  orderClasses?: string[]
   requires?: TradingOrderTypeRequirement[]
 }
 
@@ -242,28 +237,10 @@ export function getTradingProviderConfig(
   return TRADING_PROVIDER_DEFINITIONS[providerId]?.config || null
 }
 
-export function getTradingProviderAvailability(
-  providerId: TradingProviderId
-): TradingProviderAvailability {
-  return (
-    TRADING_PROVIDER_DEFINITIONS[providerId]?.config.availability || {
-      assetClass: [],
-      order: false,
-      holdings: false,
-    }
-  )
-}
-
-export function getTradingProviderCapabilities(
-  providerId: TradingProviderId
-): TradingProviderCapabilities | null {
-  return TRADING_PROVIDER_DEFINITIONS[providerId]?.config.capabilities || null
-}
-
 export function getTradingHoldingsCapabilities(
   providerId: TradingProviderId
 ): TradingHoldingsInputCapabilities | null {
-  return getTradingProviderCapabilities(providerId)?.holdings || null
+  return TRADING_PROVIDER_DEFINITIONS[providerId]?.config.capabilities?.holdings || null
 }
 
 export function getTradingProviders(): TradingProviderDefinition[] {
@@ -462,46 +439,4 @@ export function getTradingProviderParamCatalog(
   })
 
   return { order, registry }
-}
-
-export function getTradingProviderParamRegistry(
-  kind: TradingOperationKind
-): Record<string, TradingProviderParamRegistryEntry> {
-  return getTradingProviderParamCatalog(kind).registry
-}
-
-export function coerceTradingProviderParamValue(
-  definition: TradingProviderParamDefinition,
-  value: unknown
-): unknown {
-  if (value === undefined || value === null || value === '') return undefined
-
-  switch (definition.type) {
-    case 'number': {
-      if (typeof value === 'number') return value
-      const parsed = Number(value)
-      return Number.isFinite(parsed) ? parsed : value
-    }
-    case 'boolean': {
-      if (typeof value === 'boolean') return value
-      if (typeof value === 'string') {
-        if (value.toLowerCase() === 'true') return true
-        if (value.toLowerCase() === 'false') return false
-      }
-      return value
-    }
-    case 'json':
-    case 'array': {
-      if (typeof value !== 'string') return value
-      try {
-        return JSON.parse(value)
-      } catch (error) {
-        throw new Error(
-          `Invalid JSON for ${definition.title || definition.id}: ${error instanceof Error ? error.message : String(error)}`
-        )
-      }
-    }
-    default:
-      return value
-  }
 }

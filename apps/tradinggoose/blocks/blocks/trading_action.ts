@@ -39,7 +39,6 @@ const BLOCK_RESERVED_PARAM_IDS = new Set([
 const TOOL_RESERVED_PARAM_IDS = new Set([
   'provider',
   'portfolioIdentity',
-  'credential',
   'side',
   'listing',
   'quantity',
@@ -283,13 +282,7 @@ export const TradingActionBlock: BlockConfig<TradingActionResponse> = {
         const contextValues = context.contextValues as Record<string, unknown> | undefined
         const providerId = contextValues?.provider as string | undefined
         const listing = contextValues?.listing as ListingInputValue | undefined
-        const orderClass =
-          (contextValues?.orderClass as string | undefined) ??
-          (contextValues?.class as string | undefined)
-        return getTradingOrderTypeOptions(providerId, {
-          listing,
-          orderClass,
-        })
+        return getTradingOrderTypeOptions(providerId, { listing })
       },
     },
     {
@@ -297,8 +290,8 @@ export const TradingActionBlock: BlockConfig<TradingActionResponse> = {
       title: 'Limit Price',
       type: 'short-input',
       layout: 'half',
-      placeholder: 'Required for limit/stop-limit and debit/credit/even orders',
-      condition: { field: 'orderType', value: ['limit', 'stop_limit', 'debit', 'credit', 'even'] },
+      placeholder: 'Required for limit and stop-limit orders',
+      condition: { field: 'orderType', value: ['limit', 'stop_limit'] },
     },
     {
       id: 'stopPrice',
@@ -362,7 +355,6 @@ export const TradingActionBlock: BlockConfig<TradingActionResponse> = {
 
         return {
           portfolioIdentity,
-          credential: portfolioIdentity?.credentialId,
           side: params.side,
           listing: params.listing,
           quantity: toOptionalNumber(params.quantity),

@@ -47,12 +47,11 @@ export const buildTradierOrderRequest = (params: TradingOrderInput): TradingRequ
     cityName: params.cityName,
   })
 
-  const orderClass = params.orderClass || 'equity'
   const duration = normalizeTradierDuration(params.timeInForce)
   const orderType = normalizeTradierOrderType(params.orderType)
 
   const bodyParams = new URLSearchParams({
-    class: orderClass,
+    class: 'equity',
     symbol,
     side: params.side.toLowerCase(),
     quantity: String(params.quantity),

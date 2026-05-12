@@ -1,6 +1,6 @@
 import { createLogger } from '@/lib/logs/console/logger'
-import { TradingServiceError } from '@/lib/trading/errors'
 import { getOAuthTokenByCredentialId } from '@/lib/oauth/tokens'
+import { TradingServiceError } from '@/lib/trading/errors'
 import { listPortfolioIdentities } from '@/providers/trading/portfolio'
 import type { PortfolioIdentity } from '@/providers/trading/portfolio-identity'
 import { TradingBrokerRequestError } from '@/providers/trading/portfolio-utils'
@@ -47,12 +47,10 @@ export async function resolveTradingProviderContext({
   requestData,
   requestId,
   userId,
-  accessToken,
 }: {
   requestData: ProviderRequestData
   requestId: string
   userId: string
-  accessToken?: string
 }): Promise<PreflightContext> {
   const providerId = requireStringField(requestData.provider, 'provider')
 
@@ -72,15 +70,12 @@ export async function resolveTradingProviderContext({
 
   const credentialId = requireStringField(requestData.credentialId, 'credentialId')
 
-  const resolvedAccessToken =
-    typeof accessToken === 'string'
-      ? accessToken.trim()
-      : await getOAuthTokenByCredentialId({
-          userId,
-          credentialId,
-          providerId: serviceId,
-          requestId,
-        })
+  const resolvedAccessToken = await getOAuthTokenByCredentialId({
+    userId,
+    credentialId,
+    providerId: serviceId,
+    requestId,
+  })
   if (!resolvedAccessToken) {
     throw new TradingServiceError('Trading provider connection not found', 404)
   }

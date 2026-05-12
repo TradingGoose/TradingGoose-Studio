@@ -69,9 +69,6 @@ export const getQuickOrderSizingModeConfig = (providerId?: string): QuickOrderSi
   return { options, defaultMode }
 }
 
-export const getQuickOrderSizingModeOptions = (providerId?: string) =>
-  getQuickOrderSizingModeConfig(providerId).options
-
 export const getQuickOrderTimeInForceOptions = (providerId?: string) => {
   if (!providerId) return []
   const provider = getTradingProvider(providerId)
@@ -84,11 +81,6 @@ export const getQuickOrderDefaultTimeInForce = (providerId?: string) => {
   const options = getQuickOrderTimeInForceOptions(providerId)
   return provider.defaults?.timeInForce ?? options[0]
 }
-
-const quickOrderTypeContext = (providerId?: TradingProviderId, listing?: ListingInputValue) => ({
-  listing,
-  orderClass: providerId === 'tradier' ? 'equity' : undefined,
-})
 
 export type QuickOrderOrderTypeOption = {
   id: string
@@ -118,34 +110,7 @@ export const getQuickOrderOrderTypeDefinitions = (
   listing?: ListingInputValue
 ) => {
   if (!providerId || !listing || !resolveTradingListingAssetClass(listing)) return []
-  return getStrictTradingOrderTypeDefinitions(
-    providerId,
-    quickOrderTypeContext(providerId, listing)
-  )
-}
-
-export const getQuickOrderOrderTypeOptions = (
-  providerId?: TradingProviderId,
-  listing?: ListingInputValue
-): QuickOrderOrderTypeOption[] => {
-  return getQuickOrderOrderTypeDefinitions(providerId, listing).map((definition) => ({
-    id: definition.id,
-    label: definition.label || definition.id,
-  }))
-}
-
-export const getQuickOrderOrderTypeDefinition = (
-  providerId?: TradingProviderId,
-  orderType?: string,
-  listing?: ListingInputValue
-) => {
-  const requested = orderType?.trim()
-  if (!requested) return null
-  return (
-    getQuickOrderOrderTypeDefinitions(providerId, listing).find(
-      (definition) => definition.id === requested
-    ) ?? null
-  )
+  return getStrictTradingOrderTypeDefinitions(providerId, { listing })
 }
 
 export const resolveQuickOrderOrderType = ({
@@ -168,7 +133,7 @@ export const resolveQuickOrderOrderType = ({
   const definitions = getQuickOrderOrderTypeDefinitions(providerId, listing)
   const options = definitions.map((definition) => ({
     id: definition.id,
-    label: definition.label || definition.id,
+    label: definition.label,
   }))
 
   if (!definitions.length) {

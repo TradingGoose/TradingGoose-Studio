@@ -3,7 +3,6 @@ import type { ListingResolved } from '@/lib/listing/identity'
 import {
   getQuickOrderOrderTypeDefinitions,
   getQuickOrderSizingModeConfig,
-  getQuickOrderSizingModeOptions,
   normalizeQuickOrderNumber,
   resolveQuickOrderOrderType,
 } from '@/widgets/widgets/quick_order/components/shared'
@@ -77,12 +76,10 @@ const mutualFundListing = {
 
 describe('quick order shared helpers', () => {
   it('exposes sizing mode only for providers with a sizing selector', () => {
-    expect(getQuickOrderSizingModeOptions('alpaca')).toEqual(['quantity', 'notional'])
     expect(getQuickOrderSizingModeConfig('alpaca')).toEqual({
       options: ['quantity', 'notional'],
       defaultMode: 'quantity',
     })
-    expect(getQuickOrderSizingModeOptions('tradier')).toEqual([])
     expect(getQuickOrderSizingModeConfig('tradier')).toEqual({ options: [] })
   })
 

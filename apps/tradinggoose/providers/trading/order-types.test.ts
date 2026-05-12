@@ -44,26 +44,21 @@ const assetlessListing: ListingResolved = {
 }
 
 describe('trading order type helpers', () => {
-  it('uses strict listing/order-class filtering for quick order decisions', () => {
-    expect(getStrictTradingOrderTypeDefinitions('tradier', { listing: stockListing })).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ id: 'market' }),
-        expect.objectContaining({ id: 'limit' }),
-      ])
-    )
-    expect(getStrictTradingOrderTypeDefinitions('tradier', { listing: stockListing })).not.toEqual(
-      expect.arrayContaining([expect.objectContaining({ id: 'debit' })])
-    )
+  it('uses strict listing filtering for quick order decisions', () => {
+    expect(getStrictTradingOrderTypeDefinitions('tradier', { listing: stockListing })).toEqual([
+      expect.objectContaining({ id: 'market' }),
+      expect.objectContaining({ id: 'limit' }),
+      expect.objectContaining({ id: 'stop' }),
+      expect.objectContaining({ id: 'stop_limit' }),
+    ])
   })
 
-  it('keeps fallback options for generic callers while strict definitions stay empty', () => {
+  it('does not expose order options when a provider cannot trade the listing', () => {
     expect(getStrictTradingOrderTypeDefinitions('tradier', { listing: cryptoListing })).toEqual([])
-    expect(
-      getTradingOrderTypeOptions('tradier', { listing: cryptoListing }).length
-    ).toBeGreaterThan(0)
+    expect(getTradingOrderTypeOptions('tradier', { listing: cryptoListing })).toEqual([])
   })
 
-  it('applies provider availability and order-class filters without hiding generic fallbacks', () => {
+  it('applies provider availability without returning unsupported generic options', () => {
     expect(
       getStrictTradingOrderTypeDefinitions('tradier', { listing: assetlessListing }).length
     ).toBeGreaterThan(0)
@@ -73,15 +68,6 @@ describe('trading order type helpers', () => {
         (definition) => definition.id
       )
     ).toEqual(['market', 'limit', 'stop_limit'])
-    expect(getTradingOrderTypeOptions('alpaca', { listing: etfListing })).toEqual(
-      expect.arrayContaining([expect.objectContaining({ id: 'market' })])
-    )
-
-    expect(
-      getStrictTradingOrderTypeDefinitions('tradier', {
-        listing: stockListing,
-        orderClass: 'multileg',
-      }).map((definition) => definition.id)
-    ).toEqual(['market', 'debit', 'credit', 'even'])
+    expect(getTradingOrderTypeOptions('alpaca', { listing: etfListing })).toEqual([])
   })
 })

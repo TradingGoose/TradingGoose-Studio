@@ -640,8 +640,8 @@ export function ToolInput({ blockId, subBlockId, isConnecting, disabled = false 
     toolId: string
   ) => {
     const uiComponent = param.uiComponent
-    const mapDependencyId = (paramId: string) => `${subBlockId}-tool-${toolIndex}-${paramId}`
-    const providerFieldId = mapDependencyId(uiComponent?.providerFieldId || 'provider')
+    const toSyntheticParamId = (paramId: string) => `${subBlockId}-tool-${toolIndex}-${paramId}`
+    const providerFieldId = toSyntheticParamId(uiComponent?.providerFieldId || 'provider')
     const providerType =
       uiComponent?.providerType || (toolId?.startsWith('trading_') ? 'trading' : 'market')
     const subBlock: SubBlockConfig = {
@@ -687,7 +687,7 @@ export function ToolInput({ blockId, subBlockId, isConnecting, disabled = false 
       maxSize: uiComponent?.maxSize,
       autoSelectFirstOption: uiComponent?.autoSelectFirstOption,
       value: uiComponent?.value as SubBlockConfig['value'],
-      dependsOn: uiComponent?.dependsOn?.map(mapDependencyId),
+      dependsOn: uiComponent?.dependsOn,
       fetchOptions: uiComponent?.fetchOptions
         ? async (blockId, subBlockId, context) =>
             uiComponent.fetchOptions?.(blockId, subBlockId, {

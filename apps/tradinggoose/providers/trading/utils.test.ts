@@ -38,7 +38,7 @@ const assetlessListing: ListingResolved = {
 }
 
 describe('trading listing utility helpers', () => {
-  it('resolves asset class from enriched listing fields without legacy equity mapping', () => {
+  it('resolves asset class from enriched listing fields without equity remapping', () => {
     expect(resolveTradingListingAssetClass(assetlessListing)).toBeUndefined()
     expect(resolveTradingListingAssetClass(stockListing)).toBe('stock')
     expect(resolveTradingListingAssetClass(stockListing, 'etf')).toBe('etf')

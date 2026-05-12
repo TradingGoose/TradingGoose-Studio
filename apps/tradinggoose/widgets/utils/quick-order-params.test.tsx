@@ -71,8 +71,6 @@ describe('quick order params utilities', () => {
         portfolioIdentity,
         side: 'sell',
         quantity: 1,
-        orderClass: 'equity',
-        providerParams: { orderClass: 'equity' },
       })
     ).toEqual({
       provider: 'alpaca',
@@ -136,7 +134,6 @@ describe('quick order params utilities', () => {
         params: {
           portfolioIdentity: null,
           quantity: 10,
-          providerParams: { orderClass: 'equity' },
         },
         panelId: 'panel-1',
         widgetKey: 'quick_order',

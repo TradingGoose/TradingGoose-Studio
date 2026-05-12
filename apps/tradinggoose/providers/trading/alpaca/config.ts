@@ -176,11 +176,8 @@ export const alpacaTradingProviderConfig: TradingProviderConfig = {
         },
       ],
       timeInForce: ['day', 'gtc', 'ioc', 'fok'],
-      supportsLimit: true,
-      supportsStop: true,
     },
     holdings: {
-      supportsPositions: true,
       performanceWindows: ['1D', '1W', '1M', '3M', 'YTD', '1Y'],
     },
   },

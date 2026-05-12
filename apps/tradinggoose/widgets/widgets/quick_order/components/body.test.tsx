@@ -596,7 +596,6 @@ describe('QuickOrderWidgetBody', () => {
         quantity: 2,
       })
     )
-    expect(mockMutate.mock.calls[0][0]).not.toHaveProperty('orderClass')
     expect(mockMutate.mock.calls[0][0]).not.toHaveProperty('credentialId')
     expect(mockMutate.mock.calls[0][0]).not.toHaveProperty('credentialServiceId')
     expect(mockMutate.mock.calls[0][0]).not.toHaveProperty('environment')

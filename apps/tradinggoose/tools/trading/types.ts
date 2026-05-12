@@ -8,7 +8,6 @@ import type {
 
 export interface TradingActionParams
   extends Omit<TradingOrderSubmitRequest, 'workspaceId' | 'submissionSource' | 'logId'> {
-  credential?: string
   _context?: {
     workspaceId?: string
     userId?: string

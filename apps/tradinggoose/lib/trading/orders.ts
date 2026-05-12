@@ -8,7 +8,7 @@ import {
   resolveTradingProviderSelectedAccount,
 } from '@/lib/trading/context'
 import { TradingServiceError } from '@/lib/trading/errors'
-import { recordOrderHistory } from '@/lib/trading/order-history'
+import { recordOrderHistory, resolveOrderHistoryContext } from '@/lib/trading/order-history'
 import type {
   TradingOrderSubmitRequest,
   TradingOrderSubmitResponse,
@@ -59,11 +59,7 @@ const resolveOrderType = (
   data: TradingOrderSubmitRequest,
   listing: ListingInputValue
 ): { orderType: TradingOrderType; requires: string[] } => {
-  const context = {
-    listing,
-    orderClass: providerId === 'tradier' ? (data.orderClass ?? 'equity') : undefined,
-  }
-  const strictDefinitions = getStrictTradingOrderTypeDefinitions(providerId, context)
+  const strictDefinitions = getStrictTradingOrderTypeDefinitions(providerId, { listing })
   if (!strictDefinitions.length) {
     throw new TradingServiceError('No supported order types for listing')
   }
@@ -266,7 +262,6 @@ const buildOrderRequest = ({
     stopPrice: usesStopPrice ? data.stopPrice : undefined,
     trailPrice: usesTrailValue ? data.trailPrice : undefined,
     trailPercent: usesTrailValue ? data.trailPercent : undefined,
-    orderClass: providerId === 'tradier' ? (data.orderClass ?? 'equity') : data.orderClass,
   })
 }
 
@@ -311,14 +306,10 @@ const extractOrderProviderMessage = (
   readMessage(rawOrder) ?? readMessage(normalizedOrder?.raw) ?? readMessage(normalizedOrder)
 
 export async function submitTradingOrder({
-  accessToken,
-  defaultSubmissionSource,
   requestData,
   requestId,
   userId,
 }: {
-  accessToken?: string
-  defaultSubmissionSource?: 'manual'
   requestData: TradingOrderSubmitRequest
   requestId: string
   userId: string
@@ -328,6 +319,17 @@ export async function submitTradingOrder({
     throw new TradingServiceError('portfolioIdentity is required')
   }
 
+  const workspaceAccess = await checkWorkspaceAccess(requestData.workspaceId, userId)
+  if (!workspaceAccess.exists || !workspaceAccess.canWrite) {
+    throw new TradingServiceError('Not found', 404)
+  }
+
+  const orderHistoryContext = await resolveOrderHistoryContext({
+    workspaceId: requestData.workspaceId,
+    submissionSource: requestData.submissionSource,
+    logId: requestData.logId,
+  })
+
   const baseContext = await resolveTradingProviderContext({
     requestData: {
       provider: portfolioIdentity.providerId,
@@ -336,13 +338,7 @@ export async function submitTradingOrder({
     },
     requestId,
     userId,
-    accessToken,
   })
-
-  const workspaceAccess = await checkWorkspaceAccess(requestData.workspaceId, userId)
-  if (!workspaceAccess.exists || !workspaceAccess.canWrite) {
-    throw new TradingServiceError('Not found', 404)
-  }
 
   const resolvedListing = await resolveOrderListing(requestData.listing as ListingInputValue)
   const listingIdentity = toListingValueObject(resolvedListing)
@@ -373,11 +369,6 @@ export async function submitTradingOrder({
     baseContext,
     accountId: portfolioIdentity.accountId,
   })
-
-  const submissionSource = requestData.submissionSource ?? defaultSubmissionSource
-  if (!submissionSource) {
-    throw new TradingServiceError('submissionSource is required')
-  }
 
   let rawOrder: unknown
   let normalizedOrder: TradingOrder
@@ -418,13 +409,12 @@ export async function submitTradingOrder({
   const rawOrderRecord = toRecord(rawOrder)
   const normalizedOrderRecord = toRecord(normalizedOrder)
   const orderSizingMode = getOrderSizingMode(baseContext.providerId, requestData)
-  const recordResult = await recordOrderHistory({
+  const orderHistoryRecord = await recordOrderHistory({
     workspaceId: requestData.workspaceId,
     provider: baseContext.providerId,
     environment: baseContext.environment,
-    recordedAt: new Date().toISOString(),
-    submissionSource,
-    logId: requestData.logId,
+    submissionSource: orderHistoryContext.submissionSource,
+    logId: orderHistoryContext.logId,
     listingIdentity,
     request: compactRecord({
       credentialId: baseContext.credentialId,
@@ -440,10 +430,6 @@ export async function submitTradingOrder({
       trailPrice: requestData.trailPrice,
       trailPercent: requestData.trailPercent,
       orderSizingMode,
-      orderClass:
-        baseContext.providerId === 'tradier'
-          ? (requestData.orderClass ?? 'equity')
-          : requestData.orderClass,
     }),
     response: {
       success: true,
@@ -452,12 +438,9 @@ export async function submitTradingOrder({
     },
     normalizedOrder: normalizedOrderRecord,
   })
-  if (!recordResult.ok) {
-    throw new TradingServiceError(recordResult.error, 500)
-  }
 
   return {
-    appOrderId: recordResult.record.id,
+    appOrderId: orderHistoryRecord.id,
     order: normalizedOrder,
     provider: baseContext.providerId,
     accountId: accountContext.accountId,

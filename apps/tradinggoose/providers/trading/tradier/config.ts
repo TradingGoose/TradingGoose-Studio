@@ -13,23 +13,6 @@ const availability: TradingProviderConfig['availability'] = {
 const params: TradingProviderConfig['params'] = {
   order: [
     {
-      id: 'orderClass',
-      type: 'string',
-      title: 'Order Class',
-      description: 'Tradier order class (equity, option, multileg, or combo).',
-      required: false,
-      visibility: 'user-or-llm',
-      inputType: 'dropdown',
-      options: [
-        { id: 'equity', label: 'Equity' },
-        { id: 'option', label: 'Option' },
-        { id: 'multileg', label: 'Multileg' },
-        { id: 'combo', label: 'Combo' },
-      ],
-      defaultValue: 'equity',
-      displayOrder: 5,
-    },
-    {
       id: 'quantity',
       type: 'number',
       title: 'Quantity (Shares)',
@@ -59,51 +42,26 @@ export const tradierTradingProviderConfig: TradingProviderConfig = {
         {
           id: 'market',
           label: 'Market',
-          orderClasses: ['equity', 'option', 'multileg', 'combo'],
         },
         {
           id: 'limit',
           label: 'Limit',
-          orderClasses: ['equity', 'option'],
           requires: ['limitPrice'],
         },
         {
           id: 'stop',
           label: 'Stop',
-          orderClasses: ['equity', 'option'],
           requires: ['stopPrice'],
         },
         {
           id: 'stop_limit',
           label: 'Stop Limit',
-          orderClasses: ['equity', 'option'],
           requires: ['limitPrice', 'stopPrice'],
-        },
-        {
-          id: 'debit',
-          label: 'Debit',
-          orderClasses: ['multileg', 'combo'],
-          requires: ['limitPrice'],
-        },
-        {
-          id: 'credit',
-          label: 'Credit',
-          orderClasses: ['multileg', 'combo'],
-          requires: ['limitPrice'],
-        },
-        {
-          id: 'even',
-          label: 'Even',
-          orderClasses: ['multileg', 'combo'],
-          requires: ['limitPrice'],
         },
       ],
       timeInForce: ['day', 'gtc', 'pre', 'post'],
-      supportsLimit: true,
-      supportsStop: true,
     },
     holdings: {
-      supportsPositions: true,
       performanceWindows: ['1W', '1M', 'YTD', '1Y', 'MAX'],
     },
   },

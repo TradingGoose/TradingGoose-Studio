@@ -20,8 +20,6 @@ export interface TradingOrderSubmitRequest {
   stopPrice?: number
   trailPrice?: number
   trailPercent?: number
-  orderClass?: string
-  accessToken?: string
   submissionSource?: 'manual' | 'copilot' | 'workflow'
   logId?: string
 }

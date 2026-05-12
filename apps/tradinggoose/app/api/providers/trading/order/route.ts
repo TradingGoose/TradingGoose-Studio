@@ -42,8 +42,6 @@ const orderSchema = z
     stopPrice: positiveNumberSchema.optional(),
     trailPrice: positiveNumberSchema.optional(),
     trailPercent: positiveNumberSchema.optional(),
-    orderClass: nonEmptyStringSchema.optional(),
-    accessToken: nonEmptyStringSchema.optional(),
     submissionSource: z.enum(['manual', 'copilot', 'workflow']).optional(),
     logId: nonEmptyStringSchema.optional(),
   })
@@ -80,10 +78,13 @@ export async function POST(request: Request) {
   }
 
   try {
+    const submitRequestData: TradingOrderSubmitRequest =
+      auth.authType === AuthType.SESSION
+        ? { ...requestData, submissionSource: 'manual', logId: undefined }
+        : requestData
+
     const response = await submitTradingOrder({
-      accessToken: auth.authType === AuthType.INTERNAL_JWT ? requestData.accessToken : undefined,
-      defaultSubmissionSource: auth.authType === AuthType.SESSION ? 'manual' : undefined,
-      requestData,
+      requestData: submitRequestData,
       requestId,
       userId: auth.userId,
     })
