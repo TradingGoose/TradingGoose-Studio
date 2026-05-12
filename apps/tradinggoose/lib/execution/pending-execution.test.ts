@@ -11,6 +11,7 @@ const {
   isBillingEnabledForRuntimeMock,
   getTriggerExecutionStateMock,
   loggerWarnMock,
+  loggerErrorMock,
   andMock,
   eqMock,
   selectLimitMock,
@@ -24,6 +25,7 @@ const {
   isBillingEnabledForRuntimeMock: vi.fn(),
   getTriggerExecutionStateMock: vi.fn(),
   loggerWarnMock: vi.fn(),
+  loggerErrorMock: vi.fn(),
   andMock: vi.fn((...args) => ({ args })),
   eqMock: vi.fn((field, value) => ({ field, value })),
   selectLimitMock: vi.fn(),
@@ -121,6 +123,7 @@ vi.mock('@/background/pending-execution-drain', () => ({
 vi.mock('@/lib/logs/console/logger', () => ({
   createLogger: vi.fn(() => ({
     warn: loggerWarnMock,
+    error: loggerErrorMock,
   })),
 }))
 
@@ -152,7 +155,17 @@ describe('enqueuePendingExecution', () => {
     )
   })
 
-  it('drains locally when Trigger.dev is not configured', async () => {
+  it('starts local drain before returning without blocking on drain completion', async () => {
+    let drainCompleted = false
+    let resolveDrain: (() => void) | undefined
+    const drainPromise = new Promise<{ success: true }>((resolve) => {
+      resolveDrain = () => {
+        drainCompleted = true
+        resolve({ success: true })
+      }
+    })
+    drainPendingExecutionsForBillingScopeMock.mockReturnValueOnce(drainPromise)
+
     const result = await enqueuePendingExecution({
       executionType: 'workflow',
       pendingExecutionId: 'pending-local-1',
@@ -173,9 +186,12 @@ describe('enqueuePendingExecution', () => {
     expect(drainPendingExecutionsForBillingScopeMock).toHaveBeenCalledWith({
       billingScopeId: 'workspace-1',
     })
+    expect(drainCompleted).toBe(false)
     expect(loggerWarnMock).toHaveBeenCalledWith(
-      'Trigger.dev is not configured; draining pending executions locally.'
+      'Trigger.dev is not configured; dispatching pending execution drain locally.'
     )
+    resolveDrain?.()
+    await drainPromise
   })
 
   it('deletes a newly inserted row when the Trigger.dev drain dispatch fails', async () => {

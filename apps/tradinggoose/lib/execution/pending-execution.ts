@@ -272,15 +272,18 @@ export async function enqueuePendingExecution(
   } else {
     if (!triggerState.configurationReady && !warnedLocalExecution) {
       warnedLocalExecution = true
-      logger.warn('Trigger.dev is not configured; draining pending executions locally.')
+      logger.warn('Trigger.dev is not configured; dispatching pending execution drain locally.')
     }
 
     const { drainPendingExecutionsForBillingScope } = await import(
       '@/background/pending-execution-drain'
     )
-
-    await drainPendingExecutionsForBillingScope({
-      billingScopeId,
+    void drainPendingExecutionsForBillingScope({ billingScopeId }).catch((error) => {
+      logger.error('Local pending execution drain failed', {
+        billingScopeId,
+        requestId: params.requestId,
+        error,
+      })
     })
   }
 
