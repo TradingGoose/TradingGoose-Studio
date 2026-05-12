@@ -39,6 +39,8 @@ import { VirtualBlockUtils } from '@/executor/utils/virtual-blocks'
 import type { SerializedBlock, SerializedParallel, SerializedWorkflow } from '@/serializer/types'
 
 const logger = createLogger('Executor')
+const STREAM_CHUNK_FLUSH_INTERVAL_MS = 100
+const STREAM_CHUNK_FLUSH_SIZE = 2_048
 
 declare global {
   interface Window {
