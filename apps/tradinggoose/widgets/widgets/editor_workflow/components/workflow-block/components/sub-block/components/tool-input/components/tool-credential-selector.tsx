@@ -42,7 +42,7 @@ const getProviderName = (providerName: OAuthProvider) => {
     return baseProviderConfig.name
   }
 
-  // Fallback: capitalize the provider name
+  // Format provider ids that are not present in static OAuth metadata.
   return providerName
     .split('-')
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))

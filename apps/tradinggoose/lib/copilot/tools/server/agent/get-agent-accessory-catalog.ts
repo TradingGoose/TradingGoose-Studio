@@ -19,13 +19,6 @@ import { tools as toolsRegistry } from '@/tools/registry'
 type ToolOption = GetAgentAccessoryCatalogResultType['tools'][number]
 type SkillOption = GetAgentAccessoryCatalogResultType['skills'][number]
 
-function getCustomFunctionName(schema: unknown): string | null {
-  if (!schema || typeof schema !== 'object' || !('function' in schema)) return null
-  const fn = schema.function
-  if (!fn || typeof fn !== 'object' || !('name' in fn) || typeof fn.name !== 'string') return null
-  return fn.name
-}
-
 function getOperationOptions(block: BlockConfig): Array<{ id: string; label: string }> {
   const subBlock = block.subBlocks.find((candidate) => candidate.id === 'operation')
   if (!subBlock || !Array.isArray(subBlock.options)) return []
@@ -98,27 +91,23 @@ export const getAgentAccessoryCatalogServerTool: BaseServerTool<
     return {
       tools: [
         ...blockToolOptions,
-        ...customToolRows.flatMap((tool): ToolOption[] => {
-          const fnName = getCustomFunctionName(tool.schema)
-          if (!fnName) return []
-          return [
-            {
-              id: `custom:${tool.id}`,
-              source: 'custom_tool',
+        ...customToolRows.map(
+          (tool): ToolOption => ({
+            id: `custom:${tool.id}`,
+            source: 'custom_tool',
+            title: tool.title,
+            value: {
+              type: 'custom-tool',
               title: tool.title,
-              value: {
-                type: 'custom-tool',
-                title: tool.title,
-                toolId: `custom-${fnName}`,
-                params: {},
-                isExpanded: true,
-                schema: tool.schema,
-                code: tool.code,
-                usageControl: 'auto',
-              },
+              toolId: `custom_${tool.id}`,
+              params: {},
+              isExpanded: true,
+              schema: tool.schema,
+              code: tool.code,
+              usageControl: 'auto',
             },
-          ]
-        }),
+          })
+        ),
         ...mcpToolRows.map((tool): ToolOption => {
           const toolId = createMcpToolId(tool.serverId, tool.name)
           return {

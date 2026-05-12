@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { buildSubBlockRows } from '@/lib/workflows/sub-block-rows'
 import { getBlock } from '@/blocks'
+import type { SubBlockConfig } from '@/blocks/types'
 import type { WorkflowState } from '@/stores/workflows/workflow/types'
 import { SubBlockSummaryRows } from '@/widgets/widgets/editor_workflow/components/workflow-render/sub-block-summary-rows'
 
@@ -8,6 +9,49 @@ interface ReadOnlyNodeEditorPanelProps {
   selectedNodeId: string | null
   workflowState: WorkflowState
 }
+
+const loopPreviewSubBlocks: SubBlockConfig[] = [
+  { id: 'loopType', title: 'Loop Type', type: 'dropdown' },
+  {
+    id: 'iterations',
+    title: 'Iterations',
+    type: 'short-input',
+    condition: { field: 'loopType', value: 'for' },
+  },
+  {
+    id: 'collection',
+    title: 'Collection',
+    type: 'long-input',
+    condition: { field: 'loopType', value: 'forEach' },
+  },
+  {
+    id: 'whileCondition',
+    title: 'Condition',
+    type: 'long-input',
+    condition: { field: 'loopType', value: ['while', 'doWhile'] },
+  },
+]
+
+const parallelPreviewSubBlocks: SubBlockConfig[] = [
+  { id: 'parallelType', title: 'Parallel Type', type: 'dropdown' },
+  {
+    id: 'count',
+    title: 'Executions',
+    type: 'short-input',
+    condition: { field: 'parallelType', value: 'count' },
+  },
+  {
+    id: 'distribution',
+    title: 'Collection',
+    type: 'long-input',
+    condition: { field: 'parallelType', value: 'collection' },
+  },
+]
+
+const toSubBlockState = (values: Record<string, unknown>) =>
+  Object.fromEntries(
+    Object.entries(values).map(([id, value]) => [id, { id, type: 'short-input', value }])
+  )
 
 export function ReadOnlyNodeEditorPanel({
   selectedNodeId,
@@ -45,8 +89,48 @@ export function ReadOnlyNodeEditorPanel({
   }
 
   const blockConfig = getBlock(selectedBlock.type)
-  const previewSubBlocks = blockConfig
-    ? buildSubBlockRows({
+  const previewConfig = (() => {
+    if (selectedBlock.type === 'loop') {
+      const loop = workflowState.loops?.[selectedBlock.id]
+      const loopType = loop?.loopType ?? selectedBlock.data?.loopType ?? 'for'
+      return {
+        availableTriggerIds: undefined,
+        stateToUse: toSubBlockState({
+          loopType,
+          iterations: loop?.iterations ?? selectedBlock.data?.count ?? 5,
+          collection: loop?.forEachItems ?? selectedBlock.data?.collection,
+          whileCondition: loop?.whileCondition ?? selectedBlock.data?.whileCondition,
+        }),
+        subBlocks: loopPreviewSubBlocks,
+      }
+    }
+
+    if (selectedBlock.type === 'parallel') {
+      const parallel = workflowState.parallels?.[selectedBlock.id]
+      const parallelType = parallel?.parallelType ?? selectedBlock.data?.parallelType ?? 'count'
+      return {
+        availableTriggerIds: undefined,
+        stateToUse: toSubBlockState({
+          parallelType,
+          count: parallel?.count ?? selectedBlock.data?.count ?? 5,
+          distribution: parallel?.distribution ?? selectedBlock.data?.collection,
+        }),
+        subBlocks: parallelPreviewSubBlocks,
+      }
+    }
+
+    if (!blockConfig) {
+      return {
+        availableTriggerIds: undefined,
+        stateToUse: {},
+        subBlocks: [],
+      }
+    }
+
+    return {
+      availableTriggerIds: blockConfig.triggers?.available,
+      stateToUse: selectedBlock.subBlocks || {},
+      subBlocks: buildSubBlockRows({
         blockId: selectedBlock.id,
         subBlocks: blockConfig.subBlocks || [],
         stateToUse: selectedBlock.subBlocks || {},
@@ -56,8 +140,9 @@ export function ReadOnlyNodeEditorPanel({
         availableTriggerIds: blockConfig.triggers?.available,
         hideFromPreview: true,
         triggerSubBlockOwner: 'all',
-      }).flat()
-    : []
+      }).flat(),
+    }
+  })()
 
   return (
     <aside className='w-80 shrink-0 border-border border-l bg-background/95 p-4'>
@@ -67,13 +152,13 @@ export function ReadOnlyNodeEditorPanel({
           <h3 className='line-clamp-2 font-medium text-sm'>{selectedBlock.name}</h3>
         </header>
 
-        {previewSubBlocks.length > 0 ? (
+        {previewConfig.subBlocks.length > 0 ? (
           <div className='space-y-2'>
             <SubBlockSummaryRows
               blockId={selectedBlock.id}
-              subBlocks={previewSubBlocks}
-              stateToUse={selectedBlock.subBlocks || {}}
-              availableTriggerIds={blockConfig?.triggers?.available}
+              subBlocks={previewConfig.subBlocks}
+              stateToUse={previewConfig.stateToUse}
+              availableTriggerIds={previewConfig.availableTriggerIds}
             />
           </div>
         ) : (

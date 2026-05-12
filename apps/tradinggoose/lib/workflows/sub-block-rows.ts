@@ -102,8 +102,8 @@ export function buildSubBlockRows({
       }
     }
 
-    if (subBlock.mode === 'basic' && isAdvancedMode) return false
-    if (subBlock.mode === 'advanced' && !isAdvancedMode) return false
+    if (isAdvancedMode && subBlock.mode !== 'advanced') return false
+    if (!isAdvancedMode && subBlock.mode === 'advanced') return false
 
     if (!subBlock.condition) return true
 

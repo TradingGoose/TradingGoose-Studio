@@ -167,18 +167,23 @@ export function Dropdown({
   }, [options, config])
 
   const normalizedFetchedOptions = useMemo<DropdownOptionObject[]>(() => {
-    return fetchedOptions.map((opt) => ({
-      id: opt.id,
-      label: opt.label,
-      value: opt.value,
-      icon: opt.icon,
-      group: opt.group,
-      disabled: opt.disabled,
-      dstOn: opt.dstOn,
-      observesDst: opt.observesDst,
-      searchLabel: opt.searchLabel,
-      rightLabel: opt.rightLabel,
-    }))
+    return fetchedOptions.map((opt) => {
+      const normalized: DropdownOptionObject = {
+        id: opt.id,
+        label: opt.label,
+        icon: opt.icon,
+        group: opt.group,
+        disabled: opt.disabled,
+        dstOn: opt.dstOn,
+        observesDst: opt.observesDst,
+        searchLabel: opt.searchLabel,
+        rightLabel: opt.rightLabel,
+      }
+      if (hasExplicitValue(opt)) {
+        normalized.value = opt.value
+      }
+      return normalized
+    })
   }, [fetchedOptions])
 
   const availableOptions = useMemo<Array<string | DropdownOptionObject>>(() => {

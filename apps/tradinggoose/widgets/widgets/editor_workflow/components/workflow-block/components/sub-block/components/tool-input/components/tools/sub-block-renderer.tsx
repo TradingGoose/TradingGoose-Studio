@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { isEqual } from 'lodash'
 import type { SubBlockConfig } from '@/blocks/types'
+import { CheckboxList } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/components/checkbox-list'
 import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
 import { SubBlock } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/sub-block'
 
@@ -56,7 +57,35 @@ const toStoreValue = (type: string, value: any): any => {
   return value
 }
 
-export function ToolSubBlockRenderer({
+const getCheckboxListOptions = (subBlock: SubBlockConfig) =>
+  subBlock.type === 'checkbox-list' && Array.isArray(subBlock.options)
+    ? (subBlock.options as { label: string; id: string }[])
+    : null
+
+export function ToolSubBlockRenderer(props: ToolSubBlockRendererProps) {
+  const options = getCheckboxListOptions(props.subBlock)
+  if (options) {
+    return (
+      <CheckboxList
+        blockId={props.blockId}
+        subBlockId={`${props.subBlockId}-tool-${props.toolIndex}-${props.effectiveParamId}`}
+        options={options}
+        layout={props.subBlock.layout as 'full' | 'half' | undefined}
+        disabled={props.disabled}
+        valueById={Object.fromEntries(
+          options.map((option) => [option.id, Boolean(props.toolParams?.[option.id])])
+        )}
+        onOptionChange={(optionId, checked) =>
+          props.onParamChange(props.toolIndex, optionId, checked)
+        }
+      />
+    )
+  }
+
+  return <StoredToolSubBlockRenderer {...props} />
+}
+
+function StoredToolSubBlockRenderer({
   blockId,
   subBlockId,
   toolIndex,

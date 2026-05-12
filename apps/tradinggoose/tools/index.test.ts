@@ -125,28 +125,6 @@ describe('Custom Tools', () => {
             }
             return undefined
           },
-          getAllTools: () => [
-            {
-              id: 'custom-tool-123',
-              workspaceId: 'workspace-456',
-              userId: 'user-123',
-              title: 'Custom Weather Tool',
-              code: 'return { result: "Weather data" }',
-              schema: {
-                function: {
-                  description: 'Get weather information',
-                  parameters: {
-                    type: 'object',
-                    properties: {
-                      location: { type: 'string', description: 'City name' },
-                      unit: { type: 'string', description: 'Unit (metric/imperial)' },
-                    },
-                    required: ['location'],
-                  },
-                },
-              },
-            },
-          ],
         }),
       },
     }))
@@ -180,6 +158,11 @@ describe('Custom Tools', () => {
   it('should handle non-existent custom tool', () => {
     const nonExistentTool = getTool('custom_non-existent')
     expect(nonExistentTool).toBeUndefined()
+  })
+
+  it('should not resolve custom tools by title', () => {
+    const customTool = getTool('custom_Custom Weather Tool')
+    expect(customTool).toBeUndefined()
   })
 })
 

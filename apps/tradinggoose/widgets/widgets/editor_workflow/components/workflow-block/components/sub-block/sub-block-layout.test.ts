@@ -107,4 +107,25 @@ describe('buildSubBlockRows', () => {
 
     expect(rows.flat().map((subBlock) => subBlock.id)).toEqual(['files'])
   })
+
+  it('keeps default and trigger rows out of advanced rendering', () => {
+    const rows = buildSubBlockRows({
+      subBlocks: [
+        { id: 'message', title: 'Message', type: 'long-input' },
+        { id: 'selectedTriggerId', title: 'Trigger Type', type: 'dropdown', mode: 'trigger' },
+        { id: 'files', title: 'Files', type: 'file-selector', mode: 'advanced' },
+      ],
+      stateToUse: {
+        message: { value: 'hello' },
+        selectedTriggerId: { value: 'slack_message' },
+        files: { value: ['file-1'] },
+      },
+      isAdvancedMode: true,
+      isTriggerMode: false,
+      isPureTriggerBlock: false,
+      triggerSubBlockOwner: 'all',
+    })
+
+    expect(rows.flat().map((subBlock) => subBlock.id)).toEqual(['files'])
+  })
 })

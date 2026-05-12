@@ -1,5 +1,10 @@
 import { createLogger } from '@/lib/logs/console/logger'
-import type { TimeFormat } from '@/lib/time-format'
+import type {
+  BlockConfig,
+  SubBlockCondition as ComponentCondition,
+  SubBlockConfig,
+  SubBlockOption,
+} from '@/blocks/types'
 import type { TradingProviderParamDefinition } from '@/providers/trading/providers'
 import {
   getTradingProviderParamCatalog,
@@ -10,133 +15,17 @@ import { getTool } from '@/tools/utils'
 
 const logger = createLogger('ToolsParams')
 
-export interface Option {
-  label: string
-  id: string
-  value?: unknown
-  searchLabel?: string
-  rightLabel?: string
-  disabled?: boolean
-  group?: string
-}
-
-export interface ComponentCondition {
-  field: string
-  value: string | number | boolean | Array<string | number | boolean>
-  not?: boolean
-  and?: ComponentCondition | ComponentCondition[]
-}
-
-export interface UIComponentConfig {
-  type: string
-  options?: Option[]
-  placeholder?: string
-  description?: string
-  tooltip?: string
-  format?: TimeFormat
-  password?: boolean
-  inputType?: 'text' | 'number'
+export type UIComponentConfig = Omit<
+  Partial<SubBlockConfig>,
+  'acceptedTypes' | 'condition' | 'dependsOn' | 'id' | 'options' | 'type' | 'value'
+> & {
+  type: SubBlockConfig['type'] | string
+  subBlockId?: string
+  options?: SubBlockOption[]
   condition?: ComponentCondition
-  title?: string
-  layout?: string
   value?: unknown
-  provider?: string
-  serviceId?: string
-  requiredScopes?: string[]
-  providerType?: 'market' | 'trading'
-  providerFieldId?: string
-  enableSearch?: boolean
-  searchPlaceholder?: string
-  mimeType?: string
-  columns?: string[]
-  min?: number
-  max?: number
-  step?: number
-  integer?: boolean
-  rows?: number
-  timezone?: string
-  clearable?: boolean
-  hideCalendarIcon?: boolean
-  minDate?: string | Date
-  maxDate?: string | Date
-  hideTime?: boolean
-  use12HourFormat?: boolean
-  timePicker?: {
-    hour?: boolean
-    minute?: boolean
-    second?: boolean
-  }
-  language?: string
-  generationType?: string
-  acceptedTypes?: string[]
-  multiple?: boolean
-  maxSize?: number
-  autoSelectFirstOption?: boolean
+  acceptedTypes?: string | string[]
   dependsOn?: string[]
-  fetchOptions?: (
-    blockId: string,
-    subBlockId: string,
-    contextValues?: Record<string, any>
-  ) => Promise<Option[]>
-}
-
-export interface SubBlockConfig {
-  id: string
-  canonicalParamId?: string
-  type: string
-  title?: string
-  options?: Option[]
-  placeholder?: string
-  description?: string
-  tooltip?: string
-  format?: TimeFormat
-  password?: boolean
-  inputType?: 'text' | 'number'
-  condition?: ComponentCondition
-  layout?: string
-  value?: unknown
-  provider?: string
-  serviceId?: string
-  requiredScopes?: string[]
-  providerType?: 'market' | 'trading'
-  providerFieldId?: string
-  enableSearch?: boolean
-  searchPlaceholder?: string
-  mimeType?: string
-  columns?: string[]
-  min?: number
-  max?: number
-  step?: number
-  integer?: boolean
-  timezone?: string
-  clearable?: boolean
-  hideCalendarIcon?: boolean
-  minDate?: string | Date
-  maxDate?: string | Date
-  hideTime?: boolean
-  use12HourFormat?: boolean
-  timePicker?: {
-    hour?: boolean
-    minute?: boolean
-    second?: boolean
-  }
-  language?: string
-  generationType?: string
-  acceptedTypes?: string[]
-  multiple?: boolean
-  maxSize?: number
-  autoSelectFirstOption?: boolean
-  dependsOn?: string[]
-  fetchOptions?: (
-    blockId: string,
-    subBlockId: string,
-    contextValues?: Record<string, any>
-  ) => Promise<Option[]>
-}
-
-export interface BlockConfig {
-  type: string
-  subBlocks?: SubBlockConfig[]
 }
 
 export interface SchemaProperty {
@@ -174,8 +63,6 @@ export interface ToolWithParameters {
   requiredParameters: ToolParameterConfig[] // Must be filled by user or LLM
   optionalParameters: ToolParameterConfig[] // Nice to have, shown to user
 }
-
-let blockConfigCache: Record<string, BlockConfig> | null = null
 
 const resolveProviderInputType = (
   definition: TradingProviderParamDefinition
@@ -240,25 +127,38 @@ const buildProviderUiComponent = (
   inputType: definition.type === 'number' ? 'number' : undefined,
 })
 
-function getBlockConfigurations(): Record<string, BlockConfig> {
-  if (!blockConfigCache) {
-    try {
-      const { getAllBlocks } = require('@/blocks')
-      const allBlocks = getAllBlocks()
-      blockConfigCache = {}
-      allBlocks.forEach((block: BlockConfig) => {
-        blockConfigCache![block.type] = block
-      })
-    } catch (error) {
-      console.warn('Could not load block configuration:', error)
-      blockConfigCache = {}
-    }
-  }
-  return blockConfigCache
-}
-
 const getCanonicalSubBlockParamId = (subBlock: SubBlockConfig): string =>
   subBlock.canonicalParamId ?? subBlock.id
+
+const resolveSubBlockCondition = (
+  condition: SubBlockConfig['condition']
+): ComponentCondition | undefined => (typeof condition === 'function' ? condition() : condition)
+
+const resolveSubBlockOptions = (options: SubBlockConfig['options']) =>
+  typeof options === 'function' ? options() : options
+
+const resolveDependsOn = (dependsOn: SubBlockConfig['dependsOn']): string[] | undefined => {
+  if (Array.isArray(dependsOn)) return dependsOn
+  return dependsOn?.all ?? dependsOn?.any
+}
+
+const matchesConditionValue = (condition: ComponentCondition, value?: string): boolean => {
+  if (!value) return false
+  return Array.isArray(condition.value)
+    ? condition.value.includes(value)
+    : condition.value === value
+}
+
+const getOperationIdForTool = (blockConfig: BlockConfig, toolId: string): string | undefined => {
+  const operationSubBlock = blockConfig.subBlocks.find((subBlock) => subBlock.id === 'operation')
+  const operationOptions = resolveSubBlockOptions(operationSubBlock?.options)
+  if (!Array.isArray(operationOptions)) return undefined
+
+  return operationOptions.find((option) => {
+    const configuredToolId = blockConfig.tools.config?.tool({ operation: option.id })
+    return configuredToolId === toolId || option.id === toolId
+  })?.id
+}
 
 /**
  * Gets all parameters for a tool, categorized by their usage
@@ -266,7 +166,7 @@ const getCanonicalSubBlockParamId = (subBlock: SubBlockConfig): string =>
  */
 export function getToolParametersConfig(
   toolId: string,
-  blockType?: string,
+  blockConfig?: BlockConfig,
   contextValues?: Record<string, any>
 ): ToolWithParameters | null {
   try {
@@ -280,13 +180,6 @@ export function getToolParametersConfig(
     if (!toolConfig.params || typeof toolConfig.params !== 'object') {
       logger.warn(`Tool ${toolId} has invalid params configuration`)
       return null
-    }
-
-    // Get block configuration for UI component information
-    let blockConfig: BlockConfig | null = null
-    if (blockType) {
-      const blockConfigs = getBlockConfigurations()
-      blockConfig = blockConfigs[blockType] || null
     }
 
     const tradingProviderContext = (() => {
@@ -374,45 +267,26 @@ export function getToolParametersConfig(
         let subBlock = blockConfig.subBlocks?.find((sb: SubBlockConfig) => {
           if (getCanonicalSubBlockParamId(sb) !== paramId) return false
 
-          // If there's a condition, check if it matches the current tool
-          if (sb.condition && sb.condition.field === 'operation') {
-            // First try exact match with full tool ID
-            if (sb.condition.value === toolId) return true
+          const condition = resolveSubBlockCondition(sb.condition)
+          if (!condition || condition.field !== 'operation') return true
 
-            // Then try extracting operation from tool ID
-            // For tools like 'google_calendar_quick_add', extract 'quick_add'
-            const parts = toolId.split('_')
-            if (parts.length >= 3) {
-              // Join everything after the provider prefix (e.g., 'google_calendar_')
-              const operation = parts.slice(2).join('_')
-              if (sb.condition.value === operation) return true
-            }
-
-            // Fallback to last part only
-            const operation = parts[parts.length - 1]
-            return sb.condition.value === operation
-          }
-
-          // If no condition, it's a global parameter (like apiKey)
-          return !sb.condition
-        })
-
-        // Fallback: if no operation-specific match, find any matching parameter
-        if (!subBlock) {
-          subBlock = blockConfig.subBlocks?.find(
-            (sb: SubBlockConfig) => getCanonicalSubBlockParamId(sb) === paramId
+          return (
+            matchesConditionValue(condition, toolId) ||
+            matchesConditionValue(condition, getOperationIdForTool(blockConfig, toolId))
           )
-        }
+        })
 
         // Special case: Check if this boolean parameter is part of a checkbox-list
         if (!subBlock && param.type === 'boolean' && blockConfig) {
           // Look for a checkbox-list that includes this parameter as an option
-          const checkboxListBlock = blockConfig.subBlocks?.find(
-            (sb: SubBlockConfig) =>
+          const checkboxListBlock = blockConfig.subBlocks?.find((sb: SubBlockConfig) => {
+            const options = resolveSubBlockOptions(sb.options)
+            return (
               sb.type === 'checkbox-list' &&
-              Array.isArray(sb.options) &&
-              sb.options.some((opt: any) => opt.id === paramId)
-          )
+              Array.isArray(options) &&
+              options.some((opt: any) => opt.id === paramId)
+            )
+          })
 
           if (checkboxListBlock) {
             subBlock = checkboxListBlock
@@ -422,12 +296,13 @@ export function getToolParametersConfig(
         if (subBlock) {
           toolParam.uiComponent = {
             type: subBlock.type,
-            options: subBlock.options,
+            subBlockId: subBlock.id,
+            options: resolveSubBlockOptions(subBlock.options),
             placeholder: subBlock.placeholder,
             description: subBlock.description,
             tooltip: subBlock.tooltip,
             password: subBlock.password,
-            condition: subBlock.condition,
+            condition: resolveSubBlockCondition(subBlock.condition),
             title: subBlock.title,
             layout: subBlock.layout,
             value: subBlock.value,
@@ -454,7 +329,7 @@ export function getToolParametersConfig(
             multiple: subBlock.multiple,
             maxSize: subBlock.maxSize,
             autoSelectFirstOption: subBlock.autoSelectFirstOption,
-            dependsOn: subBlock.dependsOn,
+            dependsOn: resolveDependsOn(subBlock.dependsOn),
             fetchOptions: subBlock.fetchOptions,
           }
         }
@@ -532,6 +407,32 @@ export function getToolParametersConfig(
     logger.error('Error getting tool parameters config:', error)
     return null
   }
+}
+
+export function getRenderableToolParameters(
+  parameters: ToolParameterConfig[]
+): ToolParameterConfig[] {
+  const renderedCheckboxLists = new Set<string>()
+
+  return parameters.filter((param) => {
+    const uiComponent = param.uiComponent
+    if (uiComponent?.type !== 'checkbox-list' || !uiComponent.subBlockId) return true
+
+    const condition = uiComponent.condition
+    const conditionValue = Array.isArray(condition?.value)
+      ? condition.value.join('|')
+      : String(condition?.value ?? '')
+    const renderKey = [
+      uiComponent.subBlockId,
+      condition?.field ?? '',
+      conditionValue,
+      condition?.not ? 'not' : '',
+    ].join(':')
+
+    if (renderedCheckboxLists.has(renderKey)) return false
+    renderedCheckboxLists.add(renderKey)
+    return true
+  })
 }
 
 /**

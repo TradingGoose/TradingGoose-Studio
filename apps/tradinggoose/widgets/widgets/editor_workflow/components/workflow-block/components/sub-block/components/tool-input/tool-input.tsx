@@ -23,6 +23,7 @@ import { getProviderFromModel, supportsToolUsageControl } from '@/providers/ai/u
 import type { CustomToolDefinition } from '@/stores/custom-tools/types'
 import {
   formatParameterLabel,
+  getRenderableToolParameters,
   getToolParametersConfig,
   isPasswordParameter,
   type ToolParameterConfig,
@@ -188,7 +189,7 @@ export function ToolInput({ blockId, subBlockId, isConnecting, disabled = false 
       return operationSubBlock.options as { label: string; id: string }[]
     }
 
-    // Fallback: create options from tools.access
+    // Use tool access ids when the block has no operation dropdown.
     return block.tools.access.map((toolId) => {
       try {
         const toolParams = getToolParametersConfig(toolId)
@@ -263,7 +264,7 @@ export function ToolInput({ blockId, subBlockId, isConnecting, disabled = false 
     if (isToolAlreadySelected(toolId, toolBlock.type)) return
 
     // Get tool parameters using the new utility with block type for UI components
-    const toolParams = getToolParametersConfig(toolId, toolBlock.type)
+    const toolParams = getToolParametersConfig(toolId, toolBlock)
     if (!toolParams) return
 
     // Initialize parameters with auto-fill and default values
@@ -352,12 +353,10 @@ export function ToolInput({ blockId, subBlockId, isConnecting, disabled = false 
   const handleAddCustomTool = (customTool: CustomToolDefinition) => {
     if (disabled) return
 
-    const customToolId = `custom-${customTool.schema.function.name}`
-
     const newTool: StoredTool = {
       type: 'custom-tool',
       title: customTool.title,
-      toolId: customToolId,
+      toolId: `custom_${customTool.id}`,
       params: {},
       isExpanded: true,
       schema: customTool.schema,
@@ -383,7 +382,8 @@ export function ToolInput({ blockId, subBlockId, isConnecting, disabled = false 
     }
 
     const dependentParamIds = (() => {
-      const toolParams = getToolParametersConfig(tool.toolId, tool.type, tool.params)
+      const toolBlock = allToolBlocks.find((block) => block.type === tool.type)
+      const toolParams = getToolParametersConfig(tool.toolId, toolBlock, tool.params)
       const params = toolParams?.userInputParameters ?? []
       const dependencyMap = new Map<string, string[]>()
 
@@ -449,7 +449,8 @@ export function ToolInput({ blockId, subBlockId, isConnecting, disabled = false 
     }
 
     // Get parameters for the new tool
-    const toolParams = getToolParametersConfig(newToolId, tool.type, tool.params)
+    const toolBlock = allToolBlocks.find((block) => block.type === tool.type)
+    const toolParams = getToolParametersConfig(newToolId, toolBlock, tool.params)
 
     if (!toolParams) {
       logger.info('❌ Early return: no toolParams')
@@ -488,7 +489,7 @@ export function ToolInput({ blockId, subBlockId, isConnecting, disabled = false 
               ...tool,
               toolId: newToolId,
               operation,
-              params: { ...initialParams, ...preservedParams }, // Preserve all compatible existing values
+              params: { ...initialParams, ...preservedParams },
             }
           : tool
       )
@@ -747,7 +748,7 @@ export function ToolInput({ blockId, subBlockId, isConnecting, disabled = false 
             // Get tool parameters using the new utility with block type for UI components
             const toolParams =
               !isCustomTool && !isMcpTool
-                ? getToolParametersConfig(currentToolId, tool.type, tool.params)
+                ? getToolParametersConfig(currentToolId, toolBlock ?? undefined, tool.params)
                 : null
 
             // For custom tools, extract parameters from schema
@@ -1001,7 +1002,7 @@ export function ToolInput({ blockId, subBlockId, isConnecting, disabled = false 
                       )}
 
                       {/* Tool parameters */}
-                      {displayParams
+                      {getRenderableToolParameters(displayParams)
                         .filter((param) => evaluateParameterCondition(param, tool))
                         .map((param) => {
                           const currentToolParams = {
