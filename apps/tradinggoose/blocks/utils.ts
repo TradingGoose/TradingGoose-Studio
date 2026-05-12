@@ -90,7 +90,9 @@ export const fetchTradingPortfolioIdentityOptions = async (
     `/api/providers/trading/portfolio-identities?provider=${encodeURIComponent(provider)}`,
     { cache: 'no-store' }
   )
-  if (!response.ok) return []
+  if (!response.ok) {
+    throw new Error('Failed to load trading accounts')
+  }
 
   const data = (await response.json()) as { options?: SubBlockOption[] }
   return data.options ?? []

@@ -114,12 +114,7 @@ export function OrderIdSelectorInput({
 
   useEffect(() => {
     const trimmed = debouncedQuery.trim()
-    const currentTrimmed = currentValue.trim()
-    const isSelectedOrderSynced =
-      !!selectedOrderId &&
-      equalsIgnoreCase(trimmed, selectedOrderId) &&
-      equalsIgnoreCase(currentTrimmed, selectedOrderId)
-    const shouldFetch = open || (isOrderUuid(trimmed) && !isSelectedOrderSynced)
+    const shouldFetch = open
 
     if (!shouldFetch) {
       if (!open && !trimmed) {
@@ -159,26 +154,6 @@ export function OrderIdSelectorInput({
         setResults(rows)
         setIsLoading(false)
         setError(undefined)
-
-        if (requestQuery && isOrderUuid(requestQuery)) {
-          const match = rows.find((row) => equalsIgnoreCase(row.id, requestQuery))
-          if (!match) {
-            if (!open) {
-              setSelectedOrder(null)
-            }
-            return
-          }
-
-          if (!selectedOrderId || !equalsIgnoreCase(selectedOrderId, match.id)) {
-            setSelectedOrder(match)
-          }
-          setQuery((previous) =>
-            equalsIgnoreCase(previous.trim(), match.id) ? previous : match.id
-          )
-          if (!equalsIgnoreCase(currentValue.trim(), match.id)) {
-            setOrderIdValue(match.id)
-          }
-        }
       })
       .catch((requestError) => {
         if (controller.signal.aborted) return
@@ -190,7 +165,7 @@ export function OrderIdSelectorInput({
     return () => {
       controller.abort()
     }
-  }, [currentValue, debouncedQuery, open, selectedOrderId, setOrderIdValue, workspaceId])
+  }, [debouncedQuery, open, selectedOrderId, workspaceId])
 
   useEffect(() => {
     setHighlightedIndex((previous) => {
@@ -249,14 +224,8 @@ export function OrderIdSelectorInput({
                 }
 
                 const currentTrimmed = currentValue.trim()
-
                 if (currentTrimmed && !equalsIgnoreCase(currentTrimmed, nextTrimmed)) {
-                  setOrderIdValue(isOrderUuid(nextTrimmed) ? nextTrimmed : null)
-                  return
-                }
-
-                if (!currentTrimmed && isOrderUuid(nextTrimmed)) {
-                  setOrderIdValue(nextTrimmed)
+                  setOrderIdValue(null)
                 }
               }}
               onFocus={() => {

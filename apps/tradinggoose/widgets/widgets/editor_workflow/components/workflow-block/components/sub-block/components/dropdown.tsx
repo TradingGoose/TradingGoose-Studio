@@ -211,6 +211,16 @@ export function Dropdown({
   const optionsReady = fetchOptions ? hasFetchedOptions && !isLoadingOptions && !fetchError : true
   const hasValue = value !== null && value !== undefined && value !== ''
 
+  const clearSelectedValue = useCallback(() => {
+    blockAutoDefaultRef.current = true
+    if (useStore) {
+      setStoreValue('')
+    }
+    if (onChange) {
+      onChange('')
+    }
+  }, [useStore, setStoreValue, onChange])
+
   // Get the default option value (first option or provided defaultValue)
   const defaultOptionValue = useMemo(() => {
     if (defaultValue !== undefined) {
@@ -222,7 +232,8 @@ export function Dropdown({
     }
 
     if (availableOptions.length > 0) {
-      return getOptionValue(availableOptions[0] as any)
+      const firstOption = availableOptions[0]
+      return firstOption === undefined ? undefined : getOptionValue(firstOption)
     }
 
     return undefined
@@ -230,27 +241,16 @@ export function Dropdown({
 
   useEffect(() => {
     if (!optionsReady || !hasValue) return
-    if (fetchOptions && dependsOn.length > 0) return
-    const isValid = availableOptions.some((option) => isEqual(getOptionValue(option as any), value))
+    const isValid = availableOptions.some((option) => isEqual(getOptionValue(option), value))
     if (!isValid) {
-      blockAutoDefaultRef.current = true
-      if (useStore) {
-        setStoreValue('')
-      }
-      if (onChange) {
-        onChange('')
-      }
+      clearSelectedValue()
     }
   }, [
     optionsReady,
     hasValue,
     availableOptions,
     value,
-    useStore,
-    setStoreValue,
-    onChange,
-    fetchOptions,
-    dependsOn.length,
+    clearSelectedValue,
   ])
 
   // Mark store as initialized on first render
@@ -267,13 +267,16 @@ export function Dropdown({
         previousDependencyValuesStr &&
         currentDependencyValuesStr !== previousDependencyValuesStr
       ) {
+        if (hasValue) {
+          clearSelectedValue()
+        }
         setFetchedOptions([])
         setHasFetchedOptions(false)
       }
 
       previousDependencyValuesRef.current = currentDependencyValuesStr
     }
-  }, [dependencyValues, fetchOptions, dependsOn.length])
+  }, [dependencyValues, fetchOptions, dependsOn.length, hasValue, clearSelectedValue])
 
   useEffect(() => {
     if (value !== null && value !== undefined && value !== '') {
