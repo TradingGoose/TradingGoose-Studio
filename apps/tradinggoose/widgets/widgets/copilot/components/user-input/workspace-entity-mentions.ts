@@ -50,11 +50,10 @@ export async function loadWorkspaceEntityMentionItems(
   }
 
   const response = await fetch(path)
-  const data = await response.json().catch(() => ({}))
-
   if (!response.ok) {
     throw new Error(`Failed to load ${entityKind}: ${response.status}`)
   }
+  const data = await response.json()
 
   switch (entityKind) {
     case 'workflow':

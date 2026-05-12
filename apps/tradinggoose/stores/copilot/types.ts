@@ -111,7 +111,7 @@ export interface CopilotChat {
 export interface CopilotLiveReviewTarget {
   entityKind: Exclude<ReviewEntityKind, 'workflow'>
   entityId: string | null
-  reviewSessionId: string | null
+  reviewSessionId: string
   draftSessionId: string | null
 }
 

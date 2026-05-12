@@ -71,7 +71,6 @@ vi.mock('@/stores/dashboard/pair-store', () => ({
 }))
 
 vi.mock('@/widgets/widgets/copilot/live-contexts', () => ({
-  buildCopilotEditableReviewTargets: () => [],
   buildImplicitCopilotContexts: () => [],
   resolveCopilotWorkflowId: () => null,
 }))

@@ -13,8 +13,21 @@ const reactActEnvironment = globalThis as typeof globalThis & {
 
 const mockResolveEntityReviewTarget = vi.fn()
 const mockUnregisteredReviewSessionIds = new Set<string>()
+const mockCopilotStoreApi = {
+  getState: () => ({
+    currentChat: null,
+    chats: [],
+    messages: [],
+    saveChatMessages: async () => {},
+  }),
+  setState: vi.fn(),
+}
 const mockCopilot = vi.fn((props: any) => (
-  <div data-testid='copilot' data-input-disabled={String(Boolean(props.inputDisabled))}>
+  <div
+    data-testid='copilot'
+    data-input-disabled={String(Boolean(props.inputDisabled))}
+    data-review-session-id={props.reviewTarget?.reviewSessionId ?? ''}
+  >
     copilot
   </div>
 ))
@@ -70,15 +83,7 @@ vi.mock('@/lib/yjs/workflow-session-host', () => ({
 vi.mock('@/stores/copilot/store', () => ({
   DEFAULT_COPILOT_CHANNEL_ID: 'default',
   CopilotStoreProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
-  useCopilotStoreApi: () => ({
-    getState: () => ({
-      currentChat: null,
-      chats: [],
-      messages: [],
-      saveChatMessages: vi.fn(async () => {}),
-    }),
-    setState: vi.fn(),
-  }),
+  useCopilotStoreApi: () => mockCopilotStoreApi,
 }))
 
 vi.mock('@/stores/dashboard/pair-store', () => ({
@@ -192,6 +197,80 @@ describe('CopilotApp', () => {
     expect(container.querySelector('[data-testid="copilot"]')).toHaveAttribute(
       'data-input-disabled',
       'false'
+    )
+    expect(container.querySelector('[data-testid="copilot"]')).toHaveAttribute(
+      'data-review-session-id',
+      'review-1'
+    )
+  })
+
+  it('withholds runtime review metadata until the entity session is registered', async () => {
+    mockUnregisteredReviewSessionIds.add('review-pending')
+    mockPairContext = {
+      workflowId: null,
+      reviewSessionId: 'review-pending',
+      reviewEntityKind: 'skill',
+      reviewDraftSessionId: 'draft-pending',
+    }
+
+    await renderApp()
+
+    expect(container.querySelector('[data-testid="entity-session-host"]')).toHaveAttribute(
+      'data-review-session-id',
+      'review-pending'
+    )
+    expect(container.querySelector('[data-testid="copilot"]')).toHaveAttribute(
+      'data-input-disabled',
+      'true'
+    )
+    expect(container.querySelector('[data-testid="copilot"]')).toHaveAttribute(
+      'data-review-session-id',
+      ''
+    )
+  })
+
+  it('passes resolved entity review metadata into Copilot runtime context', async () => {
+    mockPairContext = {
+      workflowId: null,
+      reviewEntityKind: 'indicator',
+      reviewEntityId: 'indicator-1',
+    }
+    mockResolveEntityReviewTarget.mockResolvedValue({
+      descriptor: {
+        workspaceId: 'ws-1',
+        entityKind: 'indicator',
+        entityId: 'indicator-1',
+        draftSessionId: null,
+        reviewSessionId: 'review-resolved',
+        yjsSessionId: 'review-resolved',
+      },
+      runtime: null,
+    })
+
+    await renderApp()
+    await act(async () => {
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    expect(mockResolveEntityReviewTarget).toHaveBeenCalledWith({
+      workspaceId: 'ws-1',
+      entityKind: 'indicator',
+      entityId: 'indicator-1',
+      draftSessionId: undefined,
+      reviewSessionId: undefined,
+    })
+    expect(container.querySelector('[data-testid="entity-session-host"]')).toHaveAttribute(
+      'data-review-session-id',
+      'review-resolved'
+    )
+    expect(container.querySelector('[data-testid="copilot"]')).toHaveAttribute(
+      'data-input-disabled',
+      'false'
+    )
+    expect(container.querySelector('[data-testid="copilot"]')).toHaveAttribute(
+      'data-review-session-id',
+      'review-resolved'
     )
   })
 })

@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
-  buildCopilotEditableReviewTargets,
+  buildCopilotEditableReviewTargetRequest,
   buildImplicitCopilotContexts,
+  buildCopilotLiveReviewTarget,
   resolveCopilotWorkflowId,
 } from './live-contexts'
 
@@ -125,22 +126,22 @@ describe('buildImplicitCopilotContexts', () => {
   })
 })
 
-describe('buildCopilotEditableReviewTargets', () => {
-  it('does not emit plain non-workflow entity selections as editable targets', () => {
+describe('buildCopilotEditableReviewTargetRequest', () => {
+  it('does not emit plain non-workflow entity selections as editable requests', () => {
     expect(
-      buildCopilotEditableReviewTargets({
+      buildCopilotEditableReviewTargetRequest({
         pairContext: {
           workflowId: 'workflow-pair',
           skillId: 'skill-1',
           indicatorId: 'indicator-1',
         },
       })
-    ).toEqual([])
+    ).toBeNull()
   })
 
-  it('emits canonical non-workflow review metadata as an editable target', () => {
+  it('emits canonical non-workflow review metadata as an editable request', () => {
     expect(
-      buildCopilotEditableReviewTargets({
+      buildCopilotEditableReviewTargetRequest({
         pairContext: {
           reviewEntityKind: 'indicator',
           reviewEntityId: null,
@@ -148,25 +149,56 @@ describe('buildCopilotEditableReviewTargets', () => {
           reviewDraftSessionId: 'draft-indicator-1',
         },
       })
-    ).toEqual([
-      {
-        entityKind: 'indicator',
-        entityId: null,
-        reviewSessionId: 'review-indicator-1',
-        draftSessionId: 'draft-indicator-1',
-      },
-    ])
+    ).toEqual({
+      entityKind: 'indicator',
+      entityId: null,
+      reviewSessionId: 'review-indicator-1',
+      draftSessionId: 'draft-indicator-1',
+    })
   })
 
-  it('does not mount workflow review metadata as an entity target', () => {
+  it('does not request entity review mounting for workflow review metadata', () => {
     expect(
-      buildCopilotEditableReviewTargets({
+      buildCopilotEditableReviewTargetRequest({
         pairContext: {
           reviewEntityKind: 'workflow',
           reviewEntityId: 'workflow-review',
           reviewSessionId: 'review-workflow-1',
         },
       })
-    ).toEqual([])
+    ).toBeNull()
+  })
+})
+
+describe('buildCopilotLiveReviewTarget', () => {
+  it('derives editable runtime provenance only from resolved entity review descriptors', () => {
+    expect(
+      buildCopilotLiveReviewTarget({
+        workspaceId: 'workspace-1',
+        entityKind: 'skill',
+        entityId: null,
+        reviewSessionId: 'review-skill-1',
+        draftSessionId: 'draft-skill-1',
+        yjsSessionId: 'review-skill-1',
+      })
+    ).toEqual({
+      entityKind: 'skill',
+      entityId: null,
+      reviewSessionId: 'review-skill-1',
+      draftSessionId: 'draft-skill-1',
+    })
+  })
+
+  it('does not expose non-entity descriptors as live edit provenance', () => {
+    expect(
+      buildCopilotLiveReviewTarget({
+        workspaceId: 'workspace-1',
+        entityKind: 'workflow',
+        entityId: 'workflow-1',
+        reviewSessionId: 'review-workflow-1',
+        draftSessionId: null,
+        yjsSessionId: 'workflow-1',
+      })
+    ).toBeNull()
   })
 })

@@ -18,11 +18,14 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { normalizeOptionalString } from '@/lib/utils'
 import { useCopilotStore, useCopilotStoreApi } from '@/stores/copilot/store'
 import { hasUiActiveToolCalls } from '@/stores/copilot/store-state'
-import type { ChatContext, CopilotSendRuntimeContext } from '@/stores/copilot/types'
+import type {
+  ChatContext,
+  CopilotLiveReviewTarget,
+  CopilotSendRuntimeContext,
+} from '@/stores/copilot/types'
 import { usePairColorContext } from '@/stores/dashboard/pair-store'
 import type { PairColor } from '@/widgets/pair-colors'
 import {
-  buildCopilotEditableReviewTargets,
   buildImplicitCopilotContexts,
   resolveCopilotWorkflowId,
 } from '@/widgets/widgets/copilot/live-contexts'
@@ -47,6 +50,7 @@ interface CopilotProps {
   panelWidth: number
   pairColor?: PairColor
   inputDisabled?: boolean
+  reviewTarget?: CopilotLiveReviewTarget | null
 }
 
 interface CopilotRef {
@@ -55,7 +59,7 @@ interface CopilotRef {
 }
 
 export const Copilot = forwardRef<CopilotRef, CopilotProps>(
-  ({ workspaceId, panelWidth, pairColor = 'gray', inputDisabled = false }, ref) => {
+  ({ workspaceId, panelWidth, pairColor = 'gray', inputDisabled = false, reviewTarget }, ref) => {
     const scrollAreaRef = useRef<HTMLDivElement>(null)
     const messagesContainerRef = useRef<HTMLDivElement>(null)
     const userInputRef = useRef<UserInputRef>(null)
@@ -82,22 +86,11 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
       [pairContext, workspaceId]
     )
     const workflowId = resolveCopilotWorkflowId(pairContext) ?? null
-    const reviewTarget = useMemo(
-      () => buildCopilotEditableReviewTargets({ pairContext })[0] ?? null,
-      [pairContext]
-    )
     const liveContext = useMemo(
       () => ({
         workflowId,
         workspaceId: normalizeOptionalString(workspaceId) ?? null,
-        reviewTarget: reviewTarget
-          ? {
-              entityKind: reviewTarget.entityKind,
-              entityId: reviewTarget.entityId,
-              reviewSessionId: reviewTarget.reviewSessionId ?? null,
-              draftSessionId: reviewTarget.draftSessionId,
-            }
-          : null,
+        reviewTarget: reviewTarget ?? null,
       }),
       [reviewTarget, workflowId, workspaceId]
     )

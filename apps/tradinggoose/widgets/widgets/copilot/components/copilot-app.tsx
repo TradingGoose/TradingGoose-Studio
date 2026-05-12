@@ -15,8 +15,9 @@ import {
 import { usePairColorContext } from '@/stores/dashboard/pair-store'
 import type { PairColor } from '@/widgets/pair-colors'
 import {
-  buildCopilotEditableReviewTargets,
-  type CopilotEditableReviewTarget,
+  buildCopilotEditableReviewTargetRequest,
+  buildCopilotLiveReviewTarget,
+  type CopilotEditableReviewTargetRequest,
   resolveCopilotWorkflowId,
 } from '@/widgets/widgets/copilot/live-contexts'
 import {
@@ -32,7 +33,7 @@ interface CopilotAppProps {
   pairColor: PairColor
 }
 
-function getEditableTargetLabel(target?: CopilotEditableReviewTarget): string {
+function getEditableTargetLabel(target?: CopilotEditableReviewTargetRequest): string {
   switch (target?.entityKind) {
     case 'skill':
       return 'skill'
@@ -47,8 +48,8 @@ function getEditableTargetLabel(target?: CopilotEditableReviewTarget): string {
   }
 }
 
-function buildRejectedReviewTargetMessage(targets: CopilotEditableReviewTarget[]): string {
-  const label = getEditableTargetLabel(targets[0])
+function buildRejectedReviewTargetMessage(target?: CopilotEditableReviewTargetRequest): string {
+  const label = getEditableTargetLabel(target)
   return `The request to open the editable ${label} target was rejected, so it is not open for editing. Do not try to edit that target. Ask the user for another target or continue without editing it.`
 }
 
@@ -90,97 +91,92 @@ const CopilotAppContent = ({
   const pairContext = usePairColorContext(pairColor)
   const copilotStoreApi = useCopilotStoreApi()
   const workflowId = resolveCopilotWorkflowId(pairContext) ?? null
-  const editableReviewTargets = useMemo(
-    () => buildCopilotEditableReviewTargets({ pairContext }),
+  const editableReviewTargetRequest = useMemo(
+    () => buildCopilotEditableReviewTargetRequest({ pairContext }),
     [pairContext]
   )
-  const [resolvedEntityTargets, setResolvedEntityTargets] = useState<{
+  const [resolvedEntityTarget, setResolvedEntityTarget] = useState<{
     key: string
-    descriptors: ReviewTargetDescriptor[]
+    descriptor: ReviewTargetDescriptor | null
   } | null>(null)
   const lastRejectedResolutionKeyRef = useRef<string | null>(null)
   // Copilot history is workspace-scoped, while runtime edits still follow the
   // active widget channel through pair/panel context.
   const entityTargetResolution = useMemo(() => {
-    const immediate: ReviewTargetDescriptor[] = []
-    const unresolved: CopilotEditableReviewTarget[] = []
-
-    for (const target of editableReviewTargets) {
-      const descriptor = buildReviewTargetDescriptorFromState({
-        workspaceId,
-        entityKind: target.entityKind,
-        entityId: target.entityId,
-        draftSessionId: target.draftSessionId,
-        reviewSessionId: target.reviewSessionId,
-      })
-
-      if (descriptor) {
-        immediate.push(descriptor)
-      } else if (target.entityId || target.draftSessionId || target.reviewSessionId) {
-        unresolved.push(target)
-      }
-    }
+    const descriptor = editableReviewTargetRequest
+      ? buildReviewTargetDescriptorFromState({
+          workspaceId,
+          entityKind: editableReviewTargetRequest.entityKind,
+          entityId: editableReviewTargetRequest.entityId,
+          draftSessionId: editableReviewTargetRequest.draftSessionId,
+          reviewSessionId: editableReviewTargetRequest.reviewSessionId,
+        })
+      : null
+    const unresolved =
+      editableReviewTargetRequest &&
+      !descriptor &&
+      (editableReviewTargetRequest.entityId ||
+        editableReviewTargetRequest.draftSessionId ||
+        editableReviewTargetRequest.reviewSessionId)
+        ? editableReviewTargetRequest
+        : null
 
     return {
-      immediate,
+      descriptor,
       unresolved,
       unresolvedKey:
-        workspaceId && unresolved.length > 0
+        workspaceId && unresolved
           ? JSON.stringify({
               workspaceId,
-              targets: unresolved.map((target) => ({
-                entityKind: target.entityKind,
-                entityId: target.entityId,
-                draftSessionId: target.draftSessionId,
-                reviewSessionId: target.reviewSessionId,
-              })),
+              target: {
+                entityKind: unresolved.entityKind,
+                entityId: unresolved.entityId,
+                draftSessionId: unresolved.draftSessionId,
+                reviewSessionId: unresolved.reviewSessionId,
+              },
             })
           : null,
     }
-  }, [editableReviewTargets, workspaceId])
+  }, [editableReviewTargetRequest, workspaceId])
 
   useEffect(() => {
-    if (!entityTargetResolution.unresolvedKey) {
-      setResolvedEntityTargets(null)
+    if (!entityTargetResolution.unresolvedKey || !entityTargetResolution.unresolved) {
+      setResolvedEntityTarget(null)
       lastRejectedResolutionKeyRef.current = null
       return
     }
 
     let cancelled = false
+    const unresolvedKey = entityTargetResolution.unresolvedKey
+    const unresolved = entityTargetResolution.unresolved
 
-    Promise.all(
-      entityTargetResolution.unresolved.map((target) =>
-        resolveEntityReviewTarget({
-          workspaceId,
-          entityKind: target.entityKind,
-          entityId: target.entityId ?? undefined,
-          draftSessionId: target.draftSessionId ?? undefined,
-          reviewSessionId: target.reviewSessionId ?? undefined,
-        })
-      )
-    )
-      .then((resolvedTargets) => {
+    resolveEntityReviewTarget({
+      workspaceId,
+      entityKind: unresolved.entityKind,
+      entityId: unresolved.entityId ?? undefined,
+      draftSessionId: unresolved.draftSessionId ?? undefined,
+      reviewSessionId: unresolved.reviewSessionId ?? undefined,
+    })
+      .then((resolvedTarget) => {
         if (!cancelled) {
           lastRejectedResolutionKeyRef.current = null
-          setResolvedEntityTargets({
-            key: entityTargetResolution.unresolvedKey!,
-            descriptors: resolvedTargets.map((resolved) => resolved.descriptor),
+          setResolvedEntityTarget({
+            key: unresolvedKey,
+            descriptor: resolvedTarget.descriptor,
           })
         }
       })
       .catch(() => {
         if (!cancelled) {
-          const rejectedKey = entityTargetResolution.unresolvedKey!
-          setResolvedEntityTargets({
+          const rejectedKey = unresolvedKey
+          setResolvedEntityTarget({
             key: rejectedKey,
-            descriptors: [],
+            descriptor: null,
           })
 
           if (lastRejectedResolutionKeyRef.current !== rejectedKey) {
             lastRejectedResolutionKeyRef.current = rejectedKey
-            const noticeContent = buildRejectedReviewTargetMessage(
-              entityTargetResolution.unresolved
-            )
+            const noticeContent = buildRejectedReviewTargetMessage(unresolved)
             const store = copilotStoreApi.getState()
             const lastMessage = store.messages[store.messages.length - 1]
 
@@ -226,26 +222,27 @@ const CopilotAppContent = ({
     }
   }, [copilotStoreApi, entityTargetResolution])
 
-  const entityDescriptors = useMemo(
-    () => [
-      ...entityTargetResolution.immediate,
-      ...(resolvedEntityTargets?.key === entityTargetResolution.unresolvedKey
-        ? resolvedEntityTargets.descriptors
-        : []),
-    ],
-    [entityTargetResolution.immediate, entityTargetResolution.unresolvedKey, resolvedEntityTargets]
+  const entityDescriptor = useMemo(
+    () =>
+      entityTargetResolution.descriptor ??
+      (resolvedEntityTarget?.key === entityTargetResolution.unresolvedKey
+        ? resolvedEntityTarget.descriptor
+        : null),
+    [entityTargetResolution.descriptor, entityTargetResolution.unresolvedKey, resolvedEntityTarget]
   )
-  const entitySession = useRegisteredEntitySession(entityDescriptors[0]?.reviewSessionId)
-  const allEntitySessionsRegistered = entityDescriptors.every(
-    (descriptor) =>
-      descriptor.reviewSessionId &&
-      entitySession?.descriptor.reviewSessionId === descriptor.reviewSessionId
+  const entitySession = useRegisteredEntitySession(entityDescriptor?.reviewSessionId)
+  const entitySessionRegistered = Boolean(
+    entityDescriptor?.reviewSessionId &&
+      entitySession?.descriptor.reviewSessionId === entityDescriptor.reviewSessionId
   )
   const isResolvingReviewTarget = Boolean(
     entityTargetResolution.unresolvedKey &&
-      resolvedEntityTargets?.key !== entityTargetResolution.unresolvedKey
+      resolvedEntityTarget?.key !== entityTargetResolution.unresolvedKey
   )
-  const isWaitingForEntitySessions = entityDescriptors.length > 0 && !allEntitySessionsRegistered
+  const isWaitingForEntitySession = Boolean(entityDescriptor && !entitySessionRegistered)
+  const liveReviewTarget = entitySessionRegistered
+    ? buildCopilotLiveReviewTarget(entityDescriptor)
+    : null
 
   const copilotBody = (
     <div className='flex h-full w-full flex-col overflow-hidden '>
@@ -254,7 +251,8 @@ const CopilotAppContent = ({
         workspaceId={workspaceId}
         panelWidth={panelWidth}
         pairColor={pairColor}
-        inputDisabled={isResolvingReviewTarget || isWaitingForEntitySessions}
+        inputDisabled={isResolvingReviewTarget || isWaitingForEntitySession}
+        reviewTarget={liveReviewTarget}
       />
     </div>
   )
@@ -267,16 +265,15 @@ const CopilotAppContent = ({
     copilotBody
   )
 
-  return entityDescriptors.reduceRight(
-    (children, descriptor) => (
-      <EntitySessionHost
-        key={descriptor.reviewSessionId ?? descriptor.yjsSessionId}
-        descriptor={descriptor}
-        user={user}
-      >
-        {children}
-      </EntitySessionHost>
-    ),
+  return entityDescriptor ? (
+    <EntitySessionHost
+      key={entityDescriptor.reviewSessionId ?? entityDescriptor.yjsSessionId}
+      descriptor={entityDescriptor}
+      user={user}
+    >
+      {copilotContent}
+    </EntitySessionHost>
+  ) : (
     copilotContent
   )
 }
