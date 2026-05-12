@@ -4,8 +4,14 @@ import {
   authenticateCopilotRequestSessionOnly,
   createBadRequestResponse,
   createInternalServerErrorResponse,
+  createNotFoundResponse,
   createUnauthorizedResponse,
 } from '@/lib/copilot/auth'
+import {
+  loadReviewSessionForUser,
+  loadReviewSessionForUserByConversationId,
+} from '@/lib/copilot/review-sessions/permissions'
+import { COPILOT_SESSION_KIND } from '@/lib/copilot/session-scope'
 import { createLogger } from '@/lib/logs/console/logger'
 import { proxyCopilotRequest } from '@/app/api/copilot/proxy'
 
@@ -16,6 +22,38 @@ const AbortTurnSchema = z.object({
   conversationId: z.string().nullable().optional(),
   workspaceId: z.string().nullable().optional(),
 })
+
+type AbortTurnRequest = z.infer<typeof AbortTurnSchema>
+
+function normalizeOptionalId(value: string | null | undefined): string | null {
+  return value?.trim() || null
+}
+
+async function loadAbortSession(parsed: AbortTurnRequest, userId: string) {
+  const chatId = normalizeOptionalId(parsed.chatId)
+  const conversationId = normalizeOptionalId(parsed.conversationId)
+  const workspaceId = normalizeOptionalId(parsed.workspaceId)
+
+  const session = chatId
+    ? await loadReviewSessionForUser(chatId, userId)
+    : conversationId
+      ? await loadReviewSessionForUserByConversationId(conversationId, COPILOT_SESSION_KIND, userId)
+      : null
+
+  if (!session || session.entityKind !== COPILOT_SESSION_KIND) {
+    return null
+  }
+
+  if (conversationId && session.conversationId !== conversationId) {
+    return null
+  }
+
+  if (parsed.workspaceId !== undefined && (session.workspaceId ?? null) !== workspaceId) {
+    return null
+  }
+
+  return session
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -29,14 +67,19 @@ export async function POST(req: NextRequest) {
       return createBadRequestResponse('chatId or conversationId is required')
     }
 
+    const session = await loadAbortSession(parsed, userId)
+    if (!session) {
+      return createNotFoundResponse('Copilot chat not found or unauthorized')
+    }
+
     const response = await proxyCopilotRequest({
       endpoint: '/api/tools/abort-turn',
       signal: req.signal,
       body: {
-        chatId: parsed.chatId,
-        conversationId: parsed.conversationId,
+        chatId: session.id,
+        conversationId: session.conversationId ?? undefined,
         userId,
-        workspaceId: parsed.workspaceId,
+        workspaceId: session.workspaceId ?? undefined,
       },
     })
 

@@ -154,4 +154,40 @@ describe('Workflow Chat', () => {
     expect(workflowMessages).toHaveLength(1)
     expect(workflowMessages[0].content).toBe('streamed content\n\ncompleted summary')
   })
+
+  it('uses the latest selected outputs when sending a chat workflow run', async () => {
+    mockHandleRunWorkflow.mockResolvedValueOnce({
+      success: true,
+      output: {},
+      logs: [],
+    })
+
+    function Harness() {
+      const [message, setMessage] = useState('hello')
+      return <Chat chatMessage={message} setChatMessage={setMessage} />
+    }
+
+    container = document.createElement('div')
+    document.body.appendChild(container)
+    root = createRoot(container)
+
+    await act(async () => {
+      root?.render(<Harness />)
+    })
+
+    await act(async () => {
+      useChatStore.getState().setSelectedWorkflowOutput('workflow-1', ['agent-2_content'])
+    })
+
+    const sendButton = container.querySelector('button:last-of-type') as HTMLButtonElement
+    await act(async () => {
+      sendButton.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    })
+
+    expect(mockHandleRunWorkflow).toHaveBeenCalledWith(
+      expect.objectContaining({
+        selectedOutputs: ['agent-2_content'],
+      })
+    )
+  })
 })

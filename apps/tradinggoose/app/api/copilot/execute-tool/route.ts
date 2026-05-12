@@ -92,12 +92,16 @@ export async function POST(req: NextRequest) {
     const isCustomTool = toolName.startsWith('custom_')
     const isMcpTool = toolName.startsWith('mcp-')
 
+    let toolConfig = !isCustomTool && !isMcpTool ? getTool(toolName) : undefined
+    const requiresWriteAccess =
+      isCustomTool || isMcpTool || toolConfig?.execution?.workspace?.access !== 'read'
+
     let workspaceId = requestedWorkspaceId?.trim() || undefined
     if (workflowId) {
       const { hasAccess, workspaceId: resolvedWorkspaceId } = await verifyWorkflowAccess(
         userId,
         workflowId,
-        { requireWrite: true }
+        { requireWrite: requiresWriteAccess }
       )
       if (!hasAccess) {
         const message = createPermissionError('run tools in')
@@ -116,12 +120,10 @@ export async function POST(req: NextRequest) {
       workspaceId = resolvedWorkspaceId ?? undefined
     }
 
-    let toolConfig = !isCustomTool && !isMcpTool ? getTool(toolName) : undefined
     const workspacePolicy = toolConfig?.execution?.workspace
 
     if (!workflowId && workspaceId) {
       const access = await checkWorkspaceAccess(workspaceId, userId)
-      const requiresWriteAccess = workspacePolicy?.access === 'write'
       if (!access.exists || !access.hasAccess || (requiresWriteAccess && !access.canWrite)) {
         return NextResponse.json(
           { success: false, error: 'Workspace not found', toolCallId },
@@ -165,7 +167,10 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const decryptedEnvVars = await getEffectiveDecryptedEnv(userId, workspaceId)
+    const decryptedEnvVars = await getEffectiveDecryptedEnv(
+      userId,
+      requiresWriteAccess ? workspaceId : undefined
+    )
     const executionParams: Record<string, any> = resolveEnvVarReferences(toolArgs, decryptedEnvVars)
 
     if (toolConfig?.oauth?.required && toolConfig.oauth.provider) {

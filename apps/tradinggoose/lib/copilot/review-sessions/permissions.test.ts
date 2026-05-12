@@ -17,6 +17,7 @@ vi.mock('@tradinggoose/db/schema', () => ({
     entityId: 'copilot_review_sessions.entity_id',
     draftSessionId: 'copilot_review_sessions.draft_session_id',
     userId: 'copilot_review_sessions.user_id',
+    conversationId: 'copilot_review_sessions.conversation_id',
   },
   permissions: {
     permissionType: 'permissions.permission_type',
@@ -56,6 +57,7 @@ vi.mock('@/lib/workflows/utils', () => ({
 import { db } from '@tradinggoose/db'
 import {
   loadReviewSessionForUser,
+  loadReviewSessionForUserByConversationId,
   verifyReviewTargetAccess,
 } from '@/lib/copilot/review-sessions/permissions'
 
@@ -167,6 +169,31 @@ describe('review session permissions', () => {
       .mockReturnValueOnce(createMockChain(workspaceRow))
 
     const result = await loadReviewSessionForUser('review-session-1', 'collaborator-1')
+
+    expect(result).toEqual(reviewSessionRow[0])
+  })
+
+  it('loads an accessible review session by conversation id', async () => {
+    const reviewSessionRow = [
+      {
+        id: 'review-session-1',
+        workspaceId: 'workspace-1',
+        entityKind: 'copilot',
+        entityId: null,
+        draftSessionId: null,
+        userId: 'user-1',
+        model: 'claude-4.5-sonnet',
+        conversationId: 'conversation-1',
+      },
+    ]
+
+    mockDb.select.mockReturnValueOnce(createMockChain(reviewSessionRow))
+
+    const result = await loadReviewSessionForUserByConversationId(
+      'conversation-1',
+      'copilot',
+      'user-1'
+    )
 
     expect(result).toEqual(reviewSessionRow[0])
   })

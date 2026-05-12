@@ -153,10 +153,6 @@ export const useChatStore = create<ChatStore>()(
           })
         },
 
-        getSelectedWorkflowOutput: (workflowId) => {
-          return get().selectedWorkflowOutputs[workflowId] || []
-        },
-
         getConversationId: (workflowId) => {
           const state = get()
           if (!state.conversationIds[workflowId]) {

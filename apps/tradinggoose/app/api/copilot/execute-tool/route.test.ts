@@ -173,6 +173,7 @@ describe('copilot execute-tool route', () => {
     expect(response.status).toBe(200)
     expect(mockCheckWorkspaceAccess).toHaveBeenCalledWith('workspace-1', 'user-1')
     expect(mockVerifyWorkflowAccess).not.toHaveBeenCalled()
+    expect(mockGetEffectiveDecryptedEnv).toHaveBeenCalledWith('user-1', 'workspace-1')
     expect(mockExecuteTool).toHaveBeenCalledWith(
       'trading_place_order',
       expect.objectContaining({
@@ -248,6 +249,7 @@ describe('copilot execute-tool route', () => {
 
     expect(response.status).toBe(200)
     expect(mockCheckWorkspaceAccess).toHaveBeenCalledWith('workspace-1', 'user-1')
+    expect(mockGetEffectiveDecryptedEnv).toHaveBeenCalledWith('user-1', undefined)
     expect(mockExecuteTool).toHaveBeenCalledWith(
       'trading_order_history',
       expect.objectContaining({
@@ -259,10 +261,54 @@ describe('copilot execute-tool route', () => {
     )
   })
 
-  it('requires workflow write access before resolving tools or workspace env', async () => {
+  it('allows workflow-scoped read-only tools with workflow read access', async () => {
+    mockVerifyWorkflowAccess.mockResolvedValue({
+      hasAccess: true,
+      workspaceId: 'workspace-1',
+    })
+    mockGetTool.mockReturnValue({
+      id: 'trading_order_history',
+      execution: { workspace: { required: true, access: 'read' } },
+      params: {},
+    })
+    mockExecuteTool.mockResolvedValue({ success: true, output: { history: [] } })
+    const { POST } = await import('./route')
+
+    const response = await POST(
+      postExecuteTool({
+        arguments: {},
+        toolCallId: 'tool-call-3',
+        toolName: 'trading_order_history',
+        workflowId: 'workflow-1',
+      })
+    )
+
+    expect(response.status).toBe(200)
+    expect(mockVerifyWorkflowAccess).toHaveBeenCalledWith('user-1', 'workflow-1', {
+      requireWrite: false,
+    })
+    expect(mockCheckWorkspaceAccess).not.toHaveBeenCalled()
+    expect(mockGetEffectiveDecryptedEnv).toHaveBeenCalledWith('user-1', undefined)
+    expect(mockExecuteTool).toHaveBeenCalledWith(
+      'trading_order_history',
+      expect.objectContaining({
+        _context: expect.objectContaining({
+          workflowId: 'workflow-1',
+          workspaceId: 'workspace-1',
+          userId: 'user-1',
+        }),
+      })
+    )
+  })
+
+  it('requires workflow write access for write-scoped or undeclared tools before workspace env', async () => {
     mockVerifyWorkflowAccess.mockResolvedValue({
       hasAccess: false,
       workspaceId: 'workspace-1',
+    })
+    mockGetTool.mockReturnValue({
+      id: 'http_request',
+      params: {},
     })
     const { POST } = await import('./route')
 
@@ -282,7 +328,7 @@ describe('copilot execute-tool route', () => {
     })
     expect(mockCheckWorkspaceAccess).not.toHaveBeenCalled()
     expect(mockGetEffectiveDecryptedEnv).not.toHaveBeenCalled()
-    expect(mockGetTool).not.toHaveBeenCalled()
+    expect(mockGetTool).toHaveBeenCalledWith('http_request')
     expect(mockGetToolAsync).not.toHaveBeenCalled()
     expect(mockExecuteTool).not.toHaveBeenCalled()
   })

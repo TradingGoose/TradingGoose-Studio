@@ -25,7 +25,6 @@ export interface ChatStore {
   exportChatCSV: (workflowId: string) => void
   readWorkflowMessages: (workflowId: string) => ChatMessage[]
   setSelectedWorkflowOutput: (workflowId: string, outputIds: string[]) => void
-  getSelectedWorkflowOutput: (workflowId: string) => string[]
   getConversationId: (workflowId: string) => string
   generateNewConversationId: (workflowId: string) => string
 }

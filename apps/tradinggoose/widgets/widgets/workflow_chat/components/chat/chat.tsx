@@ -40,7 +40,7 @@ interface ChatProps {
 export function Chat({ chatMessage, setChatMessage, hideScrollbar = true }: ChatProps) {
   const { workflowId: currentWorkflowId } = useWorkflowRoute()
 
-  const { messages, addMessage, getSelectedWorkflowOutput, getConversationId } = useChatStore()
+  const { messages, addMessage, selectedWorkflowOutputs, getConversationId } = useChatStore()
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const scrollAreaRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -101,9 +101,9 @@ export function Chat({ chatMessage, setChatMessage, hideScrollbar = true }: Chat
   // Get selected workflow outputs (shared by workflow)
   const selectedOutputs = useMemo(() => {
     if (!currentWorkflowId) return []
-    const outputs = getSelectedWorkflowOutput(currentWorkflowId)
+    const outputs = selectedWorkflowOutputs[currentWorkflowId]
     return outputs?.length ? [...new Set(outputs)] : []
-  }, [currentWorkflowId, getSelectedWorkflowOutput])
+  }, [currentWorkflowId, selectedWorkflowOutputs])
 
   // Focus input helper with proper cleanup
   const focusInput = useCallback((delay = 0) => {

@@ -321,6 +321,31 @@ export async function loadReviewSessionForUser(
   return hasAccess ? session : null
 }
 
+export async function loadReviewSessionForUserByConversationId(
+  conversationId: string,
+  entityKind: string,
+  userId: string,
+  options: VerifyAccessOptions = {}
+): Promise<typeof copilotReviewSessions.$inferSelect | null> {
+  const sessions = await db
+    .select()
+    .from(copilotReviewSessions)
+    .where(
+      and(
+        eq(copilotReviewSessions.conversationId, conversationId),
+        eq(copilotReviewSessions.entityKind, entityKind)
+      )
+    )
+
+  for (const session of sessions) {
+    if (await hasAccessToReviewSession(userId, session, options)) {
+      return session
+    }
+  }
+
+  return null
+}
+
 /**
  * Verifies that a review session exists and belongs to the given user.
  * Returns the session row (projected to `columns` if provided) or null.
