@@ -204,6 +204,13 @@ describe('order history search route', () => {
     expect(
       sqlCalls.some(
         (call) =>
+          call.values.includes('orderHistoryTable.response') &&
+          call.text.includes("->'raw'->>'client_order_id'")
+      )
+    ).toBe(true)
+    expect(
+      sqlCalls.some(
+        (call) =>
           call.values.includes('orderHistoryTable.normalizedOrder') && call.text.includes("->>'id'")
       )
     ).toBe(true)

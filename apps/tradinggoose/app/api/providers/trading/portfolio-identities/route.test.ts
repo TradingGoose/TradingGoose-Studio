@@ -17,6 +17,12 @@ vi.mock('@/lib/logs/console/logger', () => ({
   createLogger: vi.fn(() => ({ warn: vi.fn() })),
 }))
 
+vi.mock('@/lib/oauth', () => ({
+  getServiceByProviderAndId: vi.fn((_providerId: string, serviceId: string) => ({
+    name: serviceId === 'alpaca-live' ? 'Alpaca Live' : serviceId,
+  })),
+}))
+
 vi.mock('@/lib/trading/portfolio-identities', () => ({
   listUserTradingPortfolioIdentities: (...args: unknown[]) =>
     mocks.listPortfolioIdentities(...args),
@@ -81,7 +87,7 @@ describe('trading portfolio identities route', () => {
       options: [
         {
           label: 'Main',
-          rightLabel: 'cash - active - USD',
+          rightLabel: 'Alpaca Live - cash - active - USD',
           value: {
             credentialId: 'credential-1',
             accountId: 'account-1',

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
+import { getServiceByProviderAndId } from '@/lib/oauth'
 import { listUserTradingPortfolioIdentities } from '@/lib/trading/portfolio-identities'
 import { generateRequestId } from '@/lib/utils'
 import {
@@ -17,8 +18,16 @@ const logger = createLogger('TradingPortfolioIdentitiesRoute')
 const getAccountLabel = (portfolioIdentity: PortfolioIdentity) =>
   portfolioIdentity.accountName ?? portfolioIdentity.accountId
 
-const getAccountDescription = (portfolioIdentity: PortfolioIdentity) =>
-  [portfolioIdentity.accountType, portfolioIdentity.accountStatus, portfolioIdentity.baseCurrency]
+const getAccountDescription = (
+  providerId: TradingProviderId,
+  portfolioIdentity: PortfolioIdentity
+) =>
+  [
+    getServiceByProviderAndId(providerId, portfolioIdentity.credentialServiceId).name,
+    portfolioIdentity.accountType,
+    portfolioIdentity.accountStatus,
+    portfolioIdentity.baseCurrency,
+  ]
     .map((value) => (typeof value === 'string' && value.trim() !== 'unknown' ? value.trim() : ''))
     .filter(Boolean)
     .join(' - ')
@@ -59,11 +68,11 @@ export async function GET(request: Request) {
 
   return NextResponse.json({
     options: portfolioIdentities.map((portfolioIdentity) => {
-      const description = getAccountDescription(portfolioIdentity)
+      const description = getAccountDescription(providerId, portfolioIdentity)
       return {
         id: getPortfolioIdentityKey(portfolioIdentity),
         label: getAccountLabel(portfolioIdentity),
-        rightLabel: description || portfolioIdentity.credentialServiceId,
+        rightLabel: description,
         searchLabel: [
           getAccountLabel(portfolioIdentity),
           description,

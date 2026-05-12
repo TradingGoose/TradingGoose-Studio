@@ -56,8 +56,13 @@ const getAccountDescriptionPart = (value?: string | null) => {
   return trimmed && trimmed !== 'unknown' ? trimmed : null
 }
 
-const getAccountDescription = (portfolioIdentity: PortfolioIdentity) =>
-  [portfolioIdentity.accountType, portfolioIdentity.accountStatus, portfolioIdentity.baseCurrency]
+const getAccountDescription = (providerId: string, portfolioIdentity: PortfolioIdentity) =>
+  [
+    getTradingCredentialServiceName(providerId, portfolioIdentity.credentialServiceId),
+    portfolioIdentity.accountType,
+    portfolioIdentity.accountStatus,
+    portfolioIdentity.baseCurrency,
+  ]
     .map(getAccountDescriptionPart)
     .filter(Boolean)
     .join(' - ')
@@ -217,7 +222,7 @@ export function TradingAccountSelector({
           ) : (
             portfolioIdentities.map((account) => {
               const isSelected = arePortfolioIdentitiesEqual(account, selectedPortfolioIdentity)
-              const accountDescription = getAccountDescription(account)
+              const accountDescription = getAccountDescription(trimmedProviderId, account)
               return (
                 <DropdownMenuItem
                   key={getPortfolioIdentityKey(account)}

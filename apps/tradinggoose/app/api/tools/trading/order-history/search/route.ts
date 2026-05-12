@@ -251,6 +251,7 @@ const buildSearchConditions = (query: string): SQL[] => {
       sql`${orderHistoryTable.response}->>'quote'`,
       sql`${orderHistoryTable.response}->'raw'->>'id'`,
       sql`${orderHistoryTable.response}->'raw'->>'order_id'`,
+      sql`${orderHistoryTable.response}->'raw'->>'client_order_id'`,
       sql`${orderHistoryTable.response}->'raw'->'order'->>'id'`,
       sql`${orderHistoryTable.response}->'raw'->'order'->>'order_id'`,
       sql`${orderHistoryTable.response}->'raw'->'order'->>'client_order_id'`,

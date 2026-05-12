@@ -132,8 +132,8 @@ describe('TradingAccountSelector', () => {
       button?.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true }))
     })
 
-    expect(document.body.textContent).toContain('cash - active - USD')
-    expect(document.body.textContent).not.toContain('unknown - active - USD')
+    expect(document.body.textContent).toContain('Primary Broker - cash - active - USD')
+    expect(document.body.textContent).not.toContain('Primary Broker - unknown - active - USD')
   })
 
   it('renders placeholder text before a provider is selected', () => {
