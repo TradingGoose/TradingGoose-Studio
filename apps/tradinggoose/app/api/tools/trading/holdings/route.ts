@@ -22,10 +22,18 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const body = (await request.json().catch(() => null)) as TradingHoldingsRequest | null
-    if (!body?.portfolioIdentity) {
+    let body: TradingHoldingsRequest
+    try {
+      body = (await request.json()) as TradingHoldingsRequest
+    } catch {
       return NextResponse.json(
-        { success: false, error: { message: 'portfolioIdentity is required' } },
+        { success: false, error: { message: 'Invalid JSON in request body' } },
+        { status: 400 }
+      )
+    }
+    if (!body || typeof body !== 'object' || Array.isArray(body)) {
+      return NextResponse.json(
+        { success: false, error: { message: 'Invalid request body' } },
         { status: 400 }
       )
     }

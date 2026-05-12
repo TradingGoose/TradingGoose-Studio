@@ -6,6 +6,7 @@ import { NextRequest } from 'next/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { resolveTradingProviderContext } from '@/lib/trading/context'
 import { executeTradingProviderOrderDetailRequest } from '@/providers/trading'
+import { TradingBrokerRequestError } from '@/providers/trading/portfolio-utils'
 
 const mocks = vi.hoisted(() => {
   const resultsQueue: unknown[][] = []
@@ -83,6 +84,7 @@ vi.mock('drizzle-orm', () => ({
 }))
 
 vi.mock('@/lib/trading/context', () => ({
+  logTradingBrokerRequestFailure: vi.fn(),
   resolveTradingProviderContext: vi.fn(),
 }))
 
@@ -215,5 +217,29 @@ describe('order provider detail route', () => {
       error: 'Order history record is missing trading credential context',
     })
     expect(resolveTradingProviderContext).not.toHaveBeenCalled()
+  })
+
+  it('maps provider detail broker failures without returning a generic 500', async () => {
+    mocks.resultsQueue.push([orderRow])
+    vi.mocked(executeTradingProviderOrderDetailRequest).mockRejectedValueOnce(
+      new TradingBrokerRequestError({
+        message: 'Provider order not found',
+        providerId: 'alpaca',
+        status: 404,
+        url: 'https://broker.example/orders/provider-order-1',
+      })
+    )
+    const { POST } = await import('./route')
+
+    const response = await POST(
+      new NextRequest(
+        'http://localhost/api/orders/order-1/provider-detail?workspaceId=workspace-1',
+        { method: 'POST' }
+      ),
+      { params: Promise.resolve({ orderId: 'order-1' }) }
+    )
+
+    expect(response.status).toBe(404)
+    await expect(response.json()).resolves.toEqual({ error: 'Broker request failed' })
   })
 })

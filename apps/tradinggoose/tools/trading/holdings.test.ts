@@ -59,7 +59,6 @@ describe('tradingHoldingsTool', () => {
   it('fetches holdings for the selected portfolioIdentity account', async () => {
     const result = await getTradingHoldings({
       requestData: {
-        provider: 'tradier',
         portfolioIdentity,
       },
       requestId: 'request-1',
@@ -84,11 +83,9 @@ describe('tradingHoldingsTool', () => {
   it('sends only canonical holdings request data to the holdings route', () => {
     expect(
       tradingHoldingsTool.request.body?.({
-        provider: 'tradier',
         portfolioIdentity,
       })
     ).toMatchObject({
-      provider: 'tradier',
       portfolioIdentity,
     })
   })
@@ -105,7 +102,6 @@ describe('tradingHoldingsTool', () => {
     await expect(
       getTradingHoldings({
         requestData: {
-          provider: 'tradier',
           portfolioIdentity,
         },
         requestId: 'request-1',
@@ -115,22 +111,6 @@ describe('tradingHoldingsTool', () => {
     ).rejects.toThrow('Not found')
 
     expect(resolveTradingProviderContextMock).not.toHaveBeenCalled()
-    expect(getPortfolioDetailMock).not.toHaveBeenCalled()
-  })
-
-  it('rejects portfolioIdentity from a different provider', async () => {
-    await expect(
-      getTradingHoldings({
-        requestData: {
-          provider: 'alpaca',
-          portfolioIdentity,
-        },
-        requestId: 'request-1',
-        userId: 'user-1',
-        workspaceId: 'workspace-1',
-      })
-    ).rejects.toThrow('Portfolio identity does not match provider')
-
     expect(getPortfolioDetailMock).not.toHaveBeenCalled()
   })
 })

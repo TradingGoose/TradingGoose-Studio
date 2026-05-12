@@ -4,7 +4,7 @@ import { AuthMode } from '@/blocks/types'
 import { fetchTradingPortfolioIdentityOptions, requiredUserOnlyInput } from '@/blocks/utils'
 import { getTradingProvidersByKind } from '@/providers/trading'
 import { toPortfolioValueObject } from '@/providers/trading/portfolio-identity'
-import type { TradingHoldingsResponse } from '@/tools/trading/types'
+import type { TradingHoldingsResponse } from '@/providers/trading/types'
 
 const providerOptions = getTradingProvidersByKind('holdings').map((provider) => ({
   label: provider.name,
@@ -51,14 +51,12 @@ export const TradingHoldingsBlock: BlockConfig<TradingHoldingsResponse> = {
       params: (params) => {
         const portfolioIdentity = toPortfolioValueObject(params.portfolioIdentity)
         return {
-          provider: params.provider,
           portfolioIdentity,
         }
       },
     },
   },
   inputs: {
-    provider: requiredUserOnlyInput('string', 'Trading provider id (alpaca or tradier).'),
     portfolioIdentity: requiredUserOnlyInput(
       'json',
       'Canonical portfolioIdentity selected by the broker account field.'

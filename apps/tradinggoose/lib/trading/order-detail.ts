@@ -1,7 +1,10 @@
 import { db, orderHistoryTable } from '@tradinggoose/db'
 import { and, eq } from 'drizzle-orm'
 import { checkWorkspaceAccess } from '@/lib/permissions/utils'
-import { resolveTradingProviderContext } from '@/lib/trading/context'
+import {
+  logTradingBrokerRequestFailure,
+  resolveTradingProviderContext,
+} from '@/lib/trading/context'
 import { TradingServiceError } from '@/lib/trading/errors'
 import {
   readOrderAccountId,
@@ -9,6 +12,7 @@ import {
   readOrderCredentialServiceId,
 } from '@/lib/trading/order-records'
 import { executeTradingProviderOrderDetailRequest } from '@/providers/trading'
+import { TradingBrokerRequestError } from '@/providers/trading/portfolio-utils'
 import type { TradingOrderDetailInput, TradingOrderHistoryRecord } from '@/providers/trading/types'
 
 export type TradingProviderOrderDetailResult = {
@@ -77,11 +81,20 @@ export async function getRecordedTradingOrderProviderDetail({
     environment: baseContext.environment,
     accessToken: baseContext.accessToken,
   }
-  const providerDetail = await executeTradingProviderOrderDetailRequest(
-    order.provider,
-    order as TradingOrderHistoryRecord,
-    detailInput
-  )
+  let providerDetail: Awaited<ReturnType<typeof executeTradingProviderOrderDetailRequest>>
+  try {
+    providerDetail = await executeTradingProviderOrderDetailRequest(
+      order.provider,
+      order as TradingOrderHistoryRecord,
+      detailInput
+    )
+  } catch (error) {
+    logTradingBrokerRequestFailure('order-detail', error)
+    throw new TradingServiceError(
+      error instanceof TradingBrokerRequestError ? 'Broker request failed' : 'Order detail failed',
+      error instanceof TradingBrokerRequestError ? error.status : 502
+    )
+  }
 
   return {
     appOrderId: order.id,

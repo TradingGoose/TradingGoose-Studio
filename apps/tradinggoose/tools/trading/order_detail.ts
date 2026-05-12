@@ -32,25 +32,18 @@ export const tradingOrderDetailTool: ToolConfig<
 
   transformResponse: async (response): Promise<TradingOrderDetailResponse> => {
     const result = await response.json()
-    const data = result.data || result
-
-    const provider = data.provider || ''
-    const appOrderId = data.appOrderId || ''
-    const providerOrderId = data.providerOrderId || ''
-    const workspaceId = data.workspaceId || null
-    const logId = data.logId || null
-    const orderDetail = data.orderDetail || {}
+    const data = result.data
 
     return {
       success: true,
       output: {
-        summary: `Fetched order detail from ${provider}`,
-        provider,
-        appOrderId,
-        providerOrderId,
-        workspaceId,
-        logId,
-        orderDetail,
+        summary: `Fetched order detail from ${data.provider}`,
+        provider: data.provider,
+        appOrderId: data.appOrderId,
+        providerOrderId: data.providerOrderId,
+        workspaceId: data.workspaceId,
+        logId: data.logId,
+        orderDetail: data.orderDetail,
       },
     }
   },

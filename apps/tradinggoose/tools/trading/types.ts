@@ -1,10 +1,5 @@
-import type { TradingHoldingsRequest } from '@/lib/trading/holdings'
 import type { TradingOrderSubmitRequest } from '@/lib/trading/order-types'
-import type {
-  TradingActionResponse,
-  TradingHoldingsResponse,
-  TradingProviderId,
-} from '@/providers/trading/types'
+import type { TradingProviderId } from '@/providers/trading/types'
 
 export interface TradingActionParams
   extends Omit<TradingOrderSubmitRequest, 'workspaceId' | 'submissionSource' | 'logId'> {
@@ -17,15 +12,13 @@ export interface TradingActionParams
   }
 }
 
-export type TradingHoldingsParams = TradingHoldingsRequest
-
 export interface TradingOrderDetailParams {
   orderId: string
 }
 
 export interface TradingOrderDetailOutput {
   appOrderId: string
-  provider: TradingProviderId | string
+  provider: TradingProviderId
   providerOrderId: string
   environment?: string | null
   clientOrderId?: string | null
@@ -54,7 +47,7 @@ export interface TradingOrderDetailResponse {
   success: boolean
   output: {
     summary: string
-    provider: TradingProviderId | string
+    provider: TradingProviderId
     appOrderId: string
     providerOrderId: string
     workspaceId: string | null
@@ -63,5 +56,3 @@ export interface TradingOrderDetailResponse {
   }
   error?: string
 }
-
-export type { TradingActionResponse, TradingHoldingsResponse }

@@ -1,7 +1,8 @@
-import type { TradingHoldingsParams, TradingHoldingsResponse } from '@/tools/trading/types'
+import type { TradingHoldingsRequest } from '@/lib/trading/holdings'
+import type { TradingHoldingsResponse } from '@/providers/trading/types'
 import type { ToolConfig } from '@/tools/types'
 
-export const tradingHoldingsTool: ToolConfig<TradingHoldingsParams, TradingHoldingsResponse> = {
+export const tradingHoldingsTool: ToolConfig<TradingHoldingsRequest, TradingHoldingsResponse> = {
   id: 'trading_get_holdings',
   name: 'Trading: Get Holdings',
   description: 'Fetch canonical portfolio detail from Alpaca or Tradier.',
@@ -11,12 +12,6 @@ export const tradingHoldingsTool: ToolConfig<TradingHoldingsParams, TradingHoldi
   },
 
   params: {
-    provider: {
-      type: 'string',
-      required: true,
-      visibility: 'user-only',
-      description: 'Trading provider id (alpaca or tradier).',
-    },
     portfolioIdentity: {
       type: 'json',
       required: true,
@@ -32,21 +27,15 @@ export const tradingHoldingsTool: ToolConfig<TradingHoldingsParams, TradingHoldi
       'Content-Type': 'application/json',
     }),
     body: (params) => ({
-      provider: params.provider,
       portfolioIdentity: params.portfolioIdentity,
     }),
   },
 
   transformResponse: async (response): Promise<TradingHoldingsResponse> => {
     const result = await response.json()
-    const data = result.data || result
     return {
       success: true,
-      output: {
-        summary: data.summary || 'Fetched portfolio detail',
-        provider: data.provider || '',
-        holdings: data.holdings ?? null,
-      },
+      output: result.data,
     }
   },
 

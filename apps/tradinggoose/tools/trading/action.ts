@@ -1,4 +1,5 @@
-import type { TradingActionParams, TradingActionResponse } from '@/tools/trading/types'
+import type { TradingActionResponse } from '@/providers/trading/types'
+import type { TradingActionParams } from '@/tools/trading/types'
 import type { ToolConfig } from '@/tools/types'
 
 const buildOrderRoutePayload = (params: TradingActionParams) => {

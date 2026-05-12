@@ -796,7 +796,7 @@ describe('Trading provider order route', () => {
     })
   })
 
-  it('maps broker fetch failures to 502 without persisting', async () => {
+  it('records failed broker submissions before returning 502', async () => {
     mockFetch.mockResolvedValueOnce(
       new Response(JSON.stringify({ error: 'Broker unavailable' }), { status: 500 })
     )
@@ -814,6 +814,17 @@ describe('Trading provider order route', () => {
 
     expect(response.status).toBe(502)
     await expect(response.json()).resolves.toEqual({ error: 'Broker request failed' })
-    expect(mockRecordOrderHistory).not.toHaveBeenCalled()
+    expect(mockRecordOrderHistory).toHaveBeenCalledWith(
+      expect.objectContaining({
+        workspaceId,
+        provider: 'tradier',
+        environment: 'live',
+        response: expect.objectContaining({
+          success: false,
+          status: 500,
+          raw: { error: 'Broker unavailable' },
+        }),
+      })
+    )
   })
 })

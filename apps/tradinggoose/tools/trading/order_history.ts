@@ -78,18 +78,16 @@ export const orderHistoryTool: ToolConfig<OrderHistoryParams, OrderHistoryRespon
 
   transformResponse: async (response): Promise<OrderHistoryResponse> => {
     const result = await response.json()
-    const data = result.data || result
-
-    const history = (data.history || []) as OrderHistory
+    const data = result.data
 
     return {
       success: true,
       output: {
-        history,
-        count: typeof data.count === 'number' ? data.count : history.length,
+        history: data.history as OrderHistory,
+        count: data.count,
         workspaceId: data.workspaceId,
-        startDate: data.startDate || '',
-        endDate: data.endDate || '',
+        startDate: data.startDate,
+        endDate: data.endDate,
       },
     }
   },

@@ -369,6 +369,22 @@ export async function submitTradingOrder({
     baseContext,
     accountId: portfolioIdentity.accountId,
   })
+  const orderSizingMode = getOrderSizingMode(baseContext.providerId, requestData)
+  const orderHistoryRequest = compactRecord({
+    credentialId: baseContext.credentialId,
+    credentialServiceId: baseContext.credentialServiceId,
+    accountId: accountContext.accountId,
+    side: requestData.side,
+    orderType: orderTypeResult.orderType,
+    timeInForce,
+    quantity: orderSizingMode === 'notional' ? undefined : requestData.quantity,
+    notional: orderSizingMode === 'notional' ? requestData.notional : undefined,
+    limitPrice: requestData.limitPrice,
+    stopPrice: requestData.stopPrice,
+    trailPrice: requestData.trailPrice,
+    trailPercent: requestData.trailPercent,
+    orderSizingMode,
+  })
 
   let rawOrder: unknown
   let normalizedOrder: TradingOrder
@@ -398,6 +414,23 @@ export async function submitTradingOrder({
       : ({ raw: rawOrder } as TradingOrder)
   } catch (error) {
     logTradingBrokerRequestFailure('order', error)
+    await recordOrderHistory({
+      workspaceId: requestData.workspaceId,
+      provider: baseContext.providerId,
+      environment: baseContext.environment,
+      submissionSource: orderHistoryContext.submissionSource,
+      logId: orderHistoryContext.logId,
+      listingIdentity,
+      request: orderHistoryRequest,
+      response: compactRecord({
+        success: false,
+        errorMessage: error instanceof Error ? error.message : 'Order submission failed',
+        status: error instanceof TradingBrokerRequestError ? error.status : undefined,
+        raw:
+          (error instanceof TradingBrokerRequestError && toRecord(error.payload)) ||
+          toRecord(rawOrder),
+      }),
+    })
     if (error instanceof TradingBrokerRequestError) {
       throw new TradingServiceError('Broker request failed', 502)
     }
@@ -408,7 +441,6 @@ export async function submitTradingOrder({
 
   const rawOrderRecord = toRecord(rawOrder)
   const normalizedOrderRecord = toRecord(normalizedOrder)
-  const orderSizingMode = getOrderSizingMode(baseContext.providerId, requestData)
   const orderHistoryRecord = await recordOrderHistory({
     workspaceId: requestData.workspaceId,
     provider: baseContext.providerId,
@@ -416,21 +448,7 @@ export async function submitTradingOrder({
     submissionSource: orderHistoryContext.submissionSource,
     logId: orderHistoryContext.logId,
     listingIdentity,
-    request: compactRecord({
-      credentialId: baseContext.credentialId,
-      credentialServiceId: baseContext.credentialServiceId,
-      accountId: accountContext.accountId,
-      side: requestData.side,
-      orderType: orderTypeResult.orderType,
-      timeInForce,
-      quantity: orderSizingMode === 'notional' ? undefined : requestData.quantity,
-      notional: orderSizingMode === 'notional' ? requestData.notional : undefined,
-      limitPrice: requestData.limitPrice,
-      stopPrice: requestData.stopPrice,
-      trailPrice: requestData.trailPrice,
-      trailPercent: requestData.trailPercent,
-      orderSizingMode,
-    }),
+    request: orderHistoryRequest,
     response: {
       success: true,
       orderId: normalizedOrderRecord?.id ?? rawOrderRecord?.id ?? rawOrderRecord?.order_id ?? null,

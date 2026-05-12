@@ -15,8 +15,8 @@ import {
 import { getTradingOrderTypeOptions } from '@/providers/trading/order-types'
 import { toPortfolioValueObject } from '@/providers/trading/portfolio-identity'
 import type { TradingProviderParamDefinition } from '@/providers/trading/providers'
+import type { TradingActionResponse } from '@/providers/trading/types'
 import { tradingActionTool } from '@/tools/trading/action'
-import type { TradingActionResponse } from '@/tools/trading/types'
 
 const providerOptions = getTradingProviders().map((provider) => ({
   label: provider.name,

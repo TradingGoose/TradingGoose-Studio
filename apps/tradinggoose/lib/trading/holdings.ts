@@ -7,11 +7,9 @@ import { getTradingProvider } from '@/providers/trading'
 import { getPortfolioDetail } from '@/providers/trading/portfolio'
 import type { PortfolioDetail, PortfolioIdentity } from '@/providers/trading/portfolio-identity'
 import { toPortfolioValueObject } from '@/providers/trading/portfolio-identity'
-import type { TradingProviderId } from '@/providers/trading/types'
 import { TradingServiceError } from './errors'
 
 export interface TradingHoldingsRequest {
-  provider: TradingProviderId
   portfolioIdentity?: PortfolioIdentity | null
 }
 
@@ -37,15 +35,10 @@ export async function getTradingHoldings({
     throw new TradingServiceError('Not found', 404)
   }
 
-  const provider = getTradingProvider(requestData.provider)
   const portfolioIdentity = toPortfolioValueObject(requestData.portfolioIdentity)
 
   if (!portfolioIdentity) {
     throw new TradingServiceError('Portfolio identity is required')
-  }
-
-  if (portfolioIdentity.providerId !== provider.id) {
-    throw new TradingServiceError('Portfolio identity does not match provider')
   }
 
   const baseContext = await resolveTradingProviderContext({
@@ -57,6 +50,7 @@ export async function getTradingHoldings({
     requestId,
     userId,
   })
+  const provider = getTradingProvider(baseContext.providerId)
   const accountContext = await resolveTradingProviderSelectedAccount({
     baseContext,
     accountId: portfolioIdentity.accountId,
