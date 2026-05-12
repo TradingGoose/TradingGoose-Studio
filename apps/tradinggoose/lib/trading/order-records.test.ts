@@ -89,7 +89,7 @@ describe('order record utils', () => {
           accountId: 'account-1',
           accessToken: 'secret-token',
           credentialId: 'credential-1',
-          credentialServiceId: 'alpaca-paper',
+          serviceId: 'alpaca-paper',
           orderType: 'limit',
           quantity: '5',
           side: 'buy',
@@ -136,7 +136,7 @@ describe('order record utils', () => {
       accountId: '[redacted]',
       accessToken: '[redacted]',
       credentialId: '[redacted]',
-      credentialServiceId: '[redacted]',
+      serviceId: '[redacted]',
     })
     expect(record.response).toMatchObject({
       api_key: '[redacted]',

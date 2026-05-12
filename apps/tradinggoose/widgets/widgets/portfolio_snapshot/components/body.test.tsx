@@ -18,7 +18,7 @@ const mockEmitPortfolioSnapshotParamsChange = vi.fn()
 const selectedPortfolioIdentity = {
   providerId: 'alpaca',
   credentialId: 'credential-1',
-  credentialServiceId: 'alpaca-live',
+  serviceId: 'alpaca-live',
   accountId: 'acct-1',
   accountName: 'Paper',
   accountType: 'paper' as const,
@@ -218,13 +218,13 @@ describe('PortfolioSnapshotWidgetBody', () => {
     expect(mockUsePortfolioDetail).toHaveBeenCalledWith({
       workspaceId: undefined,
       provider: 'alpaca',
-      credentialServiceId: 'alpaca-live',
+      serviceId: 'alpaca-live',
       portfolioIdentity: undefined,
     })
     expect(mockUsePortfolioPerformance).toHaveBeenCalledWith({
       workspaceId: undefined,
       provider: 'alpaca',
-      credentialServiceId: 'alpaca-live',
+      serviceId: 'alpaca-live',
       portfolioIdentity: undefined,
       selectedWindow: '1D',
     })
@@ -234,7 +234,7 @@ describe('PortfolioSnapshotWidgetBody', () => {
     const connectedPaperIdentity = {
       ...selectedPortfolioIdentity,
       credentialId: 'cred-paper',
-      credentialServiceId: 'alpaca-paper',
+      serviceId: 'alpaca-paper',
       accountId: 'paper-acct',
       accountName: 'Paper Account',
     }
@@ -258,7 +258,7 @@ describe('PortfolioSnapshotWidgetBody', () => {
           panelId='panel-1'
           params={{
             provider: 'alpaca',
-            credentialServiceId: 'alpaca-live',
+            serviceId: 'alpaca-live',
             portfolioIdentity: selectedPortfolioIdentity,
             selectedWindow: '1D',
           }}
@@ -269,18 +269,18 @@ describe('PortfolioSnapshotWidgetBody', () => {
     expect(mockUsePortfolioIdentities).toHaveBeenCalledWith({
       workspaceId: undefined,
       provider: 'alpaca',
-      credentialServiceId: 'alpaca-paper',
+      serviceId: 'alpaca-paper',
       enabled: true,
     })
     expect(mockUsePortfolioDetail).toHaveBeenCalledWith({
       workspaceId: undefined,
       provider: 'alpaca',
-      credentialServiceId: 'alpaca-paper',
+      serviceId: 'alpaca-paper',
       portfolioIdentity: undefined,
     })
     expect(mockEmitPortfolioSnapshotParamsChange).toHaveBeenCalledWith({
       params: {
-        credentialServiceId: 'alpaca-paper',
+        serviceId: 'alpaca-paper',
         portfolioIdentity: null,
       },
       panelId: 'panel-1',
@@ -309,7 +309,7 @@ describe('PortfolioSnapshotWidgetBody', () => {
       params: {
         provider: null,
         portfolioIdentity: null,
-        credentialServiceId: null,
+        serviceId: null,
         selectedWindow: null,
       },
       panelId: 'panel-1',
@@ -318,7 +318,7 @@ describe('PortfolioSnapshotWidgetBody', () => {
     expect(mockUsePortfolioIdentities).toHaveBeenCalledWith({
       workspaceId: undefined,
       provider: undefined,
-      credentialServiceId: undefined,
+      serviceId: undefined,
       enabled: false,
     })
     expect(container.textContent).toContain('Select a trading provider to get started.')
@@ -351,7 +351,7 @@ describe('PortfolioSnapshotWidgetBody', () => {
       ...selectedPortfolioIdentity,
       providerId: 'tradier',
       credentialId: 'credential-2',
-      credentialServiceId: 'tradier-live',
+      serviceId: 'tradier-live',
     }
     mockUsePortfolioIdentities.mockReturnValue(
       createQueryResult({
@@ -473,7 +473,7 @@ describe('PortfolioSnapshotWidgetBody', () => {
     expect(mockUsePortfolioDetail).toHaveBeenCalledWith({
       workspaceId: 'workspace-1',
       provider: 'alpaca',
-      credentialServiceId: 'alpaca-live',
+      serviceId: 'alpaca-live',
       portfolioIdentity: selectedPortfolioIdentity,
     })
     expect(mockUseMarketQuoteSnapshots).toHaveBeenCalledWith({
@@ -734,13 +734,13 @@ describe('PortfolioSnapshotWidgetBody', () => {
     expect(mockUsePortfolioIdentities).toHaveBeenCalledWith({
       workspaceId: undefined,
       provider: undefined,
-      credentialServiceId: undefined,
+      serviceId: undefined,
       enabled: false,
     })
     expect(mockUsePortfolioDetail).toHaveBeenCalledWith({
       workspaceId: undefined,
       provider: undefined,
-      credentialServiceId: undefined,
+      serviceId: undefined,
       portfolioIdentity: undefined,
     })
   })
@@ -762,13 +762,13 @@ describe('PortfolioSnapshotWidgetBody', () => {
     expect(mockUsePortfolioIdentities).toHaveBeenCalledWith({
       workspaceId: undefined,
       provider: undefined,
-      credentialServiceId: undefined,
+      serviceId: undefined,
       enabled: false,
     })
     expect(mockUsePortfolioDetail).toHaveBeenCalledWith({
       workspaceId: undefined,
       provider: undefined,
-      credentialServiceId: undefined,
+      serviceId: undefined,
       portfolioIdentity: undefined,
     })
   })

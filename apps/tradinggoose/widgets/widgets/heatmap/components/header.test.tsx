@@ -13,14 +13,14 @@ const mockUseOAuthProviderAvailability = vi.fn()
 const mockEmitHeatmapParamsChange = vi.fn()
 type MockTradingAccountSelectorProps = {
   onAccountSelect?: (selection: {
-    credentialServiceId?: string | null
+    serviceId?: string | null
     portfolioIdentity?: PortfolioIdentity | null
   }) => void
 }
 const selectedPortfolioIdentity: PortfolioIdentity = {
   providerId: 'alpaca',
   credentialId: 'credential-1',
-  credentialServiceId: 'alpaca-paper',
+  serviceId: 'alpaca-paper',
   accountId: 'acct-1',
 }
 const mockTradingAccountSelector = vi.fn(({ onAccountSelect }: MockTradingAccountSelectorProps) => (
@@ -29,7 +29,7 @@ const mockTradingAccountSelector = vi.fn(({ onAccountSelect }: MockTradingAccoun
     data-testid='trading-account-selector'
     onClick={() =>
       onAccountSelect?.({
-        credentialServiceId: selectedPortfolioIdentity.credentialServiceId,
+        serviceId: selectedPortfolioIdentity.serviceId,
         portfolioIdentity: selectedPortfolioIdentity,
       })
     }
@@ -199,7 +199,7 @@ describe('HeatmapHeaderControls', () => {
     expect(mockTradingAccountSelector).toHaveBeenCalledWith(
       expect.objectContaining({
         providerId: 'alpaca',
-        credentialServiceId: undefined,
+        serviceId: undefined,
         portfolioIdentity: undefined,
       })
     )
@@ -286,7 +286,7 @@ describe('HeatmapHeaderControls', () => {
 
     expect(mockEmitHeatmapParamsChange).toHaveBeenCalledWith({
       params: {
-        credentialServiceId: selectedPortfolioIdentity.credentialServiceId,
+        serviceId: selectedPortfolioIdentity.serviceId,
         portfolioIdentity: selectedPortfolioIdentity,
       },
       panelId: 'panel-1',

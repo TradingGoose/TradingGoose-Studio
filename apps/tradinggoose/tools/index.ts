@@ -334,9 +334,6 @@ export async function executeTool(
 
         const data = await response.json()
         contextParams.accessToken = data.accessToken
-        if (data.providerId) {
-          contextParams.credentialServiceId = data.providerId
-        }
         if (data.apiKey) {
           contextParams.apiKey = data.apiKey
         }

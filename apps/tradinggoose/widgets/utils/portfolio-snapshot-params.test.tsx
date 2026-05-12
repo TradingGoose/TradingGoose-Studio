@@ -14,7 +14,7 @@ import {
 const portfolioIdentity = {
   providerId: 'alpaca',
   credentialId: 'credential-1',
-  credentialServiceId: 'alpaca-live',
+  serviceId: 'alpaca-live',
   accountId: 'acct-1',
 }
 
@@ -61,7 +61,7 @@ describe('portfolio snapshot params helper', () => {
     expect(
       sanitizePortfolioSnapshotParams({
         provider: 'alpaca',
-        credentialServiceId: 'alpaca-live',
+        serviceId: 'alpaca-live',
         portfolioIdentity,
         selectedWindow: '1D',
         ignored: true,
@@ -72,7 +72,7 @@ describe('portfolio snapshot params helper', () => {
       })
     ).toEqual({
       provider: 'alpaca',
-      credentialServiceId: 'alpaca-live',
+      serviceId: 'alpaca-live',
       portfolioIdentity,
       selectedWindow: '1D',
       runtime: {

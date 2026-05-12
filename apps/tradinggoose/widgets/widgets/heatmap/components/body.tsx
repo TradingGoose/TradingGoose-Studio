@@ -128,7 +128,7 @@ export function HeatmapWidgetBody({
     emitHeatmapParamsChange({
       params: {
         tradingProvider: null,
-        credentialServiceId: null,
+        serviceId: null,
         portfolioIdentity: null,
       },
       panelId,
@@ -138,14 +138,14 @@ export function HeatmapWidgetBody({
 
   const {
     accountsQuery,
-    activeCredentialServiceId,
+    activeServiceId,
     activePortfolioIdentity,
-    credentialServices,
+    services,
     portfolioIdentities,
   } = usePortfolioIdentitySelection({
     workspaceId,
     providerId: tradingProviderId,
-    credentialServiceId: widgetParams?.credentialServiceId,
+    serviceId: widgetParams?.serviceId,
     portfolioIdentity: widgetParams?.portfolioIdentity,
     enabled: sourceMode === 'portfolio' && isTradingProviderReady,
     panelId,
@@ -156,7 +156,7 @@ export function HeatmapWidgetBody({
   const snapshotQuery = usePortfolioDetail({
     workspaceId: workspaceId ?? undefined,
     provider: sourceMode === 'portfolio' && isTradingProviderReady ? tradingProviderId : undefined,
-    credentialServiceId: activeCredentialServiceId,
+    serviceId: activeServiceId,
     portfolioIdentity: activePortfolioIdentity,
     enabled: sourceMode === 'portfolio',
   })
@@ -300,7 +300,7 @@ export function HeatmapWidgetBody({
     }
 
     if (!activePortfolioIdentity) {
-      if (credentialServices.isLoading) {
+      if (services.isLoading) {
         return (
           <div className='flex h-full items-center justify-center'>
             <LoadingAgent size='md' />
@@ -308,7 +308,7 @@ export function HeatmapWidgetBody({
         )
       }
 
-      if (!activeCredentialServiceId) {
+      if (!activeServiceId) {
         return <HeatmapMessage message='Select a broker connection to load portfolio holdings.' />
       }
 

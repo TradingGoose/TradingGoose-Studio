@@ -7,7 +7,7 @@ import {
   getTradingProviderOAuthServiceIds,
 } from '@/providers/trading/providers'
 
-export type TradingCredentialServiceState = {
+export type TradingServiceState = {
   serviceIds: string[]
   connectedServiceIds: string[]
   activeServiceId?: string
@@ -16,30 +16,30 @@ export type TradingCredentialServiceState = {
   refetch: () => void
 }
 
-export function resolveActiveTradingCredentialServiceId({
-  credentialServiceId,
+export function resolveActiveTradingServiceId({
+  serviceId,
   connectedServiceIds,
 }: {
-  credentialServiceId?: string | null
+  serviceId?: string | null
   connectedServiceIds: string[]
 }) {
   const requestedServiceId =
-    typeof credentialServiceId === 'string' ? credentialServiceId.trim() : ''
+    typeof serviceId === 'string' ? serviceId.trim() : ''
   if (requestedServiceId && connectedServiceIds.includes(requestedServiceId)) {
     return requestedServiceId
   }
   return connectedServiceIds.length === 1 ? connectedServiceIds[0] : undefined
 }
 
-export function useTradingCredentialServices({
+export function useTradingServices({
   providerId,
-  credentialServiceId,
+  serviceId,
   enabled = true,
 }: {
   providerId?: string | null
-  credentialServiceId?: string | null
+  serviceId?: string | null
   enabled?: boolean
-}): TradingCredentialServiceState {
+}): TradingServiceState {
   const trimmedProviderId = typeof providerId === 'string' ? providerId.trim() : ''
   const providerDefinition = trimmedProviderId
     ? getTradingProviderDefinition(trimmedProviderId)
@@ -55,8 +55,8 @@ export function useTradingCredentialServices({
   const connectedServiceIds = serviceIds.filter(
     (serviceId) => (credentialsByProviderId[serviceId]?.length ?? 0) > 0
   )
-  const activeServiceId = resolveActiveTradingCredentialServiceId({
-    credentialServiceId,
+  const activeServiceId = resolveActiveTradingServiceId({
+    serviceId,
     connectedServiceIds,
   })
 
@@ -72,6 +72,6 @@ export function useTradingCredentialServices({
   }
 }
 
-export function getTradingCredentialServiceName(providerId: string, serviceId: string) {
+export function getTradingServiceName(providerId: string, serviceId: string) {
   return getServiceByProviderAndId(providerId, serviceId).name
 }

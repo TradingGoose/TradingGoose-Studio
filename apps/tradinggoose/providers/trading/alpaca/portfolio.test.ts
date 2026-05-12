@@ -49,13 +49,13 @@ describe('Alpaca portfolio helpers', () => {
         {
           providerId: 'alpaca',
           credentialId: 'credential-1',
-          credentialServiceId: 'alpaca-live',
+          serviceId: 'alpaca-live',
         }
       )
     ).toEqual({
       providerId: 'alpaca',
       credentialId: 'credential-1',
-      credentialServiceId: 'alpaca-live',
+      serviceId: 'alpaca-live',
       accountId: 'acct-live',
       providerName: 'Alpaca',
       accountName: 'Alpaca (PA12345)',
@@ -79,7 +79,7 @@ describe('Alpaca portfolio helpers', () => {
         {
           providerId: 'alpaca',
           credentialId: 'credential-1',
-          credentialServiceId: 'alpaca-live',
+          serviceId: 'alpaca-live',
         }
       )
     ).toMatchObject({
@@ -134,7 +134,7 @@ describe('Alpaca portfolio helpers', () => {
     const snapshot = await getAlpacaTradingAccountSnapshot({
       providerId: 'alpaca',
       credentialId: 'credential-1',
-      credentialServiceId: 'alpaca-live',
+      serviceId: 'alpaca-live',
       environment: 'live',
       accessToken: 'token',
       accountId: 'acct-paper',
@@ -202,7 +202,7 @@ describe('Alpaca portfolio helpers', () => {
     const snapshot = await getAlpacaTradingAccountSnapshot({
       providerId: 'alpaca',
       credentialId: 'credential-1',
-      credentialServiceId: 'alpaca-live',
+      serviceId: 'alpaca-live',
       environment: 'live',
       accessToken: 'token',
       accountId: 'acct-short',
@@ -277,7 +277,7 @@ describe('Alpaca portfolio helpers', () => {
     const performance = await getAlpacaTradingAccountPerformance({
       providerId: 'alpaca',
       credentialId: 'credential-1',
-      credentialServiceId: 'alpaca-live',
+      serviceId: 'alpaca-live',
       environment: 'live',
       accessToken: 'token',
       accountId: 'acct-live',
@@ -295,7 +295,7 @@ describe('Alpaca portfolio helpers', () => {
     const performance = await getAlpacaTradingAccountPerformance({
       providerId: 'alpaca',
       credentialId: 'credential-1',
-      credentialServiceId: 'alpaca-live',
+      serviceId: 'alpaca-live',
       environment: 'live',
       accessToken: 'token',
       accountId: 'acct-live',

@@ -64,7 +64,7 @@ describe('resolveWidgetParamsForPairColorChange', () => {
       sourceMode: 'portfolio',
       marketProvider: 'polygon',
       tradingProvider: 'alpaca',
-      credentialServiceId: 'cred-1',
+      serviceId: 'cred-1',
       accountId: 'acct-1',
       marketProviderParams: { feed: 'sip' },
     }

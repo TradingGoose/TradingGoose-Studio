@@ -227,7 +227,7 @@ export function PortfolioSnapshotWidgetBody({
     emitPortfolioSnapshotParamsChange({
       params: {
         provider: null,
-        credentialServiceId: null,
+        serviceId: null,
         portfolioIdentity: null,
         selectedWindow: null,
       },
@@ -266,14 +266,14 @@ export function PortfolioSnapshotWidgetBody({
 
   const {
     accountsQuery,
-    activeCredentialServiceId,
+    activeServiceId,
     activePortfolioIdentity,
-    credentialServices,
+    services,
     portfolioIdentities,
   } = usePortfolioIdentitySelection({
     workspaceId,
     providerId,
-    credentialServiceId: widgetParams?.credentialServiceId,
+    serviceId: widgetParams?.serviceId,
     portfolioIdentity: widgetParams?.portfolioIdentity,
     enabled: isProviderReady,
     panelId,
@@ -284,7 +284,7 @@ export function PortfolioSnapshotWidgetBody({
   const snapshotQuery = usePortfolioDetail({
     workspaceId: workspaceId ?? undefined,
     provider: isProviderReady ? providerId : undefined,
-    credentialServiceId: activeCredentialServiceId,
+    serviceId: activeServiceId,
     portfolioIdentity: activePortfolioIdentity,
   })
 
@@ -326,7 +326,7 @@ export function PortfolioSnapshotWidgetBody({
   const performanceQuery = usePortfolioPerformance({
     workspaceId: workspaceId ?? undefined,
     provider: isProviderReady ? providerId : undefined,
-    credentialServiceId: activeCredentialServiceId,
+    serviceId: activeServiceId,
     portfolioIdentity: activePortfolioIdentity,
     selectedWindow: selectedWindow as TradingPortfolioPerformanceWindow | undefined,
   })
@@ -366,11 +366,11 @@ export function PortfolioSnapshotWidgetBody({
   }
 
   if (!activePortfolioIdentity) {
-    if (credentialServices.isLoading) {
+    if (services.isLoading) {
       return <PortfolioLoading />
     }
 
-    if (!activeCredentialServiceId) {
+    if (!activeServiceId) {
       return (
         <PortfolioMessage message='Select a broker connection to load this portfolio snapshot.' />
       )

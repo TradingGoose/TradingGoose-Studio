@@ -37,7 +37,7 @@ vi.mock('@/providers/trading/providers', () => ({
     providerId === 'alpaca'
       ? {
           oauth: {
-            credentialServices: [{ serviceId: 'alpaca-live' }],
+            services: [{ serviceId: 'alpaca-live' }],
           },
         }
       : null
@@ -68,7 +68,7 @@ describe('trading portfolio identities route', () => {
         providerId: 'alpaca',
         providerName: 'Alpaca',
         credentialId: 'credential-1',
-        credentialServiceId: 'alpaca-live',
+        serviceId: 'alpaca-live',
         accountId: 'account-1',
         accountName: 'Main',
         accountType: 'cash',

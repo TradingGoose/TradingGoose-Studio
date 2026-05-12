@@ -45,7 +45,7 @@ export async function getTradingHoldings({
     requestData: {
       provider: portfolioIdentity.providerId,
       credentialId: portfolioIdentity.credentialId,
-      credentialServiceId: portfolioIdentity.credentialServiceId,
+      serviceId: portfolioIdentity.serviceId,
     },
     requestId,
     userId,
@@ -59,7 +59,7 @@ export async function getTradingHoldings({
   const holdings = await getPortfolioDetail({
     providerId: baseContext.providerId,
     credentialId: baseContext.credentialId,
-    credentialServiceId: baseContext.credentialServiceId,
+    serviceId: baseContext.serviceId,
     environment: baseContext.environment,
     accessToken: baseContext.accessToken,
     accountId: accountContext.accountId,

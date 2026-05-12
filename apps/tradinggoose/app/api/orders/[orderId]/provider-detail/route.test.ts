@@ -120,7 +120,7 @@ const orderRow = {
   request: {
     accountId: 'account-1',
     credentialId: 'credential-1',
-    credentialServiceId: 'alpaca-paper',
+    serviceId: 'alpaca-paper',
     side: 'buy',
   },
   response: { orderId: 'provider-order-1' },
@@ -167,7 +167,7 @@ describe('order provider detail route', () => {
     expect(resolveTradingProviderContext).toHaveBeenCalledWith({
       requestData: {
         credentialId: 'credential-1',
-        credentialServiceId: 'alpaca-paper',
+        serviceId: 'alpaca-paper',
         provider: 'alpaca',
       },
       requestId: 'request-1',

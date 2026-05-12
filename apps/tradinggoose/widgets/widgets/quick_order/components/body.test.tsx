@@ -21,7 +21,7 @@ const mockReset = vi.fn()
 const portfolioIdentity = {
   providerId: 'alpaca',
   credentialId: 'credential-1',
-  credentialServiceId: 'alpaca-live',
+  serviceId: 'alpaca-live',
   accountId: 'acct-1',
   accountName: 'Paper Account',
   accountType: 'paper' as const,
@@ -496,14 +496,14 @@ describe('QuickOrderWidgetBody', () => {
       onIncompleteAccountOptionsChange
     )
     expect(onIncompleteAccountOptionsChange).toHaveBeenCalledWith({
-      credentialServiceId: 'alpaca-live',
+      serviceId: 'alpaca-live',
       provider: 'alpaca',
       side: 'buy',
     })
     expect(mockUsePortfolioDetail).toHaveBeenLastCalledWith({
       workspaceId: 'workspace-1',
       provider: 'alpaca',
-      credentialServiceId: 'alpaca-live',
+      serviceId: 'alpaca-live',
       portfolioIdentity: undefined,
     })
   })
@@ -607,7 +607,7 @@ describe('QuickOrderWidgetBody', () => {
     })
     expect(mockPortfolioRefetch).toHaveBeenCalled()
     expect(mockMutate.mock.calls[0][0]).not.toHaveProperty('credentialId')
-    expect(mockMutate.mock.calls[0][0]).not.toHaveProperty('credentialServiceId')
+    expect(mockMutate.mock.calls[0][0]).not.toHaveProperty('serviceId')
     expect(mockMutate.mock.calls[0][0]).not.toHaveProperty('environment')
     expect(mockMutate.mock.calls[0][0]).not.toHaveProperty('accountId')
     expect(mockMutate.mock.calls[0][0]).not.toHaveProperty('provider')

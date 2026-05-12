@@ -15,14 +15,14 @@ const logger = createLogger('TradingServices')
 type ProviderRequestData = {
   provider: string
   credentialId: string
-  credentialServiceId: string
+  serviceId: string
 }
 
 type PreflightContext = {
   requestId: string
   providerId: string
   credentialId: string
-  credentialServiceId: string
+  serviceId: string
   environment: 'paper' | 'live'
   accessToken: string
   sessionUserId: string
@@ -60,8 +60,8 @@ export async function resolveTradingProviderContext({
   }
 
   const requestedServiceId = requireStringField(
-    requestData.credentialServiceId,
-    'credentialServiceId'
+    requestData.serviceId,
+    'serviceId'
   )
   const serviceId = getTradingProviderOAuthServiceId(providerId, requestedServiceId)
   if (!serviceId) {
@@ -88,7 +88,7 @@ export async function resolveTradingProviderContext({
     requestId,
     providerId,
     credentialId,
-    credentialServiceId: serviceId,
+    serviceId: serviceId,
     environment,
     accessToken: resolvedAccessToken,
     sessionUserId: userId,
@@ -110,7 +110,7 @@ export async function resolveTradingProviderSelectedAccount({
     (candidate) =>
       candidate.providerId === baseContext.providerId &&
       candidate.credentialId === baseContext.credentialId &&
-      candidate.credentialServiceId === baseContext.credentialServiceId &&
+      candidate.serviceId === baseContext.serviceId &&
       candidate.accountId === selectedAccountId
   )
   if (!portfolioIdentity) {

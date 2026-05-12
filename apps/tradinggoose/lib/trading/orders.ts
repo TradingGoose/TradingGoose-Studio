@@ -341,7 +341,7 @@ export async function submitTradingOrder({
     requestData: {
       provider: portfolioIdentity.providerId,
       credentialId: portfolioIdentity.credentialId,
-      credentialServiceId: portfolioIdentity.credentialServiceId,
+      serviceId: portfolioIdentity.serviceId,
     },
     requestId,
     userId,
@@ -379,7 +379,7 @@ export async function submitTradingOrder({
   const orderSizingMode = getOrderSizingMode(baseContext.providerId, requestData)
   const orderHistoryRequest = compactRecord({
     credentialId: baseContext.credentialId,
-    credentialServiceId: baseContext.credentialServiceId,
+    serviceId: baseContext.serviceId,
     accountId: accountContext.accountId,
     side: requestData.side,
     orderType: orderTypeResult.orderType,

@@ -75,9 +75,9 @@ const SECRET_KEY_EXACT_KEYS = new Set([
   'apisecret',
   'authorization',
   'credentialid',
-  'credentialserviceid',
   'password',
   'refreshtoken',
+  'serviceid',
 ])
 const SECRET_KEY_PATTERN = /credential|secret|token|password|authorization/i
 
@@ -168,8 +168,8 @@ export const readOrderAccountId = (row: Pick<RecordsOrderRow, 'request'>) =>
 export const readOrderCredentialId = (row: Pick<RecordsOrderRow, 'request'>) =>
   readOrderRequestString(row, 'credentialId')
 
-export const readOrderCredentialServiceId = (row: Pick<RecordsOrderRow, 'request'>) =>
-  readOrderRequestString(row, 'credentialServiceId')
+export const readOrderServiceId = (row: Pick<RecordsOrderRow, 'request'>) =>
+  readOrderRequestString(row, 'serviceId')
 
 export function serializeOrderRecord(
   row: RecordsOrderRow,

@@ -71,7 +71,7 @@ import { TradingPortfolioStreamManager } from './portfolio-manager'
 const portfolioIdentity: PortfolioIdentity = {
   providerId: 'alpaca',
   credentialId: 'credential-1',
-  credentialServiceId: 'alpaca-live',
+  serviceId: 'alpaca-live',
   accountId: 'acct-1',
   providerName: 'Alpaca',
   accountName: 'Primary',
@@ -169,7 +169,7 @@ describe('TradingPortfolioStreamManager', () => {
 
     await manager.subscribe(firstSocket, {
       provider: 'alpaca',
-      credentialServiceId: 'alpaca-live',
+      serviceId: 'alpaca-live',
       portfolioIdentity,
       workspaceId: 'workspace-1',
       channel: 'account-snapshot',
@@ -177,7 +177,7 @@ describe('TradingPortfolioStreamManager', () => {
     })
     await manager.subscribe(secondSocket, {
       provider: 'alpaca',
-      credentialServiceId: 'alpaca-live',
+      serviceId: 'alpaca-live',
       portfolioIdentity,
       workspaceId: 'workspace-1',
       channel: 'account-snapshot',
@@ -192,7 +192,7 @@ describe('TradingPortfolioStreamManager', () => {
     expect(getPortfolioDetailMock).toHaveBeenCalledWith({
       providerId: 'alpaca',
       credentialId: 'credential-1',
-      credentialServiceId: 'alpaca-live',
+      serviceId: 'alpaca-live',
       environment: 'live',
       accessToken: 'oauth-token',
       accountId: 'acct-1',
@@ -201,7 +201,7 @@ describe('TradingPortfolioStreamManager', () => {
       'trading-portfolio-snapshot',
       expect.objectContaining({
         provider: 'alpaca',
-        credentialServiceId: 'alpaca-live',
+        serviceId: 'alpaca-live',
         workspaceId: 'workspace-1',
         channel: 'account-snapshot',
         portfolioIdentity,
@@ -228,7 +228,7 @@ describe('TradingPortfolioStreamManager', () => {
 
     const first = await manager.subscribe(firstSocket, {
       provider: 'alpaca',
-      credentialServiceId: 'alpaca-live',
+      serviceId: 'alpaca-live',
       portfolioIdentity,
       workspaceId: 'workspace-1',
       channel: 'account-snapshot',
@@ -236,7 +236,7 @@ describe('TradingPortfolioStreamManager', () => {
     })
     const second = await manager.subscribe(secondSocket, {
       provider: 'alpaca',
-      credentialServiceId: 'alpaca-live',
+      serviceId: 'alpaca-live',
       portfolioIdentity,
       workspaceId: 'workspace-1',
       channel: 'account-snapshot',
@@ -273,7 +273,7 @@ describe('TradingPortfolioStreamManager', () => {
 
     await manager.subscribe(socket, {
       provider: 'alpaca',
-      credentialServiceId: 'alpaca-live',
+      serviceId: 'alpaca-live',
       portfolioIdentity,
       workspaceId: 'workspace-1',
       channel: 'account-snapshot',
@@ -281,7 +281,7 @@ describe('TradingPortfolioStreamManager', () => {
     })
     await manager.subscribe(socket, {
       provider: 'alpaca',
-      credentialServiceId: 'alpaca-live',
+      serviceId: 'alpaca-live',
       portfolioIdentity,
       workspaceId: 'workspace-1',
       channel: 'portfolio-performance',
@@ -298,7 +298,7 @@ describe('TradingPortfolioStreamManager', () => {
       'trading-portfolio-performance',
       expect.objectContaining({
         provider: 'alpaca',
-        credentialServiceId: 'alpaca-live',
+        serviceId: 'alpaca-live',
         workspaceId: 'workspace-1',
         channel: 'portfolio-performance',
         portfolioIdentity,
@@ -318,7 +318,7 @@ describe('TradingPortfolioStreamManager', () => {
     await expect(
       manager.subscribe(socket, {
         provider: 'alpaca',
-        credentialServiceId: 'alpaca-live',
+        serviceId: 'alpaca-live',
         portfolioIdentity,
         workspaceId: 'workspace-1',
         channel: 'account-snapshot',

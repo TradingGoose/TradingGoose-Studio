@@ -4,7 +4,7 @@ export type QuickOrderSide = 'buy' | 'sell'
 
 export interface QuickOrderWidgetParams {
   provider?: string
-  credentialServiceId?: string
+  serviceId?: string
   portfolioIdentity?: PortfolioIdentity
   marketProvider?: string
   marketProviderParams?: Record<string, unknown>

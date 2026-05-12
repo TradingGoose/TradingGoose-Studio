@@ -13,21 +13,21 @@ import type { TradingProviderId } from '@/providers/trading/types'
 export async function listUserTradingPortfolioIdentities({
   userId,
   providerId,
-  credentialServiceId,
+  serviceId,
   requestId,
 }: {
   userId: string
   providerId: TradingProviderId
-  credentialServiceId?: string
+  serviceId?: string
   requestId: string
 }) {
   const provider = getTradingProviderDefinition(providerId)
-  const credentialServices = provider?.oauth?.credentialServices ?? []
-  const serviceIds = credentialServices.map(({ serviceId }) => serviceId)
-  const selectedServiceId = credentialServiceId
-    ? getTradingProviderOAuthServiceId(providerId, credentialServiceId)
+  const services = provider?.oauth?.services ?? []
+  const serviceIds = services.map(({ serviceId }) => serviceId)
+  const selectedServiceId = serviceId
+    ? getTradingProviderOAuthServiceId(providerId, serviceId)
     : undefined
-  if (credentialServiceId && !selectedServiceId) return []
+  if (serviceId && !selectedServiceId) return []
 
   const targetServiceIds = selectedServiceId ? [selectedServiceId] : serviceIds
   if (!targetServiceIds.length) return []
@@ -44,7 +44,7 @@ export async function listUserTradingPortfolioIdentities({
     credentials.map(async (credential) => {
       const environment = getTradingProviderOAuthEnvironment(providerId, credential.providerId)
       if (!environment) {
-        throw new Error(`Unsupported trading credential service: ${credential.providerId}`)
+        throw new Error(`Unsupported trading service: ${credential.providerId}`)
       }
 
       const accessToken = await getOAuthTokenByCredentialId({
@@ -60,7 +60,7 @@ export async function listUserTradingPortfolioIdentities({
       return listPortfolioIdentities({
         providerId,
         credentialId: credential.id,
-        credentialServiceId: credential.providerId,
+        serviceId: credential.providerId,
         environment,
         accessToken,
       })
@@ -71,7 +71,7 @@ export async function listUserTradingPortfolioIdentities({
     result.status === 'fulfilled' ? [result.value] : []
   )
   const hasRejectedIdentityLoad = identities.some((result) => result.status === 'rejected')
-  if ((credentialServiceId || !fulfilled.length) && hasRejectedIdentityLoad) {
+  if ((serviceId || !fulfilled.length) && hasRejectedIdentityLoad) {
     throw new Error('Failed to load trading portfolio identities')
   }
 

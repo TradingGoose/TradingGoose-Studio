@@ -47,7 +47,7 @@ vi.mock('@/providers/trading/portfolio', () => ({
 vi.mock('@/providers/trading/providers', () => ({
   getTradingProviderDefinition: vi.fn(() => ({
     oauth: {
-      credentialServices: [
+      services: [
         { serviceId: 'alpaca-live', environment: 'live' },
         { serviceId: 'alpaca-paper', environment: 'paper' },
       ],
@@ -64,7 +64,7 @@ vi.mock('@/providers/trading/providers', () => ({
 const portfolioIdentity = {
   providerId: 'alpaca',
   credentialId: 'credential-live',
-  credentialServiceId: 'alpaca-live',
+  serviceId: 'alpaca-live',
   accountId: 'account-1',
 }
 
@@ -76,7 +76,7 @@ describe('listUserTradingPortfolioIdentities', () => {
     mocks.listPortfolioIdentities.mockResolvedValue([portfolioIdentity])
   })
 
-  it('throws for a selected credential service when any same-service account load fails', async () => {
+  it('throws for a selected service when any same-service account load fails', async () => {
     mocks.credentials = [
       { id: 'credential-live', providerId: 'alpaca-live' },
       { id: 'credential-stale', providerId: 'alpaca-live' },
@@ -91,13 +91,13 @@ describe('listUserTradingPortfolioIdentities', () => {
       listUserTradingPortfolioIdentities({
         userId: 'user-1',
         providerId: 'alpaca',
-        credentialServiceId: 'alpaca-live',
+        serviceId: 'alpaca-live',
         requestId: 'request-1',
       })
     ).rejects.toThrow('Failed to load trading portfolio identities')
   })
 
-  it('returns healthy identities when another credential service fails during all-service loading', async () => {
+  it('returns healthy identities when another service fails during all-service loading', async () => {
     mocks.credentials = [
       { id: 'credential-live', providerId: 'alpaca-live' },
       { id: 'credential-paper', providerId: 'alpaca-paper' },

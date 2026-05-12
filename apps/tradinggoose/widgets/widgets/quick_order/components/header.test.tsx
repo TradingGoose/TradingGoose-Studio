@@ -70,7 +70,7 @@ const mockTradingAccountSelector = vi.fn(({ onAccountSelect }: MockTradingAccoun
         portfolioIdentity: {
           providerId: 'alpaca',
           credentialId: 'credential-1',
-          credentialServiceId: 'alpaca-live',
+          serviceId: 'alpaca-live',
           accountId: 'acct-1',
         },
       })
@@ -243,7 +243,7 @@ describe('QuickOrderHeaderControls', () => {
       params: {
         provider: 'tradier',
         portfolioIdentity: null,
-        credentialServiceId: null,
+        serviceId: null,
       },
       panelId: 'panel-1',
       widgetKey: 'quick_order',
@@ -374,7 +374,7 @@ describe('QuickOrderHeaderControls', () => {
         portfolioIdentity: {
           providerId: 'alpaca',
           credentialId: 'credential-1',
-          credentialServiceId: 'alpaca-live',
+          serviceId: 'alpaca-live',
           accountId: 'acct-1',
         },
       },

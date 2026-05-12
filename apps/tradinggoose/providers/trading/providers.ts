@@ -190,7 +190,7 @@ export const TRADING_PROVIDER_DEFINITIONS: Record<string, TradingProviderDefinit
     authType: 'oauth',
     oauth: {
       provider: 'alpaca',
-      credentialServices: [
+      services: [
         { serviceId: 'alpaca-live', environment: 'live' },
         { serviceId: 'alpaca-paper', environment: 'paper' },
       ],
@@ -212,7 +212,7 @@ export const TRADING_PROVIDER_DEFINITIONS: Record<string, TradingProviderDefinit
     authType: 'oauth',
     oauth: {
       provider: 'tradier',
-      credentialServices: [{ serviceId: 'tradier-live', environment: 'live' }],
+      services: [{ serviceId: 'tradier-live', environment: 'live' }],
       scopes: getCanonicalScopesForProvider('tradier-live'),
       credentialTitle: 'Tradier Account',
       credentialPlaceholder: 'Select or connect Tradier connection',
@@ -247,22 +247,22 @@ export function getTradingProviders(): TradingProviderDefinition[] {
   return Object.values(TRADING_PROVIDER_DEFINITIONS)
 }
 
-export function getTradingProviderOAuthCredentialServices(providerId: TradingProviderId) {
+export function getTradingProviderOAuthServices(providerId: TradingProviderId) {
   const provider = getTradingProviderDefinition(providerId)
-  return provider?.oauth?.credentialServices ?? []
+  return provider?.oauth?.services ?? []
 }
 
 export function getTradingProviderOAuthServiceIds(providerId: TradingProviderId): string[] {
-  return (getTradingProviderOAuthCredentialServices(providerId) ?? []).map(
+  return (getTradingProviderOAuthServices(providerId) ?? []).map(
     (service) => service.serviceId
   )
 }
 
-export function resolveTradingProviderOAuthCredentialService(
+export function resolveTradingProviderOAuthService(
   providerId: TradingProviderId,
   serviceId?: string | null
 ) {
-  const services = getTradingProviderOAuthCredentialServices(providerId)
+  const services = getTradingProviderOAuthServices(providerId)
   if (!services || services.length === 0) return null
 
   const requestedServiceId = serviceId?.trim()
@@ -277,14 +277,14 @@ export function getTradingProviderOAuthServiceId(
   providerId: TradingProviderId,
   serviceId?: string | null
 ): string | null {
-  return resolveTradingProviderOAuthCredentialService(providerId, serviceId)?.serviceId ?? null
+  return resolveTradingProviderOAuthService(providerId, serviceId)?.serviceId ?? null
 }
 
 export function getTradingProviderOAuthEnvironment(
   providerId: TradingProviderId,
   serviceId?: string | null
 ) {
-  return resolveTradingProviderOAuthCredentialService(providerId, serviceId)?.environment ?? null
+  return resolveTradingProviderOAuthService(providerId, serviceId)?.environment ?? null
 }
 
 export function getTradingProvidersByKind(kind: TradingOperationKind): TradingProviderDefinition[] {

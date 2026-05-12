@@ -32,7 +32,7 @@ import { tradingHoldingsTool } from '@/tools/trading/holdings'
 const portfolioIdentity = {
   providerId: 'tradier',
   credentialId: 'credential-1',
-  credentialServiceId: 'tradier-live',
+  serviceId: 'tradier-live',
   accountId: 'ACC-2',
 }
 
@@ -45,7 +45,7 @@ describe('tradingHoldingsTool', () => {
       requestId: 'request-1',
       providerId: 'tradier',
       credentialId: 'credential-1',
-      credentialServiceId: 'tradier-live',
+      serviceId: 'tradier-live',
       environment: 'live',
       accessToken: 'access-token',
       sessionUserId: 'user-1',
@@ -73,7 +73,7 @@ describe('tradingHoldingsTool', () => {
     expect(getPortfolioDetailMock).toHaveBeenCalledWith({
       providerId: 'tradier',
       credentialId: 'credential-1',
-      credentialServiceId: 'tradier-live',
+      serviceId: 'tradier-live',
       environment: 'live',
       accessToken: 'access-token',
       accountId: 'ACC-2',

@@ -48,13 +48,13 @@ describe('Tradier portfolio helpers', () => {
         {
           providerId: 'tradier',
           credentialId: 'credential-1',
-          credentialServiceId: 'tradier-live',
+          serviceId: 'tradier-live',
         }
       )
     ).toEqual({
       providerId: 'tradier',
       credentialId: 'credential-1',
-      credentialServiceId: 'tradier-live',
+      serviceId: 'tradier-live',
       accountId: 'ACC-123',
       providerName: 'Tradier',
       accountName: 'Individual (ACC-123)',
@@ -111,7 +111,7 @@ describe('Tradier portfolio helpers', () => {
     const snapshot = await getTradierTradingAccountSnapshot({
       providerId: 'tradier',
       credentialId: 'credential-1',
-      credentialServiceId: 'tradier-live',
+      serviceId: 'tradier-live',
       environment: 'live',
       accessToken: 'token',
       accountId: 'ACC-123',
@@ -168,7 +168,7 @@ describe('Tradier portfolio helpers', () => {
     const performance = await getTradierTradingAccountPerformance({
       providerId: 'tradier',
       credentialId: 'credential-1',
-      credentialServiceId: 'tradier-live',
+      serviceId: 'tradier-live',
       environment: 'paper',
       accessToken: 'token',
       accountId: 'ACC-123',
@@ -186,7 +186,7 @@ describe('Tradier portfolio helpers', () => {
     const performance = await getTradierTradingAccountPerformance({
       providerId: 'tradier',
       credentialId: 'credential-1',
-      credentialServiceId: 'tradier-live',
+      serviceId: 'tradier-live',
       environment: 'live',
       accessToken: 'token',
       accountId: 'ACC-123',

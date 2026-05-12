@@ -22,7 +22,7 @@ const mockEmitHeatmapParamsChange = vi.fn()
 const portfolioIdentity = {
   providerId: 'alpaca',
   credentialId: 'credential-1',
-  credentialServiceId: 'alpaca-live',
+  serviceId: 'alpaca-live',
   accountId: 'account-1',
   accountName: 'Paper',
   baseCurrency: 'USD',
@@ -432,7 +432,7 @@ describe('HeatmapWidgetBody', () => {
     expect(mockUsePortfolioDetail).toHaveBeenLastCalledWith({
       workspaceId: 'workspace-1',
       provider: 'alpaca',
-      credentialServiceId: 'alpaca-live',
+      serviceId: 'alpaca-live',
       portfolioIdentity,
       enabled: true,
     })

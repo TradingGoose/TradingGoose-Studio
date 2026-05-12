@@ -57,7 +57,7 @@ describe('trading order block contracts', () => {
       portfolioIdentity: {
         providerId: 'tradier',
         credentialId: 'credential-1',
-        credentialServiceId: 'tradier-live',
+        serviceId: 'tradier-live',
         accountId: 'ACC-1',
       },
       side: 'buy',

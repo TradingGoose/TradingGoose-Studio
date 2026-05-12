@@ -27,7 +27,7 @@ const toTradierAccountsArray = (profileResponse: any) => {
 
 export const normalizeTradierTradingAccount = (
   account: any,
-  context: Pick<TradingPortfolioBaseContext, 'credentialId' | 'credentialServiceId' | 'providerId'>
+  context: Pick<TradingPortfolioBaseContext, 'credentialId' | 'serviceId' | 'providerId'>
 ): PortfolioIdentity => {
   const accountNumber =
     typeof account?.account_number === 'string' ? account.account_number.trim() : ''
@@ -41,7 +41,7 @@ export const normalizeTradierTradingAccount = (
   return {
     providerId: context.providerId,
     credentialId: context.credentialId,
-    credentialServiceId: context.credentialServiceId,
+    serviceId: context.serviceId,
     accountId: accountNumber,
     providerName: 'Tradier',
     accountName: classification ? `${classification} (${accountNumber})` : accountNumber,

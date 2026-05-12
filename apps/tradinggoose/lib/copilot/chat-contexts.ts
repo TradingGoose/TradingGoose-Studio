@@ -36,7 +36,7 @@ const buildContextIdentityKey = (context: ChatContext): string => {
     case 'workflow_block':
       return `workflow_block:${context.workflowId}:${context.blockId}`
     case 'blocks':
-      return `blocks:${[...context.blockTypes].sort().join(',')}`
+      return `blocks:${[...(context.blockTypes ?? [])].sort().join(',')}`
     case 'knowledge':
       return `knowledge:${context.knowledgeId ?? context.label}`
     case 'templates':

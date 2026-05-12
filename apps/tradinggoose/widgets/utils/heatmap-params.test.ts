@@ -4,7 +4,7 @@ import { sanitizeHeatmapParams } from '@/widgets/utils/heatmap-params'
 const portfolioIdentity = {
   providerId: 'alpaca',
   credentialId: 'credential-1',
-  credentialServiceId: 'alpaca-live',
+  serviceId: 'alpaca-live',
   accountId: 'account-1',
 }
 
@@ -20,7 +20,7 @@ describe('sanitizeHeatmapParams', () => {
           apiSecret: '{{ ALPACA_API_SECRET }}',
         },
         tradingProvider: 'alpaca',
-        credentialServiceId: 'alpaca-live',
+        serviceId: 'alpaca-live',
         portfolioIdentity,
         runtime: { refreshAt: 123 },
       })
@@ -33,7 +33,7 @@ describe('sanitizeHeatmapParams', () => {
         apiSecret: '{{ ALPACA_API_SECRET }}',
       },
       tradingProvider: 'alpaca',
-      credentialServiceId: 'alpaca-live',
+      serviceId: 'alpaca-live',
       portfolioIdentity,
       runtime: { refreshAt: 123 },
     })

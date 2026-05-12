@@ -23,7 +23,7 @@ const getAccountDescription = (
   portfolioIdentity: PortfolioIdentity
 ) =>
   [
-    getServiceByProviderAndId(providerId, portfolioIdentity.credentialServiceId).name,
+    getServiceByProviderAndId(providerId, portfolioIdentity.serviceId).name,
     portfolioIdentity.accountType,
     portfolioIdentity.accountStatus,
     portfolioIdentity.baseCurrency,
@@ -47,7 +47,7 @@ export async function GET(request: Request) {
   }
 
   const provider = getTradingProviderDefinition(providerId)
-  if (!provider?.oauth?.credentialServices?.length) {
+  if (!provider?.oauth?.services?.length) {
     return NextResponse.json({ error: 'Unsupported trading provider' }, { status: 400 })
   }
 
@@ -78,7 +78,7 @@ export async function GET(request: Request) {
           description,
           portfolioIdentity.providerName,
           portfolioIdentity.credentialId,
-          portfolioIdentity.credentialServiceId,
+          portfolioIdentity.serviceId,
           portfolioIdentity.accountId,
         ]
           .filter(Boolean)

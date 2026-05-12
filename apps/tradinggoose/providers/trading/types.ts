@@ -76,7 +76,7 @@ export interface TradingOrderDetailResult {
 export interface TradingPortfolioBaseContext {
   providerId: TradingProviderId
   credentialId: string
-  credentialServiceId: string
+  serviceId: string
   environment?: 'paper' | 'live'
   accessToken: string
 }
@@ -238,7 +238,7 @@ export interface TradingOrder {
 
 export interface TradingProviderOAuthConfig {
   provider: OAuthService
-  credentialServices?: Array<{
+  services?: Array<{
     serviceId: OAuthService
     environment?: 'paper' | 'live'
   }>

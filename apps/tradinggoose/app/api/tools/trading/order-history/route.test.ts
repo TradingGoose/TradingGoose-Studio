@@ -83,7 +83,7 @@ describe('order history support route', () => {
         request: {
           accountId: 'account-1',
           credentialId: 'credential-1',
-          credentialServiceId: 'alpaca-paper',
+          serviceId: 'alpaca-paper',
           quantity: 1,
           side: 'buy',
         },
@@ -108,7 +108,7 @@ describe('order history support route', () => {
           expect.not.objectContaining({
             accountId: 'account-1',
             credentialId: 'credential-1',
-            credentialServiceId: 'alpaca-paper',
+            serviceId: 'alpaca-paper',
           }),
         ],
         workspaceId: 'workspace-1',

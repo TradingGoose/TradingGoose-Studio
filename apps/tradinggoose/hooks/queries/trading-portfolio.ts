@@ -23,7 +23,7 @@ type TradingPortfolioChannel = 'accounts' | 'account-snapshot' | 'portfolio-perf
 type TradingAccountsRequest = {
   workspaceId?: string
   provider?: string
-  credentialServiceId?: string
+  serviceId?: string
   refreshKey?: number | string | null
   enabled?: boolean
 }
@@ -38,7 +38,7 @@ type TradingPerformanceRequest = TradingSnapshotRequest & {
 
 type TradingPortfolioSubscribedPayload = {
   provider?: string
-  credentialServiceId?: string
+  serviceId?: string
   workspaceId?: string
   channel?: TradingPortfolioChannel
   subscriptionId?: string
@@ -79,7 +79,7 @@ type SocketSubscriptionRef = {
   subscriptionId?: string
   clientSubscriptionId: string
   provider: string
-  credentialServiceId?: string
+  serviceId?: string
   workspaceId: string
   channel: TradingPortfolioChannel
   portfolioIdentity?: PortfolioIdentity
@@ -116,7 +116,7 @@ const postJson = async <T>(url: string, body: unknown): Promise<T> => {
 function useTradingPortfolioSocketData<T>({
   channel,
   provider,
-  credentialServiceId,
+  serviceId,
   workspaceId,
   portfolioIdentity,
   window,
@@ -127,7 +127,7 @@ function useTradingPortfolioSocketData<T>({
 }: {
   channel: TradingPortfolioChannel
   provider?: string
-  credentialServiceId?: string
+  serviceId?: string
   workspaceId?: string
   portfolioIdentity?: PortfolioIdentity | null
   window?: TradingPortfolioPerformanceWindow
@@ -151,7 +151,7 @@ function useTradingPortfolioSocketData<T>({
   const subscriptionRef = useRef<SocketSubscriptionRef | null>(null)
 
   const normalizedProvider = provider?.trim()
-  const normalizedCredentialServiceId = credentialServiceId?.trim()
+  const normalizedServiceId = serviceId?.trim()
   const normalizedWorkspaceId = workspaceId?.trim()
   const normalizedPortfolioIdentity = toPortfolioValueObject(portfolioIdentity)
   const normalizedPortfolioIdentityKey = normalizedPortfolioIdentity
@@ -161,7 +161,7 @@ function useTradingPortfolioSocketData<T>({
     channel,
     normalizedWorkspaceId ?? '',
     normalizedProvider ?? '',
-    normalizedCredentialServiceId ?? '',
+    normalizedServiceId ?? '',
     normalizedPortfolioIdentityKey,
     window ?? '',
   ].join('|')
@@ -205,7 +205,7 @@ function useTradingPortfolioSocketData<T>({
     subscriptionRef.current = {
       clientSubscriptionId,
       provider: normalizedProvider as string,
-      credentialServiceId: normalizedCredentialServiceId,
+      serviceId: normalizedServiceId,
       workspaceId: normalizedWorkspaceId as string,
       channel,
       portfolioIdentity: normalizedPortfolioIdentity ?? undefined,
@@ -219,9 +219,9 @@ function useTradingPortfolioSocketData<T>({
       if (payload.channel && payload.channel !== channel) return false
       if (payload.provider && payload.provider !== normalizedProvider) return false
       if (
-        payload.credentialServiceId &&
-        normalizedCredentialServiceId &&
-        payload.credentialServiceId !== normalizedCredentialServiceId
+        payload.serviceId &&
+        normalizedServiceId &&
+        payload.serviceId !== normalizedServiceId
       ) {
         return false
       }
@@ -247,7 +247,7 @@ function useTradingPortfolioSocketData<T>({
     const subscribe = (forceRefresh = false) => {
       socket.emit('trading-portfolio-subscribe', {
         provider: normalizedProvider,
-        credentialServiceId: normalizedCredentialServiceId,
+        serviceId: normalizedServiceId,
         workspaceId: normalizedWorkspaceId,
         channel,
         portfolioIdentity: normalizedPortfolioIdentity,
@@ -310,7 +310,7 @@ function useTradingPortfolioSocketData<T>({
       } else {
         socket.emit('trading-portfolio-unsubscribe', {
           provider: current.provider,
-          credentialServiceId: current.credentialServiceId,
+          serviceId: current.serviceId,
           channel: current.channel,
           portfolioIdentity: current.portfolioIdentity,
           clientSubscriptionId: current.clientSubscriptionId,
@@ -322,7 +322,7 @@ function useTradingPortfolioSocketData<T>({
     channel,
     dataEvent,
     getData,
-    normalizedCredentialServiceId,
+    normalizedServiceId,
     normalizedPortfolioIdentityKey,
     normalizedProvider,
     normalizedWorkspaceId,
@@ -342,7 +342,7 @@ function useTradingPortfolioSocketData<T>({
         subscriptionId: current.subscriptionId,
         clientSubscriptionId: current.clientSubscriptionId,
         provider: current.provider,
-        credentialServiceId: current.credentialServiceId,
+        serviceId: current.serviceId,
         channel: current.channel,
         portfolioIdentity: current.portfolioIdentity,
       })
@@ -365,7 +365,7 @@ export function usePortfolioIdentities(request: TradingAccountsRequest) {
   return useTradingPortfolioSocketData<PortfolioIdentity[]>({
     channel: 'accounts',
     provider: request.provider,
-    credentialServiceId: request.credentialServiceId,
+    serviceId: request.serviceId,
     workspaceId: request.workspaceId,
     refreshKey: request.refreshKey,
     enabled: request.enabled,
@@ -378,7 +378,7 @@ export function usePortfolioDetail(request: TradingSnapshotRequest) {
   return useTradingPortfolioSocketData<PortfolioDetail>({
     channel: 'account-snapshot',
     provider: request.provider,
-    credentialServiceId: request.credentialServiceId,
+    serviceId: request.serviceId,
     workspaceId: request.workspaceId,
     portfolioIdentity: request.portfolioIdentity,
     refreshKey: request.refreshKey,
@@ -392,7 +392,7 @@ export function usePortfolioPerformance(request: TradingPerformanceRequest) {
   return useTradingPortfolioSocketData<UnifiedTradingPortfolioPerformance>({
     channel: 'portfolio-performance',
     provider: request.provider,
-    credentialServiceId: request.credentialServiceId,
+    serviceId: request.serviceId,
     workspaceId: request.workspaceId,
     portfolioIdentity: request.portfolioIdentity,
     window: request.selectedWindow,

@@ -57,7 +57,7 @@ export const mapAlpacaAccountType = (account: any): UnifiedTradingAccountType =>
 
 export const normalizeAlpacaTradingAccount = (
   account: any,
-  context: Pick<TradingPortfolioBaseContext, 'credentialId' | 'credentialServiceId' | 'providerId'>
+  context: Pick<TradingPortfolioBaseContext, 'credentialId' | 'serviceId' | 'providerId'>
 ): PortfolioIdentity => {
   const id = typeof account?.id === 'string' ? account.id.trim() : ''
   if (!id) {
@@ -72,7 +72,7 @@ export const normalizeAlpacaTradingAccount = (
   return {
     providerId: context.providerId,
     credentialId: context.credentialId,
-    credentialServiceId: context.credentialServiceId,
+    serviceId: context.serviceId,
     accountId: id,
     providerName: 'Alpaca',
     accountName: `Alpaca (${accountNumber})`,

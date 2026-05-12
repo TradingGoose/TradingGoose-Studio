@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { resolveActiveTradingCredentialServiceId } from '@/widgets/widgets/components/trading-credential-services'
+import { resolveActiveTradingServiceId } from '@/widgets/widgets/components/trading-services'
 
-describe('resolveActiveTradingCredentialServiceId', () => {
+describe('resolveActiveTradingServiceId', () => {
   it('keeps a requested service only when it is connected', () => {
     expect(
-      resolveActiveTradingCredentialServiceId({
-        credentialServiceId: 'alpaca-live',
+      resolveActiveTradingServiceId({
+        serviceId: 'alpaca-live',
         connectedServiceIds: ['alpaca-live', 'alpaca-paper'],
       })
     ).toBe('alpaca-live')
@@ -13,8 +13,8 @@ describe('resolveActiveTradingCredentialServiceId', () => {
 
   it('moves from a disconnected requested service to the only connected service', () => {
     expect(
-      resolveActiveTradingCredentialServiceId({
-        credentialServiceId: 'alpaca-live',
+      resolveActiveTradingServiceId({
+        serviceId: 'alpaca-live',
         connectedServiceIds: ['alpaca-paper'],
       })
     ).toBe('alpaca-paper')
@@ -22,8 +22,8 @@ describe('resolveActiveTradingCredentialServiceId', () => {
 
   it('requires a user choice when multiple connected services remain', () => {
     expect(
-      resolveActiveTradingCredentialServiceId({
-        credentialServiceId: 'alpaca-live',
+      resolveActiveTradingServiceId({
+        serviceId: 'alpaca-live',
         connectedServiceIds: ['alpaca-paper', 'alpaca-sandbox'],
       })
     ).toBeUndefined()
@@ -31,8 +31,8 @@ describe('resolveActiveTradingCredentialServiceId', () => {
 
   it('does not activate a disconnected single-service provider', () => {
     expect(
-      resolveActiveTradingCredentialServiceId({
-        credentialServiceId: 'tradier-live',
+      resolveActiveTradingServiceId({
+        serviceId: 'tradier-live',
         connectedServiceIds: [],
       })
     ).toBeUndefined()

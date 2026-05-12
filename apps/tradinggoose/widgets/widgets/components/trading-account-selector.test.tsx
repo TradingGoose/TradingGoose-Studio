@@ -10,15 +10,15 @@ import type { PortfolioIdentity } from '@/providers/trading/portfolio-identity'
 import { TradingAccountSelector } from '@/widgets/widgets/components/trading-account-selector'
 
 const mockUsePortfolioIdentities = vi.fn()
-const mockUseTradingCredentialServices = vi.fn()
+const mockUseTradingServices = vi.fn()
 
 vi.mock('@/hooks/queries/trading-portfolio', () => ({
   usePortfolioIdentities: (...args: unknown[]) => mockUsePortfolioIdentities(...args),
 }))
 
-vi.mock('@/widgets/widgets/components/trading-credential-services', () => ({
-  getTradingCredentialServiceName: vi.fn(() => 'Primary Broker'),
-  useTradingCredentialServices: (...args: unknown[]) => mockUseTradingCredentialServices(...args),
+vi.mock('@/widgets/widgets/components/trading-services', () => ({
+  getTradingServiceName: vi.fn(() => 'Primary Broker'),
+  useTradingServices: (...args: unknown[]) => mockUseTradingServices(...args),
 }))
 
 describe('TradingAccountSelector', () => {
@@ -27,7 +27,7 @@ describe('TradingAccountSelector', () => {
   const selectedPortfolioIdentity: PortfolioIdentity = {
     providerId: 'alpaca',
     credentialId: 'credential-1',
-    credentialServiceId: 'alpaca-live',
+    serviceId: 'alpaca-live',
     accountId: 'acct-1',
   }
 
@@ -40,7 +40,7 @@ describe('TradingAccountSelector', () => {
     document.body.appendChild(container)
     root = createRoot(container)
 
-    mockUseTradingCredentialServices.mockReturnValue({
+    mockUseTradingServices.mockReturnValue({
       serviceIds: ['alpaca-live', 'alpaca-paper'],
       connectedServiceIds: ['alpaca-live'],
       activeServiceId: 'alpaca-live',
@@ -60,7 +60,7 @@ describe('TradingAccountSelector', () => {
         {
           providerId: 'alpaca',
           credentialId: 'credential-2',
-          credentialServiceId: 'alpaca-live',
+          serviceId: 'alpaca-live',
           accountId: 'acct-2',
           accountName: 'Live Account',
           accountType: 'margin',
@@ -89,7 +89,7 @@ describe('TradingAccountSelector', () => {
           <TradingAccountSelector
             workspaceId='workspace-1'
             providerId='alpaca'
-            credentialServiceId='alpaca-live'
+            serviceId='alpaca-live'
             portfolioIdentity={selectedPortfolioIdentity}
           />
         </TooltipProvider>
@@ -98,15 +98,15 @@ describe('TradingAccountSelector', () => {
 
     const button = container.querySelector('button[aria-label="Select trading account"]')
     expect(button?.textContent).toContain('Alpaca Account')
-    expect(mockUseTradingCredentialServices).toHaveBeenCalledWith({
+    expect(mockUseTradingServices).toHaveBeenCalledWith({
       providerId: 'alpaca',
-      credentialServiceId: 'alpaca-live',
+      serviceId: 'alpaca-live',
       enabled: true,
     })
     expect(mockUsePortfolioIdentities).toHaveBeenCalledWith({
       workspaceId: 'workspace-1',
       provider: 'alpaca',
-      credentialServiceId: 'alpaca-live',
+      serviceId: 'alpaca-live',
       enabled: true,
     })
   })
@@ -118,7 +118,7 @@ describe('TradingAccountSelector', () => {
           <TradingAccountSelector
             workspaceId='workspace-1'
             providerId='alpaca'
-            credentialServiceId='alpaca-live'
+            serviceId='alpaca-live'
             portfolioIdentity={selectedPortfolioIdentity}
           />
         </TooltipProvider>
@@ -165,11 +165,11 @@ describe('TradingAccountSelector', () => {
           <TradingAccountSelector
             workspaceId='workspace-1'
             providerId='alpaca'
-            credentialServiceId='alpaca-live'
+            serviceId='alpaca-live'
             portfolioIdentity={{
               providerId: 'alpaca',
               credentialId: 'credential-1',
-              credentialServiceId: 'alpaca-live',
+              serviceId: 'alpaca-live',
               accountId: '8b594a8c-1353-40d0-981c-e022a879e0e0',
             }}
           />
@@ -189,11 +189,11 @@ describe('TradingAccountSelector', () => {
           <TradingAccountSelector
             workspaceId='workspace-1'
             providerId='alpaca'
-            credentialServiceId='alpaca-live'
+            serviceId='alpaca-live'
             portfolioIdentity={{
               providerId: 'alpaca',
               credentialId: 'credential-1',
-              credentialServiceId: 'alpaca-live',
+              serviceId: 'alpaca-live',
               accountId: 'stale-account-id',
             }}
             placeholder='Select account'

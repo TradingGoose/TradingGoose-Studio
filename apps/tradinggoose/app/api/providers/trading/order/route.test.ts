@@ -76,7 +76,7 @@ const workspaceId = 'workspace-1'
 const portfolioIdentityFor = (providerId: 'alpaca' | 'tradier', accountId = 'ACC-1') => ({
   providerId,
   credentialId: `${providerId}-credential-1`,
-  credentialServiceId: `${providerId}-live`,
+  serviceId: `${providerId}-live`,
   accountId,
 })
 
@@ -114,7 +114,7 @@ describe('Trading provider order route', () => {
       {
         providerId: 'alpaca',
         credentialId: 'alpaca-credential-1',
-        credentialServiceId: 'alpaca-live',
+        serviceId: 'alpaca-live',
         accountId: 'ACC-1',
         accountName: 'Main',
         accountType: 'cash',
@@ -124,7 +124,7 @@ describe('Trading provider order route', () => {
       {
         providerId: 'tradier',
         credentialId: 'tradier-credential-1',
-        credentialServiceId: 'tradier-live',
+        serviceId: 'tradier-live',
         accountId: 'ACC-1',
         accountName: 'Main',
         accountType: 'cash',
@@ -496,7 +496,7 @@ describe('Trading provider order route', () => {
       {
         providerId: 'tradier',
         credentialId: 'tradier-credential-1',
-        credentialServiceId: 'tradier-live',
+        serviceId: 'tradier-live',
         accountId: 'ACC-2',
       },
     ])
@@ -612,7 +612,7 @@ describe('Trading provider order route', () => {
         request: expect.objectContaining({
           accountId: 'ACC-1',
           credentialId: 'alpaca-credential-1',
-          credentialServiceId: 'alpaca-live',
+          serviceId: 'alpaca-live',
           orderType: 'market',
           quantity: 3,
           side: 'buy',
@@ -747,7 +747,7 @@ describe('Trading provider order route', () => {
         request: expect.objectContaining({
           accountId: 'ACC-1',
           credentialId: 'tradier-credential-1',
-          credentialServiceId: 'tradier-live',
+          serviceId: 'tradier-live',
           quantity: 3,
           side: 'buy',
         }),

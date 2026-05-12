@@ -9,7 +9,7 @@ import { TradingServiceError } from '@/lib/trading/errors'
 import {
   readOrderAccountId,
   readOrderCredentialId,
-  readOrderCredentialServiceId,
+  readOrderServiceId,
 } from '@/lib/trading/order-records'
 import { executeTradingProviderOrderDetailRequest } from '@/providers/trading'
 import { TradingBrokerRequestError } from '@/providers/trading/portfolio-utils'
@@ -60,8 +60,8 @@ export async function getRecordedTradingOrderProviderDetail({
   }
 
   const credentialId = readOrderCredentialId(order)
-  const credentialServiceId = readOrderCredentialServiceId(order)
-  if (!credentialId || !credentialServiceId) {
+  const serviceId = readOrderServiceId(order)
+  if (!credentialId || !serviceId) {
     throw new TradingServiceError('Order history record is missing trading credential context')
   }
 
@@ -69,7 +69,7 @@ export async function getRecordedTradingOrderProviderDetail({
     requestData: {
       provider: order.provider,
       credentialId,
-      credentialServiceId,
+      serviceId,
     },
     requestId,
     userId,

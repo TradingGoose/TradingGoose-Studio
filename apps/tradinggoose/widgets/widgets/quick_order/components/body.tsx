@@ -223,14 +223,14 @@ export function QuickOrderWidgetBody({
     providerOptions.length > 0
   const {
     accountsQuery,
-    activeCredentialServiceId,
+    activeServiceId,
     activePortfolioIdentity,
-    credentialServices,
+    services,
     portfolioIdentities,
   } = usePortfolioIdentitySelection({
     workspaceId,
     providerId,
-    credentialServiceId: quickOrderParams?.credentialServiceId,
+    serviceId: quickOrderParams?.serviceId,
     portfolioIdentity: quickOrderParams?.portfolioIdentity,
     enabled: areProviderOptionsReady && hasSelectedProvider,
     panelId,
@@ -240,12 +240,12 @@ export function QuickOrderWidgetBody({
   const accountSnapshotQuery = usePortfolioDetail({
     workspaceId: workspaceId ?? undefined,
     provider: hasSelectedProvider && areProviderOptionsReady ? providerId : undefined,
-    credentialServiceId: activeCredentialServiceId,
+    serviceId: activeServiceId,
     portfolioIdentity: activePortfolioIdentity,
   })
   const submitResetProviderKey = [
     quickOrderParams?.provider ?? providerId,
-    activeCredentialServiceId ?? '',
+    activeServiceId ?? '',
   ].join(':')
 
   const sizingModeConfig = useMemo(
@@ -390,7 +390,7 @@ export function QuickOrderWidgetBody({
     emitQuickOrderParamsChange({
       params: {
         provider: null,
-        credentialServiceId: null,
+        serviceId: null,
         portfolioIdentity: null,
       },
       panelId,
@@ -517,7 +517,7 @@ export function QuickOrderWidgetBody({
   }
 
   if (!activePortfolioIdentity) {
-    if (credentialServices.isLoading) {
+    if (services.isLoading) {
       return (
         <div className={centerStateClassName}>
           <LoadingAgent size='md' />
@@ -525,7 +525,7 @@ export function QuickOrderWidgetBody({
       )
     }
 
-    if (!activeCredentialServiceId) {
+    if (!activeServiceId) {
       return <CenterState>Select a broker connection to submit an order.</CenterState>
     }
 
@@ -556,7 +556,7 @@ export function QuickOrderWidgetBody({
       validationMessage ||
       !providerId ||
       !workspaceId ||
-      !activeCredentialServiceId ||
+      !activeServiceId ||
       !activePortfolioIdentity ||
       !listing
     ) {

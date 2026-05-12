@@ -14,7 +14,7 @@ import {
 const portfolioIdentity = {
   providerId: 'alpaca',
   credentialId: 'credential-1',
-  credentialServiceId: 'alpaca-live',
+  serviceId: 'alpaca-live',
   accountId: 'acct-1',
 }
 
@@ -67,7 +67,7 @@ describe('quick order params utilities', () => {
           apiKey: 'market-key',
           apiSecret: 'market-secret',
         },
-        credentialServiceId: 'alpaca-live',
+        serviceId: 'alpaca-live',
         portfolioIdentity,
         side: 'sell',
         quantity: 1,
@@ -82,7 +82,7 @@ describe('quick order params utilities', () => {
         apiKey: 'market-key',
         apiSecret: 'market-secret',
       },
-      credentialServiceId: 'alpaca-live',
+      serviceId: 'alpaca-live',
       portfolioIdentity,
       side: 'sell',
     })
@@ -120,7 +120,7 @@ describe('quick order params utilities', () => {
         <Harness
           params={{
             provider: 'alpaca',
-            credentialServiceId: 'alpaca-live',
+            serviceId: 'alpaca-live',
             portfolioIdentity,
             side: 'buy',
           }}
@@ -142,7 +142,7 @@ describe('quick order params utilities', () => {
 
     expect(onChange).toHaveBeenCalledWith({
       provider: 'alpaca',
-      credentialServiceId: 'alpaca-live',
+      serviceId: 'alpaca-live',
       side: 'buy',
     })
   })
@@ -158,7 +158,7 @@ describe('quick order params utilities', () => {
             marketProvider: 'yahoo-finance',
             marketProviderParams: { region: 'US' },
             marketAuth: { apiKey: 'market-key' },
-            credentialServiceId: 'alpaca-live',
+            serviceId: 'alpaca-live',
             portfolioIdentity,
             side: 'buy',
           }}
@@ -182,7 +182,7 @@ describe('quick order params utilities', () => {
     expect(onChange).toHaveBeenCalledWith({
       provider: 'alpaca',
       marketProvider: 'finnhub',
-      credentialServiceId: 'alpaca-live',
+      serviceId: 'alpaca-live',
       portfolioIdentity,
       side: 'buy',
     })

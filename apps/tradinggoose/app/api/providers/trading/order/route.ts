@@ -22,7 +22,7 @@ const portfolioIdentitySchema = z
   .object({
     providerId: nonEmptyStringSchema,
     credentialId: nonEmptyStringSchema,
-    credentialServiceId: nonEmptyStringSchema,
+    serviceId: nonEmptyStringSchema,
     accountId: nonEmptyStringSchema,
   })
   .passthrough()

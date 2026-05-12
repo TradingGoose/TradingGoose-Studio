@@ -73,13 +73,13 @@ export const sanitizePortfolioSnapshotParams = (
 
   const nextParams: Record<string, unknown> = {}
   const provider = normalizeString(params.provider)
-  const credentialServiceId = normalizeString(params.credentialServiceId)
+  const serviceId = normalizeString(params.serviceId)
   const marketProvider = normalizeString(params.marketProvider)
   const portfolioIdentity = toPortfolioValueObject(params.portfolioIdentity)
   const selectedWindow = normalizeString(params.selectedWindow)
 
   if (provider) nextParams.provider = provider
-  if (credentialServiceId) nextParams.credentialServiceId = credentialServiceId
+  if (serviceId) nextParams.serviceId = serviceId
   if (marketProvider) nextParams.marketProvider = marketProvider
   if (portfolioIdentity) nextParams.portfolioIdentity = portfolioIdentity
   if (selectedWindow) nextParams.selectedWindow = selectedWindow
