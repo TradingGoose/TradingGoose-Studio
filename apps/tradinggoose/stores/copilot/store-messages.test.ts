@@ -119,6 +119,11 @@ describe('normalizeMessagesForUI', () => {
           id: 'tool-1',
         },
       },
+      {
+        type: 'text',
+        content: 'Visible reply.',
+        timestamp: Date.parse(input.timestamp),
+      },
     ])
     expect((normalizedAgain.contentBlocks?.[0] as any)?.timestamp).toBe(
       (message.contentBlocks?.[0] as any)?.timestamp

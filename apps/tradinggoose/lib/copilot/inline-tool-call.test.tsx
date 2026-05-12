@@ -37,6 +37,7 @@ const mockEntitySession = {
 }
 
 const mockGetEntityFields = vi.fn()
+const mockGetToolInterruptDisplays = vi.fn()
 
 vi.mock('react-google-drive-picker', () => ({
   default: () => [vi.fn()],
@@ -53,7 +54,7 @@ vi.mock('@/stores/copilot/store', () => ({
 
 vi.mock('@/stores/copilot/tool-registry', () => ({
   getCopilotToolMetadata: () => undefined,
-  getToolInterruptDisplays: () => undefined,
+  getToolInterruptDisplays: (...args: any[]) => mockGetToolInterruptDisplays(...args),
   isCopilotTool: () => true,
   isGatedTool: () => true,
 }))
@@ -88,6 +89,11 @@ describe('InlineToolCall', () => {
     mockEntitySession.doc = null
     mockEntitySession.descriptor = null
     mockGetEntityFields.mockReset()
+    mockGetToolInterruptDisplays.mockReset()
+    mockUseCopilotStoreState.executeCopilotToolCall.mockReset()
+    mockUseCopilotStoreState.executeIntegrationTool.mockReset()
+    mockUseCopilotStoreState.skipCopilotToolCall.mockReset()
+    mockUseCopilotStoreState.toolCallsById = {}
     container = document.createElement('div')
     document.body.appendChild(container)
     root = createRoot(container)
@@ -284,6 +290,50 @@ describe('InlineToolCall', () => {
     expect(container.querySelector('[data-testid="workflow-preview"]')?.textContent).toContain(
       'fn1'
     )
+  })
+
+  it('keeps review controls visible after a limited-access Allow transitions to review', async () => {
+    const toolCallId = 'tool-review-after-allow'
+    mockGetToolInterruptDisplays.mockReturnValue({
+      accept: { text: 'Accept' },
+      reject: { text: 'Reject' },
+    })
+    mockUseCopilotStoreState.executeCopilotToolCall.mockResolvedValue(undefined)
+    mockUseCopilotStoreState.toolCallsById = {
+      [toolCallId]: {
+        id: toolCallId,
+        name: 'edit_workflow',
+        state: ClientToolCallState.pending,
+      },
+    }
+
+    await act(async () => {
+      root.render(<InlineToolCall toolCallId={toolCallId} />)
+    })
+
+    const allowButton = Array.from(container.querySelectorAll('button')).find((button) =>
+      button.textContent?.includes('Allow')
+    )
+    expect(allowButton).toBeDefined()
+
+    await act(async () => {
+      allowButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    })
+
+    mockUseCopilotStoreState.toolCallsById = {
+      [toolCallId]: {
+        id: toolCallId,
+        name: 'edit_workflow',
+        state: ClientToolCallState.review,
+      },
+    }
+
+    await act(async () => {
+      root.render(<InlineToolCall toolCallId={toolCallId} />)
+    })
+
+    expect(container.textContent).toContain('Accept')
+    expect(container.textContent).toContain('Reject')
   })
 
   it('renders entity diffs in the copilot widget for pending entity edits', async () => {

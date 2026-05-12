@@ -191,7 +191,25 @@ export function normalizeMessagesForUI(
               timestamp: messageBlockTimestamp,
             }
           : null
-      const finalBlocks = reasoningBlock && blocks.length > 0 ? [reasoningBlock, ...blocks] : blocks
+      const hasTextBlock = blocks.some(
+        (block: any) =>
+          block?.type === 'text' &&
+          typeof block.content === 'string' &&
+          block.content.trim().length > 0
+      )
+      const textBlock =
+        normalizedContent.content.trim() && !hasTextBlock
+          ? {
+              type: 'text',
+              content: normalizedContent.content,
+              timestamp: messageBlockTimestamp,
+            }
+          : null
+      const finalBlocks = [
+        ...(reasoningBlock ? [reasoningBlock] : []),
+        ...blocks,
+        ...(textBlock ? [textBlock] : []),
+      ]
 
       const updatedToolCalls = Array.isArray((message as any).toolCalls)
         ? (message as any).toolCalls.map((tc: any) => {
@@ -225,24 +243,7 @@ export function normalizeMessagesForUI(
         ...message,
         content: normalizedContent.content,
         ...(updatedToolCalls && { toolCalls: updatedToolCalls }),
-        ...(finalBlocks.length > 0
-          ? { contentBlocks: finalBlocks }
-          : normalizedContent.reasoning || normalizedContent.content.trim()
-            ? {
-                contentBlocks: [
-                  ...(reasoningBlock ? [reasoningBlock] : []),
-                  ...(normalizedContent.content.trim()
-                    ? [
-                        {
-                          type: 'text',
-                          content: normalizedContent.content,
-                          timestamp: messageBlockTimestamp,
-                        },
-                      ]
-                    : []),
-                ],
-              }
-            : {}),
+        ...(finalBlocks.length > 0 ? { contentBlocks: finalBlocks } : {}),
       }
     })
   } catch {

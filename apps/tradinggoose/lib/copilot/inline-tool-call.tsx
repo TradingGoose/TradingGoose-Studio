@@ -319,7 +319,6 @@ function RunSkipButtons({
   isIntegration?: boolean
 }) {
   const [isProcessing, setIsProcessing] = useState(false)
-  const [buttonsHidden, setButtonsHidden] = useState(false)
   const actionInProgressRef = useRef(false)
   const { executeCopilotToolCall, executeIntegrationTool, skipCopilotToolCall } = useCopilotStore()
   const [openPicker] = useDrivePicker()
@@ -328,7 +327,6 @@ function RunSkipButtons({
     if (actionInProgressRef.current) return
     actionInProgressRef.current = true
     setIsProcessing(true)
-    setButtonsHidden(true)
     try {
       if (isIntegration) {
         onStateChange?.('executing')
@@ -342,8 +340,6 @@ function RunSkipButtons({
       actionInProgressRef.current = false
     }
   }
-
-  if (buttonsHidden) return null
 
   if (toolCall.name === 'gdrive_request_access' && toolCall.state === 'pending') {
     return (
@@ -388,7 +384,6 @@ function RunSkipButtons({
         </Button>
         <Button
           onClick={async () => {
-            setButtonsHidden(true)
             await skipCopilotToolCall(toolCall.id)
             onStateChange?.('rejected')
           }}
@@ -416,7 +411,6 @@ function RunSkipButtons({
             if (actionInProgressRef.current) return
             actionInProgressRef.current = true
             setIsProcessing(true)
-            setButtonsHidden(true)
             try {
               onStateChange?.('executing')
               await executeCopilotToolCall(toolCall.id)
@@ -437,7 +431,6 @@ function RunSkipButtons({
         </Button>
         <Button
           onClick={async () => {
-            setButtonsHidden(true)
             await skipCopilotToolCall(toolCall.id)
             onStateChange?.('rejected')
           }}
@@ -460,7 +453,6 @@ function RunSkipButtons({
       </Button>
       <Button
         onClick={async () => {
-          setButtonsHidden(true)
           await skipCopilotToolCall(toolCall.id)
           onStateChange?.('rejected')
         }}
@@ -692,7 +684,7 @@ export function InlineToolCall({
     return null
   }
 
-  // Compute icon element from tool's display metadata (fallback to Loader2)
+  // Compute icon element from tool display metadata, defaulting to Loader2.
   const renderDisplayIcon = () => {
     try {
       // Determine the icon component (prefer store, then registry, else Loader2)
