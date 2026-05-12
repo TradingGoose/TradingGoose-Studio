@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { buildSubBlockRows } from '@/lib/workflows/sub-block-rows'
+import { buildSubBlockPreviewRows } from '@/lib/workflows/sub-block-rows'
 import { getBlock } from '@/blocks'
 import type { SubBlockConfig } from '@/blocks/types'
 import type { WorkflowState } from '@/stores/workflows/workflow/types'
@@ -93,29 +93,39 @@ export function ReadOnlyNodeEditorPanel({
     if (selectedBlock.type === 'loop') {
       const loop = workflowState.loops?.[selectedBlock.id]
       const loopType = loop?.loopType ?? selectedBlock.data?.loopType ?? 'for'
+      const stateToUse = toSubBlockState({
+        loopType,
+        iterations: loop?.iterations ?? selectedBlock.data?.count ?? 5,
+        collection: loop?.forEachItems ?? selectedBlock.data?.collection,
+        whileCondition: loop?.whileCondition ?? selectedBlock.data?.whileCondition,
+      })
       return {
         availableTriggerIds: undefined,
-        stateToUse: toSubBlockState({
-          loopType,
-          iterations: loop?.iterations ?? selectedBlock.data?.count ?? 5,
-          collection: loop?.forEachItems ?? selectedBlock.data?.collection,
-          whileCondition: loop?.whileCondition ?? selectedBlock.data?.whileCondition,
+        stateToUse,
+        subBlocks: buildSubBlockPreviewRows({
+          blockId: selectedBlock.id,
+          stateToUse,
+          subBlocks: loopPreviewSubBlocks,
         }),
-        subBlocks: loopPreviewSubBlocks,
       }
     }
 
     if (selectedBlock.type === 'parallel') {
       const parallel = workflowState.parallels?.[selectedBlock.id]
       const parallelType = parallel?.parallelType ?? selectedBlock.data?.parallelType ?? 'count'
+      const stateToUse = toSubBlockState({
+        parallelType,
+        count: parallel?.count ?? selectedBlock.data?.count ?? 5,
+        distribution: parallel?.distribution ?? selectedBlock.data?.collection,
+      })
       return {
         availableTriggerIds: undefined,
-        stateToUse: toSubBlockState({
-          parallelType,
-          count: parallel?.count ?? selectedBlock.data?.count ?? 5,
-          distribution: parallel?.distribution ?? selectedBlock.data?.collection,
+        stateToUse,
+        subBlocks: buildSubBlockPreviewRows({
+          blockId: selectedBlock.id,
+          stateToUse,
+          subBlocks: parallelPreviewSubBlocks,
         }),
-        subBlocks: parallelPreviewSubBlocks,
       }
     }
 
@@ -130,17 +140,14 @@ export function ReadOnlyNodeEditorPanel({
     return {
       availableTriggerIds: blockConfig.triggers?.available,
       stateToUse: selectedBlock.subBlocks || {},
-      subBlocks: buildSubBlockRows({
+      subBlocks: buildSubBlockPreviewRows({
         blockId: selectedBlock.id,
         subBlocks: blockConfig.subBlocks || [],
         stateToUse: selectedBlock.subBlocks || {},
-        isAdvancedMode: selectedBlock.advancedMode ?? false,
         isTriggerMode: Boolean(selectedBlock.triggerMode) || blockConfig.category === 'triggers',
         isPureTriggerBlock: blockConfig.category === 'triggers',
         availableTriggerIds: blockConfig.triggers?.available,
-        hideFromPreview: true,
-        triggerSubBlockOwner: 'all',
-      }).flat(),
+      }),
     }
   })()
 

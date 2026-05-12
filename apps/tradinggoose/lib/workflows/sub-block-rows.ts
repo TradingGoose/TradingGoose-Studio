@@ -17,10 +17,27 @@ interface BuildSubBlockRowsParams {
   triggerSubBlockOwner?: 'editor' | 'deploy' | 'all'
 }
 
+type BuildSubBlockPreviewRowsParams = Omit<
+  BuildSubBlockRowsParams,
+  | 'isAdvancedMode'
+  | 'hideFromPreview'
+  | 'triggerSubBlockOwner'
+  | 'isPureTriggerBlock'
+  | 'isTriggerMode'
+> & {
+  isPureTriggerBlock?: boolean
+  isTriggerMode?: boolean
+}
+
 type ConditionValue = SubBlockCondition['value']
 
 const normalizeValue = (value: any) =>
   value && typeof value === 'object' && 'id' in value ? value.id : value
+
+const hasStoredValue = (value: unknown) =>
+  value && typeof value === 'object' && 'value' in value
+    ? (value as { value: unknown }).value !== undefined
+    : value !== undefined
 
 const evaluateMatch = (
   condition: { value: ConditionValue; not?: boolean },
@@ -153,4 +170,27 @@ export function buildSubBlockRows({
   }
 
   return rows
+}
+
+export function buildSubBlockPreviewRows({
+  isPureTriggerBlock = false,
+  isTriggerMode = false,
+  subBlocks,
+  stateToUse,
+  ...params
+}: BuildSubBlockPreviewRowsParams): SubBlockConfig[] {
+  return buildSubBlockRows({
+    ...params,
+    stateToUse,
+    subBlocks: subBlocks
+      .filter((subBlock) => subBlock.mode !== 'advanced' || hasStoredValue(stateToUse[subBlock.id]))
+      .map((subBlock) =>
+        subBlock.mode === 'advanced' ? { ...subBlock, mode: 'both' as const } : subBlock
+      ),
+    isAdvancedMode: false,
+    isPureTriggerBlock,
+    isTriggerMode,
+    hideFromPreview: true,
+    triggerSubBlockOwner: 'all',
+  }).flat()
 }
