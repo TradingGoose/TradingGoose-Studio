@@ -195,17 +195,20 @@ function resolveStartBlockId(params: {
   mergedStates: Record<string, any>
   serializedWorkflow: { connections: Array<{ source: string }> }
   start: WorkflowStart
+  isChildExecution: boolean
 }) {
   if (params.start.kind === 'trigger') {
     const startBlock = TriggerUtils.findStartBlock(
       params.mergedStates,
       params.start.triggerType,
-      false
+      params.isChildExecution
     )
 
     if (!startBlock) {
       const triggerName =
-        params.start.triggerType === 'api'
+        params.start.triggerType === 'api' && params.isChildExecution
+          ? 'Input'
+          : params.start.triggerType === 'api'
           ? 'API'
           : params.start.triggerType === 'chat'
             ? 'Chat'
@@ -388,6 +391,7 @@ export async function runPreparedWorkflowExecution(params: {
           mergedStates,
           serializedWorkflow,
           start: params.start,
+          isChildExecution: contextExtensions.isChildExecution === true,
         })
 
         const result = await executor.execute(params.blueprint.workflowId, startBlockId)

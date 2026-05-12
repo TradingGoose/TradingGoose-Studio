@@ -135,7 +135,7 @@ describe('WorkflowBlockHandler', () => {
     expect(queueBody).toMatchObject({
       input: { symbol: 'AAPL' },
       executionTarget: 'live',
-      triggerType: 'manual',
+      triggerType: 'api',
       workflowDepth: 1,
     })
     expect(queueBody).not.toHaveProperty('parentWorkflowId')

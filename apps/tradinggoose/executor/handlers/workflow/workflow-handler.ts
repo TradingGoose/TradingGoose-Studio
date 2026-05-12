@@ -214,7 +214,7 @@ export class WorkflowBlockHandler implements BlockHandler {
       body: JSON.stringify({
         input: params.input,
         executionTarget: params.executionTarget,
-        triggerType: 'manual',
+        triggerType: 'api',
         workflowDepth: params.workflowDepth,
       }),
       cache: 'no-store',
