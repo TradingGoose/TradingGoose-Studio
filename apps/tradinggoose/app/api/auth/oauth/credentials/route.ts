@@ -68,8 +68,8 @@ export async function GET(request: NextRequest) {
     }
     const requesterUserId = authResult.userId
 
-    // Resolve effective user id: workflow owner if workflowId provided (with access check); else requester
-    let effectiveUserId: string
+    // Resolve the credential owner: workflow owner when loading workflow-scoped credentials.
+    let credentialOwnerUserId: string
     if (workflowId) {
       // Load workflow owner and workspace for access control
       const rows = await db
@@ -106,9 +106,9 @@ export async function GET(request: NextRequest) {
         }
       }
 
-      effectiveUserId = wf.userId
+      credentialOwnerUserId = wf.userId
     } else {
-      effectiveUserId = requesterUserId
+      credentialOwnerUserId = requesterUserId
     }
 
     if (!providerParam && !credentialId) {
@@ -119,23 +119,17 @@ export async function GET(request: NextRequest) {
     let accountsData
 
     if (credentialId) {
-      // Foreign-aware lookup for a specific credential by id
-      // If workflowId is provided and requester has access (checked above), allow fetching by id only
-      if (workflowId) {
-        accountsData = await db.select().from(account).where(eq(account.id, credentialId))
-      } else {
-        // Fallback: constrain to requester's own credentials when not in a workflow context
-        accountsData = await db
-          .select()
-          .from(account)
-          .where(and(eq(account.userId, effectiveUserId), eq(account.id, credentialId)))
-      }
-    } else {
-      // Fetch all credentials for provider and effective user
       accountsData = await db
         .select()
         .from(account)
-        .where(and(eq(account.userId, effectiveUserId), eq(account.providerId, providerParam!)))
+        .where(and(eq(account.userId, credentialOwnerUserId), eq(account.id, credentialId)))
+    } else {
+      accountsData = await db
+        .select()
+        .from(account)
+        .where(
+          and(eq(account.userId, credentialOwnerUserId), eq(account.providerId, providerParam!))
+        )
     }
 
     // Transform accounts into credentials
@@ -186,7 +180,7 @@ export async function GET(request: NextRequest) {
           }
         }
 
-        // Fallback: Use accountId with provider type as context
+        // Use accountId with provider type as context
         if (!displayName) {
           displayName = `${acc.accountId} (${baseProvider})`
         }

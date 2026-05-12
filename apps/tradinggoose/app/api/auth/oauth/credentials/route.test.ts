@@ -239,6 +239,54 @@ describe('OAuth Credentials API Route', () => {
     expect(data.credentials[0].name).toBe('decoded@example.com')
   })
 
+  it('scopes workflow credential lookups to the workflow owner', async () => {
+    mockCheckHybridAuth.mockResolvedValueOnce({
+      success: true,
+      authType: 'session',
+      userId: 'collaborator-1',
+    })
+    mockDb.limit.mockResolvedValueOnce([{ userId: 'owner-1', workspaceId: 'workspace-1' }])
+    mockGetUserEntityPermissions.mockResolvedValueOnce({ role: 'reader' })
+    mockDb.where.mockImplementationOnce(() => mockDb)
+    mockDb.where.mockResolvedValueOnce([
+      {
+        id: 'credential-1',
+        userId: 'owner-1',
+        providerId: 'google-email',
+        accountId: 'google-user-id',
+        updatedAt: new Date('2024-01-01'),
+        idToken: null,
+        scope: null,
+      },
+    ])
+    mockDb.limit.mockResolvedValueOnce([{ email: 'owner@example.com' }])
+
+    const req = createMockRequestWithQuery(
+      'GET',
+      '?workflowId=workflow-1&credentialId=credential-1'
+    )
+    const { GET } = await import('@/app/api/auth/oauth/credentials/route')
+
+    const response = await GET(req)
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(data.credentials[0]).toMatchObject({
+      id: 'credential-1',
+      provider: 'google-email',
+    })
+    expect(mockDb.where).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        type: 'and',
+        conditions: expect.arrayContaining([
+          expect.objectContaining({ field: 'userId', value: 'owner-1' }),
+          expect.objectContaining({ field: 'id', value: 'credential-1' }),
+        ]),
+      })
+    )
+  })
+
   it('should handle database error', async () => {
     mockCheckHybridAuth.mockResolvedValueOnce({
       success: true,
