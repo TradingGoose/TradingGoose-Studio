@@ -86,10 +86,12 @@ export const fetchTradingPortfolioIdentityOptions = async (
   const provider = readContextString(context.contextValues, 'provider')
   if (!provider) return []
 
-  const response = await fetch(
-    `/api/providers/trading/portfolio-identities?provider=${encodeURIComponent(provider)}`,
-    { cache: 'no-store' }
-  )
+  const params = new URLSearchParams({ provider })
+  if (context.workflowId) params.set('workflowId', context.workflowId)
+
+  const response = await fetch(`/api/providers/trading/portfolio-identities?${params}`, {
+    cache: 'no-store',
+  })
   if (!response.ok) {
     throw new Error('Failed to load trading accounts')
   }

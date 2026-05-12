@@ -2,7 +2,7 @@ import { createHash, randomUUID } from 'crypto'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getOAuthTokenByCredentialId } from '@/lib/oauth/tokens'
 import { checkWorkspaceAccess } from '@/lib/permissions/utils'
-import { listUserTradingPortfolioIdentities } from '@/lib/trading/portfolio-identities'
+import { listTradingPortfolioIdentities } from '@/lib/trading/portfolio-identities'
 import {
   getPortfolioDetail,
   getTradingAccountPerformance,
@@ -129,6 +129,18 @@ type TradingPortfolioDataPayload =
   | TradingPortfolioSnapshotPayload
   | TradingPortfolioPerformancePayload
 
+function redactPortfolioIdentity(portfolioIdentity?: PortfolioIdentity | null) {
+  if (!portfolioIdentity) return undefined
+  return {
+    providerId: portfolioIdentity.providerId,
+    providerName: portfolioIdentity.providerName,
+    serviceId: portfolioIdentity.serviceId,
+    accountType: portfolioIdentity.accountType,
+    accountStatus: portfolioIdentity.accountStatus,
+    baseCurrency: portfolioIdentity.baseCurrency,
+  }
+}
+
 export class TradingPortfolioStreamManager {
   private streams = new Map<string, TradingPortfolioStreamState>()
   private socketSubscriptions = new Map<string, Map<string, TradingPortfolioSubscriptionRecord>>()
@@ -215,7 +227,7 @@ export class TradingPortfolioStreamManager {
       userId,
       providerId,
       serviceId,
-      portfolioIdentity,
+      portfolioIdentity: redactPortfolioIdentity(portfolioIdentity),
       workspaceId,
       channel,
       window,
@@ -390,7 +402,7 @@ export class TradingPortfolioStreamManager {
       return cached.promise
     }
 
-    const promise = listUserTradingPortfolioIdentities({
+    const promise = listTradingPortfolioIdentities({
       userId: streamState.userId,
       providerId: streamState.providerId,
       serviceId: streamState.serviceId,
@@ -471,15 +483,13 @@ export class TradingPortfolioStreamManager {
       logger.error('Trading portfolio broker request failed', {
         providerId: error.providerId,
         status: error.status,
-        url: error.url,
-        payload: error.payload,
         error: error.message,
       })
     } else {
       logger.error('Trading portfolio poll failed', {
         providerId: streamState.providerId,
         channel: streamState.channel,
-        portfolioIdentity: streamState.portfolioIdentity,
+        portfolioIdentity: redactPortfolioIdentity(streamState.portfolioIdentity),
         error: message,
       })
     }
@@ -560,7 +570,7 @@ export class TradingPortfolioStreamManager {
       userId: record.socket.userId,
       provider: record.provider,
       serviceId: record.serviceId,
-      portfolioIdentity: record.portfolioIdentity,
+      portfolioIdentity: redactPortfolioIdentity(record.portfolioIdentity),
       workspaceId: record.workspaceId,
       channel: record.channel,
       window: record.window,

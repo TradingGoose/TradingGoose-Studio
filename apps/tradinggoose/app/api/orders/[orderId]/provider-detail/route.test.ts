@@ -169,6 +169,7 @@ describe('order provider detail route', () => {
         credentialId: 'credential-1',
         serviceId: 'alpaca-paper',
         provider: 'alpaca',
+        workspaceId: 'workspace-1',
       },
       requestId: 'request-1',
       userId: 'user-1',

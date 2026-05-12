@@ -1,7 +1,8 @@
 import { db } from '@tradinggoose/db'
-import { account } from '@tradinggoose/db/schema'
-import { and, eq, inArray } from 'drizzle-orm'
+import { account, permissions, workflow as workflowTable, workspace } from '@tradinggoose/db/schema'
+import { and, eq, inArray, isNotNull, or } from 'drizzle-orm'
 import { getOAuthTokenByCredentialId } from '@/lib/oauth/tokens'
+import { checkWorkspaceAccess } from '@/lib/permissions/utils'
 import { listPortfolioIdentities } from '@/providers/trading/portfolio'
 import {
   getTradingProviderDefinition,
@@ -10,13 +11,71 @@ import {
 } from '@/providers/trading/providers'
 import type { TradingProviderId } from '@/providers/trading/types'
 
-export async function listUserTradingPortfolioIdentities({
+type TradingCredentialRow = {
+  id: string
+  providerId: string
+  userId: string
+}
+
+async function listTradingCredentials(params: {
+  userId: string
+  workflowId?: string
+  targetServiceIds: string[]
+}) {
+  if (!params.workflowId) {
+    return db
+      .select({
+        id: account.id,
+        providerId: account.providerId,
+        userId: account.userId,
+      })
+      .from(account)
+      .where(and(eq(account.userId, params.userId), inArray(account.providerId, params.targetServiceIds)))
+  }
+
+  const [workflowScope] = await db
+    .select({ workspaceId: workflowTable.workspaceId })
+    .from(workflowTable)
+    .where(eq(workflowTable.id, params.workflowId))
+    .limit(1)
+  if (!workflowScope?.workspaceId) return []
+
+  const requesterAccess = await checkWorkspaceAccess(workflowScope.workspaceId, params.userId)
+  if (!requesterAccess.canWrite) return []
+
+  return db
+    .select({
+      id: account.id,
+      providerId: account.providerId,
+      userId: account.userId,
+    })
+    .from(account)
+    .leftJoin(workspace, eq(workspace.id, workflowScope.workspaceId))
+    .leftJoin(
+      permissions,
+      and(
+        eq(permissions.entityType, 'workspace'),
+        eq(permissions.entityId, workflowScope.workspaceId),
+        eq(permissions.userId, account.userId)
+      )
+    )
+    .where(
+      and(
+        inArray(account.providerId, params.targetServiceIds),
+        or(eq(account.userId, workspace.ownerId), isNotNull(permissions.userId))
+      )
+    )
+}
+
+export async function listTradingPortfolioIdentities({
   userId,
+  workflowId,
   providerId,
   serviceId,
   requestId,
 }: {
   userId: string
+  workflowId?: string
   providerId: TradingProviderId
   serviceId?: string
   requestId: string
@@ -32,13 +91,11 @@ export async function listUserTradingPortfolioIdentities({
   const targetServiceIds = selectedServiceId ? [selectedServiceId] : serviceIds
   if (!targetServiceIds.length) return []
 
-  const credentials = await db
-    .select({
-      id: account.id,
-      providerId: account.providerId,
-    })
-    .from(account)
-    .where(and(eq(account.userId, userId), inArray(account.providerId, targetServiceIds)))
+  const credentials = (await listTradingCredentials({
+    userId,
+    workflowId,
+    targetServiceIds,
+  })) as TradingCredentialRow[]
 
   const identities = await Promise.allSettled(
     credentials.map(async (credential) => {
@@ -48,7 +105,7 @@ export async function listUserTradingPortfolioIdentities({
       }
 
       const accessToken = await getOAuthTokenByCredentialId({
-        userId,
+        userId: credential.userId,
         credentialId: credential.id,
         providerId: credential.providerId,
         requestId,

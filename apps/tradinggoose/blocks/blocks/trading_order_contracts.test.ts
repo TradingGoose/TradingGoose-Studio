@@ -33,6 +33,10 @@ describe('trading order block contracts', () => {
     )
   })
 
+  it('exposes appOrderId on trading action outputs for order-detail chaining', () => {
+    expect(TradingActionBlock.outputs).toHaveProperty('appOrderId')
+  })
+
   it('invalidates order type options when the selected listing changes', () => {
     const orderType = TradingActionBlock.subBlocks.find((subBlock) => subBlock.id === 'orderType')
 

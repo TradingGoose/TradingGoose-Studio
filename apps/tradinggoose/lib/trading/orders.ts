@@ -342,6 +342,8 @@ export async function submitTradingOrder({
       provider: portfolioIdentity.providerId,
       credentialId: portfolioIdentity.credentialId,
       serviceId: portfolioIdentity.serviceId,
+      workspaceId: requestData.workspaceId,
+      ...(requestData.workflowId ? { workflowId: requestData.workflowId } : {}),
     },
     requestId,
     userId,

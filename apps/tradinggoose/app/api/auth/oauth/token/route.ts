@@ -5,6 +5,7 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { getCredential, getOAuthToken, refreshTokenIfNeeded } from '@/lib/oauth/tokens'
 import { getTrelloApiKey } from '@/lib/trello/auth'
 import { generateRequestId } from '@/lib/utils'
+import { isTradingProviderOAuthServiceId } from '@/providers/trading/providers'
 
 export const dynamic = 'force-dynamic'
 
@@ -30,6 +31,13 @@ export async function POST(request: NextRequest) {
     }
 
     if (serviceId && !credentialId) {
+      if (isTradingProviderOAuthServiceId(serviceId)) {
+        return NextResponse.json(
+          { error: 'credentialId is required for trading provider tokens' },
+          { status: 400 }
+        )
+      }
+
       const auth = await checkHybridAuth(request, { requireWorkflowId: false })
       if (!auth.success) {
         return NextResponse.json({ error: auth.error || 'Unauthorized' }, { status: 403 })

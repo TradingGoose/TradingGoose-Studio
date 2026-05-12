@@ -70,6 +70,7 @@ export async function getRecordedTradingOrderProviderDetail({
       provider: order.provider,
       credentialId,
       serviceId,
+      workspaceId,
     },
     requestId,
     userId,

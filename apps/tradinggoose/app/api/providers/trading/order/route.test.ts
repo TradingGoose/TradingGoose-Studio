@@ -14,6 +14,40 @@ const mockResolveOrderHistoryContext = vi.fn()
 const mockRecordOrderHistory = vi.fn()
 const mockUpdateOrderHistoryResult = vi.fn()
 const mockFetch = vi.fn()
+let credentialRows: Array<{ userId: string; providerId: string }> = []
+
+vi.mock('@tradinggoose/db', () => ({
+  db: {
+    select: vi.fn(() => {
+      const chain = {
+        from: vi.fn(() => chain),
+        where: vi.fn(() => chain),
+        limit: vi.fn(() => Promise.resolve(credentialRows)),
+      }
+      return chain
+    }),
+  },
+}))
+
+vi.mock('@tradinggoose/db/schema', () => ({
+  account: {
+    id: 'account.id',
+    providerId: 'account.providerId',
+    userId: 'account.userId',
+  },
+  workflow: {
+    id: 'workflow.id',
+    workspaceId: 'workflow.workspaceId',
+  },
+}))
+
+vi.mock('drizzle-orm', async () => {
+  const actual = await vi.importActual<typeof import('drizzle-orm')>('drizzle-orm')
+  return {
+    ...actual,
+    eq: vi.fn(),
+  }
+})
 
 vi.mock('@/lib/logs/console/logger', () => ({
   createLogger: () => ({
@@ -96,6 +130,7 @@ describe('Trading provider order route', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.stubGlobal('fetch', mockFetch)
+    credentialRows = [{ userId: 'user-1', providerId: 'alpaca-live' }]
     mockGetSession.mockResolvedValue({ user: { id: 'user-1' } })
     mockGetOAuthTokenByCredentialId.mockResolvedValue('access-token')
     mockCheckWorkspaceAccess.mockResolvedValue({

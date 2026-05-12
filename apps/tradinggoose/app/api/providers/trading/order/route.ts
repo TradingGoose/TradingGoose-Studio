@@ -69,6 +69,7 @@ export async function POST(request: Request) {
   const requestId = createTradingRequestId('order')
   const requestData = await parseOrderRequest(request)
   if (requestData instanceof Response) return requestData
+  const workflowId = new URL(request.url).searchParams.get('workflowId')?.trim() || undefined
 
   const auth = await checkSessionOrInternalAuth(request as NextRequest, {
     requireWorkflowId: false,
@@ -80,8 +81,13 @@ export async function POST(request: Request) {
   try {
     const submitRequestData: TradingOrderSubmitRequest =
       auth.authType === AuthType.SESSION
-        ? { ...requestData, submissionSource: 'manual', logId: undefined }
-        : requestData
+        ? {
+            ...requestData,
+            ...(workflowId ? { workflowId } : {}),
+            submissionSource: 'manual',
+            logId: undefined,
+          }
+        : { ...requestData, ...(workflowId ? { workflowId } : {}) }
 
     const response = await submitTradingOrder({
       requestData: submitRequestData,

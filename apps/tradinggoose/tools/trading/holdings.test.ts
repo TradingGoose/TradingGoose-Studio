@@ -70,6 +70,16 @@ describe('tradingHoldingsTool', () => {
       provider: 'tradier',
       holdings: { accountId: 'ACC-2' },
     })
+    expect(resolveTradingProviderContextMock).toHaveBeenCalledWith({
+      requestData: {
+        provider: 'tradier',
+        credentialId: 'credential-1',
+        serviceId: 'tradier-live',
+        workspaceId: 'workspace-1',
+      },
+      requestId: 'request-1',
+      userId: 'user-1',
+    })
     expect(getPortfolioDetailMock).toHaveBeenCalledWith({
       providerId: 'tradier',
       credentialId: 'credential-1',

@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getServiceByProviderAndId } from '@/lib/oauth'
-import { listUserTradingPortfolioIdentities } from '@/lib/trading/portfolio-identities'
+import { listTradingPortfolioIdentities } from '@/lib/trading/portfolio-identities'
 import { generateRequestId } from '@/lib/utils'
 import {
   getPortfolioIdentityKey,
@@ -36,6 +36,7 @@ export async function GET(request: Request) {
   const requestId = generateRequestId()
   const { searchParams } = new URL(request.url)
   const providerId = searchParams.get('provider')?.trim() as TradingProviderId | undefined
+  const workflowId = searchParams.get('workflowId')?.trim() || undefined
 
   if (!providerId) {
     return NextResponse.json({ error: 'provider is required' }, { status: 400 })
@@ -53,8 +54,9 @@ export async function GET(request: Request) {
 
   let portfolioIdentities: PortfolioIdentity[]
   try {
-    portfolioIdentities = await listUserTradingPortfolioIdentities({
+    portfolioIdentities = await listTradingPortfolioIdentities({
       userId: session.user.id,
+      workflowId,
       providerId,
       requestId,
     })

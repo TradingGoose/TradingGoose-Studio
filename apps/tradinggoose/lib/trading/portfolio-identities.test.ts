@@ -5,7 +5,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
-  credentials: [] as Array<{ id: string; providerId: string }>,
+  credentials: [] as Array<{ id: string; providerId: string; userId: string }>,
   getOAuthTokenByCredentialId: vi.fn(),
   listPortfolioIdentities: vi.fn(),
 }))
@@ -28,12 +28,31 @@ vi.mock('@tradinggoose/db/schema', () => ({
     providerId: 'account.providerId',
     userId: 'account.userId',
   },
+  permissions: {
+    entityId: 'permissions.entityId',
+    entityType: 'permissions.entityType',
+    userId: 'permissions.userId',
+  },
+  workflow: {
+    id: 'workflow.id',
+    workspaceId: 'workflow.workspaceId',
+  },
+  workspace: {
+    id: 'workspace.id',
+    ownerId: 'workspace.ownerId',
+  },
 }))
 
 vi.mock('drizzle-orm', () => ({
   and: vi.fn(),
   eq: vi.fn(),
   inArray: vi.fn(),
+  isNotNull: vi.fn(),
+  or: vi.fn(),
+}))
+
+vi.mock('@/lib/permissions/utils', () => ({
+  checkWorkspaceAccess: vi.fn(() => Promise.resolve({ hasAccess: true, canWrite: true })),
 }))
 
 vi.mock('@/lib/oauth/tokens', () => ({
@@ -68,7 +87,7 @@ const portfolioIdentity = {
   accountId: 'account-1',
 }
 
-describe('listUserTradingPortfolioIdentities', () => {
+describe('listTradingPortfolioIdentities', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mocks.credentials = []
@@ -78,17 +97,17 @@ describe('listUserTradingPortfolioIdentities', () => {
 
   it('throws for a selected service when any same-service account load fails', async () => {
     mocks.credentials = [
-      { id: 'credential-live', providerId: 'alpaca-live' },
-      { id: 'credential-stale', providerId: 'alpaca-live' },
+      { id: 'credential-live', providerId: 'alpaca-live', userId: 'user-1' },
+      { id: 'credential-stale', providerId: 'alpaca-live', userId: 'user-1' },
     ]
     mocks.getOAuthTokenByCredentialId.mockImplementation(
       ({ credentialId }: { credentialId: string }) =>
         credentialId === 'credential-stale' ? null : 'token'
     )
-    const { listUserTradingPortfolioIdentities } = await import('./portfolio-identities')
+    const { listTradingPortfolioIdentities } = await import('./portfolio-identities')
 
     await expect(
-      listUserTradingPortfolioIdentities({
+      listTradingPortfolioIdentities({
         userId: 'user-1',
         providerId: 'alpaca',
         serviceId: 'alpaca-live',
@@ -99,17 +118,17 @@ describe('listUserTradingPortfolioIdentities', () => {
 
   it('returns healthy identities when another service fails during all-service loading', async () => {
     mocks.credentials = [
-      { id: 'credential-live', providerId: 'alpaca-live' },
-      { id: 'credential-paper', providerId: 'alpaca-paper' },
+      { id: 'credential-live', providerId: 'alpaca-live', userId: 'user-1' },
+      { id: 'credential-paper', providerId: 'alpaca-paper', userId: 'user-1' },
     ]
     mocks.getOAuthTokenByCredentialId.mockImplementation(
       ({ credentialId }: { credentialId: string }) =>
         credentialId === 'credential-paper' ? null : 'token'
     )
-    const { listUserTradingPortfolioIdentities } = await import('./portfolio-identities')
+    const { listTradingPortfolioIdentities } = await import('./portfolio-identities')
 
     await expect(
-      listUserTradingPortfolioIdentities({
+      listTradingPortfolioIdentities({
         userId: 'user-1',
         providerId: 'alpaca',
         requestId: 'request-1',

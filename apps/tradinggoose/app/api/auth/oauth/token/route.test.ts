@@ -47,6 +47,11 @@ describe('OAuth Token API Routes', () => {
     vi.doMock('@/lib/auth/hybrid', () => ({
       checkHybridAuth: mockCheckHybridAuth,
     }))
+
+    vi.doMock('@/providers/trading/providers', () => ({
+      isTradingProviderOAuthServiceId: (serviceId: string) =>
+        serviceId === 'alpaca-live' || serviceId === 'alpaca-paper' || serviceId === 'tradier-live',
+    }))
   })
 
   afterEach(() => {
@@ -128,7 +133,7 @@ describe('OAuth Token API Routes', () => {
       expect(mockGetCredential).toHaveBeenCalled()
     })
 
-    it('should resolve access token by serviceId for internal workflow calls', async () => {
+    it('should resolve non-trading access token by serviceId for internal workflow calls', async () => {
       mockCheckHybridAuth.mockResolvedValueOnce({
         success: true,
         authType: 'internal_jwt',
@@ -137,7 +142,7 @@ describe('OAuth Token API Routes', () => {
       mockGetOAuthToken.mockResolvedValueOnce('service-token')
 
       const req = createMockRequest('POST', {
-        serviceId: 'alpaca-live',
+        serviceId: 'google-drive',
         workflowId: 'workflow-id',
       })
 
@@ -149,11 +154,28 @@ describe('OAuth Token API Routes', () => {
       expect(response.status).toBe(200)
       expect(data).toMatchObject({
         accessToken: 'service-token',
-        providerId: 'alpaca-live',
+        providerId: 'google-drive',
       })
-      expect(mockGetOAuthToken).toHaveBeenCalledWith('acting-user-id', 'alpaca-live')
+      expect(mockGetOAuthToken).toHaveBeenCalledWith('acting-user-id', 'google-drive')
       expect(mockAuthorizeCredentialUse).not.toHaveBeenCalled()
       expect(mockGetCredential).not.toHaveBeenCalled()
+    })
+
+    it('should reject trading token lookup without credentialId', async () => {
+      const req = createMockRequest('POST', {
+        serviceId: 'alpaca-live',
+        workflowId: 'workflow-id',
+      })
+
+      const { POST } = await import('@/app/api/auth/oauth/token/route')
+
+      const response = await POST(req)
+      const data = await response.json()
+
+      expect(response.status).toBe(400)
+      expect(data).toMatchObject({ error: 'credentialId is required for trading provider tokens' })
+      expect(mockGetOAuthToken).not.toHaveBeenCalled()
+      expect(mockAuthorizeCredentialUse).not.toHaveBeenCalled()
     })
 
     it('should reject serviceId lookup when the internal token has no acting user', async () => {
@@ -163,7 +185,7 @@ describe('OAuth Token API Routes', () => {
       })
 
       const req = createMockRequest('POST', {
-        serviceId: 'alpaca-live',
+        serviceId: 'google-drive',
         workflowId: 'workflow-id',
       })
 

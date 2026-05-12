@@ -24,7 +24,7 @@ vi.mock('@/lib/oauth', () => ({
 }))
 
 vi.mock('@/lib/trading/portfolio-identities', () => ({
-  listUserTradingPortfolioIdentities: (...args: unknown[]) =>
+  listTradingPortfolioIdentities: (...args: unknown[]) =>
     mocks.listPortfolioIdentities(...args),
 }))
 

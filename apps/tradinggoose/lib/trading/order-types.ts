@@ -8,6 +8,7 @@ export type TradingOrderSubmitListing =
 
 export interface TradingOrderSubmitRequest {
   workspaceId: string
+  workflowId?: string
   portfolioIdentity: PortfolioIdentity
   listing: TradingOrderSubmitListing
   side: 'buy' | 'sell'

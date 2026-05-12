@@ -11,6 +11,7 @@ import { TradingServiceError } from './errors'
 
 export interface TradingHoldingsRequest {
   portfolioIdentity?: PortfolioIdentity | null
+  workflowId?: string
 }
 
 export type TradingHoldingsResult = {
@@ -46,6 +47,8 @@ export async function getTradingHoldings({
       provider: portfolioIdentity.providerId,
       credentialId: portfolioIdentity.credentialId,
       serviceId: portfolioIdentity.serviceId,
+      workspaceId,
+      ...(requestData.workflowId ? { workflowId: requestData.workflowId } : {}),
     },
     requestId,
     userId,

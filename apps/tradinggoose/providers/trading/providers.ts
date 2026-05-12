@@ -258,6 +258,12 @@ export function getTradingProviderOAuthServiceIds(providerId: TradingProviderId)
   )
 }
 
+export function isTradingProviderOAuthServiceId(serviceId: string): boolean {
+  return getTradingProviders().some((provider) =>
+    getTradingProviderOAuthServiceIds(provider.id).includes(serviceId)
+  )
+}
+
 export function resolveTradingProviderOAuthService(
   providerId: TradingProviderId,
   serviceId?: string | null

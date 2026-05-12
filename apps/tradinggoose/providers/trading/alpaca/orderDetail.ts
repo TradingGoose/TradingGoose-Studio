@@ -1,5 +1,6 @@
 import { buildAlpacaAuthHeaders } from '@/providers/trading/alpaca/auth'
 import { resolveAlpacaTradingBaseUrl } from '@/providers/trading/alpaca/config'
+import { fetchBrokerJson } from '@/providers/trading/portfolio-utils'
 import type {
   TradingOrderDetailInput,
   TradingOrderDetailResult,
@@ -89,18 +90,6 @@ export const normalizeAlpacaOrderDetail = (
   raw: rawOrder,
 })
 
-const parseErrorPayload = async (response: Response): Promise<unknown> => {
-  try {
-    return await response.json()
-  } catch (_jsonError) {
-    try {
-      return await response.text()
-    } catch (_textError) {
-      return null
-    }
-  }
-}
-
 const toRecord = (value: unknown): Record<string, any> => {
   if (value && typeof value === 'object') {
     return value as Record<string, any>
@@ -118,21 +107,16 @@ export const alpacaOrderDetailRequest = async (
   }
 
   const request = buildAlpacaOrderDetailRequest(providerOrderId, historyRecord, params)
-  const response = await fetch(request.url, {
-    method: request.method,
-    headers: request.headers,
-  })
-
-  if (!response.ok) {
-    const details = await parseErrorPayload(response)
-    throw Object.assign(new Error('Failed to fetch Alpaca order detail.'), {
-      status: response.status,
-      details,
-      providerOrderId,
+  const rawOrder = toRecord(
+    await fetchBrokerJson({
+      providerId: 'alpaca',
+      url: request.url,
+      init: {
+        method: request.method,
+        headers: request.headers,
+      },
     })
-  }
-
-  const rawOrder = toRecord(await response.json().catch(() => ({})))
+  )
 
   return {
     providerOrderId,
