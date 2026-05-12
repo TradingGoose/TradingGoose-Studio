@@ -15,8 +15,8 @@ export const CONTAINER_PADDING_Y = 100
 export const ROOT_PADDING_X = 150
 export const ROOT_PADDING_Y = 150
 
-function resolveNumeric(value: number | undefined, fallback: number): number {
-  return typeof value === 'number' && Number.isFinite(value) ? value : fallback
+function resolveNumeric(value: number | undefined, defaultValue: number): number {
+  return typeof value === 'number' && Number.isFinite(value) ? value : defaultValue
 }
 
 export function isContainerType(blockType: string): boolean {

@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
     // Get all accounts for this user
     const accounts = await db.select().from(account).where(eq(account.userId, session.user.id))
 
-    // Get the user's email for fallback
+    // Get the user's account email for connection display names.
     const userRecord = await db
       .select({ email: user.email })
       .from(user)
