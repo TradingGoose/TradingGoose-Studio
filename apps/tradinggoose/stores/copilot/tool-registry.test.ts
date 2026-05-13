@@ -106,8 +106,12 @@ describe('tool-registry', () => {
     })
 
     expect(
-      prepareCopilotToolArgs('read_gdrive_file', { fileId: 'file-1', type: 'doc' }, context)
-    ).toEqual({ fileId: 'file-1', type: 'doc' })
+      prepareCopilotToolArgs(
+        'read_gdrive_file',
+        { credentialId: 'credential-1', fileId: 'file-1', type: 'doc' },
+        context
+      )
+    ).toEqual({ credentialId: 'credential-1', fileId: 'file-1', type: 'doc' })
   })
 
   it('classifies gated and non-gated tools explicitly', () => {

@@ -3,15 +3,13 @@ import { readGDriveFileServerTool } from './read-file'
 
 const mocks = vi.hoisted(() => ({
   executeTool: vi.fn(),
-  getOAuthToken: vi.fn(),
-  getUserId: vi.fn(),
+  getOAuthAccessTokenForUserCredential: vi.fn(),
   verifyWorkflowAccess: vi.fn(),
   createPermissionError: vi.fn(() => 'permission denied'),
 }))
 
-vi.mock('@/lib/oauth/tokens', () => ({
-  getOAuthToken: mocks.getOAuthToken,
-  getUserId: mocks.getUserId,
+vi.mock('@/lib/credentials/oauth', () => ({
+  getOAuthAccessTokenForUserCredential: mocks.getOAuthAccessTokenForUserCredential,
 }))
 
 vi.mock('@/lib/copilot/review-sessions/permissions', () => ({
@@ -42,7 +40,7 @@ describe('readGDriveFileServerTool', () => {
       hasAccess: true,
       workspaceId: 'workspace-1',
     })
-    mocks.getOAuthToken.mockResolvedValue('google-token')
+    mocks.getOAuthAccessTokenForUserCredential.mockResolvedValue('google-token')
     mocks.executeTool.mockResolvedValue({
       success: true,
       output: {
@@ -53,7 +51,7 @@ describe('readGDriveFileServerTool', () => {
 
     await expect(
       readGDriveFileServerTool.execute(
-        { fileId: 'file-1', type: 'doc' },
+        { credentialId: 'credential-1', fileId: 'file-1', type: 'doc' },
         { userId: 'auth-user', contextWorkflowId: 'workflow-1' }
       )
     ).resolves.toEqual({
@@ -62,9 +60,13 @@ describe('readGDriveFileServerTool', () => {
       metadata: { title: 'Report' },
     })
 
-    expect(mocks.getUserId).not.toHaveBeenCalled()
-    expect(mocks.verifyWorkflowAccess).toHaveBeenCalledWith('auth-user', 'workflow-1')
-    expect(mocks.getOAuthToken).toHaveBeenCalledWith('auth-user', 'google-drive')
+    expect(mocks.verifyWorkflowAccess).toHaveBeenCalledWith('auth-user', 'workflow-1', 'read')
+    expect(mocks.getOAuthAccessTokenForUserCredential).toHaveBeenCalledWith({
+      credentialId: 'credential-1',
+      userId: 'auth-user',
+      requestId: 'copilot-gdrive-read-credential-1',
+      workspaceId: 'workspace-1',
+    })
     expect(mocks.executeTool).toHaveBeenCalledWith('google_drive_get_content', {
       accessToken: 'google-token',
       fileId: 'file-1',

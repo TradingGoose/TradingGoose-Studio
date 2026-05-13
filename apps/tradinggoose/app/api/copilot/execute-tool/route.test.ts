@@ -94,10 +94,6 @@ vi.mock('@/lib/utils', () => ({
   generateRequestId: vi.fn(() => 'request-1'),
 }))
 
-vi.mock('@/lib/oauth/tokens', () => ({
-  refreshTokenIfNeeded: vi.fn(),
-}))
-
 vi.mock('@/tools', () => ({
   executeTool: (...args: unknown[]) => mockExecuteTool(...args),
 }))

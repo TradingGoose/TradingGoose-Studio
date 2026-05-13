@@ -35,8 +35,19 @@ export class GDriveRequestAccessClientTool extends BaseClientTool {
 
     try {
       this.setState(ClientToolCallState.executing)
+      const executionContext = this.requireExecutionContext()
+      const params = new URLSearchParams({ provider: 'google-drive' })
+      const workflowId =
+        executionContext.contextWorkflowId?.trim() || executionContext.workflowId?.trim()
+      if (workflowId) {
+        params.set('workflowId', workflowId)
+      } else if (executionContext.workspaceId?.trim()) {
+        params.set('workspaceId', executionContext.workspaceId.trim())
+      } else {
+        throw new Error('workspaceId or workflowId is required to request Google Drive access')
+      }
 
-      const credsRes = await fetch(`/api/auth/oauth/credentials?provider=google-drive`)
+      const credsRes = await fetch(`/api/auth/oauth/credentials?${params}`)
       if (!credsRes.ok) {
         throw new Error(`Failed to load OAuth credentials (${credsRes.status})`)
       }

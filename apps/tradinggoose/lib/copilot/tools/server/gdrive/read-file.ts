@@ -43,17 +43,19 @@ export const readGDriveFileServerTool: BaseServerTool<ReadGDriveFileParams, any>
       throw new Error(createPermissionError('access Google Drive files in'))
     }
 
+    const accessToken = await getOAuthAccessTokenForUserCredential({
+      credentialId,
+      userId,
+      requestId: `copilot-gdrive-read-${credentialId}`,
+      workspaceId: workflowScope?.workspaceId,
+    })
+    if (!accessToken) {
+      throw new Error(
+        'No Google Drive connection found for this user. Please connect Google Drive in settings.'
+      )
+    }
+
     if (type === 'doc') {
-      const accessToken = await getOAuthAccessTokenForUserCredential({
-        credentialId,
-        userId,
-        requestId: `copilot-gdrive-read-${credentialId}`,
-        workspaceId: workflowScope?.workspaceId,
-      })
-      if (!accessToken)
-        throw new Error(
-          'No Google Drive connection found for this user. Please connect Google Drive in settings.'
-        )
       const result = await executeTool('google_drive_get_content', { accessToken, fileId })
       if (!result.success) throw new Error(result.error || 'Failed to read Google Drive document')
       const output = (result as any).output || result
@@ -63,16 +65,6 @@ export const readGDriveFileServerTool: BaseServerTool<ReadGDriveFileParams, any>
     }
 
     if (type === 'sheet') {
-      const accessToken = await getOAuthAccessTokenForUserCredential({
-        credentialId,
-        userId,
-        requestId: `copilot-gdrive-read-${credentialId}`,
-        workspaceId: workflowScope?.workspaceId,
-      })
-      if (!accessToken)
-        throw new Error(
-          'No Google Sheets connection found for this user. Please connect Google Sheets in settings.'
-        )
       const result = await executeTool('google_sheets_read', {
         accessToken,
         spreadsheetId: fileId,

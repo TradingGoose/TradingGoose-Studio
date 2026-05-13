@@ -3,15 +3,13 @@ import { listGDriveFilesServerTool } from './list-files'
 
 const mocks = vi.hoisted(() => ({
   executeTool: vi.fn(),
-  getOAuthToken: vi.fn(),
-  getUserId: vi.fn(),
+  getOAuthAccessTokenForUserCredential: vi.fn(),
   verifyWorkflowAccess: vi.fn(),
   createPermissionError: vi.fn(() => 'permission denied'),
 }))
 
-vi.mock('@/lib/oauth/tokens', () => ({
-  getOAuthToken: mocks.getOAuthToken,
-  getUserId: mocks.getUserId,
+vi.mock('@/lib/credentials/oauth', () => ({
+  getOAuthAccessTokenForUserCredential: mocks.getOAuthAccessTokenForUserCredential,
 }))
 
 vi.mock('@/lib/copilot/review-sessions/permissions', () => ({
@@ -42,7 +40,7 @@ describe('listGDriveFilesServerTool', () => {
       hasAccess: true,
       workspaceId: 'workspace-1',
     })
-    mocks.getOAuthToken.mockResolvedValue('google-token')
+    mocks.getOAuthAccessTokenForUserCredential.mockResolvedValue('google-token')
     mocks.executeTool.mockResolvedValue({
       success: true,
       output: {
@@ -53,7 +51,7 @@ describe('listGDriveFilesServerTool', () => {
 
     await expect(
       listGDriveFilesServerTool.execute(
-        { search_query: 'report' },
+        { credentialId: 'credential-1', search_query: 'report' },
         { userId: 'auth-user', contextWorkflowId: 'workflow-1' }
       )
     ).resolves.toEqual({
@@ -62,9 +60,13 @@ describe('listGDriveFilesServerTool', () => {
       nextPageToken: 'next-page',
     })
 
-    expect(mocks.getUserId).not.toHaveBeenCalled()
-    expect(mocks.verifyWorkflowAccess).toHaveBeenCalledWith('auth-user', 'workflow-1')
-    expect(mocks.getOAuthToken).toHaveBeenCalledWith('auth-user', 'google-drive')
+    expect(mocks.verifyWorkflowAccess).toHaveBeenCalledWith('auth-user', 'workflow-1', 'read')
+    expect(mocks.getOAuthAccessTokenForUserCredential).toHaveBeenCalledWith({
+      credentialId: 'credential-1',
+      userId: 'auth-user',
+      requestId: 'copilot-gdrive-list-credential-1',
+      workspaceId: 'workspace-1',
+    })
     expect(mocks.executeTool).toHaveBeenCalledWith('google_drive_list', {
       accessToken: 'google-token',
       query: 'report',
