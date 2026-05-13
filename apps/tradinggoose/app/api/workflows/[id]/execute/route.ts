@@ -262,17 +262,25 @@ async function executeApiWorkflowThroughQueue(params: {
     return createErrorResponse(selectedOutputs.error, 400)
   }
 
-  const input = await processWorkflowInputFormatFiles({
-    input: params.input,
-    blocks: workflowData.blocks ?? {},
-    blockType: 'api_trigger',
-    executionContext: {
-      workspaceId: validation.workflow.workspaceId,
-      workflowId: validation.workflow.id,
-      executionId,
-    },
-    requestId: params.requestId,
-  })
+  let input: Record<string, unknown>
+  try {
+    input = await processWorkflowInputFormatFiles({
+      input: params.input,
+      blocks: workflowData.blocks ?? {},
+      blockType: 'api_trigger',
+      executionContext: {
+        workspaceId: validation.workflow.workspaceId,
+        workflowId: validation.workflow.id,
+        executionId,
+      },
+      requestId: params.requestId,
+    })
+  } catch (error) {
+    return createErrorResponse(
+      error instanceof Error ? error.message : 'Failed to process workflow input files',
+      400
+    )
+  }
 
   await enqueuePendingExecution({
     executionType: 'workflow',

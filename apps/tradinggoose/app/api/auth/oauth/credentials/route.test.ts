@@ -92,7 +92,6 @@ describe('OAuth Credentials API Route', () => {
         displayName: 'displayName',
         accountId: 'accountId',
       },
-      credentialMember: { credentialId: 'credentialId', userId: 'userId', status: 'status' },
       user: { email: 'email', id: 'id' },
       workflow: { id: 'id', userId: 'userId', workspaceId: 'workspaceId' },
     }))

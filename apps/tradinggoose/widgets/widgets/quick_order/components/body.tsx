@@ -607,9 +607,6 @@ export function QuickOrderWidgetBody({
           orderAttemptIdempotencyRef.current = null
           void accountSnapshotQuery.refetch()
         },
-        onError: () => {
-          orderAttemptIdempotencyRef.current = null
-        },
       }
     )
   }

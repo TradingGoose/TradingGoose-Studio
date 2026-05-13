@@ -669,7 +669,7 @@ describe('QuickOrderWidgetBody', () => {
     )
   })
 
-  it('rotates the idempotency key after a failed order attempt completes', async () => {
+  it('keeps the idempotency key after a failed order attempt', async () => {
     await renderBody(container, root, {
       provider: 'alpaca',
       portfolioIdentity,
@@ -684,15 +684,13 @@ describe('QuickOrderWidgetBody', () => {
     await act(async () => {
       findButton(container, 'Submit BUY Order')?.click()
     })
-    await act(async () => {
-      mockMutate.mock.calls[0][1].onError(new Error('broker rejected'))
-    })
+    expect(mockMutate.mock.calls[0][1]).not.toHaveProperty('onError')
     await act(async () => {
       findButton(container, 'Submit BUY Order')?.click()
     })
 
     expect(mockMutate).toHaveBeenCalledTimes(2)
-    expect(mockMutate.mock.calls[1][0].idempotencyKey).not.toBe(
+    expect(mockMutate.mock.calls[1][0].idempotencyKey).toBe(
       mockMutate.mock.calls[0][0].idempotencyKey
     )
   })

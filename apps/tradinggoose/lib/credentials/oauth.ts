@@ -1,12 +1,5 @@
 import { db } from '@tradinggoose/db'
-import {
-  account,
-  credential,
-  credentialMember,
-  permissions,
-  user,
-  workspace,
-} from '@tradinggoose/db/schema'
+import { account, credential, permissions, user, workspace } from '@tradinggoose/db/schema'
 import { and, desc, eq, inArray, or } from 'drizzle-orm'
 import {
   getCanonicalScopesForProvider,
@@ -121,43 +114,6 @@ async function listCredentialWorkspaceIds(userId: string, workspaceId?: string) 
   return Array.from(new Set(rows.map((row) => row.workspaceId).filter(Boolean)))
 }
 
-async function insertCredentialMembership(params: {
-  credentialId: string
-  userId: string
-  now: Date
-}) {
-  try {
-    await db.insert(credentialMember).values({
-      id: crypto.randomUUID(),
-      credentialId: params.credentialId,
-      userId: params.userId,
-      role: 'admin',
-      status: 'active',
-      joinedAt: params.now,
-      invitedBy: params.userId,
-      createdAt: params.now,
-      updatedAt: params.now,
-    })
-  } catch (error) {
-    if (getPostgresErrorCode(error) !== '23505') throw error
-    await db
-      .update(credentialMember)
-      .set({
-        role: 'admin',
-        status: 'active',
-        joinedAt: params.now,
-        invitedBy: params.userId,
-        updatedAt: params.now,
-      })
-      .where(
-        and(
-          eq(credentialMember.credentialId, params.credentialId),
-          eq(credentialMember.userId, params.userId)
-        )
-      )
-  }
-}
-
 export async function syncOAuthCredentialsForUser(params: SyncOAuthCredentialsParams) {
   if (!params.workspaceId) return
 
@@ -210,12 +166,11 @@ export async function syncOAuthCredentialsForUser(params: SyncOAuthCredentialsPa
 
     for (const accountRow of accounts) {
       const displayName = getCredentialDisplayName(accountRow)
-      let credentialId = credentialIdByAccountId.get(accountRow.id)
+      const credentialId = credentialIdByAccountId.get(accountRow.id)
       if (!credentialId) {
-        credentialId = crypto.randomUUID()
         try {
           await db.insert(credential).values({
-            id: credentialId,
+            id: crypto.randomUUID(),
             workspaceId,
             type: 'oauth',
             displayName,
@@ -231,19 +186,6 @@ export async function syncOAuthCredentialsForUser(params: SyncOAuthCredentialsPa
           })
         } catch (error) {
           if (getPostgresErrorCode(error) !== '23505') throw error
-          const [row] = await db
-            .select({ id: credential.id })
-            .from(credential)
-            .where(
-              and(
-                eq(credential.workspaceId, workspaceId),
-                eq(credential.type, 'oauth'),
-                eq(credential.accountId, accountRow.id)
-              )
-            )
-            .limit(1)
-          if (!row) throw error
-          credentialId = row.id
         }
       } else {
         await db
@@ -254,12 +196,6 @@ export async function syncOAuthCredentialsForUser(params: SyncOAuthCredentialsPa
           })
           .where(eq(credential.id, credentialId))
       }
-
-      await insertCredentialMembership({
-        credentialId,
-        userId: params.userId,
-        now,
-      })
     }
   }
 }
@@ -273,12 +209,7 @@ export async function listOAuthCredentialsForUser(
   const workspaceIds = await listCredentialWorkspaceIds(params.userId, params.workspaceId)
   if (workspaceIds.length === 0) return []
 
-  const filters = [
-    eq(credential.type, 'oauth'),
-    eq(credentialMember.userId, params.userId),
-    eq(credentialMember.status, 'active'),
-    inArray(credential.workspaceId, workspaceIds),
-  ]
+  const filters = [eq(credential.type, 'oauth'), inArray(credential.workspaceId, workspaceIds)]
   if (params.providerIds?.length) {
     filters.push(inArray(account.providerId, params.providerIds))
   }
@@ -297,7 +228,6 @@ export async function listOAuthCredentialsForUser(
     })
     .from(credential)
     .innerJoin(account, eq(credential.accountId, account.id))
-    .innerJoin(credentialMember, eq(credentialMember.credentialId, credential.id))
     .where(and(...filters))
     .orderBy(desc(account.updatedAt))
 
@@ -350,12 +280,7 @@ export async function listOAuthCredentialAccountsForUser(
   const workspaceIds = await listCredentialWorkspaceIds(params.userId, params.workspaceId)
   if (workspaceIds.length === 0) return []
 
-  const filters = [
-    eq(credential.type, 'oauth'),
-    eq(credentialMember.userId, params.userId),
-    eq(credentialMember.status, 'active'),
-    inArray(credential.workspaceId, workspaceIds),
-  ]
+  const filters = [eq(credential.type, 'oauth'), inArray(credential.workspaceId, workspaceIds)]
   if (params.providerIds?.length) {
     filters.push(inArray(account.providerId, params.providerIds))
   }
@@ -369,7 +294,6 @@ export async function listOAuthCredentialAccountsForUser(
     })
     .from(credential)
     .innerJoin(account, eq(credential.accountId, account.id))
-    .innerJoin(credentialMember, eq(credentialMember.credentialId, credential.id))
     .where(and(...filters))
 
   const ownerIds = Array.from(new Set(rows.map((row) => row.credentialOwnerUserId)))
@@ -401,14 +325,6 @@ export async function resolveOAuthCredentialAccountForUser(params: {
     })
     .from(credential)
     .innerJoin(account, eq(credential.accountId, account.id))
-    .innerJoin(
-      credentialMember,
-      and(
-        eq(credentialMember.credentialId, credential.id),
-        eq(credentialMember.userId, params.userId),
-        eq(credentialMember.status, 'active')
-      )
-    )
     .where(eq(credential.id, params.credentialId))
     .limit(1)
 

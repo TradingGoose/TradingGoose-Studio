@@ -1,11 +1,6 @@
 import { db } from '@tradinggoose/db'
-import {
-  account,
-  credential,
-  credentialMember,
-  workflow as workflowTable,
-} from '@tradinggoose/db/schema'
-import { and, eq } from 'drizzle-orm'
+import { account, credential, workflow as workflowTable } from '@tradinggoose/db/schema'
+import { eq } from 'drizzle-orm'
 import type { NextRequest } from 'next/server'
 import { AuthType, checkSessionOrInternalAuth } from '@/lib/auth/hybrid'
 import { checkWorkspaceAccess } from '@/lib/permissions/utils'
@@ -107,26 +102,6 @@ export async function authorizeCredentialUse(
 
   if (!accountRow) {
     return { ok: false, error: 'Credential account not found' }
-  }
-
-  const [membership] = await db
-    .select({ id: credentialMember.id })
-    .from(credentialMember)
-    .where(
-      and(
-        eq(credentialMember.credentialId, platformCredential.id),
-        eq(credentialMember.userId, actingUserId),
-        eq(credentialMember.status, 'active')
-      )
-    )
-    .limit(1)
-
-  if (!membership) {
-    return {
-      ok: false,
-      error:
-        'You do not have access to this credential. Ask the credential admin to add you as a member.',
-    }
   }
 
   const [requesterAccess, ownerAccess] = await Promise.all([

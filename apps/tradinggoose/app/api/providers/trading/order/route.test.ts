@@ -838,7 +838,8 @@ describe('Trading provider order route', () => {
         response: expect.objectContaining({
           clientOrderId,
           success: false,
-          status: 500,
+          status: 'failed',
+          httpStatus: 500,
           raw: { error: 'Broker unavailable' },
         }),
       })

@@ -1953,6 +1953,7 @@ export class Executor {
           await flushStreamChunk()
         } catch (readerError: any) {
           logger.error('Error reading stream for executor:', readerError)
+          throw readerError
         } finally {
           await flushStreamChunk()
           try {

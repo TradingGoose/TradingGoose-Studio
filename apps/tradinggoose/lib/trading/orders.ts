@@ -475,7 +475,8 @@ export async function submitTradingOrder({
               success: false,
               clientOrderId,
               errorMessage: error instanceof Error ? error.message : 'Order submission failed',
-              status: error instanceof TradingBrokerRequestError ? error.status : undefined,
+              status: 'failed',
+              httpStatus: error instanceof TradingBrokerRequestError ? error.status : undefined,
               raw:
                 (error instanceof TradingBrokerRequestError && toRecord(error.payload)) ||
                 toRecord(rawOrder),

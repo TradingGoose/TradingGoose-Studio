@@ -303,6 +303,53 @@ describe('/api/workflows/[id]/execute', () => {
     )
   })
 
+  it('returns 400 when API trigger file processing fails', async () => {
+    loadDeployedWorkflowStateMock.mockResolvedValue({
+      blocks: {
+        trigger: {
+          type: 'api_trigger',
+          subBlocks: {
+            inputFormat: {
+              value: [{ name: 'documents', type: 'files' }],
+            },
+          },
+        },
+      },
+      edges: [],
+      loops: {},
+      parallels: {},
+      isFromNormalizedTables: false,
+    })
+    uploadExecutionFileMock.mockRejectedValueOnce(new Error('Upload failed'))
+
+    const { POST } = await import('./route')
+    const response = await POST(
+      new NextRequest('https://example.com/api/workflows/workflow-1/execute', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-API-Key': 'key-1',
+        },
+        body: JSON.stringify({
+          documents: [
+            {
+              type: 'file',
+              data: 'data:text/plain;base64,SGVsbG8=',
+              name: 'hello.txt',
+            },
+          ],
+        }),
+      }),
+      { params: Promise.resolve({ id: 'workflow-1' }) }
+    )
+
+    expect(response.status).toBe(400)
+    await expect(response.json()).resolves.toMatchObject({
+      error: 'Failed to upload file: hello.txt',
+    })
+    expect(enqueuePendingExecutionMock).not.toHaveBeenCalled()
+  })
+
   it('returns HTTP Response block output from the queued execution result', async () => {
     const responseResult = {
       success: true,

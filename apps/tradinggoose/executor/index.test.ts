@@ -548,20 +548,6 @@ describe('Executor', () => {
     it.concurrent('should handle streaming execution results', async () => {
       const workflow = createMinimalWorkflow()
 
-      const mockStreamingResult = {
-        stream: new ReadableStream({
-          start(controller) {
-            controller.enqueue(new TextEncoder().encode('chunk1'))
-            controller.enqueue(new TextEncoder().encode('chunk2'))
-            controller.close()
-          },
-        }),
-        execution: {
-          blockId: 'agent-1',
-          output: { response: { content: 'Final content' } },
-        },
-      }
-
       const executor = createTestExecutor(workflow, {
         contextExtensions: {
           stream: true,
@@ -590,6 +576,47 @@ describe('Executor', () => {
       await executor.execute('test-workflow-id')
 
       expect(createContextSpy).toHaveBeenCalled()
+    })
+
+    it.concurrent('fails the workflow when a streaming reader fails', async () => {
+      const workflow = createMinimalWorkflow()
+      const mockOnExecutionEvent = vi.fn()
+      const executor = createTestExecutor(workflow, {
+        contextExtensions: {
+          stream: true,
+          selectedOutputs: ['block1'],
+          onExecutionEvent: mockOnExecutionEvent,
+        },
+      })
+
+      ;(executor as any).blockHandlers = [
+        {
+          canHandle: (block: any) => block.metadata?.category === 'triggers',
+          execute: vi.fn(async () => ({})),
+        },
+        {
+          canHandle: (block: any) => block.id === 'block1',
+          execute: vi.fn(async () => ({
+            stream: new ReadableStream({
+              start(controller) {
+                controller.enqueue(new TextEncoder().encode('partial'))
+                controller.error(new Error('Provider stream failed'))
+              },
+            }),
+            execution: {
+              output: { content: '' },
+            },
+          })),
+        },
+      ]
+
+      const result = await executor.execute('test-workflow-id')
+
+      expect(result.success).toBe(false)
+      expect(result.error).toContain('Provider stream failed')
+      expect(mockOnExecutionEvent).not.toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'stream:done' })
+      )
     })
   })
 
