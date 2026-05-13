@@ -5,8 +5,8 @@ import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
-  useMarketQuoteSnapshots,
   type MarketQuoteSnapshot,
+  useMarketQuoteSnapshots,
 } from '@/hooks/queries/market-quote-snapshots'
 
 const { socketMock } = vi.hoisted(() => ({
@@ -50,17 +50,22 @@ const reactActEnvironment = globalThis as typeof globalThis & {
 const previousActEnvironment = reactActEnvironment.IS_REACT_ACT_ENVIRONMENT
 
 const Harness = ({
+  enabled = true,
   onUpdate,
+  provider = 'alpaca',
 }: {
+  enabled?: boolean
   onUpdate: (data: ReturnType<typeof useMarketQuoteSnapshots>) => void
+  provider?: string
 }) => {
   const result = useMarketQuoteSnapshots({
     workspaceId: 'workspace-1',
-    provider: 'alpaca',
+    provider,
     items: [
       { key: 'row-1', listing },
       { key: 'row-2', listing },
     ],
+    enabled,
   })
 
   onUpdate(result)
@@ -147,6 +152,45 @@ describe('useMarketQuoteSnapshots', () => {
       'row-2': quoteSnapshot,
     })
     expect(latest?.isLoading).toBe(false)
+  })
+
+  it('keeps same-scope snapshots on errors without reusing them across provider scopes', async () => {
+    const updates: Array<ReturnType<typeof useMarketQuoteSnapshots>> = []
+
+    await act(async () => {
+      root.render(<Harness onUpdate={(result) => updates.push(result)} />)
+    })
+
+    const alpacaSubscribePayload = socketMock.emit.mock.calls.find(
+      ([event]) => event === 'market-subscribe'
+    )?.[1]
+    await act(async () => {
+      triggerSocketEvent('market-quote-snapshot', {
+        provider: 'alpaca',
+        channel: 'quote-snapshots',
+        clientSubscriptionId: alpacaSubscribePayload.clientSubscriptionId,
+        listing,
+        snapshot: quoteSnapshot,
+      })
+      triggerSocketEvent('market-error', {
+        provider: 'alpaca',
+        channel: 'quote-snapshots',
+        clientSubscriptionId: alpacaSubscribePayload.clientSubscriptionId,
+        message: 'Provider unavailable',
+      })
+    })
+    const alpacaLatest = updates[updates.length - 1]
+    expect(alpacaLatest?.data).toEqual({
+      'row-1': quoteSnapshot,
+      'row-2': quoteSnapshot,
+    })
+    expect(alpacaLatest?.error?.message).toBe('Provider unavailable')
+
+    await act(async () => {
+      root.render(<Harness provider='tradier' onUpdate={(result) => updates.push(result)} />)
+    })
+
+    expect(updates[updates.length - 1]?.data).toEqual({})
   })
 
   it('uses server subscription ids for cleanup after subscribe ack', async () => {

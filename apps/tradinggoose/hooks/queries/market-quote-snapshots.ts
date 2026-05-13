@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useSocket } from '@/contexts/socket-context'
 import { stableStringifyJsonValue } from '@/lib/json/stable'
 import {
   getListingIdentityKey,
@@ -7,6 +6,7 @@ import {
   toListingValueObject,
 } from '@/lib/listing/identity'
 import type { MarketQuoteSnapshot } from '@/lib/market/quote-snapshot-contract'
+import { useSocket } from '@/contexts/socket-context'
 
 export type { MarketQuoteSnapshot } from '@/lib/market/quote-snapshot-contract'
 
@@ -36,6 +36,8 @@ type MarketErrorPayload = {
   error?: string
 }
 
+const getSnapshotCacheKey = (scopeKey: string, identityKey: string) => `${scopeKey}|${identityKey}`
+
 export type UseMarketQuoteSnapshotsArgs = {
   workspaceId?: string
   provider?: string
@@ -62,9 +64,9 @@ export const useMarketQuoteSnapshots = ({
   enabled = true,
 }: UseMarketQuoteSnapshotsArgs) => {
   const { socket } = useSocket()
-  const [snapshotsByIdentity, setSnapshotsByIdentity] = useState<Record<string, MarketQuoteSnapshot>>(
-    {}
-  )
+  const [snapshotsByIdentity, setSnapshotsByIdentity] = useState<
+    Record<string, MarketQuoteSnapshot>
+  >({})
   const [error, setError] = useState<Error | null>(null)
   const [pendingIdentityCount, setPendingIdentityCount] = useState(0)
   const [refetchNonce, setRefetchNonce] = useState(0)
@@ -79,10 +81,7 @@ export const useMarketQuoteSnapshots = ({
       const listing = toListingValueObject(entry.listing)
       if (!listing) continue
       const identityKey = getListingIdentityKey(listing)
-      const key =
-        typeof entry.key === 'string' && entry.key.trim()
-          ? entry.key.trim()
-          : identityKey
+      const key = typeof entry.key === 'string' && entry.key.trim() ? entry.key.trim() : identityKey
       if (seenKeys.has(key)) continue
 
       seenKeys.add(key)
@@ -109,11 +108,15 @@ export const useMarketQuoteSnapshots = ({
   )
   const authKey = stableStringifyJsonValue(auth ?? null)
   const providerParamsKey = stableStringifyJsonValue(providerParams ?? null)
+  const subscriptionScopeKey = stableStringifyJsonValue([
+    workspaceId ?? null,
+    provider ?? null,
+    auth ?? null,
+    providerParams ?? null,
+  ])
   const shouldSubscribe =
-    enabled &&
-    Boolean(workspaceId) &&
-    Boolean(provider) &&
-    normalizedItems.subscriptions.length > 0
+    enabled && Boolean(workspaceId) && Boolean(provider) && normalizedItems.subscriptions.length > 0
+  const activeSnapshotScopeKey = shouldSubscribe ? subscriptionScopeKey : null
 
   useEffect(() => {
     if (!shouldSubscribe) {
@@ -190,7 +193,8 @@ export const useMarketQuoteSnapshots = ({
 
       setSnapshotsByIdentity((current) => ({
         ...current,
-        [identityKey]: payload.snapshot as MarketQuoteSnapshot,
+        [getSnapshotCacheKey(subscriptionScopeKey, identityKey)]:
+          payload.snapshot as MarketQuoteSnapshot,
       }))
       markReceived(identityKey)
     }
@@ -266,21 +270,23 @@ export const useMarketQuoteSnapshots = ({
     refreshKey,
     shouldSubscribe,
     socket,
+    subscriptionScopeKey,
     subscriptionsKey,
     workspaceId,
   ])
 
   const data = useMemo(() => {
+    if (!activeSnapshotScopeKey) return {}
     const quotes: Record<string, MarketQuoteSnapshot> = {}
     normalizedItems.aliasesByIdentity.forEach((aliases, identityKey) => {
-      const snapshot = snapshotsByIdentity[identityKey]
+      const snapshot = snapshotsByIdentity[getSnapshotCacheKey(activeSnapshotScopeKey, identityKey)]
       if (!snapshot) return
       aliases.forEach((key) => {
         quotes[key] = snapshot
       })
     })
     return quotes
-  }, [normalizedItems.aliasesByIdentity, snapshotsByIdentity])
+  }, [activeSnapshotScopeKey, normalizedItems.aliasesByIdentity, snapshotsByIdentity])
 
   const refetch = useCallback(async () => {
     setRefetchNonce((current) => current + 1)
