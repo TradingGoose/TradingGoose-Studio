@@ -23,7 +23,7 @@ export const buildOrderRoutePayload = (params: TradingOrderRoutePayloadParams) =
   const useNotional = orderSizingMode === 'notional'
   const workspaceId = params._context?.workspaceId
   const submissionSource = params._context?.submissionSource
-  const scopeKey = params._context?.workflowLogId ?? params._context?.executionId
+  const toolExecutionId = params._context?.toolExecutionId
   const payload = {
     workspaceId,
     portfolioIdentity,
@@ -45,11 +45,11 @@ export const buildOrderRoutePayload = (params: TradingOrderRoutePayloadParams) =
     Object.entries(payload).filter(([, value]) => value !== undefined)
   )
 
-  if (submissionSource && scopeKey) {
+  if (submissionSource && toolExecutionId) {
     body.idempotencyKey = [
       'trading-order',
       submissionSource,
-      scopeKey,
+      toolExecutionId,
       stableStringifyJsonValue(body),
     ].join(':')
   }

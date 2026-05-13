@@ -12,6 +12,7 @@ export interface TradingActionParams
     userId?: string
     executionId?: string
     workflowLogId?: string
+    toolExecutionId?: string
     submissionSource?: 'manual' | 'copilot' | 'workflow'
   }
 }

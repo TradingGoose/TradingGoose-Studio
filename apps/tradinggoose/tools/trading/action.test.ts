@@ -65,6 +65,7 @@ describe('tradingActionTool canonical order route payload', () => {
       _context: {
         executionId: 'execution-1',
         submissionSource: 'workflow',
+        toolExecutionId: 'block-1',
         workflowLogId: 'log-1',
         workspaceId: 'workspace-1',
       },
@@ -75,10 +76,46 @@ describe('tradingActionTool canonical order route payload', () => {
       portfolioIdentity,
       submissionSource: 'workflow',
       logId: 'log-1',
-      idempotencyKey: expect.stringMatching(/^trading-order:workflow:log-1:/),
+      idempotencyKey: expect.stringMatching(/^trading-order:workflow:block-1:/),
     })
     expect(body).not.toHaveProperty('workflowId')
     expect(body).not.toHaveProperty('workflowExecutionId')
+  })
+
+  it('keys identical workflow orders by block tool execution identity', () => {
+    const first = buildBody({
+      quantity: 1,
+      _context: {
+        submissionSource: 'workflow',
+        toolExecutionId: 'block-1',
+        workspaceId: 'workspace-1',
+      },
+    })
+    const second = buildBody({
+      quantity: 1,
+      _context: {
+        submissionSource: 'workflow',
+        toolExecutionId: 'block-2',
+        workspaceId: 'workspace-1',
+      },
+    })
+
+    expect(first.idempotencyKey).not.toBe(second.idempotencyKey)
+  })
+
+  it('keys copilot orders by tool call identity', () => {
+    const body = buildBody({
+      quantity: 1,
+      _context: {
+        submissionSource: 'copilot',
+        toolExecutionId: 'tool-call-1',
+        workspaceId: 'workspace-1',
+      },
+    })
+
+    expect(body.idempotencyKey).toEqual(
+      expect.stringMatching(/^trading-order:copilot:tool-call-1:/)
+    )
   })
 
   it('does not forward Alpaca sizing fields for non-Alpaca providers', () => {

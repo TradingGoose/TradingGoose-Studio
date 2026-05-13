@@ -40,6 +40,7 @@ function resolveExecutionScope(
   userId?: string
   executionId?: string
   workflowLogId?: string
+  toolExecutionId?: string
   submissionSource?: string
   concurrencyLeaseInherited?: boolean
 } {
@@ -51,6 +52,7 @@ function resolveExecutionScope(
     userId: executionContext?.userId ?? context.userId,
     executionId: executionContext?.executionId ?? context.executionId,
     workflowLogId: executionContext?.workflowLogId ?? context.workflowLogId,
+    toolExecutionId: context.toolExecutionId,
     submissionSource: executionContext?.submissionSource ?? context.submissionSource,
     concurrencyLeaseInherited:
       executionContext?.concurrencyLeaseInherited ?? context.concurrencyLeaseInherited,
@@ -256,6 +258,7 @@ export async function executeTool(
         userId: scope.userId,
         executionId: scope.executionId,
         workflowLogId: scope.workflowLogId,
+        toolExecutionId: scope.toolExecutionId,
         submissionSource: scope.submissionSource,
         concurrencyLeaseInherited: scope.concurrencyLeaseInherited,
       }
@@ -264,6 +267,7 @@ export async function executeTool(
         mergedContext.workspaceId ||
         mergedContext.executionId ||
         mergedContext.workflowLogId ||
+        mergedContext.toolExecutionId ||
         mergedContext.submissionSource ||
         mergedContext.concurrencyLeaseInherited
       ) {
