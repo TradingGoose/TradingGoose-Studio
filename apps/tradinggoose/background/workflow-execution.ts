@@ -26,6 +26,7 @@ export type WorkflowExecutionPayload = {
   workflowData?: WorkflowExecutionBlueprint['workflowData']
   workflowVariables?: Record<string, unknown>
   workflowDepth?: number
+  stream?: boolean
   selectedOutputs?: string[]
   triggerData?: Record<string, unknown>
   metadata?: Record<string, any>
@@ -39,17 +40,14 @@ function resolveWorkflowStartTriggerType(triggerType: TriggerType): WorkflowStar
 }
 
 export function isWorkflowExecutionPayload(
-  value: unknown,
+  value: unknown
 ): value is WorkflowExecutionPayload & Record<string, unknown> {
   if (!value || typeof value !== 'object') {
     return false
   }
 
   const candidate = value as Record<string, unknown>
-  return (
-    typeof candidate.workflowId === 'string' &&
-    typeof candidate.userId === 'string'
-  )
+  return typeof candidate.workflowId === 'string' && typeof candidate.userId === 'string'
 }
 
 export async function executeWorkflowJob(payload: WorkflowExecutionPayload) {
@@ -107,10 +105,9 @@ export async function executeWorkflowJob(payload: WorkflowExecutionPayload) {
       contextExtensions: {
         workflowDepth: payload.workflowDepth ?? 0,
         isChildExecution,
-        stream: true,
+        stream: payload.stream === true,
         selectedOutputs: payload.selectedOutputs ?? [],
-        shouldCancelExecution: () =>
-          isPendingWorkflowExecutionCancellationRequested(executionId),
+        shouldCancelExecution: () => isPendingWorkflowExecutionCancellationRequested(executionId),
         onExecutionEvent: async (event) => {
           await eventWriter.write(event)
         },

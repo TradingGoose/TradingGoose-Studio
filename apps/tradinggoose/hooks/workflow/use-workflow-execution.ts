@@ -495,6 +495,7 @@ export function useWorkflowExecution() {
             workflowVariables: executionRequest.workflowVariables,
             startBlockId: executionRequest.startBlockId,
             selectedOutputs: request.selectedOutputs,
+            stream: Boolean(request.selectedOutputs?.length),
             signal: abortController.signal,
           },
           {

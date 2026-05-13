@@ -81,7 +81,7 @@ describe('executeWorkflowJob', () => {
           isChildExecution: true,
           shouldCancelExecution: expect.any(Function),
         }),
-      }),
+      })
     )
   })
 
@@ -99,8 +99,27 @@ describe('executeWorkflowJob', () => {
         contextExtensions: expect.objectContaining({
           workflowDepth: 0,
           isChildExecution: false,
+          stream: false,
         }),
-      }),
+      })
+    )
+  })
+
+  it('enables chunk streaming only when requested by the queued payload', async () => {
+    await executeWorkflowJob({
+      workflowId: 'workflow-1',
+      userId: 'user-1',
+      stream: true,
+      selectedOutputs: ['agent-1_content'],
+    })
+
+    expect(runWorkflowExecutionMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        contextExtensions: expect.objectContaining({
+          stream: true,
+          selectedOutputs: ['agent-1_content'],
+        }),
+      })
     )
   })
 

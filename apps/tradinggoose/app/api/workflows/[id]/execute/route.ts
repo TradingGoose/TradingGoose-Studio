@@ -123,7 +123,10 @@ function readPublicSelectedOutputs(value: unknown): PublicSelectedOutput[] | nul
 
 function normalizePublicBlockName(value: unknown) {
   return typeof value === 'string'
-    ? value.trim().toLowerCase().replace(/[\s_-]+/g, '')
+    ? value
+        .trim()
+        .toLowerCase()
+        .replace(/[\s_-]+/g, '')
     : ''
 }
 
@@ -187,7 +190,7 @@ function createApiWorkflowStreamFormatter(selectedOutputs: string[]) {
       if (event.type === 'error') {
         return encodeSSE({ event: 'error', blockId: event.blockId, error: event.message })
       }
-      return encodeSSE({ event: 'final', data: { success: event.success } })
+      return encodeSSE({ event: 'final', data: createPublicExecutionResult(event.result) })
     })
 }
 
@@ -287,6 +290,7 @@ async function executeApiWorkflowThroughQueue(params: {
       input,
       triggerType: 'api',
       executionTarget: 'deployed',
+      stream: params.stream,
       selectedOutputs: selectedOutputs.selectedOutputs,
       metadata: {
         source: 'workflow_execute_api',

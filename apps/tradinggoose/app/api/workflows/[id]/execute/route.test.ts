@@ -247,6 +247,7 @@ describe('/api/workflows/[id]/execute', () => {
           input: { symbol: 'AAPL', documents: [executionFile] },
           triggerType: 'api',
           executionTarget: 'deployed',
+          stream: false,
         }),
       })
     )
@@ -424,6 +425,70 @@ describe('/api/workflows/[id]/execute', () => {
       parallels: {},
       isFromNormalizedTables: false,
     })
+    openWorkflowExecutionEventStreamMock.mockImplementationOnce(async (params: any) => {
+      const encoder = new TextEncoder()
+      const result = {
+        success: true,
+        output: { answer: 'done' },
+        logs: [
+          {
+            blockId: 'agent-1',
+            blockType: 'agent',
+            startedAt: '2026-01-01T00:00:00.000Z',
+            endedAt: '2026-01-01T00:00:00.000Z',
+            durationMs: 0,
+            success: true,
+            output: { content: 'hello world' },
+          },
+        ],
+        traceSpans: [{ id: 'span-1' }],
+        executionId: 'workflow_execution_1',
+        executedAt: '2026-01-01T00:00:00.000Z',
+        metadata: {
+          duration: 10,
+          workflowConnections: [{ source: 'agent-1', target: 'done' }],
+        },
+      }
+      const entries = [
+        {
+          eventId: 1,
+          event: {
+            type: 'stream:chunk',
+            executionId: 'workflow_execution_1',
+            workflowId: 'workflow-1',
+            timestamp: '2026-01-01T00:00:00.000Z',
+            data: { blockId: 'agent-1', chunk: 'hello' },
+          },
+        },
+        {
+          eventId: 2,
+          event: {
+            type: 'execution:completed',
+            executionId: 'workflow_execution_1',
+            workflowId: 'workflow-1',
+            timestamp: '2026-01-01T00:00:01.000Z',
+            data: { result },
+          },
+        },
+      ]
+
+      return {
+        ok: true,
+        stream: new ReadableStream({
+          start(controller) {
+            for (const entry of entries) {
+              const chunks = params.formatEvent(entry)
+              for (const chunk of Array.isArray(chunks) ? chunks : [chunks]) {
+                if (chunk)
+                  controller.enqueue(typeof chunk === 'string' ? encoder.encode(chunk) : chunk)
+              }
+            }
+            controller.enqueue(encoder.encode('data: [DONE]\n\n'))
+            controller.close()
+          },
+        }),
+      }
+    })
 
     const { POST } = await import('./route')
     const response = await POST(
@@ -444,6 +509,14 @@ describe('/api/workflows/[id]/execute', () => {
 
     expect(response.status).toBe(200)
     expect(response.headers.get('Content-Type')).toContain('text/event-stream')
+    const body = await response.text()
+    expect(body).toContain('data: {"blockId":"agent-1","chunk":"hello"}\n\n')
+    expect(body).toContain(
+      'data: {"event":"final","data":{"success":true,"output":{"answer":"done"},"metadata":{"duration":10}}}\n\n'
+    )
+    expect(body).not.toContain('traceSpans')
+    expect(body).not.toContain('workflowConnections')
+    expect(body).not.toContain('workflow_execution_1')
     expect(openWorkflowExecutionEventStreamMock).toHaveBeenCalledWith(
       expect.objectContaining({
         pendingExecutionId: expect.stringMatching(/^workflow_execution_/),
@@ -455,6 +528,7 @@ describe('/api/workflows/[id]/execute', () => {
         payload: expect.objectContaining({
           input: { symbol: 'AAPL' },
           selectedOutputs: ['agent-1_content'],
+          stream: true,
         }),
       })
     )

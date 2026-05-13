@@ -25,6 +25,7 @@ type QueueRequestBody = {
   workflowVariables?: Record<string, unknown>
   startBlockId?: string
   selectedOutputs?: string[]
+  stream?: boolean
   workflowDepth?: number
 }
 
@@ -136,6 +137,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         workflowData: body.workflowData,
         workflowVariables: body.workflowVariables,
         selectedOutputs: body.selectedOutputs,
+        stream: body.stream === true,
         startBlockId:
           typeof body.startBlockId === 'string' && body.startBlockId.length > 0
             ? body.startBlockId

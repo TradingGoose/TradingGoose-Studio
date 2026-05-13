@@ -202,6 +202,7 @@ export async function POST(
           input: workflowInput,
           triggerType: 'chat',
           executionTarget: 'deployed',
+          stream: true,
           selectedOutputs,
           workflowVariables:
             workflowResult[0].variables && typeof workflowResult[0].variables === 'object'

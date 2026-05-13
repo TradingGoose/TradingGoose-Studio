@@ -10,7 +10,7 @@ import type { BlockLog, ExecutionResult } from '@/executor/types'
 type ChatOutputEvent =
   | { type: 'content'; blockId: string; content: string }
   | { type: 'error'; blockId: string; message: string }
-  | { type: 'final'; success: boolean }
+  | { type: 'final'; success: boolean; result: ExecutionResult }
 
 function formatChatOutputContent(value: unknown) {
   if (typeof value === 'string') return value
@@ -159,7 +159,7 @@ export function createChatOutputEventReader(selectedOutputs: string[]) {
         const resultEvents = emittedContent
           ? []
           : contentEvents('workflow', resolveExecutionResultChatOutput(result, selectedOutputs))
-        return [...resultEvents, { type: 'final' as const, success: result.success }]
+        return [...resultEvents, { type: 'final' as const, success: result.success, result }]
       }
 
       return []
