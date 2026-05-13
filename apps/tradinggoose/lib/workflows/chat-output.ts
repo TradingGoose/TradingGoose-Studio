@@ -34,9 +34,15 @@ function resolveChatOutputPath(output: unknown, path: string) {
 }
 
 function canStreamSelectedBlock(selectedOutputs: string[], blockId: string) {
+  if (selectedOutputs.length === 0) return true
   return selectedOutputsForBlock(selectedOutputs, blockId).some((outputId) =>
     isStreamedOutput(outputId, blockId)
   )
+}
+
+function resolveStreamableBlockOutput(output: unknown) {
+  if (typeof output === 'string') return output
+  return formatChatOutputContent(resolveChatOutputPath(output, 'content'))
 }
 
 function resolveSelectedBlockOutput(params: {
@@ -46,7 +52,7 @@ function resolveSelectedBlockOutput(params: {
   skipStreamedOutput?: boolean
 }) {
   if (params.selectedOutputs.length === 0) {
-    return params.skipStreamedOutput ? '' : formatChatOutputContent(params.output)
+    return params.skipStreamedOutput ? '' : resolveStreamableBlockOutput(params.output)
   }
 
   return selectedOutputsForBlock(params.selectedOutputs, params.blockId)
@@ -76,9 +82,8 @@ function resolveSelectedChatOutput(result: ExecutionResult, selectedOutputs: str
 }
 
 function resolveExecutionResultChatOutput(result: ExecutionResult, selectedOutputs: string[]) {
-  return selectedOutputs.length
-    ? resolveSelectedChatOutput(result, selectedOutputs)
-    : formatChatOutputContent(result.output)
+  if (selectedOutputs.length) return resolveSelectedChatOutput(result, selectedOutputs)
+  return resolveStreamableBlockOutput(result.output)
 }
 
 export function createChatOutputEventReader(selectedOutputs: string[]) {
@@ -102,7 +107,12 @@ export function createChatOutputEventReader(selectedOutputs: string[]) {
       }
 
       if (event.type === 'block:completed') {
-        if (selectedOutputsForBlock(selectedOutputs, event.data.blockId).length === 0) return []
+        if (
+          selectedOutputs.length > 0 &&
+          selectedOutputsForBlock(selectedOutputs, event.data.blockId).length === 0
+        ) {
+          return []
+        }
         const content = resolveSelectedBlockOutput({
           blockId: event.data.blockId,
           output: event.data.output,
@@ -113,7 +123,8 @@ export function createChatOutputEventReader(selectedOutputs: string[]) {
       }
 
       if (event.type === 'block:error') {
-        return canStreamSelectedBlock(selectedOutputs, event.data.blockId)
+        return selectedOutputs.length === 0 ||
+          selectedOutputsForBlock(selectedOutputs, event.data.blockId).length > 0
           ? [
               {
                 type: 'error',
