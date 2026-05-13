@@ -669,6 +669,34 @@ describe('QuickOrderWidgetBody', () => {
     )
   })
 
+  it('rotates the idempotency key after a failed order attempt completes', async () => {
+    await renderBody(container, root, {
+      provider: 'alpaca',
+      portfolioIdentity,
+      side: 'buy',
+    })
+
+    await act(async () => {
+      container.querySelector<HTMLButtonElement>('[data-testid="listing-selector"]')?.click()
+    })
+    await setInputValue(container.querySelector<HTMLInputElement>('input[placeholder="0"]'), '2')
+
+    await act(async () => {
+      findButton(container, 'Submit BUY Order')?.click()
+    })
+    await act(async () => {
+      mockMutate.mock.calls[0][1].onError(new Error('broker rejected'))
+    })
+    await act(async () => {
+      findButton(container, 'Submit BUY Order')?.click()
+    })
+
+    expect(mockMutate).toHaveBeenCalledTimes(2)
+    expect(mockMutate.mock.calls[1][0].idempotencyKey).not.toBe(
+      mockMutate.mock.calls[0][0].idempotencyKey
+    )
+  })
+
   it('renders success feedback with destination provider and account details', async () => {
     mockUseSubmitTradingOrder.mockReturnValue({
       mutate: mockMutate,
