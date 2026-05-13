@@ -40,6 +40,7 @@ vi.mock('@tradinggoose/db/schema', () => ({
     processingStartedAt: 'pendingExecution.processingStartedAt',
     result: 'pendingExecution.result',
     completedAt: 'pendingExecution.completedAt',
+    executionType: 'pendingExecution.executionType',
   },
 }))
 
@@ -108,6 +109,7 @@ describe('GET /api/jobs/[jobId]', () => {
         id: 'job-1',
         status: 'failed',
         errorMessage: 'Function execution failed',
+        executionType: 'function',
         createdAt: new Date('2026-04-16T00:00:00.000Z'),
         processingStartedAt: new Date('2026-04-16T00:00:01.000Z'),
         result: null,
@@ -129,6 +131,54 @@ describe('GET /api/jobs/[jobId]', () => {
       status: 'failed',
       error: 'Function execution failed',
     })
+  })
+
+  it('returns public workflow output for completed workflow jobs', async () => {
+    limitMock.mockResolvedValue([
+      {
+        id: 'job-1',
+        status: 'completed',
+        errorMessage: null,
+        executionType: 'workflow',
+        createdAt: new Date('2026-04-16T00:00:00.000Z'),
+        processingStartedAt: new Date('2026-04-16T00:00:01.000Z'),
+        result: {
+          success: true,
+          output: { answer: 42 },
+          logs: [{ blockId: 'block-1' }],
+          traceSpans: [{ id: 'trace-1' }],
+          executionId: 'execution-1',
+          executedAt: '2026-04-16T00:00:02.000Z',
+          metadata: {
+            duration: 1000,
+            queuedExecution: { source: 'workflow_execute_api' },
+          },
+        },
+        completedAt: new Date('2026-04-16T00:00:02.000Z'),
+      },
+    ])
+
+    const response = await GET(new Request('http://localhost/api/jobs/job-1') as any, {
+      params: Promise.resolve({ jobId: 'job-1' }),
+    })
+
+    expect(response.status).toBe(200)
+    const body = await response.json()
+    expect(body).toMatchObject({
+      success: true,
+      taskId: 'job-1',
+      status: 'completed',
+      output: {
+        success: true,
+        output: { answer: 42 },
+        metadata: { duration: 1000 },
+      },
+    })
+    expect(body.output.logs).toBeUndefined()
+    expect(body.output.traceSpans).toBeUndefined()
+    expect(body.output.executionId).toBeUndefined()
+    expect(body.output.executedAt).toBeUndefined()
+    expect(body.output.metadata.queuedExecution).toBeUndefined()
   })
 })
 

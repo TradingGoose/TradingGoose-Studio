@@ -210,7 +210,6 @@ describe('LoggingSession', () => {
           type: 'workflow',
         }),
       ],
-      workflowId: 'workflow-1',
       workflowLogId: 'log-1',
       workspaceId: 'workspace-1',
     })
@@ -247,7 +246,6 @@ describe('LoggingSession', () => {
         executionId: 'execution-1',
         finalOutput: { ok: true },
         totalDurationMs: 1000,
-        workflowId: 'workflow-1',
         workflowLogId: 'log-1',
         workspaceId: 'workspace-1',
       })

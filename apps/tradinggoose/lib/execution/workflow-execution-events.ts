@@ -1,6 +1,6 @@
 import { db } from '@tradinggoose/db'
 import { pendingExecution } from '@tradinggoose/db/schema'
-import { and, eq, sql } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import type {
   WorkflowExecutionEvent,
   WorkflowExecutionEventEntry,
@@ -84,44 +84,55 @@ export async function createWorkflowExecutionEventWriter(params: {
     throw new Error(`Pending workflow execution ${params.pendingExecutionId} was not found`)
   }
 
-  let nextEventId =
-    readPayloadEvents(row.payload).reduce((max, entry) => Math.max(max, entry.eventId), 0) + 1
+  let writeChain = Promise.resolve()
 
   const write = async (
     input: WorkflowExecutionEventInput
   ): Promise<WorkflowExecutionEventEntry> => {
-    const eventId = nextEventId++
-    const event = {
-      ...input,
-      executionId: params.pendingExecutionId,
-      workflowId: params.workflowId,
-      timestamp: input.timestamp ?? new Date().toISOString(),
-      eventId,
-    } as WorkflowExecutionEvent
-    const entry = { eventId, event }
-
-    await db
-      .update(pendingExecution)
-      .set({
-        payload: sql`
-          jsonb_set(
-            coalesce(${pendingExecution.payload}, '{}'::jsonb),
-            '{executionEvents}',
-            coalesce(${pendingExecution.payload}->'executionEvents', '[]'::jsonb)
-              || ${JSON.stringify([entry])}::jsonb,
-            true
+    const task = writeChain.then(async () => {
+      const [currentRow] = await db
+        .select({ payload: pendingExecution.payload })
+        .from(pendingExecution)
+        .where(
+          and(
+            eq(pendingExecution.id, params.pendingExecutionId),
+            eq(pendingExecution.workflowId, params.workflowId)
           )
-        `,
-        updatedAt: new Date(),
-      })
-      .where(
-        and(
-          eq(pendingExecution.id, params.pendingExecutionId),
-          eq(pendingExecution.workflowId, params.workflowId)
         )
-      )
+        .limit(1)
 
-    return entry
+      if (!currentRow) {
+        throw new Error(`Pending workflow execution ${params.pendingExecutionId} was not found`)
+      }
+
+      const { payload, entry } = appendWorkflowExecutionEventToPayload({
+        payload: currentRow.payload,
+        pendingExecutionId: params.pendingExecutionId,
+        workflowId: params.workflowId,
+        input,
+      })
+
+      await db
+        .update(pendingExecution)
+        .set({
+          payload,
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(pendingExecution.id, params.pendingExecutionId),
+            eq(pendingExecution.workflowId, params.workflowId)
+          )
+        )
+
+      return entry
+    })
+
+    writeChain = task.then(
+      () => undefined,
+      () => undefined
+    )
+    return task
   }
 
   return { write }

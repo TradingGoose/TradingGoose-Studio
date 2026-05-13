@@ -5,6 +5,7 @@ import { type NextRequest, NextResponse } from 'next/server'
 import { checkHybridAuth } from '@/lib/auth/hybrid'
 import { cancelPendingWorkflowExecution } from '@/lib/execution/pending-execution'
 import { createLogger } from '@/lib/logs/console/logger'
+import { createPublicExecutionResult, isExecutionResult } from '@/lib/workflows/execution-result'
 import { generateRequestId } from '@/lib/utils'
 import { createErrorResponse } from '@/app/api/workflows/utils'
 
@@ -30,6 +31,7 @@ export async function GET(
         id: pendingExecution.id,
         status: pendingExecution.status,
         errorMessage: pendingExecution.errorMessage,
+        executionType: pendingExecution.executionType,
         createdAt: pendingExecution.createdAt,
         processingStartedAt: pendingExecution.processingStartedAt,
         result: pendingExecution.result,
@@ -53,7 +55,12 @@ export async function GET(
             ? 'queued'
             : pendingRow.status,
         ...(pendingRow.status === 'completed'
-          ? { output: pendingRow.result }
+          ? {
+              output:
+                pendingRow.executionType === 'workflow' && isExecutionResult(pendingRow.result)
+                  ? createPublicExecutionResult(pendingRow.result)
+                  : pendingRow.result,
+            }
           : pendingRow.status === 'failed'
             ? { error: pendingRow.errorMessage ?? 'Execution failed' }
           : { estimatedDuration: 180000 }),

@@ -415,6 +415,16 @@ describe('/api/workflows/[id]/execute', () => {
   })
 
   it('streams queued API executions through the public execute endpoint', async () => {
+    loadDeployedWorkflowStateMock.mockResolvedValue({
+      blocks: {
+        'agent-1': { id: 'agent-1', type: 'agent', name: 'Agent 1' },
+      },
+      edges: [],
+      loops: {},
+      parallels: {},
+      isFromNormalizedTables: false,
+    })
+
     const { POST } = await import('./route')
     const response = await POST(
       new NextRequest('https://example.com/api/workflows/workflow-1/execute', {
@@ -426,7 +436,7 @@ describe('/api/workflows/[id]/execute', () => {
         body: JSON.stringify({
           input: { symbol: 'AAPL' },
           stream: true,
-          selectedOutputs: ['agent-1_content'],
+          selectedOutputs: ['Agent 1.content'],
         }),
       }),
       { params: Promise.resolve({ id: 'workflow-1' }) }

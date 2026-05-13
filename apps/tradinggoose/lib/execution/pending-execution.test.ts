@@ -181,6 +181,7 @@ describe('enqueuePendingExecution', () => {
     expect(result).toEqual({
       pendingExecutionId: 'pending-local-1',
       billingScopeId: 'workspace-1',
+      inserted: true,
     })
     expect(triggerMock).not.toHaveBeenCalled()
     expect(drainPendingExecutionsForBillingScopeMock).toHaveBeenCalledWith({
@@ -192,6 +193,30 @@ describe('enqueuePendingExecution', () => {
     )
     resolveDrain?.()
     await drainPromise
+  })
+
+  it('returns duplicate pending ids without dispatching another worker', async () => {
+    txSelectLimitMock.mockResolvedValueOnce([{ id: 'pending-local-1' }])
+
+    const result = await enqueuePendingExecution({
+      executionType: 'workflow',
+      pendingExecutionId: 'pending-local-1',
+      workflowId: 'workflow-1',
+      workspaceId: 'workspace-1',
+      userId: 'user-1',
+      source: 'workflow_api',
+      payload: {
+        executionId: 'pending-local-1',
+      },
+    })
+
+    expect(result).toEqual({
+      pendingExecutionId: 'pending-local-1',
+      billingScopeId: 'workspace-1',
+      inserted: false,
+    })
+    expect(triggerMock).not.toHaveBeenCalled()
+    expect(drainPendingExecutionsForBillingScopeMock).not.toHaveBeenCalled()
   })
 
   it('deletes a newly inserted row when the Trigger.dev drain dispatch fails', async () => {

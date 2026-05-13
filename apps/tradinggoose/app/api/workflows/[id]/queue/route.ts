@@ -70,7 +70,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       return NextResponse.json({ error: 'Workflow not found' }, { status: 404 })
     }
 
-    if (!accessContext.isOwner && accessContext.workspacePermission === null) {
+    if (
+      !accessContext.isOwner &&
+      !accessContext.isWorkspaceOwner &&
+      accessContext.workspacePermission === null
+    ) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
     }
 
@@ -145,6 +149,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         },
       },
     })
+    if (!handle.inserted) {
+      return NextResponse.json({ error: 'Workflow execution already exists' }, { status: 409 })
+    }
 
     return NextResponse.json(
       {

@@ -1,5 +1,4 @@
 import { processExecutionFiles } from '@/lib/execution/files'
-import { loadDeployedWorkflowState } from '@/lib/workflows/db-helpers'
 
 type WorkflowInputFileContext = {
   executionContext: { workspaceId: string; workflowId: string; executionId: string }
@@ -55,26 +54,4 @@ export async function processWorkflowInputFormatFiles(
   }
 
   return processedInput
-}
-
-export async function processDeployedApiTriggerInputFiles(
-  params: {
-    input: WorkflowInput
-    workflowId: string
-    workspaceId: string
-    executionId: string
-  } & Pick<WorkflowInputFileContext, 'requestId'>
-) {
-  const deployedData = await loadDeployedWorkflowState(params.workflowId)
-  return processWorkflowInputFormatFiles({
-    input: params.input,
-    blocks: deployedData.blocks,
-    blockType: 'api_trigger',
-    executionContext: {
-      workspaceId: params.workspaceId,
-      workflowId: params.workflowId,
-      executionId: params.executionId,
-    },
-    requestId: params.requestId,
-  })
 }

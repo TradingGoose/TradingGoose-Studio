@@ -14,6 +14,7 @@ const mocks = vi.hoisted(() => {
     chain.leftJoin = vi.fn(() => chain)
     chain.where = vi.fn(() => chain)
     chain.orderBy = vi.fn(() => chain)
+    chain.limit = vi.fn(() => chain)
     chain.then = (resolve: (value: unknown[]) => unknown, reject: (reason?: unknown) => unknown) =>
       Promise.resolve(resultsQueue.shift() ?? []).then(resolve, reject)
     chains.push(chain)

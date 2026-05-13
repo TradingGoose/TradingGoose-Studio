@@ -44,6 +44,7 @@ type PendingExecutionInsert = {
 type PendingExecutionHandle = {
   pendingExecutionId: string
   billingScopeId: string
+  inserted: boolean
 }
 
 export type PendingWorkflowExecutionAccessContext = {
@@ -251,6 +252,14 @@ export async function enqueuePendingExecution(
     inserted = true
   })
 
+  if (!inserted) {
+    return {
+      pendingExecutionId: params.pendingExecutionId,
+      billingScopeId,
+      inserted,
+    }
+  }
+
   if (useTriggerDev) {
     try {
       await tasks.trigger(PENDING_EXECUTION_DRAIN_TASK_ID, {
@@ -290,6 +299,7 @@ export async function enqueuePendingExecution(
   return {
     pendingExecutionId: params.pendingExecutionId,
     billingScopeId,
+    inserted,
   }
 }
 

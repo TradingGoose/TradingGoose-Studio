@@ -21,6 +21,7 @@ const logger = createLogger('OrdersExportAPI')
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
+const ORDER_EXPORT_LIMIT = 5000
 const CSV_FORMULA_PREFIX = /^[\s]*[=+\-@]/
 
 const csvValue = (value: unknown) => {
@@ -95,6 +96,14 @@ export async function GET(request: NextRequest) {
       )
       .where(whereCondition)
       .orderBy(...orderBy)
+      .limit(ORDER_EXPORT_LIMIT + 1)
+
+    if (rows.length > ORDER_EXPORT_LIMIT) {
+      return NextResponse.json(
+        { error: `Order export is limited to ${ORDER_EXPORT_LIMIT} records` },
+        { status: 413 }
+      )
+    }
 
     const records = rows.map((row) =>
       serializeOrderRecord({ ...row.order, linkedLog: row.linkedLog })

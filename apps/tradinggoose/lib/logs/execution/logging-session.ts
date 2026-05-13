@@ -176,7 +176,6 @@ export class LoggingSession {
 
       await executionLogger.completeWorkflowExecution({
         executionId: this.executionId,
-        workflowId: this.workflowId,
         workflowLogId: scope.workflowLogId,
         workspaceId: scope.workspaceId,
         endedAt: endTime,
@@ -274,7 +273,6 @@ export class LoggingSession {
 
       await executionLogger.completeWorkflowExecution({
         executionId: this.executionId,
-        workflowId: this.workflowId,
         workflowLogId: scope.workflowLogId,
         workspaceId: scope.workspaceId,
         endedAt: endTime.toISOString(),

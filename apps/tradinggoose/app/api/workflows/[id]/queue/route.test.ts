@@ -67,6 +67,7 @@ describe('POST /api/workflows/[id]/queue', () => {
     enqueuePendingExecutionMock.mockResolvedValue({
       pendingExecutionId: 'pending-1',
       billingScopeId: 'scope-1',
+      inserted: true,
     })
   })
 
@@ -318,5 +319,36 @@ describe('POST /api/workflows/[id]/queue', () => {
         }),
       })
     )
+  })
+
+  it('returns conflict when the generated execution id already exists', async () => {
+    enqueuePendingExecutionMock.mockResolvedValueOnce({
+      pendingExecutionId: 'execution-1',
+      billingScopeId: 'scope-1',
+      inserted: false,
+    })
+
+    const response = await POST(
+      new NextRequest('http://localhost/api/workflows/workflow-1/queue', {
+        method: 'POST',
+        body: JSON.stringify({
+          executionId: 'execution-1',
+          input: { symbol: 'AAPL' },
+          executionTarget: 'live',
+          triggerType: 'manual',
+        }),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }),
+      {
+        params: Promise.resolve({ id: 'workflow-1' }),
+      }
+    )
+
+    expect(response.status).toBe(409)
+    await expect(response.json()).resolves.toEqual({
+      error: 'Workflow execution already exists',
+    })
   })
 })

@@ -15,9 +15,10 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { TriggerExecutionUnavailableError } from '@/lib/trigger/settings'
 import { encodeSSE, generateRequestId, SSE_HEADERS } from '@/lib/utils'
 import { createChatOutputEventReader } from '@/lib/workflows/chat-output'
+import { loadDeployedWorkflowState } from '@/lib/workflows/db-helpers'
 import { createPublicExecutionResult, isExecutionResult } from '@/lib/workflows/execution-result'
 import type { WorkflowExecutionEventEntry } from '@/lib/workflows/execution-events'
-import { processDeployedApiTriggerInputFiles } from '@/lib/workflows/input-format-files'
+import { processWorkflowInputFormatFiles } from '@/lib/workflows/input-format-files'
 import { createHttpResponseFromBlock, workflowHasResponseBlock } from '@/lib/workflows/utils'
 import { validateWorkflowAccess } from '@/app/api/workflows/middleware'
 import { createErrorResponse, createSuccessResponse } from '@/app/api/workflows/utils'
@@ -99,12 +100,71 @@ function findUnsupportedApiExecuteField(body: Record<string, unknown>) {
   return UNSUPPORTED_API_EXECUTE_FIELDS.find((field) => body[field] !== undefined)
 }
 
-function resolveSelectedOutputs(value: unknown): string[] | null {
+type PublicSelectedOutput = {
+  blockName: string
+  path: string
+}
+
+function readPublicSelectedOutputs(value: unknown): PublicSelectedOutput[] | null {
   if (value === undefined) return []
   if (!Array.isArray(value) || value.some((entry) => typeof entry !== 'string')) {
     return null
   }
-  return value as string[]
+  const outputs = value.map((entry) => {
+    const separatorIndex = entry.indexOf('.')
+    if (separatorIndex <= 0 || separatorIndex === entry.length - 1) return null
+
+    const blockName = entry.slice(0, separatorIndex).trim()
+    const path = entry.slice(separatorIndex + 1).trim()
+    return blockName && path ? { blockName, path } : null
+  })
+  return outputs.every(Boolean) ? (outputs as PublicSelectedOutput[]) : null
+}
+
+function normalizePublicBlockName(value: unknown) {
+  return typeof value === 'string'
+    ? value.trim().toLowerCase().replace(/[\s_-]+/g, '')
+    : ''
+}
+
+function resolveSelectedOutputs(
+  value: unknown,
+  blocks: Record<string, any>
+): { ok: true; selectedOutputs: string[] } | { ok: false; error: string } {
+  const requestedOutputs = readPublicSelectedOutputs(value)
+  if (!requestedOutputs) {
+    return {
+      ok: false,
+      error: 'Field "selectedOutputs" must use blockName.path strings',
+    }
+  }
+
+  const blockNames = new Map<string, string>()
+  const duplicateNames = new Set<string>()
+  for (const [blockId, block] of Object.entries(blocks)) {
+    const key = normalizePublicBlockName(block?.name)
+    if (!key) continue
+    if (blockNames.has(key)) {
+      duplicateNames.add(key)
+      continue
+    }
+    blockNames.set(key, blockId)
+  }
+
+  const selectedOutputs: string[] = []
+  for (const { blockName, path } of requestedOutputs) {
+    const key = normalizePublicBlockName(blockName)
+    if (duplicateNames.has(key)) {
+      return { ok: false, error: `Selected output block "${blockName}" is ambiguous` }
+    }
+    const blockId = blockNames.get(key)
+    if (!blockId) {
+      return { ok: false, error: `Selected output block "${blockName}" was not found` }
+    }
+    selectedOutputs.push(`${blockId}_${path}`)
+  }
+
+  return { ok: true, selectedOutputs }
 }
 
 function resolveWorkflowInput(body: Record<string, unknown>) {
@@ -158,7 +218,7 @@ async function executeApiWorkflowThroughQueue(params: {
   input: Record<string, unknown>
   requestId: string
   stream: boolean
-  selectedOutputs: string[]
+  selectedOutputs: unknown
 }) {
   const validation = await validateWorkflowAccess(params.request, params.workflowId)
   if (validation.error || !validation.workflow) {
@@ -189,11 +249,25 @@ async function executeApiWorkflowThroughQueue(params: {
     triggerType: 'api',
   })
 
-  const input = await processDeployedApiTriggerInputFiles({
+  const workflowData = await loadDeployedWorkflowState(validation.workflow.id)
+  if (!workflowData) {
+    return createErrorResponse('Workflow has no deployed state', 400)
+  }
+
+  const selectedOutputs = resolveSelectedOutputs(params.selectedOutputs, workflowData.blocks ?? {})
+  if (!selectedOutputs.ok) {
+    return createErrorResponse(selectedOutputs.error, 400)
+  }
+
+  const input = await processWorkflowInputFormatFiles({
     input: params.input,
-    workspaceId: validation.workflow.workspaceId,
-    workflowId: validation.workflow.id,
-    executionId,
+    blocks: workflowData.blocks ?? {},
+    blockType: 'api_trigger',
+    executionContext: {
+      workspaceId: validation.workflow.workspaceId,
+      workflowId: validation.workflow.id,
+      executionId,
+    },
     requestId: params.requestId,
   })
 
@@ -213,7 +287,7 @@ async function executeApiWorkflowThroughQueue(params: {
       input,
       triggerType: 'api',
       executionTarget: 'deployed',
-      selectedOutputs: params.selectedOutputs,
+      selectedOutputs: selectedOutputs.selectedOutputs,
       metadata: {
         source: 'workflow_execute_api',
         apiKeyId: apiKeyAuth.keyId ?? null,
@@ -226,7 +300,7 @@ async function executeApiWorkflowThroughQueue(params: {
       pendingExecutionId: executionId,
       workflowId: validation.workflow.id,
       requestId: params.requestId,
-      formatEvent: createApiWorkflowStreamFormatter(params.selectedOutputs),
+      formatEvent: createApiWorkflowStreamFormatter(selectedOutputs.selectedOutputs),
       formatError: (error) =>
         encodeSSE({
           event: 'error',
@@ -284,10 +358,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     if (body.stream !== undefined && typeof body.stream !== 'boolean') {
       return createErrorResponse('Field "stream" must be a boolean', 400)
     }
-    const selectedOutputs = resolveSelectedOutputs(body.selectedOutputs)
-    if (!selectedOutputs) {
-      return createErrorResponse('Field "selectedOutputs" must be an array of strings', 400)
-    }
     const input = resolveWorkflowInput(body)
     if (input instanceof Response) return input
 
@@ -297,7 +367,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       input,
       requestId,
       stream,
-      selectedOutputs,
+      selectedOutputs: body.selectedOutputs,
     })
   } catch (error) {
     if (isPendingExecutionLimitError(error)) {
