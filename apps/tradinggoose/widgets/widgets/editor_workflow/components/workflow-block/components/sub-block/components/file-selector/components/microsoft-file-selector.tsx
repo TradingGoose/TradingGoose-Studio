@@ -56,6 +56,7 @@ interface MicrosoftFileSelectorProps {
   onFileInfoChange?: (fileInfo: MicrosoftFileInfo | null) => void
   planId?: string
   workflowId?: string
+  workspaceId?: string
   credentialId?: string
   isForeignCredential?: boolean
 }
@@ -72,6 +73,7 @@ export function MicrosoftFileSelector({
   onFileInfoChange,
   planId,
   workflowId,
+  workspaceId,
   credentialId,
   isForeignCredential = false,
 }: MicrosoftFileSelectorProps) {
@@ -114,7 +116,10 @@ export function MicrosoftFileSelector({
     setCredentialsLoaded(false)
     try {
       const providerId = getProviderId()
-      const response = await fetch(`/api/auth/oauth/credentials?provider=${providerId}`)
+      const query = new URLSearchParams({ provider: providerId })
+      if (workflowId) query.set('workflowId', workflowId)
+      else if (workspaceId) query.set('workspaceId', workspaceId)
+      const response = await fetch(`/api/auth/oauth/credentials?${query.toString()}`)
 
       if (response.ok) {
         const data = await response.json()
@@ -133,7 +138,7 @@ export function MicrosoftFileSelector({
       setIsLoading(false)
       setCredentialsLoaded(true)
     }
-  }, [provider, getProviderId, selectedCredentialId, credentialId])
+  }, [provider, getProviderId, selectedCredentialId, credentialId, workflowId, workspaceId])
 
   // Keep internal credential in sync with prop
   useEffect(() => {
@@ -152,6 +157,7 @@ export function MicrosoftFileSelector({
         credentialId: selectedCredentialId,
       })
       if (workflowId) queryParams.set('workflowId', workflowId)
+      else if (workspaceId) queryParams.set('workspaceId', workspaceId)
 
       // Add search query if provided
       if (searchQuery.trim()) {
@@ -189,7 +195,7 @@ export function MicrosoftFileSelector({
     } finally {
       setIsLoadingFiles(false)
     }
-  }, [selectedCredentialId, searchQuery, serviceId, isForeignCredential])
+  }, [selectedCredentialId, searchQuery, serviceId, isForeignCredential, workflowId, workspaceId])
 
   // Fetch a single file by ID when we have a selectedFileId but no metadata
   const fetchFileById = useCallback(
@@ -202,6 +208,7 @@ export function MicrosoftFileSelector({
           credentialId: selectedCredentialId,
         })
         if (workflowId) queryParams.set('workflowId', workflowId)
+        else if (workspaceId) queryParams.set('workspaceId', workspaceId)
         queryParams.set(serviceId === 'sharepoint' ? 'siteId' : 'fileId', fileId)
 
         const response = await fetch(
@@ -225,7 +232,7 @@ export function MicrosoftFileSelector({
         setIsLoadingSelectedFile(false)
       }
     },
-    [selectedCredentialId, onFileInfoChange, serviceId, workflowId, onChange]
+    [selectedCredentialId, onFileInfoChange, serviceId, workflowId, workspaceId, onChange]
   )
 
   // Fetch Microsoft Planner tasks when planId and credentials are available
@@ -258,6 +265,7 @@ export function MicrosoftFileSelector({
         planId: planId,
       })
       if (workflowId) queryParams.set('workflowId', workflowId)
+      else if (workspaceId) queryParams.set('workspaceId', workspaceId)
 
       const url = `/api/tools/microsoft_planner/tasks?${queryParams.toString()}`
       logger.info('Calling API endpoint:', url)
@@ -307,7 +315,7 @@ export function MicrosoftFileSelector({
     } finally {
       setIsLoadingTasks(false)
     }
-  }, [selectedCredentialId, planId, serviceId, isForeignCredential])
+  }, [selectedCredentialId, planId, serviceId, isForeignCredential, workflowId, workspaceId])
 
   // Fetch a single planner task by ID for collaborator preview
   const fetchPlannerTaskById = useCallback(
@@ -320,6 +328,7 @@ export function MicrosoftFileSelector({
           taskId,
         })
         if (workflowId) queryParams.set('workflowId', workflowId)
+        else if (workspaceId) queryParams.set('workspaceId', workspaceId)
 
         const response = await fetch(`/api/tools/microsoft_planner/tasks?${queryParams.toString()}`)
         if (!response.ok) return null
@@ -343,7 +352,7 @@ export function MicrosoftFileSelector({
         setIsLoadingTasks(false)
       }
     },
-    [selectedCredentialId, workflowId, onFileInfoChange, serviceId]
+    [selectedCredentialId, workflowId, workspaceId, onFileInfoChange, serviceId]
   )
 
   // Fetch credentials on initial mount
@@ -666,10 +675,10 @@ export function MicrosoftFileSelector({
   const filteredTasks: SelectableItem[] =
     serviceId === 'microsoft-planner'
       ? plannerTasks.filter((task) => {
-        const title = task.title || ''
-        const query = searchQuery || ''
-        return title.toLowerCase().includes(query.toLowerCase())
-      })
+          const title = task.title || ''
+          const query = searchQuery || ''
+          return title.toLowerCase().includes(query.toLowerCase())
+        })
       : availableFiles
 
   const canShowPreview = !!(
@@ -835,11 +844,11 @@ export function MicrosoftFileSelector({
                               {getFileIcon(
                                 isPlannerTask
                                   ? {
-                                    ...fileInfo,
-                                    id: plannerTask.id || '',
-                                    name: plannerTask.title,
-                                    mimeType: 'planner/task',
-                                  }
+                                      ...fileInfo,
+                                      id: plannerTask.id || '',
+                                      name: plannerTask.title,
+                                      mimeType: 'planner/task',
+                                    }
                                   : fileInfo,
                                 'sm'
                               )}

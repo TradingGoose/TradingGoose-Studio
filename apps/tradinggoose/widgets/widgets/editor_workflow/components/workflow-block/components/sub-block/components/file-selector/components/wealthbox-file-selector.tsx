@@ -45,6 +45,7 @@ interface WealthboxFileSelectorProps {
   itemType?: 'contact'
   credentialId?: string
   workflowId?: string
+  workspaceId?: string
 }
 
 export function WealthboxFileSelector({
@@ -60,6 +61,7 @@ export function WealthboxFileSelector({
   itemType = 'contact',
   credentialId,
   workflowId,
+  workspaceId,
 }: WealthboxFileSelectorProps) {
   const [open, setOpen] = useState(false)
   const [credentials, setCredentials] = useState<Credential[]>([])
@@ -91,7 +93,10 @@ export function WealthboxFileSelector({
     setCredentialsLoaded(false)
     try {
       const providerId = getProviderId()
-      const response = await fetch(`/api/auth/oauth/credentials?provider=${providerId}`)
+      const query = new URLSearchParams({ provider: providerId })
+      if (workflowId) query.set('workflowId', workflowId)
+      else if (workspaceId) query.set('workspaceId', workspaceId)
+      const response = await fetch(`/api/auth/oauth/credentials?${query.toString()}`)
 
       if (response.ok) {
         const data = await response.json()
@@ -102,7 +107,7 @@ export function WealthboxFileSelector({
     } finally {
       setCredentialsLoaded(true)
     }
-  }, [getProviderId])
+  }, [getProviderId, workflowId, workspaceId])
 
   // Keep local credential state in sync with persisted credential
   useEffect(() => {
@@ -125,6 +130,7 @@ export function WealthboxFileSelector({
         type: itemType,
       })
       if (workflowId) queryParams.set('workflowId', workflowId)
+      else if (workspaceId) queryParams.set('workspaceId', workspaceId)
 
       if (searchQuery.trim()) {
         queryParams.append('query', searchQuery.trim())
@@ -147,7 +153,7 @@ export function WealthboxFileSelector({
     } finally {
       setIsLoadingItems(false)
     }
-  }, [selectedCredentialId, searchQuery, itemType, workflowId])
+  }, [selectedCredentialId, searchQuery, itemType, workflowId, workspaceId])
 
   // Fetch a single item by ID
   const fetchItemById = useCallback(
@@ -162,6 +168,7 @@ export function WealthboxFileSelector({
           type: itemType,
         })
         if (workflowId) queryParams.set('workflowId', workflowId)
+        else if (workspaceId) queryParams.set('workspaceId', workspaceId)
 
         const response = await fetch(`/api/tools/wealthbox/item?${queryParams.toString()}`)
 
@@ -191,7 +198,7 @@ export function WealthboxFileSelector({
         setIsLoadingSelectedItem(false)
       }
     },
-    [selectedCredentialId, itemType, onFileInfoChange, onChange, workflowId]
+    [selectedCredentialId, itemType, onFileInfoChange, onChange, workflowId, workspaceId]
   )
 
   // Fetch credentials on initial mount

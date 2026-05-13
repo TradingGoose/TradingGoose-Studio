@@ -25,9 +25,24 @@ export async function GET(request: NextRequest) {
     }
 
     const credentials = await listOAuthConnectionsForUser({ userId: session.user.id })
-    const connections = credentials.map((credential) => {
+    const connectionsByProvider = new Map<string, any>()
+    for (const credential of credentials) {
       const { baseProvider, featureType } = parseProvider(credential.provider as OAuthProvider)
-      return {
+      const existing = connectionsByProvider.get(credential.provider)
+      if (existing) {
+        existing.scopes = Array.from(new Set([...existing.scopes, ...(credential.scopes ?? [])]))
+        existing.lastConnected =
+          new Date(credential.lastUsed).getTime() > new Date(existing.lastConnected).getTime()
+            ? credential.lastUsed
+            : existing.lastConnected
+        existing.accounts.push({
+          id: credential.id,
+          name: credential.name,
+        })
+        continue
+      }
+
+      connectionsByProvider.set(credential.provider, {
         provider: credential.provider,
         baseProvider,
         featureType,
@@ -40,10 +55,13 @@ export async function GET(request: NextRequest) {
             name: credential.name,
           },
         ],
-      }
-    })
+      })
+    }
 
-    return NextResponse.json({ connections }, { status: 200 })
+    return NextResponse.json(
+      { connections: Array.from(connectionsByProvider.values()) },
+      { status: 200 }
+    )
   } catch (error) {
     logger.error(`[${requestId}] Error fetching OAuth connections`, error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

@@ -47,6 +47,7 @@ interface ConfluenceFileSelectorProps {
   onFileInfoChange?: (fileInfo: ConfluenceFileInfo | null) => void
   credentialId?: string
   workflowId?: string
+  workspaceId?: string
   isForeignCredential?: boolean
 }
 
@@ -63,6 +64,7 @@ export function ConfluenceFileSelector({
   onFileInfoChange,
   credentialId,
   workflowId,
+  workspaceId,
   isForeignCredential = false,
 }: ConfluenceFileSelectorProps) {
   const [open, setOpen] = useState(false)
@@ -127,7 +129,10 @@ export function ConfluenceFileSelector({
     setIsLoading(true)
     try {
       const providerId = getProviderId()
-      const response = await fetch(`/api/auth/oauth/credentials?provider=${providerId}`)
+      const query = new URLSearchParams({ provider: providerId })
+      if (workflowId) query.set('workflowId', workflowId)
+      else if (workspaceId) query.set('workspaceId', workspaceId)
+      const response = await fetch(`/api/auth/oauth/credentials?${query.toString()}`)
 
       if (response.ok) {
         const data = await response.json()
@@ -138,7 +143,7 @@ export function ConfluenceFileSelector({
     } finally {
       setIsLoading(false)
     }
-  }, [provider, getProviderId, selectedCredentialId])
+  }, [provider, getProviderId, selectedCredentialId, workflowId, workspaceId])
 
   // Fetch page info when we have a selected file ID
   const fetchPageInfo = useCallback(
@@ -166,7 +171,7 @@ export function ConfluenceFileSelector({
           body: JSON.stringify({
             domain,
             credentialId: selectedCredentialId,
-            workflowId,
+            ...(workflowId ? { workflowId } : workspaceId ? { workspaceId } : {}),
             pageId,
           }),
         })
@@ -200,7 +205,7 @@ export function ConfluenceFileSelector({
         setIsLoading(false)
       }
     },
-    [selectedCredentialId, domain, onFileInfoChange, workflowId]
+    [selectedCredentialId, domain, onFileInfoChange, workflowId, workspaceId]
   )
 
   // Fetch pages from Confluence
@@ -232,7 +237,7 @@ export function ConfluenceFileSelector({
           body: JSON.stringify({
             domain,
             credentialId: selectedCredentialId,
-            workflowId,
+            ...(workflowId ? { workflowId } : workspaceId ? { workspaceId } : {}),
             title: searchQuery || undefined,
             limit: 50,
           }),
@@ -280,6 +285,7 @@ export function ConfluenceFileSelector({
       onFileInfoChange,
       fetchPageInfo,
       workflowId,
+      workspaceId,
       isForeignCredential,
     ]
   )

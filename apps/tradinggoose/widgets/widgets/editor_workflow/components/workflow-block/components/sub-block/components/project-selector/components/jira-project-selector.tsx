@@ -51,6 +51,7 @@ interface JiraProjectSelectorProps {
   credentialId?: string
   isForeignCredential?: boolean
   workflowId?: string
+  workspaceId?: string
 }
 
 export function JiraProjectSelector({
@@ -67,6 +68,7 @@ export function JiraProjectSelector({
   credentialId,
   isForeignCredential = false,
   workflowId,
+  workspaceId,
 }: JiraProjectSelectorProps) {
   const [open, setOpen] = useState(false)
   const [credentials, setCredentials] = useState<Credential[]>([])
@@ -124,7 +126,10 @@ export function JiraProjectSelector({
     if (!providerId) return
     setIsLoading(true)
     try {
-      const response = await fetch(`/api/auth/oauth/credentials?provider=${providerId}`)
+      const query = new URLSearchParams({ provider: providerId })
+      if (workflowId) query.set('workflowId', workflowId)
+      else if (workspaceId) query.set('workspaceId', workspaceId)
+      const response = await fetch(`/api/auth/oauth/credentials?${query.toString()}`)
 
       if (response.ok) {
         const data = await response.json()
@@ -136,7 +141,7 @@ export function JiraProjectSelector({
     } finally {
       setIsLoading(false)
     }
-  }, [providerId])
+  }, [providerId, workflowId, workspaceId])
 
   // Fetch detailed project information
   const fetchProjectInfo = useCallback(
@@ -153,7 +158,7 @@ export function JiraProjectSelector({
           body: JSON.stringify({
             domain,
             credentialId: selectedCredentialId,
-            workflowId,
+            ...(workflowId ? { workflowId } : workspaceId ? { workspaceId } : {}),
             projectId,
             cloudId,
           }),
@@ -187,7 +192,7 @@ export function JiraProjectSelector({
         setIsLoading(false)
       }
     },
-    [selectedCredentialId, domain, onProjectInfoChange, cloudId, workflowId]
+    [selectedCredentialId, domain, onProjectInfoChange, cloudId, workflowId, workspaceId]
   )
 
   // Fetch projects from Jira
@@ -213,7 +218,7 @@ export function JiraProjectSelector({
         const queryParams = new URLSearchParams({
           domain,
           credentialId: selectedCredentialId,
-          ...(workflowId && { workflowId }),
+          ...(workflowId ? { workflowId } : workspaceId ? { workspaceId } : {}),
           ...(searchQuery && { query: searchQuery }),
           ...(cloudId && { cloudId }),
         })
@@ -267,6 +272,7 @@ export function JiraProjectSelector({
       fetchProjectInfo,
       cloudId,
       workflowId,
+      workspaceId,
     ]
   )
 

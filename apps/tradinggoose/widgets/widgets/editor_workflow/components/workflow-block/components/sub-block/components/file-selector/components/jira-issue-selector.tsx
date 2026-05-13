@@ -49,6 +49,7 @@ interface JiraIssueSelectorProps {
   credentialId?: string
   isForeignCredential?: boolean
   workflowId?: string
+  workspaceId?: string
 }
 
 export function JiraIssueSelector({
@@ -66,6 +67,7 @@ export function JiraIssueSelector({
   credentialId,
   isForeignCredential = false,
   workflowId,
+  workspaceId,
 }: JiraIssueSelectorProps) {
   const [open, setOpen] = useState(false)
   const [credentials, setCredentials] = useState<Credential[]>([])
@@ -133,7 +135,10 @@ export function JiraIssueSelector({
     if (!providerId) return
     setIsLoading(true)
     try {
-      const response = await fetch(`/api/auth/oauth/credentials?provider=${providerId}`)
+      const query = new URLSearchParams({ provider: providerId })
+      if (workflowId) query.set('workflowId', workflowId)
+      else if (workspaceId) query.set('workspaceId', workspaceId)
+      const response = await fetch(`/api/auth/oauth/credentials?${query.toString()}`)
 
       if (response.ok) {
         const data = await response.json()
@@ -144,7 +149,7 @@ export function JiraIssueSelector({
     } finally {
       setIsLoading(false)
     }
-  }, [providerId])
+  }, [providerId, workflowId, workspaceId])
 
   // Fetch issue info when we have a selected issue ID
   const fetchIssueInfo = useCallback(
@@ -170,7 +175,7 @@ export function JiraIssueSelector({
           body: JSON.stringify({
             domain,
             credentialId: selectedCredentialId,
-            workflowId,
+            ...(workflowId ? { workflowId } : workspaceId ? { workspaceId } : {}),
             issueId,
             cloudId,
           }),
@@ -207,7 +212,7 @@ export function JiraIssueSelector({
         setIsLoading(false)
       }
     },
-    [selectedCredentialId, domain, onIssueInfoChange, cloudId, workflowId]
+    [selectedCredentialId, domain, onIssueInfoChange, cloudId, workflowId, workspaceId]
   )
 
   // Fetch issues from Jira
@@ -238,7 +243,7 @@ export function JiraIssueSelector({
         const queryParams = new URLSearchParams({
           domain,
           credentialId: selectedCredentialId,
-          ...(workflowId && { workflowId }),
+          ...(workflowId ? { workflowId } : workspaceId ? { workspaceId } : {}),
           ...(projectId && { projectId }),
           ...(searchQuery && { query: searchQuery }),
           ...(cloudId && { cloudId }),
@@ -314,6 +319,7 @@ export function JiraIssueSelector({
       cloudId,
       projectId,
       workflowId,
+      workspaceId,
     ]
   )
 

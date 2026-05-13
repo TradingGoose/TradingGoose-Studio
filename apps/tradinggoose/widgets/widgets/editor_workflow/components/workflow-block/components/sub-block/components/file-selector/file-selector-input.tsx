@@ -40,6 +40,7 @@ export function FileSelectorInput({
     state.getActiveWorkflowId(resolvedChannelId)
   )
   const workflowIdFromUrl = routeContext?.workflowId || registryWorkflowId || ''
+  const workspaceIdFromRoute = routeContext?.workspaceId || ''
   const getContextValue = (key: string) => {
     const value = contextValues?.[key]
     if (value && typeof value === 'object' && 'value' in value) {
@@ -127,6 +128,7 @@ export function FileSelectorInput({
                 showPreview={true}
                 credentialId={credential}
                 workflowId={workflowIdFromUrl}
+                workspaceId={workspaceIdFromRoute}
               />
             </div>
           </TooltipTrigger>
@@ -157,6 +159,7 @@ export function FileSelectorInput({
                 showPreview={true}
                 credentialId={credential}
                 workflowId={workflowIdFromUrl}
+                workspaceId={workspaceIdFromRoute}
                 isForeignCredential={isForeignCredential}
               />
             </div>
@@ -189,6 +192,7 @@ export function FileSelectorInput({
                 projectId={(projectIdValue as string) || ''}
                 isForeignCredential={isForeignCredential}
                 workflowId={workflowIdFromUrl}
+                workspaceId={workspaceIdFromRoute}
               />
             </div>
           </TooltipTrigger>
@@ -214,6 +218,7 @@ export function FileSelectorInput({
                 disabled={finalDisabled}
                 showPreview={true}
                 workflowId={workflowIdFromUrl}
+                workspaceId={workspaceIdFromRoute}
                 credentialId={credential}
                 isForeignCredential={isForeignCredential}
               />
@@ -240,6 +245,8 @@ export function FileSelectorInput({
                 label={subBlock.placeholder || 'Select Microsoft Word document'}
                 disabled={finalDisabled}
                 showPreview={true}
+                workflowId={workflowIdFromUrl}
+                workspaceId={workspaceIdFromRoute}
               />
             </div>
           </TooltipTrigger>
@@ -266,6 +273,7 @@ export function FileSelectorInput({
                 disabled={finalDisabled}
                 showPreview={true}
                 workflowId={workflowIdFromUrl}
+                workspaceId={workspaceIdFromRoute}
                 credentialId={credential}
                 isForeignCredential={isForeignCredential}
               />
@@ -294,6 +302,7 @@ export function FileSelectorInput({
                 disabled={finalDisabled}
                 showPreview={true}
                 workflowId={workflowIdFromUrl}
+                workspaceId={workspaceIdFromRoute}
                 credentialId={credential}
                 isForeignCredential={isForeignCredential}
               />
@@ -329,6 +338,7 @@ export function FileSelectorInput({
                 showPreview={true}
                 planId={planId}
                 workflowId={workflowIdFromUrl}
+                workspaceId={workspaceIdFromRoute}
                 credentialId={credential}
                 isForeignCredential={isForeignCredential}
               />
@@ -385,6 +395,7 @@ export function FileSelectorInput({
                 selectionType={selectionType}
                 initialTeamId={selectedTeamId}
                 workflowId={workflowIdFromUrl}
+                workspaceId={workspaceIdFromRoute}
                 isForeignCredential={isForeignCredential}
               />
             </div>
@@ -422,6 +433,7 @@ export function FileSelectorInput({
                   showPreview={true}
                   credentialId={credential}
                   workflowId={workflowIdFromUrl}
+                  workspaceId={workspaceIdFromRoute}
                   itemType={itemType}
                 />
               </div>
@@ -464,6 +476,7 @@ export function FileSelectorInput({
                 showPreview={true}
                 credentialId={credential}
                 workflowId={workflowIdFromUrl}
+                workspaceId={workspaceIdFromRoute}
               />
             </div>
           </TooltipTrigger>

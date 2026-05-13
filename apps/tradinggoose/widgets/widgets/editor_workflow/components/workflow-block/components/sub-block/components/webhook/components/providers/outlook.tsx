@@ -20,6 +20,7 @@ import {
 import { createLogger } from '@/lib/logs/console/logger'
 import { JSONView } from '@/widgets/widgets/workflow_console/components'
 import { ConfigSection } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/components/webhook/components'
+import { useOptionalWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 
 const logger = createLogger('OutlookConfig')
 
@@ -124,10 +125,13 @@ export function OutlookConfig({
   labelFilterBehavior: folderFilterBehavior,
   setLabelFilterBehavior: setFolderFilterBehavior,
   markAsRead = false,
-  setMarkAsRead = () => { },
+  setMarkAsRead = () => {},
   includeRawEmail = false,
-  setIncludeRawEmail = () => { },
+  setIncludeRawEmail = () => {},
 }: OutlookConfigProps) {
+  const routeContext = useOptionalWorkflowRoute()
+  const workflowId = routeContext?.workflowId
+  const workspaceId = routeContext?.workspaceId
   const [folders, setFolders] = useState<OutlookFolder[]>([])
   const [isLoadingFolders, setIsLoadingFolders] = useState(false)
   const [folderError, setFolderError] = useState<string | null>(null)
@@ -140,7 +144,12 @@ export function OutlookConfig({
       setFolderError(null)
 
       try {
-        const credentialsResponse = await fetch('/api/auth/oauth/credentials?provider=outlook')
+        const credentialsQuery = new URLSearchParams({ provider: 'outlook' })
+        if (workflowId) credentialsQuery.set('workflowId', workflowId)
+        else if (workspaceId) credentialsQuery.set('workspaceId', workspaceId)
+        const credentialsResponse = await fetch(
+          `/api/auth/oauth/credentials?${credentialsQuery.toString()}`
+        )
         if (!credentialsResponse.ok) {
           throw new Error('Failed to get Outlook credentials')
         }
@@ -152,7 +161,9 @@ export function OutlookConfig({
 
         const credentialId = credentialsData.credentials[0].id
 
-        const response = await fetch(`/api/tools/outlook/folders?credentialId=${credentialId}`)
+        const foldersQuery = new URLSearchParams({ credentialId })
+        if (workflowId) foldersQuery.set('workflowId', workflowId)
+        const response = await fetch(`/api/tools/outlook/folders?${foldersQuery.toString()}`)
         if (!response.ok) {
           throw new Error('Failed to fetch Outlook folders')
         }
@@ -167,25 +178,7 @@ export function OutlookConfig({
         logger.error('Error fetching Outlook folders:', error)
         if (mounted) {
           setFolderError(error instanceof Error ? error.message : 'Failed to fetch folders')
-          // Set default folders if API fails
-          setFolders([
-            { id: 'inbox', name: 'Inbox', type: 'folder', messagesTotal: 0, messagesUnread: 0 },
-            {
-              id: 'sentitems',
-              name: 'Sent Items',
-              type: 'folder',
-              messagesTotal: 0,
-              messagesUnread: 0,
-            },
-            { id: 'drafts', name: 'Drafts', type: 'folder', messagesTotal: 0, messagesUnread: 0 },
-            {
-              id: 'deleteditems',
-              name: 'Deleted Items',
-              type: 'folder',
-              messagesTotal: 0,
-              messagesUnread: 0,
-            },
-          ])
+          setFolders([])
         }
       } finally {
         if (mounted) setIsLoadingFolders(false)
@@ -197,7 +190,7 @@ export function OutlookConfig({
     return () => {
       mounted = false
     }
-  }, [])
+  }, [workflowId, workspaceId])
 
   return (
     <div className='space-y-6'>
@@ -238,9 +231,6 @@ export function OutlookConfig({
               <div>
                 <p className='font-medium text-sm'>Unable to load Outlook folders</p>
                 <p className='text-sm'>{folderError}</p>
-                <p className='mt-1 text-sm'>
-                  Using default folders. You can still configure the webhook.
-                </p>
               </div>
             </div>
           </Notice>
@@ -254,10 +244,11 @@ export function OutlookConfig({
                 <Badge
                   key={folder.id}
                   variant={isSelected ? 'default' : 'secondary'}
-                  className={`cursor-pointer transition-colors ${isSelected
-                    ? 'bg-primary text-muted-foreground hover:bg-[var(--primary)]/90'
-                    : 'hover:bg-secondary/80'
-                    }`}
+                  className={`cursor-pointer transition-colors ${
+                    isSelected
+                      ? 'bg-primary text-muted-foreground hover:bg-[var(--primary)]/90'
+                      : 'hover:bg-secondary/80'
+                  }`}
                   onClick={() => {
                     if (isSelected) {
                       setSelectedFolders(selectedFolders.filter((id) => id !== folder.id))

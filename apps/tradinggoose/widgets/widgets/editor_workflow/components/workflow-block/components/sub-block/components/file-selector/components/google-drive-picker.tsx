@@ -53,6 +53,7 @@ interface GoogleDrivePickerProps {
   onFileInfoChange?: (fileInfo: FileInfo | null) => void
   credentialId?: string
   workflowId?: string
+  workspaceId?: string
 }
 
 export function GoogleDrivePicker({
@@ -68,6 +69,7 @@ export function GoogleDrivePicker({
   onFileInfoChange,
   credentialId,
   workflowId,
+  workspaceId,
 }: GoogleDrivePickerProps) {
   const [credentials, setCredentials] = useState<Credential[]>([])
   const [selectedCredentialId, setSelectedCredentialId] = useState<string>('')
@@ -101,7 +103,10 @@ export function GoogleDrivePicker({
     setCredentialsLoaded(false)
     try {
       const providerId = getProviderId()
-      const response = await fetch(`/api/auth/oauth/credentials?provider=${providerId}`)
+      const query = new URLSearchParams({ provider: providerId })
+      if (workflowId) query.set('workflowId', workflowId)
+      else if (workspaceId) query.set('workspaceId', workspaceId)
+      const response = await fetch(`/api/auth/oauth/credentials?${query.toString()}`)
 
       if (response.ok) {
         const data = await response.json()
@@ -116,7 +121,7 @@ export function GoogleDrivePicker({
       setIsLoading(false)
       setCredentialsLoaded(true)
     }
-  }, [provider, getProviderId, selectedCredentialId])
+  }, [provider, getProviderId, selectedCredentialId, workflowId, workspaceId])
 
   // Prefer persisted credentialId if provided
   useEffect(() => {
@@ -138,6 +143,7 @@ export function GoogleDrivePicker({
           fileId: fileId,
         })
         if (workflowId) queryParams.set('workflowId', workflowId)
+        else if (workspaceId) queryParams.set('workspaceId', workspaceId)
 
         const response = await fetch(`/api/tools/drive/file?${queryParams.toString()}`)
 
@@ -176,7 +182,7 @@ export function GoogleDrivePicker({
         setIsLoadingSelectedFile(false)
       }
     },
-    [selectedCredentialId, onChange, onFileInfoChange, workflowId]
+    [selectedCredentialId, onChange, onFileInfoChange, workflowId, workspaceId]
   )
 
   const fetchAvailableFiles = useCallback(async () => {
@@ -188,6 +194,7 @@ export function GoogleDrivePicker({
         credentialId: selectedCredentialId,
       })
       if (workflowId) queryParams.set('workflowId', workflowId)
+      else if (workspaceId) queryParams.set('workspaceId', workspaceId)
       if (mimeTypeFilter) queryParams.set('mimeType', mimeTypeFilter)
       if (searchQuery.trim()) queryParams.set('query', searchQuery.trim())
 
@@ -206,7 +213,7 @@ export function GoogleDrivePicker({
     } finally {
       setIsLoadingFiles(false)
     }
-  }, [selectedCredentialId, workflowId, mimeTypeFilter, searchQuery])
+  }, [selectedCredentialId, workflowId, workspaceId, mimeTypeFilter, searchQuery])
 
   // Fetch credentials on initial mount
   useEffect(() => {

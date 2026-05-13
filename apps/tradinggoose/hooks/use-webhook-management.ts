@@ -13,8 +13,6 @@ import { useOptionalWorkflowRoute } from '@/widgets/widgets/editor_workflow/cont
 
 const logger = createLogger('useWebhookManagement')
 
-const CREDENTIAL_SET_PREFIX = 'credentialSet:'
-
 interface UseWebhookManagementProps {
   blockId: string
   useWebhookUrl?: boolean
@@ -121,7 +119,6 @@ export function useWebhookManagement({
 
               const {
                 credentialId: _credId,
-                credentialSetId: _credSetId,
                 userId: _userId,
                 historyId: _historyId,
                 lastCheckedTimestamp: _lastChecked,
@@ -182,16 +179,9 @@ export function useWebhookManagement({
       return false
     }
 
-    const isCredentialSet = selectedCredentialId?.startsWith(CREDENTIAL_SET_PREFIX)
-    const credentialSetId = isCredentialSet
-      ? selectedCredentialId!.slice(CREDENTIAL_SET_PREFIX.length)
-      : undefined
-    const credentialId = isCredentialSet ? undefined : selectedCredentialId
-
     const webhookConfig = {
       ...triggerConfig,
-      ...(credentialId ? { credentialId } : {}),
-      ...(credentialSetId ? { credentialSetId } : {}),
+      ...(selectedCredentialId ? { credentialId: selectedCredentialId } : {}),
       triggerId: effectiveTriggerId,
     }
 
@@ -252,33 +242,17 @@ export function useWebhookManagement({
       return false
     }
 
-    const isCredentialSet = selectedCredentialId?.startsWith(CREDENTIAL_SET_PREFIX)
-    const credentialSetId = isCredentialSet
-      ? selectedCredentialId!.slice(CREDENTIAL_SET_PREFIX.length)
-      : undefined
-    const credentialId = isCredentialSet ? undefined : selectedCredentialId
-
     const response = await fetch(`/api/webhooks/${webhookIdToUpdate}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         providerConfig: {
           ...triggerConfig,
-          ...(credentialId ? { credentialId } : {}),
-          ...(credentialSetId ? { credentialSetId } : {}),
+          ...(selectedCredentialId ? { credentialId: selectedCredentialId } : {}),
           triggerId: effectiveTriggerId,
         },
       }),
     })
-
-    if (response.status === 404) {
-      logger.warn('Webhook not found while updating, recreating', {
-        blockId,
-        lostWebhookId: webhookIdToUpdate,
-      })
-      setSubBlockValue(blockId, 'webhookId', null)
-      return createWebhook(effectiveTriggerId, selectedCredentialId, triggerConfig)
-    }
 
     if (!response.ok) {
       let errorMessage = 'Failed to save trigger configuration'

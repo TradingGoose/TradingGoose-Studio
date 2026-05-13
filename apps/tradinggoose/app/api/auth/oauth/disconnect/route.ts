@@ -1,6 +1,6 @@
 import { db } from '@tradinggoose/db'
 import { account } from '@tradinggoose/db/schema'
-import { and, eq, like, or } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
@@ -11,7 +11,7 @@ export const dynamic = 'force-dynamic'
 const logger = createLogger('OAuthDisconnectAPI')
 
 /**
- * Disconnect an OAuth provider for the current user
+ * Disconnect one OAuth account for the current user.
  */
 export async function POST(request: NextRequest) {
   const requestId = generateRequestId()
@@ -26,38 +26,24 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'User not authenticated' }, { status: 401 })
     }
 
-    const { provider, providerId } = await request.json()
+    const { accountId } = await request.json()
 
-    if (!provider) {
-      logger.warn(`[${requestId}] Missing provider in disconnect request`)
-      return NextResponse.json({ error: 'Provider is required' }, { status: 400 })
+    if (typeof accountId !== 'string' || !accountId.trim()) {
+      logger.warn(`[${requestId}] Missing accountId in disconnect request`)
+      return NextResponse.json({ error: 'accountId is required' }, { status: 400 })
     }
 
     logger.info(`[${requestId}] Processing OAuth disconnect request`, {
-      provider,
-      hasProviderId: !!providerId,
+      accountId,
     })
 
-    if (providerId) {
-      await db
-        .delete(account)
-        .where(and(eq(account.userId, session.user.id), eq(account.providerId, providerId)))
-    } else {
-      // Otherwise, delete all accounts for this provider
-      // Handle both exact matches (e.g., 'confluence') and prefixed matches (e.g., 'google-email')
-      await db
-        .delete(account)
-        .where(
-          and(
-            eq(account.userId, session.user.id),
-            or(eq(account.providerId, provider), like(account.providerId, `${provider}-%`))
-          )
-        )
-    }
+    await db
+      .delete(account)
+      .where(and(eq(account.userId, session.user.id), eq(account.id, accountId.trim())))
 
     return NextResponse.json({ success: true }, { status: 200 })
   } catch (error) {
-    logger.error(`[${requestId}] Error disconnecting OAuth provider`, error)
+    logger.error(`[${requestId}] Error disconnecting OAuth account`, error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

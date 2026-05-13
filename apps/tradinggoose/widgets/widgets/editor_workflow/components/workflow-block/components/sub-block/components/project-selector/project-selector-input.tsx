@@ -18,7 +18,7 @@ import { useDependsOnGate } from '@/widgets/widgets/editor_workflow/components/w
 import { useForeignCredential } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-foreign-credential'
 import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
 import type { SubBlockConfig } from '@/blocks/types'
-import { useWorkflowId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
+import { useWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 
 interface ProjectSelectorInputProps {
   blockId: string
@@ -45,7 +45,7 @@ export function ProjectSelectorInput({
   // Reactive dependencies from store for Linear
   const [linearCredential] = useSubBlockValue(blockId, 'credential')
   const [linearTeamId] = useSubBlockValue(blockId, 'teamId')
-  const workflowId = useWorkflowId()
+  const { workflowId, workspaceId } = useWorkflowRoute()
   const { finalDisabled } = useDependsOnGate(blockId, subBlock, { disabled })
 
   // Get provider-specific values
@@ -152,6 +152,7 @@ export function ProjectSelectorInput({
               credentialId={(jiraCredential as string) || ''}
               isForeignCredential={isForeignCredential}
               workflowId={workflowId || ''}
+              workspaceId={workspaceId}
             />
           </div>
         </TooltipTrigger>

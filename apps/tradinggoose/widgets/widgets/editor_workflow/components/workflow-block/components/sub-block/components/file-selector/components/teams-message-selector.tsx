@@ -48,6 +48,7 @@ interface TeamsMessageSelectorProps {
   selectionType?: 'team' | 'channel' | 'chat'
   initialTeamId?: string
   workflowId: string
+  workspaceId?: string
   isForeignCredential?: boolean
 }
 
@@ -65,6 +66,7 @@ export function TeamsMessageSelector({
   selectionType = 'team',
   initialTeamId,
   workflowId,
+  workspaceId,
   isForeignCredential = false,
 }: TeamsMessageSelectorProps) {
   const [open, setOpen] = useState(false)
@@ -100,7 +102,10 @@ export function TeamsMessageSelector({
     setIsLoading(true)
     try {
       const providerId = getProviderId()
-      const response = await fetch(`/api/auth/oauth/credentials?provider=${providerId}`)
+      const query = new URLSearchParams({ provider: providerId })
+      if (workflowId) query.set('workflowId', workflowId)
+      else if (workspaceId) query.set('workspaceId', workspaceId)
+      const response = await fetch(`/api/auth/oauth/credentials?${query.toString()}`)
 
       if (response.ok) {
         const data = await response.json()
@@ -111,7 +116,7 @@ export function TeamsMessageSelector({
     } finally {
       setIsLoading(false)
     }
-  }, [provider, getProviderId, selectedCredentialId])
+  }, [provider, getProviderId, selectedCredentialId, workflowId, workspaceId])
 
   // Fetch teams
   const fetchTeams = useCallback(async () => {
@@ -128,7 +133,7 @@ export function TeamsMessageSelector({
         },
         body: JSON.stringify({
           credential: selectedCredentialId,
-          workflowId,
+          ...(workflowId ? { workflowId } : workspaceId ? { workspaceId } : {}),
         }),
       })
 
@@ -171,7 +176,7 @@ export function TeamsMessageSelector({
     } finally {
       setIsLoading(false)
     }
-  }, [selectedCredentialId, selectedTeamId, onMessageInfoChange, workflowId])
+  }, [selectedCredentialId, selectedTeamId, onMessageInfoChange, workflowId, workspaceId])
 
   // Fetch channels for a selected team
   const fetchChannels = useCallback(
@@ -190,7 +195,7 @@ export function TeamsMessageSelector({
           body: JSON.stringify({
             credential: selectedCredentialId,
             teamId,
-            workflowId,
+            ...(workflowId ? { workflowId } : workspaceId ? { workspaceId } : {}),
           }),
         })
 
@@ -237,7 +242,7 @@ export function TeamsMessageSelector({
         setIsLoading(false)
       }
     },
-    [selectedCredentialId, selectedChannelId, onMessageInfoChange, workflowId]
+    [selectedCredentialId, selectedChannelId, onMessageInfoChange, workflowId, workspaceId]
   )
 
   // Fetch chats
@@ -255,7 +260,7 @@ export function TeamsMessageSelector({
         },
         body: JSON.stringify({
           credential: selectedCredentialId,
-          workflowId: workflowId, // Pass the workflowId for server-side authentication
+          ...(workflowId ? { workflowId } : workspaceId ? { workspaceId } : {}),
         }),
       })
 
@@ -298,7 +303,7 @@ export function TeamsMessageSelector({
     } finally {
       setIsLoading(false)
     }
-  }, [selectedCredentialId, selectedChatId, onMessageInfoChange, workflowId])
+  }, [selectedCredentialId, selectedChatId, onMessageInfoChange, workflowId, workspaceId])
 
   // Update selection stage based on selected values and selectionType
   useEffect(() => {

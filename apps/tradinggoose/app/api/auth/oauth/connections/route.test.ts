@@ -56,6 +56,13 @@ describe('OAuth Connections API Route', () => {
         lastUsed: '2024-01-01T00:00:00.000Z',
       },
       {
+        id: 'credential-3',
+        provider: 'google-email',
+        name: 'Work Gmail Account',
+        scopes: ['email', 'gmail.modify'],
+        lastUsed: '2024-01-03T00:00:00.000Z',
+      },
+      {
         id: 'credential-2',
         provider: 'github',
         name: 'GitHub Account',
@@ -80,6 +87,12 @@ describe('OAuth Connections API Route', () => {
       featureType: 'gmail',
       isConnected: true,
     })
+    expect(data.connections[0].accounts).toEqual([
+      { id: 'credential-1', name: 'Gmail Account' },
+      { id: 'credential-3', name: 'Work Gmail Account' },
+    ])
+    expect(data.connections[0].scopes).toEqual(['email', 'profile', 'gmail.modify'])
+    expect(data.connections[0].lastConnected).toBe('2024-01-03T00:00:00.000Z')
     expect(data.connections[1]).toMatchObject({
       provider: 'github',
       baseProvider: 'github',

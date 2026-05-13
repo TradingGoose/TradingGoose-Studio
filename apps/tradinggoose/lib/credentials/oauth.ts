@@ -4,6 +4,7 @@ import {
   credential,
   credentialMember,
   permissions,
+  user,
   workspace,
 } from '@tradinggoose/db/schema'
 import { and, desc, eq, inArray, or } from 'drizzle-orm'
@@ -31,11 +32,45 @@ function getPostgresErrorCode(error: unknown): string | undefined {
   return err.code || err.cause?.code
 }
 
-function getCredentialDisplayName(providerId: string, accountId: string) {
+function readIdTokenDisplayName(idToken: string | null | undefined) {
+  if (!idToken) return null
+  const [, payload] = idToken.split('.')
+  if (!payload) return null
+
   try {
-    return getServiceByProviderAndId(providerId as OAuthProvider).name
+    const normalized = payload.replace(/-/g, '+').replace(/_/g, '/')
+    const decoded = JSON.parse(Buffer.from(normalized, 'base64').toString('utf8')) as Record<
+      string,
+      unknown
+    >
+    const email =
+      typeof decoded.email === 'string'
+        ? decoded.email
+        : typeof decoded.preferred_username === 'string'
+          ? decoded.preferred_username
+          : typeof decoded.upn === 'string'
+            ? decoded.upn
+            : null
+    const name = typeof decoded.name === 'string' ? decoded.name : null
+    if (name && email) return `${name} (${email})`
+    return name || email
   } catch {
-    return accountId || providerId
+    return null
+  }
+}
+
+function getCredentialDisplayName(row: {
+  providerId: string
+  accountId: string
+  idToken?: string | null
+  userEmail?: string | null
+}) {
+  const identity = readIdTokenDisplayName(row.idToken) || row.accountId || row.userEmail
+  try {
+    const serviceName = getServiceByProviderAndId(row.providerId as OAuthProvider).name
+    return identity ? `${serviceName} (${identity})` : serviceName
+  } catch {
+    return identity || row.providerId
   }
 }
 
@@ -45,7 +80,7 @@ function toOAuthCredential(row: {
   providerId: string
   updatedAt: Date
   scope: string | null
-}): OAuthCredential {
+}) {
   const storedScope = row.scope?.trim()
   const scopes = storedScope
     ? storedScope.split(/[\s,]+/).filter(Boolean)
@@ -61,7 +96,7 @@ function toOAuthCredential(row: {
     lastUsed: row.updatedAt.toISOString(),
     isDefault,
     scopes,
-  }
+  } satisfies OAuthCredential
 }
 
 async function listCredentialWorkspaceIds(userId: string, workspaceId?: string) {
@@ -138,8 +173,11 @@ export async function syncOAuthCredentialsForUser(params: SyncOAuthCredentialsPa
         id: account.id,
         providerId: account.providerId,
         accountId: account.accountId,
+        idToken: account.idToken,
+        userEmail: user.email,
       })
       .from(account)
+      .innerJoin(user, eq(account.userId, user.id))
       .where(and(...accountFilters))
   ).filter((row) => !isSignInOAuthProviderId(row.providerId))
   if (accounts.length === 0) return
@@ -171,6 +209,7 @@ export async function syncOAuthCredentialsForUser(params: SyncOAuthCredentialsPa
     )
 
     for (const accountRow of accounts) {
+      const displayName = getCredentialDisplayName(accountRow)
       let credentialId = credentialIdByAccountId.get(accountRow.id)
       if (!credentialId) {
         credentialId = crypto.randomUUID()
@@ -179,7 +218,7 @@ export async function syncOAuthCredentialsForUser(params: SyncOAuthCredentialsPa
             id: credentialId,
             workspaceId,
             type: 'oauth',
-            displayName: getCredentialDisplayName(accountRow.providerId, accountRow.accountId),
+            displayName,
             description: null,
             providerId: accountRow.providerId,
             accountId: accountRow.id,
@@ -206,6 +245,14 @@ export async function syncOAuthCredentialsForUser(params: SyncOAuthCredentialsPa
           if (!row) throw error
           credentialId = row.id
         }
+      } else {
+        await db
+          .update(credential)
+          .set({
+            displayName,
+            updatedAt: now,
+          })
+          .where(eq(credential.id, credentialId))
       }
 
       await insertCredentialMembership({
@@ -276,6 +323,7 @@ export async function listOAuthConnectionsForUser(params: {
         id: account.id,
         accountId: account.accountId,
         providerId: account.providerId,
+        idToken: account.idToken,
         updatedAt: account.updatedAt,
         scope: account.scope,
       })
@@ -287,7 +335,7 @@ export async function listOAuthConnectionsForUser(params: {
   return rows.map((row) =>
     toOAuthCredential({
       id: row.id,
-      displayName: getCredentialDisplayName(row.providerId, row.accountId),
+      displayName: getCredentialDisplayName(row),
       providerId: row.providerId,
       updatedAt: row.updatedAt,
       scope: row.scope,
@@ -312,7 +360,7 @@ export async function listOAuthCredentialAccountsForUser(
     filters.push(inArray(account.providerId, params.providerIds))
   }
 
-  return db
+  const rows = await db
     .select({
       credentialId: credential.id,
       tokenAccountId: account.id,
@@ -323,6 +371,18 @@ export async function listOAuthCredentialAccountsForUser(
     .innerJoin(account, eq(credential.accountId, account.id))
     .innerJoin(credentialMember, eq(credentialMember.credentialId, credential.id))
     .where(and(...filters))
+
+  const ownerIds = Array.from(new Set(rows.map((row) => row.credentialOwnerUserId)))
+  const ownerAccess = new Map(
+    await Promise.all(
+      ownerIds.map(async (ownerId) => {
+        const access = await checkWorkspaceAccess(params.workspaceId, ownerId)
+        return [ownerId, access.hasAccess] as const
+      })
+    )
+  )
+
+  return rows.filter((row) => ownerAccess.get(row.credentialOwnerUserId) === true)
 }
 
 export async function resolveOAuthCredentialAccountForUser(params: {

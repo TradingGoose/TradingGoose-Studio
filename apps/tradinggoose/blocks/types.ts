@@ -238,7 +238,6 @@ export interface SubBlockConfig {
   serviceId?: string
   serviceIds?: string[]
   requiredScopes?: string[]
-  supportsCredentialSets?: boolean
   // File selector specific properties
   mimeType?: string
   // File upload specific properties

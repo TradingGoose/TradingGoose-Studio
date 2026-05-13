@@ -1,9 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useOptionalWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 
 export function useForeignCredential(
   provider: string | undefined,
   credentialId: string | undefined
 ) {
+  const routeContext = useOptionalWorkflowRoute()
+  const workflowId = routeContext?.workflowId
+  const workspaceId = routeContext?.workspaceId
   const [isForeign, setIsForeign] = useState<boolean>(false)
   const [loading, setLoading] = useState<boolean>(false)
   const [error, setError] = useState<string | null>(null)
@@ -21,9 +25,10 @@ export function useForeignCredential(
           if (!cancelled) setIsForeign(false)
           return
         }
-        const res = await fetch(
-          `/api/auth/oauth/credentials?provider=${encodeURIComponent(normalizedProvider)}`
-        )
+        const query = new URLSearchParams({ provider: normalizedProvider })
+        if (workflowId) query.set('workflowId', workflowId)
+        else if (workspaceId) query.set('workspaceId', workspaceId)
+        const res = await fetch(`/api/auth/oauth/credentials?${query.toString()}`)
         if (!res.ok) {
           if (!cancelled) setIsForeign(true)
           return
@@ -44,7 +49,7 @@ export function useForeignCredential(
     return () => {
       cancelled = true
     }
-  }, [normalizedProvider, normalizedCredentialId])
+  }, [normalizedProvider, normalizedCredentialId, workflowId, workspaceId])
 
   return { isForeignCredential: isForeign, loading, error }
 }
