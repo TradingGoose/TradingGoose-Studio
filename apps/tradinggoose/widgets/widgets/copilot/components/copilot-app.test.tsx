@@ -64,7 +64,7 @@ vi.mock('@/lib/copilot/review-sessions/entity-session-host', () => ({
   useEntitySession: () => mockEntitySession,
 }))
 
-vi.mock('@/widgets/widgets/entity_review/use-resolved-review-target', () => ({
+vi.mock('@/widgets/widgets/copilot/use-resolved-review-target', () => ({
   useResolvedReviewTarget: (...args: unknown[]) => mockUseResolvedReviewTarget(...args),
 }))
 

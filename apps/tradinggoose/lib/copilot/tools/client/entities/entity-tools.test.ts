@@ -25,8 +25,6 @@ const mockCopilotState = {
 
 const mockEntitySessionRegistry = {
   session: null as any,
-  register: vi.fn(),
-  unregister: vi.fn(),
 }
 
 const mockEntityFieldState = {
@@ -81,8 +79,18 @@ vi.mock('@/lib/yjs/entity-session-registry', () => ({
       return session
     }
   ),
-  registerEntitySession: (...args: any[]) => mockEntitySessionRegistry.register(...args),
-  unregisterEntitySession: (...args: any[]) => mockEntitySessionRegistry.unregister(...args),
+  getRegisteredEntitySessionByKind: vi.fn((entityKind: string, workspaceId?: string | null) => {
+    const session = mockEntitySessionRegistry.session
+    if (!session?.descriptor.entityId || session.descriptor.entityKind !== entityKind) {
+      return null
+    }
+
+    if (workspaceId != null && session.descriptor.workspaceId !== workspaceId) {
+      return null
+    }
+
+    return session
+  }),
 }))
 
 vi.mock('@/lib/yjs/provider', () => ({
@@ -110,8 +118,6 @@ describe('entity document tools', () => {
     }
     mockCopilotState.toolCallsById = {}
     mockEntitySessionRegistry.session = null
-    mockEntitySessionRegistry.register.mockReset()
-    mockEntitySessionRegistry.unregister.mockReset()
     mockEntityFieldState.values = {}
     mockBootstrapYjsProvider.mockReset()
     mockWaitForYjsWriteSync.mockReset()
@@ -626,6 +632,7 @@ describe('entity document tools', () => {
         transact: (cb: () => void) => cb(),
       },
       provider: { synced: true },
+      accessMode: 'write',
     }
 
     const toolCallId = 'edit-skill'
@@ -679,6 +686,80 @@ describe('entity document tools', () => {
     })
   })
 
+  it('edit_skill applies to the unique mounted saved session when entityId is omitted', async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === 'string' ? input : input.toString()
+      const method = init?.method || 'GET'
+
+      if (url === '/api/copilot/tools/mark-complete' && method === 'POST') {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ success: true }),
+        }
+      }
+
+      throw new Error(`Unexpected fetch URL: ${url} (${method})`)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    mockEntityFieldState.values = {
+      name: 'old-skill',
+      description: '',
+      content: '',
+    }
+    mockEntitySessionRegistry.session = {
+      descriptor: {
+        workspaceId: 'ws-1',
+        entityKind: 'skill',
+        entityId: 'skill-current',
+        reviewSessionId: 'review-current',
+        draftSessionId: null,
+      },
+      doc: {
+        transact: (cb: () => void) => cb(),
+      },
+      provider: { synced: true },
+      accessMode: 'write',
+    }
+
+    const toolCallId = 'edit-current-skill'
+    const tool = new EditSkillClientTool(toolCallId)
+    tool.setExecutionContext({
+      toolCallId,
+      toolName: 'edit_skill',
+      workspaceId: 'ws-1',
+      log: vi.fn(),
+    })
+
+    await tool.execute({
+      entityDocument: JSON.stringify({
+        name: 'current-skill',
+        description: 'Current description',
+        content: 'Current content',
+      }),
+      documentFormat: 'tg-skill-document-v1',
+    } as any)
+    await tool.handleAccept()
+
+    expect(tool.getState()).toBe(ClientToolCallState.success)
+    expect(mockEntityFieldState.values).toMatchObject({
+      name: 'current-skill',
+      description: 'Current description',
+      content: 'Current content',
+    })
+
+    const markCompleteCall = fetchMock.mock.calls.find(([input, init]) => {
+      const url = typeof input === 'string' ? input : input.toString()
+      return url === '/api/copilot/tools/mark-complete' && (init?.method || 'GET') === 'POST'
+    })
+    const markCompleteBody = JSON.parse(String(markCompleteCall?.[1]?.body))
+    expect(markCompleteBody.data).toMatchObject({
+      entityId: 'skill-current',
+      reviewSessionId: 'review-current',
+    })
+  })
+
   it('edit_skill resolves and bootstraps a Yjs session when no editor session is mounted', async () => {
     vi.useFakeTimers()
     try {
@@ -706,6 +787,7 @@ describe('entity document tools', () => {
         doc,
         provider,
         runtime: null,
+        accessMode: 'write',
       })
 
       const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -763,9 +845,6 @@ describe('entity document tools', () => {
 
       expect(tool.getState()).toBe(ClientToolCallState.success)
       expect(mockBootstrapYjsProvider).toHaveBeenCalledWith(descriptor, 'write')
-      expect(mockEntitySessionRegistry.register).toHaveBeenCalledWith(
-        expect.objectContaining({ descriptor, doc, provider })
-      )
       expect(mockEntityFieldState.values).toMatchObject({
         name: 'bootstrapped-skill',
         description: 'Updated through tool lease',
@@ -773,7 +852,6 @@ describe('entity document tools', () => {
       })
 
       await vi.runOnlyPendingTimersAsync()
-      expect(mockEntitySessionRegistry.unregister).toHaveBeenCalledWith('review-1', doc)
       expect(provider.disconnect).toHaveBeenCalled()
       expect(provider.destroy).toHaveBeenCalled()
       expect(doc.destroy).toHaveBeenCalled()
@@ -848,6 +926,7 @@ describe('entity document tools', () => {
         transact: (cb: () => void) => cb(),
       },
       provider: { synced: true },
+      accessMode: 'write',
     }
 
     const toolCallId = 'rename-skill'
@@ -912,18 +991,6 @@ describe('entity document tools', () => {
       throw new Error(`Unexpected fetch URL: ${url} (${method})`)
     })
     vi.stubGlobal('fetch', fetchMock)
-
-    mockEntitySessionRegistry.session = {
-      descriptor: {
-        entityKind: 'skill',
-        entityId: 'skill-current',
-        reviewSessionId: 'review-current',
-        draftSessionId: null,
-      },
-      doc: {
-        transact: (cb: () => void) => cb(),
-      },
-    }
 
     const toolCallId = 'edit-skill-without-entity-id'
     const tool = new EditSkillClientTool(toolCallId)

@@ -136,7 +136,7 @@ describe('EntitySessionHost', () => {
 
     await act(async () => {
       root.render(
-        <EntitySessionHost descriptor={descriptorA}>
+        <EntitySessionHost descriptor={descriptorA} accessMode='write'>
           <SessionProbe />
         </EntitySessionHost>
       )
@@ -151,7 +151,7 @@ describe('EntitySessionHost', () => {
 
     await act(async () => {
       root.render(
-        <EntitySessionHost descriptor={descriptorB}>
+        <EntitySessionHost descriptor={descriptorB} accessMode='write'>
           <SessionProbe />
         </EntitySessionHost>
       )
@@ -182,7 +182,7 @@ describe('EntitySessionHost', () => {
 
     await act(async () => {
       root.render(
-        <EntitySessionHost descriptor={descriptor}>
+        <EntitySessionHost descriptor={descriptor} accessMode='write'>
           <SessionProbe />
         </EntitySessionHost>
       )
@@ -195,6 +195,7 @@ describe('EntitySessionHost', () => {
       root.render(
         <EntitySessionHost
           descriptor={descriptor}
+          accessMode='write'
           user={{
             id: 'user-1',
             name: 'User',
@@ -229,7 +230,7 @@ describe('EntitySessionHost', () => {
 
     await act(async () => {
       root.render(
-        <EntitySessionHost descriptor={descriptor}>
+        <EntitySessionHost descriptor={descriptor} accessMode='write'>
           <SessionProbe />
         </EntitySessionHost>
       )
