@@ -1,6 +1,6 @@
 import { normalizeOptionalString } from '@/lib/utils'
 import type { ChatContext } from '@/stores/copilot/types'
-import type { PairColorContext } from '@/stores/dashboard/pair-store'
+import { normalizePairColorContext, type PairColorContext } from '@/stores/dashboard/pair-store'
 import {
   buildCopilotWorkspaceEntityContext,
   COPILOT_WORKSPACE_ENTITY_CONFIGS,
@@ -25,10 +25,14 @@ export const buildImplicitCopilotContexts = ({
   // These contexts describe what the user is looking at right now. They are sent
   // with each turn, but they do not mount or select editable review sessions.
   const resolvedWorkspaceId = normalizeOptionalString(workspaceId)
+  const currentPairContext = normalizePairColorContext(pairContext)
   const contexts: ChatContext[] = []
 
   for (const config of COPILOT_WORKSPACE_ENTITY_CONFIGS) {
-    const entityId = getCopilotWorkspaceEntityIdFromPairContext(pairContext, config.entityKind)
+    const entityId = getCopilotWorkspaceEntityIdFromPairContext(
+      currentPairContext,
+      config.entityKind
+    )
     if (!entityId) {
       continue
     }

@@ -2,16 +2,13 @@ import { describe, expect, it } from 'vitest'
 import { buildImplicitCopilotContexts, resolveCopilotWorkflowId } from './live-contexts'
 
 describe('buildImplicitCopilotContexts', () => {
-  it('emits current workflow and entity contexts from pair state', () => {
+  it('emits current workflow and active editable entity contexts from pair state', () => {
     expect(
       buildImplicitCopilotContexts({
         workspaceId: 'workspace-1',
         pairContext: {
           workflowId: 'workflow-pair',
-          indicatorId: 'indicator-1',
           skillId: 'skill-1',
-          customToolId: 'tool-1',
-          mcpServerId: 'mcp-1',
         },
       })
     ).toEqual([
@@ -26,24 +23,6 @@ describe('buildImplicitCopilotContexts', () => {
         skillId: 'skill-1',
         workspaceId: 'workspace-1',
         label: 'Current Skill',
-      },
-      {
-        kind: 'current_custom_tool',
-        customToolId: 'tool-1',
-        workspaceId: 'workspace-1',
-        label: 'Current Tool',
-      },
-      {
-        kind: 'current_indicator',
-        indicatorId: 'indicator-1',
-        workspaceId: 'workspace-1',
-        label: 'Current Indicator',
-      },
-      {
-        kind: 'current_mcp_server',
-        mcpServerId: 'mcp-1',
-        workspaceId: 'workspace-1',
-        label: 'Current MCP Server',
       },
     ])
   })

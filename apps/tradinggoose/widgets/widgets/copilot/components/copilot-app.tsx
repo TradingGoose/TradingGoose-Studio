@@ -2,8 +2,11 @@
 
 import type { ReactNode } from 'react'
 import { useSession } from '@/lib/auth-client'
-import { EntitySessionHost } from '@/lib/copilot/review-sessions/entity-session-host'
-import { ENTITY_KIND_WORKFLOW } from '@/lib/copilot/review-sessions/types'
+import {
+  EntitySessionHost,
+  useEntitySession,
+} from '@/lib/copilot/review-sessions/entity-session-host'
+import { ENTITY_KIND_WORKFLOW, type ReviewEntityKind } from '@/lib/copilot/review-sessions/types'
 import { WorkflowSessionProvider } from '@/lib/yjs/workflow-session-host'
 import Providers from '@/app/workspace/[workspaceId]/providers/providers'
 import { CopilotStoreProvider, DEFAULT_COPILOT_CHANNEL_ID } from '@/stores/copilot/store'
@@ -24,12 +27,7 @@ type CopilotAppUser =
       email: string
     }
   | undefined
-
-type CopilotWorkspaceEntityConfig = (typeof COPILOT_WORKSPACE_ENTITY_CONFIGS)[number]
-type CopilotEditableEntityConfig = Exclude<
-  CopilotWorkspaceEntityConfig,
-  { entityKind: typeof ENTITY_KIND_WORKFLOW }
->
+type EditableReviewEntityKind = Exclude<ReviewEntityKind, typeof ENTITY_KIND_WORKFLOW>
 
 interface CopilotAppProps {
   workspaceId: string
@@ -38,38 +36,46 @@ interface CopilotAppProps {
   pairColor: PairColor
 }
 
-function isEditableEntityConfig(
-  config: CopilotWorkspaceEntityConfig
-): config is CopilotEditableEntityConfig {
-  return config.entityKind !== ENTITY_KIND_WORKFLOW
-}
-
 function CopilotEntitySessionBoundary({
   workspaceId,
-  entityConfig,
+  entityKind,
   entityId,
   user,
   children,
 }: {
   workspaceId: string
-  entityConfig: CopilotEditableEntityConfig
+  entityKind: EditableReviewEntityKind
   entityId: string
   user: CopilotAppUser
-  children: ReactNode
+  children: (inputDisabled: boolean) => ReactNode
 }) {
   const { descriptor } = useResolvedReviewTarget({
     workspaceId,
-    entityKind: entityConfig.entityKind,
+    entityKind,
     entityId,
   })
 
-  return descriptor ? (
+  if (!descriptor) {
+    return <>{children(true)}</>
+  }
+
+  return (
     <EntitySessionHost descriptor={descriptor} user={user}>
-      {children}
+      <CopilotEntitySessionGate>{children}</CopilotEntitySessionGate>
     </EntitySessionHost>
-  ) : (
-    children
   )
+}
+
+function CopilotEntitySessionGate({
+  children,
+}: {
+  children: (inputDisabled: boolean) => ReactNode
+}) {
+  const session = useEntitySession()
+  const inputDisabled =
+    session.isLoading || !session.doc || !session.isSynced || Boolean(session.error)
+
+  return <>{children(inputDisabled)}</>
 }
 
 const CopilotAppContent = ({
@@ -88,44 +94,46 @@ const CopilotAppContent = ({
   const pairContext = usePairColorContext(pairColor)
   const workflowId = resolveCopilotWorkflowId(pairContext) ?? null
   const entityConfig = COPILOT_WORKSPACE_ENTITY_CONFIGS.find(
-    (config): config is CopilotEditableEntityConfig =>
-      isEditableEntityConfig(config) &&
+    (config) =>
+      config.entityKind !== ENTITY_KIND_WORKFLOW &&
       Boolean(getCopilotWorkspaceEntityIdFromPairContext(pairContext, config.entityKind))
   )
   const entityId = entityConfig
     ? getCopilotWorkspaceEntityIdFromPairContext(pairContext, entityConfig.entityKind)
     : null
 
-  const copilotBody = (
+  const renderCopilotBody = (inputDisabled = false) => (
     <div className='flex h-full w-full flex-col overflow-hidden '>
       <Copilot
         key={channelId}
         workspaceId={workspaceId}
         panelWidth={panelWidth}
         pairColor={pairColor}
+        inputDisabled={inputDisabled}
       />
     </div>
   )
 
-  const workflowContent = workflowId ? (
-    <WorkflowSessionProvider workspaceId={workspaceId} workflowId={workflowId} user={user}>
-      {copilotBody}
-    </WorkflowSessionProvider>
-  ) : (
-    copilotBody
-  )
+  const renderWorkflowContent = (inputDisabled = false) =>
+    workflowId ? (
+      <WorkflowSessionProvider workspaceId={workspaceId} workflowId={workflowId} user={user}>
+        {renderCopilotBody(inputDisabled)}
+      </WorkflowSessionProvider>
+    ) : (
+      renderCopilotBody(inputDisabled)
+    )
 
   return entityConfig && entityId ? (
     <CopilotEntitySessionBoundary
       workspaceId={workspaceId}
-      entityConfig={entityConfig}
+      entityKind={entityConfig.entityKind as EditableReviewEntityKind}
       entityId={entityId}
       user={user}
     >
-      {workflowContent}
+      {renderWorkflowContent}
     </CopilotEntitySessionBoundary>
   ) : (
-    workflowContent
+    renderWorkflowContent()
   )
 }
 

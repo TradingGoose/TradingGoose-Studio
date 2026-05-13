@@ -77,9 +77,6 @@ describe('pair-store linked context', () => {
     setContext('blue', {
       workflowId: 'workflow-a',
       skillId: 'skill-a',
-      customToolId: 'tool-a',
-      mcpServerId: 'mcp-a',
-      indicatorId: 'indicator-a',
     })
 
     setContext('blue', {
@@ -89,8 +86,23 @@ describe('pair-store linked context', () => {
     expect(usePairColorStore.getState().contexts.blue).toEqual({
       workflowId: 'workflow-b',
       skillId: 'skill-a',
-      customToolId: 'tool-a',
-      mcpServerId: 'mcp-a',
+    })
+  })
+
+  it('keeps only one active editable entity id in linked color context', () => {
+    const { setContext } = usePairColorStore.getState()
+
+    setContext('blue', {
+      workflowId: 'workflow-a',
+      skillId: 'skill-a',
+    })
+
+    setContext('blue', {
+      indicatorId: 'indicator-a',
+    })
+
+    expect(usePairColorStore.getState().contexts.blue).toEqual({
+      workflowId: 'workflow-a',
       indicatorId: 'indicator-a',
     })
   })
@@ -119,7 +131,6 @@ describe('pair-store linked context', () => {
 
     expect(context).toEqual({
       workflowId: 'workflow-a',
-      skillId: 'skill-a',
       indicatorId: 'indicator-b',
     })
     expect(context.channelId).toBeUndefined()

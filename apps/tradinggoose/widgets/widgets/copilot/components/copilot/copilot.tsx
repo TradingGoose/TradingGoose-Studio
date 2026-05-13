@@ -450,7 +450,7 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
         fileAttachments?: MessageFileAttachment[],
         contexts?: ChatContext[]
       ) => {
-        if (!query || isTurnInProgress) return
+        if (!query || inputDisabled || isTurnInProgress) return
 
         // Clear todos when sending a new message
         if (showPlanTodos) {
@@ -473,7 +473,14 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
           logger.error('Failed to send message:', error)
         }
       },
-      [isTurnInProgress, sendMessage, showPlanTodos, copilotStoreApi, sendRuntimeContext]
+      [
+        inputDisabled,
+        isTurnInProgress,
+        sendMessage,
+        showPlanTodos,
+        copilotStoreApi,
+        sendRuntimeContext,
+      ]
     )
 
     const handleEditModeChange = useCallback((messageId: string, isEditing: boolean) => {
@@ -533,6 +540,7 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
                             }
                             panelWidth={panelWidth}
                             isDimmed={isDimmed}
+                            sendDisabled={inputDisabled}
                             onEditModeChange={(isEditing) =>
                               handleEditModeChange(message.id, isEditing)
                             }

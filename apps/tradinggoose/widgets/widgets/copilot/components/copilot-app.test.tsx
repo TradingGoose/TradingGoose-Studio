@@ -17,6 +17,12 @@ const mockCopilot = vi.fn((props: any) => (
   </div>
 ))
 const mockUseResolvedReviewTarget = vi.fn()
+let mockEntitySession: any = {
+  doc: {},
+  isLoading: false,
+  isSynced: true,
+  error: null,
+}
 let mockPairContext: any = {
   workflowId: null,
   skillId: null,
@@ -55,6 +61,7 @@ vi.mock('@/lib/copilot/review-sessions/entity-session-host', () => ({
       {children}
     </div>
   ),
+  useEntitySession: () => mockEntitySession,
 }))
 
 vi.mock('@/widgets/widgets/entity_review/use-resolved-review-target', () => ({
@@ -96,6 +103,12 @@ describe('CopilotApp', () => {
     mockCopilot.mockClear()
     mockUseResolvedReviewTarget.mockReset()
     mockUseResolvedReviewTarget.mockReturnValue({ descriptor: null })
+    mockEntitySession = {
+      doc: {},
+      isLoading: false,
+      isSynced: true,
+      error: null,
+    }
   })
 
   afterEach(() => {
@@ -156,6 +169,62 @@ describe('CopilotApp', () => {
     expect(container.querySelector('[data-testid="entity-session-host"]')).toHaveAttribute(
       'data-review-session-id',
       'review-skill-current'
+    )
+    expect(container.querySelector('[data-testid="copilot"]')).toHaveAttribute(
+      'data-input-disabled',
+      'false'
+    )
+  })
+
+  it('disables copilot input until the editable review target is resolved', async () => {
+    mockPairContext = {
+      skillId: 'skill-current',
+    }
+
+    await renderApp()
+
+    expect(mockUseResolvedReviewTarget).toHaveBeenCalledWith({
+      workspaceId: 'ws-1',
+      entityKind: 'skill',
+      entityId: 'skill-current',
+    })
+    expect(container.querySelector('[data-testid="entity-session-host"]')).toBeNull()
+    expect(container.querySelector('[data-testid="copilot"]')).toHaveAttribute(
+      'data-input-disabled',
+      'true'
+    )
+  })
+
+  it('disables copilot input until the editable entity Yjs session is synced', async () => {
+    mockPairContext = {
+      skillId: 'skill-current',
+    }
+    mockUseResolvedReviewTarget.mockReturnValue({
+      descriptor: {
+        workspaceId: 'ws-1',
+        entityKind: 'skill',
+        entityId: 'skill-current',
+        draftSessionId: null,
+        reviewSessionId: 'review-skill-current',
+        yjsSessionId: 'review-skill-current',
+      },
+    })
+    mockEntitySession = {
+      doc: {},
+      isLoading: false,
+      isSynced: false,
+      error: null,
+    }
+
+    await renderApp()
+
+    expect(container.querySelector('[data-testid="entity-session-host"]')).toHaveAttribute(
+      'data-review-session-id',
+      'review-skill-current'
+    )
+    expect(container.querySelector('[data-testid="copilot"]')).toHaveAttribute(
+      'data-input-disabled',
+      'true'
     )
   })
 })
