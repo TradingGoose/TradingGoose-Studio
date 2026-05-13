@@ -1,6 +1,13 @@
 import { orderHistoryTable } from '@tradinggoose/db'
 import { and, eq, gte, isNotNull, isNull, lte, or, type SQL, sql } from 'drizzle-orm'
 import {
+  getListingIdentityKey,
+  type ListingIdentity,
+  type ListingResolved,
+  toListingValueObject,
+} from '@/lib/listing/identity'
+import { resolveListingIdentity } from '@/lib/listing/resolve'
+import {
   normalizeOrderDateFilterValue,
   normalizeOrdersFilterState,
   type OrdersFilterState,
@@ -67,6 +74,23 @@ export type SerializedOrderRecord = {
   normalizedOrder?: unknown
 }
 
+export type SerializedOrderSearchOption = {
+  id: string
+  provider: string
+  environment: string | null
+  side: string | null
+  quantity: number | null
+  notional: number | null
+  placedAt: string | null
+  recordedAt: string
+  symbol: string | null
+  quote: string | null
+  companyName: string | null
+  iconUrl: string | null
+  assetClass: string | null
+  listingType: string | null
+}
+
 const SECRET_KEY_EXACT_KEYS = new Set([
   'accountid',
   'accountnumber',
@@ -116,6 +140,19 @@ const readString = (...values: unknown[]): string | null => {
   return null
 }
 
+const readNumber = (...values: unknown[]): number | null => {
+  for (const value of values) {
+    if (typeof value === 'number' && Number.isFinite(value)) return value
+    if (typeof value === 'string') {
+      const trimmed = value.trim()
+      if (!trimmed) continue
+      const parsed = Number(trimmed)
+      if (Number.isFinite(parsed)) return parsed
+    }
+  }
+  return null
+}
+
 const readValue = (...values: unknown[]) => {
   for (const value of values) {
     if (value !== null && value !== undefined && value !== '') return value as any
@@ -124,10 +161,14 @@ const readValue = (...values: unknown[]) => {
 }
 
 const toIso = (...values: unknown[]): string | null => {
-  const value = readString(...values)
-  if (!value) return null
-  const date = new Date(value)
-  return Number.isFinite(date.getTime()) ? date.toISOString() : null
+  for (const value of values) {
+    if (value instanceof Date && Number.isFinite(value.getTime())) return value.toISOString()
+    const text = readString(value)
+    if (!text) continue
+    const date = new Date(text)
+    if (Number.isFinite(date.getTime())) return date.toISOString()
+  }
+  return null
 }
 
 const normalizeText = (value: unknown) =>
@@ -155,6 +196,34 @@ const readListing = (listingIdentity: unknown, normalized: JsonRecord, response:
     name: readString(listing.name, listing.provider_symbol, listing.base, listing.base_id),
     listingType: readString(listing.listing_type),
   }
+}
+
+const splitSymbolAndQuote = (
+  symbol: string | null,
+  existingQuote: string | null
+): { symbol: string | null; quote: string | null } => {
+  if (!symbol || existingQuote || !symbol.includes('/')) {
+    return { symbol, quote: existingQuote }
+  }
+
+  const [base, quote] = symbol.split('/')
+  return {
+    symbol: base?.trim() || symbol,
+    quote: quote?.trim() || null,
+  }
+}
+
+const resolveOrderSearchListing = async (
+  identity: ListingIdentity | null,
+  cache: Map<string, ListingResolved | null>
+) => {
+  if (!identity) return null
+  const key = getListingIdentityKey(identity)
+  if (cache.has(key)) return cache.get(key) ?? null
+
+  const resolved = await resolveListingIdentity(identity).catch(() => null)
+  cache.set(key, resolved ?? null)
+  return resolved ?? null
 }
 
 const readOrderRequestString = (row: Pick<RecordsOrderRow, 'request'>, key: string) => {
@@ -189,7 +258,8 @@ export function serializeOrderRecord(
     response.orderId,
     raw.id,
     raw.order_id,
-    rawOrder.id
+    rawOrder.id,
+    rawOrder.order_id
   )
   const status = normalizeText(
     readString(normalized.status, response.status, raw.status, raw.state, rawOrder.status)
@@ -290,6 +360,45 @@ export function serializeOrderRecord(
   }
 }
 
+export async function serializeOrderSearchOptions(
+  rows: RecordsOrderRow[]
+): Promise<SerializedOrderSearchOption[]> {
+  const listingCache = new Map<string, ListingResolved | null>()
+
+  return Promise.all(
+    rows.map(async (row) => {
+      const record = serializeOrderRecord(row)
+      const listingIdentity = toListingValueObject((row.listingIdentity ?? undefined) as any)
+      const resolvedListing = await resolveOrderSearchListing(listingIdentity, listingCache)
+      const symbolAndQuote = splitSymbolAndQuote(
+        readString(resolvedListing?.base, record.listing.symbol),
+        readString(resolvedListing?.quote)
+      )
+
+      return {
+        id: record.id,
+        provider: record.provider,
+        environment: record.environment,
+        side: record.side,
+        quantity: readNumber(record.quantity),
+        notional: readNumber(record.notional),
+        placedAt: record.submittedAt ?? record.recordedAt,
+        recordedAt: record.recordedAt,
+        symbol: symbolAndQuote.symbol,
+        quote: symbolAndQuote.quote,
+        companyName: readString(resolvedListing?.name, record.listing.name),
+        iconUrl: readString(resolvedListing?.iconUrl),
+        assetClass: readString(resolvedListing?.assetClass),
+        listingType: readString(
+          listingIdentity?.listing_type,
+          resolvedListing?.listing_type,
+          record.listing.listingType
+        ),
+      }
+    })
+  )
+}
+
 export function buildBaseOrderConditions(params: {
   startDate?: string
   endDate?: string
@@ -363,6 +472,12 @@ const listingExpr = () =>
     sql`${orderHistoryTable.listingIdentity}->>'base_id'`
   )
 
+const listingSearchExpr = () =>
+  sql<string>`COALESCE(${orderHistoryTable.listingIdentity}->>'listing_id', '') || ' ' ||
+    COALESCE(${orderHistoryTable.listingIdentity}->>'base_id', '') || ' ' ||
+    COALESCE(${orderHistoryTable.listingIdentity}->>'quote_id', '') || ' ' ||
+    COALESCE(${orderHistoryTable.listingIdentity}->>'listing_type', '')`
+
 const providerOrderIdExpr = () =>
   coalesceText(
     sql`${orderHistoryTable.normalizedOrder}->>'id'`,
@@ -370,7 +485,8 @@ const providerOrderIdExpr = () =>
     sql`${orderHistoryTable.response}->>'orderId'`,
     sql`${orderHistoryTable.response}->'raw'->>'id'`,
     sql`${orderHistoryTable.response}->'raw'->>'order_id'`,
-    sql`${orderHistoryTable.response}->'raw'->'order'->>'id'`
+    sql`${orderHistoryTable.response}->'raw'->'order'->>'id'`,
+    sql`${orderHistoryTable.response}->'raw'->'order'->>'order_id'`
   )
 
 const clientOrderIdExpr = () =>
@@ -428,7 +544,7 @@ const averageFillPriceExpr = () =>
 
 export function buildOrderWhereCondition(
   workspaceId: string,
-  filters: OrdersFilterState,
+  filters: Partial<OrdersFilterState>,
   options: { joinedSearchExpressions?: SQL[] } = {}
 ) {
   const normalized = normalizeOrdersFilterState(filters)
@@ -460,6 +576,7 @@ export function buildOrderWhereCondition(
         sql`COALESCE(${orderHistoryTable.environment}, '') ILIKE ${search}`,
         sql`COALESCE(${orderHistoryTable.submissionSource}, '') ILIKE ${search}`,
         sql`${listingExpr()} ILIKE ${search}`,
+        sql`${listingSearchExpr()} ILIKE ${search}`,
         sql`${providerOrderIdExpr()} ILIKE ${search}`,
         sql`${clientOrderIdExpr()} ILIKE ${search}`,
         sql`${orderStatusExpr()} ILIKE ${search}`,
@@ -467,6 +584,9 @@ export function buildOrderWhereCondition(
         sql`${orderTypeExpr()} ILIKE ${search}`,
         sql`${timeInForceExpr()} ILIKE ${search}`,
         sql`${orderMessageExpr()} ILIKE ${search}`,
+        sql`to_char(${orderHistoryTable.recordedAt}, 'YYYY-MM-DD') ILIKE ${search}`,
+        sql`to_char(${orderHistoryTable.recordedAt}, 'Mon DD') ILIKE ${search}`,
+        sql`to_char(${orderHistoryTable.recordedAt}, 'Mon D') ILIKE ${search}`,
         ...(options.joinedSearchExpressions ?? []).map(
           (expression) => sql`${expression} ILIKE ${search}`
         )

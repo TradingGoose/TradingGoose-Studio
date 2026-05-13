@@ -149,20 +149,55 @@ describe('order record utils', () => {
     })
   })
 
+  it('serializes order search options from canonical order records', async () => {
+    const { serializeOrderSearchOptions } = await import('./order-records')
+
+    const [option] = await serializeOrderSearchOptions([
+      {
+        environment: 'paper',
+        id: 'order-1',
+        listingIdentity: null,
+        normalizedOrder: {
+          symbol: 'BTC/USD',
+        },
+        provider: 'alpaca',
+        recordedAt: new Date('2026-04-23T00:00:00.000Z'),
+        request: {
+          quantity: '2',
+          side: 'buy',
+        },
+        response: {
+          submittedAt: '2026-04-23T01:02:03.000Z',
+        },
+        submissionSource: 'manual',
+        logId: null,
+        workspaceId: 'workspace-1',
+      } as any,
+    ])
+
+    expect(option).toMatchObject({
+      environment: 'paper',
+      id: 'order-1',
+      placedAt: '2026-04-23T01:02:03.000Z',
+      provider: 'alpaca',
+      quantity: 2,
+      quote: 'USD',
+      recordedAt: '2026-04-23T00:00:00.000Z',
+      side: 'buy',
+      symbol: 'BTC',
+    })
+  })
+
   it('builds SQL filters for workspace, side, order type, time in force, and linked logs', async () => {
     const { buildOrderWhereCondition } = await import('./order-records')
 
     buildOrderWhereCondition('workspace-1', {
-      endDate: '',
       environment: 'paper',
       linkedLog: 'true',
       orderSearch: 'AAPL',
-      orderSortBy: 'recordedAt',
-      orderSortOrder: 'desc',
       orderType: 'limit',
       provider: 'alpaca',
       side: 'buy',
-      startDate: '',
       status: 'filled',
       submissionSource: 'workflow',
       timeInForce: 'day',
@@ -184,19 +219,7 @@ describe('order record utils', () => {
     const { buildOrderWhereCondition } = await import('./order-records')
 
     buildOrderWhereCondition('workspace-1', {
-      endDate: '',
-      environment: '',
-      linkedLog: '',
       orderSearch: 'order-1',
-      orderSortBy: 'recordedAt',
-      orderSortOrder: 'desc',
-      orderType: '',
-      provider: '',
-      side: '',
-      startDate: '',
-      status: '',
-      submissionSource: '',
-      timeInForce: '',
     })
 
     expect(
@@ -216,19 +239,7 @@ describe('order record utils', () => {
     const { buildOrderWhereCondition } = await import('./order-records')
 
     buildOrderWhereCondition('workspace-1', {
-      endDate: '',
-      environment: '',
-      linkedLog: '',
       orderSearch: 'provider-order-1',
-      orderSortBy: 'recordedAt',
-      orderSortOrder: 'desc',
-      orderType: '',
-      provider: '',
-      side: '',
-      startDate: '',
-      status: '',
-      submissionSource: '',
-      timeInForce: '',
     })
 
     const jsonColumns = new Set([
@@ -247,23 +258,34 @@ describe('order record utils', () => {
     ).toBe(false)
   })
 
+  it('searches canonical provider, client, listing, and date order fields', async () => {
+    const { buildOrderWhereCondition } = await import('./order-records')
+
+    buildOrderWhereCondition('workspace-1', {
+      orderSearch: 'provider-order-1',
+    })
+
+    const sqlCalls = (mocks.sql.mock.calls as [TemplateStringsArray, ...unknown[]][]).map(
+      (call) => {
+        const [strings, ...values] = call
+        return {
+          text: Array.from(strings).join(''),
+          values,
+        }
+      }
+    )
+
+    expect(sqlCalls.some((call) => call.text.includes("->'order'->>'order_id'"))).toBe(true)
+    expect(sqlCalls.some((call) => call.text.includes("->'order'->>'client_order_id'"))).toBe(true)
+    expect(sqlCalls.some((call) => call.text.includes("->>'listing_type'"))).toBe(true)
+    expect(sqlCalls.some((call) => call.text.includes('to_char('))).toBe(true)
+  })
+
   it('does not reference joined workflow log columns unless the caller supplies them', async () => {
     const { buildOrderWhereCondition } = await import('./order-records')
 
     buildOrderWhereCondition('workspace-1', {
-      endDate: '',
-      environment: '',
-      linkedLog: '',
       orderSearch: 'Workflow',
-      orderSortBy: 'recordedAt',
-      orderSortOrder: 'desc',
-      orderType: '',
-      provider: '',
-      side: '',
-      startDate: '',
-      status: '',
-      submissionSource: '',
-      timeInForce: '',
     })
 
     expect(
@@ -280,19 +302,7 @@ describe('order record utils', () => {
     buildOrderWhereCondition(
       'workspace-1',
       {
-        endDate: '',
-        environment: '',
-        linkedLog: '',
         orderSearch: 'Workflow',
-        orderSortBy: 'recordedAt',
-        orderSortOrder: 'desc',
-        orderType: '',
-        provider: '',
-        side: '',
-        startDate: '',
-        status: '',
-        submissionSource: '',
-        timeInForce: '',
       },
       { joinedSearchExpressions: [joinedExpression] }
     )
