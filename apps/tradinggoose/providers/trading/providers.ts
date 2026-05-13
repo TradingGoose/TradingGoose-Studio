@@ -102,6 +102,7 @@ export interface TradingOrderTypeDefinition {
   id: string
   label: string
   assetClasses?: AssetClass[]
+  orderClasses?: string[]
   requires?: TradingOrderTypeRequirement[]
 }
 
@@ -253,9 +254,7 @@ export function getTradingProviderOAuthServices(providerId: TradingProviderId) {
 }
 
 export function getTradingProviderOAuthServiceIds(providerId: TradingProviderId): string[] {
-  return (getTradingProviderOAuthServices(providerId) ?? []).map(
-    (service) => service.serviceId
-  )
+  return (getTradingProviderOAuthServices(providerId) ?? []).map((service) => service.serviceId)
 }
 
 export function isTradingProviderOAuthServiceId(serviceId: string): boolean {

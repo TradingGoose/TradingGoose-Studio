@@ -250,12 +250,13 @@ export const TradingActionBlock: BlockConfig<TradingActionResponse> = {
       layout: 'half',
       required: true,
       value: () => 'market',
-      dependsOn: ['provider', 'listing'],
+      dependsOn: ['provider', 'listing', 'orderClass'],
       fetchOptions: async (_blockId, _subBlockId, context) => {
         const contextValues = context.contextValues as Record<string, unknown> | undefined
         const providerId = contextValues?.provider as string | undefined
         const listing = contextValues?.listing as ListingInputValue | undefined
-        return getTradingOrderTypeOptions(providerId, { listing })
+        const orderClass = contextValues?.orderClass as string | undefined
+        return getTradingOrderTypeOptions(providerId, { listing, orderClass })
       },
     },
     {

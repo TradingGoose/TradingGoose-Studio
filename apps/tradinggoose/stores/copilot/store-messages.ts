@@ -276,7 +276,9 @@ export function buildPinnedToolCallsById(
         Array.isArray((message as any).contexts)
           ? ((message as any).contexts as ChatContext[])
           : undefined,
-        opts.workspaceId
+        opts.workspaceId,
+        null,
+        null
       )
       continue
     }

@@ -131,6 +131,7 @@ function createRuntimeContext({
     liveContext: {
       workflowId,
       workspaceId,
+      reviewTarget: null,
     },
     implicitContexts,
   }

@@ -107,7 +107,7 @@ export async function getRecordedTradingOrderProviderDetail({
     logTradingBrokerRequestFailure('order-detail', error)
     throw new TradingServiceError(
       error instanceof TradingBrokerRequestError ? 'Broker request failed' : 'Order detail failed',
-      error instanceof TradingBrokerRequestError ? error.status : 502
+      error instanceof TradingBrokerRequestError && error.status > 0 ? error.status : 502
     )
   }
 

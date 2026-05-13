@@ -49,9 +49,13 @@ export const buildTradierOrderRequest = (params: TradingOrderInput): TradingRequ
 
   const duration = normalizeTradierDuration(params.timeInForce)
   const orderType = normalizeTradierOrderType(params.orderType)
+  const providerParams = params.providerParams ?? {}
+  const orderClass = String(
+    params.orderClass ?? providerParams.orderClass ?? providerParams.class ?? 'equity'
+  )
 
   const bodyParams = new URLSearchParams({
-    class: 'equity',
+    class: orderClass,
     symbol,
     side: params.side.toLowerCase(),
     quantity: String(params.quantity),
@@ -61,7 +65,26 @@ export const buildTradierOrderRequest = (params: TradingOrderInput): TradingRequ
 
   appendParamIfDefined(bodyParams, 'price', params.limitPrice)
   appendParamIfDefined(bodyParams, 'stop', params.stopPrice)
-  appendParamIfDefined(bodyParams, 'tag', params.clientOrderId)
+  appendParamIfDefined(bodyParams, 'tag', providerParams.tag ?? params.clientOrderId)
+  appendParamIfDefined(bodyParams, 'preview', providerParams.preview)
+  appendParamIfDefined(
+    bodyParams,
+    'option_symbol',
+    providerParams.optionSymbol ?? providerParams.option_symbol
+  )
+
+  const legs = Array.isArray(providerParams.legs) ? providerParams.legs : []
+  legs.forEach((leg, index) => {
+    if (!leg || typeof leg !== 'object') return
+    const record = leg as Record<string, unknown>
+    appendParamIfDefined(bodyParams, `side[${index}]`, record.side)
+    appendParamIfDefined(bodyParams, `quantity[${index}]`, record.quantity)
+    appendParamIfDefined(
+      bodyParams,
+      `option_symbol[${index}]`,
+      record.optionSymbol ?? record.option_symbol
+    )
+  })
 
   return {
     url: `${baseUrl}/accounts/${params.accountId}/orders`,

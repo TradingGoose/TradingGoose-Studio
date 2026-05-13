@@ -111,7 +111,7 @@ export function FileSelectorInput({
   // For Google Drive
   // Render Google Calendar selector
   if (isGoogleCalendar) {
-    const credential = (connectedCredential as string) || ''
+    const credentialId = (connectedCredential as string) || ''
 
     return (
       <TooltipProvider>
@@ -126,7 +126,7 @@ export function FileSelectorInput({
                 label={subBlock.placeholder || 'Select Google Calendar'}
                 disabled={finalDisabled}
                 showPreview={true}
-                credentialId={credential}
+                credentialId={credentialId}
                 workflowId={workflowIdFromUrl}
                 workspaceId={workspaceIdFromRoute}
               />
@@ -139,7 +139,7 @@ export function FileSelectorInput({
 
   // Render the appropriate picker based on provider
   if (isConfluence) {
-    const credential = (connectedCredential as string) || ''
+    const credentialId = (connectedCredential as string) || ''
     return (
       <TooltipProvider>
         <Tooltip>
@@ -157,7 +157,7 @@ export function FileSelectorInput({
                 label={subBlock.placeholder || 'Select Confluence page'}
                 disabled={finalDisabled}
                 showPreview={true}
-                credentialId={credential}
+                credentialId={credentialId}
                 workflowId={workflowIdFromUrl}
                 workspaceId={workspaceIdFromRoute}
                 isForeignCredential={isForeignCredential}
@@ -170,7 +170,7 @@ export function FileSelectorInput({
   }
 
   if (isJira) {
-    const credential = (connectedCredential as string) || ''
+    const credentialId = (connectedCredential as string) || ''
     return (
       <TooltipProvider>
         <Tooltip>
@@ -188,7 +188,7 @@ export function FileSelectorInput({
                 label={subBlock.placeholder || 'Select Jira issue'}
                 disabled={finalDisabled}
                 showPreview={true}
-                credentialId={credential}
+                credentialId={credentialId}
                 projectId={(projectIdValue as string) || ''}
                 isForeignCredential={isForeignCredential}
                 workflowId={workflowIdFromUrl}
@@ -202,7 +202,7 @@ export function FileSelectorInput({
   }
 
   if (isMicrosoftExcel) {
-    const credential = (connectedCredential as string) || ''
+    const credentialId = (connectedCredential as string) || ''
     return (
       <TooltipProvider>
         <Tooltip>
@@ -219,7 +219,7 @@ export function FileSelectorInput({
                 showPreview={true}
                 workflowId={workflowIdFromUrl}
                 workspaceId={workspaceIdFromRoute}
-                credentialId={credential}
+                credentialId={credentialId}
                 isForeignCredential={isForeignCredential}
               />
             </div>
@@ -257,7 +257,7 @@ export function FileSelectorInput({
 
   // Microsoft OneDrive selector
   if (isMicrosoftOneDrive) {
-    const credential = (connectedCredential as string) || ''
+    const credentialId = (connectedCredential as string) || ''
     return (
       <TooltipProvider>
         <Tooltip>
@@ -274,7 +274,7 @@ export function FileSelectorInput({
                 showPreview={true}
                 workflowId={workflowIdFromUrl}
                 workspaceId={workspaceIdFromRoute}
-                credentialId={credential}
+                credentialId={credentialId}
                 isForeignCredential={isForeignCredential}
               />
             </div>
@@ -286,7 +286,7 @@ export function FileSelectorInput({
 
   // Microsoft SharePoint selector
   if (isMicrosoftSharePoint) {
-    const credential = (connectedCredential as string) || ''
+    const credentialId = (connectedCredential as string) || ''
     return (
       <TooltipProvider>
         <Tooltip>
@@ -303,12 +303,12 @@ export function FileSelectorInput({
                 showPreview={true}
                 workflowId={workflowIdFromUrl}
                 workspaceId={workspaceIdFromRoute}
-                credentialId={credential}
+                credentialId={credentialId}
                 isForeignCredential={isForeignCredential}
               />
             </div>
           </TooltipTrigger>
-          {!credential && (
+          {!credentialId && (
             <TooltipContent side='top'>
               <p>Please select SharePoint credentials first</p>
             </TooltipContent>
@@ -320,7 +320,7 @@ export function FileSelectorInput({
 
   // Microsoft Planner task selector
   if (isMicrosoftPlanner) {
-    const credential = (connectedCredential as string) || ''
+    const credentialId = (connectedCredential as string) || ''
     const planId = (planIdValue as string) || ''
     return (
       <TooltipProvider>
@@ -339,12 +339,12 @@ export function FileSelectorInput({
                 planId={planId}
                 workflowId={workflowIdFromUrl}
                 workspaceId={workspaceIdFromRoute}
-                credentialId={credential}
+                credentialId={credentialId}
                 isForeignCredential={isForeignCredential}
               />
             </div>
           </TooltipTrigger>
-          {!credential ? (
+          {!credentialId ? (
             <TooltipContent side='top'>
               <p>Please select Microsoft Planner credentials first</p>
             </TooltipContent>
@@ -360,7 +360,7 @@ export function FileSelectorInput({
 
   // Microsoft Teams selector
   if (isMicrosoftTeams) {
-    const credential = (connectedCredential as string) || ''
+    const credentialId = (connectedCredential as string) || ''
 
     // Determine the selector type based on the subBlock ID / operation
     let selectionType: 'team' | 'channel' | 'chat' = 'team'
@@ -391,7 +391,7 @@ export function FileSelectorInput({
                 label={subBlock.placeholder || 'Select Teams message location'}
                 disabled={finalDisabled}
                 showPreview={true}
-                credential={credential}
+                credentialId={credentialId}
                 selectionType={selectionType}
                 initialTeamId={selectedTeamId}
                 workflowId={workflowIdFromUrl}
@@ -400,7 +400,7 @@ export function FileSelectorInput({
               />
             </div>
           </TooltipTrigger>
-          {!credential && (
+          {!credentialId && (
             <TooltipContent side='top'>
               <p>Please select Microsoft Teams credentials first</p>
             </TooltipContent>

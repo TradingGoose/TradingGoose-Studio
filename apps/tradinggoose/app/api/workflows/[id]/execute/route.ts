@@ -9,15 +9,15 @@ import {
   enqueuePendingExecution,
   isPendingExecutionLimitError,
 } from '@/lib/execution/pending-execution'
-import { openWorkflowExecutionEventStream } from '@/lib/execution/workflow-execution-stream'
 import { readWorkflowExecutionEventState } from '@/lib/execution/workflow-execution-events'
+import { openWorkflowExecutionEventStream } from '@/lib/execution/workflow-execution-stream'
 import { createLogger } from '@/lib/logs/console/logger'
 import { TriggerExecutionUnavailableError } from '@/lib/trigger/settings'
 import { encodeSSE, generateRequestId, SSE_HEADERS } from '@/lib/utils'
 import { createChatOutputEventReader } from '@/lib/workflows/chat-output'
 import { loadDeployedWorkflowState } from '@/lib/workflows/db-helpers'
-import { createPublicExecutionResult, isExecutionResult } from '@/lib/workflows/execution-result'
 import type { WorkflowExecutionEventEntry } from '@/lib/workflows/execution-events'
+import { createPublicExecutionResult, isExecutionResult } from '@/lib/workflows/execution-result'
 import { processWorkflowInputFormatFiles } from '@/lib/workflows/input-format-files'
 import { createHttpResponseFromBlock, workflowHasResponseBlock } from '@/lib/workflows/utils'
 import { validateWorkflowAccess } from '@/app/api/workflows/middleware'
@@ -27,7 +27,6 @@ import { RateLimitError } from '@/services/queue'
 
 const logger = createLogger('WorkflowExecuteAPI')
 const API_EXECUTION_POLL_INTERVAL_MS = 1_000
-const API_EXECUTION_WAIT_TIMEOUT_MS = 25 * 1000
 const UNSUPPORTED_API_EXECUTE_FIELDS = [
   'workflowTriggerType',
   'isSecureMode',
@@ -48,10 +47,8 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 async function waitForApiWorkflowResult(params: {
   executionId: string
   workflowId: string
-}): Promise<{ status: 'completed'; result: ExecutionResult } | { status: 'queued' }> {
-  const startedAt = Date.now()
-
-  const readTerminalResult = async () => {
+}): Promise<ExecutionResult> {
+  while (true) {
     const state = await readWorkflowExecutionEventState({
       pendingExecutionId: params.executionId,
       workflowId: params.workflowId,
@@ -65,27 +62,15 @@ async function waitForApiWorkflowResult(params: {
       if (!isExecutionResult(state.result)) {
         throw new Error('Queued workflow execution result is missing')
       }
-      return { status: 'completed' as const, result: state.result }
+      return state.result
     }
 
     if (state.status === 'failed') {
       throw new Error(state.errorMessage || 'Workflow execution failed')
     }
 
-    return null
-  }
-
-  while (Date.now() - startedAt < API_EXECUTION_WAIT_TIMEOUT_MS) {
-    const result = await readTerminalResult()
-    if (result) return result
-
     await sleep(API_EXECUTION_POLL_INTERVAL_MS)
   }
-
-  const finalResult = await readTerminalResult()
-  if (finalResult) return finalResult
-
-  return { status: 'queued' }
 }
 
 function createApiWorkflowResponse(result: ExecutionResult) {
@@ -194,27 +179,6 @@ function createApiWorkflowStreamFormatter(selectedOutputs: string[]) {
     })
 }
 
-function createQueuedApiWorkflowResponse(params: {
-  executionId: string
-  workflowName: string
-  createdAt: string
-}) {
-  return NextResponse.json(
-    {
-      success: true,
-      taskId: params.executionId,
-      executionId: params.executionId,
-      workflowName: params.workflowName,
-      status: 'queued',
-      createdAt: params.createdAt,
-      links: {
-        status: `/api/jobs/${params.executionId}`,
-      },
-    },
-    { status: 202 }
-  )
-}
-
 async function executeApiWorkflowThroughQueue(params: {
   request: NextRequest
   workflowId: string
@@ -238,7 +202,6 @@ async function executeApiWorkflowThroughQueue(params: {
 
   const apiUserId = apiKeyAuth.userId
   const executionId = `workflow_execution_${randomUUID()}`
-  const createdAt = new Date().toISOString()
 
   await enforceServerExecutionRateLimit({
     actorUserId: apiUserId,
@@ -335,15 +298,7 @@ async function executeApiWorkflowThroughQueue(params: {
     executionId,
     workflowId: validation.workflow.id,
   })
-  if (waitResult.status === 'completed') {
-    return createApiWorkflowResponse(waitResult.result)
-  }
-
-  return createQueuedApiWorkflowResponse({
-    executionId,
-    workflowName: validation.workflow.name,
-    createdAt,
-  })
+  return createApiWorkflowResponse(waitResult)
 }
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {

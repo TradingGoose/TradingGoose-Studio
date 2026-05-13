@@ -12,7 +12,11 @@ const reactActEnvironment = globalThis as typeof globalThis & {
 }
 
 const mockCopilot = vi.fn((props: any) => (
-  <div data-testid='copilot' data-input-disabled={String(Boolean(props.inputDisabled))}>
+  <div
+    data-testid='copilot'
+    data-input-disabled={String(Boolean(props.inputDisabled))}
+    data-review-session-id={props.reviewTarget?.reviewSessionId ?? ''}
+  >
     copilot
   </div>
 ))
@@ -73,9 +77,15 @@ vi.mock('@/stores/copilot/store', () => ({
   CopilotStoreProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }))
 
-vi.mock('@/stores/dashboard/pair-store', () => ({
-  usePairColorContext: () => mockPairContext,
-}))
+vi.mock('@/stores/dashboard/pair-store', async () => {
+  const actual = await vi.importActual<typeof import('@/stores/dashboard/pair-store')>(
+    '@/stores/dashboard/pair-store'
+  )
+  return {
+    ...actual,
+    usePairColorContext: () => mockPairContext,
+  }
+})
 
 vi.mock('./copilot/copilot', () => ({
   Copilot: (props: any) => mockCopilot(props),
@@ -174,12 +184,21 @@ describe('CopilotApp', () => {
       'data-input-disabled',
       'false'
     )
+    expect(container.querySelector('[data-testid="copilot"]')).toHaveAttribute(
+      'data-review-session-id',
+      'review-skill-current'
+    )
   })
 
   it('disables copilot input until the editable review target is resolved', async () => {
     mockPairContext = {
       skillId: 'skill-current',
     }
+    mockUseResolvedReviewTarget.mockReturnValue({
+      descriptor: null,
+      isResolving: true,
+      error: null,
+    })
 
     await renderApp()
 
@@ -192,6 +211,25 @@ describe('CopilotApp', () => {
     expect(container.querySelector('[data-testid="copilot"]')).toHaveAttribute(
       'data-input-disabled',
       'true'
+    )
+  })
+
+  it('keeps copilot input enabled when the editable review target cannot be resolved', async () => {
+    mockPairContext = {
+      skillId: 'stale-skill',
+    }
+    mockUseResolvedReviewTarget.mockReturnValue({
+      descriptor: null,
+      isResolving: false,
+      error: 'Access denied',
+    })
+
+    await renderApp()
+
+    expect(container.querySelector('[data-testid="entity-session-host"]')).toBeNull()
+    expect(container.querySelector('[data-testid="copilot"]')).toHaveAttribute(
+      'data-input-disabled',
+      'false'
     )
   })
 

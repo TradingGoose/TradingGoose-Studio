@@ -140,6 +140,18 @@ const readString = (...values: unknown[]): string | null => {
   return null
 }
 
+const ORDER_MESSAGE_KEYS = [
+  'message',
+  'statusMessage',
+  'status_message',
+  'reason',
+  'rejectReason',
+  'reject_reason',
+] as const
+
+const readOrderMessageValues = (...records: JsonRecord[]) =>
+  records.flatMap((record) => ORDER_MESSAGE_KEYS.map((key) => record[key]))
+
 const readNumber = (...values: unknown[]): number | null => {
   for (const value of values) {
     if (typeof value === 'number' && Number.isFinite(value)) return value
@@ -333,10 +345,9 @@ export function serializeOrderRecord(
     expiredAt: toIso(normalized.expiredAt, raw.expired_at, rawOrder.expired_at),
     message: readString(
       response.errorMessage,
-      response.message,
-      raw.message,
+      ...readOrderMessageValues(response, normalized, raw),
       raw.error,
-      rawOrder.message
+      ...readOrderMessageValues(rawOrder)
     ),
     hasLinkedLog: Boolean(row.logId),
     linkedLog:
@@ -499,10 +510,11 @@ const clientOrderIdExpr = () =>
 const orderMessageExpr = () =>
   coalesceText(
     sql`${orderHistoryTable.response}->>'errorMessage'`,
-    sql`${orderHistoryTable.response}->>'message'`,
-    sql`${orderHistoryTable.response}->'raw'->>'message'`,
+    ...ORDER_MESSAGE_KEYS.map((key) => sql`${orderHistoryTable.response}->> ${key}`),
+    ...ORDER_MESSAGE_KEYS.map((key) => sql`${orderHistoryTable.normalizedOrder}->> ${key}`),
+    ...ORDER_MESSAGE_KEYS.map((key) => sql`${orderHistoryTable.response}->'raw'->> ${key}`),
     sql`${orderHistoryTable.response}->'raw'->>'error'`,
-    sql`${orderHistoryTable.response}->'raw'->'order'->>'message'`
+    ...ORDER_MESSAGE_KEYS.map((key) => sql`${orderHistoryTable.response}->'raw'->'order'->> ${key}`)
   )
 
 const submittedAtExpr = () =>

@@ -258,4 +258,28 @@ describe('order provider detail route', () => {
     expect(response.status).toBe(404)
     await expect(response.json()).resolves.toEqual({ error: 'Broker request failed' })
   })
+
+  it('maps broker network failures to a valid 502 response', async () => {
+    mocks.resultsQueue.push([orderRow])
+    vi.mocked(executeTradingProviderOrderDetailRequest).mockRejectedValueOnce(
+      new TradingBrokerRequestError({
+        message: 'fetch failed',
+        providerId: 'alpaca',
+        status: 0,
+        url: 'https://broker.example/orders/provider-order-1',
+      })
+    )
+    const { POST } = await import('./route')
+
+    const response = await POST(
+      new NextRequest(
+        'http://localhost/api/orders/order-1/provider-detail?workspaceId=workspace-1',
+        { method: 'POST' }
+      ),
+      { params: Promise.resolve({ orderId: 'order-1' }) }
+    )
+
+    expect(response.status).toBe(502)
+    await expect(response.json()).resolves.toEqual({ error: 'Broker request failed' })
+  })
 })

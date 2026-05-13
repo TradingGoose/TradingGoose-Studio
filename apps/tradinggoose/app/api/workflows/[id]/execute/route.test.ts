@@ -422,14 +422,26 @@ describe('/api/workflows/[id]/execute', () => {
     expect(enqueuePendingExecutionMock).not.toHaveBeenCalled()
   })
 
-  it('returns a queued handle when API execution remains running after the HTTP wait window', async () => {
+  it('waits for the queued terminal result for non-stream API executions', async () => {
     vi.useFakeTimers()
-    readWorkflowExecutionEventStateMock.mockResolvedValue({
-      status: 'processing',
-      errorMessage: null,
-      events: [],
-      result: null,
-    })
+    readWorkflowExecutionEventStateMock
+      .mockResolvedValueOnce({
+        status: 'processing',
+        errorMessage: null,
+        events: [],
+        result: null,
+      })
+      .mockResolvedValueOnce({
+        status: 'completed',
+        errorMessage: null,
+        events: [],
+        result: {
+          success: true,
+          output: { ok: true },
+          logs: [],
+          metadata: { duration: 10 },
+        },
+      })
 
     try {
       const { POST } = await import('./route')
@@ -445,17 +457,14 @@ describe('/api/workflows/[id]/execute', () => {
         { params: Promise.resolve({ id: 'workflow-1' }) }
       )
 
-      await vi.advanceTimersByTimeAsync(26_000)
+      await vi.advanceTimersByTimeAsync(1_000)
       const response = await responsePromise
 
-      expect(response.status).toBe(202)
-      await expect(response.json()).resolves.toMatchObject({
+      expect(response.status).toBe(200)
+      await expect(response.json()).resolves.toEqual({
         success: true,
-        status: 'queued',
-        taskId: expect.stringMatching(/^workflow_execution_/),
-        links: {
-          status: expect.stringMatching(/^\/api\/jobs\/workflow_execution_/),
-        },
+        output: { ok: true },
+        metadata: { duration: 10 },
       })
     } finally {
       vi.useRealTimers()

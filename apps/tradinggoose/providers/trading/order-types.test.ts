@@ -53,6 +53,15 @@ describe('trading order type helpers', () => {
     ])
   })
 
+  it('filters Tradier order types by selected order class', () => {
+    expect(
+      getStrictTradingOrderTypeDefinitions('tradier', {
+        listing: stockListing,
+        orderClass: 'multileg',
+      }).map((definition) => definition.id)
+    ).toEqual(['market', 'debit', 'credit', 'even'])
+  })
+
   it('does not expose order options when a provider cannot trade the listing', () => {
     expect(getStrictTradingOrderTypeDefinitions('tradier', { listing: cryptoListing })).toEqual([])
     expect(getTradingOrderTypeOptions('tradier', { listing: cryptoListing })).toEqual([])

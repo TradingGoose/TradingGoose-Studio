@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button'
 import { LoadingAgent } from '@/components/ui/loading-agent'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { DEFAULT_COPILOT_RUNTIME_MODEL } from '@/lib/copilot/runtime-models'
+import type { ReviewTargetDescriptor } from '@/lib/copilot/review-sessions/types'
 import { createLogger } from '@/lib/logs/console/logger'
 import { normalizeOptionalString } from '@/lib/utils'
 import { useCopilotStore, useCopilotStoreApi } from '@/stores/copilot/store'
@@ -46,6 +47,7 @@ interface CopilotProps {
   panelWidth: number
   pairColor?: PairColor
   inputDisabled?: boolean
+  reviewTarget: ReviewTargetDescriptor | null
 }
 
 interface CopilotRef {
@@ -54,7 +56,7 @@ interface CopilotRef {
 }
 
 export const Copilot = forwardRef<CopilotRef, CopilotProps>(
-  ({ workspaceId, panelWidth, pairColor = 'gray', inputDisabled = false }, ref) => {
+  ({ workspaceId, panelWidth, pairColor = 'gray', inputDisabled = false, reviewTarget }, ref) => {
     const scrollAreaRef = useRef<HTMLDivElement>(null)
     const messagesContainerRef = useRef<HTMLDivElement>(null)
     const userInputRef = useRef<UserInputRef>(null)
@@ -85,8 +87,9 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
       () => ({
         workflowId,
         workspaceId: normalizeOptionalString(workspaceId) ?? null,
+        reviewTarget,
       }),
-      [workflowId, workspaceId]
+      [reviewTarget, workflowId, workspaceId]
     )
     const sendRuntimeContext = useMemo<CopilotSendRuntimeContext>(
       () => ({

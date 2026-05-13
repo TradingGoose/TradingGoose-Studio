@@ -189,6 +189,7 @@ describe('useWorkflowExecution', () => {
           conversationId: 'conversation-1',
         },
         selectedOutputs: ['agent-1_content'],
+        stream: true,
       }),
       expect.any(Object)
     )
@@ -229,6 +230,13 @@ describe('useWorkflowExecution', () => {
     })
 
     expect(onEvent).toHaveBeenCalledWith(streamEvent)
+    expect(mockRunQueuedWorkflowExecution).toHaveBeenCalledWith(
+      expect.objectContaining({
+        selectedOutputs: undefined,
+        stream: true,
+      }),
+      expect.any(Object)
+    )
     expect(mockConsoleState.updateConsole).toHaveBeenCalledWith(
       'agent-1',
       { content: 'streamed content' },

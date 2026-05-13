@@ -44,7 +44,7 @@ interface TeamsMessageSelectorProps {
   serviceId?: string
   showPreview?: boolean
   onMessageInfoChange?: (messageInfo: TeamsMessageInfo | null) => void
-  credential: string
+  credentialId: string
   selectionType?: 'team' | 'channel' | 'chat'
   initialTeamId?: string
   workflowId: string
@@ -62,7 +62,7 @@ export function TeamsMessageSelector({
   serviceId,
   showPreview = true,
   onMessageInfoChange,
-  credential,
+  credentialId,
   selectionType = 'team',
   initialTeamId,
   workflowId,
@@ -74,7 +74,7 @@ export function TeamsMessageSelector({
   const [teams, setTeams] = useState<TeamsMessageInfo[]>([])
   const [channels, setChannels] = useState<TeamsMessageInfo[]>([])
   const [chats, setChats] = useState<TeamsMessageInfo[]>([])
-  const [selectedCredentialId, setSelectedCredentialId] = useState<string>(credential || '')
+  const [selectedCredentialId, setSelectedCredentialId] = useState<string>(credentialId || '')
   const [selectedTeamId, setSelectedTeamId] = useState<string>('')
   const [selectedChannelId, setSelectedChannelId] = useState<string>('')
   const [selectedChatId, setSelectedChatId] = useState<string>('')
@@ -132,7 +132,7 @@ export function TeamsMessageSelector({
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          credential: selectedCredentialId,
+          credentialId: selectedCredentialId,
           ...(workflowId ? { workflowId } : workspaceId ? { workspaceId } : {}),
         }),
       })
@@ -193,7 +193,7 @@ export function TeamsMessageSelector({
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            credential: selectedCredentialId,
+            credentialId: selectedCredentialId,
             teamId,
             ...(workflowId ? { workflowId } : workspaceId ? { workspaceId } : {}),
           }),
@@ -259,7 +259,7 @@ export function TeamsMessageSelector({
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          credential: selectedCredentialId,
+          credentialId: selectedCredentialId,
           ...(workflowId ? { workflowId } : workspaceId ? { workspaceId } : {}),
         }),
       })
@@ -488,7 +488,10 @@ export function TeamsMessageSelector({
         const response = await fetch('/api/tools/microsoft-teams/teams', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ credentialId: selectedCredentialId, workflowId }),
+          body: JSON.stringify({
+            credentialId: selectedCredentialId,
+            ...(workflowId ? { workflowId } : workspaceId ? { workspaceId } : {}),
+          }),
         })
 
         if (response.ok) {
@@ -513,7 +516,7 @@ export function TeamsMessageSelector({
         setIsLoading(false)
       }
     },
-    [selectedCredentialId, selectionType, onMessageInfoChange, workflowId]
+    [selectedCredentialId, selectionType, onMessageInfoChange, workflowId, workspaceId]
   )
 
   // Restore chat selection on page refresh
@@ -526,7 +529,10 @@ export function TeamsMessageSelector({
         const response = await fetch('/api/tools/microsoft-teams/chats', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ credentialId: selectedCredentialId, workflowId }),
+          body: JSON.stringify({
+            credentialId: selectedCredentialId,
+            ...(workflowId ? { workflowId } : workspaceId ? { workspaceId } : {}),
+          }),
         })
 
         if (response.ok) {
@@ -551,7 +557,7 @@ export function TeamsMessageSelector({
         setIsLoading(false)
       }
     },
-    [selectedCredentialId, selectionType, onMessageInfoChange, workflowId]
+    [selectedCredentialId, selectionType, onMessageInfoChange, workflowId, workspaceId]
   )
 
   // Restore channel selection on page refresh
@@ -565,7 +571,10 @@ export function TeamsMessageSelector({
         const teamsResponse = await fetch('/api/tools/microsoft-teams/teams', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ credentialId: selectedCredentialId, workflowId }),
+          body: JSON.stringify({
+            credentialId: selectedCredentialId,
+            ...(workflowId ? { workflowId } : workspaceId ? { workspaceId } : {}),
+          }),
         })
 
         if (teamsResponse.ok) {
@@ -579,9 +588,9 @@ export function TeamsMessageSelector({
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({
-                    credential: selectedCredentialId,
+                    credentialId: selectedCredentialId,
                     teamId: team.id,
-                    workflowId,
+                    ...(workflowId ? { workflowId } : workspaceId ? { workspaceId } : {}),
                   }),
                 })
 
@@ -639,7 +648,7 @@ export function TeamsMessageSelector({
         setIsLoading(false)
       }
     },
-    [selectedCredentialId, selectionType, onMessageInfoChange, workflowId]
+    [selectedCredentialId, selectionType, onMessageInfoChange, workflowId, workspaceId]
   )
 
   // Set initial team ID if provided
@@ -665,12 +674,12 @@ export function TeamsMessageSelector({
     }
   }, [fetchCredentials])
 
-  // Keep local credential state in sync with persisted credential
+  // Keep local credential state in sync with persisted credential.
   useEffect(() => {
-    if (credential && credential !== selectedCredentialId) {
-      setSelectedCredentialId(credential)
+    if (credentialId && credentialId !== selectedCredentialId) {
+      setSelectedCredentialId(credentialId)
     }
-  }, [credential, selectedCredentialId])
+  }, [credentialId, selectedCredentialId])
 
   // Restore selection whenever the canonical value changes
   useEffect(() => {

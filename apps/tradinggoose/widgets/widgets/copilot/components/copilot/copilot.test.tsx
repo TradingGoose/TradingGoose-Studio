@@ -138,7 +138,7 @@ describe('Copilot auto-scroll', () => {
 
   const renderCopilot = async () => {
     await act(async () => {
-      root.render(<Copilot workspaceId='ws-1' panelWidth={360} />)
+      root.render(<Copilot workspaceId='ws-1' panelWidth={360} reviewTarget={null} />)
       await Promise.resolve()
       await Promise.resolve()
     })

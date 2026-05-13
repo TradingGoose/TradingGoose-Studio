@@ -6,11 +6,15 @@ import {
   EntitySessionHost,
   useEntitySession,
 } from '@/lib/copilot/review-sessions/entity-session-host'
-import { ENTITY_KIND_WORKFLOW, type ReviewEntityKind } from '@/lib/copilot/review-sessions/types'
+import {
+  ENTITY_KIND_WORKFLOW,
+  type ReviewEntityKind,
+  type ReviewTargetDescriptor,
+} from '@/lib/copilot/review-sessions/types'
 import { WorkflowSessionProvider } from '@/lib/yjs/workflow-session-host'
 import Providers from '@/app/workspace/[workspaceId]/providers/providers'
 import { CopilotStoreProvider, DEFAULT_COPILOT_CHANNEL_ID } from '@/stores/copilot/store'
-import { usePairColorContext } from '@/stores/dashboard/pair-store'
+import { normalizePairColorContext, usePairColorContext } from '@/stores/dashboard/pair-store'
 import type { PairColor } from '@/widgets/pair-colors'
 import { resolveCopilotWorkflowId } from '@/widgets/widgets/copilot/live-contexts'
 import {
@@ -28,6 +32,10 @@ type CopilotAppUser =
     }
   | undefined
 type EditableReviewEntityKind = Exclude<ReviewEntityKind, typeof ENTITY_KIND_WORKFLOW>
+type CopilotBodyState = {
+  inputDisabled: boolean
+  reviewTarget: ReviewTargetDescriptor | null
+}
 
 interface CopilotAppProps {
   workspaceId: string
@@ -47,35 +55,37 @@ function CopilotEntitySessionBoundary({
   entityKind: EditableReviewEntityKind
   entityId: string
   user: CopilotAppUser
-  children: (inputDisabled: boolean) => ReactNode
+  children: (state: CopilotBodyState) => ReactNode
 }) {
-  const { descriptor } = useResolvedReviewTarget({
+  const { descriptor, error } = useResolvedReviewTarget({
     workspaceId,
     entityKind,
     entityId,
   })
 
   if (!descriptor) {
-    return <>{children(true)}</>
+    return <>{children({ inputDisabled: !error, reviewTarget: null })}</>
   }
 
   return (
     <EntitySessionHost descriptor={descriptor} accessMode='read' user={user}>
-      <CopilotEntitySessionGate>{children}</CopilotEntitySessionGate>
+      <CopilotEntitySessionGate descriptor={descriptor}>{children}</CopilotEntitySessionGate>
     </EntitySessionHost>
   )
 }
 
 function CopilotEntitySessionGate({
+  descriptor,
   children,
 }: {
-  children: (inputDisabled: boolean) => ReactNode
+  descriptor: ReviewTargetDescriptor
+  children: (state: CopilotBodyState) => ReactNode
 }) {
   const session = useEntitySession()
   const inputDisabled =
     session.isLoading || !session.doc || !session.isSynced || Boolean(session.error)
 
-  return <>{children(inputDisabled)}</>
+  return <>{children({ inputDisabled, reviewTarget: descriptor })}</>
 }
 
 const CopilotAppContent = ({
@@ -91,7 +101,7 @@ const CopilotAppContent = ({
   pairColor: PairColor
   user: CopilotAppUser
 }) => {
-  const pairContext = usePairColorContext(pairColor)
+  const pairContext = normalizePairColorContext(usePairColorContext(pairColor))
   const workflowId = resolveCopilotWorkflowId(pairContext) ?? null
   const entityConfig = COPILOT_WORKSPACE_ENTITY_CONFIGS.find(
     (config) =>
@@ -102,25 +112,28 @@ const CopilotAppContent = ({
     ? getCopilotWorkspaceEntityIdFromPairContext(pairContext, entityConfig.entityKind)
     : null
 
-  const renderCopilotBody = (inputDisabled = false) => (
+  const renderCopilotBody = (
+    state: CopilotBodyState = { inputDisabled: false, reviewTarget: null }
+  ) => (
     <div className='flex h-full w-full flex-col overflow-hidden '>
       <Copilot
         key={channelId}
         workspaceId={workspaceId}
         panelWidth={panelWidth}
         pairColor={pairColor}
-        inputDisabled={inputDisabled}
+        inputDisabled={state.inputDisabled}
+        reviewTarget={state.reviewTarget}
       />
     </div>
   )
 
-  const renderWorkflowContent = (inputDisabled = false) =>
+  const renderWorkflowContent = (state?: CopilotBodyState) =>
     workflowId ? (
       <WorkflowSessionProvider workspaceId={workspaceId} workflowId={workflowId} user={user}>
-        {renderCopilotBody(inputDisabled)}
+        {renderCopilotBody(state)}
       </WorkflowSessionProvider>
     ) : (
-      renderCopilotBody(inputDisabled)
+      renderCopilotBody(state)
     )
 
   return entityConfig && entityId ? (

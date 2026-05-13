@@ -101,8 +101,6 @@ describe('copilotWidget', () => {
       channelId: 'pair-blue',
       pairColor: 'blue',
     })
-    expect(copilotAppPropsSpy.mock.lastCall?.[0]).not.toHaveProperty('reviewTargetMode')
-    expect(copilotAppPropsSpy.mock.lastCall?.[0]).not.toHaveProperty('reviewSessionId')
   })
 
   it('uses the pair runtime channel for linked copilot widgets', async () => {

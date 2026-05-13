@@ -41,23 +41,13 @@ export async function authorizeCredentialUse(
   const auth = await checkSessionOrInternalAuth(request, {
     requireWorkflowId: requireWorkflowIdForInternal,
   })
-  if (!auth.success || !auth.userId) {
+  if (!auth.success) {
     return { ok: false, error: auth.error || 'Authentication required' }
   }
 
-  if (
-    auth.authType === AuthType.INTERNAL_JWT &&
-    callerUserId !== undefined &&
-    callerUserId !== auth.userId
-  ) {
-    return { ok: false, error: 'Caller user does not match internal token subject' }
-  }
-
-  const actingUserId = auth.userId
-
   const [workflowContext] = workflowId
     ? await db
-        .select({ workspaceId: workflowTable.workspaceId })
+        .select({ userId: workflowTable.userId, workspaceId: workflowTable.workspaceId })
         .from(workflowTable)
         .where(eq(workflowTable.id, workflowId))
         .limit(1)
@@ -68,6 +58,23 @@ export async function authorizeCredentialUse(
   }
   if (workflowContext && workspaceId && workflowContext.workspaceId !== workspaceId) {
     return { ok: false, error: 'Workflow is not in the requested workspace' }
+  }
+
+  const actingUserId =
+    auth.userId ??
+    (auth.authType === AuthType.INTERNAL_JWT && workflowContext
+      ? workflowContext.userId
+      : undefined)
+  if (!actingUserId) {
+    return { ok: false, error: auth.error || 'Authentication required' }
+  }
+
+  if (
+    auth.authType === AuthType.INTERNAL_JWT &&
+    callerUserId !== undefined &&
+    callerUserId !== actingUserId
+  ) {
+    return { ok: false, error: 'Caller user does not match internal token subject' }
   }
 
   const [platformCredential] = await db

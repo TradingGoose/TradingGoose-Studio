@@ -168,34 +168,6 @@ describe('bootstrapYjsProvider', () => {
     expect(provider.connect).toHaveBeenCalledTimes(2)
   })
 
-  it('accepts a 410 snapshot response before reconnecting after an error', async () => {
-    const tokens = ['token-1', 'token-2']
-
-    fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
-      const url = typeof input === 'string' ? input : input.toString()
-
-      if (url === '/api/auth/socket-token') {
-        return jsonResponse({ token: tokens.shift() })
-      }
-
-      if (url.startsWith('/api/yjs/sessions/workflow-1/snapshot?')) {
-        return jsonResponse({ snapshotBase64: '', descriptor, runtime }, 410)
-      }
-
-      throw new Error(`Unexpected fetch: ${url}`)
-    })
-
-    const { bootstrapYjsProvider } = await import('./provider')
-    const result = await bootstrapYjsProvider(descriptor, 'read', 'ws://localhost:3002')
-    const provider = result.provider as unknown as MockWebsocketProvider
-
-    provider.emit('connection-error', new Event('error'), provider)
-    await waitForCondition(() => {
-      expect(provider.params.token).toBe('token-2')
-      expect(provider.connect).toHaveBeenCalledTimes(2)
-    })
-  })
-
   it('does not rotate the token after an intentional disconnect', async () => {
     fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
       const url = typeof input === 'string' ? input : input.toString()

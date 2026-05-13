@@ -55,7 +55,7 @@ async function fetchSnapshot(
     cache: 'no-store',
   })
 
-  if (!res.ok && res.status !== 410) {
+  if (!res.ok) {
     throw new Error(`Snapshot fetch failed: ${res.status}`)
   }
 

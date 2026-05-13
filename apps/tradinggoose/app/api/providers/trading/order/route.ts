@@ -43,6 +43,8 @@ const orderSchema = z
     stopPrice: positiveNumberSchema.optional(),
     trailPrice: positiveNumberSchema.optional(),
     trailPercent: positiveNumberSchema.optional(),
+    orderClass: nonEmptyStringSchema.optional(),
+    providerParams: z.record(z.unknown()).optional(),
     submissionSource: z.enum(['manual', 'copilot', 'workflow']).optional(),
     logId: nonEmptyStringSchema.optional(),
   })

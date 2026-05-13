@@ -8,6 +8,7 @@ export function getStrictTradingOrderTypeDefinitions(
   providerId?: TradingProviderId,
   context: {
     listing?: ListingInputValue
+    orderClass?: string
   } = {}
 ): TradingOrderTypeDefinition[] {
   if (!providerId) return []
@@ -25,10 +26,19 @@ export function getStrictTradingOrderTypeDefinitions(
   ) {
     return []
   }
+  const orderClass =
+    typeof context.orderClass === 'string' && context.orderClass.trim()
+      ? context.orderClass.trim().toLowerCase()
+      : providerId === 'tradier'
+        ? 'equity'
+        : undefined
 
   return definitions.filter((definition) => {
     if (assetClass && definition.assetClasses?.length) {
       if (!definition.assetClasses.includes(assetClass)) return false
+    }
+    if (orderClass && definition.orderClasses?.length) {
+      if (!definition.orderClasses.includes(orderClass)) return false
     }
     return true
   })
@@ -38,6 +48,7 @@ export function getTradingOrderTypeOptions(
   providerId?: TradingProviderId,
   context: {
     listing?: ListingInputValue
+    orderClass?: string
   } = {}
 ): Array<{ id: string; label: string }> {
   const resultSource = getStrictTradingOrderTypeDefinitions(providerId, context)

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { ResolvedReviewTarget, ReviewEntityKind } from '@/lib/copilot/review-sessions/types'
 import { resolveCopilotEntityReviewTarget } from '@/widgets/widgets/copilot/review-target-utils'
 
@@ -8,27 +8,6 @@ interface UseResolvedReviewTargetOptions {
   workspaceId: string | null
   entityKind: Exclude<ReviewEntityKind, 'workflow'>
   entityId: string | null
-}
-
-function doesResolvedTargetMatchRequest(options: {
-  resolvedTarget: ResolvedReviewTarget | null
-  workspaceId: string
-  entityKind: Exclude<ReviewEntityKind, 'workflow'>
-  entityId: string
-}): boolean {
-  const descriptor = options.resolvedTarget?.descriptor
-  if (!descriptor) {
-    return false
-  }
-
-  if (
-    descriptor.workspaceId !== options.workspaceId ||
-    descriptor.entityKind !== options.entityKind
-  ) {
-    return false
-  }
-
-  return descriptor.entityId === options.entityId
 }
 
 export function useResolvedReviewTarget({
@@ -50,13 +29,11 @@ export function useResolvedReviewTarget({
       return
     }
 
+    const descriptor = resolvedTarget?.descriptor
     if (
-      doesResolvedTargetMatchRequest({
-        resolvedTarget,
-        workspaceId,
-        entityKind,
-        entityId,
-      })
+      descriptor?.workspaceId === workspaceId &&
+      descriptor.entityKind === entityKind &&
+      descriptor.entityId === entityId
     ) {
       setError(null)
       setIsResolving(false)
@@ -96,10 +73,8 @@ export function useResolvedReviewTarget({
     }
   }, [entityId, entityKind, resolvedTarget, workspaceId])
 
-  const descriptor = useMemo(() => resolvedTarget?.descriptor ?? null, [resolvedTarget?.descriptor])
-
   return {
-    descriptor,
+    descriptor: resolvedTarget?.descriptor ?? null,
     runtime: resolvedTarget?.runtime ?? null,
     isResolving,
     error,

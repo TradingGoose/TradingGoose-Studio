@@ -31,7 +31,11 @@ function flushPromises() {
   })
 }
 
-function HookHarness({ initialEntityId = 'skill-1' }: { initialEntityId?: string | null }) {
+function HookHarness({
+  initialEntityId = 'skill-1',
+}: {
+  initialEntityId?: string | null
+}) {
   const [entityId, setEntityId] = useState<string | null>(initialEntityId)
   const [unrelatedState, setUnrelatedState] = useState('initial')
 

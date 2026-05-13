@@ -48,7 +48,7 @@ export interface ProcessingResult {
   success: boolean
   result?: any
   error?: string
-  status?: 'in-progress' | 'completed' | 'failed'
+  status?: 'in-progress' | 'completed'
   startedAt?: number
 }
 
@@ -150,7 +150,10 @@ export class IdempotencyService {
       .select({ result: idempotencyKey.result, createdAt: idempotencyKey.createdAt })
       .from(idempotencyKey)
       .where(
-        and(eq(idempotencyKey.key, normalizedKey), eq(idempotencyKey.namespace, this.config.namespace))
+        and(
+          eq(idempotencyKey.key, normalizedKey),
+          eq(idempotencyKey.namespace, this.config.namespace)
+        )
       )
       .limit(1)
 
@@ -277,11 +280,15 @@ export class IdempotencyService {
       .select({ result: idempotencyKey.result })
       .from(idempotencyKey)
       .where(
-        and(eq(idempotencyKey.key, normalizedKey), eq(idempotencyKey.namespace, this.config.namespace))
+        and(
+          eq(idempotencyKey.key, normalizedKey),
+          eq(idempotencyKey.namespace, this.config.namespace)
+        )
       )
       .limit(1)
 
-    const existingResult = existing.length > 0 ? (existing[0].result as ProcessingResult) : undefined
+    const existingResult =
+      existing.length > 0 ? (existing[0].result as ProcessingResult) : undefined
     logger.debug(`Idempotency key already claimed in database: ${normalizedKey}`)
     return {
       claimed: false,
@@ -313,7 +320,10 @@ export class IdempotencyService {
           .select({ result: idempotencyKey.result })
           .from(idempotencyKey)
           .where(
-            and(eq(idempotencyKey.key, normalizedKey), eq(idempotencyKey.namespace, this.config.namespace))
+            and(
+              eq(idempotencyKey.key, normalizedKey),
+              eq(idempotencyKey.namespace, this.config.namespace)
+            )
           )
           .limit(1)
         currentResult = existing.length > 0 ? (existing[0].result as ProcessingResult) : null
@@ -327,9 +337,8 @@ export class IdempotencyService {
         return currentResult.result as T
       }
 
-      if (currentResult?.status === 'failed') {
-        logger.debug(`Operation failed, throwing error: ${normalizedKey}`)
-        throw new Error(currentResult.error || 'Previous operation failed')
+      if (!currentResult) {
+        throw new Error(`Idempotency operation did not complete: ${normalizedKey}`)
       }
 
       await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS))
@@ -386,6 +395,24 @@ export class IdempotencyService {
     logger.debug(`Stored idempotency result in database: ${normalizedKey}`)
   }
 
+  private async releaseClaim(normalizedKey: string, storageMethod: StorageMethod): Promise<void> {
+    if (storageMethod === 'redis') {
+      const redis = getRedisClient()
+      if (!redis) throw new Error('Redis not available for releasing claim')
+      await redis.del(`${REDIS_KEY_PREFIX}${normalizedKey}`)
+      return
+    }
+
+    await db
+      .delete(idempotencyKey)
+      .where(
+        and(
+          eq(idempotencyKey.key, normalizedKey),
+          eq(idempotencyKey.namespace, this.config.namespace)
+        )
+      )
+  }
+
   /**
    * Execute an operation with idempotency protection using atomic claims
    * Eliminates race conditions by claiming the key before execution
@@ -409,18 +436,9 @@ export class IdempotencyService {
         return existingResult.result as T
       }
 
-      if (existingResult?.status === 'failed') {
-        logger.info(`Previous operation failed for: ${claimResult.normalizedKey}`)
-        throw new Error(existingResult.error || 'Previous operation failed')
-      }
-
       if (existingResult?.status === 'in-progress') {
         logger.info(`Waiting for in-progress operation: ${claimResult.normalizedKey}`)
         return await this.waitForResult<T>(claimResult.normalizedKey, claimResult.storageMethod)
-      }
-
-      if (existingResult) {
-        return existingResult.result as T
       }
 
       throw new Error(`Unexpected state: key claimed but no existing result found`)
@@ -441,10 +459,12 @@ export class IdempotencyService {
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error'
 
-      await this.storeResult(
-        claimResult.normalizedKey,
-        { success: false, error: errorMessage, status: 'failed' },
-        claimResult.storageMethod
+      await this.releaseClaim(claimResult.normalizedKey, claimResult.storageMethod).catch(
+        (releaseError) =>
+          logger.warn(
+            `Failed to release idempotency claim ${claimResult.normalizedKey}:`,
+            releaseError
+          )
       )
 
       logger.warn(`Operation failed: ${claimResult.normalizedKey} - ${errorMessage}`)

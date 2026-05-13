@@ -258,7 +258,12 @@ const buildOrderRequest = ({
   orderType: TradingOrderType
   timeInForce: string
 }) => {
-  const usesLimitPrice = orderType === 'limit' || orderType === 'stop_limit'
+  const usesLimitPrice =
+    orderType === 'limit' ||
+    orderType === 'stop_limit' ||
+    orderType === 'debit' ||
+    orderType === 'credit' ||
+    orderType === 'even'
   const usesStopPrice = orderType === 'stop' || orderType === 'stop_limit'
   const usesTrailValue = orderType === 'trailing_stop'
   const orderSizingMode = getOrderSizingMode(providerId, data)
@@ -280,6 +285,8 @@ const buildOrderRequest = ({
     stopPrice: usesStopPrice ? data.stopPrice : undefined,
     trailPrice: usesTrailValue ? data.trailPrice : undefined,
     trailPercent: usesTrailValue ? data.trailPercent : undefined,
+    orderClass: data.orderClass,
+    providerParams: data.providerParams,
   })
 }
 
@@ -414,6 +421,8 @@ export async function submitTradingOrder({
     trailPrice: requestData.trailPrice,
     trailPercent: requestData.trailPercent,
     orderSizingMode,
+    orderClass: requestData.orderClass,
+    providerParams: requestData.providerParams,
   })
   return tradingOrderIdempotency.executeWithIdempotency(
     baseContext.providerId,

@@ -20,6 +20,7 @@ type WorkflowExecutionRequest = {
   input?: unknown
   triggerType?: WorkflowExecutionTriggerType
   selectedOutputs?: string[]
+  stream?: boolean
   onEvent?: (event: WorkflowExecutionEvent) => void | Promise<void>
 }
 
@@ -495,7 +496,9 @@ export function useWorkflowExecution() {
             workflowVariables: executionRequest.workflowVariables,
             startBlockId: executionRequest.startBlockId,
             selectedOutputs: request.selectedOutputs,
-            stream: Boolean(request.selectedOutputs?.length),
+            stream:
+              request.stream ??
+              (triggerType === 'chat' || Boolean(request.selectedOutputs?.length)),
             signal: abortController.signal,
           },
           {

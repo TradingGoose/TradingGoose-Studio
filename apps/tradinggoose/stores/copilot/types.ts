@@ -1,5 +1,5 @@
 import type { CopilotAccessLevel } from '@/lib/copilot/access-policy'
-import type { ReviewEntityKind } from '@/lib/copilot/review-sessions/types'
+import type { ReviewEntityKind, ReviewTargetDescriptor } from '@/lib/copilot/review-sessions/types'
 import type { CopilotRuntimeModel } from '@/lib/copilot/runtime-models'
 import type { ClientToolCallState, ClientToolDisplay } from '@/lib/copilot/tools/client/base-tool'
 
@@ -111,6 +111,7 @@ export interface CopilotChat {
 export interface CopilotLiveContext {
   workflowId: string | null
   workspaceId: string | null
+  reviewTarget: ReviewTargetDescriptor | null
 }
 
 export interface CopilotSendRuntimeContext {

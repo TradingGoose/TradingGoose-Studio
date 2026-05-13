@@ -5,6 +5,23 @@ import type { TradingActionParams } from '@/tools/trading/types'
 import type { ToolConfig } from '@/tools/types'
 
 type TradingOrderRoutePayloadParams = Partial<TradingActionParams>
+const ORDER_ROUTE_PAYLOAD_FIELDS = new Set([
+  'provider',
+  'portfolioIdentity',
+  'listing',
+  'side',
+  'quantity',
+  'notional',
+  'orderSizingMode',
+  'orderType',
+  'timeInForce',
+  'limitPrice',
+  'stopPrice',
+  'trailPrice',
+  'trailPercent',
+  'orderClass',
+  'providerParams',
+])
 
 const toOptionalNumber = (value: unknown): number | undefined => {
   if (value === null || value === undefined) return undefined
@@ -24,6 +41,18 @@ export const buildOrderRoutePayload = (params: TradingOrderRoutePayloadParams) =
   const workspaceId = params._context?.workspaceId
   const submissionSource = params._context?.submissionSource
   const toolExecutionId = params._context?.toolExecutionId
+  const extraProviderParams = Object.fromEntries(
+    Object.entries(params as Record<string, unknown>).filter(
+      ([key, value]) =>
+        value !== undefined && !key.startsWith('_') && !ORDER_ROUTE_PAYLOAD_FIELDS.has(key)
+    )
+  )
+  const providerParams = {
+    ...(params.providerParams && typeof params.providerParams === 'object'
+      ? params.providerParams
+      : {}),
+    ...extraProviderParams,
+  }
   const payload = {
     workspaceId,
     portfolioIdentity,
@@ -38,6 +67,8 @@ export const buildOrderRoutePayload = (params: TradingOrderRoutePayloadParams) =
     stopPrice: toOptionalNumber(params.stopPrice),
     trailPrice: toOptionalNumber(params.trailPrice),
     trailPercent: toOptionalNumber(params.trailPercent),
+    orderClass: params.orderClass,
+    providerParams: Object.keys(providerParams).length ? providerParams : undefined,
     submissionSource,
     logId: params._context?.workflowLogId,
   }
