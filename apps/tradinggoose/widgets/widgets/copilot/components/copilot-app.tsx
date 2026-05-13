@@ -17,7 +17,7 @@ import {
   COPILOT_WORKSPACE_ENTITY_CONFIGS,
   getCopilotWorkspaceEntityIdFromPairContext,
 } from '@/widgets/widgets/copilot/workspace-entities'
-import { useResolvedReviewTarget } from '@/widgets/widgets/entity_review/use-resolved-review-target'
+import { useResolvedReviewTarget } from '@/widgets/widgets/copilot/use-resolved-review-target'
 import { Copilot } from './copilot/copilot'
 
 type CopilotAppUser =
@@ -60,7 +60,7 @@ function CopilotEntitySessionBoundary({
   }
 
   return (
-    <EntitySessionHost descriptor={descriptor} user={user}>
+    <EntitySessionHost descriptor={descriptor} accessMode='read' user={user}>
       <CopilotEntitySessionGate>{children}</CopilotEntitySessionGate>
     </EntitySessionHost>
   )
