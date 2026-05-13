@@ -1,7 +1,3 @@
-import { db } from '@tradinggoose/db'
-import { account, user } from '@tradinggoose/db/schema'
-import { eq } from 'drizzle-orm'
-import { jwtDecode } from 'jwt-decode'
 import { CopilotTool } from '@/lib/copilot/registry'
 import { createPermissionError } from '@/lib/copilot/review-sessions/permissions'
 import {
@@ -9,9 +5,8 @@ import {
   resolveServerWorkflowScope,
   type ServerToolExecutionContext,
 } from '@/lib/copilot/tools/server/base-tool'
+import { listOAuthCredentialsForUser } from '@/lib/credentials/oauth'
 import { createLogger } from '@/lib/logs/console/logger'
-import { refreshTokenIfNeeded } from '@/lib/oauth/tokens'
-import { generateRequestId } from '@/lib/utils'
 
 interface ReadOAuthCredentialsParams {
   workflowId?: string
@@ -50,54 +45,10 @@ export const readOAuthCredentialsServerTool: BaseServerTool<ReadOAuthCredentials
       userId,
       workflowId: workflowScope?.workflowId,
     })
-    const accounts = await db.select().from(account).where(eq(account.userId, userId))
-    const userRecord = await db
-      .select({ email: user.email })
-      .from(user)
-      .where(eq(user.id, userId))
-      .limit(1)
-    const userEmail = userRecord.length > 0 ? userRecord[0]?.email : null
-
-    const credentials: Array<{
-      id: string
-      name: string
-      provider: string
-      lastUsed: string
-      isDefault: boolean
-      accessToken: string | null
-    }> = []
-    const requestId = generateRequestId()
-    for (const acc of accounts) {
-      const providerId = acc.providerId
-      const [baseProvider, featureType = 'default'] = providerId.split('-')
-      let displayName = ''
-      if (acc.idToken) {
-        try {
-          const decoded = jwtDecode<{ email?: string; name?: string }>(acc.idToken)
-          displayName = decoded.email || decoded.name || ''
-        } catch {}
-      }
-      if (!displayName && baseProvider === 'github') displayName = `${acc.accountId} (GitHub)`
-      if (!displayName && userEmail) displayName = userEmail
-      if (!displayName) displayName = `${acc.accountId} (${baseProvider})`
-      let accessToken: string | null = acc.accessToken ?? null
-      try {
-        const { accessToken: refreshedToken } = await refreshTokenIfNeeded(
-          requestId,
-          acc as any,
-          acc.id
-        )
-        accessToken = refreshedToken || accessToken
-      } catch {}
-      credentials.push({
-        id: acc.id,
-        name: displayName,
-        provider: providerId,
-        lastUsed: acc.updatedAt.toISOString(),
-        isDefault: featureType === 'default',
-        accessToken,
-      })
-    }
+    const credentials = await listOAuthCredentialsForUser({
+      userId,
+      workspaceId: workflowScope?.workspaceId,
+    })
     logger.info('Fetched OAuth credentials', { userId, count: credentials.length })
     return { credentials, total: credentials.length }
   },

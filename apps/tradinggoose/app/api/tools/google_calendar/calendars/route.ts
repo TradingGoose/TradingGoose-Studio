@@ -1,7 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server'
-import { authorizeCredentialUse } from '@/lib/auth/credential-access'
+import { resolveOAuthRouteCredential } from '@/lib/credentials/oauth-route'
 import { createLogger } from '@/lib/logs/console/logger'
-import { refreshAccessTokenIfNeeded } from '@/lib/oauth/tokens'
 import { generateRequestId } from '@/lib/utils'
 export const dynamic = 'force-dynamic'
 
@@ -34,21 +33,8 @@ export async function GET(request: NextRequest) {
       logger.warn(`[${requestId}] Missing credentialId parameter`)
       return NextResponse.json({ error: 'Credential ID is required' }, { status: 400 })
     }
-    const authz = await authorizeCredentialUse(request, { credentialId, workflowId })
-    if (!authz.ok || !authz.credentialOwnerUserId) {
-      return NextResponse.json({ error: authz.error || 'Unauthorized' }, { status: 403 })
-    }
-
-    // Refresh access token if needed using the utility function
-    const accessToken = await refreshAccessTokenIfNeeded(
-      credentialId,
-      authz.credentialOwnerUserId,
-      requestId
-    )
-
-    if (!accessToken) {
-      return NextResponse.json({ error: 'Failed to obtain valid access token' }, { status: 401 })
-    }
+    const credential = await resolveOAuthRouteCredential(request, { credentialId, workflowId }, requestId)
+    if (!credential.ok) return credential.response
 
     // Fetch calendars from Google Calendar API
     logger.info(`[${requestId}] Fetching calendars from Google Calendar API`)
@@ -57,7 +43,7 @@ export async function GET(request: NextRequest) {
       {
         method: 'GET',
         headers: {
-          Authorization: `Bearer ${accessToken}`,
+          Authorization: `Bearer ${credential.accessToken}`,
           'Content-Type': 'application/json',
         },
       }

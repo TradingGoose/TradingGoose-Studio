@@ -38,6 +38,7 @@ export async function resolveEntityReviewTarget(options: {
       workspaceId: options.workspaceId,
       entityKind: options.entityKind,
       entityId: options.entityId,
+      accessMode: 'read',
     }),
   })
 

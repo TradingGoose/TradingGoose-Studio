@@ -110,6 +110,7 @@ function doesLoadedSessionMatchRequestedTarget(params: {
 const ResolveRequestSchema = z.object({
   workspaceId: z.string().min(1),
   entityKind: z.enum(['workflow', 'mcp_server', 'skill', 'custom_tool', 'indicator']),
+  accessMode: z.enum(['read', 'write']),
   reviewSessionId: z.string().optional(),
   entityId: z.string().optional(),
   draftSessionId: z.string().optional(),
@@ -133,7 +134,7 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const { workspaceId, entityKind, reviewSessionId, entityId, draftSessionId } =
+    const { workspaceId, entityKind, accessMode, reviewSessionId, entityId, draftSessionId } =
       parseResult.data
 
     // This route is entity-only; workflow mode never calls it
@@ -151,12 +152,15 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Verify access
-    const accessResult = await verifyReviewTargetAccess(userId, {
-      entityKind,
-      entityId: entityId ?? null,
-      workspaceId,
-    })
+    const accessResult = await verifyReviewTargetAccess(
+      userId,
+      {
+        entityKind,
+        entityId: entityId ?? null,
+        workspaceId,
+      },
+      accessMode
+    )
 
     if (!accessResult.hasAccess) {
       logger.warn('Access denied for review session resolve', {
@@ -169,7 +173,7 @@ export async function POST(req: NextRequest) {
 
     // Precedence 1: If reviewSessionId provided, load the accessible session row.
     if (reviewSessionId) {
-      const row = await loadReviewSessionForUser(reviewSessionId, userId)
+      const row = await loadReviewSessionForUser(reviewSessionId, userId, accessMode)
 
       if (!row) {
         logger.warn('Review session not found', { reviewSessionId, userId })

@@ -379,16 +379,27 @@ describe('routeExecution', () => {
       toolName: 'list_gdrive_files',
       payload: {
         workflowId: 'workflow-123',
+        credentialId: 'credential-1',
         userId: 'spoofed-user',
         search_query: 'report',
         num_results: 3,
       },
-      expectedArgs: { workflowId: 'workflow-123', search_query: 'report', num_results: 3 },
+      expectedArgs: {
+        workflowId: 'workflow-123',
+        credentialId: 'credential-1',
+        search_query: 'report',
+        num_results: 3,
+      },
       execute: listGDriveFilesExecute,
     },
     {
       toolName: 'read_gdrive_file',
-      payload: { workflowId: 'workflow-123', fileId: 'file-1', type: 'doc' },
+      payload: {
+        workflowId: 'workflow-123',
+        credentialId: 'credential-1',
+        fileId: 'file-1',
+        type: 'doc',
+      },
       execute: readGDriveFileExecute,
     },
     {

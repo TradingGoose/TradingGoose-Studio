@@ -259,9 +259,7 @@ describe('saveReviewEntity shared session access', () => {
     expect(mockLoadReviewSessionForUser).toHaveBeenCalledWith(
       reviewSessionId,
       'collaborator-user',
-      {
-        requireWrite: true,
-      }
+      'write'
     )
     expect(result).toEqual({
       success: true,
@@ -309,9 +307,7 @@ describe('saveReviewEntity shared session access', () => {
     expect(mockLoadReviewSessionForUser).toHaveBeenCalledWith(
       reviewSessionId,
       'collaborator-user',
-      {
-        requireWrite: true,
-      }
+      'write'
     )
     expect(mockUpdate).not.toHaveBeenCalled()
   })

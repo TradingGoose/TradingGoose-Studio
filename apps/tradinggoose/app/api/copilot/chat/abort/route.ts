@@ -35,9 +35,9 @@ async function loadAbortSession(parsed: AbortTurnRequest, userId: string) {
   const workspaceId = normalizeOptionalId(parsed.workspaceId)
 
   const session = chatId
-    ? await loadReviewSessionForUser(chatId, userId)
+    ? await loadReviewSessionForUser(chatId, userId, 'read')
     : conversationId
-      ? await loadReviewSessionForUserByConversationId(conversationId, COPILOT_SESSION_KIND, userId)
+      ? await loadReviewSessionForUserByConversationId(conversationId, COPILOT_SESSION_KIND, userId, 'read')
       : null
 
   if (!session || session.entityKind !== COPILOT_SESSION_KIND) {

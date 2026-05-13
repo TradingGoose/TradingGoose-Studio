@@ -1,7 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server'
-import { authorizeCredentialUse } from '@/lib/auth/credential-access'
+import { resolveOAuthRouteCredential } from '@/lib/credentials/oauth-route'
 import { createLogger } from '@/lib/logs/console/logger'
-import { refreshAccessTokenIfNeeded } from '@/lib/oauth/tokens'
 import { validateAlphanumericId } from '@/lib/security/input-validation'
 import { generateRequestId } from '@/lib/utils'
 export const dynamic = 'force-dynamic'
@@ -32,27 +31,15 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: fileIdValidation.error }, { status: 400 })
     }
 
-    const authz = await authorizeCredentialUse(request, { credentialId: credentialId, workflowId })
-    if (!authz.ok || !authz.credentialOwnerUserId) {
-      return NextResponse.json({ error: authz.error || 'Unauthorized' }, { status: 403 })
-    }
-
-    const accessToken = await refreshAccessTokenIfNeeded(
-      credentialId,
-      authz.credentialOwnerUserId,
-      requestId
-    )
-
-    if (!accessToken) {
-      return NextResponse.json({ error: 'Failed to obtain valid access token' }, { status: 401 })
-    }
+    const credential = await resolveOAuthRouteCredential(request, { credentialId, workflowId }, requestId)
+    if (!credential.ok) return credential.response
 
     logger.info(`[${requestId}] Fetching file ${fileId} from Google Drive API`)
     const response = await fetch(
       `https://www.googleapis.com/drive/v3/files/${fileId}?fields=id,name,mimeType,iconLink,webViewLink,thumbnailLink,createdTime,modifiedTime,size,owners,exportLinks,shortcutDetails&supportsAllDrives=true`,
       {
         headers: {
-          Authorization: `Bearer ${accessToken}`,
+          Authorization: `Bearer ${credential.accessToken}`,
         },
       }
     )
@@ -88,7 +75,7 @@ export async function GET(request: NextRequest) {
       const shortcutResp = await fetch(
         `https://www.googleapis.com/drive/v3/files/${targetId}?fields=id,name,mimeType,iconLink,webViewLink,thumbnailLink,createdTime,modifiedTime,size,owners,exportLinks&supportsAllDrives=true`,
         {
-          headers: { Authorization: `Bearer ${accessToken}` },
+          headers: { Authorization: `Bearer ${credential.accessToken}` },
         }
       )
       if (shortcutResp.ok) {

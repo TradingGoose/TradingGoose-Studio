@@ -1,7 +1,6 @@
 'use client'
 
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
-import { getEnv } from '@/lib/env'
 import { getProviderIdFromServiceId } from '@/lib/oauth'
 import type { SubBlockConfig } from '@/blocks/types'
 import { useWorkflowEditorActions } from '@/hooks/workflow/use-workflow-editor-actions'
@@ -109,9 +108,6 @@ export function FileSelectorInput({
   // Discord channel selector removed; no special values used here
 
   // For Google Drive
-  const clientId = getEnv('NEXT_PUBLIC_GOOGLE_CLIENT_ID') || ''
-  const apiKey = getEnv('NEXT_PUBLIC_GOOGLE_API_KEY') || ''
-
   // Render Google Calendar selector
   if (isGoogleCalendar) {
     const credential = (connectedCredential as string) || ''
@@ -425,6 +421,7 @@ export function FileSelectorInput({
                   disabled={finalDisabled}
                   showPreview={true}
                   credentialId={credential}
+                  workflowId={workflowIdFromUrl}
                   itemType={itemType}
                 />
               </div>
@@ -465,8 +462,6 @@ export function FileSelectorInput({
                 serviceId={subBlock.serviceId}
                 mimeTypeFilter={subBlock.mimeType}
                 showPreview={true}
-                clientId={clientId}
-                apiKey={apiKey}
                 credentialId={credential}
                 workflowId={workflowIdFromUrl}
               />

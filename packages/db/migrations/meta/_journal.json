@@ -225,6 +225,13 @@
       "when": 1778224331010,
       "tag": "0031_chilly_cloak",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1778638450363,
+      "tag": "0032_curious_wasp",
+      "breakpoints": true
     }
   ]
 }

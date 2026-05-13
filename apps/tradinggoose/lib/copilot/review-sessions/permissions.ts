@@ -1,7 +1,11 @@
 import { db } from '@tradinggoose/db'
 import { copilotReviewSessions, permissions, workflow, workspace } from '@tradinggoose/db/schema'
 import { and, eq } from 'drizzle-orm'
-import type { ReviewEntityKind, ReviewTargetDescriptor } from '@/lib/copilot/review-sessions/types'
+import type {
+  ReviewAccessMode,
+  ReviewEntityKind,
+  ReviewTargetDescriptor,
+} from '@/lib/copilot/review-sessions/types'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { PermissionType } from '@/lib/permissions/utils'
 import { readWorkflowAccessContext } from '@/lib/workflows/utils'
@@ -13,10 +17,6 @@ export interface ReviewAccessResult {
   userPermission: PermissionType | null
   workspaceId: string | null
   isOwner: boolean
-}
-
-interface VerifyAccessOptions {
-  requireWrite?: boolean
 }
 
 interface ReviewTargetAccessInput {
@@ -39,7 +39,7 @@ function buildAccessResult(opts: {
   isOwner: boolean
   userPermission: PermissionType | null
   workspaceId: string | null
-  requireWrite: boolean
+  accessMode: ReviewAccessMode
 }): ReviewAccessResult {
   if (opts.isOwner) {
     return {
@@ -59,7 +59,7 @@ function buildAccessResult(opts: {
     }
   }
 
-  if (opts.requireWrite && !canWriteWithPermission(opts.userPermission)) {
+  if (opts.accessMode === 'write' && !canWriteWithPermission(opts.userPermission)) {
     return {
       hasAccess: false,
       userPermission: opts.userPermission,
@@ -79,7 +79,7 @@ function buildAccessResult(opts: {
 async function verifyWorkspaceAccess(
   userId: string,
   workspaceId: string,
-  { requireWrite = false }: VerifyAccessOptions = {}
+  accessMode: ReviewAccessMode
 ): Promise<ReviewAccessResult> {
   try {
     const [workspaceAccess] = await db
@@ -108,10 +108,10 @@ async function verifyWorkspaceAccess(
       isOwner: workspaceAccess.ownerId === userId,
       userPermission: workspaceAccess.permissionType ?? null,
       workspaceId,
-      requireWrite,
+      accessMode,
     })
   } catch (error) {
-    logger.error('Error verifying workspace access', { error, userId, workspaceId, requireWrite })
+    logger.error('Error verifying workspace access', { error, userId, workspaceId, accessMode })
     return { hasAccess: false, userPermission: null, workspaceId, isOwner: false }
   }
 }
@@ -206,7 +206,7 @@ async function verifyEntityReviewSessionAccess(
 export async function verifyWorkflowAccess(
   userId: string,
   workflowId: string,
-  { requireWrite = false }: VerifyAccessOptions = {}
+  accessMode: ReviewAccessMode
 ): Promise<ReviewAccessResult> {
   try {
     const accessContext = await readWorkflowAccessContext(workflowId, userId)
@@ -219,10 +219,10 @@ export async function verifyWorkflowAccess(
       isOwner: accessContext.isOwner,
       userPermission: accessContext.workspacePermission ?? null,
       workspaceId: accessContext.workflow.workspaceId ?? null,
-      requireWrite,
+      accessMode,
     })
   } catch (error) {
-    logger.error('Error verifying workflow access', { error, userId, workflowId, requireWrite })
+    logger.error('Error verifying workflow access', { error, userId, workflowId, accessMode })
     return { hasAccess: false, userPermission: null, workspaceId: null, isOwner: false }
   }
 }
@@ -230,7 +230,7 @@ export async function verifyWorkflowAccess(
 export async function verifyReviewTargetAccess(
   userId: string,
   reviewTarget: ReviewTargetAccessInput | ReviewTargetDescriptor,
-  options: VerifyAccessOptions = {}
+  accessMode: ReviewAccessMode
 ): Promise<ReviewAccessResult> {
   if (reviewTarget.entityKind === 'workflow') {
     const workflowId =
@@ -241,7 +241,7 @@ export async function verifyReviewTargetAccess(
       return { hasAccess: false, userPermission: null, workspaceId: null, isOwner: false }
     }
 
-    return verifyWorkflowAccess(userId, workflowId, options)
+    return verifyWorkflowAccess(userId, workflowId, accessMode)
   }
 
   const reviewSessionAccess = await verifyEntityReviewSessionAccess(
@@ -263,7 +263,7 @@ export async function verifyReviewTargetAccess(
     return { hasAccess: false, userPermission: null, workspaceId: null, isOwner: false }
   }
 
-  return verifyWorkspaceAccess(userId, workspaceId, options)
+  return verifyWorkspaceAccess(userId, workspaceId, accessMode)
 }
 
 export async function resolveWorkflowWorkspaceId(workflowId: string): Promise<string | null> {
@@ -283,7 +283,7 @@ export function createPermissionError(operation: string): string {
 async function hasAccessToReviewSession(
   userId: string,
   session: typeof copilotReviewSessions.$inferSelect,
-  { requireWrite = false }: VerifyAccessOptions = {}
+  accessMode: ReviewAccessMode
 ): Promise<boolean> {
   if (session.entityKind === 'workflow') {
     return session.userId === userId
@@ -293,7 +293,7 @@ async function hasAccessToReviewSession(
     return session.userId === userId
   }
 
-  const accessResult = await verifyWorkspaceAccess(userId, session.workspaceId, { requireWrite })
+  const accessResult = await verifyWorkspaceAccess(userId, session.workspaceId, accessMode)
   return accessResult.hasAccess
 }
 
@@ -305,7 +305,7 @@ async function hasAccessToReviewSession(
 export async function loadReviewSessionForUser(
   reviewSessionId: string,
   userId: string,
-  options: VerifyAccessOptions = {}
+  accessMode: ReviewAccessMode
 ): Promise<typeof copilotReviewSessions.$inferSelect | null> {
   const [session] = await db
     .select()
@@ -317,7 +317,7 @@ export async function loadReviewSessionForUser(
     return null
   }
 
-  const hasAccess = await hasAccessToReviewSession(userId, session, options)
+  const hasAccess = await hasAccessToReviewSession(userId, session, accessMode)
   return hasAccess ? session : null
 }
 
@@ -325,7 +325,7 @@ export async function loadReviewSessionForUserByConversationId(
   conversationId: string,
   entityKind: string,
   userId: string,
-  options: VerifyAccessOptions = {}
+  accessMode: ReviewAccessMode
 ): Promise<typeof copilotReviewSessions.$inferSelect | null> {
   const sessions = await db
     .select()
@@ -338,7 +338,7 @@ export async function loadReviewSessionForUserByConversationId(
     )
 
   for (const session of sessions) {
-    if (await hasAccessToReviewSession(userId, session, options)) {
+    if (await hasAccessToReviewSession(userId, session, accessMode)) {
       return session
     }
   }

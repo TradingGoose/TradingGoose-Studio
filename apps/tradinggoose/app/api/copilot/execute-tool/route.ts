@@ -1,6 +1,3 @@
-import { db } from '@tradinggoose/db'
-import { account } from '@tradinggoose/db/schema'
-import { and, desc, eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { getSession } from '@/lib/auth'
@@ -14,10 +11,10 @@ import {
   createPermissionError,
   verifyWorkflowAccess,
 } from '@/lib/copilot/review-sessions/permissions'
+import { getOAuthAccessTokenForUserCredential } from '@/lib/credentials/oauth'
 import { getEffectiveDecryptedEnv } from '@/lib/environment/utils'
 import { DEFAULT_EXECUTION_TIMEOUT_MS } from '@/lib/execution/constants'
 import { createLogger } from '@/lib/logs/console/logger'
-import { refreshTokenIfNeeded } from '@/lib/oauth/tokens'
 import { checkWorkspaceAccess } from '@/lib/permissions/utils'
 import { getTrelloApiKey } from '@/lib/trello/auth'
 import { generateRequestId } from '@/lib/utils'
@@ -101,7 +98,7 @@ export async function POST(req: NextRequest) {
       const { hasAccess, workspaceId: resolvedWorkspaceId } = await verifyWorkflowAccess(
         userId,
         workflowId,
-        { requireWrite: requiresWriteAccess }
+        requiresWriteAccess ? 'write' : 'read'
       )
       if (!hasAccess) {
         const message = createPermissionError('run tools in')
@@ -176,27 +173,9 @@ export async function POST(req: NextRequest) {
     if (toolConfig?.oauth?.required && toolConfig.oauth.provider) {
       const provider = toolConfig.oauth.provider
       if (!executionParams.accessToken) {
-        let credential = null
-        if (executionParams.credential) {
-          const credentials = await db
-            .select()
-            .from(account)
-            .where(and(eq(account.id, executionParams.credential), eq(account.userId, userId)))
-            .limit(1)
-          credential = credentials[0] || null
-        }
-
-        if (!credential) {
-          const credentials = await db
-            .select()
-            .from(account)
-            .where(and(eq(account.providerId, provider), eq(account.userId, userId)))
-            .orderBy(desc(account.updatedAt))
-            .limit(1)
-          credential = credentials[0] || null
-        }
-
-        if (!credential) {
+        const credentialId =
+          typeof executionParams.credential === 'string' ? executionParams.credential.trim() : ''
+        if (!credentialId) {
           return NextResponse.json(
             {
               success: false,
@@ -208,11 +187,12 @@ export async function POST(req: NextRequest) {
         }
 
         const requestId = generateRequestId()
-        const { accessToken } = await refreshTokenIfNeeded(
+        const accessToken = await getOAuthAccessTokenForUserCredential({
+          credentialId,
+          userId,
           requestId,
-          credential as any,
-          credential.id
-        )
+          workspaceId,
+        })
 
         if (!accessToken) {
           return NextResponse.json(

@@ -1,28 +1,20 @@
-import { db } from '@tradinggoose/db'
-import { account } from '@tradinggoose/db/schema'
-import { eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
-import { getSession } from '@/lib/auth'
+import { resolveOAuthRouteCredential } from '@/lib/credentials/oauth-route'
 import { createLogger } from '@/lib/logs/console/logger'
-import { refreshAccessTokenIfNeeded } from '@/lib/oauth/tokens'
 import { validateMicrosoftGraphId } from '@/lib/security/input-validation'
 import { generateRequestId } from '@/lib/utils'
 
 export const dynamic = 'force-dynamic'
 
-const logger = createLogger('MicrosoftFileAPI')
+const logger = createLogger('OneDriveFileAPI')
 
 export async function GET(request: NextRequest) {
   const requestId = generateRequestId()
+
   try {
-    const session = await getSession()
-
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: 'User not authenticated' }, { status: 401 })
-    }
-
     const { searchParams } = new URL(request.url)
     const credentialId = searchParams.get('credentialId')
+    const workflowId = searchParams.get('workflowId') || undefined
     const fileId = searchParams.get('fileId')
 
     if (!credentialId || !fileId) {
@@ -35,29 +27,14 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: fileIdValidation.error }, { status: 400 })
     }
 
-    const credentials = await db.select().from(account).where(eq(account.id, credentialId)).limit(1)
-
-    if (!credentials.length) {
-      return NextResponse.json({ error: 'Credential not found' }, { status: 404 })
-    }
-
-    const credential = credentials[0]
-
-    if (credential.userId !== session.user.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
-    }
-
-    const accessToken = await refreshAccessTokenIfNeeded(credentialId, session.user.id, requestId)
-
-    if (!accessToken) {
-      return NextResponse.json({ error: 'Failed to obtain valid access token' }, { status: 401 })
-    }
+    const credential = await resolveOAuthRouteCredential(request, { credentialId, workflowId }, requestId)
+    if (!credential.ok) return credential.response
 
     const response = await fetch(
-      `https://graph.microsoft.com/v1.0/me/drive/items/${fileId}?$select=id,name,mimeType,webUrl,thumbnails,createdDateTime,lastModifiedDateTime,size,createdBy`,
+      `https://graph.microsoft.com/v1.0/me/drive/items/${fileId}?$select=id,name,mimeType,webUrl,thumbnails,createdDateTime,lastModifiedDateTime,size,createdBy,file,folder`,
       {
         headers: {
-          Authorization: `Bearer ${accessToken}`,
+          Authorization: `Bearer ${credential.accessToken}`,
         },
       }
     )
@@ -66,23 +43,24 @@ export async function GET(request: NextRequest) {
       const errorData = await response.json().catch(() => ({ error: { message: 'Unknown error' } }))
       logger.error(`[${requestId}] Microsoft Graph API error`, {
         status: response.status,
-        error: errorData.error?.message || 'Failed to fetch file from Microsoft OneDrive',
+        error: errorData.error?.message || 'Failed to fetch file from OneDrive',
       })
       return NextResponse.json(
         {
-          error: errorData.error?.message || 'Failed to fetch file from Microsoft OneDrive',
+          error: errorData.error?.message || 'Failed to fetch file from OneDrive',
         },
         { status: response.status }
       )
     }
 
     const file = await response.json()
-
     const transformedFile = {
       id: file.id,
       name: file.name,
       mimeType:
-        file.mimeType || 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        file?.file?.mimeType ||
+        file.mimeType ||
+        (file.folder ? 'application/vnd.ms-onedrive.folder' : ''),
       iconLink: file.thumbnails?.[0]?.small?.url,
       webViewLink: file.webUrl,
       thumbnailLink: file.thumbnails?.[0]?.medium?.url,
@@ -102,7 +80,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ file: transformedFile }, { status: 200 })
   } catch (error) {
-    logger.error(`[${requestId}] Error fetching file from Microsoft OneDrive`, error)
+    logger.error(`[${requestId}] Error fetching file from OneDrive`, error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

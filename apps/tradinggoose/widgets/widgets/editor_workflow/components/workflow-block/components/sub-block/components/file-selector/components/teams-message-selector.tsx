@@ -483,7 +483,7 @@ export function TeamsMessageSelector({
         const response = await fetch('/api/tools/microsoft-teams/teams', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ credential: selectedCredentialId, workflowId }),
+          body: JSON.stringify({ credentialId: selectedCredentialId, workflowId }),
         })
 
         if (response.ok) {
@@ -521,7 +521,7 @@ export function TeamsMessageSelector({
         const response = await fetch('/api/tools/microsoft-teams/chats', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ credential: selectedCredentialId, workflowId }),
+          body: JSON.stringify({ credentialId: selectedCredentialId, workflowId }),
         })
 
         if (response.ok) {
@@ -560,7 +560,7 @@ export function TeamsMessageSelector({
         const teamsResponse = await fetch('/api/tools/microsoft-teams/teams', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ credential: selectedCredentialId, workflowId }),
+          body: JSON.stringify({ credentialId: selectedCredentialId, workflowId }),
         })
 
         if (teamsResponse.ok) {

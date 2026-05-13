@@ -7,11 +7,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMockRequest } from '@/app/api/__test-utils__/utils'
 
 describe('OAuth Token API Routes', () => {
-  const mockGetCredential = vi.fn()
-  const mockGetOAuthToken = vi.fn()
+  const mockGetOAuthTokenAccount = vi.fn()
   const mockRefreshTokenIfNeeded = vi.fn()
   const mockAuthorizeCredentialUse = vi.fn()
-  const mockCheckHybridAuth = vi.fn()
 
   const mockLogger = {
     info: vi.fn(),
@@ -31,8 +29,7 @@ describe('OAuth Token API Routes', () => {
     })
 
     vi.doMock('@/lib/oauth/tokens', () => ({
-      getCredential: mockGetCredential,
-      getOAuthToken: mockGetOAuthToken,
+      getOAuthTokenAccount: mockGetOAuthTokenAccount,
       refreshTokenIfNeeded: mockRefreshTokenIfNeeded,
     }))
 
@@ -42,15 +39,6 @@ describe('OAuth Token API Routes', () => {
 
     vi.doMock('@/lib/auth/credential-access', () => ({
       authorizeCredentialUse: mockAuthorizeCredentialUse,
-    }))
-
-    vi.doMock('@/lib/auth/hybrid', () => ({
-      checkHybridAuth: mockCheckHybridAuth,
-    }))
-
-    vi.doMock('@/providers/trading/providers', () => ({
-      isTradingProviderOAuthServiceId: (serviceId: string) =>
-        serviceId === 'alpaca-live' || serviceId === 'alpaca-paper' || serviceId === 'tradier-live',
     }))
   })
 
@@ -65,9 +53,10 @@ describe('OAuth Token API Routes', () => {
         authType: 'session',
         requesterUserId: 'test-user-id',
         credentialOwnerUserId: 'owner-user-id',
+        resolvedTokenAccountId: 'account-id',
       })
-      mockGetCredential.mockResolvedValueOnce({
-        id: 'credential-id',
+      mockGetOAuthTokenAccount.mockResolvedValueOnce({
+        id: 'account-id',
         accessToken: 'test-token',
         refreshToken: 'refresh-token',
         accessTokenExpiresAt: new Date(Date.now() + 3600 * 1000),
@@ -93,7 +82,7 @@ describe('OAuth Token API Routes', () => {
       expect(data).toHaveProperty('idToken', 'id-token-value')
 
       expect(mockAuthorizeCredentialUse).toHaveBeenCalled()
-      expect(mockGetCredential).toHaveBeenCalled()
+      expect(mockGetOAuthTokenAccount).toHaveBeenCalled()
       expect(mockRefreshTokenIfNeeded).toHaveBeenCalled()
     })
 
@@ -103,9 +92,10 @@ describe('OAuth Token API Routes', () => {
         authType: 'internal_jwt',
         requesterUserId: 'workflow-owner-id',
         credentialOwnerUserId: 'workflow-owner-id',
+        resolvedTokenAccountId: 'account-id',
       })
-      mockGetCredential.mockResolvedValueOnce({
-        id: 'credential-id',
+      mockGetOAuthTokenAccount.mockResolvedValueOnce({
+        id: 'account-id',
         accessToken: 'test-token',
         refreshToken: 'refresh-token',
         accessTokenExpiresAt: new Date(Date.now() + 3600 * 1000),
@@ -130,38 +120,10 @@ describe('OAuth Token API Routes', () => {
       expect(data).toHaveProperty('accessToken', 'fresh-token')
 
       expect(mockAuthorizeCredentialUse).toHaveBeenCalled()
-      expect(mockGetCredential).toHaveBeenCalled()
+      expect(mockGetOAuthTokenAccount).toHaveBeenCalled()
     })
 
-    it('should resolve non-trading access token by serviceId for internal workflow calls', async () => {
-      mockCheckHybridAuth.mockResolvedValueOnce({
-        success: true,
-        authType: 'internal_jwt',
-        userId: 'acting-user-id',
-      })
-      mockGetOAuthToken.mockResolvedValueOnce('service-token')
-
-      const req = createMockRequest('POST', {
-        serviceId: 'google-drive',
-        workflowId: 'workflow-id',
-      })
-
-      const { POST } = await import('@/app/api/auth/oauth/token/route')
-
-      const response = await POST(req)
-      const data = await response.json()
-
-      expect(response.status).toBe(200)
-      expect(data).toMatchObject({
-        accessToken: 'service-token',
-        providerId: 'google-drive',
-      })
-      expect(mockGetOAuthToken).toHaveBeenCalledWith('acting-user-id', 'google-drive')
-      expect(mockAuthorizeCredentialUse).not.toHaveBeenCalled()
-      expect(mockGetCredential).not.toHaveBeenCalled()
-    })
-
-    it('should reject trading token lookup without credentialId', async () => {
+    it('should reject token lookup without credentialId', async () => {
       const req = createMockRequest('POST', {
         serviceId: 'alpaca-live',
         workflowId: 'workflow-id',
@@ -173,34 +135,11 @@ describe('OAuth Token API Routes', () => {
       const data = await response.json()
 
       expect(response.status).toBe(400)
-      expect(data).toMatchObject({ error: 'credentialId is required for trading provider tokens' })
-      expect(mockGetOAuthToken).not.toHaveBeenCalled()
+      expect(data).toMatchObject({ error: 'Credential ID is required' })
       expect(mockAuthorizeCredentialUse).not.toHaveBeenCalled()
     })
 
-    it('should reject serviceId lookup when the internal token has no acting user', async () => {
-      mockCheckHybridAuth.mockResolvedValueOnce({
-        success: true,
-        authType: 'internal_jwt',
-      })
-
-      const req = createMockRequest('POST', {
-        serviceId: 'google-drive',
-        workflowId: 'workflow-id',
-      })
-
-      const { POST } = await import('@/app/api/auth/oauth/token/route')
-
-      const response = await POST(req)
-      const data = await response.json()
-
-      expect(response.status).toBe(401)
-      expect(data).toMatchObject({ error: 'User not authenticated' })
-      expect(mockGetOAuthToken).not.toHaveBeenCalled()
-      expect(mockAuthorizeCredentialUse).not.toHaveBeenCalled()
-    })
-
-    it('should handle missing credentialId and serviceId', async () => {
+    it('should handle missing credentialId', async () => {
       const req = createMockRequest('POST', {})
 
       const { POST } = await import('@/app/api/auth/oauth/token/route')
@@ -209,7 +148,7 @@ describe('OAuth Token API Routes', () => {
       const data = await response.json()
 
       expect(response.status).toBe(400)
-      expect(data).toHaveProperty('error', 'Credential ID or service ID is required')
+      expect(data).toHaveProperty('error', 'Credential ID is required')
       expect(mockLogger.warn).toHaveBeenCalled()
     })
 
@@ -254,8 +193,9 @@ describe('OAuth Token API Routes', () => {
         authType: 'session',
         requesterUserId: 'test-user-id',
         credentialOwnerUserId: 'owner-user-id',
+        resolvedTokenAccountId: 'account-id',
       })
-      mockGetCredential.mockResolvedValueOnce(undefined)
+      mockGetOAuthTokenAccount.mockResolvedValueOnce(undefined)
 
       const req = createMockRequest('POST', {
         credentialId: 'nonexistent-credential-id',
@@ -276,9 +216,10 @@ describe('OAuth Token API Routes', () => {
         authType: 'session',
         requesterUserId: 'test-user-id',
         credentialOwnerUserId: 'owner-user-id',
+        resolvedTokenAccountId: 'account-id',
       })
-      mockGetCredential.mockResolvedValueOnce({
-        id: 'credential-id',
+      mockGetOAuthTokenAccount.mockResolvedValueOnce({
+        id: 'account-id',
         accessToken: 'test-token',
         refreshToken: 'refresh-token',
         accessTokenExpiresAt: new Date(Date.now() - 3600 * 1000), // Expired

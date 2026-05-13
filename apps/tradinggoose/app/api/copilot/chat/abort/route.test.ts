@@ -80,7 +80,7 @@ describe('copilot chat abort route', () => {
 
     expect(response.status).toBe(200)
     expect(await response.json()).toEqual({ success: true })
-    expect(mockLoadReviewSessionForUser).toHaveBeenCalledWith('review-session-1', 'user-1')
+    expect(mockLoadReviewSessionForUser).toHaveBeenCalledWith('review-session-1', 'user-1', 'read')
     expect(mockProxyCopilotRequest).toHaveBeenCalledWith({
       endpoint: '/api/tools/abort-turn',
       signal: expect.any(AbortSignal),
@@ -136,7 +136,8 @@ describe('copilot chat abort route', () => {
     expect(mockLoadReviewSessionForUserByConversationId).toHaveBeenCalledWith(
       'conversation-1',
       'copilot',
-      'user-1'
+      'user-1',
+      'read'
     )
     expect(mockProxyCopilotRequest).toHaveBeenCalledWith({
       endpoint: '/api/tools/abort-turn',

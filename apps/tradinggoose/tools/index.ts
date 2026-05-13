@@ -284,24 +284,19 @@ export async function executeTool(
 
     validateRequiredParametersAfterMerge(toolId, tool, contextParams)
 
-    const tokenCredentialId =
+    const selectedCredentialId =
       typeof contextParams.credential === 'string' ? contextParams.credential.trim() : ''
-    const tokenServiceId =
-      typeof contextParams.serviceId === 'string' ? contextParams.serviceId.trim() : ''
-    if (tokenCredentialId || tokenServiceId) {
+    if (selectedCredentialId) {
       logger.info(
-        `[${requestId}] Tool ${toolId} needs access token for ${
-          tokenCredentialId ? `credential: ${tokenCredentialId}` : `service: ${tokenServiceId}`
-        }`
+        `[${requestId}] Tool ${toolId} needs access token for credential: ${selectedCredentialId}`
       )
       try {
         const baseUrl = getBaseUrl()
 
         const tokenPayload = {
-          ...(tokenCredentialId
-            ? { credentialId: tokenCredentialId }
-            : { serviceId: tokenServiceId }),
-          ...(tokenCredentialId && scope.workflowId ? { workflowId: scope.workflowId } : {}),
+          credentialId: selectedCredentialId,
+          ...(scope.workflowId ? { workflowId: scope.workflowId } : {}),
+          ...(scope.workspaceId ? { workspaceId: scope.workspaceId } : {}),
         }
 
         logger.info(`[${requestId}] Fetching access token from ${baseUrl}/api/auth/oauth/token`)
@@ -342,8 +337,6 @@ export async function executeTool(
           `[${requestId}] Successfully got access token for ${toolId}, length: ${data.accessToken?.length || 0}`
         )
 
-        contextParams.credential = undefined
-        contextParams.serviceId = undefined
         if (contextParams.workflowId) contextParams.workflowId = undefined
       } catch (error: any) {
         logger.error(`[${requestId}] Error fetching access token for ${toolId}:`, {

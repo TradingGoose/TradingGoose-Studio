@@ -156,7 +156,7 @@ export function EntitySessionHost({ descriptor, user, children }: EntitySessionH
 
     async function init() {
       try {
-        result = await bootstrapYjsProvider(descriptor)
+        result = await bootstrapYjsProvider(descriptor, 'read')
         if (cancelled) {
           result.provider.destroy()
           result.doc.destroy()

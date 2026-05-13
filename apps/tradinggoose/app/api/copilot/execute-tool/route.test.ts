@@ -9,6 +9,7 @@ const {
   mockCheckWorkspaceAccess,
   mockExecuteTool,
   mockGetEffectiveDecryptedEnv,
+  mockGetOAuthAccessTokenForUserCredential,
   mockGetSession,
   mockGetTool,
   mockGetToolAsync,
@@ -17,6 +18,7 @@ const {
   mockCheckWorkspaceAccess: vi.fn(),
   mockExecuteTool: vi.fn(),
   mockGetEffectiveDecryptedEnv: vi.fn(),
+  mockGetOAuthAccessTokenForUserCredential: vi.fn(),
   mockGetSession: vi.fn(),
   mockGetTool: vi.fn(),
   mockGetToolAsync: vi.fn(),
@@ -62,6 +64,11 @@ vi.mock('@/lib/copilot/review-sessions/permissions', () => ({
 
 vi.mock('@/lib/environment/utils', () => ({
   getEffectiveDecryptedEnv: (...args: unknown[]) => mockGetEffectiveDecryptedEnv(...args),
+}))
+
+vi.mock('@/lib/credentials/oauth', () => ({
+  getOAuthAccessTokenForUserCredential: (...args: unknown[]) =>
+    mockGetOAuthAccessTokenForUserCredential(...args),
 }))
 
 vi.mock('@/lib/execution/constants', () => ({
@@ -112,6 +119,7 @@ describe('copilot execute-tool route', () => {
     mockGetSession.mockResolvedValue({ user: { id: 'user-1' } })
     mockCheckWorkspaceAccess.mockResolvedValue({ exists: true, hasAccess: true, canWrite: true })
     mockGetEffectiveDecryptedEnv.mockResolvedValue({})
+    mockGetOAuthAccessTokenForUserCredential.mockResolvedValue('oauth-token')
     mockVerifyWorkflowAccess.mockResolvedValue({ hasAccess: true, workspaceId: null })
   })
 
@@ -261,6 +269,45 @@ describe('copilot execute-tool route', () => {
     )
   })
 
+  it('resolves OAuth credentials inside the requested workspace scope', async () => {
+    mockGetTool.mockReturnValue({
+      id: 'google_drive_list',
+      oauth: { required: true, provider: 'google-drive' },
+      execution: { workspace: { required: true, access: 'read' } },
+      params: {},
+    })
+    mockExecuteTool.mockResolvedValue({ success: true, output: { files: [] } })
+    const { POST } = await import('./route')
+
+    const response = await POST(
+      postExecuteTool({
+        arguments: { credential: 'credential-1' },
+        toolCallId: 'tool-call-oauth',
+        toolName: 'google_drive_list',
+        workspaceId: 'workspace-1',
+      })
+    )
+
+    expect(response.status).toBe(200)
+    expect(mockGetOAuthAccessTokenForUserCredential).toHaveBeenCalledWith({
+      credentialId: 'credential-1',
+      userId: 'user-1',
+      requestId: 'request-1',
+      workspaceId: 'workspace-1',
+    })
+    expect(mockExecuteTool).toHaveBeenCalledWith(
+      'google_drive_list',
+      expect.objectContaining({
+        accessToken: 'oauth-token',
+        credential: undefined,
+        _context: expect.objectContaining({
+          workspaceId: 'workspace-1',
+          userId: 'user-1',
+        }),
+      })
+    )
+  })
+
   it('allows workflow-scoped read-only tools with workflow read access', async () => {
     mockVerifyWorkflowAccess.mockResolvedValue({
       hasAccess: true,
@@ -284,9 +331,7 @@ describe('copilot execute-tool route', () => {
     )
 
     expect(response.status).toBe(200)
-    expect(mockVerifyWorkflowAccess).toHaveBeenCalledWith('user-1', 'workflow-1', {
-      requireWrite: false,
-    })
+    expect(mockVerifyWorkflowAccess).toHaveBeenCalledWith('user-1', 'workflow-1', 'read')
     expect(mockCheckWorkspaceAccess).not.toHaveBeenCalled()
     expect(mockGetEffectiveDecryptedEnv).toHaveBeenCalledWith('user-1', undefined)
     expect(mockExecuteTool).toHaveBeenCalledWith(
@@ -323,9 +368,7 @@ describe('copilot execute-tool route', () => {
 
     expect(response.status).toBe(403)
     expect(await response.json()).toEqual({ error: 'Forbidden' })
-    expect(mockVerifyWorkflowAccess).toHaveBeenCalledWith('user-1', 'workflow-1', {
-      requireWrite: true,
-    })
+    expect(mockVerifyWorkflowAccess).toHaveBeenCalledWith('user-1', 'workflow-1', 'write')
     expect(mockCheckWorkspaceAccess).not.toHaveBeenCalled()
     expect(mockGetEffectiveDecryptedEnv).not.toHaveBeenCalled()
     expect(mockGetTool).toHaveBeenCalledWith('http_request')

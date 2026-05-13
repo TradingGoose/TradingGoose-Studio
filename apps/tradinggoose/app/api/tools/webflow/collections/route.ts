@@ -1,38 +1,34 @@
 import { type NextRequest, NextResponse } from 'next/server'
-import { getSession } from '@/lib/auth'
+import { resolveOAuthRouteCredential } from '@/lib/credentials/oauth-route'
 import { createLogger } from '@/lib/logs/console/logger'
-import { getOAuthToken } from '@/lib/oauth/tokens'
+import { generateRequestId } from '@/lib/utils'
 
 const logger = createLogger('WebflowCollectionsAPI')
 
 export const dynamic = 'force-dynamic'
 
 export async function GET(request: NextRequest) {
-  try {
-    const session = await getSession()
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+  const requestId = generateRequestId()
 
+  try {
     const { searchParams } = new URL(request.url)
     const siteId = searchParams.get('siteId')
+    const credentialId = searchParams.get('credentialId')
+    const workflowId = searchParams.get('workflowId') || undefined
 
     if (!siteId) {
       return NextResponse.json({ error: 'Missing siteId parameter' }, { status: 400 })
     }
-
-    const accessToken = await getOAuthToken(session.user.id, 'webflow')
-
-    if (!accessToken) {
-      return NextResponse.json(
-        { error: 'No Webflow access token found. Please connect your Webflow account.' },
-        { status: 404 }
-      )
+    if (!credentialId) {
+      return NextResponse.json({ error: 'Missing credentialId parameter' }, { status: 400 })
     }
+
+    const credential = await resolveOAuthRouteCredential(request, { credentialId, workflowId }, requestId)
+    if (!credential.ok) return credential.response
 
     const response = await fetch(`https://api.webflow.com/v2/sites/${siteId}/collections`, {
       headers: {
-        Authorization: `Bearer ${accessToken}`,
+        Authorization: `Bearer ${credential.accessToken}`,
         accept: 'application/json',
       },
     })

@@ -1,4 +1,5 @@
 import type { ConfluenceUpdateParams, ConfluenceUpdateResponse } from '@/tools/confluence/types'
+import { getCredentialRouteParams } from '@/tools/credentials'
 import type { ToolConfig } from '@/tools/types'
 
 export const confluenceUpdateTool: ToolConfig<ConfluenceUpdateParams, ConfluenceUpdateResponse> = {
@@ -65,15 +66,13 @@ export const confluenceUpdateTool: ToolConfig<ConfluenceUpdateParams, Confluence
     method: 'PUT',
     headers: (params: ConfluenceUpdateParams) => {
       return {
-        Accept: 'application/json',
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${params.accessToken}`,
       }
     },
     body: (params: ConfluenceUpdateParams) => {
       const body: Record<string, any> = {
+        ...getCredentialRouteParams(params),
         domain: params.domain,
-        accessToken: params.accessToken,
         pageId: params.pageId,
         cloudId: params.cloudId,
         title: params.title,

@@ -470,6 +470,7 @@ describe('executeTool Function', () => {
           body: JSON.stringify({
             credentialId: 'credential-1',
             workflowId: 'test-workflow',
+            workspaceId: 'workspace-456',
           }),
         })
       )
@@ -478,61 +479,6 @@ describe('executeTool Function', () => {
         ;(tools as any).test_credential_tool = originalTool
       } else {
         Reflect.deleteProperty(tools as any, 'test_credential_tool')
-      }
-      Object.defineProperty(global, 'window', {
-        value: originalWindow,
-        writable: true,
-        configurable: true,
-      })
-    }
-  })
-
-  it('uses serviceId for service-scoped OAuth token lookup', async () => {
-    const mockContext = createMockExecutionContext({ userId: 'user-123' })
-    const originalWindow = global.window
-    const originalTool = (tools as any).test_service_tool
-    ;(tools as any).test_service_tool = {
-      id: 'test_service_tool',
-      name: 'Test Service Tool',
-      description: 'A test tool that resolves OAuth by service id',
-      version: '1.0.0',
-      params: {},
-      request: {
-        url: 'https://api.example.com/service',
-        method: 'GET',
-        headers: () => ({ 'Content-Type': 'application/json' }),
-      },
-    }
-
-    Object.defineProperty(global, 'window', {
-      value: undefined,
-      writable: true,
-      configurable: true,
-    })
-
-    try {
-      const result = await executeTool(
-        'test_service_tool',
-        { serviceId: 'alpaca-live' },
-        false,
-        mockContext
-      )
-
-      expect(result.success).toBe(true)
-      expect(vi.mocked(generateInternalToken)).toHaveBeenCalledWith('user-123')
-      expect(global.fetch).toHaveBeenCalledWith(
-        'http://localhost:3000/api/auth/oauth/token',
-        expect.objectContaining({
-          body: JSON.stringify({
-            serviceId: 'alpaca-live',
-          }),
-        })
-      )
-    } finally {
-      if (originalTool) {
-        ;(tools as any).test_service_tool = originalTool
-      } else {
-        Reflect.deleteProperty(tools as any, 'test_service_tool')
       }
       Object.defineProperty(global, 'window', {
         value: originalWindow,

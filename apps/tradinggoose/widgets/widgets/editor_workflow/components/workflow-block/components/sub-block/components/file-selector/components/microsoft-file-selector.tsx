@@ -151,6 +151,7 @@ export function MicrosoftFileSelector({
       const queryParams = new URLSearchParams({
         credentialId: selectedCredentialId,
       })
+      if (workflowId) queryParams.set('workflowId', workflowId)
 
       // Add search query if provided
       if (searchQuery.trim()) {
@@ -164,7 +165,7 @@ export function MicrosoftFileSelector({
       } else if (serviceId === 'sharepoint') {
         endpoint = `/api/tools/sharepoint/sites?${queryParams.toString()}`
       } else {
-        endpoint = `/api/auth/oauth/microsoft/files?${queryParams.toString()}`
+        endpoint = `/api/tools/onedrive/files?${queryParams.toString()}`
       }
 
       const response = await fetch(endpoint)
@@ -197,90 +198,26 @@ export function MicrosoftFileSelector({
 
       setIsLoadingSelectedFile(true)
       try {
-        // Use owner-scoped token for OneDrive items (files/folders) and Excel
-        if (serviceId !== 'sharepoint') {
-          const tokenRes = await fetch('/api/auth/oauth/token', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ credentialId: selectedCredentialId, workflowId }),
-          })
-          if (!tokenRes.ok) {
-            const err = await tokenRes.text()
-            logger.error('Failed to get access token for Microsoft file fetch', { err })
-            return null
-          }
-          const { accessToken } = await tokenRes.json()
-          if (!accessToken) return null
-
-          const graphUrl =
-            `https://graph.microsoft.com/v1.0/me/drive/items/${encodeURIComponent(fileId)}?` +
-            new URLSearchParams({
-              $select:
-                'id,name,webUrl,thumbnails,createdDateTime,lastModifiedDateTime,size,createdBy,file,folder',
-            }).toString()
-          const resp = await fetch(graphUrl, {
-            headers: { Authorization: `Bearer ${accessToken}` },
-          })
-          if (!resp.ok) {
-            const t = await resp.text()
-            // For 404/403, keep current selection; this often means the item moved or is shared differently.
-            if (resp.status !== 404 && resp.status !== 403) {
-              logger.warn('Graph error fetching file by ID', { status: resp.status, t })
-            }
-            return null
-          }
-          const file = await resp.json()
-          const fileInfo: MicrosoftFileInfo = {
-            id: file.id,
-            name: file.name,
-            mimeType:
-              file?.file?.mimeType || (file.folder ? 'application/vnd.ms-onedrive.folder' : ''),
-            iconLink: file.thumbnails?.[0]?.small?.url,
-            webViewLink: file.webUrl,
-            thumbnailLink: file.thumbnails?.[0]?.medium?.url,
-            createdTime: file.createdDateTime,
-            modifiedTime: file.lastModifiedDateTime,
-            size: file.size?.toString(),
-            owners: file.createdBy
-              ? [
-                {
-                  displayName: file.createdBy.user?.displayName || 'Unknown',
-                  emailAddress: file.createdBy.user?.email || '',
-                },
-              ]
-              : [],
-          }
-          setSelectedFile(fileInfo)
-          onFileInfoChange?.(fileInfo)
-          return fileInfo
-        }
-
-        // SharePoint site: fetch via Graph sites endpoint for collaborator visibility
-        const tokenRes = await fetch('/api/auth/oauth/token', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ credentialId: selectedCredentialId, workflowId }),
+        const queryParams = new URLSearchParams({
+          credentialId: selectedCredentialId,
         })
-        if (!tokenRes.ok) return null
-        const { accessToken: spToken } = await tokenRes.json()
-        if (!spToken) return null
-        const spResp = await fetch(
-          `https://graph.microsoft.com/v1.0/sites/${encodeURIComponent(fileId)}?$select=id,displayName,webUrl`,
-          {
-            headers: { Authorization: `Bearer ${spToken}` },
-          }
+        if (workflowId) queryParams.set('workflowId', workflowId)
+        queryParams.set(serviceId === 'sharepoint' ? 'siteId' : 'fileId', fileId)
+
+        const response = await fetch(
+          serviceId === 'sharepoint'
+            ? `/api/tools/sharepoint/site?${queryParams.toString()}`
+            : `/api/tools/onedrive/file?${queryParams.toString()}`
         )
-        if (!spResp.ok) return null
-        const site = await spResp.json()
-        const siteInfo: MicrosoftFileInfo = {
-          id: site.id,
-          name: site.displayName,
-          mimeType: 'sharepoint/site',
-          webViewLink: site.webUrl,
-        }
-        setSelectedFile(siteInfo)
-        onFileInfoChange?.(siteInfo)
-        return siteInfo
+        if (!response.ok) return null
+
+        const data = await response.json()
+        const fileInfo = serviceId === 'sharepoint' ? data.site : data.file
+        if (!fileInfo) return null
+
+        setSelectedFile(fileInfo)
+        onFileInfoChange?.(fileInfo)
+        return fileInfo
       } catch (error) {
         logger.error('Error fetching file by ID:', { error })
         return null
@@ -320,6 +257,7 @@ export function MicrosoftFileSelector({
         credentialId: selectedCredentialId,
         planId: planId,
       })
+      if (workflowId) queryParams.set('workflowId', workflowId)
 
       const url = `/api/tools/microsoft_planner/tasks?${queryParams.toString()}`
       logger.info('Calling API endpoint:', url)
@@ -377,22 +315,16 @@ export function MicrosoftFileSelector({
       if (!selectedCredentialId || !taskId || serviceId !== 'microsoft-planner') return null
       setIsLoadingTasks(true)
       try {
-        const tokenRes = await fetch('/api/auth/oauth/token', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ credentialId: selectedCredentialId, workflowId }),
+        const queryParams = new URLSearchParams({
+          credentialId: selectedCredentialId,
+          taskId,
         })
-        if (!tokenRes.ok) return null
-        const { accessToken } = await tokenRes.json()
-        if (!accessToken) return null
-        const resp = await fetch(
-          `https://graph.microsoft.com/v1.0/planner/tasks/${encodeURIComponent(taskId)}`,
-          {
-            headers: { Authorization: `Bearer ${accessToken}` },
-          }
-        )
-        if (!resp.ok) return null
-        const task = await resp.json()
+        if (workflowId) queryParams.set('workflowId', workflowId)
+
+        const response = await fetch(`/api/tools/microsoft_planner/tasks?${queryParams.toString()}`)
+        if (!response.ok) return null
+        const { task } = await response.json()
+        if (!task) return null
         const taskAsFileInfo: MicrosoftFileInfo = {
           id: task.id,
           name: task.title,

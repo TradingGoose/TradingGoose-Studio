@@ -28,12 +28,8 @@ export function ChannelSelectorInput({
 }: ChannelSelectorInputProps) {
   const workflowIdFromUrl = useWorkflowId()
   const [storeValue, setStoreValue] = useSubBlockValue(blockId, subBlock.id)
-  const [authMethod] = useSubBlockValue(blockId, 'authMethod')
-  const [botToken] = useSubBlockValue(blockId, 'botToken')
   const [connectedCredential] = useSubBlockValue(blockId, 'credential')
 
-  const effectiveAuthMethod = contextValues?.authMethod ?? authMethod
-  const effectiveBotToken = contextValues?.botToken ?? botToken
   const effectiveCredential = contextValues?.credential ?? connectedCredential
   const [selectedChannelId, setSelectedChannelId] = useState<string>('')
   const [_channelInfo, setChannelInfo] = useState<SlackChannelInfo | null>(null)
@@ -45,23 +41,15 @@ export function ChannelSelectorInput({
     disabled,
   })
 
-  // Choose credential strictly based on auth method - use effective values
-  const credential: string =
-    (effectiveAuthMethod as string) === 'bot_token'
-      ? (effectiveBotToken as string) || ''
-      : (effectiveCredential as string) || ''
+  const credential = (effectiveCredential as string) || ''
 
-  // Determine if connected OAuth credential is foreign (not applicable for bot tokens)
-  const { isForeignCredential } = useForeignCredential(
-    'slack',
-    (effectiveAuthMethod as string) === 'bot_token' ? '' : (effectiveCredential as string) || ''
-  )
+  const { isForeignCredential } = useForeignCredential('slack', credential)
 
   useEffect(() => {
     setSelectedChannelId(typeof storeValue === 'string' ? storeValue : '')
   }, [storeValue])
 
-  // Clear channel when any declared dependency changes (e.g., authMethod/credential)
+  // Clear channel when any declared dependency changes.
   const prevDepsSigRef = useRef<string>('')
   useEffect(() => {
     if (dependsOn.length === 0) return

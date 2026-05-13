@@ -10,7 +10,10 @@ import {
   ReadIndicatorClientTool,
   RenameSkillClientTool,
 } from '@/lib/copilot/tools/client/entities/entity-document-tools'
-import { getActiveEntitySession } from '@/lib/copilot/tools/client/entities/entity-document-tool-utils'
+import {
+  getActiveEntitySession,
+  resolveCopilotEntityYjsSessionLease,
+} from '@/lib/copilot/tools/client/entities/entity-document-tool-utils'
 
 const mockRegistryState = {
   workflows: {} as Record<string, { workspaceId?: string }>,
@@ -30,6 +33,7 @@ const mockEntityFieldState = {
   values: {} as Record<string, unknown>,
 }
 const mockBootstrapYjsProvider = vi.fn()
+const mockWaitForYjsWriteSync = vi.fn()
 
 const originalFetch = globalThis.fetch
 
@@ -83,6 +87,7 @@ vi.mock('@/lib/yjs/entity-session-registry', () => ({
 
 vi.mock('@/lib/yjs/provider', () => ({
   bootstrapYjsProvider: (...args: any[]) => mockBootstrapYjsProvider(...args),
+  waitForYjsWriteSync: (...args: any[]) => mockWaitForYjsWriteSync(...args),
 }))
 
 vi.mock('@/lib/yjs/entity-session', () => ({
@@ -109,6 +114,8 @@ describe('entity document tools', () => {
     mockEntitySessionRegistry.unregister.mockReset()
     mockEntityFieldState.values = {}
     mockBootstrapYjsProvider.mockReset()
+    mockWaitForYjsWriteSync.mockReset()
+    mockWaitForYjsWriteSync.mockResolvedValue(undefined)
   })
 
   it('list_skills returns generic entity list results', async () => {
@@ -618,6 +625,7 @@ describe('entity document tools', () => {
       doc: {
         transact: (cb: () => void) => cb(),
       },
+      provider: { synced: true },
     }
 
     const toolCallId = 'edit-skill'
@@ -705,6 +713,12 @@ describe('entity document tools', () => {
         const method = init?.method || 'GET'
 
         if (url === '/api/copilot/review-sessions/resolve' && method === 'POST') {
+          expect(JSON.parse(String(init?.body))).toMatchObject({
+            workspaceId: 'ws-1',
+            entityKind: 'skill',
+            entityId: 'skill-1',
+            accessMode: 'write',
+          })
           return {
             ok: true,
             status: 200,
@@ -748,7 +762,7 @@ describe('entity document tools', () => {
       await tool.handleAccept()
 
       expect(tool.getState()).toBe(ClientToolCallState.success)
-      expect(mockBootstrapYjsProvider).toHaveBeenCalledWith(descriptor)
+      expect(mockBootstrapYjsProvider).toHaveBeenCalledWith(descriptor, 'write')
       expect(mockEntitySessionRegistry.register).toHaveBeenCalledWith(
         expect.objectContaining({ descriptor, doc, provider })
       )
@@ -766,6 +780,38 @@ describe('entity document tools', () => {
     } finally {
       vi.useRealTimers()
     }
+  })
+
+  it('requires write-mode review resolution before bootstrapping a saved entity session', async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === 'string' ? input : input.toString()
+      const method = init?.method || 'GET'
+
+      if (url === '/api/copilot/review-sessions/resolve' && method === 'POST') {
+        expect(JSON.parse(String(init?.body))).toMatchObject({
+          accessMode: 'write',
+          entityKind: 'skill',
+          entityId: 'skill-1',
+        })
+        return {
+          ok: false,
+          status: 403,
+          json: async () => ({ error: 'Access denied' }),
+        }
+      }
+
+      throw new Error(`Unexpected fetch URL: ${url} (${method})`)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    await expect(
+      resolveCopilotEntityYjsSessionLease(
+        { toolCallId: 'edit-skill', toolName: 'edit_skill', workspaceId: 'ws-1' },
+        'skill',
+        'skill-1'
+      )
+    ).rejects.toThrow('Access denied')
+    expect(mockBootstrapYjsProvider).not.toHaveBeenCalled()
   })
 
   it('rename_skill applies the renamed document to a saved review target', async () => {
@@ -801,6 +847,7 @@ describe('entity document tools', () => {
       doc: {
         transact: (cb: () => void) => cb(),
       },
+      provider: { synced: true },
     }
 
     const toolCallId = 'rename-skill'

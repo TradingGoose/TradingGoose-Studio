@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import * as XLSX from 'xlsx'
 import { z } from 'zod'
-import { checkHybridAuth } from '@/lib/auth/hybrid'
+import { resolveOAuthRouteCredential } from '@/lib/credentials/oauth-route'
 import { createLogger } from '@/lib/logs/console/logger'
 import {
   downloadFileFromStorage,
@@ -16,7 +16,8 @@ const logger = createLogger('OneDriveUploadAPI')
 const MICROSOFT_GRAPH_BASE = 'https://graph.microsoft.com/v1.0'
 
 const OneDriveUploadSchema = z.object({
-  accessToken: z.string().min(1, 'Access token is required'),
+  credentialId: z.string().min(1, 'Credential ID is required'),
+  workflowId: z.string().optional().nullable(),
   fileName: z.string().min(1, 'File name is required'),
   file: z.any().optional(), // UserFile object (optional for blank Excel creation)
   folderId: z.string().optional().nullable(),
@@ -29,25 +30,10 @@ export async function POST(request: NextRequest) {
   const requestId = generateRequestId()
 
   try {
-    const authResult = await checkHybridAuth(request, { requireWorkflowId: false })
-
-    if (!authResult.success) {
-      logger.warn(`[${requestId}] Unauthorized OneDrive upload attempt: ${authResult.error}`)
-      return NextResponse.json(
-        {
-          success: false,
-          error: authResult.error || 'Authentication required',
-        },
-        { status: 401 }
-      )
-    }
-
-    logger.info(`[${requestId}] Authenticated OneDrive upload request via ${authResult.authType}`, {
-      userId: authResult.userId,
-    })
-
     const body = await request.json()
     const validatedData = OneDriveUploadSchema.parse(body)
+    const credential = await resolveOAuthRouteCredential(request, validatedData, requestId)
+    if (!credential.ok) return credential.response
 
     let fileBuffer: Buffer
     let mimeType: string
@@ -159,7 +145,7 @@ export async function POST(request: NextRequest) {
     const uploadResponse = await fetch(uploadUrl, {
       method: 'PUT',
       headers: {
-        Authorization: `Bearer ${validatedData.accessToken}`,
+        Authorization: `Bearer ${credential.accessToken}`,
         'Content-Type': mimeType,
       },
       body: new Uint8Array(fileBuffer),
@@ -193,7 +179,7 @@ export async function POST(request: NextRequest) {
           {
             method: 'POST',
             headers: {
-              Authorization: `Bearer ${validatedData.accessToken}`,
+              Authorization: `Bearer ${credential.accessToken}`,
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({ persistChanges: true }),
@@ -213,7 +199,7 @@ export async function POST(request: NextRequest) {
           )}/workbook/worksheets?$select=name&$orderby=position&$top=1`
           const listResp = await fetch(listUrl, {
             headers: {
-              Authorization: `Bearer ${validatedData.accessToken}`,
+              Authorization: `Bearer ${credential.accessToken}`,
               ...(workbookSessionId ? { 'workbook-session-id': workbookSessionId } : {}),
             },
           })
@@ -281,7 +267,7 @@ export async function POST(request: NextRequest) {
         const excelWriteResponse = await fetch(url.toString(), {
           method: 'PATCH',
           headers: {
-            Authorization: `Bearer ${validatedData.accessToken}`,
+            Authorization: `Bearer ${credential.accessToken}`,
             'Content-Type': 'application/json',
             ...(workbookSessionId ? { 'workbook-session-id': workbookSessionId } : {}),
           },
@@ -323,7 +309,7 @@ export async function POST(request: NextRequest) {
               {
                 method: 'POST',
                 headers: {
-                  Authorization: `Bearer ${validatedData.accessToken}`,
+                  Authorization: `Bearer ${credential.accessToken}`,
                   'workbook-session-id': workbookSessionId,
                 },
               }

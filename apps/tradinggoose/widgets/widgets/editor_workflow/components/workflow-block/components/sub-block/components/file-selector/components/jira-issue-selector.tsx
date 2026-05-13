@@ -162,31 +162,6 @@ export function JiraIssueSelector({
       setError(null)
 
       try {
-        // Get the access token from the selected credential
-        const tokenResponse = await fetch('/api/auth/oauth/token', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            credentialId: selectedCredentialId,
-            workflowId,
-          }),
-        })
-
-        if (!tokenResponse.ok) {
-          const errorData = await tokenResponse.json()
-          throw new Error(errorData.error || 'Failed to get access token')
-        }
-
-        const tokenData = await tokenResponse.json()
-        const accessToken = tokenData.accessToken
-
-        if (!accessToken) {
-          throw new Error('No access token received')
-        }
-
-        // Use the access token to fetch the issue info
         const response = await fetch('/api/tools/jira/issue', {
           method: 'POST',
           headers: {
@@ -194,7 +169,8 @@ export function JiraIssueSelector({
           },
           body: JSON.stringify({
             domain,
-            accessToken,
+            credentialId: selectedCredentialId,
+            workflowId,
             issueId,
             cloudId,
           }),
@@ -231,7 +207,7 @@ export function JiraIssueSelector({
         setIsLoading(false)
       }
     },
-    [selectedCredentialId, domain, onIssueInfoChange, cloudId]
+    [selectedCredentialId, domain, onIssueInfoChange, cloudId, workflowId]
   )
 
   // Fetch issues from Jira
@@ -259,42 +235,10 @@ export function JiraIssueSelector({
       setError(null)
 
       try {
-        // Get the access token from the selected credential
-        const tokenResponse = await fetch('/api/auth/oauth/token', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            credentialId: selectedCredentialId,
-            workflowId,
-          }),
-        })
-
-        if (!tokenResponse.ok) {
-          const errorData = await tokenResponse.json()
-          logger.error('Access token error:', errorData)
-
-          // If there's a token error, we might need to reconnect the account
-          setError('Authentication failed. Please reconnect your Jira account.')
-          setIsLoading(false)
-          return
-        }
-
-        const tokenData = await tokenResponse.json()
-        const accessToken = tokenData.accessToken
-
-        if (!accessToken) {
-          logger.error('No access token returned')
-          setError('Authentication failed. Please reconnect your Jira account.')
-          setIsLoading(false)
-          return
-        }
-
-        // Build query parameters for the issues endpoint
         const queryParams = new URLSearchParams({
           domain,
-          accessToken,
+          credentialId: selectedCredentialId,
+          ...(workflowId && { workflowId }),
           ...(projectId && { projectId }),
           ...(searchQuery && { query: searchQuery }),
           ...(cloudId && { cloudId }),
@@ -369,6 +313,7 @@ export function JiraIssueSelector({
       fetchIssueInfo,
       cloudId,
       projectId,
+      workflowId,
     ]
   )
 

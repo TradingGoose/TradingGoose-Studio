@@ -1,11 +1,18 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { ExternalLink, FileIcon, FolderIcon, RefreshCw, X } from 'lucide-react'
-import useDrivePicker from 'react-google-drive-picker'
+import { Check, ChevronDown, ExternalLink, FileIcon, FolderIcon, RefreshCw, X } from 'lucide-react'
 import { GoogleDocsIcon, GoogleSheetsIcon } from '@/components/icons/icons'
 import { Button } from '@/components/ui/button'
-import { getEnv } from '@/lib/env'
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { createLogger } from '@/lib/logs/console/logger'
 import {
   type Credential,
@@ -44,8 +51,6 @@ interface GoogleDrivePickerProps {
   mimeTypeFilter?: string
   showPreview?: boolean
   onFileInfoChange?: (fileInfo: FileInfo | null) => void
-  clientId: string
-  apiKey: string
   credentialId?: string
   workflowId?: string
 }
@@ -61,8 +66,6 @@ export function GoogleDrivePicker({
   mimeTypeFilter,
   showPreview = true,
   onFileInfoChange,
-  clientId,
-  apiKey,
   credentialId,
   workflowId,
 }: GoogleDrivePickerProps) {
@@ -72,10 +75,13 @@ export function GoogleDrivePicker({
   const [selectedFile, setSelectedFile] = useState<FileInfo | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [isLoadingSelectedFile, setIsLoadingSelectedFile] = useState(false)
+  const [isLoadingFiles, setIsLoadingFiles] = useState(false)
+  const [availableFiles, setAvailableFiles] = useState<FileInfo[]>([])
+  const [searchQuery, setSearchQuery] = useState('')
+  const [open, setOpen] = useState(false)
   const [showOAuthModal, setShowOAuthModal] = useState(false)
   const [credentialsLoaded, setCredentialsLoaded] = useState(false)
   const initialFetchRef = useRef(false)
-  const [openPicker, _authResponse] = useDrivePicker()
 
   // Determine the appropriate service ID based on provider and scopes
   const getServiceId = (): string => {
@@ -170,8 +176,37 @@ export function GoogleDrivePicker({
         setIsLoadingSelectedFile(false)
       }
     },
-    [selectedCredentialId, onChange, onFileInfoChange]
+    [selectedCredentialId, onChange, onFileInfoChange, workflowId]
   )
+
+  const fetchAvailableFiles = useCallback(async () => {
+    if (!selectedCredentialId) return
+
+    setIsLoadingFiles(true)
+    try {
+      const queryParams = new URLSearchParams({
+        credentialId: selectedCredentialId,
+      })
+      if (workflowId) queryParams.set('workflowId', workflowId)
+      if (mimeTypeFilter) queryParams.set('mimeType', mimeTypeFilter)
+      if (searchQuery.trim()) queryParams.set('query', searchQuery.trim())
+
+      const response = await fetch(`/api/tools/drive/files?${queryParams.toString()}`)
+
+      if (response.ok) {
+        const data = await response.json()
+        setAvailableFiles(data.files || [])
+      } else {
+        logger.error('Error fetching Drive files:', { error: await response.text() })
+        setAvailableFiles([])
+      }
+    } catch (error) {
+      logger.error('Error fetching Drive files:', { error })
+      setAvailableFiles([])
+    } finally {
+      setIsLoadingFiles(false)
+    }
+  }, [selectedCredentialId, workflowId, mimeTypeFilter, searchQuery])
 
   // Fetch credentials on initial mount
   useEffect(() => {
@@ -237,102 +272,13 @@ export function GoogleDrivePicker({
     fetchFileById,
   ])
 
-  // Fetch the access token for the selected credential
-  const fetchAccessToken = async (credentialOverrideId?: string): Promise<string | null> => {
-    const effectiveCredentialId = credentialOverrideId || selectedCredentialId
-    if (!effectiveCredentialId) {
-      logger.error('No credential ID selected for Google Drive Picker')
-      return null
-    }
-
-    setIsLoading(true)
-    try {
-      const response = await fetch('/api/auth/oauth/token', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ credentialId: effectiveCredentialId, workflowId }),
-      })
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch access token: ${response.status}`)
-      }
-
-      const data = await response.json()
-      return data.accessToken || null
-    } catch (error) {
-      logger.error('Error fetching access token:', { error })
-      return null
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  // Handle opening the Google Drive Picker
-  const handleOpenPicker = async (credentialOverrideId?: string) => {
-    try {
-      // First, get the access token for the selected credential
-      const accessToken = await fetchAccessToken(credentialOverrideId)
-
-      if (!accessToken) {
-        logger.error('Failed to get access token for Google Drive Picker')
-        return
-      }
-
-      const viewIdForMimeType = () => {
-        // Return appropriate view based on mime type filter
-        if (mimeTypeFilter?.includes('folder')) {
-          return 'FOLDERS'
-        }
-        if (mimeTypeFilter?.includes('spreadsheet')) {
-          return 'SPREADSHEETS'
-        }
-        if (mimeTypeFilter?.includes('document')) {
-          return 'DOCUMENTS'
-        }
-        return 'DOCS' // Default view
-      }
-
-      openPicker({
-        clientId,
-        developerKey: apiKey,
-        viewId: viewIdForMimeType(),
-        token: accessToken, // Use the fetched access token
-        showUploadView: true,
-        showUploadFolders: true,
-        supportDrives: true,
-        multiselect: false,
-        appId: getEnv('NEXT_PUBLIC_GOOGLE_PROJECT_NUMBER'),
-        // Enable folder selection when mimeType is folder
-        setSelectFolderEnabled: !!mimeTypeFilter?.includes('folder'),
-        callbackFunction: (data) => {
-          if (data.action === 'picked') {
-            const file = data.docs[0]
-            if (file) {
-              const fileInfo: FileInfo = {
-                id: file.id,
-                name: file.name,
-                mimeType: file.mimeType,
-                iconLink: file.iconUrl,
-                webViewLink: file.url,
-                // thumbnailLink is not directly available from the picker
-                thumbnailLink: file.iconUrl, // Use iconUrl as fallback
-                modifiedTime: file.lastEditedUtc
-                  ? new Date(file.lastEditedUtc).toISOString()
-                  : undefined,
-              }
-
-              setSelectedFileId(file.id)
-              setSelectedFile(fileInfo)
-              onChange(file.id, fileInfo)
-              onFileInfoChange?.(fileInfo)
-            }
-          }
-        },
-      })
-    } catch (error) {
-      logger.error('Error opening Google Drive Picker:', { error })
-    }
-  }
+  useEffect(() => {
+    if (!open || !selectedCredentialId) return
+    const timeout = setTimeout(() => {
+      void fetchAvailableFiles()
+    }, 250)
+    return () => clearTimeout(timeout)
+  }, [open, selectedCredentialId, fetchAvailableFiles])
 
   // Handle adding a new credential
   const handleAddCredential = () => {
@@ -346,6 +292,15 @@ export function GoogleDrivePicker({
     setSelectedFile(null)
     onChange('', undefined)
     onFileInfoChange?.(null)
+  }
+
+  const handleFileSelect = (file: FileInfo) => {
+    setSelectedFileId(file.id)
+    setSelectedFile(file)
+    onChange(file.id, file)
+    onFileInfoChange?.(file)
+    setOpen(false)
+    setSearchQuery('')
   }
 
   // Get provider icon
@@ -435,47 +390,85 @@ export function GoogleDrivePicker({
   return (
     <>
       <div className='space-y-2'>
-        <Button
-          variant='outline'
-          role='combobox'
-          className='h-10 w-full min-w-0 justify-between'
-          disabled={disabled || isLoading}
-          onClick={async () => {
-            // Decide which credential to use
-            let idToUse = selectedCredentialId
-            if (!idToUse && credentials.length === 1) {
-              idToUse = credentials[0].id
-              setSelectedCredentialId(idToUse)
-            }
-
-            if (!idToUse) {
-              // No credentials — prompt OAuth
-              handleAddCredential()
-              return
-            }
-
-            await handleOpenPicker(idToUse)
-          }}
-        >
-          <div className='flex min-w-0 items-center gap-2 overflow-hidden'>
-            {canShowPreview ? (
-              <>
-                {getFileIcon(selectedFile, 'sm')}
-                <span className='truncate font-normal'>{selectedFile.name}</span>
-              </>
-            ) : selectedFileId && isLoadingSelectedFile && selectedCredentialId ? (
-              <>
-                <RefreshCw className='h-4 w-4 animate-spin' />
-                <span className='truncate text-muted-foreground'>Loading document...</span>
-              </>
-            ) : (
-              <>
-                {getProviderIcon(provider)}
-                <span className='truncate text-muted-foreground'>{label}</span>
-              </>
-            )}
-          </div>
-        </Button>
+        <Popover open={open} onOpenChange={setOpen}>
+          <PopoverTrigger asChild>
+            <Button
+              variant='outline'
+              role='combobox'
+              className='h-10 w-full min-w-0 justify-between'
+              disabled={disabled || isLoading}
+              onClick={() => {
+                if (!selectedCredentialId && credentials.length === 1) {
+                  setSelectedCredentialId(credentials[0].id)
+                } else if (!selectedCredentialId) {
+                  handleAddCredential()
+                }
+              }}
+            >
+              <div className='flex min-w-0 items-center gap-2 overflow-hidden'>
+                {canShowPreview ? (
+                  <>
+                    {getFileIcon(selectedFile, 'sm')}
+                    <span className='truncate font-normal'>{selectedFile.name}</span>
+                  </>
+                ) : selectedFileId && isLoadingSelectedFile && selectedCredentialId ? (
+                  <>
+                    <RefreshCw className='h-4 w-4 animate-spin' />
+                    <span className='truncate text-muted-foreground'>Loading document...</span>
+                  </>
+                ) : (
+                  <>
+                    {getProviderIcon(provider)}
+                    <span className='truncate text-muted-foreground'>{label}</span>
+                  </>
+                )}
+              </div>
+              <ChevronDown className='ml-2 h-4 w-4 shrink-0 opacity-50' />
+            </Button>
+          </PopoverTrigger>
+          {selectedCredentialId && (
+            <PopoverContent className='w-[320px] p-0' align='start'>
+              <Command>
+                <CommandInput
+                  placeholder='Search Drive files...'
+                  value={searchQuery}
+                  onValueChange={setSearchQuery}
+                />
+                <CommandList>
+                  <CommandEmpty>
+                    {isLoadingFiles ? (
+                      <div className='flex items-center justify-center p-4'>
+                        <RefreshCw className='h-4 w-4 animate-spin' />
+                        <span className='ml-2'>Loading...</span>
+                      </div>
+                    ) : (
+                      <div className='p-4 text-center'>
+                        <p className='font-medium text-sm'>No files found.</p>
+                      </div>
+                    )}
+                  </CommandEmpty>
+                  {availableFiles.length > 0 && (
+                    <CommandGroup>
+                      {availableFiles.map((file) => (
+                        <CommandItem
+                          key={file.id}
+                          value={`file-${file.id}-${file.name}`}
+                          onSelect={() => handleFileSelect(file)}
+                        >
+                          <div className='flex min-w-0 items-center gap-2'>
+                            {getFileIcon(file, 'sm')}
+                            <span className='truncate font-normal'>{file.name}</span>
+                          </div>
+                          {file.id === selectedFileId && <Check className='ml-auto h-4 w-4' />}
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  )}
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          )}
+        </Popover>
 
         {/* File preview */}
         {canShowPreview && (

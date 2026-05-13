@@ -1,4 +1,5 @@
 import { createLogger } from '@/lib/logs/console/logger'
+import { getCredentialRouteParams } from '@/tools/credentials'
 import type { OneDriveToolParams, OneDriveUploadResponse } from '@/tools/onedrive/types'
 import type { ToolConfig } from '@/tools/types'
 
@@ -116,7 +117,7 @@ export const uploadTool: ToolConfig<OneDriveToolParams, OneDriveUploadResponse> 
       // For file uploads or Excel creation, send all params as JSON to custom API route
       if (params.file || isExcelFile) {
         return {
-          accessToken: params.accessToken,
+          ...getCredentialRouteParams(params),
           fileName: params.fileName,
           file: params.file,
           folderId: params.folderId,

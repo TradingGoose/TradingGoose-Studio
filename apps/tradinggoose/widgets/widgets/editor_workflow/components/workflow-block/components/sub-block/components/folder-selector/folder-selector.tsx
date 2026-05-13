@@ -130,47 +130,33 @@ export function FolderSelector({
       if (!selectedCredentialId || !folderId) return null
 
       try {
-        if (provider === 'outlook') {
-          // Resolve Outlook folder name with owner-scoped token
-          const tokenRes = await fetch('/api/auth/oauth/token', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ credentialId: selectedCredentialId, workflowId }),
-          })
-          if (!tokenRes.ok) return null
-          const { accessToken } = await tokenRes.json()
-          if (!accessToken) return null
-          const resp = await fetch(
-            `https://graph.microsoft.com/v1.0/me/mailFolders/${encodeURIComponent(folderId)}`,
-            {
-              headers: { Authorization: `Bearer ${accessToken}` },
-            }
-          )
-          if (!resp.ok) return null
-          const folder = await resp.json()
-          const folderInfo: FolderInfo = {
-            id: folder.id,
-            name: folder.displayName,
-            type: 'folder',
-            messagesTotal: folder.totalItemCount,
-            messagesUnread: folder.unreadItemCount,
-          }
-          setSelectedFolder(folderInfo)
-          onFolderInfoChange?.(folderInfo)
-          return folderInfo
-        }
-        // Gmail label resolution
         const queryParams = new URLSearchParams({
           credentialId: selectedCredentialId,
-          labelId: folderId,
         })
-        const response = await fetch(`/api/tools/gmail/label?${queryParams.toString()}`)
+        if (workflowId) queryParams.set('workflowId', workflowId)
+
+        const response =
+          provider === 'outlook'
+            ? await fetch(
+                `/api/tools/outlook/folders?${new URLSearchParams({
+                  ...Object.fromEntries(queryParams),
+                  folderId,
+                }).toString()}`
+              )
+            : await fetch(
+                `/api/tools/gmail/label?${new URLSearchParams({
+                  ...Object.fromEntries(queryParams),
+                  labelId: folderId,
+                }).toString()}`
+              )
+
         if (response.ok) {
           const data = await response.json()
-          if (data.label) {
-            setSelectedFolder(data.label)
-            onFolderInfoChange?.(data.label)
-            return data.label
+          const folderInfo = provider === 'outlook' ? data.folder : data.label
+          if (folderInfo) {
+            setSelectedFolder(folderInfo)
+            onFolderInfoChange?.(folderInfo)
+            return folderInfo
           }
         } else {
           logger.error('Error fetching folder by ID:', {
@@ -200,6 +186,9 @@ export function FolderSelector({
 
         if (searchQuery) {
           queryParams.append('query', searchQuery)
+        }
+        if (workflowId) {
+          queryParams.append('workflowId', workflowId)
         }
 
         // Determine the API endpoint based on provider
@@ -261,6 +250,7 @@ export function FolderSelector({
       fetchFolderById,
       provider,
       isForeignCredential,
+      workflowId,
     ]
   )
 

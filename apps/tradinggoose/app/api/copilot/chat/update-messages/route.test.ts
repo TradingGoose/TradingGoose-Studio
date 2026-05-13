@@ -234,7 +234,7 @@ describe('Copilot Chat Update Messages', () => {
     expect(mockLoadReviewSessionForUser).toHaveBeenCalledWith(
       'review-session-1',
       'collaborator-user',
-      { requireWrite: true }
+      'write'
     )
     expect(mockTransaction).toHaveBeenCalledTimes(1)
     expect(deleteWhere).toHaveBeenCalledTimes(2)

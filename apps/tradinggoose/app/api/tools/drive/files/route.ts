@@ -1,8 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server'
-import { getSession } from '@/lib/auth'
-import { authorizeCredentialUse } from '@/lib/auth/credential-access'
+import { resolveOAuthRouteCredential } from '@/lib/credentials/oauth-route'
 import { createLogger } from '@/lib/logs/console/logger'
-import { refreshAccessTokenIfNeeded } from '@/lib/oauth/tokens'
 import { generateRequestId } from '@/lib/utils'
 export const dynamic = 'force-dynamic'
 
@@ -17,13 +15,6 @@ export async function GET(request: NextRequest) {
   logger.info(`[${requestId}] Google Drive files request received`)
 
   try {
-    const session = await getSession()
-
-    if (!session?.user?.id) {
-      logger.warn(`[${requestId}] Unauthenticated request rejected`)
-      return NextResponse.json({ error: 'User not authenticated' }, { status: 401 })
-    }
-
     const { searchParams } = new URL(request.url)
     const credentialId = searchParams.get('credentialId')
     const mimeType = searchParams.get('mimeType')
@@ -36,21 +27,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Credential ID is required' }, { status: 400 })
     }
 
-    const authz = await authorizeCredentialUse(request, { credentialId: credentialId!, workflowId })
-    if (!authz.ok || !authz.credentialOwnerUserId) {
-      logger.warn(`[${requestId}] Unauthorized credential access attempt`, authz)
-      return NextResponse.json({ error: authz.error || 'Unauthorized' }, { status: 403 })
-    }
-
-    const accessToken = await refreshAccessTokenIfNeeded(
-      credentialId!,
-      authz.credentialOwnerUserId,
-      requestId
-    )
-
-    if (!accessToken) {
-      return NextResponse.json({ error: 'Failed to obtain valid access token' }, { status: 401 })
-    }
+    const credential = await resolveOAuthRouteCredential(request, { credentialId, workflowId }, requestId)
+    if (!credential.ok) return credential.response
 
     const qParts: string[] = ['trashed = false']
     if (folderId) {
@@ -68,7 +46,7 @@ export async function GET(request: NextRequest) {
       `https://www.googleapis.com/drive/v3/files?q=${q}&supportsAllDrives=true&includeItemsFromAllDrives=true&spaces=drive&fields=files(id,name,mimeType,iconLink,webViewLink,thumbnailLink,createdTime,modifiedTime,size,owners,parents)`,
       {
         headers: {
-          Authorization: `Bearer ${accessToken}`,
+          Authorization: `Bearer ${credential.accessToken}`,
         },
       }
     )

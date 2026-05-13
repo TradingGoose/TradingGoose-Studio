@@ -20,7 +20,7 @@ export async function resolveServerWorkflowScope(
     return null
   }
 
-  const access = await verifyWorkflowAccess(userId, workflowId)
+  const access = await verifyWorkflowAccess(userId, workflowId, 'read')
 
   return {
     workflowId,

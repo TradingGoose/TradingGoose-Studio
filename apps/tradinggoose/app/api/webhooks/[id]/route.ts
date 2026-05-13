@@ -3,8 +3,8 @@ import { webhook, workflow } from '@tradinggoose/db/schema'
 import { eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
+import { getOAuthAccessTokenForStoredCredential } from '@/lib/credentials/oauth'
 import { createLogger } from '@/lib/logs/console/logger'
-import { getOAuthToken } from '@/lib/oauth/tokens'
 import { getUserEntityPermissions } from '@/lib/permissions/utils'
 import { getBaseUrl } from '@/lib/urls/utils'
 import { generateRequestId } from '@/lib/utils'
@@ -268,9 +268,10 @@ export async function DELETE(
     // If it's an Airtable webhook, delete it from Airtable first
     if (foundWebhook.provider === 'airtable') {
       try {
-        const { baseId, externalId } = (foundWebhook.providerConfig || {}) as {
+        const { baseId, externalId, credentialId } = (foundWebhook.providerConfig || {}) as {
           baseId?: string
           externalId?: string
+          credentialId?: string
         }
 
         if (!baseId) {
@@ -283,12 +284,23 @@ export async function DELETE(
           )
         }
 
-        // Get access token for the workflow owner
-        const userIdForToken = webhookData.workflow.userId
-        const accessToken = await getOAuthToken(userIdForToken, 'airtable')
+        if (!credentialId) {
+          logger.warn(`[${requestId}] Missing credentialId for Airtable webhook deletion.`, {
+            webhookId: id,
+          })
+          return NextResponse.json(
+            { error: 'Missing credentialId for Airtable webhook deletion' },
+            { status: 400 }
+          )
+        }
+
+        const accessToken = await getOAuthAccessTokenForStoredCredential({
+          credentialId,
+          requestId,
+        })
         if (!accessToken) {
           logger.warn(
-            `[${requestId}] Could not retrieve Airtable access token for user ${userIdForToken}. Cannot delete webhook in Airtable.`,
+            `[${requestId}] Could not retrieve Airtable access token for credential ${credentialId}. Cannot delete webhook in Airtable.`,
             { webhookId: id }
           )
           return NextResponse.json(

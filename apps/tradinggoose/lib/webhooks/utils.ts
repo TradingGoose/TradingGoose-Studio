@@ -1,9 +1,9 @@
 import { db } from '@tradinggoose/db'
-import { account, webhook } from '@tradinggoose/db/schema'
+import { webhook } from '@tradinggoose/db/schema'
 import { and, eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
+import { getOAuthAccessTokenForStoredCredential } from '@/lib/credentials/oauth'
 import { createLogger } from '@/lib/logs/console/logger'
-import { refreshAccessTokenIfNeeded } from '@/lib/oauth/tokens'
 
 const logger = createLogger('WebhookUtils')
 
@@ -233,19 +233,10 @@ async function formatTeamsGraphNotification(
     })
   } else {
     try {
-      // Get userId from credential
-      const rows = await db.select().from(account).where(eq(account.id, credentialId)).limit(1)
-      if (rows.length === 0) {
-        logger.error('Teams credential not found', { credentialId, chatId: resolvedChatId })
-        // Continue without message data
-      } else {
-        const effectiveUserId = rows[0].userId
-        accessToken = await refreshAccessTokenIfNeeded(
-          credentialId,
-          effectiveUserId,
-          'teams-graph-notification'
-        )
-      }
+      accessToken = await getOAuthAccessTokenForStoredCredential({
+        credentialId,
+        requestId: 'teams-graph-notification',
+      })
 
       if (accessToken) {
         const msgUrl = `https://graph.microsoft.com/v1.0/chats/${encodeURIComponent(resolvedChatId)}/messages/${encodeURIComponent(resolvedMessageId)}`
@@ -1336,21 +1327,6 @@ export async function fetchAndProcessAirtablePayloads(
       return
     }
 
-    let ownerUserId: string | null = null
-    try {
-      const rows = await db.select().from(account).where(eq(account.id, credentialId)).limit(1)
-      ownerUserId = rows.length ? rows[0].userId : null
-    } catch (_e) {
-      ownerUserId = null
-    }
-
-    if (!ownerUserId) {
-      logger.error(
-        `[${requestId}] Could not resolve owner for Airtable credential ${credentialId} on webhook ${webhookData.id}`
-      )
-      return
-    }
-
     const storedCursor = localProviderConfig.externalWebhookCursor
 
     if (storedCursor === undefined || storedCursor === null) {
@@ -1396,7 +1372,10 @@ export async function fetchAndProcessAirtablePayloads(
 
     let accessToken: string | null = null
     try {
-      accessToken = await refreshAccessTokenIfNeeded(credentialId, ownerUserId, requestId)
+      accessToken = await getOAuthAccessTokenForStoredCredential({
+        credentialId,
+        requestId,
+      })
       if (!accessToken) {
         logger.error(
           `[${requestId}] Failed to obtain valid Airtable access token via credential ${credentialId}.`
@@ -1756,7 +1735,8 @@ export async function configureGmailPolling(webhookData: any, requestId: string)
   logger.info(`[${requestId}] Setting up Gmail polling for webhook ${webhookData.id}`)
 
   try {
-    const providerConfig = (webhookData.providerConfig as Record<string, any>) || {}
+    const { userId: _gmailUserId, ...providerConfig } =
+      (webhookData.providerConfig as Record<string, any>) || {}
     const credentialId: string | undefined = providerConfig.credentialId
 
     if (!credentialId) {
@@ -1764,17 +1744,10 @@ export async function configureGmailPolling(webhookData: any, requestId: string)
       return false
     }
 
-    // Get userId from credential
-    const rows = await db.select().from(account).where(eq(account.id, credentialId)).limit(1)
-    if (rows.length === 0) {
-      logger.error(
-        `[${requestId}] Credential ${credentialId} not found for Gmail webhook ${webhookData.id}`
-      )
-      return false
-    }
-
-    const effectiveUserId = rows[0].userId
-    const accessToken = await refreshAccessTokenIfNeeded(credentialId, effectiveUserId, requestId)
+    const accessToken = await getOAuthAccessTokenForStoredCredential({
+      credentialId,
+      requestId,
+    })
     if (!accessToken) {
       logger.error(
         `[${requestId}] Failed to refresh/access Gmail token for credential ${credentialId}`
@@ -1799,8 +1772,7 @@ export async function configureGmailPolling(webhookData: any, requestId: string)
       .set({
         providerConfig: {
           ...providerConfig,
-          userId: effectiveUserId,
-          ...(credentialId ? { credentialId } : {}),
+          credentialId,
           maxEmailsPerPoll,
           pollingInterval,
           markAsRead: providerConfig.markAsRead || false,
@@ -1847,17 +1819,10 @@ export async function configureOutlookPolling(
       return false
     }
 
-    // Get userId from credential
-    const rows = await db.select().from(account).where(eq(account.id, credentialId)).limit(1)
-    if (rows.length === 0) {
-      logger.error(
-        `[${requestId}] Credential ${credentialId} not found for Outlook webhook ${webhookData.id}`
-      )
-      return false
-    }
-
-    const effectiveUserId = rows[0].userId
-    const accessToken = await refreshAccessTokenIfNeeded(credentialId, effectiveUserId, requestId)
+    const accessToken = await getOAuthAccessTokenForStoredCredential({
+      credentialId,
+      requestId,
+    })
     if (!accessToken) {
       logger.error(
         `[${requestId}] Failed to refresh/access Outlook token for credential ${credentialId}`
@@ -1865,7 +1830,8 @@ export async function configureOutlookPolling(
       return false
     }
 
-    const providerCfg = (webhookData.providerConfig as Record<string, any>) || {}
+    const { userId: _outlookUserId, ...providerCfg } =
+      (webhookData.providerConfig as Record<string, any>) || {}
 
     const now = new Date()
 
@@ -1874,8 +1840,7 @@ export async function configureOutlookPolling(
       .set({
         providerConfig: {
           ...providerCfg,
-          userId: effectiveUserId,
-          ...(credentialId ? { credentialId } : {}),
+          credentialId,
           maxEmailsPerPoll:
             typeof providerCfg.maxEmailsPerPoll === 'string'
               ? Number.parseInt(providerCfg.maxEmailsPerPoll, 10) || 25

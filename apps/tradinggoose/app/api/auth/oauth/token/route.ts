@@ -1,11 +1,9 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { authorizeCredentialUse } from '@/lib/auth/credential-access'
-import { checkHybridAuth } from '@/lib/auth/hybrid'
 import { createLogger } from '@/lib/logs/console/logger'
-import { getCredential, getOAuthToken, refreshTokenIfNeeded } from '@/lib/oauth/tokens'
+import { getOAuthTokenAccount, refreshTokenIfNeeded } from '@/lib/oauth/tokens'
 import { getTrelloApiKey } from '@/lib/trello/auth'
 import { generateRequestId } from '@/lib/utils'
-import { isTradingProviderOAuthServiceId } from '@/providers/trading/providers'
 
 export const dynamic = 'force-dynamic'
 
@@ -19,65 +17,48 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
     const credentialId = typeof body.credentialId === 'string' ? body.credentialId.trim() : ''
-    const serviceId = typeof body.serviceId === 'string' ? body.serviceId.trim() : ''
     const workflowId = typeof body.workflowId === 'string' ? body.workflowId.trim() : undefined
+    const workspaceId = typeof body.workspaceId === 'string' ? body.workspaceId.trim() : undefined
 
-    if (!credentialId && !serviceId) {
-      logger.warn(`[${requestId}] Credential ID or service ID is required`)
-      return NextResponse.json(
-        { error: 'Credential ID or service ID is required' },
-        { status: 400 }
-      )
-    }
-
-    if (serviceId && !credentialId) {
-      if (isTradingProviderOAuthServiceId(serviceId)) {
-        return NextResponse.json(
-          { error: 'credentialId is required for trading provider tokens' },
-          { status: 400 }
-        )
-      }
-
-      const auth = await checkHybridAuth(request, { requireWorkflowId: false })
-      if (!auth.success) {
-        return NextResponse.json({ error: auth.error || 'Unauthorized' }, { status: 403 })
-      }
-
-      if (!auth.userId) {
-        return NextResponse.json({ error: 'User not authenticated' }, { status: 401 })
-      }
-
-      const accessToken = await getOAuthToken(auth.userId, serviceId)
-      if (!accessToken) {
-        return NextResponse.json({ error: 'Credential not found' }, { status: 404 })
-      }
-
-      return NextResponse.json({ accessToken, providerId: serviceId }, { status: 200 })
+    if (!credentialId) {
+      logger.warn(`[${requestId}] Credential ID is required`)
+      return NextResponse.json({ error: 'Credential ID is required' }, { status: 400 })
     }
 
     const authz = await authorizeCredentialUse(request, {
       credentialId,
       workflowId,
+      workspaceId,
+      requireWorkflowIdForInternal: false,
     })
     if (!authz.ok || !authz.credentialOwnerUserId) {
       const status = authz.error === 'Credential not found' ? 404 : 403
       return NextResponse.json({ error: authz.error || 'Unauthorized' }, { status })
     }
 
-    const credential = await getCredential(requestId, credentialId, authz.credentialOwnerUserId)
-    if (!credential) {
+    const tokenAccountId = authz.resolvedTokenAccountId
+    if (!tokenAccountId) {
+      return NextResponse.json({ error: 'Credential not found' }, { status: 404 })
+    }
+
+    const tokenAccount = await getOAuthTokenAccount(
+      requestId,
+      tokenAccountId,
+      authz.credentialOwnerUserId
+    )
+    if (!tokenAccount) {
       return NextResponse.json({ error: 'Credential not found' }, { status: 404 })
     }
 
     try {
-      const { accessToken } = await refreshTokenIfNeeded(requestId, credential, credentialId)
-      const apiKey = credential.providerId === 'trello' ? await getTrelloApiKey() : undefined
+      const { accessToken } = await refreshTokenIfNeeded(requestId, tokenAccount, tokenAccountId)
+      const apiKey = tokenAccount.providerId === 'trello' ? await getTrelloApiKey() : undefined
       return NextResponse.json(
         {
           accessToken,
-          idToken: credential.idToken || undefined,
+          idToken: tokenAccount.idToken || undefined,
           apiKey,
-          providerId: credential.providerId,
+          providerId: tokenAccount.providerId,
         },
         { status: 200 }
       )

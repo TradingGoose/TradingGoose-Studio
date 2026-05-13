@@ -275,7 +275,7 @@ describe('processContextsServer', () => {
       'user-1'
     )
 
-    expect(mockVerifyWorkflowAccess).toHaveBeenCalledWith('user-1', 'workflow-1')
+    expect(mockVerifyWorkflowAccess).toHaveBeenCalledWith('user-1', 'workflow-1', 'read')
     expect(mockLoadWorkflowState).toHaveBeenCalledWith('workflow-1')
     expect(mockSanitizeForCopilot).toHaveBeenCalledWith({
       blocks: {
@@ -339,7 +339,7 @@ describe('processContextsServer', () => {
     const { processContextsServer } = await import('@/lib/copilot/process-contents')
     const result = await processContextsServer([context], 'user-1')
 
-    expect(mockVerifyWorkflowAccess).toHaveBeenCalledWith('user-1', 'workflow-1')
+    expect(mockVerifyWorkflowAccess).toHaveBeenCalledWith('user-1', 'workflow-1', 'read')
     expect(mockLoadWorkflowState).not.toHaveBeenCalled()
     expect(result).toEqual([])
   })

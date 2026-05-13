@@ -12,30 +12,30 @@ import { refreshOAuthToken } from '@/lib/oauth/oauth.server'
 
 const logger = createLogger('OAuthTokens')
 
-function getValidAccessToken(credential: any): string | null {
-  if (!credential?.accessToken) {
+function getValidAccessToken(tokenAccount: any): string | null {
+  if (!tokenAccount?.accessToken) {
     return null
   }
 
-  if (credential.accessTokenExpiresAt && credential.accessTokenExpiresAt <= new Date()) {
+  if (tokenAccount.accessTokenExpiresAt && tokenAccount.accessTokenExpiresAt <= new Date()) {
     return null
   }
 
-  return credential.accessToken
+  return tokenAccount.accessToken
 }
 
-function getRefreshState(credential: any) {
+function getRefreshState(tokenAccount: any) {
   const now = new Date()
-  const hasValidAccessToken = !!getValidAccessToken(credential)
-  const accessTokenNeedsRefresh = !!credential.refreshToken && !hasValidAccessToken
+  const hasValidAccessToken = !!getValidAccessToken(tokenAccount)
+  const accessTokenNeedsRefresh = !!tokenAccount.refreshToken && !hasValidAccessToken
   const proactiveRefreshThreshold = new Date(
     now.getTime() + PROACTIVE_REFRESH_THRESHOLD_DAYS * 24 * 60 * 60 * 1000
   )
   const refreshTokenNeedsProactiveRefresh =
-    !!credential.refreshToken &&
-    isMicrosoftProvider(credential.providerId) &&
-    credential.refreshTokenExpiresAt &&
-    credential.refreshTokenExpiresAt <= proactiveRefreshThreshold
+    !!tokenAccount.refreshToken &&
+    isMicrosoftProvider(tokenAccount.providerId) &&
+    tokenAccount.refreshTokenExpiresAt &&
+    tokenAccount.refreshTokenExpiresAt <= proactiveRefreshThreshold
 
   return {
     refreshTokenNeedsProactiveRefresh,
@@ -45,7 +45,7 @@ function getRefreshState(credential: any) {
 
 async function getConcurrentRefreshAccessToken(
   requestId: string,
-  credentialId: string,
+  tokenAccountId: string,
   userId?: string
 ): Promise<string | null> {
   if (!userId) {
@@ -56,8 +56,8 @@ async function getConcurrentRefreshAccessToken(
     `[${requestId}] Refresh attempt failed, checking if another concurrent request succeeded`
   )
 
-  const freshCredential = await getCredential(requestId, credentialId, userId)
-  const concurrentAccessToken = getValidAccessToken(freshCredential)
+  const freshTokenAccount = await getOAuthTokenAccount(requestId, tokenAccountId, userId)
+  const concurrentAccessToken = getValidAccessToken(freshTokenAccount)
 
   if (!concurrentAccessToken) {
     return null
@@ -103,182 +103,54 @@ export async function getUserId(
 }
 
 /**
- * Get a credential by ID and verify it belongs to the user
+ * Get an OAuth token-storage account row and verify it belongs to the owner.
  */
-export async function getCredential(requestId: string, credentialId: string, userId: string) {
-  const credentials = await db
+export async function getOAuthTokenAccount(
+  requestId: string,
+  tokenAccountId: string,
+  ownerUserId: string
+) {
+  const tokenAccounts = await db
     .select()
     .from(account)
-    .where(and(eq(account.id, credentialId), eq(account.userId, userId)))
+    .where(and(eq(account.id, tokenAccountId), eq(account.userId, ownerUserId)))
     .limit(1)
 
-  if (!credentials.length) {
-    logger.warn(`[${requestId}] Credential not found`)
+  if (!tokenAccounts.length) {
+    logger.warn(`[${requestId}] OAuth token account not found`)
     return undefined
   }
 
-  return credentials[0]
-}
-
-export async function getOAuthToken(userId: string, providerId: string): Promise<string | null> {
-  const connections = await db
-    .select({
-      id: account.id,
-      accessToken: account.accessToken,
-      refreshToken: account.refreshToken,
-      accessTokenExpiresAt: account.accessTokenExpiresAt,
-    })
-    .from(account)
-    .where(and(eq(account.userId, userId), eq(account.providerId, providerId)))
-    .limit(2)
-
-  if (connections.length === 0) {
-    logger.warn(`No OAuth token found for user ${userId}, provider ${providerId}`)
-    return null
-  }
-
-  if (connections.length > 1) {
-    logger.error(`Multiple OAuth connections found for user ${userId}, provider ${providerId}`, {
-      providerId,
-      userId,
-    })
-    return null
-  }
-
-  const credential = connections[0]
-
-  // Determine whether we should refresh: missing token OR expired token
-  const now = new Date()
-  const tokenExpiry = credential.accessTokenExpiresAt
-  const shouldAttemptRefresh =
-    !!credential.refreshToken && (!credential.accessToken || (tokenExpiry && tokenExpiry < now))
-
-  if (shouldAttemptRefresh) {
-    logger.info(
-      `Access token expired for user ${userId}, provider ${providerId}. Attempting to refresh.`
-    )
-
-    try {
-      // Use the existing refreshOAuthToken function
-      const refreshResult = await refreshOAuthToken(providerId, credential.refreshToken!)
-
-      if (!refreshResult) {
-        logger.error(`Failed to refresh token for user ${userId}, provider ${providerId}`, {
-          providerId,
-          userId,
-          hasRefreshToken: !!credential.refreshToken,
-        })
-        return null
-      }
-
-      const { accessToken, expiresIn, refreshToken: newRefreshToken } = refreshResult
-
-      // Update the database with new tokens
-      const updateData: any = {
-        accessToken,
-        accessTokenExpiresAt: new Date(Date.now() + expiresIn * 1000), // Convert seconds to milliseconds
-        updatedAt: new Date(),
-      }
-
-      // If we received a new refresh token (some providers like Airtable rotate them), save it
-      if (newRefreshToken && newRefreshToken !== credential.refreshToken) {
-        logger.info(`Updating refresh token for user ${userId}, provider ${providerId}`)
-        updateData.refreshToken = newRefreshToken
-      }
-
-      // Update the token in the database with the actual expiration time from the provider
-      await db.update(account).set(updateData).where(eq(account.id, credential.id))
-
-      logger.info(`Successfully refreshed token for user ${userId}, provider ${providerId}`)
-      return accessToken
-    } catch (error) {
-      logger.error(`Error refreshing token for user ${userId}, provider ${providerId}`, {
-        error: error instanceof Error ? error.message : String(error),
-        stack: error instanceof Error ? error.stack : undefined,
-        providerId,
-        userId,
-      })
-      return null
-    }
-  }
-
-  if (!credential.accessToken) {
-    logger.warn(
-      `Access token is null and no refresh attempted or available for user ${userId}, provider ${providerId}`
-    )
-    return null
-  }
-
-  logger.info(`Found valid OAuth token for user ${userId}, provider ${providerId}`)
-  return credential.accessToken
-}
-
-export async function getOAuthTokenByCredentialId({
-  userId,
-  credentialId,
-  providerId,
-  requestId,
-}: {
-  userId: string
-  credentialId: string
-  providerId: string
-  requestId: string
-}): Promise<string | null> {
-  const credential = await getCredential(requestId, credentialId, userId)
-  if (!credential) {
-    return null
-  }
-
-  if (credential.providerId !== providerId) {
-    logger.warn(`[${requestId}] Credential provider mismatch`, {
-      credentialId,
-      expectedProviderId: providerId,
-      actualProviderId: credential.providerId,
-    })
-    return null
-  }
-
-  try {
-    const { accessToken } = await refreshTokenIfNeeded(requestId, credential, credentialId)
-    return accessToken || null
-  } catch (error) {
-    logger.error(`[${requestId}] Failed to resolve OAuth token by credential id`, {
-      credentialId,
-      providerId,
-      error: error instanceof Error ? error.message : String(error),
-    })
-    return null
-  }
+  return tokenAccounts[0]
 }
 
 /**
- * Refreshes an OAuth token if needed based on credential information
- * @param credentialId The ID of the credential to check and potentially refresh
- * @param userId The user ID who owns the credential (for security verification)
+ * Refreshes an OAuth token if needed based on the token-storage account row.
+ * @param tokenAccountId The underlying OAuth account row ID to check and potentially refresh.
+ * @param ownerUserId The user ID who owns the OAuth account row.
  * @param requestId Request ID for log correlation
  * @returns The valid access token or null if refresh fails
  */
 export async function refreshAccessTokenIfNeeded(
-  credentialId: string,
-  userId: string,
+  tokenAccountId: string,
+  ownerUserId: string,
   requestId: string
 ): Promise<string | null> {
-  // Get the credential directly using the getCredential helper
-  const credential = await getCredential(requestId, credentialId, userId)
+  const tokenAccount = await getOAuthTokenAccount(requestId, tokenAccountId, ownerUserId)
 
-  if (!credential) {
+  if (!tokenAccount) {
     return null
   }
 
-  const refreshState = getRefreshState(credential)
-  const accessToken = getValidAccessToken(credential)
+  const refreshState = getRefreshState(tokenAccount)
+  const accessToken = getValidAccessToken(tokenAccount)
 
   if (refreshState.shouldRefresh) {
-    logger.info(`[${requestId}] Refreshing token for credential`)
+    logger.info(`[${requestId}] Refreshing OAuth token account`)
     try {
       const refreshedToken = await refreshOAuthToken(
-        credential.providerId,
-        credential.refreshToken!
+        tokenAccount.providerId,
+        tokenAccount.refreshToken!
       )
 
       if (!refreshedToken) {
@@ -293,53 +165,56 @@ export async function refreshAccessTokenIfNeeded(
       }
 
       // If we received a new refresh token, update it
-      if (refreshedToken.refreshToken && refreshedToken.refreshToken !== credential.refreshToken) {
-        logger.info(`[${requestId}] Updating refresh token for credential`)
+      if (
+        refreshedToken.refreshToken &&
+        refreshedToken.refreshToken !== tokenAccount.refreshToken
+      ) {
+        logger.info(`[${requestId}] Updating OAuth token account refresh token`)
         updateData.refreshToken = refreshedToken.refreshToken
       }
 
-      if (isMicrosoftProvider(credential.providerId)) {
+      if (isMicrosoftProvider(tokenAccount.providerId)) {
         updateData.refreshTokenExpiresAt = getMicrosoftRefreshTokenExpiry()
       }
 
       // Update the token in the database
-      await db.update(account).set(updateData).where(eq(account.id, credentialId))
+      await db.update(account).set(updateData).where(eq(account.id, tokenAccountId))
 
-      logger.info(`[${requestId}] Successfully refreshed access token for credential`)
+      logger.info(`[${requestId}] Successfully refreshed OAuth token account access token`)
       return refreshedToken.accessToken
     } catch (error) {
       if (refreshState.refreshTokenNeedsProactiveRefresh && accessToken) {
         logger.warn(
-          `[${requestId}] Proactive refresh failed, using existing access token for credential`
+          `[${requestId}] Proactive refresh failed, using existing OAuth token account access token`
         )
         return accessToken
       }
 
       const concurrentAccessToken = await getConcurrentRefreshAccessToken(
         requestId,
-        credentialId,
-        credential.userId
+        tokenAccountId,
+        tokenAccount.userId
       )
       if (concurrentAccessToken) {
         return concurrentAccessToken
       }
 
-      logger.error(`[${requestId}] Error refreshing token for credential`, {
+      logger.error(`[${requestId}] Error refreshing OAuth token account`, {
         error: error instanceof Error ? error.message : String(error),
         stack: error instanceof Error ? error.stack : undefined,
-        providerId: credential.providerId,
-        credentialId,
-        userId: credential.userId,
+        providerId: tokenAccount.providerId,
+        tokenAccountId,
+        userId: tokenAccount.userId,
       })
       return null
     }
   } else if (!accessToken) {
     // We have no access token and either no refresh token or not eligible to refresh
-    logger.error(`[${requestId}] Missing access token for credential`)
+    logger.error(`[${requestId}] Missing access token for OAuth token account`)
     return null
   }
 
-  logger.info(`[${requestId}] Access token is valid for credential`)
+  logger.info(`[${requestId}] OAuth token account access token is valid`)
   return accessToken
 }
 
@@ -348,22 +223,25 @@ export async function refreshAccessTokenIfNeeded(
  */
 export async function refreshTokenIfNeeded(
   requestId: string,
-  credential: any,
-  credentialId: string
+  tokenAccount: any,
+  tokenAccountId: string
 ): Promise<{ accessToken: string; refreshed: boolean }> {
-  const refreshState = getRefreshState(credential)
+  const refreshState = getRefreshState(tokenAccount)
 
   // If token appears valid and present, return it directly
   if (!refreshState.shouldRefresh) {
     logger.info(`[${requestId}] Access token is valid`)
-    return { accessToken: credential.accessToken, refreshed: false }
+    return { accessToken: tokenAccount.accessToken, refreshed: false }
   }
 
   try {
-    const refreshResult = await refreshOAuthToken(credential.providerId, credential.refreshToken!)
+    const refreshResult = await refreshOAuthToken(
+      tokenAccount.providerId,
+      tokenAccount.refreshToken!
+    )
 
     if (!refreshResult) {
-      logger.error(`[${requestId}] Failed to refresh token for credential`)
+      logger.error(`[${requestId}] Failed to refresh OAuth token account`)
       throw new Error('Failed to refresh token')
     }
 
@@ -377,21 +255,21 @@ export async function refreshTokenIfNeeded(
     }
 
     // If we received a new refresh token, update it
-    if (newRefreshToken && newRefreshToken !== credential.refreshToken) {
+    if (newRefreshToken && newRefreshToken !== tokenAccount.refreshToken) {
       logger.info(`[${requestId}] Updating refresh token`)
       updateData.refreshToken = newRefreshToken
     }
 
-    if (isMicrosoftProvider(credential.providerId)) {
+    if (isMicrosoftProvider(tokenAccount.providerId)) {
       updateData.refreshTokenExpiresAt = getMicrosoftRefreshTokenExpiry()
     }
 
-    await db.update(account).set(updateData).where(eq(account.id, credentialId))
+    await db.update(account).set(updateData).where(eq(account.id, tokenAccountId))
 
     logger.info(`[${requestId}] Successfully refreshed access token`)
     return { accessToken: refreshedToken, refreshed: true }
   } catch (error) {
-    const accessToken = getValidAccessToken(credential)
+    const accessToken = getValidAccessToken(tokenAccount)
     if (refreshState.refreshTokenNeedsProactiveRefresh && accessToken) {
       logger.warn(`[${requestId}] Proactive refresh failed, using existing access token`)
       return { accessToken, refreshed: false }
@@ -399,8 +277,8 @@ export async function refreshTokenIfNeeded(
 
     const concurrentAccessToken = await getConcurrentRefreshAccessToken(
       requestId,
-      credentialId,
-      credential.userId
+      tokenAccountId,
+      tokenAccount.userId
     )
     if (concurrentAccessToken) {
       return { accessToken: concurrentAccessToken, refreshed: true }

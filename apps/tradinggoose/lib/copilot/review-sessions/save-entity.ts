@@ -141,14 +141,14 @@ interface LoadedReviewSession {
 function resolveIndicatorColor(
   input: string | null | undefined,
   indicatorId: string,
-  fallback?: string | null
+  existingColor?: string | null
 ): string {
   if (typeof input === 'string' && input.trim().length > 0) {
     return input.trim()
   }
 
-  if (typeof fallback === 'string' && fallback.trim().length > 0) {
-    return fallback.trim()
+  if (typeof existingColor === 'string' && existingColor.trim().length > 0) {
+    return existingColor.trim()
   }
 
   return getStableVibrantColor(indicatorId)
@@ -657,9 +657,7 @@ function normalizeMcpUrl(url: string | null | undefined): string | null {
 }
 
 export async function saveReviewEntity(userId: string, request: SaveReviewEntityRequest) {
-  const reviewSession = await loadReviewSessionForUser(request.reviewSessionId, userId, {
-    requireWrite: true,
-  })
+  const reviewSession = await loadReviewSessionForUser(request.reviewSessionId, userId, 'write')
   if (!reviewSession) {
     throw new SaveReviewEntityError(404, 'Review session not found')
   }

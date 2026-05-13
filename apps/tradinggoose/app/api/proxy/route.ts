@@ -1,11 +1,10 @@
 import type { NextRequest } from 'next/server'
 import { NextResponse } from 'next/server'
 import { checkHybridAuth } from '@/lib/auth/hybrid'
-import { generateInternalToken } from '@/lib/auth/internal'
+import { resolveOAuthRouteCredential } from '@/lib/credentials/oauth-route'
 import { isDev } from '@/lib/environment'
 import { createLogger } from '@/lib/logs/console/logger'
 import { validateProxyUrl } from '@/lib/security/input-validation'
-import { getBaseUrl } from '@/lib/urls/utils'
 import { generateRequestId } from '@/lib/utils'
 import { executeTool } from '@/tools'
 import { getTool, validateRequiredParametersAfterMerge } from '@/tools/utils'
@@ -76,7 +75,7 @@ const createErrorResponse = (error: any, status = 500, additionalData = {}) => {
  * GET handler for direct external URL proxying
  * This allows for GET requests to external APIs
  */
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   const url = new URL(request.url)
   const targetUrl = url.searchParams.get('url')
   const requestId = generateRequestId()
@@ -93,40 +92,13 @@ export async function GET(request: Request) {
         return createErrorResponse('Missing bucket, object, or credentialId', 400)
       }
 
-      // Fetch access token using existing token API
-      const baseUrl = new URL(getBaseUrl())
-      const tokenUrl = new URL('/api/auth/oauth/token', baseUrl)
-
-      // Build headers: forward session cookies if present; include internal auth for server-side
-      const tokenHeaders: Record<string, string> = { 'Content-Type': 'application/json' }
-      const incomingCookie = request.headers.get('cookie')
-      if (incomingCookie) tokenHeaders.Cookie = incomingCookie
-      try {
-        const internalToken = await generateInternalToken()
-        tokenHeaders.Authorization = `Bearer ${internalToken}`
-      } catch (_e) {
-        // best-effort internal auth
-      }
-
-      // Optional workflow context for collaboration auth
       const workflowId = url.searchParams.get('workflowId') || undefined
-
-      const tokenRes = await fetch(tokenUrl.toString(), {
-        method: 'POST',
-        headers: tokenHeaders,
-        body: JSON.stringify({ credentialId, workflowId }),
-      })
-
-      if (!tokenRes.ok) {
-        const err = await tokenRes.text()
-        return createErrorResponse(`Failed to fetch access token: ${err}`, 401)
-      }
-
-      const tokenJson = await tokenRes.json()
-      const accessToken = tokenJson.accessToken
-      if (!accessToken) {
-        return createErrorResponse('No access token available', 401)
-      }
+      const credential = await resolveOAuthRouteCredential(
+        request,
+        { credentialId, workflowId },
+        requestId
+      )
+      if (!credential.ok) return credential.response
 
       // Avoid double-encoding: incoming object may already be percent-encoded
       const objectDecoded = decodeURIComponent(objectParam)
@@ -135,7 +107,7 @@ export async function GET(request: Request) {
       )}/o/${encodeURIComponent(objectDecoded)}?alt=media`
 
       const fileRes = await fetch(gcsUrl, {
-        headers: { Authorization: `Bearer ${accessToken}` },
+        headers: { Authorization: `Bearer ${credential.accessToken}` },
       })
 
       if (!fileRes.ok) {

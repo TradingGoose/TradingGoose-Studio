@@ -124,6 +124,7 @@ describe('Review Session Resolve Route', () => {
       entityKind: 'skill',
       entityId: 'skill-1',
       reviewSessionId: 'review-session-1',
+      accessMode: 'read',
     })
 
     const { POST } = await import('@/app/api/copilot/review-sessions/resolve/route')
@@ -142,16 +143,60 @@ describe('Review Session Resolve Route', () => {
       runtime: null,
     })
 
-    expect(mockVerifyReviewTargetAccess).toHaveBeenCalledWith('collaborator-user', {
+    expect(mockVerifyReviewTargetAccess).toHaveBeenCalledWith(
+      'collaborator-user',
+      {
+        workspaceId: 'workspace-1',
+        entityKind: 'skill',
+        entityId: 'skill-1',
+      },
+      'read'
+    )
+    expect(mockLoadReviewSessionForUser).toHaveBeenCalledWith(
+      'review-session-1',
+      'collaborator-user',
+      'read'
+    )
+    expect(mockSelect).not.toHaveBeenCalled()
+  })
+
+  it('requires workspace write access for write-mode session resolution', async () => {
+    mockLoadReviewSessionForUser.mockResolvedValue({
+      id: 'review-session-1',
+      userId: 'creator-user',
       workspaceId: 'workspace-1',
       entityKind: 'skill',
       entityId: 'skill-1',
+      draftSessionId: null,
+      model: 'claude-4.5-sonnet',
     })
+
+    const request = createMockRequest('POST', {
+      workspaceId: 'workspace-1',
+      entityKind: 'skill',
+      entityId: 'skill-1',
+      reviewSessionId: 'review-session-1',
+      accessMode: 'write',
+    })
+
+    const { POST } = await import('@/app/api/copilot/review-sessions/resolve/route')
+    const response = await POST(request)
+
+    expect(response.status).toBe(200)
+    expect(mockVerifyReviewTargetAccess).toHaveBeenCalledWith(
+      'collaborator-user',
+      {
+        workspaceId: 'workspace-1',
+        entityKind: 'skill',
+        entityId: 'skill-1',
+      },
+      'write'
+    )
     expect(mockLoadReviewSessionForUser).toHaveBeenCalledWith(
       'review-session-1',
-      'collaborator-user'
+      'collaborator-user',
+      'write'
     )
-    expect(mockSelect).not.toHaveBeenCalled()
   })
 
   it('reuses an existing shared saved-entity session by explicit entity fields', async () => {
@@ -172,6 +217,7 @@ describe('Review Session Resolve Route', () => {
       workspaceId: 'workspace-1',
       entityKind: 'skill',
       entityId: 'skill-1',
+      accessMode: 'read',
     })
 
     const { POST } = await import('@/app/api/copilot/review-sessions/resolve/route')
@@ -211,6 +257,7 @@ describe('Review Session Resolve Route', () => {
       workspaceId: 'workspace-1',
       entityKind: 'skill',
       draftSessionId: 'draft-1',
+      accessMode: 'read',
     })
 
     const { POST } = await import('@/app/api/copilot/review-sessions/resolve/route')
@@ -249,6 +296,7 @@ describe('Review Session Resolve Route', () => {
       workspaceId: 'workspace-1',
       entityKind: 'skill',
       draftSessionId: 'draft-1',
+      accessMode: 'read',
     })
 
     const { POST } = await import('@/app/api/copilot/review-sessions/resolve/route')
@@ -276,6 +324,7 @@ describe('Review Session Resolve Route', () => {
       entityKind: 'skill',
       reviewSessionId: 'review-session-1',
       draftSessionId: 'draft-1',
+      accessMode: 'read',
     })
 
     const { POST } = await import('@/app/api/copilot/review-sessions/resolve/route')
@@ -287,7 +336,8 @@ describe('Review Session Resolve Route', () => {
     })
     expect(mockLoadReviewSessionForUser).toHaveBeenCalledWith(
       'review-session-1',
-      'collaborator-user'
+      'collaborator-user',
+      'read'
     )
   })
 
@@ -307,6 +357,7 @@ describe('Review Session Resolve Route', () => {
       entityKind: 'skill',
       entityId: 'skill-1',
       reviewSessionId: 'review-session-1',
+      accessMode: 'read',
     })
 
     const { POST } = await import('@/app/api/copilot/review-sessions/resolve/route')
@@ -334,6 +385,7 @@ describe('Review Session Resolve Route', () => {
       entityKind: 'skill',
       entityId: 'skill-1',
       reviewSessionId: 'review-session-1',
+      accessMode: 'read',
     })
 
     const { POST } = await import('@/app/api/copilot/review-sessions/resolve/route')

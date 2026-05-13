@@ -24,23 +24,11 @@ export const slackMessageReaderTool: ToolConfig<
   },
 
   params: {
-    authMethod: {
-      type: 'string',
-      required: false,
-      visibility: 'user-only',
-      description: 'Authentication method: oauth or bot_token',
-    },
-    botToken: {
-      type: 'string',
-      required: false,
-      visibility: 'user-only',
-      description: 'Bot token for Custom Bot',
-    },
     accessToken: {
       type: 'string',
       required: false,
       visibility: 'hidden',
-      description: 'OAuth access token or bot token for Slack API',
+      description: 'OAuth access token for Slack API',
     },
     channel: {
       type: 'string',
@@ -87,7 +75,7 @@ export const slackMessageReaderTool: ToolConfig<
     method: 'GET',
     headers: (params: SlackMessageReaderParams) => ({
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${params.accessToken || params.botToken}`,
+      Authorization: `Bearer ${params.accessToken}`,
     }),
   },
 

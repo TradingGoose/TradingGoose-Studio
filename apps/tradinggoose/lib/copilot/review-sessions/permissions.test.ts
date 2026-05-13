@@ -106,12 +106,16 @@ describe('review session permissions', () => {
       .mockReturnValueOnce(createMockChain(reviewSessionRow))
       .mockReturnValueOnce(createMockChain(workspaceRow))
 
-    const result = await verifyReviewTargetAccess('collaborator-1', {
-      entityKind: 'skill',
-      entityId: 'skill-1',
-      reviewSessionId: 'review-session-1',
-      workspaceId: 'workspace-1',
-    })
+    const result = await verifyReviewTargetAccess(
+      'collaborator-1',
+      {
+        entityKind: 'skill',
+        entityId: 'skill-1',
+        reviewSessionId: 'review-session-1',
+        workspaceId: 'workspace-1',
+      },
+      'read'
+    )
 
     expect(result).toEqual({
       hasAccess: true,
@@ -134,13 +138,17 @@ describe('review session permissions', () => {
 
     mockDb.select.mockReturnValueOnce(createMockChain(reviewSessionRow))
 
-    const result = await verifyReviewTargetAccess('collaborator-1', {
-      entityKind: 'skill',
-      entityId: null,
-      draftSessionId: 'draft-1',
-      reviewSessionId: 'review-session-1',
-      workspaceId: 'workspace-1',
-    })
+    const result = await verifyReviewTargetAccess(
+      'collaborator-1',
+      {
+        entityKind: 'skill',
+        entityId: null,
+        draftSessionId: 'draft-1',
+        reviewSessionId: 'review-session-1',
+        workspaceId: 'workspace-1',
+      },
+      'read'
+    )
 
     expect(result).toEqual({
       hasAccess: false,
@@ -168,7 +176,7 @@ describe('review session permissions', () => {
       .mockReturnValueOnce(createMockChain(reviewSessionRow))
       .mockReturnValueOnce(createMockChain(workspaceRow))
 
-    const result = await loadReviewSessionForUser('review-session-1', 'collaborator-1')
+    const result = await loadReviewSessionForUser('review-session-1', 'collaborator-1', 'read')
 
     expect(result).toEqual(reviewSessionRow[0])
   })
@@ -192,7 +200,8 @@ describe('review session permissions', () => {
     const result = await loadReviewSessionForUserByConversationId(
       'conversation-1',
       'copilot',
-      'user-1'
+      'user-1',
+      'read'
     )
 
     expect(result).toEqual(reviewSessionRow[0])
@@ -213,7 +222,7 @@ describe('review session permissions', () => {
 
     mockDb.select.mockReturnValueOnce(createMockChain(reviewSessionRow))
 
-    const result = await loadReviewSessionForUser('review-session-1', 'collaborator-1')
+    const result = await loadReviewSessionForUser('review-session-1', 'collaborator-1', 'read')
 
     expect(result).toBeNull()
   })

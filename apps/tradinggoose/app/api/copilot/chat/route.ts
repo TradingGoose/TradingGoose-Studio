@@ -773,7 +773,11 @@ export async function POST(req: NextRequest) {
     let sessionCreatedThisRequest = false
 
     if (incomingReviewSessionId) {
-      const session = await loadReviewSessionForUser(incomingReviewSessionId, authenticatedUserId)
+      const session = await loadReviewSessionForUser(
+        incomingReviewSessionId,
+        authenticatedUserId,
+        'read'
+      )
       if (!session || session.entityKind !== COPILOT_SESSION_KIND) {
         return createNotFoundResponse('Review session not found or unauthorized')
       }
@@ -1390,7 +1394,7 @@ export async function GET(req: NextRequest) {
     let sessions: ReviewSessionRow[] = []
 
     if (reviewSessionId) {
-      const session = await loadReviewSessionForUser(reviewSessionId, authenticatedUserId)
+      const session = await loadReviewSessionForUser(reviewSessionId, authenticatedUserId, 'read')
 
       if (!session || session.entityKind !== COPILOT_SESSION_KIND) {
         return NextResponse.json(

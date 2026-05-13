@@ -83,7 +83,9 @@ export function ToolCredentialSelector({
   const fetchCredentials = useCallback(async () => {
     setIsLoading(true)
     try {
-      const response = await fetch(`/api/auth/oauth/credentials?provider=${provider}`)
+      const params = new URLSearchParams({ provider })
+      if (activeWorkflowId) params.set('workflowId', activeWorkflowId)
+      const response = await fetch(`/api/auth/oauth/credentials?${params.toString()}`)
       if (response.ok) {
         const data = await response.json()
         setCredentials(data.credentials || [])

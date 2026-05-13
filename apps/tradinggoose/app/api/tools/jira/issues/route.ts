@@ -1,6 +1,8 @@
-import { NextResponse } from 'next/server'
+import { type NextRequest, NextResponse } from 'next/server'
+import { resolveOAuthRouteCredential } from '@/lib/credentials/oauth-route'
 import { createLogger } from '@/lib/logs/console/logger'
 import { validateAlphanumericId, validateJiraCloudId } from '@/lib/security/input-validation'
+import { generateRequestId } from '@/lib/utils'
 import { getJiraCloudId } from '@/tools/jira/utils'
 
 export const dynamic = 'force-dynamic'
@@ -16,21 +18,20 @@ const createErrorResponse = async (response: Response, defaultMessage: string) =
   }
 }
 
-const validateRequiredParams = (domain: string | null, accessToken: string | null) => {
+const validateDomain = (domain: string | null) => {
   if (!domain) {
     return NextResponse.json({ error: 'Domain is required' }, { status: 400 })
-  }
-  if (!accessToken) {
-    return NextResponse.json({ error: 'Access token is required' }, { status: 400 })
   }
   return null
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
+  const requestId = generateRequestId()
   try {
-    const { domain, accessToken, issueKeys = [], cloudId: providedCloudId } = await request.json()
+    const { domain, credentialId, workflowId, issueKeys = [], cloudId: providedCloudId } =
+      await request.json()
 
-    const validationError = validateRequiredParams(domain || null, accessToken || null)
+    const validationError = validateDomain(domain || null)
     if (validationError) return validationError
 
     if (issueKeys.length === 0) {
@@ -38,7 +39,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ issues: [] })
     }
 
-    const cloudId = providedCloudId || (await getJiraCloudId(domain!, accessToken!))
+    const credential = await resolveOAuthRouteCredential(
+      request,
+      { credentialId, workflowId },
+      requestId
+    )
+    if (!credential.ok) return credential.response
+
+    const cloudId = providedCloudId || (await getJiraCloudId(domain!, credential.accessToken))
 
     const cloudIdValidation = validateJiraCloudId(cloudId, 'cloudId')
     if (!cloudIdValidation.isValid) {
@@ -57,7 +65,7 @@ export async function POST(request: Request) {
     const response = await fetch(searchUrl, {
       method: 'GET',
       headers: {
-        Authorization: `Bearer ${accessToken}`,
+        Authorization: `Bearer ${credential.accessToken}`,
         Accept: 'application/json',
       },
     })
@@ -101,11 +109,13 @@ export async function POST(request: Request) {
   }
 }
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
+  const requestId = generateRequestId()
   try {
     const url = new URL(request.url)
     const domain = url.searchParams.get('domain')?.trim()
-    const accessToken = url.searchParams.get('accessToken')
+    const credentialId = url.searchParams.get('credentialId')
+    const workflowId = url.searchParams.get('workflowId')
     const providedCloudId = url.searchParams.get('cloudId')
     const query = url.searchParams.get('query') || ''
     const projectId = url.searchParams.get('projectId') || ''
@@ -114,10 +124,17 @@ export async function GET(request: Request) {
     const limitParam = Number.parseInt(url.searchParams.get('limit') || '', 10)
     const limit = Number.isFinite(limitParam) && limitParam > 0 ? limitParam : 0
 
-    const validationError = validateRequiredParams(domain || null, accessToken || null)
+    const validationError = validateDomain(domain || null)
     if (validationError) return validationError
 
-    const cloudId = providedCloudId || (await getJiraCloudId(domain!, accessToken!))
+    const credential = await resolveOAuthRouteCredential(
+      request,
+      { credentialId, workflowId },
+      requestId
+    )
+    if (!credential.ok) return credential.response
+
+    const cloudId = providedCloudId || (await getJiraCloudId(domain!, credential.accessToken))
 
     const cloudIdValidation = validateJiraCloudId(cloudId, 'cloudId')
     if (!cloudIdValidation.isValid) {
@@ -182,7 +199,7 @@ export async function GET(request: Request) {
         const response = await fetch(apiUrl, {
           method: 'GET',
           headers: {
-            Authorization: `Bearer ${accessToken}`,
+            Authorization: `Bearer ${credential.accessToken}`,
             Accept: 'application/json',
           },
         })

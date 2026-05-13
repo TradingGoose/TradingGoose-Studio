@@ -1,4 +1,5 @@
 import type { ConfluenceRetrieveParams, ConfluenceRetrieveResponse } from '@/tools/confluence/types'
+import { getCredentialRouteParams } from '@/tools/credentials'
 import { transformPageData } from '@/tools/confluence/utils'
 import type { ToolConfig } from '@/tools/types'
 
@@ -51,14 +52,13 @@ export const confluenceRetrieveTool: ToolConfig<
     method: 'POST',
     headers: (params: ConfluenceRetrieveParams) => {
       return {
-        Accept: 'application/json',
-        Authorization: `Bearer ${params.accessToken}`,
+        'Content-Type': 'application/json',
       }
     },
     body: (params: ConfluenceRetrieveParams) => {
       return {
+        ...getCredentialRouteParams(params),
         domain: params.domain,
-        accessToken: params.accessToken,
         pageId: params.pageId,
         cloudId: params.cloudId,
       }

@@ -1,3 +1,4 @@
+import { getCredentialRouteParams } from '@/tools/credentials'
 import type { OutlookSendParams, OutlookSendResponse } from '@/tools/outlook/types'
 import type { ToolConfig } from '@/tools/types'
 
@@ -83,7 +84,7 @@ export const outlookSendTool: ToolConfig<OutlookSendParams, OutlookSendResponse>
     }),
     body: (params: OutlookSendParams) => {
       return {
-        accessToken: params.accessToken,
+        ...getCredentialRouteParams(params),
         to: params.to,
         subject: params.subject,
         body: params.body,

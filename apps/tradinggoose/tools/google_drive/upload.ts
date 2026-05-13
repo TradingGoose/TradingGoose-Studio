@@ -1,4 +1,5 @@
 import { createLogger } from '@/lib/logs/console/logger'
+import { getCredentialRouteParams } from '@/tools/credentials'
 import type { GoogleDriveToolParams, GoogleDriveUploadResponse } from '@/tools/google_drive/types'
 import {
   GOOGLE_WORKSPACE_MIME_TYPES,
@@ -86,7 +87,7 @@ export const uploadTool: ToolConfig<GoogleDriveToolParams, GoogleDriveUploadResp
       // Custom route handles file uploads
       if (params.file) {
         return {
-          accessToken: params.accessToken,
+          ...getCredentialRouteParams(params),
           fileName: params.fileName,
           file: params.file,
           mimeType: params.mimeType,

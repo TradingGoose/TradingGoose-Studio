@@ -44,6 +44,7 @@ interface WealthboxFileSelectorProps {
   onFileInfoChange?: (itemInfo: WealthboxItemInfo | null) => void
   itemType?: 'contact'
   credentialId?: string
+  workflowId?: string
 }
 
 export function WealthboxFileSelector({
@@ -58,6 +59,7 @@ export function WealthboxFileSelector({
   onFileInfoChange,
   itemType = 'contact',
   credentialId,
+  workflowId,
 }: WealthboxFileSelectorProps) {
   const [open, setOpen] = useState(false)
   const [credentials, setCredentials] = useState<Credential[]>([])
@@ -122,12 +124,13 @@ export function WealthboxFileSelector({
         credentialId: selectedCredentialId,
         type: itemType,
       })
+      if (workflowId) queryParams.set('workflowId', workflowId)
 
       if (searchQuery.trim()) {
         queryParams.append('query', searchQuery.trim())
       }
 
-      const response = await fetch(`/api/auth/oauth/wealthbox/items?${queryParams.toString()}`)
+      const response = await fetch(`/api/tools/wealthbox/items?${queryParams.toString()}`)
 
       if (response.ok) {
         const data = await response.json()
@@ -144,7 +147,7 @@ export function WealthboxFileSelector({
     } finally {
       setIsLoadingItems(false)
     }
-  }, [selectedCredentialId, searchQuery, itemType])
+  }, [selectedCredentialId, searchQuery, itemType, workflowId])
 
   // Fetch a single item by ID
   const fetchItemById = useCallback(
@@ -158,8 +161,9 @@ export function WealthboxFileSelector({
           itemId: itemId,
           type: itemType,
         })
+        if (workflowId) queryParams.set('workflowId', workflowId)
 
-        const response = await fetch(`/api/auth/oauth/wealthbox/item?${queryParams.toString()}`)
+        const response = await fetch(`/api/tools/wealthbox/item?${queryParams.toString()}`)
 
         if (response.ok) {
           const data = await response.json()
@@ -187,7 +191,7 @@ export function WealthboxFileSelector({
         setIsLoadingSelectedItem(false)
       }
     },
-    [selectedCredentialId, itemType, onFileInfoChange, onChange]
+    [selectedCredentialId, itemType, onFileInfoChange, onChange, workflowId]
   )
 
   // Fetch credentials on initial mount

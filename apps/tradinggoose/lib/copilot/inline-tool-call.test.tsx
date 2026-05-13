@@ -39,10 +39,6 @@ const mockEntitySession = {
 const mockGetEntityFields = vi.fn()
 const mockGetToolInterruptDisplays = vi.fn()
 
-vi.mock('react-google-drive-picker', () => ({
-  default: () => [vi.fn()],
-}))
-
 vi.mock('@/components/ui/button', () => ({
   Button: ({ children, ...props }: any) => <button {...props}>{children}</button>,
 }))

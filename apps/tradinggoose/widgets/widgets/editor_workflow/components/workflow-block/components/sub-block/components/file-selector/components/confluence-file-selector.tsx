@@ -158,27 +158,6 @@ export function ConfluenceFileSelector({
       setError(null)
 
       try {
-        // Get the access token from the selected credential
-        const tokenResponse = await fetch('/api/auth/oauth/token', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            credentialId: selectedCredentialId,
-            workflowId,
-          }),
-        })
-
-        if (!tokenResponse.ok) {
-          const errorData = await tokenResponse.json()
-          throw new Error(errorData.error || 'Failed to get access token')
-        }
-
-        const tokenData = await tokenResponse.json()
-        const accessToken = tokenData.accessToken
-
-        // Use the access token to fetch the page info
         const response = await fetch('/api/tools/confluence/page', {
           method: 'POST',
           headers: {
@@ -186,7 +165,8 @@ export function ConfluenceFileSelector({
           },
           body: JSON.stringify({
             domain,
-            accessToken,
+            credentialId: selectedCredentialId,
+            workflowId,
             pageId,
           }),
         })
@@ -244,39 +224,6 @@ export function ConfluenceFileSelector({
       setError(null)
 
       try {
-        // Get the access token from the selected credential
-        const tokenResponse = await fetch('/api/auth/oauth/token', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            credentialId: selectedCredentialId,
-            workflowId,
-          }),
-        })
-
-        if (!tokenResponse.ok) {
-          const errorData = await tokenResponse.json()
-          logger.error('Access token error:', errorData)
-
-          // If there's a token error, we might need to reconnect the account
-          setError('Authentication failed. Please reconnect your Confluence account.')
-          setIsLoading(false)
-          return
-        }
-
-        const tokenData = await tokenResponse.json()
-        const accessToken = tokenData.accessToken
-
-        if (!accessToken) {
-          logger.error('No access token returned')
-          setError('Authentication failed. Please reconnect your Confluence account.')
-          setIsLoading(false)
-          return
-        }
-
-        // Simply fetch pages directly using the endpoint
         const response = await fetch('/api/tools/confluence/pages', {
           method: 'POST',
           headers: {
@@ -284,7 +231,8 @@ export function ConfluenceFileSelector({
           },
           body: JSON.stringify({
             domain,
-            accessToken,
+            credentialId: selectedCredentialId,
+            workflowId,
             title: searchQuery || undefined,
             limit: 50,
           }),

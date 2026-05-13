@@ -2,7 +2,6 @@
 
 import { useRef, useState } from 'react'
 import { Loader2 } from 'lucide-react'
-import useDrivePicker from 'react-google-drive-picker'
 import { GoogleDriveIcon } from '@/components/icons/icons'
 import { Button } from '@/components/ui/button'
 import { type CopilotAccessLevel, shouldRequireToolApproval } from '@/lib/copilot/access-policy'
@@ -13,7 +12,6 @@ import {
 import { useEntitySession } from '@/lib/copilot/review-sessions/entity-session-host'
 import { ClientToolCallState } from '@/lib/copilot/tools/client/base-tool'
 import { getClientTool } from '@/lib/copilot/tools/client/manager'
-import { getEnv } from '@/lib/env'
 import { cn } from '@/lib/utils'
 import { getEntityFields } from '@/lib/yjs/entity-session'
 import { useCopilotStore } from '@/stores/copilot/store'
@@ -321,7 +319,6 @@ function RunSkipButtons({
   const [isProcessing, setIsProcessing] = useState(false)
   const actionInProgressRef = useRef(false)
   const { executeCopilotToolCall, executeIntegrationTool, skipCopilotToolCall } = useCopilotStore()
-  const [openPicker] = useDrivePicker()
 
   const onRun = async () => {
     if (actionInProgressRef.current) return
@@ -346,35 +343,7 @@ function RunSkipButtons({
       <div className='flex items-center gap-2'>
         <Button
           onClick={async () => {
-            await executeCopilotToolCall(toolCall.id, {
-              openDrivePicker: async (accessToken: string) => {
-                try {
-                  const clientId = getEnv('NEXT_PUBLIC_GOOGLE_CLIENT_ID') || ''
-                  const apiKey = getEnv('NEXT_PUBLIC_GOOGLE_API_KEY') || ''
-                  const projectNumber = getEnv('NEXT_PUBLIC_GOOGLE_PROJECT_NUMBER') || ''
-                  return await new Promise<boolean>((resolve) => {
-                    openPicker({
-                      clientId,
-                      developerKey: apiKey,
-                      viewId: 'DOCS',
-                      token: accessToken,
-                      showUploadView: true,
-                      showUploadFolders: true,
-                      supportDrives: true,
-                      multiselect: false,
-                      appId: projectNumber,
-                      setSelectFolderEnabled: false,
-                      callbackFunction: async (data) => {
-                        if (data.action === 'picked') resolve(true)
-                        else if (data.action === 'cancel') resolve(false)
-                      },
-                    })
-                  })
-                } catch {
-                  return false
-                }
-              },
-            })
+            await executeCopilotToolCall(toolCall.id)
           }}
           size='sm'
           title='Grant Google Drive access'

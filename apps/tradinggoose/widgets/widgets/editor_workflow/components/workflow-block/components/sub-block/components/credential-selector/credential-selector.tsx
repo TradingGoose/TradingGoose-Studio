@@ -90,7 +90,9 @@ export function CredentialSelector({
     try {
       const responses = await Promise.all(
         effectiveProviderIds.map(async (providerId) => {
-          const response = await fetch(`/api/auth/oauth/credentials?provider=${providerId}`)
+          const params = new URLSearchParams({ provider: providerId })
+          if (activeWorkflowId) params.set('workflowId', activeWorkflowId)
+          const response = await fetch(`/api/auth/oauth/credentials?${params.toString()}`)
           if (!response.ok) return [] as Credential[]
           const data = await response.json()
           return (data.credentials ?? []) as Credential[]

@@ -341,11 +341,13 @@ export const ToolArgSchemas = {
   gdrive_request_access: z.object({}),
 
   list_gdrive_files: WorkflowContextArgs.extend({
+    credentialId: z.string(),
     search_query: z.string().optional(),
     num_results: z.number().optional().default(50),
   }),
 
   read_gdrive_file: z.object({
+    credentialId: z.string(),
     fileId: z.string(),
     type: z.enum(['doc', 'sheet']),
     range: z.string().optional(),
@@ -893,6 +895,7 @@ export const ToolResultSchemas = {
   ]),
   gdrive_request_access: z.object({
     granted: z.boolean().optional(),
+    credentialId: z.string().optional(),
     message: z.string().optional(),
   }),
   list_gdrive_files: z.object({

@@ -1,3 +1,4 @@
+import { getCredentialRouteParams } from '@/tools/credentials'
 import type { JiraWriteParams, JiraWriteResponse } from '@/tools/jira/types'
 import type { ToolConfig } from '@/tools/types'
 
@@ -115,8 +116,8 @@ export const jiraWriteTool: ToolConfig<JiraWriteParams, JiraWriteResponse> = {
     body: (params) => {
       // Pass all parameters to the internal API route
       return {
+        ...getCredentialRouteParams(params),
         domain: params.domain,
-        accessToken: params.accessToken,
         projectId: params.projectId,
         summary: params.summary,
         description: params.description,

@@ -9,7 +9,11 @@ import {
   unregisterEntitySession,
   type RegisteredEntitySession,
 } from '@/lib/yjs/entity-session-registry'
-import { bootstrapYjsProvider, type YjsProviderBootstrapResult } from '@/lib/yjs/provider'
+import {
+  bootstrapYjsProvider,
+  waitForYjsWriteSync,
+  type YjsProviderBootstrapResult,
+} from '@/lib/yjs/provider'
 import {
   getEntityFields,
   replaceEntityTextField,
@@ -349,7 +353,7 @@ export function getActiveEntitySession(
   )
 }
 
-async function resolveEntityReviewSession(options: {
+async function resolveWritableEntityReviewSession(options: {
   workspaceId: string
   kind: EntityDocumentKind
   entityId?: string
@@ -363,6 +367,7 @@ async function resolveEntityReviewSession(options: {
       entityKind: options.kind,
       entityId: options.entityId,
       reviewSessionId: options.reviewSessionId,
+      accessMode: 'write',
     }),
   })
 
@@ -371,10 +376,15 @@ async function resolveEntityReviewSession(options: {
     throw new Error(payload?.error || `Failed to resolve ${options.kind} review target`)
   }
 
-  return payload as {
-    descriptor: RegisteredEntitySession['descriptor']
-    runtime: RegisteredEntitySession['runtime']
+  return (payload as { descriptor: RegisteredEntitySession['descriptor'] }).descriptor
+}
+
+async function requireAuthorizedWriteSync(session: RegisteredEntitySession): Promise<void> {
+  if (!session.provider) {
+    throw new Error('Authorized Yjs write sync is required before editing this entity')
   }
+
+  await waitForYjsWriteSync(session.provider)
 }
 
 function registerBootstrappedEntitySession(
@@ -385,7 +395,7 @@ function registerBootstrappedEntitySession(
     doc: result.doc,
     provider: result.provider,
     runtime: result.runtime,
-    isSynced: false,
+    isSynced: result.provider.synced,
     canUndo: false,
     canRedo: false,
   }
@@ -411,6 +421,7 @@ export async function resolveCopilotEntityYjsSessionLease(
 ): Promise<CopilotEntityYjsSessionLease> {
   const activeSession = getActiveEntitySession(executionContext, kind, entityId)
   if (activeSession) {
+    await requireAuthorizedWriteSync(activeSession)
     return {
       session: activeSession,
       release: () => {},
@@ -425,14 +436,14 @@ export async function resolveCopilotEntityYjsSessionLease(
   }
 
   const workspaceId = resolveWorkspaceIdFromExecutionContext(executionContext)
-  const resolved = await resolveEntityReviewSession({
+  const resolved = await resolveWritableEntityReviewSession({
     workspaceId,
     kind,
     entityId: requestedEntityId,
     reviewSessionId: requestedReviewSessionId,
   })
 
-  const result = await bootstrapYjsProvider(resolved.descriptor)
+  const result = await bootstrapYjsProvider(resolved, 'write')
   return registerBootstrappedEntitySession(result)
 }
 

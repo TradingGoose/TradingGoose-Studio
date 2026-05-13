@@ -30,17 +30,35 @@ async function fetchJson<T>(
 }
 
 export const oauthCredentialKeys = {
-  list: (providerId?: string) => ['oauthCredentials', providerId ?? 'none'] as const,
-  listByProviderIds: (providerIds: string[]) =>
-    ['oauthCredentialsByProviderIds', providerIds] as const,
+  list: (providerId?: string, workspaceId?: string, workflowId?: string) =>
+    [
+      'oauthCredentials',
+      providerId ?? 'none',
+      workspaceId ?? 'none',
+      workflowId ?? 'none',
+    ] as const,
+  listByProviderIds: (providerIds: string[], workspaceId?: string, workflowId?: string) =>
+    [
+      'oauthCredentialsByProviderIds',
+      providerIds,
+      workspaceId ?? 'none',
+      workflowId ?? 'none',
+    ] as const,
   detail: (credentialId?: string, workflowId?: string) =>
     ['oauthCredentialDetail', credentialId ?? 'none', workflowId ?? 'none'] as const,
 }
 
-export async function fetchOAuthCredentials(providerId: string): Promise<Credential[]> {
+export async function fetchOAuthCredentials(
+  providerId: string,
+  options?: { workspaceId?: string; workflowId?: string }
+): Promise<Credential[]> {
   if (!providerId) return []
   const data = await fetchJson<CredentialListResponse>('/api/auth/oauth/credentials', {
-    searchParams: { provider: providerId },
+    searchParams: {
+      provider: providerId,
+      workspaceId: options?.workspaceId,
+      workflowId: options?.workflowId,
+    },
   })
   return data.credentials ?? []
 }
@@ -59,26 +77,39 @@ export async function fetchOAuthCredentialDetail(
   return data.credentials ?? []
 }
 
-export function useOAuthCredentials(providerId?: string, enabled = true) {
+export function useOAuthCredentials(
+  providerId?: string,
+  enabled = true,
+  options?: { workspaceId?: string; workflowId?: string }
+) {
   return useQuery<Credential[]>({
-    queryKey: oauthCredentialKeys.list(providerId),
-    queryFn: () => fetchOAuthCredentials(providerId ?? ''),
+    queryKey: oauthCredentialKeys.list(providerId, options?.workspaceId, options?.workflowId),
+    queryFn: () => fetchOAuthCredentials(providerId ?? '', options),
     enabled: Boolean(providerId) && enabled,
     staleTime: 60 * 1000,
   })
 }
 
-export function useOAuthCredentialsByProviderIds(providerIds: string[], enabled = true) {
+export function useOAuthCredentialsByProviderIds(
+  providerIds: string[],
+  enabled = true,
+  options?: { workspaceId?: string; workflowId?: string }
+) {
   const normalizedProviderIds = Array.from(
     new Set(providerIds.map((providerId) => providerId.trim()).filter(Boolean))
   )
 
   return useQuery<Record<string, Credential[]>>({
-    queryKey: oauthCredentialKeys.listByProviderIds(normalizedProviderIds),
+    queryKey: oauthCredentialKeys.listByProviderIds(
+      normalizedProviderIds,
+      options?.workspaceId,
+      options?.workflowId
+    ),
     queryFn: async () => {
       const entries = await Promise.all(
         normalizedProviderIds.map(
-          async (providerId) => [providerId, await fetchOAuthCredentials(providerId)] as const
+          async (providerId) =>
+            [providerId, await fetchOAuthCredentials(providerId, options)] as const
         )
       )
 
@@ -105,7 +136,8 @@ export function useOAuthCredentialDetail(
 export function useCredentialName(credentialId?: string, providerId?: string, workflowId?: string) {
   const { data: credentials = [], isFetching: credentialsLoading } = useOAuthCredentials(
     providerId,
-    Boolean(providerId)
+    Boolean(providerId),
+    workflowId ? { workflowId } : undefined
   )
 
   const selectedCredential = credentials.find((cred) => cred.id === credentialId)

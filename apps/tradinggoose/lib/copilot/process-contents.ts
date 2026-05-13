@@ -590,7 +590,7 @@ async function loadCopilotWorkflowState(
   workflowId: string,
   userId: string
 ): Promise<CopilotWorkflowState | null> {
-  const access = await verifyWorkflowAccess(userId, workflowId)
+  const access = await verifyWorkflowAccess(userId, workflowId, 'read')
   if (!access.hasAccess) {
     logger.warn('Skipping unauthorized copilot workflow context', {
       workflowId,

@@ -74,14 +74,18 @@ async function authenticateAndPrepareUpgrade(
 
   const descriptor = buildReviewTargetDescriptorFromEnvelope(envelope)
 
-  const access = await verifyReviewTargetAccess(userId, {
-    entityKind: descriptor.entityKind,
-    entityId: descriptor.entityId,
-    draftSessionId: descriptor.draftSessionId,
-    reviewSessionId: descriptor.reviewSessionId,
-    workspaceId: descriptor.workspaceId,
-    yjsSessionId: descriptor.yjsSessionId,
-  }, { requireWrite: true })
+  const access = await verifyReviewTargetAccess(
+    userId,
+    {
+      entityKind: descriptor.entityKind,
+      entityId: descriptor.entityId,
+      draftSessionId: descriptor.draftSessionId,
+      reviewSessionId: descriptor.reviewSessionId,
+      workspaceId: descriptor.workspaceId,
+      yjsSessionId: descriptor.yjsSessionId,
+    },
+    'write'
+  )
 
   if (!access.hasAccess) {
     throw new YjsAuthError(403, 'Forbidden')

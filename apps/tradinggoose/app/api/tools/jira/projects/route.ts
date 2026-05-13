@@ -1,17 +1,21 @@
-import { NextResponse } from 'next/server'
+import { type NextRequest, NextResponse } from 'next/server'
+import { resolveOAuthRouteCredential } from '@/lib/credentials/oauth-route'
 import { createLogger } from '@/lib/logs/console/logger'
 import { validateAlphanumericId, validateJiraCloudId } from '@/lib/security/input-validation'
+import { generateRequestId } from '@/lib/utils'
 import { getJiraCloudId } from '@/tools/jira/utils'
 
 export const dynamic = 'force-dynamic'
 
 const logger = createLogger('JiraProjectsAPI')
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
+  const requestId = generateRequestId()
   try {
     const url = new URL(request.url)
     const domain = url.searchParams.get('domain')?.trim()
-    const accessToken = url.searchParams.get('accessToken')
+    const credentialId = url.searchParams.get('credentialId')
+    const workflowId = url.searchParams.get('workflowId')
     const providedCloudId = url.searchParams.get('cloudId')
     const query = url.searchParams.get('query') || ''
 
@@ -19,11 +23,14 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Domain is required' }, { status: 400 })
     }
 
-    if (!accessToken) {
-      return NextResponse.json({ error: 'Access token is required' }, { status: 400 })
-    }
+    const credential = await resolveOAuthRouteCredential(
+      request,
+      { credentialId, workflowId },
+      requestId
+    )
+    if (!credential.ok) return credential.response
 
-    const cloudId = providedCloudId || (await getJiraCloudId(domain, accessToken))
+    const cloudId = providedCloudId || (await getJiraCloudId(domain, credential.accessToken))
     logger.info(`Using cloud ID: ${cloudId}`)
 
     const cloudIdValidation = validateJiraCloudId(cloudId, 'cloudId')
@@ -46,7 +53,7 @@ export async function GET(request: Request) {
     const response = await fetch(finalUrl, {
       method: 'GET',
       headers: {
-        Authorization: `Bearer ${accessToken}`,
+        Authorization: `Bearer ${credential.accessToken}`,
         Accept: 'application/json',
       },
     })
@@ -98,23 +105,28 @@ export async function GET(request: Request) {
   }
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
+  const requestId = generateRequestId()
   try {
-    const { domain, accessToken, projectId, cloudId: providedCloudId } = await request.json()
+    const { domain, credentialId, workflowId, projectId, cloudId: providedCloudId } =
+      await request.json()
 
     if (!domain) {
       return NextResponse.json({ error: 'Domain is required' }, { status: 400 })
-    }
-
-    if (!accessToken) {
-      return NextResponse.json({ error: 'Access token is required' }, { status: 400 })
     }
 
     if (!projectId) {
       return NextResponse.json({ error: 'Project ID is required' }, { status: 400 })
     }
 
-    const cloudId = providedCloudId || (await getJiraCloudId(domain, accessToken))
+    const credential = await resolveOAuthRouteCredential(
+      request,
+      { credentialId, workflowId },
+      requestId
+    )
+    if (!credential.ok) return credential.response
+
+    const cloudId = providedCloudId || (await getJiraCloudId(domain, credential.accessToken))
 
     const cloudIdValidation = validateJiraCloudId(cloudId, 'cloudId')
     if (!cloudIdValidation.isValid) {
@@ -131,7 +143,7 @@ export async function POST(request: Request) {
     const response = await fetch(apiUrl, {
       method: 'GET',
       headers: {
-        Authorization: `Bearer ${accessToken}`,
+        Authorization: `Bearer ${credential.accessToken}`,
         Accept: 'application/json',
       },
     })

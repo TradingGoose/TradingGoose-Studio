@@ -1,3 +1,4 @@
+import { getCredentialRouteParams } from '@/tools/credentials'
 import type { SharepointToolParams, SharepointUploadFileResponse } from '@/tools/sharepoint/types'
 import type { ToolConfig } from '@/tools/types'
 
@@ -59,7 +60,7 @@ export const uploadFileTool: ToolConfig<SharepointToolParams, SharepointUploadFi
     }),
     body: (params: SharepointToolParams) => {
       return {
-        accessToken: params.accessToken,
+        ...getCredentialRouteParams(params),
         siteId: params.siteId || 'root',
         driveId: params.driveId || null,
         folderPath: params.folderPath || null,

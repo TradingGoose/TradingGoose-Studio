@@ -8,12 +8,7 @@ import { createMockRequest } from '@/app/api/__test-utils__/utils'
 
 describe('OAuth Connections API Route', () => {
   const mockGetSession = vi.fn()
-  const mockDb = {
-    select: vi.fn().mockReturnThis(),
-    from: vi.fn().mockReturnThis(),
-    where: vi.fn().mockReturnThis(),
-    limit: vi.fn(),
-  }
+  const mockListOAuthConnectionsForUser = vi.fn()
   const mockLogger = {
     info: vi.fn(),
     warn: vi.fn(),
@@ -34,19 +29,8 @@ describe('OAuth Connections API Route', () => {
       getSession: mockGetSession,
     }))
 
-    vi.doMock('@tradinggoose/db', () => ({
-      db: mockDb,
-      account: { userId: 'userId', providerId: 'providerId' },
-      user: { email: 'email', id: 'id' },
-      eq: vi.fn((field, value) => ({ field, value, type: 'eq' })),
-    }))
-
-    vi.doMock('drizzle-orm', () => ({
-      eq: vi.fn((field, value) => ({ field, value, type: 'eq' })),
-    }))
-
-    vi.doMock('jwt-decode', () => ({
-      jwtDecode: vi.fn(),
+    vi.doMock('@/lib/credentials/oauth', () => ({
+      listOAuthConnectionsForUser: mockListOAuthConnectionsForUser,
     }))
 
     vi.doMock('@/lib/logs/console/logger', () => ({
@@ -63,35 +47,24 @@ describe('OAuth Connections API Route', () => {
       user: { id: 'user-123' },
     })
 
-    const mockAccounts = [
+    const mockCredentials = [
       {
-        id: 'account-1',
-        providerId: 'google-email',
-        accountId: 'test@example.com',
-        scope: 'email profile',
-        updatedAt: new Date('2024-01-01'),
-        idToken: null,
+        id: 'credential-1',
+        provider: 'google-email',
+        name: 'Gmail Account',
+        scopes: ['email', 'profile'],
+        lastUsed: '2024-01-01T00:00:00.000Z',
       },
       {
-        id: 'account-2',
-        providerId: 'github',
-        accountId: 'testuser',
-        scope: 'repo',
-        updatedAt: new Date('2024-01-02'),
-        idToken: null,
+        id: 'credential-2',
+        provider: 'github',
+        name: 'GitHub Account',
+        scopes: ['repo'],
+        lastUsed: '2024-01-02T00:00:00.000Z',
       },
     ]
 
-    const mockUserRecord = [{ email: 'user@example.com' }]
-
-    mockDb.select.mockReturnValueOnce(mockDb)
-    mockDb.from.mockReturnValueOnce(mockDb)
-    mockDb.where.mockResolvedValueOnce(mockAccounts)
-
-    mockDb.select.mockReturnValueOnce(mockDb)
-    mockDb.from.mockReturnValueOnce(mockDb)
-    mockDb.where.mockReturnValueOnce(mockDb)
-    mockDb.limit.mockResolvedValueOnce(mockUserRecord)
+    mockListOAuthConnectionsForUser.mockResolvedValueOnce(mockCredentials)
 
     const req = createMockRequest('GET')
     const { GET } = await import('@/app/api/auth/oauth/connections/route')
@@ -134,14 +107,7 @@ describe('OAuth Connections API Route', () => {
       user: { id: 'user-123' },
     })
 
-    mockDb.select.mockReturnValueOnce(mockDb)
-    mockDb.from.mockReturnValueOnce(mockDb)
-    mockDb.where.mockResolvedValueOnce([])
-
-    mockDb.select.mockReturnValueOnce(mockDb)
-    mockDb.from.mockReturnValueOnce(mockDb)
-    mockDb.where.mockReturnValueOnce(mockDb)
-    mockDb.limit.mockResolvedValueOnce([])
+    mockListOAuthConnectionsForUser.mockResolvedValueOnce([])
 
     const req = createMockRequest('GET')
     const { GET } = await import('@/app/api/auth/oauth/connections/route')
@@ -158,9 +124,7 @@ describe('OAuth Connections API Route', () => {
       user: { id: 'user-123' },
     })
 
-    mockDb.select.mockReturnValueOnce(mockDb)
-    mockDb.from.mockReturnValueOnce(mockDb)
-    mockDb.where.mockRejectedValueOnce(new Error('Database error'))
+    mockListOAuthConnectionsForUser.mockRejectedValueOnce(new Error('Database error'))
 
     const req = createMockRequest('GET')
     const { GET } = await import('@/app/api/auth/oauth/connections/route')
@@ -173,38 +137,20 @@ describe('OAuth Connections API Route', () => {
     expect(mockLogger.error).toHaveBeenCalled()
   })
 
-  it('should decode ID token for display name', async () => {
-    const { jwtDecode } = await import('jwt-decode')
-    const mockJwtDecode = jwtDecode as any
-
+  it('should use the canonical credential display name', async () => {
     mockGetSession.mockResolvedValueOnce({
       user: { id: 'user-123' },
     })
 
-    const mockAccounts = [
+    mockListOAuthConnectionsForUser.mockResolvedValueOnce([
       {
-        id: 'account-1',
-        providerId: 'google',
-        accountId: 'google-user-id',
-        scope: 'email profile',
-        updatedAt: new Date('2024-01-01'),
-        idToken: 'mock-jwt-token',
+        id: 'credential-1',
+        provider: 'google',
+        name: 'Canonical Google Credential',
+        scopes: ['email', 'profile'],
+        lastUsed: '2024-01-01T00:00:00.000Z',
       },
-    ]
-
-    mockJwtDecode.mockReturnValueOnce({
-      email: 'decoded@example.com',
-      name: 'Decoded User',
-    })
-
-    mockDb.select.mockReturnValueOnce(mockDb)
-    mockDb.from.mockReturnValueOnce(mockDb)
-    mockDb.where.mockResolvedValueOnce(mockAccounts)
-
-    mockDb.select.mockReturnValueOnce(mockDb)
-    mockDb.from.mockReturnValueOnce(mockDb)
-    mockDb.where.mockReturnValueOnce(mockDb)
-    mockDb.limit.mockResolvedValueOnce([])
+    ])
 
     const req = createMockRequest('GET')
     const { GET } = await import('@/app/api/auth/oauth/connections/route')
@@ -213,6 +159,6 @@ describe('OAuth Connections API Route', () => {
     const data = await response.json()
 
     expect(response.status).toBe(200)
-    expect(data.connections[0].accounts[0].name).toBe('decoded@example.com')
+    expect(data.connections[0].accounts[0].name).toBe('Canonical Google Credential')
   })
 })

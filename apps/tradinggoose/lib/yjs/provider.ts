@@ -5,6 +5,7 @@ import {
   serializeYjsTransportEnvelope,
 } from '@/lib/copilot/review-sessions/identity'
 import type {
+  ReviewAccessMode,
   ReviewTargetDescriptor,
   ReviewTargetRuntimeState,
 } from '@/lib/copilot/review-sessions/types'
@@ -19,6 +20,7 @@ export interface YjsProviderBootstrapResult {
 }
 
 const SOCKET_TOKEN_RETRY_MS = 1_000
+const WRITE_SYNC_TIMEOUT_MS = 10_000
 
 async function fetchSocketToken(): Promise<string> {
   const res = await fetch('/api/auth/socket-token', {
@@ -37,13 +39,17 @@ async function fetchSocketToken(): Promise<string> {
 
 async function fetchSnapshot(
   sessionId: string,
-  envelopeParams: Record<string, string>
+  envelopeParams: Record<string, string>,
+  accessMode: ReviewAccessMode
 ): Promise<{
   snapshotBase64: string
   descriptor: ReviewTargetDescriptor
   runtime: ReviewTargetRuntimeState
 }> {
-  const params = new URLSearchParams(envelopeParams)
+  const params = new URLSearchParams({
+    ...envelopeParams,
+    accessMode,
+  })
   const res = await fetch(`/api/yjs/sessions/${encodeURIComponent(sessionId)}/snapshot?${params}`, {
     cache: 'no-store',
   })
@@ -55,17 +61,56 @@ async function fetchSnapshot(
   return res.json()
 }
 
+export function waitForYjsWriteSync(provider: WebsocketProvider): Promise<void> {
+  if (provider.synced) {
+    return Promise.resolve()
+  }
+
+  return new Promise((resolve, reject) => {
+    let timeout: ReturnType<typeof setTimeout> | null = null
+
+    const finish = (error?: Error) => {
+      if (timeout) {
+        clearTimeout(timeout)
+        timeout = null
+      }
+      provider.off('sync', handleSync)
+      provider.off('connection-close', handleConnectionFailure)
+      provider.off('connection-error', handleConnectionFailure)
+      error ? reject(error) : resolve()
+    }
+
+    const handleSync = (isSynced: boolean) => {
+      if (isSynced) {
+        finish()
+      }
+    }
+
+    const handleConnectionFailure = () => {
+      finish(new Error('Failed to establish authorized Yjs write sync'))
+    }
+
+    timeout = setTimeout(handleConnectionFailure, WRITE_SYNC_TIMEOUT_MS)
+    provider.on('sync', handleSync)
+    provider.on('connection-close', handleConnectionFailure)
+    provider.on('connection-error', handleConnectionFailure)
+
+    if (provider.synced) {
+      finish()
+    }
+  })
+}
+
 export async function bootstrapYjsProvider(
   descriptor: ReviewTargetDescriptor,
-  options?: {
-    wsOrigin?: string
-  }
+  accessMode: ReviewAccessMode,
+  wsOrigin = getDefaultWsOrigin()
 ): Promise<YjsProviderBootstrapResult> {
   const doc = new Y.Doc()
 
   const initialEnvelope = buildYjsTransportEnvelope(descriptor)
   const initialEnvelopeParams = serializeYjsTransportEnvelope(initialEnvelope)
-  const snapshot = await fetchSnapshot(descriptor.yjsSessionId, initialEnvelopeParams)
+  const snapshot = await fetchSnapshot(descriptor.yjsSessionId, initialEnvelopeParams, accessMode)
   const resolvedDescriptor = snapshot.descriptor
   const runtime = snapshot.runtime
 
@@ -73,7 +118,6 @@ export async function bootstrapYjsProvider(
     applySnapshotToDoc(doc, snapshot.snapshotBase64)
   }
 
-  const wsOrigin = options?.wsOrigin ?? getDefaultWsOrigin()
   const serverUrl = `${wsOrigin}/yjs`
 
   const envelopeParams = serializeYjsTransportEnvelope(
@@ -126,6 +170,17 @@ export async function bootstrapYjsProvider(
   provider.on('connection-error', (_event: Event, currentProvider: WebsocketProvider) => {
     scheduleReconnectWithFreshToken(currentProvider)
   })
+
+  if (accessMode === 'write') {
+    try {
+      await waitForYjsWriteSync(provider)
+    } catch (error) {
+      provider.disconnect()
+      provider.destroy()
+      doc.destroy()
+      throw error
+    }
+  }
 
   return {
     doc,

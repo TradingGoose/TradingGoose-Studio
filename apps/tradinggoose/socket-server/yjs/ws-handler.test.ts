@@ -165,8 +165,8 @@ describe('handleYjsUpgrade', () => {
       },
     })
 
-    mockVerifyReviewTargetAccess.mockImplementation(async (_userId, _target, options) => ({
-      hasAccess: !options.requireWrite,
+    mockVerifyReviewTargetAccess.mockImplementation(async (_userId, _target, accessMode) => ({
+      hasAccess: accessMode !== 'write',
       userPermission: 'read',
       workspaceId: 'workspace-1',
       isOwner: false,
@@ -177,7 +177,7 @@ describe('handleYjsUpgrade', () => {
     await new Promise((resolve) => setImmediate(resolve))
 
     expect(mockVerifyReviewTargetAccess).toHaveBeenCalledTimes(1)
-    expect(mockVerifyReviewTargetAccess.mock.calls[0]?.[2]).toEqual({ requireWrite: true })
+    expect(mockVerifyReviewTargetAccess.mock.calls[0]?.[2]).toBe('write')
     expect(wss.handleUpgrade).not.toHaveBeenCalled()
     expect(socket.write).toHaveBeenCalledWith(expect.stringContaining('403 Forbidden'))
     expect(socket.destroy).toHaveBeenCalledTimes(1)
@@ -218,7 +218,7 @@ describe('handleYjsUpgrade', () => {
     await new Promise((resolve) => setImmediate(resolve))
 
     expect(mockVerifyReviewTargetAccess).toHaveBeenCalledTimes(1)
-    expect(mockVerifyReviewTargetAccess.mock.calls[0]?.[2]).toEqual({ requireWrite: true })
+    expect(mockVerifyReviewTargetAccess.mock.calls[0]?.[2]).toBe('write')
     expect(mockSetPersistence).toHaveBeenCalledWith(
       sessionId,
       expect.objectContaining({

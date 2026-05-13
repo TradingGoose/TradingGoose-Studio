@@ -1,16 +1,20 @@
-import { NextResponse } from 'next/server'
+import { type NextRequest, NextResponse } from 'next/server'
+import { resolveOAuthRouteCredential } from '@/lib/credentials/oauth-route'
 import { createLogger } from '@/lib/logs/console/logger'
+import { generateRequestId } from '@/lib/utils'
 import { getConfluenceCloudId } from '@/tools/confluence/utils'
 
 const logger = createLogger('ConfluencePagesAPI')
 
 export const dynamic = 'force-dynamic'
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
+  const requestId = generateRequestId()
   try {
     const {
       domain,
-      accessToken,
+      credentialId,
+      workflowId,
       title,
       cloudId: providedCloudId,
       limit = 50,
@@ -20,12 +24,15 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Domain is required' }, { status: 400 })
     }
 
-    if (!accessToken) {
-      return NextResponse.json({ error: 'Access token is required' }, { status: 400 })
-    }
+    const credential = await resolveOAuthRouteCredential(
+      request,
+      { credentialId, workflowId },
+      requestId
+    )
+    if (!credential.ok) return credential.response
 
     // Use provided cloudId or fetch it if not provided
-    const cloudId = providedCloudId || (await getConfluenceCloudId(domain, accessToken))
+    const cloudId = providedCloudId || (await getConfluenceCloudId(domain, credential.accessToken))
 
     // Build the URL with query parameters
     const baseUrl = `https://api.atlassian.com/ex/confluence/${cloudId}/wiki/api/v2/pages`
@@ -49,7 +56,7 @@ export async function POST(request: Request) {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${accessToken}`,
+        Authorization: `Bearer ${credential.accessToken}`,
       },
     })
 

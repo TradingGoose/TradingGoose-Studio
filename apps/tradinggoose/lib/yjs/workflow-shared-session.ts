@@ -159,7 +159,7 @@ async function initializeSharedSession(entry: SharedWorkflowSessionEntry): Promi
   }
 
   try {
-    const result = await bootstrapYjsProvider(descriptor)
+    const result = await bootstrapYjsProvider(descriptor, 'read')
 
     if (entry.refCount === 0 || getSharedSessionEntries().get(entry.workflowId) !== entry) {
       destroyBootstrappedSession(result)

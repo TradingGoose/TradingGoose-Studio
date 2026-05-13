@@ -1,118 +1,149 @@
 import { db } from '@tradinggoose/db'
-import { account, workflow as workflowTable } from '@tradinggoose/db/schema'
-import { eq } from 'drizzle-orm'
+import {
+  account,
+  credential,
+  credentialMember,
+  workflow as workflowTable,
+} from '@tradinggoose/db/schema'
+import { and, eq } from 'drizzle-orm'
 import type { NextRequest } from 'next/server'
-import { checkHybridAuth } from '@/lib/auth/hybrid'
+import { AuthType, checkSessionOrInternalAuth } from '@/lib/auth/hybrid'
 import { checkWorkspaceAccess } from '@/lib/permissions/utils'
 
 export interface CredentialAccessResult {
   ok: boolean
   error?: string
-  authType?: 'session' | 'api_key' | 'internal_jwt'
+  authType?: typeof AuthType.SESSION | typeof AuthType.INTERNAL_JWT
   requesterUserId?: string
   credentialOwnerUserId?: string
   workspaceId?: string
+  resolvedTokenAccountId?: string
 }
 
 /**
- * Centralizes auth + collaboration rules for credential use.
- * - Uses checkHybridAuth to authenticate the caller
- * - Fetches credential owner
- * - Authorization rules:
- *   - session/api_key: allow if requester owns the credential; otherwise require workflowId and
- *     verify BOTH requester and owner have access to the workflow's workspace
- *   - internal_jwt: require workflowId and verify credential owner has access to the
- *     workflow's workspace (requester identity is the system/workflow)
+ * Centralizes OAuth credential authorization.
+ * Credential IDs are workspace-scoped platform credentials. The underlying
+ * account row is token storage and is never an authorization surface.
  */
 export async function authorizeCredentialUse(
   request: NextRequest,
-  params: { credentialId: string; workflowId?: string }
+  params: {
+    credentialId: string
+    workflowId?: string
+    workspaceId?: string
+    requireWorkflowIdForInternal?: boolean
+    callerUserId?: string
+  }
 ): Promise<CredentialAccessResult> {
-  const { credentialId, workflowId } = params
+  const {
+    credentialId,
+    workflowId,
+    workspaceId,
+    requireWorkflowIdForInternal = true,
+    callerUserId,
+  } = params
 
-  const auth = await checkHybridAuth(request, { requireWorkflowId: false })
-  if (!auth.success) {
+  const auth = await checkSessionOrInternalAuth(request, {
+    requireWorkflowId: requireWorkflowIdForInternal,
+  })
+  if (!auth.success || !auth.userId) {
     return { ok: false, error: auth.error || 'Authentication required' }
   }
-  const requesterUserId = auth.userId
-  if (auth.authType !== 'internal_jwt' && !requesterUserId) {
-    return { ok: false, error: 'Authentication required' }
-  }
-  if (auth.authType === 'internal_jwt' && !workflowId) {
-    return { ok: false, error: 'workflowId is required' }
+
+  if (
+    auth.authType === AuthType.INTERNAL_JWT &&
+    callerUserId !== undefined &&
+    callerUserId !== auth.userId
+  ) {
+    return { ok: false, error: 'Caller user does not match internal token subject' }
   }
 
-  // Lookup credential owner
-  const [credRow] = await db
-    .select({ userId: account.userId })
-    .from(account)
-    .where(eq(account.id, credentialId))
+  const actingUserId = auth.userId
+
+  const [workflowContext] = workflowId
+    ? await db
+        .select({ workspaceId: workflowTable.workspaceId })
+        .from(workflowTable)
+        .where(eq(workflowTable.id, workflowId))
+        .limit(1)
+    : [null]
+
+  if (workflowId && (!workflowContext || !workflowContext.workspaceId)) {
+    return { ok: false, error: 'Workflow not found' }
+  }
+  if (workflowContext && workspaceId && workflowContext.workspaceId !== workspaceId) {
+    return { ok: false, error: 'Workflow is not in the requested workspace' }
+  }
+
+  const [platformCredential] = await db
+    .select({
+      id: credential.id,
+      workspaceId: credential.workspaceId,
+      type: credential.type,
+      accountId: credential.accountId,
+    })
+    .from(credential)
+    .where(eq(credential.id, credentialId))
     .limit(1)
 
-  if (!credRow) {
+  if (!platformCredential) {
     return { ok: false, error: 'Credential not found' }
   }
 
-  const credentialOwnerUserId = credRow.userId
-
-  // If requester owns the credential, allow immediately
-  if (auth.authType !== 'internal_jwt' && requesterUserId === credentialOwnerUserId) {
-    return {
-      ok: true,
-      authType: auth.authType,
-      requesterUserId,
-      credentialOwnerUserId,
-    }
+  if (platformCredential.type !== 'oauth' || !platformCredential.accountId) {
+    return { ok: false, error: 'Unsupported credential type for OAuth access' }
   }
 
-  // For collaboration paths, workflowId is required to scope to a workspace
-  if (!workflowId) {
-    return { ok: false, error: 'workflowId is required' }
+  const scopedWorkspaceId = workflowContext?.workspaceId ?? workspaceId
+  if (scopedWorkspaceId && scopedWorkspaceId !== platformCredential.workspaceId) {
+    return { ok: false, error: 'Credential is not accessible from this workspace' }
   }
 
-  const [wf] = await db
-    .select({ workspaceId: workflowTable.workspaceId })
-    .from(workflowTable)
-    .where(eq(workflowTable.id, workflowId))
+  const [accountRow] = await db
+    .select({ userId: account.userId })
+    .from(account)
+    .where(eq(account.id, platformCredential.accountId))
     .limit(1)
 
-  if (!wf || !wf.workspaceId) {
-    return { ok: false, error: 'Workflow not found' }
+  if (!accountRow) {
+    return { ok: false, error: 'Credential account not found' }
   }
 
-  if (auth.authType === 'internal_jwt') {
-    // Internal calls: verify credential owner belongs to the workflow's workspace
-    const ownerAccess = await checkWorkspaceAccess(wf.workspaceId, credentialOwnerUserId)
-    if (!ownerAccess.hasAccess) {
-      return { ok: false, error: 'Unauthorized' }
-    }
+  const [membership] = await db
+    .select({ id: credentialMember.id })
+    .from(credentialMember)
+    .where(
+      and(
+        eq(credentialMember.credentialId, platformCredential.id),
+        eq(credentialMember.userId, actingUserId),
+        eq(credentialMember.status, 'active')
+      )
+    )
+    .limit(1)
+
+  if (!membership) {
     return {
-      ok: true,
-      authType: auth.authType,
-      requesterUserId,
-      credentialOwnerUserId,
-      workspaceId: wf.workspaceId,
+      ok: false,
+      error:
+        'You do not have access to this credential. Ask the credential admin to add you as a member.',
     }
   }
 
-  if (!requesterUserId) {
-    return { ok: false, error: 'Authentication required' }
-  }
-
-  // Session/API key: verify BOTH requester and owner belong to the workflow's workspace
   const [requesterAccess, ownerAccess] = await Promise.all([
-    checkWorkspaceAccess(wf.workspaceId, requesterUserId),
-    checkWorkspaceAccess(wf.workspaceId, credentialOwnerUserId),
+    checkWorkspaceAccess(platformCredential.workspaceId, actingUserId),
+    checkWorkspaceAccess(platformCredential.workspaceId, accountRow.userId),
   ])
+
   if (!requesterAccess.hasAccess || !ownerAccess.hasAccess) {
     return { ok: false, error: 'Unauthorized' }
   }
 
   return {
     ok: true,
-    authType: auth.authType,
-    requesterUserId,
-    credentialOwnerUserId,
-    workspaceId: wf.workspaceId,
+    authType: auth.authType as CredentialAccessResult['authType'],
+    requesterUserId: actingUserId,
+    credentialOwnerUserId: accountRow.userId,
+    workspaceId: platformCredential.workspaceId,
+    resolvedTokenAccountId: platformCredential.accountId,
   }
 }

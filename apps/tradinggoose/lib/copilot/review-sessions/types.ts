@@ -13,6 +13,7 @@ export const REVIEW_ENTITY_KINDS = [
 ] as const
 
 export type ReviewEntityKind = (typeof REVIEW_ENTITY_KINDS)[number]
+export type ReviewAccessMode = 'read' | 'write'
 
 export interface ReviewTargetDescriptor {
   workspaceId: string | null

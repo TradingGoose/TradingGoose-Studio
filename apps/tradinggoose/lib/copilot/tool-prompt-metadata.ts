@@ -318,17 +318,19 @@ export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
     entityKind: 'workflow',
   },
   gdrive_request_access: {
-    description: 'Request Google Drive access.',
+    description: 'Request Google Drive access and return the selected credentialId.',
     kind: 'request_access',
     entityKind: 'google_drive',
   },
   list_gdrive_files: {
-    description: 'List Google Drive files.',
+    description:
+      'List Google Drive files using the credentialId returned by gdrive_request_access.',
     kind: 'list',
     entityKind: 'google_drive',
   },
   read_gdrive_file: {
-    description: 'Read a Google doc or sheet.',
+    description:
+      'Read a Google doc or sheet using the credentialId returned by gdrive_request_access.',
     kind: 'read',
     entityKind: 'google_drive',
   },
