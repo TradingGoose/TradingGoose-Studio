@@ -5,8 +5,7 @@ import { EditWorkflowBlockClientTool } from '@/lib/copilot/tools/client/workflow
 const mockGetReadableWorkflowState = vi.fn()
 const mockResolveWorkflowTarget = vi.fn()
 const mockSetWorkflowState = vi.fn()
-const mockGetRegisteredWorkflowSession = vi.fn()
-const mockAcquireSharedWorkflowSessionLease = vi.fn()
+const mockAcquireWritableWorkflowSessionLease = vi.fn()
 
 vi.mock('@/lib/copilot/tools/client/workflow/workflow-review-tool-utils', () => ({
   getReadableWorkflowState: (...args: any[]) => mockGetReadableWorkflowState(...args),
@@ -31,13 +30,9 @@ vi.mock('@/lib/copilot/tools/client/workflow/workflow-review-tool-utils', () => 
   }),
 }))
 
-vi.mock('@/lib/yjs/workflow-session-registry', () => ({
-  getRegisteredWorkflowSession: (...args: any[]) => mockGetRegisteredWorkflowSession(...args),
-}))
-
 vi.mock('@/lib/yjs/workflow-shared-session', () => ({
-  acquireSharedWorkflowSessionLease: (...args: any[]) =>
-    mockAcquireSharedWorkflowSessionLease(...args),
+  acquireWritableWorkflowSessionLease: (...args: any[]) =>
+    mockAcquireWritableWorkflowSessionLease(...args),
 }))
 
 vi.mock('@/lib/yjs/workflow-session', () => ({
@@ -59,8 +54,7 @@ describe('EditWorkflowBlockClientTool', () => {
     mockGetReadableWorkflowState.mockReset()
     mockResolveWorkflowTarget.mockReset()
     mockSetWorkflowState.mockReset()
-    mockGetRegisteredWorkflowSession.mockReset()
-    mockAcquireSharedWorkflowSessionLease.mockReset()
+    mockAcquireWritableWorkflowSessionLease.mockReset()
 
     mockResolveWorkflowTarget.mockResolvedValue({
       workflowId: 'wf-1',
@@ -92,15 +86,7 @@ describe('EditWorkflowBlockClientTool', () => {
       },
     })
 
-    mockGetRegisteredWorkflowSession.mockReturnValue({
-      workflowId: 'wf-1',
-      channelId: 'pair-1',
-      yjsSessionId: 'wf-1',
-      doc: { id: 'doc-1' },
-      provider: null,
-      undoManager: null,
-    })
-    mockAcquireSharedWorkflowSessionLease.mockImplementation(async ({ workflowId }) => ({
+    mockAcquireWritableWorkflowSessionLease.mockImplementation(async ({ workflowId }) => ({
       session: {
         workflowId,
         doc: { id: 'doc-1' },

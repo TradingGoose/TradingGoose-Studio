@@ -3,11 +3,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
 
 const mockBootstrapYjsProvider = vi.fn()
+const mockWaitForYjsWriteSync = vi.fn()
 const mockRegisterWorkflowSession = vi.fn()
 const mockUnregisterWorkflowSession = vi.fn()
 
 vi.mock('@/lib/yjs/provider', () => ({
   bootstrapYjsProvider: (...args: any[]) => mockBootstrapYjsProvider(...args),
+  waitForYjsWriteSync: (...args: any[]) => mockWaitForYjsWriteSync(...args),
 }))
 
 vi.mock('@/lib/yjs/workflow-session-registry', () => ({
@@ -62,6 +64,8 @@ describe('workflow shared session lifecycle', () => {
     vi.resetModules()
     vi.useFakeTimers()
     mockBootstrapYjsProvider.mockReset()
+    mockWaitForYjsWriteSync.mockReset()
+    mockWaitForYjsWriteSync.mockResolvedValue(undefined)
     mockRegisterWorkflowSession.mockReset()
     mockUnregisterWorkflowSession.mockReset()
     delete globalThis.__workflowYjsSessionEntries
@@ -97,6 +101,7 @@ describe('workflow shared session lifecycle', () => {
 
     const {
       acquireSharedWorkflowSession,
+      acquireWritableWorkflowSessionLease,
       getSharedWorkflowSessionState,
     } = await import('./workflow-shared-session')
 
@@ -113,6 +118,14 @@ describe('workflow shared session lifecycle', () => {
       expect(mockBootstrapYjsProvider).toHaveBeenCalledTimes(1)
       expect(getSharedWorkflowSessionState('workflow-1').provider).toBe(provider as any)
     })
+    expect(mockBootstrapYjsProvider.mock.calls[0]?.[1]).toBe('write')
+
+    const writeLease = await acquireWritableWorkflowSessionLease({
+      workflowId: 'workflow-1',
+      workspaceId: 'workspace-1',
+    })
+    expect(mockWaitForYjsWriteSync).toHaveBeenCalledWith(provider)
+    writeLease.release()
 
     expect(mockRegisterWorkflowSession).toHaveBeenCalledTimes(1)
 

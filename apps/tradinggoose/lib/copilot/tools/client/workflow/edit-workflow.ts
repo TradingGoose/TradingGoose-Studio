@@ -16,7 +16,7 @@ import {
 import { createLogger } from '@/lib/logs/console/logger'
 import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
 import { setWorkflowState } from '@/lib/yjs/workflow-session'
-import { acquireSharedWorkflowSessionLease } from '@/lib/yjs/workflow-shared-session'
+import { acquireWritableWorkflowSessionLease } from '@/lib/yjs/workflow-shared-session'
 import { getCopilotStoreForToolCall } from '@/stores/copilot/store-access'
 
 interface EditWorkflowArgs {
@@ -103,7 +103,7 @@ export class EditWorkflowClientTool extends BaseClientTool {
         workflowId: requestedWorkflowId,
       })
       this.lastWorkflowId = workflowId
-      const lease = await acquireSharedWorkflowSessionLease({
+      const lease = await acquireWritableWorkflowSessionLease({
         workflowId,
         workspaceId:
           (typeof stagedResult.workspaceId === 'string' ? stagedResult.workspaceId : undefined) ??
@@ -202,11 +202,6 @@ export class EditWorkflowClientTool extends BaseClientTool {
       this.lastWorkflowId = workflowId
 
       let currentWorkflowState: string | undefined
-      const lease = await acquireSharedWorkflowSessionLease({
-        workflowId,
-        workspaceId: workspaceId ?? executionContext.workspaceId ?? null,
-      })
-
       try {
         currentWorkflowState = JSON.stringify(
           (await getReadableWorkflowState(executionContext, workflowId)).workflowState
@@ -217,8 +212,6 @@ export class EditWorkflowClientTool extends BaseClientTool {
           e as any
         )
         throw new Error('Failed to read the current workflow')
-      } finally {
-        lease.release()
       }
 
       const result = (await executeCopilotServerTool({

@@ -9,8 +9,7 @@ import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
 const mockGetReadableWorkflowState = vi.fn()
 const mockResolveWorkflowTarget = vi.fn()
 const mockSetWorkflowState = vi.fn()
-const mockGetRegisteredWorkflowSession = vi.fn()
-const mockAcquireSharedWorkflowSessionLease = vi.fn()
+const mockAcquireWritableWorkflowSessionLease = vi.fn()
 
 const workflowDocument = [
   'flowchart TD',
@@ -43,13 +42,9 @@ vi.mock('@/lib/copilot/tools/client/workflow/workflow-review-tool-utils', () => 
   }),
 }))
 
-vi.mock('@/lib/yjs/workflow-session-registry', () => ({
-  getRegisteredWorkflowSession: (...args: any[]) => mockGetRegisteredWorkflowSession(...args),
-}))
-
 vi.mock('@/lib/yjs/workflow-shared-session', () => ({
-  acquireSharedWorkflowSessionLease: (...args: any[]) =>
-    mockAcquireSharedWorkflowSessionLease(...args),
+  acquireWritableWorkflowSessionLease: (...args: any[]) =>
+    mockAcquireWritableWorkflowSessionLease(...args),
 }))
 
 vi.mock('@/lib/yjs/workflow-session', () => ({
@@ -72,8 +67,7 @@ describe('EditWorkflowClientTool approval gating', () => {
     mockGetReadableWorkflowState.mockReset()
     mockResolveWorkflowTarget.mockReset()
     mockSetWorkflowState.mockReset()
-    mockGetRegisteredWorkflowSession.mockReset()
-    mockAcquireSharedWorkflowSessionLease.mockReset()
+    mockAcquireWritableWorkflowSessionLease.mockReset()
 
     mockResolveWorkflowTarget.mockResolvedValue({
       workflowId: 'wf-1',
@@ -103,15 +97,7 @@ describe('EditWorkflowClientTool approval gating', () => {
       },
     })
 
-    mockGetRegisteredWorkflowSession.mockReturnValue({
-      workflowId: 'wf-1',
-      channelId: 'pair-1',
-      yjsSessionId: 'wf-1',
-      doc: { id: 'doc-1' },
-      provider: null,
-      undoManager: null,
-    })
-    mockAcquireSharedWorkflowSessionLease.mockImplementation(async ({ workflowId }) => ({
+    mockAcquireWritableWorkflowSessionLease.mockImplementation(async ({ workflowId }) => ({
       session: {
         workflowId,
         doc: { id: workflowId === 'wf-target' ? 'doc-target' : 'doc-1' },
@@ -272,7 +258,6 @@ describe('EditWorkflowClientTool approval gating', () => {
     })
 
     expect(tool.getState()).toBe(ClientToolCallState.review)
-    expect(mockGetRegisteredWorkflowSession).not.toHaveBeenCalled()
     expect(mockSetWorkflowState).not.toHaveBeenCalled()
     expect(fetchMock).toHaveBeenCalledTimes(1)
   })
@@ -445,7 +430,7 @@ describe('EditWorkflowClientTool approval gating', () => {
       workflowId: options?.workflowId ?? 'wf-current',
       workflowName: 'Workflow',
     }))
-    mockAcquireSharedWorkflowSessionLease.mockImplementation(async ({ workflowId }) => ({
+    mockAcquireWritableWorkflowSessionLease.mockImplementation(async ({ workflowId }) => ({
       session: {
         workflowId,
         doc: { id: workflowId === 'wf-target' ? 'doc-target' : 'doc-current' },

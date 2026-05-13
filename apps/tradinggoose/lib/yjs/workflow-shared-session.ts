@@ -4,7 +4,11 @@ import * as Y from 'yjs'
 import type { WebsocketProvider } from 'y-websocket'
 import type { ReviewTargetDescriptor } from '@/lib/copilot/review-sessions/types'
 import { deriveUserColor } from '@/lib/utils'
-import { bootstrapYjsProvider, type YjsProviderBootstrapResult } from '@/lib/yjs/provider'
+import {
+  bootstrapYjsProvider,
+  waitForYjsWriteSync,
+  type YjsProviderBootstrapResult,
+} from '@/lib/yjs/provider'
 import { getVariablesMap, readWorkflowMap, readWorkflowTextFieldsMap } from '@/lib/yjs/workflow-session'
 import { createYjsUndoTrackedOrigins } from '@/lib/yjs/transaction-origins'
 import {
@@ -159,7 +163,7 @@ async function initializeSharedSession(entry: SharedWorkflowSessionEntry): Promi
   }
 
   try {
-    const result = await bootstrapYjsProvider(descriptor, 'read')
+    const result = await bootstrapYjsProvider(descriptor, 'write')
 
     if (entry.refCount === 0 || getSharedSessionEntries().get(entry.workflowId) !== entry) {
       destroyBootstrappedSession(result)
@@ -211,7 +215,7 @@ async function initializeSharedSession(entry: SharedWorkflowSessionEntry): Promi
       awareness: result.provider.awareness ?? null,
       canUndo: false,
       canRedo: false,
-      isSynced: false,
+      isSynced: result.provider.synced === true,
       isLoading: false,
       error: null,
     })
@@ -296,7 +300,7 @@ export function acquireSharedWorkflowSession(args: {
   }
 }
 
-export async function acquireSharedWorkflowSessionLease(args: {
+export async function acquireWritableWorkflowSessionLease(args: {
   workflowId: string
   workspaceId: string | null
 }): Promise<{ session: RegisteredWorkflowSession; release: () => void }> {
@@ -320,6 +324,13 @@ export async function acquireSharedWorkflowSessionLease(args: {
   if (!entry.result?.doc) {
     release()
     throw new Error(entry.state.error || 'Failed to initialize workflow Yjs session')
+  }
+
+  try {
+    await waitForYjsWriteSync(entry.result.provider)
+  } catch (error) {
+    release()
+    throw error
   }
 
   return {
