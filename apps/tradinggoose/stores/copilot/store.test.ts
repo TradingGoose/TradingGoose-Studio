@@ -159,73 +159,6 @@ describe('copilot tool execution provenance', () => {
     expect(context.contextWorkflowId).toBe('wf-current-a')
   })
 
-  it.each([
-    {
-      scope: 'workflow',
-      provenance: { workflowId: 'wf-origin-b' },
-      expected: { workflowId: 'wf-origin-b', workspaceId: undefined },
-    },
-    {
-      scope: 'workspace',
-      provenance: { workspaceId: 'workspace-origin' },
-      expected: { workflowId: undefined, workspaceId: 'workspace-origin' },
-    },
-    {
-      scope: 'unscoped',
-      provenance: {},
-      expected: { workflowId: undefined, workspaceId: undefined },
-    },
-  ])('executeIntegrationTool sends $scope execution context to the server', async (testCase) => {
-    const channelId = `copilot-provenance-channel-${testCase.scope}`
-    const toolCallId = `copilot-provenance-tool-${testCase.scope}`
-    const store = getCopilotStore(channelId)
-    const fetchMock = vi.fn(async (input: RequestInfo | URL, _init?: RequestInit) => {
-      const url = typeof input === 'string' ? input : input.toString()
-      if (url.includes('/api/copilot/execute-tool')) {
-        return {
-          ok: true,
-          status: 200,
-          json: async () => ({
-            success: true,
-            result: {
-              success: true,
-              output: { content: 'ok' },
-            },
-          }),
-        }
-      }
-
-      return {
-        ok: true,
-        status: 200,
-        json: async () => ({ success: true }),
-      }
-    })
-    vi.stubGlobal('fetch', fetchMock)
-
-    store.setState({
-      toolCallsById: {
-        [toolCallId]: {
-          id: toolCallId,
-          name: 'some_integration_tool',
-          state: ClientToolCallState.pending,
-          params: { foo: 'bar' },
-          provenance: testCase.provenance,
-        },
-      },
-    })
-
-    await store.getState().executeIntegrationTool(toolCallId)
-
-    const executeRequest = fetchMock.mock.calls.find(([input]) => {
-      const url = typeof input === 'string' ? input : input.toString()
-      return url.includes('/api/copilot/execute-tool')
-    })
-    const body = parseJsonRequestBody(executeRequest)
-    expect(body.workflowId).toBe(testCase.expected.workflowId)
-    expect(body.workspaceId).toBe(testCase.expected.workspaceId)
-  })
-
   it('returns the first matching store when duplicate toolCallId exists', () => {
     const toolCallId = 'copilot-provenance-duplicate'
     const channelA = 'copilot-provenance-channel-c'
@@ -312,6 +245,37 @@ describe('copilot tool execution provenance', () => {
         workflowId: 'wf-stringified-explicit',
         entityId: 'entity-stringified-explicit',
       },
+    })
+  })
+
+  it('marks streamed tool calls outside the curated Copilot registry as protocol errors', async () => {
+    const channelId = 'copilot-unsupported-tool'
+    const toolCallId = 'unsupported-tool-call'
+    const store = getCopilotStore(channelId)
+
+    await store.getState().handleStreamingResponse(
+      createSseStream([
+        {
+          type: 'response.output_item.done',
+          item: {
+            type: 'function_call',
+            call_id: toolCallId,
+            name: 'unknown_external_tool',
+            arguments: {},
+          },
+        },
+        {
+          type: 'response.completed',
+          response: { id: 'response-unsupported-tool' },
+        },
+      ]),
+      'assistant-message-unsupported-tool'
+    )
+
+    expect(store.getState().toolCallsById[toolCallId]).toMatchObject({
+      id: toolCallId,
+      name: 'unknown_external_tool',
+      state: ClientToolCallState.error,
     })
   })
 
@@ -3051,116 +3015,6 @@ describe('copilot tool user action delegation', () => {
     })
 
     await store.getState().executeCopilotToolCall(toolCallId)
-
-    const toolBlock = store.getState().messages[0]?.contentBlocks?.[0] as any
-    const currentChatToolBlock = store.getState().currentChat?.messages[0]
-      ?.contentBlocks?.[0] as any
-    expect(toolBlock?.toolCall?.state).toBe(ClientToolCallState.success)
-    expect(currentChatToolBlock?.toolCall?.state).toBe(ClientToolCallState.success)
-
-    const persistRequest = fetchMock.mock.calls.find(([input]) => {
-      const url = typeof input === 'string' ? input : input.toString()
-      return url === '/api/copilot/chat/update-messages'
-    })
-    const requestBody = parseJsonRequestBody(persistRequest)
-    const persistedMessages = requestBody.messages as any[]
-
-    expect(requestBody.latestTurnStatus).toBe('completed')
-    expect(persistedMessages[0]?.contentBlocks?.[0]?.toolCall?.state).toBe(
-      ClientToolCallState.success
-    )
-  })
-
-  it('persists completed integration tool states into assistant message blocks', async () => {
-    const channelId = 'copilot-integration-state-persist'
-    const toolCallId = 'integration-tool'
-    const reviewSessionId = 'review-integration-state-persist'
-    const store = getCopilotStore(channelId)
-    const assistantMessage = {
-      id: 'assistant-message-integration',
-      role: 'assistant' as const,
-      content: '',
-      timestamp: '2026-04-10T00:00:00.000Z',
-      contentBlocks: [
-        {
-          type: 'tool_call' as const,
-          timestamp: 1,
-          toolCall: {
-            id: toolCallId,
-            name: 'integration_request',
-            state: ClientToolCallState.pending,
-            params: { query: 'BTC-USD' },
-          },
-        },
-      ],
-    }
-    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
-      const url = typeof input === 'string' ? input : input.toString()
-      if (url === '/api/copilot/execute-tool') {
-        return {
-          ok: true,
-          status: 200,
-          json: async () => ({
-            success: true,
-            result: {
-              success: true,
-              output: { content: 'ok' },
-            },
-          }),
-        }
-      }
-
-      if (url === '/api/copilot/tools/mark-complete') {
-        return {
-          ok: true,
-          status: 200,
-          json: async () => ({ success: true }),
-        }
-      }
-
-      if (url === '/api/copilot/chat/update-messages') {
-        return {
-          ok: true,
-          status: 200,
-          json: async () => ({ success: true }),
-        }
-      }
-
-      throw new Error(`Unexpected fetch: ${url}`)
-    })
-
-    vi.stubGlobal('fetch', fetchMock)
-
-    store.setState({
-      currentChat: {
-        reviewSessionId,
-        workspaceId: 'workspace-1',
-        entityKind: 'workflow',
-        entityId: 'wf-integration-state-persist',
-        draftSessionId: null,
-        title: 'Integration tool persistence',
-        messages: [assistantMessage],
-        messageCount: 1,
-        conversationId: null,
-        createdAt: new Date('2026-04-10T00:00:00.000Z'),
-        updatedAt: new Date('2026-04-10T00:00:00.000Z'),
-      },
-      messages: [assistantMessage],
-      toolCallsById: {
-        [toolCallId]: {
-          id: toolCallId,
-          name: 'integration_request',
-          state: ClientToolCallState.pending,
-          params: { query: 'BTC-USD' },
-          provenance: {
-            workflowId: 'wf-integration-state-persist',
-            workspaceId: 'workspace-1',
-          },
-        } as any,
-      },
-    })
-
-    await store.getState().executeIntegrationTool(toolCallId)
 
     const toolBlock = store.getState().messages[0]?.contentBlocks?.[0] as any
     const currentChatToolBlock = store.getState().currentChat?.messages[0]

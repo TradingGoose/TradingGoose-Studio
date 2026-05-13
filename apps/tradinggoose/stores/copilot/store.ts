@@ -282,7 +282,6 @@ function autoExecuteEligibleToolsForAccessLevel(
 
   const { toolCallsById } = get()
   const copilotToolIds: string[] = []
-  const integrationToolIds: string[] = []
 
   for (const [id, toolCall] of Object.entries(toolCallsById)) {
     const state = toolCall.state
@@ -295,20 +294,16 @@ function autoExecuteEligibleToolsForAccessLevel(
 
     if (isCopilotTool(toolCall.name)) {
       copilotToolIds.push(id)
-      continue
     }
-
-    integrationToolIds.push(id)
   }
 
-  if (copilotToolIds.length === 0 && integrationToolIds.length === 0) {
+  if (copilotToolIds.length === 0) {
     return
   }
 
   logger.info('[copilot access] auto-executing queued tools after access change', {
     accessLevel,
     copilotToolIds,
-    integrationToolIds,
   })
 
   for (const toolCallId of copilotToolIds) {
@@ -320,17 +315,6 @@ function autoExecuteEligibleToolsForAccessLevel(
         return
       }
       void get().executeCopilotToolCall(toolCallId)
-    }, 0)
-  }
-
-  for (const toolCallId of integrationToolIds) {
-    setTimeout(() => {
-      const latest = get().toolCallsById[toolCallId]
-      if (!latest) return
-      if (latest.state !== ClientToolCallState.pending) {
-        return
-      }
-      void get().executeIntegrationTool(toolCallId)
     }, 0)
   }
 }
@@ -1568,94 +1552,6 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
 
         applyToolStateUpdate(targetStore, id, ClientToolCallState.rejected)
         markSkipped()
-      },
-
-      executeIntegrationTool: async (toolCallId: string) => {
-        const { toolCallsById } = get()
-        const toolCall = toolCallsById[toolCallId]
-        if (!toolCall) return
-
-        const { id, name, params } = toolCall
-        const executionContext = createExecutionContext({
-          toolCallId: id,
-          toolName: name,
-          provenance: toolCall.provenance ?? {},
-        })
-
-        const targetStore = getCopilotStore(storeChannelId)
-
-        applyToolStateUpdate(targetStore, id, ClientToolCallState.executing)
-        logger.info('[toolCallsById] pending → executing (integration tool)', { id, name })
-
-        try {
-          const res = await fetch('/api/copilot/execute-tool', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              toolCallId: id,
-              toolName: name,
-              arguments: params || {},
-              ...(executionContext.workflowId ? { workflowId: executionContext.workflowId } : {}),
-              ...(executionContext.workspaceId
-                ? { workspaceId: executionContext.workspaceId }
-                : {}),
-            }),
-          })
-
-          let result: any = null
-          try {
-            result = await res.json()
-          } catch {}
-
-          const success =
-            res.ok && result?.success && result?.result && result.result.success === true
-          const currentToolCall = get().toolCallsById[id]
-          if (
-            isRejectedState(currentToolCall?.state) ||
-            isReviewState(currentToolCall?.state) ||
-            isBackgroundState(currentToolCall?.state)
-          ) {
-            return
-          }
-
-          applyToolStateUpdate(
-            targetStore,
-            id,
-            success ? ClientToolCallState.success : ClientToolCallState.error
-          )
-          logger.info(
-            `[toolCallsById] executing → ${success ? 'success' : 'error'} (integration)`,
-            { id, name }
-          )
-
-          try {
-            await postCopilotMarkComplete({
-              toolCallId: id,
-              toolName: name || 'unknown_tool',
-              status: success ? 200 : 500,
-              message: success
-                ? result?.result?.output?.content
-                : result?.result?.error || result?.error || 'Tool execution failed',
-              data: success
-                ? result?.result?.output
-                : {
-                    error: result?.result?.error || result?.error,
-                    output: result?.result?.output,
-                  },
-            })
-          } catch {}
-        } catch (error) {
-          const errorMap = { ...get().toolCallsById }
-          if (
-            isRejectedState(errorMap[id]?.state) ||
-            isReviewState(errorMap[id]?.state) ||
-            isBackgroundState(errorMap[id]?.state)
-          ) {
-            return
-          }
-          applyToolStateUpdate(targetStore, id, ClientToolCallState.error)
-          logger.error('Integration tool execution failed', { id, name, error })
-        }
       },
     }))
   )

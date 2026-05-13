@@ -15,7 +15,6 @@ const reactActEnvironment = globalThis as typeof globalThis & {
 const mockUseCopilotStoreState = {
   accessLevel: 'limited' as const,
   executeCopilotToolCall: vi.fn(),
-  executeIntegrationTool: vi.fn(),
   skipCopilotToolCall: vi.fn(),
   toolCallsById: {},
 }
@@ -87,7 +86,6 @@ describe('InlineToolCall', () => {
     mockGetEntityFields.mockReset()
     mockGetToolInterruptDisplays.mockReset()
     mockUseCopilotStoreState.executeCopilotToolCall.mockReset()
-    mockUseCopilotStoreState.executeIntegrationTool.mockReset()
     mockUseCopilotStoreState.skipCopilotToolCall.mockReset()
     mockUseCopilotStoreState.toolCallsById = {}
     container = document.createElement('div')

@@ -197,6 +197,23 @@ function applyStreamedFunctionCallItem(
 
   const args = normalizeFunctionCallArguments(item.arguments)
   const { toolCallsById } = get()
+  if (!isCopilotTool(name)) {
+    const next = withPinnedToolExecutionProvenance(
+      {
+        id,
+        name,
+        state: ClientToolCallState.error,
+        ...(args ? { params: args } : {}),
+        display: resolveToolDisplay(name, ClientToolCallState.error, id, args),
+      },
+      context.provenance
+    )
+    set({ toolCallsById: { ...toolCallsById, [id]: next } })
+    context.contentBlocks.push({ type: 'tool_call', toolCall: next, timestamp: Date.now() })
+    updateStreamingMessage(set, context)
+    logger.warn('Rejected unsupported copilot tool call', { id, name })
+    return
+  }
 
   ensureClientToolInstance(name, id)
 
@@ -276,11 +293,7 @@ function scheduleAutomaticToolExecution(
       name: toolName,
     })
     setTimeout(() => {
-      if (isCopilotTool(toolName)) {
-        void get().executeCopilotToolCall(toolCallId)
-      } else {
-        void get().executeIntegrationTool(toolCallId)
-      }
+      void get().executeCopilotToolCall(toolCallId)
     }, 0)
   } catch (error) {
     logger.warn('Tool auto-exec check failed', {

@@ -189,6 +189,10 @@ function shouldShowRunSkipButtons(
   toolCall: CopilotToolCall,
   accessLevel: CopilotAccessLevel
 ): boolean {
+  if (!isCopilotTool(toolCall.name)) {
+    return false
+  }
+
   const hasInterrupt = !!getToolInterruptDisplays(toolCall.name, toolCall.id)
 
   if (hasInterrupt && toolCall.state === 'review') {
@@ -199,30 +203,6 @@ function shouldShowRunSkipButtons(
     toolCall.state === 'pending' &&
     shouldRequireToolApproval(accessLevel, isGatedTool(toolCall.name))
   )
-}
-
-function getStateVerb(state: string): string {
-  switch (state) {
-    case 'pending':
-    case 'executing':
-      return 'Running'
-    case 'success':
-      return 'Ran'
-    case 'error':
-      return 'Failed'
-    case 'rejected':
-    case 'aborted':
-      return 'Skipped'
-    default:
-      return 'Running'
-  }
-}
-
-function formatToolName(name: string): string {
-  return name
-    .split('_')
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ')
 }
 
 function getEntityDiffLineClasses(type: 'context' | 'removed' | 'added'): string {
@@ -288,21 +268,15 @@ function readWorkflowReviewPayload(toolCall: CopilotToolCall): WorkflowReviewPay
   }
 }
 
-function getDisplayName(toolCall: CopilotToolCall, options?: { isIntegration?: boolean }): string {
-  const isIntegration = options?.isIntegration
-
+function getDisplayName(toolCall: CopilotToolCall): string {
   // Prefer display resolved in the copilot store (SSOT) for client tools
   const fromStore = (toolCall as any).display?.text
-  if (fromStore && !isIntegration) return fromStore
+  if (fromStore) return fromStore
 
   try {
     const byState = getCopilotToolMetadata(toolCall.name)?.displayNames?.[toolCall.state]
     if (byState?.text) return byState.text
   } catch {}
-
-  if (isIntegration) {
-    return `${getStateVerb(String(toolCall.state))} ${formatToolName(toolCall.name)}`.trim()
-  }
 
   return toolCall.name
 }
@@ -310,15 +284,13 @@ function getDisplayName(toolCall: CopilotToolCall, options?: { isIntegration?: b
 function RunSkipButtons({
   toolCall,
   onStateChange,
-  isIntegration,
 }: {
   toolCall: CopilotToolCall
   onStateChange?: (state: any) => void
-  isIntegration?: boolean
 }) {
   const [isProcessing, setIsProcessing] = useState(false)
   const actionInProgressRef = useRef(false)
-  const { executeCopilotToolCall, executeIntegrationTool, skipCopilotToolCall } = useCopilotStore()
+  const { executeCopilotToolCall, skipCopilotToolCall } = useCopilotStore()
   const interruptDisplays = getToolInterruptDisplays(toolCall.name, toolCall.id)
   const isReview = toolCall.state === 'review'
   const acceptText = interruptDisplays?.accept?.text ?? (isReview ? 'Accept' : 'Allow')
@@ -331,13 +303,8 @@ function RunSkipButtons({
     actionInProgressRef.current = true
     setIsProcessing(true)
     try {
-      if (isIntegration) {
-        onStateChange?.('executing')
-        await executeIntegrationTool(toolCall.id)
-      } else {
-        onStateChange?.('executing')
-        await executeCopilotToolCall(toolCall.id)
-      }
+      onStateChange?.('executing')
+      await executeCopilotToolCall(toolCall.id)
     } finally {
       setIsProcessing(false)
       actionInProgressRef.current = false
@@ -467,9 +434,6 @@ export function InlineToolCall({
   const accessLevel = useCopilotStore((s) => s.accessLevel)
   const entitySession = useEntitySession()
 
-  const isCopilotManagedTool = isCopilotTool(toolName)
-  const isIntegration = !isCopilotManagedTool
-
   // Guard: nothing to render without a toolCall
   if (!toolCall) return null
 
@@ -484,7 +448,7 @@ export function InlineToolCall({
     onStateChange?.(state)
   }
 
-  const displayName = getDisplayName(toolCall, { isIntegration })
+  const displayName = getDisplayName(toolCall)
   const params = (toolCall as any).parameters || (toolCall as any).input || toolCall.params || {}
   const workflowReviewPayload = readWorkflowReviewPayload(toolCall)
   const showWorkflowReview = workflowReviewPayload && toolCall.state === ClientToolCallState.review
@@ -690,11 +654,7 @@ export function InlineToolCall({
           <ShimmerOverlayText text={displayName} active={isLoadingState} className='text-sm' />
         </div>
         {showButtons ? (
-          <RunSkipButtons
-            toolCall={toolCall}
-            onStateChange={handleStateChange}
-            isIntegration={isIntegration}
-          />
+          <RunSkipButtons toolCall={toolCall} onStateChange={handleStateChange} />
         ) : showMoveToBackground ? (
           <Button
             // Intentionally minimal wiring per requirements

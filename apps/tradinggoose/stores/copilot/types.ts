@@ -218,7 +218,6 @@ export interface CopilotActions {
 
   executeCopilotToolCall: (toolCallId: string, actionArgs?: Record<string, any>) => Promise<void>
   skipCopilotToolCall: (toolCallId: string) => Promise<void>
-  executeIntegrationTool: (toolCallId: string) => Promise<void>
 }
 
 export type CopilotStore = CopilotState & CopilotActions
