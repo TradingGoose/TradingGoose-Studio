@@ -5,6 +5,7 @@ import type { WebsocketProvider } from 'y-websocket'
 import * as Y from 'yjs'
 import { getReviewTargetRuntimeState } from '@/lib/copilot/review-sessions/runtime'
 import type {
+  ReviewAccessMode,
   ReviewTargetDescriptor,
   ReviewTargetRuntimeState,
 } from '@/lib/copilot/review-sessions/types'
@@ -114,6 +115,7 @@ export interface EntitySessionUser {
 
 interface EntitySessionHostProps {
   descriptor: ReviewTargetDescriptor
+  accessMode: ReviewAccessMode
   user?: EntitySessionUser
   children: ReactNode
 }
@@ -127,7 +129,12 @@ interface EntitySessionHostProps {
  *   - Tracks sync status
  *   - Cleans up the provider and doc on unmount or descriptor change
  */
-export function EntitySessionHost({ descriptor, user, children }: EntitySessionHostProps) {
+export function EntitySessionHost({
+  descriptor,
+  accessMode,
+  user,
+  children,
+}: EntitySessionHostProps) {
   const [state, setState] = useState<EntitySessionContextValue>(() =>
     buildPendingEntitySessionState(descriptor)
   )
@@ -155,7 +162,7 @@ export function EntitySessionHost({ descriptor, user, children }: EntitySessionH
 
     async function init() {
       try {
-        result = await bootstrapYjsProvider(descriptor, 'write')
+        result = await bootstrapYjsProvider(descriptor, accessMode)
         if (cancelled) {
           result.provider.destroy()
           result.doc.destroy()
@@ -224,6 +231,7 @@ export function EntitySessionHost({ descriptor, user, children }: EntitySessionH
           descriptor: result.descriptor,
           doc: result.doc,
           provider: result.provider,
+          accessMode,
           runtime,
           isSynced: false,
           canUndo: false,
@@ -288,7 +296,7 @@ export function EntitySessionHost({ descriptor, user, children }: EntitySessionH
         result.doc.destroy()
       }
     }
-  }, [descriptor.reviewSessionId, descriptor.yjsSessionId])
+  }, [accessMode, descriptor.reviewSessionId, descriptor.yjsSessionId])
 
   useEffect(() => {
     syncEntitySessionUser(visibleState.awareness, user)

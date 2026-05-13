@@ -17,6 +17,7 @@ export interface YjsProviderBootstrapResult {
   provider: WebsocketProvider
   descriptor: ReviewTargetDescriptor
   runtime: ReviewTargetRuntimeState
+  accessMode: ReviewAccessMode
 }
 
 const SOCKET_TOKEN_RETRY_MS = 1_000
@@ -187,6 +188,7 @@ export async function bootstrapYjsProvider(
     provider,
     descriptor: resolvedDescriptor,
     runtime,
+    accessMode,
   }
 }
 

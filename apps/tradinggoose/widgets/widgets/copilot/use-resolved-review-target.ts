@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import type { ResolvedReviewTarget, ReviewEntityKind } from '@/lib/copilot/review-sessions/types'
-import { resolveEntityReviewTarget } from '@/widgets/widgets/entity_review/review-target-utils'
+import { resolveCopilotEntityReviewTarget } from '@/widgets/widgets/copilot/review-target-utils'
 
 interface UseResolvedReviewTargetOptions {
   workspaceId: string | null
@@ -43,14 +43,7 @@ export function useResolvedReviewTarget({
   useEffect(() => {
     let cancelled = false
 
-    if (!workspaceId) {
-      setResolvedTarget(null)
-      setError(null)
-      setIsResolving(false)
-      return
-    }
-
-    if (!entityId) {
+    if (!workspaceId || !entityId) {
       setResolvedTarget(null)
       setError(null)
       setIsResolving(false)
@@ -73,25 +66,24 @@ export function useResolvedReviewTarget({
     setIsResolving(true)
     setError(null)
 
-    resolveEntityReviewTarget({
+    resolveCopilotEntityReviewTarget({
       workspaceId,
       entityKind,
       entityId,
+      accessMode: 'read',
     })
       .then((resolved) => {
-        if (cancelled) {
-          return
+        if (!cancelled) {
+          setResolvedTarget(resolved)
         }
-
-        setResolvedTarget(resolved)
       })
       .catch((resolveError) => {
-        if (cancelled) {
-          return
+        if (!cancelled) {
+          setResolvedTarget(null)
+          setError(
+            resolveError instanceof Error ? resolveError.message : 'Failed to resolve target'
+          )
         }
-
-        setResolvedTarget(null)
-        setError(resolveError instanceof Error ? resolveError.message : 'Failed to resolve target')
       })
       .finally(() => {
         if (!cancelled) {

@@ -1,9 +1,3 @@
-/**
- * Generic resolver for entity IDs from pairContext or widget params.
- *
- * When pair context is provided, linked widgets resolve only from that shared
- * context. Otherwise the value is read from local widget params.
- */
 export interface EntitySelectionState {
   selectedEntityId: string | null
 }

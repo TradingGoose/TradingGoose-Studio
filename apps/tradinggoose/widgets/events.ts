@@ -86,7 +86,7 @@ export type SkillEditorStateEventDetail = {
 }
 
 export type McpEditorActionEventDetail = {
-  action: 'save' | 'refresh' | 'close' | 'reset' | 'test' | 'undo' | 'redo'
+  action: 'save' | 'refresh' | 'close' | 'reset' | 'test'
   panelId?: string
   widgetKey?: string
 }

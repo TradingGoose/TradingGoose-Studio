@@ -3,12 +3,17 @@
 import { useSyncExternalStore } from 'react'
 import * as Y from 'yjs'
 import type { WebsocketProvider } from 'y-websocket'
-import type { ReviewTargetDescriptor, ReviewTargetRuntimeState } from '@/lib/copilot/review-sessions/types'
+import type {
+  ReviewAccessMode,
+  ReviewTargetDescriptor,
+  ReviewTargetRuntimeState,
+} from '@/lib/copilot/review-sessions/types'
 
 export interface RegisteredEntitySession {
   descriptor: ReviewTargetDescriptor
   doc: Y.Doc
   provider: WebsocketProvider | null
+  accessMode: ReviewAccessMode
   runtime: ReviewTargetRuntimeState | null
   isSynced: boolean
   canUndo: boolean
@@ -113,6 +118,29 @@ export function getRegisteredEntitySessionByIdentity(
     }
 
     if (session.descriptor.entityId !== entityId) {
+      return false
+    }
+
+    if (workspaceId != null && session.descriptor.workspaceId !== workspaceId) {
+      return false
+    }
+
+    return true
+  })
+
+  return matches.length === 1 ? matches[0] : null
+}
+
+export function getRegisteredEntitySessionByKind(
+  entityKind: RegisteredEntitySession['descriptor']['entityKind'],
+  workspaceId?: string | null
+): RegisteredEntitySession | null {
+  const matches = Array.from(sessions.values()).filter((session) => {
+    if (session.descriptor.entityKind !== entityKind) {
+      return false
+    }
+
+    if (!session.descriptor.entityId) {
       return false
     }
 

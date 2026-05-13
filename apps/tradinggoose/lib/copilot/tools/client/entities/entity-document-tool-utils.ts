@@ -4,9 +4,8 @@ import type { ClientToolExecutionContext } from '@/lib/copilot/tools/client/base
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import {
   getRegisteredEntitySession,
+  getRegisteredEntitySessionByKind,
   getRegisteredEntitySessionByIdentity,
-  registerEntitySession,
-  unregisterEntitySession,
   type RegisteredEntitySession,
 } from '@/lib/yjs/entity-session-registry'
 import {
@@ -14,11 +13,7 @@ import {
   waitForYjsWriteSync,
   type YjsProviderBootstrapResult,
 } from '@/lib/yjs/provider'
-import {
-  getEntityFields,
-  replaceEntityTextField,
-  setEntityField,
-} from '@/lib/yjs/entity-session'
+import { getEntityFields, replaceEntityTextField, setEntityField } from '@/lib/yjs/entity-session'
 import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
 
 type EntityListEntry = {
@@ -232,7 +227,9 @@ function buildEntityCreateRequest(
             ? { description: fields.description.trim() }
             : {}),
           transport: fields.transport,
-          ...(typeof fields.url === 'string' && fields.url.trim() ? { url: fields.url.trim() } : {}),
+          ...(typeof fields.url === 'string' && fields.url.trim()
+            ? { url: fields.url.trim() }
+            : {}),
           headers: fields.headers,
           ...(typeof fields.command === 'string' && fields.command.trim()
             ? { command: fields.command.trim() }
@@ -346,11 +343,19 @@ export function getActiveEntitySession(
     }
   }
 
-  return getRegisteredEntitySessionByIdentity(
-    kind,
-    requestedEntityId,
-    executionContext.workspaceId ?? null
-  )
+  if (requestedDraftSessionId) {
+    return null
+  }
+
+  if (requestedEntityId) {
+    return getRegisteredEntitySessionByIdentity(
+      kind,
+      requestedEntityId,
+      executionContext.workspaceId ?? null
+    )
+  }
+
+  return getRegisteredEntitySessionByKind(kind, executionContext.workspaceId ?? null)
 }
 
 async function resolveWritableEntityReviewSession(options: {
@@ -380,6 +385,10 @@ async function resolveWritableEntityReviewSession(options: {
 }
 
 async function requireAuthorizedWriteSync(session: RegisteredEntitySession): Promise<void> {
+  if (session.accessMode !== 'write') {
+    throw new Error('Write access is required to edit this entity')
+  }
+
   if (!session.provider) {
     throw new Error('Authorized Yjs write sync is required before editing this entity')
   }
@@ -387,25 +396,24 @@ async function requireAuthorizedWriteSync(session: RegisteredEntitySession): Pro
   await waitForYjsWriteSync(session.provider)
 }
 
-function registerBootstrappedEntitySession(
+function createBootstrappedEntitySessionLease(
   result: YjsProviderBootstrapResult
 ): CopilotEntityYjsSessionLease {
   const session: RegisteredEntitySession = {
     descriptor: result.descriptor,
     doc: result.doc,
     provider: result.provider,
+    accessMode: result.accessMode,
     runtime: result.runtime,
     isSynced: result.provider.synced,
     canUndo: false,
     canRedo: false,
   }
-  registerEntitySession(session)
 
   return {
     session,
     release: () => {
       setTimeout(() => {
-        unregisterEntitySession(result.descriptor.reviewSessionId, result.doc)
         result.provider.disconnect()
         result.provider.destroy()
         result.doc.destroy()
@@ -420,7 +428,7 @@ export async function resolveCopilotEntityYjsSessionLease(
   entityId?: string
 ): Promise<CopilotEntityYjsSessionLease> {
   const activeSession = getActiveEntitySession(executionContext, kind, entityId)
-  if (activeSession) {
+  if (activeSession?.accessMode === 'write') {
     await requireAuthorizedWriteSync(activeSession)
     return {
       session: activeSession,
@@ -428,14 +436,17 @@ export async function resolveCopilotEntityYjsSessionLease(
     }
   }
 
-  const requestedEntityId = entityId?.trim() || undefined
-  const requestedReviewSessionId = executionContext.reviewSessionId
+  const requestedEntityId = entityId?.trim() || activeSession?.descriptor.entityId || undefined
+  const requestedReviewSessionId =
+    activeSession?.descriptor.reviewSessionId || executionContext.reviewSessionId || undefined
 
   if (!requestedEntityId && !requestedReviewSessionId) {
     throw new Error(`entityId is required to update a saved ${kind}`)
   }
 
-  const workspaceId = resolveWorkspaceIdFromExecutionContext(executionContext)
+  const workspaceId =
+    activeSession?.descriptor.workspaceId ??
+    resolveWorkspaceIdFromExecutionContext(executionContext)
   const resolved = await resolveWritableEntityReviewSession({
     workspaceId,
     kind,
@@ -444,7 +455,7 @@ export async function resolveCopilotEntityYjsSessionLease(
   })
 
   const result = await bootstrapYjsProvider(resolved, 'write')
-  return registerBootstrappedEntitySession(result)
+  return createBootstrappedEntitySessionLease(result)
 }
 
 async function fetchEntityList(kind: EntityDocumentKind, workspaceId: string): Promise<any[]> {
@@ -486,7 +497,8 @@ export async function listCopilotIndicators(
 
   return items.flatMap((item: any) => {
     const name = typeof item?.name === 'string' ? item.name : ''
-    const source = item?.source === 'custom' ? 'custom' : item?.source === 'default' ? 'default' : null
+    const source =
+      item?.source === 'custom' ? 'custom' : item?.source === 'default' ? 'default' : null
     if (!name || !source) return []
 
     const entry: CopilotIndicatorListEntry = {
@@ -497,11 +509,15 @@ export async function listCopilotIndicators(
       ...(typeof item?.color === 'string' && item.color ? { color: item.color } : {}),
       ...(Array.isArray(item?.inputTitles)
         ? {
-            inputTitles: item.inputTitles.filter((value: unknown): value is string => typeof value === 'string'),
+            inputTitles: item.inputTitles.filter(
+              (value: unknown): value is string => typeof value === 'string'
+            ),
           }
         : {}),
       ...(typeof item?.entityId === 'string' && item.entityId ? { entityId: item.entityId } : {}),
-      ...(typeof item?.runtimeId === 'string' && item.runtimeId ? { runtimeId: item.runtimeId } : {}),
+      ...(typeof item?.runtimeId === 'string' && item.runtimeId
+        ? { runtimeId: item.runtimeId }
+        : {}),
     }
 
     return [entry]
@@ -518,7 +534,8 @@ export async function readEntityFieldsFromContext(
   fields: Record<string, unknown>
 }> {
   const resolvedEntityId = target?.entityId?.trim() || undefined
-  const resolvedRuntimeId = kind === 'indicator' ? target?.runtimeId?.trim() || undefined : undefined
+  const resolvedRuntimeId =
+    kind === 'indicator' ? target?.runtimeId?.trim() || undefined : undefined
 
   if (resolvedRuntimeId) {
     if (resolvedEntityId) {

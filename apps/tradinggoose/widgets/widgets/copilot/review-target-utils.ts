@@ -1,11 +1,16 @@
 'use client'
 
-import type { ResolvedReviewTarget, ReviewEntityKind } from '@/lib/copilot/review-sessions/types'
+import type {
+  ResolvedReviewTarget,
+  ReviewAccessMode,
+  ReviewEntityKind,
+} from '@/lib/copilot/review-sessions/types'
 
-export async function resolveEntityReviewTarget(options: {
+export async function resolveCopilotEntityReviewTarget(options: {
   workspaceId: string
   entityKind: Exclude<ReviewEntityKind, 'workflow'>
   entityId: string
+  accessMode?: ReviewAccessMode
 }): Promise<ResolvedReviewTarget> {
   const response = await fetch('/api/copilot/review-sessions/resolve', {
     method: 'POST',
@@ -14,7 +19,7 @@ export async function resolveEntityReviewTarget(options: {
       workspaceId: options.workspaceId,
       entityKind: options.entityKind,
       entityId: options.entityId,
-      accessMode: 'write',
+      accessMode: options.accessMode ?? 'read',
     }),
   })
 

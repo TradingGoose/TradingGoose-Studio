@@ -1,45 +1,25 @@
 'use client'
 
-import {
-  type Dispatch,
-  type SetStateAction,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { LoadingAgent } from '@/components/ui/loading-agent'
-import { useEntitySession } from '@/lib/copilot/review-sessions/entity-session-host'
-import {
-  ENTITY_KIND_MCP_SERVER,
-  type ReviewTargetDescriptor,
-} from '@/lib/copilot/review-sessions/types'
-import {
-  useYjsBooleanField,
-  useYjsField,
-  useYjsNumberField,
-  useYjsStringField,
-} from '@/lib/yjs/use-entity-fields'
 import { useMcpServerTest } from '@/hooks/use-mcp-server-test'
 import { useMcpTools } from '@/hooks/use-mcp-tools'
+import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
 import { useMcpServersStore } from '@/stores/mcp-servers/store'
 import type { McpServerWithStatus } from '@/stores/mcp-servers/types'
+import type { PairColor } from '@/widgets/pair-colors'
 import type { WidgetComponentProps } from '@/widgets/types'
 import { useMcpEditorActions } from '@/widgets/utils/mcp-editor-actions'
 import { useMcpSelectionPersistence } from '@/widgets/utils/mcp-selection'
 import { McpServerForm } from '@/widgets/widgets/_shared/mcp/components/mcp-server-form'
 import {
+  createDefaultMcpServerFormData,
+  createFormDataFromServer,
   createMcpSavePayload,
   type McpServerFormData,
-  readEntitySelectionState,
+  resolveMcpServerId,
 } from '@/widgets/widgets/_shared/mcp/utils'
-import {
-  EntityEditorShell,
-  type EntityEditorShellConfig,
-} from '@/widgets/widgets/components/entity-editor-shell'
 import { WidgetStateMessage } from '@/widgets/widgets/editor_indicator/components/widget-state-message'
-import { useGuardedUndoRedo } from '@/widgets/widgets/entity_review/use-guarded-undo-redo'
 
 type EditorMcpWidgetBodyProps = WidgetComponentProps
 
@@ -61,7 +41,7 @@ const formatRelativeTime = (dateString?: string) => {
   return `${Math.floor(diffInSeconds / 31536000)}y ago`
 }
 
-const getStatusClassName = (status?: McpServerWithStatus['connectionStatus'] | 'draft') => {
+const getStatusClassName = (status?: McpServerWithStatus['connectionStatus']) => {
   if (status === 'connected') {
     return 'border-green-700 bg-green-500/10 text-green-700'
   }
@@ -70,17 +50,12 @@ const getStatusClassName = (status?: McpServerWithStatus['connectionStatus'] | '
     return 'border-red-200 bg-red-500/10 text-red-700'
   }
 
-  if (status === 'draft') {
-    return 'border-border bg-muted text-muted-foreground'
-  }
-
   return 'border-border bg-muted text-muted-foreground'
 }
 
-const getStatusLabel = (status?: McpServerWithStatus['connectionStatus'] | 'draft') => {
+const getStatusLabel = (status?: McpServerWithStatus['connectionStatus']) => {
   if (status === 'connected') return 'Connected'
   if (status === 'error') return 'Error'
-  if (status === 'draft') return 'Draft'
   return 'Disconnected'
 }
 
@@ -100,223 +75,127 @@ const refreshServerApi = async (serverId: string, workspaceId: string) => {
   return data
 }
 
-const MCP_SHELL_CONFIG: EntityEditorShellConfig = {
-  entityKind: ENTITY_KIND_MCP_SERVER,
-  fallbackWidgetKey: 'editor_mcp',
-  entityIdKey: 'mcpServerId',
-  readEntitySelectionState,
-  noWorkspaceMessage: 'Select a workspace to edit MCP servers.',
-  noSelectionMessage: 'Select an MCP server to edit.',
-}
-
-export function EditorMcpWidgetBody(props: EditorMcpWidgetBodyProps) {
-  return (
-    <EntityEditorShell
-      {...props}
-      config={MCP_SHELL_CONFIG}
-      useSelectionPersistence={({
-        resolvedPairColor,
-        isLinkedToColorPair,
-        pairContext,
-        setPairContext,
-        onWidgetParamsChange,
-        panelId,
-        params,
-        widget,
-      }) => {
-        useMcpSelectionPersistence({
-          onWidgetParamsChange,
-          panelId,
-          params,
-          pairColor: resolvedPairColor,
-          scopeKey: 'editor_mcp',
-          onServerSelect: (serverId) => {
-            if (!isLinkedToColorPair) {
-              return
-            }
-
-            if (pairContext?.mcpServerId === serverId) {
-              return
-            }
-
-            setPairContext(resolvedPairColor, { mcpServerId: serverId })
-          },
-        })
-        useMcpEditorActions({
-          panelId,
-          widget,
-          close: () => {
-            if (isLinkedToColorPair) {
-              setPairContext(resolvedPairColor, { mcpServerId: null })
-              return
-            }
-
-            onWidgetParamsChange?.(null)
-          },
-        })
-      }}
-    >
-      {({ workspaceId, descriptor, panelId, widget }) => (
-        <McpEditorSession
-          workspaceId={workspaceId}
-          panelId={panelId}
-          widget={widget}
-          descriptor={descriptor}
-        />
-      )}
-    </EntityEditorShell>
-  )
-}
-
-function McpEditorSession({
-  workspaceId,
+export function EditorMcpWidgetBody({
+  params,
+  context,
+  pairColor = 'gray',
   panelId,
   widget,
-  descriptor,
-}: {
-  workspaceId: string
-  panelId?: string
-  widget?: WidgetComponentProps['widget']
-  descriptor: ReviewTargetDescriptor
-}) {
-  const { doc, isLoading, error, undo, redo, runtime, canUndo, canRedo } = useEntitySession()
+  onWidgetParamsChange,
+}: EditorMcpWidgetBodyProps) {
+  const workspaceId = context?.workspaceId ?? null
+  const resolvedPairColor = (pairColor ?? 'gray') as PairColor
+  const isLinkedToColorPair = resolvedPairColor !== 'gray'
+  const pairContext = usePairColorContext(resolvedPairColor)
+  const setPairContext = useSetPairColorContext()
+  const [formDataState, setFormDataState] = useState<McpServerFormData>(() =>
+    createDefaultMcpServerFormData()
+  )
   const [saveError, setSaveError] = useState<string | null>(null)
+  const initialFormDataRef = useRef<McpServerFormData>(createDefaultMcpServerFormData())
+  const initializedServerIdRef = useRef<string | null>(null)
   const {
     servers,
     isLoading: isServersLoading,
     error: serverError,
     fetchServers,
     refreshServer,
+    updateServer,
   } = useMcpServersStore((state) => ({
     servers: state.servers,
     isLoading: state.isLoading,
     error: state.error,
     fetchServers: state.fetchServers,
     refreshServer: state.refreshServer,
+    updateServer: state.updateServer,
   }))
-  const { refreshTools, getToolsByServer } = useMcpTools(workspaceId)
+  const { refreshTools, getToolsByServer } = useMcpTools(workspaceId ?? '')
   const { testResult, isTestingConnection, testConnection, clearTestResult } = useMcpServerTest()
-  const { handleUndo, handleRedo } = useGuardedUndoRedo({ runtime, undo, redo, canUndo, canRedo })
 
-  const [yjsName, setYjsName] = useYjsStringField(doc, 'name', '')
-  const [yjsDescription, setYjsDescription] = useYjsStringField(doc, 'description', '')
-  const [yjsTransport, setYjsTransport] = useYjsStringField(doc, 'transport', 'streamable-http')
-  const [yjsUrl, setYjsUrl] = useYjsStringField(doc, 'url', '')
-  const [yjsHeaders, setYjsHeaders] = useYjsField<Record<string, string>>(doc, 'headers', {})
-  const [yjsCommand, setYjsCommand] = useYjsStringField(doc, 'command', '')
-  const [yjsArgs, setYjsArgs] = useYjsField<string[]>(doc, 'args', [])
-  const [yjsEnv, setYjsEnv] = useYjsField<Record<string, string>>(doc, 'env', {})
-  const [yjsTimeout, setYjsTimeout] = useYjsNumberField(doc, 'timeout', 30000)
-  const [yjsRetries, setYjsRetries] = useYjsNumberField(doc, 'retries', 3)
-  const [yjsEnabled, setYjsEnabled] = useYjsBooleanField(doc, 'enabled', true)
-
-  const yjsFormData = useMemo(
-    (): McpServerFormData => ({
-      name: yjsName,
-      description: yjsDescription,
-      transport: yjsTransport as McpServerFormData['transport'],
-      url: yjsUrl,
-      headers: yjsHeaders,
-      command: yjsCommand,
-      args: yjsArgs,
-      env: yjsEnv,
-      timeout: yjsTimeout,
-      retries: yjsRetries,
-      enabled: yjsEnabled,
-    }),
-    [
-      yjsArgs,
-      yjsCommand,
-      yjsDescription,
-      yjsEnabled,
-      yjsEnv,
-      yjsHeaders,
-      yjsName,
-      yjsRetries,
-      yjsTimeout,
-      yjsTransport,
-      yjsUrl,
-    ]
-  )
-
-  const [formDataState, setFormDataState] = useState<McpServerFormData>(() => yjsFormData)
-  const initialFormDataRef = useRef<McpServerFormData>(yjsFormData)
-  const initializedSessionRef = useRef<string | null>(null)
-
-  useEffect(() => {
-    setFormDataState(yjsFormData)
-    if (initializedSessionRef.current !== descriptor.reviewSessionId) {
-      initialFormDataRef.current = yjsFormData
-      initializedSessionRef.current = descriptor.reviewSessionId
-      clearTestResult()
-      setSaveError(null)
-    }
-  }, [clearTestResult, descriptor.reviewSessionId, yjsFormData])
-
-  const setFormData = useCallback<Dispatch<SetStateAction<McpServerFormData>>>(
-    (next) => {
-      setFormDataState((previous) => {
-        const resolved = typeof next === 'function' ? next(previous) : next
-        setYjsName(resolved.name)
-        setYjsDescription(resolved.description)
-        setYjsTransport(resolved.transport)
-        setYjsUrl(resolved.url)
-        setYjsHeaders(resolved.headers)
-        setYjsCommand(resolved.command)
-        setYjsArgs(resolved.args)
-        setYjsEnv(resolved.env)
-        setYjsTimeout(resolved.timeout)
-        setYjsRetries(resolved.retries)
-        setYjsEnabled(resolved.enabled)
-        return resolved
-      })
-    },
-    [
-      setYjsArgs,
-      setYjsCommand,
-      setYjsDescription,
-      setYjsEnabled,
-      setYjsEnv,
-      setYjsHeaders,
-      setYjsName,
-      setYjsRetries,
-      setYjsTimeout,
-      setYjsTransport,
-      setYjsUrl,
-    ]
-  )
+  const selectedServerId = resolveMcpServerId({
+    params,
+    pairContext: isLinkedToColorPair ? pairContext : null,
+  })
 
   const workspaceServers = useMemo(
     () =>
-      servers
-        .filter((server) => server.workspaceId === workspaceId && !server.deletedAt)
-        .sort((a, b) => {
-          const aTime = Date.parse(a.updatedAt ?? a.createdAt ?? '')
-          const bTime = Date.parse(b.updatedAt ?? b.createdAt ?? '')
-          return (Number.isNaN(bTime) ? 0 : bTime) - (Number.isNaN(aTime) ? 0 : aTime)
-        }),
+      workspaceId
+        ? servers
+            .filter((server) => server.workspaceId === workspaceId && !server.deletedAt)
+            .sort((a, b) => {
+              const aTime = Date.parse(a.updatedAt ?? a.createdAt ?? '')
+              const bTime = Date.parse(b.updatedAt ?? b.createdAt ?? '')
+              return (Number.isNaN(bTime) ? 0 : bTime) - (Number.isNaN(aTime) ? 0 : aTime)
+            })
+        : [],
     [servers, workspaceId]
   )
-
-  const selectedServer = descriptor.entityId
-    ? (workspaceServers.find((server) => server.id === descriptor.entityId) ?? null)
+  const selectedServer = selectedServerId
+    ? (workspaceServers.find((server) => server.id === selectedServerId) ?? null)
     : null
-  const selectedServerTools = descriptor.entityId ? getToolsByServer(descriptor.entityId) : []
+  const selectedServerTools = selectedServerId ? getToolsByServer(selectedServerId) : []
 
   useEffect(() => {
+    if (!workspaceId) return
+
     fetchServers(workspaceId).catch((fetchError) => {
       console.error('Failed to load MCP servers for editor widget', fetchError)
     })
   }, [fetchServers, workspaceId])
 
-  const handleResetForm = useCallback(() => {
-    setFormData(initialFormDataRef.current)
+  useEffect(() => {
+    if (!selectedServer) {
+      initializedServerIdRef.current = null
+      const emptyForm = createDefaultMcpServerFormData()
+      initialFormDataRef.current = emptyForm
+      setFormDataState(emptyForm)
+      clearTestResult()
+      setSaveError(null)
+      return
+    }
+
+    if (initializedServerIdRef.current === selectedServer.id) {
+      return
+    }
+
+    const nextForm = createFormDataFromServer(selectedServer)
+    initializedServerIdRef.current = selectedServer.id
+    initialFormDataRef.current = nextForm
+    setFormDataState(nextForm)
     clearTestResult()
     setSaveError(null)
-  }, [clearTestResult, setFormData])
+  }, [clearTestResult, selectedServer])
+
+  useMcpSelectionPersistence({
+    onWidgetParamsChange,
+    panelId,
+    params,
+    pairColor: resolvedPairColor,
+    scopeKey: 'editor_mcp',
+    onServerSelect: (serverId) => {
+      if (!isLinkedToColorPair) return
+      if (pairContext?.mcpServerId === serverId) return
+      setPairContext(resolvedPairColor, { mcpServerId: serverId })
+    },
+  })
+
+  const handleClose = useCallback(() => {
+    if (isLinkedToColorPair) {
+      setPairContext(resolvedPairColor, { mcpServerId: null })
+      return
+    }
+
+    onWidgetParamsChange?.(null)
+  }, [isLinkedToColorPair, onWidgetParamsChange, resolvedPairColor, setPairContext])
+
+  const handleResetForm = useCallback(() => {
+    setFormDataState(initialFormDataRef.current)
+    clearTestResult()
+    setSaveError(null)
+  }, [clearTestResult])
 
   const handleTestConnection = useCallback(async () => {
-    if (!workspaceId || !descriptor.entityId || !formDataState.url?.trim()) return
+    if (!workspaceId || !selectedServerId || !formDataState.url?.trim()) return
 
     await testConnection({
       name: formDataState.name.trim() || getServerName(selectedServer),
@@ -326,14 +205,14 @@ function McpEditorSession({
       timeout: formDataState.timeout,
       workspaceId,
     })
-  }, [descriptor.entityId, formDataState, selectedServer, testConnection, workspaceId])
+  }, [formDataState, selectedServer, selectedServerId, testConnection, workspaceId])
 
   const handleRefreshTools = useCallback(async () => {
-    if (!workspaceId || !descriptor.entityId) return
+    if (!workspaceId || !selectedServerId) return
 
     try {
-      await refreshServerApi(descriptor.entityId, workspaceId)
-      await refreshServer(workspaceId, descriptor.entityId)
+      await refreshServerApi(selectedServerId, workspaceId)
+      await refreshServer(workspaceId, selectedServerId)
       await refreshTools(true)
       await fetchServers(workspaceId)
     } catch (refreshError) {
@@ -342,12 +221,10 @@ function McpEditorSession({
         refreshError instanceof Error ? refreshError.message : 'Failed to refresh MCP server.'
       )
     }
-  }, [descriptor.entityId, fetchServers, refreshServer, refreshTools, workspaceId])
+  }, [fetchServers, refreshServer, refreshTools, selectedServerId, workspaceId])
 
   const handleSave = useCallback(async () => {
-    if (!workspaceId || !descriptor.reviewSessionId) {
-      return
-    }
+    if (!workspaceId || !selectedServerId) return
 
     const payload = createMcpSavePayload(formDataState)
     if (!payload.name) {
@@ -358,38 +235,13 @@ function McpEditorSession({
     setSaveError(null)
 
     try {
-      const response = await fetch('/api/copilot/review-entities/save', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          entityKind: ENTITY_KIND_MCP_SERVER,
-          workspaceId,
-          reviewSessionId: descriptor.reviewSessionId,
-          draftSessionId: descriptor.draftSessionId ?? undefined,
-          mcpServer: {
-            id: descriptor.entityId ?? undefined,
-            ...payload,
-          },
-        }),
-      })
-
-      const responsePayload = await response.json().catch(() => ({}))
-      if (!response.ok) {
-        throw new Error(responsePayload?.error || 'Failed to save MCP server.')
-      }
-
+      await updateServer(workspaceId, selectedServerId, payload)
+      initialFormDataRef.current = formDataState
       await fetchServers(workspaceId)
-    } catch (saveError) {
-      setSaveError(saveError instanceof Error ? saveError.message : 'Failed to save MCP server.')
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : 'Failed to save MCP server.')
     }
-  }, [
-    descriptor.draftSessionId,
-    descriptor.entityId,
-    descriptor.reviewSessionId,
-    fetchServers,
-    formDataState,
-    workspaceId,
-  ])
+  }, [fetchServers, formDataState, selectedServerId, updateServer, workspaceId])
 
   useMcpEditorActions({
     panelId,
@@ -398,11 +250,18 @@ function McpEditorSession({
     refresh: handleRefreshTools,
     reset: handleResetForm,
     test: handleTestConnection,
-    undo: handleUndo,
-    redo: handleRedo,
+    close: handleClose,
   })
 
-  if (isLoading || !doc) {
+  if (!workspaceId) {
+    return <WidgetStateMessage message='Select a workspace to edit MCP servers.' />
+  }
+
+  if (serverError && workspaceServers.length === 0 && !isServersLoading) {
+    return <WidgetStateMessage message={serverError || 'Failed to load MCP servers.'} />
+  }
+
+  if (isServersLoading && workspaceServers.length === 0) {
     return (
       <div className='flex h-full w-full items-center justify-center'>
         <LoadingAgent size='md' />
@@ -410,28 +269,30 @@ function McpEditorSession({
     )
   }
 
-  if (error) {
-    return <WidgetStateMessage message={error} />
+  if (!selectedServerId) {
+    return (
+      <WidgetStateMessage
+        message={
+          isLinkedToColorPair
+            ? 'This color has no shared MCP server selected yet.'
+            : 'Select an MCP server to edit.'
+        }
+      />
+    )
   }
 
-  if (serverError && descriptor.entityId && workspaceServers.length === 0 && isServersLoading) {
-    return <WidgetStateMessage message={serverError || 'Failed to load MCP servers.'} />
+  if (!selectedServer) {
+    return <WidgetStateMessage message='MCP server not found.' />
   }
 
-  const displayStatus = descriptor.entityId
-    ? (selectedServer?.connectionStatus ?? 'disconnected')
-    : 'draft'
+  const displayStatus = selectedServer.connectionStatus ?? 'disconnected'
 
   return (
     <div className='flex h-full w-full flex-col overflow-hidden'>
       <div className='flex-1 space-y-5 overflow-auto p-5'>
         <div className='space-y-2'>
           <div className='flex flex-wrap items-center gap-2'>
-            <h3 className='font-medium text-foreground text-sm'>
-              {descriptor.entityId
-                ? getServerName(selectedServer)
-                : formDataState.name.trim() || 'Unsaved MCP draft'}
-            </h3>
+            <h3 className='font-medium text-foreground text-sm'>{getServerName(selectedServer)}</h3>
             <span
               className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 font-medium text-[10px] ${getStatusClassName(displayStatus)}`}
             >
@@ -442,28 +303,22 @@ function McpEditorSession({
               {formDataState.transport.toUpperCase()}
             </span>
           </div>
-          {descriptor.entityId && selectedServer ? (
-            <div className='flex flex-wrap items-center gap-2 text-muted-foreground text-xs'>
-              {selectedServer.updatedAt ? (
-                <span>Updated {formatRelativeTime(selectedServer.updatedAt)}</span>
-              ) : null}
-              {selectedServer.lastToolsRefresh ? (
-                <span>Tools refreshed {formatRelativeTime(selectedServer.lastToolsRefresh)}</span>
-              ) : null}
-              {selectedServer.lastConnected ? (
-                <span>Last connected {formatRelativeTime(selectedServer.lastConnected)}</span>
-              ) : null}
-            </div>
-          ) : (
-            <p className='text-muted-foreground text-xs'>
-              Save this draft to enable connection tests, tool refresh, and canonical reload.
-            </p>
-          )}
+          <div className='flex flex-wrap items-center gap-2 text-muted-foreground text-xs'>
+            {selectedServer.updatedAt ? (
+              <span>Updated {formatRelativeTime(selectedServer.updatedAt)}</span>
+            ) : null}
+            {selectedServer.lastToolsRefresh ? (
+              <span>Tools refreshed {formatRelativeTime(selectedServer.lastToolsRefresh)}</span>
+            ) : null}
+            {selectedServer.lastConnected ? (
+              <span>Last connected {formatRelativeTime(selectedServer.lastConnected)}</span>
+            ) : null}
+          </div>
         </div>
 
         <McpServerForm
           formData={formDataState}
-          setFormData={setFormData}
+          setFormData={setFormDataState}
           testResult={testResult}
           isTestingConnection={isTestingConnection}
           workspaceId={workspaceId}
@@ -475,37 +330,31 @@ function McpEditorSession({
           <div className='flex items-center justify-between'>
             <p className='text-muted-foreground text-xs uppercase tracking-wide'>Tools</p>
             <span className='text-muted-foreground text-xs'>
-              {descriptor.entityId ? `${selectedServerTools.length} total` : 'Save required'}
+              {selectedServerTools.length} total
             </span>
           </div>
 
-          {descriptor.entityId ? (
-            selectedServerTools.length > 0 ? (
-              <div className='space-y-2'>
-                {selectedServerTools.map((tool) => (
-                  <div key={tool.id} className='rounded-md border bg-secondary/30 p-3'>
-                    <p className='font-medium text-foreground text-sm'>{tool.name}</p>
-                    {tool.description ? (
-                      <p className='mt-1 text-muted-foreground text-xs leading-relaxed'>
-                        {tool.description}
-                      </p>
-                    ) : null}
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className='rounded-md border border-dashed px-3 py-4 text-muted-foreground text-sm'>
-                No tools discovered yet.
-              </div>
-            )
+          {selectedServerTools.length > 0 ? (
+            <div className='space-y-2'>
+              {selectedServerTools.map((tool) => (
+                <div key={tool.id} className='rounded-md border bg-secondary/30 p-3'>
+                  <p className='font-medium text-foreground text-sm'>{tool.name}</p>
+                  {tool.description ? (
+                    <p className='mt-1 text-muted-foreground text-xs leading-relaxed'>
+                      {tool.description}
+                    </p>
+                  ) : null}
+                </div>
+              ))}
+            </div>
           ) : (
             <div className='rounded-md border border-dashed px-3 py-4 text-muted-foreground text-sm'>
-              Save this server to refresh and inspect discovered MCP tools.
+              No tools discovered yet.
             </div>
           )}
         </div>
 
-        {selectedServer?.lastError ? (
+        {selectedServer.lastError ? (
           <div className='rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-destructive text-sm'>
             <p className='font-medium'>Last error</p>
             <p className='text-destructive/80 text-xs'>{selectedServer.lastError}</p>
