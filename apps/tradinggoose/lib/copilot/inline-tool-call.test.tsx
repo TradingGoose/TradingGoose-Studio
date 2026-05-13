@@ -52,7 +52,7 @@ vi.mock('@/stores/copilot/tool-registry', () => ({
   getCopilotToolMetadata: () => undefined,
   getToolInterruptDisplays: (...args: any[]) => mockGetToolInterruptDisplays(...args),
   isCopilotTool: () => true,
-  isGatedTool: () => true,
+  isGatedTool: (name: string) => name !== 'edit_workflow' && name !== 'edit_workflow_block',
 }))
 
 vi.mock('@/lib/copilot/review-sessions/entity-session-host', () => ({
@@ -238,7 +238,7 @@ describe('InlineToolCall', () => {
     expect(container.querySelector('[data-testid="workflow-preview"]')).toBeNull()
   })
 
-  it('renders block edit approval details for staged edit_workflow_block results', async () => {
+  it('renders only the workflow review for staged edit_workflow_block results', async () => {
     await act(async () => {
       root.render(
         <InlineToolCall
@@ -275,47 +275,19 @@ describe('InlineToolCall', () => {
       )
     })
 
-    expect(container.textContent).toContain('Proposed Workflow Block Changes')
-    expect(container.textContent).toContain('fn1')
-    expect(container.textContent).toContain('function')
-    expect(container.textContent).toContain('Compute Market Indicators')
-    expect(container.textContent).toContain('Enabled')
-    expect(container.textContent).toContain('false')
-    expect(container.textContent).toContain('subBlocks.code')
-    expect(container.textContent).toContain('return { rsi: 50 }')
+    expect(container.textContent).not.toContain('Proposed Workflow Block Changes')
+    expect(container.textContent).not.toContain('subBlocks.code')
     expect(container.querySelector('[data-testid="workflow-preview"]')?.textContent).toContain(
       'fn1'
     )
   })
 
-  it('keeps review controls visible after a limited-access Allow transitions to review', async () => {
-    const toolCallId = 'tool-review-after-allow'
+  it('shows review controls for staged workflow edits without generic Allow', async () => {
+    const toolCallId = 'tool-workflow-review'
     mockGetToolInterruptDisplays.mockReturnValue({
       accept: { text: 'Accept' },
       reject: { text: 'Reject' },
     })
-    mockUseCopilotStoreState.executeCopilotToolCall.mockResolvedValue(undefined)
-    mockUseCopilotStoreState.toolCallsById = {
-      [toolCallId]: {
-        id: toolCallId,
-        name: 'edit_workflow',
-        state: ClientToolCallState.pending,
-      },
-    }
-
-    await act(async () => {
-      root.render(<InlineToolCall toolCallId={toolCallId} />)
-    })
-
-    const allowButton = Array.from(container.querySelectorAll('button')).find((button) =>
-      button.textContent?.includes('Allow')
-    )
-    expect(allowButton).toBeDefined()
-
-    await act(async () => {
-      allowButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
-    })
-
     mockUseCopilotStoreState.toolCallsById = {
       [toolCallId]: {
         id: toolCallId,
@@ -328,8 +300,31 @@ describe('InlineToolCall', () => {
       root.render(<InlineToolCall toolCallId={toolCallId} />)
     })
 
+    expect(container.textContent).not.toContain('Allow')
     expect(container.textContent).toContain('Accept')
     expect(container.textContent).toContain('Reject')
+  })
+
+  it('uses interrupt labels for generic gated pending tools', async () => {
+    mockGetToolInterruptDisplays.mockReturnValue({
+      accept: { text: 'Execute' },
+      reject: { text: 'Skip' },
+    })
+
+    await act(async () => {
+      root.render(
+        <InlineToolCall
+          toolCall={{
+            id: 'tool-pending-api',
+            name: 'make_api_request',
+            state: ClientToolCallState.pending,
+          }}
+        />
+      )
+    })
+
+    expect(container.textContent).toContain('Execute')
+    expect(container.textContent).not.toContain('Allow')
   })
 
   it('renders entity diffs in the copilot widget for pending entity edits', async () => {

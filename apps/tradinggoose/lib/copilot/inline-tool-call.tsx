@@ -319,6 +319,12 @@ function RunSkipButtons({
   const [isProcessing, setIsProcessing] = useState(false)
   const actionInProgressRef = useRef(false)
   const { executeCopilotToolCall, executeIntegrationTool, skipCopilotToolCall } = useCopilotStore()
+  const interruptDisplays = getToolInterruptDisplays(toolCall.name, toolCall.id)
+  const isReview = toolCall.state === 'review'
+  const acceptText = interruptDisplays?.accept?.text ?? (isReview ? 'Accept' : 'Allow')
+  const rejectText = interruptDisplays?.reject?.text ?? (isReview ? 'Reject' : 'Skip')
+  const AcceptIcon = interruptDisplays?.accept?.icon
+  const RejectIcon = interruptDisplays?.reject?.icon
 
   const onRun = async () => {
     if (actionInProgressRef.current) return
@@ -365,14 +371,7 @@ function RunSkipButtons({
     )
   }
 
-  // Review state: show Accept / Reject using the tool's interrupt display metadata
-  if (toolCall.state === 'review') {
-    const interruptDisplays = getToolInterruptDisplays(toolCall.name, toolCall.id)
-    const acceptText = interruptDisplays?.accept?.text ?? 'Accept'
-    const rejectText = interruptDisplays?.reject?.text ?? 'Reject'
-    const AcceptIcon = interruptDisplays?.accept?.icon
-    const RejectIcon = interruptDisplays?.reject?.icon
-
+  if (isReview) {
     return (
       <div className='flex items-center gap-1.5'>
         <Button
@@ -417,8 +416,12 @@ function RunSkipButtons({
   return (
     <div className='flex items-center gap-1.5'>
       <Button onClick={onRun} disabled={isProcessing} size='sm'>
-        {isProcessing ? <Loader2 className='mr-1 h-3 w-3 animate-spin' /> : null}
-        Allow
+        {isProcessing ? (
+          <Loader2 className='mr-1 h-3 w-3 animate-spin' />
+        ) : AcceptIcon ? (
+          <AcceptIcon className='mr-1 h-3 w-3' />
+        ) : null}
+        {acceptText}
       </Button>
       <Button
         onClick={async () => {
@@ -429,7 +432,8 @@ function RunSkipButtons({
         size='sm'
         variant='outline'
       >
-        Skip
+        {RejectIcon ? <RejectIcon className='mr-1 h-3 w-3' /> : null}
+        {rejectText}
       </Button>
     </div>
   )
@@ -484,32 +488,6 @@ export function InlineToolCall({
   const params = (toolCall as any).parameters || (toolCall as any).input || toolCall.params || {}
   const workflowReviewPayload = readWorkflowReviewPayload(toolCall)
   const showWorkflowReview = workflowReviewPayload && toolCall.state === ClientToolCallState.review
-  const workflowBlockEditRows =
-    toolCall.name === 'edit_workflow_block'
-      ? [
-          ...(typeof params.name === 'string' && params.name.trim()
-            ? [{ key: 'name', label: 'Name', value: params.name.trim() }]
-            : []),
-          ...(typeof params.enabled === 'boolean'
-            ? [{ key: 'enabled', label: 'Enabled', value: String(params.enabled) }]
-            : []),
-          ...(params.subBlocks &&
-          typeof params.subBlocks === 'object' &&
-          !Array.isArray(params.subBlocks)
-            ? Object.entries(params.subBlocks)
-                .sort(([a], [b]) => a.localeCompare(b))
-                .map(([key, value]) => ({
-                  key: `subBlocks.${key}`,
-                  label: `subBlocks.${key}`,
-                  value: typeof value === 'string' ? value : (JSON.stringify(value, null, 2) ?? ''),
-                }))
-            : []),
-        ]
-      : []
-  const showWorkflowBlockEditRequest =
-    workflowBlockEditRows.length > 0 &&
-    (toolCall.state === ClientToolCallState.pending ||
-      toolCall.state === ClientToolCallState.review)
   const entityReviewDiffPayload =
     entitySession.doc && entitySession.descriptor
       ? buildEntityReviewDiffPayload(
@@ -773,35 +751,6 @@ export function InlineToolCall({
                 </div>
               </div>
             ))}
-          </div>
-        </div>
-      ) : null}
-      {showWorkflowBlockEditRequest ? (
-        <div className='pr-1 pl-5'>
-          <div className='flex flex-col gap-2 rounded-md border border-orange-200/70 bg-card/60 p-3 dark:border-orange-900/50'>
-            <div className='flex flex-wrap items-center gap-2'>
-              <div className='font-medium text-[11px] text-muted-foreground uppercase tracking-wide'>
-                Proposed Workflow Block Changes
-              </div>
-              <span className='rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground'>
-                {String(params.blockId || '')}
-              </span>
-              {typeof params.blockType === 'string' && params.blockType.trim() ? (
-                <span className='rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground'>
-                  {params.blockType.trim()}
-                </span>
-              ) : null}
-            </div>
-            <div className='divide-y divide-muted/60 overflow-hidden rounded-md border border-border/60 bg-background/70'>
-              {workflowBlockEditRows.map((row) => (
-                <div key={row.key} className='grid gap-1 px-2 py-1.5'>
-                  <div className='font-medium text-[11px] text-muted-foreground'>{row.label}</div>
-                  <div className='max-h-48 overflow-auto whitespace-pre-wrap break-words font-mono text-[11px] text-foreground'>
-                    {row.value || ' '}
-                  </div>
-                </div>
-              ))}
-            </div>
           </div>
         </div>
       ) : null}

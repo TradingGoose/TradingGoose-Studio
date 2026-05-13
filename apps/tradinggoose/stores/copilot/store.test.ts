@@ -1178,96 +1178,77 @@ describe('copilot streaming regressions', () => {
     }
   })
 
-  it('keeps limited-access workflow edits pending until user approval', async () => {
-    const channelId = 'copilot-limited-access-edit-workflow'
+  it('auto-stages limited-access workflow edits for review approval', async () => {
+    vi.useFakeTimers()
+    const toolCallId = 'edit-workflow-limited-tool'
     const assistantMessageId = 'assistant-message-limited-edit'
-    const reviewSessionId = 'review-limited-edit'
-    const store = getCopilotStore(channelId)
-    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
-      const url = typeof input === 'string' ? input : input.toString()
-      if (url === '/api/copilot/chat/update-messages') {
-        return {
-          ok: true,
-          status: 200,
-          json: async () => ({ success: true }),
-        }
-      }
+    const reviewResult = {
+      workflowState: {
+        blocks: {},
+        edges: [],
+        loops: {},
+        parallels: {},
+      },
+    }
+    let toolState = ClientToolCallState.pending
+    const fakeTool: any = {
+      persistedToolCall: {} as any,
+      setExecutionContext: vi.fn(),
+      hydratePersistedToolCall: vi.fn(),
+      handleUserAction: vi.fn(async () => {
+        toolState = ClientToolCallState.review
+        fakeTool.persistedToolCall = { result: reviewResult }
+      }),
+      getState: vi.fn(() => toolState),
+    }
 
-      throw new Error(`Unexpected fetch: ${url}`)
-    })
+    registerClientTool(toolCallId, fakeTool)
 
-    vi.stubGlobal('fetch', fetchMock)
+    try {
+      const store = getCopilotStore('copilot-limited-access-edit-workflow')
+      store.setState({
+        accessLevel: 'limited',
+        messages: [
+          {
+            id: assistantMessageId,
+            role: 'assistant',
+            content: '',
+            timestamp: '2026-04-17T00:00:00.000Z',
+          },
+        ],
+        isSendingMessage: true,
+        toolCallsById: {},
+      })
 
-    store.setState({
-      accessLevel: 'limited',
-      currentChat: {
-        reviewSessionId,
-        workspaceId: 'workspace-1',
-        entityKind: 'workflow',
-        entityId: 'wf-limited-edit',
-        draftSessionId: null,
-        title: 'Limited edit',
-        messages: [],
-        messageCount: 0,
-        conversationId: 'conversation-limited-edit',
-        latestTurnStatus: 'in_progress',
-        createdAt: new Date('2026-04-17T00:00:00.000Z'),
-        updatedAt: new Date('2026-04-17T00:00:00.000Z'),
-      } as any,
-      chats: [],
-      messages: [
-        {
-          id: assistantMessageId,
-          role: 'assistant',
-          content: '',
-          timestamp: '2026-04-17T00:00:00.000Z',
-        },
-      ],
-      isSendingMessage: true,
-      abortController: null,
-      toolCallsById: {},
-    })
-
-    await store.getState().handleStreamingResponse(
-      createSseStream([
-        {
-          type: 'response.output_item.done',
-          item: {
-            type: 'function_call',
-            call_id: 'edit-workflow-limited-tool',
-            name: 'edit_workflow',
-            arguments: {
-              workflowId: 'wf-limited-edit',
-              workflowDocument: 'workflow: {}',
-              documentFormat: 'tg-mermaid-v1',
+      await store.getState().handleStreamingResponse(
+        createSseStream([
+          {
+            type: 'response.output_item.done',
+            item: {
+              type: 'function_call',
+              call_id: toolCallId,
+              name: 'edit_workflow',
+              arguments: {
+                workflowId: 'wf-limited-edit',
+                workflowDocument: 'workflow: {}',
+                documentFormat: 'tg-mermaid-v1',
+              },
             },
           },
-        },
-        { type: 'awaiting_tools', data: { pendingToolCallIds: ['edit-workflow-limited-tool'] } },
-      ]),
-      assistantMessageId
-    )
+          { type: 'awaiting_tools', data: { pendingToolCallIds: [toolCallId] } },
+        ]),
+        assistantMessageId
+      )
+      await vi.advanceTimersByTimeAsync(0)
 
-    const updateMessageCalls = fetchMock.mock.calls.filter(([input]) => {
-      const url = typeof input === 'string' ? input : input.toString()
-      return url === '/api/copilot/chat/update-messages'
-    })
-    const updateMessagesBody = parseJsonRequestBody(updateMessageCalls.at(-1))
-    expect(updateMessagesBody.latestTurnStatus).toBe('in_progress')
-    expect((updateMessagesBody.messages as any[])?.[0]?.contentBlocks?.[0]?.toolCall?.state).toBe(
-      ClientToolCallState.pending
-    )
-    expect(
-      fetchMock.mock.calls.some(([input]) => {
-        const url = typeof input === 'string' ? input : input.toString()
-        return url === '/api/copilot/execute-copilot-server-tool'
-      })
-    ).toBe(false)
-    expect(store.getState().currentChat?.latestTurnStatus).toBe('in_progress')
-    expect(store.getState().toolCallsById['edit-workflow-limited-tool']?.state).toBe(
-      ClientToolCallState.pending
-    )
-    expect(store.getState().isSendingMessage).toBe(true)
+      expect(fakeTool.handleUserAction).toHaveBeenCalledTimes(1)
+      expect(store.getState().toolCallsById[toolCallId]?.state).toBe(ClientToolCallState.review)
+      expect(store.getState().toolCallsById[toolCallId]?.result).toEqual(reviewResult)
+      expect(store.getState().isSendingMessage).toBe(true)
+    } finally {
+      unregisterClientTool(toolCallId)
+      vi.useRealTimers()
+    }
   })
 
   it('starts a new generic copilot chat without deleting prior workspace history', async () => {

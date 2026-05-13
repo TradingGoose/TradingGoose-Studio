@@ -112,7 +112,8 @@ describe('tool-registry', () => {
 
   it('classifies gated and non-gated tools explicitly', () => {
     expect(isGatedTool('make_api_request')).toBe(true)
-    expect(isGatedTool('edit_workflow')).toBe(true)
+    expect(isGatedTool('edit_workflow')).toBe(false)
+    expect(isGatedTool('edit_workflow_block')).toBe(false)
     expect(isGatedTool('checkoff_todo')).toBe(false)
     expect(isGatedTool('mark_todo_in_progress')).toBe(false)
     expect(isGatedTool('get_blocks_metadata')).toBe(false)
