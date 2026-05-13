@@ -1,12 +1,15 @@
 import { db, orderHistoryTable } from '@tradinggoose/db'
 import { and, eq } from 'drizzle-orm'
+import type { NextRequest } from 'next/server'
 import { checkWorkspaceAccess } from '@/lib/permissions/utils'
 import {
+  authorizeTradingCredentialRequest,
   logTradingBrokerRequestFailure,
   resolveTradingProviderContext,
 } from '@/lib/trading/context'
 import { TradingServiceError } from '@/lib/trading/errors'
 import {
+  deepRedactSecrets,
   readOrderAccountId,
   readOrderCredentialId,
   readOrderServiceId,
@@ -31,14 +34,18 @@ export type TradingProviderOrderDetailResult = {
 
 export async function getRecordedTradingOrderProviderDetail({
   orderId,
+  request,
   requestId,
   userId,
   workspaceId,
+  workflowId,
 }: {
   orderId: string
+  request: NextRequest
   requestId: string
   userId: string
   workspaceId: string
+  workflowId?: string
 }): Promise<TradingProviderOrderDetailResult> {
   const access = await checkWorkspaceAccess(workspaceId, userId)
   if (!access.exists || !access.hasAccess) {
@@ -64,16 +71,23 @@ export async function getRecordedTradingOrderProviderDetail({
   if (!credentialId || !serviceId) {
     throw new TradingServiceError('Order history record is missing trading credential context')
   }
+  const credentialAuthorization = await authorizeTradingCredentialRequest({
+    request,
+    credentialId,
+    workspaceId,
+    workflowId,
+  })
 
   const baseContext = await resolveTradingProviderContext({
     requestData: {
       provider: order.provider,
       credentialId,
       serviceId,
-      workspaceId,
     },
     requestId,
     userId,
+    credentialOwnerUserId: credentialAuthorization.credentialOwnerUserId,
+    tokenAccountId: credentialAuthorization.tokenAccountId,
   })
 
   const detailInput: TradingOrderDetailInput = {
@@ -101,10 +115,12 @@ export async function getRecordedTradingOrderProviderDetail({
     appOrderId: order.id,
     logId: order.logId,
     orderId,
-    orderDetail: providerDetail.orderDetail,
+    orderDetail: deepRedactSecrets(providerDetail.orderDetail) as Record<string, any>,
     provider: order.provider,
     providerOrderId: providerDetail.providerOrderId,
-    providerDetail,
+    providerDetail: deepRedactSecrets(
+      providerDetail
+    ) as TradingProviderOrderDetailResult['providerDetail'],
     workspaceId: order.workspaceId,
   }
 }

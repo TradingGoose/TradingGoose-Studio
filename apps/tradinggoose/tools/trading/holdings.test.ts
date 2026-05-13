@@ -1,7 +1,8 @@
+import { NextRequest } from 'next/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const getPortfolioDetailMock = vi.fn()
-const checkWorkspaceAccessMock = vi.fn()
+const authorizeTradingCredentialRequestMock = vi.fn()
 const resolveTradingProviderContextMock = vi.fn()
 const resolveTradingProviderSelectedAccountMock = vi.fn()
 
@@ -16,11 +17,9 @@ vi.mock('@/providers/trading/portfolio', () => ({
   getPortfolioDetail: (...args: unknown[]) => getPortfolioDetailMock(...args),
 }))
 
-vi.mock('@/lib/permissions/utils', () => ({
-  checkWorkspaceAccess: (...args: unknown[]) => checkWorkspaceAccessMock(...args),
-}))
-
 vi.mock('@/lib/trading/context', () => ({
+  authorizeTradingCredentialRequest: (...args: unknown[]) =>
+    authorizeTradingCredentialRequestMock(...args),
   resolveTradingProviderContext: (...args: unknown[]) => resolveTradingProviderContextMock(...args),
   resolveTradingProviderSelectedAccount: (...args: unknown[]) =>
     resolveTradingProviderSelectedAccountMock(...args),
@@ -40,7 +39,10 @@ describe('tradingHoldingsTool', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     getPortfolioDetailMock.mockResolvedValue({ accountId: 'ACC-2' })
-    checkWorkspaceAccessMock.mockResolvedValue({ exists: true, hasAccess: true })
+    authorizeTradingCredentialRequestMock.mockResolvedValue({
+      credentialOwnerUserId: 'user-1',
+      tokenAccountId: 'account-credential-1',
+    })
     resolveTradingProviderContextMock.mockResolvedValue({
       requestId: 'request-1',
       providerId: 'tradier',
@@ -57,13 +59,15 @@ describe('tradingHoldingsTool', () => {
   })
 
   it('fetches holdings for the selected portfolioIdentity account', async () => {
+    const request = new NextRequest('http://localhost/api/tools/trading/holdings')
     const result = await getTradingHoldings({
+      request,
       requestData: {
         portfolioIdentity,
+        workspaceId: 'workspace-1',
       },
       requestId: 'request-1',
       userId: 'user-1',
-      workspaceId: 'workspace-1',
     })
 
     expect(result).toMatchObject({
@@ -75,10 +79,11 @@ describe('tradingHoldingsTool', () => {
         provider: 'tradier',
         credentialId: 'credential-1',
         serviceId: 'tradier-live',
-        workspaceId: 'workspace-1',
       },
       requestId: 'request-1',
       userId: 'user-1',
+      credentialOwnerUserId: 'user-1',
+      tokenAccountId: 'account-credential-1',
     })
     expect(getPortfolioDetailMock).toHaveBeenCalledWith({
       providerId: 'tradier',
@@ -100,26 +105,34 @@ describe('tradingHoldingsTool', () => {
     })
   })
 
-  it('requires workspace execution context', () => {
+  it('requires workspace scope for credential-owned portfolio reads', () => {
     expect(tradingHoldingsTool.execution).toEqual({
       workspace: { required: true, access: 'read' },
     })
   })
 
-  it('rejects missing workspace access before broker calls', async () => {
-    checkWorkspaceAccessMock.mockResolvedValue({ exists: true, hasAccess: false })
+  it('authorizes the selected portfolio credential before broker calls', async () => {
+    const request = new NextRequest('http://localhost/api/tools/trading/holdings')
+    authorizeTradingCredentialRequestMock.mockRejectedValue(new Error('Unauthorized'))
 
     await expect(
       getTradingHoldings({
+        request,
         requestData: {
           portfolioIdentity,
+          workspaceId: 'workspace-1',
         },
         requestId: 'request-1',
         userId: 'user-1',
-        workspaceId: 'workspace-1',
       })
-    ).rejects.toThrow('Not found')
+    ).rejects.toThrow('Unauthorized')
 
+    expect(authorizeTradingCredentialRequestMock).toHaveBeenCalledWith({
+      request,
+      credentialId: 'credential-1',
+      workspaceId: 'workspace-1',
+      workflowId: undefined,
+    })
     expect(resolveTradingProviderContextMock).not.toHaveBeenCalled()
     expect(getPortfolioDetailMock).not.toHaveBeenCalled()
   })

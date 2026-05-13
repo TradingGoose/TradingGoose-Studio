@@ -2,52 +2,20 @@
  * @vitest-environment node
  */
 
+import { NextRequest } from 'next/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { TradingServiceError } from '@/lib/trading/errors'
 import { createMockRequest } from '@/app/api/__test-utils__/utils'
 
 const mockGetSession = vi.fn()
-const mockGetOAuthTokenByCredentialId = vi.fn()
+const mockRefreshAccessTokenIfNeeded = vi.fn()
 const mockListPortfolioIdentities = vi.fn()
 const mockCheckWorkspaceAccess = vi.fn()
+const mockAuthorizeCredentialUse = vi.fn()
 const mockResolveOrderHistoryContext = vi.fn()
 const mockRecordOrderHistory = vi.fn()
 const mockUpdateOrderHistoryResult = vi.fn()
 const mockFetch = vi.fn()
-let credentialRows: Array<{ userId: string; providerId: string }> = []
-
-vi.mock('@tradinggoose/db', () => ({
-  db: {
-    select: vi.fn(() => {
-      const chain = {
-        from: vi.fn(() => chain),
-        where: vi.fn(() => chain),
-        limit: vi.fn(() => Promise.resolve(credentialRows)),
-      }
-      return chain
-    }),
-  },
-}))
-
-vi.mock('@tradinggoose/db/schema', () => ({
-  account: {
-    id: 'account.id',
-    providerId: 'account.providerId',
-    userId: 'account.userId',
-  },
-  workflow: {
-    id: 'workflow.id',
-    workspaceId: 'workflow.workspaceId',
-  },
-}))
-
-vi.mock('drizzle-orm', async () => {
-  const actual = await vi.importActual<typeof import('drizzle-orm')>('drizzle-orm')
-  return {
-    ...actual,
-    eq: vi.fn(),
-  }
-})
 
 vi.mock('@/lib/logs/console/logger', () => ({
   createLogger: () => ({
@@ -63,7 +31,11 @@ vi.mock('@/lib/auth', () => ({
 }))
 
 vi.mock('@/lib/oauth/tokens', () => ({
-  getOAuthTokenByCredentialId: mockGetOAuthTokenByCredentialId,
+  refreshAccessTokenIfNeeded: mockRefreshAccessTokenIfNeeded,
+}))
+
+vi.mock('@/lib/auth/credential-access', () => ({
+  authorizeCredentialUse: mockAuthorizeCredentialUse,
 }))
 
 vi.mock('@/lib/permissions/utils', () => ({
@@ -130,9 +102,15 @@ describe('Trading provider order route', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.stubGlobal('fetch', mockFetch)
-    credentialRows = [{ userId: 'user-1', providerId: 'alpaca-live' }]
     mockGetSession.mockResolvedValue({ user: { id: 'user-1' } })
-    mockGetOAuthTokenByCredentialId.mockResolvedValue('access-token')
+    mockAuthorizeCredentialUse.mockResolvedValue({
+      ok: true,
+      authType: 'session',
+      requesterUserId: 'user-1',
+      credentialOwnerUserId: 'user-1',
+      resolvedTokenAccountId: 'account-credential-1',
+    })
+    mockRefreshAccessTokenIfNeeded.mockResolvedValue('access-token')
     mockCheckWorkspaceAccess.mockResolvedValue({
       exists: true,
       hasAccess: true,
@@ -184,7 +162,7 @@ describe('Trading provider order route', () => {
   it('rejects invalid JSON before auth or broker calls', async () => {
     const { POST } = await import('@/app/api/providers/trading/order/route')
     const response = await POST(
-      new Request('http://localhost:3000/api/providers/trading/order', {
+      new NextRequest('http://localhost:3000/api/providers/trading/order', {
         method: 'POST',
         body: '{',
       })
@@ -193,6 +171,30 @@ describe('Trading provider order route', () => {
     expect(response.status).toBe(400)
     await expect(response.json()).resolves.toEqual({ error: 'Invalid request data' })
     expect(mockGetSession).not.toHaveBeenCalled()
+    expect(mockListPortfolioIdentities).not.toHaveBeenCalled()
+    expect(mockFetch).not.toHaveBeenCalled()
+  })
+
+  it('authorizes the selected portfolio credential before token lookup', async () => {
+    mockAuthorizeCredentialUse.mockResolvedValue({
+      ok: false,
+      error: 'Unauthorized',
+    })
+
+    const { POST } = await import('@/app/api/providers/trading/order/route')
+    const response = await POST(
+      createMockRequest('POST', {
+        workspaceId,
+        portfolioIdentity: portfolioIdentityFor('tradier'),
+        listing: stockListing,
+        side: 'buy',
+        quantity: 1,
+      })
+    )
+
+    expect(response.status).toBe(403)
+    await expect(response.json()).resolves.toEqual({ error: 'Unauthorized' })
+    expect(mockRefreshAccessTokenIfNeeded).not.toHaveBeenCalled()
     expect(mockListPortfolioIdentities).not.toHaveBeenCalled()
     expect(mockFetch).not.toHaveBeenCalled()
   })
@@ -405,7 +407,7 @@ describe('Trading provider order route', () => {
   })
 
   it('rejects missing provider connections before account discovery', async () => {
-    mockGetOAuthTokenByCredentialId.mockResolvedValue(null)
+    mockRefreshAccessTokenIfNeeded.mockResolvedValue(null)
 
     const { POST } = await import('@/app/api/providers/trading/order/route')
     const response = await POST(
@@ -474,7 +476,7 @@ describe('Trading provider order route', () => {
     await expect(response.json()).resolves.toEqual({
       error: 'logId does not belong to the workspace',
     })
-    expect(mockGetOAuthTokenByCredentialId).not.toHaveBeenCalled()
+    expect(mockRefreshAccessTokenIfNeeded).not.toHaveBeenCalled()
     expect(mockListPortfolioIdentities).not.toHaveBeenCalled()
     expect(mockFetch).not.toHaveBeenCalled()
     expect(mockRecordOrderHistory).not.toHaveBeenCalled()
@@ -631,12 +633,10 @@ describe('Trading provider order route', () => {
       },
     })
     expect(mockFetch).toHaveBeenCalledTimes(1)
-    expect(mockGetOAuthTokenByCredentialId).toHaveBeenCalledWith(
-      expect.objectContaining({
-        userId: 'user-1',
-        credentialId: 'alpaca-credential-1',
-        providerId: 'alpaca-live',
-      })
+    expect(mockRefreshAccessTokenIfNeeded).toHaveBeenCalledWith(
+      'account-credential-1',
+      'user-1',
+      expect.any(String)
     )
     expect(mockRecordOrderHistory).toHaveBeenCalledWith(
       expect.objectContaining({

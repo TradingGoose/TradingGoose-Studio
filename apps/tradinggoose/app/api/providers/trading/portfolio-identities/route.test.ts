@@ -5,12 +5,18 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
+  checkWorkspaceAccess: vi.fn(),
   getSession: vi.fn(),
+  verifyWorkflowAccess: vi.fn(),
   listPortfolioIdentities: vi.fn(),
 }))
 
 vi.mock('@/lib/auth', () => ({
   getSession: (...args: unknown[]) => mocks.getSession(...args),
+}))
+
+vi.mock('@/lib/copilot/review-sessions/permissions', () => ({
+  verifyWorkflowAccess: (...args: unknown[]) => mocks.verifyWorkflowAccess(...args),
 }))
 
 vi.mock('@/lib/logs/console/logger', () => ({
@@ -21,6 +27,10 @@ vi.mock('@/lib/oauth', () => ({
   getServiceByProviderAndId: vi.fn((_providerId: string, serviceId: string) => ({
     name: serviceId === 'alpaca-live' ? 'Alpaca Live' : serviceId,
   })),
+}))
+
+vi.mock('@/lib/permissions/utils', () => ({
+  checkWorkspaceAccess: (...args: unknown[]) => mocks.checkWorkspaceAccess(...args),
 }))
 
 vi.mock('@/lib/trading/portfolio-identities', () => ({
@@ -48,6 +58,8 @@ describe('trading portfolio identities route', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mocks.getSession.mockResolvedValue({ user: { id: 'user-1' } })
+    mocks.checkWorkspaceAccess.mockResolvedValue({ hasAccess: true })
+    mocks.verifyWorkflowAccess.mockResolvedValue({ hasAccess: true, workspaceId: 'workspace-1' })
   })
 
   it('returns a load failure instead of an empty account list when account loading fails', async () => {
@@ -55,7 +67,9 @@ describe('trading portfolio identities route', () => {
     const { GET } = await import('./route')
 
     const response = await GET(
-      new Request('http://localhost/api/providers/trading/portfolio-identities?provider=alpaca')
+      new Request(
+        'http://localhost/api/providers/trading/portfolio-identities?provider=alpaca&workspaceId=workspace-1'
+      )
     )
 
     expect(response.status).toBe(502)
@@ -79,7 +93,9 @@ describe('trading portfolio identities route', () => {
     const { GET } = await import('./route')
 
     const response = await GET(
-      new Request('http://localhost/api/providers/trading/portfolio-identities?provider=alpaca')
+      new Request(
+        'http://localhost/api/providers/trading/portfolio-identities?provider=alpaca&workspaceId=workspace-1'
+      )
     )
 
     expect(response.status).toBe(200)

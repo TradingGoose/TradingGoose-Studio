@@ -4,7 +4,10 @@
 
 import { NextRequest } from 'next/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { resolveTradingProviderContext } from '@/lib/trading/context'
+import {
+  authorizeTradingCredentialRequest,
+  resolveTradingProviderContext,
+} from '@/lib/trading/context'
 import { executeTradingProviderOrderDetailRequest } from '@/providers/trading'
 import { TradingBrokerRequestError } from '@/providers/trading/portfolio-utils'
 
@@ -84,6 +87,7 @@ vi.mock('drizzle-orm', () => ({
 }))
 
 vi.mock('@/lib/trading/context', () => ({
+  authorizeTradingCredentialRequest: vi.fn(),
   logTradingBrokerRequestFailure: vi.fn(),
   resolveTradingProviderContext: vi.fn(),
 }))
@@ -134,6 +138,10 @@ describe('order provider detail route', () => {
     mocks.resultsQueue.length = 0
     mocks.checkAuth.mockResolvedValue({ success: true, userId: 'user-1' })
     mocks.checkWorkspaceAccess.mockResolvedValue({ exists: true, hasAccess: true })
+    vi.mocked(authorizeTradingCredentialRequest).mockResolvedValue({
+      credentialOwnerUserId: 'credential-owner-1',
+      tokenAccountId: 'account-credential-1',
+    })
     vi.mocked(resolveTradingProviderContext).mockResolvedValue({
       accessToken: 'access-token-1',
       environment: 'paper',
@@ -164,15 +172,22 @@ describe('order provider detail route', () => {
     expect(mocks.checkWorkspaceAccess).toHaveBeenCalledWith('workspace-1', 'user-1')
     expect(mocks.eq).toHaveBeenCalledWith('orderHistoryTable.id', 'order-1')
     expect(mocks.eq).toHaveBeenCalledWith('orderHistoryTable.workspaceId', 'workspace-1')
+    expect(authorizeTradingCredentialRequest).toHaveBeenCalledWith({
+      request: expect.any(NextRequest),
+      credentialId: 'credential-1',
+      workspaceId: 'workspace-1',
+      workflowId: undefined,
+    })
     expect(resolveTradingProviderContext).toHaveBeenCalledWith({
       requestData: {
         credentialId: 'credential-1',
         serviceId: 'alpaca-paper',
         provider: 'alpaca',
-        workspaceId: 'workspace-1',
       },
       requestId: 'request-1',
       userId: 'user-1',
+      credentialOwnerUserId: 'credential-owner-1',
+      tokenAccountId: 'account-credential-1',
     })
     expect(executeTradingProviderOrderDetailRequest).toHaveBeenCalledWith(
       'alpaca',

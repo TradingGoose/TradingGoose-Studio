@@ -23,8 +23,7 @@ export function resolveActiveTradingServiceId({
   serviceId?: string | null
   connectedServiceIds: string[]
 }) {
-  const requestedServiceId =
-    typeof serviceId === 'string' ? serviceId.trim() : ''
+  const requestedServiceId = typeof serviceId === 'string' ? serviceId.trim() : ''
   if (requestedServiceId && connectedServiceIds.includes(requestedServiceId)) {
     return requestedServiceId
   }
@@ -34,13 +33,16 @@ export function resolveActiveTradingServiceId({
 export function useTradingServices({
   providerId,
   serviceId,
+  workspaceId,
   enabled = true,
 }: {
   providerId?: string | null
   serviceId?: string | null
+  workspaceId?: string | null
   enabled?: boolean
 }): TradingServiceState {
   const trimmedProviderId = typeof providerId === 'string' ? providerId.trim() : ''
+  const trimmedWorkspaceId = typeof workspaceId === 'string' ? workspaceId.trim() : ''
   const providerDefinition = trimmedProviderId
     ? getTradingProviderDefinition(trimmedProviderId)
     : undefined
@@ -49,7 +51,8 @@ export function useTradingServices({
     : []
   const credentialsQuery = useOAuthCredentialsByProviderIds(
     serviceIds,
-    enabled && Boolean(trimmedProviderId)
+    enabled && Boolean(trimmedProviderId),
+    trimmedWorkspaceId ? { workspaceId: trimmedWorkspaceId } : undefined
   )
   const credentialsByProviderId = credentialsQuery.data ?? {}
   const connectedServiceIds = serviceIds.filter(

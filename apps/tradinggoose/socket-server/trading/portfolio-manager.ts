@@ -1,7 +1,7 @@
 import { createHash, randomUUID } from 'crypto'
+import { resolveOAuthCredentialAccountForUser } from '@/lib/credentials/oauth'
 import { createLogger } from '@/lib/logs/console/logger'
-import { getOAuthTokenByCredentialId } from '@/lib/oauth/tokens'
-import { checkWorkspaceAccess } from '@/lib/permissions/utils'
+import { refreshAccessTokenIfNeeded } from '@/lib/oauth/tokens'
 import { listTradingPortfolioIdentities } from '@/lib/trading/portfolio-identities'
 import {
   getPortfolioDetail,
@@ -155,23 +155,13 @@ export class TradingPortfolioStreamManager {
 
     const providerId = resolveTradingProviderId(payload.provider, payload.portfolioIdentity)
     const workspaceId = resolveWorkspaceId(payload.workspaceId)
-    const workspaceAccess = await checkWorkspaceAccess(workspaceId, userId)
-    if (!workspaceAccess.exists || !workspaceAccess.hasAccess) {
-      throw new Error('Workspace not found')
-    }
 
     const channel = resolveChannel(payload.channel)
     const serviceId = resolveServiceId(
       providerId,
-      payload.serviceId ??
-        toPortfolioValueObject(payload.portfolioIdentity)?.serviceId
+      payload.serviceId ?? toPortfolioValueObject(payload.portfolioIdentity)?.serviceId
     )
-    const portfolioIdentity = resolvePortfolioIdentity(
-      channel,
-      payload,
-      providerId,
-      serviceId
-    )
+    const portfolioIdentity = resolvePortfolioIdentity(channel, payload, providerId, serviceId)
     const window = resolvePerformanceWindow(providerId, channel, payload.window)
     const streamKey = buildStreamKey({
       userId,
@@ -404,6 +394,7 @@ export class TradingPortfolioStreamManager {
 
     const promise = listTradingPortfolioIdentities({
       userId: streamState.userId,
+      workspaceId: streamState.workspaceId,
       providerId: streamState.providerId,
       serviceId: streamState.serviceId,
       requestId: streamState.streamKey,
@@ -586,21 +577,24 @@ async function resolveTradingPortfolioContext(
   const providerDefinition = getTradingProviderDefinition(streamState.providerId)
   if (!providerDefinition) throw new Error('Unsupported trading provider')
 
-  const serviceId = getTradingProviderOAuthServiceId(
-    streamState.providerId,
-    streamState.serviceId
-  )
+  const serviceId = getTradingProviderOAuthServiceId(streamState.providerId, streamState.serviceId)
   if (!serviceId) throw new Error('Trading provider OAuth service is not configured')
 
   const credentialId = streamState.portfolioIdentity?.credentialId
   if (!credentialId) throw new Error('portfolioIdentity credential is required')
 
-  const accessToken = await getOAuthTokenByCredentialId({
-    userId: streamState.userId,
+  const credentialAccount = await resolveOAuthCredentialAccountForUser({
     credentialId,
-    providerId: serviceId,
-    requestId: streamState.streamKey,
+    userId: streamState.userId,
+    workspaceId: streamState.workspaceId,
   })
+  if (!credentialAccount) throw new Error('Trading provider connection not found')
+
+  const accessToken = await refreshAccessTokenIfNeeded(
+    credentialAccount.accountId,
+    credentialAccount.credentialOwnerUserId,
+    streamState.streamKey
+  )
   if (!accessToken) throw new Error('Trading provider connection not found')
   const environment = getTradingProviderOAuthEnvironment(streamState.providerId, serviceId)
   if (!environment) throw new Error('Trading provider connection is not configured')

@@ -50,7 +50,7 @@ const orderSchema = z
 const errorResponse = (error: string, status = 400) => NextResponse.json({ error }, { status })
 
 const parseOrderRequest = async (
-  request: Request
+  request: NextRequest
 ): Promise<TradingOrderSubmitRequest | Response> => {
   let body: unknown
   try {
@@ -65,7 +65,7 @@ const parseOrderRequest = async (
     : errorResponse('Invalid request data')
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   const requestId = createTradingRequestId('order')
   const requestData = await parseOrderRequest(request)
   if (requestData instanceof Response) return requestData
@@ -90,6 +90,7 @@ export async function POST(request: Request) {
         : { ...requestData, ...(workflowId ? { workflowId } : {}) }
 
     const response = await submitTradingOrder({
+      request,
       requestData: submitRequestData,
       requestId,
       userId: auth.userId,

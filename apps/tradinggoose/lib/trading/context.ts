@@ -1,9 +1,7 @@
-import { db } from '@tradinggoose/db'
-import { account, workflow as workflowTable } from '@tradinggoose/db/schema'
-import { eq } from 'drizzle-orm'
+import type { NextRequest } from 'next/server'
+import { authorizeCredentialUse } from '@/lib/auth/credential-access'
 import { createLogger } from '@/lib/logs/console/logger'
-import { getOAuthTokenByCredentialId } from '@/lib/oauth/tokens'
-import { checkWorkspaceAccess } from '@/lib/permissions/utils'
+import { refreshAccessTokenIfNeeded } from '@/lib/oauth/tokens'
 import { TradingServiceError } from '@/lib/trading/errors'
 import { listPortfolioIdentities } from '@/providers/trading/portfolio'
 import type { PortfolioIdentity } from '@/providers/trading/portfolio-identity'
@@ -20,14 +18,13 @@ type ProviderRequestData = {
   provider: string
   credentialId: string
   serviceId: string
-  workflowId?: string
-  workspaceId?: string
 }
 
 type PreflightContext = {
   requestId: string
   providerId: string
   credentialId: string
+  tokenAccountId: string
   serviceId: string
   environment: 'paper' | 'live'
   accessToken: string
@@ -49,95 +46,50 @@ const requireStringField = (input: string | undefined, field: string): string =>
   return value
 }
 
-async function resolveCredentialWorkspaceScope(params: {
-  workflowId?: string
-  workspaceId?: string
-}): Promise<string | null> {
-  const workspaceId = params.workspaceId?.trim()
-  if (!params.workflowId) return workspaceId || null
-
-  const [row] = await db
-    .select({ workspaceId: workflowTable.workspaceId })
-    .from(workflowTable)
-    .where(eq(workflowTable.id, params.workflowId))
-    .limit(1)
-
-  if (!row?.workspaceId) {
-    throw new TradingServiceError('Workflow not found', 404)
-  }
-  if (workspaceId && workspaceId !== row.workspaceId) {
-    throw new TradingServiceError('Workflow does not belong to workspace', 403)
-  }
-  return row.workspaceId
-}
-
-async function resolveTradingCredentialAccessToken(params: {
-  actorUserId: string
+export async function authorizeTradingCredentialRequest(params: {
+  request: NextRequest
   credentialId: string
-  providerId: string
-  requestId: string
-  workflowId?: string
   workspaceId?: string
-}) {
-  const actorToken = await getOAuthTokenByCredentialId({
-    userId: params.actorUserId,
+  workflowId?: string
+}): Promise<{ credentialOwnerUserId: string; tokenAccountId: string }> {
+  const authorization = await authorizeCredentialUse(params.request, {
     credentialId: params.credentialId,
-    providerId: params.providerId,
-    requestId: params.requestId,
-  })
-  if (actorToken) return actorToken
-
-  const [credential] = await db
-    .select({ userId: account.userId, providerId: account.providerId })
-    .from(account)
-    .where(eq(account.id, params.credentialId))
-    .limit(1)
-
-  if (!credential || credential.providerId !== params.providerId) {
-    throw new TradingServiceError('Trading provider connection not found', 404)
-  }
-
-  if (credential.userId === params.actorUserId) {
-    throw new TradingServiceError('Trading provider connection not found', 404)
-  }
-
-  const workspaceId = await resolveCredentialWorkspaceScope({
-    workflowId: params.workflowId,
     workspaceId: params.workspaceId,
+    workflowId: params.workflowId,
+    requireWorkflowIdForInternal: false,
   })
-  if (!workspaceId) {
-    throw new TradingServiceError('workspaceId is required for shared trading credentials', 403)
+  if (
+    !authorization.ok ||
+    !authorization.credentialOwnerUserId ||
+    !authorization.resolvedTokenAccountId
+  ) {
+    const status =
+      authorization.error === 'Credential not found'
+        ? 404
+        : authorization.error === 'Authentication required'
+          ? 401
+          : 403
+    throw new TradingServiceError(authorization.error || 'Unauthorized', status)
   }
 
-  const [actorAccess, ownerAccess] = await Promise.all([
-    checkWorkspaceAccess(workspaceId, params.actorUserId),
-    checkWorkspaceAccess(workspaceId, credential.userId),
-  ])
-  if (!actorAccess.hasAccess || !ownerAccess.hasAccess) {
-    throw new TradingServiceError('Trading provider connection not found', 404)
+  return {
+    credentialOwnerUserId: authorization.credentialOwnerUserId,
+    tokenAccountId: authorization.resolvedTokenAccountId,
   }
-
-  const ownerToken = await getOAuthTokenByCredentialId({
-    userId: credential.userId,
-    credentialId: params.credentialId,
-    providerId: params.providerId,
-    requestId: params.requestId,
-  })
-  if (!ownerToken) {
-    throw new TradingServiceError('Trading provider connection not found', 404)
-  }
-
-  return ownerToken
 }
 
 export async function resolveTradingProviderContext({
   requestData,
   requestId,
   userId,
+  credentialOwnerUserId,
+  tokenAccountId,
 }: {
   requestData: ProviderRequestData
   requestId: string
   userId: string
+  credentialOwnerUserId: string
+  tokenAccountId: string
 }): Promise<PreflightContext> {
   const providerId = requireStringField(requestData.provider, 'provider')
 
@@ -146,10 +98,7 @@ export async function resolveTradingProviderContext({
     throw new TradingServiceError('Unsupported provider')
   }
 
-  const requestedServiceId = requireStringField(
-    requestData.serviceId,
-    'serviceId'
-  )
+  const requestedServiceId = requireStringField(requestData.serviceId, 'serviceId')
   const serviceId = getTradingProviderOAuthServiceId(providerId, requestedServiceId)
   if (!serviceId) {
     throw new TradingServiceError('Trading provider connection is required')
@@ -157,14 +106,14 @@ export async function resolveTradingProviderContext({
 
   const credentialId = requireStringField(requestData.credentialId, 'credentialId')
 
-  const resolvedAccessToken = await resolveTradingCredentialAccessToken({
-    actorUserId: userId,
-    credentialId,
-    providerId: serviceId,
-    requestId,
-    workflowId: requestData.workflowId,
-    workspaceId: requestData.workspaceId,
-  })
+  const resolvedAccessToken = await refreshAccessTokenIfNeeded(
+    tokenAccountId,
+    credentialOwnerUserId,
+    requestId
+  )
+  if (!resolvedAccessToken) {
+    throw new TradingServiceError('Trading provider connection not found', 404)
+  }
   const environment = getTradingProviderOAuthEnvironment(providerId, serviceId)
   if (!environment) {
     throw new TradingServiceError('Trading provider connection is not configured')
@@ -174,6 +123,7 @@ export async function resolveTradingProviderContext({
     requestId,
     providerId,
     credentialId,
+    tokenAccountId,
     serviceId: serviceId,
     environment,
     accessToken: resolvedAccessToken,

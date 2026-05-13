@@ -1,5 +1,6 @@
-import { checkWorkspaceAccess } from '@/lib/permissions/utils'
+import type { NextRequest } from 'next/server'
 import {
+  authorizeTradingCredentialRequest,
   resolveTradingProviderContext,
   resolveTradingProviderSelectedAccount,
 } from '@/lib/trading/context'
@@ -11,6 +12,7 @@ import { TradingServiceError } from './errors'
 
 export interface TradingHoldingsRequest {
   portfolioIdentity?: PortfolioIdentity | null
+  workspaceId?: string
   workflowId?: string
 }
 
@@ -21,37 +23,38 @@ export type TradingHoldingsResult = {
 }
 
 export async function getTradingHoldings({
+  request,
   requestData,
   requestId,
   userId,
-  workspaceId,
 }: {
+  request: NextRequest
   requestData: TradingHoldingsRequest
   requestId: string
   userId: string
-  workspaceId: string
 }): Promise<TradingHoldingsResult> {
-  const workspaceAccess = await checkWorkspaceAccess(workspaceId, userId)
-  if (!workspaceAccess.exists || !workspaceAccess.hasAccess) {
-    throw new TradingServiceError('Not found', 404)
-  }
-
   const portfolioIdentity = toPortfolioValueObject(requestData.portfolioIdentity)
 
   if (!portfolioIdentity) {
     throw new TradingServiceError('Portfolio identity is required')
   }
+  const credentialAuthorization = await authorizeTradingCredentialRequest({
+    request,
+    credentialId: portfolioIdentity.credentialId,
+    workspaceId: requestData.workspaceId,
+    workflowId: requestData.workflowId,
+  })
 
   const baseContext = await resolveTradingProviderContext({
     requestData: {
       provider: portfolioIdentity.providerId,
       credentialId: portfolioIdentity.credentialId,
       serviceId: portfolioIdentity.serviceId,
-      workspaceId,
-      ...(requestData.workflowId ? { workflowId: requestData.workflowId } : {}),
     },
     requestId,
     userId,
+    credentialOwnerUserId: credentialAuthorization.credentialOwnerUserId,
+    tokenAccountId: credentialAuthorization.tokenAccountId,
   })
   const provider = getTradingProvider(baseContext.providerId)
   const accountContext = await resolveTradingProviderSelectedAccount({

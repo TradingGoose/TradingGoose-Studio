@@ -19,11 +19,11 @@ import {
   toPortfolioValueObject,
 } from '@/providers/trading/portfolio-identity'
 import { getTradingProviderDefinition } from '@/providers/trading/providers'
+import { resolveTradingProviderIcon } from '@/widgets/widgets/components/trading-provider-selector'
 import {
   getTradingServiceName,
   useTradingServices,
 } from '@/widgets/widgets/components/trading-services'
-import { resolveTradingProviderIcon } from '@/widgets/widgets/components/trading-provider-selector'
 import {
   widgetHeaderControlClassName,
   widgetHeaderMenuContentClassName,
@@ -89,11 +89,11 @@ export function TradingAccountSelector({
   const oauthProvider = providerDefinition?.oauth?.provider
   const isEnabled = Boolean(trimmedWorkspaceId && trimmedProviderId) && !disabled
   const selectedPortfolioIdentity = toPortfolioValueObject(portfolioIdentity)
-  const requestedServiceId =
-    serviceId ?? selectedPortfolioIdentity?.serviceId
+  const requestedServiceId = serviceId ?? selectedPortfolioIdentity?.serviceId
   const services = useTradingServices({
     providerId: trimmedProviderId,
     serviceId: requestedServiceId,
+    workspaceId: trimmedWorkspaceId,
     enabled: isEnabled,
   })
   const activeServiceId = services.activeServiceId

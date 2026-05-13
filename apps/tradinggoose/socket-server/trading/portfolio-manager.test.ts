@@ -4,40 +4,41 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const {
-  getOAuthTokenByCredentialIdMock,
+  refreshAccessTokenIfNeededMock,
   getTradingProviderDefinitionMock,
   getTradingProviderOAuthEnvironmentMock,
   getTradingProviderOAuthServiceIdMock,
   getTradingPortfolioSupportedWindowsMock,
   isTradingPortfolioWindowSupportedMock,
+  resolveOAuthCredentialAccountForUserMock,
   listTradingPortfolioIdentitiesMock,
   getPortfolioDetailMock,
   getTradingAccountPerformanceMock,
-  checkWorkspaceAccessMock,
 } = vi.hoisted(() => ({
-  getOAuthTokenByCredentialIdMock: vi.fn(),
+  refreshAccessTokenIfNeededMock: vi.fn(),
   getTradingProviderDefinitionMock: vi.fn(),
   getTradingProviderOAuthServiceIdMock: vi.fn(),
   getTradingProviderOAuthEnvironmentMock: vi.fn(),
   getTradingPortfolioSupportedWindowsMock: vi.fn(),
   isTradingPortfolioWindowSupportedMock: vi.fn(),
+  resolveOAuthCredentialAccountForUserMock: vi.fn(),
   listTradingPortfolioIdentitiesMock: vi.fn(),
   getPortfolioDetailMock: vi.fn(),
   getTradingAccountPerformanceMock: vi.fn(),
-  checkWorkspaceAccessMock: vi.fn(),
 }))
 
 vi.mock('@/lib/oauth/tokens', () => ({
-  getOAuthTokenByCredentialId: (...args: unknown[]) => getOAuthTokenByCredentialIdMock(...args),
+  refreshAccessTokenIfNeeded: (...args: unknown[]) => refreshAccessTokenIfNeededMock(...args),
+}))
+
+vi.mock('@/lib/credentials/oauth', () => ({
+  resolveOAuthCredentialAccountForUser: (...args: unknown[]) =>
+    resolveOAuthCredentialAccountForUserMock(...args),
 }))
 
 vi.mock('@/lib/trading/portfolio-identities', () => ({
   listTradingPortfolioIdentities: (...args: unknown[]) =>
     listTradingPortfolioIdentitiesMock(...args),
-}))
-
-vi.mock('@/lib/permissions/utils', () => ({
-  checkWorkspaceAccess: (...args: unknown[]) => checkWorkspaceAccessMock(...args),
 }))
 
 vi.mock('@/lib/logs/console/logger', () => ({
@@ -142,7 +143,13 @@ const flushPortfolioPolls = async () => {
 describe('TradingPortfolioStreamManager', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    getOAuthTokenByCredentialIdMock.mockResolvedValue('oauth-token')
+    resolveOAuthCredentialAccountForUserMock.mockResolvedValue({
+      accountId: 'account-credential-1',
+      credentialOwnerUserId: 'user-1',
+      providerId: 'alpaca-live',
+      workspaceId: 'workspace-1',
+    })
+    refreshAccessTokenIfNeededMock.mockResolvedValue('oauth-token')
     getTradingProviderDefinitionMock.mockReturnValue({
       id: 'alpaca',
       name: 'Alpaca',
@@ -154,7 +161,6 @@ describe('TradingPortfolioStreamManager', () => {
     listTradingPortfolioIdentitiesMock.mockResolvedValue([portfolioIdentity])
     getPortfolioDetailMock.mockResolvedValue(portfolioDetail)
     getTradingAccountPerformanceMock.mockResolvedValue(performance)
-    checkWorkspaceAccessMock.mockResolvedValue({ exists: true, hasAccess: true })
   })
 
   afterEach(() => {
@@ -186,7 +192,7 @@ describe('TradingPortfolioStreamManager', () => {
 
     await flushPortfolioPolls()
 
-    expect(getOAuthTokenByCredentialIdMock).toHaveBeenCalledTimes(1)
+    expect(refreshAccessTokenIfNeededMock).toHaveBeenCalledTimes(1)
     expect(listTradingPortfolioIdentitiesMock).toHaveBeenCalledTimes(1)
     expect(getPortfolioDetailMock).toHaveBeenCalledTimes(1)
     expect(getPortfolioDetailMock).toHaveBeenCalledWith({
@@ -310,22 +316,20 @@ describe('TradingPortfolioStreamManager', () => {
     manager.removeSocket(socket.id)
   })
 
-  it('rejects subscriptions without workspace access before broker calls', async () => {
+  it('requires workspace scope before broker calls', async () => {
     const manager = new TradingPortfolioStreamManager()
     const socket = createSocket('socket-1')
-    checkWorkspaceAccessMock.mockResolvedValue({ exists: true, hasAccess: false })
 
     await expect(
       manager.subscribe(socket, {
         provider: 'alpaca',
         serviceId: 'alpaca-live',
         portfolioIdentity,
-        workspaceId: 'workspace-1',
         channel: 'account-snapshot',
       })
-    ).rejects.toThrow('Workspace not found')
+    ).rejects.toThrow('workspaceId is required')
 
-    expect(getOAuthTokenByCredentialIdMock).not.toHaveBeenCalled()
+    expect(refreshAccessTokenIfNeededMock).not.toHaveBeenCalled()
     expect(getPortfolioDetailMock).not.toHaveBeenCalled()
   })
 })

@@ -39,20 +39,20 @@ export async function POST(request: NextRequest) {
     }
 
     const searchParams = new URL(request.url).searchParams
-    const workspaceId = searchParams.get('workspaceId')?.trim()
-    if (!workspaceId) {
+    const workflowId = searchParams.get('workflowId')?.trim() || undefined
+    const workspaceId = searchParams.get('workspaceId')?.trim() || undefined
+    if (!workflowId && !workspaceId) {
       return NextResponse.json(
         { success: false, error: { message: 'workspaceId is required' } },
         { status: 400 }
       )
     }
-    const workflowId = searchParams.get('workflowId')?.trim() || undefined
 
     const holdings = await getTradingHoldings({
-      requestData: { ...body, workflowId },
+      request,
+      requestData: { ...body, workflowId, workspaceId },
       requestId,
       userId: auth.userId,
-      workspaceId,
     })
 
     return NextResponse.json({ success: true, data: holdings }, { status: 200 })

@@ -283,10 +283,10 @@ export function QuickOrderWidgetBody({
     () =>
       providerId && listing && resolvedAssetClass && isListingSupported
         ? resolveQuickOrderOrderType({
-            providerId,
-            listing,
-            orderType: orderType || undefined,
-          })
+          providerId,
+          listing,
+          orderType: orderType || undefined,
+        })
         : null,
     [providerId, listing, resolvedAssetClass, isListingSupported, orderType]
   )
@@ -305,7 +305,7 @@ export function QuickOrderWidgetBody({
       : listing && resolvedAssetClass && !isListingSupported
         ? 'Listing is not supported by this provider.'
         : requestedOrderTypeResolution?.ok === false &&
-            requestedOrderTypeResolution.reason === 'no_supported_order_types'
+          requestedOrderTypeResolution.reason === 'no_supported_order_types'
           ? 'No supported order types for this listing.'
           : requestedOrderTypeResolution?.ok === false
             ? 'Selected order type is not supported for this listing.'
@@ -320,11 +320,11 @@ export function QuickOrderWidgetBody({
     () =>
       listing
         ? [
-            {
-              key: getListingIdentityKey(listing),
-              listing,
-            },
-          ]
+          {
+            key: getListingIdentityKey(listing),
+            listing,
+          },
+        ]
         : [],
     [listing]
   )
@@ -713,7 +713,7 @@ export function QuickOrderWidgetBody({
           </FieldBlock>
 
           {orderType !== 'trailing_stop' &&
-          (orderType === 'limit' || orderType === 'stop_limit') ? (
+            (orderType === 'limit' || orderType === 'stop_limit') ? (
             <FieldBlock>
               <Label htmlFor='quick-order-limit-price'>Limit Price</Label>
               <Input
@@ -795,7 +795,7 @@ export function QuickOrderWidgetBody({
       </div>
 
       <div className='shrink-0 border-border/70 border-t bg-background/95 px-4 py-3'>
-        <div className='space-y-2 rounded-md border border-border/70 bg-card/30 p-3'>
+        <div className='space-y-2 pb-3'>
           <OrderRow
             label={side === 'sell' ? 'Estimated Proceeds' : 'Estimated Cost'}
             value={formatCurrency(estimatedOrderValue, accountCurrency)}
