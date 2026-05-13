@@ -61,6 +61,7 @@ export const buildTradierOrderRequest = (params: TradingOrderInput): TradingRequ
 
   appendParamIfDefined(bodyParams, 'price', params.limitPrice)
   appendParamIfDefined(bodyParams, 'stop', params.stopPrice)
+  appendParamIfDefined(bodyParams, 'tag', params.clientOrderId)
 
   return {
     url: `${baseUrl}/accounts/${params.accountId}/orders`,
@@ -78,6 +79,7 @@ export const normalizeTradierOrder = (data: any): TradingOrder => {
   const order = data?.order || data
   return {
     id: order?.id || order?.order?.id,
+    clientOrderId: order?.client_order_id || order?.clientOrderId || order?.tag,
     status: order?.status,
     submittedAt: order?.create_date || order?.transaction_date || order?.date || order?.created_at,
     filledQty: order?.exec_quantity ? Number(order.exec_quantity) : undefined,

@@ -327,6 +327,20 @@ describe('QuickOrderWidgetBody', () => {
     expect(footerButton).toBeDisabled()
   })
 
+  it('scopes broker connection discovery by workspace', async () => {
+    await renderBody(container, root, {
+      provider: 'alpaca',
+      portfolioIdentity,
+      side: 'buy',
+    })
+
+    expect(mockUseOAuthCredentialsByProviderIds).toHaveBeenCalledWith(
+      ['alpaca-live', 'alpaca-paper'],
+      true,
+      { workspaceId: 'workspace-1' }
+    )
+  })
+
   it('keeps listing selector state scoped to a stable trading instance and resets on unmount', async () => {
     await renderBody(container, root, {
       provider: 'alpaca',
@@ -589,6 +603,7 @@ describe('QuickOrderWidgetBody', () => {
 
     expect(mockMutate).toHaveBeenCalledWith(
       expect.objectContaining({
+        idempotencyKey: expect.any(String),
         workspaceId: 'workspace-1',
         portfolioIdentity,
         side: 'buy',
@@ -617,6 +632,43 @@ describe('QuickOrderWidgetBody', () => {
     expect(mockMutate.mock.calls[0][0]).not.toHaveProperty('marketAuth')
   })
 
+  it('reuses the same idempotency key when retrying the same order payload', async () => {
+    await renderBody(container, root, {
+      provider: 'alpaca',
+      portfolioIdentity,
+      side: 'buy',
+    })
+
+    await act(async () => {
+      container.querySelector<HTMLButtonElement>('[data-testid="listing-selector"]')?.click()
+    })
+    await setInputValue(container.querySelector<HTMLInputElement>('input[placeholder="0"]'), '2')
+
+    const submit = async () => {
+      await act(async () => {
+        findButton(container, 'Submit BUY Order')?.click()
+      })
+    }
+    await submit()
+    await act(async () => {
+      root.render(
+        <QuickOrderWidgetBody
+          context={{ workspaceId: 'workspace-1' } as any}
+          widget={{ key: 'quick_order' } as any}
+          panelId='panel-1'
+          params={{ provider: 'alpaca', portfolioIdentity, side: 'buy' }}
+          onWidgetParamsChange={vi.fn()}
+        />
+      )
+    })
+    await submit()
+
+    expect(mockMutate).toHaveBeenCalledTimes(2)
+    expect(mockMutate.mock.calls[1][0].idempotencyKey).toBe(
+      mockMutate.mock.calls[0][0].idempotencyKey
+    )
+  })
+
   it('renders success feedback with destination provider and account details', async () => {
     mockUseSubmitTradingOrder.mockReturnValue({
       mutate: mockMutate,
@@ -624,6 +676,7 @@ describe('QuickOrderWidgetBody', () => {
       isPending: false,
       data: {
         appOrderId: 'app-order-1',
+        clientOrderId: 'client-order-1',
         provider: 'alpaca',
         accountId: 'acct-1',
         message: 'Order accepted',

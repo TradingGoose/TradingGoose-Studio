@@ -39,6 +39,7 @@ describe('Tradier order request builder', () => {
       listing: stockListing,
       side: 'sell',
       quantity: 2,
+      clientOrderId: 'client-order-1',
       accountId: 'ACC-1',
       accessToken: 'token',
       environment: 'live',
@@ -57,6 +58,7 @@ describe('Tradier order request builder', () => {
     expect(request.body).toContain('type=limit')
     expect(request.body).toContain('duration=day')
     expect(request.body).toContain('price=123.45')
+    expect(request.body).toContain('tag=client-order-1')
   })
 })
 

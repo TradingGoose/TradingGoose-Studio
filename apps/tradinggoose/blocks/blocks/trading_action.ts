@@ -326,6 +326,7 @@ export const TradingActionBlock: BlockConfig<TradingActionResponse> = {
     summary: { type: 'string', description: 'Order submission status' },
     provider: { type: 'string', description: 'Provider used' },
     appOrderId: { type: 'string', description: 'Trading Goose order ID' },
+    clientOrderId: { type: 'string', description: 'Broker client order identity' },
     order: { type: 'json', description: 'Order payload and raw response' },
   },
 }

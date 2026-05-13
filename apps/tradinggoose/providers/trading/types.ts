@@ -31,6 +31,7 @@ export interface TradingSymbolInput {
 
 export interface TradingOrderInput extends TradingSymbolInput {
   side: 'buy' | 'sell'
+  clientOrderId?: string
   quantity?: number
   notional?: number
   orderSizingMode?: string
@@ -228,6 +229,7 @@ export interface UnifiedTradingPortfolioPerformance {
 
 export interface TradingOrder {
   id?: string
+  clientOrderId?: string
   status?: string
   submittedAt?: string
   filledQty?: number
@@ -253,6 +255,7 @@ export interface TradingActionResponse {
     summary: string
     provider: TradingProviderId
     appOrderId?: string
+    clientOrderId?: string
     order?: Record<string, any>
   }
   error?: string

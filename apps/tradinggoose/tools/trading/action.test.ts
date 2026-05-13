@@ -63,6 +63,7 @@ describe('tradingActionTool canonical order route payload', () => {
     const body = buildBody({
       quantity: 1,
       _context: {
+        executionId: 'execution-1',
         submissionSource: 'workflow',
         workflowLogId: 'log-1',
         workspaceId: 'workspace-1',
@@ -74,6 +75,7 @@ describe('tradingActionTool canonical order route payload', () => {
       portfolioIdentity,
       submissionSource: 'workflow',
       logId: 'log-1',
+      idempotencyKey: expect.stringMatching(/^trading-order:workflow:log-1:/),
     })
     expect(body).not.toHaveProperty('workflowId')
     expect(body).not.toHaveProperty('workflowExecutionId')
@@ -112,6 +114,7 @@ describe('tradingActionTool canonical order route payload', () => {
       new Response(
         JSON.stringify({
           appOrderId: 'app-order-1',
+          clientOrderId: 'client-order-1',
           provider: 'alpaca',
           order: { id: 'provider-order-1', status: 'accepted' },
         })
@@ -123,6 +126,7 @@ describe('tradingActionTool canonical order route payload', () => {
       output: {
         provider: 'alpaca',
         appOrderId: 'app-order-1',
+        clientOrderId: 'client-order-1',
         order: { id: 'provider-order-1', status: 'accepted' },
       },
     })

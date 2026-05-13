@@ -2,7 +2,10 @@ import type { TradingOrderSubmitRequest } from '@/lib/trading/order-types'
 import type { TradingProviderId } from '@/providers/trading/types'
 
 export interface TradingActionParams
-  extends Omit<TradingOrderSubmitRequest, 'workspaceId' | 'workflowId' | 'submissionSource' | 'logId'> {
+  extends Omit<
+    TradingOrderSubmitRequest,
+    'workspaceId' | 'workflowId' | 'submissionSource' | 'logId' | 'idempotencyKey'
+  > {
   _context?: {
     workspaceId?: string
     workflowId?: string

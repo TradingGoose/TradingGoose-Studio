@@ -75,6 +75,7 @@ export const buildAlpacaOrderRequest = (params: TradingOrderInput): TradingReque
     side: params.side,
     type: orderType,
     time_in_force: timeInForce,
+    ...(params.clientOrderId ? { client_order_id: params.clientOrderId } : {}),
   }
 
   if (useNotional) {
@@ -135,6 +136,7 @@ export const buildAlpacaOrderRequest = (params: TradingOrderInput): TradingReque
 
 export const normalizeAlpacaOrder = (data: any): TradingOrder => ({
   id: data?.id,
+  clientOrderId: data?.client_order_id ?? data?.clientOrderId,
   status: data?.status,
   submittedAt: data?.submitted_at,
   filledQty: data?.filled_qty ? Number(data.filled_qty) : undefined,

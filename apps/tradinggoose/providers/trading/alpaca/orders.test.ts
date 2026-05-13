@@ -35,10 +35,12 @@ describe('buildAlpacaOrderRequest', () => {
     const request = buildAlpacaOrderRequest({
       ...baseParams,
       quantity: 2,
+      clientOrderId: 'client-order-1',
     })
 
     expect(request.body).toMatchObject({
       qty: '2',
+      client_order_id: 'client-order-1',
       side: 'buy',
       type: 'market',
       time_in_force: 'day',

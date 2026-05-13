@@ -1,4 +1,6 @@
+import { createHash } from 'crypto'
 import type { NextRequest } from 'next/server'
+import { IdempotencyService } from '@/lib/idempotency'
 import type { ListingInputValue } from '@/lib/listing/identity'
 import { toListingValueObject } from '@/lib/listing/identity'
 import { resolveListingIdentity } from '@/lib/listing/resolve'
@@ -37,6 +39,10 @@ import {
 } from '@/providers/trading/utils'
 
 const logger = createLogger('TradingOrders')
+const tradingOrderIdempotency = new IdempotencyService({ namespace: 'trading-order' })
+
+const createTradingOrderClientOrderId = (idempotencyKey: string) =>
+  `tg-${createHash('sha256').update(idempotencyKey.trim()).digest('hex').slice(0, 32)}`
 
 const hasNumber = (value: number | undefined): value is number =>
   typeof value === 'number' && Number.isFinite(value)
@@ -236,6 +242,7 @@ const buildOrderRequest = ({
   data,
   listing,
   accountId,
+  clientOrderId,
   accessToken,
   environment,
   orderType,
@@ -245,6 +252,7 @@ const buildOrderRequest = ({
   data: TradingOrderSubmitRequest
   listing: ListingInputValue
   accountId: string
+  clientOrderId: string
   accessToken: string
   environment: 'paper' | 'live'
   orderType: TradingOrderType
@@ -259,6 +267,7 @@ const buildOrderRequest = ({
     kind: 'order',
     accessToken,
     accountId,
+    clientOrderId,
     environment,
     listing,
     side: data.side,
@@ -388,11 +397,13 @@ export async function submitTradingOrder({
     baseContext,
     accountId: portfolioIdentity.accountId,
   })
+  const clientOrderId = createTradingOrderClientOrderId(requestData.idempotencyKey)
   const orderSizingMode = getOrderSizingMode(baseContext.providerId, requestData)
   const orderHistoryRequest = compactRecord({
     credentialId: baseContext.credentialId,
     serviceId: baseContext.serviceId,
     accountId: accountContext.accountId,
+    clientOrderId,
     side: requestData.side,
     orderType: orderTypeResult.orderType,
     timeInForce,
@@ -404,102 +415,125 @@ export async function submitTradingOrder({
     trailPercent: requestData.trailPercent,
     orderSizingMode,
   })
-  const orderHistoryRecord = await recordOrderHistory({
-    workspaceId: requestData.workspaceId,
-    provider: baseContext.providerId,
-    environment: baseContext.environment,
-    submissionSource: orderHistoryContext.submissionSource,
-    logId: orderHistoryContext.logId,
-    listingIdentity,
-    request: orderHistoryRequest,
-    response: { success: false, status: 'pending' },
-  })
-
-  let rawOrder: unknown
-  let normalizedOrder: TradingOrder
-  try {
-    const providerRequest = buildOrderRequest({
-      providerId: baseContext.providerId,
-      data: requestData,
-      listing: resolvedListing,
-      accountId: accountContext.accountId,
-      accessToken: baseContext.accessToken,
-      environment: baseContext.environment,
-      orderType: orderTypeResult.orderType,
-      timeInForce,
-    })
-    rawOrder = await fetchBrokerJson<unknown>({
-      providerId: baseContext.providerId,
-      url: providerRequest.url,
-      init: {
-        method: providerRequest.method,
-        headers: providerRequest.headers,
-        body: toFetchBody(providerRequest.body),
-      },
-    })
-    const provider = getTradingProvider(baseContext.providerId)
-    normalizedOrder = provider.normalizeOrder
-      ? provider.normalizeOrder(rawOrder)
-      : ({ raw: rawOrder } as TradingOrder)
-  } catch (error) {
-    logTradingBrokerRequestFailure('order', error)
-    try {
-      await updateOrderHistoryResult({
-        id: orderHistoryRecord.id,
+  return tradingOrderIdempotency.executeWithIdempotency(
+    baseContext.providerId,
+    requestData.idempotencyKey,
+    async () => {
+      const orderHistoryRecord = await recordOrderHistory({
         workspaceId: requestData.workspaceId,
-        response: compactRecord({
+        provider: baseContext.providerId,
+        environment: baseContext.environment,
+        submissionSource: orderHistoryContext.submissionSource,
+        logId: orderHistoryContext.logId,
+        listingIdentity,
+        request: orderHistoryRequest,
+        response: {
           success: false,
-          errorMessage: error instanceof Error ? error.message : 'Order submission failed',
-          status: error instanceof TradingBrokerRequestError ? error.status : undefined,
-          raw:
-            (error instanceof TradingBrokerRequestError && toRecord(error.payload)) ||
-            toRecord(rawOrder),
-        }),
+          status: 'pending',
+          clientOrderId,
+        },
       })
-    } catch (recordError) {
-      logger.error('Failed to update failed order history record', {
+
+      let rawOrder: unknown
+      let normalizedOrder: TradingOrder
+      try {
+        const providerRequest = buildOrderRequest({
+          providerId: baseContext.providerId,
+          data: requestData,
+          listing: resolvedListing,
+          accountId: accountContext.accountId,
+          clientOrderId,
+          accessToken: baseContext.accessToken,
+          environment: baseContext.environment,
+          orderType: orderTypeResult.orderType,
+          timeInForce,
+        })
+        rawOrder = await fetchBrokerJson<unknown>({
+          providerId: baseContext.providerId,
+          url: providerRequest.url,
+          init: {
+            method: providerRequest.method,
+            headers: providerRequest.headers,
+            body: toFetchBody(providerRequest.body),
+          },
+        })
+        const provider = getTradingProvider(baseContext.providerId)
+        const providerOrder = provider.normalizeOrder
+          ? provider.normalizeOrder(rawOrder)
+          : ({ raw: rawOrder } as TradingOrder)
+        normalizedOrder = {
+          ...providerOrder,
+          clientOrderId: providerOrder.clientOrderId ?? clientOrderId,
+        }
+      } catch (error) {
+        logTradingBrokerRequestFailure('order', error)
+        try {
+          await updateOrderHistoryResult({
+            id: orderHistoryRecord.id,
+            workspaceId: requestData.workspaceId,
+            response: compactRecord({
+              success: false,
+              clientOrderId,
+              errorMessage: error instanceof Error ? error.message : 'Order submission failed',
+              status: error instanceof TradingBrokerRequestError ? error.status : undefined,
+              raw:
+                (error instanceof TradingBrokerRequestError && toRecord(error.payload)) ||
+                toRecord(rawOrder),
+            }),
+          })
+        } catch (recordError) {
+          logger.error('Failed to update failed order history record', {
+            appOrderId: orderHistoryRecord.id,
+            error: recordError instanceof Error ? recordError.message : String(recordError),
+          })
+        }
+        if (error instanceof TradingBrokerRequestError) {
+          throw new TradingServiceError('Broker request failed', 502)
+        }
+        throw new TradingServiceError(
+          error instanceof Error ? error.message : 'Order submission failed'
+        )
+      }
+
+      const rawOrderRecord = toRecord(rawOrder)
+      const normalizedOrderRecord = toRecord(normalizedOrder)
+      let historyWarning: string | null = null
+      try {
+        await updateOrderHistoryResult({
+          id: orderHistoryRecord.id,
+          workspaceId: requestData.workspaceId,
+          response: compactRecord({
+            success: true,
+            clientOrderId,
+            orderId:
+              normalizedOrderRecord?.id ?? rawOrderRecord?.id ?? rawOrderRecord?.order_id ?? null,
+            raw: rawOrderRecord ?? normalizedOrderRecord,
+          }),
+          normalizedOrder: normalizedOrderRecord,
+        })
+      } catch (error) {
+        historyWarning =
+          'Order was accepted by the broker, but Trading Goose could not update order history.'
+        logger.error('Failed to update accepted order history record', {
+          appOrderId: orderHistoryRecord.id,
+          error: error instanceof Error ? error.message : String(error),
+        })
+      }
+
+      return {
         appOrderId: orderHistoryRecord.id,
-        error: recordError instanceof Error ? recordError.message : String(recordError),
-      })
-    }
-    if (error instanceof TradingBrokerRequestError) {
-      throw new TradingServiceError('Broker request failed', 502)
-    }
-    throw new TradingServiceError(
-      error instanceof Error ? error.message : 'Order submission failed'
-    )
-  }
-
-  const rawOrderRecord = toRecord(rawOrder)
-  const normalizedOrderRecord = toRecord(normalizedOrder)
-  let historyWarning: string | null = null
-  try {
-    await updateOrderHistoryResult({
-      id: orderHistoryRecord.id,
+        clientOrderId,
+        order: normalizedOrder,
+        provider: baseContext.providerId,
+        accountId: accountContext.accountId,
+        message: extractOrderProviderMessage(rawOrder, normalizedOrder),
+        historyWarning,
+      }
+    },
+    {
       workspaceId: requestData.workspaceId,
-      response: {
-        success: true,
-        orderId:
-          normalizedOrderRecord?.id ?? rawOrderRecord?.id ?? rawOrderRecord?.order_id ?? null,
-        raw: rawOrderRecord ?? normalizedOrderRecord,
-      },
-      normalizedOrder: normalizedOrderRecord,
-    })
-  } catch (error) {
-    historyWarning =
-      'Order was accepted by the broker, but Trading Goose could not update order history.'
-    logger.error('Failed to update accepted order history record', {
-      appOrderId: orderHistoryRecord.id,
-      error: error instanceof Error ? error.message : String(error),
-    })
-  }
-
-  return {
-    appOrderId: orderHistoryRecord.id,
-    order: normalizedOrder,
-    provider: baseContext.providerId,
-    accountId: accountContext.accountId,
-    message: extractOrderProviderMessage(rawOrder, normalizedOrder),
-    historyWarning,
-  }
+      accountId: accountContext.accountId,
+      userId,
+    }
+  )
 }

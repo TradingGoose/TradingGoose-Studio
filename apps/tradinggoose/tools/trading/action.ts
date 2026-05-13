@@ -1,5 +1,6 @@
-import type { TradingActionResponse } from '@/providers/trading/types'
+import { stableStringifyJsonValue } from '@/lib/json/stable'
 import { toPortfolioValueObject } from '@/providers/trading/portfolio-identity'
+import type { TradingActionResponse } from '@/providers/trading/types'
 import type { TradingActionParams } from '@/tools/trading/types'
 import type { ToolConfig } from '@/tools/types'
 
@@ -20,8 +21,11 @@ export const buildOrderRoutePayload = (params: TradingOrderRoutePayloadParams) =
       ? params.orderSizingMode
       : undefined
   const useNotional = orderSizingMode === 'notional'
+  const workspaceId = params._context?.workspaceId
+  const submissionSource = params._context?.submissionSource
+  const scopeKey = params._context?.workflowLogId ?? params._context?.executionId
   const payload = {
-    workspaceId: params._context?.workspaceId,
+    workspaceId,
     portfolioIdentity,
     listing: params.listing,
     side: params.side,
@@ -34,10 +38,23 @@ export const buildOrderRoutePayload = (params: TradingOrderRoutePayloadParams) =
     stopPrice: toOptionalNumber(params.stopPrice),
     trailPrice: toOptionalNumber(params.trailPrice),
     trailPercent: toOptionalNumber(params.trailPercent),
-    submissionSource: params._context?.submissionSource,
+    submissionSource,
     logId: params._context?.workflowLogId,
   }
-  return Object.fromEntries(Object.entries(payload).filter(([, value]) => value !== undefined))
+  const body = Object.fromEntries(
+    Object.entries(payload).filter(([, value]) => value !== undefined)
+  )
+
+  if (submissionSource && scopeKey) {
+    body.idempotencyKey = [
+      'trading-order',
+      submissionSource,
+      scopeKey,
+      stableStringifyJsonValue(body),
+    ].join(':')
+  }
+
+  return body
 }
 
 export const tradingActionTool: ToolConfig<TradingActionParams, TradingActionResponse> = {
@@ -141,6 +158,7 @@ export const tradingActionTool: ToolConfig<TradingActionParams, TradingActionRes
         summary: `Order submitted to ${data.provider}`,
         provider: data.provider,
         appOrderId: data.appOrderId,
+        clientOrderId: data.clientOrderId,
         order: data.order,
       },
     }
@@ -150,6 +168,7 @@ export const tradingActionTool: ToolConfig<TradingActionParams, TradingActionRes
     summary: { type: 'string', description: 'Status message for the order submission.' },
     provider: { type: 'string', description: 'Broker/provider used for the order.' },
     appOrderId: { type: 'string', description: 'Trading Goose order ID.' },
+    clientOrderId: { type: 'string', description: 'Broker client order identity for retries.' },
     order: { type: 'json', description: 'Normalized order details and raw response.' },
   },
 }

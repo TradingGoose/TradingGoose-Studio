@@ -6,6 +6,8 @@ export type TradingOrderSubmitListing =
   | ListingResolved
   | (ListingIdentity & Record<string, unknown>)
 
+export type TradingOrderSubmissionSource = 'manual' | 'copilot' | 'workflow'
+
 export interface TradingOrderSubmitRequest {
   workspaceId: string
   workflowId?: string
@@ -21,12 +23,14 @@ export interface TradingOrderSubmitRequest {
   stopPrice?: number
   trailPrice?: number
   trailPercent?: number
-  submissionSource?: 'manual' | 'copilot' | 'workflow'
+  idempotencyKey: string
+  submissionSource?: TradingOrderSubmissionSource
   logId?: string
 }
 
 export interface TradingOrderSubmitResponse {
   appOrderId: string
+  clientOrderId: string
   order: TradingOrder | null
   provider: string
   accountId: string

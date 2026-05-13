@@ -30,6 +30,7 @@ const portfolioIdentitySchema = z
 const orderSchema = z
   .object({
     workspaceId: nonEmptyStringSchema,
+    idempotencyKey: nonEmptyStringSchema,
     portfolioIdentity: portfolioIdentitySchema,
     listing: orderListingSchema,
     side: z.enum(['buy', 'sell']),

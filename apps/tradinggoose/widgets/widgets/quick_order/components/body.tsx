@@ -14,6 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { stableStringifyJsonValue } from '@/lib/json/stable'
 import { getListingIdentityKey, type ListingOption } from '@/lib/listing/identity'
 import type { TradingOrderSubmitRequest } from '@/lib/trading/order-types'
 import { useMarketQuoteSnapshots } from '@/hooks/queries/market-quote-snapshots'
@@ -50,6 +51,7 @@ import {
 import type { QuickOrderWidgetParams } from '@/widgets/widgets/quick_order/types'
 
 type QuickOrderBodyParams = QuickOrderWidgetParams | null
+type OrderAttemptIdempotency = { fingerprint: string; key: string }
 
 const centerStateClassName =
   'flex h-full min-h-0 items-center justify-center px-4 py-6 text-center text-muted-foreground text-sm'
@@ -191,6 +193,7 @@ export function QuickOrderWidgetBody({
   const updateListingSelector = useListingSelectorStore((state) => state.updateInstance)
   const resetListingSelector = useListingSelectorStore((state) => state.resetInstance)
   const previousProviderRef = useRef<string | undefined>(undefined)
+  const orderAttemptIdempotencyRef = useRef<OrderAttemptIdempotency | null>(null)
   const submitOrder = useSubmitTradingOrder()
   const resetSubmitOrder = submitOrder.reset
 
@@ -221,22 +224,17 @@ export function QuickOrderWidgetBody({
     !providerAvailabilityQuery.isLoading &&
     !providerAvailabilityQuery.error &&
     providerOptions.length > 0
-  const {
-    accountsQuery,
-    activeServiceId,
-    activePortfolioIdentity,
-    services,
-    portfolioIdentities,
-  } = usePortfolioIdentitySelection({
-    workspaceId,
-    providerId,
-    serviceId: quickOrderParams?.serviceId,
-    portfolioIdentity: quickOrderParams?.portfolioIdentity,
-    enabled: areProviderOptionsReady && hasSelectedProvider,
-    panelId,
-    widgetKey,
-    emitParamsChange: emitQuickOrderParamsChange,
-  })
+  const { accountsQuery, activeServiceId, activePortfolioIdentity, services, portfolioIdentities } =
+    usePortfolioIdentitySelection({
+      workspaceId,
+      providerId,
+      serviceId: quickOrderParams?.serviceId,
+      portfolioIdentity: quickOrderParams?.portfolioIdentity,
+      enabled: areProviderOptionsReady && hasSelectedProvider,
+      panelId,
+      widgetKey,
+      emitParamsChange: emitQuickOrderParamsChange,
+    })
   const accountSnapshotQuery = usePortfolioDetail({
     workspaceId: workspaceId ?? undefined,
     provider: hasSelectedProvider && areProviderOptionsReady ? providerId : undefined,
@@ -283,10 +281,10 @@ export function QuickOrderWidgetBody({
     () =>
       providerId && listing && resolvedAssetClass && isListingSupported
         ? resolveQuickOrderOrderType({
-          providerId,
-          listing,
-          orderType: orderType || undefined,
-        })
+            providerId,
+            listing,
+            orderType: orderType || undefined,
+          })
         : null,
     [providerId, listing, resolvedAssetClass, isListingSupported, orderType]
   )
@@ -305,7 +303,7 @@ export function QuickOrderWidgetBody({
       : listing && resolvedAssetClass && !isListingSupported
         ? 'Listing is not supported by this provider.'
         : requestedOrderTypeResolution?.ok === false &&
-          requestedOrderTypeResolution.reason === 'no_supported_order_types'
+            requestedOrderTypeResolution.reason === 'no_supported_order_types'
           ? 'No supported order types for this listing.'
           : requestedOrderTypeResolution?.ok === false
             ? 'Selected order type is not supported for this listing.'
@@ -320,11 +318,11 @@ export function QuickOrderWidgetBody({
     () =>
       listing
         ? [
-          {
-            key: getListingIdentityKey(listing),
-            listing,
-          },
-        ]
+            {
+              key: getListingIdentityKey(listing),
+              listing,
+            },
+          ]
         : [],
     [listing]
   )
@@ -563,7 +561,7 @@ export function QuickOrderWidgetBody({
       return
     }
 
-    const payload: TradingOrderSubmitRequest = {
+    const payload: Omit<TradingOrderSubmitRequest, 'idempotencyKey'> = {
       workspaceId,
       portfolioIdentity: activePortfolioIdentity,
       listing,
@@ -591,12 +589,26 @@ export function QuickOrderWidgetBody({
       if (parsedTrailPercent) payload.trailPercent = parsedTrailPercent
     }
 
+    const fingerprint = stableStringifyJsonValue(payload)
+    const idempotencyKey =
+      orderAttemptIdempotencyRef.current?.fingerprint === fingerprint
+        ? orderAttemptIdempotencyRef.current.key
+        : `trading-order:manual:${crypto.randomUUID()}`
+    orderAttemptIdempotencyRef.current = { fingerprint, key: idempotencyKey }
+
     resetSubmitOrder()
-    submitOrder.mutate(payload, {
-      onSuccess: () => {
-        void accountSnapshotQuery.refetch()
+    submitOrder.mutate(
+      {
+        ...payload,
+        idempotencyKey,
       },
-    })
+      {
+        onSuccess: () => {
+          orderAttemptIdempotencyRef.current = null
+          void accountSnapshotQuery.refetch()
+        },
+      }
+    )
   }
 
   return (
@@ -713,7 +725,7 @@ export function QuickOrderWidgetBody({
           </FieldBlock>
 
           {orderType !== 'trailing_stop' &&
-            (orderType === 'limit' || orderType === 'stop_limit') ? (
+          (orderType === 'limit' || orderType === 'stop_limit') ? (
             <FieldBlock>
               <Label htmlFor='quick-order-limit-price'>Limit Price</Label>
               <Input

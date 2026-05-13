@@ -39,11 +39,11 @@ export function usePortfolioIdentitySelection({
     [portfolioIdentity]
   )
   const hasSelectedPortfolioIdentity = portfolioIdentity !== undefined && portfolioIdentity !== null
-  const requestedServiceId =
-    serviceId ?? selectedPortfolioIdentity?.serviceId
+  const requestedServiceId = serviceId ?? selectedPortfolioIdentity?.serviceId
   const services = useTradingServices({
     providerId,
     serviceId: requestedServiceId,
+    workspaceId,
     enabled,
   })
   const activeServiceId = enabled ? services.activeServiceId : undefined
