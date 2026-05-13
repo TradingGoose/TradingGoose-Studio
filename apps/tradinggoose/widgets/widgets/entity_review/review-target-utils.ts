@@ -1,30 +1,6 @@
 'use client'
 
-import type {
-  ResolvedReviewTarget,
-  ReviewEntityKind,
-} from '@/lib/copilot/review-sessions/types'
-import type { PairColorContext } from '@/stores/dashboard/pair-store'
-import { resolveEntityId } from '@/widgets/widgets/entity_review/resolve-entity-id'
-
-export interface EntitySelectionState {
-  selectedEntityId: string | null
-}
-
-export function readEntitySelectionState(options: {
-  params?: Record<string, unknown> | null
-  pairContext?: PairColorContext | null
-  entityIdKey: keyof PairColorContext | string
-}): EntitySelectionState {
-  const selectedEntityId = resolveEntityId(options.entityIdKey, {
-    params: options.params,
-    pairContext: options.pairContext as Record<string, unknown> | null | undefined,
-  })
-
-  return {
-    selectedEntityId: selectedEntityId ?? null,
-  }
-}
+import type { ResolvedReviewTarget, ReviewEntityKind } from '@/lib/copilot/review-sessions/types'
 
 export async function resolveEntityReviewTarget(options: {
   workspaceId: string
@@ -38,7 +14,7 @@ export async function resolveEntityReviewTarget(options: {
       workspaceId: options.workspaceId,
       entityKind: options.entityKind,
       entityId: options.entityId,
-      accessMode: 'read',
+      accessMode: 'write',
     }),
   })
 

@@ -122,6 +122,7 @@ export function EditorMcpWidgetBody(props: EditorMcpWidgetBodyProps) {
         onWidgetParamsChange,
         panelId,
         params,
+        widget,
       }) => {
         useMcpSelectionPersistence({
           onWidgetParamsChange,
@@ -141,15 +142,26 @@ export function EditorMcpWidgetBody(props: EditorMcpWidgetBodyProps) {
             setPairContext(resolvedPairColor, { mcpServerId: serverId })
           },
         })
+        useMcpEditorActions({
+          panelId,
+          widget,
+          close: () => {
+            if (isLinkedToColorPair) {
+              setPairContext(resolvedPairColor, { mcpServerId: null })
+              return
+            }
+
+            onWidgetParamsChange?.(null)
+          },
+        })
       }}
     >
-      {({ workspaceId, descriptor, persistDescriptor, panelId, widget }) => (
+      {({ workspaceId, descriptor, panelId, widget }) => (
         <McpEditorSession
           workspaceId={workspaceId}
           panelId={panelId}
           widget={widget}
           descriptor={descriptor}
-          onReviewTargetChange={persistDescriptor}
         />
       )}
     </EntityEditorShell>
@@ -161,13 +173,11 @@ function McpEditorSession({
   panelId,
   widget,
   descriptor,
-  onReviewTargetChange,
 }: {
   workspaceId: string
   panelId?: string
   widget?: WidgetComponentProps['widget']
   descriptor: ReviewTargetDescriptor
-  onReviewTargetChange: (descriptor: ReviewTargetDescriptor | null) => void
 }) {
   const { doc, isLoading, error, undo, redo, runtime, canUndo, canRedo } = useEntitySession()
   const [saveError, setSaveError] = useState<string | null>(null)
@@ -369,9 +379,6 @@ function McpEditorSession({
       }
 
       await fetchServers(workspaceId)
-      if (responsePayload?.reviewTarget) {
-        onReviewTargetChange?.(responsePayload.reviewTarget as ReviewTargetDescriptor)
-      }
     } catch (saveError) {
       setSaveError(saveError instanceof Error ? saveError.message : 'Failed to save MCP server.')
     }
@@ -381,7 +388,6 @@ function McpEditorSession({
     descriptor.reviewSessionId,
     fetchServers,
     formDataState,
-    onReviewTargetChange,
     workspaceId,
   ])
 
@@ -390,7 +396,6 @@ function McpEditorSession({
     widget,
     save: handleSave,
     refresh: handleRefreshTools,
-    close: () => onReviewTargetChange?.(null),
     reset: handleResetForm,
     test: handleTestConnection,
     undo: handleUndo,

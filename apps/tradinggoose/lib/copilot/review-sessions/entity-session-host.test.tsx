@@ -4,9 +4,12 @@
 
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
-import * as Y from 'yjs'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { ReviewTargetDescriptor, ReviewTargetRuntimeState } from '@/lib/copilot/review-sessions/types'
+import * as Y from 'yjs'
+import type {
+  ReviewTargetDescriptor,
+  ReviewTargetRuntimeState,
+} from '@/lib/copilot/review-sessions/types'
 import { EntitySessionHost, useEntitySession } from './entity-session-host'
 
 const reactActEnvironment = globalThis as typeof globalThis & {
@@ -144,6 +147,7 @@ describe('EntitySessionHost', () => {
     expect(probe?.getAttribute('data-loading')).toBe('false')
     expect(probe?.getAttribute('data-session-id')).toBe('review-a')
     expect(probe?.getAttribute('data-name')).toBe('Skill A')
+    expect(mockBootstrapYjsProvider).toHaveBeenCalledWith(descriptorA, 'write')
 
     await act(async () => {
       root.render(

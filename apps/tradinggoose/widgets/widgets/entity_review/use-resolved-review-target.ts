@@ -1,25 +1,13 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type {
-  ResolvedReviewTarget,
-  ReviewEntityKind,
-  ReviewTargetDescriptor,
-} from '@/lib/copilot/review-sessions/types'
-import type { PairColorContext } from '@/stores/dashboard/pair-store'
-import type { PairColor } from '@/widgets/pair-colors'
+import { useEffect, useMemo, useState } from 'react'
+import type { ResolvedReviewTarget, ReviewEntityKind } from '@/lib/copilot/review-sessions/types'
 import { resolveEntityReviewTarget } from '@/widgets/widgets/entity_review/review-target-utils'
 
 interface UseResolvedReviewTargetOptions {
   workspaceId: string | null
   entityKind: Exclude<ReviewEntityKind, 'workflow'>
-  pairColor: PairColor
-  onWidgetParamsChange?: (params: Record<string, unknown> | null) => void
-  setPairContext?: (color: PairColor, context: PairColorContext) => void
-  entityIdKey: keyof PairColorContext & string
-  selectionState: {
-    selectedEntityId: string | null
-  }
+  entityId: string | null
 }
 
 function doesResolvedTargetMatchRequest(options: {
@@ -43,72 +31,14 @@ function doesResolvedTargetMatchRequest(options: {
   return descriptor.entityId === options.entityId
 }
 
-function buildResolveRequestKey(options: {
-  workspaceId: string
-  entityKind: Exclude<ReviewEntityKind, 'workflow'>
-  entityId: string
-}): string {
-  return JSON.stringify({
-    workspaceId: options.workspaceId,
-    entityKind: options.entityKind,
-    entityId: options.entityId,
-  })
-}
-
-function buildSelectedEntityParams(entityIdKey: string, selectedEntityId: string | null) {
-  return selectedEntityId ? { [entityIdKey]: selectedEntityId } : null
-}
-
 export function useResolvedReviewTarget({
   workspaceId,
   entityKind,
-  pairColor,
-  onWidgetParamsChange,
-  setPairContext,
-  entityIdKey,
-  selectionState,
+  entityId,
 }: UseResolvedReviewTargetOptions) {
   const [resolvedTarget, setResolvedTarget] = useState<ResolvedReviewTarget | null>(null)
   const [isResolving, setIsResolving] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const lastSatisfiedRequestKeyRef = useRef<string | null>(null)
-
-  const isLinkedToColorPair = pairColor !== 'gray'
-  const requestedEntityId = selectionState.selectedEntityId
-
-  const persistDescriptor = useCallback(
-    (descriptor: ReviewTargetDescriptor | null, selectedEntityId?: string | null) => {
-      setResolvedTarget(descriptor ? { descriptor, runtime: null } : null)
-      setError(null)
-      lastSatisfiedRequestKeyRef.current = null
-      const nextEntityId = selectedEntityId ?? descriptor?.entityId ?? null
-
-      if (isLinkedToColorPair) {
-        if (!setPairContext) {
-          return
-        }
-
-        setPairContext(pairColor, {
-          [entityIdKey]: nextEntityId,
-        } as PairColorContext)
-        return
-      }
-
-      onWidgetParamsChange?.(buildSelectedEntityParams(entityIdKey, nextEntityId))
-    },
-    [
-      isLinkedToColorPair,
-      entityIdKey,
-      onWidgetParamsChange,
-      pairColor,
-      setPairContext,
-    ]
-  )
-  const persistDescriptorRef = useRef(persistDescriptor)
-
-  useEffect(() => {
-    persistDescriptorRef.current = persistDescriptor
-  }, [persistDescriptor])
 
   useEffect(() => {
     let cancelled = false
@@ -117,25 +47,11 @@ export function useResolvedReviewTarget({
       setResolvedTarget(null)
       setError(null)
       setIsResolving(false)
-      lastSatisfiedRequestKeyRef.current = null
       return
     }
 
-    if (!requestedEntityId) {
+    if (!entityId) {
       setResolvedTarget(null)
-      setError(null)
-      setIsResolving(false)
-      lastSatisfiedRequestKeyRef.current = null
-      return
-    }
-
-    const requestKey = buildResolveRequestKey({
-      workspaceId,
-      entityKind,
-      entityId: requestedEntityId,
-    })
-
-    if (lastSatisfiedRequestKeyRef.current === requestKey) {
       setError(null)
       setIsResolving(false)
       return
@@ -146,7 +62,7 @@ export function useResolvedReviewTarget({
         resolvedTarget,
         workspaceId,
         entityKind,
-        entityId: requestedEntityId,
+        entityId,
       })
     ) {
       setError(null)
@@ -160,19 +76,14 @@ export function useResolvedReviewTarget({
     resolveEntityReviewTarget({
       workspaceId,
       entityKind,
-      entityId: requestedEntityId,
+      entityId,
     })
       .then((resolved) => {
         if (cancelled) {
           return
         }
 
-        lastSatisfiedRequestKeyRef.current = requestKey
         setResolvedTarget(resolved)
-        persistDescriptorRef.current(
-          resolved.descriptor,
-          resolved.descriptor.entityId ?? requestedEntityId
-        )
       })
       .catch((resolveError) => {
         if (cancelled) {
@@ -191,7 +102,7 @@ export function useResolvedReviewTarget({
     return () => {
       cancelled = true
     }
-  }, [entityKind, resolvedTarget, requestedEntityId, workspaceId])
+  }, [entityId, entityKind, resolvedTarget, workspaceId])
 
   const descriptor = useMemo(() => resolvedTarget?.descriptor ?? null, [resolvedTarget?.descriptor])
 
@@ -200,6 +111,5 @@ export function useResolvedReviewTarget({
     runtime: resolvedTarget?.runtime ?? null,
     isResolving,
     error,
-    persistDescriptor,
   }
 }

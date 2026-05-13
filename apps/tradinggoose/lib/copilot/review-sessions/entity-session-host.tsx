@@ -1,21 +1,22 @@
 'use client'
 
-import React, { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
-import * as Y from 'yjs'
+import { createContext, type ReactNode, useContext, useEffect, useMemo, useState } from 'react'
 import type { WebsocketProvider } from 'y-websocket'
-import type { ReviewTargetDescriptor, ReviewTargetRuntimeState } from '@/lib/copilot/review-sessions/types'
-import {
-  getReviewTargetRuntimeState,
-} from '@/lib/copilot/review-sessions/runtime'
+import * as Y from 'yjs'
+import { getReviewTargetRuntimeState } from '@/lib/copilot/review-sessions/runtime'
+import type {
+  ReviewTargetDescriptor,
+  ReviewTargetRuntimeState,
+} from '@/lib/copilot/review-sessions/types'
 import { deriveUserColor } from '@/lib/utils'
-import { bootstrapYjsProvider, type YjsProviderBootstrapResult } from '@/lib/yjs/provider'
-import { getFieldsMap, getEntityMetadataMap } from '@/lib/yjs/entity-session'
-import { createYjsUndoTrackedOrigins } from '@/lib/yjs/transaction-origins'
+import { getEntityMetadataMap, getFieldsMap } from '@/lib/yjs/entity-session'
 import {
   registerEntitySession,
   unregisterEntitySession,
   updateRegisteredEntitySession,
 } from '@/lib/yjs/entity-session-registry'
+import { bootstrapYjsProvider, type YjsProviderBootstrapResult } from '@/lib/yjs/provider'
+import { createYjsUndoTrackedOrigins } from '@/lib/yjs/transaction-origins'
 
 // ---------------------------------------------------------------------------
 // Context value
@@ -94,9 +95,7 @@ function isSameEntitySession(
     return left === right
   }
 
-  return (
-    left.reviewSessionId === right.reviewSessionId && left.yjsSessionId === right.yjsSessionId
-  )
+  return left.reviewSessionId === right.reviewSessionId && left.yjsSessionId === right.yjsSessionId
 }
 
 export function useEntitySession(): EntitySessionContextValue {
@@ -156,7 +155,7 @@ export function EntitySessionHost({ descriptor, user, children }: EntitySessionH
 
     async function init() {
       try {
-        result = await bootstrapYjsProvider(descriptor, 'read')
+        result = await bootstrapYjsProvider(descriptor, 'write')
         if (cancelled) {
           result.provider.destroy()
           result.doc.destroy()
@@ -296,8 +295,6 @@ export function EntitySessionHost({ descriptor, user, children }: EntitySessionH
   }, [user, visibleState.awareness])
 
   return (
-    <EntitySessionContext.Provider value={visibleState}>
-      {children}
-    </EntitySessionContext.Provider>
+    <EntitySessionContext.Provider value={visibleState}>{children}</EntitySessionContext.Provider>
   )
 }

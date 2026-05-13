@@ -15,16 +15,12 @@ import { useWidgetChannel } from '@/widgets/hooks/use-widget-channel'
 import type { PairColor } from '@/widgets/pair-colors'
 import type { WidgetComponentProps } from '@/widgets/types'
 import { WidgetStateMessage } from '@/widgets/widgets/editor_indicator/components/widget-state-message'
+import type { EntitySelectionState } from '@/widgets/widgets/entity_review/resolve-entity-id'
 import { useResolvedReviewTarget } from '@/widgets/widgets/entity_review/use-resolved-review-target'
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
-
-/** Selection state read from widget params or pair context. */
-export interface EntitySelectionState {
-  selectedEntityId: string | null
-}
 
 /**
  * Entity-specific configuration that each editor widget supplies.
@@ -60,7 +56,6 @@ export interface EntityEditorShellConfig {
 export interface EntityEditorShellChildProps {
   workspaceId: string
   descriptor: ReviewTargetDescriptor
-  persistDescriptor: (descriptor: ReviewTargetDescriptor | null) => void
   panelId?: string
   widget?: WidgetComponentProps['widget']
 }
@@ -80,6 +75,7 @@ export interface EntityEditorShellSelectionPersistenceArgs {
   onWidgetParamsChange?: (params: Record<string, unknown> | null) => void
   panelId?: string
   params?: Record<string, unknown> | null
+  widget?: WidgetComponentProps['widget']
 }
 
 interface EntityEditorShellProps extends WidgetComponentProps {
@@ -147,6 +143,7 @@ export function EntityEditorShell({
     onWidgetParamsChange,
     panelId,
     params,
+    widget,
   })
 
   const selectionState = config.readEntitySelectionState({
@@ -180,14 +177,10 @@ export function EntityEditorShell({
   ])
 
   const hasSelection = !!selectionState.selectedEntityId
-  const { descriptor, isResolving, error, persistDescriptor } = useResolvedReviewTarget({
+  const { descriptor, isResolving, error } = useResolvedReviewTarget({
     workspaceId,
     entityKind: config.entityKind,
-    pairColor: resolvedPairColor,
-    onWidgetParamsChange,
-    setPairContext,
-    entityIdKey: config.entityIdKey,
-    selectionState,
+    entityId: selectionState.selectedEntityId,
   })
 
   if (!workspaceId) {
@@ -215,7 +208,6 @@ export function EntityEditorShell({
       {children({
         workspaceId,
         descriptor,
-        persistDescriptor,
         panelId,
         widget,
       })}

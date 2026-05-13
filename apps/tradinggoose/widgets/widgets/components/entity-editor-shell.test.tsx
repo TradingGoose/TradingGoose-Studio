@@ -16,8 +16,8 @@ let mockResolvedTargetState: {
   descriptor: ReviewTargetDescriptor | null
   isResolving: boolean
   error: string | null
-  persistDescriptor: ReturnType<typeof vi.fn>
 }
+const mockUseResolvedReviewTarget = vi.fn()
 let mockWidgetChannelState: {
   resolvedPairColor: 'gray' | 'red'
   channelId: string
@@ -40,7 +40,7 @@ vi.mock('@/stores/dashboard/pair-store', () => ({
 }))
 
 vi.mock('@/widgets/widgets/entity_review/use-resolved-review-target', () => ({
-  useResolvedReviewTarget: () => mockResolvedTargetState,
+  useResolvedReviewTarget: (...args: unknown[]) => mockUseResolvedReviewTarget(...args),
 }))
 
 vi.mock('@/lib/copilot/review-sessions/entity-session-host', () => ({
@@ -74,6 +74,7 @@ describe('EntityEditorShell', () => {
     document.body.appendChild(container)
     root = createRoot(container)
     mockSetPairContext.mockReset()
+    mockUseResolvedReviewTarget.mockReset()
     mockPairContext = null
     mockWidgetChannelState = {
       resolvedPairColor: 'gray',
@@ -84,8 +85,8 @@ describe('EntityEditorShell', () => {
       descriptor: null,
       isResolving: false,
       error: null,
-      persistDescriptor: vi.fn(),
     }
+    mockUseResolvedReviewTarget.mockReturnValue(mockResolvedTargetState)
   })
 
   afterEach(() => {
@@ -101,8 +102,8 @@ describe('EntityEditorShell', () => {
       descriptor: null,
       isResolving: false,
       error: 'Review session not found',
-      persistDescriptor: vi.fn(),
     }
+    mockUseResolvedReviewTarget.mockReturnValue(mockResolvedTargetState)
 
     await act(async () => {
       root.render(
@@ -122,8 +123,8 @@ describe('EntityEditorShell', () => {
       descriptor: null,
       isResolving: true,
       error: null,
-      persistDescriptor: vi.fn(),
     }
+    mockUseResolvedReviewTarget.mockReturnValue(mockResolvedTargetState)
 
     await act(async () => {
       root.render(
@@ -148,8 +149,8 @@ describe('EntityEditorShell', () => {
       descriptor: null,
       isResolving: true,
       error: null,
-      persistDescriptor: vi.fn(),
     }
+    mockUseResolvedReviewTarget.mockReturnValue(mockResolvedTargetState)
 
     await act(async () => {
       root.render(
@@ -161,6 +162,11 @@ describe('EntityEditorShell', () => {
 
     expect(mockSetPairContext).toHaveBeenCalledWith('red', {
       skillId: 'skill-1',
+    })
+    expect(mockUseResolvedReviewTarget).toHaveBeenCalledWith({
+      workspaceId: 'ws-1',
+      entityKind: 'skill',
+      entityId: 'skill-1',
     })
   })
 })

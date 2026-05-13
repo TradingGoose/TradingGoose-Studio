@@ -1,19 +1,75 @@
 'use client'
 
+import type { ReactNode } from 'react'
 import { useSession } from '@/lib/auth-client'
+import { EntitySessionHost } from '@/lib/copilot/review-sessions/entity-session-host'
+import { ENTITY_KIND_WORKFLOW } from '@/lib/copilot/review-sessions/types'
 import { WorkflowSessionProvider } from '@/lib/yjs/workflow-session-host'
 import Providers from '@/app/workspace/[workspaceId]/providers/providers'
 import { CopilotStoreProvider, DEFAULT_COPILOT_CHANNEL_ID } from '@/stores/copilot/store'
 import { usePairColorContext } from '@/stores/dashboard/pair-store'
 import type { PairColor } from '@/widgets/pair-colors'
 import { resolveCopilotWorkflowId } from '@/widgets/widgets/copilot/live-contexts'
+import {
+  COPILOT_WORKSPACE_ENTITY_CONFIGS,
+  getCopilotWorkspaceEntityIdFromPairContext,
+} from '@/widgets/widgets/copilot/workspace-entities'
+import { useResolvedReviewTarget } from '@/widgets/widgets/entity_review/use-resolved-review-target'
 import { Copilot } from './copilot/copilot'
+
+type CopilotAppUser =
+  | {
+      id: string
+      name?: string
+      email: string
+    }
+  | undefined
+
+type CopilotWorkspaceEntityConfig = (typeof COPILOT_WORKSPACE_ENTITY_CONFIGS)[number]
+type CopilotEditableEntityConfig = Exclude<
+  CopilotWorkspaceEntityConfig,
+  { entityKind: typeof ENTITY_KIND_WORKFLOW }
+>
 
 interface CopilotAppProps {
   workspaceId: string
   panelWidth: number
   channelId?: string
   pairColor: PairColor
+}
+
+function isEditableEntityConfig(
+  config: CopilotWorkspaceEntityConfig
+): config is CopilotEditableEntityConfig {
+  return config.entityKind !== ENTITY_KIND_WORKFLOW
+}
+
+function CopilotEntitySessionBoundary({
+  workspaceId,
+  entityConfig,
+  entityId,
+  user,
+  children,
+}: {
+  workspaceId: string
+  entityConfig: CopilotEditableEntityConfig
+  entityId: string
+  user: CopilotAppUser
+  children: ReactNode
+}) {
+  const { descriptor } = useResolvedReviewTarget({
+    workspaceId,
+    entityKind: entityConfig.entityKind,
+    entityId,
+  })
+
+  return descriptor ? (
+    <EntitySessionHost descriptor={descriptor} user={user}>
+      {children}
+    </EntitySessionHost>
+  ) : (
+    children
+  )
 }
 
 const CopilotAppContent = ({
@@ -27,16 +83,18 @@ const CopilotAppContent = ({
   panelWidth: number
   channelId: string
   pairColor: PairColor
-  user:
-    | {
-        id: string
-        name?: string
-        email: string
-      }
-    | undefined
+  user: CopilotAppUser
 }) => {
   const pairContext = usePairColorContext(pairColor)
   const workflowId = resolveCopilotWorkflowId(pairContext) ?? null
+  const entityConfig = COPILOT_WORKSPACE_ENTITY_CONFIGS.find(
+    (config): config is CopilotEditableEntityConfig =>
+      isEditableEntityConfig(config) &&
+      Boolean(getCopilotWorkspaceEntityIdFromPairContext(pairContext, config.entityKind))
+  )
+  const entityId = entityConfig
+    ? getCopilotWorkspaceEntityIdFromPairContext(pairContext, entityConfig.entityKind)
+    : null
 
   const copilotBody = (
     <div className='flex h-full w-full flex-col overflow-hidden '>
@@ -49,7 +107,7 @@ const CopilotAppContent = ({
     </div>
   )
 
-  const copilotContent = workflowId ? (
+  const workflowContent = workflowId ? (
     <WorkflowSessionProvider workspaceId={workspaceId} workflowId={workflowId} user={user}>
       {copilotBody}
     </WorkflowSessionProvider>
@@ -57,7 +115,18 @@ const CopilotAppContent = ({
     copilotBody
   )
 
-  return copilotContent
+  return entityConfig && entityId ? (
+    <CopilotEntitySessionBoundary
+      workspaceId={workspaceId}
+      entityConfig={entityConfig}
+      entityId={entityId}
+      user={user}
+    >
+      {workflowContent}
+    </CopilotEntitySessionBoundary>
+  ) : (
+    workflowContent
+  )
 }
 
 const CopilotApp = ({

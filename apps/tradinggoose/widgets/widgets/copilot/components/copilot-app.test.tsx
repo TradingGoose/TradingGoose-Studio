@@ -16,6 +16,7 @@ const mockCopilot = vi.fn((props: any) => (
     copilot
   </div>
 ))
+const mockUseResolvedReviewTarget = vi.fn()
 let mockPairContext: any = {
   workflowId: null,
   skillId: null,
@@ -43,6 +44,21 @@ vi.mock('@/lib/yjs/workflow-session-host', () => ({
       {children}
     </div>
   ),
+}))
+
+vi.mock('@/lib/copilot/review-sessions/entity-session-host', () => ({
+  EntitySessionHost: ({ children, descriptor }: any) => (
+    <div
+      data-testid='entity-session-host'
+      data-review-session-id={descriptor.reviewSessionId ?? ''}
+    >
+      {children}
+    </div>
+  ),
+}))
+
+vi.mock('@/widgets/widgets/entity_review/use-resolved-review-target', () => ({
+  useResolvedReviewTarget: (...args: unknown[]) => mockUseResolvedReviewTarget(...args),
 }))
 
 vi.mock('@/stores/copilot/store', () => ({
@@ -78,6 +94,8 @@ describe('CopilotApp', () => {
       skillId: null,
     }
     mockCopilot.mockClear()
+    mockUseResolvedReviewTarget.mockReset()
+    mockUseResolvedReviewTarget.mockReturnValue({ descriptor: null })
   })
 
   afterEach(() => {
@@ -92,6 +110,8 @@ describe('CopilotApp', () => {
     await renderApp()
 
     expect(container.querySelector('[data-testid="workflow-session-host"]')).toBeNull()
+    expect(container.querySelector('[data-testid="entity-session-host"]')).toBeNull()
+    expect(mockUseResolvedReviewTarget).not.toHaveBeenCalled()
     expect(container.querySelector('[data-testid="copilot"]')).not.toBeNull()
   })
 
@@ -107,19 +127,35 @@ describe('CopilotApp', () => {
       'data-workflow-id',
       'workflow-current'
     )
+    expect(mockUseResolvedReviewTarget).not.toHaveBeenCalled()
   })
 
-  it('does not resolve or mount plain pair-color entity ids', async () => {
+  it('mounts the entity session host for the current pair-color entity', async () => {
     mockPairContext = {
       workflowId: null,
-      skillId: 'skill-plain',
+      skillId: 'skill-current',
     }
+    mockUseResolvedReviewTarget.mockReturnValue({
+      descriptor: {
+        workspaceId: 'ws-1',
+        entityKind: 'skill',
+        entityId: 'skill-current',
+        draftSessionId: null,
+        reviewSessionId: 'review-skill-current',
+        yjsSessionId: 'review-skill-current',
+      },
+    })
 
     await renderApp()
 
-    expect(container.querySelector('[data-testid="copilot"]')).toHaveAttribute(
-      'data-input-disabled',
-      'false'
+    expect(mockUseResolvedReviewTarget).toHaveBeenCalledWith({
+      workspaceId: 'ws-1',
+      entityKind: 'skill',
+      entityId: 'skill-current',
+    })
+    expect(container.querySelector('[data-testid="entity-session-host"]')).toHaveAttribute(
+      'data-review-session-id',
+      'review-skill-current'
     )
   })
 })

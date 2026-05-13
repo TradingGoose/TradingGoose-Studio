@@ -5,8 +5,6 @@
 import { act, useState } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { PairColorContext } from '@/stores/dashboard/pair-store'
-import { readEntitySelectionState } from '@/widgets/widgets/entity_review/review-target-utils'
 import { useResolvedReviewTarget } from './use-resolved-review-target'
 
 const reactActEnvironment = globalThis as typeof globalThis & {
@@ -32,37 +30,14 @@ function flushPromises() {
   })
 }
 
-function HookHarness({
-  initialPairContext,
-  initialParams = null,
-}: {
-  initialPairContext?: PairColorContext | null
-  initialParams?: Record<string, unknown> | null
-}) {
-  const [pairContext, setPairContext] = useState<PairColorContext | null>(
-    initialPairContext ?? {
-      skillId: 'skill-1',
-    }
-  )
-
-  const selectionState = readEntitySelectionState({
-    pairContext,
-    params: initialParams,
-    entityIdKey: 'skillId',
-  })
+function HookHarness({ initialEntityId = 'skill-1' }: { initialEntityId?: string | null }) {
+  const [entityId, setEntityId] = useState<string | null>(initialEntityId)
+  const [unrelatedState, setUnrelatedState] = useState('initial')
 
   const { descriptor, isResolving, error } = useResolvedReviewTarget({
     workspaceId: 'ws-1',
     entityKind: 'skill',
-    pairColor: 'red',
-    entityIdKey: 'skillId',
-    selectionState,
-    setPairContext: (_color, context) => {
-      setPairContext({
-        ...context,
-        workflowId: 'workflow-current',
-      })
-    },
+    entityId,
   })
 
   return (
@@ -75,25 +50,13 @@ function HookHarness({
         data-error={error ?? ''}
       />
       <button
-        data-testid='touch-pair-context'
-        onClick={() =>
-          setPairContext((current) =>
-            current
-              ? {
-                  ...current,
-                  workflowId:
-                    current.workflowId === 'workflow-current'
-                      ? 'workflow-next'
-                      : 'workflow-current',
-                }
-              : {
-                  skillId: 'skill-1',
-                  workflowId: 'workflow-current',
-                }
-          )
-        }
+        data-testid='touch-unrelated-state'
+        onClick={() => setUnrelatedState((current) => `${current}-next`)}
       >
-        touch
+        {unrelatedState}
+      </button>
+      <button data-testid='switch-entity' onClick={() => setEntityId('skill-2')}>
+        switch
       </button>
     </>
   )
@@ -134,7 +97,7 @@ describe('useResolvedReviewTarget', () => {
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = false
   })
 
-  it('does not re-resolve after pair context changes without a target change', async () => {
+  it('does not re-resolve after unrelated state changes without a target change', async () => {
     await act(async () => {
       root.render(<HookHarness />)
       await flushPromises()
@@ -144,7 +107,7 @@ describe('useResolvedReviewTarget', () => {
 
     const stateNode = container.querySelector('[data-testid="state"]')
     const touchButton = container.querySelector(
-      '[data-testid="touch-pair-context"]'
+      '[data-testid="touch-unrelated-state"]'
     ) as HTMLButtonElement | null
     const initialCallCount = mockResolveEntityReviewTarget.mock.calls.length
 
@@ -161,7 +124,7 @@ describe('useResolvedReviewTarget', () => {
     expect(stateNode?.getAttribute('data-error')).toBe('')
   })
 
-  it('resolves the current linked entity id', async () => {
+  it('resolves the requested entity id', async () => {
     mockResolveEntityReviewTarget.mockResolvedValueOnce({
       descriptor: {
         workspaceId: 'ws-1',
@@ -179,13 +142,7 @@ describe('useResolvedReviewTarget', () => {
     })
 
     await act(async () => {
-      root.render(
-        <HookHarness
-          initialPairContext={{
-            skillId: 'skill-2',
-          }}
-        />
-      )
+      root.render(<HookHarness initialEntityId='skill-2' />)
       await flushPromises()
       await flushPromises()
       await flushPromises()
