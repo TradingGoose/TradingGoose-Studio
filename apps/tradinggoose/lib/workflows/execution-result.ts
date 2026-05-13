@@ -2,6 +2,10 @@ import type { ExecutionResult } from '@/executor/types'
 
 const PUBLIC_EXECUTION_METADATA_KEYS = ['duration', 'startTime', 'endTime'] as const
 
+type ExecutionResultWithTraceSpans = ExecutionResult & {
+  traceSpans?: unknown
+}
+
 export function isExecutionResult(value: unknown): value is ExecutionResult {
   return (
     value !== null &&
@@ -26,5 +30,12 @@ export function createPublicExecutionResult(result: ExecutionResult) {
     output: result.output,
     ...(result.error ? { error: result.error } : {}),
     ...(metadata && Object.keys(metadata).length > 0 ? { metadata } : {}),
+  }
+}
+
+export function createInternalWorkflowJobResult(result: ExecutionResultWithTraceSpans) {
+  return {
+    ...createPublicExecutionResult(result),
+    ...(Array.isArray(result.traceSpans) ? { traceSpans: result.traceSpans } : {}),
   }
 }

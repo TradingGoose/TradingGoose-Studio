@@ -34,7 +34,6 @@ function resolveChatOutputPath(output: unknown, path: string) {
 }
 
 function canStreamSelectedBlock(selectedOutputs: string[], blockId: string) {
-  if (selectedOutputs.length === 0) return true
   return selectedOutputsForBlock(selectedOutputs, blockId).some((outputId) =>
     isStreamedOutput(outputId, blockId)
   )
@@ -103,6 +102,7 @@ export function createChatOutputEventReader(selectedOutputs: string[]) {
       }
 
       if (event.type === 'block:completed') {
+        if (selectedOutputsForBlock(selectedOutputs, event.data.blockId).length === 0) return []
         const content = resolveSelectedBlockOutput({
           blockId: event.data.blockId,
           output: event.data.output,

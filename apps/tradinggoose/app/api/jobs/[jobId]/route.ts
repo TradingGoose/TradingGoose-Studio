@@ -2,18 +2,33 @@ import { db } from '@tradinggoose/db'
 import { pendingExecution } from '@tradinggoose/db/schema'
 import { and, eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
-import { checkHybridAuth } from '@/lib/auth/hybrid'
+import { type AuthResult, AuthType, checkHybridAuth } from '@/lib/auth/hybrid'
 import { cancelPendingWorkflowExecution } from '@/lib/execution/pending-execution'
 import { createLogger } from '@/lib/logs/console/logger'
-import { createPublicExecutionResult, isExecutionResult } from '@/lib/workflows/execution-result'
 import { generateRequestId } from '@/lib/utils'
+import {
+  createInternalWorkflowJobResult,
+  createPublicExecutionResult,
+  isExecutionResult,
+} from '@/lib/workflows/execution-result'
 import { createErrorResponse } from '@/app/api/workflows/utils'
 
 const logger = createLogger('TaskStatusAPI')
 
+function shouldIncludeInternalWorkflowTraceSpans(auth: AuthResult, result: unknown) {
+  if (auth.authType !== AuthType.INTERNAL_JWT || !auth.internalWorkflowExecution) return false
+  const queuedExecution = (result as { metadata?: { queuedExecution?: Record<string, unknown> } })
+    .metadata?.queuedExecution
+  return (
+    queuedExecution?.source === 'workflow_block' &&
+    queuedExecution.parentBlockId === auth.internalWorkflowExecution.parentBlockId &&
+    queuedExecution.parentExecutionId === auth.internalWorkflowExecution.parentExecutionId
+  )
+}
+
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ jobId: string }> },
+  { params }: { params: Promise<{ jobId: string }> }
 ) {
   const { jobId: taskId } = await params
   const requestId = generateRequestId()
@@ -38,37 +53,29 @@ export async function GET(
         completedAt: pendingExecution.completedAt,
       })
       .from(pendingExecution)
-      .where(
-        and(
-          eq(pendingExecution.id, taskId),
-          eq(pendingExecution.userId, auth.userId),
-        ),
-      )
+      .where(and(eq(pendingExecution.id, taskId), eq(pendingExecution.userId, auth.userId)))
       .limit(1)
 
     if (pendingRow) {
       return NextResponse.json({
         success: true,
         taskId,
-        status:
-          pendingRow.status === 'pending'
-            ? 'queued'
-            : pendingRow.status,
+        status: pendingRow.status === 'pending' ? 'queued' : pendingRow.status,
         ...(pendingRow.status === 'completed'
           ? {
               output:
                 pendingRow.executionType === 'workflow' && isExecutionResult(pendingRow.result)
-                  ? createPublicExecutionResult(pendingRow.result)
+                  ? shouldIncludeInternalWorkflowTraceSpans(auth, pendingRow.result)
+                    ? createInternalWorkflowJobResult(pendingRow.result)
+                    : createPublicExecutionResult(pendingRow.result)
                   : pendingRow.result,
             }
           : pendingRow.status === 'failed'
             ? { error: pendingRow.errorMessage ?? 'Execution failed' }
-          : { estimatedDuration: 180000 }),
+            : { estimatedDuration: 180000 }),
         metadata: {
           startedAt: pendingRow.processingStartedAt ?? pendingRow.createdAt,
-          ...(pendingRow.completedAt
-            ? { completedAt: pendingRow.completedAt }
-            : {}),
+          ...(pendingRow.completedAt ? { completedAt: pendingRow.completedAt } : {}),
         },
       })
     }
@@ -82,7 +89,7 @@ export async function GET(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: Promise<{ jobId: string }> },
+  { params }: { params: Promise<{ jobId: string }> }
 ) {
   const { jobId: taskId } = await params
   const requestId = generateRequestId()

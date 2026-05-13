@@ -36,9 +36,11 @@ type JobStatusResponse = {
   error?: string
 }
 
+type ChildWorkflowHeaders = () => Promise<Record<string, string>>
+
 type ChildWorkflowWaitOptions = {
   taskId: string
-  headers: Record<string, string>
+  headers: ChildWorkflowHeaders
   shouldCancelExecution?: () => Promise<boolean>
 }
 
@@ -98,7 +100,7 @@ export class WorkflowBlockHandler implements BlockHandler {
             parentExecutionId: context.executionId,
             parentBlockId: block.id,
           }
-          const headers = await this.buildHeaders(context, workflowExecution)
+          const headers = () => this.buildHeaders(context, workflowExecution)
           const queueResponse = await this.queueChildWorkflowExecution({
             headers,
             workflowId,
@@ -202,7 +204,7 @@ export class WorkflowBlockHandler implements BlockHandler {
   }
 
   private async queueChildWorkflowExecution(params: {
-    headers: Record<string, string>
+    headers: ChildWorkflowHeaders
     workflowId: string
     input: Record<string, any>
     executionTarget: 'deployed' | 'live'
@@ -210,7 +212,7 @@ export class WorkflowBlockHandler implements BlockHandler {
   }): Promise<QueueWorkflowResponse> {
     const response = await fetch(`${getBaseUrl()}/api/workflows/${params.workflowId}/queue`, {
       method: 'POST',
-      headers: params.headers,
+      headers: await params.headers(),
       body: JSON.stringify({
         input: params.input,
         executionTarget: params.executionTarget,
@@ -242,11 +244,11 @@ export class WorkflowBlockHandler implements BlockHandler {
 
   private async cancelQueuedWorkflowExecution(
     taskId: string,
-    headers: Record<string, string>
+    headers: ChildWorkflowHeaders
   ): Promise<void> {
     const response = await fetch(`${getBaseUrl()}/api/jobs/${taskId}`, {
       method: 'DELETE',
-      headers,
+      headers: await headers(),
       cache: 'no-store',
     })
 
@@ -274,7 +276,7 @@ export class WorkflowBlockHandler implements BlockHandler {
       }
 
       const response = await fetch(`${getBaseUrl()}/api/jobs/${taskId}`, {
-        headers,
+        headers: await headers(),
         cache: 'no-store',
       })
 

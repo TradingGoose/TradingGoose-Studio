@@ -86,6 +86,9 @@ describe('WorkflowBlockHandler', () => {
   })
 
   it('queues the child workflow and maps the completed result', async () => {
+    vi.mocked(generateInternalToken)
+      .mockResolvedValueOnce('queue-token')
+      .mockResolvedValueOnce('poll-token')
     const fetchMock = vi.mocked(global.fetch)
     fetchMock
       .mockResolvedValueOnce({
@@ -126,7 +129,7 @@ describe('WorkflowBlockHandler', () => {
       expect.objectContaining({
         method: 'POST',
         headers: expect.objectContaining({
-          Authorization: 'Bearer test-token',
+          Authorization: 'Bearer queue-token',
           'Content-Type': 'application/json',
         }),
       })
@@ -145,6 +148,10 @@ describe('WorkflowBlockHandler', () => {
       2,
       'http://localhost:3000/api/jobs/job-1',
       expect.objectContaining({
+        headers: expect.objectContaining({
+          Authorization: 'Bearer poll-token',
+          'Content-Type': 'application/json',
+        }),
         cache: 'no-store',
       })
     )
@@ -162,6 +169,7 @@ describe('WorkflowBlockHandler', () => {
         parentBlockId: 'workflow-block-1',
       },
     })
+    expect(generateInternalToken).toHaveBeenCalledTimes(2)
   })
 
   it('wraps failed child workflow executions', async () => {
@@ -200,6 +208,9 @@ describe('WorkflowBlockHandler', () => {
   })
 
   it('cancels queued child workflows when the parent is cancelled', async () => {
+    vi.mocked(generateInternalToken)
+      .mockResolvedValueOnce('queue-token')
+      .mockResolvedValueOnce('cancel-token')
     const fetchMock = vi.mocked(global.fetch)
     fetchMock
       .mockResolvedValueOnce({
@@ -230,8 +241,13 @@ describe('WorkflowBlockHandler', () => {
       'http://localhost:3000/api/jobs/job-3',
       expect.objectContaining({
         method: 'DELETE',
+        headers: expect.objectContaining({
+          Authorization: 'Bearer cancel-token',
+          'Content-Type': 'application/json',
+        }),
       })
     )
+    expect(generateInternalToken).toHaveBeenCalledTimes(2)
   })
 
   it('cancels queued child workflows when child polling reaches its deadline', async () => {

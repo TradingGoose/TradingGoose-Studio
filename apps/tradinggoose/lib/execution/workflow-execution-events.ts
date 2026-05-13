@@ -1,6 +1,6 @@
 import { db } from '@tradinggoose/db'
 import { pendingExecution } from '@tradinggoose/db/schema'
-import { and, eq } from 'drizzle-orm'
+import { and, eq, sql } from 'drizzle-orm'
 import type {
   WorkflowExecutionEvent,
   WorkflowExecutionEventEntry,
@@ -31,6 +31,20 @@ function readPayloadEvents(value: unknown): WorkflowExecutionEventEntry[] {
       entry.event &&
       typeof entry.event === 'object'
   )
+}
+
+function buildExecutionEventPayloadUpdate(entry: WorkflowExecutionEventEntry) {
+  return sql`jsonb_set(
+    case
+      when jsonb_typeof(coalesce(${pendingExecution.payload}, '{}'::jsonb)) = 'object'
+        then coalesce(${pendingExecution.payload}, '{}'::jsonb)
+      else '{}'::jsonb
+    end,
+    '{executionEvents}',
+    coalesce(${pendingExecution.payload}->'executionEvents', '[]'::jsonb) ||
+      ${JSON.stringify([entry])}::jsonb,
+    true
+  )`
 }
 
 export function appendWorkflowExecutionEventToPayload(params: {
@@ -105,7 +119,7 @@ export async function createWorkflowExecutionEventWriter(params: {
         throw new Error(`Pending workflow execution ${params.pendingExecutionId} was not found`)
       }
 
-      const { payload, entry } = appendWorkflowExecutionEventToPayload({
+      const { entry } = appendWorkflowExecutionEventToPayload({
         payload: currentRow.payload,
         pendingExecutionId: params.pendingExecutionId,
         workflowId: params.workflowId,
@@ -115,7 +129,7 @@ export async function createWorkflowExecutionEventWriter(params: {
       await db
         .update(pendingExecution)
         .set({
-          payload,
+          payload: buildExecutionEventPayloadUpdate(entry),
           updatedAt: new Date(),
         })
         .where(
