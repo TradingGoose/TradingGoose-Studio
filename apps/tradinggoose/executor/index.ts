@@ -1920,7 +1920,7 @@ export class Executor {
         let pendingStreamChunk = ''
         let lastStreamFlushAt = performance.now()
         const flushStreamChunk = async () => {
-          if (!pendingStreamChunk) return
+          if (!context.stream || !pendingStreamChunk) return
           const chunk = pendingStreamChunk
           pendingStreamChunk = ''
           lastStreamFlushAt = performance.now()
@@ -1942,12 +1942,14 @@ export class Executor {
             if (!chunk) continue
 
             fullContent += chunk
-            pendingStreamChunk += chunk
-            if (
-              pendingStreamChunk.length >= STREAM_CHUNK_FLUSH_SIZE ||
-              performance.now() - lastStreamFlushAt >= STREAM_CHUNK_FLUSH_INTERVAL_MS
-            ) {
-              await flushStreamChunk()
+            if (context.stream) {
+              pendingStreamChunk += chunk
+              if (
+                pendingStreamChunk.length >= STREAM_CHUNK_FLUSH_SIZE ||
+                performance.now() - lastStreamFlushAt >= STREAM_CHUNK_FLUSH_INTERVAL_MS
+              ) {
+                await flushStreamChunk()
+              }
             }
           }
           await flushStreamChunk()
@@ -1970,12 +1972,14 @@ export class Executor {
           )
         }
 
-        await this.emitExecutionEvent({
-          type: 'stream:done',
-          data: {
-            blockId: consoleBlockId,
-          },
-        })
+        if (context.stream) {
+          await this.emitExecutionEvent({
+            type: 'stream:done',
+            data: {
+              blockId: consoleBlockId,
+            },
+          })
+        }
 
         const streamedOutput = context.blockStates.get(blockId)?.output ?? output
         await finalizeSuccessfulOutput({

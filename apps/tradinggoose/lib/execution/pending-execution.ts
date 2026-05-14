@@ -5,7 +5,7 @@ import { and, asc, eq, inArray, lte, sql } from 'drizzle-orm'
 import { isBillingEnabledForRuntime } from '@/lib/billing/settings'
 import type { BillingTierRecord } from '@/lib/billing/tiers'
 import { resolveServerExecutionBillingContext } from '@/lib/execution/execution-concurrency-limit'
-import { appendWorkflowExecutionEventToPayload } from '@/lib/execution/workflow-execution-events'
+import { createWorkflowExecutionEventWriter } from '@/lib/execution/workflow-execution-events'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getTriggerExecutionState } from '@/lib/trigger/settings'
 
@@ -477,22 +477,11 @@ export async function cancelPendingWorkflowExecution(params: {
         executionId: row.id,
         executedAt: cancelledAt,
       }
-      const { payload: cancelledPayload } = appendWorkflowExecutionEventToPayload({
-        payload,
-        pendingExecutionId: row.id,
-        workflowId: row.workflowId,
-        input: {
-          type: 'execution:cancelled',
-          timestamp: cancelledAt,
-          data: { result },
-        },
-      })
-
       const cancelledRows = await db
         .update(pendingExecution)
         .set({
           status: 'failed',
-          payload: cancelledPayload,
+          payload,
           errorMessage: WORKFLOW_EXECUTION_CANCELLED_ERROR,
           result,
           processingStartedAt: null,
@@ -503,6 +492,15 @@ export async function cancelPendingWorkflowExecution(params: {
         .returning({ id: pendingExecution.id })
 
       if (cancelledRows.length > 0) {
+        const eventWriter = await createWorkflowExecutionEventWriter({
+          pendingExecutionId: row.id,
+          workflowId: row.workflowId,
+        })
+        await eventWriter.write({
+          type: 'execution:cancelled',
+          timestamp: cancelledAt,
+          data: { result },
+        })
         return { status: 'cancelled' }
       }
       continue

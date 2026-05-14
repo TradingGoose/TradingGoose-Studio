@@ -1,90 +1,143 @@
 import { db } from '@tradinggoose/db'
 import { pendingExecution } from '@tradinggoose/db/schema'
-import { and, eq, sql } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
+import { createLogger } from '@/lib/logs/console/logger'
+import { getRedisClient, getRedisStorageMode } from '@/lib/redis'
 import type {
   WorkflowExecutionEvent,
   WorkflowExecutionEventEntry,
   WorkflowExecutionEventInput,
 } from '@/lib/workflows/execution-events'
 
-const EVENT_PAYLOAD_KEY = 'executionEvents'
+const logger = createLogger('WorkflowExecutionEvents')
+const BUFFER_KEY_PREFIX = 'workflow:execution:events:'
+const BUFFER_TTL_SECONDS = 60 * 60
+const BUFFER_EVENT_LIMIT = 1000
 
-type PendingPayload = Record<string, unknown> & {
-  executionEvents?: WorkflowExecutionEventEntry[]
+type MemoryExecutionEventStream = {
+  events: WorkflowExecutionEventEntry[]
+  nextEventId: number
+  expiresAt: number
 }
 
-function asPayload(value: unknown): PendingPayload {
-  return value && typeof value === 'object' && !Array.isArray(value)
-    ? (value as PendingPayload)
-    : {}
+const memoryStreams = new Map<string, MemoryExecutionEventStream>()
+
+function eventsKey(pendingExecutionId: string) {
+  return `${BUFFER_KEY_PREFIX}${pendingExecutionId}:events`
 }
 
-function readPayloadEvents(value: unknown): WorkflowExecutionEventEntry[] {
-  const events = asPayload(value)[EVENT_PAYLOAD_KEY]
-  if (!Array.isArray(events)) return []
-
-  return events.filter(
-    (entry): entry is WorkflowExecutionEventEntry =>
-      entry &&
-      typeof entry === 'object' &&
-      typeof entry.eventId === 'number' &&
-      entry.event &&
-      typeof entry.event === 'object'
-  )
+function sequenceKey(pendingExecutionId: string) {
+  return `${BUFFER_KEY_PREFIX}${pendingExecutionId}:seq`
 }
 
-function buildExecutionEventPayloadUpdate(entry: WorkflowExecutionEventEntry) {
-  return sql`jsonb_set(
-    case
-      when jsonb_typeof(coalesce(${pendingExecution.payload}, '{}'::jsonb)) = 'object'
-        then coalesce(${pendingExecution.payload}, '{}'::jsonb)
-      else '{}'::jsonb
-    end,
-    '{executionEvents}',
-    coalesce(${pendingExecution.payload}->'executionEvents', '[]'::jsonb) ||
-      ${JSON.stringify([entry])}::jsonb,
-    true
-  )`
+function canUseMemoryBuffer() {
+  return typeof window === 'undefined' && getRedisStorageMode() === 'local'
 }
 
-export function appendWorkflowExecutionEventToPayload(params: {
-  payload: unknown
+function pruneExpiredMemoryStreams(now = Date.now()) {
+  for (const [key, stream] of memoryStreams) {
+    if (stream.expiresAt <= now) {
+      memoryStreams.delete(key)
+    }
+  }
+}
+
+function getMemoryStream(pendingExecutionId: string) {
+  pruneExpiredMemoryStreams()
+  let stream = memoryStreams.get(pendingExecutionId)
+  if (!stream) {
+    stream = {
+      events: [],
+      nextEventId: 1,
+      expiresAt: Date.now() + BUFFER_TTL_SECONDS * 1000,
+    }
+    memoryStreams.set(pendingExecutionId, stream)
+  }
+  return stream
+}
+
+function touchMemoryStream(stream: MemoryExecutionEventStream) {
+  stream.expiresAt = Date.now() + BUFFER_TTL_SECONDS * 1000
+}
+
+function createEventEntry(params: {
+  eventId: number
   pendingExecutionId: string
   workflowId: string
   input: WorkflowExecutionEventInput
-}): {
-  payload: PendingPayload
-  entry: WorkflowExecutionEventEntry
-} {
-  const payload = asPayload(params.payload)
-  const events = readPayloadEvents(payload)
-  const eventId = events.reduce((max, entry) => Math.max(max, entry.eventId), 0) + 1
+}): WorkflowExecutionEventEntry {
   const event = {
     ...params.input,
     executionId: params.pendingExecutionId,
     workflowId: params.workflowId,
     timestamp: params.input.timestamp ?? new Date().toISOString(),
-    eventId,
+    eventId: params.eventId,
   } as WorkflowExecutionEvent
-  const entry = { eventId, event }
 
-  return {
-    payload: {
-      ...payload,
-      [EVENT_PAYLOAD_KEY]: [...events, entry],
-    },
-    entry,
+  return { eventId: params.eventId, event }
+}
+
+function parseEventEntry(value: string): WorkflowExecutionEventEntry | null {
+  try {
+    const entry = JSON.parse(value) as WorkflowExecutionEventEntry
+    if (
+      entry &&
+      typeof entry === 'object' &&
+      typeof entry.eventId === 'number' &&
+      entry.event &&
+      typeof entry.event === 'object'
+    ) {
+      return entry
+    }
+  } catch {
+    return null
   }
+  return null
+}
+
+async function readBufferedEvents(params: {
+  pendingExecutionId: string
+  afterEventId: number
+}): Promise<WorkflowExecutionEventEntry[]> {
+  const redis = getRedisClient()
+  if (!redis) {
+    if (!canUseMemoryBuffer()) return []
+    pruneExpiredMemoryStreams()
+    const stream = memoryStreams.get(params.pendingExecutionId)
+    if (!stream) return []
+    touchMemoryStream(stream)
+    return stream.events.filter((entry) => entry.eventId > params.afterEventId)
+  }
+
+  const raw = await redis.zrangebyscore(
+    eventsKey(params.pendingExecutionId),
+    params.afterEventId + 1,
+    '+inf'
+  )
+  return raw.map(parseEventEntry).filter((entry): entry is WorkflowExecutionEventEntry =>
+    Boolean(entry)
+  )
 }
 
 export async function createWorkflowExecutionEventWriter(params: {
   pendingExecutionId: string
   workflowId: string
+  enabled?: boolean
 }) {
+  if (params.enabled === false) {
+    return {
+      write: async (input: WorkflowExecutionEventInput): Promise<WorkflowExecutionEventEntry> =>
+        createEventEntry({
+          eventId: 0,
+          pendingExecutionId: params.pendingExecutionId,
+          workflowId: params.workflowId,
+          input,
+        }),
+    }
+  }
+
   const [row] = await db
-    .select({
-      payload: pendingExecution.payload,
-    })
+    .select({ id: pendingExecution.id })
     .from(pendingExecution)
     .where(
       and(
@@ -104,40 +157,41 @@ export async function createWorkflowExecutionEventWriter(params: {
     input: WorkflowExecutionEventInput
   ): Promise<WorkflowExecutionEventEntry> => {
     const task = writeChain.then(async () => {
-      const [currentRow] = await db
-        .select({ payload: pendingExecution.payload })
-        .from(pendingExecution)
-        .where(
-          and(
-            eq(pendingExecution.id, params.pendingExecutionId),
-            eq(pendingExecution.workflowId, params.workflowId)
-          )
-        )
-        .limit(1)
-
-      if (!currentRow) {
-        throw new Error(`Pending workflow execution ${params.pendingExecutionId} was not found`)
+      const redis = getRedisClient()
+      if (!redis) {
+        if (!canUseMemoryBuffer()) {
+          throw new Error('Workflow execution event buffer is unavailable')
+        }
+        const stream = getMemoryStream(params.pendingExecutionId)
+        const entry = createEventEntry({
+          eventId: stream.nextEventId++,
+          pendingExecutionId: params.pendingExecutionId,
+          workflowId: params.workflowId,
+          input,
+        })
+        stream.events.push(entry)
+        if (stream.events.length > BUFFER_EVENT_LIMIT) {
+          stream.events = stream.events.slice(-BUFFER_EVENT_LIMIT)
+        }
+        touchMemoryStream(stream)
+        return entry
       }
 
-      const { entry } = appendWorkflowExecutionEventToPayload({
-        payload: currentRow.payload,
+      const eventId = await redis.incr(sequenceKey(params.pendingExecutionId))
+      const entry = createEventEntry({
+        eventId,
         pendingExecutionId: params.pendingExecutionId,
         workflowId: params.workflowId,
         input,
       })
-
-      await db
-        .update(pendingExecution)
-        .set({
-          payload: buildExecutionEventPayloadUpdate(entry),
-          updatedAt: new Date(),
-        })
-        .where(
-          and(
-            eq(pendingExecution.id, params.pendingExecutionId),
-            eq(pendingExecution.workflowId, params.workflowId)
-          )
-        )
+      const key = eventsKey(params.pendingExecutionId)
+      await redis
+        .multi()
+        .zadd(key, eventId, JSON.stringify(entry))
+        .expire(key, BUFFER_TTL_SECONDS)
+        .expire(sequenceKey(params.pendingExecutionId), BUFFER_TTL_SECONDS)
+        .zremrangebyrank(key, 0, -BUFFER_EVENT_LIMIT - 1)
+        .exec()
 
       return entry
     })
@@ -160,7 +214,6 @@ export async function readWorkflowExecutionEventState(params: {
   const [row] = await db
     .select({
       status: pendingExecution.status,
-      payload: pendingExecution.payload,
       result: pendingExecution.result,
       errorMessage: pendingExecution.errorMessage,
     })
@@ -175,11 +228,26 @@ export async function readWorkflowExecutionEventState(params: {
 
   if (!row) return null
 
-  const afterEventId = params.afterEventId ?? 0
+  let events: WorkflowExecutionEventEntry[] = []
+  if (params.afterEventId !== undefined) {
+    try {
+      events = await readBufferedEvents({
+        pendingExecutionId: params.pendingExecutionId,
+        afterEventId: params.afterEventId,
+      })
+    } catch (error) {
+      logger.error('Failed to read workflow execution event buffer', {
+        workflowId: params.workflowId,
+        executionId: params.pendingExecutionId,
+        error,
+      })
+    }
+  }
+
   return {
     status: row.status,
     result: row.result,
     errorMessage: row.errorMessage,
-    events: readPayloadEvents(row.payload).filter((entry) => entry.eventId > afterEventId),
+    events,
   }
 }

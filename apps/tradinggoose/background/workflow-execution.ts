@@ -57,6 +57,7 @@ export async function executeWorkflowJob(payload: WorkflowExecutionPayload) {
   const eventWriter = await createWorkflowExecutionEventWriter({
     pendingExecutionId: executionId,
     workflowId,
+    enabled: payload.stream === true,
   })
   const isChildExecution = payload.metadata?.source === 'workflow_block'
   const triggerType = payload.triggerType ?? 'manual'

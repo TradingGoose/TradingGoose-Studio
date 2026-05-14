@@ -17,6 +17,7 @@ const {
   selectLimitMock,
   txExecuteMock,
   updateReturningMock,
+  eventWriteMock,
 } = vi.hoisted(() => ({
   transactionMock: vi.fn(),
   triggerMock: vi.fn(),
@@ -31,6 +32,7 @@ const {
   selectLimitMock: vi.fn(),
   txExecuteMock: vi.fn(),
   updateReturningMock: vi.fn(),
+  eventWriteMock: vi.fn(),
 }))
 
 const txSelectLimitMock = vi.fn()
@@ -110,6 +112,12 @@ vi.mock('@/lib/billing/settings', () => ({
 
 vi.mock('@/lib/execution/execution-concurrency-limit', () => ({
   resolveServerExecutionBillingContext: vi.fn(),
+}))
+
+vi.mock('@/lib/execution/workflow-execution-events', () => ({
+  createWorkflowExecutionEventWriter: vi.fn(async () => ({
+    write: eventWriteMock,
+  })),
 }))
 
 vi.mock('@/lib/trigger/settings', () => ({
@@ -256,6 +264,7 @@ describe('cancelPendingWorkflowExecution', () => {
     updateChain.set.mockReturnThis()
     updateChain.where.mockReturnThis()
     updateReturningMock.mockResolvedValue([])
+    eventWriteMock.mockResolvedValue({ eventId: 1 })
   })
 
   it('returns cancelled only when the pending row update matches', async () => {

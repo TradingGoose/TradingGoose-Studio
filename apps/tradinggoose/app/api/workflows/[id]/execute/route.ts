@@ -6,6 +6,7 @@ import {
   enforceServerExecutionRateLimit,
 } from '@/lib/execution/execution-concurrency-limit'
 import {
+  cancelPendingWorkflowExecution,
   enqueuePendingExecution,
   isPendingExecutionLimitError,
 } from '@/lib/execution/pending-execution'
@@ -304,10 +305,18 @@ async function executeApiWorkflowThroughQueue(params: {
     })
   }
 
-  const waitResult = await waitForApiWorkflowResult({
-    executionId,
-    workflowId: validation.workflow.id,
-  })
+  let waitResult: ExecutionResult
+  try {
+    waitResult = await waitForApiWorkflowResult({
+      executionId,
+      workflowId: validation.workflow.id,
+    })
+  } catch (error) {
+    if (error instanceof ApiWorkflowResultTimeoutError) {
+      await cancelPendingWorkflowExecution({ pendingExecutionId: executionId, userId: apiUserId })
+    }
+    throw error
+  }
   return createApiWorkflowResponse(waitResult)
 }
 

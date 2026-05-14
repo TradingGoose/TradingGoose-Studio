@@ -7,6 +7,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const {
   validateWorkflowAccessMock,
+  cancelPendingWorkflowExecutionMock,
   enqueuePendingExecutionMock,
   enforceServerExecutionRateLimitMock,
   openWorkflowExecutionEventStreamMock,
@@ -17,6 +18,7 @@ const {
   createHttpResponseFromBlockMock,
 } = vi.hoisted(() => ({
   validateWorkflowAccessMock: vi.fn(),
+  cancelPendingWorkflowExecutionMock: vi.fn(),
   enqueuePendingExecutionMock: vi.fn(),
   enforceServerExecutionRateLimitMock: vi.fn(),
   openWorkflowExecutionEventStreamMock: vi.fn(),
@@ -45,6 +47,7 @@ vi.mock('@/lib/execution/execution-concurrency-limit', () => ({
 }))
 
 vi.mock('@/lib/execution/pending-execution', () => ({
+  cancelPendingWorkflowExecution: cancelPendingWorkflowExecutionMock,
   enqueuePendingExecution: enqueuePendingExecutionMock,
   isPendingExecutionLimitError: vi.fn(() => false),
 }))
@@ -155,6 +158,7 @@ describe('/api/workflows/[id]/execute', () => {
       },
     })
     workflowHasResponseBlockMock.mockReturnValue(false)
+    cancelPendingWorkflowExecutionMock.mockResolvedValue({ status: 'cancelling' })
     createHttpResponseFromBlockMock.mockImplementation((result) => {
       const response = result.output.response
       return new Response(JSON.stringify(response.data), {
@@ -304,6 +308,10 @@ describe('/api/workflows/[id]/execute', () => {
       expect(response.status).toBe(504)
       await expect(response.json()).resolves.toMatchObject({
         error: 'Workflow execution did not finish before the API response timeout',
+      })
+      expect(cancelPendingWorkflowExecutionMock).toHaveBeenCalledWith({
+        pendingExecutionId: expect.stringMatching(/^workflow_execution_/),
+        userId: 'user-1',
       })
     } finally {
       vi.useRealTimers()
