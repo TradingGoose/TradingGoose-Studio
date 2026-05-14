@@ -325,6 +325,8 @@ describe('entity document tools', () => {
       }),
       documentFormat: 'tg-skill-document-v1',
     })
+
+    expect(tool.getState()).toBe(ClientToolCallState.review)
     await tool.handleAccept()
 
     expect(tool.getState()).toBe(ClientToolCallState.success)
@@ -662,6 +664,7 @@ describe('entity document tools', () => {
       documentFormat: 'tg-skill-document-v1',
     })
 
+    expect(tool.getState()).toBe(ClientToolCallState.review)
     await tool.handleAccept()
 
     expect(tool.getState()).toBe(ClientToolCallState.success)

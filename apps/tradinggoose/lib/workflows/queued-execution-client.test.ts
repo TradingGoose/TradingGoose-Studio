@@ -50,6 +50,7 @@ describe('runQueuedWorkflowExecution', () => {
         input: {},
         triggerType: 'manual',
         executionTarget: 'live',
+        stream: true,
         signal: abortController.signal,
       })
     ).rejects.toThrow()
@@ -61,6 +62,52 @@ describe('runQueuedWorkflowExecution', () => {
       expect.objectContaining({
         method: 'DELETE',
       })
+    )
+  })
+
+  it('polls job status for non-stream queued executions', async () => {
+    const fetchMock = vi.fn(async (url: string | URL | Request) => {
+      const requestUrl = url.toString()
+
+      if (requestUrl === '/api/workflows/workflow-1/queue') {
+        return Response.json({
+          success: true,
+          taskId: 'execution-1',
+          executionId: 'execution-1',
+        })
+      }
+
+      if (requestUrl === '/api/jobs/execution-1') {
+        return Response.json({
+          success: true,
+          status: 'completed',
+          output: {
+            success: true,
+            output: { value: 42 },
+          },
+        })
+      }
+
+      throw new Error(`Unexpected fetch ${requestUrl}`)
+    })
+    global.fetch = fetchMock as unknown as typeof fetch
+
+    await expect(
+      runQueuedWorkflowExecution({
+        workflowId: 'workflow-1',
+        executionId: 'execution-1',
+        input: {},
+        triggerType: 'manual',
+        executionTarget: 'live',
+      })
+    ).resolves.toMatchObject({
+      success: true,
+      output: { value: 42 },
+    })
+
+    expect(fetchMock).not.toHaveBeenCalledWith(
+      '/api/workflows/workflow-1/executions/execution-1/stream?from=0',
+      expect.anything()
     )
   })
 })

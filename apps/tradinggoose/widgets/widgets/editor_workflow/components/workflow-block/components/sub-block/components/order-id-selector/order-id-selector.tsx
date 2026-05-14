@@ -223,6 +223,11 @@ export function OrderIdSelectorInput({
                   setSelectedOrder(null)
                 }
 
+                if (isOrderUuid(nextTrimmed)) {
+                  setOrderIdValue(nextTrimmed)
+                  return
+                }
+
                 const currentTrimmed = currentValue.trim()
                 if (currentTrimmed && !equalsIgnoreCase(currentTrimmed, nextTrimmed)) {
                   setOrderIdValue(null)

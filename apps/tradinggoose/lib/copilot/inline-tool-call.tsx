@@ -2,18 +2,11 @@
 
 import { useRef, useState } from 'react'
 import { Loader2 } from 'lucide-react'
-import { GoogleDriveIcon } from '@/components/icons/icons'
 import { Button } from '@/components/ui/button'
+import { DiffViewer } from '@/components/ui/diff-viewer'
 import { type CopilotAccessLevel, shouldRequireToolApproval } from '@/lib/copilot/access-policy'
-import {
-  buildEntityReviewDiffLines,
-  buildEntityReviewDiffPayload,
-} from '@/lib/copilot/entity-review-diff'
-import { useEntitySession } from '@/lib/copilot/review-sessions/entity-session-host'
 import { ClientToolCallState } from '@/lib/copilot/tools/client/base-tool'
 import { getClientTool } from '@/lib/copilot/tools/client/manager'
-import { cn } from '@/lib/utils'
-import { getEntityFields } from '@/lib/yjs/entity-session'
 import { useCopilotStore } from '@/stores/copilot/store'
 import {
   getCopilotToolMetadata,
@@ -32,6 +25,13 @@ type WorkflowReviewPayload = {
   removedBlocksCount: number
   addedEdgesCount: number
   removedEdgesCount: number
+}
+type EntityReviewPayload = {
+  title: string
+  documentDiff: {
+    before: string
+    after: string
+  }
 }
 
 interface InlineToolCallProps {
@@ -185,7 +185,7 @@ function ShimmerOverlayText({
   )
 }
 
-function shouldShowRunSkipButtons(
+function shouldShowToolActionButtons(
   toolCall: CopilotToolCall,
   accessLevel: CopilotAccessLevel
 ): boolean {
@@ -195,7 +195,7 @@ function shouldShowRunSkipButtons(
 
   const hasInterrupt = !!getToolInterruptDisplays(toolCall.name, toolCall.id)
 
-  if (hasInterrupt && toolCall.state === 'review') {
+  if (hasInterrupt && toolCall.state === ClientToolCallState.review) {
     return true
   }
 
@@ -205,14 +205,52 @@ function shouldShowRunSkipButtons(
   )
 }
 
-function getEntityDiffLineClasses(type: 'context' | 'removed' | 'added'): string {
-  switch (type) {
-    case 'added':
-      return 'bg-green-50/80 text-green-700 dark:bg-green-950/20 dark:text-green-300'
-    case 'removed':
-      return 'bg-red-50/80 text-red-700 dark:bg-red-950/20 dark:text-red-300'
-    default:
-      return 'bg-muted/30 text-muted-foreground'
+function isEntityMutationTool(toolName: string): boolean {
+  return (
+    toolName === 'create_skill' ||
+    toolName === 'edit_skill' ||
+    toolName === 'rename_skill' ||
+    toolName === 'create_custom_tool' ||
+    toolName === 'edit_custom_tool' ||
+    toolName === 'rename_custom_tool' ||
+    toolName === 'create_indicator' ||
+    toolName === 'edit_indicator' ||
+    toolName === 'rename_indicator' ||
+    toolName === 'create_mcp_server' ||
+    toolName === 'edit_mcp_server' ||
+    toolName === 'rename_mcp_server'
+  )
+}
+
+function readEntityReviewPayload(toolCall: CopilotToolCall): EntityReviewPayload | null {
+  if (!isEntityMutationTool(toolCall.name) || toolCall.state !== ClientToolCallState.review) {
+    return null
+  }
+
+  const result = toolCall.result && typeof toolCall.result === 'object' ? toolCall.result : null
+  const documentDiff = result?.preview?.documentDiff
+  if (
+    !documentDiff ||
+    typeof documentDiff.before !== 'string' ||
+    typeof documentDiff.after !== 'string' ||
+    documentDiff.before === documentDiff.after
+  ) {
+    return null
+  }
+
+  const entityLabel =
+    result?.entityKind === 'custom_tool'
+      ? 'Custom Tool'
+      : result?.entityKind === 'mcp_server'
+        ? 'MCP Server'
+        : result?.entityKind === 'indicator'
+          ? 'Indicator'
+          : result?.entityKind === 'skill'
+            ? 'Skill'
+            : 'Entity'
+  return {
+    title: `Proposed ${entityLabel} Changes`,
+    documentDiff,
   }
 }
 
@@ -281,7 +319,7 @@ function getDisplayName(toolCall: CopilotToolCall): string {
   return toolCall.name
 }
 
-function RunSkipButtons({
+function ToolActionButtons({
   toolCall,
   onStateChange,
 }: {
@@ -292,13 +330,13 @@ function RunSkipButtons({
   const actionInProgressRef = useRef(false)
   const { executeCopilotToolCall, skipCopilotToolCall } = useCopilotStore()
   const interruptDisplays = getToolInterruptDisplays(toolCall.name, toolCall.id)
-  const isReview = toolCall.state === 'review'
+  const isReview = toolCall.state === ClientToolCallState.review
   const acceptText = interruptDisplays?.accept?.text ?? (isReview ? 'Accept' : 'Allow')
   const rejectText = interruptDisplays?.reject?.text ?? (isReview ? 'Reject' : 'Skip')
   const AcceptIcon = interruptDisplays?.accept?.icon
   const RejectIcon = interruptDisplays?.reject?.icon
 
-  const onRun = async () => {
+  const onAccept = async () => {
     if (actionInProgressRef.current) return
     actionInProgressRef.current = true
     setIsProcessing(true)
@@ -311,78 +349,9 @@ function RunSkipButtons({
     }
   }
 
-  if (toolCall.name === 'gdrive_request_access' && toolCall.state === 'pending') {
-    return (
-      <div className='flex items-center gap-2'>
-        <Button
-          onClick={async () => {
-            await executeCopilotToolCall(toolCall.id)
-          }}
-          size='sm'
-          title='Grant Google Drive access'
-        >
-          <GoogleDriveIcon className='mr-0.5 h-4 w-4' />
-          Select
-        </Button>
-        <Button
-          onClick={async () => {
-            await skipCopilotToolCall(toolCall.id)
-            onStateChange?.('rejected')
-          }}
-          size='sm'
-          variant='outline'
-        >
-          Skip
-        </Button>
-      </div>
-    )
-  }
-
-  if (isReview) {
-    return (
-      <div className='flex items-center gap-1.5'>
-        <Button
-          onClick={async () => {
-            if (actionInProgressRef.current) return
-            actionInProgressRef.current = true
-            setIsProcessing(true)
-            try {
-              onStateChange?.('executing')
-              await executeCopilotToolCall(toolCall.id)
-            } finally {
-              setIsProcessing(false)
-              actionInProgressRef.current = false
-            }
-          }}
-          disabled={isProcessing}
-          size='sm'
-        >
-          {isProcessing ? (
-            <Loader2 className='mr-1 h-3 w-3 animate-spin' />
-          ) : AcceptIcon ? (
-            <AcceptIcon className='mr-1 h-3 w-3' />
-          ) : null}
-          {acceptText}
-        </Button>
-        <Button
-          onClick={async () => {
-            await skipCopilotToolCall(toolCall.id)
-            onStateChange?.('rejected')
-          }}
-          disabled={isProcessing}
-          size='sm'
-          variant='outline'
-        >
-          {RejectIcon ? <RejectIcon className='mr-1 h-3 w-3' /> : null}
-          {rejectText}
-        </Button>
-      </div>
-    )
-  }
-
   return (
     <div className='flex items-center gap-1.5'>
-      <Button onClick={onRun} disabled={isProcessing} size='sm'>
+      <Button onClick={onAccept} disabled={isProcessing} size='sm'>
         {isProcessing ? (
           <Loader2 className='mr-1 h-3 w-3 animate-spin' />
         ) : AcceptIcon ? (
@@ -392,6 +361,7 @@ function RunSkipButtons({
       </Button>
       <Button
         onClick={async () => {
+          if (actionInProgressRef.current) return
           await skipCopilotToolCall(toolCall.id)
           onStateChange?.('rejected')
         }}
@@ -432,12 +402,11 @@ export function InlineToolCall({
     toolName === 'set_workflow_variables'
 
   const accessLevel = useCopilotStore((s) => s.accessLevel)
-  const entitySession = useEntitySession()
 
   // Guard: nothing to render without a toolCall
   if (!toolCall) return null
 
-  const showButtons = shouldShowRunSkipButtons(toolCall, accessLevel)
+  const showButtons = shouldShowToolActionButtons(toolCall, accessLevel)
   const showMoveToBackground =
     toolCall.name === 'run_workflow' &&
     (toolCall.state === (ClientToolCallState.executing as any) ||
@@ -450,15 +419,9 @@ export function InlineToolCall({
 
   const displayName = getDisplayName(toolCall)
   const params = (toolCall as any).parameters || (toolCall as any).input || toolCall.params || {}
+  const entityReviewPayload = readEntityReviewPayload(toolCall)
   const workflowReviewPayload = readWorkflowReviewPayload(toolCall)
   const showWorkflowReview = workflowReviewPayload && toolCall.state === ClientToolCallState.review
-  const entityReviewDiffPayload =
-    entitySession.doc && entitySession.descriptor
-      ? buildEntityReviewDiffPayload(
-          toolCall,
-          getEntityFields(entitySession.doc, entitySession.descriptor.entityKind)
-        )
-      : null
 
   const renderPendingDetails = () => {
     if (toolCall.name === 'make_api_request') {
@@ -654,7 +617,7 @@ export function InlineToolCall({
           <ShimmerOverlayText text={displayName} active={isLoadingState} className='text-sm' />
         </div>
         {showButtons ? (
-          <RunSkipButtons toolCall={toolCall} onStateChange={handleStateChange} />
+          <ToolActionButtons toolCall={toolCall} onStateChange={handleStateChange} />
         ) : showMoveToBackground ? (
           <Button
             // Intentionally minimal wiring per requirements
@@ -681,36 +644,20 @@ export function InlineToolCall({
         ) : null}
       </div>
       {isExpandableTool && expanded && <div className='pr-1 pl-5'>{renderPendingDetails()}</div>}
-      {entityReviewDiffPayload ? (
+      {entityReviewPayload ? (
         <div className='pr-1 pl-5'>
-          <div className='flex flex-col gap-3 rounded-md border border-orange-200/70 bg-card/60 p-3 dark:border-orange-900/50'>
+          <div className='flex flex-col gap-3 rounded-md border border-border/60 bg-card/60 p-3'>
             <div className='font-medium text-[11px] text-muted-foreground uppercase tracking-wide'>
-              {entityReviewDiffPayload.title}
+              {entityReviewPayload.title}
             </div>
-
-            {entityReviewDiffPayload.sections.map((section) => (
-              <div key={section.key} className='flex flex-col gap-1.5'>
-                <div className='font-medium text-[11px] text-muted-foreground uppercase tracking-wide'>
-                  {section.label}
-                </div>
-                <div className='overflow-hidden rounded-md border border-border/60 bg-background/70'>
-                  {buildEntityReviewDiffLines(section.before, section.after).map((line, index) => (
-                    <div
-                      key={`${section.key}-${line.type}-${index}`}
-                      className={cn(
-                        'grid grid-cols-[10px_1fr] gap-2 px-2 py-1 font-mono text-[11px] leading-5',
-                        getEntityDiffLineClasses(line.type)
-                      )}
-                    >
-                      <span className='select-none'>
-                        {line.type === 'added' ? '+' : line.type === 'removed' ? '-' : ' '}
-                      </span>
-                      <span className='whitespace-pre-wrap break-words'>{line.text || ' '}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ))}
+            <DiffViewer
+              oldFile={{ name: 'Current', content: entityReviewPayload.documentDiff.before }}
+              newFile={{ name: 'Proposed', content: entityReviewPayload.documentDiff.after }}
+              viewMode='unified'
+              showIcon={false}
+              size='sm'
+              className='rounded-md border-border/60 bg-background/70'
+            />
           </div>
         </div>
       ) : null}

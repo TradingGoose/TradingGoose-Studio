@@ -695,6 +695,14 @@ const McpServerDocumentEnvelope = EntityDocumentEnvelopeBase.extend({
 const EditEntityDocumentResultBase = z.object({
   success: z.boolean(),
   reviewSessionId: z.string().optional(),
+  preview: z
+    .object({
+      documentDiff: z.object({
+        before: z.string(),
+        after: z.string(),
+      }),
+    })
+    .optional(),
 })
 
 const WorkflowMutationResult = WorkflowTargetEnvelope.extend({

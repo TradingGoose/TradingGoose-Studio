@@ -24,9 +24,18 @@ type QueueResponse = {
   error?: string
 }
 
+type JobStatusResponse = {
+  success?: boolean
+  status?: string
+  output?: unknown
+  error?: string
+}
+
 export type QueuedWorkflowExecutionCallbacks = {
   onEvent?: (event: WorkflowExecutionEvent) => void | Promise<void>
 }
+
+const JOB_STATUS_POLL_INTERVAL_MS = 1000
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
@@ -39,6 +48,28 @@ async function readError(response: Response, defaultMessage: string) {
     if (typeof payload.message === 'string') return payload.message
   }
   return defaultMessage
+}
+
+function abortError() {
+  const error = new Error('Aborted')
+  error.name = 'AbortError'
+  return error
+}
+
+function waitForJobPollInterval(signal?: AbortSignal) {
+  if (signal?.aborted) return Promise.reject(abortError())
+
+  return new Promise<void>((resolve, reject) => {
+    const onAbort = () => {
+      globalThis.clearTimeout(timeout)
+      reject(abortError())
+    }
+    const timeout = globalThis.setTimeout(() => {
+      signal?.removeEventListener('abort', onAbort)
+      resolve()
+    }, JOB_STATUS_POLL_INTERVAL_MS)
+    signal?.addEventListener('abort', onAbort, { once: true })
+  })
 }
 
 export async function queueWorkflowExecution(
@@ -88,6 +119,41 @@ export async function cancelQueuedWorkflowExecution(taskId: string): Promise<voi
     throw new Error(
       await readError(response, `Failed to cancel workflow execution: ${response.status}`)
     )
+  }
+}
+
+async function readQueuedWorkflowExecutionJob(params: {
+  taskId: string
+  signal?: AbortSignal
+}): Promise<ExecutionResult> {
+  while (true) {
+    const response = await fetch(`/api/jobs/${params.taskId}`, {
+      signal: params.signal,
+      cache: 'no-store',
+    })
+
+    if (!response.ok) {
+      throw new Error(
+        await readError(response, `Failed to read workflow execution job: ${response.status}`)
+      )
+    }
+
+    const payload = (await response.json().catch(() => null)) as JobStatusResponse | null
+    if (payload?.status === 'completed') {
+      if (isExecutionResult(payload.output)) return payload.output
+      throw new Error('Workflow execution job completed without a final result')
+    }
+
+    if (payload?.status === 'failed') {
+      return {
+        success: false,
+        output: {},
+        error: payload.error || 'Workflow execution failed',
+        logs: [],
+      }
+    }
+
+    await waitForJobPollInterval(params.signal)
   }
 }
 
@@ -186,11 +252,18 @@ export async function runQueuedWorkflowExecution(
   }
 
   try {
-    return await readQueuedWorkflowExecutionStream({
-      workflowId: request.workflowId,
-      executionId,
+    if (request.stream === true) {
+      return await readQueuedWorkflowExecutionStream({
+        workflowId: request.workflowId,
+        executionId,
+        signal: request.signal,
+        callbacks,
+      })
+    }
+
+    return await readQueuedWorkflowExecutionJob({
+      taskId: queued.taskId,
       signal: request.signal,
-      callbacks,
     })
   } finally {
     request.signal?.removeEventListener('abort', cancelQueuedExecution)

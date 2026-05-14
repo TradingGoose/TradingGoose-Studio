@@ -89,7 +89,7 @@ describe('pair-store linked context', () => {
     })
   })
 
-  it('keeps only one active editable entity id in linked color context', () => {
+  it('preserves independent linked entity ids in color context', () => {
     const { setContext } = usePairColorStore.getState()
 
     setContext('blue', {
@@ -103,6 +103,7 @@ describe('pair-store linked context', () => {
 
     expect(usePairColorStore.getState().contexts.blue).toEqual({
       workflowId: 'workflow-a',
+      skillId: 'skill-a',
       indicatorId: 'indicator-a',
     })
   })
@@ -131,6 +132,7 @@ describe('pair-store linked context', () => {
 
     expect(context).toEqual({
       workflowId: 'workflow-a',
+      skillId: 'skill-a',
       indicatorId: 'indicator-b',
     })
     expect(context.channelId).toBeUndefined()

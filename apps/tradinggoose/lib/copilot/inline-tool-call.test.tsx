@@ -19,23 +19,6 @@ const mockUseCopilotStoreState = {
   toolCallsById: {},
 }
 
-const mockEntitySession = {
-  doc: null as any,
-  provider: null,
-  awareness: null,
-  descriptor: null as any,
-  runtime: null,
-  undoManager: null,
-  canUndo: false,
-  canRedo: false,
-  undo: vi.fn(),
-  redo: vi.fn(),
-  isSynced: false,
-  isLoading: false,
-  error: null,
-}
-
-const mockGetEntityFields = vi.fn()
 const mockGetToolInterruptDisplays = vi.fn()
 
 vi.mock('@/components/ui/button', () => ({
@@ -52,14 +35,6 @@ vi.mock('@/stores/copilot/tool-registry', () => ({
   getToolInterruptDisplays: (...args: any[]) => mockGetToolInterruptDisplays(...args),
   isCopilotTool: () => true,
   isGatedTool: (name: string) => name !== 'edit_workflow' && name !== 'edit_workflow_block',
-}))
-
-vi.mock('@/lib/copilot/review-sessions/entity-session-host', () => ({
-  useEntitySession: () => mockEntitySession,
-}))
-
-vi.mock('@/lib/yjs/entity-session', () => ({
-  getEntityFields: (...args: any[]) => mockGetEntityFields(...args),
 }))
 
 vi.mock('@/lib/copilot/tools/client/manager', () => ({
@@ -81,9 +56,6 @@ describe('InlineToolCall', () => {
 
   beforeEach(() => {
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = true
-    mockEntitySession.doc = null
-    mockEntitySession.descriptor = null
-    mockGetEntityFields.mockReset()
     mockGetToolInterruptDisplays.mockReset()
     mockUseCopilotStoreState.executeCopilotToolCall.mockReset()
     mockUseCopilotStoreState.skipCopilotToolCall.mockReset()
@@ -325,15 +297,10 @@ describe('InlineToolCall', () => {
     expect(container.textContent).not.toContain('Allow')
   })
 
-  it('renders entity diffs in the copilot widget for pending entity edits', async () => {
-    mockEntitySession.doc = { id: 'entity-doc' }
-    mockEntitySession.descriptor = {
-      entityKind: 'skill',
-    }
-    mockGetEntityFields.mockReturnValue({
-      name: 'Original skill',
-      description: 'Original description',
-      content: 'Original instructions',
+  it('renders entity review diffs from staged tool results', async () => {
+    mockGetToolInterruptDisplays.mockReturnValue({
+      accept: { text: 'Accept changes' },
+      reject: { text: 'Reject changes' },
     })
 
     await act(async () => {
@@ -342,13 +309,32 @@ describe('InlineToolCall', () => {
           toolCall={{
             id: 'tool-skill-review',
             name: 'edit_skill',
-            state: ClientToolCallState.pending,
-            params: {
-              entityDocument: JSON.stringify({
-                name: 'Updated skill',
-                description: 'Original description',
-                content: 'Updated instructions',
-              }),
+            state: ClientToolCallState.review,
+            result: {
+              entityKind: 'skill',
+              entityName: 'Updated skill',
+              preview: {
+                documentDiff: {
+                  before: JSON.stringify(
+                    {
+                      name: 'Original skill',
+                      description: 'Original description',
+                      content: 'Original instructions',
+                    },
+                    null,
+                    2
+                  ),
+                  after: JSON.stringify(
+                    {
+                      name: 'Updated skill',
+                      description: 'Original description',
+                      content: 'Updated instructions',
+                    },
+                    null,
+                    2
+                  ),
+                },
+              },
             },
           }}
         />
@@ -360,5 +346,8 @@ describe('InlineToolCall', () => {
     expect(container.textContent).toContain('Updated skill')
     expect(container.textContent).toContain('Original instructions')
     expect(container.textContent).toContain('Updated instructions')
+    expect(container.textContent).toContain('Accept changes')
+    expect(container.textContent).toContain('Reject changes')
   })
+
 })

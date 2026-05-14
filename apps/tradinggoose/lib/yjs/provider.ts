@@ -127,7 +127,7 @@ export async function bootstrapYjsProvider(
   const token = await fetchSocketToken()
 
   const provider = new WebsocketProvider(serverUrl, resolvedDescriptor.yjsSessionId, doc, {
-    params: { token, ...envelopeParams },
+    params: { token, accessMode, ...envelopeParams },
     connect: true,
   })
 
@@ -147,6 +147,7 @@ export async function bootstrapYjsProvider(
         const nextToken = await fetchSocketToken()
         currentProvider.params = {
           token: nextToken,
+          accessMode,
           ...envelopeParams,
         }
         currentProvider.connect()

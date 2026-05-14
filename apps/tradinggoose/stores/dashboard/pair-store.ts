@@ -33,24 +33,6 @@ const emptyContexts = PAIR_COLORS.reduce<Record<PairColor, PairColorContext>>(
   {} as Record<PairColor, PairColorContext>
 )
 
-const EDITABLE_ENTITY_KEYS = ['skillId', 'customToolId', 'indicatorId', 'mcpServerId'] as const
-type EditableEntityKey = (typeof EDITABLE_ENTITY_KEYS)[number]
-
-function getActiveEditableEntityKey(ctx: PairColorContextSource): EditableEntityKey | null {
-  if (!ctx || typeof ctx !== 'object' || Array.isArray(ctx)) {
-    return null
-  }
-
-  let activeKey: EditableEntityKey | null = null
-  for (const key of EDITABLE_ENTITY_KEYS) {
-    if (key in ctx) {
-      activeKey = key
-    }
-  }
-
-  return activeKey
-}
-
 function sanitizePairColorContext(ctx: PairColorContextSource): PairColorContext {
   if (!ctx || typeof ctx !== 'object' || Array.isArray(ctx)) {
     return {}
@@ -88,15 +70,6 @@ function sanitizePairColorContext(ctx: PairColorContextSource): PairColorContext
 
   if (skillId) {
     next.skillId = skillId
-  }
-
-  const activeEditableEntityKey = getActiveEditableEntityKey(ctx)
-  if (activeEditableEntityKey) {
-    for (const key of EDITABLE_ENTITY_KEYS) {
-      if (key !== activeEditableEntityKey) {
-        delete next[key]
-      }
-    }
   }
 
   return next

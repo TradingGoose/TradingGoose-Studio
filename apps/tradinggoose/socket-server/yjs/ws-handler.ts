@@ -5,6 +5,7 @@ import {
   buildReviewTargetDescriptorFromEnvelope,
 } from '@/lib/copilot/review-sessions/identity'
 import { verifyReviewTargetAccess } from '@/lib/copilot/review-sessions/permissions'
+import type { ReviewAccessMode } from '@/lib/copilot/review-sessions/types'
 import { createLogger } from '@/lib/logs/console/logger'
 import {
   getRuntimeStateFromDoc,
@@ -66,6 +67,7 @@ async function authenticateAndPrepareUpgrade(
   pathSessionId: string,
   url: URL
 ): Promise<{ userId: string; resolvedSessionId: string }> {
+  const accessMode = parseAccessMode(url)
   const { userId, envelope } = await authenticateYjsConnection(url)
 
   if (envelope.sessionId !== pathSessionId) {
@@ -84,7 +86,7 @@ async function authenticateAndPrepareUpgrade(
       workspaceId: descriptor.workspaceId,
       yjsSessionId: descriptor.yjsSessionId,
     },
-    'write'
+    accessMode
   )
 
   if (!access.hasAccess) {
@@ -113,6 +115,15 @@ async function authenticateAndPrepareUpgrade(
     userId,
     resolvedSessionId: pathSessionId,
   }
+}
+
+function parseAccessMode(url: URL): ReviewAccessMode {
+  const accessMode = url.searchParams.get('accessMode')
+  if (accessMode !== 'read' && accessMode !== 'write') {
+    throw new YjsAuthError(409, 'Invalid or missing access mode')
+  }
+
+  return accessMode
 }
 
 function ensureConnectionHandler(wss: WebSocketServer): void {

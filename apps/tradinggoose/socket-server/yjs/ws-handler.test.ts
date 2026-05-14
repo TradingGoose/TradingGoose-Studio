@@ -34,9 +34,9 @@ class MockYjsAuthError extends Error {
   }
 }
 
-function createRequest(sessionId: string): IncomingMessage {
+function createRequest(sessionId: string, accessMode: 'read' | 'write' = 'write'): IncomingMessage {
   return {
-    url: `/yjs/${encodeURIComponent(sessionId)}?token=test-token&targetKind=workflow&sessionId=${encodeURIComponent(sessionId)}&workflowId=${encodeURIComponent(sessionId)}&entityKind=workflow&entityId=${encodeURIComponent(sessionId)}`,
+    url: `/yjs/${encodeURIComponent(sessionId)}?token=test-token&accessMode=${accessMode}&targetKind=workflow&sessionId=${encodeURIComponent(sessionId)}&workflowId=${encodeURIComponent(sessionId)}&entityKind=workflow&entityId=${encodeURIComponent(sessionId)}`,
     headers: { host: 'localhost:3000' },
   } as IncomingMessage
 }
@@ -232,6 +232,47 @@ describe('handleYjsUpgrade', () => {
       request,
       expect.objectContaining({ docId: sessionId, gc: true })
     )
+    expect(socket.write).not.toHaveBeenCalled()
+    expect(socket.destroy).not.toHaveBeenCalled()
+  })
+
+  it('allows websocket upgrades for read access', async () => {
+    const sessionId = 'workflow-read'
+    const request = createRequest(sessionId, 'read')
+    const socket = createSocket()
+    const wss = createWebSocketServer()
+
+    mockAuthenticateYjsConnection.mockResolvedValue({
+      userId: 'user-read',
+      userName: 'User Read',
+      envelope: {
+        targetKind: 'workflow',
+        sessionId,
+        workflowId: sessionId,
+        reviewSessionId: null,
+        workspaceId: 'workspace-read',
+        entityKind: 'workflow',
+        entityId: sessionId,
+        draftSessionId: null,
+      },
+    })
+
+    mockVerifyReviewTargetAccess.mockResolvedValue({
+      hasAccess: true,
+      userPermission: 'read',
+      workspaceId: 'workspace-read',
+      isOwner: false,
+    })
+    mockGetExistingDocument.mockResolvedValue(null)
+    mockGetState.mockResolvedValue(Y.encodeStateAsUpdate(new Y.Doc()))
+
+    const { handleYjsUpgrade } = await loadModule()
+    handleYjsUpgrade(wss, request, socket, Buffer.alloc(0))
+    await new Promise((resolve) => setImmediate(resolve))
+
+    expect(mockVerifyReviewTargetAccess).toHaveBeenCalledTimes(1)
+    expect(mockVerifyReviewTargetAccess.mock.calls[0]?.[2]).toBe('read')
+    expect(wss.handleUpgrade).toHaveBeenCalledTimes(1)
     expect(socket.write).not.toHaveBeenCalled()
     expect(socket.destroy).not.toHaveBeenCalled()
   })

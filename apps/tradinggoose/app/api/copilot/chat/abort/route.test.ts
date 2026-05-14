@@ -65,7 +65,7 @@ describe('copilot chat abort route', () => {
     mockLoadReviewSessionForUser.mockResolvedValue({
       id: 'review-session-1',
       entityKind: 'copilot',
-      conversationId: 'conversation-1',
+      conversationId: null,
       workspaceId: 'workspace-1',
     })
     const { POST } = await import('./route')

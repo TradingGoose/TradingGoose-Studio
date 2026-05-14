@@ -114,7 +114,6 @@ describe('RunWorkflowClientTool channel-safe workflow scoping', () => {
     expect(mockExecuteWorkflowWithFullLogging).toHaveBeenCalledWith({
       workflowInput: { symbol: 'AAPL' },
       executionId: toolCallId,
-      triggerType: 'chat',
       workflowId: 'wf-explicit-target',
     })
     expect(tool.getState()).toBe(ClientToolCallState.success)

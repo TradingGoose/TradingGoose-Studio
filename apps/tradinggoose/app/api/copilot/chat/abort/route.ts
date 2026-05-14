@@ -44,7 +44,7 @@ async function loadAbortSession(parsed: AbortTurnRequest, userId: string) {
     return null
   }
 
-  if (conversationId && session.conversationId !== conversationId) {
+  if (conversationId && session.conversationId && session.conversationId !== conversationId) {
     return null
   }
 
@@ -52,7 +52,10 @@ async function loadAbortSession(parsed: AbortTurnRequest, userId: string) {
     return null
   }
 
-  return session
+  return {
+    session,
+    conversationId: conversationId ?? session.conversationId ?? null,
+  }
 }
 
 export async function POST(req: NextRequest) {
@@ -67,17 +70,18 @@ export async function POST(req: NextRequest) {
       return createBadRequestResponse('chatId or conversationId is required')
     }
 
-    const session = await loadAbortSession(parsed, userId)
-    if (!session) {
+    const abortSession = await loadAbortSession(parsed, userId)
+    if (!abortSession) {
       return createNotFoundResponse('Copilot chat not found or unauthorized')
     }
 
+    const { session, conversationId } = abortSession
     const response = await proxyCopilotRequest({
       endpoint: '/api/tools/abort-turn',
       signal: req.signal,
       body: {
         chatId: session.id,
-        conversationId: session.conversationId ?? undefined,
+        conversationId: conversationId ?? undefined,
         userId,
         workspaceId: session.workspaceId ?? undefined,
       },

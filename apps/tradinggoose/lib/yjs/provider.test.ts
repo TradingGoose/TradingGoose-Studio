@@ -232,6 +232,8 @@ describe('bootstrapYjsProvider', () => {
     const result = await bootstrapYjsProvider(descriptor, 'read', 'ws://localhost:3002')
     const provider = result.provider as unknown as MockWebsocketProvider
 
+    expect(provider.params.accessMode).toBe('read')
+
     provider.emit('connection-close', null, provider)
     await Promise.resolve()
 
@@ -242,6 +244,7 @@ describe('bootstrapYjsProvider', () => {
 
     expect(provider.connect).toHaveBeenCalledTimes(2)
     expect(provider.params.token).toBe('token-2')
+    expect(provider.params.accessMode).toBe('read')
 
     consoleErrorSpy.mockRestore()
   })
@@ -276,6 +279,7 @@ describe('bootstrapYjsProvider', () => {
 
     const result = await bootstrapPromise
     expect(result.provider).toBe(providerInstances[0])
+    expect(providerInstances[0].params.accessMode).toBe('write')
   })
 
 })
