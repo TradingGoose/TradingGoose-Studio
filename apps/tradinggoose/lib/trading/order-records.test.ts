@@ -217,6 +217,22 @@ describe('order record utils', () => {
     expect(mocks.or).toHaveBeenCalled()
   })
 
+  it('maps canonical order filter buckets to provider record values', async () => {
+    const { buildOrderWhereCondition } = await import('./order-records')
+
+    buildOrderWhereCondition('workspace-1', {
+      status: 'open',
+      timeInForce: 'extended_hours',
+    })
+
+    expect(mocks.eq).toHaveBeenCalledWith(expect.any(Object), 'new')
+    expect(mocks.eq).toHaveBeenCalledWith(expect.any(Object), 'submitted')
+    expect(mocks.eq).toHaveBeenCalledWith(expect.any(Object), 'open')
+    expect(mocks.eq).toHaveBeenCalledWith(expect.any(Object), 'pre')
+    expect(mocks.eq).toHaveBeenCalledWith(expect.any(Object), 'post')
+    expect(mocks.or).toHaveBeenCalled()
+  })
+
   it('casts order record ids to text before search matching', async () => {
     const { buildOrderWhereCondition } = await import('./order-records')
 

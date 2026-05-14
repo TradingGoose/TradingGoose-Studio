@@ -21,6 +21,9 @@ export const buildOrderRoutePayload = (params: TradingOrderRoutePayloadParams) =
   const workspaceId = params._context?.workspaceId
   const submissionSource = params._context?.submissionSource
   const toolExecutionId = params._context?.toolExecutionId
+  if (submissionSource && !toolExecutionId) {
+    throw new Error('Trading order submission requires tool execution identity')
+  }
   const payload = {
     workspaceId,
     portfolioIdentity: params.portfolioIdentity,
@@ -29,15 +32,12 @@ export const buildOrderRoutePayload = (params: TradingOrderRoutePayloadParams) =
     quantity: useNotional ? undefined : toOptionalNumber(params.quantity),
     notional: useNotional ? toOptionalNumber(params.notional) : undefined,
     orderSizingMode,
-    orderMethod: params.orderMethod,
     orderType: params.orderType,
     timeInForce: params.timeInForce,
     limitPrice: toOptionalNumber(params.limitPrice),
     stopPrice: toOptionalNumber(params.stopPrice),
     trailPrice: toOptionalNumber(params.trailPrice),
     trailPercent: toOptionalNumber(params.trailPercent),
-    optionSymbol: params.optionSymbol,
-    legs: params.legs,
     preview: params.preview,
     submissionSource,
     logId: params._context?.workflowLogId,
@@ -111,12 +111,6 @@ export const tradingActionTool: ToolConfig<TradingActionParams, TradingActionRes
       visibility: 'user-or-llm',
       description: 'Order type selected from trading provider capabilities.',
     },
-    orderMethod: {
-      type: 'string',
-      required: false,
-      visibility: 'user-or-llm',
-      description: 'Provider-supported order method selected from trading capabilities.',
-    },
     timeInForce: {
       type: 'string',
       required: false,
@@ -146,18 +140,6 @@ export const tradingActionTool: ToolConfig<TradingActionParams, TradingActionRes
       required: false,
       visibility: 'user-or-llm',
       description: 'Trailing percent offset when supported by the selected order type.',
-    },
-    optionSymbol: {
-      type: 'string',
-      required: false,
-      visibility: 'user-or-llm',
-      description: 'Option contract symbol for option order methods.',
-    },
-    legs: {
-      type: 'array',
-      required: false,
-      visibility: 'user-or-llm',
-      description: 'Multileg option order legs.',
     },
     preview: {
       type: 'boolean',

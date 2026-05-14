@@ -3,6 +3,7 @@ import type { ListingResolved } from '@/lib/listing/identity'
 import {
   getStrictTradingOrderTypeDefinitions,
   getTradingOrderSizingModeDefinitions,
+  getTradingOrderTypeFilterValues,
   getTradingOrderTypeOptions,
   resolveTradingOrderSizingMode,
 } from '@/providers/trading/order-types'
@@ -55,13 +56,14 @@ describe('trading order type helpers', () => {
     ])
   })
 
-  it('filters Tradier order types by selected order method', () => {
-    expect(
-      getStrictTradingOrderTypeDefinitions('tradier', {
-        listing: stockListing,
-        orderMethod: 'multileg',
-      }).map((definition) => definition.id)
-    ).toEqual(['market', 'debit', 'credit', 'even'])
+  it('derives canonical record filter values from supported trading capabilities', () => {
+    expect(getTradingOrderTypeFilterValues()).toEqual([
+      'market',
+      'limit',
+      'stop',
+      'stop_limit',
+      'trailing_stop',
+    ])
   })
 
   it('does not expose order options when a provider cannot trade the listing', () => {

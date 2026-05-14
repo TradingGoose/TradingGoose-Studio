@@ -761,48 +761,6 @@ describe('Trading provider order route', () => {
       })
     )
   })
-
-  it('passes canonical Tradier option order fields through the route', async () => {
-    mockFetch.mockResolvedValueOnce(
-      jsonResponse({
-        order: {
-          id: 'tradier-option-order-1',
-          status: 'submitted',
-          symbol: 'AAPL',
-          side: 'buy',
-        },
-      })
-    )
-
-    const { POST } = await import('@/app/api/providers/trading/order/route')
-    const response = await POST(
-      createProviderOrderRequest('tradier', {
-        orderMethod: 'option',
-        orderType: 'limit',
-        limitPrice: 1.23,
-        optionSymbol: 'AAPL260117C00100000',
-        preview: true,
-      })
-    )
-
-    expect(response.status).toBe(200)
-    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit]
-    expect(String(init.body)).toContain('class=option')
-    expect(String(init.body)).toContain('type=limit')
-    expect(String(init.body)).toContain('price=1.23')
-    expect(String(init.body)).toContain('option_symbol=AAPL260117C00100000')
-    expect(String(init.body)).toContain('preview=true')
-    expect(mockRecordOrderHistory).toHaveBeenCalledWith(
-      expect.objectContaining({
-        request: expect.objectContaining({
-          orderMethod: 'option',
-          optionSymbol: 'AAPL260117C00100000',
-          preview: true,
-        }),
-      })
-    )
-  })
-
   it('preserves listing enrichment fields in provider builders', async () => {
     const { POST } = await import('@/app/api/providers/trading/order/route')
     const response = await POST(

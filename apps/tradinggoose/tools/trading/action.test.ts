@@ -103,6 +103,18 @@ describe('tradingActionTool canonical order route payload', () => {
     expect(first.idempotencyKey).not.toBe(second.idempotencyKey)
   })
 
+  it('requires a tool execution identity for sourced order submissions', () => {
+    expect(() =>
+      buildBody({
+        quantity: 1,
+        _context: {
+          submissionSource: 'workflow',
+          workspaceId: 'workspace-1',
+        },
+      })
+    ).toThrow('Trading order submission requires tool execution identity')
+  })
+
   it('keys copilot orders by tool call identity', () => {
     const body = buildBody({
       quantity: 1,

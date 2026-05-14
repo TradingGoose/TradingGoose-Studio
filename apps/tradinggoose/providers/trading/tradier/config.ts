@@ -19,55 +19,27 @@ export const tradierTradingProviderConfig: TradingProviderConfig = {
   availability,
   capabilities: {
     order: {
-      orderMethods: [
-        { id: 'equity', label: 'Equity' },
-        { id: 'option', label: 'Option', requires: ['optionSymbol'] },
-        { id: 'multileg', label: 'Multileg', requires: ['legs'] },
-        { id: 'combo', label: 'Combo', requires: ['legs'] },
-      ],
       sizingModes: [{ id: 'quantity', label: 'Quantity' }],
       preview: true,
       orderTypes: [
         {
           id: 'market',
           label: 'Market',
-          orderMethods: ['equity', 'option', 'multileg', 'combo'],
         },
         {
           id: 'limit',
           label: 'Limit',
-          orderMethods: ['equity', 'option'],
           requires: ['limitPrice'],
         },
         {
           id: 'stop',
           label: 'Stop',
-          orderMethods: ['equity', 'option'],
           requires: ['stopPrice'],
         },
         {
           id: 'stop_limit',
           label: 'Stop Limit',
-          orderMethods: ['equity', 'option'],
           requires: ['limitPrice', 'stopPrice'],
-        },
-        {
-          id: 'debit',
-          label: 'Debit',
-          orderMethods: ['multileg', 'combo'],
-          requires: ['limitPrice'],
-        },
-        {
-          id: 'credit',
-          label: 'Credit',
-          orderMethods: ['multileg', 'combo'],
-          requires: ['limitPrice'],
-        },
-        {
-          id: 'even',
-          label: 'Even',
-          orderMethods: ['multileg', 'combo'],
-          requires: ['limitPrice'],
         },
       ],
       timeInForce: ['day', 'gtc', 'pre', 'post'],

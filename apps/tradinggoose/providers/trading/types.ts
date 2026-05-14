@@ -14,9 +14,6 @@ export type TradingOrderType =
   | 'stop'
   | 'stop_limit'
   | 'trailing_stop'
-  | 'debit'
-  | 'credit'
-  | 'even'
 
 export type TradingOrderSizingMode = 'quantity' | 'notional'
 
@@ -51,9 +48,6 @@ export interface TradingOrderInput extends TradingSymbolInput {
   stopPrice?: number
   trailPrice?: number
   trailPercent?: number
-  orderMethod?: string
-  optionSymbol?: string
-  legs?: Array<Record<string, any>>
   preview?: boolean
   environment?: 'paper' | 'live'
   accessToken?: string
@@ -165,7 +159,6 @@ export type UnifiedTradingOrderType =
   | 'TrailingStop'
   | 'MarketOnOpen'
   | 'MarketOnClose'
-  | 'OptionExercise'
   | 'Other'
 
 export type UnifiedTradingOrderStatus =

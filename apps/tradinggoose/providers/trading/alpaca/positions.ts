@@ -20,15 +20,16 @@ export const mapAlpacaPositionSide = (value: unknown): UnifiedTradingPosition['s
   return 'unknown'
 }
 
-export const mapAlpacaAssetClass = (value: unknown): UnifiedTradingSymbol['assetClass'] => {
+export const mapAlpacaAssetClass = (
+  value: unknown
+): UnifiedTradingSymbol['assetClass'] | null => {
   switch (value) {
     case 'crypto':
       return 'crypto'
     case 'us_equity':
-    case 'us_option':
       return 'stock'
     default:
-      return 'stock'
+      return null
   }
 }
 
@@ -50,8 +51,9 @@ export const getAlpacaCurrencySymbol = (currency?: string) => {
 export const normalizeAlpacaPositions = (positions: unknown): UnifiedTradingPosition[] => {
   const list = Array.isArray(positions) ? positions : []
 
-  return list.map((position: any) => {
+  return list.flatMap((position: any) => {
     const assetClass = mapAlpacaAssetClass(position?.asset_class)
+    if (!assetClass) return []
     const symbolValue = typeof position?.symbol === 'string' ? position.symbol : undefined
     const resolvedSymbol = tradingSymbolToListingIdentity(alpacaTradingProviderConfig, {
       symbol: symbolValue,
@@ -68,29 +70,31 @@ export const normalizeAlpacaPositions = (positions: unknown): UnifiedTradingPosi
     const unrealizedPnlPercent = toFiniteNumber(position?.unrealized_plpc)
     const conversionRate = quote === ALPACA_DEFAULT_BASE_CURRENCY ? 1 : undefined
 
-    return {
-      symbol: {
-        base,
-        quote,
-        listing: resolvedSymbol?.listing,
-        name: null,
-        assetClass: symbolAssetClass,
-        active: true,
-        rank: 0,
+    return [
+      {
+        symbol: {
+          base,
+          quote,
+          listing: resolvedSymbol?.listing,
+          name: null,
+          assetClass: symbolAssetClass,
+          active: true,
+          rank: 0,
+        },
+        quantity,
+        side,
+        averagePrice: toFiniteNumber(position?.avg_entry_price),
+        marketPrice: toFiniteNumber(position?.current_price),
+        marketValue,
+        currencySymbol: getAlpacaCurrencySymbol(quote),
+        conversionRate,
+        unrealizedPnl: toFiniteNumber(position?.unrealized_pl),
+        unrealizedPnlPercent:
+          typeof unrealizedPnlPercent === 'number' ? unrealizedPnlPercent * 100 : undefined,
+        costBasis: toFiniteNumber(position?.cost_basis),
+        multiplier: 1,
       },
-      quantity,
-      side,
-      averagePrice: toFiniteNumber(position?.avg_entry_price),
-      marketPrice: toFiniteNumber(position?.current_price),
-      marketValue,
-      currencySymbol: getAlpacaCurrencySymbol(quote),
-      conversionRate,
-      unrealizedPnl: toFiniteNumber(position?.unrealized_pl),
-      unrealizedPnlPercent:
-        typeof unrealizedPnlPercent === 'number' ? unrealizedPnlPercent * 100 : undefined,
-      costBasis: toFiniteNumber(position?.cost_basis),
-      multiplier: 1,
-    }
+    ]
   })
 }
 

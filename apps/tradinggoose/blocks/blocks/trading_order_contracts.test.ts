@@ -40,7 +40,7 @@ describe('trading order block contracts', () => {
   it('invalidates order type options when the selected listing changes', () => {
     const orderType = TradingActionBlock.subBlocks.find((subBlock) => subBlock.id === 'orderType')
 
-    expect(orderType?.dependsOn).toEqual(['provider', 'listing', 'orderMethod'])
+    expect(orderType?.dependsOn).toEqual(['provider', 'listing'])
   })
 
   it('declares canonical sizing controls directly on the order block', () => {

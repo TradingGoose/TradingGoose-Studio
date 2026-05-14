@@ -1,3 +1,5 @@
+import { getTradingOrderTypeFilterValues } from '@/providers/trading/order-types'
+
 export const ORDER_SORT_BY_VALUES = [
   'recordedAt',
   'submittedAt',
@@ -18,32 +20,23 @@ export const ORDER_ENVIRONMENT_FILTER_VALUES = ['', 'paper', 'live'] as const
 export const ORDER_SUBMISSION_SOURCE_FILTER_VALUES = ['', 'manual', 'copilot', 'workflow'] as const
 export const ORDER_STATUS_FILTER_VALUES = [
   '',
-  'new',
-  'submitted',
+  'open',
   'partially_filled',
   'filled',
   'canceled',
-  'invalid',
   'expired',
   'rejected',
+  'failed',
 ] as const
 export const ORDER_SIDE_FILTER_VALUES = ['', 'buy', 'sell'] as const
-export const ORDER_TYPE_FILTER_VALUES = [
-  '',
-  'market',
-  'limit',
-  'stop',
-  'stop_limit',
-  'trailing_stop',
-] as const
+export const ORDER_TYPE_FILTER_VALUES = ['', ...getTradingOrderTypeFilterValues()] as const
 export const ORDER_TIME_IN_FORCE_FILTER_VALUES = [
   '',
   'day',
   'gtc',
   'ioc',
   'fok',
-  'pre',
-  'post',
+  'extended_hours',
 ] as const
 export const ORDER_LINKED_LOG_FILTER_VALUES = ['', 'true', 'false'] as const
 
@@ -73,6 +66,51 @@ export type OrdersFilterState = {
   startDate: string
   endDate: string
 }
+
+const ORDER_STATUS_RECORD_VALUES: Record<Exclude<OrderStatusFilter, ''>, readonly string[]> = {
+  open: [
+    'new',
+    'pending',
+    'pending_new',
+    'submitted',
+    'accepted',
+    'pending_review',
+    'accepted_for_bidding',
+    'stopped',
+    'suspended',
+    'calculated',
+    'pending_replace',
+    'replaced',
+    'pending_cancel',
+    'done_for_day',
+    'open',
+  ],
+  partially_filled: ['partially_filled', 'partial'],
+  filled: ['filled', 'complete', 'completed', 'executed'],
+  canceled: ['canceled', 'cancelled'],
+  expired: ['expired'],
+  rejected: ['rejected', 'invalid'],
+  failed: ['failed'],
+}
+
+const ORDER_TIME_IN_FORCE_RECORD_VALUES: Record<
+  Exclude<OrderTimeInForceFilter, ''>,
+  readonly string[]
+> = {
+  day: ['day'],
+  gtc: ['gtc'],
+  ioc: ['ioc'],
+  fok: ['fok'],
+  extended_hours: ['pre', 'post'],
+}
+
+export const getOrderStatusRecordValues = (
+  status: Exclude<OrderStatusFilter, ''>
+): readonly string[] => ORDER_STATUS_RECORD_VALUES[status]
+
+export const getOrderTimeInForceRecordValues = (
+  timeInForce: Exclude<OrderTimeInForceFilter, ''>
+): readonly string[] => ORDER_TIME_IN_FORCE_RECORD_VALUES[timeInForce]
 
 export const DEFAULT_ORDERS_FILTER_STATE: OrdersFilterState = {
   orderSearch: '',
@@ -140,12 +178,6 @@ export function normalizeOrderStatusFilterValue(value: unknown): OrderStatusFilt
   return (ORDER_STATUS_FILTER_VALUES as readonly string[]).includes(normalized)
     ? (normalized as OrderStatusFilter)
     : ''
-}
-
-export function normalizeOrderTokenFilterValue(value: unknown) {
-  return normalizeToken(value)
-    .replace(/([a-z0-9])([A-Z])/g, '$1_$2')
-    .replace(/[\s-]+/g, '_')
 }
 
 export const normalizeOrderSideFilterValue = (value: unknown): OrderSideFilter =>

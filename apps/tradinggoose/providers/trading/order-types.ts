@@ -1,6 +1,5 @@
 import type { ListingInputValue } from '@/lib/listing/identity'
 import type {
-  TradingOrderMethodDefinition,
   TradingOrderSizingModeDefinition,
   TradingOrderTypeDefinition,
   TradingOrderTypeRequirement,
@@ -8,6 +7,7 @@ import type {
 import {
   getTradingOrderCapabilities,
   getTradingProviderDefinition,
+  getTradingProviders,
 } from '@/providers/trading/providers'
 import type { TradingOrderSizingMode, TradingProviderId } from '@/providers/trading/types'
 import { resolveTradingListingAssetClass } from '@/providers/trading/utils'
@@ -16,7 +16,6 @@ export function getStrictTradingOrderTypeDefinitions(
   providerId?: TradingProviderId,
   context: {
     listing?: ListingInputValue
-    orderMethod?: string
   } = {}
 ): TradingOrderTypeDefinition[] {
   if (!providerId) return []
@@ -35,14 +34,9 @@ export function getStrictTradingOrderTypeDefinitions(
   ) {
     return []
   }
-  const orderMethod = resolveTradingOrderMethod(providerId, context)
-
   return definitions.filter((definition) => {
     if (assetClass && definition.assetClasses?.length) {
       if (!definition.assetClasses.includes(assetClass)) return false
-    }
-    if (orderMethod && definition.orderMethods?.length) {
-      if (!definition.orderMethods.includes(orderMethod)) return false
     }
     return true
   })
@@ -53,59 +47,6 @@ export const tradingOrderTypeUsesField = (
   field: TradingOrderTypeRequirement
 ): boolean =>
   Boolean(definition?.requires?.includes(field) || definition?.requiresOneOf?.includes(field))
-
-export function getTradingOrderMethodDefinitions(
-  providerId?: TradingProviderId,
-  context: { listing?: ListingInputValue } = {}
-): TradingOrderMethodDefinition[] {
-  if (!providerId) return []
-
-  const definitions = getTradingOrderCapabilities(providerId)?.orderMethods ?? []
-  if (!definitions.length) return []
-
-  const assetClass = resolveTradingListingAssetClass(context.listing)
-  return definitions.filter((definition) => {
-    if (assetClass && definition.assetClasses?.length) {
-      return definition.assetClasses.includes(assetClass)
-    }
-    return true
-  })
-}
-
-export function resolveTradingOrderMethod(
-  providerId?: TradingProviderId,
-  context: {
-    listing?: ListingInputValue
-    orderMethod?: string
-  } = {}
-): string | undefined {
-  if (!providerId) return undefined
-
-  const definitions = getTradingOrderMethodDefinitions(providerId, context)
-  if (!definitions.length) return undefined
-
-  const requested = context.orderMethod?.trim()
-  if (requested) {
-    return definitions.some((definition) => definition.id === requested) ? requested : undefined
-  }
-
-  const defaultMethod = getTradingProviderDefinition(providerId)?.defaults?.orderMethod
-  return definitions.find((definition) => definition.id === defaultMethod)?.id ?? definitions[0]?.id
-}
-
-export function getTradingOrderMethodDefinition(
-  providerId?: TradingProviderId,
-  context: {
-    listing?: ListingInputValue
-    orderMethod?: string
-  } = {}
-): TradingOrderMethodDefinition | undefined {
-  const orderMethod = resolveTradingOrderMethod(providerId, context)
-  if (!orderMethod) return undefined
-  return getTradingOrderMethodDefinitions(providerId, context).find(
-    (definition) => definition.id === orderMethod
-  )
-}
 
 export function getTradingOrderSizingModeDefinitions(
   providerId?: TradingProviderId
@@ -167,7 +108,6 @@ export function resolveTradingOrderTypeDefinition(
   providerId?: TradingProviderId,
   context: {
     listing?: ListingInputValue
-    orderMethod?: string
     orderType?: string
   } = {}
 ): TradingOrderTypeDefinition | undefined {
@@ -185,7 +125,6 @@ export function getTradingOrderTypeOptions(
   providerId?: TradingProviderId,
   context: {
     listing?: ListingInputValue
-    orderMethod?: string
   } = {}
 ): Array<{ id: string; label: string }> {
   const resultSource = getStrictTradingOrderTypeDefinitions(providerId, context)
@@ -202,4 +141,16 @@ export function getTradingOrderTypeOptions(
     })
     return acc
   }, [])
+}
+
+export function getTradingOrderTypeFilterValues(): string[] {
+  const seen = new Set<string>()
+
+  return getTradingProviders().flatMap((provider) =>
+    (provider.config.capabilities?.order?.orderTypes ?? []).flatMap((definition) => {
+      if (seen.has(definition.id)) return []
+      seen.add(definition.id)
+      return [definition.id]
+    })
+  )
 }

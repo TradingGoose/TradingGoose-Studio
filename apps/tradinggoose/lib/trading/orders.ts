@@ -26,9 +26,7 @@ import { executeTradingProviderRequest, getTradingProviderAdapter } from '@/prov
 import { resolveTradingListingIdentity } from '@/providers/trading/listing-resolution'
 import {
   getStrictTradingOrderTypeDefinitions,
-  getTradingOrderMethodDefinition,
   getTradingOrderSizingModeDefinition,
-  resolveTradingOrderMethod,
   resolveTradingOrderSizingMode,
   resolveTradingOrderTimeInForce,
   resolveTradingOrderTypeDefinition,
@@ -70,7 +68,6 @@ const resolveOrderType = (
 ): TradingOrderTypeDefinition => {
   const strictDefinitions = getStrictTradingOrderTypeDefinitions(providerId, {
     listing,
-    orderMethod: data.orderMethod,
   })
   if (!strictDefinitions.length) {
     throw new TradingServiceError('No supported order types for listing')
@@ -78,7 +75,6 @@ const resolveOrderType = (
 
   const definition = resolveTradingOrderTypeDefinition(providerId, {
     listing,
-    orderMethod: data.orderMethod,
     orderType: data.orderType,
   })
   if (!definition && data.orderType?.trim()) {
@@ -137,28 +133,6 @@ const validateOrderSizing = (
   return sizingMode
 }
 
-const validateOrderMethodFields = (providerId: string, data: TradingOrderSubmitRequest) => {
-  const orderMethodDefinition = getTradingOrderMethodDefinition(providerId, {
-    listing: data.listing,
-    orderMethod: data.orderMethod,
-  })
-  const requiredFields = new Set(orderMethodDefinition?.requires ?? [])
-  if (data.optionSymbol?.trim() && !requiredFields.has('optionSymbol')) {
-    throw new TradingServiceError('optionSymbol is not supported for selected order method')
-  }
-  if (Array.isArray(data.legs) && data.legs.length > 0 && !requiredFields.has('legs')) {
-    throw new TradingServiceError('legs is not supported for selected order method')
-  }
-  for (const field of orderMethodDefinition?.requires ?? []) {
-    if (field === 'optionSymbol' && !data.optionSymbol?.trim()) {
-      throw new TradingServiceError('optionSymbol is required')
-    }
-    if (field === 'legs' && (!Array.isArray(data.legs) || data.legs.length === 0)) {
-      throw new TradingServiceError('legs is required')
-    }
-  }
-}
-
 const validateOrderFields = (
   providerId: string,
   data: TradingOrderSubmitRequest,
@@ -167,7 +141,6 @@ const validateOrderFields = (
   timeInForce: string
 ): TradingOrderSubmitRequest['orderSizingMode'] => {
   const orderSizingMode = validateOrderSizing(providerId, data, orderType, timeInForce)
-  validateOrderMethodFields(providerId, data)
   if (data.preview && !getTradingOrderCapabilities(providerId)?.preview) {
     throw new TradingServiceError('Order preview is not supported for provider')
   }
@@ -302,9 +275,6 @@ const buildOrderRequest = ({
     trailPercent: tradingOrderTypeUsesField(orderTypeDefinition, 'trailPercent')
       ? data.trailPercent
       : undefined,
-    orderMethod: data.orderMethod,
-    optionSymbol: data.optionSymbol,
-    legs: data.legs,
     preview: data.preview,
   })
 }
@@ -409,23 +379,11 @@ export async function submitTradingOrder({
     throw new TradingServiceError('Unsupported listing for provider')
   }
 
-  const orderMethod = resolveTradingOrderMethod(baseContext.providerId, {
-    listing: resolvedListing,
-    orderMethod: requestData.orderMethod,
-  })
-  if (requestData.orderMethod && !orderMethod) {
-    throw new TradingServiceError('Unsupported order method')
-  }
-  const orderRequestData = orderMethod ? { ...requestData, orderMethod } : requestData
-  const orderTypeDefinition = resolveOrderType(
-    baseContext.providerId,
-    orderRequestData,
-    resolvedListing
-  )
-  const timeInForce = resolveTimeInForce(baseContext.providerId, orderRequestData.timeInForce)
+  const orderTypeDefinition = resolveOrderType(baseContext.providerId, requestData, resolvedListing)
+  const timeInForce = resolveTimeInForce(baseContext.providerId, requestData.timeInForce)
   const orderSizingMode = validateOrderFields(
     baseContext.providerId,
-    orderRequestData,
+    requestData,
     orderTypeDefinition.id as TradingOrderType,
     orderTypeDefinition,
     timeInForce
@@ -442,19 +400,16 @@ export async function submitTradingOrder({
     accountId: accountContext.accountId,
     clientOrderId,
     side: requestData.side,
-    orderMethod: orderRequestData.orderMethod,
     orderType: orderTypeDefinition.id,
     timeInForce,
-    quantity: orderSizingMode === 'notional' ? undefined : orderRequestData.quantity,
-    notional: orderSizingMode === 'notional' ? orderRequestData.notional : undefined,
-    limitPrice: orderRequestData.limitPrice,
-    stopPrice: orderRequestData.stopPrice,
-    trailPrice: orderRequestData.trailPrice,
-    trailPercent: orderRequestData.trailPercent,
+    quantity: orderSizingMode === 'notional' ? undefined : requestData.quantity,
+    notional: orderSizingMode === 'notional' ? requestData.notional : undefined,
+    limitPrice: requestData.limitPrice,
+    stopPrice: requestData.stopPrice,
+    trailPrice: requestData.trailPrice,
+    trailPercent: requestData.trailPercent,
     orderSizingMode,
-    optionSymbol: orderRequestData.optionSymbol,
-    legs: orderRequestData.legs,
-    preview: orderRequestData.preview,
+    preview: requestData.preview,
   })
   return tradingOrderIdempotency.executeWithIdempotency(
     baseContext.providerId,
@@ -480,7 +435,7 @@ export async function submitTradingOrder({
       try {
         const providerRequest = buildOrderRequest({
           providerId: baseContext.providerId,
-          data: orderRequestData,
+          data: requestData,
           listing: resolvedListing,
           accountId: accountContext.accountId,
           clientOrderId,

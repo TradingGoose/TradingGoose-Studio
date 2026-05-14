@@ -23,9 +23,6 @@ export interface TradingOrderSubmitRequest {
   stopPrice?: number
   trailPrice?: number
   trailPercent?: number
-  orderMethod?: string
-  optionSymbol?: string
-  legs?: Array<Record<string, unknown>>
   preview?: boolean
   idempotencyKey: string
   submissionSource?: TradingOrderSubmissionSource

@@ -60,29 +60,6 @@ describe('Tradier order request builder', () => {
     expect(request.body).toContain('price=123.45')
     expect(request.body).toContain('tag=client-order-1')
   })
-
-  it('passes canonical option order fields through the form body', () => {
-    const request = buildTradierOrderRequest({
-      listing: stockListing,
-      side: 'buy',
-      quantity: 1,
-      accountId: 'ACC-1',
-      accessToken: 'token',
-      orderType: 'debit',
-      orderMethod: 'multileg',
-      preview: true,
-      legs: [
-        { side: 'buy_to_open', quantity: 1, optionSymbol: 'AAPL260117C00100000' },
-        { side: 'sell_to_open', quantity: 1, optionSymbol: 'AAPL260117C00110000' },
-      ],
-    })
-
-    expect(request.body).toContain('class=multileg')
-    expect(request.body).toContain('type=debit')
-    expect(request.body).toContain('preview=true')
-    expect(request.body).toContain('side%5B0%5D=buy_to_open')
-    expect(request.body).toContain('option_symbol%5B1%5D=AAPL260117C00110000')
-  })
 })
 
 describe('Tradier order detail request builder', () => {

@@ -30,7 +30,6 @@ export interface TradingProviderAvailability {
 }
 
 export interface TradingOrderInputCapabilities {
-  orderMethods?: TradingOrderMethodDefinition[]
   orderTypes?: TradingOrderTypeDefinition[]
   sizingModes?: TradingOrderSizingModeDefinition[]
   timeInForce?: string[]
@@ -47,20 +46,11 @@ export interface TradingProviderCapabilities {
 }
 
 export type TradingOrderTypeRequirement = 'limitPrice' | 'stopPrice' | 'trailPrice' | 'trailPercent'
-export type TradingOrderMethodRequirement = 'optionSymbol' | 'legs'
-
-export interface TradingOrderMethodDefinition {
-  id: string
-  label: string
-  assetClasses?: AssetClass[]
-  requires?: TradingOrderMethodRequirement[]
-}
 
 export interface TradingOrderTypeDefinition {
   id: string
   label: string
   assetClasses?: AssetClass[]
-  orderMethods?: string[]
   requires?: TradingOrderTypeRequirement[]
   requiresOneOf?: TradingOrderTypeRequirement[]
   excludes?: TradingOrderTypeRequirement[]
@@ -126,7 +116,6 @@ export interface TradingProviderDefinition {
     description?: string
   }>
   defaults?: {
-    orderMethod?: string
     orderSizingMode?: TradingOrderSizingMode
     orderType?: string
     timeInForce?: string
@@ -172,7 +161,6 @@ export const TRADING_PROVIDER_DEFINITIONS: Record<string, TradingProviderDefinit
       credentialPlaceholder: 'Select or connect Tradier connection',
     },
     defaults: {
-      orderMethod: 'equity',
       orderSizingMode: 'quantity',
       orderType: 'market',
       timeInForce: 'day',

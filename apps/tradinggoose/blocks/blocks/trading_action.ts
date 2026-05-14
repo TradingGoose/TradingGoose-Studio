@@ -8,16 +8,12 @@ import {
   requiredUserOnlyInput,
 } from '@/blocks/utils'
 import {
-  getTradingOrderMethodDefinitions,
   getTradingOrderSizingModeDefinitions,
   getTradingOrderTimeInForceOptions,
   getTradingOrderTypeOptions,
   tradingOrderTypeUsesField,
 } from '@/providers/trading/order-types'
-import type {
-  TradingOrderMethodRequirement,
-  TradingOrderTypeRequirement,
-} from '@/providers/trading/providers'
+import type { TradingOrderTypeRequirement } from '@/providers/trading/providers'
 import {
   getTradingOrderCapabilities,
   getTradingProviderOptionsByKind,
@@ -60,9 +56,6 @@ const conditionFor = (
     : condition
 }
 
-const orderMethodProviderIds = providerIdsWith(
-  (provider) => (getTradingOrderCapabilities(provider.id)?.orderMethods ?? []).length > 0
-)
 const sizingModeProviderIds = providerIdsWith(
   (provider) => (getTradingOrderCapabilities(provider.id)?.sizingModes ?? []).length > 1
 )
@@ -98,29 +91,10 @@ const orderTypeCapability = (field: TradingOrderTypeRequirement) => {
   return conditionFor('orderType', values, providerIds)
 }
 
-const orderMethodCapability = (field: TradingOrderMethodRequirement) => {
-  const providerIds = providerIdsWith((provider) =>
-    (getTradingOrderCapabilities(provider.id)?.orderMethods ?? []).some((definition) =>
-      definition.requires?.includes(field)
-    )
-  )
-  const values = Array.from(
-    new Set(
-      orderProviders.flatMap((provider) =>
-        (getTradingOrderCapabilities(provider.id)?.orderMethods ?? [])
-          .filter((definition) => definition.requires?.includes(field))
-          .map((definition) => definition.id)
-      )
-    )
-  )
-  return conditionFor('orderMethod', values, providerIds)
-}
-
 const quantityConditionBase = conditionFor('orderSizingMode', ['notional'], quantityProviderIds)
 const quantityCondition = quantityConditionBase
   ? { ...quantityConditionBase, not: true }
   : undefined
-const orderMethodCondition = conditionFor('provider', orderMethodProviderIds)
 const sizingModeCondition = conditionFor('provider', sizingModeProviderIds)
 const notionalCondition = conditionFor('orderSizingMode', ['notional'], notionalProviderIds)
 const previewCondition = conditionFor('provider', previewProviderIds)
@@ -128,8 +102,6 @@ const limitPriceCondition = orderTypeCapability('limitPrice')
 const stopPriceCondition = orderTypeCapability('stopPrice')
 const trailPriceCondition = orderTypeCapability('trailPrice')
 const trailPercentCondition = orderTypeCapability('trailPercent')
-const optionSymbolCondition = orderMethodCapability('optionSymbol')
-const legsCondition = orderMethodCapability('legs')
 
 export const TradingActionBlock: BlockConfig<TradingActionResponse> = {
   type: 'trading_action',
@@ -216,54 +188,19 @@ export const TradingActionBlock: BlockConfig<TradingActionResponse> = {
       condition: notionalCondition,
     },
     {
-      id: 'orderMethod',
-      title: 'Order Method',
-      type: 'dropdown',
-      layout: 'half',
-      condition: orderMethodCondition,
-      dependsOn: ['provider', 'listing'],
-      fetchOptions: async (_blockId, _subBlockId, context) => {
-        const contextValues = context.contextValues as Record<string, unknown> | undefined
-        const providerId = resolveContextValue(contextValues, 'provider')
-        const listing = contextValues?.listing as ListingInputValue | undefined
-        return getTradingOrderMethodDefinitions(providerId, { listing }).map((definition) => ({
-          id: definition.id,
-          label: definition.label,
-        }))
-      },
-    },
-    {
       id: 'orderType',
       title: 'Order Type',
       type: 'dropdown',
       layout: 'half',
       required: true,
       value: () => 'market',
-      dependsOn: ['provider', 'listing', 'orderMethod'],
+      dependsOn: ['provider', 'listing'],
       fetchOptions: async (_blockId, _subBlockId, context) => {
         const contextValues = context.contextValues as Record<string, unknown> | undefined
         const providerId = resolveContextValue(contextValues, 'provider')
         const listing = contextValues?.listing as ListingInputValue | undefined
-        const orderMethod = resolveContextValue(contextValues, 'orderMethod')
-        return getTradingOrderTypeOptions(providerId, { listing, orderMethod })
+        return getTradingOrderTypeOptions(providerId, { listing })
       },
-    },
-    {
-      id: 'optionSymbol',
-      title: 'Option Symbol',
-      type: 'short-input',
-      layout: 'full',
-      placeholder: 'AAPL260117C00100000',
-      condition: optionSymbolCondition,
-    },
-    {
-      id: 'legs',
-      title: 'Order Legs',
-      type: 'code',
-      layout: 'full',
-      language: 'json',
-      placeholder: '[{"side":"buy_to_open","quantity":1,"optionSymbol":"AAPL260117C00100000"}]',
-      condition: legsCondition,
     },
     {
       id: 'preview',

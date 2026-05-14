@@ -8,8 +8,12 @@ import {
 } from '@/lib/listing/identity'
 import { resolveListingIdentity } from '@/lib/listing/resolve'
 import {
+  getOrderStatusRecordValues,
+  getOrderTimeInForceRecordValues,
   normalizeOrderDateFilterValue,
   normalizeOrdersFilterState,
+  type OrderStatusFilter,
+  type OrderTimeInForceFilter,
   type OrdersFilterState,
 } from '@/lib/records/order-filters'
 
@@ -466,11 +470,35 @@ const orderTypeExpr = () =>
     sql`${orderHistoryTable.response}->'raw'->'order'->>'order_type'`
   )
 
+const mappedTextFilterCondition = (
+  expression: SQL,
+  filterValue: string,
+  recordValues: readonly string[]
+) => {
+  const [firstCondition, ...otherConditions] = (
+    recordValues.length ? recordValues : [filterValue]
+  ).map((recordValue) => eq(expression, recordValue))
+  if (!firstCondition) return eq(expression, filterValue)
+  return otherConditions.length
+    ? (or(firstCondition, ...otherConditions) ?? firstCondition)
+    : firstCondition
+}
+
+const orderStatusFilterCondition = (status: Exclude<OrderStatusFilter, ''>) =>
+  mappedTextFilterCondition(orderStatusExpr(), status, getOrderStatusRecordValues(status))
+
 const timeInForceExpr = () =>
   normalizedText(
     sql`${orderHistoryTable.request}->>'timeInForce'`,
     sql`${orderHistoryTable.response}->'raw'->>'time_in_force'`,
     sql`${orderHistoryTable.response}->'raw'->'order'->>'time_in_force'`
+  )
+
+const timeInForceFilterCondition = (timeInForce: Exclude<OrderTimeInForceFilter, ''>) =>
+  mappedTextFilterCondition(
+    timeInForceExpr(),
+    timeInForce,
+    getOrderTimeInForceRecordValues(timeInForce)
   )
 
 const listingExpr = () =>
@@ -574,10 +602,11 @@ export function buildOrderWhereCondition(
   if (normalized.submissionSource) {
     conditions.push(eq(orderHistoryTable.submissionSource, normalized.submissionSource))
   }
-  if (normalized.status) conditions.push(eq(orderStatusExpr(), normalized.status))
+  if (normalized.status) conditions.push(orderStatusFilterCondition(normalized.status))
   if (normalized.side) conditions.push(eq(orderSideExpr(), normalized.side))
   if (normalized.orderType) conditions.push(eq(orderTypeExpr(), normalized.orderType))
-  if (normalized.timeInForce) conditions.push(eq(timeInForceExpr(), normalized.timeInForce))
+  if (normalized.timeInForce)
+    conditions.push(timeInForceFilterCondition(normalized.timeInForce))
 
   if (normalized.orderSearch) {
     const search = `%${normalized.orderSearch}%`
