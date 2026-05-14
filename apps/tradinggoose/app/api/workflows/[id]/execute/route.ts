@@ -52,6 +52,8 @@ class ApiWorkflowResultTimeoutError extends Error {
   }
 }
 
+class ApiWorkflowResultFailedError extends Error {}
+
 async function waitForApiWorkflowResult(params: {
   executionId: string
   workflowId: string
@@ -75,7 +77,7 @@ async function waitForApiWorkflowResult(params: {
     }
 
     if (state.status === 'failed') {
-      throw new Error(state.errorMessage || 'Workflow execution failed')
+      throw new ApiWorkflowResultFailedError(state.errorMessage || 'Workflow execution failed')
     }
 
     await sleep(API_EXECUTION_POLL_INTERVAL_MS)
@@ -374,6 +376,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     if (error instanceof ApiWorkflowResultTimeoutError) {
       return createErrorResponse(error.message, 504)
+    }
+
+    if (error instanceof ApiWorkflowResultFailedError) {
+      return createErrorResponse(error.message, 500)
     }
 
     logger.error(`[${requestId}] Failed to execute workflow`, {

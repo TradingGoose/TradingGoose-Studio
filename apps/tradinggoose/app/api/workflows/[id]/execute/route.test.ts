@@ -318,6 +318,32 @@ describe('/api/workflows/[id]/execute', () => {
     }
   })
 
+  it('returns queued workflow failure messages for non-stream API executions', async () => {
+    readWorkflowExecutionEventStateMock.mockResolvedValue({
+      status: 'failed',
+      errorMessage: 'Missing required symbol input',
+      events: [],
+      result: null,
+    })
+
+    const { POST } = await import('./route')
+    const response = await POST(
+      new NextRequest('https://example.com/api/workflows/workflow-1/execute', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-API-Key': 'key-1',
+        },
+      }),
+      { params: Promise.resolve({ id: 'workflow-1' }) }
+    )
+
+    expect(response.status).toBe(500)
+    await expect(response.json()).resolves.toMatchObject({
+      error: 'Missing required symbol input',
+    })
+  })
+
   it('accepts empty POST bodies for API triggers without input fields', async () => {
     const { POST } = await import('./route')
     const response = await POST(
