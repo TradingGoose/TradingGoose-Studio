@@ -101,6 +101,29 @@ export async function applyWorkflowStateInSocketServer(
   )
 }
 
+export async function applyEntityStateInSocketServer(
+  entityId: string,
+  entityKind: string,
+  fields: Record<string, unknown>
+): Promise<void> {
+  const url = new URL(
+    `/internal/yjs/entities/${encodeURIComponent(entityId)}/apply-state`,
+    getSocketServerUrl()
+  )
+
+  await fetchFromSocketServer(
+    url,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ entityKind, fields }),
+    },
+    10000
+  )
+}
+
 export async function deleteYjsSessionInSocketServer(sessionId: string): Promise<void> {
   const url = new URL(
     `/internal/yjs/sessions/${encodeURIComponent(sessionId)}`,

@@ -94,7 +94,7 @@ vi.mock('@/lib/copilot/tools/server/blocks/get-blocks-metadata', () => ({
   },
 }))
 
-vi.mock('@/lib/copilot/review-sessions/entity-loaders', () => ({
+vi.mock('@/lib/yjs/server/entity-loaders', () => ({
   loadEntityByKind: mockLoadEntityByKind,
 }))
 

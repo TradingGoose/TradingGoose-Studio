@@ -167,17 +167,17 @@ async function verifyEntityReviewSessionAccess(
     return { hasAccess: false, workspaceId: reviewSession.workspaceId }
   }
 
-  if (reviewTarget.entityId && reviewSession.entityId !== reviewTarget.entityId) {
-    logger.warn('Review session entity mismatch', {
+  if (reviewTarget.entityId || reviewSession.entityId) {
+    logger.warn('Saved entities must use entity Yjs targets, not review sessions', {
       userId,
       reviewSessionId: reviewTarget.reviewSessionId,
-      expected: reviewTarget.entityId,
-      actual: reviewSession.entityId,
+      targetEntityId: reviewTarget.entityId,
+      sessionEntityId: reviewSession.entityId,
     })
     return { hasAccess: false, workspaceId: reviewSession.workspaceId }
   }
 
-  if (!reviewSession.entityId && reviewSession.userId !== userId) {
+  if (reviewSession.userId !== userId) {
     logger.warn('Draft review session not owned by user', {
       userId,
       reviewSessionId: reviewTarget.reviewSessionId,
@@ -185,7 +185,7 @@ async function verifyEntityReviewSessionAccess(
     return { hasAccess: false, workspaceId: reviewSession.workspaceId }
   }
 
-  if (!reviewTarget.entityId && reviewTarget.draftSessionId) {
+  if (reviewTarget.draftSessionId) {
     if (reviewSession.draftSessionId !== reviewTarget.draftSessionId) {
       logger.warn('Review session draft mismatch', {
         userId,
@@ -280,32 +280,22 @@ export function createPermissionError(operation: string): string {
   return `Access denied: You do not have permission to ${operation} this workflow`
 }
 
-async function hasAccessToReviewSession(
+function hasAccessToReviewSession(
   userId: string,
-  session: typeof copilotReviewSessions.$inferSelect,
-  accessMode: ReviewAccessMode
-): Promise<boolean> {
-  if (session.entityKind === 'workflow') {
-    return session.userId === userId
-  }
-
-  if (!session.entityId || !session.workspaceId) {
-    return session.userId === userId
-  }
-
-  const accessResult = await verifyWorkspaceAccess(userId, session.workspaceId, accessMode)
-  return accessResult.hasAccess
+  session: typeof copilotReviewSessions.$inferSelect
+): boolean {
+  return session.userId === userId
 }
 
 /**
  * Loads a review session when the caller can access it.
- * Saved entity sessions are shared through workspace permissions; drafts and
- * workflow sessions remain creator-owned.
+ * Review-session rows are chat/draft history and remain creator-owned.
+ * Saved entities use canonical Yjs entity targets keyed by entityId.
  */
 export async function loadReviewSessionForUser(
   reviewSessionId: string,
   userId: string,
-  accessMode: ReviewAccessMode
+  _accessMode: ReviewAccessMode
 ): Promise<typeof copilotReviewSessions.$inferSelect | null> {
   const [session] = await db
     .select()
@@ -317,7 +307,7 @@ export async function loadReviewSessionForUser(
     return null
   }
 
-  const hasAccess = await hasAccessToReviewSession(userId, session, accessMode)
+  const hasAccess = hasAccessToReviewSession(userId, session)
   return hasAccess ? session : null
 }
 
@@ -325,7 +315,7 @@ export async function loadReviewSessionForUserByConversationId(
   conversationId: string,
   entityKind: string,
   userId: string,
-  accessMode: ReviewAccessMode
+  _accessMode: ReviewAccessMode
 ): Promise<typeof copilotReviewSessions.$inferSelect | null> {
   const sessions = await db
     .select()
@@ -338,7 +328,7 @@ export async function loadReviewSessionForUserByConversationId(
     )
 
   for (const session of sessions) {
-    if (await hasAccessToReviewSession(userId, session, accessMode)) {
+    if (hasAccessToReviewSession(userId, session)) {
       return session
     }
   }

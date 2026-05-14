@@ -47,8 +47,7 @@ export interface EntitySessionSeedOptions {
 // ---------------------------------------------------------------------------
 
 /**
- * Seeds a brand-new entity Yjs doc from the draft default payload.
- * Called once per reviewSessionId/draftSessionId target.
+ * Seeds an entity Yjs doc from canonical saved fields or draft defaults.
  */
 export function seedEntitySession(doc: Y.Doc, options: EntitySessionSeedOptions): void {
   const { entityKind, payload } = options

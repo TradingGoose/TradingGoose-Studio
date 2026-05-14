@@ -54,7 +54,7 @@ async function loadAbortSession(parsed: AbortTurnRequest, userId: string) {
 
   return {
     session,
-    conversationId: conversationId ?? session.conversationId ?? null,
+    conversationId: session.conversationId ?? null,
   }
 }
 

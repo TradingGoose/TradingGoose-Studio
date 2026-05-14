@@ -199,9 +199,7 @@ async function processEntityContext(params: {
       return null
     }
 
-    const { loadEntityByKind } = await import(
-      '@/lib/copilot/review-sessions/entity-loaders'
-    )
+    const { loadEntityByKind } = await import('@/lib/yjs/server/entity-loaders')
 
     const row = await loadEntityByKind(params.entityKind, params.entityId, params.workspaceId)
 
@@ -213,11 +211,13 @@ async function processEntityContext(params: {
       })
       return null
     }
+    const { applySavedEntityYjsStateToRow } = await import('@/lib/yjs/entity-state')
+    const entity = await applySavedEntityYjsStateToRow(params.entityKind, row)
 
     return {
       type: params.contextKind,
       tag: params.tag,
-      content: JSON.stringify(serializeEntityContext(params.entityKind, row), null, 2),
+      content: JSON.stringify(serializeEntityContext(params.entityKind, entity), null, 2),
     }
   } catch (error) {
     logger.error('Error processing entity context', {

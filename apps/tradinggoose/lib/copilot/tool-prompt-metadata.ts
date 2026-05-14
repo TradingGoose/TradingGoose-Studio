@@ -173,7 +173,7 @@ export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
   },
   [CopilotTool.read_custom_tool]: {
     description:
-      'Return the target custom tool as an editable document payload with `entityDocument` and `documentFormat`.',
+      'Return one custom tool by `entityId` as an editable document payload with `entityDocument` and `documentFormat`.',
     kind: 'read',
     entityKind: 'custom_tool',
   },
@@ -250,7 +250,7 @@ export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
   },
   [CopilotTool.read_skill]: {
     description:
-      'Return the target skill as an editable document payload with `entityDocument` and `documentFormat`.',
+      'Return one skill by `entityId` as an editable document payload with `entityDocument` and `documentFormat`.',
     kind: 'read',
     entityKind: 'skill',
   },
@@ -279,7 +279,7 @@ export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
   },
   [CopilotTool.read_mcp_server]: {
     description:
-      'Return the target MCP server as an editable document payload with `entityDocument` and `documentFormat`.',
+      'Return one MCP server by `entityId` as an editable document payload with `entityDocument` and `documentFormat`.',
     kind: 'read',
     entityKind: 'mcp_server',
   },

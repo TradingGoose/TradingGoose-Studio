@@ -1,20 +1,18 @@
-import { getEntityDocumentName, type EntityDocumentKind } from '@/lib/copilot/entity-documents'
+import {
+  getEntityDocumentName,
+  type EntityDocumentKind,
+} from '@/lib/copilot/entity-documents'
 import { getDefaultIndicator } from '@/lib/indicators/default'
 import type { ClientToolExecutionContext } from '@/lib/copilot/tools/client/base-tool'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
-import {
-  getRegisteredEntitySession,
-  getRegisteredEntitySessionByKind,
-  getRegisteredEntitySessionByIdentity,
-  type RegisteredEntitySession,
-} from '@/lib/yjs/entity-session-registry'
 import {
   bootstrapYjsProvider,
   waitForYjsWriteSync,
   type YjsProviderBootstrapResult,
 } from '@/lib/yjs/provider'
-import { getEntityFields, replaceEntityTextField, setEntityField } from '@/lib/yjs/entity-session'
+import { replaceEntityTextField, setEntityField } from '@/lib/yjs/entity-session'
 import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
+import { buildSavedEntityYjsDescriptor } from '@/lib/yjs/entity-state'
 
 type EntityListEntry = {
   entityId: string
@@ -54,8 +52,19 @@ type EntityApiConfig = {
 }
 
 type CopilotEntityYjsSessionLease = {
-  session: RegisteredEntitySession
+  session: CopilotEntityYjsSession
   release: () => void
+}
+
+type CopilotEntityYjsSession = {
+  descriptor: YjsProviderBootstrapResult['descriptor']
+  doc: YjsProviderBootstrapResult['doc']
+  provider: YjsProviderBootstrapResult['provider']
+  accessMode: YjsProviderBootstrapResult['accessMode']
+  runtime: YjsProviderBootstrapResult['runtime']
+  isSynced: boolean
+  canUndo: boolean
+  canRedo: boolean
 }
 
 const COPILOT_ENTITY_YJS_RELEASE_MS = 2_500
@@ -311,95 +320,10 @@ export function resolveWorkspaceIdFromExecutionContext(
   throw new Error('No active workspace found')
 }
 
-export function getActiveEntitySession(
-  executionContext: ClientToolExecutionContext,
-  kind: EntityDocumentKind,
-  entityId?: string
-): RegisteredEntitySession | null {
-  const requestedEntityId = entityId?.trim() || undefined
-  const requestedReviewSessionId = executionContext.reviewSessionId
-  const requestedDraftSessionId = executionContext.draftSessionId
-
-  if (requestedReviewSessionId) {
-    const session = getRegisteredEntitySession(requestedReviewSessionId)
-    const matchesWorkspace =
-      !executionContext.workspaceId ||
-      !session?.descriptor.workspaceId ||
-      session.descriptor.workspaceId === executionContext.workspaceId
-    const matchesReviewSession =
-      !!session &&
-      session.descriptor.entityKind === kind &&
-      matchesWorkspace &&
-      (requestedEntityId
-        ? session.descriptor.entityId === requestedEntityId
-        : !!session.descriptor.entityId ||
-          (session.descriptor.entityId === null &&
-            !!session.descriptor.draftSessionId &&
-            (!requestedDraftSessionId ||
-              session.descriptor.draftSessionId === requestedDraftSessionId)))
-
-    if (matchesReviewSession) {
-      return session
-    }
-  }
-
-  if (requestedDraftSessionId) {
-    return null
-  }
-
-  if (requestedEntityId) {
-    return getRegisteredEntitySessionByIdentity(
-      kind,
-      requestedEntityId,
-      executionContext.workspaceId ?? null
-    )
-  }
-
-  return getRegisteredEntitySessionByKind(kind, executionContext.workspaceId ?? null)
-}
-
-async function resolveWritableEntityReviewSession(options: {
-  workspaceId: string
-  kind: EntityDocumentKind
-  entityId?: string
-  reviewSessionId?: string
-}) {
-  const response = await fetch('/api/copilot/review-sessions/resolve', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      workspaceId: options.workspaceId,
-      entityKind: options.kind,
-      entityId: options.entityId,
-      reviewSessionId: options.reviewSessionId,
-      accessMode: 'write',
-    }),
-  })
-
-  const payload = await response.json().catch(() => ({}))
-  if (!response.ok) {
-    throw new Error(payload?.error || `Failed to resolve ${options.kind} review target`)
-  }
-
-  return (payload as { descriptor: RegisteredEntitySession['descriptor'] }).descriptor
-}
-
-async function requireAuthorizedWriteSync(session: RegisteredEntitySession): Promise<void> {
-  if (session.accessMode !== 'write') {
-    throw new Error('Write access is required to edit this entity')
-  }
-
-  if (!session.provider) {
-    throw new Error('Authorized Yjs write sync is required before editing this entity')
-  }
-
-  await waitForYjsWriteSync(session.provider)
-}
-
 function createBootstrappedEntitySessionLease(
   result: YjsProviderBootstrapResult
 ): CopilotEntityYjsSessionLease {
-  const session: RegisteredEntitySession = {
+  const session: CopilotEntityYjsSession = {
     descriptor: result.descriptor,
     doc: result.doc,
     provider: result.provider,
@@ -427,34 +351,16 @@ export async function resolveCopilotEntityYjsSessionLease(
   kind: EntityDocumentKind,
   entityId?: string
 ): Promise<CopilotEntityYjsSessionLease> {
-  const activeSession = getActiveEntitySession(executionContext, kind, entityId)
-  if (activeSession?.accessMode === 'write') {
-    await requireAuthorizedWriteSync(activeSession)
-    return {
-      session: activeSession,
-      release: () => {},
-    }
-  }
+  const requestedEntityId = entityId?.trim() || undefined
 
-  const requestedEntityId = entityId?.trim() || activeSession?.descriptor.entityId || undefined
-  const requestedReviewSessionId =
-    activeSession?.descriptor.reviewSessionId || executionContext.reviewSessionId || undefined
-
-  if (!requestedEntityId && !requestedReviewSessionId) {
+  if (!requestedEntityId) {
     throw new Error(`entityId is required to update a saved ${kind}`)
   }
 
-  const workspaceId =
-    activeSession?.descriptor.workspaceId ??
-    resolveWorkspaceIdFromExecutionContext(executionContext)
-  const resolved = await resolveWritableEntityReviewSession({
-    workspaceId,
-    kind,
-    entityId: requestedEntityId,
-    reviewSessionId: requestedReviewSessionId,
-  })
-
+  const workspaceId = resolveWorkspaceIdFromExecutionContext(executionContext)
+  const resolved = buildSavedEntityYjsDescriptor(kind, requestedEntityId, workspaceId)
   const result = await bootstrapYjsProvider(resolved, 'write')
+  await waitForYjsWriteSync(result.provider)
   return createBootstrappedEntitySessionLease(result)
 }
 
@@ -558,17 +464,6 @@ export async function readEntityFieldsFromContext(
     }
   }
 
-  const activeSession = getActiveEntitySession(executionContext, kind, resolvedEntityId)
-
-  if (activeSession) {
-    const fields = getEntityFields(activeSession.doc, kind)
-    return {
-      entityId: activeSession.descriptor.entityId ?? resolvedEntityId,
-      entityName: getEntityDocumentName(kind, fields),
-      fields,
-    }
-  }
-
   if (!resolvedEntityId) {
     throw new Error('entityId is required')
   }
@@ -591,7 +486,7 @@ export async function readEntityFieldsFromContext(
 }
 
 export function applyEntityFieldsToSession(
-  session: RegisteredEntitySession,
+  session: CopilotEntityYjsSession,
   kind: EntityDocumentKind,
   fields: Record<string, unknown>
 ): void {

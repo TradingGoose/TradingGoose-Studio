@@ -37,7 +37,7 @@ export interface ResolvedReviewTarget {
   runtime: ReviewTargetRuntimeState | null
 }
 
-export const YJS_TARGET_KINDS = ['workflow', 'review_session'] as const
+export const YJS_TARGET_KINDS = ['workflow', 'entity', 'review_session'] as const
 
 export type YjsTargetKind = (typeof YJS_TARGET_KINDS)[number]
 

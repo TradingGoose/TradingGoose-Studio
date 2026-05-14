@@ -8,6 +8,7 @@ import { listCustomTools, upsertCustomTools } from '@/lib/custom-tools/operation
 import { createLogger } from '@/lib/logs/console/logger'
 import { getUserEntityPermissions } from '@/lib/permissions/utils'
 import { generateRequestId } from '@/lib/utils'
+import { deleteYjsSessionInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
 
 const logger = createLogger('CustomToolsAPI')
 
@@ -209,7 +210,7 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Tool not found' }, { status: 404 })
     }
 
-    // Delete the tool
+    await deleteYjsSessionInSocketServer(toolId)
     await db.delete(customTools).where(eq(customTools.id, toolId))
 
     logger.info(`[${requestId}] Deleted tool: ${toolId}`)

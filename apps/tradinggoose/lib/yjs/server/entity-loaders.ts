@@ -1,16 +1,10 @@
 import { db } from '@tradinggoose/db'
 import { customTools, mcpServers, pineIndicators, skill } from '@tradinggoose/db/schema'
 import { and, eq, isNull } from 'drizzle-orm'
-import type { ReviewEntityKind } from './types'
+import type { SavedEntityKind } from '@/lib/yjs/entity-state'
 
-/**
- * Load an entity row by kind, id, and workspaceId.
- *
- * Returns the full row so that callers can pick whichever columns they need.
- * Returns `null` when no matching row is found.
- */
 export async function loadEntityByKind(
-  entityKind: Exclude<ReviewEntityKind, 'workflow'>,
+  entityKind: SavedEntityKind,
   entityId: string,
   workspaceId: string
 ) {

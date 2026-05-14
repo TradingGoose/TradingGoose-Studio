@@ -273,6 +273,7 @@ export async function executeWebhookJob(payload: WebhookExecutionPayload) {
         const workflowRef = {
           id: payload.workflowId,
           userId: payload.userId,
+          workspaceId: scopedWorkspaceId,
         }
 
         if (payload.provider === 'airtable') {

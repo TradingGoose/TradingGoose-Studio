@@ -90,7 +90,7 @@ describe('review session permissions', () => {
     vi.clearAllMocks()
   })
 
-  it('allows collaborators to open saved entity review sessions via workspace access', async () => {
+  it('rejects review-session targets that carry entity ids', async () => {
     const reviewSessionRow = [
       {
         workspaceId: 'workspace-1',
@@ -100,14 +100,11 @@ describe('review session permissions', () => {
         userId: 'creator-1',
       },
     ]
-    const workspaceRow = [{ ownerId: 'owner-1', permissionType: 'read' }]
 
-    mockDb.select
-      .mockReturnValueOnce(createMockChain(reviewSessionRow))
-      .mockReturnValueOnce(createMockChain(workspaceRow))
+    mockDb.select.mockReturnValueOnce(createMockChain(reviewSessionRow))
 
     const result = await verifyReviewTargetAccess(
-      'collaborator-1',
+      'creator-1',
       {
         entityKind: 'skill',
         entityId: 'skill-1',
@@ -118,8 +115,8 @@ describe('review session permissions', () => {
     )
 
     expect(result).toEqual({
-      hasAccess: true,
-      userPermission: 'read',
+      hasAccess: false,
+      userPermission: null,
       workspaceId: 'workspace-1',
       isOwner: false,
     })
@@ -158,27 +155,24 @@ describe('review session permissions', () => {
     })
   })
 
-  it('loads a shared saved-entity review session for a collaborator', async () => {
+  it('keeps review sessions creator-owned when loading by reviewSessionId', async () => {
     const reviewSessionRow = [
       {
         id: 'review-session-1',
         workspaceId: 'workspace-1',
-        entityKind: 'skill',
-        entityId: 'skill-1',
+        entityKind: 'copilot',
+        entityId: null,
         draftSessionId: null,
         userId: 'creator-1',
         model: 'claude-4.5-sonnet',
       },
     ]
-    const workspaceRow = [{ ownerId: 'owner-1', permissionType: 'read' }]
 
-    mockDb.select
-      .mockReturnValueOnce(createMockChain(reviewSessionRow))
-      .mockReturnValueOnce(createMockChain(workspaceRow))
+    mockDb.select.mockReturnValueOnce(createMockChain(reviewSessionRow))
 
     const result = await loadReviewSessionForUser('review-session-1', 'collaborator-1', 'read')
 
-    expect(result).toEqual(reviewSessionRow[0])
+    expect(result).toBeNull()
   })
 
   it('loads an accessible review session by conversation id', async () => {

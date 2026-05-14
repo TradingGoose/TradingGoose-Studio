@@ -1,9 +1,9 @@
 import { createLogger } from '@/lib/logs/console/logger'
 import { VariableManager } from '@/lib/variables/variable-manager'
+import { evaluateSubBlockConditionValues } from '@/lib/workflows/sub-block-conditions'
 import { extractReferencePrefixes, SYSTEM_REFERENCE_PREFIXES } from '@/lib/workflows/references'
 import { TRIGGER_REFERENCE_ALIAS_MAP } from '@/lib/workflows/triggers'
 import { getBlock } from '@/blocks/index'
-import type { SubBlockCondition } from '@/blocks/types'
 import type { LoopManager } from '@/executor/loops/loops'
 import type { ExecutionContext } from '@/executor/types'
 import type { SerializedBlock, SerializedWorkflow } from '@/serializer/types'
@@ -75,43 +75,6 @@ export class InputResolver {
   }
 
   /**
-   * Evaluates if a sub-block should be active based on its condition
-   * @param condition - The condition to evaluate (can be static object or function)
-   * @param currentValues - Current values of all inputs
-   * @returns True if the sub-block should be active
-   */
-  private evaluateSubBlockCondition(
-    condition: SubBlockCondition | (() => SubBlockCondition) | undefined,
-    currentValues: Record<string, any>
-  ): boolean {
-    if (!condition) return true
-
-    // If condition is a function, call it to get the actual condition object
-    const actualCondition = typeof condition === 'function' ? condition() : condition
-
-    const evaluateMatch = (subCondition: SubBlockCondition): boolean => {
-      const fieldValue = currentValues[subCondition.field]
-      const isValueMatch = Array.isArray(subCondition.value)
-        ? fieldValue != null &&
-          (subCondition.not
-            ? !subCondition.value.includes(fieldValue)
-            : subCondition.value.includes(fieldValue))
-        : subCondition.not
-          ? fieldValue !== subCondition.value
-          : fieldValue === subCondition.value
-      return isValueMatch
-    }
-
-    const andConditions = Array.isArray(actualCondition.and)
-      ? actualCondition.and
-      : actualCondition.and
-        ? [actualCondition.and]
-        : []
-
-    return evaluateMatch(actualCondition) && andConditions.every((entry) => evaluateMatch(entry))
-  }
-
-  /**
    * Filters inputs based on sub-block conditions
    * @param block - Block to filter inputs for
    * @param inputs - All input parameters
@@ -142,7 +105,7 @@ export class InputResolver {
       } else {
         // Check if any of the matching subBlocks should be active
         for (const subBlock of matchingSubBlocks) {
-          if (!subBlock.condition || this.evaluateSubBlockCondition(subBlock.condition, inputs)) {
+          if (!subBlock.condition || evaluateSubBlockConditionValues(subBlock.condition, inputs)) {
             shouldInclude = true
             break
           }

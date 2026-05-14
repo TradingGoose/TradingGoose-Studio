@@ -111,8 +111,8 @@ const RequiredId = z.string().trim().min(1)
 const WorkflowContextArgs = z.object({
   workflowId: z.string().optional(),
 })
-const EntityReviewTargetArgs = z.object({
-  entityId: RequiredId.optional(),
+const EntityTargetArgs = z.object({
+  entityId: RequiredId,
 })
 
 function buildEntityDocumentMutationArgs<TDocumentFormat extends string>(
@@ -123,7 +123,7 @@ function buildEntityDocumentMutationArgs<TDocumentFormat extends string>(
     documentFormat: z.literal(documentFormat).optional(),
   }
 
-  return EntityReviewTargetArgs.extend(shape)
+  return EntityTargetArgs.extend(shape)
 }
 
 function buildEntityDocumentCreateArgs<TDocumentFormat extends string>(
@@ -217,6 +217,12 @@ const GetIndicatorArgs = z
       ),
   })
   .strict()
+  .refine((args) => !!args.entityId || !!args.runtimeId, {
+    message: 'entityId or runtimeId is required',
+  })
+  .refine((args) => !(args.entityId && args.runtimeId), {
+    message: 'Use either entityId or runtimeId, not both',
+  })
 const EditIndicatorArgs = buildEntityDocumentMutationArgs(INDICATOR_DOCUMENT_FORMAT)
 const CreateIndicatorArgs = buildEntityDocumentCreateArgs(INDICATOR_DOCUMENT_FORMAT)
 const EditSkillArgs = buildEntityDocumentMutationArgs(SKILL_DOCUMENT_FORMAT)
@@ -357,7 +363,7 @@ export const ToolArgSchemas = {
   knowledge_base: KnowledgeBaseArgsSchema,
 
   list_custom_tools: z.object({}),
-  [CopilotTool.read_custom_tool]: EntityReviewTargetArgs,
+  [CopilotTool.read_custom_tool]: EntityTargetArgs,
   create_custom_tool: CreateCustomToolArgs,
   edit_custom_tool: EditCustomToolArgs,
   rename_custom_tool: EditCustomToolArgs,
@@ -382,13 +388,13 @@ export const ToolArgSchemas = {
   rename_indicator: EditIndicatorArgs,
 
   list_skills: z.object({}),
-  [CopilotTool.read_skill]: EntityReviewTargetArgs,
+  [CopilotTool.read_skill]: EntityTargetArgs,
   create_skill: CreateSkillArgs,
   edit_skill: EditSkillArgs,
   rename_skill: EditSkillArgs,
 
   list_mcp_servers: z.object({}),
-  [CopilotTool.read_mcp_server]: EntityReviewTargetArgs,
+  [CopilotTool.read_mcp_server]: EntityTargetArgs,
   create_mcp_server: CreateMcpServerArgs,
   edit_mcp_server: EditMcpServerArgs,
   rename_mcp_server: EditMcpServerArgs,
@@ -694,7 +700,6 @@ const McpServerDocumentEnvelope = EntityDocumentEnvelopeBase.extend({
 
 const EditEntityDocumentResultBase = z.object({
   success: z.boolean(),
-  reviewSessionId: z.string().optional(),
   preview: z
     .object({
       documentDiff: z.object({

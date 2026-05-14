@@ -61,7 +61,7 @@ describe('copilot chat abort route', () => {
     }))
   })
 
-  it('proxies abort only after resolving an accessible chat session', async () => {
+  it('proxies abort by chat id without trusting an unbound client conversation id', async () => {
     mockLoadReviewSessionForUser.mockResolvedValue({
       id: 'review-session-1',
       entityKind: 'copilot',
@@ -86,7 +86,7 @@ describe('copilot chat abort route', () => {
       signal: expect.any(AbortSignal),
       body: {
         chatId: 'review-session-1',
-        conversationId: 'conversation-1',
+        conversationId: undefined,
         userId: 'user-1',
         workspaceId: 'workspace-1',
       },

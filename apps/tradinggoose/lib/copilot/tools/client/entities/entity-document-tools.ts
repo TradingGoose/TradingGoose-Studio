@@ -332,7 +332,6 @@ function createEntityDocumentMutationTool(
         }
         const nextFields = parseEntityDocument(config.kind, resolvedArgs.entityDocument)
         let currentFields: Record<string, unknown> = {}
-        let reviewSessionId: string | null | undefined
         let resolvedEntityId: string | null | undefined = entityId
 
         if (action !== 'create') {
@@ -343,7 +342,6 @@ function createEntityDocumentMutationTool(
           )
           try {
             currentFields = getEntityFields(lease.session.doc, config.kind)
-            reviewSessionId = lease.session.descriptor.reviewSessionId
             resolvedEntityId = lease.session.descriptor.entityId ?? entityId
           } finally {
             lease.release()
@@ -357,7 +355,6 @@ function createEntityDocumentMutationTool(
           entityName: getEntityDocumentName(config.kind, nextFields),
           documentFormat: getEntityDocumentFormat(config.kind),
           entityDocument: serializeEntityDocument(config.kind, nextFields),
-          ...(reviewSessionId ? { reviewSessionId } : {}),
           preview: {
             documentDiff: buildEntityDocumentDiff(config.kind, currentFields, nextFields),
           },
@@ -434,19 +431,15 @@ function createEntityDocumentMutationTool(
         try {
           applyEntityFieldsToSession(lease.session, config.kind, nextFields)
           const persistedFields = getEntityFields(lease.session.doc, config.kind)
-          const entityName = getEntityDocumentName(config.kind, persistedFields)
-          const descriptor = lease.session.descriptor
+          const savedEntityId = lease.session.descriptor.entityId ?? entityId
 
           await this.markToolComplete(200, `${config.singularLabel} document updated`, {
             success: true,
             entityKind: config.kind,
-            ...((descriptor.entityId ?? entityId)
-              ? { entityId: descriptor.entityId ?? entityId }
-              : {}),
-            entityName,
+            ...(savedEntityId ? { entityId: savedEntityId } : {}),
+            entityName: getEntityDocumentName(config.kind, persistedFields),
             documentFormat: getEntityDocumentFormat(config.kind),
             entityDocument: serializeEntityDocument(config.kind, persistedFields),
-            reviewSessionId: descriptor.reviewSessionId,
             preview: stagedResult.preview,
           })
         } finally {

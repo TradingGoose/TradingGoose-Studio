@@ -9,6 +9,12 @@ import {
   type SkillTransferRecord,
 } from '@/lib/skills/import-export'
 import { generateRequestId } from '@/lib/utils'
+import {
+  applySavedEntityYjsStateToRows,
+  savedEntityRowToFields,
+} from '@/lib/yjs/entity-state'
+import { applySavedEntityState } from '@/lib/yjs/server/apply-entity-state'
+import { deleteYjsSessionInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
 
 const logger = createLogger('SkillsOperations')
 
@@ -32,11 +38,13 @@ interface ImportSkillsParams {
 }
 
 export async function listSkills(params: { workspaceId: string }) {
-  return db
+  const rows = await db
     .select()
     .from(skill)
     .where(eq(skill.workspaceId, params.workspaceId))
     .orderBy(desc(skill.createdAt))
+
+  return applySavedEntityYjsStateToRows('skill', rows)
 }
 
 export async function deleteSkill(params: {
@@ -53,6 +61,7 @@ export async function deleteSkill(params: {
     return false
   }
 
+  await deleteYjsSessionInSocketServer(params.skillId)
   await db
     .delete(skill)
     .where(and(eq(skill.id, params.skillId), eq(skill.workspaceId, params.workspaceId)))
@@ -67,7 +76,8 @@ export async function upsertSkills({
   userId,
   requestId = generateRequestId(),
 }: UpsertSkillsParams) {
-  return await db.transaction(async (tx) => {
+  const affectedIds: string[] = []
+  const result = await db.transaction(async (tx) => {
     for (const currentSkill of skills) {
       const nowTime = new Date()
 
@@ -110,6 +120,7 @@ export async function upsertSkills({
             .where(and(eq(skill.id, currentSkill.id), eq(skill.workspaceId, workspaceId)))
 
           logger.info(`[${requestId}] Updated skill ${currentSkill.id}`)
+          affectedIds.push(currentSkill.id)
           continue
         }
       }
@@ -126,8 +137,9 @@ export async function upsertSkills({
         )
       }
 
+      const skillId = currentSkill.id || nanoid()
       await tx.insert(skill).values({
-        id: currentSkill.id || nanoid(),
+        id: skillId,
         workspaceId,
         userId,
         name: currentSkill.name,
@@ -138,14 +150,23 @@ export async function upsertSkills({
       })
 
       logger.info(`[${requestId}] Created skill "${currentSkill.name}"`)
+      affectedIds.push(skillId)
     }
 
-    return await tx
+    return tx
       .select()
       .from(skill)
       .where(eq(skill.workspaceId, workspaceId))
       .orderBy(desc(skill.createdAt))
   })
+
+  await Promise.all(
+    result
+      .filter((row) => affectedIds.includes(row.id))
+      .map((row) => applySavedEntityState('skill', row.id, savedEntityRowToFields('skill', row)))
+  )
+
+  return applySavedEntityYjsStateToRows('skill', result)
 }
 
 export async function importSkills({
