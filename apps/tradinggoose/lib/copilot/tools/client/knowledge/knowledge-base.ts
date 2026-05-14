@@ -102,6 +102,7 @@ export class KnowledgeBaseClientTool extends BaseClientTool {
       const result = await executeCopilotServerTool({
         toolName: 'knowledge_base',
         payload,
+        signal: this.getAbortSignal(),
       })
       await this.markToolComplete(200, 'Knowledge base operation completed', result)
       this.setState(ClientToolCallState.success)

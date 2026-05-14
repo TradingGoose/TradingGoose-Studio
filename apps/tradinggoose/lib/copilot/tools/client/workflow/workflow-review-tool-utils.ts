@@ -120,10 +120,13 @@ export async function listWorkflowsForExecutionContext(
   executionContext: ClientToolExecutionContext
 ): Promise<WorkflowTarget[]> {
   const workspaceId = resolveWorkflowWorkspaceId(executionContext)
-  const url = workspaceId
-    ? `/api/workflows?workspaceId=${encodeURIComponent(workspaceId)}`
-    : '/api/workflows'
-  const response = await fetch(url, { method: 'GET' })
+  if (!workspaceId) {
+    throw new Error('Workspace ID is required to list workflows')
+  }
+
+  const response = await fetch(`/api/workflows?workspaceId=${encodeURIComponent(workspaceId)}`, {
+    method: 'GET',
+  })
   const payload = (await response.json().catch(() => null)) as {
     data?: Array<{
       id?: string | null

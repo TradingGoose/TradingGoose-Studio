@@ -184,6 +184,10 @@ export class BaseClientTool {
     return this.executionContext
   }
 
+  protected getAbortSignal(): AbortSignal | undefined {
+    return getCopilotStoreForToolCall(this.toolCallId).getState().abortController?.signal
+  }
+
   hydratePersistedToolCall(toolCall?: Record<string, any>): void {
     this.persistedToolCall = toolCall ? { ...toolCall } : undefined
     const persistedState = toolCall?.state as ClientToolCallState | undefined

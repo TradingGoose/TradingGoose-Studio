@@ -217,6 +217,7 @@ export class EditWorkflowClientTool extends BaseClientTool {
       const result = (await executeCopilotServerTool({
         toolName: this.getServerToolName(),
         payload: this.buildServerPayload(workflowId, args, currentWorkflowState),
+        signal: this.getAbortSignal(),
       })) as any
       if (!result.workflowState) {
         throw new Error('No workflow state returned from server')

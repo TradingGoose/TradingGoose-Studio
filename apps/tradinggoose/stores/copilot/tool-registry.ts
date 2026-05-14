@@ -332,27 +332,3 @@ export function resolveToolDisplay(
 
   return undefined
 }
-
-export function isRejectedState(state: any): boolean {
-  try {
-    return state === 'rejected' || state === ClientToolCallState.rejected
-  } catch {
-    return state === 'rejected'
-  }
-}
-
-export function isReviewState(state: any): boolean {
-  try {
-    return state === 'review' || state === ClientToolCallState.review
-  } catch {
-    return state === 'review'
-  }
-}
-
-export function isBackgroundState(state: any): boolean {
-  try {
-    return state === 'background' || state === ClientToolCallState.background
-  } catch {
-    return state === 'background'
-  }
-}

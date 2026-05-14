@@ -2,16 +2,17 @@ import { shouldRequireToolApproval } from '@/lib/copilot/access-policy'
 import { normalizeFunctionCallArguments } from '@/lib/copilot/function-call-args'
 import { ClientToolCallState } from '@/lib/copilot/tools/client/base-tool'
 import { withPinnedToolExecutionProvenance } from '@/stores/copilot/store-provenance'
-import { ACTIVE_TURN_STATUS, buildChatTurnStatusState } from '@/stores/copilot/store-state'
+import {
+  ACTIVE_TURN_STATUS,
+  buildChatTurnStatusState,
+  isToolCallCompletionProtected,
+} from '@/stores/copilot/store-state'
 import {
   bindClientToolExecutionContext,
   createExecutionContext,
   ensureClientToolInstance,
-  isBackgroundState,
   isCopilotTool,
   isGatedTool,
-  isRejectedState,
-  isReviewState,
   resolveToolDisplay,
 } from '@/stores/copilot/tool-registry'
 import type {
@@ -338,11 +339,7 @@ function buildStreamedToolDisplayState(
       continue
     }
 
-    if (
-      isRejectedState(block.toolCall?.state) ||
-      isReviewState(block.toolCall?.state) ||
-      isBackgroundState(block.toolCall?.state)
-    ) {
+    if (isToolCallCompletionProtected(block.toolCall?.state)) {
       break
     }
 
@@ -428,11 +425,7 @@ export function createSSEHandlers(params: {
         const { toolCallsById } = get()
         const current = toolCallsById[toolCallId]
         if (current) {
-          if (
-            isRejectedState(current.state) ||
-            isReviewState(current.state) ||
-            isBackgroundState(current.state)
-          ) {
+          if (isToolCallCompletionProtected(current.state)) {
             return
           }
 
@@ -488,11 +481,7 @@ export function createSSEHandlers(params: {
         const { toolCallsById } = get()
         const current = toolCallsById[toolCallId]
         if (current) {
-          if (
-            isRejectedState(current.state) ||
-            isReviewState(current.state) ||
-            isBackgroundState(current.state)
-          ) {
+          if (isToolCallCompletionProtected(current.state)) {
             return
           }
 

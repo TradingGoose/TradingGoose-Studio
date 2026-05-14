@@ -962,6 +962,60 @@ describe('copilot streaming regressions', () => {
     )
   })
 
+  it('keeps aborted server tools terminal after late completion', async () => {
+    const channelId = 'copilot-server-tool-abort-terminal'
+    const toolCallId = 'server-tool-abort-terminal'
+    const store = getCopilotStore(channelId)
+    const abortController = new AbortController()
+    let serverSignal: AbortSignal | undefined
+    let resolveServerResponse!: () => void
+    const serverResponse = new Promise<Response>((resolve) => {
+      resolveServerResponse = () =>
+        resolve(Response.json({ success: true, result: { blocks: [] } }))
+    })
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === 'string' ? input : input.toString()
+      if (url === '/api/copilot/execute-copilot-server-tool') {
+        serverSignal = init?.signal as AbortSignal | undefined
+        return serverResponse
+      }
+      if (url === '/api/copilot/tools/mark-complete') {
+        throw new Error('Aborted server tools must not be marked complete after late completion')
+      }
+      return Response.json({ success: true })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    store.setState({
+      isSendingMessage: true,
+      abortController,
+      toolCallsById: {
+        [toolCallId]: {
+          id: toolCallId,
+          name: 'get_blocks_metadata',
+          state: ClientToolCallState.pending,
+          params: { blockIds: ['agent'] },
+        } as any,
+      },
+    })
+
+    const executePromise = store.getState().executeCopilotToolCall(toolCallId)
+    await Promise.resolve()
+
+    expect(store.getState().toolCallsById[toolCallId]?.state).toBe(ClientToolCallState.executing)
+    store.getState().abortMessage()
+    expect(serverSignal?.aborted).toBe(true)
+    expect(store.getState().toolCallsById[toolCallId]?.state).toBe(ClientToolCallState.aborted)
+
+    resolveServerResponse()
+    await executePromise
+
+    expect(store.getState().toolCallsById[toolCallId]?.state).toBe(ClientToolCallState.aborted)
+    expect(fetchMock.mock.calls.map(([input]) => input.toString())).not.toContain(
+      '/api/copilot/tools/mark-complete'
+    )
+  })
+
   it('cancels queued in-progress persistence after a send failure persists completed state', async () => {
     vi.useFakeTimers()
     const channelId = 'copilot-send-failure-persistence'

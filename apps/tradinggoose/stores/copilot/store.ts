@@ -48,6 +48,8 @@ import {
   COMPLETED_TURN_STATUS,
   hasUiActiveToolCalls,
   isChatTurnInProgress,
+  isToolCallCompletionProtected,
+  isToolCallPersisted,
   resolveStoreTurnActivityState,
   resolveTurnStatusFromToolCalls,
 } from '@/stores/copilot/store-state'
@@ -65,10 +67,7 @@ import {
   bindClientToolExecutionContext,
   createExecutionContext,
   ensureClientToolInstance,
-  isBackgroundState,
   isCopilotTool,
-  isRejectedState,
-  isReviewState,
   isServerManagedCopilotTool,
   prepareCopilotToolArgs,
   resolveToolDisplay,
@@ -233,7 +232,7 @@ function abortAllInProgressTools(
       st === ClientToolCallState.error ||
       st === ClientToolCallState.rejected ||
       st === ClientToolCallState.aborted ||
-      (!options?.includeReview && isReviewState(st))
+      (!options?.includeReview && st === ClientToolCallState.review)
     if (!isTerminal) {
       abortedIds.push(id)
       updatedMap[id] = {
@@ -994,13 +993,6 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
           const map = { ...get().toolCallsById }
           const current = map[id]
           if (!current) return
-          // Preserve rejected state from being overridden
-          if (
-            isRejectedState(current.state) &&
-            (newState === 'success' || newState === ClientToolCallState.success)
-          ) {
-            return
-          }
           let norm: ClientToolCallState = current.state
           if (newState === 'executing') norm = ClientToolCallState.executing
           else if (newState === 'errored' || newState === 'error') norm = ClientToolCallState.error
@@ -1010,6 +1002,14 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
             norm = ClientToolCallState.success
           else if (newState === 'aborted') norm = ClientToolCallState.aborted
           else if (typeof newState === 'number') norm = newState as unknown as ClientToolCallState
+          if (
+            (current.state === ClientToolCallState.rejected &&
+              norm === ClientToolCallState.success) ||
+            (current.state === ClientToolCallState.aborted &&
+              norm !== ClientToolCallState.aborted)
+          ) {
+            return
+          }
           map[id] = {
             ...current,
             state: norm,
@@ -1359,6 +1359,7 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
         const toolCall = toolCallsById[toolCallId]
         const provenance = toolCall?.provenance
         if (!toolCall) return
+        if (toolCall.state === ClientToolCallState.aborted) return
 
         const { id, name, params } = toolCall
         const executionContext = createExecutionContext({
@@ -1386,6 +1387,7 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
               toolName: name,
               payload: preparedArgs,
               context: serverContext,
+              signal: get().abortController?.signal,
             })
             const logicalSuccess =
               !result ||
@@ -1394,11 +1396,7 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
               (result as any).success !== false
 
             const currentToolCall = get().toolCallsById[id]
-            if (
-              isRejectedState(currentToolCall?.state) ||
-              isReviewState(currentToolCall?.state) ||
-              isBackgroundState(currentToolCall?.state)
-            ) {
+            if (isToolCallCompletionProtected(currentToolCall?.state)) {
               return
             }
 
@@ -1440,11 +1438,7 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
             return
           } catch (error) {
             const errorMap = { ...get().toolCallsById }
-            if (
-              isRejectedState(errorMap[id]?.state) ||
-              isReviewState(errorMap[id]?.state) ||
-              isBackgroundState(errorMap[id]?.state)
-            ) {
+            if (isToolCallCompletionProtected(errorMap[id]?.state)) {
               return
             }
 
@@ -1504,11 +1498,7 @@ const createCopilotStoreInstance = (storeChannelId = DEFAULT_COPILOT_CHANNEL_ID)
           }
         } catch (error) {
           const errorMap = { ...get().toolCallsById }
-          if (
-            isRejectedState(errorMap[id]?.state) ||
-            isReviewState(errorMap[id]?.state) ||
-            isBackgroundState(errorMap[id]?.state)
-          ) {
+          if (isToolCallCompletionProtected(errorMap[id]?.state)) {
             return
           }
           const message = error instanceof Error ? error.message : String(error)
@@ -1673,15 +1663,10 @@ function applyToolStateUpdate(
   const current = state.toolCallsById[toolCallId]
   if (!current) return
 
-  const isTerminal = (toolState: ClientToolCallState) =>
-    toolState === ClientToolCallState.success ||
-    toolState === ClientToolCallState.error ||
-    toolState === ClientToolCallState.rejected ||
-    toolState === ClientToolCallState.aborted ||
-    toolState === ClientToolCallState.review ||
-    toolState === ClientToolCallState.background
-
-  if (isTerminal(current.state) && !isTerminal(mapped)) {
+  if (
+    (current.state === ClientToolCallState.aborted && mapped !== ClientToolCallState.aborted) ||
+    (isToolCallPersisted(current.state) && !isToolCallPersisted(mapped))
+  ) {
     return
   }
 
@@ -1727,15 +1712,7 @@ function applyToolStateUpdate(
     ...(nextCurrentChat ? { currentChat: nextCurrentChat } : {}),
   })
 
-  const shouldPersist =
-    mapped === ClientToolCallState.success ||
-    mapped === ClientToolCallState.error ||
-    mapped === ClientToolCallState.aborted ||
-    mapped === ClientToolCallState.rejected ||
-    mapped === ClientToolCallState.review ||
-    mapped === ClientToolCallState.background
-
-  if (!shouldPersist) {
+  if (!isToolCallPersisted(mapped)) {
     return
   }
 

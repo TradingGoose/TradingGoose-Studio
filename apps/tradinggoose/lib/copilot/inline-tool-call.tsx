@@ -37,7 +37,7 @@ type EntityReviewPayload = {
 interface InlineToolCallProps {
   toolCall?: CopilotToolCall
   toolCallId?: string
-  onStateChange?: (state: any) => void
+  onStateChange?: (state: ClientToolCallState) => void
 }
 
 const ACTION_VERBS = [
@@ -200,7 +200,7 @@ function shouldShowToolActionButtons(
   }
 
   return (
-    toolCall.state === 'pending' &&
+    toolCall.state === ClientToolCallState.pending &&
     shouldRequireToolApproval(accessLevel, isGatedTool(toolCall.name))
   )
 }
@@ -324,7 +324,7 @@ function ToolActionButtons({
   onStateChange,
 }: {
   toolCall: CopilotToolCall
-  onStateChange?: (state: any) => void
+  onStateChange?: (state: ClientToolCallState) => void
 }) {
   const [isProcessing, setIsProcessing] = useState(false)
   const actionInProgressRef = useRef(false)
@@ -341,7 +341,7 @@ function ToolActionButtons({
     actionInProgressRef.current = true
     setIsProcessing(true)
     try {
-      onStateChange?.('executing')
+      onStateChange?.(ClientToolCallState.executing)
       await executeCopilotToolCall(toolCall.id)
     } finally {
       setIsProcessing(false)
@@ -363,7 +363,7 @@ function ToolActionButtons({
         onClick={async () => {
           if (actionInProgressRef.current) return
           await skipCopilotToolCall(toolCall.id)
-          onStateChange?.('rejected')
+          onStateChange?.(ClientToolCallState.rejected)
         }}
         disabled={isProcessing}
         size='sm'
@@ -403,16 +403,13 @@ export function InlineToolCall({
 
   const accessLevel = useCopilotStore((s) => s.accessLevel)
 
-  // Guard: nothing to render without a toolCall
   if (!toolCall) return null
 
   const showButtons = shouldShowToolActionButtons(toolCall, accessLevel)
   const showMoveToBackground =
-    toolCall.name === 'run_workflow' &&
-    (toolCall.state === (ClientToolCallState.executing as any) ||
-      toolCall.state === ('executing' as any))
+    toolCall.name === 'run_workflow' && toolCall.state === ClientToolCallState.executing
 
-  const handleStateChange = (state: any) => {
+  const handleStateChange = (state: ClientToolCallState) => {
     forceUpdate({})
     onStateChange?.(state)
   }
@@ -573,12 +570,12 @@ export function InlineToolCall({
 
       // Color by state
       let colorClass = ''
-      const state = toolCall.state as any
-      if (state === (ClientToolCallState as any).aborted || state === 'aborted') {
+      const state = toolCall.state
+      if (state === ClientToolCallState.aborted) {
         colorClass = 'text-yellow-500'
-      } else if (state === (ClientToolCallState as any).error || state === 'error') {
+      } else if (state === ClientToolCallState.error) {
         colorClass = 'text-red-500'
-      } else if (state === (ClientToolCallState as any).success || state === 'success') {
+      } else if (state === ClientToolCallState.success) {
         const isBuildOrEdit = toolCall.name === 'edit_workflow'
         colorClass = isBuildOrEdit ? 'text-primary-hover' : 'text-green-600'
       }
@@ -620,19 +617,16 @@ export function InlineToolCall({
           <ToolActionButtons toolCall={toolCall} onStateChange={handleStateChange} />
         ) : showMoveToBackground ? (
           <Button
-            // Intentionally minimal wiring per requirements
             onClick={async () => {
               try {
                 const instance = getClientTool(toolCall.id)
-                // Transition to background state locally so UI updates immediately
-                instance?.setState?.((ClientToolCallState as any).background)
+                instance?.setState?.(ClientToolCallState.background)
                 await instance?.markToolComplete?.(
                   200,
                   'The user has chosen to move the workflow execution to the background. Check back with them later to know when the workflow execution is complete'
                 )
-                // Optionally force a re-render; store should sync state from server
                 forceUpdate({})
-                onStateChange?.('background')
+                onStateChange?.(ClientToolCallState.background)
               } catch {}
             }}
             size='sm'

@@ -17,6 +17,17 @@ const UI_ACTIVE_TOOL_STATES = new Set<ClientToolCallState>([
   ...RUNTIME_ACTIVE_TOOL_STATES,
   ClientToolCallState.review,
 ])
+const TOOL_COMPLETION_PROTECTED_STATES = new Set<ClientToolCallState>([
+  ClientToolCallState.aborted,
+  ClientToolCallState.rejected,
+  ClientToolCallState.review,
+  ClientToolCallState.background,
+])
+const TOOL_PERSISTED_STATES = new Set<ClientToolCallState>([
+  ClientToolCallState.success,
+  ClientToolCallState.error,
+  ...TOOL_COMPLETION_PROTECTED_STATES,
+])
 
 export function normalizeReloadedToolState(
   state: unknown,
@@ -49,6 +60,16 @@ export function isToolCallRuntimeActive(state: CopilotToolCall['state'] | undefi
 
 export function isToolCallUiActive(state: CopilotToolCall['state'] | undefined): boolean {
   return state != null && UI_ACTIVE_TOOL_STATES.has(state)
+}
+
+export function isToolCallCompletionProtected(
+  state: CopilotToolCall['state'] | undefined
+): boolean {
+  return state != null && TOOL_COMPLETION_PROTECTED_STATES.has(state)
+}
+
+export function isToolCallPersisted(state: CopilotToolCall['state'] | undefined): boolean {
+  return state != null && TOOL_PERSISTED_STATES.has(state)
 }
 
 export function hasUiActiveToolCalls(toolCallsById: Record<string, CopilotToolCall>): boolean {
