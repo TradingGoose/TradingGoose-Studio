@@ -14,6 +14,7 @@ import {
   isBlockAvailable,
   type ProviderAvailability,
 } from '@/lib/workflows/block-availability'
+import { evaluateSubBlockConditionValues } from '@/lib/workflows/sub-block-conditions'
 import { useWorkflowMutations } from '@/lib/yjs/use-workflow-doc'
 import { getAllBlocks } from '@/blocks'
 import type { SubBlockConfig } from '@/blocks/types'
@@ -602,34 +603,7 @@ export function ToolInput({ blockId, subBlockId, isConnecting, disabled = false 
       ...tool.params,
     }
 
-    const fieldValue = currentValues[condition.field]
-    const andConditions = Array.isArray(condition.and)
-      ? condition.and
-      : condition.and
-        ? [condition.and]
-        : []
-
-    const evaluateMatch = (
-      matchCondition: {
-        value: string | number | boolean | Array<string | number | boolean>
-        not?: boolean
-      },
-      valueToCheck: any
-    ) => {
-      const isMatch = Array.isArray(matchCondition.value)
-        ? matchCondition.value.includes(valueToCheck)
-        : valueToCheck === matchCondition.value
-      return matchCondition.not ? !isMatch : isMatch
-    }
-
-    const baseMatch = evaluateMatch(condition, fieldValue)
-    const andMatch =
-      andConditions.length === 0 ||
-      andConditions.every((andCondition: { field: string; value: any; not?: boolean }) =>
-        evaluateMatch(andCondition, currentValues[andCondition.field])
-      )
-
-    return baseMatch && andMatch
+    return evaluateSubBlockConditionValues(condition, currentValues)
   }
 
   // Tool parameters render through the same SubBlock path as first-class block fields.

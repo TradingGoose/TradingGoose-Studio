@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { TradingActionBlock } from '@/blocks/blocks/trading_action'
 import { TradingOrderDetailBlock } from '@/blocks/blocks/trading_order_detail'
 import { TradingOrderHistoryBlock } from '@/blocks/blocks/trading_order_history'
+import { evaluateSubBlockConditionValues } from '@/lib/workflows/sub-block-conditions'
 import { tradingOrderDetailTool } from '@/tools/trading/order_detail'
 import { orderHistoryTool } from '@/tools/trading/order_history'
 
@@ -62,6 +63,18 @@ describe('trading order block contracts', () => {
         and: { field: 'provider', value: ['alpaca'] },
       })
     )
+
+    expect(
+      evaluateSubBlockConditionValues(quantity?.condition, {
+        provider: 'tradier',
+      })
+    ).toBe(true)
+    expect(
+      evaluateSubBlockConditionValues(quantity?.condition, {
+        provider: 'alpaca',
+        orderSizingMode: 'notional',
+      })
+    ).toBe(false)
   })
 
   it('serializes trading action sizing as canonical route fields', () => {

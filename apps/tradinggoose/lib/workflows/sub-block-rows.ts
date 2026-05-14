@@ -1,6 +1,7 @@
 import { getEnv, isTruthy } from '@/lib/env'
+import { evaluateSubBlockCondition } from '@/lib/workflows/sub-block-conditions'
 import { buildConfiguredSubBlockParams } from '@/lib/workflows/subblock-values'
-import type { SubBlockCondition, SubBlockConfig } from '@/blocks/types'
+import type { SubBlockConfig } from '@/blocks/types'
 import { getTrigger } from '@/triggers'
 import { isDeployManagedTriggerSubBlock } from '@/triggers/constants'
 import { resolveTriggerIdFromSubBlocks } from '@/triggers/resolution'
@@ -29,31 +30,10 @@ type BuildSubBlockPreviewRowsParams = Omit<
   isTriggerMode?: boolean
 }
 
-type ConditionValue = SubBlockCondition['value']
-
-const normalizeValue = (value: any) =>
-  value && typeof value === 'object' && 'id' in value ? value.id : value
-
 const hasStoredValue = (value: unknown) =>
   value && typeof value === 'object' && 'value' in value
     ? (value as { value: unknown }).value !== undefined
     : value !== undefined
-
-const evaluateMatch = (
-  condition: { value: ConditionValue; not?: boolean },
-  fieldValue: string | number | boolean | null | undefined
-) => {
-  if (Array.isArray(condition.value)) {
-    return (
-      fieldValue != null &&
-      (condition.not
-        ? !condition.value.includes(fieldValue as string | number | boolean)
-        : condition.value.includes(fieldValue as string | number | boolean))
-    )
-  }
-
-  return condition.not ? fieldValue !== condition.value : fieldValue === condition.value
-}
 
 export function buildSubBlockRows({
   blockId,
@@ -75,7 +55,6 @@ export function buildSubBlockRows({
   const hasTriggerDefinition = !!(activeTriggerId && getTrigger(activeTriggerId))
 
   const getConditionFieldValue = (field: string) => {
-    const normalizedValue = normalizeValue(conditionParams[field])
     if (field === 'selectedTriggerId') {
       if (availableTriggerIds !== undefined) {
         return activeTriggerId ?? undefined
@@ -86,7 +65,7 @@ export function buildSubBlockRows({
       }
     }
 
-    return normalizedValue
+    return conditionParams[field]
   }
 
   const visibleSubBlocks = subBlocks.filter((subBlock) => {
@@ -124,25 +103,7 @@ export function buildSubBlockRows({
 
     if (!subBlock.condition) return true
 
-    const actualCondition =
-      typeof subBlock.condition === 'function' ? subBlock.condition() : subBlock.condition
-
-    const normalizedFieldValue = getConditionFieldValue(actualCondition.field)
-    const andConditions = Array.isArray(actualCondition.and)
-      ? actualCondition.and
-      : actualCondition.and
-        ? [actualCondition.and]
-        : []
-
-    const isValueMatch = evaluateMatch(actualCondition, normalizedFieldValue)
-    const isAndValueMatch =
-      andConditions.length === 0 ||
-      andConditions.every((andCondition) => {
-        const andFieldValue = getConditionFieldValue(andCondition.field)
-        return evaluateMatch(andCondition, andFieldValue)
-      })
-
-    return isValueMatch && isAndValueMatch
+    return evaluateSubBlockCondition(subBlock.condition, getConditionFieldValue)
   })
 
   const rows: SubBlockConfig[][] = []

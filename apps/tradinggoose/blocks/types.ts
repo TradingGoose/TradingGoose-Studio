@@ -161,28 +161,7 @@ export interface SubBlockConfig {
   canonicalParamId?: string
   providerType?: 'market' | 'trading'
   providerFieldId?: string
-  required?:
-    | boolean
-    | {
-        field: string
-        value: string | number | boolean | Array<string | number | boolean>
-        not?: boolean
-        and?: {
-          field: string
-          value: string | number | boolean | Array<string | number | boolean> | undefined
-          not?: boolean
-        }
-      }
-    | (() => {
-        field: string
-        value: string | number | boolean | Array<string | number | boolean>
-        not?: boolean
-        and?: {
-          field: string
-          value: string | number | boolean | Array<string | number | boolean> | undefined
-          not?: boolean
-        }
-      })
+  required?: boolean | SubBlockCondition | (() => SubBlockCondition)
   defaultValue?: string | number | boolean | Record<string, unknown> | Array<unknown>
   options?: SubBlockOption[] | (() => SubBlockOption[])
   // Async options loader for dropdown/combobox-like inputs

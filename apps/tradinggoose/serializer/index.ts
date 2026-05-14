@@ -3,6 +3,7 @@ import { BlockPathCalculator } from '@/lib/block-path-calculator'
 import { createLogger } from '@/lib/logs/console/logger'
 import { parseResponseFormatSafely } from '@/lib/response-format'
 import { sanitizeSolidIconColor } from '@/lib/ui/icon-colors'
+import { evaluateSubBlockConditionValues } from '@/lib/workflows/sub-block-conditions'
 import { buildConfiguredSubBlockParams } from '@/lib/workflows/subblock-values'
 import { getBlock } from '@/blocks'
 import type { SubBlockConfig } from '@/blocks/types'
@@ -10,13 +11,6 @@ import type { SerializedBlock, SerializedWorkflow } from '@/serializer/types'
 import type { BlockState, Loop, Parallel } from '@/stores/workflows/workflow/types'
 
 const logger = createLogger('Serializer')
-
-type SerializerCondition = {
-  field: string
-  value: any
-  not?: boolean
-  and?: SerializerCondition | SerializerCondition[]
-}
 
 /**
  * Structured validation error for pre-execution workflow validation
@@ -366,31 +360,10 @@ export class Serializer {
     const missingFields: string[] = []
     const missingParamIds = new Set<string>()
 
-    const evalCond = (
-      condition: SerializerCondition | (() => SerializerCondition) | undefined,
-      values: Record<string, any>
-    ): boolean => {
-      if (!condition) return true
-      const actual = typeof condition === 'function' ? condition() : condition
-      const fieldValue = values[actual.field]
-
-      const valueMatch = Array.isArray(actual.value)
-        ? fieldValue != null &&
-          (actual.not ? !actual.value.includes(fieldValue) : actual.value.includes(fieldValue))
-        : actual.not
-          ? fieldValue !== actual.value
-          : fieldValue === actual.value
-
-      const andList = Array.isArray(actual.and) ? actual.and : actual.and ? [actual.and] : []
-      const andMatch = andList.every((entry) => evalCond(entry, values))
-
-      return valueMatch && andMatch
-    }
-
     blockConfig.subBlocks?.forEach((subBlockConfig: SubBlockConfig) => {
       if (subBlockConfig.hidden) return
       if (!shouldIncludeField(subBlockConfig, block.advancedMode ?? false)) return
-      if (!evalCond(subBlockConfig.condition, params)) return
+      if (!evaluateSubBlockConditionValues(subBlockConfig.condition, params)) return
 
       const paramId = subBlockConfig.canonicalParamId ?? subBlockConfig.id
       const paramConfig = blockConfig.inputs?.[paramId] ?? blockConfig.inputs?.[subBlockConfig.id]
@@ -406,8 +379,9 @@ export class Serializer {
         subBlockConfig.required === undefined ||
         subBlockConfig.required === true ||
         (typeof subBlockConfig.required === 'object' &&
-          evalCond(subBlockConfig.required, params)) ||
-        (typeof subBlockConfig.required === 'function' && evalCond(subBlockConfig.required, params))
+          evaluateSubBlockConditionValues(subBlockConfig.required, params)) ||
+        (typeof subBlockConfig.required === 'function' &&
+          evaluateSubBlockConditionValues(subBlockConfig.required, params))
       if (!isRequired) return
 
       const fieldValue = params[paramId]
