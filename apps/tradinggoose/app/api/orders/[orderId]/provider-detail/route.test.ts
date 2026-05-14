@@ -141,6 +141,7 @@ describe('order provider detail route', () => {
     vi.mocked(authorizeTradingCredentialRequest).mockResolvedValue({
       credentialOwnerUserId: 'credential-owner-1',
       tokenAccountId: 'account-credential-1',
+      accountProviderId: 'alpaca-paper',
     })
     vi.mocked(resolveTradingProviderContext).mockResolvedValue({
       accessToken: 'access-token-1',
@@ -188,6 +189,7 @@ describe('order provider detail route', () => {
       userId: 'user-1',
       credentialOwnerUserId: 'credential-owner-1',
       tokenAccountId: 'account-credential-1',
+      accountProviderId: 'alpaca-paper',
     })
     expect(executeTradingProviderOrderDetailRequest).toHaveBeenCalledWith(
       'alpaca',

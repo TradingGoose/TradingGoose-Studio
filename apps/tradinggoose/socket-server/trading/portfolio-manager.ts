@@ -589,6 +589,9 @@ async function resolveTradingPortfolioContext(
     workspaceId: streamState.workspaceId,
   })
   if (!credentialAccount) throw new Error('Trading provider connection not found')
+  if (credentialAccount.providerId !== serviceId) {
+    throw new Error('Trading provider connection does not match requested service')
+  }
 
   const accessToken = await refreshAccessTokenIfNeeded(
     credentialAccount.accountId,

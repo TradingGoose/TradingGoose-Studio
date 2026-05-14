@@ -35,6 +35,7 @@ describe('tradingHoldingsTool', () => {
     authorizeTradingCredentialRequestMock.mockResolvedValue({
       credentialOwnerUserId: 'user-1',
       tokenAccountId: 'account-credential-1',
+      accountProviderId: 'tradier-live',
     })
     resolveTradingProviderContextMock.mockResolvedValue({
       requestId: 'request-1',
@@ -77,6 +78,7 @@ describe('tradingHoldingsTool', () => {
       userId: 'user-1',
       credentialOwnerUserId: 'user-1',
       tokenAccountId: 'account-credential-1',
+      accountProviderId: 'tradier-live',
     })
     expect(getPortfolioDetailMock).toHaveBeenCalledWith({
       providerId: 'tradier',

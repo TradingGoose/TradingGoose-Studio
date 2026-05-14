@@ -1,6 +1,11 @@
 import { db } from '@tradinggoose/db'
-import { account, credential, workflow as workflowTable } from '@tradinggoose/db/schema'
-import { eq } from 'drizzle-orm'
+import {
+  account,
+  credential,
+  credentialMember,
+  workflow as workflowTable,
+} from '@tradinggoose/db/schema'
+import { and, eq } from 'drizzle-orm'
 import type { NextRequest } from 'next/server'
 import { AuthType, checkHybridAuth } from '@/lib/auth/hybrid'
 import { checkWorkspaceAccess } from '@/lib/permissions/utils'
@@ -13,6 +18,7 @@ export interface CredentialAccessResult {
   credentialOwnerUserId?: string
   workspaceId?: string
   resolvedTokenAccountId?: string
+  resolvedProviderId?: string
 }
 
 export function credentialAuthStatus(error?: string) {
@@ -107,7 +113,7 @@ export async function authorizeCredentialUse(
   }
 
   const [accountRow] = await db
-    .select({ userId: account.userId })
+    .select({ userId: account.userId, providerId: account.providerId })
     .from(account)
     .where(eq(account.id, platformCredential.accountId))
     .limit(1)
@@ -125,6 +131,26 @@ export async function authorizeCredentialUse(
     return { ok: false, error: 'Unauthorized' }
   }
 
+  const requesterOwnsCredential = accountRow.userId === actingUserId
+  const [credentialMembership] =
+    requesterOwnsCredential || requesterAccess.canWrite
+      ? [null]
+      : await db
+          .select({ id: credentialMember.id })
+          .from(credentialMember)
+          .where(
+            and(
+              eq(credentialMember.credentialId, platformCredential.id),
+              eq(credentialMember.userId, actingUserId),
+              eq(credentialMember.status, 'active')
+            )
+          )
+          .limit(1)
+
+  if (!requesterOwnsCredential && !requesterAccess.canWrite && !credentialMembership) {
+    return { ok: false, error: 'Unauthorized' }
+  }
+
   return {
     ok: true,
     authType: auth.authType as CredentialAccessResult['authType'],
@@ -132,5 +158,6 @@ export async function authorizeCredentialUse(
     credentialOwnerUserId: accountRow.userId,
     workspaceId: platformCredential.workspaceId,
     resolvedTokenAccountId: platformCredential.accountId,
+    resolvedProviderId: accountRow.providerId,
   }
 }

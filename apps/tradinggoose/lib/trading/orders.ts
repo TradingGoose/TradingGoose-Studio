@@ -362,6 +362,7 @@ export async function submitTradingOrder({
     userId,
     credentialOwnerUserId: credentialAuthorization.credentialOwnerUserId,
     tokenAccountId: credentialAuthorization.tokenAccountId,
+    accountProviderId: credentialAuthorization.accountProviderId,
   })
 
   const resolvedListing = await resolveOrderListing(requestData.listing as ListingInputValue)

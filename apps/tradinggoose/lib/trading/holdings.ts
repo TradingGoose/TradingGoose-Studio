@@ -55,6 +55,7 @@ export async function getTradingHoldings({
     userId,
     credentialOwnerUserId: credentialAuthorization.credentialOwnerUserId,
     tokenAccountId: credentialAuthorization.tokenAccountId,
+    accountProviderId: credentialAuthorization.accountProviderId,
   })
   const providerDefinition = getTradingProviderDefinition(baseContext.providerId)
   if (!providerDefinition) {

@@ -153,13 +153,17 @@ describe('Trading provider order route', () => {
     idempotencyCounter = 0
     vi.stubGlobal('fetch', mockFetch)
     mockGetSession.mockResolvedValue({ user: { id: 'user-1' } })
-    mockAuthorizeCredentialUse.mockResolvedValue({
-      ok: true,
-      authType: 'session',
-      requesterUserId: 'user-1',
-      credentialOwnerUserId: 'user-1',
-      resolvedTokenAccountId: 'account-credential-1',
-    })
+    mockAuthorizeCredentialUse.mockImplementation(
+      (_request: unknown, { credentialId }: { credentialId: string }) =>
+        Promise.resolve({
+          ok: true,
+          authType: 'session',
+          requesterUserId: 'user-1',
+          credentialOwnerUserId: 'user-1',
+          resolvedTokenAccountId: 'account-credential-1',
+          resolvedProviderId: credentialId.startsWith('tradier') ? 'tradier-live' : 'alpaca-live',
+        })
+    )
     mockRefreshAccessTokenIfNeeded.mockResolvedValue('access-token')
     mockCheckWorkspaceAccess.mockResolvedValue({
       exists: true,
@@ -236,6 +240,27 @@ describe('Trading provider order route', () => {
 
     expect(response.status).toBe(403)
     await expect(response.json()).resolves.toEqual({ error: 'Unauthorized' })
+    expect(mockRefreshAccessTokenIfNeeded).not.toHaveBeenCalled()
+    expectNoAccountDiscoveryOrBrokerCall()
+  })
+
+  it('rejects portfolio identities whose credential service does not match the requested service', async () => {
+    mockAuthorizeCredentialUse.mockResolvedValueOnce({
+      ok: true,
+      authType: 'session',
+      requesterUserId: 'user-1',
+      credentialOwnerUserId: 'user-1',
+      resolvedTokenAccountId: 'account-credential-1',
+      resolvedProviderId: 'alpaca-live',
+    })
+
+    const { POST } = await import('@/app/api/providers/trading/order/route')
+    const response = await POST(createProviderOrderRequest('tradier'))
+
+    expect(response.status).toBe(400)
+    await expect(response.json()).resolves.toEqual({
+      error: 'Trading provider connection does not match requested service',
+    })
     expect(mockRefreshAccessTokenIfNeeded).not.toHaveBeenCalled()
     expectNoAccountDiscoveryOrBrokerCall()
   })

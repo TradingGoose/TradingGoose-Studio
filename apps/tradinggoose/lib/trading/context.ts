@@ -51,7 +51,11 @@ export async function authorizeTradingCredentialRequest(params: {
   credentialId: string
   workspaceId?: string
   workflowId?: string
-}): Promise<{ credentialOwnerUserId: string; tokenAccountId: string }> {
+}): Promise<{
+  credentialOwnerUserId: string
+  tokenAccountId: string
+  accountProviderId: string
+}> {
   const authorization = await authorizeCredentialUse(params.request, {
     credentialId: params.credentialId,
     workspaceId: params.workspaceId,
@@ -60,7 +64,8 @@ export async function authorizeTradingCredentialRequest(params: {
   if (
     !authorization.ok ||
     !authorization.credentialOwnerUserId ||
-    !authorization.resolvedTokenAccountId
+    !authorization.resolvedTokenAccountId ||
+    !authorization.resolvedProviderId
   ) {
     const status =
       authorization.error === 'Credential not found'
@@ -74,6 +79,7 @@ export async function authorizeTradingCredentialRequest(params: {
   return {
     credentialOwnerUserId: authorization.credentialOwnerUserId,
     tokenAccountId: authorization.resolvedTokenAccountId,
+    accountProviderId: authorization.resolvedProviderId,
   }
 }
 
@@ -83,12 +89,14 @@ export async function resolveTradingProviderContext({
   userId,
   credentialOwnerUserId,
   tokenAccountId,
+  accountProviderId,
 }: {
   requestData: ProviderRequestData
   requestId: string
   userId: string
   credentialOwnerUserId: string
   tokenAccountId: string
+  accountProviderId: string
 }): Promise<PreflightContext> {
   const providerId = requireStringField(requestData.provider, 'provider')
 
@@ -104,6 +112,9 @@ export async function resolveTradingProviderContext({
   }
 
   const credentialId = requireStringField(requestData.credentialId, 'credentialId')
+  if (accountProviderId !== serviceId) {
+    throw new TradingServiceError('Trading provider connection does not match requested service')
+  }
 
   const resolvedAccessToken = await refreshAccessTokenIfNeeded(
     tokenAccountId,

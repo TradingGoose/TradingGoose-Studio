@@ -88,6 +88,7 @@ export async function getRecordedTradingOrderProviderDetail({
     userId,
     credentialOwnerUserId: credentialAuthorization.credentialOwnerUserId,
     tokenAccountId: credentialAuthorization.tokenAccountId,
+    accountProviderId: credentialAuthorization.accountProviderId,
   })
 
   const detailInput: TradingOrderDetailInput = {

@@ -1,5 +1,5 @@
 import { db } from '@tradinggoose/db'
-import { account, credential, user } from '@tradinggoose/db/schema'
+import { account, credential, credentialMember } from '@tradinggoose/db/schema'
 import { and, desc, eq, inArray } from 'drizzle-orm'
 import {
   getCanonicalScopesForProvider,
@@ -13,16 +13,15 @@ import {
 import { refreshAccessTokenIfNeeded } from '@/lib/oauth/tokens'
 import { checkWorkspaceAccess } from '@/lib/permissions/utils'
 
-type SyncOAuthCredentialsParams = {
+type OAuthCredentialQueryParams = {
   userId: string
   workspaceId?: string
   providerIds?: string[]
 }
 
-function getPostgresErrorCode(error: unknown): string | undefined {
-  if (!error || typeof error !== 'object') return undefined
-  const err = error as { code?: string; cause?: { code?: string } }
-  return err.code || err.cause?.code
+type CredentialAccessRow = {
+  credentialId: string
+  credentialOwnerUserId: string
 }
 
 function readIdTokenDisplayName(idToken: string | null | undefined) {
@@ -56,9 +55,8 @@ function getCredentialDisplayName(row: {
   providerId: string
   accountId: string
   idToken?: string | null
-  userEmail?: string | null
 }) {
-  const identity = readIdTokenDisplayName(row.idToken) || row.accountId || row.userEmail
+  const identity = readIdTokenDisplayName(row.idToken) || row.accountId
   try {
     const serviceName = getServiceByProviderAndId(row.providerId as OAuthProvider).name
     return identity ? `${serviceName} (${identity})` : serviceName
@@ -96,109 +94,63 @@ function toOAuthCredential(row: {
   } satisfies OAuthCredential
 }
 
-async function listCredentialWorkspaceIds(userId: string, workspaceId?: string) {
-  if (!workspaceId) return []
+async function listUsableCredentialIds(params: {
+  userId: string
+  workspaceId: string
+  canWrite: boolean
+  rows: CredentialAccessRow[]
+}) {
+  if (params.rows.length === 0) return new Set<string>()
 
-  const access = await checkWorkspaceAccess(workspaceId, userId)
-  return access.hasAccess ? [workspaceId] : []
-}
-
-export async function syncOAuthCredentialsForUser(params: SyncOAuthCredentialsParams) {
-  if (!params.workspaceId) return
-
-  const providerIds = params.providerIds?.map((providerId) => providerId.trim()).filter(Boolean)
-  const accountFilters = [eq(account.userId, params.userId)]
-  if (providerIds?.length) {
-    accountFilters.push(inArray(account.providerId, providerIds))
-  }
-
-  const accounts = (
-    await db
-      .select({
-        id: account.id,
-        providerId: account.providerId,
-        accountId: account.accountId,
-        idToken: account.idToken,
-        userEmail: user.email,
+  const ownerIds = Array.from(new Set(params.rows.map((row) => row.credentialOwnerUserId)))
+  const ownerAccess = new Map(
+    await Promise.all(
+      ownerIds.map(async (ownerId) => {
+        const access = await checkWorkspaceAccess(params.workspaceId, ownerId)
+        return [ownerId, access.hasAccess] as const
       })
-      .from(account)
-      .innerJoin(user, eq(account.userId, user.id))
-      .where(and(...accountFilters))
-  ).filter((row) => !isSignInOAuthProviderId(row.providerId))
-  if (accounts.length === 0) return
-
-  const workspaceIds = await listCredentialWorkspaceIds(params.userId, params.workspaceId)
-  if (workspaceIds.length === 0) return
-
-  const now = new Date()
-  const accountIds = accounts.map((row) => row.id)
-  for (const workspaceId of workspaceIds) {
-    const existingCredentials = await db
-      .select({
-        id: credential.id,
-        accountId: credential.accountId,
-      })
-      .from(credential)
-      .where(
-        and(
-          eq(credential.workspaceId, workspaceId),
-          eq(credential.type, 'oauth'),
-          inArray(credential.accountId, accountIds)
-        )
-      )
-
-    const credentialIdByAccountId = new Map(
-      existingCredentials
-        .filter((row) => typeof row.accountId === 'string')
-        .map((row) => [row.accountId!, row.id])
     )
+  )
+  const memberships = params.canWrite
+    ? []
+    : await db
+        .select({ credentialId: credentialMember.credentialId })
+        .from(credentialMember)
+        .where(
+          and(
+            inArray(
+              credentialMember.credentialId,
+              params.rows.map((row) => row.credentialId)
+            ),
+            eq(credentialMember.userId, params.userId),
+            eq(credentialMember.status, 'active')
+          )
+        )
+  const sharedCredentialIds = new Set(memberships.map((row) => row.credentialId))
 
-    for (const accountRow of accounts) {
-      const displayName = getCredentialDisplayName(accountRow)
-      const credentialId = credentialIdByAccountId.get(accountRow.id)
-      if (!credentialId) {
-        try {
-          await db.insert(credential).values({
-            id: crypto.randomUUID(),
-            workspaceId,
-            type: 'oauth',
-            displayName,
-            description: null,
-            providerId: accountRow.providerId,
-            accountId: accountRow.id,
-            envKey: null,
-            envOwnerUserId: null,
-            encryptedServiceAccountKey: null,
-            createdBy: params.userId,
-            createdAt: now,
-            updatedAt: now,
-          })
-        } catch (error) {
-          if (getPostgresErrorCode(error) !== '23505') throw error
-        }
-      } else {
-        await db
-          .update(credential)
-          .set({
-            displayName,
-            updatedAt: now,
-          })
-          .where(eq(credential.id, credentialId))
-      }
-    }
-  }
+  return new Set(
+    params.rows
+      .filter(
+        (row) =>
+          ownerAccess.get(row.credentialOwnerUserId) === true &&
+          (row.credentialOwnerUserId === params.userId ||
+            params.canWrite ||
+            sharedCredentialIds.has(row.credentialId))
+      )
+      .map((row) => row.credentialId)
+  )
 }
 
 export async function listOAuthCredentialsForUser(
-  params: SyncOAuthCredentialsParams & {
+  params: OAuthCredentialQueryParams & {
     credentialId?: string
   }
 ) {
-  await syncOAuthCredentialsForUser(params)
-  const workspaceIds = await listCredentialWorkspaceIds(params.userId, params.workspaceId)
-  if (workspaceIds.length === 0) return []
+  if (!params.workspaceId) return []
+  const requesterAccess = await checkWorkspaceAccess(params.workspaceId, params.userId)
+  if (!requesterAccess.hasAccess) return []
 
-  const filters = [eq(credential.type, 'oauth'), inArray(credential.workspaceId, workspaceIds)]
+  const filters = [eq(credential.type, 'oauth'), eq(credential.workspaceId, params.workspaceId)]
   if (params.providerIds?.length) {
     filters.push(inArray(account.providerId, params.providerIds))
   }
@@ -221,7 +173,19 @@ export async function listOAuthCredentialsForUser(
     .where(and(...filters))
     .orderBy(desc(account.updatedAt))
 
-  return rows.map((row) => toOAuthCredential({ ...row, requesterUserId: params.userId }))
+  const usableCredentialIds = await listUsableCredentialIds({
+    userId: params.userId,
+    workspaceId: params.workspaceId,
+    canWrite: requesterAccess.canWrite,
+    rows: rows.map((row) => ({
+      credentialId: row.id,
+      credentialOwnerUserId: row.accountUserId,
+    })),
+  })
+
+  return rows
+    .filter((row) => usableCredentialIds.has(row.id))
+    .map((row) => toOAuthCredential({ ...row, requesterUserId: params.userId }))
 }
 
 export async function listOAuthConnectionsForUser(params: {
@@ -264,13 +228,12 @@ export async function listOAuthConnectionsForUser(params: {
 }
 
 export async function listOAuthCredentialAccountsForUser(
-  params: SyncOAuthCredentialsParams & { workspaceId: string }
+  params: OAuthCredentialQueryParams & { workspaceId: string }
 ) {
-  await syncOAuthCredentialsForUser(params)
-  const workspaceIds = await listCredentialWorkspaceIds(params.userId, params.workspaceId)
-  if (workspaceIds.length === 0) return []
+  const requesterAccess = await checkWorkspaceAccess(params.workspaceId, params.userId)
+  if (!requesterAccess.hasAccess) return []
 
-  const filters = [eq(credential.type, 'oauth'), inArray(credential.workspaceId, workspaceIds)]
+  const filters = [eq(credential.type, 'oauth'), eq(credential.workspaceId, params.workspaceId)]
   if (params.providerIds?.length) {
     filters.push(inArray(account.providerId, params.providerIds))
   }
@@ -286,17 +249,14 @@ export async function listOAuthCredentialAccountsForUser(
     .innerJoin(account, eq(credential.accountId, account.id))
     .where(and(...filters))
 
-  const ownerIds = Array.from(new Set(rows.map((row) => row.credentialOwnerUserId)))
-  const ownerAccess = new Map(
-    await Promise.all(
-      ownerIds.map(async (ownerId) => {
-        const access = await checkWorkspaceAccess(params.workspaceId, ownerId)
-        return [ownerId, access.hasAccess] as const
-      })
-    )
-  )
+  const usableCredentialIds = await listUsableCredentialIds({
+    userId: params.userId,
+    workspaceId: params.workspaceId,
+    canWrite: requesterAccess.canWrite,
+    rows,
+  })
 
-  return rows.filter((row) => ownerAccess.get(row.credentialOwnerUserId) === true)
+  return rows.filter((row) => usableCredentialIds.has(row.credentialId))
 }
 
 export async function resolveOAuthCredentialAccountForUser(params: {
@@ -325,13 +285,15 @@ export async function resolveOAuthCredentialAccountForUser(params: {
     return null
   }
 
-  const [requesterAccess, ownerAccess] = await Promise.all([
-    checkWorkspaceAccess(row.workspaceId, params.userId),
-    checkWorkspaceAccess(row.workspaceId, row.accountUserId),
-  ])
-  if (!requesterAccess.hasAccess || !ownerAccess.hasAccess) {
-    return null
-  }
+  const requesterAccess = await checkWorkspaceAccess(row.workspaceId, params.userId)
+  if (!requesterAccess.hasAccess) return null
+  const usableCredentialIds = await listUsableCredentialIds({
+    userId: params.userId,
+    workspaceId: row.workspaceId,
+    canWrite: requesterAccess.canWrite,
+    rows: [{ credentialId: row.id, credentialOwnerUserId: row.accountUserId }],
+  })
+  if (!usableCredentialIds.has(row.id)) return null
 
   return {
     credentialId: row.id,
