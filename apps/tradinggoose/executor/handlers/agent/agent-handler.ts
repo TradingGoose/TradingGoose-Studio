@@ -11,6 +11,7 @@ import type {
   ToolInput,
 } from '@/executor/handlers/agent/types'
 import type { BlockHandler, ExecutionContext, StreamingExecution } from '@/executor/types'
+import { getBlockToolExecutionId } from '@/executor/handlers/tool-execution-context'
 import { getProviderFromModel, transformBlockTool } from '@/providers/ai/utils'
 import type { SerializedBlock } from '@/serializer/types'
 import { executeTool } from '@/tools'
@@ -111,6 +112,7 @@ export class AgentBlockHandler implements BlockHandler {
       inputs,
       formattedTools,
       responseFormat,
+      block,
       context,
       streaming: streamingConfig.shouldUseStreaming ?? false,
     })
@@ -560,6 +562,7 @@ export class AgentBlockHandler implements BlockHandler {
     inputs: AgentInputs
     formattedTools: any[]
     responseFormat: any
+    block: SerializedBlock
     context: ExecutionContext
     streaming: boolean
   }) {
@@ -570,6 +573,7 @@ export class AgentBlockHandler implements BlockHandler {
       inputs,
       formattedTools,
       responseFormat,
+      block,
       context,
       streaming,
     } = config
@@ -595,6 +599,7 @@ export class AgentBlockHandler implements BlockHandler {
       workspaceId: context.workspaceId,
       workflowLogId: context.workflowLogId,
       submissionSource: context.submissionSource,
+      toolExecutionId: getBlockToolExecutionId(block, context),
       stream: streaming,
       messages,
       environmentVariables: context.environmentVariables || {},

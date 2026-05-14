@@ -16,6 +16,7 @@ export async function PUT(request: NextRequest) {
       domain,
       credentialId,
       workflowId,
+      workspaceId,
       issueKey,
       summary,
       title,
@@ -38,7 +39,7 @@ export async function PUT(request: NextRequest) {
 
     const credential = await resolveOAuthRouteCredential(
       request,
-      { credentialId, workflowId },
+      { credentialId, workflowId, workspaceId },
       requestId
     )
     if (!credential.ok) return credential.response

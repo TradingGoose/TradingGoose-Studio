@@ -51,7 +51,6 @@ export async function resolveOAuthRouteCredential(
     credentialId,
     workflowId,
     workspaceId,
-    requireWorkflowIdForInternal: false,
   })
 
   if (!authz.ok || !authz.credentialOwnerUserId || !authz.resolvedTokenAccountId) {

@@ -56,7 +56,6 @@ export async function authorizeTradingCredentialRequest(params: {
     credentialId: params.credentialId,
     workspaceId: params.workspaceId,
     workflowId: params.workflowId,
-    requireWorkflowIdForInternal: false,
   })
   if (
     !authorization.ok ||

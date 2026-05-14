@@ -12,7 +12,7 @@ const logger = createLogger('JiraIssueAPI')
 export async function POST(request: NextRequest) {
   const requestId = generateRequestId()
   try {
-    const { domain, credentialId, workflowId, issueId, cloudId: providedCloudId } =
+    const { domain, credentialId, workflowId, workspaceId, issueId, cloudId: providedCloudId } =
       await request.json()
     if (!domain) {
       logger.error('Missing domain in request')
@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
 
     const credential = await resolveOAuthRouteCredential(
       request,
-      { credentialId, workflowId },
+      { credentialId, workflowId, workspaceId },
       requestId
     )
     if (!credential.ok) return credential.response

@@ -21,6 +21,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const credentialId = searchParams.get('credentialId')
     const workflowId = searchParams.get('workflowId') || undefined
+    const workspaceId = searchParams.get('workspaceId') || undefined
     const folderId = searchParams.get('folderId')
 
     if (!credentialId) {
@@ -34,6 +35,7 @@ export async function GET(request: NextRequest) {
         {
           credentialId,
           workflowId,
+          workspaceId,
         },
         requestId
       )

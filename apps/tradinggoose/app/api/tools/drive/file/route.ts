@@ -19,6 +19,7 @@ export async function GET(request: NextRequest) {
     const credentialId = searchParams.get('credentialId')
     const fileId = searchParams.get('fileId')
     const workflowId = searchParams.get('workflowId') || undefined
+    const workspaceId = searchParams.get('workspaceId') || undefined
 
     if (!credentialId || !fileId) {
       logger.warn(`[${requestId}] Missing required parameters`)
@@ -31,7 +32,11 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: fileIdValidation.error }, { status: 400 })
     }
 
-    const credential = await resolveOAuthRouteCredential(request, { credentialId, workflowId }, requestId)
+    const credential = await resolveOAuthRouteCredential(
+      request,
+      { credentialId, workflowId, workspaceId },
+      requestId
+    )
     if (!credential.ok) return credential.response
 
     logger.info(`[${requestId}] Fetching file ${fileId} from Google Drive API`)

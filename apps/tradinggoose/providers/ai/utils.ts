@@ -933,6 +933,7 @@ export function prepareToolExecution(
     workflowId?: string
     workspaceId?: string // Add workspaceId for MCP tools
     workflowLogId?: string
+    toolExecutionId?: string
     submissionSource?: ExecutionSubmissionSource
     chatId?: string
     userId?: string
@@ -955,6 +956,7 @@ export function prepareToolExecution(
     ...(request.workflowId ? { workflowId: request.workflowId } : {}),
     ...(request.workspaceId ? { workspaceId: request.workspaceId } : {}),
     ...(request.workflowLogId ? { workflowLogId: request.workflowLogId } : {}),
+    ...(request.toolExecutionId ? { toolExecutionId: request.toolExecutionId } : {}),
     ...(request.submissionSource ? { submissionSource: request.submissionSource } : {}),
     ...(request.chatId ? { chatId: request.chatId } : {}),
     ...(request.userId ? { userId: request.userId } : {}),

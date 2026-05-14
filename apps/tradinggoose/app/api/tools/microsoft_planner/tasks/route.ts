@@ -14,6 +14,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const credentialId = searchParams.get('credentialId')
     const workflowId = searchParams.get('workflowId') || undefined
+    const workspaceId = searchParams.get('workspaceId') || undefined
     const planId = searchParams.get('planId')
     const taskId = searchParams.get('taskId')
 
@@ -43,7 +44,11 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    const credential = await resolveOAuthRouteCredential(request, { credentialId, workflowId }, requestId)
+    const credential = await resolveOAuthRouteCredential(
+      request,
+      { credentialId, workflowId, workspaceId },
+      requestId
+    )
     if (!credential.ok) return credential.response
 
     const response = await fetch(

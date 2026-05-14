@@ -276,6 +276,40 @@ describe('/api/workflows/[id]/execute', () => {
     })
   })
 
+  it('returns a controlled timeout when queued non-stream execution does not finish', async () => {
+    vi.useFakeTimers()
+    readWorkflowExecutionEventStateMock.mockResolvedValue({
+      status: 'processing',
+      errorMessage: null,
+      events: [],
+      result: null,
+    })
+
+    try {
+      const { POST } = await import('./route')
+      const responsePromise = POST(
+        new NextRequest('https://example.com/api/workflows/workflow-1/execute', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-API-Key': 'key-1',
+          },
+        }),
+        { params: Promise.resolve({ id: 'workflow-1' }) }
+      )
+
+      await vi.advanceTimersByTimeAsync(26_000)
+      const response = await responsePromise
+
+      expect(response.status).toBe(504)
+      await expect(response.json()).resolves.toMatchObject({
+        error: 'Workflow execution did not finish before the API response timeout',
+      })
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('accepts empty POST bodies for API triggers without input fields', async () => {
     const { POST } = await import('./route')
     const response = await POST(

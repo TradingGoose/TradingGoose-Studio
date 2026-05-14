@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic'
 export async function POST(request: NextRequest) {
   const requestId = generateRequestId()
   try {
-    const { domain, credentialId, workflowId, pageId, cloudId: providedCloudId } =
+    const { domain, credentialId, workflowId, workspaceId, pageId, cloudId: providedCloudId } =
       await request.json()
 
     if (!domain) {
@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
 
     const credential = await resolveOAuthRouteCredential(
       request,
-      { credentialId, workflowId },
+      { credentialId, workflowId, workspaceId },
       requestId
     )
     if (!credential.ok) return credential.response
@@ -100,6 +100,7 @@ export async function PUT(request: NextRequest) {
       domain,
       credentialId,
       workflowId,
+      workspaceId,
       pageId,
       cloudId: providedCloudId,
       title,
@@ -122,7 +123,7 @@ export async function PUT(request: NextRequest) {
 
     const credential = await resolveOAuthRouteCredential(
       request,
-      { credentialId, workflowId },
+      { credentialId, workflowId, workspaceId },
       requestId
     )
     if (!credential.ok) return credential.response

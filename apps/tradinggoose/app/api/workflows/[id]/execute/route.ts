@@ -27,6 +27,7 @@ import { RateLimitError } from '@/services/queue'
 
 const logger = createLogger('WorkflowExecuteAPI')
 const API_EXECUTION_POLL_INTERVAL_MS = 1_000
+const API_EXECUTION_WAIT_TIMEOUT_MS = 25_000
 const UNSUPPORTED_API_EXECUTE_FIELDS = [
   'workflowTriggerType',
   'isSecureMode',
@@ -44,11 +45,18 @@ export const runtime = 'nodejs'
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
+class ApiWorkflowResultTimeoutError extends Error {
+  constructor() {
+    super('Workflow execution did not finish before the API response timeout')
+  }
+}
+
 async function waitForApiWorkflowResult(params: {
   executionId: string
   workflowId: string
 }): Promise<ExecutionResult> {
-  while (true) {
+  const deadline = Date.now() + API_EXECUTION_WAIT_TIMEOUT_MS
+  while (Date.now() < deadline) {
     const state = await readWorkflowExecutionEventState({
       pendingExecutionId: params.executionId,
       workflowId: params.workflowId,
@@ -71,6 +79,8 @@ async function waitForApiWorkflowResult(params: {
 
     await sleep(API_EXECUTION_POLL_INTERVAL_MS)
   }
+
+  throw new ApiWorkflowResultTimeoutError()
 }
 
 function createApiWorkflowResponse(result: ExecutionResult) {
@@ -351,6 +361,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     if (error instanceof ExecutionGateError) {
       return createErrorResponse(error.message, error.statusCode, 'USAGE_LIMIT_EXCEEDED')
+    }
+
+    if (error instanceof ApiWorkflowResultTimeoutError) {
+      return createErrorResponse(error.message, 504)
     }
 
     logger.error(`[${requestId}] Failed to execute workflow`, {

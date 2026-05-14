@@ -16,6 +16,7 @@ export async function POST(request: NextRequest) {
       domain,
       credentialId,
       workflowId,
+      workspaceId,
       projectId,
       summary,
       description,
@@ -45,7 +46,7 @@ export async function POST(request: NextRequest) {
 
     const credential = await resolveOAuthRouteCredential(
       request,
-      { credentialId, workflowId },
+      { credentialId, workflowId, workspaceId },
       requestId
     )
     if (!credential.ok) return credential.response

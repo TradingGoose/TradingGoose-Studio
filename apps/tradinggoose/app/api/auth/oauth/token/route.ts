@@ -29,7 +29,6 @@ export async function POST(request: NextRequest) {
       credentialId,
       workflowId,
       workspaceId,
-      requireWorkflowIdForInternal: false,
     })
     if (!authz.ok || !authz.credentialOwnerUserId) {
       const status = authz.error === 'Credential not found' ? 404 : 403

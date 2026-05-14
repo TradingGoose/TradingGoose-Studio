@@ -21,13 +21,18 @@ export async function GET(request: NextRequest) {
     const query = searchParams.get('query') || ''
     const folderId = searchParams.get('folderId') || searchParams.get('parentId') || ''
     const workflowId = searchParams.get('workflowId') || undefined
+    const workspaceId = searchParams.get('workspaceId') || undefined
 
     if (!credentialId) {
       logger.warn(`[${requestId}] Missing credential ID`)
       return NextResponse.json({ error: 'Credential ID is required' }, { status: 400 })
     }
 
-    const credential = await resolveOAuthRouteCredential(request, { credentialId, workflowId }, requestId)
+    const credential = await resolveOAuthRouteCredential(
+      request,
+      { credentialId, workflowId, workspaceId },
+      requestId
+    )
     if (!credential.ok) return credential.response
 
     const qParts: string[] = ['trashed = false']

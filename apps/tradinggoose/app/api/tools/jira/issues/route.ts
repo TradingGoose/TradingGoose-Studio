@@ -28,7 +28,7 @@ const validateDomain = (domain: string | null) => {
 export async function POST(request: NextRequest) {
   const requestId = generateRequestId()
   try {
-    const { domain, credentialId, workflowId, issueKeys = [], cloudId: providedCloudId } =
+    const { domain, credentialId, workflowId, workspaceId, issueKeys = [], cloudId: providedCloudId } =
       await request.json()
 
     const validationError = validateDomain(domain || null)
@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
 
     const credential = await resolveOAuthRouteCredential(
       request,
-      { credentialId, workflowId },
+      { credentialId, workflowId, workspaceId },
       requestId
     )
     if (!credential.ok) return credential.response
@@ -116,6 +116,7 @@ export async function GET(request: NextRequest) {
     const domain = url.searchParams.get('domain')?.trim()
     const credentialId = url.searchParams.get('credentialId')
     const workflowId = url.searchParams.get('workflowId')
+    const workspaceId = url.searchParams.get('workspaceId') || undefined
     const providedCloudId = url.searchParams.get('cloudId')
     const query = url.searchParams.get('query') || ''
     const projectId = url.searchParams.get('projectId') || ''
@@ -129,7 +130,7 @@ export async function GET(request: NextRequest) {
 
     const credential = await resolveOAuthRouteCredential(
       request,
-      { credentialId, workflowId },
+      { credentialId, workflowId, workspaceId },
       requestId
     )
     if (!credential.ok) return credential.response
