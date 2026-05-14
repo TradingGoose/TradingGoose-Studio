@@ -4,10 +4,10 @@ import {
   resolveTradingProviderContext,
   resolveTradingProviderSelectedAccount,
 } from '@/lib/trading/context'
-import { getTradingProvider } from '@/providers/trading'
 import { getPortfolioDetail } from '@/providers/trading/portfolio'
 import type { PortfolioDetail, PortfolioIdentity } from '@/providers/trading/portfolio-identity'
 import { toPortfolioValueObject } from '@/providers/trading/portfolio-identity'
+import { getTradingProviderDefinition } from '@/providers/trading/providers'
 import { TradingServiceError } from './errors'
 
 export interface TradingHoldingsRequest {
@@ -56,7 +56,10 @@ export async function getTradingHoldings({
     credentialOwnerUserId: credentialAuthorization.credentialOwnerUserId,
     tokenAccountId: credentialAuthorization.tokenAccountId,
   })
-  const provider = getTradingProvider(baseContext.providerId)
+  const providerDefinition = getTradingProviderDefinition(baseContext.providerId)
+  if (!providerDefinition) {
+    throw new TradingServiceError('Trading provider is not configured')
+  }
   const accountContext = await resolveTradingProviderSelectedAccount({
     baseContext,
     accountId: portfolioIdentity.accountId,
@@ -72,8 +75,8 @@ export async function getTradingHoldings({
   })
 
   return {
-    summary: `Fetched portfolio detail from ${provider.name}`,
-    provider: provider.id,
+    summary: `Fetched portfolio detail from ${providerDefinition.name}`,
+    provider: baseContext.providerId,
     holdings,
   }
 }

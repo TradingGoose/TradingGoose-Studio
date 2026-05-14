@@ -18,6 +18,8 @@ export type TradingOrderType =
   | 'credit'
   | 'even'
 
+export type TradingOrderSizingMode = 'quantity' | 'notional'
+
 export interface TradingRequestConfig {
   url: string
   method: HttpMethod
@@ -42,15 +44,17 @@ export interface TradingOrderInput extends TradingSymbolInput {
   clientOrderId?: string
   quantity?: number
   notional?: number
-  orderSizingMode?: string
+  orderSizingMode?: TradingOrderSizingMode
   orderType?: TradingOrderType
   timeInForce?: string
   limitPrice?: number
   stopPrice?: number
   trailPrice?: number
   trailPercent?: number
-  orderClass?: string
-  providerParams?: Record<string, any>
+  orderMethod?: string
+  optionSymbol?: string
+  legs?: Array<Record<string, any>>
+  preview?: boolean
   environment?: 'paper' | 'live'
   accessToken?: string
   accountId?: string

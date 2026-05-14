@@ -3,7 +3,6 @@ import {
   alpacaTradingProviderConfig,
   resolveAlpacaTradingBaseUrl,
 } from '@/providers/trading/alpaca/config'
-import { getAlpacaNotionalOrderTypeError } from '@/providers/trading/order-validation'
 import type {
   TradingOrder,
   TradingOrderInput,
@@ -32,10 +31,11 @@ export const buildAlpacaOrderRequest = (params: TradingOrderInput): TradingReque
     typeof params.notional === 'number' && Number.isFinite(params.notional)
       ? params.notional
       : undefined
-  const sizingMode = (params as { orderSizingMode?: string }).orderSizingMode
-  const resolvedSizingMode =
-    sizingMode === 'quantity' || sizingMode === 'notional' ? sizingMode : undefined
+  const resolvedSizingMode = params.orderSizingMode
 
+  if (!resolvedSizingMode) {
+    throw new Error('Alpaca orders require orderSizingMode.')
+  }
   if (resolvedSizingMode === 'quantity' && quantity === undefined) {
     throw new Error('Alpaca orders require qty when orderSizingMode=quantity.')
   }
@@ -43,32 +43,11 @@ export const buildAlpacaOrderRequest = (params: TradingOrderInput): TradingReque
     throw new Error('Alpaca orders require notional when orderSizingMode=notional.')
   }
 
-  const useQuantity =
-    resolvedSizingMode === 'quantity'
-      ? quantity !== undefined
-      : resolvedSizingMode === 'notional'
-        ? false
-        : quantity !== undefined
-  const useNotional =
-    resolvedSizingMode === 'notional'
-      ? notional !== undefined
-      : !useQuantity && notional !== undefined
-
-  if (!useNotional && !useQuantity) {
-    throw new Error('Alpaca orders require qty or notional.')
-  }
+  const useNotional = resolvedSizingMode === 'notional'
 
   const orderType = (params.orderType || 'market').toLowerCase()
   const timeInForce = params.timeInForce || 'day'
   const isTrailingStop = orderType === 'trailing_stop'
-
-  if (useNotional) {
-    const orderTypeError = getAlpacaNotionalOrderTypeError(orderType)
-    if (orderTypeError) throw new Error(orderTypeError)
-    if (timeInForce !== 'day') {
-      throw new Error('Alpaca notional orders require time_in_force=day.')
-    }
-  }
 
   const body: Record<string, any> = {
     symbol,

@@ -118,7 +118,7 @@ describe('tradingActionTool canonical order route payload', () => {
     )
   })
 
-  it('does not forward Alpaca sizing fields for non-Alpaca providers', () => {
+  it('forwards canonical sizing fields without provider-name stripping', () => {
     const body = buildBody({
       portfolioIdentity: tradierPortfolioIdentity,
       quantity: 2,
@@ -128,10 +128,10 @@ describe('tradingActionTool canonical order route payload', () => {
 
     expect(body).toMatchObject({
       portfolioIdentity: tradierPortfolioIdentity,
-      quantity: 2,
+      orderSizingMode: 'notional',
+      notional: 100,
     })
-    expect(body).not.toHaveProperty('orderSizingMode')
-    expect(body).not.toHaveProperty('notional')
+    expect(body).not.toHaveProperty('quantity')
   })
 
   it('uses the canonical order submission route', () => {

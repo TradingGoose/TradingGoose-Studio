@@ -6,13 +6,6 @@ const authorizeTradingCredentialRequestMock = vi.fn()
 const resolveTradingProviderContextMock = vi.fn()
 const resolveTradingProviderSelectedAccountMock = vi.fn()
 
-vi.mock('@/providers/trading', () => ({
-  getTradingProvider: (providerId: string) => ({
-    id: providerId,
-    name: providerId === 'tradier' ? 'Tradier' : 'Alpaca',
-  }),
-}))
-
 vi.mock('@/providers/trading/portfolio', () => ({
   getPortfolioDetail: (...args: unknown[]) => getPortfolioDetailMock(...args),
 }))

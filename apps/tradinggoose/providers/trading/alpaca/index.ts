@@ -1,19 +1,8 @@
-import type { TradingProvider } from '@/providers/trading/providers'
-import { alpacaTradingProviderConfig } from '@/providers/trading/alpaca/config'
-import {
-  buildAlpacaOrderRequest,
-  normalizeAlpacaOrder,
-} from '@/providers/trading/alpaca/orders'
 import { alpacaOrderDetailRequest } from '@/providers/trading/alpaca/orderDetail'
+import { buildAlpacaOrderRequest, normalizeAlpacaOrder } from '@/providers/trading/alpaca/orders'
+import type { TradingProviderAdapter } from '@/providers/trading/providers'
 
-export const alpacaProvider: TradingProvider = {
-  id: 'alpaca',
-  name: 'Alpaca',
-  config: alpacaTradingProviderConfig,
-  defaults: {
-    orderType: 'market',
-    timeInForce: 'day',
-  },
+export const alpacaProvider: TradingProviderAdapter = {
   buildOrderRequest: buildAlpacaOrderRequest,
   orderDetailRequest: alpacaOrderDetailRequest,
   normalizeOrder: normalizeAlpacaOrder,

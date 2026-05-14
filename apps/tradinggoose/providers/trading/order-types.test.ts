@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest'
 import type { ListingResolved } from '@/lib/listing/identity'
 import {
   getStrictTradingOrderTypeDefinitions,
+  getTradingOrderSizingModeDefinitions,
   getTradingOrderTypeOptions,
+  resolveTradingOrderSizingMode,
 } from '@/providers/trading/order-types'
 
 const stockListing: ListingResolved = {
@@ -53,11 +55,11 @@ describe('trading order type helpers', () => {
     ])
   })
 
-  it('filters Tradier order types by selected order class', () => {
+  it('filters Tradier order types by selected order method', () => {
     expect(
       getStrictTradingOrderTypeDefinitions('tradier', {
         listing: stockListing,
-        orderClass: 'multileg',
+        orderMethod: 'multileg',
       }).map((definition) => definition.id)
     ).toEqual(['market', 'debit', 'credit', 'even'])
   })
@@ -78,5 +80,13 @@ describe('trading order type helpers', () => {
       )
     ).toEqual(['market', 'limit', 'stop_limit'])
     expect(getTradingOrderTypeOptions('alpaca', { listing: etfListing })).toEqual([])
+  })
+
+  it('resolves order sizing from provider capabilities', () => {
+    expect(
+      getTradingOrderSizingModeDefinitions('alpaca').map((definition) => definition.id)
+    ).toEqual(['quantity', 'notional'])
+    expect(resolveTradingOrderSizingMode('tradier', 'notional')).toBeUndefined()
+    expect(resolveTradingOrderSizingMode('tradier')).toBe('quantity')
   })
 })

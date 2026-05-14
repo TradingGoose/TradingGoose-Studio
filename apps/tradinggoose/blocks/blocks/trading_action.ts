@@ -1,195 +1,135 @@
 import { DollarIcon } from '@/components/icons/icons'
 import type { ListingInputValue } from '@/lib/listing/identity'
-import type { BlockConfig, SubBlockCondition, SubBlockConfig } from '@/blocks/types'
+import type { BlockConfig, SubBlockCondition } from '@/blocks/types'
 import { AuthMode } from '@/blocks/types'
 import {
   buildInputsFromToolParams,
   fetchTradingPortfolioIdentityOptions,
   requiredUserOnlyInput,
 } from '@/blocks/utils'
-import { getTradingProviderParamCatalog, getTradingProviders } from '@/providers/trading'
-import { getTradingOrderTypeOptions } from '@/providers/trading/order-types'
-import type { TradingProviderParamDefinition } from '@/providers/trading/providers'
+import {
+  getTradingOrderMethodDefinitions,
+  getTradingOrderSizingModeDefinitions,
+  getTradingOrderTimeInForceOptions,
+  getTradingOrderTypeOptions,
+  tradingOrderTypeUsesField,
+} from '@/providers/trading/order-types'
+import type {
+  TradingOrderMethodRequirement,
+  TradingOrderTypeRequirement,
+} from '@/providers/trading/providers'
+import {
+  getTradingOrderCapabilities,
+  getTradingProviderOptionsByKind,
+  getTradingProvidersByKind,
+} from '@/providers/trading/providers'
 import type { TradingActionResponse } from '@/providers/trading/types'
 import { buildOrderRoutePayload, tradingActionTool } from '@/tools/trading/action'
 
-const providerOptions = getTradingProviders().map((provider) => ({
-  label: provider.name,
-  id: provider.id,
-}))
+const providerOptions = () =>
+  getTradingProviderOptionsByKind('order').map((provider) => ({
+    label: provider.name,
+    id: provider.id,
+  }))
 
-const BLOCK_RESERVED_PARAM_IDS = new Set([
-  'provider',
-  'portfolioIdentity',
-  'side',
-  'listing',
-  'orderType',
-  'limitPrice',
-  'stopPrice',
-  'trailPrice',
-  'trailPercent',
-  'timeInForce',
-])
+const resolveContextValue = (
+  contextValues: Record<string, unknown> | undefined,
+  key: string
+): string | undefined => {
+  const entry = contextValues?.[key]
+  if (entry && typeof entry === 'object' && 'value' in entry) {
+    return (entry as { value?: string }).value
+  }
+  if (typeof entry === 'string') return entry
+  return undefined
+}
 
-const providerParamCatalog = getTradingProviderParamCatalog('order')
-const providerParamRegistry = providerParamCatalog.registry
-const providerParamOrderIndex = new Map(
-  providerParamCatalog.order.map((paramId, index) => [paramId, index])
+const orderProviders = getTradingProvidersByKind('order')
+const providerIdsWith = (predicate: (provider: (typeof orderProviders)[number]) => boolean) =>
+  orderProviders.filter(predicate).map((provider) => provider.id)
+
+const conditionFor = (
+  field: string,
+  values: string[],
+  providerIds?: string[]
+): SubBlockCondition | undefined => {
+  if (!values.length) return undefined
+  const condition: SubBlockCondition = { field, value: values }
+  return providerIds?.length
+    ? { ...condition, and: { field: 'provider', value: providerIds } }
+    : condition
+}
+
+const orderMethodProviderIds = providerIdsWith(
+  (provider) => (getTradingOrderCapabilities(provider.id)?.orderMethods ?? []).length > 0
+)
+const sizingModeProviderIds = providerIdsWith(
+  (provider) => (getTradingOrderCapabilities(provider.id)?.sizingModes ?? []).length > 1
+)
+const quantityProviderIds = providerIdsWith((provider) =>
+  (getTradingOrderCapabilities(provider.id)?.sizingModes ?? []).some(
+    (definition) => definition.id === 'quantity'
+  )
+)
+const notionalProviderIds = providerIdsWith((provider) =>
+  (getTradingOrderCapabilities(provider.id)?.sizingModes ?? []).some(
+    (definition) => definition.id === 'notional'
+  )
+)
+const previewProviderIds = providerIdsWith(
+  (provider) => getTradingOrderCapabilities(provider.id)?.preview === true
 )
 
-const orderedProviderParamIds = [...providerParamCatalog.order].sort((a, b) => {
-  const aOrder = providerParamRegistry[a]?.definition.displayOrder
-  const bOrder = providerParamRegistry[b]?.definition.displayOrder
-  const aHasOrder = typeof aOrder === 'number'
-  const bHasOrder = typeof bOrder === 'number'
-
-  if (aHasOrder && bHasOrder && aOrder !== bOrder) {
-    return aOrder - bOrder
-  }
-  if (aHasOrder && !bHasOrder) return -1
-  if (!aHasOrder && bHasOrder) return 1
-  return (providerParamOrderIndex.get(a) ?? 0) - (providerParamOrderIndex.get(b) ?? 0)
-})
-
-const isSensitiveParam = (paramId: string): boolean => {
-  const lowered = paramId.toLowerCase()
-  return (
-    lowered.includes('apikey') ||
-    lowered.includes('api_key') ||
-    lowered.includes('secret') ||
-    lowered.includes('token') ||
-    lowered.includes('password')
-  )
-}
-
-const formatParamTitle = (paramId: string): string => {
-  if (paramId === 'apiKey') return 'API Key'
-  if (paramId === 'apiSecret') return 'API Secret'
-
-  if (paramId.includes('_') || paramId.includes('-')) {
-    return paramId
-      .split(/[-_]/)
-      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(' ')
-  }
-
-  if (/[A-Z]/.test(paramId)) {
-    const result = paramId.replace(/([A-Z])/g, ' $1')
-    return (
-      result.charAt(0).toUpperCase() +
-      result
-        .slice(1)
-        .replace(/ Api/g, ' API')
-        .replace(/ Id/g, ' ID')
-        .replace(/ Url/g, ' URL')
-        .replace(/ Uri/g, ' URI')
+const orderTypeCapability = (field: TradingOrderTypeRequirement) => {
+  const providerIds = providerIdsWith((provider) =>
+    (getTradingOrderCapabilities(provider.id)?.orderTypes ?? []).some((definition) =>
+      tradingOrderTypeUsesField(definition, field)
     )
-  }
-
-  return paramId.charAt(0).toUpperCase() + paramId.slice(1)
+  )
+  const values = Array.from(
+    new Set(
+      orderProviders.flatMap((provider) =>
+        (getTradingOrderCapabilities(provider.id)?.orderTypes ?? [])
+          .filter((definition) => tradingOrderTypeUsesField(definition, field))
+          .map((definition) => definition.id)
+      )
+    )
+  )
+  return conditionFor('orderType', values, providerIds)
 }
 
-const shouldIncludeProviderParam = (
-  definition: TradingProviderParamDefinition,
-  reservedParams: Set<string> = BLOCK_RESERVED_PARAM_IDS
-): boolean => {
-  if (reservedParams.has(definition.id)) return false
-  if (definition.visibility === 'hidden' || definition.visibility === 'llm-only') return false
-  return true
+const orderMethodCapability = (field: TradingOrderMethodRequirement) => {
+  const providerIds = providerIdsWith((provider) =>
+    (getTradingOrderCapabilities(provider.id)?.orderMethods ?? []).some((definition) =>
+      definition.requires?.includes(field)
+    )
+  )
+  const values = Array.from(
+    new Set(
+      orderProviders.flatMap((provider) =>
+        (getTradingOrderCapabilities(provider.id)?.orderMethods ?? [])
+          .filter((definition) => definition.requires?.includes(field))
+          .map((definition) => definition.id)
+      )
+    )
+  )
+  return conditionFor('orderMethod', values, providerIds)
 }
 
-const resolveParamInputType = (
-  definition: TradingProviderParamDefinition
-): SubBlockConfig['type'] => {
-  if (definition.inputType) return definition.inputType
-  if (definition.options?.length) return 'dropdown'
-
-  switch (definition.type) {
-    case 'boolean':
-      return 'switch'
-    case 'json':
-    case 'array':
-      return 'code'
-    case 'number':
-      return 'short-input'
-    default:
-      return 'short-input'
-  }
-}
-
-const normalizeConditionList = (
-  condition?: SubBlockCondition | SubBlockCondition[]
-): SubBlockCondition[] => {
-  if (!condition) return []
-  return Array.isArray(condition) ? condition : [condition]
-}
-
-const mergeParamConditions = (
-  definitionCondition?: TradingProviderParamDefinition['condition'],
-  providerCondition?: SubBlockCondition
-): SubBlockCondition | undefined => {
-  if (!definitionCondition) return providerCondition
-  if (!providerCondition) return definitionCondition as SubBlockCondition
-
-  const baseCondition = definitionCondition as SubBlockCondition
-  const baseAnd = normalizeConditionList(baseCondition.and)
-
-  if (baseAnd.length === 0) {
-    return {
-      ...baseCondition,
-      and: providerCondition,
-    }
-  }
-
-  return {
-    ...baseCondition,
-    and: [...baseAnd, providerCondition],
-  }
-}
-
-const providerParamBlocks = (): SubBlockConfig[] =>
-  orderedProviderParamIds
-    .map((paramId) => {
-      const entry = providerParamRegistry[paramId]
-      if (!entry) return null
-
-      const definition = entry.definition
-      if (!shouldIncludeProviderParam(definition)) return null
-
-      const inputType = resolveParamInputType(definition)
-      const numericInputType =
-        (inputType === 'short-input' || inputType === 'long-input') && definition.type === 'number'
-          ? 'number'
-          : undefined
-      const providerCondition = entry.providers.length
-        ? ({ field: 'provider', value: entry.providers } as SubBlockCondition)
-        : undefined
-      const condition = mergeParamConditions(definition.condition, providerCondition)
-
-      return {
-        id: paramId,
-        title: definition.title || formatParamTitle(paramId),
-        type: inputType,
-        layout: definition.layout || 'full',
-        required: definition.required,
-        placeholder: definition.placeholder || definition.description,
-        description: definition.description,
-        options: definition.options,
-        defaultValue: definition.defaultValue,
-        fetchOptions: definition.fetchOptions,
-        min: definition.min,
-        max: definition.max,
-        step: definition.step,
-        integer: definition.integer,
-        rows: definition.rows,
-        dependsOn: definition.dependsOn,
-        mode: definition.mode,
-        inputType: numericInputType,
-        password: definition.password ?? isSensitiveParam(paramId),
-        condition,
-      } as SubBlockConfig
-    })
-    .filter((block): block is SubBlockConfig => Boolean(block))
+const quantityConditionBase = conditionFor('orderSizingMode', ['notional'], quantityProviderIds)
+const quantityCondition = quantityConditionBase
+  ? { ...quantityConditionBase, not: true }
+  : undefined
+const orderMethodCondition = conditionFor('provider', orderMethodProviderIds)
+const sizingModeCondition = conditionFor('provider', sizingModeProviderIds)
+const notionalCondition = conditionFor('orderSizingMode', ['notional'], notionalProviderIds)
+const previewCondition = conditionFor('provider', previewProviderIds)
+const limitPriceCondition = orderTypeCapability('limitPrice')
+const stopPriceCondition = orderTypeCapability('stopPrice')
+const trailPriceCondition = orderTypeCapability('trailPrice')
+const trailPercentCondition = orderTypeCapability('trailPercent')
+const optionSymbolCondition = orderMethodCapability('optionSymbol')
+const legsCondition = orderMethodCapability('legs')
 
 export const TradingActionBlock: BlockConfig<TradingActionResponse> = {
   type: 'trading_action',
@@ -209,7 +149,7 @@ export const TradingActionBlock: BlockConfig<TradingActionResponse> = {
       layout: 'full',
       options: providerOptions,
       required: true,
-      value: () => 'alpaca',
+      value: () => providerOptions()[0]?.id,
     },
     {
       id: 'portfolioIdentity',
@@ -244,20 +184,93 @@ export const TradingActionBlock: BlockConfig<TradingActionResponse> = {
       required: true,
     },
     {
+      id: 'orderSizingMode',
+      title: 'Order Size',
+      type: 'dropdown',
+      layout: 'half',
+      condition: sizingModeCondition,
+      dependsOn: ['provider'],
+      fetchOptions: async (_blockId, _subBlockId, context) => {
+        const contextValues = context.contextValues as Record<string, unknown> | undefined
+        const providerId = resolveContextValue(contextValues, 'provider')
+        return getTradingOrderSizingModeDefinitions(providerId).map((definition) => ({
+          id: definition.id,
+          label: definition.label,
+        }))
+      },
+    },
+    {
+      id: 'quantity',
+      title: 'Quantity',
+      type: 'short-input',
+      layout: 'half',
+      placeholder: 'Quantity to trade',
+      condition: quantityCondition,
+    },
+    {
+      id: 'notional',
+      title: 'Notional',
+      type: 'short-input',
+      layout: 'half',
+      placeholder: 'Dollar amount',
+      condition: notionalCondition,
+    },
+    {
+      id: 'orderMethod',
+      title: 'Order Method',
+      type: 'dropdown',
+      layout: 'half',
+      condition: orderMethodCondition,
+      dependsOn: ['provider', 'listing'],
+      fetchOptions: async (_blockId, _subBlockId, context) => {
+        const contextValues = context.contextValues as Record<string, unknown> | undefined
+        const providerId = resolveContextValue(contextValues, 'provider')
+        const listing = contextValues?.listing as ListingInputValue | undefined
+        return getTradingOrderMethodDefinitions(providerId, { listing }).map((definition) => ({
+          id: definition.id,
+          label: definition.label,
+        }))
+      },
+    },
+    {
       id: 'orderType',
       title: 'Order Type',
       type: 'dropdown',
       layout: 'half',
       required: true,
       value: () => 'market',
-      dependsOn: ['provider', 'listing', 'orderClass'],
+      dependsOn: ['provider', 'listing', 'orderMethod'],
       fetchOptions: async (_blockId, _subBlockId, context) => {
         const contextValues = context.contextValues as Record<string, unknown> | undefined
-        const providerId = contextValues?.provider as string | undefined
+        const providerId = resolveContextValue(contextValues, 'provider')
         const listing = contextValues?.listing as ListingInputValue | undefined
-        const orderClass = contextValues?.orderClass as string | undefined
-        return getTradingOrderTypeOptions(providerId, { listing, orderClass })
+        const orderMethod = resolveContextValue(contextValues, 'orderMethod')
+        return getTradingOrderTypeOptions(providerId, { listing, orderMethod })
       },
+    },
+    {
+      id: 'optionSymbol',
+      title: 'Option Symbol',
+      type: 'short-input',
+      layout: 'full',
+      placeholder: 'AAPL260117C00100000',
+      condition: optionSymbolCondition,
+    },
+    {
+      id: 'legs',
+      title: 'Order Legs',
+      type: 'code',
+      layout: 'full',
+      language: 'json',
+      placeholder: '[{"side":"buy_to_open","quantity":1,"optionSymbol":"AAPL260117C00100000"}]',
+      condition: legsCondition,
+    },
+    {
+      id: 'preview',
+      title: 'Preview Order',
+      type: 'switch',
+      layout: 'half',
+      condition: previewCondition,
     },
     {
       id: 'limitPrice',
@@ -265,7 +278,7 @@ export const TradingActionBlock: BlockConfig<TradingActionResponse> = {
       type: 'short-input',
       layout: 'half',
       placeholder: 'Required for limit and stop-limit orders',
-      condition: { field: 'orderType', value: ['limit', 'stop_limit'] },
+      condition: limitPriceCondition,
     },
     {
       id: 'stopPrice',
@@ -273,7 +286,7 @@ export const TradingActionBlock: BlockConfig<TradingActionResponse> = {
       type: 'short-input',
       layout: 'half',
       placeholder: 'Required for stop/stop-limit orders',
-      condition: { field: 'orderType', value: ['stop', 'stop_limit'] },
+      condition: stopPriceCondition,
     },
     {
       id: 'trailPrice',
@@ -281,7 +294,7 @@ export const TradingActionBlock: BlockConfig<TradingActionResponse> = {
       type: 'short-input',
       layout: 'half',
       placeholder: 'Trailing stop price offset (use price or percent)',
-      condition: { field: 'orderType', value: 'trailing_stop' },
+      condition: trailPriceCondition,
     },
     {
       id: 'trailPercent',
@@ -289,23 +302,25 @@ export const TradingActionBlock: BlockConfig<TradingActionResponse> = {
       type: 'short-input',
       layout: 'half',
       placeholder: 'Trailing stop percent offset (use percent or price)',
-      condition: { field: 'orderType', value: 'trailing_stop' },
+      condition: trailPercentCondition,
     },
     {
       id: 'timeInForce',
       title: 'Time in Force',
       type: 'dropdown',
       layout: 'half',
-      options: [
-        { label: 'Day', id: 'day' },
-        { label: 'Good Till Cancelled', id: 'gtc' },
-        { label: 'Good For Day (GFD)', id: 'gfd' },
-        { label: 'Immediate Or Cancel', id: 'ioc' },
-        { label: 'Fill Or Kill', id: 'fok' },
-      ],
+      dependsOn: ['provider'],
+      fetchOptions: async (_blockId, _subBlockId, context) => {
+        const contextValues = context.contextValues as Record<string, unknown> | undefined
+        return getTradingOrderTimeInForceOptions(
+          resolveContextValue(contextValues, 'provider')
+        ).map((id) => ({
+          id,
+          label: id.toUpperCase(),
+        }))
+      },
       placeholder: 'Defaults vary by provider',
     },
-    ...providerParamBlocks(),
   ],
   tools: {
     access: ['trading_place_order'],

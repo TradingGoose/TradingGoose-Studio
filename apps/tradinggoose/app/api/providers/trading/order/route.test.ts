@@ -378,7 +378,7 @@ describe('Trading provider order route', () => {
 
     expect(response.status).toBe(400)
     await expect(response.json()).resolves.toEqual({
-      error: 'Alpaca notional orders support market, limit, stop, or stop_limit types.',
+      error: 'Notional sizing is not supported for this order type',
     })
     expectNoAccountDiscoveryOrBrokerCall()
   })
@@ -526,15 +526,15 @@ describe('Trading provider order route', () => {
         trailPrice: 1,
         trailPercent: 1,
       },
-      'Enter either trail price or trail percent.',
+      'trailPrice or trailPercent is required',
     ],
-    [{}, 'Enter either trail price or trail percent.'],
+    [{}, 'trailPrice or trailPercent is required'],
     [
       {
         trailPrice: 1,
         limitPrice: 100,
       },
-      'Alpaca trailing stop orders do not accept limitPrice or stopPrice',
+      'limitPrice is not supported for this order type',
     ],
   ])(
     'rejects invalid Alpaca trailing stop payloads before account discovery',
@@ -762,7 +762,7 @@ describe('Trading provider order route', () => {
     )
   })
 
-  it('passes provider-specific Tradier order params through the canonical route', async () => {
+  it('passes canonical Tradier option order fields through the route', async () => {
     mockFetch.mockResolvedValueOnce(
       jsonResponse({
         order: {
@@ -777,13 +777,11 @@ describe('Trading provider order route', () => {
     const { POST } = await import('@/app/api/providers/trading/order/route')
     const response = await POST(
       createProviderOrderRequest('tradier', {
-        orderClass: 'option',
+        orderMethod: 'option',
         orderType: 'limit',
         limitPrice: 1.23,
-        providerParams: {
-          optionSymbol: 'AAPL260117C00100000',
-          preview: true,
-        },
+        optionSymbol: 'AAPL260117C00100000',
+        preview: true,
       })
     )
 
@@ -797,11 +795,9 @@ describe('Trading provider order route', () => {
     expect(mockRecordOrderHistory).toHaveBeenCalledWith(
       expect.objectContaining({
         request: expect.objectContaining({
-          orderClass: 'option',
-          providerParams: {
-            optionSymbol: 'AAPL260117C00100000',
-            preview: true,
-          },
+          orderMethod: 'option',
+          optionSymbol: 'AAPL260117C00100000',
+          preview: true,
         }),
       })
     )

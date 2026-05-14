@@ -75,12 +75,15 @@ const mutualFundListing = {
 } as const
 
 describe('quick order shared helpers', () => {
-  it('exposes sizing mode only for providers with a sizing selector', () => {
-    expect(getQuickOrderSizingModeConfig('alpaca')).toEqual({
+  it('exposes canonical sizing modes from provider capabilities', () => {
+    expect(getQuickOrderSizingModeConfig('alpaca')).toMatchObject({
       options: ['quantity', 'notional'],
       defaultMode: 'quantity',
     })
-    expect(getQuickOrderSizingModeConfig('tradier')).toEqual({ options: [] })
+    expect(getQuickOrderSizingModeConfig('tradier')).toMatchObject({
+      options: ['quantity'],
+      defaultMode: 'quantity',
+    })
   })
 
   it('uses strict order-type filtering and provider defaults', () => {

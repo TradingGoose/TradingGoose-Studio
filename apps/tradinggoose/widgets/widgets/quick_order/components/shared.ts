@@ -1,9 +1,19 @@
 import type { ListingInputValue } from '@/lib/listing/identity'
-import { getTradingProvider } from '@/providers/trading'
-import { getStrictTradingOrderTypeDefinitions } from '@/providers/trading/order-types'
-import type { TradingOrderTypeDefinition } from '@/providers/trading/providers'
-import { getTradingProviderParamDefinitions } from '@/providers/trading/providers'
-import type { TradingOrderType, TradingProviderId } from '@/providers/trading/types'
+import {
+  getStrictTradingOrderTypeDefinitions,
+  getTradingOrderSizingModeDefinitions,
+  resolveTradingOrderSizingMode,
+  resolveTradingOrderTypeDefinition,
+} from '@/providers/trading/order-types'
+import type {
+  TradingOrderSizingModeDefinition,
+  TradingOrderTypeDefinition,
+} from '@/providers/trading/providers'
+import type {
+  TradingOrderSizingMode,
+  TradingOrderType,
+  TradingProviderId,
+} from '@/providers/trading/types'
 import { resolveTradingListingAssetClass } from '@/providers/trading/utils'
 import {
   getTradingWidgetProviderAvailabilityIds,
@@ -11,8 +21,8 @@ import {
   resolveTradingWidgetProviderId,
 } from '@/widgets/utils/trading-widget-providers'
 import {
-  resolveConfiguredSeriesMarketProviderId,
   getSeriesMarketProviderOptions,
+  resolveConfiguredSeriesMarketProviderId,
 } from '@/widgets/widgets/data_chart/options'
 import type { QuickOrderWidgetParams } from '@/widgets/widgets/quick_order/types'
 
@@ -42,44 +52,19 @@ export const resolveQuickOrderMarketProviderId = (
   options = getQuickOrderMarketProviderOptions()
 ) => resolveConfiguredSeriesMarketProviderId(params?.marketProvider, options)
 
-export type QuickOrderSizingMode = 'quantity' | 'notional'
-
 export type QuickOrderSizingModeConfig = {
-  options: QuickOrderSizingMode[]
-  defaultMode?: QuickOrderSizingMode
+  options: TradingOrderSizingMode[]
+  definitions: TradingOrderSizingModeDefinition[]
+  defaultMode?: TradingOrderSizingMode
 }
 
 export const getQuickOrderSizingModeConfig = (providerId?: string): QuickOrderSizingModeConfig => {
-  if (!providerId) return { options: [] }
-  const sizingDefinition = getTradingProviderParamDefinitions(providerId, 'order').find(
-    (definition) => definition.id === 'orderSizingMode'
-  )
-  const options =
-    sizingDefinition?.options
-      ?.map((option) => option.id)
-      .filter(
-        (value): value is QuickOrderSizingMode => value === 'quantity' || value === 'notional'
-      ) ?? []
-  const defaultValue = sizingDefinition?.defaultValue
-  const defaultMode =
-    typeof defaultValue === 'string' && options.includes(defaultValue as QuickOrderSizingMode)
-      ? (defaultValue as QuickOrderSizingMode)
-      : options[0]
+  if (!providerId) return { options: [], definitions: [] }
+  const definitions = getTradingOrderSizingModeDefinitions(providerId)
+  const options = definitions.map((definition) => definition.id)
+  const defaultMode = resolveTradingOrderSizingMode(providerId)
 
-  return { options, defaultMode }
-}
-
-export const getQuickOrderTimeInForceOptions = (providerId?: string) => {
-  if (!providerId) return []
-  const provider = getTradingProvider(providerId)
-  return provider.config.capabilities?.order?.timeInForce ?? []
-}
-
-export const getQuickOrderDefaultTimeInForce = (providerId?: string) => {
-  if (!providerId) return undefined
-  const provider = getTradingProvider(providerId)
-  const options = getQuickOrderTimeInForceOptions(providerId)
-  return provider.defaults?.timeInForce ?? options[0]
+  return { options, definitions, defaultMode }
 }
 
 export type QuickOrderOrderTypeOption = {
@@ -144,29 +129,19 @@ export const resolveQuickOrderOrderType = ({
     }
   }
 
-  const requested = orderType?.trim()
-  if (requested) {
-    const definition = definitions.find((candidate) => candidate.id === requested)
-    if (!definition) {
-      return {
-        ok: false,
-        reason: 'unsupported_order_type',
-        requestedOrderType: requested,
-        options,
-      }
-    }
+  const definition = resolveTradingOrderTypeDefinition(providerId, {
+    listing,
+    orderType,
+  })
+  if (!definition) {
+    const requested = orderType?.trim()
     return {
-      ok: true,
-      definition,
-      orderType: definition.id as TradingOrderType,
+      ok: false,
+      reason: requested ? 'unsupported_order_type' : 'no_supported_order_types',
+      requestedOrderType: requested || undefined,
       options,
     }
   }
-
-  const provider = getTradingProvider(providerId)
-  const definition =
-    definitions.find((definition) => definition.id === provider.defaults?.orderType) ??
-    definitions[0]
 
   return {
     ok: true,

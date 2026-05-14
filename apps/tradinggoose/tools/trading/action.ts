@@ -1,27 +1,9 @@
 import { stableStringifyJsonValue } from '@/lib/json/stable'
-import { toPortfolioValueObject } from '@/providers/trading/portfolio-identity'
 import type { TradingActionResponse } from '@/providers/trading/types'
 import type { TradingActionParams } from '@/tools/trading/types'
 import type { ToolConfig } from '@/tools/types'
 
 type TradingOrderRoutePayloadParams = Partial<TradingActionParams>
-const ORDER_ROUTE_PAYLOAD_FIELDS = new Set([
-  'provider',
-  'portfolioIdentity',
-  'listing',
-  'side',
-  'quantity',
-  'notional',
-  'orderSizingMode',
-  'orderType',
-  'timeInForce',
-  'limitPrice',
-  'stopPrice',
-  'trailPrice',
-  'trailPercent',
-  'orderClass',
-  'providerParams',
-])
 
 const toOptionalNumber = (value: unknown): number | undefined => {
   if (value === null || value === undefined) return undefined
@@ -31,44 +13,32 @@ const toOptionalNumber = (value: unknown): number | undefined => {
 }
 
 export const buildOrderRoutePayload = (params: TradingOrderRoutePayloadParams) => {
-  const portfolioIdentity = toPortfolioValueObject(params.portfolioIdentity)
-  const isAlpaca = portfolioIdentity?.providerId === 'alpaca'
   const orderSizingMode =
-    isAlpaca && (params.orderSizingMode === 'quantity' || params.orderSizingMode === 'notional')
+    params.orderSizingMode === 'quantity' || params.orderSizingMode === 'notional'
       ? params.orderSizingMode
       : undefined
   const useNotional = orderSizingMode === 'notional'
   const workspaceId = params._context?.workspaceId
   const submissionSource = params._context?.submissionSource
   const toolExecutionId = params._context?.toolExecutionId
-  const extraProviderParams = Object.fromEntries(
-    Object.entries(params as Record<string, unknown>).filter(
-      ([key, value]) =>
-        value !== undefined && !key.startsWith('_') && !ORDER_ROUTE_PAYLOAD_FIELDS.has(key)
-    )
-  )
-  const providerParams = {
-    ...(params.providerParams && typeof params.providerParams === 'object'
-      ? params.providerParams
-      : {}),
-    ...extraProviderParams,
-  }
   const payload = {
     workspaceId,
-    portfolioIdentity,
+    portfolioIdentity: params.portfolioIdentity,
     listing: params.listing,
     side: params.side,
     quantity: useNotional ? undefined : toOptionalNumber(params.quantity),
     notional: useNotional ? toOptionalNumber(params.notional) : undefined,
     orderSizingMode,
+    orderMethod: params.orderMethod,
     orderType: params.orderType,
     timeInForce: params.timeInForce,
     limitPrice: toOptionalNumber(params.limitPrice),
     stopPrice: toOptionalNumber(params.stopPrice),
     trailPrice: toOptionalNumber(params.trailPrice),
     trailPercent: toOptionalNumber(params.trailPercent),
-    orderClass: params.orderClass,
-    providerParams: Object.keys(providerParams).length ? providerParams : undefined,
+    optionSymbol: params.optionSymbol,
+    legs: params.legs,
+    preview: params.preview,
     submissionSource,
     logId: params._context?.workflowLogId,
   }
@@ -121,26 +91,31 @@ export const tradingActionTool: ToolConfig<TradingActionParams, TradingActionRes
       type: 'number',
       required: false,
       visibility: 'user-or-llm',
-      description: 'Quantity of shares to trade. Required unless Alpaca notional is provided.',
+      description: 'Quantity to trade when the selected provider sizing mode is quantity.',
     },
     notional: {
       type: 'number',
       required: false,
       visibility: 'user-or-llm',
-      description: 'Dollar amount to trade (Alpaca only).',
+      description: 'Dollar amount to trade when supported by the selected provider.',
     },
     orderSizingMode: {
       type: 'string',
       required: false,
       visibility: 'user-or-llm',
-      description: 'Order sizing mode (quantity or notional) for Alpaca.',
+      description: 'Order sizing mode selected from trading provider capabilities.',
     },
     orderType: {
       type: 'string',
       required: false,
       visibility: 'user-or-llm',
-      description:
-        'Order type (provider-specific, e.g., market, limit, stop, stop_limit, trailing_stop).',
+      description: 'Order type selected from trading provider capabilities.',
+    },
+    orderMethod: {
+      type: 'string',
+      required: false,
+      visibility: 'user-or-llm',
+      description: 'Provider-supported order method selected from trading capabilities.',
     },
     timeInForce: {
       type: 'string',
@@ -158,19 +133,37 @@ export const tradingActionTool: ToolConfig<TradingActionParams, TradingActionRes
       type: 'number',
       required: false,
       visibility: 'user-or-llm',
-      description: 'Stop price (required for stop/stop_limit orders).',
+      description: 'Stop price when required by the selected order type.',
     },
     trailPrice: {
       type: 'number',
       required: false,
       visibility: 'user-or-llm',
-      description: 'Trailing stop price offset (Alpaca trailing_stop).',
+      description: 'Trailing price offset when supported by the selected order type.',
     },
     trailPercent: {
       type: 'number',
       required: false,
       visibility: 'user-or-llm',
-      description: 'Trailing stop percent offset (Alpaca trailing_stop).',
+      description: 'Trailing percent offset when supported by the selected order type.',
+    },
+    optionSymbol: {
+      type: 'string',
+      required: false,
+      visibility: 'user-or-llm',
+      description: 'Option contract symbol for option order methods.',
+    },
+    legs: {
+      type: 'array',
+      required: false,
+      visibility: 'user-or-llm',
+      description: 'Multileg option order legs.',
+    },
+    preview: {
+      type: 'boolean',
+      required: false,
+      visibility: 'user-only',
+      description: 'Preview the provider order without submitting when supported.',
     },
   },
 

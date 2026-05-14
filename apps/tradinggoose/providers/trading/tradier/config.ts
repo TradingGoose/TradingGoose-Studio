@@ -10,36 +10,6 @@ const availability: TradingProviderConfig['availability'] = {
   holdings: true,
 }
 
-const params: TradingProviderConfig['params'] = {
-  order: [
-    {
-      id: 'orderClass',
-      type: 'string',
-      title: 'Order Class',
-      description: 'Tradier order class.',
-      required: false,
-      visibility: 'user-or-llm',
-      inputType: 'dropdown',
-      options: [
-        { id: 'equity', label: 'Equity' },
-        { id: 'option', label: 'Option' },
-        { id: 'multileg', label: 'Multileg' },
-        { id: 'combo', label: 'Combo' },
-      ],
-      defaultValue: 'equity',
-      displayOrder: 5,
-    },
-    {
-      id: 'quantity',
-      type: 'number',
-      title: 'Quantity (Shares)',
-      description: 'Number of shares to trade.',
-      required: false,
-      visibility: 'user-or-llm',
-    },
-  ],
-}
-
 const exchangeCodeToMarketMap: TradingProviderConfig['exchangeCodeToMarket'] = {}
 const marketToExchangeCodeMap: TradingProviderConfig['marketToExchangeCode'] = {}
 
@@ -47,54 +17,56 @@ export const tradierTradingProviderConfig: TradingProviderConfig = {
   id: 'tradier',
   name: 'Tradier',
   availability,
-  params,
-  api_endpoints: {
-    default: 'https://api.tradier.com/v1',
-    order: 'https://api.tradier.com/v1/accounts/{accountId}/orders',
-    holdings: 'https://api.tradier.com/v1/accounts/{accountId}/positions',
-  },
   capabilities: {
     order: {
+      orderMethods: [
+        { id: 'equity', label: 'Equity' },
+        { id: 'option', label: 'Option', requires: ['optionSymbol'] },
+        { id: 'multileg', label: 'Multileg', requires: ['legs'] },
+        { id: 'combo', label: 'Combo', requires: ['legs'] },
+      ],
+      sizingModes: [{ id: 'quantity', label: 'Quantity' }],
+      preview: true,
       orderTypes: [
         {
           id: 'market',
           label: 'Market',
-          orderClasses: ['equity', 'option', 'multileg', 'combo'],
+          orderMethods: ['equity', 'option', 'multileg', 'combo'],
         },
         {
           id: 'limit',
           label: 'Limit',
-          orderClasses: ['equity', 'option'],
+          orderMethods: ['equity', 'option'],
           requires: ['limitPrice'],
         },
         {
           id: 'stop',
           label: 'Stop',
-          orderClasses: ['equity', 'option'],
+          orderMethods: ['equity', 'option'],
           requires: ['stopPrice'],
         },
         {
           id: 'stop_limit',
           label: 'Stop Limit',
-          orderClasses: ['equity', 'option'],
+          orderMethods: ['equity', 'option'],
           requires: ['limitPrice', 'stopPrice'],
         },
         {
           id: 'debit',
           label: 'Debit',
-          orderClasses: ['multileg', 'combo'],
+          orderMethods: ['multileg', 'combo'],
           requires: ['limitPrice'],
         },
         {
           id: 'credit',
           label: 'Credit',
-          orderClasses: ['multileg', 'combo'],
+          orderMethods: ['multileg', 'combo'],
           requires: ['limitPrice'],
         },
         {
           id: 'even',
           label: 'Even',
-          orderClasses: ['multileg', 'combo'],
+          orderMethods: ['multileg', 'combo'],
           requires: ['limitPrice'],
         },
       ],

@@ -34,7 +34,7 @@ describe('Tradier order request builder', () => {
     ).toThrow('Quantity is required for Tradier orders')
   })
 
-  it('defaults order class to equity and creates the form body', () => {
+  it('defaults order method to equity and creates the form body', () => {
     const request = buildTradierOrderRequest({
       listing: stockListing,
       side: 'sell',
@@ -61,7 +61,7 @@ describe('Tradier order request builder', () => {
     expect(request.body).toContain('tag=client-order-1')
   })
 
-  it('passes Tradier provider order params through the form body', () => {
+  it('passes canonical option order fields through the form body', () => {
     const request = buildTradierOrderRequest({
       listing: stockListing,
       side: 'buy',
@@ -69,14 +69,12 @@ describe('Tradier order request builder', () => {
       accountId: 'ACC-1',
       accessToken: 'token',
       orderType: 'debit',
-      orderClass: 'multileg',
-      providerParams: {
-        preview: true,
-        legs: [
-          { side: 'buy_to_open', quantity: 1, optionSymbol: 'AAPL260117C00100000' },
-          { side: 'sell_to_open', quantity: 1, option_symbol: 'AAPL260117C00110000' },
-        ],
-      },
+      orderMethod: 'multileg',
+      preview: true,
+      legs: [
+        { side: 'buy_to_open', quantity: 1, optionSymbol: 'AAPL260117C00100000' },
+        { side: 'sell_to_open', quantity: 1, optionSymbol: 'AAPL260117C00110000' },
+      ],
     })
 
     expect(request.body).toContain('class=multileg')

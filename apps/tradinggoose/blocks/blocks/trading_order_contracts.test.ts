@@ -40,23 +40,31 @@ describe('trading order block contracts', () => {
   it('invalidates order type options when the selected listing changes', () => {
     const orderType = TradingActionBlock.subBlocks.find((subBlock) => subBlock.id === 'orderType')
 
-    expect(orderType?.dependsOn).toEqual(['provider', 'listing'])
+    expect(orderType?.dependsOn).toEqual(['provider', 'listing', 'orderMethod'])
   })
 
-  it('does not merge Alpaca sizing conditions into shared quantity input', () => {
+  it('declares canonical sizing controls directly on the order block', () => {
     const quantity = TradingActionBlock.subBlocks.find((subBlock) => subBlock.id === 'quantity')
     const notional = TradingActionBlock.subBlocks.find((subBlock) => subBlock.id === 'notional')
 
-    expect(quantity?.condition).toEqual({ field: 'provider', value: ['alpaca', 'tradier'] })
+    expect(quantity?.condition).toEqual(
+      expect.objectContaining({
+        field: 'orderSizingMode',
+        value: ['notional'],
+        not: true,
+        and: { field: 'provider', value: ['alpaca', 'tradier'] },
+      })
+    )
     expect(notional?.condition).toEqual(
       expect.objectContaining({
         field: 'orderSizingMode',
-        value: 'notional',
+        value: ['notional'],
+        and: { field: 'provider', value: ['alpaca'] },
       })
     )
   })
 
-  it('serializes trading action sizing through the selected provider only', () => {
+  it('serializes trading action sizing as canonical route fields', () => {
     const params = TradingActionBlock.tools.config!.params!({
       portfolioIdentity: {
         providerId: 'tradier',
@@ -71,8 +79,7 @@ describe('trading order block contracts', () => {
       notional: '100',
     } as any)
 
-    expect(params).toMatchObject({ quantity: 2 })
-    expect(params).not.toHaveProperty('orderSizingMode')
-    expect(params).not.toHaveProperty('notional')
+    expect(params).toMatchObject({ orderSizingMode: 'notional', notional: 100 })
+    expect(params).not.toHaveProperty('quantity')
   })
 })

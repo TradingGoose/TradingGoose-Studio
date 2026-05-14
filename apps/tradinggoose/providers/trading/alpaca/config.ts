@@ -4,7 +4,6 @@ import type { TradingProviderConfig } from '@/providers/trading/providers'
 
 export const ALPACA_LIVE_TRADING_BASE_URL = 'https://api.alpaca.markets'
 export const ALPACA_PAPER_TRADING_BASE_URL = 'https://paper-api.alpaca.markets'
-export const ALPACA_TRADING_BASE_URL = ALPACA_LIVE_TRADING_BASE_URL
 
 export const resolveAlpacaTradingBaseUrl = (environment?: string | null) =>
   environment === 'paper' ? ALPACA_PAPER_TRADING_BASE_URL : ALPACA_LIVE_TRADING_BASE_URL
@@ -90,60 +89,21 @@ const availability: TradingProviderConfig['availability'] = {
   availableCryptoQuote: availableCryptoQuoteCodes,
 }
 
-const params: TradingProviderConfig['params'] = {
-  order: [
-    {
-      id: 'orderSizingMode',
-      type: 'string',
-      title: 'Order Size',
-      description: 'Choose whether to size the order by shares or by dollars.',
-      required: true,
-      visibility: 'user-or-llm',
-      inputType: 'dropdown',
-      defaultValue: 'quantity',
-      dependsOn: ['provider'],
-      displayOrder: 0,
-      options: [
-        { id: 'quantity', label: 'Quantity (Shares)' },
-        { id: 'notional', label: 'Dollar Amount (USD)' },
-      ],
-    },
-    {
-      id: 'quantity',
-      type: 'number',
-      title: 'Quantity (Shares)',
-      description: 'Number of shares to trade when sizing by quantity.',
-      required: false,
-      visibility: 'user-or-llm',
-      condition: { field: 'orderSizingMode', value: 'notional', not: true },
-      displayOrder: 20,
-    },
-    {
-      id: 'notional',
-      type: 'number',
-      title: 'Dollar Amount (USD)',
-      description: 'Dollar amount to trade when sizing by notional.',
-      required: false,
-      visibility: 'user-or-llm',
-      condition: { field: 'orderSizingMode', value: 'notional' },
-      dependsOn: ['provider'],
-      displayOrder: 30,
-    },
-  ],
-}
-
 export const alpacaTradingProviderConfig: TradingProviderConfig = {
   id: 'alpaca',
   name: 'Alpaca',
   availability,
-  params,
-  api_endpoints: {
-    default: ALPACA_TRADING_BASE_URL,
-    order: `${ALPACA_TRADING_BASE_URL}/v2/orders`,
-    holdings: `${ALPACA_TRADING_BASE_URL}/v2/positions`,
-  },
   capabilities: {
     order: {
+      sizingModes: [
+        { id: 'quantity', label: 'Quantity (Shares)' },
+        {
+          id: 'notional',
+          label: 'Dollar Amount (USD)',
+          orderTypes: ['market', 'limit', 'stop', 'stop_limit'],
+          timeInForce: ['day'],
+        },
+      ],
       orderTypes: [
         {
           id: 'market',
@@ -172,7 +132,8 @@ export const alpacaTradingProviderConfig: TradingProviderConfig = {
           id: 'trailing_stop',
           label: 'Trailing Stop',
           assetClasses: ['stock'],
-          requires: ['trailPrice', 'trailPercent'],
+          requiresOneOf: ['trailPrice', 'trailPercent'],
+          excludes: ['limitPrice', 'stopPrice'],
         },
       ],
       timeInForce: ['day', 'gtc', 'ioc', 'fok'],

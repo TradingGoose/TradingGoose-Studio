@@ -1,6 +1,6 @@
 import type { ListingIdentity, ListingResolved } from '@/lib/listing/identity'
 import type { PortfolioIdentity } from '@/providers/trading/portfolio-identity'
-import type { TradingOrder } from '@/providers/trading/types'
+import type { TradingOrder, TradingOrderSizingMode } from '@/providers/trading/types'
 
 export type TradingOrderSubmitListing =
   | ListingResolved
@@ -16,15 +16,17 @@ export interface TradingOrderSubmitRequest {
   side: 'buy' | 'sell'
   quantity?: number
   notional?: number
-  orderSizingMode?: 'quantity' | 'notional'
+  orderSizingMode?: TradingOrderSizingMode
   orderType?: string
   timeInForce?: string
   limitPrice?: number
   stopPrice?: number
   trailPrice?: number
   trailPercent?: number
-  orderClass?: string
-  providerParams?: Record<string, unknown>
+  orderMethod?: string
+  optionSymbol?: string
+  legs?: Array<Record<string, unknown>>
+  preview?: boolean
   idempotencyKey: string
   submissionSource?: TradingOrderSubmissionSource
   logId?: string
