@@ -89,27 +89,6 @@ export function ToolCredentialSelector({
       if (response.ok) {
         const data = await response.json()
         setCredentials(data.credentials || [])
-
-        // If persisted selection is not among viewer's credentials, attempt to fetch its metadata
-        if (
-          value &&
-          !(data.credentials || []).some((cred: Credential) => cred.id === value) &&
-          activeWorkflowId
-        ) {
-          try {
-            const metaResp = await fetch(
-              `/api/auth/oauth/credentials?credentialId=${value}&workflowId=${activeWorkflowId}`
-            )
-            if (metaResp.ok) {
-              const meta = await metaResp.json()
-              if (meta.credentials?.length) {
-                setCredentials([meta.credentials[0], ...(data.credentials || [])])
-              }
-            }
-          } catch {
-            // ignore
-          }
-        }
       } else {
         logger.error('Error fetching credentials:', { error: await response.text() })
         setCredentials([])
@@ -120,7 +99,7 @@ export function ToolCredentialSelector({
     } finally {
       setIsLoading(false)
     }
-  }, [provider, value, onChange])
+  }, [provider, activeWorkflowId])
 
   // Fetch credentials on initial mount only
   useEffect(() => {
@@ -166,7 +145,8 @@ export function ToolCredentialSelector({
   }
 
   const selectedCredential = credentials.find((cred) => cred.id === selectedId)
-  const isForeign = !!(selectedId && !selectedCredential)
+  const selectedLabel =
+    selectedCredential?.isOwner === false ? 'Saved by collaborator' : selectedCredential?.name
 
   return (
     <>
@@ -183,14 +163,10 @@ export function ToolCredentialSelector({
               {getProviderIcon(provider)}
               <span
                 className={
-                  selectedCredential ? 'truncate font-normal' : 'truncate text-muted-foreground'
+                  selectedLabel ? 'truncate font-normal' : 'truncate text-muted-foreground'
                 }
               >
-                {selectedCredential
-                  ? selectedCredential.name
-                  : isForeign
-                    ? 'Saved by collaborator'
-                    : label}
+                {selectedLabel || label}
               </span>
             </div>
             <ChevronDown className='ml-2 h-4 w-4 shrink-0 opacity-50' />
@@ -229,7 +205,9 @@ export function ToolCredentialSelector({
                     >
                       <div className='flex items-center gap-1'>
                         {getProviderIcon(credential.provider)}
-                        <span className='font-normal'>{credential.name}</span>
+                        <span className='font-normal'>
+                          {credential.isOwner === false ? 'Saved by collaborator' : credential.name}
+                        </span>
                       </div>
                       {credential.id === selectedId && <Check className='ml-auto h-4 w-4' />}
                     </CommandItem>

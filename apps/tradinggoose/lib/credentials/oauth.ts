@@ -73,6 +73,8 @@ function toOAuthCredential(row: {
   providerId: string
   updatedAt: Date
   scope: string | null
+  accountUserId: string
+  requesterUserId: string
 }) {
   const storedScope = row.scope?.trim()
   const scopes = storedScope
@@ -80,14 +82,16 @@ function toOAuthCredential(row: {
     : getCanonicalScopesForProvider(row.providerId)
   const { baseProvider, featureType } = parseProvider(row.providerId as OAuthProvider)
   const isDefault = OAUTH_PROVIDERS[baseProvider]?.defaultService === featureType
+  const isOwner = row.accountUserId === row.requesterUserId
 
   return {
     id: row.id,
-    name: row.displayName,
+    name: isOwner ? row.displayName : 'Saved by collaborator',
     provider: row.providerId as OAuthProvider,
     serviceId: featureType,
     lastUsed: row.updatedAt.toISOString(),
     isDefault,
+    isOwner,
     scopes,
   } satisfies OAuthCredential
 }
@@ -225,6 +229,7 @@ export async function listOAuthCredentialsForUser(
       providerId: account.providerId,
       updatedAt: account.updatedAt,
       scope: account.scope,
+      accountUserId: account.userId,
     })
     .from(credential)
     .innerJoin(account, eq(credential.accountId, account.id))
@@ -234,7 +239,7 @@ export async function listOAuthCredentialsForUser(
   const credentialRows = params.workspaceId
     ? rows
     : Array.from(new Map(rows.map((row) => [row.accountId, row])).values())
-  return credentialRows.map(toOAuthCredential)
+  return credentialRows.map((row) => toOAuthCredential({ ...row, requesterUserId: params.userId }))
 }
 
 export async function listOAuthConnectionsForUser(params: {
@@ -256,6 +261,7 @@ export async function listOAuthConnectionsForUser(params: {
         idToken: account.idToken,
         updatedAt: account.updatedAt,
         scope: account.scope,
+        accountUserId: account.userId,
       })
       .from(account)
       .where(and(...filters))
@@ -269,6 +275,8 @@ export async function listOAuthConnectionsForUser(params: {
       providerId: row.providerId,
       updatedAt: row.updatedAt,
       scope: row.scope,
+      accountUserId: row.accountUserId,
+      requesterUserId: params.userId,
     })
   )
 }

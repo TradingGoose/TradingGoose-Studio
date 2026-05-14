@@ -47,7 +47,6 @@ export function CredentialSelector({
   const [isLoading, setIsLoading] = useState(false)
   const [showOAuthModal, setShowOAuthModal] = useState(false)
   const [selectedId, setSelectedId] = useState('')
-  const [hasForeignMeta, setHasForeignMeta] = useState(false)
   const activeWorkflowId = useWorkflowId()
 
   // Use collaborative state management via useSubBlockValue hook
@@ -99,31 +98,7 @@ export function CredentialSelector({
         })
       )
       const creds = responses.flat()
-      let foreignMetaFound = false
 
-      // If persisted selection is not among viewer's credentials, attempt to fetch its metadata
-      if (
-        selectedId &&
-        !(creds || []).some((cred: Credential) => cred.id === selectedId) &&
-        activeWorkflowId
-      ) {
-        try {
-          const metaResp = await fetch(
-            `/api/auth/oauth/credentials?credentialId=${selectedId}&workflowId=${activeWorkflowId}`
-          )
-          if (metaResp.ok) {
-            const meta = await metaResp.json()
-            if (meta.credentials?.length) {
-              // Mark as foreign, but do NOT merge into list to avoid leaking owner email
-              foreignMetaFound = true
-            }
-          }
-        } catch {
-          // ignore meta errors
-        }
-      }
-
-      setHasForeignMeta(foreignMetaFound)
       setCredentials(creds)
 
       // Do not auto-select or reset. We only show what's persisted.
@@ -132,46 +107,12 @@ export function CredentialSelector({
     } finally {
       setIsLoading(false)
     }
-  }, [effectiveProviderIds, selectedId, activeWorkflowId])
+  }, [effectiveProviderIds, activeWorkflowId])
 
   // Fetch credentials on initial mount and whenever the subblock value changes externally
   useEffect(() => {
     fetchCredentials()
   }, [fetchCredentials, storeValue])
-
-  // When the selectedId changes (e.g., collaborator saved a credential), determine if it's foreign
-  useEffect(() => {
-    let aborted = false
-    ;(async () => {
-      try {
-        if (!selectedId) {
-          setHasForeignMeta(false)
-          return
-        }
-        // If the selected credential exists in viewer's list, it's not foreign
-        if ((credentials || []).some((cred) => cred.id === selectedId)) {
-          setHasForeignMeta(false)
-          return
-        }
-        if (!activeWorkflowId) return
-        const metaResp = await fetch(
-          `/api/auth/oauth/credentials?credentialId=${selectedId}&workflowId=${activeWorkflowId}`
-        )
-        if (aborted) return
-        if (metaResp.ok) {
-          const meta = await metaResp.json()
-          setHasForeignMeta(!!meta.credentials?.length)
-        }
-      } catch {
-        // ignore
-      }
-    })()
-    return () => {
-      aborted = true
-    }
-  }, [selectedId, credentials, activeWorkflowId])
-
-  // This effect is no longer needed since we're using effectiveValue directly
 
   // Listen for visibility changes to update credentials when user returns from settings
   useEffect(() => {
@@ -212,13 +153,12 @@ export function CredentialSelector({
 
   // Get the selected credential
   const selectedCredential = credentials.find((cred) => cred.id === selectedId)
-  const isForeign = !!(selectedId && !selectedCredential && hasForeignMeta)
+  const isForeign = !!(selectedId && selectedCredential?.isOwner === false)
 
-  // If the list doesn’t contain the effective value but meta says it exists, synthesize a non-leaky placeholder to render stable UI
-  const displayName = selectedCredential
-    ? selectedCredential.name
-    : isForeign
-      ? 'Saved by collaborator'
+  const displayName = isForeign
+    ? 'Saved by collaborator'
+    : selectedCredential
+      ? selectedCredential.name
       : undefined
 
   // Handle selection
@@ -328,7 +268,9 @@ export function CredentialSelector({
                     >
                       <div className='flex min-w-0 items-center gap-1'>
                         {getProviderIcon(cred.provider)}
-                        <span className='min-w-0 truncate font-normal'>{cred.name}</span>
+                        <span className='min-w-0 truncate font-normal'>
+                          {cred.isOwner === false ? 'Saved by collaborator' : cred.name}
+                        </span>
                         {showServiceNames ? (
                           <span className='shrink-0 text-muted-foreground text-xs'>
                             {getServiceName(cred.provider)}

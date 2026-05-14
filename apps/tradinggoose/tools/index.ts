@@ -308,7 +308,18 @@ export async function executeTool(
         const tokenHeaders: Record<string, string> = { 'Content-Type': 'application/json' }
         if (typeof window === 'undefined') {
           try {
-            const internalToken = await generateInternalToken(scope.userId)
+            const workflowExecution =
+              !scope.userId && scope.workflowId && scope.toolExecutionId
+                ? {
+                    source: 'workflow_block' as const,
+                    parentWorkflowId: scope.workflowId,
+                    ...(scope.executionId ? { parentExecutionId: scope.executionId } : {}),
+                    parentBlockId: scope.toolExecutionId,
+                  }
+                : undefined
+            const internalToken = workflowExecution
+              ? await generateInternalToken(scope.userId, { workflowExecution })
+              : await generateInternalToken(scope.userId)
             tokenHeaders.Authorization = `Bearer ${internalToken}`
           } catch (error) {
             logger.error(`[${requestId}] Failed to generate internal auth for ${toolId}:`, error)

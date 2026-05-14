@@ -809,6 +809,7 @@ export interface Credential {
   serviceId?: string
   lastUsed?: string
   isDefault?: boolean
+  isOwner?: boolean
   scopes?: string[]
 }
 

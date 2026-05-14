@@ -457,13 +457,19 @@ describe('executeTool Function', () => {
     try {
       const result = await executeTool(
         'test_credential_tool',
-        { credential: 'credential-1' },
+        { credential: 'credential-1', _context: { toolExecutionId: 'agent-1' } },
         false,
         mockContext
       )
 
       expect(result.success).toBe(true)
-      expect(vi.mocked(generateInternalToken)).toHaveBeenCalledWith(undefined)
+      expect(vi.mocked(generateInternalToken)).toHaveBeenCalledWith(undefined, {
+        workflowExecution: {
+          source: 'workflow_block',
+          parentWorkflowId: 'test-workflow',
+          parentBlockId: 'agent-1',
+        },
+      })
       expect(global.fetch).toHaveBeenCalledWith(
         'http://localhost:3000/api/auth/oauth/token',
         expect.objectContaining({

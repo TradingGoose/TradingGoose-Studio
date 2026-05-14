@@ -4,7 +4,10 @@ import { and, desc, eq, ne } from 'drizzle-orm'
 import { nanoid } from 'nanoid'
 import { type NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
-import { getOAuthAccessTokenForStoredCredential } from '@/lib/credentials/oauth'
+import {
+  getOAuthAccessTokenForUserCredential,
+  resolveOAuthCredentialAccountForUser,
+} from '@/lib/credentials/oauth'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getUserEntityPermissions } from '@/lib/permissions/utils'
 import { getBaseUrl } from '@/lib/urls/utils'
@@ -237,6 +240,21 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 })
     }
 
+    const credentialId =
+      providerConfig && typeof providerConfig === 'object'
+        ? (providerConfig as Record<string, unknown>).credentialId
+        : null
+    if (typeof credentialId === 'string' && credentialId.trim()) {
+      const credentialAccess = await resolveOAuthCredentialAccountForUser({
+        credentialId: credentialId.trim(),
+        userId,
+        workspaceId: workflowRecord.workspaceId ?? undefined,
+      })
+      if (!credentialAccess) {
+        return NextResponse.json({ error: 'Credential not found' }, { status: 404 })
+      }
+    }
+
     // Determine existing webhook to update (prefer by workflow+block for credential-based providers)
     let targetWebhookId: string | null = null
     if (isCredentialBased && blockId) {
@@ -348,7 +366,10 @@ export async function POST(request: NextRequest) {
         `[${requestId}] Airtable provider detected. Attempting to create webhook in Airtable.`
       )
       try {
-        await createAirtableWebhookSubscription(request, savedWebhook, requestId)
+        await createAirtableWebhookSubscription(savedWebhook, requestId, {
+          userId,
+          workspaceId: workflowRecord.workspaceId ?? undefined,
+        })
       } catch (err) {
         logger.error(`[${requestId}] Error creating Airtable webhook`, err)
         return NextResponse.json(
@@ -476,7 +497,10 @@ export async function POST(request: NextRequest) {
         `[${requestId}] Webflow provider detected. Attempting to create webhook in Webflow.`
       )
       try {
-        await createWebflowWebhookSubscription(request, savedWebhook, requestId)
+        await createWebflowWebhookSubscription(savedWebhook, requestId, {
+          userId,
+          workspaceId: workflowRecord.workspaceId ?? undefined,
+        })
       } catch (err) {
         logger.error(`[${requestId}] Error creating Webflow webhook`, err)
         return NextResponse.json(
@@ -503,9 +527,9 @@ export async function POST(request: NextRequest) {
 
 // Helper function to create the webhook subscription in Airtable
 async function createAirtableWebhookSubscription(
-  request: NextRequest,
   webhookData: any,
-  requestId: string
+  requestId: string,
+  scope: { userId: string; workspaceId?: string }
 ) {
   try {
     const { path, providerConfig } = webhookData
@@ -525,8 +549,10 @@ async function createAirtableWebhookSubscription(
       throw new Error('Airtable account connection required.')
     }
 
-    const accessToken = await getOAuthAccessTokenForStoredCredential({
+    const accessToken = await getOAuthAccessTokenForUserCredential({
       credentialId,
+      userId: scope.userId,
+      workspaceId: scope.workspaceId,
       requestId,
     })
     if (!accessToken) {
@@ -621,9 +647,9 @@ async function createAirtableWebhookSubscription(
 }
 // Helper function to create the webhook subscription in Webflow
 async function createWebflowWebhookSubscription(
-  request: NextRequest,
   webhookData: any,
-  requestId: string
+  requestId: string,
+  scope: { userId: string; workspaceId?: string }
 ) {
   try {
     const { path, providerConfig } = webhookData
@@ -650,8 +676,10 @@ async function createWebflowWebhookSubscription(
       throw new Error('Webflow account connection required.')
     }
 
-    const accessToken = await getOAuthAccessTokenForStoredCredential({
+    const accessToken = await getOAuthAccessTokenForUserCredential({
       credentialId,
+      userId: scope.userId,
+      workspaceId: scope.workspaceId,
       requestId,
     })
     if (!accessToken) {

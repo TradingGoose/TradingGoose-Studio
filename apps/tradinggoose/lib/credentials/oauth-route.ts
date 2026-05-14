@@ -30,15 +30,16 @@ export async function resolveOAuthRouteCredential(
   input: OAuthRouteCredentialInput,
   requestId: string
 ): Promise<OAuthRouteCredentialResult> {
+  const searchParams = new URL(request.url).searchParams
   const credentialId = typeof input.credentialId === 'string' ? input.credentialId.trim() : ''
   const workflowId =
     typeof input.workflowId === 'string' && input.workflowId.trim()
       ? input.workflowId.trim()
-      : undefined
+      : searchParams.get('workflowId')?.trim() || undefined
   const workspaceId =
     typeof input.workspaceId === 'string' && input.workspaceId.trim()
       ? input.workspaceId.trim()
-      : undefined
+      : searchParams.get('workspaceId')?.trim() || undefined
 
   if (!credentialId) {
     return {

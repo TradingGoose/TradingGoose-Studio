@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useOptionalWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 
 export function useForeignCredential(
@@ -9,17 +9,12 @@ export function useForeignCredential(
   const workflowId = routeContext?.workflowId
   const workspaceId = routeContext?.workspaceId
   const [isForeign, setIsForeign] = useState<boolean>(false)
-  const [loading, setLoading] = useState<boolean>(false)
-  const [error, setError] = useState<string | null>(null)
-
-  const normalizedProvider = useMemo(() => (provider || '').toString(), [provider])
-  const normalizedCredentialId = useMemo(() => credentialId || '', [credentialId])
+  const normalizedProvider = (provider || '').toString()
+  const normalizedCredentialId = credentialId || ''
 
   useEffect(() => {
     let cancelled = false
     async function check() {
-      setLoading(true)
-      setError(null)
       try {
         if (!normalizedCredentialId) {
           if (!cancelled) setIsForeign(false)
@@ -34,15 +29,12 @@ export function useForeignCredential(
           return
         }
         const data = await res.json()
-        const isOwn = (data.credentials || []).some((c: any) => c.id === normalizedCredentialId)
+        const isOwn = (data.credentials || []).some(
+          (c: any) => c.id === normalizedCredentialId && c.isOwner === true
+        )
         if (!cancelled) setIsForeign(!isOwn)
       } catch (e) {
-        if (!cancelled) {
-          setIsForeign(true)
-          setError((e as Error).message)
-        }
-      } finally {
-        if (!cancelled) setLoading(false)
+        if (!cancelled) setIsForeign(true)
       }
     }
     void check()
@@ -51,5 +43,5 @@ export function useForeignCredential(
     }
   }, [normalizedProvider, normalizedCredentialId, workflowId, workspaceId])
 
-  return { isForeignCredential: isForeign, loading, error }
+  return { isForeignCredential: isForeign }
 }
