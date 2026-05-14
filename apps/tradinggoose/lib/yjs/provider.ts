@@ -5,7 +5,6 @@ import {
   serializeYjsTransportEnvelope,
 } from '@/lib/copilot/review-sessions/identity'
 import type {
-  ReviewAccessMode,
   ReviewTargetDescriptor,
   ReviewTargetRuntimeState,
 } from '@/lib/copilot/review-sessions/types'
@@ -17,7 +16,6 @@ export interface YjsProviderBootstrapResult {
   provider: WebsocketProvider
   descriptor: ReviewTargetDescriptor
   runtime: ReviewTargetRuntimeState
-  accessMode: ReviewAccessMode
 }
 
 const SOCKET_TOKEN_RETRY_MS = 1_000
@@ -40,8 +38,7 @@ async function fetchSocketToken(): Promise<string> {
 
 async function fetchSnapshot(
   sessionId: string,
-  envelopeParams: Record<string, string>,
-  accessMode: ReviewAccessMode
+  envelopeParams: Record<string, string>
 ): Promise<{
   snapshotBase64: string
   descriptor: ReviewTargetDescriptor
@@ -49,7 +46,7 @@ async function fetchSnapshot(
 }> {
   const params = new URLSearchParams({
     ...envelopeParams,
-    accessMode,
+    accessMode: 'write',
   })
   const res = await fetch(`/api/yjs/sessions/${encodeURIComponent(sessionId)}/snapshot?${params}`, {
     cache: 'no-store',
@@ -104,14 +101,13 @@ export function waitForYjsWriteSync(provider: WebsocketProvider): Promise<void> 
 
 export async function bootstrapYjsProvider(
   descriptor: ReviewTargetDescriptor,
-  accessMode: ReviewAccessMode,
   wsOrigin = getDefaultWsOrigin()
 ): Promise<YjsProviderBootstrapResult> {
   const doc = new Y.Doc()
 
   const initialEnvelope = buildYjsTransportEnvelope(descriptor)
   const initialEnvelopeParams = serializeYjsTransportEnvelope(initialEnvelope)
-  const snapshot = await fetchSnapshot(descriptor.yjsSessionId, initialEnvelopeParams, accessMode)
+  const snapshot = await fetchSnapshot(descriptor.yjsSessionId, initialEnvelopeParams)
   const resolvedDescriptor = snapshot.descriptor
   const runtime = snapshot.runtime
 
@@ -127,7 +123,7 @@ export async function bootstrapYjsProvider(
   const token = await fetchSocketToken()
 
   const provider = new WebsocketProvider(serverUrl, resolvedDescriptor.yjsSessionId, doc, {
-    params: { token, accessMode, ...envelopeParams },
+    params: { token, accessMode: 'write', ...envelopeParams },
     connect: true,
   })
 
@@ -147,7 +143,7 @@ export async function bootstrapYjsProvider(
         const nextToken = await fetchSocketToken()
         currentProvider.params = {
           token: nextToken,
-          accessMode,
+          accessMode: 'write',
           ...envelopeParams,
         }
         currentProvider.connect()
@@ -173,15 +169,13 @@ export async function bootstrapYjsProvider(
     scheduleReconnectWithFreshToken(currentProvider)
   })
 
-  if (accessMode === 'write') {
-    try {
-      await waitForYjsWriteSync(provider)
-    } catch (error) {
-      provider.disconnect()
-      provider.destroy()
-      doc.destroy()
-      throw error
-    }
+  try {
+    await waitForYjsWriteSync(provider)
+  } catch (error) {
+    provider.disconnect()
+    provider.destroy()
+    doc.destroy()
+    throw error
   }
 
   return {
@@ -189,7 +183,6 @@ export async function bootstrapYjsProvider(
     provider,
     descriptor: resolvedDescriptor,
     runtime,
-    accessMode,
   }
 }
 

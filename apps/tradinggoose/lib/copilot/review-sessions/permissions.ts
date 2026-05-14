@@ -9,6 +9,8 @@ import type {
 import { createLogger } from '@/lib/logs/console/logger'
 import type { PermissionType } from '@/lib/permissions/utils'
 import { readWorkflowAccessContext } from '@/lib/workflows/utils'
+import type { SavedEntityKind } from '@/lib/yjs/entity-state'
+import { resolveEntityWorkspaceId } from '@/lib/yjs/server/entity-loaders'
 
 const logger = createLogger('ReviewSessionPermissions')
 
@@ -116,15 +118,12 @@ async function verifyWorkspaceAccess(
   }
 }
 
-async function verifyEntityReviewSessionAccess(
+async function verifyDraftReviewSessionAccess(
   userId: string,
   reviewTarget: ReviewTargetAccessInput
 ): Promise<Pick<ReviewAccessResult, 'hasAccess' | 'workspaceId'>> {
-  if (reviewTarget.entityKind === 'workflow' || !reviewTarget.reviewSessionId) {
-    return {
-      hasAccess: true,
-      workspaceId: reviewTarget.workspaceId,
-    }
+  if (!reviewTarget.reviewSessionId) {
+    return { hasAccess: false, workspaceId: null }
   }
 
   const [reviewSession] = await db
@@ -203,6 +202,37 @@ async function verifyEntityReviewSessionAccess(
   }
 }
 
+async function verifySavedEntityTargetAccess(
+  userId: string,
+  reviewTarget: ReviewTargetAccessInput | ReviewTargetDescriptor,
+  accessMode: ReviewAccessMode
+): Promise<ReviewAccessResult> {
+  if (!reviewTarget.entityId) {
+    logger.warn('Saved entity review target missing entity id', { userId, reviewTarget })
+    return { hasAccess: false, userPermission: null, workspaceId: null, isOwner: false }
+  }
+
+  const workspaceId = await resolveEntityWorkspaceId(
+    reviewTarget.entityKind as SavedEntityKind,
+    reviewTarget.entityId
+  )
+  if (!workspaceId) {
+    logger.warn('Saved entity review target not found', { userId, reviewTarget })
+    return { hasAccess: false, userPermission: null, workspaceId: null, isOwner: false }
+  }
+
+  if (reviewTarget.workspaceId && reviewTarget.workspaceId !== workspaceId) {
+    logger.warn('Saved entity workspace mismatch', {
+      userId,
+      entityKind: reviewTarget.entityKind,
+      entityId: reviewTarget.entityId,
+    })
+    return { hasAccess: false, userPermission: null, workspaceId: null, isOwner: false }
+  }
+
+  return verifyWorkspaceAccess(userId, workspaceId, accessMode)
+}
+
 export async function verifyWorkflowAccess(
   userId: string,
   workflowId: string,
@@ -244,11 +274,15 @@ export async function verifyReviewTargetAccess(
     return verifyWorkflowAccess(userId, workflowId, accessMode)
   }
 
-  const reviewSessionAccess = await verifyEntityReviewSessionAccess(
+  if (!reviewTarget.reviewSessionId) {
+    return verifySavedEntityTargetAccess(userId, reviewTarget, accessMode)
+  }
+
+  const reviewSessionAccess = await verifyDraftReviewSessionAccess(
     userId,
     reviewTarget as ReviewTargetAccessInput
   )
-  if (!reviewSessionAccess.hasAccess) {
+  if (!reviewSessionAccess.hasAccess || !reviewSessionAccess.workspaceId) {
     return {
       hasAccess: false,
       userPermission: null,
@@ -257,13 +291,7 @@ export async function verifyReviewTargetAccess(
     }
   }
 
-  const workspaceId = reviewSessionAccess.workspaceId ?? reviewTarget.workspaceId
-  if (!workspaceId) {
-    logger.warn('Entity review target missing workspace id', { userId, reviewTarget })
-    return { hasAccess: false, userPermission: null, workspaceId: null, isOwner: false }
-  }
-
-  return verifyWorkspaceAccess(userId, workspaceId, accessMode)
+  return verifyWorkspaceAccess(userId, reviewSessionAccess.workspaceId, accessMode)
 }
 
 export async function resolveWorkflowWorkspaceId(workflowId: string): Promise<string | null> {
@@ -274,10 +302,6 @@ export async function resolveWorkflowWorkspaceId(workflowId: string): Promise<st
     .limit(1)
 
   return workflowRow?.workspaceId ?? null
-}
-
-export function createPermissionError(operation: string): string {
-  return `Access denied: You do not have permission to ${operation} this workflow`
 }
 
 function hasAccessToReviewSession(
@@ -294,8 +318,7 @@ function hasAccessToReviewSession(
  */
 export async function loadReviewSessionForUser(
   reviewSessionId: string,
-  userId: string,
-  _accessMode: ReviewAccessMode
+  userId: string
 ): Promise<typeof copilotReviewSessions.$inferSelect | null> {
   const [session] = await db
     .select()
@@ -314,8 +337,7 @@ export async function loadReviewSessionForUser(
 export async function loadReviewSessionForUserByConversationId(
   conversationId: string,
   entityKind: string,
-  userId: string,
-  _accessMode: ReviewAccessMode
+  userId: string
 ): Promise<typeof copilotReviewSessions.$inferSelect | null> {
   const sessions = await db
     .select()

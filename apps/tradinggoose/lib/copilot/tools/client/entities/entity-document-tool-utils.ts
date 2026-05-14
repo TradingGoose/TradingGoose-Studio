@@ -60,7 +60,6 @@ type CopilotEntityYjsSession = {
   descriptor: YjsProviderBootstrapResult['descriptor']
   doc: YjsProviderBootstrapResult['doc']
   provider: YjsProviderBootstrapResult['provider']
-  accessMode: YjsProviderBootstrapResult['accessMode']
   runtime: YjsProviderBootstrapResult['runtime']
   isSynced: boolean
   canUndo: boolean
@@ -327,7 +326,6 @@ function createBootstrappedEntitySessionLease(
     descriptor: result.descriptor,
     doc: result.doc,
     provider: result.provider,
-    accessMode: result.accessMode,
     runtime: result.runtime,
     isSynced: result.provider.synced,
     canUndo: false,
@@ -359,7 +357,7 @@ export async function resolveCopilotEntityYjsSessionLease(
 
   const workspaceId = resolveWorkspaceIdFromExecutionContext(executionContext)
   const resolved = buildSavedEntityYjsDescriptor(kind, requestedEntityId, workspaceId)
-  const result = await bootstrapYjsProvider(resolved, 'write')
+  const result = await bootstrapYjsProvider(resolved)
   await waitForYjsWriteSync(result.provider)
   return createBootstrappedEntitySessionLease(result)
 }

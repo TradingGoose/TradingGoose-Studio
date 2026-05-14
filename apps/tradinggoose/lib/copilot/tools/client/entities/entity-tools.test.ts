@@ -504,7 +504,7 @@ describe('entity document tools', () => {
       await tool.handleAccept()
 
       expect(tool.getState()).toBe(ClientToolCallState.success)
-      expect(mockBootstrapYjsProvider).toHaveBeenCalledWith(descriptor, 'write')
+      expect(mockBootstrapYjsProvider).toHaveBeenCalledWith(descriptor)
       expect(mockEntityFieldState.values).toMatchObject({
         name: 'bootstrapped-skill',
         description: 'Updated through tool lease',
@@ -538,8 +538,7 @@ describe('entity document tools', () => {
         draftSessionId: null,
         reviewSessionId: null,
         yjsSessionId: 'skill-1',
-      },
-      'write'
+      }
     )
   })
 

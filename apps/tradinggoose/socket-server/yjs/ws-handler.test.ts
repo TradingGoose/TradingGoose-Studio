@@ -166,8 +166,8 @@ describe('handleYjsUpgrade', () => {
     })
 
     mockVerifyReviewTargetAccess.mockImplementation(async (_userId, _target, accessMode) => ({
-      hasAccess: accessMode !== 'write',
-      userPermission: 'read',
+      hasAccess: false,
+      userPermission: accessMode,
       workspaceId: 'workspace-1',
       isOwner: false,
     }))
@@ -236,45 +236,23 @@ describe('handleYjsUpgrade', () => {
     expect(socket.destroy).not.toHaveBeenCalled()
   })
 
-  it('allows websocket upgrades for read access', async () => {
+  it('rejects read-mode websocket upgrades before opening mutation transport', async () => {
     const sessionId = 'workflow-read'
     const request = createRequest(sessionId, 'read')
     const socket = createSocket()
     const wss = createWebSocketServer()
 
-    mockAuthenticateYjsConnection.mockResolvedValue({
-      userId: 'user-read',
-      userName: 'User Read',
-      envelope: {
-        targetKind: 'workflow',
-        sessionId,
-        workflowId: sessionId,
-        reviewSessionId: null,
-        workspaceId: 'workspace-read',
-        entityKind: 'workflow',
-        entityId: sessionId,
-        draftSessionId: null,
-      },
-    })
-
-    mockVerifyReviewTargetAccess.mockResolvedValue({
-      hasAccess: true,
-      userPermission: 'read',
-      workspaceId: 'workspace-read',
-      isOwner: false,
-    })
-    mockGetExistingDocument.mockResolvedValue(null)
-    mockGetState.mockResolvedValue(Y.encodeStateAsUpdate(new Y.Doc()))
-
     const { handleYjsUpgrade } = await loadModule()
     handleYjsUpgrade(wss, request, socket, Buffer.alloc(0))
     await new Promise((resolve) => setImmediate(resolve))
 
-    expect(mockVerifyReviewTargetAccess).toHaveBeenCalledTimes(1)
-    expect(mockVerifyReviewTargetAccess.mock.calls[0]?.[2]).toBe('read')
-    expect(wss.handleUpgrade).toHaveBeenCalledTimes(1)
-    expect(socket.write).not.toHaveBeenCalled()
-    expect(socket.destroy).not.toHaveBeenCalled()
+    expect(mockAuthenticateYjsConnection).not.toHaveBeenCalled()
+    expect(mockVerifyReviewTargetAccess).not.toHaveBeenCalled()
+    expect(wss.handleUpgrade).not.toHaveBeenCalled()
+    expect(socket.write).toHaveBeenCalledWith(
+      expect.stringContaining('403 Yjs websocket requires write access')
+    )
+    expect(socket.destroy).toHaveBeenCalledTimes(1)
   })
 
   it('rejects websocket upgrades when the review target has not been bootstrapped yet', async () => {

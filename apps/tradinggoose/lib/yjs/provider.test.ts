@@ -114,6 +114,17 @@ describe('bootstrapYjsProvider', () => {
     reseededFromCanonical: false,
   }
 
+  async function bootstrapSyncedProvider() {
+    const { bootstrapYjsProvider } = await import('./provider')
+    const bootstrapPromise = bootstrapYjsProvider(descriptor, 'ws://localhost:3002')
+    await waitForCondition(() => {
+      expect(providerInstances).toHaveLength(1)
+    })
+    providerInstances[0].emit('sync', true)
+    const result = await bootstrapPromise
+    return { result, provider: result.provider as unknown as MockWebsocketProvider }
+  }
+
   beforeEach(() => {
     vi.resetModules()
     fetchMock.mockReset()
@@ -147,9 +158,7 @@ describe('bootstrapYjsProvider', () => {
       throw new Error(`Unexpected fetch: ${url} ${init?.method ?? 'GET'}`)
     })
 
-    const { bootstrapYjsProvider } = await import('./provider')
-    const result = await bootstrapYjsProvider(descriptor, 'read', 'ws://localhost:3002')
-    const provider = result.provider as unknown as MockWebsocketProvider
+    const { provider } = await bootstrapSyncedProvider()
 
     expect(provider.params.token).toBe('token-1')
     expect(provider.connect).toHaveBeenCalledTimes(1)
@@ -187,9 +196,7 @@ describe('bootstrapYjsProvider', () => {
       throw new Error(`Unexpected fetch: ${url}`)
     })
 
-    const { bootstrapYjsProvider } = await import('./provider')
-    const result = await bootstrapYjsProvider(descriptor, 'read', 'ws://localhost:3002')
-    const provider = result.provider as unknown as MockWebsocketProvider
+    const { provider } = await bootstrapSyncedProvider()
 
     provider.shouldConnect = false
     provider.emit('connection-close', null, provider)
@@ -201,7 +208,6 @@ describe('bootstrapYjsProvider', () => {
   })
 
   it('retries token refresh instead of reconnecting with a stale token', async () => {
-    vi.useFakeTimers()
     const tokens = ['token-1', 'token-2']
 
     fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
@@ -228,11 +234,11 @@ describe('bootstrapYjsProvider', () => {
 
     const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
 
-    const { bootstrapYjsProvider } = await import('./provider')
-    const result = await bootstrapYjsProvider(descriptor, 'read', 'ws://localhost:3002')
-    const provider = result.provider as unknown as MockWebsocketProvider
+    const { provider } = await bootstrapSyncedProvider()
 
-    expect(provider.params.accessMode).toBe('read')
+    expect(provider.params.accessMode).toBe('write')
+
+    vi.useFakeTimers()
 
     provider.emit('connection-close', null, provider)
     await Promise.resolve()
@@ -244,7 +250,7 @@ describe('bootstrapYjsProvider', () => {
 
     expect(provider.connect).toHaveBeenCalledTimes(2)
     expect(provider.params.token).toBe('token-2')
-    expect(provider.params.accessMode).toBe('read')
+    expect(provider.params.accessMode).toBe('write')
 
     consoleErrorSpy.mockRestore()
   })
@@ -269,15 +275,7 @@ describe('bootstrapYjsProvider', () => {
       throw new Error(`Unexpected fetch: ${url}`)
     })
 
-    const { bootstrapYjsProvider } = await import('./provider')
-    const bootstrapPromise = bootstrapYjsProvider(descriptor, 'write', 'ws://localhost:3002')
-
-    await waitForCondition(() => {
-      expect(providerInstances).toHaveLength(1)
-    })
-    providerInstances[0].emit('sync', true)
-
-    const result = await bootstrapPromise
+    const { result } = await bootstrapSyncedProvider()
     expect(result.provider).toBe(providerInstances[0])
     expect(providerInstances[0].params.accessMode).toBe('write')
   })

@@ -5,7 +5,6 @@ import {
   buildReviewTargetDescriptorFromEnvelope,
 } from '@/lib/copilot/review-sessions/identity'
 import { verifyReviewTargetAccess } from '@/lib/copilot/review-sessions/permissions'
-import type { ReviewAccessMode } from '@/lib/copilot/review-sessions/types'
 import { createLogger } from '@/lib/logs/console/logger'
 import {
   getRuntimeStateFromDoc,
@@ -117,13 +116,17 @@ async function authenticateAndPrepareUpgrade(
   }
 }
 
-function parseAccessMode(url: URL): ReviewAccessMode {
+function parseAccessMode(url: URL): 'write' {
   const accessMode = url.searchParams.get('accessMode')
   if (accessMode !== 'read' && accessMode !== 'write') {
     throw new YjsAuthError(409, 'Invalid or missing access mode')
   }
 
-  return accessMode
+  if (accessMode !== 'write') {
+    throw new YjsAuthError(403, 'Yjs websocket requires write access')
+  }
+
+  return 'write'
 }
 
 function ensureConnectionHandler(wss: WebSocketServer): void {
