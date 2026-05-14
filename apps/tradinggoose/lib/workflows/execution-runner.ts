@@ -263,10 +263,9 @@ export async function loadWorkflowExecutionBlueprint(params: {
     params.workflowContext
   )
   const workflowData =
-    params.workflowData ??
-    (executionTarget === 'live'
-      ? await loadWorkflowFromNormalizedTables(params.workflowId)
-      : await loadDeployedWorkflowState(params.workflowId))
+    executionTarget === 'live'
+      ? (params.workflowData ?? (await loadWorkflowFromNormalizedTables(params.workflowId)))
+      : await loadDeployedWorkflowState(params.workflowId)
 
   if (!workflowData) {
     throw new Error(`Workflow ${params.workflowId} has no ${executionTarget} state`)

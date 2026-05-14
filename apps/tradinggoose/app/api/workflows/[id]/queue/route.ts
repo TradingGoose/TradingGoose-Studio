@@ -53,6 +53,14 @@ function parseQueueRequestBody(value: string): QueueRequestBody | null {
   }
 }
 
+function hasLiveWorkflowState(body: QueueRequestBody) {
+  return (
+    body.workflowData !== undefined ||
+    body.workflowVariables !== undefined ||
+    (typeof body.startBlockId === 'string' && body.startBlockId.length > 0)
+  )
+}
+
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const requestId = generateRequestId()
   const { id: workflowId } = await params
@@ -103,6 +111,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     if (executionTarget === 'deployed' && !accessContext.workflow.isDeployed) {
       return NextResponse.json({ error: 'Workflow is not deployed' }, { status: 403 })
     }
+    if (executionTarget === 'deployed' && hasLiveWorkflowState(body)) {
+      return NextResponse.json(
+        { error: 'Deployed workflow executions cannot include live workflow state' },
+        { status: 400 }
+      )
+    }
 
     if (
       !accessContext.isOwner &&
@@ -134,12 +148,14 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         triggerType,
         executionTarget,
         workspaceId: accessContext.workflow.workspaceId,
-        workflowData: body.workflowData,
-        workflowVariables: body.workflowVariables,
+        workflowData: executionTarget === 'live' ? body.workflowData : undefined,
+        workflowVariables: executionTarget === 'live' ? body.workflowVariables : undefined,
         selectedOutputs: body.selectedOutputs,
         stream: body.stream === true,
         startBlockId:
-          typeof body.startBlockId === 'string' && body.startBlockId.length > 0
+          executionTarget === 'live' &&
+          typeof body.startBlockId === 'string' &&
+          body.startBlockId.length > 0
             ? body.startBlockId
             : undefined,
         workflowDepth: typeof body.workflowDepth === 'number' ? body.workflowDepth : 0,

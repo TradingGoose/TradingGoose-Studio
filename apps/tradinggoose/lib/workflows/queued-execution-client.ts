@@ -78,7 +78,6 @@ export async function queueWorkflowExecution(
   const response = await fetch(`/api/workflows/${request.workflowId}/queue`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    signal: request.signal,
     body: JSON.stringify({
       executionId: request.executionId,
       input: request.input,

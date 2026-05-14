@@ -59,9 +59,11 @@ export async function executeWorkflowJob(payload: WorkflowExecutionPayload) {
     workflowId,
     enabled: payload.stream === true,
   })
+  const executionTarget = payload.executionTarget ?? 'deployed'
+  const isLiveExecution = executionTarget === 'live'
   const isChildExecution = payload.metadata?.source === 'workflow_block'
   const triggerType = payload.triggerType ?? 'manual'
-  const start: WorkflowStart = payload.startBlockId
+  const start: WorkflowStart = isLiveExecution && payload.startBlockId
     ? {
         kind: 'block',
         blockId: payload.startBlockId,
@@ -90,17 +92,17 @@ export async function executeWorkflowJob(payload: WorkflowExecutionPayload) {
       actorUserId: payload.userId,
       requestId,
       executionId,
-      executionTarget: payload.executionTarget ?? 'deployed',
+      executionTarget,
       triggerType,
       workflowInput: payload.input ?? {},
       workflowContext:
-        payload.workspaceId || payload.workflowVariables
+        payload.workspaceId || (isLiveExecution && payload.workflowVariables)
           ? {
               workspaceId: payload.workspaceId,
-              variables: payload.workflowVariables,
+              variables: isLiveExecution ? payload.workflowVariables : undefined,
             }
           : undefined,
-      workflowData: payload.workflowData,
+      workflowData: isLiveExecution ? payload.workflowData : undefined,
       start,
       triggerData: payload.triggerData,
       contextExtensions: {

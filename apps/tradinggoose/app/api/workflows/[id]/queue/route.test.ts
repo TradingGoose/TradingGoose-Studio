@@ -321,6 +321,30 @@ describe('POST /api/workflows/[id]/queue', () => {
     )
   })
 
+  it('rejects deployed executions with live workflow state', async () => {
+    const response = await POST(
+      new NextRequest('http://localhost/api/workflows/workflow-1/queue', {
+        method: 'POST',
+        body: JSON.stringify({
+          executionTarget: 'deployed',
+          workflowData: { blocks: {}, edges: [], loops: {}, parallels: {} },
+        }),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }),
+      {
+        params: Promise.resolve({ id: 'workflow-1' }),
+      }
+    )
+
+    expect(response.status).toBe(400)
+    await expect(response.json()).resolves.toEqual({
+      error: 'Deployed workflow executions cannot include live workflow state',
+    })
+    expect(enqueuePendingExecutionMock).not.toHaveBeenCalled()
+  })
+
   it('returns conflict when the generated execution id already exists', async () => {
     enqueuePendingExecutionMock.mockResolvedValueOnce({
       pendingExecutionId: 'execution-1',
