@@ -541,7 +541,7 @@ describe('PortfolioSnapshotWidgetBody', () => {
     })
   })
 
-  it('uses signed quantity for quote-backed day change', async () => {
+  it('uses signed day change and gross previous exposure for quote-backed shorts', async () => {
     mockUsePortfolioDetail.mockReturnValue(
       createQueryResult({
         data: createPortfolioDetail({
@@ -579,7 +579,7 @@ describe('PortfolioSnapshotWidgetBody', () => {
 
     expect(container.textContent).toContain('$550.00')
     expect(container.textContent).toContain('-$50.00')
-    expect(container.textContent).toContain('-8.33%')
+    expect(container.textContent).toContain('-10.00%')
   })
 
   it('keeps broker snapshot visible when market quotes fail', async () => {

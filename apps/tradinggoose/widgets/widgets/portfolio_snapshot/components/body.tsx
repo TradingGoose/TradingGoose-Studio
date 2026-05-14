@@ -437,16 +437,15 @@ export function PortfolioSnapshotWidgetBody({
 
       const perUnitDayChange = isFiniteNumber(change) ? change : lastPrice - previousClose
       summary.quoteValue += lastPrice * position.grossQuantity
+      summary.previousValue += previousClose * position.grossQuantity
       summary.dayChange += perUnitDayChange * position.signedQuantity
       summary.quotedPositions += 1
       return summary
     },
-    { dayChange: 0, quoteValue: 0, quotedPositions: 0 }
+    { dayChange: 0, previousValue: 0, quoteValue: 0, quotedPositions: 0 }
   )
   const quoteDayChange = quoteSummary.quotedPositions > 0 ? quoteSummary.dayChange : null
-  const quotePreviousValue = isFiniteNumber(quoteDayChange)
-    ? quoteSummary.quoteValue - quoteDayChange
-    : null
+  const quotePreviousValue = quoteSummary.quotedPositions > 0 ? quoteSummary.previousValue : null
   const quoteDayPercent =
     isFiniteNumber(quoteDayChange) && isFiniteNumber(quotePreviousValue) && quotePreviousValue !== 0
       ? (quoteDayChange / quotePreviousValue) * 100
