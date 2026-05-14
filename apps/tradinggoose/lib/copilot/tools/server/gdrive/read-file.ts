@@ -1,8 +1,9 @@
-import { createPermissionError } from '@/lib/copilot/review-sessions/permissions'
 import {
   type BaseServerTool,
+  createPermissionError,
   resolveServerWorkflowScope,
   type ServerToolExecutionContext,
+  throwIfServerToolAborted,
 } from '@/lib/copilot/tools/server/base-tool'
 import { getOAuthAccessTokenForUserCredential } from '@/lib/credentials/oauth'
 import { createLogger } from '@/lib/logs/console/logger'
@@ -42,6 +43,7 @@ export const readGDriveFileServerTool: BaseServerTool<ReadGDriveFileParams, any>
     if (workflowScope && !workflowScope.hasAccess) {
       throw new Error(createPermissionError('access Google Drive files in'))
     }
+    throwIfServerToolAborted(context)
 
     const accessToken = await getOAuthAccessTokenForUserCredential({
       credentialId,
@@ -56,7 +58,14 @@ export const readGDriveFileServerTool: BaseServerTool<ReadGDriveFileParams, any>
     }
 
     if (type === 'doc') {
-      const result = await executeTool('google_drive_get_content', { accessToken, fileId })
+      const result = await executeTool(
+        'google_drive_get_content',
+        { accessToken, fileId },
+        false,
+        undefined,
+        { signal: context?.signal }
+      )
+      throwIfServerToolAborted(context)
       if (!result.success) throw new Error(result.error || 'Failed to read Google Drive document')
       const output = (result as any).output || result
       const content = output?.output?.content ?? output?.content
@@ -65,11 +74,18 @@ export const readGDriveFileServerTool: BaseServerTool<ReadGDriveFileParams, any>
     }
 
     if (type === 'sheet') {
-      const result = await executeTool('google_sheets_read', {
-        accessToken,
-        spreadsheetId: fileId,
-        ...(params?.range ? { range: params.range } : {}),
-      })
+      const result = await executeTool(
+        'google_sheets_read',
+        {
+          accessToken,
+          spreadsheetId: fileId,
+          ...(params?.range ? { range: params.range } : {}),
+        },
+        false,
+        undefined,
+        { signal: context?.signal }
+      )
+      throwIfServerToolAborted(context)
       if (!result.success) throw new Error(result.error || 'Failed to read Google Sheets data')
       const output = (result as any).output || result
       const rows: string[][] = output?.output?.data?.values || output?.data?.values || []

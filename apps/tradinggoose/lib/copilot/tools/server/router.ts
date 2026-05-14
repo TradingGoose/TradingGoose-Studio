@@ -1,7 +1,8 @@
 import { CopilotTool, getToolContract, isToolId, type ToolId } from '@/lib/copilot/registry'
-import type {
-  BaseServerTool,
-  ServerToolExecutionContext,
+import {
+  type BaseServerTool,
+  type ServerToolExecutionContext,
+  throwIfServerToolAborted,
 } from '@/lib/copilot/tools/server/base-tool'
 import { searchDocumentationServerTool } from '@/lib/copilot/tools/server/docs/search-documentation'
 import { listGDriveFilesServerTool } from '@/lib/copilot/tools/server/gdrive/list-files'
@@ -80,11 +81,15 @@ export async function routeExecution(
   payload: unknown,
   context?: ServerToolExecutionContext
 ): Promise<any> {
+  throwIfServerToolAborted(context)
+
   if (!isToolId(toolName)) {
     throw new Error(`Unknown server tool: ${toolName}`)
   }
 
   const tool = await resolveServerTool(toolName)
+  throwIfServerToolAborted(context)
+
   const contract = getToolContract(toolName)
   if (!tool || !contract) {
     throw new Error(`Unknown server tool: ${toolName}`)
@@ -102,6 +107,10 @@ export async function routeExecution(
   })
 
   const args = contract.args.parse(payload ?? {})
+  throwIfServerToolAborted(context)
+
   const result = await tool.execute(args, context)
+  throwIfServerToolAborted(context)
+
   return contract.result.parse(result)
 }

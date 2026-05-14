@@ -1,4 +1,8 @@
-import type { BaseServerTool } from '@/lib/copilot/tools/server/base-tool'
+import {
+  type BaseServerTool,
+  type ServerToolExecutionContext,
+  throwIfServerToolAborted,
+} from '@/lib/copilot/tools/server/base-tool'
 import { createLogger } from '@/lib/logs/console/logger'
 import { executeTool } from '@/tools'
 import type { TableRow } from '@/tools/types'
@@ -13,10 +17,11 @@ interface MakeApiRequestParams {
 
 export const makeApiRequestServerTool: BaseServerTool<MakeApiRequestParams, any> = {
   name: 'make_api_request',
-  async execute(params: MakeApiRequestParams): Promise<any> {
+  async execute(params: MakeApiRequestParams, context?: ServerToolExecutionContext): Promise<any> {
     const logger = createLogger('MakeApiRequestServerTool')
     const { url, method, queryParams, headers, body } = params || ({} as MakeApiRequestParams)
     if (!url || !method) throw new Error('url and method are required')
+    throwIfServerToolAborted(context)
 
     const toTableRows = (obj?: Record<string, any>): TableRow[] | null => {
       if (!obj || typeof obj !== 'object') return null
@@ -28,13 +33,20 @@ export const makeApiRequestServerTool: BaseServerTool<MakeApiRequestParams, any>
     const headersTable = toTableRows(headers)
     const queryParamsTable = toTableRows(queryParams as Record<string, any> | undefined)
 
-    const result = await executeTool('http_request', {
-      url,
-      method,
-      params: queryParamsTable,
-      headers: headersTable,
-      body,
-    })
+    const result = await executeTool(
+      'http_request',
+      {
+        url,
+        method,
+        params: queryParamsTable,
+        headers: headersTable,
+        body,
+      },
+      false,
+      undefined,
+      { signal: context?.signal }
+    )
+    throwIfServerToolAborted(context)
     if (!result.success) throw new Error(result.error || 'API request failed')
     const output = (result as any).output || result
     const data = output.output?.data ?? output.data

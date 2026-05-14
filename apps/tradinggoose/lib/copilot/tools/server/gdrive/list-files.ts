@@ -1,8 +1,9 @@
-import { createPermissionError } from '@/lib/copilot/review-sessions/permissions'
 import {
   type BaseServerTool,
+  createPermissionError,
   resolveServerWorkflowScope,
   type ServerToolExecutionContext,
+  throwIfServerToolAborted,
 } from '@/lib/copilot/tools/server/base-tool'
 import { getOAuthAccessTokenForUserCredential } from '@/lib/credentials/oauth'
 import { createLogger } from '@/lib/logs/console/logger'
@@ -29,6 +30,7 @@ export const listGDriveFilesServerTool: BaseServerTool<ListGDriveFilesParams, an
     if (workflowScope && !workflowScope.hasAccess) {
       throw new Error(createPermissionError('access Google Drive files in'))
     }
+    throwIfServerToolAborted(context)
 
     const query = search_query
     const pageSize = num_results
@@ -45,11 +47,18 @@ export const listGDriveFilesServerTool: BaseServerTool<ListGDriveFilesParams, an
       )
     }
 
-    const result = await executeTool('google_drive_list', {
-      accessToken,
-      ...(query ? { query } : {}),
-      ...(typeof pageSize === 'number' ? { pageSize } : {}),
-    })
+    const result = await executeTool(
+      'google_drive_list',
+      {
+        accessToken,
+        ...(query ? { query } : {}),
+        ...(typeof pageSize === 'number' ? { pageSize } : {}),
+      },
+      false,
+      undefined,
+      { signal: context?.signal }
+    )
+    throwIfServerToolAborted(context)
     if (!result.success) {
       throw new Error(result.error || 'Failed to list Google Drive files')
     }

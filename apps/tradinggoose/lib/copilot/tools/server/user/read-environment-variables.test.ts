@@ -2,14 +2,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { readEnvironmentVariablesServerTool } from './read-environment-variables'
 
 const mocks = vi.hoisted(() => ({
-  createPermissionError: vi.fn(() => 'permission denied'),
   getEnvironmentVariableKeys: vi.fn(),
   getPersonalAndWorkspaceEnv: vi.fn(),
   verifyWorkflowAccess: vi.fn(),
 }))
 
 vi.mock('@/lib/copilot/review-sessions/permissions', () => ({
-  createPermissionError: mocks.createPermissionError,
   verifyWorkflowAccess: mocks.verifyWorkflowAccess,
 }))
 
@@ -56,7 +54,7 @@ describe('readEnvironmentVariablesServerTool', () => {
       count: 2,
     })
 
-    expect(mocks.verifyWorkflowAccess).toHaveBeenCalledWith('auth-user', 'workflow-1')
+    expect(mocks.verifyWorkflowAccess).toHaveBeenCalledWith('auth-user', 'workflow-1', 'read')
     expect(mocks.getPersonalAndWorkspaceEnv).toHaveBeenCalledWith('auth-user', 'workspace-1')
     expect(mocks.getEnvironmentVariableKeys).not.toHaveBeenCalled()
   })

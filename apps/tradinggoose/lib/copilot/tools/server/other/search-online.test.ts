@@ -71,12 +71,18 @@ describe('searchOnlineServerTool', () => {
       num: 3,
     })
 
-    expect(executeTool).toHaveBeenCalledWith('exa_search', {
-      query: 'TradingAgents Tauric Research',
-      numResults: 3,
-      type: 'auto',
-      apiKey: 'exa-key',
-    })
+    expect(executeTool).toHaveBeenCalledWith(
+      'exa_search',
+      {
+        query: 'TradingAgents Tauric Research',
+        numResults: 3,
+        type: 'auto',
+        apiKey: 'exa-key',
+      },
+      false,
+      undefined,
+      { signal: undefined }
+    )
     expect(result).toEqual({
       results: [
         {
@@ -126,14 +132,20 @@ describe('searchOnlineServerTool', () => {
       type: 'news',
     })
 
-    expect(executeTool).toHaveBeenCalledWith('serper_search', {
-      query: 'TradingAgents Tauric Research',
-      num: 3,
-      type: 'news',
-      gl: undefined,
-      hl: undefined,
-      apiKey: 'serper-key',
-    })
+    expect(executeTool).toHaveBeenCalledWith(
+      'serper_search',
+      {
+        query: 'TradingAgents Tauric Research',
+        num: 3,
+        type: 'news',
+        gl: undefined,
+        hl: undefined,
+        apiKey: 'serper-key',
+      },
+      false,
+      undefined,
+      { signal: undefined }
+    )
     expect(executeTool).not.toHaveBeenCalledWith('exa_search', expect.anything())
     expect(result).toEqual({
       results: [

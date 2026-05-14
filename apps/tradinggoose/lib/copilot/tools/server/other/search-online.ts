@@ -1,4 +1,8 @@
-import type { BaseServerTool } from '@/lib/copilot/tools/server/base-tool'
+import {
+  type BaseServerTool,
+  type ServerToolExecutionContext,
+  throwIfServerToolAborted,
+} from '@/lib/copilot/tools/server/base-tool'
 import { createLogger } from '@/lib/logs/console/logger'
 import { resolveExaServiceConfig, resolveSerperServiceConfig } from '@/lib/system-services/runtime'
 import { executeTool } from '@/tools'
@@ -38,11 +42,15 @@ const normalizeSearchType = (value: string | undefined): string =>
 
 export const searchOnlineServerTool: BaseServerTool<OnlineSearchParams, SearchOnlineResult> = {
   name: 'search_online',
-  async execute(params: OnlineSearchParams): Promise<SearchOnlineResult> {
+  async execute(
+    params: OnlineSearchParams,
+    context?: ServerToolExecutionContext
+  ): Promise<SearchOnlineResult> {
     const logger = createLogger('SearchOnlineServerTool')
     const { query, num = 10, gl, hl } = params
     const type = normalizeSearchType(params.type)
     if (!query || typeof query !== 'string') throw new Error('query is required')
+    throwIfServerToolAborted(context)
 
     const [exaConfig, serperConfig] = await Promise.all([
       resolveExaServiceConfig(),
@@ -66,14 +74,21 @@ export const searchOnlineServerTool: BaseServerTool<OnlineSearchParams, SearchOn
 
     if (hasSerperApiKey) {
       logger.debug('Calling serper_search tool', { type, num, gl, hl })
-      const result = await executeTool('serper_search', {
-        query,
-        num,
-        type,
-        gl,
-        hl,
-        apiKey: serperApiKey,
-      })
+      const result = await executeTool(
+        'serper_search',
+        {
+          query,
+          num,
+          type,
+          gl,
+          hl,
+          apiKey: serperApiKey,
+        },
+        false,
+        undefined,
+        { signal: context?.signal }
+      )
+      throwIfServerToolAborted(context)
       const results = ((result as any)?.output?.searchResults || []) as SearchOnlineResultItem[]
       const count = Array.isArray(results) ? results.length : 0
       const firstTitle = count > 0 ? String(results[0]?.title || '') : undefined
@@ -107,12 +122,19 @@ export const searchOnlineServerTool: BaseServerTool<OnlineSearchParams, SearchOn
     }
 
     logger.debug('Calling exa_search tool', { num })
-    const exaResult = await executeTool('exa_search', {
-      query,
-      numResults: num,
-      type: 'auto',
-      apiKey: exaApiKey,
-    })
+    const exaResult = await executeTool(
+      'exa_search',
+      {
+        query,
+        numResults: num,
+        type: 'auto',
+        apiKey: exaApiKey,
+      },
+      false,
+      undefined,
+      { signal: context?.signal }
+    )
+    throwIfServerToolAborted(context)
 
     const exaResults = (exaResult as any)?.output?.results || []
     const count = Array.isArray(exaResults) ? exaResults.length : 0

@@ -504,10 +504,12 @@ describe('executeTool Function', () => {
     ])
     const skillRows = [
       {
+        name: 'market-research',
         content: 'Investigate the market and summarize the setup.',
       },
     ]
     dbMocks.where.mockImplementationOnce(() => ({
+      orderBy: vi.fn().mockResolvedValueOnce(skillRows),
       limit: vi.fn().mockResolvedValueOnce(skillRows),
       then: (resolve: (value: unknown[]) => unknown, reject?: (reason: unknown) => unknown) =>
         Promise.resolve(skillRows).then(resolve, reject),

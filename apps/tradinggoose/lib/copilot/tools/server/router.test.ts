@@ -257,6 +257,20 @@ describe('copilot contract registry', () => {
 })
 
 describe('routeExecution', () => {
+  it('stops aborted server tool execution before invoking the tool', async () => {
+    const controller = new AbortController()
+    controller.abort()
+
+    await expect(
+      routeExecution('read_environment_variables', {}, {
+        userId: 'user-1',
+        signal: controller.signal,
+      })
+    ).rejects.toMatchObject({ name: 'AbortError' })
+
+    expect(readEnvironmentVariablesExecute).not.toHaveBeenCalled()
+  })
+
   it('validates request payloads through the central contract before execution', async () => {
     await expect(routeExecution('get_blocks_metadata', {})).rejects.toThrow()
   })

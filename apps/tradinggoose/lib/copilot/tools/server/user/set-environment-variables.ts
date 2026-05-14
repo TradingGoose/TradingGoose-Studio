@@ -2,12 +2,13 @@ import { db } from '@tradinggoose/db'
 import { environmentVariables } from '@tradinggoose/db/schema'
 import { eq } from 'drizzle-orm'
 import { z } from 'zod'
-import { createPermissionError } from '@/lib/copilot/review-sessions/permissions'
-import type {
-  BaseServerTool,
-  ServerToolExecutionContext,
+import {
+  type BaseServerTool,
+  createPermissionError,
+  resolveServerWorkflowScope,
+  type ServerToolExecutionContext,
+  throwIfServerToolAborted,
 } from '@/lib/copilot/tools/server/base-tool'
-import { resolveServerWorkflowScope } from '@/lib/copilot/tools/server/base-tool'
 import { createLogger } from '@/lib/logs/console/logger'
 import { encryptSecret } from '@/lib/utils-server'
 
@@ -71,6 +72,7 @@ export const setEnvironmentVariablesServerTool: BaseServerTool<SetEnvironmentVar
       const normalized = normalizeEnvVarInput(variables || {})
       const { variables: validatedVariables } = EnvVarSchema.parse({ variables: normalized })
       const variableEntries = Object.entries(validatedVariables)
+      throwIfServerToolAborted(context)
 
       const existingRows = await db
         .select({ key: environmentVariables.key })
@@ -83,6 +85,7 @@ export const setEnvironmentVariablesServerTool: BaseServerTool<SetEnvironmentVar
 
       await db.transaction(async (tx) => {
         for (const [key, val] of variableEntries) {
+          throwIfServerToolAborted(context)
           const { encrypted } = await encryptSecret(val)
 
           await tx

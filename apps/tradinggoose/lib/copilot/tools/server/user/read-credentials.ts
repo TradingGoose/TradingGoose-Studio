@@ -1,7 +1,7 @@
 import { CopilotTool } from '@/lib/copilot/registry'
-import { createPermissionError } from '@/lib/copilot/review-sessions/permissions'
 import {
   type BaseServerTool,
+  createPermissionError,
   resolveServerWorkflowScope,
   type ServerToolExecutionContext,
 } from '@/lib/copilot/tools/server/base-tool'

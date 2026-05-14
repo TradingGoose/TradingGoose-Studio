@@ -5,7 +5,6 @@ const mocks = vi.hoisted(() => ({
   executeTool: vi.fn(),
   getOAuthAccessTokenForUserCredential: vi.fn(),
   verifyWorkflowAccess: vi.fn(),
-  createPermissionError: vi.fn(() => 'permission denied'),
 }))
 
 vi.mock('@/lib/credentials/oauth', () => ({
@@ -13,7 +12,6 @@ vi.mock('@/lib/credentials/oauth', () => ({
 }))
 
 vi.mock('@/lib/copilot/review-sessions/permissions', () => ({
-  createPermissionError: mocks.createPermissionError,
   verifyWorkflowAccess: mocks.verifyWorkflowAccess,
 }))
 
@@ -67,9 +65,15 @@ describe('readGDriveFileServerTool', () => {
       requestId: 'copilot-gdrive-read-credential-1',
       workspaceId: 'workspace-1',
     })
-    expect(mocks.executeTool).toHaveBeenCalledWith('google_drive_get_content', {
-      accessToken: 'google-token',
-      fileId: 'file-1',
-    })
+    expect(mocks.executeTool).toHaveBeenCalledWith(
+      'google_drive_get_content',
+      {
+        accessToken: 'google-token',
+        fileId: 'file-1',
+      },
+      false,
+      undefined,
+      { signal: undefined }
+    )
   })
 })

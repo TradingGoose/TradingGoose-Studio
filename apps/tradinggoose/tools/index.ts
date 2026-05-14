@@ -60,6 +60,9 @@ function resolveExecutionScope(
 }
 
 type ExecutionScope = ReturnType<typeof resolveExecutionScope>
+type ToolExecutionOptions = {
+  signal?: AbortSignal
+}
 
 function generateScopedInternalToken(scope: ExecutionScope) {
   const workflowExecution =
@@ -123,6 +126,50 @@ function handleBodySizeLimitError(error: unknown, requestId: string, context: st
   }
 
   return false
+}
+
+function throwIfToolRequestAborted(signal?: AbortSignal): void {
+  if (!signal?.aborted) return
+
+  const error = new Error('Aborted')
+  error.name = 'AbortError'
+  throw error
+}
+
+function createToolRequestSignal(
+  timeoutMs: number | undefined,
+  sourceSignal?: AbortSignal
+): { signal?: AbortSignal; didTimeout: () => boolean; cleanup: () => void } {
+  if (!timeoutMs && !sourceSignal) {
+    return { didTimeout: () => false, cleanup: () => {} }
+  }
+
+  const controller = new AbortController()
+  let timedOut = false
+  const abortFromSource = () => controller.abort(sourceSignal?.reason)
+  const timeoutId = timeoutMs
+    ? setTimeout(() => {
+        timedOut = true
+        controller.abort()
+      }, timeoutMs)
+    : null
+
+  if (sourceSignal) {
+    if (sourceSignal.aborted) {
+      abortFromSource()
+    } else {
+      sourceSignal.addEventListener('abort', abortFromSource, { once: true })
+    }
+  }
+
+  return {
+    signal: controller.signal,
+    didTimeout: () => timedOut,
+    cleanup: () => {
+      if (timeoutId) clearTimeout(timeoutId)
+      sourceSignal?.removeEventListener('abort', abortFromSource)
+    },
+  }
 }
 
 /**
@@ -205,7 +252,8 @@ export async function executeTool(
   toolId: string,
   params: Record<string, any>,
   skipPostProcess = false,
-  executionContext?: ExecutionContext
+  executionContext?: ExecutionContext,
+  options?: ToolExecutionOptions
 ): Promise<ToolResponse> {
   // Capture start time for precise timing
   const startTime = new Date()
@@ -214,6 +262,7 @@ export async function executeTool(
   const scope = resolveExecutionScope(params, executionContext)
 
   try {
+    throwIfToolRequestAborted(options?.signal)
     let tool: ToolConfig | undefined
 
     if (isSkillLoaderExecution(params)) {
@@ -332,11 +381,18 @@ export async function executeTool(
           }
         }
 
-        const response = await fetch(new URL('/api/auth/oauth/token', baseUrl).toString(), {
-          method: 'POST',
-          headers: tokenHeaders,
-          body: JSON.stringify(tokenPayload),
-        })
+        const tokenRequestSignal = createToolRequestSignal(undefined, options?.signal)
+        let response: Response
+        try {
+          response = await fetch(new URL('/api/auth/oauth/token', baseUrl).toString(), {
+            method: 'POST',
+            headers: tokenHeaders,
+            body: JSON.stringify(tokenPayload),
+            signal: tokenRequestSignal.signal,
+          })
+        } finally {
+          tokenRequestSignal.cleanup()
+        }
 
         if (!response.ok) {
           const errorText = await response.text()
@@ -370,8 +426,10 @@ export async function executeTool(
 
     // Check for direct execution (no HTTP request needed)
     if (tool.directExecution) {
+      throwIfToolRequestAborted(options?.signal)
       logger.info(`[${requestId}] Using directExecution for ${toolId}`)
       const result = await tool.directExecution(contextParams)
+      throwIfToolRequestAborted(options?.signal)
 
       // Apply post-processing if available and not skipped
       let finalResult = result
@@ -404,7 +462,8 @@ export async function executeTool(
     }
 
     // Execute the tool request directly (internal routes use regular fetch)
-    const result = await executeToolRequest(toolId, tool, contextParams, executionContext)
+    const result = await executeToolRequest(toolId, tool, contextParams, executionContext, options)
+    throwIfToolRequestAborted(options?.signal)
 
     // Apply post-processing if available and not skipped
     let finalResult = result
@@ -595,7 +654,8 @@ async function executeToolRequest(
   toolId: string,
   tool: ToolConfig,
   params: Record<string, any>,
-  executionContext?: ExecutionContext
+  executionContext?: ExecutionContext,
+  options?: ToolExecutionOptions
 ): Promise<ToolResponse> {
   const requestId = generateRequestId()
   const scope = resolveExecutionScope(params, executionContext)
@@ -642,6 +702,7 @@ async function executeToolRequest(
 
     const headers = new Headers(requestParams.headers)
     await addInternalAuthIfNeeded(headers, isInternalRoute, requestId, toolId, scope)
+    throwIfToolRequestAborted(options?.signal)
 
     if (typeof requestParams.body === 'string') {
       validateRequestBodySize(requestParams.body, requestId, toolId)
@@ -650,24 +711,23 @@ async function executeToolRequest(
     let response: Response
 
     if (isInternalRoute) {
-      const controller = new AbortController()
       const timeout = requestParams.timeout || 300000
-      const timeoutId = setTimeout(() => controller.abort(), timeout)
+      const requestSignal = createToolRequestSignal(timeout, options?.signal)
 
       try {
         response = await fetch(fullUrl, {
           method: requestParams.method,
           headers: headers,
           body: requestParams.body,
-          signal: controller.signal,
+          signal: requestSignal.signal,
         })
       } catch (error) {
-        if (error instanceof Error && error.name === 'AbortError') {
+        if (error instanceof Error && error.name === 'AbortError' && requestSignal.didTimeout()) {
           throw new Error(`Request timed out after ${timeout}ms`)
         }
         throw error
       } finally {
-        clearTimeout(timeoutId)
+        requestSignal.cleanup()
       }
     } else {
       const urlValidation = validateExternalUrl(fullUrl, 'toolUrl')
@@ -675,30 +735,21 @@ async function executeToolRequest(
         throw new Error(`Invalid tool URL: ${urlValidation.error}`)
       }
 
-      if (requestParams.timeout) {
-        const controller = new AbortController()
-        const timeoutId = setTimeout(() => controller.abort(), requestParams.timeout)
-        try {
-          response = await fetch(fullUrl, {
-            method: requestParams.method,
-            headers: headers,
-            body: requestParams.body,
-            signal: controller.signal,
-          })
-        } catch (error) {
-          if (error instanceof Error && error.name === 'AbortError') {
-            throw new Error(`Request timed out after ${requestParams.timeout}ms`)
-          }
-          throw error
-        } finally {
-          clearTimeout(timeoutId)
-        }
-      } else {
+      const requestSignal = createToolRequestSignal(requestParams.timeout, options?.signal)
+      try {
         response = await fetch(fullUrl, {
           method: requestParams.method,
           headers: headers,
           body: requestParams.body,
+          signal: requestSignal.signal,
         })
+      } catch (error) {
+        if (error instanceof Error && error.name === 'AbortError' && requestSignal.didTimeout()) {
+          throw new Error(`Request timed out after ${requestParams.timeout}ms`)
+        }
+        throw error
+      } finally {
+        requestSignal.cleanup()
       }
     }
 
