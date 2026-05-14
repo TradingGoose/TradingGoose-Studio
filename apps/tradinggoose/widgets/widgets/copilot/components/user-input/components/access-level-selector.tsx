@@ -49,7 +49,7 @@ export function AccessLevelSelector({
           variant='outline'
           size='sm'
           disabled={!onAccessLevelChange}
-          className='flex h-6 bg-background hover:bg-muted/30 items-center gap-1.5 rounded-sm border px-2 py-1 font-medium text-xs focus-visible:ring-0 focus-visible:ring-offset-0'
+          className='flex h-6 items-center gap-1.5 rounded-sm border bg-background px-2 py-1 font-medium text-xs hover:bg-muted/30 focus-visible:ring-0 focus-visible:ring-offset-0'
         >
           {getAccessLevelIcon(accessLevel)}
           <span>{getAccessLevelText(accessLevel)}</span>
@@ -80,7 +80,7 @@ export function AccessLevelSelector({
                 align='center'
                 className='max-w-[220px] border bg-popover p-2 text-[11px] text-popover-foreground leading-snug shadow-md'
               >
-                Reviews workflow, skill, MCP, and custom-tool changes before they run.
+                Reviews each tool before it runs.
               </TooltipContent>
             </Tooltip>
             <Tooltip>
@@ -105,7 +105,7 @@ export function AccessLevelSelector({
                 align='center'
                 className='max-w-[220px] border bg-popover p-2 text-[11px] text-popover-foreground leading-snug shadow-md'
               >
-                Allows workflow, skill, MCP, and custom-tool changes without extra approval.
+                Allows tools to run without extra approval.
               </TooltipContent>
             </Tooltip>
           </div>

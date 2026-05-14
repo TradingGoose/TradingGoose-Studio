@@ -4,11 +4,13 @@ import {
   workflow,
   workflowExecutionLogs,
   workflowFolder,
+  workspace,
 } from '@tradinggoose/db/schema'
 import { and, eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
+import { buildWorkspaceAccessScope } from '@/lib/permissions/utils'
 import { generateRequestId } from '@/lib/utils'
 import { serializeWorkflowLog } from '@/app/api/logs/log-utils'
 
@@ -28,6 +30,7 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
 
     const userId = session.user.id
     const { id } = await params
+    const workspaceAccess = buildWorkspaceAccessScope(userId, workflowExecutionLogs.workspaceId)
 
     const rows = await db
       .select({
@@ -58,15 +61,9 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
       .from(workflowExecutionLogs)
       .leftJoin(workflow, eq(workflowExecutionLogs.workflowId, workflow.id))
       .leftJoin(workflowFolder, eq(workflow.folderId, workflowFolder.id))
-      .innerJoin(
-        permissions,
-        and(
-          eq(permissions.entityType, 'workspace'),
-          eq(permissions.entityId, workflowExecutionLogs.workspaceId),
-          eq(permissions.userId, userId)
-        )
-      )
-      .where(eq(workflowExecutionLogs.id, id))
+      .innerJoin(workspace, workspaceAccess.workspaceJoin)
+      .leftJoin(permissions, workspaceAccess.permissionJoin)
+      .where(and(eq(workflowExecutionLogs.id, id), workspaceAccess.accessFilter))
       .limit(1)
 
     const row = rows[0]

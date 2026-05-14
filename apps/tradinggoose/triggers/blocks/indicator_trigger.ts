@@ -41,7 +41,6 @@ export const IndicatorTriggerBlock: BlockConfig = {
   category: 'triggers',
   icon: IndicatorTriggerIcon,
   bgColor: '#16A34A',
-  triggerAllowed: true,
   bestPractices: `
   - Configure and manage monitors in /workspace/[workspaceId]/monitor.
   - Use this trigger block to expose monitor payload fields to downstream blocks.

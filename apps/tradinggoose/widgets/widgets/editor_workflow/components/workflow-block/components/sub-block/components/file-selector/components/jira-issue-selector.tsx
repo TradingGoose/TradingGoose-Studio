@@ -49,6 +49,7 @@ interface JiraIssueSelectorProps {
   credentialId?: string
   isForeignCredential?: boolean
   workflowId?: string
+  workspaceId?: string
 }
 
 export function JiraIssueSelector({
@@ -66,6 +67,7 @@ export function JiraIssueSelector({
   credentialId,
   isForeignCredential = false,
   workflowId,
+  workspaceId,
 }: JiraIssueSelectorProps) {
   const [open, setOpen] = useState(false)
   const [credentials, setCredentials] = useState<Credential[]>([])
@@ -133,7 +135,10 @@ export function JiraIssueSelector({
     if (!providerId) return
     setIsLoading(true)
     try {
-      const response = await fetch(`/api/auth/oauth/credentials?provider=${providerId}`)
+      const query = new URLSearchParams({ provider: providerId })
+      if (workflowId) query.set('workflowId', workflowId)
+      else if (workspaceId) query.set('workspaceId', workspaceId)
+      const response = await fetch(`/api/auth/oauth/credentials?${query.toString()}`)
 
       if (response.ok) {
         const data = await response.json()
@@ -144,7 +149,7 @@ export function JiraIssueSelector({
     } finally {
       setIsLoading(false)
     }
-  }, [providerId])
+  }, [providerId, workflowId, workspaceId])
 
   // Fetch issue info when we have a selected issue ID
   const fetchIssueInfo = useCallback(
@@ -162,31 +167,6 @@ export function JiraIssueSelector({
       setError(null)
 
       try {
-        // Get the access token from the selected credential
-        const tokenResponse = await fetch('/api/auth/oauth/token', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            credentialId: selectedCredentialId,
-            workflowId,
-          }),
-        })
-
-        if (!tokenResponse.ok) {
-          const errorData = await tokenResponse.json()
-          throw new Error(errorData.error || 'Failed to get access token')
-        }
-
-        const tokenData = await tokenResponse.json()
-        const accessToken = tokenData.accessToken
-
-        if (!accessToken) {
-          throw new Error('No access token received')
-        }
-
-        // Use the access token to fetch the issue info
         const response = await fetch('/api/tools/jira/issue', {
           method: 'POST',
           headers: {
@@ -194,7 +174,8 @@ export function JiraIssueSelector({
           },
           body: JSON.stringify({
             domain,
-            accessToken,
+            credentialId: selectedCredentialId,
+            ...(workflowId ? { workflowId } : workspaceId ? { workspaceId } : {}),
             issueId,
             cloudId,
           }),
@@ -231,7 +212,7 @@ export function JiraIssueSelector({
         setIsLoading(false)
       }
     },
-    [selectedCredentialId, domain, onIssueInfoChange, cloudId]
+    [selectedCredentialId, domain, onIssueInfoChange, cloudId, workflowId, workspaceId]
   )
 
   // Fetch issues from Jira
@@ -259,42 +240,10 @@ export function JiraIssueSelector({
       setError(null)
 
       try {
-        // Get the access token from the selected credential
-        const tokenResponse = await fetch('/api/auth/oauth/token', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            credentialId: selectedCredentialId,
-            workflowId,
-          }),
-        })
-
-        if (!tokenResponse.ok) {
-          const errorData = await tokenResponse.json()
-          logger.error('Access token error:', errorData)
-
-          // If there's a token error, we might need to reconnect the account
-          setError('Authentication failed. Please reconnect your Jira account.')
-          setIsLoading(false)
-          return
-        }
-
-        const tokenData = await tokenResponse.json()
-        const accessToken = tokenData.accessToken
-
-        if (!accessToken) {
-          logger.error('No access token returned')
-          setError('Authentication failed. Please reconnect your Jira account.')
-          setIsLoading(false)
-          return
-        }
-
-        // Build query parameters for the issues endpoint
         const queryParams = new URLSearchParams({
           domain,
-          accessToken,
+          credentialId: selectedCredentialId,
+          ...(workflowId ? { workflowId } : workspaceId ? { workspaceId } : {}),
           ...(projectId && { projectId }),
           ...(searchQuery && { query: searchQuery }),
           ...(cloudId && { cloudId }),
@@ -369,6 +318,8 @@ export function JiraIssueSelector({
       fetchIssueInfo,
       cloudId,
       projectId,
+      workflowId,
+      workspaceId,
     ]
   )
 

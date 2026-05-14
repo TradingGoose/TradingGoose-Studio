@@ -7,6 +7,12 @@ if (typeof requestUrlBuilder !== 'function') {
 }
 
 describe('orderHistoryTool request scope', () => {
+  it('declares workspace read execution policy on the tool config', () => {
+    expect(orderHistoryTool.execution).toEqual({
+      workspace: { required: true, access: 'read' },
+    })
+  })
+
   it('sends workspace scope from normalized execution context', () => {
     const url = requestUrlBuilder({
       startDate: '2026-04-23T00:00:00.000Z',

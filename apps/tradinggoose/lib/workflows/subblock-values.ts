@@ -1,13 +1,13 @@
-import type { SubBlockConfig } from '@/blocks/types'
 import { getBaseUrl } from '@/lib/urls/utils'
+import type { SubBlockConfig } from '@/blocks/types'
 
 type SubBlockStateLike = Record<string, { value?: unknown } | undefined>
 
-export function readStoredSubBlockValue(value: unknown): unknown {
+function readStoredSubBlockValue(value: unknown): unknown {
   return typeof value === 'function' ? undefined : value
 }
 
-export function resolveConfiguredSubBlockValue(
+function resolveConfiguredSubBlockValue(
   subBlock: Pick<SubBlockConfig, 'value'>,
   params: Record<string, any>
 ): unknown {
@@ -34,38 +34,19 @@ export function buildConfiguredSubBlockParams(args: {
   blockId?: string
   subBlockConfigs: SubBlockConfig[]
   subBlocks: SubBlockStateLike | undefined
+  isAdvancedMode?: boolean
 }): Record<string, any> {
-  const { blockId, subBlockConfigs, subBlocks } = args
+  const { blockId, subBlockConfigs, subBlocks, isAdvancedMode } = args
   const params: Record<string, any> = {}
 
-  for (const [subBlockId, subBlockState] of Object.entries(subBlocks ?? {})) {
-    const resolvedValue = readStoredSubBlockValue(subBlockState?.value)
+  for (const subBlockConfig of subBlockConfigs) {
+    if (isAdvancedMode === false && subBlockConfig.mode === 'advanced') continue
+    if (isAdvancedMode === true && subBlockConfig.mode === 'basic') continue
+
+    const resolvedValue = readStoredSubBlockValue(subBlocks?.[subBlockConfig.id]?.value)
     if (resolvedValue !== undefined) {
-      params[subBlockId] = resolvedValue
+      params[subBlockConfig.canonicalParamId ?? subBlockConfig.id] = resolvedValue
     }
-  }
-
-  if (
-    params.selectedTriggerId === undefined ||
-    params.selectedTriggerId === null ||
-    params.selectedTriggerId === ''
-  ) {
-    const selectedTriggerConfig = subBlockConfigs.find((subBlock) => subBlock.id === 'selectedTriggerId')
-    const configuredTriggerId = selectedTriggerConfig
-      ? resolveConfiguredSubBlockValue(selectedTriggerConfig, params)
-      : undefined
-
-    if (typeof configuredTriggerId === 'string' && configuredTriggerId.trim().length > 0) {
-      params.selectedTriggerId = configuredTriggerId
-    }
-  }
-
-  if (
-    (params.triggerId === undefined || params.triggerId === null || params.triggerId === '') &&
-    typeof params.selectedTriggerId === 'string' &&
-    params.selectedTriggerId.trim().length > 0
-  ) {
-    params.triggerId = params.selectedTriggerId
   }
 
   if (blockId && subBlockConfigs.some((subBlock) => subBlock.id === 'webhookUrlDisplay')) {
@@ -81,11 +62,15 @@ export function buildConfiguredSubBlockParams(args: {
 }
 
 export function resolveInitialSubBlockValue(
-  subBlock: Pick<SubBlockConfig, 'type' | 'value' | 'defaultValue'>,
+  subBlock: Pick<SubBlockConfig, 'type' | 'value' | 'defaultValue'> & { id?: string },
   params: Record<string, any>,
   override?: unknown
 ): unknown {
   const explicitValue = readStoredSubBlockValue(override)
+  if (subBlock.id === 'selectedTriggerId' && explicitValue === undefined) {
+    return ''
+  }
+
   const resolvedValue =
     explicitValue !== undefined ? explicitValue : resolveConfiguredSubBlockValue(subBlock, params)
 

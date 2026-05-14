@@ -81,7 +81,6 @@ export const githubPRCommentTrigger: TriggerConfig = {
       type: 'trigger-save',
       hideFromPreview: true,
       mode: 'trigger',
-      triggerId: 'github_pr_comment',
       condition: {
         field: 'selectedTriggerId',
         value: 'github_pr_comment',

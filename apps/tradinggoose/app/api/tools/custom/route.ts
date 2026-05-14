@@ -1,18 +1,21 @@
 import { db } from '@tradinggoose/db'
 import { customTools, workflow } from '@tradinggoose/db/schema'
-import { and, desc, eq } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { checkHybridAuth } from '@/lib/auth/hybrid'
-import { upsertCustomTools } from '@/lib/custom-tools/operations'
+import { listCustomTools, upsertCustomTools } from '@/lib/custom-tools/operations'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getUserEntityPermissions } from '@/lib/permissions/utils'
 import { generateRequestId } from '@/lib/utils'
+import { deleteYjsSessionInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
 
 const logger = createLogger('CustomToolsAPI')
 
 const CustomToolSchema = z.object({
-  workspaceId: z.string({ required_error: 'workspaceId is required' }).min(1, 'workspaceId is required'),
+  workspaceId: z
+    .string({ required_error: 'workspaceId is required' })
+    .min(1, 'workspaceId is required'),
   tools: z.array(
     z.object({
       id: z.string().optional(),
@@ -82,11 +85,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    const result = await db
-      .select()
-      .from(customTools)
-      .where(eq(customTools.workspaceId, resolvedWorkspaceId))
-      .orderBy(desc(customTools.createdAt))
+    const result = await listCustomTools({ workspaceId: resolvedWorkspaceId })
 
     return NextResponse.json({ data: result }, { status: 200 })
   } catch (error) {
@@ -211,7 +210,7 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Tool not found' }, { status: 404 })
     }
 
-    // Delete the tool
+    await deleteYjsSessionInSocketServer(toolId)
     await db.delete(customTools).where(eq(customTools.id, toolId))
 
     logger.info(`[${requestId}] Deleted tool: ${toolId}`)

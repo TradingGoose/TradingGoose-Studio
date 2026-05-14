@@ -1,5 +1,5 @@
-import { type NextRequest, NextResponse } from 'next/server'
 import { randomUUID } from 'node:crypto'
+import { type NextRequest, NextResponse } from 'next/server'
 import { checkSessionOrInternalAuth } from '@/lib/auth/hybrid'
 import {
   enqueuePendingExecution,
@@ -8,32 +8,60 @@ import {
 import { createLogger } from '@/lib/logs/console/logger'
 import { TriggerExecutionUnavailableError } from '@/lib/trigger/settings'
 import { generateRequestId } from '@/lib/utils'
-import { getWorkflowAccessContext } from '@/lib/workflows/utils'
+import type { WorkflowExecutionBlueprint } from '@/lib/workflows/execution-runner'
+import { readWorkflowAccessContext } from '@/lib/workflows/utils'
 
 const logger = createLogger('WorkflowQueueAPI')
 
+type QueuedWorkflowTriggerType = 'api' | 'manual' | 'chat'
+type QueuedWorkflowExecutionTarget = 'deployed' | 'live'
+
 type QueueRequestBody = {
-  input?: Record<string, unknown>
-  executionTarget?: 'deployed' | 'live'
-  triggerType?: 'api' | 'webhook' | 'schedule' | 'manual' | 'chat'
+  executionId?: string
+  input?: unknown
+  executionTarget?: unknown
+  triggerType?: unknown
+  workflowData?: WorkflowExecutionBlueprint['workflowData']
+  workflowVariables?: Record<string, unknown>
+  startBlockId?: string
+  selectedOutputs?: string[]
+  stream?: boolean
   workflowDepth?: number
-  parentWorkflowId?: string
-  parentExecutionId?: string
-  parentBlockId?: string
 }
 
-const hasReadAccess = (
-  accessContext: Awaited<ReturnType<typeof getWorkflowAccessContext>>,
-) =>
-  Boolean(
-    accessContext &&
-      (accessContext.isOwner || accessContext.workspacePermission !== null),
-  )
+function readQueuedWorkflowTriggerType(value: unknown): QueuedWorkflowTriggerType | null {
+  if (value === undefined) return 'manual'
+  if (value === 'api' || value === 'manual' || value === 'chat') return value
+  return null
+}
 
-export async function POST(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+function readQueuedWorkflowExecutionTarget(value: unknown): QueuedWorkflowExecutionTarget | null {
+  if (value === undefined) return 'deployed'
+  if (value === 'deployed' || value === 'live') return value
+  return null
+}
+
+function parseQueueRequestBody(value: string): QueueRequestBody | null {
+  if (!value) return {}
+  try {
+    const parsed = JSON.parse(value)
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+      ? (parsed as QueueRequestBody)
+      : null
+  } catch {
+    return null
+  }
+}
+
+function hasLiveWorkflowState(body: QueueRequestBody) {
+  return (
+    body.workflowData !== undefined ||
+    body.workflowVariables !== undefined ||
+    (typeof body.startBlockId === 'string' && body.startBlockId.length > 0)
+  )
+}
+
+export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const requestId = generateRequestId()
   const { id: workflowId } = await params
 
@@ -46,29 +74,64 @@ export async function POST(
       return NextResponse.json({ error: auth.error || 'Unauthorized' }, { status: 401 })
     }
 
-    const accessContext = await getWorkflowAccessContext(workflowId, auth.userId)
+    const accessContext = await readWorkflowAccessContext(workflowId, auth.userId)
     if (!accessContext?.workflow) {
       return NextResponse.json({ error: 'Workflow not found' }, { status: 404 })
     }
 
-    if (!hasReadAccess(accessContext)) {
+    if (
+      !accessContext.isOwner &&
+      !accessContext.isWorkspaceOwner &&
+      accessContext.workspacePermission === null
+    ) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
     }
 
-    const body = ((await request.json().catch(() => ({}))) || {}) as QueueRequestBody
-    const executionTarget = body.executionTarget === 'live' ? 'live' : 'deployed'
-    const triggerType = body.triggerType ?? 'manual'
+    const body = parseQueueRequestBody(await request.text())
+    if (!body) {
+      return NextResponse.json({ error: 'Invalid JSON in request body' }, { status: 400 })
+    }
+    const executionTarget = readQueuedWorkflowExecutionTarget(body.executionTarget)
+    if (!executionTarget) {
+      return NextResponse.json(
+        { error: 'Unsupported queued workflow execution target' },
+        { status: 400 }
+      )
+    }
+    const triggerType = readQueuedWorkflowTriggerType(body.triggerType)
+    if (!triggerType) {
+      return NextResponse.json(
+        { error: 'Unsupported queued workflow trigger type' },
+        { status: 400 }
+      )
+    }
+    const childWorkflowExecution = auth.internalWorkflowExecution
+    const source = childWorkflowExecution ? 'workflow_block' : 'workflow_queue'
 
     if (executionTarget === 'deployed' && !accessContext.workflow.isDeployed) {
+      return NextResponse.json({ error: 'Workflow is not deployed' }, { status: 403 })
+    }
+    if (executionTarget === 'deployed' && hasLiveWorkflowState(body)) {
       return NextResponse.json(
-        { error: 'Workflow is not deployed' },
-        { status: 403 }
+        { error: 'Deployed workflow executions cannot include live workflow state' },
+        { status: 400 }
       )
     }
 
-    const source = body.parentBlockId ? 'workflow_block' : 'workflow_queue'
+    if (
+      !accessContext.isOwner &&
+      !accessContext.isWorkspaceOwner &&
+      accessContext.workspacePermission !== 'write' &&
+      accessContext.workspacePermission !== 'admin'
+    ) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+    }
+
     const createdAt = new Date().toISOString()
-    const pendingExecutionId = `workflow_execution_${randomUUID()}`
+    const pendingExecutionId =
+      typeof body.executionId === 'string' && body.executionId.length > 0
+        ? body.executionId
+        : `workflow_execution_${randomUUID()}`
     const handle = await enqueuePendingExecution({
       executionType: 'workflow',
       pendingExecutionId,
@@ -84,21 +147,35 @@ export async function POST(
         input: body.input ?? {},
         triggerType,
         executionTarget,
-        workflowDepth:
-          typeof body.workflowDepth === 'number' ? body.workflowDepth : 0,
+        workspaceId: accessContext.workflow.workspaceId,
+        workflowData: executionTarget === 'live' ? body.workflowData : undefined,
+        workflowVariables: executionTarget === 'live' ? body.workflowVariables : undefined,
+        selectedOutputs: body.selectedOutputs,
+        stream: body.stream === true,
+        startBlockId:
+          executionTarget === 'live' &&
+          typeof body.startBlockId === 'string' &&
+          body.startBlockId.length > 0
+            ? body.startBlockId
+            : undefined,
+        workflowDepth: typeof body.workflowDepth === 'number' ? body.workflowDepth : 0,
         metadata: {
           source,
-          parentWorkflowId: body.parentWorkflowId ?? null,
-          parentExecutionId: body.parentExecutionId ?? null,
-          parentBlockId: body.parentBlockId ?? null,
+          parentWorkflowId: childWorkflowExecution?.parentWorkflowId ?? null,
+          parentExecutionId: childWorkflowExecution?.parentExecutionId ?? null,
+          parentBlockId: childWorkflowExecution?.parentBlockId ?? null,
         },
       },
     })
+    if (!handle.inserted) {
+      return NextResponse.json({ error: 'Workflow execution already exists' }, { status: 409 })
+    }
 
     return NextResponse.json(
       {
         success: true,
         taskId: handle.pendingExecutionId,
+        executionId: pendingExecutionId,
         workflowName: accessContext.workflow.name,
         status: 'queued',
         createdAt,

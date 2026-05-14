@@ -84,8 +84,8 @@ export function PortfolioSnapshotHeaderControls({
           workspaceId={workspaceId}
           providerId={providerId}
           providerOptions={providerOptions}
-          credentialServiceId={params?.credentialServiceId}
-          accountId={params?.accountId}
+          serviceId={params?.serviceId}
+          portfolioIdentity={params?.portfolioIdentity}
           toolName='Portfolio Snapshot'
           onProviderChange={(nextProvider) => {
             if (!nextProvider || nextProvider === providerId) return
@@ -93,19 +93,19 @@ export function PortfolioSnapshotHeaderControls({
             emitPortfolioSnapshotParamsChange({
               params: {
                 provider: nextProvider,
-                credentialServiceId: null,
-                accountId: null,
+                serviceId: null,
+                portfolioIdentity: null,
                 selectedWindow: null,
               },
               panelId,
               widgetKey,
             })
           }}
-          onAccountSelect={({ accountId, credentialServiceId }) => {
+          onAccountSelect={({ serviceId, portfolioIdentity }) => {
             emitPortfolioSnapshotParamsChange({
               params: {
-                accountId,
-                ...(credentialServiceId ? { credentialServiceId } : {}),
+                portfolioIdentity,
+                ...(serviceId ? { serviceId } : {}),
               },
               panelId,
               widgetKey,

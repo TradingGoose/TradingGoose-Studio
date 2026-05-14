@@ -99,7 +99,7 @@ export const JiraBlock: BlockConfig<JiraResponse> = {
       layout: 'full',
       canonicalParamId: 'issueKey',
       placeholder: 'Enter Jira issue key',
-      dependsOn: ['credential', 'domain', 'projectId', 'manualProjectId'],
+      dependsOn: ['credential', 'domain', 'projectId'],
       condition: { field: 'operation', value: ['read', 'update'] },
       mode: 'advanced',
     },
@@ -127,8 +127,8 @@ export const JiraBlock: BlockConfig<JiraResponse> = {
     access: ['jira_retrieve', 'jira_update', 'jira_write', 'jira_bulk_read'],
     config: {
       tool: (params) => {
-        const effectiveProjectId = (params.projectId || params.manualProjectId || '').trim()
-        const effectiveIssueKey = (params.issueKey || params.manualIssueKey || '').trim()
+        const effectiveProjectId = (params.projectId || '').trim()
+        const effectiveIssueKey = (params.issueKey || '').trim()
 
         switch (params.operation) {
           case 'read':
@@ -148,11 +148,9 @@ export const JiraBlock: BlockConfig<JiraResponse> = {
         }
       },
       params: (params) => {
-        const { credential, projectId, manualProjectId, issueKey, manualIssueKey, ...rest } = params
-
-        // Use the selected IDs or the manually entered ones
-        const effectiveProjectId = (projectId || manualProjectId || '').trim()
-        const effectiveIssueKey = (issueKey || manualIssueKey || '').trim()
+        const { credential, projectId, issueKey } = params
+        const effectiveProjectId = (projectId || '').trim()
+        const effectiveIssueKey = (issueKey || '').trim()
 
         const baseParams = {
           credential,
@@ -162,9 +160,7 @@ export const JiraBlock: BlockConfig<JiraResponse> = {
         switch (params.operation) {
           case 'write': {
             if (!effectiveProjectId) {
-              throw new Error(
-                'Project ID is required. Please select a project or enter a project ID manually.'
-              )
+              throw new Error('Project ID is required.')
             }
             const writeParams = {
               projectId: effectiveProjectId,
@@ -180,14 +176,10 @@ export const JiraBlock: BlockConfig<JiraResponse> = {
           }
           case 'update': {
             if (!effectiveProjectId) {
-              throw new Error(
-                'Project ID is required. Please select a project or enter a project ID manually.'
-              )
+              throw new Error('Project ID is required.')
             }
             if (!effectiveIssueKey) {
-              throw new Error(
-                'Issue Key is required. Please select an issue or enter an issue key manually.'
-              )
+              throw new Error('Issue Key is required.')
             }
             const updateParams = {
               projectId: effectiveProjectId,
@@ -201,9 +193,8 @@ export const JiraBlock: BlockConfig<JiraResponse> = {
             }
           }
           case 'read': {
-            // Check for project ID from either source
-            const projectForRead = (params.projectId || params.manualProjectId || '').trim()
-            const issueForRead = (params.issueKey || params.manualIssueKey || '').trim()
+            const projectForRead = (params.projectId || '').trim()
+            const issueForRead = (params.issueKey || '').trim()
 
             if (!issueForRead) {
               throw new Error(
@@ -218,13 +209,10 @@ export const JiraBlock: BlockConfig<JiraResponse> = {
             }
           }
           case 'read-bulk': {
-            // Check both projectId and manualProjectId directly from params
-            const finalProjectId = params.projectId || params.manualProjectId || ''
+            const finalProjectId = params.projectId || ''
 
             if (!finalProjectId) {
-              throw new Error(
-                'Project ID is required. Please select a project or enter a project ID manually.'
-              )
+              throw new Error('Project ID is required.')
             }
             return {
               ...baseParams,
@@ -243,8 +231,6 @@ export const JiraBlock: BlockConfig<JiraResponse> = {
     credential: { type: 'string', description: 'Jira access token' },
     issueKey: { type: 'string', description: 'Issue key identifier' },
     projectId: { type: 'string', description: 'Project identifier' },
-    manualProjectId: { type: 'string', description: 'Manual project identifier' },
-    manualIssueKey: { type: 'string', description: 'Manual issue key' },
     // Update operation inputs
     summary: { type: 'string', description: 'Issue summary' },
     description: { type: 'string', description: 'Issue description' },

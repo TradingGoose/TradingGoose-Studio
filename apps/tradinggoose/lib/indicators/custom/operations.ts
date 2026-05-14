@@ -8,6 +8,11 @@ import {
 } from '@/lib/indicators/import-export'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
+import {
+  applySavedEntityYjsStateToRows,
+  savedEntityRowToFields,
+} from '@/lib/yjs/entity-state'
+import { applySavedEntityState } from '@/lib/yjs/server/apply-entity-state'
 
 const logger = createLogger('IndicatorsOperations')
 
@@ -51,7 +56,8 @@ export async function upsertIndicators({
   userId,
   requestId = generateRequestId(),
 }: UpsertIndicatorsParams) {
-  return await db.transaction(async (tx) => {
+  const affectedIds: string[] = []
+  const result = await db.transaction(async (tx) => {
     for (const indicator of indicators) {
       const nowTime = new Date()
 
@@ -80,6 +86,7 @@ export async function upsertIndicators({
             .where(eq(pineIndicators.id, indicator.id))
 
           logger.info(`[${requestId}] Updated Indicator ${indicator.id}`)
+          affectedIds.push(indicator.id)
           continue
         }
       }
@@ -100,14 +107,25 @@ export async function upsertIndicators({
       })
 
       logger.info(`[${requestId}] Created Indicator ${indicator.name}`)
+      affectedIds.push(indicatorId)
     }
 
-    return await tx
+    return tx
       .select()
       .from(pineIndicators)
       .where(eq(pineIndicators.workspaceId, workspaceId))
       .orderBy(desc(pineIndicators.createdAt))
   })
+
+  await Promise.all(
+    result
+      .filter((row) => affectedIds.includes(row.id))
+      .map((row) =>
+        applySavedEntityState('indicator', row.id, savedEntityRowToFields('indicator', row))
+      )
+  )
+
+  return applySavedEntityYjsStateToRows('indicator', result)
 }
 
 export async function importIndicators({

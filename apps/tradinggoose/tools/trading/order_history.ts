@@ -1,5 +1,6 @@
-import type { OrderHistory } from '@/tools/trading/types'
 import type { ToolConfig } from '@/tools/types'
+
+type OrderHistory = Array<Record<string, unknown>>
 
 export interface OrderHistoryParams {
   startDate: string
@@ -23,6 +24,9 @@ export const orderHistoryTool: ToolConfig<OrderHistoryParams, OrderHistoryRespon
   name: 'Trading: Order History',
   description: 'Retrieve workspace order submissions recorded within a datetime range.',
   version: '1.0.0',
+  execution: {
+    workspace: { required: true, access: 'read' },
+  },
 
   params: {
     startDate: {
@@ -74,18 +78,16 @@ export const orderHistoryTool: ToolConfig<OrderHistoryParams, OrderHistoryRespon
 
   transformResponse: async (response): Promise<OrderHistoryResponse> => {
     const result = await response.json()
-    const data = result.data || result
-
-    const history = (data.history || []) as OrderHistory
+    const data = result.data
 
     return {
       success: true,
       output: {
-        history,
-        count: typeof data.count === 'number' ? data.count : history.length,
+        history: data.history as OrderHistory,
+        count: data.count,
         workspaceId: data.workspaceId,
-        startDate: data.startDate || '',
-        endDate: data.endDate || '',
+        startDate: data.startDate,
+        endDate: data.endDate,
       },
     }
   },
@@ -104,9 +106,8 @@ export const orderHistoryTool: ToolConfig<OrderHistoryParams, OrderHistoryRespon
           submissionSource: { type: 'string', description: 'Order submission source' },
           logId: { type: 'string', description: 'Linked log ID' },
           listingIdentity: { type: 'object', description: 'Listing identity metadata' },
-          request: { type: 'object', description: 'Normalized order request payload' },
-          response: { type: 'object', description: 'Normalized order response payload' },
-          normalizedOrder: { type: 'object', description: 'Provider-normalized order details' },
+          providerOrderId: { type: 'string', description: 'Provider order ID' },
+          status: { type: 'string', description: 'Provider-normalized order status' },
         },
       },
     },

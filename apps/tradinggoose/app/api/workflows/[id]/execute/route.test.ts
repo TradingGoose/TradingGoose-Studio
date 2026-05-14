@@ -1,741 +1,660 @@
-import { NextRequest } from 'next/server'
 /**
- * Integration tests for workflow execution API route
- *
  * @vitest-environment node
  */
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { createMockRequest } from '@/app/api/__test-utils__/utils'
 
-describe('Workflow Execution API Route', () => {
-  class MockExecutionGateError extends Error {
-    statusCode: number
-    constructor(message: string, statusCode = 402) {
-      super(message)
-      this.name = 'ExecutionGateError'
-      this.statusCode = statusCode
-    }
-  }
+import { NextRequest } from 'next/server'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-  class MockRateLimitError extends Error {
-    statusCode: number
-    constructor(message: string, statusCode = 429) {
-      super(message)
-      this.name = 'RateLimitError'
-      this.statusCode = statusCode
-    }
-  }
+const {
+  validateWorkflowAccessMock,
+  cancelPendingWorkflowExecutionMock,
+  enqueuePendingExecutionMock,
+  enforceServerExecutionRateLimitMock,
+  openWorkflowExecutionEventStreamMock,
+  loadDeployedWorkflowStateMock,
+  uploadExecutionFileMock,
+  readWorkflowExecutionEventStateMock,
+  workflowHasResponseBlockMock,
+  createHttpResponseFromBlockMock,
+} = vi.hoisted(() => ({
+  validateWorkflowAccessMock: vi.fn(),
+  cancelPendingWorkflowExecutionMock: vi.fn(),
+  enqueuePendingExecutionMock: vi.fn(),
+  enforceServerExecutionRateLimitMock: vi.fn(),
+  openWorkflowExecutionEventStreamMock: vi.fn(),
+  loadDeployedWorkflowStateMock: vi.fn(),
+  uploadExecutionFileMock: vi.fn(),
+  readWorkflowExecutionEventStateMock: vi.fn(),
+  workflowHasResponseBlockMock: vi.fn(),
+  createHttpResponseFromBlockMock: vi.fn(),
+}))
 
-  let executeMock = vi.fn().mockResolvedValue({
-    success: true,
-    output: {
-      response: 'Test response',
-    },
-    logs: [],
-    metadata: {
-      duration: 123,
-      startTime: new Date().toISOString(),
-      endTime: new Date().toISOString(),
-    },
-  })
-  let enforceServerExecutionRateLimitMock = vi.fn()
-  let checkServerSideUsageLimitsMock = vi.fn()
-  let authenticateApiKeyFromHeaderMock = vi.fn()
-  let updateApiKeyLastUsedMock = vi.fn()
-  let withExecutionConcurrencyLimitMock = vi.fn()
-  let withExecutionConcurrencyControllerMock = vi.fn()
+vi.mock('@/app/api/workflows/middleware', () => ({
+  validateWorkflowAccess: validateWorkflowAccessMock,
+}))
 
+vi.mock('@/lib/auth/hybrid', () => ({
+  AuthType: {
+    API_KEY: 'api_key',
+  },
+}))
+
+vi.mock('@/lib/execution/execution-concurrency-limit', () => ({
+  ExecutionGateError: class ExecutionGateError extends Error {
+    statusCode = 402
+  },
+  enforceServerExecutionRateLimit: enforceServerExecutionRateLimitMock,
+}))
+
+vi.mock('@/lib/execution/pending-execution', () => ({
+  cancelPendingWorkflowExecution: cancelPendingWorkflowExecutionMock,
+  enqueuePendingExecution: enqueuePendingExecutionMock,
+  isPendingExecutionLimitError: vi.fn(() => false),
+}))
+
+vi.mock('@/lib/execution/workflow-execution-stream', () => ({
+  openWorkflowExecutionEventStream: openWorkflowExecutionEventStreamMock,
+}))
+
+vi.mock('@/lib/execution/workflow-execution-events', () => ({
+  readWorkflowExecutionEventState: readWorkflowExecutionEventStateMock,
+}))
+
+vi.mock('@/lib/uploads/contexts/execution', () => ({
+  uploadExecutionFile: uploadExecutionFileMock,
+}))
+
+vi.mock('@/lib/workflows/db-helpers', () => ({
+  loadDeployedWorkflowState: loadDeployedWorkflowStateMock,
+}))
+
+vi.mock('@/lib/workflows/utils', () => ({
+  workflowHasResponseBlock: workflowHasResponseBlockMock,
+  createHttpResponseFromBlock: createHttpResponseFromBlockMock,
+}))
+
+vi.mock('@/lib/trigger/settings', () => ({
+  TriggerExecutionUnavailableError: class TriggerExecutionUnavailableError extends Error {
+    statusCode = 409
+  },
+}))
+
+vi.mock('@/lib/logs/console/logger', () => ({
+  createLogger: vi.fn(() => ({
+    debug: vi.fn(),
+    error: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+  })),
+}))
+
+vi.mock('@/lib/utils', () => ({
+  encodeSSE: vi.fn((payload: unknown) => `data: ${JSON.stringify(payload)}\n\n`),
+  generateRequestId: vi.fn(() => 'request-1'),
+  SSE_HEADERS: { 'Content-Type': 'text/event-stream' },
+}))
+
+describe('/api/workflows/[id]/execute', () => {
   beforeEach(() => {
-    vi.resetModules()
-    enforceServerExecutionRateLimitMock = vi.fn().mockResolvedValue(undefined)
-    authenticateApiKeyFromHeaderMock = vi.fn().mockResolvedValue({
-      success: true,
-      userId: 'user-id',
-      keyId: 'api-key-id',
-    })
-    checkServerSideUsageLimitsMock = vi.fn().mockResolvedValue({
-      isExceeded: false,
-      currentUsage: 10,
-      limit: 100,
-    })
-    updateApiKeyLastUsedMock = vi.fn().mockResolvedValue(undefined)
-    withExecutionConcurrencyLimitMock = vi.fn(
-      async ({ task }: { task: () => Promise<unknown> }) => await task()
-    )
-    withExecutionConcurrencyControllerMock = vi.fn(
-      async ({
-        task,
-      }: {
-        task: (controller: {
-          runWithoutLease: <T>(releasedTask: () => Promise<T>) => Promise<T>
-        }) => Promise<unknown>
-      }) =>
-        await task({
-          runWithoutLease: async <T>(releasedTask: () => Promise<T>) => await releasedTask(),
-        })
-    )
-
-    vi.doMock('@/app/api/workflows/middleware', () => ({
-      validateWorkflowAccess: vi.fn().mockResolvedValue({
-        workflow: {
-          id: 'workflow-id',
-          userId: 'user-id',
-          workspaceId: 'workspace-id',
-        },
-      }),
-    }))
-
-    vi.doMock('@/lib/auth', () => ({
-      getSession: vi.fn().mockResolvedValue({
-        user: { id: 'user-id' },
-      }),
-    }))
-
-    vi.doMock('@/lib/api-key/service', () => ({
-      authenticateApiKeyFromHeader: (...args: any[]) => authenticateApiKeyFromHeaderMock(...args),
-      updateApiKeyLastUsed: (...args: any[]) => updateApiKeyLastUsedMock(...args),
-    }))
-
-    vi.doMock('@/services/queue', () => ({
-      RateLimitError: MockRateLimitError,
-    }))
-
-    vi.doMock('@/lib/billing', () => ({
-      checkServerSideUsageLimits: (...args: any[]) => checkServerSideUsageLimitsMock(...args),
-    }))
-
-    vi.doMock('@/lib/execution/execution-concurrency-limit', () => ({
-      ExecutionGateError: MockExecutionGateError,
-      enforceServerExecutionRateLimit: (...args: any[]) =>
-        enforceServerExecutionRateLimitMock(...args),
-      withExecutionConcurrencyLimit: (...args: any[]) => withExecutionConcurrencyLimitMock(...args),
-      withExecutionConcurrencyController: (...args: any[]) =>
-        withExecutionConcurrencyControllerMock(...args),
-    }))
-
-    vi.doMock('@/lib/environment/utils', () => ({
-      getPersonalAndWorkspaceEnv: vi.fn().mockResolvedValue({
-        personalEncrypted: {},
-        workspaceEncrypted: {},
-      }),
-    }))
-
-    vi.doMock('@/lib/execution/files', () => ({
-      processExecutionFiles: vi.fn().mockResolvedValue([]),
-    }))
-
-    vi.doMock('@tradinggoose/db/schema', () => ({
+    vi.clearAllMocks()
+    validateWorkflowAccessMock.mockResolvedValue({
       workflow: {
-        id: 'id',
-        variables: 'variables',
-        workspaceId: 'workspaceId',
+        id: 'workflow-1',
+        name: 'Queued Workflow',
+        userId: 'owner-1',
+        workspaceId: 'workspace-1',
       },
-      subscription: {
-        billingTierId: 'billingTierId',
-        referenceId: 'referenceId',
+      apiKeyAuth: {
+        success: true,
+        userId: 'user-1',
+        keyId: 'api-key-1',
       },
-      apiKey: {
-        userId: 'userId',
-        key: 'key',
-      },
-      userStats: {
-        userId: 'userId',
-        totalApiCalls: 'totalApiCalls',
-        lastActive: 'lastActive',
-      },
-      environment: {
-        userId: 'userId',
-        variables: 'variables',
-      },
-    }))
-
-    vi.doMock('@/lib/workflows/db-helpers', () => ({
-      loadDeployedWorkflowState: vi.fn().mockResolvedValue({
-        blocks: {
-          'trigger-id': {
-            id: 'trigger-id',
-            type: 'api_trigger',
-            name: 'API Trigger',
-            position: { x: 100, y: 100 },
-            enabled: true,
-            subBlocks: {},
-            outputs: {},
-            data: {},
-          },
-          'agent-id': {
-            id: 'agent-id',
-            type: 'agent',
-            name: 'Agent',
-            position: { x: 300, y: 100 },
-            enabled: true,
-            subBlocks: {},
-            outputs: {},
-            data: {},
-          },
+    })
+    enqueuePendingExecutionMock.mockResolvedValue({
+      pendingExecutionId: 'workflow_execution_1',
+      billingScopeId: 'workspace-1',
+    })
+    enforceServerExecutionRateLimitMock.mockResolvedValue(undefined)
+    openWorkflowExecutionEventStreamMock.mockResolvedValue({
+      ok: true,
+      stream: new ReadableStream({
+        start(controller) {
+          controller.close()
         },
-        edges: [
+      }),
+    })
+    loadDeployedWorkflowStateMock.mockResolvedValue({
+      blocks: {},
+      edges: [],
+      loops: {},
+      parallels: {},
+      isFromNormalizedTables: false,
+    })
+    readWorkflowExecutionEventStateMock.mockResolvedValue({
+      status: 'completed',
+      errorMessage: null,
+      events: [],
+      result: {
+        success: true,
+        output: { ok: true },
+        logs: [
           {
-            id: 'edge-1',
-            source: 'trigger-id',
-            target: 'agent-id',
-            sourceHandle: 'source',
-            targetHandle: 'target',
+            blockId: 'block-1',
+            blockType: 'function',
+            startedAt: '2026-01-01T00:00:00.000Z',
+            endedAt: '2026-01-01T00:00:00.000Z',
+            durationMs: 0,
+            success: true,
           },
         ],
-        loops: {},
-        parallels: {},
-        isFromNormalizedTables: false, // Changed to false since it's from deployed state
-      }),
-    }))
-
-    executeMock = vi.fn().mockResolvedValue({
-      success: true,
-      output: {
-        response: 'Test response',
-      },
-      logs: [],
-      metadata: {
-        duration: 123,
-        startTime: new Date().toISOString(),
-        endTime: new Date().toISOString(),
+        traceSpans: [{ id: 'span-1' }],
+        executionId: 'workflow_execution_1',
+        executedAt: '2026-01-01T00:00:00.000Z',
+        metadata: {
+          duration: 10,
+          workflowConnections: [{ source: 'a', target: 'b' }],
+          queuedExecution: { source: 'workflow_execute_api' },
+        },
       },
     })
+    workflowHasResponseBlockMock.mockReturnValue(false)
+    cancelPendingWorkflowExecutionMock.mockResolvedValue({ status: 'cancelling' })
+    createHttpResponseFromBlockMock.mockImplementation((result) => {
+      const response = result.output.response
+      return new Response(JSON.stringify(response.data), {
+        status: response.status,
+        headers: {
+          'Content-Type': 'application/json',
+          ...response.headers,
+        },
+      })
+    })
+  })
 
-    vi.doMock('@/executor', () => ({
-      Executor: vi.fn().mockImplementation(() => ({
-        execute: executeMock,
-      })),
-    }))
+  it('does not expose a GET execute adapter', async () => {
+    const route = await import('./route')
+    expect((route as Record<string, unknown>).GET).toBeUndefined()
+  })
 
-    vi.doMock('@/lib/utils', () => ({
-      isHosted: vi.fn().mockReturnValue(false),
-      generateRequestId: vi.fn(() => 'test-request-id'),
-    }))
-
-    vi.doMock('@/lib/utils-server', () => ({
-      decryptSecret: vi.fn().mockResolvedValue({
-        decrypted: 'decrypted-secret-value',
-      }),
-      getRotatingApiKey: vi.fn().mockReturnValue('rotated-api-key'),
-    }))
-
-    vi.doMock('@/lib/logs/execution/logging-session', () => ({
-      LoggingSession: vi.fn().mockImplementation(() => ({
-        start: vi.fn().mockResolvedValue(undefined),
-        complete: vi.fn().mockResolvedValue(undefined),
-        completeWithError: vi.fn().mockResolvedValue(undefined),
-      })),
-    }))
-
-    vi.doMock('@/lib/logs/execution/logger', () => ({
-      executionLogger: {
-        startWorkflowExecution: vi.fn().mockResolvedValue(undefined),
-        logBlockExecution: vi.fn().mockResolvedValue(undefined),
-        completeWorkflowExecution: vi.fn().mockResolvedValue(undefined),
-      },
-    }))
-
-    vi.doMock('@/lib/logs/execution/trace-spans/trace-spans', () => ({
-      buildTraceSpans: vi.fn().mockReturnValue({
-        traceSpans: [],
-        totalDuration: 100,
-      }),
-    }))
-
-    vi.doMock('@/lib/workflows/utils', () => ({
-      updateWorkflowRunCounts: vi.fn().mockResolvedValue(undefined),
-      workflowHasResponseBlock: vi.fn().mockReturnValue(false),
-      createHttpResponseFromBlock: vi.fn().mockReturnValue(new Response('OK')),
-    }))
-
-    vi.doMock('@/stores/workflows/server-utils', () => ({
-      mergeSubblockState: vi.fn().mockReturnValue({
-        'trigger-id': {
-          id: 'trigger-id',
+  it('executes POST input through the queue and returns the deployed result contract', async () => {
+    const rawFile = {
+      type: 'file',
+      data: 'data:text/plain;base64,SGVsbG8=',
+      name: 'hello.txt',
+      mime: 'text/plain',
+    }
+    const executionFile = {
+      id: 'file-1',
+      name: 'hello.txt',
+      url: 'https://files.example.com/hello.txt',
+      key: 'execution/hello.txt',
+      size: 5,
+      type: 'text/plain',
+      uploadedAt: '2026-01-01T00:00:00.000Z',
+      expiresAt: '2026-01-08T00:00:00.000Z',
+    }
+    loadDeployedWorkflowStateMock.mockResolvedValue({
+      blocks: {
+        trigger: {
           type: 'api_trigger',
-          subBlocks: {},
-        },
-        'agent-id': {
-          id: 'agent-id',
-          type: 'agent',
-          subBlocks: {},
-        },
-      }),
-    }))
-
-    vi.doMock('@tradinggoose/db', () => {
-      const mockDb = {
-        select: vi.fn().mockImplementation((columns) => ({
-          from: vi.fn().mockImplementation((table) => ({
-            where: vi.fn().mockImplementation(() => ({
-              limit: vi.fn().mockImplementation(() => {
-                if (table === 'subscription' || columns?.billingTierId) {
-                  return [{ billingTierId: 'tier_default' }]
-                }
-                if (table === 'apiKey' || columns?.userId) {
-                  return [{ userId: 'user-id' }]
-                }
-                return [
-                  {
-                    id: 'env-id',
-                    userId: 'user-id',
-                    variables: {
-                      OPENAI_API_KEY: 'encrypted:key-value',
-                    },
-                  },
-                ]
-              }),
-            })),
-          })),
-        })),
-        update: vi.fn().mockImplementation(() => ({
-          set: vi.fn().mockImplementation(() => ({
-            where: vi.fn().mockResolvedValue(undefined),
-          })),
-        })),
-      }
-
-      return { db: mockDb }
-    })
-
-    vi.doMock('@/serializer', () => ({
-      Serializer: vi.fn().mockImplementation(() => ({
-        serializeWorkflow: vi.fn().mockReturnValue({
-          version: '1.0',
-          blocks: [
-            {
-              id: 'trigger-id',
-              position: { x: 100, y: 100 },
-              config: { tool: 'api_trigger', params: {} },
-              inputs: {},
-              outputs: {},
-              enabled: true,
-              metadata: {
-                id: 'api_trigger',
-                name: 'API Trigger',
-                category: 'triggers',
-              },
+          subBlocks: {
+            inputFormat: {
+              value: [{ name: 'documents', type: 'files' }],
             },
-            {
-              id: 'agent-id',
-              position: { x: 300, y: 100 },
-              config: { tool: 'agent', params: {} },
-              inputs: {},
-              outputs: {},
-              enabled: true,
-              metadata: { id: 'agent', name: 'Agent' },
-            },
-          ],
-          connections: [{ source: 'trigger-id', target: 'agent-id' }],
-          loops: {},
-          parallels: {},
-        }),
-      })),
-    }))
-  })
-
-  afterEach(() => {
-    vi.clearAllMocks()
-  })
-
-  /**
-   * Test GET execution route
-   * Simulates direct execution with URL-based parameters
-   */
-  it('should execute workflow with GET request successfully', async () => {
-    const req = createMockRequest('GET')
-
-    const params = Promise.resolve({ id: 'workflow-id' })
-
-    const { GET } = await import('@/app/api/workflows/[id]/execute/route')
-
-    const response = await GET(req, { params })
-
-    expect(response).toBeDefined()
-
-    let data
-    try {
-      data = await response.json()
-    } catch (e) {
-      console.error('Response could not be parsed as JSON:', await response.text())
-      throw e
-    }
-
-    if (response.status === 200) {
-      expect(data).toHaveProperty('success', true)
-      expect(data).toHaveProperty('output')
-      expect(data.output).toHaveProperty('response')
-    }
-
-    const validateWorkflowAccess = (await import('@/app/api/workflows/middleware'))
-      .validateWorkflowAccess
-    expect(validateWorkflowAccess).toHaveBeenCalledWith(expect.any(Object), 'workflow-id')
-
-    const Executor = (await import('@/executor')).Executor
-    expect(Executor).toHaveBeenCalled()
-
-    expect(executeMock).toHaveBeenCalledWith('workflow-id', 'trigger-id')
-  })
-
-  /**
-   * Test POST execution route
-   * Simulates execution with a JSON body containing parameters
-   */
-  it('should execute workflow with POST request successfully', async () => {
-    const requestBody = {
-      inputs: {
-        message: 'Test input message',
+          },
+        },
       },
-    }
+      edges: [],
+      loops: {},
+      parallels: {},
+      isFromNormalizedTables: false,
+    })
+    uploadExecutionFileMock.mockResolvedValue(executionFile)
 
-    const req = createMockRequest('POST', requestBody)
+    const { POST } = await import('./route')
+    const response = await POST(
+      new NextRequest('https://example.com/api/workflows/workflow-1/execute', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-API-Key': 'key-1',
+        },
+        body: JSON.stringify({ symbol: 'AAPL', documents: [rawFile] }),
+      }),
+      { params: Promise.resolve({ id: 'workflow-1' }) }
+    )
 
-    const params = Promise.resolve({ id: 'workflow-id' })
-
-    const { POST } = await import('@/app/api/workflows/[id]/execute/route')
-
-    const response = await POST(req, { params })
-
-    expect(response).toBeDefined()
-
-    let data
-    try {
-      data = await response.json()
-    } catch (e) {
-      console.error('Response could not be parsed as JSON:', await response.text())
-      throw e
-    }
-
-    if (response.status === 200) {
-      expect(data).toHaveProperty('success', true)
-      expect(data).toHaveProperty('output')
-      expect(data.output).toHaveProperty('response')
-    }
-
-    const validateWorkflowAccess = (await import('@/app/api/workflows/middleware'))
-      .validateWorkflowAccess
-    expect(validateWorkflowAccess).toHaveBeenCalledWith(expect.any(Object), 'workflow-id')
-
-    const Executor = (await import('@/executor')).Executor
-    expect(Executor).toHaveBeenCalled()
-
-    expect(executeMock).toHaveBeenCalledWith('workflow-id', 'trigger-id')
-
-    expect(Executor).toHaveBeenCalledWith(
+    expect(response.status).toBe(200)
+    const body = await response.json()
+    expect(body).toMatchObject({
+      success: true,
+      output: { ok: true },
+      metadata: { duration: 10 },
+    })
+    expect(body.logs).toBeUndefined()
+    expect(body.traceSpans).toBeUndefined()
+    expect(body.executionId).toBeUndefined()
+    expect(body.executedAt).toBeUndefined()
+    expect(body.metadata.workflowConnections).toBeUndefined()
+    expect(body.metadata.queuedExecution).toBeUndefined()
+    expect(enqueuePendingExecutionMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        workflow: expect.any(Object), // serializedWorkflow
-        currentBlockStates: expect.any(Object), // processedBlockStates
-        envVarValues: expect.any(Object), // decryptedEnvVars
-        workflowInput: requestBody, // processedInput (direct input, not wrapped)
-        workflowVariables: expect.any(Object),
-        contextExtensions: expect.objectContaining({
-          userId: 'user-id',
-          concurrencyLeaseInherited: true,
+        executionType: 'workflow',
+        workflowId: 'workflow-1',
+        workspaceId: 'workspace-1',
+        userId: 'user-1',
+        source: 'workflow_execute_api',
+        payload: expect.objectContaining({
+          workflowId: 'workflow-1',
+          userId: 'user-1',
+          workspaceId: 'workspace-1',
+          input: { symbol: 'AAPL', documents: [executionFile] },
+          triggerType: 'api',
+          executionTarget: 'deployed',
+          stream: false,
         }),
       })
     )
-  })
-
-  /**
-   * Test POST execution with structured input matching the input format
-   */
-  it('should execute workflow with structured input matching the input format', async () => {
-    const structuredInput = {
-      firstName: 'John',
-      age: 30,
-      isActive: true,
-      preferences: { theme: 'dark' },
-      tags: ['test', 'api'],
-    }
-
-    const req = createMockRequest('POST', structuredInput)
-
-    const params = Promise.resolve({ id: 'workflow-id' })
-
-    const { POST } = await import('@/app/api/workflows/[id]/execute/route')
-
-    const response = await POST(req, { params })
-
-    expect(response).toBeDefined()
-    expect(response.status).toBe(200)
-
-    const data = await response.json()
-    expect(data).toHaveProperty('success', true)
-
-    const Executor = (await import('@/executor')).Executor
-    expect(Executor).toHaveBeenCalledWith(
+    expect(enforceServerExecutionRateLimitMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        workflow: expect.any(Object), // serializedWorkflow
-        currentBlockStates: expect.any(Object), // processedBlockStates
-        envVarValues: expect.any(Object), // decryptedEnvVars
-        workflowInput: structuredInput, // processedInput (direct input, not wrapped)
-        workflowVariables: expect.any(Object),
-        contextExtensions: expect.any(Object), // Allow any context extensions object
+        actorUserId: 'user-1',
+        authType: 'api_key',
+        workflowId: 'workflow-1',
+        workspaceId: 'workspace-1',
+        triggerType: 'api',
       })
     )
-  })
-
-  /**
-   * Test POST execution with empty request body
-   */
-  it('should execute workflow with empty request body', async () => {
-    const req = createMockRequest('POST')
-
-    const params = Promise.resolve({ id: 'workflow-id' })
-
-    const { POST } = await import('@/app/api/workflows/[id]/execute/route')
-
-    const response = await POST(req, { params })
-
-    expect(response).toBeDefined()
-    expect(response.status).toBe(200)
-
-    const data = await response.json()
-    expect(data).toHaveProperty('success', true)
-
-    const Executor = (await import('@/executor')).Executor
-    expect(Executor).toHaveBeenCalledWith(
+    expect(uploadExecutionFileMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        workflow: expect.any(Object), // serializedWorkflow
-        currentBlockStates: expect.any(Object), // processedBlockStates
-        envVarValues: expect.any(Object), // decryptedEnvVars
-        workflowInput: expect.objectContaining({}), // processedInput with empty input
-        workflowVariables: expect.any(Object),
-        contextExtensions: expect.any(Object), // Allow any context extensions object
-      })
+        workspaceId: 'workspace-1',
+        workflowId: 'workflow-1',
+        executionId: expect.stringMatching(/^workflow_execution_/),
+      }),
+      expect.any(Buffer),
+      'hello.txt',
+      'text/plain'
     )
+    expect(readWorkflowExecutionEventStateMock).toHaveBeenCalledWith({
+      pendingExecutionId: expect.stringMatching(/^workflow_execution_/),
+      workflowId: 'workflow-1',
+    })
   })
 
-  /**
-   * Test POST execution with invalid JSON body
-   */
-  it('should handle invalid JSON in request body', async () => {
-    // Create a mock request with invalid JSON text
-    const req = new NextRequest('https://example.com/api/workflows/workflow-id/execute', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: 'this is not valid JSON',
+  it('returns a controlled timeout when queued non-stream execution does not finish', async () => {
+    vi.useFakeTimers()
+    readWorkflowExecutionEventStateMock.mockResolvedValue({
+      status: 'processing',
+      errorMessage: null,
+      events: [],
+      result: null,
     })
 
-    const params = Promise.resolve({ id: 'workflow-id' })
+    try {
+      const { POST } = await import('./route')
+      const responsePromise = POST(
+        new NextRequest('https://example.com/api/workflows/workflow-1/execute', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-API-Key': 'key-1',
+          },
+        }),
+        { params: Promise.resolve({ id: 'workflow-1' }) }
+      )
 
-    const { POST } = await import('@/app/api/workflows/[id]/execute/route')
+      await vi.advanceTimersByTimeAsync(26_000)
+      const response = await responsePromise
 
-    const response = await POST(req, { params })
-
-    expect(response.status).toBe(400)
-
-    const data = await response.json()
-    expect(data).toHaveProperty('error')
-    expect(data.error).toContain('Invalid JSON')
+      expect(response.status).toBe(504)
+      await expect(response.json()).resolves.toMatchObject({
+        error: 'Workflow execution did not finish before the API response timeout',
+      })
+      expect(cancelPendingWorkflowExecutionMock).toHaveBeenCalledWith({
+        pendingExecutionId: expect.stringMatching(/^workflow_execution_/),
+        userId: 'user-1',
+      })
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
-  /**
-   * Test handling of incorrect workflow ID
-   */
-  it('should return 403 for unauthorized workflow access', async () => {
-    vi.doMock('@/app/api/workflows/middleware', () => ({
-      validateWorkflowAccess: vi.fn().mockResolvedValue({
-        error: {
-          message: 'Unauthorized',
-          status: 403,
+  it('returns queued workflow failure messages for non-stream API executions', async () => {
+    readWorkflowExecutionEventStateMock.mockResolvedValue({
+      status: 'failed',
+      errorMessage: 'Missing required symbol input',
+      events: [],
+      result: null,
+    })
+
+    const { POST } = await import('./route')
+    const response = await POST(
+      new NextRequest('https://example.com/api/workflows/workflow-1/execute', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-API-Key': 'key-1',
         },
       }),
-    }))
-
-    const req = createMockRequest('GET')
-
-    const params = Promise.resolve({ id: 'invalid-workflow-id' })
-
-    const { GET } = await import('@/app/api/workflows/[id]/execute/route')
-
-    const response = await GET(req, { params })
-
-    expect(response.status).toBe(403)
-
-    const data = await response.json()
-    expect(data).toHaveProperty('error', 'Unauthorized')
-  })
-
-  /**
-   * Test handling of execution errors
-   */
-  it('should handle execution errors gracefully', async () => {
-    const mockCompleteWorkflowExecution = vi.fn().mockResolvedValue({})
-    vi.doMock('@/lib/logs/execution/logger', () => ({
-      executionLogger: {
-        completeWorkflowExecution: mockCompleteWorkflowExecution,
-      },
-    }))
-
-    const mockCompleteWithError = vi.fn().mockResolvedValue({})
-    vi.doMock('@/lib/logs/execution/logging-session', () => ({
-      LoggingSession: vi.fn().mockImplementation(() => ({
-        start: vi.fn().mockResolvedValue({}),
-        complete: vi.fn().mockResolvedValue({}),
-        completeWithError: mockCompleteWithError,
-      })),
-    }))
-
-    vi.doMock('@/executor', () => ({
-      Executor: vi.fn().mockImplementation(() => ({
-        execute: vi.fn().mockRejectedValue(new Error('Execution failed')),
-      })),
-    }))
-
-    const req = createMockRequest('GET')
-
-    const params = Promise.resolve({ id: 'workflow-id' })
-
-    const { GET } = await import('@/app/api/workflows/[id]/execute/route')
-
-    const response = await GET(req, { params })
+      { params: Promise.resolve({ id: 'workflow-1' }) }
+    )
 
     expect(response.status).toBe(500)
-
-    const data = await response.json()
-    expect(data).toHaveProperty('error')
-    expect(data.error).toContain('Execution failed')
-
-    expect(mockCompleteWithError).toHaveBeenCalled()
+    await expect(response.json()).resolves.toMatchObject({
+      error: 'Missing required symbol input',
+    })
   })
 
-  /**
-   * Test that workflow variables are properly passed to the Executor
-   */
-  it('should pass workflow variables to the Executor', async () => {
-    const workflowVariables = {
-      variable1: {
-        id: 'var1',
-        name: 'variable1',
-        type: 'plain',
-        value: 'test value',
-      },
-      variable2: {
-        id: 'var2',
-        name: 'variable2',
-        type: 'boolean',
-        value: 'true',
-      },
-    }
-
-    vi.doMock('@/app/api/workflows/middleware', () => ({
-      validateWorkflowAccess: vi.fn().mockResolvedValue({
-        workflow: {
-          id: 'workflow-with-vars-id',
-          userId: 'user-id',
-          workspaceId: 'workspace-id',
-          variables: workflowVariables,
+  it('accepts empty POST bodies for API triggers without input fields', async () => {
+    const { POST } = await import('./route')
+    const response = await POST(
+      new NextRequest('https://example.com/api/workflows/workflow-1/execute', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-API-Key': 'key-1',
         },
       }),
-    }))
+      { params: Promise.resolve({ id: 'workflow-1' }) }
+    )
 
-    vi.doMock('@/lib/workflows/db-helpers', () => ({
-      loadDeployedWorkflowState: vi.fn().mockResolvedValue({
-        blocks: {
-          'trigger-id': {
-            id: 'trigger-id',
-            type: 'input_trigger',
-            name: 'Start',
-            position: { x: 100, y: 100 },
-            enabled: true,
-            subBlocks: {},
-            outputs: {},
-            data: {},
-          },
-          'agent-id': {
-            id: 'agent-id',
-            type: 'agent',
-            name: 'Agent',
-            position: { x: 300, y: 100 },
-            enabled: true,
-            subBlocks: {},
-            outputs: {},
-            data: {},
-          },
-        },
-        edges: [
-          {
-            id: 'edge-1',
-            source: 'trigger-id',
-            target: 'agent-id',
-            sourceHandle: 'source',
-            targetHandle: 'target',
-          },
-        ],
-        loops: {},
-        parallels: {},
-        isFromNormalizedTables: false, // Changed to false since it's from deployed state
-      }),
-    }))
-
-    const executorConstructorMock = vi.fn().mockImplementation(() => ({
-      execute: vi.fn().mockResolvedValue({
-        success: true,
-        output: { response: 'Execution completed with variables' },
-        logs: [],
-        metadata: {
-          duration: 100,
-          startTime: new Date().toISOString(),
-          endTime: new Date().toISOString(),
-        },
-      }),
-    }))
-
-    vi.doMock('@/executor', () => ({
-      Executor: executorConstructorMock,
-    }))
-
-    const req = createMockRequest('POST', { testInput: 'value' })
-
-    const params = Promise.resolve({ id: 'workflow-with-vars-id' })
-
-    const { POST } = await import('@/app/api/workflows/[id]/execute/route')
-
-    await POST(req, { params })
-
-    expect(executorConstructorMock).toHaveBeenCalled()
-
-    const executorCalls = executorConstructorMock.mock.calls
-    expect(executorCalls.length).toBeGreaterThan(0)
-
-    const lastCall = executorCalls[executorCalls.length - 1]
-    expect(lastCall.length).toBeGreaterThanOrEqual(1)
-
-    // Check that workflowVariables are passed in the options object
-    expect(lastCall[0]).toEqual(
+    expect(response.status).toBe(200)
+    await expect(response.json()).resolves.toMatchObject({
+      success: true,
+      output: { ok: true },
+    })
+    expect(enqueuePendingExecutionMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        workflowVariables: workflowVariables,
+        payload: expect.objectContaining({
+          input: {},
+        }),
       })
     )
   })
 
-  it('returns a usage-limit response when api execution cannot resolve billing context', async () => {
-    enforceServerExecutionRateLimitMock.mockRejectedValueOnce(
-      new MockExecutionGateError(
-        'No active subscription found for this workspace. Please configure billing before executing workflows.'
-      )
+  it('returns 400 when API trigger file processing fails', async () => {
+    loadDeployedWorkflowStateMock.mockResolvedValue({
+      blocks: {
+        trigger: {
+          type: 'api_trigger',
+          subBlocks: {
+            inputFormat: {
+              value: [{ name: 'documents', type: 'files' }],
+            },
+          },
+        },
+      },
+      edges: [],
+      loops: {},
+      parallels: {},
+      isFromNormalizedTables: false,
+    })
+    uploadExecutionFileMock.mockRejectedValueOnce(new Error('Upload failed'))
+
+    const { POST } = await import('./route')
+    const response = await POST(
+      new NextRequest('https://example.com/api/workflows/workflow-1/execute', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-API-Key': 'key-1',
+        },
+        body: JSON.stringify({
+          documents: [
+            {
+              type: 'file',
+              data: 'data:text/plain;base64,SGVsbG8=',
+              name: 'hello.txt',
+            },
+          ],
+        }),
+      }),
+      { params: Promise.resolve({ id: 'workflow-1' }) }
     )
 
-    const { getSession } = await import('@/lib/auth')
-    vi.mocked(getSession).mockResolvedValueOnce(null)
-
-    const req = new NextRequest('https://example.com/api/workflows/workflow-id/execute', {
-      method: 'GET',
-      headers: {
-        'X-API-Key': 'test-api-key',
-      },
+    expect(response.status).toBe(400)
+    await expect(response.json()).resolves.toMatchObject({
+      error: 'Failed to upload file: hello.txt',
     })
-    const params = Promise.resolve({ id: 'workflow-id' })
+    expect(enqueuePendingExecutionMock).not.toHaveBeenCalled()
+  })
 
-    const { GET } = await import('@/app/api/workflows/[id]/execute/route')
-    const response = await GET(req, { params })
-    const payload = await response.json()
+  it('returns HTTP Response block output from the queued execution result', async () => {
+    const responseResult = {
+      success: true,
+      output: {
+        response: {
+          data: { accepted: true },
+          status: 201,
+          headers: { 'X-Workflow-Response': 'created' },
+        },
+      },
+      logs: [
+        {
+          blockId: 'response-1',
+          blockType: 'response',
+          startedAt: '2026-01-01T00:00:00.000Z',
+          endedAt: '2026-01-01T00:00:00.000Z',
+          durationMs: 0,
+          success: true,
+        },
+      ],
+      metadata: { duration: 10 },
+    }
+    readWorkflowExecutionEventStateMock.mockResolvedValue({
+      status: 'completed',
+      errorMessage: null,
+      events: [],
+      result: responseResult,
+    })
+    workflowHasResponseBlockMock.mockReturnValue(true)
 
-    expect(response.status).toBe(402)
-    expect(payload.code).toBe('USAGE_LIMIT_EXCEEDED')
-    expect(payload.error).toContain('No active subscription found for this workspace')
+    const { POST } = await import('./route')
+    const response = await POST(
+      new NextRequest('https://example.com/api/workflows/workflow-1/execute', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-API-Key': 'key-1',
+        },
+        body: JSON.stringify({ symbol: 'AAPL' }),
+      }),
+      { params: Promise.resolve({ id: 'workflow-1' }) }
+    )
+
+    expect(response.status).toBe(201)
+    expect(response.headers.get('X-Workflow-Response')).toBe('created')
+    await expect(response.json()).resolves.toEqual({ accepted: true })
+    expect(createHttpResponseFromBlockMock).toHaveBeenCalledWith(responseResult)
+  })
+
+  it('rejects non-API execution control fields on the deployed execute adapter', async () => {
+    const { POST } = await import('./route')
+    const response = await POST(
+      new NextRequest('https://example.com/api/workflows/workflow-1/execute', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-API-Key': 'key-1',
+        },
+        body: JSON.stringify({
+          workflowTriggerType: 'chat',
+        }),
+      }),
+      { params: Promise.resolve({ id: 'workflow-1' }) }
+    )
+
+    expect(response.status).toBe(400)
+    await expect(response.json()).resolves.toMatchObject({
+      error: 'Field "workflowTriggerType" is not supported by the deployed API execute endpoint',
+    })
+    expect(enqueuePendingExecutionMock).not.toHaveBeenCalled()
+  })
+
+  it('waits for the queued terminal result for non-stream API executions', async () => {
+    vi.useFakeTimers()
+    readWorkflowExecutionEventStateMock
+      .mockResolvedValueOnce({
+        status: 'processing',
+        errorMessage: null,
+        events: [],
+        result: null,
+      })
+      .mockResolvedValueOnce({
+        status: 'completed',
+        errorMessage: null,
+        events: [],
+        result: {
+          success: true,
+          output: { ok: true },
+          logs: [],
+          metadata: { duration: 10 },
+        },
+      })
+
+    try {
+      const { POST } = await import('./route')
+      const responsePromise = POST(
+        new NextRequest('https://example.com/api/workflows/workflow-1/execute', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-API-Key': 'key-1',
+          },
+          body: JSON.stringify({ symbol: 'AAPL' }),
+        }),
+        { params: Promise.resolve({ id: 'workflow-1' }) }
+      )
+
+      await vi.advanceTimersByTimeAsync(1_000)
+      const response = await responsePromise
+
+      expect(response.status).toBe(200)
+      await expect(response.json()).resolves.toEqual({
+        success: true,
+        output: { ok: true },
+        metadata: { duration: 10 },
+      })
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('streams queued API executions through the public execute endpoint', async () => {
+    loadDeployedWorkflowStateMock.mockResolvedValue({
+      blocks: {
+        'agent-1': { id: 'agent-1', type: 'agent', name: 'Agent 1' },
+      },
+      edges: [],
+      loops: {},
+      parallels: {},
+      isFromNormalizedTables: false,
+    })
+    openWorkflowExecutionEventStreamMock.mockImplementationOnce(async (params: any) => {
+      const encoder = new TextEncoder()
+      const result = {
+        success: true,
+        output: { answer: 'done' },
+        logs: [
+          {
+            blockId: 'agent-1',
+            blockType: 'agent',
+            startedAt: '2026-01-01T00:00:00.000Z',
+            endedAt: '2026-01-01T00:00:00.000Z',
+            durationMs: 0,
+            success: true,
+            output: { content: 'hello world' },
+          },
+        ],
+        traceSpans: [{ id: 'span-1' }],
+        executionId: 'workflow_execution_1',
+        executedAt: '2026-01-01T00:00:00.000Z',
+        metadata: {
+          duration: 10,
+          workflowConnections: [{ source: 'agent-1', target: 'done' }],
+        },
+      }
+      const entries = [
+        {
+          eventId: 1,
+          event: {
+            type: 'stream:chunk',
+            executionId: 'workflow_execution_1',
+            workflowId: 'workflow-1',
+            timestamp: '2026-01-01T00:00:00.000Z',
+            data: { blockId: 'agent-1', chunk: 'hello' },
+          },
+        },
+        {
+          eventId: 2,
+          event: {
+            type: 'execution:completed',
+            executionId: 'workflow_execution_1',
+            workflowId: 'workflow-1',
+            timestamp: '2026-01-01T00:00:01.000Z',
+            data: { result },
+          },
+        },
+      ]
+
+      return {
+        ok: true,
+        stream: new ReadableStream({
+          start(controller) {
+            for (const entry of entries) {
+              const chunks = params.formatEvent(entry)
+              for (const chunk of Array.isArray(chunks) ? chunks : [chunks]) {
+                if (chunk)
+                  controller.enqueue(typeof chunk === 'string' ? encoder.encode(chunk) : chunk)
+              }
+            }
+            controller.enqueue(encoder.encode('data: [DONE]\n\n'))
+            controller.close()
+          },
+        }),
+      }
+    })
+
+    const { POST } = await import('./route')
+    const response = await POST(
+      new NextRequest('https://example.com/api/workflows/workflow-1/execute', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-API-Key': 'key-1',
+        },
+        body: JSON.stringify({
+          input: { symbol: 'AAPL' },
+          stream: true,
+          selectedOutputs: ['Agent 1.content'],
+        }),
+      }),
+      { params: Promise.resolve({ id: 'workflow-1' }) }
+    )
+
+    expect(response.status).toBe(200)
+    expect(response.headers.get('Content-Type')).toContain('text/event-stream')
+    const body = await response.text()
+    expect(body).toContain('data: {"blockId":"agent-1","chunk":"hello"}\n\n')
+    expect(body).toContain(
+      'data: {"event":"final","data":{"success":true,"output":{"answer":"done"},"metadata":{"duration":10}}}\n\n'
+    )
+    expect(body).not.toContain('traceSpans')
+    expect(body).not.toContain('workflowConnections')
+    expect(body).not.toContain('workflow_execution_1')
+    expect(openWorkflowExecutionEventStreamMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        pendingExecutionId: expect.stringMatching(/^workflow_execution_/),
+        workflowId: 'workflow-1',
+      })
+    )
+    expect(enqueuePendingExecutionMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        payload: expect.objectContaining({
+          input: { symbol: 'AAPL' },
+          selectedOutputs: ['agent-1_content'],
+          stream: true,
+        }),
+      })
+    )
   })
 })

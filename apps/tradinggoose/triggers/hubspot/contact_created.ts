@@ -98,7 +98,6 @@ export const hubspotContactCreatedTrigger: TriggerConfig = {
       title: '',
       type: 'trigger-save',
       mode: 'trigger',
-      triggerId: 'hubspot_contact_created',
       condition: {
         field: 'selectedTriggerId',
         value: 'hubspot_contact_created',

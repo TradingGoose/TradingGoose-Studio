@@ -1,5 +1,6 @@
 import type { ExecutionConcurrencyController } from '@/lib/execution/execution-concurrency-limit'
 import type { TraceSpan } from '@/lib/logs/types'
+import type { WorkflowExecutionEventInput } from '@/lib/workflows/execution-events'
 import type { BlockOutput } from '@/blocks/types'
 import type { SerializedBlock, SerializedWorkflow } from '@/serializer/types'
 import type { TriggerType } from '@/services/queue'
@@ -185,9 +186,8 @@ export interface ExecutionContext {
   selectedOutputs?: string[] // IDs of blocks selected for streaming output
   edges?: Array<{ source: string; target: string }> // Workflow edge connections
 
-  // New context extensions
-  onStream?: (streamingExecution: StreamingExecution) => Promise<void>
-  onBlockComplete?: (blockId: string, output: any) => Promise<void>
+  onExecutionEvent?: (event: WorkflowExecutionEventInput) => Promise<void>
+  shouldCancelExecution?: () => Promise<boolean>
 }
 
 /**
@@ -197,8 +197,8 @@ export interface ExecutionContextExtensions {
   stream?: boolean // Whether to use streaming responses when available
   selectedOutputs?: string[] // IDs of blocks selected for streaming output
   edges?: Array<{ source: string; target: string }> // Workflow edge connections
-  onStream?: (streamingExecution: StreamingExecution) => Promise<void>
-  onBlockComplete?: (blockId: string, output: any) => Promise<void>
+  onExecutionEvent?: (event: WorkflowExecutionEventInput) => Promise<void>
+  shouldCancelExecution?: () => Promise<boolean>
   executionId?: string
   workspaceId: string
   userId?: string
@@ -222,11 +222,6 @@ export interface ExecutionResult {
   error?: string // Error message if execution failed
   logs?: BlockLog[] // Execution logs for all blocks
   metadata?: ExecutionMetadata
-  _streamingMetadata?: {
-    // Internal metadata for streaming execution
-    loggingSession: any
-    processedInput: any
-  }
 }
 
 /**
@@ -333,16 +328,4 @@ export interface Tool<P = any, O = Record<string, any>> {
  */
 export interface ToolRegistry {
   [key: string]: Tool
-}
-
-/**
- * Interface for a stream processor that can process a stream based on a response format.
- */
-export interface ResponseFormatStreamProcessor {
-  processStream(
-    originalStream: ReadableStream,
-    blockId: string,
-    selectedOutputs: string[],
-    responseFormat?: any
-  ): ReadableStream
 }

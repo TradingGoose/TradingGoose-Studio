@@ -20,6 +20,7 @@ import {
 import { createLogger } from '@/lib/logs/console/logger'
 import { JSONView } from '@/widgets/widgets/workflow_console/components'
 import { ConfigSection } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/components/webhook/components'
+import { useOptionalWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 
 const logger = createLogger('GmailConfig')
 
@@ -29,15 +30,6 @@ const TOOLTIPS = {
   markAsRead: 'Emails will be marked as read after being processed by your workflow.',
   includeRawEmail: 'Include the complete, unprocessed email data from Gmail.',
 }
-
-const FALLBACK_GMAIL_LABELS = [
-  { id: 'INBOX', name: 'Inbox' },
-  { id: 'SENT', name: 'Sent' },
-  { id: 'IMPORTANT', name: 'Important' },
-  { id: 'TRASH', name: 'Trash' },
-  { id: 'SPAM', name: 'Spam' },
-  { id: 'STARRED', name: 'Starred' },
-]
 
 interface GmailLabel {
   id: string
@@ -145,10 +137,13 @@ export function GmailConfig({
   labelFilterBehavior,
   setLabelFilterBehavior,
   markAsRead = false,
-  setMarkAsRead = () => { },
+  setMarkAsRead = () => {},
   includeRawEmail = false,
-  setIncludeRawEmail = () => { },
+  setIncludeRawEmail = () => {},
 }: GmailConfigProps) {
+  const routeContext = useOptionalWorkflowRoute()
+  const workflowId = routeContext?.workflowId
+  const workspaceId = routeContext?.workspaceId
   const [labels, setLabels] = useState<GmailLabel[]>([])
   const [isLoadingLabels, setIsLoadingLabels] = useState(false)
   const [labelError, setLabelError] = useState<string | null>(null)
@@ -161,7 +156,12 @@ export function GmailConfig({
       setLabelError(null)
 
       try {
-        const credentialsResponse = await fetch('/api/auth/oauth/credentials?provider=google-email')
+        const credentialsQuery = new URLSearchParams({ provider: 'google-email' })
+        if (workflowId) credentialsQuery.set('workflowId', workflowId)
+        else if (workspaceId) credentialsQuery.set('workspaceId', workspaceId)
+        const credentialsResponse = await fetch(
+          `/api/auth/oauth/credentials?${credentialsQuery.toString()}`
+        )
         if (!credentialsResponse.ok) {
           throw new Error('Failed to get Google credentials')
         }
@@ -173,7 +173,9 @@ export function GmailConfig({
 
         const credentialId = credentialsData.credentials[0].id
 
-        const response = await fetch(`/api/tools/gmail/labels?credentialId=${credentialId}`)
+        const labelsQuery = new URLSearchParams({ credentialId })
+        if (workflowId) labelsQuery.set('workflowId', workflowId)
+        const response = await fetch(`/api/tools/gmail/labels?${labelsQuery.toString()}`)
         if (!response.ok) {
           throw new Error('Failed to fetch Gmail labels')
         }
@@ -187,8 +189,8 @@ export function GmailConfig({
       } catch (error) {
         logger.error('Error fetching Gmail labels:', error)
         if (mounted) {
-          setLabelError('Could not fetch Gmail labels. Using default labels instead.')
-          setLabels(FALLBACK_GMAIL_LABELS)
+          setLabelError(error instanceof Error ? error.message : 'Failed to fetch Gmail labels')
+          setLabels([])
         }
       } finally {
         if (mounted) setIsLoadingLabels(false)
@@ -199,7 +201,7 @@ export function GmailConfig({
     return () => {
       mounted = false
     }
-  }, [])
+  }, [workflowId, workspaceId])
 
   const toggleLabel = (labelId: string) => {
     if (selectedLabels.includes(labelId)) {

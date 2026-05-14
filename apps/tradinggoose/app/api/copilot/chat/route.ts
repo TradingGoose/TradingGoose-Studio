@@ -668,7 +668,7 @@ const ChatMessageSchema = z.object({
         customToolId: z.string().optional(),
         mcpServerId: z.string().optional(),
         workspaceId: z.string().optional(),
-        blockIds: z.array(z.string()).optional(),
+        blockTypes: z.array(z.string()).optional(),
         knowledgeId: z.string().optional(),
         blockId: z.string().optional(),
         templateId: z.string().optional(),

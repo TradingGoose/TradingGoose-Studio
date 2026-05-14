@@ -1,8 +1,8 @@
 import type { Edge } from '@xyflow/react'
-import type { WorkflowSnapshot } from '@/lib/yjs/workflow-session'
 import { stableStringifyJsonValue } from '@/lib/json/stable'
 import { TG_MERMAID_DOCUMENT_FORMAT } from '@/lib/workflows/document-format'
 import { inferMermaidDirectionFromWorkflowState } from '@/lib/workflows/workflow-direction'
+import type { WorkflowSnapshot } from '@/lib/yjs/workflow-session'
 import type {
   BlockState,
   Loop,
@@ -527,14 +527,14 @@ function resolveVisibleTargetNodeId(
     if (edge.targetHandle === 'loop-end-target') {
       return createContainerNodeId(targetAlias, 'loop', 'end')
     }
-    return createContainerNodeId(targetAlias, 'loop', 'start')
+    return targetAlias
   }
 
   if (targetBlock.type === 'parallel') {
     if (edge.targetHandle === 'parallel-end-target') {
       return createContainerNodeId(targetAlias, 'parallel', 'end')
     }
-    return createContainerNodeId(targetAlias, 'parallel', 'start')
+    return targetAlias
   }
 
   return targetAlias
@@ -838,22 +838,21 @@ function getDefaultVisibleSourceHandle(nodeRef: VisibleNodeRef): string {
       return `${nodeRef.blockType}-start-source`
     case 'container-end':
       return `${nodeRef.blockType}-end-source`
-    case 'block':
     default:
       return 'source'
   }
 }
 
 function getDefaultVisibleTargetHandle(nodeRef: VisibleNodeRef): string {
-  switch (nodeRef.kind) {
-    case 'container-end':
-      return `${nodeRef.blockType}-end-target`
-    case 'block':
-    case 'condition-branch':
-    case 'container-start':
-    default:
-      return 'target'
+  if (nodeRef.kind === 'container-start') {
+    return `${nodeRef.blockType}-start-target`
   }
+
+  if (nodeRef.kind === 'container-end') {
+    return `${nodeRef.blockType}-end-target`
+  }
+
+  return 'target'
 }
 
 function toComparableEdgeKey(
@@ -1082,8 +1081,56 @@ function isContainerStartSourceHandle(handle: string | null | undefined): boolea
   return handle === 'loop-start-source' || handle === 'parallel-start-source'
 }
 
+function isContainerStartTargetHandle(handle: string | null | undefined): boolean {
+  return handle === 'loop-start-target' || handle === 'parallel-start-target'
+}
+
 function isContainerEndTargetHandle(handle: string | null | undefined): boolean {
   return handle === 'loop-end-target' || handle === 'parallel-end-target'
+}
+
+function isContainerEndSourceHandle(handle: string | null | undefined): boolean {
+  return handle === 'loop-end-source' || handle === 'parallel-end-source'
+}
+
+export function readWorkflowContainerBoundaryEdgeViolation(
+  edge: Pick<Edge, 'source' | 'target' | 'sourceHandle' | 'targetHandle'>,
+  blocks: Record<string, BlockState>
+): string | null {
+  const sourceBlock = blocks[edge.source]
+  const targetBlock = blocks[edge.target]
+  const sourceAncestors = getContainerAncestorChain(edge.source, blocks)
+  const targetAncestors = getContainerAncestorChain(edge.target, blocks)
+
+  if (isContainerStartTargetHandle(edge.targetHandle) && isContainerBlockType(targetBlock?.type)) {
+    return `Invalid container edge: ${edge.target} start handle is source-only. Target the ${edge.target} container block without targetHandle for incoming edges.`
+  }
+
+  if (
+    isContainerEndTargetHandle(edge.targetHandle) &&
+    isContainerBlockType(targetBlock?.type) &&
+    !sourceAncestors.includes(edge.target)
+  ) {
+    return `Invalid container edge: ${edge.target} end handle only accepts edges from blocks inside that container. Target the ${edge.target} container block without targetHandle for incoming outer edges.`
+  }
+
+  if (
+    isContainerStartSourceHandle(edge.sourceHandle) &&
+    isContainerBlockType(sourceBlock?.type) &&
+    !targetAncestors.includes(edge.source)
+  ) {
+    return `Invalid container edge: ${edge.source} start handle only connects to blocks inside that container. Use the ${edge.source} container block without sourceHandle for outer workflow edges.`
+  }
+
+  if (
+    isContainerEndSourceHandle(edge.sourceHandle) &&
+    isContainerBlockType(sourceBlock?.type) &&
+    targetAncestors.includes(edge.source)
+  ) {
+    return `Invalid container edge: ${edge.source} end handle only connects to blocks outside that container. Use the ${edge.source} start handle for child edges.`
+  }
+
+  return null
 }
 
 function normalizeContainerBoundaryHandles(
@@ -1259,6 +1306,11 @@ function normalizeLogicalWorkflowEdges(
   >()
 
   for (const edge of edges) {
+    const violation = readWorkflowContainerBoundaryEdgeViolation(edge, blocks)
+    if (violation) {
+      throw new Error(violation)
+    }
+
     for (const expandedEdge of expandEdgeAcrossContainerBoundaries(edge, blocks)) {
       normalizedEdges.set(toComparableEdgeKey(expandedEdge), expandedEdge)
     }
@@ -1285,20 +1337,23 @@ function applyVisibleParenting(
     }
 
     const nextParentId = inferredParentIds.get(blockId)
-    const nextData = { ...(block.data ?? {}) }
+    let nextData = { ...(block.data ?? {}) }
 
     if (nextParentId) {
       nextData.parentId = nextParentId
       nextData.extent = 'parent'
     } else {
-      delete nextData.parentId
-      delete nextData.extent
+      const { parentId: _parentId, extent: _extent, ...dataWithoutParent } = nextData
+      nextData = dataWithoutParent
     }
 
-    nextBlocks[blockId] = {
-      ...block,
-      ...(Object.keys(nextData).length > 0 ? { data: nextData as any } : {}),
+    if (Object.keys(nextData).length === 0) {
+      const { data: _data, ...blockWithoutData } = block
+      nextBlocks[blockId] = blockWithoutData
+      continue
     }
+
+    nextBlocks[blockId] = { ...block, data: nextData as any }
   }
 
   return nextBlocks

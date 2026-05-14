@@ -15,8 +15,8 @@ export function CopilotWelcome({ onQuestionClick, accessLevel = 'limited' }: Cop
 
   const subtitle =
     accessLevel === 'full'
-      ? 'Apply workflow, skill, MCP, and tool changes directly with full access'
-      : 'Ask questions and review workflow, skill, MCP, and tool changes before they apply'
+      ? 'Ask questions and let tools run without extra approval'
+      : 'Ask questions and review tools before they run'
 
   const capabilities =
     accessLevel === 'full'

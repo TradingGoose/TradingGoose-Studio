@@ -43,8 +43,6 @@ describe('OAuth Disconnect API Route', () => {
     vi.doMock('drizzle-orm', () => ({
       and: vi.fn((...conditions) => ({ conditions, type: 'and' })),
       eq: vi.fn((field, value) => ({ field, value, type: 'eq' })),
-      like: vi.fn((field, value) => ({ field, value, type: 'like' })),
-      or: vi.fn((...conditions) => ({ conditions, type: 'or' })),
     }))
 
     vi.doMock('@/lib/logs/console/logger', () => ({
@@ -56,7 +54,7 @@ describe('OAuth Disconnect API Route', () => {
     vi.clearAllMocks()
   })
 
-  it('should disconnect provider successfully', async () => {
+  it('should disconnect a single OAuth account by account id', async () => {
     mockGetSession.mockResolvedValueOnce({
       user: { id: 'user-123' },
     })
@@ -65,7 +63,7 @@ describe('OAuth Disconnect API Route', () => {
     mockDb.where.mockResolvedValueOnce(undefined)
 
     const req = createMockRequest('POST', {
-      provider: 'google',
+      accountId: 'account-row-1',
     })
 
     const { POST } = await import('@/app/api/auth/oauth/disconnect/route')
@@ -75,37 +73,20 @@ describe('OAuth Disconnect API Route', () => {
 
     expect(response.status).toBe(200)
     expect(data.success).toBe(true)
-    expect(mockLogger.info).toHaveBeenCalled()
-  })
-
-  it('should disconnect specific provider ID successfully', async () => {
-    mockGetSession.mockResolvedValueOnce({
-      user: { id: 'user-123' },
+    expect(mockDb.where).toHaveBeenCalledWith({
+      type: 'and',
+      conditions: [
+        { type: 'eq', field: 'userId', value: 'user-123' },
+        { type: 'eq', field: 'id', value: 'account-row-1' },
+      ],
     })
-
-    mockDb.delete.mockReturnValueOnce(mockDb)
-    mockDb.where.mockResolvedValueOnce(undefined)
-
-    const req = createMockRequest('POST', {
-      provider: 'google',
-      providerId: 'google-email',
-    })
-
-    const { POST } = await import('@/app/api/auth/oauth/disconnect/route')
-
-    const response = await POST(req)
-    const data = await response.json()
-
-    expect(response.status).toBe(200)
-    expect(data.success).toBe(true)
-    expect(mockLogger.info).toHaveBeenCalled()
   })
 
   it('should handle unauthenticated user', async () => {
     mockGetSession.mockResolvedValueOnce(null)
 
     const req = createMockRequest('POST', {
-      provider: 'google',
+      accountId: 'account-row-1',
     })
 
     const { POST } = await import('@/app/api/auth/oauth/disconnect/route')
@@ -118,7 +99,7 @@ describe('OAuth Disconnect API Route', () => {
     expect(mockLogger.warn).toHaveBeenCalled()
   })
 
-  it('should handle missing provider', async () => {
+  it('should handle missing account id', async () => {
     mockGetSession.mockResolvedValueOnce({
       user: { id: 'user-123' },
     })
@@ -131,7 +112,7 @@ describe('OAuth Disconnect API Route', () => {
     const data = await response.json()
 
     expect(response.status).toBe(400)
-    expect(data.error).toBe('Provider is required')
+    expect(data.error).toBe('accountId is required')
     expect(mockLogger.warn).toHaveBeenCalled()
   })
 
@@ -144,7 +125,7 @@ describe('OAuth Disconnect API Route', () => {
     mockDb.where.mockRejectedValueOnce(new Error('Database error'))
 
     const req = createMockRequest('POST', {
-      provider: 'google',
+      accountId: 'account-row-1',
     })
 
     const { POST } = await import('@/app/api/auth/oauth/disconnect/route')

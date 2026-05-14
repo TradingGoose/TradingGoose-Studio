@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { TriggerUtils } from '@/lib/workflows/triggers'
 import type { WorkflowExecutionBlueprint } from './execution-runner'
 import { loadWorkflowExecutionBlueprint, runPreparedWorkflowExecution } from './execution-runner'
 
@@ -205,6 +206,35 @@ describe('runPreparedWorkflowExecution', () => {
     expect(mocks.completeWithError).not.toHaveBeenCalled()
     expect(result.result.success).toBe(true)
     expect(result.result.output).toEqual({ result: 'ok' })
+  })
+
+  it('resolves queued child API starts through the child input-trigger path', async () => {
+    vi.mocked(TriggerUtils.findStartBlock).mockReturnValue({
+      blockId: 'trigger',
+      block: { type: 'input_trigger' },
+    })
+
+    await runPreparedWorkflowExecution({
+      blueprint,
+      actorUserId: 'user-1',
+      triggerType: 'manual',
+      workflowInput: { symbol: 'AAPL' },
+      executionId: 'execution-1',
+      start: {
+        kind: 'trigger',
+        triggerType: 'api',
+      },
+      contextExtensions: {
+        isChildExecution: true,
+      },
+    })
+
+    expect(TriggerUtils.findStartBlock).toHaveBeenCalledWith(
+      blueprint.workflowData.blocks,
+      'api',
+      true
+    )
+    expect(mocks.execute).toHaveBeenCalledWith('workflow-1', 'trigger')
   })
 })
 

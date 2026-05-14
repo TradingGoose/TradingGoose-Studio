@@ -220,33 +220,6 @@ describe('workflow import/export helpers', () => {
     })
   })
 
-  it('parses legacy workflow import files when provided a fallback name', () => {
-    const parsed = parseImportedWorkflowFile(
-      {
-        version: '1.0',
-        exportedAt: '2026-04-08T15:30:00.000Z',
-        state: createWorkflowState(),
-      },
-      {
-        fallbackName: '  Legacy Workflow  ',
-      }
-    )
-
-    expect(parsed.errors).toEqual([])
-    expect(parsed.data).toMatchObject({
-      name: 'Legacy Workflow',
-      description: 'Workflow imported from JSON',
-      color: '',
-      state: {
-        blocks: {
-          block_1: {
-            id: 'block_1',
-          },
-        },
-      },
-    })
-  })
-
   it('rejects invalid workflow envelopes', () => {
     const parsed = parseImportedWorkflowFile({
       version: '1',

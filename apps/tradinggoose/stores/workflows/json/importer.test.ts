@@ -175,33 +175,6 @@ describe('workflow json importer', () => {
     expect(errors.some((error) => error.includes('Duplicate skill name'))).toBe(true)
   })
 
-  it('parses the legacy workflow export format with a fallback filename', () => {
-    const payload = {
-      version: '1.0',
-      exportedAt: '2026-03-05T00:00:00.000Z',
-      state: createWorkflowState(),
-    }
-
-    const { data, errors } = parseWorkflowJson(JSON.stringify(payload), false, {
-      fallbackName: '  Legacy Workflow  ',
-    })
-
-    expect(errors).toEqual([])
-    expect(data).not.toBeNull()
-    expect(data).toMatchObject({
-      name: 'Legacy Workflow',
-      description: 'Workflow imported from JSON',
-      color: '',
-      state: {
-        blocks: {
-          block_1: {
-            id: 'block_1',
-          },
-        },
-      },
-    })
-  })
-
   it('rejects invalid workflow envelopes', () => {
     const payload = {
       version: '1',

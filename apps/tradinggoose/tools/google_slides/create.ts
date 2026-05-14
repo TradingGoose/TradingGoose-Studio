@@ -37,17 +37,11 @@ export const createTool: ToolConfig<GoogleSlidesToolParams, GoogleSlidesCreateRe
       visibility: 'user-or-llm',
       description: 'The content to add to the first slide',
     },
-    folderSelector: {
-      type: 'string',
-      required: false,
-      visibility: 'user-only',
-      description: 'Select the folder to create the presentation in',
-    },
     folderId: {
       type: 'string',
       required: false,
-      visibility: 'hidden',
-      description: 'The ID of the folder to create the presentation in (internal use)',
+      visibility: 'user-only',
+      description: 'The ID of the folder to create the presentation in',
     },
   },
 
@@ -77,10 +71,8 @@ export const createTool: ToolConfig<GoogleSlidesToolParams, GoogleSlidesCreateRe
         mimeType: 'application/vnd.google-apps.presentation',
       }
 
-      // Add parent folder if specified (prefer folderSelector over folderId)
-      const folderId = params.folderSelector || params.folderId
-      if (folderId) {
-        requestBody.parents = [folderId]
+      if (params.folderId) {
+        requestBody.parents = [params.folderId]
       }
 
       return requestBody

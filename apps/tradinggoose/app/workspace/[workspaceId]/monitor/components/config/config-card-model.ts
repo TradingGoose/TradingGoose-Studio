@@ -47,7 +47,7 @@ const VALID_OUTCOMES = new Set<MonitorExecutionOutcome>([
   'unknown',
 ])
 
-const getWorkflowTargetKey = (workflowId: string, blockId: string) => `${workflowId}:${blockId}`
+const readWorkflowTargetKey = (workflowId: string, blockId: string) => `${workflowId}:${blockId}`
 
 const formatListingLabel = (listing: unknown) => {
   const record = listing as Partial<ListingIdentity> | null | undefined
@@ -82,7 +82,7 @@ export const buildConfigMonitorCards = (
 ): ConfigMonitorCard[] =>
   monitors.map((monitor) => {
     const monitorConfig = monitor.providerConfig.monitor
-    const workflowTargetKey = getWorkflowTargetKey(monitor.workflowId, monitor.blockId)
+    const workflowTargetKey = readWorkflowTargetKey(monitor.workflowId, monitor.blockId)
     const workflowTarget = referenceData.workflowTargetByKey[workflowTargetKey]
     const indicator = referenceData.indicatorById[monitorConfig.indicatorId]
     const provider = referenceData.providerById[monitorConfig.providerId]

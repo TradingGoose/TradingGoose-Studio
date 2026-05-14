@@ -22,7 +22,5 @@ export function registerToolStateSync(
 }
 
 export function syncToolState(toolCallId: string, nextState: any, options?: { result?: any }) {
-  try {
-    syncStateFn?.(toolCallId, nextState, options)
-  } catch {}
+  syncStateFn?.(toolCallId, nextState, options)
 }

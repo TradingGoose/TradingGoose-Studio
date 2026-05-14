@@ -1,7 +1,13 @@
 import { getBlock } from '@/blocks'
+import type { BlockConfig, SubBlockType } from '@/blocks/types'
 import { TRIGGER_REGISTRY } from '@/triggers/registry'
 
 type TriggerSubBlockValue = { value?: unknown } | unknown
+type TriggerSelectableSubBlockState = {
+  id: string
+  type: SubBlockType
+  value: unknown
+}
 
 type TriggerResolvableBlock = {
   type: string
@@ -9,8 +15,12 @@ type TriggerResolvableBlock = {
   subBlocks?: Record<string, TriggerSubBlockValue>
 }
 
-function isRegisteredTriggerId(value: unknown): value is string {
-  return typeof value === 'string' && value in TRIGGER_REGISTRY
+function isAvailableTriggerId(value: unknown, availableTriggerIds?: string[]): value is string {
+  if (typeof value !== 'string' || !(value in TRIGGER_REGISTRY)) {
+    return false
+  }
+
+  return availableTriggerIds === undefined || availableTriggerIds.includes(value)
 }
 
 function getSubBlockValue(
@@ -34,19 +44,41 @@ export function resolveTriggerIdFromSubBlocks(
   availableTriggerIds?: string[]
 ): string | null {
   const selectedTriggerId = getSubBlockValue(subBlocks, 'selectedTriggerId')
-  if (isRegisteredTriggerId(selectedTriggerId)) {
+  if (isAvailableTriggerId(selectedTriggerId, availableTriggerIds)) {
     return selectedTriggerId
   }
 
-  const triggerId = getSubBlockValue(subBlocks, 'triggerId')
-  if (isRegisteredTriggerId(triggerId)) {
-    return triggerId
+  return null
+}
+
+export function persistSingletonTriggerSelection<
+  TSubBlocks extends Record<string, TriggerSelectableSubBlockState>,
+>(
+  subBlocks: TSubBlocks,
+  blockConfig: Pick<BlockConfig, 'category' | 'subBlocks' | 'triggers'>,
+  triggerMode: boolean
+): TSubBlocks {
+  if (!triggerMode && blockConfig.category !== 'triggers') {
+    return subBlocks
   }
 
-  const fallbackTriggerId = availableTriggerIds?.find((candidate) =>
-    isRegisteredTriggerId(candidate)
+  const availableTriggerIds = blockConfig.triggers?.available ?? []
+  const triggerId = availableTriggerIds.length === 1 ? availableTriggerIds[0] : null
+  const selectedTriggerConfig = blockConfig.subBlocks.find(
+    (subBlock) => subBlock.id === 'selectedTriggerId'
   )
-  return fallbackTriggerId ?? null
+  if (!triggerId || !selectedTriggerConfig) {
+    return subBlocks
+  }
+
+  return {
+    ...subBlocks,
+    selectedTriggerId: {
+      id: 'selectedTriggerId',
+      type: selectedTriggerConfig.type,
+      value: triggerId,
+    },
+  }
 }
 
 export function resolveTriggerIdForBlock(block: TriggerResolvableBlock): string | null {

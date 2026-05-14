@@ -5,12 +5,10 @@ import {
   serializeYjsTransportEnvelope,
 } from '@/lib/copilot/review-sessions/identity'
 import type {
-  ReviewEntityKind,
   ReviewTargetDescriptor,
   ReviewTargetRuntimeState,
 } from '@/lib/copilot/review-sessions/types'
 import { getEnv } from '@/lib/env'
-import { seedEntitySession } from '@/lib/yjs/entity-session'
 import { applySnapshotToDoc } from './client'
 
 export interface YjsProviderBootstrapResult {
@@ -20,12 +18,8 @@ export interface YjsProviderBootstrapResult {
   runtime: ReviewTargetRuntimeState
 }
 
-interface DraftBootstrapSeedInput {
-  entityKind: ReviewEntityKind
-  payload: Record<string, any>
-}
-
 const SOCKET_TOKEN_RETRY_MS = 1_000
+const WRITE_SYNC_TIMEOUT_MS = 10_000
 
 async function fetchSocketToken(): Promise<string> {
   const res = await fetch('/api/auth/socket-token', {
@@ -50,15 +44,13 @@ async function fetchSnapshot(
   descriptor: ReviewTargetDescriptor
   runtime: ReviewTargetRuntimeState
 }> {
-  const params = new URLSearchParams(envelopeParams)
+  const params = new URLSearchParams({
+    ...envelopeParams,
+    accessMode: 'write',
+  })
   const res = await fetch(`/api/yjs/sessions/${encodeURIComponent(sessionId)}/snapshot?${params}`, {
     cache: 'no-store',
   })
-
-  if (res.status === 410) {
-    const body = await res.json()
-    throw new YjsExpiredDraftError(body)
-  }
 
   if (!res.ok) {
     throw new Error(`Snapshot fetch failed: ${res.status}`)
@@ -67,79 +59,63 @@ async function fetchSnapshot(
   return res.json()
 }
 
+export function waitForYjsWriteSync(provider: WebsocketProvider): Promise<void> {
+  if (provider.synced) {
+    return Promise.resolve()
+  }
+
+  return new Promise((resolve, reject) => {
+    let timeout: ReturnType<typeof setTimeout> | null = null
+
+    const finish = (error?: Error) => {
+      if (timeout) {
+        clearTimeout(timeout)
+        timeout = null
+      }
+      provider.off('sync', handleSync)
+      provider.off('connection-close', handleConnectionFailure)
+      provider.off('connection-error', handleConnectionFailure)
+      error ? reject(error) : resolve()
+    }
+
+    const handleSync = (isSynced: boolean) => {
+      if (isSynced) {
+        finish()
+      }
+    }
+
+    const handleConnectionFailure = () => {
+      finish(new Error('Failed to establish authorized Yjs write sync'))
+    }
+
+    timeout = setTimeout(handleConnectionFailure, WRITE_SYNC_TIMEOUT_MS)
+    provider.on('sync', handleSync)
+    provider.on('connection-close', handleConnectionFailure)
+    provider.on('connection-error', handleConnectionFailure)
+
+    if (provider.synced) {
+      finish()
+    }
+  })
+}
+
 export async function bootstrapYjsProvider(
   descriptor: ReviewTargetDescriptor,
-  options?: {
-    wsOrigin?: string
-    draftSeed?: DraftBootstrapSeedInput | null
-  }
+  wsOrigin = getDefaultWsOrigin()
 ): Promise<YjsProviderBootstrapResult> {
   const doc = new Y.Doc()
 
   const initialEnvelope = buildYjsTransportEnvelope(descriptor)
   const initialEnvelopeParams = serializeYjsTransportEnvelope(initialEnvelope)
-  let snapshot: {
-    snapshotBase64: string
-    descriptor: ReviewTargetDescriptor
-    runtime: ReviewTargetRuntimeState
-  } | null = null
-  let resolvedDescriptor = descriptor
-  let runtime: ReviewTargetRuntimeState = {
-    docState: 'active',
-    replaySafe: true,
-    reseededFromCanonical: false,
-  }
-  let localOnlyRecovery = false
+  const snapshot = await fetchSnapshot(descriptor.yjsSessionId, initialEnvelopeParams)
+  const resolvedDescriptor = snapshot.descriptor
+  const runtime = snapshot.runtime
 
-  try {
-    snapshot = await fetchSnapshot(descriptor.yjsSessionId, initialEnvelopeParams)
-    resolvedDescriptor = snapshot.descriptor
-    runtime = snapshot.runtime
-  } catch (error) {
-    if (!(error instanceof YjsExpiredDraftError) || !options?.draftSeed) {
-      throw error
-    }
-
-    const expiredBody = error.body as
-      | {
-          descriptor?: ReviewTargetDescriptor
-          runtime?: ReviewTargetRuntimeState
-        }
-      | undefined
-
-    resolvedDescriptor = expiredBody?.descriptor ?? descriptor
-    runtime = expiredBody?.runtime ?? {
-      docState: 'expired',
-      replaySafe: false,
-      reseededFromCanonical: false,
-    }
-
-    seedEntitySession(doc, {
-      entityKind: options.draftSeed.entityKind,
-      payload: options.draftSeed.payload,
-    })
-    localOnlyRecovery = true
-  }
-
-  if (snapshot?.snapshotBase64) {
+  if (snapshot.snapshotBase64) {
     applySnapshotToDoc(doc, snapshot.snapshotBase64)
   }
 
-  const wsOrigin = options?.wsOrigin ?? getDefaultWsOrigin()
   const serverUrl = `${wsOrigin}/yjs`
-
-  if (localOnlyRecovery) {
-    const provider = new WebsocketProvider(serverUrl, resolvedDescriptor.yjsSessionId, doc, {
-      connect: false,
-    })
-
-    return {
-      doc,
-      provider,
-      descriptor: resolvedDescriptor,
-      runtime,
-    }
-  }
 
   const envelopeParams = serializeYjsTransportEnvelope(
     buildYjsTransportEnvelope(resolvedDescriptor)
@@ -147,7 +123,7 @@ export async function bootstrapYjsProvider(
   const token = await fetchSocketToken()
 
   const provider = new WebsocketProvider(serverUrl, resolvedDescriptor.yjsSessionId, doc, {
-    params: { token, ...envelopeParams },
+    params: { token, accessMode: 'write', ...envelopeParams },
     connect: true,
   })
 
@@ -167,6 +143,7 @@ export async function bootstrapYjsProvider(
         const nextToken = await fetchSocketToken()
         currentProvider.params = {
           token: nextToken,
+          accessMode: 'write',
           ...envelopeParams,
         }
         currentProvider.connect()
@@ -192,6 +169,15 @@ export async function bootstrapYjsProvider(
     scheduleReconnectWithFreshToken(currentProvider)
   })
 
+  try {
+    await waitForYjsWriteSync(provider)
+  } catch (error) {
+    provider.disconnect()
+    provider.destroy()
+    doc.destroy()
+    throw error
+  }
+
   return {
     doc,
     provider,
@@ -204,14 +190,4 @@ function getDefaultWsOrigin(): string {
   return (getEnv('NEXT_PUBLIC_SOCKET_URL')?.trim() || 'http://localhost:3002')
     .replace(/^http:\/\//, 'ws://')
     .replace(/^https:\/\//, 'wss://')
-}
-
-export class YjsExpiredDraftError extends Error {
-  body: any
-
-  constructor(body: any) {
-    super('Draft session has expired')
-    this.name = 'YjsExpiredDraftError'
-    this.body = body
-  }
 }

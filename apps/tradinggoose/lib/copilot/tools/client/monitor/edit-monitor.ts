@@ -1,15 +1,15 @@
 import { Activity, Check, Loader2, X, XCircle } from 'lucide-react'
 import {
+  MONITOR_DOCUMENT_FORMAT,
+  parseMonitorDocument,
+  readMonitorDocumentName,
+  serializeMonitorDocument,
+} from '@/lib/copilot/monitor/monitor-documents'
+import {
   BaseClientTool,
   type BaseClientToolMetadata,
   ClientToolCallState,
 } from '@/lib/copilot/tools/client/base-tool'
-import {
-  getMonitorDocumentName,
-  MONITOR_DOCUMENT_FORMAT,
-  parseMonitorDocument,
-  serializeMonitorDocument,
-} from '@/lib/copilot/monitor/monitor-documents'
 import { resolveWorkspaceIdFromExecutionContext } from '@/lib/copilot/tools/client/entities/entity-document-tool-utils'
 import {
   type EditMonitorArgs,
@@ -64,10 +64,7 @@ export class EditMonitorClientTool extends BaseClientTool {
       if (!resolvedArgs.monitorDocument?.trim()) {
         throw new Error('monitorDocument is required')
       }
-      if (
-        resolvedArgs.documentFormat &&
-        resolvedArgs.documentFormat !== MONITOR_DOCUMENT_FORMAT
-      ) {
+      if (resolvedArgs.documentFormat && resolvedArgs.documentFormat !== MONITOR_DOCUMENT_FORMAT) {
         throw new Error(
           `Unsupported documentFormat "${resolvedArgs.documentFormat}". Expected ${MONITOR_DOCUMENT_FORMAT}`
         )
@@ -118,7 +115,7 @@ export class EditMonitorClientTool extends BaseClientTool {
         success: true,
         surfaceKind: 'monitor',
         monitorId: updatedMonitor.monitorId,
-        monitorName: getMonitorDocumentName(persistedFields),
+        monitorName: readMonitorDocumentName(persistedFields),
         documentFormat: MONITOR_DOCUMENT_FORMAT,
         monitorDocument: serializeMonitorDocument(persistedFields),
       })

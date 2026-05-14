@@ -17,7 +17,7 @@ export interface IndicatorsStore {
   activeWorkspaceId: string | null
 
   setIndicators: (workspaceId: string, indicators: IndicatorDefinition[]) => void
-  getIndicator: (id: string, workspaceId?: string) => IndicatorDefinition | undefined
+  readIndicator: (id: string, workspaceId?: string) => IndicatorDefinition | undefined
   getAllIndicators: (workspaceId?: string) => IndicatorDefinition[]
   resetWorkspace: (workspaceId: string) => void
   resetAll: () => void

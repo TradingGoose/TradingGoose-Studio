@@ -1,18 +1,9 @@
-import { db, orderHistoryTable } from '@tradinggoose/db'
-import { and, eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
-import { getSession } from '@/lib/auth'
+import { checkSessionOrInternalAuth } from '@/lib/auth/hybrid'
 import { createLogger } from '@/lib/logs/console/logger'
-import { checkWorkspaceAccess } from '@/lib/permissions/utils'
+import { isTradingServiceError } from '@/lib/trading/errors'
+import { getRecordedTradingOrderProviderDetail } from '@/lib/trading/order-detail'
 import { generateRequestId } from '@/lib/utils'
-import {
-  resolveTradingProviderContext,
-  resolveTradingProviderSelectedAccount,
-} from '@/app/api/providers/trading/shared'
-import { executeTradingProviderOrderDetailRequest } from '@/providers/trading'
-import { getTradingProviderOAuthServiceIdForEnvironment } from '@/providers/trading/providers'
-import type { TradingOrderDetailInput, TradingOrderHistoryRecord } from '@/providers/trading/types'
-import { readOrderAccountId } from '../../order-record-utils'
 
 const logger = createLogger('OrderProviderDetailAPI')
 
@@ -26,8 +17,8 @@ export async function POST(
   const requestId = generateRequestId()
 
   try {
-    const session = await getSession()
-    if (!session?.user?.id) {
+    const auth = await checkSessionOrInternalAuth(request, { requireWorkflowId: false })
+    if (!auth.success || !auth.userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -35,78 +26,23 @@ export async function POST(
     if (!workspaceId) {
       return NextResponse.json({ error: 'workspaceId is required' }, { status: 400 })
     }
+    const workflowId = new URL(request.url).searchParams.get('workflowId')?.trim() || undefined
 
-    const access = await checkWorkspaceAccess(workspaceId, session.user.id)
-    if (!access.exists || !access.hasAccess) {
-      return NextResponse.json({ error: 'Not found' }, { status: 404 })
-    }
-
-    const body = (await request.json().catch(() => ({}))) as {
-      accountId?: string
-    }
     const { orderId } = await params
-    const [order] = await db
-      .select()
-      .from(orderHistoryTable)
-      .where(and(eq(orderHistoryTable.id, orderId), eq(orderHistoryTable.workspaceId, workspaceId)))
-      .limit(1)
-
-    if (!order) {
-      return NextResponse.json({ error: 'Not found' }, { status: 404 })
-    }
-
-    const baseContext = await resolveTradingProviderContext({
-      requestData: {
-        provider: order.provider,
-        credentialServiceId:
-          getTradingProviderOAuthServiceIdForEnvironment(order.provider, order.environment) ??
-          undefined,
-      },
-      requestId,
-    })
-    if (baseContext instanceof Response) {
-      return baseContext
-    }
-
-    const candidateAccountId = body.accountId ?? readOrderAccountId(order)
-    let accountId = candidateAccountId ?? undefined
-    if (candidateAccountId) {
-      const accountContext = await resolveTradingProviderSelectedAccount({
-        baseContext,
-        accountId: candidateAccountId,
-      })
-      if (accountContext instanceof Response) {
-        return accountContext
-      }
-      accountId = accountContext.accountId
-    } else if (order.provider === 'tradier') {
-      return NextResponse.json(
-        { error: 'accountId is required for Tradier order detail' },
-        { status: 400 }
-      )
-    }
-
-    const detailInput: TradingOrderDetailInput = {
+    const providerDetail = await getRecordedTradingOrderProviderDetail({
       orderId,
-      provider: order.provider,
-      environment: baseContext.environment,
-      accessToken: baseContext.accessToken,
-      accountId,
-    }
-    const providerDetail = await executeTradingProviderOrderDetailRequest(
-      order.provider,
-      order as TradingOrderHistoryRecord,
-      detailInput
-    )
-
-    return NextResponse.json({
-      data: {
-        orderId,
-        provider: order.provider,
-        providerDetail,
-      },
+      request,
+      requestId,
+      userId: auth.userId,
+      workspaceId,
+      workflowId,
     })
+
+    return NextResponse.json({ data: providerDetail })
   } catch (error) {
+    if (isTradingServiceError(error)) {
+      return NextResponse.json({ error: error.message }, { status: error.status })
+    }
     logger.error(`[${requestId}] Failed to fetch provider order detail`, { error })
     return NextResponse.json({ error: 'Failed to fetch provider order detail' }, { status: 500 })
   }

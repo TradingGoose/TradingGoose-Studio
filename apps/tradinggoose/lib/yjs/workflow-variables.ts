@@ -14,7 +14,7 @@ import type * as Y from 'yjs'
 import { escapeRegExp } from '@/lib/utils'
 import type { Variable } from '@/stores/variables/types'
 import { rewriteWorkflowContentReferences } from './workflow-reference-rewrite'
-import { getVariablesMap, getWorkflowMap, getWorkflowTextFieldsMap } from './workflow-session'
+import { getVariablesMap, readWorkflowMap, readWorkflowTextFieldsMap } from './workflow-session'
 
 // ---------------------------------------------------------------------------
 // Name generation
@@ -159,8 +159,8 @@ export function rewriteVariableReferences(
 
   doc.transact(() => {
     rewriteVariableReferencesInWorkflowContent(
-      getWorkflowMap(doc),
-      getWorkflowTextFieldsMap(doc),
+      readWorkflowMap(doc),
+      readWorkflowTextFieldsMap(doc),
       oldName,
       newName
     )
@@ -178,7 +178,7 @@ export function addWorkflowVariable(
   origin?: string
 ): string {
   const id = providedId || crypto.randomUUID()
-  const workflowVariables = getWorkflowVariables(doc, variable.workflowId)
+  const workflowVariables = readWorkflowVariables(doc, variable.workflowId)
   const existingNames = workflowVariables.map((entry) => entry.name)
 
   const baseName =
@@ -217,7 +217,7 @@ export function updateWorkflowVariable(
   const current = vMap.get(id) as Variable | undefined
   if (!current) return false
 
-  const workflowVariables = getWorkflowVariables(doc, current.workflowId).filter(
+  const workflowVariables = readWorkflowVariables(doc, current.workflowId).filter(
     (variable) => variable.id !== id
   )
 
@@ -257,8 +257,8 @@ export function updateWorkflowVariable(
 
     if (current.name !== nextName && current.name.trim() !== '' && nextName.trim() !== '') {
       rewriteVariableReferencesInWorkflowContent(
-        getWorkflowMap(doc),
-        getWorkflowTextFieldsMap(doc),
+        readWorkflowMap(doc),
+        readWorkflowTextFieldsMap(doc),
         current.name,
         nextName
       )
@@ -289,7 +289,7 @@ export function duplicateWorkflowVariable(
   if (!current) return null
 
   const nextId = providedId || crypto.randomUUID()
-  const workflowVariables = getWorkflowVariables(doc, current.workflowId)
+  const workflowVariables = readWorkflowVariables(doc, current.workflowId)
   const baseName = `${current.name} (copy)`
   const uniqueName = ensureUniqueVariableName(
     baseName,
@@ -311,7 +311,7 @@ export function duplicateWorkflowVariable(
   return nextId
 }
 
-export function getWorkflowVariables(doc: Y.Doc, workflowId: string): Variable[] {
+export function readWorkflowVariables(doc: Y.Doc, workflowId: string): Variable[] {
   const result: Variable[] = []
   getVariablesMap(doc).forEach((value) => {
     if (value && value.workflowId === workflowId) {

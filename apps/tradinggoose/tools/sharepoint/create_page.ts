@@ -30,14 +30,8 @@ export const createPageTool: ToolConfig<SharepointToolParams, SharepointCreatePa
     siteId: {
       type: 'string',
       required: false,
-      visibility: 'hidden',
-      description: 'The ID of the SharePoint site (internal use)',
-    },
-    siteSelector: {
-      type: 'string',
-      required: false,
       visibility: 'user-only',
-      description: 'Select the SharePoint site',
+      description: 'The ID of the SharePoint site',
     },
     pageName: {
       type: 'string',
@@ -62,7 +56,7 @@ export const createPageTool: ToolConfig<SharepointToolParams, SharepointCreatePa
   request: {
     url: (params) => {
       // Use specific site if provided, otherwise use root site
-      const siteId = params.siteSelector || params.siteId || 'root'
+      const siteId = params.siteId || 'root'
       return `https://graph.microsoft.com/v1.0/sites/${siteId}/pages`
     },
     method: 'POST',

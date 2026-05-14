@@ -53,7 +53,7 @@ export interface ConsoleStore {
   addConsole: (entry: Omit<ConsoleEntry, 'id' | 'timestamp'>) => ConsoleEntry
   clearConsole: (workflowId: string | null) => void
   exportConsoleCSV: (workflowId: string) => void
-  getWorkflowEntries: (workflowId: string) => ConsoleEntry[]
+  readWorkflowEntries: (workflowId: string) => ConsoleEntry[]
   toggleConsole: () => void
   updateConsole: (blockId: string, update: string | ConsoleUpdate, executionId?: string) => void
   updateConsoleEntry: (entryId: string, update: string | ConsoleUpdate) => void

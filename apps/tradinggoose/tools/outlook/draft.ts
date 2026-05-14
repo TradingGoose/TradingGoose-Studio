@@ -1,3 +1,4 @@
+import { getCredentialRouteParams } from '@/tools/credentials'
 import type { OutlookDraftParams, OutlookDraftResponse } from '@/tools/outlook/types'
 import type { ToolConfig } from '@/tools/types'
 
@@ -71,7 +72,7 @@ export const outlookDraftTool: ToolConfig<OutlookDraftParams, OutlookDraftRespon
     }),
     body: (params: OutlookDraftParams) => {
       return {
-        accessToken: params.accessToken,
+        ...getCredentialRouteParams(params),
         to: params.to,
         subject: params.subject,
         body: params.body,

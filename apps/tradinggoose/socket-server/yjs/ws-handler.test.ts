@@ -34,9 +34,9 @@ class MockYjsAuthError extends Error {
   }
 }
 
-function createRequest(sessionId: string): IncomingMessage {
+function createRequest(sessionId: string, accessMode: 'read' | 'write' = 'write'): IncomingMessage {
   return {
-    url: `/yjs/${encodeURIComponent(sessionId)}?token=test-token&targetKind=workflow&sessionId=${encodeURIComponent(sessionId)}&workflowId=${encodeURIComponent(sessionId)}&entityKind=workflow&entityId=${encodeURIComponent(sessionId)}`,
+    url: `/yjs/${encodeURIComponent(sessionId)}?token=test-token&accessMode=${accessMode}&targetKind=workflow&sessionId=${encodeURIComponent(sessionId)}&workflowId=${encodeURIComponent(sessionId)}&entityKind=workflow&entityId=${encodeURIComponent(sessionId)}`,
     headers: { host: 'localhost:3000' },
   } as IncomingMessage
 }
@@ -165,9 +165,9 @@ describe('handleYjsUpgrade', () => {
       },
     })
 
-    mockVerifyReviewTargetAccess.mockImplementation(async (_userId, _target, options) => ({
-      hasAccess: !options.requireWrite,
-      userPermission: 'read',
+    mockVerifyReviewTargetAccess.mockImplementation(async (_userId, _target, accessMode) => ({
+      hasAccess: false,
+      userPermission: accessMode,
       workspaceId: 'workspace-1',
       isOwner: false,
     }))
@@ -177,7 +177,7 @@ describe('handleYjsUpgrade', () => {
     await new Promise((resolve) => setImmediate(resolve))
 
     expect(mockVerifyReviewTargetAccess).toHaveBeenCalledTimes(1)
-    expect(mockVerifyReviewTargetAccess.mock.calls[0]?.[2]).toEqual({ requireWrite: true })
+    expect(mockVerifyReviewTargetAccess.mock.calls[0]?.[2]).toBe('write')
     expect(wss.handleUpgrade).not.toHaveBeenCalled()
     expect(socket.write).toHaveBeenCalledWith(expect.stringContaining('403 Forbidden'))
     expect(socket.destroy).toHaveBeenCalledTimes(1)
@@ -218,7 +218,7 @@ describe('handleYjsUpgrade', () => {
     await new Promise((resolve) => setImmediate(resolve))
 
     expect(mockVerifyReviewTargetAccess).toHaveBeenCalledTimes(1)
-    expect(mockVerifyReviewTargetAccess.mock.calls[0]?.[2]).toEqual({ requireWrite: true })
+    expect(mockVerifyReviewTargetAccess.mock.calls[0]?.[2]).toBe('write')
     expect(mockSetPersistence).toHaveBeenCalledWith(
       sessionId,
       expect.objectContaining({
@@ -234,6 +234,25 @@ describe('handleYjsUpgrade', () => {
     )
     expect(socket.write).not.toHaveBeenCalled()
     expect(socket.destroy).not.toHaveBeenCalled()
+  })
+
+  it('rejects read-mode websocket upgrades before opening mutation transport', async () => {
+    const sessionId = 'workflow-read'
+    const request = createRequest(sessionId, 'read')
+    const socket = createSocket()
+    const wss = createWebSocketServer()
+
+    const { handleYjsUpgrade } = await loadModule()
+    handleYjsUpgrade(wss, request, socket, Buffer.alloc(0))
+    await new Promise((resolve) => setImmediate(resolve))
+
+    expect(mockAuthenticateYjsConnection).not.toHaveBeenCalled()
+    expect(mockVerifyReviewTargetAccess).not.toHaveBeenCalled()
+    expect(wss.handleUpgrade).not.toHaveBeenCalled()
+    expect(socket.write).toHaveBeenCalledWith(
+      expect.stringContaining('403 Yjs websocket requires write access')
+    )
+    expect(socket.destroy).toHaveBeenCalledTimes(1)
   })
 
   it('rejects websocket upgrades when the review target has not been bootstrapped yet', async () => {

@@ -101,9 +101,8 @@ export const LinearBlock: BlockConfig<LinearResponse> = {
       tool: (params) =>
         params.operation === 'write' ? 'linear_create_issue' : 'linear_read_issues',
       params: (params) => {
-        // Handle both selector and manual inputs
-        const effectiveTeamId = (params.teamId || params.manualTeamId || '').trim()
-        const effectiveProjectId = (params.projectId || params.manualProjectId || '').trim()
+        const effectiveTeamId = (params.teamId || '').trim()
+        const effectiveProjectId = (params.projectId || '').trim()
 
         if (!effectiveTeamId) {
           throw new Error('Team ID is required.')
@@ -140,8 +139,6 @@ export const LinearBlock: BlockConfig<LinearResponse> = {
     credential: { type: 'string', description: 'Linear access token' },
     teamId: { type: 'string', description: 'Linear team identifier' },
     projectId: { type: 'string', description: 'Linear project identifier' },
-    manualTeamId: { type: 'string', description: 'Manual team identifier' },
-    manualProjectId: { type: 'string', description: 'Manual project identifier' },
     title: { type: 'string', description: 'Issue title' },
     description: { type: 'string', description: 'Issue description' },
   },

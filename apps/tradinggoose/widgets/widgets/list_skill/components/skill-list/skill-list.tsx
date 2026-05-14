@@ -15,7 +15,6 @@ import {
 } from '@/widgets/utils/skill-selection'
 import { SkillListItem } from '@/widgets/widgets/_shared/skill/components/skill-list-item'
 import {
-  buildPersistedPairContext,
   normalizeSkillName,
   resolveSkillId,
   SKILL_EDITOR_WIDGET_KEY,
@@ -55,15 +54,7 @@ export function SkillList({
     onSkillSelect: (skillId) => {
       if (!isLinkedToColorPair) return
       if (pairContext?.skillId === skillId) return
-      setPairContext(
-        resolvedPairColor,
-        buildPersistedPairContext({
-          existing: pairContext,
-          legacyIdKey: 'skillId',
-          descriptor: null,
-          legacyEntityId: skillId,
-        })
-      )
+      setPairContext(resolvedPairColor, { skillId })
     },
   })
 
@@ -78,15 +69,7 @@ export function SkillList({
     (skillId: string | null) => {
       if (isLinkedToColorPair) {
         if (pairContext?.skillId !== skillId) {
-          setPairContext(
-            resolvedPairColor,
-            buildPersistedPairContext({
-              existing: pairContext,
-              legacyIdKey: 'skillId',
-              descriptor: null,
-              legacyEntityId: skillId,
-            })
-          )
+          setPairContext(resolvedPairColor, { skillId })
         }
         return
       }
@@ -109,7 +92,6 @@ export function SkillList({
       isLinkedToColorPair,
       onWidgetParamsChange,
       pairContext?.skillId,
-      pairContext,
       panelId,
       params,
       resolvedPairColor,

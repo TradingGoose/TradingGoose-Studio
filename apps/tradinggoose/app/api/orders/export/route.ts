@@ -9,21 +9,25 @@ import {
   DEFAULT_ORDERS_FILTER_STATE,
   normalizeOrdersFilterState,
 } from '@/lib/records/order-filters'
-import { generateRequestId } from '@/lib/utils'
 import {
   buildOrderOrderBy,
   buildOrderWhereCondition,
   serializeOrderRecord,
-} from '../order-record-utils'
+} from '@/lib/trading/order-records'
+import { generateRequestId } from '@/lib/utils'
 
 const logger = createLogger('OrdersExportAPI')
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
+const ORDER_EXPORT_LIMIT = 5000
+const CSV_FORMULA_PREFIX = /^[\s]*[=+\-@]/
+
 const csvValue = (value: unknown) => {
   const text = value === null || value === undefined ? '' : String(value)
-  return `"${text.replace(/"/g, '""')}"`
+  const safeText = CSV_FORMULA_PREFIX.test(text) ? `'${text}` : text
+  return `"${safeText.replace(/"/g, '""')}"`
 }
 
 export async function GET(request: NextRequest) {
@@ -92,6 +96,14 @@ export async function GET(request: NextRequest) {
       )
       .where(whereCondition)
       .orderBy(...orderBy)
+      .limit(ORDER_EXPORT_LIMIT + 1)
+
+    if (rows.length > ORDER_EXPORT_LIMIT) {
+      return NextResponse.json(
+        { error: `Order export is limited to ${ORDER_EXPORT_LIMIT} records` },
+        { status: 413 }
+      )
+    }
 
     const records = rows.map((row) =>
       serializeOrderRecord({ ...row.order, linkedLog: row.linkedLog })
@@ -104,7 +116,6 @@ export async function GET(request: NextRequest) {
       'Submission Source',
       'Provider',
       'Environment',
-      'Account',
       'Side',
       'Status',
       'Order Type',
@@ -125,7 +136,6 @@ export async function GET(request: NextRequest) {
           record.submissionSource,
           record.provider,
           record.environment,
-          record.accountId,
           record.side,
           record.status,
           record.orderType,

@@ -2,82 +2,26 @@ import { memo, useMemo } from 'react'
 import { Handle, type NodeProps, Position } from '@xyflow/react'
 import { getIconTileStyle } from '@/lib/ui/icon-colors'
 import { cn } from '@/lib/utils'
-import { getBlock } from '@/blocks'
-import type { SubBlockConfig } from '@/blocks/types'
 import { buildSubBlockRows } from '@/lib/workflows/sub-block-rows'
+import { getBlock } from '@/blocks'
+import { SubBlockSummaryRows } from '@/widgets/widgets/editor_workflow/components/workflow-render/sub-block-summary-rows'
 import { getPreviewDiffClasses } from './preview-diff'
 import type { PreviewCanvasNode } from './preview-payload-adapter'
 
-function extractSubBlockValue(entry: unknown): unknown {
-  if (entry && typeof entry === 'object' && 'value' in entry) {
-    return (entry as { value: unknown }).value
-  }
-  return entry
-}
-
-function formatPreviewValue(value: unknown): string {
-  if (value === null || value === undefined || value === '') {
-    return '-'
-  }
-
-  if (typeof value === 'string') {
-    return value
-  }
-
-  if (typeof value === 'number' || typeof value === 'boolean') {
-    return String(value)
-  }
-
-  if (Array.isArray(value) && value.length === 0) {
-    return '-'
-  }
-
-  if (typeof value === 'object') {
-    try {
-      const asJson = JSON.stringify(value)
-      return asJson === '{}' ? '-' : asJson
-    } catch {
-      return String(value)
-    }
-  }
-
-  return String(value)
-}
-
-function getPreviewSubBlockStableKey(
-  nodeType: string,
-  subBlock: SubBlockConfig,
-  previewState: Record<string, any>,
-  index: number
-): string {
-  if (subBlock.type === 'mcp-dynamic-args') {
-    const serverValue = previewState.server?.value || 'no-server'
-    const toolValue = previewState.tool?.value || 'no-tool'
-    return `${nodeType}-${subBlock.id}-${serverValue}-${toolValue}-${index}`
-  }
-
-  if (subBlock.type === 'mcp-tool-selector') {
-    const serverValue = previewState.server?.value || 'no-server'
-    return `${nodeType}-${subBlock.id}-${serverValue}-${index}`
-  }
-
-  return `${nodeType}-${subBlock.id}-${index}`
-}
-
-export const PreviewNode = memo(function PreviewNode({ data }: NodeProps<PreviewCanvasNode>) {
+export const PreviewNode = memo(function PreviewNode({ id, data }: NodeProps<PreviewCanvasNode>) {
   const blockConfig = useMemo(() => getBlock(data.type) ?? data.config, [data.type, data.config])
   const Icon = blockConfig.icon
   const isEnabled = data.blockState?.enabled ?? true
   const isAdvancedMode = data.blockState?.advancedMode ?? false
   const useHorizontalHandles = data.blockState?.horizontalHandles ?? false
   const isPureTriggerBlock = blockConfig.category === 'triggers'
-  const isTriggerMode =
-    Boolean(data.blockState?.triggerMode) || isPureTriggerBlock || data.type === 'starter'
+  const isTriggerMode = Boolean(data.blockState?.triggerMode) || isPureTriggerBlock
   const previewStateRaw = data.subBlockValues ?? data.blockState?.subBlocks ?? {}
   const showInputHandle = blockConfig.category !== 'triggers'
   const showOutputHandles = data.type !== 'condition' && data.type !== 'response'
   const previewSubBlocks = useMemo(() => {
     return buildSubBlockRows({
+      blockId: id,
       subBlocks: blockConfig.subBlocks || [],
       stateToUse: previewStateRaw,
       isAdvancedMode,
@@ -131,31 +75,15 @@ export const PreviewNode = memo(function PreviewNode({ data }: NodeProps<Preview
 
       {previewSubBlocks.length > 0 && (
         <div className='space-y-1 border-border border-t px-3 py-2'>
-          {previewSubBlocks.map((subBlock, index) => {
-            const rawValue = extractSubBlockValue(previewStateRaw[subBlock.id])
-            const displayValue = formatPreviewValue(rawValue)
-            return (
-              <div
-                key={getPreviewSubBlockStableKey(data.type, subBlock, previewStateRaw, index)}
-                className='flex items-center gap-2'
-              >
-                <p
-                  className='min-w-0 truncate text-[11px] text-muted-foreground capitalize'
-                  title={subBlock.title ?? subBlock.id}
-                >
-                  {subBlock.title ?? subBlock.id}
-                </p>
-                <p className='min-w-0 flex-1 truncate text-right text-[11px]' title={displayValue}>
-                  {displayValue}
-                </p>
-              </div>
-            )
-          })}
-          {showInputHandle && (
-            <div className='flex items-center gap-2'>
-              <p className='min-w-0 truncate text-[11px] text-muted-foreground capitalize'>error</p>
-            </div>
-          )}
+          <SubBlockSummaryRows
+            blockId={id}
+            subBlocks={previewSubBlocks}
+            stateToUse={previewStateRaw}
+            showErrorRow={showInputHandle}
+            availableTriggerIds={blockConfig.triggers?.available}
+            labelClassName='text-[11px]'
+            valueClassName='text-[11px]'
+          />
         </div>
       )}
 

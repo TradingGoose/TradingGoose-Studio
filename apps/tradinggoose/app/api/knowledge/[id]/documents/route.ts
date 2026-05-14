@@ -10,8 +10,8 @@ import {
 } from '@/lib/knowledge/documents/service'
 import type { DocumentSortField, SortOrder } from '@/lib/knowledge/documents/types'
 import { createLogger } from '@/lib/logs/console/logger'
+import { getUserId } from '@/lib/oauth/tokens'
 import { TriggerExecutionUnavailableError } from '@/lib/trigger/settings'
-import { getUserId } from '@/app/api/auth/oauth/utils'
 import { checkKnowledgeBaseAccess, checkKnowledgeBaseWriteAccess } from '@/app/api/knowledge/utils'
 
 const logger = createLogger('DocumentsAPI')
@@ -212,8 +212,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
             },
             processingOptions: {
               chunkSize: validatedData.processingOptions.chunkSize || 1024,
-              minCharactersPerChunk:
-                validatedData.processingOptions.minCharactersPerChunk || 1,
+              minCharactersPerChunk: validatedData.processingOptions.minCharactersPerChunk || 1,
               recipe: validatedData.processingOptions.recipe || 'default',
               lang: validatedData.processingOptions.lang || 'en',
               chunkOverlap: validatedData.processingOptions.chunkOverlap || 200,

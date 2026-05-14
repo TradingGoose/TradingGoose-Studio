@@ -12,6 +12,7 @@ export enum BlockType {
   API = 'api',
   EVALUATOR = 'evaluator',
   RESPONSE = 'response',
+  WORKFLOW = 'workflow',
   WORKFLOW_INPUT = 'workflow_input',
   VARIABLES = 'variables',
   WAIT = 'wait',
@@ -30,5 +31,5 @@ export function isValidBlockType(type: string): type is BlockType {
 }
 
 export function isWorkflowBlockType(blockType: string | undefined): boolean {
-  return blockType === BlockType.WORKFLOW_INPUT
+  return blockType === BlockType.WORKFLOW || blockType === BlockType.WORKFLOW_INPUT
 }

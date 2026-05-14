@@ -36,7 +36,6 @@ export const slackWebhookTrigger: TriggerConfig = {
       type: 'trigger-save',
       hideFromPreview: true,
       mode: 'trigger',
-      triggerId: 'slack_webhook',
     },
     {
       id: 'triggerInstructions',

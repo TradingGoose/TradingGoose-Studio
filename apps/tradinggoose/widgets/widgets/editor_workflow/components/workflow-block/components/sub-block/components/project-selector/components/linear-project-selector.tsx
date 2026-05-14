@@ -51,7 +51,7 @@ export function LinearProjectSelector({
     fetch('/api/tools/linear/projects', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ credential, teamId, workflowId }),
+      body: JSON.stringify({ credentialId: credential, teamId, workflowId }),
       signal: controller.signal,
     })
       .then(async (res) => {

@@ -62,7 +62,6 @@ export const genericWebhookTrigger: TriggerConfig = {
       type: 'trigger-save',
       hideFromPreview: true,
       mode: 'trigger',
-      triggerId: 'generic_webhook',
     },
     {
       id: 'triggerInstructions',

@@ -1,3 +1,4 @@
+import { getCredentialRouteParams } from '@/tools/credentials'
 import type {
   MicrosoftTeamsToolParams,
   MicrosoftTeamsWriteResponse,
@@ -82,7 +83,11 @@ export const writeChannelTool: ToolConfig<MicrosoftTeamsToolParams, MicrosoftTea
     },
     method: 'POST',
     headers: (params) => {
-      // Validate access token
+      if (params.files && params.files.length > 0) {
+        const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+        return headers
+      }
+
       if (!params.accessToken) {
         throw new Error('Access token is required')
       }
@@ -98,10 +103,9 @@ export const writeChannelTool: ToolConfig<MicrosoftTeamsToolParams, MicrosoftTea
         throw new Error('Content is required')
       }
 
-      // If using custom API route (with files), pass all params
       if (params.files && params.files.length > 0) {
         return {
-          accessToken: params.accessToken,
+          ...getCredentialRouteParams(params),
           teamId: params.teamId,
           channelId: params.channelId,
           content: params.content,

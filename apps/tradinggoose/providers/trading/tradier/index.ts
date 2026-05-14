@@ -1,26 +1,9 @@
-import type { TradingProvider } from '@/providers/trading/providers'
-import { tradierTradingProviderConfig } from '@/providers/trading/tradier/config'
-import {
-  buildTradierOrderRequest,
-  normalizeTradierOrder,
-} from '@/providers/trading/tradier/orders'
+import type { TradingProviderAdapter } from '@/providers/trading/providers'
 import { tradierOrderDetailRequest } from '@/providers/trading/tradier/orderDetail'
-import {
-  buildTradierHoldingsRequest,
-  normalizeTradierHoldings,
-} from '@/providers/trading/tradier/positions'
+import { buildTradierOrderRequest, normalizeTradierOrder } from '@/providers/trading/tradier/orders'
 
-export const tradierProvider: TradingProvider = {
-  id: 'tradier',
-  name: 'Tradier',
-  config: tradierTradingProviderConfig,
-  defaults: {
-    orderType: 'market',
-    timeInForce: 'day',
-  },
+export const tradierProvider: TradingProviderAdapter = {
   buildOrderRequest: buildTradierOrderRequest,
-  buildHoldingsRequest: buildTradierHoldingsRequest,
   orderDetailRequest: tradierOrderDetailRequest,
   normalizeOrder: normalizeTradierOrder,
-  normalizeHoldings: normalizeTradierHoldings,
 }

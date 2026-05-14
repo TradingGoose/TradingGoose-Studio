@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Check, Copy, Wand2 } from 'lucide-react'
 import { useReactFlow } from '@xyflow/react'
+import { Check, Copy, Wand2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { checkEnvVarTrigger, EnvVarDropdown } from '@/components/ui/env-var-dropdown'
 import { formatDisplayText } from '@/components/ui/formatted-text'
@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input'
 import { checkTagTrigger, TagDropdown } from '@/components/ui/tag-dropdown'
 import { createLogger } from '@/lib/logs/console/logger'
 import { cn } from '@/lib/utils'
+import { useWorkflowTextField } from '@/lib/yjs/use-workflow-doc'
 import type { SubBlockConfig } from '@/blocks/types'
 import { useTagSelection } from '@/hooks/use-tag-selection'
 import { useWebhookManagement } from '@/hooks/use-webhook-management'
@@ -16,7 +17,6 @@ import { useWand } from '@/hooks/workflow/use-wand'
 import { WandPromptBar } from '@/widgets/widgets/editor_workflow/components/wand-prompt-bar/wand-prompt-bar'
 import { useBufferedStringValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-buffered-string-value'
 import { useOptionalWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
-import { useWorkflowTextField } from '@/lib/yjs/use-workflow-doc'
 
 const logger = createLogger('ShortInput')
 
@@ -79,7 +79,6 @@ export function ShortInput({
 
   const webhookManagement = useWebhookManagement({
     blockId,
-    triggerId: undefined,
     useWebhookUrl,
   })
 
@@ -466,7 +465,11 @@ export function ShortInput({
             isConnecting &&
               config?.connectionDroppable !== false &&
               'ring-2 ring-blue-500 ring-offset-2 focus-visible:ring-blue-500',
-            showCopyButton && resolvedWandConfig.enabled ? 'pr-20' : showCopyButton ? 'pr-12' : undefined
+            showCopyButton && resolvedWandConfig.enabled
+              ? 'pr-20'
+              : showCopyButton
+                ? 'pr-12'
+                : undefined
           )}
           placeholder={placeholder ?? ''}
           inputMode={isNumericInput ? numericInputMode : undefined}

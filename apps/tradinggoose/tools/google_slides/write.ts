@@ -40,7 +40,7 @@ export const writeTool: ToolConfig<GoogleSlidesToolParams, GoogleSlidesWriteResp
   request: {
     url: (params) => {
       // Ensure presentationId is valid
-      const presentationId = params.presentationId?.trim() || params.manualPresentationId?.trim()
+      const presentationId = params.presentationId?.trim()
       if (!presentationId) {
         throw new Error('Presentation ID is required')
       }
@@ -71,7 +71,7 @@ export const writeTool: ToolConfig<GoogleSlidesToolParams, GoogleSlidesWriteResp
       throw new Error('Content is required')
     }
 
-    const presentationId = params.presentationId?.trim() || params.manualPresentationId?.trim()
+    const presentationId = params.presentationId?.trim()
 
     if (!presentationId) {
       throw new Error('Presentation ID is required')

@@ -128,8 +128,8 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
     const effectivePlaceholder =
       placeholder ||
       (accessLevel === 'limited'
-        ? 'Ask questions or request workflow, skill, indicator, or tool changes'
-        : 'Describe the workflow, skill, indicator, MCP, or custom-tool changes to run')
+        ? 'Ask questions or review tools before they run'
+        : 'Ask questions or let tools run without extra approval')
 
     useImperativeHandle(
       ref,
@@ -456,7 +456,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
 
           <div className='relative'>
             {!message && (
-              <div className='pointer-events-none truncate absolute inset-x-[2px] top-1 z-[1] pr-14 font-sans text-muted-foreground text-sm leading-[1.25rem]'>
+              <div className='pointer-events-none absolute inset-x-[2px] top-1 z-[1] truncate pr-14 font-sans text-muted-foreground text-sm leading-[1.25rem]'>
                 {isDragging ? 'Drop files here...' : effectivePlaceholder}
               </div>
             )}
@@ -569,7 +569,7 @@ const UserInput = forwardRef<UserInputRef, UserInputProps>(
               </Button>
             </div>
 
-            <div className='flex items-center gap-1.5'>
+            <div className='pl-1.5 flex items-center gap-1.5'>
               <Button
                 variant='ghost'
                 size='icon'

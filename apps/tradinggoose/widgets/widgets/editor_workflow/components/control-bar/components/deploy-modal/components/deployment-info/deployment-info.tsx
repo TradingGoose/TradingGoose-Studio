@@ -16,10 +16,7 @@ interface WorkflowDeploymentInfo {
 interface DeploymentInfoProps {
   isLoading: boolean
   deploymentInfo: WorkflowDeploymentInfo | null
-  workflowId: string | null
-  getInputFormatExample?: (includeStreaming?: boolean) => string
-  selectedStreamingOutputs: string[]
-  onSelectedStreamingOutputsChange: (outputs: string[]) => void
+  getInputFormatExample?: () => string
   showApiKeyInfo?: boolean
   showApiAccessInfo?: boolean
 }
@@ -27,10 +24,7 @@ interface DeploymentInfoProps {
 export function DeploymentInfo({
   isLoading,
   deploymentInfo,
-  workflowId,
   getInputFormatExample,
-  selectedStreamingOutputs,
-  onSelectedStreamingOutputsChange,
   showApiKeyInfo = true,
   showApiAccessInfo = true,
 }: DeploymentInfoProps) {
@@ -73,9 +67,6 @@ export function DeploymentInfo({
               apiKey={deploymentInfo.apiKey}
               endpoint={deploymentInfo.endpoint}
               getInputFormatExample={getInputFormatExample}
-              workflowId={workflowId}
-              selectedStreamingOutputs={selectedStreamingOutputs}
-              onSelectedStreamingOutputsChange={onSelectedStreamingOutputsChange}
             />
           </>
         ) : (

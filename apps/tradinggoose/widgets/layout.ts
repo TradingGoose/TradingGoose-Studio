@@ -140,7 +140,6 @@ export function normalizeColorPairsState(state?: unknown): PersistedColorPairsSt
     const mcpServerId = normalizeOptionalString((raw as { mcpServerId?: unknown }).mcpServerId)
     const customToolId = normalizeOptionalString((raw as { customToolId?: unknown }).customToolId)
     const skillId = normalizeOptionalString((raw as { skillId?: unknown }).skillId)
-
     normalized.push({
       color: rawColor,
       workflowId,

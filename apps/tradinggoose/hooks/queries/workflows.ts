@@ -9,7 +9,7 @@ const logger = createLogger('WorkflowQueries')
 export const workflowKeys = {
   all: ['workflows'] as const,
   lists: () => [...workflowKeys.all, 'list'] as const,
-  list: (workspaceId: string | undefined) => [...workflowKeys.lists(), workspaceId ?? ''] as const,
+  list: (workspaceId: string) => [...workflowKeys.lists(), workspaceId] as const,
 }
 
 interface CreateWorkflowVariables {

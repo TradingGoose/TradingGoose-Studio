@@ -3,6 +3,8 @@
  * This file contains all copilot-related type definitions
  */
 
+import type { ProviderId } from '@/providers/ai/types'
+
 // Tool call state types (from apps/tradinggoose/types/tool-call.ts)
 export interface ToolCallState {
   id: string
@@ -49,92 +51,6 @@ export interface ParsedMessageContent {
   toolCalls: ToolCallState[]
   toolGroups: ToolCallGroup[]
   inlineContent?: InlineContent[]
-}
-
-import type { ProviderId } from '@/providers/ai/types'
-// Copilot Tools Type Definitions (from workspace copilot lib)
-import type { CopilotToolCall, ToolState } from '@/stores/copilot/types'
-
-export type NotificationStatus =
-  | 'pending'
-  | 'success'
-  | 'error'
-  | 'accepted'
-  | 'rejected'
-  | 'background'
-
-// Export the consolidated types
-export type { CopilotToolCall, ToolState }
-
-// Display configuration for different states
-export interface StateDisplayConfig {
-  displayName: string
-  icon?: string
-  className?: string
-}
-
-// Complete display configuration for a tool
-export interface ToolDisplayConfig {
-  states: {
-    [K in ToolState]?: StateDisplayConfig
-  }
-  getDynamicDisplayName?: (state: ToolState, params: Record<string, any>) => string | null
-}
-
-// Schema for tool parameters (OpenAI function calling format)
-export interface ToolSchema {
-  name: string
-  description: string
-  parameters?: {
-    type: 'object'
-    properties: Record<string, any>
-    required?: string[]
-  }
-}
-
-// Tool metadata - all the static configuration
-export interface ToolMetadata {
-  id: string
-  displayConfig: ToolDisplayConfig
-  schema: ToolSchema
-  requiresInterrupt: boolean
-  allowBackgroundExecution?: boolean
-  stateMessages?: Partial<Record<NotificationStatus, string>>
-}
-
-// Result from executing a tool
-export interface ToolExecuteResult {
-  success: boolean
-  data?: any
-  error?: string
-}
-
-// Response from the confirmation API
-export interface ToolConfirmResponse {
-  success: boolean
-  message?: string
-}
-
-// Options for tool execution
-export interface ToolExecutionOptions {
-  onStateChange?: (state: ToolState) => void
-  beforeExecute?: () => Promise<boolean>
-  afterExecute?: (result: ToolExecuteResult) => Promise<void>
-  context?: Record<string, any>
-}
-
-// The main tool interface that all tools must implement
-export interface Tool {
-  metadata: ToolMetadata
-  execute(toolCall: CopilotToolCall, options?: ToolExecutionOptions): Promise<ToolExecuteResult>
-  getDisplayName(toolCall: CopilotToolCall): string
-  getIcon(toolCall: CopilotToolCall): string
-  handleUserAction(
-    toolCall: CopilotToolCall,
-    action: 'run' | 'skip' | 'background',
-    options?: ToolExecutionOptions
-  ): Promise<void>
-  requiresConfirmation(toolCall: CopilotToolCall): boolean
 }
 
 // Provider configuration for TradingGoose Agent requests

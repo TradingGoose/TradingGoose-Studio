@@ -11,19 +11,12 @@ export interface Field {
 
 /**
  * Helper function to extract fields from JSON Schema
- * Handles both legacy format with fields array and new JSON Schema format
  */
 export function extractFieldsFromSchema(schema: any): Field[] {
   if (!schema || typeof schema !== 'object') {
     return []
   }
 
-  // Handle legacy format with fields array
-  if (Array.isArray(schema.fields)) {
-    return schema.fields
-  }
-
-  // Handle new JSON Schema format
   const schemaObj = schema.schema || schema
   if (!schemaObj || !schemaObj.properties || typeof schemaObj.properties !== 'object') {
     return []
@@ -60,7 +53,11 @@ export function parseResponseFormatSafely(responseFormatValue: any, blockId: str
 
   try {
     if (typeof responseFormatValue === 'string') {
-      return JSON.parse(responseFormatValue)
+      const trimmedValue = responseFormatValue.trim()
+      if (!trimmedValue || (trimmedValue.startsWith('<') && trimmedValue.includes('>'))) {
+        return null
+      }
+      return JSON.parse(trimmedValue)
     }
     return responseFormatValue
   } catch (error) {
@@ -70,57 +67,11 @@ export function parseResponseFormatSafely(responseFormatValue: any, blockId: str
 }
 
 /**
- * Extract field values from a parsed JSON object based on selected output paths
- * Used for both workspace and chat client field extraction
- */
-export function extractFieldValues(
-  parsedContent: any,
-  selectedOutputs: string[],
-  blockId: string
-): Record<string, any> {
-  const extractedValues: Record<string, any> = {}
-
-  for (const outputId of selectedOutputs) {
-    const blockIdForOutput = extractBlockIdFromOutputId(outputId)
-
-    if (blockIdForOutput !== blockId) {
-      continue
-    }
-
-    const path = extractPathFromOutputId(outputId, blockIdForOutput)
-
-    if (path) {
-      const current = traverseObjectPathInternal(parsedContent, path)
-      if (current !== undefined) {
-        extractedValues[path] = current
-      }
-    }
-  }
-
-  return extractedValues
-}
-
-/**
- * Format extracted field values for display
- * Returns formatted string representation of field values
- */
-export function formatFieldValues(extractedValues: Record<string, any>): string {
-  const formattedValues: string[] = []
-
-  for (const [fieldName, value] of Object.entries(extractedValues)) {
-    const formattedValue = typeof value === 'string' ? value : JSON.stringify(value)
-    formattedValues.push(formattedValue)
-  }
-
-  return formattedValues.join('\n')
-}
-
-/**
  * Extract block ID from output ID
- * Handles both formats: "blockId" and "blockId_path" or "blockId.path"
  */
 export function extractBlockIdFromOutputId(outputId: string): string {
-  return outputId.includes('_') ? outputId.split('_')[0] : outputId.split('.')[0]
+  const separatorIndex = outputId.indexOf('_')
+  return separatorIndex === -1 ? outputId : outputId.slice(0, separatorIndex)
 }
 
 /**
@@ -149,28 +100,6 @@ export function parseOutputContentSafely(output: any): any {
   }
 
   return output
-}
-
-/**
- * Check if a set of output IDs contains response format selections for a specific block
- */
-export function hasResponseFormatSelection(selectedOutputs: string[], blockId: string): boolean {
-  return selectedOutputs.some((outputId) => {
-    const blockIdForOutput = extractBlockIdFromOutputId(outputId)
-    return blockIdForOutput === blockId && outputId.includes('_')
-  })
-}
-
-/**
- * Get selected field names for a specific block from output IDs
- */
-export function getSelectedFieldNames(selectedOutputs: string[], blockId: string): string[] {
-  return selectedOutputs
-    .filter((outputId) => {
-      const blockIdForOutput = extractBlockIdFromOutputId(outputId)
-      return blockIdForOutput === blockId && outputId.includes('_')
-    })
-    .map((outputId) => extractPathFromOutputId(outputId, blockId))
 }
 
 /**

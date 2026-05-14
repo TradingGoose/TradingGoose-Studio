@@ -1,6 +1,7 @@
 'use client'
 
 import { cn } from '@/lib/utils'
+import type { PortfolioIdentity } from '@/providers/trading/portfolio-identity'
 import {
   type TradingAccountSelection,
   TradingAccountSelector,
@@ -16,8 +17,8 @@ type TradingProviderControlsProps = {
   providerId?: string | null
   providerOptions: TradingProviderOption[]
   onProviderChange?: (providerId: string) => void
-  credentialServiceId?: string | null
-  accountId?: string | null
+  serviceId?: string | null
+  portfolioIdentity?: PortfolioIdentity | null
   disabled?: boolean
   providerPlaceholder?: string
   accountPlaceholder?: string
@@ -32,8 +33,8 @@ export function TradingProviderControls({
   providerId,
   providerOptions,
   onProviderChange,
-  credentialServiceId,
-  accountId,
+  serviceId,
+  portfolioIdentity,
   disabled = false,
   providerPlaceholder,
   accountPlaceholder = 'Select account',
@@ -58,8 +59,8 @@ export function TradingProviderControls({
         <TradingAccountSelector
           workspaceId={workspaceId}
           providerId={selectedProviderId}
-          credentialServiceId={credentialServiceId}
-          accountId={accountId}
+          serviceId={serviceId}
+          portfolioIdentity={portfolioIdentity}
           disabled={disabled}
           placeholder={accountPlaceholder}
           tooltipText={accountTooltipText}

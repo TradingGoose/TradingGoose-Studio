@@ -1,10 +1,9 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
-import { getUserEntityPermissions } from '@/lib/permissions/utils'
+import { checkWorkspaceAccess } from '@/lib/permissions/utils'
 import { listWorkspaceFiles, uploadWorkspaceFile } from '@/lib/uploads/contexts/workspace'
 import { generateRequestId } from '@/lib/utils'
-import { verifyWorkspaceMembership } from '@/app/api/workflows/utils'
 
 export const dynamic = 'force-dynamic'
 
@@ -25,8 +24,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     }
 
     // Check workspace permissions (requires read)
-    const userPermission = await verifyWorkspaceMembership(session.user.id, workspaceId)
-    if (!userPermission) {
+    const workspaceAccess = await checkWorkspaceAccess(workspaceId, session.user.id)
+    if (!workspaceAccess.hasAccess) {
       logger.warn(
         `[${requestId}] User ${session.user.id} lacks permission for workspace ${workspaceId}`
       )
@@ -68,8 +67,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     }
 
     // Check workspace permissions (requires write)
-    const userPermission = await getUserEntityPermissions(session.user.id, 'workspace', workspaceId)
-    if (userPermission !== 'admin' && userPermission !== 'write') {
+    const workspaceAccess = await checkWorkspaceAccess(workspaceId, session.user.id)
+    if (!workspaceAccess.canWrite) {
       logger.warn(
         `[${requestId}] User ${session.user.id} lacks write permission for workspace ${workspaceId}`
       )

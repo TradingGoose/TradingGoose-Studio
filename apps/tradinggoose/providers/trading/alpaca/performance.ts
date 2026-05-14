@@ -186,11 +186,11 @@ export async function getAlpacaTradingAccountPerformance(
     }),
   ])
 
-  const normalizedAccount = normalizeAlpacaTradingAccount(accountResponse)
+  const normalizedAccount = normalizeAlpacaTradingAccount(accountResponse, context)
 
   return normalizeAlpacaPortfolioHistoryResponse({
     history: historyResponse,
-    currency: normalizedAccount.baseCurrency,
+    currency: normalizedAccount.baseCurrency ?? 'USD',
     window: context.window,
   })
 }

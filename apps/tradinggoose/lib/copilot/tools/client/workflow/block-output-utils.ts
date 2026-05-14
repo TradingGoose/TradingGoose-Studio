@@ -1,9 +1,9 @@
 import { getBlockOutputPaths, getBlockOutputType } from '@/lib/workflows/block-outputs'
-import { normalizeBlockName } from '@/stores/workflows/utils'
-import type { Variable } from '@/stores/variables/types'
-import type { BlockState, Loop, Parallel } from '@/stores/workflows/workflow/types'
+import { readWorkflowSnapshot } from '@/lib/yjs/workflow-session'
 import { getRegisteredWorkflowSession } from '@/lib/yjs/workflow-session-registry'
-import { getWorkflowSnapshot } from '@/lib/yjs/workflow-session'
+import type { Variable } from '@/stores/variables/types'
+import { normalizeBlockName } from '@/stores/workflows/utils'
+import type { BlockState, Loop, Parallel } from '@/stores/workflows/workflow/types'
 
 export interface WorkflowContext {
   blocks: Record<string, BlockState>
@@ -28,7 +28,7 @@ export interface BlockOutputReference {
  * Extract sub-block values from a plain blocks record (no Yjs session needed).
  * Returns a map of blockId -> { subBlockId -> value }.
  *
- * This is the pure-data counterpart of `getWorkflowSubBlockValues` which reads
+ * This is the pure-data counterpart of `readWorkflowSubBlockValues` which reads
  * from a live Yjs session. Use this variant when you already have the blocks
  * snapshot in memory (e.g. during YAML export or server-side processing).
  */
@@ -58,9 +58,9 @@ export function extractSubBlockValuesFromBlocks(
  * Accepts an optional pre-fetched `snapshot` parameter. When provided, the
  * function skips the Yjs document snapshot entirely, avoiding redundant
  * full-document reads when the caller already has the snapshot in hand
- * (e.g. from a prior `getWorkflowSnapshot` call in the same tool execution).
+ * (e.g. from a prior `readWorkflowSnapshot` call in the same tool execution).
  */
-export function getWorkflowSubBlockValues(
+export function readWorkflowSubBlockValues(
   workflowId: string,
   snapshot?: { blocks: Record<string, any> }
 ): Record<string, Record<string, any>> {
@@ -70,7 +70,7 @@ export function getWorkflowSubBlockValues(
 
   const session = getRegisteredWorkflowSession(workflowId)
   if (!session?.doc) return {}
-  const liveSnapshot = getWorkflowSnapshot(session.doc)
+  const liveSnapshot = readWorkflowSnapshot(session.doc)
   return extractSubBlockValuesFromBlocks(liveSnapshot.blocks)
 }
 
@@ -99,7 +99,7 @@ export function getSubBlockValue(
   return blocks[targetBlockId]?.subBlocks?.[subBlockId]?.value
 }
 
-export function getWorkflowVariableOutputs(
+export function readWorkflowVariableOutputs(
   variablesRecord: Record<string, any> | null | undefined
 ): VariableOutput[] {
   const varsSnapshot = variablesRecord

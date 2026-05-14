@@ -1135,7 +1135,7 @@ describe('Database Helpers', () => {
     })
   })
 
-  describe('loadWorkflowStateWithFallback', () => {
+  describe('loadWorkflowState', () => {
     it('returns the Yjs state without a workflow-row query when lastSynced is provided', async () => {
       const doc = new Y.Doc()
       const yjsState = {
@@ -1170,7 +1170,7 @@ describe('Database Helpers', () => {
         buildWorkflowSnapshotResponse(Y.encodeStateAsUpdate(doc))
       )
 
-      const result = await dbHelpers.loadWorkflowStateWithFallback(
+      const result = await dbHelpers.loadWorkflowState(
         mockWorkflowId,
         new Date('2026-04-06T00:00:00.000Z')
       )
@@ -1240,7 +1240,7 @@ describe('Database Helpers', () => {
         }),
       })
 
-      const result = await dbHelpers.loadWorkflowStateWithFallback(mockWorkflowId)
+      const result = await dbHelpers.loadWorkflowState(mockWorkflowId)
 
       expect(result).toMatchObject({
         blocks: yjsState.blocks,
@@ -1253,7 +1253,7 @@ describe('Database Helpers', () => {
       expect(mockDb.select).toHaveBeenCalledTimes(1)
     })
 
-    it('falls back to normalized tables when the Yjs bridge errors', async () => {
+    it('loads normalized tables when the Yjs bridge errors', async () => {
       mockGetYjsSnapshot.mockRejectedValueOnce(
         new Error('socket server unavailable')
       )
@@ -1294,7 +1294,7 @@ describe('Database Helpers', () => {
         }),
       }))
 
-      const result = await dbHelpers.loadWorkflowStateWithFallback(mockWorkflowId)
+      const result = await dbHelpers.loadWorkflowState(mockWorkflowId)
 
       expect(result).toMatchObject({
         blocks: expect.objectContaining({
@@ -1321,7 +1321,7 @@ describe('Database Helpers', () => {
       })
     })
 
-    it('falls back to normalized tables when the stored Yjs snapshot is older than workflow lastSynced', async () => {
+    it('loads normalized tables when the stored Yjs snapshot is older than workflow lastSynced', async () => {
       const doc = new Y.Doc()
       setWorkflowState(
         doc,
@@ -1385,7 +1385,7 @@ describe('Database Helpers', () => {
         }),
       }))
 
-      const result = await dbHelpers.loadWorkflowStateWithFallback(mockWorkflowId)
+      const result = await dbHelpers.loadWorkflowState(mockWorkflowId)
 
       expect(result).toMatchObject({
         blocks: expect.objectContaining({

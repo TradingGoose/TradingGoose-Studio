@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button'
 import { LoadingAgent } from '@/components/ui/loading-agent'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { DEFAULT_COPILOT_RUNTIME_MODEL } from '@/lib/copilot/runtime-models'
+import type { ReviewTargetDescriptor } from '@/lib/copilot/review-sessions/types'
 import { createLogger } from '@/lib/logs/console/logger'
 import { normalizeOptionalString } from '@/lib/utils'
 import { useCopilotStore, useCopilotStoreApi } from '@/stores/copilot/store'
@@ -22,7 +23,6 @@ import type { ChatContext, CopilotSendRuntimeContext } from '@/stores/copilot/ty
 import { usePairColorContext } from '@/stores/dashboard/pair-store'
 import type { PairColor } from '@/widgets/pair-colors'
 import {
-  buildCopilotEditableReviewTargets,
   buildImplicitCopilotContexts,
   resolveCopilotWorkflowId,
 } from '@/widgets/widgets/copilot/live-contexts'
@@ -47,6 +47,7 @@ interface CopilotProps {
   panelWidth: number
   pairColor?: PairColor
   inputDisabled?: boolean
+  reviewTarget: ReviewTargetDescriptor | null
 }
 
 interface CopilotRef {
@@ -55,7 +56,7 @@ interface CopilotRef {
 }
 
 export const Copilot = forwardRef<CopilotRef, CopilotProps>(
-  ({ workspaceId, panelWidth, pairColor = 'gray', inputDisabled = false }, ref) => {
+  ({ workspaceId, panelWidth, pairColor = 'gray', inputDisabled = false, reviewTarget }, ref) => {
     const scrollAreaRef = useRef<HTMLDivElement>(null)
     const messagesContainerRef = useRef<HTMLDivElement>(null)
     const userInputRef = useRef<UserInputRef>(null)
@@ -82,22 +83,11 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
       [pairContext, workspaceId]
     )
     const workflowId = resolveCopilotWorkflowId(pairContext) ?? null
-    const reviewTarget = useMemo(
-      () => buildCopilotEditableReviewTargets({ pairContext })[0] ?? null,
-      [pairContext]
-    )
     const liveContext = useMemo(
       () => ({
         workflowId,
         workspaceId: normalizeOptionalString(workspaceId) ?? null,
-        reviewTarget: reviewTarget
-          ? {
-              entityKind: reviewTarget.entityKind,
-              entityId: reviewTarget.entityId,
-              reviewSessionId: reviewTarget.reviewSessionId ?? null,
-              draftSessionId: reviewTarget.draftSessionId,
-            }
-          : null,
+        reviewTarget,
       }),
       [reviewTarget, workflowId, workspaceId]
     )
@@ -463,7 +453,7 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
         fileAttachments?: MessageFileAttachment[],
         contexts?: ChatContext[]
       ) => {
-        if (!query || isTurnInProgress) return
+        if (!query || inputDisabled || isTurnInProgress) return
 
         // Clear todos when sending a new message
         if (showPlanTodos) {
@@ -486,7 +476,14 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
           logger.error('Failed to send message:', error)
         }
       },
-      [isTurnInProgress, sendMessage, showPlanTodos, copilotStoreApi, sendRuntimeContext]
+      [
+        inputDisabled,
+        isTurnInProgress,
+        sendMessage,
+        showPlanTodos,
+        copilotStoreApi,
+        sendRuntimeContext,
+      ]
     )
 
     const handleEditModeChange = useCallback((messageId: string, isEditing: boolean) => {
@@ -546,6 +543,7 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
                             }
                             panelWidth={panelWidth}
                             isDimmed={isDimmed}
+                            sendDisabled={inputDisabled}
                             onEditModeChange={(isEditing) =>
                               handleEditModeChange(message.id, isEditing)
                             }
@@ -562,10 +560,10 @@ export const Copilot = forwardRef<CopilotRef, CopilotProps>(
                     <Button
                       onClick={() => scrollToBottom()}
                       size='sm'
-                      variant='outline'
-                      className='flex items-center gap-1 rounded-full border border-gray-200 px-3 py-1 shadow-lg transition-all hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:hover:bg-gray-700'
+                      variant='default'
+                      className='flex items-center bg-background hover:bg-muted gap-1 rounded-lg border border-border h-7 w-7 shadow-lg transition-all'
                     >
-                      <ArrowDown className='h-3.5 w-3.5 text-gray-700 dark:text-gray-300' />
+                      <ArrowDown className='h-3.5 w-3.5  font-bold text-gray-700 dark:text-gray-300' />
                       <span className='sr-only'>Scroll to bottom</span>
                     </Button>
                   </div>

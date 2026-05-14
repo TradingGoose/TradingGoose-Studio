@@ -5,7 +5,6 @@ import { useState } from 'react'
 import { Check, Copy, ExternalLink, FileSearch, PanelRightOpen } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { getProviderOrderExternalUrl } from '@/lib/records/provider-order-links'
 import type { RecordsOrder } from '@/hooks/queries/records-orders'
 import { orderIdentifier } from './order-formatters'
 
@@ -23,7 +22,6 @@ export function OrderRowActions({
   onOpenProvider,
 }: OrderRowActionsProps) {
   const [copied, setCopied] = useState(false)
-  const externalUrl = getProviderOrderExternalUrl(order)
 
   const stop = (event: React.MouseEvent) => event.stopPropagation()
 
@@ -75,27 +73,12 @@ export function OrderRowActions({
 
       <Tooltip>
         <TooltipTrigger asChild>
-          {externalUrl ? (
-            <Button
-              size='icon'
-              variant='ghost'
-              className='h-8 w-8'
-              onClick={(event) => {
-                stop(event)
-                window.open(externalUrl, '_blank', 'noopener,noreferrer')
-              }}
-            >
-              <ExternalLink className='h-4 w-4' />
-              <span className='sr-only'>Provider order detail</span>
-            </Button>
-          ) : (
-            <Button size='icon' variant='ghost' className='h-8 w-8' onClick={handleCopy}>
-              {copied ? <Check className='h-4 w-4' /> : <Copy className='h-4 w-4' />}
-              <span className='sr-only'>Copy order id</span>
-            </Button>
-          )}
+          <Button size='icon' variant='ghost' className='h-8 w-8' onClick={handleCopy}>
+            {copied ? <Check className='h-4 w-4' /> : <Copy className='h-4 w-4' />}
+            <span className='sr-only'>Copy order id</span>
+          </Button>
         </TooltipTrigger>
-        <TooltipContent>{externalUrl ? 'Provider order detail' : 'Copy order id'}</TooltipContent>
+        <TooltipContent>Copy order id</TooltipContent>
       </Tooltip>
 
       <Tooltip>

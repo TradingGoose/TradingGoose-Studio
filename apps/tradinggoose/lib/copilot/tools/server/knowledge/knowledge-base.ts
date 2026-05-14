@@ -1,7 +1,8 @@
 import { createLogger } from '@/lib/logs/console/logger'
-import type {
-  BaseServerTool,
-  ServerToolExecutionContext,
+import {
+  type BaseServerTool,
+  type ServerToolExecutionContext,
+  throwIfServerToolAborted,
 } from '@/lib/copilot/tools/server/base-tool'
 import {
   type KnowledgeBaseArgs,
@@ -32,6 +33,7 @@ export const knowledgeBaseServerTool: BaseServerTool<KnowledgeBaseArgs, Knowledg
     }
 
     const { operation, args = {} } = params
+    throwIfServerToolAborted(context)
 
     try {
       switch (operation) {
@@ -44,6 +46,7 @@ export const knowledgeBaseServerTool: BaseServerTool<KnowledgeBaseArgs, Knowledg
           }
 
           const requestId = crypto.randomUUID().slice(0, 8)
+          throwIfServerToolAborted(context)
           const newKnowledgeBase = await createKnowledgeBase(
             {
               name: args.name,
@@ -171,7 +174,9 @@ export const knowledgeBaseServerTool: BaseServerTool<KnowledgeBaseArgs, Knowledg
 
           const topK = args.topK || 5
 
+          throwIfServerToolAborted(context)
           const queryEmbedding = await generateSearchEmbedding(args.query)
+          throwIfServerToolAborted(context)
           const queryVector = JSON.stringify(queryEmbedding)
 
           // Get search strategy

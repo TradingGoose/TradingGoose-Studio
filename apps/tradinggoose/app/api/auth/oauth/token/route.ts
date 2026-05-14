@@ -1,62 +1,72 @@
 import { type NextRequest, NextResponse } from 'next/server'
-import { authorizeCredentialUse } from '@/lib/auth/credential-access'
-import { checkHybridAuth } from '@/lib/auth/hybrid'
+import { authorizeCredentialUse, credentialAuthStatus } from '@/lib/auth/credential-access'
 import { createLogger } from '@/lib/logs/console/logger'
+import { getOAuthTokenAccount, refreshTokenIfNeeded } from '@/lib/oauth/tokens'
 import { getTrelloApiKey } from '@/lib/trello/auth'
 import { generateRequestId } from '@/lib/utils'
-import { getCredential, refreshTokenIfNeeded } from '@/app/api/auth/oauth/utils'
 
 export const dynamic = 'force-dynamic'
 
 const logger = createLogger('OAuthTokenAPI')
 
-/**
- * Get an access token for a specific credential
- * Supports both session-based authentication (for client-side requests)
- * and workflow-based authentication (for server-side requests)
- */
 export async function POST(request: NextRequest) {
   const requestId = generateRequestId()
 
   logger.info(`[${requestId}] OAuth token API POST request received`)
 
   try {
-    // Parse request body
     const body = await request.json()
-    const { credentialId, workflowId } = body
+    const credentialId = typeof body.credentialId === 'string' ? body.credentialId.trim() : ''
+    const workflowId = typeof body.workflowId === 'string' ? body.workflowId.trim() : undefined
+    const workspaceId = typeof body.workspaceId === 'string' ? body.workspaceId.trim() : undefined
 
     if (!credentialId) {
       logger.warn(`[${requestId}] Credential ID is required`)
       return NextResponse.json({ error: 'Credential ID is required' }, { status: 400 })
     }
 
-    // We already have workflowId from the parsed body; avoid forcing hybrid auth to re-read it
     const authz = await authorizeCredentialUse(request, {
       credentialId,
       workflowId,
-      requireWorkflowIdForInternal: false,
+      workspaceId,
     })
     if (!authz.ok || !authz.credentialOwnerUserId) {
-      const status = authz.error === 'Credential not found' ? 404 : 403
-      return NextResponse.json({ error: authz.error || 'Unauthorized' }, { status })
+      return NextResponse.json(
+        { error: authz.error || 'Unauthorized' },
+        { status: credentialAuthStatus(authz.error) }
+      )
     }
 
-    // Fetch the credential as the owner to enforce ownership scoping
-    const credential = await getCredential(requestId, credentialId, authz.credentialOwnerUserId)
-    if (!credential) {
+    if (authz.authType !== 'internal_jwt') {
+      return NextResponse.json(
+        { error: 'OAuth token access requires internal workflow execution' },
+        { status: 403 }
+      )
+    }
+
+    const tokenAccountId = authz.resolvedTokenAccountId
+    if (!tokenAccountId) {
+      return NextResponse.json({ error: 'Credential not found' }, { status: 404 })
+    }
+
+    const tokenAccount = await getOAuthTokenAccount(
+      requestId,
+      tokenAccountId,
+      authz.credentialOwnerUserId
+    )
+    if (!tokenAccount) {
       return NextResponse.json({ error: 'Credential not found' }, { status: 404 })
     }
 
     try {
-      // Refresh the token if needed
-      const { accessToken } = await refreshTokenIfNeeded(requestId, credential, credentialId)
-      const apiKey = credential.providerId === 'trello' ? await getTrelloApiKey() : undefined
+      const { accessToken } = await refreshTokenIfNeeded(requestId, tokenAccount, tokenAccountId)
+      const apiKey = tokenAccount.providerId === 'trello' ? await getTrelloApiKey() : undefined
       return NextResponse.json(
         {
           accessToken,
-          idToken: credential.idToken || undefined,
+          idToken: tokenAccount.idToken || undefined,
           apiKey,
-          providerId: credential.providerId,
+          providerId: tokenAccount.providerId,
         },
         { status: 200 }
       )
@@ -66,61 +76,6 @@ export async function POST(request: NextRequest) {
     }
   } catch (error) {
     logger.error(`[${requestId}] Error getting access token`, error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
-  }
-}
-
-/**
- * Get the access token for a specific credential
- */
-export async function GET(request: NextRequest) {
-  const requestId = generateRequestId()
-
-  try {
-    // Get the credential ID from the query params
-    const { searchParams } = new URL(request.url)
-    const credentialId = searchParams.get('credentialId')
-
-    if (!credentialId) {
-      logger.warn(`[${requestId}] Missing credential ID`)
-      return NextResponse.json({ error: 'Credential ID is required' }, { status: 400 })
-    }
-
-    // For GET requests, we only support session-based authentication
-    const auth = await checkHybridAuth(request, { requireWorkflowId: false })
-    if (!auth.success || auth.authType !== 'session' || !auth.userId) {
-      return NextResponse.json({ error: 'User not authenticated' }, { status: 401 })
-    }
-
-    // Get the credential from the database
-    const credential = await getCredential(requestId, credentialId, auth.userId)
-
-    if (!credential) {
-      return NextResponse.json({ error: 'Credential not found' }, { status: 404 })
-    }
-
-    if (!credential.accessToken) {
-      logger.warn(`[${requestId}] No access token available for credential`)
-      return NextResponse.json({ error: 'No access token available' }, { status: 400 })
-    }
-
-    try {
-      const { accessToken } = await refreshTokenIfNeeded(requestId, credential, credentialId)
-      const apiKey = credential.providerId === 'trello' ? await getTrelloApiKey() : undefined
-      return NextResponse.json(
-        {
-          accessToken,
-          idToken: credential.idToken || undefined,
-          apiKey,
-          providerId: credential.providerId,
-        },
-        { status: 200 }
-      )
-    } catch (_error) {
-      return NextResponse.json({ error: 'Failed to refresh access token' }, { status: 401 })
-    }
-  } catch (error) {
-    logger.error(`[${requestId}] Error fetching access token`, error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

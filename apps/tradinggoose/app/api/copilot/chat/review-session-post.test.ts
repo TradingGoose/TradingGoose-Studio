@@ -345,7 +345,7 @@ describe('Copilot Chat POST Generic Sessions', () => {
           toolManifest: expect.objectContaining({
             version: 'v1',
             tools: expect.arrayContaining([
-              expect.objectContaining({ name: 'get_user_workflow' }),
+              expect.objectContaining({ name: 'read_workflow' }),
               expect.objectContaining({ name: 'edit_workflow' }),
             ]),
           }),
@@ -1092,7 +1092,7 @@ describe('Copilot Chat POST Generic Sessions', () => {
           item: {
             type: 'function_call',
             call_id: 'tool-call-stringified',
-            name: 'get_user_workflow',
+            name: 'read_workflow',
             arguments: JSON.stringify({ workflowId: 'wf-stringified' }),
           },
         },
@@ -1120,7 +1120,7 @@ describe('Copilot Chat POST Generic Sessions', () => {
           toolCalls: [
             expect.objectContaining({
               id: 'tool-call-stringified',
-              name: 'get_user_workflow',
+              name: 'read_workflow',
               arguments: { workflowId: 'wf-stringified' },
             }),
           ],

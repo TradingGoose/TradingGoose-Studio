@@ -1,6 +1,10 @@
 import { BlockPathCalculator } from '@/lib/block-path-calculator'
-import { extractFieldsFromSchema, type Field } from '@/lib/response-format'
-import { getBlockOutputs } from '@/lib/workflows/block-outputs'
+import {
+  extractFieldsFromSchema,
+  parseResponseFormatSafely,
+  type Field,
+} from '@/lib/response-format'
+import { readBlockOutputs } from '@/lib/workflows/block-outputs'
 import { useWorkflowBlocks, useWorkflowEdges } from '@/lib/yjs/use-workflow-doc'
 
 export interface ConnectedBlock {
@@ -19,35 +23,6 @@ export interface ConnectedBlock {
   }
 }
 
-function parseResponseFormatSafely(responseFormatValue: any): any {
-  if (!responseFormatValue) {
-    return undefined
-  }
-
-  if (typeof responseFormatValue === 'object' && responseFormatValue !== null) {
-    return responseFormatValue
-  }
-
-  if (typeof responseFormatValue === 'string') {
-    const trimmedValue = responseFormatValue.trim()
-
-    if (trimmedValue.startsWith('<') && trimmedValue.includes('>')) {
-      return trimmedValue
-    }
-
-    if (trimmedValue === '') {
-      return undefined
-    }
-
-    try {
-      return JSON.parse(trimmedValue)
-    } catch {
-      return undefined
-    }
-  }
-  return undefined
-}
-
 export function useBlockConnections(blockId: string) {
   const blocks = useWorkflowBlocks()
   const edges = useWorkflowEdges()
@@ -60,9 +35,14 @@ export function useBlockConnections(blockId: string) {
 
     const mergedSubBlocks = blocks[sourceId]?.subBlocks || {}
     const responseFormat = parseResponseFormatSafely(
-      blocks[sourceId]?.subBlocks?.responseFormat?.value
+      blocks[sourceId]?.subBlocks?.responseFormat?.value,
+      sourceId
     )
-    const blockOutputs = getBlockOutputs(sourceBlock.type, mergedSubBlocks, sourceBlock.triggerMode)
+    const blockOutputs = readBlockOutputs(
+      sourceBlock.type,
+      mergedSubBlocks,
+      sourceBlock.triggerMode
+    )
     const outputFields = responseFormat
       ? extractFieldsFromSchema(responseFormat)
       : Object.entries(blockOutputs).map(([name, value]: [string, any]) => ({

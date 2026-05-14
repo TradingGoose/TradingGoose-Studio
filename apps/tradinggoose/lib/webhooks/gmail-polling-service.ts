@@ -1,11 +1,11 @@
 import { db } from '@tradinggoose/db'
-import { account, webhook } from '@tradinggoose/db/schema'
+import { webhook, workflow } from '@tradinggoose/db/schema'
 import { and, eq } from 'drizzle-orm'
 import { nanoid } from 'nanoid'
+import { getOAuthAccessTokenForStoredCredential } from '@/lib/credentials/oauth'
 import { pollingIdempotency } from '@/lib/idempotency/service'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getBaseUrl } from '@/lib/urls/utils'
-import { getOAuthToken, refreshAccessTokenIfNeeded } from '@/app/api/auth/oauth/utils'
 import type { GmailAttachment } from '@/tools/gmail/types'
 import { downloadAttachments, extractAttachmentInfo } from '@/tools/gmail/utils'
 
@@ -60,10 +60,13 @@ export async function pollGmailWebhooks() {
 
   try {
     // Get all active Gmail webhooks
-    const activeWebhooks = await db
-      .select()
-      .from(webhook)
-      .where(and(eq(webhook.provider, 'gmail'), eq(webhook.isActive, true)))
+    const activeWebhooks = (
+      await db
+        .select({ webhook, workspaceId: workflow.workspaceId })
+        .from(webhook)
+        .innerJoin(workflow, eq(webhook.workflowId, workflow.id))
+        .where(and(eq(webhook.provider, 'gmail'), eq(webhook.isActive, true)))
+    ).map((row) => ({ ...row.webhook, workspaceId: row.workspaceId as string }))
 
     if (!activeWebhooks.length) {
       logger.info('No active Gmail webhooks found')
@@ -87,34 +90,19 @@ export async function pollGmailWebhooks() {
         // Extract metadata
         const metadata = webhookData.providerConfig as any
         const credentialId: string | undefined = metadata?.credentialId
-        const userId: string | undefined = metadata?.userId
-
-        if (!credentialId && !userId) {
-          logger.error(`[${requestId}] Missing credentialId and userId for webhook ${webhookId}`)
-          return { success: false, webhookId, error: 'Missing credentialId and userId' }
+        if (!credentialId) {
+          logger.error(`[${requestId}] Missing credentialId for webhook ${webhookId}`)
+          return { success: false, webhookId, error: 'Missing credentialId' }
         }
 
-        // Resolve owner and token
-        let accessToken: string | null = null
-        if (credentialId) {
-          const rows = await db.select().from(account).where(eq(account.id, credentialId)).limit(1)
-          if (rows.length === 0) {
-            logger.error(
-              `[${requestId}] Credential ${credentialId} not found for webhook ${webhookId}`
-            )
-            return { success: false, webhookId, error: 'Credential not found' }
-          }
-          const ownerUserId = rows[0].userId
-          accessToken = await refreshAccessTokenIfNeeded(credentialId, ownerUserId, requestId)
-        } else if (userId) {
-          // Backward-compat fallback to workflow owner token
-          accessToken = await getOAuthToken(userId, 'google-email')
-        }
+        const accessToken = await getOAuthAccessTokenForStoredCredential({
+          credentialId,
+          workspaceId: webhookData.workspaceId,
+          requestId,
+        })
 
         if (!accessToken) {
-          logger.error(
-            `[${requestId}] Failed to get Gmail access token for webhook ${webhookId} (cred or fallback)`
-          )
+          logger.error(`[${requestId}] Failed to get Gmail access token for webhook ${webhookId}`)
           return { success: false, webhookId, error: 'No access token' }
         }
 

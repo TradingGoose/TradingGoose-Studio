@@ -1,8 +1,8 @@
 import { SlackIcon } from '@/components/icons/icons'
 import type { BlockConfig } from '@/blocks/types'
 import { AuthMode } from '@/blocks/types'
-import { getTrigger } from '@/triggers'
 import type { SlackResponse } from '@/tools/slack/types'
+import { getTrigger } from '@/triggers'
 
 export const SlackBlock: BlockConfig<SlackResponse> = {
   type: 'slack',
@@ -10,12 +10,11 @@ export const SlackBlock: BlockConfig<SlackResponse> = {
   description: 'Send messages to Slack or trigger workflows from Slack events',
   authMode: AuthMode.OAuth,
   longDescription:
-    'Integrate Slack into the workflow. Can send messages, create canvases, and read messages. Requires Bot Token instead of OAuth in advanced mode. Can be used in trigger mode to trigger a workflow when a message is sent to a channel.',
+    'Integrate Slack into the workflow. Can send messages, create canvases, and read messages. Can be used in trigger mode to trigger a workflow when a message is sent to a channel.',
   docsLink: 'https://docs.tradinggoose.ai/tools/slack',
   category: 'tools',
   bgColor: '',
   icon: SlackIcon,
-  triggerAllowed: true,
   subBlocks: [
     {
       id: 'operation',
@@ -28,18 +27,6 @@ export const SlackBlock: BlockConfig<SlackResponse> = {
         { label: 'Read Messages', id: 'read' },
       ],
       value: () => 'send',
-    },
-    {
-      id: 'authMethod',
-      title: 'Authentication Method',
-      type: 'dropdown',
-      layout: 'full',
-      options: [
-        { label: 'TradingGoose Bot', id: 'oauth' },
-        { label: 'Custom Bot', id: 'bot_token' },
-      ],
-      value: () => 'oauth',
-      required: true,
     },
     {
       id: 'credential',
@@ -60,22 +47,6 @@ export const SlackBlock: BlockConfig<SlackResponse> = {
         'canvases:write',
       ],
       placeholder: 'Select Slack workspace',
-      condition: {
-        field: 'authMethod',
-        value: 'oauth',
-      },
-    },
-    {
-      id: 'botToken',
-      title: 'Bot Token',
-      type: 'short-input',
-      layout: 'full',
-      placeholder: 'Enter your Slack bot token (xoxb-...)',
-      password: true,
-      condition: {
-        field: 'authMethod',
-        value: 'bot_token',
-      },
     },
     {
       id: 'channel',
@@ -86,7 +57,7 @@ export const SlackBlock: BlockConfig<SlackResponse> = {
       provider: 'slack',
       placeholder: 'Select Slack channel',
       mode: 'basic',
-      dependsOn: ['credential', 'authMethod'],
+      dependsOn: ['credential'],
     },
     // Manual channel ID input (advanced mode)
     {
@@ -203,11 +174,8 @@ export const SlackBlock: BlockConfig<SlackResponse> = {
       params: (params) => {
         const {
           credential,
-          authMethod,
-          botToken,
           operation,
           channel,
-          manualChannel,
           title,
           content,
           limit,
@@ -217,8 +185,7 @@ export const SlackBlock: BlockConfig<SlackResponse> = {
           ...rest
         } = params
 
-        // Handle both selector and manual channel input
-        const effectiveChannel = (channel || manualChannel || '').trim()
+        const effectiveChannel = (channel || '').trim()
 
         if (!effectiveChannel) {
           throw new Error('Channel is required.')
@@ -228,19 +195,10 @@ export const SlackBlock: BlockConfig<SlackResponse> = {
           channel: effectiveChannel,
         }
 
-        // Handle authentication based on method
-        if (authMethod === 'bot_token') {
-          if (!botToken) {
-            throw new Error('Bot token is required when using bot token authentication')
-          }
-          baseParams.accessToken = botToken
-        } else {
-          // Default to OAuth
-          if (!credential) {
-            throw new Error('Slack account credential is required when using TradingGoose Bot')
-          }
-          baseParams.credential = credential
+        if (!credential) {
+          throw new Error('Slack account credential is required')
         }
+        baseParams.credential = credential
 
         // Handle operation-specific params
         switch (operation) {
@@ -284,11 +242,8 @@ export const SlackBlock: BlockConfig<SlackResponse> = {
   },
   inputs: {
     operation: { type: 'string', description: 'Operation to perform' },
-    authMethod: { type: 'string', description: 'Authentication method' },
-    credential: { type: 'string', description: 'Slack access token' },
-    botToken: { type: 'string', description: 'Bot token' },
+    credential: { type: 'string', description: 'Slack account credential' },
     channel: { type: 'string', description: 'Channel identifier' },
-    manualChannel: { type: 'string', description: 'Manual channel identifier' },
     text: { type: 'string', description: 'Message text' },
     attachmentFiles: { type: 'json', description: 'Files to attach (UI upload)' },
     files: { type: 'json', description: 'Files to attach (UserFile array)' },

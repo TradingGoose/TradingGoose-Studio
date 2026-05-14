@@ -1,8 +1,4 @@
-import {
-  INDICATOR_WIDGET_SELECT_EVENT,
-  type IndicatorWidgetSelectEventDetail,
-  type ReviewTargetEventFields,
-} from '@/widgets/events'
+import { INDICATOR_WIDGET_SELECT_EVENT } from '@/widgets/events'
 import type { PairColor } from '@/widgets/pair-colors'
 import {
   createSelectionPersistenceHook,
@@ -47,7 +43,7 @@ const emitGeneric = createEmitSelectionChange({
   detailIdKey: 'indicatorId',
 })
 
-interface EmitIndicatorSelectionOptions extends ReviewTargetEventFields {
+interface EmitIndicatorSelectionOptions {
   indicatorId?: string | null
   panelId?: string
   widgetKey: string

@@ -1,8 +1,9 @@
 import { db } from '@tradinggoose/db'
-import { permissions, workflow, workflowExecutionLogs } from '@tradinggoose/db/schema'
+import { permissions, workflow, workflowExecutionLogs, workspace } from '@tradinggoose/db/schema'
 import { and, eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { createLogger } from '@/lib/logs/console/logger'
+import { buildWorkspaceAccessScope } from '@/lib/permissions/utils'
 import { createApiResponse, getUserLimits } from '@/app/api/v1/logs/meta'
 import { checkRateLimit, createRateLimitResponse } from '@/app/api/v1/middleware'
 
@@ -41,6 +42,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
     const userId = rateLimit.userId!
     const { id } = await params
+    const workspaceAccess = buildWorkspaceAccessScope(userId, workflowExecutionLogs.workspaceId)
 
     const rows = await db
       .select({
@@ -70,15 +72,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       })
       .from(workflowExecutionLogs)
       .leftJoin(workflow, eq(workflowExecutionLogs.workflowId, workflow.id))
-      .innerJoin(
-        permissions,
-        and(
-          eq(permissions.entityType, 'workspace'),
-          eq(permissions.entityId, workflowExecutionLogs.workspaceId),
-          eq(permissions.userId, userId)
-        )
-      )
-      .where(eq(workflowExecutionLogs.id, id))
+      .innerJoin(workspace, workspaceAccess.workspaceJoin)
+      .leftJoin(permissions, workspaceAccess.permissionJoin)
+      .where(and(eq(workflowExecutionLogs.id, id), workspaceAccess.accessFilter))
       .limit(1)
 
     const log = rows[0]

@@ -15,7 +15,6 @@ import type { PairColor } from '@/widgets/pair-colors'
 import type { DashboardWidgetDefinition, WidgetComponentProps } from '@/widgets/types'
 import { emitSkillSelectionChange } from '@/widgets/utils/skill-selection'
 import {
-  buildPersistedPairContext,
   SKILL_EDITOR_WIDGET_KEY,
   SKILL_LIST_WIDGET_KEY,
 } from '@/widgets/widgets/_shared/skill/utils'
@@ -86,15 +85,7 @@ const SkillListHeaderRight = ({
         }
 
         if (isLinkedToColorPair) {
-          setPairContext(
-            resolvedPairColor,
-            buildPersistedPairContext({
-              existing: pairContext,
-              legacyIdKey: 'skillId',
-              descriptor: null,
-              legacyEntityId: createdSkillId,
-            })
-          )
+          setPairContext(resolvedPairColor, { skillId: createdSkillId })
           return
         }
 
@@ -115,7 +106,6 @@ const SkillListHeaderRight = ({
   }, [
     createSkillMutation,
     isLinkedToColorPair,
-    pairContext,
     panelId,
     permissions.canEdit,
     resolvedPairColor,

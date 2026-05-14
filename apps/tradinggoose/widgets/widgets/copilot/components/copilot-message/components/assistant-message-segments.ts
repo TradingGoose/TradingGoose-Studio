@@ -7,20 +7,20 @@ type ToolCallContentBlock = Extract<AssistantContentBlock, { type: 'tool_call' }
 
 export type AssistantMessageSegment =
   | {
-    type: 'thinking'
-    key: string
-    blocks: ThinkingContentBlock[]
-  }
+      type: 'thinking'
+      key: string
+      blocks: ThinkingContentBlock[]
+    }
   | {
-    type: 'text'
-    key: string
-    block: TextContentBlock
-  }
+      type: 'text'
+      key: string
+      block: TextContentBlock
+    }
   | {
-    type: 'tool_call'
-    key: string
-    block: ToolCallContentBlock
-  }
+      type: 'tool_call'
+      key: string
+      block: ToolCallContentBlock
+    }
 
 export function buildAssistantMessageSegments(
   contentBlocks?: CopilotMessage['contentBlocks']
@@ -49,7 +49,7 @@ export function buildAssistantMessageSegments(
 
   for (const block of contentBlocks) {
     if (block.type === 'thinking') {
-      pendingThinkingBlocks.push(block)
+      if (block.content.trim()) pendingThinkingBlocks.push(block)
       continue
     }
 

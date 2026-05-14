@@ -4,6 +4,7 @@ import {
   workflow,
   workflowExecutionLogs,
   workflowFolder,
+  workspace,
 } from '@tradinggoose/db/schema'
 import { and, desc, eq, gte, inArray, lte, not, notInArray, or, type SQL, sql } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
@@ -11,6 +12,7 @@ import { z } from 'zod'
 import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { WorkflowLogOutcome } from '@/lib/logs/types'
+import { buildWorkspaceAccessScope } from '@/lib/permissions/utils'
 import { generateRequestId, normalizeOptionalString } from '@/lib/utils'
 import {
   parseListingFilters,
@@ -554,35 +556,24 @@ export async function GET(request: NextRequest) {
       eq(workflowExecutionLogs.workspaceId, params.workspaceId),
       conditions
     )
+    const workspaceAccess = buildWorkspaceAccessScope(userId, workflowExecutionLogs.workspaceId)
     const countRows = await db
       .select({ total: sql<number>`count(*)::int` })
       .from(workflowExecutionLogs)
       .leftJoin(workflow, eq(workflowExecutionLogs.workflowId, workflow.id))
       .leftJoin(workflowFolder, eq(workflow.folderId, workflowFolder.id))
-      .innerJoin(
-        permissions,
-        and(
-          eq(permissions.entityType, 'workspace'),
-          eq(permissions.entityId, workflowExecutionLogs.workspaceId),
-          eq(permissions.userId, userId)
-        )
-      )
-      .where(scopedConditions)
+      .innerJoin(workspace, workspaceAccess.workspaceJoin)
+      .leftJoin(permissions, workspaceAccess.permissionJoin)
+      .where(and(scopedConditions, workspaceAccess.accessFilter))
 
     const rows = await db
       .select(params.details === 'full' ? LOG_FULL_SELECT_FIELDS : LOG_BASIC_SELECT_FIELDS)
       .from(workflowExecutionLogs)
       .leftJoin(workflow, eq(workflowExecutionLogs.workflowId, workflow.id))
       .leftJoin(workflowFolder, eq(workflow.folderId, workflowFolder.id))
-      .innerJoin(
-        permissions,
-        and(
-          eq(permissions.entityType, 'workspace'),
-          eq(permissions.entityId, workflowExecutionLogs.workspaceId),
-          eq(permissions.userId, userId)
-        )
-      )
-      .where(scopedConditions)
+      .innerJoin(workspace, workspaceAccess.workspaceJoin)
+      .leftJoin(permissions, workspaceAccess.permissionJoin)
+      .where(and(scopedConditions, workspaceAccess.accessFilter))
       .orderBy(...LOG_ORDER_BY)
       .limit(params.limit)
       .offset(params.offset)

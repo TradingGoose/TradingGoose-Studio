@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { BrowserStorage } from '@/lib/browser-storage'
 import { DEFAULT_MONITOR_SHELL_WORKING_STATE, type MonitorShellWorkingState } from './view-config'
 import {
-  getMonitorWorkingStateKey,
+  readMonitorWorkingStateKey,
   readMonitorWorkingState,
   writeMonitorWorkingState,
 } from './view-preferences'
@@ -64,7 +64,7 @@ describe('monitor view preferences', () => {
   })
 
   it('removes legacy shell working state blobs instead of translating them', () => {
-    const key = getMonitorWorkingStateKey('workspace-1', 'user-1')
+    const key = readMonitorWorkingStateKey('workspace-1', 'user-1')
     storage.set(key, {
       isMonitorsPaneOpen: false,
       outerPanelSizes: [24, 76],
@@ -78,7 +78,7 @@ describe('monitor view preferences', () => {
   })
 
   it('clears malformed new shell state blobs', () => {
-    const key = getMonitorWorkingStateKey('workspace-1', 'user-1')
+    const key = readMonitorWorkingStateKey('workspace-1', 'user-1')
     storage.set(key, {
       activeMode: 'config',
       activeViewIdsByMode: { config: 'config-view', other: 'bad' },

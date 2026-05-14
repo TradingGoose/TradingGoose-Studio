@@ -4,10 +4,10 @@ import { eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
-import { getUserEntityPermissions } from '@/lib/permissions/utils'
+import { checkWorkspaceAccess } from '@/lib/permissions/utils'
 import { simAgentClient } from '@/lib/copilot/agent/client'
 import { generateRequestId } from '@/lib/utils'
-import { loadWorkflowStateWithFallback } from '@/lib/workflows/db-helpers'
+import { loadWorkflowState } from '@/lib/workflows/db-helpers'
 import { extractSubBlockValuesFromBlocks } from '@/lib/copilot/tools/client/workflow/block-output-utils'
 import { getAllBlocks } from '@/blocks/registry'
 import type { BlockConfig } from '@/blocks/types'
@@ -59,12 +59,8 @@ export async function GET(request: NextRequest) {
 
     // Case 2: Workflow belongs to a workspace the user has permissions for
     if (!hasAccess && workflowData.workspaceId) {
-      const userPermission = await getUserEntityPermissions(
-        userId,
-        'workspace',
-        workflowData.workspaceId
-      )
-      if (userPermission !== null) {
+      const workspaceAccess = await checkWorkspaceAccess(workflowData.workspaceId, userId)
+      if (workspaceAccess.hasAccess) {
         hasAccess = true
       }
     }
@@ -74,7 +70,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 })
     }
 
-    const stateWithSource = await loadWorkflowStateWithFallback(workflowId)
+    const stateWithSource = await loadWorkflowState(workflowId)
 
     if (!stateWithSource) {
       return NextResponse.json(

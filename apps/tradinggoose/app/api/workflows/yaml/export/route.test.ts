@@ -5,7 +5,7 @@ import { NextRequest } from 'next/server'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 describe('Workflow YAML Export API Route', () => {
-  let loadWorkflowStateWithFallbackMock: ReturnType<typeof vi.fn>
+  let loadWorkflowStateMock: ReturnType<typeof vi.fn>
   let makeRequestMock: ReturnType<typeof vi.fn>
 
   const workflowRow = {
@@ -32,7 +32,7 @@ describe('Workflow YAML Export API Route', () => {
     vi.resetModules()
     vi.clearAllMocks()
 
-    loadWorkflowStateWithFallbackMock = vi.fn()
+    loadWorkflowStateMock = vi.fn()
     makeRequestMock = vi.fn().mockResolvedValue({
       success: true,
       data: { yaml: 'name: exported' },
@@ -65,7 +65,11 @@ describe('Workflow YAML Export API Route', () => {
     }))
 
     vi.doMock('@/lib/permissions/utils', () => ({
-      getUserEntityPermissions: vi.fn().mockResolvedValue('write'),
+      checkWorkspaceAccess: vi.fn().mockResolvedValue({
+        exists: true,
+        hasAccess: true,
+        canWrite: true,
+      }),
     }))
 
     vi.doMock('@/lib/copilot/agent/client', () => ({
@@ -88,7 +92,7 @@ describe('Workflow YAML Export API Route', () => {
     }))
 
     vi.doMock('@/lib/workflows/db-helpers', () => ({
-      loadWorkflowStateWithFallback: loadWorkflowStateWithFallbackMock,
+      loadWorkflowState: loadWorkflowStateMock,
     }))
 
     vi.doMock('@/lib/copilot/tools/client/workflow/block-output-utils', () => ({
@@ -129,7 +133,7 @@ describe('Workflow YAML Export API Route', () => {
     'prefers the live Yjs workflow snapshot and includes variables in the export payload',
     { timeout: 10_000 },
     async () => {
-    loadWorkflowStateWithFallbackMock.mockResolvedValue({
+    loadWorkflowStateMock.mockResolvedValue({
       blocks: {
         'live-block': {
           id: 'live-block',
@@ -190,7 +194,7 @@ describe('Workflow YAML Export API Route', () => {
   )
 
   it('falls back to canonical saved state and workflow-row variables when no live doc exists', async () => {
-    loadWorkflowStateWithFallbackMock.mockResolvedValue({
+    loadWorkflowStateMock.mockResolvedValue({
       blocks: {
         'db-block': {
           id: 'db-block',
@@ -224,7 +228,7 @@ describe('Workflow YAML Export API Route', () => {
     const response = await GET(createRequest())
 
     expect(response.status).toBe(200)
-    expect(loadWorkflowStateWithFallbackMock).toHaveBeenCalledWith('workflow-id')
+    expect(loadWorkflowStateMock).toHaveBeenCalledWith('workflow-id')
     expect(makeRequestMock).toHaveBeenCalledWith(
       '/api/workflow/to-yaml',
       expect.objectContaining({

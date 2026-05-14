@@ -1,3 +1,4 @@
+import { getCredentialRouteParams } from '@/tools/credentials'
 import type { JiraUpdateParams, JiraUpdateResponse } from '@/tools/jira/types'
 import type { ToolConfig } from '@/tools/types'
 
@@ -86,8 +87,8 @@ export const jiraUpdateTool: ToolConfig<JiraUpdateParams, JiraUpdateResponse> = 
     body: (params) => {
       // Pass all parameters to the internal API route
       return {
+        ...getCredentialRouteParams(params),
         domain: params.domain,
-        accessToken: params.accessToken,
         issueKey: params.issueKey,
         summary: params.summary,
         title: params.title, // Support both for backwards compatibility

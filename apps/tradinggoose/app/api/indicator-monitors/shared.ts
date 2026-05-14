@@ -15,6 +15,7 @@ import {
 import { isIndicatorTriggerCapable } from '@/lib/indicators/trigger-detection'
 import type { InputMetaMap } from '@/lib/indicators/types'
 import { resolveListingIdentity } from '@/lib/listing/resolve'
+import { applySavedEntityYjsStateToRows } from '@/lib/yjs/entity-state'
 
 const INDICATOR_PROVIDER = 'indicator'
 
@@ -168,11 +169,13 @@ export const ensureTriggerCapableIndicator = async (workspaceId: string, indicat
   const customRows = await db
     .select({
       id: pineIndicators.id,
+      workspaceId: pineIndicators.workspaceId,
       pineCode: pineIndicators.pineCode,
     })
     .from(pineIndicators)
     .where(and(eq(pineIndicators.id, indicatorId), eq(pineIndicators.workspaceId, workspaceId)))
     .limit(1)
+    .then((rows) => applySavedEntityYjsStateToRows('indicator', rows))
 
   const customIndicator = customRows[0]
   if (!customIndicator) {
@@ -200,11 +203,13 @@ export const loadIndicatorInputMetadata = async (
   const rows = await db
     .select({
       id: pineIndicators.id,
+      workspaceId: pineIndicators.workspaceId,
       inputMeta: pineIndicators.inputMeta,
     })
     .from(pineIndicators)
     .where(and(eq(pineIndicators.id, indicatorId), eq(pineIndicators.workspaceId, workspaceId)))
     .limit(1)
+    .then((rows) => applySavedEntityYjsStateToRows('indicator', rows))
 
   const row = rows[0]
   if (!row) {

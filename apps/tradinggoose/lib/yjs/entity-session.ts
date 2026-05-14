@@ -19,7 +19,7 @@
 import * as Y from 'yjs'
 import type { ReviewEntityKind } from '@/lib/copilot/review-sessions/types'
 import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
-import { MCP_SERVER_DEFAULTS } from '@/widgets/utils/draft-defaults'
+import { MCP_SERVER_DEFAULTS } from '@/widgets/utils/mcp-defaults'
 
 // ---------------------------------------------------------------------------
 // Top-level map accessors
@@ -47,8 +47,7 @@ export interface EntitySessionSeedOptions {
 // ---------------------------------------------------------------------------
 
 /**
- * Seeds a brand-new entity Yjs doc from the draft default payload.
- * Called once per reviewSessionId/draftSessionId target.
+ * Seeds an entity Yjs doc from canonical saved fields or draft defaults.
  */
 export function seedEntitySession(doc: Y.Doc, options: EntitySessionSeedOptions): void {
   const { entityKind, payload } = options

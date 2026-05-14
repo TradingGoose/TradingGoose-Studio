@@ -112,7 +112,6 @@ function OrderData({
           <DetailRow label='Client order id' value={active.clientOrderId ?? '—'} />
           <DetailRow label='Provider' value={titleCase(active.provider)} />
           <DetailRow label='Environment' value={titleCase(active.environment)} />
-          <DetailRow label='Trading account' value={active.accountId ?? '—'} />
           <DetailRow label='Submission source' value={titleCase(active.submissionSource)} />
           <DetailRow label='Status' value={titleCase(active.status)} />
           <DetailRow label='Side' value={titleCase(active.side)} />

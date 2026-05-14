@@ -1,4 +1,4 @@
-import { generateInternalToken } from '@/lib/auth/internal'
+import { generateInternalToken, type InternalWorkflowExecutionContext } from '@/lib/auth/internal'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { TraceSpan } from '@/lib/logs/types'
 import { getBaseUrl } from '@/lib/urls/utils'
@@ -11,6 +11,7 @@ const logger = createLogger('WorkflowBlockHandler')
 
 const MAX_WORKFLOW_DEPTH = 10
 const CHILD_WORKFLOW_POLL_INTERVAL_MS = 1_000
+const CHILD_WORKFLOW_WAIT_TIMEOUT_MS = 30 * 60 * 1000
 
 type WorkflowTraceSpan = TraceSpan & {
   metadata?: Record<string, unknown>
@@ -35,7 +36,24 @@ type JobStatusResponse = {
   error?: string
 }
 
+type ChildWorkflowHeaders = () => Promise<Record<string, string>>
+
+type ChildWorkflowWaitOptions = {
+  taskId: string
+  headers: ChildWorkflowHeaders
+  shouldCancelExecution?: () => Promise<boolean>
+}
+
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
+
+const readResponseErrorMessage = async (response: Response, defaultMessage: string) => {
+  try {
+    const body = await response.json()
+    if (typeof body?.error === 'string') return body.error
+    if (typeof body?.message === 'string') return body.message
+  } catch {}
+  return defaultMessage
+}
 
 export class WorkflowBlockHandler implements BlockHandler {
   private safeParse(input: unknown): unknown {
@@ -48,7 +66,9 @@ export class WorkflowBlockHandler implements BlockHandler {
   }
 
   canHandle(block: SerializedBlock): boolean {
-    return block.metadata?.id === BlockType.WORKFLOW_INPUT
+    return (
+      block.metadata?.id === BlockType.WORKFLOW || block.metadata?.id === BlockType.WORKFLOW_INPUT
+    )
   }
 
   async execute(
@@ -74,21 +94,27 @@ export class WorkflowBlockHandler implements BlockHandler {
       kind: 'deferred',
       wait: async () => {
         try {
-          const headers = await this.buildHeaders(context)
+          const workflowExecution: InternalWorkflowExecutionContext = {
+            source: 'workflow_block',
+            parentWorkflowId: context.workflowId,
+            parentExecutionId: context.executionId,
+            parentBlockId: block.id,
+          }
+          const headers = () => this.buildHeaders(context, workflowExecution)
           const queueResponse = await this.queueChildWorkflowExecution({
             headers,
             workflowId,
             input: childWorkflowInput,
             executionTarget: context.isDeployedContext ? 'deployed' : 'live',
-            triggerType: context.triggerType ?? 'manual',
             workflowDepth: currentDepth + 1,
-            parentWorkflowId: context.workflowId,
-            parentExecutionId: context.executionId,
-            parentBlockId: block.id,
           })
 
           const childWorkflowName = queueResponse.workflowName
-          const childResult = await this.waitForQueuedWorkflowResult(queueResponse.taskId, headers)
+          const childResult = await this.waitForQueuedWorkflowResult({
+            taskId: queueResponse.taskId,
+            headers,
+            shouldCancelExecution: context.shouldCancelExecution,
+          })
           const childTraceSpans = this.transformChildWorkflowSpans(
             childResult.traceSpans,
             childWorkflowName
@@ -162,14 +188,15 @@ export class WorkflowBlockHandler implements BlockHandler {
   }
 
   private async buildHeaders(
-    context: Pick<ExecutionContext, 'userId'>
+    context: Pick<ExecutionContext, 'userId'>,
+    workflowExecution: InternalWorkflowExecutionContext
   ): Promise<Record<string, string>> {
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
     }
 
     if (typeof window === 'undefined') {
-      const token = await generateInternalToken(context.userId)
+      const token = await generateInternalToken(context.userId, { workflowExecution })
       headers.Authorization = `Bearer ${token}`
     }
 
@@ -177,43 +204,31 @@ export class WorkflowBlockHandler implements BlockHandler {
   }
 
   private async queueChildWorkflowExecution(params: {
-    headers: Record<string, string>
+    headers: ChildWorkflowHeaders
     workflowId: string
     input: Record<string, any>
     executionTarget: 'deployed' | 'live'
-    triggerType: string
     workflowDepth: number
-    parentWorkflowId?: string
-    parentExecutionId?: string
-    parentBlockId: string
   }): Promise<QueueWorkflowResponse> {
     const response = await fetch(`${getBaseUrl()}/api/workflows/${params.workflowId}/queue`, {
       method: 'POST',
-      headers: params.headers,
+      headers: await params.headers(),
       body: JSON.stringify({
         input: params.input,
         executionTarget: params.executionTarget,
-        triggerType: params.triggerType,
+        triggerType: 'api',
         workflowDepth: params.workflowDepth,
-        parentWorkflowId: params.parentWorkflowId,
-        parentExecutionId: params.parentExecutionId,
-        parentBlockId: params.parentBlockId,
       }),
       cache: 'no-store',
     })
 
     if (!response.ok) {
-      let message = `Failed to queue child workflow: ${response.status} ${response.statusText}`
-      try {
-        const body = await response.json()
-        if (typeof body?.error === 'string') {
-          message = body.error
-        } else if (typeof body?.message === 'string') {
-          message = body.message
-        }
-      } catch {}
-
-      throw new Error(message)
+      throw new Error(
+        await readResponseErrorMessage(
+          response,
+          `Failed to queue child workflow: ${response.status} ${response.statusText}`
+        )
+      )
     }
 
     const body = (await response.json()) as QueueWorkflowResponse
@@ -227,28 +242,51 @@ export class WorkflowBlockHandler implements BlockHandler {
     return body
   }
 
-  private async waitForQueuedWorkflowResult(
+  private async cancelQueuedWorkflowExecution(
     taskId: string,
-    headers: Record<string, string>
-  ): Promise<QueuedWorkflowExecutionResult> {
-    while (true) {
+    headers: ChildWorkflowHeaders
+  ): Promise<void> {
+    const response = await fetch(`${getBaseUrl()}/api/jobs/${taskId}`, {
+      method: 'DELETE',
+      headers: await headers(),
+      cache: 'no-store',
+    })
+
+    if (!response.ok) {
+      throw new Error(
+        await readResponseErrorMessage(
+          response,
+          `Failed to cancel child workflow: ${response.status} ${response.statusText}`
+        )
+      )
+    }
+  }
+
+  private async waitForQueuedWorkflowResult({
+    taskId,
+    headers,
+    shouldCancelExecution,
+  }: ChildWorkflowWaitOptions): Promise<QueuedWorkflowExecutionResult> {
+    const startedAt = Date.now()
+
+    while (Date.now() - startedAt < CHILD_WORKFLOW_WAIT_TIMEOUT_MS) {
+      if (await shouldCancelExecution?.()) {
+        await this.cancelQueuedWorkflowExecution(taskId, headers)
+        throw new Error('Child workflow execution was cancelled')
+      }
+
       const response = await fetch(`${getBaseUrl()}/api/jobs/${taskId}`, {
-        headers,
+        headers: await headers(),
         cache: 'no-store',
       })
 
       if (!response.ok) {
-        let message = `Failed to fetch child workflow status: ${response.status} ${response.statusText}`
-        try {
-          const body = await response.json()
-          if (typeof body?.error === 'string') {
-            message = body.error
-          } else if (typeof body?.message === 'string') {
-            message = body.message
-          }
-        } catch {}
-
-        throw new Error(message)
+        throw new Error(
+          await readResponseErrorMessage(
+            response,
+            `Failed to fetch child workflow status: ${response.status} ${response.statusText}`
+          )
+        )
       }
 
       const body = (await response.json()) as JobStatusResponse
@@ -263,6 +301,9 @@ export class WorkflowBlockHandler implements BlockHandler {
 
       await sleep(CHILD_WORKFLOW_POLL_INTERVAL_MS)
     }
+
+    await this.cancelQueuedWorkflowExecution(taskId, headers)
+    throw new Error('Child workflow execution timed out')
   }
 
   private transformChildWorkflowSpans(

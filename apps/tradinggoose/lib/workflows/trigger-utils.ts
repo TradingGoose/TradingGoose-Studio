@@ -1,5 +1,5 @@
 import { sanitizeSolidIconColor } from '@/lib/ui/icon-colors'
-import { getAllBlocks, getBlock } from '@/blocks'
+import { getAllBlocks } from '@/blocks'
 import type { BlockConfig } from '@/blocks/types'
 
 export interface TriggerInfo {
@@ -102,19 +102,4 @@ export function getBlocksForSidebar(): BlockConfig[] {
     // Tools with trigger capability should still appear in blocks tab
     return block.category !== 'triggers'
   })
-}
-
-/**
- * Get the proper display name for a trigger block in the UI
- */
-export function getTriggerDisplayName(blockType: string): string {
-  const block = getBlock(blockType)
-  if (!block) return blockType
-
-  // Special case for generic_webhook - show as "Webhook" in UI
-  if (blockType === 'generic_webhook') {
-    return 'Webhook'
-  }
-
-  return block.name
 }

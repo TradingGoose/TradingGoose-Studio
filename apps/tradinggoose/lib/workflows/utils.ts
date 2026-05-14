@@ -41,6 +41,7 @@ const WORKFLOW_BASE_SELECTION = {
   pinnedApiKeyName: apiKey.name,
   pinnedApiKeyType: apiKey.type,
   pinnedApiKeyWorkspaceId: apiKey.workspaceId,
+  pinnedApiKeyUserId: apiKey.userId,
 }
 
 type WorkflowSelection = InferSelectModel<typeof workflowTable>
@@ -51,10 +52,14 @@ type WorkflowRow = WorkflowSelection & {
   pinnedApiKeyName: ApiKeySelection['name'] | null
   pinnedApiKeyType: ApiKeySelection['type'] | null
   pinnedApiKeyWorkspaceId: ApiKeySelection['workspaceId'] | null
+  pinnedApiKeyUserId: ApiKeySelection['userId'] | null
 }
 
 type WorkflowWithPinnedKey = WorkflowSelection & {
-  pinnedApiKey: Pick<ApiKeySelection, 'id' | 'name' | 'key' | 'type' | 'workspaceId'> | null
+  pinnedApiKey: Pick<
+    ApiKeySelection,
+    'id' | 'name' | 'key' | 'type' | 'workspaceId' | 'userId'
+  > | null
 }
 
 function mapWorkflowRow(row: WorkflowRow | undefined): WorkflowWithPinnedKey | undefined {
@@ -67,18 +72,24 @@ function mapWorkflowRow(row: WorkflowRow | undefined): WorkflowWithPinnedKey | u
     pinnedApiKeyName,
     pinnedApiKeyType,
     pinnedApiKeyWorkspaceId,
+    pinnedApiKeyUserId,
     ...workflowWithoutDerived
   } = row
 
   const pinnedApiKey =
-    workflowWithoutDerived.pinnedApiKeyId && pinnedApiKeyKey && pinnedApiKeyName && pinnedApiKeyType
+    workflowWithoutDerived.pinnedApiKeyId &&
+    pinnedApiKeyKey &&
+    pinnedApiKeyName &&
+    pinnedApiKeyType &&
+    pinnedApiKeyUserId
       ? {
-        id: workflowWithoutDerived.pinnedApiKeyId,
-        name: pinnedApiKeyName,
-        key: pinnedApiKeyKey,
-        type: pinnedApiKeyType,
-        workspaceId: pinnedApiKeyWorkspaceId,
-      }
+          id: workflowWithoutDerived.pinnedApiKeyId,
+          name: pinnedApiKeyName,
+          key: pinnedApiKeyKey,
+          type: pinnedApiKeyType,
+          workspaceId: pinnedApiKeyWorkspaceId,
+          userId: pinnedApiKeyUserId,
+        }
       : null
 
   return {
@@ -87,7 +98,7 @@ function mapWorkflowRow(row: WorkflowRow | undefined): WorkflowWithPinnedKey | u
   }
 }
 
-export async function getWorkflowById(id: string) {
+export async function readWorkflowById(id: string) {
   const rows = await db
     .select(WORKFLOW_BASE_SELECTION)
     .from(workflowTable)
@@ -98,7 +109,7 @@ export async function getWorkflowById(id: string) {
   return mapWorkflowRow(rows[0] as WorkflowRow | undefined)
 }
 
-type WorkflowRecord = ReturnType<typeof getWorkflowById> extends Promise<infer R>
+type WorkflowRecord = ReturnType<typeof readWorkflowById> extends Promise<infer R>
   ? NonNullable<R>
   : never
 
@@ -110,7 +121,7 @@ export interface WorkflowAccessContext {
   isWorkspaceOwner: boolean
 }
 
-export async function getWorkflowAccessContext(
+export async function readWorkflowAccessContext(
   workflowId: string,
   userId?: string
 ): Promise<WorkflowAccessContext | null> {
@@ -170,7 +181,7 @@ export async function getWorkflowAccessContext(
 
 export async function updateWorkflowRunCounts(workflowId: string, runs = 1) {
   try {
-    const workflow = await getWorkflowById(workflowId)
+    const workflow = await readWorkflowById(workflowId)
     if (!workflow) {
       logger.error(`Workflow ${workflowId} not found`)
       throw new Error(`Workflow ${workflowId} not found`)
@@ -489,12 +500,7 @@ export function hasWorkflowChanged(
   }
 
   // 6. Compare global workflow variables
-  const deployedStateIncludesVariables = Object.prototype.hasOwnProperty.call(
-    deployedState,
-    'variables'
-  )
   if (
-    deployedStateIncludesVariables &&
     normalizedStringify(currentState.variables || {}) !==
       normalizedStringify(deployedState.variables || {})
   ) {
@@ -560,7 +566,7 @@ export async function validateWorkflowPermissions(
     }
   }
 
-  const accessContext = await getWorkflowAccessContext(workflowId, session.user.id)
+  const accessContext = await readWorkflowAccessContext(workflowId, session.user.id)
   if (!accessContext) {
     logger.warn(`[${requestId}] Workflow ${workflowId} not found`)
     return {

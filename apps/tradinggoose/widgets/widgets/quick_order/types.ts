@@ -1,8 +1,11 @@
+import type { PortfolioIdentity } from '@/providers/trading/portfolio-identity'
+
 export type QuickOrderSide = 'buy' | 'sell'
 
 export interface QuickOrderWidgetParams {
   provider?: string
-  credentialServiceId?: string
+  serviceId?: string
+  portfolioIdentity?: PortfolioIdentity
   marketProvider?: string
   marketProviderParams?: Record<string, unknown>
   marketAuth?: {
@@ -10,6 +13,5 @@ export interface QuickOrderWidgetParams {
     apiSecret?: string
     [key: string]: unknown
   }
-  accountId?: string
   side?: QuickOrderSide
 }

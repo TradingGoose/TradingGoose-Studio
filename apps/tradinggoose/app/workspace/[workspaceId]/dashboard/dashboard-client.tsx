@@ -1165,8 +1165,6 @@ function applyPairDataToWidget(
     widget.params && typeof widget.params === 'object' && !Array.isArray(widget.params)
       ? { ...(widget.params as Record<string, unknown>) }
       : {}
-  const hadLegacyPineIndicatorId = 'pineIndicatorId' in baseParams
-  baseParams.pineIndicatorId = undefined
 
   const pairKeys = [
     'workflowId',
@@ -1177,18 +1175,8 @@ function applyPairDataToWidget(
     'skillId',
   ] as const
 
-  const reviewKeys = [
-    'reviewSessionId',
-    'reviewEntityKind',
-    'reviewEntityId',
-    'reviewDraftSessionId',
-  ] as const
-
   const hasPairData = pairKeys.some((k) => pairData[k] != null)
-  const hasPairParams =
-    pairKeys.some((k) => k in baseParams) ||
-    reviewKeys.some((k) => k in baseParams) ||
-    hadLegacyPineIndicatorId
+  const hasPairParams = pairKeys.some((k) => k in baseParams)
 
   if (!hasPairData && !hasPairParams) {
     return widget
@@ -1196,9 +1184,6 @@ function applyPairDataToWidget(
 
   for (const key of pairKeys) {
     baseParams[key] = pairData[key] ?? undefined
-  }
-  for (const key of reviewKeys) {
-    baseParams[key] = undefined
   }
 
   const nextParams = Object.keys(baseParams).length > 0 ? baseParams : null

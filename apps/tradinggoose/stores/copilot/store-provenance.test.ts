@@ -36,12 +36,43 @@ describe('buildTurnProvenanceFromContexts', () => {
           }),
         ],
         'workspace-1',
-        null,
-        'workflow-live'
+        'workflow-live',
+        null
       )
     ).toEqual({
       contextWorkflowId: 'workflow-live',
       workspaceId: 'workspace-1',
+    })
+  })
+
+  it('pins resolved entity review targets for client-side edit tools', () => {
+    expect(
+      buildTurnProvenanceFromContexts(
+        [
+          buildCopilotWorkspaceEntityContext({
+            entityKind: 'workflow',
+            entityId: 'workflow-explicit',
+            workspaceId: 'workspace-explicit',
+            label: 'Attached Workflow',
+          }),
+        ],
+        'workspace-live',
+        null,
+        {
+          workspaceId: 'workspace-review',
+          entityKind: 'skill',
+          entityId: 'skill-review',
+          draftSessionId: null,
+          reviewSessionId: 'review-1',
+          yjsSessionId: 'review-1',
+        }
+      )
+    ).toEqual({
+      workspaceId: 'workspace-review',
+      contextWorkflowId: 'workflow-explicit',
+      entityKind: 'skill',
+      entityId: 'skill-review',
+      reviewSessionId: 'review-1',
     })
   })
 })

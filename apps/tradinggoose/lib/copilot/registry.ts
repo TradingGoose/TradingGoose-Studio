@@ -8,87 +8,90 @@ import {
 import { MONITOR_DOCUMENT_FORMAT } from '@/lib/copilot/monitor/monitor-documents'
 import { TG_MERMAID_DOCUMENT_FORMAT } from '@/lib/workflows/document-format'
 import {
-  GetBlockOutputsInput,
-  GetBlockOutputsResult,
-  GetBlocksAndToolsInput,
-  GetBlocksAndToolsResult,
+  GetAgentAccessoryCatalogInput,
+  GetAgentAccessoryCatalogResult,
+  GetAvailableBlocksInput,
+  GetAvailableBlocksResult,
   GetBlocksMetadataInput,
   GetBlocksMetadataResult,
-  GetBlockUpstreamReferencesInput,
-  GetBlockUpstreamReferencesResult,
   GetIndicatorCatalogInput,
   GetIndicatorCatalogResult,
   GetIndicatorMetadataInput,
   GetIndicatorMetadataResult,
-  GetTriggerBlocksInput,
-  GetTriggerBlocksResult,
   KnowledgeBaseArgsSchema,
   KnowledgeBaseResultSchema,
+  ReadBlockOutputsInput,
+  ReadBlockOutputsResult,
+  ReadBlockUpstreamReferencesInput,
+  ReadBlockUpstreamReferencesResult,
 } from './tools/shared/schemas'
 
 // Tool IDs supported by the Copilot runtime
-export const ToolIds = z.enum([
+export const COPILOT_TOOL_IDS = [
   'plan',
   'checkoff_todo',
   'mark_todo_in_progress',
-  'get_user_workflow',
+  'read_workflow',
   'create_workflow',
   'edit_workflow',
   'edit_workflow_block',
   'rename_workflow',
   'run_workflow',
-  'get_workflow_console',
-  'get_blocks_and_tools',
+  'read_workflow_logs',
+  'get_available_blocks',
   'get_blocks_metadata',
+  'get_agent_accessory_catalog',
   'get_indicator_catalog',
   'get_indicator_metadata',
   'search_documentation',
   'search_online',
   'make_api_request',
-  'get_environment_variables',
+  'read_environment_variables',
   'set_environment_variables',
-  'get_oauth_credentials',
-  'get_credentials',
-  'list_user_workflows',
-  'get_workflow_from_name',
-  'get_global_workflow_variables',
-  'set_global_workflow_variables',
+  'read_oauth_credentials',
+  'read_credentials',
+  'list_workflows',
+  'read_workflow_variables',
+  'set_workflow_variables',
   'oauth_request_access',
-  'get_trigger_blocks',
   'deploy_workflow',
   'check_deployment_status',
   'knowledge_base',
   'list_custom_tools',
-  'get_custom_tool',
+  'read_custom_tool',
   'create_custom_tool',
   'edit_custom_tool',
   'rename_custom_tool',
   'list_monitors',
-  'get_monitor',
+  'read_monitor',
   'edit_monitor',
   'list_indicators',
-  'get_indicator',
+  'read_indicator',
   'create_indicator',
   'edit_indicator',
   'rename_indicator',
   'list_skills',
-  'get_skill',
+  'read_skill',
   'create_skill',
   'edit_skill',
   'rename_skill',
   'list_mcp_servers',
-  'get_mcp_server',
+  'read_mcp_server',
   'create_mcp_server',
   'edit_mcp_server',
   'rename_mcp_server',
   'sleep',
-  'get_block_outputs',
-  'get_block_upstream_references',
+  'read_block_outputs',
+  'read_block_upstream_references',
   'gdrive_request_access',
   'list_gdrive_files',
   'read_gdrive_file',
-])
-export type ToolId = z.infer<typeof ToolIds>
+] as const
+export const ToolIds = z.enum(COPILOT_TOOL_IDS)
+export type ToolId = (typeof COPILOT_TOOL_IDS)[number]
+export const CopilotTool = Object.fromEntries(COPILOT_TOOL_IDS.map((id) => [id, id])) as {
+  [K in ToolId]: K
+}
 
 // Base SSE wrapper for tool_call events emitted by the LLM
 const ToolCallSSEBase = z.object({
@@ -108,20 +111,30 @@ const RequiredId = z.string().trim().min(1)
 const WorkflowContextArgs = z.object({
   workflowId: z.string().optional(),
 })
-const EntityReviewTargetArgs = z.object({
-  entityId: RequiredId.optional(),
+const EntityTargetArgs = z.object({
+  entityId: RequiredId,
 })
 
 function buildEntityDocumentMutationArgs<TDocumentFormat extends string>(
-  documentFormat: TDocumentFormat,
-  options?: { includeEntityId?: boolean }
+  documentFormat: TDocumentFormat
 ) {
   const shape = {
     entityDocument: z.string().min(1),
     documentFormat: z.literal(documentFormat).optional(),
   }
 
-  return options?.includeEntityId === false ? z.object(shape) : EntityReviewTargetArgs.extend(shape)
+  return EntityTargetArgs.extend(shape)
+}
+
+function buildEntityDocumentCreateArgs<TDocumentFormat extends string>(
+  documentFormat: TDocumentFormat
+) {
+  return z
+    .object({
+      entityDocument: z.string().min(1),
+      documentFormat: z.literal(documentFormat).optional(),
+    })
+    .strict()
 }
 
 const CreateWorkflowArgs = z
@@ -155,7 +168,7 @@ const EditWorkflowArgs = z
   })
   .strict()
   .describe(
-    'Full workflow document replacement tool. Do not use this to rename one existing block or patch one block\'s `enabled` or `subBlocks`; use `edit_workflow_block` instead.'
+    "Full workflow document replacement tool. Do not use this to rename one existing block or patch one block's `enabled` or `subBlocks`; use `edit_workflow_block` instead."
   )
 
 const EditWorkflowBlockArgs = z
@@ -166,7 +179,7 @@ const EditWorkflowBlockArgs = z
       .trim()
       .min(1)
       .describe(
-        'Exact existing workflow block instance id from `get_user_workflow.workflowSummary.blocks`. Do not invent ids.'
+        'Exact existing workflow block instance id from `read_workflow.workflowSummary.blocks`. Do not invent ids.'
       ),
     blockType: z
       .string()
@@ -180,7 +193,7 @@ const EditWorkflowBlockArgs = z
       .record(z.any())
       .optional()
       .describe(
-        'Partial patch for the selected block only: map changed canonical sub-block ids to replacement values. Do not send a full workflow document, unchanged fields, or invented keys. Use `get_blocks_metadata` for canonical ids and `get_user_workflow` for current derived sub-block entries.'
+        'Partial patch for the selected block only: map changed canonical sub-block ids to replacement values. Do not send a full workflow document, unchanged fields, or invented keys. Use `get_blocks_metadata` for canonical ids and `read_workflow` for current derived sub-block entries.'
       ),
     currentWorkflowState: z.string().optional(),
   })
@@ -190,9 +203,7 @@ const EditWorkflowBlockArgs = z
   )
 
 const EditCustomToolArgs = buildEntityDocumentMutationArgs(CUSTOM_TOOL_DOCUMENT_FORMAT)
-const CreateCustomToolArgs = buildEntityDocumentMutationArgs(CUSTOM_TOOL_DOCUMENT_FORMAT, {
-  includeEntityId: false,
-})
+const CreateCustomToolArgs = buildEntityDocumentCreateArgs(CUSTOM_TOOL_DOCUMENT_FORMAT)
 const GetIndicatorArgs = z
   .object({
     entityId: RequiredId.optional(),
@@ -206,18 +217,18 @@ const GetIndicatorArgs = z
       ),
   })
   .strict()
+  .refine((args) => !!args.entityId || !!args.runtimeId, {
+    message: 'entityId or runtimeId is required',
+  })
+  .refine((args) => !(args.entityId && args.runtimeId), {
+    message: 'Use either entityId or runtimeId, not both',
+  })
 const EditIndicatorArgs = buildEntityDocumentMutationArgs(INDICATOR_DOCUMENT_FORMAT)
-const CreateIndicatorArgs = buildEntityDocumentMutationArgs(INDICATOR_DOCUMENT_FORMAT, {
-  includeEntityId: false,
-})
+const CreateIndicatorArgs = buildEntityDocumentCreateArgs(INDICATOR_DOCUMENT_FORMAT)
 const EditSkillArgs = buildEntityDocumentMutationArgs(SKILL_DOCUMENT_FORMAT)
-const CreateSkillArgs = buildEntityDocumentMutationArgs(SKILL_DOCUMENT_FORMAT, {
-  includeEntityId: false,
-})
+const CreateSkillArgs = buildEntityDocumentCreateArgs(SKILL_DOCUMENT_FORMAT)
 const EditMcpServerArgs = buildEntityDocumentMutationArgs(MCP_SERVER_DOCUMENT_FORMAT)
-const CreateMcpServerArgs = buildEntityDocumentMutationArgs(MCP_SERVER_DOCUMENT_FORMAT, {
-  includeEntityId: false,
-})
+const CreateMcpServerArgs = buildEntityDocumentCreateArgs(MCP_SERVER_DOCUMENT_FORMAT)
 
 // Tool argument schemas for the Studio runtime tool surface
 export const ToolArgSchemas = {
@@ -244,18 +255,17 @@ export const ToolArgSchemas = {
     id: z.string().optional(),
     todoId: z.string().optional(),
   }),
-  get_user_workflow: z
+  [CopilotTool.read_workflow]: z
     .object({
       workflowId: RequiredId,
     })
     .strict(),
   create_workflow: CreateWorkflowArgs,
-  list_user_workflows: z.object({}),
-  get_workflow_from_name: z.object({ workflow_name: z.string().trim().min(1) }).strict(),
-  get_global_workflow_variables: z.object({
+  [CopilotTool.list_workflows]: z.object({}),
+  [CopilotTool.read_workflow_variables]: z.object({
     workflowId: RequiredId,
   }),
-  set_global_workflow_variables: z.object({
+  [CopilotTool.set_workflow_variables]: z.object({
     workflowId: RequiredId,
     operations: z.array(
       z.object({
@@ -287,21 +297,21 @@ export const ToolArgSchemas = {
     workflow_input: z.union([z.string(), z.record(z.any())]).optional(),
   }),
 
-  get_workflow_console: z.object({
+  [CopilotTool.read_workflow_logs]: z.object({
     workflowId: RequiredId,
     limit: NumberOptional,
     includeDetails: BooleanOptional,
   }),
 
-  get_blocks_and_tools: GetBlocksAndToolsInput,
+  [CopilotTool.get_available_blocks]: GetAvailableBlocksInput,
 
-  get_blocks_metadata: GetBlocksMetadataInput,
+  [CopilotTool.get_blocks_metadata]: GetBlocksMetadataInput,
 
-  get_indicator_catalog: GetIndicatorCatalogInput,
+  [CopilotTool.get_agent_accessory_catalog]: GetAgentAccessoryCatalogInput,
 
-  get_indicator_metadata: GetIndicatorMetadataInput,
+  [CopilotTool.get_indicator_catalog]: GetIndicatorCatalogInput,
 
-  get_trigger_blocks: GetTriggerBlocksInput,
+  [CopilotTool.get_indicator_metadata]: GetIndicatorMetadataInput,
 
   search_documentation: z.object({
     query: z.string(),
@@ -324,24 +334,26 @@ export const ToolArgSchemas = {
     body: z.union([z.record(z.any()), z.string()]).optional(),
   }),
 
-  get_environment_variables: WorkflowContextArgs,
+  [CopilotTool.read_environment_variables]: WorkflowContextArgs,
 
   set_environment_variables: WorkflowContextArgs.extend({
     variables: z.record(z.string()),
   }),
 
-  get_oauth_credentials: WorkflowContextArgs,
+  [CopilotTool.read_oauth_credentials]: WorkflowContextArgs,
 
-  get_credentials: WorkflowContextArgs,
+  [CopilotTool.read_credentials]: WorkflowContextArgs,
 
   gdrive_request_access: z.object({}),
 
   list_gdrive_files: WorkflowContextArgs.extend({
+    credentialId: z.string(),
     search_query: z.string().optional(),
     num_results: z.number().optional().default(50),
   }),
 
   read_gdrive_file: z.object({
+    credentialId: z.string(),
     fileId: z.string(),
     type: z.enum(['doc', 'sheet']),
     range: z.string().optional(),
@@ -351,7 +363,7 @@ export const ToolArgSchemas = {
   knowledge_base: KnowledgeBaseArgsSchema,
 
   list_custom_tools: z.object({}),
-  get_custom_tool: EntityReviewTargetArgs,
+  [CopilotTool.read_custom_tool]: EntityTargetArgs,
   create_custom_tool: CreateCustomToolArgs,
   edit_custom_tool: EditCustomToolArgs,
   rename_custom_tool: EditCustomToolArgs,
@@ -360,7 +372,7 @@ export const ToolArgSchemas = {
     workflowId: z.string().optional(),
     blockId: z.string().optional(),
   }),
-  get_monitor: z.object({
+  [CopilotTool.read_monitor]: z.object({
     monitorId: RequiredId,
   }),
   edit_monitor: z.object({
@@ -369,20 +381,20 @@ export const ToolArgSchemas = {
     documentFormat: z.literal(MONITOR_DOCUMENT_FORMAT).optional(),
   }),
 
-  list_indicators: z.object({}),
-  get_indicator: GetIndicatorArgs,
+  [CopilotTool.list_indicators]: z.object({}),
+  [CopilotTool.read_indicator]: GetIndicatorArgs,
   create_indicator: CreateIndicatorArgs,
   edit_indicator: EditIndicatorArgs,
   rename_indicator: EditIndicatorArgs,
 
   list_skills: z.object({}),
-  get_skill: EntityReviewTargetArgs,
+  [CopilotTool.read_skill]: EntityTargetArgs,
   create_skill: CreateSkillArgs,
   edit_skill: EditSkillArgs,
   rename_skill: EditSkillArgs,
 
   list_mcp_servers: z.object({}),
-  get_mcp_server: EntityReviewTargetArgs,
+  [CopilotTool.read_mcp_server]: EntityTargetArgs,
   create_mcp_server: CreateMcpServerArgs,
   edit_mcp_server: EditMcpServerArgs,
   rename_mcp_server: EditMcpServerArgs,
@@ -395,11 +407,11 @@ export const ToolArgSchemas = {
       .describe('The number of seconds to sleep (0-180, max 3 minutes)'),
   }),
 
-  get_block_outputs: GetBlockOutputsInput.extend({
+  [CopilotTool.read_block_outputs]: ReadBlockOutputsInput.extend({
     workflowId: RequiredId,
   }),
 
-  get_block_upstream_references: GetBlockUpstreamReferencesInput.extend({
+  [CopilotTool.read_block_upstream_references]: ReadBlockUpstreamReferencesInput.extend({
     workflowId: RequiredId,
   }),
 } as const
@@ -424,53 +436,70 @@ export const ToolSSESchemas = {
     'mark_todo_in_progress',
     ToolArgSchemas.mark_todo_in_progress
   ),
-  get_user_workflow: toolCallSSEFor('get_user_workflow', ToolArgSchemas.get_user_workflow),
+  [CopilotTool.read_workflow]: toolCallSSEFor(
+    CopilotTool.read_workflow,
+    ToolArgSchemas.read_workflow
+  ),
   create_workflow: toolCallSSEFor('create_workflow', ToolArgSchemas.create_workflow),
-  list_user_workflows: toolCallSSEFor('list_user_workflows', ToolArgSchemas.list_user_workflows),
-  get_workflow_from_name: toolCallSSEFor(
-    'get_workflow_from_name',
-    ToolArgSchemas.get_workflow_from_name
+  [CopilotTool.list_workflows]: toolCallSSEFor(
+    CopilotTool.list_workflows,
+    ToolArgSchemas.list_workflows
   ),
-  get_global_workflow_variables: toolCallSSEFor(
-    'get_global_workflow_variables',
-    ToolArgSchemas.get_global_workflow_variables
+  [CopilotTool.read_workflow_variables]: toolCallSSEFor(
+    CopilotTool.read_workflow_variables,
+    ToolArgSchemas.read_workflow_variables
   ),
-  set_global_workflow_variables: toolCallSSEFor(
-    'set_global_workflow_variables',
-    ToolArgSchemas.set_global_workflow_variables
+  [CopilotTool.set_workflow_variables]: toolCallSSEFor(
+    CopilotTool.set_workflow_variables,
+    ToolArgSchemas.set_workflow_variables
   ),
   edit_workflow: toolCallSSEFor('edit_workflow', ToolArgSchemas.edit_workflow),
   edit_workflow_block: toolCallSSEFor('edit_workflow_block', ToolArgSchemas.edit_workflow_block),
   rename_workflow: toolCallSSEFor('rename_workflow', ToolArgSchemas.rename_workflow),
   run_workflow: toolCallSSEFor('run_workflow', ToolArgSchemas.run_workflow),
-  get_workflow_console: toolCallSSEFor('get_workflow_console', ToolArgSchemas.get_workflow_console),
-  get_blocks_and_tools: toolCallSSEFor('get_blocks_and_tools', ToolArgSchemas.get_blocks_and_tools),
-  get_blocks_metadata: toolCallSSEFor('get_blocks_metadata', ToolArgSchemas.get_blocks_metadata),
-  get_indicator_catalog: toolCallSSEFor(
-    'get_indicator_catalog',
+  [CopilotTool.read_workflow_logs]: toolCallSSEFor(
+    CopilotTool.read_workflow_logs,
+    ToolArgSchemas.read_workflow_logs
+  ),
+  [CopilotTool.get_available_blocks]: toolCallSSEFor(
+    CopilotTool.get_available_blocks,
+    ToolArgSchemas.get_available_blocks
+  ),
+  [CopilotTool.get_blocks_metadata]: toolCallSSEFor(
+    CopilotTool.get_blocks_metadata,
+    ToolArgSchemas.get_blocks_metadata
+  ),
+  [CopilotTool.get_agent_accessory_catalog]: toolCallSSEFor(
+    CopilotTool.get_agent_accessory_catalog,
+    ToolArgSchemas.get_agent_accessory_catalog
+  ),
+  [CopilotTool.get_indicator_catalog]: toolCallSSEFor(
+    CopilotTool.get_indicator_catalog,
     ToolArgSchemas.get_indicator_catalog
   ),
-  get_indicator_metadata: toolCallSSEFor(
-    'get_indicator_metadata',
+  [CopilotTool.get_indicator_metadata]: toolCallSSEFor(
+    CopilotTool.get_indicator_metadata,
     ToolArgSchemas.get_indicator_metadata
   ),
-  get_trigger_blocks: toolCallSSEFor('get_trigger_blocks', ToolArgSchemas.get_trigger_blocks),
   search_documentation: toolCallSSEFor('search_documentation', ToolArgSchemas.search_documentation),
   search_online: toolCallSSEFor('search_online', ToolArgSchemas.search_online),
   make_api_request: toolCallSSEFor('make_api_request', ToolArgSchemas.make_api_request),
-  get_environment_variables: toolCallSSEFor(
-    'get_environment_variables',
-    ToolArgSchemas.get_environment_variables
+  [CopilotTool.read_environment_variables]: toolCallSSEFor(
+    CopilotTool.read_environment_variables,
+    ToolArgSchemas.read_environment_variables
   ),
   set_environment_variables: toolCallSSEFor(
     'set_environment_variables',
     ToolArgSchemas.set_environment_variables
   ),
-  get_oauth_credentials: toolCallSSEFor(
-    'get_oauth_credentials',
-    ToolArgSchemas.get_oauth_credentials
+  [CopilotTool.read_oauth_credentials]: toolCallSSEFor(
+    CopilotTool.read_oauth_credentials,
+    ToolArgSchemas.read_oauth_credentials
   ),
-  get_credentials: toolCallSSEFor('get_credentials', ToolArgSchemas.get_credentials),
+  [CopilotTool.read_credentials]: toolCallSSEFor(
+    CopilotTool.read_credentials,
+    ToolArgSchemas.read_credentials
+  ),
   gdrive_request_access: toolCallSSEFor(
     'gdrive_request_access',
     ToolArgSchemas.gdrive_request_access
@@ -485,33 +514,48 @@ export const ToolSSESchemas = {
   ),
   knowledge_base: toolCallSSEFor('knowledge_base', ToolArgSchemas.knowledge_base),
   list_custom_tools: toolCallSSEFor('list_custom_tools', ToolArgSchemas.list_custom_tools),
-  get_custom_tool: toolCallSSEFor('get_custom_tool', ToolArgSchemas.get_custom_tool),
+  [CopilotTool.read_custom_tool]: toolCallSSEFor(
+    CopilotTool.read_custom_tool,
+    ToolArgSchemas.read_custom_tool
+  ),
   create_custom_tool: toolCallSSEFor('create_custom_tool', ToolArgSchemas.create_custom_tool),
   edit_custom_tool: toolCallSSEFor('edit_custom_tool', ToolArgSchemas.edit_custom_tool),
   rename_custom_tool: toolCallSSEFor('rename_custom_tool', ToolArgSchemas.rename_custom_tool),
   list_monitors: toolCallSSEFor('list_monitors', ToolArgSchemas.list_monitors),
-  get_monitor: toolCallSSEFor('get_monitor', ToolArgSchemas.get_monitor),
+  [CopilotTool.read_monitor]: toolCallSSEFor(CopilotTool.read_monitor, ToolArgSchemas.read_monitor),
   edit_monitor: toolCallSSEFor('edit_monitor', ToolArgSchemas.edit_monitor),
-  list_indicators: toolCallSSEFor('list_indicators', ToolArgSchemas.list_indicators),
-  get_indicator: toolCallSSEFor('get_indicator', ToolArgSchemas.get_indicator),
+  [CopilotTool.list_indicators]: toolCallSSEFor(
+    CopilotTool.list_indicators,
+    ToolArgSchemas.list_indicators
+  ),
+  [CopilotTool.read_indicator]: toolCallSSEFor(
+    CopilotTool.read_indicator,
+    ToolArgSchemas.read_indicator
+  ),
   create_indicator: toolCallSSEFor('create_indicator', ToolArgSchemas.create_indicator),
   edit_indicator: toolCallSSEFor('edit_indicator', ToolArgSchemas.edit_indicator),
   rename_indicator: toolCallSSEFor('rename_indicator', ToolArgSchemas.rename_indicator),
   list_skills: toolCallSSEFor('list_skills', ToolArgSchemas.list_skills),
-  get_skill: toolCallSSEFor('get_skill', ToolArgSchemas.get_skill),
+  [CopilotTool.read_skill]: toolCallSSEFor(CopilotTool.read_skill, ToolArgSchemas.read_skill),
   create_skill: toolCallSSEFor('create_skill', ToolArgSchemas.create_skill),
   edit_skill: toolCallSSEFor('edit_skill', ToolArgSchemas.edit_skill),
   rename_skill: toolCallSSEFor('rename_skill', ToolArgSchemas.rename_skill),
   list_mcp_servers: toolCallSSEFor('list_mcp_servers', ToolArgSchemas.list_mcp_servers),
-  get_mcp_server: toolCallSSEFor('get_mcp_server', ToolArgSchemas.get_mcp_server),
+  [CopilotTool.read_mcp_server]: toolCallSSEFor(
+    CopilotTool.read_mcp_server,
+    ToolArgSchemas.read_mcp_server
+  ),
   create_mcp_server: toolCallSSEFor('create_mcp_server', ToolArgSchemas.create_mcp_server),
   edit_mcp_server: toolCallSSEFor('edit_mcp_server', ToolArgSchemas.edit_mcp_server),
   rename_mcp_server: toolCallSSEFor('rename_mcp_server', ToolArgSchemas.rename_mcp_server),
   sleep: toolCallSSEFor('sleep', ToolArgSchemas.sleep),
-  get_block_outputs: toolCallSSEFor('get_block_outputs', ToolArgSchemas.get_block_outputs),
-  get_block_upstream_references: toolCallSSEFor(
-    'get_block_upstream_references',
-    ToolArgSchemas.get_block_upstream_references
+  [CopilotTool.read_block_outputs]: toolCallSSEFor(
+    CopilotTool.read_block_outputs,
+    ToolArgSchemas.read_block_outputs
+  ),
+  [CopilotTool.read_block_upstream_references]: toolCallSSEFor(
+    CopilotTool.read_block_upstream_references,
+    ToolArgSchemas.read_block_upstream_references
   ),
 } as const
 
@@ -529,19 +573,41 @@ const WorkflowDocumentEnvelope = WorkflowTargetEnvelope.extend({
   documentFormat: z.literal(TG_MERMAID_DOCUMENT_FORMAT),
   entityDocument: z.string(),
   workflowDocument: z.string(),
-  workflowSummary: z
-    .object({
-      blocks: z.array(
-        z.object({
-          blockId: z.string(),
-          blockType: z.string(),
-          blockName: z.string(),
-          enabled: z.boolean().optional(),
-          subBlockIds: z.array(z.string()),
-        })
-      ),
+})
+
+const WorkflowSummaryResult = z.object({
+  blocks: z.array(
+    z.object({
+      blockId: z.string(),
+      blockType: z.string(),
+      blockName: z.string(),
+      enabled: z.boolean().optional(),
+      parentId: z.string().optional(),
+      subBlockIds: z.array(z.string()),
     })
-    .optional(),
+  ),
+  edges: z.array(
+    z.object({
+      source: z.string(),
+      target: z.string(),
+      sourceHandle: z.string().optional(),
+      targetHandle: z.string().optional(),
+    })
+  ),
+  connectionIssues: z.array(
+    z.object({
+      edgeIndex: z.number(),
+      source: z.string(),
+      target: z.string(),
+      sourceHandle: z.string().optional(),
+      targetHandle: z.string().optional(),
+      message: z.string(),
+    })
+  ),
+})
+
+const WorkflowReadDocumentEnvelope = WorkflowDocumentEnvelope.extend({
+  workflowSummary: WorkflowSummaryResult,
 })
 
 const GenericEntityListEntry = z.object({
@@ -634,8 +700,14 @@ const McpServerDocumentEnvelope = EntityDocumentEnvelopeBase.extend({
 
 const EditEntityDocumentResultBase = z.object({
   success: z.boolean(),
-  reviewSessionId: z.string().optional(),
-  draftSessionId: z.string().optional(),
+  preview: z
+    .object({
+      documentDiff: z.object({
+        before: z.string(),
+        after: z.string(),
+      }),
+    })
+    .optional(),
 })
 
 const WorkflowMutationResult = WorkflowTargetEnvelope.extend({
@@ -732,16 +804,15 @@ export const ToolResultSchemas = {
     todoId: z.string().optional(),
     id: z.string().optional(),
   }),
-  get_user_workflow: WorkflowDocumentEnvelope,
+  [CopilotTool.read_workflow]: WorkflowReadDocumentEnvelope,
   create_workflow: WorkflowMutationResult,
-  list_user_workflows: GenericEntityListResult.extend({
+  [CopilotTool.list_workflows]: GenericEntityListResult.extend({
     entityKind: z.literal('workflow'),
   }),
-  get_workflow_from_name: WorkflowDocumentEnvelope,
-  get_global_workflow_variables: z
+  [CopilotTool.read_workflow_variables]: z
     .object({ variables: z.record(z.any()) })
     .or(z.array(z.object({ name: z.string(), value: z.any() }))),
-  set_global_workflow_variables: z
+  [CopilotTool.set_workflow_variables]: z
     .object({ variables: z.record(z.any()) })
     .or(z.object({ message: z.any().optional(), data: z.any().optional() })),
   oauth_request_access: z.object({
@@ -757,21 +828,19 @@ export const ToolResultSchemas = {
     message: z.any().optional(),
     data: z.any().optional(),
   }),
-  get_workflow_console: z.object({ entries: z.array(ExecutionEntry) }),
-  get_blocks_and_tools: GetBlocksAndToolsResult,
-  get_blocks_metadata: GetBlocksMetadataResult,
-  get_indicator_catalog: GetIndicatorCatalogResult,
-  get_indicator_metadata: GetIndicatorMetadataResult,
-  get_trigger_blocks: GetTriggerBlocksResult,
+  [CopilotTool.read_workflow_logs]: z.object({ entries: z.array(ExecutionEntry) }),
+  [CopilotTool.get_available_blocks]: GetAvailableBlocksResult,
+  [CopilotTool.get_blocks_metadata]: GetBlocksMetadataResult,
+  [CopilotTool.get_agent_accessory_catalog]: GetAgentAccessoryCatalogResult,
+  [CopilotTool.get_indicator_catalog]: GetIndicatorCatalogResult,
+  [CopilotTool.get_indicator_metadata]: GetIndicatorMetadataResult,
   search_documentation: z.object({ results: z.array(z.any()) }),
   search_online: z.object({
     results: z.array(z.any()),
     query: z.string().optional(),
     type: z.string().optional(),
-    requestedType: z.string().optional(),
     totalResults: z.number().optional(),
-    source: z.enum(['exa', 'serper', 'duckduckgo']).optional(),
-    warnings: z.array(z.string()).optional(),
+    source: z.enum(['exa', 'serper']).optional(),
   }),
   make_api_request: z.object({
     status: z.number(),
@@ -780,20 +849,20 @@ export const ToolResultSchemas = {
     data: z.any().optional(),
     body: z.any().optional(),
   }),
-  get_environment_variables: z.union([
+  [CopilotTool.read_environment_variables]: z.union([
     z.object({ variableNames: z.array(z.string()), count: z.number() }),
     z.object({ variables: z.record(z.string()) }),
   ]),
   set_environment_variables: z
     .object({ variables: z.record(z.string()) })
     .or(z.object({ message: z.any().optional(), data: z.any().optional() })),
-  get_oauth_credentials: z.object({
+  [CopilotTool.read_oauth_credentials]: z.object({
     credentials: z.array(
       z.object({ id: z.string(), provider: z.string(), isDefault: z.boolean().optional() })
     ),
     total: z.number().optional(),
   }),
-  get_credentials: z.union([
+  [CopilotTool.read_credentials]: z.union([
     z.object({
       oauth: z.object({
         connected: z.object({
@@ -839,6 +908,7 @@ export const ToolResultSchemas = {
   ]),
   gdrive_request_access: z.object({
     granted: z.boolean().optional(),
+    credentialId: z.string().optional(),
     message: z.string().optional(),
   }),
   list_gdrive_files: z.object({
@@ -882,21 +952,21 @@ export const ToolResultSchemas = {
   list_custom_tools: GenericEntityListResult.extend({
     entityKind: z.literal('custom_tool'),
   }),
-  get_custom_tool: CustomToolDocumentEnvelope.extend({
+  [CopilotTool.read_custom_tool]: CustomToolDocumentEnvelope.extend({
     entityKind: z.literal('custom_tool'),
   }),
   create_custom_tool: CustomToolDocumentMutationResult,
   edit_custom_tool: CustomToolDocumentMutationResult,
   rename_custom_tool: CustomToolDocumentMutationResult,
   list_monitors: MonitorListResult,
-  get_monitor: MonitorDocumentEnvelope,
+  [CopilotTool.read_monitor]: MonitorDocumentEnvelope,
   edit_monitor: z
     .object({
       success: z.boolean(),
     })
     .merge(MonitorDocumentEnvelope),
-  list_indicators: IndicatorListResult,
-  get_indicator: IndicatorDocumentEnvelope.extend({
+  [CopilotTool.list_indicators]: IndicatorListResult,
+  [CopilotTool.read_indicator]: IndicatorDocumentEnvelope.extend({
     entityKind: z.literal('indicator'),
   }),
   create_indicator: IndicatorDocumentMutationResult,
@@ -905,7 +975,7 @@ export const ToolResultSchemas = {
   list_skills: GenericEntityListResult.extend({
     entityKind: z.literal('skill'),
   }),
-  get_skill: SkillDocumentEnvelope.extend({
+  [CopilotTool.read_skill]: SkillDocumentEnvelope.extend({
     entityKind: z.literal('skill'),
   }),
   create_skill: SkillDocumentMutationResult,
@@ -914,7 +984,7 @@ export const ToolResultSchemas = {
   list_mcp_servers: GenericEntityListResult.extend({
     entityKind: z.literal('mcp_server'),
   }),
-  get_mcp_server: McpServerDocumentEnvelope.extend({
+  [CopilotTool.read_mcp_server]: McpServerDocumentEnvelope.extend({
     entityKind: z.literal('mcp_server'),
   }),
   create_mcp_server: McpServerDocumentMutationResult,
@@ -925,8 +995,8 @@ export const ToolResultSchemas = {
     seconds: z.number(),
     message: z.string().optional(),
   }),
-  get_block_outputs: GetBlockOutputsResult,
-  get_block_upstream_references: GetBlockUpstreamReferencesResult,
+  [CopilotTool.read_block_outputs]: ReadBlockOutputsResult,
+  [CopilotTool.read_block_upstream_references]: ReadBlockUpstreamReferencesResult,
 } as const
 
 // Consolidated registry entry per tool

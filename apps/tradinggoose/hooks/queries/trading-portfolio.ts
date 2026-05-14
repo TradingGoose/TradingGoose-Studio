@@ -1,16 +1,21 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import type {
-  QuickOrderSubmitRequest,
-  QuickOrderSubmitResponse,
-} from '@/app/api/providers/trading/order/types'
+  TradingOrderSubmitRequest,
+  TradingOrderSubmitResponse,
+} from '@/lib/trading/order-types'
 import { useSocket } from '@/contexts/socket-context'
+import { recordsOrderKeys } from '@/hooks/queries/records-orders'
+import {
+  arePortfolioIdentitiesEqual,
+  getPortfolioIdentityKey,
+  type PortfolioDetail,
+  type PortfolioIdentity,
+  toPortfolioValueObject,
+} from '@/providers/trading/portfolio-identity'
 import type {
   TradingPortfolioPerformanceWindow,
-  UnifiedTradingAccount,
-  UnifiedTradingAccountSnapshot,
   UnifiedTradingPortfolioPerformance,
-  UnifiedTradingPositionListings,
 } from '@/providers/trading/types'
 
 type TradingPortfolioChannel = 'accounts' | 'account-snapshot' | 'portfolio-performance'
@@ -18,13 +23,13 @@ type TradingPortfolioChannel = 'accounts' | 'account-snapshot' | 'portfolio-perf
 type TradingAccountsRequest = {
   workspaceId?: string
   provider?: string
-  credentialServiceId?: string
+  serviceId?: string
   refreshKey?: number | string | null
   enabled?: boolean
 }
 
 type TradingSnapshotRequest = TradingAccountsRequest & {
-  accountId?: string
+  portfolioIdentity?: PortfolioIdentity | null
 }
 
 type TradingPerformanceRequest = TradingSnapshotRequest & {
@@ -33,12 +38,12 @@ type TradingPerformanceRequest = TradingSnapshotRequest & {
 
 type TradingPortfolioSubscribedPayload = {
   provider?: string
-  credentialServiceId?: string
+  serviceId?: string
   workspaceId?: string
   channel?: TradingPortfolioChannel
   subscriptionId?: string
   clientSubscriptionId?: string
-  accountId?: string
+  portfolioIdentity?: PortfolioIdentity | null
   window?: TradingPortfolioPerformanceWindow
 }
 
@@ -49,13 +54,12 @@ type TradingPortfolioErrorPayload = TradingPortfolioSubscribedPayload & {
 
 type TradingPortfolioAccountsPayload = TradingPortfolioSubscribedPayload & {
   channel?: 'accounts'
-  accounts?: UnifiedTradingAccount[]
+  portfolioIdentities?: PortfolioIdentity[]
 }
 
 type TradingPortfolioSnapshotPayload = TradingPortfolioSubscribedPayload & {
   channel?: 'account-snapshot'
-  snapshot?: UnifiedTradingAccountSnapshot
-  positionListings?: UnifiedTradingPositionListings['positionListings']
+  portfolioDetail?: PortfolioDetail
 }
 
 type TradingPortfolioPerformancePayload = TradingPortfolioSubscribedPayload & {
@@ -75,21 +79,16 @@ type SocketSubscriptionRef = {
   subscriptionId?: string
   clientSubscriptionId: string
   provider: string
-  credentialServiceId?: string
+  serviceId?: string
   workspaceId: string
   channel: TradingPortfolioChannel
-  accountId?: string
+  portfolioIdentity?: PortfolioIdentity
 }
 
-const getAccountsPayloadData = (payload: TradingPortfolioAccountsPayload) => payload.accounts
+const getAccountsPayloadData = (payload: TradingPortfolioAccountsPayload) =>
+  payload.portfolioIdentities
 
-const getSnapshotPayloadData = (payload: TradingPortfolioSnapshotPayload) =>
-  payload.snapshot
-    ? {
-        snapshot: payload.snapshot,
-        positionListings: payload.positionListings ?? [],
-      }
-    : undefined
+const getSnapshotPayloadData = (payload: TradingPortfolioSnapshotPayload) => payload.portfolioDetail
 
 const getPerformancePayloadData = (payload: TradingPortfolioPerformancePayload) =>
   payload.performance
@@ -117,9 +116,9 @@ const postJson = async <T>(url: string, body: unknown): Promise<T> => {
 function useTradingPortfolioSocketData<T>({
   channel,
   provider,
-  credentialServiceId,
+  serviceId,
   workspaceId,
-  accountId,
+  portfolioIdentity,
   window,
   refreshKey,
   enabled = true,
@@ -128,9 +127,9 @@ function useTradingPortfolioSocketData<T>({
 }: {
   channel: TradingPortfolioChannel
   provider?: string
-  credentialServiceId?: string
+  serviceId?: string
   workspaceId?: string
-  accountId?: string
+  portfolioIdentity?: PortfolioIdentity | null
   window?: TradingPortfolioPerformanceWindow
   refreshKey?: number | string | null
   enabled?: boolean
@@ -152,15 +151,18 @@ function useTradingPortfolioSocketData<T>({
   const subscriptionRef = useRef<SocketSubscriptionRef | null>(null)
 
   const normalizedProvider = provider?.trim()
-  const normalizedCredentialServiceId = credentialServiceId?.trim()
+  const normalizedServiceId = serviceId?.trim()
   const normalizedWorkspaceId = workspaceId?.trim()
-  const normalizedAccountId = accountId?.trim()
+  const normalizedPortfolioIdentity = toPortfolioValueObject(portfolioIdentity)
+  const normalizedPortfolioIdentityKey = normalizedPortfolioIdentity
+    ? getPortfolioIdentityKey(normalizedPortfolioIdentity)
+    : ''
   const requestKey = [
     channel,
     normalizedWorkspaceId ?? '',
     normalizedProvider ?? '',
-    normalizedCredentialServiceId ?? '',
-    normalizedAccountId ?? '',
+    normalizedServiceId ?? '',
+    normalizedPortfolioIdentityKey,
     window ?? '',
   ].join('|')
   const data = dataState.key === requestKey ? dataState.data : undefined
@@ -168,8 +170,9 @@ function useTradingPortfolioSocketData<T>({
     enabled &&
     Boolean(normalizedProvider) &&
     Boolean(normalizedWorkspaceId) &&
-    (channel === 'accounts' || Boolean(normalizedAccountId)) &&
+    (channel === 'accounts' || Boolean(normalizedPortfolioIdentityKey)) &&
     (channel !== 'portfolio-performance' || Boolean(window))
+  const isCurrentRequestResolved = dataState.key === requestKey
 
   useEffect(() => {
     subscriptionRef.current = null
@@ -195,17 +198,17 @@ function useTradingPortfolioSocketData<T>({
       channel,
       runId,
       normalizedProvider,
-      normalizedAccountId ?? 'accounts',
+      normalizedPortfolioIdentityKey || 'accounts',
       window ?? '',
     ].join(':')
 
     subscriptionRef.current = {
       clientSubscriptionId,
       provider: normalizedProvider as string,
-      credentialServiceId: normalizedCredentialServiceId,
+      serviceId: normalizedServiceId,
       workspaceId: normalizedWorkspaceId as string,
       channel,
-      accountId: normalizedAccountId,
+      portfolioIdentity: normalizedPortfolioIdentity ?? undefined,
     }
 
     setDataState({ key: requestKey, data: undefined })
@@ -216,14 +219,19 @@ function useTradingPortfolioSocketData<T>({
       if (payload.channel && payload.channel !== channel) return false
       if (payload.provider && payload.provider !== normalizedProvider) return false
       if (
-        payload.credentialServiceId &&
-        normalizedCredentialServiceId &&
-        payload.credentialServiceId !== normalizedCredentialServiceId
+        payload.serviceId &&
+        normalizedServiceId &&
+        payload.serviceId !== normalizedServiceId
       ) {
         return false
       }
       if (payload.workspaceId && payload.workspaceId !== normalizedWorkspaceId) return false
-      if (payload.accountId && normalizedAccountId && payload.accountId !== normalizedAccountId) {
+      const payloadPortfolioIdentity = toPortfolioValueObject(payload.portfolioIdentity)
+      if (
+        payloadPortfolioIdentity &&
+        normalizedPortfolioIdentity &&
+        !arePortfolioIdentitiesEqual(payloadPortfolioIdentity, normalizedPortfolioIdentity)
+      ) {
         return false
       }
       if (payload.clientSubscriptionId) {
@@ -239,10 +247,10 @@ function useTradingPortfolioSocketData<T>({
     const subscribe = (forceRefresh = false) => {
       socket.emit('trading-portfolio-subscribe', {
         provider: normalizedProvider,
-        credentialServiceId: normalizedCredentialServiceId,
+        serviceId: normalizedServiceId,
         workspaceId: normalizedWorkspaceId,
         channel,
-        accountId: normalizedAccountId,
+        portfolioIdentity: normalizedPortfolioIdentity,
         window,
         clientSubscriptionId,
         forceRefresh,
@@ -302,23 +310,20 @@ function useTradingPortfolioSocketData<T>({
       } else {
         socket.emit('trading-portfolio-unsubscribe', {
           provider: current.provider,
-          credentialServiceId: current.credentialServiceId,
+          serviceId: current.serviceId,
           channel: current.channel,
-          accountId: current.accountId,
+          portfolioIdentity: current.portfolioIdentity,
           clientSubscriptionId: current.clientSubscriptionId,
         })
       }
       subscriptionRef.current = null
     }
   }, [
-    accountId,
     channel,
-    credentialServiceId,
     dataEvent,
-    enabled,
     getData,
-    normalizedAccountId,
-    normalizedCredentialServiceId,
+    normalizedServiceId,
+    normalizedPortfolioIdentityKey,
     normalizedProvider,
     normalizedWorkspaceId,
     refetchNonce,
@@ -337,9 +342,9 @@ function useTradingPortfolioSocketData<T>({
         subscriptionId: current.subscriptionId,
         clientSubscriptionId: current.clientSubscriptionId,
         provider: current.provider,
-        credentialServiceId: current.credentialServiceId,
+        serviceId: current.serviceId,
         channel: current.channel,
-        accountId: current.accountId,
+        portfolioIdentity: current.portfolioIdentity,
       })
     } else {
       setRefetchNonce((value) => value + 1)
@@ -350,17 +355,17 @@ function useTradingPortfolioSocketData<T>({
   return {
     data,
     error,
-    isLoading: shouldSubscribe && isFetching && data === undefined,
+    isLoading: shouldSubscribe && data === undefined && (isFetching || !isCurrentRequestResolved),
     isFetching,
     refetch,
   }
 }
 
-export function useTradingAccounts(request: TradingAccountsRequest) {
-  return useTradingPortfolioSocketData<UnifiedTradingAccount[]>({
+export function usePortfolioIdentities(request: TradingAccountsRequest) {
+  return useTradingPortfolioSocketData<PortfolioIdentity[]>({
     channel: 'accounts',
     provider: request.provider,
-    credentialServiceId: request.credentialServiceId,
+    serviceId: request.serviceId,
     workspaceId: request.workspaceId,
     refreshKey: request.refreshKey,
     enabled: request.enabled,
@@ -369,36 +374,27 @@ export function useTradingAccounts(request: TradingAccountsRequest) {
   })
 }
 
-export function useTradingPortfolioSnapshot(request: TradingSnapshotRequest) {
-  const result = useTradingPortfolioSocketData<{
-    snapshot: UnifiedTradingAccountSnapshot
-    positionListings: UnifiedTradingPositionListings['positionListings']
-  }>({
+export function usePortfolioDetail(request: TradingSnapshotRequest) {
+  return useTradingPortfolioSocketData<PortfolioDetail>({
     channel: 'account-snapshot',
     provider: request.provider,
-    credentialServiceId: request.credentialServiceId,
+    serviceId: request.serviceId,
     workspaceId: request.workspaceId,
-    accountId: request.accountId,
+    portfolioIdentity: request.portfolioIdentity,
     refreshKey: request.refreshKey,
     enabled: request.enabled,
     dataEvent: 'trading-portfolio-snapshot',
     getData: getSnapshotPayloadData,
   })
-
-  return {
-    ...result,
-    data: result.data?.snapshot,
-    positionListings: result.data?.positionListings ?? [],
-  }
 }
 
-export function useTradingPortfolioPerformance(request: TradingPerformanceRequest) {
+export function usePortfolioPerformance(request: TradingPerformanceRequest) {
   return useTradingPortfolioSocketData<UnifiedTradingPortfolioPerformance>({
     channel: 'portfolio-performance',
     provider: request.provider,
-    credentialServiceId: request.credentialServiceId,
+    serviceId: request.serviceId,
     workspaceId: request.workspaceId,
-    accountId: request.accountId,
+    portfolioIdentity: request.portfolioIdentity,
     window: request.selectedWindow,
     refreshKey: request.refreshKey,
     enabled: request.enabled,
@@ -408,8 +404,13 @@ export function useTradingPortfolioPerformance(request: TradingPerformanceReques
 }
 
 export function useSubmitTradingOrder() {
-  return useMutation<QuickOrderSubmitResponse, Error, QuickOrderSubmitRequest>({
+  const queryClient = useQueryClient()
+
+  return useMutation<TradingOrderSubmitResponse, Error, TradingOrderSubmitRequest>({
     mutationFn: (request) =>
-      postJson<QuickOrderSubmitResponse>('/api/providers/trading/order', request),
+      postJson<TradingOrderSubmitResponse>('/api/providers/trading/order', request),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: recordsOrderKeys.all })
+    },
   })
 }

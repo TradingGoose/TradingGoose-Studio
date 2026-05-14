@@ -9,8 +9,8 @@ import { verifyInternalTokenDetailed } from '@/lib/auth/internal'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
 import { hydrateListingUI } from '@/lib/listing/hydrate-ui'
-import { loadWorkflowStateWithFallback } from '@/lib/workflows/db-helpers'
-import { getWorkflowAccessContext, getWorkflowById } from '@/lib/workflows/utils'
+import { loadWorkflowState } from '@/lib/workflows/db-helpers'
+import { readWorkflowAccessContext, readWorkflowById } from '@/lib/workflows/utils'
 import { deleteYjsSessionInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
 import { createWorkflowSnapshot } from '@/lib/yjs/workflow-session'
 
@@ -26,7 +26,7 @@ const UpdateWorkflowSchema = z.object({
 /**
  * GET /api/workflows/[id]
  * Fetch a single workflow by ID
- * Uses the authoritative Yjs-first workflow state loader with normalized DB fallback
+ * Uses the authoritative Yjs-first workflow state loader.
  */
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const requestId = generateRequestId()
@@ -78,7 +78,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     }
 
     let accessContext = null
-    let workflowData = await getWorkflowById(workflowId)
+    let workflowData = await readWorkflowById(workflowId)
 
     if (!workflowData) {
       logger.warn(`[${requestId}] Workflow ${workflowId} not found`)
@@ -94,7 +94,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     } else {
       // Case 1: User owns the workflow
       if (workflowData) {
-        accessContext = await getWorkflowAccessContext(workflowId, userId ?? undefined)
+        accessContext = await readWorkflowAccessContext(workflowId, userId ?? undefined)
 
         if (!accessContext) {
           logger.warn(`[${requestId}] Workflow ${workflowId} not found`)
@@ -107,7 +107,11 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
           hasAccess = true
         }
 
-        if (!hasAccess && workflowData.workspaceId && accessContext.workspacePermission) {
+        if (
+          !hasAccess &&
+          workflowData.workspaceId &&
+          (accessContext.isWorkspaceOwner || accessContext.workspacePermission)
+        ) {
           hasAccess = true
         }
       }
@@ -119,7 +123,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     }
 
     logger.debug(`[${requestId}] Attempting to load workflow ${workflowId} from authoritative state`)
-    const workflowState = await loadWorkflowStateWithFallback(workflowId, workflowData.lastSynced)
+    const workflowState = await loadWorkflowState(workflowId, workflowData.lastSynced)
 
     if (!workflowState) {
       logger.warn(
@@ -173,9 +177,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     }
 
     logger.info(
-      `[${requestId}] Loaded workflow ${workflowId} from ${
-        workflowState?.source ?? 'empty fallback'
-      }`
+      `[${requestId}] Loaded workflow ${workflowId} from ${workflowState?.source ?? 'empty state'}`
     )
     const elapsed = Date.now() - startTime
     logger.info(`[${requestId}] Successfully fetched workflow ${workflowId} in ${elapsed}ms`)
@@ -209,8 +211,8 @@ export async function DELETE(
 
     const userId = session.user.id
 
-    const accessContext = await getWorkflowAccessContext(workflowId, userId)
-    const workflowData = accessContext?.workflow || (await getWorkflowById(workflowId))
+    const accessContext = await readWorkflowAccessContext(workflowId, userId)
+    const workflowData = accessContext?.workflow || (await readWorkflowById(workflowId))
 
     if (!workflowData) {
       logger.warn(`[${requestId}] Workflow ${workflowId} not found for deletion`)
@@ -227,8 +229,8 @@ export async function DELETE(
 
     // Case 2: Workflow belongs to a workspace and user has admin permission
     if (!canDelete && workflowData.workspaceId) {
-      const context = accessContext || (await getWorkflowAccessContext(workflowId, userId))
-      if (context?.workspacePermission === 'admin') {
+      const context = accessContext || (await readWorkflowAccessContext(workflowId, userId))
+      if (context?.isWorkspaceOwner || context?.workspacePermission === 'admin') {
         canDelete = true
       }
     }
@@ -330,8 +332,8 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     const updates = UpdateWorkflowSchema.parse(body)
 
     // Fetch the workflow to check ownership/access
-    const accessContext = await getWorkflowAccessContext(workflowId, userId)
-    const workflowData = accessContext?.workflow || (await getWorkflowById(workflowId))
+    const accessContext = await readWorkflowAccessContext(workflowId, userId)
+    const workflowData = accessContext?.workflow || (await readWorkflowById(workflowId))
 
     if (!workflowData) {
       logger.warn(`[${requestId}] Workflow ${workflowId} not found for update`)
@@ -348,8 +350,12 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 
     // Case 2: Workflow belongs to a workspace and user has write or admin permission
     if (!canUpdate && workflowData.workspaceId) {
-      const context = accessContext || (await getWorkflowAccessContext(workflowId, userId))
-      if (context?.workspacePermission === 'write' || context?.workspacePermission === 'admin') {
+      const context = accessContext || (await readWorkflowAccessContext(workflowId, userId))
+      if (
+        context?.isWorkspaceOwner ||
+        context?.workspacePermission === 'write' ||
+        context?.workspacePermission === 'admin'
+      ) {
         canUpdate = true
       }
     }

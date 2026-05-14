@@ -14,7 +14,6 @@ export const GoogleDriveBlock: BlockConfig<GoogleDriveResponse> = {
   bgColor: undefined,
   icon: GoogleDriveIcon,
   subBlocks: [
-    // Operation selector
     {
       id: 'operation',
       title: 'Operation',
@@ -28,7 +27,6 @@ export const GoogleDriveBlock: BlockConfig<GoogleDriveResponse> = {
       ],
       value: () => 'create_folder',
     },
-    // Google Drive Credentials
     {
       id: 'credential',
       title: 'Google Drive Account',
@@ -43,7 +41,6 @@ export const GoogleDriveBlock: BlockConfig<GoogleDriveResponse> = {
       ],
       placeholder: 'Select Google Drive account',
     },
-    // Create/Upload File Fields
     {
       id: 'fileName',
       title: 'File Name',
@@ -53,7 +50,6 @@ export const GoogleDriveBlock: BlockConfig<GoogleDriveResponse> = {
       condition: { field: 'operation', value: ['create_file', 'upload'] },
       required: true,
     },
-    // File upload (basic mode) - binary files
     {
       id: 'fileUpload',
       title: 'Upload File',
@@ -66,7 +62,6 @@ export const GoogleDriveBlock: BlockConfig<GoogleDriveResponse> = {
       multiple: false,
       required: false,
     },
-    // Variable reference (advanced mode) - for referencing files from previous blocks
     {
       id: 'file',
       title: 'File Reference',
@@ -133,48 +128,6 @@ export const GoogleDriveBlock: BlockConfig<GoogleDriveResponse> = {
       mode: 'advanced',
       condition: { field: 'operation', value: ['create_file', 'upload'] },
     },
-    // Get Content Fields
-    // {
-    //   id: 'fileId',
-    //   title: 'Select File',
-    //   type: 'file-selector',
-    //   layout: 'full',
-    //   provider: 'google-drive',
-    //   serviceId: 'google-drive',
-    //   requiredScopes: [],
-    //   placeholder: 'Select a file',
-    //   condition: { field: 'operation', value: 'get_content' },
-    // },
-    // // Manual File ID input (shown only when no file is selected)
-    // {
-    //   id: 'fileId',
-    //   title: 'Or Enter File ID Manually',
-    //   type: 'short-input',
-    //   layout: 'full',
-    //   placeholder: 'ID of the file to get content from',
-    //   condition: {
-    //     field: 'operation',
-    //     value: 'get_content',
-    //     and: {
-    //       field: 'fileId',
-    //       value: '',
-    //     },
-    //   },
-    // },
-    // Export format for Google Workspace files
-    // {
-    //   id: 'mimeType',
-    //   title: 'Export Format',
-    //   type: 'dropdown',
-    //   layout: 'full',
-    //   options: [
-    //     { label: 'Plain Text', id: 'text/plain' },
-    //     { label: 'HTML', id: 'text/html' },
-    //   ],
-    //   placeholder: 'Optional: Choose export format for Google Workspace files',
-    //   condition: { field: 'operation', value: 'get_content' },
-    // },
-    // Create Folder Fields
     {
       id: 'fileName',
       title: 'Folder Name',
@@ -202,7 +155,6 @@ export const GoogleDriveBlock: BlockConfig<GoogleDriveResponse> = {
       dependsOn: ['credential'],
       condition: { field: 'operation', value: 'create_folder' },
     },
-    // Manual Folder ID input (advanced mode)
     {
       id: 'manualFolderId',
       title: 'Parent Folder ID',
@@ -213,7 +165,6 @@ export const GoogleDriveBlock: BlockConfig<GoogleDriveResponse> = {
       mode: 'advanced',
       condition: { field: 'operation', value: 'create_folder' },
     },
-    // List Fields - Folder Selector (basic mode)
     {
       id: 'folderSelector',
       title: 'Select Folder',
@@ -232,7 +183,6 @@ export const GoogleDriveBlock: BlockConfig<GoogleDriveResponse> = {
       dependsOn: ['credential'],
       condition: { field: 'operation', value: 'list' },
     },
-    // Manual Folder ID input (advanced mode)
     {
       id: 'manualFolderId',
       title: 'Folder ID',
@@ -277,14 +227,11 @@ export const GoogleDriveBlock: BlockConfig<GoogleDriveResponse> = {
         }
       },
       params: (params) => {
-        const { credential, folderSelector, manualFolderId, mimeType, ...rest } = params
-
-        // Use folderSelector if provided, otherwise use manualFolderId
-        const effectiveFolderId = (folderSelector || manualFolderId || '').trim()
+        const { credential, folderId, mimeType, ...rest } = params
 
         return {
           credential,
-          folderId: effectiveFolderId || undefined,
+          folderId: (folderId || '').trim() || undefined,
           pageSize: rest.pageSize ? Number.parseInt(rest.pageSize as string, 10) : undefined,
           mimeType: mimeType,
           ...rest,
@@ -295,14 +242,11 @@ export const GoogleDriveBlock: BlockConfig<GoogleDriveResponse> = {
   inputs: {
     operation: { type: 'string', description: 'Operation to perform' },
     credential: { type: 'string', description: 'Google Drive access token' },
-    // Upload and Create Folder operation inputs
     fileName: { type: 'string', description: 'File or folder name' },
     file: { type: 'json', description: 'File to upload (UserFile object)' },
     content: { type: 'string', description: 'Text content to upload' },
     mimeType: { type: 'string', description: 'File MIME type' },
-    // List operation inputs
-    folderSelector: { type: 'string', description: 'Selected folder' },
-    manualFolderId: { type: 'string', description: 'Manual folder identifier' },
+    folderId: { type: 'string', description: 'Folder identifier' },
     query: { type: 'string', description: 'Search query' },
     pageSize: { type: 'number', description: 'Results per page' },
   },

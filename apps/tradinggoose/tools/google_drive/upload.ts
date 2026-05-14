@@ -1,4 +1,5 @@
 import { createLogger } from '@/lib/logs/console/logger'
+import { getCredentialRouteParams } from '@/tools/credentials'
 import type { GoogleDriveToolParams, GoogleDriveUploadResponse } from '@/tools/google_drive/types'
 import {
   GOOGLE_WORKSPACE_MIME_TYPES,
@@ -55,17 +56,11 @@ export const uploadTool: ToolConfig<GoogleDriveToolParams, GoogleDriveUploadResp
       visibility: 'hidden',
       description: 'The MIME type of the file to upload (auto-detected from file if not provided)',
     },
-    folderSelector: {
-      type: 'string',
-      required: false,
-      visibility: 'user-only',
-      description: 'Select the folder to upload the file to',
-    },
     folderId: {
       type: 'string',
       required: false,
-      visibility: 'hidden',
-      description: 'The ID of the folder to upload the file to (internal use)',
+      visibility: 'user-only',
+      description: 'The ID of the folder to upload the file to',
     },
   },
 
@@ -92,11 +87,11 @@ export const uploadTool: ToolConfig<GoogleDriveToolParams, GoogleDriveUploadResp
       // Custom route handles file uploads
       if (params.file) {
         return {
-          accessToken: params.accessToken,
+          ...getCredentialRouteParams(params),
           fileName: params.fileName,
           file: params.file,
           mimeType: params.mimeType,
-          folderId: params.folderSelector || params.folderId,
+          folderId: params.folderId,
         }
       }
 
@@ -110,10 +105,8 @@ export const uploadTool: ToolConfig<GoogleDriveToolParams, GoogleDriveUploadResp
         mimeType: params.mimeType || 'text/plain',
       }
 
-      // Add parent folder if specified (prefer folderSelector over folderId)
-      const parentFolderId = params.folderSelector || params.folderId
-      if (parentFolderId && parentFolderId.trim() !== '') {
-        metadata.parents = [parentFolderId]
+      if (params.folderId && params.folderId.trim() !== '') {
+        metadata.parents = [params.folderId]
       }
 
       return metadata

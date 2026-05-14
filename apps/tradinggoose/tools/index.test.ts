@@ -8,12 +8,36 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { generateInternalToken } from '@/lib/auth/internal'
-import { buildLoadSkillTool } from '@/executor/handlers/agent/skills-resolver'
+import { buildLoadSkillTool } from '@/executor/handlers/agent/skill-loader'
 import type { ExecutionContext } from '@/executor/types'
 import { mockEnvironmentVariables } from '@/tools/__test-utils__/test-tools'
 import { executeTool } from '@/tools/index'
 import { tools } from '@/tools/registry'
 import { getTool } from '@/tools/utils'
+
+const dbMocks = vi.hoisted(() => {
+  let rows: unknown[] = []
+  const setRows = (nextRows: unknown[]) => {
+    rows = nextRows
+  }
+  const limit = vi.fn(() => Promise.resolve(rows))
+  const whereResult = {
+    limit,
+    then: (resolve: (value: unknown[]) => unknown, reject?: (reason: unknown) => unknown) =>
+      Promise.resolve(rows).then(resolve, reject),
+  }
+  const where = vi.fn(() => whereResult)
+  const from = vi.fn(() => ({ where }))
+  const select = vi.fn(() => ({ from }))
+
+  return { from, limit, select, setRows, where }
+})
+
+vi.mock('@tradinggoose/db', () => ({
+  db: {
+    select: dbMocks.select,
+  },
+}))
 
 vi.mock('@/lib/auth/internal', () => ({
   generateInternalToken: vi.fn().mockResolvedValue('mock-internal-token'),
@@ -101,28 +125,6 @@ describe('Custom Tools', () => {
             }
             return undefined
           },
-          getAllTools: () => [
-            {
-              id: 'custom-tool-123',
-              workspaceId: 'workspace-456',
-              userId: 'user-123',
-              title: 'Custom Weather Tool',
-              code: 'return { result: "Weather data" }',
-              schema: {
-                function: {
-                  description: 'Get weather information',
-                  parameters: {
-                    type: 'object',
-                    properties: {
-                      location: { type: 'string', description: 'City name' },
-                      unit: { type: 'string', description: 'Unit (metric/imperial)' },
-                    },
-                    required: ['location'],
-                  },
-                },
-              },
-            },
-          ],
         }),
       },
     }))
@@ -157,6 +159,11 @@ describe('Custom Tools', () => {
     const nonExistentTool = getTool('custom_non-existent')
     expect(nonExistentTool).toBeUndefined()
   })
+
+  it('should not resolve custom tools by title', () => {
+    const customTool = getTool('custom_Custom Weather Tool')
+    expect(customTool).toBeUndefined()
+  })
 })
 
 describe('executeTool Function', () => {
@@ -164,6 +171,15 @@ describe('executeTool Function', () => {
 
   beforeEach(() => {
     vi.mocked(generateInternalToken).mockResolvedValue('mock-internal-token')
+    dbMocks.setRows([])
+    dbMocks.select.mockImplementation(() => ({ from: dbMocks.from }))
+    dbMocks.from.mockImplementation(() => ({ where: dbMocks.where }))
+    dbMocks.where.mockImplementation(() => ({
+      limit: dbMocks.limit,
+      then: (resolve: (value: unknown[]) => unknown, reject?: (reason: unknown) => unknown) =>
+        Promise.resolve([]).then(resolve, reject),
+    }))
+    dbMocks.limit.mockImplementation(() => Promise.resolve([]))
 
     // Mock fetch
     global.fetch = Object.assign(
@@ -377,7 +393,7 @@ describe('executeTool Function', () => {
       version: '1.0.0',
       params: {},
       request: {
-        url: 'https://api.example.com/secure',
+        url: '/api/tools/gmail/send',
         method: 'GET',
         headers: () => ({ 'Content-Type': 'application/json' }),
       },
@@ -415,47 +431,106 @@ describe('executeTool Function', () => {
     }
   })
 
-  it('should load skill content through the skills API', async () => {
+  it('uses workflow-scoped internal auth for credential token lookup without user context', async () => {
+    const mockContext = createMockExecutionContext({ userId: undefined })
+    const originalWindow = global.window
+    const originalTool = (tools as any).test_credential_tool
+    ;(tools as any).test_credential_tool = {
+      id: 'test_credential_tool',
+      name: 'Test Credential Tool',
+      description: 'A test tool that needs an OAuth credential token',
+      version: '1.0.0',
+      params: {},
+      request: {
+        url: '/api/tools/gmail/send',
+        method: 'GET',
+        headers: () => ({ 'Content-Type': 'application/json' }),
+      },
+    }
+
+    Object.defineProperty(global, 'window', {
+      value: undefined,
+      writable: true,
+      configurable: true,
+    })
+
+    try {
+      const result = await executeTool(
+        'test_credential_tool',
+        { credential: 'credential-1', _context: { toolExecutionId: 'agent-1' } },
+        false,
+        mockContext
+      )
+
+      expect(result.success).toBe(true)
+      const workflowExecution = {
+        source: 'workflow_block',
+        parentWorkflowId: 'test-workflow',
+        parentBlockId: 'agent-1',
+      }
+      expect(vi.mocked(generateInternalToken)).toHaveBeenNthCalledWith(1, undefined, {
+        workflowExecution,
+      })
+      expect(vi.mocked(generateInternalToken)).toHaveBeenNthCalledWith(2, undefined, {
+        workflowExecution,
+      })
+      expect(global.fetch).toHaveBeenCalledWith(
+        'http://localhost:3000/api/auth/oauth/token',
+        expect.objectContaining({
+          body: JSON.stringify({
+            credentialId: 'credential-1',
+            workflowId: 'test-workflow',
+            workspaceId: 'workspace-456',
+          }),
+        })
+      )
+    } finally {
+      if (originalTool) {
+        ;(tools as any).test_credential_tool = originalTool
+      } else {
+        Reflect.deleteProperty(tools as any, 'test_credential_tool')
+      }
+      Object.defineProperty(global, 'window', {
+        value: originalWindow,
+        writable: true,
+        configurable: true,
+      })
+    }
+  })
+
+  it('should load skill content from workspace storage', async () => {
     const skillLoaderTool = buildLoadSkillTool('tradinggoose_internal_load_skill', [
       'market-research',
     ])
+    const skillRows = [
+      {
+        name: 'market-research',
+        content: 'Investigate the market and summarize the setup.',
+      },
+    ]
+    dbMocks.where.mockImplementationOnce(() => ({
+      orderBy: vi.fn().mockResolvedValueOnce(skillRows),
+      limit: vi.fn().mockResolvedValueOnce(skillRows),
+      then: (resolve: (value: unknown[]) => unknown, reject?: (reason: unknown) => unknown) =>
+        Promise.resolve(skillRows).then(resolve, reject),
+    }))
 
     global.fetch = Object.assign(
-      vi.fn().mockImplementation(async (url) => {
-        if (url.toString().includes('/api/skills')) {
-          return {
-            ok: true,
-            status: 200,
-            json: () =>
-              Promise.resolve({
-                data: [
-                  {
-                    id: 'skill-123',
-                    name: 'market-research',
-                    description: 'Research a market before acting',
-                    content: 'Investigate the market and summarize the setup.',
-                  },
-                ],
-              }),
-          }
-        }
-
-        return {
-          ok: true,
-          status: 200,
-          json: () =>
-            Promise.resolve({
-              success: true,
-              output: { result: 'Direct request successful' },
-            }),
-          headers: {
-            get: () => 'application/json',
-            forEach: () => {},
-          },
-          clone: function () {
-            return { ...this }
-          },
-        }
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: () =>
+          Promise.resolve({
+            success: true,
+            output: { result: 'Direct request successful' },
+          }),
+        headers: {
+          get: () => 'application/json',
+          forEach: () => {},
+        },
+        clone: function () {
+          return { ...this }
+        },
       }),
       { preconnect: vi.fn() }
     ) as typeof fetch
@@ -474,10 +549,7 @@ describe('executeTool Function', () => {
     expect(result.output).toEqual({
       content: 'Investigate the market and summarize the setup.',
     })
-    expect(global.fetch).toHaveBeenCalledWith(
-      expect.stringContaining('/api/skills?workspaceId=workspace-456'),
-      expect.objectContaining({ method: 'GET' })
-    )
+    expect(global.fetch).not.toHaveBeenCalled()
   })
 
   it('should handle non-existent tool', async () => {

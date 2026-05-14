@@ -1,8 +1,4 @@
-import {
-  MCP_WIDGET_SELECT_SERVER_EVENT,
-  type McpWidgetSelectEventDetail,
-  type ReviewTargetEventFields,
-} from '@/widgets/events'
+import { MCP_WIDGET_SELECT_SERVER_EVENT } from '@/widgets/events'
 import type { PairColor } from '@/widgets/pair-colors'
 import {
   createSelectionPersistenceHook,
@@ -45,7 +41,7 @@ const emitGeneric = createEmitSelectionChange({
   detailIdKey: 'serverId',
 })
 
-interface EmitMcpSelectionOptions extends ReviewTargetEventFields {
+interface EmitMcpSelectionOptions {
   serverId?: string | null
   panelId?: string
   widgetKey: string

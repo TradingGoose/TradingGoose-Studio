@@ -36,12 +36,10 @@ export interface GoogleSlidesCreateResponse extends ToolResponse {
 export interface GoogleSlidesToolParams {
   accessToken: string
   presentationId?: string
-  manualPresentationId?: string
   title?: string
   content?: string
   slideIndex?: number
   folderId?: string
-  folderSelector?: string
 }
 
 export type GoogleSlidesResponse =

@@ -3,6 +3,7 @@ import {
   sanitizeMarketProviderAuth,
   sanitizeMarketProviderParamsForWidget,
 } from '@/lib/market/market-provider-settings'
+import { toPortfolioValueObject } from '@/providers/trading/portfolio-identity'
 import {
   PORTFOLIO_SNAPSHOT_WIDGET_UPDATE_PARAMS_EVENT,
   type PortfolioSnapshotWidgetUpdateEventDetail,
@@ -72,15 +73,15 @@ export const sanitizePortfolioSnapshotParams = (
 
   const nextParams: Record<string, unknown> = {}
   const provider = normalizeString(params.provider)
-  const credentialServiceId = normalizeString(params.credentialServiceId)
+  const serviceId = normalizeString(params.serviceId)
   const marketProvider = normalizeString(params.marketProvider)
-  const accountId = normalizeString(params.accountId)
+  const portfolioIdentity = toPortfolioValueObject(params.portfolioIdentity)
   const selectedWindow = normalizeString(params.selectedWindow)
 
   if (provider) nextParams.provider = provider
-  if (credentialServiceId) nextParams.credentialServiceId = credentialServiceId
+  if (serviceId) nextParams.serviceId = serviceId
   if (marketProvider) nextParams.marketProvider = marketProvider
-  if (accountId) nextParams.accountId = accountId
+  if (portfolioIdentity) nextParams.portfolioIdentity = portfolioIdentity
   if (selectedWindow) nextParams.selectedWindow = selectedWindow
   const marketProviderParams = sanitizeMarketProviderParamsForWidget(
     marketProvider,

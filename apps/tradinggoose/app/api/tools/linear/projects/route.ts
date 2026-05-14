@@ -1,54 +1,29 @@
 import type { Project } from '@linear/sdk'
 import { LinearClient } from '@linear/sdk'
-import { NextResponse } from 'next/server'
-import { authorizeCredentialUse } from '@/lib/auth/credential-access'
+import { type NextRequest, NextResponse } from 'next/server'
+import { resolveOAuthRouteCredential } from '@/lib/credentials/oauth-route'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
-import { refreshAccessTokenIfNeeded } from '@/app/api/auth/oauth/utils'
 
 export const dynamic = 'force-dynamic'
 
 const logger = createLogger('LinearProjectsAPI')
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
+  const requestId = generateRequestId()
   try {
     const body = await request.json()
-    const { credential, teamId, workflowId } = body
+    const { teamId } = body
 
-    if (!credential || !teamId) {
-      logger.error('Missing credential or teamId in request')
+    if (!teamId) {
+      logger.error('Missing teamId in request')
       return NextResponse.json({ error: 'Credential and teamId are required' }, { status: 400 })
     }
 
-    const requestId = generateRequestId()
-    const authz = await authorizeCredentialUse(request as any, {
-      credentialId: credential,
-      workflowId,
-    })
-    if (!authz.ok || !authz.credentialOwnerUserId) {
-      return NextResponse.json({ error: authz.error || 'Unauthorized' }, { status: 403 })
-    }
+    const credential = await resolveOAuthRouteCredential(request, body, requestId)
+    if (!credential.ok) return credential.response
 
-    const accessToken = await refreshAccessTokenIfNeeded(
-      credential,
-      authz.credentialOwnerUserId,
-      requestId
-    )
-    if (!accessToken) {
-      logger.error('Failed to get access token', {
-        credentialId: credential,
-        userId: authz.credentialOwnerUserId,
-      })
-      return NextResponse.json(
-        {
-          error: 'Could not retrieve access token',
-          authRequired: true,
-        },
-        { status: 401 }
-      )
-    }
-
-    const linearClient = new LinearClient({ accessToken })
+    const linearClient = new LinearClient({ accessToken: credential.accessToken })
     let projects = []
 
     const team = await linearClient.team(teamId)

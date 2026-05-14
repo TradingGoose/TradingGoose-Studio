@@ -296,7 +296,7 @@ describe('DashboardClient', () => {
     })
   })
 
-  it('ignores persisted review targets during color-pair hydration', async () => {
+  it('hydrates stable entity ids from color pairs', async () => {
     await act(async () => {
       root.render(
         <DashboardClient
@@ -310,12 +310,6 @@ describe('DashboardClient', () => {
                 color: 'red',
                 workflowId: 'wf-current',
                 skillId: 'skill-saved',
-                reviewTarget: {
-                  reviewSessionId: 'review-draft-skill',
-                  reviewEntityKind: 'skill',
-                  reviewEntityId: null,
-                  reviewDraftSessionId: 'draft-skill',
-                },
               },
             ],
           }}

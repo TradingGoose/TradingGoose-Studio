@@ -1,10 +1,16 @@
 import { db } from '@tradinggoose/db'
 import { copilotReviewSessions, permissions, workflow, workspace } from '@tradinggoose/db/schema'
 import { and, eq } from 'drizzle-orm'
-import type { ReviewEntityKind, ReviewTargetDescriptor } from '@/lib/copilot/review-sessions/types'
+import type {
+  ReviewAccessMode,
+  ReviewEntityKind,
+  ReviewTargetDescriptor,
+} from '@/lib/copilot/review-sessions/types'
 import { createLogger } from '@/lib/logs/console/logger'
-import { getWorkflowAccessContext } from '@/lib/workflows/utils'
 import type { PermissionType } from '@/lib/permissions/utils'
+import { readWorkflowAccessContext } from '@/lib/workflows/utils'
+import type { SavedEntityKind } from '@/lib/yjs/entity-state'
+import { resolveEntityWorkspaceId } from '@/lib/yjs/server/entity-loaders'
 
 const logger = createLogger('ReviewSessionPermissions')
 
@@ -13,10 +19,6 @@ export interface ReviewAccessResult {
   userPermission: PermissionType | null
   workspaceId: string | null
   isOwner: boolean
-}
-
-interface VerifyAccessOptions {
-  requireWrite?: boolean
 }
 
 interface ReviewTargetAccessInput {
@@ -39,7 +41,7 @@ function buildAccessResult(opts: {
   isOwner: boolean
   userPermission: PermissionType | null
   workspaceId: string | null
-  requireWrite: boolean
+  accessMode: ReviewAccessMode
 }): ReviewAccessResult {
   if (opts.isOwner) {
     return {
@@ -59,7 +61,7 @@ function buildAccessResult(opts: {
     }
   }
 
-  if (opts.requireWrite && !canWriteWithPermission(opts.userPermission)) {
+  if (opts.accessMode === 'write' && !canWriteWithPermission(opts.userPermission)) {
     return {
       hasAccess: false,
       userPermission: opts.userPermission,
@@ -79,7 +81,7 @@ function buildAccessResult(opts: {
 async function verifyWorkspaceAccess(
   userId: string,
   workspaceId: string,
-  { requireWrite = false }: VerifyAccessOptions = {}
+  accessMode: ReviewAccessMode
 ): Promise<ReviewAccessResult> {
   try {
     const [workspaceAccess] = await db
@@ -108,23 +110,20 @@ async function verifyWorkspaceAccess(
       isOwner: workspaceAccess.ownerId === userId,
       userPermission: workspaceAccess.permissionType ?? null,
       workspaceId,
-      requireWrite,
+      accessMode,
     })
   } catch (error) {
-    logger.error('Error verifying workspace access', { error, userId, workspaceId, requireWrite })
+    logger.error('Error verifying workspace access', { error, userId, workspaceId, accessMode })
     return { hasAccess: false, userPermission: null, workspaceId, isOwner: false }
   }
 }
 
-async function verifyEntityReviewSessionAccess(
+async function verifyDraftReviewSessionAccess(
   userId: string,
   reviewTarget: ReviewTargetAccessInput
 ): Promise<Pick<ReviewAccessResult, 'hasAccess' | 'workspaceId'>> {
-  if (reviewTarget.entityKind === 'workflow' || !reviewTarget.reviewSessionId) {
-    return {
-      hasAccess: true,
-      workspaceId: reviewTarget.workspaceId,
-    }
+  if (!reviewTarget.reviewSessionId) {
+    return { hasAccess: false, workspaceId: null }
   }
 
   const [reviewSession] = await db
@@ -167,17 +166,17 @@ async function verifyEntityReviewSessionAccess(
     return { hasAccess: false, workspaceId: reviewSession.workspaceId }
   }
 
-  if (reviewTarget.entityId && reviewSession.entityId !== reviewTarget.entityId) {
-    logger.warn('Review session entity mismatch', {
+  if (reviewTarget.entityId || reviewSession.entityId) {
+    logger.warn('Saved entities must use entity Yjs targets, not review sessions', {
       userId,
       reviewSessionId: reviewTarget.reviewSessionId,
-      expected: reviewTarget.entityId,
-      actual: reviewSession.entityId,
+      targetEntityId: reviewTarget.entityId,
+      sessionEntityId: reviewSession.entityId,
     })
     return { hasAccess: false, workspaceId: reviewSession.workspaceId }
   }
 
-  if (!reviewSession.entityId && reviewSession.userId !== userId) {
+  if (reviewSession.userId !== userId) {
     logger.warn('Draft review session not owned by user', {
       userId,
       reviewSessionId: reviewTarget.reviewSessionId,
@@ -185,7 +184,7 @@ async function verifyEntityReviewSessionAccess(
     return { hasAccess: false, workspaceId: reviewSession.workspaceId }
   }
 
-  if (!reviewTarget.entityId && reviewTarget.draftSessionId) {
+  if (reviewTarget.draftSessionId) {
     if (reviewSession.draftSessionId !== reviewTarget.draftSessionId) {
       logger.warn('Review session draft mismatch', {
         userId,
@@ -203,13 +202,44 @@ async function verifyEntityReviewSessionAccess(
   }
 }
 
+async function verifySavedEntityTargetAccess(
+  userId: string,
+  reviewTarget: ReviewTargetAccessInput | ReviewTargetDescriptor,
+  accessMode: ReviewAccessMode
+): Promise<ReviewAccessResult> {
+  if (!reviewTarget.entityId) {
+    logger.warn('Saved entity review target missing entity id', { userId, reviewTarget })
+    return { hasAccess: false, userPermission: null, workspaceId: null, isOwner: false }
+  }
+
+  const workspaceId = await resolveEntityWorkspaceId(
+    reviewTarget.entityKind as SavedEntityKind,
+    reviewTarget.entityId
+  )
+  if (!workspaceId) {
+    logger.warn('Saved entity review target not found', { userId, reviewTarget })
+    return { hasAccess: false, userPermission: null, workspaceId: null, isOwner: false }
+  }
+
+  if (reviewTarget.workspaceId && reviewTarget.workspaceId !== workspaceId) {
+    logger.warn('Saved entity workspace mismatch', {
+      userId,
+      entityKind: reviewTarget.entityKind,
+      entityId: reviewTarget.entityId,
+    })
+    return { hasAccess: false, userPermission: null, workspaceId: null, isOwner: false }
+  }
+
+  return verifyWorkspaceAccess(userId, workspaceId, accessMode)
+}
+
 export async function verifyWorkflowAccess(
   userId: string,
   workflowId: string,
-  { requireWrite = false }: VerifyAccessOptions = {}
+  accessMode: ReviewAccessMode
 ): Promise<ReviewAccessResult> {
   try {
-    const accessContext = await getWorkflowAccessContext(workflowId, userId)
+    const accessContext = await readWorkflowAccessContext(workflowId, userId)
     if (!accessContext) {
       logger.warn('Attempt to access non-existent workflow', { userId, workflowId })
       return { hasAccess: false, userPermission: null, workspaceId: null, isOwner: false }
@@ -219,10 +249,10 @@ export async function verifyWorkflowAccess(
       isOwner: accessContext.isOwner,
       userPermission: accessContext.workspacePermission ?? null,
       workspaceId: accessContext.workflow.workspaceId ?? null,
-      requireWrite,
+      accessMode,
     })
   } catch (error) {
-    logger.error('Error verifying workflow access', { error, userId, workflowId, requireWrite })
+    logger.error('Error verifying workflow access', { error, userId, workflowId, accessMode })
     return { hasAccess: false, userPermission: null, workspaceId: null, isOwner: false }
   }
 }
@@ -230,26 +260,29 @@ export async function verifyWorkflowAccess(
 export async function verifyReviewTargetAccess(
   userId: string,
   reviewTarget: ReviewTargetAccessInput | ReviewTargetDescriptor,
-  options: VerifyAccessOptions = {}
+  accessMode: ReviewAccessMode
 ): Promise<ReviewAccessResult> {
   if (reviewTarget.entityKind === 'workflow') {
     const workflowId =
-      reviewTarget.entityId ??
-      ('yjsSessionId' in reviewTarget ? reviewTarget.yjsSessionId : null)
+      reviewTarget.entityId ?? ('yjsSessionId' in reviewTarget ? reviewTarget.yjsSessionId : null)
 
     if (!workflowId) {
       logger.warn('Workflow review target missing workflow id', { userId, reviewTarget })
       return { hasAccess: false, userPermission: null, workspaceId: null, isOwner: false }
     }
 
-    return verifyWorkflowAccess(userId, workflowId, options)
+    return verifyWorkflowAccess(userId, workflowId, accessMode)
   }
 
-  const reviewSessionAccess = await verifyEntityReviewSessionAccess(
+  if (!reviewTarget.reviewSessionId) {
+    return verifySavedEntityTargetAccess(userId, reviewTarget, accessMode)
+  }
+
+  const reviewSessionAccess = await verifyDraftReviewSessionAccess(
     userId,
     reviewTarget as ReviewTargetAccessInput
   )
-  if (!reviewSessionAccess.hasAccess) {
+  if (!reviewSessionAccess.hasAccess || !reviewSessionAccess.workspaceId) {
     return {
       hasAccess: false,
       userPermission: null,
@@ -258,13 +291,7 @@ export async function verifyReviewTargetAccess(
     }
   }
 
-  const workspaceId = reviewSessionAccess.workspaceId ?? reviewTarget.workspaceId
-  if (!workspaceId) {
-    logger.warn('Entity review target missing workspace id', { userId, reviewTarget })
-    return { hasAccess: false, userPermission: null, workspaceId: null, isOwner: false }
-  }
-
-  return verifyWorkspaceAccess(userId, workspaceId, options)
+  return verifyWorkspaceAccess(userId, reviewSessionAccess.workspaceId, accessMode)
 }
 
 export async function resolveWorkflowWorkspaceId(workflowId: string): Promise<string | null> {
@@ -277,36 +304,21 @@ export async function resolveWorkflowWorkspaceId(workflowId: string): Promise<st
   return workflowRow?.workspaceId ?? null
 }
 
-export function createPermissionError(operation: string): string {
-  return `Access denied: You do not have permission to ${operation} this workflow`
-}
-
-async function hasAccessToReviewSession(
+function hasAccessToReviewSession(
   userId: string,
-  session: typeof copilotReviewSessions.$inferSelect,
-  { requireWrite = false }: VerifyAccessOptions = {}
-): Promise<boolean> {
-  if (session.entityKind === 'workflow') {
-    return session.userId === userId
-  }
-
-  if (!session.entityId || !session.workspaceId) {
-    return session.userId === userId
-  }
-
-  const accessResult = await verifyWorkspaceAccess(userId, session.workspaceId, { requireWrite })
-  return accessResult.hasAccess
+  session: typeof copilotReviewSessions.$inferSelect
+): boolean {
+  return session.userId === userId
 }
 
 /**
  * Loads a review session when the caller can access it.
- * Saved entity sessions are shared through workspace permissions; drafts and
- * workflow sessions remain creator-owned.
+ * Review-session rows are chat/draft history and remain creator-owned.
+ * Saved entities use canonical Yjs entity targets keyed by entityId.
  */
 export async function loadReviewSessionForUser(
   reviewSessionId: string,
-  userId: string,
-  options: VerifyAccessOptions = {}
+  userId: string
 ): Promise<typeof copilotReviewSessions.$inferSelect | null> {
   const [session] = await db
     .select()
@@ -318,8 +330,32 @@ export async function loadReviewSessionForUser(
     return null
   }
 
-  const hasAccess = await hasAccessToReviewSession(userId, session, options)
+  const hasAccess = hasAccessToReviewSession(userId, session)
   return hasAccess ? session : null
+}
+
+export async function loadReviewSessionForUserByConversationId(
+  conversationId: string,
+  entityKind: string,
+  userId: string
+): Promise<typeof copilotReviewSessions.$inferSelect | null> {
+  const sessions = await db
+    .select()
+    .from(copilotReviewSessions)
+    .where(
+      and(
+        eq(copilotReviewSessions.conversationId, conversationId),
+        eq(copilotReviewSessions.entityKind, entityKind)
+      )
+    )
+
+  for (const session of sessions) {
+    if (hasAccessToReviewSession(userId, session)) {
+      return session
+    }
+  }
+
+  return null
 }
 
 /**
@@ -337,16 +373,16 @@ export async function verifyReviewSessionOwnership<
 ): Promise<
   T extends undefined
     ? typeof copilotReviewSessions.$inferSelect | null
-    : Pick<typeof copilotReviewSessions.$inferSelect, Extract<keyof T, keyof typeof copilotReviewSessions.$inferSelect>> | null
+    : Pick<
+        typeof copilotReviewSessions.$inferSelect,
+        Extract<keyof T, keyof typeof copilotReviewSessions.$inferSelect>
+      > | null
 > {
   const query = columns
     ? db
         .select(
           Object.fromEntries(
-            Object.keys(columns).map((col) => [
-              col,
-              (copilotReviewSessions as any)[col],
-            ])
+            Object.keys(columns).map((col) => [col, (copilotReviewSessions as any)[col]])
           )
         )
         .from(copilotReviewSessions)
@@ -354,10 +390,7 @@ export async function verifyReviewSessionOwnership<
 
   const [session] = await query
     .where(
-      and(
-        eq(copilotReviewSessions.id, reviewSessionId),
-        eq(copilotReviewSessions.userId, userId)
-      )
+      and(eq(copilotReviewSessions.id, reviewSessionId), eq(copilotReviewSessions.userId, userId))
     )
     .limit(1)
 

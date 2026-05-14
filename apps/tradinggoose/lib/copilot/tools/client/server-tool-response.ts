@@ -72,10 +72,12 @@ export async function executeCopilotServerTool<TResult = unknown>(input: {
   context?: {
     contextWorkflowId?: string
   }
+  signal?: AbortSignal
 }): Promise<TResult> {
   const response = await fetch('/api/copilot/execute-copilot-server-tool', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
+    signal: input.signal,
     body: JSON.stringify({
       toolName: input.toolName,
       payload: input.payload ?? {},

@@ -112,7 +112,6 @@ export const hubspotTicketPropertyChangedTrigger: TriggerConfig = {
       title: '',
       type: 'trigger-save',
       mode: 'trigger',
-      triggerId: 'hubspot_ticket_property_changed',
       condition: {
         field: 'selectedTriggerId',
         value: 'hubspot_ticket_property_changed',

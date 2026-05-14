@@ -29,7 +29,9 @@ export const MonitorDocumentSchema = z.object({
 
 export type MonitorDocumentFields = z.infer<typeof MonitorDocumentSchema>
 
-function normalizeRecord(record: Record<string, unknown> | null | undefined): MonitorDocumentFields {
+function normalizeRecord(
+  record: Record<string, unknown> | null | undefined
+): MonitorDocumentFields {
   const source = record ?? {}
   const listingSource =
     source.listing && typeof source.listing === 'object' && !Array.isArray(source.listing)
@@ -105,7 +107,7 @@ function getListingLabel(listing: MonitorDocumentFields['listing']): string {
   return base && quote ? `${base}/${quote}` : base || quote || 'listing'
 }
 
-export function getMonitorDocumentName(
+export function readMonitorDocumentName(
   fields: Record<string, unknown> | null | undefined
 ): string {
   const parsed = normalizeRecord(fields)

@@ -42,6 +42,31 @@ describe('copilot server tool errors', () => {
     expect(response.body.hint).toContain('condition blocks')
   })
 
+  it('returns container repair guidance for invalid canonical container edge handles', () => {
+    const response = buildCopilotServerToolErrorResponse(
+      'edit_workflow',
+      new Error(
+        'Invalid container edge: parallel1 end handle only accepts edges from blocks inside that container. Target the parallel1 container block without targetHandle for incoming outer edges.'
+      )
+    )
+
+    expect(response).toEqual({
+      status: 422,
+      body: expect.objectContaining({
+        code: 'invalid_workflow_document_container_edge',
+        retryable: true,
+        issues: [
+          {
+            path: 'workflowDocument.edges',
+            message:
+              'Invalid container edge: parallel1 end handle only accepts edges from blocks inside that container. Target the parallel1 container block without targetHandle for incoming outer edges.',
+          },
+        ],
+      }),
+    })
+    expect(response.body.hint).toContain('incoming outer workflow edges must target the container')
+  })
+
   it('preserves embedded workflow sub-block paths in structured edit errors', () => {
     const response = buildCopilotServerToolErrorResponse(
       'edit_workflow',
@@ -127,8 +152,7 @@ describe('copilot server tool errors', () => {
         body: {
           code: 'search_documentation_unavailable',
           error: 'Documentation search is unavailable because no embedding provider is configured.',
-          hint:
-            'Configure the OpenAI default API key or Azure OpenAI embedding service to enable documentation search.',
+          hint: 'Configure the OpenAI default API key or Azure OpenAI embedding service to enable documentation search.',
           retryable: false,
         },
       })
@@ -139,8 +163,7 @@ describe('copilot server tool errors', () => {
       body: {
         code: 'search_documentation_unavailable',
         error: 'Documentation search is unavailable because no embedding provider is configured.',
-        hint:
-          'Configure the OpenAI default API key or Azure OpenAI embedding service to enable documentation search.',
+        hint: 'Configure the OpenAI default API key or Azure OpenAI embedding service to enable documentation search.',
         retryable: false,
       },
     })

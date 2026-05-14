@@ -16,10 +16,10 @@ describe('Workflow By ID API Route', () => {
     error: vi.fn(),
   }
 
-  const mockGetWorkflowById = vi.fn()
-  const mockGetWorkflowAccessContext = vi.fn()
+  const mockReadWorkflowById = vi.fn()
+  const mockReadWorkflowAccessContext = vi.fn()
   const mockDeleteYjsSessionInSocketServer = vi.fn()
-  const mockLoadWorkflowStateWithFallback = vi.fn()
+  const mockLoadWorkflowState = vi.fn()
 
   beforeEach(() => {
     vi.resetModules()
@@ -33,7 +33,7 @@ describe('Workflow By ID API Route', () => {
     }))
 
     vi.doMock('@/lib/workflows/db-helpers', () => ({
-      loadWorkflowStateWithFallback: mockLoadWorkflowStateWithFallback,
+      loadWorkflowState: mockLoadWorkflowState,
     }))
 
     vi.doMock('@tradinggoose/db', () => ({
@@ -63,20 +63,20 @@ describe('Workflow By ID API Route', () => {
       hydrateListingUI: vi.fn().mockImplementation(async (blocks) => blocks),
     }))
 
-    mockGetWorkflowById.mockReset()
-    mockGetWorkflowAccessContext.mockReset()
+    mockReadWorkflowById.mockReset()
+    mockReadWorkflowAccessContext.mockReset()
     mockDeleteYjsSessionInSocketServer.mockReset()
-    mockLoadWorkflowStateWithFallback.mockReset()
+    mockLoadWorkflowState.mockReset()
     mockDeleteYjsSessionInSocketServer.mockResolvedValue(undefined)
-    mockLoadWorkflowStateWithFallback.mockResolvedValue(null)
+    mockLoadWorkflowState.mockResolvedValue(null)
 
     vi.doMock('@/lib/yjs/server/snapshot-bridge', () => ({
       deleteYjsSessionInSocketServer: mockDeleteYjsSessionInSocketServer,
     }))
 
     vi.doMock('@/lib/workflows/utils', () => ({
-      getWorkflowById: mockGetWorkflowById,
-      getWorkflowAccessContext: mockGetWorkflowAccessContext,
+      readWorkflowById: mockReadWorkflowById,
+      readWorkflowAccessContext: mockReadWorkflowAccessContext,
     }))
   })
 
@@ -108,8 +108,8 @@ describe('Workflow By ID API Route', () => {
         }),
       }))
 
-      mockGetWorkflowById.mockResolvedValueOnce(null)
-      mockGetWorkflowAccessContext.mockResolvedValueOnce({
+      mockReadWorkflowById.mockResolvedValueOnce(null)
+      mockReadWorkflowAccessContext.mockResolvedValueOnce({
         workflow: null,
         workspaceOwnerId: null,
         workspacePermission: null,
@@ -150,8 +150,8 @@ describe('Workflow By ID API Route', () => {
         }),
       }))
 
-      mockGetWorkflowById.mockResolvedValueOnce(mockWorkflow)
-      mockGetWorkflowAccessContext.mockResolvedValueOnce({
+      mockReadWorkflowById.mockResolvedValueOnce(mockWorkflow)
+      mockReadWorkflowAccessContext.mockResolvedValueOnce({
         workflow: mockWorkflow,
         workspaceOwnerId: null,
         workspacePermission: null,
@@ -159,10 +159,10 @@ describe('Workflow By ID API Route', () => {
         isWorkspaceOwner: false,
       })
 
-      mockLoadWorkflowStateWithFallback.mockResolvedValueOnce(mockWorkflowState)
+      mockLoadWorkflowState.mockResolvedValueOnce(mockWorkflowState)
 
-      mockGetWorkflowById.mockResolvedValueOnce(mockWorkflow)
-      mockGetWorkflowAccessContext.mockResolvedValueOnce({
+      mockReadWorkflowById.mockResolvedValueOnce(mockWorkflow)
+      mockReadWorkflowAccessContext.mockResolvedValueOnce({
         workflow: mockWorkflow,
         workspaceOwnerId: null,
         workspacePermission: null,
@@ -203,8 +203,8 @@ describe('Workflow By ID API Route', () => {
         }),
       }))
 
-      mockGetWorkflowById.mockResolvedValueOnce(mockWorkflow)
-      mockGetWorkflowAccessContext.mockResolvedValueOnce({
+      mockReadWorkflowById.mockResolvedValueOnce(mockWorkflow)
+      mockReadWorkflowAccessContext.mockResolvedValueOnce({
         workflow: mockWorkflow,
         workspaceOwnerId: 'workspace-456',
         workspacePermission: 'admin',
@@ -212,21 +212,16 @@ describe('Workflow By ID API Route', () => {
         isWorkspaceOwner: false,
       })
 
-      mockLoadWorkflowStateWithFallback.mockResolvedValueOnce(mockWorkflowState)
+      mockLoadWorkflowState.mockResolvedValueOnce(mockWorkflowState)
 
-      mockGetWorkflowById.mockResolvedValueOnce(mockWorkflow)
-      mockGetWorkflowAccessContext.mockResolvedValueOnce({
+      mockReadWorkflowById.mockResolvedValueOnce(mockWorkflow)
+      mockReadWorkflowAccessContext.mockResolvedValueOnce({
         workflow: mockWorkflow,
         workspaceOwnerId: 'workspace-456',
         workspacePermission: 'read',
         isOwner: false,
         isWorkspaceOwner: false,
       })
-
-      vi.doMock('@/lib/permissions/utils', () => ({
-        getUserEntityPermissions: vi.fn().mockResolvedValue('read'),
-        hasAdminPermission: vi.fn().mockResolvedValue(false),
-      }))
 
       const req = new NextRequest('http://localhost:3000/api/workflows/workflow-123')
       const params = Promise.resolve({ id: 'workflow-123' })
@@ -253,8 +248,8 @@ describe('Workflow By ID API Route', () => {
         }),
       }))
 
-      mockGetWorkflowById.mockResolvedValueOnce(mockWorkflow)
-      mockGetWorkflowAccessContext.mockResolvedValueOnce({
+      mockReadWorkflowById.mockResolvedValueOnce(mockWorkflow)
+      mockReadWorkflowAccessContext.mockResolvedValueOnce({
         workflow: mockWorkflow,
         workspaceOwnerId: 'workspace-456',
         workspacePermission: null,
@@ -295,8 +290,8 @@ describe('Workflow By ID API Route', () => {
         }),
       }))
 
-      mockGetWorkflowById.mockResolvedValueOnce(mockWorkflow)
-      mockGetWorkflowAccessContext.mockResolvedValueOnce({
+      mockReadWorkflowById.mockResolvedValueOnce(mockWorkflow)
+      mockReadWorkflowAccessContext.mockResolvedValueOnce({
         workflow: mockWorkflow,
         workspaceOwnerId: null,
         workspacePermission: null,
@@ -304,7 +299,7 @@ describe('Workflow By ID API Route', () => {
         isWorkspaceOwner: false,
       })
 
-      mockLoadWorkflowStateWithFallback.mockResolvedValueOnce(mockWorkflowState)
+      mockLoadWorkflowState.mockResolvedValueOnce(mockWorkflowState)
 
       const req = new NextRequest('http://localhost:3000/api/workflows/workflow-123')
       const params = Promise.resolve({ id: 'workflow-123' })
@@ -332,8 +327,8 @@ describe('Workflow By ID API Route', () => {
         }),
       }))
 
-      mockGetWorkflowById.mockResolvedValueOnce(mockWorkflow)
-      mockGetWorkflowAccessContext.mockResolvedValueOnce({
+      mockReadWorkflowById.mockResolvedValueOnce(mockWorkflow)
+      mockReadWorkflowAccessContext.mockResolvedValueOnce({
         workflow: mockWorkflow,
         workspaceOwnerId: null,
         workspacePermission: null,
@@ -372,8 +367,8 @@ describe('Workflow By ID API Route', () => {
         }),
       }))
 
-      mockGetWorkflowById.mockResolvedValueOnce(mockWorkflow)
-      mockGetWorkflowAccessContext.mockResolvedValueOnce({
+      mockReadWorkflowById.mockResolvedValueOnce(mockWorkflow)
+      mockReadWorkflowAccessContext.mockResolvedValueOnce({
         workflow: mockWorkflow,
         workspaceOwnerId: null,
         workspacePermission: null,
@@ -426,8 +421,8 @@ describe('Workflow By ID API Route', () => {
         }),
       }))
 
-      mockGetWorkflowById.mockResolvedValueOnce(mockWorkflow)
-      mockGetWorkflowAccessContext.mockResolvedValueOnce({
+      mockReadWorkflowById.mockResolvedValueOnce(mockWorkflow)
+      mockReadWorkflowAccessContext.mockResolvedValueOnce({
         workflow: mockWorkflow,
         workspaceOwnerId: null,
         workspacePermission: null,
@@ -473,8 +468,8 @@ describe('Workflow By ID API Route', () => {
         }),
       }))
 
-      mockGetWorkflowById.mockResolvedValueOnce(mockWorkflow)
-      mockGetWorkflowAccessContext.mockResolvedValueOnce({
+      mockReadWorkflowById.mockResolvedValueOnce(mockWorkflow)
+      mockReadWorkflowAccessContext.mockResolvedValueOnce({
         workflow: mockWorkflow,
         workspaceOwnerId: 'workspace-456',
         workspacePermission: 'admin',
@@ -519,8 +514,8 @@ describe('Workflow By ID API Route', () => {
         }),
       }))
 
-      mockGetWorkflowById.mockResolvedValueOnce(mockWorkflow)
-      mockGetWorkflowAccessContext.mockResolvedValueOnce({
+      mockReadWorkflowById.mockResolvedValueOnce(mockWorkflow)
+      mockReadWorkflowAccessContext.mockResolvedValueOnce({
         workflow: mockWorkflow,
         workspaceOwnerId: null,
         workspacePermission: null,
@@ -572,8 +567,8 @@ describe('Workflow By ID API Route', () => {
         }),
       }))
 
-      mockGetWorkflowById.mockResolvedValueOnce(mockWorkflow)
-      mockGetWorkflowAccessContext.mockResolvedValueOnce({
+      mockReadWorkflowById.mockResolvedValueOnce(mockWorkflow)
+      mockReadWorkflowAccessContext.mockResolvedValueOnce({
         workflow: mockWorkflow,
         workspaceOwnerId: 'workspace-456',
         workspacePermission: null,
@@ -613,8 +608,8 @@ describe('Workflow By ID API Route', () => {
         }),
       }))
 
-      mockGetWorkflowById.mockResolvedValueOnce(mockWorkflow)
-      mockGetWorkflowAccessContext.mockResolvedValueOnce({
+      mockReadWorkflowById.mockResolvedValueOnce(mockWorkflow)
+      mockReadWorkflowAccessContext.mockResolvedValueOnce({
         workflow: mockWorkflow,
         workspaceOwnerId: null,
         workspacePermission: null,
@@ -666,8 +661,8 @@ describe('Workflow By ID API Route', () => {
         }),
       }))
 
-      mockGetWorkflowById.mockResolvedValueOnce(mockWorkflow)
-      mockGetWorkflowAccessContext.mockResolvedValueOnce({
+      mockReadWorkflowById.mockResolvedValueOnce(mockWorkflow)
+      mockReadWorkflowAccessContext.mockResolvedValueOnce({
         workflow: mockWorkflow,
         workspaceOwnerId: 'workspace-456',
         workspacePermission: 'write',
@@ -718,8 +713,8 @@ describe('Workflow By ID API Route', () => {
         }),
       }))
 
-      mockGetWorkflowById.mockResolvedValueOnce(mockWorkflow)
-      mockGetWorkflowAccessContext.mockResolvedValueOnce({
+      mockReadWorkflowById.mockResolvedValueOnce(mockWorkflow)
+      mockReadWorkflowAccessContext.mockResolvedValueOnce({
         workflow: mockWorkflow,
         workspaceOwnerId: 'workspace-456',
         workspacePermission: 'read',
@@ -755,8 +750,8 @@ describe('Workflow By ID API Route', () => {
         }),
       }))
 
-      mockGetWorkflowById.mockResolvedValueOnce(mockWorkflow)
-      mockGetWorkflowAccessContext.mockResolvedValueOnce({
+      mockReadWorkflowById.mockResolvedValueOnce(mockWorkflow)
+      mockReadWorkflowAccessContext.mockResolvedValueOnce({
         workflow: mockWorkflow,
         workspaceOwnerId: null,
         workspacePermission: null,
@@ -790,7 +785,7 @@ describe('Workflow By ID API Route', () => {
         }),
       }))
 
-      mockGetWorkflowById.mockRejectedValueOnce(new Error('Database connection timeout'))
+      mockReadWorkflowById.mockRejectedValueOnce(new Error('Database connection timeout'))
 
       const req = new NextRequest('http://localhost:3000/api/workflows/workflow-123')
       const params = Promise.resolve({ id: 'workflow-123' })

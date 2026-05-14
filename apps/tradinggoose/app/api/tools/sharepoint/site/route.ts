@@ -1,12 +1,8 @@
 import { randomUUID } from 'crypto'
-import { db } from '@tradinggoose/db'
-import { account } from '@tradinggoose/db/schema'
-import { eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
-import { getSession } from '@/lib/auth'
+import { resolveOAuthRouteCredential } from '@/lib/credentials/oauth-route'
 import { createLogger } from '@/lib/logs/console/logger'
 import { validateMicrosoftGraphId } from '@/lib/security/input-validation'
-import { refreshAccessTokenIfNeeded } from '@/app/api/auth/oauth/utils'
 
 export const dynamic = 'force-dynamic'
 
@@ -16,13 +12,10 @@ export async function GET(request: NextRequest) {
   const requestId = randomUUID().slice(0, 8)
 
   try {
-    const session = await getSession()
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: 'User not authenticated' }, { status: 401 })
-    }
-
     const { searchParams } = new URL(request.url)
     const credentialId = searchParams.get('credentialId')
+    const workflowId = searchParams.get('workflowId') || undefined
+    const workspaceId = searchParams.get('workspaceId') || undefined
     const siteId = searchParams.get('siteId')
 
     if (!credentialId || !siteId) {
@@ -34,20 +27,12 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: siteIdValidation.error }, { status: 400 })
     }
 
-    const credentials = await db.select().from(account).where(eq(account.id, credentialId)).limit(1)
-    if (!credentials.length) {
-      return NextResponse.json({ error: 'Credential not found' }, { status: 404 })
-    }
-
-    const credential = credentials[0]
-    if (credential.userId !== session.user.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
-    }
-
-    const accessToken = await refreshAccessTokenIfNeeded(credentialId, session.user.id, requestId)
-    if (!accessToken) {
-      return NextResponse.json({ error: 'Failed to obtain valid access token' }, { status: 401 })
-    }
+    const credential = await resolveOAuthRouteCredential(
+      request,
+      { credentialId, workflowId, workspaceId },
+      requestId
+    )
+    if (!credential.ok) return credential.response
 
     let endpoint: string
     if (siteId === 'root') {
@@ -64,7 +49,7 @@ export async function GET(request: NextRequest) {
       `https://graph.microsoft.com/v1.0/${endpoint}?$select=id,name,displayName,webUrl,createdDateTime,lastModifiedDateTime`,
       {
         headers: {
-          Authorization: `Bearer ${accessToken}`,
+          Authorization: `Bearer ${credential.accessToken}`,
         },
       }
     )

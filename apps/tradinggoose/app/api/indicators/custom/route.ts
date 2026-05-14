@@ -6,6 +6,8 @@ import { z } from 'zod'
 import { upsertIndicators } from '@/lib/indicators/custom/operations'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
+import { applySavedEntityYjsStateToRows } from '@/lib/yjs/entity-state'
+import { deleteYjsSessionInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
 import { authenticateIndicatorRequest, checkWorkspacePermission } from '../utils'
 
 const logger = createLogger('IndicatorsAPI')
@@ -97,11 +99,12 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    const result = await db
+    const rows = await db
       .select()
       .from(pineIndicators)
       .where(eq(pineIndicators.workspaceId, resolvedWorkspaceId))
       .orderBy(desc(pineIndicators.createdAt))
+    const result = await applySavedEntityYjsStateToRows('indicator', rows)
 
     return NextResponse.json({ data: result }, { status: 200 })
   } catch (error) {
@@ -219,6 +222,18 @@ export async function DELETE(request: NextRequest) {
       return permissionCheck.response
     }
 
+    const [existingIndicator] = await db
+      .select({ id: pineIndicators.id })
+      .from(pineIndicators)
+      .where(and(eq(pineIndicators.id, indicatorId), eq(pineIndicators.workspaceId, workspaceId)))
+      .limit(1)
+
+    if (!existingIndicator) {
+      logger.warn(`[${requestId}] Indicator not found: ${indicatorId}`)
+      return NextResponse.json({ error: 'Indicator not found' }, { status: 404 })
+    }
+
+    await deleteYjsSessionInSocketServer(indicatorId)
     await db
       .delete(pineIndicators)
       .where(and(eq(pineIndicators.id, indicatorId), eq(pineIndicators.workspaceId, workspaceId)))

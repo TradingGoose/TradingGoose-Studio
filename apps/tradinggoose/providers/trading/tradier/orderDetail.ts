@@ -6,6 +6,7 @@ import type {
   TradingOrderHistoryRecord,
   TradingRequestConfig,
 } from '@/providers/trading/types'
+import { fetchBrokerJson } from '@/providers/trading/portfolio-utils'
 import type { TradingOrderDetailOutput } from '@/tools/trading/types'
 
 const firstDefinedString = (...values: unknown[]): string | null => {
@@ -21,17 +22,9 @@ const firstDefinedString = (...values: unknown[]): string | null => {
 }
 
 const resolveTradierAccountId = (
-  historyRecord: TradingOrderHistoryRecord,
-  params: TradingOrderDetailInput
+  historyRecord: TradingOrderHistoryRecord
 ): string | null =>
-  firstDefinedString(
-    params.accountId,
-    historyRecord.request?.providerParams?.accountId,
-    historyRecord.request?.providerParams?.account_id,
-    historyRecord.request?.providerParams?.account,
-    historyRecord.response?.raw?.account_id,
-    historyRecord.response?.raw?.order?.account_id
-  )
+  firstDefinedString(historyRecord.request?.accountId)
 
 export const resolveTradierOrderDetailProviderOrderId = (
   historyRecord: TradingOrderHistoryRecord
@@ -40,7 +33,9 @@ export const resolveTradierOrderDetailProviderOrderId = (
     historyRecord.response?.orderId,
     historyRecord.normalizedOrder?.id,
     historyRecord.response?.raw?.id,
-    historyRecord.response?.raw?.order?.id
+    historyRecord.response?.raw?.order_id,
+    historyRecord.response?.raw?.order?.id,
+    historyRecord.response?.raw?.order?.order_id
   )
 
 export const buildTradierOrderDetailRequest = (
@@ -48,15 +43,12 @@ export const buildTradierOrderDetailRequest = (
   historyRecord: TradingOrderHistoryRecord,
   params: TradingOrderDetailInput
 ): TradingRequestConfig => {
-  const accountId = resolveTradierAccountId(historyRecord, params)
+  const accountId = resolveTradierAccountId(historyRecord)
   if (!accountId) {
-    throw new Error(
-      'Tradier accountId is required to fetch order details. Provide accountId or use an order recorded with account metadata.'
-    )
+    throw new Error('Tradier order history record is missing accountId.')
   }
 
-  const environment = params.environment || firstDefinedString(historyRecord.environment) || undefined
-  const baseUrl = resolveTradierBaseUrl(environment ?? undefined)
+  const baseUrl = resolveTradierBaseUrl()
   const authHeaders = buildTradierAuthHeaders({
     accessToken: params.accessToken,
   } as TradingHoldingsInput)
@@ -110,18 +102,6 @@ export const normalizeTradierOrderDetail = (
   }
 }
 
-const parseErrorPayload = async (response: Response): Promise<unknown> => {
-  try {
-    return await response.json()
-  } catch (_jsonError) {
-    try {
-      return await response.text()
-    } catch (_textError) {
-      return null
-    }
-  }
-}
-
 const toRecord = (value: unknown): Record<string, any> => {
   if (value && typeof value === 'object') {
     return value as Record<string, any>
@@ -139,21 +119,16 @@ export const tradierOrderDetailRequest = async (
   }
 
   const request = buildTradierOrderDetailRequest(providerOrderId, historyRecord, params)
-  const response = await fetch(request.url, {
-    method: request.method,
-    headers: request.headers,
-  })
-
-  if (!response.ok) {
-    const details = await parseErrorPayload(response)
-    throw Object.assign(new Error('Failed to fetch Tradier order detail.'), {
-      status: response.status,
-      details,
-      providerOrderId,
+  const rawOrder = toRecord(
+    await fetchBrokerJson({
+      providerId: 'tradier',
+      url: request.url,
+      init: {
+        method: request.method,
+        headers: request.headers,
+      },
     })
-  }
-
-  const rawOrder = toRecord(await response.json().catch(() => ({})))
+  )
 
   return {
     providerOrderId,

@@ -1,9 +1,7 @@
 import { type NextRequest, NextResponse } from 'next/server'
-import { getSession } from '@/lib/auth'
-import { authorizeCredentialUse } from '@/lib/auth/credential-access'
+import { resolveOAuthRouteCredential } from '@/lib/credentials/oauth-route'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
-import { refreshAccessTokenIfNeeded } from '@/app/api/auth/oauth/utils'
 export const dynamic = 'force-dynamic'
 
 const logger = createLogger('GoogleDriveFilesAPI')
@@ -17,40 +15,25 @@ export async function GET(request: NextRequest) {
   logger.info(`[${requestId}] Google Drive files request received`)
 
   try {
-    const session = await getSession()
-
-    if (!session?.user?.id) {
-      logger.warn(`[${requestId}] Unauthenticated request rejected`)
-      return NextResponse.json({ error: 'User not authenticated' }, { status: 401 })
-    }
-
     const { searchParams } = new URL(request.url)
     const credentialId = searchParams.get('credentialId')
     const mimeType = searchParams.get('mimeType')
     const query = searchParams.get('query') || ''
     const folderId = searchParams.get('folderId') || searchParams.get('parentId') || ''
     const workflowId = searchParams.get('workflowId') || undefined
+    const workspaceId = searchParams.get('workspaceId') || undefined
 
     if (!credentialId) {
       logger.warn(`[${requestId}] Missing credential ID`)
       return NextResponse.json({ error: 'Credential ID is required' }, { status: 400 })
     }
 
-    const authz = await authorizeCredentialUse(request, { credentialId: credentialId!, workflowId })
-    if (!authz.ok || !authz.credentialOwnerUserId) {
-      logger.warn(`[${requestId}] Unauthorized credential access attempt`, authz)
-      return NextResponse.json({ error: authz.error || 'Unauthorized' }, { status: 403 })
-    }
-
-    const accessToken = await refreshAccessTokenIfNeeded(
-      credentialId!,
-      authz.credentialOwnerUserId,
+    const credential = await resolveOAuthRouteCredential(
+      request,
+      { credentialId, workflowId, workspaceId },
       requestId
     )
-
-    if (!accessToken) {
-      return NextResponse.json({ error: 'Failed to obtain valid access token' }, { status: 401 })
-    }
+    if (!credential.ok) return credential.response
 
     const qParts: string[] = ['trashed = false']
     if (folderId) {
@@ -68,7 +51,7 @@ export async function GET(request: NextRequest) {
       `https://www.googleapis.com/drive/v3/files?q=${q}&supportsAllDrives=true&includeItemsFromAllDrives=true&spaces=drive&fields=files(id,name,mimeType,iconLink,webViewLink,thumbnailLink,createdTime,modifiedTime,size,owners,parents)`,
       {
         headers: {
-          Authorization: `Bearer ${accessToken}`,
+          Authorization: `Bearer ${credential.accessToken}`,
         },
       }
     )

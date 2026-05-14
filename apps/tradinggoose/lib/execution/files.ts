@@ -6,14 +6,15 @@ import type { UserFile } from '@/executor/types'
 const logger = createLogger('ExecutionFiles')
 
 const MAX_FILE_SIZE = 20 * 1024 * 1024 // 20MB
+type ExecutionFileContext = { workspaceId: string; workflowId: string; executionId: string }
 
 /**
  * Process a single file for workflow execution - handles both base64 ('file' type) and URL pass-through ('url' type)
  */
 export async function processExecutionFile(
   file: { type: string; data: string; name: string; mime?: string },
-  executionContext: { workspaceId: string; workflowId: string; executionId: string },
-  requestId: string,
+  executionContext: ExecutionFileContext,
+  requestId: string
 ): Promise<UserFile | null> {
   if (file.type === 'file' && file.data && file.name) {
     const dataUrlPrefix = 'data:'
@@ -47,7 +48,7 @@ export async function processExecutionFile(
       executionContext,
       buffer,
       file.name,
-      mimeType || file.mime || 'application/octet-stream',
+      mimeType || file.mime || 'application/octet-stream'
     )
 
     logger.debug(`[${requestId}] Successfully uploaded ${file.name}`)
@@ -75,8 +76,8 @@ export async function processExecutionFile(
  */
 export async function processExecutionFiles(
   fieldValue: any,
-  executionContext: { workspaceId: string; workflowId: string; executionId: string },
-  requestId: string,
+  executionContext: ExecutionFileContext,
+  requestId: string
 ): Promise<UserFile[]> {
   if (!fieldValue || typeof fieldValue !== 'object') {
     return []

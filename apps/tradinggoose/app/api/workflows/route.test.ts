@@ -49,9 +49,6 @@ describe('Workflow API Route', () => {
       workflow: {
         id: 'workflow.id',
       },
-      workspace: {
-        id: 'workspace.id',
-      },
     }))
 
     vi.doMock('drizzle-orm', () => ({
@@ -78,7 +75,11 @@ describe('Workflow API Route', () => {
     }))
 
     vi.doMock('@/lib/permissions/utils', () => ({
-      getUserEntityPermissions: vi.fn().mockResolvedValue('write'),
+      checkWorkspaceAccess: vi.fn().mockResolvedValue({
+        exists: true,
+        hasAccess: true,
+        canWrite: true,
+      }),
     }))
 
     vi.doMock('@/lib/utils', () => ({
@@ -150,6 +151,7 @@ describe('Workflow API Route', () => {
       createRequest({
         name: 'Workflow Copy',
         description: 'Created from seed',
+        workspaceId: 'workspace-1',
         initialWorkflowState,
       })
     )
@@ -201,6 +203,7 @@ describe('Workflow API Route', () => {
     const response = await POST(
       createRequest({
         name: 'Workflow Copy',
+        workspaceId: 'workspace-1',
         initialWorkflowState: {
           blocks: {},
           edges: [],
@@ -215,5 +218,13 @@ describe('Workflow API Route', () => {
     expect(saveWorkflowToNormalizedTablesMock).toHaveBeenCalledOnce()
     expect(deleteWhereMock).toHaveBeenCalledOnce()
     expect(tryApplyWorkflowStateMock).not.toHaveBeenCalled()
+  })
+
+  it('rejects workflow creation without workspace scope', async () => {
+    const { POST } = await import('@/app/api/workflows/route')
+    const response = await POST(createRequest({ name: 'Workflow Copy' }))
+
+    expect(response.status).toBe(400)
+    expect(insertValuesMock).not.toHaveBeenCalled()
   })
 })

@@ -29,17 +29,11 @@ export const updateListItemTool: ToolConfig<
       visibility: 'hidden',
       description: 'The access token for the SharePoint API',
     },
-    siteSelector: {
-      type: 'string',
-      required: false,
-      visibility: 'user-only',
-      description: 'Select the SharePoint site',
-    },
     siteId: {
       type: 'string',
       required: false,
-      visibility: 'hidden',
-      description: 'The ID of the SharePoint site (internal use)',
+      visibility: 'user-only',
+      description: 'The ID of the SharePoint site',
     },
     listId: {
       type: 'string',
@@ -63,7 +57,7 @@ export const updateListItemTool: ToolConfig<
 
   request: {
     url: (params) => {
-      const siteId = params.siteId || params.siteSelector || 'root'
+      const siteId = params.siteId || 'root'
       if (!params.itemId) throw new Error('itemId is required')
       if (!params.listId) {
         throw new Error('listId must be provided')

@@ -231,18 +231,9 @@ export const GoogleCalendarBlock: BlockConfig<GoogleCalendarResponse> = {
         }
       },
       params: (params) => {
-        const {
-          credential,
-          operation,
-          attendees,
-          replaceExisting,
-          calendarId,
-          manualCalendarId,
-          ...rest
-        } = params
+        const { credential, operation, attendees, replaceExisting, calendarId, ...rest } = params
 
-        // Handle calendar ID (selector or manual)
-        const effectiveCalendarId = (calendarId || manualCalendarId || '').trim()
+        const effectiveCalendarId = (calendarId || '').trim()
 
         const processedParams: Record<string, any> = {
           ...rest,
@@ -283,7 +274,6 @@ export const GoogleCalendarBlock: BlockConfig<GoogleCalendarResponse> = {
     operation: { type: 'string', description: 'Operation to perform' },
     credential: { type: 'string', description: 'Google Calendar access token' },
     calendarId: { type: 'string', description: 'Calendar identifier' },
-    manualCalendarId: { type: 'string', description: 'Manual calendar identifier' },
 
     // Create operation inputs
     summary: { type: 'string', description: 'Event title' },

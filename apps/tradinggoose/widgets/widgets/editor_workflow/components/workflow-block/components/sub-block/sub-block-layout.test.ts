@@ -65,4 +65,67 @@ describe('buildSubBlockRows', () => {
   it('returns both editor-managed and deploy-managed trigger fields for preview rows', () => {
     expect(getVisibleIds('all')).toEqual(['selectedTriggerId', 'contentType', 'inputFormat'])
   })
+
+  it('does not show trigger-specific fields for unavailable persisted trigger ids', () => {
+    const rows = buildSubBlockRows({
+      ...baseArgs,
+      stateToUse: {
+        selectedTriggerId: { value: 'github_issue_closed' },
+        contentType: { value: 'application/json' },
+        inputFormat: { value: 'payload' },
+      },
+      triggerSubBlockOwner: 'all',
+    })
+
+    expect(rows.flat().map((subBlock) => subBlock.id)).toEqual(['selectedTriggerId'])
+  })
+
+  it('evaluates advanced field conditions against basic configured values', () => {
+    const rows = buildSubBlockRows({
+      subBlocks: [
+        {
+          id: 'operation',
+          title: 'Operation',
+          type: 'dropdown',
+          mode: 'basic',
+        },
+        {
+          id: 'files',
+          title: 'Files',
+          type: 'file-selector',
+          mode: 'advanced',
+          condition: { field: 'operation', value: 'send' },
+        },
+      ],
+      stateToUse: {
+        operation: { value: 'send' },
+      },
+      isAdvancedMode: true,
+      isTriggerMode: false,
+      isPureTriggerBlock: false,
+    })
+
+    expect(rows.flat().map((subBlock) => subBlock.id)).toEqual(['files'])
+  })
+
+  it('keeps default and trigger rows out of advanced rendering', () => {
+    const rows = buildSubBlockRows({
+      subBlocks: [
+        { id: 'message', title: 'Message', type: 'long-input' },
+        { id: 'selectedTriggerId', title: 'Trigger Type', type: 'dropdown', mode: 'trigger' },
+        { id: 'files', title: 'Files', type: 'file-selector', mode: 'advanced' },
+      ],
+      stateToUse: {
+        message: { value: 'hello' },
+        selectedTriggerId: { value: 'slack_message' },
+        files: { value: ['file-1'] },
+      },
+      isAdvancedMode: true,
+      isTriggerMode: false,
+      isPureTriggerBlock: false,
+      triggerSubBlockOwner: 'all',
+    })
+
+    expect(rows.flat().map((subBlock) => subBlock.id)).toEqual(['files'])
+  })
 })

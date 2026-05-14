@@ -1,6 +1,6 @@
 import type { JSX, SVGProps } from 'react'
 import type { TimeFormat } from '@/lib/time-format'
-import type { ToolResponse } from '@/tools/types'
+import type { ParameterVisibility, ToolResponse } from '@/tools/types'
 
 export type BlockIcon = (props: SVGProps<SVGSVGElement>) => JSX.Element
 export type ParamType = 'string' | 'number' | 'boolean' | 'json' | 'array'
@@ -117,6 +117,8 @@ export type OutputFieldDefinition =
 export interface ParamConfig {
   type: ParamType
   description?: string
+  required?: boolean
+  visibility?: ParameterVisibility
   schema?: {
     type: string
     properties: Record<string, any>
@@ -137,6 +139,19 @@ export interface BlockOptionLoaderContext {
   contextValues?: Record<string, unknown>
 }
 
+export interface SubBlockOption {
+  label: string
+  id: string
+  value?: unknown
+  icon?: React.ComponentType<{ className?: string }>
+  group?: string
+  disabled?: boolean
+  dstOn?: boolean
+  observesDst?: boolean
+  searchLabel?: string
+  rightLabel?: string
+}
+
 export interface SubBlockConfig {
   id: string
   title?: string
@@ -146,48 +161,15 @@ export interface SubBlockConfig {
   canonicalParamId?: string
   providerType?: 'market' | 'trading'
   providerFieldId?: string
-  required?:
-    | boolean
-    | {
-        field: string
-        value: string | number | boolean | Array<string | number | boolean>
-        not?: boolean
-        and?: {
-          field: string
-          value: string | number | boolean | Array<string | number | boolean> | undefined
-          not?: boolean
-        }
-      }
-    | (() => {
-        field: string
-        value: string | number | boolean | Array<string | number | boolean>
-        not?: boolean
-        and?: {
-          field: string
-          value: string | number | boolean | Array<string | number | boolean> | undefined
-          not?: boolean
-        }
-      })
+  required?: boolean | SubBlockCondition | (() => SubBlockCondition)
   defaultValue?: string | number | boolean | Record<string, unknown> | Array<unknown>
-  options?:
-    | {
-        label: string
-        id: string
-        icon?: React.ComponentType<{ className?: string }>
-        group?: string
-      }[]
-    | (() => {
-        label: string
-        id: string
-        icon?: React.ComponentType<{ className?: string }>
-        group?: string
-      }[])
+  options?: SubBlockOption[] | (() => SubBlockOption[])
   // Async options loader for dropdown/combobox-like inputs
   fetchOptions?: (
     blockId: string,
     subBlockId: string,
     context: BlockOptionLoaderContext
-  ) => Promise<Array<{ label: string; id: string }>>
+  ) => Promise<SubBlockOption[]>
   optionsStore?: 'marketProviders'
   min?: number
   max?: number
@@ -212,6 +194,7 @@ export interface SubBlockConfig {
   showCopyButton?: boolean
   enableSearch?: boolean
   searchPlaceholder?: string
+  autoSelectFirstOption?: boolean
   connectionDroppable?: boolean
   hidden?: boolean
   hideFromPreview?: boolean
@@ -234,7 +217,6 @@ export interface SubBlockConfig {
   serviceId?: string
   serviceIds?: string[]
   requiredScopes?: string[]
-  supportsCredentialSets?: boolean
   // File selector specific properties
   mimeType?: string
   // File upload specific properties
@@ -264,14 +246,12 @@ export interface SubBlockConfig {
   dependsOn?: string[] | { all?: string[]; any?: string[] }
   // Copyable-text specific: Use webhook URL from webhook management hook
   useWebhookUrl?: boolean
-  // Trigger-save specific: The trigger ID for validation and saving
-  triggerId?: string
   // Dropdown/Combobox: Function to fetch a single option's label by ID (for hydration)
   fetchOptionById?: (
     blockId: string,
     subBlockId: string,
     optionId: string
-  ) => Promise<{ label: string; id: string } | null>
+  ) => Promise<SubBlockOption | null>
 }
 
 export interface BlockConfig<T extends ToolResponse = ToolResponse> {
@@ -285,7 +265,6 @@ export interface BlockConfig<T extends ToolResponse = ToolResponse> {
   bgColor: string | undefined
   icon: BlockIcon
   subBlocks: SubBlockConfig[]
-  triggerAllowed?: boolean
   authMode?: AuthMode
   tools: {
     access: string[]

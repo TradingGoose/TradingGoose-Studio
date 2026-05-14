@@ -2,8 +2,8 @@ import * as Y from 'yjs'
 import { describe, expect, it } from 'vitest'
 import {
   createWorkflowTextFieldKey,
-  getWorkflowSnapshot,
-  getWorkflowTextFieldsMap,
+  readWorkflowSnapshot,
+  readWorkflowTextFieldsMap,
   setWorkflowState,
 } from './workflow-session'
 
@@ -11,7 +11,7 @@ describe('workflow session text fields', () => {
   it('materializes Y.Text-backed subblock values into workflow snapshots', () => {
     const doc = new Y.Doc()
     const workflowMap = doc.getMap('workflow')
-    const textFields = getWorkflowTextFieldsMap(doc)
+    const textFields = readWorkflowTextFieldsMap(doc)
 
     workflowMap.set('blocks', {
       'block-1': {
@@ -38,12 +38,12 @@ describe('workflow session text fields', () => {
     sharedText.insert(0, 'live-ytext-value')
     textFields.set(createWorkflowTextFieldKey('block-1', 'code'), sharedText)
 
-    expect(getWorkflowSnapshot(doc).blocks['block-1']?.subBlocks?.code?.value).toBe('live-ytext-value')
+    expect(readWorkflowSnapshot(doc).blocks['block-1']?.subBlocks?.code?.value).toBe('live-ytext-value')
   })
 
   it('keeps existing Y.Text entries in sync when workflow state is replaced', () => {
     const doc = new Y.Doc()
-    const textFields = getWorkflowTextFieldsMap(doc)
+    const textFields = readWorkflowTextFieldsMap(doc)
 
     const staleText = new Y.Text()
     staleText.insert(0, 'stale')
@@ -76,6 +76,6 @@ describe('workflow session text fields', () => {
     expect((textFields.get(createWorkflowTextFieldKey('block-1', 'code')) as Y.Text).toString()).toBe(
       'fresh'
     )
-    expect(getWorkflowSnapshot(doc).blocks['block-1']?.subBlocks?.code?.value).toBe('fresh')
+    expect(readWorkflowSnapshot(doc).blocks['block-1']?.subBlocks?.code?.value).toBe('fresh')
   })
 })

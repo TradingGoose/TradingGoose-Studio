@@ -2,14 +2,14 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { ClientToolCallState } from '@/lib/copilot/tools/client/base-tool'
 import { unregisterClientTool } from '@/lib/copilot/tools/client/manager'
 import {
-  copilotToolHasInterrupt,
   createExecutionContext,
   ensureClientToolInstance,
   getToolInterruptDisplays,
+  isGatedTool,
   prepareCopilotToolArgs,
 } from '@/stores/copilot/tool-registry'
 
-describe('copilotToolHasInterrupt', () => {
+describe('tool-registry', () => {
   const toolCallId = 'tool-registry-edit-workflow'
 
   afterEach(() => {
@@ -20,7 +20,7 @@ describe('copilotToolHasInterrupt', () => {
     const instance = ensureClientToolInstance('edit_workflow', toolCallId)
 
     expect(instance).toBeDefined()
-    expect(copilotToolHasInterrupt('edit_workflow', toolCallId)).toBe(false)
+    expect(getToolInterruptDisplays('edit_workflow', toolCallId)).toBeUndefined()
 
     instance?.setState(ClientToolCallState.review, {
       result: {
@@ -33,7 +33,7 @@ describe('copilotToolHasInterrupt', () => {
       },
     })
 
-    expect(copilotToolHasInterrupt('edit_workflow', toolCallId)).toBe(true)
+    expect(getToolInterruptDisplays('edit_workflow', toolCallId)).toBeDefined()
   })
 
   it('rehydrates review interrupts from persisted workflow tool state', () => {
@@ -54,7 +54,6 @@ describe('copilotToolHasInterrupt', () => {
     })
 
     expect(getToolInterruptDisplays('edit_workflow', toolCallId)).toBeDefined()
-    expect(copilotToolHasInterrupt('edit_workflow', toolCallId)).toBe(true)
   })
 
   it('surfaces review interrupts for edit_workflow_block once staged', () => {
@@ -72,25 +71,24 @@ describe('copilotToolHasInterrupt', () => {
     })
 
     expect(getToolInterruptDisplays('edit_workflow_block', toolCallId)).toBeDefined()
-    expect(copilotToolHasInterrupt('edit_workflow_block', toolCallId)).toBe(true)
   })
 
   it('does not inject workflow ids into server tool args from execution provenance', () => {
     const context = createExecutionContext({
       toolCallId,
-      toolName: 'get_workflow_console',
+      toolName: 'read_workflow_logs',
       provenance: { contextWorkflowId: 'wf-current' },
     })
 
     expect(context.contextWorkflowId).toBe('wf-current')
-    expect(prepareCopilotToolArgs('get_workflow_console', {}, context)).toEqual({})
+    expect(prepareCopilotToolArgs('read_workflow_logs', {}, context)).toEqual({})
     expect(
       prepareCopilotToolArgs(
-        'get_workflow_console',
+        'read_workflow_logs',
         {},
         createExecutionContext({
           toolCallId,
-          toolName: 'get_workflow_console',
+          toolName: 'read_workflow_logs',
           provenance: {
             workflowId: 'wf-1',
             contextWorkflowId: 'wf-current',
@@ -110,9 +108,24 @@ describe('copilotToolHasInterrupt', () => {
     expect(
       prepareCopilotToolArgs(
         'read_gdrive_file',
-        { fileId: 'file-1', type: 'doc' },
+        { credentialId: 'credential-1', fileId: 'file-1', type: 'doc' },
         context
       )
-    ).toEqual({ fileId: 'file-1', type: 'doc' })
+    ).toEqual({ credentialId: 'credential-1', fileId: 'file-1', type: 'doc' })
+  })
+
+  it('classifies gated and non-gated tools explicitly', () => {
+    expect(isGatedTool('make_api_request')).toBe(true)
+    expect(isGatedTool('edit_workflow')).toBe(false)
+    expect(isGatedTool('edit_workflow_block')).toBe(false)
+    expect(isGatedTool('edit_skill')).toBe(false)
+    expect(isGatedTool('edit_indicator')).toBe(false)
+    expect(isGatedTool('edit_custom_tool')).toBe(false)
+    expect(isGatedTool('edit_mcp_server')).toBe(false)
+    expect(isGatedTool('checkoff_todo')).toBe(false)
+    expect(isGatedTool('mark_todo_in_progress')).toBe(false)
+    expect(isGatedTool('get_blocks_metadata')).toBe(false)
+    expect(isGatedTool('get_agent_accessory_catalog')).toBe(false)
+    expect(isGatedTool('unknown_integration_tool')).toBe(true)
   })
 })

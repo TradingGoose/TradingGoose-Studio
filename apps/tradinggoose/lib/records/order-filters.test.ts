@@ -1,10 +1,15 @@
 import { describe, expect, it } from 'vitest'
+import { getTradingOrderTypeFilterValues } from '@/providers/trading/order-types'
 import {
   DEFAULT_ORDERS_FILTER_STATE,
+  getOrderStatusRecordValues,
+  getOrderTimeInForceRecordValues,
+  normalizeOrderTimeInForceFilterValue,
   normalizeOrderSortByValue,
   normalizeOrderStatusFilterValue,
   normalizeOrdersFilterState,
   ORDER_SORT_BY_VALUES,
+  ORDER_TYPE_FILTER_VALUES,
 } from './order-filters'
 
 describe('order filters', () => {
@@ -28,16 +33,30 @@ describe('order filters', () => {
   })
 
   it('normalizes supported status variants', () => {
-    expect(normalizeOrderStatusFilterValue('New')).toBe('new')
-    expect(normalizeOrderStatusFilterValue('Submitted')).toBe('submitted')
+    expect(normalizeOrderStatusFilterValue('Open')).toBe('open')
     expect(normalizeOrderStatusFilterValue('PartiallyFilled')).toBe('partially_filled')
     expect(normalizeOrderStatusFilterValue('partiallyFilled')).toBe('partially_filled')
     expect(normalizeOrderStatusFilterValue('partially-filled')).toBe('partially_filled')
     expect(normalizeOrderStatusFilterValue('Filled')).toBe('filled')
     expect(normalizeOrderStatusFilterValue('Canceled')).toBe('canceled')
-    expect(normalizeOrderStatusFilterValue('Invalid')).toBe('invalid')
     expect(normalizeOrderStatusFilterValue('Expired')).toBe('expired')
     expect(normalizeOrderStatusFilterValue('Rejected')).toBe('rejected')
+    expect(normalizeOrderStatusFilterValue('Failed')).toBe('failed')
+    expect(normalizeOrderStatusFilterValue('Submitted')).toBe('')
+    expect(normalizeOrderStatusFilterValue('Invalid')).toBe('')
+    expect(getOrderStatusRecordValues('open')).toContain('submitted')
+    expect(getOrderStatusRecordValues('rejected')).toContain('invalid')
+  })
+
+  it('derives order type filters from trading provider capabilities', () => {
+    expect(ORDER_TYPE_FILTER_VALUES.slice(1)).toEqual(getTradingOrderTypeFilterValues())
+  })
+
+  it('maps provider-specific time in force values into canonical filters', () => {
+    expect(normalizeOrderTimeInForceFilterValue('extended_hours')).toBe('extended_hours')
+    expect(normalizeOrderTimeInForceFilterValue('pre')).toBe('')
+    expect(normalizeOrderTimeInForceFilterValue('post')).toBe('')
+    expect(getOrderTimeInForceRecordValues('extended_hours')).toEqual(['pre', 'post'])
   })
 
   it('preserves canonical camelCase order sort keys', () => {

@@ -59,7 +59,7 @@ export const WorkflowBlock: BlockConfig = {
     },
   ],
   tools: {
-    access: ['workflow_executor'],
+    access: [],
   },
   inputs: {
     workflowId: {

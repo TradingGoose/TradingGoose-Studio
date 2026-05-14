@@ -1,5 +1,6 @@
 import {
   type ListingIdentity,
+  type ListingInputValue,
   type ListingOption,
   type ListingType,
   toListingValueObject,
@@ -7,17 +8,18 @@ import {
 import { MARKET_API_VERSION } from '@/lib/market/client/constants'
 import { getBaseUrl } from '@/lib/urls/utils'
 import type { AssetClass } from '@/providers/market/types'
-import type { UnifiedTradingSymbol } from '@/providers/trading/types'
 
 type MarketSearchResponse = {
   data?: ListingOption[] | ListingOption | null
   error?: string
 }
 
-type TradingListingResolutionInput = Pick<
-  UnifiedTradingSymbol,
-  'assetClass' | 'base' | 'listing' | 'quote'
->
+type TradingListingResolutionInput = {
+  listing?: ListingInputValue | null
+  base?: string | null
+  quote?: string | null
+  assetClass?: AssetClass | null
+}
 
 const MARKET_ID_PREFIX_BY_TYPE: Record<ListingType, string> = {
   default: 'TG_LSTG_',
@@ -152,7 +154,7 @@ const fetchCanonicalListing = async ({
   return row ? toListingValueObject(row) : null
 }
 
-export async function resolveTradingPositionListingIdentity(
+export async function resolveTradingListingIdentity(
   input: TradingListingResolutionInput,
   signal?: AbortSignal
 ): Promise<ListingIdentity | null> {

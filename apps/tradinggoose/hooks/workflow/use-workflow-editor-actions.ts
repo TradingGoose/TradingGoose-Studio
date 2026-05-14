@@ -1,14 +1,14 @@
 import { useCallback } from 'react'
 import type { Edge } from '@xyflow/react'
 import { createLogger } from '@/lib/logs/console/logger'
-import { getBlock } from '@/blocks'
+import type { YjsOrigin } from '@/lib/yjs/transaction-origins'
 import { useWorkflowMutations } from '@/lib/yjs/use-workflow-doc'
 import { useWorkflowSession } from '@/lib/yjs/workflow-session-host'
-import type { YjsOrigin } from '@/lib/yjs/transaction-origins'
-import { getUniqueBlockName } from '@/stores/workflows/utils'
+import { getBlock } from '@/blocks'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
-import { DEFAULT_WORKFLOW_CHANNEL_ID } from '@/stores/workflows/workflow/types'
+import { getUniqueBlockName } from '@/stores/workflows/utils'
 import type { Position } from '@/stores/workflows/workflow/types'
+import { DEFAULT_WORKFLOW_CHANNEL_ID } from '@/stores/workflows/workflow/types'
 import { useOptionalWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 
 const logger = createLogger('WorkflowEditorActions')
@@ -24,16 +24,16 @@ export function useWorkflowEditorActions() {
     useCallback((state) => state.getActiveWorkflowId(channelId), [channelId])
   )
 
-  const { getWorkflowSnapshot } = useWorkflowSession()
+  const { readWorkflowSnapshot } = useWorkflowSession()
   const mutations = useWorkflowMutations()
 
   const getBlocksSnapshot = useCallback(() => {
-    return getWorkflowSnapshot()?.blocks ?? {}
-  }, [getWorkflowSnapshot])
+    return readWorkflowSnapshot()?.blocks ?? {}
+  }, [readWorkflowSnapshot])
 
   const getEdgesSnapshot = useCallback(() => {
-    return getWorkflowSnapshot()?.edges ?? []
-  }, [getWorkflowSnapshot])
+    return readWorkflowSnapshot()?.edges ?? []
+  }, [readWorkflowSnapshot])
 
   // Derive connection status from whether we have an active workflow
   const isConnectedToWorkflow = !!activeWorkflowId

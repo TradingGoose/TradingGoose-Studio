@@ -11,10 +11,12 @@ const reactActEnvironment = globalThis as typeof globalThis & {
   IS_REACT_ACT_ENVIRONMENT?: boolean
 }
 
-const mockResolveEntityReviewTarget = vi.fn()
-const mockUnregisteredReviewSessionIds = new Set<string>()
 const mockCopilot = vi.fn((props: any) => (
-  <div data-testid='copilot' data-input-disabled={String(Boolean(props.inputDisabled))}>
+  <div
+    data-testid='copilot'
+    data-input-disabled={String(Boolean(props.inputDisabled))}
+    data-review-session-id={props.reviewTarget?.reviewSessionId ?? ''}
+  >
     copilot
   </div>
 ))
@@ -31,26 +33,6 @@ vi.mock('@/lib/auth-client', () => ({
 
 vi.mock('@/app/workspace/[workspaceId]/providers/providers', () => ({
   default: ({ children }: { children: React.ReactNode }) => <>{children}</>,
-}))
-
-vi.mock('@/lib/copilot/review-sessions/entity-session-host', () => ({
-  EntitySessionHost: ({ children, descriptor }: { children: React.ReactNode; descriptor: any }) => (
-    <div
-      data-testid='entity-session-host'
-      data-review-session-id={descriptor.reviewSessionId ?? ''}
-      data-draft-session-id={descriptor.draftSessionId ?? ''}
-      data-entity-id={descriptor.entityId ?? ''}
-    >
-      {children}
-    </div>
-  ),
-}))
-
-vi.mock('@/lib/yjs/entity-session-registry', () => ({
-  useRegisteredEntitySession: (reviewSessionId?: string | null) =>
-    reviewSessionId && !mockUnregisteredReviewSessionIds.has(reviewSessionId)
-      ? { descriptor: { reviewSessionId } }
-      : null,
 }))
 
 vi.mock('@/lib/yjs/workflow-session-host', () => ({
@@ -70,27 +52,15 @@ vi.mock('@/lib/yjs/workflow-session-host', () => ({
 vi.mock('@/stores/copilot/store', () => ({
   DEFAULT_COPILOT_CHANNEL_ID: 'default',
   CopilotStoreProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
-  useCopilotStoreApi: () => ({
-    getState: () => ({
-      currentChat: null,
-      chats: [],
-      messages: [],
-      saveChatMessages: vi.fn(async () => {}),
-    }),
-    setState: vi.fn(),
-  }),
 }))
 
-vi.mock('@/stores/dashboard/pair-store', () => ({
-  usePairColorContext: () => mockPairContext,
-}))
-
-vi.mock('@/widgets/widgets/entity_review/review-target-utils', async (importOriginal) => {
-  const actual =
-    await importOriginal<typeof import('@/widgets/widgets/entity_review/review-target-utils')>()
+vi.mock('@/stores/dashboard/pair-store', async () => {
+  const actual = await vi.importActual<typeof import('@/stores/dashboard/pair-store')>(
+    '@/stores/dashboard/pair-store'
+  )
   return {
     ...actual,
-    resolveEntityReviewTarget: (...args: any[]) => mockResolveEntityReviewTarget(...args),
+    usePairColorContext: () => mockPairContext,
   }
 })
 
@@ -117,9 +87,7 @@ describe('CopilotApp', () => {
       workflowId: null,
       skillId: null,
     }
-    mockResolveEntityReviewTarget.mockReset()
     mockCopilot.mockClear()
-    mockUnregisteredReviewSessionIds.clear()
   })
 
   afterEach(() => {
@@ -133,7 +101,6 @@ describe('CopilotApp', () => {
   it('renders copilot without session hosts when no shared workflow is pinned', async () => {
     await renderApp()
 
-    expect(container.querySelector('[data-testid="entity-session-host"]')).toBeNull()
     expect(container.querySelector('[data-testid="workflow-session-host"]')).toBeNull()
     expect(container.querySelector('[data-testid="copilot"]')).not.toBeNull()
   })
@@ -152,41 +119,17 @@ describe('CopilotApp', () => {
     )
   })
 
-  it('does not resolve or mount plain non-workflow shared entity ids', async () => {
+  it('does not derive editable review sessions from pair-color entity context', async () => {
     mockPairContext = {
       workflowId: null,
-      skillId: 'skill-plain',
+      skillId: 'skill-current',
     }
 
     await renderApp()
 
-    expect(mockResolveEntityReviewTarget).not.toHaveBeenCalled()
-    expect(container.querySelector('[data-testid="entity-session-host"]')).toBeNull()
     expect(container.querySelector('[data-testid="copilot"]')).toHaveAttribute(
-      'data-input-disabled',
-      'false'
-    )
-  })
-
-  it('ignores forced pair review metadata now that review state is widget-local', async () => {
-    mockPairContext = {
-      workflowId: null,
-      skillId: 'skill-current-context',
-      reviewTarget: {
-        reviewSessionId: 'review-1',
-        reviewEntityKind: 'skill',
-        reviewEntityId: null,
-        reviewDraftSessionId: 'draft-1',
-      },
-    }
-
-    await renderApp()
-
-    expect(mockResolveEntityReviewTarget).not.toHaveBeenCalled()
-    expect(container.querySelector('[data-testid="entity-session-host"]')).toBeNull()
-    expect(container.querySelector('[data-testid="copilot"]')).toHaveAttribute(
-      'data-input-disabled',
-      'false'
+      'data-review-session-id',
+      ''
     )
   })
 })

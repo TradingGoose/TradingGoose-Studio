@@ -1,6 +1,7 @@
 import type { ListingIdentity, ListingInputValue } from '@/lib/listing/identity'
 import type { OAuthService } from '@/lib/oauth/oauth'
 import type { AssetClass } from '@/providers/market/types'
+import type { PortfolioDetail } from '@/providers/trading/portfolio-identity'
 import type { HttpMethod } from '@/tools/types'
 
 export type TradingProviderId = 'alpaca' | 'tradier' | (string & {})
@@ -13,20 +14,8 @@ export type TradingOrderType =
   | 'stop'
   | 'stop_limit'
   | 'trailing_stop'
-  | 'debit'
-  | 'credit'
-  | 'even'
 
-export interface TradingFieldDefinition {
-  id: string
-  label: string
-  type: 'string' | 'number' | 'dropdown'
-  for: 'order' | 'holdings' | 'both'
-  required?: boolean
-  placeholder?: string
-  description?: string
-  options?: { id: string; label: string }[]
-}
+export type TradingOrderSizingMode = 'quantity' | 'notional'
 
 export interface TradingRequestConfig {
   url: string
@@ -35,8 +24,7 @@ export interface TradingRequestConfig {
   body?: Record<string, any> | string
 }
 
-export const TRADING_OPERATION_KINDS = ['order', 'holdings'] as const
-export type TradingOperationKind = (typeof TRADING_OPERATION_KINDS)[number]
+export type TradingOperationKind = 'order' | 'holdings'
 
 export interface TradingSymbolInput {
   listing?: ListingInputValue
@@ -50,27 +38,26 @@ export interface TradingSymbolInput {
 
 export interface TradingOrderInput extends TradingSymbolInput {
   side: 'buy' | 'sell'
+  clientOrderId?: string
   quantity?: number
   notional?: number
-  orderSizingMode?: string
+  orderSizingMode?: TradingOrderSizingMode
   orderType?: TradingOrderType
   timeInForce?: string
   limitPrice?: number
   stopPrice?: number
   trailPrice?: number
   trailPercent?: number
+  preview?: boolean
   environment?: 'paper' | 'live'
   accessToken?: string
-  orderClass?: string
   accountId?: string
-  providerParams?: TradingProviderParams
 }
 
 export interface TradingHoldingsInput {
   environment?: 'paper' | 'live'
   accessToken?: string
   accountId?: string
-  providerParams?: TradingProviderParams
 }
 
 export interface TradingOrderDetailInput extends TradingHoldingsInput {
@@ -95,13 +82,10 @@ export interface TradingOrderDetailResult {
   orderDetail: Record<string, any>
 }
 
-export interface TradingHoldingsNormalizationContext extends TradingHoldingsInput {
-  providerId?: TradingProviderId
-  providerName?: string
-}
-
 export interface TradingPortfolioBaseContext {
   providerId: TradingProviderId
+  credentialId: string
+  serviceId: string
   environment?: 'paper' | 'live'
   accessToken: string
 }
@@ -114,35 +98,11 @@ export interface TradingOrderRequest extends TradingOrderInput {
   kind: 'order'
 }
 
-export interface TradingHoldingsRequest extends TradingHoldingsInput {
-  kind: 'holdings'
-}
-
-export type TradingProviderRequest = TradingOrderRequest | TradingHoldingsRequest
-
-export interface TradingProviderParams {
-  accessToken?: string
-  [key: string]: any
-}
-
 export type UnifiedTradingEnvironment = 'live' | 'paper' | 'demo' | 'unknown'
 
 export type UnifiedTradingAccountType = 'cash' | 'margin' | 'portfolio' | 'paper' | 'unknown'
 
 export type UnifiedTradingAccountStatus = 'active' | 'restricted' | 'closed' | 'unknown'
-
-export interface UnifiedTradingProviderMetadata {
-  name?: string
-  environment?: UnifiedTradingEnvironment
-}
-
-export interface UnifiedTradingAccount {
-  id: string
-  name?: string
-  type: UnifiedTradingAccountType
-  baseCurrency: string
-  status?: UnifiedTradingAccountStatus
-}
 
 export interface UnifiedTradingCashBalance {
   currency: string
@@ -191,16 +151,6 @@ export interface UnifiedTradingPosition {
   updatedAt?: string
 }
 
-export interface UnifiedTradingPositionListing {
-  listing: ListingIdentity
-  grossQuantity: number
-  signedQuantity: number
-}
-
-export interface UnifiedTradingPositionListings {
-  positionListings: UnifiedTradingPositionListing[]
-}
-
 export type UnifiedTradingOrderType =
   | 'Market'
   | 'Limit'
@@ -209,7 +159,6 @@ export type UnifiedTradingOrderType =
   | 'TrailingStop'
   | 'MarketOnOpen'
   | 'MarketOnClose'
-  | 'OptionExercise'
   | 'Other'
 
 export type UnifiedTradingOrderStatus =
@@ -259,17 +208,6 @@ export interface UnifiedTradingAccountSummary {
   freePortfolioValue?: number
 }
 
-export interface UnifiedTradingAccountSnapshot {
-  asOf: string
-  provider?: UnifiedTradingProviderMetadata
-  account: UnifiedTradingAccount
-  cashBalances: UnifiedTradingCashBalance[]
-  positions: UnifiedTradingPosition[]
-  orders: UnifiedTradingOrder[]
-  accountSummary: UnifiedTradingAccountSummary
-  extra?: Record<string, any>
-}
-
 export type TradingPortfolioPerformanceWindow = '1D' | '1W' | '1M' | '3M' | 'YTD' | '1Y' | 'MAX'
 
 export interface UnifiedTradingPortfolioPerformancePoint {
@@ -298,6 +236,7 @@ export interface UnifiedTradingPortfolioPerformance {
 
 export interface TradingOrder {
   id?: string
+  clientOrderId?: string
   status?: string
   submittedAt?: string
   filledQty?: number
@@ -306,12 +245,9 @@ export interface TradingOrder {
   raw: any
 }
 
-export type TradingProviderResponse = TradingOrder | UnifiedTradingAccountSnapshot
-
 export interface TradingProviderOAuthConfig {
   provider: OAuthService
-  serviceId?: OAuthService
-  credentialServices?: Array<{
+  services?: Array<{
     serviceId: OAuthService
     environment?: 'paper' | 'live'
   }>
@@ -325,6 +261,8 @@ export interface TradingActionResponse {
   output: {
     summary: string
     provider: TradingProviderId
+    appOrderId?: string
+    clientOrderId?: string
     order?: Record<string, any>
   }
   error?: string
@@ -335,7 +273,7 @@ export interface TradingHoldingsResponse {
   output: {
     summary: string
     provider: TradingProviderId
-    holdings: UnifiedTradingAccountSnapshot
+    holdings: PortfolioDetail
   }
   error?: string
 }

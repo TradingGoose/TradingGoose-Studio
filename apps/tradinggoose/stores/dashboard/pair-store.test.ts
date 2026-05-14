@@ -22,28 +22,18 @@ describe('pair-store linked context', () => {
     setContext('blue', {
       workflowId: 'workflow-a',
       channelId: 'pair-blue',
-      reviewTarget: {
-        reviewSessionId: 'review-a',
-      },
-      copilotChatId: 'legacy-review-session',
     } as PairColorContext & {
       channelId?: string
-      reviewTarget?: { reviewSessionId?: string | null }
-      copilotChatId?: string
     })
 
     const context = usePairColorStore.getState().contexts.blue as PairColorContext & {
       channelId?: string
-      reviewTarget?: unknown
-      copilotChatId?: string
     }
 
     expect(context).toEqual({
       workflowId: 'workflow-a',
     })
     expect(context.channelId).toBeUndefined()
-    expect(context.reviewTarget).toBeUndefined()
-    expect(context.copilotChatId).toBeUndefined()
   })
 
   it('stores only canonical listing identity fields in linked color context', () => {
@@ -87,9 +77,6 @@ describe('pair-store linked context', () => {
     setContext('blue', {
       workflowId: 'workflow-a',
       skillId: 'skill-a',
-      customToolId: 'tool-a',
-      mcpServerId: 'mcp-a',
-      indicatorId: 'indicator-a',
     })
 
     setContext('blue', {
@@ -99,8 +86,24 @@ describe('pair-store linked context', () => {
     expect(usePairColorStore.getState().contexts.blue).toEqual({
       workflowId: 'workflow-b',
       skillId: 'skill-a',
-      customToolId: 'tool-a',
-      mcpServerId: 'mcp-a',
+    })
+  })
+
+  it('preserves independent linked entity ids in color context', () => {
+    const { setContext } = usePairColorStore.getState()
+
+    setContext('blue', {
+      workflowId: 'workflow-a',
+      skillId: 'skill-a',
+    })
+
+    setContext('blue', {
+      indicatorId: 'indicator-a',
+    })
+
+    expect(usePairColorStore.getState().contexts.blue).toEqual({
+      workflowId: 'workflow-a',
+      skillId: 'skill-a',
       indicatorId: 'indicator-a',
     })
   })
@@ -112,12 +115,8 @@ describe('pair-store linked context', () => {
         blue: {
           workflowId: 'workflow-a',
           skillId: 'skill-a',
-          reviewTarget: {
-            reviewSessionId: 'review-a',
-          },
           channelId: 'pair-blue',
         } as PairColorContext & {
-          reviewTarget?: { reviewSessionId?: string | null }
           channelId?: string
         },
       },
@@ -128,7 +127,6 @@ describe('pair-store linked context', () => {
     })
 
     const context = usePairColorStore.getState().contexts.blue as PairColorContext & {
-      reviewTarget?: unknown
       channelId?: string
     }
 
@@ -137,7 +135,6 @@ describe('pair-store linked context', () => {
       skillId: 'skill-a',
       indicatorId: 'indicator-b',
     })
-    expect(context.reviewTarget).toBeUndefined()
     expect(context.channelId).toBeUndefined()
   })
 })

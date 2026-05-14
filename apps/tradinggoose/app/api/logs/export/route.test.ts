@@ -93,6 +93,10 @@ vi.mock('@tradinggoose/db/schema', () => ({
     id: 'workflowFolder.id',
     name: 'workflowFolder.name',
   },
+  workspace: {
+    id: 'workspace.id',
+    ownerId: 'workspace.ownerId',
+  },
 }))
 
 vi.mock('drizzle-orm', () => ({
@@ -204,6 +208,17 @@ const expectLogAnchoredWorkflowFolderJoin = () => {
   )
   expect(mockLeftJoin.mock.invocationCallOrder[1]).toBeLessThan(
     mockInnerJoin.mock.invocationCallOrder[0]!
+  )
+  expect(mockInnerJoin).toHaveBeenCalledWith(
+    expect.objectContaining({
+      id: 'workspace.id',
+      ownerId: 'workspace.ownerId',
+    }),
+    {
+      field: 'workspace.id',
+      type: 'eq',
+      value: 'workflowExecutionLogs.workspaceId',
+    }
   )
 }
 
@@ -417,17 +432,15 @@ describe('logs export route', () => {
     )
 
     expect(response.status).toBe(200)
-    expect(mockWhere).toHaveBeenCalledWith(
-      expect.objectContaining({
-        type: 'and',
-        conditions: expect.arrayContaining([
-          expect.objectContaining({
-            type: 'gte',
-            field: 'workflowExecutionLogs.startedAt',
-            value: new Date('2026-04-22T00:00:00.000Z'),
-          }),
-        ]),
-      })
+    const whereCall = mockWhere.mock.calls.at(-1) as [unknown] | undefined
+    expect(collectConditions(whereCall?.[0])).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'gte',
+          field: 'workflowExecutionLogs.startedAt',
+          value: new Date('2026-04-22T00:00:00.000Z'),
+        }),
+      ])
     )
   })
 

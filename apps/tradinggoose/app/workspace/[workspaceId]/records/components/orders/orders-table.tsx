@@ -296,9 +296,6 @@ export function OrdersTable({
                       </TableCell>
                       <TableCell className='px-3 py-3 text-center'>
                         <Badge variant='outline'>{titleCase(order.provider)}</Badge>
-                        <div className='truncate text-muted-foreground text-xs'>
-                          {order.accountId ?? 'No account'}
-                        </div>
                       </TableCell>
                       <TableCell className='px-3 py-3 text-center'>
                         <OrderStatusBadge status={order.status} />

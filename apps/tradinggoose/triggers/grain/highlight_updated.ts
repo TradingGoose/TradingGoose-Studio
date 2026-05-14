@@ -31,7 +31,6 @@ export const grainHighlightUpdatedTrigger: TriggerConfig = {
       type: 'trigger-save',
       hideFromPreview: true,
       mode: 'trigger',
-      triggerId: 'grain_highlight_updated',
       condition: {
         field: 'selectedTriggerId',
         value: 'grain_highlight_updated',

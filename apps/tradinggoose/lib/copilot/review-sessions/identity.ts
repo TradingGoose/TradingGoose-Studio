@@ -32,78 +32,27 @@ const requireYjsTargetKind = (value: string | undefined): YjsTargetKind => {
 }
 
 /**
- * Derives the Yjs document session id from a review target.
- * - Workflow mode: yjsSessionId = workflowId (shared across all users/threads)
- * - Entity review mode: yjsSessionId = reviewSessionId
- *
- * Saved entities still collaborate across workspace users because they resolve
- * to the same reviewSession row, and drafts stay user-owned because their
- * reviewSession rows remain user-scoped until first save.
- */
-export function deriveYjsSessionId(reviewTarget: {
-  entityKind: ReviewEntityKind
-  entityId: string | null
-  reviewSessionId: string | null
-}): string {
-  if (reviewTarget.entityKind === 'workflow') {
-    if (!reviewTarget.entityId) {
-      throw new Error('Workflow review target requires entityId (workflowId)')
-    }
-    return reviewTarget.entityId
-  }
-
-  if (!reviewTarget.reviewSessionId) {
-    throw new Error('Entity review target requires reviewSessionId')
-  }
-
-  return reviewTarget.reviewSessionId
-}
-
-/**
- * Builds a full ReviewTargetDescriptor from a review session database row.
- */
-export function buildReviewTargetDescriptor(reviewSessionRow: {
-  id: string
-  workspaceId: string | null
-  entityKind: string
-  entityId: string | null
-  draftSessionId: string | null
-}): ReviewTargetDescriptor {
-  const entityKind = requireReviewEntityKind(reviewSessionRow.entityKind)
-  const reviewSessionId = reviewSessionRow.id
-
-  return {
-    workspaceId: reviewSessionRow.workspaceId,
-    entityKind,
-    entityId: reviewSessionRow.entityId,
-    draftSessionId: reviewSessionRow.draftSessionId,
-    reviewSessionId,
-    yjsSessionId: deriveYjsSessionId({
-      entityKind,
-      entityId: reviewSessionRow.entityId,
-      reviewSessionId,
-    }),
-  }
-}
-
-/**
  * Builds a YjsTransportEnvelope from a ReviewTargetDescriptor.
  */
 export function buildYjsTransportEnvelope(
   descriptor: ReviewTargetDescriptor
 ): YjsTransportEnvelope {
   const targetKind: YjsTargetKind =
-    descriptor.entityKind === 'workflow' ? 'workflow' : 'review_session'
+    descriptor.entityKind === 'workflow'
+      ? 'workflow'
+      : descriptor.entityId
+        ? 'entity'
+        : 'review_session'
 
   return {
     targetKind,
     sessionId: descriptor.yjsSessionId,
     workflowId: descriptor.entityKind === 'workflow' ? descriptor.entityId : null,
-    reviewSessionId: descriptor.reviewSessionId,
+    reviewSessionId: targetKind === 'review_session' ? descriptor.reviewSessionId : null,
     workspaceId: descriptor.workspaceId,
     entityKind: descriptor.entityKind,
     entityId: descriptor.entityId,
-    draftSessionId: descriptor.draftSessionId,
+    draftSessionId: targetKind === 'review_session' ? descriptor.draftSessionId : null,
   }
 }
 
@@ -135,12 +84,49 @@ export function buildReviewTargetDescriptorFromEnvelope(
       throw new Error('Workflow Yjs envelope cannot carry draftSessionId')
     }
 
+    if (envelope.reviewSessionId) {
+      throw new Error('Workflow Yjs envelope cannot carry reviewSessionId')
+    }
+
     return {
       workspaceId: envelope.workspaceId ?? null,
       entityKind: 'workflow',
       entityId: workflowId,
       draftSessionId: null,
-      reviewSessionId: envelope.reviewSessionId ?? null,
+      reviewSessionId: null,
+      yjsSessionId: envelope.sessionId,
+    }
+  }
+
+  if (envelope.targetKind === 'entity') {
+    if (envelope.entityKind === 'workflow') {
+      throw new Error('Entity Yjs envelope cannot use entityKind="workflow"')
+    }
+
+    if (!envelope.workspaceId) {
+      throw new Error('Entity Yjs envelope requires workspaceId')
+    }
+
+    if (!envelope.entityId) {
+      throw new Error('Entity Yjs envelope requires entityId')
+    }
+
+    if (envelope.sessionId !== envelope.entityId) {
+      throw new Error('Entity Yjs envelope sessionId must equal entityId')
+    }
+
+    if (envelope.workflowId || envelope.reviewSessionId || envelope.draftSessionId) {
+      throw new Error(
+        'Entity Yjs envelope cannot carry workflowId, reviewSessionId, or draftSessionId'
+      )
+    }
+
+    return {
+      workspaceId: envelope.workspaceId,
+      entityKind: envelope.entityKind,
+      entityId: envelope.entityId,
+      draftSessionId: null,
+      reviewSessionId: null,
       yjsSessionId: envelope.sessionId,
     }
   }
@@ -166,8 +152,12 @@ export function buildReviewTargetDescriptorFromEnvelope(
     throw new Error('Review-session Yjs envelope requires workspaceId')
   }
 
-  if (!envelope.entityId && !envelope.draftSessionId) {
-    throw new Error('Review-session Yjs envelope requires entityId or draftSessionId')
+  if (envelope.entityId) {
+    throw new Error('Review-session Yjs envelope cannot carry entityId')
+  }
+
+  if (!envelope.draftSessionId) {
+    throw new Error('Review-session Yjs envelope requires draftSessionId')
   }
 
   return {
@@ -178,26 +168,6 @@ export function buildReviewTargetDescriptorFromEnvelope(
     reviewSessionId,
     yjsSessionId: envelope.sessionId,
   }
-}
-
-/**
- * Serializes a ReviewTargetDescriptor into a flat key/value record
- * suitable for persisting in widget params, pair state, and query strings.
- */
-export function serializeReviewTargetDescriptor(
-  descriptor: ReviewTargetDescriptor
-): Record<string, string> {
-  const result: Record<string, string> = {
-    reviewEntityKind: descriptor.entityKind,
-    yjsSessionId: descriptor.yjsSessionId,
-  }
-
-  if (descriptor.workspaceId != null) result.workspaceId = descriptor.workspaceId
-  if (descriptor.entityId != null) result.reviewEntityId = descriptor.entityId
-  if (descriptor.draftSessionId != null) result.reviewDraftSessionId = descriptor.draftSessionId
-  if (descriptor.reviewSessionId != null) result.reviewSessionId = descriptor.reviewSessionId
-
-  return result
 }
 
 /**
@@ -220,33 +190,6 @@ export function serializeYjsTransportEnvelope(
   if (envelope.draftSessionId != null) result.draftSessionId = envelope.draftSessionId
 
   return result
-}
-
-/**
- * Parses a flat serialized record back into a ReviewTargetDescriptor.
- */
-export function parseReviewTargetDescriptor(
-  payload: Record<string, string | undefined>
-): ReviewTargetDescriptor {
-  const entityKind = requireReviewEntityKind(payload.reviewEntityKind)
-  const reviewSessionId = normalizeNullableString(payload.reviewSessionId)
-  const entityId = normalizeNullableString(payload.reviewEntityId)
-  const draftSessionId = normalizeNullableString(payload.reviewDraftSessionId)
-  const derivedYjsSessionId = deriveYjsSessionId({ entityKind, entityId, reviewSessionId })
-  const serializedYjsSessionId = normalizeOptionalString(payload.yjsSessionId)
-  const yjsSessionId =
-    serializedYjsSessionId === derivedYjsSessionId
-      ? serializedYjsSessionId
-      : derivedYjsSessionId
-
-  return {
-    workspaceId: normalizeNullableString(payload.workspaceId),
-    entityKind,
-    entityId,
-    draftSessionId,
-    reviewSessionId,
-    yjsSessionId,
-  }
 }
 
 /**

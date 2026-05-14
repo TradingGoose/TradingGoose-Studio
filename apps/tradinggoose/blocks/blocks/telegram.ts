@@ -1,8 +1,8 @@
 import { TelegramIcon } from '@/components/icons/icons'
 import type { BlockConfig } from '@/blocks/types'
-import { getTrigger } from '@/triggers'
 import { AuthMode } from '@/blocks/types'
 import type { TelegramResponse } from '@/tools/telegram/types'
+import { getTrigger } from '@/triggers'
 
 export const TelegramBlock: BlockConfig<TelegramResponse> = {
   type: 'telegram',
@@ -15,7 +15,6 @@ export const TelegramBlock: BlockConfig<TelegramResponse> = {
   category: 'tools',
   bgColor: '#24A1DE',
   icon: TelegramIcon,
-  triggerAllowed: true,
   subBlocks: [
     {
       id: 'operation',

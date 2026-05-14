@@ -56,57 +56,6 @@ export const setupHandlerMocks = () => {
 }
 
 /**
- * Setup store mocks with configurable options
- */
-export const setupStoreMocks = (options?: {
-  isDebugging?: boolean
-  consoleAddFn?: ReturnType<typeof vi.fn>
-  consoleUpdateFn?: ReturnType<typeof vi.fn>
-}) => {
-  const consoleAddFn = options?.consoleAddFn || vi.fn()
-  const consoleUpdateFn = options?.consoleUpdateFn || vi.fn()
-
-  vi.doMock('@/stores/settings/general/store', () => ({
-    useGeneralStore: {
-      getState: () => ({}),
-    },
-  }))
-
-  vi.doMock('@/stores/execution/store', () => ({
-    useExecutionStore: {
-      getState: () => ({
-        isDebugging: options?.isDebugging ?? false,
-        setIsExecuting: vi.fn(),
-        reset: vi.fn(),
-        setActiveBlocks: vi.fn(),
-        setPendingBlocks: vi.fn(),
-        setIsDebugging: vi.fn(),
-      }),
-      setState: vi.fn(),
-    },
-  }))
-
-  vi.doMock('@/stores/console/store', () => ({
-    useConsoleStore: {
-      getState: () => ({
-        addConsole: consoleAddFn,
-      }),
-    },
-  }))
-
-  vi.doMock('@/stores/console/store', () => ({
-    useConsoleStore: {
-      getState: () => ({
-        addConsole: consoleAddFn,
-        updateConsole: consoleUpdateFn,
-      }),
-    },
-  }))
-
-  return { consoleAddFn, consoleUpdateFn }
-}
-
-/**
  * Setup core executor mocks (PathTracker, InputResolver, LoopManager, ParallelManager)
  */
 export const setupExecutorCoreMocks = () => {
@@ -905,36 +854,9 @@ export const createWorkflowWithParallelObject = (
 })
 
 /**
- * Mock all modules needed for parallel tests
- */
-export const setupParallelTestMocks = (options?: {
-  distributionData?: any
-  maxParallelChecks?: number
-}) => {
-  setupStoreMocks()
-
-  setupExecutorCoreMocks()
-
-  vi.doMock('@/executor/parallels', () =>
-    createParallelManagerMock({
-      maxChecks: options?.maxParallelChecks,
-    })
-  )
-
-  vi.doMock('@/executor/loops', () => createLoopManagerMock())
-}
-
-/**
  * Sets up all standard mocks for executor tests
  */
-export const setupAllMocks = (options?: {
-  isDebugging?: boolean
-  consoleAddFn?: ReturnType<typeof vi.fn>
-  consoleUpdateFn?: ReturnType<typeof vi.fn>
-}) => {
+export const setupAllMocks = () => {
   setupHandlerMocks()
-  const storeMocks = setupStoreMocks(options)
   setupExecutorCoreMocks()
-
-  return storeMocks
 }

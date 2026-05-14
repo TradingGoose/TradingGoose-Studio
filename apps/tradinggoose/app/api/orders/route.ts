@@ -9,12 +9,12 @@ import {
   DEFAULT_ORDERS_FILTER_STATE,
   normalizeOrdersFilterState,
 } from '@/lib/records/order-filters'
-import { generateRequestId } from '@/lib/utils'
 import {
   buildOrderOrderBy,
   buildOrderWhereCondition,
   serializeOrderRecord,
-} from './order-record-utils'
+} from '@/lib/trading/order-records'
+import { generateRequestId } from '@/lib/utils'
 
 const logger = createLogger('OrdersAPI')
 

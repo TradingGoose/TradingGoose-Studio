@@ -153,7 +153,7 @@ export function tradingSymbolToListingIdentity(
   const symbol = normalizeTradingProviderSymbol(input.symbol)
   if (!symbol) return null
 
-  const fallbackAssetClass = input.assetClass ?? config.availability.assetClass[0] ?? 'stock'
+  const defaultAssetClass = input.assetClass ?? config.availability.assetClass[0] ?? 'stock'
   const defaultQuote = normalizeTradingProviderSymbol(input.defaultQuote) ?? 'USD'
 
   const matchedRule = config.rules
@@ -185,7 +185,7 @@ export function tradingSymbolToListingIdentity(
     : parseDefaultTradingSymbol(symbol)
   if (!parsedSymbol) return null
 
-  const assetClass = matchedRule?.assetClass ?? input.assetClass ?? fallbackAssetClass
+  const assetClass = matchedRule?.assetClass ?? input.assetClass ?? defaultAssetClass
   const listingType = toListingType(assetClass)
   const parsed = resolveCompactPairSymbol({
     config,

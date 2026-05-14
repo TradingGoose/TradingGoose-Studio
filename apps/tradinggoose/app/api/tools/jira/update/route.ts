@@ -1,17 +1,22 @@
-import { NextResponse } from 'next/server'
+import { type NextRequest, NextResponse } from 'next/server'
+import { resolveOAuthRouteCredential } from '@/lib/credentials/oauth-route'
 import { createLogger } from '@/lib/logs/console/logger'
 import { validateJiraCloudId, validateJiraIssueKey } from '@/lib/security/input-validation'
+import { generateRequestId } from '@/lib/utils'
 import { getJiraCloudId } from '@/tools/jira/utils'
 
 export const dynamic = 'force-dynamic'
 
 const logger = createLogger('JiraUpdateAPI')
 
-export async function PUT(request: Request) {
+export async function PUT(request: NextRequest) {
+  const requestId = generateRequestId()
   try {
     const {
       domain,
-      accessToken,
+      credentialId,
+      workflowId,
+      workspaceId,
       issueKey,
       summary,
       title,
@@ -27,17 +32,19 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: 'Domain is required' }, { status: 400 })
     }
 
-    if (!accessToken) {
-      logger.error('Missing access token in request')
-      return NextResponse.json({ error: 'Access token is required' }, { status: 400 })
-    }
-
     if (!issueKey) {
       logger.error('Missing issue key in request')
       return NextResponse.json({ error: 'Issue key is required' }, { status: 400 })
     }
 
-    const cloudId = providedCloudId || (await getJiraCloudId(domain, accessToken))
+    const credential = await resolveOAuthRouteCredential(
+      request,
+      { credentialId, workflowId, workspaceId },
+      requestId
+    )
+    if (!credential.ok) return credential.response
+
+    const cloudId = providedCloudId || (await getJiraCloudId(domain, credential.accessToken))
     logger.info('Using cloud ID:', cloudId)
 
     const cloudIdValidation = validateJiraCloudId(cloudId, 'cloudId')
@@ -102,7 +109,7 @@ export async function PUT(request: Request) {
     const response = await fetch(url, {
       method: 'PUT',
       headers: {
-        Authorization: `Bearer ${accessToken}`,
+        Authorization: `Bearer ${credential.accessToken}`,
         Accept: 'application/json',
         'Content-Type': 'application/json',
       },

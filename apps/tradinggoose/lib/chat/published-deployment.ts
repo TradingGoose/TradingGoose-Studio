@@ -18,7 +18,7 @@ interface ChatTriggerDraft {
   config: ChatDeploymentDraftConfig
 }
 
-const getWorkflowBlocks = (state: unknown): Record<string, BlockState> => {
+const readWorkflowBlocks = (state: unknown): Record<string, BlockState> => {
   if (!state || typeof state !== 'object' || Array.isArray(state)) {
     return {}
   }
@@ -32,7 +32,7 @@ const getWorkflowBlocks = (state: unknown): Record<string, BlockState> => {
 }
 
 export const hasChatTriggerBlocks = (state?: unknown): boolean => {
-  return Object.values(getWorkflowBlocks(state)).some((block) => block?.type === 'chat_trigger')
+  return Object.values(readWorkflowBlocks(state)).some((block) => block?.type === 'chat_trigger')
 }
 
 const getChatTriggerDrafts = (state: Pick<WorkflowState, 'blocks'>): ChatTriggerDraft[] => {

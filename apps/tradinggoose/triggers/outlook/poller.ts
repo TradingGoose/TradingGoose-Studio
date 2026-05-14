@@ -1,22 +1,9 @@
-import { createLogger } from '@/lib/logs/console/logger'
 import { OutlookIcon } from '@/components/icons/icons'
+import { createLogger } from '@/lib/logs/console/logger'
 import { readActiveSubBlockValue } from '@/lib/yjs/workflow-session-registry'
 import type { TriggerConfig } from '@/triggers/types'
 
 const logger = createLogger('OutlookPollingTrigger')
-
-const isCredentialSetValue = (value: string) => value.startsWith('credentialSet:')
-
-// Outlook well-known folders that exist for all accounts (used as defaults for credential sets)
-const OUTLOOK_SYSTEM_FOLDERS = [
-  { id: 'inbox', label: 'Inbox' },
-  { id: 'drafts', label: 'Drafts' },
-  { id: 'sentitems', label: 'Sent Items' },
-  { id: 'deleteditems', label: 'Deleted Items' },
-  { id: 'junkemail', label: 'Junk Email' },
-  { id: 'archive', label: 'Archive' },
-  { id: 'outbox', label: 'Outbox' },
-]
 
 export const outlookPollingTrigger: TriggerConfig = {
   id: 'outlook_poller',
@@ -37,7 +24,6 @@ export const outlookPollingTrigger: TriggerConfig = {
       requiredScopes: [],
       required: true,
       mode: 'trigger',
-      supportsCredentialSets: true,
     },
     {
       id: 'folderIds',
@@ -48,19 +34,15 @@ export const outlookPollingTrigger: TriggerConfig = {
       description: 'Choose which Outlook folders to monitor. Leave empty to monitor all emails.',
       required: false,
       options: [], // Will be populated dynamically
-      fetchOptions: async (blockId: string, subBlockId: string) => {
-        const credentialId = readActiveSubBlockValue(blockId, 'triggerCredentials') as
-          | string
-          | null
+      fetchOptions: async (blockId: string, _subBlockId: string, context) => {
+        const credentialId = readActiveSubBlockValue(blockId, 'triggerCredentials') as string | null
         if (!credentialId) {
           throw new Error('No Outlook credential selected')
         }
-        // Return default system folders for credential sets (can't fetch user-specific folders for a pool)
-        if (isCredentialSetValue(credentialId)) {
-          return OUTLOOK_SYSTEM_FOLDERS
-        }
         try {
-          const response = await fetch(`/api/tools/outlook/folders?credentialId=${credentialId}`)
+          const params = new URLSearchParams({ credentialId })
+          if (context.workflowId) params.set('workflowId', context.workflowId)
+          const response = await fetch(`/api/tools/outlook/folders?${params.toString()}`)
           if (!response.ok) {
             throw new Error('Failed to fetch Outlook folders')
           }
@@ -118,7 +100,6 @@ export const outlookPollingTrigger: TriggerConfig = {
       type: 'trigger-save',
       hideFromPreview: true,
       mode: 'trigger',
-      triggerId: 'outlook_poller',
     },
     {
       id: 'triggerInstructions',

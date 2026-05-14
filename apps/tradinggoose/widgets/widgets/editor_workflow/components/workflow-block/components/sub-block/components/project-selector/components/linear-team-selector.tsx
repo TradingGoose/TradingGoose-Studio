@@ -50,7 +50,7 @@ export function LinearTeamSelector({
     fetch('/api/tools/linear/teams', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ credential, workflowId }),
+      body: JSON.stringify({ credentialId: credential, workflowId }),
       signal: controller.signal,
     })
       .then((res) => {

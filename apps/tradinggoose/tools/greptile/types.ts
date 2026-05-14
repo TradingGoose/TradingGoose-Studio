@@ -29,7 +29,7 @@ export interface GreptileQueryParams extends GreptileBaseParams {
 }
 
 /**
- * Source reference in query/search results
+ * Source reference in query results
  */
 export interface GreptileSource {
   repository: string
@@ -48,25 +48,6 @@ export interface GreptileSource {
 export interface GreptileQueryResponse extends ToolResponse {
   output: {
     message: string
-    sources: GreptileSource[]
-  }
-}
-
-/**
- * Search tool parameters
- */
-export interface GreptileSearchParams extends GreptileBaseParams {
-  query: string
-  repositories: string
-  sessionId?: string
-  genius?: boolean
-}
-
-/**
- * Search response
- */
-export interface GreptileSearchResponse extends ToolResponse {
-  output: {
     sources: GreptileSource[]
   }
 }
@@ -124,6 +105,5 @@ export interface GreptileStatusResponse extends ToolResponse {
  */
 export type GreptileResponse =
   | GreptileQueryResponse
-  | GreptileSearchResponse
   | GreptileIndexResponse
   | GreptileStatusResponse

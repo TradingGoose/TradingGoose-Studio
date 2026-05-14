@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
-import { checkHybridAuth } from '@/lib/auth/hybrid'
+import { resolveOAuthRouteCredential } from '@/lib/credentials/oauth-route'
 import { createLogger } from '@/lib/logs/console/logger'
 import {
   downloadFileFromStorage,
@@ -20,7 +20,9 @@ const logger = createLogger('GoogleDriveUploadAPI')
 const GOOGLE_DRIVE_API_BASE = 'https://www.googleapis.com/upload/drive/v3/files'
 
 const GoogleDriveUploadSchema = z.object({
-  accessToken: z.string().min(1, 'Access token is required'),
+  credentialId: z.string().min(1, 'Credential ID is required'),
+  workflowId: z.string().optional().nullable(),
+  workspaceId: z.string().optional().nullable(),
   fileName: z.string().min(1, 'File name is required'),
   file: z.any().optional().nullable(),
   mimeType: z.string().optional().nullable(),
@@ -58,28 +60,10 @@ export async function POST(request: NextRequest) {
   const requestId = generateRequestId()
 
   try {
-    const authResult = await checkHybridAuth(request, { requireWorkflowId: false })
-
-    if (!authResult.success) {
-      logger.warn(`[${requestId}] Unauthorized Google Drive upload attempt: ${authResult.error}`)
-      return NextResponse.json(
-        {
-          success: false,
-          error: authResult.error || 'Authentication required',
-        },
-        { status: 401 }
-      )
-    }
-
-    logger.info(
-      `[${requestId}] Authenticated Google Drive upload request via ${authResult.authType}`,
-      {
-        userId: authResult.userId,
-      }
-    )
-
     const body = await request.json()
     const validatedData = GoogleDriveUploadSchema.parse(body)
+    const credential = await resolveOAuthRouteCredential(request, validatedData, requestId)
+    if (!credential.ok) return credential.response
 
     logger.info(`[${requestId}] Uploading file to Google Drive`, {
       fileName: validatedData.fileName,
@@ -189,7 +173,7 @@ export async function POST(request: NextRequest) {
       {
         method: 'POST',
         headers: {
-          Authorization: `Bearer ${validatedData.accessToken}`,
+          Authorization: `Bearer ${credential.accessToken}`,
           'Content-Type': `multipart/related; boundary=${boundary}`,
           'Content-Length': Buffer.byteLength(multipartBody, 'utf-8').toString(),
         },
@@ -226,7 +210,7 @@ export async function POST(request: NextRequest) {
         {
           method: 'PATCH',
           headers: {
-            Authorization: `Bearer ${validatedData.accessToken}`,
+            Authorization: `Bearer ${credential.accessToken}`,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
@@ -246,7 +230,7 @@ export async function POST(request: NextRequest) {
       `https://www.googleapis.com/drive/v3/files/${fileId}?supportsAllDrives=true&fields=id,name,mimeType,webViewLink,webContentLink,size,createdTime,modifiedTime,parents`,
       {
         headers: {
-          Authorization: `Bearer ${validatedData.accessToken}`,
+          Authorization: `Bearer ${credential.accessToken}`,
         },
       }
     )

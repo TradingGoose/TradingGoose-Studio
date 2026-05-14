@@ -1,3 +1,4 @@
+import type { PortfolioIdentity } from '@/providers/trading/portfolio-identity'
 import { fetchBrokerJson } from '@/providers/trading/portfolio-utils'
 import { buildTradierAuthHeaders, resolveTradierBaseUrl } from '@/providers/trading/tradier/client'
 import {
@@ -6,7 +7,6 @@ import {
 } from '@/providers/trading/tradier/positions'
 import type {
   TradingPortfolioBaseContext,
-  UnifiedTradingAccount,
   UnifiedTradingAccountStatus,
 } from '@/providers/trading/types'
 
@@ -25,7 +25,10 @@ const toTradierAccountsArray = (profileResponse: any) => {
   return [accounts]
 }
 
-export const normalizeTradierTradingAccount = (account: any): UnifiedTradingAccount => {
+export const normalizeTradierTradingAccount = (
+  account: any,
+  context: Pick<TradingPortfolioBaseContext, 'credentialId' | 'serviceId' | 'providerId'>
+): PortfolioIdentity => {
   const accountNumber =
     typeof account?.account_number === 'string' ? account.account_number.trim() : ''
   if (!accountNumber) {
@@ -36,16 +39,20 @@ export const normalizeTradierTradingAccount = (account: any): UnifiedTradingAcco
     typeof account?.classification === 'string' ? account.classification.trim() : ''
 
   return {
-    id: accountNumber,
-    name: classification ? `${classification} (${accountNumber})` : accountNumber,
-    type: mapTradierAccountType(account?.type),
+    providerId: context.providerId,
+    credentialId: context.credentialId,
+    serviceId: context.serviceId,
+    accountId: accountNumber,
+    providerName: 'Tradier',
+    accountName: classification ? `${classification} (${accountNumber})` : accountNumber,
+    accountType: mapTradierAccountType(account?.type),
     baseCurrency: TRADIER_DEFAULT_BASE_CURRENCY,
-    status: mapTradierAccountStatus(account?.status),
+    accountStatus: mapTradierAccountStatus(account?.status),
   }
 }
 
 export async function fetchTradierTradingProfile(context: TradingPortfolioBaseContext) {
-  const baseUrl = resolveTradierBaseUrl(context.environment)
+  const baseUrl = resolveTradierBaseUrl()
   return fetchBrokerJson<any>({
     providerId: context.providerId,
     url: `${baseUrl}/user/profile`,
@@ -61,7 +68,9 @@ export async function fetchTradierTradingProfile(context: TradingPortfolioBaseCo
 
 export async function getTradierTradingAccounts(
   context: TradingPortfolioBaseContext
-): Promise<UnifiedTradingAccount[]> {
+): Promise<PortfolioIdentity[]> {
   const profile = await fetchTradierTradingProfile(context)
-  return toTradierAccountsArray(profile).map(normalizeTradierTradingAccount)
+  return toTradierAccountsArray(profile).map((account) =>
+    normalizeTradierTradingAccount(account, context)
+  )
 }

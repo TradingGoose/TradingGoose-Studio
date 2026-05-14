@@ -61,7 +61,11 @@ export async function POST(req: NextRequest) {
     }
 
     logger.info(`[${tracker.requestId}] Executing server tool`, { toolName })
-    const result = await routeExecution(toolName, payload, { userId, ...context })
+    const result = await routeExecution(toolName, payload, {
+      userId,
+      ...context,
+      signal: req.signal,
+    })
 
     try {
       const resultPreview = JSON.stringify(result).slice(0, 300)

@@ -52,25 +52,12 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
       )
       .limit(1)
 
-    const legacyDeploymentResults =
-      deploymentResults.length > 0
-        ? deploymentResults
-        : await db
-            .select({
-              id: chat.id,
-              identifier: chat.identifier,
-              isActive: chat.isActive,
-            })
-            .from(chat)
-            .where(and(eq(chat.workflowId, id), eq(chat.isActive, true)))
-            .limit(1)
-
-    const isDeployed = legacyDeploymentResults.length > 0
+    const isDeployed = deploymentResults.length > 0
     const deploymentInfo =
-      legacyDeploymentResults.length > 0
+      deploymentResults.length > 0
         ? {
-            id: legacyDeploymentResults[0].id,
-            identifier: legacyDeploymentResults[0].identifier,
+            id: deploymentResults[0].id,
+            identifier: deploymentResults[0].identifier,
           }
         : null
 

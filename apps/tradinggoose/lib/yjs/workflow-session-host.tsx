@@ -20,7 +20,7 @@ import {
   type SharedWorkflowSessionState,
 } from '@/lib/yjs/workflow-shared-session'
 import {
-  getWorkflowSnapshotCloned,
+  readWorkflowSnapshotCloned,
   type WorkflowSnapshot,
 } from '@/lib/yjs/workflow-session'
 import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
@@ -32,7 +32,7 @@ export interface WorkflowSessionContextValue {
   isSynced: boolean
   isLoading: boolean
   error: string | null
-  getWorkflowSnapshot: () => WorkflowSnapshot | null
+  readWorkflowSnapshot: () => WorkflowSnapshot | null
   transactWorkflow: (fn: (doc: Y.Doc) => void, origin?: string) => void
   canUndo: boolean
   canRedo: boolean
@@ -109,7 +109,7 @@ export function WorkflowSessionProvider({
 
   const getSnapshot = useCallback((): WorkflowSnapshot | null => {
     if (!doc) return null
-    return getWorkflowSnapshotCloned(doc)
+    return readWorkflowSnapshotCloned(doc)
   }, [doc])
 
   const transactWorkflow = useCallback(
@@ -135,7 +135,7 @@ export function WorkflowSessionProvider({
     isSynced,
     isLoading,
     error,
-    getWorkflowSnapshot: getSnapshot,
+    readWorkflowSnapshot: getSnapshot,
     transactWorkflow,
     canUndo,
     canRedo,

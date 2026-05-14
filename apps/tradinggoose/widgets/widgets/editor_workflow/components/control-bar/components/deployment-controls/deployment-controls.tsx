@@ -35,7 +35,7 @@ export function DeploymentControls({
   variant = 'workspace',
 }: DeploymentControlsProps) {
   const deploymentStatus = useWorkflowRegistry((state) =>
-    state.getWorkflowDeploymentStatus(activeWorkflowId)
+    state.readWorkflowDeploymentStatus(activeWorkflowId)
   )
   const isDeployed = deploymentStatus?.isDeployed || false
 

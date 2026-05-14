@@ -1,9 +1,8 @@
 import { type NextRequest, NextResponse } from 'next/server'
-import { authorizeCredentialUse } from '@/lib/auth/credential-access'
+import { resolveOAuthRouteCredential } from '@/lib/credentials/oauth-route'
 import { createLogger } from '@/lib/logs/console/logger'
 import { validateAlphanumericId } from '@/lib/security/input-validation'
 import { generateRequestId } from '@/lib/utils'
-import { refreshAccessTokenIfNeeded } from '@/app/api/auth/oauth/utils'
 export const dynamic = 'force-dynamic'
 
 const logger = createLogger('GoogleDriveFileAPI')
@@ -20,6 +19,7 @@ export async function GET(request: NextRequest) {
     const credentialId = searchParams.get('credentialId')
     const fileId = searchParams.get('fileId')
     const workflowId = searchParams.get('workflowId') || undefined
+    const workspaceId = searchParams.get('workspaceId') || undefined
 
     if (!credentialId || !fileId) {
       logger.warn(`[${requestId}] Missing required parameters`)
@@ -32,27 +32,19 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: fileIdValidation.error }, { status: 400 })
     }
 
-    const authz = await authorizeCredentialUse(request, { credentialId: credentialId, workflowId })
-    if (!authz.ok || !authz.credentialOwnerUserId) {
-      return NextResponse.json({ error: authz.error || 'Unauthorized' }, { status: 403 })
-    }
-
-    const accessToken = await refreshAccessTokenIfNeeded(
-      credentialId,
-      authz.credentialOwnerUserId,
+    const credential = await resolveOAuthRouteCredential(
+      request,
+      { credentialId, workflowId, workspaceId },
       requestId
     )
-
-    if (!accessToken) {
-      return NextResponse.json({ error: 'Failed to obtain valid access token' }, { status: 401 })
-    }
+    if (!credential.ok) return credential.response
 
     logger.info(`[${requestId}] Fetching file ${fileId} from Google Drive API`)
     const response = await fetch(
       `https://www.googleapis.com/drive/v3/files/${fileId}?fields=id,name,mimeType,iconLink,webViewLink,thumbnailLink,createdTime,modifiedTime,size,owners,exportLinks,shortcutDetails&supportsAllDrives=true`,
       {
         headers: {
-          Authorization: `Bearer ${accessToken}`,
+          Authorization: `Bearer ${credential.accessToken}`,
         },
       }
     )
@@ -88,7 +80,7 @@ export async function GET(request: NextRequest) {
       const shortcutResp = await fetch(
         `https://www.googleapis.com/drive/v3/files/${targetId}?fields=id,name,mimeType,iconLink,webViewLink,thumbnailLink,createdTime,modifiedTime,size,owners,exportLinks&supportsAllDrives=true`,
         {
-          headers: { Authorization: `Bearer ${accessToken}` },
+          headers: { Authorization: `Bearer ${credential.accessToken}` },
         }
       )
       if (shortcutResp.ok) {

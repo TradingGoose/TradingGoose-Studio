@@ -13,6 +13,7 @@
 <a href="https://perplexity.ai?q=I+am+using+TradingGoose-Studio+from+https%3A%2F%2Fgithub.com%2FTradingGoose%2FTradingGoose-Studio.+How+do+I+automate+a+strategy+using+this+library" target="_blank" rel="noopener noreferrer"><img src="https://img.shields.io/badge/ASK%20perplexity-088F8F?style=for-the-badge&logo=perplexity&logoColor=000000" alt="Perplexity"></a>
 </p>
 
+
 <picture>
   <!-- Image for Light Mode -->
   <source media="(prefers-color-scheme: light)" srcset="https://github.com/user-attachments/assets/f0c8a9b5-4496-440d-9164-4444bbca9eb0">
@@ -176,6 +177,11 @@ terms that continue to apply to that directory.
 
 ---
 
-<p align="center">
-  <b>HONK !</b>
-</p>
+<picture>
+  <!-- Image for Light Mode -->
+  <source media="(prefers-color-scheme: light)" srcset="https://github.com/user-attachments/assets/2a55d46f-f7ec-4d6d-89f8-c6439390c555">
+  <!-- Image for Dark Mode -->
+  <source media="(prefers-color-scheme: dark)" srcset="https://github.com/user-attachments/assets/e25ab2f5-5e0f-4f6f-9cfd-70305e0ad0b5">
+  <!-- Fallback Image (shown if the browser doesn't support themes) -->
+  <img alt="Project Footer" src="https://github.com/user-attachments/assets/2a55d46f-f7ec-4d6d-89f8-c6439390c555">
+</picture>

@@ -27,17 +27,11 @@ export const getListTool: ToolConfig<SharepointToolParams, SharepointGetListResp
       visibility: 'hidden',
       description: 'The access token for the SharePoint API',
     },
-    siteSelector: {
-      type: 'string',
-      required: false,
-      visibility: 'user-only',
-      description: 'Select the SharePoint site',
-    },
     siteId: {
       type: 'string',
       required: false,
-      visibility: 'hidden',
-      description: 'The ID of the SharePoint site (internal use)',
+      visibility: 'user-only',
+      description: 'The ID of the SharePoint site',
     },
     listId: {
       type: 'string',
@@ -49,7 +43,7 @@ export const getListTool: ToolConfig<SharepointToolParams, SharepointGetListResp
 
   request: {
     url: (params) => {
-      const siteId = params.siteId || params.siteSelector || 'root'
+      const siteId = params.siteId || 'root'
 
       // If neither listId nor listTitle provided, list all lists in the site
       if (!params.listId) {

@@ -44,7 +44,6 @@ export const calendlyInviteeCanceledTrigger: TriggerConfig = {
       type: 'trigger-save',
       hideFromPreview: true,
       mode: 'trigger',
-      triggerId: 'calendly_invitee_canceled',
       condition: {
         field: 'selectedTriggerId',
         value: 'calendly_invitee_canceled',

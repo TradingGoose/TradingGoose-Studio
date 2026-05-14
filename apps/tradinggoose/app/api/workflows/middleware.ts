@@ -1,15 +1,20 @@
 import type { NextRequest } from 'next/server'
 import { authenticateApiKey } from '@/lib/api-key/auth'
-import { authenticateApiKeyFromHeader, updateApiKeyLastUsed } from '@/lib/api-key/service'
+import {
+  type ApiKeyAuthResult,
+  authenticateApiKeyFromHeader,
+  updateApiKeyLastUsed,
+} from '@/lib/api-key/service'
 import { env } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
-import { getWorkflowById } from '@/lib/workflows/utils'
+import { readWorkflowById } from '@/lib/workflows/utils'
 
 const logger = createLogger('WorkflowMiddleware')
 
 export interface ValidationResult {
   error?: { message: string; status: number }
   workflow?: any
+  apiKeyAuth?: ApiKeyAuthResult
 }
 
 export async function validateWorkflowAccess(
@@ -18,7 +23,7 @@ export async function validateWorkflowAccess(
   requireDeployment = true
 ): Promise<ValidationResult> {
   try {
-    const workflow = await getWorkflowById(workflowId)
+    const workflow = await readWorkflowById(workflowId)
     if (!workflow) {
       return {
         error: {
@@ -71,6 +76,16 @@ export async function validateWorkflowAccess(
             },
           }
         }
+        return {
+          workflow,
+          apiKeyAuth: {
+            success: true,
+            userId: workflow.pinnedApiKey.userId,
+            keyId: workflow.pinnedApiKey.id,
+            keyType: workflow.pinnedApiKey.type === 'workspace' ? 'workspace' : 'personal',
+            workspaceId: workflow.pinnedApiKey.workspaceId || undefined,
+          },
+        }
       } else {
         // Try personal keys first
         const personalResult = await authenticateApiKeyFromHeader(apiKeyHeader, {
@@ -81,7 +96,7 @@ export async function validateWorkflowAccess(
         let validResult = null
         if (personalResult.success) {
           validResult = personalResult
-        } else if (workflow.workspaceId) {
+        } else {
           // Try workspace keys
           const workspaceResult = await authenticateApiKeyFromHeader(apiKeyHeader, {
             workspaceId: workflow.workspaceId as string,
@@ -104,6 +119,7 @@ export async function validateWorkflowAccess(
         }
 
         await updateApiKeyLastUsed(validResult.keyId!)
+        return { workflow, apiKeyAuth: validResult }
       }
     }
     return { workflow }

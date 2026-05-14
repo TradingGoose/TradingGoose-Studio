@@ -10,7 +10,6 @@ import {
   calculateCostSummary,
   createEnvironmentObject,
   createTriggerObject,
-  loadWorkflowStateForExecution,
   loadWorkflowSummaryForExecution,
 } from '@/lib/logs/execution/logging-factory'
 import type {
@@ -25,6 +24,7 @@ const logger = createLogger('LoggingSession')
 export interface SessionStartParams {
   userId?: string
   workspaceId: string
+  workflowState: WorkflowState
   variables?: Record<string, string>
   triggerData?: Record<string, unknown>
 }
@@ -54,7 +54,6 @@ export interface SessionErrorCompleteParams {
 export class LoggingSession {
   private trigger?: ExecutionTrigger
   private environment?: ExecutionEnvironment
-  private workflowState?: WorkflowState
 
   constructor(
     private workflowId: string,
@@ -65,7 +64,7 @@ export class LoggingSession {
   ) {}
 
   async start(params: SessionStartParams): Promise<string> {
-    const { userId, workspaceId, variables, triggerData } = params
+    const { userId, workspaceId, workflowState, variables, triggerData } = params
 
     try {
       this.trigger = createTriggerObject(this.triggerType, triggerData)
@@ -77,14 +76,13 @@ export class LoggingSession {
         variables
       )
       const workflowSummary = await loadWorkflowSummaryForExecution(this.workflowId)
-      this.workflowState = await loadWorkflowStateForExecution(this.workflowId)
 
       const { workflowLog } = await executionLogger.startWorkflowExecution({
         workflowId: this.workflowId,
         executionId: this.executionId,
         trigger: this.trigger,
         environment: this.environment,
-        workflowState: this.workflowState,
+        workflowState,
         workflowSummary,
       })
       this.workflowLogId = workflowLog.id
@@ -178,7 +176,6 @@ export class LoggingSession {
 
       await executionLogger.completeWorkflowExecution({
         executionId: this.executionId,
-        workflowId: this.workflowId,
         workflowLogId: scope.workflowLogId,
         workspaceId: scope.workspaceId,
         endedAt: endTime,
@@ -276,7 +273,6 @@ export class LoggingSession {
 
       await executionLogger.completeWorkflowExecution({
         executionId: this.executionId,
-        workflowId: this.workflowId,
         workflowLogId: scope.workflowLogId,
         workspaceId: scope.workspaceId,
         endedAt: endTime.toISOString(),

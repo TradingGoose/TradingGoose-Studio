@@ -24,6 +24,7 @@ class MockWebsocketProvider {
   roomname: string
   serverUrl: string
   shouldConnect = false
+  synced = false
   ws: object | null = null
 
   constructor(
@@ -45,6 +46,7 @@ class MockWebsocketProvider {
     if (opts.connect !== false) {
       this.connect()
     }
+    providerInstances.push(this)
   }
 
   on(event: string, handler: (...args: any[]) => void) {
@@ -53,20 +55,29 @@ class MockWebsocketProvider {
     this.listeners.set(event, handlers)
   }
 
+  off(event: string, handler: (...args: any[]) => void) {
+    this.listeners.get(event)?.delete(handler)
+  }
+
   emit(event: string, ...args: any[]) {
+    if (event === 'sync') {
+      this.synced = args[0] === true
+    }
     for (const handler of this.listeners.get(event) ?? []) {
       handler(...args)
     }
   }
 }
 
+const providerInstances: MockWebsocketProvider[] = []
+
 vi.mock('y-websocket', () => ({
   WebsocketProvider: MockWebsocketProvider,
 }))
 
-function jsonResponse(body: unknown): Response {
+function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
-    status: 200,
+    status,
     headers: { 'Content-Type': 'application/json' },
   })
 }
@@ -103,9 +114,21 @@ describe('bootstrapYjsProvider', () => {
     reseededFromCanonical: false,
   }
 
+  async function bootstrapSyncedProvider() {
+    const { bootstrapYjsProvider } = await import('./provider')
+    const bootstrapPromise = bootstrapYjsProvider(descriptor, 'ws://localhost:3002')
+    await waitForCondition(() => {
+      expect(providerInstances).toHaveLength(1)
+    })
+    providerInstances[0].emit('sync', true)
+    const result = await bootstrapPromise
+    return { result, provider: result.provider as unknown as MockWebsocketProvider }
+  }
+
   beforeEach(() => {
     vi.resetModules()
     fetchMock.mockReset()
+    providerInstances.length = 0
     vi.stubGlobal('fetch', fetchMock)
   })
 
@@ -135,9 +158,7 @@ describe('bootstrapYjsProvider', () => {
       throw new Error(`Unexpected fetch: ${url} ${init?.method ?? 'GET'}`)
     })
 
-    const { bootstrapYjsProvider } = await import('./provider')
-    const result = await bootstrapYjsProvider(descriptor, { wsOrigin: 'ws://localhost:3002' })
-    const provider = result.provider as unknown as MockWebsocketProvider
+    const { provider } = await bootstrapSyncedProvider()
 
     expect(provider.params.token).toBe('token-1')
     expect(provider.connect).toHaveBeenCalledTimes(1)
@@ -154,38 +175,6 @@ describe('bootstrapYjsProvider', () => {
       headers: { 'cache-control': 'no-store' },
     })
     expect(provider.connect).toHaveBeenCalledTimes(2)
-  })
-
-  it('refreshes the one-time token after a connection error', async () => {
-    const tokens = ['token-1', 'token-2']
-
-    fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
-      const url = typeof input === 'string' ? input : input.toString()
-
-      if (url === '/api/auth/socket-token') {
-        return jsonResponse({ token: tokens.shift() })
-      }
-
-      if (url.startsWith('/api/yjs/sessions/workflow-1/snapshot?')) {
-        return jsonResponse({
-          snapshotBase64: '',
-          descriptor,
-          runtime,
-        })
-      }
-
-      throw new Error(`Unexpected fetch: ${url}`)
-    })
-
-    const { bootstrapYjsProvider } = await import('./provider')
-    const result = await bootstrapYjsProvider(descriptor, { wsOrigin: 'ws://localhost:3002' })
-    const provider = result.provider as unknown as MockWebsocketProvider
-
-    provider.emit('connection-error', new Event('error'), provider)
-    await waitForCondition(() => {
-      expect(provider.params.token).toBe('token-2')
-      expect(provider.connect).toHaveBeenCalledTimes(2)
-    })
   })
 
   it('does not rotate the token after an intentional disconnect', async () => {
@@ -207,9 +196,7 @@ describe('bootstrapYjsProvider', () => {
       throw new Error(`Unexpected fetch: ${url}`)
     })
 
-    const { bootstrapYjsProvider } = await import('./provider')
-    const result = await bootstrapYjsProvider(descriptor, { wsOrigin: 'ws://localhost:3002' })
-    const provider = result.provider as unknown as MockWebsocketProvider
+    const { provider } = await bootstrapSyncedProvider()
 
     provider.shouldConnect = false
     provider.emit('connection-close', null, provider)
@@ -221,7 +208,6 @@ describe('bootstrapYjsProvider', () => {
   })
 
   it('retries token refresh instead of reconnecting with a stale token', async () => {
-    vi.useFakeTimers()
     const tokens = ['token-1', 'token-2']
 
     fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
@@ -230,7 +216,7 @@ describe('bootstrapYjsProvider', () => {
       if (url === '/api/auth/socket-token') {
         const nextToken = tokens.shift()
         if (!nextToken) {
-          throw new Error('temporary auth outage')
+          throw new Error('auth outage')
         }
         return jsonResponse({ token: nextToken })
       }
@@ -248,9 +234,11 @@ describe('bootstrapYjsProvider', () => {
 
     const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
 
-    const { bootstrapYjsProvider } = await import('./provider')
-    const result = await bootstrapYjsProvider(descriptor, { wsOrigin: 'ws://localhost:3002' })
-    const provider = result.provider as unknown as MockWebsocketProvider
+    const { provider } = await bootstrapSyncedProvider()
+
+    expect(provider.params.accessMode).toBe('write')
+
+    vi.useFakeTimers()
 
     provider.emit('connection-close', null, provider)
     await Promise.resolve()
@@ -262,67 +250,34 @@ describe('bootstrapYjsProvider', () => {
 
     expect(provider.connect).toHaveBeenCalledTimes(2)
     expect(provider.params.token).toBe('token-2')
+    expect(provider.params.accessMode).toBe('write')
 
     consoleErrorSpy.mockRestore()
   })
 
-  it('boots expired draft seeds without opening the websocket session', async () => {
-    const draftDescriptor: ReviewTargetDescriptor = {
-      workspaceId: 'workspace-1',
-      entityKind: 'skill',
-      entityId: 'skill-1',
-      draftSessionId: 'draft-1',
-      reviewSessionId: 'review-1',
-      yjsSessionId: 'review-1',
-    }
-    const draftRuntime: ReviewTargetRuntimeState = {
-      docState: 'expired',
-      replaySafe: false,
-      reseededFromCanonical: false,
-    }
-
-    fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+  it('requires write access on the snapshot request and waits for provider sync', async () => {
+    fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
       const url = typeof input === 'string' ? input : input.toString()
 
-      if (url.startsWith('/api/yjs/sessions/review-1/snapshot?')) {
-        return new Response(
-          JSON.stringify({
-            snapshotBase64: '',
-            descriptor: draftDescriptor,
-            runtime: draftRuntime,
-          }),
-          {
-            status: 410,
-            headers: { 'Content-Type': 'application/json' },
-          }
-        )
+      if (url === '/api/auth/socket-token') {
+        return jsonResponse({ token: 'token-1' })
       }
 
-      throw new Error(`Unexpected fetch: ${url} ${init?.method ?? 'GET'}`)
+      if (url.startsWith('/api/yjs/sessions/workflow-1/snapshot?')) {
+        expect(url).toContain('accessMode=write')
+        return jsonResponse({
+          snapshotBase64: '',
+          descriptor,
+          runtime,
+        })
+      }
+
+      throw new Error(`Unexpected fetch: ${url}`)
     })
 
-    const { bootstrapYjsProvider } = await import('./provider')
-    const result = await bootstrapYjsProvider(draftDescriptor, {
-      wsOrigin: 'ws://localhost:3002',
-      draftSeed: {
-        entityKind: 'skill',
-        payload: {
-          name: 'Recovered skill',
-          description: 'Recovered description',
-          content: 'Recovered content',
-        },
-      },
-    })
-
-    expect(fetchMock).toHaveBeenCalledTimes(1)
-    expect(fetchMock.mock.calls[0]?.[0]).toContain('/api/yjs/sessions/review-1/snapshot?')
-    expect(result.runtime).toEqual(draftRuntime)
-    expect(result.provider.connect).toHaveBeenCalledTimes(0)
-    expect(result.provider.shouldConnect).toBe(false)
-
-    const fields = result.doc.getMap('fields')
-    expect(fields.get('name')).toBe('Recovered skill')
-    expect(fields.get('description')).toBe('Recovered description')
-    expect(fields.get('content')).toBe('Recovered content')
+    const { result } = await bootstrapSyncedProvider()
+    expect(result.provider).toBe(providerInstances[0])
+    expect(providerInstances[0].params.accessMode).toBe('write')
   })
+
 })

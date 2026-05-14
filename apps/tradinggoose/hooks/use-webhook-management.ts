@@ -1,29 +1,20 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getBaseUrl } from '@/lib/urls/utils'
-import { populateTriggerFieldsFromConfig } from '@/hooks/use-trigger-config-aggregation'
 import {
-  useWorkflowBlocks,
   useSubBlockValue,
+  useWorkflowBlocks,
+  useWorkflowMutations,
 } from '@/lib/yjs/use-workflow-doc'
+import { populateTriggerFieldsFromConfig } from '@/hooks/use-trigger-config-aggregation'
 import { getTrigger, isTriggerValid } from '@/triggers'
 import { resolveTriggerIdForBlock } from '@/triggers/resolution'
 import { useOptionalWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
-import { useOptionalWorkflowSession } from '@/lib/yjs/workflow-session-host'
-import {
-  getWorkflowMap,
-  getWorkflowTextFieldFromMap,
-  getWorkflowTextFieldsMap,
-  YJS_KEYS,
-} from '@/lib/yjs/workflow-session'
 
 const logger = createLogger('useWebhookManagement')
 
-const CREDENTIAL_SET_PREFIX = 'credentialSet:'
-
 interface UseWebhookManagementProps {
   blockId: string
-  triggerId?: string
   useWebhookUrl?: boolean
 }
 
@@ -33,35 +24,20 @@ interface WebhookManagementState {
   webhookId: string | null
   isLoading: boolean
   isSaving: boolean
-  saveConfig: () => Promise<boolean>
+  saveConfig: (triggerConfig: Record<string, unknown>) => Promise<boolean>
   deleteConfig: () => Promise<boolean>
 }
 
 function resolveEffectiveTriggerId(
   blockId: string,
-  triggerId: string | undefined,
-  blocks: Record<string, any>,
-  webhook?: { providerConfig?: { triggerId?: string } },
+  blocks: Record<string, any>
 ): string | undefined {
-  if (triggerId && isTriggerValid(triggerId)) {
-    return triggerId
-  }
-
   const block = blocks?.[blockId]
 
   // Read subblock values directly from the Yjs blocks
   const selectedTriggerId = block?.subBlocks?.selectedTriggerId?.value
   if (typeof selectedTriggerId === 'string' && isTriggerValid(selectedTriggerId)) {
     return selectedTriggerId
-  }
-
-  const storedTriggerId = block?.subBlocks?.triggerId?.value
-  if (typeof storedTriggerId === 'string' && isTriggerValid(storedTriggerId)) {
-    return storedTriggerId
-  }
-
-  if (webhook?.providerConfig?.triggerId && typeof webhook.providerConfig.triggerId === 'string') {
-    return webhook.providerConfig.triggerId
   }
 
   if (block) {
@@ -76,14 +52,10 @@ function resolveEffectiveTriggerId(
 
 export function useWebhookManagement({
   blockId,
-  triggerId,
   useWebhookUrl = false,
 }: UseWebhookManagementProps): WebhookManagementState {
   const workflowId = useOptionalWorkflowRoute()?.workflowId
-  const workflowSession = useOptionalWorkflowSession()
-
-  const triggerDef = triggerId && isTriggerValid(triggerId) ? getTrigger(triggerId) : null
-
+  const { setSubBlockValue, batchSetSubBlockValues } = useWorkflowMutations()
   const blocks = useWorkflowBlocks()
 
   // Keep a ref to blocks so imperative callbacks always read fresh data
@@ -91,117 +63,9 @@ export function useWebhookManagement({
   const blocksRef = useRef(blocks)
   blocksRef.current = blocks
 
-  // Encapsulates the deep access + normalization for a block's trigger config.
-  const getTriggerConfig = (targetBlockId: string): Record<string, unknown> => {
-    const raw = blocksRef.current?.[targetBlockId]?.subBlocks?.triggerConfig?.value
-    return typeof raw === 'object' && raw !== null
-      ? (raw as unknown as Record<string, unknown>)
-      : {}
-  }
-
-  const setSubBlockValue = useCallback(
-    (targetBlockId: string, subBlockId: string, value: any) => {
-      const doc = workflowSession?.doc
-      if (!doc) {
-        return
-      }
-
-      workflowSession.transactWorkflow((draftDoc) => {
-        const textFields = getWorkflowTextFieldsMap(draftDoc)
-        const sharedText = getWorkflowTextFieldFromMap(textFields, targetBlockId, subBlockId)
-        if (sharedText) {
-          const nextTextValue = typeof value === 'string' ? value : value == null ? '' : String(value)
-          if (sharedText.toString() !== nextTextValue) {
-            if (sharedText.length > 0) {
-              sharedText.delete(0, sharedText.length)
-            }
-            if (nextTextValue) {
-              sharedText.insert(0, nextTextValue)
-            }
-          }
-        }
-
-        const wMap = getWorkflowMap(draftDoc)
-        const nextBlocks: Record<string, any> = { ...(wMap.get(YJS_KEYS.BLOCKS) ?? {}) }
-        const block = nextBlocks[targetBlockId]
-        if (!block || sharedText) {
-          return
-        }
-
-        const subBlocks = block.subBlocks ?? {}
-        const existingSubBlock = subBlocks[subBlockId] ?? { id: subBlockId }
-        nextBlocks[targetBlockId] = {
-          ...block,
-          subBlocks: {
-            ...subBlocks,
-            [subBlockId]: { ...existingSubBlock, value },
-          },
-        }
-        wMap.set(YJS_KEYS.BLOCKS, nextBlocks)
-      })
-    },
-    [workflowSession]
-  )
-
-  const batchSetSubBlockValues = useCallback(
-    (updates: Array<{ blockId: string; subBlockId: string; value: any }>) => {
-      const doc = workflowSession?.doc
-      if (!doc) {
-        return
-      }
-
-      workflowSession.transactWorkflow((draftDoc) => {
-        const wMap = getWorkflowMap(draftDoc)
-        const textFields = getWorkflowTextFieldsMap(draftDoc)
-        const nextBlocks: Record<string, any> = { ...(wMap.get(YJS_KEYS.BLOCKS) ?? {}) }
-        let changed = false
-
-        for (const { blockId, subBlockId, value } of updates) {
-          const block = nextBlocks[blockId]
-          if (!block) {
-            continue
-          }
-
-          const sharedText = getWorkflowTextFieldFromMap(textFields, blockId, subBlockId)
-          if (sharedText) {
-            const nextTextValue = typeof value === 'string' ? value : value == null ? '' : String(value)
-            if (sharedText.toString() !== nextTextValue) {
-              if (sharedText.length > 0) {
-                sharedText.delete(0, sharedText.length)
-              }
-              if (nextTextValue) {
-                sharedText.insert(0, nextTextValue)
-              }
-            }
-            continue
-          }
-
-          const subBlocks = block.subBlocks ?? {}
-          const existingSubBlock = subBlocks[subBlockId] ?? { id: subBlockId }
-          nextBlocks[blockId] = {
-            ...block,
-            subBlocks: {
-              ...subBlocks,
-              [subBlockId]: { ...existingSubBlock, value },
-            },
-          }
-          changed = true
-        }
-
-        if (changed) {
-          wMap.set(YJS_KEYS.BLOCKS, nextBlocks)
-        }
-      })
-    },
-    [workflowSession]
-  )
-
   // Read subblock values from Yjs blocks
   const webhookId = useSubBlockValue(blockId, 'webhookId') as string | null
   const webhookPath = useSubBlockValue(blockId, 'triggerPath') as string | null
-  // Fine-grained subscription for the triggerId subblock value — avoids
-  // re-running the sync effect on every unrelated Yjs mutation.
-  const storedTriggerId = useSubBlockValue(blockId, 'triggerId') as string | null
   // Loading / checked state remains local UI state -- keep using a simple useState
   const [isLoading, setIsLoading] = useState(false)
   const [isChecked, setIsChecked] = useState(false)
@@ -215,12 +79,6 @@ export function useWebhookManagement({
   }, [webhookPath, blockId])
 
   const [isSaving, setIsSaving] = useState(false)
-
-  useEffect(() => {
-    if (triggerId && storedTriggerId !== triggerId) {
-      setSubBlockValue(blockId, 'triggerId', triggerId)
-    }
-  }, [triggerId, blockId, storedTriggerId, setSubBlockValue])
 
   useEffect(() => {
     if (!workflowId) {
@@ -257,27 +115,20 @@ export function useWebhookManagement({
             }
 
             if (webhook.providerConfig) {
-              const effectiveTriggerId = resolveEffectiveTriggerId(
-                blockId,
-                triggerId,
-                blocksRef.current,
-                webhook,
-              )
+              const effectiveTriggerId = resolveEffectiveTriggerId(blockId, blocksRef.current)
 
               const {
                 credentialId: _credId,
-                credentialSetId: _credSetId,
                 userId: _userId,
                 historyId: _historyId,
                 lastCheckedTimestamp: _lastChecked,
                 setupCompleted: _setupCompleted,
                 externalId: _externalId,
-                triggerId: _triggerId,
                 blockId: _blockId,
-                ...userConfigurableFields
+                ...savedTriggerConfig
               } = webhook.providerConfig as Record<string, unknown>
 
-              setSubBlockValue(blockId, 'triggerConfig', userConfigurableFields)
+              setSubBlockValue(blockId, 'triggerConfig', savedTriggerConfig)
 
               if (effectiveTriggerId) {
                 populateTriggerFieldsFromConfig(
@@ -287,9 +138,8 @@ export function useWebhookManagement({
                   workflowId
                 )
               } else {
-                logger.warn('Cannot migrate - triggerId not available', {
+                logger.warn('Cannot populate webhook config without selected trigger', {
                   blockId,
-                  propTriggerId: triggerId,
                   providerConfigTriggerId: webhook.providerConfig.triggerId,
                 })
               }
@@ -317,28 +167,21 @@ export function useWebhookManagement({
     if (useWebhookUrl) {
       loadWebhookOrGenerateUrl()
     }
-  }, [triggerId, workflowId, blockId, useWebhookUrl])
+  }, [workflowId, blockId, useWebhookUrl, setSubBlockValue])
 
   const createWebhook = async (
     effectiveTriggerId: string | undefined,
-    selectedCredentialId: string | null
+    selectedCredentialId: string | null,
+    triggerConfig: Record<string, unknown>
   ): Promise<boolean> => {
+    const triggerDef = effectiveTriggerId ? getTrigger(effectiveTriggerId) : null
     if (!triggerDef || !effectiveTriggerId) {
       return false
     }
 
-    const triggerConfig = getTriggerConfig(blockId)
-
-    const isCredentialSet = selectedCredentialId?.startsWith(CREDENTIAL_SET_PREFIX)
-    const credentialSetId = isCredentialSet
-      ? selectedCredentialId!.slice(CREDENTIAL_SET_PREFIX.length)
-      : undefined
-    const credentialId = isCredentialSet ? undefined : selectedCredentialId
-
     const webhookConfig = {
       ...triggerConfig,
-      ...(credentialId ? { credentialId } : {}),
-      ...(credentialSetId ? { credentialSetId } : {}),
+      ...(selectedCredentialId ? { credentialId: selectedCredentialId } : {}),
       triggerId: effectiveTriggerId,
     }
 
@@ -371,10 +214,11 @@ export function useWebhookManagement({
     const data = await response.json()
     const savedWebhookId = data.webhook.id
 
+    const savedTriggerConfig = { ...triggerConfig, triggerId: effectiveTriggerId }
     batchSetSubBlockValues([
       { blockId, subBlockId: 'triggerPath', value: path },
-      { blockId, subBlockId: 'triggerId', value: effectiveTriggerId },
       { blockId, subBlockId: 'webhookId', value: savedWebhookId },
+      { blockId, subBlockId: 'triggerConfig', value: savedTriggerConfig },
     ])
     setIsChecked(true)
 
@@ -391,15 +235,12 @@ export function useWebhookManagement({
   const updateWebhook = async (
     webhookIdToUpdate: string,
     effectiveTriggerId: string | undefined,
-    selectedCredentialId: string | null
+    selectedCredentialId: string | null,
+    triggerConfig: Record<string, unknown>
   ): Promise<boolean> => {
-    const triggerConfig = getTriggerConfig(blockId)
-
-    const isCredentialSet = selectedCredentialId?.startsWith(CREDENTIAL_SET_PREFIX)
-    const credentialSetId = isCredentialSet
-      ? selectedCredentialId!.slice(CREDENTIAL_SET_PREFIX.length)
-      : undefined
-    const credentialId = isCredentialSet ? undefined : selectedCredentialId
+    if (!effectiveTriggerId) {
+      return false
+    }
 
     const response = await fetch(`/api/webhooks/${webhookIdToUpdate}`, {
       method: 'PATCH',
@@ -407,21 +248,11 @@ export function useWebhookManagement({
       body: JSON.stringify({
         providerConfig: {
           ...triggerConfig,
-          ...(credentialId ? { credentialId } : {}),
-          ...(credentialSetId ? { credentialSetId } : {}),
+          ...(selectedCredentialId ? { credentialId: selectedCredentialId } : {}),
           triggerId: effectiveTriggerId,
         },
       }),
     })
-
-    if (response.status === 404) {
-      logger.warn('Webhook not found while updating, recreating', {
-        blockId,
-        lostWebhookId: webhookIdToUpdate,
-      })
-      setSubBlockValue(blockId, 'webhookId', null)
-      return createWebhook(effectiveTriggerId, selectedCredentialId)
-    }
 
     if (!response.ok) {
       let errorMessage = 'Failed to save trigger configuration'
@@ -435,16 +266,20 @@ export function useWebhookManagement({
       throw new Error(errorMessage)
     }
 
+    setSubBlockValue(blockId, 'triggerConfig', { ...triggerConfig, triggerId: effectiveTriggerId })
     logger.info('Trigger config saved successfully', { blockId, webhookId: webhookIdToUpdate })
     return true
   }
 
-  const saveConfig = async (): Promise<boolean> => {
-    if (!triggerDef || !workflowId) {
+  const saveConfig = async (triggerConfig: Record<string, unknown>): Promise<boolean> => {
+    if (!workflowId) {
       return false
     }
 
-    const effectiveTriggerId = resolveEffectiveTriggerId(blockId, triggerId, blocksRef.current)
+    const effectiveTriggerId = resolveEffectiveTriggerId(blockId, blocksRef.current)
+    if (!effectiveTriggerId) {
+      return false
+    }
 
     try {
       setIsSaving(true)
@@ -453,10 +288,10 @@ export function useWebhookManagement({
       const selectedCredentialId = (triggerCredentials as string | null) || null
 
       if (!webhookId) {
-        return createWebhook(effectiveTriggerId, selectedCredentialId)
+        return createWebhook(effectiveTriggerId, selectedCredentialId, triggerConfig)
       }
 
-      return updateWebhook(webhookId, effectiveTriggerId, selectedCredentialId)
+      return updateWebhook(webhookId, effectiveTriggerId, selectedCredentialId, triggerConfig)
     } catch (error) {
       logger.error('Error saving trigger config:', { error })
       throw error
@@ -485,6 +320,7 @@ export function useWebhookManagement({
       batchSetSubBlockValues([
         { blockId, subBlockId: 'triggerPath', value: '' },
         { blockId, subBlockId: 'webhookId', value: null },
+        { blockId, subBlockId: 'triggerConfig', value: null },
       ])
       setIsChecked(false)
 

@@ -60,7 +60,6 @@ export const webflowCollectionItemChangedTrigger: TriggerConfig = {
       type: 'trigger-save',
       hideFromPreview: true,
       mode: 'trigger',
-      triggerId: 'webflow_collection_item_changed',
       condition: {
         field: 'selectedTriggerId',
         value: 'webflow_collection_item_changed',

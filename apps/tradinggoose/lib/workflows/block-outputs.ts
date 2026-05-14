@@ -1,14 +1,41 @@
 import { extractFieldsFromSchema, parseResponseFormatSafely } from '@/lib/response-format'
 import { getBlock } from '@/blocks'
-import type { BlockConfig } from '@/blocks/types'
+import type { BlockConfig, BlockOutput, SubBlockType } from '@/blocks/types'
+import { resolveOutputType } from '@/blocks/utils'
 import { getTrigger } from '@/triggers'
-import { resolveTriggerIdFromSubBlocks } from '@/triggers/resolution'
+import {
+  persistSingletonTriggerSelection,
+  resolveTriggerIdFromSubBlocks,
+} from '@/triggers/resolution'
+
+type WorkflowRuntimeSubBlocks = Record<string, { id: string; type: SubBlockType; value: unknown }>
+
+export function resolveBlockRuntimeState<TSubBlocks extends WorkflowRuntimeSubBlocks>(args: {
+  blockType: string
+  blockConfig: Pick<BlockConfig, 'category' | 'subBlocks' | 'triggers'>
+  subBlocks: TSubBlocks
+  triggerMode: boolean
+}): {
+  subBlocks: TSubBlocks
+  outputs: Record<string, BlockOutput>
+} {
+  const subBlocks = persistSingletonTriggerSelection(
+    args.subBlocks,
+    args.blockConfig,
+    args.triggerMode
+  )
+
+  return {
+    subBlocks,
+    outputs: resolveOutputType(readBlockOutputs(args.blockType, subBlocks, args.triggerMode)),
+  }
+}
 
 /**
  * Get the effective outputs for a block, including dynamic outputs from inputFormat
  * and trigger outputs for blocks in trigger mode
  */
-export function getBlockOutputs(
+export function readBlockOutputs(
   blockType: string,
   subBlocks?: Record<string, any>,
   triggerMode?: boolean
@@ -111,7 +138,7 @@ export function getBlockOutputPaths(
   subBlocks?: Record<string, any>,
   triggerMode?: boolean
 ): string[] {
-  const outputs = getBlockOutputs(blockType, subBlocks, triggerMode)
+  const outputs = readBlockOutputs(blockType, subBlocks, triggerMode)
 
   // Recursively collect all paths from nested outputs
   const paths: string[] = []
@@ -161,7 +188,7 @@ export function getBlockOutputType(
   subBlocks?: Record<string, any>,
   triggerMode?: boolean
 ): string {
-  const outputs = getBlockOutputs(blockType, subBlocks, triggerMode)
+  const outputs = readBlockOutputs(blockType, subBlocks, triggerMode)
 
   const arrayIndexRegex = /\[(\d+)\]/g
   const cleanPath = outputPath.replace(arrayIndexRegex, '')

@@ -41,6 +41,7 @@ import {
 import { TriggerExecutionUnavailableError } from '@/lib/trigger/settings'
 import { decryptSecret } from '@/lib/utils-server'
 import { blockExistsInDeployment } from '@/lib/workflows/db-helpers'
+import { applySavedEntityYjsStateToRows } from '@/lib/yjs/entity-state'
 import { executeProviderRequest } from '@/providers/market'
 import { alpacaProviderConfig } from '@/providers/market/alpaca/config'
 import { finnhubProviderConfig } from '@/providers/market/finnhub/config'
@@ -358,7 +359,9 @@ async function resolveIndicatorDefinitions(
       ),
     )
 
-  rows.forEach((row) => {
+  const indicators = await applySavedEntityYjsStateToRows('indicator', rows)
+
+  indicators.forEach((row) => {
     definitions.set(`${row.workspaceId}:${row.id}`, {
       id: row.id,
       name: row.name,

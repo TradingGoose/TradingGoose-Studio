@@ -309,14 +309,7 @@ export function getTool(toolId: string): ToolConfig | undefined {
     const customToolsStore = useCustomToolsStore.getState()
     const identifier = toolId.replace('custom_', '')
 
-    // Try to find the tool directly by ID first
-    let customTool = customToolsStore.getTool(identifier)
-
-    // If not found by ID, try to find by title (for backward compatibility)
-    if (!customTool) {
-      const allTools = customToolsStore.getAllTools()
-      customTool = allTools.find((tool) => tool.title === identifier)
-    }
+    const customTool = customToolsStore.getTool(identifier)
 
     if (customTool) {
       return createToolConfig(customTool, toolId)
@@ -430,10 +423,7 @@ async function getCustomTool(
       return undefined
     }
 
-    // Try to find the tool by ID or title
-    const customTool = result.data.find(
-      (tool: any) => tool.id === identifier || tool.title === identifier
-    )
+    const customTool = result.data.find((tool: any) => tool.id === identifier)
 
     if (!customTool) {
       logger.error(`Custom tool not found: ${identifier}`)
