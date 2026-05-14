@@ -283,7 +283,7 @@ describe('OAuth Tokens', () => {
       expect(result).toEqual({ accessToken: 'concurrent-token', refreshed: true })
     })
 
-    it('should not attempt refresh if no refresh token', async () => {
+    it('should reject expired tokens without a refresh token', async () => {
       const mockTokenAccount = {
         id: 'account-id',
         accessToken: 'token',
@@ -294,10 +294,11 @@ describe('OAuth Tokens', () => {
 
       const { refreshTokenIfNeeded } = await import('@/lib/oauth/tokens')
 
-      const result = await refreshTokenIfNeeded('request-id', mockTokenAccount, 'account-id')
+      await expect(
+        refreshTokenIfNeeded('request-id', mockTokenAccount, 'account-id')
+      ).rejects.toThrow('OAuth credential has no valid access token')
 
       expect(mockRefreshOAuthToken).not.toHaveBeenCalled()
-      expect(result).toEqual({ accessToken: 'token', refreshed: false })
     })
   })
 

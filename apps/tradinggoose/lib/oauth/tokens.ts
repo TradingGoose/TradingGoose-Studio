@@ -227,11 +227,15 @@ export async function refreshTokenIfNeeded(
   tokenAccountId: string
 ): Promise<{ accessToken: string; refreshed: boolean }> {
   const refreshState = getRefreshState(tokenAccount)
+  const accessToken = getValidAccessToken(tokenAccount)
 
   // If token appears valid and present, return it directly
   if (!refreshState.shouldRefresh) {
+    if (!accessToken) {
+      throw new Error('OAuth credential has no valid access token')
+    }
     logger.info(`[${requestId}] Access token is valid`)
-    return { accessToken: tokenAccount.accessToken, refreshed: false }
+    return { accessToken, refreshed: false }
   }
 
   try {
