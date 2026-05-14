@@ -171,9 +171,12 @@ describe('Workflow Duplicate API Route', () => {
     })
 
     const { POST } = await import('@/app/api/workflows/[id]/duplicate/route')
-    const response = await POST(createRequest({ name: 'Workflow Copy' }), {
-      params: Promise.resolve({ id: 'workflow-id' }),
-    })
+    const response = await POST(
+      createRequest({ name: 'Workflow Copy', workspaceId: 'workspace-id' }),
+      {
+        params: Promise.resolve({ id: 'workflow-id' }),
+      }
+    )
 
     expect(response.status).toBe(201)
     expect(insertValuesMock).toHaveBeenCalledOnce()
@@ -228,13 +231,26 @@ describe('Workflow Duplicate API Route', () => {
     })
 
     const { POST } = await import('@/app/api/workflows/[id]/duplicate/route')
-    const response = await POST(createRequest({ name: 'Workflow Copy' }), {
-      params: Promise.resolve({ id: 'workflow-id' }),
-    })
+    const response = await POST(
+      createRequest({ name: 'Workflow Copy', workspaceId: 'workspace-id' }),
+      {
+        params: Promise.resolve({ id: 'workflow-id' }),
+      }
+    )
 
     expect(response.status).toBe(201)
     expect(saveWorkflowToNormalizedTablesMock).toHaveBeenCalledOnce()
     expect(tryApplyWorkflowStateMock).toHaveBeenCalledOnce()
     expect(deleteWhereMock).not.toHaveBeenCalled()
+  })
+
+  it('rejects duplication without workspace scope', async () => {
+    const { POST } = await import('@/app/api/workflows/[id]/duplicate/route')
+    const response = await POST(createRequest({ name: 'Workflow Copy' }), {
+      params: Promise.resolve({ id: 'workflow-id' }),
+    })
+
+    expect(response.status).toBe(400)
+    expect(insertValuesMock).not.toHaveBeenCalled()
   })
 })

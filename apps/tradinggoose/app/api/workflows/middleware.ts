@@ -96,7 +96,7 @@ export async function validateWorkflowAccess(
         let validResult = null
         if (personalResult.success) {
           validResult = personalResult
-        } else if (workflow.workspaceId) {
+        } else {
           // Try workspace keys
           const workspaceResult = await authenticateApiKeyFromHeader(apiKeyHeader, {
             workspaceId: workflow.workspaceId as string,

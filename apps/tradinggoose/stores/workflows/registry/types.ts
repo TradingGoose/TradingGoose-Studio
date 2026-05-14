@@ -74,11 +74,6 @@ export interface WorkflowRegistryActions {
     workspaceId?: string
     folderId?: string | null
   }) => Promise<string>
-  createMarketplaceWorkflow: (
-    marketplaceId: string,
-    state: any,
-    metadata: Partial<WorkflowMetadata>
-  ) => Promise<string>
   duplicateWorkflow: (sourceId: string) => Promise<string | null>
   readWorkflowDeploymentStatus: (workflowId: string | null) => DeploymentStatus | null
   setDeploymentStatus: (

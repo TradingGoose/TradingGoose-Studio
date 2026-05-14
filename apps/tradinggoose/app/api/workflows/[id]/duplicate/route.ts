@@ -26,7 +26,7 @@ const DuplicateRequestSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   description: z.string().optional(),
   color: z.string().optional(),
-  workspaceId: z.string().optional(),
+  workspaceId: z.string().min(1, 'Workspace ID is required'),
   folderId: z.string().nullable().optional(),
 })
 
@@ -95,21 +95,27 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       throw new Error('Source workflow not found')
     }
 
-    let canAccessSource = false
-
-    if (source.userId === session.user.id) {
-      canAccessSource = true
-    }
-
-    if (!canAccessSource && source.workspaceId) {
-      const workspaceAccess = await checkWorkspaceAccess(source.workspaceId, session.user.id)
-      if (workspaceAccess.canWrite) {
-        canAccessSource = true
-      }
-    }
-
-    if (!canAccessSource) {
+    if (!source.workspaceId) {
       throw new Error('Source workflow not found or access denied')
+    }
+
+    const sourceWorkspaceAccess = await checkWorkspaceAccess(source.workspaceId, session.user.id)
+    if (!sourceWorkspaceAccess.canWrite) {
+      throw new Error('Source workflow not found or access denied')
+    }
+
+    const workspaceAccess = await checkWorkspaceAccess(workspaceId, session.user.id)
+    if (!workspaceAccess.exists) {
+      return NextResponse.json(
+        { error: 'Workspace not found', code: 'WORKSPACE_NOT_FOUND' },
+        { status: 404 }
+      )
+    }
+    if (!workspaceAccess.canWrite) {
+      return NextResponse.json(
+        { error: 'Write or Admin access required to duplicate workflows in this workspace' },
+        { status: 403 }
+      )
     }
 
     const sourceArtifacts = await loadSourceWorkflowArtifacts(sourceWorkflowId, source.variables)
@@ -127,8 +133,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     await db.insert(workflow).values({
       id: newWorkflowId,
       userId: session.user.id,
-      workspaceId: workspaceId || source.workspaceId,
-      folderId: folderId || source.folderId,
+      workspaceId,
+      folderId: folderId || null,
       name,
       description: description || source.description,
       color: resolvedColor,
@@ -201,8 +207,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         name,
         description: description || source.description,
         color: resolvedColor,
-        workspaceId: workspaceId || source.workspaceId,
-        folderId: folderId || source.folderId,
+        workspaceId,
+        folderId: folderId || null,
         blocksCount: Object.keys(duplicatedWorkflowState.blocks || {}).length,
         edgesCount: duplicatedWorkflowState.edges?.length || 0,
         subflowsCount:
