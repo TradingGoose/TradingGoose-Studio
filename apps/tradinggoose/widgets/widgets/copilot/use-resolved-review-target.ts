@@ -18,6 +18,15 @@ export function useResolvedReviewTarget({
   const [resolvedTarget, setResolvedTarget] = useState<ResolvedReviewTarget | null>(null)
   const [isResolving, setIsResolving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const descriptor = resolvedTarget?.descriptor
+  const currentTarget =
+    workspaceId &&
+    entityId &&
+    descriptor?.workspaceId === workspaceId &&
+    descriptor.entityKind === entityKind &&
+    descriptor.entityId === entityId
+      ? resolvedTarget
+      : null
 
   useEffect(() => {
     let cancelled = false
@@ -29,12 +38,7 @@ export function useResolvedReviewTarget({
       return
     }
 
-    const descriptor = resolvedTarget?.descriptor
-    if (
-      descriptor?.workspaceId === workspaceId &&
-      descriptor.entityKind === entityKind &&
-      descriptor.entityId === entityId
-    ) {
+    if (currentTarget) {
       setError(null)
       setIsResolving(false)
       return
@@ -71,11 +75,11 @@ export function useResolvedReviewTarget({
     return () => {
       cancelled = true
     }
-  }, [entityId, entityKind, resolvedTarget, workspaceId])
+  }, [currentTarget, entityId, entityKind, workspaceId])
 
   return {
-    descriptor: resolvedTarget?.descriptor ?? null,
-    runtime: resolvedTarget?.runtime ?? null,
+    descriptor: currentTarget?.descriptor ?? null,
+    runtime: currentTarget?.runtime ?? null,
     isResolving,
     error,
   }

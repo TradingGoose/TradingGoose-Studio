@@ -102,7 +102,7 @@ describe('useResolvedReviewTarget', () => {
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = false
   })
 
-  it('does not re-resolve after unrelated state changes without a target change', async () => {
+  it('does not re-resolve until the entity changes and hides stale targets while resolving', async () => {
     await act(async () => {
       root.render(<HookHarness />)
       await flushPromises()
@@ -127,6 +127,19 @@ describe('useResolvedReviewTarget', () => {
     expect(stateNode?.getAttribute('data-review-session-id')).toBe('review-1')
     expect(stateNode?.getAttribute('data-is-resolving')).toBe('false')
     expect(stateNode?.getAttribute('data-error')).toBe('')
+
+    mockResolveCopilotEntityReviewTarget.mockReturnValueOnce(new Promise(() => {}))
+    const switchButton = container.querySelector(
+      '[data-testid="switch-entity"]'
+    ) as HTMLButtonElement
+
+    await act(async () => {
+      switchButton.click()
+      await Promise.resolve()
+    })
+
+    expect(stateNode).toHaveAttribute('data-review-session-id', '')
+    expect(stateNode).toHaveAttribute('data-is-resolving', 'true')
   })
 
   it('resolves the requested entity id with read access', async () => {
