@@ -75,7 +75,7 @@ export const toPortfolioValueObject = (value: unknown): PortfolioIdentity | null
 }
 
 export const getPortfolioIdentityKey = (portfolio: PortfolioIdentity) =>
-  `${portfolio.providerId}|${portfolio.credentialId}|${portfolio.accountId}`
+  `${portfolio.providerId}|${portfolio.credentialId}|${portfolio.serviceId}|${portfolio.accountId}`
 
 export const arePortfolioIdentitiesEqual = (
   left?: PortfolioIdentity | null,
