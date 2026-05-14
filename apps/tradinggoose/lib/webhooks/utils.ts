@@ -235,6 +235,7 @@ async function formatTeamsGraphNotification(
     try {
       accessToken = await getOAuthAccessTokenForStoredCredential({
         credentialId,
+        workspaceId: foundWorkflow.workspaceId,
         requestId: 'teams-graph-notification',
       })
 
@@ -1374,6 +1375,7 @@ export async function fetchAndProcessAirtablePayloads(
     try {
       accessToken = await getOAuthAccessTokenForStoredCredential({
         credentialId,
+        workspaceId: workflowData.workspaceId,
         requestId,
       })
       if (!accessToken) {
@@ -1730,7 +1732,11 @@ export interface AirtableChange {
 /**
  * Configure Gmail polling for a webhook
  */
-export async function configureGmailPolling(webhookData: any, requestId: string): Promise<boolean> {
+export async function configureGmailPolling(
+  webhookData: any,
+  requestId: string,
+  workspaceId: string
+): Promise<boolean> {
   const logger = createLogger('GmailWebhookSetup')
   logger.info(`[${requestId}] Setting up Gmail polling for webhook ${webhookData.id}`)
 
@@ -1746,6 +1752,7 @@ export async function configureGmailPolling(webhookData: any, requestId: string)
 
     const accessToken = await getOAuthAccessTokenForStoredCredential({
       credentialId,
+      workspaceId,
       requestId,
     })
     if (!accessToken) {
@@ -1805,7 +1812,8 @@ export async function configureGmailPolling(webhookData: any, requestId: string)
  */
 export async function configureOutlookPolling(
   webhookData: any,
-  requestId: string
+  requestId: string,
+  workspaceId: string
 ): Promise<boolean> {
   const logger = createLogger('OutlookWebhookSetup')
   logger.info(`[${requestId}] Setting up Outlook polling for webhook ${webhookData.id}`)
@@ -1821,6 +1829,7 @@ export async function configureOutlookPolling(
 
     const accessToken = await getOAuthAccessTokenForStoredCredential({
       credentialId,
+      workspaceId,
       requestId,
     })
     if (!accessToken) {

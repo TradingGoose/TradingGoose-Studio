@@ -44,6 +44,7 @@ export async function createTeamsSubscription(
 
     const accessToken = await getOAuthAccessTokenForStoredCredential({
       credentialId,
+      workspaceId: workflow.workspaceId,
       requestId,
     })
     if (!accessToken) {
@@ -168,6 +169,7 @@ export async function deleteTeamsSubscription(
 
     const accessToken = await getOAuthAccessTokenForStoredCredential({
       credentialId,
+      workspaceId: workflow.workspaceId,
       requestId,
     })
     if (!accessToken) {

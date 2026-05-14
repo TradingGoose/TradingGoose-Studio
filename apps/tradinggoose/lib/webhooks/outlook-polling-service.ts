@@ -1,5 +1,5 @@
 import { db } from '@tradinggoose/db'
-import { webhook } from '@tradinggoose/db/schema'
+import { webhook, workflow } from '@tradinggoose/db/schema'
 import { and, eq } from 'drizzle-orm'
 import { htmlToText } from 'html-to-text'
 import { nanoid } from 'nanoid'
@@ -111,10 +111,13 @@ export async function pollOutlookWebhooks() {
 
   try {
     // Get all active Outlook webhooks
-    const activeWebhooks = await db
-      .select()
-      .from(webhook)
-      .where(and(eq(webhook.provider, 'outlook'), eq(webhook.isActive, true)))
+    const activeWebhooks = (
+      await db
+        .select({ webhook, workspaceId: workflow.workspaceId })
+        .from(webhook)
+        .innerJoin(workflow, eq(webhook.workflowId, workflow.id))
+        .where(and(eq(webhook.provider, 'outlook'), eq(webhook.isActive, true)))
+    ).map((row) => ({ ...row.webhook, workspaceId: row.workspaceId as string }))
 
     if (!activeWebhooks.length) {
       logger.info('No active Outlook webhooks found')
@@ -146,6 +149,7 @@ export async function pollOutlookWebhooks() {
 
         const accessToken = await getOAuthAccessTokenForStoredCredential({
           credentialId,
+          workspaceId: webhookData.workspaceId,
           requestId,
         })
 

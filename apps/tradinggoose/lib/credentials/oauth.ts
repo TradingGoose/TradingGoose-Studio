@@ -360,6 +360,7 @@ export async function getOAuthAccessTokenForUserCredential(params: {
 
 export async function getOAuthAccessTokenForStoredCredential(params: {
   credentialId: string
+  workspaceId: string
   requestId: string
 }) {
   const [row] = await db
@@ -367,6 +368,7 @@ export async function getOAuthAccessTokenForStoredCredential(params: {
       accountId: credential.accountId,
       accountUserId: account.userId,
       type: credential.type,
+      workspaceId: credential.workspaceId,
     })
     .from(credential)
     .innerJoin(account, eq(credential.accountId, account.id))
@@ -374,5 +376,10 @@ export async function getOAuthAccessTokenForStoredCredential(params: {
     .limit(1)
 
   if (!row || row.type !== 'oauth' || !row.accountId) return null
+  if (row.workspaceId !== params.workspaceId) return null
+
+  const ownerAccess = await checkWorkspaceAccess(row.workspaceId, row.accountUserId)
+  if (!ownerAccess.hasAccess) return null
+
   return refreshAccessTokenIfNeeded(row.accountId, row.accountUserId, params.requestId)
 }

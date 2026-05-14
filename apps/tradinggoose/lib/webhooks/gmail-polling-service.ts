@@ -1,5 +1,5 @@
 import { db } from '@tradinggoose/db'
-import { webhook } from '@tradinggoose/db/schema'
+import { webhook, workflow } from '@tradinggoose/db/schema'
 import { and, eq } from 'drizzle-orm'
 import { nanoid } from 'nanoid'
 import { getOAuthAccessTokenForStoredCredential } from '@/lib/credentials/oauth'
@@ -60,10 +60,13 @@ export async function pollGmailWebhooks() {
 
   try {
     // Get all active Gmail webhooks
-    const activeWebhooks = await db
-      .select()
-      .from(webhook)
-      .where(and(eq(webhook.provider, 'gmail'), eq(webhook.isActive, true)))
+    const activeWebhooks = (
+      await db
+        .select({ webhook, workspaceId: workflow.workspaceId })
+        .from(webhook)
+        .innerJoin(workflow, eq(webhook.workflowId, workflow.id))
+        .where(and(eq(webhook.provider, 'gmail'), eq(webhook.isActive, true)))
+    ).map((row) => ({ ...row.webhook, workspaceId: row.workspaceId as string }))
 
     if (!activeWebhooks.length) {
       logger.info('No active Gmail webhooks found')
@@ -94,6 +97,7 @@ export async function pollGmailWebhooks() {
 
         const accessToken = await getOAuthAccessTokenForStoredCredential({
           credentialId,
+          workspaceId: webhookData.workspaceId,
           requestId,
         })
 

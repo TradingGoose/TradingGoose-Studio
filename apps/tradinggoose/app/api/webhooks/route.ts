@@ -212,6 +212,9 @@ export async function POST(request: NextRequest) {
     }
 
     const workflowRecord = workflowData[0]
+    if (!workflowRecord.workspaceId) {
+      return NextResponse.json({ error: 'Workflow workspace is required' }, { status: 400 })
+    }
 
     // Check if user has permission to modify this workflow
     let canModify = false
@@ -430,7 +433,11 @@ export async function POST(request: NextRequest) {
       logger.info(`[${requestId}] Gmail provider detected. Setting up Gmail webhook configuration.`)
       try {
         const { configureGmailPolling } = await import('@/lib/webhooks/utils')
-        const success = await configureGmailPolling(savedWebhook, requestId)
+        const success = await configureGmailPolling(
+          savedWebhook,
+          requestId,
+          workflowRecord.workspaceId
+        )
 
         if (!success) {
           logger.error(`[${requestId}] Failed to configure Gmail polling`)
@@ -464,7 +471,11 @@ export async function POST(request: NextRequest) {
       )
       try {
         const { configureOutlookPolling } = await import('@/lib/webhooks/utils')
-        const success = await configureOutlookPolling(savedWebhook, requestId)
+        const success = await configureOutlookPolling(
+          savedWebhook,
+          requestId,
+          workflowRecord.workspaceId
+        )
 
         if (!success) {
           logger.error(`[${requestId}] Failed to configure Outlook polling`)
