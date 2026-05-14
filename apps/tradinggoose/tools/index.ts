@@ -59,6 +59,23 @@ function resolveExecutionScope(
   }
 }
 
+type ExecutionScope = ReturnType<typeof resolveExecutionScope>
+
+function generateScopedInternalToken(scope: ExecutionScope) {
+  const workflowExecution =
+    !scope.userId && scope.workflowId && scope.toolExecutionId
+      ? {
+          source: 'workflow_block' as const,
+          parentWorkflowId: scope.workflowId,
+          ...(scope.executionId ? { parentExecutionId: scope.executionId } : {}),
+          parentBlockId: scope.toolExecutionId,
+        }
+      : undefined
+  return workflowExecution
+    ? generateInternalToken(scope.userId, { workflowExecution })
+    : generateInternalToken(scope.userId)
+}
+
 /**
  * Validates request body size and throws a user-friendly error if exceeded
  */
@@ -308,19 +325,7 @@ export async function executeTool(
         const tokenHeaders: Record<string, string> = { 'Content-Type': 'application/json' }
         if (typeof window === 'undefined') {
           try {
-            const workflowExecution =
-              !scope.userId && scope.workflowId && scope.toolExecutionId
-                ? {
-                    source: 'workflow_block' as const,
-                    parentWorkflowId: scope.workflowId,
-                    ...(scope.executionId ? { parentExecutionId: scope.executionId } : {}),
-                    parentBlockId: scope.toolExecutionId,
-                  }
-                : undefined
-            const internalToken = workflowExecution
-              ? await generateInternalToken(scope.userId, { workflowExecution })
-              : await generateInternalToken(scope.userId)
-            tokenHeaders.Authorization = `Bearer ${internalToken}`
+            tokenHeaders.Authorization = `Bearer ${await generateScopedInternalToken(scope)}`
           } catch (error) {
             logger.error(`[${requestId}] Failed to generate internal auth for ${toolId}:`, error)
             throw error
@@ -559,12 +564,12 @@ async function addInternalAuthIfNeeded(
   isInternalRoute: boolean,
   requestId: string,
   context: string,
-  userId?: string
+  scope: ExecutionScope
 ): Promise<void> {
   if (typeof window === 'undefined') {
     if (isInternalRoute) {
       try {
-        const internalToken = await generateInternalToken(userId)
+        const internalToken = await generateScopedInternalToken(scope)
         if (headers instanceof Headers) {
           headers.set('Authorization', `Bearer ${internalToken}`)
         } else {
@@ -636,7 +641,7 @@ async function executeToolRequest(
     }
 
     const headers = new Headers(requestParams.headers)
-    await addInternalAuthIfNeeded(headers, isInternalRoute, requestId, toolId, scope.userId)
+    await addInternalAuthIfNeeded(headers, isInternalRoute, requestId, toolId, scope)
 
     if (typeof requestParams.body === 'string') {
       validateRequestBodySize(requestParams.body, requestId, toolId)

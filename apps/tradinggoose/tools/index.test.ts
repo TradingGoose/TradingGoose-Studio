@@ -393,7 +393,7 @@ describe('executeTool Function', () => {
       version: '1.0.0',
       params: {},
       request: {
-        url: 'https://api.example.com/secure',
+        url: '/api/tools/gmail/send',
         method: 'GET',
         headers: () => ({ 'Content-Type': 'application/json' }),
       },
@@ -442,7 +442,7 @@ describe('executeTool Function', () => {
       version: '1.0.0',
       params: {},
       request: {
-        url: 'https://api.example.com/secure',
+        url: '/api/tools/gmail/send',
         method: 'GET',
         headers: () => ({ 'Content-Type': 'application/json' }),
       },
@@ -463,12 +463,16 @@ describe('executeTool Function', () => {
       )
 
       expect(result.success).toBe(true)
-      expect(vi.mocked(generateInternalToken)).toHaveBeenCalledWith(undefined, {
-        workflowExecution: {
-          source: 'workflow_block',
-          parentWorkflowId: 'test-workflow',
-          parentBlockId: 'agent-1',
-        },
+      const workflowExecution = {
+        source: 'workflow_block',
+        parentWorkflowId: 'test-workflow',
+        parentBlockId: 'agent-1',
+      }
+      expect(vi.mocked(generateInternalToken)).toHaveBeenNthCalledWith(1, undefined, {
+        workflowExecution,
+      })
+      expect(vi.mocked(generateInternalToken)).toHaveBeenNthCalledWith(2, undefined, {
+        workflowExecution,
       })
       expect(global.fetch).toHaveBeenCalledWith(
         'http://localhost:3000/api/auth/oauth/token',
