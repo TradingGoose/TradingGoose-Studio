@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from 'next/server'
-import { authorizeCredentialUse } from '@/lib/auth/credential-access'
+import { authorizeCredentialUse, credentialAuthStatus } from '@/lib/auth/credential-access'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getOAuthTokenAccount, refreshTokenIfNeeded } from '@/lib/oauth/tokens'
 import { getTrelloApiKey } from '@/lib/trello/auth'
@@ -31,8 +31,17 @@ export async function POST(request: NextRequest) {
       workspaceId,
     })
     if (!authz.ok || !authz.credentialOwnerUserId) {
-      const status = authz.error === 'Credential not found' ? 404 : 403
-      return NextResponse.json({ error: authz.error || 'Unauthorized' }, { status })
+      return NextResponse.json(
+        { error: authz.error || 'Unauthorized' },
+        { status: credentialAuthStatus(authz.error) }
+      )
+    }
+
+    if (authz.authType !== 'internal_jwt') {
+      return NextResponse.json(
+        { error: 'OAuth token access requires internal workflow execution' },
+        { status: 403 }
+      )
     }
 
     const tokenAccountId = authz.resolvedTokenAccountId

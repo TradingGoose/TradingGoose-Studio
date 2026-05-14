@@ -2,17 +2,23 @@ import { db } from '@tradinggoose/db'
 import { account, credential, workflow as workflowTable } from '@tradinggoose/db/schema'
 import { eq } from 'drizzle-orm'
 import type { NextRequest } from 'next/server'
-import { AuthType, checkSessionOrInternalAuth } from '@/lib/auth/hybrid'
+import { AuthType, checkHybridAuth } from '@/lib/auth/hybrid'
 import { checkWorkspaceAccess } from '@/lib/permissions/utils'
 
 export interface CredentialAccessResult {
   ok: boolean
   error?: string
-  authType?: typeof AuthType.SESSION | typeof AuthType.INTERNAL_JWT
+  authType?: typeof AuthType.SESSION | typeof AuthType.INTERNAL_JWT | typeof AuthType.API_KEY
   requesterUserId?: string
   credentialOwnerUserId?: string
   workspaceId?: string
   resolvedTokenAccountId?: string
+}
+
+export function credentialAuthStatus(error?: string) {
+  if (!error || error === 'Authentication required') return 401
+  if (error === 'Credential not found' || error === 'Workflow not found') return 404
+  return 403
 }
 
 /**
@@ -30,15 +36,16 @@ export async function authorizeCredentialUse(
 ): Promise<CredentialAccessResult> {
   const { credentialId, workflowId, workspaceId } = params
 
-  if (!workflowId && !workspaceId) {
-    return { ok: false, error: 'Credential scope is required' }
-  }
-
-  const auth = await checkSessionOrInternalAuth(request, {
+  const auth = await checkHybridAuth(request, {
     requireWorkflowId: false,
   })
   if (!auth.success) {
     return { ok: false, error: auth.error || 'Authentication required' }
+  }
+  const apiKeyWorkspaceId = auth.authType === AuthType.API_KEY ? auth.workspaceId : undefined
+
+  if (!workflowId && !workspaceId && !apiKeyWorkspaceId) {
+    return { ok: false, error: 'Credential scope is required' }
   }
 
   const [workflowContext] = workflowId
@@ -54,6 +61,9 @@ export async function authorizeCredentialUse(
   }
   if (workflowContext && workspaceId && workflowContext.workspaceId !== workspaceId) {
     return { ok: false, error: 'Workflow is not in the requested workspace' }
+  }
+  if (workflowContext && apiKeyWorkspaceId && workflowContext.workspaceId !== apiKeyWorkspaceId) {
+    return { ok: false, error: 'Credential is not accessible from this API key workspace' }
   }
 
   if (auth.authType === AuthType.INTERNAL_JWT && !auth.userId) {
@@ -91,7 +101,7 @@ export async function authorizeCredentialUse(
     return { ok: false, error: 'Unsupported credential type for OAuth access' }
   }
 
-  const scopedWorkspaceId = workflowContext?.workspaceId ?? workspaceId
+  const scopedWorkspaceId = workflowContext?.workspaceId ?? apiKeyWorkspaceId ?? workspaceId
   if (scopedWorkspaceId && scopedWorkspaceId !== platformCredential.workspaceId) {
     return { ok: false, error: 'Credential is not accessible from this workspace' }
   }

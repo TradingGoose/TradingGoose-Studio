@@ -15,6 +15,7 @@ const logger = createLogger('SlackSendMessageAPI')
 const SlackSendMessageSchema = z.object({
   credentialId: z.string().min(1, 'Credential ID is required'),
   workflowId: z.string().optional().nullable(),
+  workspaceId: z.string().optional().nullable(),
   channel: z.string().min(1, 'Channel is required'),
   text: z.string().min(1, 'Message text is required'),
   files: z.array(z.any()).optional().nullable(),

@@ -18,6 +18,7 @@ const GMAIL_API_BASE = 'https://gmail.googleapis.com/gmail/v1/users/me'
 const GmailSendSchema = z.object({
   credentialId: z.string().min(1, 'Credential ID is required'),
   workflowId: z.string().optional().nullable(),
+  workspaceId: z.string().optional().nullable(),
   to: z.string().min(1, 'Recipient email is required'),
   subject: z.string().min(1, 'Subject is required'),
   body: z.string().min(1, 'Email body is required'),

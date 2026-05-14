@@ -22,6 +22,7 @@ const GOOGLE_DRIVE_API_BASE = 'https://www.googleapis.com/upload/drive/v3/files'
 const GoogleDriveUploadSchema = z.object({
   credentialId: z.string().min(1, 'Credential ID is required'),
   workflowId: z.string().optional().nullable(),
+  workspaceId: z.string().optional().nullable(),
   fileName: z.string().min(1, 'File name is required'),
   file: z.any().optional().nullable(),
   mimeType: z.string().optional().nullable(),

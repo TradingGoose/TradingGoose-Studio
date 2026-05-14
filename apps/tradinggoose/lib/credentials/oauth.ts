@@ -1,6 +1,6 @@
 import { db } from '@tradinggoose/db'
-import { account, credential, permissions, user, workspace } from '@tradinggoose/db/schema'
-import { and, desc, eq, inArray, or } from 'drizzle-orm'
+import { account, credential, user } from '@tradinggoose/db/schema'
+import { and, desc, eq, inArray } from 'drizzle-orm'
 import {
   getCanonicalScopesForProvider,
   getServiceByProviderAndId,
@@ -97,25 +97,10 @@ function toOAuthCredential(row: {
 }
 
 async function listCredentialWorkspaceIds(userId: string, workspaceId?: string) {
-  if (workspaceId) {
-    const access = await checkWorkspaceAccess(workspaceId, userId)
-    return access.hasAccess ? [workspaceId] : []
-  }
+  if (!workspaceId) return []
 
-  const rows = await db
-    .select({ workspaceId: workspace.id })
-    .from(workspace)
-    .leftJoin(
-      permissions,
-      and(
-        eq(permissions.userId, userId),
-        eq(permissions.entityType, 'workspace'),
-        eq(permissions.entityId, workspace.id)
-      )
-    )
-    .where(or(eq(workspace.ownerId, userId), eq(permissions.userId, userId)))
-
-  return Array.from(new Set(rows.map((row) => row.workspaceId).filter(Boolean)))
+  const access = await checkWorkspaceAccess(workspaceId, userId)
+  return access.hasAccess ? [workspaceId] : []
 }
 
 export async function syncOAuthCredentialsForUser(params: SyncOAuthCredentialsParams) {
@@ -236,10 +221,7 @@ export async function listOAuthCredentialsForUser(
     .where(and(...filters))
     .orderBy(desc(account.updatedAt))
 
-  const credentialRows = params.workspaceId
-    ? rows
-    : Array.from(new Map(rows.map((row) => [row.accountId, row])).values())
-  return credentialRows.map((row) => toOAuthCredential({ ...row, requesterUserId: params.userId }))
+  return rows.map((row) => toOAuthCredential({ ...row, requesterUserId: params.userId }))
 }
 
 export async function listOAuthConnectionsForUser(params: {

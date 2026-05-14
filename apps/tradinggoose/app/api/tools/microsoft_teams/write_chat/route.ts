@@ -15,6 +15,7 @@ const logger = createLogger('TeamsWriteChatAPI')
 const TeamsWriteChatSchema = z.object({
   credentialId: z.string().min(1, 'Credential ID is required'),
   workflowId: z.string().optional().nullable(),
+  workspaceId: z.string().optional().nullable(),
   chatId: z.string().min(1, 'Chat ID is required'),
   content: z.string().min(1, 'Message content is required'),
   files: z.array(z.any()).optional().nullable(),

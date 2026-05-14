@@ -35,6 +35,7 @@ describe('OAuth Credentials API Route', () => {
 
   beforeEach(() => {
     vi.resetModules()
+    mockCheckWorkspaceAccess.mockResolvedValue({ hasAccess: true })
 
     vi.stubGlobal('crypto', {
       randomUUID: vi.fn().mockReturnValue(mockUUID),
@@ -54,7 +55,12 @@ describe('OAuth Credentials API Route', () => {
     })
 
     vi.doMock('@/lib/auth/hybrid', () => ({
-      checkSessionOrInternalAuth: mockCheckSessionOrInternalAuth,
+      AuthType: {
+        SESSION: 'session',
+        API_KEY: 'api_key',
+        INTERNAL_JWT: 'internal_jwt',
+      },
+      checkHybridAuth: mockCheckSessionOrInternalAuth,
     }))
 
     vi.doMock('@/lib/credentials/oauth', () => ({
@@ -142,7 +148,7 @@ describe('OAuth Credentials API Route', () => {
 
     mockListOAuthCredentialsForUser.mockResolvedValueOnce(mockCredentials)
 
-    const req = createMockRequestWithQuery('GET', '?provider=google-email')
+    const req = createMockRequestWithQuery('GET', '?provider=google-email&workspaceId=workspace-1')
     const { GET } = await import('@/app/api/auth/oauth/credentials/route')
 
     const response = await GET(req)
@@ -190,7 +196,7 @@ describe('OAuth Credentials API Route', () => {
       userId: 'user-123',
     })
 
-    const req = createMockRequestWithQuery('GET')
+    const req = createMockRequestWithQuery('GET', '?workspaceId=workspace-1')
     const { GET } = await import('@/app/api/auth/oauth/credentials/route')
 
     const response = await GET(req)
@@ -210,7 +216,7 @@ describe('OAuth Credentials API Route', () => {
 
     mockListOAuthCredentialsForUser.mockResolvedValueOnce([])
 
-    const req = createMockRequestWithQuery('GET', '?provider=github')
+    const req = createMockRequestWithQuery('GET', '?provider=github&workspaceId=workspace-1')
     const { GET } = await import('@/app/api/auth/oauth/credentials/route')
 
     const response = await GET(req)
@@ -238,7 +244,7 @@ describe('OAuth Credentials API Route', () => {
       },
     ])
 
-    const req = createMockRequestWithQuery('GET', '?provider=google')
+    const req = createMockRequestWithQuery('GET', '?provider=google&workspaceId=workspace-1')
     const { GET } = await import('@/app/api/auth/oauth/credentials/route')
 
     const response = await GET(req)
@@ -294,7 +300,7 @@ describe('OAuth Credentials API Route', () => {
 
     mockListOAuthCredentialsForUser.mockRejectedValueOnce(new Error('Database error'))
 
-    const req = createMockRequestWithQuery('GET', '?provider=google')
+    const req = createMockRequestWithQuery('GET', '?provider=google&workspaceId=workspace-1')
     const { GET } = await import('@/app/api/auth/oauth/credentials/route')
 
     const response = await GET(req)

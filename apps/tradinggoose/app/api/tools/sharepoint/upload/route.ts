@@ -15,6 +15,7 @@ const logger = createLogger('SharepointUploadAPI')
 const SharepointUploadSchema = z.object({
   credentialId: z.string().min(1, 'Credential ID is required'),
   workflowId: z.string().optional().nullable(),
+  workspaceId: z.string().optional().nullable(),
   siteId: z.string().default('root'),
   driveId: z.string().optional().nullable(),
   folderPath: z.string().optional().nullable(),

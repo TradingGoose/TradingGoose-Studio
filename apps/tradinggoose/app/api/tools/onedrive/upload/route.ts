@@ -18,6 +18,7 @@ const MICROSOFT_GRAPH_BASE = 'https://graph.microsoft.com/v1.0'
 const OneDriveUploadSchema = z.object({
   credentialId: z.string().min(1, 'Credential ID is required'),
   workflowId: z.string().optional().nullable(),
+  workspaceId: z.string().optional().nullable(),
   fileName: z.string().min(1, 'File name is required'),
   file: z.any().optional(), // UserFile object (optional for blank Excel creation)
   folderId: z.string().optional().nullable(),

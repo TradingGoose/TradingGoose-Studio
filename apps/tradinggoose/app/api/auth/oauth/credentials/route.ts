@@ -2,7 +2,7 @@ import { db } from '@tradinggoose/db'
 import { workflow } from '@tradinggoose/db/schema'
 import { eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
-import { checkSessionOrInternalAuth } from '@/lib/auth/hybrid'
+import { AuthType, checkHybridAuth } from '@/lib/auth/hybrid'
 import { listOAuthCredentialsForUser } from '@/lib/credentials/oauth'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { OAuthService } from '@/lib/oauth'
@@ -42,23 +42,31 @@ export async function GET(request: NextRequest) {
     const workspaceId = searchParams.get('workspaceId')?.trim()
     const credentialId = searchParams.get('credentialId')?.trim()
 
-    const authResult = await checkSessionOrInternalAuth(request, { requireWorkflowId: false })
+    const authResult = await checkHybridAuth(request, { requireWorkflowId: false })
     if (!authResult.success || !authResult.userId) {
       logger.warn(`[${requestId}] Unauthenticated credentials request rejected`)
       return NextResponse.json({ error: 'User not authenticated' }, { status: 401 })
     }
 
     const requesterUserId = authResult.userId
-    let effectiveWorkspaceId = workspaceId || undefined
+    const apiKeyWorkspaceId =
+      authResult.authType === AuthType.API_KEY ? authResult.workspaceId : undefined
+    let effectiveWorkspaceId = apiKeyWorkspaceId ?? workspaceId ?? undefined
     if (workflowId) {
       const workflowScope = await resolveWorkflowWorkspaceId(workflowId, requesterUserId)
       if (workflowScope.error) return workflowScope.error
+      if (apiKeyWorkspaceId && workflowScope.workspaceId !== apiKeyWorkspaceId) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      }
       effectiveWorkspaceId = workflowScope.workspaceId
-    } else if (effectiveWorkspaceId) {
+    } else if (effectiveWorkspaceId && !apiKeyWorkspaceId) {
       const access = await checkWorkspaceAccess(effectiveWorkspaceId, requesterUserId)
       if (!access.hasAccess) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
       }
+    }
+    if (!effectiveWorkspaceId) {
+      return NextResponse.json({ error: 'Credential scope is required' }, { status: 400 })
     }
 
     if (!providerParam && !credentialId) {

@@ -15,6 +15,7 @@ const logger = createLogger('TeamsWriteChannelAPI')
 const TeamsWriteChannelSchema = z.object({
   credentialId: z.string().min(1, 'Credential ID is required'),
   workflowId: z.string().optional().nullable(),
+  workspaceId: z.string().optional().nullable(),
   teamId: z.string().min(1, 'Team ID is required'),
   channelId: z.string().min(1, 'Channel ID is required'),
   content: z.string().min(1, 'Message content is required'),

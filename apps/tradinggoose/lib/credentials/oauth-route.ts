@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from 'next/server'
-import { authorizeCredentialUse } from '@/lib/auth/credential-access'
+import { authorizeCredentialUse, credentialAuthStatus } from '@/lib/auth/credential-access'
 import { refreshAccessTokenIfNeeded } from '@/lib/oauth/tokens'
 
 type OAuthRouteCredentialInput = {
@@ -18,12 +18,6 @@ type OAuthRouteCredentialResult =
       ok: false
       response: NextResponse
     }
-
-function credentialAuthStatus(error?: string) {
-  if (!error || error === 'Authentication required') return 401
-  if (error === 'Credential not found' || error === 'Workflow not found') return 404
-  return 403
-}
 
 export async function resolveOAuthRouteCredential(
   request: NextRequest,

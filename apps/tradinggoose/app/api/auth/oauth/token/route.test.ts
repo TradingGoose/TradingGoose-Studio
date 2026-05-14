@@ -31,6 +31,7 @@ describe('OAuth Token API Routes', () => {
     vi.doMock('@/lib/oauth/tokens', () => ({
       getOAuthTokenAccount: mockGetOAuthTokenAccount,
       refreshTokenIfNeeded: mockRefreshTokenIfNeeded,
+      refreshAccessTokenIfNeeded: vi.fn(),
     }))
 
     vi.doMock('@/lib/logs/console/logger', () => ({
@@ -39,6 +40,11 @@ describe('OAuth Token API Routes', () => {
 
     vi.doMock('@/lib/auth/credential-access', () => ({
       authorizeCredentialUse: mockAuthorizeCredentialUse,
+      credentialAuthStatus: (error?: string) => {
+        if (!error || error === 'Authentication required') return 401
+        if (error === 'Credential not found' || error === 'Workflow not found') return 404
+        return 403
+      },
     }))
   })
 
@@ -50,7 +56,7 @@ describe('OAuth Token API Routes', () => {
     it('should return access token successfully', async () => {
       mockAuthorizeCredentialUse.mockResolvedValueOnce({
         ok: true,
-        authType: 'session',
+        authType: 'internal_jwt',
         requesterUserId: 'test-user-id',
         credentialOwnerUserId: 'owner-user-id',
         resolvedTokenAccountId: 'account-id',
@@ -84,6 +90,33 @@ describe('OAuth Token API Routes', () => {
       expect(mockAuthorizeCredentialUse).toHaveBeenCalled()
       expect(mockGetOAuthTokenAccount).toHaveBeenCalled()
       expect(mockRefreshTokenIfNeeded).toHaveBeenCalled()
+    })
+
+    it('should reject session token lookup before exposing raw owner tokens', async () => {
+      mockAuthorizeCredentialUse.mockResolvedValueOnce({
+        ok: true,
+        authType: 'session',
+        requesterUserId: 'test-user-id',
+        credentialOwnerUserId: 'owner-user-id',
+        resolvedTokenAccountId: 'account-id',
+      })
+
+      const req = createMockRequest('POST', {
+        credentialId: 'credential-id',
+        workspaceId: 'workspace-id',
+      })
+
+      const { POST } = await import('@/app/api/auth/oauth/token/route')
+
+      const response = await POST(req)
+      const data = await response.json()
+
+      expect(response.status).toBe(403)
+      expect(data).toHaveProperty(
+        'error',
+        'OAuth token access requires internal workflow execution'
+      )
+      expect(mockGetOAuthTokenAccount).not.toHaveBeenCalled()
     })
 
     it('should handle workflowId for server-side authentication', async () => {
@@ -167,7 +200,7 @@ describe('OAuth Token API Routes', () => {
       const response = await POST(req)
       const data = await response.json()
 
-      expect(response.status).toBe(403)
+      expect(response.status).toBe(401)
       expect(data).toHaveProperty('error')
     })
 
@@ -184,13 +217,13 @@ describe('OAuth Token API Routes', () => {
       const response = await POST(req)
       const data = await response.json()
 
-      expect(response.status).toBe(403)
+      expect(response.status).toBe(404)
     })
 
     it('should handle credential not found', async () => {
       mockAuthorizeCredentialUse.mockResolvedValueOnce({
         ok: true,
-        authType: 'session',
+        authType: 'internal_jwt',
         requesterUserId: 'test-user-id',
         credentialOwnerUserId: 'owner-user-id',
         resolvedTokenAccountId: 'account-id',
@@ -213,7 +246,7 @@ describe('OAuth Token API Routes', () => {
     it('should handle token refresh failure', async () => {
       mockAuthorizeCredentialUse.mockResolvedValueOnce({
         ok: true,
-        authType: 'session',
+        authType: 'internal_jwt',
         requesterUserId: 'test-user-id',
         credentialOwnerUserId: 'owner-user-id',
         resolvedTokenAccountId: 'account-id',
