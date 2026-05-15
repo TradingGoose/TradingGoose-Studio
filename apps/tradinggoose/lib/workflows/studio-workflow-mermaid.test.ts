@@ -396,14 +396,17 @@ n3 --> n4
   })
 
   it('rejects visible external edges into container internal endpoint nodes', () => {
-    const invalidDocument = serializeWorkflowToTgMermaid(parallelWorkflowState).replace(
-      '\n  n1 --> n2',
-      '\n  n1 --> n2__parallel_end'
-    )
+    for (const [endpoint, message] of [
+      ['n2__parallel_end', 'end node only accepts edges from blocks inside that container'],
+      ['n2__parallel_start', 'start node is source-only'],
+    ] as const) {
+      const invalidDocument = serializeWorkflowToTgMermaid(parallelWorkflowState).replace(
+        '\n  n1 --> n2',
+        `\n  n1 --> ${endpoint}`
+      )
 
-    expect(() => parseTgMermaidToWorkflow(invalidDocument)).toThrow(
-      'Invalid container edge: parallel1 container input requires targetHandle "target" for incoming outer edges.'
-    )
+      expect(() => parseTgMermaidToWorkflow(invalidDocument)).toThrow(message)
+    }
   })
 
   it('rejects canonical external edges into container internal end handles', () => {

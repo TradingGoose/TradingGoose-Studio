@@ -843,18 +843,6 @@ function getDefaultVisibleSourceHandle(nodeRef: VisibleNodeRef): string {
   }
 }
 
-function getDefaultVisibleTargetHandle(nodeRef: VisibleNodeRef): string {
-  if (nodeRef.kind === 'container-start') {
-    return `${nodeRef.blockType}-start-source`
-  }
-
-  if (nodeRef.kind === 'container-end') {
-    return `${nodeRef.blockType}-end-target`
-  }
-
-  return 'target'
-}
-
 function toComparableEdgeKey(
   edge: Pick<Edge, 'source' | 'target' | 'sourceHandle' | 'targetHandle'>
 ): string {
@@ -1063,9 +1051,20 @@ function parseVisibleWorkflowEdges(
       continue
     }
 
-    const parsedLabel = edgeMatch[2] ? parseVisibleEdgeLabel(edgeMatch[2]) : null
     const targetAncestors = getVisibleAncestorChain(targetRef.blockId)
     const sourceAncestors = getVisibleAncestorChain(sourceRef.blockId)
+    const visibleEndpointViolation =
+      targetRef.kind === 'container-start'
+        ? `Invalid visible container edge: ${targetRef.blockId} start node is source-only. Use the ${targetRef.blockId} container block alias in the visible line and targetHandle "target" in TG_EDGE metadata for incoming edges.`
+        : targetRef.kind === 'container-end' && !sourceAncestors.includes(targetRef.blockId)
+          ? `Invalid visible container edge: ${targetRef.blockId} end node only accepts edges from blocks inside that container. Use the ${targetRef.blockId} container block alias in the visible line and targetHandle "target" in TG_EDGE metadata for incoming outer edges.`
+          : sourceRef.kind === 'container-start' && !targetAncestors.includes(sourceRef.blockId)
+            ? `Invalid visible container edge: ${sourceRef.blockId} start node only connects to blocks inside that container. Use the ${sourceRef.blockId} container block alias for outer workflow edges.`
+            : null
+
+    if (visibleEndpointViolation) throw new Error(visibleEndpointViolation)
+
+    const parsedLabel = edgeMatch[2] ? parseVisibleEdgeLabel(edgeMatch[2]) : null
     const sourceHandle =
       parsedLabel?.sourceHandle ??
       (sourceRef.kind === 'block' && isContainerBlockType(sourceRef.blockType)
@@ -1079,7 +1078,9 @@ function parseVisibleWorkflowEdges(
         ? sourceAncestors.includes(targetRef.blockId)
           ? `${targetRef.blockType}-end-target`
           : 'target'
-        : getDefaultVisibleTargetHandle(targetRef))
+        : targetRef.kind === 'container-end'
+          ? `${targetRef.blockType}-end-target`
+          : 'target')
 
     visibleEdges.push({
       source: sourceRef.blockId,
