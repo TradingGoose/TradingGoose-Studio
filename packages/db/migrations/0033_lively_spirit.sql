@@ -1,0 +1,1 @@
+ALTER TABLE "knowledge_base" ALTER COLUMN "workspace_id" SET NOT NULL;
