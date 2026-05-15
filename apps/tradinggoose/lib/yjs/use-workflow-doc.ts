@@ -954,13 +954,7 @@ export function useWorkflowMutations() {
         )
         if (exists) return
 
-        // Remove any existing edge with same target+targetHandle (single input)
-        const filtered = edges.filter(
-          (e) => !(e.target === edge.target && e.targetHandle === edge.targetHandle)
-        )
-
-        filtered.push(edge)
-        wMap.set(YJS_KEYS.EDGES, filtered)
+        wMap.set(YJS_KEYS.EDGES, [...edges, edge])
       }, YJS_ORIGINS.USER)
     },
     [transactWorkflow]
