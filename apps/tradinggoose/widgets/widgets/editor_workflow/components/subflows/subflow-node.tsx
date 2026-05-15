@@ -1,6 +1,13 @@
 import type React from 'react'
 import { type CSSProperties, memo, useEffect } from 'react'
-import { Handle, type Node, type NodeProps, Position, useReactFlow, useUpdateNodeInternals } from '@xyflow/react'
+import {
+  Handle,
+  type Node,
+  type NodeProps,
+  Position,
+  useReactFlow,
+  useUpdateNodeInternals,
+} from '@xyflow/react'
 import { Badge } from '@/components/ui/badge'
 import { Card } from '@/components/ui/card'
 import { cn } from '@/lib/utils'

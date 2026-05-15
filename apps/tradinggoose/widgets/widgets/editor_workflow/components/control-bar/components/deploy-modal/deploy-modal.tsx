@@ -66,8 +66,8 @@ import { isConfigurableTriggerDeploySubBlock } from '@/triggers/constants'
 import { resolveTriggerIdForBlock } from '@/triggers/resolution'
 import { ChatDeploy } from '@/widgets/widgets/editor_workflow/components/control-bar/components/deploy-modal/components/chat-deploy/chat-deploy'
 import { DeployForm } from '@/widgets/widgets/editor_workflow/components/control-bar/components/deploy-modal/components/deploy-form/deploy-form'
-import { DeploymentInfo } from '@/widgets/widgets/editor_workflow/components/control-bar/components/deploy-modal/components/deployment-info/deployment-info'
 import { DeployStatus } from '@/widgets/widgets/editor_workflow/components/control-bar/components/deploy-modal/components/deployment-info/components/deploy-status/deploy-status'
+import { DeploymentInfo } from '@/widgets/widgets/editor_workflow/components/control-bar/components/deploy-modal/components/deployment-info/deployment-info'
 import { DeployedWorkflowModal } from '@/widgets/widgets/editor_workflow/components/control-bar/components/deployment-controls/components/deployed-workflow-modal'
 import {
   buildTriggerEditingLayout,

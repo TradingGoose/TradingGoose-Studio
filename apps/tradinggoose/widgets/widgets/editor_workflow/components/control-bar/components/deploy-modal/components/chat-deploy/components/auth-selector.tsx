@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { Check, Copy, Eye, EyeOff, Plus, RefreshCw, Trash2 } from 'lucide-react'
 import { Button, Card, CardContent, Input, Label } from '@/components/ui'
-import { getEnv, isTruthy } from '@/lib/env'
 import type { ChatAuthType } from '@/lib/chat/deployment-config'
+import { getEnv, isTruthy } from '@/lib/env'
 import { cn, generatePassword } from '@/lib/utils'
 
 interface AuthSelectorProps {

@@ -4,7 +4,7 @@ import { resolveTriggerIdForBlock, resolveTriggerIdFromSubBlocks } from '@/trigg
 vi.mock('@/blocks', () => ({
   getBlock: (type: string) =>
     (
-      {
+      ({
         schedule: {
           category: 'triggers',
           triggers: { available: ['schedule'] },
@@ -13,7 +13,7 @@ vi.mock('@/blocks', () => ({
           category: 'tools',
           triggers: { available: ['slack_webhook'] },
         },
-      } as Record<string, any>
+      }) as Record<string, any>
     )[type],
 }))
 
@@ -37,10 +37,10 @@ describe('trigger resolution', () => {
   })
 
   it('requires explicit selection for multi-trigger blocks', () => {
-    const triggerId = resolveTriggerIdFromSubBlocks(
-      {},
-      ['calendly_routing_form_submitted', 'calendly_webhook']
-    )
+    const triggerId = resolveTriggerIdFromSubBlocks({}, [
+      'calendly_routing_form_submitted',
+      'calendly_webhook',
+    ])
 
     expect(triggerId).toBeNull()
   })

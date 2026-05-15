@@ -2,7 +2,7 @@
 
 import type React from 'react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { ScrollText, Download, Filter, Loader2, RefreshCw, Search } from 'lucide-react'
+import { Download, Filter, Loader2, RefreshCw, ScrollText, Search } from 'lucide-react'
 import { useParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
@@ -208,12 +208,12 @@ export default function Records() {
           const body = await res.json()
           const workflowData: WorkflowData[] = Array.isArray(body?.data)
             ? body.data
-              .filter((workflow: any) => workflow?.id && workflow?.name)
-              .map((workflow: any) => ({
-                id: workflow.id,
-                name: workflow.name,
-                description: workflow.description ?? undefined,
-              }))
+                .filter((workflow: any) => workflow?.id && workflow?.name)
+                .map((workflow: any) => ({
+                  id: workflow.id,
+                  name: workflow.name,
+                  description: workflow.description ?? undefined,
+                }))
             : []
           if (!cancelled) setAvailableWorkflows(workflowData)
         } else if (!cancelled) {
@@ -516,7 +516,7 @@ export default function Records() {
         orderSortBy,
         orderSortOrder:
           normalizedOrdersState.orderSortBy === orderSortBy &&
-            normalizedOrdersState.orderSortOrder === 'desc'
+          normalizedOrdersState.orderSortOrder === 'desc'
             ? 'asc'
             : 'desc',
       })

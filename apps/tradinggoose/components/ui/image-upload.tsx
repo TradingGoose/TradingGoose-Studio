@@ -34,11 +34,7 @@ interface UseImageUploadProps {
   uploadToServer?: boolean
 }
 
-function useImageUpload({
-  onUpload,
-  onError,
-  uploadToServer = false,
-}: UseImageUploadProps = {}) {
+function useImageUpload({ onUpload, onError, uploadToServer = false }: UseImageUploadProps = {}) {
   const previewRef = useRef<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
@@ -148,7 +144,9 @@ function useImageUpload({
             throw new Error(`Direct upload failed: ${uploadResponse.status} - ${responseText}`)
           }
 
-          logger.info(`Image uploaded successfully via direct upload: ${presignedData.fileInfo.path}`)
+          logger.info(
+            `Image uploaded successfully via direct upload: ${presignedData.fileInfo.path}`
+          )
           return presignedData.fileInfo.path
         }
 

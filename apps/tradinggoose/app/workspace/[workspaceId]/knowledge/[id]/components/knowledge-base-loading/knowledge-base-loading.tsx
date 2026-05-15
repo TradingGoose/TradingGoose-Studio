@@ -33,7 +33,7 @@ export function KnowledgeBaseLoading({ knowledgeBaseName }: KnowledgeBaseLoading
     <div className='flex flex-wrap items-center justify-between gap-3 pt-1'>
       <SearchInput
         value=''
-        onChange={() => { }}
+        onChange={() => {}}
         placeholder='Search documents...'
         disabled
         className='flex-1'

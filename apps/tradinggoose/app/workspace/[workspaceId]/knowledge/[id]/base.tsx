@@ -21,9 +21,9 @@ import {
 import { useParams, useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
+import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
 import { SearchHighlight } from '@/components/ui/search-highlight'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
 import type { DocumentSortField, SortOrder } from '@/lib/knowledge/documents/types'
 import { createLogger } from '@/lib/logs/console/logger'
 import {
@@ -40,7 +40,7 @@ import {
 } from '@/app/workspace/[workspaceId]/knowledge/components'
 import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import { useKnowledgeBase, useKnowledgeBaseDocuments } from '@/hooks/use-knowledge'
-import { type DocumentData } from '@/stores/knowledge/store'
+import type { DocumentData } from '@/stores/knowledge/store'
 
 const logger = createLogger('KnowledgeBase')
 
@@ -98,15 +98,15 @@ const getStatusDisplay = (doc: DocumentData) => {
     case 'completed':
       return doc.enabled
         ? {
-          text: 'Enabled',
-          className:
-            'inline-flex items-center rounded-md bg-green-100 px-2 py-1 text-xs font-medium text-green-700 dark:bg-green-900/30 dark:text-green-400',
-        }
+            text: 'Enabled',
+            className:
+              'inline-flex items-center rounded-md bg-green-100 px-2 py-1 text-xs font-medium text-green-700 dark:bg-green-900/30 dark:text-green-400',
+          }
         : {
-          text: 'Disabled',
-          className:
-            'inline-flex items-center rounded-md bg-gray-100 px-2 py-1 text-xs font-medium text-gray-700 dark:bg-gray-800 dark:text-gray-300',
-        }
+            text: 'Disabled',
+            className:
+              'inline-flex items-center rounded-md bg-gray-100 px-2 py-1 text-xs font-medium text-gray-700 dark:bg-gray-800 dark:text-gray-300',
+          }
     default:
       return {
         text: 'Unknown',
@@ -816,8 +816,9 @@ export function KnowledgeBase({
                 return (
                   <tr
                     key={doc.id}
-                    className={`border-b transition-colors hover:bg-card/30 ${isSelected ? 'bg-accent/30' : ''} ${doc.processingStatus === 'completed' ? 'cursor-pointer' : 'cursor-default'
-                      }`}
+                    className={`border-b transition-colors hover:bg-card/30 ${isSelected ? 'bg-accent/30' : ''} ${
+                      doc.processingStatus === 'completed' ? 'cursor-pointer' : 'cursor-default'
+                    }`}
                     onClick={() => {
                       if (doc.processingStatus === 'completed') {
                         handleDocumentClick(doc.id)
@@ -827,7 +828,9 @@ export function KnowledgeBase({
                     <td className='px-4 py-3'>
                       <Checkbox
                         checked={isSelected}
-                        onCheckedChange={(checked) => handleSelectDocument(doc.id, checked as boolean)}
+                        onCheckedChange={(checked) =>
+                          handleSelectDocument(doc.id, checked as boolean)
+                        }
                         disabled={!userPermissions.canEdit}
                         onClick={(e) => e.stopPropagation()}
                         aria-label={`Select ${doc.filename}`}
@@ -848,7 +851,9 @@ export function KnowledgeBase({
                       </div>
                     </td>
                     <td className='px-4 py-3'>
-                      <div className='text-muted-foreground text-xs'>{formatFileSize(doc.fileSize)}</div>
+                      <div className='text-muted-foreground text-xs'>
+                        {formatFileSize(doc.fileSize)}
+                      </div>
                     </td>
                     <td className='px-4 py-3'>
                       <div className='text-xs'>
@@ -919,11 +924,16 @@ export function KnowledgeBase({
                               }
                               className='h-8 w-8 p-0 text-gray-500 hover:text-gray-700 disabled:opacity-50'
                             >
-                              {doc.enabled ? <Circle className='h-4 w-4' /> : <CircleOff className='h-4 w-4' />}
+                              {doc.enabled ? (
+                                <Circle className='h-4 w-4' />
+                              ) : (
+                                <CircleOff className='h-4 w-4' />
+                              )}
                             </Button>
                           </TooltipTrigger>
                           <TooltipContent side='top'>
-                            {doc.processingStatus === 'processing' || doc.processingStatus === 'pending'
+                            {doc.processingStatus === 'processing' ||
+                            doc.processingStatus === 'pending'
                               ? 'Cannot modify while processing'
                               : !userPermissions.canEdit
                                 ? 'Write permission required to modify documents'
@@ -959,7 +969,9 @@ export function KnowledgeBase({
                                 e.stopPropagation()
                                 handleDeleteDocument(doc.id)
                               }}
-                              disabled={doc.processingStatus === 'processing' || !userPermissions.canEdit}
+                              disabled={
+                                doc.processingStatus === 'processing' || !userPermissions.canEdit
+                              }
                               className='h-8 w-8 p-0 text-gray-500 hover:text-red-600 disabled:opacity-50'
                             >
                               <Trash2 className='h-4 w-4' />
@@ -1015,8 +1027,9 @@ export function KnowledgeBase({
                     key={page}
                     onClick={() => goToPage(page)}
                     disabled={isLoadingDocuments}
-                    className={`font-medium text-sm transition-colors hover:text-foreground disabled:opacity-50 ${page === currentPage ? 'text-foreground' : 'text-muted-foreground'
-                      }`}
+                    className={`font-medium text-sm transition-colors hover:text-foreground disabled:opacity-50 ${
+                      page === currentPage ? 'text-foreground' : 'text-muted-foreground'
+                    }`}
                   >
                     {page}
                   </button>
