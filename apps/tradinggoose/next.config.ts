@@ -78,7 +78,6 @@ const nextConfig: NextConfig = {
     resolveExtensions: ['.tsx', '.ts', '.jsx', '.js', '.mjs', '.json'],
   },
   serverExternalPackages: [
-    'pdf-parse',
     'playwright-core',
     'playwright',
     '@browserbasehq/stagehand',
