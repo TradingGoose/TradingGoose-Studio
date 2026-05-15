@@ -824,6 +824,38 @@ describe('Knowledge Search API Route', () => {
       })
     })
 
+    it('should return structured unavailable error when display-name filters cannot be validated', async () => {
+      mockGetUserId.mockResolvedValue('user-123')
+      mockCheckKnowledgeBaseAccess.mockResolvedValue({
+        hasAccess: true,
+        knowledgeBase: {
+          id: 'kb-123',
+          userId: 'user-123',
+          workspaceId: null,
+          embeddingModel: 'text-embedding-3-small',
+          name: 'Test KB',
+          deletedAt: null,
+        },
+      })
+      mockGetDocumentTagDefinitions.mockRejectedValue(new Error('database unavailable'))
+
+      const req = createMockRequest('POST', {
+        knowledgeBaseIds: 'kb-123',
+        filters: { category: 'api' },
+      })
+      const { POST } = await import('@/app/api/knowledge/search/route')
+      const response = await POST(req)
+      const data = await response.json()
+
+      expect(response.status).toBe(503)
+      expect(data).toEqual({
+        error: 'Tag filters could not be validated because tag definitions are unavailable',
+        code: 'TAG_FILTER_DEFINITIONS_UNAVAILABLE',
+      })
+      expect(mockHandleTagOnlySearch).not.toHaveBeenCalled()
+      expect(mockHandleTagAndVectorSearch).not.toHaveBeenCalled()
+    })
+
     it('should validate that either query or filters are provided', async () => {
       const emptyData = {
         knowledgeBaseIds: 'kb-123',

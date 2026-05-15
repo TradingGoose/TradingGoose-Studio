@@ -125,7 +125,13 @@ export async function POST(request: NextRequest) {
           logger.debug(`[${requestId}] Final mapped filters:`, mappedFilters)
         } catch (error) {
           logger.error(`[${requestId}] Filter mapping error:`, error)
-          throw error
+          return NextResponse.json(
+            {
+              error: 'Tag filters could not be validated because tag definitions are unavailable',
+              code: 'TAG_FILTER_DEFINITIONS_UNAVAILABLE',
+            },
+            { status: 503 }
+          )
         }
       }
 
