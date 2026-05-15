@@ -48,7 +48,6 @@ import {
   ToolInput,
   TriggerSave,
   VariablesInput,
-  WebhookConfig,
 } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/components'
 import { DocumentTagEntry } from './components/document-tag-entry/document-tag-entry'
 import { KnowledgeTagFilters } from './components/knowledge-tag-filters/knowledge-tag-filters'
@@ -475,16 +474,6 @@ export const SubBlock = memo(
               disabled={isDisabled}
             />
           )
-        case 'webhook-config': {
-          return (
-            <WebhookConfig
-              blockId={blockId}
-              subBlockId={config.id}
-              isConnecting={isConnecting}
-              disabled={isDisabled}
-            />
-          )
-        }
         case 'schedule-config':
           return (
             <ScheduleConfig

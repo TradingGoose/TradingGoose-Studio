@@ -218,6 +218,10 @@ function isDeployableTriggerId(triggerId: string): boolean {
   return !NON_DEPLOYABLE_TRIGGER_IDS.has(triggerId)
 }
 
+function isDeployableTriggerBlock(block: { type: string }, triggerId: string): boolean {
+  return block.type === 'input_trigger' || isDeployableTriggerId(triggerId)
+}
+
 function isTriggerDeployTabConfigured(tabState: TriggerDeployValidationState): boolean {
   return (
     tabState.missingRequiredFieldLabels.length === 0 &&
@@ -284,8 +288,6 @@ export function DeployModal({
   const blockList = Object.values(mergedBlocks)
   const shouldDisableTriggerWrite = !userPermissions.canEdit
   const hasApiTrigger = blockList.some((block) => block.type === 'api_trigger')
-  const hasInputTrigger = blockList.some((block) => block.type === 'input_trigger')
-  const hasIndicatorTrigger = blockList.some((block) => block.type === 'indicator_trigger')
   const chatTriggerBlock =
     blockList.find((block) => resolveTriggerIdForBlock(block) === 'chat') ?? null
   const hasChatTrigger = Boolean(chatTriggerBlock)
@@ -298,7 +300,11 @@ export function DeployModal({
       if (!triggerId) {
         return null
       }
-      if (triggerId === 'chat' || triggerId === 'api' || !isDeployableTriggerId(triggerId)) {
+      if (
+        triggerId === 'chat' ||
+        triggerId === 'api' ||
+        !isDeployableTriggerBlock(block, triggerId)
+      ) {
         return null
       }
 
@@ -332,8 +338,7 @@ export function DeployModal({
     })
     .filter((tab): tab is TriggerDeployTab => tab !== null)
 
-  const hasNonChatDeployPath =
-    hasApiTrigger || hasInputTrigger || hasIndicatorTrigger || triggerDeployTabs.length > 0
+  const hasNonChatDeployPath = hasApiTrigger || triggerDeployTabs.length > 0
   const requiresApiKeyForDeployment = hasNonChatDeployPath || hasChatTrigger
   const showBillingTab = requiresApiKeyForDeployment
   const hasSelectedSharedApiKey = Boolean(
@@ -418,7 +423,7 @@ export function DeployModal({
   const deployableTriggerStates: DeployableTriggerState[] = blockList
     .map((block) => {
       const triggerId = resolveTriggerIdForBlock(block)
-      if (!triggerId || !isDeployableTriggerId(triggerId)) {
+      if (!triggerId || !isDeployableTriggerBlock(block, triggerId)) {
         return null
       }
 

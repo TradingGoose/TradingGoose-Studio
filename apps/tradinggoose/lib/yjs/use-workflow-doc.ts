@@ -63,7 +63,6 @@ import {
   generateParallelBlocks,
   isBlockProtected,
 } from '@/stores/workflows/workflow/utils'
-import { persistSingletonTriggerSelection } from '@/triggers/resolution'
 
 // ---------------------------------------------------------------------------
 // Helpers shared across mutations (no hook state captured)
@@ -96,18 +95,17 @@ function resolveUpdatedWorkflowBlockRuntimeState(args: {
   textFields?: Y.Map<any>
 }): any {
   const triggerMode = args.block.triggerMode === true
-  const subBlocks = persistSingletonTriggerSelection(args.subBlocks, args.blockConfig, triggerMode)
   const outputSubBlocks = args.textFields
     ? (materializeWorkflowBlockTextFields(
         args.blockId,
-        { ...args.block, subBlocks },
+        { ...args.block, subBlocks: args.subBlocks },
         args.textFields
-      )?.subBlocks ?? subBlocks)
-    : subBlocks
+      )?.subBlocks ?? args.subBlocks)
+    : args.subBlocks
 
   return {
     ...args.block,
-    subBlocks,
+    subBlocks: args.subBlocks,
     outputs: resolveOutputType(readBlockOutputs(args.block.type, outputSubBlocks, triggerMode)),
   }
 }

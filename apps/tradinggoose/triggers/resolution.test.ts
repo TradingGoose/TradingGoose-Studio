@@ -1,8 +1,21 @@
-import { describe, expect, it } from 'vitest'
-import {
-  persistSingletonTriggerSelection,
-  resolveTriggerIdFromSubBlocks,
-} from '@/triggers/resolution'
+import { describe, expect, it, vi } from 'vitest'
+import { resolveTriggerIdForBlock, resolveTriggerIdFromSubBlocks } from '@/triggers/resolution'
+
+vi.mock('@/blocks', () => ({
+  getBlock: (type: string) =>
+    (
+      {
+        schedule: {
+          category: 'triggers',
+          triggers: { available: ['schedule'] },
+        },
+        slack: {
+          category: 'tools',
+          triggers: { available: ['slack_webhook'] },
+        },
+      } as Record<string, any>
+    )[type],
+}))
 
 describe('trigger resolution', () => {
   it('uses selectedTriggerId as the canonical trigger selection', () => {
@@ -17,10 +30,27 @@ describe('trigger resolution', () => {
     expect(triggerId).toBe('calendly_routing_form_submitted')
   })
 
-  it('does not default to the available trigger id when there is no explicit selection', () => {
+  it('derives singleton trigger identity from block config', () => {
     const triggerId = resolveTriggerIdFromSubBlocks({}, ['api'])
 
+    expect(triggerId).toBe('api')
+  })
+
+  it('requires explicit selection for multi-trigger blocks', () => {
+    const triggerId = resolveTriggerIdFromSubBlocks(
+      {},
+      ['calendly_routing_form_submitted', 'calendly_webhook']
+    )
+
     expect(triggerId).toBeNull()
+  })
+
+  it('resolves singleton trigger blocks without persisted selection', () => {
+    expect(resolveTriggerIdForBlock({ type: 'schedule', subBlocks: {} })).toBe('schedule')
+    expect(resolveTriggerIdForBlock({ type: 'slack', triggerMode: true, subBlocks: {} })).toBe(
+      'slack_webhook'
+    )
+    expect(resolveTriggerIdForBlock({ type: 'slack', subBlocks: {} })).toBeNull()
   })
 
   it('does not use triggerId as a trigger selection alias', () => {
@@ -28,7 +58,7 @@ describe('trigger resolution', () => {
       {
         triggerId: { value: 'calendly_webhook' },
       },
-      ['calendly_webhook']
+      ['calendly_routing_form_submitted', 'calendly_webhook']
     )
 
     expect(triggerId).toBeNull()
@@ -40,26 +70,9 @@ describe('trigger resolution', () => {
         selectedTriggerId: { value: 'github_webhook' },
         triggerId: { value: 'calendly_webhook' },
       },
-      ['calendly_invitee_created']
+      ['calendly_invitee_created', 'calendly_webhook']
     )
 
     expect(triggerId).toBeNull()
-  })
-
-  it('persists singleton trigger selections only when trigger mode is active', () => {
-    const blockConfig = {
-      category: 'tools',
-      triggers: { enabled: true, available: ['api'] },
-      subBlocks: [{ id: 'selectedTriggerId', type: 'dropdown' }],
-    } as Parameters<typeof persistSingletonTriggerSelection>[1]
-
-    expect(persistSingletonTriggerSelection({}, blockConfig, false)).toEqual({})
-    expect(persistSingletonTriggerSelection({}, blockConfig, true)).toEqual({
-      selectedTriggerId: {
-        id: 'selectedTriggerId',
-        type: 'dropdown',
-        value: 'api',
-      },
-    })
   })
 })

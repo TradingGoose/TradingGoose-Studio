@@ -69,8 +69,9 @@ describe('buildSubBlockRows', () => {
   it('does not show trigger-specific fields for unavailable persisted trigger ids', () => {
     const rows = buildSubBlockRows({
       ...baseArgs,
+      availableTriggerIds: ['github_issue_opened', 'github_issue_closed'],
       stateToUse: {
-        selectedTriggerId: { value: 'github_issue_closed' },
+        selectedTriggerId: { value: 'github_webhook' },
         contentType: { value: 'application/json' },
         inputFormat: { value: 'payload' },
       },
@@ -78,6 +79,23 @@ describe('buildSubBlockRows', () => {
     })
 
     expect(rows.flat().map((subBlock) => subBlock.id)).toEqual(['selectedTriggerId'])
+  })
+
+  it('derives singleton trigger fields from block config when selection is absent', () => {
+    const rows = buildSubBlockRows({
+      ...baseArgs,
+      stateToUse: {
+        contentType: { value: 'application/json' },
+        inputFormat: { value: 'payload' },
+      },
+      triggerSubBlockOwner: 'all',
+    })
+
+    expect(rows.flat().map((subBlock) => subBlock.id)).toEqual([
+      'selectedTriggerId',
+      'contentType',
+      'inputFormat',
+    ])
   })
 
   it('evaluates advanced field conditions against basic configured values', () => {

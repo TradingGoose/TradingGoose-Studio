@@ -3,10 +3,7 @@ import { getBlock } from '@/blocks'
 import type { BlockConfig, BlockOutput, SubBlockType } from '@/blocks/types'
 import { resolveOutputType } from '@/blocks/utils'
 import { getTrigger } from '@/triggers'
-import {
-  persistSingletonTriggerSelection,
-  resolveTriggerIdFromSubBlocks,
-} from '@/triggers/resolution'
+import { resolveTriggerIdFromSubBlocks } from '@/triggers/resolution'
 
 type WorkflowRuntimeSubBlocks = Record<string, { id: string; type: SubBlockType; value: unknown }>
 
@@ -19,15 +16,9 @@ export function resolveBlockRuntimeState<TSubBlocks extends WorkflowRuntimeSubBl
   subBlocks: TSubBlocks
   outputs: Record<string, BlockOutput>
 } {
-  const subBlocks = persistSingletonTriggerSelection(
-    args.subBlocks,
-    args.blockConfig,
-    args.triggerMode
-  )
-
   return {
-    subBlocks,
-    outputs: resolveOutputType(readBlockOutputs(args.blockType, subBlocks, args.triggerMode)),
+    subBlocks: args.subBlocks,
+    outputs: resolveOutputType(readBlockOutputs(args.blockType, args.subBlocks, args.triggerMode)),
   }
 }
 

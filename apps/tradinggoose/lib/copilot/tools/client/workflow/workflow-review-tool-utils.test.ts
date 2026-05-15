@@ -200,7 +200,53 @@ describe('workflow-review-tool-utils', () => {
         target: 'parallel',
         targetHandle: 'parallel-end-target',
         message:
-          'Invalid container edge: parallel end handle only accepts edges from blocks inside that container. Target the parallel container block without targetHandle for incoming outer edges.',
+          'Invalid container edge: parallel container input requires targetHandle "target" for incoming outer edges.',
+      },
+    ])
+  })
+
+  it('surfaces missing outer input handles on incoming container edges', async () => {
+    const { buildWorkflowSummary } = await import('./workflow-review-tool-utils')
+
+    expect(
+      buildWorkflowSummary({
+        blocks: {
+          input: {
+            id: 'input',
+            type: 'input_trigger',
+            name: 'Input',
+            position: { x: 0, y: 0 },
+            enabled: true,
+            subBlocks: {},
+            outputs: {},
+          },
+          parallel: {
+            id: 'parallel',
+            type: 'parallel',
+            name: 'Parallel',
+            position: { x: 200, y: 0 },
+            enabled: true,
+            subBlocks: {},
+            outputs: {},
+          },
+        },
+        edges: [
+          {
+            id: 'edge-input-parallel',
+            source: 'input',
+            target: 'parallel',
+          },
+        ],
+        loops: {},
+        parallels: {},
+      }).connectionIssues
+    ).toEqual([
+      {
+        edgeIndex: 0,
+        source: 'input',
+        target: 'parallel',
+        message:
+          'Invalid container edge: parallel container input requires targetHandle "target" for incoming outer edges.',
       },
     ])
   })

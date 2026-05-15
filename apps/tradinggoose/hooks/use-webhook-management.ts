@@ -7,7 +7,7 @@ import {
   useWorkflowMutations,
 } from '@/lib/yjs/use-workflow-doc'
 import { populateTriggerFieldsFromConfig } from '@/hooks/use-trigger-config-aggregation'
-import { getTrigger, isTriggerValid } from '@/triggers'
+import { getTrigger } from '@/triggers'
 import { resolveTriggerIdForBlock } from '@/triggers/resolution'
 import { useOptionalWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 
@@ -33,21 +33,7 @@ function resolveEffectiveTriggerId(
   blocks: Record<string, any>
 ): string | undefined {
   const block = blocks?.[blockId]
-
-  // Read subblock values directly from the Yjs blocks
-  const selectedTriggerId = block?.subBlocks?.selectedTriggerId?.value
-  if (typeof selectedTriggerId === 'string' && isTriggerValid(selectedTriggerId)) {
-    return selectedTriggerId
-  }
-
-  if (block) {
-    const resolvedTriggerId = resolveTriggerIdForBlock(block)
-    if (resolvedTriggerId && isTriggerValid(resolvedTriggerId)) {
-      return resolvedTriggerId
-    }
-  }
-
-  return undefined
+  return block ? (resolveTriggerIdForBlock(block) ?? undefined) : undefined
 }
 
 export function useWebhookManagement({
