@@ -38,10 +38,7 @@ const LARGE_DOC_CONFIG = {
   MAX_CHUNKS_PER_DOCUMENT: 100000, // Maximum chunks allowed per document
 }
 
-type DocumentProcessingRequestPayload = Omit<
-  DocumentProcessingPayload,
-  'userId' | 'workspaceId'
->
+type DocumentProcessingRequestPayload = Omit<DocumentProcessingPayload, 'userId' | 'workspaceId'>
 
 async function deleteQueuedDocumentExecutions(documentIds: string[]) {
   await Promise.all(
@@ -51,10 +48,10 @@ async function deleteQueuedDocumentExecutions(documentIds: string[]) {
         .where(
           and(
             eq(pendingExecution.executionType, 'document'),
-            sql<boolean>`${pendingExecution.id} like ${`document_processing:${documentId}:%`}`,
-          ),
-        ),
-    ),
+            sql<boolean>`${pendingExecution.id} like ${`document_processing:${documentId}:%`}`
+          )
+        )
+    )
   )
 }
 
@@ -93,8 +90,6 @@ export interface DocumentData {
 export interface ProcessingOptions {
   chunkSize: number
   minCharactersPerChunk: number
-  recipe: string
-  lang: string
   chunkOverlap: number
 }
 
@@ -194,11 +189,9 @@ export async function processDocumentAsync(
     mimeType: string
   },
   processingOptions: {
-    chunkSize?: number
-    minCharactersPerChunk?: number
-    recipe?: string
-    lang?: string
-    chunkOverlap?: number
+    chunkSize: number
+    minCharactersPerChunk: number
+    chunkOverlap: number
   }
 ): Promise<void> {
   const startTime = Date.now()
@@ -213,6 +206,18 @@ export async function processDocumentAsync(
       logger.info(`[${documentId}] Skipping processing for deleted document`)
       return
     }
+
+    const [knowledgeBaseState] = await db
+      .select({ embeddingModel: knowledgeBase.embeddingModel })
+      .from(knowledgeBase)
+      .where(and(eq(knowledgeBase.id, knowledgeBaseId), isNull(knowledgeBase.deletedAt)))
+      .limit(1)
+
+    if (!knowledgeBaseState) {
+      throw new Error(`Knowledge base ${knowledgeBaseId} not found`)
+    }
+
+    const kbEmbeddingModel = knowledgeBaseState.embeddingModel
 
     logger.info(`[${documentId}] Starting document processing: ${docData.filename}`)
 
@@ -233,9 +238,9 @@ export async function processDocumentAsync(
           docData.fileUrl,
           docData.filename,
           docData.mimeType,
-          processingOptions.chunkSize || 512,
-          processingOptions.chunkOverlap || 200,
-          processingOptions.minCharactersPerChunk || 1
+          processingOptions.chunkSize,
+          processingOptions.chunkOverlap,
+          processingOptions.minCharactersPerChunk
         )
 
         if (processed.chunks.length > LARGE_DOC_CONFIG.MAX_CHUNKS_PER_DOCUMENT) {
@@ -266,7 +271,7 @@ export async function processDocumentAsync(
             const batchNum = Math.floor(i / batchSize) + 1
 
             logger.info(`[${documentId}] Processing embedding batch ${batchNum}/${totalBatches}`)
-            const batchEmbeddings = await generateEmbeddings(batch)
+            const batchEmbeddings = await generateEmbeddings(batch, kbEmbeddingModel)
             embeddings.push(...batchEmbeddings)
           }
         }
@@ -301,7 +306,7 @@ export async function processDocumentAsync(
           contentLength: chunk.text.length,
           tokenCount: Math.ceil(chunk.text.length / 4),
           embedding: embeddings[chunkIndex] || null,
-          embeddingModel: 'text-embedding-3-small',
+          embeddingModel: kbEmbeddingModel,
           startOffset: chunk.metadata.startIndex,
           endOffset: chunk.metadata.endIndex,
           // Copy tags from document
@@ -947,8 +952,6 @@ export async function retryDocumentProcessing(
   const processingOptions = {
     chunkSize: 512,
     minCharactersPerChunk: 24,
-    recipe: 'default',
-    lang: 'en',
     chunkOverlap: 100,
   }
 
@@ -985,7 +988,7 @@ export async function failStaleDocumentProcessing(
       .where(
         and(
           eq(pendingExecution.executionType, 'document'),
-          sql<boolean>`${pendingExecution.id} like ${`document_processing:${documentId}:%`}`,
+          sql<boolean>`${pendingExecution.id} like ${`document_processing:${documentId}:%`}`
         )
       )
 

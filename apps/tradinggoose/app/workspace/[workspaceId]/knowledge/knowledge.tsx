@@ -85,7 +85,6 @@ export function Knowledge() {
     description: kb.description || 'No description provided',
     createdAt: kb.createdAt,
     updatedAt: kb.updatedAt,
-    workspaceId: kb.workspaceId || null,
   })
 
   const headerLeftContent = (
@@ -225,7 +224,6 @@ export function Knowledge() {
                             description={displayData.description}
                             createdAt={displayData.createdAt}
                             updatedAt={displayData.updatedAt}
-                            assignedWorkspaceId={displayData.workspaceId}
                             canEdit={canManageKnowledgeBases}
                           />
                         )

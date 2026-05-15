@@ -25,7 +25,7 @@ interface UploadModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   knowledgeBaseId: string
-  chunkingConfig?: {
+  chunkingConfig: {
     maxSize: number
     minSize: number
     overlap: number
@@ -50,18 +50,34 @@ export function UploadModal({
     onUploadComplete: () => {
       logger.info(`Successfully uploaded ${files.length} files`)
       onUploadComplete?.()
-      handleClose()
+      handleClose({ reset: true })
     },
   })
 
-  const handleClose = () => {
-    if (isUploading) return // Prevent closing during upload
+  function resetModalState() {
+    files.forEach((file) => URL.revokeObjectURL(file.preview))
 
     setFiles([])
     setFileError(null)
     clearError()
     setIsDragging(false)
+  }
+
+  function handleClose(options: { reset?: boolean } = {}) {
+    if (options.reset ?? !isUploading) {
+      resetModalState()
+    }
+
     onOpenChange(false)
+  }
+
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (nextOpen) {
+      onOpenChange(true)
+      return
+    }
+
+    handleClose({ reset: !isUploading })
   }
 
   const validateFile = (file: File): string | null => {
@@ -138,10 +154,9 @@ export function UploadModal({
 
     try {
       await uploadFiles(files, knowledgeBaseId, {
-        chunkSize: chunkingConfig?.maxSize || 1024,
-        minCharactersPerChunk: chunkingConfig?.minSize || 1,
-        chunkOverlap: chunkingConfig?.overlap || 200,
-        recipe: 'default',
+        chunkSize: chunkingConfig.maxSize,
+        minCharactersPerChunk: chunkingConfig.minSize,
+        chunkOverlap: chunkingConfig.overlap,
       })
     } catch (error) {
       logger.error('Error uploading files:', error)
@@ -162,7 +177,7 @@ export function UploadModal({
   }
 
   return (
-    <Dialog open={open} onOpenChange={handleClose}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className='flex max-h-[95vh] flex-col overflow-hidden sm:max-w-[600px]'>
         <DialogHeader>
           <DialogTitle>Upload Documents</DialogTitle>
@@ -179,10 +194,11 @@ export function UploadModal({
                 onDragLeave={handleDragLeave}
                 onDrop={handleDrop}
                 onClick={() => fileInputRef.current?.click()}
-                className={`relative flex cursor-pointer items-center justify-center rounded-lg border-2 border-dashed p-8 text-center transition-colors ${isDragging
+                className={`relative flex cursor-pointer items-center justify-center rounded-lg border-2 border-dashed p-8 text-center transition-colors ${
+                  isDragging
                     ? 'border-primary bg-[var(--primary)]/5'
                     : 'border-muted-foreground/25 hover:border-muted-foreground/40 hover:bg-card/40'
-                  }`}
+                }`}
               >
                 <input
                   ref={fileInputRef}
@@ -209,10 +225,11 @@ export function UploadModal({
                   onDragLeave={handleDragLeave}
                   onDrop={handleDrop}
                   onClick={() => fileInputRef.current?.click()}
-                  className={`cursor-pointer rounded-md border border-dashed p-3 text-center transition-colors ${isDragging
+                  className={`cursor-pointer rounded-md border border-dashed p-3 text-center transition-colors ${
+                    isDragging
                       ? 'border-primary bg-[var(--primary)]/5'
                       : 'border-muted-foreground/25 hover:border-muted-foreground/40'
-                    }`}
+                  }`}
                 >
                   <input
                     ref={fileInputRef}
@@ -300,8 +317,8 @@ export function UploadModal({
         <div className='flex justify-between border-t pt-4'>
           <div className='flex gap-3' />
           <div className='flex gap-3'>
-            <Button variant='outline' onClick={handleClose} disabled={isUploading}>
-              Cancel
+            <Button variant='outline' onClick={() => handleClose({ reset: !isUploading })}>
+              {isUploading ? 'Close' : 'Cancel'}
             </Button>
             <Button
               onClick={handleUpload}

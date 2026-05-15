@@ -1,12 +1,19 @@
 import type React from 'react'
 import { type CSSProperties, memo, useEffect } from 'react'
-import { RepeatIcon, SplitIcon } from 'lucide-react'
-import { Handle, type Node, type NodeProps, Position, useReactFlow, useUpdateNodeInternals } from '@xyflow/react'
+import {
+  Handle,
+  type Node,
+  type NodeProps,
+  Position,
+  useReactFlow,
+  useUpdateNodeInternals,
+} from '@xyflow/react'
 import { Badge } from '@/components/ui/badge'
 import { Card } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import { useCurrentWorkflow } from '@/hooks/workflow'
+import { getSubflowBlockConfig } from '@/widgets/widgets/editor_workflow/components/subflows/config'
 import { ActionBar } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/action-bar/action-bar'
 import { useOptionalWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 
@@ -89,12 +96,13 @@ export const SubflowNodeComponent = memo(({ data, id, selected }: NodeProps<Subf
   const isLocked = currentBlock?.locked ?? false
 
   const isLoop = data.kind === 'loop'
+  const subflowConfig = getSubflowBlockConfig(data.kind)
   const startHandleId = isLoop ? 'loop-start-source' : 'parallel-start-source'
   const endHandleId = isLoop ? 'loop-end-source' : 'parallel-end-source'
   const endTargetHandleId = isLoop ? 'loop-end-target' : 'parallel-end-target'
-  const blockColor = isLoop ? '#00ccff' : '#ffdd00'
-  const blockName = data.name || (isLoop ? 'Loop' : 'Parallel')
-  const BlockIcon = isLoop ? RepeatIcon : SplitIcon
+  const blockColor = subflowConfig.bgColor
+  const blockName = data.name || subflowConfig.name
+  const BlockIcon = subflowConfig.icon
   const hasPriorityRing = Boolean(data?.hasNestedError)
 
   const getHandleClasses = (position: 'left' | 'right') => {

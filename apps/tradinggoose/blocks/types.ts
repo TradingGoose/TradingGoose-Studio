@@ -58,7 +58,6 @@ export type SubBlockType =
   | 'time-input' // Time input
   | 'datetime-input' // Date + time input
   | 'oauth-input' // OAuth credential selector
-  | 'webhook-config' // Webhook configuration
   | 'trigger-save' // Trigger save button with validation
   | 'schedule-config' // Schedule status and information
   | 'file-selector' // File selector for Google Drive, etc.

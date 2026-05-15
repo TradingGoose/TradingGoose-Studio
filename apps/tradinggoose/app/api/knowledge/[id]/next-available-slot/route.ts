@@ -1,7 +1,7 @@
 import { randomUUID } from 'crypto'
 import { type NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
-import { getNextAvailableSlot, getTagDefinitions } from '@/lib/knowledge/tags/service'
+import { getDocumentTagDefinitions, getNextAvailableSlot } from '@/lib/knowledge/tags/service'
 import { createLogger } from '@/lib/logs/console/logger'
 import { checkKnowledgeBaseAccess } from '@/app/api/knowledge/utils'
 
@@ -34,7 +34,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     }
 
     // Get existing definitions once and reuse
-    const existingDefinitions = await getTagDefinitions(knowledgeBaseId)
+    const existingDefinitions = await getDocumentTagDefinitions(knowledgeBaseId)
     const usedSlots = existingDefinitions
       .filter((def) => def.fieldType === fieldType)
       .map((def) => def.tagSlot)

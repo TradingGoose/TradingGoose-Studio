@@ -242,14 +242,7 @@ export const WorkflowBlock = memo(
       if (!subBlocks) return false
 
       const getVal = (key: string) => subBlocks[key]?.value
-      const hasLegacyWebhookConfig = Boolean(
-        getVal('webhookProvider') && (getVal('webhookPath') || getVal('triggerPath'))
-      )
-      const hasTriggerManagedWebhookConfig = Boolean(
-        getVal('triggerPath') && (getVal('webhookId') || getVal('triggerId'))
-      )
-
-      return hasLegacyWebhookConfig || hasTriggerManagedWebhookConfig
+      return Boolean(getVal('triggerPath') && getVal('webhookId'))
     }, [currentYjsBlock?.subBlocks])
 
     const blockAdvancedMode = storeBlockAdvancedMode
@@ -299,7 +292,7 @@ export const WorkflowBlock = memo(
     const currentWorkflowId = useWorkflowId()
 
     // Check if this is a webhook-capable trigger block
-    const isWebhookTriggerBlock = type === 'webhook' || type === 'generic_webhook'
+    const isWebhookTriggerBlock = type === 'generic_webhook'
 
     const reactivateSchedule = async (scheduleId: string) => {
       try {

@@ -8,16 +8,22 @@ export interface FileParser {
   parseBuffer?(buffer: Buffer): Promise<FileParseResult>
 }
 
-export type SupportedFileType =
-  | 'pdf'
-  | 'csv'
-  | 'doc'
-  | 'docx'
-  | 'txt'
-  | 'md'
-  | 'xlsx'
-  | 'xls'
-  | 'html'
-  | 'htm'
-  | 'pptx'
-  | 'ppt'
+export const SUPPORTED_FILE_TYPES = [
+  'pdf',
+  'csv',
+  'docx',
+  'doc',
+  'txt',
+  'md',
+  'xlsx',
+  'xls',
+  'pptx',
+  'ppt',
+  'html',
+  'htm',
+  'json',
+  'yaml',
+  'yml',
+] as const
+
+export type SupportedFileType = (typeof SUPPORTED_FILE_TYPES)[number]

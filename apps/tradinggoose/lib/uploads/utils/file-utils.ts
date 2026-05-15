@@ -110,7 +110,7 @@ export function getFileExtension(filename: string): string {
 }
 
 /**
- * Get MIME type from file extension (fallback if not provided)
+ * Get MIME type from file extension when not provided.
  */
 export function getMimeTypeFromExtension(extension: string): string {
   const extensionMimeMap: Record<string, string> = {

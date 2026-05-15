@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { setupFileApiMocks } from '@/app/api/__test-utils__/utils'
 import { createVercelUploadToken } from '@/lib/uploads/providers/vercel/upload-token'
+import { setupFileApiMocks } from '@/app/api/__test-utils__/utils'
 
 /**
  * Tests for Vercel client upload token generation route
@@ -52,66 +52,6 @@ describe('/api/files/vercel/client-upload', () => {
       },
       3600
     )
-
-  it('allows signed upload completion callbacks without a user session', async () => {
-    setupFileApiMocks({
-      authenticated: false,
-      cloudEnabled: true,
-      storageProvider: 'vercel',
-    })
-
-    const { handleUpload } = await import('@vercel/blob/client')
-    vi.mocked(handleUpload).mockImplementation(async ({ body, onUploadCompleted }) => {
-      expect(body.type).toBe('blob.upload-completed')
-
-      await onUploadCompleted?.({
-        blob: {
-          url: 'https://store.public.blob.vercel-storage.com/kb/1712345678-report.pdf',
-          downloadUrl:
-            'https://store.public.blob.vercel-storage.com/kb/1712345678-report.pdf?download=1',
-          pathname: 'kb/1712345678-report.pdf',
-          contentType: 'application/pdf',
-          contentDisposition: 'attachment; filename="report.pdf"',
-          etag: 'etag-123',
-        },
-        tokenPayload: JSON.stringify({
-          context: 'knowledge-base',
-          userId: 'user-123',
-        }),
-      })
-
-      return {
-        type: 'blob.upload-completed',
-        response: 'ok',
-      }
-    })
-
-    const { POST } = await import('@/app/api/files/vercel/client-upload/route')
-    const request = new NextRequest(
-      'http://localhost:3000/api/files/vercel/client-upload?type=knowledge-base',
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-vercel-signature': 'signed-callback',
-        },
-        body: JSON.stringify({
-          type: 'blob.upload-completed',
-          payload: {
-            pathname: 'kb/1712345678-report.pdf',
-          },
-        }),
-      }
-    )
-
-    const response = await POST(request)
-
-    expect(response.status).toBe(200)
-    await expect(response.json()).resolves.toEqual({
-      type: 'blob.upload-completed',
-      response: 'ok',
-    })
-  })
 
   it('still requires an authenticated session to generate a client upload token', async () => {
     setupFileApiMocks({
@@ -207,6 +147,7 @@ describe('/api/files/vercel/client-upload', () => {
       addRandomSuffix: false,
       allowOverwrite: false,
     })
+    expect(capturedTokenOptions).not.toHaveProperty('callbackUrl')
   })
 
   it('bounds generated Vercel client tokens to the upload authorization expiry', async () => {

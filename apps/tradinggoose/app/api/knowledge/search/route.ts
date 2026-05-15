@@ -83,12 +83,13 @@ export async function POST(request: NextRequest) {
       const accessChecks = await Promise.all(
         knowledgeBaseIds.map((kbId) => checkKnowledgeBaseAccess(kbId, userId))
       )
-      const accessibleKbIds: string[] = knowledgeBaseIds.filter(
-        (_, idx) => accessChecks[idx]?.hasAccess
+      const accessibleKnowledgeBases = accessChecks.flatMap((check) =>
+        check.hasAccess ? [check.knowledgeBase] : []
       )
+      const accessibleKbIds = accessibleKnowledgeBases.map((kb) => kb.id)
 
       // Map display names to tag slots for filtering
-      let mappedFilters: Record<string, string> = {}
+      const mappedFilters: Record<string, string> = {}
       if (validatedData.filters && accessibleKbIds.length > 0) {
         try {
           // Fetch tag definitions for the first accessible KB (since we're using single KB now)
@@ -107,7 +108,7 @@ export async function POST(request: NextRequest) {
           // Map the filters and handle OR logic
           Object.entries(validatedData.filters).forEach(([key, value]) => {
             if (value) {
-              const tagSlot = displayNameToSlot[key] || key // Fallback to key if no mapping found
+              const tagSlot = displayNameToSlot[key] || key
 
               // Check if this is an OR filter (contains |OR| separator)
               if (value.includes('|OR|')) {
@@ -124,8 +125,13 @@ export async function POST(request: NextRequest) {
           logger.debug(`[${requestId}] Final mapped filters:`, mappedFilters)
         } catch (error) {
           logger.error(`[${requestId}] Filter mapping error:`, error)
-          // If mapping fails, use original filters
-          mappedFilters = validatedData.filters
+          return NextResponse.json(
+            {
+              error: 'Tag filters could not be validated because tag definitions are unavailable',
+              code: 'TAG_FILTER_DEFINITIONS_UNAVAILABLE',
+            },
+            { status: 503 }
+          )
         }
       }
 
@@ -138,9 +144,31 @@ export async function POST(request: NextRequest) {
 
       // Generate query embedding only if query is provided
       const hasQuery = validatedData.query && validatedData.query.trim().length > 0
+      const embeddingModels = Array.from(
+        new Set(accessibleKnowledgeBases.map((kb) => kb.embeddingModel))
+      )
+
+      if (hasQuery && embeddingModels.length > 1) {
+        return NextResponse.json(
+          {
+            error:
+              'Vector search cannot query knowledge bases with different embedding models in one request',
+          },
+          { status: 400 }
+        )
+      }
+
+      const queryEmbeddingModel = embeddingModels[0]
+      if (hasQuery && !queryEmbeddingModel) {
+        return NextResponse.json(
+          { error: 'Knowledge base embedding model is missing' },
+          { status: 500 }
+        )
+      }
+
       // Start embedding generation early and await when needed
       const queryEmbeddingPromise = hasQuery
-        ? generateSearchEmbedding(validatedData.query!)
+        ? generateSearchEmbedding(validatedData.query!, queryEmbeddingModel)
         : Promise.resolve(null)
 
       // Check if any requested knowledge bases were not accessible
@@ -201,18 +229,14 @@ export async function POST(request: NextRequest) {
         )
       }
 
-      // Calculate cost for the embedding (with fallback if calculation fails)
-      let cost = null
-      let tokenCount = null
+      let costInfo = null
       if (hasQuery) {
         try {
-          tokenCount = estimateTokenCount(validatedData.query!, 'openai')
-          cost = calculateCost('text-embedding-3-small', tokenCount.count, 0, false)
+          const tokenCount = estimateTokenCount(validatedData.query!, 'openai')
+          const cost = calculateCost(queryEmbeddingModel, tokenCount.count, 0, false)
+          costInfo = { cost, tokenCount }
         } catch (error) {
-          logger.warn(`[${requestId}] Failed to calculate cost for search query`, {
-            error: error instanceof Error ? error.message : 'Unknown error',
-          })
-          // Continue without cost information rather than failing the search
+          logger.warn(`[${requestId}] Failed to calculate search cost:`, error)
         }
       }
 
@@ -282,19 +306,19 @@ export async function POST(request: NextRequest) {
           knowledgeBaseId: accessibleKbIds[0],
           topK: validatedData.topK,
           totalResults: results.length,
-          ...(cost && tokenCount
+          ...(costInfo
             ? {
                 cost: {
-                  input: cost.input,
-                  output: cost.output,
-                  total: cost.total,
+                  input: costInfo.cost.input,
+                  output: costInfo.cost.output,
+                  total: costInfo.cost.total,
                   tokens: {
-                    prompt: tokenCount.count,
+                    prompt: costInfo.tokenCount.count,
                     completion: 0,
-                    total: tokenCount.count,
+                    total: costInfo.tokenCount.count,
                   },
-                  model: 'text-embedding-3-small',
-                  pricing: cost.pricing,
+                  model: queryEmbeddingModel,
+                  pricing: costInfo.cost.pricing,
                 },
               }
             : {}),

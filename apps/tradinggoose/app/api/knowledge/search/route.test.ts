@@ -59,6 +59,11 @@ vi.mock('@/providers/ai/utils', () => ({
   }),
 }))
 
+const mockGetDocumentTagDefinitions = vi.fn()
+vi.mock('@/lib/knowledge/tags/service', () => ({
+  getDocumentTagDefinitions: mockGetDocumentTagDefinitions,
+}))
+
 const mockCheckKnowledgeBaseAccess = vi.fn()
 vi.mock('@/app/api/knowledge/utils', () => ({
   checkKnowledgeBaseAccess: mockCheckKnowledgeBaseAccess,
@@ -156,6 +161,7 @@ describe('Knowledge Search API Route', () => {
       doc1: 'Document 1',
       doc2: 'Document 2',
     })
+    mockGetDocumentTagDefinitions.mockClear().mockResolvedValue([])
 
     vi.stubGlobal('crypto', {
       randomUUID: vi.fn().mockReturnValue('mock-uuid-1234-5678'),
@@ -179,6 +185,8 @@ describe('Knowledge Search API Route', () => {
       {
         id: 'kb-123',
         userId: 'user-123',
+        workspaceId: 'workspace-123',
+        embeddingModel: 'text-embedding-3-small',
         name: 'Test KB',
         deletedAt: null,
       },
@@ -192,6 +200,8 @@ describe('Knowledge Search API Route', () => {
         knowledgeBase: {
           id: 'kb-123',
           userId: 'user-123',
+          workspaceId: 'workspace-123',
+          embeddingModel: 'text-embedding-3-small',
           name: 'Test KB',
           deletedAt: null,
         },
@@ -236,7 +246,14 @@ describe('Knowledge Search API Route', () => {
 
       const multiKbs = [
         ...mockKnowledgeBases,
-        { id: 'kb-456', userId: 'user-123', name: 'Test KB 2', deletedAt: null },
+        {
+          id: 'kb-456',
+          userId: 'user-123',
+          workspaceId: 'workspace-123',
+          embeddingModel: 'text-embedding-3-small',
+          name: 'Test KB 2',
+          deletedAt: null,
+        },
       ]
 
       mockGetUserId.mockResolvedValue('user-123')
@@ -286,6 +303,8 @@ describe('Knowledge Search API Route', () => {
         knowledgeBase: {
           id: 'kb-123',
           userId: 'user-123',
+          workspaceId: 'workspace-123',
+          embeddingModel: 'text-embedding-3-small',
           name: 'Test KB',
           deletedAt: null,
         },
@@ -412,6 +431,8 @@ describe('Knowledge Search API Route', () => {
         knowledgeBase: {
           id: 'kb-123',
           userId: 'user-123',
+          workspaceId: 'workspace-123',
+          embeddingModel: 'text-embedding-3-small',
           name: 'Test KB',
           deletedAt: null,
         },
@@ -514,6 +535,8 @@ describe('Knowledge Search API Route', () => {
           knowledgeBase: {
             id: 'kb-123',
             userId: 'user-123',
+            workspaceId: 'workspace-123',
+            embeddingModel: 'text-embedding-3-small',
             name: 'Test KB',
             deletedAt: null,
           },
@@ -567,6 +590,8 @@ describe('Knowledge Search API Route', () => {
           knowledgeBase: {
             id: 'kb-123',
             userId: 'user-123',
+            workspaceId: 'workspace-123',
+            embeddingModel: 'text-embedding-ada-002',
             name: 'Test KB',
             deletedAt: null,
           },
@@ -589,8 +614,11 @@ describe('Knowledge Search API Route', () => {
         // Verify token estimation was called with correct parameters
         expect(estimateTokenCount).toHaveBeenCalledWith('test search query', 'openai')
 
-        // Verify cost calculation was called with correct parameters
-        expect(calculateCost).toHaveBeenCalledWith('text-embedding-3-small', 521, 0, false)
+        expect(mockGenerateSearchEmbedding).toHaveBeenCalledWith(
+          'test search query',
+          'text-embedding-ada-002'
+        )
+        expect(calculateCost).toHaveBeenCalledWith('text-embedding-ada-002', 521, 0, false)
       })
 
       it('should handle cost calculation with different query lengths', async () => {
@@ -629,6 +657,8 @@ describe('Knowledge Search API Route', () => {
           knowledgeBase: {
             id: 'kb-123',
             userId: 'user-123',
+            workspaceId: 'workspace-123',
+            embeddingModel: 'text-embedding-3-small',
             name: 'Test KB',
             deletedAt: null,
           },
@@ -701,6 +731,8 @@ describe('Knowledge Search API Route', () => {
         knowledgeBase: {
           id: 'kb-123',
           userId: 'user-123',
+          workspaceId: 'workspace-123',
+          embeddingModel: 'text-embedding-3-small',
           name: 'Test KB',
           deletedAt: null,
         },
@@ -749,6 +781,8 @@ describe('Knowledge Search API Route', () => {
         knowledgeBase: {
           id: 'kb-123',
           userId: 'user-123',
+          workspaceId: 'workspace-123',
+          embeddingModel: 'text-embedding-3-small',
           name: 'Test KB',
           deletedAt: null,
         },
@@ -788,6 +822,38 @@ describe('Knowledge Search API Route', () => {
         queryVector: JSON.stringify(mockEmbedding),
         distanceThreshold: 1, // Single KB uses threshold of 1.0
       })
+    })
+
+    it('should return structured unavailable error when display-name filters cannot be validated', async () => {
+      mockGetUserId.mockResolvedValue('user-123')
+      mockCheckKnowledgeBaseAccess.mockResolvedValue({
+        hasAccess: true,
+        knowledgeBase: {
+          id: 'kb-123',
+          userId: 'user-123',
+          workspaceId: 'workspace-123',
+          embeddingModel: 'text-embedding-3-small',
+          name: 'Test KB',
+          deletedAt: null,
+        },
+      })
+      mockGetDocumentTagDefinitions.mockRejectedValue(new Error('database unavailable'))
+
+      const req = createMockRequest('POST', {
+        knowledgeBaseIds: 'kb-123',
+        filters: { category: 'api' },
+      })
+      const { POST } = await import('@/app/api/knowledge/search/route')
+      const response = await POST(req)
+      const data = await response.json()
+
+      expect(response.status).toBe(503)
+      expect(data).toEqual({
+        error: 'Tag filters could not be validated because tag definitions are unavailable',
+        code: 'TAG_FILTER_DEFINITIONS_UNAVAILABLE',
+      })
+      expect(mockHandleTagOnlySearch).not.toHaveBeenCalled()
+      expect(mockHandleTagAndVectorSearch).not.toHaveBeenCalled()
     })
 
     it('should validate that either query or filters are provided', async () => {
@@ -897,6 +963,8 @@ describe('Knowledge Search API Route', () => {
         knowledgeBase: {
           id: 'kb-123',
           userId: 'user-123',
+          workspaceId: 'workspace-123',
+          embeddingModel: 'text-embedding-3-small',
           name: 'Test KB',
           deletedAt: null,
         },
@@ -942,13 +1010,21 @@ describe('Knowledge Search API Route', () => {
           knowledgeBase: {
             id: 'kb-123',
             userId: 'user-123',
+            workspaceId: 'workspace-123',
+            embeddingModel: 'text-embedding-3-small',
             name: 'Test KB',
             deletedAt: null,
           },
         })
         .mockResolvedValueOnce({
           hasAccess: true,
-          knowledgeBase: { id: 'kb-456', userId: 'user-123', name: 'Test KB 2' },
+          knowledgeBase: {
+            id: 'kb-456',
+            userId: 'user-123',
+            workspaceId: 'workspace-123',
+            embeddingModel: 'text-embedding-3-small',
+            name: 'Test KB 2',
+          },
         })
 
       // Reset all mocks before setting up specific behavior
@@ -1004,6 +1080,8 @@ describe('Knowledge Search API Route', () => {
         knowledgeBase: {
           id: 'kb-123',
           userId: 'user-123',
+          workspaceId: 'workspace-123',
+          embeddingModel: 'text-embedding-3-small',
           name: 'Test KB',
           deletedAt: null,
         },
@@ -1071,6 +1149,8 @@ describe('Knowledge Search API Route', () => {
         knowledgeBase: {
           id: 'kb-123',
           userId: 'user-123',
+          workspaceId: 'workspace-123',
+          embeddingModel: 'text-embedding-3-small',
           name: 'Test KB',
           deletedAt: null,
         },
@@ -1138,6 +1218,8 @@ describe('Knowledge Search API Route', () => {
         knowledgeBase: {
           id: 'kb-123',
           userId: 'user-123',
+          workspaceId: 'workspace-123',
+          embeddingModel: 'text-embedding-3-small',
           name: 'Test KB',
           deletedAt: null,
         },

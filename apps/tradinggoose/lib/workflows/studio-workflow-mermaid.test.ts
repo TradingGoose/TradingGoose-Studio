@@ -83,12 +83,12 @@ describe('studio workflow Mermaid documents', () => {
       },
       trigger: {
         id: 'trigger',
-        type: 'webhook',
+        type: 'generic_webhook',
         name: 'Webhook Trigger',
         position: { x: 16, y: 24 },
         enabled: true,
         subBlocks: {
-          path: { id: 'path', type: 'short-input', value: '/alerts' },
+          triggerPath: { id: 'triggerPath', type: 'short-input', value: '/alerts' },
         },
         outputs: {
           payload: { type: 'object', properties: {} } as any,
@@ -200,15 +200,18 @@ describe('studio workflow Mermaid documents', () => {
         id: 'e-input-parallel',
         source: 'inputTrigger',
         target: 'parallel1',
+        targetHandle: 'target',
       },
       {
         id: 'e-parallel-x',
         source: 'parallel1',
+        sourceHandle: 'parallel-start-source',
         target: 'xSearch',
       },
       {
         id: 'e-parallel-reddit',
         source: 'parallel1',
+        sourceHandle: 'parallel-start-source',
         target: 'redditPosts',
       },
     ],
@@ -257,6 +260,7 @@ describe('studio workflow Mermaid documents', () => {
         source: 'gate',
         sourceHandle: 'condition-gate-if',
         target: 'loop_parent',
+        targetHandle: 'target',
       },
       {
         id: 'gate-condition-gate-else-sink-target',
@@ -308,8 +312,8 @@ describe('studio workflow Mermaid documents', () => {
     expect(document).toContain('n1 --> n2')
     expect(document).not.toContain('n1 --> n2__parallel_start')
     expect(document).not.toContain('n1 --> n2__parallel_end')
-    expect(document).toContain('n2 --> n4')
-    expect(document).toContain('n2 --> n3')
+    expect(document).toContain('n2__parallel_start --> n4')
+    expect(document).toContain('n2__parallel_start --> n3')
 
     const parsed = parseTgMermaidToWorkflow(document)
 
@@ -318,6 +322,7 @@ describe('studio workflow Mermaid documents', () => {
         id: 'inputTrigger-source-parallel1-target',
         source: 'inputTrigger',
         target: 'parallel1',
+        targetHandle: 'target',
       },
       {
         id: 'parallel1-parallel-start-source-xSearch-target',
@@ -367,6 +372,7 @@ n3 --> n4
         id: 'trigger-source-loop1-target',
         source: 'trigger',
         target: 'loop1',
+        targetHandle: 'target',
       },
       {
         id: 'loop1-loop-start-source-child1-target',
@@ -390,24 +396,38 @@ n3 --> n4
   })
 
   it('rejects visible external edges into container internal endpoint nodes', () => {
-    const invalidDocument = serializeWorkflowToTgMermaid(parallelWorkflowState).replace(
-      '\n  n1 --> n2',
-      '\n  n1 --> n2__parallel_end'
-    )
+    for (const [endpoint, message] of [
+      ['n2__parallel_end', 'end node only accepts edges from blocks inside that container'],
+      ['n2__parallel_start', 'start node is source-only'],
+    ] as const) {
+      const invalidDocument = serializeWorkflowToTgMermaid(parallelWorkflowState).replace(
+        '\n  n1 --> n2',
+        `\n  n1 --> ${endpoint}`
+      )
 
-    expect(() => parseTgMermaidToWorkflow(invalidDocument)).toThrow(
-      'Invalid container edge: parallel1 end handle only accepts edges from blocks inside that container. Target the parallel1 container block without targetHandle for incoming outer edges.'
-    )
+      expect(() => parseTgMermaidToWorkflow(invalidDocument)).toThrow(message)
+    }
   })
 
   it('rejects canonical external edges into container internal end handles', () => {
     const invalidDocument = serializeWorkflowToTgMermaid(parallelWorkflowState).replace(
-      '%% TG_EDGE {"id":"e-input-parallel","source":"inputTrigger","target":"parallel1"}',
+      '%% TG_EDGE {"id":"e-input-parallel","source":"inputTrigger","target":"parallel1","targetHandle":"target"}',
       '%% TG_EDGE {"id":"e-input-parallel","source":"inputTrigger","target":"parallel1","targetHandle":"parallel-end-target"}'
     )
 
     expect(() => parseTgMermaidToWorkflow(invalidDocument)).toThrow(
-      'Invalid container edge: parallel1 end handle only accepts edges from blocks inside that container. Target the parallel1 container block without targetHandle for incoming outer edges.'
+      'Invalid container edge: parallel1 container input requires targetHandle "target" for incoming outer edges.'
+    )
+  })
+
+  it('rejects canonical external edges into containers that omit the outer input handle', () => {
+    const invalidDocument = serializeWorkflowToTgMermaid(parallelWorkflowState).replace(
+      '%% TG_EDGE {"id":"e-input-parallel","source":"inputTrigger","target":"parallel1","targetHandle":"target"}',
+      '%% TG_EDGE {"id":"e-input-parallel","source":"inputTrigger","target":"parallel1"}'
+    )
+
+    expect(() => parseTgMermaidToWorkflow(invalidDocument)).toThrow(
+      'Invalid container edge: parallel1 container input requires targetHandle "target" for incoming outer edges.'
     )
   })
 
@@ -450,38 +470,9 @@ n1 --> n2
     )
   })
 
-  it('accepts documents whose visible parallel connections use explicit start nodes', () => {
-    const document = serializeWorkflowToTgMermaid(parallelWorkflowState)
-      .replace('\n  n2 --> n4', '\n  n2__parallel_start --> n4')
-      .replace('\n  n2 --> n3', '\n  n2__parallel_start --> n3')
-
-    const parsed = parseTgMermaidToWorkflow(document)
-
-    expect(parsed.edges).toEqual([
-      {
-        id: 'inputTrigger-source-parallel1-target',
-        source: 'inputTrigger',
-        target: 'parallel1',
-      },
-      {
-        id: 'parallel1-parallel-start-source-xSearch-target',
-        source: 'parallel1',
-        sourceHandle: 'parallel-start-source',
-        target: 'xSearch',
-      },
-      {
-        id: 'parallel1-parallel-start-source-redditPosts-target',
-        source: 'parallel1',
-        sourceHandle: 'parallel-start-source',
-        target: 'redditPosts',
-      },
-    ])
-    expect(parsed.parallels.parallel1?.nodes).toEqual(['redditPosts', 'xSearch'])
-  })
-
   it('rejects documents whose visible logical parallel connections drift from canonical TG_EDGE payloads', () => {
     const invalidDocument = serializeWorkflowToTgMermaid(parallelWorkflowState).replace(
-      '\n  n2 --> n4',
+      '\n  n2__parallel_start --> n4',
       ''
     )
 

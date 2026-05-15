@@ -12,7 +12,7 @@ const logger = createLogger('KnowledgeQueries')
 
 export const knowledgeKeys = {
   all: ['knowledge'] as const,
-  list: (workspaceId?: string) => [...knowledgeKeys.all, 'list', workspaceId ?? 'all'] as const,
+  list: (workspaceId: string) => [...knowledgeKeys.all, 'list', workspaceId] as const,
   detail: (knowledgeBaseId?: string) =>
     [...knowledgeKeys.all, 'detail', knowledgeBaseId ?? ''] as const,
   documents: (knowledgeBaseId: string, paramsKey: string) =>
@@ -27,8 +27,8 @@ export const knowledgeKeys = {
     ] as const,
 }
 
-export async function fetchKnowledgeBases(workspaceId?: string): Promise<KnowledgeBaseData[]> {
-  const url = workspaceId ? `/api/knowledge?workspaceId=${workspaceId}` : '/api/knowledge'
+export async function fetchKnowledgeBases(workspaceId: string): Promise<KnowledgeBaseData[]> {
+  const url = `/api/knowledge?workspaceId=${workspaceId}`
   const response = await fetch(url)
 
   if (!response.ok) {
@@ -169,7 +169,7 @@ export async function fetchKnowledgeChunks({
 }
 
 export function useKnowledgeBasesQuery(
-  workspaceId?: string,
+  workspaceId: string,
   options?: {
     enabled?: boolean
   }
@@ -177,7 +177,7 @@ export function useKnowledgeBasesQuery(
   return useQuery({
     queryKey: knowledgeKeys.list(workspaceId),
     queryFn: () => fetchKnowledgeBases(workspaceId),
-    enabled: options?.enabled ?? true,
+    enabled: (options?.enabled ?? true) && Boolean(workspaceId),
     staleTime: 60 * 1000,
     placeholderData: keepPreviousData,
   })

@@ -294,8 +294,8 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
       : subscription.isFree
         ? 'Upgrade'
         : 'Increase Limit'
-  const hasUpgradePlans =
-    surfaceState.visibleUpgradeTiers.length > 0 || surfaceState.showEnterprisePlaceholder
+  const hasVisiblePlanCards =
+    surfaceState.visiblePlanTiers.length > 0 || surfaceState.showEnterprisePlaceholder
   const enterpriseContactUrl =
     surfaceState.enterprisePlaceholder?.contactUrl ??
     publicBillingCatalog?.enterpriseContactUrl ??
@@ -386,7 +386,9 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
     }
 
     if (subscription.isFree) {
-      const defaultUpgradeTier = surfaceState.visibleUpgradeTiers[0]
+      const defaultUpgradeTier = surfaceState.visiblePlanTiers.find(
+        (tier) => tier.id !== surfaceState.currentTier?.id
+      )
       if (defaultUpgradeTier) {
         void handleUpgradeWithErrorHandling(toUpgradeTarget(defaultUpgradeTier))
       }
@@ -494,28 +496,43 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
           </div>
         )}
 
-        {hasUpgradePlans && (
+        {hasVisiblePlanCards && (
           <div className='flex flex-col gap-2'>
-            {surfaceState.visibleUpgradeTiers.length > 0 && (
+            {surfaceState.visiblePlanTiers.length > 0 && (
               <div
                 className={cn(
                   'grid gap-2',
-                  surfaceState.visibleUpgradeTiers.length === 1 ? 'grid-cols-1' : 'grid-cols-2'
+                  surfaceState.visiblePlanTiers.length === 1 ? 'grid-cols-1' : 'grid-cols-2'
                 )}
               >
-                {surfaceState.visibleUpgradeTiers.map((tier) => (
-                  <PlanCard
-                    key={tier.id}
-                    name={tier.displayName}
-                    price={formatBillingPriceLabel(tier)}
-                    priceSubtext={formatBillingPricePeriod(tier) ?? undefined}
-                    features={toPlanFeatures(tier.pricingFeatures)}
-                    buttonText={subscription.isFree ? 'Upgrade' : `Upgrade to ${tier.displayName}`}
-                    onButtonClick={() => handleUpgradeWithErrorHandling(toUpgradeTarget(tier))}
-                    isError={upgradeError === tier.id}
-                    layout='vertical'
-                  />
-                ))}
+                {surfaceState.visiblePlanTiers.map((tier) => {
+                  const isCurrentTier = tier.id === surfaceState.currentTier?.id
+
+                  return (
+                    <PlanCard
+                      key={tier.id}
+                      name={tier.displayName}
+                      price={formatBillingPriceLabel(tier)}
+                      priceSubtext={formatBillingPricePeriod(tier) ?? undefined}
+                      features={toPlanFeatures(tier.pricingFeatures)}
+                      buttonText={
+                        isCurrentTier
+                          ? 'Current'
+                          : subscription.isFree
+                            ? 'Upgrade'
+                            : `Upgrade to ${tier.displayName}`
+                      }
+                      onButtonClick={
+                        isCurrentTier
+                          ? () => {}
+                          : () => handleUpgradeWithErrorHandling(toUpgradeTarget(tier))
+                      }
+                      buttonDisabled={isCurrentTier}
+                      isError={!isCurrentTier && upgradeError === tier.id}
+                      layout='vertical'
+                    />
+                  )
+                })}
               </div>
             )}
 
@@ -524,14 +541,14 @@ export function Subscription({ onOpenChange }: SubscriptionProps) {
                 name={surfaceState.enterprisePlaceholder.displayName}
                 price='Custom'
                 priceSubtext={
-                  surfaceState.visibleUpgradeTiers.length !== 1
+                  surfaceState.visiblePlanTiers.length !== 1
                     ? surfaceState.enterprisePlaceholder.description
                     : undefined
                 }
                 features={toPlanFeatures(surfaceState.enterprisePlaceholder.pricingFeatures)}
                 buttonText='Contact'
                 onButtonClick={() => openContactUrl(enterpriseContactUrl)}
-                layout={surfaceState.visibleUpgradeTiers.length === 1 ? 'vertical' : 'horizontal'}
+                layout={surfaceState.visiblePlanTiers.length === 1 ? 'vertical' : 'horizontal'}
               />
             )}
           </div>

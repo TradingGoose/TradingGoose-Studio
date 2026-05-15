@@ -14,14 +14,14 @@ export interface KnowledgeBaseWithCounts {
   chunkingConfig: ChunkingConfig
   createdAt: Date
   updatedAt: Date
-  workspaceId: string | null
+  workspaceId: string
   docCount: number
 }
 
 export interface CreateKnowledgeBaseData {
   name: string
   description?: string
-  workspaceId?: string
+  workspaceId: string
   embeddingModel: 'text-embedding-3-small'
   embeddingDimension: 1536
   chunkingConfig: ChunkingConfig

@@ -199,7 +199,7 @@ describe('editWorkflowServerTool', () => {
         { userId: 'user-1' }
       )
     ).rejects.toThrow(
-      'Invalid container edge: parallel1 end handle only accepts edges from blocks inside that container. Target the parallel1 container block without targetHandle for incoming outer edges.'
+      'Invalid container edge: parallel1 container input requires targetHandle "target" for incoming outer edges.'
     )
   })
 

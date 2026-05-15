@@ -17,8 +17,7 @@ import { useBlock, useBlockProtection, useLoop, useParallel } from '@/lib/yjs/us
 import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import { getBlock } from '@/blocks'
 import { useWorkflowEditorActions } from '@/hooks/workflow/use-workflow-editor-actions'
-import { LoopTool } from '@/widgets/widgets/editor_workflow/components/subflows/loop/loop-config'
-import { ParallelTool } from '@/widgets/widgets/editor_workflow/components/subflows/parallel/parallel-config'
+import { getSubflowBlockConfig } from '@/widgets/widgets/editor_workflow/components/subflows/config'
 import { buildTriggerEditingLayout } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/trigger-editing-layout'
 import { SubBlockEditRows } from '@/widgets/widgets/editor_workflow/components/workflow-render/sub-block-edit-rows'
 
@@ -73,9 +72,7 @@ export function NodeEditorPanel({ selectedNodeId }: NodeEditorPanelProps) {
   const isSubflow = selectedBlock?.type === 'loop' || selectedBlock?.type === 'parallel'
   const subflowConfig = useMemo(() => {
     if (!selectedBlock) return null
-    if (selectedBlock.type === 'loop') return LoopTool
-    if (selectedBlock.type === 'parallel') return ParallelTool
-    return null
+    return getSubflowBlockConfig(selectedBlock.type) ?? null
   }, [selectedBlock])
 
   const shouldDisableWrite = !userPermissions.canEdit || isSelectedBlockProtected

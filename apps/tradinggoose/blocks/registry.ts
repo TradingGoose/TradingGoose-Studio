@@ -148,7 +148,6 @@ import { InputTriggerBlock } from '@/triggers/blocks/input_trigger'
 import { ManualTriggerBlock } from '@/triggers/blocks/manual_trigger'
 import { RssBlock } from '@/triggers/blocks/rss'
 import { ScheduleBlock } from '@/triggers/blocks/schedule'
-import { WebhookBlock } from '@/triggers/blocks/webhook'
 
 // Registry of all available blocks, alphabetically sorted
 export const registry: Record<string, BlockConfig> = {
@@ -239,7 +238,6 @@ export const registry: Record<string, BlockConfig> = {
   wait: WaitBlock,
   wealthbox: WealthboxBlock,
   webflow: WebflowBlock,
-  webhook: WebhookBlock,
   whatsapp: WhatsAppBlock,
   wikipedia: WikipediaBlock,
   workflow: WorkflowBlock,

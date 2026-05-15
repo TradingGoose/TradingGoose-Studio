@@ -1,10 +1,10 @@
-import { handleUpload, type HandleUploadBody } from '@vercel/blob/client'
+import { type HandleUploadBody, handleUpload } from '@vercel/blob/client'
 import { NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
+import { createLogger } from '@/lib/logs/console/logger'
 import { getStorageConfig } from '@/lib/uploads'
 import type { StorageContext } from '@/lib/uploads/core/config-resolver'
 import { getStorageProvider } from '@/lib/uploads/core/setup'
-import { createLogger } from '@/lib/logs/console/logger'
 import { verifyVercelUploadToken } from '@/lib/uploads/providers/vercel/upload-token'
 import { resolveUploadContext, validateUploadRequest } from '@/lib/uploads/utils/validation'
 
@@ -132,13 +132,6 @@ export async function POST(request: Request) {
             userId: session.user.id,
           }),
         }
-      },
-      onUploadCompleted: async ({ blob }) => {
-        logger.info('Completed Vercel client upload', {
-          context,
-          pathname: blob.pathname,
-          size: 'size' in blob ? blob.size : undefined,
-        })
       },
     })
 

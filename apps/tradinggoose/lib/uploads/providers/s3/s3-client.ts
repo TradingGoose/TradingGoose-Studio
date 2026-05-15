@@ -58,7 +58,7 @@ export function sanitizeFilenameForMetadata(filename: string): string {
       .replace(/\s+/g, ' ')
       // Trim whitespace
       .trim() ||
-    // Provide fallback if completely sanitized
+    // Use a valid metadata filename when sanitization removes every character.
     'file'
   )
 }

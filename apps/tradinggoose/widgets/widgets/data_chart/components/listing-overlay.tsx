@@ -30,7 +30,6 @@ export const ListingOverlay = ({
     () => (listingType === 'default' ? getFlagData(listing?.countryCode) : null),
     [listing?.countryCode, listingType]
   )
-  const prefersFlagImage = typeof navigator !== 'undefined' && /Windows/i.test(navigator.userAgent)
   const flagImageUrl = flagData
     ? `https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/svg/${flagData.codepoints}.svg`
     : null
@@ -42,7 +41,7 @@ export const ListingOverlay = ({
   if (isResolving) {
     return (
       <div className={wrapperClass}>
-        <Skeleton className='h-6 w-6 rounded-sm my-[3px]' />
+        <Skeleton className='my-[3px] h-6 w-6 rounded-sm' />
         <div className='flex min-w-0 max-w-full items-center gap-1'>
           <Skeleton className='h-4 w-24' />
           {intervalText ? <Skeleton className='h-4 w-10' /> : null}
@@ -75,17 +74,13 @@ export const ListingOverlay = ({
           <span className='mx-2 shrink-0 text-muted-foreground'>{intervalText}</span>
         ) : null}
 
-        {listingType === 'default' && flagData ? (
-          prefersFlagImage && flagImageUrl ? (
-            <img
-              src={flagImageUrl}
-              alt={`${listing?.countryCode ?? ''} flag`}
-              className='h-3.5 w-3.5'
-              loading='lazy'
-            />
-          ) : flagData.emoji ? (
-            <span className='text-xs'>{flagData.emoji}</span>
-          ) : null
+        {listingType === 'default' && flagImageUrl ? (
+          <img
+            src={flagImageUrl}
+            alt={`${listing?.countryCode ?? ''} flag`}
+            className='h-3.5 w-3.5'
+            loading='lazy'
+          />
         ) : null}
       </div>
     </div>

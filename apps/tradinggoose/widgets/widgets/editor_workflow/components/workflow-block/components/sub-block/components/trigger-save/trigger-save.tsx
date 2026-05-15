@@ -16,8 +16,9 @@ import { cn } from '@/lib/utils'
 import { useBlock, useSubBlockValue as useYjsSubBlockValue } from '@/lib/yjs/use-workflow-doc'
 import { useTriggerConfigAggregation } from '@/hooks/use-trigger-config-aggregation'
 import { useWebhookManagement } from '@/hooks/use-webhook-management'
-import { getTrigger, isTriggerValid } from '@/triggers'
+import { getTrigger } from '@/triggers'
 import { SYSTEM_SUBBLOCK_IDS } from '@/triggers/constants'
+import { resolveTriggerIdForBlock } from '@/triggers/resolution'
 import { useWorkflowId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 
 const logger = createLogger('TriggerSave')
@@ -38,14 +39,11 @@ export function TriggerSave({ blockId, subBlockId, disabled = false }: TriggerSa
   const [deleteStatus, setDeleteStatus] = useState<DeleteStatus>('idle')
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const workflowId = useWorkflowId()
+  const currentBlock = useBlock(blockId)
 
-  const selectedTriggerIdValue = useYjsSubBlockValue(blockId, 'selectedTriggerId')
   const effectiveTriggerId = useMemo(() => {
-    if (typeof selectedTriggerIdValue === 'string' && isTriggerValid(selectedTriggerIdValue)) {
-      return selectedTriggerIdValue
-    }
-    return undefined
-  }, [selectedTriggerIdValue])
+    return currentBlock ? (resolveTriggerIdForBlock(currentBlock) ?? undefined) : undefined
+  }, [currentBlock])
 
   const { webhookId, saveConfig, deleteConfig, isLoading } = useWebhookManagement({
     blockId,
@@ -54,8 +52,7 @@ export function TriggerSave({ blockId, subBlockId, disabled = false }: TriggerSa
 
   const triggerCredentials = useYjsSubBlockValue(blockId, 'triggerCredentials')
 
-  const triggerDef =
-    effectiveTriggerId && isTriggerValid(effectiveTriggerId) ? getTrigger(effectiveTriggerId) : null
+  const triggerDef = effectiveTriggerId ? getTrigger(effectiveTriggerId) : null
 
   const validateRequiredFields = useCallback(
     (
@@ -99,7 +96,6 @@ export function TriggerSave({ blockId, subBlockId, disabled = false }: TriggerSa
       .map((sb) => sb.id)
   }, [triggerDef])
 
-  const currentBlock = useBlock(blockId)
   const subscribedSubBlockValues = useMemo(() => {
     if (!triggerDef) return {}
     const values: Record<string, any> = {}

@@ -106,6 +106,7 @@ describe('ApiBlockHandler', () => {
       {
         ...inputs,
         body: { key: 'value' }, // Expect parsed body
+        _context: { toolExecutionId: 'api-block-1' },
       },
       false, // skipPostProcess
       mockContext // execution context

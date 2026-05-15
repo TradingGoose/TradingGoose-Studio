@@ -56,6 +56,10 @@ export async function POST(request: NextRequest) {
     const uploadType: StorageContext = resolveUploadContext(
       request.nextUrl.searchParams.get('type')
     )
+    if (uploadType === 'knowledge-base') {
+      throw new ValidationError('Knowledge base uploads must use /api/files/upload')
+    }
+
     const validationError = validateUploadRequest({
       fileName,
       contentType,
@@ -71,11 +75,11 @@ export async function POST(request: NextRequest) {
 
     if (!hasCloudStorage()) {
       logger.info(
-        `Local storage detected - presigned URL not available for ${fileName}, client will use API fallback`
+        `Local storage selected; presigned upload is unavailable for ${fileName}, client will upload through the API`
       )
       return NextResponse.json({
         fileName,
-        presignedUrl: '', // Empty URL signals fallback to API upload
+        presignedUrl: '',
         fileInfo: {
           path: '',
           key: '',
@@ -129,19 +133,18 @@ export async function POST(request: NextRequest) {
     const storageConfig = getStorageConfig(uploadType)
     const requiresClientUpload = storageProvider === 'vercel'
     const finalPath = `/api/files/serve/${storageProvider}/${encodeURIComponent(presignedUrlResponse.key)}?context=${uploadType}`
-    const clientUploadAuthorization =
-      requiresClientUpload
-        ? await createVercelUploadToken(
-            {
-              pathname: presignedUrlResponse.key,
-              context: uploadType,
-              contentType,
-              size: fileSize,
-              userId: sessionUserId,
-            },
-            3600
-          )
-        : undefined
+    const clientUploadAuthorization = requiresClientUpload
+      ? await createVercelUploadToken(
+          {
+            pathname: presignedUrlResponse.key,
+            context: uploadType,
+            contentType,
+            size: fileSize,
+            userId: sessionUserId,
+          },
+          3600
+        )
+      : undefined
 
     return NextResponse.json({
       fileName,

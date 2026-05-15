@@ -100,6 +100,38 @@ describe('File Upload API Route', () => {
     expect(uploads.StorageService.uploadFile).toHaveBeenCalled()
   })
 
+  it('should upload knowledge-base files through the requested storage context', async () => {
+    setupFileApiMocks({
+      cloudEnabled: true,
+      storageProvider: 'vercel',
+    })
+
+    const mockFile = createMockFile('jourwest.pdf', 'application/pdf', 'test pdf content')
+    const formData = createMockFormData([mockFile])
+
+    const req = new NextRequest('http://localhost:3000/api/files/upload?type=knowledge-base', {
+      method: 'POST',
+      body: formData,
+    })
+
+    const { POST } = await import('@/app/api/files/upload/route')
+
+    const response = await POST(req)
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(data).toHaveProperty('context', 'knowledge-base')
+
+    const storageService = await import('@/lib/uploads/core/storage-service')
+    expect(storageService.uploadFile).toHaveBeenCalledWith(
+      expect.objectContaining({
+        contentType: 'application/pdf',
+        context: 'knowledge-base',
+        fileName: 'jourwest.pdf',
+      })
+    )
+  })
+
   it('should handle multiple file uploads', async () => {
     setupFileApiMocks({
       cloudEnabled: false,
@@ -273,6 +305,22 @@ describe('File Upload Security Tests', () => {
       expect(response.status).toBe(400)
       const data = await response.json()
       expect(data.message).toContain("File type 'html' is not allowed")
+    })
+
+    it('should allow HTML files for knowledge-base document uploads', async () => {
+      const formData = new FormData()
+      const file = new File(['<h1>Knowledge</h1>'], 'knowledge.html', { type: 'text/html' })
+      formData.append('file', file)
+
+      const req = new Request('http://localhost/api/files/upload?type=knowledge-base', {
+        method: 'POST',
+        body: formData,
+      })
+
+      const { POST } = await import('@/app/api/files/upload/route')
+      const response = await POST(req as any)
+
+      expect(response.status).toBe(200)
     })
 
     it('should reject SVG files to prevent XSS', async () => {

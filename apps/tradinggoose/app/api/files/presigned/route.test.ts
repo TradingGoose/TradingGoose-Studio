@@ -25,7 +25,7 @@ describe('/api/files/presigned', () => {
   })
 
   describe('POST', () => {
-    it('should return graceful fallback response when cloud storage is not enabled', async () => {
+    it('should return local upload response when cloud storage is not enabled', async () => {
       setupFileApiMocks({
         cloudEnabled: false,
         storageProvider: 's3',
@@ -186,7 +186,7 @@ describe('/api/files/presigned', () => {
       expect(data.directUploadSupported).toBe(true)
     })
 
-    it('should generate knowledge-base S3 presigned URL with kb prefix', async () => {
+    it('should reject knowledge-base presigned uploads', async () => {
       setupFileApiMocks({
         cloudEnabled: true,
         storageProvider: 's3',
@@ -209,9 +209,10 @@ describe('/api/files/presigned', () => {
       const response = await POST(request)
       const data = await response.json()
 
-      expect(response.status).toBe(200)
-      expect(data.fileInfo.key).toMatch(/^kb\/.*knowledge-doc\.pdf$/)
-      expect(data.directUploadSupported).toBe(true)
+      expect(response.status).toBe(400)
+      expect(data.error).toBe('Knowledge base uploads must use /api/files/upload')
+      expect(data.code).toBe('VALIDATION_ERROR')
+      expect(data.directUploadSupported).toBe(false)
     })
 
     it('should generate chat S3 presigned URL with chat prefix and direct path', async () => {

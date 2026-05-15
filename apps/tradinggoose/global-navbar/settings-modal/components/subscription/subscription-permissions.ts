@@ -23,7 +23,7 @@ export interface SubscriptionSurfaceState {
   canManageOrganizationPlan: boolean
   canEditUsageLimit: boolean
   showTeamMemberView: boolean
-  visibleUpgradeTiers: PublicBillingTierDisplay[]
+  visiblePlanTiers: PublicBillingTierDisplay[]
   showEnterprisePlaceholder: boolean
   enterprisePlaceholder: EnterprisePlaceholderDisplay | null
 }
@@ -69,18 +69,21 @@ export function getSubscriptionSurfaceState({
   const canEditUsageLimit = canTierEditUsageLimit(effectiveTier)
   const isTeamMemberView = isCurrentOrganizationPlan && !userRole.isTeamAdmin
 
-  let visibleUpgradeTiers: PublicBillingTierDisplay[] = []
+  let visiblePlanTiers: PublicBillingTierDisplay[] = []
 
   if (!isTeamMemberView && !isCurrentCustomOrganizationPlan) {
     const currentDisplayOrder = currentTier?.displayOrder ?? (subscription.isFree ? -1 : null)
+    const upgradableTiers = subscription.isFree
+      ? publicTiers.filter((tier) => !tier.isDefault)
+      : currentDisplayOrder !== null
+        ? publicTiers.filter(
+            (tier) => tier.id !== currentTier?.id && tier.displayOrder > currentDisplayOrder
+          )
+        : []
 
-    if (subscription.isFree) {
-      visibleUpgradeTiers = publicTiers.filter((tier) => !tier.isDefault)
-    } else if (currentDisplayOrder !== null) {
-      visibleUpgradeTiers = publicTiers.filter(
-        (tier) => tier.id !== currentTier?.id && tier.displayOrder > currentDisplayOrder
-      )
-    }
+    visiblePlanTiers = currentTier
+      ? [currentTier, ...upgradableTiers.filter((tier) => tier.id !== currentTier.id)]
+      : upgradableTiers
   }
 
   const showEnterprisePlaceholder = Boolean(
@@ -93,10 +96,9 @@ export function getSubscriptionSurfaceState({
     isAdjustableSeatPlan: isCurrentAdjustableSeatPlan,
     isCustomOrganizationPlan: isCurrentCustomOrganizationPlan,
     canManageOrganizationPlan: isCurrentOrganizationPlan && userRole.isTeamAdmin,
-    canEditUsageLimit:
-      canEditUsageLimit && (!isCurrentOrganizationPlan || userRole.isTeamAdmin),
+    canEditUsageLimit: canEditUsageLimit && (!isCurrentOrganizationPlan || userRole.isTeamAdmin),
     showTeamMemberView: isTeamMemberView && !isCurrentCustomOrganizationPlan,
-    visibleUpgradeTiers,
+    visiblePlanTiers,
     showEnterprisePlaceholder,
     enterprisePlaceholder,
   }

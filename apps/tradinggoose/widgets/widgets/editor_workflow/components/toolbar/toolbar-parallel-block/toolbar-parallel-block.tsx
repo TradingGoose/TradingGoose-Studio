@@ -5,23 +5,23 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { getIconTileStyle } from '@/lib/ui/icon-colors'
 import { cn } from '@/lib/utils'
 import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
-import { ParallelTool } from '@/widgets/widgets/editor_workflow/components/subflows/parallel/parallel-config'
+import { SubflowBlockConfigs } from '@/widgets/widgets/editor_workflow/components/subflows/config'
 import { useToolbarAddBlock } from '@/widgets/widgets/editor_workflow/components/workflow-toolbar/toolbar-add-block-context'
 
 type ParallelToolbarItemProps = {
   disabled?: boolean
 }
 
-// Custom component for the Parallel Tool
 export default function ParallelToolbarItem({ disabled = false }: ParallelToolbarItemProps) {
   const userPermissions = useUserPermissionsContext()
   const addBlock = useToolbarAddBlock()
+  const parallelTool = SubflowBlockConfigs.parallel
+  const ParallelIcon = parallelTool.icon
   const handleDragStart = (e: React.DragEvent) => {
     if (disabled) {
       e.preventDefault()
       return
     }
-    // Only send the essential data for the parallel node
     const simplifiedData = {
       type: 'parallel',
     }
@@ -29,7 +29,6 @@ export default function ParallelToolbarItem({ disabled = false }: ParallelToolba
     e.dataTransfer.effectAllowed = 'move'
   }
 
-  // Handle click to add parallel block
   const handleClick = useCallback(
     (e: React.MouseEvent) => {
       if (disabled) return
@@ -57,16 +56,16 @@ export default function ParallelToolbarItem({ disabled = false }: ParallelToolba
     >
       <div
         className='relative flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-sm'
-        style={getIconTileStyle(ParallelTool.bgColor, '30')}
+        style={getIconTileStyle(parallelTool.bgColor, '30')}
       >
-        <ParallelTool.icon
+        <ParallelIcon
           className={cn(
             'h-[14px] w-[14px] transition-transform duration-200',
             !disabled && 'group-hover:scale-110'
           )}
         />
       </div>
-      <span className='font-medium text-sm leading-none'>{ParallelTool.name}</span>
+      <span className='font-medium text-sm leading-none'>{parallelTool.name}</span>
     </div>
   )
 

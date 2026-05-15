@@ -9,7 +9,10 @@ import { setupApiTestMocks } from '@/app/api/__test-utils__/utils'
 
 const checkHybridAuthMock = vi.fn()
 
-function createFileUtilsMock(contentType = 'text/plain', localFilePath = '/test/uploads/test-file.txt') {
+function createFileUtilsMock(
+  contentType = 'text/plain',
+  localFilePath = '/test/uploads/test-file.txt'
+) {
   return {
     FileNotFoundError: class FileNotFoundError extends Error {
       constructor(message: string) {
@@ -328,10 +331,7 @@ describe('File Serve API Route', () => {
       const { createVercelDownloadToken } = await import(
         '@/lib/uploads/providers/vercel/download-token'
       )
-      const token = await createVercelDownloadToken(
-        { key: 'private.pdf', context: 'general' },
-        300
-      )
+      const token = await createVercelDownloadToken({ key: 'private.pdf', context: 'general' }, 300)
 
       const req = new NextRequest(
         `http://localhost:3000/api/files/serve/vercel/private.pdf?downloadToken=${encodeURIComponent(token)}`
@@ -349,7 +349,7 @@ describe('File Serve API Route', () => {
       })
     })
 
-    it('should reject expired signed Vercel downloads without fallback access', async () => {
+    it('should reject expired signed Vercel downloads without alternate access', async () => {
       vi.useFakeTimers()
       vi.setSystemTime(new Date('2026-04-19T00:00:00Z'))
 

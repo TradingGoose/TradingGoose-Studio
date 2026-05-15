@@ -1,7 +1,15 @@
 import { randomUUID } from 'crypto'
 import { db } from '@tradinggoose/db'
-import { document, knowledgeBase, permissions } from '@tradinggoose/db/schema'
-import { and, count, eq, isNotNull, isNull, or } from 'drizzle-orm'
+import {
+  document,
+  embedding,
+  knowledgeBase,
+  knowledgeBaseTagDefinitions,
+  permissions,
+} from '@tradinggoose/db/schema'
+import { and, count, eq, inArray, isNotNull, isNull } from 'drizzle-orm'
+import { checkStorageQuota, incrementStorageUsage } from '@/lib/billing/storage'
+import { enqueueDocumentProcessingJobs } from '@/lib/knowledge/documents/service'
 import type {
   ChunkingConfig,
   CreateKnowledgeBaseData,
@@ -17,7 +25,7 @@ const logger = createLogger('KnowledgeBaseService')
  */
 export async function getKnowledgeBases(
   userId: string,
-  workspaceId?: string | null
+  workspaceId: string
 ): Promise<KnowledgeBaseWithCounts[]> {
   const knowledgeBasesWithCounts = await db
     .select({
@@ -49,21 +57,8 @@ export async function getKnowledgeBases(
     .where(
       and(
         isNull(knowledgeBase.deletedAt),
-        workspaceId
-          ? // When filtering by workspace
-          or(
-            // Knowledge bases belonging to the specified workspace (user must have workspace permissions)
-            and(eq(knowledgeBase.workspaceId, workspaceId), isNotNull(permissions.userId)),
-            // Fallback: User-owned knowledge bases without workspace (legacy)
-            and(eq(knowledgeBase.userId, userId), isNull(knowledgeBase.workspaceId))
-          )
-          : // When not filtering by workspace, use original logic
-          or(
-            // User owns the knowledge base directly
-            eq(knowledgeBase.userId, userId),
-            // User has permissions on the knowledge base's workspace
-            isNotNull(permissions.userId)
-          )
+        eq(knowledgeBase.workspaceId, workspaceId),
+        isNotNull(permissions.userId)
       )
     )
     .groupBy(knowledgeBase.id)
@@ -86,18 +81,16 @@ export async function createKnowledgeBase(
   const kbId = randomUUID()
   const now = new Date()
 
-  if (data.workspaceId) {
-    const hasPermission = await getUserEntityPermissions(data.userId, 'workspace', data.workspaceId)
-    if (hasPermission === null) {
-      throw new Error('User does not have permission to create knowledge bases in this workspace')
-    }
+  const hasPermission = await getUserEntityPermissions(data.userId, 'workspace', data.workspaceId)
+  if (hasPermission !== 'write' && hasPermission !== 'admin') {
+    throw new Error('User does not have permission to create knowledge bases in this workspace')
   }
 
   const newKnowledgeBase = {
     id: kbId,
     name: data.name,
     description: data.description ?? null,
-    workspaceId: data.workspaceId ?? null,
+    workspaceId: data.workspaceId,
     userId: data.userId,
     tokenCount: 0,
     embeddingModel: data.embeddingModel,
@@ -122,8 +115,209 @@ export async function createKnowledgeBase(
     chunkingConfig: data.chunkingConfig,
     createdAt: now,
     updatedAt: now,
-    workspaceId: data.workspaceId ?? null,
+    workspaceId: data.workspaceId,
     docCount: 0,
+  }
+}
+
+export async function copyKnowledgeBaseToWorkspace(
+  sourceKnowledgeBaseId: string,
+  targetWorkspaceId: string,
+  userId: string,
+  requestId: string
+): Promise<KnowledgeBaseWithCounts> {
+  const hasPermission = await getUserEntityPermissions(userId, 'workspace', targetWorkspaceId)
+  if (hasPermission !== 'write' && hasPermission !== 'admin') {
+    throw new Error('User does not have permission to create knowledge bases in this workspace')
+  }
+
+  const [sourceKnowledgeBase] = await db
+    .select()
+    .from(knowledgeBase)
+    .where(and(eq(knowledgeBase.id, sourceKnowledgeBaseId), isNull(knowledgeBase.deletedAt)))
+    .limit(1)
+
+  if (!sourceKnowledgeBase) {
+    throw new Error(`Knowledge base ${sourceKnowledgeBaseId} not found`)
+  }
+
+  const sourceDocuments = await db
+    .select()
+    .from(document)
+    .where(and(eq(document.knowledgeBaseId, sourceKnowledgeBaseId), isNull(document.deletedAt)))
+
+  const totalDocumentSize = sourceDocuments.reduce((sum, doc) => sum + doc.fileSize, 0)
+  if (totalDocumentSize > 0) {
+    const quotaCheck = await checkStorageQuota(userId, totalDocumentSize, targetWorkspaceId)
+    if (!quotaCheck.allowed) {
+      throw new Error(quotaCheck.error || 'Storage limit exceeded')
+    }
+  }
+
+  const newKnowledgeBaseId = randomUUID()
+  const now = new Date()
+  const processingJobs: Parameters<typeof enqueueDocumentProcessingJobs>[0] = []
+
+  await db.transaction(async (tx) => {
+    await tx.insert(knowledgeBase).values({
+      id: newKnowledgeBaseId,
+      userId,
+      workspaceId: targetWorkspaceId,
+      name: `${sourceKnowledgeBase.name} (Copy)`,
+      description: sourceKnowledgeBase.description,
+      tokenCount: sourceKnowledgeBase.tokenCount,
+      embeddingModel: sourceKnowledgeBase.embeddingModel,
+      embeddingDimension: sourceKnowledgeBase.embeddingDimension,
+      chunkingConfig: sourceKnowledgeBase.chunkingConfig,
+      createdAt: now,
+      updatedAt: now,
+      deletedAt: null,
+    })
+
+    const tagDefinitions = await tx
+      .select()
+      .from(knowledgeBaseTagDefinitions)
+      .where(eq(knowledgeBaseTagDefinitions.knowledgeBaseId, sourceKnowledgeBaseId))
+
+    if (tagDefinitions.length > 0) {
+      await tx.insert(knowledgeBaseTagDefinitions).values(
+        tagDefinitions.map((definition) => ({
+          id: randomUUID(),
+          knowledgeBaseId: newKnowledgeBaseId,
+          tagSlot: definition.tagSlot,
+          displayName: definition.displayName,
+          fieldType: definition.fieldType,
+          createdAt: now,
+          updatedAt: now,
+        }))
+      )
+    }
+
+    const documentIdMap = new Map<string, string>()
+    const documentRecords = sourceDocuments.map((sourceDocument) => {
+      const newDocumentId = randomUUID()
+      const shouldCopyEmbeddings = sourceDocument.processingStatus === 'completed'
+      documentIdMap.set(sourceDocument.id, newDocumentId)
+
+      if (!shouldCopyEmbeddings) {
+        processingJobs.push({
+          knowledgeBaseId: newKnowledgeBaseId,
+          documentId: newDocumentId,
+          docData: {
+            filename: sourceDocument.filename,
+            fileUrl: sourceDocument.fileUrl,
+            fileSize: sourceDocument.fileSize,
+            mimeType: sourceDocument.mimeType,
+          },
+          processingOptions: {
+            chunkSize: (sourceKnowledgeBase.chunkingConfig as ChunkingConfig).maxSize,
+            minCharactersPerChunk: (sourceKnowledgeBase.chunkingConfig as ChunkingConfig).minSize,
+            chunkOverlap: (sourceKnowledgeBase.chunkingConfig as ChunkingConfig).overlap,
+          },
+          requestId,
+        })
+      }
+
+      return {
+        id: newDocumentId,
+        knowledgeBaseId: newKnowledgeBaseId,
+        filename: sourceDocument.filename,
+        fileUrl: sourceDocument.fileUrl,
+        fileSize: sourceDocument.fileSize,
+        mimeType: sourceDocument.mimeType,
+        chunkCount: shouldCopyEmbeddings ? sourceDocument.chunkCount : 0,
+        tokenCount: shouldCopyEmbeddings ? sourceDocument.tokenCount : 0,
+        characterCount: shouldCopyEmbeddings ? sourceDocument.characterCount : 0,
+        processingStatus: shouldCopyEmbeddings ? 'completed' : 'pending',
+        processingStartedAt: null,
+        processingCompletedAt: shouldCopyEmbeddings ? now : null,
+        processingError: null,
+        enabled: sourceDocument.enabled,
+        deletedAt: null,
+        uploadedAt: now,
+        tag1: sourceDocument.tag1,
+        tag2: sourceDocument.tag2,
+        tag3: sourceDocument.tag3,
+        tag4: sourceDocument.tag4,
+        tag5: sourceDocument.tag5,
+        tag6: sourceDocument.tag6,
+        tag7: sourceDocument.tag7,
+      }
+    })
+
+    if (documentRecords.length > 0) {
+      await tx.insert(document).values(documentRecords)
+    }
+
+    const completedSourceDocumentIds = sourceDocuments
+      .filter((sourceDocument) => sourceDocument.processingStatus === 'completed')
+      .map((sourceDocument) => sourceDocument.id)
+
+    if (completedSourceDocumentIds.length > 0) {
+      const sourceEmbeddings = await tx
+        .select()
+        .from(embedding)
+        .where(inArray(embedding.documentId, completedSourceDocumentIds))
+
+      if (sourceEmbeddings.length > 0) {
+        await tx.insert(embedding).values(
+          sourceEmbeddings.map((sourceEmbedding) => ({
+            id: randomUUID(),
+            knowledgeBaseId: newKnowledgeBaseId,
+            documentId: documentIdMap.get(sourceEmbedding.documentId)!,
+            chunkIndex: sourceEmbedding.chunkIndex,
+            chunkHash: sourceEmbedding.chunkHash,
+            content: sourceEmbedding.content,
+            contentLength: sourceEmbedding.contentLength,
+            tokenCount: sourceEmbedding.tokenCount,
+            embedding: sourceEmbedding.embedding,
+            embeddingModel: sourceEmbedding.embeddingModel,
+            startOffset: sourceEmbedding.startOffset,
+            endOffset: sourceEmbedding.endOffset,
+            tag1: sourceEmbedding.tag1,
+            tag2: sourceEmbedding.tag2,
+            tag3: sourceEmbedding.tag3,
+            tag4: sourceEmbedding.tag4,
+            tag5: sourceEmbedding.tag5,
+            tag6: sourceEmbedding.tag6,
+            tag7: sourceEmbedding.tag7,
+            enabled: sourceEmbedding.enabled,
+            createdAt: now,
+            updatedAt: now,
+          }))
+        )
+      }
+    }
+  })
+
+  if (totalDocumentSize > 0) {
+    try {
+      await incrementStorageUsage(userId, totalDocumentSize, targetWorkspaceId)
+    } catch (error) {
+      logger.error(`[${requestId}] Failed to update copied knowledge base storage usage:`, error)
+    }
+  }
+
+  if (processingJobs.length > 0) {
+    await enqueueDocumentProcessingJobs(processingJobs, requestId)
+  }
+
+  logger.info(
+    `[${requestId}] Copied knowledge base ${sourceKnowledgeBaseId} to workspace ${targetWorkspaceId} as ${newKnowledgeBaseId}`
+  )
+
+  return {
+    id: newKnowledgeBaseId,
+    name: `${sourceKnowledgeBase.name} (Copy)`,
+    description: sourceKnowledgeBase.description,
+    tokenCount: sourceKnowledgeBase.tokenCount,
+    embeddingModel: sourceKnowledgeBase.embeddingModel,
+    embeddingDimension: sourceKnowledgeBase.embeddingDimension,
+    chunkingConfig: sourceKnowledgeBase.chunkingConfig as ChunkingConfig,
+    createdAt: now,
+    updatedAt: now,
+    workspaceId: targetWorkspaceId,
+    docCount: sourceDocuments.length,
   }
 }
 
@@ -135,7 +329,6 @@ export async function updateKnowledgeBase(
   updates: {
     name?: string
     description?: string
-    workspaceId?: string | null
     chunkingConfig?: {
       maxSize: number
       minSize: number
@@ -149,25 +342,19 @@ export async function updateKnowledgeBase(
     updatedAt: Date
     name?: string
     description?: string | null
-    workspaceId?: string | null
     chunkingConfig?: {
       maxSize: number
       minSize: number
       overlap: number
     }
-    embeddingModel?: string
-    embeddingDimension?: number
   } = {
     updatedAt: now,
   }
 
   if (updates.name !== undefined) updateData.name = updates.name
   if (updates.description !== undefined) updateData.description = updates.description
-  if (updates.workspaceId !== undefined) updateData.workspaceId = updates.workspaceId
   if (updates.chunkingConfig !== undefined) {
     updateData.chunkingConfig = updates.chunkingConfig
-    updateData.embeddingModel = 'text-embedding-3-small'
-    updateData.embeddingDimension = 1536
   }
 
   await db.update(knowledgeBase).set(updateData).where(eq(knowledgeBase.id, knowledgeBaseId))
