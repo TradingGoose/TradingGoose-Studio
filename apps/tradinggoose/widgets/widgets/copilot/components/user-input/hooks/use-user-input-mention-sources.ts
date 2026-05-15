@@ -5,6 +5,7 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { sanitizeSolidIconColor } from '@/lib/ui/icon-colors'
 import { useWorkflowBlocks } from '@/lib/yjs/use-workflow-doc'
 import { useOptionalWorkflowSession } from '@/lib/yjs/workflow-session-host'
+import { getSubflowBlockConfig } from '@/widgets/widgets/editor_workflow/components/subflows/config'
 import {
   type CopilotWorkspaceEntityKind,
   getCopilotWorkspaceEntityKindFromMentionOption,
@@ -241,13 +242,15 @@ export function useUserInputMentionSources({ workspaceId }: UseUserInputMentionS
       const { registry: blockRegistry } = await import('@/blocks/registry')
       const mapped = Object.values(workflowStoreBlocks).map((block: any) => {
         const registryEntry = (blockRegistry as any)[block.type]
+        const subflowConfig = getSubflowBlockConfig(block.type)
+        const presentation = registryEntry ?? subflowConfig
 
         return {
           id: block.id,
-          name: block.name || block.id,
+          name: block.name || presentation?.name || block.id,
           type: block.type,
-          iconComponent: registryEntry?.icon,
-          bgColor: sanitizeSolidIconColor(registryEntry?.bgColor) || '#6B7280',
+          iconComponent: presentation?.icon,
+          bgColor: sanitizeSolidIconColor(presentation?.bgColor) || '#6B7280',
         }
       })
 

@@ -1,11 +1,9 @@
 'use client'
 
 import { Skeleton } from '@/components/ui'
-import {
-  ApiEndpoint,
-  ApiKey,
-  ExampleCommand,
-} from '@/widgets/widgets/editor_workflow/components/control-bar/components/deploy-modal/components/deployment-info/components'
+import { ApiEndpoint } from '@/widgets/widgets/editor_workflow/components/control-bar/components/deploy-modal/components/deployment-info/components/api-endpoint/api-endpoint'
+import { ApiKey } from '@/widgets/widgets/editor_workflow/components/control-bar/components/deploy-modal/components/deployment-info/components/api-key/api-key'
+import { ExampleCommand } from '@/widgets/widgets/editor_workflow/components/control-bar/components/deploy-modal/components/deployment-info/components/example-command/example-command'
 
 interface WorkflowDeploymentInfo {
   apiKey: string

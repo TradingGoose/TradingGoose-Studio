@@ -5,24 +5,24 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { getIconTileStyle } from '@/lib/ui/icon-colors'
 import { cn } from '@/lib/utils'
 import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
-import { LoopTool } from '@/widgets/widgets/editor_workflow/components/subflows/loop/loop-config'
+import { SubflowBlockConfigs } from '@/widgets/widgets/editor_workflow/components/subflows/config'
 import { useToolbarAddBlock } from '@/widgets/widgets/editor_workflow/components/workflow-toolbar/toolbar-add-block-context'
 
 type LoopToolbarItemProps = {
   disabled?: boolean
 }
 
-// Custom component for the Loop Tool
 export default function LoopToolbarItem({ disabled = false }: LoopToolbarItemProps) {
   const userPermissions = useUserPermissionsContext()
   const addBlock = useToolbarAddBlock()
+  const loopTool = SubflowBlockConfigs.loop
+  const LoopIcon = loopTool.icon
 
   const handleDragStart = (e: React.DragEvent) => {
     if (disabled) {
       e.preventDefault()
       return
     }
-    // Only send the essential data for the loop node
     const simplifiedData = {
       type: 'loop',
     }
@@ -30,7 +30,6 @@ export default function LoopToolbarItem({ disabled = false }: LoopToolbarItemPro
     e.dataTransfer.effectAllowed = 'move'
   }
 
-  // Handle click to add loop block
   const handleClick = useCallback(
     (e: React.MouseEvent) => {
       if (disabled) return
@@ -58,16 +57,16 @@ export default function LoopToolbarItem({ disabled = false }: LoopToolbarItemPro
     >
       <div
         className='relative flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-sm'
-        style={getIconTileStyle(LoopTool.bgColor, '30')}
+        style={getIconTileStyle(loopTool.bgColor, '30')}
       >
-        <LoopTool.icon
+        <LoopIcon
           className={cn(
             'h-[14px] w-[14px] transition-transform duration-200',
             !disabled && 'group-hover:scale-110'
           )}
         />
       </div>
-      <span className='font-medium text-sm leading-none'>{LoopTool.name}</span>
+      <span className='font-medium text-sm leading-none'>{loopTool.name}</span>
     </div>
   )
 

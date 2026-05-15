@@ -1,7 +1,7 @@
 import { memo } from 'react'
-import { RepeatIcon, SplitIcon } from 'lucide-react'
 import { Handle, type NodeProps, Position } from '@xyflow/react'
 import { cn } from '@/lib/utils'
+import { getSubflowBlockConfig } from '@/widgets/widgets/editor_workflow/components/subflows/config'
 import { getPreviewDiffClasses } from './preview-diff'
 import type { PreviewCanvasSubflowNode } from './preview-payload-adapter'
 
@@ -9,9 +9,9 @@ function PreviewSubflowInner({ data }: NodeProps<PreviewCanvasSubflowNode>) {
   const { name, width, height, enabled, kind } = data
 
   const isLoop = kind === 'loop'
-  const BlockIcon = isLoop ? RepeatIcon : SplitIcon
-  const iconBackground = isLoop ? '#2FB3FF' : '#FEE12B'
-  const blockName = name || (isLoop ? 'Loop' : 'Parallel')
+  const subflowConfig = getSubflowBlockConfig(kind)
+  const BlockIcon = subflowConfig.icon
+  const blockName = name || subflowConfig.name
 
   const startHandleId = isLoop ? 'loop-start-source' : 'parallel-start-source'
   const endHandleId = isLoop ? 'loop-end-source' : 'parallel-end-source'
@@ -38,7 +38,7 @@ function PreviewSubflowInner({ data }: NodeProps<PreviewCanvasSubflowNode>) {
         <div className='flex min-w-0 items-center gap-2'>
           <div
             className='flex h-6 w-6 shrink-0 items-center justify-center rounded-md'
-            style={{ backgroundColor: enabled ? iconBackground : '#9CA3AF' }}
+            style={{ backgroundColor: enabled ? subflowConfig.bgColor : '#9CA3AF' }}
           >
             <BlockIcon className='h-4 w-4 text-white' />
           </div>
