@@ -29,7 +29,7 @@ export function SearchInput({
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         disabled={disabled}
-        className='h-9 w-full rounded-md border bg-background pr-9 pl-10 text-sm'
+        className='h-9 w-full rounded-md border bg-background pr-4 pl-10 text-sm'
       />
       {isLoading ? (
         <div className='-translate-y-1/2 absolute top-1/2 right-3 z-10'>

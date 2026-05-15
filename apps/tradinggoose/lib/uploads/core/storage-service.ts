@@ -1,19 +1,19 @@
 import { createLogger } from '@/lib/logs/console/logger'
 import {
+  type StorageProvider,
   USE_AZURE_STORAGE,
   USE_S3_STORAGE,
   USE_VERCEL_STORAGE,
-  type StorageProvider,
 } from '@/lib/uploads/core/setup'
 import { getStorageConfig, type StorageContext } from './config-resolver'
 import type { FileInfo } from './storage-client'
 
 const logger = createLogger('StorageService')
 
-function createVercelConfig(config: {
-  token?: string
-  access?: 'public' | 'private'
-}): { token: string; access: 'public' | 'private' } {
+function createVercelConfig(config: { token?: string; access?: 'public' | 'private' }): {
+  token: string
+  access: 'public' | 'private'
+} {
   if (!config.token) {
     throw new Error('Vercel Blob configuration missing token')
   }
@@ -389,38 +389,6 @@ async function generateAzurePresignedUrl(
       ),
     },
   }
-}
-
-/**
- * Generate multiple presigned URLs at once (batch operation)
- */
-export async function generateBatchPresignedUploadUrls(
-  files: Array<{
-    fileName: string
-    contentType: string
-    fileSize: number
-  }>,
-  context: StorageContext,
-  userId?: string,
-  expirationSeconds?: number
-): Promise<PresignedUrlResponse[]> {
-  logger.info(`Generating ${files.length} presigned upload URLs for ${context}`)
-
-  const results: PresignedUrlResponse[] = []
-
-  for (const file of files) {
-    const result = await generatePresignedUploadUrl({
-      fileName: file.fileName,
-      contentType: file.contentType,
-      fileSize: file.fileSize,
-      context,
-      userId,
-      expirationSeconds,
-    })
-    results.push(result)
-  }
-
-  return results
 }
 
 /**

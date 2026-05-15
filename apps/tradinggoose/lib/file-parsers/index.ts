@@ -1,121 +1,67 @@
 import { existsSync } from 'fs'
 import path from 'path'
+import { CsvParser } from '@/lib/file-parsers/csv-parser'
+import { DocParser } from '@/lib/file-parsers/doc-parser'
+import { DocxParser } from '@/lib/file-parsers/docx-parser'
+import { HtmlParser } from '@/lib/file-parsers/html-parser'
+import { parseJSON, parseJSONBuffer } from '@/lib/file-parsers/json-parser'
+import { MdParser } from '@/lib/file-parsers/md-parser'
+import { PdfParser } from '@/lib/file-parsers/pdf-parser'
+import { PptxParser } from '@/lib/file-parsers/pptx-parser'
+import { TxtParser } from '@/lib/file-parsers/txt-parser'
 import type { FileParseResult, FileParser, SupportedFileType } from '@/lib/file-parsers/types'
+import { SUPPORTED_FILE_TYPES } from '@/lib/file-parsers/types'
+import { XlsxParser } from '@/lib/file-parsers/xlsx-parser'
+import { parseYAML, parseYAMLBuffer } from '@/lib/file-parsers/yaml-parser'
 import { createLogger } from '@/lib/logs/console/logger'
 
 const logger = createLogger('FileParser')
 
-let parserInstances: Record<string, FileParser> | null = null
+const xlsxParser = new XlsxParser()
+const pptxParser = new PptxParser()
+const htmlParser = new HtmlParser()
 
-/**
- * Get parser instances with lazy initialization
- */
-function getParserInstances(): Record<string, FileParser> {
-  if (parserInstances === null) {
-    parserInstances = {}
+const parserInstances = {
+  pdf: new PdfParser(),
+  csv: new CsvParser(),
+  docx: new DocxParser(),
+  doc: new DocParser(),
+  txt: new TxtParser(),
+  md: new MdParser(),
+  xlsx: xlsxParser,
+  xls: xlsxParser,
+  pptx: pptxParser,
+  ppt: pptxParser,
+  html: htmlParser,
+  htm: htmlParser,
+  json: {
+    parseFile: parseJSON,
+    parseBuffer: parseJSONBuffer,
+  },
+  yaml: {
+    parseFile: parseYAML,
+    parseBuffer: parseYAMLBuffer,
+  },
+  yml: {
+    parseFile: parseYAML,
+    parseBuffer: parseYAMLBuffer,
+  },
+} satisfies Record<SupportedFileType, FileParser>
 
-    try {
-      try {
-        logger.info('Loading PDF parser...')
-        const { PdfParser } = require('@/lib/file-parsers/pdf-parser')
-        parserInstances.pdf = new PdfParser()
-        logger.info('PDF parser loaded successfully')
-      } catch (error) {
-        logger.error('Failed to load PDF parser:', error)
-      }
+const normalizeExtension = (extension: string) => extension.toLowerCase().replace(/^\./, '')
 
-      try {
-        const { CsvParser } = require('@/lib/file-parsers/csv-parser')
-        parserInstances.csv = new CsvParser()
-        logger.info('Loaded streaming CSV parser with csv-parse library')
-      } catch (error) {
-        logger.error('Failed to load streaming CSV parser:', error)
-      }
+const supportedTypesMessage = () => SUPPORTED_FILE_TYPES.join(', ')
 
-      try {
-        const { DocxParser } = require('@/lib/file-parsers/docx-parser')
-        parserInstances.docx = new DocxParser()
-      } catch (error) {
-        logger.error('Failed to load DOCX parser:', error)
-      }
+function getParser(extension: string): FileParser {
+  const normalizedExtension = normalizeExtension(extension)
 
-      try {
-        const { DocParser } = require('@/lib/file-parsers/doc-parser')
-        parserInstances.doc = new DocParser()
-      } catch (error) {
-        logger.error('Failed to load DOC parser:', error)
-      }
-
-      try {
-        const { TxtParser } = require('@/lib/file-parsers/txt-parser')
-        parserInstances.txt = new TxtParser()
-      } catch (error) {
-        logger.error('Failed to load TXT parser:', error)
-      }
-
-      try {
-        const { MdParser } = require('@/lib/file-parsers/md-parser')
-        parserInstances.md = new MdParser()
-      } catch (error) {
-        logger.error('Failed to load MD parser:', error)
-      }
-
-      try {
-        const { XlsxParser } = require('@/lib/file-parsers/xlsx-parser')
-        parserInstances.xlsx = new XlsxParser()
-        parserInstances.xls = new XlsxParser()
-        logger.info('Loaded XLSX parser')
-      } catch (error) {
-        logger.error('Failed to load XLSX parser:', error)
-      }
-
-      try {
-        const { PptxParser } = require('@/lib/file-parsers/pptx-parser')
-        parserInstances.pptx = new PptxParser()
-        parserInstances.ppt = new PptxParser()
-      } catch (error) {
-        logger.error('Failed to load PPTX parser:', error)
-      }
-
-      try {
-        const { HtmlParser } = require('@/lib/file-parsers/html-parser')
-        parserInstances.html = new HtmlParser()
-        parserInstances.htm = new HtmlParser()
-      } catch (error) {
-        logger.error('Failed to load HTML parser:', error)
-      }
-
-      try {
-        const { parseJSON, parseJSONBuffer } = require('@/lib/file-parsers/json-parser')
-        parserInstances.json = {
-          parseFile: parseJSON,
-          parseBuffer: parseJSONBuffer,
-        }
-        logger.info('Loaded JSON parser')
-      } catch (error) {
-        logger.error('Failed to load JSON parser:', error)
-      }
-
-      try {
-        const { parseYAML, parseYAMLBuffer } = require('@/lib/file-parsers/yaml-parser')
-        parserInstances.yaml = {
-          parseFile: parseYAML,
-          parseBuffer: parseYAMLBuffer,
-        }
-        parserInstances.yml = {
-          parseFile: parseYAML,
-          parseBuffer: parseYAMLBuffer,
-        }
-        logger.info('Loaded YAML parser')
-      } catch (error) {
-        logger.error('Failed to load YAML parser:', error)
-      }
-    } catch (error) {
-      logger.error('Error loading file parsers:', error)
-    }
+  if (!isSupportedFileType(normalizedExtension)) {
+    throw new Error(
+      `Unsupported file type: ${normalizedExtension}. Supported types are: ${supportedTypesMessage()}`
+    )
   }
 
-  return parserInstances
+  return parserInstances[normalizedExtension]
 }
 
 /**
@@ -133,20 +79,12 @@ export async function parseFile(filePath: string): Promise<FileParseResult> {
       throw new Error(`File not found: ${filePath}`)
     }
 
-    const extension = path.extname(filePath).toLowerCase().substring(1)
+    const extension = path.extname(filePath).substring(1)
     logger.info('Attempting to parse file with extension:', extension)
 
-    const parsers = getParserInstances()
+    const parser = getParser(extension)
+    logger.info('Using parser for extension:', normalizeExtension(extension))
 
-    if (!Object.keys(parsers).includes(extension)) {
-      logger.info('No parser found for extension:', extension)
-      throw new Error(
-        `Unsupported file type: ${extension}. Supported types are: ${Object.keys(parsers).join(', ')}`
-      )
-    }
-
-    logger.info('Using parser for extension:', extension)
-    const parser = parsers[extension]
     return await parser.parseFile(filePath)
   } catch (error) {
     logger.error('File parsing error:', error)
@@ -170,25 +108,17 @@ export async function parseBuffer(buffer: Buffer, extension: string): Promise<Fi
       throw new Error('No file extension provided')
     }
 
-    const normalizedExtension = extension.toLowerCase()
-    logger.info('Attempting to parse buffer with extension:', normalizedExtension)
+    logger.info('Attempting to parse buffer with extension:', extension)
 
-    const parsers = getParserInstances()
-
-    if (!Object.keys(parsers).includes(normalizedExtension)) {
-      logger.info('No parser found for extension:', normalizedExtension)
-      throw new Error(
-        `Unsupported file type: ${normalizedExtension}. Supported types are: ${Object.keys(parsers).join(', ')}`
-      )
-    }
-
+    const parser = getParser(extension)
+    const normalizedExtension = normalizeExtension(extension)
     logger.info('Using parser for extension:', normalizedExtension)
-    const parser = parsers[normalizedExtension]
 
-    if (parser.parseBuffer) {
-      return await parser.parseBuffer(buffer)
+    if (!parser.parseBuffer) {
+      throw new Error(`Parser for ${normalizedExtension} does not support buffer parsing`)
     }
-    throw new Error(`Parser for ${normalizedExtension} does not support buffer parsing`)
+
+    return await parser.parseBuffer(buffer)
   } catch (error) {
     logger.error('Buffer parsing error:', error)
     throw error
@@ -201,12 +131,8 @@ export async function parseBuffer(buffer: Buffer, extension: string): Promise<Fi
  * @returns true if supported, false otherwise
  */
 export function isSupportedFileType(extension: string): extension is SupportedFileType {
-  try {
-    return Object.keys(getParserInstances()).includes(extension.toLowerCase())
-  } catch (error) {
-    logger.error('Error checking supported file type:', error)
-    return false
-  }
+  if (!extension) return false
+  return (SUPPORTED_FILE_TYPES as readonly string[]).includes(normalizeExtension(extension))
 }
 
 export type { FileParseResult, FileParser, SupportedFileType }

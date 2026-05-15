@@ -206,6 +206,7 @@ describe('Knowledge Utils', () => {
 
   describe('processDocumentAsync', () => {
     it.concurrent('should insert embeddings before updating document counters', async () => {
+      kbRows.push({ id: 'kb1', embeddingModel: 'kb-embedding-model' })
       docRows.push({ id: 'doc1', deletedAt: null })
 
       await processDocumentAsync(
@@ -228,6 +229,7 @@ describe('Knowledge Utils', () => {
       })
 
       expect(dbOps.insertRecords[0].length).toBe(2)
+      expect(dbOps.insertRecords[0][0].embeddingModel).toBe('kb-embedding-model')
     })
   })
 

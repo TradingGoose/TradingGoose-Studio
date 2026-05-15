@@ -130,7 +130,12 @@ describe('Knowledge Base Documents API Route', () => {
       mockAuth$.mockAuthenticatedUser()
       vi.mocked(checkKnowledgeBaseAccess).mockResolvedValue({
         hasAccess: true,
-        knowledgeBase: { id: 'kb-123', userId: 'user-123' },
+        knowledgeBase: {
+          id: 'kb-123',
+          userId: 'user-123',
+          workspaceId: null,
+          embeddingModel: 'text-embedding-3-small',
+        },
       })
 
       vi.mocked(getDocuments).mockResolvedValue({
@@ -172,7 +177,12 @@ describe('Knowledge Base Documents API Route', () => {
       mockAuth$.mockAuthenticatedUser()
       vi.mocked(checkKnowledgeBaseAccess).mockResolvedValue({
         hasAccess: true,
-        knowledgeBase: { id: 'kb-123', userId: 'user-123' },
+        knowledgeBase: {
+          id: 'kb-123',
+          userId: 'user-123',
+          workspaceId: null,
+          embeddingModel: 'text-embedding-3-small',
+        },
       })
 
       vi.mocked(getDocuments).mockResolvedValue({
@@ -209,7 +219,12 @@ describe('Knowledge Base Documents API Route', () => {
       mockAuth$.mockAuthenticatedUser()
       vi.mocked(checkKnowledgeBaseAccess).mockResolvedValue({
         hasAccess: true,
-        knowledgeBase: { id: 'kb-123', userId: 'user-123' },
+        knowledgeBase: {
+          id: 'kb-123',
+          userId: 'user-123',
+          workspaceId: null,
+          embeddingModel: 'text-embedding-3-small',
+        },
       })
 
       vi.mocked(getDocuments).mockResolvedValue({
@@ -293,7 +308,12 @@ describe('Knowledge Base Documents API Route', () => {
       mockAuth$.mockAuthenticatedUser()
       vi.mocked(checkKnowledgeBaseAccess).mockResolvedValue({
         hasAccess: true,
-        knowledgeBase: { id: 'kb-123', userId: 'user-123' },
+        knowledgeBase: {
+          id: 'kb-123',
+          userId: 'user-123',
+          workspaceId: null,
+          embeddingModel: 'text-embedding-3-small',
+        },
       })
       vi.mocked(getDocuments).mockRejectedValue(new Error('Database error'))
 
@@ -325,7 +345,12 @@ describe('Knowledge Base Documents API Route', () => {
       mockAuth$.mockAuthenticatedUser()
       vi.mocked(checkKnowledgeBaseWriteAccess).mockResolvedValue({
         hasAccess: true,
-        knowledgeBase: { id: 'kb-123', userId: 'user-123' },
+        knowledgeBase: {
+          id: 'kb-123',
+          userId: 'user-123',
+          workspaceId: null,
+          embeddingModel: 'text-embedding-3-small',
+        },
       })
 
       const createdDocument = {
@@ -372,7 +397,12 @@ describe('Knowledge Base Documents API Route', () => {
       mockAuth$.mockAuthenticatedUser()
       vi.mocked(checkKnowledgeBaseWriteAccess).mockResolvedValue({
         hasAccess: true,
-        knowledgeBase: { id: 'kb-123', userId: 'user-123' },
+        knowledgeBase: {
+          id: 'kb-123',
+          userId: 'user-123',
+          workspaceId: null,
+          embeddingModel: 'text-embedding-3-small',
+        },
       })
 
       const invalidData = {
@@ -429,7 +459,12 @@ describe('Knowledge Base Documents API Route', () => {
       mockAuth$.mockAuthenticatedUser()
       vi.mocked(checkKnowledgeBaseWriteAccess).mockResolvedValue({
         hasAccess: true,
-        knowledgeBase: { id: 'kb-123', userId: 'user-123' },
+        knowledgeBase: {
+          id: 'kb-123',
+          userId: 'user-123',
+          workspaceId: null,
+          embeddingModel: 'text-embedding-3-small',
+        },
       })
 
       const createdDocuments = [
@@ -450,10 +485,7 @@ describe('Knowledge Base Documents API Route', () => {
       ]
 
       vi.mocked(createDocumentRecords).mockResolvedValue(createdDocuments)
-      vi.mocked(enqueueDocumentProcessingJobs).mockResolvedValue([
-        'pending-doc-1',
-        'pending-doc-2',
-      ])
+      vi.mocked(enqueueDocumentProcessingJobs).mockResolvedValue(['pending-doc-1', 'pending-doc-2'])
 
       const req = createMockRequest('POST', validBulkData)
       const { POST } = await import('@/app/api/knowledge/[id]/documents/route')
@@ -481,7 +513,12 @@ describe('Knowledge Base Documents API Route', () => {
       mockAuth$.mockAuthenticatedUser()
       vi.mocked(checkKnowledgeBaseWriteAccess).mockResolvedValue({
         hasAccess: true,
-        knowledgeBase: { id: 'kb-123', userId: 'user-123' },
+        knowledgeBase: {
+          id: 'kb-123',
+          userId: 'user-123',
+          workspaceId: null,
+          embeddingModel: 'text-embedding-3-small',
+        },
       })
 
       const invalidBulkData = {
@@ -522,7 +559,12 @@ describe('Knowledge Base Documents API Route', () => {
       mockAuth$.mockAuthenticatedUser()
       vi.mocked(checkKnowledgeBaseWriteAccess).mockResolvedValue({
         hasAccess: true,
-        knowledgeBase: { id: 'kb-123', userId: 'user-123' },
+        knowledgeBase: {
+          id: 'kb-123',
+          userId: 'user-123',
+          workspaceId: null,
+          embeddingModel: 'text-embedding-3-small',
+        },
       })
 
       const createdDocuments = [
@@ -609,7 +651,12 @@ describe('Knowledge Base Documents API Route', () => {
       mockAuth$.mockAuthenticatedUser()
       vi.mocked(checkKnowledgeBaseWriteAccess).mockResolvedValue({
         hasAccess: true,
-        knowledgeBase: { id: 'kb-123', userId: 'user-123' },
+        knowledgeBase: {
+          id: 'kb-123',
+          userId: 'user-123',
+          workspaceId: null,
+          embeddingModel: 'text-embedding-3-small',
+        },
       })
       vi.mocked(createDocumentRecords).mockRejectedValue(new Error('Database error'))
 

@@ -1,7 +1,7 @@
 import { createHash, randomUUID } from 'crypto'
 import { db } from '@tradinggoose/db'
-import { document, embedding } from '@tradinggoose/db/schema'
-import { and, asc, eq, ilike, inArray, sql } from 'drizzle-orm'
+import { document, embedding, knowledgeBase } from '@tradinggoose/db/schema'
+import { and, asc, eq, ilike, inArray, isNull, sql } from 'drizzle-orm'
 import { generateEmbeddings } from '@/lib/embeddings/utils'
 import type {
   BatchOperationResult,
@@ -98,7 +98,18 @@ export async function createChunk(
 ): Promise<ChunkData> {
   // Generate embedding for the content first (outside transaction for performance)
   logger.info(`[${requestId}] Generating embedding for manual chunk`)
-  const embeddings = await generateEmbeddings([chunkData.content])
+  const [kbRow] = await db
+    .select({ embeddingModel: knowledgeBase.embeddingModel })
+    .from(knowledgeBase)
+    .where(and(eq(knowledgeBase.id, knowledgeBaseId), isNull(knowledgeBase.deletedAt)))
+    .limit(1)
+
+  if (!kbRow) {
+    throw new Error('Knowledge base not found')
+  }
+
+  const kbEmbeddingModel = kbRow.embeddingModel
+  const embeddings = await generateEmbeddings([chunkData.content], kbEmbeddingModel)
 
   // Calculate accurate token count
   const tokenCount = estimateTokenCount(chunkData.content, 'openai')
@@ -128,7 +139,7 @@ export async function createChunk(
       contentLength: chunkData.content.length,
       tokenCount: tokenCount.count,
       embedding: embeddings[0],
-      embeddingModel: 'text-embedding-3-small',
+      embeddingModel: kbEmbeddingModel,
       startOffset: 0, // Manual chunks don't have document offsets
       endOffset: chunkData.content.length,
       // Inherit tags from parent document
@@ -281,6 +292,7 @@ export async function updateChunk(
     tokenCount?: number
     chunkHash?: string
     embedding?: number[]
+    embeddingModel?: string
     enabled?: boolean
   } = {
     updatedAt: new Date(),
@@ -293,6 +305,7 @@ export async function updateChunk(
       const currentChunk = await tx
         .select({
           documentId: embedding.documentId,
+          knowledgeBaseId: embedding.knowledgeBaseId,
           content: embedding.content,
           contentLength: embedding.contentLength,
           tokenCount: embedding.tokenCount,
@@ -314,8 +327,25 @@ export async function updateChunk(
       if (content !== currentChunk[0].content) {
         logger.info(`[${requestId}] Content changed, regenerating embedding for chunk ${chunkId}`)
 
+        const [kbRow] = await tx
+          .select({ embeddingModel: knowledgeBase.embeddingModel })
+          .from(knowledgeBase)
+          .where(
+            and(
+              eq(knowledgeBase.id, currentChunk[0].knowledgeBaseId),
+              isNull(knowledgeBase.deletedAt)
+            )
+          )
+          .limit(1)
+
+        if (!kbRow) {
+          throw new Error('Knowledge base for chunk not found')
+        }
+
+        const chunkEmbeddingModel = kbRow.embeddingModel
+
         // Generate new embedding for the updated content
-        const embeddings = await generateEmbeddings([content])
+        const embeddings = await generateEmbeddings([content], chunkEmbeddingModel)
 
         // Calculate accurate token count
         const tokenCount = estimateTokenCount(content, 'openai')
@@ -326,6 +356,7 @@ export async function updateChunk(
         dbUpdateData.chunkHash = createHash('sha256').update(content).digest('hex')
         // Add the embedding field to the update data
         dbUpdateData.embedding = embeddings[0]
+        dbUpdateData.embeddingModel = chunkEmbeddingModel
       } else {
         // Content hasn't changed, just update other fields if needed
         dbUpdateData.content = content

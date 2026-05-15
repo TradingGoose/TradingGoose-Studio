@@ -2,6 +2,8 @@ import { type NextRequest, NextResponse } from 'next/server'
 import { createLogger } from '@/lib/logs/console/logger'
 import '@/lib/uploads/core/setup.server'
 import { getSession } from '@/lib/auth'
+import type { StorageContext } from '@/lib/uploads/core/config-resolver'
+import { resolveUploadContext, validateUploadRequest } from '@/lib/uploads/utils/validation'
 import {
   createErrorResponse,
   createOptionsResponse,
@@ -35,6 +37,35 @@ function validateFileExtension(filename: string): boolean {
   return ALLOWED_EXTENSIONS.has(extension)
 }
 
+function validateGeneralFileExtension(filename: string) {
+  if (validateFileExtension(filename)) return null
+
+  const extension = filename.split('.').pop()?.toLowerCase() || 'unknown'
+  return `File type '${extension}' is not allowed. Allowed types: ${Array.from(ALLOWED_EXTENSIONS).join(', ')}`
+}
+
+function getUploadContext(request: NextRequest): StorageContext {
+  const requestUrl = new URL(request.url)
+  return resolveUploadContext(requestUrl.searchParams.get('type'))
+}
+
+function validateFileForContext(file: File, context: StorageContext): string | null {
+  const contentType = file.type || 'application/octet-stream'
+
+  if (context === 'general') {
+    return validateGeneralFileExtension(file.name)
+  }
+
+  const validationError = validateUploadRequest({
+    fileName: file.name,
+    contentType,
+    fileSize: file.size,
+    context,
+  })
+
+  return validationError?.message ?? null
+}
+
 export const dynamic = 'force-dynamic'
 
 const logger = createLogger('FilesUploadAPI')
@@ -57,10 +88,13 @@ export async function POST(request: NextRequest) {
     const workflowId = formData.get('workflowId') as string | null
     const executionId = formData.get('executionId') as string | null
     const workspaceId = formData.get('workspaceId') as string | null
+    const uploadContext = getUploadContext(request)
 
     const storageService = await import('@/lib/uploads/core/storage-service')
     const usingCloudStorage = storageService.hasCloudStorage()
-    logger.info(`Using storage mode: ${usingCloudStorage ? 'Cloud' : 'Local'} for file upload`)
+    logger.info(
+      `Using storage mode: ${usingCloudStorage ? 'Cloud' : 'Local'} for ${uploadContext} file upload`
+    )
 
     if (workflowId && executionId) {
       logger.info(
@@ -74,12 +108,11 @@ export async function POST(request: NextRequest) {
 
     for (const file of files) {
       const originalName = file.name
+      const contentType = file.type || 'application/octet-stream'
 
-      if (!validateFileExtension(originalName)) {
-        const extension = originalName.split('.').pop()?.toLowerCase() || 'unknown'
-        throw new InvalidRequestError(
-          `File type '${extension}' is not allowed. Allowed types: ${Array.from(ALLOWED_EXTENSIONS).join(', ')}`
-        )
+      const validationError = validateFileForContext(file, uploadContext)
+      if (validationError) {
+        throw new InvalidRequestError(validationError)
       }
 
       const bytes = await file.arrayBuffer()
@@ -115,7 +148,7 @@ export async function POST(request: NextRequest) {
             session.user.id,
             buffer,
             originalName,
-            file.type || 'application/octet-stream'
+            contentType
           )
 
           uploadResults.push(userFile)
@@ -148,14 +181,14 @@ export async function POST(request: NextRequest) {
       }
 
       try {
-        logger.info(`Uploading file (general context): ${originalName}`)
+        logger.info(`Uploading file (${uploadContext} context): ${originalName}`)
 
         const storageService = await import('@/lib/uploads/core/storage-service')
         const fileInfo = await storageService.uploadFile({
           file: buffer,
           fileName: originalName,
-          contentType: file.type,
-          context: 'general',
+          contentType,
+          context: uploadContext,
         })
 
         let downloadUrl: string | undefined
@@ -163,7 +196,7 @@ export async function POST(request: NextRequest) {
           try {
             downloadUrl = await storageService.generatePresignedDownloadUrl(
               fileInfo.key,
-              'general',
+              uploadContext,
               24 * 60 * 60 // 24 hours
             )
           } catch (error) {
@@ -174,13 +207,13 @@ export async function POST(request: NextRequest) {
         const uploadResult = {
           name: originalName,
           size: buffer.length,
-          type: file.type,
+          type: contentType,
           key: fileInfo.key,
           path: fileInfo.path,
           url: downloadUrl || fileInfo.path,
           uploadedAt: new Date().toISOString(),
           expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // 24 hours
-          context: 'general',
+          context: uploadContext,
         }
 
         logger.info(`Successfully uploaded: ${fileInfo.key}`)

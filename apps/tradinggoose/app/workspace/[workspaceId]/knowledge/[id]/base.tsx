@@ -82,7 +82,7 @@ const getStatusDisplay = (doc: DocumentData) => {
           </>
         ),
         className:
-          'inline-flex items-center rounded-md bg-yellow-100 px-2 py-1 text-xs font-medium text-primary dark:bg-yellow-900/30 dark:text-primary',
+          'inline-flex items-center rounded-md bg-yellow-50 px-2 py-1 text-xs font-medium text-primary dark:bg-yellow-900/30 dark:text-primary',
       }
     case 'failed':
       return {
@@ -634,7 +634,7 @@ export function KnowledgeBase({
         onChange={handleSearchChange}
         placeholder='Search documents...'
         isLoading={isLoadingDocuments}
-        className='min-w-[220px] flex-1'
+        className='flex-1'
       />
 
       <div className='flex items-center gap-2'>

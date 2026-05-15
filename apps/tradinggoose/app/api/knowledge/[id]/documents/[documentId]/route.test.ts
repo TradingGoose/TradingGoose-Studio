@@ -113,7 +113,12 @@ describe('Document By ID API Route', () => {
       vi.mocked(checkDocumentAccess).mockResolvedValue({
         hasAccess: true,
         document: mockDocument,
-        knowledgeBase: { id: 'kb-123', userId: 'user-123' },
+        knowledgeBase: {
+          id: 'kb-123',
+          userId: 'user-123',
+          workspaceId: null,
+          embeddingModel: 'text-embedding-3-small',
+        },
       })
 
       const req = createMockRequest('GET')
@@ -210,7 +215,12 @@ describe('Document By ID API Route', () => {
       vi.mocked(checkDocumentWriteAccess).mockResolvedValue({
         hasAccess: true,
         document: mockDocument,
-        knowledgeBase: { id: 'kb-123', userId: 'user-123' },
+        knowledgeBase: {
+          id: 'kb-123',
+          userId: 'user-123',
+          workspaceId: null,
+          embeddingModel: 'text-embedding-3-small',
+        },
       })
 
       const updatedDocument = {
@@ -243,7 +253,12 @@ describe('Document By ID API Route', () => {
       vi.mocked(checkDocumentWriteAccess).mockResolvedValue({
         hasAccess: true,
         document: mockDocument,
-        knowledgeBase: { id: 'kb-123', userId: 'user-123' },
+        knowledgeBase: {
+          id: 'kb-123',
+          userId: 'user-123',
+          workspaceId: null,
+          embeddingModel: 'text-embedding-3-small',
+        },
       })
 
       const invalidData = {
@@ -280,7 +295,12 @@ describe('Document By ID API Route', () => {
       vi.mocked(checkDocumentWriteAccess).mockResolvedValue({
         hasAccess: true,
         document: processingDocument,
-        knowledgeBase: { id: 'kb-123', userId: 'user-123' },
+        knowledgeBase: {
+          id: 'kb-123',
+          userId: 'user-123',
+          workspaceId: null,
+          embeddingModel: 'text-embedding-3-small',
+        },
       })
 
       vi.mocked(failStaleDocumentProcessing).mockResolvedValue({
@@ -310,7 +330,12 @@ describe('Document By ID API Route', () => {
       vi.mocked(checkDocumentWriteAccess).mockResolvedValue({
         hasAccess: true,
         document: { ...mockDocument, processingStatus: 'completed' },
-        knowledgeBase: { id: 'kb-123', userId: 'user-123' },
+        knowledgeBase: {
+          id: 'kb-123',
+          userId: 'user-123',
+          workspaceId: null,
+          embeddingModel: 'text-embedding-3-small',
+        },
       })
 
       const req = createMockRequest('PUT', { failStaleProcessing: true })
@@ -336,7 +361,12 @@ describe('Document By ID API Route', () => {
       vi.mocked(checkDocumentWriteAccess).mockResolvedValue({
         hasAccess: true,
         document: failedDocument,
-        knowledgeBase: { id: 'kb-123', userId: 'user-123' },
+        knowledgeBase: {
+          id: 'kb-123',
+          userId: 'user-123',
+          workspaceId: null,
+          embeddingModel: 'text-embedding-3-small',
+        },
       })
 
       vi.mocked(retryDocumentProcessing).mockResolvedValue({
@@ -374,7 +404,12 @@ describe('Document By ID API Route', () => {
       vi.mocked(checkDocumentWriteAccess).mockResolvedValue({
         hasAccess: true,
         document: { ...mockDocument, processingStatus: 'completed' },
-        knowledgeBase: { id: 'kb-123', userId: 'user-123' },
+        knowledgeBase: {
+          id: 'kb-123',
+          userId: 'user-123',
+          workspaceId: null,
+          embeddingModel: 'text-embedding-3-small',
+        },
       })
 
       const req = createMockRequest('PUT', { retryProcessing: true })
@@ -430,7 +465,12 @@ describe('Document By ID API Route', () => {
       vi.mocked(checkDocumentWriteAccess).mockResolvedValue({
         hasAccess: true,
         document: mockDocument,
-        knowledgeBase: { id: 'kb-123', userId: 'user-123' },
+        knowledgeBase: {
+          id: 'kb-123',
+          userId: 'user-123',
+          workspaceId: null,
+          embeddingModel: 'text-embedding-3-small',
+        },
       })
 
       vi.mocked(updateDocument).mockRejectedValue(new Error('Database error'))
@@ -456,7 +496,12 @@ describe('Document By ID API Route', () => {
       vi.mocked(checkDocumentWriteAccess).mockResolvedValue({
         hasAccess: true,
         document: mockDocument,
-        knowledgeBase: { id: 'kb-123', userId: 'user-123' },
+        knowledgeBase: {
+          id: 'kb-123',
+          userId: 'user-123',
+          workspaceId: null,
+          embeddingModel: 'text-embedding-3-small',
+        },
       })
 
       vi.mocked(deleteDocument).mockResolvedValue({
@@ -532,7 +577,12 @@ describe('Document By ID API Route', () => {
       vi.mocked(checkDocumentWriteAccess).mockResolvedValue({
         hasAccess: true,
         document: mockDocument,
-        knowledgeBase: { id: 'kb-123', userId: 'user-123' },
+        knowledgeBase: {
+          id: 'kb-123',
+          userId: 'user-123',
+          workspaceId: null,
+          embeddingModel: 'text-embedding-3-small',
+        },
       })
       vi.mocked(deleteDocument).mockRejectedValue(new Error('Database error'))
 
