@@ -135,10 +135,6 @@ function formatMoney(value: number | null) {
     return 'Custom'
   }
 
-  if (value <= 0) {
-    return 'Free'
-  }
-
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: 'USD',
@@ -155,12 +151,6 @@ function formatNullableNumber(value: number | null, suffix = '') {
 }
 
 function getTierCommerceSummary(tier: AdminBillingTierSnapshot): string {
-  const recurringPrice = Math.max(tier.monthlyPriceUsd ?? 0, tier.yearlyPriceUsd ?? 0)
-
-  if (recurringPrice <= 0) {
-    return 'Free'
-  }
-
   if (tier.isPublic && (tier.stripeMonthlyPriceId || tier.stripeYearlyPriceId)) {
     return 'Self-serve'
   }
@@ -169,11 +159,11 @@ function getTierCommerceSummary(tier: AdminBillingTierSnapshot): string {
 }
 
 function formatTierRecurringPrice(tier: AdminBillingTierSnapshot): string {
-  if (tier.monthlyPriceUsd !== null && tier.monthlyPriceUsd > 0) {
+  if (tier.monthlyPriceUsd !== null) {
     return formatMoney(tier.monthlyPriceUsd)
   }
 
-  if (tier.yearlyPriceUsd !== null && tier.yearlyPriceUsd > 0) {
+  if (tier.yearlyPriceUsd !== null) {
     return `${formatMoney(tier.yearlyPriceUsd)} / yr`
   }
 
@@ -363,8 +353,8 @@ function BillingSettingsCard({
                 <div className='space-y-1'>
                   <p className='font-medium text-sm'>Base Charges</p>
                   <p className='text-muted-foreground text-xs leading-relaxed'>
-                    Platform charges applied before tier-specific multipliers. Workflows are
-                    billed per run, and functions are billed per second of execution time.
+                    Platform charges applied before tier-specific multipliers. Workflows are billed
+                    per run, and functions are billed per second of execution time.
                   </p>
                 </div>
                 <div className='grid gap-4 md:grid-cols-2'>

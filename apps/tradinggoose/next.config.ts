@@ -1,7 +1,7 @@
 import type { NextConfig } from 'next'
 import { isDev, isHosted } from '@/lib/environment'
 import { env, isTruthy } from './lib/env'
-import { getMainCSPPolicy, getWorkflowExecutionCSPPolicy } from './lib/security/csp'
+import { getMainCSPPolicy, readWorkflowExecutionCSPPolicy } from './lib/security/csp'
 
 const MONACO_TRACE_ROOTS = ['./node_modules', './apps/tradinggoose/node_modules'] as const
 const MONACO_TRACE_FILES = MONACO_TRACE_ROOTS.flatMap((root) => [
@@ -78,7 +78,6 @@ const nextConfig: NextConfig = {
     resolveExtensions: ['.tsx', '.ts', '.jsx', '.js', '.mjs', '.json'],
   },
   serverExternalPackages: [
-    'pdf-parse',
     'playwright-core',
     'playwright',
     '@browserbasehq/stagehand',
@@ -172,7 +171,7 @@ const nextConfig: NextConfig = {
           { key: 'Cross-Origin-Opener-Policy', value: 'unsafe-none' },
           {
             key: 'Content-Security-Policy',
-            value: getWorkflowExecutionCSPPolicy(),
+            value: readWorkflowExecutionCSPPolicy(),
           },
         ],
       },

@@ -1,3 +1,4 @@
+import { getCredentialRouteParams } from '@/tools/credentials'
 import type { GmailSendParams, GmailToolResponse } from '@/tools/gmail/types'
 import type { ToolConfig } from '@/tools/types'
 
@@ -83,7 +84,7 @@ export const gmailSendTool: ToolConfig<GmailSendParams, GmailToolResponse> = {
       'Content-Type': 'application/json',
     }),
     body: (params: GmailSendParams) => ({
-      accessToken: params.accessToken,
+      ...getCredentialRouteParams(params),
       to: params.to,
       subject: params.subject,
       body: params.body,

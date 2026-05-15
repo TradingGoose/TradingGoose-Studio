@@ -3,11 +3,11 @@ import type { McpTransport } from '@/lib/mcp/types'
 export interface McpServerWithStatus {
   id: string
   name: string
-  description?: string
+  description?: string | null
   transport: McpTransport
-  url?: string
+  url?: string | null
   headers?: Record<string, string>
-  command?: string
+  command?: string | null
   args?: string[]
   env?: Record<string, string>
   timeout?: number

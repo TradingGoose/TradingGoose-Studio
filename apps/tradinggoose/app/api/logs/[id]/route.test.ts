@@ -77,11 +77,16 @@ vi.mock('@tradinggoose/db/schema', () => ({
     id: 'workflowFolder.id',
     name: 'workflowFolder.name',
   },
+  workspace: {
+    id: 'workspace.id',
+    ownerId: 'workspace.ownerId',
+  },
 }))
 
 vi.mock('drizzle-orm', () => ({
   and: vi.fn((...conditions: unknown[]) => ({ conditions, type: 'and' })),
   eq: vi.fn((field: unknown, value: unknown) => ({ field, type: 'eq', value })),
+  or: vi.fn((...conditions: unknown[]) => ({ conditions, type: 'or' })),
 }))
 
 vi.mock('@/lib/auth', () => ({
@@ -151,6 +156,17 @@ const expectLogAnchoredWorkflowFolderJoin = () => {
   expect(mockLeftJoin.mock.invocationCallOrder[1]).toBeLessThan(
     mockInnerJoin.mock.invocationCallOrder[0]!
   )
+  expect(mockInnerJoin).toHaveBeenCalledWith(
+    expect.objectContaining({
+      id: 'workspace.id',
+      ownerId: 'workspace.ownerId',
+    }),
+    {
+      field: 'workspace.id',
+      type: 'eq',
+      value: 'workflowExecutionLogs.workspaceId',
+    }
+  )
 }
 
 describe('log detail route', () => {
@@ -171,7 +187,7 @@ describe('log detail route', () => {
     expect(await response.json()).toEqual({ error: 'Unauthorized' })
   })
 
-  it('serializes canonical durationMs without the legacy executionData alias', async () => {
+  it('serializes canonical durationMs only', async () => {
     const { GET } = await import('./route')
     const response = await GET(new NextRequest('http://localhost/api/logs/log-1'), {
       params: Promise.resolve({ id: 'log-1' }),
@@ -199,7 +215,7 @@ describe('log detail route', () => {
     ])
   })
 
-  it('fails instead of falling back to createdAt when startedAt is missing', async () => {
+  it('rejects rows missing the canonical startedAt timestamp', async () => {
     mockLimit.mockResolvedValue([buildRow({ startedAt: null })])
     const { GET } = await import('./route')
     const response = await GET(new NextRequest('http://localhost/api/logs/log-1'), {

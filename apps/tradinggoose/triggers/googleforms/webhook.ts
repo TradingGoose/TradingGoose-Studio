@@ -65,7 +65,6 @@ export const googleFormsWebhookTrigger: TriggerConfig = {
       type: 'trigger-save',
       hideFromPreview: true,
       mode: 'trigger',
-      triggerId: 'google_forms_webhook',
     },
     {
       id: 'triggerInstructions',

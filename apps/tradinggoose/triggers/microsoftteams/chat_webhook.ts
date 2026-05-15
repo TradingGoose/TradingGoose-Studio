@@ -79,7 +79,6 @@ export const microsoftTeamsChatSubscriptionTrigger: TriggerConfig = {
       type: 'trigger-save',
       hideFromPreview: true,
       mode: 'trigger',
-      triggerId: 'microsoftteams_chat_subscription',
       condition: {
         field: 'selectedTriggerId',
         value: 'microsoftteams_chat_subscription',

@@ -11,16 +11,18 @@ import type {
   ToolInput,
 } from '@/executor/handlers/agent/types'
 import type { BlockHandler, ExecutionContext, StreamingExecution } from '@/executor/types'
+import { getBlockToolExecutionId } from '@/executor/handlers/tool-execution-context'
 import { getProviderFromModel, transformBlockTool } from '@/providers/ai/utils'
 import type { SerializedBlock } from '@/serializer/types'
 import { executeTool } from '@/tools'
+import { createLLMToolSchema } from '@/tools/params'
 import { getTool, getToolAsync } from '@/tools/utils'
 import {
   buildLoadSkillTool,
   buildSkillsSystemPromptSection,
   createSkillLoaderToolId,
-  resolveSkillMetadata,
-} from './skills-resolver'
+} from './skill-loader'
+import { resolveSkillMetadata } from './skills-resolver'
 
 const logger = createLogger('AgentBlockHandler')
 
@@ -80,7 +82,7 @@ export class AgentBlockHandler implements BlockHandler {
       : []
     const skillMetadata =
       skillInputs.length > 0 && context.workspaceId
-        ? await resolveSkillMetadata(skillInputs, context.workspaceId, context.workflowId)
+        ? await resolveSkillMetadata(skillInputs, context.workspaceId)
         : []
     const skillLoaderToolId =
       skillMetadata.length > 0
@@ -110,6 +112,7 @@ export class AgentBlockHandler implements BlockHandler {
       inputs,
       formattedTools,
       responseFormat,
+      block,
       context,
       streaming: streamingConfig.shouldUseStreaming ?? false,
     })
@@ -404,6 +407,7 @@ export class AgentBlockHandler implements BlockHandler {
       getToolAsync: (toolId: string) =>
         getToolAsync(toolId, context.workflowId, context.workspaceId, context.userId),
       getTool,
+      createLLMToolSchema,
     })
 
     if (transformedTool) {
@@ -413,14 +417,16 @@ export class AgentBlockHandler implements BlockHandler {
   }
 
   private getStreamingConfig(block: SerializedBlock, context: ExecutionContext): StreamingConfig {
+    const selectedOutputs = context.selectedOutputs ?? []
     const isBlockSelectedForOutput =
-      context.selectedOutputs?.some((outputId) => {
+      selectedOutputs.length === 0 ||
+      selectedOutputs.some((outputId) => {
         if (outputId === block.id) return true
         const firstUnderscoreIndex = outputId.indexOf('_')
         return (
           firstUnderscoreIndex !== -1 && outputId.substring(0, firstUnderscoreIndex) === block.id
         )
-      }) ?? false
+      })
 
     const hasOutgoingConnections = context.edges?.some((edge) => edge.source === block.id) ?? false
     const shouldUseStreaming = Boolean(context.stream) && isBlockSelectedForOutput
@@ -556,6 +562,7 @@ export class AgentBlockHandler implements BlockHandler {
     inputs: AgentInputs
     formattedTools: any[]
     responseFormat: any
+    block: SerializedBlock
     context: ExecutionContext
     streaming: boolean
   }) {
@@ -566,6 +573,7 @@ export class AgentBlockHandler implements BlockHandler {
       inputs,
       formattedTools,
       responseFormat,
+      block,
       context,
       streaming,
     } = config
@@ -591,6 +599,7 @@ export class AgentBlockHandler implements BlockHandler {
       workspaceId: context.workspaceId,
       workflowLogId: context.workflowLogId,
       submissionSource: context.submissionSource,
+      toolExecutionId: getBlockToolExecutionId(block, context),
       stream: streaming,
       messages,
       environmentVariables: context.environmentVariables || {},

@@ -13,6 +13,7 @@ export const REVIEW_ENTITY_KINDS = [
 ] as const
 
 export type ReviewEntityKind = (typeof REVIEW_ENTITY_KINDS)[number]
+export type ReviewAccessMode = 'read' | 'write'
 
 export interface ReviewTargetDescriptor {
   workspaceId: string | null
@@ -36,7 +37,7 @@ export interface ResolvedReviewTarget {
   runtime: ReviewTargetRuntimeState | null
 }
 
-export const YJS_TARGET_KINDS = ['workflow', 'review_session'] as const
+export const YJS_TARGET_KINDS = ['workflow', 'entity', 'review_session'] as const
 
 export type YjsTargetKind = (typeof YJS_TARGET_KINDS)[number]
 

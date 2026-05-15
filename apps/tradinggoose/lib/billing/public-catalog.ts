@@ -42,12 +42,12 @@ function getPrimaryRecurringPrice(tier: {
   monthlyPriceUsd: number | null
   yearlyPriceUsd: number | null
 }): { value: number; period: '/mo' | '/yr' | null } {
-  if ((tier.monthlyPriceUsd ?? 0) > 0) {
-    return { value: tier.monthlyPriceUsd ?? 0, period: '/mo' }
+  if (tier.monthlyPriceUsd !== null) {
+    return { value: tier.monthlyPriceUsd, period: '/mo' }
   }
 
-  if ((tier.yearlyPriceUsd ?? 0) > 0) {
-    return { value: tier.yearlyPriceUsd ?? 0, period: '/yr' }
+  if (tier.yearlyPriceUsd !== null) {
+    return { value: tier.yearlyPriceUsd, period: '/yr' }
   }
 
   return { value: 0, period: null }
@@ -78,13 +78,7 @@ function describePrice(
     return 'custom'
   }
 
-  const price = getPrimaryRecurringPrice(tier)
-
-  if (price.value <= 0) {
-    return 'free'
-  }
-
-  return `$${price.value.toFixed(0)}${price.period}`
+  return `${formatBillingPriceLabel(tier)}${formatBillingPricePeriod(tier) ?? ''}`
 }
 
 export function formatBillingPriceLabel(tier: {
@@ -92,10 +86,6 @@ export function formatBillingPriceLabel(tier: {
   yearlyPriceUsd: number | null
 }): string {
   const price = getPrimaryRecurringPrice(tier)
-
-  if (price.value <= 0) {
-    return 'Free'
-  }
 
   return `$${price.value.toFixed(0)}`
 }
@@ -112,9 +102,7 @@ export function buildHostedPricingSummary(catalog: PublicBillingCatalog): string
     const price = formatBillingPriceLabel(tier)
     const period = formatBillingPricePeriod(tier)
 
-    return price === 'Free'
-      ? `${tier.displayName} free`
-      : `${tier.displayName} ${price}${period ?? ''}`
+    return `${tier.displayName} ${price}${period ?? ''}`
   })
 
   if (catalog.enterprisePlaceholder) {

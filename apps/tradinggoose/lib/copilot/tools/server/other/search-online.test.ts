@@ -22,63 +22,29 @@ describe('searchOnlineServerTool', () => {
     resolveSerperServiceConfig.mockResolvedValue({ apiKey: null })
   })
 
-  it('falls back to DuckDuckGo when premium search keys are unavailable', async () => {
+  it('fails when no search service credentials are configured', async () => {
     const { searchOnlineServerTool } = await import('./search-online')
 
-    executeTool.mockImplementation(async (toolName: string) => {
-      if (toolName !== 'duckduckgo_search') {
-        throw new Error(`Unexpected tool call: ${toolName}`)
-      }
+    await expect(
+      searchOnlineServerTool.execute({
+        query: 'TradingAgents Tauric Research',
+        num: 2,
+      })
+    ).rejects.toThrow('Search service credentials are not configured')
+    expect(executeTool).not.toHaveBeenCalled()
+  })
 
-      return {
-        success: true,
-        output: {
-          heading: 'TradingAgents',
-          abstractText: 'TradingAgents is an open-source multi-agent trading research project.',
-          abstractURL: 'https://github.com/TauricResearch/TradingAgents',
-          results: [
-            {
-              FirstURL: 'https://github.com/TauricResearch/TradingAgents',
-              Text: 'TradingAgents - GitHub repository',
-            },
-          ],
-          relatedTopics: [
-            {
-              FirstURL: 'https://tauric.ai/',
-              Text: 'Tauric Research - company website',
-            },
-          ],
-        },
-      }
-    })
+  it('requires Serper for typed searches', async () => {
+    const { searchOnlineServerTool } = await import('./search-online')
+    resolveExaServiceConfig.mockResolvedValue({ apiKey: 'exa-key' })
 
-    const result = await searchOnlineServerTool.execute({
-      query: 'TradingAgents Tauric Research',
-      num: 2,
-      type: 'news',
-    })
-
-    expect(executeTool).toHaveBeenCalledWith('duckduckgo_search', {
-      query: 'TradingAgents Tauric Research',
-      noHtml: true,
-      skipDisambig: false,
-    })
-    expect(result.source).toBe('duckduckgo')
-    expect(result.type).toBe('search')
-    expect(result.requestedType).toBe('news')
-    expect(result.totalResults).toBe(2)
-    expect(result.results).toEqual([
-      expect.objectContaining({
-        title: 'TradingAgents',
-        link: 'https://github.com/TauricResearch/TradingAgents',
-      }),
-      expect.objectContaining({
-        title: 'Tauric Research',
-        link: 'https://tauric.ai/',
-      }),
-    ])
-    expect(result.warnings?.[0]).toContain('DuckDuckGo fallback')
-    expect(result.warnings?.[1]).toContain('Requested "news"')
+    await expect(
+      searchOnlineServerTool.execute({
+        query: 'TradingAgents Tauric Research',
+        type: 'news',
+      })
+    ).rejects.toThrow('Serper service credentials are required for news search')
+    expect(executeTool).not.toHaveBeenCalled()
   })
 
   it('returns Exa results when Exa search succeeds', async () => {
@@ -105,12 +71,18 @@ describe('searchOnlineServerTool', () => {
       num: 3,
     })
 
-    expect(executeTool).toHaveBeenCalledWith('exa_search', {
-      query: 'TradingAgents Tauric Research',
-      numResults: 3,
-      type: 'auto',
-      apiKey: 'exa-key',
-    })
+    expect(executeTool).toHaveBeenCalledWith(
+      'exa_search',
+      {
+        query: 'TradingAgents Tauric Research',
+        numResults: 3,
+        type: 'auto',
+        apiKey: 'exa-key',
+      },
+      false,
+      undefined,
+      { signal: undefined }
+    )
     expect(result).toEqual({
       results: [
         {
@@ -160,18 +132,21 @@ describe('searchOnlineServerTool', () => {
       type: 'news',
     })
 
-    expect(executeTool).toHaveBeenCalledWith('serper_search', {
-      query: 'TradingAgents Tauric Research',
-      num: 3,
-      type: 'news',
-      gl: undefined,
-      hl: undefined,
-      apiKey: 'serper-key',
-    })
-    expect(executeTool).not.toHaveBeenCalledWith(
-      'exa_search',
-      expect.anything()
+    expect(executeTool).toHaveBeenCalledWith(
+      'serper_search',
+      {
+        query: 'TradingAgents Tauric Research',
+        num: 3,
+        type: 'news',
+        gl: undefined,
+        hl: undefined,
+        apiKey: 'serper-key',
+      },
+      false,
+      undefined,
+      { signal: undefined }
     )
+    expect(executeTool).not.toHaveBeenCalledWith('exa_search', expect.anything())
     expect(result).toEqual({
       results: [
         {

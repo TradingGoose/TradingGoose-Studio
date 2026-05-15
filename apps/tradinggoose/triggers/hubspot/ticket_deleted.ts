@@ -98,7 +98,6 @@ export const hubspotTicketDeletedTrigger: TriggerConfig = {
       title: '',
       type: 'trigger-save',
       mode: 'trigger',
-      triggerId: 'hubspot_ticket_deleted',
       condition: {
         field: 'selectedTriggerId',
         value: 'hubspot_ticket_deleted',

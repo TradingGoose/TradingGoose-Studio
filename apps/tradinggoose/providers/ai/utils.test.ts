@@ -431,24 +431,16 @@ describe('Cost Calculation', () => {
 })
 
 describe('getHostedModels', () => {
-  it.concurrent('should return OpenAI, Anthropic, and Google models as hosted', () => {
+  it.concurrent('should allow no platform-hosted models', () => {
     const hostedModels = getHostedModels()
 
-    expect(hostedModels).toContain('gpt-4.1')
-    expect(hostedModels).toContain('claude-sonnet-4-0')
-    expect(hostedModels).toContain('o1')
-    expect(hostedModels).toContain('claude-opus-4-0')
-    expect(hostedModels).toContain('gemini-2.5-pro')
-
-    // Should not contain models from other providers
-    expect(hostedModels).not.toContain('deepseek-v3')
+    expect(hostedModels).toEqual([])
   })
 
   it.concurrent('should return an array of strings', () => {
     const hostedModels = getHostedModels()
 
     expect(Array.isArray(hostedModels)).toBe(true)
-    expect(hostedModels.length).toBeGreaterThan(0)
     hostedModels.forEach((model) => {
       expect(typeof model).toBe('string')
     })

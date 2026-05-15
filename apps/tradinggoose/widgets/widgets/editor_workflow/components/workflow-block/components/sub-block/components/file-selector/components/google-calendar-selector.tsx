@@ -36,6 +36,7 @@ interface GoogleCalendarSelectorProps {
   onCalendarInfoChange?: (info: GoogleCalendarInfo | null) => void
   credentialId: string
   workflowId?: string
+  workspaceId?: string
 }
 
 export function GoogleCalendarSelector({
@@ -47,6 +48,7 @@ export function GoogleCalendarSelector({
   onCalendarInfoChange,
   credentialId,
   workflowId,
+  workspaceId,
 }: GoogleCalendarSelectorProps) {
   const [open, setOpen] = useState(false)
   const [calendars, setCalendars] = useState<GoogleCalendarInfo[]>([])
@@ -66,6 +68,8 @@ export function GoogleCalendarSelector({
     })
     if (workflowId) {
       queryParams.set('workflowId', workflowId)
+    } else if (workspaceId) {
+      queryParams.set('workspaceId', workspaceId)
     }
 
     const response = await fetch(`/api/tools/google_calendar/calendars?${queryParams.toString()}`)
@@ -77,7 +81,7 @@ export function GoogleCalendarSelector({
 
     const data = await response.json()
     return data.calendars || []
-  }, [credentialId])
+  }, [credentialId, workflowId, workspaceId])
 
   const fetchCalendars = useCallback(async () => {
     setIsLoading(true)

@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo } from 'react'
+import { Notebook } from 'lucide-react'
 import Link from 'next/link'
 import {
   SidebarGroup,
@@ -23,10 +24,17 @@ interface SidebarNavProps {
   navItems: NavSection[]
 }
 
+const DOCUMENTATION_NAV_ITEM: NavSection = {
+  title: 'Documentation',
+  url: 'https://docs.tradinggoose.ai',
+  icon: Notebook,
+  section: 'more',
+}
+
 export function SidebarNav({ navItems }: SidebarNavProps) {
   const workspaceItems = navItems.filter((item) => (item.section ?? 'workspace') === 'workspace')
   const adminItems = navItems.filter((item) => item.section === 'admin')
-  const moreItems = navItems.filter((item) => item.section === 'more')
+  const moreItems = withDocumentationItem(navItems.filter((item) => item.section === 'more'))
 
   return (
     <>
@@ -35,6 +43,23 @@ export function SidebarNav({ navItems }: SidebarNavProps) {
       {renderNavGroup('More', moreItems)}
     </>
   )
+}
+
+function withDocumentationItem(items: NavSection[]) {
+  if (!items.length || items.some((item) => item.title === DOCUMENTATION_NAV_ITEM.title)) {
+    return items
+  }
+
+  const integrationsIndex = items.findIndex((item) => item.title === 'Integrations')
+  if (integrationsIndex === -1) {
+    return [...items, DOCUMENTATION_NAV_ITEM]
+  }
+
+  return [
+    ...items.slice(0, integrationsIndex + 1),
+    DOCUMENTATION_NAV_ITEM,
+    ...items.slice(integrationsIndex + 1),
+  ]
 }
 
 function renderNavGroup(label: string, items: NavSection[]) {
@@ -46,16 +71,24 @@ function renderNavGroup(label: string, items: NavSection[]) {
     <SidebarGroup>
       <SidebarGroupLabel>{label}</SidebarGroupLabel>
       <SidebarMenu>
-        {items.map((item) => (
-          <SidebarMenuItem key={item.title}>
-            <SidebarMenuButton asChild isActive={item.isActive} tooltip={item.title}>
-              <Link href={item.url}>
-                <item.icon />
-                <span>{item.title}</span>
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        ))}
+        {items.map((item) => {
+          const isExternal = item.url.startsWith('http')
+
+          return (
+            <SidebarMenuItem key={item.title}>
+              <SidebarMenuButton asChild isActive={item.isActive} tooltip={item.title}>
+                <Link
+                  href={item.url}
+                  target={isExternal ? '_blank' : undefined}
+                  rel={isExternal ? 'noopener noreferrer' : undefined}
+                >
+                  <item.icon />
+                  <span>{item.title}</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          )
+        })}
       </SidebarMenu>
     </SidebarGroup>
   )

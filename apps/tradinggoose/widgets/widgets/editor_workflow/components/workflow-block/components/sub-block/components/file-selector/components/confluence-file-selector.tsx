@@ -47,6 +47,7 @@ interface ConfluenceFileSelectorProps {
   onFileInfoChange?: (fileInfo: ConfluenceFileInfo | null) => void
   credentialId?: string
   workflowId?: string
+  workspaceId?: string
   isForeignCredential?: boolean
 }
 
@@ -63,6 +64,7 @@ export function ConfluenceFileSelector({
   onFileInfoChange,
   credentialId,
   workflowId,
+  workspaceId,
   isForeignCredential = false,
 }: ConfluenceFileSelectorProps) {
   const [open, setOpen] = useState(false)
@@ -127,7 +129,10 @@ export function ConfluenceFileSelector({
     setIsLoading(true)
     try {
       const providerId = getProviderId()
-      const response = await fetch(`/api/auth/oauth/credentials?provider=${providerId}`)
+      const query = new URLSearchParams({ provider: providerId })
+      if (workflowId) query.set('workflowId', workflowId)
+      else if (workspaceId) query.set('workspaceId', workspaceId)
+      const response = await fetch(`/api/auth/oauth/credentials?${query.toString()}`)
 
       if (response.ok) {
         const data = await response.json()
@@ -138,7 +143,7 @@ export function ConfluenceFileSelector({
     } finally {
       setIsLoading(false)
     }
-  }, [provider, getProviderId, selectedCredentialId])
+  }, [provider, getProviderId, selectedCredentialId, workflowId, workspaceId])
 
   // Fetch page info when we have a selected file ID
   const fetchPageInfo = useCallback(
@@ -158,27 +163,6 @@ export function ConfluenceFileSelector({
       setError(null)
 
       try {
-        // Get the access token from the selected credential
-        const tokenResponse = await fetch('/api/auth/oauth/token', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            credentialId: selectedCredentialId,
-            workflowId,
-          }),
-        })
-
-        if (!tokenResponse.ok) {
-          const errorData = await tokenResponse.json()
-          throw new Error(errorData.error || 'Failed to get access token')
-        }
-
-        const tokenData = await tokenResponse.json()
-        const accessToken = tokenData.accessToken
-
-        // Use the access token to fetch the page info
         const response = await fetch('/api/tools/confluence/page', {
           method: 'POST',
           headers: {
@@ -186,7 +170,8 @@ export function ConfluenceFileSelector({
           },
           body: JSON.stringify({
             domain,
-            accessToken,
+            credentialId: selectedCredentialId,
+            ...(workflowId ? { workflowId } : workspaceId ? { workspaceId } : {}),
             pageId,
           }),
         })
@@ -220,7 +205,7 @@ export function ConfluenceFileSelector({
         setIsLoading(false)
       }
     },
-    [selectedCredentialId, domain, onFileInfoChange, workflowId]
+    [selectedCredentialId, domain, onFileInfoChange, workflowId, workspaceId]
   )
 
   // Fetch pages from Confluence
@@ -244,39 +229,6 @@ export function ConfluenceFileSelector({
       setError(null)
 
       try {
-        // Get the access token from the selected credential
-        const tokenResponse = await fetch('/api/auth/oauth/token', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            credentialId: selectedCredentialId,
-            workflowId,
-          }),
-        })
-
-        if (!tokenResponse.ok) {
-          const errorData = await tokenResponse.json()
-          logger.error('Access token error:', errorData)
-
-          // If there's a token error, we might need to reconnect the account
-          setError('Authentication failed. Please reconnect your Confluence account.')
-          setIsLoading(false)
-          return
-        }
-
-        const tokenData = await tokenResponse.json()
-        const accessToken = tokenData.accessToken
-
-        if (!accessToken) {
-          logger.error('No access token returned')
-          setError('Authentication failed. Please reconnect your Confluence account.')
-          setIsLoading(false)
-          return
-        }
-
-        // Simply fetch pages directly using the endpoint
         const response = await fetch('/api/tools/confluence/pages', {
           method: 'POST',
           headers: {
@@ -284,7 +236,8 @@ export function ConfluenceFileSelector({
           },
           body: JSON.stringify({
             domain,
-            accessToken,
+            credentialId: selectedCredentialId,
+            ...(workflowId ? { workflowId } : workspaceId ? { workspaceId } : {}),
             title: searchQuery || undefined,
             limit: 50,
           }),
@@ -332,6 +285,7 @@ export function ConfluenceFileSelector({
       onFileInfoChange,
       fetchPageInfo,
       workflowId,
+      workspaceId,
       isForeignCredential,
     ]
   )

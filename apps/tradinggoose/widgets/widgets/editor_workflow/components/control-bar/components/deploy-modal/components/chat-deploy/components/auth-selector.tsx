@@ -1,15 +1,15 @@
 import { useState } from 'react'
 import { Check, Copy, Eye, EyeOff, Plus, RefreshCw, Trash2 } from 'lucide-react'
 import { Button, Card, CardContent, Input, Label } from '@/components/ui'
+import type { ChatAuthType } from '@/lib/chat/deployment-config'
 import { getEnv, isTruthy } from '@/lib/env'
 import { cn, generatePassword } from '@/lib/utils'
-import type { AuthType } from '@/widgets/widgets/editor_workflow/components/control-bar/components/deploy-modal/components/chat-deploy/hooks/use-chat-form'
 
 interface AuthSelectorProps {
-  authType: AuthType
+  authType: ChatAuthType
   password: string
   emails: string[]
-  onAuthTypeChange: (type: AuthType) => void
+  onAuthTypeChange: (type: ChatAuthType) => void
   onPasswordChange: (password: string) => void
   onEmailsChange: (emails: string[]) => void
   disabled?: boolean

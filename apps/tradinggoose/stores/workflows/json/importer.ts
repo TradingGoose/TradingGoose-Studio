@@ -108,8 +108,7 @@ function regenerateIds(workflowState: WorkflowState): WorkflowState {
 
 export function parseWorkflowJson(
   jsonContent: string,
-  regenerateIdsFlag = true,
-  options: { fallbackName?: string } = {}
+  regenerateIdsFlag = true
 ): {
   data: WorkflowTransferRecord | null
   errors: string[]
@@ -138,9 +137,7 @@ export function parseWorkflowJson(
       exportedFrom: (data as Record<string, unknown>).exportedFrom,
     })
 
-    const parsed = parseImportedWorkflowFile(data, {
-      fallbackName: options.fallbackName,
-    })
+    const parsed = parseImportedWorkflowFile(data)
 
     if (!parsed.data || parsed.errors.length > 0) {
       return parsed

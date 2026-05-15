@@ -1,5 +1,4 @@
 import { Grid2x2, Grid2x2Check, Grid2x2X, Loader2, MinusCircle, XCircle } from 'lucide-react'
-import { shouldBypassCopilotApproval } from '@/lib/copilot/access-policy'
 import {
   BaseClientTool,
   type BaseClientToolMetadata,
@@ -17,7 +16,7 @@ import {
 import { createLogger } from '@/lib/logs/console/logger'
 import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
 import { setWorkflowState } from '@/lib/yjs/workflow-session'
-import { getRegisteredWorkflowSession } from '@/lib/yjs/workflow-session-registry'
+import { acquireWritableWorkflowSessionLease } from '@/lib/yjs/workflow-shared-session'
 import { getCopilotStoreForToolCall } from '@/stores/copilot/store-access'
 
 interface EditWorkflowArgs {
@@ -104,14 +103,25 @@ export class EditWorkflowClientTool extends BaseClientTool {
         workflowId: requestedWorkflowId,
       })
       this.lastWorkflowId = workflowId
-      const session = getRegisteredWorkflowSession(workflowId)
+      const lease = await acquireWritableWorkflowSessionLease({
+        workflowId,
+        workspaceId:
+          (typeof stagedResult.workspaceId === 'string' ? stagedResult.workspaceId : undefined) ??
+          executionContext.workspaceId ??
+          null,
+      })
 
-      if (session && !this.hasAppliedState) {
-        setWorkflowState(session.doc, stagedResult.workflowState, YJS_ORIGINS.COPILOT_REVIEW_ACCEPT)
-        this.hasAppliedState = true
-      }
-      if (!session) {
-        await this.applyAcceptedWorkflowState(workflowId, stagedResult.workflowState)
+      try {
+        if (!this.hasAppliedState) {
+          setWorkflowState(
+            lease.session.doc,
+            stagedResult.workflowState,
+            YJS_ORIGINS.COPILOT_REVIEW_ACCEPT
+          )
+          this.hasAppliedState = true
+        }
+      } finally {
+        lease.release()
       }
 
       this.setState(ClientToolCallState.success)
@@ -127,31 +137,6 @@ export class EditWorkflowClientTool extends BaseClientTool {
       this.setState(ClientToolCallState.error)
       await this.markToolComplete(500, message || 'Failed to apply workflow edits')
     }
-  }
-
-  private async applyAcceptedWorkflowState(workflowId: string, workflowState: Record<string, any>) {
-    const response = await fetch(`/api/workflows/${workflowId}/apply-live-state`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        workflowState,
-      }),
-    })
-
-    if (response.ok) {
-      return
-    }
-
-    let errorMessage = `Failed to apply accepted workflow edits (${response.status})`
-
-    try {
-      const errorData = await response.json()
-      if (errorData?.error) {
-        errorMessage = String(errorData.error)
-      }
-    } catch {}
-
-    throw new Error(errorMessage)
   }
 
   protected getRejectCompletionMessage(): string {
@@ -217,7 +202,6 @@ export class EditWorkflowClientTool extends BaseClientTool {
       this.lastWorkflowId = workflowId
 
       let currentWorkflowState: string | undefined
-
       try {
         currentWorkflowState = JSON.stringify(
           (await getReadableWorkflowState(executionContext, workflowId)).workflowState
@@ -233,6 +217,7 @@ export class EditWorkflowClientTool extends BaseClientTool {
       const result = (await executeCopilotServerTool({
         toolName: this.getServerToolName(),
         payload: this.buildServerPayload(workflowId, args, currentWorkflowState),
+        signal: this.getAbortSignal(),
       })) as any
       if (!result.workflowState) {
         throw new Error('No workflow state returned from server')
@@ -258,16 +243,6 @@ export class EditWorkflowClientTool extends BaseClientTool {
           : 0,
       })
 
-      const accessLevel = getCopilotStoreForToolCall(this.toolCallId).getState().accessLevel
-      if (shouldBypassCopilotApproval(accessLevel)) {
-        logger.info('Auto-applying workflow edits for full access session', {
-          toolCallId: this.toolCallId,
-        })
-        await this.handleAccept()
-        return
-      }
-
-      // Move into review state and wait for user approval/rejection to mark complete
       this.setState(ClientToolCallState.review, { result: this.lastResult })
     } catch (error: any) {
       const message = error instanceof Error ? error.message : String(error)

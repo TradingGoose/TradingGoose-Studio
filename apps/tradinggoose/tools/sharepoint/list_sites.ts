@@ -24,11 +24,11 @@ export const listSitesTool: ToolConfig<SharepointToolParams, SharepointReadSiteR
       visibility: 'hidden',
       description: 'The access token for the SharePoint API',
     },
-    siteSelector: {
+    siteId: {
       type: 'string',
       required: false,
       visibility: 'user-only',
-      description: 'Select the SharePoint site',
+      description: 'The ID of the SharePoint site',
     },
     groupId: {
       type: 'string',
@@ -45,10 +45,9 @@ export const listSitesTool: ToolConfig<SharepointToolParams, SharepointReadSiteR
       if (params.groupId) {
         // Access group team site
         baseUrl = `https://graph.microsoft.com/v1.0/groups/${params.groupId}/sites/root`
-      } else if (params.siteId || params.siteSelector) {
+      } else if (params.siteId) {
         // Access specific site by ID
-        const siteId = params.siteId || params.siteSelector
-        baseUrl = `https://graph.microsoft.com/v1.0/sites/${siteId}`
+        baseUrl = `https://graph.microsoft.com/v1.0/sites/${params.siteId}`
       } else {
         // get all sites
         baseUrl = 'https://graph.microsoft.com/v1.0/sites?search=*'

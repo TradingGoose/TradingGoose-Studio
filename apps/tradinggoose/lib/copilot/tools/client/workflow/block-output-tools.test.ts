@@ -1,11 +1,20 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ToolResultSchemas } from '@/lib/copilot/registry'
 import { ClientToolCallState } from '@/lib/copilot/tools/client/base-tool'
-import { GetBlockOutputsClientTool } from '@/lib/copilot/tools/client/workflow/get-block-outputs'
-import { GetBlockUpstreamReferencesClientTool } from '@/lib/copilot/tools/client/workflow/get-block-upstream-references'
+import { ReadBlockOutputsClientTool } from '@/lib/copilot/tools/client/workflow/read-block-outputs'
+import { ReadBlockUpstreamReferencesClientTool } from '@/lib/copilot/tools/client/workflow/read-block-upstream-references'
 
 const mockGetReadableWorkflowState = vi.fn()
 const originalFetch = globalThis.fetch
+const mockCopilotState = {
+  toolCallsById: {} as Record<string, { params?: Record<string, unknown>; state?: string }>,
+}
+
+vi.mock('@/stores/copilot/store-access', () => ({
+  getCopilotStoreForToolCall: () => ({
+    getState: () => mockCopilotState,
+  }),
+}))
 
 vi.mock('@/lib/copilot/tools/client/workflow/workflow-review-tool-utils', () => ({
   getReadableWorkflowState: (...args: unknown[]) => mockGetReadableWorkflowState(...args),
@@ -43,9 +52,10 @@ describe('workflow output tools', () => {
     vi.unstubAllGlobals?.()
     globalThis.fetch = originalFetch
     mockGetReadableWorkflowState.mockReset()
+    mockCopilotState.toolCallsById = {}
   })
 
-  it('get_block_outputs returns structured output entries with paths and types', async () => {
+  it('read_block_outputs returns structured output entries with paths and types', async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = typeof input === 'string' ? input : input.toString()
       const method = init?.method || 'GET'
@@ -82,11 +92,11 @@ describe('workflow output tools', () => {
       source: 'live',
     })
 
-    const toolCallId = 'get-block-outputs'
-    const tool = new GetBlockOutputsClientTool(toolCallId)
+    const toolCallId = 'read-block-outputs'
+    const tool = new ReadBlockOutputsClientTool(toolCallId)
     tool.setExecutionContext({
       toolCallId,
-      toolName: 'get_block_outputs',
+      toolName: 'read_block_outputs',
       workflowId: 'wf-1',
       log: vi.fn(),
     })
@@ -125,13 +135,13 @@ describe('workflow output tools', () => {
       },
     ])
     expect(
-      ToolResultSchemas.get_block_outputs.parse({
+      ToolResultSchemas.read_block_outputs.parse({
         blocks: markCompleteBody.data.blocks,
       })
     ).toBeDefined()
   })
 
-  it('get_block_upstream_references returns structured accessible output entries with paths and types', async () => {
+  it('read_block_upstream_references returns structured accessible output entries with paths and types', async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = typeof input === 'string' ? input : input.toString()
       const method = init?.method || 'GET'
@@ -166,11 +176,11 @@ describe('workflow output tools', () => {
       source: 'live',
     })
 
-    const toolCallId = 'get-block-upstream-references'
-    const tool = new GetBlockUpstreamReferencesClientTool(toolCallId)
+    const toolCallId = 'read-block-upstream-references'
+    const tool = new ReadBlockUpstreamReferencesClientTool(toolCallId)
     tool.setExecutionContext({
       toolCallId,
-      toolName: 'get_block_upstream_references',
+      toolName: 'read_block_upstream_references',
       workflowId: 'wf-1',
       log: vi.fn(),
     })
@@ -210,6 +220,8 @@ describe('workflow output tools', () => {
         ],
       },
     ])
-    expect(ToolResultSchemas.get_block_upstream_references.parse(markCompleteBody.data)).toBeDefined()
+    expect(
+      ToolResultSchemas.read_block_upstream_references.parse(markCompleteBody.data)
+    ).toBeDefined()
   })
 })

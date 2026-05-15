@@ -4,12 +4,17 @@ import * as Y from 'yjs'
 import type { WebsocketProvider } from 'y-websocket'
 import type { ReviewTargetDescriptor } from '@/lib/copilot/review-sessions/types'
 import { deriveUserColor } from '@/lib/utils'
-import { bootstrapYjsProvider, type YjsProviderBootstrapResult } from '@/lib/yjs/provider'
-import { getVariablesMap, getWorkflowMap, getWorkflowTextFieldsMap } from '@/lib/yjs/workflow-session'
+import {
+  bootstrapYjsProvider,
+  waitForYjsWriteSync,
+  type YjsProviderBootstrapResult,
+} from '@/lib/yjs/provider'
+import { getVariablesMap, readWorkflowMap, readWorkflowTextFieldsMap } from '@/lib/yjs/workflow-session'
 import { createYjsUndoTrackedOrigins } from '@/lib/yjs/transaction-origins'
 import {
   registerWorkflowSession,
   unregisterWorkflowSession,
+  type RegisteredWorkflowSession,
 } from '@/lib/yjs/workflow-session-registry'
 
 export interface SharedWorkflowSessionState {
@@ -166,7 +171,7 @@ async function initializeSharedSession(entry: SharedWorkflowSessionEntry): Promi
     }
 
     const undoManager = new Y.UndoManager(
-      [getWorkflowMap(result.doc), getWorkflowTextFieldsMap(result.doc), getVariablesMap(result.doc)],
+      [readWorkflowMap(result.doc), readWorkflowTextFieldsMap(result.doc), getVariablesMap(result.doc)],
       {
         trackedOrigins: createYjsUndoTrackedOrigins(),
       }
@@ -210,7 +215,7 @@ async function initializeSharedSession(entry: SharedWorkflowSessionEntry): Promi
       awareness: result.provider.awareness ?? null,
       canUndo: false,
       canRedo: false,
-      isSynced: false,
+      isSynced: result.provider.synced === true,
       isLoading: false,
       error: null,
     })
@@ -292,6 +297,48 @@ export function acquireSharedWorkflowSession(args: {
     }
     released = true
     releaseSharedSession(args.workflowId)
+  }
+}
+
+export async function acquireWritableWorkflowSessionLease(args: {
+  workflowId: string
+  workspaceId: string | null
+}): Promise<{ session: RegisteredWorkflowSession; release: () => void }> {
+  const entry = ensureSessionEntry(args)
+  entry.refCount += 1
+  ensureSharedSessionInitialized(entry)
+
+  let released = false
+  const release = () => {
+    if (released) {
+      return
+    }
+    released = true
+    releaseSharedSession(args.workflowId)
+  }
+
+  if (entry.initPromise) {
+    await entry.initPromise
+  }
+
+  if (!entry.result?.doc) {
+    release()
+    throw new Error(entry.state.error || 'Failed to initialize workflow Yjs session')
+  }
+
+  try {
+    await waitForYjsWriteSync(entry.result.provider)
+  } catch (error) {
+    release()
+    throw error
+  }
+
+  return {
+    session: {
+      workflowId: entry.workflowId,
+      doc: entry.result.doc,
+    },
+    release,
   }
 }
 

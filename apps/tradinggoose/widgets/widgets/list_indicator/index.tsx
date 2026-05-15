@@ -15,7 +15,6 @@ import type { PairColor } from '@/widgets/pair-colors'
 import type { DashboardWidgetDefinition, WidgetComponentProps } from '@/widgets/types'
 import { emitIndicatorSelectionChange } from '@/widgets/utils/indicator-selection'
 import { widgetHeaderButtonGroupClassName } from '@/widgets/widgets/components/widget-header-control'
-import { buildPersistedPairContext } from '@/widgets/widgets/editor_indicator/utils'
 import { IndicatorCreateMenu } from '@/widgets/widgets/list_indicator/components/indicator-create-menu'
 import {
   IndicatorList,
@@ -83,15 +82,7 @@ const IndicatorListHeaderRight = ({
         }
 
         if (isLinkedToColorPair) {
-          setPairContext(
-            resolvedPairColor,
-            buildPersistedPairContext({
-              existing: pairContext,
-              legacyIdKey: 'indicatorId',
-              descriptor: null,
-              legacyEntityId: createdIndicatorId,
-            })
-          )
+          setPairContext(resolvedPairColor, { indicatorId: createdIndicatorId })
           return
         }
 
@@ -112,7 +103,6 @@ const IndicatorListHeaderRight = ({
   }, [
     createIndicatorMutation,
     isLinkedToColorPair,
-    pairContext,
     panelId,
     permissions.canEdit,
     resolvedPairColor,

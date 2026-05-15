@@ -9,7 +9,6 @@ export const GrainBlock: BlockConfig = {
   name: 'Grain',
   description: 'Access meeting recordings, transcripts, and AI summaries',
   authMode: AuthMode.ApiKey,
-  triggerAllowed: true,
   longDescription:
     'Integrate Grain into your workflow. Access meeting recordings, transcripts, highlights, and AI-generated summaries. Can also trigger workflows based on Grain webhook events.',
   category: 'tools',

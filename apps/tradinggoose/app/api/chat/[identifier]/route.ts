@@ -3,47 +3,61 @@ import { chat, workflow } from '@tradinggoose/db/schema'
 import { eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { getApiKeyOwnerUserId } from '@/lib/api-key/service'
+import {
+  enqueuePendingExecution,
+  isPendingExecutionLimitError,
+} from '@/lib/execution/pending-execution'
+import { openWorkflowExecutionEventStream } from '@/lib/execution/workflow-execution-stream'
 import { createLogger } from '@/lib/logs/console/logger'
+import { TriggerExecutionUnavailableError } from '@/lib/trigger/settings'
 import { ChatFiles } from '@/lib/uploads'
-import { generateRequestId } from '@/lib/utils'
+import { encodeSSE, generateRequestId, SSE_HEADERS } from '@/lib/utils'
+import { createChatOutputEventReader } from '@/lib/workflows/chat-output'
+import type { WorkflowExecutionEventEntry } from '@/lib/workflows/execution-events'
 import {
   addCorsHeaders,
   setChatAuthCookie,
   validateAuthToken,
   validateChatAuth,
 } from '@/app/api/chat/utils'
-import {
-  createErrorResponse,
-  createSuccessResponse,
-} from '@/app/api/workflows/utils'
+import { createErrorResponse, createSuccessResponse } from '@/app/api/workflows/utils'
 
 const logger = createLogger('ChatIdentifierAPI')
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
+function createChatSSEEventFormatter(selectedOutputs: string[]) {
+  const outputReader = createChatOutputEventReader(selectedOutputs)
+  return (entry: WorkflowExecutionEventEntry) =>
+    outputReader.readEvent(entry.event).map((event) => {
+      if (event.type === 'content') {
+        return encodeSSE({ blockId: event.blockId, chunk: event.content })
+      }
+      if (event.type === 'error') {
+        return encodeSSE({ event: 'error', error: event.message })
+      }
+      return encodeSSE({ event: 'final', data: { success: event.success } })
+    })
+}
+
 // This endpoint handles chat interactions via the identifier
 export async function POST(
   request: NextRequest,
-  { params }: { params: Promise<{ identifier: string }> },
+  { params }: { params: Promise<{ identifier: string }> }
 ) {
   const { identifier } = await params
   const requestId = generateRequestId()
 
   try {
-    logger.debug(
-      `[${requestId}] Processing chat request for identifier: ${identifier}`,
-    )
+    logger.debug(`[${requestId}] Processing chat request for identifier: ${identifier}`)
 
     // Parse the request body once
     let parsedBody
     try {
       parsedBody = await request.json()
     } catch (_error) {
-      return addCorsHeaders(
-        createErrorResponse('Invalid request body', 400),
-        request,
-      )
+      return addCorsHeaders(createErrorResponse('Invalid request body', 400), request)
     }
 
     // Find the chat deployment for this identifier
@@ -72,23 +86,15 @@ export async function POST(
     // Check if the chat is active
     if (!deployment.isActive) {
       logger.warn(`[${requestId}] Chat is not active: ${identifier}`)
-      return addCorsHeaders(
-        createErrorResponse('This chat is currently unavailable', 403),
-        request,
-      )
+      return addCorsHeaders(createErrorResponse('This chat is currently unavailable', 403), request)
     }
 
     // Validate authentication with the parsed body
-    const authResult = await validateChatAuth(
-      requestId,
-      deployment,
-      request,
-      parsedBody,
-    )
+    const authResult = await validateChatAuth(requestId, deployment, request, parsedBody)
     if (!authResult.authorized) {
       return addCorsHeaders(
         createErrorResponse(authResult.error || 'Authentication required', 401),
-        request,
+        request
       )
     }
 
@@ -98,10 +104,7 @@ export async function POST(
     // If this is an authentication request (has password or email but no input),
     // set auth cookie and return success
     if ((password || email) && !input) {
-      const response = addCorsHeaders(
-        createSuccessResponse({ authenticated: true }),
-        request,
-      )
+      const response = addCorsHeaders(createSuccessResponse({ authenticated: true }), request)
 
       // Set authentication cookie
       setChatAuthCookie(response, deployment.id, deployment.authType)
@@ -111,10 +114,7 @@ export async function POST(
 
     // For chat messages, create regular response (allow empty input if files are present)
     if (!input && (!files || files.length === 0)) {
-      return addCorsHeaders(
-        createErrorResponse('No input provided', 400),
-        request,
-      )
+      return addCorsHeaders(createErrorResponse('No input provided', 400), request)
     }
 
     // Get the workflow for this chat
@@ -130,28 +130,21 @@ export async function POST(
       .limit(1)
 
     if (workflowResult.length === 0 || !workflowResult[0].isDeployed) {
-      logger.warn(
-        `[${requestId}] Workflow not found or not deployed: ${deployment.workflowId}`,
-      )
-      return addCorsHeaders(
-        createErrorResponse('Chat workflow is not available', 503),
-        request,
-      )
+      logger.warn(`[${requestId}] Workflow not found or not deployed: ${deployment.workflowId}`)
+      return addCorsHeaders(createErrorResponse('Chat workflow is not available', 503), request)
     }
 
-    const executingUserId = await getApiKeyOwnerUserId(
-      workflowResult[0].pinnedApiKeyId,
-    )
+    const executingUserId = await getApiKeyOwnerUserId(workflowResult[0].pinnedApiKeyId)
     if (!executingUserId) {
       logger.warn(
-        `[${requestId}] Chat deployment missing valid pinned API key for billing attribution: ${deployment.workflowId}`,
+        `[${requestId}] Chat deployment missing valid pinned API key for billing attribution: ${deployment.workflowId}`
       )
       return addCorsHeaders(
         createErrorResponse(
           'API key is required. Please create or select an API key before deploying.',
-          503,
+          503
         ),
-        request,
+        request
       )
     }
 
@@ -166,22 +159,13 @@ export async function POST(
         }
       }
 
-      const { createStreamingResponse } =
-        await import('@/lib/workflows/streaming')
-      const { SSE_HEADERS } = await import('@/lib/utils')
-
       // Generate executionId early so it can be used for file uploads and workflow execution
       const executionId = crypto.randomUUID()
       const workspaceId = workflowResult[0].workspaceId
 
       if (!workspaceId) {
-        logger.warn(
-          `[${requestId}] Chat workflow is missing a workspace: ${deployment.workflowId}`,
-        )
-        return addCorsHeaders(
-          createErrorResponse('Chat workflow is not available', 503),
-          request,
-        )
+        logger.warn(`[${requestId}] Chat workflow is missing a workspace: ${deployment.workflowId}`)
+        return addCorsHeaders(createErrorResponse('Chat workflow is not available', 503), request)
       }
 
       const workflowInput: any = { input, conversationId }
@@ -194,57 +178,85 @@ export async function POST(
           executionId,
         }
 
-        const uploadedFiles = await ChatFiles.processChatFiles(
-          files,
-          executionContext,
-          requestId,
-        )
+        const uploadedFiles = await ChatFiles.processChatFiles(files, executionContext, requestId)
 
         if (uploadedFiles.length > 0) {
           workflowInput.files = uploadedFiles
-          logger.info(
-            `[${requestId}] Successfully processed ${uploadedFiles.length} files`,
-          )
+          logger.info(`[${requestId}] Successfully processed ${uploadedFiles.length} files`)
         }
       }
 
-      const workflowForExecution = {
-        id: deployment.workflowId,
-        userId: deployment.userId,
+      const handle = await enqueuePendingExecution({
+        executionType: 'workflow',
+        pendingExecutionId: executionId,
+        workflowId: deployment.workflowId,
         workspaceId,
-        isDeployed: true,
-        variables: workflowResult[0].variables || {},
-      }
-
-      const stream = await createStreamingResponse({
+        userId: executingUserId,
+        source: 'published_chat',
         requestId,
-        workflow: workflowForExecution,
-        input: workflowInput,
-        executingUserId,
-        streamConfig: {
+        payload: {
+          executionId,
+          workflowId: deployment.workflowId,
+          userId: executingUserId,
+          workspaceId,
+          input: workflowInput,
+          triggerType: 'chat',
+          executionTarget: 'deployed',
+          stream: true,
           selectedOutputs,
-          workflowTriggerType: 'chat',
+          workflowVariables:
+            workflowResult[0].variables && typeof workflowResult[0].variables === 'object'
+              ? (workflowResult[0].variables as Record<string, unknown>)
+              : undefined,
+          metadata: {
+            source: 'published_chat',
+            chatId: deployment.id,
+          },
         },
-        executionId,
       })
 
-      const streamResponse = new NextResponse(stream, {
+      const streamResult = await openWorkflowExecutionEventStream({
+        pendingExecutionId: handle.pendingExecutionId,
+        workflowId: deployment.workflowId,
+        requestId,
+        formatEvent: createChatSSEEventFormatter(selectedOutputs),
+        formatError: (error) =>
+          encodeSSE({
+            event: 'error',
+            error: error instanceof Error ? error.message : 'Chat workflow execution failed',
+          }),
+      })
+      if (!streamResult.ok) {
+        throw new Error('Queued chat execution was not found')
+      }
+      const streamResponse = new NextResponse(streamResult.stream, {
         status: 200,
         headers: SSE_HEADERS,
       })
       return addCorsHeaders(streamResponse, request)
     } catch (error: any) {
+      if (isPendingExecutionLimitError(error)) {
+        return addCorsHeaders(
+          createErrorResponse('Pending execution backlog is full', error.statusCode),
+          request
+        )
+      }
+
+      if (error instanceof TriggerExecutionUnavailableError) {
+        return addCorsHeaders(createErrorResponse(error.message, error.statusCode), request)
+      }
+
       logger.error(`[${requestId}] Error processing chat request:`, error)
       return addCorsHeaders(
         createErrorResponse(error.message || 'Failed to process request', 500),
-        request,
+        request
       )
     }
   } catch (error: any) {
     logger.error(`[${requestId}] Error processing chat request:`, error)
     return addCorsHeaders(
       createErrorResponse(error.message || 'Failed to process request', 500),
-      request,
+      request
     )
   }
 }
@@ -252,15 +264,13 @@ export async function POST(
 // This endpoint returns information about the chat
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ identifier: string }> },
+  { params }: { params: Promise<{ identifier: string }> }
 ) {
   const { identifier } = await params
   const requestId = generateRequestId()
 
   try {
-    logger.debug(
-      `[${requestId}] Fetching chat info for identifier: ${identifier}`,
-    )
+    logger.debug(`[${requestId}] Fetching chat info for identifier: ${identifier}`)
 
     // Find the chat deployment for this identifier
     const deploymentResult = await db
@@ -290,10 +300,7 @@ export async function GET(
     // Check if the chat is active
     if (!deployment.isActive) {
       logger.warn(`[${requestId}] Chat is not active: ${identifier}`)
-      return addCorsHeaders(
-        createErrorResponse('This chat is currently unavailable', 403),
-        request,
-      )
+      return addCorsHeaders(createErrorResponse('This chat is currently unavailable', 403), request)
     }
 
     // Check for auth cookie first
@@ -315,7 +322,7 @@ export async function GET(
           authType: deployment.authType,
           outputConfigs: deployment.outputConfigs,
         }),
-        request,
+        request
       )
     }
 
@@ -323,11 +330,11 @@ export async function GET(
     const authResult = await validateChatAuth(requestId, deployment, request)
     if (!authResult.authorized) {
       logger.info(
-        `[${requestId}] Authentication required for chat: ${identifier}, type: ${deployment.authType}`,
+        `[${requestId}] Authentication required for chat: ${identifier}, type: ${deployment.authType}`
       )
       return addCorsHeaders(
         createErrorResponse(authResult.error || 'Authentication required', 401),
-        request,
+        request
       )
     }
 
@@ -341,16 +348,13 @@ export async function GET(
         authType: deployment.authType,
         outputConfigs: deployment.outputConfigs,
       }),
-      request,
+      request
     )
   } catch (error: any) {
     logger.error(`[${requestId}] Error fetching chat info:`, error)
     return addCorsHeaders(
-      createErrorResponse(
-        error.message || 'Failed to fetch chat information',
-        500,
-      ),
-      request,
+      createErrorResponse(error.message || 'Failed to fetch chat information', 500),
+      request
     )
   }
 }

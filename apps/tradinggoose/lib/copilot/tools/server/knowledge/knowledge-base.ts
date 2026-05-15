@@ -1,18 +1,16 @@
-import { createLogger } from '@/lib/logs/console/logger'
-import type {
-  BaseServerTool,
-  ServerToolExecutionContext,
-} from '@/lib/copilot/tools/server/base-tool'
 import {
-  type KnowledgeBaseArgs,
-  type KnowledgeBaseResult,
-} from '@/lib/copilot/tools/shared/schemas'
+  type BaseServerTool,
+  type ServerToolExecutionContext,
+  throwIfServerToolAborted,
+} from '@/lib/copilot/tools/server/base-tool'
+import type { KnowledgeBaseArgs, KnowledgeBaseResult } from '@/lib/copilot/tools/shared/schemas'
 import { generateSearchEmbedding } from '@/lib/embeddings/utils'
 import {
   createKnowledgeBase,
   getKnowledgeBaseById,
   getKnowledgeBases,
 } from '@/lib/knowledge/service'
+import { createLogger } from '@/lib/logs/console/logger'
 import { getQueryStrategy, handleVectorOnlySearch } from '@/app/api/knowledge/search/utils'
 
 const logger = createLogger('KnowledgeBaseServerTool')
@@ -32,6 +30,7 @@ export const knowledgeBaseServerTool: BaseServerTool<KnowledgeBaseArgs, Knowledg
     }
 
     const { operation, args = {} } = params
+    throwIfServerToolAborted(context)
 
     try {
       switch (operation) {
@@ -42,8 +41,15 @@ export const knowledgeBaseServerTool: BaseServerTool<KnowledgeBaseArgs, Knowledg
               message: 'Name is required for creating a knowledge base',
             }
           }
+          if (!args.workspaceId) {
+            return {
+              success: false,
+              message: 'Workspace ID is required for creating a knowledge base',
+            }
+          }
 
           const requestId = crypto.randomUUID().slice(0, 8)
+          throwIfServerToolAborted(context)
           const newKnowledgeBase = await createKnowledgeBase(
             {
               name: args.name,
@@ -82,6 +88,13 @@ export const knowledgeBaseServerTool: BaseServerTool<KnowledgeBaseArgs, Knowledg
         }
 
         case 'list': {
+          if (!args.workspaceId) {
+            return {
+              success: false,
+              message: 'Workspace ID is required for listing knowledge bases',
+            }
+          }
+
           const knowledgeBases = await getKnowledgeBases(context.userId, args.workspaceId)
 
           logger.info('Knowledge bases listed via copilot', {
@@ -171,7 +184,9 @@ export const knowledgeBaseServerTool: BaseServerTool<KnowledgeBaseArgs, Knowledg
 
           const topK = args.topK || 5
 
+          throwIfServerToolAborted(context)
           const queryEmbedding = await generateSearchEmbedding(args.query)
+          throwIfServerToolAborted(context)
           const queryVector = JSON.stringify(queryEmbedding)
 
           // Get search strategy

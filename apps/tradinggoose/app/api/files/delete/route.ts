@@ -105,7 +105,7 @@ function extractStorageKey(filePath: string): string {
  * - Execution: {workspaceId}/{workflowId}/{executionId}/{filename}
  * - Copilot: {timestamp}-{random}-{filename} (ambiguous - prefer explicit context)
  * - Chat: Uses execution context (same pattern as execution files)
- * - General: {timestamp}-{random}-{filename} (fallback for ambiguous patterns)
+ * - General: {timestamp}-{random}-{filename} (ambiguous patterns)
  */
 function inferContextFromKey(key: string): StorageContext {
   // KB files always start with 'kb/' prefix

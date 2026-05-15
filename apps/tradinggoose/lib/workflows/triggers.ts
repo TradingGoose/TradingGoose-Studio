@@ -92,7 +92,12 @@ export class TriggerUtils {
    */
   static getDefaultTriggerName(triggerType: string): string | null {
     const block = getBlock(triggerType)
-    if (block) {
+    if (
+      block &&
+      (block.category === 'triggers' ||
+        block.triggers?.enabled === true ||
+        block.subBlocks.some((subBlock) => subBlock.mode === 'trigger'))
+    ) {
       if (triggerType === 'generic_webhook') {
         return 'Webhook'
       }

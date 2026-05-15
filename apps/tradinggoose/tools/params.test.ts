@@ -4,6 +4,7 @@ import {
   createLLMToolSchema,
   filterSchemaForLLM,
   formatParameterLabel,
+  getRenderableToolParameters,
   getToolParametersConfig,
   isPasswordParameter,
   mergeToolParameters,
@@ -78,6 +79,32 @@ describe('Tool Parameters Utils', () => {
     it.concurrent('should return null for non-existent tool', () => {
       const result = getToolParametersConfig('non_existent_tool')
       expect(result).toBeNull()
+    })
+
+    it.concurrent('keeps checkbox-list-backed booleans as one renderable control', () => {
+      const params: ToolParameterConfig[] = [
+        { id: 'url', type: 'string' },
+        {
+          id: 'useReaderLMv2',
+          type: 'boolean',
+          uiComponent: { type: 'checkbox-list', subBlockId: 'options' },
+        },
+        {
+          id: 'gatherLinks',
+          type: 'boolean',
+          uiComponent: { type: 'checkbox-list', subBlockId: 'options' },
+        },
+        {
+          id: 'jsonResponse',
+          type: 'boolean',
+          uiComponent: { type: 'checkbox-list', subBlockId: 'options' },
+        },
+      ]
+
+      expect(getRenderableToolParameters(params).map((param) => param.id)).toEqual([
+        'url',
+        'useReaderLMv2',
+      ])
     })
   })
 

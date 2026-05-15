@@ -81,7 +81,6 @@ export const githubIssueClosedTrigger: TriggerConfig = {
       type: 'trigger-save',
       hideFromPreview: true,
       mode: 'trigger',
-      triggerId: 'github_issue_closed',
       condition: {
         field: 'selectedTriggerId',
         value: 'github_issue_closed',

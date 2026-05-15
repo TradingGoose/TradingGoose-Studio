@@ -23,41 +23,6 @@ export const knowledgeCreateDocumentTool: ToolConfig<any, KnowledgeCreateDocumen
       required: true,
       description: 'Content of the document',
     },
-    tag1: {
-      type: 'string',
-      required: false,
-      description: 'Tag 1 value for the document',
-    },
-    tag2: {
-      type: 'string',
-      required: false,
-      description: 'Tag 2 value for the document',
-    },
-    tag3: {
-      type: 'string',
-      required: false,
-      description: 'Tag 3 value for the document',
-    },
-    tag4: {
-      type: 'string',
-      required: false,
-      description: 'Tag 4 value for the document',
-    },
-    tag5: {
-      type: 'string',
-      required: false,
-      description: 'Tag 5 value for the document',
-    },
-    tag6: {
-      type: 'string',
-      required: false,
-      description: 'Tag 6 value for the document',
-    },
-    tag7: {
-      type: 'string',
-      required: false,
-      description: 'Tag 7 value for the document',
-    },
     documentTagsData: {
       type: 'array',
       required: false,
@@ -101,14 +66,13 @@ export const knowledgeCreateDocumentTool: ToolConfig<any, KnowledgeCreateDocumen
 
       const tagData: Record<string, string> = {}
 
-      if (params.documentTags) {
-        let parsedTags = params.documentTags
+      if (params.documentTagsData) {
+        let parsedTags = params.documentTagsData
 
-        // Handle both string (JSON) and array formats
-        if (typeof params.documentTags === 'string') {
+        if (typeof params.documentTagsData === 'string') {
           try {
-            parsedTags = JSON.parse(params.documentTags)
-          } catch (error) {
+            parsedTags = JSON.parse(params.documentTagsData)
+          } catch {
             parsedTags = []
           }
         }
@@ -134,8 +98,6 @@ export const knowledgeCreateDocumentTool: ToolConfig<any, KnowledgeCreateDocumen
           chunkSize: 1024,
           minCharactersPerChunk: 1,
           chunkOverlap: 200,
-          recipe: 'default',
-          lang: 'en',
         },
         bulk: true,
         ...(workflowId && { workflowId }),

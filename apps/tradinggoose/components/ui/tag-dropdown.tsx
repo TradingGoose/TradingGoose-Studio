@@ -17,7 +17,6 @@ import type { Variable } from '@/stores/variables/types'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import type { BlockState } from '@/stores/workflows/workflow/types'
 import { DEFAULT_WORKFLOW_CHANNEL_ID } from '@/stores/workflows/workflow/types'
-import { getTool } from '@/tools/utils'
 import { useOptionalWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 
 interface BlockTagGroup {
@@ -156,10 +155,6 @@ const getOutputTypeForPath = (
     const subBlocks = mergedSubBlocksOverride ?? (block?.subBlocks || {})
     return getBlockOutputType(block.type, outputPath, subBlocks)
   }
-  const operationValue = block?.subBlocks?.['operation']?.value ?? null
-  if (blockConfig && typeof operationValue === 'string' && operationValue) {
-    return getToolOutputType(blockConfig, operationValue, outputPath)
-  }
   if (blockConfig) {
     return getBlockOutputType(block.type, outputPath, mergedSubBlocksOverride)
   }
@@ -193,94 +188,6 @@ const generateOutputPaths = (outputs: Record<string, any>, prefix = ''): string[
   }
 
   return paths
-}
-
-const generateOutputPathsWithTypes = (
-  outputs: Record<string, any>,
-  prefix = ''
-): Array<{ path: string; type: string }> => {
-  const paths: Array<{ path: string; type: string }> = []
-
-  for (const [key, value] of Object.entries(outputs)) {
-    const currentPath = prefix ? `${prefix}.${key}` : key
-
-    if (typeof value === 'string') {
-      // Simple type like 'string', 'number', 'json', 'any'
-      paths.push({ path: currentPath, type: value })
-    } else if (typeof value === 'object' && value !== null) {
-      // Check if this is our new format with type and description
-      if ('type' in value && typeof value.type === 'string') {
-        // Handle nested properties for arrays and objects
-        if (value.type === 'array' && value.items?.properties) {
-          // For arrays with properties, add the array itself and recurse into items
-          paths.push({ path: currentPath, type: 'array' })
-          const subPaths = generateOutputPathsWithTypes(value.items.properties, currentPath)
-          paths.push(...subPaths)
-        } else if (value.type === 'object' && value.properties) {
-          // For objects with properties, add the object itself and recurse into properties
-          paths.push({ path: currentPath, type: 'object' })
-          const subPaths = generateOutputPathsWithTypes(value.properties, currentPath)
-          paths.push(...subPaths)
-        } else {
-          // Leaf node - just add the type
-          paths.push({ path: currentPath, type: value.type })
-        }
-      } else {
-        // Legacy nested object - recurse and assume 'object' type
-        const subPaths = generateOutputPathsWithTypes(value, currentPath)
-        paths.push(...subPaths)
-      }
-    } else {
-      // Fallback - add with 'any' type
-      paths.push({ path: currentPath, type: 'any' })
-    }
-  }
-
-  return paths
-}
-
-const generateToolOutputPaths = (blockConfig: BlockConfig, operation: string): string[] => {
-  if (!blockConfig?.tools?.config?.tool) return []
-
-  try {
-    // Get the tool ID for this operation
-    const toolId = blockConfig.tools.config.tool({ operation })
-    if (!toolId) return []
-
-    // Get the tool configuration
-    const toolConfig = getTool(toolId)
-    if (!toolConfig?.outputs) return []
-
-    // Generate paths from tool outputs
-    return generateOutputPaths(toolConfig.outputs)
-  } catch (error) {
-    console.warn('Failed to get tool outputs for operation:', operation, error)
-    return []
-  }
-}
-
-const getToolOutputType = (blockConfig: BlockConfig, operation: string, path: string): string => {
-  if (!blockConfig?.tools?.config?.tool) return 'any'
-
-  try {
-    // Get the tool ID for this operation
-    const toolId = blockConfig.tools.config.tool({ operation })
-    if (!toolId) return 'any'
-
-    // Get the tool configuration
-    const toolConfig = getTool(toolId)
-    if (!toolConfig?.outputs) return 'any'
-
-    // Generate paths with types from tool outputs
-    const pathsWithTypes = generateOutputPathsWithTypes(toolConfig.outputs)
-
-    // Find the matching path and return its type
-    const matchingPath = pathsWithTypes.find((p) => p.path === path)
-    return matchingPath?.type || 'any'
-  } catch (error) {
-    console.warn('Failed to get tool output type for path:', path, error)
-    return 'any'
-  }
 }
 
 export const TagDropdown: React.FC<TagDropdownProps> = ({
@@ -546,19 +453,8 @@ export const TagDropdown: React.FC<TagDropdownProps> = ({
             blockTags = outputPaths.map((path) => `${normalizedBlockName}.${path}`)
           }
         } else {
-          // Check for tool-specific outputs first
-          const operationValue =
-            mergedSubBlocks?.operation?.value ?? readSub(activeSourceBlockId, 'operation')
-          const toolOutputPaths = operationValue
-            ? generateToolOutputPaths(blockConfig, operationValue)
-            : []
-
-          if (toolOutputPaths.length > 0) {
-            blockTags = toolOutputPaths.map((path) => `${normalizedBlockName}.${path}`)
-          } else {
-            const outputPaths = getBlockOutputPaths(sourceBlock.type, mergedSubBlocks, false)
-            blockTags = outputPaths.map((path) => `${normalizedBlockName}.${path}`)
-          }
+          const outputPaths = getBlockOutputPaths(sourceBlock.type, mergedSubBlocks, false)
+          blockTags = outputPaths.map((path) => `${normalizedBlockName}.${path}`)
         }
       }
 
@@ -852,19 +748,8 @@ export const TagDropdown: React.FC<TagDropdownProps> = ({
             blockTags = outputPaths.map((path) => `${normalizedBlockName}.${path}`)
           }
         } else {
-          // Check for tool-specific outputs first
-          const operationValue =
-            mergedSubBlocks?.operation?.value ?? readSub(accessibleBlockId, 'operation')
-          const toolOutputPaths = operationValue
-            ? generateToolOutputPaths(blockConfig, operationValue)
-            : []
-
-          if (toolOutputPaths.length > 0) {
-            blockTags = toolOutputPaths.map((path) => `${normalizedBlockName}.${path}`)
-          } else {
-            const outputPaths = getBlockOutputPaths(accessibleBlock.type, mergedSubBlocks, false)
-            blockTags = outputPaths.map((path) => `${normalizedBlockName}.${path}`)
-          }
+          const outputPaths = getBlockOutputPaths(accessibleBlock.type, mergedSubBlocks, false)
+          blockTags = outputPaths.map((path) => `${normalizedBlockName}.${path}`)
         }
       }
 
@@ -1460,7 +1345,7 @@ export const TagDropdown: React.FC<TagDropdownProps> = ({
     <div
       ref={containerRef}
       className={cn(
-        'absolute left-0 z-[9999] w-full overflow-x-hidden overflow-y-auto rounded-md border bg-popover shadow-md',
+        'absolute left-0 z-[9999] w-full overflow-y-auto overflow-x-hidden rounded-md border bg-popover shadow-md',
         verticalPlacement === 'top' ? 'bottom-[calc(100%+0.25rem)]' : 'top-[calc(100%+0.25rem)]',
         className
       )}
@@ -1493,8 +1378,8 @@ export const TagDropdown: React.FC<TagDropdownProps> = ({
                           'hover:bg-card hover:text-accent-foreground',
                           'focus:bg-accent focus:text-accent-foreground focus:outline-none',
                           tagIndex === selectedIndex &&
-                            tagIndex >= 0 &&
-                            'bg-accent text-accent-foreground'
+                          tagIndex >= 0 &&
+                          'bg-accent text-accent-foreground'
                         )}
                         {...createTagEventHandlers(
                           tag,
@@ -1721,7 +1606,7 @@ export const TagDropdown: React.FC<TagDropdownProps> = ({
                               {hasChildren && isHovered && (
                                 <div
                                   className={cn(
-                                    'absolute left-0 right-0 z-[10000] max-h-[260px] overflow-y-auto rounded-md border border-border bg-background shadow-lg',
+                                    'absolute right-0 left-0 z-[10000] max-h-[260px] overflow-y-auto rounded-md border border-border bg-background shadow-lg',
                                     submenuVerticalPlacement === 'top'
                                       ? 'bottom-full mb-0.5'
                                       : 'top-full mt-0.5'

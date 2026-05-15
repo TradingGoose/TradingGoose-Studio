@@ -57,7 +57,6 @@ export const microsoftTeamsWebhookTrigger: TriggerConfig = {
       type: 'trigger-save',
       hideFromPreview: true,
       mode: 'trigger',
-      triggerId: 'microsoftteams_webhook',
       condition: {
         field: 'selectedTriggerId',
         value: 'microsoftteams_webhook',

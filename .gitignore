@@ -12,6 +12,7 @@ bun-debug.log*
 # testing
 /coverage
 /apps/**/coverage
+*/*/.trigger/*
 
 # next.js
 /.next/

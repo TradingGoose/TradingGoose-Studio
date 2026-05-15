@@ -6,19 +6,11 @@ import type { PairColor } from '@/widgets/pair-colors'
 import type { DashboardWidgetDefinition } from '@/widgets/types'
 import { emitMcpEditorAction } from '@/widgets/utils/mcp-editor-actions'
 import { emitMcpSelectionChange } from '@/widgets/utils/mcp-selection'
+import { readEntitySelectionState, resolveMcpServerId } from '@/widgets/widgets/_shared/mcp/utils'
+import { EntityEditorHeaderButton } from '@/widgets/widgets/components/entity-editor-buttons'
 import { McpDropdown } from '@/widgets/widgets/components/mcp-dropdown'
-import {
-  EntityEditorHeaderButton,
-  EntityEditorRedoButton,
-  EntityEditorUndoButton,
-} from '@/widgets/widgets/components/entity-editor-buttons'
 import { widgetHeaderButtonGroupClassName } from '@/widgets/widgets/components/widget-header-control'
 import { EditorMcpWidgetBody } from '@/widgets/widgets/editor_mcp/editor-mcp-body'
-import {
-  buildPersistedPairContext,
-  readEntitySelectionState,
-  resolveMcpServerId,
-} from '@/widgets/widgets/_shared/mcp/utils'
 
 const McpEditorSelector = ({
   workspaceId,
@@ -46,15 +38,7 @@ const McpEditorSelector = ({
   const handleServerChange = (nextServerId: string | null) => {
     if (isLinkedToColorPair) {
       if (pairContext?.mcpServerId === nextServerId) return
-      setPairContext(
-        resolvedPairColor,
-        buildPersistedPairContext({
-          existing: pairContext,
-          legacyIdKey: 'mcpServerId',
-          descriptor: null,
-          legacyEntityId: nextServerId,
-        })
-      )
+      setPairContext(resolvedPairColor, { mcpServerId: nextServerId })
       return
     }
 
@@ -94,16 +78,12 @@ const McpEditorHeaderActions = ({
   const selectionState = readEntitySelectionState({
     params,
     pairContext: resolvedPairColor !== 'gray' ? pairContext : null,
-    legacyIdKey: 'mcpServerId',
+    entityIdKey: 'mcpServerId',
   })
-  const hasSelection =
-    !!selectionState.legacyEntityId ||
-    !!selectionState.reviewSessionId ||
-    !!selectionState.reviewDraftSessionId
-  const hasCanonicalEntity = !!(selectionState.reviewEntityId ?? selectionState.legacyEntityId)
+  const hasSelection = !!selectionState.selectedEntityId
 
   const emitAction = (
-    action: 'save' | 'refresh' | 'close' | 'reset' | 'test' | 'undo' | 'redo'
+    action: 'save' | 'refresh' | 'close' | 'reset' | 'test'
   ) => {
     emitMcpEditorAction({
       action,
@@ -114,20 +94,12 @@ const McpEditorHeaderActions = ({
 
   return (
     <div className={widgetHeaderButtonGroupClassName()}>
-      <EntityEditorUndoButton
-        reviewSessionId={selectionState.reviewSessionId}
-        onAction={() => emitAction('undo')}
-      />
-      <EntityEditorRedoButton
-        reviewSessionId={selectionState.reviewSessionId}
-        onAction={() => emitAction('redo')}
-      />
       <EntityEditorHeaderButton
         tooltip='Refresh tools'
         label='Refresh tools'
         icon={RefreshCw}
         onClick={() => emitAction('refresh')}
-        disabled={!workspaceId || !hasCanonicalEntity}
+        disabled={!workspaceId || !hasSelection}
         variant='outline'
       />
       <EntityEditorHeaderButton
@@ -135,7 +107,7 @@ const McpEditorHeaderActions = ({
         label='Test connection'
         icon={Play}
         onClick={() => emitAction('test')}
-        disabled={!workspaceId || !hasCanonicalEntity}
+        disabled={!workspaceId || !hasSelection}
         variant='outline'
       />
       <EntityEditorHeaderButton

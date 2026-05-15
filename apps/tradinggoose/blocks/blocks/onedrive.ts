@@ -277,10 +277,7 @@ export const OneDriveBlock: BlockConfig<OneDriveResponse> = {
         }
       },
       params: (params) => {
-        const { credential, folderSelector, manualFolderId, mimeType, values, ...rest } = params
-
-        // Use folderSelector if provided, otherwise use manualFolderId
-        const effectiveFolderId = (folderSelector || manualFolderId || '').trim()
+        const { credential, folderId, mimeType, values, ...rest } = params
 
         let parsedValues
         try {
@@ -293,7 +290,7 @@ export const OneDriveBlock: BlockConfig<OneDriveResponse> = {
           credential,
           ...rest,
           values: parsedValues,
-          folderId: effectiveFolderId || undefined,
+          folderId: (folderId || '').trim() || undefined,
           pageSize: rest.pageSize ? Number.parseInt(rest.pageSize as string, 10) : undefined,
           mimeType: mimeType,
         }
@@ -313,8 +310,7 @@ export const OneDriveBlock: BlockConfig<OneDriveResponse> = {
     // Get Content operation inputs
     // fileId: { type: 'string', required: false },
     // List operation inputs
-    folderSelector: { type: 'string', description: 'Folder selector' },
-    manualFolderId: { type: 'string', description: 'Manual folder ID' },
+    folderId: { type: 'string', description: 'Folder ID' },
     query: { type: 'string', description: 'Search query' },
     pageSize: { type: 'number', description: 'Results per page' },
   },

@@ -112,7 +112,6 @@ export const hubspotDealPropertyChangedTrigger: TriggerConfig = {
       title: '',
       type: 'trigger-save',
       mode: 'trigger',
-      triggerId: 'hubspot_deal_property_changed',
       condition: {
         field: 'selectedTriggerId',
         value: 'hubspot_deal_property_changed',

@@ -15,33 +15,11 @@ const reactActEnvironment = globalThis as typeof globalThis & {
 const mockUseCopilotStoreState = {
   accessLevel: 'limited' as const,
   executeCopilotToolCall: vi.fn(),
-  executeIntegrationTool: vi.fn(),
   skipCopilotToolCall: vi.fn(),
-  skipIntegrationTool: vi.fn(),
   toolCallsById: {},
 }
 
-const mockEntitySession = {
-  doc: null as any,
-  provider: null,
-  awareness: null,
-  descriptor: null as any,
-  runtime: null,
-  undoManager: null,
-  canUndo: false,
-  canRedo: false,
-  undo: vi.fn(),
-  redo: vi.fn(),
-  isSynced: false,
-  isLoading: false,
-  error: null,
-}
-
-const mockGetEntityFields = vi.fn()
-
-vi.mock('react-google-drive-picker', () => ({
-  default: () => [vi.fn()],
-}))
+const mockGetToolInterruptDisplays = vi.fn()
 
 vi.mock('@/components/ui/button', () => ({
   Button: ({ children, ...props }: any) => <button {...props}>{children}</button>,
@@ -54,16 +32,9 @@ vi.mock('@/stores/copilot/store', () => ({
 
 vi.mock('@/stores/copilot/tool-registry', () => ({
   getCopilotToolMetadata: () => undefined,
-  getToolInterruptDisplays: () => undefined,
+  getToolInterruptDisplays: (...args: any[]) => mockGetToolInterruptDisplays(...args),
   isCopilotTool: () => true,
-}))
-
-vi.mock('@/lib/copilot/review-sessions/entity-session-host', () => ({
-  useEntitySession: () => mockEntitySession,
-}))
-
-vi.mock('@/lib/yjs/entity-session', () => ({
-  getEntityFields: (...args: any[]) => mockGetEntityFields(...args),
+  isGatedTool: (name: string) => name !== 'edit_workflow' && name !== 'edit_workflow_block',
 }))
 
 vi.mock('@/lib/copilot/tools/client/manager', () => ({
@@ -85,9 +56,10 @@ describe('InlineToolCall', () => {
 
   beforeEach(() => {
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = true
-    mockEntitySession.doc = null
-    mockEntitySession.descriptor = null
-    mockGetEntityFields.mockReset()
+    mockGetToolInterruptDisplays.mockReset()
+    mockUseCopilotStoreState.executeCopilotToolCall.mockReset()
+    mockUseCopilotStoreState.skipCopilotToolCall.mockReset()
+    mockUseCopilotStoreState.toolCallsById = {}
     container = document.createElement('div')
     document.body.appendChild(container)
     root = createRoot(container)
@@ -236,7 +208,7 @@ describe('InlineToolCall', () => {
     expect(container.querySelector('[data-testid="workflow-preview"]')).toBeNull()
   })
 
-  it('renders block edit approval details for staged edit_workflow_block results', async () => {
+  it('renders only the workflow review for staged edit_workflow_block results', async () => {
     await act(async () => {
       root.render(
         <InlineToolCall
@@ -273,28 +245,62 @@ describe('InlineToolCall', () => {
       )
     })
 
-    expect(container.textContent).toContain('Proposed Workflow Block Changes')
-    expect(container.textContent).toContain('fn1')
-    expect(container.textContent).toContain('function')
-    expect(container.textContent).toContain('Compute Market Indicators')
-    expect(container.textContent).toContain('Enabled')
-    expect(container.textContent).toContain('false')
-    expect(container.textContent).toContain('subBlocks.code')
-    expect(container.textContent).toContain('return { rsi: 50 }')
+    expect(container.textContent).not.toContain('Proposed Workflow Block Changes')
+    expect(container.textContent).not.toContain('subBlocks.code')
     expect(container.querySelector('[data-testid="workflow-preview"]')?.textContent).toContain(
       'fn1'
     )
   })
 
-  it('renders entity diffs in the copilot widget for pending entity edits', async () => {
-    mockEntitySession.doc = { id: 'entity-doc' }
-    mockEntitySession.descriptor = {
-      entityKind: 'skill',
+  it('shows review controls for staged workflow edits without generic Allow', async () => {
+    const toolCallId = 'tool-workflow-review'
+    mockGetToolInterruptDisplays.mockReturnValue({
+      accept: { text: 'Accept' },
+      reject: { text: 'Reject' },
+    })
+    mockUseCopilotStoreState.toolCallsById = {
+      [toolCallId]: {
+        id: toolCallId,
+        name: 'edit_workflow',
+        state: ClientToolCallState.review,
+      },
     }
-    mockGetEntityFields.mockReturnValue({
-      name: 'Original skill',
-      description: 'Original description',
-      content: 'Original instructions',
+
+    await act(async () => {
+      root.render(<InlineToolCall toolCallId={toolCallId} />)
+    })
+
+    expect(container.textContent).not.toContain('Allow')
+    expect(container.textContent).toContain('Accept')
+    expect(container.textContent).toContain('Reject')
+  })
+
+  it('uses interrupt labels for generic gated pending tools', async () => {
+    mockGetToolInterruptDisplays.mockReturnValue({
+      accept: { text: 'Execute' },
+      reject: { text: 'Skip' },
+    })
+
+    await act(async () => {
+      root.render(
+        <InlineToolCall
+          toolCall={{
+            id: 'tool-pending-api',
+            name: 'make_api_request',
+            state: ClientToolCallState.pending,
+          }}
+        />
+      )
+    })
+
+    expect(container.textContent).toContain('Execute')
+    expect(container.textContent).not.toContain('Allow')
+  })
+
+  it('renders entity review diffs from staged tool results', async () => {
+    mockGetToolInterruptDisplays.mockReturnValue({
+      accept: { text: 'Accept changes' },
+      reject: { text: 'Reject changes' },
     })
 
     await act(async () => {
@@ -303,13 +309,32 @@ describe('InlineToolCall', () => {
           toolCall={{
             id: 'tool-skill-review',
             name: 'edit_skill',
-            state: ClientToolCallState.pending,
-            params: {
-              entityDocument: JSON.stringify({
-                name: 'Updated skill',
-                description: 'Original description',
-                content: 'Updated instructions',
-              }),
+            state: ClientToolCallState.review,
+            result: {
+              entityKind: 'skill',
+              entityName: 'Updated skill',
+              preview: {
+                documentDiff: {
+                  before: JSON.stringify(
+                    {
+                      name: 'Original skill',
+                      description: 'Original description',
+                      content: 'Original instructions',
+                    },
+                    null,
+                    2
+                  ),
+                  after: JSON.stringify(
+                    {
+                      name: 'Updated skill',
+                      description: 'Original description',
+                      content: 'Updated instructions',
+                    },
+                    null,
+                    2
+                  ),
+                },
+              },
             },
           }}
         />
@@ -321,5 +346,8 @@ describe('InlineToolCall', () => {
     expect(container.textContent).toContain('Updated skill')
     expect(container.textContent).toContain('Original instructions')
     expect(container.textContent).toContain('Updated instructions')
+    expect(container.textContent).toContain('Accept changes')
+    expect(container.textContent).toContain('Reject changes')
   })
+
 })

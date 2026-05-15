@@ -249,12 +249,7 @@ export async function DELETE(
       // remain workspace-owned until the workspace row is deleted below.
       await tx.delete(workflow).where(eq(workflow.workspaceId, workspaceId))
 
-      // Clear workspace ID from knowledge bases instead of deleting them
-      // This allows knowledge bases to become "unassigned" rather than being deleted
-      await tx
-        .update(knowledgeBase)
-        .set({ workspaceId: null, updatedAt: new Date() })
-        .where(eq(knowledgeBase.workspaceId, workspaceId))
+      await tx.delete(knowledgeBase).where(eq(knowledgeBase.workspaceId, workspaceId))
 
       // Delete all permissions associated with this workspace
       await tx

@@ -11,28 +11,21 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
-import { cn } from '@/lib/utils'
 import { createLogger } from '@/lib/logs/console/logger'
-import { useWorkflowEditorActions } from '@/hooks/workflow/use-workflow-editor-actions'
+import { cn } from '@/lib/utils'
+import { useBlock, useSubBlockValue as useYjsSubBlockValue } from '@/lib/yjs/use-workflow-doc'
 import { useTriggerConfigAggregation } from '@/hooks/use-trigger-config-aggregation'
 import { useWebhookManagement } from '@/hooks/use-webhook-management'
-import {
-  useBlock,
-  useSubBlockValue as useYjsSubBlockValue,
-  useWorkflowMutations,
-} from '@/lib/yjs/use-workflow-doc'
-import { useWorkflowSession } from '@/lib/yjs/workflow-session-host'
-import { getWorkflowMap, YJS_KEYS } from '@/lib/yjs/workflow-session'
-import { useWorkflowId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
-import { getTrigger, isTriggerValid } from '@/triggers'
+import { getTrigger } from '@/triggers'
 import { SYSTEM_SUBBLOCK_IDS } from '@/triggers/constants'
+import { resolveTriggerIdForBlock } from '@/triggers/resolution'
+import { useWorkflowId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 
 const logger = createLogger('TriggerSave')
 
 interface TriggerSaveProps {
   blockId: string
   subBlockId: string
-  triggerId?: string
   disabled?: boolean
 }
 
@@ -40,43 +33,26 @@ type SaveStatus = 'idle' | 'saving' | 'saved' | 'error'
 
 type DeleteStatus = 'idle' | 'deleting'
 
-export function TriggerSave({
-  blockId,
-  subBlockId,
-  triggerId,
-  disabled = false,
-}: TriggerSaveProps) {
+export function TriggerSave({ blockId, subBlockId, disabled = false }: TriggerSaveProps) {
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle')
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [deleteStatus, setDeleteStatus] = useState<DeleteStatus>('idle')
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const workflowId = useWorkflowId()
+  const currentBlock = useBlock(blockId)
 
-  const selectedTriggerIdValue = useYjsSubBlockValue(blockId, 'selectedTriggerId')
   const effectiveTriggerId = useMemo(() => {
-    if (triggerId && isTriggerValid(triggerId)) {
-      return triggerId
-    }
-    if (typeof selectedTriggerIdValue === 'string' && isTriggerValid(selectedTriggerIdValue)) {
-      return selectedTriggerIdValue
-    }
-    return triggerId
-  }, [triggerId, selectedTriggerIdValue])
-
-  const { collaborativeSetSubblockValue } = useWorkflowEditorActions()
-  const { setSubBlockValue: yjsSetSubBlockValue } = useWorkflowMutations()
-  const { doc } = useWorkflowSession()
+    return currentBlock ? (resolveTriggerIdForBlock(currentBlock) ?? undefined) : undefined
+  }, [currentBlock])
 
   const { webhookId, saveConfig, deleteConfig, isLoading } = useWebhookManagement({
     blockId,
-    triggerId: effectiveTriggerId,
     useWebhookUrl: true,
   })
 
   const triggerCredentials = useYjsSubBlockValue(blockId, 'triggerCredentials')
 
-  const triggerDef =
-    effectiveTriggerId && isTriggerValid(effectiveTriggerId) ? getTrigger(effectiveTriggerId) : null
+  const triggerDef = effectiveTriggerId ? getTrigger(effectiveTriggerId) : null
 
   const validateRequiredFields = useCallback(
     (
@@ -120,7 +96,6 @@ export function TriggerSave({
       .map((sb) => sb.id)
   }, [triggerDef])
 
-  const currentBlock = useBlock(blockId)
   const subscribedSubBlockValues = useMemo(() => {
     if (!triggerDef) return {}
     const values: Record<string, any> = {}
@@ -157,15 +132,7 @@ export function TriggerSave({
     }
 
     validationTimeoutRef.current = setTimeout(() => {
-      const aggregatedConfig = useTriggerConfigAggregation(
-        blockId,
-        effectiveTriggerId,
-        workflowId
-      )
-
-      if (aggregatedConfig) {
-        yjsSetSubBlockValue(blockId, 'triggerConfig', aggregatedConfig)
-      }
+      const aggregatedConfig = useTriggerConfigAggregation(blockId, effectiveTriggerId, workflowId)
 
       const validation = validateRequiredFields(aggregatedConfig)
 
@@ -200,7 +167,7 @@ export function TriggerSave({
     subscribedSubBlockValues,
     saveStatus,
     validateRequiredFields,
-    yjsSetSubBlockValue,
+    workflowId,
   ])
 
   const handleSave = async () => {
@@ -210,20 +177,7 @@ export function TriggerSave({
     setErrorMessage(null)
 
     try {
-      const aggregatedConfig = useTriggerConfigAggregation(
-        blockId,
-        effectiveTriggerId,
-        workflowId
-      )
-
-      if (aggregatedConfig) {
-        yjsSetSubBlockValue(blockId, 'triggerConfig', aggregatedConfig)
-        logger.debug('Stored aggregated trigger config', {
-          blockId,
-          triggerId: effectiveTriggerId,
-          aggregatedConfig,
-        })
-      }
+      const aggregatedConfig = useTriggerConfigAggregation(blockId, effectiveTriggerId, workflowId)
 
       const validation = validateRequiredFields(aggregatedConfig)
       if (!validation.valid) {
@@ -232,31 +186,13 @@ export function TriggerSave({
         return
       }
 
-      const success = await saveConfig()
+      const success = await saveConfig(aggregatedConfig ?? {})
       if (!success) {
         throw new Error('Save config returned false')
       }
 
       setSaveStatus('saved')
       setErrorMessage(null)
-
-      const savedBlock = doc
-        ? (((getWorkflowMap(doc).get(YJS_KEYS.BLOCKS) as Record<string, any> | undefined) ?? {})[
-            blockId
-          ] ?? null)
-        : null
-
-      if (savedBlock) {
-        const savedWebhookId = savedBlock?.subBlocks?.['webhookId']?.value ?? null
-        const savedTriggerPath = savedBlock?.subBlocks?.['triggerPath']?.value ?? null
-        const savedTriggerId = savedBlock?.subBlocks?.['triggerId']?.value ?? null
-        const savedTriggerConfig = savedBlock?.subBlocks?.['triggerConfig']?.value ?? null
-
-        collaborativeSetSubblockValue(blockId, 'webhookId', savedWebhookId)
-        collaborativeSetSubblockValue(blockId, 'triggerPath', savedTriggerPath)
-        collaborativeSetSubblockValue(blockId, 'triggerId', savedTriggerId)
-        collaborativeSetSubblockValue(blockId, 'triggerConfig', savedTriggerConfig)
-      }
 
       setTimeout(() => {
         setSaveStatus('idle')
@@ -291,10 +227,6 @@ export function TriggerSave({
         setDeleteStatus('idle')
         setSaveStatus('idle')
         setErrorMessage(null)
-
-        collaborativeSetSubblockValue(blockId, 'triggerPath', '')
-        collaborativeSetSubblockValue(blockId, 'webhookId', null)
-        collaborativeSetSubblockValue(blockId, 'triggerConfig', null)
 
         logger.info('Trigger configuration deleted successfully', {
           blockId,

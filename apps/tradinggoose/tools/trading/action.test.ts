@@ -1,27 +1,33 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { generateInternalToken } from '@/lib/auth/internal'
+import { describe, expect, it } from 'vitest'
 import { tradingActionTool } from '@/tools/trading/action'
 
-vi.mock('@/lib/auth/internal', () => ({
-  generateInternalToken: vi.fn().mockResolvedValue('internal-token-1'),
-}))
-
-vi.mock('@/lib/urls/utils', () => ({
-  getBaseUrl: vi.fn(() => 'http://localhost:3000'),
-}))
+const portfolioIdentity = {
+  providerId: 'alpaca' as const,
+  credentialId: 'credential-1',
+  serviceId: 'alpaca-live',
+  accountId: 'ACC-1',
+}
+const tradierPortfolioIdentity = {
+  providerId: 'tradier' as const,
+  credentialId: 'credential-2',
+  serviceId: 'tradier-live',
+  accountId: 'ACC-2',
+}
 
 const baseParams = {
-  provider: 'alpaca' as const,
+  portfolioIdentity,
   listing: {
     listing_type: 'default' as const,
     listing_id: 'AAPL',
     base_id: '',
     quote_id: '',
+    base: 'AAPL',
+    quote: 'USD',
+    assetClass: 'stock',
   },
   side: 'buy' as const,
   orderType: 'market' as const,
   timeInForce: 'day' as const,
-  accessToken: 'test-token',
 }
 
 const requestBodyBuilder = tradingActionTool.request?.body
@@ -35,174 +41,143 @@ const buildBody = (overrides: Record<string, unknown> = {}) =>
     ...overrides,
   } as any) as Record<string, any>
 
-describe('tradingActionTool sizing normalization', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-  })
-
-  it('keeps notional when orderSizingMode=notional and stale quantity is present', () => {
+describe('tradingActionTool canonical order route payload', () => {
+  it('builds the canonical order route payload without broker execution fields', () => {
     const body = buildBody({
-      orderSizingMode: 'notional',
       quantity: 2,
-      notional: 150,
     })
 
     expect(body).toMatchObject({
+      portfolioIdentity,
       side: 'buy',
-      type: 'market',
-      time_in_force: 'day',
-      notional: 150,
-    })
-    expect(body).not.toHaveProperty('qty')
-  })
-
-  it('keeps quantity when orderSizingMode=quantity and notional is present', () => {
-    const body = buildBody({
-      orderSizingMode: 'quantity',
+      orderType: 'market',
+      timeInForce: 'day',
       quantity: 2,
-      notional: 150,
     })
-
-    expect(body).toMatchObject({
-      side: 'buy',
-      type: 'market',
-      time_in_force: 'day',
-      qty: '2',
-    })
-    expect(body).not.toHaveProperty('notional')
+    expect(body).not.toHaveProperty('credential')
+    expect(body).not.toHaveProperty('accessToken')
+    expect(body).not.toHaveProperty('accountId')
   })
 
-  it('supports case-insensitive orderSizingMode values', () => {
+  it('maps workflow context to canonical route fields', () => {
     const body = buildBody({
-      orderSizingMode: 'NoTiOnAl',
-      quantity: 2,
-      notional: 150,
-    })
-
-    expect(body).toHaveProperty('notional', 150)
-    expect(body).not.toHaveProperty('qty')
-  })
-
-  it('keeps quantity precedence when orderSizingMode is omitted', () => {
-    const body = buildBody({
-      quantity: 2,
-      notional: 150,
-    })
-
-    expect(body).toHaveProperty('qty', '2')
-    expect(body).not.toHaveProperty('notional')
-  })
-
-  it('records workspace order history without workflow identity', async () => {
-    global.fetch = vi.fn().mockResolvedValue({ ok: true }) as typeof fetch
-
-    await tradingActionTool.postProcess?.(
-      {
-        success: true,
-        output: {
-          order: {
-            id: 'provider-order-1',
-            raw: { id: 'provider-order-1', status: 'filled' },
-          },
-          provider: 'alpaca',
-          summary: 'Order submitted',
-        },
+      quantity: 1,
+      _context: {
+        executionId: 'execution-1',
+        submissionSource: 'workflow',
+        toolExecutionId: 'block-1',
+        workflowLogId: 'log-1',
+        workspaceId: 'workspace-1',
       },
-      {
-        ...baseParams,
-        _context: {
-          submissionSource: 'workflow',
-          userId: 'user-1',
-          workspaceId: 'workspace-1',
-        },
-      } as any,
-      vi.fn()
-    )
+    })
 
-    expect(global.fetch).toHaveBeenCalledWith(
-      'http://localhost:3000/api/tools/trading/order-history',
-      expect.objectContaining({ method: 'POST' })
-    )
-    const [, options] = vi.mocked(global.fetch).mock.calls[0]!
-    const body = JSON.parse(String(options?.body))
     expect(body).toMatchObject({
-      provider: 'alpaca',
-      submissionSource: 'workflow',
       workspaceId: 'workspace-1',
+      portfolioIdentity,
+      submissionSource: 'workflow',
+      logId: 'log-1',
+      idempotencyKey: expect.stringMatching(/^trading-order:workflow:block-1:/),
     })
     expect(body).not.toHaveProperty('workflowId')
     expect(body).not.toHaveProperty('workflowExecutionId')
-    expect(generateInternalToken).toHaveBeenCalledWith('user-1')
   })
 
-  it('logs failed order-history recording responses instead of treating fetch completion as success', async () => {
-    global.fetch = vi.fn().mockResolvedValue({
-      ok: false,
-      status: 401,
-    }) as unknown as typeof fetch
-
-    const result = {
-      success: true,
-      output: {
-        order: {
-          id: 'provider-order-1',
-          raw: { id: 'provider-order-1', status: 'filled' },
-        },
-        provider: 'alpaca',
-        summary: 'Order submitted',
+  it('keys identical workflow orders by block tool execution identity', () => {
+    const first = buildBody({
+      quantity: 1,
+      _context: {
+        submissionSource: 'workflow',
+        toolExecutionId: 'block-1',
+        workspaceId: 'workspace-1',
       },
-    }
+    })
+    const second = buildBody({
+      quantity: 1,
+      _context: {
+        submissionSource: 'workflow',
+        toolExecutionId: 'block-2',
+        workspaceId: 'workspace-1',
+      },
+    })
 
-    const processed = await tradingActionTool.postProcess?.(
-      result,
-      {
-        ...baseParams,
-        _context: {
-          submissionSource: 'manual',
-          userId: 'user-1',
-          workspaceId: 'workspace-1',
-        },
-      } as any,
-      vi.fn()
-    )
-
-    expect(processed).toBe(result)
+    expect(first.idempotencyKey).not.toBe(second.idempotencyKey)
   })
 
-  it('maps explicit workflow log context to order log id', async () => {
-    global.fetch = vi.fn().mockResolvedValue({ ok: true }) as typeof fetch
-
-    const result = {
-      success: true,
-      output: {
-        order: {
-          id: 'provider-order-1',
-          raw: { id: 'provider-order-1', status: 'filled' },
-        },
-        provider: 'alpaca',
-        summary: 'Order submitted',
-      },
-    }
-
-    await tradingActionTool.postProcess?.(
-      result,
-      {
-        ...baseParams,
+  it('requires a tool execution identity for sourced order submissions', () => {
+    expect(() =>
+      buildBody({
+        quantity: 1,
         _context: {
           submissionSource: 'workflow',
-          userId: 'user-1',
-          workflowLogId: 'log-1',
           workspaceId: 'workspace-1',
         },
-      } as any,
-      vi.fn()
-    )
+      })
+    ).toThrow('Trading order submission requires tool execution identity')
+  })
 
-    const body = JSON.parse(String(vi.mocked(global.fetch).mock.calls[0]![1]?.body))
+  it('keys copilot orders by tool call identity', () => {
+    const body = buildBody({
+      quantity: 1,
+      _context: {
+        submissionSource: 'copilot',
+        toolExecutionId: 'tool-call-1',
+        workspaceId: 'workspace-1',
+      },
+    })
+
+    expect(body.idempotencyKey).toEqual(
+      expect.stringMatching(/^trading-order:copilot:tool-call-1:/)
+    )
+  })
+
+  it('forwards canonical sizing fields without provider-name stripping', () => {
+    const body = buildBody({
+      portfolioIdentity: tradierPortfolioIdentity,
+      quantity: 2,
+      orderSizingMode: 'notional',
+      notional: 100,
+    })
 
     expect(body).toMatchObject({
-      submissionSource: 'workflow',
-      logId: 'log-1',
+      portfolioIdentity: tradierPortfolioIdentity,
+      orderSizingMode: 'notional',
+      notional: 100,
+    })
+    expect(body).not.toHaveProperty('quantity')
+  })
+
+  it('uses the canonical order submission route', () => {
+    expect(tradingActionTool.request.url).toBe('/api/providers/trading/order')
+    expect(tradingActionTool.directExecution).toBeUndefined()
+  })
+
+  it('declares workspace write execution policy on the tool config', () => {
+    expect(tradingActionTool.execution).toEqual({
+      workspace: { required: true, access: 'write' },
+      submissionSource: 'required',
+    })
+  })
+
+  it('transforms canonical route responses into tool output', async () => {
+    const result = await tradingActionTool.transformResponse?.(
+      new Response(
+        JSON.stringify({
+          appOrderId: 'app-order-1',
+          clientOrderId: 'client-order-1',
+          provider: 'alpaca',
+          order: { id: 'provider-order-1', status: 'accepted' },
+        })
+      )
+    )
+
+    expect(result).toMatchObject({
+      success: true,
+      output: {
+        provider: 'alpaca',
+        appOrderId: 'app-order-1',
+        clientOrderId: 'client-order-1',
+        order: { id: 'provider-order-1', status: 'accepted' },
+      },
     })
   })
 })

@@ -6,15 +6,15 @@ import * as Y from 'yjs'
 import {
   createWorkflowTextFieldKey,
   getVariablesSnapshot,
-  getWorkflowSnapshot,
-  getWorkflowTextFieldsMap,
+  readWorkflowSnapshot,
+  readWorkflowTextFieldsMap,
   setWorkflowState,
 } from '@/lib/yjs/workflow-session'
 import {
   addWorkflowVariable,
   deleteWorkflowVariable,
   duplicateWorkflowVariable,
-  getWorkflowVariables,
+  readWorkflowVariables,
   updateWorkflowVariable,
 } from '@/lib/yjs/workflow-variables'
 
@@ -177,12 +177,12 @@ describe('workflow variable Yjs mutations', () => {
     const textFieldKey = createWorkflowTextFieldKey('blockA', 'prompt')
     const sharedText = new Y.Text()
     sharedText.insert(0, 'Use <variable.foovalue> in this prompt')
-    getWorkflowTextFieldsMap(doc).set(textFieldKey, sharedText)
+    readWorkflowTextFieldsMap(doc).set(textFieldKey, sharedText)
 
     expect(updateWorkflowVariable(doc, 'var-1', { name: 'Bar Value' }, 'test')).toBe(true)
 
     expect(sharedText.toString()).toBe('Use <variable.barvalue> in this prompt')
-    expect(getWorkflowTextFieldsMap(doc).get(textFieldKey)).toBe(sharedText)
+    expect(readWorkflowTextFieldsMap(doc).get(textFieldKey)).toBe(sharedText)
     expect(doc.getMap('workflow').get('blocks')).toMatchObject({
       blockA: {
         subBlocks: {
@@ -192,7 +192,7 @@ describe('workflow variable Yjs mutations', () => {
         },
       },
     })
-    expect(getWorkflowSnapshot(doc).blocks.blockA.subBlocks.prompt.value).toBe(
+    expect(readWorkflowSnapshot(doc).blocks.blockA.subBlocks.prompt.value).toBe(
       'Use <variable.barvalue> in this prompt'
     )
   })
@@ -235,7 +235,7 @@ describe('workflow variable Yjs mutations', () => {
 
     const duplicateId = duplicateWorkflowVariable(doc, 'var-1', 'var-2', 'test')
     expect(duplicateId).toBe('var-2')
-    expect(getWorkflowVariables(doc, 'wf-1')).toEqual(
+    expect(readWorkflowVariables(doc, 'wf-1')).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ id: 'var-1', name: 'apiKey' }),
         expect.objectContaining({ id: 'var-2', name: 'apiKey (copy)', value: 'secret' }),

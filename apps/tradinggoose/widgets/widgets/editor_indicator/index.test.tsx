@@ -99,7 +99,7 @@ describe('Indicator Editor header controls', () => {
       panelId: 'panel-1',
       widget: {
         key: 'editor_indicator',
-        params: { pineIndicatorId: 'indicator-1' },
+        params: { indicatorId: 'indicator-1' },
         pairColor: 'gray',
       } as any,
     } as any)
@@ -138,7 +138,7 @@ describe('Indicator Editor header controls', () => {
       panelId: 'panel-1',
       widget: {
         key: 'editor_indicator',
-        params: { pineIndicatorId: 'indicator-1' },
+        params: { indicatorId: 'indicator-1' },
         pairColor: 'gray',
       } as any,
     } as any)
@@ -179,7 +179,7 @@ describe('Indicator Editor header controls', () => {
       panelId: 'panel-1',
       widget: {
         key: 'editor_indicator',
-        params: { pineIndicatorId: 'indicator-1' },
+        params: { indicatorId: 'indicator-1' },
         pairColor: 'gray',
       } as any,
     } as any)

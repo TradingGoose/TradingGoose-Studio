@@ -105,6 +105,7 @@ interface CopilotMessageProps {
   isStreaming?: boolean
   panelWidth?: number
   isDimmed?: boolean
+  sendDisabled?: boolean
   onEditModeChange?: (isEditing: boolean) => void
 }
 
@@ -115,6 +116,7 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
     isStreaming,
     panelWidth = 308,
     isDimmed = false,
+    sendDisabled = false,
     onEditModeChange,
   }) => {
     const isUser = message.role === 'user'
@@ -232,7 +234,7 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
       fileAttachments?: any[],
       contexts?: any[]
     ) => {
-      if (!editedMessage.trim()) return
+      if (!editedMessage.trim() || sendDisabled) return
 
       if (isReplayBlockedForEdit) {
         handleCancelEdit()
@@ -438,9 +440,13 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
 
     const handleOptionSelect = useCallback(
       (_optionKey: string, optionText: string) => {
+        if (sendDisabled) {
+          return
+        }
+
         sendMessage(optionText, { runtimeContext })
       },
-      [runtimeContext, sendMessage]
+      [runtimeContext, sendDisabled, sendMessage]
     )
 
     const assistantSegments = useMemo(() => {
@@ -576,7 +582,7 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
                 onSubmit={handleSubmitEdit}
                 onAbort={handleCancelEdit}
                 isLoading={isTurnInProgress && isLastUserMessage}
-                disabled={false}
+                disabled={sendDisabled}
                 value={editedContent}
                 onChange={setEditedContent}
                 placeholder='Edit your message...'
@@ -696,7 +702,7 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
                 <OptionsSelector
                   options={options}
                   onSelect={handleOptionSelect}
-                  disabled={false}
+                  disabled={sendDisabled}
                   enableKeyboardNav={true}
                   streaming={false}
                 />
@@ -726,6 +732,10 @@ const CopilotMessage: FC<CopilotMessageProps> = memo(
 
     // If dimmed state changed, re-render
     if (prevProps.isDimmed !== nextProps.isDimmed) {
+      return false
+    }
+
+    if (prevProps.sendDisabled !== nextProps.sendDisabled) {
       return false
     }
 

@@ -12,11 +12,7 @@ import {
   isBlockAvailable,
   type ProviderAvailability,
 } from '@/lib/workflows/block-availability'
-import {
-  getAllTriggerBlocks,
-  getTriggerDisplayName,
-  getTriggersForSidebar,
-} from '@/lib/workflows/trigger-utils'
+import { getAllTriggerBlocks, getTriggersForSidebar } from '@/lib/workflows/trigger-utils'
 
 const logger = createLogger('TriggerList')
 const DEFAULT_PROVIDER_AVAILABILITY: ProviderAvailability = {}
@@ -153,9 +149,7 @@ export function TriggerList({ onSelect, className }: TriggerListProps) {
           >
             {Icon ? <Icon className='!h-4 !w-4' /> : <div className='/20 h-4 w-4 rounded' />}
           </div>
-          <span className='flex-1 truncate font-medium text-sm leading-none'>
-            {getTriggerDisplayName(trigger.id)}
-          </span>
+          <span className='flex-1 truncate font-medium text-sm leading-none'>{trigger.name}</span>
         </div>
         <Tooltip delayDuration={300}>
           <TooltipTrigger asChild>
@@ -183,7 +177,7 @@ export function TriggerList({ onSelect, className }: TriggerListProps) {
   return (
     <div
       className={cn(
-        'pointer-events-none absolute inset-0 flex items-center justify-center p-4 z-999',
+        'pointer-events-none absolute inset-0 z-999 flex items-center justify-center p-4',
         className
       )}
     >
@@ -213,7 +207,7 @@ export function TriggerList({ onSelect, className }: TriggerListProps) {
         <div
           className={cn(
             'pointer-events-auto',
-            'max-h-[80vh] h-full w-full max-w-[700px]',
+            'h-full max-h-[80vh] w-full max-w-[700px]',
             'rounded-xl border border-border',
             'bg-background/95',
             'shadow-2xl',

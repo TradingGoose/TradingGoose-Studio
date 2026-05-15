@@ -1,19 +1,15 @@
 import { generateInternalToken } from '@/lib/auth/internal'
-import { toListingValueObject } from '@/lib/listing/identity'
-import { resolveListingIdentity } from '@/lib/listing/resolve'
 import { createLogger } from '@/lib/logs/console/logger'
 import { parseMcpToolId } from '@/lib/mcp/utils'
 import { validateExternalUrl } from '@/lib/security/input-validation'
 import { getBaseUrl } from '@/lib/urls/utils'
 import { generateRequestId } from '@/lib/utils'
-import {
-  isSkillLoaderExecution,
-  resolveSkillContent,
-} from '@/executor/handlers/agent/skills-resolver'
+import { isSkillLoaderExecution } from '@/executor/handlers/agent/skill-loader'
+import { resolveSkillContent } from '@/executor/handlers/agent/skills-resolver'
 import type { ExecutionContext } from '@/executor/types'
 import type { ErrorInfo } from '@/tools/error-extractors'
 import { extractErrorMessage } from '@/tools/error-extractors'
-import type { OAuthTokenPayload, ToolConfig, ToolResponse } from '@/tools/types'
+import type { ToolConfig, ToolResponse } from '@/tools/types'
 import {
   formatRequestParams,
   getTool,
@@ -44,6 +40,7 @@ function resolveExecutionScope(
   userId?: string
   executionId?: string
   workflowLogId?: string
+  toolExecutionId?: string
   submissionSource?: string
   concurrencyLeaseInherited?: boolean
 } {
@@ -55,10 +52,31 @@ function resolveExecutionScope(
     userId: executionContext?.userId ?? context.userId,
     executionId: executionContext?.executionId ?? context.executionId,
     workflowLogId: executionContext?.workflowLogId ?? context.workflowLogId,
+    toolExecutionId: context.toolExecutionId,
     submissionSource: executionContext?.submissionSource ?? context.submissionSource,
     concurrencyLeaseInherited:
       executionContext?.concurrencyLeaseInherited ?? context.concurrencyLeaseInherited,
   }
+}
+
+type ExecutionScope = ReturnType<typeof resolveExecutionScope>
+type ToolExecutionOptions = {
+  signal?: AbortSignal
+}
+
+function generateScopedInternalToken(scope: ExecutionScope) {
+  const workflowExecution =
+    !scope.userId && scope.workflowId && scope.toolExecutionId
+      ? {
+          source: 'workflow_block' as const,
+          parentWorkflowId: scope.workflowId,
+          ...(scope.executionId ? { parentExecutionId: scope.executionId } : {}),
+          parentBlockId: scope.toolExecutionId,
+        }
+      : undefined
+  return workflowExecution
+    ? generateInternalToken(scope.userId, { workflowExecution })
+    : generateInternalToken(scope.userId)
 }
 
 /**
@@ -110,6 +128,50 @@ function handleBodySizeLimitError(error: unknown, requestId: string, context: st
   return false
 }
 
+function throwIfToolRequestAborted(signal?: AbortSignal): void {
+  if (!signal?.aborted) return
+
+  const error = new Error('Aborted')
+  error.name = 'AbortError'
+  throw error
+}
+
+function createToolRequestSignal(
+  timeoutMs: number | undefined,
+  sourceSignal?: AbortSignal
+): { signal?: AbortSignal; didTimeout: () => boolean; cleanup: () => void } {
+  if (!timeoutMs && !sourceSignal) {
+    return { didTimeout: () => false, cleanup: () => {} }
+  }
+
+  const controller = new AbortController()
+  let timedOut = false
+  const abortFromSource = () => controller.abort(sourceSignal?.reason)
+  const timeoutId = timeoutMs
+    ? setTimeout(() => {
+        timedOut = true
+        controller.abort()
+      }, timeoutMs)
+    : null
+
+  if (sourceSignal) {
+    if (sourceSignal.aborted) {
+      abortFromSource()
+    } else {
+      sourceSignal.addEventListener('abort', abortFromSource, { once: true })
+    }
+  }
+
+  return {
+    signal: controller.signal,
+    didTimeout: () => timedOut,
+    cleanup: () => {
+      if (timeoutId) clearTimeout(timeoutId)
+      sourceSignal?.removeEventListener('abort', abortFromSource)
+    },
+  }
+}
+
 /**
  * System parameters that should be filtered out when extracting tool arguments
  * These are internal parameters used by the execution framework, not tool inputs
@@ -124,34 +186,6 @@ const MCP_SYSTEM_PARAMETERS = new Set([
   'blockData',
   'blockNameMapping',
 ])
-
-const hasResolvedListingDetails = (record: Record<string, unknown>): boolean => {
-  const listingType = typeof record.listing_type === 'string' ? record.listing_type : null
-  if (!listingType) return false
-  const base = typeof record.base === 'string' ? record.base.trim() : ''
-  if (!base) return false
-  if (listingType === 'default') return true
-  const quote = typeof record.quote === 'string' ? record.quote.trim() : ''
-  return Boolean(quote)
-}
-
-const hydrateAlpacaOrderListing = async (params: Record<string, any>): Promise<void> => {
-  const listingValue = params.listing
-  if (!listingValue || typeof listingValue !== 'object') return
-  const record = listingValue as Record<string, unknown>
-
-  if (hasResolvedListingDetails(record)) return
-
-  const identity = toListingValueObject(listingValue)
-  if (!identity) return
-
-  const resolved = await resolveListingIdentity(identity).catch(() => null)
-  if (!resolved) {
-    throw new Error('Unable to resolve listing details for Alpaca order.')
-  }
-
-  params.listing = resolved
-}
 
 /**
  * Create an Error instance from errorInfo and attach useful context
@@ -218,7 +252,8 @@ export async function executeTool(
   toolId: string,
   params: Record<string, any>,
   skipPostProcess = false,
-  executionContext?: ExecutionContext
+  executionContext?: ExecutionContext,
+  options?: ToolExecutionOptions
 ): Promise<ToolResponse> {
   // Capture start time for precise timing
   const startTime = new Date()
@@ -227,6 +262,7 @@ export async function executeTool(
   const scope = resolveExecutionScope(params, executionContext)
 
   try {
+    throwIfToolRequestAborted(options?.signal)
     let tool: ToolConfig | undefined
 
     if (isSkillLoaderExecution(params)) {
@@ -239,7 +275,7 @@ export async function executeTool(
         }
       }
 
-      const content = await resolveSkillContent(skillName, scope.workspaceId, scope.workflowId)
+      const content = await resolveSkillContent(skillName, scope.workspaceId)
       if (!content) {
         return {
           success: false,
@@ -288,6 +324,7 @@ export async function executeTool(
         userId: scope.userId,
         executionId: scope.executionId,
         workflowLogId: scope.workflowLogId,
+        toolExecutionId: scope.toolExecutionId,
         submissionSource: scope.submissionSource,
         concurrencyLeaseInherited: scope.concurrencyLeaseInherited,
       }
@@ -296,6 +333,7 @@ export async function executeTool(
         mergedContext.workspaceId ||
         mergedContext.executionId ||
         mergedContext.workflowLogId ||
+        mergedContext.toolExecutionId ||
         mergedContext.submissionSource ||
         mergedContext.concurrencyLeaseInherited
       ) {
@@ -303,67 +341,58 @@ export async function executeTool(
       }
     }
 
-    if (
-      (toolId === 'trading_place_order' || toolId === 'trading_order_history') &&
-      !scope.workspaceId
-    ) {
-      throw new Error(`${toolId} requires workspace execution context`)
-    }
-    if (toolId === 'trading_place_order' && !scope.submissionSource) {
-      throw new Error('trading_place_order requires explicit submission source')
-    }
-
-    // Validate the tool and its parameters
-    validateRequiredParametersAfterMerge(toolId, tool, contextParams)
-
-    // After validation, we know tool exists
     if (!tool) {
       throw new Error(`Tool not found: ${toolId}`)
     }
 
-    if (contextParams.credential) {
+    if (tool.execution?.workspace?.required && !scope.workspaceId) {
+      throw new Error(`${toolId} requires workspace execution context`)
+    }
+    if (tool.execution?.submissionSource === 'required' && !scope.submissionSource) {
+      throw new Error(`${toolId} requires explicit submission source`)
+    }
+
+    validateRequiredParametersAfterMerge(toolId, tool, contextParams)
+
+    const selectedCredentialId =
+      typeof contextParams.credential === 'string' ? contextParams.credential.trim() : ''
+    if (selectedCredentialId) {
       logger.info(
-        `[${requestId}] Tool ${toolId} needs access token for credential: ${contextParams.credential}`
+        `[${requestId}] Tool ${toolId} needs access token for credential: ${selectedCredentialId}`
       )
       try {
         const baseUrl = getBaseUrl()
 
-        // Prepare the token payload
-        const tokenPayload: OAuthTokenPayload = {
-          credentialId: contextParams.credential,
-        }
-
-        // Add workflowId if it exists in params, context, or executionContext
-        const workflowId = scope.workflowId
-        if (workflowId) {
-          tokenPayload.workflowId = workflowId
+        const tokenPayload = {
+          credentialId: selectedCredentialId,
+          ...(scope.workflowId ? { workflowId: scope.workflowId } : {}),
+          ...(scope.workspaceId ? { workspaceId: scope.workspaceId } : {}),
         }
 
         logger.info(`[${requestId}] Fetching access token from ${baseUrl}/api/auth/oauth/token`)
 
-        // Build token URL and also include workflowId in query so server auth can read it
-        const tokenUrlObj = new URL('/api/auth/oauth/token', baseUrl)
-        if (workflowId) {
-          tokenUrlObj.searchParams.set('workflowId', workflowId)
-        }
-
-        // Always send Content-Type; add internal auth on server-side runs
         const tokenHeaders: Record<string, string> = { 'Content-Type': 'application/json' }
         if (typeof window === 'undefined') {
           try {
-            const internalToken = await generateInternalToken(scope.userId)
-            tokenHeaders.Authorization = `Bearer ${internalToken}`
+            tokenHeaders.Authorization = `Bearer ${await generateScopedInternalToken(scope)}`
           } catch (error) {
             logger.error(`[${requestId}] Failed to generate internal auth for ${toolId}:`, error)
             throw error
           }
         }
 
-        const response = await fetch(tokenUrlObj.toString(), {
-          method: 'POST',
-          headers: tokenHeaders,
-          body: JSON.stringify(tokenPayload),
-        })
+        const tokenRequestSignal = createToolRequestSignal(undefined, options?.signal)
+        let response: Response
+        try {
+          response = await fetch(new URL('/api/auth/oauth/token', baseUrl).toString(), {
+            method: 'POST',
+            headers: tokenHeaders,
+            body: JSON.stringify(tokenPayload),
+            signal: tokenRequestSignal.signal,
+          })
+        } finally {
+          tokenRequestSignal.cleanup()
+        }
 
         if (!response.ok) {
           const errorText = await response.text()
@@ -376,9 +405,6 @@ export async function executeTool(
 
         const data = await response.json()
         contextParams.accessToken = data.accessToken
-        if (data.providerId) {
-          contextParams.credentialServiceId = data.providerId
-        }
         if (data.apiKey) {
           contextParams.apiKey = data.apiKey
         }
@@ -387,19 +413,11 @@ export async function executeTool(
           `[${requestId}] Successfully got access token for ${toolId}, length: ${data.accessToken?.length || 0}`
         )
 
-        // Preserve credential for downstream transforms while removing it from request payload
-        // so we don't leak it to external services.
-        if (contextParams.credential) {
-          ;(contextParams as any)._credentialId = contextParams.credential
-        }
-        // Clean up params we don't need to pass to the actual tool
-        contextParams.credential = undefined
         if (contextParams.workflowId) contextParams.workflowId = undefined
       } catch (error: any) {
         logger.error(`[${requestId}] Error fetching access token for ${toolId}:`, {
           error: error instanceof Error ? error.message : String(error),
         })
-        // Re-throw the error to fail the tool execution if token fetching fails
         throw new Error(
           `Failed to obtain credential for tool ${toolId}: ${error instanceof Error ? error.message : String(error)}`
         )
@@ -408,16 +426,14 @@ export async function executeTool(
 
     // Check for direct execution (no HTTP request needed)
     if (tool.directExecution) {
+      throwIfToolRequestAborted(options?.signal)
       logger.info(`[${requestId}] Using directExecution for ${toolId}`)
       const result = await tool.directExecution(contextParams)
+      throwIfToolRequestAborted(options?.signal)
 
       // Apply post-processing if available and not skipped
       let finalResult = result
-      if (
-        tool.postProcess &&
-        !skipPostProcess &&
-        (result.success || toolId === 'trading_place_order')
-      ) {
+      if (tool.postProcess && !skipPostProcess && result.success) {
         try {
           finalResult = await tool.postProcess(result, contextParams, executeTool)
         } catch (error) {
@@ -446,19 +462,12 @@ export async function executeTool(
     }
 
     // Execute the tool request directly (internal routes use regular fetch)
-    if (toolId === 'trading_place_order' && contextParams.provider === 'alpaca') {
-      await hydrateAlpacaOrderListing(contextParams)
-    }
-
-    const result = await executeToolRequest(toolId, tool, contextParams, executionContext)
+    const result = await executeToolRequest(toolId, tool, contextParams, executionContext, options)
+    throwIfToolRequestAborted(options?.signal)
 
     // Apply post-processing if available and not skipped
     let finalResult = result
-    if (
-      tool.postProcess &&
-      !skipPostProcess &&
-      (result.success || toolId === 'trading_place_order')
-    ) {
+    if (tool.postProcess && !skipPostProcess && result.success) {
       try {
         finalResult = await tool.postProcess(result, contextParams, executeTool)
       } catch (error) {
@@ -614,12 +623,12 @@ async function addInternalAuthIfNeeded(
   isInternalRoute: boolean,
   requestId: string,
   context: string,
-  userId?: string
+  scope: ExecutionScope
 ): Promise<void> {
   if (typeof window === 'undefined') {
     if (isInternalRoute) {
       try {
-        const internalToken = await generateInternalToken(userId)
+        const internalToken = await generateScopedInternalToken(scope)
         if (headers instanceof Headers) {
           headers.set('Authorization', `Bearer ${internalToken}`)
         } else {
@@ -645,7 +654,8 @@ async function executeToolRequest(
   toolId: string,
   tool: ToolConfig,
   params: Record<string, any>,
-  executionContext?: ExecutionContext
+  executionContext?: ExecutionContext,
+  options?: ToolExecutionOptions
 ): Promise<ToolResponse> {
   const requestId = generateRequestId()
   const scope = resolveExecutionScope(params, executionContext)
@@ -691,7 +701,8 @@ async function executeToolRequest(
     }
 
     const headers = new Headers(requestParams.headers)
-    await addInternalAuthIfNeeded(headers, isInternalRoute, requestId, toolId, scope.userId)
+    await addInternalAuthIfNeeded(headers, isInternalRoute, requestId, toolId, scope)
+    throwIfToolRequestAborted(options?.signal)
 
     if (typeof requestParams.body === 'string') {
       validateRequestBodySize(requestParams.body, requestId, toolId)
@@ -700,24 +711,23 @@ async function executeToolRequest(
     let response: Response
 
     if (isInternalRoute) {
-      const controller = new AbortController()
       const timeout = requestParams.timeout || 300000
-      const timeoutId = setTimeout(() => controller.abort(), timeout)
+      const requestSignal = createToolRequestSignal(timeout, options?.signal)
 
       try {
         response = await fetch(fullUrl, {
           method: requestParams.method,
           headers: headers,
           body: requestParams.body,
-          signal: controller.signal,
+          signal: requestSignal.signal,
         })
       } catch (error) {
-        if (error instanceof Error && error.name === 'AbortError') {
+        if (error instanceof Error && error.name === 'AbortError' && requestSignal.didTimeout()) {
           throw new Error(`Request timed out after ${timeout}ms`)
         }
         throw error
       } finally {
-        clearTimeout(timeoutId)
+        requestSignal.cleanup()
       }
     } else {
       const urlValidation = validateExternalUrl(fullUrl, 'toolUrl')
@@ -725,30 +735,21 @@ async function executeToolRequest(
         throw new Error(`Invalid tool URL: ${urlValidation.error}`)
       }
 
-      if (requestParams.timeout) {
-        const controller = new AbortController()
-        const timeoutId = setTimeout(() => controller.abort(), requestParams.timeout)
-        try {
-          response = await fetch(fullUrl, {
-            method: requestParams.method,
-            headers: headers,
-            body: requestParams.body,
-            signal: controller.signal,
-          })
-        } catch (error) {
-          if (error instanceof Error && error.name === 'AbortError') {
-            throw new Error(`Request timed out after ${requestParams.timeout}ms`)
-          }
-          throw error
-        } finally {
-          clearTimeout(timeoutId)
-        }
-      } else {
+      const requestSignal = createToolRequestSignal(requestParams.timeout, options?.signal)
+      try {
         response = await fetch(fullUrl, {
           method: requestParams.method,
           headers: headers,
           body: requestParams.body,
+          signal: requestSignal.signal,
         })
+      } catch (error) {
+        if (error instanceof Error && error.name === 'AbortError' && requestSignal.didTimeout()) {
+          throw new Error(`Request timed out after ${requestParams.timeout}ms`)
+        }
+        throw error
+      } finally {
+        requestSignal.cleanup()
       }
     }
 

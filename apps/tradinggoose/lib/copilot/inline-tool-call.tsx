@@ -2,25 +2,17 @@
 
 import { useRef, useState } from 'react'
 import { Loader2 } from 'lucide-react'
-import useDrivePicker from 'react-google-drive-picker'
-import { GoogleDriveIcon } from '@/components/icons/icons'
 import { Button } from '@/components/ui/button'
-import { shouldRequireCopilotApproval, type CopilotAccessLevel } from '@/lib/copilot/access-policy'
-import {
-  buildEntityReviewDiffLines,
-  buildEntityReviewDiffPayload,
-} from '@/lib/copilot/entity-review-diff'
-import { useEntitySession } from '@/lib/copilot/review-sessions/entity-session-host'
+import { DiffViewer } from '@/components/ui/diff-viewer'
+import { type CopilotAccessLevel, shouldRequireToolApproval } from '@/lib/copilot/access-policy'
 import { ClientToolCallState } from '@/lib/copilot/tools/client/base-tool'
 import { getClientTool } from '@/lib/copilot/tools/client/manager'
-import { getEnv } from '@/lib/env'
-import { cn } from '@/lib/utils'
-import { getEntityFields } from '@/lib/yjs/entity-session'
 import { useCopilotStore } from '@/stores/copilot/store'
 import {
   getCopilotToolMetadata,
   getToolInterruptDisplays,
   isCopilotTool,
+  isGatedTool,
 } from '@/stores/copilot/tool-registry'
 import type { CopilotToolCall } from '@/stores/copilot/types'
 import { PreviewWorkflow } from '@/widgets/widgets/editor_workflow/components/workflow-editor/preview/preview-workflow'
@@ -34,11 +26,18 @@ type WorkflowReviewPayload = {
   addedEdgesCount: number
   removedEdgesCount: number
 }
+type EntityReviewPayload = {
+  title: string
+  documentDiff: {
+    before: string
+    after: string
+  }
+}
 
 interface InlineToolCallProps {
   toolCall?: CopilotToolCall
   toolCallId?: string
-  onStateChange?: (state: any) => void
+  onStateChange?: (state: ClientToolCallState) => void
 }
 
 const ACTION_VERBS = [
@@ -186,56 +185,72 @@ function ShimmerOverlayText({
   )
 }
 
-function shouldShowRunSkipButtons(
+function shouldShowToolActionButtons(
   toolCall: CopilotToolCall,
-  options: { accessLevel: CopilotAccessLevel; isIntegration: boolean }
+  accessLevel: CopilotAccessLevel
 ): boolean {
+  if (!isCopilotTool(toolCall.name)) {
+    return false
+  }
+
   const hasInterrupt = !!getToolInterruptDisplays(toolCall.name, toolCall.id)
 
-  // Show accept/reject for tools in review state that declare interrupt metadata
-  if (hasInterrupt && toolCall.state === 'review') {
+  if (hasInterrupt && toolCall.state === ClientToolCallState.review) {
     return true
   }
 
   return (
-    toolCall.state === 'pending' &&
-    shouldRequireCopilotApproval(options.accessLevel) &&
-    (hasInterrupt || options.isIntegration)
+    toolCall.state === ClientToolCallState.pending &&
+    shouldRequireToolApproval(accessLevel, isGatedTool(toolCall.name))
   )
 }
 
-function getStateVerb(state: string): string {
-  switch (state) {
-    case 'pending':
-    case 'executing':
-      return 'Running'
-    case 'success':
-      return 'Ran'
-    case 'error':
-      return 'Failed'
-    case 'rejected':
-    case 'aborted':
-      return 'Skipped'
-    default:
-      return 'Running'
+function isEntityMutationTool(toolName: string): boolean {
+  return (
+    toolName === 'create_skill' ||
+    toolName === 'edit_skill' ||
+    toolName === 'rename_skill' ||
+    toolName === 'create_custom_tool' ||
+    toolName === 'edit_custom_tool' ||
+    toolName === 'rename_custom_tool' ||
+    toolName === 'create_indicator' ||
+    toolName === 'edit_indicator' ||
+    toolName === 'rename_indicator' ||
+    toolName === 'create_mcp_server' ||
+    toolName === 'edit_mcp_server' ||
+    toolName === 'rename_mcp_server'
+  )
+}
+
+function readEntityReviewPayload(toolCall: CopilotToolCall): EntityReviewPayload | null {
+  if (!isEntityMutationTool(toolCall.name) || toolCall.state !== ClientToolCallState.review) {
+    return null
   }
-}
 
-function formatToolName(name: string): string {
-  return name
-    .split('_')
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ')
-}
+  const result = toolCall.result && typeof toolCall.result === 'object' ? toolCall.result : null
+  const documentDiff = result?.preview?.documentDiff
+  if (
+    !documentDiff ||
+    typeof documentDiff.before !== 'string' ||
+    typeof documentDiff.after !== 'string' ||
+    documentDiff.before === documentDiff.after
+  ) {
+    return null
+  }
 
-function getEntityDiffLineClasses(type: 'context' | 'removed' | 'added'): string {
-  switch (type) {
-    case 'added':
-      return 'bg-green-50/80 text-green-700 dark:bg-green-950/20 dark:text-green-300'
-    case 'removed':
-      return 'bg-red-50/80 text-red-700 dark:bg-red-950/20 dark:text-red-300'
-    default:
-      return 'bg-muted/30 text-muted-foreground'
+  const entityLabel =
+    result?.entityKind === 'custom_tool'
+      ? 'Custom Tool'
+      : result?.entityKind === 'mcp_server'
+        ? 'MCP Server'
+        : result?.entityKind === 'indicator'
+          ? 'Indicator'
+          : result?.entityKind === 'skill'
+            ? 'Skill'
+            : 'Entity'
+  return {
+    title: `Proposed ${entityLabel} Changes`,
+    documentDiff,
   }
 }
 
@@ -291,197 +306,71 @@ function readWorkflowReviewPayload(toolCall: CopilotToolCall): WorkflowReviewPay
   }
 }
 
-function getDisplayName(toolCall: CopilotToolCall, options?: { isIntegration?: boolean }): string {
-  const isIntegration = options?.isIntegration
-
+function getDisplayName(toolCall: CopilotToolCall): string {
   // Prefer display resolved in the copilot store (SSOT) for client tools
   const fromStore = (toolCall as any).display?.text
-  if (fromStore && !isIntegration) return fromStore
+  if (fromStore) return fromStore
 
   try {
     const byState = getCopilotToolMetadata(toolCall.name)?.displayNames?.[toolCall.state]
     if (byState?.text) return byState.text
   } catch {}
 
-  if (isIntegration) {
-    return `${getStateVerb(String(toolCall.state))} ${formatToolName(toolCall.name)}`.trim()
-  }
-
   return toolCall.name
 }
 
-function RunSkipButtons({
+function ToolActionButtons({
   toolCall,
   onStateChange,
-  isIntegration,
 }: {
   toolCall: CopilotToolCall
-  onStateChange?: (state: any) => void
-  isIntegration?: boolean
+  onStateChange?: (state: ClientToolCallState) => void
 }) {
   const [isProcessing, setIsProcessing] = useState(false)
-  const [buttonsHidden, setButtonsHidden] = useState(false)
   const actionInProgressRef = useRef(false)
-  const {
-    executeCopilotToolCall,
-    executeIntegrationTool,
-    skipCopilotToolCall,
-    skipIntegrationTool,
-  } = useCopilotStore()
-  const [openPicker] = useDrivePicker()
+  const { executeCopilotToolCall, skipCopilotToolCall } = useCopilotStore()
+  const interruptDisplays = getToolInterruptDisplays(toolCall.name, toolCall.id)
+  const isReview = toolCall.state === ClientToolCallState.review
+  const acceptText = interruptDisplays?.accept?.text ?? (isReview ? 'Accept' : 'Allow')
+  const rejectText = interruptDisplays?.reject?.text ?? (isReview ? 'Reject' : 'Skip')
+  const AcceptIcon = interruptDisplays?.accept?.icon
+  const RejectIcon = interruptDisplays?.reject?.icon
 
-  const onRun = async () => {
+  const onAccept = async () => {
     if (actionInProgressRef.current) return
     actionInProgressRef.current = true
     setIsProcessing(true)
-    setButtonsHidden(true)
     try {
-      if (isIntegration) {
-        onStateChange?.('executing')
-        await executeIntegrationTool(toolCall.id)
-      } else {
-        onStateChange?.('executing')
-        await executeCopilotToolCall(toolCall.id)
-      }
+      onStateChange?.(ClientToolCallState.executing)
+      await executeCopilotToolCall(toolCall.id)
     } finally {
       setIsProcessing(false)
       actionInProgressRef.current = false
     }
   }
 
-  if (buttonsHidden) return null
-
-  if (toolCall.name === 'gdrive_request_access' && toolCall.state === 'pending') {
-    return (
-      <div className='flex items-center gap-2'>
-        <Button
-          onClick={async () => {
-            const instance = getClientTool(toolCall.id)
-            if (!instance) return
-            await instance.handleAccept?.({
-              openDrivePicker: async (accessToken: string) => {
-                try {
-                  const clientId = getEnv('NEXT_PUBLIC_GOOGLE_CLIENT_ID') || ''
-                  const apiKey = getEnv('NEXT_PUBLIC_GOOGLE_API_KEY') || ''
-                  const projectNumber = getEnv('NEXT_PUBLIC_GOOGLE_PROJECT_NUMBER') || ''
-                  return await new Promise<boolean>((resolve) => {
-                    openPicker({
-                      clientId,
-                      developerKey: apiKey,
-                      viewId: 'DOCS',
-                      token: accessToken,
-                      showUploadView: true,
-                      showUploadFolders: true,
-                      supportDrives: true,
-                      multiselect: false,
-                      appId: projectNumber,
-                      setSelectFolderEnabled: false,
-                      callbackFunction: async (data) => {
-                        if (data.action === 'picked') resolve(true)
-                        else if (data.action === 'cancel') resolve(false)
-                      },
-                    })
-                  })
-                } catch {
-                  return false
-                }
-              },
-            })
-          }}
-          size='sm'
-          title='Grant Google Drive access'
-        >
-          <GoogleDriveIcon className='mr-0.5 h-4 w-4' />
-          Select
-        </Button>
-        <Button
-          onClick={async () => {
-            setButtonsHidden(true)
-            await skipCopilotToolCall(toolCall.id)
-            onStateChange?.('rejected')
-          }}
-          size='sm'
-          variant='outline'
-        >
-          Skip
-        </Button>
-      </div>
-    )
-  }
-
-  // Review state: show Accept / Reject using the tool's interrupt display metadata
-  if (toolCall.state === 'review') {
-    const interruptDisplays = getToolInterruptDisplays(toolCall.name, toolCall.id)
-    const acceptText = interruptDisplays?.accept?.text ?? 'Accept'
-    const rejectText = interruptDisplays?.reject?.text ?? 'Reject'
-    const AcceptIcon = interruptDisplays?.accept?.icon
-    const RejectIcon = interruptDisplays?.reject?.icon
-
-    return (
-      <div className='flex items-center gap-1.5'>
-        <Button
-          onClick={async () => {
-            if (actionInProgressRef.current) return
-            actionInProgressRef.current = true
-            setIsProcessing(true)
-            setButtonsHidden(true)
-            try {
-              onStateChange?.('executing')
-              await executeCopilotToolCall(toolCall.id)
-            } finally {
-              setIsProcessing(false)
-              actionInProgressRef.current = false
-            }
-          }}
-          disabled={isProcessing}
-          size='sm'
-        >
-          {isProcessing ? (
-            <Loader2 className='mr-1 h-3 w-3 animate-spin' />
-          ) : AcceptIcon ? (
-            <AcceptIcon className='mr-1 h-3 w-3' />
-          ) : null}
-          {acceptText}
-        </Button>
-        <Button
-          onClick={async () => {
-            setButtonsHidden(true)
-            await skipCopilotToolCall(toolCall.id)
-            onStateChange?.('rejected')
-          }}
-          disabled={isProcessing}
-          size='sm'
-          variant='outline'
-        >
-          {RejectIcon ? <RejectIcon className='mr-1 h-3 w-3' /> : null}
-          {rejectText}
-        </Button>
-      </div>
-    )
-  }
-
   return (
     <div className='flex items-center gap-1.5'>
-      <Button onClick={onRun} disabled={isProcessing} size='sm'>
-        {isProcessing ? <Loader2 className='mr-1 h-3 w-3 animate-spin' /> : null}
-        Allow
+      <Button onClick={onAccept} disabled={isProcessing} size='sm'>
+        {isProcessing ? (
+          <Loader2 className='mr-1 h-3 w-3 animate-spin' />
+        ) : AcceptIcon ? (
+          <AcceptIcon className='mr-1 h-3 w-3' />
+        ) : null}
+        {acceptText}
       </Button>
       <Button
         onClick={async () => {
-          setButtonsHidden(true)
-          if (isIntegration) {
-            onStateChange?.('rejected')
-            skipIntegrationTool(toolCall.id)
-          } else {
-            await skipCopilotToolCall(toolCall.id)
-            onStateChange?.('rejected')
-          }
+          if (actionInProgressRef.current) return
+          await skipCopilotToolCall(toolCall.id)
+          onStateChange?.(ClientToolCallState.rejected)
         }}
         disabled={isProcessing}
         size='sm'
         variant='outline'
       >
-        Skip
+        {RejectIcon ? <RejectIcon className='mr-1 h-3 w-3' /> : null}
+        {rejectText}
       </Button>
     </div>
   )
@@ -504,74 +393,32 @@ export function InlineToolCall({
     toolState === 'pending' &&
     (toolName === 'make_api_request' ||
       toolName === 'set_environment_variables' ||
-      toolName === 'set_global_workflow_variables')
+      toolName === 'set_workflow_variables')
 
   const [expanded, setExpanded] = useState(isExpandablePending)
   const isExpandableTool =
     toolName === 'make_api_request' ||
     toolName === 'set_environment_variables' ||
-    toolName === 'set_global_workflow_variables'
+    toolName === 'set_workflow_variables'
 
   const accessLevel = useCopilotStore((s) => s.accessLevel)
-  const entitySession = useEntitySession()
 
-  const isCopilotManagedTool = isCopilotTool(toolName)
-  const isIntegration = !isCopilotManagedTool
-
-  // Guard: nothing to render without a toolCall
   if (!toolCall) return null
 
-  // Skip rendering some internal tools
-  if (toolCall.name === 'checkoff_todo' || toolCall.name === 'mark_todo_in_progress') return null
-
-  const showButtons = shouldShowRunSkipButtons(toolCall, { accessLevel, isIntegration })
+  const showButtons = shouldShowToolActionButtons(toolCall, accessLevel)
   const showMoveToBackground =
-    toolCall.name === 'run_workflow' &&
-    (toolCall.state === (ClientToolCallState.executing as any) ||
-      toolCall.state === ('executing' as any))
+    toolCall.name === 'run_workflow' && toolCall.state === ClientToolCallState.executing
 
-  const handleStateChange = (state: any) => {
+  const handleStateChange = (state: ClientToolCallState) => {
     forceUpdate({})
     onStateChange?.(state)
   }
 
-  const displayName = getDisplayName(toolCall, { isIntegration })
+  const displayName = getDisplayName(toolCall)
   const params = (toolCall as any).parameters || (toolCall as any).input || toolCall.params || {}
+  const entityReviewPayload = readEntityReviewPayload(toolCall)
   const workflowReviewPayload = readWorkflowReviewPayload(toolCall)
   const showWorkflowReview = workflowReviewPayload && toolCall.state === ClientToolCallState.review
-  const workflowBlockEditRows =
-    toolCall.name === 'edit_workflow_block'
-      ? [
-          ...(typeof params.name === 'string' && params.name.trim()
-            ? [{ key: 'name', label: 'Name', value: params.name.trim() }]
-            : []),
-          ...(typeof params.enabled === 'boolean'
-            ? [{ key: 'enabled', label: 'Enabled', value: String(params.enabled) }]
-            : []),
-          ...(params.subBlocks &&
-          typeof params.subBlocks === 'object' &&
-          !Array.isArray(params.subBlocks)
-            ? Object.entries(params.subBlocks)
-                .sort(([a], [b]) => a.localeCompare(b))
-                .map(([key, value]) => ({
-                  key: `subBlocks.${key}`,
-                  label: `subBlocks.${key}`,
-                  value: typeof value === 'string' ? value : (JSON.stringify(value, null, 2) ?? ''),
-                }))
-            : []),
-        ]
-      : []
-  const showWorkflowBlockEditRequest =
-    workflowBlockEditRows.length > 0 &&
-    (toolCall.state === ClientToolCallState.pending ||
-      toolCall.state === ClientToolCallState.review)
-  const entityReviewDiffPayload =
-    entitySession.doc && entitySession.descriptor
-      ? buildEntityReviewDiffPayload(
-          toolCall,
-          getEntityFields(entitySession.doc, entitySession.descriptor.entityKind)
-        )
-      : null
 
   const renderPendingDetails = () => {
     if (toolCall.name === 'make_api_request') {
@@ -657,7 +504,7 @@ export function InlineToolCall({
       )
     }
 
-    if (toolCall.name === 'set_global_workflow_variables') {
+    if (toolCall.name === 'set_workflow_variables') {
       const ops = Array.isArray(params.operations) ? (params.operations as any[]) : []
       return (
         <div className='mt-0.5 w-full overflow-hidden rounded border border-muted bg-card'>
@@ -708,7 +555,7 @@ export function InlineToolCall({
     return null
   }
 
-  // Compute icon element from tool's display metadata (fallback to Loader2)
+  // Compute icon element from tool display metadata, defaulting to Loader2.
   const renderDisplayIcon = () => {
     try {
       // Determine the icon component (prefer store, then registry, else Loader2)
@@ -723,12 +570,12 @@ export function InlineToolCall({
 
       // Color by state
       let colorClass = ''
-      const state = toolCall.state as any
-      if (state === (ClientToolCallState as any).aborted || state === 'aborted') {
+      const state = toolCall.state
+      if (state === ClientToolCallState.aborted) {
         colorClass = 'text-yellow-500'
-      } else if (state === (ClientToolCallState as any).error || state === 'error') {
+      } else if (state === ClientToolCallState.error) {
         colorClass = 'text-red-500'
-      } else if (state === (ClientToolCallState as any).success || state === 'success') {
+      } else if (state === ClientToolCallState.success) {
         const isBuildOrEdit = toolCall.name === 'edit_workflow'
         colorClass = isBuildOrEdit ? 'text-primary-hover' : 'text-green-600'
       }
@@ -767,26 +614,19 @@ export function InlineToolCall({
           <ShimmerOverlayText text={displayName} active={isLoadingState} className='text-sm' />
         </div>
         {showButtons ? (
-          <RunSkipButtons
-            toolCall={toolCall}
-            onStateChange={handleStateChange}
-            isIntegration={isIntegration}
-          />
+          <ToolActionButtons toolCall={toolCall} onStateChange={handleStateChange} />
         ) : showMoveToBackground ? (
           <Button
-            // Intentionally minimal wiring per requirements
             onClick={async () => {
               try {
                 const instance = getClientTool(toolCall.id)
-                // Transition to background state locally so UI updates immediately
-                instance?.setState?.((ClientToolCallState as any).background)
+                instance?.setState?.(ClientToolCallState.background)
                 await instance?.markToolComplete?.(
                   200,
                   'The user has chosen to move the workflow execution to the background. Check back with them later to know when the workflow execution is complete'
                 )
-                // Optionally force a re-render; store should sync state from server
                 forceUpdate({})
-                onStateChange?.('background')
+                onStateChange?.(ClientToolCallState.background)
               } catch {}
             }}
             size='sm'
@@ -798,65 +638,20 @@ export function InlineToolCall({
         ) : null}
       </div>
       {isExpandableTool && expanded && <div className='pr-1 pl-5'>{renderPendingDetails()}</div>}
-      {entityReviewDiffPayload ? (
+      {entityReviewPayload ? (
         <div className='pr-1 pl-5'>
-          <div className='flex flex-col gap-3 rounded-md border border-orange-200/70 bg-card/60 p-3 dark:border-orange-900/50'>
+          <div className='flex flex-col gap-3 rounded-md border border-border/60 bg-card/60 p-3'>
             <div className='font-medium text-[11px] text-muted-foreground uppercase tracking-wide'>
-              {entityReviewDiffPayload.title}
+              {entityReviewPayload.title}
             </div>
-
-            {entityReviewDiffPayload.sections.map((section) => (
-              <div key={section.key} className='flex flex-col gap-1.5'>
-                <div className='font-medium text-[11px] text-muted-foreground uppercase tracking-wide'>
-                  {section.label}
-                </div>
-                <div className='overflow-hidden rounded-md border border-border/60 bg-background/70'>
-                  {buildEntityReviewDiffLines(section.before, section.after).map((line, index) => (
-                    <div
-                      key={`${section.key}-${line.type}-${index}`}
-                      className={cn(
-                        'grid grid-cols-[10px_1fr] gap-2 px-2 py-1 font-mono text-[11px] leading-5',
-                        getEntityDiffLineClasses(line.type)
-                      )}
-                    >
-                      <span className='select-none'>
-                        {line.type === 'added' ? '+' : line.type === 'removed' ? '-' : ' '}
-                      </span>
-                      <span className='whitespace-pre-wrap break-words'>{line.text || ' '}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      ) : null}
-      {showWorkflowBlockEditRequest ? (
-        <div className='pr-1 pl-5'>
-          <div className='flex flex-col gap-2 rounded-md border border-orange-200/70 bg-card/60 p-3 dark:border-orange-900/50'>
-            <div className='flex flex-wrap items-center gap-2'>
-              <div className='font-medium text-[11px] text-muted-foreground uppercase tracking-wide'>
-                Proposed Workflow Block Changes
-              </div>
-              <span className='rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground'>
-                {String(params.blockId || '')}
-              </span>
-              {typeof params.blockType === 'string' && params.blockType.trim() ? (
-                <span className='rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground'>
-                  {params.blockType.trim()}
-                </span>
-              ) : null}
-            </div>
-            <div className='divide-y divide-muted/60 overflow-hidden rounded-md border border-border/60 bg-background/70'>
-              {workflowBlockEditRows.map((row) => (
-                <div key={row.key} className='grid gap-1 px-2 py-1.5'>
-                  <div className='font-medium text-[11px] text-muted-foreground'>{row.label}</div>
-                  <div className='max-h-48 overflow-auto whitespace-pre-wrap break-words font-mono text-[11px] text-foreground'>
-                    {row.value || ' '}
-                  </div>
-                </div>
-              ))}
-            </div>
+            <DiffViewer
+              oldFile={{ name: 'Current', content: entityReviewPayload.documentDiff.before }}
+              newFile={{ name: 'Proposed', content: entityReviewPayload.documentDiff.after }}
+              viewMode='unified'
+              showIcon={false}
+              size='sm'
+              className='rounded-md border-border/60 bg-background/70'
+            />
           </div>
         </div>
       ) : null}

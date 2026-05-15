@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
-import { checkHybridAuth } from '@/lib/auth/hybrid'
+import { resolveOAuthRouteCredential } from '@/lib/credentials/oauth-route'
 import { createLogger } from '@/lib/logs/console/logger'
 import {
   downloadFileFromStorage,
@@ -13,7 +13,9 @@ export const dynamic = 'force-dynamic'
 const logger = createLogger('SharepointUploadAPI')
 
 const SharepointUploadSchema = z.object({
-  accessToken: z.string().min(1, 'Access token is required'),
+  credentialId: z.string().min(1, 'Credential ID is required'),
+  workflowId: z.string().optional().nullable(),
+  workspaceId: z.string().optional().nullable(),
   siteId: z.string().default('root'),
   driveId: z.string().optional().nullable(),
   folderPath: z.string().optional().nullable(),
@@ -25,28 +27,10 @@ export async function POST(request: NextRequest) {
   const requestId = generateRequestId()
 
   try {
-    const authResult = await checkHybridAuth(request, { requireWorkflowId: false })
-
-    if (!authResult.success) {
-      logger.warn(`[${requestId}] Unauthorized SharePoint upload attempt: ${authResult.error}`)
-      return NextResponse.json(
-        {
-          success: false,
-          error: authResult.error || 'Authentication required',
-        },
-        { status: 401 }
-      )
-    }
-
-    logger.info(
-      `[${requestId}] Authenticated SharePoint upload request via ${authResult.authType}`,
-      {
-        userId: authResult.userId,
-      }
-    )
-
     const body = await request.json()
     const validatedData = SharepointUploadSchema.parse(body)
+    const credential = await resolveOAuthRouteCredential(request, validatedData, requestId)
+    if (!credential.ok) return credential.response
 
     logger.info(`[${requestId}] Uploading files to SharePoint`, {
       siteId: validatedData.siteId,
@@ -85,7 +69,7 @@ export async function POST(request: NextRequest) {
         `https://graph.microsoft.com/v1.0/sites/${validatedData.siteId}/drive`,
         {
           headers: {
-            Authorization: `Bearer ${validatedData.accessToken}`,
+            Authorization: `Bearer ${credential.accessToken}`,
             Accept: 'application/json',
           },
         }
@@ -148,11 +132,11 @@ export async function POST(request: NextRequest) {
       logger.info(`[${requestId}] Uploading to: ${uploadUrl}`)
 
       const uploadResponse = await fetch(uploadUrl, {
-        method: 'PUT',
-        headers: {
-          Authorization: `Bearer ${validatedData.accessToken}`,
+      method: 'PUT',
+      headers: {
+          Authorization: `Bearer ${credential.accessToken}`,
           'Content-Type': userFile.type || 'application/octet-stream',
-        },
+      },
         body: new Uint8Array(buffer),
       })
 

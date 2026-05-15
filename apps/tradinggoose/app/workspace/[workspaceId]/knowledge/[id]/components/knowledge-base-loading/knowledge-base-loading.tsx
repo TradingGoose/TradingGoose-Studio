@@ -36,7 +36,7 @@ export function KnowledgeBaseLoading({ knowledgeBaseName }: KnowledgeBaseLoading
         onChange={() => {}}
         placeholder='Search documents...'
         disabled
-        className='min-w-[220px] flex-1'
+        className='flex-1'
       />
       <div className='flex items-center gap-2'>
         <PrimaryButton disabled>

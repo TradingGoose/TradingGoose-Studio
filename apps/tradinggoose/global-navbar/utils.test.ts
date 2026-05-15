@@ -1,3 +1,4 @@
+import { ScrollText } from 'lucide-react'
 import { describe, expect, it } from 'vitest'
 import { createWorkspaceNav, getWorkspaceSwitchPath } from '@/global-navbar/utils'
 
@@ -22,8 +23,10 @@ describe('global navbar utils', () => {
   })
 
   it('adds records to the workspace navigation', () => {
-    expect(createWorkspaceNav('ws-1').map((item) => item.url)).toContain('/workspace/ws-1/records')
-    expect(createWorkspaceNav('ws-1').map((item) => item.title)).toContain('Records')
+    const recordsItem = createWorkspaceNav('ws-1').find((item) => item.title === 'Records')
+
+    expect(recordsItem?.url).toBe('/workspace/ws-1/records')
+    expect(recordsItem?.icon).toBe(ScrollText)
   })
 
   it('does not expose removed records or logs routes without a workspace id', () => {

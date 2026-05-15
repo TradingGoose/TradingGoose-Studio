@@ -26,7 +26,7 @@ export const useSkillsStore = create<SkillsStore>()(
         }))
       },
 
-      getSkill: (id, workspaceId) => {
+      readSkill: (id, workspaceId) => {
         const targetWorkspace = workspaceId ?? get().activeWorkspaceId
         if (!targetWorkspace) return undefined
         return get().skillsByWorkspace[targetWorkspace]?.find(

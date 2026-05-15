@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Check, ChevronDown, Pencil } from 'lucide-react'
 import { Panel } from '@xyflow/react'
+import { Check, ChevronDown, Pencil } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -17,13 +17,9 @@ import { useBlock, useBlockProtection, useLoop, useParallel } from '@/lib/yjs/us
 import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import { getBlock } from '@/blocks'
 import { useWorkflowEditorActions } from '@/hooks/workflow/use-workflow-editor-actions'
-import { LoopTool } from '@/widgets/widgets/editor_workflow/components/subflows/loop/loop-config'
-import { ParallelTool } from '@/widgets/widgets/editor_workflow/components/subflows/parallel/parallel-config'
-import { SubBlock } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/sub-block'
-import {
-  buildTriggerEditingLayout,
-  getTriggerAwareSubBlockStableKey,
-} from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/trigger-editing-layout'
+import { getSubflowBlockConfig } from '@/widgets/widgets/editor_workflow/components/subflows/config'
+import { buildTriggerEditingLayout } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/trigger-editing-layout'
+import { SubBlockEditRows } from '@/widgets/widgets/editor_workflow/components/workflow-render/sub-block-edit-rows'
 
 interface NodeEditorPanelProps {
   selectedNodeId: string | null
@@ -76,9 +72,7 @@ export function NodeEditorPanel({ selectedNodeId }: NodeEditorPanelProps) {
   const isSubflow = selectedBlock?.type === 'loop' || selectedBlock?.type === 'parallel'
   const subflowConfig = useMemo(() => {
     if (!selectedBlock) return null
-    if (selectedBlock.type === 'loop') return LoopTool
-    if (selectedBlock.type === 'parallel') return ParallelTool
-    return null
+    return getSubflowBlockConfig(selectedBlock.type) ?? null
   }, [selectedBlock])
 
   const shouldDisableWrite = !userPermissions.canEdit || isSelectedBlockProtected
@@ -330,6 +324,7 @@ export function NodeEditorPanel({ selectedNodeId }: NodeEditorPanelProps) {
     isTriggerConfigurationView,
   } = useMemo(() => {
     return buildTriggerEditingLayout({
+      blockId: selectedBlock?.id,
       blockConfig,
       blockState: selectedBlock,
       shouldDisableWrite,
@@ -537,33 +532,14 @@ export function NodeEditorPanel({ selectedNodeId }: NodeEditorPanelProps) {
           </div>
         ) : (
           <>
-            {regularRows.map((row, rowIndex) => (
-              <div key={`panel-row-${rowIndex}`} className='flex gap-3'>
-                {row.map((subBlock) => {
-                  const stableKey = getTriggerAwareSubBlockStableKey(
-                    selectedBlock.id,
-                    subBlock,
-                    stateToUse,
-                    blockConfig?.triggers?.available
-                  )
-                  return (
-                    <div
-                      key={stableKey}
-                      className={
-                        subBlock.layout === 'half' ? 'flex-1 space-y-1' : 'w-full space-y-1'
-                      }
-                    >
-                      <SubBlock
-                        blockId={selectedBlock.id}
-                        config={subBlock}
-                        isConnecting={false}
-                        disabled={shouldDisableWrite}
-                      />
-                    </div>
-                  )
-                })}
-              </div>
-            ))}
+            <SubBlockEditRows
+              blockId={selectedBlock.id}
+              rows={regularRows}
+              stateToUse={stateToUse}
+              disabled={shouldDisableWrite}
+              rowKeyPrefix='panel-row'
+              availableTriggerIds={blockConfig?.triggers?.available}
+            />
             {hasAdvancedOnlyFields && !shouldDisableWrite && (
               <div className='flex items-center gap-[10px] pt-[4px]'>
                 <div className='h-px flex-1 border-border border-t border-dashed' />
@@ -591,34 +567,16 @@ export function NodeEditorPanel({ selectedNodeId }: NodeEditorPanelProps) {
                 <div className='h-px flex-1 border-border border-t border-dashed' />
               </div>
             )}
-            {displayAdvancedOptions &&
-              advancedRows.map((row, rowIndex) => (
-                <div key={`panel-advanced-row-${rowIndex}`} className='flex gap-3'>
-                  {row.map((subBlock) => {
-                    const stableKey = getTriggerAwareSubBlockStableKey(
-                      selectedBlock.id,
-                      subBlock,
-                      stateToUse,
-                      blockConfig?.triggers?.available
-                    )
-                    return (
-                      <div
-                        key={stableKey}
-                        className={
-                          subBlock.layout === 'half' ? 'flex-1 space-y-1' : 'w-full space-y-1'
-                        }
-                      >
-                        <SubBlock
-                          blockId={selectedBlock.id}
-                          config={subBlock}
-                          isConnecting={false}
-                          disabled={shouldDisableWrite}
-                        />
-                      </div>
-                    )
-                  })}
-                </div>
-              ))}
+            {displayAdvancedOptions && (
+              <SubBlockEditRows
+                blockId={selectedBlock.id}
+                rows={advancedRows}
+                stateToUse={stateToUse}
+                disabled={shouldDisableWrite}
+                rowKeyPrefix='panel-advanced-row'
+                availableTriggerIds={blockConfig?.triggers?.available}
+              />
+            )}
           </>
         )}
       </div>

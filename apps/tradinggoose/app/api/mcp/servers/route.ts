@@ -8,6 +8,12 @@ import { mcpService } from '@/lib/mcp/service'
 import type { McpTransport } from '@/lib/mcp/types'
 import { validateMcpServerUrl } from '@/lib/mcp/url-validator'
 import { createMcpErrorResponse, createMcpSuccessResponse } from '@/lib/mcp/utils'
+import {
+  applySavedEntityYjsStateToRows,
+  savedEntityRowToFields,
+} from '@/lib/yjs/entity-state'
+import { applySavedEntityState } from '@/lib/yjs/server/apply-entity-state'
+import { deleteYjsSessionInSocketServer } from '@/lib/yjs/server/snapshot-bridge'
 import { CreateMcpServerSchema } from './schema'
 
 const logger = createLogger('McpServersAPI')
@@ -29,10 +35,11 @@ export const GET = withMcpAuth('read')(
     try {
       logger.info(`[${requestId}] Listing MCP servers for workspace ${workspaceId}`)
 
-      const servers = await db
+      const rows = await db
         .select()
         .from(mcpServers)
         .where(and(eq(mcpServers.workspaceId, workspaceId), isNull(mcpServers.deletedAt)))
+      const servers = await applySavedEntityYjsStateToRows('mcp_server', rows)
 
       logger.info(
         `[${requestId}] Listed ${servers.length} MCP servers for workspace ${workspaceId}`
@@ -88,7 +95,7 @@ export const POST = withMcpAuth('write')(
 
       const serverId = body.id || crypto.randomUUID()
 
-      await db
+      const [server] = await db
         .insert(mcpServers)
         .values({
           id: serverId,
@@ -109,6 +116,12 @@ export const POST = withMcpAuth('write')(
           updatedAt: new Date(),
         })
         .returning()
+
+      await applySavedEntityState(
+        'mcp_server',
+        server.id,
+        savedEntityRowToFields('mcp_server', server)
+      )
 
       mcpService.clearCache(workspaceId)
 
@@ -158,18 +171,24 @@ export const DELETE = withMcpAuth('write')(
 
       logger.info(`[${requestId}] Deleting MCP server: ${serverId} from workspace: ${workspaceId}`)
 
-      const [deletedServer] = await db
-        .delete(mcpServers)
+      const [server] = await db
+        .select({ id: mcpServers.id })
+        .from(mcpServers)
         .where(and(eq(mcpServers.id, serverId), eq(mcpServers.workspaceId, workspaceId)))
-        .returning()
+        .limit(1)
 
-      if (!deletedServer) {
+      if (!server) {
         return createMcpErrorResponse(
           new Error('Server not found or access denied'),
           'Server not found',
           404
         )
       }
+
+      await deleteYjsSessionInSocketServer(serverId)
+      await db
+        .delete(mcpServers)
+        .where(and(eq(mcpServers.id, serverId), eq(mcpServers.workspaceId, workspaceId)))
 
       mcpService.clearCache(workspaceId)
 

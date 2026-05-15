@@ -602,7 +602,7 @@ export const useWorkflowRegistry = create<WorkflowRegistry>()(
       },
 
       // Method to get deployment status for a specific workflow
-      getWorkflowDeploymentStatus: (workflowId: string | null): DeploymentStatus | null => {
+      readWorkflowDeploymentStatus: (workflowId: string | null): DeploymentStatus | null => {
         if (!workflowId) {
           // If no workflow ID provided, check the active workflow
           workflowId = getActiveWorkflowIdFromState(get())
@@ -877,7 +877,7 @@ export const useWorkflowRegistry = create<WorkflowRegistry>()(
           throw new Error('Workspace ID is required to create a workflow')
         }
 
-        logger.info(`Creating new workflow in workspace: ${workspaceId || 'none'}`)
+        logger.info(`Creating new workflow in workspace: ${workspaceId}`)
 
         // Create the workflow on the server first to get the server-generated ID
         try {
@@ -941,7 +941,7 @@ export const useWorkflowRegistry = create<WorkflowRegistry>()(
           // Don't set as active workflow here - let the navigation/URL change handle that
           // This prevents race conditions and flickering
           logger.info(
-            `Created new workflow with ID ${serverWorkflowId} in workspace ${workspaceId || 'none'}`
+            `Created new workflow with ID ${serverWorkflowId} in workspace ${workspaceId}`
           )
 
           return serverWorkflowId
@@ -952,126 +952,6 @@ export const useWorkflowRegistry = create<WorkflowRegistry>()(
           })
           throw error
         }
-      },
-
-      /**
-       * Creates a new workflow from a marketplace workflow
-       */
-      createMarketplaceWorkflow: async (
-        marketplaceId: string,
-        state: any,
-        metadata: Partial<WorkflowMetadata>
-      ) => {
-        const id = crypto.randomUUID()
-
-        // Generate workflow metadata with marketplace properties
-        const newWorkflow: WorkflowMetadata = {
-          id,
-          name: metadata.name || generateCreativeWorkflowName(),
-          lastModified: new Date(),
-          createdAt: new Date(),
-          description: metadata.description || 'Imported from marketplace',
-          color: metadata.color || getStableVibrantColor(id),
-          marketplaceData: { id: marketplaceId, status: 'temp' as const },
-        }
-
-        // Prepare workflow state based on the marketplace workflow state
-        const initialState = {
-          blocks: state.blocks || {},
-          edges: state.edges || [],
-          loops: state.loops || {},
-          parallels: state.parallels || {},
-          isDeployed: false,
-          deployedAt: undefined,
-          lastSaved: Date.now(),
-        }
-
-        // Add workflow to registry
-        set((state) => ({
-          workflows: {
-            ...state.workflows,
-            [id]: newWorkflow,
-          },
-          error: null,
-        }))
-
-        // Set as active workflow (default channel) and update store
-        set((state) => {
-          const nextHydrationByChannel: Record<string, ChannelHydrationState> = {
-            ...state.hydrationByChannel,
-            [DEFAULT_WORKFLOW_CHANNEL_ID]: createReadyHydrationState(
-              newWorkflow.workspaceId ?? null,
-              id
-            ),
-          }
-
-          if (nextHydrationByChannel[WORKSPACE_BOOTSTRAP_CHANNEL]) {
-            delete nextHydrationByChannel[WORKSPACE_BOOTSTRAP_CHANNEL]
-          }
-
-          return {
-            activeWorkflowIds: {
-              ...state.activeWorkflowIds,
-              [DEFAULT_WORKFLOW_CHANNEL_ID]: id,
-            },
-            loadedWorkflowIds: {
-              ...state.loadedWorkflowIds,
-              [DEFAULT_WORKFLOW_CHANNEL_ID]: true,
-            },
-            hydrationByChannel: nextHydrationByChannel,
-            isLoading: deriveIsMetadataLoading(nextHydrationByChannel),
-          }
-        })
-
-        // Immediately persist the marketplace workflow to the database
-        const persistWorkflow = async () => {
-          try {
-            const workflowData = {
-              [id]: {
-                id,
-                name: newWorkflow.name,
-                description: newWorkflow.description,
-                color: newWorkflow.color,
-                state: initialState,
-                marketplaceData: newWorkflow.marketplaceData,
-                workspaceId: newWorkflow.workspaceId,
-                folderId: newWorkflow.folderId,
-              },
-            }
-
-            const response = await fetch('/api/workflows', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                workflows: workflowData,
-                workspaceId: newWorkflow.workspaceId,
-              }),
-            })
-
-            if (!response.ok) {
-              throw new Error(`Failed to persist workflow: ${response.statusText}`)
-            }
-
-            logger.info(`Successfully persisted marketplace workflow ${id} to database`)
-          } catch (error) {
-            logger.error(`Failed to persist marketplace workflow ${id}:`, error)
-          }
-        }
-
-        // Persist synchronously to ensure workflow exists before Socket.IO operations
-        try {
-          await persistWorkflow()
-        } catch (error) {
-          logger.error(
-            `Critical: Failed to persist marketplace workflow ${id}, Socket.IO operations may fail:`,
-            error
-          )
-          // Don't throw - allow workflow creation to continue in memory
-        }
-
-        logger.info(`Created marketplace workflow ${id} imported from ${marketplaceId}`)
-
-        return id
       },
 
       /**
@@ -1086,8 +966,11 @@ export const useWorkflowRegistry = create<WorkflowRegistry>()(
           return null
         }
 
-        // Get the workspace ID from the source workflow (required)
         const workspaceId = sourceWorkflow.workspaceId
+        if (!workspaceId) {
+          set({ error: 'Workspace ID is required to duplicate a workflow' })
+          return null
+        }
 
         // Call the server to duplicate the workflow - server generates all IDs
         let duplicatedWorkflow
@@ -1098,7 +981,7 @@ export const useWorkflowRegistry = create<WorkflowRegistry>()(
             body: JSON.stringify({
               name: `${sourceWorkflow.name} (Copy)`,
               description: sourceWorkflow.description,
-              workspaceId: workspaceId,
+              workspaceId,
               folderId: sourceWorkflow.folderId,
             }),
           })
@@ -1138,7 +1021,7 @@ export const useWorkflowRegistry = create<WorkflowRegistry>()(
         // Get the current workflow state from the Yjs session
         const { getRegisteredWorkflowSession: getYjsSession } =
           require('@/lib/yjs/workflow-session-registry') as typeof import('@/lib/yjs/workflow-session-registry')
-        const { getWorkflowSnapshot: getYjsSnapshot } =
+        const { readWorkflowSnapshot: getYjsSnapshot } =
           require('@/lib/yjs/workflow-session') as typeof import('@/lib/yjs/workflow-session')
         const yjsSession = getYjsSession(sourceId)
         const currentWorkflowState = yjsSession?.doc ? getYjsSnapshot(yjsSession.doc) : null
@@ -1187,7 +1070,7 @@ export const useWorkflowRegistry = create<WorkflowRegistry>()(
           error: null,
         }))
         logger.info(
-          `Duplicated workflow ${sourceId} to ${id} in workspace ${workspaceId || 'none'}`
+          `Duplicated workflow ${sourceId} to ${id} in workspace ${workspaceId}`
         )
 
         return id

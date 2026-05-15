@@ -11,7 +11,6 @@ export const RssBlock: BlockConfig = {
   category: 'triggers',
   bgColor: '#F97316',
   icon: RssIcon,
-  triggerAllowed: true,
 
   subBlocks: [...(getTrigger('rss_poller')?.subBlocks ?? [])],
 

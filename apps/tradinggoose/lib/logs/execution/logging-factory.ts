@@ -1,11 +1,7 @@
 import { db } from '@tradinggoose/db'
 import { workflow, workflowFolder } from '@tradinggoose/db/schema'
 import { eq } from 'drizzle-orm'
-import type { ExecutionEnvironment, ExecutionTrigger, WorkflowState } from '@/lib/logs/types'
-import {
-  loadDeployedWorkflowState,
-  loadWorkflowFromNormalizedTables,
-} from '@/lib/workflows/db-helpers'
+import type { ExecutionEnvironment, ExecutionTrigger } from '@/lib/logs/types'
 
 export function createTriggerObject(
   type: ExecutionTrigger['type'],
@@ -80,18 +76,6 @@ export async function loadWorkflowSummaryForExecution(workflowId: string) {
     workspaceId: row.workspaceId,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
-  }
-}
-
-export async function loadWorkflowStateForExecution(workflowId: string): Promise<WorkflowState> {
-  const normalizedData = await loadWorkflowFromNormalizedTables(workflowId)
-  const workflowData = normalizedData || (await loadDeployedWorkflowState(workflowId))
-
-  return {
-    blocks: workflowData.blocks || {},
-    edges: workflowData.edges || [],
-    loops: workflowData.loops || {},
-    parallels: workflowData.parallels || {},
   }
 }
 

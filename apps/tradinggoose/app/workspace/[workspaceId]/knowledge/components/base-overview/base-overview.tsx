@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, type KeyboardEvent, type MouseEvent, type SyntheticEvent } from 'react'
+import { type KeyboardEvent, type MouseEvent, type SyntheticEvent, useState } from 'react'
 import { Check, Copy, LibraryBig, Loader2, Trash2 } from 'lucide-react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
@@ -14,7 +14,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { WorkspaceSelector } from '@/app/workspace/[workspaceId]/knowledge/components/workspace-selector/workspace-selector'
+import { CopyToWorkspace } from '@/app/workspace/[workspaceId]/knowledge/components/copy-to-workspace/copy-to-workspace'
 import { useKnowledgeStore } from '@/stores/knowledge/store'
 
 interface BaseOverviewProps {
@@ -24,7 +24,6 @@ interface BaseOverviewProps {
   description: string
   createdAt?: string
   updatedAt?: string
-  assignedWorkspaceId?: string | null
   canEdit?: boolean
 }
 
@@ -78,7 +77,6 @@ export function BaseOverview({
   description,
   createdAt,
   updatedAt,
-  assignedWorkspaceId,
   canEdit = true,
 }: BaseOverviewProps) {
   const [isCopied, setIsCopied] = useState(false)
@@ -163,11 +161,10 @@ export function BaseOverview({
                 onClick={handleActionClick}
                 onKeyDown={handleActionKeyDown}
               >
-                <WorkspaceSelector
+                <CopyToWorkspace
                   knowledgeBaseId={id}
-                  currentWorkspaceId={assignedWorkspaceId || null}
+                  currentWorkspaceId={workspaceSlug}
                   disabled={!canManage || isDeleting}
-                  variant='compact'
                 />
                 <button
                   type='button'
@@ -176,7 +173,11 @@ export function BaseOverview({
                   onClick={() => setIsDeleteDialogOpen(true)}
                   disabled={!canManage || isDeleting}
                 >
-                  {isDeleting ? <Loader2 className='h-3.5 w-3.5 animate-spin' /> : <Trash2 className='h-3.5 w-3.5' />}
+                  {isDeleting ? (
+                    <Loader2 className='h-3.5 w-3.5 animate-spin' />
+                  ) : (
+                    <Trash2 className='h-3.5 w-3.5' />
+                  )}
                   <span className='sr-only'>Delete knowledge base</span>
                 </button>
               </div>

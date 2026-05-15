@@ -102,7 +102,6 @@ export const githubIssueOpenedTrigger: TriggerConfig = {
       type: 'trigger-save',
       hideFromPreview: true,
       mode: 'trigger',
-      triggerId: 'github_issue_opened',
       condition: {
         field: 'selectedTriggerId',
         value: 'github_issue_opened',

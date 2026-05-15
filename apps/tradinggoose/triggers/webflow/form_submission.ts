@@ -47,7 +47,6 @@ export const webflowFormSubmissionTrigger: TriggerConfig = {
       type: 'trigger-save',
       hideFromPreview: true,
       mode: 'trigger',
-      triggerId: 'webflow_form_submission',
     },
     {
       id: 'triggerInstructions',

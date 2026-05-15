@@ -1,7 +1,7 @@
-import { NextResponse } from 'next/server'
-import { authorizeCredentialUse } from '@/lib/auth/credential-access'
+import { type NextRequest, NextResponse } from 'next/server'
+import { resolveOAuthRouteCredential } from '@/lib/credentials/oauth-route'
 import { createLogger } from '@/lib/logs/console/logger'
-import { refreshAccessTokenIfNeeded } from '@/app/api/auth/oauth/utils'
+import { generateRequestId } from '@/lib/utils'
 
 export const dynamic = 'force-dynamic'
 
@@ -113,106 +113,44 @@ const getChatDisplayName = async (
   }
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
+  const requestId = generateRequestId()
   try {
     const body = await request.json()
+    const credential = await resolveOAuthRouteCredential(request, body, requestId)
+    if (!credential.ok) return credential.response
 
-    const { credential, workflowId } = body
+    const response = await fetch('https://graph.microsoft.com/v1.0/me/chats', {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${credential.accessToken}`,
+        'Content-Type': 'application/json',
+      },
+    })
 
-    if (!credential) {
-      logger.error('Missing credential in request')
-      return NextResponse.json({ error: 'Credential is required' }, { status: 400 })
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      logger.error('Microsoft Graph API error getting chats', {
+        status: response.status,
+        error: errorData,
+        endpoint: 'https://graph.microsoft.com/v1.0/me/chats',
+      })
+      return NextResponse.json(
+        { error: errorData.error?.message || 'Failed to retrieve Microsoft Teams chats' },
+        { status: response.status }
+      )
     }
 
-    try {
-      const authz = await authorizeCredentialUse(request as any, {
-        credentialId: credential,
-        workflowId,
-      })
-      if (!authz.ok || !authz.credentialOwnerUserId) {
-        return NextResponse.json({ error: authz.error || 'Unauthorized' }, { status: 403 })
-      }
-      const accessToken = await refreshAccessTokenIfNeeded(
-        credential,
-        authz.credentialOwnerUserId,
-        'TeamsChatsAPI'
-      )
+    const data = await response.json()
 
-      if (!accessToken) {
-        logger.error('Failed to get access token', {
-          credentialId: credential,
-          userId: authz.credentialOwnerUserId,
-        })
-        return NextResponse.json({ error: 'Could not retrieve access token' }, { status: 401 })
-      }
+    const chats = await Promise.all(
+      data.value.map(async (chat: any) => ({
+        id: chat.id,
+        displayName: await getChatDisplayName(chat.id, credential.accessToken, chat.topic),
+      }))
+    )
 
-      // Now try to fetch the chats
-      const response = await fetch('https://graph.microsoft.com/v1.0/me/chats', {
-        method: 'GET',
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
-        },
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json()
-        logger.error('Microsoft Graph API error getting chats', {
-          status: response.status,
-          error: errorData,
-          endpoint: 'https://graph.microsoft.com/v1.0/me/chats',
-        })
-
-        // Check for auth errors specifically
-        if (response.status === 401) {
-          return NextResponse.json(
-            {
-              error: 'Authentication failed. Please reconnect your Microsoft Teams account.',
-              authRequired: true,
-            },
-            { status: 401 }
-          )
-        }
-
-        throw new Error(`Microsoft Graph API error: ${JSON.stringify(errorData)}`)
-      }
-
-      const data = await response.json()
-
-      // Process chats with enhanced display names
-      const chats = await Promise.all(
-        data.value.map(async (chat: any) => ({
-          id: chat.id,
-          displayName: await getChatDisplayName(chat.id, accessToken, chat.topic),
-        }))
-      )
-
-      return NextResponse.json({
-        chats: chats,
-      })
-    } catch (innerError) {
-      logger.error('Error during API requests:', innerError)
-
-      // Check if it's an authentication error
-      const errorMessage = innerError instanceof Error ? innerError.message : String(innerError)
-      if (
-        errorMessage.includes('auth') ||
-        errorMessage.includes('token') ||
-        errorMessage.includes('unauthorized') ||
-        errorMessage.includes('unauthenticated')
-      ) {
-        return NextResponse.json(
-          {
-            error: 'Authentication failed. Please reconnect your Microsoft Teams account.',
-            authRequired: true,
-            details: errorMessage,
-          },
-          { status: 401 }
-        )
-      }
-
-      throw innerError
-    }
+    return NextResponse.json({ chats })
   } catch (error) {
     logger.error('Error processing Chats request:', error)
     return NextResponse.json(

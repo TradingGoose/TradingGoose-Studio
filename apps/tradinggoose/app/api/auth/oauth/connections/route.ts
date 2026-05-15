@@ -1,20 +1,12 @@
-import { account, db, user } from '@tradinggoose/db'
-import { eq } from 'drizzle-orm'
-import { jwtDecode } from 'jwt-decode'
 import { type NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
+import { listOAuthConnectionsForUser } from '@/lib/credentials/oauth'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { OAuthProvider } from '@/lib/oauth'
 import { parseProvider } from '@/lib/oauth'
 import { generateRequestId } from '@/lib/utils'
 
 const logger = createLogger('OAuthConnectionsAPI')
-
-interface GoogleIdToken {
-  email?: string
-  sub?: string
-  name?: string
-}
 
 /**
  * Get all OAuth connections for the current user
@@ -32,84 +24,44 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'User not authenticated' }, { status: 401 })
     }
 
-    // Get all accounts for this user
-    const accounts = await db.select().from(account).where(eq(account.userId, session.user.id))
-
-    // Get the user's email for fallback
-    const userRecord = await db
-      .select({ email: user.email })
-      .from(user)
-      .where(eq(user.id, session.user.id))
-      .limit(1)
-
-    const userEmail = userRecord.length > 0 ? userRecord[0]?.email : null
-
-    // Process accounts to determine connections
-    const connections: any[] = []
-
-    for (const acc of accounts) {
-      const { baseProvider, featureType } = parseProvider(acc.providerId as OAuthProvider)
-      const scopes = acc.scope ? acc.scope.split(/\s+/).filter(Boolean) : []
-
-      if (baseProvider) {
-        // Try multiple methods to get a user-friendly display name
-        let displayName = ''
-
-        // Method 1: Try to extract email from ID token (works for Google, etc.)
-        if (acc.idToken) {
-          try {
-            const decoded = jwtDecode<GoogleIdToken>(acc.idToken)
-            if (decoded.email) {
-              displayName = decoded.email
-            } else if (decoded.name) {
-              displayName = decoded.name
-            }
-          } catch (_error) {
-            logger.warn(`[${requestId}] Error decoding ID token`, {
-              accountId: acc.id,
-            })
-          }
-        }
-
-        // Method 2: For GitHub, the accountId might be the username
-        if (!displayName && baseProvider === 'github') {
-          displayName = `${acc.accountId} (GitHub)`
-        }
-
-        if (!displayName && baseProvider === 'trello') {
-          displayName = `${acc.accountId} (Trello)`
-        }
-
-        // Method 3: Use the user's email from our database
-        if (!displayName && userEmail) {
-          displayName = userEmail
-        }
-
-        // Fallback: Use accountId with provider type as context
-        if (!displayName) {
-          displayName = `${acc.accountId} (${baseProvider})`
-        }
-
-        const connectionKey = acc.providerId
-
-        connections.push({
-          provider: connectionKey,
-          baseProvider,
-          featureType,
-          isConnected: true,
-          scopes,
-          lastConnected: acc.updatedAt.toISOString(),
-          accounts: [
-            {
-              id: acc.id,
-              name: displayName,
-            },
-          ],
+    const credentials = await listOAuthConnectionsForUser({ userId: session.user.id })
+    const connectionsByProvider = new Map<string, any>()
+    for (const credential of credentials) {
+      const { baseProvider, featureType } = parseProvider(credential.provider as OAuthProvider)
+      const existing = connectionsByProvider.get(credential.provider)
+      if (existing) {
+        existing.scopes = Array.from(new Set([...existing.scopes, ...(credential.scopes ?? [])]))
+        existing.lastConnected =
+          new Date(credential.lastUsed).getTime() > new Date(existing.lastConnected).getTime()
+            ? credential.lastUsed
+            : existing.lastConnected
+        existing.accounts.push({
+          id: credential.id,
+          name: credential.name,
         })
+        continue
       }
+
+      connectionsByProvider.set(credential.provider, {
+        provider: credential.provider,
+        baseProvider,
+        featureType,
+        isConnected: true,
+        scopes: credential.scopes ?? [],
+        lastConnected: credential.lastUsed,
+        accounts: [
+          {
+            id: credential.id,
+            name: credential.name,
+          },
+        ],
+      })
     }
 
-    return NextResponse.json({ connections }, { status: 200 })
+    return NextResponse.json(
+      { connections: Array.from(connectionsByProvider.values()) },
+      { status: 200 }
+    )
   } catch (error) {
     logger.error(`[${requestId}] Error fetching OAuth connections`, error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

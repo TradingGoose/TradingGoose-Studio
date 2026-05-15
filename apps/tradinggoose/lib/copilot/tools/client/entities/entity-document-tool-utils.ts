@@ -1,18 +1,18 @@
-import { getEntityDocumentName, type EntityDocumentKind } from '@/lib/copilot/entity-documents'
+import {
+  getEntityDocumentName,
+  type EntityDocumentKind,
+} from '@/lib/copilot/entity-documents'
 import { getDefaultIndicator } from '@/lib/indicators/default'
 import type { ClientToolExecutionContext } from '@/lib/copilot/tools/client/base-tool'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import {
-  getRegisteredEntitySession,
-  getRegisteredEntitySessionByIdentity,
-  type RegisteredEntitySession,
-} from '@/lib/yjs/entity-session-registry'
-import {
-  getEntityFields,
-  replaceEntityTextField,
-  setEntityField,
-} from '@/lib/yjs/entity-session'
+  bootstrapYjsProvider,
+  waitForYjsWriteSync,
+  type YjsProviderBootstrapResult,
+} from '@/lib/yjs/provider'
+import { replaceEntityTextField, setEntityField } from '@/lib/yjs/entity-session'
 import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
+import { buildSavedEntityYjsDescriptor } from '@/lib/yjs/entity-state'
 
 type EntityListEntry = {
   entityId: string
@@ -50,6 +50,23 @@ type EntityApiConfig = {
   toFields: (item: any) => Record<string, unknown>
   toListEntry: (item: any) => EntityListEntry
 }
+
+type CopilotEntityYjsSessionLease = {
+  session: CopilotEntityYjsSession
+  release: () => void
+}
+
+type CopilotEntityYjsSession = {
+  descriptor: YjsProviderBootstrapResult['descriptor']
+  doc: YjsProviderBootstrapResult['doc']
+  provider: YjsProviderBootstrapResult['provider']
+  runtime: YjsProviderBootstrapResult['runtime']
+  isSynced: boolean
+  canUndo: boolean
+  canRedo: boolean
+}
+
+const COPILOT_ENTITY_YJS_RELEASE_MS = 2_500
 
 const ENTITY_API_CONFIG: Record<EntityDocumentKind, EntityApiConfig> = {
   skill: {
@@ -144,6 +161,147 @@ const ENTITY_API_CONFIG: Record<EntityDocumentKind, EntityApiConfig> = {
   },
 }
 
+function parseCustomToolSchema(schemaText: unknown): Record<string, unknown> {
+  if (typeof schemaText !== 'string') {
+    throw new Error('custom tool schemaText is required')
+  }
+
+  const schema = JSON.parse(schemaText)
+  if (!schema || typeof schema !== 'object' || Array.isArray(schema)) {
+    throw new Error('custom tool schemaText must be a JSON object')
+  }
+
+  return schema as Record<string, unknown>
+}
+
+function buildEntityCreateRequest(
+  kind: EntityDocumentKind,
+  workspaceId: string,
+  fields: Record<string, unknown>
+): { endpoint: string; body: Record<string, unknown> } {
+  switch (kind) {
+    case 'skill':
+      return {
+        endpoint: '/api/skills',
+        body: {
+          workspaceId,
+          skills: [
+            {
+              name: fields.name,
+              description: fields.description,
+              content: fields.content,
+            },
+          ],
+        },
+      }
+    case 'custom_tool':
+      return {
+        endpoint: '/api/tools/custom',
+        body: {
+          workspaceId,
+          tools: [
+            {
+              title: fields.title,
+              schema: parseCustomToolSchema(fields.schemaText),
+              code: fields.codeText,
+            },
+          ],
+        },
+      }
+    case 'indicator':
+      return {
+        endpoint: '/api/indicators/custom',
+        body: {
+          workspaceId,
+          indicators: [
+            {
+              name: fields.name,
+              ...(typeof fields.color === 'string' && fields.color.trim()
+                ? { color: fields.color.trim() }
+                : {}),
+              pineCode: fields.pineCode,
+              inputMeta: fields.inputMeta ?? undefined,
+            },
+          ],
+        },
+      }
+    case 'mcp_server':
+      return {
+        endpoint: '/api/mcp/servers',
+        body: {
+          workspaceId,
+          name: fields.name,
+          ...(typeof fields.description === 'string' && fields.description.trim()
+            ? { description: fields.description.trim() }
+            : {}),
+          transport: fields.transport,
+          ...(typeof fields.url === 'string' && fields.url.trim()
+            ? { url: fields.url.trim() }
+            : {}),
+          headers: fields.headers,
+          ...(typeof fields.command === 'string' && fields.command.trim()
+            ? { command: fields.command.trim() }
+            : {}),
+          args: fields.args,
+          env: fields.env,
+          timeout: fields.timeout,
+          retries: fields.retries,
+          enabled: fields.enabled,
+        },
+      }
+  }
+}
+
+function readCreatedEntityId(kind: EntityDocumentKind, payload: any): string {
+  if (kind === 'mcp_server') {
+    const serverId = payload?.data?.serverId
+    if (typeof serverId === 'string' && serverId.trim()) {
+      return serverId
+    }
+    throw new Error('Created MCP server is missing serverId')
+  }
+
+  const created = Array.isArray(payload?.data) ? payload.data[0] : null
+  const entityId = created?.id
+  if (typeof entityId === 'string' && entityId.trim()) {
+    return entityId
+  }
+
+  throw new Error(`Created ${kind} is missing id`)
+}
+
+export async function createCanonicalEntityFromFields(
+  kind: EntityDocumentKind,
+  workspaceId: string,
+  fields: Record<string, unknown>
+): Promise<{
+  entityId: string
+  entityName: string
+  fields: Record<string, unknown>
+}> {
+  const request = buildEntityCreateRequest(kind, workspaceId, fields)
+  const response = await fetch(request.endpoint, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(request.body),
+  })
+  const payload = await response.json().catch(() => ({}))
+
+  if (!response.ok) {
+    throw new Error(payload?.error || `Failed to create ${kind}: ${response.status}`)
+  }
+
+  const entityId = readCreatedEntityId(kind, payload)
+  const createdRecord = kind === 'mcp_server' ? null : payload.data[0]
+  const createdFields = createdRecord ? ENTITY_API_CONFIG[kind].toFields(createdRecord) : fields
+
+  return {
+    entityId,
+    entityName: getEntityDocumentName(kind, createdFields),
+    fields: createdFields,
+  }
+}
+
 export function resolveWorkspaceIdFromExecutionContext(
   executionContext: ClientToolExecutionContext
 ): string {
@@ -161,40 +319,47 @@ export function resolveWorkspaceIdFromExecutionContext(
   throw new Error('No active workspace found')
 }
 
-export function getActiveEntitySession(
+function createBootstrappedEntitySessionLease(
+  result: YjsProviderBootstrapResult
+): CopilotEntityYjsSessionLease {
+  const session: CopilotEntityYjsSession = {
+    descriptor: result.descriptor,
+    doc: result.doc,
+    provider: result.provider,
+    runtime: result.runtime,
+    isSynced: result.provider.synced,
+    canUndo: false,
+    canRedo: false,
+  }
+
+  return {
+    session,
+    release: () => {
+      setTimeout(() => {
+        result.provider.disconnect()
+        result.provider.destroy()
+        result.doc.destroy()
+      }, COPILOT_ENTITY_YJS_RELEASE_MS)
+    },
+  }
+}
+
+export async function resolveCopilotEntityYjsSessionLease(
   executionContext: ClientToolExecutionContext,
   kind: EntityDocumentKind,
   entityId?: string
-): RegisteredEntitySession | null {
+): Promise<CopilotEntityYjsSessionLease> {
   const requestedEntityId = entityId?.trim() || undefined
-  const requestedReviewSessionId = executionContext.reviewSessionId
-  const requestedDraftSessionId = executionContext.draftSessionId
 
-  if (requestedReviewSessionId) {
-    const session = getRegisteredEntitySession(requestedReviewSessionId)
-    const matchesWorkspace =
-      !executionContext.workspaceId ||
-      !session?.descriptor.workspaceId ||
-      session.descriptor.workspaceId === executionContext.workspaceId
-    const matchesReviewSession =
-      !!session &&
-      session.descriptor.entityKind === kind &&
-      matchesWorkspace &&
-      (!requestedEntityId
-        ? !session.descriptor.entityId
-        : session.descriptor.entityId === requestedEntityId) &&
-      (!requestedDraftSessionId || session.descriptor.draftSessionId === requestedDraftSessionId)
-
-    if (matchesReviewSession) {
-      return session
-    }
+  if (!requestedEntityId) {
+    throw new Error(`entityId is required to update a saved ${kind}`)
   }
 
-  return getRegisteredEntitySessionByIdentity(
-    kind,
-    requestedEntityId,
-    executionContext.workspaceId ?? null
-  )
+  const workspaceId = resolveWorkspaceIdFromExecutionContext(executionContext)
+  const resolved = buildSavedEntityYjsDescriptor(kind, requestedEntityId, workspaceId)
+  const result = await bootstrapYjsProvider(resolved)
+  await waitForYjsWriteSync(result.provider)
+  return createBootstrappedEntitySessionLease(result)
 }
 
 async function fetchEntityList(kind: EntityDocumentKind, workspaceId: string): Promise<any[]> {
@@ -236,7 +401,8 @@ export async function listCopilotIndicators(
 
   return items.flatMap((item: any) => {
     const name = typeof item?.name === 'string' ? item.name : ''
-    const source = item?.source === 'custom' ? 'custom' : item?.source === 'default' ? 'default' : null
+    const source =
+      item?.source === 'custom' ? 'custom' : item?.source === 'default' ? 'default' : null
     if (!name || !source) return []
 
     const entry: CopilotIndicatorListEntry = {
@@ -247,11 +413,15 @@ export async function listCopilotIndicators(
       ...(typeof item?.color === 'string' && item.color ? { color: item.color } : {}),
       ...(Array.isArray(item?.inputTitles)
         ? {
-            inputTitles: item.inputTitles.filter((value: unknown): value is string => typeof value === 'string'),
+            inputTitles: item.inputTitles.filter(
+              (value: unknown): value is string => typeof value === 'string'
+            ),
           }
         : {}),
       ...(typeof item?.entityId === 'string' && item.entityId ? { entityId: item.entityId } : {}),
-      ...(typeof item?.runtimeId === 'string' && item.runtimeId ? { runtimeId: item.runtimeId } : {}),
+      ...(typeof item?.runtimeId === 'string' && item.runtimeId
+        ? { runtimeId: item.runtimeId }
+        : {}),
     }
 
     return [entry]
@@ -268,7 +438,8 @@ export async function readEntityFieldsFromContext(
   fields: Record<string, unknown>
 }> {
   const resolvedEntityId = target?.entityId?.trim() || undefined
-  const resolvedRuntimeId = kind === 'indicator' ? target?.runtimeId?.trim() || undefined : undefined
+  const resolvedRuntimeId =
+    kind === 'indicator' ? target?.runtimeId?.trim() || undefined : undefined
 
   if (resolvedRuntimeId) {
     if (resolvedEntityId) {
@@ -291,19 +462,8 @@ export async function readEntityFieldsFromContext(
     }
   }
 
-  const activeSession = getActiveEntitySession(executionContext, kind, resolvedEntityId)
-
-  if (activeSession) {
-    const fields = getEntityFields(activeSession.doc, kind)
-    return {
-      entityId: activeSession.descriptor.entityId ?? resolvedEntityId,
-      entityName: getEntityDocumentName(kind, fields),
-      fields,
-    }
-  }
-
   if (!resolvedEntityId) {
-    throw new Error('entityId is required unless an unsaved draft review session is active')
+    throw new Error('entityId is required')
   }
 
   const workspaceId = resolveWorkspaceIdFromExecutionContext(executionContext)
@@ -324,7 +484,7 @@ export async function readEntityFieldsFromContext(
 }
 
 export function applyEntityFieldsToSession(
-  session: RegisteredEntitySession,
+  session: CopilotEntityYjsSession,
   kind: EntityDocumentKind,
   fields: Record<string, unknown>
 ): void {

@@ -8,12 +8,15 @@ import {
   templates,
   workflow,
   workflowExecutionLogs,
+  workspace,
 } from '@tradinggoose/db/schema'
 import { and, asc, eq, isNull } from 'drizzle-orm'
+import { verifyWorkflowAccess } from '@/lib/copilot/review-sessions/permissions'
 import { REVIEW_ITEM_KINDS } from '@/lib/copilot/review-sessions/thread-history'
 import { createLogger } from '@/lib/logs/console/logger'
+import { buildWorkspaceAccessScope, checkWorkspaceAccess } from '@/lib/permissions/utils'
 import { escapeRegExp } from '@/lib/utils'
-import { loadWorkflowStateWithFallback } from '@/lib/workflows/db-helpers'
+import { loadWorkflowState } from '@/lib/workflows/db-helpers'
 import { sanitizeForCopilot } from '@/lib/workflows/json-sanitizer'
 import type { ChatContext } from '@/stores/copilot/types'
 import { readCopilotWorkspaceEntityContext } from '@/widgets/widgets/copilot/workspace-entities'
@@ -44,6 +47,7 @@ export interface AgentContext {
 }
 
 const logger = createLogger('ProcessContents')
+type CopilotWorkflowState = NonNullable<Awaited<ReturnType<typeof loadWorkflowState>>>
 
 // Server-side variant (recommended for use in API routes)
 export async function processContextsServer(
@@ -61,17 +65,19 @@ export async function processContextsServer(
         const entityKind = entityContext.entityKind
 
         if (entityKind === 'workflow') {
-          return await processWorkflowContext(
-            entityContext.entityId,
+          return await processWorkflowContext({
+            workflowId: entityContext.entityId,
+            userId,
             tag,
-            entityContext.current ? 'current_workflow' : 'workflow'
-          )
+            kind: entityContext.current ? 'current_workflow' : 'workflow',
+          })
         }
 
         return await processEntityContext({
           contextKind: ctx.kind as Parameters<typeof processEntityContext>[0]['contextKind'],
           entityKind,
           entityId: entityContext.entityId,
+          userId,
           workspaceId: resolveContextWorkspaceId(
             entityContext.workspaceId ?? undefined,
             workspaceId,
@@ -88,30 +94,30 @@ export async function processContextsServer(
           ctx.label ? `@${ctx.label}` : '@'
         )
       }
-      if (ctx.kind === 'knowledge' && (ctx as any).knowledgeId) {
+      if (ctx.kind === 'knowledge' && ctx.knowledgeId) {
         return await processKnowledgeFromDb(
-          (ctx as any).knowledgeId,
+          ctx.knowledgeId,
           ctx.label ? `@${ctx.label}` : '@'
         )
       }
-      if (ctx.kind === 'blocks' && ctx.blockIds.length > 0) {
-        return await processBlocksMetadata(ctx.blockIds, ctx.label ? `@${ctx.label}` : '@')
+      if (ctx.kind === 'blocks') {
+        return await processBlocksMetadata(ctx.blockTypes ?? [], ctx.label ? `@${ctx.label}` : '@')
       }
-      if (ctx.kind === 'templates' && (ctx as any).templateId) {
+      if (ctx.kind === 'templates' && ctx.templateId) {
         return await processTemplateFromDb(
-          (ctx as any).templateId,
+          ctx.templateId,
           ctx.label ? `@${ctx.label}` : '@'
         )
       }
-      if (ctx.kind === 'logs' && (ctx as any).executionId) {
+      if (ctx.kind === 'logs' && ctx.executionId) {
         return await processExecutionLogFromDb(
-          (ctx as any).executionId,
+          ctx.executionId,
           userId,
           ctx.label ? `@${ctx.label}` : '@'
         )
       }
       if (ctx.kind === 'workflow_block' && ctx.workflowId && ctx.blockId) {
-        return await processWorkflowBlockFromDb(ctx.workflowId, ctx.blockId, ctx.label)
+        return await processWorkflowBlockFromDb(ctx.workflowId, ctx.blockId, userId, ctx.label)
       }
       if (ctx.kind === 'docs') {
         try {
@@ -148,10 +154,10 @@ export async function processContextsServer(
 
 function resolveContextWorkspaceId(
   contextWorkspaceId: string | undefined,
-  fallbackWorkspaceId: string | undefined,
+  requestWorkspaceId: string | undefined,
   context: ChatContext
 ): string | null {
-  const resolvedWorkspaceId = contextWorkspaceId ?? fallbackWorkspaceId ?? null
+  const resolvedWorkspaceId = contextWorkspaceId ?? requestWorkspaceId ?? null
   if (!resolvedWorkspaceId) {
     logger.warn('Skipping copilot entity context without workspaceId', {
       kind: context.kind,
@@ -172,7 +178,8 @@ async function processEntityContext(params: {
     | 'mcp_server'
     | 'current_mcp_server'
   entityKind: 'skill' | 'indicator' | 'custom_tool' | 'mcp_server'
-  entityId: string | null
+  entityId: string
+  userId: string
   workspaceId: string | null
   tag: string
 }): Promise<AgentContext | null> {
@@ -180,34 +187,21 @@ async function processEntityContext(params: {
     return null
   }
 
-  if (!params.entityId) {
-    logger.warn('Skipping copilot entity context without entityId', {
-      entityKind: params.entityKind,
-      contextKind: params.contextKind,
-    })
-    return null
-  }
-
   try {
-    const { loadCustomTool, loadIndicator, loadMcpServer, loadSkill } = await import(
-      '@/lib/copilot/review-sessions/entity-loaders'
-    )
-
-    let row: Record<string, unknown> | null = null
-    switch (params.entityKind) {
-      case 'skill':
-        row = await loadSkill(params.entityId, params.workspaceId)
-        break
-      case 'indicator':
-        row = await loadIndicator(params.entityId, params.workspaceId)
-        break
-      case 'custom_tool':
-        row = await loadCustomTool(params.entityId, params.workspaceId)
-        break
-      case 'mcp_server':
-        row = await loadMcpServer(params.entityId, params.workspaceId)
-        break
+    const access = await checkWorkspaceAccess(params.workspaceId, params.userId)
+    if (!access.exists || !access.hasAccess) {
+      logger.warn('Skipping unauthorized copilot entity context', {
+        entityKind: params.entityKind,
+        entityId: params.entityId,
+        workspaceId: params.workspaceId,
+        userId: params.userId,
+      })
+      return null
     }
+
+    const { loadEntityByKind } = await import('@/lib/yjs/server/entity-loaders')
+
+    const row = await loadEntityByKind(params.entityKind, params.entityId, params.workspaceId)
 
     if (!row) {
       logger.warn('No entity data found for copilot context', {
@@ -217,11 +211,13 @@ async function processEntityContext(params: {
       })
       return null
     }
+    const { applySavedEntityYjsStateToRow } = await import('@/lib/yjs/entity-state')
+    const entity = await applySavedEntityYjsStateToRow(params.entityKind, row)
 
     return {
       type: params.contextKind,
       tag: params.tag,
-      content: JSON.stringify(serializeEntityContext(params.entityKind, row), null, 2),
+      content: JSON.stringify(serializeEntityContext(params.entityKind, entity), null, 2),
     }
   } catch (error) {
     logger.error('Error processing entity context', {
@@ -419,15 +415,20 @@ async function processPastChatFromDb(
   }
 }
 
-async function processWorkflowContext(
-  workflowId: string,
-  tag: string,
-  kind: 'workflow' | 'current_workflow' = 'workflow'
-): Promise<AgentContext | null> {
+async function processWorkflowContext({
+  workflowId,
+  userId,
+  tag,
+  kind,
+}: {
+  workflowId: string
+  userId: string
+  tag: string
+  kind: 'workflow' | 'current_workflow'
+}): Promise<AgentContext | null> {
   try {
-    const workflowState = await loadWorkflowStateWithFallback(workflowId)
+    const workflowState = await loadCopilotWorkflowState(workflowId, userId)
     if (!workflowState) {
-      logger.warn('No workflow data found for copilot context', { workflowId })
       return null
     }
 
@@ -438,7 +439,7 @@ async function processWorkflowContext(
       loops: workflowState.loops || {},
       parallels: workflowState.parallels || {},
     })
-    // Match get-user-workflow format: just the workflow state JSON
+    // Match read-workflow format: just the workflow state JSON
     const content = JSON.stringify(sanitizedState, null, 2)
     logger.info('Processed sanitized workflow context', {
       workflowId,
@@ -479,7 +480,6 @@ async function processKnowledgeFromDb(
       .limit(20)
 
     const sampleDocuments = docRows.map((d: any) => d.filename).filter(Boolean)
-    // We don't have total via this quick select; fallback to sample count
     const summary = {
       id: kb.id,
       name: kb.name,
@@ -495,20 +495,20 @@ async function processKnowledgeFromDb(
 }
 
 async function processBlocksMetadata(
-  blockIds: string[],
+  blockTypes: string[],
   tag: string
 ): Promise<AgentContext | null> {
+  const uniqueBlockTypes = Array.from(new Set(blockTypes.filter(Boolean)))
+  if (uniqueBlockTypes.length === 0) {
+    return null
+  }
+
   try {
     const { getBlocksMetadataServerTool } = await import(
-      '@/lib/copilot/tools/server/blocks/get-blocks-metadata-tool'
+      '@/lib/copilot/tools/server/blocks/get-blocks-metadata'
     )
 
-    const uniqueBlockIds = Array.from(new Set(blockIds.filter(Boolean)))
-    if (uniqueBlockIds.length === 0) {
-      return null
-    }
-
-    const result = await getBlocksMetadataServerTool.execute({ blockIds: uniqueBlockIds })
+    const result = await getBlocksMetadataServerTool.execute({ blockTypes: uniqueBlockTypes })
     if (!result?.metadata || Object.keys(result.metadata).length === 0) {
       return null
     }
@@ -516,7 +516,7 @@ async function processBlocksMetadata(
     const content = JSON.stringify(result)
     return { type: 'blocks', tag, content }
   } catch (error) {
-    logger.error('Error processing block metadata', { blockIds, error })
+    logger.error('Error processing block metadata', { blockTypes, error })
     return null
   }
 }
@@ -542,7 +542,7 @@ async function processTemplateFromDb(
     const t = rows?.[0]
     if (!t) return null
     const workflowState = (t as any).state || {}
-    // Match get-user-workflow format: just the workflow state JSON
+    // Match read-workflow format: just the workflow state JSON
     const summary = {
       id: t.id,
       name: t.name,
@@ -563,10 +563,11 @@ async function processTemplateFromDb(
 async function processWorkflowBlockFromDb(
   workflowId: string,
   blockId: string,
+  userId: string,
   label?: string
 ): Promise<AgentContext | null> {
   try {
-    const workflowState = await loadWorkflowStateWithFallback(workflowId)
+    const workflowState = await loadCopilotWorkflowState(workflowId, userId)
     if (!workflowState) return null
     const block = (workflowState.blocks as any)[blockId]
     if (!block) return null
@@ -575,7 +576,7 @@ async function processWorkflowBlockFromDb(
     // Build content: isolate the block and include its subBlocks fully
     const contentObj = {
       workflowId,
-      block: block,
+      block,
     }
     const content = JSON.stringify(contentObj)
     return { type: 'workflow_block', tag, content }
@@ -585,12 +586,34 @@ async function processWorkflowBlockFromDb(
   }
 }
 
+async function loadCopilotWorkflowState(
+  workflowId: string,
+  userId: string
+): Promise<CopilotWorkflowState | null> {
+  const access = await verifyWorkflowAccess(userId, workflowId, 'read')
+  if (!access.hasAccess) {
+    logger.warn('Skipping unauthorized copilot workflow context', {
+      workflowId,
+      userId,
+    })
+    return null
+  }
+
+  const workflowState = await loadWorkflowState(workflowId)
+  if (!workflowState) {
+    logger.warn('No workflow data found for copilot context', { workflowId })
+  }
+
+  return workflowState
+}
+
 async function processExecutionLogFromDb(
   executionId: string,
   userId: string,
   tag: string
 ): Promise<AgentContext | null> {
   try {
+    const workspaceAccess = buildWorkspaceAccessScope(userId, workflowExecutionLogs.workspaceId)
     const rows = await db
       .select({
         id: workflowExecutionLogs.id,
@@ -608,15 +631,9 @@ async function processExecutionLogFromDb(
       })
       .from(workflowExecutionLogs)
       .leftJoin(workflow, eq(workflowExecutionLogs.workflowId, workflow.id))
-      .innerJoin(
-        permissions,
-        and(
-          eq(permissions.entityType, 'workspace'),
-          eq(permissions.entityId, workflowExecutionLogs.workspaceId),
-          eq(permissions.userId, userId)
-        )
-      )
-      .where(eq(workflowExecutionLogs.executionId, executionId))
+      .innerJoin(workspace, workspaceAccess.workspaceJoin)
+      .leftJoin(permissions, workspaceAccess.permissionJoin)
+      .where(and(eq(workflowExecutionLogs.executionId, executionId), workspaceAccess.accessFilter))
       .limit(1)
 
     const log = rows?.[0] as any

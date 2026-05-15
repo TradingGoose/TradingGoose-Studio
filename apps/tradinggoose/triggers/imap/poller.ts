@@ -1,5 +1,5 @@
-import { createLogger } from '@/lib/logs/console/logger'
 import { MailServerIcon } from '@/components/icons/icons'
+import { createLogger } from '@/lib/logs/console/logger'
 import { readActiveSubBlockValue } from '@/lib/yjs/workflow-session-registry'
 import type { TriggerConfig } from '@/triggers/types'
 
@@ -87,7 +87,9 @@ export const imapPollingTrigger: TriggerConfig = {
         const host = readActiveSubBlockValue(blockId, 'host') as string | null
         const port = readActiveSubBlockValue(blockId, 'port') as string | null
         const secure = readActiveSubBlockValue(blockId, 'secure') as boolean | null
-        const rejectUnauthorized = readActiveSubBlockValue(blockId, 'rejectUnauthorized') as boolean | null
+        const rejectUnauthorized = readActiveSubBlockValue(blockId, 'rejectUnauthorized') as
+          | boolean
+          | null
         const username = readActiveSubBlockValue(blockId, 'username') as string | null
         const password = readActiveSubBlockValue(blockId, 'password') as string | null
 
@@ -207,7 +209,6 @@ Return ONLY valid JSON, no explanations or markdown.`,
       type: 'trigger-save',
       hideFromPreview: true,
       mode: 'trigger',
-      triggerId: 'imap_poller',
     },
     {
       id: 'triggerInstructions',

@@ -198,7 +198,7 @@ describe('Copilot Chat Update Messages', () => {
   it('updates messages for a generic copilot chat session', async () => {
     mockLoadReviewSessionForUser.mockResolvedValue({
       id: 'review-session-1',
-      userId: 'creator-user',
+      userId: 'collaborator-user',
       entityKind: 'copilot',
       entityId: null,
       workspaceId: 'workspace-1',
@@ -233,8 +233,7 @@ describe('Copilot Chat Update Messages', () => {
 
     expect(mockLoadReviewSessionForUser).toHaveBeenCalledWith(
       'review-session-1',
-      'collaborator-user',
-      { requireWrite: true }
+      'collaborator-user'
     )
     expect(mockTransaction).toHaveBeenCalledTimes(1)
     expect(deleteWhere).toHaveBeenCalledTimes(2)

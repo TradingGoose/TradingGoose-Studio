@@ -25,7 +25,7 @@ function getYjsWorkflowState(workflowId: string): WorkflowState | null {
  * @param workflowId ID of the workflow to retrieve
  * @returns The workflow with state values or null if not found/not active
  */
-export function getWorkflowWithValues(workflowId: string, channelId?: string) {
+export function readWorkflowWithValues(workflowId: string, channelId?: string) {
   const registryState = useWorkflowRegistry.getState()
   const { workflows } = registryState
   const activeWorkflowId =
@@ -53,7 +53,7 @@ export function getWorkflowWithValues(workflowId: string, channelId?: string) {
   const metadata = workflows[workflowId]
 
   // Get deployment status from registry
-  const deploymentStatus = useWorkflowRegistry.getState().getWorkflowDeploymentStatus(workflowId)
+  const deploymentStatus = useWorkflowRegistry.getState().readWorkflowDeploymentStatus(workflowId)
 
   return {
     id: workflowId,
@@ -115,7 +115,7 @@ export function getAllWorkflowsWithValues(channelId?: string) {
     // Get deployment status from registry
     const deploymentStatus = useWorkflowRegistry
       .getState()
-      .getWorkflowDeploymentStatus(activeWorkflowId)
+      .readWorkflowDeploymentStatus(activeWorkflowId)
 
     // Include the API key in the state if it exists in the deployment status
     const apiKey = deploymentStatus?.apiKey

@@ -38,6 +38,7 @@ interface FolderSelectorProps {
   onFolderInfoChange?: (folderInfo: FolderInfo | null) => void
   credentialId?: string
   workflowId?: string
+  workspaceId?: string
   isForeignCredential?: boolean
 }
 
@@ -52,6 +53,7 @@ export function FolderSelector({
   onFolderInfoChange,
   credentialId,
   workflowId,
+  workspaceId,
   isForeignCredential = false,
 }: FolderSelectorProps) {
   const [open, setOpen] = useState(false)
@@ -95,7 +97,10 @@ export function FolderSelector({
     setIsLoading(true)
     try {
       const providerId = getProviderId()
-      const response = await fetch(`/api/auth/oauth/credentials?provider=${providerId}`)
+      const query = new URLSearchParams({ provider: providerId })
+      if (workflowId) query.set('workflowId', workflowId)
+      else if (workspaceId) query.set('workspaceId', workspaceId)
+      const response = await fetch(`/api/auth/oauth/credentials?${query.toString()}`)
 
       if (response.ok) {
         const data = await response.json()
@@ -122,7 +127,7 @@ export function FolderSelector({
     } finally {
       setIsLoading(false)
     }
-  }, [provider, getProviderId, selectedCredentialId])
+  }, [provider, getProviderId, selectedCredentialId, workflowId, workspaceId])
 
   // Fetch a single folder by ID when we have a selectedFolderId but no metadata
   const fetchFolderById = useCallback(
@@ -130,47 +135,34 @@ export function FolderSelector({
       if (!selectedCredentialId || !folderId) return null
 
       try {
-        if (provider === 'outlook') {
-          // Resolve Outlook folder name with owner-scoped token
-          const tokenRes = await fetch('/api/auth/oauth/token', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ credentialId: selectedCredentialId, workflowId }),
-          })
-          if (!tokenRes.ok) return null
-          const { accessToken } = await tokenRes.json()
-          if (!accessToken) return null
-          const resp = await fetch(
-            `https://graph.microsoft.com/v1.0/me/mailFolders/${encodeURIComponent(folderId)}`,
-            {
-              headers: { Authorization: `Bearer ${accessToken}` },
-            }
-          )
-          if (!resp.ok) return null
-          const folder = await resp.json()
-          const folderInfo: FolderInfo = {
-            id: folder.id,
-            name: folder.displayName,
-            type: 'folder',
-            messagesTotal: folder.totalItemCount,
-            messagesUnread: folder.unreadItemCount,
-          }
-          setSelectedFolder(folderInfo)
-          onFolderInfoChange?.(folderInfo)
-          return folderInfo
-        }
-        // Gmail label resolution
         const queryParams = new URLSearchParams({
           credentialId: selectedCredentialId,
-          labelId: folderId,
         })
-        const response = await fetch(`/api/tools/gmail/label?${queryParams.toString()}`)
+        if (workflowId) queryParams.set('workflowId', workflowId)
+        else if (workspaceId) queryParams.set('workspaceId', workspaceId)
+
+        const response =
+          provider === 'outlook'
+            ? await fetch(
+                `/api/tools/outlook/folders?${new URLSearchParams({
+                  ...Object.fromEntries(queryParams),
+                  folderId,
+                }).toString()}`
+              )
+            : await fetch(
+                `/api/tools/gmail/label?${new URLSearchParams({
+                  ...Object.fromEntries(queryParams),
+                  labelId: folderId,
+                }).toString()}`
+              )
+
         if (response.ok) {
           const data = await response.json()
-          if (data.label) {
-            setSelectedFolder(data.label)
-            onFolderInfoChange?.(data.label)
-            return data.label
+          const folderInfo = provider === 'outlook' ? data.folder : data.label
+          if (folderInfo) {
+            setSelectedFolder(folderInfo)
+            onFolderInfoChange?.(folderInfo)
+            return folderInfo
           }
         } else {
           logger.error('Error fetching folder by ID:', {
@@ -183,7 +175,7 @@ export function FolderSelector({
         return null
       }
     },
-    [selectedCredentialId, onFolderInfoChange, provider, workflowId]
+    [selectedCredentialId, onFolderInfoChange, provider, workflowId, workspaceId]
   )
 
   // Fetch folders from Gmail or Outlook
@@ -200,6 +192,11 @@ export function FolderSelector({
 
         if (searchQuery) {
           queryParams.append('query', searchQuery)
+        }
+        if (workflowId) {
+          queryParams.append('workflowId', workflowId)
+        } else if (workspaceId) {
+          queryParams.append('workspaceId', workspaceId)
         }
 
         // Determine the API endpoint based on provider
@@ -261,6 +258,8 @@ export function FolderSelector({
       fetchFolderById,
       provider,
       isForeignCredential,
+      workflowId,
+      workspaceId,
     ]
   )
 
@@ -292,20 +291,10 @@ export function FolderSelector({
   // Fetch the selected folder metadata once credentials are ready or value changes
   useEffect(() => {
     if (disabled) return
-    if (
-      value &&
-      selectedCredentialId &&
-      (!selectedFolder || selectedFolder.id !== value)
-    ) {
+    if (value && selectedCredentialId && (!selectedFolder || selectedFolder.id !== value)) {
       fetchFolderById(value)
     }
-  }, [
-    value,
-    selectedCredentialId,
-    selectedFolder,
-    fetchFolderById,
-    disabled,
-  ])
+  }, [value, selectedCredentialId, selectedFolder, fetchFolderById, disabled])
 
   // Handle folder selection
   const handleSelectFolder = (folder: FolderInfo) => {

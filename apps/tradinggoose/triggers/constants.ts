@@ -11,7 +11,6 @@ export const SYSTEM_SUBBLOCK_IDS: string[] = [
   'triggerSave',
   'samplePayload',
   'setupScript',
-  'triggerId',
   'selectedTriggerId',
 ]
 
@@ -22,7 +21,6 @@ export const SYSTEM_SUBBLOCK_IDS: string[] = [
 export const TRIGGER_PERSISTED_SUBBLOCK_IDS: string[] = [
   'triggerConfig',
   'triggerCredentials',
-  'triggerId',
   'selectedTriggerId',
   'webhookId',
   'triggerPath',

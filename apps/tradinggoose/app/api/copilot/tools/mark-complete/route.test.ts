@@ -128,6 +128,7 @@ describe('Copilot mark-complete API', () => {
         status: 200,
         message: 'ok',
       },
+      signal: expect.any(AbortSignal),
     })
   })
 })

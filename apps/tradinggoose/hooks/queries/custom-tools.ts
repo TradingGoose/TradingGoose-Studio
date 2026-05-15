@@ -33,7 +33,7 @@ type ApiCustomTool = Partial<CustomToolDefinition> & {
 }
 
 function normalizeCustomTool(tool: ApiCustomTool, workspaceId: string): CustomToolDefinition {
-  const fallbackName = tool.schema.function?.name || tool.id
+  const functionName = tool.schema.function?.name || tool.id
   const parameters = tool.schema.function?.parameters ?? {
     type: 'object',
     properties: {},
@@ -55,7 +55,7 @@ function normalizeCustomTool(tool: ApiCustomTool, workspaceId: string): CustomTo
     schema: {
       type: tool.schema.type ?? 'function',
       function: {
-        name: fallbackName,
+        name: functionName,
         description: tool.schema.function?.description,
         parameters: {
           type: parameters.type ?? 'object',

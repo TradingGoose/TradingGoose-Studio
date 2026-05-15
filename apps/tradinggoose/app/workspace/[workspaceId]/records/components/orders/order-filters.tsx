@@ -51,6 +51,8 @@ const isDefault = (state: OrdersFilterState) =>
 
 const selectValue = (value: string) => value || 'all'
 const selectedValue = (value: string) => (value === 'all' ? '' : value)
+const timeInForceLabel = (value: string) =>
+  value === 'extended_hours' ? 'Extended Hours' : uppercase(value)
 
 const filterCountKeys = [
   'provider',
@@ -267,7 +269,7 @@ export function OrderFilterMenu({
             label='Time in force'
             placeholder='All TIF'
             options={ORDER_TIME_IN_FORCE_FILTER_VALUES}
-            labelFor={uppercase}
+            labelFor={timeInForceLabel}
           />
           <FilterSelect
             value={state.linkedLog}

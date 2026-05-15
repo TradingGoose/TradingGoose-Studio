@@ -1,5 +1,5 @@
 import type { CopilotAccessLevel } from '@/lib/copilot/access-policy'
-import type { ReviewEntityKind } from '@/lib/copilot/review-sessions/types'
+import type { ReviewEntityKind, ReviewTargetDescriptor } from '@/lib/copilot/review-sessions/types'
 import type { CopilotRuntimeModel } from '@/lib/copilot/runtime-models'
 import type { ClientToolCallState, ClientToolDisplay } from '@/lib/copilot/tools/client/base-tool'
 
@@ -86,7 +86,7 @@ type WorkspaceEntityChatContext =
 export type ChatContext =
   | { kind: 'past_chat'; reviewSessionId: string; label: string }
   | WorkspaceEntityChatContext
-  | { kind: 'blocks'; blockIds: string[]; label: string }
+  | { kind: 'blocks'; blockTypes?: string[]; label: string }
   | { kind: 'logs'; executionId?: string; label: string }
   | { kind: 'workflow_block'; workflowId: string; blockId: string; label: string }
   | { kind: 'knowledge'; knowledgeId?: string; label: string }
@@ -108,17 +108,10 @@ export interface CopilotChat {
   updatedAt: Date
 }
 
-export interface CopilotLiveReviewTarget {
-  entityKind: Exclude<ReviewEntityKind, 'workflow'>
-  entityId: string | null
-  reviewSessionId: string | null
-  draftSessionId: string | null
-}
-
 export interface CopilotLiveContext {
   workflowId: string | null
   workspaceId: string | null
-  reviewTarget?: CopilotLiveReviewTarget | null
+  reviewTarget: ReviewTargetDescriptor | null
 }
 
 export interface CopilotSendRuntimeContext {
@@ -216,17 +209,16 @@ export interface CopilotActions {
     stream: ReadableStream,
     messageId: string,
     isContinuation?: boolean,
-    turnProvenance?: CopilotToolExecutionProvenance
+    turnProvenance?: CopilotToolExecutionProvenance,
+    abortSignal?: AbortSignal
   ) => Promise<void>
   handleNewReviewSessionCreation: (
     newReviewSessionId: string,
     workspaceId?: string | null
   ) => Promise<void>
 
-  executeCopilotToolCall: (toolCallId: string) => Promise<void>
+  executeCopilotToolCall: (toolCallId: string, actionArgs?: Record<string, any>) => Promise<void>
   skipCopilotToolCall: (toolCallId: string) => Promise<void>
-  executeIntegrationTool: (toolCallId: string) => Promise<void>
-  skipIntegrationTool: (toolCallId: string) => void
 }
 
 export type CopilotStore = CopilotState & CopilotActions

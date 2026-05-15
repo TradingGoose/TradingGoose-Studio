@@ -98,7 +98,6 @@ export const hubspotDealDeletedTrigger: TriggerConfig = {
       title: '',
       type: 'trigger-save',
       mode: 'trigger',
-      triggerId: 'hubspot_deal_deleted',
       condition: {
         field: 'selectedTriggerId',
         value: 'hubspot_deal_deleted',

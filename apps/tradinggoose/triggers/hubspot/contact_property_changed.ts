@@ -112,7 +112,6 @@ export const hubspotContactPropertyChangedTrigger: TriggerConfig = {
       title: '',
       type: 'trigger-save',
       mode: 'trigger',
-      triggerId: 'hubspot_contact_property_changed',
       condition: {
         field: 'selectedTriggerId',
         value: 'hubspot_contact_property_changed',

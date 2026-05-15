@@ -13,10 +13,11 @@ import {
   CommandList,
 } from '@/components/ui/command'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import type { SubBlockConfig } from '@/blocks/types'
+import { fetchKnowledgeBases as fetchWorkspaceKnowledgeBases } from '@/hooks/queries/knowledge'
+import type { KnowledgeBaseData } from '@/stores/knowledge/store'
 import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
 import { useWorkspaceId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
-import type { SubBlockConfig } from '@/blocks/types'
-import { type KnowledgeBaseData, useKnowledgeStore } from '@/stores/knowledge/store'
 
 interface KnowledgeBaseSelectorProps {
   blockId: string
@@ -32,8 +33,6 @@ export function KnowledgeBaseSelector({
   onKnowledgeBaseSelect,
 }: KnowledgeBaseSelectorProps) {
   const workspaceId = useWorkspaceId()
-
-  const { loadingKnowledgeBasesList } = useKnowledgeStore()
 
   const [knowledgeBases, setKnowledgeBases] = useState<KnowledgeBaseData[]>([])
   const [loading, setLoading] = useState(false)
@@ -53,9 +52,9 @@ export function KnowledgeBaseSelector({
         typeof storeValue === 'string'
           ? storeValue.includes(',')
             ? storeValue
-              .split(',')
-              .map((id) => id.trim())
-              .filter((id) => id.length > 0)
+                .split(',')
+                .map((id) => id.trim())
+                .filter((id) => id.length > 0)
             : [storeValue]
           : []
 
@@ -64,32 +63,12 @@ export function KnowledgeBaseSelector({
     return []
   }, [storeValue, knowledgeBases])
 
-  // Fetch knowledge bases directly from API
   const fetchKnowledgeBases = useCallback(async () => {
     setLoading(true)
     setError(null)
 
     try {
-      const url = workspaceId ? `/api/knowledge?workspaceId=${workspaceId}` : '/api/knowledge'
-      const response = await fetch(url, {
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      })
-
-      if (!response.ok) {
-        throw new Error(
-          `Failed to fetch knowledge bases: ${response.status} ${response.statusText}`
-        )
-      }
-
-      const result = await response.json()
-
-      if (!result.success) {
-        throw new Error(result.error || 'Failed to fetch knowledge bases')
-      }
-
-      const data = result.data || []
+      const data = await fetchWorkspaceKnowledgeBases(workspaceId)
       setKnowledgeBases(data)
       setInitialFetchDone(true)
     } catch (err) {
@@ -111,7 +90,6 @@ export function KnowledgeBaseSelector({
     }
   }
 
-  // Handle single knowledge base selection (for backward compatibility)
   const handleSelectSingleKnowledgeBase = (knowledgeBase: KnowledgeBaseData) => {
     // Use the hook's setter which handles collaborative updates
     setStoreValue(knowledgeBase.id)
@@ -247,7 +225,7 @@ export function KnowledgeBaseSelector({
             <CommandInput placeholder='Search knowledge bases...' />
             <CommandList>
               <CommandEmpty>
-                {loading || loadingKnowledgeBasesList ? (
+                {loading ? (
                   <div className='flex items-center justify-center p-4'>
                     <RefreshCw className='h-4 w-4 animate-spin' />
                     <span className='ml-2'>Loading knowledge bases...</span>

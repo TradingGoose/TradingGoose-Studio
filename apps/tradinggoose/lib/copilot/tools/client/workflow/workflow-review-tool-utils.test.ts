@@ -49,7 +49,7 @@ describe('workflow-review-tool-utils', () => {
     const result = await getReadableWorkflowState(
       {
         toolCallId: 'tool-1',
-        toolName: 'get_user_workflow',
+        toolName: 'read_workflow',
         workflowId: 'workflow-current',
       },
       'workflow-live'
@@ -65,12 +65,13 @@ describe('workflow-review-tool-utils', () => {
     expect(global.fetch).not.toHaveBeenCalled()
   })
 
-  it('falls back to the authoritative workflow API when no live Yjs session is registered', async () => {
+  it('reads the authoritative workflow API when no live Yjs session is registered', async () => {
     mockGetRegisteredWorkflowSession.mockReturnValue(null)
     vi.mocked(global.fetch).mockResolvedValue({
       ok: true,
       json: async () => ({
         data: {
+          name: 'Database Workflow',
           workspaceId: 'workspace-db',
           state: {
             blocks: { 'block-1': { type: 'agent', name: 'Agent', subBlocks: {}, outputs: {} } },
@@ -96,7 +97,7 @@ describe('workflow-review-tool-utils', () => {
     const result = await getReadableWorkflowState(
       {
         toolCallId: 'tool-1',
-        toolName: 'get_user_workflow',
+        toolName: 'read_workflow',
         workflowId: 'workflow-current',
       },
       'workflow-db'
@@ -104,6 +105,7 @@ describe('workflow-review-tool-utils', () => {
 
     expect(result.source).toBe('api')
     expect(result.workflowId).toBe('workflow-db')
+    expect(result.workflowName).toBe('Database Workflow')
     expect(result.workspaceId).toBe('workspace-db')
     expect(global.fetch).toHaveBeenCalledWith('/api/workflows/workflow-db', {
       method: 'GET',
@@ -128,41 +130,20 @@ describe('workflow-review-tool-utils', () => {
     await expect(
       getReadableWorkflowState({
         toolCallId: 'tool-1',
-        toolName: 'get_user_workflow',
+        toolName: 'read_workflow',
         workflowId: 'workflow-current',
       })
     ).rejects.toThrow('Workflow target is required')
   })
 
   it('builds workflow document payloads with entity aliases', async () => {
-    const { buildWorkflowDocumentToolResult, buildWorkflowSummary } = await import(
-      './workflow-review-tool-utils'
-    )
+    const { buildWorkflowDocumentToolResult } = await import('./workflow-review-tool-utils')
 
     expect(
       buildWorkflowDocumentToolResult({
         workflowId: 'workflow-entity',
         workflowName: 'Momentum Flow',
         workflowDocument: 'flowchart TD',
-        workflowSummary: buildWorkflowSummary({
-          blocks: {
-            trigger: {
-              id: 'trigger',
-              type: 'input_trigger',
-              name: 'Input Form',
-              position: { x: 0, y: 0 },
-              enabled: true,
-              subBlocks: {
-                ticker: { id: 'ticker', type: 'short-input', value: 'AAPL' },
-                tradeDate: { id: 'tradeDate', type: 'short-input', value: '2026-04-18' },
-              },
-              outputs: {},
-            },
-          },
-          edges: [],
-          loops: {},
-          parallels: {},
-        }),
       })
     ).toEqual({
       entityKind: 'workflow',
@@ -173,41 +154,100 @@ describe('workflow-review-tool-utils', () => {
       workflowName: 'Momentum Flow',
       workflowDocument: 'flowchart TD',
       documentFormat: 'tg-mermaid-v1',
-      workflowSummary: {
-        blocks: [
-          {
-            blockId: 'trigger',
-            blockType: 'input_trigger',
-            blockName: 'Input Form',
-            enabled: true,
-            subBlockIds: ['ticker', 'tradeDate'],
-          },
-        ],
-      },
     })
   })
 
-  it('rejects duplicate workflow names instead of picking one silently', async () => {
-    mockGetRegisteredWorkflowSession.mockReturnValue(null)
-    vi.mocked(global.fetch).mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        data: [
-          { id: 'workflow-a', name: 'Analysts' },
-          { id: 'workflow-b', name: 'analysts' },
-        ],
-      }),
-    } as Response)
+  it('surfaces invalid external edges into container end handles', async () => {
+    const { buildWorkflowSummary } = await import('./workflow-review-tool-utils')
 
-    const { resolveWorkflowTarget } = await import('./workflow-review-tool-utils')
-    await expect(
-      resolveWorkflowTarget(
-        {
-          toolCallId: 'tool-1',
-          toolName: 'get_workflow_from_name',
+    expect(
+      buildWorkflowSummary({
+        blocks: {
+          input: {
+            id: 'input',
+            type: 'input_trigger',
+            name: 'Input Form',
+            position: { x: 0, y: 0 },
+            enabled: true,
+            subBlocks: {},
+            outputs: {},
+          },
+          parallel: {
+            id: 'parallel',
+            type: 'parallel',
+            name: 'Parallel',
+            position: { x: 200, y: 0 },
+            enabled: true,
+            subBlocks: {},
+            outputs: {},
+          },
         },
-        { workflow_name: 'Analysts' }
-      )
-    ).rejects.toThrow('Multiple workflows named "Analysts" found')
+        edges: [
+          {
+            id: 'edge-input-parallel-end',
+            source: 'input',
+            target: 'parallel',
+            targetHandle: 'parallel-end-target',
+          },
+        ],
+        loops: {},
+        parallels: {},
+      }).connectionIssues
+    ).toEqual([
+      {
+        edgeIndex: 0,
+        source: 'input',
+        target: 'parallel',
+        targetHandle: 'parallel-end-target',
+        message:
+          'Invalid container edge: parallel container input requires targetHandle "target" for incoming outer edges.',
+      },
+    ])
+  })
+
+  it('surfaces missing outer input handles on incoming container edges', async () => {
+    const { buildWorkflowSummary } = await import('./workflow-review-tool-utils')
+
+    expect(
+      buildWorkflowSummary({
+        blocks: {
+          input: {
+            id: 'input',
+            type: 'input_trigger',
+            name: 'Input',
+            position: { x: 0, y: 0 },
+            enabled: true,
+            subBlocks: {},
+            outputs: {},
+          },
+          parallel: {
+            id: 'parallel',
+            type: 'parallel',
+            name: 'Parallel',
+            position: { x: 200, y: 0 },
+            enabled: true,
+            subBlocks: {},
+            outputs: {},
+          },
+        },
+        edges: [
+          {
+            id: 'edge-input-parallel',
+            source: 'input',
+            target: 'parallel',
+          },
+        ],
+        loops: {},
+        parallels: {},
+      }).connectionIssues
+    ).toEqual([
+      {
+        edgeIndex: 0,
+        source: 'input',
+        target: 'parallel',
+        message:
+          'Invalid container edge: parallel container input requires targetHandle "target" for incoming outer edges.',
+      },
+    ])
   })
 })

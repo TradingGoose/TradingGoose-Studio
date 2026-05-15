@@ -6,7 +6,7 @@ import { NextRequest } from 'next/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mockValidateWorkflowPermissions = vi.fn()
-const mockLoadWorkflowStateWithFallback = vi.fn()
+const mockLoadWorkflowState = vi.fn()
 const mockDbLimit = vi.fn()
 
 describe('Workflow Deploy API Route', () => {
@@ -14,7 +14,7 @@ describe('Workflow Deploy API Route', () => {
     vi.resetModules()
     vi.clearAllMocks()
 
-    mockLoadWorkflowStateWithFallback.mockResolvedValue(null)
+    mockLoadWorkflowState.mockResolvedValue(null)
     mockDbLimit.mockReset()
 
     vi.doMock('@/lib/logs/console/logger', () => ({
@@ -38,8 +38,7 @@ describe('Workflow Deploy API Route', () => {
 
     vi.doMock('@/lib/workflows/db-helpers', () => ({
       deployWorkflow: vi.fn(),
-      loadWorkflowStateWithFallback: (...args: unknown[]) =>
-        mockLoadWorkflowStateWithFallback(...args),
+      loadWorkflowState: (...args: unknown[]) => mockLoadWorkflowState(...args),
     }))
 
     vi.doMock('@/lib/chat/published-deployment', () => ({

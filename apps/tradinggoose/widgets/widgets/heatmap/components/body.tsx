@@ -7,7 +7,8 @@ import type { MarketQuoteSnapshot } from '@/lib/market/quote-snapshot-contract'
 import { useResolvedListings } from '@/hooks/queries/listing-resolution'
 import { useMarketQuoteSnapshots } from '@/hooks/queries/market-quote-snapshots'
 import { useOAuthProviderAvailability } from '@/hooks/queries/oauth-provider-availability'
-import { useTradingAccounts, useTradingPortfolioSnapshot } from '@/hooks/queries/trading-portfolio'
+import { usePortfolioDetail } from '@/hooks/queries/trading-portfolio'
+import { getPortfolioListingExposures } from '@/providers/trading/portfolio-selectors'
 import { useWatchlists } from '@/hooks/queries/watchlists'
 import { useSetPairColorContext } from '@/stores/dashboard/pair-store'
 import type { WidgetComponentProps } from '@/widgets/types'
@@ -15,7 +16,7 @@ import {
   emitHeatmapParamsChange,
   useHeatmapParamsPersistence,
 } from '@/widgets/utils/heatmap-params'
-import { useTradingCredentialServices } from '@/widgets/widgets/components/trading-credential-services'
+import { usePortfolioIdentitySelection } from '@/widgets/widgets/components/use-portfolio-identity-selection'
 import { HeatmapTreemapChart } from '@/widgets/widgets/heatmap/components/heatmap-treemap-chart'
 import {
   getHeatmapTradingProviderAvailabilityIds,
@@ -127,84 +128,55 @@ export function HeatmapWidgetBody({
     emitHeatmapParamsChange({
       params: {
         tradingProvider: null,
-        credentialServiceId: null,
-        accountId: null,
+        serviceId: null,
+        portfolioIdentity: null,
       },
       panelId,
       widgetKey,
     })
   }, [hasInvalidPersistedTradingProvider, panelId, widgetKey])
 
-  const credentialServices = useTradingCredentialServices({
+  const {
+    accountsQuery,
+    activeServiceId,
+    activePortfolioIdentity,
+    services,
+    portfolioIdentities,
+  } = usePortfolioIdentitySelection({
+    workspaceId,
     providerId: tradingProviderId,
-    credentialServiceId: widgetParams?.credentialServiceId,
+    serviceId: widgetParams?.serviceId,
+    portfolioIdentity: widgetParams?.portfolioIdentity,
     enabled: sourceMode === 'portfolio' && isTradingProviderReady,
-  })
-  const activeCredentialServiceId = credentialServices.activeServiceId
-  const accountsQuery = useTradingAccounts({
-    workspaceId: workspaceId ?? undefined,
-    provider: sourceMode === 'portfolio' && isTradingProviderReady ? tradingProviderId : undefined,
-    credentialServiceId: activeCredentialServiceId,
-    enabled: sourceMode === 'portfolio' && Boolean(activeCredentialServiceId),
-  })
-  const accounts = accountsQuery.data ?? []
-  const singleAccount = accounts.length === 1 ? (accounts[0] ?? null) : null
-  const activeAccountId = activeCredentialServiceId
-    ? (widgetParams?.accountId ?? singleAccount?.id)
-    : undefined
-
-  useEffect(() => {
-    if (sourceMode !== 'portfolio') return
-    if (accountsQuery.isLoading) return
-    if (accountsQuery.error) return
-
-    if (accounts.length === 1) {
-      const onlyAccount = accounts[0]
-      if (!onlyAccount) return
-      if (widgetParams?.accountId) return
-      emitHeatmapParamsChange({
-        params: {
-          accountId: onlyAccount.id,
-          credentialServiceId: activeCredentialServiceId,
-        },
-        panelId,
-        widgetKey,
-      })
-    }
-  }, [
-    accounts,
-    accountsQuery.error,
-    accountsQuery.isLoading,
-    activeCredentialServiceId,
     panelId,
-    sourceMode,
     widgetKey,
-    widgetParams?.accountId,
-  ])
+    emitParamsChange: emitHeatmapParamsChange,
+  })
 
-  const snapshotQuery = useTradingPortfolioSnapshot({
+  const snapshotQuery = usePortfolioDetail({
     workspaceId: workspaceId ?? undefined,
     provider: sourceMode === 'portfolio' && isTradingProviderReady ? tradingProviderId : undefined,
-    credentialServiceId: activeCredentialServiceId,
-    accountId: activeAccountId,
+    serviceId: activeServiceId,
+    portfolioIdentity: activePortfolioIdentity,
     enabled: sourceMode === 'portfolio',
   })
+  const listingExposures = useMemo(
+    () => getPortfolioListingExposures(snapshotQuery.data),
+    [snapshotQuery.data]
+  )
   const portfolioSources = useMemo<HeatmapSourceListing[]>(
-    () =>
-      resolvePortfolioHeatmapListings(
-        snapshotQuery.positionListings.map((position) => position.listing)
-      ),
-    [snapshotQuery.positionListings]
+    () => resolvePortfolioHeatmapListings(listingExposures.map((position) => position.listing)),
+    [listingExposures]
   )
   const portfolioQuantityByKey = useMemo(() => {
     const quantityByKey = new Map<string, number>()
 
-    for (const position of snapshotQuery.positionListings) {
+    for (const position of listingExposures) {
       quantityByKey.set(getListingIdentityKey(position.listing), position.grossQuantity)
     }
 
     return quantityByKey
-  }, [snapshotQuery.positionListings])
+  }, [listingExposures])
   const sourceListings = sourceMode === 'portfolio' ? portfolioSources : watchlistSources
   const {
     visibleItems: cappedSourceListings,
@@ -327,8 +299,8 @@ export function HeatmapWidgetBody({
       return <HeatmapMessage message='Select a trading provider to load portfolio holdings.' />
     }
 
-    if (!activeAccountId) {
-      if (credentialServices.isLoading) {
+    if (!activePortfolioIdentity) {
+      if (services.isLoading) {
         return (
           <div className='flex h-full items-center justify-center'>
             <LoadingAgent size='md' />
@@ -336,11 +308,11 @@ export function HeatmapWidgetBody({
         )
       }
 
-      if (!activeCredentialServiceId) {
+      if (!activeServiceId) {
         return <HeatmapMessage message='Select a broker connection to load portfolio holdings.' />
       }
 
-      if (accountsQuery.isLoading && accounts.length === 0) {
+      if (accountsQuery.isLoading && portfolioIdentities.length === 0) {
         return (
           <div className='flex h-full items-center justify-center'>
             <LoadingAgent size='md' />
@@ -358,6 +330,10 @@ export function HeatmapWidgetBody({
             }
           />
         )
+      }
+
+      if (portfolioIdentities.length === 0) {
+        return <HeatmapMessage message='No broker accounts found for this provider connection.' />
       }
 
       return <HeatmapMessage message='Select a broker account to load portfolio holdings.' />

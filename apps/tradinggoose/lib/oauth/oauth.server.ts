@@ -116,8 +116,8 @@ function getProviderAuthTemplate(providerId: string): Omit<ProviderAuthConfig, '
       }
     case 'tradier':
       return {
-        tokenEndpoint: 'https://api.tradier.com/v1/oauth/token',
-        useBasicAuth: false,
+        tokenEndpoint: 'https://api.tradier.com/v1/oauth/refreshtoken',
+        useBasicAuth: true,
       }
     case 'wealthbox':
       return {

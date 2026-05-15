@@ -10,7 +10,7 @@ const editWorkflowExecute = vi.fn(async () => ({
   workflowDocument: 'flowchart TD\n%% TG_WORKFLOW {"version":"tg-mermaid-v1","direction":"TD"}',
   workflowState: { blocks: {} },
 }))
-const getWorkflowConsoleExecute = vi.fn(async () => ({ entries: [] }))
+const readWorkflowLogsExecute = vi.fn(async () => ({ entries: [] }))
 const getIndicatorCatalogExecute = vi.fn(async () => ({
   sections: [],
   items: [],
@@ -20,29 +20,37 @@ const getIndicatorMetadataExecute = vi.fn(async () => ({
   items: [],
   missingIds: [],
 }))
+const agentAccessoryCatalogResult = { tools: [], skills: [] }
+const getAgentAccessoryCatalogExecute = vi.fn(async () => agentAccessoryCatalogResult)
 const listGDriveFilesExecute = vi.fn(async () => ({ files: [] }))
 const readGDriveFileExecute = vi.fn(async () => ({ content: '' }))
-const getCredentialsExecute = vi.fn(async () => ({
+const readCredentialsExecute = vi.fn(async () => ({
   oauth: {
     connected: { credentials: [], total: 0 },
     notConnected: { services: [], total: 0 },
   },
   environment: { variableNames: [], count: 0 },
 }))
-const getEnvironmentVariablesExecute = vi.fn(async () => ({ variableNames: [], count: 0 }))
-const getOAuthCredentialsExecute = vi.fn(async () => ({ credentials: [], total: 0 }))
+const readEnvironmentVariablesExecute = vi.fn(async () => ({ variableNames: [], count: 0 }))
+const readOAuthCredentialsExecute = vi.fn(async () => ({ credentials: [], total: 0 }))
 const setEnvironmentVariablesExecute = vi.fn(async () => ({ message: 'ok' }))
 
-vi.mock('@/lib/copilot/tools/server/blocks/get-blocks-and-tools', () => ({
-  getBlocksAndToolsServerTool: {
-    name: 'get_blocks_and_tools',
+vi.mock('@/lib/copilot/tools/server/blocks/get-available-blocks', () => ({
+  getAvailableBlocksServerTool: {
+    name: 'get_available_blocks',
     execute: vi.fn(async () => ({ blocks: [] })),
   },
 }))
-vi.mock('@/lib/copilot/tools/server/blocks/get-blocks-metadata-tool', () => ({
+vi.mock('@/lib/copilot/tools/server/blocks/get-blocks-metadata', () => ({
   getBlocksMetadataServerTool: {
     name: 'get_blocks_metadata',
     execute: vi.fn(async () => ({ metadata: {} })),
+  },
+}))
+vi.mock('@/lib/copilot/tools/server/agent/get-agent-accessory-catalog', () => ({
+  getAgentAccessoryCatalogServerTool: {
+    name: 'get_agent_accessory_catalog',
+    execute: getAgentAccessoryCatalogExecute,
   },
 }))
 vi.mock('@/lib/copilot/tools/server/indicators/get-indicator-catalog', () => ({
@@ -55,12 +63,6 @@ vi.mock('@/lib/copilot/tools/server/indicators/get-indicator-metadata', () => ({
   getIndicatorMetadataServerTool: {
     name: 'get_indicator_metadata',
     execute: getIndicatorMetadataExecute,
-  },
-}))
-vi.mock('@/lib/copilot/tools/server/blocks/get-trigger-blocks', () => ({
-  getTriggerBlocksServerTool: {
-    name: 'get_trigger_blocks',
-    execute: vi.fn(async () => ({ blocks: [] })),
   },
 }))
 vi.mock('@/lib/copilot/tools/server/docs/search-documentation', () => ({
@@ -90,19 +92,19 @@ vi.mock('@/lib/copilot/tools/server/other/make-api-request', () => ({
 vi.mock('@/lib/copilot/tools/server/other/search-online', () => ({
   searchOnlineServerTool: { name: 'search_online', execute: vi.fn(async () => ({ results: [] })) },
 }))
-vi.mock('@/lib/copilot/tools/server/user/get-credentials', () => ({
-  getCredentialsServerTool: { name: 'get_credentials', execute: getCredentialsExecute },
+vi.mock('@/lib/copilot/tools/server/user/read-credentials', () => ({
+  readCredentialsServerTool: { name: 'read_credentials', execute: readCredentialsExecute },
 }))
-vi.mock('@/lib/copilot/tools/server/user/get-environment-variables', () => ({
-  getEnvironmentVariablesServerTool: {
-    name: 'get_environment_variables',
-    execute: getEnvironmentVariablesExecute,
+vi.mock('@/lib/copilot/tools/server/user/read-environment-variables', () => ({
+  readEnvironmentVariablesServerTool: {
+    name: 'read_environment_variables',
+    execute: readEnvironmentVariablesExecute,
   },
 }))
-vi.mock('@/lib/copilot/tools/server/user/get-oauth-credentials', () => ({
-  getOAuthCredentialsServerTool: {
-    name: 'get_oauth_credentials',
-    execute: getOAuthCredentialsExecute,
+vi.mock('@/lib/copilot/tools/server/user/read-oauth-credentials', () => ({
+  readOAuthCredentialsServerTool: {
+    name: 'read_oauth_credentials',
+    execute: readOAuthCredentialsExecute,
   },
 }))
 vi.mock('@/lib/copilot/tools/server/user/set-environment-variables', () => ({
@@ -114,10 +116,10 @@ vi.mock('@/lib/copilot/tools/server/user/set-environment-variables', () => ({
 vi.mock('@/lib/copilot/tools/server/workflow/edit-workflow', () => ({
   editWorkflowServerTool: { name: 'edit_workflow', execute: editWorkflowExecute },
 }))
-vi.mock('@/lib/copilot/tools/server/workflow/get-workflow-console', () => ({
-  getWorkflowConsoleServerTool: {
-    name: 'get_workflow_console',
-    execute: getWorkflowConsoleExecute,
+vi.mock('@/lib/copilot/tools/server/workflow/read-workflow-logs', () => ({
+  readWorkflowLogsServerTool: {
+    name: 'read_workflow_logs',
+    execute: readWorkflowLogsExecute,
   },
 }))
 
@@ -132,42 +134,80 @@ beforeAll(async () => {
 
 beforeEach(() => {
   editWorkflowExecute.mockClear()
-  getWorkflowConsoleExecute.mockClear()
+  readWorkflowLogsExecute.mockClear()
+  getAgentAccessoryCatalogExecute.mockClear()
   getIndicatorCatalogExecute.mockClear()
   getIndicatorMetadataExecute.mockClear()
   listGDriveFilesExecute.mockClear()
   readGDriveFileExecute.mockClear()
-  getCredentialsExecute.mockClear()
-  getEnvironmentVariablesExecute.mockClear()
-  getOAuthCredentialsExecute.mockClear()
+  readCredentialsExecute.mockClear()
+  readEnvironmentVariablesExecute.mockClear()
+  readOAuthCredentialsExecute.mockClear()
   setEnvironmentVariablesExecute.mockClear()
 })
 
 describe('copilot contract registry', () => {
   it('only exposes supported tool ids', () => {
-    expect(isToolId('get_blocks_and_tools')).toBe(true)
+    expect(isToolId('get_available_blocks')).toBe(true)
     expect(isToolId('get_blocks_metadata')).toBe(true)
+    expect(isToolId('get_agent_accessory_catalog')).toBe(true)
     expect(isToolId('get_indicator_catalog')).toBe(true)
     expect(isToolId('get_indicator_metadata')).toBe(true)
-    expect(isToolId('get_block_options')).toBe(false)
-    expect(isToolId('get_block_config')).toBe(false)
-    expect(isToolId('get_block_best_practices')).toBe(false)
-    expect(getToolContract('get_block_best_practices')).toBeUndefined()
+    expect(isToolId('unknown_tool')).toBe(false)
+    expect(getToolContract('unknown_tool')).toBeUndefined()
   })
 
   it('reuses the shared block schemas in the central contract', () => {
-    const contract = getToolContract('get_blocks_and_tools')
+    const contract = getToolContract('get_available_blocks')
 
     expect(contract?.args.parse({})).toEqual({})
     expect(contract?.args.parse({ query: 'OHLCV indicator' })).toEqual({
       query: 'OHLCV indicator',
     })
+    expect(contract?.args.parse({ category: 'tool' })).toEqual({ category: 'tool' })
+    expect(() => contract?.args.parse({ unsupported: true })).toThrow()
     expect(contract?.result.parse({ blocks: [] })).toEqual({ blocks: [] })
   })
 
+  it('exposes the agent accessory catalog contract', () => {
+    const contract = getToolContract('get_agent_accessory_catalog')
+
+    expect(contract?.args.parse({})).toEqual({})
+    expect(contract?.args.parse({ workflowId: 'workflow-123' })).toEqual({
+      workflowId: 'workflow-123',
+    })
+    expect(contract?.result.parse(agentAccessoryCatalogResult)).toEqual(agentAccessoryCatalogResult)
+    expect(() => contract?.args.parse({ workspaceId: 'workspace-123' })).toThrow()
+  })
+
   it('enforces workflow identity in workflow read/list results', () => {
+    const workflowReadResult = {
+      entityKind: 'workflow',
+      entityId: 'workflow-123',
+      workflowId: 'workflow-123',
+      entityDocument: 'flowchart TD\n%% TG_WORKFLOW {"version":"tg-mermaid-v1","direction":"TD"}',
+      workflowDocument: 'flowchart TD\n%% TG_WORKFLOW {"version":"tg-mermaid-v1","direction":"TD"}',
+      documentFormat: TG_MERMAID_DOCUMENT_FORMAT,
+      workflowSummary: {
+        blocks: [],
+        edges: [],
+        connectionIssues: [],
+      },
+    }
+
+    expect(getToolContract('read_workflow')?.result.parse(workflowReadResult)).toEqual(
+      workflowReadResult
+    )
+
     expect(() =>
-      getToolContract('get_user_workflow')?.result.parse({
+      getToolContract('read_workflow')?.result.parse({
+        ...workflowReadResult,
+        workflowSummary: undefined,
+      })
+    ).toThrow()
+
+    expect(() =>
+      getToolContract('read_workflow')?.result.parse({
         workflowId: 'workflow-123',
         workflowDocument:
           'flowchart TD\n%% TG_WORKFLOW {"version":"tg-mermaid-v1","direction":"TD"}',
@@ -186,7 +226,7 @@ describe('copilot contract registry', () => {
     ).toThrow()
 
     expect(
-      getToolContract('list_user_workflows')?.result.parse({
+      getToolContract('list_workflows')?.result.parse({
         entityKind: 'workflow',
         entities: [{ entityId: 'workflow-123', entityName: 'Workflow 1' }],
         count: 1,
@@ -200,12 +240,12 @@ describe('copilot contract registry', () => {
 
   it('accepts explicit workflow ids on workflow execution tools', () => {
     expect(() => getToolContract('run_workflow')?.args.parse({})).toThrow()
-    expect(() => getToolContract('get_user_workflow')?.args.parse({})).toThrow()
+    expect(() => getToolContract('read_workflow')?.args.parse({})).toThrow()
     expect(getToolContract('run_workflow')?.args.parse({ workflowId: 'workflow-123' })).toEqual({
       workflowId: 'workflow-123',
     })
     expect(
-      getToolContract('set_global_workflow_variables')?.args.parse({
+      getToolContract('set_workflow_variables')?.args.parse({
         workflowId: 'workflow-123',
         operations: [],
       })
@@ -217,12 +257,26 @@ describe('copilot contract registry', () => {
 })
 
 describe('routeExecution', () => {
+  it('stops aborted server tool execution before invoking the tool', async () => {
+    const controller = new AbortController()
+    controller.abort()
+
+    await expect(
+      routeExecution('read_environment_variables', {}, {
+        userId: 'user-1',
+        signal: controller.signal,
+      })
+    ).rejects.toMatchObject({ name: 'AbortError' })
+
+    expect(readEnvironmentVariablesExecute).not.toHaveBeenCalled()
+  })
+
   it('validates request payloads through the central contract before execution', async () => {
     await expect(routeExecution('get_blocks_metadata', {})).rejects.toThrow()
   })
 
   it('validates server tool results through the central contract', async () => {
-    await expect(routeExecution('get_blocks_and_tools', {})).resolves.toMatchObject({
+    await expect(routeExecution('get_available_blocks', {})).resolves.toMatchObject({
       blocks: expect.any(Array),
     })
   })
@@ -240,6 +294,22 @@ describe('routeExecution', () => {
       { query: 'input', includeItems: true },
       undefined
     )
+  })
+
+  it('routes agent accessory catalog requests through the central contract', async () => {
+    const context = {
+      userId: 'user-1',
+      contextWorkflowId: 'workflow-current',
+    }
+
+    await expect(routeExecution('get_agent_accessory_catalog', {}, context)).resolves.toMatchObject(
+      {
+        tools: expect.any(Array),
+        skills: expect.any(Array),
+      }
+    )
+
+    expect(getAgentAccessoryCatalogExecute).toHaveBeenCalledWith({}, context)
   })
 
   it('routes indicator metadata requests through the central contract', async () => {
@@ -275,18 +345,18 @@ describe('routeExecution', () => {
     expect(editWorkflowExecute).toHaveBeenCalledWith(payload, undefined)
   })
 
-  it('preserves workflowId when routing workflow console requests', async () => {
+  it('preserves workflowId when routing workflow logs requests', async () => {
     const payload = {
       workflowId: 'workflow-123',
       limit: 5,
       includeDetails: false,
     }
 
-    await expect(routeExecution('get_workflow_console', payload)).resolves.toMatchObject({
+    await expect(routeExecution('read_workflow_logs', payload)).resolves.toMatchObject({
       entries: expect.any(Array),
     })
 
-    expect(getWorkflowConsoleExecute).toHaveBeenCalledWith(payload, undefined)
+    expect(readWorkflowLogsExecute).toHaveBeenCalledWith(payload, undefined)
   })
 
   it('forwards ambient workflow context separately from raw tool args', async () => {
@@ -295,19 +365,19 @@ describe('routeExecution', () => {
       contextWorkflowId: 'workflow-current',
     }
 
-    await expect(routeExecution('get_environment_variables', {}, context)).resolves.toMatchObject({
+    await expect(routeExecution('read_environment_variables', {}, context)).resolves.toMatchObject({
       variableNames: expect.any(Array),
       count: expect.any(Number),
     })
 
-    expect(getEnvironmentVariablesExecute).toHaveBeenCalledWith({}, context)
+    expect(readEnvironmentVariablesExecute).toHaveBeenCalledWith({}, context)
   })
 
   it.each([
     {
-      toolName: 'get_environment_variables',
+      toolName: 'read_environment_variables',
       payload: { workflowId: 'workflow-123' },
-      execute: getEnvironmentVariablesExecute,
+      execute: readEnvironmentVariablesExecute,
     },
     {
       toolName: 'set_environment_variables',
@@ -315,30 +385,41 @@ describe('routeExecution', () => {
       execute: setEnvironmentVariablesExecute,
     },
     {
-      toolName: 'get_credentials',
+      toolName: 'read_credentials',
       payload: { workflowId: 'workflow-123' },
-      execute: getCredentialsExecute,
+      execute: readCredentialsExecute,
     },
     {
       toolName: 'list_gdrive_files',
       payload: {
         workflowId: 'workflow-123',
+        credentialId: 'credential-1',
         userId: 'spoofed-user',
         search_query: 'report',
         num_results: 3,
       },
-      expectedArgs: { workflowId: 'workflow-123', search_query: 'report', num_results: 3 },
+      expectedArgs: {
+        workflowId: 'workflow-123',
+        credentialId: 'credential-1',
+        search_query: 'report',
+        num_results: 3,
+      },
       execute: listGDriveFilesExecute,
     },
     {
       toolName: 'read_gdrive_file',
-      payload: { workflowId: 'workflow-123', fileId: 'file-1', type: 'doc' },
+      payload: {
+        workflowId: 'workflow-123',
+        credentialId: 'credential-1',
+        fileId: 'file-1',
+        type: 'doc',
+      },
       execute: readGDriveFileExecute,
     },
     {
-      toolName: 'get_oauth_credentials',
+      toolName: 'read_oauth_credentials',
       payload: { workflowId: 'workflow-123' },
-      execute: getOAuthCredentialsExecute,
+      execute: readOAuthCredentialsExecute,
     },
   ])(
     'preserves workflowId when routing $toolName',

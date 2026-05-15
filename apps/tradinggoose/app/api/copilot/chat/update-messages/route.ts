@@ -110,7 +110,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
     const { reviewSessionId, latestTurnStatus, messages } = UpdateMessagesSchema.parse(body)
 
-    const session = await loadReviewSessionForUser(reviewSessionId, userId, { requireWrite: true })
+    const session = await loadReviewSessionForUser(reviewSessionId, userId)
     if (!session || session.entityKind !== COPILOT_SESSION_KIND) {
       return createNotFoundResponse('Review session not found or unauthorized')
     }

@@ -9,8 +9,12 @@ type TriggerResolvableBlock = {
   subBlocks?: Record<string, TriggerSubBlockValue>
 }
 
-function isRegisteredTriggerId(value: unknown): value is string {
-  return typeof value === 'string' && value in TRIGGER_REGISTRY
+function isAvailableTriggerId(value: unknown, availableTriggerIds?: string[]): value is string {
+  if (typeof value !== 'string' || !(value in TRIGGER_REGISTRY)) {
+    return false
+  }
+
+  return availableTriggerIds === undefined || availableTriggerIds.includes(value)
 }
 
 function getSubBlockValue(
@@ -34,19 +38,18 @@ export function resolveTriggerIdFromSubBlocks(
   availableTriggerIds?: string[]
 ): string | null {
   const selectedTriggerId = getSubBlockValue(subBlocks, 'selectedTriggerId')
-  if (isRegisteredTriggerId(selectedTriggerId)) {
+  if (isAvailableTriggerId(selectedTriggerId, availableTriggerIds)) {
     return selectedTriggerId
   }
 
-  const triggerId = getSubBlockValue(subBlocks, 'triggerId')
-  if (isRegisteredTriggerId(triggerId)) {
-    return triggerId
+  if (
+    availableTriggerIds?.length === 1 &&
+    isAvailableTriggerId(availableTriggerIds[0], availableTriggerIds)
+  ) {
+    return availableTriggerIds[0]
   }
 
-  const fallbackTriggerId = availableTriggerIds?.find((candidate) =>
-    isRegisteredTriggerId(candidate)
-  )
-  return fallbackTriggerId ?? null
+  return null
 }
 
 export function resolveTriggerIdForBlock(block: TriggerResolvableBlock): string | null {

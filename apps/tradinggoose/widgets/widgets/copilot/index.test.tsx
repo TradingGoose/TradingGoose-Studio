@@ -78,9 +78,6 @@ describe('copilotWidget', () => {
           {Component?.({
             params: {
               workflowId: 'wf-stale',
-              reviewSessionId: 'review-stale',
-              reviewEntityKind: 'skill',
-              reviewEntityId: 'skill-stale',
             },
             context: { workspaceId: 'ws-1' },
             pairColor: 'blue',
@@ -90,7 +87,6 @@ describe('copilotWidget', () => {
               pairColor: 'blue',
               params: {
                 workflowId: 'wf-stale',
-                reviewSessionId: 'review-stale',
               },
             },
             onWidgetParamsChange: vi.fn(),
@@ -105,8 +101,6 @@ describe('copilotWidget', () => {
       channelId: 'pair-blue',
       pairColor: 'blue',
     })
-    expect(copilotAppPropsSpy.mock.lastCall?.[0]).not.toHaveProperty('reviewTargetMode')
-    expect(copilotAppPropsSpy.mock.lastCall?.[0]).not.toHaveProperty('reviewSessionId')
   })
 
   it('uses the pair runtime channel for linked copilot widgets', async () => {

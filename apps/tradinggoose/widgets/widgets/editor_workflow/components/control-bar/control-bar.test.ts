@@ -15,7 +15,7 @@ vi.mock('@/lib/yjs/workflow-session-registry', () => ({
 }))
 
 vi.mock('@/lib/yjs/workflow-session', () => ({
-  getWorkflowSnapshot: vi.fn(() => ({ blocks: {}, edges: [], loops: {}, parallels: {} })),
+  readWorkflowSnapshot: vi.fn(() => ({ blocks: {}, edges: [], loops: {}, parallels: {} })),
   getVariablesSnapshot: vi.fn(() => ({})),
 }))
 

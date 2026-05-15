@@ -1,8 +1,8 @@
 import { WhatsAppIcon } from '@/components/icons/icons'
 import type { BlockConfig } from '@/blocks/types'
-import { getTrigger } from '@/triggers'
 import { AuthMode } from '@/blocks/types'
 import type { WhatsAppResponse } from '@/tools/whatsapp/types'
+import { getTrigger } from '@/triggers'
 
 export const WhatsAppBlock: BlockConfig<WhatsAppResponse> = {
   type: 'whatsapp',
@@ -14,7 +14,6 @@ export const WhatsAppBlock: BlockConfig<WhatsAppResponse> = {
   category: 'tools',
   bgColor: '#25D366',
   icon: WhatsAppIcon,
-  triggerAllowed: true,
   subBlocks: [
     {
       id: 'phoneNumber',

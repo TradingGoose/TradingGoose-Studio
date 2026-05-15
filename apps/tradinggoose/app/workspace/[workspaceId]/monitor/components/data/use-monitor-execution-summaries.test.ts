@@ -48,7 +48,7 @@ describe('shouldFetchNextMonitorSummaryPage', () => {
             lastOutcome: 'success',
           },
         },
-        targetMonitorIds: ['monitor-1', 'monitor-2'],
+        tarreadMonitorIds: ['monitor-1', 'monitor-2'],
       })
     ).toBe(true)
   })
@@ -78,7 +78,7 @@ describe('shouldFetchNextMonitorSummaryPage', () => {
             lastOutcome: 'success',
           },
         },
-        targetMonitorIds: ['monitor-1'],
+        tarreadMonitorIds: ['monitor-1'],
       })
     ).toBe(true)
   })
@@ -108,7 +108,7 @@ describe('shouldFetchNextMonitorSummaryPage', () => {
             lastOutcome: 'success',
           },
         },
-        targetMonitorIds: ['monitor-1'],
+        tarreadMonitorIds: ['monitor-1'],
       })
     ).toBe(false)
   })

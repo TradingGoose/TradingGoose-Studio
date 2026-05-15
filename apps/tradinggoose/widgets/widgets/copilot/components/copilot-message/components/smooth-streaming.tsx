@@ -142,38 +142,3 @@ export const SmoothStreamingText = memo(
 )
 
 SmoothStreamingText.displayName = 'SmoothStreamingText'
-
-// Maximum character length for a word before it's broken up
-const MAX_WORD_LENGTH = 25
-
-export const WordWrap = ({ text }: { text: string }) => {
-  if (!text) return null
-
-  // Split text into words, keeping spaces and punctuation
-  const parts = text.split(/(\s+)/g)
-
-  return (
-    <>
-      {parts.map((part, index) => {
-        // If the part is whitespace or shorter than the max length, render it as is
-        if (part.match(/\s+/) || part.length <= MAX_WORD_LENGTH) {
-          return <span key={index}>{part}</span>
-        }
-
-        // For long words, break them up into chunks
-        const chunks = []
-        for (let i = 0; i < part.length; i += MAX_WORD_LENGTH) {
-          chunks.push(part.substring(i, i + MAX_WORD_LENGTH))
-        }
-
-        return (
-          <span key={index} className='break-all'>
-            {chunks.map((chunk, chunkIndex) => (
-              <span key={chunkIndex}>{chunk}</span>
-            ))}
-          </span>
-        )
-      })}
-    </>
-  )
-}

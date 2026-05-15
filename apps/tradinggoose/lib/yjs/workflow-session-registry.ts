@@ -3,9 +3,9 @@
 import * as Y from 'yjs'
 import {
   YJS_KEYS,
-  getWorkflowMap,
+  readWorkflowMap,
   getVariablesSnapshot,
-  getWorkflowSnapshot,
+  readWorkflowSnapshot,
   readWorkflowTextFieldValue,
   type WorkflowSnapshot,
 } from '@/lib/yjs/workflow-session'
@@ -68,7 +68,7 @@ export function getSnapshotForWorkflow(
 ): WorkflowSnapshot | null {
   const session = getRegisteredWorkflowSession(workflowId)
   if (!session?.doc) return null
-  return getWorkflowSnapshot(session.doc)
+  return readWorkflowSnapshot(session.doc)
 }
 
 /**
@@ -89,7 +89,7 @@ export function readSubBlockValue(
   if (liveTextValue !== null) {
     return liveTextValue
   }
-  const wMap = getWorkflowMap(session.doc)
+  const wMap = readWorkflowMap(session.doc)
   const blocks = wMap.get(YJS_KEYS.BLOCKS) as Record<string, any> | undefined
   return blocks?.[blockId]?.subBlocks?.[subBlockId]?.value ?? null
 }

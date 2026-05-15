@@ -14,7 +14,7 @@ export interface SkillsStore {
   activeWorkspaceId: string | null
 
   setSkills: (workspaceId: string, skills: SkillDefinition[]) => void
-  getSkill: (id: string, workspaceId?: string) => SkillDefinition | undefined
+  readSkill: (id: string, workspaceId?: string) => SkillDefinition | undefined
   getAllSkills: (workspaceId?: string) => SkillDefinition[]
   resetWorkspace: (workspaceId: string) => void
   resetAll: () => void

@@ -35,7 +35,6 @@ export interface GoogleDriveGetContentResponse extends ToolResponse {
 export interface GoogleDriveToolParams {
   accessToken: string
   folderId?: string
-  folderSelector?: string
   fileId?: string
   fileName?: string
   file?: any // UserFile object

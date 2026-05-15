@@ -31,7 +31,6 @@ export const grainRecordingCreatedTrigger: TriggerConfig = {
       type: 'trigger-save',
       hideFromPreview: true,
       mode: 'trigger',
-      triggerId: 'grain_recording_created',
       condition: {
         field: 'selectedTriggerId',
         value: 'grain_recording_created',

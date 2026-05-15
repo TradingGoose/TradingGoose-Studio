@@ -6,12 +6,22 @@ import type { ReactNode } from 'react'
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import type { PortfolioIdentity } from '@/providers/trading/portfolio-identity'
 import { renderHeatmapHeader } from '@/widgets/widgets/heatmap/components/header'
 
 const mockUseOAuthProviderAvailability = vi.fn()
 const mockEmitHeatmapParamsChange = vi.fn()
 type MockTradingAccountSelectorProps = {
-  onAccountSelect?: (selection: unknown) => void
+  onAccountSelect?: (selection: {
+    serviceId?: string | null
+    portfolioIdentity?: PortfolioIdentity | null
+  }) => void
+}
+const selectedPortfolioIdentity: PortfolioIdentity = {
+  providerId: 'alpaca',
+  credentialId: 'credential-1',
+  serviceId: 'alpaca-paper',
+  accountId: 'acct-1',
 }
 const mockTradingAccountSelector = vi.fn(({ onAccountSelect }: MockTradingAccountSelectorProps) => (
   <button
@@ -19,7 +29,8 @@ const mockTradingAccountSelector = vi.fn(({ onAccountSelect }: MockTradingAccoun
     data-testid='trading-account-selector'
     onClick={() =>
       onAccountSelect?.({
-        accountId: 'acct-1',
+        serviceId: selectedPortfolioIdentity.serviceId,
+        portfolioIdentity: selectedPortfolioIdentity,
       })
     }
   >
@@ -129,7 +140,7 @@ describe('HeatmapHeaderControls', () => {
     container.remove()
   })
 
-  it('does not normalize an invalid market provider to a fallback provider', async () => {
+  it('does not normalize an invalid market provider to a default provider', async () => {
     const slots = renderHeatmapHeader?.({
       panelId: 'panel-1',
       widget: {
@@ -188,7 +199,8 @@ describe('HeatmapHeaderControls', () => {
     expect(mockTradingAccountSelector).toHaveBeenCalledWith(
       expect.objectContaining({
         providerId: 'alpaca',
-        accountId: undefined,
+        serviceId: undefined,
+        portfolioIdentity: undefined,
       })
     )
   })
@@ -274,7 +286,8 @@ describe('HeatmapHeaderControls', () => {
 
     expect(mockEmitHeatmapParamsChange).toHaveBeenCalledWith({
       params: {
-        accountId: 'acct-1',
+        serviceId: selectedPortfolioIdentity.serviceId,
+        portfolioIdentity: selectedPortfolioIdentity,
       },
       panelId: 'panel-1',
       widgetKey: 'heatmap',

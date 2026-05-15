@@ -6,22 +6,30 @@ import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { TooltipProvider } from '@/components/ui/tooltip'
+import type { PortfolioIdentity } from '@/providers/trading/portfolio-identity'
 import { TradingAccountSelector } from '@/widgets/widgets/components/trading-account-selector'
 
-const mockUseOAuthCredentials = vi.fn()
-const mockUseTradingAccounts = vi.fn()
-
-vi.mock('@/hooks/queries/oauth-credentials', () => ({
-  useOAuthCredentialsByProviderIds: (...args: unknown[]) => mockUseOAuthCredentials(...args),
-}))
+const mockUsePortfolioIdentities = vi.fn()
+const mockUseTradingServices = vi.fn()
 
 vi.mock('@/hooks/queries/trading-portfolio', () => ({
-  useTradingAccounts: (...args: unknown[]) => mockUseTradingAccounts(...args),
+  usePortfolioIdentities: (...args: unknown[]) => mockUsePortfolioIdentities(...args),
+}))
+
+vi.mock('@/widgets/widgets/components/trading-services', () => ({
+  getTradingServiceName: vi.fn(() => 'Primary Broker'),
+  useTradingServices: (...args: unknown[]) => mockUseTradingServices(...args),
 }))
 
 describe('TradingAccountSelector', () => {
   let container: HTMLDivElement
   let root: Root
+  const selectedPortfolioIdentity: PortfolioIdentity = {
+    providerId: 'alpaca',
+    credentialId: 'credential-1',
+    serviceId: 'alpaca-live',
+    accountId: 'acct-1',
+  }
 
   beforeEach(() => {
     vi.clearAllMocks()
@@ -32,28 +40,31 @@ describe('TradingAccountSelector', () => {
     document.body.appendChild(container)
     root = createRoot(container)
 
-    mockUseOAuthCredentials.mockReturnValue({
-      data: {
-        'alpaca-live': [{ id: 'cred-1', name: 'Primary Broker', provider: 'alpaca-live' }],
-      },
+    mockUseTradingServices.mockReturnValue({
+      serviceIds: ['alpaca-live', 'alpaca-paper'],
+      connectedServiceIds: ['alpaca-live'],
+      activeServiceId: 'alpaca-live',
       isLoading: false,
       error: null,
       refetch: vi.fn(),
     })
-    mockUseTradingAccounts.mockReturnValue({
+    mockUsePortfolioIdentities.mockReturnValue({
       data: [
         {
-          id: 'acct-1',
-          name: 'Alpaca Account',
-          type: 'cash',
-          status: 'active',
+          ...selectedPortfolioIdentity,
+          accountName: 'Alpaca Account',
+          accountType: 'cash',
+          accountStatus: 'active',
           baseCurrency: 'USD',
         },
         {
-          id: 'acct-2',
-          name: 'Live Account',
-          type: 'margin',
-          status: 'active',
+          providerId: 'alpaca',
+          credentialId: 'credential-2',
+          serviceId: 'alpaca-live',
+          accountId: 'acct-2',
+          accountName: 'Live Account',
+          accountType: 'margin',
+          accountStatus: 'active',
           baseCurrency: 'USD',
         },
       ],
@@ -78,7 +89,8 @@ describe('TradingAccountSelector', () => {
           <TradingAccountSelector
             workspaceId='workspace-1'
             providerId='alpaca'
-            accountId='acct-1'
+            serviceId='alpaca-live'
+            portfolioIdentity={selectedPortfolioIdentity}
           />
         </TooltipProvider>
       )
@@ -86,11 +98,16 @@ describe('TradingAccountSelector', () => {
 
     const button = container.querySelector('button[aria-label="Select trading account"]')
     expect(button?.textContent).toContain('Alpaca Account')
-    expect(mockUseOAuthCredentials).toHaveBeenCalledWith(['alpaca-live', 'alpaca-paper'], true)
-    expect(mockUseTradingAccounts).toHaveBeenCalledWith({
+    expect(mockUseTradingServices).toHaveBeenCalledWith({
+      providerId: 'alpaca',
+      serviceId: 'alpaca-live',
+      workspaceId: 'workspace-1',
+      enabled: true,
+    })
+    expect(mockUsePortfolioIdentities).toHaveBeenCalledWith({
       workspaceId: 'workspace-1',
       provider: 'alpaca',
-      credentialServiceId: 'alpaca-live',
+      serviceId: 'alpaca-live',
       enabled: true,
     })
   })
@@ -102,7 +119,8 @@ describe('TradingAccountSelector', () => {
           <TradingAccountSelector
             workspaceId='workspace-1'
             providerId='alpaca'
-            accountId='acct-1'
+            serviceId='alpaca-live'
+            portfolioIdentity={selectedPortfolioIdentity}
           />
         </TooltipProvider>
       )
@@ -115,8 +133,8 @@ describe('TradingAccountSelector', () => {
       button?.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true }))
     })
 
-    expect(document.body.textContent).toContain('cash - active - USD')
-    expect(document.body.textContent).not.toContain('unknown - active - USD')
+    expect(document.body.textContent).toContain('Primary Broker - cash - active - USD')
+    expect(document.body.textContent).not.toContain('Primary Broker - unknown - active - USD')
   })
 
   it('renders placeholder text before a provider is selected', () => {
@@ -134,7 +152,7 @@ describe('TradingAccountSelector', () => {
   })
 
   it('shows loading text instead of an unresolved account id while accounts load', () => {
-    mockUseTradingAccounts.mockReturnValue({
+    mockUsePortfolioIdentities.mockReturnValue({
       data: [],
       isLoading: true,
       isFetching: true,
@@ -148,7 +166,13 @@ describe('TradingAccountSelector', () => {
           <TradingAccountSelector
             workspaceId='workspace-1'
             providerId='alpaca'
-            accountId='8b594a8c-1353-40d0-981c-e022a879e0e0'
+            serviceId='alpaca-live'
+            portfolioIdentity={{
+              providerId: 'alpaca',
+              credentialId: 'credential-1',
+              serviceId: 'alpaca-live',
+              accountId: '8b594a8c-1353-40d0-981c-e022a879e0e0',
+            }}
           />
         </TooltipProvider>
       )
@@ -166,7 +190,13 @@ describe('TradingAccountSelector', () => {
           <TradingAccountSelector
             workspaceId='workspace-1'
             providerId='alpaca'
-            accountId='stale-account-id'
+            serviceId='alpaca-live'
+            portfolioIdentity={{
+              providerId: 'alpaca',
+              credentialId: 'credential-1',
+              serviceId: 'alpaca-live',
+              accountId: 'stale-account-id',
+            }}
             placeholder='Select account'
           />
         </TooltipProvider>

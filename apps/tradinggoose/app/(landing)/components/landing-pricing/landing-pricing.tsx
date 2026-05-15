@@ -174,13 +174,11 @@ export default function LandingPricing() {
                       <div className='flex flex-col gap-6'>
                         <h3 className='font-semibold text-3xl'>{tier.name}</h3>
                         <div className='flex gap-0.5'>
-                          {tier.price !== 'Free' && tier.price !== 'Custom' && (
+                          {tier.price !== 'Custom' && (
                             <span className='font-medium text-lg text-muted-foreground'>$</span>
                           )}
                           <span className='font-bold text-6xl'>
-                            {tier.price === 'Free' || tier.price === 'Custom'
-                              ? tier.price
-                              : tier.price.replace('$', '')}
+                            {tier.price === 'Custom' ? tier.price : tier.price.replace('$', '')}
                           </span>
                           {tier.period && (
                             <span className='self-end font-normal text-lg text-muted-foreground'>

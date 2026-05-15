@@ -40,4 +40,17 @@ describe('normalizeAlpacaPositions', () => {
       },
     })
   })
+
+  it('drops unsupported broker asset classes instead of coercing them into equities', () => {
+    expect(
+      normalizeAlpacaPositions([
+        {
+          symbol: 'AAPL260117C00100000',
+          asset_class: 'us_option',
+          qty: '1',
+          side: 'long',
+        },
+      ])
+    ).toEqual([])
+  })
 })

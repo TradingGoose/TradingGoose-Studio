@@ -62,7 +62,7 @@ export const formatMonitorTimelineHeaderGroup = (
   }).format(adjustedDate)
 }
 
-export const getMonitorTimelineHeaderGroupId = (
+export const readMonitorTimelineHeaderGroupId = (
   date: Date,
   zoom: ExecutionMonitorTimelineZoom,
   timezone: string
@@ -82,18 +82,18 @@ export const getMonitorTimelineHeaderGroupId = (
   return zoom === 'day' ? `${year}-${month}-${day}` : `${year}-${month}`
 }
 
-export const getMonitorTimelineBoundaryBucket = (
+export const readMonitorTimelineBoundaryBucket = (
   date: Date,
   zoom: ExecutionMonitorTimelineZoom,
   timezone: string
 ) => {
   if (zoom === 'day') {
-    return getMonitorTimelineHeaderGroupId(date, 'day', timezone)
+    return readMonitorTimelineHeaderGroupId(date, 'day', timezone)
   }
   if (zoom === 'week') {
-    return getMonitorTimelineHeaderGroupId(date, 'month', timezone)
+    return readMonitorTimelineHeaderGroupId(date, 'month', timezone)
   }
-  return getMonitorTimelineHeaderGroupId(date, 'month', timezone)
+  return readMonitorTimelineHeaderGroupId(date, 'month', timezone)
 }
 
 export const formatMonitorTimelinePrimaryLabel = (

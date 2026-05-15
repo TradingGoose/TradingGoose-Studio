@@ -1,5 +1,6 @@
 import { createLogger } from '@/lib/logs/console/logger'
 import { getBlock } from '@/blocks/index'
+import { withBlockToolExecutionContext } from '@/executor/handlers/tool-execution-context'
 import type { BlockHandler, ExecutionContext } from '@/executor/types'
 import type { SerializedBlock } from '@/serializer/types'
 import { executeTool } from '@/tools'
@@ -56,7 +57,7 @@ export class GenericBlockHandler implements BlockHandler {
     try {
       const result = await executeTool(
         block.config.tool,
-        finalInputs,
+        withBlockToolExecutionContext(finalInputs, block, context),
         false, // skipPostProcess
         context // execution context for file processing
       )

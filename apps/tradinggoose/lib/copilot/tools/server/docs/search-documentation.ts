@@ -2,7 +2,11 @@ import { db } from '@tradinggoose/db'
 import { docsEmbeddings } from '@tradinggoose/db/schema'
 import { sql } from 'drizzle-orm'
 import { StructuredServerToolError } from '@/lib/copilot/server-tool-errors'
-import type { BaseServerTool } from '@/lib/copilot/tools/server/base-tool'
+import {
+  type BaseServerTool,
+  type ServerToolExecutionContext,
+  throwIfServerToolAborted,
+} from '@/lib/copilot/tools/server/base-tool'
 import { createLogger } from '@/lib/logs/console/logger'
 
 interface DocsSearchParams {
@@ -16,10 +20,11 @@ const EMBEDDING_CONFIG_MISSING_ERROR =
 
 export const searchDocumentationServerTool: BaseServerTool<DocsSearchParams, any> = {
   name: 'search_documentation',
-  async execute(params: DocsSearchParams): Promise<any> {
+  async execute(params: DocsSearchParams, context?: ServerToolExecutionContext): Promise<any> {
     const logger = createLogger('SearchDocumentationServerTool')
     const { query, topK = 10, threshold } = params
     if (!query || typeof query !== 'string') throw new Error('query is required')
+    throwIfServerToolAborted(context)
 
     logger.info('Executing docs search', { query, topK })
 
@@ -41,6 +46,7 @@ export const searchDocumentationServerTool: BaseServerTool<DocsSearchParams, any
     let queryEmbedding: number[]
     try {
       queryEmbedding = await generateSearchEmbedding(query)
+      throwIfServerToolAborted(context)
     } catch (error) {
       if (error instanceof Error && error.message === EMBEDDING_CONFIG_MISSING_ERROR) {
         throw new StructuredServerToolError({

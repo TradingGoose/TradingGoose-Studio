@@ -81,7 +81,6 @@ export const githubReleasePublishedTrigger: TriggerConfig = {
       type: 'trigger-save',
       hideFromPreview: true,
       mode: 'trigger',
-      triggerId: 'github_release_published',
       condition: {
         field: 'selectedTriggerId',
         value: 'github_release_published',

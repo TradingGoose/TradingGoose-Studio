@@ -147,26 +147,26 @@ function HeatmapPortfolioControls({ workspaceId, panelId, widgetKey, params }: H
       workspaceId={workspaceId}
       providerId={providerId}
       providerOptions={providerOptions}
-      credentialServiceId={params?.credentialServiceId}
-      accountId={params?.accountId}
+      serviceId={params?.serviceId}
+      portfolioIdentity={params?.portfolioIdentity}
       toolName='Heatmap'
       onProviderChange={(nextProvider) => {
         if (!nextProvider || nextProvider === providerId) return
         emitHeatmapParamsChange({
           params: {
             tradingProvider: nextProvider,
-            credentialServiceId: null,
-            accountId: null,
+            serviceId: null,
+            portfolioIdentity: null,
           },
           panelId,
           widgetKey,
         })
       }}
-      onAccountSelect={({ accountId, credentialServiceId }) => {
+      onAccountSelect={({ serviceId, portfolioIdentity }) => {
         emitHeatmapParamsChange({
           params: {
-            accountId,
-            ...(credentialServiceId ? { credentialServiceId } : {}),
+            portfolioIdentity,
+            ...(serviceId ? { serviceId } : {}),
           },
           panelId,
           widgetKey,

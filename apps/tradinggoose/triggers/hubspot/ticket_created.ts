@@ -98,7 +98,6 @@ export const hubspotTicketCreatedTrigger: TriggerConfig = {
       title: '',
       type: 'trigger-save',
       mode: 'trigger',
-      triggerId: 'hubspot_ticket_created',
       condition: {
         field: 'selectedTriggerId',
         value: 'hubspot_ticket_created',

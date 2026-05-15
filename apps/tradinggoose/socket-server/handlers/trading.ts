@@ -23,9 +23,9 @@ export function setupTradingPortfolioHandlers(socket: AuthenticatedSocket) {
       socket.emit('trading-portfolio-subscribe-error', {
         error: message,
         provider: payload?.provider,
-        credentialServiceId: payload?.credentialServiceId,
+        serviceId: payload?.serviceId,
         channel: payload?.channel,
-        accountId: payload?.accountId,
+        portfolioIdentity: payload?.portfolioIdentity,
         window: payload?.window,
         clientSubscriptionId: payload?.clientSubscriptionId,
       })
@@ -46,9 +46,9 @@ export function setupTradingPortfolioHandlers(socket: AuthenticatedSocket) {
       socket.emit('trading-portfolio-unsubscribe-error', {
         error: message,
         provider: payload?.provider,
-        credentialServiceId: payload?.credentialServiceId,
+        serviceId: payload?.serviceId,
         channel: payload?.channel,
-        accountId: payload?.accountId,
+        portfolioIdentity: payload?.portfolioIdentity,
         clientSubscriptionId: payload?.clientSubscriptionId,
       })
     }
@@ -68,9 +68,9 @@ export function setupTradingPortfolioHandlers(socket: AuthenticatedSocket) {
       socket.emit('trading-portfolio-error', {
         error: message,
         provider: payload?.provider,
-        credentialServiceId: payload?.credentialServiceId,
+        serviceId: payload?.serviceId,
         channel: payload?.channel,
-        accountId: payload?.accountId,
+        portfolioIdentity: payload?.portfolioIdentity,
         clientSubscriptionId: payload?.clientSubscriptionId,
       })
     }

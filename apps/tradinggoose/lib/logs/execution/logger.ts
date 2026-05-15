@@ -144,7 +144,6 @@ export class ExecutionLogger {
   async completeWorkflowExecution(params: {
     workflowLogId: string
     executionId: string
-    workflowId: string
     workspaceId: string
     endedAt: string
     totalDurationMs: number
@@ -174,7 +173,6 @@ export class ExecutionLogger {
     const {
       executionId,
       workflowLogId,
-      workflowId,
       workspaceId,
       endedAt,
       totalDurationMs,
@@ -188,7 +186,6 @@ export class ExecutionLogger {
     const workflowLogWhere = and(
       eq(workflowExecutionLogs.id, workflowLogId),
       eq(workflowExecutionLogs.executionId, executionId),
-      eq(workflowExecutionLogs.workflowId, workflowId),
       eq(workflowExecutionLogs.workspaceId, workspaceId)
     )
 
@@ -453,7 +450,7 @@ export class ExecutionLogger {
     return completedLog
   }
 
-  async getWorkflowExecution(executionId: string): Promise<WorkflowExecutionLog | null> {
+  async readWorkflowExecution(executionId: string): Promise<WorkflowExecutionLog | null> {
     const [workflowLog] = await db
       .select()
       .from(workflowExecutionLogs)

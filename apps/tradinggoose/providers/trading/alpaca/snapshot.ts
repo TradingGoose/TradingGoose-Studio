@@ -3,6 +3,7 @@ import {
   normalizeAlpacaSnapshotAccountSummary,
   normalizeAlpacaTradingAccount,
 } from '@/providers/trading/alpaca/accounts'
+import { buildPortfolioDetail } from '@/providers/trading/portfolio-detail'
 import { resolveAlpacaTradingBaseUrl } from '@/providers/trading/alpaca/config'
 import {
   ALPACA_DEFAULT_BASE_CURRENCY,
@@ -11,10 +12,8 @@ import {
   sumAlpacaPositionUnrealizedPnl,
 } from '@/providers/trading/alpaca/positions'
 import { fetchBrokerJson } from '@/providers/trading/portfolio-utils'
-import type {
-  TradingPortfolioAccountContext,
-  UnifiedTradingAccountSnapshot,
-} from '@/providers/trading/types'
+import type { PortfolioDetail } from '@/providers/trading/portfolio-identity'
+import type { TradingPortfolioAccountContext } from '@/providers/trading/types'
 
 async function fetchAlpacaTradingPositions(context: TradingPortfolioAccountContext) {
   const baseUrl = resolveAlpacaTradingBaseUrl(context.environment)
@@ -32,41 +31,37 @@ async function fetchAlpacaTradingPositions(context: TradingPortfolioAccountConte
 
 export async function getAlpacaTradingAccountSnapshot(
   context: TradingPortfolioAccountContext
-): Promise<UnifiedTradingAccountSnapshot> {
+): Promise<PortfolioDetail> {
   const [accountResponse, positionsResponse] = await Promise.all([
     fetchAlpacaTradingAccount(context),
     fetchAlpacaTradingPositions(context),
   ])
 
-  const account = normalizeAlpacaTradingAccount(accountResponse)
+  const account = normalizeAlpacaTradingAccount(accountResponse, context)
   const rawPositions = Array.isArray(positionsResponse) ? positionsResponse : []
   const positions = normalizeAlpacaPositions(rawPositions)
   const summaryTotals = normalizeAlpacaSnapshotAccountSummary(accountResponse)
   const totalUnrealizedPnl = sumAlpacaPositionUnrealizedPnl(positions)
   const totalHoldingsValue = summaryTotals.totalPortfolioValue - summaryTotals.totalCashValue
 
-  return {
-    asOf: new Date().toISOString(),
-    provider: {
-      name: 'Alpaca',
-      environment: context.environment ?? 'unknown',
-    },
-    account: {
+  return buildPortfolioDetail({
+    identity: {
       ...account,
       baseCurrency: account.baseCurrency || ALPACA_DEFAULT_BASE_CURRENCY,
     },
+    environment: context.environment ?? 'live',
+    asOf: new Date().toISOString(),
     cashBalances: [
       {
-        currency: account.baseCurrency,
-        currencySymbol: getAlpacaCurrencySymbol(account.baseCurrency),
+        currency: account.baseCurrency || ALPACA_DEFAULT_BASE_CURRENCY,
+        currencySymbol: getAlpacaCurrencySymbol(account.baseCurrency || ALPACA_DEFAULT_BASE_CURRENCY),
         amount: summaryTotals.totalCashValue,
         conversionRate: account.baseCurrency === ALPACA_DEFAULT_BASE_CURRENCY ? 1 : undefined,
         amountInAccountCurrency: summaryTotals.totalCashValue,
       },
     ],
     positions,
-    orders: [],
-    accountSummary: {
+    summary: {
       totalPortfolioValue: summaryTotals.totalPortfolioValue,
       totalCashValue: summaryTotals.totalCashValue,
       totalHoldingsValue,
@@ -74,5 +69,5 @@ export async function getAlpacaTradingAccountSnapshot(
       buyingPower: summaryTotals.buyingPower,
       equity: summaryTotals.equity,
     },
-  }
+  })
 }

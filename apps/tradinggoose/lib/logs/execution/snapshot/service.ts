@@ -33,19 +33,6 @@ export class SnapshotService implements ISnapshotService {
     // Hash the position-less state for deduplication (functional equivalence)
     const stateHash = this.computeStateHash(state)
 
-    const existingSnapshot = await this.getSnapshotByHash({
-      workflowId,
-      workspaceId,
-      hash: stateHash,
-    })
-    if (existingSnapshot) {
-      logger.debug(`Reusing existing snapshot for workflow ${workflowId} with hash ${stateHash}`)
-      return {
-        snapshot: existingSnapshot,
-        isNew: false,
-      }
-    }
-
     // Store the FULL state (including positions) so we can recreate the exact workflow
     // Even though we hash without positions, we want to preserve the complete state
     const snapshotData: WorkflowExecutionSnapshotInsert = {
@@ -59,7 +46,30 @@ export class SnapshotService implements ISnapshotService {
     const [newSnapshot] = await db
       .insert(workflowExecutionSnapshots)
       .values(snapshotData)
+      .onConflictDoNothing({
+        target: [
+          workflowExecutionSnapshots.workflowId,
+          workflowExecutionSnapshots.workspaceId,
+          workflowExecutionSnapshots.stateHash,
+        ],
+      })
       .returning()
+
+    if (!newSnapshot) {
+      const existingSnapshot = await this.getSnapshotByHash({
+        workflowId,
+        workspaceId,
+        hash: stateHash,
+      })
+      if (!existingSnapshot) {
+        throw new Error(`Snapshot conflict could not be resolved for workflow ${workflowId}`)
+      }
+      logger.debug(`Reusing existing snapshot for workflow ${workflowId} with hash ${stateHash}`)
+      return {
+        snapshot: existingSnapshot,
+        isNew: false,
+      }
+    }
 
     logger.debug(`Created new snapshot for workflow ${workflowId} with hash ${stateHash}`)
     logger.debug(`Stored full state with ${Object.keys(state.blocks || {}).length} blocks`)

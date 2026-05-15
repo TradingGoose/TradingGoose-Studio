@@ -6,10 +6,6 @@ import {
 } from '@/lib/copilot/tools/client/base-tool'
 import { createLogger } from '@/lib/logs/console/logger'
 
-interface GDriveAcceptContext {
-  openDrivePicker: (accessToken: string) => Promise<boolean>
-}
-
 export class GDriveRequestAccessClientTool extends BaseClientTool {
   static readonly id = 'gdrive_request_access'
 
@@ -33,23 +29,25 @@ export class GDriveRequestAccessClientTool extends BaseClientTool {
     },
   }
 
-  // Accept flow: fetch creds/token, then call provided openDrivePicker to get grant
-  async handleAccept(ctx?: GDriveAcceptContext): Promise<void> {
+  async handleAccept(): Promise<void> {
     const logger = createLogger('GDriveRequestAccessClientTool')
     logger.debug('handleAccept() called', { toolCallId: this.toolCallId })
 
-    if (!ctx?.openDrivePicker) {
-      logger.error('openDrivePicker callback not provided')
-      this.setState(ClientToolCallState.error)
-      await this.markToolComplete(400, 'Missing drive picker context')
-      return
-    }
-
     try {
       this.setState(ClientToolCallState.executing)
+      const executionContext = this.requireExecutionContext()
+      const params = new URLSearchParams({ provider: 'google-drive' })
+      const workflowId =
+        executionContext.contextWorkflowId?.trim() || executionContext.workflowId?.trim()
+      if (workflowId) {
+        params.set('workflowId', workflowId)
+      } else if (executionContext.workspaceId?.trim()) {
+        params.set('workspaceId', executionContext.workspaceId.trim())
+      } else {
+        throw new Error('workspaceId or workflowId is required to request Google Drive access')
+      }
 
-      // Fetch credentials list
-      const credsRes = await fetch(`/api/auth/oauth/credentials?provider=google-drive`)
+      const credsRes = await fetch(`/api/auth/oauth/credentials?${params}`)
       if (!credsRes.ok) {
         throw new Error(`Failed to load OAuth credentials (${credsRes.status})`)
       }
@@ -60,31 +58,7 @@ export class GDriveRequestAccessClientTool extends BaseClientTool {
       }
       const defaultCred = creds.find((c: any) => c.isDefault) || creds[0]
 
-      // Exchange for access token
-      const tokenRes = await fetch('/api/auth/oauth/token', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ credentialId: defaultCred.id }),
-      })
-      if (!tokenRes.ok) {
-        throw new Error(`Failed to fetch access token (${tokenRes.status})`)
-      }
-      const { accessToken } = await tokenRes.json()
-      if (!accessToken) {
-        throw new Error('Missing access token in response')
-      }
-
-      // Open picker using provided UI callback
-      const picked = await ctx.openDrivePicker(accessToken)
-      if (!picked) {
-        // User canceled
-        await this.markToolComplete(200, 'Tool execution was skipped by the user')
-        this.setState(ClientToolCallState.rejected)
-        return
-      }
-
-      // Mark success
-      await this.markToolComplete(200, { granted: true })
+      await this.markToolComplete(200, { granted: true, credentialId: defaultCred.id })
       this.setState(ClientToolCallState.success)
     } catch (error: any) {
       const message = error instanceof Error ? error.message : String(error)
@@ -98,7 +72,7 @@ export class GDriveRequestAccessClientTool extends BaseClientTool {
     this.setState(ClientToolCallState.rejected)
   }
 
-  async execute(args?: any): Promise<void> {
-    await this.handleAccept(args)
+  async execute(): Promise<void> {
+    await this.handleAccept()
   }
 }

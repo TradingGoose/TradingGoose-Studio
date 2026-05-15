@@ -1,14 +1,5 @@
-import { getTradingProviderOAuthEnvironment } from '@/providers/trading'
 import type { TradingOrderDetailParams, TradingOrderDetailResponse } from '@/tools/trading/types'
 import type { ToolConfig } from '@/tools/types'
-
-const resolveProviderEnvironment = (params: TradingOrderDetailParams) => {
-  if (!params.provider) return params.environment
-  return (
-    getTradingProviderOAuthEnvironment(params.provider, params.credentialServiceId) ??
-    params.environment
-  )
-}
 
 export const tradingOrderDetailTool: ToolConfig<
   TradingOrderDetailParams,
@@ -19,6 +10,9 @@ export const tradingOrderDetailTool: ToolConfig<
   description:
     'Retrieve all provider-available details for a previously recorded trading order by Trading Goose order ID.',
   version: '1.0.0',
+  execution: {
+    workspace: { required: true, access: 'read' },
+  },
 
   params: {
     orderId: {
@@ -28,75 +22,28 @@ export const tradingOrderDetailTool: ToolConfig<
       description:
         'Trading Goose order ID (orderHistoryTable.id) created when the order was submitted.',
     },
-    provider: {
-      type: 'string',
-      required: false,
-      visibility: 'user-only',
-      description:
-        'Expected provider for this order. Used for credential selection and mismatch validation.',
-    },
-    environment: {
-      type: 'string',
-      required: false,
-      visibility: 'user-only',
-      description: 'Trading environment for providers that expose one.',
-    },
-    credential: {
-      type: 'string',
-      required: false,
-      visibility: 'hidden',
-      description: 'OAuth credential id for the selected broker (populated from selected account).',
-    },
-    accessToken: {
-      type: 'string',
-      required: false,
-      visibility: 'hidden',
-      description: 'OAuth access token (injected from credential).',
-    },
-    accountId: {
-      type: 'string',
-      required: false,
-      visibility: 'user-or-llm',
-      description: 'Tradier account ID override if not present in stored order metadata.',
-    },
   },
 
   request: {
-    url: '/api/tools/trading/order-detail',
+    url: (params) => `/api/orders/${encodeURIComponent(params.orderId)}/provider-detail`,
     method: 'POST',
-    headers: () => ({
-      'Content-Type': 'application/json',
-    }),
-    body: (params) => ({
-      orderId: params.orderId,
-      provider: params.provider,
-      environment: resolveProviderEnvironment(params),
-      accessToken: params.accessToken,
-      accountId: params.accountId,
-    }),
+    headers: () => ({}),
   },
 
   transformResponse: async (response): Promise<TradingOrderDetailResponse> => {
     const result = await response.json()
-    const data = result.data || result
-
-    const provider = data.provider || ''
-    const appOrderId = data.appOrderId || ''
-    const providerOrderId = data.providerOrderId || ''
-    const workspaceId = data.workspaceId || null
-    const logId = data.logId || null
-    const orderDetail = data.orderDetail || {}
+    const data = result.data
 
     return {
       success: true,
       output: {
-        summary: `Fetched order detail from ${provider}`,
-        provider,
-        appOrderId,
-        providerOrderId,
-        workspaceId,
-        logId,
-        orderDetail,
+        summary: `Fetched order detail from ${data.provider}`,
+        provider: data.provider,
+        appOrderId: data.appOrderId,
+        providerOrderId: data.providerOrderId,
+        workspaceId: data.workspaceId,
+        logId: data.logId,
+        orderDetail: data.orderDetail,
       },
     }
   },

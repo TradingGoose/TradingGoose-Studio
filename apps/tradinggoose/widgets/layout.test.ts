@@ -64,7 +64,7 @@ describe('resolveWidgetParamsForPairColorChange', () => {
       sourceMode: 'portfolio',
       marketProvider: 'polygon',
       tradingProvider: 'alpaca',
-      credentialServiceId: 'cred-1',
+      serviceId: 'cred-1',
       accountId: 'acct-1',
       marketProviderParams: { feed: 'sip' },
     }
@@ -111,15 +111,14 @@ describe('resolveWidgetParamsForPairColorChange', () => {
 })
 
 describe('normalizeColorPairsState', () => {
-  it('does not migrate legacy review-session or indicator ids', () => {
+  it('ignores unsupported color-pair fields', () => {
     expect(
       normalizeColorPairsState({
         pairs: [
           {
             color: 'blue',
             workflowId: 'wf-1',
-            copilotChatId: 'legacy-review-session',
-            pineIndicatorId: 'legacy-indicator',
+            unsupportedField: 'ignored',
           },
         ],
       })
@@ -173,35 +172,6 @@ describe('normalizeColorPairsState', () => {
     expect(listing).not.toHaveProperty('providerParams')
   })
 
-  it('ignores nested reviewTarget format', () => {
-    expect(
-      normalizeColorPairsState({
-        pairs: [
-          {
-            color: 'green',
-            workflowId: 'wf-3',
-            reviewTarget: {
-              reviewSessionId: 'review-2',
-              reviewEntityKind: 'indicator',
-              reviewEntityId: 'ind-1',
-            },
-          },
-        ],
-      })
-    ).toEqual({
-      pairs: [
-        {
-          color: 'green',
-          workflowId: 'wf-3',
-          listing: null,
-          indicatorId: undefined,
-          mcpServerId: undefined,
-          customToolId: undefined,
-          skillId: undefined,
-        },
-      ],
-    })
-  })
 })
 
 describe('normalizeDashboardLayout', () => {

@@ -2,7 +2,10 @@ import { describe, expect, it } from 'vitest'
 import type { ListingResolved } from '@/lib/listing/identity'
 import {
   getStrictTradingOrderTypeDefinitions,
+  getTradingOrderSizingModeDefinitions,
+  getTradingOrderTypeFilterValues,
   getTradingOrderTypeOptions,
+  resolveTradingOrderSizingMode,
 } from '@/providers/trading/order-types'
 
 const stockListing: ListingResolved = {
@@ -44,26 +47,31 @@ const assetlessListing: ListingResolved = {
 }
 
 describe('trading order type helpers', () => {
-  it('uses strict listing/order-class filtering for quick order decisions', () => {
-    expect(getStrictTradingOrderTypeDefinitions('tradier', { listing: stockListing })).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ id: 'market' }),
-        expect.objectContaining({ id: 'limit' }),
-      ])
-    )
-    expect(getStrictTradingOrderTypeDefinitions('tradier', { listing: stockListing })).not.toEqual(
-      expect.arrayContaining([expect.objectContaining({ id: 'debit' })])
-    )
+  it('uses strict listing filtering for quick order decisions', () => {
+    expect(getStrictTradingOrderTypeDefinitions('tradier', { listing: stockListing })).toEqual([
+      expect.objectContaining({ id: 'market' }),
+      expect.objectContaining({ id: 'limit' }),
+      expect.objectContaining({ id: 'stop' }),
+      expect.objectContaining({ id: 'stop_limit' }),
+    ])
   })
 
-  it('keeps fallback options for generic callers while strict definitions stay empty', () => {
+  it('derives canonical record filter values from supported trading capabilities', () => {
+    expect(getTradingOrderTypeFilterValues()).toEqual([
+      'market',
+      'limit',
+      'stop',
+      'stop_limit',
+      'trailing_stop',
+    ])
+  })
+
+  it('does not expose order options when a provider cannot trade the listing', () => {
     expect(getStrictTradingOrderTypeDefinitions('tradier', { listing: cryptoListing })).toEqual([])
-    expect(
-      getTradingOrderTypeOptions('tradier', { listing: cryptoListing }).length
-    ).toBeGreaterThan(0)
+    expect(getTradingOrderTypeOptions('tradier', { listing: cryptoListing })).toEqual([])
   })
 
-  it('applies provider availability and order-class filters without hiding generic fallbacks', () => {
+  it('applies provider availability without returning unsupported generic options', () => {
     expect(
       getStrictTradingOrderTypeDefinitions('tradier', { listing: assetlessListing }).length
     ).toBeGreaterThan(0)
@@ -73,15 +81,14 @@ describe('trading order type helpers', () => {
         (definition) => definition.id
       )
     ).toEqual(['market', 'limit', 'stop_limit'])
-    expect(getTradingOrderTypeOptions('alpaca', { listing: etfListing })).toEqual(
-      expect.arrayContaining([expect.objectContaining({ id: 'market' })])
-    )
+    expect(getTradingOrderTypeOptions('alpaca', { listing: etfListing })).toEqual([])
+  })
 
+  it('resolves order sizing from provider capabilities', () => {
     expect(
-      getStrictTradingOrderTypeDefinitions('tradier', {
-        listing: stockListing,
-        orderClass: 'multileg',
-      }).map((definition) => definition.id)
-    ).toEqual(['market', 'debit', 'credit', 'even'])
+      getTradingOrderSizingModeDefinitions('alpaca').map((definition) => definition.id)
+    ).toEqual(['quantity', 'notional'])
+    expect(resolveTradingOrderSizingMode('tradier', 'notional')).toBeUndefined()
+    expect(resolveTradingOrderSizingMode('tradier')).toBe('quantity')
   })
 })

@@ -17,11 +17,33 @@ const mocks = vi.hoisted(() => {
   }
 
   return {
-    selectQueue,
+    buildOrderWhereCondition: vi.fn((workspaceId: string, filters: unknown) => ({
+      filters,
+      type: 'where',
+      workspaceId,
+    })),
     checkWorkspaceAccess: vi.fn(),
-    eq: vi.fn((field: unknown, value: unknown) => ({ field, type: 'eq', value })),
     getSession: vi.fn(),
     select: vi.fn(makeSelectChain),
+    selectQueue,
+    serializeOrderSearchOptions: vi.fn(async (rows: unknown[]) =>
+      rows.map((row: any) => ({
+        id: row.id,
+        provider: row.provider,
+        environment: row.environment ?? null,
+        side: null,
+        quantity: null,
+        notional: null,
+        placedAt: null,
+        recordedAt: row.recordedAt.toISOString(),
+        symbol: null,
+        quote: null,
+        companyName: null,
+        iconUrl: null,
+        assetClass: null,
+        listingType: null,
+      }))
+    ),
   }
 })
 
@@ -30,46 +52,16 @@ vi.mock('@tradinggoose/db', () => ({
     select: mocks.select,
   },
   orderHistoryTable: {
-    id: 'orderHistoryTable.id',
-    workspaceId: 'orderHistoryTable.workspaceId',
-    listingIdentity: 'orderHistoryTable.listingIdentity',
-    normalizedOrder: 'orderHistoryTable.normalizedOrder',
-    response: 'orderHistoryTable.response',
-    request: 'orderHistoryTable.request',
     recordedAt: 'orderHistoryTable.recordedAt',
   },
 }))
 
-const sql = vi.hoisted(() => {
-  const tag = vi.fn((strings: TemplateStringsArray, ...values: unknown[]) => ({
-    strings,
-    type: 'sql',
-    values,
-  })) as any
-  return tag
-})
-
 vi.mock('drizzle-orm', () => ({
-  and: vi.fn((...conditions: unknown[]) => ({ conditions, type: 'and' })),
   desc: vi.fn((value: unknown) => ({ type: 'desc', value })),
-  eq: mocks.eq,
-  gte: vi.fn((field: unknown, value: unknown) => ({ field, type: 'gte', value })),
-  lt: vi.fn((field: unknown, value: unknown) => ({ field, type: 'lt', value })),
-  or: vi.fn((...conditions: unknown[]) => ({ conditions, type: 'or' })),
-  sql,
 }))
 
 vi.mock('@/lib/auth', () => ({
   getSession: (...args: unknown[]) => mocks.getSession(...args),
-}))
-
-vi.mock('@/lib/listing/identity', () => ({
-  areListingIdentitiesEqual: vi.fn(() => false),
-  toListingValueObject: vi.fn((value) => value ?? null),
-}))
-
-vi.mock('@/lib/listing/resolve', () => ({
-  resolveListingIdentity: vi.fn().mockResolvedValue(null),
 }))
 
 vi.mock('@/lib/logs/console/logger', () => ({
@@ -78,6 +70,12 @@ vi.mock('@/lib/logs/console/logger', () => ({
 
 vi.mock('@/lib/permissions/utils', () => ({
   checkWorkspaceAccess: (...args: unknown[]) => mocks.checkWorkspaceAccess(...args),
+}))
+
+vi.mock('@/lib/trading/order-records', () => ({
+  buildOrderWhereCondition: (workspaceId: string, filters: unknown) =>
+    mocks.buildOrderWhereCondition(workspaceId, filters),
+  serializeOrderSearchOptions: (rows: unknown[]) => mocks.serializeOrderSearchOptions(rows),
 }))
 
 vi.mock('@/lib/utils', () => ({
@@ -89,10 +87,6 @@ const orderRow = {
   provider: 'alpaca',
   environment: 'paper',
   recordedAt: new Date('2026-04-23T00:00:00.000Z'),
-  listingIdentity: { listing_type: 'default', listing_id: 'AAPL' },
-  request: { side: 'buy', quantity: 1 },
-  response: { submittedAt: '2026-04-23T00:00:00.000Z' },
-  normalizedOrder: { symbol: 'AAPL' },
 }
 
 describe('order history search route', () => {
@@ -153,7 +147,7 @@ describe('order history search route', () => {
     expect(mocks.checkWorkspaceAccess).not.toHaveBeenCalled()
   })
 
-  it('searches only within the requested workspace', async () => {
+  it('searches only within the requested workspace through canonical order-record filters', async () => {
     mocks.selectQueue.push([orderRow])
     const { GET } = await import('./route')
 
@@ -163,7 +157,8 @@ describe('order history search route', () => {
 
     expect(response.status).toBe(200)
     expect(mocks.checkWorkspaceAccess).toHaveBeenCalledWith('ws-1', 'user-1')
-    expect(mocks.eq).toHaveBeenCalledWith('orderHistoryTable.workspaceId', 'ws-1')
+    expect(mocks.buildOrderWhereCondition).toHaveBeenCalledWith('ws-1', { orderSearch: '' })
+    expect(mocks.serializeOrderSearchOptions).toHaveBeenCalledWith([orderRow])
     expect(await response.json()).toMatchObject({
       success: true,
       data: {
@@ -173,7 +168,7 @@ describe('order history search route', () => {
     })
   })
 
-  it('searches provider order id paths when the query is a UUID', async () => {
+  it('passes typed search text to canonical order-record filters', async () => {
     const providerOrderId = '550e8400-e29b-41d4-a716-446655440000'
     mocks.selectQueue.push([orderRow])
     const { GET } = await import('./route')
@@ -185,46 +180,8 @@ describe('order history search route', () => {
     )
 
     expect(response.status).toBe(200)
-    expect(mocks.eq).toHaveBeenCalledWith('orderHistoryTable.id', providerOrderId)
-
-    const sqlCalls = (sql.mock.calls as [TemplateStringsArray, ...unknown[]][]).map((call) => {
-      const [strings, ...values] = call
-      return {
-        text: Array.from(strings).join(''),
-        values,
-      }
+    expect(mocks.buildOrderWhereCondition).toHaveBeenCalledWith('workspace-1', {
+      orderSearch: providerOrderId,
     })
-
-    expect(
-      sqlCalls.some(
-        (call) =>
-          call.values.includes('orderHistoryTable.response') && call.text.includes("->>'orderId'")
-      )
-    ).toBe(true)
-    expect(
-      sqlCalls.some(
-        (call) =>
-          call.values.includes('orderHistoryTable.normalizedOrder') && call.text.includes("->>'id'")
-      )
-    ).toBe(true)
-    expect(
-      sqlCalls.some(
-        (call) => call.text.includes('NULLIF(') && call.values.includes(providerOrderId)
-      )
-    ).toBe(true)
-    expect(
-      sqlCalls.some(
-        (call) =>
-          call.text.includes('::text') &&
-          call.values.some((value) =>
-            [
-              'orderHistoryTable.listingIdentity',
-              'orderHistoryTable.normalizedOrder',
-              'orderHistoryTable.response',
-              'orderHistoryTable.request',
-            ].includes(value as string)
-          )
-      )
-    ).toBe(false)
   })
 })

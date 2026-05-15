@@ -15,7 +15,6 @@ interface OutputSelectProps {
   onOutputSelect: (outputIds: string[]) => void
   disabled?: boolean
   placeholder?: string
-  valueMode?: 'id' | 'label'
   triggerClassName?: string
 }
 
@@ -25,7 +24,6 @@ export function OutputSelect({
   onOutputSelect,
   disabled = false,
   placeholder = 'Select output sources',
-  valueMode = 'id',
   triggerClassName,
 }: OutputSelectProps) {
   const [isOutputDropdownOpen, setIsOutputDropdownOpen] = useState(false)
@@ -176,9 +174,7 @@ export function OutputSelect({
     return outputs
   }, [workflowBlocks, workflowId, blocks])
 
-  // Utility to check selected by id or label
-  const isSelectedValue = (o: { id: string; label: string }) =>
-    selectedOutputs.includes(o.id) || selectedOutputs.includes(o.label)
+  const isSelectedValue = (o: { id: string }) => selectedOutputs.includes(o.id)
 
   // Get selected outputs display text
   const { selectedOutputsDisplayText, hasSelectedOutputs } = useMemo(() => {
@@ -186,9 +182,9 @@ export function OutputSelect({
       return { selectedOutputsDisplayText: placeholder, hasSelectedOutputs: false }
     }
 
-    // Ensure all selected outputs exist in the workflowOutputs array by id or label
+    // Ensure all selected outputs exist in the workflowOutputs array by canonical id
     const validOutputs = selectedOutputs.filter((val) =>
-      workflowOutputs.some((o) => o.id === val || o.label === val)
+      workflowOutputs.some((o) => o.id === val)
     )
 
     if (validOutputs.length === 0) {
@@ -196,9 +192,7 @@ export function OutputSelect({
     }
 
     if (validOutputs.length === 1) {
-      const output = workflowOutputs.find(
-        (o) => o.id === validOutputs[0] || o.label === validOutputs[0]
-      )
+      const output = workflowOutputs.find((o) => o.id === validOutputs[0])
       if (output) {
         return { selectedOutputsDisplayText: output.label, hasSelectedOutputs: true }
       }
@@ -216,13 +210,11 @@ export function OutputSelect({
     if (!selectedOutputs || selectedOutputs.length === 0) return null
 
     const validOutputs = selectedOutputs.filter((val) =>
-      workflowOutputs.some((o) => o.id === val || o.label === val)
+      workflowOutputs.some((o) => o.id === val)
     )
     if (validOutputs.length === 0) return null
 
-    const output = workflowOutputs.find(
-      (o) => o.id === validOutputs[0] || o.label === validOutputs[0]
-    )
+    const output = workflowOutputs.find((o) => o.id === validOutputs[0])
     if (!output) return null
 
     return {
@@ -454,17 +446,14 @@ export function OutputSelect({
     }
   }, [isOutputDropdownOpen])
 
-  // Handle output selection - toggle selection
   const handleOutputSelection = (value: string) => {
-    const emittedValue =
-      valueMode === 'label' ? value : workflowOutputs.find((o) => o.label === value)?.id || value
     let newSelectedOutputs: string[]
-    const index = selectedOutputs.indexOf(emittedValue)
+    const index = selectedOutputs.indexOf(value)
 
     if (index === -1) {
-      newSelectedOutputs = [...new Set([...selectedOutputs, emittedValue])]
+      newSelectedOutputs = [...new Set([...selectedOutputs, value])]
     } else {
-      newSelectedOutputs = selectedOutputs.filter((id) => id !== emittedValue)
+      newSelectedOutputs = selectedOutputs.filter((id) => id !== value)
     }
 
     onOutputSelect(newSelectedOutputs)
@@ -548,7 +537,7 @@ export function OutputSelect({
                                 <button
                                   type='button'
                                   key={output.id}
-                                  onClick={() => handleOutputSelection(output.label)}
+                                  onClick={() => handleOutputSelection(output.id)}
                                   className={cn(
                                     'flex w-full items-center gap-2 px-3 py-1.5 text-left font-normal text-sm',
                                     'hover:bg-card hover:text-accent-foreground',

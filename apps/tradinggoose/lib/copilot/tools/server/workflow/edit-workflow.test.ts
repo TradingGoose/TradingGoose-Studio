@@ -139,6 +139,70 @@ describe('editWorkflowServerTool', () => {
     )
   })
 
+  it('rejects external TG_EDGE metadata that targets a parallel end handle', async () => {
+    const { editWorkflowServerTool } = await import(
+      '@/lib/copilot/tools/server/workflow/edit-workflow'
+    )
+
+    await expect(
+      editWorkflowServerTool.execute(
+        {
+          workflowId: 'wf-1',
+          workflowDocument: [
+            'flowchart TD',
+            '%% TG_WORKFLOW {"version":"tg-mermaid-v1","direction":"TD"}',
+            'inputTrigger["Input Form<br/>id: inputTrigger<br/>type: input_trigger<br/>enabled: true"]',
+            'subgraph sg_parallel1["Parallel Research<br/>id: parallel1<br/>type: parallel<br/>enabled: true"]',
+            '  parallel1__parallel_start["Parallel Start"]',
+            '  parallel1__parallel_end["Parallel End"]',
+            'end',
+            'inputTrigger --> parallel1',
+            '%% TG_BLOCK {"id":"inputTrigger","type":"input_trigger","name":"Input Form","position":{"x":0,"y":0},"subBlocks":{},"outputs":{},"enabled":true}',
+            '%% TG_BLOCK {"id":"parallel1","type":"parallel","name":"Parallel Research","position":{"x":240,"y":0},"subBlocks":{},"outputs":{},"enabled":true}',
+            '%% TG_EDGE {"source":"inputTrigger","target":"parallel1","targetHandle":"parallel-end-target"}',
+            '%% TG_PARALLEL {"id":"parallel1","nodes":[],"count":2,"parallelType":"count"}',
+          ].join('\n'),
+          currentWorkflowState: JSON.stringify({
+            direction: 'TD',
+            blocks: {
+              inputTrigger: {
+                id: 'inputTrigger',
+                type: 'input_trigger',
+                name: 'Input Form',
+                position: { x: 0, y: 0 },
+                subBlocks: {},
+                outputs: {},
+                enabled: true,
+              },
+              parallel1: {
+                id: 'parallel1',
+                type: 'parallel',
+                name: 'Parallel Research',
+                position: { x: 240, y: 0 },
+                subBlocks: {},
+                outputs: {},
+                enabled: true,
+              },
+            },
+            edges: [],
+            loops: {},
+            parallels: {
+              parallel1: {
+                id: 'parallel1',
+                nodes: [],
+                count: 2,
+                parallelType: 'count',
+              },
+            },
+          }),
+        },
+        { userId: 'user-1' }
+      )
+    ).rejects.toThrow(
+      'Invalid container edge: parallel1 container input requires targetHandle "target" for incoming outer edges.'
+    )
+  })
+
   it('re-lays out staged workflow state to match LR Mermaid direction before review', async () => {
     const { editWorkflowServerTool } = await import(
       '@/lib/copilot/tools/server/workflow/edit-workflow'

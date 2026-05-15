@@ -166,12 +166,12 @@ export function LayoutTabs({
                   ) : (
                     <button
                       type='button'
-                      className='inline-flex h-full min-w-0 flex-1 items-center px-1 font-medium text-sm outline-none transition-colors'
+                      className='inline-flex h-full min-w-0 flex-1 items-center pl-1 font-medium text-sm outline-none transition-colors'
                       onClick={() => onSelect(layout.id)}
                       disabled={isBusy}
                       tabIndex={-1}
                     >
-                      <span className='min-w-0 flex-1 truncate pr-1 pb-1 font-md text-md'>
+                      <span className='min-w-0 flex-1 truncate pb-1 font-md text-md'>
                         {layout.name}
                       </span>
                       {layout.isActive && layout.hasDraft ? (

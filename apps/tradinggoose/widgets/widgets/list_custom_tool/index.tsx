@@ -34,7 +34,6 @@ import {
 } from '@/widgets/utils/custom-tool-selection'
 import { CustomToolListItem } from '@/widgets/widgets/_shared/custom_tool/components/custom-tool-list-item'
 import {
-  buildPersistedPairContext,
   CUSTOM_TOOL_EDITOR_WIDGET_KEY,
   CUSTOM_TOOL_LIST_WIDGET_KEY,
   resolveCustomToolId,
@@ -234,15 +233,7 @@ function CustomToolListHeaderRight({
         }
 
         if (isLinkedToColorPair) {
-          setPairContext(
-            resolvedPairColor,
-            buildPersistedPairContext({
-              existing: pairContext,
-              legacyIdKey: 'customToolId',
-              descriptor: null,
-              legacyEntityId: createdToolId,
-            })
-          )
+          setPairContext(resolvedPairColor, { customToolId: createdToolId })
           return
         }
 
@@ -263,7 +254,6 @@ function CustomToolListHeaderRight({
   }, [
     createToolMutation,
     isLinkedToColorPair,
-    pairContext,
     panelId,
     permissions.canEdit,
     resolvedPairColor,
@@ -370,15 +360,7 @@ function ListCustomToolWidgetBodyInner({
     onCustomToolSelect: (customToolId) => {
       if (!isLinkedToColorPair) return
       if (pairContext?.customToolId === customToolId) return
-      setPairContext(
-        resolvedPairColor,
-        buildPersistedPairContext({
-          existing: pairContext,
-          legacyIdKey: 'customToolId',
-          descriptor: null,
-          legacyEntityId: customToolId,
-        })
-      )
+      setPairContext(resolvedPairColor, { customToolId })
     },
   })
 
@@ -386,15 +368,7 @@ function ListCustomToolWidgetBodyInner({
     (customToolId: string | null) => {
       if (isLinkedToColorPair) {
         if (pairContext?.customToolId !== customToolId) {
-          setPairContext(
-            resolvedPairColor,
-            buildPersistedPairContext({
-              existing: pairContext,
-              legacyIdKey: 'customToolId',
-              descriptor: null,
-              legacyEntityId: customToolId,
-            })
-          )
+          setPairContext(resolvedPairColor, { customToolId })
         }
         return
       }
@@ -416,7 +390,6 @@ function ListCustomToolWidgetBodyInner({
       isLinkedToColorPair,
       onWidgetParamsChange,
       pairContext?.customToolId,
-      pairContext,
       panelId,
       params,
       resolvedPairColor,

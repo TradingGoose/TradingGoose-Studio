@@ -247,7 +247,7 @@ export function getMainCSPPolicy(): string {
 /**
  * Permissive CSP for workflow execution endpoints
  */
-export function getWorkflowExecutionCSPPolicy(): string {
+export function readWorkflowExecutionCSPPolicy(): string {
   return "default-src * 'unsafe-inline' 'unsafe-eval'; connect-src *;"
 }
 

@@ -18,6 +18,7 @@ describe('buildAlpacaOrderRequest', () => {
   it('uses notional when provided', () => {
     const request = buildAlpacaOrderRequest({
       ...baseParams,
+      orderSizingMode: 'notional',
       notional: 500.75,
     })
 
@@ -34,11 +35,14 @@ describe('buildAlpacaOrderRequest', () => {
   it('uses qty when quantity is provided', () => {
     const request = buildAlpacaOrderRequest({
       ...baseParams,
+      orderSizingMode: 'quantity',
       quantity: 2,
+      clientOrderId: 'client-order-1',
     })
 
     expect(request.body).toMatchObject({
       qty: '2',
+      client_order_id: 'client-order-1',
       side: 'buy',
       type: 'market',
       time_in_force: 'day',
@@ -49,6 +53,7 @@ describe('buildAlpacaOrderRequest', () => {
   it('prefers quantity when both quantity and notional are provided', () => {
     const request = buildAlpacaOrderRequest({
       ...baseParams,
+      orderSizingMode: 'quantity',
       quantity: 1,
       notional: 100,
     })
@@ -68,7 +73,7 @@ describe('buildAlpacaOrderRequest', () => {
       quantity: 1,
       notional: 100,
       orderSizingMode: 'notional',
-    } as typeof baseParams & { orderSizingMode: string; notional: number; quantity: number })
+    })
 
     expect(request.body).toMatchObject({
       notional: 100,
@@ -85,23 +90,23 @@ describe('buildAlpacaOrderRequest', () => {
         ...baseParams,
         quantity: 1,
         orderSizingMode: 'notional',
-      } as typeof baseParams & { orderSizingMode: string; quantity: number })
+      })
     ).toThrow('orderSizingMode=notional')
   })
 
-  it('rejects notional orders with non-day time in force', () => {
+  it('requires canonical orderSizingMode', () => {
     expect(() =>
       buildAlpacaOrderRequest({
         ...baseParams,
-        notional: 100,
-        timeInForce: 'gtc',
+        quantity: 1,
       })
-    ).toThrow('time_in_force=day')
+    ).toThrow('orderSizingMode')
   })
 
   it('supports trailing stop orders with trail price', () => {
     const request = buildAlpacaOrderRequest({
       ...baseParams,
+      orderSizingMode: 'quantity',
       quantity: 1,
       orderType: 'trailing_stop',
       trailPrice: 1.5,
@@ -120,6 +125,7 @@ describe('buildAlpacaOrderRequest', () => {
     expect(() =>
       buildAlpacaOrderRequest({
         ...baseParams,
+        orderSizingMode: 'quantity',
         quantity: 1,
         orderType: 'trailing_stop',
       })
@@ -128,6 +134,7 @@ describe('buildAlpacaOrderRequest', () => {
     expect(() =>
       buildAlpacaOrderRequest({
         ...baseParams,
+        orderSizingMode: 'quantity',
         quantity: 1,
         orderType: 'trailing_stop',
         trailPrice: 1,

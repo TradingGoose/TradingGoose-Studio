@@ -1,7 +1,6 @@
-import type { ReviewEntityKind } from '@/lib/copilot/review-sessions/types'
 import { normalizeOptionalString } from '@/lib/utils'
 import type { ChatContext } from '@/stores/copilot/types'
-import type { PairColorContext } from '@/stores/dashboard/pair-store'
+import { normalizePairColorContext, type PairColorContext } from '@/stores/dashboard/pair-store'
 import {
   buildCopilotWorkspaceEntityContext,
   COPILOT_WORKSPACE_ENTITY_CONFIGS,
@@ -13,25 +12,10 @@ type BuildImplicitCopilotContextsOptions = {
   pairContext?: PairColorContext | null
 }
 
-export type CopilotEditableReviewTarget = {
-  entityKind: Exclude<ReviewEntityKind, 'workflow'>
-  entityId: string | null
-  reviewSessionId?: string | null
-  draftSessionId: string | null
-}
-
 export function resolveCopilotWorkflowId(
   pairContext?: PairColorContext | null
 ): string | undefined {
   return getCopilotWorkspaceEntityIdFromPairContext(pairContext, 'workflow') ?? undefined
-}
-
-export function buildCopilotEditableReviewTargets({
-  pairContext: _pairContext,
-}: {
-  pairContext?: PairColorContext | null
-}): CopilotEditableReviewTarget[] {
-  return []
 }
 
 export const buildImplicitCopilotContexts = ({
@@ -41,10 +25,14 @@ export const buildImplicitCopilotContexts = ({
   // These contexts describe what the user is looking at right now. They are sent
   // with each turn, but they do not mount or select editable review sessions.
   const resolvedWorkspaceId = normalizeOptionalString(workspaceId)
+  const currentPairContext = normalizePairColorContext(pairContext)
   const contexts: ChatContext[] = []
 
   for (const config of COPILOT_WORKSPACE_ENTITY_CONFIGS) {
-    const entityId = getCopilotWorkspaceEntityIdFromPairContext(pairContext, config.entityKind)
+    const entityId = getCopilotWorkspaceEntityIdFromPairContext(
+      currentPairContext,
+      config.entityKind
+    )
     if (!entityId) {
       continue
     }

@@ -484,7 +484,7 @@ export function MentionMenu({
                     key={`${openSubmenuFor}-${(item as any).id || (item as any).reviewSessionId || index}`}
                     data-idx={index}
                     className={cn(
-                      'flex items-center gap-1 rounded-md px-2 py-1.5 text-sm hover:bg-card/60',
+                      'flex items-center gap-1 rounded-md px-2 py-1.5 text-sm hover:bg-muted',
                       submenuActiveIndex === index && 'bg-muted'
                     )}
                     role='menuitem'
@@ -509,7 +509,7 @@ export function MentionMenu({
                   key={`${item.type}-${item.id}`}
                   data-idx={index}
                   className={cn(
-                    'flex cursor-default items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-card/60',
+                    'flex cursor-default items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted',
                     submenuActiveIndex === index && 'bg-muted'
                   )}
                   role='menuitem'
@@ -530,7 +530,7 @@ export function MentionMenu({
                 key={option}
                 data-idx={index}
                 className={cn(
-                  'flex cursor-default items-center justify-between gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-card/60',
+                  'flex cursor-default items-center justify-between gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-muted',
                   !inAggregated && mentionActiveIndex === index && 'bg-muted'
                 )}
                 role='menuitem'
@@ -562,7 +562,7 @@ export function MentionMenu({
                     key={`${item.type}-${item.id}`}
                     data-idx={filteredOptions.length + index}
                     className={cn(
-                      'flex cursor-default items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-card/60',
+                      'flex cursor-default items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted',
                       inAggregated && submenuActiveIndex === index && 'bg-muted'
                     )}
                     role='menuitem'

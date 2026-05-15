@@ -223,7 +223,7 @@ export interface WorkflowActions {
   setNeedsRedeploymentFlag: (needsRedeployment: boolean) => void
   setDragStartPosition: (position: DragStartPosition | null) => void
   getDragStartPosition: () => DragStartPosition | null
-  getWorkflowState: () => WorkflowState
+  readWorkflowState: () => WorkflowState
 }
 
 export type WorkflowStore = WorkflowState & WorkflowActions

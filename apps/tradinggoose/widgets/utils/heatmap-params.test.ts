@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import { sanitizeHeatmapParams } from '@/widgets/utils/heatmap-params'
 
+const portfolioIdentity = {
+  providerId: 'alpaca',
+  credentialId: 'credential-1',
+  serviceId: 'alpaca-live',
+  accountId: 'account-1',
+}
+
 describe('sanitizeHeatmapParams', () => {
   it('persists source/provider selections with raw and env-var market credentials', () => {
     expect(
@@ -13,7 +20,8 @@ describe('sanitizeHeatmapParams', () => {
           apiSecret: '{{ ALPACA_API_SECRET }}',
         },
         tradingProvider: 'alpaca',
-        accountId: 'account-1',
+        serviceId: 'alpaca-live',
+        portfolioIdentity,
         runtime: { refreshAt: 123 },
       })
     ).toEqual({
@@ -25,7 +33,8 @@ describe('sanitizeHeatmapParams', () => {
         apiSecret: '{{ ALPACA_API_SECRET }}',
       },
       tradingProvider: 'alpaca',
-      accountId: 'account-1',
+      serviceId: 'alpaca-live',
+      portfolioIdentity,
       runtime: { refreshAt: 123 },
     })
   })

@@ -1,7 +1,11 @@
-// Barrel re-exports so widget-local imports resolve without reaching into entity_review/.
-export * from '@/widgets/widgets/entity_review/indicator-utils'
-export {
-  buildPersistedPairContext,
-  buildPersistedReviewParams,
-  readEntitySelectionState,
-} from '@/widgets/widgets/entity_review/review-target-utils'
+import { readEntitySelectionState } from '@/widgets/utils/entity-selection'
+
+export { readEntitySelectionState }
+
+export const getIndicatorIdFromParams = (params?: Record<string, unknown> | null) => {
+  const indicatorId = params?.indicatorId
+
+  return typeof indicatorId === 'string' && indicatorId.trim().length > 0
+    ? indicatorId.trim()
+    : null
+}

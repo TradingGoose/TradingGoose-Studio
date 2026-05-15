@@ -92,29 +92,6 @@ export async function getDocumentTagDefinitions(
 }
 
 /**
- * Get all tag definitions for a knowledge base (alias for compatibility)
- */
-export async function getTagDefinitions(knowledgeBaseId: string): Promise<TagDefinition[]> {
-  const tagDefinitions = await db
-    .select({
-      id: knowledgeBaseTagDefinitions.id,
-      tagSlot: knowledgeBaseTagDefinitions.tagSlot,
-      displayName: knowledgeBaseTagDefinitions.displayName,
-      fieldType: knowledgeBaseTagDefinitions.fieldType,
-      createdAt: knowledgeBaseTagDefinitions.createdAt,
-      updatedAt: knowledgeBaseTagDefinitions.updatedAt,
-    })
-    .from(knowledgeBaseTagDefinitions)
-    .where(eq(knowledgeBaseTagDefinitions.knowledgeBaseId, knowledgeBaseId))
-    .orderBy(knowledgeBaseTagDefinitions.tagSlot)
-
-  return tagDefinitions.map((def) => ({
-    ...def,
-    tagSlot: def.tagSlot as string,
-  }))
-}
-
-/**
  * Create or update tag definitions in bulk
  */
 export async function createOrUpdateTagDefinitionsBulk(

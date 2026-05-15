@@ -66,6 +66,7 @@ async function authenticateAndPrepareUpgrade(
   pathSessionId: string,
   url: URL
 ): Promise<{ userId: string; resolvedSessionId: string }> {
+  const accessMode = parseAccessMode(url)
   const { userId, envelope } = await authenticateYjsConnection(url)
 
   if (envelope.sessionId !== pathSessionId) {
@@ -74,14 +75,18 @@ async function authenticateAndPrepareUpgrade(
 
   const descriptor = buildReviewTargetDescriptorFromEnvelope(envelope)
 
-  const access = await verifyReviewTargetAccess(userId, {
-    entityKind: descriptor.entityKind,
-    entityId: descriptor.entityId,
-    draftSessionId: descriptor.draftSessionId,
-    reviewSessionId: descriptor.reviewSessionId,
-    workspaceId: descriptor.workspaceId,
-    yjsSessionId: descriptor.yjsSessionId,
-  }, { requireWrite: true })
+  const access = await verifyReviewTargetAccess(
+    userId,
+    {
+      entityKind: descriptor.entityKind,
+      entityId: descriptor.entityId,
+      draftSessionId: descriptor.draftSessionId,
+      reviewSessionId: descriptor.reviewSessionId,
+      workspaceId: descriptor.workspaceId,
+      yjsSessionId: descriptor.yjsSessionId,
+    },
+    accessMode
+  )
 
   if (!access.hasAccess) {
     throw new YjsAuthError(403, 'Forbidden')
@@ -109,6 +114,19 @@ async function authenticateAndPrepareUpgrade(
     userId,
     resolvedSessionId: pathSessionId,
   }
+}
+
+function parseAccessMode(url: URL): 'write' {
+  const accessMode = url.searchParams.get('accessMode')
+  if (accessMode !== 'read' && accessMode !== 'write') {
+    throw new YjsAuthError(409, 'Invalid or missing access mode')
+  }
+
+  if (accessMode !== 'write') {
+    throw new YjsAuthError(403, 'Yjs websocket requires write access')
+  }
+
+  return 'write'
 }
 
 function ensureConnectionHandler(wss: WebSocketServer): void {

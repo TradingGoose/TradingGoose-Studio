@@ -7,7 +7,7 @@ import {
   loadIndicator,
   loadMcpServer,
   loadSkill,
-} from '@/lib/copilot/review-sessions/entity-loaders'
+} from '@/lib/yjs/server/entity-loaders'
 import type {
   ResolvedReviewTarget,
   ReviewTargetDescriptor,
@@ -16,7 +16,7 @@ import type {
 import { getReviewTargetRuntimeState } from '@/lib/copilot/review-sessions/runtime'
 import { seedEntitySession } from '@/lib/yjs/entity-session'
 import {
-  getMetadataMap as getWorkflowMetadataMap,
+  getMetadataMap as readWorkflowMetadataMap,
   setVariables,
   setWorkflowState,
 } from '@/lib/yjs/workflow-session'
@@ -168,7 +168,7 @@ async function bootstrapWorkflowTarget(
   setVariables(doc, ((workflowRow.variables as Record<string, any> | null) ?? {}) as Record<string, any>, 'bootstrap')
 
   doc.transact(() => {
-    getWorkflowMetadataMap(doc).set('reseededFromCanonical', true)
+    readWorkflowMetadataMap(doc).set('reseededFromCanonical', true)
   }, 'bootstrap')
 
   await persistDoc(workflowId, doc)
@@ -187,10 +187,6 @@ async function bootstrapWorkflowTarget(
 async function bootstrapSavedEntityTarget(
   descriptor: ReviewTargetDescriptor
 ): Promise<ResolvedReviewTarget> {
-  if (!descriptor.reviewSessionId) {
-    throw new ReviewTargetBootstrapError(409, 'Saved entity target is missing reviewSessionId')
-  }
-
   if (!descriptor.entityId) {
     throw new ReviewTargetBootstrapError(409, 'Saved entity target is missing entityId')
   }
@@ -200,7 +196,7 @@ async function bootstrapSavedEntityTarget(
   }
 
   const canonical = await loadCanonicalEntitySeed(descriptor)
-  const doc = await getBootstrapDoc(descriptor.reviewSessionId)
+  const doc = await getBootstrapDoc(descriptor.entityId)
 
   seedEntitySession(doc, {
     entityKind: descriptor.entityKind,
@@ -211,14 +207,15 @@ async function bootstrapSavedEntityTarget(
     doc.getMap('metadata').set('reseededFromCanonical', true)
   }, 'bootstrap')
 
-  await persistDoc(descriptor.reviewSessionId, doc)
+  await persistDoc(descriptor.entityId, doc)
 
   return {
     descriptor: {
       ...descriptor,
       workspaceId: canonical.workspaceId,
       entityId: descriptor.entityId,
-      yjsSessionId: descriptor.reviewSessionId,
+      reviewSessionId: null,
+      yjsSessionId: descriptor.entityId,
     },
     runtime: ACTIVE_RESEEDED_RUNTIME,
   }

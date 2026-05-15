@@ -3,8 +3,8 @@
 import { normalizeOptionalString } from '@/lib/utils'
 import type {
   ChatContext,
-  CopilotLiveReviewTarget,
   CopilotMessage,
+  CopilotLiveContext,
   CopilotToolCall,
   CopilotToolExecutionProvenance,
 } from '@/stores/copilot/types'
@@ -47,33 +47,11 @@ function getContextTurnProvenance(context: ChatContext): ContextTurnProvenance |
   }
 }
 
-function applyLiveReviewTargetProvenance(
-  provenance: CopilotToolExecutionProvenance,
-  reviewTarget: CopilotLiveReviewTarget | null | undefined
-): boolean {
-  const entityKind = reviewTarget?.entityKind
-  const reviewSessionId = normalizeOptionalString(reviewTarget?.reviewSessionId)
-  const draftSessionId = normalizeOptionalString(reviewTarget?.draftSessionId)
-
-  if (!entityKind || !reviewSessionId) {
-    return false
-  }
-
-  provenance.entityKind = entityKind
-  provenance.reviewSessionId = reviewSessionId
-
-  if (draftSessionId) {
-    provenance.draftSessionId = draftSessionId
-  }
-
-  return true
-}
-
 export function buildTurnProvenanceFromContexts(
   contexts: ChatContext[] | undefined,
-  workspaceId?: string | null,
-  reviewTarget?: CopilotLiveReviewTarget | null,
-  contextWorkflowId?: string | null
+  workspaceId: string | null | undefined,
+  contextWorkflowId: string | null | undefined,
+  reviewTarget: CopilotLiveContext['reviewTarget']
 ): CopilotToolExecutionProvenance | undefined {
   const normalizedWorkspaceId = normalizeOptionalString(workspaceId)
   const normalizedContextWorkflowId = normalizeOptionalString(contextWorkflowId)
@@ -90,7 +68,18 @@ export function buildTurnProvenanceFromContexts(
     }
   }
 
-  hasContext = applyLiveReviewTargetProvenance(provenance, reviewTarget) || hasContext
+  const reviewSessionId = normalizeOptionalString(reviewTarget?.reviewSessionId)
+  if (reviewTarget && reviewTarget.entityKind !== 'workflow' && reviewSessionId) {
+    provenance.entityKind = reviewTarget.entityKind
+    provenance.reviewSessionId = reviewSessionId
+    const reviewEntityId = normalizeOptionalString(reviewTarget.entityId)
+    const draftSessionId = normalizeOptionalString(reviewTarget.draftSessionId)
+    const reviewWorkspaceId = normalizeOptionalString(reviewTarget.workspaceId)
+    if (reviewEntityId) provenance.entityId = reviewEntityId
+    if (draftSessionId) provenance.draftSessionId = draftSessionId
+    if (reviewWorkspaceId) provenance.workspaceId = reviewWorkspaceId
+    hasContext = true
+  }
 
   return hasContext ? provenance : undefined
 }

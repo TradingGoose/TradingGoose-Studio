@@ -5,8 +5,10 @@ import {
   buildReviewTargetDescriptorFromEnvelope,
   parseYjsTransportEnvelope,
 } from '@/lib/copilot/review-sessions/identity'
+import type { ReviewEntityKind } from '@/lib/copilot/review-sessions/types'
 import { getRedisClient, getRedisStorageMode } from '@/lib/redis'
 import { getRuntimeStateFromDoc, getRuntimeStateFromUpdate } from '@/lib/yjs/server/bootstrap-review-target'
+import { seedEntitySession } from '@/lib/yjs/entity-session'
 import {
   getMetadataMap as getWorkflowMetadataMap,
   setVariables,
@@ -46,6 +48,7 @@ type HttpHandlerOptions = {
 
 const INTERNAL_SECRET_HEADER = 'x-internal-secret'
 const INTERNAL_YJS_WORKFLOW_APPLY_PATH = /^\/internal\/yjs\/workflows\/([^/]+)\/apply-state$/
+const INTERNAL_YJS_ENTITY_APPLY_PATH = /^\/internal\/yjs\/entities\/([^/]+)\/apply-state$/
 const INTERNAL_YJS_SNAPSHOT_PATH = /^\/internal\/yjs\/sessions\/([^/]+)\/snapshot$/
 const INTERNAL_YJS_SESSION_CLEAR_RESEEDED_PATH = /^\/internal\/yjs\/sessions\/([^/]+)\/clear-reseeded$/
 const INTERNAL_YJS_SESSION_PATH = /^\/internal\/yjs\/sessions\/([^/]+)$/
@@ -53,6 +56,13 @@ const INTERNAL_YJS_SESSION_PATH = /^\/internal\/yjs\/sessions\/([^/]+)$/
 type ApplyWorkflowStateRequest = {
   workflowState: WorkflowSnapshot
   variables?: Record<string, any>
+}
+
+type SavedEntityKind = Exclude<ReviewEntityKind, 'workflow'>
+
+type ApplyEntityStateRequest = {
+  entityKind: SavedEntityKind
+  fields: Record<string, any>
 }
 
 class InvalidInternalYjsRequestError extends Error {
@@ -161,6 +171,35 @@ function parseApplyWorkflowStateRequest(body: unknown): ApplyWorkflowStateReques
   }
 }
 
+function parseApplyEntityStateRequest(body: unknown): ApplyEntityStateRequest {
+  if (!body || typeof body !== 'object' || Array.isArray(body)) {
+    throw new InvalidInternalYjsRequestError('Invalid apply entity state body')
+  }
+
+  const candidate = body as Record<string, unknown>
+  if (
+    candidate.entityKind !== 'skill' &&
+    candidate.entityKind !== 'custom_tool' &&
+    candidate.entityKind !== 'indicator' &&
+    candidate.entityKind !== 'mcp_server'
+  ) {
+    throw new InvalidInternalYjsRequestError('Invalid entityKind')
+  }
+
+  if (
+    !candidate.fields ||
+    typeof candidate.fields !== 'object' ||
+    Array.isArray(candidate.fields)
+  ) {
+    throw new InvalidInternalYjsRequestError('fields are required')
+  }
+
+  return {
+    entityKind: candidate.entityKind,
+    fields: candidate.fields as Record<string, any>,
+  }
+}
+
 function replaceWorkflowDocState(
   doc: Y.Doc,
   workflowState: WorkflowSnapshot,
@@ -210,6 +249,41 @@ async function handleInternalYjsWorkflowApplyRequest(
     res.end(
       JSON.stringify({
         error: error instanceof Error ? error.message : 'Failed to apply workflow state',
+      })
+    )
+  }
+}
+
+async function handleInternalYjsEntityApplyRequest(
+  req: IncomingMessage,
+  res: ServerResponse,
+  logger: Logger,
+  entityId: string
+): Promise<void> {
+  try {
+    const body = parseApplyEntityStateRequest(await readJsonBody(req))
+    const liveDoc = await getExistingDocument(entityId)
+    const doc = liveDoc ?? new Y.Doc()
+
+    try {
+      seedEntitySession(doc, {
+        entityKind: body.entityKind,
+        payload: body.fields,
+      })
+      await storeState(entityId, Y.encodeStateAsUpdate(doc))
+    } finally {
+      if (!liveDoc) doc.destroy()
+    }
+
+    res.writeHead(200, { 'Content-Type': 'application/json' })
+    res.end(JSON.stringify({ success: true }))
+  } catch (error) {
+    logger.error('Error applying entity state', { error, entityId })
+    const status = error instanceof InvalidInternalYjsRequestError ? 400 : 500
+    res.writeHead(status, { 'Content-Type': 'application/json' })
+    res.end(
+      JSON.stringify({
+        error: error instanceof Error ? error.message : 'Failed to apply entity state',
       })
     )
   }
@@ -344,13 +418,34 @@ async function handleInternalYjsRequest(
   logger: Logger,
   parsedUrl: URL
 ): Promise<boolean> {
-  const applyId = matchInternalRoute(parsedUrl.pathname, INTERNAL_YJS_WORKFLOW_APPLY_PATH, 'POST', req.method)
+  const applyId = matchInternalRoute(
+    parsedUrl.pathname,
+    INTERNAL_YJS_WORKFLOW_APPLY_PATH,
+    'POST',
+    req.method
+  )
   if (applyId) {
     await handleInternalYjsWorkflowApplyRequest(req, res, logger, applyId)
     return true
   }
 
-  const snapshotId = matchInternalRoute(parsedUrl.pathname, INTERNAL_YJS_SNAPSHOT_PATH, 'GET', req.method)
+  const applyEntityId = matchInternalRoute(
+    parsedUrl.pathname,
+    INTERNAL_YJS_ENTITY_APPLY_PATH,
+    'POST',
+    req.method
+  )
+  if (applyEntityId) {
+    await handleInternalYjsEntityApplyRequest(req, res, logger, applyEntityId)
+    return true
+  }
+
+  const snapshotId = matchInternalRoute(
+    parsedUrl.pathname,
+    INTERNAL_YJS_SNAPSHOT_PATH,
+    'GET',
+    req.method
+  )
   if (snapshotId) {
     await handleInternalYjsSnapshotRequest(parsedUrl, res, logger, snapshotId)
     return true

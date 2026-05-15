@@ -18,7 +18,7 @@ import type { GenericOAuthConfig } from 'better-auth/plugins/generic-oauth'
 /** OAuth2 token type extracted from better-auth's GenericOAuthConfig */
 type OAuthTokens = Parameters<NonNullable<GenericOAuthConfig['getUserInfo']>>[0]
 
-import { and, eq, ne } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 import { headers } from 'next/headers'
 import type Stripe from 'stripe'
 import {
@@ -85,6 +85,7 @@ import {
 import { getResolvedSystemSettings } from '@/lib/system-settings/service'
 import { getBaseUrl } from '@/lib/urls/utils'
 import { resolveAlpacaTradingBaseUrl } from '@/providers/trading/alpaca/config'
+import { resolveTradierBaseUrl } from '@/providers/trading/tradier/client'
 import { SSO_TRUSTED_PROVIDERS } from './sso/consts'
 
 const logger = createLogger('Auth')
@@ -187,6 +188,47 @@ function createAlpacaOAuthConfig(
         id: data.id,
         name: data.account_number,
         email: data.account_number,
+        image: '',
+        emailVerified: false,
+      }
+    },
+    responseType: 'code',
+    redirectURI: `${getBaseUrl()}/api/auth/oauth2/callback/${providerId}`,
+  }
+}
+
+function createTradierOAuthConfig(): SystemManagedGenericOAuthConfig {
+  const providerId = 'tradier-live'
+  return {
+    providerId,
+    authorizationUrl: 'https://api.tradier.com/v1/oauth/authorize',
+    tokenUrl: 'https://api.tradier.com/v1/oauth/accesstoken',
+    authentication: 'basic',
+    scopes: getCanonicalScopesForProvider(providerId),
+    getUserInfo: async (tokens) => {
+      const response = await fetch(`${resolveTradierBaseUrl()}/user/profile`, {
+        headers: {
+          Authorization: `Bearer ${tokens.accessToken}`,
+          Accept: 'application/json',
+        },
+      })
+      const data = await response.json()
+      const account = Array.isArray(data?.profile?.account)
+        ? data.profile.account[0]
+        : data?.profile?.account
+      const accountNumber =
+        typeof account?.account_number === 'string' && account.account_number.trim()
+          ? account.account_number.trim()
+          : providerId
+      const classification =
+        typeof account?.classification === 'string' && account.classification.trim()
+          ? account.classification.trim()
+          : ''
+
+      return {
+        id: `${providerId}:${accountNumber}`,
+        name: classification ? `${classification} (${accountNumber})` : accountNumber,
+        email: `${accountNumber}@tradier.account`,
         image: '',
         emailVerified: false,
       }
@@ -458,27 +500,6 @@ export const auth = betterAuth({
     account: {
       create: {
         after: async (account) => {
-          try {
-            await db
-              .delete(schema.account)
-              .where(
-                and(
-                  eq(schema.account.userId, account.userId),
-                  eq(schema.account.providerId, account.providerId),
-                  ne(schema.account.id, account.id)
-                )
-              )
-          } catch (error) {
-            logger.error(
-              '[databaseHooks.account.create.after] Failed to remove older account rows',
-              {
-                accountId: account.id,
-                providerId: account.providerId,
-                error,
-              }
-            )
-          }
-
           if (!isMicrosoftProvider(account.providerId)) {
             return
           }
@@ -687,6 +708,7 @@ export const auth = betterAuth({
       config: toSystemManagedGenericOAuthConfigs([
         createAlpacaOAuthConfig('alpaca-live', 'live'),
         createAlpacaOAuthConfig('alpaca-paper', 'paper'),
+        createTradierOAuthConfig(),
         {
           providerId: 'github-repo',
           authorizationUrl: 'https://github.com/login/oauth/authorize',

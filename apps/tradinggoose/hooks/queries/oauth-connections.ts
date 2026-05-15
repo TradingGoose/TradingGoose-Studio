@@ -45,42 +45,31 @@ function defineServices(): ServiceInfo[] {
  * Fetch OAuth connections and merge with service definitions
  */
 async function fetchOAuthConnections(): Promise<ServiceInfo[]> {
-  try {
-    const serviceDefinitions = defineServices()
+  const serviceDefinitions = defineServices()
 
-    const response = await fetch('/api/auth/oauth/connections')
+  const response = await fetch('/api/auth/oauth/connections')
 
-    if (response.status === 404) {
-      return serviceDefinitions
-    }
-
-    if (!response.ok) {
-      throw new Error('Failed to fetch OAuth connections')
-    }
-
-    const data = await response.json()
-    const connections = data.connections || []
-
-    const updatedServices = serviceDefinitions.map((service) => {
-      const connection = connections.find((conn: any) => conn.provider === service.providerId)
-
-      if (connection) {
-        return {
-          ...service,
-          isConnected: connection.accounts?.length > 0,
-          accounts: connection.accounts || [],
-          lastConnected: connection.lastConnected,
-        }
-      }
-
-      return service
-    })
-
-    return updatedServices
-  } catch (error) {
-    logger.error('Error fetching OAuth connections:', error)
-    return defineServices()
+  if (!response.ok) {
+    throw new Error('Failed to fetch OAuth connections')
   }
+
+  const data = await response.json()
+  const connections = data.connections || []
+
+  return serviceDefinitions.map((service) => {
+    const connection = connections.find((conn: any) => conn.provider === service.providerId)
+
+    if (connection) {
+      return {
+        ...service,
+        isConnected: connection.accounts?.length > 0,
+        accounts: connection.accounts || [],
+        lastConnected: connection.lastConnected,
+      }
+    }
+
+    return service
+  })
 }
 
 /**
@@ -91,7 +80,7 @@ export function useOAuthConnections() {
     queryKey: oauthConnectionsKeys.connections(),
     queryFn: fetchOAuthConnections,
     staleTime: 30 * 1000, // 30 seconds - connections don't change often
-    retry: false, // Don't retry on 404
+    retry: false,
     placeholderData: keepPreviousData, // Show cached data immediately
   })
 }
@@ -129,9 +118,6 @@ export function useConnectOAuthService() {
  * Disconnect OAuth service mutation
  */
 interface DisconnectServiceParams {
-  provider: string
-  providerId: string
-  serviceId: string
   accountId: string
 }
 
@@ -139,15 +125,14 @@ export function useDisconnectOAuthService() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async ({ provider, providerId }: DisconnectServiceParams) => {
+    mutationFn: async ({ accountId }: DisconnectServiceParams) => {
       const response = await fetch('/api/auth/oauth/disconnect', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          provider,
-          providerId,
+          accountId,
         }),
       })
 
@@ -157,7 +142,7 @@ export function useDisconnectOAuthService() {
 
       return response.json()
     },
-    onMutate: async ({ serviceId, accountId }) => {
+    onMutate: async ({ accountId }) => {
       await queryClient.cancelQueries({ queryKey: oauthConnectionsKeys.connections() })
 
       const previousServices = queryClient.getQueryData<ServiceInfo[]>(
@@ -168,15 +153,15 @@ export function useDisconnectOAuthService() {
         queryClient.setQueryData<ServiceInfo[]>(
           oauthConnectionsKeys.connections(),
           previousServices.map((svc) => {
-            if (svc.id === serviceId) {
-              const updatedAccounts = svc.accounts?.filter((acc) => acc.id !== accountId) || []
-              return {
-                ...svc,
-                accounts: updatedAccounts,
-                isConnected: updatedAccounts.length > 0,
-              }
+            const updatedAccounts = svc.accounts?.filter((acc) => acc.id !== accountId) || []
+            if (updatedAccounts.length === (svc.accounts?.length ?? 0)) {
+              return svc
             }
-            return svc
+            return {
+              ...svc,
+              accounts: updatedAccounts,
+              isConnected: updatedAccounts.length > 0,
+            }
           })
         )
       }

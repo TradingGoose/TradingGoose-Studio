@@ -361,7 +361,7 @@ describe('Console Store', () => {
     })
   })
 
-  describe('getWorkflowEntries', () => {
+  describe('readWorkflowEntries', () => {
     beforeEach(() => {
       const store = useConsoleStore.getState()
 
@@ -404,8 +404,8 @@ describe('Console Store', () => {
     it('should return entries for specific workflow', () => {
       const store = useConsoleStore.getState()
 
-      const workflow1Entries = store.getWorkflowEntries('workflow-1')
-      const workflow2Entries = store.getWorkflowEntries('workflow-2')
+      const workflow1Entries = store.readWorkflowEntries('workflow-1')
+      const workflow2Entries = store.readWorkflowEntries('workflow-2')
 
       expect(workflow1Entries).toHaveLength(2)
       expect(workflow2Entries).toHaveLength(1)
@@ -417,7 +417,7 @@ describe('Console Store', () => {
     it('should return empty array for non-existent workflow', () => {
       const store = useConsoleStore.getState()
 
-      const entries = store.getWorkflowEntries('non-existent-workflow')
+      const entries = store.readWorkflowEntries('non-existent-workflow')
 
       expect(entries).toHaveLength(0)
     })

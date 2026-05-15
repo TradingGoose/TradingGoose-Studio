@@ -1,8 +1,4 @@
-import {
-  SKILL_WIDGET_SELECT_EVENT,
-  type SkillWidgetSelectEventDetail,
-  type ReviewTargetEventFields,
-} from '@/widgets/events'
+import { SKILL_WIDGET_SELECT_EVENT } from '@/widgets/events'
 import type { PairColor } from '@/widgets/pair-colors'
 import {
   createSelectionPersistenceHook,
@@ -47,7 +43,7 @@ const emitGeneric = createEmitSelectionChange({
   detailIdKey: 'skillId',
 })
 
-interface EmitSkillSelectionOptions extends ReviewTargetEventFields {
+interface EmitSkillSelectionOptions {
   skillId?: string | null
   panelId?: string
   widgetKey: string

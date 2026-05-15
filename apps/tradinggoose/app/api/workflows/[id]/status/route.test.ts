@@ -14,7 +14,7 @@ describe('Workflow Status API Route', () => {
   }
 
   const mockValidateWorkflowAccess = vi.fn()
-  const mockLoadWorkflowStateWithFallback = vi.fn()
+  const mockLoadWorkflowState = vi.fn()
   const mockLimit = vi.fn()
 
   beforeEach(() => {
@@ -54,14 +54,11 @@ describe('Workflow Status API Route', () => {
     }))
 
     vi.doMock('@/lib/workflows/db-helpers', () => ({
-      loadWorkflowStateWithFallback: mockLoadWorkflowStateWithFallback,
+      loadWorkflowState: mockLoadWorkflowState,
     }))
 
     vi.doMock('@/lib/workflows/utils', () => ({
       hasWorkflowChanged: vi.fn((currentState, deployedState) => {
-        if (!Object.hasOwn(deployedState, 'variables')) {
-          return false
-        }
         return (
           JSON.stringify(currentState.variables ?? {}) !==
           JSON.stringify(deployedState.variables ?? {})
@@ -90,7 +87,7 @@ describe('Workflow Status API Route', () => {
     }))
 
     mockValidateWorkflowAccess.mockReset()
-    mockLoadWorkflowStateWithFallback.mockReset()
+    mockLoadWorkflowState.mockReset()
     mockLimit.mockReset()
   })
 
@@ -112,7 +109,7 @@ describe('Workflow Status API Route', () => {
       },
     })
 
-    mockLoadWorkflowStateWithFallback.mockResolvedValue({
+    mockLoadWorkflowState.mockResolvedValue({
       blocks: {},
       edges: [],
       loops: {},
@@ -158,7 +155,7 @@ describe('Workflow Status API Route', () => {
     }
   )
 
-  it('does not report redeployment for legacy deployment rows missing variables', async () => {
+  it('reports redeployment when the active deployment state omits current variables', async () => {
     mockValidateWorkflowAccess.mockResolvedValue({
       error: null,
       workflow: {
@@ -168,7 +165,7 @@ describe('Workflow Status API Route', () => {
       },
     })
 
-    mockLoadWorkflowStateWithFallback.mockResolvedValue({
+    mockLoadWorkflowState.mockResolvedValue({
       blocks: {},
       edges: [],
       loops: {},
@@ -203,6 +200,6 @@ describe('Workflow Status API Route', () => {
     expect(response.status).toBe(200)
 
     const data = await response.json()
-    expect(data.data.needsRedeployment).toBe(false)
+    expect(data.data.needsRedeployment).toBe(true)
   })
 })

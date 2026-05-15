@@ -92,11 +92,41 @@ describe('GenericBlockHandler', () => {
     expect(mockGetTool).toHaveBeenCalledWith('some_custom_tool')
     expect(mockExecuteTool).toHaveBeenCalledWith(
       'some_custom_tool',
-      inputs,
+      {
+        ...inputs,
+        _context: { toolExecutionId: 'generic-block-1' },
+      },
       false, // skipPostProcess
       mockContext // execution context
     )
     expect(result).toEqual(expectedOutput)
+  })
+
+  it('uses loop iteration as the tool execution identity', async () => {
+    mockContext.workflow = {
+      version: '1.0',
+      blocks: [mockBlock],
+      connections: [],
+      loops: {
+        'loop-1': {
+          id: 'loop-1',
+          iterations: 2,
+          nodes: ['generic-block-1'],
+        },
+      },
+    }
+    mockContext.loopIterations.set('loop-1', 2)
+
+    await handler.execute(mockBlock, { param1: 'resolvedValue1' }, mockContext)
+
+    expect(mockExecuteTool).toHaveBeenCalledWith(
+      'some_custom_tool',
+      expect.objectContaining({
+        _context: { toolExecutionId: 'generic-block-1:loop-1:2' },
+      }),
+      false,
+      mockContext
+    )
   })
 
   it('should throw error if the associated tool is not found', async () => {

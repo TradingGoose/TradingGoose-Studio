@@ -51,6 +51,7 @@ interface JiraProjectSelectorProps {
   credentialId?: string
   isForeignCredential?: boolean
   workflowId?: string
+  workspaceId?: string
 }
 
 export function JiraProjectSelector({
@@ -67,6 +68,7 @@ export function JiraProjectSelector({
   credentialId,
   isForeignCredential = false,
   workflowId,
+  workspaceId,
 }: JiraProjectSelectorProps) {
   const [open, setOpen] = useState(false)
   const [credentials, setCredentials] = useState<Credential[]>([])
@@ -124,7 +126,10 @@ export function JiraProjectSelector({
     if (!providerId) return
     setIsLoading(true)
     try {
-      const response = await fetch(`/api/auth/oauth/credentials?provider=${providerId}`)
+      const query = new URLSearchParams({ provider: providerId })
+      if (workflowId) query.set('workflowId', workflowId)
+      else if (workspaceId) query.set('workspaceId', workspaceId)
+      const response = await fetch(`/api/auth/oauth/credentials?${query.toString()}`)
 
       if (response.ok) {
         const data = await response.json()
@@ -136,7 +141,7 @@ export function JiraProjectSelector({
     } finally {
       setIsLoading(false)
     }
-  }, [providerId])
+  }, [providerId, workflowId, workspaceId])
 
   // Fetch detailed project information
   const fetchProjectInfo = useCallback(
@@ -147,39 +152,16 @@ export function JiraProjectSelector({
       setError(null)
 
       try {
-        // Get the access token from the selected credential
-        const tokenResponse = await fetch('/api/auth/oauth/token', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            credentialId: selectedCredentialId,
-            workflowId,
-          }),
-        })
-
-        if (!tokenResponse.ok) {
-          const errorData = await tokenResponse.json()
-          logger.error('Access token error:', errorData)
-          setError('Authentication failed. Please reconnect your Jira account.')
-          return
-        }
-
-        const tokenData = await tokenResponse.json()
-        const accessToken = tokenData.accessToken
-
-        if (!accessToken) {
-          logger.error('No access token returned')
-          setError('Authentication failed. Please reconnect your Jira account.')
-          return
-        }
-
-        // Use POST /api/tools/jira/projects to fetch a single project by id
         const response = await fetch(`/api/tools/jira/projects`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ domain, accessToken, projectId, cloudId }),
+          body: JSON.stringify({
+            domain,
+            credentialId: selectedCredentialId,
+            ...(workflowId ? { workflowId } : workspaceId ? { workspaceId } : {}),
+            projectId,
+            cloudId,
+          }),
         })
 
         if (!response.ok) {
@@ -210,7 +192,7 @@ export function JiraProjectSelector({
         setIsLoading(false)
       }
     },
-    [selectedCredentialId, domain, onProjectInfoChange, cloudId]
+    [selectedCredentialId, domain, onProjectInfoChange, cloudId, workflowId, workspaceId]
   )
 
   // Fetch projects from Jira
@@ -233,40 +215,10 @@ export function JiraProjectSelector({
       setError(null)
 
       try {
-        // Get the access token from the selected credential
-        const tokenResponse = await fetch('/api/auth/oauth/token', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            credentialId: selectedCredentialId,
-            workflowId,
-          }),
-        })
-
-        if (!tokenResponse.ok) {
-          const errorData = await tokenResponse.json()
-          logger.error('Access token error:', errorData)
-          setError('Authentication failed. Please reconnect your Jira account.')
-          setIsLoading(false)
-          return
-        }
-
-        const tokenData = await tokenResponse.json()
-        const accessToken = tokenData.accessToken
-
-        if (!accessToken) {
-          logger.error('No access token returned')
-          setError('Authentication failed. Please reconnect your Jira account.')
-          setIsLoading(false)
-          return
-        }
-
-        // Build query parameters for the projects endpoint
         const queryParams = new URLSearchParams({
           domain,
-          accessToken,
+          credentialId: selectedCredentialId,
+          ...(workflowId ? { workflowId } : workspaceId ? { workspaceId } : {}),
           ...(searchQuery && { query: searchQuery }),
           ...(cloudId && { cloudId }),
         })
@@ -319,6 +271,8 @@ export function JiraProjectSelector({
       onProjectInfoChange,
       fetchProjectInfo,
       cloudId,
+      workflowId,
+      workspaceId,
     ]
   )
 

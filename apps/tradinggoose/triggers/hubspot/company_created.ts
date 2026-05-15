@@ -98,7 +98,6 @@ export const hubspotCompanyCreatedTrigger: TriggerConfig = {
       title: '',
       type: 'trigger-save',
       mode: 'trigger',
-      triggerId: 'hubspot_company_created',
       condition: {
         field: 'selectedTriggerId',
         value: 'hubspot_company_created',

@@ -5,8 +5,8 @@ import { type NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
 import { checkWorkspaceAccess } from '@/lib/permissions/utils'
+import { serializeOrderRecord } from '@/lib/trading/order-records'
 import { generateRequestId } from '@/lib/utils'
-import { serializeOrderRecord } from '../order-record-utils'
 
 const logger = createLogger('OrderDetailAPI')
 

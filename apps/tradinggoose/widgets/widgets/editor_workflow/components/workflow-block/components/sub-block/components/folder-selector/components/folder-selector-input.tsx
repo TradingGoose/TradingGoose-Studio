@@ -8,7 +8,7 @@ import {
 import { useDependsOnGate } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-depends-on-gate'
 import { useForeignCredential } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-foreign-credential'
 import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
-import { useWorkflowId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
+import { useWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 import type { SubBlockConfig } from '@/blocks/types'
 import { useWorkflowEditorActions } from '@/hooks/workflow/use-workflow-editor-actions'
 
@@ -26,7 +26,7 @@ export function FolderSelectorInput({
   const [storeValue, _setStoreValue] = useSubBlockValue(blockId, subBlock.id)
   const [connectedCredential] = useSubBlockValue(blockId, 'credential')
   const { collaborativeSetSubblockValue } = useWorkflowEditorActions()
-  const activeWorkflowId = useWorkflowId()
+  const { workflowId, workspaceId } = useWorkflowRoute()
   const [selectedFolderId, setSelectedFolderId] = useState<string>('')
   const [_folderInfo, setFolderInfo] = useState<FolderInfo | null>(null)
   const { isForeignCredential } = useForeignCredential(
@@ -49,13 +49,7 @@ export function FolderSelectorInput({
     const defaultValue = 'INBOX'
     setSelectedFolderId(defaultValue)
     collaborativeSetSubblockValue(blockId, subBlock.id, defaultValue)
-  }, [
-    blockId,
-    subBlock.id,
-    storeValue,
-    collaborativeSetSubblockValue,
-    finalDisabled,
-  ])
+  }, [blockId, subBlock.id, storeValue, collaborativeSetSubblockValue, finalDisabled])
 
   // Handle folder selection
   const handleFolderChange = (folderId: string, info?: FolderInfo) => {
@@ -75,7 +69,8 @@ export function FolderSelectorInput({
       serviceId={subBlock.serviceId}
       onFolderInfoChange={setFolderInfo}
       credentialId={(connectedCredential as string) || ''}
-      workflowId={activeWorkflowId || ''}
+      workflowId={workflowId || ''}
+      workspaceId={workspaceId}
       isForeignCredential={isForeignCredential}
     />
   )

@@ -107,7 +107,6 @@ const ListingSelectorRow = ({
   const companyName = listing ? getListingCompanyName(listing) : null
   const assetClassLabel = listing?.assetClass?.toUpperCase() ?? ''
   const flagData = getFlagData(listing?.countryCode)
-  const prefersFlagImage = typeof navigator !== 'undefined' && /Windows/i.test(navigator.userAgent)
   const flagImageUrl = flagData
     ? `https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/svg/${flagData.codepoints}.svg`
     : null
@@ -134,15 +133,13 @@ const ListingSelectorRow = ({
           {listing ? symbol : 'Select listing'}
         </span>
       )}
-      {prefersFlagImage && flagImageUrl ? (
+      {flagImageUrl ? (
         <img
           src={flagImageUrl}
           alt={`${listing?.countryCode ?? ''} flag`}
           className='ml-1 h-3.5 w-3.5'
           loading='lazy'
         />
-      ) : flagData?.emoji ? (
-        <span className='ml-1 text-xs'>{flagData.emoji}</span>
       ) : null}
       {assetClassLabel && listing ? (
         <span className='ml-auto p-1 font-semibold text-muted-foreground text-xs'>

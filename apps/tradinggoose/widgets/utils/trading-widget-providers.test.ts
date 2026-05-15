@@ -8,7 +8,7 @@ describe('trading widget provider helpers', () => {
   it('filters provider options by availability and resolves invalid persisted providers', () => {
     const options = getTradingWidgetProviderOptions('holdings', {
       'alpaca-paper': true,
-      tradier: false,
+      'tradier-live': false,
     })
 
     expect(options.map((option) => option.id)).toEqual(['alpaca'])

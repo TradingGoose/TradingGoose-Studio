@@ -114,7 +114,6 @@ Return ONLY the TwiML with square brackets - no explanations, no markdown, no ex
       type: 'trigger-save',
       hideFromPreview: true,
       mode: 'trigger',
-      triggerId: 'twilio_voice_webhook',
     },
     {
       id: 'triggerInstructions',

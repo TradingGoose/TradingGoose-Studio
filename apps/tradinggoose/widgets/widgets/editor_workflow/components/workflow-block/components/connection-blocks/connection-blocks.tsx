@@ -1,21 +1,15 @@
-import { RepeatIcon, SplitIcon } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { getIconTileStyle, sanitizeSolidIconColor } from '@/lib/ui/icon-colors'
 import { cn } from '@/lib/utils'
 import { getBlock } from '@/blocks'
 import { type ConnectedBlock, useBlockConnections } from '@/hooks/workflow/use-block-connections'
+import { getSubflowBlockConfig } from '@/widgets/widgets/editor_workflow/components/subflows/config'
 
 interface ConnectionBlocksProps {
   blockId: string
   horizontalHandles: boolean
   setIsConnecting: (isConnecting: boolean) => void
   isDisabled?: boolean
-}
-
-interface ResponseField {
-  name: string
-  type: string
-  description?: string
 }
 
 export function ConnectionBlocks({
@@ -28,11 +22,7 @@ export function ConnectionBlocks({
 
   if (!hasIncomingConnections) return null
 
-  const handleDragStart = (
-    e: React.DragEvent<HTMLDivElement>,
-    connection: ConnectedBlock,
-    field?: ResponseField
-  ) => {
+  const handleDragStart = (e: React.DragEvent<HTMLDivElement>, connection: ConnectedBlock) => {
     if (isDisabled) {
       e.preventDefault()
       return
@@ -41,23 +31,12 @@ export function ConnectionBlocks({
     e.stopPropagation() // Prevent parent drag handlers from firing
     setIsConnecting(true)
 
-    // If no specific field is provided, use all available output types
-    const outputType = field ? field.name : connection.outputType
-
     e.dataTransfer.setData(
       'application/json',
       JSON.stringify({
         type: 'connectionBlock',
         connectionData: {
-          id: connection.id,
-          name: connection.name,
-          outputType: outputType,
           sourceBlockId: connection.id,
-          fieldType: field?.type,
-          // Include all available output types for reference
-          allOutputTypes: Array.isArray(connection.outputType)
-            ? connection.outputType
-            : [connection.outputType],
         },
       })
     )
@@ -68,26 +47,13 @@ export function ConnectionBlocks({
     setIsConnecting(false)
   }
 
-  // Use connections in distance order (already sorted and deduplicated by the hook)
   const sortedConnections = incomingConnections
 
-  // Helper function to render a connection card
   const renderConnectionCard = (connection: ConnectedBlock) => {
-    // Get block configuration for icon and color
     const blockConfig = getBlock(connection.type)
-    // Handle special blocks that aren't in the registry (loop and parallel)
-    let Icon = blockConfig?.icon
-    let bgColor = sanitizeSolidIconColor(blockConfig?.bgColor)
-
-    if (!blockConfig) {
-      if (connection.type === 'loop') {
-        Icon = RepeatIcon as typeof Icon
-        bgColor = '#00ccff' // Blue color for loop blocks
-      } else if (connection.type === 'parallel') {
-        Icon = SplitIcon as typeof Icon
-        bgColor = '#ffdd00' // Yellow color for parallel blocks
-      }
-    }
+    const subflowConfig = getSubflowBlockConfig(connection.type)
+    const Icon = blockConfig?.icon ?? subflowConfig?.icon
+    const bgColor = sanitizeSolidIconColor(blockConfig?.bgColor ?? subflowConfig?.bgColor)
 
     return (
       <Card
@@ -102,7 +68,6 @@ export function ConnectionBlocks({
             : 'cursor-not-allowed opacity-60'
         )}
       >
-        {/* Block icon with color */}
         {Icon && (
           <div
             className='flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-xs bg-secondary text-foreground'
@@ -115,13 +80,6 @@ export function ConnectionBlocks({
     )
   }
 
-  // Generate all connection cards - one per block, not per output field
-  const connectionCards: React.ReactNode[] = []
-
-  sortedConnections.forEach((connection) => {
-    connectionCards.push(renderConnectionCard(connection))
-  })
-
   // Position and layout based on handle orientation.
   // When ports are horizontal: connection blocks on bottom, aligned to left.
   // When ports are vertical (default): connection blocks on left, stack vertically, aligned to right.
@@ -129,5 +87,5 @@ export function ConnectionBlocks({
     ? 'absolute top-full left-0 flex max-w-[600px] flex-wrap gap-2 pt-2'
     : 'absolute top-0 right-full flex max-h-[400px] max-w-[200px] flex-col items-end gap-2 overflow-y-auto pr-3'
 
-  return <div className={containerClasses}>{connectionCards}</div>
+  return <div className={containerClasses}>{sortedConnections.map(renderConnectionCard)}</div>
 }

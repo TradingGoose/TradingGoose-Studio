@@ -5,9 +5,7 @@ import { EditWorkflowBlockClientTool } from '@/lib/copilot/tools/client/workflow
 const mockGetReadableWorkflowState = vi.fn()
 const mockResolveWorkflowTarget = vi.fn()
 const mockSetWorkflowState = vi.fn()
-const mockGetRegisteredWorkflowSession = vi.fn()
-
-let accessLevel: 'limited' | 'full' = 'limited'
+const mockAcquireWritableWorkflowSessionLease = vi.fn()
 
 vi.mock('@/lib/copilot/tools/client/workflow/workflow-review-tool-utils', () => ({
   getReadableWorkflowState: (...args: any[]) => mockGetReadableWorkflowState(...args),
@@ -32,8 +30,9 @@ vi.mock('@/lib/copilot/tools/client/workflow/workflow-review-tool-utils', () => 
   }),
 }))
 
-vi.mock('@/lib/yjs/workflow-session-registry', () => ({
-  getRegisteredWorkflowSession: (...args: any[]) => mockGetRegisteredWorkflowSession(...args),
+vi.mock('@/lib/yjs/workflow-shared-session', () => ({
+  acquireWritableWorkflowSessionLease: (...args: any[]) =>
+    mockAcquireWritableWorkflowSessionLease(...args),
 }))
 
 vi.mock('@/lib/yjs/workflow-session', () => ({
@@ -43,7 +42,6 @@ vi.mock('@/lib/yjs/workflow-session', () => ({
 vi.mock('@/stores/copilot/store-access', () => ({
   getCopilotStoreForToolCall: () => ({
     getState: () => ({
-      accessLevel,
       toolCallsById: {},
     }),
   }),
@@ -53,11 +51,10 @@ describe('EditWorkflowBlockClientTool', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
     vi.unstubAllGlobals?.()
-    accessLevel = 'limited'
     mockGetReadableWorkflowState.mockReset()
     mockResolveWorkflowTarget.mockReset()
     mockSetWorkflowState.mockReset()
-    mockGetRegisteredWorkflowSession.mockReset()
+    mockAcquireWritableWorkflowSessionLease.mockReset()
 
     mockResolveWorkflowTarget.mockResolvedValue({
       workflowId: 'wf-1',
@@ -89,14 +86,13 @@ describe('EditWorkflowBlockClientTool', () => {
       },
     })
 
-    mockGetRegisteredWorkflowSession.mockReturnValue({
-      workflowId: 'wf-1',
-      channelId: 'pair-1',
-      yjsSessionId: 'wf-1',
-      doc: { id: 'doc-1' },
-      provider: null,
-      undoManager: null,
-    })
+    mockAcquireWritableWorkflowSessionLease.mockImplementation(async ({ workflowId }) => ({
+      session: {
+        workflowId,
+        doc: { id: 'doc-1' },
+      },
+      release: vi.fn(),
+    }))
   })
 
   it('stages block edits for review through the shared workflow review flow', async () => {

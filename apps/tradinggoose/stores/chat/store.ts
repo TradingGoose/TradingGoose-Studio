@@ -131,7 +131,7 @@ export const useChatStore = create<ChatStore>()(
           }
         },
 
-        getWorkflowMessages: (workflowId) => {
+        readWorkflowMessages: (workflowId) => {
           return get().messages.filter((message) => message.workflowId === workflowId)
         },
 
@@ -153,10 +153,6 @@ export const useChatStore = create<ChatStore>()(
           })
         },
 
-        getSelectedWorkflowOutput: (workflowId) => {
-          return get().selectedWorkflowOutputs[workflowId] || []
-        },
-
         getConversationId: (workflowId) => {
           const state = get()
           if (!state.conversationIds[workflowId]) {
@@ -174,41 +170,6 @@ export const useChatStore = create<ChatStore>()(
             return { conversationIds: newConversationIds }
           })
           return newId
-        },
-
-        appendMessageContent: (messageId, content) => {
-          set((state) => {
-            const newMessages = state.messages.map((message) => {
-              if (message.id === messageId) {
-                return {
-                  ...message,
-                  content:
-                    typeof message.content === 'string'
-                      ? message.content + content
-                      : message.content
-                        ? String(message.content) + content
-                        : content,
-                }
-              }
-              return message
-            })
-
-            return { messages: newMessages }
-          })
-        },
-
-        finalizeMessageStream: (messageId) => {
-          set((state) => {
-            const newMessages = state.messages.map((message) => {
-              if (message.id === messageId) {
-                const { isStreaming, ...rest } = message
-                return rest
-              }
-              return message
-            })
-
-            return { messages: newMessages }
-          })
         },
       }),
       {

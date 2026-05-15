@@ -37,7 +37,7 @@ export type MonitorExecutionSummary = {
 
 type UseMonitorExecutionSummariesInput = {
   workspaceId: string
-  targetMonitorIds: string[]
+  tarreadMonitorIds: string[]
   enabled: boolean
 }
 
@@ -49,7 +49,7 @@ type UseMonitorExecutionSummariesResult = {
   refresh: () => Promise<unknown>
 }
 
-const getMonitorId = (log: MonitorWorkflowLog) => {
+const readMonitorId = (log: MonitorWorkflowLog) => {
   const monitorId = (log.executionData as any)?.trigger?.data?.monitor?.id
   return typeof monitorId === 'string' && monitorId.trim() ? monitorId.trim() : null
 }
@@ -77,13 +77,13 @@ const compareLogsNewestFirst = (left: MonitorWorkflowLog, right: MonitorWorkflow
 export const shouldFetchNextMonitorSummaryPage = ({
   loadedLogs,
   summariesByMonitorId,
-  targetMonitorIds,
+  tarreadMonitorIds,
 }: {
   loadedLogs: MonitorWorkflowLog[]
   summariesByMonitorId: Record<string, MonitorExecutionSummary>
-  targetMonitorIds: string[]
+  tarreadMonitorIds: string[]
 }) => {
-  if (targetMonitorIds.some((monitorId) => !summariesByMonitorId[monitorId])) {
+  if (tarreadMonitorIds.some((monitorId) => !summariesByMonitorId[monitorId])) {
     return true
   }
 
@@ -97,16 +97,16 @@ export const shouldFetchNextMonitorSummaryPage = ({
 
 export function useMonitorExecutionSummaries({
   workspaceId,
-  targetMonitorIds,
+  tarreadMonitorIds,
   enabled,
 }: UseMonitorExecutionSummariesInput): UseMonitorExecutionSummariesResult {
-  const stableTargetMonitorIds = useMemo(
-    () => Array.from(new Set(targetMonitorIds.map((id) => id.trim()).filter(Boolean))).sort(),
-    [targetMonitorIds]
+  const stableTarreadMonitorIds = useMemo(
+    () => Array.from(new Set(tarreadMonitorIds.map((id) => id.trim()).filter(Boolean))).sort(),
+    [tarreadMonitorIds]
   )
-  const targetMonitorIdSet = useMemo(
-    () => new Set(stableTargetMonitorIds),
-    [stableTargetMonitorIds]
+  const tarreadMonitorIdSet = useMemo(
+    () => new Set(stableTarreadMonitorIds),
+    [stableTarreadMonitorIds]
   )
   const filters = useMemo(
     () => ({
@@ -124,7 +124,7 @@ export function useMonitorExecutionSummaries({
   )
 
   const logsQuery = useLogsList(workspaceId, filters, {
-    enabled: enabled && stableTargetMonitorIds.length > 0,
+    enabled: enabled && stableTarreadMonitorIds.length > 0,
     refetchInterval: false,
   })
 
@@ -137,8 +137,8 @@ export function useMonitorExecutionSummaries({
       .sort(compareLogsNewestFirst)
 
     for (const log of logs) {
-      const monitorId = getMonitorId(log)
-      if (!monitorId || !targetMonitorIdSet.has(monitorId) || summaries[monitorId]) {
+      const monitorId = readMonitorId(log)
+      if (!monitorId || !tarreadMonitorIdSet.has(monitorId) || summaries[monitorId]) {
         continue
       }
 
@@ -151,10 +151,10 @@ export function useMonitorExecutionSummaries({
     }
 
     return summaries
-  }, [logsQuery.data, targetMonitorIdSet])
+  }, [logsQuery.data, tarreadMonitorIdSet])
 
   useEffect(() => {
-    if (!enabled || stableTargetMonitorIds.length === 0) return
+    if (!enabled || stableTarreadMonitorIds.length === 0) return
     if (!logsQuery.hasNextPage || logsQuery.isFetchingNextPage) return
 
     const loadedLogs =
@@ -163,12 +163,12 @@ export function useMonitorExecutionSummaries({
       shouldFetchNextMonitorSummaryPage({
         loadedLogs,
         summariesByMonitorId,
-        targetMonitorIds: stableTargetMonitorIds,
+        tarreadMonitorIds: stableTarreadMonitorIds,
       })
     ) {
       void logsQuery.fetchNextPage()
     }
-  }, [enabled, logsQuery, stableTargetMonitorIds, summariesByMonitorId])
+  }, [enabled, logsQuery, stableTarreadMonitorIds, summariesByMonitorId])
 
   const refresh = useCallback(() => logsQuery.refetch(), [logsQuery])
 
@@ -176,7 +176,7 @@ export function useMonitorExecutionSummaries({
     summariesByMonitorId,
     isLoading:
       enabled &&
-      stableTargetMonitorIds.length > 0 &&
+      stableTarreadMonitorIds.length > 0 &&
       !logsQuery.error &&
       (!logsQuery.data || logsQuery.hasNextPage || logsQuery.isFetchingNextPage),
     isFetching: logsQuery.isFetching,

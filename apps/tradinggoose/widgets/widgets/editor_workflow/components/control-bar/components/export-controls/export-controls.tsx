@@ -24,7 +24,7 @@ export function ExportControls({ disabled = false, variant = 'workspace' }: Expo
   const [isExporting, setIsExporting] = useState(false)
   const { workflows } = useWorkflowRegistry()
   const { workflowId, channelId } = useWorkflowRoute()
-  const { getJson: getWorkflowExportJson } = useWorkflowJsonStore()
+  const { getJson: readWorkflowExportJson } = useWorkflowJsonStore()
 
   const currentWorkflow = workflowId ? workflows[workflowId] : null
   const workflowWorkspaceId = currentWorkflow?.workspaceId ?? null
@@ -59,7 +59,7 @@ export function ExportControls({ disabled = false, variant = 'workspace' }: Expo
       const refreshedSkills = workflowWorkspaceId ? await refetchWorkspaceSkills() : null
       const exportWorkspaceSkills = refreshedSkills?.data ?? workspaceSkills
 
-      const jsonContent = await getWorkflowExportJson({
+      const jsonContent = await readWorkflowExportJson({
         workflowId,
         channelId,
         workspaceSkills: exportWorkspaceSkills,

@@ -183,12 +183,10 @@ export const WealthboxBlock: BlockConfig<WealthboxResponse> = {
         }
       },
       params: (params) => {
-        const { credential, operation, contactId, manualContactId, taskId, manualTaskId, ...rest } =
-          params
+        const { credential, operation, contactId, taskId, ...rest } = params
 
-        // Handle both selector and manual inputs
-        const effectiveContactId = (contactId || manualContactId || '').trim()
-        const effectiveTaskId = (taskId || manualTaskId || '').trim()
+        const effectiveContactId = (contactId || '').trim()
+        const effectiveTaskId = (taskId || '').trim()
 
         const baseParams = {
           ...rest,
@@ -239,9 +237,7 @@ export const WealthboxBlock: BlockConfig<WealthboxResponse> = {
     credential: { type: 'string', description: 'Wealthbox access token' },
     noteId: { type: 'string', description: 'Note identifier' },
     contactId: { type: 'string', description: 'Contact identifier' },
-    manualContactId: { type: 'string', description: 'Manual contact identifier' },
     taskId: { type: 'string', description: 'Task identifier' },
-    manualTaskId: { type: 'string', description: 'Manual task identifier' },
     content: { type: 'string', description: 'Content text' },
     firstName: { type: 'string', description: 'First name' },
     lastName: { type: 'string', description: 'Last name' },

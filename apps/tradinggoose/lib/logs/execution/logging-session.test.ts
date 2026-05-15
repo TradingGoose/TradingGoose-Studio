@@ -3,6 +3,7 @@
  */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import type { WorkflowState } from '@/lib/logs/types'
 import { LoggingSession } from './logging-session'
 
 const mocks = vi.hoisted(() => ({
@@ -51,14 +52,6 @@ const mocks = vi.hoisted(() => ({
   getResolvedBillingSettings: vi.fn(() => Promise.resolve({ billingEnabled: false })),
   getTierWorkflowExecutionMultiplier: vi.fn(() => 1),
   getTierWorkflowModelCostMultiplier: vi.fn(() => 1),
-  loadWorkflowStateForExecution: vi.fn(() =>
-    Promise.resolve({
-      blocks: { block1: { id: 'block1' } },
-      edges: [],
-      loops: {},
-      parallels: {},
-    })
-  ),
   loadWorkflowSummaryForExecution: vi.fn(() =>
     Promise.resolve({
       color: '#000000',
@@ -116,8 +109,6 @@ vi.mock('@/lib/logs/execution/logging-factory', () => ({
   calculateCostSummary: (...args: unknown[]) => (mocks.calculateCostSummary as any)(...args),
   createEnvironmentObject: (...args: unknown[]) => (mocks.createEnvironmentObject as any)(...args),
   createTriggerObject: (...args: unknown[]) => (mocks.createTriggerObject as any)(...args),
-  loadWorkflowStateForExecution: (...args: unknown[]) =>
-    (mocks.loadWorkflowStateForExecution as any)(...args),
   loadWorkflowSummaryForExecution: (...args: unknown[]) =>
     (mocks.loadWorkflowSummaryForExecution as any)(...args),
 }))
@@ -127,6 +118,23 @@ vi.mock('@/lib/telemetry/tracer', () => ({
 }))
 
 describe('LoggingSession', () => {
+  const workflowState: WorkflowState = {
+    blocks: {
+      block1: {
+        id: 'block1',
+        type: 'agent',
+        name: 'Agent',
+        position: { x: 0, y: 0 },
+        subBlocks: {},
+        outputs: {},
+        enabled: true,
+      },
+    },
+    edges: [],
+    loops: {},
+    parallels: {},
+  }
+
   beforeEach(() => {
     vi.clearAllMocks()
     mocks.getResolvedBillingSettings.mockResolvedValue({ billingEnabled: false })
@@ -145,11 +153,11 @@ describe('LoggingSession', () => {
         userId: 'user-1',
         variables: { API_URL: 'https://example.com' },
         workspaceId: 'workspace-1',
+        workflowState,
       })
     ).resolves.toBe('log-1')
 
     expect(mocks.loadWorkflowSummaryForExecution).toHaveBeenCalledWith('workflow-1')
-    expect(mocks.loadWorkflowStateForExecution).toHaveBeenCalledWith('workflow-1')
     expect(mocks.startWorkflowExecution).toHaveBeenCalledWith({
       environment: {
         executionId: 'execution-1',
@@ -166,12 +174,7 @@ describe('LoggingSession', () => {
         type: 'manual',
       },
       workflowId: 'workflow-1',
-      workflowState: {
-        blocks: { block1: { id: 'block1' } },
-        edges: [],
-        loops: {},
-        parallels: {},
-      },
+      workflowState,
       workflowSummary: expect.objectContaining({
         id: 'workflow-1',
         workspaceId: 'workspace-1',
@@ -181,7 +184,7 @@ describe('LoggingSession', () => {
 
   it('completes failed executions with a root error span and final output', async () => {
     const session = new LoggingSession('workflow-1', 'execution-1', 'manual', 'request-1')
-    await session.start({ userId: 'user-1', workspaceId: 'workspace-1' })
+    await session.start({ userId: 'user-1', workspaceId: 'workspace-1', workflowState })
 
     await session.completeWithError({
       endedAt: '2026-04-23T00:00:00.000Z',
@@ -207,7 +210,6 @@ describe('LoggingSession', () => {
           type: 'workflow',
         }),
       ],
-      workflowId: 'workflow-1',
       workflowLogId: 'log-1',
       workspaceId: 'workspace-1',
     })
@@ -244,7 +246,6 @@ describe('LoggingSession', () => {
         executionId: 'execution-1',
         finalOutput: { ok: true },
         totalDurationMs: 1000,
-        workflowId: 'workflow-1',
         workflowLogId: 'log-1',
         workspaceId: 'workspace-1',
       })

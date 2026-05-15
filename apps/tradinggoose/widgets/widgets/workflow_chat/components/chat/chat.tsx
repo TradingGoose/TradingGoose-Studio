@@ -1,24 +1,19 @@
 'use client'
 
 import { type KeyboardEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { AlertCircle, Send, File, FileText, Image, Paperclip, X } from 'lucide-react'
+import { AlertCircle, File, FileText, Image, Paperclip, Send, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { createLogger } from '@/lib/logs/console/logger'
-import {
-  extractBlockIdFromOutputId,
-  extractPathFromOutputId,
-  parseOutputContentSafely,
-} from '@/lib/response-format'
 import { cn } from '@/lib/utils'
-import { ChatMessage } from '..'
-import { useWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
+import { createChatOutputEventReader } from '@/lib/workflows/chat-output'
 import { useWorkflowExecution } from '@/hooks/workflow/use-workflow-execution'
-import type { BlockLog, ExecutionResult } from '@/executor/types'
-import { useExecutionStore } from '@/stores/execution/store'
 import { useChatStore } from '@/stores/chat/store'
-import { useConsoleStore } from '@/stores/console/store'
+import type { ChatMessage as StoredChatMessage } from '@/stores/chat/types'
+import { useExecutionStore } from '@/stores/execution/store'
+import { useWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
+import { ChatMessage } from '..'
 
 const logger = createLogger('ChatPanel')
 
@@ -39,46 +34,30 @@ interface ChatProps {
 export function Chat({ chatMessage, setChatMessage, hideScrollbar = true }: ChatProps) {
   const { workflowId: currentWorkflowId } = useWorkflowRoute()
 
-  const {
-    messages,
-    addMessage,
-    getSelectedWorkflowOutput,
-    appendMessageContent,
-    finalizeMessageStream,
-    getConversationId,
-  } = useChatStore()
-  const { entries } = useConsoleStore()
+  const { messages, addMessage, selectedWorkflowOutputs, getConversationId } = useChatStore()
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const scrollAreaRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const timeoutRef = useRef<NodeJS.Timeout | null>(null)
-  const abortControllerRef = useRef<AbortController | null>(null)
 
   // Prompt history state
   const [promptHistory, setPromptHistory] = useState<string[]>([])
   const [historyIndex, setHistoryIndex] = useState(-1)
+  const [streamingMessage, setStreamingMessage] = useState<StoredChatMessage | null>(null)
 
   // File upload state
   const [chatFiles, setChatFiles] = useState<ChatFile[]>([])
-  const [isUploadingFiles, setIsUploadingFiles] = useState(false)
   const [uploadErrors, setUploadErrors] = useState<string[]>([])
   const [dragCounter, setDragCounter] = useState(0)
   const isDragOver = dragCounter > 0
   // Scroll state
   const [isNearBottom, setIsNearBottom] = useState(true)
-  const [showScrollButton, setShowScrollButton] = useState(false)
 
   // Use the execution store state to track if a workflow is executing
   const { isExecuting } = useExecutionStore()
 
   // Get workflow execution functionality
   const { handleRunWorkflow } = useWorkflowExecution()
-
-  // Get output entries from console for the dropdown
-  const outputEntries = useMemo(() => {
-    if (!currentWorkflowId) return []
-    return entries.filter((entry) => entry.workflowId === currentWorkflowId && entry.output)
-  }, [entries, currentWorkflowId])
 
   // Get filtered messages for current workflow
   const workflowMessages = useMemo(() => {
@@ -87,6 +66,10 @@ export function Chat({ chatMessage, setChatMessage, hideScrollbar = true }: Chat
       .filter((msg) => msg.workflowId === currentWorkflowId)
       .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
   }, [messages, currentWorkflowId])
+
+  const visibleMessages = useMemo(() => {
+    return streamingMessage ? [...workflowMessages, streamingMessage] : workflowMessages
+  }, [streamingMessage, workflowMessages])
 
   // Memoize user messages for performance
   const userMessages = useMemo(() => {
@@ -101,6 +84,7 @@ export function Chat({ chatMessage, setChatMessage, hideScrollbar = true }: Chat
     if (!currentWorkflowId) {
       setPromptHistory([])
       setHistoryIndex(-1)
+      setStreamingMessage(null)
       return
     }
 
@@ -111,9 +95,9 @@ export function Chat({ chatMessage, setChatMessage, hideScrollbar = true }: Chat
   // Get selected workflow outputs (shared by workflow)
   const selectedOutputs = useMemo(() => {
     if (!currentWorkflowId) return []
-    const outputs = getSelectedWorkflowOutput(currentWorkflowId)
+    const outputs = selectedWorkflowOutputs[currentWorkflowId]
     return outputs?.length ? [...new Set(outputs)] : []
-  }, [currentWorkflowId, getSelectedWorkflowOutput])
+  }, [currentWorkflowId, selectedWorkflowOutputs])
 
   // Focus input helper with proper cleanup
   const focusInput = useCallback((delay = 0) => {
@@ -126,13 +110,6 @@ export function Chat({ chatMessage, setChatMessage, hideScrollbar = true }: Chat
         inputRef.current.focus({ preventScroll: true })
       }
     }, delay)
-  }, [])
-
-  // Scroll to bottom function
-  const scrollToBottom = useCallback(() => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' })
-    }
   }, [])
 
   // Handle scroll events to track user position
@@ -150,7 +127,6 @@ export function Chat({ chatMessage, setChatMessage, hideScrollbar = true }: Chat
     // Consider "near bottom" if within 100px of bottom
     const nearBottom = distanceFromBottom <= 100
     setIsNearBottom(nearBottom)
-    setShowScrollButton(!nearBottom)
   }, [])
 
   // Cleanup on unmount
@@ -158,9 +134,6 @@ export function Chat({ chatMessage, setChatMessage, hideScrollbar = true }: Chat
     return () => {
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current)
-      }
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort()
       }
     }
   }, [])
@@ -195,9 +168,9 @@ export function Chat({ chatMessage, setChatMessage, hideScrollbar = true }: Chat
   // Auto-scroll to bottom when new messages are added, but only if user is near bottom
   // Exception: Always scroll when sending a new message
   useEffect(() => {
-    if (workflowMessages.length === 0) return
+    if (visibleMessages.length === 0) return
 
-    const lastMessage = workflowMessages[workflowMessages.length - 1]
+    const lastMessage = visibleMessages[visibleMessages.length - 1]
     const isNewUserMessage = lastMessage?.type === 'user'
 
     // Always scroll for new user messages, or only if near bottom for assistant messages
@@ -205,17 +178,11 @@ export function Chat({ chatMessage, setChatMessage, hideScrollbar = true }: Chat
       messagesEndRef.current.scrollIntoView({ behavior: 'smooth' })
       // Let the scroll event handler update the state naturally after animation completes
     }
-  }, [workflowMessages, isNearBottom])
+  }, [visibleMessages, isNearBottom])
 
   // Handle send message
   const handleSendMessage = useCallback(async () => {
-    if (
-      (!chatMessage.trim() && chatFiles.length === 0) ||
-      !currentWorkflowId ||
-      isExecuting ||
-      isUploadingFiles
-    )
-      return
+    if ((!chatMessage.trim() && chatFiles.length === 0) || !currentWorkflowId || isExecuting) return
 
     // Store the message being sent for reference
     const sentMessage = chatMessage.trim()
@@ -231,15 +198,41 @@ export function Chat({ chatMessage, setChatMessage, hideScrollbar = true }: Chat
     // Reset history index
     setHistoryIndex(-1)
 
-    // Cancel any existing operations
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort()
-    }
-    abortControllerRef.current = new AbortController()
-
     // Get the conversationId for this workflow before adding the message
     const conversationId = getConversationId(currentWorkflowId)
     let result: any = null
+    const streamState = {
+      id: crypto.randomUUID(),
+      content: '',
+      timestamp: new Date().toISOString(),
+      errorShown: false,
+    }
+    const outputReader = createChatOutputEventReader(selectedOutputs)
+    const appendStreamContent = (content: string, blockId: string) => {
+      if (!content) return
+
+      streamState.content = `${streamState.content}${content}`
+      setStreamingMessage({
+        id: streamState.id,
+        content: streamState.content,
+        workflowId: currentWorkflowId,
+        type: 'workflow',
+        timestamp: streamState.timestamp,
+        blockId,
+      })
+    }
+    const appendStreamError = (message: string, blockId = 'workflow') => {
+      if (streamState.errorShown) return
+      streamState.errorShown = true
+      const prefix = streamState.content ? '\n\n' : ''
+      appendStreamContent(`${prefix}Error: ${message}`, blockId)
+    }
+    const appendOutputEvents = (events: ReturnType<typeof outputReader.readEvent>) => {
+      for (const event of events) {
+        if (event.type === 'content') appendStreamContent(event.content, event.blockId)
+        if (event.type === 'error') appendStreamError(event.message, event.blockId)
+      }
+    }
 
     try {
       // Read files as data URLs for display in chat (only images to avoid localStorage quota issues)
@@ -301,152 +294,31 @@ export function Chat({ chatMessage, setChatMessage, hideScrollbar = true }: Chat
       setChatMessage('')
       setChatFiles([])
       setUploadErrors([])
+      setStreamingMessage(null)
       focusInput(10)
 
       // Execute the workflow to generate a response
-      result = await handleRunWorkflow(workflowInput)
+      result = await handleRunWorkflow({
+        input: workflowInput,
+        triggerType: 'chat',
+        selectedOutputs,
+        onEvent: (event) => appendOutputEvents(outputReader.readEvent(event)),
+      })
     } catch (error) {
       logger.error('Error in handleSendMessage:', error)
-      setIsUploadingFiles(false)
-      // You might want to show an error message to the user here
       return
     }
 
-    // Check if we got a streaming response
-    if (result && 'stream' in result && result.stream instanceof ReadableStream) {
-      // Create a single message for all outputs (like chat client does)
-      const responseMessageId = crypto.randomUUID()
-      let accumulatedContent = ''
-
-      // Add initial streaming message
+    if (outputReader.hasEmittedContent()) {
+      if (result && 'success' in result && !result.success && !streamState.errorShown) {
+        appendStreamError('error' in result ? result.error : 'Workflow execution failed.')
+      }
       addMessage({
-        id: responseMessageId,
-        content: '',
+        content: streamState.content,
         workflowId: currentWorkflowId,
         type: 'workflow',
-        isStreaming: true,
       })
-
-      const reader = result.stream.getReader()
-      const decoder = new TextDecoder()
-
-      const processStream = async () => {
-        while (true) {
-          const { done, value } = await reader.read()
-          if (done) {
-            // Finalize the streaming message
-            finalizeMessageStream(responseMessageId)
-            break
-          }
-
-          const chunk = decoder.decode(value)
-          const lines = chunk.split('\n\n')
-
-          for (const line of lines) {
-            if (line.startsWith('data: ')) {
-              const data = line.substring(6)
-
-              if (data === '[DONE]') {
-                continue
-              }
-
-              try {
-                const json = JSON.parse(data)
-                const { blockId, chunk: contentChunk, event, data: eventData } = json
-
-                if (event === 'final' && eventData) {
-                  const result = eventData as ExecutionResult
-
-                  // If final result is a failure, surface error and stop
-                  if ('success' in result && !result.success) {
-                    // Update the existing message with error
-                    appendMessageContent(
-                      responseMessageId,
-                      `${accumulatedContent ? '\n\n' : ''}Error: ${result.error || 'Workflow execution failed'}`
-                    )
-                    finalizeMessageStream(responseMessageId)
-
-                    // Stop processing
-                    return
-                  }
-
-                  // Final event just marks completion, content already streamed
-                  finalizeMessageStream(responseMessageId)
-                } else if (blockId && contentChunk) {
-                  // Accumulate all content into the single message
-                  accumulatedContent += contentChunk
-                  appendMessageContent(responseMessageId, contentChunk)
-                }
-              } catch (e) {
-                logger.error('Error parsing stream data:', e)
-              }
-            }
-          }
-        }
-      }
-
-      processStream()
-        .catch((e) => logger.error('Error processing stream:', e))
-        .finally(() => {
-          // Restore focus after streaming completes
-          focusInput(100)
-        })
-    } else if (result && 'success' in result && result.success && 'logs' in result) {
-      const finalOutputs: any[] = []
-
-      if (selectedOutputs?.length > 0) {
-        for (const outputId of selectedOutputs) {
-          const blockIdForOutput = extractBlockIdFromOutputId(outputId)
-          const path = extractPathFromOutputId(outputId, blockIdForOutput)
-          const log = result.logs?.find((l: BlockLog) => l.blockId === blockIdForOutput)
-
-          if (log) {
-            let output = log.output
-
-            if (path) {
-              // Parse JSON content safely
-              output = parseOutputContentSafely(output)
-
-              const pathParts = path.split('.')
-              let current = output
-              for (const part of pathParts) {
-                if (current && typeof current === 'object' && part in current) {
-                  current = current[part]
-                } else {
-                  current = undefined
-                  break
-                }
-              }
-              output = current
-            }
-            if (output !== undefined) {
-              finalOutputs.push(output)
-            }
-          }
-        }
-      }
-
-      // Only show outputs if something was explicitly selected
-      // If no outputs are selected, don't show anything
-
-      // Add a new message for each resolved output
-      finalOutputs.forEach((output) => {
-        let content = ''
-        if (typeof output === 'string') {
-          content = output
-        } else if (output && typeof output === 'object') {
-          // For structured responses, pretty print the JSON
-          content = `\`\`\`json\n${JSON.stringify(output, null, 2)}\n\`\`\``
-        }
-
-        if (content) {
-          addMessage({
-            content,
-            workflowId: currentWorkflowId,
-            type: 'workflow',
-          })
-        }
-      })
+      setStreamingMessage(null)
     } else if (result && 'success' in result && !result.success) {
       addMessage({
         content: `Error: ${'error' in result ? result.error : 'Workflow execution failed.'}`,
@@ -460,7 +332,6 @@ export function Chat({ chatMessage, setChatMessage, hideScrollbar = true }: Chat
   }, [
     chatMessage,
     chatFiles,
-    isUploadingFiles,
     currentWorkflowId,
     isExecuting,
     promptHistory,
@@ -468,8 +339,6 @@ export function Chat({ chatMessage, setChatMessage, hideScrollbar = true }: Chat
     addMessage,
     handleRunWorkflow,
     selectedOutputs,
-    appendMessageContent,
-    finalizeMessageStream,
     focusInput,
     setChatMessage,
     setChatFiles,
@@ -513,7 +382,7 @@ export function Chat({ chatMessage, setChatMessage, hideScrollbar = true }: Chat
       <div className='flex flex-1 flex-col overflow-hidden'>
         {/* Chat messages section - Scrollable area */}
         <div className='relative flex-1 overflow-hidden'>
-          {workflowMessages.length === 0 ? (
+          {visibleMessages.length === 0 ? (
             <div className='flex h-full items-center justify-center text-muted-foreground text-sm'>
               No messages yet
             </div>
@@ -524,7 +393,7 @@ export function Chat({ chatMessage, setChatMessage, hideScrollbar = true }: Chat
                 hideScrollbar={hideScrollbar}
               >
                 <div className='space-y-2'>
-                  {workflowMessages.map((message) => (
+                  {visibleMessages.map((message) => (
                     <ChatMessage key={message.id} message={message} />
                   ))}
                   <div ref={messagesEndRef} />
@@ -540,14 +409,14 @@ export function Chat({ chatMessage, setChatMessage, hideScrollbar = true }: Chat
           onDragEnter={(e) => {
             e.preventDefault()
             e.stopPropagation()
-            if (!(!currentWorkflowId || isExecuting || isUploadingFiles)) {
+            if (!(!currentWorkflowId || isExecuting)) {
               setDragCounter((prev) => prev + 1)
             }
           }}
           onDragOver={(e) => {
             e.preventDefault()
             e.stopPropagation()
-            if (!(!currentWorkflowId || isExecuting || isUploadingFiles)) {
+            if (!(!currentWorkflowId || isExecuting)) {
               e.dataTransfer.dropEffect = 'copy'
             }
           }}
@@ -560,7 +429,7 @@ export function Chat({ chatMessage, setChatMessage, hideScrollbar = true }: Chat
             e.preventDefault()
             e.stopPropagation()
             setDragCounter(0)
-            if (!(!currentWorkflowId || isExecuting || isUploadingFiles)) {
+            if (!(!currentWorkflowId || isExecuting)) {
               const droppedFiles = Array.from(e.dataTransfer.files)
               if (droppedFiles.length > 0) {
                 const remainingSlots = Math.max(0, 5 - chatFiles.length)
@@ -629,10 +498,11 @@ export function Chat({ chatMessage, setChatMessage, hideScrollbar = true }: Chat
 
           {/* Combined input container matching copilot style */}
           <div
-            className={`rounded-md border border-border bg-background p-2 shadow-xs transition-all duration-200 dark:border-[#414141]  ${isDragOver
-              ? 'border-primary-hover bg-amber-50/50 dark:border-primary-hover dark:bg-amber-950/20'
-              : ''
-              }`}
+            className={`rounded-md border border-border bg-background p-2 shadow-xs transition-all duration-200 dark:border-[#414141] ${
+              isDragOver
+                ? 'border-primary-hover bg-amber-50/50 dark:border-primary-hover dark:bg-amber-950/20'
+                : ''
+            }`}
           >
             {/* File thumbnails */}
             {chatFiles.length > 0 && (
@@ -666,10 +536,11 @@ export function Chat({ chatMessage, setChatMessage, hideScrollbar = true }: Chat
                   return (
                     <div
                       key={file.id}
-                      className={`group relative overflow-hidden rounded-md border border-border/50 bg-muted/20 ${previewUrl
-                        ? 'h-16 w-16'
-                        : 'flex h-16 min-w-[120px] max-w-[200px] items-center gap-2 px-2'
-                        }`}
+                      className={`group relative overflow-hidden rounded-md border border-border/50 bg-muted/20 ${
+                        previewUrl
+                          ? 'h-16 w-16'
+                          : 'flex h-16 min-w-[120px] max-w-[200px] items-center gap-2 px-2'
+                      }`}
                     >
                       {previewUrl ? (
                         <img
@@ -719,9 +590,7 @@ export function Chat({ chatMessage, setChatMessage, hideScrollbar = true }: Chat
                 variant='ghost'
                 size='icon'
                 onClick={() => document.getElementById('chat-file-input')?.click()}
-                disabled={
-                  !currentWorkflowId || isExecuting || isUploadingFiles || chatFiles.length >= 5
-                }
+                disabled={!currentWorkflowId || isExecuting || chatFiles.length >= 5}
                 className='h-6 w-6 shrink-0 text-muted-foreground hover:text-foreground'
                 title='Attach files'
               >
@@ -777,7 +646,7 @@ export function Chat({ chatMessage, setChatMessage, hideScrollbar = true }: Chat
                   e.target.value = ''
                 }}
                 className='hidden'
-                disabled={!currentWorkflowId || isExecuting || isUploadingFiles}
+                disabled={!currentWorkflowId || isExecuting}
               />
 
               {/* Text input */}
@@ -791,7 +660,7 @@ export function Chat({ chatMessage, setChatMessage, hideScrollbar = true }: Chat
                 onKeyDown={handleKeyPress}
                 placeholder={isDragOver ? 'Drop files here...' : 'Type a message...'}
                 className='h-7 flex-1 border-0 bg-transparent font-sans text-foreground text-sm shadow-none placeholder:text-muted-foreground focus-visible:ring-0 focus-visible:ring-offset-0'
-                disabled={!currentWorkflowId || isExecuting || isUploadingFiles}
+                disabled={!currentWorkflowId || isExecuting}
               />
 
               {/* Send button */}
@@ -801,8 +670,7 @@ export function Chat({ chatMessage, setChatMessage, hideScrollbar = true }: Chat
                 disabled={
                   (!chatMessage.trim() && chatFiles.length === 0) ||
                   !currentWorkflowId ||
-                  isExecuting ||
-                  isUploadingFiles
+                  isExecuting
                 }
                 className='h-6 w-6 shrink-0 rounded-sm bg-primary-hover text-black shadow-[0_0_0_0_var(--primary-hover)] transition-all duration-200 hover:bg-primary-hover '
               >

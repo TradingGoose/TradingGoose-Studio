@@ -2,15 +2,15 @@
 
 import React, { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
-import * as Y from 'yjs'
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import * as Y from 'yjs'
+import { createYjsUndoTrackedOrigins, YJS_ORIGINS } from './transaction-origins'
 import {
   bindWorkflowTextObserver,
   getLoopCollectionDataUpdate,
   getParallelCollectionDataUpdate,
 } from './use-workflow-doc'
-import { createYjsUndoTrackedOrigins, YJS_ORIGINS } from './transaction-origins'
-import { createWorkflowTextFieldKey, getWorkflowTextFieldsMap } from './workflow-session'
+import { createWorkflowTextFieldKey, readWorkflowTextFieldsMap } from './workflow-session'
 
 let container: HTMLDivElement | null = null
 let root: Root | null = null
@@ -32,6 +32,7 @@ afterEach(async () => {
   container = null
   vi.resetModules()
   vi.unmock('@/lib/yjs/workflow-session-host')
+  vi.unmock('@/blocks')
 })
 
 afterAll(() => {
@@ -56,7 +57,7 @@ describe('workflow mutation helpers', () => {
 
   it('binds and cleans up existing Y.Text observers without double-unobserve errors', () => {
     const doc = new Y.Doc()
-    const textFields = getWorkflowTextFieldsMap(doc)
+    const textFields = readWorkflowTextFieldsMap(doc)
     const text = new Y.Text()
     text.insert(0, 'hello')
     textFields.set(createWorkflowTextFieldKey('block-1', 'code'), text)
@@ -87,7 +88,7 @@ describe('useWorkflowBlocks', () => {
     sharedText.insert(0, 'live-ytext-value')
 
     const workflowMap = doc.getMap('workflow')
-    const textFields = getWorkflowTextFieldsMap(doc)
+    const textFields = readWorkflowTextFieldsMap(doc)
     workflowMap.set('blocks', {
       'block-1': {
         id: 'block-1',
@@ -401,7 +402,7 @@ describe('useWorkflowMutations', () => {
     const textFieldKey = createWorkflowTextFieldKey('block-2', 'code')
     const sharedText = new Y.Text()
     sharedText.insert(0, 'return <myblock.output>')
-    getWorkflowTextFieldsMap(doc).set(textFieldKey, sharedText)
+    readWorkflowTextFieldsMap(doc).set(textFieldKey, sharedText)
 
     const session = {
       doc,
@@ -441,9 +442,7 @@ describe('useWorkflowMutations', () => {
     expect(blocks['block-2']?.subBlocks?.prompt?.value).toBe(
       'Use <humanfriendlyname.result> and <humanfriendlyname>'
     )
-    expect(blocks['block-2']?.subBlocks?.code?.value).toBe(
-      'return <humanfriendlyname.output>'
-    )
+    expect(blocks['block-2']?.subBlocks?.code?.value).toBe('return <humanfriendlyname.output>')
     expect(sharedText.toString()).toBe('return <humanfriendlyname.output>')
   })
 
@@ -567,7 +566,7 @@ describe('useWorkflowTextField', () => {
     try {
       const doc = new Y.Doc()
       const workflowMap = doc.getMap('workflow')
-      const textFields = getWorkflowTextFieldsMap(doc)
+      const textFields = readWorkflowTextFieldsMap(doc)
       const sharedText = new Y.Text()
       sharedText.insert(0, '')
       textFields.set(createWorkflowTextFieldKey('block-1', 'code'), sharedText)

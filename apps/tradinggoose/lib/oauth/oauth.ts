@@ -82,7 +82,7 @@ export type OAuthService =
   | 'wealthbox'
   | 'onedrive'
   | 'webflow'
-  | 'tradier'
+  | 'tradier-live'
   | string
 
 export interface OAuthCredentialFieldConfig {
@@ -117,6 +117,7 @@ const DEFAULT_OAUTH_CREDENTIAL_FIELDS: OAuthCredentialFieldConfig[] = [
 ]
 
 const ALPACA_OAUTH_SCOPES = ['trading', 'data']
+const TRADIER_OAUTH_SCOPES = ['read', 'write', 'trade']
 
 export interface OAuthProviderConfig {
   id: OAuthProvider
@@ -613,17 +614,17 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
     name: 'Tradier',
     icon: (props) => DollarIcon(props),
     services: {
-      tradier: {
-        id: 'tradier',
-        name: 'Tradier',
-        description: 'Trade equities and retrieve account data from Tradier.',
-        providerId: 'tradier',
+      'tradier-live': {
+        id: 'tradier-live',
+        name: 'Tradier Live',
+        description: 'Trade equities and retrieve account data from a Tradier live account.',
+        providerId: 'tradier-live',
         icon: (props) => DollarIcon(props),
         baseProviderIcon: (props) => DollarIcon(props),
-        scopes: ['read', 'write', 'trade'],
+        scopes: TRADIER_OAUTH_SCOPES,
       },
     },
-    defaultService: 'tradier',
+    defaultService: 'tradier-live',
   },
   hubspot: {
     id: 'hubspot',
@@ -808,6 +809,7 @@ export interface Credential {
   serviceId?: string
   lastUsed?: string
   isDefault?: boolean
+  isOwner?: boolean
   scopes?: string[]
 }
 

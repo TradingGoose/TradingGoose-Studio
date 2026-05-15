@@ -1,541 +1,393 @@
+import { randomUUID } from 'node:crypto'
 import { type NextRequest, NextResponse } from 'next/server'
-import { v4 as uuidv4 } from 'uuid'
-import {
-  authenticateApiKeyFromHeader,
-  updateApiKeyLastUsed,
-} from '@/lib/api-key/service'
-import { getSession } from '@/lib/auth'
-import { env } from '@/lib/env'
+import { AuthType } from '@/lib/auth/hybrid'
 import {
   ExecutionGateError,
   enforceServerExecutionRateLimit,
 } from '@/lib/execution/execution-concurrency-limit'
-import { processExecutionFiles } from '@/lib/execution/files'
+import {
+  cancelPendingWorkflowExecution,
+  enqueuePendingExecution,
+  isPendingExecutionLimitError,
+} from '@/lib/execution/pending-execution'
+import { readWorkflowExecutionEventState } from '@/lib/execution/workflow-execution-events'
+import { openWorkflowExecutionEventStream } from '@/lib/execution/workflow-execution-stream'
 import { createLogger } from '@/lib/logs/console/logger'
-import { generateRequestId } from '@/lib/utils'
-import {
-  runWorkflowExecution,
-  WorkflowUsageLimitError,
-} from '@/lib/workflows/execution-runner'
+import { TriggerExecutionUnavailableError } from '@/lib/trigger/settings'
+import { encodeSSE, generateRequestId, SSE_HEADERS } from '@/lib/utils'
+import { createChatOutputEventReader } from '@/lib/workflows/chat-output'
 import { loadDeployedWorkflowState } from '@/lib/workflows/db-helpers'
-import {
-  createHttpResponseFromBlock,
-  workflowHasResponseBlock,
-} from '@/lib/workflows/utils'
+import type { WorkflowExecutionEventEntry } from '@/lib/workflows/execution-events'
+import { createPublicExecutionResult, isExecutionResult } from '@/lib/workflows/execution-result'
+import { processWorkflowInputFormatFiles } from '@/lib/workflows/input-format-files'
+import { createHttpResponseFromBlock, workflowHasResponseBlock } from '@/lib/workflows/utils'
 import { validateWorkflowAccess } from '@/app/api/workflows/middleware'
-import {
-  createErrorResponse,
-  createSuccessResponse,
-} from '@/app/api/workflows/utils'
-import { RateLimitError, type TriggerType } from '@/services/queue'
+import { createErrorResponse, createSuccessResponse } from '@/app/api/workflows/utils'
+import type { ExecutionResult } from '@/executor/types'
+import { RateLimitError } from '@/services/queue'
 
 const logger = createLogger('WorkflowExecuteAPI')
+const API_EXECUTION_POLL_INTERVAL_MS = 1_000
+const API_EXECUTION_WAIT_TIMEOUT_MS = 25_000
+const UNSUPPORTED_API_EXECUTE_FIELDS = [
+  'workflowTriggerType',
+  'isSecureMode',
+  'useDraftState',
+  'isClientSession',
+  'workflowData',
+  'workflowStateOverride',
+  'workflowVariables',
+  'startBlockId',
+  'executionId',
+] as const
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
-export function createFilteredResult(result: any) {
-  return {
-    ...result,
-    logs: undefined,
-    metadata: result.metadata
-      ? {
-          ...result.metadata,
-          workflowConnections: undefined,
-        }
-      : undefined,
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
+
+class ApiWorkflowResultTimeoutError extends Error {
+  constructor() {
+    super('Workflow execution did not finish before the API response timeout')
   }
 }
 
-/**
- * Resolves output IDs to the internal blockId_attribute format
- * Supports both:
- * - User-facing format: blockName.path (e.g., "agent1.content")
- * - Internal format: blockId_attribute (e.g., "uuid_content") - used by chat deployments
- */
-function resolveOutputIds(
-  selectedOutputs: string[] | undefined,
-  blocks: Record<string, any>,
-): string[] | undefined {
-  if (!selectedOutputs || selectedOutputs.length === 0) {
-    return selectedOutputs
-  }
+class ApiWorkflowResultFailedError extends Error {}
 
-  const UUID_REGEX =
-    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i
-
-  return selectedOutputs.map((outputId) => {
-    if (UUID_REGEX.test(outputId)) {
-      return outputId
-    }
-
-    const dotIndex = outputId.indexOf('.')
-    if (dotIndex === -1) {
-      logger.warn(`Invalid output ID format (missing dot): ${outputId}`)
-      return outputId
-    }
-
-    const blockName = outputId.substring(0, dotIndex)
-    const path = outputId.substring(dotIndex + 1)
-
-    const normalizedBlockName = blockName.toLowerCase().replace(/\s+/g, '')
-    const block = Object.values(blocks).find((b: any) => {
-      const normalized = (b.name || '').toLowerCase().replace(/\s+/g, '')
-      return normalized === normalizedBlockName
+async function waitForApiWorkflowResult(params: {
+  executionId: string
+  workflowId: string
+}): Promise<ExecutionResult> {
+  const deadline = Date.now() + API_EXECUTION_WAIT_TIMEOUT_MS
+  while (Date.now() < deadline) {
+    const state = await readWorkflowExecutionEventState({
+      pendingExecutionId: params.executionId,
+      workflowId: params.workflowId,
     })
 
-    if (!block) {
-      logger.warn(
-        `Block not found for name: ${blockName} (from output ID: ${outputId})`,
-      )
-      return outputId
+    if (!state) {
+      throw new Error('Queued workflow execution was not found')
     }
 
-    const resolvedId = `${block.id}_${path}`
-    logger.debug(`Resolved output ID: ${outputId} -> ${resolvedId}`)
-    return resolvedId
-  })
+    if (state.status === 'completed') {
+      if (!isExecutionResult(state.result)) {
+        throw new Error('Queued workflow execution result is missing')
+      }
+      return state.result
+    }
+
+    if (state.status === 'failed') {
+      throw new ApiWorkflowResultFailedError(state.errorMessage || 'Workflow execution failed')
+    }
+
+    await sleep(API_EXECUTION_POLL_INTERVAL_MS)
+  }
+
+  throw new ApiWorkflowResultTimeoutError()
 }
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
-) {
-  const requestId = generateRequestId()
-  const { id } = await params
+function createApiWorkflowResponse(result: ExecutionResult) {
+  if (workflowHasResponseBlock(result)) {
+    return createHttpResponseFromBlock(result)
+  }
 
-  try {
-    logger.debug(`[${requestId}] GET execution request for workflow: ${id}`)
-    const validation = await validateWorkflowAccess(request, id)
-    if (validation.error) {
-      logger.warn(
-        `[${requestId}] Workflow access validation failed: ${validation.error.message}`,
-      )
-      return createErrorResponse(
-        validation.error.message,
-        validation.error.status,
-      )
+  return createSuccessResponse(createPublicExecutionResult(result))
+}
+
+function findUnsupportedApiExecuteField(body: Record<string, unknown>) {
+  return UNSUPPORTED_API_EXECUTE_FIELDS.find((field) => body[field] !== undefined)
+}
+
+type PublicSelectedOutput = {
+  blockName: string
+  path: string
+}
+
+function readPublicSelectedOutputs(value: unknown): PublicSelectedOutput[] | null {
+  if (value === undefined) return []
+  if (!Array.isArray(value) || value.some((entry) => typeof entry !== 'string')) {
+    return null
+  }
+  const outputs = value.map((entry) => {
+    const separatorIndex = entry.indexOf('.')
+    if (separatorIndex <= 0 || separatorIndex === entry.length - 1) return null
+
+    const blockName = entry.slice(0, separatorIndex).trim()
+    const path = entry.slice(separatorIndex + 1).trim()
+    return blockName && path ? { blockName, path } : null
+  })
+  return outputs.every(Boolean) ? (outputs as PublicSelectedOutput[]) : null
+}
+
+function normalizePublicBlockName(value: unknown) {
+  return typeof value === 'string'
+    ? value
+        .trim()
+        .toLowerCase()
+        .replace(/[\s_-]+/g, '')
+    : ''
+}
+
+function resolveSelectedOutputs(
+  value: unknown,
+  blocks: Record<string, any>
+): { ok: true; selectedOutputs: string[] } | { ok: false; error: string } {
+  const requestedOutputs = readPublicSelectedOutputs(value)
+  if (!requestedOutputs) {
+    return {
+      ok: false,
+      error: 'Field "selectedOutputs" must use blockName.path strings',
     }
+  }
 
-    let triggerType: TriggerType = 'manual'
-    const session = await getSession()
-    if (!session?.user?.id) {
-      const apiKeyHeader = request.headers.get('X-API-Key')
-      if (apiKeyHeader) {
-        triggerType = 'api'
+  const blockNames = new Map<string, string>()
+  const duplicateNames = new Set<string>()
+  for (const [blockId, block] of Object.entries(blocks)) {
+    const key = normalizePublicBlockName(block?.name)
+    if (!key) continue
+    if (blockNames.has(key)) {
+      duplicateNames.add(key)
+      continue
+    }
+    blockNames.set(key, blockId)
+  }
+
+  const selectedOutputs: string[] = []
+  for (const { blockName, path } of requestedOutputs) {
+    const key = normalizePublicBlockName(blockName)
+    if (duplicateNames.has(key)) {
+      return { ok: false, error: `Selected output block "${blockName}" is ambiguous` }
+    }
+    const blockId = blockNames.get(key)
+    if (!blockId) {
+      return { ok: false, error: `Selected output block "${blockName}" was not found` }
+    }
+    selectedOutputs.push(`${blockId}_${path}`)
+  }
+
+  return { ok: true, selectedOutputs }
+}
+
+function resolveWorkflowInput(body: Record<string, unknown>) {
+  const { stream: _stream, selectedOutputs: _selectedOutputs, ...bodyInput } = body
+  const input = body.input !== undefined ? body.input : bodyInput
+  if (!input || typeof input !== 'object' || Array.isArray(input)) {
+    return createErrorResponse('Workflow input must be an object', 400)
+  }
+
+  return input as Record<string, unknown>
+}
+
+function createApiWorkflowStreamFormatter(selectedOutputs: string[]) {
+  const outputReader = createChatOutputEventReader(selectedOutputs)
+  return (entry: WorkflowExecutionEventEntry) =>
+    outputReader.readEvent(entry.event).map((event) => {
+      if (event.type === 'content') {
+        return encodeSSE({ blockId: event.blockId, chunk: event.content })
       }
-    }
-
-    try {
-      let actorUserId: string
-      if (triggerType === 'manual') {
-        actorUserId = session!.user!.id
-      } else {
-        const apiKeyHeader = request.headers.get('X-API-Key')
-        const auth = apiKeyHeader
-          ? await authenticateApiKeyFromHeader(apiKeyHeader)
-          : null
-        if (!auth?.success || !auth.userId) {
-          return createErrorResponse('Unauthorized', 401)
-        }
-        actorUserId = auth.userId
-        if (auth.keyId) {
-          void updateApiKeyLastUsed(auth.keyId).catch(() => {})
-        }
+      if (event.type === 'error') {
+        return encodeSSE({ event: 'error', blockId: event.blockId, error: event.message })
       }
+      return encodeSSE({ event: 'final', data: createPublicExecutionResult(event.result) })
+    })
+}
 
-      await enforceServerExecutionRateLimit({
-        actorUserId,
-        workflowId: validation.workflow.id,
-        workspaceId: validation.workflow.workspaceId,
-        isAsync: false,
-        logger,
-        requestId,
-        source: 'workflow execution',
-        triggerType,
-      })
-
-      const { result } = await runWorkflowExecution({
-        workflowId: validation.workflow.id,
-        workflowContext: validation.workflow,
-        actorUserId,
-        requestId,
-        triggerType,
-        workflowInput: undefined,
-        start: {
-          kind: 'trigger',
-          triggerType: 'api',
-        },
-      })
-
-      const hasResponseBlock = workflowHasResponseBlock(result)
-      if (hasResponseBlock) {
-        return createHttpResponseFromBlock(result)
-      }
-
-      const filteredResult = createFilteredResult(result)
-      return createSuccessResponse(filteredResult)
-    } catch (error: any) {
-      if (error.message?.includes('Service overloaded')) {
-        return createErrorResponse(
-          'Service temporarily overloaded. Please try again later.',
-          503,
-          'SERVICE_OVERLOADED',
-        )
-      }
-      throw error
-    }
-  } catch (error: any) {
-    logger.error(`[${requestId}] Error executing workflow: ${id}`, error)
-
-    if (error instanceof RateLimitError) {
-      return createErrorResponse(
-        error.message,
-        error.statusCode,
-        'RATE_LIMIT_EXCEEDED',
-      )
-    }
-
-    if (error instanceof ExecutionGateError) {
-      return createErrorResponse(
-        error.message,
-        error.statusCode,
-        'USAGE_LIMIT_EXCEEDED',
-      )
-    }
-
-    if (error instanceof WorkflowUsageLimitError) {
-      return createErrorResponse(
-        error.message,
-        error.statusCode,
-        'USAGE_LIMIT_EXCEEDED',
-      )
-    }
-
+async function executeApiWorkflowThroughQueue(params: {
+  request: NextRequest
+  workflowId: string
+  input: Record<string, unknown>
+  requestId: string
+  stream: boolean
+  selectedOutputs: unknown
+}) {
+  const validation = await validateWorkflowAccess(params.request, params.workflowId)
+  if (validation.error || !validation.workflow) {
     return createErrorResponse(
-      error.message || 'Failed to execute workflow',
-      500,
-      'EXECUTION_ERROR',
+      validation.error?.message ?? 'Workflow not found',
+      validation.error?.status ?? 404
     )
   }
+
+  const apiKeyAuth = validation.apiKeyAuth
+  if (!apiKeyAuth?.success || !apiKeyAuth.userId) {
+    return createErrorResponse('Unauthorized', 401)
+  }
+
+  const apiUserId = apiKeyAuth.userId
+  const executionId = `workflow_execution_${randomUUID()}`
+
+  await enforceServerExecutionRateLimit({
+    actorUserId: apiUserId,
+    authType: AuthType.API_KEY,
+    workflowId: validation.workflow.id,
+    workspaceId: validation.workflow.workspaceId,
+    isAsync: false,
+    logger,
+    requestId: params.requestId,
+    source: 'workflow execution',
+    triggerType: 'api',
+  })
+
+  const workflowData = await loadDeployedWorkflowState(validation.workflow.id)
+  if (!workflowData) {
+    return createErrorResponse('Workflow has no deployed state', 400)
+  }
+
+  const selectedOutputs = resolveSelectedOutputs(params.selectedOutputs, workflowData.blocks ?? {})
+  if (!selectedOutputs.ok) {
+    return createErrorResponse(selectedOutputs.error, 400)
+  }
+
+  let input: Record<string, unknown>
+  try {
+    input = await processWorkflowInputFormatFiles({
+      input: params.input,
+      blocks: workflowData.blocks ?? {},
+      blockType: 'api_trigger',
+      executionContext: {
+        workspaceId: validation.workflow.workspaceId,
+        workflowId: validation.workflow.id,
+        executionId,
+      },
+      requestId: params.requestId,
+    })
+  } catch (error) {
+    return createErrorResponse(
+      error instanceof Error ? error.message : 'Failed to process workflow input files',
+      400
+    )
+  }
+
+  await enqueuePendingExecution({
+    executionType: 'workflow',
+    pendingExecutionId: executionId,
+    workflowId: validation.workflow.id,
+    workspaceId: validation.workflow.workspaceId,
+    userId: apiUserId,
+    source: 'workflow_execute_api',
+    requestId: params.requestId,
+    payload: {
+      executionId,
+      workflowId: validation.workflow.id,
+      userId: apiUserId,
+      workspaceId: validation.workflow.workspaceId,
+      input,
+      triggerType: 'api',
+      executionTarget: 'deployed',
+      stream: params.stream,
+      selectedOutputs: selectedOutputs.selectedOutputs,
+      metadata: {
+        source: 'workflow_execute_api',
+        apiKeyId: apiKeyAuth.keyId ?? null,
+      },
+    },
+  })
+
+  if (params.stream) {
+    const streamResult = await openWorkflowExecutionEventStream({
+      pendingExecutionId: executionId,
+      workflowId: validation.workflow.id,
+      requestId: params.requestId,
+      formatEvent: createApiWorkflowStreamFormatter(selectedOutputs.selectedOutputs),
+      formatError: (error) =>
+        encodeSSE({
+          event: 'error',
+          error: error instanceof Error ? error.message : 'Workflow execution stream failed',
+        }),
+    })
+    if (!streamResult.ok) {
+      throw new Error('Queued workflow execution was not found')
+    }
+    return new NextResponse(streamResult.stream, {
+      status: 200,
+      headers: {
+        ...SSE_HEADERS,
+        'X-Execution-Id': executionId,
+      },
+    })
+  }
+
+  let waitResult: ExecutionResult
+  try {
+    waitResult = await waitForApiWorkflowResult({
+      executionId,
+      workflowId: validation.workflow.id,
+    })
+  } catch (error) {
+    if (error instanceof ApiWorkflowResultTimeoutError) {
+      await cancelPendingWorkflowExecution({ pendingExecutionId: executionId, userId: apiUserId })
+    }
+    throw error
+  }
+  return createApiWorkflowResponse(waitResult)
 }
 
-export async function POST(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> },
-): Promise<Response> {
+export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const requestId = generateRequestId()
-  const logger = createLogger('WorkflowExecuteAPI')
-  logger.info(`[${requestId}] Raw request body: `)
-
-  const { id } = await params
-  const workflowId = id
+  const { id: workflowId } = await params
 
   try {
-    const validation = await validateWorkflowAccess(request as NextRequest, id)
-    if (validation.error) {
-      logger.warn(
-        `[${requestId}] Workflow access validation failed: ${validation.error.message}`,
-      )
+    let body: Record<string, unknown> = {}
+    const bodyText = await request.text()
+    try {
+      body = bodyText ? (JSON.parse(bodyText) as Record<string, unknown>) : {}
+    } catch {
+      return createErrorResponse('Invalid JSON in request body', 400)
+    }
+
+    const unsupportedField = findUnsupportedApiExecuteField(body)
+    if (unsupportedField) {
       return createErrorResponse(
-        validation.error.message,
-        validation.error.status,
+        `Field "${unsupportedField}" is not supported by the deployed API execute endpoint`,
+        400
       )
     }
+    const stream = body.stream === true
+    if (body.stream !== undefined && typeof body.stream !== 'boolean') {
+      return createErrorResponse('Field "stream" must be a boolean', 400)
+    }
+    const input = resolveWorkflowInput(body)
+    if (input instanceof Response) return input
 
-    const body = await request.text()
-    logger.info(
-      `[${requestId}] ${body ? 'Request body provided' : 'No request body provided'}`,
-    )
-
-    let parsedBody: any = {}
-    if (body) {
-      try {
-        parsedBody = JSON.parse(body)
-      } catch (error) {
-        logger.error(
-          `[${requestId}] Failed to parse request body as JSON`,
-          error,
-        )
-        return createErrorResponse('Invalid JSON in request body', 400)
-      }
+    return await executeApiWorkflowThroughQueue({
+      request,
+      workflowId,
+      input,
+      requestId,
+      stream,
+      selectedOutputs: body.selectedOutputs,
+    })
+  } catch (error) {
+    if (isPendingExecutionLimitError(error)) {
+      return createErrorResponse('Pending execution backlog is full', error.statusCode)
     }
 
-    logger.info(`[${requestId}] Input passed to workflow:`, parsedBody)
-
-    const sanitizeChatInputPayload = (payload: any) => {
-      if (!payload || typeof payload !== 'object') return payload
-      // Remove known control fields so they aren't treated as workflow input
-      const {
-        selectedOutputs: _selectedOutputs,
-        stream: _stream,
-        isSecureMode: _isSecureMode,
-        workflowTriggerType: _workflowTriggerType,
-        ...rest
-      } = payload
-      return rest
+    if (error instanceof TriggerExecutionUnavailableError) {
+      return createErrorResponse(error.message, error.statusCode)
     }
-
-    const extractExecutionParams = (req: NextRequest, body: any) => {
-      const internalSecret = req.headers.get('X-Internal-Secret')
-      const isInternalCall = internalSecret === env.INTERNAL_API_SECRET
-
-      const resolvedTriggerType: TriggerType =
-        body.workflowTriggerType ||
-        (isInternalCall && body.stream ? 'chat' : 'api')
-
-      const resolvedInput =
-        resolvedTriggerType === 'chat'
-          ? sanitizeChatInputPayload(body)
-          : body.input !== undefined
-            ? body.input
-            : body
-
-      return {
-        isSecureMode:
-          body.isSecureMode !== undefined ? body.isSecureMode : isInternalCall,
-        streamResponse:
-          req.headers.get('X-Stream-Response') === 'true' ||
-          body.stream === true,
-        selectedOutputs:
-          body.selectedOutputs ||
-          (req.headers.get('X-Selected-Outputs')
-            ? JSON.parse(req.headers.get('X-Selected-Outputs')!)
-            : undefined),
-        workflowTriggerType: resolvedTriggerType,
-        input: resolvedInput,
-      }
-    }
-
-    const {
-      isSecureMode: finalIsSecureMode,
-      streamResponse,
-      selectedOutputs,
-      workflowTriggerType,
-      input: rawInput,
-    } = extractExecutionParams(request as NextRequest, parsedBody)
-
-    // Generate executionId early so it can be used for file uploads
-    const executionId = uuidv4()
-
-    let processedInput = rawInput
-    logger.info(
-      `[${requestId}] Raw input received:`,
-      JSON.stringify(rawInput, null, 2),
-    )
-
-    try {
-      const deployedData = await loadDeployedWorkflowState(workflowId)
-      const blocks = deployedData.blocks || {}
-      logger.info(
-        `[${requestId}] Loaded ${Object.keys(blocks).length} blocks from workflow`,
-      )
-
-      const apiTriggerBlock = Object.values(blocks).find(
-        (block: any) => block.type === 'api_trigger',
-      ) as any
-      logger.info(`[${requestId}] API trigger block found:`, !!apiTriggerBlock)
-
-      if (apiTriggerBlock?.subBlocks?.inputFormat?.value) {
-        const inputFormat = apiTriggerBlock.subBlocks.inputFormat
-          .value as Array<{
-          name: string
-          type: 'string' | 'number' | 'boolean' | 'object' | 'array' | 'files'
-        }>
-        logger.info(
-          `[${requestId}] Input format fields:`,
-          inputFormat.map((f) => `${f.name}:${f.type}`).join(', '),
-        )
-
-        const fileFields = inputFormat.filter((field) => field.type === 'files')
-        logger.info(
-          `[${requestId}] Found ${fileFields.length} file-type fields`,
-        )
-
-        if (
-          fileFields.length > 0 &&
-          typeof rawInput === 'object' &&
-          rawInput !== null
-        ) {
-          const executionContext = {
-            workspaceId: validation.workflow.workspaceId,
-            workflowId,
-            executionId,
-          }
-
-          for (const fileField of fileFields) {
-            const fieldValue = rawInput[fileField.name]
-
-            if (fieldValue && typeof fieldValue === 'object') {
-              const uploadedFiles = await processExecutionFiles(
-                fieldValue,
-                executionContext,
-                requestId,
-              )
-
-              if (uploadedFiles.length > 0) {
-                processedInput = {
-                  ...processedInput,
-                  [fileField.name]: uploadedFiles,
-                }
-                logger.info(
-                  `[${requestId}] Successfully processed ${uploadedFiles.length} file(s) for field: ${fileField.name}`,
-                )
-              }
-            }
-          }
-        }
-      }
-    } catch (error) {
-      logger.error(`[${requestId}] Failed to process file uploads:`, error)
-      const errorMessage =
-        error instanceof Error
-          ? error.message
-          : 'Failed to process file uploads'
-      return createErrorResponse(errorMessage, 400)
-    }
-
-    const input = processedInput
-
-    let authenticatedUserId: string
-    let triggerType: TriggerType = 'manual'
-
-    if (finalIsSecureMode) {
-      authenticatedUserId = validation.workflow.userId
-      triggerType = 'manual'
-    } else {
-      const session = await getSession()
-      const apiKeyHeader = request.headers.get('X-API-Key')
-
-      if (session?.user?.id && !apiKeyHeader) {
-        authenticatedUserId = session.user.id
-        triggerType = 'manual'
-      } else if (apiKeyHeader) {
-        const auth = await authenticateApiKeyFromHeader(apiKeyHeader)
-        if (!auth.success || !auth.userId) {
-          return createErrorResponse('Unauthorized', 401)
-        }
-        authenticatedUserId = auth.userId
-        triggerType = 'api'
-        if (auth.keyId) {
-          void updateApiKeyLastUsed(auth.keyId).catch(() => {})
-        }
-      } else {
-        return createErrorResponse('Authentication required', 401)
-      }
-    }
-
-    const workflowStartTriggerType =
-      workflowTriggerType === 'chat' ? 'chat' : 'api'
-    const executionTriggerType =
-      workflowStartTriggerType === 'chat' ? 'chat' : triggerType
-
-    try {
-      await enforceServerExecutionRateLimit({
-        actorUserId: authenticatedUserId,
-        workflowId,
-        workspaceId: validation.workflow.workspaceId,
-        isAsync: false,
-        logger,
-        requestId,
-        source: 'workflow execution',
-        triggerType: executionTriggerType,
-      })
-
-      if (streamResponse) {
-        const deployedData = await loadDeployedWorkflowState(workflowId)
-        const resolvedSelectedOutputs = selectedOutputs
-          ? resolveOutputIds(selectedOutputs, deployedData.blocks || {})
-          : selectedOutputs
-
-        const { createStreamingResponse } =
-          await import('@/lib/workflows/streaming')
-        const { SSE_HEADERS } = await import('@/lib/utils')
-
-        const stream = await createStreamingResponse({
-          requestId,
-          workflow: validation.workflow,
-          input,
-          executingUserId: authenticatedUserId,
-          streamConfig: {
-            selectedOutputs: resolvedSelectedOutputs,
-            workflowTriggerType: workflowStartTriggerType,
-          },
-          executionId,
-        })
-
-        return new NextResponse(stream, {
-          status: 200,
-          headers: SSE_HEADERS,
-        })
-      }
-
-      const { result } = await runWorkflowExecution({
-        workflowId,
-        workflowContext: validation.workflow,
-        actorUserId: authenticatedUserId,
-        requestId,
-        executionId,
-        triggerType: executionTriggerType,
-        workflowInput: input,
-        start: {
-          kind: 'trigger',
-          triggerType: workflowStartTriggerType,
-        },
-      })
-
-      const hasResponseBlock = workflowHasResponseBlock(result)
-      if (hasResponseBlock) {
-        return createHttpResponseFromBlock(result)
-      }
-
-      const filteredResult = createFilteredResult(result)
-      return createSuccessResponse(filteredResult)
-    } catch (error: any) {
-      if (error.message?.includes('Service overloaded')) {
-        return createErrorResponse(
-          'Service temporarily overloaded. Please try again later.',
-          503,
-          'SERVICE_OVERLOADED',
-        )
-      }
-      throw error
-    }
-  } catch (error: any) {
-    logger.error(
-      `[${requestId}] Error executing workflow: ${workflowId}`,
-      error,
-    )
 
     if (error instanceof RateLimitError) {
-      return createErrorResponse(
-        error.message,
-        error.statusCode,
-        'RATE_LIMIT_EXCEEDED',
-      )
+      return createErrorResponse(error.message, error.statusCode, 'RATE_LIMIT_EXCEEDED')
     }
 
     if (error instanceof ExecutionGateError) {
-      return createErrorResponse(
-        error.message,
-        error.statusCode,
-        'USAGE_LIMIT_EXCEEDED',
-      )
+      return createErrorResponse(error.message, error.statusCode, 'USAGE_LIMIT_EXCEEDED')
     }
 
-    if (error instanceof WorkflowUsageLimitError) {
-      return createErrorResponse(
-        error.message,
-        error.statusCode,
-        'USAGE_LIMIT_EXCEEDED',
-      )
+    if (error instanceof ApiWorkflowResultTimeoutError) {
+      return createErrorResponse(error.message, 504)
     }
 
-    return createErrorResponse(
-      error.message || 'Failed to execute workflow',
-      500,
-      'EXECUTION_ERROR',
-    )
+    if (error instanceof ApiWorkflowResultFailedError) {
+      return createErrorResponse(error.message, 500)
+    }
+
+    logger.error(`[${requestId}] Failed to execute workflow`, {
+      workflowId,
+      error,
+    })
+
+    return createErrorResponse('Failed to execute workflow', 500)
   }
 }
 
@@ -544,7 +396,7 @@ export async function OPTIONS(_request: NextRequest) {
     status: 200,
     headers: {
       'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+      'Access-Control-Allow-Methods': 'POST, OPTIONS',
       'Access-Control-Allow-Headers':
         'Content-Type, X-API-Key, X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Date, X-Api-Version',
       'Access-Control-Max-Age': '86400',

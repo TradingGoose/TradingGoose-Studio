@@ -14,19 +14,21 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { stableStringifyJsonValue } from '@/lib/json/stable'
 import { getListingIdentityKey, type ListingOption } from '@/lib/listing/identity'
-import type { QuickOrderSubmitRequest } from '@/app/api/providers/trading/order/types'
+import type { TradingOrderSubmitRequest } from '@/lib/trading/order-types'
 import { useMarketQuoteSnapshots } from '@/hooks/queries/market-quote-snapshots'
 import { useOAuthProviderAvailability } from '@/hooks/queries/oauth-provider-availability'
+import { usePortfolioDetail, useSubmitTradingOrder } from '@/hooks/queries/trading-portfolio'
 import {
-  useSubmitTradingOrder,
-  useTradingAccounts,
-  useTradingPortfolioSnapshot,
-} from '@/hooks/queries/trading-portfolio'
-import {
-  ALPACA_TRAILING_STOP_TRAIL_VALUE_ERROR,
-  getAlpacaNotionalOrderTypeError,
-} from '@/providers/trading/order-validation'
+  getTradingOrderTimeInForceOptions,
+  resolveTradingOrderTimeInForce,
+  tradingOrderTypeUsesField,
+} from '@/providers/trading/order-types'
+import type {
+  TradingOrderSizingModeDefinition,
+  TradingOrderTypeDefinition,
+} from '@/providers/trading/providers'
 import {
   isTradingOrderListingSupported,
   resolveTradingListingAssetClass,
@@ -37,14 +39,12 @@ import {
   emitQuickOrderParamsChange,
   useQuickOrderParamsPersistence,
 } from '@/widgets/utils/quick-order-params'
-import { useTradingCredentialServices } from '@/widgets/widgets/components/trading-credential-services'
+import { usePortfolioIdentitySelection } from '@/widgets/widgets/components/use-portfolio-identity-selection'
 import {
-  getQuickOrderDefaultTimeInForce,
   getQuickOrderOrderTypeDefinitions,
   getQuickOrderProviderAvailabilityIds,
   getQuickOrderProviderOptions,
   getQuickOrderSizingModeConfig,
-  getQuickOrderTimeInForceOptions,
   normalizeQuickOrderNumber,
   type QuickOrderNumberParseResult,
   resolveQuickOrderMarketProviderId,
@@ -54,6 +54,7 @@ import {
 import type { QuickOrderWidgetParams } from '@/widgets/widgets/quick_order/types'
 
 type QuickOrderBodyParams = QuickOrderWidgetParams | null
+type OrderAttemptIdempotency = { fingerprint: string; key: string }
 
 const centerStateClassName =
   'flex h-full min-h-0 items-center justify-center px-4 py-6 text-center text-muted-foreground text-sm'
@@ -98,13 +99,22 @@ const getNumberValidationMessage = (
   return isPositiveNumber(result.value) ? null : `Enter ${label}.`
 }
 
+const orderFieldLabels = {
+  limitPrice: 'limit price',
+  stopPrice: 'stop price',
+  trailPrice: 'trail price',
+  trailPercent: 'trail percent',
+} as const
+
 const getValidationMessage = ({
   providerId,
   accountId,
   listing,
   orderType,
+  orderTypeDefinition,
   timeInForce,
   sizingMode,
+  sizingModeDefinition,
   quantity,
   notional,
   limitPrice,
@@ -117,8 +127,10 @@ const getValidationMessage = ({
   accountId?: string
   listing: ListingOption | null
   orderType?: string
+  orderTypeDefinition?: TradingOrderTypeDefinition | null
   timeInForce?: string
   sizingMode?: 'quantity' | 'notional'
+  sizingModeDefinition?: TradingOrderSizingModeDefinition
   quantity: QuickOrderNumberParseResult
   notional: QuickOrderNumberParseResult
   limitPrice: QuickOrderNumberParseResult
@@ -137,36 +149,50 @@ const getValidationMessage = ({
   if (orderTypeMessage) return orderTypeMessage
   if (!orderType) return 'Select an order type.'
   if (!timeInForce) return 'Select a time in force.'
+  if (!sizingMode || !sizingModeDefinition) return 'Select order size.'
 
-  if (providerId === 'alpaca' && sizingMode === 'notional') {
+  if (sizingMode === 'notional') {
     const notionalMessage = getNumberValidationMessage('notional amount', notional)
     if (notionalMessage) return notionalMessage
-    const orderTypeError = getAlpacaNotionalOrderTypeError(orderType)
-    if (orderTypeError) return orderTypeError
-    if (timeInForce !== 'day') return 'Alpaca notional orders require DAY.'
+    if (
+      sizingModeDefinition.orderTypes?.length &&
+      !sizingModeDefinition.orderTypes.includes(orderType)
+    ) {
+      return 'Notional sizing is not supported for this order type.'
+    }
+    if (
+      sizingModeDefinition.timeInForce?.length &&
+      !sizingModeDefinition.timeInForce.includes(timeInForce)
+    ) {
+      return `Notional sizing requires ${sizingModeDefinition.timeInForce.join('/').toUpperCase()}.`
+    }
   } else {
     const quantityMessage = getNumberValidationMessage('quantity', quantity)
     if (quantityMessage) return quantityMessage
   }
 
-  if (orderType === 'trailing_stop') {
-    if (!trailPrice.ok) return 'Enter a valid trail price.'
-    if (!trailPercent.ok) return 'Enter a valid trail percent.'
-    const hasTrailPrice = isPositiveNumber(trailPrice.value)
-    const hasTrailPercent = isPositiveNumber(trailPercent.value)
-    if ((hasTrailPrice && hasTrailPercent) || (!hasTrailPrice && !hasTrailPercent)) {
-      return ALPACA_TRAILING_STOP_TRAIL_VALUE_ERROR
+  for (const field of orderTypeDefinition?.excludes ?? []) {
+    const result = { limitPrice, stopPrice, trailPrice, trailPercent }[field]
+    if (isPositiveNumber(getParsedNumberValue(result))) {
+      return `${field} is not supported for this order type.`
     }
-    return null
   }
 
-  if (orderType === 'limit' || orderType === 'stop_limit') {
-    const limitPriceMessage = getNumberValidationMessage('limit price', limitPrice)
-    if (limitPriceMessage) return limitPriceMessage
+  const oneOfFields = orderTypeDefinition?.requiresOneOf ?? []
+  if (oneOfFields.length) {
+    const values = { limitPrice, stopPrice, trailPrice, trailPercent }
+    const invalidField = oneOfFields.find((field) => !values[field].ok)
+    if (invalidField) return `Enter a valid ${orderFieldLabels[invalidField]}.`
+    const providedCount = oneOfFields.filter((field) =>
+      isPositiveNumber(getParsedNumberValue(values[field]))
+    ).length
+    if (providedCount !== 1) return `${oneOfFields.join(' or ')} is required.`
   }
-  if (orderType === 'stop' || orderType === 'stop_limit') {
-    const stopPriceMessage = getNumberValidationMessage('stop price', stopPrice)
-    if (stopPriceMessage) return stopPriceMessage
+
+  for (const field of orderTypeDefinition?.requires ?? []) {
+    const result = { limitPrice, stopPrice, trailPrice, trailPercent }[field]
+    const message = getNumberValidationMessage(orderFieldLabels[field], result)
+    if (message) return message
   }
 
   return null
@@ -195,6 +221,7 @@ export function QuickOrderWidgetBody({
   const updateListingSelector = useListingSelectorStore((state) => state.updateInstance)
   const resetListingSelector = useListingSelectorStore((state) => state.resetInstance)
   const previousProviderRef = useRef<string | undefined>(undefined)
+  const orderAttemptIdempotencyRef = useRef<OrderAttemptIdempotency | null>(null)
   const submitOrder = useSubmitTradingOrder()
   const resetSubmitOrder = submitOrder.reset
 
@@ -225,42 +252,31 @@ export function QuickOrderWidgetBody({
     !providerAvailabilityQuery.isLoading &&
     !providerAvailabilityQuery.error &&
     providerOptions.length > 0
-  const credentialServices = useTradingCredentialServices({
-    providerId,
-    credentialServiceId: quickOrderParams?.credentialServiceId,
-    enabled: areProviderOptionsReady && hasSelectedProvider,
-  })
-  const activeCredentialServiceId = credentialServices.activeServiceId
-  const accountsQuery = useTradingAccounts({
+  const { accountsQuery, activeServiceId, activePortfolioIdentity, services, portfolioIdentities } =
+    usePortfolioIdentitySelection({
+      workspaceId,
+      providerId,
+      serviceId: quickOrderParams?.serviceId,
+      portfolioIdentity: quickOrderParams?.portfolioIdentity,
+      enabled: areProviderOptionsReady && hasSelectedProvider,
+      panelId,
+      widgetKey,
+      emitParamsChange: emitQuickOrderParamsChange,
+    })
+  const accountSnapshotQuery = usePortfolioDetail({
     workspaceId: workspaceId ?? undefined,
     provider: hasSelectedProvider && areProviderOptionsReady ? providerId : undefined,
-    credentialServiceId: activeCredentialServiceId,
-    enabled: Boolean(activeCredentialServiceId),
-  })
-  const accounts = accountsQuery.data ?? []
-  const singleAccount = accounts.length === 1 ? (accounts[0] ?? null) : null
-  const selectedAccount =
-    quickOrderParams?.accountId && !accountsQuery.isLoading && !accountsQuery.error
-      ? (accounts.find((account) => account.id === quickOrderParams.accountId) ?? null)
-      : !quickOrderParams?.accountId
-        ? singleAccount
-        : null
-  const activeAccountId = activeCredentialServiceId
-    ? (quickOrderParams?.accountId ?? singleAccount?.id)
-    : undefined
-  const accountSnapshotQuery = useTradingPortfolioSnapshot({
-    workspaceId: workspaceId ?? undefined,
-    provider: hasSelectedProvider && areProviderOptionsReady ? providerId : undefined,
-    credentialServiceId: activeCredentialServiceId,
-    accountId: activeAccountId,
+    serviceId: activeServiceId,
+    portfolioIdentity: activePortfolioIdentity,
   })
   const submitResetProviderKey = [
     quickOrderParams?.provider ?? providerId,
-    activeCredentialServiceId ?? '',
+    activeServiceId ?? '',
   ].join(':')
 
   const sizingModeConfig = useMemo(
-    () => (providerId ? getQuickOrderSizingModeConfig(providerId) : { options: [] }),
+    () =>
+      providerId ? getQuickOrderSizingModeConfig(providerId) : { options: [], definitions: [] },
     [providerId]
   )
   const sizingOptions = sizingModeConfig.options
@@ -271,6 +287,9 @@ export function QuickOrderWidgetBody({
         ? sizingMode
         : defaultSizingMode
       : undefined
+  const selectedSizingModeDefinition = sizingModeConfig.definitions.find(
+    (definition) => definition.id === selectedSizingMode
+  )
   const resolvedAssetClass = listing ? resolveTradingListingAssetClass(listing) : undefined
   const isListingSupported =
     !providerId || !listing || !resolvedAssetClass
@@ -301,6 +320,12 @@ export function QuickOrderWidgetBody({
         : null,
     [providerId, listing, resolvedAssetClass, isListingSupported, orderType]
   )
+  const selectedOrderTypeDefinition =
+    requestedOrderTypeResolution?.ok === true ? requestedOrderTypeResolution.definition : null
+  const usesLimitPrice = tradingOrderTypeUsesField(selectedOrderTypeDefinition, 'limitPrice')
+  const usesStopPrice = tradingOrderTypeUsesField(selectedOrderTypeDefinition, 'stopPrice')
+  const usesTrailPrice = tradingOrderTypeUsesField(selectedOrderTypeDefinition, 'trailPrice')
+  const usesTrailPercent = tradingOrderTypeUsesField(selectedOrderTypeDefinition, 'trailPercent')
   const defaultOrderType =
     defaultOrderTypeResolution?.ok === true ? defaultOrderTypeResolution.orderType : ''
   const orderTypePlaceholder = !listing
@@ -322,10 +347,10 @@ export function QuickOrderWidgetBody({
             ? 'Selected order type is not supported for this listing.'
             : null
   const timeInForceOptions = useMemo(
-    () => (providerId ? getQuickOrderTimeInForceOptions(providerId) : []),
+    () => getTradingOrderTimeInForceOptions(providerId),
     [providerId]
   )
-  const defaultTimeInForce = providerId ? getQuickOrderDefaultTimeInForce(providerId) : undefined
+  const defaultTimeInForce = resolveTradingOrderTimeInForce(providerId)
   const marketProviderId = resolveQuickOrderMarketProviderId(quickOrderParams)
   const quoteItems = useMemo(
     () =>
@@ -368,11 +393,11 @@ export function QuickOrderWidgetBody({
       : undefined
   const accountSnapshot = accountSnapshotQuery.data
   const accountCurrency =
-    accountSnapshot?.account.baseCurrency ?? selectedAccount?.baseCurrency ?? 'USD'
+    accountSnapshot?.baseCurrency ?? activePortfolioIdentity?.baseCurrency ?? 'USD'
   const cashBuyingPower =
-    typeof accountSnapshot?.accountSummary.buyingPower === 'number'
-      ? accountSnapshot.accountSummary.buyingPower
-      : accountSnapshot?.accountSummary.totalCashValue
+    typeof accountSnapshot?.summary.buyingPower === 'number'
+      ? accountSnapshot.summary.buyingPower
+      : accountSnapshot?.summary.totalCashValue
   const estimatedReferencePrice = parsedLimitPrice ?? parsedStopPrice ?? marketPrice
   const estimatedOrderValue =
     selectedSizingMode === 'notional'
@@ -382,11 +407,13 @@ export function QuickOrderWidgetBody({
         : undefined
   const validationMessage = getValidationMessage({
     providerId,
-    accountId: activeAccountId,
+    accountId: activePortfolioIdentity?.accountId,
     listing,
     orderType,
+    orderTypeDefinition: selectedOrderTypeDefinition,
     timeInForce,
     sizingMode: selectedSizingMode,
+    sizingModeDefinition: selectedSizingModeDefinition,
     quantity,
     notional,
     limitPrice,
@@ -401,36 +428,13 @@ export function QuickOrderWidgetBody({
     emitQuickOrderParamsChange({
       params: {
         provider: null,
-        credentialServiceId: null,
-        accountId: null,
+        serviceId: null,
+        portfolioIdentity: null,
       },
       panelId,
       widgetKey,
     })
   }, [areProviderOptionsReady, panelId, providerId, quickOrderParams?.provider, widgetKey])
-
-  useEffect(() => {
-    if (accountsQuery.isLoading || accountsQuery.error) return
-
-    if (!quickOrderParams?.accountId && accounts.length === 1 && accounts[0]) {
-      emitQuickOrderParamsChange({
-        params: {
-          accountId: accounts[0].id,
-          credentialServiceId: activeCredentialServiceId,
-        },
-        panelId,
-        widgetKey,
-      })
-    }
-  }, [
-    accounts,
-    accountsQuery.error,
-    accountsQuery.isLoading,
-    activeCredentialServiceId,
-    panelId,
-    quickOrderParams?.accountId,
-    widgetKey,
-  ])
 
   useEffect(() => {
     if (previousProviderRef.current === providerId) return
@@ -495,15 +499,20 @@ export function QuickOrderWidgetBody({
   }, [defaultTimeInForce, timeInForce, timeInForceOptions])
 
   useEffect(() => {
-    const usesLimitPrice = orderType === 'limit' || orderType === 'stop_limit'
-    const usesStopPrice = orderType === 'stop' || orderType === 'stop_limit'
-    const usesTrailValue = orderType === 'trailing_stop'
-
     if (!usesLimitPrice && limitPriceInput) setLimitPriceInput('')
     if (!usesStopPrice && stopPriceInput) setStopPriceInput('')
-    if (!usesTrailValue && trailPriceInput) setTrailPriceInput('')
-    if (!usesTrailValue && trailPercentInput) setTrailPercentInput('')
-  }, [limitPriceInput, orderType, stopPriceInput, trailPercentInput, trailPriceInput])
+    if (!usesTrailPrice && trailPriceInput) setTrailPriceInput('')
+    if (!usesTrailPercent && trailPercentInput) setTrailPercentInput('')
+  }, [
+    limitPriceInput,
+    stopPriceInput,
+    trailPercentInput,
+    trailPriceInput,
+    usesLimitPrice,
+    usesStopPrice,
+    usesTrailPercent,
+    usesTrailPrice,
+  ])
 
   useEffect(() => {
     resetSubmitOrder()
@@ -512,7 +521,7 @@ export function QuickOrderWidgetBody({
     listing,
     notionalInput,
     orderType,
-    quickOrderParams?.accountId,
+    quickOrderParams?.portfolioIdentity,
     quantityInput,
     side,
     sizingMode,
@@ -550,8 +559,8 @@ export function QuickOrderWidgetBody({
     return <CenterState>Select a trading provider to get started.</CenterState>
   }
 
-  if (!activeAccountId) {
-    if (credentialServices.isLoading) {
+  if (!activePortfolioIdentity) {
+    if (services.isLoading) {
       return (
         <div className={centerStateClassName}>
           <LoadingAgent size='md' />
@@ -559,7 +568,7 @@ export function QuickOrderWidgetBody({
       )
     }
 
-    if (!activeCredentialServiceId) {
+    if (!activeServiceId) {
       return <CenterState>Select a broker connection to submit an order.</CenterState>
     }
 
@@ -575,38 +584,38 @@ export function QuickOrderWidgetBody({
       return <CenterState>Failed to load broker accounts.</CenterState>
     }
 
-    if (accounts.length === 0) {
+    if (portfolioIdentities.length === 0) {
       return <CenterState>No broker accounts found for this provider connection.</CenterState>
     }
 
     return <CenterState>Select a broker account to submit an order.</CenterState>
   }
 
-  const canSubmit = !validationMessage && !submitOrder.isPending
+  const canSubmit = Boolean(workspaceId) && !validationMessage && !submitOrder.isPending
   const order = submitOrder.data?.order
 
   const handleSubmit = () => {
     if (
       validationMessage ||
       !providerId ||
-      !activeCredentialServiceId ||
-      !activeAccountId ||
+      !workspaceId ||
+      !activeServiceId ||
+      !activePortfolioIdentity ||
       !listing
     ) {
       return
     }
 
-    const payload: QuickOrderSubmitRequest = {
-      provider: providerId,
-      credentialServiceId: activeCredentialServiceId,
-      accountId: activeAccountId,
+    const payload: Omit<TradingOrderSubmitRequest, 'idempotencyKey'> = {
+      workspaceId,
+      portfolioIdentity: activePortfolioIdentity,
       listing,
       side,
       orderType,
       timeInForce,
     }
 
-    if (providerId === 'alpaca' && selectedSizingMode === 'notional') {
+    if (selectedSizingMode === 'notional') {
       payload.orderSizingMode = 'notional'
       if (parsedNotional !== undefined) payload.notional = parsedNotional
     } else {
@@ -614,19 +623,39 @@ export function QuickOrderWidgetBody({
       if (parsedQuantity !== undefined) payload.quantity = parsedQuantity
     }
 
-    if ((orderType === 'limit' || orderType === 'stop_limit') && parsedLimitPrice) {
+    if (usesLimitPrice && parsedLimitPrice) {
       payload.limitPrice = parsedLimitPrice
     }
-    if ((orderType === 'stop' || orderType === 'stop_limit') && parsedStopPrice) {
+    if (usesStopPrice && parsedStopPrice) {
       payload.stopPrice = parsedStopPrice
     }
-    if (orderType === 'trailing_stop') {
+    if (usesTrailPrice) {
       if (parsedTrailPrice) payload.trailPrice = parsedTrailPrice
+    }
+    if (usesTrailPercent) {
       if (parsedTrailPercent) payload.trailPercent = parsedTrailPercent
     }
 
+    const fingerprint = stableStringifyJsonValue(payload)
+    const idempotencyKey =
+      orderAttemptIdempotencyRef.current?.fingerprint === fingerprint
+        ? orderAttemptIdempotencyRef.current.key
+        : `trading-order:manual:${crypto.randomUUID()}`
+    orderAttemptIdempotencyRef.current = { fingerprint, key: idempotencyKey }
+
     resetSubmitOrder()
-    submitOrder.mutate(payload)
+    submitOrder.mutate(
+      {
+        ...payload,
+        idempotencyKey,
+      },
+      {
+        onSuccess: () => {
+          orderAttemptIdempotencyRef.current = null
+          void accountSnapshotQuery.refetch()
+        },
+      }
+    )
   }
 
   return (
@@ -713,11 +742,14 @@ export function QuickOrderWidgetBody({
               >
                 {sizingOptions.map((option) => {
                   const id = `${listingInstanceId}-sizing-${option}`
+                  const label =
+                    sizingModeConfig.definitions.find((definition) => definition.id === option)
+                      ?.label ?? option
                   return (
                     <div key={option} className='flex items-center gap-2'>
                       <RadioGroupItem id={id} value={option} />
                       <Label htmlFor={id} className='cursor-pointer text-muted-foreground text-sm'>
-                        {option === 'quantity' ? 'Shares' : 'Dollars'}
+                        {label}
                       </Label>
                     </div>
                   )
@@ -742,8 +774,7 @@ export function QuickOrderWidgetBody({
             </Select>
           </FieldBlock>
 
-          {orderType !== 'trailing_stop' &&
-          (orderType === 'limit' || orderType === 'stop_limit') ? (
+          {usesLimitPrice ? (
             <FieldBlock>
               <Label htmlFor='quick-order-limit-price'>Limit Price</Label>
               <Input
@@ -757,7 +788,7 @@ export function QuickOrderWidgetBody({
             </FieldBlock>
           ) : null}
 
-          {orderType !== 'trailing_stop' && (orderType === 'stop' || orderType === 'stop_limit') ? (
+          {usesStopPrice ? (
             <FieldBlock>
               <Label htmlFor='quick-order-stop-price'>Stop Price</Label>
               <Input
@@ -771,7 +802,7 @@ export function QuickOrderWidgetBody({
             </FieldBlock>
           ) : null}
 
-          {orderType === 'trailing_stop' ? (
+          {usesTrailPrice || usesTrailPercent ? (
             <div className='grid grid-cols-2 gap-3'>
               <FieldBlock>
                 <Label htmlFor='quick-order-trail-price'>Trail Price</Label>
@@ -825,7 +856,7 @@ export function QuickOrderWidgetBody({
       </div>
 
       <div className='shrink-0 border-border/70 border-t bg-background/95 px-4 py-3'>
-        <div className='space-y-2 rounded-md border border-border/70 bg-card/30 p-3'>
+        <div className='space-y-2 pb-3'>
           <OrderRow
             label={side === 'sell' ? 'Estimated Proceeds' : 'Estimated Cost'}
             value={formatCurrency(estimatedOrderValue, accountCurrency)}

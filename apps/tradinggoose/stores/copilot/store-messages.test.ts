@@ -97,7 +97,7 @@ describe('normalizeMessagesForUI', () => {
           timestamp: 1,
           toolCall: {
             id: 'tool-1',
-            name: 'get_user_workflow',
+            name: 'read_workflow',
             state: ClientToolCallState.success,
           },
         },
@@ -118,6 +118,11 @@ describe('normalizeMessagesForUI', () => {
         toolCall: {
           id: 'tool-1',
         },
+      },
+      {
+        type: 'text',
+        content: 'Visible reply.',
+        timestamp: Date.parse(input.timestamp),
       },
     ])
     expect((normalizedAgain.contentBlocks?.[0] as any)?.timestamp).toBe(

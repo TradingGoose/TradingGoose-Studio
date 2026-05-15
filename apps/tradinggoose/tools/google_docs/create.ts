@@ -38,17 +38,11 @@ export const createTool: ToolConfig<GoogleDocsToolParams, GoogleDocsCreateRespon
       visibility: 'user-or-llm',
       description: 'The content of the document to create',
     },
-    folderSelector: {
-      type: 'string',
-      required: false,
-      visibility: 'user-only',
-      description: 'Select the folder to create the document in',
-    },
     folderId: {
       type: 'string',
       required: false,
-      visibility: 'hidden',
-      description: 'The ID of the folder to create the document in (internal use)',
+      visibility: 'user-only',
+      description: 'The ID of the folder to create the document in',
     },
   },
 
@@ -78,10 +72,8 @@ export const createTool: ToolConfig<GoogleDocsToolParams, GoogleDocsCreateRespon
         mimeType: 'application/vnd.google-apps.document',
       }
 
-      // Add parent folder if specified (prefer folderSelector over folderId)
-      const folderId = params.folderSelector || params.folderId
-      if (folderId) {
-        requestBody.parents = [folderId]
+      if (params.folderId) {
+        requestBody.parents = [params.folderId]
       }
 
       return requestBody

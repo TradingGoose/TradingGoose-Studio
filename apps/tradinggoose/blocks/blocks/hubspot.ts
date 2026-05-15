@@ -1,10 +1,10 @@
 import { HubspotIcon } from '@/components/icons/icons'
+import { HUBSPOT_OAUTH_SCOPES } from '@/lib/oauth'
 import type { BlockConfig } from '@/blocks/types'
 import { AuthMode } from '@/blocks/types'
 import type { HubSpotResponse } from '@/tools/hubspot/types'
 import { getTrigger } from '@/triggers'
 import { hubspotAllTriggerOptions } from '@/triggers/hubspot/utils'
-import { HUBSPOT_OAUTH_SCOPES } from '@/lib/oauth'
 
 export const HubSpotBlock: BlockConfig<HubSpotResponse> = {
   type: 'hubspot',
@@ -943,7 +943,6 @@ Return ONLY the JSON array of property names - no explanations, no markdown, no 
       },
     },
   } as any,
-  triggerAllowed: true,
   triggers: {
     enabled: true,
     available: [

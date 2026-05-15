@@ -10,8 +10,8 @@ import {
 } from '@/lib/knowledge/documents/service'
 import type { DocumentSortField, SortOrder } from '@/lib/knowledge/documents/types'
 import { createLogger } from '@/lib/logs/console/logger'
+import { getUserId } from '@/lib/oauth/tokens'
 import { TriggerExecutionUnavailableError } from '@/lib/trigger/settings'
-import { getUserId } from '@/app/api/auth/oauth/utils'
 import { checkKnowledgeBaseAccess, checkKnowledgeBaseWriteAccess } from '@/app/api/knowledge/utils'
 
 const logger = createLogger('DocumentsAPI')
@@ -21,7 +21,7 @@ const CreateDocumentSchema = z.object({
   fileUrl: z.string().url('File URL must be valid'),
   fileSize: z.number().min(1, 'File size must be greater than 0'),
   mimeType: z.string().min(1, 'MIME type is required'),
-  // Document tags for filtering (legacy format)
+  // Document tag slots for filtering
   tag1: z.string().optional(),
   tag2: z.string().optional(),
   tag3: z.string().optional(),
@@ -29,7 +29,7 @@ const CreateDocumentSchema = z.object({
   tag5: z.string().optional(),
   tag6: z.string().optional(),
   tag7: z.string().optional(),
-  // Structured tag data (new format)
+  // Structured tag data
   documentTagsData: z.string().optional(),
 })
 
@@ -38,8 +38,6 @@ const BulkCreateDocumentsSchema = z.object({
   processingOptions: z.object({
     chunkSize: z.number().min(100).max(4000),
     minCharactersPerChunk: z.number().min(1).max(2000),
-    recipe: z.string(),
-    lang: z.string(),
     chunkOverlap: z.number().min(0).max(500),
   }),
   bulk: z.literal(true),
@@ -194,7 +192,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
             'documents.count': createdDocuments.length,
             'documents.upload_type': 'bulk',
             'processing.chunk_size': validatedData.processingOptions.chunkSize,
-            'processing.recipe': validatedData.processingOptions.recipe,
           })
         } catch (_e) {
           // Silently fail
@@ -211,12 +208,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
               mimeType: doc.mimeType,
             },
             processingOptions: {
-              chunkSize: validatedData.processingOptions.chunkSize || 1024,
-              minCharactersPerChunk:
-                validatedData.processingOptions.minCharactersPerChunk || 1,
-              recipe: validatedData.processingOptions.recipe || 'default',
-              lang: validatedData.processingOptions.lang || 'en',
-              chunkOverlap: validatedData.processingOptions.chunkOverlap || 200,
+              chunkSize: validatedData.processingOptions.chunkSize,
+              minCharactersPerChunk: validatedData.processingOptions.minCharactersPerChunk,
+              chunkOverlap: validatedData.processingOptions.chunkOverlap,
             },
             requestId,
           })),
@@ -276,8 +270,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
               processingOptions: {
                 chunkSize: 1024,
                 minCharactersPerChunk: 1,
-                recipe: 'default',
-                lang: 'en',
                 chunkOverlap: 200,
               },
               requestId,

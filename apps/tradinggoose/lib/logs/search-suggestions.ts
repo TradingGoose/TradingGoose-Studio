@@ -222,7 +222,7 @@ export class SearchSuggestions {
         break
       }
       case 'monitorRows': {
-        suggestions = this.getMonitorRowSuggestions(fieldKey, partial, negated)
+        suggestions = this.readMonitorRowSuggestions(fieldKey, partial, negated)
         break
       }
       case 'staticOptions': {
@@ -263,7 +263,7 @@ export class SearchSuggestions {
     }
   }
 
-  private getMonitorRowSuggestions(
+  private readMonitorRowSuggestions(
     fieldKey: string,
     partial: string,
     negated: boolean

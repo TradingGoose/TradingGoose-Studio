@@ -6,9 +6,9 @@ import { formatDisplayText } from '@/components/ui/formatted-text'
 import { Input } from '@/components/ui/input'
 import { checkTagTrigger, TagDropdown } from '@/components/ui/tag-dropdown'
 import { cn } from '@/lib/utils'
+import { useAccessibleReferencePrefixes } from '@/hooks/workflow/use-accessible-reference-prefixes'
 import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
 import { useWorkspaceId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
-import { useAccessibleReferencePrefixes } from '@/hooks/workflow/use-accessible-reference-prefixes'
 
 interface TableProps {
   blockId: string
@@ -22,12 +22,7 @@ interface TableRow {
   cells: Record<string, string>
 }
 
-export function Table({
-  blockId,
-  subBlockId,
-  columns,
-  disabled = false,
-}: TableProps) {
+export function Table({ blockId, subBlockId, columns, disabled = false }: TableProps) {
   const workspaceId = useWorkspaceId()
   const [storeValue, setStoreValue] = useSubBlockValue<TableRow[]>(blockId, subBlockId)
   const accessiblePrefixes = useAccessibleReferencePrefixes(blockId)
@@ -157,17 +152,10 @@ export function Table({
   )
 
   const renderCell = (row: TableRow, rowIndex: number, column: string, cellIndex: number) => {
-    // Defensive programming: ensure row.cells exists and has the expected structure
-    if (!row.cells || typeof row.cells !== 'object') {
-      console.warn('Table row has malformed cells data:', row)
-      // Create a fallback cells object
-      row = {
-        ...row,
-        cells: Object.fromEntries(columns.map((col) => [col, ''])),
-      }
-    }
-
-    const cellValue = row.cells[column] || ''
+    const cellValue =
+      row.cells && typeof row.cells === 'object' && !Array.isArray(row.cells)
+        ? row.cells[column] || ''
+        : ''
     const cellKey = `${rowIndex}-${column}`
 
     return (

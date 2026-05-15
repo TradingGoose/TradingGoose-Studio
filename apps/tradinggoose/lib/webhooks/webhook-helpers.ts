@@ -2,9 +2,9 @@ import { db } from '@tradinggoose/db'
 import { webhook as webhookTable } from '@tradinggoose/db/schema'
 import { eq } from 'drizzle-orm'
 import type { NextRequest } from 'next/server'
+import { getOAuthAccessTokenForStoredCredential } from '@/lib/credentials/oauth'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getBaseUrl } from '@/lib/urls/utils'
-import { refreshAccessTokenIfNeeded } from '@/app/api/auth/oauth/utils'
 
 const teamsLogger = createLogger('TeamsSubscription')
 const telegramLogger = createLogger('TelegramWebhook')
@@ -42,8 +42,11 @@ export async function createTeamsSubscription(
       return false
     }
 
-    // Get access token
-    const accessToken = await refreshAccessTokenIfNeeded(credentialId, workflow.userId, requestId)
+    const accessToken = await getOAuthAccessTokenForStoredCredential({
+      credentialId,
+      workspaceId: workflow.workspaceId,
+      requestId,
+    })
     if (!accessToken) {
       teamsLogger.error(
         `[${requestId}] Failed to get access token for Teams subscription ${webhook.id}`
@@ -164,8 +167,11 @@ export async function deleteTeamsSubscription(
       return
     }
 
-    // Get access token
-    const accessToken = await refreshAccessTokenIfNeeded(credentialId, workflow.userId, requestId)
+    const accessToken = await getOAuthAccessTokenForStoredCredential({
+      credentialId,
+      workspaceId: workflow.workspaceId,
+      requestId,
+    })
     if (!accessToken) {
       teamsLogger.warn(
         `[${requestId}] Could not get access token to delete Teams subscription for webhook ${webhook.id}`

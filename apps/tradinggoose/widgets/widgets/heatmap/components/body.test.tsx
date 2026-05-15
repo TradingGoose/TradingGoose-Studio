@@ -13,11 +13,77 @@ const mockUseResolvedListings = vi.fn()
 const mockUseMarketQuoteSnapshots = vi.fn()
 const mockUseOAuthProviderAvailability = vi.fn()
 const mockUseOAuthCredentialsByProviderIds = vi.fn()
-const mockUseTradingAccounts = vi.fn()
-const mockUseTradingPortfolioSnapshot = vi.fn()
+const mockUsePortfolioIdentities = vi.fn()
+const mockUsePortfolioDetail = vi.fn()
 const mockUseWatchlists = vi.fn()
 const mockHeatmapTreemapChart = vi.fn()
 const mockEmitHeatmapParamsChange = vi.fn()
+
+const portfolioIdentity = {
+  providerId: 'alpaca',
+  credentialId: 'credential-1',
+  serviceId: 'alpaca-live',
+  accountId: 'account-1',
+  accountName: 'Paper',
+  baseCurrency: 'USD',
+}
+
+const createPortfolioPosition = (listing: ReturnType<typeof createListing>, quantity: number) => ({
+  symbol: {
+    base: listing.listing_id,
+    quote: 'USD',
+    assetClass: 'stock' as const,
+    active: true,
+    rank: 0,
+    listing,
+  },
+  quantity,
+})
+
+const createPortfolioDetail = (
+  positions: Array<ReturnType<typeof createPortfolioPosition>> = []
+) => ({
+  ...portfolioIdentity,
+  environment: 'live' as const,
+  asOf: '2026-04-22T15:30:00.000Z',
+  cashBalances: [],
+  positions,
+  orders: [],
+  summary: {
+    totalPortfolioValue: 0,
+    totalCashValue: 0,
+  },
+})
+
+const createListing = (symbol: string) => ({
+  listing_id: symbol,
+  base_id: '',
+  quote_id: '',
+  listing_type: 'default' as const,
+})
+
+const createPortfolioListing = (symbol: string) => ({
+  listing_id: `TG_LSTG_${symbol}`,
+  base_id: '',
+  quote_id: '',
+  listing_type: 'default' as const,
+})
+
+const createPortfolioDetailFromQuantities = (
+  quantities: Array<{ symbol: string; quantity: number }>
+) =>
+  createPortfolioDetail(
+    quantities.map(({ symbol, quantity }) => {
+      const listing = createPortfolioListing(symbol)
+      return {
+        ...createPortfolioPosition(listing, quantity),
+        symbol: {
+          ...createPortfolioPosition(listing, quantity).symbol,
+          base: symbol,
+        },
+      }
+    })
+  )
 
 vi.mock('@/hooks/queries/listing-resolution', () => ({
   useResolvedListings: (...args: unknown[]) => mockUseResolvedListings(...args),
@@ -37,8 +103,8 @@ vi.mock('@/hooks/queries/oauth-credentials', () => ({
 }))
 
 vi.mock('@/hooks/queries/trading-portfolio', () => ({
-  useTradingAccounts: (...args: unknown[]) => mockUseTradingAccounts(...args),
-  useTradingPortfolioSnapshot: (...args: unknown[]) => mockUseTradingPortfolioSnapshot(...args),
+  usePortfolioIdentities: (...args: unknown[]) => mockUsePortfolioIdentities(...args),
+  usePortfolioDetail: (...args: unknown[]) => mockUsePortfolioDetail(...args),
 }))
 
 vi.mock('@/hooks/queries/watchlists', () => ({
@@ -75,13 +141,6 @@ const createQueryResult = <T,>(overrides: Partial<T> = {}) =>
     ...overrides,
   }) as T
 
-const createListing = (symbol: string) => ({
-  listing_id: symbol,
-  base_id: '',
-  quote_id: '',
-  listing_type: 'default' as const,
-})
-
 function resetPairContexts() {
   usePairColorStore.setState({
     contexts: Object.fromEntries(PAIR_COLORS.map((color) => [color, {}])) as Record<
@@ -117,10 +176,8 @@ describe('HeatmapWidgetBody', () => {
         },
       })
     )
-    mockUseTradingAccounts.mockReturnValue(createQueryResult({ data: [] }))
-    mockUseTradingPortfolioSnapshot.mockReturnValue(
-      createQueryResult({ data: undefined, positionListings: [] })
-    )
+    mockUsePortfolioIdentities.mockReturnValue(createQueryResult({ data: [] }))
+    mockUsePortfolioDetail.mockReturnValue(createQueryResult({ data: undefined }))
     mockUseWatchlists.mockReturnValue(createQueryResult({ data: [] }))
     resetPairContexts()
   })
@@ -238,20 +295,14 @@ describe('HeatmapWidgetBody', () => {
   })
 
   it('does not use portfolio trading provider settings as market quote provider settings', async () => {
-    mockUseTradingAccounts.mockReturnValue(
+    mockUsePortfolioIdentities.mockReturnValue(
       createQueryResult({
-        data: [{ id: 'account-1', name: 'Paper' }],
+        data: [portfolioIdentity],
       })
     )
-    mockUseTradingPortfolioSnapshot.mockReturnValue(
+    mockUsePortfolioDetail.mockReturnValue(
       createQueryResult({
-        positionListings: [
-          {
-            listing: createListing('MSFT'),
-            grossQuantity: 4,
-            signedQuantity: 1,
-          },
-        ],
+        data: createPortfolioDetailFromQuantities([{ symbol: 'MSFT', quantity: 4 }]),
       })
     )
 
@@ -264,7 +315,7 @@ describe('HeatmapWidgetBody', () => {
           params={{
             sourceMode: 'portfolio',
             tradingProvider: 'alpaca',
-            accountId: 'account-1',
+            portfolioIdentity,
           }}
         />
       )
@@ -305,20 +356,14 @@ describe('HeatmapWidgetBody', () => {
         ],
       })
     )
-    mockUseTradingAccounts.mockReturnValue(
+    mockUsePortfolioIdentities.mockReturnValue(
       createQueryResult({
-        data: [{ id: 'account-1', name: 'Paper' }],
+        data: [portfolioIdentity],
       })
     )
-    mockUseTradingPortfolioSnapshot.mockReturnValue(
+    mockUsePortfolioDetail.mockReturnValue(
       createQueryResult({
-        positionListings: [
-          {
-            listing: createListing('MSFT'),
-            grossQuantity: 4,
-            signedQuantity: 1,
-          },
-        ],
+        data: createPortfolioDetailFromQuantities([{ symbol: 'MSFT', quantity: 4 }]),
       })
     )
     mockUseMarketQuoteSnapshots.mockReturnValue(
@@ -332,7 +377,7 @@ describe('HeatmapWidgetBody', () => {
             volume: 20,
             volumeUsd: 2200,
           },
-          'default|MSFT||': {
+          'default|TG_LSTG_MSFT||': {
             lastPrice: 25,
             previousClose: 20,
             change: 5,
@@ -378,24 +423,24 @@ describe('HeatmapWidgetBody', () => {
             sourceMode: 'portfolio',
             marketProvider: 'alpaca',
             tradingProvider: 'alpaca',
-            accountId: 'account-1',
+            portfolioIdentity,
           }}
         />
       )
     })
 
-    expect(mockUseTradingPortfolioSnapshot).toHaveBeenLastCalledWith({
+    expect(mockUsePortfolioDetail).toHaveBeenLastCalledWith({
       workspaceId: 'workspace-1',
       provider: 'alpaca',
-      credentialServiceId: 'alpaca-live',
-      accountId: 'account-1',
+      serviceId: 'alpaca-live',
+      portfolioIdentity,
       enabled: true,
     })
     expect(mockHeatmapTreemapChart.mock.calls.at(-1)?.[0]).toEqual(
       expect.objectContaining({
         items: [
           expect.objectContaining({
-            key: 'default|MSFT||',
+            key: 'default|TG_LSTG_MSFT||',
             sourceLabels: ['Portfolio'],
             sizeValue: 100,
           }),
@@ -574,12 +619,12 @@ describe('HeatmapWidgetBody', () => {
   })
 
   it('shows empty portfolio message when portfolio mode has no listings', async () => {
-    mockUseTradingAccounts.mockReturnValue(
+    mockUsePortfolioIdentities.mockReturnValue(
       createQueryResult({
-        data: [{ id: 'account-1', name: 'Paper' }],
+        data: [portfolioIdentity],
       })
     )
-    mockUseTradingPortfolioSnapshot.mockReturnValue(createQueryResult({ positionListings: [] }))
+    mockUsePortfolioDetail.mockReturnValue(createQueryResult({ data: createPortfolioDetail() }))
 
     await act(async () => {
       root.render(
@@ -591,7 +636,7 @@ describe('HeatmapWidgetBody', () => {
             sourceMode: 'portfolio',
             marketProvider: 'alpaca',
             tradingProvider: 'alpaca',
-            accountId: 'account-1',
+            portfolioIdentity,
           }}
         />
       )

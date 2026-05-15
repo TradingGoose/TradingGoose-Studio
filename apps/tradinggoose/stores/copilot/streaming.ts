@@ -1,22 +1,18 @@
-import {
-  shouldAutoExecuteCopilotTool,
-  shouldAutoExecuteIntegrationTool,
-  shouldRequireCopilotApproval,
-} from '@/lib/copilot/access-policy'
+import { shouldRequireToolApproval } from '@/lib/copilot/access-policy'
 import { normalizeFunctionCallArguments } from '@/lib/copilot/function-call-args'
 import { ClientToolCallState } from '@/lib/copilot/tools/client/base-tool'
 import { withPinnedToolExecutionProvenance } from '@/stores/copilot/store-provenance'
-import { ACTIVE_TURN_STATUS, buildChatTurnStatusState } from '@/stores/copilot/store-state'
+import {
+  ACTIVE_TURN_STATUS,
+  buildChatTurnStatusState,
+  isToolCallCompletionProtected,
+} from '@/stores/copilot/store-state'
 import {
   bindClientToolExecutionContext,
-  copilotToolHasInterrupt,
-  copilotToolSupportsState,
   createExecutionContext,
   ensureClientToolInstance,
-  isBackgroundState,
   isCopilotTool,
-  isRejectedState,
-  isReviewState,
+  isGatedTool,
   resolveToolDisplay,
 } from '@/stores/copilot/tool-registry'
 import type {
@@ -202,6 +198,23 @@ function applyStreamedFunctionCallItem(
 
   const args = normalizeFunctionCallArguments(item.arguments)
   const { toolCallsById } = get()
+  if (!isCopilotTool(name)) {
+    const next = withPinnedToolExecutionProvenance(
+      {
+        id,
+        name,
+        state: ClientToolCallState.error,
+        ...(args ? { params: args } : {}),
+        display: resolveToolDisplay(name, ClientToolCallState.error, id, args),
+      },
+      context.provenance
+    )
+    set({ toolCallsById: { ...toolCallsById, [id]: next } })
+    context.contentBlocks.push({ type: 'tool_call', toolCall: next, timestamp: Date.now() })
+    updateStreamingMessage(set, context)
+    logger.warn('Rejected unsupported copilot tool call', { id, name })
+    return
+  }
 
   ensureClientToolInstance(name, id)
 
@@ -264,52 +277,27 @@ function scheduleAutomaticToolExecution(
   get: () => CopilotStore,
   logger: StreamingLogger
 ) {
-  if (isCopilotTool(toolName)) {
-    try {
-      const hasInterrupt = copilotToolHasInterrupt(toolName, toolCallId)
-      const entersReviewState = copilotToolSupportsState(toolName, ClientToolCallState.review)
-      const { accessLevel } = get()
-      if (shouldAutoExecuteCopilotTool(accessLevel, hasInterrupt, entersReviewState)) {
-        setTimeout(() => {
-          void get().executeCopilotToolCall(toolCallId)
-        }, 0)
-      } else {
-        logger.info('[copilot access] copilot tool awaiting confirmation', {
-          accessLevel,
-          id: toolCallId,
-          name: toolName,
-        })
-      }
-    } catch (error) {
-      logger.warn('Copilot tool auto-exec check failed', {
-        id: toolCallId,
-        name: toolName,
-        error,
-      })
-    }
-    return
-  }
-
   try {
     const { accessLevel } = get()
-    if (shouldAutoExecuteIntegrationTool(accessLevel)) {
-      logger.info('[copilot access] auto-executing integration tool', {
+    if (shouldRequireToolApproval(accessLevel, isGatedTool(toolName))) {
+      logger.info('[copilot access] tool awaiting confirmation', {
         accessLevel,
         id: toolCallId,
         name: toolName,
       })
-      setTimeout(() => {
-        void get().executeIntegrationTool(toolCallId)
-      }, 0)
-    } else {
-      logger.info('[copilot access] integration tool awaiting confirmation', {
-        accessLevel,
-        id: toolCallId,
-        name: toolName,
-      })
+      return
     }
+
+    logger.info('[copilot access] auto-executing tool', {
+      accessLevel,
+      id: toolCallId,
+      name: toolName,
+    })
+    setTimeout(() => {
+      void get().executeCopilotToolCall(toolCallId)
+    }, 0)
   } catch (error) {
-    logger.warn('Integration tool access check failed', {
+    logger.warn('Tool auto-exec check failed', {
       id: toolCallId,
       name: toolName,
       error,
@@ -330,19 +318,9 @@ export async function flushPendingAutoExecutionToolCalls(
   const pendingIds = [...pendingToolCallIds]
   pendingToolCallIds.clear()
   const toolCallsById = get().toolCallsById
-  const { accessLevel } = get()
   for (const toolCallId of pendingIds) {
     const toolCall = toolCallsById[toolCallId]
     if (!toolCall || toolCall.state !== ClientToolCallState.pending) {
-      continue
-    }
-
-    if (
-      shouldRequireCopilotApproval(accessLevel) &&
-      isCopilotTool(toolCall.name) &&
-      copilotToolSupportsState(toolCall.name, ClientToolCallState.review)
-    ) {
-      await get().executeCopilotToolCall(toolCallId)
       continue
     }
 
@@ -361,11 +339,7 @@ function buildStreamedToolDisplayState(
       continue
     }
 
-    if (
-      isRejectedState(block.toolCall?.state) ||
-      isReviewState(block.toolCall?.state) ||
-      isBackgroundState(block.toolCall?.state)
-    ) {
+    if (isToolCallCompletionProtected(block.toolCall?.state)) {
       break
     }
 
@@ -451,11 +425,7 @@ export function createSSEHandlers(params: {
         const { toolCallsById } = get()
         const current = toolCallsById[toolCallId]
         if (current) {
-          if (
-            isRejectedState(current.state) ||
-            isReviewState(current.state) ||
-            isBackgroundState(current.state)
-          ) {
+          if (isToolCallCompletionProtected(current.state)) {
             return
           }
 
@@ -511,11 +481,7 @@ export function createSSEHandlers(params: {
         const { toolCallsById } = get()
         const current = toolCallsById[toolCallId]
         if (current) {
-          if (
-            isRejectedState(current.state) ||
-            isReviewState(current.state) ||
-            isBackgroundState(current.state)
-          ) {
+          if (isToolCallCompletionProtected(current.state)) {
             return
           }
 

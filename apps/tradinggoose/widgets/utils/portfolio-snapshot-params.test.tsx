@@ -11,6 +11,13 @@ import {
   usePortfolioSnapshotParamsPersistence,
 } from '@/widgets/utils/portfolio-snapshot-params'
 
+const portfolioIdentity = {
+  providerId: 'alpaca',
+  credentialId: 'credential-1',
+  serviceId: 'alpaca-live',
+  accountId: 'acct-1',
+}
+
 function Harness({
   params,
   onWidgetParamsChange,
@@ -54,7 +61,8 @@ describe('portfolio snapshot params helper', () => {
     expect(
       sanitizePortfolioSnapshotParams({
         provider: 'alpaca',
-        accountId: 'acct-1',
+        serviceId: 'alpaca-live',
+        portfolioIdentity,
         selectedWindow: '1D',
         ignored: true,
         runtime: {
@@ -64,7 +72,8 @@ describe('portfolio snapshot params helper', () => {
       })
     ).toEqual({
       provider: 'alpaca',
-      accountId: 'acct-1',
+      serviceId: 'alpaca-live',
+      portfolioIdentity,
       selectedWindow: '1D',
       runtime: {
         refreshAt: 123,

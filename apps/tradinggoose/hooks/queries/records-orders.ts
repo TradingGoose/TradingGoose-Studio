@@ -9,18 +9,8 @@ export const recordsOrderKeys = {
   details: () => [...recordsOrderKeys.all, 'detail'] as const,
   detail: (workspaceId: string | undefined, orderId: string | undefined) =>
     [...recordsOrderKeys.details(), workspaceId ?? '', orderId ?? ''] as const,
-  providerDetail: (
-    workspaceId: string | undefined,
-    orderId: string | undefined,
-    accountId: string | undefined
-  ) =>
-    [
-      ...recordsOrderKeys.details(),
-      'provider',
-      workspaceId ?? '',
-      orderId ?? '',
-      accountId ?? '',
-    ] as const,
+  providerDetail: (workspaceId: string | undefined, orderId: string | undefined) =>
+    [...recordsOrderKeys.details(), 'provider', workspaceId ?? '', orderId ?? ''] as const,
 }
 
 export const orderKeys = recordsOrderKeys
@@ -37,7 +27,6 @@ export type RecordsOrder = {
   listingIdentity?: unknown
   providerOrderId: string | null
   clientOrderId: string | null
-  accountId: string | null
   side: string | null
   status: string | null
   orderType: string | null
@@ -167,11 +156,10 @@ export const useOrderDetail = useRecordsOrderDetail
 export function useProviderOrderDetail(params: {
   workspaceId: string | undefined
   orderId: string | undefined
-  accountId?: string | undefined
   enabled?: boolean
 }) {
   return useQuery({
-    queryKey: recordsOrderKeys.providerDetail(params.workspaceId, params.orderId, params.accountId),
+    queryKey: recordsOrderKeys.providerDetail(params.workspaceId, params.orderId),
     queryFn: async () => {
       const response = await fetch(
         `/api/orders/${params.orderId}/provider-detail?workspaceId=${encodeURIComponent(
@@ -179,10 +167,6 @@ export function useProviderOrderDetail(params: {
         )}`,
         {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            accountId: params.accountId,
-          }),
         }
       )
       const payload = await response.json().catch(() => ({}))

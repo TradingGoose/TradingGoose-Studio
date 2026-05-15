@@ -29,17 +29,11 @@ export const createFolderTool: ToolConfig<GoogleDriveToolParams, GoogleDriveUplo
       visibility: 'user-or-llm',
       description: 'Name of the folder to create',
     },
-    folderSelector: {
-      type: 'string',
-      required: false,
-      visibility: 'user-only',
-      description: 'Select the parent folder to create the folder in',
-    },
     folderId: {
       type: 'string',
       required: false,
-      visibility: 'hidden',
-      description: 'ID of the parent folder (internal use)',
+      visibility: 'user-only',
+      description: 'ID of the parent folder',
     },
   },
 
@@ -60,10 +54,8 @@ export const createFolderTool: ToolConfig<GoogleDriveToolParams, GoogleDriveUplo
         mimeType: 'application/vnd.google-apps.folder',
       }
 
-      // Add parent folder if specified (prefer folderSelector over folderId)
-      const parentFolderId = params.folderSelector || params.folderId
-      if (parentFolderId) {
-        metadata.parents = [parentFolderId]
+      if (params.folderId) {
+        metadata.parents = [params.folderId]
       }
 
       return metadata

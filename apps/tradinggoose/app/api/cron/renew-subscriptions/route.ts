@@ -4,7 +4,7 @@ import { and, eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { verifyCronAuth } from '@/lib/auth/internal'
 import { createLogger } from '@/lib/logs/console/logger'
-import { refreshAccessTokenIfNeeded } from '@/app/api/auth/oauth/utils'
+import { refreshAccessTokenIfNeeded } from '@/lib/oauth/tokens'
 
 const logger = createLogger('TeamsSubscriptionRenewal')
 

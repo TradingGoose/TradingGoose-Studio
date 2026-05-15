@@ -111,7 +111,7 @@ export function IndicatorEditorExportButton({
     : (indicatorId ?? null)
   const indicator = useIndicatorsStore((state) =>
     workspaceId && resolvedIndicatorId
-      ? state.getIndicator(resolvedIndicatorId, workspaceId)
+      ? state.readIndicator(resolvedIndicatorId, workspaceId)
       : undefined
   )
 

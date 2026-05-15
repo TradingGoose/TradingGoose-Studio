@@ -130,15 +130,13 @@ describe('extractFilename', () => {
     })
   })
 
-  describe('backward compatibility', () => {
-    it('should match old behavior for legitimate local files', () => {
-      // These test cases verify that our security fix maintains exact backward compatibility
-      // for all legitimate use cases found in the existing codebase
+  describe('valid file path extraction', () => {
+    it('should extract legitimate local files', () => {
       expect(extractFilename('/api/files/serve/test-file.txt')).toBe('test-file.txt')
       expect(extractFilename('/api/files/serve/nonexistent.txt')).toBe('nonexistent.txt')
     })
 
-    it('should match old behavior for legitimate cloud files', () => {
+    it('should extract legitimate cloud files', () => {
       // These test cases are from the actual delete route tests
       expect(extractFilename('/api/files/serve/s3/1234567890-test-file.txt')).toBe(
         's3/1234567890-test-file.txt'
@@ -148,7 +146,7 @@ describe('extractFilename', () => {
       )
     })
 
-    it('should match old behavior for simple paths', () => {
+    it('should extract simple paths', () => {
       // These match the mock implementations in serve route tests
       expect(extractFilename('simple-file.txt')).toBe('simple-file.txt')
       expect(extractFilename('nested/path/file.txt')).toBe('file.txt')

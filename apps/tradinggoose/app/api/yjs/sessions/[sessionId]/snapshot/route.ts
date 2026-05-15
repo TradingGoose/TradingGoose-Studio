@@ -32,6 +32,10 @@ export async function GET(
   request.nextUrl.searchParams.forEach((value, key) => {
     queryParams[key] = value
   })
+  const accessMode = request.nextUrl.searchParams.get('accessMode')
+  if (accessMode !== 'read' && accessMode !== 'write') {
+    return NextResponse.json({ error: 'Invalid access mode' }, { status: 400 })
+  }
 
   let descriptor
   try {
@@ -48,14 +52,18 @@ export async function GET(
     return NextResponse.json({ error: 'Session ID mismatch' }, { status: 409 })
   }
 
-  const access = await verifyReviewTargetAccess(userId, {
-    entityKind: descriptor.entityKind,
-    entityId: descriptor.entityId,
-    draftSessionId: descriptor.draftSessionId,
-    reviewSessionId: descriptor.reviewSessionId,
-    workspaceId: descriptor.workspaceId,
-    yjsSessionId: descriptor.yjsSessionId,
-  })
+  const access = await verifyReviewTargetAccess(
+    userId,
+    {
+      entityKind: descriptor.entityKind,
+      entityId: descriptor.entityId,
+      draftSessionId: descriptor.draftSessionId,
+      reviewSessionId: descriptor.reviewSessionId,
+      workspaceId: descriptor.workspaceId,
+      yjsSessionId: descriptor.yjsSessionId,
+    },
+    accessMode
+  )
 
   if (!access.hasAccess) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })

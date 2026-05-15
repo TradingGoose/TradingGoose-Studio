@@ -1,8 +1,4 @@
 import { useEffect } from 'react'
-import {
-  type ReviewTargetEventFields,
-  spreadReviewTarget,
-} from '@/widgets/events'
 import type { PairColor } from '@/widgets/pair-colors'
 
 // ---------------------------------------------------------------------------
@@ -61,9 +57,7 @@ export function createSelectionPersistenceHook(config: SelectionPersistenceConfi
       const resolvedScopeKey = scopeKey ?? defaultScopeKey
 
       const handleSelect = (event: Event) => {
-        const detail = (event as CustomEvent).detail as
-          | (Record<string, unknown> & ReviewTargetEventFields)
-          | undefined
+        const detail = (event as CustomEvent).detail as Record<string, unknown> | undefined
         if (!detail?.widgetKey) return
         if (resolvedScopeKey && detail.widgetKey !== resolvedScopeKey) return
         if (panelId && detail.panelId && detail.panelId !== panelId) return
@@ -85,7 +79,6 @@ export function createSelectionPersistenceHook(config: SelectionPersistenceConfi
         onWidgetParamsChange?.({
           ...currentParams,
           [paramsIdKey]: entityId,
-          ...spreadReviewTarget(detail),
         })
       }
 
@@ -109,24 +102,17 @@ export interface EmitSelectionChangeConfig {
   detailIdKey: string
 }
 
-export interface EmitSelectionChangeOptions extends ReviewTargetEventFields {
+export interface EmitSelectionChangeOptions {
   entityId?: string | null
   panelId?: string
   widgetKey: string
 }
 
 /**
- * Creates an emit function that dispatches a `CustomEvent` with the entity ID
- * and review-target fields, matching the pattern used by all entity-selection
- * files.
+ * Creates an emit function that dispatches a `CustomEvent` with the selected entity ID.
  */
 export function createEmitSelectionChange(config: EmitSelectionChangeConfig) {
-  return function emitSelectionChange({
-    entityId,
-    panelId,
-    widgetKey,
-    ...reviewTarget
-  }: EmitSelectionChangeOptions) {
+  return function emitSelectionChange({ entityId, panelId, widgetKey }: EmitSelectionChangeOptions) {
     if (!widgetKey) return
 
     window.dispatchEvent(
@@ -135,7 +121,6 @@ export function createEmitSelectionChange(config: EmitSelectionChangeConfig) {
           [config.detailIdKey]: entityId ?? null,
           panelId,
           widgetKey,
-          ...reviewTarget,
         },
       })
     )

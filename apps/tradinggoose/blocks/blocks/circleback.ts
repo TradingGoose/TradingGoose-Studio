@@ -11,7 +11,6 @@ export const CirclebackBlock: BlockConfig = {
   category: 'tools',
   bgColor: undefined,
   icon: CirclebackIcon,
-  triggerAllowed: true,
 
   subBlocks: [
     ...(getTrigger('circleback_meeting_completed')?.subBlocks ?? []),

@@ -1,19 +1,18 @@
 import { db } from '@tradinggoose/db'
-import { workflow, workspace } from '@tradinggoose/db/schema'
+import { workflow } from '@tradinggoose/db/schema'
 import { eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { getSession } from '@/lib/auth'
 import { getStableVibrantColor } from '@/lib/colors'
 import { createLogger } from '@/lib/logs/console/logger'
-import { getUserEntityPermissions } from '@/lib/permissions/utils'
+import { checkWorkspaceAccess } from '@/lib/permissions/utils'
 import { generateRequestId } from '@/lib/utils'
 import { remapVariableIds, saveWorkflowToNormalizedTables } from '@/lib/workflows/db-helpers'
 import { normalizeVariables } from '@/lib/workflows/variable-utils'
 import { tryApplyWorkflowState } from '@/lib/yjs/server/apply-workflow-state'
 import { createWorkflowSnapshot } from '@/lib/yjs/workflow-session'
 import type { WorkflowState } from '@/stores/workflows/workflow/types'
-import { verifyWorkspaceMembership } from './utils'
 
 const logger = createLogger('WorkflowAPI')
 
@@ -21,7 +20,7 @@ const CreateWorkflowSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   description: z.string().optional().default(''),
   color: z.string().optional(),
-  workspaceId: z.string().optional(),
+  workspaceId: z.string().min(1, 'Workspace ID is required'),
   folderId: z.string().nullable().optional(),
   initialWorkflowState: z.any().optional(),
 })
@@ -67,12 +66,12 @@ function getInitialWorkflowState(
   }
 }
 
-// GET /api/workflows - Get workflows for user (optionally filtered by workspaceId)
+// GET /api/workflows - Get workflows for a workspace
 export async function GET(request: Request) {
   const requestId = generateRequestId()
   const startTime = Date.now()
   const url = new URL(request.url)
-  const workspaceId = url.searchParams.get('workspaceId')
+  const workspaceId = url.searchParams.get('workspaceId')?.trim()
 
   try {
     const session = await getSession()
@@ -83,43 +82,32 @@ export async function GET(request: Request) {
 
     const userId = session.user.id
 
-    if (workspaceId) {
-      const workspaceExists = await db
-        .select({ id: workspace.id })
-        .from(workspace)
-        .where(eq(workspace.id, workspaceId))
-        .then((rows) => rows.length > 0)
-
-      if (!workspaceExists) {
-        logger.warn(
-          `[${requestId}] Attempt to fetch workflows for non-existent workspace: ${workspaceId}`
-        )
-        return NextResponse.json(
-          { error: 'Workspace not found', code: 'WORKSPACE_NOT_FOUND' },
-          { status: 404 }
-        )
-      }
-
-      const userRole = await verifyWorkspaceMembership(userId, workspaceId)
-
-      if (!userRole) {
-        logger.warn(
-          `[${requestId}] User ${userId} attempted to access workspace ${workspaceId} without membership`
-        )
-        return NextResponse.json(
-          { error: 'Access denied to this workspace', code: 'WORKSPACE_ACCESS_DENIED' },
-          { status: 403 }
-        )
-      }
+    if (!workspaceId) {
+      return NextResponse.json({ error: 'Workspace ID is required' }, { status: 400 })
     }
 
-    let workflows
-
-    if (workspaceId) {
-      workflows = await db.select().from(workflow).where(eq(workflow.workspaceId, workspaceId))
-    } else {
-      workflows = await db.select().from(workflow).where(eq(workflow.userId, userId))
+    const workspaceAccess = await checkWorkspaceAccess(workspaceId, userId)
+    if (!workspaceAccess.exists) {
+      logger.warn(
+        `[${requestId}] Attempt to fetch workflows for non-existent workspace: ${workspaceId}`
+      )
+      return NextResponse.json(
+        { error: 'Workspace not found', code: 'WORKSPACE_NOT_FOUND' },
+        { status: 404 }
+      )
     }
+
+    if (!workspaceAccess.hasAccess) {
+      logger.warn(
+        `[${requestId}] User ${userId} attempted to access workspace ${workspaceId} without membership`
+      )
+      return NextResponse.json(
+        { error: 'Access denied to this workspace', code: 'WORKSPACE_ACCESS_DENIED' },
+        { status: 403 }
+      )
+    }
+
+    const workflows = await db.select().from(workflow).where(eq(workflow.workspaceId, workspaceId))
 
     return NextResponse.json({ data: workflows }, { status: 200 })
   } catch (error: any) {
@@ -141,24 +129,29 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json()
-    const { name, description, color, workspaceId, folderId, initialWorkflowState } = CreateWorkflowSchema.parse(body)
+    const { name, description, color, workspaceId, folderId, initialWorkflowState } =
+      CreateWorkflowSchema.parse(body)
 
-    if (workspaceId) {
-      const workspacePermission = await getUserEntityPermissions(
-        session.user.id,
-        'workspace',
-        workspaceId
+    const workspaceAccess = await checkWorkspaceAccess(workspaceId, session.user.id)
+
+    if (!workspaceAccess.exists) {
+      logger.warn(
+        `[${requestId}] User ${session.user.id} attempted to create workflow in missing workspace ${workspaceId}`
       )
+      return NextResponse.json(
+        { error: 'Workspace not found', code: 'WORKSPACE_NOT_FOUND' },
+        { status: 404 }
+      )
+    }
 
-      if (!workspacePermission || workspacePermission === 'read') {
-        logger.warn(
-          `[${requestId}] User ${session.user.id} attempted to create workflow in workspace ${workspaceId} without write permissions`
-        )
-        return NextResponse.json(
-          { error: 'Write or Admin access required to create workflows in this workspace' },
-          { status: 403 }
-        )
-      }
+    if (!workspaceAccess.canWrite) {
+      logger.warn(
+        `[${requestId}] User ${session.user.id} attempted to create workflow in workspace ${workspaceId} without write permissions`
+      )
+      return NextResponse.json(
+        { error: 'Write or Admin access required to create workflows in this workspace' },
+        { status: 403 }
+      )
     }
 
     const workflowId = crypto.randomUUID()
@@ -181,7 +174,6 @@ export async function POST(req: NextRequest) {
       trackPlatformEvent('platform.workflow.created', {
         'workflow.id': workflowId,
         'workflow.name': name,
-        'workflow.has_workspace': !!workspaceId,
         'workflow.has_folder': !!folderId,
       })
     } catch (_e) {
@@ -191,7 +183,7 @@ export async function POST(req: NextRequest) {
     await db.insert(workflow).values({
       id: workflowId,
       userId: session.user.id,
-      workspaceId: workspaceId || null,
+      workspaceId,
       folderId: folderId || null,
       name,
       description,

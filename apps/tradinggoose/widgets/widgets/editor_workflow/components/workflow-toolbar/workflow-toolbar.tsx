@@ -37,9 +37,9 @@ import {
   widgetHeaderMenuContentClassName,
   widgetHeaderMenuTextClassName,
 } from '@/widgets/widgets/components/widget-header-control'
-import { ToolbarBlock } from '@/widgets/widgets/editor_workflow/components/toolbar/toolbar-block'
-import LoopToolbarItem from '@/widgets/widgets/editor_workflow/components/toolbar/toolbar-loop-block'
-import ParallelToolbarItem from '@/widgets/widgets/editor_workflow/components/toolbar/toolbar-parallel-block'
+import { ToolbarBlock } from '@/widgets/widgets/editor_workflow/components/toolbar/toolbar-block/toolbar-block'
+import LoopToolbarItem from '@/widgets/widgets/editor_workflow/components/toolbar/toolbar-loop-block/toolbar-loop-block'
+import ParallelToolbarItem from '@/widgets/widgets/editor_workflow/components/toolbar/toolbar-parallel-block/toolbar-parallel-block'
 import { ToolbarAddBlockProvider } from '@/widgets/widgets/editor_workflow/components/workflow-toolbar/toolbar-add-block-context'
 import { dispatchToolbarAddBlock } from '@/widgets/widgets/editor_workflow/components/workflow-toolbar/toolbar-add-block-dispatcher'
 

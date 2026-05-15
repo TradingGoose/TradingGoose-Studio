@@ -8,6 +8,11 @@ import {
 } from '@/lib/custom-tools/import-export'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
+import {
+  applySavedEntityYjsStateToRows,
+  savedEntityRowToFields,
+} from '@/lib/yjs/entity-state'
+import { applySavedEntityState } from '@/lib/yjs/server/apply-entity-state'
 
 const logger = createLogger('CustomToolsOperations')
 
@@ -30,6 +35,16 @@ interface ImportCustomToolsParams {
   requestId?: string
 }
 
+export async function listCustomTools(params: { workspaceId: string }) {
+  const rows = await db
+    .select()
+    .from(customTools)
+    .where(eq(customTools.workspaceId, params.workspaceId))
+    .orderBy(desc(customTools.createdAt))
+
+  return applySavedEntityYjsStateToRows('custom_tool', rows)
+}
+
 /**
  * Create or update custom tools scoped to a workspace.
  */
@@ -39,7 +54,8 @@ export async function upsertCustomTools({
   userId,
   requestId = generateRequestId(),
 }: UpsertCustomToolsParams) {
-  return await db.transaction(async (tx) => {
+  const affectedIds: string[] = []
+  const result = await db.transaction(async (tx) => {
     for (const tool of tools) {
       const nowTime = new Date()
 
@@ -62,6 +78,7 @@ export async function upsertCustomTools({
             .where(eq(customTools.id, tool.id))
 
           logger.info(`[${requestId}] Updated custom tool ${tool.id}`)
+          affectedIds.push(tool.id)
           continue
         }
       }
@@ -76,8 +93,9 @@ export async function upsertCustomTools({
         throw new Error(`A tool with the title "${tool.title}" already exists in this workspace`)
       }
 
+      const toolId = tool.id || nanoid()
       await tx.insert(customTools).values({
-        id: tool.id || nanoid(),
+        id: toolId,
         workspaceId,
         userId,
         title: tool.title,
@@ -88,14 +106,25 @@ export async function upsertCustomTools({
       })
 
       logger.info(`[${requestId}] Created custom tool ${tool.title}`)
+      affectedIds.push(toolId)
     }
 
-    return await tx
+    return tx
       .select()
       .from(customTools)
       .where(eq(customTools.workspaceId, workspaceId))
       .orderBy(desc(customTools.createdAt))
   })
+
+  await Promise.all(
+    result
+      .filter((row) => affectedIds.includes(row.id))
+      .map((row) =>
+        applySavedEntityState('custom_tool', row.id, savedEntityRowToFields('custom_tool', row))
+      )
+  )
+
+  return applySavedEntityYjsStateToRows('custom_tool', result)
 }
 
 export async function importCustomTools({

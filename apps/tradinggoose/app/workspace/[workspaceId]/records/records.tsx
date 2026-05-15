@@ -2,7 +2,7 @@
 
 import type React from 'react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Database, Download, Filter, Loader2, RefreshCw, Search } from 'lucide-react'
+import { Download, Filter, Loader2, RefreshCw, ScrollText, Search } from 'lucide-react'
 import { useParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
@@ -590,7 +590,7 @@ export default function Records() {
       left={
         <div className='flex min-w-0 flex-1 items-center gap-3'>
           <div className='hidden shrink-0 items-center gap-2 sm:flex'>
-            <Database className='h-[18px] w-[18px] text-muted-foreground' />
+            <ScrollText className='h-[18px] w-[18px] text-muted-foreground' />
             <span className='font-medium text-sm'>Records</span>
           </div>
           {activeTab === 'orders' ? (

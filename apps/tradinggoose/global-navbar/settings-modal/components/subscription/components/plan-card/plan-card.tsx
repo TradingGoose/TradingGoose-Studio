@@ -17,6 +17,7 @@ export interface PlanCardProps {
   features: PlanFeature[]
   buttonText: string
   onButtonClick: () => void
+  buttonDisabled?: boolean
   isError?: boolean
   variant?: 'default' | 'compact'
   layout?: 'vertical' | 'horizontal'
@@ -34,6 +35,7 @@ export function PlanCard({
   features,
   buttonText,
   onButtonClick,
+  buttonDisabled = false,
   isError = false,
   variant = 'default',
   layout = 'vertical',
@@ -106,6 +108,7 @@ export function PlanCard({
       <div className={isHorizontal ? 'ml-auto' : undefined}>
         <Button
           onClick={onButtonClick}
+          disabled={buttonDisabled}
           className={cn(
             'h-9 rounded-sm text-xs transition-colors',
             isHorizontal ? 'px-4' : 'w-full',

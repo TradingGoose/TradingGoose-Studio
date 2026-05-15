@@ -5,7 +5,7 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
 import { applyAutoLayout } from '@/lib/workflows/autolayout'
 import { loadWorkflowFromNormalizedTables } from '@/lib/workflows/db-helpers'
-import { getWorkflowAccessContext } from '@/lib/workflows/utils'
+import { readWorkflowAccessContext } from '@/lib/workflows/utils'
 
 export const dynamic = 'force-dynamic'
 
@@ -50,7 +50,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       userId,
     })
 
-    const accessContext = await getWorkflowAccessContext(workflowId, userId)
+    const accessContext = await readWorkflowAccessContext(workflowId, userId)
     const workflowData = accessContext?.workflow
 
     if (!workflowData) {

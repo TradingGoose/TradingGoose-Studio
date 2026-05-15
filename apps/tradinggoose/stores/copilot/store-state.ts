@@ -1,8 +1,6 @@
 'use client'
 
 import { ClientToolCallState } from '@/lib/copilot/tools/client/base-tool'
-import { shouldRequireCopilotApproval } from '@/lib/copilot/access-policy'
-import { copilotToolSupportsState } from '@/stores/copilot/tool-registry'
 import type { CopilotChat, CopilotStore, CopilotToolCall } from '@/stores/copilot/types'
 
 export const ACTIVE_TURN_STATUS = 'in_progress'
@@ -19,12 +17,21 @@ const UI_ACTIVE_TOOL_STATES = new Set<ClientToolCallState>([
   ...RUNTIME_ACTIVE_TOOL_STATES,
   ClientToolCallState.review,
 ])
+const TOOL_COMPLETION_PROTECTED_STATES = new Set<ClientToolCallState>([
+  ClientToolCallState.aborted,
+  ClientToolCallState.rejected,
+  ClientToolCallState.review,
+  ClientToolCallState.background,
+])
+const TOOL_PERSISTED_STATES = new Set<ClientToolCallState>([
+  ClientToolCallState.success,
+  ClientToolCallState.error,
+  ...TOOL_COMPLETION_PROTECTED_STATES,
+])
 
 export function normalizeReloadedToolState(
-  toolName: string | undefined,
   state: unknown,
-  latestTurnStatus?: string | null,
-  accessLevel?: CopilotStore['accessLevel']
+  latestTurnStatus?: string | null
 ): ClientToolCallState {
   const nextState =
     typeof state === 'string' && VALID_TOOL_CALL_STATES.has(state)
@@ -34,14 +41,6 @@ export function normalizeReloadedToolState(
   if (nextState === ClientToolCallState.generating || nextState === ClientToolCallState.executing) {
     if (latestTurnStatus === ACTIVE_TURN_STATUS) {
       return nextState
-    }
-    if (
-      shouldRequireCopilotApproval(accessLevel ?? 'limited') &&
-      nextState === ClientToolCallState.executing
-    ) {
-      if (copilotToolSupportsState(toolName, ClientToolCallState.review)) {
-        return ClientToolCallState.review
-      }
     }
     return ClientToolCallState.aborted
   }
@@ -61,6 +60,16 @@ export function isToolCallRuntimeActive(state: CopilotToolCall['state'] | undefi
 
 export function isToolCallUiActive(state: CopilotToolCall['state'] | undefined): boolean {
   return state != null && UI_ACTIVE_TOOL_STATES.has(state)
+}
+
+export function isToolCallCompletionProtected(
+  state: CopilotToolCall['state'] | undefined
+): boolean {
+  return state != null && TOOL_COMPLETION_PROTECTED_STATES.has(state)
+}
+
+export function isToolCallPersisted(state: CopilotToolCall['state'] | undefined): boolean {
+  return state != null && TOOL_PERSISTED_STATES.has(state)
 }
 
 export function hasUiActiveToolCalls(toolCallsById: Record<string, CopilotToolCall>): boolean {

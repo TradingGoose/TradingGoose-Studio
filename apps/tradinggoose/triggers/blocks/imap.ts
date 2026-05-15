@@ -11,7 +11,6 @@ export const ImapBlock: BlockConfig = {
   category: 'triggers',
   bgColor: '#6366F1',
   icon: MailServerIcon,
-  triggerAllowed: true,
   hideFromToolbar: false,
   subBlocks: [...(getTrigger('imap_poller')?.subBlocks ?? [])],
   tools: {

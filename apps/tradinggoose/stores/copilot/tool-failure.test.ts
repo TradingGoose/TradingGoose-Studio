@@ -1,10 +1,15 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { reportClientManagedToolFailure } from '@/stores/copilot/tool-failure'
 
 describe('client-managed tool failure reporting', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
   it('prefers the tool instance mark-complete method when available', async () => {
     const markToolComplete = vi.fn(async () => true)
     const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
 
     await reportClientManagedToolFailure({
       id: 'tool-1',
@@ -13,7 +18,6 @@ describe('client-managed tool failure reporting', () => {
       instance: {
         markToolComplete,
       },
-      fetchImpl: fetchMock as any,
     })
 
     expect(markToolComplete).toHaveBeenCalledWith(500, 'tool exploded')
@@ -26,12 +30,12 @@ describe('client-managed tool failure reporting', () => {
       status: 200,
       json: async () => ({ success: true }),
     }))
+    vi.stubGlobal('fetch', fetchMock)
 
     await reportClientManagedToolFailure({
       id: 'tool-2',
       name: 'plan',
       message: 'Client-managed copilot tool instance not found',
-      fetchImpl: fetchMock as any,
     })
 
     expect(fetchMock).toHaveBeenCalledTimes(1)

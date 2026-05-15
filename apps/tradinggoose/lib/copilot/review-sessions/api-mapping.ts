@@ -31,8 +31,8 @@ type SessionRow = Pick<
 >
 
 /**
- * Maps a review-session DB row (or compatible object) to the standard chat API
- * response shape.  `messages` defaults to an empty array when omitted.
+ * Maps a review-session DB row to the standard chat API response shape.
+ * `messages` defaults to an empty array when omitted.
  */
 export function mapSessionToApiResponse(
   session: SessionRow,

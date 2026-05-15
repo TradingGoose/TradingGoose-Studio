@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
-import { checkHybridAuth } from '@/lib/auth/hybrid'
+import { resolveOAuthRouteCredential } from '@/lib/credentials/oauth-route'
 import { createLogger } from '@/lib/logs/console/logger'
 import {
   downloadFileFromStorage,
@@ -16,7 +16,9 @@ const logger = createLogger('GmailDraftAPI')
 const GMAIL_API_BASE = 'https://gmail.googleapis.com/gmail/v1/users/me'
 
 const GmailDraftSchema = z.object({
-  accessToken: z.string().min(1, 'Access token is required'),
+  credentialId: z.string().min(1, 'Credential ID is required'),
+  workflowId: z.string().optional().nullable(),
+  workspaceId: z.string().optional().nullable(),
   to: z.string().min(1, 'Recipient email is required'),
   subject: z.string().min(1, 'Subject is required'),
   body: z.string().min(1, 'Email body is required'),
@@ -29,25 +31,10 @@ export async function POST(request: NextRequest) {
   const requestId = generateRequestId()
 
   try {
-    const authResult = await checkHybridAuth(request, { requireWorkflowId: false })
-
-    if (!authResult.success) {
-      logger.warn(`[${requestId}] Unauthorized Gmail draft attempt: ${authResult.error}`)
-      return NextResponse.json(
-        {
-          success: false,
-          error: authResult.error || 'Authentication required',
-        },
-        { status: 401 }
-      )
-    }
-
-    logger.info(`[${requestId}] Authenticated Gmail draft request via ${authResult.authType}`, {
-      userId: authResult.userId,
-    })
-
     const body = await request.json()
     const validatedData = GmailDraftSchema.parse(body)
+    const credential = await resolveOAuthRouteCredential(request, validatedData, requestId)
+    if (!credential.ok) return credential.response
 
     logger.info(`[${requestId}] Creating Gmail draft`, {
       to: validatedData.to,
@@ -140,7 +127,7 @@ export async function POST(request: NextRequest) {
     const gmailResponse = await fetch(`${GMAIL_API_BASE}/drafts`, {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${validatedData.accessToken}`,
+        Authorization: `Bearer ${credential.accessToken}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({

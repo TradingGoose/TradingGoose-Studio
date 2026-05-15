@@ -1,11 +1,7 @@
-import { db } from '@tradinggoose/db'
-import { account } from '@tradinggoose/db/schema'
-import { and, eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
-import { getSession } from '@/lib/auth'
+import { resolveOAuthRouteCredential } from '@/lib/credentials/oauth-route'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
-import { refreshAccessTokenIfNeeded } from '@/app/api/auth/oauth/utils'
 export const dynamic = 'force-dynamic'
 
 const logger = createLogger('GmailLabelsAPI')
@@ -22,15 +18,10 @@ export async function GET(request: NextRequest) {
   const requestId = generateRequestId()
 
   try {
-    const session = await getSession()
-
-    if (!session?.user?.id) {
-      logger.warn(`[${requestId}] Unauthenticated labels request rejected`)
-      return NextResponse.json({ error: 'User not authenticated' }, { status: 401 })
-    }
-
     const { searchParams } = new URL(request.url)
     const credentialId = searchParams.get('credentialId')
+    const workflowId = searchParams.get('workflowId') || undefined
+    const workspaceId = searchParams.get('workspaceId') || undefined
     const query = searchParams.get('query')
 
     if (!credentialId) {
@@ -38,35 +29,16 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Credential ID is required' }, { status: 400 })
     }
 
-    let credentials = await db
-      .select()
-      .from(account)
-      .where(and(eq(account.id, credentialId), eq(account.userId, session.user.id)))
-      .limit(1)
-
-    if (!credentials.length) {
-      credentials = await db.select().from(account).where(eq(account.id, credentialId)).limit(1)
-      if (!credentials.length) {
-        logger.warn(`[${requestId}] Credential not found`)
-        return NextResponse.json({ error: 'Credential not found' }, { status: 404 })
-      }
-    }
-
-    const credential = credentials[0]
-
-    logger.info(
-      `[${requestId}] Using credential: ${credential.id}, provider: ${credential.providerId}`
+    const credential = await resolveOAuthRouteCredential(
+      request,
+      { credentialId, workflowId, workspaceId },
+      requestId
     )
-
-    const accessToken = await refreshAccessTokenIfNeeded(credentialId, credential.userId, requestId)
-
-    if (!accessToken) {
-      return NextResponse.json({ error: 'Failed to obtain valid access token' }, { status: 401 })
-    }
+    if (!credential.ok) return credential.response
 
     const response = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/labels', {
       headers: {
-        Authorization: `Bearer ${accessToken}`,
+        Authorization: `Bearer ${credential.accessToken}`,
       },
     })
 
@@ -108,8 +80,8 @@ export async function GET(request: NextRequest) {
 
     const filteredLabels = query
       ? labels.filter((label: GmailLabel) =>
-        label.name.toLowerCase().includes((query as string).toLowerCase())
-      )
+          label.name.toLowerCase().includes((query as string).toLowerCase())
+        )
       : labels
 
     return NextResponse.json({ labels: filteredLabels }, { status: 200 })

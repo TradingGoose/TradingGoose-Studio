@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
+import { TradingActionBlock } from '@/blocks/blocks/trading_action'
 import { TradingOrderDetailBlock } from '@/blocks/blocks/trading_order_detail'
 import { TradingOrderHistoryBlock } from '@/blocks/blocks/trading_order_history'
+import { evaluateSubBlockConditionValues } from '@/lib/workflows/sub-block-conditions'
 import { tradingOrderDetailTool } from '@/tools/trading/order_detail'
 import { orderHistoryTool } from '@/tools/trading/order_history'
 
@@ -30,5 +32,67 @@ describe('trading order block contracts', () => {
         workspaceId: expect.any(Object),
       })
     )
+  })
+
+  it('exposes appOrderId on trading action outputs for order-detail chaining', () => {
+    expect(TradingActionBlock.outputs).toHaveProperty('appOrderId')
+  })
+
+  it('invalidates order type options when the selected listing changes', () => {
+    const orderType = TradingActionBlock.subBlocks.find((subBlock) => subBlock.id === 'orderType')
+
+    expect(orderType?.dependsOn).toEqual(['provider', 'listing'])
+  })
+
+  it('declares canonical sizing controls directly on the order block', () => {
+    const quantity = TradingActionBlock.subBlocks.find((subBlock) => subBlock.id === 'quantity')
+    const notional = TradingActionBlock.subBlocks.find((subBlock) => subBlock.id === 'notional')
+
+    expect(quantity?.condition).toEqual(
+      expect.objectContaining({
+        field: 'orderSizingMode',
+        value: ['notional'],
+        not: true,
+        and: { field: 'provider', value: ['alpaca', 'tradier'] },
+      })
+    )
+    expect(notional?.condition).toEqual(
+      expect.objectContaining({
+        field: 'orderSizingMode',
+        value: ['notional'],
+        and: { field: 'provider', value: ['alpaca'] },
+      })
+    )
+
+    expect(
+      evaluateSubBlockConditionValues(quantity?.condition, {
+        provider: 'tradier',
+      })
+    ).toBe(true)
+    expect(
+      evaluateSubBlockConditionValues(quantity?.condition, {
+        provider: 'alpaca',
+        orderSizingMode: 'notional',
+      })
+    ).toBe(false)
+  })
+
+  it('serializes trading action sizing as canonical route fields', () => {
+    const params = TradingActionBlock.tools.config!.params!({
+      portfolioIdentity: {
+        providerId: 'tradier',
+        credentialId: 'credential-1',
+        serviceId: 'tradier-live',
+        accountId: 'ACC-1',
+      },
+      side: 'buy',
+      listing: { listing_type: 'default', listing_id: 'AAPL', base_id: '', quote_id: '' },
+      quantity: '2',
+      orderSizingMode: 'notional',
+      notional: '100',
+    } as any)
+
+    expect(params).toMatchObject({ orderSizingMode: 'notional', notional: 100 })
+    expect(params).not.toHaveProperty('quantity')
   })
 })

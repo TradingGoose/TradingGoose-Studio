@@ -1,15 +1,17 @@
-import { createPermissionError } from '@/lib/copilot/review-sessions/permissions'
 import {
   type BaseServerTool,
-  type ServerToolExecutionContext,
+  createPermissionError,
   resolveServerWorkflowScope,
+  type ServerToolExecutionContext,
+  throwIfServerToolAborted,
 } from '@/lib/copilot/tools/server/base-tool'
+import { getOAuthAccessTokenForUserCredential } from '@/lib/credentials/oauth'
 import { createLogger } from '@/lib/logs/console/logger'
-import { getOAuthToken } from '@/app/api/auth/oauth/utils'
 import { executeTool } from '@/tools'
 
 interface ReadGDriveFileParams {
   workflowId?: string
+  credentialId?: string
   fileId?: string
   type?: 'doc' | 'sheet'
   range?: string
@@ -21,6 +23,7 @@ export const readGDriveFileServerTool: BaseServerTool<ReadGDriveFileParams, any>
     const logger = createLogger('ReadGDriveFileServerTool')
 
     const userId = context?.userId
+    const credentialId = params?.credentialId
     const fileId = params?.fileId
     const type = params?.type
     const workflowScope = await resolveServerWorkflowScope(params, context)
@@ -28,25 +31,41 @@ export const readGDriveFileServerTool: BaseServerTool<ReadGDriveFileParams, any>
     logger.info('read_gdrive_file input', {
       hasUserId: !!userId,
       workflowId: workflowScope?.workflowId,
+      hasCredentialId: !!credentialId,
       hasFileId: !!fileId,
       type,
       hasRange: !!params?.range,
     })
 
-    if (!userId || !fileId || !type) {
-      throw new Error('Authentication, fileId and type are required')
+    if (!userId || !credentialId || !fileId || !type) {
+      throw new Error('Authentication, credentialId, fileId and type are required')
     }
     if (workflowScope && !workflowScope.hasAccess) {
       throw new Error(createPermissionError('access Google Drive files in'))
     }
+    throwIfServerToolAborted(context)
+
+    const accessToken = await getOAuthAccessTokenForUserCredential({
+      credentialId,
+      userId,
+      requestId: `copilot-gdrive-read-${credentialId}`,
+      workspaceId: workflowScope?.workspaceId,
+    })
+    if (!accessToken) {
+      throw new Error(
+        'No Google Drive connection found for this user. Please connect Google Drive in settings.'
+      )
+    }
 
     if (type === 'doc') {
-      const accessToken = await getOAuthToken(userId, 'google-drive')
-      if (!accessToken)
-        throw new Error(
-          'No Google Drive connection found for this user. Please connect Google Drive in settings.'
-        )
-      const result = await executeTool('google_drive_get_content', { accessToken, fileId })
+      const result = await executeTool(
+        'google_drive_get_content',
+        { accessToken, fileId },
+        false,
+        undefined,
+        { signal: context?.signal }
+      )
+      throwIfServerToolAborted(context)
       if (!result.success) throw new Error(result.error || 'Failed to read Google Drive document')
       const output = (result as any).output || result
       const content = output?.output?.content ?? output?.content
@@ -55,15 +74,18 @@ export const readGDriveFileServerTool: BaseServerTool<ReadGDriveFileParams, any>
     }
 
     if (type === 'sheet') {
-      const accessToken = await getOAuthToken(userId, 'google-sheets')
-      if (!accessToken)
-        throw new Error(
-          'No Google Sheets connection found for this user. Please connect Google Sheets in settings.'
-        )
       const result = await executeTool(
         'google_sheets_read',
-        { accessToken, spreadsheetId: fileId, ...(params?.range ? { range: params.range } : {}) }
+        {
+          accessToken,
+          spreadsheetId: fileId,
+          ...(params?.range ? { range: params.range } : {}),
+        },
+        false,
+        undefined,
+        { signal: context?.signal }
       )
+      throwIfServerToolAborted(context)
       if (!result.success) throw new Error(result.error || 'Failed to read Google Sheets data')
       const output = (result as any).output || result
       const rows: string[][] = output?.output?.data?.values || output?.data?.values || []

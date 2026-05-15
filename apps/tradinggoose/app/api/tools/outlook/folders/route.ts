@@ -1,11 +1,7 @@
-import { db } from '@tradinggoose/db'
-import { account } from '@tradinggoose/db/schema'
-import { eq } from 'drizzle-orm'
-import { NextResponse } from 'next/server'
-import { getSession } from '@/lib/auth'
+import { type NextRequest, NextResponse } from 'next/server'
+import { resolveOAuthRouteCredential } from '@/lib/credentials/oauth-route'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
-import { refreshAccessTokenIfNeeded } from '@/app/api/auth/oauth/utils'
 
 export const dynamic = 'force-dynamic'
 
@@ -18,11 +14,15 @@ interface OutlookFolder {
   unreadItemCount?: number
 }
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
+  const requestId = generateRequestId()
+
   try {
-    const session = await getSession()
     const { searchParams } = new URL(request.url)
     const credentialId = searchParams.get('credentialId')
+    const workflowId = searchParams.get('workflowId') || undefined
+    const workspaceId = searchParams.get('workspaceId') || undefined
+    const folderId = searchParams.get('folderId')
 
     if (!credentialId) {
       logger.error('Missing credentialId in request')
@@ -30,43 +30,25 @@ export async function GET(request: Request) {
     }
 
     try {
-      // Ensure we have a session for permission checks
-      const sessionUserId = session?.user?.id || ''
-
-      if (!sessionUserId) {
-        logger.error('No user ID found in session')
-        return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
-      }
-
-      // Resolve the credential owner to support collaborator-owned credentials
-      const creds = await db.select().from(account).where(eq(account.id, credentialId)).limit(1)
-      if (!creds.length) {
-        logger.warn('Credential not found', { credentialId })
-        return NextResponse.json({ error: 'Credential not found' }, { status: 404 })
-      }
-      const credentialOwnerUserId = creds[0].userId
-
-      const accessToken = await refreshAccessTokenIfNeeded(
-        credentialId,
-        credentialOwnerUserId,
-        generateRequestId()
+      const credential = await resolveOAuthRouteCredential(
+        request,
+        {
+          credentialId,
+          workflowId,
+          workspaceId,
+        },
+        requestId
       )
+      if (!credential.ok) return credential.response
 
-      if (!accessToken) {
-        logger.error('Failed to get access token', { credentialId, userId: credentialOwnerUserId })
-        return NextResponse.json(
-          {
-            error: 'Could not retrieve access token',
-            authRequired: true,
-          },
-          { status: 401 }
-        )
-      }
+      const graphPath = folderId
+        ? `https://graph.microsoft.com/v1.0/me/mailFolders/${encodeURIComponent(folderId)}`
+        : 'https://graph.microsoft.com/v1.0/me/mailFolders'
 
-      const response = await fetch('https://graph.microsoft.com/v1.0/me/mailFolders', {
+      const response = await fetch(graphPath, {
         method: 'GET',
         headers: {
-          Authorization: `Bearer ${accessToken}`,
+          Authorization: `Bearer ${credential.accessToken}`,
           'Content-Type': 'application/json',
         },
       })
@@ -76,10 +58,9 @@ export async function GET(request: Request) {
         logger.error('Microsoft Graph API error getting folders', {
           status: response.status,
           error: errorData,
-          endpoint: 'https://graph.microsoft.com/v1.0/me/mailFolders',
+          endpoint: graphPath,
         })
 
-        // Check for auth errors specifically
         if (response.status === 401) {
           return NextResponse.json(
             {
@@ -93,20 +74,30 @@ export async function GET(request: Request) {
         throw new Error(`Microsoft Graph API error: ${JSON.stringify(errorData)}`)
       }
 
+      if (folderId) {
+        const folder: OutlookFolder = await response.json()
+        return NextResponse.json({
+          folder: {
+            id: folder.id,
+            name: folder.displayName,
+            type: 'folder',
+            messagesTotal: folder.totalItemCount || 0,
+            messagesUnread: folder.unreadItemCount || 0,
+          },
+        })
+      }
+
       const data = await response.json()
       const folders = data.value || []
 
-      // Transform folders to match the expected format
-      const transformedFolders = folders.map((folder: OutlookFolder) => ({
-        id: folder.id,
-        name: folder.displayName,
-        type: 'folder',
-        messagesTotal: folder.totalItemCount || 0,
-        messagesUnread: folder.unreadItemCount || 0,
-      }))
-
       return NextResponse.json({
-        folders: transformedFolders,
+        folders: folders.map((folder: OutlookFolder) => ({
+          id: folder.id,
+          name: folder.displayName,
+          type: 'folder',
+          messagesTotal: folder.totalItemCount || 0,
+          messagesUnread: folder.unreadItemCount || 0,
+        })),
       })
     } catch (innerError) {
       logger.error('Error during API requests:', innerError)

@@ -11,14 +11,19 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
-import { useTradingAccounts } from '@/hooks/queries/trading-portfolio'
-import { getTradingProviderDefinition } from '@/providers/trading/providers'
-import type { UnifiedTradingAccount } from '@/providers/trading/types'
+import { usePortfolioIdentities } from '@/hooks/queries/trading-portfolio'
 import {
-  getTradingCredentialServiceName,
-  useTradingCredentialServices,
-} from '@/widgets/widgets/components/trading-credential-services'
+  arePortfolioIdentitiesEqual,
+  getPortfolioIdentityKey,
+  type PortfolioIdentity,
+  toPortfolioValueObject,
+} from '@/providers/trading/portfolio-identity'
+import { getTradingProviderDefinition } from '@/providers/trading/providers'
 import { resolveTradingProviderIcon } from '@/widgets/widgets/components/trading-provider-selector'
+import {
+  getTradingServiceName,
+  useTradingServices,
+} from '@/widgets/widgets/components/trading-services'
 import {
   widgetHeaderControlClassName,
   widgetHeaderMenuContentClassName,
@@ -27,15 +32,15 @@ import {
 import { OAuthRequiredModal } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/components/credential-selector/components/oauth-required-modal'
 
 export type TradingAccountSelection = {
-  accountId?: string | null
-  credentialServiceId?: string | null
+  serviceId?: string | null
+  portfolioIdentity?: PortfolioIdentity | null
 }
 
 type TradingAccountSelectorProps = {
   workspaceId?: string | null
   providerId?: string | null
-  credentialServiceId?: string | null
-  accountId?: string | null
+  serviceId?: string | null
+  portfolioIdentity?: PortfolioIdentity | null
   disabled?: boolean
   placeholder?: string
   tooltipText?: string
@@ -43,15 +48,21 @@ type TradingAccountSelectorProps = {
   onAccountSelect?: (selection: TradingAccountSelection) => void
 }
 
-const getAccountName = (account: UnifiedTradingAccount) => account.name ?? account.id
+const getAccountName = (portfolioIdentity: PortfolioIdentity) =>
+  portfolioIdentity.accountName ?? portfolioIdentity.accountId
 
 const getAccountDescriptionPart = (value?: string | null) => {
   const trimmed = typeof value === 'string' ? value.trim() : ''
   return trimmed && trimmed !== 'unknown' ? trimmed : null
 }
 
-const getAccountDescription = (account: UnifiedTradingAccount) =>
-  [account.type, account.status, account.baseCurrency]
+const getAccountDescription = (providerId: string, portfolioIdentity: PortfolioIdentity) =>
+  [
+    getTradingServiceName(providerId, portfolioIdentity.serviceId),
+    portfolioIdentity.accountType,
+    portfolioIdentity.accountStatus,
+    portfolioIdentity.baseCurrency,
+  ]
     .map(getAccountDescriptionPart)
     .filter(Boolean)
     .join(' - ')
@@ -59,8 +70,8 @@ const getAccountDescription = (account: UnifiedTradingAccount) =>
 export function TradingAccountSelector({
   workspaceId,
   providerId,
-  credentialServiceId,
-  accountId,
+  serviceId,
+  portfolioIdentity,
   disabled = false,
   placeholder = 'Select account',
   tooltipText = 'Select trading account',
@@ -77,27 +88,30 @@ export function TradingAccountSelector({
   const providerName = providerDefinition?.name ?? 'broker'
   const oauthProvider = providerDefinition?.oauth?.provider
   const isEnabled = Boolean(trimmedWorkspaceId && trimmedProviderId) && !disabled
-  const credentialServices = useTradingCredentialServices({
+  const selectedPortfolioIdentity = toPortfolioValueObject(portfolioIdentity)
+  const requestedServiceId = serviceId ?? selectedPortfolioIdentity?.serviceId
+  const services = useTradingServices({
     providerId: trimmedProviderId,
-    credentialServiceId,
+    serviceId: requestedServiceId,
+    workspaceId: trimmedWorkspaceId,
     enabled: isEnabled,
   })
-  const activeServiceId = credentialServices.activeServiceId
-  const hasConnection =
-    Boolean(activeServiceId) && credentialServices.connectedServiceIds.includes(activeServiceId!)
-  const accountsQuery = useTradingAccounts({
+  const activeServiceId = services.activeServiceId
+  const hasConnection = Boolean(activeServiceId)
+  const accountsQuery = usePortfolioIdentities({
     workspaceId: trimmedWorkspaceId || undefined,
     provider: trimmedProviderId || undefined,
-    credentialServiceId: activeServiceId,
+    serviceId: activeServiceId,
     enabled: isEnabled && hasConnection,
   })
-  const accounts = accountsQuery.data ?? []
-  const selectedAccountId =
-    typeof accountId === 'string' && accountId.trim() ? accountId.trim() : ''
-  const selectedOption = accounts.find((account) => account.id === selectedAccountId) ?? null
+  const portfolioIdentities = accountsQuery.data ?? []
+  const selectedOption =
+    portfolioIdentities.find((account) =>
+      arePortfolioIdentitiesEqual(account, selectedPortfolioIdentity)
+    ) ?? null
   const isLoadingAccounts =
-    credentialServices.isLoading || accountsQuery.isLoading || accountsQuery.isFetching
-  const hasUnresolvedSelectedAccount = Boolean(selectedAccountId && !selectedOption)
+    services.isLoading || accountsQuery.isLoading || accountsQuery.isFetching
+  const hasUnresolvedSelectedAccount = Boolean(selectedPortfolioIdentity && !selectedOption)
   const buttonLabel = selectedOption
     ? getAccountName(selectedOption)
     : hasUnresolvedSelectedAccount && isLoadingAccounts
@@ -107,7 +121,7 @@ export function TradingAccountSelector({
 
   const handleOAuthClose = () => {
     setShowOAuthModal(false)
-    credentialServices.refetch()
+    services.refetch()
     void accountsQuery.refetch()
   }
 
@@ -160,30 +174,32 @@ export function TradingAccountSelector({
           sideOffset={6}
           className={cn(widgetHeaderMenuContentClassName, 'w-[300px] p-1')}
         >
-          {credentialServices.isLoading ? (
+          {services.isLoading ? (
             <div className='flex items-center gap-2 px-3 py-2 text-muted-foreground text-xs'>
               <RefreshCw className='h-3.5 w-3.5 animate-spin' />
               Loading provider connection...
             </div>
-          ) : credentialServices.error ? (
+          ) : services.error ? (
             <div className='px-3 py-2 text-muted-foreground text-xs'>
               Unable to load provider connection.
             </div>
-          ) : credentialServices.serviceIds.length > 1 && !activeServiceId ? (
+          ) : services.serviceIds.length > 1 &&
+            services.connectedServiceIds.length > 0 &&
+            !activeServiceId ? (
             <>
               <div className='px-3 py-2 text-muted-foreground text-xs'>
                 Select a {providerName} connection.
               </div>
-              {credentialServices.connectedServiceIds.map((serviceId) => (
+              {services.connectedServiceIds.map((serviceId) => (
                 <DropdownMenuItem
                   key={serviceId}
                   className={cn(widgetHeaderMenuItemClassName, 'items-center justify-between')}
                   onSelect={() => {
-                    onAccountSelect?.({ accountId: null, credentialServiceId: serviceId })
+                    onAccountSelect?.({ portfolioIdentity: null, serviceId: serviceId })
                   }}
                 >
                   <span className='truncate text-foreground'>
-                    {getTradingCredentialServiceName(trimmedProviderId, serviceId)}
+                    {getTradingServiceName(trimmedProviderId, serviceId)}
                   </span>
                 </DropdownMenuItem>
               ))}
@@ -197,25 +213,25 @@ export function TradingAccountSelector({
               <RefreshCw className='h-3.5 w-3.5 animate-spin' />
               Loading broker accounts...
             </div>
-          ) : accounts.length === 0 ? (
+          ) : portfolioIdentities.length === 0 ? (
             <div className='px-3 py-2 text-muted-foreground text-xs'>
               {accountsQuery.error
                 ? 'Unable to load broker accounts.'
                 : 'No broker accounts found.'}
             </div>
           ) : (
-            accounts.map((account) => {
-              const isSelected = account.id === selectedAccountId
-              const accountDescription = getAccountDescription(account)
+            portfolioIdentities.map((account) => {
+              const isSelected = arePortfolioIdentitiesEqual(account, selectedPortfolioIdentity)
+              const accountDescription = getAccountDescription(trimmedProviderId, account)
               return (
                 <DropdownMenuItem
-                  key={account.id}
+                  key={getPortfolioIdentityKey(account)}
                   className={cn(widgetHeaderMenuItemClassName, 'items-center justify-between')}
                   onSelect={() => {
                     if (isSelected) return
                     onAccountSelect?.({
-                      accountId: account.id,
-                      credentialServiceId: activeServiceId,
+                      serviceId: activeServiceId,
+                      portfolioIdentity: account,
                     })
                   }}
                 >
@@ -233,10 +249,10 @@ export function TradingAccountSelector({
             })
           )}
 
-          {oauthProvider && credentialServices.serviceIds.length > 0 ? (
+          {oauthProvider && services.serviceIds.length > 0 ? (
             <>
               <DropdownMenuSeparator />
-              {credentialServices.serviceIds.map((serviceId) => (
+              {services.serviceIds.map((serviceId) => (
                 <DropdownMenuItem
                   key={serviceId}
                   className={cn(widgetHeaderMenuItemClassName, 'items-center text-foreground')}
@@ -244,9 +260,9 @@ export function TradingAccountSelector({
                 >
                   <Plus className='h-3.5 w-3.5 text-muted-foreground' />
                   <span>
-                    {credentialServices.connectedServiceIds.includes(serviceId)
-                      ? `Reconnect ${getTradingCredentialServiceName(trimmedProviderId, serviceId)} account`
-                      : `Connect ${getTradingCredentialServiceName(trimmedProviderId, serviceId)} account`}
+                    {services.connectedServiceIds.includes(serviceId)
+                      ? `Reconnect ${getTradingServiceName(trimmedProviderId, serviceId)} account`
+                      : `Connect ${getTradingServiceName(trimmedProviderId, serviceId)} account`}
                   </span>
                 </DropdownMenuItem>
               ))}
@@ -263,7 +279,7 @@ export function TradingAccountSelector({
           toolName={toolName}
           requiredScopes={providerDefinition?.oauth?.scopes}
           serviceId={oauthModalServiceId ?? activeServiceId}
-          serviceIds={credentialServices.serviceIds}
+          serviceIds={services.serviceIds}
         />
       ) : null}
     </>

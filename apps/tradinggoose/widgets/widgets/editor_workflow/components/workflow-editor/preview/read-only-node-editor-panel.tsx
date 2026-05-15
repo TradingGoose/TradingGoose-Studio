@@ -1,11 +1,57 @@
 import { useMemo } from 'react'
+import { buildSubBlockPreviewRows } from '@/lib/workflows/sub-block-rows'
+import { getBlock } from '@/blocks'
+import type { SubBlockConfig } from '@/blocks/types'
 import type { WorkflowState } from '@/stores/workflows/workflow/types'
-import { resolveReadOnlyPreviewPanel } from './preview-panel-registry'
+import { SubBlockSummaryRows } from '@/widgets/widgets/editor_workflow/components/workflow-render/sub-block-summary-rows'
 
 interface ReadOnlyNodeEditorPanelProps {
   selectedNodeId: string | null
   workflowState: WorkflowState
 }
+
+const loopPreviewSubBlocks: SubBlockConfig[] = [
+  { id: 'loopType', title: 'Loop Type', type: 'dropdown' },
+  {
+    id: 'iterations',
+    title: 'Iterations',
+    type: 'short-input',
+    condition: { field: 'loopType', value: 'for' },
+  },
+  {
+    id: 'collection',
+    title: 'Collection',
+    type: 'long-input',
+    condition: { field: 'loopType', value: 'forEach' },
+  },
+  {
+    id: 'whileCondition',
+    title: 'Condition',
+    type: 'long-input',
+    condition: { field: 'loopType', value: ['while', 'doWhile'] },
+  },
+]
+
+const parallelPreviewSubBlocks: SubBlockConfig[] = [
+  { id: 'parallelType', title: 'Parallel Type', type: 'dropdown' },
+  {
+    id: 'count',
+    title: 'Executions',
+    type: 'short-input',
+    condition: { field: 'parallelType', value: 'count' },
+  },
+  {
+    id: 'distribution',
+    title: 'Collection',
+    type: 'long-input',
+    condition: { field: 'parallelType', value: 'collection' },
+  },
+]
+
+const toSubBlockState = (values: Record<string, unknown>) =>
+  Object.fromEntries(
+    Object.entries(values).map(([id, value]) => [id, { id, type: 'short-input', value }])
+  )
 
 export function ReadOnlyNodeEditorPanel({
   selectedNodeId,
@@ -23,7 +69,9 @@ export function ReadOnlyNodeEditorPanel({
     return (
       <aside className='w-80 shrink-0 border-border border-l bg-background/95 p-4'>
         <div className='flex h-full items-center justify-center text-center'>
-          <p className='text-muted-foreground text-sm'>Select a block to view its preview details.</p>
+          <p className='text-muted-foreground text-sm'>
+            Select a block to view its preview details.
+          </p>
         </div>
       </aside>
     )
@@ -40,7 +88,68 @@ export function ReadOnlyNodeEditorPanel({
     )
   }
 
-  const PanelComponent = resolveReadOnlyPreviewPanel(selectedBlock.type)
+  const blockConfig = getBlock(selectedBlock.type)
+  const previewConfig = (() => {
+    if (selectedBlock.type === 'loop') {
+      const loop = workflowState.loops?.[selectedBlock.id]
+      const loopType = loop?.loopType ?? selectedBlock.data?.loopType ?? 'for'
+      const stateToUse = toSubBlockState({
+        loopType,
+        iterations: loop?.iterations ?? selectedBlock.data?.count ?? 5,
+        collection: loop?.forEachItems ?? selectedBlock.data?.collection,
+        whileCondition: loop?.whileCondition ?? selectedBlock.data?.whileCondition,
+      })
+      return {
+        availableTriggerIds: undefined,
+        stateToUse,
+        subBlocks: buildSubBlockPreviewRows({
+          blockId: selectedBlock.id,
+          stateToUse,
+          subBlocks: loopPreviewSubBlocks,
+        }),
+      }
+    }
+
+    if (selectedBlock.type === 'parallel') {
+      const parallel = workflowState.parallels?.[selectedBlock.id]
+      const parallelType = parallel?.parallelType ?? selectedBlock.data?.parallelType ?? 'count'
+      const stateToUse = toSubBlockState({
+        parallelType,
+        count: parallel?.count ?? selectedBlock.data?.count ?? 5,
+        distribution: parallel?.distribution ?? selectedBlock.data?.collection,
+      })
+      return {
+        availableTriggerIds: undefined,
+        stateToUse,
+        subBlocks: buildSubBlockPreviewRows({
+          blockId: selectedBlock.id,
+          stateToUse,
+          subBlocks: parallelPreviewSubBlocks,
+        }),
+      }
+    }
+
+    if (!blockConfig) {
+      return {
+        availableTriggerIds: undefined,
+        stateToUse: {},
+        subBlocks: [],
+      }
+    }
+
+    return {
+      availableTriggerIds: blockConfig.triggers?.available,
+      stateToUse: selectedBlock.subBlocks || {},
+      subBlocks: buildSubBlockPreviewRows({
+        blockId: selectedBlock.id,
+        subBlocks: blockConfig.subBlocks || [],
+        stateToUse: selectedBlock.subBlocks || {},
+        isTriggerMode: Boolean(selectedBlock.triggerMode) || blockConfig.category === 'triggers',
+        isPureTriggerBlock: blockConfig.category === 'triggers',
+        availableTriggerIds: blockConfig.triggers?.available,
+      }),
+    }
+  })()
 
   return (
     <aside className='w-80 shrink-0 border-border border-l bg-background/95 p-4'>
@@ -50,10 +159,18 @@ export function ReadOnlyNodeEditorPanel({
           <h3 className='line-clamp-2 font-medium text-sm'>{selectedBlock.name}</h3>
         </header>
 
-        <PanelComponent
-          block={selectedBlock}
-          readOnly={true}
-        />
+        {previewConfig.subBlocks.length > 0 ? (
+          <div className='space-y-2'>
+            <SubBlockSummaryRows
+              blockId={selectedBlock.id}
+              subBlocks={previewConfig.subBlocks}
+              stateToUse={previewConfig.stateToUse}
+              availableTriggerIds={previewConfig.availableTriggerIds}
+            />
+          </div>
+        ) : (
+          <p className='text-muted-foreground text-xs'>No values to display.</p>
+        )}
       </div>
     </aside>
   )

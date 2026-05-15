@@ -82,7 +82,6 @@ export const githubWorkflowRunTrigger: TriggerConfig = {
       type: 'trigger-save',
       hideFromPreview: true,
       mode: 'trigger',
-      triggerId: 'github_workflow_run',
       condition: {
         field: 'selectedTriggerId',
         value: 'github_workflow_run',

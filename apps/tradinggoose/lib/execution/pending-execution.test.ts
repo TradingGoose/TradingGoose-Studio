@@ -11,9 +11,13 @@ const {
   isBillingEnabledForRuntimeMock,
   getTriggerExecutionStateMock,
   loggerWarnMock,
+  loggerErrorMock,
   andMock,
   eqMock,
+  selectLimitMock,
   txExecuteMock,
+  updateReturningMock,
+  eventWriteMock,
 } = vi.hoisted(() => ({
   transactionMock: vi.fn(),
   triggerMock: vi.fn(),
@@ -22,9 +26,13 @@ const {
   isBillingEnabledForRuntimeMock: vi.fn(),
   getTriggerExecutionStateMock: vi.fn(),
   loggerWarnMock: vi.fn(),
+  loggerErrorMock: vi.fn(),
   andMock: vi.fn((...args) => ({ args })),
   eqMock: vi.fn((field, value) => ({ field, value })),
+  selectLimitMock: vi.fn(),
   txExecuteMock: vi.fn(),
+  updateReturningMock: vi.fn(),
+  eventWriteMock: vi.fn(),
 }))
 
 const txSelectLimitMock = vi.fn()
@@ -39,9 +47,23 @@ const txInsertChain = {
   values: txInsertValuesMock,
 }
 
+const selectChain = {
+  from: vi.fn().mockReturnThis(),
+  where: vi.fn().mockReturnThis(),
+  limit: selectLimitMock,
+}
+
+const updateChain = {
+  set: vi.fn().mockReturnThis(),
+  where: vi.fn().mockReturnThis(),
+  returning: updateReturningMock,
+}
+
 vi.mock('@tradinggoose/db', () => ({
   db: {
     transaction: transactionMock,
+    select: vi.fn(() => selectChain),
+    update: vi.fn(() => updateChain),
     delete: vi.fn(() => ({
       where: deleteWhereMock,
     })),
@@ -62,6 +84,10 @@ vi.mock('@tradinggoose/db/schema', () => ({
     workspaceId: 'pendingExecution.workspaceId',
     payload: 'pendingExecution.payload',
     completedAt: 'pendingExecution.completedAt',
+    errorMessage: 'pendingExecution.errorMessage',
+    processingStartedAt: 'pendingExecution.processingStartedAt',
+    result: 'pendingExecution.result',
+    updatedAt: 'pendingExecution.updatedAt',
   },
 }))
 
@@ -88,6 +114,12 @@ vi.mock('@/lib/execution/execution-concurrency-limit', () => ({
   resolveServerExecutionBillingContext: vi.fn(),
 }))
 
+vi.mock('@/lib/execution/workflow-execution-events', () => ({
+  createWorkflowExecutionEventWriter: vi.fn(async () => ({
+    write: eventWriteMock,
+  })),
+}))
+
 vi.mock('@/lib/trigger/settings', () => ({
   getTriggerExecutionState: getTriggerExecutionStateMock,
 }))
@@ -99,10 +131,11 @@ vi.mock('@/background/pending-execution-drain', () => ({
 vi.mock('@/lib/logs/console/logger', () => ({
   createLogger: vi.fn(() => ({
     warn: loggerWarnMock,
+    error: loggerErrorMock,
   })),
 }))
 
-import { enqueuePendingExecution } from './pending-execution'
+import { cancelPendingWorkflowExecution, enqueuePendingExecution } from './pending-execution'
 
 describe('enqueuePendingExecution', () => {
   beforeEach(() => {
@@ -114,8 +147,10 @@ describe('enqueuePendingExecution', () => {
       executionEnabled: false,
     })
     txSelectLimitMock.mockResolvedValue([])
+    selectLimitMock.mockResolvedValue([])
     txExecuteMock.mockResolvedValue(undefined)
     txInsertValuesMock.mockResolvedValue(undefined)
+    updateReturningMock.mockResolvedValue([])
     drainPendingExecutionsForBillingScopeMock.mockResolvedValue({
       success: true,
     })
@@ -124,11 +159,21 @@ describe('enqueuePendingExecution', () => {
         execute: txExecuteMock,
         select: vi.fn(() => txSelectChain),
         insert: vi.fn(() => txInsertChain),
-      }),
+      })
     )
   })
 
-  it('drains locally when Trigger.dev is not configured', async () => {
+  it('starts local drain before returning without blocking on drain completion', async () => {
+    let drainCompleted = false
+    let resolveDrain: (() => void) | undefined
+    const drainPromise = new Promise<{ success: true }>((resolve) => {
+      resolveDrain = () => {
+        drainCompleted = true
+        resolve({ success: true })
+      }
+    })
+    drainPendingExecutionsForBillingScopeMock.mockReturnValueOnce(drainPromise)
+
     const result = await enqueuePendingExecution({
       executionType: 'workflow',
       pendingExecutionId: 'pending-local-1',
@@ -144,14 +189,42 @@ describe('enqueuePendingExecution', () => {
     expect(result).toEqual({
       pendingExecutionId: 'pending-local-1',
       billingScopeId: 'workspace-1',
+      inserted: true,
     })
     expect(triggerMock).not.toHaveBeenCalled()
     expect(drainPendingExecutionsForBillingScopeMock).toHaveBeenCalledWith({
       billingScopeId: 'workspace-1',
     })
+    expect(drainCompleted).toBe(false)
     expect(loggerWarnMock).toHaveBeenCalledWith(
-      'Trigger.dev is not configured; draining pending executions locally.',
+      'Trigger.dev is not configured; dispatching pending execution drain locally.'
     )
+    resolveDrain?.()
+    await drainPromise
+  })
+
+  it('returns duplicate pending ids without dispatching another worker', async () => {
+    txSelectLimitMock.mockResolvedValueOnce([{ id: 'pending-local-1' }])
+
+    const result = await enqueuePendingExecution({
+      executionType: 'workflow',
+      pendingExecutionId: 'pending-local-1',
+      workflowId: 'workflow-1',
+      workspaceId: 'workspace-1',
+      userId: 'user-1',
+      source: 'workflow_api',
+      payload: {
+        executionId: 'pending-local-1',
+      },
+    })
+
+    expect(result).toEqual({
+      pendingExecutionId: 'pending-local-1',
+      billingScopeId: 'workspace-1',
+      inserted: false,
+    })
+    expect(triggerMock).not.toHaveBeenCalled()
+    expect(drainPendingExecutionsForBillingScopeMock).not.toHaveBeenCalled()
   })
 
   it('deletes a newly inserted row when the Trigger.dev drain dispatch fails', async () => {
@@ -173,12 +246,71 @@ describe('enqueuePendingExecution', () => {
         payload: {
           executionId: 'pending-1',
         },
-      }),
+      })
     ).rejects.toThrow('Trigger unavailable')
 
     expect(deleteWhereMock).toHaveBeenCalledTimes(1)
     expect(eqMock).toHaveBeenCalledWith('pendingExecution.status', 'pending')
     expect(andMock).toHaveBeenCalled()
     expect(drainPendingExecutionsForBillingScopeMock).not.toHaveBeenCalled()
+  })
+})
+
+describe('cancelPendingWorkflowExecution', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    selectChain.from.mockReturnThis()
+    selectChain.where.mockReturnThis()
+    updateChain.set.mockReturnThis()
+    updateChain.where.mockReturnThis()
+    updateReturningMock.mockResolvedValue([])
+    eventWriteMock.mockResolvedValue({ eventId: 1 })
+  })
+
+  it('returns cancelled only when the pending row update matches', async () => {
+    selectLimitMock.mockResolvedValueOnce([
+      {
+        id: 'pending-1',
+        status: 'pending',
+        payload: {},
+        workflowId: 'workflow-1',
+      },
+    ])
+    updateReturningMock.mockResolvedValueOnce([{ id: 'pending-1' }])
+
+    await expect(
+      cancelPendingWorkflowExecution({
+        pendingExecutionId: 'pending-1',
+        userId: 'user-1',
+      })
+    ).resolves.toEqual({ status: 'cancelled' })
+  })
+
+  it('re-reads current status when a worker race wins the pending update', async () => {
+    selectLimitMock
+      .mockResolvedValueOnce([
+        {
+          id: 'pending-1',
+          status: 'pending',
+          payload: {},
+          workflowId: 'workflow-1',
+        },
+      ])
+      .mockResolvedValueOnce([
+        {
+          id: 'pending-1',
+          status: 'completed',
+          payload: {},
+          workflowId: 'workflow-1',
+        },
+      ])
+    updateReturningMock.mockResolvedValueOnce([])
+
+    await expect(
+      cancelPendingWorkflowExecution({
+        pendingExecutionId: 'pending-1',
+        userId: 'user-1',
+      })
+    ).resolves.toEqual({ status: 'finished' })
   })
 })

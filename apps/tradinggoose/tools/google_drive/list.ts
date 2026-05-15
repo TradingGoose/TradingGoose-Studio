@@ -23,17 +23,11 @@ export const listTool: ToolConfig<GoogleDriveToolParams, GoogleDriveListResponse
       visibility: 'hidden',
       description: 'The access token for the Google Drive API',
     },
-    folderSelector: {
-      type: 'string',
-      required: false,
-      visibility: 'user-only',
-      description: 'Select the folder to list files from',
-    },
     folderId: {
       type: 'string',
       required: false,
-      visibility: 'hidden',
-      description: 'The ID of the folder to list files from (internal use)',
+      visibility: 'user-only',
+      description: 'The ID of the folder to list files from',
     },
     query: {
       type: 'string',
@@ -69,9 +63,8 @@ export const listTool: ToolConfig<GoogleDriveToolParams, GoogleDriveListResponse
 
       // Build the query conditions
       const conditions = ['trashed = false'] // Always exclude trashed files
-      const folderId = params.folderId || params.folderSelector
-      if (folderId) {
-        conditions.push(`'${folderId}' in parents`)
+      if (params.folderId) {
+        conditions.push(`'${params.folderId}' in parents`)
       }
 
       // Combine all conditions with AND

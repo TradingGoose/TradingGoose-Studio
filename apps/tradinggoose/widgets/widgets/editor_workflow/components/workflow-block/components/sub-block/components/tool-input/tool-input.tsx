@@ -1,62 +1,39 @@
 import type React from 'react'
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { format } from 'date-fns'
+import { useEffect, useMemo, useState } from 'react'
+import { isEqual } from 'lodash'
 import { Server, WrenchIcon, XIcon } from 'lucide-react'
 import { useRouter } from 'next/navigation'
-import { DateTimePicker } from '@/components/ui/datetime-picker'
-import { SimpleTimePicker } from '@/components/ui/simple-time-picker'
-import { Slider } from '@/components/ui/slider'
-import { Switch } from '@/components/ui/switch'
 import { Toggle } from '@/components/ui/toggle'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { createLogger } from '@/lib/logs/console/logger'
-import type { OAuthProvider, OAuthService } from '@/lib/oauth/oauth'
-import {
-  formatUtcDate,
-  formatUtcDateTime,
-  parseStoredTimeValue,
-  resolveStoredDateValue,
-} from '@/lib/time-format'
+import type { OAuthProvider } from '@/lib/oauth/oauth'
 import { sanitizeSolidIconColor } from '@/lib/ui/icon-colors'
+import { cn } from '@/lib/utils'
 import {
   getProviderIdsForBlocks,
   isBlockAvailable,
   type ProviderAvailability,
 } from '@/lib/workflows/block-availability'
-import { cn } from '@/lib/utils'
+import { evaluateSubBlockConditionValues } from '@/lib/workflows/sub-block-conditions'
 import { useWorkflowMutations } from '@/lib/yjs/use-workflow-doc'
 import { getAllBlocks } from '@/blocks'
+import type { SubBlockConfig } from '@/blocks/types'
 import { useCustomTools } from '@/hooks/queries/custom-tools'
 import { useMcpTools } from '@/hooks/use-mcp-tools'
 import { getProviderFromModel, supportsToolUsageControl } from '@/providers/ai/utils'
 import type { CustomToolDefinition } from '@/stores/custom-tools/types'
 import {
   formatParameterLabel,
+  getRenderableToolParameters,
   getToolParametersConfig,
   isPasswordParameter,
   type ToolParameterConfig,
 } from '@/tools/params'
-import {
-  ChannelSelectorInput,
-  CheckboxList,
-  Code,
-  ComboBox,
-  Dropdown,
-  FileSelectorInput,
-  FileUpload,
-  ListingSelectorInput,
-  LongInput,
-  OrderIdSelectorInput,
-  ProjectSelectorInput,
-  ShortInput,
-  Table,
-} from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/components'
+import { Dropdown } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/components'
 import { ToolCredentialSelector } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/components/tool-input/components/tool-credential-selector'
+import { ToolSubBlockRenderer } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/components/tool-input/components/tools/sub-block-renderer'
 import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
-import {
-  useWorkflowId,
-  useWorkspaceId,
-} from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
+import { useWorkspaceId } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 
 const logger = createLogger('ToolInput')
 
@@ -71,7 +48,7 @@ interface StoredTool {
   type: string
   title: string
   toolId: string // Direct tool ID instead of relying on block mapping
-  params: Record<string, string>
+  params: Record<string, any>
   isExpanded?: boolean
   schema?: any // For custom tools
   code?: string // For custom tools implementation
@@ -79,418 +56,8 @@ interface StoredTool {
   usageControl?: 'auto' | 'force' | 'none'
 }
 
-function GenericSyncWrapper<T = unknown>({
-  blockId,
-  paramId,
-  value,
-  onChange,
-  children,
-  transformer,
-}: {
-  blockId: string
-  paramId: string
-  value: string
-  onChange: (value: string) => void
-  children: React.ReactNode
-  transformer?: (storeValue: T) => string
-}) {
-  const [storeValue] = useSubBlockValue(blockId, paramId)
-
-  useEffect(() => {
-    if (storeValue) {
-      const transformedValue = transformer ? transformer(storeValue) : String(storeValue)
-      if (transformedValue !== value) {
-        onChange(transformedValue)
-      }
-    }
-  }, [storeValue, value, onChange, transformer])
-
-  return <>{children}</>
-}
-
-function FileSelectorSyncWrapper({
-  blockId,
-  paramId,
-  value,
-  onChange,
-  uiComponent,
-  disabled,
-  contextValues,
-}: {
-  blockId: string
-  paramId: string
-  value: string
-  onChange: (value: string) => void
-  uiComponent: any
-  disabled: boolean
-  contextValues?: Record<string, any>
-}) {
-  return (
-    <GenericSyncWrapper blockId={blockId} paramId={paramId} value={value} onChange={onChange}>
-      <FileSelectorInput
-        blockId={blockId}
-        subBlock={{
-          id: paramId,
-          type: 'file-selector' as const,
-          title: paramId,
-          provider: uiComponent.provider,
-          serviceId: uiComponent.serviceId,
-          mimeType: uiComponent.mimeType,
-          requiredScopes: uiComponent.requiredScopes || [],
-          placeholder: uiComponent.placeholder,
-        }}
-        disabled={disabled}
-        contextValues={contextValues}
-      />
-    </GenericSyncWrapper>
-  )
-}
-
-function TableSyncWrapper({
-  blockId,
-  paramId,
-  value,
-  onChange,
-  uiComponent,
-  disabled,
-}: {
-  blockId: string
-  paramId: string
-  value: string
-  onChange: (value: string) => void
-  uiComponent: any
-  disabled: boolean
-}) {
-  return (
-    <GenericSyncWrapper
-      blockId={blockId}
-      paramId={paramId}
-      value={value}
-      onChange={onChange}
-      transformer={(storeValue) => JSON.stringify(storeValue)}
-    >
-      <Table
-        blockId={blockId}
-        subBlockId={paramId}
-        columns={uiComponent.columns || ['Key', 'Value']}
-        disabled={disabled}
-      />
-    </GenericSyncWrapper>
-  )
-}
-
-function TimeInputSyncWrapper({
-  value,
-  onChange,
-  disabled,
-}: {
-  value: string
-  onChange: (value: string) => void
-  disabled: boolean
-}) {
-  const initialSkipRef = useRef(!value)
-  const dateValue = useMemo(() => parseStoredTimeValue(value), [value])
-
-  useEffect(() => {
-    initialSkipRef.current = !value
-  }, [value])
-
-  return (
-    <SimpleTimePicker
-      value={dateValue}
-      onChange={(nextDate) => {
-        if (disabled) return
-        if (initialSkipRef.current) {
-          initialSkipRef.current = false
-          return
-        }
-        initialSkipRef.current = false
-        onChange(format(nextDate, 'HH:mm:ss'))
-      }}
-      use12HourFormat
-      timePicker={{ hour: true, minute: true, second: false }}
-      disabled={disabled}
-    />
-  )
-}
-
-function DateTimeInputSyncWrapper({
-  value,
-  onChange,
-  uiComponent,
-  disabled,
-}: {
-  value: string
-  onChange: (value: string) => void
-  uiComponent: any
-  disabled: boolean
-}) {
-  const dateValue = useMemo(() => resolveStoredDateValue(value), [value])
-
-  return (
-    <DateTimePicker
-      value={dateValue}
-      onChange={(nextDate) => {
-        if (disabled) return
-        if (!nextDate) {
-          onChange('')
-          return
-        }
-        onChange(uiComponent.hideTime ? formatUtcDate(nextDate) : formatUtcDateTime(nextDate))
-      }}
-      min={resolveStoredDateValue(uiComponent.minDate)}
-      max={resolveStoredDateValue(uiComponent.maxDate)}
-      timezone={uiComponent.timezone}
-      hideTime={uiComponent.hideTime}
-      use12HourFormat={uiComponent.use12HourFormat}
-      clearable={uiComponent.clearable}
-      timePicker={uiComponent.timePicker}
-      placeholder={uiComponent.placeholder}
-      disabled={disabled}
-    />
-  )
-}
-
-function SliderInputSyncWrapper({
-  value,
-  onChange,
-  uiComponent,
-  disabled,
-}: {
-  value: string
-  onChange: (value: string) => void
-  uiComponent: any
-  disabled: boolean
-}) {
-  const min = uiComponent.min ?? 0
-  const max = uiComponent.max ?? 100
-  const integer = uiComponent.integer === true
-  const step = uiComponent.step ?? 0.1
-  const computedDefaultValue = uiComponent.defaultValue ?? (max <= 1 ? 0.7 : (min + max) / 2)
-  const parsedValue = value.trim() !== '' ? Number(value) : undefined
-  const hasExplicitValue = parsedValue !== undefined && !Number.isNaN(parsedValue)
-  const normalizedValue = hasExplicitValue
-    ? Math.max(min, Math.min(max, parsedValue))
-    : computedDefaultValue
-  const range = max - min || 1
-
-  useEffect(() => {
-    if (hasExplicitValue && parsedValue !== normalizedValue) {
-      onChange(String(integer ? Math.round(normalizedValue) : normalizedValue))
-    }
-  }, [hasExplicitValue, integer, normalizedValue, onChange, parsedValue])
-
-  return (
-    <div className='relative pt-2 pb-6'>
-      <Slider
-        value={[normalizedValue]}
-        min={min}
-        max={max}
-        step={integer ? 1 : step}
-        onValueChange={(newValue) => {
-          if (!disabled) {
-            onChange(String(integer ? Math.round(newValue[0]) : newValue[0]))
-          }
-        }}
-        disabled={disabled}
-        className='[&_[class*=SliderTrack]]:h-1 [&_[role=slider]]:h-4 [&_[role=slider]]:w-4'
-      />
-      <div
-        className='absolute text-muted-foreground text-sm'
-        style={{
-          left: `clamp(0%, ${((normalizedValue - min) / range) * 100}%, 100%)`,
-          transform: `translateX(-${(() => {
-            const percentage = ((normalizedValue - min) / range) * 100
-            const bias = -25 * Math.sin((percentage * Math.PI) / 50)
-            return percentage === 0 ? 0 : percentage === 100 ? 100 : 50 + bias
-          })()}%)`,
-          top: '24px',
-        }}
-      >
-        {integer ? Math.round(normalizedValue).toString() : Number(normalizedValue).toFixed(1)}
-      </div>
-    </div>
-  )
-}
-
-function CheckboxListSyncWrapper({
-  blockId,
-  paramId,
-  value,
-  onChange,
-  uiComponent,
-  disabled,
-}: {
-  blockId: string
-  paramId: string
-  value: string
-  onChange: (value: string) => void
-  uiComponent: any
-  disabled: boolean
-}) {
-  return (
-    <GenericSyncWrapper
-      blockId={blockId}
-      paramId={paramId}
-      value={value}
-      onChange={onChange}
-      transformer={(storeValue) => JSON.stringify(storeValue)}
-    >
-      <CheckboxList
-        blockId={blockId}
-        subBlockId={paramId}
-        options={uiComponent.options || []}
-        disabled={disabled}
-      />
-    </GenericSyncWrapper>
-  )
-}
-
-function CodeSyncWrapper({
-  blockId,
-  paramId,
-  value,
-  onChange,
-  uiComponent,
-  disabled,
-  isConnecting,
-}: {
-  blockId: string
-  paramId: string
-  value: string
-  onChange: (value: string) => void
-  uiComponent: any
-  disabled: boolean
-  isConnecting: boolean
-}) {
-  return (
-    <GenericSyncWrapper blockId={blockId} paramId={paramId} value={value} onChange={onChange}>
-      <Code
-        blockId={blockId}
-        subBlockId={paramId}
-        isConnecting={isConnecting}
-        language={uiComponent.language}
-        generationType={uiComponent.generationType}
-        disabled={disabled}
-        wandConfig={{
-          enabled: false,
-          prompt: '',
-        }}
-      />
-    </GenericSyncWrapper>
-  )
-}
-
-function ComboboxSyncWrapper({
-  blockId,
-  paramId,
-  value,
-  onChange,
-  uiComponent,
-  disabled,
-  isConnecting,
-}: {
-  blockId: string
-  paramId: string
-  value: string
-  onChange: (value: string) => void
-  uiComponent: any
-  disabled: boolean
-  isConnecting: boolean
-}) {
-  return (
-    <GenericSyncWrapper blockId={blockId} paramId={paramId} value={value} onChange={onChange}>
-      <ComboBox
-        blockId={blockId}
-        subBlockId={paramId}
-        options={uiComponent.options || []}
-        placeholder={uiComponent.placeholder}
-        isConnecting={isConnecting}
-        config={{
-          id: paramId,
-          type: 'combobox' as const,
-          title: paramId,
-        }}
-        disabled={disabled}
-      />
-    </GenericSyncWrapper>
-  )
-}
-
-function FileUploadSyncWrapper({
-  blockId,
-  paramId,
-  value,
-  onChange,
-  uiComponent,
-  disabled,
-}: {
-  blockId: string
-  paramId: string
-  value: string
-  onChange: (value: string) => void
-  uiComponent: any
-  disabled: boolean
-}) {
-  return (
-    <GenericSyncWrapper
-      blockId={blockId}
-      paramId={paramId}
-      value={value}
-      onChange={onChange}
-      transformer={(storeValue) => JSON.stringify(storeValue)}
-    >
-      <FileUpload
-        blockId={blockId}
-        subBlockId={paramId}
-        acceptedTypes={uiComponent.acceptedTypes}
-        multiple={uiComponent.multiple}
-        maxSize={uiComponent.maxSize}
-        disabled={disabled}
-      />
-    </GenericSyncWrapper>
-  )
-}
-
-function ChannelSelectorSyncWrapper({
-  blockId,
-  paramId,
-  value,
-  onChange,
-  uiComponent,
-  disabled,
-  contextValues,
-}: {
-  blockId: string
-  paramId: string
-  value: string
-  onChange: (value: string) => void
-  uiComponent: any
-  disabled: boolean
-  contextValues?: Record<string, any>
-}) {
-  return (
-    <GenericSyncWrapper blockId={blockId} paramId={paramId} value={value} onChange={onChange}>
-      <ChannelSelectorInput
-        blockId={blockId}
-        subBlock={{
-          id: paramId,
-          type: 'channel-selector' as const,
-          title: paramId,
-          provider: uiComponent.provider || 'slack',
-          placeholder: uiComponent.placeholder,
-        }}
-        onChannelSelect={onChange}
-        disabled={disabled}
-        contextValues={contextValues}
-      />
-    </GenericSyncWrapper>
-  )
-}
-
 export function ToolInput({ blockId, subBlockId, isConnecting, disabled = false }: ToolInputProps) {
   const workspaceId = useWorkspaceId()
-  const workflowId = useWorkflowId()
   const router = useRouter()
   const { setSubBlockValue: yjsSetSubBlockValue } = useWorkflowMutations()
   const [storeValue, setStoreValue] = useSubBlockValue(blockId, subBlockId)
@@ -509,7 +76,8 @@ export function ToolInput({ blockId, subBlockId, isConnecting, disabled = false 
   const supportsToolControl = provider ? supportsToolUsageControl(provider) : false
 
   const allToolBlocks = useMemo(
-    () => getAllBlocks().filter((block) => block.category === 'tools' && block.type !== 'evaluator'),
+    () =>
+      getAllBlocks().filter((block) => block.category === 'tools' && block.type !== 'evaluator'),
     []
   )
 
@@ -556,7 +124,14 @@ export function ToolInput({ blockId, subBlockId, isConnecting, disabled = false 
       id: string
       icon?: React.ComponentType<{ className?: string }>
       group?: string
-    }> = [{ id: 'action:add-mcp', label: 'Create MCP Server', icon: Server, group: 'Actions' }]
+    }> = [
+      {
+        id: 'action:add-mcp',
+        label: 'Create MCP Server',
+        icon: Server,
+        group: 'Actions',
+      },
+    ]
 
     const customToolOptions =
       customTools?.map((tool) => ({
@@ -615,7 +190,7 @@ export function ToolInput({ blockId, subBlockId, isConnecting, disabled = false 
       return operationSubBlock.options as { label: string; id: string }[]
     }
 
-    // Fallback: create options from tools.access
+    // Use tool access ids when the block has no operation dropdown.
     return block.tools.access.map((toolId) => {
       try {
         const toolParams = getToolParametersConfig(toolId)
@@ -690,7 +265,7 @@ export function ToolInput({ blockId, subBlockId, isConnecting, disabled = false 
     if (isToolAlreadySelected(toolId, toolBlock.type)) return
 
     // Get tool parameters using the new utility with block type for UI components
-    const toolParams = getToolParametersConfig(toolId, toolBlock.type)
+    const toolParams = getToolParametersConfig(toolId, toolBlock)
     if (!toolParams) return
 
     // Initialize parameters with auto-fill and default values
@@ -779,12 +354,10 @@ export function ToolInput({ blockId, subBlockId, isConnecting, disabled = false 
   const handleAddCustomTool = (customTool: CustomToolDefinition) => {
     if (disabled) return
 
-    const customToolId = `custom-${customTool.schema.function.name}`
-
     const newTool: StoredTool = {
       type: 'custom-tool',
       title: customTool.title,
-      toolId: customToolId,
+      toolId: `custom_${customTool.id}`,
       params: {},
       isExpanded: true,
       schema: customTool.schema,
@@ -805,12 +378,13 @@ export function ToolInput({ blockId, subBlockId, isConnecting, disabled = false 
 
     const tool = selectedTools[toolIndex]
     const currentValue = tool.params[paramId] ?? ''
-    if (currentValue === paramValue) {
+    if (isEqual(currentValue, paramValue)) {
       return
     }
 
     const dependentParamIds = (() => {
-      const toolParams = getToolParametersConfig(tool.toolId, tool.type, tool.params)
+      const toolBlock = allToolBlocks.find((block) => block.type === tool.type)
+      const toolParams = getToolParametersConfig(tool.toolId, toolBlock, tool.params)
       const params = toolParams?.userInputParameters ?? []
       const dependencyMap = new Map<string, string[]>()
 
@@ -876,7 +450,8 @@ export function ToolInput({ blockId, subBlockId, isConnecting, disabled = false 
     }
 
     // Get parameters for the new tool
-    const toolParams = getToolParametersConfig(newToolId, tool.type, tool.params)
+    const toolBlock = allToolBlocks.find((block) => block.type === tool.type)
+    const toolParams = getToolParametersConfig(newToolId, toolBlock, tool.params)
 
     if (!toolParams) {
       logger.info('❌ Early return: no toolParams')
@@ -915,7 +490,7 @@ export function ToolInput({ blockId, subBlockId, isConnecting, disabled = false 
               ...tool,
               toolId: newToolId,
               operation,
-              params: { ...initialParams, ...preservedParams }, // Preserve all compatible existing values
+              params: { ...initialParams, ...preservedParams },
             }
           : tool
       )
@@ -1028,348 +603,87 @@ export function ToolInput({ blockId, subBlockId, isConnecting, disabled = false 
       ...tool.params,
     }
 
-    const fieldValue = currentValues[condition.field]
-    const andConditions = Array.isArray(condition.and)
-      ? condition.and
-      : condition.and
-        ? [condition.and]
-        : []
-
-    const evaluateMatch = (
-      matchCondition: {
-        value: string | number | boolean | Array<string | number | boolean>
-        not?: boolean
-      },
-      valueToCheck: any
-    ) => {
-      const isMatch = Array.isArray(matchCondition.value)
-        ? matchCondition.value.includes(valueToCheck)
-        : valueToCheck === matchCondition.value
-      return matchCondition.not ? !isMatch : isMatch
-    }
-
-    const baseMatch = evaluateMatch(condition, fieldValue)
-    const andMatch =
-      andConditions.length === 0 ||
-      andConditions.every((andCondition: { field: string; value: any; not?: boolean }) =>
-        evaluateMatch(andCondition, currentValues[andCondition.field])
-      )
-
-    return baseMatch && andMatch
+    return evaluateSubBlockConditionValues(condition, currentValues)
   }
 
-  // Render the appropriate UI component based on parameter configuration
+  // Tool parameters render through the same SubBlock path as first-class block fields.
   const renderParameterInput = (
     param: ToolParameterConfig,
-    value: any,
-    onChange: (value: any) => void,
-    toolIndex?: number,
-    currentToolParams?: Record<string, any>,
-    toolId?: string
+    toolIndex: number,
+    currentToolParams: Record<string, any>,
+    toolId: string
   ) => {
-    // Create unique subBlockId for tool parameters to avoid conflicts
-    // Use real blockId so tag dropdown and drag-drop work correctly
-    const uniqueSubBlockId =
-      toolIndex !== undefined
-        ? `${subBlockId}-tool-${toolIndex}-${param.id}`
-        : `${subBlockId}-${param.id}`
     const uiComponent = param.uiComponent
-
-    // If no UI component info, fall back to basic input
-    if (!uiComponent) {
-      return (
-        <ShortInput
-          blockId={blockId}
-          subBlockId={uniqueSubBlockId}
-          placeholder={param.description}
-          password={isPasswordParameter(param.id)}
-          isConnecting={isConnecting}
-          config={{
-            id: uniqueSubBlockId,
-            type: 'short-input',
-            title: param.id,
-          }}
-          value={value}
-          onChange={onChange}
-        />
-      )
+    const toSyntheticParamId = (paramId: string) => `${subBlockId}-tool-${toolIndex}-${paramId}`
+    const providerFieldId = toSyntheticParamId(uiComponent?.providerFieldId || 'provider')
+    const providerType =
+      uiComponent?.providerType || (toolId?.startsWith('trading_') ? 'trading' : 'market')
+    const subBlock: SubBlockConfig = {
+      id: param.id,
+      type: (uiComponent?.type || 'short-input') as SubBlockConfig['type'],
+      title: uiComponent?.title || formatParameterLabel(param.id),
+      canonicalParamId: param.id,
+      options: uiComponent?.options,
+      placeholder: uiComponent?.placeholder || param.description,
+      description: uiComponent?.description,
+      tooltip: uiComponent?.tooltip,
+      required: param.required,
+      password: uiComponent?.password || isPasswordParameter(param.id),
+      inputType: uiComponent?.inputType,
+      provider: uiComponent?.provider,
+      serviceId: uiComponent?.serviceId,
+      requiredScopes: uiComponent?.requiredScopes,
+      providerType,
+      providerFieldId,
+      enableSearch: uiComponent?.enableSearch,
+      searchPlaceholder: uiComponent?.searchPlaceholder,
+      mimeType: uiComponent?.mimeType,
+      columns: uiComponent?.columns,
+      min: uiComponent?.min,
+      max: uiComponent?.max,
+      step: uiComponent?.step,
+      integer: uiComponent?.integer,
+      rows: uiComponent?.rows,
+      timezone: uiComponent?.timezone,
+      clearable: uiComponent?.clearable,
+      hideCalendarIcon: uiComponent?.hideCalendarIcon,
+      minDate: uiComponent?.minDate,
+      maxDate: uiComponent?.maxDate,
+      hideTime: uiComponent?.hideTime,
+      use12HourFormat: uiComponent?.use12HourFormat,
+      timePicker: uiComponent?.timePicker,
+      language: uiComponent?.language as SubBlockConfig['language'],
+      generationType: uiComponent?.generationType as SubBlockConfig['generationType'],
+      acceptedTypes: Array.isArray(uiComponent?.acceptedTypes)
+        ? uiComponent.acceptedTypes.join(',')
+        : uiComponent?.acceptedTypes,
+      multiple: uiComponent?.multiple,
+      maxSize: uiComponent?.maxSize,
+      autoSelectFirstOption: uiComponent?.autoSelectFirstOption,
+      value: uiComponent?.value as SubBlockConfig['value'],
+      dependsOn: uiComponent?.dependsOn,
+      fetchOptions: uiComponent?.fetchOptions
+        ? async (blockId, subBlockId, context) =>
+            uiComponent.fetchOptions?.(blockId, subBlockId, {
+              ...context,
+              contextValues: currentToolParams,
+            } as any) ?? []
+        : undefined,
     }
 
-    // Render based on UI component type
-    switch (uiComponent.type) {
-      case 'dropdown':
-        return (
-          <Dropdown
-            blockId={blockId}
-            subBlockId={`${subBlockId}-param-${param.id}`}
-            options={uiComponent.options || []}
-            placeholder={uiComponent.placeholder || 'Select option'}
-            useStore={false}
-            valueOverride={value}
-            onChange={onChange}
-            disabled={disabled}
-            config={{
-              id: `${subBlockId}-param-${param.id}`,
-              type: 'dropdown',
-              dependsOn: uiComponent.dependsOn,
-              fetchOptions: uiComponent.fetchOptions,
-            }}
-            contextValues={currentToolParams}
-          />
-        )
-
-      case 'switch':
-        return (
-          <Switch
-            checked={value === 'true' || value === 'True'}
-            onCheckedChange={(checked) => onChange(checked ? 'true' : 'false')}
-          />
-        )
-
-      case 'long-input':
-        return (
-          <LongInput
-            blockId={blockId}
-            subBlockId={uniqueSubBlockId}
-            placeholder={uiComponent.placeholder || param.description}
-            isConnecting={isConnecting}
-            config={{
-              id: uniqueSubBlockId,
-              type: 'long-input',
-              title: param.id,
-            }}
-            value={value}
-            onChange={onChange}
-          />
-        )
-
-      case 'short-input':
-        return (
-          <ShortInput
-            blockId={blockId}
-            subBlockId={uniqueSubBlockId}
-            placeholder={uiComponent.placeholder || param.description}
-            password={uiComponent.password || isPasswordParameter(param.id)}
-            isConnecting={isConnecting}
-            config={{
-              id: uniqueSubBlockId,
-              type: 'short-input',
-              title: param.id,
-            }}
-            value={value}
-            onChange={onChange}
-            disabled={disabled}
-          />
-        )
-
-      case 'market-selector': {
-        const providerFieldKey =
-          (uiComponent as { providerFieldId?: string })?.providerFieldId || 'provider'
-        const providerFieldId = `${subBlockId}-param-${providerFieldKey}`
-        const providerType =
-          (uiComponent as { providerType?: 'market' | 'trading' })?.providerType ||
-          (toolId?.startsWith('trading_') ? 'trading' : 'market')
-        const providerValueOverride =
-          (currentToolParams as Record<string, any> | undefined)?.[providerFieldKey] ??
-          (currentToolParams as Record<string, any> | undefined)?.provider ??
-          null
-
-        return (
-          <ListingSelectorInput
-            blockId={blockId}
-            subBlockId={uniqueSubBlockId}
-            value={value}
-            onChange={(listing) => onChange(listing ?? null)}
-            disabled={disabled}
-            providerFieldId={providerFieldId}
-            providerValueOverride={providerValueOverride}
-            providerType={providerType}
-            config={{
-              id: uniqueSubBlockId,
-              type: 'market-selector',
-              options: uiComponent.options,
-              required: param.required,
-            }}
-          />
-        )
-      }
-
-      case 'order-id-selector':
-        return (
-          <OrderIdSelectorInput
-            blockId={blockId}
-            subBlockId={uniqueSubBlockId}
-            value={value}
-            onChange={(orderId) => onChange(orderId ?? '')}
-            disabled={disabled}
-            config={{
-              id: uniqueSubBlockId,
-              type: 'order-id-selector',
-              title: uiComponent.title || formatParameterLabel(param.id),
-              required: param.required,
-            }}
-          />
-        )
-
-      case 'channel-selector':
-        return (
-          <ChannelSelectorSyncWrapper
-            blockId={blockId}
-            paramId={param.id}
-            value={value}
-            onChange={onChange}
-            uiComponent={uiComponent}
-            disabled={disabled}
-            contextValues={currentToolParams as any}
-          />
-        )
-
-      case 'project-selector':
-        return (
-          <ProjectSelectorInput
-            blockId={blockId}
-            subBlock={{
-              id: `tool-${toolIndex || 0}-${param.id}`,
-              type: 'project-selector' as const,
-              title: param.id,
-              provider: uiComponent.provider || 'jira',
-              serviceId: uiComponent.serviceId,
-              placeholder: uiComponent.placeholder,
-              requiredScopes: uiComponent.requiredScopes,
-            }}
-            onProjectSelect={onChange}
-            disabled={disabled}
-          />
-        )
-
-      case 'oauth-input':
-        return (
-          <ToolCredentialSelector
-            value={value}
-            onChange={onChange}
-            provider={(uiComponent.provider || uiComponent.serviceId) as OAuthProvider}
-            serviceId={uiComponent.serviceId as OAuthService}
-            disabled={disabled}
-            requiredScopes={uiComponent.requiredScopes || []}
-          />
-        )
-
-      case 'file-selector':
-        return (
-          <FileSelectorSyncWrapper
-            blockId={blockId}
-            paramId={param.id}
-            value={value}
-            onChange={onChange}
-            uiComponent={uiComponent}
-            disabled={disabled}
-            contextValues={currentToolParams as any}
-          />
-        )
-
-      case 'table':
-        return (
-          <TableSyncWrapper
-            blockId={blockId}
-            paramId={param.id}
-            value={value}
-            onChange={onChange}
-            uiComponent={uiComponent}
-            disabled={disabled}
-          />
-        )
-
-      case 'combobox':
-        return (
-          <ComboboxSyncWrapper
-            blockId={blockId}
-            paramId={param.id}
-            value={value}
-            onChange={onChange}
-            uiComponent={uiComponent}
-            disabled={disabled}
-            isConnecting={isConnecting}
-          />
-        )
-
-      case 'slider':
-        return (
-          <SliderInputSyncWrapper
-            value={value}
-            onChange={onChange}
-            uiComponent={uiComponent}
-            disabled={disabled}
-          />
-        )
-
-      case 'code':
-        return (
-          <CodeSyncWrapper
-            blockId={blockId}
-            paramId={param.id}
-            value={value}
-            onChange={onChange}
-            uiComponent={uiComponent}
-            disabled={disabled}
-            isConnecting={isConnecting}
-          />
-        )
-
-      case 'checkbox-list':
-        return (
-          <CheckboxListSyncWrapper
-            blockId={blockId}
-            paramId={param.id}
-            value={value}
-            onChange={onChange}
-            uiComponent={uiComponent}
-            disabled={disabled}
-          />
-        )
-
-      case 'time-input':
-        return <TimeInputSyncWrapper value={value} onChange={onChange} disabled={disabled} />
-
-      case 'datetime-input':
-        return (
-          <DateTimeInputSyncWrapper
-            value={value}
-            onChange={onChange}
-            uiComponent={uiComponent}
-            disabled={disabled}
-          />
-        )
-
-      case 'file-upload':
-        return (
-          <FileUploadSyncWrapper
-            blockId={blockId}
-            paramId={param.id}
-            value={value}
-            onChange={onChange}
-            uiComponent={uiComponent}
-            disabled={disabled}
-          />
-        )
-
-      default:
-        return (
-          <ShortInput
-            blockId={blockId}
-            subBlockId={uniqueSubBlockId}
-            placeholder={uiComponent.placeholder || param.description}
-            password={uiComponent.password || isPasswordParameter(param.id)}
-            isConnecting={isConnecting}
-            config={{
-              id: uniqueSubBlockId,
-              type: 'short-input',
-              title: param.id,
-            }}
-            value={value}
-            onChange={onChange}
-          />
-        )
-    }
+    return (
+      <ToolSubBlockRenderer
+        blockId={blockId}
+        subBlockId={subBlockId}
+        toolIndex={toolIndex}
+        subBlock={subBlock}
+        effectiveParamId={param.id}
+        toolParams={currentToolParams}
+        onParamChange={handleParamChange}
+        isConnecting={isConnecting}
+        disabled={disabled}
+      />
+    )
   }
 
   return (
@@ -1408,7 +722,7 @@ export function ToolInput({ blockId, subBlockId, isConnecting, disabled = false 
             // Get tool parameters using the new utility with block type for UI components
             const toolParams =
               !isCustomTool && !isMcpTool
-                ? getToolParametersConfig(currentToolId, tool.type, tool.params)
+                ? getToolParametersConfig(currentToolId, toolBlock ?? undefined, tool.params)
                 : null
 
             // For custom tools, extract parameters from schema
@@ -1458,6 +772,8 @@ export function ToolInput({ blockId, subBlockId, isConnecting, disabled = false 
 
             // Tools are always expandable so users can access the interface
             const isExpandedForDisplay = !!tool.isExpanded
+            const displayToolTitle =
+              isCustomTool || isMcpTool ? tool.title : (toolBlock?.name ?? tool.title)
 
             return (
               <div
@@ -1529,7 +845,7 @@ export function ToolInput({ blockId, subBlockId, isConnecting, disabled = false 
                           </div>
                         )
                       })()}
-                      <span className='truncate font-medium text-sm'>{tool.title}</span>
+                      <span className='truncate font-medium text-sm'>{displayToolTitle}</span>
                     </div>
                     <div className='ml-2 flex flex-shrink-0 items-center gap-1'>
                       {/* Only render the tool usage control if the provider supports it */}
@@ -1660,135 +976,26 @@ export function ToolInput({ blockId, subBlockId, isConnecting, disabled = false 
                       )}
 
                       {/* Tool parameters */}
-                      {(() => {
-                        const filteredParams = displayParams.filter((param) =>
-                          evaluateParameterCondition(param, tool)
-                        )
-                        const groupedParams: { [key: string]: ToolParameterConfig[] } = {}
-                        const standaloneParams: ToolParameterConfig[] = []
-
-                        // Group checkbox-list parameters by their UI component title
-                        filteredParams.forEach((param) => {
-                          const paramConfig = param as ToolParameterConfig
-                          if (
-                            paramConfig.uiComponent?.type === 'checkbox-list' &&
-                            paramConfig.uiComponent?.title
-                          ) {
-                            const groupKey = paramConfig.uiComponent.title
-                            if (!groupedParams[groupKey]) {
-                              groupedParams[groupKey] = []
-                            }
-                            groupedParams[groupKey].push(paramConfig)
-                          } else {
-                            standaloneParams.push(paramConfig)
+                      {getRenderableToolParameters(displayParams)
+                        .filter((param) => evaluateParameterCondition(param, tool))
+                        .map((param) => {
+                          const currentToolParams = {
+                            ...tool.params,
+                            ...(tool.operation ? { operation: tool.operation } : {}),
                           }
-                        })
-
-                        const renderedElements: React.ReactNode[] = []
-
-                        // Render grouped checkbox-lists
-                        Object.entries(groupedParams).forEach(([groupTitle, params]) => {
-                          const firstParam = params[0] as ToolParameterConfig
-                          const groupValue = JSON.stringify(
-                            params.reduce(
-                              (acc, p) => ({ ...acc, [p.id]: tool.params[p.id] === 'true' }),
-                              {}
-                            )
-                          )
-
-                          renderedElements.push(
-                            <div
-                              key={`group-${groupTitle}`}
-                              className='relative min-w-0 space-y-1.5'
-                            >
-                              <div className='flex items-center font-medium text-muted-foreground text-xs'>
-                                {groupTitle}
-                              </div>
-                              <div className='relative w-full min-w-0'>
-                                <CheckboxListSyncWrapper
-                                  blockId={blockId}
-                                  paramId={`group-${groupTitle}`}
-                                  value={groupValue}
-                                  onChange={(value) => {
-                                    try {
-                                      const parsed = JSON.parse(value)
-                                      params.forEach((param) => {
-                                        handleParamChange(
-                                          toolIndex,
-                                          param.id,
-                                          parsed[param.id] ? 'true' : 'false'
-                                        )
-                                      })
-                                    } catch {
-                                      // Handle error
-                                    }
-                                  }}
-                                  uiComponent={firstParam.uiComponent}
-                                  disabled={disabled}
-                                />
-                              </div>
-                            </div>
-                          )
-                        })
-
-                        // Render standalone parameters
-                        standaloneParams.forEach((param) => {
-                          const hideLabel =
-                            param.uiComponent?.type === 'market-selector' ||
-                            param.uiComponent?.type === 'order-id-selector'
-                          renderedElements.push(
+                          return (
                             <div key={param.id} className='relative min-w-0 space-y-1.5'>
-                              {!hideLabel && (
-                                <div className='flex items-center font-medium text-muted-foreground text-xs'>
-                                  {param.uiComponent?.title || formatParameterLabel(param.id)}
-                                  {param.required && param.visibility === 'user-only' && (
-                                    <span className='ml-1 text-red-500'>*</span>
-                                  )}
-                                  {(!param.required || param.visibility !== 'user-only') && (
-                                    <span className='ml-1 text-muted-foreground/60 text-xs'>
-                                      (Optional)
-                                    </span>
-                                  )}
-                                </div>
-                              )}
                               <div className='relative w-full min-w-0'>
-                                {param.uiComponent ? (
-                                  renderParameterInput(
-                                    param,
-                                    tool.params[param.id] || '',
-                                    (value) => handleParamChange(toolIndex, param.id, value),
-                                    toolIndex,
-                                    {
-                                      ...tool.params,
-                                      ...(tool.operation ? { operation: tool.operation } : {}),
-                                    },
-                                    tool.toolId
-                                  )
-                                ) : (
-                                  <ShortInput
-                                    blockId={blockId}
-                                    subBlockId={`${subBlockId}-tool-${toolIndex}-${param.id}`}
-                                    placeholder={param.description}
-                                    password={isPasswordParameter(param.id)}
-                                    isConnecting={isConnecting}
-                                    config={{
-                                      id: `${subBlockId}-tool-${toolIndex}-${param.id}`,
-                                      type: 'short-input',
-                                      title: param.id,
-                                    }}
-                                    value={tool.params[param.id] || ''}
-                                    onChange={(value) =>
-                                      handleParamChange(toolIndex, param.id, value)
-                                    }
-                                  />
+                                {renderParameterInput(
+                                  param,
+                                  toolIndex,
+                                  currentToolParams,
+                                  currentToolId
                                 )}
                               </div>
                             </div>
                           )
-                        })
-
-                        return renderedElements
-                      })()}
+                        })}
                     </div>
                   )}
                 </div>

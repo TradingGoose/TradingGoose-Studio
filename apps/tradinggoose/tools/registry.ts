@@ -272,7 +272,6 @@ import {
   wikipediaRandomPageTool,
   wikipediaSearchTool,
 } from '@/tools/wikipedia'
-import { workflowExecutorTool } from '@/tools/workflow'
 import { xReadTool, xSearchTool, xUserTool, xWriteTool } from '@/tools/x'
 import {
   youtubeChannelInfoTool,
@@ -522,7 +521,6 @@ export const tools: Record<string, ToolConfig> = {
   google_calendar_quick_add: googleCalendarQuickAddTool,
   google_calendar_invite: googleCalendarInviteTool,
   google_forms_get_responses: googleFormsGetResponsesTool,
-  workflow_executor: workflowExecutorTool,
   wealthbox_read_contact: wealthboxReadContactTool,
   wealthbox_write_contact: wealthboxWriteContactTool,
   wealthbox_read_task: wealthboxReadTaskTool,

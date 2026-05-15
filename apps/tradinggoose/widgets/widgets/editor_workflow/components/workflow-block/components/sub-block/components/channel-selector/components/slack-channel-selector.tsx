@@ -55,7 +55,7 @@ export function SlackChannelSelector({
       const res = await fetch('/api/tools/slack/channels', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ credential, workflowId }),
+        body: JSON.stringify({ credentialId: credential, workflowId }),
       })
 
       if (!res.ok) {

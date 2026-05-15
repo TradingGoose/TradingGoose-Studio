@@ -145,16 +145,12 @@ export const GoogleDocsBlock: BlockConfig<GoogleDocsResponse> = {
         }
       },
       params: (params) => {
-        const { credential, documentId, manualDocumentId, folderSelector, folderId, ...rest } =
-          params
-
-        const effectiveDocumentId = (documentId || manualDocumentId || '').trim()
-        const effectiveFolderId = (folderSelector || folderId || '').trim()
+        const { credential, documentId, folderId, ...rest } = params
 
         return {
           ...rest,
-          documentId: effectiveDocumentId || undefined,
-          folderId: effectiveFolderId || undefined,
+          documentId: (documentId || '').trim() || undefined,
+          folderId: (folderId || '').trim() || undefined,
           credential,
         }
       },
@@ -164,9 +160,7 @@ export const GoogleDocsBlock: BlockConfig<GoogleDocsResponse> = {
     operation: { type: 'string', description: 'Operation to perform' },
     credential: { type: 'string', description: 'Google Docs access token' },
     documentId: { type: 'string', description: 'Document identifier' },
-    manualDocumentId: { type: 'string', description: 'Manual document identifier' },
     title: { type: 'string', description: 'Document title' },
-    folderSelector: { type: 'string', description: 'Selected folder' },
     folderId: { type: 'string', description: 'Folder identifier' },
     content: { type: 'string', description: 'Document content' },
   },

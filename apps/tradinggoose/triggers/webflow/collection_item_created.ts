@@ -73,7 +73,6 @@ export const webflowCollectionItemCreatedTrigger: TriggerConfig = {
       type: 'trigger-save',
       hideFromPreview: true,
       mode: 'trigger',
-      triggerId: 'webflow_collection_item_created',
       condition: {
         field: 'selectedTriggerId',
         value: 'webflow_collection_item_created',

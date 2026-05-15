@@ -48,7 +48,6 @@ import {
   ToolInput,
   TriggerSave,
   VariablesInput,
-  WebhookConfig,
 } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/components'
 import { DocumentTagEntry } from './components/document-tag-entry/document-tag-entry'
 import { KnowledgeTagFilters } from './components/knowledge-tag-filters/knowledge-tag-filters'
@@ -59,6 +58,7 @@ interface SubBlockProps {
   config: SubBlockConfig
   isConnecting: boolean
   disabled?: boolean
+  contextValues?: Record<string, any>
 }
 
 function SubBlockSwitchField({
@@ -238,7 +238,13 @@ function SubBlockDateTimeField({
 }
 
 export const SubBlock = memo(
-  function SubBlock({ blockId, config, isConnecting, disabled = false }: SubBlockProps) {
+  function SubBlock({
+    blockId,
+    config,
+    isConnecting,
+    disabled = false,
+    contextValues,
+  }: SubBlockProps) {
     const [isValidJson, setIsValidJson] = useState(true)
 
     const handleMouseDown = (e: React.MouseEvent) => {
@@ -262,6 +268,7 @@ export const SubBlock = memo(
 
     const renderInput = () => {
       const isDisabled = disabled
+      const valueContext = contextValues ?? {}
 
       switch (config.type) {
         case 'short-input':
@@ -298,12 +305,15 @@ export const SubBlock = memo(
                 blockId={blockId}
                 subBlockId={config.id}
                 options={config.options as { label: string; id: string }[]}
-                defaultValue={typeof config.value === 'function' ? config.value({}) : config.value}
+                defaultValue={
+                  typeof config.value === 'function' ? config.value(valueContext) : config.value
+                }
                 placeholder={config.placeholder}
                 enableSearch={config.enableSearch}
                 searchPlaceholder={config.searchPlaceholder}
                 disabled={isDisabled}
                 config={config}
+                contextValues={contextValues}
               />
             </div>
           )
@@ -314,7 +324,9 @@ export const SubBlock = memo(
                 blockId={blockId}
                 subBlockId={config.id}
                 options={config.options as { label: string; id: string }[]}
-                defaultValue={typeof config.value === 'function' ? config.value({}) : config.value}
+                defaultValue={
+                  typeof config.value === 'function' ? config.value(valueContext) : config.value
+                }
                 placeholder={config.placeholder}
                 disabled={isDisabled}
                 isConnecting={isConnecting}
@@ -353,7 +365,7 @@ export const SubBlock = memo(
               placeholder={config.placeholder}
               language={config.language}
               generationType={config.generationType}
-              value={typeof config.value === 'function' ? config.value({}) : undefined}
+              value={typeof config.value === 'function' ? config.value(valueContext) : undefined}
               disabled={isDisabled}
               onValidationChange={handleValidationChange}
               readOnly={config.readOnly}
@@ -462,16 +474,6 @@ export const SubBlock = memo(
               disabled={isDisabled}
             />
           )
-        case 'webhook-config': {
-          return (
-            <WebhookConfig
-              blockId={blockId}
-              subBlockId={config.id}
-              isConnecting={isConnecting}
-              disabled={isDisabled}
-            />
-          )
-        }
         case 'schedule-config':
           return (
             <ScheduleConfig
@@ -484,7 +486,14 @@ export const SubBlock = memo(
         case 'oauth-input':
           return <CredentialSelector blockId={blockId} subBlock={config} disabled={isDisabled} />
         case 'file-selector':
-          return <FileSelectorInput blockId={blockId} subBlock={config} disabled={isDisabled} />
+          return (
+            <FileSelectorInput
+              blockId={blockId}
+              subBlock={config}
+              disabled={isDisabled}
+              contextValues={contextValues}
+            />
+          )
         case 'project-selector':
           return <ProjectSelectorInput blockId={blockId} subBlock={config} disabled={isDisabled} />
         case 'folder-selector':
@@ -555,7 +564,14 @@ export const SubBlock = memo(
             />
           )
         case 'channel-selector':
-          return <ChannelSelectorInput blockId={blockId} subBlock={config} disabled={isDisabled} />
+          return (
+            <ChannelSelectorInput
+              blockId={blockId}
+              subBlock={config}
+              disabled={isDisabled}
+              contextValues={contextValues}
+            />
+          )
         case 'mcp-server-selector':
           return <McpServerSelector blockId={blockId} subBlock={config} disabled={isDisabled} />
         case 'mcp-tool-selector':
@@ -576,20 +592,13 @@ export const SubBlock = memo(
               subBlockId={config.id}
               content={
                 typeof config.value === 'function'
-                  ? config.value({})
+                  ? config.value(valueContext)
                   : (config.defaultValue as string) || ''
               }
             />
           )
         case 'trigger-save':
-          return (
-            <TriggerSave
-              blockId={blockId}
-              subBlockId={config.id}
-              triggerId={config.triggerId}
-              disabled={isDisabled}
-            />
-          )
+          return <TriggerSave blockId={blockId} subBlockId={config.id} disabled={isDisabled} />
         default:
           return <div>Unknown input type: {config.type}</div>
       }
@@ -603,6 +612,7 @@ export const SubBlock = memo(
       config.type !== 'market-selector' &&
       config.type !== 'order-id-selector' &&
       config.type !== 'trigger-save'
+    const tooltipText = config.tooltip || config.description
 
     return (
       <div className={cn('space-y-[6px] pt-[2px]')} onMouseDown={handleMouseDown}>
@@ -634,7 +644,7 @@ export const SubBlock = memo(
                 </TooltipContent>
               </Tooltip>
             )}
-            {(config.tooltip || config.description) && (
+            {tooltipText && (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Info className='h-4 w-4 cursor-pointer text-muted-foreground' />
@@ -643,7 +653,7 @@ export const SubBlock = memo(
                   side='top'
                   className='max-w-[400px] select-text whitespace-pre-wrap'
                 >
-                  {(config.tooltip || config.description || '').split('\n').map((line, idx) => (
+                  {tooltipText.split('\n').map((line, idx) => (
                     <p
                       key={idx}
                       className={idx === 0 ? 'mb-1 text-sm' : 'text-muted-foreground text-xs'}
@@ -666,7 +676,8 @@ export const SubBlock = memo(
       prevProps.blockId === nextProps.blockId &&
       prevProps.config === nextProps.config &&
       prevProps.isConnecting === nextProps.isConnecting &&
-      prevProps.disabled === nextProps.disabled
+      prevProps.disabled === nextProps.disabled &&
+      prevProps.contextValues === nextProps.contextValues
     )
   }
 )

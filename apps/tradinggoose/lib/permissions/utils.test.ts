@@ -55,7 +55,6 @@ import {
   getUsersWithPermissions,
   getWorkspaceById,
   getWorkspaceMemberProfiles,
-  getWorkspaceWithOwner,
   hasAdminPermission,
   hasWorkspaceAdminAccess,
   workspaceExists,
@@ -222,22 +221,6 @@ describe('Permission Utils', () => {
       mockDb.select.mockReturnValue(chain)
 
       await expect(getWorkspaceById('workspace123')).resolves.toEqual(workspaceRow)
-    })
-
-    it('should return the workspace row with owner fields', async () => {
-      const workspaceRow = {
-        id: 'workspace123',
-        name: 'Workspace 123',
-        ownerId: 'owner-1',
-        billingOwnerType: 'user' as const,
-        billingOwnerUserId: 'owner-1',
-        billingOwnerOrganizationId: null,
-        allowPersonalApiKeys: true,
-      }
-      const chain = createMockChain([workspaceRow])
-      mockDb.select.mockReturnValue(chain)
-
-      await expect(getWorkspaceWithOwner('workspace123')).resolves.toEqual(workspaceRow)
     })
   })
 

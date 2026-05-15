@@ -4,11 +4,14 @@ import { and, desc, eq, ne } from 'drizzle-orm'
 import { nanoid } from 'nanoid'
 import { type NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
+import {
+  getOAuthAccessTokenForUserCredential,
+  resolveOAuthCredentialAccountForUser,
+} from '@/lib/credentials/oauth'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getUserEntityPermissions } from '@/lib/permissions/utils'
 import { getBaseUrl } from '@/lib/urls/utils'
 import { generateRequestId } from '@/lib/utils'
-import { getOAuthToken } from '@/app/api/auth/oauth/utils'
 
 const logger = createLogger('WebhooksAPI')
 
@@ -209,6 +212,9 @@ export async function POST(request: NextRequest) {
     }
 
     const workflowRecord = workflowData[0]
+    if (!workflowRecord.workspaceId) {
+      return NextResponse.json({ error: 'Workflow workspace is required' }, { status: 400 })
+    }
 
     // Check if user has permission to modify this workflow
     let canModify = false
@@ -235,6 +241,21 @@ export async function POST(request: NextRequest) {
         `[${requestId}] User ${userId} denied permission to modify webhook for workflow ${workflowId}`
       )
       return NextResponse.json({ error: 'Access denied' }, { status: 403 })
+    }
+
+    const credentialId =
+      providerConfig && typeof providerConfig === 'object'
+        ? (providerConfig as Record<string, unknown>).credentialId
+        : null
+    if (typeof credentialId === 'string' && credentialId.trim()) {
+      const credentialAccess = await resolveOAuthCredentialAccountForUser({
+        credentialId: credentialId.trim(),
+        userId,
+        workspaceId: workflowRecord.workspaceId ?? undefined,
+      })
+      if (!credentialAccess) {
+        return NextResponse.json({ error: 'Credential not found' }, { status: 404 })
+      }
     }
 
     // Determine existing webhook to update (prefer by workflow+block for credential-based providers)
@@ -348,7 +369,10 @@ export async function POST(request: NextRequest) {
         `[${requestId}] Airtable provider detected. Attempting to create webhook in Airtable.`
       )
       try {
-        await createAirtableWebhookSubscription(request, userId, savedWebhook, requestId)
+        await createAirtableWebhookSubscription(savedWebhook, requestId, {
+          userId,
+          workspaceId: workflowRecord.workspaceId ?? undefined,
+        })
       } catch (err) {
         logger.error(`[${requestId}] Error creating Airtable webhook`, err)
         return NextResponse.json(
@@ -409,7 +433,11 @@ export async function POST(request: NextRequest) {
       logger.info(`[${requestId}] Gmail provider detected. Setting up Gmail webhook configuration.`)
       try {
         const { configureGmailPolling } = await import('@/lib/webhooks/utils')
-        const success = await configureGmailPolling(savedWebhook, requestId)
+        const success = await configureGmailPolling(
+          savedWebhook,
+          requestId,
+          workflowRecord.workspaceId
+        )
 
         if (!success) {
           logger.error(`[${requestId}] Failed to configure Gmail polling`)
@@ -443,7 +471,11 @@ export async function POST(request: NextRequest) {
       )
       try {
         const { configureOutlookPolling } = await import('@/lib/webhooks/utils')
-        const success = await configureOutlookPolling(savedWebhook, requestId)
+        const success = await configureOutlookPolling(
+          savedWebhook,
+          requestId,
+          workflowRecord.workspaceId
+        )
 
         if (!success) {
           logger.error(`[${requestId}] Failed to configure Outlook polling`)
@@ -476,7 +508,10 @@ export async function POST(request: NextRequest) {
         `[${requestId}] Webflow provider detected. Attempting to create webhook in Webflow.`
       )
       try {
-        await createWebflowWebhookSubscription(request, userId, savedWebhook, requestId)
+        await createWebflowWebhookSubscription(savedWebhook, requestId, {
+          userId,
+          workspaceId: workflowRecord.workspaceId ?? undefined,
+        })
       } catch (err) {
         logger.error(`[${requestId}] Error creating Webflow webhook`, err)
         return NextResponse.json(
@@ -503,14 +538,13 @@ export async function POST(request: NextRequest) {
 
 // Helper function to create the webhook subscription in Airtable
 async function createAirtableWebhookSubscription(
-  request: NextRequest,
-  userId: string,
   webhookData: any,
-  requestId: string
+  requestId: string,
+  scope: { userId: string; workspaceId?: string }
 ) {
   try {
     const { path, providerConfig } = webhookData
-    const { baseId, tableId, includeCellValuesInFieldIds } = providerConfig || {}
+    const { baseId, tableId, includeCellValuesInFieldIds, credentialId } = providerConfig || {}
 
     if (!baseId || !tableId) {
       logger.warn(`[${requestId}] Missing baseId or tableId for Airtable webhook creation.`, {
@@ -519,10 +553,22 @@ async function createAirtableWebhookSubscription(
       return // Cannot proceed without base/table IDs
     }
 
-    const accessToken = await getOAuthToken(userId, 'airtable')
+    if (!credentialId) {
+      logger.warn(`[${requestId}] Missing credentialId for Airtable webhook creation.`, {
+        webhookId: webhookData.id,
+      })
+      throw new Error('Airtable account connection required.')
+    }
+
+    const accessToken = await getOAuthAccessTokenForUserCredential({
+      credentialId,
+      userId: scope.userId,
+      workspaceId: scope.workspaceId,
+      requestId,
+    })
     if (!accessToken) {
       logger.warn(
-        `[${requestId}] Could not retrieve Airtable access token for user ${userId}. Cannot create webhook in Airtable.`
+        `[${requestId}] Could not retrieve Airtable access token for credential ${credentialId}. Cannot create webhook in Airtable.`
       )
       throw new Error(
         'Airtable account connection required. Please connect your Airtable account in the trigger configuration and try again.'
@@ -612,14 +658,13 @@ async function createAirtableWebhookSubscription(
 }
 // Helper function to create the webhook subscription in Webflow
 async function createWebflowWebhookSubscription(
-  request: NextRequest,
-  userId: string,
   webhookData: any,
-  requestId: string
+  requestId: string,
+  scope: { userId: string; workspaceId?: string }
 ) {
   try {
     const { path, providerConfig } = webhookData
-    const { siteId, triggerId, collectionId, formId } = providerConfig || {}
+    const { siteId, triggerId, collectionId, formId, credentialId } = providerConfig || {}
 
     if (!siteId) {
       logger.warn(`[${requestId}] Missing siteId for Webflow webhook creation.`, {
@@ -635,10 +680,22 @@ async function createWebflowWebhookSubscription(
       throw new Error('Trigger type is required to create Webflow webhook')
     }
 
-    const accessToken = await getOAuthToken(userId, 'webflow')
+    if (!credentialId) {
+      logger.warn(`[${requestId}] Missing credentialId for Webflow webhook creation.`, {
+        webhookId: webhookData.id,
+      })
+      throw new Error('Webflow account connection required.')
+    }
+
+    const accessToken = await getOAuthAccessTokenForUserCredential({
+      credentialId,
+      userId: scope.userId,
+      workspaceId: scope.workspaceId,
+      requestId,
+    })
     if (!accessToken) {
       logger.warn(
-        `[${requestId}] Could not retrieve Webflow access token for user ${userId}. Cannot create webhook in Webflow.`
+        `[${requestId}] Could not retrieve Webflow access token for credential ${credentialId}. Cannot create webhook in Webflow.`
       )
       throw new Error(
         'Webflow account connection required. Please connect your Webflow account in the trigger configuration and try again.'

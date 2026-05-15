@@ -40,7 +40,7 @@ export const TodoList = memo(function TodoList({
   return (
     <div
       className={cn(
-        'rounded-md border-neutral-200 border-t dark:border-neutral-700 dark:bg-neutral-900',
+        'rounded-md border-neutral-200 border dark:border-neutral-700 dark:bg-neutral-900',
         className
       )}
     >

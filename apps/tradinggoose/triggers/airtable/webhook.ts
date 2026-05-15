@@ -54,7 +54,6 @@ export const airtableWebhookTrigger: TriggerConfig = {
       type: 'trigger-save',
       hideFromPreview: true,
       mode: 'trigger',
-      triggerId: 'airtable_webhook',
     },
     {
       id: 'triggerInstructions',

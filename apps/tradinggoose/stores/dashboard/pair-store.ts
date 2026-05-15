@@ -83,11 +83,16 @@ export const usePairColorStore = create<PairStoreState>((set) => ({
   contexts: emptyContexts,
   setContext: (color, ctx) =>
     set((state) => {
-      const previous = sanitizePairColorContext(state.contexts[color] ?? {})
+      const previous = normalizePairColorContext(state.contexts[color] ?? {})
       const next = sanitizePairColorContext({
         ...previous,
         ...ctx,
       })
+      for (const key of Object.keys(ctx) as (keyof PairColorContext)[]) {
+        if (ctx[key] == null) {
+          delete next[key]
+        }
+      }
 
       return {
         contexts: {

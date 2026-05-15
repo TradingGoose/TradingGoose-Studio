@@ -3,8 +3,8 @@ import { z } from 'zod'
 import { getSession } from '@/lib/auth'
 import { batchChunkOperation, createChunk, queryChunks } from '@/lib/knowledge/chunks/service'
 import { createLogger } from '@/lib/logs/console/logger'
+import { getUserId } from '@/lib/oauth/tokens'
 import { generateRequestId } from '@/lib/utils'
-import { getUserId } from '@/app/api/auth/oauth/utils'
 import { checkDocumentAccess, checkDocumentWriteAccess } from '@/app/api/knowledge/utils'
 import { calculateCost } from '@/providers/ai/utils'
 
@@ -173,15 +173,8 @@ export async function POST(
         requestId
       )
 
-      let cost = null
-      try {
-        cost = calculateCost('text-embedding-3-small', newChunk.tokenCount, 0, false)
-      } catch (error) {
-        logger.warn(`[${requestId}] Failed to calculate cost for chunk upload`, {
-          error: error instanceof Error ? error.message : 'Unknown error',
-        })
-        // Continue without cost information rather than failing the upload
-      }
+      const embeddingModel = accessCheck.knowledgeBase.embeddingModel
+      const cost = calculateCost(embeddingModel, newChunk.tokenCount, 0, false)
 
       return NextResponse.json({
         success: true,
@@ -189,22 +182,18 @@ export async function POST(
           ...newChunk,
           documentId,
           documentName: doc.filename,
-          ...(cost
-            ? {
-                cost: {
-                  input: cost.input,
-                  output: cost.output,
-                  total: cost.total,
-                  tokens: {
-                    prompt: newChunk.tokenCount,
-                    completion: 0,
-                    total: newChunk.tokenCount,
-                  },
-                  model: 'text-embedding-3-small',
-                  pricing: cost.pricing,
-                },
-              }
-            : {}),
+          cost: {
+            input: cost.input,
+            output: cost.output,
+            total: cost.total,
+            tokens: {
+              prompt: newChunk.tokenCount,
+              completion: 0,
+              total: newChunk.tokenCount,
+            },
+            model: embeddingModel,
+            pricing: cost.pricing,
+          },
         },
       })
     } catch (validationError) {

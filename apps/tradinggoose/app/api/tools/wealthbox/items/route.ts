@@ -1,11 +1,7 @@
-import { db } from '@tradinggoose/db'
-import { account } from '@tradinggoose/db/schema'
-import { eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
-import { getSession } from '@/lib/auth'
+import { resolveOAuthRouteCredential } from '@/lib/credentials/oauth-route'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
-import { refreshAccessTokenIfNeeded } from '@/app/api/auth/oauth/utils'
 
 export const dynamic = 'force-dynamic'
 
@@ -28,15 +24,10 @@ export async function GET(request: NextRequest) {
   const requestId = generateRequestId()
 
   try {
-    const session = await getSession()
-
-    if (!session?.user?.id) {
-      logger.warn(`[${requestId}] Unauthenticated request rejected`)
-      return NextResponse.json({ error: 'User not authenticated' }, { status: 401 })
-    }
-
     const { searchParams } = new URL(request.url)
     const credentialId = searchParams.get('credentialId')
+    const workflowId = searchParams.get('workflowId') || undefined
+    const workspaceId = searchParams.get('workspaceId') || undefined
     const type = searchParams.get('type') || 'contact'
     const query = searchParams.get('query') || ''
 
@@ -53,29 +44,12 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const credentials = await db.select().from(account).where(eq(account.id, credentialId)).limit(1)
-
-    if (!credentials.length) {
-      logger.warn(`[${requestId}] Credential not found`, { credentialId })
-      return NextResponse.json({ error: 'Credential not found' }, { status: 404 })
-    }
-
-    const credential = credentials[0]
-
-    if (credential.userId !== session.user.id) {
-      logger.warn(`[${requestId}] Unauthorized credential access attempt`, {
-        credentialUserId: credential.userId,
-        requestUserId: session.user.id,
-      })
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
-    }
-
-    const accessToken = await refreshAccessTokenIfNeeded(credentialId, session.user.id, requestId)
-
-    if (!accessToken) {
-      logger.error(`[${requestId}] Failed to obtain valid access token`)
-      return NextResponse.json({ error: 'Failed to obtain valid access token' }, { status: 401 })
-    }
+    const credential = await resolveOAuthRouteCredential(
+      request,
+      { credentialId, workflowId, workspaceId },
+      requestId
+    )
+    if (!credential.ok) return credential.response
 
     const endpoints = {
       contact: 'contacts',
@@ -92,7 +66,7 @@ export async function GET(request: NextRequest) {
 
     const response = await fetch(url.toString(), {
       headers: {
-        Authorization: `Bearer ${accessToken}`,
+        Authorization: `Bearer ${credential.accessToken}`,
         'Content-Type': 'application/json',
       },
     })
