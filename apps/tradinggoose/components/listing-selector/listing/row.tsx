@@ -1,8 +1,8 @@
 'use client'
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { cn } from '@/lib/utils'
 import type { ListingOption } from '@/lib/listing/identity'
+import { cn } from '@/lib/utils'
 
 const resolveListingFallbackLabel = (listing: ListingOption): string => {
   const base = listing.base?.trim()
@@ -73,9 +73,6 @@ export function MarketListingRow({
   const quote = listing?.quote?.trim() || ''
   const assetClassLabel = listing?.assetClass?.toUpperCase() ?? ''
   const flagData = getFlagData(listing?.countryCode)
-  const prefersFlagImage =
-    typeof navigator !== 'undefined' && /Windows/i.test(navigator.userAgent)
-  const flagEmoji = flagData?.emoji ?? null
   const flagImageUrl = flagData
     ? `https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/svg/${flagData.codepoints}.svg`
     : null
@@ -84,12 +81,14 @@ export function MarketListingRow({
     <div className={cn('flex items-center gap-2 pr-2', compact && 'h-8', className)}>
       <Avatar
         className={cn(
-          'rounded-sm text-foreground bg-secondary/60',
-          compact ? 'h-5 w-5' : 'h-6 w-6 m-1'
+          'rounded-sm bg-secondary/60 text-foreground',
+          compact ? 'h-5 w-5' : 'm-1 h-6 w-6'
         )}
       >
         {listing?.iconUrl ? <AvatarImage src={listing.iconUrl} alt={primary} /> : null}
-        <AvatarFallback className={cn('text-accent-foreground', compact ? 'text-[10px]' : 'text-xs')}>
+        <AvatarFallback
+          className={cn('text-accent-foreground', compact ? 'text-[10px]' : 'text-xs')}
+        >
           {listing ? getListingFallback(listing) : '??'}
         </AvatarFallback>
       </Avatar>
@@ -100,35 +99,43 @@ export function MarketListingRow({
         )}
       >
         {listing ? (
-          <span className={cn('flex items-center gap-1 text-sm font-semibold', compact ? 'min-w-0' : '')}>
+          <span
+            className={cn(
+              'flex items-center gap-1 font-semibold text-sm',
+              compact ? 'min-w-0' : ''
+            )}
+          >
             <span className={cn('truncate', compact ? 'max-w-full' : 'max-w-[22ch]')}>
               {primary}
               {quote ? <span className='text-muted-foreground'>/{quote}</span> : null}
             </span>
-            {prefersFlagImage && flagImageUrl ? (
+            {flagImageUrl ? (
               <img
                 src={flagImageUrl}
                 alt={`${listing.countryCode ?? ''} flag`}
                 className='ml-1 h-3.5 w-3.5'
                 loading='lazy'
               />
-            ) : flagEmoji ? (
-              <span className='ml-1 text-xs'>{flagEmoji}</span>
             ) : null}
           </span>
         ) : (
-          <span className='max-w-full truncate text-sm font-semibold text-muted-foreground'>
+          <span className='max-w-full truncate font-semibold text-muted-foreground text-sm'>
             {placeholderTitle}
           </span>
         )}
         {!compact ? (
-          <span className='max-w-full truncate text-xs text-muted-foreground'>
-            {listing ? secondary ?? '—' : placeholderSubtitle}
+          <span className='max-w-full truncate text-muted-foreground text-xs'>
+            {listing ? (secondary ?? '—') : placeholderSubtitle}
           </span>
         ) : null}
       </div>
       {showAssetClass && listing ? (
-        <span className={cn('ml-auto font-semibold text-muted-foreground', compact ? 'text-[10px]' : 'text-xs')}>
+        <span
+          className={cn(
+            'ml-auto font-semibold text-muted-foreground',
+            compact ? 'text-[10px]' : 'text-xs'
+          )}
+        >
           {assetClassLabel}
         </span>
       ) : null}
