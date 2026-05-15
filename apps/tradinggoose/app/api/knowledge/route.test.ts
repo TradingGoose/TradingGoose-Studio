@@ -6,53 +6,43 @@
 
 import { NextRequest } from 'next/server'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import {
-  createMockRequest,
-  mockAuth,
-  mockConsoleLogger,
-  mockDrizzleOrm,
-  mockKnowledgeSchemas,
-} from '@/app/api/__test-utils__/utils'
+import { createMockRequest, mockAuth, mockConsoleLogger } from '@/app/api/__test-utils__/utils'
 
-mockKnowledgeSchemas()
-mockDrizzleOrm()
 mockConsoleLogger()
 
-vi.mock('@/lib/permissions/utils', () => ({
-  getUserEntityPermissions: vi.fn().mockResolvedValue('write'),
+vi.mock('@/lib/knowledge/service', () => ({
+  createKnowledgeBase: vi.fn(),
+  getKnowledgeBases: vi.fn(),
 }))
 
 describe('Knowledge Base API Route', () => {
   const mockAuth$ = mockAuth()
-
-  const mockDbChain = {
-    select: vi.fn().mockReturnThis(),
-    from: vi.fn().mockReturnThis(),
-    leftJoin: vi.fn().mockReturnThis(),
-    where: vi.fn().mockReturnThis(),
-    groupBy: vi.fn().mockReturnThis(),
-    orderBy: vi.fn().mockResolvedValue([]),
-    insert: vi.fn().mockReturnThis(),
-    values: vi.fn().mockResolvedValue(undefined),
-  }
+  let mockCreateKnowledgeBase: any
+  let mockGetKnowledgeBases: any
 
   beforeEach(async () => {
     vi.clearAllMocks()
 
-    vi.doMock('@tradinggoose/db', () => ({
-      db: mockDbChain,
-    }))
+    const knowledgeService = await import('@/lib/knowledge/service')
+    mockCreateKnowledgeBase = knowledgeService.createKnowledgeBase as any
+    mockGetKnowledgeBases = knowledgeService.getKnowledgeBases as any
 
-    Object.values(mockDbChain).forEach((fn) => {
-      if (typeof fn === 'function') {
-        fn.mockClear()
-        if (fn !== mockDbChain.orderBy && fn !== mockDbChain.values) {
-          fn.mockReturnThis()
-        }
+    mockGetKnowledgeBases.mockResolvedValue([])
+    mockCreateKnowledgeBase.mockImplementation(async (data: any) => {
+      const now = new Date('2026-03-30T12:00:00.000Z')
+      return {
+        id: 'mock-uuid-1234-5678',
+        name: data.name,
+        description: data.description ?? null,
+        tokenCount: 0,
+        embeddingModel: data.embeddingModel,
+        embeddingDimension: data.embeddingDimension,
+        chunkingConfig: data.chunkingConfig,
+        createdAt: now,
+        updatedAt: now,
+        workspaceId: data.workspaceId,
+        docCount: 0,
       }
-    })
-    vi.stubGlobal('crypto', {
-      randomUUID: vi.fn().mockReturnValue('mock-uuid-1234-5678'),
     })
   })
 
@@ -75,7 +65,7 @@ describe('Knowledge Base API Route', () => {
 
     it('should handle database errors', async () => {
       mockAuth$.mockAuthenticatedUser()
-      mockDbChain.orderBy.mockRejectedValue(new Error('Database error'))
+      mockGetKnowledgeBases.mockRejectedValueOnce(new Error('Database error'))
 
       const req = new NextRequest('http://localhost:3000/api/knowledge?workspaceId=workspace-123')
       const { GET } = await import('@/app/api/knowledge/route')
@@ -111,7 +101,13 @@ describe('Knowledge Base API Route', () => {
       expect(data.success).toBe(true)
       expect(data.data.name).toBe(validKnowledgeBaseData.name)
       expect(data.data.description).toBe(validKnowledgeBaseData.description)
-      expect(mockDbChain.insert).toHaveBeenCalled()
+      expect(mockCreateKnowledgeBase).toHaveBeenCalledWith(
+        expect.objectContaining({
+          ...validKnowledgeBaseData,
+          userId: 'user-123',
+        }),
+        expect.any(String)
+      )
     })
 
     it('should return unauthorized for unauthenticated user', async () => {
@@ -182,7 +178,7 @@ describe('Knowledge Base API Route', () => {
 
     it('should handle database errors during creation', async () => {
       mockAuth$.mockAuthenticatedUser()
-      mockDbChain.values.mockRejectedValue(new Error('Database error'))
+      mockCreateKnowledgeBase.mockRejectedValueOnce(new Error('Database error'))
 
       const req = createMockRequest('POST', validKnowledgeBaseData)
       const { POST } = await import('@/app/api/knowledge/route')

@@ -118,7 +118,14 @@ describe('workflow shared session lifecycle', () => {
       expect(mockBootstrapYjsProvider).toHaveBeenCalledTimes(1)
       expect(getSharedWorkflowSessionState('workflow-1').provider).toBe(provider as any)
     })
-    expect(mockBootstrapYjsProvider.mock.calls[0]?.[1]).toBe('write')
+    expect(mockBootstrapYjsProvider.mock.calls[0]).toEqual([
+      expect.objectContaining({
+        workspaceId: 'workspace-1',
+        entityKind: 'workflow',
+        entityId: 'workflow-1',
+        yjsSessionId: 'workflow-1',
+      }),
+    ])
 
     const writeLease = await acquireWritableWorkflowSessionLease({
       workflowId: 'workflow-1',
@@ -171,10 +178,9 @@ describe('workflow shared session lifecycle', () => {
       },
     })
 
-    const {
-      acquireSharedWorkflowSession,
-      getSharedWorkflowSessionState,
-    } = await import('./workflow-shared-session')
+    const { acquireSharedWorkflowSession, getSharedWorkflowSessionState } = await import(
+      './workflow-shared-session'
+    )
 
     const releaseEditor = acquireSharedWorkflowSession({
       workflowId: 'workflow-1',
