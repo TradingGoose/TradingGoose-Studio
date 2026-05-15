@@ -43,11 +43,11 @@ function getPrimaryRecurringPrice(tier: {
   yearlyPriceUsd: number | null
 }): { value: number; period: '/mo' | '/yr' | null } {
   if (tier.monthlyPriceUsd !== null) {
-    return { value: tier.monthlyPriceUsd ?? 0, period: '/mo' }
+    return { value: tier.monthlyPriceUsd, period: '/mo' }
   }
 
   if (tier.yearlyPriceUsd !== null) {
-    return { value: tier.yearlyPriceUsd ?? 0, period: '/yr' }
+    return { value: tier.yearlyPriceUsd, period: '/yr' }
   }
 
   return { value: 0, period: null }
@@ -78,9 +78,7 @@ function describePrice(
     return 'custom'
   }
 
-  const price = getPrimaryRecurringPrice(tier)
-
-  return `$${price.value.toFixed(0)}${price.period ?? ''}`
+  return `${formatBillingPriceLabel(tier)}${formatBillingPricePeriod(tier) ?? ''}`
 }
 
 export function formatBillingPriceLabel(tier: {
