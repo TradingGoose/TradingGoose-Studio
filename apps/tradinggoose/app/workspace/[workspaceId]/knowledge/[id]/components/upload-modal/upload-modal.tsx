@@ -25,7 +25,7 @@ interface UploadModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   knowledgeBaseId: string
-  chunkingConfig?: {
+  chunkingConfig: {
     maxSize: number
     minSize: number
     overlap: number
@@ -154,10 +154,9 @@ export function UploadModal({
 
     try {
       await uploadFiles(files, knowledgeBaseId, {
-        chunkSize: chunkingConfig?.maxSize || 1024,
-        minCharactersPerChunk: chunkingConfig?.minSize || 1,
-        chunkOverlap: chunkingConfig?.overlap || 200,
-        recipe: 'default',
+        chunkSize: chunkingConfig.maxSize,
+        minCharactersPerChunk: chunkingConfig.minSize,
+        chunkOverlap: chunkingConfig.overlap,
       })
     } catch (error) {
       logger.error('Error uploading files:', error)

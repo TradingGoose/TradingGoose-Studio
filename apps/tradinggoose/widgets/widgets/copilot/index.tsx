@@ -25,9 +25,7 @@ const CopilotHeaderActionSlot = ({
 }: {
   channelId: string
   workspaceId?: string
-}) => (
-  <CopilotHeaderActions channelId={channelId} workspaceId={workspaceId} />
-)
+}) => <CopilotHeaderActions channelId={channelId} workspaceId={workspaceId} />
 
 const CopilotWidgetBody = ({
   context,
@@ -43,7 +41,7 @@ const CopilotWidgetBody = ({
   })
   const containerRef = useRef<HTMLDivElement | null>(null)
   const [panelWidth, setPanelWidth] = useState(0)
-  const fallbackPanelWidth = typeof window !== 'undefined' ? window.innerWidth : 1200
+  const defaultPanelWidth = typeof window !== 'undefined' ? window.innerWidth : 1200
 
   useEffect(() => {
     const handleResize = () => {
@@ -65,7 +63,7 @@ const CopilotWidgetBody = ({
     <div ref={containerRef} className='flex h-full w-full overflow-hidden p-2'>
       <CopilotApp
         workspaceId={workspaceId}
-        panelWidth={panelWidth || fallbackPanelWidth}
+        panelWidth={panelWidth || defaultPanelWidth}
         channelId={channelId}
         pairColor={resolvedPairColor}
       />

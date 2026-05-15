@@ -675,6 +675,7 @@ export function mockDrizzleOrm() {
     asc: vi.fn((field) => ({ field, type: 'asc' })),
     desc: vi.fn((field) => ({ field, type: 'desc' })),
     isNull: vi.fn((field) => ({ field, type: 'isNull' })),
+    isNotNull: vi.fn((field) => ({ field, type: 'isNotNull' })),
     count: vi.fn((field) => ({ field, type: 'count' })),
     sql: vi.fn((strings, ...values) => ({
       type: 'sql',

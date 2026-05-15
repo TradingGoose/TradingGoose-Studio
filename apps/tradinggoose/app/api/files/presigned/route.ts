@@ -75,11 +75,11 @@ export async function POST(request: NextRequest) {
 
     if (!hasCloudStorage()) {
       logger.info(
-        `Local storage detected - presigned URL not available for ${fileName}, client will use API fallback`
+        `Local storage selected; presigned upload is unavailable for ${fileName}, client will upload through the API`
       )
       return NextResponse.json({
         fileName,
-        presignedUrl: '', // Empty URL signals fallback to API upload
+        presignedUrl: '',
         fileInfo: {
           path: '',
           key: '',

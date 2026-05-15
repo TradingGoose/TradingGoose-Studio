@@ -5,6 +5,7 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { sanitizeSolidIconColor } from '@/lib/ui/icon-colors'
 import { useWorkflowBlocks } from '@/lib/yjs/use-workflow-doc'
 import { useOptionalWorkflowSession } from '@/lib/yjs/workflow-session-host'
+import { fetchKnowledgeBases as fetchWorkspaceKnowledgeBases } from '@/hooks/queries/knowledge'
 import { getSubflowBlockConfig } from '@/widgets/widgets/editor_workflow/components/subflows/config'
 import {
   type CopilotWorkspaceEntityKind,
@@ -130,14 +131,7 @@ export function useUserInputMentionSources({ workspaceId }: UseUserInputMentionS
 
     try {
       setIsLoadingKnowledge(true)
-      const response = await fetch(`/api/knowledge?workspaceId=${workspaceId}`)
-
-      if (!response.ok) {
-        throw new Error(`Failed to load knowledge bases: ${response.status}`)
-      }
-
-      const data = await response.json()
-      const items = Array.isArray(data?.data) ? data.data : []
+      const items = await fetchWorkspaceKnowledgeBases(workspaceId)
       const sorted = [...items].sort((a: any, b: any) => {
         const timeA = new Date(a.updatedAt || a.createdAt || 0).getTime()
         const timeB = new Date(b.updatedAt || b.createdAt || 0).getTime()

@@ -57,10 +57,9 @@ export async function GET(
     const contextParam = signedVercelAccess.authorized
       ? signedVercelAccess.context
       : request.nextUrl.searchParams.get('context')
-    const legacyBucketType = request.nextUrl.searchParams.get('bucket')
 
     if (isUsingCloudStorage() || isCloudPath) {
-      return await handleCloudProxy(cloudKey, contextParam, legacyBucketType, userId)
+      return await handleCloudProxy(cloudKey, contextParam, userId)
     }
 
     return await handleLocalFile(fullPath, userId)
@@ -156,7 +155,6 @@ function inferContextFromKey(key: string): StorageContext {
 async function handleCloudProxy(
   cloudKey: string,
   contextParam?: string | null,
-  legacyBucketType?: string | null,
   userId?: string
 ): Promise<NextResponse> {
   try {
@@ -165,9 +163,6 @@ async function handleCloudProxy(
     if (contextParam) {
       context = contextParam as StorageContext
       logger.info(`Using explicit context: ${context} for key: ${cloudKey}`)
-    } else if (legacyBucketType === 'copilot') {
-      context = 'copilot'
-      logger.info(`Using legacy bucket parameter for copilot context: ${cloudKey}`)
     } else {
       context = inferContextFromKey(cloudKey)
       logger.info(`Inferred context: ${context} from key pattern: ${cloudKey}`)

@@ -56,7 +56,7 @@ describe('Knowledge Base By ID API Route', () => {
     chunkingConfig: { maxSize: 1024, minSize: 100, overlap: 200 },
     createdAt: new Date(),
     updatedAt: new Date(),
-    workspaceId: null,
+    workspaceId: 'workspace-123',
     deletedAt: null,
   }
 
@@ -234,7 +234,6 @@ describe('Knowledge Base By ID API Route', () => {
         {
           name: validUpdateData.name,
           description: validUpdateData.description,
-          workspaceId: undefined,
           chunkingConfig: undefined,
         },
         expect.any(String)

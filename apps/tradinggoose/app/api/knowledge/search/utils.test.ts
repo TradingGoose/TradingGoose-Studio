@@ -260,7 +260,7 @@ describe('Knowledge Search Utils', () => {
       expect(result).toEqual([0.1, 0.2, 0.3])
     })
 
-    it('should fallback to OpenAI when no KB Azure config provided', async () => {
+    it('should use OpenAI when no KB Azure config is provided', async () => {
       resolveOpenAIServiceConfig.mockResolvedValue({
         defaultApiKey: 'test-openai-key',
         rotationKeys: [],

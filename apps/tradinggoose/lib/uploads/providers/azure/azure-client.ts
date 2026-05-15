@@ -53,7 +53,7 @@ export function sanitizeFilenameForMetadata(filename: string): string {
       .replace(/\s+/g, ' ')
       // Trim whitespace
       .trim() ||
-    // Provide fallback if completely sanitized
+    // Use a valid metadata filename when sanitization removes every character.
     'file'
   )
 }
@@ -267,7 +267,10 @@ export async function downloadFromAzure(key: string): Promise<Buffer>
  * @param customConfig Custom Azure configuration
  * @returns File buffer
  */
-export async function downloadFromAzure(key: string, customConfig: CustomAzureConfig): Promise<Buffer>
+export async function downloadFromAzure(
+  key: string,
+  customConfig: CustomAzureConfig
+): Promise<Buffer>
 
 export async function downloadFromAzure(
   key: string,
@@ -322,7 +325,10 @@ export async function deleteFromAzure(key: string): Promise<void>
  */
 export async function deleteFromAzure(key: string, customConfig: CustomAzureConfig): Promise<void>
 
-export async function deleteFromAzure(key: string, customConfig?: CustomAzureConfig): Promise<void> {
+export async function deleteFromAzure(
+  key: string,
+  customConfig?: CustomAzureConfig
+): Promise<void> {
   let azureServiceClient: BlobServiceClient
   let containerName: string
 

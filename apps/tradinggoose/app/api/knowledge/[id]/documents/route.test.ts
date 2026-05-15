@@ -133,7 +133,7 @@ describe('Knowledge Base Documents API Route', () => {
         knowledgeBase: {
           id: 'kb-123',
           userId: 'user-123',
-          workspaceId: null,
+          workspaceId: 'workspace-123',
           embeddingModel: 'text-embedding-3-small',
         },
       })
@@ -180,7 +180,7 @@ describe('Knowledge Base Documents API Route', () => {
         knowledgeBase: {
           id: 'kb-123',
           userId: 'user-123',
-          workspaceId: null,
+          workspaceId: 'workspace-123',
           embeddingModel: 'text-embedding-3-small',
         },
       })
@@ -222,7 +222,7 @@ describe('Knowledge Base Documents API Route', () => {
         knowledgeBase: {
           id: 'kb-123',
           userId: 'user-123',
-          workspaceId: null,
+          workspaceId: 'workspace-123',
           embeddingModel: 'text-embedding-3-small',
         },
       })
@@ -311,7 +311,7 @@ describe('Knowledge Base Documents API Route', () => {
         knowledgeBase: {
           id: 'kb-123',
           userId: 'user-123',
-          workspaceId: null,
+          workspaceId: 'workspace-123',
           embeddingModel: 'text-embedding-3-small',
         },
       })
@@ -348,7 +348,7 @@ describe('Knowledge Base Documents API Route', () => {
         knowledgeBase: {
           id: 'kb-123',
           userId: 'user-123',
-          workspaceId: null,
+          workspaceId: 'workspace-123',
           embeddingModel: 'text-embedding-3-small',
         },
       })
@@ -400,7 +400,7 @@ describe('Knowledge Base Documents API Route', () => {
         knowledgeBase: {
           id: 'kb-123',
           userId: 'user-123',
-          workspaceId: null,
+          workspaceId: 'workspace-123',
           embeddingModel: 'text-embedding-3-small',
         },
       })
@@ -444,8 +444,6 @@ describe('Knowledge Base Documents API Route', () => {
       processingOptions: {
         chunkSize: 1024,
         minCharactersPerChunk: 100,
-        recipe: 'default',
-        lang: 'en',
         chunkOverlap: 200,
       },
     }
@@ -462,7 +460,7 @@ describe('Knowledge Base Documents API Route', () => {
         knowledgeBase: {
           id: 'kb-123',
           userId: 'user-123',
-          workspaceId: null,
+          workspaceId: 'workspace-123',
           embeddingModel: 'text-embedding-3-small',
         },
       })
@@ -516,7 +514,7 @@ describe('Knowledge Base Documents API Route', () => {
         knowledgeBase: {
           id: 'kb-123',
           userId: 'user-123',
-          workspaceId: null,
+          workspaceId: 'workspace-123',
           embeddingModel: 'text-embedding-3-small',
         },
       })
@@ -534,8 +532,6 @@ describe('Knowledge Base Documents API Route', () => {
         processingOptions: {
           chunkSize: 50, // Invalid: too small
           minCharactersPerChunk: 0, // Invalid: too small
-          recipe: 'default',
-          lang: 'en',
           chunkOverlap: 1000, // Invalid: too large
         },
       }
@@ -562,7 +558,7 @@ describe('Knowledge Base Documents API Route', () => {
         knowledgeBase: {
           id: 'kb-123',
           userId: 'user-123',
-          workspaceId: null,
+          workspaceId: 'workspace-123',
           embeddingModel: 'text-embedding-3-small',
         },
       })
@@ -654,7 +650,7 @@ describe('Knowledge Base Documents API Route', () => {
         knowledgeBase: {
           id: 'kb-123',
           userId: 'user-123',
-          workspaceId: null,
+          workspaceId: 'workspace-123',
           embeddingModel: 'text-embedding-3-small',
         },
       })

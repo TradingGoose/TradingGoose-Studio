@@ -31,7 +31,11 @@ import {
   EditChunkModal,
 } from '@/app/workspace/[workspaceId]/knowledge/[id]/[documentId]/components'
 import { ActionBar } from '@/app/workspace/[workspaceId]/knowledge/[id]/components'
-import { KnowledgeHeader, KnowledgeTags, PrimaryButton } from '@/app/workspace/[workspaceId]/knowledge/components'
+import {
+  KnowledgeHeader,
+  KnowledgeTags,
+  PrimaryButton,
+} from '@/app/workspace/[workspaceId]/knowledge/components'
 import { useUserPermissionsContext } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import { useDocumentChunks } from '@/hooks/use-knowledge'
 import { type ChunkData, type DocumentData, useKnowledgeStore } from '@/stores/knowledge/store'
@@ -88,9 +92,7 @@ export function Document({
     error: initialError,
     refreshChunks: initialRefreshChunks,
     updateChunk: initialUpdateChunk,
-  } = useDocumentChunks(knowledgeBaseId, documentId, currentPageFromURL, '', {
-    enableClientSearch: false,
-  })
+  } = useDocumentChunks(knowledgeBaseId, documentId, currentPageFromURL, '')
 
   // Search results state
   const [searchResults, setSearchResults] = useState<ChunkData[]>([])
@@ -236,8 +238,8 @@ export function Document({
     }
   }, [hasPrevPage, currentPage, goToPage])
 
-  const refreshChunks = showingSearch ? async () => { } : initialRefreshChunks
-  const updateChunk = showingSearch ? (id: string, updates: any) => { } : initialUpdateChunk
+  const refreshChunks = showingSearch ? async () => {} : initialRefreshChunks
+  const updateChunk = showingSearch ? (id: string, updates: any) => {} : initialUpdateChunk
 
   const [documentData, setDocumentData] = useState<DocumentData | null>(null)
   const [isLoadingDocument, setIsLoadingDocument] = useState(true)
@@ -526,12 +528,7 @@ export function Document({
         {createChunkTooltip && <TooltipContent>{createChunkTooltip}</TooltipContent>}
       </Tooltip>
       {userPermissions.canEdit && (
-        <Button
-          variant='outline'
-          size='sm'
-          onClick={openTagPanel}
-          className='h-9 rounded-sm px-3'
-        >
+        <Button variant='outline' size='sm' onClick={openTagPanel} className='h-9 rounded-sm px-3'>
           <Tag className='mr-2 h-4 w-4' />
           Manage Tags
         </Button>
@@ -781,7 +778,13 @@ export function Document({
       {documentData?.processingStatus === 'completed' && totalPages > 1 && (
         <div className='flex items-center justify-center border-t bg-background px-6 py-4'>
           <div className='flex items-center gap-1'>
-            <Button variant='ghost' size='sm' onClick={prevPage} disabled={!hasPrevPage} className='h-8 w-8 p-0'>
+            <Button
+              variant='ghost'
+              size='sm'
+              onClick={prevPage}
+              disabled={!hasPrevPage}
+              className='h-8 w-8 p-0'
+            >
               <ChevronLeft className='h-4 w-4' />
             </Button>
             <div className='mx-4 flex items-center gap-6'>
@@ -804,15 +807,22 @@ export function Document({
                     key={page}
                     onClick={() => goToPage(page)}
                     disabled={false}
-                    className={`font-medium text-sm transition-colors hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50 ${page === currentPage ? 'text-foreground' : 'text-muted-foreground'
-                      }`}
+                    className={`font-medium text-sm transition-colors hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50 ${
+                      page === currentPage ? 'text-foreground' : 'text-muted-foreground'
+                    }`}
                   >
                     {page}
                   </button>
                 )
               })}
             </div>
-            <Button variant='ghost' size='sm' onClick={nextPage} disabled={!hasNextPage} className='h-8 w-8 p-0'>
+            <Button
+              variant='ghost'
+              size='sm'
+              onClick={nextPage}
+              disabled={!hasNextPage}
+              className='h-8 w-8 p-0'
+            >
               <ChevronRight className='h-4 w-4' />
             </Button>
           </div>

@@ -116,7 +116,7 @@ describe('Document By ID API Route', () => {
         knowledgeBase: {
           id: 'kb-123',
           userId: 'user-123',
-          workspaceId: null,
+          workspaceId: 'workspace-123',
           embeddingModel: 'text-embedding-3-small',
         },
       })
@@ -218,7 +218,7 @@ describe('Document By ID API Route', () => {
         knowledgeBase: {
           id: 'kb-123',
           userId: 'user-123',
-          workspaceId: null,
+          workspaceId: 'workspace-123',
           embeddingModel: 'text-embedding-3-small',
         },
       })
@@ -256,7 +256,7 @@ describe('Document By ID API Route', () => {
         knowledgeBase: {
           id: 'kb-123',
           userId: 'user-123',
-          workspaceId: null,
+          workspaceId: 'workspace-123',
           embeddingModel: 'text-embedding-3-small',
         },
       })
@@ -298,7 +298,7 @@ describe('Document By ID API Route', () => {
         knowledgeBase: {
           id: 'kb-123',
           userId: 'user-123',
-          workspaceId: null,
+          workspaceId: 'workspace-123',
           embeddingModel: 'text-embedding-3-small',
         },
       })
@@ -333,7 +333,7 @@ describe('Document By ID API Route', () => {
         knowledgeBase: {
           id: 'kb-123',
           userId: 'user-123',
-          workspaceId: null,
+          workspaceId: 'workspace-123',
           embeddingModel: 'text-embedding-3-small',
         },
       })
@@ -364,7 +364,7 @@ describe('Document By ID API Route', () => {
         knowledgeBase: {
           id: 'kb-123',
           userId: 'user-123',
-          workspaceId: null,
+          workspaceId: 'workspace-123',
           embeddingModel: 'text-embedding-3-small',
         },
       })
@@ -407,7 +407,7 @@ describe('Document By ID API Route', () => {
         knowledgeBase: {
           id: 'kb-123',
           userId: 'user-123',
-          workspaceId: null,
+          workspaceId: 'workspace-123',
           embeddingModel: 'text-embedding-3-small',
         },
       })
@@ -468,7 +468,7 @@ describe('Document By ID API Route', () => {
         knowledgeBase: {
           id: 'kb-123',
           userId: 'user-123',
-          workspaceId: null,
+          workspaceId: 'workspace-123',
           embeddingModel: 'text-embedding-3-small',
         },
       })
@@ -499,7 +499,7 @@ describe('Document By ID API Route', () => {
         knowledgeBase: {
           id: 'kb-123',
           userId: 'user-123',
-          workspaceId: null,
+          workspaceId: 'workspace-123',
           embeddingModel: 'text-embedding-3-small',
         },
       })
@@ -580,7 +580,7 @@ describe('Document By ID API Route', () => {
         knowledgeBase: {
           id: 'kb-123',
           userId: 'user-123',
-          workspaceId: null,
+          workspaceId: 'workspace-123',
           embeddingModel: 'text-embedding-3-small',
         },
       })

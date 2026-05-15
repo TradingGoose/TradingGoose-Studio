@@ -25,7 +25,7 @@ describe('/api/files/presigned', () => {
   })
 
   describe('POST', () => {
-    it('should return graceful fallback response when cloud storage is not enabled', async () => {
+    it('should return local upload response when cloud storage is not enabled', async () => {
       setupFileApiMocks({
         cloudEnabled: false,
         storageProvider: 's3',

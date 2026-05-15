@@ -3,7 +3,7 @@ import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { getSession } from '@/lib/auth'
 import { SUPPORTED_FIELD_TYPES } from '@/lib/knowledge/consts'
-import { createTagDefinition, getTagDefinitions } from '@/lib/knowledge/tags/service'
+import { createTagDefinition, getDocumentTagDefinitions } from '@/lib/knowledge/tags/service'
 import { createLogger } from '@/lib/logs/console/logger'
 import { checkKnowledgeBaseAccess } from '@/app/api/knowledge/utils'
 
@@ -29,7 +29,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    const tagDefinitions = await getTagDefinitions(knowledgeBaseId)
+    const tagDefinitions = await getDocumentTagDefinitions(knowledgeBaseId)
 
     logger.info(`[${requestId}] Retrieved ${tagDefinitions.length} tag definitions`)
 

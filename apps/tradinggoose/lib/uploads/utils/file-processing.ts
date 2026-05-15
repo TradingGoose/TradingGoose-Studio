@@ -120,7 +120,7 @@ export async function downloadFileFromStorage(
     logger.info(`[${requestId}] Downloading from execution storage: ${userFile.key}`)
     buffer = await downloadExecutionFile(userFile)
   } else if (userFile.key) {
-    // Use explicit context from file if available, otherwise infer from key pattern (fallback)
+    // Use explicit context from file if available, otherwise infer from key pattern.
     const context = (userFile.context as StorageContext) || inferContextFromKey(userFile.key)
     logger.info(
       `[${requestId}] Downloading from ${context} storage (${userFile.context ? 'explicit' : 'inferred'}): ${userFile.key}`

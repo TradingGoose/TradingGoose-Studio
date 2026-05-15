@@ -185,7 +185,7 @@ describe('Knowledge Search API Route', () => {
       {
         id: 'kb-123',
         userId: 'user-123',
-        workspaceId: null,
+        workspaceId: 'workspace-123',
         embeddingModel: 'text-embedding-3-small',
         name: 'Test KB',
         deletedAt: null,
@@ -200,7 +200,7 @@ describe('Knowledge Search API Route', () => {
         knowledgeBase: {
           id: 'kb-123',
           userId: 'user-123',
-          workspaceId: null,
+          workspaceId: 'workspace-123',
           embeddingModel: 'text-embedding-3-small',
           name: 'Test KB',
           deletedAt: null,
@@ -249,7 +249,7 @@ describe('Knowledge Search API Route', () => {
         {
           id: 'kb-456',
           userId: 'user-123',
-          workspaceId: null,
+          workspaceId: 'workspace-123',
           embeddingModel: 'text-embedding-3-small',
           name: 'Test KB 2',
           deletedAt: null,
@@ -303,7 +303,7 @@ describe('Knowledge Search API Route', () => {
         knowledgeBase: {
           id: 'kb-123',
           userId: 'user-123',
-          workspaceId: null,
+          workspaceId: 'workspace-123',
           embeddingModel: 'text-embedding-3-small',
           name: 'Test KB',
           deletedAt: null,
@@ -431,7 +431,7 @@ describe('Knowledge Search API Route', () => {
         knowledgeBase: {
           id: 'kb-123',
           userId: 'user-123',
-          workspaceId: null,
+          workspaceId: 'workspace-123',
           embeddingModel: 'text-embedding-3-small',
           name: 'Test KB',
           deletedAt: null,
@@ -535,7 +535,7 @@ describe('Knowledge Search API Route', () => {
           knowledgeBase: {
             id: 'kb-123',
             userId: 'user-123',
-            workspaceId: null,
+            workspaceId: 'workspace-123',
             embeddingModel: 'text-embedding-3-small',
             name: 'Test KB',
             deletedAt: null,
@@ -590,7 +590,7 @@ describe('Knowledge Search API Route', () => {
           knowledgeBase: {
             id: 'kb-123',
             userId: 'user-123',
-            workspaceId: null,
+            workspaceId: 'workspace-123',
             embeddingModel: 'text-embedding-ada-002',
             name: 'Test KB',
             deletedAt: null,
@@ -657,7 +657,7 @@ describe('Knowledge Search API Route', () => {
           knowledgeBase: {
             id: 'kb-123',
             userId: 'user-123',
-            workspaceId: null,
+            workspaceId: 'workspace-123',
             embeddingModel: 'text-embedding-3-small',
             name: 'Test KB',
             deletedAt: null,
@@ -731,7 +731,7 @@ describe('Knowledge Search API Route', () => {
         knowledgeBase: {
           id: 'kb-123',
           userId: 'user-123',
-          workspaceId: null,
+          workspaceId: 'workspace-123',
           embeddingModel: 'text-embedding-3-small',
           name: 'Test KB',
           deletedAt: null,
@@ -781,7 +781,7 @@ describe('Knowledge Search API Route', () => {
         knowledgeBase: {
           id: 'kb-123',
           userId: 'user-123',
-          workspaceId: null,
+          workspaceId: 'workspace-123',
           embeddingModel: 'text-embedding-3-small',
           name: 'Test KB',
           deletedAt: null,
@@ -831,7 +831,7 @@ describe('Knowledge Search API Route', () => {
         knowledgeBase: {
           id: 'kb-123',
           userId: 'user-123',
-          workspaceId: null,
+          workspaceId: 'workspace-123',
           embeddingModel: 'text-embedding-3-small',
           name: 'Test KB',
           deletedAt: null,
@@ -963,7 +963,7 @@ describe('Knowledge Search API Route', () => {
         knowledgeBase: {
           id: 'kb-123',
           userId: 'user-123',
-          workspaceId: null,
+          workspaceId: 'workspace-123',
           embeddingModel: 'text-embedding-3-small',
           name: 'Test KB',
           deletedAt: null,
@@ -1010,7 +1010,7 @@ describe('Knowledge Search API Route', () => {
           knowledgeBase: {
             id: 'kb-123',
             userId: 'user-123',
-            workspaceId: null,
+            workspaceId: 'workspace-123',
             embeddingModel: 'text-embedding-3-small',
             name: 'Test KB',
             deletedAt: null,
@@ -1021,7 +1021,7 @@ describe('Knowledge Search API Route', () => {
           knowledgeBase: {
             id: 'kb-456',
             userId: 'user-123',
-            workspaceId: null,
+            workspaceId: 'workspace-123',
             embeddingModel: 'text-embedding-3-small',
             name: 'Test KB 2',
           },
@@ -1080,7 +1080,7 @@ describe('Knowledge Search API Route', () => {
         knowledgeBase: {
           id: 'kb-123',
           userId: 'user-123',
-          workspaceId: null,
+          workspaceId: 'workspace-123',
           embeddingModel: 'text-embedding-3-small',
           name: 'Test KB',
           deletedAt: null,
@@ -1149,7 +1149,7 @@ describe('Knowledge Search API Route', () => {
         knowledgeBase: {
           id: 'kb-123',
           userId: 'user-123',
-          workspaceId: null,
+          workspaceId: 'workspace-123',
           embeddingModel: 'text-embedding-3-small',
           name: 'Test KB',
           deletedAt: null,
@@ -1218,7 +1218,7 @@ describe('Knowledge Search API Route', () => {
         knowledgeBase: {
           id: 'kb-123',
           userId: 'user-123',
-          workspaceId: null,
+          workspaceId: 'workspace-123',
           embeddingModel: 'text-embedding-3-small',
           name: 'Test KB',
           deletedAt: null,

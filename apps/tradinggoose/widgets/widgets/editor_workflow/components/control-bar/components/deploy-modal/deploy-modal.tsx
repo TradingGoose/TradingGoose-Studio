@@ -412,8 +412,8 @@ export function DeployModal({
   )
   const isChatTriggerReady = chatTriggerBlock
     ? isChatDeploymentDraftConfigured(getChatDeploymentDraftFromBlock(chatTriggerBlock), {
-        hasPasswordFallback: Boolean(publishedChat?.hasPassword),
-      })
+      hasPasswordFallback: Boolean(publishedChat?.hasPassword),
+    })
     : false
   const isApiTriggerReady = hasApiTriggerTab
     ? Boolean(selectedApiKeyId || deploymentInfo?.apiKey || isWorkflowDeployed)
@@ -462,14 +462,14 @@ export function DeployModal({
   const infoTabItems: TriggerTabItem[] = [
     ...(showBillingTab
       ? [
-          {
-            key: BILLING_TAB_KEY,
-            label: 'Billing',
-            icon: CreditCard,
-            iconAccentColor: undefined,
-            isReady: undefined,
-          },
-        ]
+        {
+          key: BILLING_TAB_KEY,
+          label: 'Billing',
+          icon: CreditCard,
+          iconAccentColor: undefined,
+          isReady: undefined,
+        },
+      ]
       : []),
     {
       key: 'versions',
@@ -482,25 +482,25 @@ export function DeployModal({
   const nativeTriggerTabItems: TriggerTabItem[] = [
     ...(hasChatTrigger
       ? [
-          {
-            key: 'chat',
-            label: 'Chat',
-            icon: getTrigger('chat')?.icon,
-            iconAccentColor: sanitizeSolidIconColor(getBlock('chat_trigger')?.bgColor),
-            isReady: isChatTriggerReady,
-          },
-        ]
+        {
+          key: 'chat',
+          label: 'Chat',
+          icon: getTrigger('chat')?.icon,
+          iconAccentColor: sanitizeSolidIconColor(getBlock('chat_trigger')?.bgColor),
+          isReady: isChatTriggerReady,
+        },
+      ]
       : []),
     ...(hasApiTriggerTab
       ? [
-          {
-            key: API_TRIGGER_TAB_KEY,
-            label: 'API Trigger',
-            icon: getTrigger('api')?.icon,
-            iconAccentColor: sanitizeSolidIconColor(getBlock('api_trigger')?.bgColor),
-            isReady: isApiTriggerReady,
-          },
-        ]
+        {
+          key: API_TRIGGER_TAB_KEY,
+          label: 'API Trigger',
+          icon: getTrigger('api')?.icon,
+          iconAccentColor: sanitizeSolidIconColor(getBlock('api_trigger')?.bgColor),
+          isReady: isApiTriggerReady,
+        },
+      ]
       : []),
     ...triggerDeployTabs
       .filter((tab) => isNativeTrigger(tab.triggerId))
@@ -537,38 +537,38 @@ export function DeployModal({
   const activeTabMeta =
     activeTab === BILLING_TAB_KEY
       ? {
-          title: 'Billing',
-          description:
-            'Choose the shared API key used for workflow deployment, billing attribution, and API trigger authentication.',
-        }
+        title: 'Billing',
+        description:
+          'Choose the shared API key used for workflow deployment, billing attribution, and API trigger authentication.',
+      }
       : activeTab === API_TRIGGER_TAB_KEY
         ? {
-            title: 'API Trigger Deployment',
-            description:
-              'Review the API trigger endpoint and payload contract. This trigger uses the same shared API key selected in Billing.',
-          }
+          title: 'API Trigger Deployment',
+          description:
+            'Review the API trigger endpoint and payload contract. This trigger uses the same shared API key selected in Billing.',
+        }
         : activeTab === 'versions'
           ? {
-              title: 'Deployment Versions',
-              description:
-                'Inspect previous deployments, rename versions, or activate an older snapshot.',
-            }
+            title: 'Deployment Versions',
+            description:
+              'Inspect previous deployments, rename versions, or activate an older snapshot.',
+          }
           : activeTab === 'chat'
             ? {
-                title: 'Chat Deployment',
-                description:
-                  'Configure chat publishing details here. Deploying the workflow publishes the chat trigger with these settings.',
-              }
+              title: 'Chat Deployment',
+              description:
+                'Configure chat publishing details here. Deploying the workflow publishes the chat trigger with these settings.',
+            }
             : activeTriggerDeployTab
               ? {
-                  title: activeTriggerDeployTab.label,
-                  description:
-                    activeTriggerDeployTab.triggerId === 'indicator_trigger'
-                      ? 'Indicator monitors are managed from Logs -> Monitors. This trigger deploys with the workflow and does not need extra deployment fields here.'
-                      : activeTriggerDeployTab.hasConfigurableFields
-                        ? "Trigger mode is managed in the workflow editor. Edit the active mode's settings here, and save webhook-backed triggers after changes."
-                        : 'Review this trigger before deployment. No additional configuration is required.',
-                }
+                title: activeTriggerDeployTab.label,
+                description:
+                  activeTriggerDeployTab.triggerId === 'indicator_trigger'
+                    ? 'Indicator monitors are managed from Logs -> Monitors. This trigger deploys with the workflow and does not need extra deployment fields here.'
+                    : activeTriggerDeployTab.hasConfigurableFields
+                      ? "Trigger mode is managed in the workflow editor. Edit the active mode's settings here, and save webhook-backed triggers after changes."
+                      : 'Review this trigger before deployment. No additional configuration is required.',
+              }
               : null
   const sharedApiKeyDisplay =
     deploymentInfo?.apiKey && deploymentInfo.apiKey !== 'No API key found'
@@ -1077,11 +1077,11 @@ export function DeployModal({
       setDeploymentInfo((prev) =>
         prev
           ? {
-              ...prev,
-              needsRedeployment: false,
-              pinnedApiKeyId: apiKeyToUse ?? prev.pinnedApiKeyId ?? null,
-              hasReusableApiKey: prev.hasReusableApiKey || Boolean(apiKeyToUse),
-            }
+            ...prev,
+            needsRedeployment: false,
+            pinnedApiKeyId: apiKeyToUse ?? prev.pinnedApiKeyId ?? null,
+            hasReusableApiKey: prev.hasReusableApiKey || Boolean(apiKeyToUse),
+          }
           : prev
       )
     } catch (error: unknown) {
@@ -1571,11 +1571,10 @@ export function DeployModal({
                                         >
                                           <td className='px-4 py-2.5'>
                                             <div
-                                              className={`h-2 w-2 rounded-full ${
-                                                v.isActive
+                                              className={`h-2 w-2 rounded-full ${v.isActive
                                                   ? 'bg-green-500'
                                                   : 'bg-muted-foreground/40'
-                                              }`}
+                                                }`}
                                               title={v.isActive ? 'Active' : 'Inactive'}
                                             />
                                           </td>

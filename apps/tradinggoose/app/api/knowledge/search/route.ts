@@ -231,9 +231,13 @@ export async function POST(request: NextRequest) {
 
       let costInfo = null
       if (hasQuery) {
-        const tokenCount = estimateTokenCount(validatedData.query!, 'openai')
-        const cost = calculateCost(queryEmbeddingModel, tokenCount.count, 0, false)
-        costInfo = { cost, tokenCount }
+        try {
+          const tokenCount = estimateTokenCount(validatedData.query!, 'openai')
+          const cost = calculateCost(queryEmbeddingModel, tokenCount.count, 0, false)
+          costInfo = { cost, tokenCount }
+        } catch (error) {
+          logger.warn(`[${requestId}] Failed to calculate search cost:`, error)
+        }
       }
 
       // Fetch tag definitions for display name mapping (reuse the same fetch from filtering)

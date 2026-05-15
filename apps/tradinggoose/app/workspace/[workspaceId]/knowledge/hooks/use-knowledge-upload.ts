@@ -42,10 +42,9 @@ export interface UploadError {
 }
 
 export interface ProcessingOptions {
-  chunkSize?: number
-  minCharactersPerChunk?: number
-  chunkOverlap?: number
-  recipe?: string
+  chunkSize: number
+  minCharactersPerChunk: number
+  chunkOverlap: number
 }
 
 export interface UseKnowledgeUploadOptions {
@@ -433,7 +432,7 @@ export function useKnowledgeUpload(options: UseKnowledgeUploadOptions = {}) {
   const uploadFiles = async (
     files: File[],
     knowledgeBaseId: string,
-    processingOptions: ProcessingOptions = {}
+    processingOptions: ProcessingOptions
   ): Promise<UploadedFile[]> => {
     if (files.length === 0) {
       throw new KnowledgeUploadError('No files provided for upload', 'NO_FILES')
@@ -455,11 +454,9 @@ export function useKnowledgeUpload(options: UseKnowledgeUploadOptions = {}) {
       const processPayload = {
         documents: uploadedFiles,
         processingOptions: {
-          chunkSize: processingOptions.chunkSize || 1024,
-          minCharactersPerChunk: processingOptions.minCharactersPerChunk || 1,
-          chunkOverlap: processingOptions.chunkOverlap || 200,
-          recipe: processingOptions.recipe || 'default',
-          lang: 'en',
+          chunkSize: processingOptions.chunkSize,
+          minCharactersPerChunk: processingOptions.minCharactersPerChunk,
+          chunkOverlap: processingOptions.chunkOverlap,
         },
         bulk: true,
       }

@@ -1,6 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import Fuse from 'fuse.js'
 import { createLogger } from '@/lib/logs/console/logger'
 import {
   fetchKnowledgeChunks,
@@ -177,7 +176,7 @@ export function useKnowledgeBaseDocuments(
 }
 
 export function useKnowledgeBasesList(
-  workspaceId?: string,
+  workspaceId: string,
   options?: {
     enabled?: boolean
   }
@@ -187,9 +186,6 @@ export function useKnowledgeBasesList(
   useEffect(() => {
     if (query.data) {
       useKnowledgeStore.setState((state) => ({
-        knowledgeBasesList: query.data as KnowledgeBaseData[],
-        knowledgeBasesListLoaded: true,
-        loadingKnowledgeBasesList: query.isLoading,
         knowledgeBases: query.data!.reduce<Record<string, KnowledgeBaseData>>(
           (acc, kb) => {
             acc[kb.id] = kb
@@ -198,12 +194,8 @@ export function useKnowledgeBasesList(
           { ...state.knowledgeBases }
         ),
       }))
-    } else if (query.isLoading) {
-      useKnowledgeStore.setState((state) => ({
-        loadingKnowledgeBasesList: true,
-      }))
     }
-  }, [query.data, query.isLoading])
+  }, [query.data])
 
   const addKnowledgeBase = useCallback(
     (knowledgeBase: KnowledgeBaseData) => {
@@ -221,9 +213,6 @@ export function useKnowledgeBasesList(
           ...state.knowledgeBases,
           [knowledgeBase.id]: knowledgeBase,
         },
-        knowledgeBasesList: state.knowledgeBasesList.some((kb) => kb.id === knowledgeBase.id)
-          ? state.knowledgeBasesList
-          : [knowledgeBase, ...state.knowledgeBasesList],
       }))
     },
     [queryClient, workspaceId]
@@ -239,7 +228,6 @@ export function useKnowledgeBasesList(
         knowledgeBases: Object.fromEntries(
           Object.entries(state.knowledgeBases).filter(([id]) => id !== knowledgeBaseId)
         ),
-        knowledgeBasesList: state.knowledgeBasesList.filter((kb) => kb.id !== knowledgeBaseId),
       }))
     },
     [queryClient, workspaceId]
@@ -263,208 +251,24 @@ export function useKnowledgeBasesList(
 }
 
 /**
- * Hook to manage chunks for a specific document with optional client-side search
+ * Hook to manage chunks for a specific document.
  */
 export function useDocumentChunks(
   knowledgeBaseId: string,
   documentId: string,
   urlPage = 1,
-  urlSearch = '',
-  options: { enableClientSearch?: boolean } = {}
+  urlSearch = ''
 ) {
-  const { enableClientSearch = false } = options
   const queryClient = useQueryClient()
 
-  // Client-side search state (used in client search mode)
-  const [searchQuery, setSearchQuery] = useState('')
-  const [clientCurrentPage, setClientCurrentPage] = useState(urlPage)
-
-  // Server-side params
   const paramsKey = serializeChunkParams({
     knowledgeBaseId,
     documentId,
-    search: enableClientSearch ? undefined : urlSearch,
+    search: urlSearch,
     limit: 50,
     offset: (urlPage - 1) * 50,
   })
 
-  // Client-side search mode (e.g., for knowledge-debug tool)
-  if (enableClientSearch) {
-    const [chunks, setChunks] = useState<ChunkData[]>([])
-    const [allChunks, setAllChunks] = useState<ChunkData[]>([])
-    const [isLoading, setIsLoading] = useState(true)
-    const [error, setError] = useState<string | null>(null)
-
-    const [isMounted, setIsMounted] = useState(false)
-
-    useEffect(() => {
-      setIsMounted(true)
-      return () => setIsMounted(false)
-    }, [])
-
-    useEffect(() => {
-      setClientCurrentPage(urlPage)
-    }, [urlPage])
-
-    const loadAllChunks = useCallback(async () => {
-      if (!knowledgeBaseId || !documentId || !isMounted) return
-
-      try {
-        setIsLoading(true)
-        setError(null)
-
-        const allChunksData: ChunkData[] = []
-        let hasMore = true
-        let offset = 0
-        const limit = 50
-
-        while (hasMore && isMounted) {
-          const response = await fetch(
-            `/api/knowledge/${knowledgeBaseId}/documents/${documentId}/chunks?limit=${limit}&offset=${offset}`
-          )
-
-          if (!response.ok) {
-            throw new Error('Failed to fetch chunks')
-          }
-
-          const result = await response.json()
-
-          if (result.success) {
-            allChunksData.push(...result.data)
-            hasMore = result.pagination.hasMore
-            offset += limit
-          } else {
-            throw new Error(result.error || 'Failed to fetch chunks')
-          }
-        }
-
-        if (isMounted) {
-          setAllChunks(allChunksData)
-          setChunks(allChunksData)
-        }
-      } catch (err) {
-        if (isMounted) {
-          setError(err instanceof Error ? err.message : 'Failed to load chunks')
-          logger.error(`Failed to load chunks for document ${documentId}:`, err)
-        }
-      } finally {
-        if (isMounted) {
-          setIsLoading(false)
-        }
-      }
-    }, [knowledgeBaseId, documentId, isMounted])
-
-    useEffect(() => {
-      if (isMounted) {
-        loadAllChunks()
-      }
-    }, [isMounted, loadAllChunks])
-
-    const filteredChunks = useMemo(() => {
-      if (!isMounted || !searchQuery.trim()) return allChunks
-
-      const fuse = new Fuse(allChunks, {
-        keys: ['content'],
-        threshold: 0.3,
-        includeScore: true,
-        includeMatches: true,
-        minMatchCharLength: 2,
-        ignoreLocation: true,
-      })
-
-      const results = fuse.search(searchQuery)
-      return results.map((result) => result.item)
-    }, [allChunks, searchQuery, isMounted])
-
-    const CHUNKS_PER_PAGE = 50
-    const totalPages = Math.max(1, Math.ceil(filteredChunks.length / CHUNKS_PER_PAGE))
-    const hasNextPage = clientCurrentPage < totalPages
-    const hasPrevPage = clientCurrentPage > 1
-
-    const paginatedChunks = useMemo(() => {
-      const startIndex = (clientCurrentPage - 1) * CHUNKS_PER_PAGE
-      const endIndex = startIndex + CHUNKS_PER_PAGE
-      return filteredChunks.slice(startIndex, endIndex)
-    }, [filteredChunks, clientCurrentPage])
-
-    useEffect(() => {
-      if (clientCurrentPage > 1) {
-        setClientCurrentPage(1)
-      }
-    }, [searchQuery])
-
-    useEffect(() => {
-      if (clientCurrentPage > totalPages && totalPages > 0) {
-        setClientCurrentPage(totalPages)
-      }
-    }, [clientCurrentPage, totalPages])
-
-    const goToPage = useCallback(
-      (page: number) => {
-        if (page >= 1 && page <= totalPages) {
-          setClientCurrentPage(page)
-        }
-      },
-      [totalPages]
-    )
-
-    const nextPage = useCallback(() => {
-      if (hasNextPage) {
-        setClientCurrentPage((prev) => prev + 1)
-      }
-    }, [hasNextPage])
-
-    const prevPage = useCallback(() => {
-      if (hasPrevPage) {
-        setClientCurrentPage((prev) => prev - 1)
-      }
-    }, [hasPrevPage])
-
-    const refreshChunksData = useCallback(async () => {
-      await loadAllChunks()
-    }, [loadAllChunks])
-
-    const updateChunkLocal = useCallback((chunkId: string, updates: Partial<ChunkData>) => {
-      setAllChunks((prev) => prev.map((chunk) => (chunk.id === chunkId ? { ...chunk, ...updates } : chunk)))
-      setChunks((prev) => prev.map((chunk) => (chunk.id === chunkId ? { ...chunk, ...updates } : chunk)))
-    }, [])
-
-    return {
-      chunks: paginatedChunks,
-      allChunks,
-      filteredChunks,
-      paginatedChunks,
-      searchQuery,
-      setSearchQuery,
-      currentPage: clientCurrentPage,
-      totalPages,
-      hasNextPage,
-      hasPrevPage,
-      goToPage,
-      nextPage,
-      prevPage,
-      isLoading,
-      error,
-      pagination: {
-        total: filteredChunks.length,
-        limit: CHUNKS_PER_PAGE,
-        offset: (clientCurrentPage - 1) * CHUNKS_PER_PAGE,
-        hasMore: hasNextPage,
-      },
-      refreshChunks: refreshChunksData,
-      searchChunks: async (newSearchQuery: string) => {
-        setSearchQuery(newSearchQuery)
-        return paginatedChunks
-      },
-      updateChunk: updateChunkLocal,
-      clearChunks: () => {
-        setAllChunks([])
-        setChunks([])
-      },
-    }
-  }
-
-  // Server-side search/pagination mode
   const query = useKnowledgeChunksQuery({
     knowledgeBaseId,
     documentId,

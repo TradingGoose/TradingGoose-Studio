@@ -13,6 +13,8 @@ const { resolveAzureOpenAIServiceConfig, resolveOpenAIServiceConfig } = vi.hoist
   resolveOpenAIServiceConfig: vi.fn(),
 }))
 
+const mockGetUserEntityPermissions = vi.hoisted(() => vi.fn())
+
 vi.mock('drizzle-orm', () => ({
   and: (...args: any[]) => args,
   asc: (...args: any[]) => args,
@@ -33,6 +35,10 @@ vi.mock('@/lib/env', () => ({
 vi.mock('@/lib/system-services/runtime', () => ({
   resolveAzureOpenAIServiceConfig,
   resolveOpenAIServiceConfig,
+}))
+
+vi.mock('@/lib/permissions/utils', () => ({
+  getUserEntityPermissions: mockGetUserEntityPermissions,
 }))
 
 vi.mock('@/lib/knowledge/documents/utils', () => ({
@@ -202,6 +208,8 @@ describe('Knowledge Utils', () => {
       defaultApiKey: 'test-key',
       rotationKeys: [],
     })
+    mockGetUserEntityPermissions.mockReset()
+    mockGetUserEntityPermissions.mockResolvedValue('read')
   })
 
   describe('processDocumentAsync', () => {
@@ -218,7 +226,11 @@ describe('Knowledge Utils', () => {
           fileSize: 10,
           mimeType: 'text/plain',
         },
-        {}
+        {
+          chunkSize: 512,
+          minCharactersPerChunk: 1,
+          chunkOverlap: 200,
+        }
       )
 
       expect(dbOps.order).toEqual(['insert', 'updateDoc'])
@@ -234,11 +246,12 @@ describe('Knowledge Utils', () => {
   })
 
   describe('checkKnowledgeBaseAccess', () => {
-    it.concurrent('should return success for owner', async () => {
-      kbRows.push({ id: 'kb1', userId: 'user1' })
+    it.concurrent('should return success for workspace permission', async () => {
+      kbRows.push({ id: 'kb1', userId: 'owner', workspaceId: 'workspace1' })
       const result = await checkKnowledgeBaseAccess('kb1', 'user1')
 
       expect(result.hasAccess).toBe(true)
+      expect(mockGetUserEntityPermissions).toHaveBeenCalledWith('user1', 'workspace', 'workspace1')
     })
 
     it('should return notFound when knowledge base is missing', async () => {
@@ -251,7 +264,8 @@ describe('Knowledge Utils', () => {
 
   describe('checkDocumentAccess', () => {
     it.concurrent('should return unauthorized when user mismatch', async () => {
-      kbRows.push({ id: 'kb1', userId: 'owner' })
+      kbRows.push({ id: 'kb1', userId: 'owner', workspaceId: 'workspace1' })
+      mockGetUserEntityPermissions.mockResolvedValueOnce(null)
       const result = await checkDocumentAccess('kb1', 'doc1', 'intruder')
 
       expect(result.hasAccess).toBe(false)
@@ -263,7 +277,7 @@ describe('Knowledge Utils', () => {
 
   describe('checkChunkAccess', () => {
     it.concurrent('should fail when document is not completed', async () => {
-      kbRows.push({ id: 'kb1', userId: 'user1' })
+      kbRows.push({ id: 'kb1', userId: 'user1', workspaceId: 'workspace1' })
       docRows.push({ id: 'doc1', knowledgeBaseId: 'kb1', processingStatus: 'processing' })
 
       const result = await checkChunkAccess('kb1', 'doc1', 'chunk1', 'user1')
@@ -275,7 +289,7 @@ describe('Knowledge Utils', () => {
     })
 
     it('should return success for valid access', async () => {
-      kbRows.push({ id: 'kb1', userId: 'user1' })
+      kbRows.push({ id: 'kb1', userId: 'user1', workspaceId: 'workspace1' })
       docRows.push({ id: 'doc1', knowledgeBaseId: 'kb1', processingStatus: 'completed' })
       chunkRows.push({ id: 'chunk1', documentId: 'doc1' })
 
@@ -327,7 +341,7 @@ describe('Knowledge Utils', () => {
       )
     })
 
-    it('should fallback to OpenAI when no Azure config provided', async () => {
+    it('should use OpenAI when no Azure config is provided', async () => {
       resolveOpenAIServiceConfig.mockResolvedValue({
         defaultApiKey: 'test-openai-key',
         rotationKeys: [],

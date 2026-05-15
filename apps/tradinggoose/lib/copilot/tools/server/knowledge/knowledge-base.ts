@@ -1,19 +1,16 @@
-import { createLogger } from '@/lib/logs/console/logger'
 import {
   type BaseServerTool,
   type ServerToolExecutionContext,
   throwIfServerToolAborted,
 } from '@/lib/copilot/tools/server/base-tool'
-import {
-  type KnowledgeBaseArgs,
-  type KnowledgeBaseResult,
-} from '@/lib/copilot/tools/shared/schemas'
+import type { KnowledgeBaseArgs, KnowledgeBaseResult } from '@/lib/copilot/tools/shared/schemas'
 import { generateSearchEmbedding } from '@/lib/embeddings/utils'
 import {
   createKnowledgeBase,
   getKnowledgeBaseById,
   getKnowledgeBases,
 } from '@/lib/knowledge/service'
+import { createLogger } from '@/lib/logs/console/logger'
 import { getQueryStrategy, handleVectorOnlySearch } from '@/app/api/knowledge/search/utils'
 
 const logger = createLogger('KnowledgeBaseServerTool')
@@ -42,6 +39,12 @@ export const knowledgeBaseServerTool: BaseServerTool<KnowledgeBaseArgs, Knowledg
             return {
               success: false,
               message: 'Name is required for creating a knowledge base',
+            }
+          }
+          if (!args.workspaceId) {
+            return {
+              success: false,
+              message: 'Workspace ID is required for creating a knowledge base',
             }
           }
 
@@ -85,6 +88,13 @@ export const knowledgeBaseServerTool: BaseServerTool<KnowledgeBaseArgs, Knowledg
         }
 
         case 'list': {
+          if (!args.workspaceId) {
+            return {
+              success: false,
+              message: 'Workspace ID is required for listing knowledge bases',
+            }
+          }
+
           const knowledgeBases = await getKnowledgeBases(context.userId, args.workspaceId)
 
           logger.info('Knowledge bases listed via copilot', {

@@ -90,8 +90,6 @@ export interface DocumentData {
 export interface ProcessingOptions {
   chunkSize: number
   minCharactersPerChunk: number
-  recipe: string
-  lang: string
   chunkOverlap: number
 }
 
@@ -191,11 +189,9 @@ export async function processDocumentAsync(
     mimeType: string
   },
   processingOptions: {
-    chunkSize?: number
-    minCharactersPerChunk?: number
-    recipe?: string
-    lang?: string
-    chunkOverlap?: number
+    chunkSize: number
+    minCharactersPerChunk: number
+    chunkOverlap: number
   }
 ): Promise<void> {
   const startTime = Date.now()
@@ -242,9 +238,9 @@ export async function processDocumentAsync(
           docData.fileUrl,
           docData.filename,
           docData.mimeType,
-          processingOptions.chunkSize || 512,
-          processingOptions.chunkOverlap || 200,
-          processingOptions.minCharactersPerChunk || 1
+          processingOptions.chunkSize,
+          processingOptions.chunkOverlap,
+          processingOptions.minCharactersPerChunk
         )
 
         if (processed.chunks.length > LARGE_DOC_CONFIG.MAX_CHUNKS_PER_DOCUMENT) {
@@ -956,8 +952,6 @@ export async function retryDocumentProcessing(
   const processingOptions = {
     chunkSize: 512,
     minCharactersPerChunk: 24,
-    recipe: 'default',
-    lang: 'en',
     chunkOverlap: 100,
   }
 

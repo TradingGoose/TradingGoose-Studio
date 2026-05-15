@@ -11,7 +11,7 @@ export type DocumentProcessingPayload = {
   knowledgeBaseId: string
   documentId: string
   userId: string
-  workspaceId?: string | null
+  workspaceId: string
   docData: {
     filename: string
     fileUrl: string
@@ -19,19 +19,15 @@ export type DocumentProcessingPayload = {
     mimeType: string
   }
   processingOptions: {
-    chunkSize?: number
-    minCharactersPerChunk?: number
-    recipe?: string
-    lang?: string
-    chunkOverlap?: number
+    chunkSize: number
+    minCharactersPerChunk: number
+    chunkOverlap: number
   }
   resetBeforeProcessing?: boolean
   requestId: string
 }
 
-export function isDocumentProcessingPayload(
-  value: unknown,
-): value is DocumentProcessingPayload {
+export function isDocumentProcessingPayload(value: unknown): value is DocumentProcessingPayload {
   if (!value || typeof value !== 'object') {
     return false
   }
@@ -41,19 +37,15 @@ export function isDocumentProcessingPayload(
     typeof candidate.knowledgeBaseId === 'string' &&
     typeof candidate.documentId === 'string' &&
     typeof candidate.userId === 'string' &&
+    typeof candidate.workspaceId === 'string' &&
     typeof candidate.requestId === 'string'
   )
 }
 
-export async function executeDocumentProcessingJob(
-  payload: DocumentProcessingPayload,
-) {
-  const { knowledgeBaseId, documentId, docData, processingOptions, requestId } =
-    payload
+export async function executeDocumentProcessingJob(payload: DocumentProcessingPayload) {
+  const { knowledgeBaseId, documentId, docData, processingOptions, requestId } = payload
 
-  logger.info(
-    `[${requestId}] Starting document pending execution: ${docData.filename}`,
-  )
+  logger.info(`[${requestId}] Starting document pending execution: ${docData.filename}`)
 
   try {
     await withExecutionConcurrencyLimit({
@@ -64,23 +56,15 @@ export async function executeDocumentProcessingJob(
           await prepareDocumentForProcessing(documentId)
         }
 
-        await processDocumentAsync(
-          knowledgeBaseId,
-          documentId,
-          docData,
-          processingOptions,
-        )
+        await processDocumentAsync(knowledgeBaseId, documentId, docData, processingOptions)
       },
     })
 
     logger.info(
-      `[${requestId}] Successfully completed document pending execution: ${docData.filename}`,
+      `[${requestId}] Successfully completed document pending execution: ${docData.filename}`
     )
   } catch (error) {
-    logger.error(
-      `[${requestId}] Failed document pending execution: ${docData.filename}`,
-      error,
-    )
+    logger.error(`[${requestId}] Failed document pending execution: ${docData.filename}`, error)
     throw error
   }
 }

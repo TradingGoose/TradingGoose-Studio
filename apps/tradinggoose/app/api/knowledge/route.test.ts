@@ -3,6 +3,8 @@
  *
  * @vitest-environment node
  */
+
+import { NextRequest } from 'next/server'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   createMockRequest,
@@ -15,6 +17,10 @@ import {
 mockKnowledgeSchemas()
 mockDrizzleOrm()
 mockConsoleLogger()
+
+vi.mock('@/lib/permissions/utils', () => ({
+  getUserEntityPermissions: vi.fn().mockResolvedValue('write'),
+}))
 
 describe('Knowledge Base API Route', () => {
   const mockAuth$ = mockAuth()
@@ -45,7 +51,6 @@ describe('Knowledge Base API Route', () => {
         }
       }
     })
-
     vi.stubGlobal('crypto', {
       randomUUID: vi.fn().mockReturnValue('mock-uuid-1234-5678'),
     })
@@ -59,7 +64,7 @@ describe('Knowledge Base API Route', () => {
     it('should return unauthorized for unauthenticated user', async () => {
       mockAuth$.mockUnauthenticated()
 
-      const req = createMockRequest('GET')
+      const req = new NextRequest('http://localhost:3000/api/knowledge?workspaceId=workspace-123')
       const { GET } = await import('@/app/api/knowledge/route')
       const response = await GET(req)
       const data = await response.json()
@@ -72,7 +77,7 @@ describe('Knowledge Base API Route', () => {
       mockAuth$.mockAuthenticatedUser()
       mockDbChain.orderBy.mockRejectedValue(new Error('Database error'))
 
-      const req = createMockRequest('GET')
+      const req = new NextRequest('http://localhost:3000/api/knowledge?workspaceId=workspace-123')
       const { GET } = await import('@/app/api/knowledge/route')
       const response = await GET(req)
       const data = await response.json()
@@ -86,6 +91,7 @@ describe('Knowledge Base API Route', () => {
     const validKnowledgeBaseData = {
       name: 'Test Knowledge Base',
       description: 'Test description',
+      workspaceId: 'workspace-123',
       chunkingConfig: {
         maxSize: 1024,
         minSize: 100,
@@ -138,6 +144,7 @@ describe('Knowledge Base API Route', () => {
 
       const invalidData = {
         name: 'Test KB',
+        workspaceId: 'workspace-123',
         chunkingConfig: {
           maxSize: 100,
           minSize: 200, // Invalid: minSize > maxSize
@@ -157,7 +164,7 @@ describe('Knowledge Base API Route', () => {
     it('should use default values for optional fields', async () => {
       mockAuth$.mockAuthenticatedUser()
 
-      const minimalData = { name: 'Test KB' }
+      const minimalData = { name: 'Test KB', workspaceId: 'workspace-123' }
       const req = createMockRequest('POST', minimalData)
       const { POST } = await import('@/app/api/knowledge/route')
       const response = await POST(req)

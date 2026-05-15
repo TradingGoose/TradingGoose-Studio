@@ -6,7 +6,7 @@ import { getUserEntityPermissions } from '@/lib/permissions/utils'
 export interface KnowledgeBaseData {
   id: string
   userId: string
-  workspaceId?: string | null
+  workspaceId: string
   name: string
   description?: string | null
   tokenCount: number
@@ -137,17 +137,9 @@ export async function checkKnowledgeBaseAccess(
 
   const kbData = kb[0]
 
-  // Case 1: User owns the knowledge base directly
-  if (kbData.userId === userId) {
+  const userPermission = await getUserEntityPermissions(userId, 'workspace', kbData.workspaceId)
+  if (userPermission !== null) {
     return { hasAccess: true, knowledgeBase: kbData }
-  }
-
-  // Case 2: Knowledge base belongs to a workspace the user has permissions for
-  if (kbData.workspaceId) {
-    const userPermission = await getUserEntityPermissions(userId, 'workspace', kbData.workspaceId)
-    if (userPermission !== null) {
-      return { hasAccess: true, knowledgeBase: kbData }
-    }
   }
 
   return { hasAccess: false }
@@ -155,9 +147,7 @@ export async function checkKnowledgeBaseAccess(
 
 /**
  * Check if a user has write access to a knowledge base
- * Write access is granted if:
- * 1. User owns the knowledge base directly, OR
- * 2. User has write or admin permissions on the knowledge base's workspace
+ * Write access is granted by write or admin permissions on the knowledge base's workspace.
  */
 export async function checkKnowledgeBaseWriteAccess(
   knowledgeBaseId: string,
@@ -180,17 +170,9 @@ export async function checkKnowledgeBaseWriteAccess(
 
   const kbData = kb[0]
 
-  // Case 1: User owns the knowledge base directly
-  if (kbData.userId === userId) {
+  const userPermission = await getUserEntityPermissions(userId, 'workspace', kbData.workspaceId)
+  if (userPermission === 'write' || userPermission === 'admin') {
     return { hasAccess: true, knowledgeBase: kbData }
-  }
-
-  // Case 2: Knowledge base belongs to a workspace and user has write/admin permissions
-  if (kbData.workspaceId) {
-    const userPermission = await getUserEntityPermissions(userId, 'workspace', kbData.workspaceId)
-    if (userPermission === 'write' || userPermission === 'admin') {
-      return { hasAccess: true, knowledgeBase: kbData }
-    }
   }
 
   return { hasAccess: false }
