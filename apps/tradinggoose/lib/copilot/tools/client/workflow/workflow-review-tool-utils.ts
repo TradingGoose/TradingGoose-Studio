@@ -2,7 +2,10 @@
 
 import type { ClientToolExecutionContext } from '@/lib/copilot/tools/client/base-tool'
 import { TG_MERMAID_DOCUMENT_FORMAT } from '@/lib/workflows/document-format'
-import { readWorkflowContainerBoundaryEdgeViolation } from '@/lib/workflows/studio-workflow-mermaid'
+import {
+  readWorkflowContainerBoundaryEdgeViolation,
+  readWorkflowEdgeScope,
+} from '@/lib/workflows/studio-workflow-mermaid'
 import {
   getVariablesSnapshot,
   readWorkflowSnapshot,
@@ -86,41 +89,14 @@ export function buildWorkflowDocumentToolResult(options: {
   }
 }
 
-function isContainerInternalEdge(
-  edge: Pick<
-    WorkflowSnapshot['edges'][number],
-    'source' | 'target' | 'sourceHandle' | 'targetHandle'
-  >,
-  blocks: WorkflowSnapshot['blocks']
-): boolean {
-  if (
-    edge.sourceHandle === 'loop-start-source' ||
-    edge.sourceHandle === 'parallel-start-source' ||
-    edge.targetHandle === 'loop-end-target' ||
-    edge.targetHandle === 'parallel-end-target'
-  ) {
-    return true
-  }
-
-  const sourceParentId = blocks[edge.source]?.data?.parentId
-  return Boolean(sourceParentId && sourceParentId === blocks[edge.target]?.data?.parentId)
-}
-
 export function buildWorkflowSummary(workflowState: WorkflowSnapshot): WorkflowSummary {
   const edges: WorkflowSummary['edges'] = (workflowState.edges ?? []).map((edge) => {
-    const scope: WorkflowSummary['edges'][number]['scope'] = isContainerInternalEdge(
-      edge,
-      workflowState.blocks ?? {}
-    )
-      ? 'internal'
-      : 'external'
-
     return {
       source: edge.source,
       target: edge.target,
       ...(typeof edge.sourceHandle === 'string' ? { sourceHandle: edge.sourceHandle } : {}),
       ...(typeof edge.targetHandle === 'string' ? { targetHandle: edge.targetHandle } : {}),
-      scope,
+      scope: readWorkflowEdgeScope(edge, workflowState.blocks ?? {}),
     }
   })
   const blockIds = Object.keys(workflowState.blocks ?? {}).sort()
@@ -133,8 +109,12 @@ export function buildWorkflowSummary(workflowState: WorkflowSnapshot): WorkflowS
 
   edges.forEach((edge) => {
     const prefix = edge.scope === 'internal' ? 'internal' : 'external'
-    connectionsByBlock[edge.source][`${prefix}Out`] += 1
-    connectionsByBlock[edge.target][`${prefix}In`] += 1
+    if (connectionsByBlock[edge.source]) {
+      connectionsByBlock[edge.source][`${prefix}Out`] += 1
+    }
+    if (connectionsByBlock[edge.target]) {
+      connectionsByBlock[edge.target][`${prefix}In`] += 1
+    }
   })
 
   return {

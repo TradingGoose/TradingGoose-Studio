@@ -209,6 +209,8 @@ describe('workflow-review-tool-utils', () => {
           source: 'input',
           target: 'parallel',
         },
+        { id: 'missing-orphan', source: 'missing-source', target: 'orphan' },
+        { id: 'orphan-missing', source: 'orphan', target: 'missing-target' },
       ],
       loops: {},
       parallels: {},
@@ -222,6 +224,11 @@ describe('workflow-review-tool-utils', () => {
         message:
           'Invalid container edge: parallel container input requires targetHandle "target" for incoming outer edges.',
       },
+    ])
+    expect(summary.edges).toEqual([
+      expect.objectContaining({ source: 'input', target: 'parallel', scope: 'external' }),
+      expect.objectContaining({ source: 'missing-source', target: 'orphan', scope: 'external' }),
+      expect.objectContaining({ source: 'orphan', target: 'missing-target', scope: 'external' }),
     ])
   })
 
