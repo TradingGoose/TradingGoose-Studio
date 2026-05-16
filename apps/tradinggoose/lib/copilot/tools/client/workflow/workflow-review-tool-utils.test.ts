@@ -1,11 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mockGetRegisteredWorkflowSession = vi.fn()
-const mockGetVariablesForWorkflow = vi.fn()
+const mockAcquireWritableWorkflowSessionLease = vi.fn()
 
 vi.mock('@/lib/yjs/workflow-session-registry', () => ({
   getRegisteredWorkflowSession: (...args: unknown[]) => mockGetRegisteredWorkflowSession(...args),
-  getVariablesForWorkflow: (...args: unknown[]) => mockGetVariablesForWorkflow(...args),
+}))
+
+vi.mock('@/lib/yjs/workflow-shared-session', () => ({
+  acquireWritableWorkflowSessionLease: (...args: unknown[]) =>
+    mockAcquireWritableWorkflowSessionLease(...args),
 }))
 
 vi.mock('@/stores/workflows/registry/store', () => ({
@@ -18,27 +22,40 @@ vi.mock('@/stores/workflows/registry/store', () => ({
 }))
 
 describe('workflow-review-tool-utils', () => {
+  const block = (id: string, type = 'function', name = id, x = 0) => ({
+    id,
+    type,
+    name,
+    position: { x, y: 0 },
+    enabled: true,
+    subBlocks: {},
+    outputs: {},
+  })
+  const workflowDoc = (blocks: Record<string, any>, variables: Record<string, any> = {}) => ({
+    getMap: vi.fn((key: string) => {
+      const values: Record<string, unknown> = {
+        workflow: new Map([
+          ['blocks', blocks],
+          ['edges', []],
+          ['loops', {}],
+          ['parallels', {}],
+        ]),
+        textFields: new Map(),
+        variables: new Map(Object.entries(variables)),
+      }
+      return values[key]
+    }),
+  })
+
   beforeEach(() => {
     vi.resetAllMocks()
     global.fetch = vi.fn()
-    mockGetVariablesForWorkflow.mockReturnValue({})
   })
 
   it('uses the live Yjs session snapshot when one is registered', async () => {
-    const doc = {
-      getMap: vi.fn((key: string) => {
-        const values: Record<string, unknown> = {
-          workflow: new Map([
-            ['blocks', { 'block-1': { type: 'agent', name: 'Agent', subBlocks: {}, outputs: {} } }],
-            ['edges', []],
-            ['loops', {}],
-            ['parallels', {}],
-          ]),
-          textFields: new Map(),
-        }
-        return values[key]
-      }),
-    }
+    const doc = workflowDoc({
+      'block-1': { type: 'agent', name: 'Agent', subBlocks: {}, outputs: {} },
+    })
 
     mockGetRegisteredWorkflowSession.mockReturnValue({
       workflowId: 'workflow-live',
@@ -65,33 +82,19 @@ describe('workflow-review-tool-utils', () => {
     expect(global.fetch).not.toHaveBeenCalled()
   })
 
-  it('reads the authoritative workflow API when no live Yjs session is registered', async () => {
+  it('bootstraps the workflow Yjs session when no live session is registered', async () => {
     mockGetRegisteredWorkflowSession.mockReturnValue(null)
-    vi.mocked(global.fetch).mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        data: {
-          name: 'Database Workflow',
-          workspaceId: 'workspace-db',
-          state: {
-            blocks: { 'block-1': { type: 'agent', name: 'Agent', subBlocks: {}, outputs: {} } },
-            edges: [],
-            loops: {},
-            parallels: {},
-            variables: {
-              'var-1': {
-                id: 'var-1',
-                workflowId: 'workflow-db',
-                name: 'risk',
-                type: 'number',
-                value: 2,
-              },
-            },
-            lastSaved: '2026-04-05T23:42:00.000Z',
-          },
-        },
-      }),
-    } as Response)
+    const doc = workflowDoc(
+      { 'block-1': { type: 'agent', name: 'Agent', subBlocks: {}, outputs: {} } },
+      {
+        'var-1': { id: 'var-1', workflowId: 'workflow-db', name: 'risk', type: 'number', value: 2 },
+      }
+    )
+    const release = vi.fn()
+    mockAcquireWritableWorkflowSessionLease.mockResolvedValue({
+      session: { workflowId: 'workflow-db', doc },
+      release,
+    })
 
     const { getReadableWorkflowState } = await import('./workflow-review-tool-utils')
     const result = await getReadableWorkflowState(
@@ -103,13 +106,14 @@ describe('workflow-review-tool-utils', () => {
       'workflow-db'
     )
 
-    expect(result.source).toBe('api')
+    expect(result.source).toBe('yjs')
     expect(result.workflowId).toBe('workflow-db')
-    expect(result.workflowName).toBe('Database Workflow')
-    expect(result.workspaceId).toBe('workspace-db')
-    expect(global.fetch).toHaveBeenCalledWith('/api/workflows/workflow-db', {
-      method: 'GET',
+    expect(result.workspaceId).toBeNull()
+    expect(mockAcquireWritableWorkflowSessionLease).toHaveBeenCalledWith({
+      workflowId: 'workflow-db',
+      workspaceId: null,
     })
+    expect(global.fetch).not.toHaveBeenCalled()
     expect(result.workflowState.blocks['block-1']).toMatchObject({
       type: 'agent',
       name: 'Agent',
@@ -123,6 +127,7 @@ describe('workflow-review-tool-utils', () => {
         value: 2,
       },
     })
+    expect(release).toHaveBeenCalled()
   })
 
   it('fails fast when workflow execution context is missing a workflow target', async () => {
@@ -163,24 +168,8 @@ describe('workflow-review-tool-utils', () => {
     expect(
       buildWorkflowSummary({
         blocks: {
-          input: {
-            id: 'input',
-            type: 'input_trigger',
-            name: 'Input Form',
-            position: { x: 0, y: 0 },
-            enabled: true,
-            subBlocks: {},
-            outputs: {},
-          },
-          parallel: {
-            id: 'parallel',
-            type: 'parallel',
-            name: 'Parallel',
-            position: { x: 200, y: 0 },
-            enabled: true,
-            subBlocks: {},
-            outputs: {},
-          },
+          input: block('input', 'input_trigger', 'Input Form'),
+          parallel: block('parallel', 'parallel', 'Parallel', 200),
         },
         edges: [
           {
@@ -208,39 +197,24 @@ describe('workflow-review-tool-utils', () => {
   it('surfaces missing outer input handles on incoming container edges', async () => {
     const { buildWorkflowSummary } = await import('./workflow-review-tool-utils')
 
-    expect(
-      buildWorkflowSummary({
-        blocks: {
-          input: {
-            id: 'input',
-            type: 'input_trigger',
-            name: 'Input',
-            position: { x: 0, y: 0 },
-            enabled: true,
-            subBlocks: {},
-            outputs: {},
-          },
-          parallel: {
-            id: 'parallel',
-            type: 'parallel',
-            name: 'Parallel',
-            position: { x: 200, y: 0 },
-            enabled: true,
-            subBlocks: {},
-            outputs: {},
-          },
+    const summary = buildWorkflowSummary({
+      blocks: {
+        input: block('input', 'input_trigger', 'Input'),
+        orphan: block('orphan', 'function', 'Orphan', 400),
+        parallel: block('parallel', 'parallel', 'Parallel', 200),
+      },
+      edges: [
+        {
+          id: 'edge-input-parallel',
+          source: 'input',
+          target: 'parallel',
         },
-        edges: [
-          {
-            id: 'edge-input-parallel',
-            source: 'input',
-            target: 'parallel',
-          },
-        ],
-        loops: {},
-        parallels: {},
-      }).connectionIssues
-    ).toEqual([
+      ],
+      loops: {},
+      parallels: {},
+    })
+
+    expect(summary.connectionIssues).toEqual([
       {
         edgeIndex: 0,
         source: 'input',
@@ -248,6 +222,67 @@ describe('workflow-review-tool-utils', () => {
         message:
           'Invalid container edge: parallel container input requires targetHandle "target" for incoming outer edges.',
       },
+    ])
+  })
+
+  it('marks container branch edges as internal so missing outer edges stay visible', async () => {
+    const { buildWorkflowSummary } = await import('./workflow-review-tool-utils')
+
+    const child = {
+      ...block('child', 'function', 'Child'),
+      data: { parentId: 'parallel', extent: 'parent' },
+    }
+    const summary = buildWorkflowSummary({
+      blocks: {
+        agent: block('agent', 'agent', 'Agent'),
+        input: block('input', 'input_trigger', 'Input Form'),
+        parallel: block('parallel', 'parallel', 'Parallel'),
+        child,
+      },
+      edges: [
+        {
+          id: 'parallel-start-child',
+          source: 'parallel',
+          sourceHandle: 'parallel-start-source',
+          target: 'child',
+        },
+        {
+          id: 'child-parallel-end',
+          source: 'child',
+          target: 'parallel',
+          targetHandle: 'parallel-end-target',
+        },
+        {
+          id: 'parallel-end-agent',
+          source: 'parallel',
+          sourceHandle: 'parallel-end-source',
+          target: 'agent',
+        },
+      ],
+      loops: {},
+      parallels: {},
+    })
+
+    expect(summary.connectionIssues).toEqual([])
+    expect(summary.blocks).toContainEqual(
+      expect.objectContaining({
+        blockId: 'input',
+        connections: { externalIn: 0, externalOut: 0, internalIn: 0, internalOut: 0 },
+      })
+    )
+    expect(summary.blocks).toContainEqual(
+      expect.objectContaining({
+        blockId: 'parallel',
+        connections: { externalIn: 0, externalOut: 1, internalIn: 1, internalOut: 1 },
+      })
+    )
+    expect(summary.edges.some((edge) => edge.source === 'input' || edge.target === 'input')).toBe(
+      false
+    )
+    expect(summary.edges).toEqual([
+      expect.objectContaining({ source: 'parallel', target: 'child', scope: 'internal' }),
+      expect.objectContaining({ source: 'child', target: 'parallel', scope: 'internal' }),
+      expect.objectContaining({ source: 'parallel', target: 'agent', scope: 'external' }),
     ])
   })
 })

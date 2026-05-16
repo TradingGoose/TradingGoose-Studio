@@ -186,7 +186,7 @@ describe('EditWorkflowClientTool approval gating', () => {
   it('stages workflow edits from a readable workflow snapshot when no live session is registered yet', async () => {
     mockGetReadableWorkflowState.mockResolvedValueOnce({
       workflowId: 'wf-1',
-      source: 'api',
+      source: 'yjs',
       workflowState: {
         blocks: {
           'block-1': {

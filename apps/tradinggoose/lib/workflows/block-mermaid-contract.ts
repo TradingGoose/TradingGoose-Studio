@@ -441,6 +441,7 @@ function buildContainerWorkflowExamples(
         id: 'a_input-source-b_container-target',
         source: 'a_input',
         target: containerId,
+        targetHandle: 'target',
       }),
       createEdge({
         id: 'b_container-start-c_child-target',

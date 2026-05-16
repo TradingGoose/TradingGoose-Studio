@@ -584,6 +584,12 @@ const WorkflowSummaryResult = z.object({
       enabled: z.boolean().optional(),
       parentId: z.string().optional(),
       subBlockIds: z.array(z.string()),
+      connections: z.object({
+        externalIn: z.number(),
+        externalOut: z.number(),
+        internalIn: z.number(),
+        internalOut: z.number(),
+      }),
     })
   ),
   edges: z.array(
@@ -592,6 +598,7 @@ const WorkflowSummaryResult = z.object({
       target: z.string(),
       sourceHandle: z.string().optional(),
       targetHandle: z.string().optional(),
+      scope: z.enum(['external', 'internal']),
     })
   ),
   connectionIssues: z.array(

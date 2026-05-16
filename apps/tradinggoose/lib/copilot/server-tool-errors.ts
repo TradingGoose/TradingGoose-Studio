@@ -158,7 +158,7 @@ function buildEditWorkflowError(message: string): CopilotServerToolErrorResponse
       body: {
         code: 'invalid_workflow_document_container_edge',
         error: message,
-        hint: 'For loop and parallel containers, incoming outer workflow edges must target the container block alias itself. Use Start nodes only as sources to child blocks, and End nodes only for child-to-container completion before leaving the container.',
+        hint: 'For loop and parallel containers, incoming outer workflow edges must target the container block alias itself with targetHandle "target". Use Start nodes only as sources to child blocks, and End nodes only for child-to-container completion before leaving the container.',
         retryable: true,
         issues: [{ path: 'workflowDocument.edges', message }],
       },

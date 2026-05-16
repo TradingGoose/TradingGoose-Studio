@@ -71,6 +71,35 @@ describe('entity document tools', () => {
     mockWaitForYjsWriteSync.mockResolvedValue(undefined)
   })
 
+  function mockSavedEntitySession(entityKind: string, entityId: string, workspaceId = 'ws-1') {
+    const provider = {
+      synced: true,
+      on: vi.fn(),
+      off: vi.fn(),
+      disconnect: vi.fn(),
+      destroy: vi.fn(),
+    }
+    const doc = {
+      transact: (cb: () => void) => cb(),
+      destroy: vi.fn(),
+    }
+    const descriptor = {
+      workspaceId,
+      entityKind,
+      entityId,
+      reviewSessionId: null,
+      draftSessionId: null,
+      yjsSessionId: entityId,
+    }
+    mockBootstrapYjsProvider.mockResolvedValue({
+      descriptor,
+      doc,
+      provider,
+      runtime: null,
+    })
+    return descriptor
+  }
+
   it('list_skills returns generic entity list results', async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = typeof input === 'string' ? input : input.toString()
@@ -142,30 +171,6 @@ describe('entity document tools', () => {
       const url = typeof input === 'string' ? input : input.toString()
       const method = init?.method || 'GET'
 
-      if (url === '/api/tools/custom?workspaceId=ws-1' && method === 'GET') {
-        return {
-          ok: true,
-          status: 200,
-          json: async () => ({
-            data: [
-              {
-                id: 'tool-1',
-                title: 'market-tool',
-                schema: {
-                  type: 'function',
-                  function: {
-                    name: 'marketTool',
-                    description: 'Fetch market data',
-                    parameters: { type: 'object', properties: {} },
-                  },
-                },
-                code: 'return 1',
-              },
-            ],
-          }),
-        }
-      }
-
       if (url === '/api/copilot/tools/mark-complete' && method === 'POST') {
         return {
           ok: true,
@@ -177,6 +182,23 @@ describe('entity document tools', () => {
       throw new Error(`Unexpected fetch URL: ${url} (${method})`)
     })
     vi.stubGlobal('fetch', fetchMock)
+    mockEntityFieldState.values = {
+      title: 'market-tool',
+      schemaText: JSON.stringify(
+        {
+          type: 'function',
+          function: {
+            name: 'marketTool',
+            description: 'Fetch market data',
+            parameters: { type: 'object', properties: {} },
+          },
+        },
+        null,
+        2
+      ),
+      codeText: 'return 1',
+    }
+    const descriptor = mockSavedEntitySession('custom_tool', 'tool-1')
 
     const toolCallId = 'get-custom-tool'
     const tool = new ReadCustomToolClientTool(toolCallId)
@@ -191,6 +213,7 @@ describe('entity document tools', () => {
     await tool.execute({ entityId: 'tool-1' })
 
     expect(tool.getState()).toBe(ClientToolCallState.success)
+    expect(mockBootstrapYjsProvider).toHaveBeenCalledWith(descriptor)
 
     const markCompleteCall = fetchMock.mock.calls.find(([input, init]) => {
       const url = typeof input === 'string' ? input : input.toString()
@@ -206,6 +229,7 @@ describe('entity document tools', () => {
     })
     expect(markCompleteBody.data.entityDocument).toContain('"title": "market-tool"')
     expect(markCompleteBody.data.entityDocument).toContain('"codeText": "return 1"')
+    expect(fetchMock).not.toHaveBeenCalledWith('/api/tools/custom?workspaceId=ws-1')
   })
 
   it('create_skill inserts through the canonical skills API after approval', async () => {

@@ -4,14 +4,12 @@ import type { ClientToolExecutionContext } from '@/lib/copilot/tools/client/base
 import { TG_MERMAID_DOCUMENT_FORMAT } from '@/lib/workflows/document-format'
 import { readWorkflowContainerBoundaryEdgeViolation } from '@/lib/workflows/studio-workflow-mermaid'
 import {
-  createWorkflowSnapshot,
+  getVariablesSnapshot,
   readWorkflowSnapshot,
   type WorkflowSnapshot,
 } from '@/lib/yjs/workflow-session'
-import {
-  getRegisteredWorkflowSession,
-  getVariablesForWorkflow,
-} from '@/lib/yjs/workflow-session-registry'
+import { getRegisteredWorkflowSession } from '@/lib/yjs/workflow-session-registry'
+import { acquireWritableWorkflowSessionLease } from '@/lib/yjs/workflow-shared-session'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 
 type WorkflowTarget = {
@@ -28,12 +26,19 @@ export type WorkflowSummary = {
     enabled?: boolean
     parentId?: string
     subBlockIds: string[]
+    connections: {
+      externalIn: number
+      externalOut: number
+      internalIn: number
+      internalOut: number
+    }
   }>
   edges: Array<{
     source: string
     target: string
     sourceHandle?: string
     targetHandle?: string
+    scope: 'external' | 'internal'
   }>
   connectionIssues: Array<{
     edgeIndex: number
@@ -81,17 +86,53 @@ export function buildWorkflowDocumentToolResult(options: {
   }
 }
 
+function isContainerInternalEdge(
+  edge: Pick<
+    WorkflowSummary['edges'][number],
+    'source' | 'target' | 'sourceHandle' | 'targetHandle'
+  >,
+  blocks: WorkflowSnapshot['blocks']
+): boolean {
+  if (
+    edge.sourceHandle === 'loop-start-source' ||
+    edge.sourceHandle === 'parallel-start-source' ||
+    edge.targetHandle === 'loop-end-target' ||
+    edge.targetHandle === 'parallel-end-target'
+  ) {
+    return true
+  }
+
+  const sourceParentId = blocks[edge.source]?.data?.parentId
+  return Boolean(sourceParentId && sourceParentId === blocks[edge.target]?.data?.parentId)
+}
+
 export function buildWorkflowSummary(workflowState: WorkflowSnapshot): WorkflowSummary {
   const edges = (workflowState.edges ?? []).map((edge) => ({
     source: edge.source,
     target: edge.target,
     ...(typeof edge.sourceHandle === 'string' ? { sourceHandle: edge.sourceHandle } : {}),
     ...(typeof edge.targetHandle === 'string' ? { targetHandle: edge.targetHandle } : {}),
+    scope: isContainerInternalEdge(edge, workflowState.blocks ?? {}) ? 'internal' : 'external',
   }))
+  const blockIds = Object.keys(workflowState.blocks ?? {}).sort()
+  const connectionsByBlock = Object.fromEntries(
+    blockIds.map((blockId) => [
+      blockId,
+      { externalIn: 0, externalOut: 0, internalIn: 0, internalOut: 0 },
+    ])
+  )
+
+  edges.forEach((edge) => {
+    const prefix = edge.scope === 'internal' ? 'internal' : 'external'
+    connectionsByBlock[edge.source][`${prefix}Out`] += 1
+    connectionsByBlock[edge.target][`${prefix}In`] += 1
+  })
 
   return {
-    blocks: Object.entries(workflowState.blocks ?? {})
-      .map(([blockId, block]) => ({
+    blocks: blockIds.map((blockId) => {
+      const block = workflowState.blocks[blockId]
+
+      return {
         blockId,
         blockType: block.type,
         blockName:
@@ -100,12 +141,14 @@ export function buildWorkflowSummary(workflowState: WorkflowSnapshot): WorkflowS
         ...(typeof block.enabled === 'boolean' ? { enabled: block.enabled } : {}),
         ...(typeof block.data?.parentId === 'string' ? { parentId: block.data.parentId } : {}),
         subBlockIds: Object.keys(block.subBlocks ?? {}).sort(),
-      }))
-      .sort((left, right) => left.blockId.localeCompare(right.blockId)),
+        connections: connectionsByBlock[blockId],
+      }
+    }),
     edges,
     connectionIssues: edges.flatMap((edge, edgeIndex) => {
       const message = readWorkflowContainerBoundaryEdgeViolation(edge, workflowState.blocks ?? {})
-      return message ? [{ edgeIndex, ...edge, message }] : []
+      const { scope: _scope, ...edgeWithoutScope } = edge
+      return message ? [{ edgeIndex, ...edgeWithoutScope, message }] : []
     }),
   }
 }
@@ -172,14 +215,6 @@ export async function resolveWorkflowTarget(
   throw new Error('Workflow target is required')
 }
 
-function normalizeWorkflowVariables(value: unknown): Record<string, any> {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    return {}
-  }
-
-  return value as Record<string, any>
-}
-
 export async function getReadableWorkflowState(
   executionContext: ClientToolExecutionContext,
   workflowId?: string
@@ -189,7 +224,7 @@ export async function getReadableWorkflowState(
   workflowState: WorkflowSnapshot
   workspaceId: string | null
   variables: Record<string, any>
-  source: 'live' | 'api'
+  source: 'live' | 'yjs'
 }> {
   const resolvedWorkflowId = normalizeWorkflowTargetValue(workflowId)
   if (!resolvedWorkflowId) {
@@ -205,36 +240,25 @@ export async function getReadableWorkflowState(
       ...(registryWorkflow?.name ? { workflowName: registryWorkflow.name } : {}),
       workflowState: readWorkflowSnapshot(liveSession.doc),
       workspaceId: registryWorkflow?.workspaceId ?? executionContext.workspaceId ?? null,
-      variables: getVariablesForWorkflow(liveSession.workflowId) ?? {},
+      variables: getVariablesSnapshot(liveSession.doc),
       source: 'live',
     }
   }
 
-  const response = await fetch(`/api/workflows/${encodeURIComponent(resolvedWorkflowId)}`, {
-    method: 'GET',
-  })
-
-  if (!response.ok) {
-    const bodyText = await response.text().catch(() => '')
-    throw new Error(bodyText || `Failed to read workflow ${resolvedWorkflowId}: ${response.status}`)
-  }
-
-  const payload = (await response.json().catch(() => null)) as {
-    data?: {
-      name?: string | null
-      workspaceId?: string | null
-      state?: (Partial<WorkflowSnapshot> & { variables?: unknown }) | null
-    } | null
-  } | null
-  const rawState = payload?.data?.state ?? {}
-  const { variables, ...snapshotState } = rawState
-
-  return {
+  const lease = await acquireWritableWorkflowSessionLease({
     workflowId: resolvedWorkflowId,
-    ...(payload?.data?.name ? { workflowName: payload.data.name } : {}),
-    workflowState: createWorkflowSnapshot(snapshotState),
-    workspaceId: payload?.data?.workspaceId ?? executionContext.workspaceId ?? null,
-    variables: normalizeWorkflowVariables(variables),
-    source: 'api',
+    workspaceId: registryWorkflow?.workspaceId ?? executionContext.workspaceId ?? null,
+  })
+  try {
+    return {
+      workflowId: lease.session.workflowId,
+      ...(registryWorkflow?.name ? { workflowName: registryWorkflow.name } : {}),
+      workflowState: readWorkflowSnapshot(lease.session.doc),
+      workspaceId: registryWorkflow?.workspaceId ?? executionContext.workspaceId ?? null,
+      variables: getVariablesSnapshot(lease.session.doc),
+      source: 'yjs',
+    }
+  } finally {
+    lease.release()
   }
 }
