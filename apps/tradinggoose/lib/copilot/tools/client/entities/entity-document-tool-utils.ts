@@ -1,18 +1,15 @@
-import {
-  getEntityDocumentName,
-  type EntityDocumentKind,
-} from '@/lib/copilot/entity-documents'
-import { getDefaultIndicator } from '@/lib/indicators/default'
+import { type EntityDocumentKind, getEntityDocumentName } from '@/lib/copilot/entity-documents'
 import type { ClientToolExecutionContext } from '@/lib/copilot/tools/client/base-tool'
-import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
+import { getDefaultIndicator } from '@/lib/indicators/default'
+import { getEntityFields, replaceEntityTextField, setEntityField } from '@/lib/yjs/entity-session'
+import { buildSavedEntityYjsDescriptor } from '@/lib/yjs/entity-state'
 import {
   bootstrapYjsProvider,
   waitForYjsWriteSync,
   type YjsProviderBootstrapResult,
 } from '@/lib/yjs/provider'
-import { getEntityFields, replaceEntityTextField, setEntityField } from '@/lib/yjs/entity-session'
 import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
-import { buildSavedEntityYjsDescriptor } from '@/lib/yjs/entity-state'
+import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 
 type EntityListEntry = {
   entityId: string

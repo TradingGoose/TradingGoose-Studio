@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ToolArgSchemas, ToolResultSchemas } from '@/lib/copilot/registry'
 import { ClientToolCallState } from '@/lib/copilot/tools/client/base-tool'
+import { resolveCopilotEntityYjsSessionLease } from '@/lib/copilot/tools/client/entities/entity-document-tool-utils'
 import {
   CreateSkillClientTool,
   EditSkillClientTool,
@@ -9,9 +10,6 @@ import {
   ReadCustomToolClientTool,
   ReadIndicatorClientTool,
 } from '@/lib/copilot/tools/client/entities/entity-document-tools'
-import {
-  resolveCopilotEntityYjsSessionLease,
-} from '@/lib/copilot/tools/client/entities/entity-document-tool-utils'
 
 const mockRegistryState = {
   workflows: {} as Record<string, { workspaceId?: string }>,
@@ -554,16 +552,14 @@ describe('entity document tools', () => {
         'skill-1'
       )
     ).rejects.toThrow('Snapshot fetch failed: 403')
-    expect(mockBootstrapYjsProvider).toHaveBeenCalledWith(
-      {
-        workspaceId: 'ws-1',
-        entityKind: 'skill',
-        entityId: 'skill-1',
-        draftSessionId: null,
-        reviewSessionId: null,
-        yjsSessionId: 'skill-1',
-      }
-    )
+    expect(mockBootstrapYjsProvider).toHaveBeenCalledWith({
+      workspaceId: 'ws-1',
+      entityKind: 'skill',
+      entityId: 'skill-1',
+      draftSessionId: null,
+      reviewSessionId: null,
+      yjsSessionId: 'skill-1',
+    })
   })
 
   it('edit_skill rejects edits without an explicit entityId', async () => {

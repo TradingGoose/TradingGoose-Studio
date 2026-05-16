@@ -88,7 +88,7 @@ export function buildWorkflowDocumentToolResult(options: {
 
 function isContainerInternalEdge(
   edge: Pick<
-    WorkflowSummary['edges'][number],
+    WorkflowSnapshot['edges'][number],
     'source' | 'target' | 'sourceHandle' | 'targetHandle'
   >,
   blocks: WorkflowSnapshot['blocks']
@@ -107,13 +107,22 @@ function isContainerInternalEdge(
 }
 
 export function buildWorkflowSummary(workflowState: WorkflowSnapshot): WorkflowSummary {
-  const edges = (workflowState.edges ?? []).map((edge) => ({
-    source: edge.source,
-    target: edge.target,
-    ...(typeof edge.sourceHandle === 'string' ? { sourceHandle: edge.sourceHandle } : {}),
-    ...(typeof edge.targetHandle === 'string' ? { targetHandle: edge.targetHandle } : {}),
-    scope: isContainerInternalEdge(edge, workflowState.blocks ?? {}) ? 'internal' : 'external',
-  }))
+  const edges: WorkflowSummary['edges'] = (workflowState.edges ?? []).map((edge) => {
+    const scope: WorkflowSummary['edges'][number]['scope'] = isContainerInternalEdge(
+      edge,
+      workflowState.blocks ?? {}
+    )
+      ? 'internal'
+      : 'external'
+
+    return {
+      source: edge.source,
+      target: edge.target,
+      ...(typeof edge.sourceHandle === 'string' ? { sourceHandle: edge.sourceHandle } : {}),
+      ...(typeof edge.targetHandle === 'string' ? { targetHandle: edge.targetHandle } : {}),
+      scope,
+    }
+  })
   const blockIds = Object.keys(workflowState.blocks ?? {}).sort()
   const connectionsByBlock = Object.fromEntries(
     blockIds.map((blockId) => [

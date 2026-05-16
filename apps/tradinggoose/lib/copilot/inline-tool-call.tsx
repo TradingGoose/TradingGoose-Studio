@@ -275,10 +275,10 @@ function readWorkflowReviewPayload(toolCall: CopilotToolCall): WorkflowReviewPay
   const blockDiff =
     result?.preview?.blockDiff && typeof result.preview.blockDiff === 'object'
       ? (result.preview.blockDiff as {
-        added?: string[]
-        removed?: string[]
-        updated?: string[]
-      })
+          added?: string[]
+          removed?: string[]
+          updated?: string[]
+        })
       : null
   const warnings = Array.isArray(result?.preview?.warnings)
     ? (result.preview.warnings as string[])
@@ -314,7 +314,7 @@ function getDisplayName(toolCall: CopilotToolCall): string {
   try {
     const byState = getCopilotToolMetadata(toolCall.name)?.displayNames?.[toolCall.state]
     if (byState?.text) return byState.text
-  } catch { }
+  } catch {}
 
   return toolCall.name
 }
@@ -564,7 +564,7 @@ export function InlineToolCall({
       if (!IconComp) {
         try {
           IconComp = getCopilotToolMetadata(toolCall.name)?.displayNames?.[toolCall.state]?.icon
-        } catch { }
+        } catch {}
       }
       if (!IconComp) IconComp = Loader2
 
@@ -627,7 +627,7 @@ export function InlineToolCall({
                 )
                 forceUpdate({})
                 onStateChange?.(ClientToolCallState.background)
-              } catch { }
+              } catch {}
             }}
             size='sm'
             variant='secondary'
@@ -659,24 +659,24 @@ export function InlineToolCall({
         <div className='px-1'>
           <div className='flex flex-col gap-3 rounded-md border border-border/60 bg-card/60 p-3'>
             {workflowReviewPayload.addedBlocksCount > 0 ||
-              workflowReviewPayload.removedBlocksCount > 0 ||
-              workflowReviewPayload.addedEdgesCount > 0 ||
-              workflowReviewPayload.removedEdgesCount > 0 ? (
+            workflowReviewPayload.removedBlocksCount > 0 ||
+            workflowReviewPayload.addedEdgesCount > 0 ||
+            workflowReviewPayload.removedEdgesCount > 0 ? (
               <div className='flex flex-wrap items-center gap-3 text-muted-foreground text-xs'>
                 {(workflowReviewPayload.addedBlocksCount > 0 ||
                   workflowReviewPayload.removedBlocksCount > 0) && (
-                    <>
-                      <span>Blocks +{workflowReviewPayload.addedBlocksCount}</span>
-                      <span>Blocks -{workflowReviewPayload.removedBlocksCount}</span>
-                    </>
-                  )}
+                  <>
+                    <span>Blocks +{workflowReviewPayload.addedBlocksCount}</span>
+                    <span>Blocks -{workflowReviewPayload.removedBlocksCount}</span>
+                  </>
+                )}
                 {(workflowReviewPayload.addedEdgesCount > 0 ||
                   workflowReviewPayload.removedEdgesCount > 0) && (
-                    <>
-                      <span>Edges +{workflowReviewPayload.addedEdgesCount}</span>
-                      <span>Edges -{workflowReviewPayload.removedEdgesCount}</span>
-                    </>
-                  )}
+                  <>
+                    <span>Edges +{workflowReviewPayload.addedEdgesCount}</span>
+                    <span>Edges -{workflowReviewPayload.removedEdgesCount}</span>
+                  </>
+                )}
               </div>
             ) : null}
 

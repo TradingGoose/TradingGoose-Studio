@@ -230,7 +230,7 @@ describe('workflow-review-tool-utils', () => {
 
     const child = {
       ...block('child', 'function', 'Child'),
-      data: { parentId: 'parallel', extent: 'parent' },
+      data: { parentId: 'parallel', extent: 'parent' as const },
     }
     const summary = buildWorkflowSummary({
       blocks: {
