@@ -361,7 +361,7 @@ describe('processContextsServer', () => {
           id: 'deleted-workflow-1',
           name: 'Deleted workflow',
         },
-        workflowName: null,
+        entityName: null,
       },
     ])
 
@@ -399,7 +399,7 @@ describe('processContextsServer', () => {
     const content = JSON.parse(result[0]!.content)
     expect(content).toMatchObject({
       workflowId: 'deleted-workflow-1',
-      workflowName: 'Deleted workflow',
+      entityName: 'Deleted workflow',
     })
   })
 })

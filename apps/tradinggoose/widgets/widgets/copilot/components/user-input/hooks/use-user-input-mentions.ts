@@ -475,9 +475,9 @@ export function useUserInputMentions({
     level: string
     trigger: string | null
     startedAt: string
-    workflowName: string
+    entityName: string
   }) => {
-    const label = log.workflowName
+    const label = log.entityName
     replaceActiveMentionWith(label)
     setSelectedContexts((prev) => {
       if (prev.some((context) => context.kind === 'logs' && context.label === label)) {

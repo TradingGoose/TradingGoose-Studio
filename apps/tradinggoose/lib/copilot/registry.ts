@@ -565,14 +565,11 @@ const WorkflowTargetEnvelope = z.object({
   entityId: z.string(),
   entityName: z.string().optional(),
   workspaceId: z.string().optional(),
-  workflowId: z.string(),
-  workflowName: z.string().optional(),
 })
 
 const WorkflowDocumentEnvelope = WorkflowTargetEnvelope.extend({
   documentFormat: z.literal(TG_MERMAID_DOCUMENT_FORMAT),
   entityDocument: z.string(),
-  workflowDocument: z.string(),
 })
 
 const WorkflowSummaryResult = z.object({
@@ -619,7 +616,7 @@ const WorkflowReadDocumentEnvelope = WorkflowDocumentEnvelope.extend({
 
 const GenericEntityListEntry = z.object({
   entityId: z.string(),
-  entityName: z.string(),
+  entityName: z.string().optional(),
   workspaceId: z.string().optional(),
   entityDescription: z.string().optional(),
   entityTitle: z.string().optional(),

@@ -13,11 +13,10 @@ import {
 } from '@/lib/yjs/workflow-session'
 import { getRegisteredWorkflowSession } from '@/lib/yjs/workflow-session-registry'
 import { acquireWritableWorkflowSessionLease } from '@/lib/yjs/workflow-shared-session'
-import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 
 type WorkflowTarget = {
   workflowId: string
-  workflowName?: string
+  entityName?: string
   workspaceId?: string | null
 }
 
@@ -58,33 +57,20 @@ function normalizeWorkflowTargetValue(value?: string | null): string | undefined
   return normalized ? normalized : undefined
 }
 
-function workflowTargetFromRegistry(workflowId: string): WorkflowTarget | undefined {
-  const workflow = useWorkflowRegistry.getState().workflows[workflowId]
-  return workflow
-    ? {
-        workflowId: workflow.id,
-        workflowName: workflow.name || 'Untitled Workflow',
-        workspaceId: workflow.workspaceId ?? null,
-      }
-    : undefined
-}
-
 export function buildWorkflowDocumentToolResult(options: {
   workflowId: string
-  workflowName?: string
+  entityName?: string
   workspaceId?: string | null
-  workflowDocument: string
+  entityDocument: string
 }) {
-  const workflowName = normalizeWorkflowTargetValue(options.workflowName)
+  const entityName = normalizeWorkflowTargetValue(options.entityName)
 
   return {
     entityKind: 'workflow',
     entityId: options.workflowId,
-    ...(workflowName ? { entityName: workflowName, workflowName } : {}),
+    ...(entityName ? { entityName } : {}),
     ...(options.workspaceId ? { workspaceId: options.workspaceId } : {}),
-    entityDocument: options.workflowDocument,
-    workflowId: options.workflowId,
-    workflowDocument: options.workflowDocument,
+    entityDocument: options.entityDocument,
     documentFormat: TG_MERMAID_DOCUMENT_FORMAT,
   }
 }
@@ -175,11 +161,12 @@ export async function listWorkflowsForExecutionContext(
 
   return (payload?.data ?? []).flatMap((workflow) => {
     const workflowId = normalizeWorkflowTargetValue(workflow.id)
+    const entityName = normalizeWorkflowTargetValue(workflow.name)
     return workflowId
       ? [
           {
             workflowId,
-            workflowName: workflow.name || 'Untitled Workflow',
+            ...(entityName ? { entityName } : {}),
             workspaceId: workflow.workspaceId ?? null,
           },
         ]
@@ -193,12 +180,10 @@ export async function resolveWorkflowTarget(
 ): Promise<WorkflowTarget> {
   const requestedWorkflowId = normalizeWorkflowTargetValue(options.workflowId)
   if (requestedWorkflowId) {
-    return (
-      workflowTargetFromRegistry(requestedWorkflowId) ?? {
-        workflowId: requestedWorkflowId,
-        workspaceId: executionContext.workspaceId ?? null,
-      }
-    )
+    return {
+      workflowId: requestedWorkflowId,
+      workspaceId: executionContext.workspaceId ?? null,
+    }
   }
 
   throw new Error('Workflow target is required')
@@ -209,7 +194,7 @@ export async function getReadableWorkflowState(
   workflowId?: string
 ): Promise<{
   workflowId: string
-  workflowName?: string
+  entityName?: string
   workflowState: WorkflowSnapshot
   workspaceId: string | null
   variables: Record<string, any>
@@ -221,14 +206,14 @@ export async function getReadableWorkflowState(
   }
 
   const liveSession = getRegisteredWorkflowSession(resolvedWorkflowId)
-  const registryWorkflow = useWorkflowRegistry.getState().workflows[resolvedWorkflowId]
 
   if (liveSession) {
+    const entityName = normalizeWorkflowTargetValue(liveSession.entityName)
     return {
       workflowId: liveSession.workflowId,
-      ...(registryWorkflow?.name ? { workflowName: registryWorkflow.name } : {}),
+      ...(entityName ? { entityName } : {}),
       workflowState: readWorkflowSnapshot(liveSession.doc),
-      workspaceId: registryWorkflow?.workspaceId ?? executionContext.workspaceId ?? null,
+      workspaceId: liveSession.workspaceId ?? null,
       variables: getVariablesSnapshot(liveSession.doc),
       source: 'live',
     }
@@ -236,14 +221,15 @@ export async function getReadableWorkflowState(
 
   const lease = await acquireWritableWorkflowSessionLease({
     workflowId: resolvedWorkflowId,
-    workspaceId: registryWorkflow?.workspaceId ?? executionContext.workspaceId ?? null,
+    workspaceId: executionContext.workspaceId ?? null,
   })
   try {
+    const entityName = normalizeWorkflowTargetValue(lease.session.entityName)
     return {
       workflowId: lease.session.workflowId,
-      ...(registryWorkflow?.name ? { workflowName: registryWorkflow.name } : {}),
+      ...(entityName ? { entityName } : {}),
       workflowState: readWorkflowSnapshot(lease.session.doc),
-      workspaceId: registryWorkflow?.workspaceId ?? executionContext.workspaceId ?? null,
+      workspaceId: lease.session.workspaceId ?? null,
       variables: getVariablesSnapshot(lease.session.doc),
       source: 'yjs',
     }

@@ -12,15 +12,6 @@ vi.mock('@/lib/yjs/workflow-shared-session', () => ({
     mockAcquireWritableWorkflowSessionLease(...args),
 }))
 
-vi.mock('@/stores/workflows/registry/store', () => ({
-  useWorkflowRegistry: {
-    getState: () => ({
-      workflows: {},
-      getActiveWorkflowId: () => undefined,
-    }),
-  },
-}))
-
 describe('workflow-review-tool-utils', () => {
   const block = (id: string, type = 'function', name = id, x = 0) => ({
     id,
@@ -59,6 +50,8 @@ describe('workflow-review-tool-utils', () => {
 
     mockGetRegisteredWorkflowSession.mockReturnValue({
       workflowId: 'workflow-live',
+      entityName: 'Live Workflow',
+      workspaceId: 'workspace-live',
       doc,
     })
 
@@ -74,6 +67,8 @@ describe('workflow-review-tool-utils', () => {
 
     expect(result.source).toBe('live')
     expect(result.workflowId).toBe('workflow-live')
+    expect(result.entityName).toBe('Live Workflow')
+    expect(result.workspaceId).toBe('workspace-live')
     expect(result.workflowState.blocks['block-1']).toMatchObject({
       type: 'agent',
       name: 'Agent',
@@ -92,7 +87,12 @@ describe('workflow-review-tool-utils', () => {
     )
     const release = vi.fn()
     mockAcquireWritableWorkflowSessionLease.mockResolvedValue({
-      session: { workflowId: 'workflow-db', doc },
+      session: {
+        workflowId: 'workflow-db',
+        entityName: 'Background Workflow',
+        workspaceId: 'workspace-db',
+        doc,
+      },
       release,
     })
 
@@ -108,7 +108,8 @@ describe('workflow-review-tool-utils', () => {
 
     expect(result.source).toBe('yjs')
     expect(result.workflowId).toBe('workflow-db')
-    expect(result.workspaceId).toBeNull()
+    expect(result.entityName).toBe('Background Workflow')
+    expect(result.workspaceId).toBe('workspace-db')
     expect(mockAcquireWritableWorkflowSessionLease).toHaveBeenCalledWith({
       workflowId: 'workflow-db',
       workspaceId: null,
@@ -141,23 +142,20 @@ describe('workflow-review-tool-utils', () => {
     ).rejects.toThrow('Workflow target is required')
   })
 
-  it('builds workflow document payloads with entity aliases', async () => {
+  it('builds workflow document payloads with canonical workflow identity', async () => {
     const { buildWorkflowDocumentToolResult } = await import('./workflow-review-tool-utils')
 
     expect(
       buildWorkflowDocumentToolResult({
         workflowId: 'workflow-entity',
-        workflowName: 'Momentum Flow',
-        workflowDocument: 'flowchart TD',
+        entityName: 'Momentum Flow',
+        entityDocument: 'flowchart TD',
       })
     ).toEqual({
       entityKind: 'workflow',
       entityId: 'workflow-entity',
       entityName: 'Momentum Flow',
       entityDocument: 'flowchart TD',
-      workflowId: 'workflow-entity',
-      workflowName: 'Momentum Flow',
-      workflowDocument: 'flowchart TD',
       documentFormat: 'tg-mermaid-v1',
     })
   })

@@ -82,16 +82,14 @@ export function buildWorkflowMutationResult(params: {
   finalWorkflowState = createWorkflowSnapshot(normalizedWorkflow.workflowState)
   const preview = buildWorkflowDocumentPreviewDiff(baseWorkflowState, finalWorkflowState)
   const warnings = Array.from(new Set([...orientationWarnings, ...preview.warnings, ...validation.warnings]))
-  const workflowDocument = serializeWorkflowToTgMermaid(finalWorkflowState, { direction })
+  const entityDocument = serializeWorkflowToTgMermaid(finalWorkflowState, { direction })
 
   return {
     success: true,
     entityKind: 'workflow' as const,
     entityId: workflowId,
-    entityDocument: workflowDocument,
-    workflowId,
+    entityDocument,
     documentFormat: TG_MERMAID_DOCUMENT_FORMAT,
-    workflowDocument,
     workflowState: finalWorkflowState,
     preview: {
       ...preview,

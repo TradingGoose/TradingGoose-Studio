@@ -91,8 +91,8 @@ export class EditWorkflowClientTool extends BaseClientTool {
       const resolvedArgs = args || readStoredToolArgs<EditWorkflowArgs>(this.toolCallId)
       const requestedWorkflowId =
         resolvedArgs?.workflowId?.trim() ??
-        (typeof stagedResult?.workflowId === 'string'
-          ? stagedResult.workflowId.trim()
+        (typeof stagedResult?.entityId === 'string'
+          ? stagedResult.entityId.trim()
           : undefined) ??
         this.lastWorkflowId ??
         undefined
@@ -193,19 +193,19 @@ export class EditWorkflowClientTool extends BaseClientTool {
       }
 
       // Resolve workflowId
-      const { workflowId, workflowName, workspaceId } = await resolveWorkflowTarget(
-        executionContext,
-        {
-          workflowId: requestedWorkflowId,
-        }
-      )
+      const { workflowId, workspaceId } = await resolveWorkflowTarget(executionContext, {
+        workflowId: requestedWorkflowId,
+      })
       this.lastWorkflowId = workflowId
 
       let currentWorkflowState: string | undefined
+      let entityName: string | undefined
+      let readableWorkspaceId: string | null = null
       try {
-        currentWorkflowState = JSON.stringify(
-          (await getReadableWorkflowState(executionContext, workflowId)).workflowState
-        )
+        const readableWorkflow = await getReadableWorkflowState(executionContext, workflowId)
+        currentWorkflowState = JSON.stringify(readableWorkflow.workflowState)
+        entityName = readableWorkflow.entityName
+        readableWorkspaceId = readableWorkflow.workspaceId
       } catch (e) {
         logger.warn(
           'Failed to build currentWorkflowState from readable workflow snapshot',
@@ -222,7 +222,7 @@ export class EditWorkflowClientTool extends BaseClientTool {
       if (!result.workflowState) {
         throw new Error('No workflow state returned from server')
       }
-      if (typeof result.workflowDocument !== 'string') {
+      if (typeof result.entityDocument !== 'string') {
         throw new Error('No workflow document returned from server')
       }
 
@@ -230,9 +230,9 @@ export class EditWorkflowClientTool extends BaseClientTool {
         ...result,
         ...buildWorkflowDocumentToolResult({
           workflowId,
-          workflowName,
-          workspaceId,
-          workflowDocument: result.workflowDocument,
+          entityName,
+          workspaceId: readableWorkspaceId ?? workspaceId,
+          entityDocument: result.entityDocument,
         }),
       }
       this.hasAppliedState = false

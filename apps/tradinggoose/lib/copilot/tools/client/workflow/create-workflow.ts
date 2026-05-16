@@ -80,16 +80,13 @@ export class CreateWorkflowClientTool extends BaseClientTool {
       })
 
       const workflow = useWorkflowRegistry.getState().workflows[workflowId]
-      const workflowName =
-        workflow?.name?.trim() || resolvedArgs?.name?.trim() || 'Untitled Workflow'
+      const entityName = workflow?.name?.trim()
 
       await this.markToolComplete(200, 'Workflow created', {
         success: true,
         entityKind: 'workflow',
         entityId: workflowId,
-        entityName: workflowName,
-        workflowId,
-        workflowName,
+        ...(entityName ? { entityName } : {}),
         workspaceId: workflow?.workspaceId ?? workspaceId,
       })
       this.setState(ClientToolCallState.success)

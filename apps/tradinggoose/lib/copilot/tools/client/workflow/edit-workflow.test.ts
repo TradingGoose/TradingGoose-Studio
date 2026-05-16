@@ -24,20 +24,17 @@ vi.mock('@/lib/copilot/tools/client/workflow/workflow-review-tool-utils', () => 
   resolveWorkflowTarget: (...args: any[]) => mockResolveWorkflowTarget(...args),
   buildWorkflowDocumentToolResult: ({
     workflowId,
-    workflowName,
-    workflowDocument,
+    entityName,
+    entityDocument,
   }: {
     workflowId: string
-    workflowName?: string
-    workflowDocument: string
+    entityName?: string
+    entityDocument: string
   }) => ({
     entityKind: 'workflow',
     entityId: workflowId,
-    ...(workflowName ? { entityName: workflowName } : {}),
-    entityDocument: workflowDocument,
-    workflowId,
-    ...(workflowName ? { workflowName } : {}),
-    workflowDocument,
+    ...(entityName ? { entityName } : {}),
+    entityDocument,
     documentFormat: 'tg-mermaid-v1',
   }),
 }))
@@ -71,13 +68,14 @@ describe('EditWorkflowClientTool approval gating', () => {
 
     mockResolveWorkflowTarget.mockResolvedValue({
       workflowId: 'wf-1',
-      workflowName: 'Workflow 1',
       workspaceId: 'workspace-1',
       folderId: null,
     })
 
     mockGetReadableWorkflowState.mockResolvedValue({
       workflowId: 'wf-1',
+      entityName: 'Workflow 1',
+      workspaceId: 'workspace-1',
       source: 'live',
       workflowState: {
         blocks: {
@@ -133,7 +131,7 @@ describe('EditWorkflowClientTool approval gating', () => {
                 loops: {},
                 parallels: {},
               },
-              workflowDocument,
+              entityDocument: workflowDocument,
             },
           }),
         }
@@ -233,7 +231,7 @@ describe('EditWorkflowClientTool approval gating', () => {
                 loops: {},
                 parallels: {},
               },
-              workflowDocument,
+              entityDocument: workflowDocument,
             },
           }),
         }
@@ -291,7 +289,7 @@ describe('EditWorkflowClientTool approval gating', () => {
             success: true,
             result: {
               workflowState: nextWorkflowState,
-              workflowDocument,
+              entityDocument: workflowDocument,
             },
           }),
         }
@@ -344,8 +342,6 @@ describe('EditWorkflowClientTool approval gating', () => {
       entityKind: 'workflow',
       entityId: 'wf-1',
       entityDocument: workflowDocument,
-      workflowId: 'wf-1',
-      workflowDocument,
       documentFormat: 'tg-mermaid-v1',
     })
   })
@@ -420,7 +416,7 @@ describe('EditWorkflowClientTool approval gating', () => {
           workflowDocument,
         },
         result: {
-          workflowId: 'wf-target',
+          entityId: 'wf-target',
           workflowState: stagedWorkflowState,
         },
       },
@@ -428,7 +424,6 @@ describe('EditWorkflowClientTool approval gating', () => {
 
     mockResolveWorkflowTarget.mockImplementation(async (_executionContext, options) => ({
       workflowId: options?.workflowId ?? 'wf-current',
-      workflowName: 'Workflow',
     }))
     mockAcquireWritableWorkflowSessionLease.mockImplementation(async ({ workflowId }) => ({
       session: {

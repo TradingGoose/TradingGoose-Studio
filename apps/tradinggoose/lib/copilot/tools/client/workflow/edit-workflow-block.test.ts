@@ -12,20 +12,17 @@ vi.mock('@/lib/copilot/tools/client/workflow/workflow-review-tool-utils', () => 
   resolveWorkflowTarget: (...args: any[]) => mockResolveWorkflowTarget(...args),
   buildWorkflowDocumentToolResult: ({
     workflowId,
-    workflowName,
-    workflowDocument,
+    entityName,
+    entityDocument,
   }: {
     workflowId: string
-    workflowName?: string
-    workflowDocument: string
+    entityName?: string
+    entityDocument: string
   }) => ({
     entityKind: 'workflow',
     entityId: workflowId,
-    ...(workflowName ? { entityName: workflowName } : {}),
-    entityDocument: workflowDocument,
-    workflowId,
-    ...(workflowName ? { workflowName } : {}),
-    workflowDocument,
+    ...(entityName ? { entityName } : {}),
+    entityDocument,
     documentFormat: 'tg-mermaid-v1',
   }),
 }))
@@ -58,12 +55,13 @@ describe('EditWorkflowBlockClientTool', () => {
 
     mockResolveWorkflowTarget.mockResolvedValue({
       workflowId: 'wf-1',
-      workflowName: 'Workflow 1',
       workspaceId: 'workspace-1',
     })
 
     mockGetReadableWorkflowState.mockResolvedValue({
       workflowId: 'wf-1',
+      entityName: 'Workflow 1',
+      workspaceId: 'workspace-1',
       source: 'live',
       workflowState: {
         direction: 'TD',
@@ -106,7 +104,7 @@ describe('EditWorkflowBlockClientTool', () => {
           json: async () => ({
             success: true,
             result: {
-              workflowDocument:
+              entityDocument:
                 'flowchart TD\n%% TG_WORKFLOW {"version":"tg-mermaid-v1","direction":"TD"}',
               workflowState: {
                 direction: 'TD',

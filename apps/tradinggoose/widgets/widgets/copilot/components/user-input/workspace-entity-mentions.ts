@@ -57,12 +57,18 @@ export async function loadWorkspaceEntityMentionItems(
 
   switch (entityKind) {
     case 'workflow':
-      return sortByRecent(Array.isArray(data?.data) ? data.data : []).map((item: any) => ({
-        entityKind,
-        id: item.id,
-        name: item.name || 'Untitled Workflow',
-        color: item.color,
-      }))
+      return sortByRecent(Array.isArray(data?.data) ? data.data : []).flatMap((item: any) =>
+        item.id && item.name
+          ? [
+              {
+                entityKind,
+                id: item.id,
+                name: item.name,
+                color: item.color,
+              },
+            ]
+          : []
+      )
     case 'skill':
       return sortByRecent(Array.isArray(data?.data) ? data.data : []).map((item: any) => ({
         entityKind,

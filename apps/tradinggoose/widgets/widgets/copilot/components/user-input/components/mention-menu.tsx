@@ -335,7 +335,7 @@ const renderMentionItemContent = (type: MentionSubmenu, item: MentionItem) => {
         ) : (
           <Check className='h-3.5 w-3.5 text-green-500' />
         )}
-        <span className='min-w-0 truncate'>{log.workflowName}</span>
+        <span className='min-w-0 truncate'>{log.entityName}</span>
         <span className='text-muted-foreground'>·</span>
         <span className='whitespace-nowrap'>{formatTimestamp(log.startedAt)}</span>
         <span className='text-muted-foreground'>·</span>

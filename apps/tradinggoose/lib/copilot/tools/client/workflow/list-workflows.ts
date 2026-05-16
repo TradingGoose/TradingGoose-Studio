@@ -36,7 +36,7 @@ export class ListWorkflowsClientTool extends BaseClientTool {
       const workflows = await listWorkflowsForExecutionContext(executionContext)
       const entities = workflows.map((workflow) => ({
         entityId: workflow.workflowId,
-        entityName: workflow.workflowName || 'Untitled Workflow',
+        ...(workflow.entityName ? { entityName: workflow.entityName } : {}),
         ...(workflow.workspaceId ? { workspaceId: workflow.workspaceId } : {}),
       }))
 

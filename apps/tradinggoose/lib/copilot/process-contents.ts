@@ -627,7 +627,7 @@ async function processExecutionLogFromDb(
         executionData: workflowExecutionLogs.executionData,
         cost: workflowExecutionLogs.cost,
         workflowSummary: workflowExecutionLogs.workflowSummary,
-        workflowName: workflow.name,
+        entityName: workflow.name,
       })
       .from(workflowExecutionLogs)
       .leftJoin(workflow, eq(workflowExecutionLogs.workflowId, workflow.id))
@@ -650,7 +650,7 @@ async function processExecutionLogFromDb(
       startedAt: log.startedAt?.toISOString?.() || String(log.startedAt),
       endedAt: log.endedAt?.toISOString?.() || (log.endedAt ? String(log.endedAt) : null),
       totalDurationMs: log.totalDurationMs ?? null,
-      workflowName: log.workflowName || workflowSummary.name || '',
+      entityName: log.entityName || workflowSummary.name || '',
       // Include trace spans and any available details without being huge
       executionData: log.executionData
         ? {

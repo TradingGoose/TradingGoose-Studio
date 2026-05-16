@@ -119,7 +119,7 @@ export interface LogItem {
   level: string
   trigger: string | null
   startedAt: string
-  workflowName: string
+  entityName: string
 }
 
 export type MentionItem =

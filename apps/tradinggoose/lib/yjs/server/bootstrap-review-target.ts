@@ -138,6 +138,7 @@ async function bootstrapWorkflowTarget(
   const [workflowRow] = await db
     .select({
       id: workflow.id,
+      name: workflow.name,
       workspaceId: workflow.workspaceId,
       updatedAt: workflow.updatedAt,
       isDeployed: workflow.isDeployed,
@@ -168,7 +169,9 @@ async function bootstrapWorkflowTarget(
   setVariables(doc, ((workflowRow.variables as Record<string, any> | null) ?? {}) as Record<string, any>, 'bootstrap')
 
   doc.transact(() => {
-    readWorkflowMetadataMap(doc).set('reseededFromCanonical', true)
+    const metadata = readWorkflowMetadataMap(doc)
+    metadata.set('entityName', workflowRow.name)
+    metadata.set('reseededFromCanonical', true)
   }, 'bootstrap')
 
   await persistDoc(workflowId, doc)

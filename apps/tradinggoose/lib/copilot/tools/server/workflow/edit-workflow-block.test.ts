@@ -60,8 +60,7 @@ describe('editWorkflowBlockServerTool', () => {
     expect(result.workflowState.blocks.fn1.name).toBe('Compute Market Indicators')
     expect(result.workflowState.blocks.fn1.subBlocks.code.value).toBe('return { rsi: 50 }')
     expect(result.workflowState.edges).toEqual([])
-    expect(result.workflowDocument).toContain('Compute Market Indicators')
-    expect(result.entityDocument).toBe(result.workflowDocument)
+    expect(result.entityDocument).toContain('Compute Market Indicators')
   })
 
   it('rejects non-canonical sub-block ids with structured issues', async () => {
