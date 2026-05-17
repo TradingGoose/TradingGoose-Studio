@@ -3,6 +3,7 @@ import { join, resolve, sep } from 'path'
 import { NextResponse } from 'next/server'
 import { createLogger } from '@/lib/logs/console/logger'
 import { UPLOAD_DIR } from '@/lib/uploads/core/setup'
+import { sanitizeFileKey } from '@/lib/uploads/utils/file-utils'
 
 const logger = createLogger('FilesUtils')
 
@@ -174,6 +175,10 @@ export function extractFilename(path: string): string {
 function sanitizeFilename(filename: string): string {
   if (!filename || typeof filename !== 'string') {
     throw new Error('Invalid filename provided')
+  }
+
+  if (filename.includes('/')) {
+    return sanitizeFileKey(filename)
   }
 
   const sanitized = filename.replace(/\.\./g, '').replace(/[/\\]/g, '').replace(/^\./g, '').trim()

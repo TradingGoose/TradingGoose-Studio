@@ -2,6 +2,10 @@ import { type NextRequest, NextResponse } from 'next/server'
 import { createLogger } from '@/lib/logs/console/logger'
 import '@/lib/uploads/core/setup.server'
 import { getSession } from '@/lib/auth'
+import {
+  buildKnowledgeStorageKey,
+  withKnowledgeStorageContext,
+} from '@/lib/knowledge/documents/storage'
 import type { StorageContext } from '@/lib/uploads/core/config-resolver'
 import { resolveUploadContext, validateUploadRequest } from '@/lib/uploads/utils/validation'
 import {
@@ -88,7 +92,29 @@ export async function POST(request: NextRequest) {
     const workflowId = formData.get('workflowId') as string | null
     const executionId = formData.get('executionId') as string | null
     const workspaceId = formData.get('workspaceId') as string | null
+    const knowledgeBaseId = formData.get('knowledgeBaseId') as string | null
     const uploadContext = getUploadContext(request)
+
+    if (uploadContext === 'knowledge-base') {
+      if (!workspaceId) {
+        throw new InvalidRequestError('workspaceId is required for knowledge-base uploads')
+      }
+      if (!knowledgeBaseId) {
+        throw new InvalidRequestError('knowledgeBaseId is required for knowledge-base uploads')
+      }
+
+      const { checkKnowledgeBaseWriteAccess } = await import('@/app/api/knowledge/utils')
+      const accessCheck = await checkKnowledgeBaseWriteAccess(knowledgeBaseId, session.user.id)
+      if (!accessCheck.hasAccess) {
+        return NextResponse.json(
+          { error: accessCheck.notFound ? 'Knowledge base not found' : 'Forbidden' },
+          { status: accessCheck.notFound ? 404 : 403 }
+        )
+      }
+      if (accessCheck.knowledgeBase.workspaceId !== workspaceId) {
+        throw new InvalidRequestError('workspaceId does not match knowledgeBaseId')
+      }
+    }
 
     const storageService = await import('@/lib/uploads/core/storage-service')
     const usingCloudStorage = storageService.hasCloudStorage()
@@ -118,6 +144,14 @@ export async function POST(request: NextRequest) {
       const bytes = await file.arrayBuffer()
       const buffer = Buffer.from(bytes)
 
+      let uploadFileName = originalName
+      let preserveUploadKey = false
+
+      if (uploadContext === 'knowledge-base') {
+        uploadFileName = buildKnowledgeStorageKey(workspaceId!, knowledgeBaseId!, originalName)
+        preserveUploadKey = true
+      }
+
       // Priority 1: Execution-scoped storage (temporary, 5 min expiry)
       if (workflowId && executionId) {
         if (!workspaceId) {
@@ -140,7 +174,7 @@ export async function POST(request: NextRequest) {
       }
 
       // Priority 2: Workspace-scoped storage (persistent, no expiry)
-      if (workspaceId) {
+      if (workspaceId && uploadContext !== 'knowledge-base') {
         try {
           const { uploadWorkspaceFile } = await import('@/lib/uploads/contexts/workspace')
           const userFile = await uploadWorkspaceFile(
@@ -183,13 +217,17 @@ export async function POST(request: NextRequest) {
       try {
         logger.info(`Uploading file (${uploadContext} context): ${originalName}`)
 
-        const storageService = await import('@/lib/uploads/core/storage-service')
         const fileInfo = await storageService.uploadFile({
           file: buffer,
-          fileName: originalName,
+          fileName: uploadFileName,
           contentType,
           context: uploadContext,
+          ...(preserveUploadKey ? { preserveKey: true, customKey: uploadFileName } : {}),
         })
+        const filePath =
+          uploadContext === 'knowledge-base'
+            ? withKnowledgeStorageContext(fileInfo.path)
+            : fileInfo.path
 
         let downloadUrl: string | undefined
         if (storageService.hasCloudStorage()) {
@@ -209,8 +247,8 @@ export async function POST(request: NextRequest) {
           size: buffer.length,
           type: contentType,
           key: fileInfo.key,
-          path: fileInfo.path,
-          url: downloadUrl || fileInfo.path,
+          path: filePath,
+          url: downloadUrl || filePath,
           uploadedAt: new Date().toISOString(),
           expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // 24 hours
           context: uploadContext,

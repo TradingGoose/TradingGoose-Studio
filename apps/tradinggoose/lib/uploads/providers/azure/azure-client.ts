@@ -91,7 +91,8 @@ export async function uploadToAzure(
   file: Buffer,
   fileName: string,
   contentType: string,
-  size?: number
+  size?: number,
+  skipTimestampPrefix?: boolean
 ): Promise<FileInfo>
 
 /**
@@ -108,7 +109,8 @@ export async function uploadToAzure(
   fileName: string,
   contentType: string,
   customConfig: CustomAzureConfig,
-  size?: number
+  size?: number,
+  skipTimestampPrefix?: boolean
 ): Promise<FileInfo>
 
 export async function uploadToAzure(
@@ -116,16 +118,22 @@ export async function uploadToAzure(
   fileName: string,
   contentType: string,
   configOrSize?: CustomAzureConfig | number,
-  size?: number
+  sizeOrSkipTimestamp?: number | boolean,
+  skipTimestampPrefix?: boolean
 ): Promise<FileInfo> {
   // Handle overloaded parameters
   let config: CustomAzureConfig
   let fileSize: number
+  let shouldSkipTimestamp: boolean
 
   if (typeof configOrSize === 'object') {
     // Custom config provided
     config = configOrSize
-    fileSize = size ?? file.length
+    fileSize = typeof sizeOrSkipTimestamp === 'number' ? sizeOrSkipTimestamp : file.length
+    shouldSkipTimestamp =
+      typeof sizeOrSkipTimestamp === 'boolean'
+        ? sizeOrSkipTimestamp
+        : (skipTimestampPrefix ?? false)
   } else {
     // Use default config
     config = {
@@ -135,10 +143,14 @@ export async function uploadToAzure(
       connectionString: AZURE_CONFIG.connectionString,
     }
     fileSize = configOrSize ?? file.length
+    shouldSkipTimestamp =
+      typeof sizeOrSkipTimestamp === 'boolean'
+        ? sizeOrSkipTimestamp
+        : (skipTimestampPrefix ?? false)
   }
 
   const safeFileName = fileName.replace(/\s+/g, '-') // Replace spaces with hyphens
-  const uniqueKey = `${Date.now()}-${safeFileName}`
+  const uniqueKey = shouldSkipTimestamp ? safeFileName : `${Date.now()}-${safeFileName}`
 
   const azureServiceClient = getAzureServiceClient()
   const containerClient = azureServiceClient.getContainerClient(config.containerName)

@@ -10,6 +10,10 @@ import {
 import { and, count, eq, inArray, isNotNull, isNull } from 'drizzle-orm'
 import { checkStorageQuota, incrementStorageUsage } from '@/lib/billing/storage'
 import { enqueueDocumentProcessingJobs } from '@/lib/knowledge/documents/service'
+import {
+  copyKnowledgeDocumentFile,
+  deleteKnowledgeDocumentFiles,
+} from '@/lib/knowledge/documents/storage'
 import type {
   ChunkingConfig,
   CreateKnowledgeBaseData,
@@ -157,8 +161,32 @@ export async function copyKnowledgeBaseToWorkspace(
   const newKnowledgeBaseId = randomUUID()
   const now = new Date()
   const processingJobs: Parameters<typeof enqueueDocumentProcessingJobs>[0] = []
+  const copiedDocuments: Array<{
+    sourceDocument: (typeof sourceDocuments)[number]
+    fileUrl: string
+  }> = []
 
-  await db.transaction(async (tx) => {
+  try {
+    for (const sourceDocument of sourceDocuments) {
+      copiedDocuments.push({
+        sourceDocument,
+        fileUrl: await copyKnowledgeDocumentFile({
+          sourceFileUrl: sourceDocument.fileUrl,
+          targetWorkspaceId,
+          targetKnowledgeBaseId: newKnowledgeBaseId,
+          filename: sourceDocument.filename,
+          mimeType: sourceDocument.mimeType,
+        }),
+      })
+    }
+  } catch (error) {
+    if (copiedDocuments.length > 0) {
+      await deleteKnowledgeDocumentFiles(copiedDocuments.map(({ fileUrl }) => fileUrl))
+    }
+    throw error
+  }
+
+  const copyTransaction = db.transaction(async (tx) => {
     await tx.insert(knowledgeBase).values({
       id: newKnowledgeBaseId,
       userId,
@@ -194,7 +222,7 @@ export async function copyKnowledgeBaseToWorkspace(
     }
 
     const documentIdMap = new Map<string, string>()
-    const documentRecords = sourceDocuments.map((sourceDocument) => {
+    const documentRecords = copiedDocuments.map(({ sourceDocument, fileUrl }) => {
       const newDocumentId = randomUUID()
       const shouldCopyEmbeddings = sourceDocument.processingStatus === 'completed'
       documentIdMap.set(sourceDocument.id, newDocumentId)
@@ -205,7 +233,7 @@ export async function copyKnowledgeBaseToWorkspace(
           documentId: newDocumentId,
           docData: {
             filename: sourceDocument.filename,
-            fileUrl: sourceDocument.fileUrl,
+            fileUrl,
             fileSize: sourceDocument.fileSize,
             mimeType: sourceDocument.mimeType,
           },
@@ -222,7 +250,7 @@ export async function copyKnowledgeBaseToWorkspace(
         id: newDocumentId,
         knowledgeBaseId: newKnowledgeBaseId,
         filename: sourceDocument.filename,
-        fileUrl: sourceDocument.fileUrl,
+        fileUrl,
         fileSize: sourceDocument.fileSize,
         mimeType: sourceDocument.mimeType,
         chunkCount: shouldCopyEmbeddings ? sourceDocument.chunkCount : 0,
@@ -249,9 +277,9 @@ export async function copyKnowledgeBaseToWorkspace(
       await tx.insert(document).values(documentRecords)
     }
 
-    const completedSourceDocumentIds = sourceDocuments
-      .filter((sourceDocument) => sourceDocument.processingStatus === 'completed')
-      .map((sourceDocument) => sourceDocument.id)
+    const completedSourceDocumentIds = copiedDocuments
+      .filter(({ sourceDocument }) => sourceDocument.processingStatus === 'completed')
+      .map(({ sourceDocument }) => sourceDocument.id)
 
     if (completedSourceDocumentIds.length > 0) {
       const sourceEmbeddings = await tx
@@ -289,6 +317,15 @@ export async function copyKnowledgeBaseToWorkspace(
       }
     }
   })
+
+  try {
+    await copyTransaction
+  } catch (error) {
+    if (copiedDocuments.length > 0) {
+      await deleteKnowledgeDocumentFiles(copiedDocuments.map(({ fileUrl }) => fileUrl))
+    }
+    throw error
+  }
 
   if (totalDocumentSize > 0) {
     try {

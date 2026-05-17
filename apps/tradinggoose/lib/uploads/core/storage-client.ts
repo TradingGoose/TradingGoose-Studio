@@ -1,13 +1,14 @@
 import { createLogger } from '@/lib/logs/console/logger'
 import {
+  type StorageProvider,
   USE_AZURE_STORAGE,
   USE_S3_STORAGE,
   USE_VERCEL_STORAGE,
-  type StorageProvider,
 } from '@/lib/uploads/core/setup'
 import type { CustomAzureConfig } from '@/lib/uploads/providers/azure/azure-client'
 import type { CustomS3Config } from '@/lib/uploads/providers/s3/s3-client'
 import type { CustomVercelConfig } from '@/lib/uploads/providers/vercel/vercel-client'
+import { sanitizeFileKey } from '@/lib/uploads/utils/file-utils'
 
 const logger = createLogger('StorageClient')
 
@@ -209,7 +210,9 @@ export async function downloadFile(
   const { join, resolve, sep } = await import('path')
   const { UPLOAD_DIR_SERVER } = await import('@/lib/uploads/core/setup.server')
 
-  const safeKey = key.replace(/\.\./g, '').replace(/[/\\]/g, '')
+  const safeKey = key.includes('/')
+    ? sanitizeFileKey(key)
+    : key.replace(/\.\./g, '').replace(/[/\\]/g, '')
   const filePath = join(UPLOAD_DIR_SERVER, safeKey)
 
   const resolvedPath = resolve(filePath)
@@ -256,7 +259,9 @@ export async function deleteFile(key: string): Promise<void> {
   const { join, resolve, sep } = await import('path')
   const { UPLOAD_DIR_SERVER } = await import('@/lib/uploads/core/setup.server')
 
-  const safeKey = key.replace(/\.\./g, '').replace(/[/\\]/g, '')
+  const safeKey = key.includes('/')
+    ? sanitizeFileKey(key)
+    : key.replace(/\.\./g, '').replace(/[/\\]/g, '')
   const filePath = join(UPLOAD_DIR_SERVER, safeKey)
 
   const resolvedPath = resolve(filePath)
