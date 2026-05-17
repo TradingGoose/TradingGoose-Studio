@@ -28,6 +28,9 @@ describe('knowledge document storage', () => {
     expect(withKnowledgeStorageContext('/api/files/serve/key?context=knowledge-base')).toBe(
       '/api/files/serve/key?context=knowledge-base'
     )
+    expect(withKnowledgeStorageContext('/api/files/serve/key?context=workflow&token=abc')).toBe(
+      '/api/files/serve/key?context=knowledge-base&token=abc'
+    )
   })
 
   it('copies internal document files to the target workspace knowledge base', async () => {

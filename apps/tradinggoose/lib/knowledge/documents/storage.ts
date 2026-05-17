@@ -13,8 +13,12 @@ export function buildKnowledgeStorageKey(
 }
 
 export function withKnowledgeStorageContext(filePath: string) {
-  if (filePath.includes('context=')) return filePath
-  return `${filePath}${filePath.includes('?') ? '&' : '?'}context=${KNOWLEDGE_STORAGE_CONTEXT}`
+  const [path, query = ''] = filePath.split('?')
+  const params = new URLSearchParams(query)
+  if (params.get('context') === KNOWLEDGE_STORAGE_CONTEXT) return filePath
+
+  params.set('context', KNOWLEDGE_STORAGE_CONTEXT)
+  return `${path}?${params.toString()}`
 }
 
 export async function copyKnowledgeDocumentFile({
