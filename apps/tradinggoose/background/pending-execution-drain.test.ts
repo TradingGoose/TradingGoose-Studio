@@ -87,9 +87,11 @@ import { pendingExecutionDrain } from './pending-execution-drain'
 
 describe('pendingExecutionDrain', () => {
   const runPendingExecutionDrain = (billingScopeId: string) =>
-    (pendingExecutionDrain as unknown as {
-      run: (payload: { billingScopeId: string }) => Promise<unknown>
-    }).run({
+    (
+      pendingExecutionDrain as unknown as {
+        run: (payload: { billingScopeId: string }) => Promise<unknown>
+      }
+    ).run({
       billingScopeId,
     })
 
@@ -216,9 +218,9 @@ describe('pendingExecutionDrain', () => {
         output: { result: 2 },
       },
     })
-    expect(
-      completePendingExecutionMock.mock.invocationCallOrder[0],
-    ).toBeLessThan(waitForMock.mock.invocationCallOrder[0])
+    expect(completePendingExecutionMock.mock.invocationCallOrder[0]).toBeLessThan(
+      waitForMock.mock.invocationCallOrder[0]
+    )
     expect(result).toEqual({
       success: true,
       pendingExecutionId: 'pending-workflow-4',
@@ -261,9 +263,7 @@ describe('pendingExecutionDrain', () => {
       })
       .mockResolvedValueOnce(null)
 
-    const {
-      isIndicatorMonitorExecutionPayload,
-    } = await import('./indicator-monitor-execution')
+    const { isIndicatorMonitorExecutionPayload } = await import('./indicator-monitor-execution')
     vi.mocked(isIndicatorMonitorExecutionPayload).mockReturnValue(true)
     executeIndicatorMonitorJobMock.mockResolvedValue({ success: true })
 
@@ -272,7 +272,7 @@ describe('pendingExecutionDrain', () => {
     expect(executeIndicatorMonitorJobMock).toHaveBeenCalledWith(
       expect.objectContaining({
         executionId: 'pending-indicator-1',
-      }),
+      })
     )
     expect(completePendingExecutionMock).toHaveBeenCalledWith({
       pendingExecutionId: 'pending-indicator-1',

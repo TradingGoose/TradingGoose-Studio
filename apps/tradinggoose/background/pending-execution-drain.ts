@@ -4,33 +4,24 @@ import {
   isExecutionConcurrencyLimitError,
 } from '@/lib/execution/execution-concurrency-limit'
 import { isLocalVmSaturationLimitError } from '@/lib/execution/local-saturation-limit'
-import { createLogger } from '@/lib/logs/console/logger'
 import {
   claimNextPendingExecution,
   completePendingExecution,
   failPendingExecution,
-  type PendingExecutionClaim,
   PENDING_EXECUTION_DRAIN_TASK_ID,
   PENDING_EXECUTION_RETRY_DELAY_MS,
+  type PendingExecutionClaim,
   retryPendingExecution,
 } from '@/lib/execution/pending-execution'
-import { dispatchQueuedDocumentProcessingJob } from './knowledge-processing'
+import { createLogger } from '@/lib/logs/console/logger'
 import {
   executeIndicatorMonitorJob,
   isIndicatorMonitorExecutionPayload,
 } from './indicator-monitor-execution'
-import {
-  executeScheduleJob,
-  isScheduleExecutionPayload,
-} from './schedule-execution'
-import {
-  executeWebhookJob,
-  isWebhookExecutionPayload,
-} from './webhook-execution'
-import {
-  executeWorkflowJob,
-  isWorkflowExecutionPayload,
-} from './workflow-execution'
+import { dispatchQueuedDocumentProcessingJob } from './knowledge-processing'
+import { executeScheduleJob, isScheduleExecutionPayload } from './schedule-execution'
+import { executeWebhookJob, isWebhookExecutionPayload } from './webhook-execution'
+import { executeWorkflowJob, isWorkflowExecutionPayload } from './workflow-execution'
 
 const logger = createLogger('PendingExecutionDrain')
 
@@ -130,7 +121,7 @@ async function dispatchPendingExecution(row: PendingExecutionClaim) {
 
 export async function drainPendingExecutionsForBillingScope(
   payload: PendingExecutionDrainPayload,
-  options: PendingExecutionDrainOptions = {},
+  options: PendingExecutionDrainOptions = {}
 ) {
   let lastPendingExecutionId: string | undefined
   let hadFailure = false
@@ -164,8 +155,7 @@ export async function drainPendingExecutionsForBillingScope(
     try {
       await dispatchPendingExecution(row)
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : 'Pending execution failed'
+      const errorMessage = error instanceof Error ? error.message : 'Pending execution failed'
 
       if (isTransientPendingExecutionError(error)) {
         await retryPendingExecution({

@@ -30,6 +30,32 @@ describe('trigger execution settings', () => {
     await expect(isTriggerExecutionEnabled()).resolves.toBe(true)
   })
 
+  it('accepts TRIGGER_PROJECT_REF when TRIGGER_PROJECT_ID is not configured', async () => {
+    vi.resetModules()
+    vi.doMock('@/lib/env', () => ({
+      env: {
+        TRIGGER_PROJECT_REF: 'proj_ref_123',
+        TRIGGER_SECRET_KEY: 'tr_dev_123',
+      },
+    }))
+    vi.doMock('@/lib/system-settings/service', () => ({
+      getResolvedSystemSettings: vi.fn().mockResolvedValue({
+        triggerDevEnabled: true,
+      }),
+    }))
+
+    const { getTriggerExecutionState, isTriggerExecutionEnabled } = await import(
+      '@/lib/trigger/settings'
+    )
+
+    await expect(getTriggerExecutionState()).resolves.toEqual({
+      configurationReady: true,
+      triggerDevEnabled: true,
+      executionEnabled: true,
+    })
+    await expect(isTriggerExecutionEnabled()).resolves.toBe(true)
+  })
+
   it('keeps execution disabled when credentials exist but the system toggle is off', async () => {
     vi.resetModules()
     vi.doMock('@/lib/env', () => ({

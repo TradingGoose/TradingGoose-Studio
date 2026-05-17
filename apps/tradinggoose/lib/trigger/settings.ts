@@ -3,7 +3,8 @@ import { getResolvedSystemSettings } from '@/lib/system-settings/service'
 
 // Trigger.dev credentials remain deployment-owned in env; DB-backed settings only gate execution.
 export function isTriggerConfigurationReady() {
-  return Boolean(env.TRIGGER_PROJECT_ID?.trim() && env.TRIGGER_SECRET_KEY?.trim())
+  const projectRef = env.TRIGGER_PROJECT_ID?.trim() || env.TRIGGER_PROJECT_REF?.trim()
+  return Boolean(projectRef && env.TRIGGER_SECRET_KEY?.trim())
 }
 
 export async function getTriggerExecutionState() {
@@ -28,10 +29,7 @@ export class TriggerExecutionUnavailableError extends Error {
   statusCode: number
   code: string
 
-  constructor(
-    message = 'Trigger.dev execution is disabled or not configured.',
-    statusCode = 503
-  ) {
+  constructor(message = 'Trigger.dev execution is disabled or not configured.', statusCode = 503) {
     super(message)
     this.name = 'TriggerExecutionUnavailableError'
     this.statusCode = statusCode
