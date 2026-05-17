@@ -4,6 +4,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const {
+  dispatchQueuedDocumentProcessingJobMock,
   executeWorkflowJobMock,
   executeIndicatorMonitorJobMock,
   claimNextPendingExecutionMock,
@@ -13,6 +14,7 @@ const {
   triggerMock,
   waitForMock,
 } = vi.hoisted(() => ({
+  dispatchQueuedDocumentProcessingJobMock: vi.fn(),
   executeWorkflowJobMock: vi.fn(),
   executeIndicatorMonitorJobMock: vi.fn(),
   claimNextPendingExecutionMock: vi.fn(),
@@ -58,8 +60,7 @@ vi.mock('@/lib/logs/console/logger', () => ({
 }))
 
 vi.mock('./knowledge-processing', () => ({
-  executeDocumentProcessingJob: vi.fn(),
-  isDocumentProcessingPayload: vi.fn(() => false),
+  dispatchQueuedDocumentProcessingJob: dispatchQueuedDocumentProcessingJobMock,
 }))
 
 vi.mock('./indicator-monitor-execution', () => ({
@@ -132,6 +133,11 @@ describe('pendingExecutionDrain', () => {
           userId: 'user-1',
         },
       })
+      .mockResolvedValueOnce({
+        id: 'pending-document-1',
+        executionType: 'document',
+        payload: { documentId: 'doc-1' },
+      })
       .mockResolvedValueOnce(null)
     executeWorkflowJobMock.mockResolvedValue({
       success: true,
@@ -152,11 +158,15 @@ describe('pendingExecutionDrain', () => {
         output: { result: 1 },
       },
     })
+    expect(dispatchQueuedDocumentProcessingJobMock).toHaveBeenCalledWith({ documentId: 'doc-1' })
+    expect(completePendingExecutionMock).toHaveBeenCalledWith({
+      pendingExecutionId: 'pending-document-1',
+    })
     expect(failPendingExecutionMock).not.toHaveBeenCalled()
     expect(triggerMock).not.toHaveBeenCalled()
     expect(result).toEqual({
       success: true,
-      pendingExecutionId: 'pending-workflow-2',
+      pendingExecutionId: 'pending-document-1',
     })
   })
 

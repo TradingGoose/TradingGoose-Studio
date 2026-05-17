@@ -14,10 +14,7 @@ import {
   PENDING_EXECUTION_RETRY_DELAY_MS,
   retryPendingExecution,
 } from '@/lib/execution/pending-execution'
-import {
-  executeDocumentProcessingJob,
-  isDocumentProcessingPayload,
-} from './knowledge-processing'
+import { dispatchQueuedDocumentProcessingJob } from './knowledge-processing'
 import {
   executeIndicatorMonitorJob,
   isIndicatorMonitorExecutionPayload,
@@ -121,11 +118,7 @@ async function dispatchPendingExecution(row: PendingExecutionClaim) {
     }
 
     case 'document': {
-      if (!isDocumentProcessingPayload(row.payload)) {
-        throw new Error('Invalid document pending payload')
-      }
-
-      await executeDocumentProcessingJob(row.payload)
+      await dispatchQueuedDocumentProcessingJob(row.payload)
       await completePendingExecution({ pendingExecutionId: row.id })
       return
     }
