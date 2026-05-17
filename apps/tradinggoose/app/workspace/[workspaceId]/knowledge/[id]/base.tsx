@@ -19,6 +19,15 @@ import {
   X,
 } from 'lucide-react'
 import { useParams, useRouter } from 'next/navigation'
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
@@ -141,6 +150,8 @@ export function KnowledgeBase({
   const [tagEditorDocument, setTagEditorDocument] = useState<DocumentData | null>(null)
   const [isTagEditorOpen, setIsTagEditorOpen] = useState(false)
   const [tagPanelLayout, setTagPanelLayout] = useState<number[] | null>(null)
+  const [documentsPendingDelete, setDocumentsPendingDelete] = useState<DocumentData[]>([])
+  const [isDeletingDocuments, setIsDeletingDocuments] = useState(false)
 
   const {
     knowledgeBase,
@@ -403,31 +414,55 @@ export function KnowledgeBase({
     }
   }
 
-  const handleDeleteDocument = async (docId: string) => {
+  const handleConfirmDeleteDocuments = async () => {
+    if (documentsPendingDelete.length === 0 || isDeletingDocuments) return
+
     try {
-      const response = await fetch(`/api/knowledge/${id}/documents/${docId}`, {
-        method: 'DELETE',
-      })
+      setIsDeletingDocuments(true)
+
+      const response =
+        documentsPendingDelete.length === 1
+          ? await fetch(`/api/knowledge/${id}/documents/${documentsPendingDelete[0].id}`, {
+              method: 'DELETE',
+            })
+          : await fetch(`/api/knowledge/${id}/documents`, {
+              method: 'PATCH',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                operation: 'delete',
+                documentIds: documentsPendingDelete.map((doc) => doc.id),
+              }),
+            })
 
       if (!response.ok) {
-        throw new Error('Failed to delete document')
+        throw new Error('Failed to delete documents')
       }
 
       const result = await response.json()
 
       if (result.success) {
-        // Invalidate and refresh documents to update the list
-        refreshDocuments()
+        await refreshDocuments()
 
-        // Clear selected documents
         setSelectedDocuments((prev) => {
           const newSet = new Set(prev)
-          newSet.delete(docId)
+          documentsPendingDelete.forEach((doc) => newSet.delete(doc.id))
           return newSet
         })
+        setDocumentsPendingDelete([])
       }
     } catch (err) {
-      logger.error('Error deleting document:', err)
+      logger.error('Error deleting documents:', err)
+    } finally {
+      setIsDeletingDocuments(false)
+    }
+  }
+
+  const handleDeleteDocument = (docId: string) => {
+    const document = documents.find((doc) => doc.id === docId)
+    if (document) {
+      setDocumentsPendingDelete([document])
     }
   }
 
@@ -569,44 +604,10 @@ export function KnowledgeBase({
     }
   }
 
-  const handleBulkDelete = async () => {
+  const handleBulkDelete = () => {
     const documentsToDelete = documents.filter((doc) => selectedDocuments.has(doc.id))
-
-    if (documentsToDelete.length === 0) return
-
-    try {
-      setIsBulkOperating(true)
-
-      const response = await fetch(`/api/knowledge/${id}/documents`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          operation: 'delete',
-          documentIds: documentsToDelete.map((doc) => doc.id),
-        }),
-      })
-
-      if (!response.ok) {
-        throw new Error('Failed to delete documents')
-      }
-
-      const result = await response.json()
-
-      if (result.success) {
-        logger.info(`Successfully deleted ${result.data.successCount} documents`)
-      }
-
-      // Refresh documents list to reflect deletions
-      await refreshDocuments()
-
-      // Clear selection after successful operation
-      setSelectedDocuments(new Set())
-    } catch (err) {
-      logger.error('Error deleting documents:', err)
-    } finally {
-      setIsBulkOperating(false)
+    if (documentsToDelete.length > 0) {
+      setDocumentsPendingDelete(documentsToDelete)
     }
   }
 
@@ -1138,8 +1139,43 @@ export function KnowledgeBase({
         onDelete={handleBulkDelete}
         enabledCount={enabledCount}
         disabledCount={disabledCount}
-        isLoading={isBulkOperating}
+        isLoading={isBulkOperating || isDeletingDocuments}
       />
+
+      <AlertDialog
+        open={documentsPendingDelete.length > 0}
+        onOpenChange={(open) => {
+          if (!open && !isDeletingDocuments) {
+            setDocumentsPendingDelete([])
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Delete {documentsPendingDelete.length === 1 ? 'file' : 'files'}?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {documentsPendingDelete.length === 1
+                ? `Deleting "${documentsPendingDelete[0]?.filename}" will permanently remove its source file, chunks, and embeddings from this knowledge base.`
+                : `Deleting ${documentsPendingDelete.length} files will permanently remove their source files, chunks, and embeddings from this knowledge base.`}{' '}
+              <span className='text-red-500 dark:text-red-500'>This action cannot be undone.</span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className='flex'>
+            <AlertDialogCancel className='h-9 w-full rounded-sm' disabled={isDeletingDocuments}>
+              Cancel
+            </AlertDialogCancel>
+            <Button
+              onClick={handleConfirmDeleteDocuments}
+              disabled={isDeletingDocuments}
+              className='h-9 w-full rounded-sm bg-red-500 text-white transition-all duration-200 hover:bg-red-600 dark:bg-red-500 dark:hover:bg-red-600'
+            >
+              {isDeletingDocuments ? 'Deleting...' : 'Delete'}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   )
 }

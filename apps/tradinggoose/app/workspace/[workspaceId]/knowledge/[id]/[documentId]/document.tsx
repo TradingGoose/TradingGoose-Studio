@@ -15,6 +15,13 @@ import {
 } from 'lucide-react'
 import { useParams, useSearchParams } from 'next/navigation'
 import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
   Button,
   Checkbox,
   SearchHighlight,
@@ -26,7 +33,6 @@ import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/componen
 import { createLogger } from '@/lib/logs/console/logger'
 import {
   CreateChunkModal,
-  DeleteChunkModal,
   DocumentLoading,
   EditChunkModal,
 } from '@/app/workspace/[workspaceId]/knowledge/[id]/[documentId]/components'
@@ -246,8 +252,8 @@ export function Document({
   const [error, setError] = useState<string | null>(null)
 
   const [isCreateChunkModalOpen, setIsCreateChunkModalOpen] = useState(false)
-  const [chunkToDelete, setChunkToDelete] = useState<ChunkData | null>(null)
-  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
+  const [chunksPendingDelete, setChunksPendingDelete] = useState<ChunkData[]>([])
+  const [isDeletingChunks, setIsDeletingChunks] = useState(false)
   const [isBulkOperating, setIsBulkOperating] = useState(false)
 
   const combinedError = error || searchError || initialError
@@ -581,25 +587,57 @@ export function Document({
   const handleDeleteChunk = (chunkId: string) => {
     const chunk = displayChunks.find((c) => c.id === chunkId)
     if (chunk) {
-      setChunkToDelete(chunk)
-      setIsDeleteModalOpen(true)
+      setChunksPendingDelete([chunk])
     }
   }
 
-  const handleChunkDeleted = async () => {
-    await refreshChunks()
-    if (chunkToDelete) {
+  const handleConfirmDeleteChunks = async () => {
+    if (chunksPendingDelete.length === 0 || isDeletingChunks) return
+
+    try {
+      setIsDeletingChunks(true)
+
+      const response =
+        chunksPendingDelete.length === 1
+          ? await fetch(
+              `/api/knowledge/${knowledgeBaseId}/documents/${documentId}/chunks/${chunksPendingDelete[0].id}`,
+              {
+                method: 'DELETE',
+              }
+            )
+          : await fetch(`/api/knowledge/${knowledgeBaseId}/documents/${documentId}/chunks`, {
+              method: 'PATCH',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                operation: 'delete',
+                chunkIds: chunksPendingDelete.map((chunk) => chunk.id),
+              }),
+            })
+
+      if (!response.ok) {
+        throw new Error('Failed to delete chunks')
+      }
+
+      const result = await response.json()
+
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to delete chunks')
+      }
+
+      await refreshChunks()
       setSelectedChunks((prev) => {
         const newSet = new Set(prev)
-        newSet.delete(chunkToDelete.id)
+        chunksPendingDelete.forEach((chunk) => newSet.delete(chunk.id))
         return newSet
       })
+      setChunksPendingDelete([])
+    } catch (err) {
+      logger.error('Error deleting chunks:', err)
+    } finally {
+      setIsDeletingChunks(false)
     }
-  }
-
-  const handleCloseDeleteModal = () => {
-    setIsDeleteModalOpen(false)
-    setChunkToDelete(null)
   }
 
   const handleSelectChunk = (chunkId: string, checked: boolean) => {
@@ -629,7 +667,7 @@ export function Document({
 
   // Shared utility function for bulk chunk operations
   const performBulkChunkOperation = async (
-    operation: 'enable' | 'disable' | 'delete',
+    operation: 'enable' | 'disable',
     chunks: ChunkData[]
   ) => {
     if (chunks.length === 0) return
@@ -658,25 +696,17 @@ export function Document({
       const result = await response.json()
 
       if (result.success) {
-        if (operation === 'delete') {
-          // Refresh chunks list to reflect deletions
-          await refreshChunks()
-        } else {
-          // Update successful chunks in the store for enable/disable operations
-          result.data.results.forEach((opResult: any) => {
-            if (opResult.operation === operation) {
-              opResult.chunkIds.forEach((chunkId: string) => {
-                updateChunk(chunkId, { enabled: operation === 'enable' })
-              })
-            }
-          })
-        }
+        result.data.results.forEach((opResult: any) => {
+          if (opResult.operation === operation) {
+            opResult.chunkIds.forEach((chunkId: string) => {
+              updateChunk(chunkId, { enabled: operation === 'enable' })
+            })
+          }
+        })
 
         logger.info(`Successfully ${operation}d ${result.data.successCount} chunks`)
+        setSelectedChunks(new Set())
       }
-
-      // Clear selection after successful operation
-      setSelectedChunks(new Set())
     } catch (err) {
       logger.error(`Error ${operation}ing chunks:`, err)
     } finally {
@@ -698,9 +728,11 @@ export function Document({
     await performBulkChunkOperation('disable', chunksToDisable)
   }
 
-  const handleBulkDelete = async () => {
+  const handleBulkDelete = () => {
     const chunksToDelete = displayChunks.filter((chunk) => selectedChunks.has(chunk.id))
-    await performBulkChunkOperation('delete', chunksToDelete)
+    if (chunksToDelete.length > 0) {
+      setChunksPendingDelete(chunksToDelete)
+    }
   }
 
   // Calculate bulk operation counts
@@ -963,14 +995,40 @@ export function Document({
         onChunkCreated={handleChunkCreated}
       />
 
-      <DeleteChunkModal
-        chunk={chunkToDelete}
-        knowledgeBaseId={knowledgeBaseId}
-        documentId={documentId}
-        isOpen={isDeleteModalOpen}
-        onClose={handleCloseDeleteModal}
-        onChunkDeleted={handleChunkDeleted}
-      />
+      <AlertDialog
+        open={chunksPendingDelete.length > 0}
+        onOpenChange={(open) => {
+          if (!open && !isDeletingChunks) {
+            setChunksPendingDelete([])
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {chunksPendingDelete.length === 1 ? 'Delete chunk?' : 'Delete chunks?'}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {chunksPendingDelete.length === 1
+                ? 'Deleting this chunk will permanently remove it from this document.'
+                : `Deleting ${chunksPendingDelete.length} chunks will permanently remove them from this document.`}{' '}
+              <span className='text-red-500 dark:text-red-500'>This action cannot be undone.</span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className='flex'>
+            <AlertDialogCancel className='h-9 w-full rounded-sm' disabled={isDeletingChunks}>
+              Cancel
+            </AlertDialogCancel>
+            <Button
+              onClick={handleConfirmDeleteChunks}
+              disabled={isDeletingChunks}
+              className='h-9 w-full rounded-sm bg-red-500 text-white transition-all duration-200 hover:bg-red-600 dark:bg-red-500 dark:hover:bg-red-600'
+            >
+              {isDeletingChunks ? 'Deleting...' : 'Delete'}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <ActionBar
         selectedCount={selectedChunks.size}
@@ -979,7 +1037,7 @@ export function Document({
         onDelete={handleBulkDelete}
         enabledCount={enabledCount}
         disabledCount={disabledCount}
-        isLoading={isBulkOperating}
+        isLoading={isBulkOperating || isDeletingChunks}
       />
     </>
   )
