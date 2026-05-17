@@ -4,7 +4,6 @@ import {
   EnterpriseSubscriptionEmail,
   HelpConfirmationEmail,
   InvitationEmail,
-  NewsletterWelcomeEmail,
   OTPVerificationEmail,
   PlanWelcomeEmail,
   ResetPasswordEmail,
@@ -159,10 +158,6 @@ export async function renderFreeTierUpgradeEmail(params: {
       updatedDate: new Date(),
     })
   )
-}
-
-export async function renderNewsletterWelcomeEmail(): Promise<string> {
-  return await render(NewsletterWelcomeEmail())
 }
 
 export async function renderWaitlistConfirmationEmail(email: string): Promise<string> {
