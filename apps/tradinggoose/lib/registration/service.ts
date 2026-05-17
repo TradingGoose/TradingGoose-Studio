@@ -6,8 +6,7 @@ import {
   renderWaitlistApprovedEmail,
   renderWaitlistConfirmationEmail,
 } from '@/components/emails/render-email'
-import { sendEmail } from '@/lib/email/mailer'
-import { getFromEmailAddress } from '@/lib/email/utils'
+import { type EmailOptions, sendBatchEmails, sendEmail } from '@/lib/email/mailer'
 import { quickValidateEmail } from '@/lib/email/validation'
 import { createLogger } from '@/lib/logs/console/logger'
 import {
@@ -19,6 +18,7 @@ import { getBaseUrl } from '@/lib/urls/utils'
 import { DEFAULT_REGISTRATION_MODE, type RegistrationMode, type WaitlistStatus } from './shared'
 
 const logger = createLogger('RegistrationService')
+const RESEND_BATCH_EMAIL_LIMIT = 100
 
 export type RegistrationEligibilityReason =
   | 'open'
@@ -181,7 +181,7 @@ export async function updateWaitlistStatuses(params: {
     .where(inArray(waitlist.id, idsToUpdate))
 
   if (params.status === 'approved') {
-    await Promise.all(rowsToUpdate.map((row) => sendWaitlistApprovalEmail(row.email)))
+    await sendWaitlistApprovalEmails(rowsToUpdate.map((row) => row.email))
   }
 }
 
@@ -300,27 +300,57 @@ async function sendWaitlistConfirmationEmail(email: string) {
   }
 }
 
-async function sendWaitlistApprovalEmail(email: string) {
+async function createWaitlistApprovalEmail(
+  email: string,
+  baseUrl: string,
+  subject: string
+): Promise<EmailOptions | null> {
   try {
-    const signupLink = `${getBaseUrl()}/signup?email=${encodeURIComponent(email)}`
-    const html = await renderWaitlistApprovedEmail(email, signupLink)
-    const result = await sendEmail({
+    const signupLink = `${baseUrl}/signup?email=${encodeURIComponent(email)}`
+    return {
       to: email,
-      subject: getEmailSubject('waitlist-approved'),
-      html,
+      subject,
+      html: await renderWaitlistApprovedEmail(email, signupLink),
       emailType: 'transactional',
-    })
-
-    if (!result.success) {
-      logger.error('Failed to send waitlist approval email', {
-        email,
-        message: result.message,
-      })
     }
   } catch (error) {
-    logger.error('Failed to render or send waitlist approval email', {
+    logger.error('Failed to render waitlist approval email', {
       email,
       error,
     })
+    return null
+  }
+}
+
+async function sendWaitlistApprovalEmails(emails: string[]) {
+  const baseUrl = getBaseUrl()
+  const subject = getEmailSubject('waitlist-approved')
+
+  for (let index = 0; index < emails.length; index += RESEND_BATCH_EMAIL_LIMIT) {
+    const batch = emails.slice(index, index + RESEND_BATCH_EMAIL_LIMIT)
+    const renderedEmails = await Promise.all(
+      batch.map((email) => createWaitlistApprovalEmail(email, baseUrl, subject))
+    )
+    const batchEmails = renderedEmails.filter((email): email is EmailOptions => email !== null)
+
+    if (batchEmails.length === 0) {
+      continue
+    }
+
+    try {
+      const result = await sendBatchEmails({ emails: batchEmails })
+
+      if (!result.success) {
+        logger.error('Failed to send waitlist approval email batch', {
+          count: batchEmails.length,
+          message: result.message,
+        })
+      }
+    } catch (error) {
+      logger.error('Failed to send waitlist approval email batch', {
+        count: batchEmails.length,
+        error,
+      })
+    }
   }
 }
