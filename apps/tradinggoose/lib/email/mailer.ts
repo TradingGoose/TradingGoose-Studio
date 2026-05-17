@@ -65,12 +65,66 @@ interface EmailClients {
   azureEmailClient: EmailClient | null
 }
 
+type VerifiedUserEmail = {
+  id?: string | null
+  email?: string | null
+}
+
+function isExistingContactError(error: { message?: string; statusCode?: number | null }): boolean {
+  return error.statusCode === 409 || /already (exists|added)|duplicate/i.test(error.message ?? '')
+}
+
 /**
  * Check if any email service is configured and available
  */
 export async function hasEmailService(): Promise<boolean> {
   const clients = await resolveEmailClients()
   return Boolean(clients.resend || clients.azureEmailClient)
+}
+
+export async function addVerifiedUserEmailToAudience(user: VerifiedUserEmail): Promise<void> {
+  const email = user.email?.trim().toLowerCase()
+  if (!email) return
+
+  try {
+    const resendConfig = await resolveResendServiceConfig()
+    if (!resendConfig.apiKey || !resendConfig.audienceId) return
+
+    const resend = new Resend(resendConfig.apiKey)
+    const result = await resend.contacts.create({
+      audienceId: resendConfig.audienceId,
+      email,
+      unsubscribed: false,
+    })
+
+    if (result.error) {
+      if (isExistingContactError(result.error)) {
+        logger.info('Verified user email already exists in Resend audience', {
+          userId: user.id,
+          audienceId: resendConfig.audienceId,
+        })
+        return
+      }
+
+      logger.warn('Failed to add verified user email to Resend audience', {
+        userId: user.id,
+        audienceId: resendConfig.audienceId,
+        error: result.error,
+      })
+      return
+    }
+
+    logger.info('Added verified user email to Resend audience', {
+      userId: user.id,
+      audienceId: resendConfig.audienceId,
+      contactId: result.data?.id,
+    })
+  } catch (error) {
+    logger.warn('Failed to add verified user email to Resend audience', {
+      userId: user.id,
+      error,
+    })
+  }
 }
 
 export async function sendEmail(options: EmailOptions): Promise<SendEmailResult> {
