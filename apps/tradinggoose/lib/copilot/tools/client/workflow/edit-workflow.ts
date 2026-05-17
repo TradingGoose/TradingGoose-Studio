@@ -198,16 +198,7 @@ export class EditWorkflowClientTool extends BaseClientTool {
       })
       this.lastWorkflowId = workflowId
 
-      let readableWorkflow: Awaited<ReturnType<typeof getReadableWorkflowState>>
-      try {
-        readableWorkflow = await getReadableWorkflowState(executionContext, workflowId)
-      } catch (e) {
-        logger.warn(
-          'Failed to build currentWorkflowState from readable workflow snapshot',
-          e as any
-        )
-        throw new Error('Failed to read the current workflow')
-      }
+      const readableWorkflow = await getReadableWorkflowState(executionContext, workflowId)
 
       const result = (await executeCopilotServerTool({
         toolName: this.getServerToolName(),
