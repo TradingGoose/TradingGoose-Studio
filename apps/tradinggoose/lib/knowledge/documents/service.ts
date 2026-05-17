@@ -18,6 +18,7 @@ import { env } from '@/lib/env'
 import { enqueuePendingExecution } from '@/lib/execution/pending-execution'
 import { getSlotsForFieldType, type TAG_SLOT_CONFIG } from '@/lib/knowledge/consts'
 import { processDocument } from '@/lib/knowledge/documents/document-processor'
+import { deleteKnowledgeDocumentFiles } from '@/lib/knowledge/documents/storage'
 import { getNextAvailableSlot } from '@/lib/knowledge/tags/service'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { DocumentProcessingPayload } from '@/background/knowledge-processing'
@@ -39,6 +40,12 @@ const LARGE_DOC_CONFIG = {
 }
 
 type DocumentProcessingRequestPayload = Omit<DocumentProcessingPayload, 'userId' | 'workspaceId'>
+type DocumentDeletionTarget = {
+  id: string
+  knowledgeBaseId: string
+  fileUrl: string
+  fileSize: number
+}
 
 async function deleteQueuedDocumentExecutions(documentIds: string[]) {
   await Promise.all(
@@ -53,6 +60,89 @@ async function deleteQueuedDocumentExecutions(documentIds: string[]) {
         )
     )
   )
+}
+
+async function getUnreferencedDocumentFileUrls(targets: DocumentDeletionTarget[]) {
+  const fileUrls = [
+    ...new Set(
+      targets
+        .map((target) => target.fileUrl)
+        .filter((fileUrl) => fileUrl.includes('/api/files/serve/'))
+    ),
+  ]
+
+  if (fileUrls.length === 0) {
+    return []
+  }
+
+  const activeReferences = await db
+    .select({ fileUrl: document.fileUrl })
+    .from(document)
+    .where(and(inArray(document.fileUrl, fileUrls), isNull(document.deletedAt)))
+
+  const stillReferenced = new Set(activeReferences.map((reference) => reference.fileUrl))
+  return fileUrls.filter((fileUrl) => !stillReferenced.has(fileUrl))
+}
+
+async function decrementStorageUsageForDeletedDocuments(
+  targets: DocumentDeletionTarget[],
+  requestId: string
+) {
+  const sizesByKnowledgeBaseId = new Map<string, number>()
+
+  for (const target of targets) {
+    sizesByKnowledgeBaseId.set(
+      target.knowledgeBaseId,
+      (sizesByKnowledgeBaseId.get(target.knowledgeBaseId) ?? 0) + target.fileSize
+    )
+  }
+
+  for (const [knowledgeBaseId, totalSize] of sizesByKnowledgeBaseId) {
+    if (totalSize <= 0) continue
+
+    const [kb] = await db
+      .select({ userId: knowledgeBase.userId, workspaceId: knowledgeBase.workspaceId })
+      .from(knowledgeBase)
+      .where(eq(knowledgeBase.id, knowledgeBaseId))
+      .limit(1)
+
+    if (!kb) continue
+
+    try {
+      await decrementStorageUsage(kb.userId, totalSize, kb.workspaceId)
+      logger.info(`[${requestId}] Updated knowledge base owner storage usage for -${totalSize}`)
+    } catch (error) {
+      logger.error(`[${requestId}] Failed to update knowledge base owner storage usage:`, error)
+    }
+  }
+}
+
+async function deleteDocumentTargets(targets: DocumentDeletionTarget[], requestId: string) {
+  const targetIds = targets.map((target) => target.id)
+  const deletedAt = new Date()
+
+  const result = await db.transaction(async (tx) => {
+    await tx.delete(embedding).where(inArray(embedding.documentId, targetIds))
+
+    return tx
+      .delete(document)
+      .where(and(inArray(document.id, targetIds), isNull(document.deletedAt)))
+      .returning({ id: document.id })
+  })
+
+  const deletedIds = new Set(result.map((row) => row.id))
+  const deletedTargets = targets.filter((target) => deletedIds.has(target.id))
+  const fileUrlsToDelete = await getUnreferencedDocumentFileUrls(deletedTargets)
+  const storageUsageTargets = fileUrlsToDelete.flatMap((fileUrl) => {
+    const target = deletedTargets.find((target) => target.fileUrl === fileUrl)
+    return target ? [target] : []
+  })
+
+  await deleteKnowledgeDocumentFiles(fileUrlsToDelete)
+  await deleteQueuedDocumentExecutions([...deletedIds])
+  await decrementStorageUsageForDeletedDocuments(storageUsageTargets, requestId)
+
+  return result.map((row) => ({ ...row, deletedAt }))
 }
 
 /**
@@ -794,8 +884,7 @@ export async function bulkDocumentOperation(
   knowledgeBaseId: string,
   operation: 'enable' | 'disable' | 'delete',
   documentIds: string[],
-  requestId: string,
-  userId?: string
+  requestId: string
 ): Promise<{
   success: boolean
   successCount: number
@@ -803,7 +892,6 @@ export async function bulkDocumentOperation(
     id: string
     enabled?: boolean
     deletedAt?: Date | null
-    processingStatus?: string
   }>
 }> {
   logger.info(
@@ -814,7 +902,10 @@ export async function bulkDocumentOperation(
   const documentsToUpdate = await db
     .select({
       id: document.id,
+      knowledgeBaseId: document.knowledgeBaseId,
       enabled: document.enabled,
+      fileUrl: document.fileUrl,
+      fileSize: document.fileSize,
     })
     .from(document)
     .where(
@@ -839,70 +930,10 @@ export async function bulkDocumentOperation(
     id: string
     enabled?: boolean
     deletedAt?: Date | null
-    processingStatus?: string
   }>
 
   if (operation === 'delete') {
-    // Get file sizes before deletion for storage tracking
-    let totalSize = 0
-    if (userId) {
-      const documentsToDelete = await db
-        .select({ fileSize: document.fileSize })
-        .from(document)
-        .where(
-          and(
-            eq(document.knowledgeBaseId, knowledgeBaseId),
-            inArray(document.id, documentIds),
-            isNull(document.deletedAt)
-          )
-        )
-
-      totalSize = documentsToDelete.reduce((sum, doc) => sum + doc.fileSize, 0)
-    }
-
-    // Handle bulk soft delete
-    updateResult = await db.transaction(async (tx) => {
-      const result = await tx
-        .update(document)
-        .set({
-          deletedAt: new Date(),
-        })
-        .where(
-          and(
-            eq(document.knowledgeBaseId, knowledgeBaseId),
-            inArray(document.id, documentIds),
-            isNull(document.deletedAt)
-          )
-        )
-        .returning({ id: document.id, deletedAt: document.deletedAt })
-
-      await tx.delete(embedding).where(inArray(embedding.documentId, documentIds))
-      return result
-    })
-
-    await deleteQueuedDocumentExecutions(documentIds)
-
-    // Decrement storage usage tracking
-    if (userId && totalSize > 0) {
-      // Get knowledge base owner
-      const kb = await db
-        .select({ userId: knowledgeBase.userId, workspaceId: knowledgeBase.workspaceId })
-        .from(knowledgeBase)
-        .where(eq(knowledgeBase.id, knowledgeBaseId))
-        .limit(1)
-
-      if (kb.length > 0) {
-        // Always meter the knowledge base owner
-        try {
-          await decrementStorageUsage(kb[0].userId, totalSize, kb[0].workspaceId)
-          logger.info(
-            `[${requestId}] Updated knowledge base owner storage usage for -${totalSize} bytes`
-          )
-        } catch (error) {
-          logger.error(`[${requestId}] Failed to update knowledge base owner storage usage:`, error)
-        }
-      }
-    }
+    updateResult = await deleteDocumentTargets(documentsToUpdate, requestId)
   } else {
     // Handle bulk enable/disable
     const enabled = operation === 'enable'
@@ -1159,25 +1190,26 @@ export async function updateDocument(
   }
 }
 
-/**
- * Soft delete a document
- */
 export async function deleteDocument(
   documentId: string,
   requestId: string
 ): Promise<{ success: boolean; message: string }> {
-  await db.transaction(async (tx) => {
-    await tx
-      .update(document)
-      .set({
-        deletedAt: new Date(),
-      })
-      .where(eq(document.id, documentId))
+  const [documentToDelete] = await db
+    .select({
+      id: document.id,
+      knowledgeBaseId: document.knowledgeBaseId,
+      fileUrl: document.fileUrl,
+      fileSize: document.fileSize,
+    })
+    .from(document)
+    .where(and(eq(document.id, documentId), isNull(document.deletedAt)))
+    .limit(1)
 
-    await tx.delete(embedding).where(eq(embedding.documentId, documentId))
-  })
+  if (!documentToDelete) {
+    throw new Error(`Document ${documentId} not found`)
+  }
 
-  await deleteQueuedDocumentExecutions([documentId])
+  await deleteDocumentTargets([documentToDelete], requestId)
 
   logger.info(`[${requestId}] Document deleted: ${documentId}`)
 

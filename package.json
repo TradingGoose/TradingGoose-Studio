@@ -15,6 +15,7 @@
     "dev:next": "cd apps/tradinggoose && bun run dev",
     "dev:sockets": "cd apps/tradinggoose && bun run dev:sockets",
     "dev:full": "cd apps/tradinggoose && bun run dev:full",
+    "dev:trigger": "cd apps/tradinggoose && npx trigger.dev@latest dev",
     "test": "turbo run test",
     "format": "bunx biome format --write .",
     "format:check": "bunx biome format .",
