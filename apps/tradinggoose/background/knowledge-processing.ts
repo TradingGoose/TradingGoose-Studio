@@ -5,6 +5,7 @@ import {
   processDocumentAsync,
 } from '@/lib/knowledge/documents/service'
 import { createLogger } from '@/lib/logs/console/logger'
+import { isTriggerExecutionEnabled } from '@/lib/trigger/settings'
 
 const logger = createLogger('KnowledgeProcessing')
 
@@ -80,5 +81,10 @@ export async function dispatchQueuedDocumentProcessingJob(payload: unknown) {
     throw new Error('Invalid document pending payload')
   }
 
-  await processDocument.triggerAndWait(payload).unwrap()
+  if (await isTriggerExecutionEnabled()) {
+    await processDocument.triggerAndWait(payload).unwrap()
+    return
+  }
+
+  await executeDocumentProcessingJob(payload)
 }

@@ -161,18 +161,30 @@ export async function copyKnowledgeBaseToWorkspace(
   const newKnowledgeBaseId = randomUUID()
   const now = new Date()
   const processingJobs: Parameters<typeof enqueueDocumentProcessingJobs>[0] = []
-  const copiedDocuments = await Promise.all(
-    sourceDocuments.map(async (sourceDocument) => ({
-      sourceDocument,
-      fileUrl: await copyKnowledgeDocumentFile({
-        sourceFileUrl: sourceDocument.fileUrl,
-        targetWorkspaceId,
-        targetKnowledgeBaseId: newKnowledgeBaseId,
-        filename: sourceDocument.filename,
-        mimeType: sourceDocument.mimeType,
-      }),
-    }))
-  )
+  const copiedDocuments: Array<{
+    sourceDocument: (typeof sourceDocuments)[number]
+    fileUrl: string
+  }> = []
+
+  try {
+    for (const sourceDocument of sourceDocuments) {
+      copiedDocuments.push({
+        sourceDocument,
+        fileUrl: await copyKnowledgeDocumentFile({
+          sourceFileUrl: sourceDocument.fileUrl,
+          targetWorkspaceId,
+          targetKnowledgeBaseId: newKnowledgeBaseId,
+          filename: sourceDocument.filename,
+          mimeType: sourceDocument.mimeType,
+        }),
+      })
+    }
+  } catch (error) {
+    if (copiedDocuments.length > 0) {
+      await deleteKnowledgeDocumentFiles(copiedDocuments.map(({ fileUrl }) => fileUrl))
+    }
+    throw error
+  }
 
   const copyTransaction = db.transaction(async (tx) => {
     await tx.insert(knowledgeBase).values({

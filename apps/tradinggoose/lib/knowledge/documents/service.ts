@@ -133,10 +133,14 @@ async function deleteDocumentTargets(targets: DocumentDeletionTarget[], requestI
   const deletedIds = new Set(result.map((row) => row.id))
   const deletedTargets = targets.filter((target) => deletedIds.has(target.id))
   const fileUrlsToDelete = await getUnreferencedDocumentFileUrls(deletedTargets)
+  const storageUsageTargets = fileUrlsToDelete.flatMap((fileUrl) => {
+    const target = deletedTargets.find((target) => target.fileUrl === fileUrl)
+    return target ? [target] : []
+  })
 
   await deleteKnowledgeDocumentFiles(fileUrlsToDelete)
   await deleteQueuedDocumentExecutions([...deletedIds])
-  await decrementStorageUsageForDeletedDocuments(deletedTargets, requestId)
+  await decrementStorageUsageForDeletedDocuments(storageUsageTargets, requestId)
 
   return result.map((row) => ({ ...row, deletedAt }))
 }
