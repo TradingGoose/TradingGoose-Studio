@@ -64,6 +64,7 @@ export function useKnowledgeBaseDocuments(
     offset?: number
     sortBy?: string
     sortOrder?: string
+    includeDisabled?: boolean
     enabled?: boolean
   }
 ) {
@@ -73,6 +74,7 @@ export function useKnowledgeBaseDocuments(
   const requestSearch = options?.search
   const requestSortBy = options?.sortBy
   const requestSortOrder = options?.sortOrder
+  const requestIncludeDisabled = options?.includeDisabled
   const paramsKey = serializeDocumentParams({
     knowledgeBaseId,
     limit: requestLimit,
@@ -80,6 +82,7 @@ export function useKnowledgeBaseDocuments(
     search: requestSearch,
     sortBy: requestSortBy,
     sortOrder: requestSortOrder,
+    includeDisabled: requestIncludeDisabled,
   })
 
   const query = useKnowledgeDocumentsQuery(
@@ -90,6 +93,7 @@ export function useKnowledgeBaseDocuments(
       search: requestSearch,
       sortBy: requestSortBy,
       sortOrder: requestSortOrder,
+      includeDisabled: requestIncludeDisabled,
     },
     {
       enabled: (options?.enabled ?? true) && Boolean(knowledgeBaseId),

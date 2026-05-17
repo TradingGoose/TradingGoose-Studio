@@ -2,19 +2,16 @@ import { type NextRequest, NextResponse } from 'next/server'
 import { ZodError } from 'zod'
 import { claimFirstSystemAdmin, getSystemAdminAccess } from '@/lib/admin/access'
 import {
-  adminSystemSettingsMutationSchema,
   type AdminSystemSettingsMutationInput,
+  adminSystemSettingsMutationSchema,
 } from '@/lib/admin/system-settings/mutations'
 import { backfillDefaultUserSubscriptions } from '@/lib/billing/core/subscription'
-import {
-  getBillingGateState,
-  isBillingConfigurationReady,
-} from '@/lib/billing/settings'
+import { getBillingGateState, isBillingConfigurationReady } from '@/lib/billing/settings'
 import { createLogger } from '@/lib/logs/console/logger'
 import {
   getResolvedSystemSettings,
-  upsertSystemSettings,
   type ResolvedSystemSettings,
+  upsertSystemSettings,
 } from '@/lib/system-settings/service'
 import { isTriggerConfigurationReady } from '@/lib/trigger/settings'
 import { generateRequestId } from '@/lib/utils'
@@ -198,7 +195,8 @@ export async function PATCH(request: NextRequest) {
 function hasPayloadField<Key extends keyof AdminSystemSettingsMutationInput>(
   payload: AdminSystemSettingsMutationInput,
   key: Key
-): payload is AdminSystemSettingsMutationInput & Required<Pick<AdminSystemSettingsMutationInput, Key>> {
+): payload is AdminSystemSettingsMutationInput &
+  Required<Pick<AdminSystemSettingsMutationInput, Key>> {
   return Object.hasOwn(payload, key)
 }
 

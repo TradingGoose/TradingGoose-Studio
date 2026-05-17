@@ -28,10 +28,7 @@ export class TriggerExecutionUnavailableError extends Error {
   statusCode: number
   code: string
 
-  constructor(
-    message = 'Trigger.dev execution is disabled or not configured.',
-    statusCode = 503
-  ) {
+  constructor(message = 'Trigger.dev execution is disabled or not configured.', statusCode = 503) {
     super(message)
     this.name = 'TriggerExecutionUnavailableError'
     this.statusCode = statusCode
