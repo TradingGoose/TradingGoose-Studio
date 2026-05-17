@@ -50,6 +50,7 @@ export interface ProcessingOptions {
 export interface UseKnowledgeUploadOptions {
   onUploadComplete?: (uploadedFiles: UploadedFile[]) => void
   onError?: (error: UploadError) => void
+  workspaceId: string
 }
 
 class KnowledgeUploadError extends Error {
@@ -166,7 +167,7 @@ const isRetryableUploadError = (error: unknown) => {
   )
 }
 
-export function useKnowledgeUpload(options: UseKnowledgeUploadOptions = {}) {
+export function useKnowledgeUpload(options: UseKnowledgeUploadOptions) {
   const [isUploading, setIsUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState<UploadProgress>({
     stage: 'idle',
@@ -220,6 +221,7 @@ export function useKnowledgeUpload(options: UseKnowledgeUploadOptions = {}) {
 
   const uploadFileThroughAPI = async (
     file: File,
+    knowledgeBaseId: string,
     timeoutMs: number,
     fileIndex?: number
   ): Promise<UploadedFile> => {
@@ -230,6 +232,8 @@ export function useKnowledgeUpload(options: UseKnowledgeUploadOptions = {}) {
     try {
       const formData = new FormData()
       formData.append('file', file)
+      formData.append('workspaceId', options.workspaceId)
+      formData.append('knowledgeBaseId', knowledgeBaseId)
 
       const uploadResponse = await fetch('/api/files/upload?type=knowledge-base', {
         method: 'POST',
@@ -294,6 +298,7 @@ export function useKnowledgeUpload(options: UseKnowledgeUploadOptions = {}) {
 
   const uploadSingleFileWithRetry = async (
     file: File,
+    knowledgeBaseId: string,
     retryCount = 0,
     fileIndex?: number
   ): Promise<UploadedFile> => {
@@ -308,7 +313,7 @@ export function useKnowledgeUpload(options: UseKnowledgeUploadOptions = {}) {
     })
 
     try {
-      return await uploadFileThroughAPI(file, timeoutMs, fileIndex)
+      return await uploadFileThroughAPI(file, knowledgeBaseId, timeoutMs, fileIndex)
     } catch (error) {
       if (retryCount < UPLOAD_CONFIG.MAX_RETRIES && isRetryableUploadError(error)) {
         const delay = UPLOAD_CONFIG.RETRY_DELAY_MS * UPLOAD_CONFIG.RETRY_BACKOFF ** retryCount
@@ -332,7 +337,7 @@ export function useKnowledgeUpload(options: UseKnowledgeUploadOptions = {}) {
         }
 
         await sleep(delay)
-        return uploadSingleFileWithRetry(file, retryCount + 1, fileIndex)
+        return uploadSingleFileWithRetry(file, knowledgeBaseId, retryCount + 1, fileIndex)
       }
 
       logger.error('Upload failed', {
@@ -344,7 +349,10 @@ export function useKnowledgeUpload(options: UseKnowledgeUploadOptions = {}) {
     }
   }
 
-  const uploadFilesWithConcurrency = async (files: File[]): Promise<UploadedFile[]> => {
+  const uploadFilesWithConcurrency = async (
+    files: File[],
+    knowledgeBaseId: string
+  ): Promise<UploadedFile[]> => {
     const results: UploadedFile[] = []
     const failedFiles: Array<{ file: File; error: Error }> = []
 
@@ -374,7 +382,7 @@ export function useKnowledgeUpload(options: UseKnowledgeUploadOptions = {}) {
         }))
 
         try {
-          const result = await uploadSingleFileWithRetry(file, 0, fileIndex)
+          const result = await uploadSingleFileWithRetry(file, knowledgeBaseId, 0, fileIndex)
 
           setUploadProgress((prev) => ({
             ...prev,
@@ -441,13 +449,16 @@ export function useKnowledgeUpload(options: UseKnowledgeUploadOptions = {}) {
     if (!knowledgeBaseId?.trim()) {
       throw new KnowledgeUploadError('Knowledge base ID is required', 'INVALID_KB_ID')
     }
+    if (!options.workspaceId?.trim()) {
+      throw new KnowledgeUploadError('Workspace ID is required', 'INVALID_WORKSPACE_ID')
+    }
 
     try {
       setIsUploading(true)
       setUploadError(null)
       setUploadProgress({ stage: 'uploading', filesCompleted: 0, totalFiles: files.length })
 
-      const uploadedFiles = await uploadFilesWithConcurrency(files)
+      const uploadedFiles = await uploadFilesWithConcurrency(files, knowledgeBaseId)
 
       setUploadProgress((prev) => ({ ...prev, stage: 'processing' }))
 

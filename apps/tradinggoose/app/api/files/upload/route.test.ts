@@ -108,6 +108,8 @@ describe('File Upload API Route', () => {
 
     const mockFile = createMockFile('jourwest.pdf', 'application/pdf', 'test pdf content')
     const formData = createMockFormData([mockFile])
+    formData.append('workspaceId', 'workspace-123')
+    formData.append('knowledgeBaseId', 'kb-456')
 
     const req = new NextRequest('http://localhost:3000/api/files/upload?type=knowledge-base', {
       method: 'POST',
@@ -121,13 +123,16 @@ describe('File Upload API Route', () => {
 
     expect(response.status).toBe(200)
     expect(data).toHaveProperty('context', 'knowledge-base')
+    expect(data.path).toBe('/api/files/serve/test-key.txt?context=knowledge-base')
 
     const storageService = await import('@/lib/uploads/core/storage-service')
     expect(storageService.uploadFile).toHaveBeenCalledWith(
       expect.objectContaining({
         contentType: 'application/pdf',
         context: 'knowledge-base',
-        fileName: 'jourwest.pdf',
+        customKey: 'workspace-123/kb-456/jourwest.pdf',
+        fileName: 'workspace-123/kb-456/jourwest.pdf',
+        preserveKey: true,
       })
     )
   })
@@ -311,6 +316,8 @@ describe('File Upload Security Tests', () => {
       const formData = new FormData()
       const file = new File(['<h1>Knowledge</h1>'], 'knowledge.html', { type: 'text/html' })
       formData.append('file', file)
+      formData.append('workspaceId', 'workspace-123')
+      formData.append('knowledgeBaseId', 'kb-456')
 
       const req = new Request('http://localhost/api/files/upload?type=knowledge-base', {
         method: 'POST',

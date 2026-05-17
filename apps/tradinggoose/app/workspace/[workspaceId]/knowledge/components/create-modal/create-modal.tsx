@@ -84,6 +84,7 @@ export function CreateModal({ open, onOpenChange, onKnowledgeBaseCreated }: Crea
   const dropZoneRef = useRef<HTMLDivElement>(null)
 
   const { uploadFiles, isUploading, uploadProgress, uploadError, clearError } = useKnowledgeUpload({
+    workspaceId,
     onUploadComplete: (uploadedFiles) => {
       logger.info(`Successfully uploaded ${uploadedFiles.length} files`)
       // Files uploaded and document records created - processing will continue in background

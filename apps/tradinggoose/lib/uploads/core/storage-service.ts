@@ -5,6 +5,7 @@ import {
   USE_S3_STORAGE,
   USE_VERCEL_STORAGE,
 } from '@/lib/uploads/core/setup'
+import { sanitizeFileKey } from '@/lib/uploads/utils/file-utils'
 import { getStorageConfig, type StorageContext } from './config-resolver'
 import type { FileInfo } from './storage-client'
 
@@ -81,7 +82,7 @@ export async function uploadFile(options: UploadFileOptions): Promise<FileInfo> 
       connectionString: config.connectionString,
     }
 
-    return uploadToAzure(file, keyToUse, contentType, azureConfig, file.length)
+    return uploadToAzure(file, keyToUse, contentType, azureConfig, file.length, preserveKey)
   }
 
   if (USE_VERCEL_STORAGE) {
@@ -112,16 +113,19 @@ export async function uploadFile(options: UploadFileOptions): Promise<FileInfo> 
   }
 
   logger.info('Using local file storage')
-  const { writeFile } = await import('fs/promises')
-  const { join } = await import('path')
+  const { mkdir, writeFile } = await import('fs/promises')
+  const { dirname, join } = await import('path')
   const { v4: uuidv4 } = await import('uuid')
   const { UPLOAD_DIR_SERVER } = await import('./setup.server')
 
-  const safeKey = keyToUse.replace(/[^a-zA-Z0-9.-]/g, '_').replace(/\.\./g, '')
-  const uniqueKey = `${uuidv4()}-${safeKey}`
+  const safeKey = preserveKey
+    ? sanitizeFileKey(keyToUse)
+    : keyToUse.replace(/[^a-zA-Z0-9.-]/g, '_').replace(/\.\./g, '')
+  const uniqueKey = preserveKey ? safeKey : `${uuidv4()}-${safeKey}`
   const filePath = join(UPLOAD_DIR_SERVER, uniqueKey)
 
   try {
+    await mkdir(dirname(filePath), { recursive: true })
     await writeFile(filePath, file)
   } catch (error) {
     logger.error(`Failed to write file to local storage: ${fileName}`, error)

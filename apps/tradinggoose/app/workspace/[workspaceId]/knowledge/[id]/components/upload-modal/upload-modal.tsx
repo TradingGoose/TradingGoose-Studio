@@ -2,6 +2,7 @@
 
 import { useRef, useState } from 'react'
 import { AlertCircle, Check, Loader2, X } from 'lucide-react'
+import { useParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
@@ -40,6 +41,8 @@ export function UploadModal({
   chunkingConfig,
   onUploadComplete,
 }: UploadModalProps) {
+  const params = useParams<{ workspaceId: string }>()
+  const workspaceId = params.workspaceId
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [files, setFiles] = useState<FileWithPreview[]>([])
 
@@ -47,6 +50,7 @@ export function UploadModal({
   const [isDragging, setIsDragging] = useState(false)
 
   const { isUploading, uploadProgress, uploadError, uploadFiles, clearError } = useKnowledgeUpload({
+    workspaceId,
     onUploadComplete: () => {
       logger.info(`Successfully uploaded ${files.length} files`)
       onUploadComplete?.()
