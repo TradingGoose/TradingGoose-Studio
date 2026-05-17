@@ -7,6 +7,20 @@ import { NextRequest } from 'next/server'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { setupFileApiMocks } from '@/app/api/__test-utils__/utils'
 
+function mockKnowledgeBaseWriteAccess() {
+  vi.doMock('@/app/api/knowledge/utils', () => ({
+    checkKnowledgeBaseWriteAccess: vi.fn().mockResolvedValue({
+      hasAccess: true,
+      knowledgeBase: {
+        id: 'kb-456',
+        userId: 'test-user-id',
+        workspaceId: 'workspace-123',
+        embeddingModel: 'text-embedding-3-small',
+      },
+    }),
+  }))
+}
+
 describe('File Upload API Route', () => {
   const createMockFormData = (files: File[]): FormData => {
     const formData = new FormData()
@@ -105,6 +119,7 @@ describe('File Upload API Route', () => {
       cloudEnabled: true,
       storageProvider: 'vercel',
     })
+    mockKnowledgeBaseWriteAccess()
 
     const mockFile = createMockFile('jourwest.pdf', 'application/pdf', 'test pdf content')
     const formData = createMockFormData([mockFile])
@@ -251,6 +266,8 @@ describe('File Upload Security Tests', () => {
       }),
       hasCloudStorage: vi.fn().mockReturnValue(false),
     }))
+
+    mockKnowledgeBaseWriteAccess()
 
     vi.doMock('@/lib/uploads/setup.server', () => ({}))
   })

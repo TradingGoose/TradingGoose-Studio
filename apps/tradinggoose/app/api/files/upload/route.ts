@@ -95,6 +95,27 @@ export async function POST(request: NextRequest) {
     const knowledgeBaseId = formData.get('knowledgeBaseId') as string | null
     const uploadContext = getUploadContext(request)
 
+    if (uploadContext === 'knowledge-base') {
+      if (!workspaceId) {
+        throw new InvalidRequestError('workspaceId is required for knowledge-base uploads')
+      }
+      if (!knowledgeBaseId) {
+        throw new InvalidRequestError('knowledgeBaseId is required for knowledge-base uploads')
+      }
+
+      const { checkKnowledgeBaseWriteAccess } = await import('@/app/api/knowledge/utils')
+      const accessCheck = await checkKnowledgeBaseWriteAccess(knowledgeBaseId, session.user.id)
+      if (!accessCheck.hasAccess) {
+        return NextResponse.json(
+          { error: accessCheck.notFound ? 'Knowledge base not found' : 'Forbidden' },
+          { status: accessCheck.notFound ? 404 : 403 }
+        )
+      }
+      if (accessCheck.knowledgeBase.workspaceId !== workspaceId) {
+        throw new InvalidRequestError('workspaceId does not match knowledgeBaseId')
+      }
+    }
+
     const storageService = await import('@/lib/uploads/core/storage-service')
     const usingCloudStorage = storageService.hasCloudStorage()
     logger.info(
@@ -127,14 +148,7 @@ export async function POST(request: NextRequest) {
       let preserveUploadKey = false
 
       if (uploadContext === 'knowledge-base') {
-        if (!workspaceId) {
-          throw new InvalidRequestError('workspaceId is required for knowledge-base uploads')
-        }
-        if (!knowledgeBaseId) {
-          throw new InvalidRequestError('knowledgeBaseId is required for knowledge-base uploads')
-        }
-
-        uploadFileName = buildKnowledgeStorageKey(workspaceId, knowledgeBaseId, originalName)
+        uploadFileName = buildKnowledgeStorageKey(workspaceId!, knowledgeBaseId!, originalName)
         preserveUploadKey = true
       }
 
