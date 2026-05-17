@@ -82,7 +82,7 @@ export async function dispatchQueuedDocumentProcessingJob(payload: unknown) {
   }
 
   if (await isTriggerExecutionEnabled()) {
-    await processDocument.trigger(payload)
+    await processDocument.triggerAndWait(payload).unwrap()
   } else {
     await executeDocumentProcessingJob(payload)
   }

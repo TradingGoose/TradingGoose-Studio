@@ -65,6 +65,7 @@ export interface KnowledgeDocumentsParams {
   offset?: number
   sortBy?: string
   sortOrder?: string
+  includeDisabled?: boolean
 }
 
 export interface KnowledgeDocumentsResponse {
@@ -79,12 +80,13 @@ export async function fetchKnowledgeDocuments({
   offset = 0,
   sortBy,
   sortOrder,
+  includeDisabled,
 }: KnowledgeDocumentsParams): Promise<KnowledgeDocumentsResponse> {
   const params = new URLSearchParams()
   if (search) params.set('search', search)
   if (sortBy) params.set('sortBy', sortBy)
   if (sortOrder) params.set('sortOrder', sortOrder)
-  params.set('includeDisabled', 'true')
+  if (includeDisabled) params.set('includeDisabled', 'true')
   params.set('limit', limit.toString())
   params.set('offset', offset.toString())
 
@@ -200,6 +202,7 @@ export const serializeDocumentParams = (params: KnowledgeDocumentsParams) =>
     offset: params.offset ?? 0,
     sortBy: params.sortBy ?? '',
     sortOrder: params.sortOrder ?? '',
+    includeDisabled: params.includeDisabled ?? false,
   })
 
 export function useKnowledgeDocumentsQuery(
