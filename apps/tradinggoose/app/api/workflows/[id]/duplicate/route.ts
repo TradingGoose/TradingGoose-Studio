@@ -172,7 +172,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       const yjsApplyResult = await tryApplyWorkflowState(
         newWorkflowId,
         duplicatedSnapshot,
-        duplicatedVariables
+        duplicatedVariables,
+        name
       )
       if (!yjsApplyResult.success) {
         logger.warn(

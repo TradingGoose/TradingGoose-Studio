@@ -9,10 +9,6 @@ vi.mock('@/lib/workflows/validation', () => ({
   }),
 }))
 
-vi.mock('@/lib/workflows/db-helpers', () => ({
-  loadWorkflowFromNormalizedTables: vi.fn(),
-}))
-
 const CURRENT_WORKFLOW_STATE = JSON.stringify({
   direction: 'TD',
   blocks: {

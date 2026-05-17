@@ -1,5 +1,5 @@
 import { db } from '@tradinggoose/db'
-import { copilotReviewSessions, permissions, workflow, workspace } from '@tradinggoose/db/schema'
+import { copilotReviewSessions, permissions, workspace } from '@tradinggoose/db/schema'
 import { and, eq } from 'drizzle-orm'
 import type {
   ReviewAccessMode,
@@ -292,16 +292,6 @@ export async function verifyReviewTargetAccess(
   }
 
   return verifyWorkspaceAccess(userId, reviewSessionAccess.workspaceId, accessMode)
-}
-
-export async function resolveWorkflowWorkspaceId(workflowId: string): Promise<string | null> {
-  const [workflowRow] = await db
-    .select({ workspaceId: workflow.workspaceId })
-    .from(workflow)
-    .where(eq(workflow.id, workflowId))
-    .limit(1)
-
-  return workflowRow?.workspaceId ?? null
 }
 
 function hasAccessToReviewSession(

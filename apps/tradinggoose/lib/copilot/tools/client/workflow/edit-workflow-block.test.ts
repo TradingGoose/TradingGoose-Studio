@@ -62,7 +62,6 @@ describe('EditWorkflowBlockClientTool', () => {
       workflowId: 'wf-1',
       entityName: 'Workflow 1',
       workspaceId: 'workspace-1',
-      source: 'live',
       workflowState: {
         direction: 'TD',
         blocks: {

@@ -78,7 +78,8 @@ export async function getYjsSnapshot(
 export async function applyWorkflowStateInSocketServer(
   workflowId: string,
   workflowState: WorkflowSnapshot,
-  variables?: Record<string, any>
+  variables?: Record<string, any>,
+  entityName?: string
 ): Promise<void> {
   const url = new URL(
     `/internal/yjs/workflows/${encodeURIComponent(workflowId)}/apply-state`,
@@ -95,6 +96,7 @@ export async function applyWorkflowStateInSocketServer(
       body: JSON.stringify({
         workflowState,
         ...(variables === undefined ? {} : { variables }),
+        ...(entityName ? { entityName } : {}),
       }),
     },
     10000

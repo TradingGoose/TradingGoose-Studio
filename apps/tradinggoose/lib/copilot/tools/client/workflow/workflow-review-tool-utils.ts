@@ -128,16 +128,10 @@ export function buildWorkflowSummary(workflowState: WorkflowSnapshot): WorkflowS
   }
 }
 
-export function resolveWorkflowWorkspaceId(
-  executionContext: ClientToolExecutionContext
-): string | undefined {
-  return executionContext.workspaceId ?? undefined
-}
-
 export async function listWorkflowsForExecutionContext(
   executionContext: ClientToolExecutionContext
 ): Promise<WorkflowTarget[]> {
-  const workspaceId = resolveWorkflowWorkspaceId(executionContext)
+  const workspaceId = executionContext.workspaceId
   if (!workspaceId) {
     throw new Error('Workspace ID is required to list workflows')
   }
@@ -198,7 +192,6 @@ export async function getReadableWorkflowState(
   workflowState: WorkflowSnapshot
   workspaceId: string | null
   variables: Record<string, any>
-  source: 'live' | 'yjs'
 }> {
   const resolvedWorkflowId = normalizeWorkflowTargetValue(workflowId)
   if (!resolvedWorkflowId) {
@@ -215,7 +208,6 @@ export async function getReadableWorkflowState(
       workflowState: readWorkflowSnapshot(liveSession.doc),
       workspaceId: liveSession.workspaceId ?? null,
       variables: getVariablesSnapshot(liveSession.doc),
-      source: 'live',
     }
   }
 
@@ -231,7 +223,6 @@ export async function getReadableWorkflowState(
       workflowState: readWorkflowSnapshot(lease.session.doc),
       workspaceId: lease.session.workspaceId ?? null,
       variables: getVariablesSnapshot(lease.session.doc),
-      source: 'yjs',
     }
   } finally {
     lease.release()

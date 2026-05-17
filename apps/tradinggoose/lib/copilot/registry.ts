@@ -164,7 +164,6 @@ const EditWorkflowArgs = z
       ),
     documentFormat: z.literal(TG_MERMAID_DOCUMENT_FORMAT).optional(),
     workflowId: RequiredId,
-    currentWorkflowState: z.string().optional(),
   })
   .strict()
   .describe(
@@ -195,7 +194,6 @@ const EditWorkflowBlockArgs = z
       .describe(
         'Partial patch for the selected block only: map changed canonical sub-block ids to replacement values. Do not send a full workflow document, unchanged fields, or invented keys. Use `get_blocks_metadata` for canonical ids and `read_workflow` for current derived sub-block entries.'
       ),
-    currentWorkflowState: z.string().optional(),
   })
   .strict()
   .describe(

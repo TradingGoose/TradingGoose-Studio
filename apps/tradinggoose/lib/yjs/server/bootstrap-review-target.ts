@@ -3,6 +3,10 @@ import { workflow } from '@tradinggoose/db/schema'
 import { eq } from 'drizzle-orm'
 import * as Y from 'yjs'
 import {
+  buildYjsTransportEnvelope,
+  serializeYjsTransportEnvelope,
+} from '@/lib/copilot/review-sessions/identity'
+import {
   loadCustomTool,
   loadIndicator,
   loadMcpServer,
@@ -21,7 +25,9 @@ import {
   setWorkflowState,
 } from '@/lib/yjs/workflow-session'
 import type { WorkflowSnapshot } from '@/lib/yjs/workflow-session'
+import { getYjsSnapshot, SocketServerBridgeError } from '@/lib/yjs/server/snapshot-bridge'
 import { loadWorkflowFromNormalizedTables } from '@/lib/workflows/db-helpers'
+import { getState as getPersistedYjsState } from '@/socket-server/yjs/persistence'
 
 export class ReviewTargetBootstrapError extends Error {
   status: number
@@ -50,6 +56,41 @@ export function getRuntimeStateFromUpdate(update: Uint8Array): ReviewTargetRunti
     return getRuntimeStateFromDoc(doc)
   } finally {
     doc.destroy()
+  }
+}
+
+export async function readBootstrappedReviewTargetSnapshot(descriptor: ReviewTargetDescriptor) {
+  const bridgeParams = serializeYjsTransportEnvelope(buildYjsTransportEnvelope(descriptor))
+  try {
+    return await getYjsSnapshot(descriptor.yjsSessionId, bridgeParams)
+  } catch (error) {
+    if (!(error instanceof SocketServerBridgeError) || error.status !== 404) {
+      throw error
+    }
+  }
+
+  const resolved = await bootstrapReviewTarget(descriptor)
+  if (!resolved.runtime) {
+    throw new ReviewTargetBootstrapError(500, 'Bootstrap runtime missing')
+  }
+
+  if (resolved.runtime.docState === 'expired') {
+    return {
+      snapshotBase64: '',
+      descriptor: resolved.descriptor,
+      runtime: resolved.runtime,
+    }
+  }
+
+  const state = await getPersistedYjsState(resolved.descriptor.yjsSessionId)
+  if (!state) {
+    throw new ReviewTargetBootstrapError(500, 'Snapshot not available after bootstrap')
+  }
+
+  return {
+    snapshotBase64: Buffer.from(state).toString('base64'),
+    descriptor: resolved.descriptor,
+    runtime: resolved.runtime,
   }
 }
 

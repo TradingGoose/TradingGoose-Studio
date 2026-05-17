@@ -3,23 +3,6 @@ import { customTools, mcpServers, pineIndicators, skill } from '@tradinggoose/db
 import { and, eq, isNull } from 'drizzle-orm'
 import type { SavedEntityKind } from '@/lib/yjs/entity-state'
 
-export async function loadEntityByKind(
-  entityKind: SavedEntityKind,
-  entityId: string,
-  workspaceId: string
-) {
-  switch (entityKind) {
-    case 'skill':
-      return loadSkill(entityId, workspaceId)
-    case 'custom_tool':
-      return loadCustomTool(entityId, workspaceId)
-    case 'indicator':
-      return loadIndicator(entityId, workspaceId)
-    case 'mcp_server':
-      return loadMcpServer(entityId, workspaceId)
-  }
-}
-
 export async function resolveEntityWorkspaceId(
   entityKind: SavedEntityKind,
   entityId: string

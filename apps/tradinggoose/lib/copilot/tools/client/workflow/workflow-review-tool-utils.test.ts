@@ -64,8 +64,6 @@ describe('workflow-review-tool-utils', () => {
       },
       'workflow-live'
     )
-
-    expect(result.source).toBe('live')
     expect(result.workflowId).toBe('workflow-live')
     expect(result.entityName).toBe('Live Workflow')
     expect(result.workspaceId).toBe('workspace-live')
@@ -105,8 +103,6 @@ describe('workflow-review-tool-utils', () => {
       },
       'workflow-db'
     )
-
-    expect(result.source).toBe('yjs')
     expect(result.workflowId).toBe('workflow-db')
     expect(result.entityName).toBe('Background Workflow')
     expect(result.workspaceId).toBe('workspace-db')

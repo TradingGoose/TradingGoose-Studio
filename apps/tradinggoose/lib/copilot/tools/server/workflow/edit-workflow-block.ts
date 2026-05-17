@@ -13,7 +13,7 @@ interface EditWorkflowBlockParams {
   name?: string
   enabled?: boolean
   subBlocks?: Record<string, unknown>
-  currentWorkflowState?: string
+  currentWorkflowState: string
 }
 
 function normalizeOptionalString(value?: string): string | undefined {
@@ -79,7 +79,6 @@ export const editWorkflowBlockServerTool: BaseServerTool<EditWorkflowBlockParams
       hasName: !!nextName,
       hasEnabled: enabled !== undefined,
       subBlockCount: Object.keys(nextSubBlocks).length,
-      hasCurrentWorkflowState: !!currentWorkflowState,
     })
 
     const baseWorkflowState = await loadBaseWorkflowState(workflowId, currentWorkflowState)

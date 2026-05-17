@@ -9,10 +9,6 @@ vi.mock('@/lib/workflows/validation', () => ({
   }),
 }))
 
-vi.mock('@/lib/workflows/db-helpers', () => ({
-  loadWorkflowFromNormalizedTables: vi.fn(),
-}))
-
 const INPUT_TRIGGER_CURRENT_WORKFLOW_STATE = JSON.stringify({
   blocks: {
     input1: {

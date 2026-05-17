@@ -89,7 +89,6 @@ describe('workflow output tools', () => {
       variables: {
         'var-1': { id: 'var-1', name: 'riskLimit', type: 'number' },
       },
-      source: 'live',
     })
 
     const toolCallId = 'read-block-outputs'
@@ -173,7 +172,6 @@ describe('workflow output tools', () => {
       variables: {
         'var-1': { id: 'var-1', name: 'riskLimit', type: 'number' },
       },
-      source: 'live',
     })
 
     const toolCallId = 'read-block-upstream-references'

@@ -150,7 +150,7 @@ export class EditWorkflowClientTool extends BaseClientTool {
   protected buildServerPayload(
     workflowId: string,
     args: Record<string, any> | undefined,
-    currentWorkflowState: string | undefined
+    currentWorkflowState: string
   ): Record<string, any> {
     const workflowDocument = args?.workflowDocument?.trim()
     if (!workflowDocument) {
@@ -161,7 +161,7 @@ export class EditWorkflowClientTool extends BaseClientTool {
       workflowId,
       workflowDocument,
       ...(args?.documentFormat ? { documentFormat: args.documentFormat } : {}),
-      ...(currentWorkflowState ? { currentWorkflowState } : {}),
+      currentWorkflowState,
     }
   }
 
@@ -198,14 +198,9 @@ export class EditWorkflowClientTool extends BaseClientTool {
       })
       this.lastWorkflowId = workflowId
 
-      let currentWorkflowState: string | undefined
-      let entityName: string | undefined
-      let readableWorkspaceId: string | null = null
+      let readableWorkflow: Awaited<ReturnType<typeof getReadableWorkflowState>>
       try {
-        const readableWorkflow = await getReadableWorkflowState(executionContext, workflowId)
-        currentWorkflowState = JSON.stringify(readableWorkflow.workflowState)
-        entityName = readableWorkflow.entityName
-        readableWorkspaceId = readableWorkflow.workspaceId
+        readableWorkflow = await getReadableWorkflowState(executionContext, workflowId)
       } catch (e) {
         logger.warn(
           'Failed to build currentWorkflowState from readable workflow snapshot',
@@ -216,7 +211,11 @@ export class EditWorkflowClientTool extends BaseClientTool {
 
       const result = (await executeCopilotServerTool({
         toolName: this.getServerToolName(),
-        payload: this.buildServerPayload(workflowId, args, currentWorkflowState),
+        payload: this.buildServerPayload(
+          workflowId,
+          args,
+          JSON.stringify(readableWorkflow.workflowState)
+        ),
         signal: this.getAbortSignal(),
       })) as any
       if (!result.workflowState) {
@@ -230,8 +229,8 @@ export class EditWorkflowClientTool extends BaseClientTool {
         ...result,
         ...buildWorkflowDocumentToolResult({
           workflowId,
-          entityName,
-          workspaceId: readableWorkspaceId ?? workspaceId,
+          entityName: readableWorkflow.entityName,
+          workspaceId: readableWorkflow.workspaceId ?? workspaceId,
           entityDocument: result.entityDocument,
         }),
       }

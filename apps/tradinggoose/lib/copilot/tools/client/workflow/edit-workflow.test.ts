@@ -76,7 +76,6 @@ describe('EditWorkflowClientTool approval gating', () => {
       workflowId: 'wf-1',
       entityName: 'Workflow 1',
       workspaceId: 'workspace-1',
-      source: 'live',
       workflowState: {
         blocks: {
           'block-1': {
@@ -184,7 +183,6 @@ describe('EditWorkflowClientTool approval gating', () => {
   it('stages workflow edits from a readable workflow snapshot when no live session is registered yet', async () => {
     mockGetReadableWorkflowState.mockResolvedValueOnce({
       workflowId: 'wf-1',
-      source: 'yjs',
       workflowState: {
         blocks: {
           'block-1': {
