@@ -164,7 +164,6 @@ const EditWorkflowArgs = z
       ),
     documentFormat: z.literal(TG_MERMAID_DOCUMENT_FORMAT).optional(),
     workflowId: RequiredId,
-    currentWorkflowState: z.string().optional(),
   })
   .strict()
   .describe(
@@ -195,7 +194,6 @@ const EditWorkflowBlockArgs = z
       .describe(
         'Partial patch for the selected block only: map changed canonical sub-block ids to replacement values. Do not send a full workflow document, unchanged fields, or invented keys. Use `get_blocks_metadata` for canonical ids and `read_workflow` for current derived sub-block entries.'
       ),
-    currentWorkflowState: z.string().optional(),
   })
   .strict()
   .describe(
@@ -565,14 +563,11 @@ const WorkflowTargetEnvelope = z.object({
   entityId: z.string(),
   entityName: z.string().optional(),
   workspaceId: z.string().optional(),
-  workflowId: z.string(),
-  workflowName: z.string().optional(),
 })
 
 const WorkflowDocumentEnvelope = WorkflowTargetEnvelope.extend({
   documentFormat: z.literal(TG_MERMAID_DOCUMENT_FORMAT),
   entityDocument: z.string(),
-  workflowDocument: z.string(),
 })
 
 const WorkflowSummaryResult = z.object({
@@ -584,6 +579,12 @@ const WorkflowSummaryResult = z.object({
       enabled: z.boolean().optional(),
       parentId: z.string().optional(),
       subBlockIds: z.array(z.string()),
+      connections: z.object({
+        externalIn: z.number(),
+        externalOut: z.number(),
+        internalIn: z.number(),
+        internalOut: z.number(),
+      }),
     })
   ),
   edges: z.array(
@@ -592,6 +593,7 @@ const WorkflowSummaryResult = z.object({
       target: z.string(),
       sourceHandle: z.string().optional(),
       targetHandle: z.string().optional(),
+      scope: z.enum(['external', 'internal']),
     })
   ),
   connectionIssues: z.array(
@@ -612,7 +614,7 @@ const WorkflowReadDocumentEnvelope = WorkflowDocumentEnvelope.extend({
 
 const GenericEntityListEntry = z.object({
   entityId: z.string(),
-  entityName: z.string(),
+  entityName: z.string().optional(),
   workspaceId: z.string().optional(),
   entityDescription: z.string().optional(),
   entityTitle: z.string().optional(),

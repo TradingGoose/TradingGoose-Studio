@@ -637,9 +637,9 @@ export function InlineToolCall({
           </Button>
         ) : null}
       </div>
-      {isExpandableTool && expanded && <div className='pr-1 pl-5'>{renderPendingDetails()}</div>}
+      {isExpandableTool && expanded && <div className='px-1'>{renderPendingDetails()}</div>}
       {entityReviewPayload ? (
-        <div className='pr-1 pl-5'>
+        <div className='px-1'>
           <div className='flex flex-col gap-3 rounded-md border border-border/60 bg-card/60 p-3'>
             <div className='font-medium text-[11px] text-muted-foreground uppercase tracking-wide'>
               {entityReviewPayload.title}
@@ -656,7 +656,7 @@ export function InlineToolCall({
         </div>
       ) : null}
       {showWorkflowReview && workflowReviewPayload ? (
-        <div className='pr-1 pl-5'>
+        <div className='px-1'>
           <div className='flex flex-col gap-3 rounded-md border border-border/60 bg-card/60 p-3'>
             {workflowReviewPayload.addedBlocksCount > 0 ||
             workflowReviewPayload.removedBlocksCount > 0 ||

@@ -222,7 +222,8 @@ export async function POST(req: NextRequest) {
     const yjsSeedResult = await tryApplyWorkflowState(
       workflowId,
       defaultWorkflowSnapshot,
-      remappedVariables
+      remappedVariables,
+      name
     )
     if (yjsSeedResult.success) {
       logger.info(`[${requestId}] Seeded Yjs doc for new workflow ${workflowId}`)

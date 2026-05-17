@@ -3,6 +3,7 @@ import { resolveSystemServiceConfig, resolveSystemServiceSettingsConfig } from '
 type ServiceConfigRecord = Record<string, unknown>
 type ApiKeyConfig = { apiKey: string | null }
 type ApiKeyAndBaseUrlConfig = { apiKey: string | null; baseUrl: string | null }
+type ResendServiceConfig = ApiKeyConfig & { audienceId: string | null }
 
 const ROTATION_KEY_FIELDS = ['rotationKey1', 'rotationKey2', 'rotationKey3'] as const
 
@@ -18,10 +19,7 @@ function asBoolean(value: unknown): boolean {
   return value === true
 }
 
-function createServiceResolver<T>(
-  serviceId: string,
-  mapper: (config: ServiceConfigRecord) => T
-) {
+function createServiceResolver<T>(serviceId: string, mapper: (config: ServiceConfigRecord) => T) {
   return async (): Promise<T> => mapper(await resolveSystemServiceConfig(serviceId))
 }
 
@@ -87,10 +85,13 @@ export const resolveSerperServiceConfig = createServiceResolver('serper', readAp
 
 export const resolveExaServiceConfig = createServiceResolver('exa', readApiKeyConfig)
 
-export const resolveResendServiceConfig = createServiceResolver('resend', (config) => ({
-  apiKey: asString(config.apiKey),
-  audienceId: asString(config.audienceId),
-}))
+export const resolveResendServiceConfig = createServiceResolver<ResendServiceConfig>(
+  'resend',
+  (config) => ({
+    apiKey: asString(config.apiKey),
+    audienceId: asString(config.audienceId),
+  })
+)
 
 export const resolveAzureCommunicationEmailServiceConfig = createServiceResolver(
   'azure_communication_email',
@@ -115,15 +116,9 @@ export const resolveOllamaServiceConfig = createServiceResolver('ollama', (confi
 
 export const resolveVllmServiceConfig = createServiceResolver('vllm', readApiKeyAndBaseUrlConfig)
 
-export const resolveFireworksServiceConfig = createServiceResolver(
-  'fireworks',
-  readApiKeyConfig
-)
+export const resolveFireworksServiceConfig = createServiceResolver('fireworks', readApiKeyConfig)
 
-export const resolveElevenLabsServiceConfig = createServiceResolver(
-  'elevenlabs',
-  readApiKeyConfig
-)
+export const resolveElevenLabsServiceConfig = createServiceResolver('elevenlabs', readApiKeyConfig)
 
 export const resolveGitHubServiceConfig = createServiceResolver('github', (config) => ({
   token: asString(config.token),

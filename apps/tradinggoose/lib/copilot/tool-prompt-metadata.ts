@@ -25,13 +25,13 @@ export const TOOL_PROMPT_METADATA: Record<ToolId, ToolPromptMetadata> = {
   },
   [CopilotTool.read_workflow]: {
     description:
-      'Read a workflow by exact `workflowId` and return Mermaid in `workflowDocument` and `entityDocument`, plus `workflowSummary.blocks`, exact raw `workflowSummary.edges` handles, and `workflowSummary.connectionIssues`. If `connectionIssues` is non-empty, the workflow wiring is not healthy.',
+      'Read a workflow by exact `workflowId` and return Mermaid in `entityDocument`, plus `workflowSummary.blocks[].connections` counts and exact raw `workflowSummary.edges` with external/internal scope. For topology, use only these edges/counts; do not infer graph connections from subBlock text references like `<...>`. `connectionIssues` only reports malformed existing edges.',
     kind: 'read',
     entityKind: 'workflow',
   },
   create_workflow: {
     description:
-      'Create a new workflow in the current workspace or provided `workspaceId`, then return its `workflowId` and metadata. Use `edit_workflow` next to author the workflow document.',
+      'Create a new workflow in the current workspace or provided `workspaceId`, then return its workflow `entityId` and metadata. Use that `entityId` as `workflowId` with `edit_workflow` next to author the workflow document.',
     kind: 'create',
     entityKind: 'workflow',
   },

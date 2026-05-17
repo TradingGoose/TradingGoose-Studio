@@ -169,7 +169,9 @@ async function createWorkspace(userId: string, name: string) {
           parallels: workflowState.parallels,
           lastSaved,
           isDeployed: false,
-        })
+        }),
+        undefined,
+        'default-agent'
       ),
       saveWorkflowToNormalizedTables(workflowId, workflowState),
     ])

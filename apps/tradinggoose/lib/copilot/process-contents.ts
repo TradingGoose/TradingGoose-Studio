@@ -11,13 +11,19 @@ import {
   workspace,
 } from '@tradinggoose/db/schema'
 import { and, asc, eq, isNull } from 'drizzle-orm'
-import { verifyWorkflowAccess } from '@/lib/copilot/review-sessions/permissions'
+import * as Y from 'yjs'
+import {
+  verifyReviewTargetAccess,
+  verifyWorkflowAccess,
+} from '@/lib/copilot/review-sessions/permissions'
 import { REVIEW_ITEM_KINDS } from '@/lib/copilot/review-sessions/thread-history'
 import { createLogger } from '@/lib/logs/console/logger'
-import { buildWorkspaceAccessScope, checkWorkspaceAccess } from '@/lib/permissions/utils'
+import { buildWorkspaceAccessScope } from '@/lib/permissions/utils'
 import { escapeRegExp } from '@/lib/utils'
-import { loadWorkflowState } from '@/lib/workflows/db-helpers'
 import { sanitizeForCopilot } from '@/lib/workflows/json-sanitizer'
+import { readWorkflowSnapshot, type WorkflowSnapshot } from '@/lib/yjs/workflow-session'
+import { readBootstrappedReviewTargetSnapshot } from '@/lib/yjs/server/bootstrap-review-target'
+import { getEntityFields } from '@/lib/yjs/entity-session'
 import type { ChatContext } from '@/stores/copilot/types'
 import { readCopilotWorkspaceEntityContext } from '@/widgets/widgets/copilot/workspace-entities'
 
@@ -47,7 +53,6 @@ export interface AgentContext {
 }
 
 const logger = createLogger('ProcessContents')
-type CopilotWorkflowState = NonNullable<Awaited<ReturnType<typeof loadWorkflowState>>>
 
 // Server-side variant (recommended for use in API routes)
 export async function processContextsServer(
@@ -78,24 +83,20 @@ export async function processContextsServer(
           entityKind,
           entityId: entityContext.entityId,
           userId,
-          workspaceId: resolveContextWorkspaceId(
-            entityContext.workspaceId ?? undefined,
-            workspaceId,
-            ctx
-          ),
+          workspaceId: entityContext.workspaceId ?? workspaceId ?? null,
           tag,
         })
       }
 
       if (ctx.kind === 'past_chat' && ctx.reviewSessionId) {
-        return await processPastChatFromDb(
+        return await processPastChatContext(
           ctx.reviewSessionId,
           userId,
           ctx.label ? `@${ctx.label}` : '@'
         )
       }
       if (ctx.kind === 'knowledge' && ctx.knowledgeId) {
-        return await processKnowledgeFromDb(
+        return await processKnowledgeContext(
           ctx.knowledgeId,
           ctx.label ? `@${ctx.label}` : '@'
         )
@@ -104,20 +105,20 @@ export async function processContextsServer(
         return await processBlocksMetadata(ctx.blockTypes ?? [], ctx.label ? `@${ctx.label}` : '@')
       }
       if (ctx.kind === 'templates' && ctx.templateId) {
-        return await processTemplateFromDb(
+        return await processTemplateContext(
           ctx.templateId,
           ctx.label ? `@${ctx.label}` : '@'
         )
       }
       if (ctx.kind === 'logs' && ctx.executionId) {
-        return await processExecutionLogFromDb(
+        return await processExecutionLogContext(
           ctx.executionId,
           userId,
           ctx.label ? `@${ctx.label}` : '@'
         )
       }
       if (ctx.kind === 'workflow_block' && ctx.workflowId && ctx.blockId) {
-        return await processWorkflowBlockFromDb(ctx.workflowId, ctx.blockId, userId, ctx.label)
+        return await processWorkflowBlockContext(ctx.workflowId, ctx.blockId, userId, ctx.label)
       }
       if (ctx.kind === 'docs') {
         try {
@@ -152,21 +153,6 @@ export async function processContextsServer(
   return filtered
 }
 
-function resolveContextWorkspaceId(
-  contextWorkspaceId: string | undefined,
-  requestWorkspaceId: string | undefined,
-  context: ChatContext
-): string | null {
-  const resolvedWorkspaceId = contextWorkspaceId ?? requestWorkspaceId ?? null
-  if (!resolvedWorkspaceId) {
-    logger.warn('Skipping copilot entity context without workspaceId', {
-      kind: context.kind,
-      label: context.label,
-    })
-  }
-  return resolvedWorkspaceId
-}
-
 async function processEntityContext(params: {
   contextKind:
     | 'skill'
@@ -183,13 +169,20 @@ async function processEntityContext(params: {
   workspaceId: string | null
   tag: string
 }): Promise<AgentContext | null> {
-  if (!params.workspaceId) {
-    return null
-  }
-
   try {
-    const access = await checkWorkspaceAccess(params.workspaceId, params.userId)
-    if (!access.exists || !access.hasAccess) {
+    const access = await verifyReviewTargetAccess(
+      params.userId,
+      {
+        entityKind: params.entityKind,
+        entityId: params.entityId,
+        draftSessionId: null,
+        reviewSessionId: null,
+        workspaceId: params.workspaceId,
+        yjsSessionId: params.entityId,
+      },
+      'read'
+    )
+    if (!access.hasAccess || !access.workspaceId) {
       logger.warn('Skipping unauthorized copilot entity context', {
         entityKind: params.entityKind,
         entityId: params.entityId,
@@ -199,25 +192,24 @@ async function processEntityContext(params: {
       return null
     }
 
-    const { loadEntityByKind } = await import('@/lib/yjs/server/entity-loaders')
-
-    const row = await loadEntityByKind(params.entityKind, params.entityId, params.workspaceId)
-
-    if (!row) {
-      logger.warn('No entity data found for copilot context', {
-        entityKind: params.entityKind,
-        entityId: params.entityId,
-        workspaceId: params.workspaceId,
-      })
-      return null
-    }
-    const { applySavedEntityYjsStateToRow } = await import('@/lib/yjs/entity-state')
-    const entity = await applySavedEntityYjsStateToRow(params.entityKind, row)
+    const fields = await readCopilotEntityFieldsFromYjs(
+      params.entityKind,
+      params.entityId,
+      access.workspaceId
+    )
 
     return {
       type: params.contextKind,
       tag: params.tag,
-      content: JSON.stringify(serializeEntityContext(params.entityKind, entity), null, 2),
+      content: JSON.stringify(
+        serializeEntityContext(params.entityKind, {
+          id: params.entityId,
+          workspaceId: access.workspaceId,
+          ...fields,
+        }),
+        null,
+        2
+      ),
     }
   } catch (error) {
     logger.error('Error processing entity context', {
@@ -227,6 +219,47 @@ async function processEntityContext(params: {
       error,
     })
     return null
+  }
+}
+
+async function readCopilotEntityFieldsFromYjs(
+  entityKind: 'skill' | 'indicator' | 'custom_tool' | 'mcp_server',
+  entityId: string,
+  workspaceId: string
+): Promise<Record<string, unknown>> {
+  const fields = await readBootstrappedCopilotYjsDoc(
+    {
+      workspaceId,
+      entityKind,
+      entityId,
+      draftSessionId: null,
+      reviewSessionId: null,
+      yjsSessionId: entityId,
+    },
+    (doc) => getEntityFields(doc, entityKind)
+  )
+  if (!fields) {
+    throw new Error('Saved entity Yjs snapshot is empty')
+  }
+
+  return fields
+}
+
+async function readBootstrappedCopilotYjsDoc<T>(
+  descriptor: Parameters<typeof readBootstrappedReviewTargetSnapshot>[0],
+  read: (doc: Y.Doc) => T
+): Promise<T | null> {
+  const snapshot = await readBootstrappedReviewTargetSnapshot(descriptor)
+  if (!snapshot.snapshotBase64) {
+    return null
+  }
+
+  const doc = new Y.Doc()
+  try {
+    Y.applyUpdate(doc, Buffer.from(snapshot.snapshotBase64, 'base64'))
+    return read(doc)
+  } finally {
+    doc.destroy()
   }
 }
 
@@ -269,8 +302,8 @@ function serializeEntityContext(
         id: row.id ?? null,
         workspaceId: row.workspaceId ?? null,
         title: row.title ?? null,
-        schema: row.schema ?? null,
-        code: row.code ?? null,
+        schema: parseStructuredTextField(row.schemaText ?? row.schema),
+        code: row.codeText ?? row.code ?? null,
       }
     case 'mcp_server':
       return {
@@ -344,7 +377,7 @@ function sanitizeMessageForDocs(rawMessage: string, contexts: ChatContext[] | un
   return result
 }
 
-async function processPastChatFromDb(
+async function processPastChatContext(
   reviewSessionId: string,
   userId: string,
   tag: string
@@ -403,14 +436,14 @@ async function processPastChatFromDb(
       .filter((s: string) => s.length > 0)
       .join('\n')
 
-    logger.info('Processed past_chat context from DB', {
+    logger.info('Processed past_chat context', {
       reviewSessionId,
       length: content.length,
       lines: content ? content.split('\n').length : 0,
     })
     return { type: 'past_chat', tag, content }
   } catch (error) {
-    logger.error('Error processing past chat from db', { reviewSessionId, error })
+    logger.error('Error processing past chat context', { reviewSessionId, error })
     return null
   }
 }
@@ -427,7 +460,7 @@ async function processWorkflowContext({
   kind: 'workflow' | 'current_workflow'
 }): Promise<AgentContext | null> {
   try {
-    const workflowState = await loadCopilotWorkflowState(workflowId, userId)
+    const workflowState = await readCopilotWorkflowStateFromYjs(workflowId, userId)
     if (!workflowState) {
       return null
     }
@@ -443,7 +476,6 @@ async function processWorkflowContext({
     const content = JSON.stringify(sanitizedState, null, 2)
     logger.info('Processed sanitized workflow context', {
       workflowId,
-      source: workflowState.source,
       blocks: Object.keys(sanitizedState.blocks || {}).length,
     })
     // Use the provided kind for the type
@@ -454,7 +486,7 @@ async function processWorkflowContext({
   }
 }
 
-async function processKnowledgeFromDb(
+async function processKnowledgeContext(
   knowledgeBaseId: string,
   tag: string
 ): Promise<AgentContext | null> {
@@ -489,7 +521,7 @@ async function processKnowledgeFromDb(
     const content = JSON.stringify(summary)
     return { type: 'knowledge', tag, content }
   } catch (error) {
-    logger.error('Error processing knowledge context (db)', { knowledgeBaseId, error })
+    logger.error('Error processing knowledge context', { knowledgeBaseId, error })
     return null
   }
 }
@@ -521,7 +553,7 @@ async function processBlocksMetadata(
   }
 }
 
-async function processTemplateFromDb(
+async function processTemplateContext(
   templateId: string,
   tag: string
 ): Promise<AgentContext | null> {
@@ -555,19 +587,19 @@ async function processTemplateFromDb(
     const content = JSON.stringify(summary)
     return { type: 'templates', tag, content }
   } catch (error) {
-    logger.error('Error processing template context (db)', { templateId, error })
+    logger.error('Error processing template context', { templateId, error })
     return null
   }
 }
 
-async function processWorkflowBlockFromDb(
+async function processWorkflowBlockContext(
   workflowId: string,
   blockId: string,
   userId: string,
   label?: string
 ): Promise<AgentContext | null> {
   try {
-    const workflowState = await loadCopilotWorkflowState(workflowId, userId)
+    const workflowState = await readCopilotWorkflowStateFromYjs(workflowId, userId)
     if (!workflowState) return null
     const block = (workflowState.blocks as any)[blockId]
     if (!block) return null
@@ -586,10 +618,10 @@ async function processWorkflowBlockFromDb(
   }
 }
 
-async function loadCopilotWorkflowState(
+async function readCopilotWorkflowStateFromYjs(
   workflowId: string,
   userId: string
-): Promise<CopilotWorkflowState | null> {
+): Promise<WorkflowSnapshot | null> {
   const access = await verifyWorkflowAccess(userId, workflowId, 'read')
   if (!access.hasAccess) {
     logger.warn('Skipping unauthorized copilot workflow context', {
@@ -599,15 +631,26 @@ async function loadCopilotWorkflowState(
     return null
   }
 
-  const workflowState = await loadWorkflowState(workflowId)
+  const workflowState = await readBootstrappedCopilotYjsDoc(
+    {
+      workspaceId: access.workspaceId ?? null,
+      entityKind: 'workflow',
+      entityId: workflowId,
+      draftSessionId: null,
+      reviewSessionId: null,
+      yjsSessionId: workflowId,
+    },
+    readWorkflowSnapshot
+  )
   if (!workflowState) {
-    logger.warn('No workflow data found for copilot context', { workflowId })
+    logger.warn('No workflow Yjs snapshot found for copilot context', { workflowId })
+    return null
   }
 
   return workflowState
 }
 
-async function processExecutionLogFromDb(
+async function processExecutionLogContext(
   executionId: string,
   userId: string,
   tag: string
@@ -627,7 +670,7 @@ async function processExecutionLogFromDb(
         executionData: workflowExecutionLogs.executionData,
         cost: workflowExecutionLogs.cost,
         workflowSummary: workflowExecutionLogs.workflowSummary,
-        workflowName: workflow.name,
+        entityName: workflow.name,
       })
       .from(workflowExecutionLogs)
       .leftJoin(workflow, eq(workflowExecutionLogs.workflowId, workflow.id))
@@ -650,7 +693,7 @@ async function processExecutionLogFromDb(
       startedAt: log.startedAt?.toISOString?.() || String(log.startedAt),
       endedAt: log.endedAt?.toISOString?.() || (log.endedAt ? String(log.endedAt) : null),
       totalDurationMs: log.totalDurationMs ?? null,
-      workflowName: log.workflowName || workflowSummary.name || '',
+      entityName: log.entityName || workflowSummary.name || '',
       // Include trace spans and any available details without being huge
       executionData: log.executionData
         ? {
@@ -664,7 +707,7 @@ async function processExecutionLogFromDb(
     const content = JSON.stringify(summary)
     return { type: 'logs', tag, content }
   } catch (error) {
-    logger.error('Error processing execution log context (db)', { executionId, error })
+    logger.error('Error processing execution log context', { executionId, error })
     return null
   }
 }

@@ -56,6 +56,7 @@ const INTERNAL_YJS_SESSION_PATH = /^\/internal\/yjs\/sessions\/([^/]+)$/
 type ApplyWorkflowStateRequest = {
   workflowState: WorkflowSnapshot
   variables?: Record<string, any>
+  entityName?: string
 }
 
 type SavedEntityKind = Exclude<ReviewEntityKind, 'workflow'>
@@ -168,6 +169,7 @@ function parseApplyWorkflowStateRequest(body: unknown): ApplyWorkflowStateReques
   return {
     workflowState: candidate.workflowState as WorkflowSnapshot,
     variables: candidate.variables as Record<string, any> | undefined,
+    entityName: typeof candidate.entityName === 'string' ? candidate.entityName.trim() : undefined,
   }
 }
 
@@ -203,7 +205,8 @@ function parseApplyEntityStateRequest(body: unknown): ApplyEntityStateRequest {
 function replaceWorkflowDocState(
   doc: Y.Doc,
   workflowState: WorkflowSnapshot,
-  variables?: Record<string, any>
+  variables?: Record<string, any>,
+  entityName?: string
 ): void {
   setWorkflowState(doc, workflowState, YJS_ORIGINS.SYSTEM)
 
@@ -212,7 +215,9 @@ function replaceWorkflowDocState(
   }
 
   doc.transact(() => {
-    getWorkflowMetadataMap(doc).delete('reseededFromCanonical')
+    const metadata = getWorkflowMetadataMap(doc)
+    metadata.delete('reseededFromCanonical')
+    if (entityName) metadata.set('entityName', entityName)
   }, YJS_ORIGINS.SYSTEM)
 }
 
@@ -234,7 +239,7 @@ async function handleInternalYjsWorkflowApplyRequest(
     const doc = liveDoc ?? new Y.Doc()
 
     try {
-      replaceWorkflowDocState(doc, body.workflowState, body.variables)
+      replaceWorkflowDocState(doc, body.workflowState, body.variables, body.entityName)
       await storeState(workflowId, Y.encodeStateAsUpdate(doc))
     } finally {
       if (!liveDoc) doc.destroy()

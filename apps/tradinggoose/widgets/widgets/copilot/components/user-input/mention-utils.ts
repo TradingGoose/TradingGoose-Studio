@@ -75,7 +75,7 @@ export function filterWorkspaceEntitiesForOption(
 export function filterLogs(items: LogItem[], query: string) {
   const normalizedQuery = normalize(query)
   return items.filter((item) =>
-    [item.workflowName, item.trigger || ''].join(' ').toLowerCase().includes(normalizedQuery)
+    [item.entityName, item.trigger || ''].join(' ').toLowerCase().includes(normalizedQuery)
   )
 }
 

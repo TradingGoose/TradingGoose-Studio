@@ -103,8 +103,6 @@ describe('workflow metadata tools', () => {
       entityKind: 'workflow',
       entityId: 'wf-2',
       entityName: 'Created Workflow',
-      workflowId: 'wf-2',
-      workflowName: 'Created Workflow',
       workspaceId: 'ws-1',
     })
   })
@@ -179,8 +177,6 @@ describe('workflow metadata tools', () => {
       entityKind: 'workflow',
       entityId: 'wf-1',
       entityName: 'Renamed Workflow',
-      workflowId: 'wf-1',
-      workflowName: 'Renamed Workflow',
       workspaceId: 'ws-1',
     })
   })

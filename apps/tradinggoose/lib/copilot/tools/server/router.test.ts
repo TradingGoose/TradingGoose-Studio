@@ -5,9 +5,7 @@ const editWorkflowExecute = vi.fn(async () => ({
   entityKind: 'workflow',
   entityId: 'workflow-123',
   entityDocument: 'flowchart TD\n%% TG_WORKFLOW {"version":"tg-mermaid-v1","direction":"TD"}',
-  workflowId: 'workflow-123',
   documentFormat: TG_MERMAID_DOCUMENT_FORMAT,
-  workflowDocument: 'flowchart TD\n%% TG_WORKFLOW {"version":"tg-mermaid-v1","direction":"TD"}',
   workflowState: { blocks: {} },
 }))
 const readWorkflowLogsExecute = vi.fn(async () => ({ entries: [] }))
@@ -184,9 +182,7 @@ describe('copilot contract registry', () => {
     const workflowReadResult = {
       entityKind: 'workflow',
       entityId: 'workflow-123',
-      workflowId: 'workflow-123',
       entityDocument: 'flowchart TD\n%% TG_WORKFLOW {"version":"tg-mermaid-v1","direction":"TD"}',
-      workflowDocument: 'flowchart TD\n%% TG_WORKFLOW {"version":"tg-mermaid-v1","direction":"TD"}',
       documentFormat: TG_MERMAID_DOCUMENT_FORMAT,
       workflowSummary: {
         blocks: [],
@@ -208,8 +204,9 @@ describe('copilot contract registry', () => {
 
     expect(() =>
       getToolContract('read_workflow')?.result.parse({
-        workflowId: 'workflow-123',
-        workflowDocument:
+        entityKind: 'workflow',
+        entityId: 'workflow-123',
+        entityDocument:
           'flowchart TD\n%% TG_WORKFLOW {"version":"tg-mermaid-v1","direction":"TD"}',
         documentFormat: TG_MERMAID_DOCUMENT_FORMAT,
         workflowSummary: {
@@ -338,7 +335,6 @@ describe('routeExecution', () => {
       entityKind: 'workflow',
       entityId: 'workflow-123',
       entityDocument: expect.any(String),
-      workflowDocument: expect.any(String),
       documentFormat: TG_MERMAID_DOCUMENT_FORMAT,
     })
 

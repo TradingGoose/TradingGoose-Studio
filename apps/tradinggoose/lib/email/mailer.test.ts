@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, type Mock, vi } from 'vitest'
 
 const mockSend = vi.fn()
 const mockBatchSend = vi.fn()
+const mockContactsCreate = vi.fn()
 const mockAzureBeginSend = vi.fn()
 const mockAzurePollUntilDone = vi.fn()
 const { mockResolveResendServiceConfig, mockResolveAzureCommunicationEmailServiceConfig } =
@@ -18,6 +19,9 @@ vi.mock('resend', () => {
       },
       batch: {
         send: (...args: any[]) => mockBatchSend(...args),
+      },
+      contacts: {
+        create: (...args: any[]) => mockContactsCreate(...args),
       },
     })),
   }
@@ -49,7 +53,12 @@ vi.mock('@/lib/urls/utils', () => ({
   getBaseUrl: vi.fn().mockReturnValue('https://test.tradinggoose.ai'),
 }))
 
-import { type EmailType, sendBatchEmails, sendEmail } from '@/lib/email/mailer'
+import {
+  addVerifiedUserEmailToAudience,
+  type EmailType,
+  sendBatchEmails,
+  sendEmail,
+} from '@/lib/email/mailer'
 import { generateUnsubscribeToken, isUnsubscribed } from '@/lib/email/unsubscribe'
 
 describe('mailer', () => {
@@ -80,6 +89,12 @@ describe('mailer', () => {
     mockBatchSend.mockResolvedValue({
       data: [{ id: 'batch-email-1' }, { id: 'batch-email-2' }],
       error: null,
+    })
+
+    mockContactsCreate.mockResolvedValue({
+      data: { id: 'contact-123', object: 'contact' },
+      error: null,
+      headers: null,
     })
 
     // Mock successful Azure response
@@ -243,6 +258,54 @@ describe('mailer', () => {
           html: '<p>Content</p><a href="mock-token-123">Unsubscribe</a>',
         })
       )
+    })
+  })
+
+  describe('addVerifiedUserEmailToAudience', () => {
+    it('does nothing when the Resend audience is not configured', async () => {
+      mockResolveResendServiceConfig.mockResolvedValue({
+        apiKey: 'test-api-key',
+        audienceId: null,
+      })
+
+      await addVerifiedUserEmailToAudience({
+        id: 'user-123',
+        email: 'User@example.com',
+      })
+
+      expect(mockContactsCreate).not.toHaveBeenCalled()
+    })
+
+    it('adds a normalized verified email to the configured audience', async () => {
+      await addVerifiedUserEmailToAudience({
+        id: 'user-123',
+        email: ' User@Example.com ',
+      })
+
+      expect(mockContactsCreate).toHaveBeenCalledWith({
+        audienceId: 'audience-123',
+        email: 'user@example.com',
+        unsubscribed: false,
+      })
+    })
+
+    it('does not throw when Resend rejects the contact write', async () => {
+      mockContactsCreate.mockResolvedValue({
+        data: null,
+        error: {
+          message: 'Resend is unavailable',
+          name: 'application_error',
+          statusCode: 500,
+        },
+        headers: null,
+      })
+
+      await expect(
+        addVerifiedUserEmailToAudience({
+          id: 'user-123',
+          email: 'user@example.com',
+        })
+      ).resolves.toBeUndefined()
     })
   })
 

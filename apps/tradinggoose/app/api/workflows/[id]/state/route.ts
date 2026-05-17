@@ -252,7 +252,8 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       await tryApplyWorkflowState(
         workflowId,
         persistedWorkflowState as WorkflowSnapshot,
-        resolvedVariables.value
+        resolvedVariables.value,
+        workflowData.name
       )
     } else {
       logger.warn(

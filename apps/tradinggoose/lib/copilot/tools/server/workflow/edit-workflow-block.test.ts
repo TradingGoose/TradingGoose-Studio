@@ -9,10 +9,6 @@ vi.mock('@/lib/workflows/validation', () => ({
   }),
 }))
 
-vi.mock('@/lib/workflows/db-helpers', () => ({
-  loadWorkflowFromNormalizedTables: vi.fn(),
-}))
-
 const CURRENT_WORKFLOW_STATE = JSON.stringify({
   direction: 'TD',
   blocks: {
@@ -60,8 +56,7 @@ describe('editWorkflowBlockServerTool', () => {
     expect(result.workflowState.blocks.fn1.name).toBe('Compute Market Indicators')
     expect(result.workflowState.blocks.fn1.subBlocks.code.value).toBe('return { rsi: 50 }')
     expect(result.workflowState.edges).toEqual([])
-    expect(result.workflowDocument).toContain('Compute Market Indicators')
-    expect(result.entityDocument).toBe(result.workflowDocument)
+    expect(result.entityDocument).toContain('Compute Market Indicators')
   })
 
   it('rejects non-canonical sub-block ids with structured issues', async () => {

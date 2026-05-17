@@ -15,9 +15,10 @@ const logger = createLogger('ApplyWorkflowState')
 export async function applyWorkflowState(
   workflowId: string,
   workflowState: WorkflowSnapshot,
-  variables?: Record<string, any>
+  variables?: Record<string, any>,
+  entityName?: string
 ): Promise<void> {
-  await applyWorkflowStateInSocketServer(workflowId, workflowState, variables)
+  await applyWorkflowStateInSocketServer(workflowId, workflowState, variables, entityName)
 }
 
 /**
@@ -28,10 +29,11 @@ export async function applyWorkflowState(
 export async function tryApplyWorkflowState(
   workflowId: string,
   workflowState: WorkflowSnapshot,
-  variables?: Record<string, any>
+  variables?: Record<string, any>,
+  entityName?: string
 ): Promise<{ success: boolean; error?: unknown }> {
   try {
-    await applyWorkflowState(workflowId, workflowState, variables)
+    await applyWorkflowState(workflowId, workflowState, variables, entityName)
     return { success: true }
   } catch (error) {
     logger.warn('Failed to apply workflow state to Yjs doc (non-fatal)', {

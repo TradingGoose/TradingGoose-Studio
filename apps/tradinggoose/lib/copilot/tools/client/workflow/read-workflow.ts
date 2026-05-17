@@ -54,8 +54,10 @@ export class ReadWorkflowClientTool extends BaseClientTool {
         workflowId: requestedWorkflowId,
       })
 
-      const { workflowId, workflowName, workflowState, workspaceId } =
-        await getReadableWorkflowState(executionContext, requestedWorkflowId)
+      const { workflowId, entityName, workflowState, workspaceId } = await getReadableWorkflowState(
+        executionContext,
+        requestedWorkflowId
+      )
 
       let workflowDocument = ''
       try {
@@ -79,9 +81,9 @@ export class ReadWorkflowClientTool extends BaseClientTool {
       await this.markToolComplete(200, 'Workflow analyzed', {
         ...buildWorkflowDocumentToolResult({
           workflowId,
-          workflowName,
+          entityName,
           workspaceId,
-          workflowDocument,
+          entityDocument: workflowDocument,
         }),
         workflowSummary: buildWorkflowSummary(workflowState),
       })

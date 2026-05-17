@@ -46,7 +46,7 @@ describe('copilot server tool errors', () => {
     const response = buildCopilotServerToolErrorResponse(
       'edit_workflow',
       new Error(
-        'Invalid container edge: parallel1 end handle only accepts edges from blocks inside that container. Target the parallel1 container block without targetHandle for incoming outer edges.'
+        'Invalid container edge: parallel1 container input requires targetHandle "target" for incoming outer edges.'
       )
     )
 
@@ -59,12 +59,12 @@ describe('copilot server tool errors', () => {
           {
             path: 'workflowDocument.edges',
             message:
-              'Invalid container edge: parallel1 end handle only accepts edges from blocks inside that container. Target the parallel1 container block without targetHandle for incoming outer edges.',
+              'Invalid container edge: parallel1 container input requires targetHandle "target" for incoming outer edges.',
           },
         ],
       }),
     })
-    expect(response.body.hint).toContain('incoming outer workflow edges must target the container')
+    expect(response.body.hint).toContain('targetHandle "target"')
   })
 
   it('preserves embedded workflow sub-block paths in structured edit errors', () => {

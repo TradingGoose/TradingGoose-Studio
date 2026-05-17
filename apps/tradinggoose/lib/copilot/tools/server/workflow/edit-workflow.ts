@@ -14,7 +14,7 @@ interface EditWorkflowParams {
   workflowId: string
   workflowDocument: string
   documentFormat?: string
-  currentWorkflowState?: string
+  currentWorkflowState: string
 }
 
 export const editWorkflowServerTool: BaseServerTool<EditWorkflowParams, any> = {
@@ -33,7 +33,6 @@ export const editWorkflowServerTool: BaseServerTool<EditWorkflowParams, any> = {
     logger.info('Executing edit_workflow', {
       workflowId,
       documentFormat: documentFormat || TG_MERMAID_DOCUMENT_FORMAT,
-      hasCurrentWorkflowState: !!currentWorkflowState,
     })
 
     const baseWorkflowState = await loadBaseWorkflowState(workflowId, currentWorkflowState)

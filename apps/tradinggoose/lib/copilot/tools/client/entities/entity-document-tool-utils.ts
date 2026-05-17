@@ -1,18 +1,15 @@
-import {
-  getEntityDocumentName,
-  type EntityDocumentKind,
-} from '@/lib/copilot/entity-documents'
-import { getDefaultIndicator } from '@/lib/indicators/default'
+import { type EntityDocumentKind, getEntityDocumentName } from '@/lib/copilot/entity-documents'
 import type { ClientToolExecutionContext } from '@/lib/copilot/tools/client/base-tool'
-import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
+import { getDefaultIndicator } from '@/lib/indicators/default'
+import { getEntityFields, replaceEntityTextField, setEntityField } from '@/lib/yjs/entity-session'
+import { buildSavedEntityYjsDescriptor } from '@/lib/yjs/entity-state'
 import {
   bootstrapYjsProvider,
   waitForYjsWriteSync,
   type YjsProviderBootstrapResult,
 } from '@/lib/yjs/provider'
-import { replaceEntityTextField, setEntityField } from '@/lib/yjs/entity-session'
 import { YJS_ORIGINS } from '@/lib/yjs/transaction-origins'
-import { buildSavedEntityYjsDescriptor } from '@/lib/yjs/entity-state'
+import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 
 type EntityListEntry = {
   entityId: string
@@ -46,7 +43,6 @@ export type EntityReadTarget = {
 type EntityApiConfig = {
   listEndpoint: string
   extractList: (data: any) => any[]
-  findById: (items: any[], entityId: string) => any | undefined
   toFields: (item: any) => Record<string, unknown>
   toListEntry: (item: any) => EntityListEntry
 }
@@ -72,7 +68,6 @@ const ENTITY_API_CONFIG: Record<EntityDocumentKind, EntityApiConfig> = {
   skill: {
     listEndpoint: '/api/skills',
     extractList: (data) => (Array.isArray(data?.data) ? data.data : []),
-    findById: (items, entityId) => items.find((item) => item?.id === entityId),
     toFields: (item) => ({
       name: item?.name ?? '',
       description: item?.description ?? '',
@@ -87,7 +82,6 @@ const ENTITY_API_CONFIG: Record<EntityDocumentKind, EntityApiConfig> = {
   custom_tool: {
     listEndpoint: '/api/tools/custom',
     extractList: (data) => (Array.isArray(data?.data) ? data.data : []),
-    findById: (items, entityId) => items.find((item) => item?.id === entityId),
     toFields: (item) => ({
       title: item?.title ?? '',
       schemaText:
@@ -113,7 +107,6 @@ const ENTITY_API_CONFIG: Record<EntityDocumentKind, EntityApiConfig> = {
   indicator: {
     listEndpoint: '/api/indicators/custom',
     extractList: (data) => (Array.isArray(data?.data) ? data.data : []),
-    findById: (items, entityId) => items.find((item) => item?.id === entityId),
     toFields: (item) => ({
       name: item?.name ?? '',
       color: item?.color ?? '',
@@ -132,7 +125,6 @@ const ENTITY_API_CONFIG: Record<EntityDocumentKind, EntityApiConfig> = {
   mcp_server: {
     listEndpoint: '/api/mcp/servers',
     extractList: (data) => (Array.isArray(data?.data?.servers) ? data.data.servers : []),
-    findById: (items, entityId) => items.find((item) => item?.id === entityId),
     toFields: (item) => ({
       name: item?.name ?? '',
       description: item?.description ?? '',
@@ -466,20 +458,16 @@ export async function readEntityFieldsFromContext(
     throw new Error('entityId is required')
   }
 
-  const workspaceId = resolveWorkspaceIdFromExecutionContext(executionContext)
-  const config = ENTITY_API_CONFIG[kind]
-  const items = await fetchEntityList(kind, workspaceId)
-  const match = config.findById(items, resolvedEntityId)
-
-  if (!match) {
-    throw new Error(`Entity ${resolvedEntityId} was not found`)
-  }
-
-  const fields = config.toFields(match)
-  return {
-    entityId: resolvedEntityId,
-    entityName: getEntityDocumentName(kind, fields),
-    fields,
+  const lease = await resolveCopilotEntityYjsSessionLease(executionContext, kind, resolvedEntityId)
+  try {
+    const fields = getEntityFields(lease.session.doc, kind)
+    return {
+      entityId: lease.session.descriptor.entityId ?? resolvedEntityId,
+      entityName: getEntityDocumentName(kind, fields),
+      fields,
+    }
+  } finally {
+    lease.release()
   }
 }
 

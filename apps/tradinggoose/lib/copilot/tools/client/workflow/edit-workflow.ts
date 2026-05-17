@@ -91,8 +91,8 @@ export class EditWorkflowClientTool extends BaseClientTool {
       const resolvedArgs = args || readStoredToolArgs<EditWorkflowArgs>(this.toolCallId)
       const requestedWorkflowId =
         resolvedArgs?.workflowId?.trim() ??
-        (typeof stagedResult?.workflowId === 'string'
-          ? stagedResult.workflowId.trim()
+        (typeof stagedResult?.entityId === 'string'
+          ? stagedResult.entityId.trim()
           : undefined) ??
         this.lastWorkflowId ??
         undefined
@@ -150,7 +150,7 @@ export class EditWorkflowClientTool extends BaseClientTool {
   protected buildServerPayload(
     workflowId: string,
     args: Record<string, any> | undefined,
-    currentWorkflowState: string | undefined
+    currentWorkflowState: string
   ): Record<string, any> {
     const workflowDocument = args?.workflowDocument?.trim()
     if (!workflowDocument) {
@@ -161,7 +161,7 @@ export class EditWorkflowClientTool extends BaseClientTool {
       workflowId,
       workflowDocument,
       ...(args?.documentFormat ? { documentFormat: args.documentFormat } : {}),
-      ...(currentWorkflowState ? { currentWorkflowState } : {}),
+      currentWorkflowState,
     }
   }
 
@@ -193,36 +193,26 @@ export class EditWorkflowClientTool extends BaseClientTool {
       }
 
       // Resolve workflowId
-      const { workflowId, workflowName, workspaceId } = await resolveWorkflowTarget(
-        executionContext,
-        {
-          workflowId: requestedWorkflowId,
-        }
-      )
+      const { workflowId, workspaceId } = await resolveWorkflowTarget(executionContext, {
+        workflowId: requestedWorkflowId,
+      })
       this.lastWorkflowId = workflowId
 
-      let currentWorkflowState: string | undefined
-      try {
-        currentWorkflowState = JSON.stringify(
-          (await getReadableWorkflowState(executionContext, workflowId)).workflowState
-        )
-      } catch (e) {
-        logger.warn(
-          'Failed to build currentWorkflowState from readable workflow snapshot',
-          e as any
-        )
-        throw new Error('Failed to read the current workflow')
-      }
+      const readableWorkflow = await getReadableWorkflowState(executionContext, workflowId)
 
       const result = (await executeCopilotServerTool({
         toolName: this.getServerToolName(),
-        payload: this.buildServerPayload(workflowId, args, currentWorkflowState),
+        payload: this.buildServerPayload(
+          workflowId,
+          args,
+          JSON.stringify(readableWorkflow.workflowState)
+        ),
         signal: this.getAbortSignal(),
       })) as any
       if (!result.workflowState) {
         throw new Error('No workflow state returned from server')
       }
-      if (typeof result.workflowDocument !== 'string') {
+      if (typeof result.entityDocument !== 'string') {
         throw new Error('No workflow document returned from server')
       }
 
@@ -230,9 +220,9 @@ export class EditWorkflowClientTool extends BaseClientTool {
         ...result,
         ...buildWorkflowDocumentToolResult({
           workflowId,
-          workflowName,
-          workspaceId,
-          workflowDocument: result.workflowDocument,
+          entityName: readableWorkflow.entityName,
+          workspaceId: readableWorkflow.workspaceId ?? workspaceId,
+          entityDocument: result.entityDocument,
         }),
       }
       this.hasAppliedState = false

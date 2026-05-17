@@ -1172,6 +1172,17 @@ export function readWorkflowContainerBoundaryEdgeViolation(
   return null
 }
 
+export function readWorkflowEdgeScope(
+  edge: Pick<Edge, 'source' | 'target' | 'sourceHandle' | 'targetHandle'>,
+  blocks: Record<string, BlockState>
+): 'external' | 'internal' {
+  const sourceContext = getEdgeSourceContext(edge, blocks)
+  const targetContext = getEdgeTargetContext(edge, blocks)
+  return sourceContext.some((containerId) => targetContext.includes(containerId))
+    ? 'internal'
+    : 'external'
+}
+
 function getEdgeSourceContext(
   edge: Pick<Edge, 'source' | 'sourceHandle'>,
   blocks: Record<string, BlockState>
