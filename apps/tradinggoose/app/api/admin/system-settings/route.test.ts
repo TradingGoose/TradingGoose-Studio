@@ -340,7 +340,7 @@ describe('/api/admin/system-settings route', () => {
     expect(response.status).toBe(409)
     expect(payload).toEqual({
       error:
-        'Trigger.dev cannot be enabled until TRIGGER_PROJECT_ID or TRIGGER_PROJECT_REF, and TRIGGER_SECRET_KEY are configured.',
+        'Trigger.dev cannot be enabled until TRIGGER_PROJECT_ID and TRIGGER_SECRET_KEY are configured.',
     })
     expect(mockUpsertSystemSettings).not.toHaveBeenCalled()
   })

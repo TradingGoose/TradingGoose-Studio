@@ -166,20 +166,6 @@ describe('trigger settings helper', () => {
     expect(isTriggerConfigurationReady()).toBe(true)
   })
 
-  it('reports ready when Trigger.dev project ref and secret are configured', async () => {
-    vi.resetModules()
-    vi.doMock('@/lib/env', () => ({
-      env: {
-        TRIGGER_PROJECT_REF: 'proj_ref_123',
-        TRIGGER_SECRET_KEY: 'tr_dev_123',
-      },
-    }))
-
-    const { isTriggerConfigurationReady } = await import('@/lib/trigger/settings')
-
-    expect(isTriggerConfigurationReady()).toBe(true)
-  })
-
   it('reports not ready when either Trigger.dev credential is missing', async () => {
     vi.resetModules()
     vi.doMock('@/lib/env', () => ({

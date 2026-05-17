@@ -154,7 +154,7 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json(
         {
           error:
-            'Trigger.dev cannot be enabled until TRIGGER_PROJECT_ID or TRIGGER_PROJECT_REF, and TRIGGER_SECRET_KEY are configured.',
+            'Trigger.dev cannot be enabled until TRIGGER_PROJECT_ID and TRIGGER_SECRET_KEY are configured.',
         },
         { status: 409, headers: NO_STORE_HEADERS }
       )

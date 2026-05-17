@@ -8,16 +8,14 @@ import { env } from './lib/env'
 const configDir = dirname(fileURLToPath(import.meta.url))
 loadDotEnv({ path: resolve(configDir, '.env') })
 
-const triggerProjectRef = process.env.TRIGGER_PROJECT_REF ?? process.env.TRIGGER_PROJECT_ID
+const triggerProjectId = env.TRIGGER_PROJECT_ID?.trim() || process.env.TRIGGER_PROJECT_ID?.trim()
 
-if (!triggerProjectRef) {
-  throw new Error(
-    'Missing TRIGGER_PROJECT_REF or TRIGGER_PROJECT_ID for Trigger.dev project configuration.'
-  )
+if (!triggerProjectId) {
+  throw new Error('Missing TRIGGER_PROJECT_ID for Trigger.dev project configuration.')
 }
 
 export default defineConfig({
-  project: env.TRIGGER_PROJECT_ID! || triggerProjectRef,
+  project: triggerProjectId,
   runtime: 'node',
   logLevel: 'log',
   maxDuration: 600,

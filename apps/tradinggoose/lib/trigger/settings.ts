@@ -3,8 +3,7 @@ import { getResolvedSystemSettings } from '@/lib/system-settings/service'
 
 // Trigger.dev credentials remain deployment-owned in env; DB-backed settings only gate execution.
 export function isTriggerConfigurationReady() {
-  const projectRef = env.TRIGGER_PROJECT_ID?.trim() || env.TRIGGER_PROJECT_REF?.trim()
-  return Boolean(projectRef && env.TRIGGER_SECRET_KEY?.trim())
+  return Boolean(env.TRIGGER_PROJECT_ID?.trim() && env.TRIGGER_SECRET_KEY?.trim())
 }
 
 export async function getTriggerExecutionState() {

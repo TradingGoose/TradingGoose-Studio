@@ -95,7 +95,6 @@ function safeCreateEnv() {
 
     // Background Jobs & Scheduling
     TRIGGER_PROJECT_ID: z.string().optional(),                  // Trigger.dev project ID
-    TRIGGER_PROJECT_REF: z.string().optional(),                 // Trigger.dev project ref
     TRIGGER_SECRET_KEY: z.string().min(1).optional(),           // Trigger.dev secret key for background jobs
     CRON_SECRET: z.string().optional(),                  // Secret for authenticating cron job requests
 
