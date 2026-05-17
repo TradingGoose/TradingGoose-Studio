@@ -84,6 +84,7 @@ export async function fetchKnowledgeDocuments({
   if (search) params.set('search', search)
   if (sortBy) params.set('sortBy', sortBy)
   if (sortOrder) params.set('sortOrder', sortOrder)
+  params.set('includeDisabled', 'true')
   params.set('limit', limit.toString())
   params.set('offset', offset.toString())
 
