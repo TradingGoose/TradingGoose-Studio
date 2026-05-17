@@ -160,6 +160,7 @@ export function KnowledgeBase({
     offset: (currentPage - 1) * DOCUMENTS_PER_PAGE,
     sortBy,
     sortOrder,
+    includeDisabled: true,
   })
 
   const router = useRouter()

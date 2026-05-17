@@ -1,9 +1,11 @@
+import { task } from '@trigger.dev/sdk'
 import { withExecutionConcurrencyLimit } from '@/lib/execution/execution-concurrency-limit'
 import {
   prepareDocumentForProcessing,
   processDocumentAsync,
 } from '@/lib/knowledge/documents/service'
 import { createLogger } from '@/lib/logs/console/logger'
+import { isTriggerExecutionEnabled } from '@/lib/trigger/settings'
 
 const logger = createLogger('KnowledgeProcessing')
 
@@ -27,7 +29,7 @@ export type DocumentProcessingPayload = {
   requestId: string
 }
 
-export function isDocumentProcessingPayload(value: unknown): value is DocumentProcessingPayload {
+function isDocumentProcessingPayload(value: unknown): value is DocumentProcessingPayload {
   if (!value || typeof value !== 'object') {
     return false
   }
@@ -42,7 +44,7 @@ export function isDocumentProcessingPayload(value: unknown): value is DocumentPr
   )
 }
 
-export async function executeDocumentProcessingJob(payload: DocumentProcessingPayload) {
+async function executeDocumentProcessingJob(payload: DocumentProcessingPayload) {
   const { knowledgeBaseId, documentId, docData, processingOptions, requestId } = payload
 
   logger.info(`[${requestId}] Starting document pending execution: ${docData.filename}`)
@@ -66,5 +68,22 @@ export async function executeDocumentProcessingJob(payload: DocumentProcessingPa
   } catch (error) {
     logger.error(`[${requestId}] Failed document pending execution: ${docData.filename}`, error)
     throw error
+  }
+}
+
+export const processDocument = task({
+  id: 'knowledge-process-document',
+  run: executeDocumentProcessingJob,
+})
+
+export async function dispatchQueuedDocumentProcessingJob(payload: unknown) {
+  if (!isDocumentProcessingPayload(payload)) {
+    throw new Error('Invalid document pending payload')
+  }
+
+  if (await isTriggerExecutionEnabled()) {
+    await processDocument.triggerAndWait(payload).unwrap()
+  } else {
+    await executeDocumentProcessingJob(payload)
   }
 }
