@@ -1,5 +1,4 @@
 import { findIntroducedNonCanonicalSubBlocks } from '@/lib/workflows/block-config-canonicalization'
-import { loadWorkflowFromNormalizedTables } from '@/lib/workflows/db-helpers'
 import {
   buildWorkflowDocumentPreviewDiff,
   serializeWorkflowToTgMermaid,
@@ -10,25 +9,7 @@ import { normalizeWorkflowStateToMermaidDirection } from '@/lib/workflows/workfl
 import { createWorkflowSnapshot, type WorkflowSnapshot } from '@/lib/yjs/workflow-session'
 import type { WorkflowDirection } from '@/stores/workflows/workflow/types'
 
-async function getCurrentWorkflowStateFromDb(workflowId: string): Promise<WorkflowSnapshot> {
-  const normalized = await loadWorkflowFromNormalizedTables(workflowId)
-  if (!normalized) {
-    throw new Error(`Workflow ${workflowId} not found in database`)
-  }
-
-  return createWorkflowSnapshot({
-    blocks: normalized.blocks || {},
-    edges: normalized.edges || [],
-    loops: normalized.loops || {},
-    parallels: normalized.parallels || {},
-  })
-}
-
-function parseCurrentWorkflowState(currentWorkflowState?: string): WorkflowSnapshot | undefined {
-  if (!currentWorkflowState) {
-    return undefined
-  }
-
+function parseCurrentWorkflowState(currentWorkflowState: string): WorkflowSnapshot {
   try {
     return createWorkflowSnapshot(JSON.parse(currentWorkflowState))
   } catch {
@@ -38,12 +19,12 @@ function parseCurrentWorkflowState(currentWorkflowState?: string): WorkflowSnaps
 
 export async function loadBaseWorkflowState(
   workflowId: string,
-  currentWorkflowState?: string
+  currentWorkflowState: string
 ): Promise<WorkflowSnapshot> {
-  return (
-    parseCurrentWorkflowState(currentWorkflowState) ??
-    (await getCurrentWorkflowStateFromDb(workflowId))
-  )
+  if (!currentWorkflowState) {
+    throw new Error(`Current Yjs workflow state is required for ${workflowId}`)
+  }
+  return parseCurrentWorkflowState(currentWorkflowState)
 }
 
 export function buildWorkflowMutationResult(params: {
@@ -82,16 +63,14 @@ export function buildWorkflowMutationResult(params: {
   finalWorkflowState = createWorkflowSnapshot(normalizedWorkflow.workflowState)
   const preview = buildWorkflowDocumentPreviewDiff(baseWorkflowState, finalWorkflowState)
   const warnings = Array.from(new Set([...orientationWarnings, ...preview.warnings, ...validation.warnings]))
-  const workflowDocument = serializeWorkflowToTgMermaid(finalWorkflowState, { direction })
+  const entityDocument = serializeWorkflowToTgMermaid(finalWorkflowState, { direction })
 
   return {
     success: true,
     entityKind: 'workflow' as const,
     entityId: workflowId,
-    entityDocument: workflowDocument,
-    workflowId,
+    entityDocument,
     documentFormat: TG_MERMAID_DOCUMENT_FORMAT,
-    workflowDocument,
     workflowState: finalWorkflowState,
     preview: {
       ...preview,

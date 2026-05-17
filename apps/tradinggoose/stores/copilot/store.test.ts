@@ -658,7 +658,7 @@ describe('copilot streaming regressions', () => {
           toolCallId: 'tool-1',
           success: true,
           failedDependency: false,
-          result: { workflowDocument: 'flowchart TD' },
+          result: { entityDocument: 'flowchart TD' },
         },
         {
           type: 'response.output_item.added',

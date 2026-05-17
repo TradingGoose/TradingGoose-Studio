@@ -2,21 +2,21 @@
 
 import type { ClientToolExecutionContext } from '@/lib/copilot/tools/client/base-tool'
 import { TG_MERMAID_DOCUMENT_FORMAT } from '@/lib/workflows/document-format'
-import { readWorkflowContainerBoundaryEdgeViolation } from '@/lib/workflows/studio-workflow-mermaid'
 import {
-  createWorkflowSnapshot,
+  readWorkflowContainerBoundaryEdgeViolation,
+  readWorkflowEdgeScope,
+} from '@/lib/workflows/studio-workflow-mermaid'
+import {
+  getVariablesSnapshot,
   readWorkflowSnapshot,
   type WorkflowSnapshot,
 } from '@/lib/yjs/workflow-session'
-import {
-  getRegisteredWorkflowSession,
-  getVariablesForWorkflow,
-} from '@/lib/yjs/workflow-session-registry'
-import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
+import { getRegisteredWorkflowSession } from '@/lib/yjs/workflow-session-registry'
+import { acquireWritableWorkflowSessionLease } from '@/lib/yjs/workflow-shared-session'
 
 type WorkflowTarget = {
   workflowId: string
-  workflowName?: string
+  entityName?: string
   workspaceId?: string | null
 }
 
@@ -28,12 +28,19 @@ export type WorkflowSummary = {
     enabled?: boolean
     parentId?: string
     subBlockIds: string[]
+    connections: {
+      externalIn: number
+      externalOut: number
+      internalIn: number
+      internalOut: number
+    }
   }>
   edges: Array<{
     source: string
     target: string
     sourceHandle?: string
     targetHandle?: string
+    scope: 'external' | 'internal'
   }>
   connectionIssues: Array<{
     edgeIndex: number
@@ -50,48 +57,57 @@ function normalizeWorkflowTargetValue(value?: string | null): string | undefined
   return normalized ? normalized : undefined
 }
 
-function workflowTargetFromRegistry(workflowId: string): WorkflowTarget | undefined {
-  const workflow = useWorkflowRegistry.getState().workflows[workflowId]
-  return workflow
-    ? {
-        workflowId: workflow.id,
-        workflowName: workflow.name || 'Untitled Workflow',
-        workspaceId: workflow.workspaceId ?? null,
-      }
-    : undefined
-}
-
 export function buildWorkflowDocumentToolResult(options: {
   workflowId: string
-  workflowName?: string
+  entityName?: string
   workspaceId?: string | null
-  workflowDocument: string
+  entityDocument: string
 }) {
-  const workflowName = normalizeWorkflowTargetValue(options.workflowName)
+  const entityName = normalizeWorkflowTargetValue(options.entityName)
 
   return {
     entityKind: 'workflow',
     entityId: options.workflowId,
-    ...(workflowName ? { entityName: workflowName, workflowName } : {}),
+    ...(entityName ? { entityName } : {}),
     ...(options.workspaceId ? { workspaceId: options.workspaceId } : {}),
-    entityDocument: options.workflowDocument,
-    workflowId: options.workflowId,
-    workflowDocument: options.workflowDocument,
+    entityDocument: options.entityDocument,
     documentFormat: TG_MERMAID_DOCUMENT_FORMAT,
   }
 }
 
 export function buildWorkflowSummary(workflowState: WorkflowSnapshot): WorkflowSummary {
-  const edges = (workflowState.edges ?? []).map((edge) => ({
-    source: edge.source,
-    target: edge.target,
-    ...(typeof edge.sourceHandle === 'string' ? { sourceHandle: edge.sourceHandle } : {}),
-    ...(typeof edge.targetHandle === 'string' ? { targetHandle: edge.targetHandle } : {}),
-  }))
+  const edges: WorkflowSummary['edges'] = (workflowState.edges ?? []).map((edge) => {
+    return {
+      source: edge.source,
+      target: edge.target,
+      ...(typeof edge.sourceHandle === 'string' ? { sourceHandle: edge.sourceHandle } : {}),
+      ...(typeof edge.targetHandle === 'string' ? { targetHandle: edge.targetHandle } : {}),
+      scope: readWorkflowEdgeScope(edge, workflowState.blocks ?? {}),
+    }
+  })
+  const blockIds = Object.keys(workflowState.blocks ?? {}).sort()
+  const connectionsByBlock = Object.fromEntries(
+    blockIds.map((blockId) => [
+      blockId,
+      { externalIn: 0, externalOut: 0, internalIn: 0, internalOut: 0 },
+    ])
+  )
+
+  edges.forEach((edge) => {
+    const prefix = edge.scope === 'internal' ? 'internal' : 'external'
+    if (connectionsByBlock[edge.source]) {
+      connectionsByBlock[edge.source][`${prefix}Out`] += 1
+    }
+    if (connectionsByBlock[edge.target]) {
+      connectionsByBlock[edge.target][`${prefix}In`] += 1
+    }
+  })
 
   return {
-    blocks: Object.entries(workflowState.blocks ?? {})
-      .map(([blockId, block]) => ({
+    blocks: blockIds.map((blockId) => {
+      const block = workflowState.blocks[blockId]
+
+      return {
         blockId,
         blockType: block.type,
         blockName:
@@ -100,26 +116,22 @@ export function buildWorkflowSummary(workflowState: WorkflowSnapshot): WorkflowS
         ...(typeof block.enabled === 'boolean' ? { enabled: block.enabled } : {}),
         ...(typeof block.data?.parentId === 'string' ? { parentId: block.data.parentId } : {}),
         subBlockIds: Object.keys(block.subBlocks ?? {}).sort(),
-      }))
-      .sort((left, right) => left.blockId.localeCompare(right.blockId)),
+        connections: connectionsByBlock[blockId],
+      }
+    }),
     edges,
     connectionIssues: edges.flatMap((edge, edgeIndex) => {
       const message = readWorkflowContainerBoundaryEdgeViolation(edge, workflowState.blocks ?? {})
-      return message ? [{ edgeIndex, ...edge, message }] : []
+      const { scope: _scope, ...edgeWithoutScope } = edge
+      return message ? [{ edgeIndex, ...edgeWithoutScope, message }] : []
     }),
   }
-}
-
-export function resolveWorkflowWorkspaceId(
-  executionContext: ClientToolExecutionContext
-): string | undefined {
-  return executionContext.workspaceId ?? undefined
 }
 
 export async function listWorkflowsForExecutionContext(
   executionContext: ClientToolExecutionContext
 ): Promise<WorkflowTarget[]> {
-  const workspaceId = resolveWorkflowWorkspaceId(executionContext)
+  const workspaceId = executionContext.workspaceId
   if (!workspaceId) {
     throw new Error('Workspace ID is required to list workflows')
   }
@@ -143,11 +155,12 @@ export async function listWorkflowsForExecutionContext(
 
   return (payload?.data ?? []).flatMap((workflow) => {
     const workflowId = normalizeWorkflowTargetValue(workflow.id)
+    const entityName = normalizeWorkflowTargetValue(workflow.name)
     return workflowId
       ? [
           {
             workflowId,
-            workflowName: workflow.name || 'Untitled Workflow',
+            ...(entityName ? { entityName } : {}),
             workspaceId: workflow.workspaceId ?? null,
           },
         ]
@@ -161,23 +174,13 @@ export async function resolveWorkflowTarget(
 ): Promise<WorkflowTarget> {
   const requestedWorkflowId = normalizeWorkflowTargetValue(options.workflowId)
   if (requestedWorkflowId) {
-    return (
-      workflowTargetFromRegistry(requestedWorkflowId) ?? {
-        workflowId: requestedWorkflowId,
-        workspaceId: executionContext.workspaceId ?? null,
-      }
-    )
+    return {
+      workflowId: requestedWorkflowId,
+      workspaceId: executionContext.workspaceId ?? null,
+    }
   }
 
   throw new Error('Workflow target is required')
-}
-
-function normalizeWorkflowVariables(value: unknown): Record<string, any> {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    return {}
-  }
-
-  return value as Record<string, any>
 }
 
 export async function getReadableWorkflowState(
@@ -185,11 +188,10 @@ export async function getReadableWorkflowState(
   workflowId?: string
 ): Promise<{
   workflowId: string
-  workflowName?: string
+  entityName?: string
   workflowState: WorkflowSnapshot
   workspaceId: string | null
   variables: Record<string, any>
-  source: 'live' | 'api'
 }> {
   const resolvedWorkflowId = normalizeWorkflowTargetValue(workflowId)
   if (!resolvedWorkflowId) {
@@ -197,44 +199,32 @@ export async function getReadableWorkflowState(
   }
 
   const liveSession = getRegisteredWorkflowSession(resolvedWorkflowId)
-  const registryWorkflow = useWorkflowRegistry.getState().workflows[resolvedWorkflowId]
 
   if (liveSession) {
+    const entityName = normalizeWorkflowTargetValue(liveSession.entityName)
     return {
       workflowId: liveSession.workflowId,
-      ...(registryWorkflow?.name ? { workflowName: registryWorkflow.name } : {}),
+      ...(entityName ? { entityName } : {}),
       workflowState: readWorkflowSnapshot(liveSession.doc),
-      workspaceId: registryWorkflow?.workspaceId ?? executionContext.workspaceId ?? null,
-      variables: getVariablesForWorkflow(liveSession.workflowId) ?? {},
-      source: 'live',
+      workspaceId: liveSession.workspaceId ?? null,
+      variables: getVariablesSnapshot(liveSession.doc),
     }
   }
 
-  const response = await fetch(`/api/workflows/${encodeURIComponent(resolvedWorkflowId)}`, {
-    method: 'GET',
-  })
-
-  if (!response.ok) {
-    const bodyText = await response.text().catch(() => '')
-    throw new Error(bodyText || `Failed to read workflow ${resolvedWorkflowId}: ${response.status}`)
-  }
-
-  const payload = (await response.json().catch(() => null)) as {
-    data?: {
-      name?: string | null
-      workspaceId?: string | null
-      state?: (Partial<WorkflowSnapshot> & { variables?: unknown }) | null
-    } | null
-  } | null
-  const rawState = payload?.data?.state ?? {}
-  const { variables, ...snapshotState } = rawState
-
-  return {
+  const lease = await acquireWritableWorkflowSessionLease({
     workflowId: resolvedWorkflowId,
-    ...(payload?.data?.name ? { workflowName: payload.data.name } : {}),
-    workflowState: createWorkflowSnapshot(snapshotState),
-    workspaceId: payload?.data?.workspaceId ?? executionContext.workspaceId ?? null,
-    variables: normalizeWorkflowVariables(variables),
-    source: 'api',
+    workspaceId: executionContext.workspaceId ?? null,
+  })
+  try {
+    const entityName = normalizeWorkflowTargetValue(lease.session.entityName)
+    return {
+      workflowId: lease.session.workflowId,
+      ...(entityName ? { entityName } : {}),
+      workflowState: readWorkflowSnapshot(lease.session.doc),
+      workspaceId: lease.session.workspaceId ?? null,
+      variables: getVariablesSnapshot(lease.session.doc),
+    }
+  } finally {
+    lease.release()
   }
 }

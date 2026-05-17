@@ -41,7 +41,7 @@ export class EditWorkflowBlockClientTool extends EditWorkflowClientTool {
   protected buildServerPayload(
     workflowId: string,
     args: Record<string, any> | undefined,
-    currentWorkflowState: string | undefined
+    currentWorkflowState: string
   ): Record<string, any> {
     const blockId = args?.blockId?.trim()
     if (!blockId) {
@@ -55,7 +55,7 @@ export class EditWorkflowBlockClientTool extends EditWorkflowClientTool {
       ...(args?.name?.trim() ? { name: args.name.trim() } : {}),
       ...(typeof args?.enabled === 'boolean' ? { enabled: args.enabled } : {}),
       ...(args?.subBlocks ? { subBlocks: args.subBlocks } : {}),
-      ...(currentWorkflowState ? { currentWorkflowState } : {}),
+      currentWorkflowState,
     }
   }
 }

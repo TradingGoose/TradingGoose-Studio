@@ -57,7 +57,7 @@ import {
   handleSubscriptionCreated,
   handleSubscriptionDeleted,
 } from '@/lib/billing/webhooks/subscription'
-import { sendEmail } from '@/lib/email/mailer'
+import { addVerifiedUserEmailToAudience, sendEmail } from '@/lib/email/mailer'
 import { quickValidateEmail } from '@/lib/email/validation'
 import { env, getEnv } from '@/lib/env'
 import { isEmailVerificationEnabled } from '@/lib/environment'
@@ -494,6 +494,10 @@ export const auth = betterAuth({
               })
             }
           }
+
+          if (user.emailVerified) {
+            await addVerifiedUserEmailToAudience(user)
+          }
         },
       },
     },
@@ -596,6 +600,11 @@ export const auth = betterAuth({
       if (!result.success) {
         throw new Error(`Failed to send reset password email: ${result.message}`)
       }
+    },
+  },
+  emailVerification: {
+    afterEmailVerification: async (user) => {
+      await addVerifiedUserEmailToAudience(user)
     },
   },
   hooks: {

@@ -13,7 +13,7 @@ describe('copilot runtime tool manifest', () => {
       expect.arrayContaining([
         expect.objectContaining({
           name: 'read_workflow',
-          description: expect.stringContaining('workflowSummary.blocks'),
+          description: expect.stringContaining('connections` counts'),
           parameters: expect.objectContaining({
             required: expect.arrayContaining(['workflowId']),
           }),

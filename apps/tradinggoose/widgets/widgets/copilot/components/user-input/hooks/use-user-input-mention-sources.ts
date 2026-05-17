@@ -203,17 +203,21 @@ export function useUserInputMentionSources({ workspaceId }: UseUserInputMentionS
       const items = Array.isArray(data?.data) ? data.data : []
 
       setLogsList(
-        items.map((item: any) => ({
-          id: item.id,
-          executionId: item.executionId || item.id,
-          level: item.level,
-          trigger: item.trigger || null,
-          startedAt: item.startedAt,
-          workflowName:
-            (item.workflow && (item.workflow.name || item.workflow.title)) ||
-            item.workflowName ||
-            'Untitled Workflow',
-        }))
+        items.flatMap((item: any) => {
+          const entityName = item.workflow && (item.workflow.name || item.workflow.title)
+          return entityName
+            ? [
+                {
+                  id: item.id,
+                  executionId: item.executionId || item.id,
+                  level: item.level,
+                  trigger: item.trigger || null,
+                  startedAt: item.startedAt,
+                  entityName,
+                },
+              ]
+            : []
+        })
       )
     } catch {
     } finally {

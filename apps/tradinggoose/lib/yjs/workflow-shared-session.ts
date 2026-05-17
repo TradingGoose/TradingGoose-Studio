@@ -9,7 +9,12 @@ import {
   waitForYjsWriteSync,
   type YjsProviderBootstrapResult,
 } from '@/lib/yjs/provider'
-import { getVariablesMap, readWorkflowMap, readWorkflowTextFieldsMap } from '@/lib/yjs/workflow-session'
+import {
+  getMetadataMap,
+  getVariablesMap,
+  readWorkflowMap,
+  readWorkflowTextFieldsMap,
+} from '@/lib/yjs/workflow-session'
 import { createYjsUndoTrackedOrigins } from '@/lib/yjs/transaction-origins'
 import {
   registerWorkflowSession,
@@ -36,6 +41,7 @@ export interface SharedWorkflowSessionUser {
 
 interface SharedWorkflowSessionEntry {
   workflowId: string
+  entityName?: string
   workspaceId: string | null
   refCount: number
   destroyTimeout: ReturnType<typeof setTimeout> | null
@@ -195,6 +201,10 @@ async function initializeSharedSession(entry: SharedWorkflowSessionEntry): Promi
     result.provider.on('sync', syncStatus)
 
     entry.result = result
+    entry.workspaceId = result.descriptor.workspaceId ?? entry.workspaceId
+    const entityName = getMetadataMap(result.doc).get('entityName')
+    entry.entityName =
+      typeof entityName === 'string' && entityName.trim() ? entityName.trim() : undefined
     entry.undoManager = undoManager
     entry.syncUndoState = syncUndoState
     entry.cleanup = () => {
@@ -206,6 +216,8 @@ async function initializeSharedSession(entry: SharedWorkflowSessionEntry): Promi
 
     registerWorkflowSession({
       workflowId: entry.workflowId,
+      ...(entry.entityName ? { entityName: entry.entityName } : {}),
+      workspaceId: entry.workspaceId,
       doc: result.doc,
     })
 
@@ -336,6 +348,8 @@ export async function acquireWritableWorkflowSessionLease(args: {
   return {
     session: {
       workflowId: entry.workflowId,
+      ...(entry.entityName ? { entityName: entry.entityName } : {}),
+      workspaceId: entry.workspaceId,
       doc: entry.result.doc,
     },
     release,

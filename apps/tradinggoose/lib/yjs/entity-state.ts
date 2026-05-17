@@ -1,12 +1,12 @@
 import * as Y from 'yjs'
-import {
-  buildYjsTransportEnvelope,
-  serializeYjsTransportEnvelope,
-} from '@/lib/copilot/review-sessions/identity'
 import type {
   ReviewEntityKind,
   ReviewTargetDescriptor,
 } from '@/lib/copilot/review-sessions/types'
+import {
+  buildYjsTransportEnvelope,
+  serializeYjsTransportEnvelope,
+} from '@/lib/copilot/review-sessions/identity'
 import { getEntityFields } from '@/lib/yjs/entity-session'
 import { getYjsSnapshot, SocketServerBridgeError } from '@/lib/yjs/server/snapshot-bridge'
 

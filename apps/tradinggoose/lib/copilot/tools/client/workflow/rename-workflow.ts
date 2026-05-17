@@ -116,8 +116,6 @@ export class RenameWorkflowClientTool extends BaseClientTool {
         entityKind: 'workflow',
         entityId: workflowId,
         entityName: nextName,
-        workflowId,
-        workflowName: nextName,
         workspaceId:
           typeof updatedWorkflow.workspaceId === 'string'
             ? updatedWorkflow.workspaceId

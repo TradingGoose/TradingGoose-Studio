@@ -141,19 +141,19 @@ export const SYSTEM_SERVICE_DEFINITIONS: SystemServiceDefinition[] = [
   {
     id: 'resend',
     displayName: 'Resend',
-    description: 'Transactional email provider and newsletter audience configuration.',
+    description: 'Transactional email provider and verified-user audience configuration.',
     credentialFields: [
       {
         key: 'apiKey',
         label: 'API Key',
-        description: 'Used for system-owned transactional and newsletter email requests.',
+        description: 'Used for system-owned transactional email and audience contact requests.',
       },
     ],
     settingFields: [
       {
         key: 'audienceId',
         label: 'Audience ID',
-        description: 'Newsletter audience id used when subscribing contacts.',
+        description: 'Optional Resend audience id used when adding verified registered users.',
         type: 'text',
       },
     ],
