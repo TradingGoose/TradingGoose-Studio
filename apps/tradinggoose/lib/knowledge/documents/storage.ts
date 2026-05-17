@@ -1,7 +1,9 @@
+import { createLogger } from '@/lib/logs/console/logger'
 import { deleteFile, downloadFile, uploadFile } from '@/lib/uploads/core/storage-service'
 import { extractStorageKey } from '@/lib/uploads/utils/file-utils'
 
 const KNOWLEDGE_STORAGE_CONTEXT = 'knowledge-base'
+const logger = createLogger('KnowledgeDocumentStorage')
 
 export function buildKnowledgeStorageKey(
   workspaceId: string,
@@ -64,11 +66,15 @@ export async function deleteKnowledgeDocumentFiles(fileUrls: string[]) {
   )
 
   await Promise.all(
-    Array.from(keys).map((key) =>
-      deleteFile({
-        key,
-        context: KNOWLEDGE_STORAGE_CONTEXT,
-      })
-    )
+    Array.from(keys).map(async (key) => {
+      try {
+        await deleteFile({
+          key,
+          context: KNOWLEDGE_STORAGE_CONTEXT,
+        })
+      } catch (error) {
+        logger.error(`Failed to delete knowledge document file ${key}:`, error)
+      }
+    })
   )
 }

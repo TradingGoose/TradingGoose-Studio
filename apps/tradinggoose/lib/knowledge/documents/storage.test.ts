@@ -69,18 +69,25 @@ describe('knowledge document storage', () => {
     )
   })
 
-  it('deletes unique owned internal document files from knowledge storage', async () => {
-    vi.mocked(deleteFile).mockResolvedValue(undefined)
+  it('deletes unique owned internal document files without throwing on storage errors', async () => {
+    vi.mocked(deleteFile).mockRejectedValueOnce(new Error('missing blob'))
 
-    await deleteKnowledgeDocumentFiles([
-      '/api/files/serve/vercel/workspace-1%2Fkb-1%2Freport.pdf?context=knowledge-base',
-      '/api/files/serve/vercel/workspace-1%2Fkb-1%2Freport.pdf?context=knowledge-base',
-      'https://example.com/external.pdf',
-    ])
+    await expect(
+      deleteKnowledgeDocumentFiles([
+        '/api/files/serve/vercel/workspace-1%2Fkb-1%2Freport.pdf?context=knowledge-base',
+        '/api/files/serve/vercel/workspace-1%2Fkb-1%2Freport.pdf?context=knowledge-base',
+        '/api/files/serve/vercel/workspace-1%2Fkb-1%2Fother.pdf?context=knowledge-base',
+        'https://example.com/external.pdf',
+      ])
+    ).resolves.toBeUndefined()
 
-    expect(deleteFile).toHaveBeenCalledTimes(1)
+    expect(deleteFile).toHaveBeenCalledTimes(2)
     expect(deleteFile).toHaveBeenCalledWith({
       key: 'workspace-1/kb-1/report.pdf',
+      context: 'knowledge-base',
+    })
+    expect(deleteFile).toHaveBeenCalledWith({
+      key: 'workspace-1/kb-1/other.pdf',
       context: 'knowledge-base',
     })
   })

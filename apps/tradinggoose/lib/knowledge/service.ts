@@ -310,11 +310,7 @@ export async function copyKnowledgeBaseToWorkspace(
     await copyTransaction
   } catch (error) {
     if (copiedDocuments.length > 0) {
-      try {
-        await deleteKnowledgeDocumentFiles(copiedDocuments.map(({ fileUrl }) => fileUrl))
-      } catch (cleanupError) {
-        logger.error(`[${requestId}] Failed to clean up copied knowledge base files:`, cleanupError)
-      }
+      await deleteKnowledgeDocumentFiles(copiedDocuments.map(({ fileUrl }) => fileUrl))
     }
     throw error
   }
