@@ -7,7 +7,7 @@ import {
   knowledgeBaseTagDefinitions,
   pendingExecution,
 } from '@tradinggoose/db/schema'
-import { and, asc, desc, eq, inArray, isNull, not, sql } from 'drizzle-orm'
+import { and, asc, desc, eq, inArray, isNull, sql } from 'drizzle-orm'
 import {
   checkStorageQuota,
   decrementStorageUsage,
@@ -78,18 +78,7 @@ async function getUnreferencedDocumentFileUrls(targets: DocumentDeletionTarget[]
   const activeReferences = await db
     .select({ fileUrl: document.fileUrl })
     .from(document)
-    .where(
-      and(
-        inArray(document.fileUrl, fileUrls),
-        isNull(document.deletedAt),
-        not(
-          inArray(
-            document.id,
-            targets.map((target) => target.id)
-          )
-        )
-      )
-    )
+    .where(and(inArray(document.fileUrl, fileUrls), isNull(document.deletedAt)))
 
   const stillReferenced = new Set(activeReferences.map((reference) => reference.fileUrl))
   return fileUrls.filter((fileUrl) => !stillReferenced.has(fileUrl))
@@ -131,9 +120,6 @@ async function decrementStorageUsageForDeletedDocuments(
 async function deleteDocumentTargets(targets: DocumentDeletionTarget[], requestId: string) {
   const targetIds = targets.map((target) => target.id)
   const deletedAt = new Date()
-  const fileUrlsToDelete = await getUnreferencedDocumentFileUrls(targets)
-
-  await deleteKnowledgeDocumentFiles(fileUrlsToDelete)
 
   const result = await db.transaction(async (tx) => {
     await tx.delete(embedding).where(inArray(embedding.documentId, targetIds))
@@ -144,8 +130,13 @@ async function deleteDocumentTargets(targets: DocumentDeletionTarget[], requestI
       .returning({ id: document.id })
   })
 
-  await deleteQueuedDocumentExecutions(targetIds)
-  await decrementStorageUsageForDeletedDocuments(targets, requestId)
+  const deletedIds = new Set(result.map((row) => row.id))
+  const deletedTargets = targets.filter((target) => deletedIds.has(target.id))
+  const fileUrlsToDelete = await getUnreferencedDocumentFileUrls(deletedTargets)
+
+  await deleteKnowledgeDocumentFiles(fileUrlsToDelete)
+  await deleteQueuedDocumentExecutions([...deletedIds])
+  await decrementStorageUsageForDeletedDocuments(deletedTargets, requestId)
 
   return result.map((row) => ({ ...row, deletedAt }))
 }

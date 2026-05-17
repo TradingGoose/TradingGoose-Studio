@@ -10,7 +10,10 @@ import {
 import { and, count, eq, inArray, isNotNull, isNull } from 'drizzle-orm'
 import { checkStorageQuota, incrementStorageUsage } from '@/lib/billing/storage'
 import { enqueueDocumentProcessingJobs } from '@/lib/knowledge/documents/service'
-import { copyKnowledgeDocumentFile } from '@/lib/knowledge/documents/storage'
+import {
+  copyKnowledgeDocumentFile,
+  deleteKnowledgeDocumentFiles,
+} from '@/lib/knowledge/documents/storage'
 import type {
   ChunkingConfig,
   CreateKnowledgeBaseData,
@@ -171,7 +174,7 @@ export async function copyKnowledgeBaseToWorkspace(
     }))
   )
 
-  await db.transaction(async (tx) => {
+  const copyTransaction = db.transaction(async (tx) => {
     await tx.insert(knowledgeBase).values({
       id: newKnowledgeBaseId,
       userId,
@@ -302,6 +305,19 @@ export async function copyKnowledgeBaseToWorkspace(
       }
     }
   })
+
+  try {
+    await copyTransaction
+  } catch (error) {
+    if (copiedDocuments.length > 0) {
+      try {
+        await deleteKnowledgeDocumentFiles(copiedDocuments.map(({ fileUrl }) => fileUrl))
+      } catch (cleanupError) {
+        logger.error(`[${requestId}] Failed to clean up copied knowledge base files:`, cleanupError)
+      }
+    }
+    throw error
+  }
 
   if (totalDocumentSize > 0) {
     try {
