@@ -33,6 +33,8 @@ export interface SessionCompleteParams {
   endedAt?: string
   totalDurationMs?: number
   finalOutput?: any
+  success?: boolean
+  errorMessage?: string
   traceSpans?: any[]
   workflowInput?: any
   workspaceId?: string
@@ -153,6 +155,8 @@ export class LoggingSession {
       endedAt,
       totalDurationMs,
       finalOutput,
+      success,
+      errorMessage,
       traceSpans,
       workflowInput,
       workspaceId,
@@ -182,6 +186,8 @@ export class LoggingSession {
         totalDurationMs: duration,
         costSummary,
         finalOutput: finalOutput === undefined ? {} : finalOutput,
+        success,
+        errorMessage,
         traceSpans: traceSpans || [],
         workflowInput,
       })

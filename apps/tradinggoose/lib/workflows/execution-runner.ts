@@ -407,19 +407,17 @@ export async function runPreparedWorkflowExecution(params: {
         }
 
         if (workflowLogStarted) {
-          await loggingSession
-            .complete({
-              endedAt: new Date().toISOString(),
-              totalDurationMs: totalDuration || 0,
-              finalOutput: result.output === undefined ? {} : result.output,
-              traceSpans: traceSpans || [],
-              workflowInput: params.workflowInput,
-              workspaceId,
-              actorUserId: params.actorUserId,
-            })
-            .catch((error) =>
-              logger.error(`[${requestId}] Workflow log completion failed after execution`, error)
-            )
+          await loggingSession.complete({
+            endedAt: new Date().toISOString(),
+            totalDurationMs: totalDuration || 0,
+            finalOutput: result.output === undefined ? {} : result.output,
+            success: result.success,
+            errorMessage: result.error,
+            traceSpans: traceSpans || [],
+            workflowInput: params.workflowInput,
+            workspaceId,
+            actorUserId: params.actorUserId,
+          })
         }
 
         return {
@@ -437,21 +435,17 @@ export async function runPreparedWorkflowExecution(params: {
         const { traceSpans } = buildTraceSpans(executionResultForError)
 
         if (workflowLogStarted) {
-          await loggingSession
-            .completeWithError({
-              endedAt: new Date().toISOString(),
-              totalDurationMs: 0,
-              error: {
-                message: error.message || 'Workflow execution failed',
-                stackTrace: error.stack,
-              },
-              traceSpans,
-              workspaceId,
-              actorUserId: params.actorUserId,
-            })
-            .catch((loggingError) =>
-              logger.error(`[${requestId}] Workflow error log completion failed`, loggingError)
-            )
+          await loggingSession.completeWithError({
+            endedAt: new Date().toISOString(),
+            totalDurationMs: 0,
+            error: {
+              message: error.message || 'Workflow execution failed',
+              stackTrace: error.stack,
+            },
+            traceSpans,
+            workspaceId,
+            actorUserId: params.actorUserId,
+          })
         }
 
         throw error
