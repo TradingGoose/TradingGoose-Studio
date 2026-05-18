@@ -1,4 +1,5 @@
-import { task } from '@trigger.dev/sdk'
+import { task, wait } from '@trigger.dev/sdk'
+import { isDev } from '@/lib/environment'
 import {
   claimNextPendingExecution,
   completePendingExecution,
@@ -6,6 +7,7 @@ import {
   isPendingExecutionStartBlockedError,
   PENDING_EXECUTION_DRAIN_TASK_ID,
   type PendingExecutionClaim,
+  START_BLOCKED_RETRY_DELAY_MS,
 } from '@/lib/execution/pending-execution'
 import { createLogger } from '@/lib/logs/console/logger'
 import {
@@ -24,6 +26,22 @@ const logger = createLogger('PendingExecutionDrain')
 
 type PendingExecutionDrainPayload = {
   billingScopeId: string
+}
+
+const retryDeferredPendingExecution = async (payload: PendingExecutionDrainPayload) => {
+  if (isDev) {
+    setTimeout(
+      () =>
+        void drainPendingExecutionsForBillingScope(payload).catch((error) =>
+          logger.error('Local pending execution drain failed after deferral', error)
+        ),
+      START_BLOCKED_RETRY_DELAY_MS
+    )
+    return
+  }
+
+  await wait.for({ seconds: START_BLOCKED_RETRY_DELAY_MS / 1000 })
+  await drainPendingExecutionsForBillingScope(payload)
 }
 
 async function dispatchPendingExecution(row: PendingExecutionClaim) {
@@ -110,8 +128,8 @@ export async function drainPendingExecutionsForBillingScope(payload: PendingExec
     if (isPendingExecutionStartBlockedError(error)) {
       await deferPendingExecutionStart({
         pendingExecutionId: row.id,
-        billingScopeId: row.billingScopeId,
       })
+      await retryDeferredPendingExecution(payload)
       return {
         success: true,
         pendingExecutionId: row.id,

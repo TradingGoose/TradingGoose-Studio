@@ -57,7 +57,6 @@ export async function executeWorkflowJob(payload: WorkflowExecutionPayload) {
   const eventWriter = await createWorkflowExecutionEventWriter({
     pendingExecutionId: executionId,
     workflowId,
-    enabled: payload.stream === true,
   })
   const executionTarget = payload.executionTarget ?? 'deployed'
   const isLiveExecution = executionTarget === 'live'

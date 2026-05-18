@@ -11,6 +11,7 @@ const {
   completePendingExecutionMock,
   deferPendingExecutionStartMock,
   failQueuedDocumentProcessingJobMock,
+  waitForMock,
 } = vi.hoisted(() => ({
   dispatchQueuedDocumentProcessingJobMock: vi.fn(),
   executeWorkflowJobMock: vi.fn(),
@@ -19,10 +20,14 @@ const {
   completePendingExecutionMock: vi.fn(),
   deferPendingExecutionStartMock: vi.fn(),
   failQueuedDocumentProcessingJobMock: vi.fn(),
+  waitForMock: vi.fn(),
 }))
 
 vi.mock('@trigger.dev/sdk', () => ({
   task: vi.fn((config) => config),
+  wait: {
+    for: waitForMock,
+  },
 }))
 
 vi.mock('@/lib/execution/pending-execution', () => ({
@@ -32,6 +37,11 @@ vi.mock('@/lib/execution/pending-execution', () => ({
   isPendingExecutionStartBlockedError: (error: { code?: string }) =>
     error.code === 'EXECUTION_CONCURRENCY_LIMIT',
   PENDING_EXECUTION_DRAIN_TASK_ID: 'pending-execution-drain',
+  START_BLOCKED_RETRY_DELAY_MS: 5_000,
+}))
+
+vi.mock('@/lib/environment', () => ({
+  isDev: false,
 }))
 
 vi.mock('@/lib/logs/console/logger', () => ({
@@ -83,6 +93,7 @@ describe('pendingExecutionDrain', () => {
     dispatchQueuedDocumentProcessingJobMock.mockResolvedValue(undefined)
     executeWorkflowJobMock.mockResolvedValue(undefined)
     deferPendingExecutionStartMock.mockResolvedValue(undefined)
+    waitForMock.mockResolvedValue(undefined)
   })
 
   it('removes failed workflow jobs after execution throws', async () => {
@@ -149,8 +160,9 @@ describe('pendingExecutionDrain', () => {
 
     expect(deferPendingExecutionStartMock).toHaveBeenCalledWith({
       pendingExecutionId: 'pending-workflow-3',
-      billingScopeId: 'scope-1',
     })
+    expect(waitForMock).toHaveBeenCalledWith({ seconds: 5 })
+    expect(claimNextPendingExecutionMock).toHaveBeenCalledTimes(2)
     expect(completePendingExecutionMock).not.toHaveBeenCalled()
     expect(result).toEqual({
       success: true,
