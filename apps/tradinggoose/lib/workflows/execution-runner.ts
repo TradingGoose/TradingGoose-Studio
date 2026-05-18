@@ -323,8 +323,9 @@ export async function runPreparedWorkflowExecution(params: {
         )
       }
 
-      let workflowLogStarted = false
       let workflowLogId: string | undefined
+      const logCompletionError = (context: string) => (error: unknown) =>
+        logger.error(`[${requestId}] Workflow log completion failed after ${context}`, error)
       try {
         try {
           workflowLogId = await loggingSession.start({
@@ -334,7 +335,6 @@ export async function runPreparedWorkflowExecution(params: {
             variables: {},
             triggerData: params.triggerData,
           })
-          workflowLogStarted = true
         } catch (error) {
           logger.error(`[${requestId}] Workflow log start failed before execution`, error)
         }
@@ -406,18 +406,20 @@ export async function runPreparedWorkflowExecution(params: {
           )
         }
 
-        if (workflowLogStarted) {
-          await loggingSession.complete({
-            endedAt: new Date().toISOString(),
-            totalDurationMs: totalDuration || 0,
-            finalOutput: result.output === undefined ? {} : result.output,
-            success: result.success,
-            errorMessage: result.error,
-            traceSpans: traceSpans || [],
-            workflowInput: params.workflowInput,
-            workspaceId,
-            actorUserId: params.actorUserId,
-          })
+        if (workflowLogId) {
+          await loggingSession
+            .complete({
+              endedAt: new Date().toISOString(),
+              totalDurationMs: totalDuration || 0,
+              finalOutput: result.output === undefined ? {} : result.output,
+              success: result.success,
+              errorMessage: result.error,
+              traceSpans: traceSpans || [],
+              workflowInput: params.workflowInput,
+              workspaceId,
+              actorUserId: params.actorUserId,
+            })
+            .catch(logCompletionError('executor completion'))
         }
 
         return {
@@ -434,7 +436,7 @@ export async function runPreparedWorkflowExecution(params: {
         }
         const { traceSpans } = buildTraceSpans(executionResultForError)
 
-        if (workflowLogStarted) {
+        if (workflowLogId) {
           await loggingSession
             .completeWithError({
               endedAt: new Date().toISOString(),
@@ -447,12 +449,7 @@ export async function runPreparedWorkflowExecution(params: {
               workspaceId,
               actorUserId: params.actorUserId,
             })
-            .catch((completionError) =>
-              logger.error(
-                `[${requestId}] Workflow log completion failed after execution error`,
-                completionError
-              )
-            )
+            .catch(logCompletionError('execution error'))
         }
 
         throw error
