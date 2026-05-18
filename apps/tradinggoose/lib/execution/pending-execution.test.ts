@@ -204,6 +204,36 @@ describe('enqueuePendingExecution', () => {
     expect(triggerMock).not.toHaveBeenCalled()
   })
 
+  it('skips rows when the same ordering key already has active work', async () => {
+    getTriggerExecutionStateMock.mockResolvedValue({
+      configurationReady: true,
+      triggerDevEnabled: true,
+      executionEnabled: true,
+    })
+    txSelectLimitMock.mockResolvedValueOnce([]).mockResolvedValueOnce([{ id: 'pending-existing' }])
+
+    const result = await enqueuePendingExecution({
+      executionType: 'schedule',
+      pendingExecutionId: 'pending-schedule-1',
+      workflowId: 'workflow-1',
+      workspaceId: 'workspace-1',
+      userId: 'user-1',
+      source: 'schedule',
+      orderingKey: 'schedule:schedule-1',
+      payload: {
+        executionId: 'pending-schedule-1',
+      },
+    })
+
+    expect(result).toEqual({
+      pendingExecutionId: 'pending-schedule-1',
+      billingScopeId: 'workspace-1',
+      inserted: false,
+    })
+    expect(txInsertValuesMock).not.toHaveBeenCalled()
+    expect(triggerMock).not.toHaveBeenCalled()
+  })
+
   it('deletes a newly inserted row when the Trigger.dev drain dispatch fails', async () => {
     getTriggerExecutionStateMock.mockResolvedValue({
       configurationReady: true,
