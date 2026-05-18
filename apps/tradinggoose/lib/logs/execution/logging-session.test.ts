@@ -200,6 +200,7 @@ describe('LoggingSession', () => {
       endedAt: '2026-04-23T00:00:00.000Z',
       executionId: 'execution-1',
       finalOutput: { error: 'boom' },
+      success: false,
       totalDurationMs: 1,
       traceSpans: [
         expect.objectContaining({
@@ -223,7 +224,7 @@ describe('LoggingSession', () => {
     )
   })
 
-  it('completes execution logs with explicit workspace scope after a separate start request', async () => {
+  it('uses explicit workflow success when completing execution logs', async () => {
     mocks.getResolvedBillingSettings.mockResolvedValue({ billingEnabled: true })
     const session = new LoggingSession('workflow-1', 'execution-1', 'manual', 'request-1', 'log-1')
 
@@ -231,8 +232,19 @@ describe('LoggingSession', () => {
       actorUserId: 'user-1',
       endedAt: '2026-04-23T00:00:01.000Z',
       finalOutput: { ok: true },
+      success: true,
       totalDurationMs: 1000,
-      traceSpans: [],
+      traceSpans: [
+        {
+          duration: 100,
+          endTime: '2026-04-23T00:00:00.100Z',
+          id: 'block-1',
+          name: 'Recoverable Block',
+          startTime: '2026-04-23T00:00:00.000Z',
+          status: 'error',
+          type: 'api',
+        },
+      ],
       workspaceId: 'workspace-1',
     })
 
@@ -245,9 +257,17 @@ describe('LoggingSession', () => {
         endedAt: '2026-04-23T00:00:01.000Z',
         executionId: 'execution-1',
         finalOutput: { ok: true },
+        success: true,
         totalDurationMs: 1000,
         workflowLogId: 'log-1',
         workspaceId: 'workspace-1',
+      })
+    )
+    expect(mocks.trackPlatformEvent).toHaveBeenCalledWith(
+      'platform.workflow.executed',
+      expect.objectContaining({
+        'execution.has_errors': false,
+        'execution.status': 'success',
       })
     )
   })

@@ -4,7 +4,12 @@ import { tasks } from '@trigger.dev/sdk'
 import { and, asc, eq, lte, sql } from 'drizzle-orm'
 import type { BillingTierRecord } from '@/lib/billing/tiers'
 import { isDev } from '@/lib/environment'
-import { resolveServerExecutionBillingContext } from '@/lib/execution/execution-concurrency-limit'
+import {
+  isExecutionConcurrencyBackendUnavailableError,
+  isExecutionConcurrencyLimitError,
+  resolveServerExecutionBillingContext,
+} from '@/lib/execution/execution-concurrency-limit'
+import { isLocalVmSaturationLimitError } from '@/lib/execution/local-saturation-limit'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getTriggerExecutionState, TriggerExecutionUnavailableError } from '@/lib/trigger/settings'
 
@@ -85,6 +90,11 @@ export class PendingExecutionLimitError extends Error {
 
 export const isPendingExecutionLimitError = (error: unknown): error is PendingExecutionLimitError =>
   error instanceof PendingExecutionLimitError
+
+export const isPendingExecutionStartBlockedError = (error: unknown) =>
+  isExecutionConcurrencyLimitError(error) ||
+  isExecutionConcurrencyBackendUnavailableError(error) ||
+  isLocalVmSaturationLimitError(error)
 
 export function getTierPendingExecutionLimits(tier: BillingTierRecord) {
   return {
@@ -439,8 +449,14 @@ export async function cancelPendingWorkflowExecution(params: {
   return { status: 'not_found' }
 }
 
-export async function completePendingExecution(params: { pendingExecutionId: string }) {
+export async function completePendingExecution(params: {
+  pendingExecutionId: string
+  billingScopeId: string
+}) {
   await db.delete(pendingExecution).where(eq(pendingExecution.id, params.pendingExecutionId))
+  await triggerPendingExecutionDrain({ billingScopeId: params.billingScopeId }).catch((error) => {
+    logger.error('Failed to wake pending execution drain after completion', error)
+  })
 }
 
 export async function releasePendingExecution(params: { pendingExecutionId: string }) {

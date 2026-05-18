@@ -159,6 +159,7 @@ async function completeSkippedWebhookExecution(params: {
     endedAt: new Date().toISOString(),
     totalDurationMs: 0,
     finalOutput: { message: params.message },
+    success: true,
     traceSpans: [],
   })
 
