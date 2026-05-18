@@ -248,20 +248,7 @@ async function readBufferedEvents(params: {
 export async function createWorkflowExecutionEventWriter(params: {
   pendingExecutionId: string
   workflowId: string
-  enabled?: boolean
 }) {
-  if (params.enabled === false) {
-    return {
-      write: async (input: WorkflowExecutionEventInput): Promise<WorkflowExecutionEventEntry> =>
-        createEventEntry({
-          eventId: 0,
-          pendingExecutionId: params.pendingExecutionId,
-          workflowId: params.workflowId,
-          input,
-        }),
-    }
-  }
-
   const [row] = await db
     .select({ id: pendingExecution.id })
     .from(pendingExecution)
