@@ -167,7 +167,7 @@ export class ExecutionLogger {
       >
     }
     finalOutput: BlockOutputData
-    success?: boolean
+    success: boolean
     errorMessage?: string
     traceSpans?: TraceSpan[]
     workflowInput?: any
@@ -193,19 +193,7 @@ export class ExecutionLogger {
       eq(workflowExecutionLogs.workspaceId, workspaceId)
     )
 
-    // Determine if workflow failed by checking trace spans for errors
-    const hasErrors = traceSpans?.some((span: any) => {
-      const checkSpanForErrors = (s: any): boolean => {
-        if (s.status === 'error') return true
-        if (s.children && Array.isArray(s.children)) {
-          return s.children.some(checkSpanForErrors)
-        }
-        return false
-      }
-      return checkSpanForErrors(span)
-    })
-
-    const level = success === false || hasErrors ? 'error' : 'info'
+    const level = success ? 'info' : 'error'
 
     // Extract files from trace spans, final output, and workflow input
     const executionFiles = this.extractFilesFromExecution(traceSpans, finalOutput, workflowInput)

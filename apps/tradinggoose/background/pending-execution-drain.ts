@@ -1,12 +1,8 @@
 import { task } from '@trigger.dev/sdk'
 import {
-  isExecutionConcurrencyBackendUnavailableError,
-  isExecutionConcurrencyLimitError,
-} from '@/lib/execution/execution-concurrency-limit'
-import { isLocalVmSaturationLimitError } from '@/lib/execution/local-saturation-limit'
-import {
   claimNextPendingExecution,
   completePendingExecution,
+  isPendingExecutionStartBlockedError,
   PENDING_EXECUTION_DRAIN_TASK_ID,
   type PendingExecutionClaim,
   releasePendingExecution,
@@ -28,14 +24,6 @@ const logger = createLogger('PendingExecutionDrain')
 
 type PendingExecutionDrainPayload = {
   billingScopeId: string
-}
-
-function isPendingExecutionDeferredError(error: unknown) {
-  return (
-    isExecutionConcurrencyLimitError(error) ||
-    isExecutionConcurrencyBackendUnavailableError(error) ||
-    isLocalVmSaturationLimitError(error)
-  )
 }
 
 async function dispatchPendingExecution(row: PendingExecutionClaim) {
@@ -97,51 +85,55 @@ async function dispatchPendingExecution(row: PendingExecutionClaim) {
       throw new Error(`Unsupported pending execution type: ${row.executionType}`)
   }
 
-  await completePendingExecution({ pendingExecutionId: row.id })
+  await completePendingExecution({
+    pendingExecutionId: row.id,
+    billingScopeId: row.billingScopeId,
+  })
 }
 
 export async function drainPendingExecutionsForBillingScope(payload: PendingExecutionDrainPayload) {
-  let pendingExecutionId: string | undefined
-  let failed = false
+  const row = await claimNextPendingExecution(payload.billingScopeId)
 
-  while (true) {
-    const row = await claimNextPendingExecution(payload.billingScopeId)
+  if (!row) {
+    return { success: true, skipped: 'empty' as const }
+  }
 
-    if (!row) {
-      return pendingExecutionId === undefined
-        ? { success: true, skipped: 'empty' as const }
-        : { success: !failed, pendingExecutionId }
+  try {
+    await dispatchPendingExecution(row)
+    return {
+      success: true,
+      pendingExecutionId: row.id,
     }
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Pending execution failed'
 
-    try {
-      await dispatchPendingExecution(row)
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Pending execution failed'
-
-      if (isPendingExecutionDeferredError(error)) {
-        await releasePendingExecution({ pendingExecutionId: row.id })
-        return {
-          success: true,
-          pendingExecutionId: row.id,
-          skipped: 'deferred' as const,
-        }
-      }
-
-      if (row.executionType === 'document') {
-        await failQueuedDocumentProcessingJob(row.payload, errorMessage)
-      }
-      await completePendingExecution({ pendingExecutionId: row.id })
-      failed = true
-
-      logger.error('Pending execution failed', {
+    if (isPendingExecutionStartBlockedError(error)) {
+      await releasePendingExecution({ pendingExecutionId: row.id })
+      return {
+        success: true,
         pendingExecutionId: row.id,
-        executionType: row.executionType,
-        workflowId: row.workflowId,
-        error,
-      })
+      }
     }
 
-    pendingExecutionId = row.id
+    if (row.executionType === 'document') {
+      await failQueuedDocumentProcessingJob(row.payload, errorMessage)
+    }
+    await completePendingExecution({
+      pendingExecutionId: row.id,
+      billingScopeId: row.billingScopeId,
+    })
+
+    logger.error('Pending execution failed', {
+      pendingExecutionId: row.id,
+      executionType: row.executionType,
+      workflowId: row.workflowId,
+      error,
+    })
+
+    return {
+      success: false,
+      pendingExecutionId: row.id,
+    }
   }
 }
 

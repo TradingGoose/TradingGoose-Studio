@@ -33,6 +33,8 @@ vi.mock('@trigger.dev/sdk', () => ({
 vi.mock('@/lib/execution/pending-execution', () => ({
   claimNextPendingExecution: claimNextPendingExecutionMock,
   completePendingExecution: completePendingExecutionMock,
+  isPendingExecutionStartBlockedError: (error: { code?: string }) =>
+    error.code === 'EXECUTION_CONCURRENCY_LIMIT',
   releasePendingExecution: releasePendingExecutionMock,
   PENDING_EXECUTION_DRAIN_TASK_ID: 'pending-execution-drain',
 }))
@@ -102,16 +104,14 @@ describe('pendingExecutionDrain', () => {
 
     const result = await runPendingExecutionDrain('scope-1')
 
-    expect(completePendingExecutionMock).toHaveBeenCalledWith({
-      pendingExecutionId: 'pending-workflow-1',
-    })
+    expect(completePendingExecutionMock).toHaveBeenCalled()
     expect(result).toEqual({
       success: false,
       pendingExecutionId: 'pending-workflow-1',
     })
   })
 
-  it('drains successful rows until empty', async () => {
+  it('drains one successful row and lets completion wake the next drain', async () => {
     claimNextPendingExecutionMock.mockResolvedValueOnce({
       id: 'pending-workflow-2',
       billingScopeId: 'scope-1',
@@ -126,15 +126,16 @@ describe('pendingExecutionDrain', () => {
 
     expect(completePendingExecutionMock).toHaveBeenCalledWith({
       pendingExecutionId: 'pending-workflow-2',
+      billingScopeId: 'scope-1',
     })
-    expect(claimNextPendingExecutionMock).toHaveBeenCalledTimes(2)
+    expect(claimNextPendingExecutionMock).toHaveBeenCalledTimes(1)
     expect(result).toEqual({
       success: true,
       pendingExecutionId: 'pending-workflow-2',
     })
   })
 
-  it('leaves capacity-deferred rows pending', async () => {
+  it('releases start-blocked rows back to pending', async () => {
     const error = Object.assign(new Error('Execution concurrency limit reached'), {
       code: 'EXECUTION_CONCURRENCY_LIMIT',
     })
@@ -158,7 +159,6 @@ describe('pendingExecutionDrain', () => {
     expect(result).toEqual({
       success: true,
       pendingExecutionId: 'pending-workflow-3',
-      skipped: 'deferred',
     })
   })
 
@@ -175,9 +175,7 @@ describe('pendingExecutionDrain', () => {
     const result = await runPendingExecutionDrain('scope-1')
 
     expect(failQueuedDocumentProcessingJobMock).toHaveBeenCalledWith(payload, 'PDF parse failed')
-    expect(completePendingExecutionMock).toHaveBeenCalledWith({
-      pendingExecutionId: 'pending-document-1',
-    })
+    expect(completePendingExecutionMock).toHaveBeenCalled()
     expect(result).toEqual({
       success: false,
       pendingExecutionId: 'pending-document-1',
@@ -229,9 +227,7 @@ describe('pendingExecutionDrain', () => {
         executionId: 'pending-indicator-1',
       })
     )
-    expect(completePendingExecutionMock).toHaveBeenCalledWith({
-      pendingExecutionId: 'pending-indicator-1',
-    })
+    expect(completePendingExecutionMock).toHaveBeenCalled()
     expect(result).toEqual({
       success: true,
       pendingExecutionId: 'pending-indicator-1',

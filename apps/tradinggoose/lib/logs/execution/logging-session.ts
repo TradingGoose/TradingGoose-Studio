@@ -33,7 +33,7 @@ export interface SessionCompleteParams {
   endedAt?: string
   totalDurationMs?: number
   finalOutput?: any
-  success?: boolean
+  success: boolean
   errorMessage?: string
   traceSpans?: any[]
   workflowInput?: any
@@ -150,7 +150,7 @@ export class LoggingSession {
     return { workflowLogId: this.workflowLogId, workspaceId }
   }
 
-  async complete(params: SessionCompleteParams = {}): Promise<void> {
+  async complete(params: SessionCompleteParams): Promise<void> {
     const {
       endedAt,
       totalDurationMs,
@@ -197,25 +197,15 @@ export class LoggingSession {
         try {
           const { trackPlatformEvent } = await import('@/lib/telemetry/tracer')
 
-          // Determine status from trace spans
-          const hasErrors = traceSpans.some((span: any) => {
-            const checkForErrors = (s: any): boolean => {
-              if (s.status === 'error') return true
-              if (s.children && Array.isArray(s.children)) {
-                return s.children.some(checkForErrors)
-              }
-              return false
-            }
-            return checkForErrors(span)
-          })
+          const failed = !success
 
           trackPlatformEvent('platform.workflow.executed', {
             'workflow.id': this.workflowId,
             'execution.duration_ms': duration,
-            'execution.status': hasErrors ? 'error' : 'success',
+            'execution.status': failed ? 'error' : 'success',
             'execution.trigger': this.triggerType,
             'execution.blocks_executed': traceSpans.length,
-            'execution.has_errors': hasErrors,
+            'execution.has_errors': failed,
             'execution.total_cost': costSummary.totalCost || 0,
           })
         } catch (_e) {
@@ -285,6 +275,7 @@ export class LoggingSession {
         totalDurationMs: Math.max(1, durationMs),
         costSummary,
         finalOutput: { error: message },
+        success: false,
         traceSpans: spans,
       })
 
