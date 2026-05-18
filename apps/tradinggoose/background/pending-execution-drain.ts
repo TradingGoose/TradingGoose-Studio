@@ -1,10 +1,15 @@
 import { task } from '@trigger.dev/sdk'
 import {
+  isExecutionConcurrencyBackendUnavailableError,
+  isExecutionConcurrencyLimitError,
+} from '@/lib/execution/execution-concurrency-limit'
+import { isLocalVmSaturationLimitError } from '@/lib/execution/local-saturation-limit'
+import {
   claimNextPendingExecution,
   completePendingExecution,
   PENDING_EXECUTION_DRAIN_TASK_ID,
   type PendingExecutionClaim,
-  triggerPendingExecutionDrain,
+  releasePendingExecution,
 } from '@/lib/execution/pending-execution'
 import { createLogger } from '@/lib/logs/console/logger'
 import {
@@ -25,6 +30,14 @@ type PendingExecutionDrainPayload = {
   billingScopeId: string
 }
 
+function isPendingExecutionDeferredError(error: unknown) {
+  return (
+    isExecutionConcurrencyLimitError(error) ||
+    isExecutionConcurrencyBackendUnavailableError(error) ||
+    isLocalVmSaturationLimitError(error)
+  )
+}
+
 async function dispatchPendingExecution(row: PendingExecutionClaim) {
   switch (row.executionType) {
     case 'workflow': {
@@ -36,10 +49,7 @@ async function dispatchPendingExecution(row: PendingExecutionClaim) {
         ...row.payload,
         executionId: row.id,
       })
-      await completePendingExecution({
-        pendingExecutionId: row.id,
-      })
-      return
+      break
     }
 
     case 'webhook': {
@@ -51,10 +61,7 @@ async function dispatchPendingExecution(row: PendingExecutionClaim) {
         ...row.payload,
         executionId: row.id,
       })
-      await completePendingExecution({
-        pendingExecutionId: row.id,
-      })
-      return
+      break
     }
 
     case 'schedule': {
@@ -66,10 +73,7 @@ async function dispatchPendingExecution(row: PendingExecutionClaim) {
         ...row.payload,
         executionId: row.id,
       })
-      await completePendingExecution({
-        pendingExecutionId: row.id,
-      })
-      return
+      break
     }
 
     case 'indicator_monitor': {
@@ -81,67 +85,63 @@ async function dispatchPendingExecution(row: PendingExecutionClaim) {
         ...row.payload,
         executionId: row.id,
       })
-      await completePendingExecution({
-        pendingExecutionId: row.id,
-      })
-      return
+      break
     }
 
     case 'document': {
       await dispatchQueuedDocumentProcessingJob(row.payload)
-      await completePendingExecution({ pendingExecutionId: row.id })
-      return
+      break
     }
 
     default:
       throw new Error(`Unsupported pending execution type: ${row.executionType}`)
   }
-}
 
-async function wakeNextPendingExecutionDrain(row: PendingExecutionClaim) {
-  await triggerPendingExecutionDrain({ billingScopeId: row.billingScopeId }).catch((error) => {
-    logger.error('Failed to wake next pending execution drain', {
-      billingScopeId: row.billingScopeId,
-      pendingExecutionId: row.id,
-      error,
-    })
-  })
+  await completePendingExecution({ pendingExecutionId: row.id })
 }
 
 export async function drainPendingExecutionsForBillingScope(payload: PendingExecutionDrainPayload) {
-  const row = await claimNextPendingExecution(payload.billingScopeId)
+  let pendingExecutionId: string | undefined
+  let failed = false
 
-  if (!row) {
-    return { success: true, skipped: 'empty' as const }
-  }
+  while (true) {
+    const row = await claimNextPendingExecution(payload.billingScopeId)
 
-  try {
-    await dispatchPendingExecution(row)
-    await wakeNextPendingExecutionDrain(row)
-    return {
-      success: true,
-      pendingExecutionId: row.id,
+    if (!row) {
+      return pendingExecutionId === undefined
+        ? { success: true, skipped: 'empty' as const }
+        : { success: !failed, pendingExecutionId }
     }
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Pending execution failed'
 
-    if (row.executionType === 'document') {
-      await failQueuedDocumentProcessingJob(row.payload, errorMessage)
+    try {
+      await dispatchPendingExecution(row)
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Pending execution failed'
+
+      if (isPendingExecutionDeferredError(error)) {
+        await releasePendingExecution({ pendingExecutionId: row.id })
+        return {
+          success: true,
+          pendingExecutionId: row.id,
+          skipped: 'deferred' as const,
+        }
+      }
+
+      if (row.executionType === 'document') {
+        await failQueuedDocumentProcessingJob(row.payload, errorMessage)
+      }
+      await completePendingExecution({ pendingExecutionId: row.id })
+      failed = true
+
+      logger.error('Pending execution failed', {
+        pendingExecutionId: row.id,
+        executionType: row.executionType,
+        workflowId: row.workflowId,
+        error,
+      })
     }
-    await completePendingExecution({ pendingExecutionId: row.id })
-    await wakeNextPendingExecutionDrain(row)
 
-    logger.error('Pending execution failed', {
-      pendingExecutionId: row.id,
-      executionType: row.executionType,
-      workflowId: row.workflowId,
-      error,
-    })
-
-    return {
-      success: false,
-      pendingExecutionId: row.id,
-    }
+    pendingExecutionId = row.id
   }
 }
 

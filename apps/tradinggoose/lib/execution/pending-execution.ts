@@ -442,3 +442,14 @@ export async function cancelPendingWorkflowExecution(params: {
 export async function completePendingExecution(params: { pendingExecutionId: string }) {
   await db.delete(pendingExecution).where(eq(pendingExecution.id, params.pendingExecutionId))
 }
+
+export async function releasePendingExecution(params: { pendingExecutionId: string }) {
+  await db
+    .update(pendingExecution)
+    .set({
+      status: 'pending',
+      processingStartedAt: null,
+      updatedAt: new Date(),
+    })
+    .where(eq(pendingExecution.id, params.pendingExecutionId))
+}
