@@ -77,7 +77,6 @@ vi.mock('@tradinggoose/db/schema', () => ({
     workflowId: 'pendingExecution.workflowId',
     workspaceId: 'pendingExecution.workspaceId',
     payload: 'pendingExecution.payload',
-    errorMessage: 'pendingExecution.errorMessage',
     processingStartedAt: 'pendingExecution.processingStartedAt',
     updatedAt: 'pendingExecution.updatedAt',
   },

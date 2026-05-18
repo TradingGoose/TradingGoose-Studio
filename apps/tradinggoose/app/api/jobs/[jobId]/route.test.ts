@@ -40,7 +40,6 @@ vi.mock('@tradinggoose/db/schema', () => ({
     id: 'pendingExecution.id',
     userId: 'pendingExecution.userId',
     status: 'pendingExecution.status',
-    errorMessage: 'pendingExecution.errorMessage',
     createdAt: 'pendingExecution.createdAt',
     processingStartedAt: 'pendingExecution.processingStartedAt',
     executionType: 'pendingExecution.executionType',

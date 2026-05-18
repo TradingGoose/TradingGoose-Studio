@@ -8,6 +8,8 @@ const mocks = vi.hoisted(() => {
   const start = vi.fn()
   const complete = vi.fn()
   const completeWithError = vi.fn()
+  const decryptSecret = vi.fn()
+  const getPersonalAndWorkspaceEnv = vi.fn()
   const dbRowsQueue: unknown[][] = []
   const dbChain: Record<string, any> = {}
   dbChain.from = vi.fn(() => dbChain)
@@ -25,7 +27,9 @@ const mocks = vi.hoisted(() => {
     dbRowsQueue,
     executionConcurrencyController,
     dbSelect: vi.fn(() => dbChain),
+    decryptSecret,
     executorConstructor: vi.fn(),
+    getPersonalAndWorkspaceEnv,
     loggingSessionConstructor: vi.fn(),
     updateWorkflowRunCounts: vi.fn(),
   }
@@ -40,10 +44,7 @@ vi.mock('@/lib/billing', () => ({
 }))
 
 vi.mock('@/lib/environment/utils', () => ({
-  getPersonalAndWorkspaceEnv: vi.fn().mockResolvedValue({
-    personalEncrypted: {},
-    workspaceEncrypted: {},
-  }),
+  getPersonalAndWorkspaceEnv: mocks.getPersonalAndWorkspaceEnv,
 }))
 
 vi.mock('@/lib/execution/execution-concurrency-limit', () => ({
@@ -68,7 +69,7 @@ vi.mock('@/lib/logs/execution/trace-spans/trace-spans', () => ({
 }))
 
 vi.mock('@/lib/utils-server', () => ({
-  decryptSecret: vi.fn(),
+  decryptSecret: mocks.decryptSecret,
 }))
 
 vi.mock('@/lib/workflows/db-helpers', () => ({
@@ -144,6 +145,11 @@ describe('runPreparedWorkflowExecution', () => {
     })
     mocks.complete.mockResolvedValue(undefined)
     mocks.completeWithError.mockResolvedValue(undefined)
+    mocks.decryptSecret.mockImplementation(async (value: string) => ({ decrypted: value }))
+    mocks.getPersonalAndWorkspaceEnv.mockResolvedValue({
+      personalEncrypted: {},
+      workspaceEncrypted: {},
+    })
     mocks.updateWorkflowRunCounts.mockResolvedValue(undefined)
   })
 
@@ -175,6 +181,7 @@ describe('runPreparedWorkflowExecution', () => {
     expect(mocks.start).toHaveBeenCalledWith(
       expect.objectContaining({
         userId: 'user-1',
+        variables: {},
         workspaceId: 'workspace-1',
       })
     )
@@ -204,6 +211,62 @@ describe('runPreparedWorkflowExecution', () => {
     expect(mocks.completeWithError).not.toHaveBeenCalled()
     expect(result.result.success).toBe(true)
     expect(result.result.output).toEqual({ result: 'ok' })
+  })
+
+  it('starts workflow logs with encrypted environment references before execution', async () => {
+    mocks.getPersonalAndWorkspaceEnv.mockResolvedValueOnce({
+      personalEncrypted: { PERSONAL_KEY: 'encrypted-personal' },
+      workspaceEncrypted: { WORKSPACE_KEY: 'encrypted-workspace' },
+    })
+
+    await runPreparedWorkflowExecution({
+      blueprint,
+      actorUserId: 'user-1',
+      triggerType: 'manual',
+      workflowInput: {},
+      executionId: 'execution-1',
+      start: {
+        kind: 'block',
+        blockId: 'trigger',
+      },
+    })
+
+    expect(mocks.start).toHaveBeenCalledWith(
+      expect.objectContaining({
+        variables: {
+          PERSONAL_KEY: 'encrypted-personal',
+          WORKSPACE_KEY: 'encrypted-workspace',
+        },
+      })
+    )
+  })
+
+  it('terminalizes log completion failures before rethrowing', async () => {
+    mocks.complete.mockRejectedValueOnce(new Error('log completion failed'))
+
+    await expect(
+      runPreparedWorkflowExecution({
+        blueprint,
+        actorUserId: 'user-1',
+        triggerType: 'manual',
+        workflowInput: {},
+        executionId: 'execution-1',
+        start: {
+          kind: 'block',
+          blockId: 'trigger',
+        },
+      })
+    ).rejects.toThrow('log completion failed')
+
+    expect(mocks.execute).toHaveBeenCalled()
+    expect(mocks.completeWithError).toHaveBeenCalledWith(
+      expect.objectContaining({
+        error: expect.objectContaining({
+          message: 'log completion failed',
+        }),
+        totalDurationMs: 12,
+      })
+    )
   })
 
   it('resolves queued child API starts through the child input-trigger path', async () => {

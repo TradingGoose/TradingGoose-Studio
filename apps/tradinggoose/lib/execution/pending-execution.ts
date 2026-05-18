@@ -14,7 +14,6 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { getTriggerExecutionState, TriggerExecutionUnavailableError } from '@/lib/trigger/settings'
 
 export const PENDING_EXECUTION_DRAIN_TASK_ID = 'pending-execution-drain'
-export const WORKFLOW_EXECUTION_CANCELLED_ERROR = 'Workflow execution was cancelled'
 
 const CLAIM_RACE_RETRY_LIMIT = 5
 const STALE_PROCESSING_WINDOW_MS = 30 * 60 * 1000
@@ -63,7 +62,6 @@ type PendingExecutionRow = {
   status: 'pending' | 'processing'
   nextAttemptAt: Date
   processingStartedAt: Date | null
-  errorMessage: string | null
   createdAt: Date
   updatedAt: Date
 }
@@ -441,7 +439,6 @@ export async function cancelPendingWorkflowExecution(params: {
       .update(pendingExecution)
       .set({
         payload,
-        errorMessage: WORKFLOW_EXECUTION_CANCELLED_ERROR,
         updatedAt: new Date(),
       })
       .where(

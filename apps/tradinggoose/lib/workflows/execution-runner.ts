@@ -323,24 +323,25 @@ export async function runPreparedWorkflowExecution(params: {
         )
       }
 
+      const { personalEncrypted, workspaceEncrypted } = await getPersonalAndWorkspaceEnv(
+        params.actorUserId,
+        workspaceId
+      )
+      const encryptedEnvVars = {
+        ...personalEncrypted,
+        ...workspaceEncrypted,
+      }
+
       // Workflow logs are the durable terminal state for queued and non-stream executions.
       const workflowLogId = await loggingSession.start({
         userId: params.actorUserId,
         workspaceId,
         workflowState: params.blueprint.workflowData,
-        variables: {},
+        variables: encryptedEnvVars,
         triggerData: params.triggerData,
       })
 
       try {
-        const { personalEncrypted, workspaceEncrypted } = await getPersonalAndWorkspaceEnv(
-          params.actorUserId,
-          workspaceId
-        )
-        const encryptedEnvVars = {
-          ...personalEncrypted,
-          ...workspaceEncrypted,
-        }
         const decryptedEnvVars = await decryptEnvironmentVariables(encryptedEnvVars)
         const mergedStates = mergeSubblockState(params.blueprint.workflowData.blocks, {})
         const processedBlockStates = buildProcessedBlockStates(mergedStates, decryptedEnvVars)
@@ -426,11 +427,11 @@ export async function runPreparedWorkflowExecution(params: {
           output: {},
           logs: [],
         }
-        const { traceSpans } = buildTraceSpans(executionResultForError)
+        const { traceSpans, totalDuration } = buildTraceSpans(executionResultForError)
 
         await loggingSession.completeWithError({
           endedAt: new Date().toISOString(),
-          totalDurationMs: 0,
+          totalDurationMs: totalDuration || 0,
           error: {
             message: error.message || 'Workflow execution failed',
             stackTrace: error.stack,
@@ -439,7 +440,6 @@ export async function runPreparedWorkflowExecution(params: {
           workspaceId,
           actorUserId: params.actorUserId,
         })
-
         throw error
       }
     },

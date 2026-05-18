@@ -137,6 +137,26 @@ export class LoggingSession {
     }
   }
 
+  private async resolveWorkflowExecutionPricingForCompletion(params?: {
+    workspaceId?: string
+    actorUserId?: string | null
+  }) {
+    try {
+      return await this.resolveWorkflowExecutionPricing(params)
+    } catch (error) {
+      logger.error(
+        this.requestId
+          ? `[${this.requestId}] Workflow completion pricing failed`
+          : 'Workflow completion pricing failed',
+        error
+      )
+      return {
+        workflowExecutionChargeUsd: 0,
+        workflowModelCostMultiplier: 1,
+      }
+    }
+  }
+
   private resolveCompletionScope(params: { workspaceId?: string }): {
     workflowLogId: string
     workspaceId: string
@@ -168,7 +188,7 @@ export class LoggingSession {
     try {
       const scope = this.resolveCompletionScope({ workspaceId })
       const { workflowExecutionChargeUsd, workflowModelCostMultiplier } =
-        await this.resolveWorkflowExecutionPricing({
+        await this.resolveWorkflowExecutionPricingForCompletion({
           workspaceId: scope.workspaceId,
           actorUserId,
         })
@@ -235,10 +255,11 @@ export class LoggingSession {
       const endTime = endedAt ? new Date(endedAt) : new Date()
       const durationMs = typeof totalDurationMs === 'number' ? totalDurationMs : 0
       const startTime = new Date(endTime.getTime() - Math.max(1, durationMs))
-      const { workflowExecutionChargeUsd } = await this.resolveWorkflowExecutionPricing({
-        workspaceId: scope.workspaceId,
-        actorUserId,
-      })
+      const { workflowExecutionChargeUsd } =
+        await this.resolveWorkflowExecutionPricingForCompletion({
+          workspaceId: scope.workspaceId,
+          actorUserId,
+        })
 
       const costSummary = {
         totalCost: workflowExecutionChargeUsd,

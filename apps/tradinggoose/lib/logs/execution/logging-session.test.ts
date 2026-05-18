@@ -271,4 +271,25 @@ describe('LoggingSession', () => {
       })
     )
   })
+
+  it('keeps terminal log completion independent from billing lookup failures', async () => {
+    mocks.getResolvedBillingSettings.mockRejectedValueOnce(new Error('billing unavailable'))
+    const session = new LoggingSession('workflow-1', 'execution-1', 'manual', 'request-1', 'log-1')
+
+    await session.complete({
+      endedAt: '2026-04-23T00:00:01.000Z',
+      finalOutput: { ok: true },
+      success: true,
+      totalDurationMs: 1000,
+      traceSpans: [],
+      workspaceId: 'workspace-1',
+    })
+
+    expect(mocks.completeWorkflowExecution).toHaveBeenCalledWith(
+      expect.objectContaining({
+        endedAt: '2026-04-23T00:00:01.000Z',
+        success: true,
+      })
+    )
+  })
 })

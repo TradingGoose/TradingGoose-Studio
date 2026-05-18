@@ -7,16 +7,22 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const {
   checkSessionOrInternalAuthMock,
+  readWorkflowExecutionAccessContextMock,
   readWorkflowAccessContextMock,
   openWorkflowExecutionEventStreamMock,
 } = vi.hoisted(() => ({
   checkSessionOrInternalAuthMock: vi.fn(),
+  readWorkflowExecutionAccessContextMock: vi.fn(),
   readWorkflowAccessContextMock: vi.fn(),
   openWorkflowExecutionEventStreamMock: vi.fn(),
 }))
 
 vi.mock('@/lib/auth/hybrid', () => ({
   checkSessionOrInternalAuth: checkSessionOrInternalAuthMock,
+}))
+
+vi.mock('@/lib/execution/workflow-execution-events', () => ({
+  readWorkflowExecutionAccessContext: readWorkflowExecutionAccessContextMock,
 }))
 
 vi.mock('@/lib/execution/workflow-execution-stream', () => ({
@@ -51,6 +57,10 @@ describe('GET /api/workflows/[id]/executions/[executionId]/stream', () => {
       isWorkspaceOwner: false,
       workspacePermission: 'read',
     })
+    readWorkflowExecutionAccessContextMock.mockResolvedValue({
+      userId: 'user-2',
+      workspaceId: 'workspace-1',
+    })
     openWorkflowExecutionEventStreamMock.mockResolvedValue({
       ok: true,
       stream: new ReadableStream(),
@@ -58,6 +68,36 @@ describe('GET /api/workflows/[id]/executions/[executionId]/stream', () => {
   })
 
   it('rejects execution streams outside workflow workspace scope', async () => {
+    readWorkflowExecutionAccessContextMock.mockResolvedValue({
+      userId: 'user-2',
+      workspaceId: null,
+    })
+    readWorkflowAccessContextMock.mockResolvedValue({
+      workflow: {
+        id: 'workflow-1',
+        workspaceId: 'workspace-1',
+      },
+      isOwner: false,
+      isWorkspaceOwner: false,
+      workspacePermission: 'read',
+    })
+
+    const response = await GET(
+      new NextRequest('http://localhost/api/workflows/workflow-1/executions/execution-1/stream'),
+      {
+        params: Promise.resolve({ id: 'workflow-1', executionId: 'execution-1' }),
+      }
+    )
+
+    expect(response.status).toBe(403)
+    expect(openWorkflowExecutionEventStreamMock).not.toHaveBeenCalled()
+  })
+
+  it('lets the execution owner read a personal execution stream', async () => {
+    readWorkflowExecutionAccessContextMock.mockResolvedValue({
+      userId: 'user-1',
+      workspaceId: null,
+    })
     readWorkflowAccessContextMock.mockResolvedValue({
       workflow: {
         id: 'workflow-1',
@@ -75,8 +115,8 @@ describe('GET /api/workflows/[id]/executions/[executionId]/stream', () => {
       }
     )
 
-    expect(response.status).toBe(403)
-    expect(openWorkflowExecutionEventStreamMock).not.toHaveBeenCalled()
+    expect(response.status).toBe(200)
+    expect(openWorkflowExecutionEventStreamMock).toHaveBeenCalled()
   })
 
   it('opens the stream after workflow scope authorization', async () => {

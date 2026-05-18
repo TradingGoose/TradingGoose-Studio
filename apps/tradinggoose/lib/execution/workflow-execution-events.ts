@@ -33,6 +33,11 @@ type WorkflowExecutionLogStateRow = {
   executionData: unknown
 }
 
+export type WorkflowExecutionAccessContext = {
+  userId: string | null
+  workspaceId: string | null
+}
+
 const memoryStreams = new Map<string, MemoryExecutionEventStream>()
 
 function eventsKey(pendingExecutionId: string) {
@@ -135,6 +140,61 @@ function readQueuedExecutionMetadata(executionData: Record<string, unknown>) {
   const trigger = isRecord(executionData.trigger) ? executionData.trigger : {}
   const data = isRecord(trigger.data) ? trigger.data : {}
   return isRecord(data.queuedExecution) ? data.queuedExecution : null
+}
+
+function readExecutionUserId(executionData: unknown) {
+  const data = isRecord(executionData) ? executionData : {}
+  const environment = isRecord(data.environment) ? data.environment : {}
+  return typeof environment.userId === 'string' && environment.userId.length > 0
+    ? environment.userId
+    : null
+}
+
+export async function readWorkflowExecutionAccessContext(params: {
+  pendingExecutionId: string
+  workflowId: string
+}): Promise<WorkflowExecutionAccessContext | null> {
+  const [pendingRow] = await db
+    .select({
+      userId: pendingExecution.userId,
+      workspaceId: pendingExecution.workspaceId,
+    })
+    .from(pendingExecution)
+    .where(
+      and(
+        eq(pendingExecution.id, params.pendingExecutionId),
+        eq(pendingExecution.workflowId, params.workflowId)
+      )
+    )
+    .limit(1)
+
+  if (pendingRow) {
+    return {
+      userId: pendingRow.userId,
+      workspaceId: pendingRow.workspaceId,
+    }
+  }
+
+  const [logRow] = await db
+    .select({
+      workspaceId: workflowExecutionLogs.workspaceId,
+      executionData: workflowExecutionLogs.executionData,
+    })
+    .from(workflowExecutionLogs)
+    .where(
+      and(
+        eq(workflowExecutionLogs.executionId, params.pendingExecutionId),
+        eq(workflowExecutionLogs.workflowId, params.workflowId)
+      )
+    )
+    .limit(1)
+
+  if (!logRow) return null
+
+  return {
+    userId: readExecutionUserId(logRow.executionData),
+    workspaceId: logRow.workspaceId,
+  }
 }
 
 export function createWorkflowExecutionResultFromLog(row: WorkflowExecutionLogStateRow): {
@@ -346,7 +406,6 @@ export async function readWorkflowExecutionEventState(params: {
   const [row] = await db
     .select({
       status: pendingExecution.status,
-      errorMessage: pendingExecution.errorMessage,
     })
     .from(pendingExecution)
     .where(
@@ -361,7 +420,7 @@ export async function readWorkflowExecutionEventState(params: {
     return {
       status: row.status,
       result: null,
-      errorMessage: row.errorMessage,
+      errorMessage: null,
       events: params.afterEventId === undefined ? [] : await readEvents(params.afterEventId),
     }
   }
