@@ -480,6 +480,8 @@ export async function processDocumentAsync(
         processingCompletedAt: new Date(),
       })
       .where(eq(document.id, documentId))
+
+    throw error
   }
 }
 
