@@ -4,8 +4,10 @@ import { tasks } from '@trigger.dev/sdk'
 import { and, asc, eq, inArray, lte, sql } from 'drizzle-orm'
 import { isBillingEnabledForRuntime } from '@/lib/billing/settings'
 import type { BillingTierRecord } from '@/lib/billing/tiers'
+import { isDev } from '@/lib/environment'
 import { resolveServerExecutionBillingContext } from '@/lib/execution/execution-concurrency-limit'
 import { createWorkflowExecutionEventWriter } from '@/lib/execution/workflow-execution-events'
+import { createLogger } from '@/lib/logs/console/logger'
 import { getTriggerExecutionState, TriggerExecutionUnavailableError } from '@/lib/trigger/settings'
 
 export const PENDING_EXECUTION_DRAIN_TASK_ID = 'pending-execution-drain'
@@ -15,6 +17,7 @@ export const WORKFLOW_EXECUTION_CANCELLED_ERROR = 'Workflow execution was cancel
 const CLAIM_ATTEMPT_LIMIT = 5
 const STALE_PROCESSING_WINDOW_MS = 30 * 60 * 1000
 const PENDING_EXECUTION_LOCK_NAMESPACE = 29_401
+const logger = createLogger('PendingExecutionQueue')
 
 export type PendingExecutionType =
   | 'workflow'
@@ -146,9 +149,19 @@ export async function enqueuePendingExecution(
   params: PendingExecutionInsert
 ): Promise<PendingExecutionHandle> {
   const triggerState = await getTriggerExecutionState()
-  if (!triggerState.executionEnabled) {
+
+  if (triggerState.triggerDevEnabled && !triggerState.configurationReady) {
     throw new TriggerExecutionUnavailableError(
-      'Trigger.dev execution is required for queued server execution.'
+      'Trigger.dev execution is enabled but not configured.'
+    )
+  }
+
+  const useTriggerDev = triggerState.executionEnabled
+  const useLocalExecution = !triggerState.triggerDevEnabled && isDev
+
+  if (!useTriggerDev && !useLocalExecution) {
+    throw new TriggerExecutionUnavailableError(
+      'Queued server execution requires Trigger.dev outside local development.'
     )
   }
 
@@ -261,12 +274,12 @@ export async function enqueuePendingExecution(
     }
   }
 
-  try {
-    await tasks.trigger(PENDING_EXECUTION_DRAIN_TASK_ID, {
-      billingScopeId,
-    })
-  } catch (error) {
-    if (inserted) {
+  if (useTriggerDev) {
+    try {
+      await tasks.trigger(PENDING_EXECUTION_DRAIN_TASK_ID, {
+        billingScopeId,
+      })
+    } catch (error) {
       await db
         .delete(pendingExecution)
         .where(
@@ -275,8 +288,19 @@ export async function enqueuePendingExecution(
             eq(pendingExecution.status, 'pending')
           )
         )
+      throw error
     }
-    throw error
+  } else {
+    const { drainPendingExecutionsForBillingScope } = await import(
+      '@/background/pending-execution-drain'
+    )
+    void drainPendingExecutionsForBillingScope({ billingScopeId }).catch((error) => {
+      logger.error('Local pending execution drain failed', {
+        billingScopeId,
+        requestId: params.requestId,
+        error,
+      })
+    })
   }
 
   return {
