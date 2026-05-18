@@ -1,6 +1,6 @@
 import { v4 as uuidv4 } from 'uuid'
-import { createWorkflowExecutionEventWriter } from '@/lib/execution/workflow-execution-events'
 import { isPendingWorkflowExecutionCancellationRequested } from '@/lib/execution/pending-execution'
+import { createWorkflowExecutionEventWriter } from '@/lib/execution/workflow-execution-events'
 import { createLogger } from '@/lib/logs/console/logger'
 import { buildTraceSpans } from '@/lib/logs/execution/trace-spans/trace-spans'
 import {
@@ -63,15 +63,16 @@ export async function executeWorkflowJob(payload: WorkflowExecutionPayload) {
   const isLiveExecution = executionTarget === 'live'
   const isChildExecution = payload.metadata?.source === 'workflow_block'
   const triggerType = payload.triggerType ?? 'manual'
-  const start: WorkflowStart = isLiveExecution && payload.startBlockId
-    ? {
-        kind: 'block',
-        blockId: payload.startBlockId,
-      }
-    : {
-        kind: 'trigger',
-        triggerType: resolveWorkflowStartTriggerType(triggerType),
-      }
+  const start: WorkflowStart =
+    isLiveExecution && payload.startBlockId
+      ? {
+          kind: 'block',
+          blockId: payload.startBlockId,
+        }
+      : {
+          kind: 'trigger',
+          triggerType: resolveWorkflowStartTriggerType(triggerType),
+        }
 
   logger.info(`[${requestId}] Starting workflow execution: ${workflowId}`, {
     userId: payload.userId,
@@ -87,6 +88,10 @@ export async function executeWorkflowJob(payload: WorkflowExecutionPayload) {
   })
 
   try {
+    const triggerData =
+      payload.metadata === undefined
+        ? payload.triggerData
+        : { ...(payload.triggerData ?? {}), queuedExecution: payload.metadata }
     const { result } = await runWorkflowExecution({
       workflowId,
       actorUserId: payload.userId,
@@ -104,7 +109,7 @@ export async function executeWorkflowJob(payload: WorkflowExecutionPayload) {
           : undefined,
       workflowData: isLiveExecution ? payload.workflowData : undefined,
       start,
-      triggerData: payload.triggerData,
+      triggerData,
       contextExtensions: {
         workflowDepth: payload.workflowDepth ?? 0,
         isChildExecution,

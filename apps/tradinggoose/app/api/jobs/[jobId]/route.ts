@@ -1,10 +1,17 @@
 import { db } from '@tradinggoose/db'
-import { pendingExecution } from '@tradinggoose/db/schema'
+import {
+  pendingExecution,
+  permissions,
+  workflowExecutionLogs,
+  workspace,
+} from '@tradinggoose/db/schema'
 import { and, eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { type AuthResult, AuthType, checkHybridAuth } from '@/lib/auth/hybrid'
 import { cancelPendingWorkflowExecution } from '@/lib/execution/pending-execution'
+import { createWorkflowExecutionResultFromLog } from '@/lib/execution/workflow-execution-events'
 import { createLogger } from '@/lib/logs/console/logger'
+import { buildWorkspaceAccessScope } from '@/lib/permissions/utils'
 import { generateRequestId } from '@/lib/utils'
 import {
   createInternalWorkflowJobResult,
@@ -45,12 +52,8 @@ export async function GET(
       .select({
         id: pendingExecution.id,
         status: pendingExecution.status,
-        errorMessage: pendingExecution.errorMessage,
-        executionType: pendingExecution.executionType,
         createdAt: pendingExecution.createdAt,
         processingStartedAt: pendingExecution.processingStartedAt,
-        result: pendingExecution.result,
-        completedAt: pendingExecution.completedAt,
       })
       .from(pendingExecution)
       .where(and(eq(pendingExecution.id, taskId), eq(pendingExecution.userId, auth.userId)))
@@ -61,21 +64,53 @@ export async function GET(
         success: true,
         taskId,
         status: pendingRow.status === 'pending' ? 'queued' : pendingRow.status,
-        ...(pendingRow.status === 'completed'
-          ? {
-              output:
-                pendingRow.executionType === 'workflow' && isExecutionResult(pendingRow.result)
-                  ? shouldIncludeInternalWorkflowTraceSpans(auth, pendingRow.result)
-                    ? createInternalWorkflowJobResult(pendingRow.result)
-                    : createPublicExecutionResult(pendingRow.result)
-                  : pendingRow.result,
-            }
-          : pendingRow.status === 'failed'
-            ? { error: pendingRow.errorMessage ?? 'Execution failed' }
-            : { estimatedDuration: 180000 }),
+        estimatedDuration: 180000,
         metadata: {
           startedAt: pendingRow.processingStartedAt ?? pendingRow.createdAt,
-          ...(pendingRow.completedAt ? { completedAt: pendingRow.completedAt } : {}),
+        },
+      })
+    }
+
+    const workspaceAccess = buildWorkspaceAccessScope(
+      auth.userId,
+      workflowExecutionLogs.workspaceId
+    )
+    const accessFilter =
+      auth.apiKeyType === 'workspace' && auth.workspaceId
+        ? eq(workflowExecutionLogs.workspaceId, auth.workspaceId)
+        : workspaceAccess.accessFilter
+    const [logRow] = await db
+      .select({
+        level: workflowExecutionLogs.level,
+        startedAt: workflowExecutionLogs.startedAt,
+        endedAt: workflowExecutionLogs.endedAt,
+        totalDurationMs: workflowExecutionLogs.totalDurationMs,
+        executionData: workflowExecutionLogs.executionData,
+      })
+      .from(workflowExecutionLogs)
+      .innerJoin(workspace, workspaceAccess.workspaceJoin)
+      .leftJoin(permissions, workspaceAccess.permissionJoin)
+      .where(and(eq(workflowExecutionLogs.executionId, taskId), accessFilter))
+      .limit(1)
+
+    if (logRow) {
+      const state = createWorkflowExecutionResultFromLog(logRow)
+      return NextResponse.json({
+        success: true,
+        taskId,
+        status: state.status,
+        ...(state.status === 'completed' && isExecutionResult(state.result)
+          ? {
+              output: shouldIncludeInternalWorkflowTraceSpans(auth, state.result)
+                ? createInternalWorkflowJobResult(state.result)
+                : createPublicExecutionResult(state.result),
+            }
+          : state.status === 'failed'
+            ? { error: state.errorMessage ?? 'Execution failed' }
+            : { estimatedDuration: 180000 }),
+        metadata: {
+          startedAt: logRow.startedAt,
+          ...(logRow.endedAt ? { completedAt: logRow.endedAt } : {}),
         },
       })
     }

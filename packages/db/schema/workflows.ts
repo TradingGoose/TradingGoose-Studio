@@ -348,8 +348,6 @@ export const webhookDeliveryStatusEnum = pgEnum('webhook_delivery_status', [
 export const pendingExecutionStatusEnum = pgEnum('pending_execution_status', [
   'pending',
   'processing',
-  'completed',
-  'failed',
 ])
 
 export const orderSubmissionSourceEnum = pgEnum('order_submission_source', [
@@ -419,8 +417,6 @@ export const pendingExecution = pgTable(
     nextAttemptAt: timestamp('next_attempt_at').notNull().defaultNow(),
     processingStartedAt: timestamp('processing_started_at'),
     errorMessage: text('error_message'),
-    result: jsonb('result'),
-    completedAt: timestamp('completed_at'),
     createdAt: timestamp('created_at').notNull().defaultNow(),
     updatedAt: timestamp('updated_at').notNull().defaultNow(),
   },

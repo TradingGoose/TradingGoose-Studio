@@ -7,7 +7,6 @@ import { isLocalVmSaturationLimitError } from '@/lib/execution/local-saturation-
 import {
   claimNextPendingExecution,
   completePendingExecution,
-  failPendingExecution,
   PENDING_EXECUTION_DRAIN_TASK_ID,
   PENDING_EXECUTION_RETRY_DELAY_MS,
   type PendingExecutionClaim,
@@ -18,7 +17,10 @@ import {
   executeIndicatorMonitorJob,
   isIndicatorMonitorExecutionPayload,
 } from './indicator-monitor-execution'
-import { dispatchQueuedDocumentProcessingJob } from './knowledge-processing'
+import {
+  dispatchQueuedDocumentProcessingJob,
+  failQueuedDocumentProcessingJob,
+} from './knowledge-processing'
 import { executeScheduleJob, isScheduleExecutionPayload } from './schedule-execution'
 import { executeWebhookJob, isWebhookExecutionPayload } from './webhook-execution'
 import { executeWorkflowJob, isWorkflowExecutionPayload } from './workflow-execution'
@@ -51,14 +53,12 @@ async function dispatchPendingExecution(row: PendingExecutionClaim) {
         throw new Error('Invalid workflow pending payload')
       }
 
-      const result = await executeWorkflowJob({
+      await executeWorkflowJob({
         ...row.payload,
         executionId: row.id,
       })
       await completePendingExecution({
         pendingExecutionId: row.id,
-        deleteOnSuccess: false,
-        result,
       })
       return
     }
@@ -168,10 +168,10 @@ export async function drainPendingExecutionsForBillingScope(
         continue
       }
 
-      await failPendingExecution({
-        pendingExecutionId: row.id,
-        errorMessage,
-      })
+      if (row.executionType === 'document') {
+        await failQueuedDocumentProcessingJob(row.payload, errorMessage)
+      }
+      await completePendingExecution({ pendingExecutionId: row.id })
 
       logger.error('Pending execution failed', {
         pendingExecutionId: row.id,

@@ -5,17 +5,26 @@
 import { NextResponse } from 'next/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { checkHybridAuthMock, cancelPendingWorkflowExecutionMock, eqMock, andMock, limitMock } =
-  vi.hoisted(() => ({
-    checkHybridAuthMock: vi.fn(),
-    cancelPendingWorkflowExecutionMock: vi.fn(),
-    eqMock: vi.fn((field, value) => ({ field, value })),
-    andMock: vi.fn((...args) => ({ args })),
-    limitMock: vi.fn(),
-  }))
+const {
+  checkHybridAuthMock,
+  cancelPendingWorkflowExecutionMock,
+  eqMock,
+  andMock,
+  orMock,
+  limitMock,
+} = vi.hoisted(() => ({
+  checkHybridAuthMock: vi.fn(),
+  cancelPendingWorkflowExecutionMock: vi.fn(),
+  eqMock: vi.fn((field, value) => ({ field, value })),
+  andMock: vi.fn((...args) => ({ args })),
+  orMock: vi.fn((...args) => ({ args })),
+  limitMock: vi.fn(),
+}))
 
 const queryChain = {
   from: vi.fn().mockReturnThis(),
+  innerJoin: vi.fn().mockReturnThis(),
+  leftJoin: vi.fn().mockReturnThis(),
   where: vi.fn().mockReturnThis(),
   limit: limitMock,
 }
@@ -34,15 +43,32 @@ vi.mock('@tradinggoose/db/schema', () => ({
     errorMessage: 'pendingExecution.errorMessage',
     createdAt: 'pendingExecution.createdAt',
     processingStartedAt: 'pendingExecution.processingStartedAt',
-    result: 'pendingExecution.result',
-    completedAt: 'pendingExecution.completedAt',
     executionType: 'pendingExecution.executionType',
+  },
+  permissions: {
+    userId: 'permissions.userId',
+    entityType: 'permissions.entityType',
+    entityId: 'permissions.entityId',
+  },
+  workflowExecutionLogs: {
+    executionId: 'workflowExecutionLogs.executionId',
+    workspaceId: 'workflowExecutionLogs.workspaceId',
+    level: 'workflowExecutionLogs.level',
+    startedAt: 'workflowExecutionLogs.startedAt',
+    endedAt: 'workflowExecutionLogs.endedAt',
+    totalDurationMs: 'workflowExecutionLogs.totalDurationMs',
+    executionData: 'workflowExecutionLogs.executionData',
+  },
+  workspace: {
+    id: 'workspace.id',
+    ownerId: 'workspace.ownerId',
   },
 }))
 
 vi.mock('drizzle-orm', () => ({
   eq: eqMock,
   and: andMock,
+  or: orMock,
 }))
 
 vi.mock('@/lib/auth/hybrid', () => ({
@@ -78,36 +104,30 @@ vi.mock('@/app/api/workflows/utils', () => ({
 import { DELETE, GET } from './route'
 
 const createWorkflowResult = (queuedExecution: Record<string, unknown>) => ({
-  success: true,
-  output: { answer: 42 },
-  logs: [{ blockId: 'block-1' }],
-  traceSpans: [{ id: 'trace-1' }],
-  executionId: 'execution-1',
-  executedAt: '2026-04-16T00:00:02.000Z',
-  metadata: {
-    duration: 1000,
-    queuedExecution,
+  level: 'info',
+  startedAt: new Date('2026-04-16T00:00:00.000Z'),
+  endedAt: new Date('2026-04-16T00:00:02.000Z'),
+  totalDurationMs: 1000,
+  executionData: {
+    finalOutput: { answer: 42 },
+    traceSpans: [{ id: 'trace-1' }],
+    trigger: {
+      data: {
+        queuedExecution,
+      },
+    },
   },
 })
 
 const mockCompletedWorkflowJob = (queuedExecution: Record<string, unknown>) =>
-  limitMock.mockResolvedValue([
-    {
-      id: 'job-1',
-      status: 'completed',
-      errorMessage: null,
-      executionType: 'workflow',
-      createdAt: new Date('2026-04-16T00:00:00.000Z'),
-      processingStartedAt: new Date('2026-04-16T00:00:01.000Z'),
-      result: createWorkflowResult(queuedExecution),
-      completedAt: new Date('2026-04-16T00:00:02.000Z'),
-    },
-  ])
+  limitMock.mockResolvedValueOnce([]).mockResolvedValueOnce([createWorkflowResult(queuedExecution)])
 
 describe('GET /api/jobs/[jobId]', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     queryChain.from.mockReturnThis()
+    queryChain.innerJoin.mockReturnThis()
+    queryChain.leftJoin.mockReturnThis()
     queryChain.where.mockReturnThis()
     checkHybridAuthMock.mockResolvedValue({
       success: true,
@@ -131,17 +151,13 @@ describe('GET /api/jobs/[jobId]', () => {
     })
   })
 
-  it('filters task lookup by the authenticated user', async () => {
+  it('filters active task lookup by the authenticated user', async () => {
     limitMock.mockResolvedValue([
       {
         id: 'job-1',
-        status: 'failed',
-        errorMessage: 'Function execution failed',
-        executionType: 'function',
+        status: 'processing',
         createdAt: new Date('2026-04-16T00:00:00.000Z'),
         processingStartedAt: new Date('2026-04-16T00:00:01.000Z'),
-        result: null,
-        completedAt: new Date('2026-04-16T00:00:02.000Z'),
       },
     ])
 
@@ -156,8 +172,7 @@ describe('GET /api/jobs/[jobId]', () => {
     await expect(response.json()).resolves.toMatchObject({
       success: true,
       taskId: 'job-1',
-      status: 'failed',
-      error: 'Function execution failed',
+      status: 'processing',
     })
   })
 

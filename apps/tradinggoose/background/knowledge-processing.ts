@@ -1,6 +1,7 @@
 import { task } from '@trigger.dev/sdk'
 import { withExecutionConcurrencyLimit } from '@/lib/execution/execution-concurrency-limit'
 import {
+  markDocumentProcessingFailed,
   prepareDocumentForProcessing,
   processDocumentAsync,
 } from '@/lib/knowledge/documents/service'
@@ -81,4 +82,12 @@ export async function dispatchQueuedDocumentProcessingJob(payload: unknown) {
   }
 
   await processDocument.triggerAndWait(payload).unwrap()
+}
+
+export async function failQueuedDocumentProcessingJob(payload: unknown, errorMessage: string) {
+  if (!isDocumentProcessingPayload(payload)) {
+    return
+  }
+
+  await markDocumentProcessingFailed(payload.documentId, errorMessage)
 }

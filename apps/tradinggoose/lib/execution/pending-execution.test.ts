@@ -9,28 +9,24 @@ const {
   drainPendingExecutionsForBillingScopeMock,
   deleteWhereMock,
   isDevMock,
-  isBillingEnabledForRuntimeMock,
   getTriggerExecutionStateMock,
   andMock,
   eqMock,
   selectLimitMock,
   txExecuteMock,
   updateReturningMock,
-  eventWriteMock,
 } = vi.hoisted(() => ({
   transactionMock: vi.fn(),
   triggerMock: vi.fn(),
   drainPendingExecutionsForBillingScopeMock: vi.fn(),
   deleteWhereMock: vi.fn(),
   isDevMock: vi.fn(),
-  isBillingEnabledForRuntimeMock: vi.fn(),
   getTriggerExecutionStateMock: vi.fn(),
   andMock: vi.fn((...args) => ({ args })),
   eqMock: vi.fn((field, value) => ({ field, value })),
   selectLimitMock: vi.fn(),
   txExecuteMock: vi.fn(),
   updateReturningMock: vi.fn(),
-  eventWriteMock: vi.fn(),
 }))
 
 const txSelectLimitMock = vi.fn()
@@ -81,10 +77,8 @@ vi.mock('@tradinggoose/db/schema', () => ({
     workflowId: 'pendingExecution.workflowId',
     workspaceId: 'pendingExecution.workspaceId',
     payload: 'pendingExecution.payload',
-    completedAt: 'pendingExecution.completedAt',
     errorMessage: 'pendingExecution.errorMessage',
     processingStartedAt: 'pendingExecution.processingStartedAt',
-    result: 'pendingExecution.result',
     updatedAt: 'pendingExecution.updatedAt',
   },
 }))
@@ -99,13 +93,8 @@ vi.mock('drizzle-orm', () => ({
   and: andMock,
   asc: vi.fn(),
   eq: eqMock,
-  inArray: vi.fn(),
   lte: vi.fn(),
   sql: vi.fn(),
-}))
-
-vi.mock('@/lib/billing/settings', () => ({
-  isBillingEnabledForRuntime: isBillingEnabledForRuntimeMock,
 }))
 
 vi.mock('@/lib/environment', () => ({
@@ -116,12 +105,6 @@ vi.mock('@/lib/environment', () => ({
 
 vi.mock('@/lib/execution/execution-concurrency-limit', () => ({
   resolveServerExecutionBillingContext: vi.fn(),
-}))
-
-vi.mock('@/lib/execution/workflow-execution-events', () => ({
-  createWorkflowExecutionEventWriter: vi.fn(async () => ({
-    write: eventWriteMock,
-  })),
 }))
 
 vi.mock('@/lib/trigger/settings', () => ({
@@ -147,7 +130,6 @@ describe('enqueuePendingExecution', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     isDevMock.mockReturnValue(true)
-    isBillingEnabledForRuntimeMock.mockResolvedValue(false)
     getTriggerExecutionStateMock.mockResolvedValue({
       configurationReady: false,
       triggerDevEnabled: false,
@@ -258,10 +240,9 @@ describe('cancelPendingWorkflowExecution', () => {
     updateChain.set.mockReturnThis()
     updateChain.where.mockReturnThis()
     updateReturningMock.mockResolvedValue([])
-    eventWriteMock.mockResolvedValue({ eventId: 1 })
   })
 
-  it('returns cancelled only when the pending row update matches', async () => {
+  it('returns cancelling only when the pending row update matches', async () => {
     selectLimitMock.mockResolvedValueOnce([
       {
         id: 'pending-1',
@@ -277,10 +258,10 @@ describe('cancelPendingWorkflowExecution', () => {
         pendingExecutionId: 'pending-1',
         userId: 'user-1',
       })
-    ).resolves.toEqual({ status: 'cancelled' })
+    ).resolves.toEqual({ status: 'cancelling' })
   })
 
-  it('re-reads current status when a worker race wins the pending update', async () => {
+  it('returns not_found when a worker race removes the pending row', async () => {
     selectLimitMock
       .mockResolvedValueOnce([
         {
@@ -290,14 +271,7 @@ describe('cancelPendingWorkflowExecution', () => {
           workflowId: 'workflow-1',
         },
       ])
-      .mockResolvedValueOnce([
-        {
-          id: 'pending-1',
-          status: 'completed',
-          payload: {},
-          workflowId: 'workflow-1',
-        },
-      ])
+      .mockResolvedValueOnce([])
     updateReturningMock.mockResolvedValueOnce([])
 
     await expect(
@@ -305,6 +279,6 @@ describe('cancelPendingWorkflowExecution', () => {
         pendingExecutionId: 'pending-1',
         userId: 'user-1',
       })
-    ).resolves.toEqual({ status: 'finished' })
+    ).resolves.toEqual({ status: 'not_found' })
   })
 })

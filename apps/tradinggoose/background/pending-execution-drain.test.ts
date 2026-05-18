@@ -9,7 +9,7 @@ const {
   executeIndicatorMonitorJobMock,
   claimNextPendingExecutionMock,
   completePendingExecutionMock,
-  failPendingExecutionMock,
+  failQueuedDocumentProcessingJobMock,
   retryPendingExecutionMock,
   triggerMock,
   waitForMock,
@@ -19,7 +19,7 @@ const {
   executeIndicatorMonitorJobMock: vi.fn(),
   claimNextPendingExecutionMock: vi.fn(),
   completePendingExecutionMock: vi.fn(),
-  failPendingExecutionMock: vi.fn(),
+  failQueuedDocumentProcessingJobMock: vi.fn(),
   retryPendingExecutionMock: vi.fn(),
   triggerMock: vi.fn(),
   waitForMock: vi.fn(),
@@ -38,7 +38,6 @@ vi.mock('@trigger.dev/sdk', () => ({
 vi.mock('@/lib/execution/pending-execution', () => ({
   claimNextPendingExecution: claimNextPendingExecutionMock,
   completePendingExecution: completePendingExecutionMock,
-  failPendingExecution: failPendingExecutionMock,
   retryPendingExecution: retryPendingExecutionMock,
   PENDING_EXECUTION_DRAIN_TASK_ID: 'pending-execution-drain',
   PENDING_EXECUTION_RETRY_DELAY_MS: 15000,
@@ -61,6 +60,7 @@ vi.mock('@/lib/logs/console/logger', () => ({
 
 vi.mock('./knowledge-processing', () => ({
   dispatchQueuedDocumentProcessingJob: dispatchQueuedDocumentProcessingJobMock,
+  failQueuedDocumentProcessingJob: failQueuedDocumentProcessingJobMock,
 }))
 
 vi.mock('./indicator-monitor-execution', () => ({
@@ -99,7 +99,7 @@ describe('pendingExecutionDrain', () => {
     vi.clearAllMocks()
   })
 
-  it('marks workflow jobs as failed when execution throws', async () => {
+  it('removes failed workflow jobs after execution throws', async () => {
     claimNextPendingExecutionMock
       .mockResolvedValueOnce({
         id: 'pending-workflow-1',
@@ -110,15 +110,13 @@ describe('pendingExecutionDrain', () => {
         },
       })
       .mockResolvedValueOnce(null)
-    executeWorkflowJobMock.mockRejectedValue(new Error('Workflow execution failed'))
+    executeWorkflowJobMock.mockRejectedValueOnce(new Error('Workflow execution failed'))
 
     const result = await runPendingExecutionDrain('scope-1')
 
-    expect(failPendingExecutionMock).toHaveBeenCalledWith({
+    expect(completePendingExecutionMock).toHaveBeenCalledWith({
       pendingExecutionId: 'pending-workflow-1',
-      errorMessage: 'Workflow execution failed',
     })
-    expect(completePendingExecutionMock).not.toHaveBeenCalled()
     expect(result).toEqual({
       success: false,
       pendingExecutionId: 'pending-workflow-1',
@@ -141,33 +139,41 @@ describe('pendingExecutionDrain', () => {
         payload: { documentId: 'doc-1' },
       })
       .mockResolvedValueOnce(null)
-    executeWorkflowJobMock.mockResolvedValue({
-      success: true,
-      executionId: 'pending-workflow-2',
-      workflowId: 'workflow-1',
-      output: { result: 1 },
-    })
-
     const result = await runPendingExecutionDrain('scope-1')
 
     expect(completePendingExecutionMock).toHaveBeenCalledWith({
       pendingExecutionId: 'pending-workflow-2',
-      deleteOnSuccess: false,
-      result: {
-        success: true,
-        executionId: 'pending-workflow-2',
-        workflowId: 'workflow-1',
-        output: { result: 1 },
-      },
     })
     expect(dispatchQueuedDocumentProcessingJobMock).toHaveBeenCalledWith({ documentId: 'doc-1' })
     expect(completePendingExecutionMock).toHaveBeenCalledWith({
       pendingExecutionId: 'pending-document-1',
     })
-    expect(failPendingExecutionMock).not.toHaveBeenCalled()
     expect(triggerMock).not.toHaveBeenCalled()
     expect(result).toEqual({
       success: true,
+      pendingExecutionId: 'pending-document-1',
+    })
+  })
+
+  it('marks documents failed when document dispatch fails terminally', async () => {
+    const payload = { documentId: 'doc-1' }
+    claimNextPendingExecutionMock
+      .mockResolvedValueOnce({
+        id: 'pending-document-1',
+        executionType: 'document',
+        payload,
+      })
+      .mockResolvedValueOnce(null)
+    dispatchQueuedDocumentProcessingJobMock.mockRejectedValueOnce(new Error('PDF parse failed'))
+
+    const result = await runPendingExecutionDrain('scope-1')
+
+    expect(failQueuedDocumentProcessingJobMock).toHaveBeenCalledWith(payload, 'PDF parse failed')
+    expect(completePendingExecutionMock).toHaveBeenCalledWith({
+      pendingExecutionId: 'pending-document-1',
+    })
+    expect(result).toEqual({
+      success: false,
       pendingExecutionId: 'pending-document-1',
     })
   })
@@ -192,14 +198,7 @@ describe('pendingExecutionDrain', () => {
       })
       .mockResolvedValueOnce(null)
       .mockResolvedValueOnce(null)
-    executeWorkflowJobMock
-      .mockRejectedValueOnce(new Error('Service overloaded'))
-      .mockResolvedValueOnce({
-        success: true,
-        executionId: 'pending-workflow-4',
-        workflowId: 'workflow-2',
-        output: { result: 2 },
-      })
+    executeWorkflowJobMock.mockRejectedValueOnce(new Error('Service overloaded'))
 
     const result = await runPendingExecutionDrain('scope-1')
 
@@ -210,13 +209,6 @@ describe('pendingExecutionDrain', () => {
     })
     expect(completePendingExecutionMock).toHaveBeenCalledWith({
       pendingExecutionId: 'pending-workflow-4',
-      deleteOnSuccess: false,
-      result: {
-        success: true,
-        executionId: 'pending-workflow-4',
-        workflowId: 'workflow-2',
-        output: { result: 2 },
-      },
     })
     expect(completePendingExecutionMock.mock.invocationCallOrder[0]).toBeLessThan(
       waitForMock.mock.invocationCallOrder[0]

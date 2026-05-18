@@ -7,22 +7,16 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const {
   checkSessionOrInternalAuthMock,
-  readPendingWorkflowExecutionAccessContextMock,
   readWorkflowAccessContextMock,
   openWorkflowExecutionEventStreamMock,
 } = vi.hoisted(() => ({
   checkSessionOrInternalAuthMock: vi.fn(),
-  readPendingWorkflowExecutionAccessContextMock: vi.fn(),
   readWorkflowAccessContextMock: vi.fn(),
   openWorkflowExecutionEventStreamMock: vi.fn(),
 }))
 
 vi.mock('@/lib/auth/hybrid', () => ({
   checkSessionOrInternalAuth: checkSessionOrInternalAuthMock,
-}))
-
-vi.mock('@/lib/execution/pending-execution', () => ({
-  readPendingWorkflowExecutionAccessContext: readPendingWorkflowExecutionAccessContextMock,
 }))
 
 vi.mock('@/lib/execution/workflow-execution-stream', () => ({
@@ -48,12 +42,6 @@ describe('GET /api/workflows/[id]/executions/[executionId]/stream', () => {
       success: true,
       userId: 'user-1',
     })
-    readPendingWorkflowExecutionAccessContextMock.mockResolvedValue({
-      id: 'execution-1',
-      userId: 'user-1',
-      workflowId: 'workflow-1',
-      workspaceId: 'workspace-1',
-    })
     readWorkflowAccessContextMock.mockResolvedValue({
       workflow: {
         id: 'workflow-1',
@@ -69,27 +57,19 @@ describe('GET /api/workflows/[id]/executions/[executionId]/stream', () => {
     })
   })
 
-  it('rejects execution streams outside the pending execution owner or workspace scope', async () => {
-    readPendingWorkflowExecutionAccessContextMock.mockResolvedValue({
-      id: 'execution-1',
-      userId: 'other-user',
-      workflowId: 'workflow-1',
-      workspaceId: null,
-    })
+  it('rejects execution streams outside workflow workspace scope', async () => {
     readWorkflowAccessContextMock.mockResolvedValue({
       workflow: {
         id: 'workflow-1',
-        workspaceId: null,
+        workspaceId: 'workspace-1',
       },
-      isOwner: true,
+      isOwner: false,
       isWorkspaceOwner: false,
       workspacePermission: null,
     })
 
     const response = await GET(
-      new NextRequest(
-        'http://localhost/api/workflows/workflow-1/executions/execution-1/stream'
-      ),
+      new NextRequest('http://localhost/api/workflows/workflow-1/executions/execution-1/stream'),
       {
         params: Promise.resolve({ id: 'workflow-1', executionId: 'execution-1' }),
       }
@@ -99,7 +79,7 @@ describe('GET /api/workflows/[id]/executions/[executionId]/stream', () => {
     expect(openWorkflowExecutionEventStreamMock).not.toHaveBeenCalled()
   })
 
-  it('opens the stream only after pending execution scope authorization', async () => {
+  it('opens the stream after workflow scope authorization', async () => {
     const response = await GET(
       new NextRequest(
         'http://localhost/api/workflows/workflow-1/executions/execution-1/stream?from=3'
@@ -110,10 +90,7 @@ describe('GET /api/workflows/[id]/executions/[executionId]/stream', () => {
     )
 
     expect(response.status).toBe(200)
-    expect(readPendingWorkflowExecutionAccessContextMock).toHaveBeenCalledWith({
-      pendingExecutionId: 'execution-1',
-      workflowId: 'workflow-1',
-    })
+    expect(readWorkflowAccessContextMock).toHaveBeenCalledWith('workflow-1', 'user-1')
     expect(openWorkflowExecutionEventStreamMock).toHaveBeenCalledWith({
       pendingExecutionId: 'execution-1',
       workflowId: 'workflow-1',
