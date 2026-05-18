@@ -18,6 +18,7 @@ export const WORKFLOW_EXECUTION_CANCELLED_ERROR = 'Workflow execution was cancel
 
 const CLAIM_RACE_RETRY_LIMIT = 5
 const STALE_PROCESSING_WINDOW_MS = 30 * 60 * 1000
+const START_BLOCKED_RETRY_DELAY_MS = 5_000
 const PENDING_EXECUTION_LOCK_NAMESPACE = 29_401
 const logger = createLogger('PendingExecutionQueue')
 type TriggerExecutionState = Awaited<ReturnType<typeof getTriggerExecutionState>>
@@ -459,13 +460,36 @@ export async function completePendingExecution(params: {
   })
 }
 
-export async function releasePendingExecution(params: { pendingExecutionId: string }) {
+export async function deferPendingExecutionStart(params: {
+  pendingExecutionId: string
+  billingScopeId: string
+}) {
+  const nextAttemptAt = new Date(Date.now() + START_BLOCKED_RETRY_DELAY_MS)
+
   await db
     .update(pendingExecution)
     .set({
       status: 'pending',
+      nextAttemptAt,
       processingStartedAt: null,
       updatedAt: new Date(),
     })
     .where(eq(pendingExecution.id, params.pendingExecutionId))
+
+  if (isDev) {
+    setTimeout(
+      () =>
+        void triggerPendingExecutionDrain({ billingScopeId: params.billingScopeId }).catch(
+          (error) => logger.error('Local pending execution drain failed after deferral', error)
+        ),
+      START_BLOCKED_RETRY_DELAY_MS
+    )
+    return
+  }
+
+  await tasks.trigger(
+    PENDING_EXECUTION_DRAIN_TASK_ID,
+    { billingScopeId: params.billingScopeId },
+    { delay: `${START_BLOCKED_RETRY_DELAY_MS / 1000}s` }
+  )
 }
