@@ -1,15 +1,9 @@
 import { task } from '@trigger.dev/sdk'
 import {
-  isExecutionConcurrencyBackendUnavailableError,
-  isExecutionConcurrencyLimitError,
-} from '@/lib/execution/execution-concurrency-limit'
-import { isLocalVmSaturationLimitError } from '@/lib/execution/local-saturation-limit'
-import {
   claimNextPendingExecution,
   completePendingExecution,
   PENDING_EXECUTION_DRAIN_TASK_ID,
   type PendingExecutionClaim,
-  retryPendingExecution,
   triggerPendingExecutionDrain,
 } from '@/lib/execution/pending-execution'
 import { createLogger } from '@/lib/logs/console/logger'
@@ -30,12 +24,6 @@ const logger = createLogger('PendingExecutionDrain')
 type PendingExecutionDrainPayload = {
   billingScopeId: string
 }
-
-const isTransientPendingExecutionError = (error: unknown) =>
-  isExecutionConcurrencyLimitError(error) ||
-  isExecutionConcurrencyBackendUnavailableError(error) ||
-  isLocalVmSaturationLimitError(error) ||
-  (error instanceof Error && error.message.includes('Service overloaded'))
 
 async function dispatchPendingExecution(row: PendingExecutionClaim) {
   switch (row.executionType) {
@@ -136,18 +124,6 @@ export async function drainPendingExecutionsForBillingScope(payload: PendingExec
     }
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Pending execution failed'
-
-    if (isTransientPendingExecutionError(error)) {
-      await retryPendingExecution({
-        pendingExecutionId: row.id,
-        errorMessage,
-      })
-      return {
-        success: true,
-        pendingExecutionId: row.id,
-        skipped: 'deferred' as const,
-      }
-    }
 
     if (row.executionType === 'document') {
       await failQueuedDocumentProcessingJob(row.payload, errorMessage)

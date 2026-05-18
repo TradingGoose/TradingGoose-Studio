@@ -10,7 +10,6 @@ const {
   claimNextPendingExecutionMock,
   completePendingExecutionMock,
   failQueuedDocumentProcessingJobMock,
-  retryPendingExecutionMock,
   triggerPendingExecutionDrainMock,
   triggerMock,
 } = vi.hoisted(() => ({
@@ -20,7 +19,6 @@ const {
   claimNextPendingExecutionMock: vi.fn(),
   completePendingExecutionMock: vi.fn(),
   failQueuedDocumentProcessingJobMock: vi.fn(),
-  retryPendingExecutionMock: vi.fn(),
   triggerPendingExecutionDrainMock: vi.fn(),
   triggerMock: vi.fn(),
 }))
@@ -35,18 +33,8 @@ vi.mock('@trigger.dev/sdk', () => ({
 vi.mock('@/lib/execution/pending-execution', () => ({
   claimNextPendingExecution: claimNextPendingExecutionMock,
   completePendingExecution: completePendingExecutionMock,
-  retryPendingExecution: retryPendingExecutionMock,
   triggerPendingExecutionDrain: triggerPendingExecutionDrainMock,
   PENDING_EXECUTION_DRAIN_TASK_ID: 'pending-execution-drain',
-}))
-
-vi.mock('@/lib/execution/execution-concurrency-limit', () => ({
-  isExecutionConcurrencyLimitError: vi.fn(() => false),
-  isExecutionConcurrencyBackendUnavailableError: vi.fn(() => false),
-}))
-
-vi.mock('@/lib/execution/local-saturation-limit', () => ({
-  isLocalVmSaturationLimitError: vi.fn(() => false),
 }))
 
 vi.mock('@/lib/logs/console/logger', () => ({
@@ -173,34 +161,6 @@ describe('pendingExecutionDrain', () => {
     expect(result).toEqual({
       success: false,
       pendingExecutionId: 'pending-document-1',
-    })
-  })
-
-  it('releases transiently blocked rows without sleeping in the drain task', async () => {
-    claimNextPendingExecutionMock.mockResolvedValueOnce({
-      id: 'pending-workflow-3',
-      billingScopeId: 'scope-1',
-      executionType: 'workflow',
-      payload: {
-        workflowId: 'workflow-1',
-        userId: 'user-1',
-      },
-    })
-    executeWorkflowJobMock.mockRejectedValueOnce(new Error('Service overloaded'))
-
-    const result = await runPendingExecutionDrain('scope-1')
-
-    expect(retryPendingExecutionMock).toHaveBeenCalledWith({
-      pendingExecutionId: 'pending-workflow-3',
-      errorMessage: 'Service overloaded',
-    })
-    expect(completePendingExecutionMock).not.toHaveBeenCalled()
-    expect(triggerPendingExecutionDrainMock).not.toHaveBeenCalled()
-    expect(claimNextPendingExecutionMock).toHaveBeenCalledTimes(1)
-    expect(result).toEqual({
-      success: true,
-      pendingExecutionId: 'pending-workflow-3',
-      skipped: 'deferred',
     })
   })
 
