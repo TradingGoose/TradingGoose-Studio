@@ -1,5 +1,5 @@
 import { db } from '@tradinggoose/db'
-import { pendingExecution } from '@tradinggoose/db/schema'
+import { pendingExecution, workflowExecutionLogs } from '@tradinggoose/db/schema'
 import { tasks } from '@trigger.dev/sdk'
 import { and, asc, eq, lte, sql } from 'drizzle-orm'
 import type { BillingTierRecord } from '@/lib/billing/tiers'
@@ -217,6 +217,18 @@ export async function enqueuePendingExecution(
 
     if (existingRow) {
       return
+    }
+
+    if (params.executionType === 'workflow') {
+      const [existingLog] = await tx
+        .select({ id: workflowExecutionLogs.id })
+        .from(workflowExecutionLogs)
+        .where(eq(workflowExecutionLogs.executionId, params.pendingExecutionId))
+        .limit(1)
+
+      if (existingLog) {
+        return
+      }
     }
 
     if (params.orderingKey) {

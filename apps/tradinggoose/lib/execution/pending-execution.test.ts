@@ -81,6 +81,10 @@ vi.mock('@tradinggoose/db/schema', () => ({
     processingStartedAt: 'pendingExecution.processingStartedAt',
     updatedAt: 'pendingExecution.updatedAt',
   },
+  workflowExecutionLogs: {
+    id: 'workflowExecutionLogs.id',
+    executionId: 'workflowExecutionLogs.executionId',
+  },
 }))
 
 vi.mock('@trigger.dev/sdk', () => ({
@@ -201,6 +205,35 @@ describe('enqueuePendingExecution', () => {
       billingScopeId: 'workspace-1',
       inserted: false,
     })
+    expect(triggerMock).not.toHaveBeenCalled()
+  })
+
+  it('returns duplicate workflow execution ids that already have a durable log', async () => {
+    getTriggerExecutionStateMock.mockResolvedValue({
+      configurationReady: true,
+      triggerDevEnabled: true,
+      executionEnabled: true,
+    })
+    txSelectLimitMock.mockResolvedValueOnce([]).mockResolvedValueOnce([{ id: 'log-1' }])
+
+    const result = await enqueuePendingExecution({
+      executionType: 'workflow',
+      pendingExecutionId: 'execution-1',
+      workflowId: 'workflow-1',
+      workspaceId: 'workspace-1',
+      userId: 'user-1',
+      source: 'workflow_api',
+      payload: {
+        executionId: 'execution-1',
+      },
+    })
+
+    expect(result).toEqual({
+      pendingExecutionId: 'execution-1',
+      billingScopeId: 'workspace-1',
+      inserted: false,
+    })
+    expect(txInsertValuesMock).not.toHaveBeenCalled()
     expect(triggerMock).not.toHaveBeenCalled()
   })
 
