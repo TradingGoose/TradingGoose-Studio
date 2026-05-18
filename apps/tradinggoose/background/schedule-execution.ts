@@ -3,7 +3,12 @@ import { Cron } from 'croner'
 import { eq } from 'drizzle-orm'
 import { v4 as uuidv4 } from 'uuid'
 import { getApiKeyOwnerUserId } from '@/lib/api-key/service'
-import { withExecutionConcurrencyLimit } from '@/lib/execution/execution-concurrency-limit'
+import {
+  isExecutionConcurrencyBackendUnavailableError,
+  isExecutionConcurrencyLimitError,
+  withExecutionConcurrencyLimit,
+} from '@/lib/execution/execution-concurrency-limit'
+import { isLocalVmSaturationLimitError } from '@/lib/execution/local-saturation-limit'
 import { createLogger } from '@/lib/logs/console/logger'
 import {
   type BlockState,
@@ -254,6 +259,14 @@ export async function executeScheduleJob(payload: ScheduleExecutionPayload) {
       },
     })
   } catch (error: any) {
+    if (
+      isExecutionConcurrencyLimitError(error) ||
+      isExecutionConcurrencyBackendUnavailableError(error) ||
+      isLocalVmSaturationLimitError(error)
+    ) {
+      throw error
+    }
+
     if (error instanceof WorkflowUsageLimitError) {
       logger.warn(
         `[${requestId}] Workspace billing subject has exceeded usage limits. Skipping scheduled execution.`,
