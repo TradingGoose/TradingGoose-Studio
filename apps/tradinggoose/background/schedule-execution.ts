@@ -3,12 +3,7 @@ import { Cron } from 'croner'
 import { eq } from 'drizzle-orm'
 import { v4 as uuidv4 } from 'uuid'
 import { getApiKeyOwnerUserId } from '@/lib/api-key/service'
-import {
-  getExecutionConcurrencyLimitMessage,
-  isExecutionConcurrencyBackendUnavailableError,
-  isExecutionConcurrencyLimitError,
-  withExecutionConcurrencyLimit,
-} from '@/lib/execution/execution-concurrency-limit'
+import { withExecutionConcurrencyLimit } from '@/lib/execution/execution-concurrency-limit'
 import { createLogger } from '@/lib/logs/console/logger'
 import {
   type BlockState,
@@ -259,23 +254,6 @@ export async function executeScheduleJob(payload: ScheduleExecutionPayload) {
       },
     })
   } catch (error: any) {
-    if (
-      isExecutionConcurrencyLimitError(error) ||
-      isExecutionConcurrencyBackendUnavailableError(error)
-    ) {
-      logger.warn(
-        `[${requestId}] ${
-          isExecutionConcurrencyLimitError(error)
-            ? getExecutionConcurrencyLimitMessage(error)
-            : error.message
-        }`,
-        {
-          workflowId: payload.workflowId,
-        }
-      )
-      throw error
-    }
-
     if (error instanceof WorkflowUsageLimitError) {
       logger.warn(
         `[${requestId}] Workspace billing subject has exceeded usage limits. Skipping scheduled execution.`,
@@ -286,13 +264,6 @@ export async function executeScheduleJob(payload: ScheduleExecutionPayload) {
       )
       await rescheduleSkippedExecution()
       return
-    }
-
-    if (error.message?.includes('Service overloaded')) {
-      logger.warn(`[${requestId}] Service overloaded while executing schedule`, {
-        workflowId: payload.workflowId,
-      })
-      throw error
     }
 
     logger.error(`[${requestId}] Error executing scheduled workflow ${payload.workflowId}`, error)

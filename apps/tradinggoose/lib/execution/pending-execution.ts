@@ -11,7 +11,7 @@ import { getTriggerExecutionState, TriggerExecutionUnavailableError } from '@/li
 export const PENDING_EXECUTION_DRAIN_TASK_ID = 'pending-execution-drain'
 export const WORKFLOW_EXECUTION_CANCELLED_ERROR = 'Workflow execution was cancelled'
 
-const CLAIM_ATTEMPT_LIMIT = 5
+const CLAIM_RACE_RETRY_LIMIT = 5
 const STALE_PROCESSING_WINDOW_MS = 30 * 60 * 1000
 const PENDING_EXECUTION_LOCK_NAMESPACE = 29_401
 const logger = createLogger('PendingExecutionQueue')
@@ -55,7 +55,6 @@ type PendingExecutionRow = {
   workspaceId: string | null
   payload: unknown
   status: 'pending' | 'processing'
-  attempts: number
   nextAttemptAt: Date
   processingStartedAt: Date | null
   errorMessage: string | null
@@ -315,7 +314,7 @@ export async function claimNextPendingExecution(
       )
     )
 
-  for (let attempt = 0; attempt < CLAIM_ATTEMPT_LIMIT; attempt += 1) {
+  for (let attempt = 0; attempt < CLAIM_RACE_RETRY_LIMIT; attempt += 1) {
     const [candidate] = await db
       .select()
       .from(pendingExecution)
@@ -362,23 +361,6 @@ export async function claimNextPendingExecution(
   }
 
   return null
-}
-
-export async function retryPendingExecution(params: {
-  pendingExecutionId: string
-  errorMessage: string
-}) {
-  await db
-    .update(pendingExecution)
-    .set({
-      status: 'pending',
-      attempts: sql`${pendingExecution.attempts} + 1`,
-      nextAttemptAt: new Date(),
-      processingStartedAt: null,
-      errorMessage: params.errorMessage,
-      updatedAt: new Date(),
-    })
-    .where(eq(pendingExecution.id, params.pendingExecutionId))
 }
 
 function withCancellationRequest(payload: unknown, cancelledAt: string): PendingExecutionPayload {
