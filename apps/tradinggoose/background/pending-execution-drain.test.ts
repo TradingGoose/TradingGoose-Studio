@@ -9,33 +9,28 @@ const {
   executeIndicatorMonitorJobMock,
   claimNextPendingExecutionMock,
   completePendingExecutionMock,
-  releasePendingExecutionMock,
+  deferPendingExecutionStartMock,
   failQueuedDocumentProcessingJobMock,
-  triggerMock,
 } = vi.hoisted(() => ({
   dispatchQueuedDocumentProcessingJobMock: vi.fn(),
   executeWorkflowJobMock: vi.fn(),
   executeIndicatorMonitorJobMock: vi.fn(),
   claimNextPendingExecutionMock: vi.fn(),
   completePendingExecutionMock: vi.fn(),
-  releasePendingExecutionMock: vi.fn(),
+  deferPendingExecutionStartMock: vi.fn(),
   failQueuedDocumentProcessingJobMock: vi.fn(),
-  triggerMock: vi.fn(),
 }))
 
 vi.mock('@trigger.dev/sdk', () => ({
-  task: vi.fn((config) => ({
-    ...config,
-    trigger: triggerMock,
-  })),
+  task: vi.fn((config) => config),
 }))
 
 vi.mock('@/lib/execution/pending-execution', () => ({
   claimNextPendingExecution: claimNextPendingExecutionMock,
   completePendingExecution: completePendingExecutionMock,
+  deferPendingExecutionStart: deferPendingExecutionStartMock,
   isPendingExecutionStartBlockedError: (error: { code?: string }) =>
     error.code === 'EXECUTION_CONCURRENCY_LIMIT',
-  releasePendingExecution: releasePendingExecutionMock,
   PENDING_EXECUTION_DRAIN_TASK_ID: 'pending-execution-drain',
 }))
 
@@ -87,7 +82,7 @@ describe('pendingExecutionDrain', () => {
     claimNextPendingExecutionMock.mockResolvedValue(null)
     dispatchQueuedDocumentProcessingJobMock.mockResolvedValue(undefined)
     executeWorkflowJobMock.mockResolvedValue(undefined)
-    releasePendingExecutionMock.mockResolvedValue(undefined)
+    deferPendingExecutionStartMock.mockResolvedValue(undefined)
   })
 
   it('removes failed workflow jobs after execution throws', async () => {
@@ -135,7 +130,7 @@ describe('pendingExecutionDrain', () => {
     })
   })
 
-  it('releases start-blocked rows back to pending', async () => {
+  it('defers start-blocked rows back to the queue', async () => {
     const error = Object.assign(new Error('Execution concurrency limit reached'), {
       code: 'EXECUTION_CONCURRENCY_LIMIT',
     })
@@ -152,8 +147,9 @@ describe('pendingExecutionDrain', () => {
 
     const result = await runPendingExecutionDrain('scope-1')
 
-    expect(releasePendingExecutionMock).toHaveBeenCalledWith({
+    expect(deferPendingExecutionStartMock).toHaveBeenCalledWith({
       pendingExecutionId: 'pending-workflow-3',
+      billingScopeId: 'scope-1',
     })
     expect(completePendingExecutionMock).not.toHaveBeenCalled()
     expect(result).toEqual({

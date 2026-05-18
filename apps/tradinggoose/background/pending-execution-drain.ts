@@ -2,10 +2,10 @@ import { task } from '@trigger.dev/sdk'
 import {
   claimNextPendingExecution,
   completePendingExecution,
+  deferPendingExecutionStart,
   isPendingExecutionStartBlockedError,
   PENDING_EXECUTION_DRAIN_TASK_ID,
   type PendingExecutionClaim,
-  releasePendingExecution,
 } from '@/lib/execution/pending-execution'
 import { createLogger } from '@/lib/logs/console/logger'
 import {
@@ -108,7 +108,10 @@ export async function drainPendingExecutionsForBillingScope(payload: PendingExec
     const errorMessage = error instanceof Error ? error.message : 'Pending execution failed'
 
     if (isPendingExecutionStartBlockedError(error)) {
-      await releasePendingExecution({ pendingExecutionId: row.id })
+      await deferPendingExecutionStart({
+        pendingExecutionId: row.id,
+        billingScopeId: row.billingScopeId,
+      })
       return {
         success: true,
         pendingExecutionId: row.id,
