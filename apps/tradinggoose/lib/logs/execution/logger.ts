@@ -167,6 +167,8 @@ export class ExecutionLogger {
       >
     }
     finalOutput: BlockOutputData
+    success?: boolean
+    errorMessage?: string
     traceSpans?: TraceSpan[]
     workflowInput?: any
   }): Promise<WorkflowExecutionLog> {
@@ -178,6 +180,8 @@ export class ExecutionLogger {
       totalDurationMs,
       costSummary,
       finalOutput,
+      success,
+      errorMessage,
       traceSpans,
       workflowInput,
     } = params
@@ -201,7 +205,7 @@ export class ExecutionLogger {
       return checkSpanForErrors(span)
     })
 
-    const level = hasErrors ? 'error' : 'info'
+    const level = success === false || hasErrors ? 'error' : 'info'
 
     // Extract files from trace spans, final output, and workflow input
     const executionFiles = this.extractFilesFromExecution(traceSpans, finalOutput, workflowInput)
@@ -231,6 +235,7 @@ export class ExecutionLogger {
       ...existingExecutionData,
       traceSpans,
       finalOutput,
+      ...(errorMessage ? { errorMessage } : {}),
       tokenBreakdown: {
         prompt: costSummary.totalPromptTokens,
         completion: costSummary.totalCompletionTokens,

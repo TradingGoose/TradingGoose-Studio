@@ -120,6 +120,11 @@ function readFinalOutput(executionData: unknown): Record<string, unknown> {
 }
 
 function readLogErrorMessage(row: WorkflowExecutionLogStateRow) {
+  const executionData = isRecord(row.executionData) ? row.executionData : {}
+  if (typeof executionData.errorMessage === 'string' && executionData.errorMessage.length > 0) {
+    return executionData.errorMessage
+  }
+
   const finalOutput = readFinalOutput(row.executionData)
   return typeof finalOutput.error === 'string' && finalOutput.error.length > 0
     ? finalOutput.error

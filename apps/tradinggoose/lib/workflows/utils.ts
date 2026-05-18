@@ -515,20 +515,7 @@ export function stripCustomToolPrefix(name: string) {
 }
 
 export const workflowHasResponseBlock = (executionResult: ExecutionResult): boolean => {
-  if (
-    !executionResult?.logs ||
-    !Array.isArray(executionResult.logs) ||
-    !executionResult.success ||
-    !executionResult.output.response
-  ) {
-    return false
-  }
-
-  const responseBlock = executionResult.logs.find(
-    (log) => log?.blockType === 'response' && log?.success
-  )
-
-  return responseBlock !== undefined
+  return Boolean(executionResult?.success && executionResult.output.response)
 }
 
 // Create a HTTP response from response block
