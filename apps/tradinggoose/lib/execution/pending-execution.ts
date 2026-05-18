@@ -1,12 +1,10 @@
 import { db } from '@tradinggoose/db'
 import { pendingExecution } from '@tradinggoose/db/schema'
 import { tasks } from '@trigger.dev/sdk'
-import { and, asc, eq, inArray, lte, sql } from 'drizzle-orm'
-import { isBillingEnabledForRuntime } from '@/lib/billing/settings'
+import { and, asc, eq, lte, sql } from 'drizzle-orm'
 import type { BillingTierRecord } from '@/lib/billing/tiers'
 import { isDev } from '@/lib/environment'
 import { resolveServerExecutionBillingContext } from '@/lib/execution/execution-concurrency-limit'
-import { createWorkflowExecutionEventWriter } from '@/lib/execution/workflow-execution-events'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getTriggerExecutionState, TriggerExecutionUnavailableError } from '@/lib/trigger/settings'
 
@@ -46,13 +44,6 @@ type PendingExecutionHandle = {
   inserted: boolean
 }
 
-export type PendingWorkflowExecutionAccessContext = {
-  id: string
-  userId: string
-  workflowId: string
-  workspaceId: string | null
-}
-
 type PendingExecutionRow = {
   id: string
   billingScopeId: string
@@ -64,13 +55,11 @@ type PendingExecutionRow = {
   workflowId: string | null
   workspaceId: string | null
   payload: unknown
-  status: 'pending' | 'processing' | 'completed' | 'failed'
+  status: 'pending' | 'processing'
   attempts: number
   nextAttemptAt: Date
   processingStartedAt: Date | null
   errorMessage: string | null
-  result: unknown
-  completedAt: Date | null
   createdAt: Date
   updatedAt: Date
 }
@@ -79,11 +68,7 @@ export type PendingExecutionClaim = PendingExecutionRow & {
   payload: PendingExecutionPayload
 }
 
-export type PendingExecutionCancellationResult =
-  | { status: 'not_found' }
-  | { status: 'cancelled' }
-  | { status: 'cancelling' }
-  | { status: 'finished' }
+export type PendingExecutionCancellationResult = { status: 'not_found' } | { status: 'cancelling' }
 
 export class PendingExecutionLimitError extends Error {
   statusCode = 429
@@ -107,37 +92,6 @@ export function getTierPendingExecutionLimits(tier: BillingTierRecord) {
   return {
     maxPendingAgeSeconds: tier.maxPendingAgeSeconds ?? null,
     maxPendingCount: tier.maxPendingCount ?? null,
-  }
-}
-
-export async function readPendingWorkflowExecutionAccessContext(params: {
-  pendingExecutionId: string
-  workflowId: string
-}): Promise<PendingWorkflowExecutionAccessContext | null> {
-  const [row] = await db
-    .select({
-      id: pendingExecution.id,
-      userId: pendingExecution.userId,
-      workflowId: pendingExecution.workflowId,
-      workspaceId: pendingExecution.workspaceId,
-    })
-    .from(pendingExecution)
-    .where(
-      and(
-        eq(pendingExecution.id, params.pendingExecutionId),
-        eq(pendingExecution.workflowId, params.workflowId),
-        eq(pendingExecution.executionType, 'workflow')
-      )
-    )
-    .limit(1)
-
-  if (!row?.workflowId) return null
-
-  return {
-    id: row.id,
-    userId: row.userId,
-    workflowId: row.workflowId,
-    workspaceId: row.workspaceId,
   }
 }
 
@@ -167,16 +121,13 @@ export async function enqueuePendingExecution(
 
   let inserted = false
 
-  const billingEnabled = await isBillingEnabledForRuntime()
-  const billingContext = billingEnabled
-    ? await resolveServerExecutionBillingContext({
-        actorUserId: params.userId,
-        workflowId: params.workflowId,
-        workspaceId: params.workspaceId,
-        requestId: params.requestId,
-        source: params.source,
-      })
-    : null
+  const billingContext = await resolveServerExecutionBillingContext({
+    actorUserId: params.userId,
+    workflowId: params.workflowId,
+    workspaceId: params.workspaceId,
+    requestId: params.requestId,
+    source: params.source,
+  })
   const billingScopeId = billingContext
     ? billingContext.scopeId
     : (params.workspaceId ?? params.userId)
@@ -207,16 +158,6 @@ export async function enqueuePendingExecution(
             eq(pendingExecution.billingScopeId, billingScopeId),
             eq(pendingExecution.status, 'pending'),
             lte(pendingExecution.createdAt, staleBefore)
-          )
-        )
-
-      await tx
-        .delete(pendingExecution)
-        .where(
-          and(
-            eq(pendingExecution.billingScopeId, billingScopeId),
-            inArray(pendingExecution.status, ['completed', 'failed']),
-            lte(pendingExecution.completedAt, staleBefore)
           )
         )
     }
@@ -424,18 +365,13 @@ function withCancellationRequest(payload: unknown, cancelledAt: string): Pending
 export async function isPendingWorkflowExecutionCancellationRequested(pendingExecutionId: string) {
   const [row] = await db
     .select({
-      status: pendingExecution.status,
       payload: pendingExecution.payload,
-      errorMessage: pendingExecution.errorMessage,
     })
     .from(pendingExecution)
     .where(eq(pendingExecution.id, pendingExecutionId))
     .limit(1)
 
   if (!row) return false
-  if (row.status === 'failed' && row.errorMessage === WORKFLOW_EXECUTION_CANCELLED_ERROR) {
-    return true
-  }
 
   const payload = isPendingExecutionPayload(row.payload) ? row.payload : {}
   return typeof payload.cancelRequestedAt === 'string'
@@ -467,51 +403,8 @@ export async function cancelPendingWorkflowExecution(params: {
       return { status: 'not_found' }
     }
 
-    if (row.status === 'completed' || row.status === 'failed') {
-      return { status: 'finished' }
-    }
-
     const cancelledAt = new Date().toISOString()
     const payload = withCancellationRequest(row.payload, cancelledAt)
-
-    if (row.status === 'pending') {
-      const result = {
-        success: false,
-        output: {},
-        error: WORKFLOW_EXECUTION_CANCELLED_ERROR,
-        logs: [],
-        workflowId: row.workflowId,
-        executionId: row.id,
-        executedAt: cancelledAt,
-      }
-      const cancelledRows = await db
-        .update(pendingExecution)
-        .set({
-          status: 'failed',
-          payload,
-          errorMessage: WORKFLOW_EXECUTION_CANCELLED_ERROR,
-          result,
-          processingStartedAt: null,
-          completedAt: new Date(cancelledAt),
-          updatedAt: new Date(),
-        })
-        .where(and(eq(pendingExecution.id, row.id), eq(pendingExecution.status, 'pending')))
-        .returning({ id: pendingExecution.id })
-
-      if (cancelledRows.length > 0) {
-        const eventWriter = await createWorkflowExecutionEventWriter({
-          pendingExecutionId: row.id,
-          workflowId: row.workflowId,
-        })
-        await eventWriter.write({
-          type: 'execution:cancelled',
-          timestamp: cancelledAt,
-          data: { result },
-        })
-        return { status: 'cancelled' }
-      }
-      continue
-    }
 
     const cancellingRows = await db
       .update(pendingExecution)
@@ -520,7 +413,14 @@ export async function cancelPendingWorkflowExecution(params: {
         errorMessage: WORKFLOW_EXECUTION_CANCELLED_ERROR,
         updatedAt: new Date(),
       })
-      .where(and(eq(pendingExecution.id, row.id), eq(pendingExecution.status, 'processing')))
+      .where(
+        and(
+          eq(pendingExecution.id, row.id),
+          row.status === 'pending'
+            ? eq(pendingExecution.status, 'pending')
+            : eq(pendingExecution.status, 'processing')
+        )
+      )
       .returning({ id: pendingExecution.id })
 
     if (cancellingRows.length > 0) {
@@ -528,60 +428,9 @@ export async function cancelPendingWorkflowExecution(params: {
     }
   }
 
-  const [row] = await db
-    .select({
-      status: pendingExecution.status,
-    })
-    .from(pendingExecution)
-    .where(
-      and(
-        eq(pendingExecution.id, params.pendingExecutionId),
-        eq(pendingExecution.userId, params.userId),
-        eq(pendingExecution.executionType, 'workflow')
-      )
-    )
-    .limit(1)
-
-  return row?.status === 'completed' || row?.status === 'failed'
-    ? { status: 'finished' }
-    : { status: 'not_found' }
+  return { status: 'not_found' }
 }
 
-export async function failPendingExecution(params: {
-  pendingExecutionId: string
-  errorMessage: string
-}) {
-  await db
-    .update(pendingExecution)
-    .set({
-      status: 'failed',
-      attempts: sql`${pendingExecution.attempts} + 1`,
-      processingStartedAt: null,
-      errorMessage: params.errorMessage,
-      completedAt: new Date(),
-      updatedAt: new Date(),
-    })
-    .where(eq(pendingExecution.id, params.pendingExecutionId))
-}
-
-export async function completePendingExecution(params: {
-  pendingExecutionId: string
-  result?: Record<string, unknown> | null
-  deleteOnSuccess?: boolean
-}) {
-  if (params.deleteOnSuccess ?? true) {
-    await db.delete(pendingExecution).where(eq(pendingExecution.id, params.pendingExecutionId))
-    return
-  }
-
-  await db
-    .update(pendingExecution)
-    .set({
-      status: 'completed',
-      errorMessage: null,
-      result: params.result ?? null,
-      completedAt: new Date(),
-      updatedAt: new Date(),
-    })
-    .where(eq(pendingExecution.id, params.pendingExecutionId))
+export async function completePendingExecution(params: { pendingExecutionId: string }) {
+  await db.delete(pendingExecution).where(eq(pendingExecution.id, params.pendingExecutionId))
 }

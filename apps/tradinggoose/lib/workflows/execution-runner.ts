@@ -17,10 +17,7 @@ import { TriggerUtils } from '@/lib/workflows/triggers'
 import { updateWorkflowRunCounts } from '@/lib/workflows/utils'
 import { normalizeVariables } from '@/lib/workflows/variable-utils'
 import { Executor } from '@/executor'
-import type {
-  ExecutionContextExtensions,
-  ExecutionResult,
-} from '@/executor/types'
+import type { ExecutionContextExtensions, ExecutionResult } from '@/executor/types'
 import { Serializer } from '@/serializer'
 import type { TriggerType } from '@/services/queue'
 import { mergeSubblockState } from '@/stores/workflows/server-utils'
@@ -209,10 +206,10 @@ function resolveStartBlockId(params: {
         params.start.triggerType === 'api' && params.isChildExecution
           ? 'Input'
           : params.start.triggerType === 'api'
-          ? 'API'
-          : params.start.triggerType === 'chat'
-            ? 'Chat'
-            : 'Manual'
+            ? 'API'
+            : params.start.triggerType === 'chat'
+              ? 'Chat'
+              : 'Manual'
       throw new Error(
         `No ${triggerName} trigger block found. Add a ${triggerName} Trigger block to this workflow.`
       )
@@ -327,7 +324,21 @@ export async function runPreparedWorkflowExecution(params: {
       }
 
       let workflowLogStarted = false
+      let workflowLogId: string | undefined
       try {
+        try {
+          workflowLogId = await loggingSession.start({
+            userId: params.actorUserId,
+            workspaceId,
+            workflowState: params.blueprint.workflowData,
+            variables: {},
+            triggerData: params.triggerData,
+          })
+          workflowLogStarted = true
+        } catch (error) {
+          logger.error(`[${requestId}] Workflow log start failed before execution`, error)
+        }
+
         const { personalEncrypted, workspaceEncrypted } = await getPersonalAndWorkspaceEnv(
           params.actorUserId,
           workspaceId
@@ -347,20 +358,6 @@ export async function runPreparedWorkflowExecution(params: {
           true
         )
         const workflowVariables = normalizeVariables(params.blueprint.workflowContext.variables)
-
-        let workflowLogId: string | undefined
-        try {
-          workflowLogId = await loggingSession.start({
-            userId: params.actorUserId,
-            workspaceId,
-            workflowState: params.blueprint.workflowData,
-            variables: encryptedEnvVars,
-            triggerData: params.triggerData,
-          })
-          workflowLogStarted = true
-        } catch (error) {
-          logger.error(`[${requestId}] Workflow log start failed before execution`, error)
-        }
 
         const contextExtensions: ExecutionContextExtensions = {
           ...params.contextExtensions,
