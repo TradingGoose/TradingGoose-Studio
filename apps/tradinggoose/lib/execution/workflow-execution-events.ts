@@ -149,7 +149,7 @@ export function createWorkflowExecutionResultFromLog(row: WorkflowExecutionLogSt
   const finalOutput = readFinalOutput(executionData)
   const queuedExecution = readQueuedExecutionMetadata(executionData)
   const traceSpans = Array.isArray(executionData.traceSpans) ? executionData.traceSpans : []
-  const failed = row.level === 'error' || typeof finalOutput.error === 'string'
+  const failed = row.level === 'error'
   const errorMessage = failed ? readLogErrorMessage(row) : null
   const metadata = {
     duration: row.totalDurationMs ?? 0,

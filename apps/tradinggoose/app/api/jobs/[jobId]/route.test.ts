@@ -103,13 +103,16 @@ vi.mock('@/app/api/workflows/utils', () => ({
 
 import { DELETE, GET } from './route'
 
-const createWorkflowResult = (queuedExecution: Record<string, unknown>) => ({
+const createWorkflowResult = (
+  queuedExecution: Record<string, unknown>,
+  finalOutput: Record<string, unknown> = { answer: 42 }
+) => ({
   level: 'info',
   startedAt: new Date('2026-04-16T00:00:00.000Z'),
   endedAt: new Date('2026-04-16T00:00:02.000Z'),
   totalDurationMs: 1000,
   executionData: {
-    finalOutput: { answer: 42 },
+    finalOutput,
     traceSpans: [{ id: 'trace-1' }],
     trigger: {
       data: {
@@ -119,8 +122,13 @@ const createWorkflowResult = (queuedExecution: Record<string, unknown>) => ({
   },
 })
 
-const mockCompletedWorkflowJob = (queuedExecution: Record<string, unknown>) =>
-  limitMock.mockResolvedValueOnce([]).mockResolvedValueOnce([createWorkflowResult(queuedExecution)])
+const mockCompletedWorkflowJob = (
+  queuedExecution: Record<string, unknown>,
+  finalOutput?: Record<string, unknown>
+) =>
+  limitMock
+    .mockResolvedValueOnce([])
+    .mockResolvedValueOnce([createWorkflowResult(queuedExecution, finalOutput)])
 
 describe('GET /api/jobs/[jobId]', () => {
   beforeEach(() => {
@@ -200,6 +208,27 @@ describe('GET /api/jobs/[jobId]', () => {
     expect(body.output.executionId).toBeUndefined()
     expect(body.output.executedAt).toBeUndefined()
     expect(body.output.metadata.queuedExecution).toBeUndefined()
+  })
+
+  it('does not treat successful workflow output with error property as failed', async () => {
+    mockCompletedWorkflowJob({ source: 'workflow_execute_api' }, { error: 'user output' })
+
+    const response = await GET(new Request('http://localhost/api/jobs/job-1') as any, {
+      params: Promise.resolve({ jobId: 'job-1' }),
+    })
+
+    expect(response.status).toBe(200)
+    const body = await response.json()
+    expect(body).toMatchObject({
+      success: true,
+      taskId: 'job-1',
+      status: 'completed',
+      output: {
+        success: true,
+        output: { error: 'user output' },
+      },
+    })
+    expect(body.error).toBeUndefined()
   })
 
   it('includes trace spans for internal child workflow polling only', async () => {
