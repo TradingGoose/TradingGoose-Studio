@@ -92,6 +92,8 @@ export async function GET(request: NextRequest) {
           payload,
         })
 
+        if (!handle.inserted) return null
+
         logger.info(
           `[${requestId}] Queued schedule execution ${handle.pendingExecutionId} for workflow ${schedule.workflowId}`,
         )

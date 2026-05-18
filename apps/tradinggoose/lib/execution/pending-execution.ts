@@ -9,13 +9,13 @@ import { createLogger } from '@/lib/logs/console/logger'
 import { getTriggerExecutionState, TriggerExecutionUnavailableError } from '@/lib/trigger/settings'
 
 export const PENDING_EXECUTION_DRAIN_TASK_ID = 'pending-execution-drain'
-export const PENDING_EXECUTION_RETRY_DELAY_MS = 15_000
 export const WORKFLOW_EXECUTION_CANCELLED_ERROR = 'Workflow execution was cancelled'
 
 const CLAIM_ATTEMPT_LIMIT = 5
 const STALE_PROCESSING_WINDOW_MS = 30 * 60 * 1000
 const PENDING_EXECUTION_LOCK_NAMESPACE = 29_401
 const logger = createLogger('PendingExecutionQueue')
+type TriggerExecutionState = Awaited<ReturnType<typeof getTriggerExecutionState>>
 
 export type PendingExecutionType =
   | 'workflow'
@@ -49,7 +49,6 @@ type PendingExecutionRow = {
   billingScopeId: string
   billingScopeType: string
   executionType: string
-  orderingKey: string | null
   source: string
   userId: string
   workflowId: string | null
@@ -99,6 +98,47 @@ function isPendingExecutionPayload(value: unknown): value is PendingExecutionPay
   return Boolean(value && typeof value === 'object' && !Array.isArray(value))
 }
 
+export async function triggerPendingExecutionDrain(params: {
+  billingScopeId: string
+  requestId?: string
+  triggerState?: TriggerExecutionState
+}) {
+  const triggerState = params.triggerState ?? (await getTriggerExecutionState())
+
+  if (triggerState.triggerDevEnabled && !triggerState.configurationReady) {
+    throw new TriggerExecutionUnavailableError(
+      'Trigger.dev execution is enabled but not configured.'
+    )
+  }
+
+  if (triggerState.executionEnabled) {
+    await tasks.trigger(PENDING_EXECUTION_DRAIN_TASK_ID, {
+      billingScopeId: params.billingScopeId,
+    })
+    return
+  }
+
+  if (!triggerState.triggerDevEnabled && isDev) {
+    const { drainPendingExecutionsForBillingScope } = await import(
+      '@/background/pending-execution-drain'
+    )
+    void drainPendingExecutionsForBillingScope({ billingScopeId: params.billingScopeId }).catch(
+      (error) => {
+        logger.error('Local pending execution drain failed', {
+          billingScopeId: params.billingScopeId,
+          requestId: params.requestId,
+          error,
+        })
+      }
+    )
+    return
+  }
+
+  throw new TriggerExecutionUnavailableError(
+    'Queued server execution requires Trigger.dev outside local development.'
+  )
+}
+
 export async function enqueuePendingExecution(
   params: PendingExecutionInsert
 ): Promise<PendingExecutionHandle> {
@@ -110,10 +150,7 @@ export async function enqueuePendingExecution(
     )
   }
 
-  const useTriggerDev = triggerState.executionEnabled
-  const useLocalExecution = !triggerState.triggerDevEnabled && isDev
-
-  if (!useTriggerDev && !useLocalExecution) {
+  if (!triggerState.executionEnabled && (triggerState.triggerDevEnabled || !isDev)) {
     throw new TriggerExecutionUnavailableError(
       'Queued server execution requires Trigger.dev outside local development.'
     )
@@ -172,6 +209,24 @@ export async function enqueuePendingExecution(
       return
     }
 
+    if (params.orderingKey) {
+      const [overlappingRow] = await tx
+        .select({ id: pendingExecution.id })
+        .from(pendingExecution)
+        .where(
+          and(
+            eq(pendingExecution.billingScopeId, billingScopeId),
+            eq(pendingExecution.orderingKey, params.orderingKey),
+            sql<boolean>`${pendingExecution.status} in ('pending', 'processing')`
+          )
+        )
+        .limit(1)
+
+      if (overlappingRow) {
+        return
+      }
+    }
+
     if (limits.maxPendingCount !== null) {
       const [countRow] = await tx
         .select({ count: sql<number>`count(*)` })
@@ -215,33 +270,22 @@ export async function enqueuePendingExecution(
     }
   }
 
-  if (useTriggerDev) {
-    try {
-      await tasks.trigger(PENDING_EXECUTION_DRAIN_TASK_ID, {
-        billingScopeId,
-      })
-    } catch (error) {
-      await db
-        .delete(pendingExecution)
-        .where(
-          and(
-            eq(pendingExecution.id, params.pendingExecutionId),
-            eq(pendingExecution.status, 'pending')
-          )
-        )
-      throw error
-    }
-  } else {
-    const { drainPendingExecutionsForBillingScope } = await import(
-      '@/background/pending-execution-drain'
-    )
-    void drainPendingExecutionsForBillingScope({ billingScopeId }).catch((error) => {
-      logger.error('Local pending execution drain failed', {
-        billingScopeId,
-        requestId: params.requestId,
-        error,
-      })
+  try {
+    await triggerPendingExecutionDrain({
+      billingScopeId,
+      requestId: params.requestId,
+      triggerState,
     })
+  } catch (error) {
+    await db
+      .delete(pendingExecution)
+      .where(
+        and(
+          eq(pendingExecution.id, params.pendingExecutionId),
+          eq(pendingExecution.status, 'pending')
+        )
+      )
+    throw error
   }
 
   return {
@@ -279,24 +323,7 @@ export async function claimNextPendingExecution(
         and(
           eq(pendingExecution.billingScopeId, billingScopeId),
           eq(pendingExecution.status, 'pending'),
-          lte(pendingExecution.nextAttemptAt, new Date()),
-          sql<boolean>`
-            ${pendingExecution.orderingKey} is null
-            or not exists (
-              select 1
-              from pending_execution blocked
-              where blocked.billing_scope_id = ${pendingExecution.billingScopeId}
-                and blocked.ordering_key = ${pendingExecution.orderingKey}
-                and blocked.status in ('pending', 'processing')
-                and (
-                  blocked.created_at < ${pendingExecution.createdAt}
-                  or (
-                    blocked.created_at = ${pendingExecution.createdAt}
-                    and blocked.id < ${pendingExecution.id}
-                  )
-                )
-            )
-          `
+          lte(pendingExecution.nextAttemptAt, new Date())
         )
       )
       .orderBy(
@@ -340,14 +367,13 @@ export async function claimNextPendingExecution(
 export async function retryPendingExecution(params: {
   pendingExecutionId: string
   errorMessage: string
-  delayMs: number
 }) {
   await db
     .update(pendingExecution)
     .set({
       status: 'pending',
       attempts: sql`${pendingExecution.attempts} + 1`,
-      nextAttemptAt: new Date(Date.now() + params.delayMs),
+      nextAttemptAt: new Date(),
       processingStartedAt: null,
       errorMessage: params.errorMessage,
       updatedAt: new Date(),

@@ -30,6 +30,7 @@ describe('Scheduled Workflow Execution API Route', () => {
     enqueuePendingExecutionMock.mockResolvedValue({
       pendingExecutionId: 'pending-schedule-1',
       billingScopeId: 'billing-scope-1',
+      inserted: true,
     })
   })
 
