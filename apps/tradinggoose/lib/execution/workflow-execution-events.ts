@@ -339,10 +339,11 @@ export async function readWorkflowExecutionEventState(params: {
 }) {
   const readEvents = async (afterEventId: number) => {
     try {
-      return await readBufferedEvents({
+      const events = await readBufferedEvents({
         pendingExecutionId: params.pendingExecutionId,
         afterEventId,
       })
+      return events.filter((entry) => entry.event.workflowId === params.workflowId)
     } catch (error) {
       logger.error('Failed to read workflow execution event buffer', {
         workflowId: params.workflowId,
