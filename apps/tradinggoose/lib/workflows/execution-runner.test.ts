@@ -148,6 +148,8 @@ describe('runPreparedWorkflowExecution', () => {
   })
 
   it('threads required workspace and workflow log context into executor runs without resetting workflow depth', async () => {
+    mocks.complete.mockRejectedValueOnce(new Error('log boom'))
+
     const result = await runPreparedWorkflowExecution({
       blueprint,
       actorUserId: 'user-1',
