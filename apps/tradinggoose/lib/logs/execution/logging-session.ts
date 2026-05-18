@@ -39,6 +39,7 @@ export interface SessionCompleteParams {
   workflowInput?: any
   workspaceId?: string
   actorUserId?: string | null
+  hasResponseBlock?: boolean
 }
 
 export interface SessionErrorCompleteParams {
@@ -161,6 +162,7 @@ export class LoggingSession {
       workflowInput,
       workspaceId,
       actorUserId,
+      hasResponseBlock,
     } = params
 
     try {
@@ -190,6 +192,7 @@ export class LoggingSession {
         errorMessage,
         traceSpans: traceSpans || [],
         workflowInput,
+        hasResponseBlock,
       })
 
       // Track workflow execution outcome

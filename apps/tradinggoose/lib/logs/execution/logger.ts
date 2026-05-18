@@ -171,6 +171,7 @@ export class ExecutionLogger {
     errorMessage?: string
     traceSpans?: TraceSpan[]
     workflowInput?: any
+    hasResponseBlock?: boolean
   }): Promise<WorkflowExecutionLog> {
     const {
       executionId,
@@ -184,6 +185,7 @@ export class ExecutionLogger {
       errorMessage,
       traceSpans,
       workflowInput,
+      hasResponseBlock,
     } = params
 
     logger.debug(`Completing workflow execution ${executionId}`)
@@ -223,6 +225,7 @@ export class ExecutionLogger {
       ...existingExecutionData,
       traceSpans,
       finalOutput,
+      ...(hasResponseBlock ? { hasResponseBlock: true } : {}),
       ...(errorMessage ? { errorMessage } : {}),
       tokenBreakdown: {
         prompt: costSummary.totalPromptTokens,

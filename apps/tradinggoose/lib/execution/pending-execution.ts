@@ -450,14 +450,9 @@ export async function cancelPendingWorkflowExecution(params: {
   return { status: 'not_found' }
 }
 
-export async function completePendingExecution(params: {
-  pendingExecutionId: string
-  billingScopeId: string
-}) {
+export async function completePendingExecution(params: { pendingExecutionId: string }) {
+  // Queue rows are leases only; terminal state belongs to the execution-specific owner.
   await db.delete(pendingExecution).where(eq(pendingExecution.id, params.pendingExecutionId))
-  await triggerPendingExecutionDrain({ billingScopeId: params.billingScopeId }).catch((error) => {
-    logger.error('Failed to wake pending execution drain after completion', error)
-  })
 }
 
 export async function deferPendingExecutionStart(params: { pendingExecutionId: string }) {

@@ -147,9 +147,9 @@ export async function readWorkflowAccessContext(
 
   const row = rows[0] as
     | (WorkflowRow & {
-      workspaceOwnerId: string | null
-      workspacePermission: PermissionType | null
-    })
+        workspaceOwnerId: string | null
+        workspacePermission: PermissionType | null
+      })
     | undefined
 
   if (!row) {
@@ -502,7 +502,7 @@ export function hasWorkflowChanged(
   // 6. Compare global workflow variables
   if (
     normalizedStringify(currentState.variables || {}) !==
-      normalizedStringify(deployedState.variables || {})
+    normalizedStringify(deployedState.variables || {})
   ) {
     return true
   }
@@ -515,7 +515,13 @@ export function stripCustomToolPrefix(name: string) {
 }
 
 export const workflowHasResponseBlock = (executionResult: ExecutionResult): boolean => {
-  return Boolean(executionResult?.success && executionResult.output.response)
+  const hasResponseBlockLog =
+    executionResult.logs?.some((log) => log.success && log.blockType === 'response') === true
+  return Boolean(
+    executionResult?.success &&
+      executionResult.output.response &&
+      (executionResult.metadata?.hasResponseBlock === true || hasResponseBlockLog)
+  )
 }
 
 // Create a HTTP response from response block

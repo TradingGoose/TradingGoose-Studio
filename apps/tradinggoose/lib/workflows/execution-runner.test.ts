@@ -234,6 +234,52 @@ describe('runPreparedWorkflowExecution', () => {
     )
     expect(mocks.execute).toHaveBeenCalledWith('workflow-1', 'trigger')
   })
+
+  it('requires workflow log start before executing blocks', async () => {
+    mocks.start.mockRejectedValueOnce(new Error('log start failed'))
+
+    await expect(
+      runPreparedWorkflowExecution({
+        blueprint,
+        actorUserId: 'user-1',
+        triggerType: 'manual',
+        workflowInput: {},
+        executionId: 'execution-1',
+        start: {
+          kind: 'trigger',
+          triggerType: 'manual',
+        },
+      })
+    ).rejects.toThrow('log start failed')
+
+    expect(mocks.execute).not.toHaveBeenCalled()
+  })
+
+  it('persists the response block marker with completed workflow logs', async () => {
+    mocks.execute.mockResolvedValueOnce({
+      success: true,
+      output: { response: { data: { ok: true }, status: 201, headers: {} } },
+      logs: [{ blockType: 'response', success: true }],
+    })
+
+    await runPreparedWorkflowExecution({
+      blueprint,
+      actorUserId: 'user-1',
+      triggerType: 'manual',
+      workflowInput: {},
+      executionId: 'execution-1',
+      start: {
+        kind: 'trigger',
+        triggerType: 'manual',
+      },
+    })
+
+    expect(mocks.complete).toHaveBeenCalledWith(
+      expect.objectContaining({
+        hasResponseBlock: true,
+      })
+    )
+  })
 })
 
 describe('loadWorkflowExecutionBlueprint', () => {

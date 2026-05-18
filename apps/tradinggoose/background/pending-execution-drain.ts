@@ -105,55 +105,61 @@ async function dispatchPendingExecution(row: PendingExecutionClaim) {
 
   await completePendingExecution({
     pendingExecutionId: row.id,
-    billingScopeId: row.billingScopeId,
   })
 }
 
 export async function drainPendingExecutionsForBillingScope(payload: PendingExecutionDrainPayload) {
-  const row = await claimNextPendingExecution(payload.billingScopeId)
+  let claimedAny = false
+  let failedAny = false
+  let lastPendingExecutionId: string | undefined
 
-  if (!row) {
-    return { success: true, skipped: 'empty' as const }
-  }
+  // Keep the worker responsible for the current scope until the queue is empty or capacity blocked.
+  while (true) {
+    const row = await claimNextPendingExecution(payload.billingScopeId)
 
-  try {
-    await dispatchPendingExecution(row)
-    return {
-      success: true,
-      pendingExecutionId: row.id,
-    }
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Pending execution failed'
-
-    if (isPendingExecutionStartBlockedError(error)) {
-      await deferPendingExecutionStart({
-        pendingExecutionId: row.id,
-      })
-      await retryDeferredPendingExecution(payload)
+    if (!row) {
+      if (!claimedAny) {
+        return { success: true, skipped: 'empty' as const }
+      }
       return {
-        success: true,
-        pendingExecutionId: row.id,
+        success: !failedAny,
+        pendingExecutionId: lastPendingExecutionId,
       }
     }
 
-    if (row.executionType === 'document') {
-      await failQueuedDocumentProcessingJob(row.payload, errorMessage)
-    }
-    await completePendingExecution({
-      pendingExecutionId: row.id,
-      billingScopeId: row.billingScopeId,
-    })
+    claimedAny = true
+    lastPendingExecutionId = row.id
 
-    logger.error('Pending execution failed', {
-      pendingExecutionId: row.id,
-      executionType: row.executionType,
-      workflowId: row.workflowId,
-      error,
-    })
+    try {
+      await dispatchPendingExecution(row)
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Pending execution failed'
 
-    return {
-      success: false,
-      pendingExecutionId: row.id,
+      if (isPendingExecutionStartBlockedError(error)) {
+        await deferPendingExecutionStart({
+          pendingExecutionId: row.id,
+        })
+        await retryDeferredPendingExecution(payload)
+        return {
+          success: !failedAny,
+          pendingExecutionId: row.id,
+        }
+      }
+
+      if (row.executionType === 'document') {
+        await failQueuedDocumentProcessingJob(row.payload, errorMessage)
+      }
+      await completePendingExecution({
+        pendingExecutionId: row.id,
+      })
+      failedAny = true
+
+      logger.error('Pending execution failed', {
+        pendingExecutionId: row.id,
+        executionType: row.executionType,
+        workflowId: row.workflowId,
+        error,
+      })
     }
   }
 }

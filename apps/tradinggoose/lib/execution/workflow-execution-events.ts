@@ -154,12 +154,14 @@ export function createWorkflowExecutionResultFromLog(row: WorkflowExecutionLogSt
   const finalOutput = readFinalOutput(executionData)
   const queuedExecution = readQueuedExecutionMetadata(executionData)
   const traceSpans = Array.isArray(executionData.traceSpans) ? executionData.traceSpans : []
+  const hasResponseBlock = executionData.hasResponseBlock === true
   const failed = row.level === 'error'
   const errorMessage = failed ? readLogErrorMessage(row) : null
   const metadata = {
     duration: row.totalDurationMs ?? 0,
     startTime: row.startedAt.toISOString(),
     endTime: row.endedAt.toISOString(),
+    ...(hasResponseBlock ? { hasResponseBlock } : {}),
     ...(queuedExecution ? { queuedExecution } : {}),
   } as ExecutionResult['metadata'] & { queuedExecution?: Record<string, unknown> }
   const result: ExecutionResult & { traceSpans?: unknown[] } = {

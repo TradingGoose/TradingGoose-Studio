@@ -111,33 +111,46 @@ describe('pendingExecutionDrain', () => {
     const result = await runPendingExecutionDrain('scope-1')
 
     expect(completePendingExecutionMock).toHaveBeenCalled()
+    expect(claimNextPendingExecutionMock).toHaveBeenCalledTimes(2)
     expect(result).toEqual({
       success: false,
       pendingExecutionId: 'pending-workflow-1',
     })
   })
 
-  it('drains one successful row and lets completion wake the next drain', async () => {
-    claimNextPendingExecutionMock.mockResolvedValueOnce({
-      id: 'pending-workflow-2',
-      billingScopeId: 'scope-1',
-      executionType: 'workflow',
-      payload: {
-        workflowId: 'workflow-1',
-        userId: 'user-1',
-      },
-    })
+  it('drains successful rows until the scope is empty', async () => {
+    claimNextPendingExecutionMock
+      .mockResolvedValueOnce({
+        id: 'pending-workflow-2',
+        billingScopeId: 'scope-1',
+        executionType: 'workflow',
+        payload: {
+          workflowId: 'workflow-1',
+          userId: 'user-1',
+        },
+      })
+      .mockResolvedValueOnce({
+        id: 'pending-workflow-3',
+        billingScopeId: 'scope-1',
+        executionType: 'workflow',
+        payload: {
+          workflowId: 'workflow-1',
+          userId: 'user-1',
+        },
+      })
 
     const result = await runPendingExecutionDrain('scope-1')
 
     expect(completePendingExecutionMock).toHaveBeenCalledWith({
       pendingExecutionId: 'pending-workflow-2',
-      billingScopeId: 'scope-1',
     })
-    expect(claimNextPendingExecutionMock).toHaveBeenCalledTimes(1)
+    expect(completePendingExecutionMock).toHaveBeenCalledWith({
+      pendingExecutionId: 'pending-workflow-3',
+    })
+    expect(claimNextPendingExecutionMock).toHaveBeenCalledTimes(3)
     expect(result).toEqual({
       success: true,
-      pendingExecutionId: 'pending-workflow-2',
+      pendingExecutionId: 'pending-workflow-3',
     })
   })
 
@@ -184,6 +197,7 @@ describe('pendingExecutionDrain', () => {
 
     expect(failQueuedDocumentProcessingJobMock).toHaveBeenCalledWith(payload, 'PDF parse failed')
     expect(completePendingExecutionMock).toHaveBeenCalled()
+    expect(claimNextPendingExecutionMock).toHaveBeenCalledTimes(2)
     expect(result).toEqual({
       success: false,
       pendingExecutionId: 'pending-document-1',
