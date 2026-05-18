@@ -58,26 +58,12 @@ describe('openWorkflowExecutionEventStream', () => {
     })
   })
 
-  it('streams the initial event-state read without polling the same state again', async () => {
+  it('streams terminal initial state without polling the same state again', async () => {
     readWorkflowExecutionEventStateMock.mockResolvedValue({
       status: 'completed',
-      result: { success: true, output: {}, logs: [] },
+      result: { success: true, output: { ok: true }, logs: [] },
       errorMessage: null,
-      events: [
-        {
-          eventId: 1,
-          event: {
-            type: 'execution:completed',
-            executionId: 'execution-1',
-            workflowId: 'workflow-1',
-            timestamp: '2026-01-01T00:00:00.000Z',
-            eventId: 1,
-            data: {
-              result: { success: true, output: {}, logs: [] },
-            },
-          },
-        },
-      ],
+      events: [],
     })
 
     const result = await openWorkflowExecutionEventStream({
@@ -91,6 +77,7 @@ describe('openWorkflowExecutionEventStream', () => {
     const text = await readStream(result.stream)
 
     expect(text).toContain('"type":"execution:completed"')
+    expect(text).toContain('"ok":true')
     expect(text).toContain('data: [DONE]')
     expect(readWorkflowExecutionEventStateMock).toHaveBeenCalledTimes(1)
   })

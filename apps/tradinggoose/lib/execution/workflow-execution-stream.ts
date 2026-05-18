@@ -92,7 +92,35 @@ function createSeededWorkflowExecutionEventStream(
         }
 
         if (!sawTerminalEvent && (state.status === 'completed' || state.status === 'failed')) {
-          throw new Error('Workflow execution ended without a terminal stream event')
+          if (!state.result) {
+            throw new Error('Workflow execution ended without a terminal stream event')
+          }
+          const eventId = lastEventId + 1
+          const terminalEvent =
+            state.status === 'completed'
+              ? { type: 'execution:completed' as const, data: { result: state.result } }
+              : {
+                  type: 'execution:error' as const,
+                  data: {
+                    error: state.errorMessage ?? 'Workflow execution failed',
+                    result: state.result,
+                  },
+                }
+          const terminalEntry: WorkflowExecutionEventEntry = {
+            eventId,
+            event: {
+              ...terminalEvent,
+              executionId: params.pendingExecutionId,
+              workflowId: params.workflowId,
+              timestamp: new Date().toISOString(),
+              eventId,
+            },
+          }
+          for (const chunk of toChunks(formatEvent(terminalEntry))) {
+            enqueue(chunk)
+          }
+          lastEventId = eventId
+          return true
         }
 
         return sawTerminalEvent
