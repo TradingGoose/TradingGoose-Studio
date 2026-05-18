@@ -6,12 +6,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const {
   transactionMock,
   triggerMock,
-  drainPendingExecutionsForBillingScopeMock,
   deleteWhereMock,
   isBillingEnabledForRuntimeMock,
   getTriggerExecutionStateMock,
-  loggerWarnMock,
-  loggerErrorMock,
   andMock,
   eqMock,
   selectLimitMock,
@@ -21,12 +18,9 @@ const {
 } = vi.hoisted(() => ({
   transactionMock: vi.fn(),
   triggerMock: vi.fn(),
-  drainPendingExecutionsForBillingScopeMock: vi.fn(),
   deleteWhereMock: vi.fn(),
   isBillingEnabledForRuntimeMock: vi.fn(),
   getTriggerExecutionStateMock: vi.fn(),
-  loggerWarnMock: vi.fn(),
-  loggerErrorMock: vi.fn(),
   andMock: vi.fn((...args) => ({ args })),
   eqMock: vi.fn((field, value) => ({ field, value })),
   selectLimitMock: vi.fn(),
@@ -122,17 +116,15 @@ vi.mock('@/lib/execution/workflow-execution-events', () => ({
 
 vi.mock('@/lib/trigger/settings', () => ({
   getTriggerExecutionState: getTriggerExecutionStateMock,
-}))
+  TriggerExecutionUnavailableError: class TriggerExecutionUnavailableError extends Error {
+    statusCode = 503
+    code = 'TRIGGER_EXECUTION_DISABLED'
 
-vi.mock('@/background/pending-execution-drain', () => ({
-  drainPendingExecutionsForBillingScope: drainPendingExecutionsForBillingScopeMock,
-}))
-
-vi.mock('@/lib/logs/console/logger', () => ({
-  createLogger: vi.fn(() => ({
-    warn: loggerWarnMock,
-    error: loggerErrorMock,
-  })),
+    constructor(message = 'Trigger.dev execution is disabled or not configured.') {
+      super(message)
+      this.name = 'TriggerExecutionUnavailableError'
+    }
+  },
 }))
 
 import { cancelPendingWorkflowExecution, enqueuePendingExecution } from './pending-execution'
@@ -151,9 +143,6 @@ describe('enqueuePendingExecution', () => {
     txExecuteMock.mockResolvedValue(undefined)
     txInsertValuesMock.mockResolvedValue(undefined)
     updateReturningMock.mockResolvedValue([])
-    drainPendingExecutionsForBillingScopeMock.mockResolvedValue({
-      success: true,
-    })
     transactionMock.mockImplementation(async (callback) =>
       callback({
         execute: txExecuteMock,
@@ -163,47 +152,31 @@ describe('enqueuePendingExecution', () => {
     )
   })
 
-  it('starts local drain before returning without blocking on drain completion', async () => {
-    let drainCompleted = false
-    let resolveDrain: (() => void) | undefined
-    const drainPromise = new Promise<{ success: true }>((resolve) => {
-      resolveDrain = () => {
-        drainCompleted = true
-        resolve({ success: true })
-      }
-    })
-    drainPendingExecutionsForBillingScopeMock.mockReturnValueOnce(drainPromise)
+  it('rejects queued execution when Trigger.dev is unavailable', async () => {
+    await expect(
+      enqueuePendingExecution({
+        executionType: 'workflow',
+        pendingExecutionId: 'pending-local-1',
+        workflowId: 'workflow-1',
+        workspaceId: 'workspace-1',
+        userId: 'user-1',
+        source: 'workflow_api',
+        payload: {
+          executionId: 'pending-local-1',
+        },
+      })
+    ).rejects.toThrow('Trigger.dev execution is required for queued server execution.')
 
-    const result = await enqueuePendingExecution({
-      executionType: 'workflow',
-      pendingExecutionId: 'pending-local-1',
-      workflowId: 'workflow-1',
-      workspaceId: 'workspace-1',
-      userId: 'user-1',
-      source: 'workflow_api',
-      payload: {
-        executionId: 'pending-local-1',
-      },
-    })
-
-    expect(result).toEqual({
-      pendingExecutionId: 'pending-local-1',
-      billingScopeId: 'workspace-1',
-      inserted: true,
-    })
+    expect(transactionMock).not.toHaveBeenCalled()
     expect(triggerMock).not.toHaveBeenCalled()
-    expect(drainPendingExecutionsForBillingScopeMock).toHaveBeenCalledWith({
-      billingScopeId: 'workspace-1',
-    })
-    expect(drainCompleted).toBe(false)
-    expect(loggerWarnMock).toHaveBeenCalledWith(
-      'Trigger.dev is not configured; dispatching pending execution drain locally.'
-    )
-    resolveDrain?.()
-    await drainPromise
   })
 
   it('returns duplicate pending ids without dispatching another worker', async () => {
+    getTriggerExecutionStateMock.mockResolvedValue({
+      configurationReady: true,
+      triggerDevEnabled: true,
+      executionEnabled: true,
+    })
     txSelectLimitMock.mockResolvedValueOnce([{ id: 'pending-local-1' }])
 
     const result = await enqueuePendingExecution({
@@ -224,7 +197,6 @@ describe('enqueuePendingExecution', () => {
       inserted: false,
     })
     expect(triggerMock).not.toHaveBeenCalled()
-    expect(drainPendingExecutionsForBillingScopeMock).not.toHaveBeenCalled()
   })
 
   it('deletes a newly inserted row when the Trigger.dev drain dispatch fails', async () => {
@@ -252,7 +224,6 @@ describe('enqueuePendingExecution', () => {
     expect(deleteWhereMock).toHaveBeenCalledTimes(1)
     expect(eqMock).toHaveBeenCalledWith('pendingExecution.status', 'pending')
     expect(andMock).toHaveBeenCalled()
-    expect(drainPendingExecutionsForBillingScopeMock).not.toHaveBeenCalled()
   })
 })
 
