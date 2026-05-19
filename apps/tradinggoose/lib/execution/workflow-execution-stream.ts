@@ -99,13 +99,15 @@ function createSeededWorkflowExecutionEventStream(
           const terminalEvent =
             state.status === 'completed'
               ? { type: 'execution:completed' as const, data: { result: state.result } }
-              : {
-                  type: 'execution:error' as const,
-                  data: {
-                    error: state.errorMessage ?? 'Workflow execution failed',
-                    result: state.result,
-                  },
-                }
+              : state.errorMessage === 'Workflow execution was cancelled'
+                ? { type: 'execution:cancelled' as const, data: { result: state.result } }
+                : {
+                    type: 'execution:error' as const,
+                    data: {
+                      error: state.errorMessage ?? 'Workflow execution failed',
+                      result: state.result,
+                    },
+                  }
           const terminalEntry: WorkflowExecutionEventEntry = {
             eventId,
             event: {

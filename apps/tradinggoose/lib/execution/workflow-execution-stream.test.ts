@@ -81,4 +81,32 @@ describe('openWorkflowExecutionEventStream', () => {
     expect(text).toContain('data: [DONE]')
     expect(readWorkflowExecutionEventStateMock).toHaveBeenCalledTimes(1)
   })
+
+  it('streams log-reconstructed cancellation as a cancelled terminal event', async () => {
+    readWorkflowExecutionEventStateMock.mockResolvedValue({
+      status: 'failed',
+      result: {
+        success: false,
+        output: {},
+        error: 'Workflow execution was cancelled',
+        logs: [],
+      },
+      errorMessage: 'Workflow execution was cancelled',
+      events: [],
+    })
+
+    const result = await openWorkflowExecutionEventStream({
+      pendingExecutionId: 'execution-1',
+      workflowId: 'workflow-1',
+    })
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+
+    const text = await readStream(result.stream)
+
+    expect(text).toContain('"type":"execution:cancelled"')
+    expect(text).not.toContain('"type":"execution:error"')
+    expect(text).toContain('data: [DONE]')
+  })
 })
