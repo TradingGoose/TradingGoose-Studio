@@ -155,12 +155,15 @@ export async function executeWorkflowJob(payload: WorkflowExecutionPayload) {
 
     return queuedResult
   } catch (error) {
-    await eventWriter?.write({
-      type: 'execution:error',
-      data: {
-        error: error instanceof Error ? error.message : 'Workflow execution failed',
-      },
-    })
+    const message = error instanceof Error ? error.message : 'Workflow execution failed'
+    await eventWriter?.write(
+      createWorkflowExecutionTerminalEventInput({
+        success: false,
+        output: {},
+        error: message,
+        logs: [],
+      })
+    )
     throw error
   }
 }

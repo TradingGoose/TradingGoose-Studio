@@ -9,6 +9,14 @@ export type WorkflowExecutionEventType =
   | 'stream:chunk'
   | 'stream:done'
 
+type WorkflowExecutionTerminalResult = {
+  success: boolean
+  output: Record<string, unknown>
+  error?: string
+  logs?: any[]
+  [key: string]: any
+}
+
 export type WorkflowExecutionBlockData = {
   blockId: string
   blockName?: string
@@ -44,7 +52,7 @@ export type WorkflowExecutionEvent =
       timestamp: string
       eventId?: number
       data: {
-        result: unknown
+        result: WorkflowExecutionTerminalResult
       }
     }
   | {
@@ -55,7 +63,7 @@ export type WorkflowExecutionEvent =
       eventId?: number
       data: {
         error: string
-        result?: unknown
+        result: WorkflowExecutionTerminalResult
       }
     }
   | {
@@ -65,7 +73,7 @@ export type WorkflowExecutionEvent =
       timestamp: string
       eventId?: number
       data: {
-        result?: unknown
+        result: WorkflowExecutionTerminalResult
       }
     }
   | {
@@ -127,10 +135,10 @@ export type WorkflowExecutionEventEntry = {
   event: WorkflowExecutionEvent
 }
 
-type WorkflowExecutionTerminalResult = {
-  success: boolean
-  error?: string
-}
+export type WorkflowExecutionTerminalEvent = Extract<
+  WorkflowExecutionEvent,
+  { type: 'execution:completed' | 'execution:error' | 'execution:cancelled' }
+>
 
 export function createWorkflowExecutionTerminalEventInput(
   result: WorkflowExecutionTerminalResult
@@ -152,7 +160,9 @@ export function createWorkflowExecutionTerminalEventInput(
   }
 }
 
-export function isTerminalWorkflowExecutionEvent(event: WorkflowExecutionEvent) {
+export function isTerminalWorkflowExecutionEvent(
+  event: WorkflowExecutionEvent
+): event is WorkflowExecutionTerminalEvent {
   return (
     event.type === 'execution:completed' ||
     event.type === 'execution:error' ||

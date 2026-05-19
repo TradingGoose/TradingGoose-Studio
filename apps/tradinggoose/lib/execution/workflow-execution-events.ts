@@ -7,9 +7,9 @@ import type {
   WorkflowExecutionEvent,
   WorkflowExecutionEventEntry,
   WorkflowExecutionEventInput,
+  WorkflowExecutionTerminalEvent,
 } from '@/lib/workflows/execution-events'
 import { isTerminalWorkflowExecutionEvent } from '@/lib/workflows/execution-events'
-import { isExecutionResult } from '@/lib/workflows/execution-result'
 import type { ExecutionResult } from '@/executor/types'
 
 const logger = createLogger('WorkflowExecutionEvents')
@@ -23,7 +23,13 @@ type MemoryExecutionEventStream = {
   expiresAt: number
 }
 
-export type WorkflowExecutionEventStateStatus = 'pending' | 'processing' | 'completed' | 'failed'
+type WorkflowExecutionResultState =
+  | { status: 'pending' | 'processing'; result: null; errorMessage: null }
+  | { status: 'completed' | 'failed'; result: ExecutionResult; errorMessage: string | null }
+
+type WorkflowExecutionEventState = WorkflowExecutionResultState & {
+  events: WorkflowExecutionEventEntry[]
+}
 
 type WorkflowExecutionLogStateRow = {
   level: string
@@ -198,11 +204,9 @@ export async function readWorkflowExecutionAccessContext(params: {
   }
 }
 
-export function createWorkflowExecutionResultFromLog(row: WorkflowExecutionLogStateRow): {
-  status: WorkflowExecutionEventStateStatus
-  result: ExecutionResult | null
-  errorMessage: string | null
-} {
+export function createWorkflowExecutionResultFromLog(
+  row: WorkflowExecutionLogStateRow
+): WorkflowExecutionResultState {
   if (!row.endedAt) {
     return {
       status: 'processing',
@@ -241,31 +245,21 @@ export function createWorkflowExecutionResultFromLog(row: WorkflowExecutionLogSt
   }
 }
 
-function createWorkflowExecutionStateFromTerminalEvent(entry: WorkflowExecutionEventEntry) {
-  const event = entry.event
+function createWorkflowExecutionStateFromTerminalEvent(event: WorkflowExecutionTerminalEvent) {
   if (event.type === 'execution:completed') {
     return {
       status: 'completed' as const,
-      result: isExecutionResult(event.data.result) ? event.data.result : null,
+      result: event.data.result,
       errorMessage: null,
     }
   }
 
-  if (event.type === 'execution:cancelled' || event.type === 'execution:error') {
-    const result = isExecutionResult(event.data.result) ? event.data.result : null
-    const errorMessage =
-      event.type === 'execution:cancelled' ? 'Workflow execution was cancelled' : event.data.error
-    return {
-      status: 'failed' as const,
-      result,
-      errorMessage,
-    }
-  }
-
+  const errorMessage =
+    event.type === 'execution:cancelled' ? 'Workflow execution was cancelled' : event.data.error
   return {
     status: 'failed' as const,
-    result: null,
-    errorMessage: 'Workflow execution failed',
+    result: event.data.result,
+    errorMessage,
   }
 }
 
@@ -273,7 +267,7 @@ function findTerminalEvent(entries: WorkflowExecutionEventEntry[]) {
   for (let index = entries.length - 1; index >= 0; index -= 1) {
     const entry = entries[index]
     if (entry && isTerminalWorkflowExecutionEvent(entry.event)) {
-      return entry
+      return entry.event
     }
   }
   return null
@@ -381,7 +375,7 @@ export async function readWorkflowExecutionEventState(params: {
   pendingExecutionId: string
   workflowId: string
   afterEventId?: number
-}) {
+}): Promise<WorkflowExecutionEventState | null> {
   const readEvents = async (afterEventId: number) => {
     try {
       const events = await readBufferedEvents({

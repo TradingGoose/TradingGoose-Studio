@@ -93,9 +93,6 @@ function createSeededWorkflowExecutionEventStream(
         }
 
         if (!sawTerminalEvent && (state.status === 'completed' || state.status === 'failed')) {
-          if (!state.result) {
-            throw new Error('Workflow execution ended without a terminal stream event')
-          }
           const eventId = lastEventId + 1
           const terminalEntry: WorkflowExecutionEventEntry = {
             eventId,
