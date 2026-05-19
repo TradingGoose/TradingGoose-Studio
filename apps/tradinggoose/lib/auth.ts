@@ -35,7 +35,7 @@ import {
 } from '@/lib/billing/core/subscription'
 import {
   handleNewUser,
-  resetUserCustomUsageLimitToGrantedOnboardingAllowance,
+  resetUserDefaultUsageToOnboardingAllowanceBalance,
 } from '@/lib/billing/core/usage'
 import {
   ensureOrganizationForOrganizationSubscription,
@@ -1721,7 +1721,7 @@ export const auth = betterAuth({
               nextSubscriptionRecord.tier?.isDefault &&
               !nextSubscriptionRecord.stripeSubscriptionId
             ) {
-              await resetUserCustomUsageLimitToGrantedOnboardingAllowance(
+              await resetUserDefaultUsageToOnboardingAllowanceBalance(
                 nextSubscriptionRecord.referenceId
               )
             }

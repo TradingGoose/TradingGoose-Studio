@@ -4,12 +4,13 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { mockDb, mockEq } = vi.hoisted(() => ({
+const { mockDb, mockEq, mockGetResolvedBillingSettings } = vi.hoisted(() => ({
   mockDb: {
     select: vi.fn(),
     update: vi.fn(),
   },
   mockEq: vi.fn((field: unknown, value: unknown) => ({ field, value })),
+  mockGetResolvedBillingSettings: vi.fn(),
 }))
 
 let statsRows: Array<Record<string, unknown>> = []
@@ -49,7 +50,7 @@ vi.mock('@/lib/billing/core/subscription', () => ({
 }))
 
 vi.mock('@/lib/billing/settings', () => ({
-  getResolvedBillingSettings: vi.fn(),
+  getResolvedBillingSettings: mockGetResolvedBillingSettings,
 }))
 
 vi.mock('@/lib/billing/subscriptions/utils', () => ({
@@ -101,6 +102,9 @@ describe('usage onboarding allowance helpers', () => {
     statsRows = []
     updateValues = []
 
+    mockGetResolvedBillingSettings.mockResolvedValue({
+      onboardingAllowanceUsd: 25,
+    })
     mockDb.select.mockImplementation(() => createSelectQueryMock(statsRows))
     mockDb.update.mockImplementation(() => ({
       set: vi.fn((values) => ({
@@ -112,7 +116,7 @@ describe('usage onboarding allowance helpers', () => {
     }))
   })
 
-  it('consumes granted onboarding allowance from current free-period usage', async () => {
+  it('consumes granted onboarding allowance without reducing the seeded custom usage limit', async () => {
     statsRows = [
       {
         currentPeriodCost: '12.50',
@@ -132,7 +136,6 @@ describe('usage onboarding allowance helpers', () => {
         currentPeriodCopilotCost: '0',
         currentPeriodCost: '0',
         grantedOnboardingAllowanceUsd: '12.5',
-        customUsageLimit: '12.5',
         lastPeriodCopilotCost: '1.25',
         lastPeriodCost: '12.5',
       },
@@ -159,7 +162,6 @@ describe('usage onboarding allowance helpers', () => {
         currentPeriodCopilotCost: '0',
         currentPeriodCost: '0',
         grantedOnboardingAllowanceUsd: '0',
-        customUsageLimit: '0',
         lastPeriodCopilotCost: '0.50',
         lastPeriodCost: '30',
       },
@@ -209,20 +211,23 @@ describe('usage onboarding allowance helpers', () => {
     expect(updateValues).toEqual([])
   })
 
-  it('resets custom usage limit from remaining granted onboarding allowance', async () => {
+  it('resets default usage state to the onboarding allowance balance', async () => {
     statsRows = [
       {
         grantedOnboardingAllowanceUsd: '7.00',
       },
     ]
 
-    const { resetUserCustomUsageLimitToGrantedOnboardingAllowance } = await import('./usage')
+    const { resetUserDefaultUsageToOnboardingAllowanceBalance } = await import('./usage')
 
-    await resetUserCustomUsageLimitToGrantedOnboardingAllowance('user-1')
+    await resetUserDefaultUsageToOnboardingAllowanceBalance('user-1')
 
     expect(updateValues).toEqual([
       {
-        customUsageLimit: '7',
+        billedOverageThisPeriod: '0',
+        currentPeriodCopilotCost: '0',
+        currentPeriodCost: '18',
+        customUsageLimit: '25',
         customUsageLimitUpdatedAt: expect.any(Date),
       },
     ])
