@@ -113,7 +113,11 @@ async function getConcurrencyLimitForPendingExecution(
   }
 
   const limit = tier.concurrencyLimit
-  if (limit === null || limit < 0) {
+  if (limit === null) {
+    return null
+  }
+
+  if (limit < 0) {
     throw new Error(`Billing tier ${tier.displayName} is missing concurrencyLimit`)
   }
 
@@ -297,9 +301,9 @@ export async function enqueuePendingExecution(
   }
 }
 
-export async function claimNextPendingExecution(
+async function claimNextPendingExecutionOnce(
   billingScopeId: string
-): Promise<PendingExecutionClaimResult> {
+): Promise<PendingExecutionClaimResult | null> {
   const staleBefore = new Date(Date.now() - STALE_PROCESSING_WINDOW_MS)
   return db.transaction(async (tx) => {
     await tx.execute(
@@ -400,7 +404,7 @@ export async function claimNextPendingExecution(
       .returning()
 
     if (!claimed) {
-      return { status: 'empty' }
+      return null
     }
 
     if (!isPendingExecutionPayload(claimed.payload)) {
@@ -415,6 +419,15 @@ export async function claimNextPendingExecution(
 
     return { status: 'claimed', row: claimed as PendingExecutionClaim }
   })
+}
+
+export async function claimNextPendingExecution(
+  billingScopeId: string
+): Promise<PendingExecutionClaimResult> {
+  while (true) {
+    const claim = await claimNextPendingExecutionOnce(billingScopeId)
+    if (claim) return claim
+  }
 }
 
 export async function isPendingWorkflowExecutionCancellationRequested(pendingExecutionId: string) {

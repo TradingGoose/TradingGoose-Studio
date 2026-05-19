@@ -130,15 +130,18 @@ export async function cancelPendingWorkflowExecution(params: {
       throw new Error(`Queued workflow execution ${claimed.id} is missing workflow scope`)
     }
 
-    await recordQueuedWorkflowCancellation({
-      executionId: claimed.id,
-      workflowId: claimed.workflowId,
-      actorUserId: claimed.userId,
-      workspaceId: claimed.workspaceId,
-      payload: isPendingExecutionPayload(claimed.payload) ? claimed.payload : {},
-      requestId: claimed.id.slice(0, 8),
-    })
-    await completePendingExecution({ pendingExecutionId: claimed.id })
+    try {
+      await recordQueuedWorkflowCancellation({
+        executionId: claimed.id,
+        workflowId: claimed.workflowId,
+        actorUserId: claimed.userId,
+        workspaceId: claimed.workspaceId,
+        payload: isPendingExecutionPayload(claimed.payload) ? claimed.payload : {},
+        requestId: claimed.id.slice(0, 8),
+      })
+    } finally {
+      await completePendingExecution({ pendingExecutionId: claimed.id })
+    }
     return { status: 'cancelling' }
   }
 
