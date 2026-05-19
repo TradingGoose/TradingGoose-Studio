@@ -98,32 +98,52 @@ export class ExecutionLogger {
 
     const startTime = new Date()
 
-    const [workflowLog] = await db
-      .insert(workflowExecutionLogs)
-      .values({
-        id: uuidv4(),
-        workflowId,
-        workspaceId: environment.workspaceId,
-        executionId,
-        stateSnapshotId: snapshotResult.snapshot.id,
-        workflowSummary,
-        level: 'info',
-        trigger: trigger.type,
-        startedAt: startTime,
-        endedAt: null,
-        totalDurationMs: null,
-        executionData: {
-          environment,
-          trigger,
-        },
-      })
-      .onConflictDoUpdate({
-        target: workflowExecutionLogs.executionId,
-        set: {
-          executionId: sql`${workflowExecutionLogs.executionId}`,
-        },
-      })
-      .returning()
+    const readWorkflowLog = async () => {
+      const [row] = await db
+        .select()
+        .from(workflowExecutionLogs)
+        .where(eq(workflowExecutionLogs.executionId, executionId))
+        .limit(1)
+      return row
+    }
+
+    let workflowLog: typeof workflowExecutionLogs.$inferSelect | undefined
+    try {
+      ;[workflowLog] = await db
+        .insert(workflowExecutionLogs)
+        .values({
+          id: uuidv4(),
+          workflowId,
+          workspaceId: environment.workspaceId,
+          executionId,
+          stateSnapshotId: snapshotResult.snapshot.id,
+          workflowSummary,
+          level: 'info',
+          trigger: trigger.type,
+          startedAt: startTime,
+          endedAt: null,
+          totalDurationMs: null,
+          executionData: {
+            environment,
+            trigger,
+          },
+        })
+        .onConflictDoNothing({
+          target: workflowExecutionLogs.executionId,
+        })
+        .returning()
+    } catch (error) {
+      workflowLog = await readWorkflowLog()
+      if (!workflowLog) throw error
+    }
+
+    if (!workflowLog) {
+      workflowLog = await readWorkflowLog()
+    }
+
+    if (!workflowLog) {
+      throw new Error(`Workflow execution log ${executionId} could not be started`)
+    }
 
     if (workflowLog.endedAt) {
       throw new Error(`Workflow execution log ${executionId} is already completed`)

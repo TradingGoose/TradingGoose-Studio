@@ -163,7 +163,8 @@ export async function readWorkflowExecutionAccessContext(params: {
     .where(
       and(
         eq(pendingExecution.id, params.pendingExecutionId),
-        eq(pendingExecution.workflowId, params.workflowId)
+        eq(pendingExecution.workflowId, params.workflowId),
+        eq(pendingExecution.executionType, 'workflow')
       )
     )
     .limit(1)
@@ -411,7 +412,8 @@ export async function readWorkflowExecutionEventState(params: {
     .where(
       and(
         eq(pendingExecution.id, params.pendingExecutionId),
-        eq(pendingExecution.workflowId, params.workflowId)
+        eq(pendingExecution.workflowId, params.workflowId),
+        eq(pendingExecution.executionType, 'workflow')
       )
     )
     .limit(1)

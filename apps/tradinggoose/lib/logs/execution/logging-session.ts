@@ -70,37 +70,30 @@ export class LoggingSession {
   async start(params: SessionStartParams): Promise<string> {
     const { userId, workspaceId, workflowState, triggerData } = params
 
-    try {
-      this.trigger = createTriggerObject(this.triggerType, triggerData)
-      this.environment = createEnvironmentObject(
-        this.workflowId,
-        this.executionId,
-        userId,
-        workspaceId
-      )
-      const workflowSummary = await loadWorkflowSummaryForExecution(this.workflowId)
+    this.trigger = createTriggerObject(this.triggerType, triggerData)
+    this.environment = createEnvironmentObject(
+      this.workflowId,
+      this.executionId,
+      userId,
+      workspaceId
+    )
+    const workflowSummary = await loadWorkflowSummaryForExecution(this.workflowId)
 
-      const { workflowLog } = await executionLogger.startWorkflowExecution({
-        workflowId: this.workflowId,
-        executionId: this.executionId,
-        trigger: this.trigger,
-        environment: this.environment,
-        workflowState,
-        workflowSummary,
-      })
-      this.workflowLogId = workflowLog.id
+    const { workflowLog } = await executionLogger.startWorkflowExecution({
+      workflowId: this.workflowId,
+      executionId: this.executionId,
+      trigger: this.trigger,
+      environment: this.environment,
+      workflowState,
+      workflowSummary,
+    })
+    this.workflowLogId = workflowLog.id
 
-      if (this.requestId) {
-        logger.debug(`[${this.requestId}] Started logging for execution ${this.executionId}`)
-      }
-
-      return workflowLog.id
-    } catch (error) {
-      if (this.requestId) {
-        logger.error(`[${this.requestId}] Failed to start logging:`, error)
-      }
-      throw error
+    if (this.requestId) {
+      logger.debug(`[${this.requestId}] Started logging for execution ${this.executionId}`)
     }
+
+    return workflowLog.id
   }
 
   private async resolveWorkflowExecutionPricing(params?: {
