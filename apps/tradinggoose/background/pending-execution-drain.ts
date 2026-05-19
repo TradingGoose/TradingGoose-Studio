@@ -1,4 +1,4 @@
-import { task, wait } from '@trigger.dev/sdk'
+import { task, tasks, wait } from '@trigger.dev/sdk'
 import { isDev } from '@/lib/environment'
 import {
   claimNextPendingExecution,
@@ -10,7 +10,6 @@ import {
   START_BLOCKED_RETRY_DELAY_MS,
 } from '@/lib/execution/pending-execution'
 import { createLogger } from '@/lib/logs/console/logger'
-import { isWorkflowLogStartError } from '@/lib/logs/execution/logging-session'
 import {
   executeIndicatorMonitorJob,
   isIndicatorMonitorExecutionPayload,
@@ -29,7 +28,7 @@ type PendingExecutionDrainPayload = {
   billingScopeId: string
 }
 
-const retryDeferredPendingExecution = async (payload: PendingExecutionDrainPayload) => {
+const scheduleDeferredPendingExecutionDrain = async (payload: PendingExecutionDrainPayload) => {
   if (isDev) {
     setTimeout(
       () =>
@@ -42,7 +41,7 @@ const retryDeferredPendingExecution = async (payload: PendingExecutionDrainPaylo
   }
 
   await wait.for({ seconds: START_BLOCKED_RETRY_DELAY_MS / 1000 })
-  await drainPendingExecutionsForBillingScope(payload)
+  await tasks.trigger(PENDING_EXECUTION_DRAIN_TASK_ID, payload)
 }
 
 async function dispatchPendingExecution(row: PendingExecutionClaim) {
@@ -136,14 +135,11 @@ export async function drainPendingExecutionsForBillingScope(payload: PendingExec
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Pending execution failed'
 
-      if (
-        isPendingExecutionStartBlockedError(error) ||
-        (row.executionType === 'workflow' && isWorkflowLogStartError(error))
-      ) {
+      if (isPendingExecutionStartBlockedError(error)) {
         await deferPendingExecutionStart({
           pendingExecutionId: row.id,
         })
-        await retryDeferredPendingExecution(payload)
+        await scheduleDeferredPendingExecutionDrain(payload)
         return {
           success: !failedAny,
           pendingExecutionId: row.id,

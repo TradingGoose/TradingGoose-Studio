@@ -117,7 +117,17 @@ export class ExecutionLogger {
           trigger,
         },
       })
+      .onConflictDoUpdate({
+        target: workflowExecutionLogs.executionId,
+        set: {
+          executionId: sql`${workflowExecutionLogs.executionId}`,
+        },
+      })
       .returning()
+
+    if (workflowLog.endedAt) {
+      throw new Error(`Workflow execution log ${executionId} is already completed`)
+    }
 
     logger.debug(`Created workflow log ${workflowLog.id} for execution ${executionId}`)
 
@@ -132,7 +142,7 @@ export class ExecutionLogger {
         level: workflowLog.level as 'info' | 'error',
         trigger: workflowLog.trigger as ExecutionTrigger['type'],
         startedAt: workflowLog.startedAt.toISOString(),
-        endedAt: workflowLog.endedAt?.toISOString() || workflowLog.startedAt.toISOString(),
+        endedAt: workflowLog.startedAt.toISOString(),
         totalDurationMs: workflowLog.totalDurationMs || 0,
         executionData: workflowLog.executionData as WorkflowExecutionLog['executionData'],
         createdAt: workflowLog.createdAt.toISOString(),

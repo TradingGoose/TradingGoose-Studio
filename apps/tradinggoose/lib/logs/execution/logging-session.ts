@@ -21,16 +21,6 @@ import type {
 
 const logger = createLogger('LoggingSession')
 
-export class WorkflowLogStartError extends Error {
-  constructor(message = 'Workflow execution log start failed') {
-    super(message)
-    this.name = 'WorkflowLogStartError'
-  }
-}
-
-export const isWorkflowLogStartError = (error: unknown): error is WorkflowLogStartError =>
-  error instanceof WorkflowLogStartError
-
 export interface SessionStartParams {
   userId?: string
   workspaceId: string
@@ -109,7 +99,7 @@ export class LoggingSession {
       if (this.requestId) {
         logger.error(`[${this.requestId}] Failed to start logging:`, error)
       }
-      throw new WorkflowLogStartError(error instanceof Error ? error.message : undefined)
+      throw error
     }
   }
 

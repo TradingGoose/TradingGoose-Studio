@@ -11,6 +11,7 @@ const {
   completePendingExecutionMock,
   deferPendingExecutionStartMock,
   failQueuedDocumentProcessingJobMock,
+  triggerMock,
   waitForMock,
 } = vi.hoisted(() => ({
   dispatchQueuedDocumentProcessingJobMock: vi.fn(),
@@ -20,11 +21,15 @@ const {
   completePendingExecutionMock: vi.fn(),
   deferPendingExecutionStartMock: vi.fn(),
   failQueuedDocumentProcessingJobMock: vi.fn(),
+  triggerMock: vi.fn(),
   waitForMock: vi.fn(),
 }))
 
 vi.mock('@trigger.dev/sdk', () => ({
   task: vi.fn((config) => config),
+  tasks: {
+    trigger: triggerMock,
+  },
   wait: {
     for: waitForMock,
   },
@@ -48,10 +53,6 @@ vi.mock('@/lib/logs/console/logger', () => ({
   createLogger: vi.fn(() => ({
     error: vi.fn(),
   })),
-}))
-
-vi.mock('@/lib/logs/execution/logging-session', () => ({
-  isWorkflowLogStartError: (error: Error) => error.name === 'WorkflowLogStartError',
 }))
 
 vi.mock('./knowledge-processing', () => ({
@@ -97,6 +98,7 @@ describe('pendingExecutionDrain', () => {
     dispatchQueuedDocumentProcessingJobMock.mockResolvedValue(undefined)
     executeWorkflowJobMock.mockResolvedValue(undefined)
     deferPendingExecutionStartMock.mockResolvedValue(undefined)
+    triggerMock.mockResolvedValue(undefined)
     waitForMock.mockResolvedValue(undefined)
   })
 
@@ -158,20 +160,10 @@ describe('pendingExecutionDrain', () => {
     })
   })
 
-  it.each([
-    [
-      'start-blocked rows',
-      Object.assign(new Error('Execution concurrency limit reached'), {
-        code: 'EXECUTION_CONCURRENCY_LIMIT',
-      }),
-    ],
-    [
-      'workflow rows when the terminal log cannot be opened',
-      Object.assign(new Error('log start failed'), {
-        name: 'WorkflowLogStartError',
-      }),
-    ],
-  ])('defers %s back to the queue', async (_label, error) => {
+  it('defers start-blocked rows back to the queue', async () => {
+    const error = Object.assign(new Error('Execution concurrency limit reached'), {
+      code: 'EXECUTION_CONCURRENCY_LIMIT',
+    })
     claimNextPendingExecutionMock.mockResolvedValueOnce({
       id: 'pending-workflow-3',
       billingScopeId: 'scope-1',
@@ -189,7 +181,10 @@ describe('pendingExecutionDrain', () => {
       pendingExecutionId: 'pending-workflow-3',
     })
     expect(waitForMock).toHaveBeenCalledWith({ seconds: 5 })
-    expect(claimNextPendingExecutionMock).toHaveBeenCalledTimes(2)
+    expect(triggerMock).toHaveBeenCalledWith('pending-execution-drain', {
+      billingScopeId: 'scope-1',
+    })
+    expect(claimNextPendingExecutionMock).toHaveBeenCalledTimes(1)
     expect(completePendingExecutionMock).not.toHaveBeenCalled()
     expect(result).toEqual({
       success: true,
