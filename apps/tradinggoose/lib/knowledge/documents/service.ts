@@ -47,6 +47,24 @@ type DocumentDeletionTarget = {
   fileSize: number
 }
 
+export async function markDocumentProcessingFailed(documentId: string, errorMessage: string) {
+  await db
+    .update(document)
+    .set({
+      processingStatus: 'failed',
+      processingStartedAt: null,
+      processingCompletedAt: new Date(),
+      processingError: errorMessage,
+    })
+    .where(
+      and(
+        eq(document.id, documentId),
+        inArray(document.processingStatus, ['pending', 'processing']),
+        isNull(document.deletedAt)
+      )
+    )
+}
+
 async function deleteQueuedDocumentExecutions(documentIds: string[]) {
   await Promise.all(
     documentIds.map((documentId) =>
@@ -472,14 +490,10 @@ export async function processDocumentAsync(
       mimeType: docData.mimeType,
     })
 
-    await db
-      .update(document)
-      .set({
-        processingStatus: 'failed',
-        processingError: error instanceof Error ? error.message : 'Unknown error',
-        processingCompletedAt: new Date(),
-      })
-      .where(eq(document.id, documentId))
+    await markDocumentProcessingFailed(
+      documentId,
+      error instanceof Error ? error.message : 'Unknown error'
+    )
 
     throw error
   }

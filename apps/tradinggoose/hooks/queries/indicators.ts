@@ -350,31 +350,3 @@ export function useDeleteIndicator() {
     },
   })
 }
-
-export function useVerifyIndicator() {
-  return useMutation({
-    mutationFn: async ({
-      workspaceId,
-      pineCode,
-      inputs,
-    }: {
-      workspaceId: string
-      pineCode: string
-      inputs?: Record<string, unknown>
-    }) => {
-      const response = await fetch('/api/indicators/verify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ workspaceId, pineCode, inputs }),
-      })
-
-      const payload = await response.json().catch(() => ({}))
-
-      if (!response.ok || !payload?.success) {
-        throw new Error(payload?.error || `Verification failed (${response.status})`)
-      }
-
-      return payload?.data
-    },
-  })
-}

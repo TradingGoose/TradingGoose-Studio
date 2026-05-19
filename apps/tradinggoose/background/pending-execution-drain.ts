@@ -1,24 +1,19 @@
-import { task, wait } from '@trigger.dev/sdk'
-import {
-  isExecutionConcurrencyBackendUnavailableError,
-  isExecutionConcurrencyLimitError,
-} from '@/lib/execution/execution-concurrency-limit'
-import { isLocalVmSaturationLimitError } from '@/lib/execution/local-saturation-limit'
+import { task } from '@trigger.dev/sdk'
 import {
   claimNextPendingExecution,
   completePendingExecution,
-  failPendingExecution,
   PENDING_EXECUTION_DRAIN_TASK_ID,
-  PENDING_EXECUTION_RETRY_DELAY_MS,
   type PendingExecutionClaim,
-  retryPendingExecution,
 } from '@/lib/execution/pending-execution'
 import { createLogger } from '@/lib/logs/console/logger'
 import {
   executeIndicatorMonitorJob,
   isIndicatorMonitorExecutionPayload,
 } from './indicator-monitor-execution'
-import { dispatchQueuedDocumentProcessingJob } from './knowledge-processing'
+import {
+  dispatchQueuedDocumentProcessingJob,
+  failQueuedDocumentProcessingJob,
+} from './knowledge-processing'
 import { executeScheduleJob, isScheduleExecutionPayload } from './schedule-execution'
 import { executeWebhookJob, isWebhookExecutionPayload } from './webhook-execution'
 import { executeWorkflowJob, isWorkflowExecutionPayload } from './workflow-execution'
@@ -29,21 +24,6 @@ type PendingExecutionDrainPayload = {
   billingScopeId: string
 }
 
-type PendingExecutionDrainOptions = {
-  waitForRetry?: (delayMs: number) => Promise<void>
-}
-
-const sleep = (delayMs: number) =>
-  new Promise<void>((resolve) => {
-    setTimeout(resolve, delayMs)
-  })
-
-const isTransientPendingExecutionError = (error: unknown) =>
-  isExecutionConcurrencyLimitError(error) ||
-  isExecutionConcurrencyBackendUnavailableError(error) ||
-  isLocalVmSaturationLimitError(error) ||
-  (error instanceof Error && error.message.includes('Service overloaded'))
-
 async function dispatchPendingExecution(row: PendingExecutionClaim) {
   switch (row.executionType) {
     case 'workflow': {
@@ -51,16 +31,11 @@ async function dispatchPendingExecution(row: PendingExecutionClaim) {
         throw new Error('Invalid workflow pending payload')
       }
 
-      const result = await executeWorkflowJob({
+      await executeWorkflowJob({
         ...row.payload,
         executionId: row.id,
       })
-      await completePendingExecution({
-        pendingExecutionId: row.id,
-        deleteOnSuccess: false,
-        result,
-      })
-      return
+      break
     }
 
     case 'webhook': {
@@ -72,10 +47,7 @@ async function dispatchPendingExecution(row: PendingExecutionClaim) {
         ...row.payload,
         executionId: row.id,
       })
-      await completePendingExecution({
-        pendingExecutionId: row.id,
-      })
-      return
+      break
     }
 
     case 'schedule': {
@@ -87,10 +59,7 @@ async function dispatchPendingExecution(row: PendingExecutionClaim) {
         ...row.payload,
         executionId: row.id,
       })
-      await completePendingExecution({
-        pendingExecutionId: row.id,
-      })
-      return
+      break
     }
 
     case 'indicator_monitor': {
@@ -102,54 +71,51 @@ async function dispatchPendingExecution(row: PendingExecutionClaim) {
         ...row.payload,
         executionId: row.id,
       })
-      await completePendingExecution({
-        pendingExecutionId: row.id,
-      })
-      return
+      break
     }
 
     case 'document': {
       await dispatchQueuedDocumentProcessingJob(row.payload)
-      await completePendingExecution({ pendingExecutionId: row.id })
-      return
+      break
     }
 
     default:
       throw new Error(`Unsupported pending execution type: ${row.executionType}`)
   }
+
+  await completePendingExecution({
+    pendingExecutionId: row.id,
+  })
 }
 
-export async function drainPendingExecutionsForBillingScope(
-  payload: PendingExecutionDrainPayload,
-  options: PendingExecutionDrainOptions = {}
-) {
+export async function drainPendingExecutionsForBillingScope(payload: PendingExecutionDrainPayload) {
+  let claimedAny = false
+  let failedAny = false
   let lastPendingExecutionId: string | undefined
-  let hadFailure = false
-  let wasDeferred = false
-  let hasDeferredWork = false
-  const waitForRetry = options.waitForRetry ?? sleep
 
+  // Keep the worker responsible for the current scope until the queue is empty or capacity blocked.
   while (true) {
-    const row = await claimNextPendingExecution(payload.billingScopeId)
+    const claim = await claimNextPendingExecution(payload.billingScopeId)
 
-    if (!row) {
-      if (hasDeferredWork) {
-        hasDeferredWork = false
-        await waitForRetry(PENDING_EXECUTION_RETRY_DELAY_MS)
-        continue
-      }
-
-      if (!lastPendingExecutionId) {
+    if (claim.status === 'empty') {
+      if (!claimedAny) {
         return { success: true, skipped: 'empty' as const }
       }
-
       return {
-        success: !hadFailure,
+        success: !failedAny,
         pendingExecutionId: lastPendingExecutionId,
-        ...(wasDeferred ? { skipped: 'deferred' as const } : {}),
       }
     }
 
+    if (claim.status === 'capacity_blocked') {
+      return {
+        success: !failedAny,
+        pendingExecutionId: claim.pendingExecutionId,
+      }
+    }
+
+    const row = claim.row
+    claimedAny = true
     lastPendingExecutionId = row.id
 
     try {
@@ -157,21 +123,13 @@ export async function drainPendingExecutionsForBillingScope(
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Pending execution failed'
 
-      if (isTransientPendingExecutionError(error)) {
-        await retryPendingExecution({
-          pendingExecutionId: row.id,
-          errorMessage,
-          delayMs: PENDING_EXECUTION_RETRY_DELAY_MS,
-        })
-        wasDeferred = true
-        hasDeferredWork = true
-        continue
+      if (row.executionType === 'document') {
+        await failQueuedDocumentProcessingJob(row.payload, errorMessage)
       }
-
-      await failPendingExecution({
+      await completePendingExecution({
         pendingExecutionId: row.id,
-        errorMessage,
       })
+      failedAny = true
 
       logger.error('Pending execution failed', {
         pendingExecutionId: row.id,
@@ -179,8 +137,6 @@ export async function drainPendingExecutionsForBillingScope(
         workflowId: row.workflowId,
         error,
       })
-
-      hadFailure = true
     }
   }
 }
@@ -191,8 +147,6 @@ export const pendingExecutionDrain = task({
     maxAttempts: 1,
   },
   run: async (payload: PendingExecutionDrainPayload) => {
-    return drainPendingExecutionsForBillingScope(payload, {
-      waitForRetry: (delayMs) => wait.for({ seconds: delayMs / 1000 }),
-    })
+    return drainPendingExecutionsForBillingScope(payload)
   },
 })

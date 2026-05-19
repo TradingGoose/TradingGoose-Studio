@@ -42,7 +42,6 @@ function resolveExecutionScope(
   workflowLogId?: string
   toolExecutionId?: string
   submissionSource?: string
-  concurrencyLeaseInherited?: boolean
 } {
   const context = params._context || {}
 
@@ -54,8 +53,6 @@ function resolveExecutionScope(
     workflowLogId: executionContext?.workflowLogId ?? context.workflowLogId,
     toolExecutionId: context.toolExecutionId,
     submissionSource: executionContext?.submissionSource ?? context.submissionSource,
-    concurrencyLeaseInherited:
-      executionContext?.concurrencyLeaseInherited ?? context.concurrencyLeaseInherited,
   }
 }
 
@@ -326,7 +323,6 @@ export async function executeTool(
         workflowLogId: scope.workflowLogId,
         toolExecutionId: scope.toolExecutionId,
         submissionSource: scope.submissionSource,
-        concurrencyLeaseInherited: scope.concurrencyLeaseInherited,
       }
       if (
         mergedContext.workflowId ||
@@ -334,8 +330,7 @@ export async function executeTool(
         mergedContext.executionId ||
         mergedContext.workflowLogId ||
         mergedContext.toolExecutionId ||
-        mergedContext.submissionSource ||
-        mergedContext.concurrencyLeaseInherited
+        mergedContext.submissionSource
       ) {
         ;(contextParams as any)._context = mergedContext
       }

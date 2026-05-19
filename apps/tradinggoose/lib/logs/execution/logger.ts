@@ -7,7 +7,7 @@ import {
   user as userTable,
   workflowExecutionLogs,
 } from '@tradinggoose/db/schema'
-import { and, eq, sql } from 'drizzle-orm'
+import { and, eq, isNull, sql } from 'drizzle-orm'
 import { v4 as uuidv4 } from 'uuid'
 import {
   getOrganizationBillingLedger,
@@ -97,27 +97,89 @@ export class ExecutionLogger {
     })
 
     const startTime = new Date()
+    const workflowLogValues = {
+      workflowId,
+      workspaceId: environment.workspaceId,
+      executionId,
+      stateSnapshotId: snapshotResult.snapshot.id,
+      workflowSummary,
+      trigger: trigger.type,
+      startedAt: startTime,
+    }
 
-    const [workflowLog] = await db
-      .insert(workflowExecutionLogs)
-      .values({
-        id: uuidv4(),
-        workflowId,
-        workspaceId: environment.workspaceId,
-        executionId,
-        stateSnapshotId: snapshotResult.snapshot.id,
-        workflowSummary,
-        level: 'info',
-        trigger: trigger.type,
-        startedAt: startTime,
-        endedAt: null,
-        totalDurationMs: null,
-        executionData: {
-          environment,
-          trigger,
-        },
-      })
-      .returning()
+    const readWorkflowLog = async () => {
+      const [row] = await db
+        .select()
+        .from(workflowExecutionLogs)
+        .where(eq(workflowExecutionLogs.executionId, executionId))
+        .limit(1)
+      return row
+    }
+    const writeStartFailureLog = async (error: unknown) => {
+      const message =
+        error instanceof Error && error.message
+          ? error.message
+          : 'Workflow execution log could not be started'
+
+      await db
+        .insert(workflowExecutionLogs)
+        .values({
+          id: uuidv4(),
+          ...workflowLogValues,
+          level: 'error',
+          endedAt: startTime,
+          totalDurationMs: 0,
+          executionData: {
+            environment,
+            trigger,
+            traceSpans: [],
+            finalOutput: { error: message },
+            errorMessage: message,
+          },
+        })
+        .onConflictDoNothing({
+          target: workflowExecutionLogs.executionId,
+        })
+    }
+
+    let workflowLog: typeof workflowExecutionLogs.$inferSelect | undefined
+    try {
+      ;[workflowLog] = await db
+        .insert(workflowExecutionLogs)
+        .values({
+          id: uuidv4(),
+          ...workflowLogValues,
+          level: 'info',
+          endedAt: null,
+          totalDurationMs: null,
+          executionData: {
+            environment,
+            trigger,
+          },
+        })
+        .onConflictDoNothing({
+          target: workflowExecutionLogs.executionId,
+        })
+        .returning()
+    } catch (error) {
+      workflowLog = await readWorkflowLog()
+      if (!workflowLog) {
+        await writeStartFailureLog(error)
+        throw error
+      }
+    }
+
+    if (!workflowLog) {
+      workflowLog = await readWorkflowLog()
+    }
+
+    if (!workflowLog) {
+      throw new Error(`Workflow execution log ${executionId} could not be started`)
+    }
+
+    if (workflowLog.endedAt) {
+      throw new Error(`Workflow execution log ${executionId} is already completed`)
+    }
 
     logger.debug(`Created workflow log ${workflowLog.id} for execution ${executionId}`)
 
@@ -132,7 +194,7 @@ export class ExecutionLogger {
         level: workflowLog.level as 'info' | 'error',
         trigger: workflowLog.trigger as ExecutionTrigger['type'],
         startedAt: workflowLog.startedAt.toISOString(),
-        endedAt: workflowLog.endedAt?.toISOString() || workflowLog.startedAt.toISOString(),
+        endedAt: workflowLog.startedAt.toISOString(),
         totalDurationMs: workflowLog.totalDurationMs || 0,
         executionData: workflowLog.executionData as WorkflowExecutionLog['executionData'],
         createdAt: workflowLog.createdAt.toISOString(),
@@ -167,8 +229,12 @@ export class ExecutionLogger {
       >
     }
     finalOutput: BlockOutputData
+    success: boolean
+    errorMessage?: string
     traceSpans?: TraceSpan[]
     workflowInput?: any
+    hasResponseBlock?: boolean
+    variables?: Record<string, string>
   }): Promise<WorkflowExecutionLog> {
     const {
       executionId,
@@ -178,8 +244,12 @@ export class ExecutionLogger {
       totalDurationMs,
       costSummary,
       finalOutput,
+      success,
+      errorMessage,
       traceSpans,
       workflowInput,
+      hasResponseBlock,
+      variables,
     } = params
 
     logger.debug(`Completing workflow execution ${executionId}`)
@@ -189,19 +259,7 @@ export class ExecutionLogger {
       eq(workflowExecutionLogs.workspaceId, workspaceId)
     )
 
-    // Determine if workflow failed by checking trace spans for errors
-    const hasErrors = traceSpans?.some((span: any) => {
-      const checkSpanForErrors = (s: any): boolean => {
-        if (s.status === 'error') return true
-        if (s.children && Array.isArray(s.children)) {
-          return s.children.some(checkSpanForErrors)
-        }
-        return false
-      }
-      return checkSpanForErrors(span)
-    })
-
-    const level = hasErrors ? 'error' : 'info'
+    const level = success ? 'info' : 'error'
 
     // Extract files from trace spans, final output, and workflow input
     const executionFiles = this.extractFilesFromExecution(traceSpans, finalOutput, workflowInput)
@@ -226,11 +284,18 @@ export class ExecutionLogger {
       existingLog.executionData && typeof existingLog.executionData === 'object'
         ? (existingLog.executionData as Record<string, unknown>)
         : {}
+    const existingEnvironment =
+      existingExecutionData.environment && typeof existingExecutionData.environment === 'object'
+        ? (existingExecutionData.environment as Record<string, unknown>)
+        : {}
 
     const mergedExecutionData = {
       ...existingExecutionData,
+      ...(variables ? { environment: { ...existingEnvironment, variables } } : {}),
       traceSpans,
       finalOutput,
+      ...(hasResponseBlock ? { hasResponseBlock: true } : {}),
+      ...(errorMessage ? { errorMessage } : {}),
       tokenBreakdown: {
         prompt: costSummary.totalPromptTokens,
         completion: costSummary.totalCompletionTokens,
@@ -262,7 +327,7 @@ export class ExecutionLogger {
           models: costSummary.models,
         },
       })
-      .where(workflowLogWhere)
+      .where(and(workflowLogWhere, isNull(workflowExecutionLogs.endedAt)))
       .returning()
 
     if (!updatedLog) {

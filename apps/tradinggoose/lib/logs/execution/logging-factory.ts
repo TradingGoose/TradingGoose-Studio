@@ -26,15 +26,14 @@ export function createEnvironmentObject(
   workflowId: string,
   executionId: string,
   userId?: string,
-  workspaceId?: string,
-  variables?: Record<string, string>
+  workspaceId?: string
 ): ExecutionEnvironment {
   if (!workspaceId) {
     throw new Error('Workflow execution logging requires workspaceId')
   }
 
   return {
-    variables: variables || {},
+    variables: {},
     workflowId,
     executionId,
     userId: userId || '',

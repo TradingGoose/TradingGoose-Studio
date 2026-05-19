@@ -2,7 +2,6 @@ import { db } from '@tradinggoose/db'
 import { webhook } from '@tradinggoose/db/schema'
 import { eq } from 'drizzle-orm'
 import { v4 as uuidv4 } from 'uuid'
-import { withExecutionConcurrencyLimit } from '@/lib/execution/execution-concurrency-limit'
 import { toListingValueObject } from '@/lib/listing/identity'
 import { createLogger } from '@/lib/logs/console/logger'
 import { LoggingSession } from '@/lib/logs/execution/logging-session'
@@ -151,7 +150,6 @@ async function completeSkippedWebhookExecution(params: {
     userId: params.payload.userId,
     workspaceId: params.workspaceId,
     workflowState: params.workflowState,
-    variables: {},
     triggerData: params.triggerData,
   })
 
@@ -159,6 +157,7 @@ async function completeSkippedWebhookExecution(params: {
     endedAt: new Date().toISOString(),
     totalDurationMs: 0,
     finalOutput: { message: params.message },
+    success: true,
     traceSpans: [],
   })
 
@@ -193,7 +192,6 @@ async function logWebhookFailure(params: {
       userId: params.payload.userId,
       workspaceId: params.workspaceId,
       workflowState: params.workflowState,
-      variables: {},
       triggerData: params.triggerData,
     })
 
@@ -248,195 +246,179 @@ export async function executeWebhookJob(payload: WebhookExecutionPayload) {
     workspaceId = scopedWorkspaceId
     workflowState = blueprint.workflowData
 
-    return await withExecutionConcurrencyLimit({
+    const blocks = blueprint.workflowData.blocks
+
+    const webhookRows = await db
+      .select()
+      .from(webhook)
+      .where(eq(webhook.id, payload.webhookId))
+      .limit(1)
+
+    const webhookRecord =
+      webhookRows[0] ||
+      ({
+        id: payload.webhookId,
+        provider: payload.provider,
+        blockId: payload.blockId,
+        providerConfig: {},
+      } as const)
+
+    const workflowRef = {
+      id: payload.workflowId,
       userId: payload.userId,
-      workflowId: payload.workflowId,
       workspaceId: scopedWorkspaceId,
-      task: async () => {
-        const blocks = blueprint.workflowData.blocks
+    }
 
-        const webhookRows = await db
-          .select()
-          .from(webhook)
-          .where(eq(webhook.id, payload.webhookId))
-          .limit(1)
+    if (payload.provider === 'airtable') {
+      if (!webhookRows[0]) {
+        throw new Error(`Webhook record not found: ${payload.webhookId}`)
+      }
 
-        const webhookRecord =
-          webhookRows[0] ||
-          ({
-            id: payload.webhookId,
-            provider: payload.provider,
-            blockId: payload.blockId,
-            providerConfig: {},
-          } as const)
+      logger.info(`[${requestId}] Processing Airtable webhook via fetchAndProcessAirtablePayloads`)
 
-        const workflowRef = {
-          id: payload.workflowId,
-          userId: payload.userId,
+      const airtableInput = await fetchAndProcessAirtablePayloads(
+        {
+          id: payload.webhookId,
+          provider: payload.provider,
+          providerConfig: webhookRows[0].providerConfig,
+        },
+        workflowRef,
+        requestId
+      )
+
+      if (!airtableInput) {
+        logger.info(`[${requestId}] No Airtable changes to process`)
+        return completeSkippedWebhookExecution({
+          payload,
+          executionId,
+          requestId,
           workspaceId: scopedWorkspaceId,
-        }
+          workflowState: blueprint.workflowData,
+          triggerData,
+          message: 'No Airtable changes to process',
+        })
+      }
 
-        if (payload.provider === 'airtable') {
-          if (!webhookRows[0]) {
-            throw new Error(`Webhook record not found: ${payload.webhookId}`)
-          }
+      runnerInvoked = true
+      const { result } = await runPreparedWorkflowExecution({
+        blueprint,
+        actorUserId: payload.userId,
+        requestId,
+        executionId,
+        triggerType: 'webhook',
+        workflowInput: airtableInput,
+        start: {
+          kind: 'block',
+          blockId: payload.blockId,
+        },
+        triggerData,
+      })
 
-          logger.info(
-            `[${requestId}] Processing Airtable webhook via fetchAndProcessAirtablePayloads`
-          )
+      logger.info(`[${requestId}] Airtable webhook execution completed`, {
+        success: result.success,
+        workflowId: payload.workflowId,
+      })
 
-          const airtableInput = await fetchAndProcessAirtablePayloads(
-            {
-              id: payload.webhookId,
-              provider: payload.provider,
-              providerConfig: webhookRows[0].providerConfig,
-            },
-            workflowRef,
-            requestId
-          )
+      return {
+        success: result.success,
+        workflowId: payload.workflowId,
+        executionId,
+        output: result.output,
+        executedAt: new Date().toISOString(),
+        provider: payload.provider,
+      }
+    }
 
-          if (!airtableInput) {
-            logger.info(`[${requestId}] No Airtable changes to process`)
-            return completeSkippedWebhookExecution({
-              payload,
-              executionId,
-              requestId,
-              workspaceId: scopedWorkspaceId,
-              workflowState: blueprint.workflowData,
-              triggerData,
-              message: 'No Airtable changes to process',
-            })
-          }
+    const mockRequest = {
+      headers: new Map(Object.entries(payload.headers)),
+    } as any
 
-          runnerInvoked = true
-          const { result } = await runPreparedWorkflowExecution({
-            blueprint,
-            actorUserId: payload.userId,
-            requestId,
-            executionId,
-            triggerType: 'webhook',
-            workflowInput: airtableInput,
-            start: {
-              kind: 'block',
-              blockId: payload.blockId,
-            },
-            triggerData,
-            concurrencyLeaseInherited: true,
-          })
+    const input = await formatWebhookInput(webhookRecord, workflowRef, payload.body, mockRequest)
 
-          logger.info(`[${requestId}] Airtable webhook execution completed`, {
-            success: result.success,
-            workflowId: payload.workflowId,
-          })
+    if (!input && payload.provider === 'whatsapp') {
+      logger.info(`[${requestId}] No messages in WhatsApp payload, skipping execution`)
+      return completeSkippedWebhookExecution({
+        payload,
+        executionId,
+        requestId,
+        workspaceId: scopedWorkspaceId,
+        workflowState: blueprint.workflowData,
+        triggerData,
+        message: 'No messages in WhatsApp payload',
+      })
+    }
 
-          return {
-            success: result.success,
-            workflowId: payload.workflowId,
-            executionId,
-            output: result.output,
-            executedAt: new Date().toISOString(),
-            provider: payload.provider,
-          }
-        }
+    if (input && payload.blockId && blocks[payload.blockId]) {
+      const triggerBlock = blocks[payload.blockId]
+      const triggerId = resolveTriggerIdForBlock(triggerBlock)
 
-        const mockRequest = {
-          headers: new Map(Object.entries(payload.headers)),
-        } as any
+      if (triggerId && typeof triggerId === 'string') {
+        const triggerConfig = getTrigger(triggerId)
 
-        const input = await formatWebhookInput(
-          webhookRecord,
-          workflowRef,
-          payload.body,
-          mockRequest
-        )
-
-        if (!input && payload.provider === 'whatsapp') {
-          logger.info(`[${requestId}] No messages in WhatsApp payload, skipping execution`)
-          return completeSkippedWebhookExecution({
-            payload,
-            executionId,
-            requestId,
+        if (triggerConfig?.outputs) {
+          logger.debug(`[${requestId}] Processing trigger ${triggerId} file outputs`)
+          const processedInput = await processTriggerFileOutputs(input, triggerConfig.outputs, {
             workspaceId: scopedWorkspaceId,
-            workflowState: blueprint.workflowData,
-            triggerData,
-            message: 'No messages in WhatsApp payload',
-          })
-        }
-
-        if (input && payload.blockId && blocks[payload.blockId]) {
-          const triggerBlock = blocks[payload.blockId]
-          const triggerId = resolveTriggerIdForBlock(triggerBlock)
-
-          if (triggerId && typeof triggerId === 'string') {
-            const triggerConfig = getTrigger(triggerId)
-
-            if (triggerConfig?.outputs) {
-              logger.debug(`[${requestId}] Processing trigger ${triggerId} file outputs`)
-              const processedInput = await processTriggerFileOutputs(input, triggerConfig.outputs, {
-                workspaceId: scopedWorkspaceId,
-                workflowId: payload.workflowId,
-                executionId,
-                requestId,
-              })
-              Object.assign(input, processedInput)
-            }
-          }
-        }
-
-        if (
-          input &&
-          typeof input === 'object' &&
-          !Array.isArray(input) &&
-          payload.provider === 'generic' &&
-          payload.blockId &&
-          blocks[payload.blockId]
-        ) {
-          const processedInput = await processWorkflowInputFormatFiles({
-            input,
-            blocks,
-            blockId: payload.blockId,
-            executionContext: {
-              workspaceId: scopedWorkspaceId,
-              workflowId: payload.workflowId,
-              executionId,
-            },
+            workflowId: payload.workflowId,
+            executionId,
             requestId,
           })
           Object.assign(input, processedInput)
         }
+      }
+    }
 
-        runnerInvoked = true
-        const { result } = await runPreparedWorkflowExecution({
-          blueprint,
-          actorUserId: payload.userId,
-          requestId,
-          executionId,
-          triggerType: 'webhook',
-          workflowInput: input || {},
-          start: {
-            kind: 'block',
-            blockId: payload.blockId,
-          },
-          triggerData,
-          concurrencyLeaseInherited: true,
-        })
-
-        logger.info(`[${requestId}] Webhook execution completed`, {
-          success: result.success,
-          workflowId: payload.workflowId,
-          provider: payload.provider,
-        })
-
-        return {
-          success: result.success,
+    if (
+      input &&
+      typeof input === 'object' &&
+      !Array.isArray(input) &&
+      payload.provider === 'generic' &&
+      payload.blockId &&
+      blocks[payload.blockId]
+    ) {
+      const processedInput = await processWorkflowInputFormatFiles({
+        input,
+        blocks,
+        blockId: payload.blockId,
+        executionContext: {
+          workspaceId: scopedWorkspaceId,
           workflowId: payload.workflowId,
           executionId,
-          output: result.output,
-          executedAt: new Date().toISOString(),
-          provider: payload.provider,
-        }
+        },
+        requestId,
+      })
+      Object.assign(input, processedInput)
+    }
+
+    runnerInvoked = true
+    const { result } = await runPreparedWorkflowExecution({
+      blueprint,
+      actorUserId: payload.userId,
+      requestId,
+      executionId,
+      triggerType: 'webhook',
+      workflowInput: input || {},
+      start: {
+        kind: 'block',
+        blockId: payload.blockId,
       },
+      triggerData,
     })
+
+    logger.info(`[${requestId}] Webhook execution completed`, {
+      success: result.success,
+      workflowId: payload.workflowId,
+      provider: payload.provider,
+    })
+
+    return {
+      success: result.success,
+      workflowId: payload.workflowId,
+      executionId,
+      output: result.output,
+      executedAt: new Date().toISOString(),
+      provider: payload.provider,
+    }
   } catch (error: any) {
     logger.error(`[${requestId}] Webhook execution failed`, {
       error: error.message,

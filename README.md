@@ -10,17 +10,17 @@
 
 <p align='center'>
   <a href="https://google.com/ai?q=I+am+using+TradingGoose-Studio+from+https%3A%2F%2Fgithub.com%2FTradingGoose%2FTradingGoose-Studio.+How+do+I+automate+a+strategy+using+this+library" target="_blank" rel="noopener noreferrer"><img src="https://img.shields.io/badge/ASK%20google%20AI-8E75B2?style=for-the-badge&logo=google%20gemini&logoColor=white" alt="Gemini"></a>
-<a href="https://perplexity.ai?q=I+am+using+TradingGoose-Studio+from+https%3A%2F%2Fgithub.com%2FTradingGoose%2FTradingGoose-Studio.+How+do+I+automate+a+strategy+using+this+library" target="_blank" rel="noopener noreferrer"><img src="https://img.shields.io/badge/ASK%20perplexity-088F8F?style=for-the-badge&logo=perplexity&logoColor=000000" alt="Perplexity"></a>
+<a href="https://perplexity.ai?q=I+am+using+TradingGoose-Studio+from+https%3A%2F%2Fgithub.com%2FTradingGoose%2FTradingGoose-Studio.+How+do+I+automate+a+strategy+using+this+library" target="_blank" rel="noopener noreferrer"><img src="https://img.shields.io/badge/ASK%20perplexity-088F8F?style=for-the-badge&logo=perplexity&logoColor=ffffff" alt="Perplexity"></a>
 </p>
 
 
 <picture>
   <!-- Image for Light Mode -->
-  <source media="(prefers-color-scheme: light)" srcset="https://github.com/user-attachments/assets/f0c8a9b5-4496-440d-9164-4444bbca9eb0">
+  <source media="(prefers-color-scheme: light)" srcset="apps/tradinggoose/public/static/home-light.png">
   <!-- Image for Dark Mode -->
-  <source media="(prefers-color-scheme: dark)" srcset="https://github.com/user-attachments/assets/bdde59b2-b70b-4e66-8e0b-aaa0c79bdf0b">
+  <source media="(prefers-color-scheme: dark)" srcset="apps/tradinggoose/public/static/home-dark.png">
   <!-- Fallback Image (shown if the browser doesn't support themes) -->
-  <img alt="Project Screenshot" src="https://github.com/user-attachments/assets/f0c8a9b5-4496-440d-9164-4444bbca9eb0" width="2559">
+  <img alt="Project Screenshot" src="apps/tradinggoose/public/static/home-light.png" width="2559">
 </picture>
 
 ---
@@ -41,11 +41,11 @@ It is built for analytics, research, charting, monitoring, and workflow automati
 
 <picture>
   <!-- Image for Dark Mode -->
-  <source media="(prefers-color-scheme: dark)" srcset="https://github.com/user-attachments/assets/d6fe11eb-a9fe-4e76-8ab4-eae6fc21d236">
+  <source media="(prefers-color-scheme: dark)" srcset="apps/tradinggoose/public/static/preview-dark.png">
   <!-- Image for Light Mode -->
-  <source media="(prefers-color-scheme: light)" srcset="https://github.com/user-attachments/assets/fed1b97b-336d-4812-8b6c-ffd99f385218">
+  <source media="(prefers-color-scheme: light)" srcset="apps/tradinggoose/public/static/preview-light.png">
   <!-- Fallback Image (Defaults to Light) -->
-  <img alt="Project Overview" src="https://github.com/user-attachments/assets/fed1b97b-336d-4812-8b6c-ffd99f385218" width="2559">
+  <img alt="Project Overview" src="apps/tradinggoose/public/static/preview-light.png" width="2559">
 </picture>
 
 
@@ -179,9 +179,9 @@ terms that continue to apply to that directory.
 
 <picture>
   <!-- Image for Light Mode -->
-  <source media="(prefers-color-scheme: light)" srcset="https://github.com/user-attachments/assets/2a55d46f-f7ec-4d6d-89f8-c6439390c555">
+  <source media="(prefers-color-scheme: light)" srcset="apps/tradinggoose/public/static/footer-light.png">
   <!-- Image for Dark Mode -->
-  <source media="(prefers-color-scheme: dark)" srcset="https://github.com/user-attachments/assets/e25ab2f5-5e0f-4f6f-9cfd-70305e0ad0b5">
+  <source media="(prefers-color-scheme: dark)" srcset="apps/tradinggoose/public/static/footer-dark.png">
   <!-- Fallback Image (shown if the browser doesn't support themes) -->
-  <img alt="Project Footer" src="https://github.com/user-attachments/assets/2a55d46f-f7ec-4d6d-89f8-c6439390c555">
+  <img alt="Project Footer" src="apps/tradinggoose/public/static/footer-light.png">
 </picture>

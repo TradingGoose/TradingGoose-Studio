@@ -7,12 +7,6 @@ import {
   resolveWorkspaceBillingContext,
 } from '@/lib/billing/workspace-billing'
 import {
-  getExecutionConcurrencyLimitMessage,
-  isExecutionConcurrencyBackendUnavailableError,
-  isExecutionConcurrencyLimitError,
-  withExecutionConcurrencyLimit,
-} from '@/lib/execution/execution-concurrency-limit'
-import {
   getLocalVmSaturationLimitMessage,
   isLocalVmSaturationLimitError,
 } from '@/lib/execution/local-saturation-limit'
@@ -43,7 +37,6 @@ export type FunctionExecutionPayload = {
   workflowVariables?: Record<string, unknown>
   workflowId?: string
   workspaceId?: string
-  concurrencyLeaseInherited?: boolean
   isCustomTool?: boolean
 }
 
@@ -78,7 +71,7 @@ function calculateFunctionExecutionCost(params: {
 }
 
 export async function executeFunctionRequest(
-  payload: FunctionExecutionPayload,
+  payload: FunctionExecutionPayload
 ): Promise<FunctionExecutionResponse> {
   const requestId = payload.requestId ?? generateRequestId()
   const startTime = Date.now()
@@ -93,7 +86,7 @@ export async function executeFunctionRequest(
   const respondSuccess = (
     result: unknown,
     executionTime: number,
-    outputStdout = stdout,
+    outputStdout = stdout
   ): FunctionExecutionResponse => ({
     statusCode: 200,
     body: { success: true, output: buildOutput(result, executionTime, outputStdout) },
@@ -103,7 +96,7 @@ export async function executeFunctionRequest(
     executionTime: number,
     status = 500,
     outputStdout = stdout,
-    debug?: Record<string, unknown>,
+    debug?: Record<string, unknown>
   ): FunctionExecutionResponse => ({
     statusCode: status,
     body: {
@@ -127,7 +120,6 @@ export async function executeFunctionRequest(
       workflowVariables = {},
       workflowId,
       workspaceId,
-      concurrencyLeaseInherited = false,
       isCustomTool = false,
     } = payload
     const e2bUserScope = payload.userId
@@ -148,7 +140,7 @@ export async function executeFunctionRequest(
       return respondFailure(
         usageCheck.message || 'Usage limit exceeded. Please upgrade your billing tier to continue.',
         Date.now() - startTime,
-        402,
+        402
       )
     }
 
@@ -170,7 +162,7 @@ export async function executeFunctionRequest(
       envVars,
       blockData,
       blockNameMapping,
-      workflowVariables,
+      workflowVariables
     )
     resolvedCode = nextResolvedCode
 
@@ -180,42 +172,35 @@ export async function executeFunctionRequest(
     }
 
     const transpiledCode = await transpileTypeScriptCode(resolvedCode)
-    const runtimeExecution = await withExecutionConcurrencyLimit({
-      concurrencyLeaseInherited,
-      userId: payload.userId,
-      workspaceId,
-      workflowId,
-      task: () =>
-        executeFunctionWithRuntimeGate({
-          requestId,
-          transpiledCode,
-          resolvedCode,
-          timeout,
-          isCustomTool,
-          e2bUserScope,
-          executionParams,
-          envVars,
-          contextVariables,
-          onImportExtractionError: (error) => {
-            logger.error('Failed to extract JavaScript imports', { error })
-          },
-          onSandboxResult: ({ sandboxId, stdoutPreview, error }) => {
-            logger.info(`[${requestId}] E2B JS sandbox`, {
-              sandboxId,
-              stdoutPreview,
-              error,
-            })
-          },
-          onStdout: (chunk) => {
-            stdout += chunk
-          },
-          onWarn: (message, meta) => {
-            logger.warn(message, meta)
-          },
-          onError: (message) => {
-            logger.error(`[${requestId}] Code Console Error: ${message}`)
-          },
-        }),
+    const runtimeExecution = await executeFunctionWithRuntimeGate({
+      requestId,
+      transpiledCode,
+      resolvedCode,
+      timeout,
+      isCustomTool,
+      e2bUserScope,
+      executionParams,
+      envVars,
+      contextVariables,
+      onImportExtractionError: (error) => {
+        logger.error('Failed to extract JavaScript imports', { error })
+      },
+      onSandboxResult: ({ sandboxId, stdoutPreview, error }) => {
+        logger.info(`[${requestId}] E2B JS sandbox`, {
+          sandboxId,
+          stdoutPreview,
+          error,
+        })
+      },
+      onStdout: (chunk) => {
+        stdout += chunk
+      },
+      onWarn: (message, meta) => {
+        logger.warn(message, meta)
+      },
+      onError: (message) => {
+        logger.error(`[${requestId}] Code Console Error: ${message}`)
+      },
     })
 
     const runtimeStdout = runtimeExecution.stdout || stdout
@@ -277,7 +262,7 @@ export async function executeFunctionRequest(
         const enhancedError = extractEnhancedError(
           runtimeExecution.rawError,
           userCodeStartLine,
-          resolvedCode,
+          resolvedCode
         )
         const userFriendlyErrorMessage = createUserFriendlyErrorMessage(enhancedError, resolvedCode)
 
@@ -302,7 +287,7 @@ export async function executeFunctionRequest(
             column: enhancedError.column,
             errorType: enhancedError.name,
             lineContent: enhancedError.lineContent,
-          },
+          }
         )
       }
 
@@ -310,7 +295,7 @@ export async function executeFunctionRequest(
         runtimeExecution.error || 'Function execution failed',
         runtimeExecution.executionTime,
         500,
-        runtimeStdout,
+        runtimeStdout
       )
     }
 
@@ -323,23 +308,11 @@ export async function executeFunctionRequest(
 
     return respondSuccess(runtimeExecution.result, executionTime)
   } catch (error: any) {
-    if (isExecutionConcurrencyLimitError(error)) {
-      return respondFailure(
-        getExecutionConcurrencyLimitMessage(error),
-        Date.now() - startTime,
-        error.statusCode,
-      )
-    }
-
-    if (isExecutionConcurrencyBackendUnavailableError(error)) {
-      return respondFailure(error.message, Date.now() - startTime, error.statusCode)
-    }
-
     if (isLocalVmSaturationLimitError(error)) {
       return respondFailure(
         getLocalVmSaturationLimitMessage(error),
         Date.now() - startTime,
-        error.statusCode,
+        error.statusCode
       )
     }
 

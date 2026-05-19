@@ -58,26 +58,12 @@ describe('openWorkflowExecutionEventStream', () => {
     })
   })
 
-  it('streams the initial event-state read without polling the same state again', async () => {
+  it('streams terminal initial state without polling the same state again', async () => {
     readWorkflowExecutionEventStateMock.mockResolvedValue({
       status: 'completed',
-      result: { success: true, output: {}, logs: [] },
+      result: { success: true, output: { ok: true }, logs: [] },
       errorMessage: null,
-      events: [
-        {
-          eventId: 1,
-          event: {
-            type: 'execution:completed',
-            executionId: 'execution-1',
-            workflowId: 'workflow-1',
-            timestamp: '2026-01-01T00:00:00.000Z',
-            eventId: 1,
-            data: {
-              result: { success: true, output: {}, logs: [] },
-            },
-          },
-        },
-      ],
+      events: [],
     })
 
     const result = await openWorkflowExecutionEventStream({
@@ -91,7 +77,36 @@ describe('openWorkflowExecutionEventStream', () => {
     const text = await readStream(result.stream)
 
     expect(text).toContain('"type":"execution:completed"')
+    expect(text).toContain('"ok":true')
     expect(text).toContain('data: [DONE]')
     expect(readWorkflowExecutionEventStateMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('streams log-reconstructed cancellation as a cancelled terminal event', async () => {
+    readWorkflowExecutionEventStateMock.mockResolvedValue({
+      status: 'failed',
+      result: {
+        success: false,
+        output: {},
+        error: 'Workflow execution was cancelled',
+        logs: [],
+      },
+      errorMessage: 'Workflow execution was cancelled',
+      events: [],
+    })
+
+    const result = await openWorkflowExecutionEventStream({
+      pendingExecutionId: 'execution-1',
+      workflowId: 'workflow-1',
+    })
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+
+    const text = await readStream(result.stream)
+
+    expect(text).toContain('"type":"execution:cancelled"')
+    expect(text).not.toContain('"type":"execution:error"')
+    expect(text).toContain('data: [DONE]')
   })
 })
