@@ -235,9 +235,9 @@ export function createWorkflowExecutionResultFromLog(row: WorkflowExecutionLogSt
   }
 
   return {
-    status: failed ? 'failed' : 'completed',
+    status: 'completed',
     result,
-    errorMessage,
+    errorMessage: null,
   }
 }
 
@@ -251,19 +251,14 @@ function createWorkflowExecutionStateFromTerminalEvent(entry: WorkflowExecutionE
     }
   }
 
-  if (event.type === 'execution:cancelled') {
+  if (event.type === 'execution:cancelled' || event.type === 'execution:error') {
+    const result = isExecutionResult(event.data.result) ? event.data.result : null
+    const errorMessage =
+      event.type === 'execution:cancelled' ? 'Workflow execution was cancelled' : event.data.error
     return {
-      status: 'failed' as const,
-      result: isExecutionResult(event.data.result) ? event.data.result : null,
-      errorMessage: 'Workflow execution was cancelled',
-    }
-  }
-
-  if (event.type === 'execution:error') {
-    return {
-      status: 'failed' as const,
-      result: isExecutionResult(event.data.result) ? event.data.result : null,
-      errorMessage: event.data.error,
+      status: result ? ('completed' as const) : ('failed' as const),
+      result,
+      errorMessage: result ? null : errorMessage,
     }
   }
 

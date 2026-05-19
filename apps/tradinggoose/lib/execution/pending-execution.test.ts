@@ -553,9 +553,11 @@ describe('cancelPendingWorkflowExecution', () => {
     updateChain.set.mockReturnThis()
     updateChain.where.mockReturnThis()
     updateReturningMock.mockResolvedValue([])
+    deleteWhereMock.mockReturnValue(deleteChain)
+    deleteReturningMock.mockResolvedValue([])
   })
 
-  it('returns cancelling only when the pending row update matches', async () => {
+  it('removes pending workflow rows instead of sending them to a worker for cancellation', async () => {
     selectLimitMock.mockResolvedValueOnce([
       {
         id: 'pending-1',
@@ -564,7 +566,7 @@ describe('cancelPendingWorkflowExecution', () => {
         workflowId: 'workflow-1',
       },
     ])
-    updateReturningMock.mockResolvedValueOnce([{ id: 'pending-1' }])
+    deleteReturningMock.mockResolvedValueOnce([{ billingScopeId: 'scope-1' }])
 
     await expect(
       cancelPendingWorkflowExecution({
@@ -572,6 +574,10 @@ describe('cancelPendingWorkflowExecution', () => {
         userId: 'user-1',
       })
     ).resolves.toEqual({ status: 'cancelling' })
+    expect(updateReturningMock).not.toHaveBeenCalled()
+    expect(triggerMock).toHaveBeenCalledWith('pending-execution-drain', {
+      billingScopeId: 'scope-1',
+    })
   })
 
   it('returns not_found when a worker race removes the pending row', async () => {

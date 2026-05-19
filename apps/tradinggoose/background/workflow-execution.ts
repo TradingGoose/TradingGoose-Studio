@@ -3,6 +3,7 @@ import { isPendingWorkflowExecutionCancellationRequested } from '@/lib/execution
 import { createWorkflowExecutionEventWriter } from '@/lib/execution/workflow-execution-events'
 import { createLogger } from '@/lib/logs/console/logger'
 import { buildTraceSpans } from '@/lib/logs/execution/trace-spans/trace-spans'
+import { createWorkflowExecutionTerminalEventInput } from '@/lib/workflows/execution-events'
 import {
   runWorkflowExecution,
   type WorkflowExecutionBlueprint,
@@ -144,25 +145,7 @@ export async function executeWorkflowJob(payload: WorkflowExecutionPayload) {
       },
     }
 
-    if (result.success) {
-      await eventWriter?.write({
-        type: 'execution:completed',
-        data: { result: queuedResult },
-      })
-    } else if (result.error === 'Workflow execution was cancelled') {
-      await eventWriter?.write({
-        type: 'execution:cancelled',
-        data: { result: queuedResult },
-      })
-    } else {
-      await eventWriter?.write({
-        type: 'execution:error',
-        data: {
-          error: result.error || 'Workflow execution failed',
-          result: queuedResult,
-        },
-      })
-    }
+    await eventWriter?.write(createWorkflowExecutionTerminalEventInput(queuedResult))
 
     logger.info(`[${requestId}] Workflow execution completed: ${workflowId}`, {
       success: result.success,

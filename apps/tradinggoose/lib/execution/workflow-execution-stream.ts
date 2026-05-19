@@ -1,6 +1,7 @@
 import { readWorkflowExecutionEventState } from '@/lib/execution/workflow-execution-events'
 import { createLogger } from '@/lib/logs/console/logger'
 import {
+  createWorkflowExecutionTerminalEventInput,
   formatWorkflowExecutionSSE,
   isTerminalWorkflowExecutionEvent,
   type WorkflowExecutionEventEntry,
@@ -96,22 +97,10 @@ function createSeededWorkflowExecutionEventStream(
             throw new Error('Workflow execution ended without a terminal stream event')
           }
           const eventId = lastEventId + 1
-          const terminalEvent =
-            state.status === 'completed'
-              ? { type: 'execution:completed' as const, data: { result: state.result } }
-              : state.errorMessage === 'Workflow execution was cancelled'
-                ? { type: 'execution:cancelled' as const, data: { result: state.result } }
-                : {
-                    type: 'execution:error' as const,
-                    data: {
-                      error: state.errorMessage ?? 'Workflow execution failed',
-                      result: state.result,
-                    },
-                  }
           const terminalEntry: WorkflowExecutionEventEntry = {
             eventId,
             event: {
-              ...terminalEvent,
+              ...createWorkflowExecutionTerminalEventInput(state.result),
               executionId: params.pendingExecutionId,
               workflowId: params.workflowId,
               timestamp: new Date().toISOString(),

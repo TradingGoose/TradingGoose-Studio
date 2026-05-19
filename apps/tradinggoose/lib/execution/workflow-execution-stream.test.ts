@@ -84,14 +84,14 @@ describe('openWorkflowExecutionEventStream', () => {
 
   it('streams log-reconstructed cancellation as a cancelled terminal event', async () => {
     readWorkflowExecutionEventStateMock.mockResolvedValue({
-      status: 'failed',
+      status: 'completed',
       result: {
         success: false,
         output: {},
         error: 'Workflow execution was cancelled',
         logs: [],
       },
-      errorMessage: 'Workflow execution was cancelled',
+      errorMessage: null,
       events: [],
     })
 

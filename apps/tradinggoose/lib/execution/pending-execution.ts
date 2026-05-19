@@ -467,6 +467,19 @@ export async function cancelPendingWorkflowExecution(params: {
       return { status: 'not_found' }
     }
 
+    if (row.status === 'pending') {
+      const [deleted] = await db
+        .delete(pendingExecution)
+        .where(and(eq(pendingExecution.id, row.id), eq(pendingExecution.status, 'pending')))
+        .returning({ billingScopeId: pendingExecution.billingScopeId })
+
+      if (deleted) {
+        await wakePendingExecutionDrain({ billingScopeId: deleted.billingScopeId })
+        return { status: 'cancelling' }
+      }
+      continue
+    }
+
     const cancelledAt = new Date().toISOString()
     const payload = withCancellationRequest(row.payload, cancelledAt)
 
@@ -476,14 +489,7 @@ export async function cancelPendingWorkflowExecution(params: {
         payload,
         updatedAt: new Date(),
       })
-      .where(
-        and(
-          eq(pendingExecution.id, row.id),
-          row.status === 'pending'
-            ? eq(pendingExecution.status, 'pending')
-            : eq(pendingExecution.status, 'processing')
-        )
-      )
+      .where(and(eq(pendingExecution.id, row.id), eq(pendingExecution.status, 'processing')))
       .returning({ id: pendingExecution.id })
 
     if (cancellingRows.length > 0) {

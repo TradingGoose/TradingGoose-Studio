@@ -127,6 +127,31 @@ export type WorkflowExecutionEventEntry = {
   event: WorkflowExecutionEvent
 }
 
+type WorkflowExecutionTerminalResult = {
+  success: boolean
+  error?: string
+}
+
+export function createWorkflowExecutionTerminalEventInput(
+  result: WorkflowExecutionTerminalResult
+): WorkflowExecutionEventInput {
+  if (result.success) {
+    return { type: 'execution:completed', data: { result } }
+  }
+
+  if (result.error === 'Workflow execution was cancelled') {
+    return { type: 'execution:cancelled', data: { result } }
+  }
+
+  return {
+    type: 'execution:error',
+    data: {
+      error: result.error || 'Workflow execution failed',
+      result,
+    },
+  }
+}
+
 export function isTerminalWorkflowExecutionEvent(event: WorkflowExecutionEvent) {
   return (
     event.type === 'execution:completed' ||
