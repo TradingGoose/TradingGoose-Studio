@@ -41,7 +41,7 @@ vi.mock('@/lib/execution/pending-execution', () => ({
   claimNextPendingExecution: claimNextPendingExecutionMock,
   completePendingExecution: completePendingExecutionMock,
   deferPendingExecutionStart: deferPendingExecutionStartMock,
-  isPendingExecutionStartBlockedError: (error: { code?: string }) =>
+  isPendingExecutionCapacityBlockedError: (error: { code?: string }) =>
     error.code === 'EXECUTION_CONCURRENCY_LIMIT',
   PENDING_EXECUTION_DRAIN_TASK_ID: 'pending-execution-drain',
 }))
@@ -192,7 +192,7 @@ describe('pendingExecutionDrain', () => {
     })
   })
 
-  it('releases start-blocked rows back to the queue', async () => {
+  it('releases capacity-blocked rows back to the queue', async () => {
     const error = Object.assign(new Error('Execution concurrency limit reached'), {
       code: 'EXECUTION_CONCURRENCY_LIMIT',
     })

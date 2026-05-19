@@ -7,7 +7,7 @@ import {
   claimNextPendingExecution,
   completePendingExecution,
   deferPendingExecutionStart,
-  isPendingExecutionStartBlockedError,
+  isPendingExecutionCapacityBlockedError,
   PENDING_EXECUTION_DRAIN_TASK_ID,
   type PendingExecutionClaim,
 } from '@/lib/execution/pending-execution'
@@ -141,7 +141,7 @@ export async function drainPendingExecutionsForBillingScope(payload: PendingExec
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Pending execution failed'
 
-      if (isPendingExecutionStartBlockedError(error)) {
+      if (isPendingExecutionCapacityBlockedError(error)) {
         await deferPendingExecutionStart({
           pendingExecutionId: row.id,
         })

@@ -107,6 +107,13 @@ vi.mock('@/lib/environment', () => ({
 }))
 
 vi.mock('@/lib/execution/execution-concurrency-limit', () => ({
+  isExecutionConcurrencyLimitError: vi.fn((error: unknown) =>
+    Boolean(
+      error &&
+        typeof error === 'object' &&
+        (error as { code?: string }).code === 'EXECUTION_CONCURRENCY_LIMIT'
+    )
+  ),
   resolveServerExecutionBillingContext: vi.fn(),
 }))
 

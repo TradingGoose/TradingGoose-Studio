@@ -4,11 +4,9 @@ import { and, asc, eq, lte, sql } from 'drizzle-orm'
 import type { BillingTierRecord } from '@/lib/billing/tiers'
 import { isDev } from '@/lib/environment'
 import {
-  isExecutionConcurrencyBackendUnavailableError,
   isExecutionConcurrencyLimitError,
   resolveServerExecutionBillingContext,
 } from '@/lib/execution/execution-concurrency-limit'
-import { isLocalVmSaturationLimitError } from '@/lib/execution/local-saturation-limit'
 import { triggerPendingExecutionDrain } from '@/lib/execution/pending-execution-drain-wake'
 import { getTriggerExecutionState, TriggerExecutionUnavailableError } from '@/lib/trigger/settings'
 
@@ -89,10 +87,8 @@ export class PendingExecutionLimitError extends Error {
 export const isPendingExecutionLimitError = (error: unknown): error is PendingExecutionLimitError =>
   error instanceof PendingExecutionLimitError
 
-export const isPendingExecutionStartBlockedError = (error: unknown) =>
-  isExecutionConcurrencyLimitError(error) ||
-  isExecutionConcurrencyBackendUnavailableError(error) ||
-  isLocalVmSaturationLimitError(error)
+export const isPendingExecutionCapacityBlockedError = (error: unknown) =>
+  isExecutionConcurrencyLimitError(error)
 
 export function getTierPendingExecutionLimits(tier: BillingTierRecord) {
   return {
