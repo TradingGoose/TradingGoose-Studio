@@ -79,7 +79,7 @@ vi.mock('@/lib/auth/hybrid', () => ({
   checkHybridAuth: checkHybridAuthMock,
 }))
 
-vi.mock('@/lib/execution/pending-execution', () => ({
+vi.mock('@/lib/workflows/queued-execution-cancellation', () => ({
   cancelPendingWorkflowExecution: cancelPendingWorkflowExecutionMock,
 }))
 
@@ -104,14 +104,16 @@ import { DELETE, GET } from './route'
 
 const createWorkflowResult = (
   queuedExecution: Record<string, unknown>,
-  finalOutput: Record<string, unknown> = { answer: 42 }
+  finalOutput: Record<string, unknown> = { answer: 42 },
+  level = 'info'
 ) => ({
-  level: 'info',
+  level,
   startedAt: new Date('2026-04-16T00:00:00.000Z'),
   endedAt: new Date('2026-04-16T00:00:02.000Z'),
   totalDurationMs: 1000,
   executionData: {
     finalOutput,
+    ...(level === 'error' ? { errorMessage: finalOutput.error } : {}),
     traceSpans: [{ id: 'trace-1' }],
     trigger: {
       data: {
@@ -263,6 +265,47 @@ describe('GET /api/jobs/[jobId]', () => {
     expect(body.output.executionId).toBeUndefined()
     expect(body.output.executedAt).toBeUndefined()
     expect(body.output.metadata.queuedExecution).toBeUndefined()
+  })
+
+  it('reports failed workflow jobs without dropping the terminal result', async () => {
+    checkHybridAuthMock.mockResolvedValue({
+      success: true,
+      userId: 'user-1',
+      authType: 'internal_jwt',
+      internalWorkflowExecution: {
+        source: 'workflow_block',
+        parentExecutionId: 'parent-execution-1',
+        parentBlockId: 'workflow-block-1',
+      },
+    })
+    limitMock.mockResolvedValueOnce([]).mockResolvedValueOnce([
+      createWorkflowResult(
+        {
+          source: 'workflow_block',
+          parentExecutionId: 'parent-execution-1',
+          parentBlockId: 'workflow-block-1',
+        },
+        { error: 'Child failed' },
+        'error'
+      ),
+    ])
+
+    const response = await GET(new Request('http://localhost/api/jobs/job-1') as any, {
+      params: Promise.resolve({ jobId: 'job-1' }),
+    })
+
+    const body = await response.json()
+    expect(body).toMatchObject({
+      success: true,
+      taskId: 'job-1',
+      status: 'failed',
+      error: 'Child failed',
+      output: {
+        success: false,
+        error: 'Child failed',
+        traceSpans: [{ id: 'trace-1' }],
+      },
+    })
   })
 
   it('keeps unrelated internal workflow job output public', async () => {

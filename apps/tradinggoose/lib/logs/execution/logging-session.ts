@@ -53,6 +53,7 @@ export interface SessionErrorCompleteParams {
   workspaceId?: string
   actorUserId?: string | null
   variables?: Record<string, string>
+  billable?: boolean
 }
 
 export class LoggingSession {
@@ -244,18 +245,30 @@ export class LoggingSession {
 
   async completeWithError(params: SessionErrorCompleteParams = {}): Promise<void> {
     try {
-      const { endedAt, totalDurationMs, error, traceSpans, workspaceId, actorUserId, variables } =
-        params
+      const {
+        endedAt,
+        totalDurationMs,
+        error,
+        traceSpans,
+        workspaceId,
+        actorUserId,
+        variables,
+        billable,
+      } = params
       const scope = this.resolveCompletionScope({ workspaceId })
 
       const endTime = endedAt ? new Date(endedAt) : new Date()
       const durationMs = typeof totalDurationMs === 'number' ? totalDurationMs : 0
       const startTime = new Date(endTime.getTime() - Math.max(1, durationMs))
-      const { workflowExecutionChargeUsd } =
-        await this.resolveWorkflowExecutionPricingForCompletion({
-          workspaceId: scope.workspaceId,
-          actorUserId,
-        })
+      const workflowExecutionChargeUsd =
+        billable === false
+          ? 0
+          : (
+              await this.resolveWorkflowExecutionPricingForCompletion({
+                workspaceId: scope.workspaceId,
+                actorUserId,
+              })
+            ).workflowExecutionChargeUsd
 
       const costSummary = {
         totalCost: workflowExecutionChargeUsd,

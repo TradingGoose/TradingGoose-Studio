@@ -17,6 +17,9 @@ const {
   txExecuteMock,
   updateReturningMock,
   deleteReturningMock,
+  loadWorkflowExecutionBlueprintMock,
+  loggingStartMock,
+  loggingCompleteWithErrorMock,
 } = vi.hoisted(() => ({
   transactionMock: vi.fn(),
   triggerMock: vi.fn(),
@@ -31,6 +34,9 @@ const {
   txExecuteMock: vi.fn(),
   updateReturningMock: vi.fn(),
   deleteReturningMock: vi.fn(),
+  loadWorkflowExecutionBlueprintMock: vi.fn(),
+  loggingStartMock: vi.fn(),
+  loggingCompleteWithErrorMock: vi.fn(),
 }))
 
 const txSelectLimitMock = vi.fn()
@@ -139,8 +145,19 @@ vi.mock('@/background/pending-execution-drain', () => ({
   drainPendingExecutionsForBillingScope: drainPendingExecutionsForBillingScopeMock,
 }))
 
+vi.mock('@/lib/logs/execution/logging-session', () => ({
+  LoggingSession: vi.fn(() => ({
+    start: loggingStartMock,
+    completeWithError: loggingCompleteWithErrorMock,
+  })),
+}))
+
+vi.mock('@/lib/workflows/execution-runner', () => ({
+  loadWorkflowExecutionBlueprint: loadWorkflowExecutionBlueprintMock,
+}))
+
+import { cancelPendingWorkflowExecution } from '@/lib/workflows/queued-execution-cancellation'
 import {
-  cancelPendingWorkflowExecution,
   claimNextPendingExecution,
   completePendingExecution,
   enqueuePendingExecution,
@@ -555,15 +572,34 @@ describe('cancelPendingWorkflowExecution', () => {
     updateReturningMock.mockResolvedValue([])
     deleteWhereMock.mockReturnValue(deleteChain)
     deleteReturningMock.mockResolvedValue([])
+    loadWorkflowExecutionBlueprintMock.mockResolvedValue({
+      workflowData: {
+        blocks: {},
+        edges: [],
+        loops: {},
+        parallels: {},
+      },
+    })
+    loggingStartMock.mockResolvedValue('log-1')
+    loggingCompleteWithErrorMock.mockResolvedValue(undefined)
   })
 
-  it('removes pending workflow rows instead of sending them to a worker for cancellation', async () => {
+  it('records queued workflow cancellation before completing the pending row', async () => {
     selectLimitMock.mockResolvedValueOnce([
       {
         id: 'pending-1',
         status: 'pending',
-        payload: {},
+        payload: { triggerType: 'manual' },
         workflowId: 'workflow-1',
+      },
+    ])
+    updateReturningMock.mockResolvedValueOnce([
+      {
+        id: 'pending-1',
+        userId: 'user-1',
+        workflowId: 'workflow-1',
+        workspaceId: 'workspace-1',
+        payload: { triggerType: 'manual' },
       },
     ])
     deleteReturningMock.mockResolvedValueOnce([{ billingScopeId: 'scope-1' }])
@@ -574,23 +610,27 @@ describe('cancelPendingWorkflowExecution', () => {
         userId: 'user-1',
       })
     ).resolves.toEqual({ status: 'cancelling' })
-    expect(updateReturningMock).not.toHaveBeenCalled()
+    expect(loadWorkflowExecutionBlueprintMock).toHaveBeenCalled()
+    expect(loggingStartMock).toHaveBeenCalled()
+    expect(loggingCompleteWithErrorMock).toHaveBeenCalledWith({
+      workspaceId: 'workspace-1',
+      error: { message: 'Workflow execution was cancelled' },
+      billable: false,
+    })
     expect(triggerMock).toHaveBeenCalledWith('pending-execution-drain', {
       billingScopeId: 'scope-1',
     })
   })
 
   it('returns not_found when a worker race removes the pending row', async () => {
-    selectLimitMock
-      .mockResolvedValueOnce([
-        {
-          id: 'pending-1',
-          status: 'pending',
-          payload: {},
-          workflowId: 'workflow-1',
-        },
-      ])
-      .mockResolvedValueOnce([])
+    selectLimitMock.mockResolvedValueOnce([
+      {
+        id: 'pending-1',
+        status: 'pending',
+        payload: {},
+        workflowId: 'workflow-1',
+      },
+    ])
     updateReturningMock.mockResolvedValueOnce([])
 
     await expect(

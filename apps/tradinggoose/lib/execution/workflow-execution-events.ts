@@ -235,9 +235,9 @@ export function createWorkflowExecutionResultFromLog(row: WorkflowExecutionLogSt
   }
 
   return {
-    status: 'completed',
+    status: failed ? 'failed' : 'completed',
     result,
-    errorMessage: null,
+    errorMessage,
   }
 }
 
@@ -256,9 +256,9 @@ function createWorkflowExecutionStateFromTerminalEvent(entry: WorkflowExecutionE
     const errorMessage =
       event.type === 'execution:cancelled' ? 'Workflow execution was cancelled' : event.data.error
     return {
-      status: result ? ('completed' as const) : ('failed' as const),
+      status: 'failed' as const,
       result,
-      errorMessage: result ? null : errorMessage,
+      errorMessage,
     }
   }
 

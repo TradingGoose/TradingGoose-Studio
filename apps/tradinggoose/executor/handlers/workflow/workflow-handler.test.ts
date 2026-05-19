@@ -187,7 +187,8 @@ describe('WorkflowBlockHandler', () => {
         ok: true,
         json: () =>
           Promise.resolve({
-            status: 'completed',
+            status: 'failed',
+            error: 'Child failed',
             output: {
               success: false,
               error: 'Child failed',

@@ -296,6 +296,9 @@ export class WorkflowBlockHandler implements BlockHandler {
       }
 
       if (body.status === 'failed') {
+        if (body.output) {
+          return body.output
+        }
         throw new Error(body.error || 'Child workflow execution failed')
       }
 

@@ -8,7 +8,6 @@ import {
 import { and, eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { type AuthResult, AuthType, checkHybridAuth } from '@/lib/auth/hybrid'
-import { cancelPendingWorkflowExecution } from '@/lib/execution/pending-execution'
 import { createWorkflowExecutionResultFromLog } from '@/lib/execution/workflow-execution-events'
 import { createLogger } from '@/lib/logs/console/logger'
 import { buildWorkspaceAccessScope } from '@/lib/permissions/utils'
@@ -18,6 +17,7 @@ import {
   createPublicExecutionResult,
   isExecutionResult,
 } from '@/lib/workflows/execution-result'
+import { cancelPendingWorkflowExecution } from '@/lib/workflows/queued-execution-cancellation'
 import { createErrorResponse } from '@/app/api/workflows/utils'
 
 const logger = createLogger('TaskStatusAPI')
@@ -95,19 +95,21 @@ export async function GET(
 
     if (logRow) {
       const state = createWorkflowExecutionResultFromLog(logRow)
+      const output = isExecutionResult(state.result)
+        ? shouldIncludeInternalWorkflowTraceSpans(auth, state.result)
+          ? createInternalWorkflowJobResult(state.result)
+          : createPublicExecutionResult(state.result)
+        : null
       return NextResponse.json({
         success: true,
         taskId,
         status: state.status,
-        ...(state.status === 'completed' && isExecutionResult(state.result)
-          ? {
-              output: shouldIncludeInternalWorkflowTraceSpans(auth, state.result)
-                ? createInternalWorkflowJobResult(state.result)
-                : createPublicExecutionResult(state.result),
-            }
-          : state.status === 'failed'
-            ? { error: state.errorMessage ?? 'Execution failed' }
-            : { estimatedDuration: 180000 }),
+        ...(output ? { output } : {}),
+        ...(state.status === 'failed'
+          ? { error: state.errorMessage ?? 'Execution failed' }
+          : state.status === 'processing'
+            ? { estimatedDuration: 180000 }
+            : {}),
         metadata: {
           startedAt: logRow.startedAt,
           ...(logRow.endedAt ? { completedAt: logRow.endedAt } : {}),
