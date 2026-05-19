@@ -263,10 +263,9 @@ export async function enqueuePendingExecution(
 
   if (!inserted) {
     if (params.orderingKey) {
-      await triggerPendingExecutionDrain({
+      await wakePendingExecutionDrain({
         billingScopeId,
         requestId: params.requestId,
-        triggerState,
       })
     }
     return {
