@@ -15,9 +15,14 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { executeBrowserPineIndicator } from '@/lib/indicators/browser-execution'
 import { buildInputsMapFromMeta, inferInputMetaFromPineCode } from '@/lib/indicators/input-meta'
 import { PINE_CHEAT_SHEET_EXTRA_LIBS } from '@/lib/indicators/pine-cheat-sheet'
-import { useUpdateIndicator, useVerifyIndicator } from '@/hooks/queries/indicators'
+import { mapMarketSeriesToBarsMs } from '@/lib/indicators/series-data'
+import { detectTriggerUsage } from '@/lib/indicators/trigger-detection'
+import { detectUnsupportedFeatures } from '@/lib/indicators/unsupported'
+import { generateMockMarketSeries } from '@/lib/market/mock-series'
+import { useUpdateIndicator } from '@/hooks/queries/indicators'
 import { useWand } from '@/hooks/workflow/use-wand'
 import type { IndicatorDefinition } from '@/stores/indicators/types'
 import { emitIndicatorEditorState } from '@/widgets/utils/indicator-editor-actions'
@@ -66,6 +71,93 @@ Rules:
 1) Output raw TypeScript only.
 2) Do NOT include a function wrapper or signature.`
 
+const VERIFY_MAX_BARS = 500
+const VERIFY_INTERVAL = '1d'
+const VERIFY_INTERVAL_MS = 86_400_000
+
+const hasAnyNumericValue = (values: Array<number | null>) =>
+  values.some((value) => typeof value === 'number' && Number.isFinite(value))
+
+const verifyIndicatorInBrowser = async ({
+  pineCode,
+  inputsMap,
+}: {
+  pineCode: string
+  inputsMap: Record<string, unknown>
+}) => {
+  if (pineCode.trim().length === 0) {
+    throw new Error('Indicator code is required.')
+  }
+
+  const unsupportedFeatures = detectUnsupportedFeatures(pineCode)
+  if (unsupportedFeatures.length > 0) {
+    throw new Error(`${unsupportedFeatures[0]} is not supported`)
+  }
+
+  const triggerUsageDetected = detectTriggerUsage(pineCode)
+  const inferredInputMeta = inferInputMetaFromPineCode(pineCode)
+  const series = generateMockMarketSeries()
+  const barsMs = mapMarketSeriesToBarsMs(series, VERIFY_INTERVAL_MS).slice(0, VERIFY_MAX_BARS)
+  const { output, warnings } = await executeBrowserPineIndicator({
+    barsMs,
+    pineCode,
+    inputsMap,
+    inputMeta: inferredInputMeta,
+    symbol: 'SIM:GOOSE',
+    interval: VERIFY_INTERVAL,
+  })
+  const plotsCount = output.series.length
+  const markersCount = output.markers.length
+  const triggersCount = output.triggers.length
+
+  if (plotsCount === 0 && markersCount === 0 && triggersCount === 0 && !triggerUsageDetected) {
+    throw new Error('No plots or markers returned. Did you forget to plot?')
+  }
+
+  const warningMessages = warnings
+    .map((warning) => warning.message)
+    .filter((warning): warning is string => Boolean(warning))
+  const unsupportedStyles = output.unsupported.styles.filter((style) => style)
+  const unsupportedPlots = output.unsupported.plots.filter((plot) => plot)
+
+  if (unsupportedStyles.length > 0) {
+    warningMessages.push(`Unsupported styles: ${unsupportedStyles.join(', ')}`)
+  }
+  if (unsupportedPlots.length > 0) {
+    warningMessages.push(`Unsupported plots: ${unsupportedPlots.join(', ')}`)
+  }
+
+  const triggerOnly =
+    triggerUsageDetected && plotsCount === 0 && markersCount === 0 && triggersCount === 0
+  if (triggerOnly) {
+    warningMessages.push('Script uses trigger(...) without plots/markers/triggers, which is valid.')
+  }
+
+  if (plotsCount > 0) {
+    const hasPlotValues = output.series.some((plot) =>
+      hasAnyNumericValue(plot.points.map((point) => point.value))
+    )
+    if (!hasPlotValues) {
+      warningMessages.push('All plot values are null. Check your calculations and return values.')
+    }
+  }
+
+  if (markersCount > 0) {
+    const hasMarkerValues = output.markers.some(
+      (marker) => typeof marker.time === 'number' && Number.isFinite(marker.time)
+    )
+    if (!hasMarkerValues) {
+      warningMessages.push('All markers are null. Ensure plots emit valid values.')
+    }
+  }
+
+  return {
+    plotsCount,
+    markersCount,
+    warnings: warningMessages,
+  }
+}
+
 export function IndicatorCodePanel({
   indicator,
   indicatorId,
@@ -76,7 +168,6 @@ export function IndicatorCodePanel({
   widgetKey,
 }: IndicatorCodePanelProps) {
   const updateMutation = useUpdateIndicator()
-  const verifyMutation = useVerifyIndicator()
 
   const [pineCode, setPineCode] = useState('')
 
@@ -218,41 +309,19 @@ export function IndicatorCodePanel({
 
     try {
       const inferredInputMeta = inferInputMetaFromPineCode(pineCode)
-      const data = await verifyMutation.mutateAsync({
-        workspaceId,
+      const data = await verifyIndicatorInBrowser({
         pineCode,
-        inputs: buildInputsMapFromMeta(inferredInputMeta ?? undefined),
+        inputsMap: buildInputsMapFromMeta(inferredInputMeta ?? undefined),
       })
-
-      const warnings: string[] = []
-      if (Array.isArray(data?.warnings)) {
-        warnings.push(
-          ...data.warnings
-            .map((warning: { message?: string }) => warning?.message)
-            .filter((warning: any): warning is string => Boolean(warning))
-        )
-      }
-      const unsupportedStyles = Array.isArray(data?.unsupported?.styles)
-        ? data.unsupported.styles.filter((style: string) => style)
-        : []
-      const unsupportedPlots = Array.isArray(data?.unsupported?.plots)
-        ? data.unsupported.plots.filter((plot: string) => plot)
-        : []
-      if (unsupportedStyles.length > 0) {
-        warnings.push(`Unsupported styles: ${unsupportedStyles.join(', ')}`)
-      }
-      if (unsupportedPlots.length > 0) {
-        warnings.push(`Unsupported plots: ${unsupportedPlots.join(', ')}`)
-      }
-      const plotsCount = data?.plotsCount ?? 0
-      const markersCount = data?.markersCount ?? 0
+      const plotsCount = data.plotsCount
+      const markersCount = data.markersCount
       const baseMessage = `Verification passed (${plotsCount} plot${plotsCount === 1 ? '' : 's'}, ${markersCount} marker${markersCount === 1 ? '' : 's'}).`
 
-      if (warnings.length > 0) {
+      if (data.warnings.length > 0) {
         setVerifyStatus({
           state: 'warning',
           message: baseMessage,
-          warnings,
+          warnings: data.warnings,
         })
         return
       }
@@ -266,7 +335,7 @@ export function IndicatorCodePanel({
       const message = error instanceof Error ? error.message : 'Verification failed.'
       setVerifyStatus({ state: 'error', message })
     }
-  }, [workspaceId, verifyMutation, pineCode, verifyStatus.state])
+  }, [workspaceId, pineCode, verifyStatus.state])
 
   useEffect(() => {
     saveRef.current = handleSave
@@ -359,7 +428,7 @@ export function IndicatorCodePanel({
                     : 'Verification passed'
             }
           >
-            {verifyStatus.state === 'running' && 'Running server-side verification with mock data.'}
+            {verifyStatus.state === 'running' && 'Running browser verification with mock data.'}
             {verifyStatus.state === 'error' && verifyStatus.message}
             {(verifyStatus.state === 'success' || verifyStatus.state === 'warning') && (
               <div className='space-y-1'>

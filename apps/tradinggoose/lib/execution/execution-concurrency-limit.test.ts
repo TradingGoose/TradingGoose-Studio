@@ -4,28 +4,20 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const isBillingEnabledForRuntimeMock = vi.fn()
-const resolveWorkspaceBillingContextMock = vi.fn()
-const resolveWorkflowBillingContextMock = vi.fn()
+const getActiveSubscriptionForReferenceMock = vi.fn()
+const wakePendingExecutionDrainMock = vi.fn()
 
-describe('withExecutionConcurrencyLimit', () => {
+describe('withExecutionConcurrencyController', () => {
   beforeEach(() => {
     vi.resetModules()
     vi.resetAllMocks()
 
     isBillingEnabledForRuntimeMock.mockReset()
-    resolveWorkspaceBillingContextMock.mockReset()
-    resolveWorkflowBillingContextMock.mockReset()
+    getActiveSubscriptionForReferenceMock.mockReset()
+    wakePendingExecutionDrainMock.mockReset()
 
     isBillingEnabledForRuntimeMock.mockResolvedValue(true)
-    resolveWorkspaceBillingContextMock.mockResolvedValue({
-      scopeId: 'workspace-123',
-      tier: {
-        displayName: 'Community',
-        concurrencyLimit: 5,
-      },
-    })
-    resolveWorkflowBillingContextMock.mockResolvedValue({
-      scopeId: 'workflow-123',
+    getActiveSubscriptionForReferenceMock.mockResolvedValue({
       tier: {
         displayName: 'Community',
         concurrencyLimit: 5,
@@ -35,14 +27,16 @@ describe('withExecutionConcurrencyLimit', () => {
     vi.doMock('@/lib/billing/settings', () => ({
       isBillingEnabledForRuntime: (...args: any[]) => isBillingEnabledForRuntimeMock(...args),
     }))
+    vi.doMock('@/lib/billing/core/subscription', () => ({
+      getActiveSubscriptionForReference: (...args: any[]) =>
+        getActiveSubscriptionForReferenceMock(...args),
+    }))
     vi.doMock('@/lib/billing/workspace-billing', () => ({
       getBillingContextResolutionMessage: vi.fn((error: unknown) =>
         error instanceof Error ? error.message : 'Unable to determine usage limits.'
       ),
-      resolveWorkspaceBillingContext: (...args: any[]) =>
-        resolveWorkspaceBillingContextMock(...args),
-      resolveWorkflowBillingContext: (...args: any[]) =>
-        resolveWorkflowBillingContextMock(...args),
+      resolveWorkspaceBillingContext: vi.fn(),
+      resolveWorkflowBillingContext: vi.fn(),
       toRateLimitBillingScope: vi.fn(() => ({
         scopeType: 'user',
         scopeId: 'user-123',
@@ -63,93 +57,98 @@ describe('withExecutionConcurrencyLimit', () => {
     vi.doMock('@/lib/redis', () => ({
       getRedisClient: vi.fn(() => null),
     }))
+    vi.doMock('@/lib/execution/pending-execution-drain-wake', () => ({
+      wakePendingExecutionDrain: (...args: any[]) => wakePendingExecutionDrainMock(...args),
+    }))
   })
 
-  it(
-    'skips billing context resolution when billing is disabled',
-    async () => {
-      isBillingEnabledForRuntimeMock.mockResolvedValue(false)
-      const task = vi.fn().mockResolvedValue('ok')
-
-      const { withExecutionConcurrencyLimit } = await import(
-        '@/lib/execution/execution-concurrency-limit'
-      )
-
-      const result = await withExecutionConcurrencyLimit({
-        userId: 'user-123',
-        workspaceId: 'workspace-123',
-        task,
-      })
-
-      expect(result).toBe('ok')
-      expect(task).toHaveBeenCalledOnce()
-      expect(resolveWorkspaceBillingContextMock).not.toHaveBeenCalled()
-      expect(resolveWorkflowBillingContextMock).not.toHaveBeenCalled()
-    },
-    10_000
-  )
-
-  it('resolves the billing tier concurrency limit when billing is enabled', async () => {
+  it('skips billing context resolution when billing is disabled', async () => {
+    isBillingEnabledForRuntimeMock.mockResolvedValue(false)
     const task = vi.fn().mockResolvedValue('ok')
 
-    const { withExecutionConcurrencyLimit } = await import(
+    const { withExecutionConcurrencyController } = await import(
       '@/lib/execution/execution-concurrency-limit'
     )
-
-    const result = await withExecutionConcurrencyLimit({
-      userId: 'user-123',
-      workspaceId: 'workspace-123',
-      task,
-    })
-
-    expect(result).toBe('ok')
-    expect(resolveWorkspaceBillingContextMock).toHaveBeenCalledWith({
-      workspaceId: 'workspace-123',
-      actorUserId: 'user-123',
-    })
-    expect(task).toHaveBeenCalledOnce()
-  })
-
-  it('skips acquiring a second lease when the execution already owns one', async () => {
-    const task = vi.fn().mockResolvedValue('ok')
-
-    const { withExecutionConcurrencyLimit } = await import(
-      '@/lib/execution/execution-concurrency-limit'
-    )
-
-    const result = await withExecutionConcurrencyLimit({
-      concurrencyLeaseInherited: true,
-      userId: 'user-123',
-      workspaceId: 'workspace-123',
-      task,
-    })
-
-    expect(result).toBe('ok')
-    expect(task).toHaveBeenCalledOnce()
-    expect(resolveWorkspaceBillingContextMock).not.toHaveBeenCalled()
-    expect(resolveWorkflowBillingContextMock).not.toHaveBeenCalled()
-  })
-
-  it('temporarily releases the lease while waiting on deferred work', async () => {
-    const {
-      withExecutionConcurrencyController,
-      withExecutionConcurrencyLimit,
-    } = await import('@/lib/execution/execution-concurrency-limit')
 
     const result = await withExecutionConcurrencyController({
-      userId: 'user-123',
-      workspaceId: 'workspace-123',
+      billingScopeId: 'user-123',
+      billingScopeType: 'user',
+      task: async () => task(),
+    })
+
+    expect(result).toBe('ok')
+    expect(task).toHaveBeenCalledOnce()
+    expect(getActiveSubscriptionForReferenceMock).not.toHaveBeenCalled()
+  }, 10_000)
+
+  it('resolves the billing tier from the queued user billing scope', async () => {
+    const task = vi.fn().mockResolvedValue('ok')
+
+    const { withExecutionConcurrencyController } = await import(
+      '@/lib/execution/execution-concurrency-limit'
+    )
+
+    const result = await withExecutionConcurrencyController({
+      billingScopeId: 'user-123',
+      billingScopeType: 'user',
+      task: async () => task(),
+    })
+
+    expect(result).toBe('ok')
+    expect(getActiveSubscriptionForReferenceMock).toHaveBeenCalledWith({
+      referenceType: 'user',
+      referenceId: 'user-123',
+    })
+    expect(task).toHaveBeenCalledOnce()
+    expect(wakePendingExecutionDrainMock).toHaveBeenCalledWith({
+      billingScopeId: 'user-123',
+    })
+  })
+
+  it('resolves organization-member scopes from the owning organization subscription', async () => {
+    const task = vi.fn().mockResolvedValue('ok')
+
+    const { withExecutionConcurrencyController } = await import(
+      '@/lib/execution/execution-concurrency-limit'
+    )
+
+    const result = await withExecutionConcurrencyController({
+      billingScopeId: 'organization-1:user-123',
+      billingScopeType: 'organization_member',
+      task: async () => task(),
+    })
+
+    expect(result).toBe('ok')
+    expect(getActiveSubscriptionForReferenceMock).toHaveBeenCalledWith({
+      referenceType: 'organization',
+      referenceId: 'organization-1',
+    })
+    expect(wakePendingExecutionDrainMock).toHaveBeenCalledWith({
+      billingScopeId: 'organization-1:user-123',
+    })
+  })
+
+  it('temporarily releases the slot while waiting on deferred work', async () => {
+    const { withExecutionConcurrencyController } = await import(
+      '@/lib/execution/execution-concurrency-limit'
+    )
+
+    const result = await withExecutionConcurrencyController({
+      billingScopeId: 'user-123',
+      billingScopeType: 'user',
       task: async (controller) =>
-        controller.runWithoutLease(() =>
-          withExecutionConcurrencyLimit({
-            userId: 'user-123',
-            workspaceId: 'workspace-123',
+        controller.runWithoutConcurrencySlot(() =>
+          withExecutionConcurrencyController({
+            billingScopeId: 'user-123',
+            billingScopeType: 'user',
             task: async () => 'child-ok',
           })
         ),
     })
 
     expect(result).toBe('child-ok')
-    expect(resolveWorkspaceBillingContextMock).toHaveBeenCalled()
+    expect(wakePendingExecutionDrainMock).toHaveBeenCalledWith({
+      billingScopeId: 'user-123',
+    })
   })
 })

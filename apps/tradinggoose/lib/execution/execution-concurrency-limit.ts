@@ -1,5 +1,7 @@
 import { AuthType } from '@/lib/auth/hybrid'
+import { getActiveSubscriptionForReference } from '@/lib/billing/core/subscription'
 import { isBillingEnabledForRuntime } from '@/lib/billing/settings'
+import type { BillingReference, BillingScopeType, BillingTierRecord } from '@/lib/billing/tiers'
 import {
   getBillingContextResolutionMessage,
   resolveWorkflowBillingContext,
@@ -7,6 +9,7 @@ import {
   toRateLimitBillingScope,
 } from '@/lib/billing/workspace-billing'
 import { env } from '@/lib/env'
+import { wakePendingExecutionDrain } from '@/lib/execution/pending-execution-drain-wake'
 import { getRedisClient } from '@/lib/redis'
 import type { TriggerType } from '@/services/queue'
 
@@ -18,6 +21,7 @@ type ExecutionLogger = {
 }
 
 type ExecutionBillingContext = Awaited<ReturnType<typeof resolveWorkspaceBillingContext>>
+type ExecutionBillingTier = BillingTierRecord
 
 type ExecutionConcurrencyLimitError = Error & {
   code: 'EXECUTION_CONCURRENCY_LIMIT'
@@ -43,10 +47,10 @@ export class ExecutionGateError extends Error {
   }
 }
 
-type Lease = { release: () => Promise<void> }
+type ExecutionConcurrencySlot = { release: () => Promise<void> }
 
 export type ExecutionConcurrencyController = {
-  runWithoutLease: <T>(task: () => Promise<T>) => Promise<T>
+  runWithoutConcurrencySlot: <T>(task: () => Promise<T>) => Promise<T>
 }
 
 const activeExecutionsByScope = new Map<string, number>()
@@ -96,13 +100,13 @@ const buildExecutionConcurrencyBackendUnavailableError =
       statusCode: 503 as const,
     })
 
-const acquireExecutionLease = async ({
+const acquireExecutionConcurrencySlot = async ({
   scopeId,
   maxConcurrentExecutions,
 }: {
   scopeId: string
   maxConcurrentExecutions: number
-}): Promise<Lease> => {
+}): Promise<ExecutionConcurrencySlot> => {
   const redisConfigured = Boolean(env.REDIS_URL)
   const redis = getRedisClient()
 
@@ -153,6 +157,7 @@ const acquireExecutionLease = async ({
             CONCURRENCY_TTL_MS.toString()
           )
         } catch {}
+        await wakePendingExecutionDrain({ billingScopeId: scopeId })
       },
     }
   }
@@ -176,6 +181,7 @@ const acquireExecutionLease = async ({
       } else {
         activeExecutionsByScope.set(scopeId, nextActiveExecutions)
       }
+      await wakePendingExecutionDrain({ billingScopeId: scopeId })
     },
   }
 }
@@ -212,6 +218,54 @@ export async function resolveServerExecutionBillingContext(params: {
         error,
       }
     )
+    throw new ExecutionGateError(getBillingContextResolutionMessage(error))
+  }
+}
+
+function getBillingReferenceForScope(params: {
+  scopeId: string
+  scopeType: string
+}): BillingReference {
+  if (params.scopeType === 'user' || params.scopeType === 'organization') {
+    return {
+      referenceType: params.scopeType,
+      referenceId: params.scopeId,
+    }
+  }
+
+  if (params.scopeType === 'organization_member') {
+    const [organizationId, userId] = params.scopeId.split(':')
+    if (!organizationId || !userId) {
+      throw new Error(`Invalid organization member billing scope: ${params.scopeId}`)
+    }
+    return {
+      referenceType: 'organization',
+      referenceId: organizationId,
+    }
+  }
+
+  throw new Error(`Unsupported billing scope type: ${params.scopeType}`)
+}
+
+async function resolveServerExecutionBillingTierForScope(params: {
+  scopeId: string
+  scopeType: BillingScopeType | string
+}): Promise<ExecutionBillingTier | null> {
+  if (!(await isBillingEnabledForRuntime())) {
+    return null
+  }
+
+  try {
+    const subscription = await getActiveSubscriptionForReference(
+      getBillingReferenceForScope(params)
+    )
+
+    if (!subscription?.tier) {
+      throw new Error(`No active subscription found for billing scope ${params.scopeId}`)
+    }
+
+    return subscription.tier
+  } catch (error) {
     throw new ExecutionGateError(getBillingContextResolutionMessage(error))
   }
 }
@@ -266,9 +320,7 @@ export const isExecutionConcurrencyLimitError = (
       (error as { code?: string }).code === 'EXECUTION_CONCURRENCY_LIMIT'
   )
 
-export const getExecutionConcurrencyLimitMessage = (
-  error: ExecutionConcurrencyLimitError
-) =>
+export const getExecutionConcurrencyLimitMessage = (error: ExecutionConcurrencyLimitError) =>
   `Too many concurrent executions for your billing tier. Active: ${error.details.activeExecutions}, limit: ${error.details.maxConcurrentExecutions}.`
 
 export const isExecutionConcurrencyBackendUnavailableError = (
@@ -281,54 +333,61 @@ export const isExecutionConcurrencyBackendUnavailableError = (
   )
 
 const noopExecutionConcurrencyController: ExecutionConcurrencyController = {
-  runWithoutLease: async <T>(task: () => Promise<T>) => task(),
+  runWithoutConcurrencySlot: async <T>(task: () => Promise<T>) => task(),
 }
 
 export const withExecutionConcurrencyController = async <T>({
-  concurrencyLeaseInherited,
-  userId,
-  workspaceId,
-  workflowId,
+  billingScopeId,
+  billingScopeType,
   task,
 }: {
-  concurrencyLeaseInherited?: boolean
-  userId?: string
-  workspaceId?: string | null
-  workflowId?: string | null
+  billingScopeId: string
+  billingScopeType: string
   task: (controller: ExecutionConcurrencyController) => Promise<T>
 }): Promise<T> => {
-  if (concurrencyLeaseInherited || !userId) {
-    return task(noopExecutionConcurrencyController)
-  }
-
-  const billingContext = await resolveServerExecutionBillingContext({
-    actorUserId: userId,
-    workflowId,
-    workspaceId,
+  const tier = await resolveServerExecutionBillingTierForScope({
+    scopeId: billingScopeId,
+    scopeType: billingScopeType,
   })
 
-  if (!billingContext) {
+  if (!tier) {
     return task(noopExecutionConcurrencyController)
   }
 
-  const maxConcurrentExecutions = billingContext.tier.concurrencyLimit
+  return withExecutionConcurrencySlot({
+    scopeId: billingScopeId,
+    tier,
+    task,
+  })
+}
+
+async function withExecutionConcurrencySlot<T>({
+  scopeId,
+  tier,
+  task,
+}: {
+  scopeId: string
+  tier: ExecutionBillingTier
+  task: (controller: ExecutionConcurrencyController) => Promise<T>
+}) {
+  const maxConcurrentExecutions = tier.concurrencyLimit
 
   if (maxConcurrentExecutions === null || maxConcurrentExecutions < 0) {
-    throw new Error(`Billing tier ${billingContext.tier.displayName} is missing concurrencyLimit`)
+    throw new Error(`Billing tier ${tier.displayName} is missing concurrencyLimit`)
   }
 
-  const acquireLease = () =>
-    acquireExecutionLease({
-      scopeId: billingContext.scopeId,
+  const acquireSlot = () =>
+    acquireExecutionConcurrencySlot({
+      scopeId,
       maxConcurrentExecutions,
     })
 
-  let lease: Lease | null = await acquireLease()
+  let slot: ExecutionConcurrencySlot | null = await acquireSlot()
 
-  const reacquireLease = async () => {
-    while (!lease) {
+  const reacquireSlot = async () => {
+    while (!slot) {
       try {
-        lease = await acquireLease()
+        slot = await acquireSlot()
         return
       } catch (error) {
         if (
@@ -345,19 +404,19 @@ export const withExecutionConcurrencyController = async <T>({
   }
 
   const controller: ExecutionConcurrencyController = {
-    runWithoutLease: async <U>(releasedTask: () => Promise<U>) => {
-      if (!lease) {
+    runWithoutConcurrencySlot: async <U>(releasedTask: () => Promise<U>) => {
+      if (!slot) {
         return releasedTask()
       }
 
-      const heldLease = lease
-      lease = null
-      await heldLease.release()
+      const heldSlot = slot
+      slot = null
+      await heldSlot.release()
 
       try {
         return await releasedTask()
       } finally {
-        await reacquireLease()
+        await reacquireSlot()
       }
     },
   }
@@ -365,30 +424,8 @@ export const withExecutionConcurrencyController = async <T>({
   try {
     return await task(controller)
   } finally {
-    if (lease) {
-      await lease.release()
+    if (slot) {
+      await slot.release()
     }
   }
-}
-
-export const withExecutionConcurrencyLimit = async <T>({
-  concurrencyLeaseInherited,
-  userId,
-  workspaceId,
-  workflowId,
-  task,
-}: {
-  concurrencyLeaseInherited?: boolean
-  userId?: string
-  workspaceId?: string | null
-  workflowId?: string | null
-  task: () => Promise<T>
-}): Promise<T> => {
-  return withExecutionConcurrencyController({
-    concurrencyLeaseInherited,
-    userId,
-    workspaceId,
-    workflowId,
-    task: async () => task(),
-  })
 }

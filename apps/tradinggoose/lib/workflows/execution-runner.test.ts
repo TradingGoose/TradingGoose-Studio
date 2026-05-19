@@ -17,7 +17,7 @@ const mocks = vi.hoisted(() => {
   dbChain.where = vi.fn(() => dbChain)
   dbChain.limit = vi.fn(() => Promise.resolve(dbRowsQueue.shift() ?? []))
   const executionConcurrencyController = {
-    runWithoutLease: vi.fn((task: () => unknown) => task()),
+    runWithoutConcurrencySlot: async <T>(task: () => Promise<T>) => task(),
   }
 
   return {
@@ -47,12 +47,6 @@ vi.mock('@/lib/billing', () => ({
 
 vi.mock('@/lib/environment/utils', () => ({
   getPersonalAndWorkspaceEnv: mocks.getPersonalAndWorkspaceEnv,
-}))
-
-vi.mock('@/lib/execution/execution-concurrency-limit', () => ({
-  withExecutionConcurrencyController: vi.fn(({ task }) =>
-    task(mocks.executionConcurrencyController)
-  ),
 }))
 
 vi.mock('@/lib/logs/execution/logging-session', () => ({
@@ -160,6 +154,7 @@ describe('runPreparedWorkflowExecution', () => {
     const result = await runPreparedWorkflowExecution({
       blueprint,
       actorUserId: 'user-1',
+      executionConcurrencyController: mocks.executionConcurrencyController,
       triggerType: 'webhook',
       workflowInput: { symbol: 'AAPL' },
       executionId: 'execution-1',
@@ -195,7 +190,6 @@ describe('runPreparedWorkflowExecution', () => {
           userId: 'user-1',
           workflowLogId: 'workflow-log-1',
           submissionSource: 'workflow',
-          concurrencyLeaseInherited: true,
           executionConcurrencyController: mocks.executionConcurrencyController,
           triggerType: 'webhook',
           workflowDepth: 3,
@@ -224,6 +218,7 @@ describe('runPreparedWorkflowExecution', () => {
     await runPreparedWorkflowExecution({
       blueprint,
       actorUserId: 'user-1',
+      executionConcurrencyController: mocks.executionConcurrencyController,
       triggerType: 'manual',
       workflowInput: {},
       executionId: 'execution-1',
@@ -253,6 +248,7 @@ describe('runPreparedWorkflowExecution', () => {
       runPreparedWorkflowExecution({
         blueprint,
         actorUserId: 'user-1',
+        executionConcurrencyController: mocks.executionConcurrencyController,
         triggerType: 'manual',
         workflowInput: {},
         executionId: 'execution-1',
@@ -281,6 +277,7 @@ describe('runPreparedWorkflowExecution', () => {
       runPreparedWorkflowExecution({
         blueprint,
         actorUserId: 'user-1',
+        executionConcurrencyController: mocks.executionConcurrencyController,
         triggerType: 'manual',
         workflowInput: {},
         executionId: 'execution-1',
@@ -311,6 +308,7 @@ describe('runPreparedWorkflowExecution', () => {
     await runPreparedWorkflowExecution({
       blueprint,
       actorUserId: 'user-1',
+      executionConcurrencyController: mocks.executionConcurrencyController,
       triggerType: 'manual',
       workflowInput: { symbol: 'AAPL' },
       executionId: 'execution-1',
@@ -338,6 +336,7 @@ describe('runPreparedWorkflowExecution', () => {
       runPreparedWorkflowExecution({
         blueprint,
         actorUserId: 'user-1',
+        executionConcurrencyController: mocks.executionConcurrencyController,
         triggerType: 'manual',
         workflowInput: {},
         executionId: 'execution-1',
@@ -361,6 +360,7 @@ describe('runPreparedWorkflowExecution', () => {
     await runPreparedWorkflowExecution({
       blueprint,
       actorUserId: 'user-1',
+      executionConcurrencyController: mocks.executionConcurrencyController,
       triggerType: 'manual',
       workflowInput: {},
       executionId: 'execution-1',

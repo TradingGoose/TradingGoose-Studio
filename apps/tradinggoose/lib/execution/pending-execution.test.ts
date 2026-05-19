@@ -170,12 +170,54 @@ describe('enqueuePendingExecution', () => {
 
     expect(result).toEqual({
       pendingExecutionId: 'pending-local-1',
-      billingScopeId: 'workspace-1',
+      billingScopeId: 'user-1',
       inserted: true,
     })
     expect(triggerMock).not.toHaveBeenCalled()
     expect(drainPendingExecutionsForBillingScopeMock).toHaveBeenCalledWith({
-      billingScopeId: 'workspace-1',
+      billingScopeId: 'user-1',
+    })
+  })
+
+  it('stores the resolved billing scope when billing is enabled', async () => {
+    const { resolveServerExecutionBillingContext } = await import(
+      '@/lib/execution/execution-concurrency-limit'
+    )
+    vi.mocked(resolveServerExecutionBillingContext).mockResolvedValueOnce({
+      scopeId: 'organization-1',
+      scopeType: 'organization',
+      tier: {
+        maxPendingAgeSeconds: null,
+        maxPendingCount: null,
+      },
+    } as any)
+
+    const result = await enqueuePendingExecution({
+      executionType: 'workflow',
+      pendingExecutionId: 'pending-org-1',
+      workflowId: 'workflow-1',
+      workspaceId: 'workspace-1',
+      userId: 'user-1',
+      source: 'workflow_api',
+      payload: {
+        executionId: 'pending-org-1',
+      },
+    })
+
+    expect(result).toEqual({
+      pendingExecutionId: 'pending-org-1',
+      billingScopeId: 'organization-1',
+      inserted: true,
+    })
+    expect(txInsertValuesMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'pending-org-1',
+        billingScopeId: 'organization-1',
+        billingScopeType: 'organization',
+      })
+    )
+    expect(drainPendingExecutionsForBillingScopeMock).toHaveBeenCalledWith({
+      billingScopeId: 'organization-1',
     })
   })
 
@@ -201,7 +243,7 @@ describe('enqueuePendingExecution', () => {
 
     expect(result).toEqual({
       pendingExecutionId: 'pending-local-1',
-      billingScopeId: 'workspace-1',
+      billingScopeId: 'user-1',
       inserted: false,
     })
     expect(triggerMock).not.toHaveBeenCalled()
@@ -230,7 +272,7 @@ describe('enqueuePendingExecution', () => {
 
     expect(result.inserted).toBe(false)
     expect(triggerMock).toHaveBeenCalledWith('pending-execution-drain', {
-      billingScopeId: 'workspace-1',
+      billingScopeId: 'user-1',
     })
   })
 
@@ -256,7 +298,7 @@ describe('enqueuePendingExecution', () => {
 
     expect(result).toEqual({
       pendingExecutionId: 'execution-1',
-      billingScopeId: 'workspace-1',
+      billingScopeId: 'user-1',
       inserted: false,
     })
     expect(txInsertValuesMock).not.toHaveBeenCalled()
@@ -286,12 +328,12 @@ describe('enqueuePendingExecution', () => {
 
     expect(result).toEqual({
       pendingExecutionId: 'pending-schedule-1',
-      billingScopeId: 'workspace-1',
+      billingScopeId: 'user-1',
       inserted: false,
     })
     expect(txInsertValuesMock).not.toHaveBeenCalled()
     expect(triggerMock).toHaveBeenCalledWith('pending-execution-drain', {
-      billingScopeId: 'workspace-1',
+      billingScopeId: 'user-1',
     })
   })
 

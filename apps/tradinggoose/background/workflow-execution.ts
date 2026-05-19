@@ -1,4 +1,5 @@
 import { v4 as uuidv4 } from 'uuid'
+import type { ExecutionConcurrencyController } from '@/lib/execution/execution-concurrency-limit'
 import { isPendingWorkflowExecutionCancellationRequested } from '@/lib/execution/pending-execution'
 import { createWorkflowExecutionEventWriter } from '@/lib/execution/workflow-execution-events'
 import { createLogger } from '@/lib/logs/console/logger'
@@ -50,7 +51,10 @@ export function isWorkflowExecutionPayload(
   return typeof candidate.workflowId === 'string' && typeof candidate.userId === 'string'
 }
 
-export async function executeWorkflowJob(payload: WorkflowExecutionPayload) {
+export async function executeWorkflowJob(
+  payload: WorkflowExecutionPayload,
+  options: { executionConcurrencyController: ExecutionConcurrencyController }
+) {
   const workflowId = payload.workflowId
   const executionId = payload.executionId ?? uuidv4()
   const requestId = executionId.slice(0, 8)
@@ -112,6 +116,7 @@ export async function executeWorkflowJob(payload: WorkflowExecutionPayload) {
       workflowData: isLiveExecution ? payload.workflowData : undefined,
       start,
       triggerData,
+      executionConcurrencyController: options.executionConcurrencyController,
       contextExtensions: {
         workflowDepth: payload.workflowDepth ?? 0,
         isChildExecution,

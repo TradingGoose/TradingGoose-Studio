@@ -9,12 +9,16 @@ const {
   createWorkflowExecutionEventWriterMock,
   writeExecutionEventMock,
   isPendingWorkflowExecutionCancellationRequestedMock,
+  executionConcurrencyControllerMock,
 } = vi.hoisted(() => ({
   runWorkflowExecutionMock: vi.fn(),
   buildTraceSpansMock: vi.fn(),
   createWorkflowExecutionEventWriterMock: vi.fn(),
   writeExecutionEventMock: vi.fn(),
   isPendingWorkflowExecutionCancellationRequestedMock: vi.fn(),
+  executionConcurrencyControllerMock: {
+    runWithoutConcurrencySlot: async <T>(task: () => Promise<T>) => task(),
+  },
 }))
 
 vi.mock('@/lib/execution/workflow-execution-events', () => ({
@@ -63,19 +67,23 @@ describe('executeWorkflowJob', () => {
   })
 
   it('marks queued workflow-block executions as child executions', async () => {
-    await executeWorkflowJob({
-      workflowId: 'workflow-1',
-      userId: 'user-1',
-      metadata: {
-        source: 'workflow_block',
-        parentBlockId: 'block-1',
+    await executeWorkflowJob(
+      {
+        workflowId: 'workflow-1',
+        userId: 'user-1',
+        metadata: {
+          source: 'workflow_block',
+          parentBlockId: 'block-1',
+        },
       },
-    })
+      { executionConcurrencyController: executionConcurrencyControllerMock }
+    )
 
     expect(runWorkflowExecutionMock).toHaveBeenCalledWith(
       expect.objectContaining({
         workflowId: 'workflow-1',
         actorUserId: 'user-1',
+        executionConcurrencyController: executionConcurrencyControllerMock,
         contextExtensions: expect.objectContaining({
           workflowDepth: 0,
           isChildExecution: true,
@@ -86,13 +94,16 @@ describe('executeWorkflowJob', () => {
   })
 
   it('does not mark non-child queued workflow executions as child executions', async () => {
-    await executeWorkflowJob({
-      workflowId: 'workflow-1',
-      userId: 'user-1',
-      metadata: {
-        source: 'workflow_queue',
+    await executeWorkflowJob(
+      {
+        workflowId: 'workflow-1',
+        userId: 'user-1',
+        metadata: {
+          source: 'workflow_queue',
+        },
       },
-    })
+      { executionConcurrencyController: executionConcurrencyControllerMock }
+    )
 
     expect(runWorkflowExecutionMock).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -107,12 +118,15 @@ describe('executeWorkflowJob', () => {
   })
 
   it('enables chunk streaming only when requested by the queued payload', async () => {
-    await executeWorkflowJob({
-      workflowId: 'workflow-1',
-      userId: 'user-1',
-      stream: true,
-      selectedOutputs: ['agent-1_content'],
-    })
+    await executeWorkflowJob(
+      {
+        workflowId: 'workflow-1',
+        userId: 'user-1',
+        stream: true,
+        selectedOutputs: ['agent-1_content'],
+      },
+      { executionConcurrencyController: executionConcurrencyControllerMock }
+    )
 
     expect(runWorkflowExecutionMock).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -138,20 +152,23 @@ describe('executeWorkflowJob', () => {
       parallels: {},
     }
 
-    await executeWorkflowJob({
-      workflowId: 'workflow-1',
-      userId: 'user-1',
-      workspaceId: 'workspace-1',
-      input: { symbol: 'AAPL' },
-      triggerType: 'manual',
-      executionTarget: 'live',
-      workflowData,
-      workflowVariables: { risk: { value: 1 } },
-      startBlockId: 'trigger-1',
-      metadata: {
-        source: 'workflow_queue',
+    await executeWorkflowJob(
+      {
+        workflowId: 'workflow-1',
+        userId: 'user-1',
+        workspaceId: 'workspace-1',
+        input: { symbol: 'AAPL' },
+        triggerType: 'manual',
+        executionTarget: 'live',
+        workflowData,
+        workflowVariables: { risk: { value: 1 } },
+        startBlockId: 'trigger-1',
+        metadata: {
+          source: 'workflow_queue',
+        },
       },
-    })
+      { executionConcurrencyController: executionConcurrencyControllerMock }
+    )
 
     expect(runWorkflowExecutionMock).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -173,14 +190,17 @@ describe('executeWorkflowJob', () => {
   })
 
   it('preserves manual queued starts when no explicit start block is supplied', async () => {
-    await executeWorkflowJob({
-      workflowId: 'workflow-1',
-      userId: 'user-1',
-      triggerType: 'manual',
-      metadata: {
-        source: 'workflow_queue',
+    await executeWorkflowJob(
+      {
+        workflowId: 'workflow-1',
+        userId: 'user-1',
+        triggerType: 'manual',
+        metadata: {
+          source: 'workflow_queue',
+        },
       },
-    })
+      { executionConcurrencyController: executionConcurrencyControllerMock }
+    )
 
     expect(runWorkflowExecutionMock).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -194,11 +214,14 @@ describe('executeWorkflowJob', () => {
   })
 
   it('checks queued cancellation state through the execution id', async () => {
-    await executeWorkflowJob({
-      workflowId: 'workflow-1',
-      userId: 'user-1',
-      executionId: 'execution-1',
-    })
+    await executeWorkflowJob(
+      {
+        workflowId: 'workflow-1',
+        userId: 'user-1',
+        executionId: 'execution-1',
+      },
+      { executionConcurrencyController: executionConcurrencyControllerMock }
+    )
 
     const call = runWorkflowExecutionMock.mock.calls[0]?.[0] as any
     await call.contextExtensions.shouldCancelExecution()

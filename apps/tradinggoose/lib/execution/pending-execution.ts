@@ -1,6 +1,5 @@
 import { db } from '@tradinggoose/db'
 import { pendingExecution, workflowExecutionLogs } from '@tradinggoose/db/schema'
-import { tasks } from '@trigger.dev/sdk'
 import { and, asc, eq, lte, sql } from 'drizzle-orm'
 import type { BillingTierRecord } from '@/lib/billing/tiers'
 import { isDev } from '@/lib/environment'
@@ -10,17 +9,17 @@ import {
   resolveServerExecutionBillingContext,
 } from '@/lib/execution/execution-concurrency-limit'
 import { isLocalVmSaturationLimitError } from '@/lib/execution/local-saturation-limit'
-import { createLogger } from '@/lib/logs/console/logger'
+import { triggerPendingExecutionDrain } from '@/lib/execution/pending-execution-drain-wake'
 import { getTriggerExecutionState, TriggerExecutionUnavailableError } from '@/lib/trigger/settings'
 
-export const PENDING_EXECUTION_DRAIN_TASK_ID = 'pending-execution-drain'
+export {
+  PENDING_EXECUTION_DRAIN_TASK_ID,
+  triggerPendingExecutionDrain,
+} from '@/lib/execution/pending-execution-drain-wake'
 
 const CLAIM_RACE_RETRY_LIMIT = 5
 const STALE_PROCESSING_WINDOW_MS = 30 * 60 * 1000
-export const START_BLOCKED_RETRY_DELAY_MS = 5_000
 const PENDING_EXECUTION_LOCK_NAMESPACE = 29_401
-const logger = createLogger('PendingExecutionQueue')
-type TriggerExecutionState = Awaited<ReturnType<typeof getTriggerExecutionState>>
 
 export type PendingExecutionType =
   | 'workflow'
@@ -106,47 +105,6 @@ function isPendingExecutionPayload(value: unknown): value is PendingExecutionPay
   return Boolean(value && typeof value === 'object' && !Array.isArray(value))
 }
 
-export async function triggerPendingExecutionDrain(params: {
-  billingScopeId: string
-  requestId?: string
-  triggerState?: TriggerExecutionState
-}) {
-  const triggerState = params.triggerState ?? (await getTriggerExecutionState())
-
-  if (triggerState.triggerDevEnabled && !triggerState.configurationReady) {
-    throw new TriggerExecutionUnavailableError(
-      'Trigger.dev execution is enabled but not configured.'
-    )
-  }
-
-  if (triggerState.executionEnabled) {
-    await tasks.trigger(PENDING_EXECUTION_DRAIN_TASK_ID, {
-      billingScopeId: params.billingScopeId,
-    })
-    return
-  }
-
-  if (!triggerState.triggerDevEnabled && isDev) {
-    const { drainPendingExecutionsForBillingScope } = await import(
-      '@/background/pending-execution-drain'
-    )
-    void drainPendingExecutionsForBillingScope({ billingScopeId: params.billingScopeId }).catch(
-      (error) => {
-        logger.error('Local pending execution drain failed', {
-          billingScopeId: params.billingScopeId,
-          requestId: params.requestId,
-          error,
-        })
-      }
-    )
-    return
-  }
-
-  throw new TriggerExecutionUnavailableError(
-    'Queued server execution requires Trigger.dev outside local development.'
-  )
-}
-
 export async function enqueuePendingExecution(
   params: PendingExecutionInsert
 ): Promise<PendingExecutionHandle> {
@@ -173,14 +131,8 @@ export async function enqueuePendingExecution(
     requestId: params.requestId,
     source: params.source,
   })
-  const billingScopeId = billingContext
-    ? billingContext.scopeId
-    : (params.workspaceId ?? params.userId)
-  const billingScopeType = billingContext
-    ? billingContext.scopeType
-    : params.workspaceId
-      ? 'workspace'
-      : 'user'
+  const billingScopeId = billingContext ? billingContext.scopeId : params.userId
+  const billingScopeType = billingContext ? billingContext.scopeType : 'user'
   const limits = billingContext
     ? getTierPendingExecutionLimits(billingContext.tier)
     : {
@@ -472,13 +424,11 @@ export async function completePendingExecution(params: { pendingExecutionId: str
 }
 
 export async function deferPendingExecutionStart(params: { pendingExecutionId: string }) {
-  const nextAttemptAt = new Date(Date.now() + START_BLOCKED_RETRY_DELAY_MS)
-
   await db
     .update(pendingExecution)
     .set({
       status: 'pending',
-      nextAttemptAt,
+      nextAttemptAt: new Date(),
       processingStartedAt: null,
       updatedAt: new Date(),
     })

@@ -115,7 +115,6 @@ export interface ExecutionContext {
   executionId?: string // Unique execution ID for file storage scoping
   workflowLogId?: string
   submissionSource?: ExecutionSubmissionSource
-  concurrencyLeaseInherited?: boolean
   triggerType?: TriggerType
   workflowDepth?: number
   // Whether this execution is running against deployed state (API/webhook/schedule/chat)
@@ -205,7 +204,6 @@ export interface ExecutionContextExtensions {
   userId?: string
   workflowLogId?: string
   submissionSource?: ExecutionSubmissionSource
-  concurrencyLeaseInherited?: boolean
   executionConcurrencyController?: ExecutionConcurrencyController
   triggerType?: TriggerType
   workflowDepth?: number

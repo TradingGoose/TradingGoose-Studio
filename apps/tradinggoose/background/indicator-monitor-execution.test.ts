@@ -10,7 +10,9 @@ const mocks = vi.hoisted(() => ({
   executeCompiledIndicator: vi.fn(),
   loadWorkflowExecutionBlueprint: vi.fn(),
   runPreparedWorkflowExecution: vi.fn(),
-  withExecutionConcurrencyLimit: vi.fn(({ task }) => task()),
+  executionConcurrencyController: {
+    runWithoutConcurrencySlot: async <T>(task: () => Promise<T>) => task(),
+  },
 }))
 
 vi.mock('@tradinggoose/db', () => ({
@@ -57,10 +59,6 @@ vi.mock('@/lib/indicators/series-data', () => ({
 
 vi.mock('@/lib/billing', () => ({
   checkServerSideUsageLimits: (...args: unknown[]) => mocks.checkServerSideUsageLimits(...args),
-}))
-
-vi.mock('@/lib/execution/execution-concurrency-limit', () => ({
-  withExecutionConcurrencyLimit: (params: unknown) => mocks.withExecutionConcurrencyLimit(params),
 }))
 
 vi.mock('@/lib/logs/console/logger', () => ({
@@ -120,30 +118,29 @@ describe('executeIndicatorMonitorJob', () => {
     })
   })
 
-  it('rejects missing workspace scope before concurrency and usage checks', async () => {
+  it('rejects missing workspace scope before usage checks', async () => {
     const { executeIndicatorMonitorJob } = await import('./indicator-monitor-execution')
 
     await expect(
-      executeIndicatorMonitorJob({
-        ...payload,
-        monitor: { ...payload.monitor, workspaceId: ' ' },
-      })
+      executeIndicatorMonitorJob(
+        {
+          ...payload,
+          monitor: { ...payload.monitor, workspaceId: ' ' },
+        },
+        { executionConcurrencyController: mocks.executionConcurrencyController }
+      )
     ).rejects.toThrow('Indicator monitor execution requires workspaceId')
 
-    expect(mocks.withExecutionConcurrencyLimit).not.toHaveBeenCalled()
     expect(mocks.checkServerSideUsageLimits).not.toHaveBeenCalled()
   })
 
-  it('passes the resolved workspace scope into concurrency, usage, and blueprint loading', async () => {
+  it('passes the resolved workspace scope into usage and blueprint loading', async () => {
     const { executeIndicatorMonitorJob } = await import('./indicator-monitor-execution')
 
-    await executeIndicatorMonitorJob(payload)
+    await executeIndicatorMonitorJob(payload, {
+      executionConcurrencyController: mocks.executionConcurrencyController,
+    })
 
-    expect(mocks.withExecutionConcurrencyLimit).toHaveBeenCalledWith(
-      expect.objectContaining({
-        workspaceId: 'workspace-1',
-      })
-    )
     expect(mocks.checkServerSideUsageLimits).toHaveBeenCalledWith(
       expect.objectContaining({
         workspaceId: 'workspace-1',

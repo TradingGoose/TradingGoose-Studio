@@ -2,7 +2,7 @@ import { db } from '@tradinggoose/db'
 import { webhook } from '@tradinggoose/db/schema'
 import { and, eq } from 'drizzle-orm'
 import { checkServerSideUsageLimits } from '@/lib/billing'
-import { withExecutionConcurrencyLimit } from '@/lib/execution/execution-concurrency-limit'
+import type { ExecutionConcurrencyController } from '@/lib/execution/execution-concurrency-limit'
 import {
   applyIndicatorTriggerPayloadBudget,
   buildIndicatorTriggerDispatchPayload,
@@ -180,7 +180,10 @@ async function disableMonitor(
   })
 }
 
-export async function executeIndicatorMonitorJob(payload: IndicatorMonitorExecutionPayload) {
+export async function executeIndicatorMonitorJob(
+  payload: IndicatorMonitorExecutionPayload,
+  options: { executionConcurrencyController: ExecutionConcurrencyController }
+) {
   const requestId = (payload.executionId ?? payload.monitor.id).slice(0, 8)
   const workspaceId = payload.monitor.workspaceId.trim()
   if (!workspaceId) {
@@ -194,163 +197,156 @@ export async function executeIndicatorMonitorJob(payload: IndicatorMonitorExecut
     actorUserId: payload.monitor.actorUserId,
   })
 
-  return withExecutionConcurrencyLimit({
+  const compiled = await executeCompiledIndicator({
+    pineCode: payload.indicator.pineCode,
+    barsMs: bars,
+    inputsMap: payload.inputsMap,
+    listing: payload.monitor.listing,
+    interval: payload.monitor.interval,
+    intervalMs: payload.monitor.intervalMs,
+    executionTimeoutMs: 15_000,
+    userId: payload.monitor.userId,
+  })
+
+  if (!compiled.output) {
+    return { success: true, skipped: 'no_output' as const }
+  }
+
+  const candidate = chooseCandidate({
+    triggers: compiled.output.triggers,
+    latestBarOpenTimeSec: resolveLatestBarOpenTimeSec(bars),
+  })
+  if (!candidate) {
+    return { success: true, skipped: 'no_candidate' as const }
+  }
+
+  const barBucketMs = candidate.time * 1000
+  const eventId = buildLiveIndicatorTriggerEventId({
+    monitorId: payload.monitor.id,
+    indicatorId: payload.monitor.indicatorId,
+    barBucketMs,
+  })
+
+  const marketSeries = toMarketSeries({
+    bars,
+    listing: payload.monitor.listing,
+    marketCode: payload.marketCode,
+    timezone: payload.timezone,
+  })
+
+  const dispatchPayload = buildIndicatorTriggerDispatchPayload({
+    eventId,
+    executionId: eventId,
+    emittedAt: new Date().toISOString(),
+    triggerSignal: candidate,
+    indicatorId: payload.monitor.indicatorId,
+    indicatorName: payload.indicator.name,
+    output: compiled.output,
+    inputsMap: payload.inputsMap,
+    interval: payload.monitor.interval,
+    intervalMs: payload.monitor.intervalMs ?? undefined,
+    marketSeries,
+    monitor: {
+      id: payload.monitor.id,
+      workflowId: payload.monitor.workflowId,
+      blockId: payload.monitor.blockId,
+      listing: payload.monitor.listing,
+      providerId: payload.monitor.providerId,
+      interval: payload.monitor.interval,
+      indicatorId: payload.monitor.indicatorId,
+    },
+  })
+
+  const budgetResult = applyIndicatorTriggerPayloadBudget(dispatchPayload)
+  if (budgetResult.skipped) {
+    logger.warn('Indicator monitor dispatch skipped: payload too large', {
+      monitorId: payload.monitor.id,
+      workflowId: payload.monitor.workflowId,
+      originalSizeBytes: budgetResult.metadata.originalSizeBytes,
+      finalSizeBytes: budgetResult.metadata.finalSizeBytes,
+      retainedBars: budgetResult.metadata.retainedBars,
+    })
+    return { success: true, skipped: 'payload_too_large' as const }
+  }
+
+  if (budgetResult.metadata.truncated) {
+    logger.warn('Indicator monitor payload truncated', {
+      monitorId: payload.monitor.id,
+      workflowId: payload.monitor.workflowId,
+      originalSizeBytes: budgetResult.metadata.originalSizeBytes,
+      finalSizeBytes: budgetResult.metadata.finalSizeBytes,
+      retainedBars: budgetResult.metadata.retainedBars,
+    })
+  }
+
+  const usageCheck = await checkServerSideUsageLimits({
     userId: payload.monitor.actorUserId,
     workflowId: payload.monitor.workflowId,
     workspaceId,
-    task: async () => {
-      const compiled = await executeCompiledIndicator({
-        pineCode: payload.indicator.pineCode,
-        barsMs: bars,
-        inputsMap: payload.inputsMap,
-        listing: payload.monitor.listing,
-        interval: payload.monitor.interval,
-        intervalMs: payload.monitor.intervalMs,
-        executionTimeoutMs: 15_000,
-        userId: payload.monitor.userId,
-      })
-
-      if (!compiled.output) {
-        return { success: true, skipped: 'no_output' as const }
-      }
-
-      const candidate = chooseCandidate({
-        triggers: compiled.output.triggers,
-        latestBarOpenTimeSec: resolveLatestBarOpenTimeSec(bars),
-      })
-      if (!candidate) {
-        return { success: true, skipped: 'no_candidate' as const }
-      }
-
-      const barBucketMs = candidate.time * 1000
-      const eventId = buildLiveIndicatorTriggerEventId({
-        monitorId: payload.monitor.id,
-        indicatorId: payload.monitor.indicatorId,
-        barBucketMs,
-      })
-
-      const marketSeries = toMarketSeries({
-        bars,
-        listing: payload.monitor.listing,
-        marketCode: payload.marketCode,
-        timezone: payload.timezone,
-      })
-
-      const dispatchPayload = buildIndicatorTriggerDispatchPayload({
-        eventId,
-        executionId: eventId,
-        emittedAt: new Date().toISOString(),
-        triggerSignal: candidate,
-        indicatorId: payload.monitor.indicatorId,
-        indicatorName: payload.indicator.name,
-        output: compiled.output,
-        inputsMap: payload.inputsMap,
-        interval: payload.monitor.interval,
-        intervalMs: payload.monitor.intervalMs ?? undefined,
-        marketSeries,
-        monitor: {
-          id: payload.monitor.id,
-          workflowId: payload.monitor.workflowId,
-          blockId: payload.monitor.blockId,
-          listing: payload.monitor.listing,
-          providerId: payload.monitor.providerId,
-          interval: payload.monitor.interval,
-          indicatorId: payload.monitor.indicatorId,
-        },
-      })
-
-      const budgetResult = applyIndicatorTriggerPayloadBudget(dispatchPayload)
-      if (budgetResult.skipped) {
-        logger.warn('Indicator monitor dispatch skipped: payload too large', {
-          monitorId: payload.monitor.id,
-          workflowId: payload.monitor.workflowId,
-          originalSizeBytes: budgetResult.metadata.originalSizeBytes,
-          finalSizeBytes: budgetResult.metadata.finalSizeBytes,
-          retainedBars: budgetResult.metadata.retainedBars,
-        })
-        return { success: true, skipped: 'payload_too_large' as const }
-      }
-
-      if (budgetResult.metadata.truncated) {
-        logger.warn('Indicator monitor payload truncated', {
-          monitorId: payload.monitor.id,
-          workflowId: payload.monitor.workflowId,
-          originalSizeBytes: budgetResult.metadata.originalSizeBytes,
-          finalSizeBytes: budgetResult.metadata.finalSizeBytes,
-          retainedBars: budgetResult.metadata.retainedBars,
-        })
-      }
-
-      const usageCheck = await checkServerSideUsageLimits({
-        userId: payload.monitor.actorUserId,
-        workflowId: payload.monitor.workflowId,
-        workspaceId,
-      })
-      if (usageCheck.isExceeded) {
-        await disableMonitor(payload.monitor.id, 'usage_limit_exceeded', {
-          workflowId: payload.monitor.workflowId,
-          currentUsage: usageCheck.currentUsage,
-          limit: usageCheck.limit,
-        })
-        return { success: true, skipped: 'usage_limit_exceeded' as const }
-      }
-
-      const blueprint = await loadWorkflowExecutionBlueprint({
-        workflowId: payload.monitor.workflowId,
-        executionTarget: 'deployed',
-        workflowContext: { workspaceId },
-      })
-      const blocks = blueprint.workflowData.blocks as Record<string, unknown>
-      if (!blocks[payload.monitor.blockId]) {
-        await disableMonitor(payload.monitor.id, 'missing_trigger_block', {
-          workflowId: payload.monitor.workflowId,
-          blockId: payload.monitor.blockId,
-        })
-        return { success: true, skipped: 'missing_trigger_block' as const }
-      }
-
-      const { result } = await runPreparedWorkflowExecution({
-        blueprint,
-        actorUserId: payload.monitor.actorUserId,
-        requestId,
-        executionId: eventId,
-        triggerType: 'webhook',
-        workflowInput: budgetResult.payload,
-        start: {
-          kind: 'block',
-          blockId: payload.monitor.blockId,
-        },
-        triggerData: {
-          source: 'indicator_trigger',
-          executionTarget: 'deployed',
-          monitor: {
-            id: payload.monitor.id,
-            workflowId: payload.monitor.workflowId,
-            blockId: payload.monitor.blockId,
-            listing: payload.monitor.listing,
-            providerId: payload.monitor.providerId,
-            interval: payload.monitor.interval,
-            indicatorId: payload.monitor.indicatorId,
-          },
-        },
-        concurrencyLeaseInherited: true,
-      })
-
-      logger.info(`[${requestId}] Indicator monitor execution completed`, {
-        success: result.success,
-        monitorId: payload.monitor.id,
-        workflowId: payload.monitor.workflowId,
-      })
-
-      return {
-        success: result.success,
-        workflowId: payload.monitor.workflowId,
-        executionId: eventId,
-        output: result.output,
-        error: result.error,
-        executedAt: new Date().toISOString(),
-        provider: 'indicator',
-      }
-    },
   })
+  if (usageCheck.isExceeded) {
+    await disableMonitor(payload.monitor.id, 'usage_limit_exceeded', {
+      workflowId: payload.monitor.workflowId,
+      currentUsage: usageCheck.currentUsage,
+      limit: usageCheck.limit,
+    })
+    return { success: true, skipped: 'usage_limit_exceeded' as const }
+  }
+
+  const blueprint = await loadWorkflowExecutionBlueprint({
+    workflowId: payload.monitor.workflowId,
+    executionTarget: 'deployed',
+    workflowContext: { workspaceId },
+  })
+  const blocks = blueprint.workflowData.blocks as Record<string, unknown>
+  if (!blocks[payload.monitor.blockId]) {
+    await disableMonitor(payload.monitor.id, 'missing_trigger_block', {
+      workflowId: payload.monitor.workflowId,
+      blockId: payload.monitor.blockId,
+    })
+    return { success: true, skipped: 'missing_trigger_block' as const }
+  }
+
+  const { result } = await runPreparedWorkflowExecution({
+    blueprint,
+    actorUserId: payload.monitor.actorUserId,
+    requestId,
+    executionId: eventId,
+    triggerType: 'webhook',
+    workflowInput: budgetResult.payload,
+    start: {
+      kind: 'block',
+      blockId: payload.monitor.blockId,
+    },
+    triggerData: {
+      source: 'indicator_trigger',
+      executionTarget: 'deployed',
+      monitor: {
+        id: payload.monitor.id,
+        workflowId: payload.monitor.workflowId,
+        blockId: payload.monitor.blockId,
+        listing: payload.monitor.listing,
+        providerId: payload.monitor.providerId,
+        interval: payload.monitor.interval,
+        indicatorId: payload.monitor.indicatorId,
+      },
+    },
+    executionConcurrencyController: options.executionConcurrencyController,
+  })
+
+  logger.info(`[${requestId}] Indicator monitor execution completed`, {
+    success: result.success,
+    monitorId: payload.monitor.id,
+    workflowId: payload.monitor.workflowId,
+  })
+
+  return {
+    success: result.success,
+    workflowId: payload.monitor.workflowId,
+    executionId: eventId,
+    output: result.output,
+    error: result.error,
+    executedAt: new Date().toISOString(),
+    provider: 'indicator',
+  }
 }

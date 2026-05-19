@@ -245,6 +245,13 @@ export async function POST(request: NextRequest) {
       throw new Error('Missing toolId in request')
     }
 
+    if (toolId === 'function_execute') {
+      return createErrorResponse(
+        'Function execution is only available inside workflow execution',
+        403
+      )
+    }
+
     logger.info(`[${requestId}] Processing tool: ${toolId}`)
 
     const tool = getTool(toolId)

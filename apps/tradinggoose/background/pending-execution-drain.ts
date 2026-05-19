@@ -1,5 +1,8 @@
-import { task, tasks, wait } from '@trigger.dev/sdk'
-import { isDev } from '@/lib/environment'
+import { task } from '@trigger.dev/sdk'
+import {
+  type ExecutionConcurrencyController,
+  withExecutionConcurrencyController,
+} from '@/lib/execution/execution-concurrency-limit'
 import {
   claimNextPendingExecution,
   completePendingExecution,
@@ -7,7 +10,6 @@ import {
   isPendingExecutionStartBlockedError,
   PENDING_EXECUTION_DRAIN_TASK_ID,
   type PendingExecutionClaim,
-  START_BLOCKED_RETRY_DELAY_MS,
 } from '@/lib/execution/pending-execution'
 import { createLogger } from '@/lib/logs/console/logger'
 import {
@@ -28,33 +30,23 @@ type PendingExecutionDrainPayload = {
   billingScopeId: string
 }
 
-const scheduleDeferredPendingExecutionDrain = async (payload: PendingExecutionDrainPayload) => {
-  if (isDev) {
-    setTimeout(
-      () =>
-        void drainPendingExecutionsForBillingScope(payload).catch((error) =>
-          logger.error('Local pending execution drain failed after deferral', error)
-        ),
-      START_BLOCKED_RETRY_DELAY_MS
-    )
-    return
-  }
-
-  await wait.for({ seconds: START_BLOCKED_RETRY_DELAY_MS / 1000 })
-  await tasks.trigger(PENDING_EXECUTION_DRAIN_TASK_ID, payload)
-}
-
-async function dispatchPendingExecution(row: PendingExecutionClaim) {
+async function dispatchPendingExecution(
+  row: PendingExecutionClaim,
+  executionConcurrencyController: ExecutionConcurrencyController
+) {
   switch (row.executionType) {
     case 'workflow': {
       if (!isWorkflowExecutionPayload(row.payload)) {
         throw new Error('Invalid workflow pending payload')
       }
 
-      await executeWorkflowJob({
-        ...row.payload,
-        executionId: row.id,
-      })
+      await executeWorkflowJob(
+        {
+          ...row.payload,
+          executionId: row.id,
+        },
+        { executionConcurrencyController }
+      )
       break
     }
 
@@ -63,10 +55,13 @@ async function dispatchPendingExecution(row: PendingExecutionClaim) {
         throw new Error('Invalid webhook pending payload')
       }
 
-      await executeWebhookJob({
-        ...row.payload,
-        executionId: row.id,
-      })
+      await executeWebhookJob(
+        {
+          ...row.payload,
+          executionId: row.id,
+        },
+        { executionConcurrencyController }
+      )
       break
     }
 
@@ -75,10 +70,13 @@ async function dispatchPendingExecution(row: PendingExecutionClaim) {
         throw new Error('Invalid schedule pending payload')
       }
 
-      await executeScheduleJob({
-        ...row.payload,
-        executionId: row.id,
-      })
+      await executeScheduleJob(
+        {
+          ...row.payload,
+          executionId: row.id,
+        },
+        { executionConcurrencyController }
+      )
       break
     }
 
@@ -87,10 +85,13 @@ async function dispatchPendingExecution(row: PendingExecutionClaim) {
         throw new Error('Invalid indicator monitor pending payload')
       }
 
-      await executeIndicatorMonitorJob({
-        ...row.payload,
-        executionId: row.id,
-      })
+      await executeIndicatorMonitorJob(
+        {
+          ...row.payload,
+          executionId: row.id,
+        },
+        { executionConcurrencyController }
+      )
       break
     }
 
@@ -131,7 +132,12 @@ export async function drainPendingExecutionsForBillingScope(payload: PendingExec
     lastPendingExecutionId = row.id
 
     try {
-      await dispatchPendingExecution(row)
+      await withExecutionConcurrencyController({
+        billingScopeId: row.billingScopeId,
+        billingScopeType: row.billingScopeType,
+        task: (executionConcurrencyController) =>
+          dispatchPendingExecution(row, executionConcurrencyController),
+      })
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Pending execution failed'
 
@@ -139,7 +145,6 @@ export async function drainPendingExecutionsForBillingScope(payload: PendingExec
         await deferPendingExecutionStart({
           pendingExecutionId: row.id,
         })
-        await scheduleDeferredPendingExecutionDrain(payload)
         return {
           success: !failedAny,
           pendingExecutionId: row.id,

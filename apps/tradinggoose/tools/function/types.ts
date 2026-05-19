@@ -13,7 +13,8 @@ export interface CodeExecutionInput {
     workflowId?: string
     workspaceId?: string
     userId?: string
-    concurrencyLeaseInherited?: boolean
+    executionId?: string
+    submissionSource?: string
   }
   isCustomTool?: boolean
 }

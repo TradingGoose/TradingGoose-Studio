@@ -1,5 +1,4 @@
 import { task } from '@trigger.dev/sdk'
-import { withExecutionConcurrencyLimit } from '@/lib/execution/execution-concurrency-limit'
 import {
   markDocumentProcessingFailed,
   prepareDocumentForProcessing,
@@ -50,17 +49,11 @@ async function executeDocumentProcessingJob(payload: DocumentProcessingPayload) 
   logger.info(`[${requestId}] Starting document pending execution: ${docData.filename}`)
 
   try {
-    await withExecutionConcurrencyLimit({
-      userId: payload.userId,
-      workspaceId: payload.workspaceId,
-      task: async () => {
-        if (payload.resetBeforeProcessing) {
-          await prepareDocumentForProcessing(documentId)
-        }
+    if (payload.resetBeforeProcessing) {
+      await prepareDocumentForProcessing(documentId)
+    }
 
-        await processDocumentAsync(knowledgeBaseId, documentId, docData, processingOptions)
-      },
-    })
+    await processDocumentAsync(knowledgeBaseId, documentId, docData, processingOptions)
 
     logger.info(
       `[${requestId}] Successfully completed document pending execution: ${docData.filename}`

@@ -97,6 +97,15 @@ export class ExecutionLogger {
     })
 
     const startTime = new Date()
+    const workflowLogValues = {
+      workflowId,
+      workspaceId: environment.workspaceId,
+      executionId,
+      stateSnapshotId: snapshotResult.snapshot.id,
+      workflowSummary,
+      trigger: trigger.type,
+      startedAt: startTime,
+    }
 
     const readWorkflowLog = async () => {
       const [row] = await db
@@ -106,6 +115,32 @@ export class ExecutionLogger {
         .limit(1)
       return row
     }
+    const writeStartFailureLog = async (error: unknown) => {
+      const message =
+        error instanceof Error && error.message
+          ? error.message
+          : 'Workflow execution log could not be started'
+
+      await db
+        .insert(workflowExecutionLogs)
+        .values({
+          id: uuidv4(),
+          ...workflowLogValues,
+          level: 'error',
+          endedAt: startTime,
+          totalDurationMs: 0,
+          executionData: {
+            environment,
+            trigger,
+            traceSpans: [],
+            finalOutput: { error: message },
+            errorMessage: message,
+          },
+        })
+        .onConflictDoNothing({
+          target: workflowExecutionLogs.executionId,
+        })
+    }
 
     let workflowLog: typeof workflowExecutionLogs.$inferSelect | undefined
     try {
@@ -113,14 +148,8 @@ export class ExecutionLogger {
         .insert(workflowExecutionLogs)
         .values({
           id: uuidv4(),
-          workflowId,
-          workspaceId: environment.workspaceId,
-          executionId,
-          stateSnapshotId: snapshotResult.snapshot.id,
-          workflowSummary,
+          ...workflowLogValues,
           level: 'info',
-          trigger: trigger.type,
-          startedAt: startTime,
           endedAt: null,
           totalDurationMs: null,
           executionData: {
@@ -134,7 +163,10 @@ export class ExecutionLogger {
         .returning()
     } catch (error) {
       workflowLog = await readWorkflowLog()
-      if (!workflowLog) throw error
+      if (!workflowLog) {
+        await writeStartFailureLog(error)
+        throw error
+      }
     }
 
     if (!workflowLog) {
