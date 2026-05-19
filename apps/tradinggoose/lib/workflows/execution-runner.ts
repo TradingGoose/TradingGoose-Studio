@@ -290,6 +290,7 @@ export async function runPreparedWorkflowExecution(params: {
   executionId?: string
   triggerData?: Record<string, unknown>
   contextExtensions?: Partial<ExecutionContextExtensions>
+  startupError?: unknown
 }): Promise<WorkflowRunnerResult> {
   const executionId = params.executionId ?? uuidv4()
   const requestId = params.requestId ?? executionId.slice(0, 8)
@@ -312,6 +313,10 @@ export async function runPreparedWorkflowExecution(params: {
 
   let encryptedEnvVars: Record<string, string> | undefined
   try {
+    if (params.startupError) {
+      throw params.startupError
+    }
+
     const usageCheck = await checkServerSideUsageLimits({
       userId: params.actorUserId,
       workflowId: params.blueprint.workflowId,
@@ -448,11 +453,23 @@ export async function runWorkflowExecution(params: {
   triggerData?: Record<string, unknown>
   contextExtensions?: Partial<ExecutionContextExtensions>
 }): Promise<WorkflowRunnerResult> {
+  let startupError: unknown
   const blueprint = await loadWorkflowExecutionBlueprint({
     workflowId: params.workflowId,
     executionTarget: params.executionTarget,
     workflowContext: params.workflowContext,
     workflowData: params.workflowData,
+  }).catch(async (error) => {
+    startupError = error
+    return {
+      workflowId: params.workflowId,
+      executionTarget: params.executionTarget ?? 'deployed',
+      workflowContext: await resolveRequiredWorkflowExecutionContext(
+        params.workflowId,
+        params.workflowContext
+      ),
+      workflowData: params.workflowData ?? { blocks: {}, edges: [], loops: {}, parallels: {} },
+    }
   })
 
   return runPreparedWorkflowExecution({
@@ -465,5 +482,6 @@ export async function runWorkflowExecution(params: {
     executionId: params.executionId,
     triggerData: params.triggerData,
     contextExtensions: params.contextExtensions,
+    startupError,
   })
 }
