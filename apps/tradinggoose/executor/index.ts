@@ -1471,9 +1471,7 @@ export class Executor {
         })
       }
 
-      await (this.contextExtensions.executionConcurrencyController?.runWithoutConcurrencySlot(
-        deferredWaitTask
-      ) ?? deferredWaitTask())
+      await deferredWaitTask()
     }
 
     // If there were any errors, log them but don't throw immediately

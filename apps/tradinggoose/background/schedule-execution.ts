@@ -3,7 +3,6 @@ import { Cron } from 'croner'
 import { eq } from 'drizzle-orm'
 import { v4 as uuidv4 } from 'uuid'
 import { getApiKeyOwnerUserId } from '@/lib/api-key/service'
-import type { ExecutionConcurrencyController } from '@/lib/execution/execution-concurrency-limit'
 import { createLogger } from '@/lib/logs/console/logger'
 import {
   type BlockState,
@@ -120,10 +119,7 @@ async function resolveFallbackNextRunAt(params: {
   return new Date(params.now.getTime() + 24 * 60 * 60 * 1000)
 }
 
-export async function executeScheduleJob(
-  payload: ScheduleExecutionPayload,
-  options: { executionConcurrencyController: ExecutionConcurrencyController }
-) {
+export async function executeScheduleJob(payload: ScheduleExecutionPayload) {
   const executionId = payload.executionId ?? uuidv4()
   const requestId = executionId.slice(0, 8)
   const now = new Date(payload.now)
@@ -210,7 +206,6 @@ export async function executeScheduleJob(
         kind: 'block',
         blockId: payload.blockId || undefined,
       },
-      executionConcurrencyController: options.executionConcurrencyController,
     })
 
     if (result.success) {

@@ -1,13 +1,7 @@
 import { task } from '@trigger.dev/sdk'
 import {
-  type ExecutionConcurrencyController,
-  withExecutionConcurrencyController,
-} from '@/lib/execution/execution-concurrency-limit'
-import {
   claimNextPendingExecution,
   completePendingExecution,
-  deferPendingExecutionStart,
-  isPendingExecutionCapacityBlockedError,
   PENDING_EXECUTION_DRAIN_TASK_ID,
   type PendingExecutionClaim,
 } from '@/lib/execution/pending-execution'
@@ -30,23 +24,17 @@ type PendingExecutionDrainPayload = {
   billingScopeId: string
 }
 
-async function dispatchPendingExecution(
-  row: PendingExecutionClaim,
-  executionConcurrencyController: ExecutionConcurrencyController
-) {
+async function dispatchPendingExecution(row: PendingExecutionClaim) {
   switch (row.executionType) {
     case 'workflow': {
       if (!isWorkflowExecutionPayload(row.payload)) {
         throw new Error('Invalid workflow pending payload')
       }
 
-      await executeWorkflowJob(
-        {
-          ...row.payload,
-          executionId: row.id,
-        },
-        { executionConcurrencyController }
-      )
+      await executeWorkflowJob({
+        ...row.payload,
+        executionId: row.id,
+      })
       break
     }
 
@@ -55,13 +43,10 @@ async function dispatchPendingExecution(
         throw new Error('Invalid webhook pending payload')
       }
 
-      await executeWebhookJob(
-        {
-          ...row.payload,
-          executionId: row.id,
-        },
-        { executionConcurrencyController }
-      )
+      await executeWebhookJob({
+        ...row.payload,
+        executionId: row.id,
+      })
       break
     }
 
@@ -70,13 +55,10 @@ async function dispatchPendingExecution(
         throw new Error('Invalid schedule pending payload')
       }
 
-      await executeScheduleJob(
-        {
-          ...row.payload,
-          executionId: row.id,
-        },
-        { executionConcurrencyController }
-      )
+      await executeScheduleJob({
+        ...row.payload,
+        executionId: row.id,
+      })
       break
     }
 
@@ -85,13 +67,10 @@ async function dispatchPendingExecution(
         throw new Error('Invalid indicator monitor pending payload')
       }
 
-      await executeIndicatorMonitorJob(
-        {
-          ...row.payload,
-          executionId: row.id,
-        },
-        { executionConcurrencyController }
-      )
+      await executeIndicatorMonitorJob({
+        ...row.payload,
+        executionId: row.id,
+      })
       break
     }
 
@@ -116,9 +95,9 @@ export async function drainPendingExecutionsForBillingScope(payload: PendingExec
 
   // Keep the worker responsible for the current scope until the queue is empty or capacity blocked.
   while (true) {
-    const row = await claimNextPendingExecution(payload.billingScopeId)
+    const claim = await claimNextPendingExecution(payload.billingScopeId)
 
-    if (!row) {
+    if (claim.status === 'empty') {
       if (!claimedAny) {
         return { success: true, skipped: 'empty' as const }
       }
@@ -128,28 +107,21 @@ export async function drainPendingExecutionsForBillingScope(payload: PendingExec
       }
     }
 
+    if (claim.status === 'capacity_blocked') {
+      return {
+        success: !failedAny,
+        pendingExecutionId: claim.pendingExecutionId,
+      }
+    }
+
+    const row = claim.row
     claimedAny = true
     lastPendingExecutionId = row.id
 
     try {
-      await withExecutionConcurrencyController({
-        billingScopeId: row.billingScopeId,
-        billingScopeType: row.billingScopeType,
-        task: (executionConcurrencyController) =>
-          dispatchPendingExecution(row, executionConcurrencyController),
-      })
+      await dispatchPendingExecution(row)
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Pending execution failed'
-
-      if (isPendingExecutionCapacityBlockedError(error)) {
-        await deferPendingExecutionStart({
-          pendingExecutionId: row.id,
-        })
-        return {
-          success: !failedAny,
-          pendingExecutionId: row.id,
-        }
-      }
 
       if (row.executionType === 'document') {
         await failQueuedDocumentProcessingJob(row.payload, errorMessage)

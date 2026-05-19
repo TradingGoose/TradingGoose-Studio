@@ -1,4 +1,3 @@
-import type { ExecutionConcurrencyController } from '@/lib/execution/execution-concurrency-limit'
 import type { TraceSpan } from '@/lib/logs/types'
 import type { WorkflowExecutionEventInput } from '@/lib/workflows/execution-events'
 import type { BlockOutput } from '@/blocks/types'
@@ -204,7 +203,6 @@ export interface ExecutionContextExtensions {
   userId?: string
   workflowLogId?: string
   submissionSource?: ExecutionSubmissionSource
-  executionConcurrencyController?: ExecutionConcurrencyController
   triggerType?: TriggerType
   workflowDepth?: number
   isChildExecution?: boolean

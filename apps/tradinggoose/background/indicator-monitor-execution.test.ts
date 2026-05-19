@@ -10,9 +10,6 @@ const mocks = vi.hoisted(() => ({
   executeCompiledIndicator: vi.fn(),
   loadWorkflowExecutionBlueprint: vi.fn(),
   runPreparedWorkflowExecution: vi.fn(),
-  executionConcurrencyController: {
-    runWithoutConcurrencySlot: async <T>(task: () => Promise<T>) => task(),
-  },
 }))
 
 vi.mock('@tradinggoose/db', () => ({
@@ -122,13 +119,10 @@ describe('executeIndicatorMonitorJob', () => {
     const { executeIndicatorMonitorJob } = await import('./indicator-monitor-execution')
 
     await expect(
-      executeIndicatorMonitorJob(
-        {
-          ...payload,
-          monitor: { ...payload.monitor, workspaceId: ' ' },
-        },
-        { executionConcurrencyController: mocks.executionConcurrencyController }
-      )
+      executeIndicatorMonitorJob({
+        ...payload,
+        monitor: { ...payload.monitor, workspaceId: ' ' },
+      })
     ).rejects.toThrow('Indicator monitor execution requires workspaceId')
 
     expect(mocks.checkServerSideUsageLimits).not.toHaveBeenCalled()
@@ -137,9 +131,7 @@ describe('executeIndicatorMonitorJob', () => {
   it('passes the resolved workspace scope into usage and blueprint loading', async () => {
     const { executeIndicatorMonitorJob } = await import('./indicator-monitor-execution')
 
-    await executeIndicatorMonitorJob(payload, {
-      executionConcurrencyController: mocks.executionConcurrencyController,
-    })
+    await executeIndicatorMonitorJob(payload)
 
     expect(mocks.checkServerSideUsageLimits).toHaveBeenCalledWith(
       expect.objectContaining({

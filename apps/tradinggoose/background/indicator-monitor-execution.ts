@@ -2,7 +2,6 @@ import { db } from '@tradinggoose/db'
 import { webhook } from '@tradinggoose/db/schema'
 import { and, eq } from 'drizzle-orm'
 import { checkServerSideUsageLimits } from '@/lib/billing'
-import type { ExecutionConcurrencyController } from '@/lib/execution/execution-concurrency-limit'
 import {
   applyIndicatorTriggerPayloadBudget,
   buildIndicatorTriggerDispatchPayload,
@@ -180,10 +179,7 @@ async function disableMonitor(
   })
 }
 
-export async function executeIndicatorMonitorJob(
-  payload: IndicatorMonitorExecutionPayload,
-  options: { executionConcurrencyController: ExecutionConcurrencyController }
-) {
+export async function executeIndicatorMonitorJob(payload: IndicatorMonitorExecutionPayload) {
   const requestId = (payload.executionId ?? payload.monitor.id).slice(0, 8)
   const workspaceId = payload.monitor.workspaceId.trim()
   if (!workspaceId) {
@@ -331,7 +327,6 @@ export async function executeIndicatorMonitorJob(
         indicatorId: payload.monitor.indicatorId,
       },
     },
-    executionConcurrencyController: options.executionConcurrencyController,
   })
 
   logger.info(`[${requestId}] Indicator monitor execution completed`, {

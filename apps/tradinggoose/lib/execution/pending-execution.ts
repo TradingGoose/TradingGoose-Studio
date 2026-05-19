@@ -1,13 +1,16 @@
 import { db } from '@tradinggoose/db'
 import { pendingExecution, workflowExecutionLogs } from '@tradinggoose/db/schema'
-import { and, asc, eq, lte, sql } from 'drizzle-orm'
+import { and, asc, eq, lte, ne, sql } from 'drizzle-orm'
 import type { BillingTierRecord } from '@/lib/billing/tiers'
 import { isDev } from '@/lib/environment'
 import {
-  isExecutionConcurrencyLimitError,
   resolveServerExecutionBillingContext,
+  resolveServerExecutionBillingTierForScope,
 } from '@/lib/execution/execution-concurrency-limit'
-import { triggerPendingExecutionDrain } from '@/lib/execution/pending-execution-drain-wake'
+import {
+  triggerPendingExecutionDrain,
+  wakePendingExecutionDrain,
+} from '@/lib/execution/pending-execution-drain-wake'
 import { getTriggerExecutionState, TriggerExecutionUnavailableError } from '@/lib/trigger/settings'
 
 export {
@@ -15,9 +18,9 @@ export {
   triggerPendingExecutionDrain,
 } from '@/lib/execution/pending-execution-drain-wake'
 
-const CLAIM_RACE_RETRY_LIMIT = 5
 const STALE_PROCESSING_WINDOW_MS = 30 * 60 * 1000
 const PENDING_EXECUTION_LOCK_NAMESPACE = 29_401
+const WORKFLOW_BLOCK_SOURCE = 'workflow_block'
 
 export type PendingExecutionType =
   | 'workflow'
@@ -67,6 +70,11 @@ export type PendingExecutionClaim = PendingExecutionRow & {
   payload: PendingExecutionPayload
 }
 
+export type PendingExecutionClaimResult =
+  | { status: 'claimed'; row: PendingExecutionClaim }
+  | { status: 'capacity_blocked'; pendingExecutionId: string }
+  | { status: 'empty' }
+
 export type PendingExecutionCancellationResult = { status: 'not_found' } | { status: 'cancelling' }
 
 export class PendingExecutionLimitError extends Error {
@@ -87,9 +95,6 @@ export class PendingExecutionLimitError extends Error {
 export const isPendingExecutionLimitError = (error: unknown): error is PendingExecutionLimitError =>
   error instanceof PendingExecutionLimitError
 
-export const isPendingExecutionCapacityBlockedError = (error: unknown) =>
-  isExecutionConcurrencyLimitError(error)
-
 export function getTierPendingExecutionLimits(tier: BillingTierRecord) {
   return {
     maxPendingAgeSeconds: tier.maxPendingAgeSeconds ?? null,
@@ -97,9 +102,33 @@ export function getTierPendingExecutionLimits(tier: BillingTierRecord) {
   }
 }
 
+async function getConcurrencyLimitForPendingExecution(
+  row: Pick<PendingExecutionRow, 'billingScopeId' | 'billingScopeType'>
+): Promise<number | null> {
+  const tier = await resolveServerExecutionBillingTierForScope({
+    scopeId: row.billingScopeId,
+    scopeType: row.billingScopeType,
+  })
+
+  if (!tier) {
+    return null
+  }
+
+  const limit = tier.concurrencyLimit
+  if (limit === null || limit < 0) {
+    throw new Error(`Billing tier ${tier.displayName} is missing concurrencyLimit`)
+  }
+
+  return limit
+}
+
 function isPendingExecutionPayload(value: unknown): value is PendingExecutionPayload {
   return Boolean(value && typeof value === 'object' && !Array.isArray(value))
 }
+
+// Workflow-block children are queued for durability, but capacity is held by the parent workflow.
+const usesParentExecutionCapacity = (row: Pick<PendingExecutionRow, 'source'>) =>
+  row.source === WORKFLOW_BLOCK_SOURCE
 
 export async function enqueuePendingExecution(
   params: PendingExecutionInsert
@@ -272,26 +301,29 @@ export async function enqueuePendingExecution(
 
 export async function claimNextPendingExecution(
   billingScopeId: string
-): Promise<PendingExecutionClaim | null> {
+): Promise<PendingExecutionClaimResult> {
   const staleBefore = new Date(Date.now() - STALE_PROCESSING_WINDOW_MS)
-
-  await db
-    .update(pendingExecution)
-    .set({
-      status: 'pending',
-      processingStartedAt: null,
-      updatedAt: new Date(),
-    })
-    .where(
-      and(
-        eq(pendingExecution.billingScopeId, billingScopeId),
-        eq(pendingExecution.status, 'processing'),
-        lte(pendingExecution.processingStartedAt, staleBefore)
-      )
+  return db.transaction(async (tx) => {
+    await tx.execute(
+      sql`select pg_advisory_xact_lock(${PENDING_EXECUTION_LOCK_NAMESPACE}, hashtext(${billingScopeId}))`
     )
 
-  for (let attempt = 0; attempt < CLAIM_RACE_RETRY_LIMIT; attempt += 1) {
-    const [candidate] = await db
+    await tx
+      .update(pendingExecution)
+      .set({
+        status: 'pending',
+        processingStartedAt: null,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(pendingExecution.billingScopeId, billingScopeId),
+          eq(pendingExecution.status, 'processing'),
+          lte(pendingExecution.processingStartedAt, staleBefore)
+        )
+      )
+
+    const [candidate] = await tx
       .select()
       .from(pendingExecution)
       .where(
@@ -309,34 +341,82 @@ export async function claimNextPendingExecution(
       .limit(1)
 
     if (!candidate) {
-      return null
+      return { status: 'empty' }
     }
 
-    const [claimed] = await db
+    let claimCandidate = candidate
+    if (!usesParentExecutionCapacity(candidate)) {
+      const concurrencyLimit = await getConcurrencyLimitForPendingExecution(candidate)
+
+      if (concurrencyLimit !== null) {
+        const [activeRow] = await tx
+          .select({ count: sql<number>`count(*)` })
+          .from(pendingExecution)
+          .where(
+            and(
+              eq(pendingExecution.billingScopeId, billingScopeId),
+              eq(pendingExecution.status, 'processing'),
+              ne(pendingExecution.source, WORKFLOW_BLOCK_SOURCE)
+            )
+          )
+          .limit(1)
+
+        const activeCount = Number(activeRow?.count ?? 0)
+        if (activeCount >= concurrencyLimit) {
+          const [childCandidate] = await tx
+            .select()
+            .from(pendingExecution)
+            .where(
+              and(
+                eq(pendingExecution.billingScopeId, billingScopeId),
+                eq(pendingExecution.status, 'pending'),
+                eq(pendingExecution.source, WORKFLOW_BLOCK_SOURCE),
+                lte(pendingExecution.nextAttemptAt, new Date())
+              )
+            )
+            .orderBy(
+              asc(pendingExecution.nextAttemptAt),
+              asc(pendingExecution.createdAt),
+              asc(pendingExecution.id)
+            )
+            .limit(1)
+
+          if (!childCandidate) {
+            return { status: 'capacity_blocked', pendingExecutionId: candidate.id }
+          }
+          claimCandidate = childCandidate
+        }
+      }
+    }
+
+    const [claimed] = await tx
       .update(pendingExecution)
       .set({
         status: 'processing',
         processingStartedAt: new Date(),
         updatedAt: new Date(),
       })
-      .where(and(eq(pendingExecution.id, candidate.id), eq(pendingExecution.status, 'pending')))
+      .where(
+        and(eq(pendingExecution.id, claimCandidate.id), eq(pendingExecution.status, 'pending'))
+      )
       .returning()
 
     if (!claimed) {
-      continue
+      return { status: 'empty' }
     }
 
     if (!isPendingExecutionPayload(claimed.payload)) {
       return {
-        ...claimed,
-        payload: {},
+        status: 'claimed',
+        row: {
+          ...claimed,
+          payload: {},
+        },
       }
     }
 
-    return claimed as PendingExecutionClaim
-  }
-
-  return null
+    return { status: 'claimed', row: claimed as PendingExecutionClaim }
+  })
 }
 
 function withCancellationRequest(payload: unknown, cancelledAt: string): PendingExecutionPayload {
@@ -415,18 +495,15 @@ export async function cancelPendingWorkflowExecution(params: {
 }
 
 export async function completePendingExecution(params: { pendingExecutionId: string }) {
-  // Queue rows are leases only; terminal state belongs to the execution-specific owner.
-  await db.delete(pendingExecution).where(eq(pendingExecution.id, params.pendingExecutionId))
-}
-
-export async function deferPendingExecutionStart(params: { pendingExecutionId: string }) {
-  await db
-    .update(pendingExecution)
-    .set({
-      status: 'pending',
-      nextAttemptAt: new Date(),
-      processingStartedAt: null,
-      updatedAt: new Date(),
-    })
+  // The queue row is the active capacity marker; terminal state belongs to the execution owner.
+  const [deleted] = await db
+    .delete(pendingExecution)
     .where(eq(pendingExecution.id, params.pendingExecutionId))
+    .returning({ billingScopeId: pendingExecution.billingScopeId })
+
+  if (deleted?.billingScopeId) {
+    await wakePendingExecutionDrain({
+      billingScopeId: deleted.billingScopeId,
+    })
+  }
 }

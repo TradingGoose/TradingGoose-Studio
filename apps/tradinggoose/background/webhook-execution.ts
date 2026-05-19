@@ -2,7 +2,6 @@ import { db } from '@tradinggoose/db'
 import { webhook } from '@tradinggoose/db/schema'
 import { eq } from 'drizzle-orm'
 import { v4 as uuidv4 } from 'uuid'
-import type { ExecutionConcurrencyController } from '@/lib/execution/execution-concurrency-limit'
 import { toListingValueObject } from '@/lib/listing/identity'
 import { createLogger } from '@/lib/logs/console/logger'
 import { LoggingSession } from '@/lib/logs/execution/logging-session'
@@ -210,10 +209,7 @@ async function logWebhookFailure(params: {
   }
 }
 
-export async function executeWebhookJob(
-  payload: WebhookExecutionPayload,
-  options: { executionConcurrencyController: ExecutionConcurrencyController }
-) {
+export async function executeWebhookJob(payload: WebhookExecutionPayload) {
   const executionId = payload.executionId ?? uuidv4()
   const requestId = executionId.slice(0, 8)
   const executionTarget = payload.executionTarget ?? 'deployed'
@@ -316,7 +312,6 @@ export async function executeWebhookJob(
           blockId: payload.blockId,
         },
         triggerData,
-        executionConcurrencyController: options.executionConcurrencyController,
       })
 
       logger.info(`[${requestId}] Airtable webhook execution completed`, {
@@ -408,7 +403,6 @@ export async function executeWebhookJob(
         blockId: payload.blockId,
       },
       triggerData,
-      executionConcurrencyController: options.executionConcurrencyController,
     })
 
     logger.info(`[${requestId}] Webhook execution completed`, {
