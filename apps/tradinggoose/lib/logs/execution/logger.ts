@@ -7,7 +7,7 @@ import {
   user as userTable,
   workflowExecutionLogs,
 } from '@tradinggoose/db/schema'
-import { and, eq, sql } from 'drizzle-orm'
+import { and, eq, isNull, sql } from 'drizzle-orm'
 import { v4 as uuidv4 } from 'uuid'
 import {
   getOrganizationBillingLedger,
@@ -327,7 +327,7 @@ export class ExecutionLogger {
           models: costSummary.models,
         },
       })
-      .where(workflowLogWhere)
+      .where(and(workflowLogWhere, isNull(workflowExecutionLogs.endedAt)))
       .returning()
 
     if (!updatedLog) {

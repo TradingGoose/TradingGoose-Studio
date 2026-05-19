@@ -239,7 +239,6 @@ export class LoggingSession {
       if (this.requestId) {
         logger.error(`[${this.requestId}] Failed to complete logging:`, error)
       }
-      throw error
     }
   }
 
@@ -336,7 +335,6 @@ export class LoggingSession {
       if (this.requestId) {
         logger.error(`[${this.requestId}] Failed to complete logging:`, enhancedError)
       }
-      throw enhancedError
     }
   }
 }
