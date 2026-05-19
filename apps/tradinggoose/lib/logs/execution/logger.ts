@@ -172,6 +172,7 @@ export class ExecutionLogger {
     traceSpans?: TraceSpan[]
     workflowInput?: any
     hasResponseBlock?: boolean
+    variables?: Record<string, string>
   }): Promise<WorkflowExecutionLog> {
     const {
       executionId,
@@ -186,6 +187,7 @@ export class ExecutionLogger {
       traceSpans,
       workflowInput,
       hasResponseBlock,
+      variables,
     } = params
 
     logger.debug(`Completing workflow execution ${executionId}`)
@@ -220,9 +222,14 @@ export class ExecutionLogger {
       existingLog.executionData && typeof existingLog.executionData === 'object'
         ? (existingLog.executionData as Record<string, unknown>)
         : {}
+    const existingEnvironment =
+      existingExecutionData.environment && typeof existingExecutionData.environment === 'object'
+        ? (existingExecutionData.environment as Record<string, unknown>)
+        : {}
 
     const mergedExecutionData = {
       ...existingExecutionData,
+      ...(variables ? { environment: { ...existingEnvironment, variables } } : {}),
       traceSpans,
       finalOutput,
       ...(hasResponseBlock ? { hasResponseBlock: true } : {}),

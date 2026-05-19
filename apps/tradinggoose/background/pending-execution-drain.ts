@@ -10,6 +10,7 @@ import {
   START_BLOCKED_RETRY_DELAY_MS,
 } from '@/lib/execution/pending-execution'
 import { createLogger } from '@/lib/logs/console/logger'
+import { isWorkflowLogStartError } from '@/lib/logs/execution/logging-session'
 import {
   executeIndicatorMonitorJob,
   isIndicatorMonitorExecutionPayload,
@@ -135,7 +136,10 @@ export async function drainPendingExecutionsForBillingScope(payload: PendingExec
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Pending execution failed'
 
-      if (isPendingExecutionStartBlockedError(error)) {
+      if (
+        isPendingExecutionStartBlockedError(error) ||
+        (row.executionType === 'workflow' && isWorkflowLogStartError(error))
+      ) {
         await deferPendingExecutionStart({
           pendingExecutionId: row.id,
         })

@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => {
   const start = vi.fn()
   const complete = vi.fn()
   const completeWithError = vi.fn()
+  const checkServerSideUsageLimits = vi.fn()
   const decryptSecret = vi.fn()
   const getPersonalAndWorkspaceEnv = vi.fn()
   const dbRowsQueue: unknown[][] = []
@@ -24,6 +25,7 @@ const mocks = vi.hoisted(() => {
     start,
     complete,
     completeWithError,
+    checkServerSideUsageLimits,
     dbRowsQueue,
     executionConcurrencyController,
     dbSelect: vi.fn(() => dbChain),
@@ -40,7 +42,7 @@ vi.mock('@tradinggoose/db/schema', () => ({ workflow: {} }))
 vi.mock('drizzle-orm', () => ({ eq: vi.fn() }))
 
 vi.mock('@/lib/billing', () => ({
-  checkServerSideUsageLimits: vi.fn().mockResolvedValue({ isExceeded: false }),
+  checkServerSideUsageLimits: mocks.checkServerSideUsageLimits,
 }))
 
 vi.mock('@/lib/environment/utils', () => ({
@@ -145,6 +147,7 @@ describe('runPreparedWorkflowExecution', () => {
     })
     mocks.complete.mockResolvedValue(undefined)
     mocks.completeWithError.mockResolvedValue(undefined)
+    mocks.checkServerSideUsageLimits.mockResolvedValue({ isExceeded: false })
     mocks.decryptSecret.mockImplementation(async (value: string) => ({ decrypted: value }))
     mocks.getPersonalAndWorkspaceEnv.mockResolvedValue({
       personalEncrypted: {},
@@ -181,7 +184,6 @@ describe('runPreparedWorkflowExecution', () => {
     expect(mocks.start).toHaveBeenCalledWith(
       expect.objectContaining({
         userId: 'user-1',
-        variables: {},
         workspaceId: 'workspace-1',
       })
     )
@@ -213,7 +215,7 @@ describe('runPreparedWorkflowExecution', () => {
     expect(result.result.output).toEqual({ result: 'ok' })
   })
 
-  it('starts workflow logs with encrypted environment references before execution', async () => {
+  it('persists encrypted environment references with the terminal workflow log', async () => {
     mocks.getPersonalAndWorkspaceEnv.mockResolvedValueOnce({
       personalEncrypted: { PERSONAL_KEY: 'encrypted-personal' },
       workspaceEncrypted: { WORKSPACE_KEY: 'encrypted-workspace' },
@@ -231,12 +233,43 @@ describe('runPreparedWorkflowExecution', () => {
       },
     })
 
-    expect(mocks.start).toHaveBeenCalledWith(
+    expect(mocks.complete).toHaveBeenCalledWith(
       expect.objectContaining({
         variables: {
           PERSONAL_KEY: 'encrypted-personal',
           WORKSPACE_KEY: 'encrypted-workspace',
         },
+      })
+    )
+  })
+
+  it('terminalizes usage gate failures after opening the workflow log', async () => {
+    mocks.checkServerSideUsageLimits.mockResolvedValueOnce({
+      isExceeded: true,
+      message: 'Usage limit exceeded',
+    })
+
+    await expect(
+      runPreparedWorkflowExecution({
+        blueprint,
+        actorUserId: 'user-1',
+        triggerType: 'manual',
+        workflowInput: {},
+        executionId: 'execution-1',
+        start: {
+          kind: 'block',
+          blockId: 'trigger',
+        },
+      })
+    ).rejects.toThrow('Usage limit exceeded')
+
+    expect(mocks.start).toHaveBeenCalled()
+    expect(mocks.execute).not.toHaveBeenCalled()
+    expect(mocks.completeWithError).toHaveBeenCalledWith(
+      expect.objectContaining({
+        error: expect.objectContaining({
+          message: 'Usage limit exceeded',
+        }),
       })
     )
   })

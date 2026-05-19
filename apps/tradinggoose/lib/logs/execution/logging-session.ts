@@ -21,11 +21,20 @@ import type {
 
 const logger = createLogger('LoggingSession')
 
+export class WorkflowLogStartError extends Error {
+  constructor(message = 'Workflow execution log start failed') {
+    super(message)
+    this.name = 'WorkflowLogStartError'
+  }
+}
+
+export const isWorkflowLogStartError = (error: unknown): error is WorkflowLogStartError =>
+  error instanceof WorkflowLogStartError
+
 export interface SessionStartParams {
   userId?: string
   workspaceId: string
   workflowState: WorkflowState
-  variables?: Record<string, string>
   triggerData?: Record<string, unknown>
 }
 
@@ -40,6 +49,7 @@ export interface SessionCompleteParams {
   workspaceId?: string
   actorUserId?: string | null
   hasResponseBlock?: boolean
+  variables?: Record<string, string>
 }
 
 export interface SessionErrorCompleteParams {
@@ -52,6 +62,7 @@ export interface SessionErrorCompleteParams {
   traceSpans?: TraceSpan[]
   workspaceId?: string
   actorUserId?: string | null
+  variables?: Record<string, string>
 }
 
 export class LoggingSession {
@@ -67,7 +78,7 @@ export class LoggingSession {
   ) {}
 
   async start(params: SessionStartParams): Promise<string> {
-    const { userId, workspaceId, workflowState, variables, triggerData } = params
+    const { userId, workspaceId, workflowState, triggerData } = params
 
     try {
       this.trigger = createTriggerObject(this.triggerType, triggerData)
@@ -75,8 +86,7 @@ export class LoggingSession {
         this.workflowId,
         this.executionId,
         userId,
-        workspaceId,
-        variables
+        workspaceId
       )
       const workflowSummary = await loadWorkflowSummaryForExecution(this.workflowId)
 
@@ -99,7 +109,7 @@ export class LoggingSession {
       if (this.requestId) {
         logger.error(`[${this.requestId}] Failed to start logging:`, error)
       }
-      throw error
+      throw new WorkflowLogStartError(error instanceof Error ? error.message : undefined)
     }
   }
 
@@ -183,6 +193,7 @@ export class LoggingSession {
       workspaceId,
       actorUserId,
       hasResponseBlock,
+      variables,
     } = params
 
     try {
@@ -213,6 +224,7 @@ export class LoggingSession {
         traceSpans: traceSpans || [],
         workflowInput,
         hasResponseBlock,
+        variables,
       })
 
       // Track workflow execution outcome
@@ -249,7 +261,8 @@ export class LoggingSession {
 
   async completeWithError(params: SessionErrorCompleteParams = {}): Promise<void> {
     try {
-      const { endedAt, totalDurationMs, error, traceSpans, workspaceId, actorUserId } = params
+      const { endedAt, totalDurationMs, error, traceSpans, workspaceId, actorUserId, variables } =
+        params
       const scope = this.resolveCompletionScope({ workspaceId })
 
       const endTime = endedAt ? new Date(endedAt) : new Date()
@@ -301,6 +314,7 @@ export class LoggingSession {
         finalOutput: { error: message },
         success: false,
         traceSpans: spans,
+        variables,
       })
 
       // Track workflow execution error outcome

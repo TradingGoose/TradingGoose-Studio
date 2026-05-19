@@ -20,20 +20,14 @@ const mocks = vi.hoisted(() => ({
   })),
   completeWorkflowExecution: vi.fn(),
   createEnvironmentObject: vi.fn(
-    (
-      workflowId: string,
-      executionId: string,
-      userId?: string,
-      workspaceId?: string,
-      variables?: Record<string, string>
-    ) => {
+    (workflowId: string, executionId: string, userId?: string, workspaceId?: string) => {
       if (!workspaceId) {
         throw new Error('Workflow execution logging requires workspaceId')
       }
       return {
         executionId,
         userId: userId ?? '',
-        variables: variables ?? {},
+        variables: {},
         workflowId,
         workspaceId,
       }
@@ -151,7 +145,6 @@ describe('LoggingSession', () => {
       session.start({
         triggerData: { source: 'records' },
         userId: 'user-1',
-        variables: { API_URL: 'https://example.com' },
         workspaceId: 'workspace-1',
         workflowState,
       })
@@ -162,7 +155,7 @@ describe('LoggingSession', () => {
       environment: {
         executionId: 'execution-1',
         userId: 'user-1',
-        variables: { API_URL: 'https://example.com' },
+        variables: {},
         workflowId: 'workflow-1',
         workspaceId: 'workspace-1',
       },

@@ -50,6 +50,10 @@ vi.mock('@/lib/logs/console/logger', () => ({
   })),
 }))
 
+vi.mock('@/lib/logs/execution/logging-session', () => ({
+  isWorkflowLogStartError: (error: Error) => error.name === 'WorkflowLogStartError',
+}))
+
 vi.mock('./knowledge-processing', () => ({
   dispatchQueuedDocumentProcessingJob: dispatchQueuedDocumentProcessingJobMock,
   failQueuedDocumentProcessingJob: failQueuedDocumentProcessingJobMock,
@@ -154,10 +158,20 @@ describe('pendingExecutionDrain', () => {
     })
   })
 
-  it('defers start-blocked rows back to the queue', async () => {
-    const error = Object.assign(new Error('Execution concurrency limit reached'), {
-      code: 'EXECUTION_CONCURRENCY_LIMIT',
-    })
+  it.each([
+    [
+      'start-blocked rows',
+      Object.assign(new Error('Execution concurrency limit reached'), {
+        code: 'EXECUTION_CONCURRENCY_LIMIT',
+      }),
+    ],
+    [
+      'workflow rows when the terminal log cannot be opened',
+      Object.assign(new Error('log start failed'), {
+        name: 'WorkflowLogStartError',
+      }),
+    ],
+  ])('defers %s back to the queue', async (_label, error) => {
     claimNextPendingExecutionMock.mockResolvedValueOnce({
       id: 'pending-workflow-3',
       billingScopeId: 'scope-1',

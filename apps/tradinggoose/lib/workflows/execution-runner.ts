@@ -310,38 +310,37 @@ export async function runPreparedWorkflowExecution(params: {
     workflowId: params.blueprint.workflowId,
     workspaceId,
     task: async (executionConcurrencyController) => {
-      const usageCheck = await checkServerSideUsageLimits({
-        userId: params.actorUserId,
-        workflowId: params.blueprint.workflowId,
-        workspaceId,
-      })
-
-      if (usageCheck.isExceeded) {
-        throw new WorkflowUsageLimitError(
-          usageCheck.message ||
-            'Usage limit exceeded. Please upgrade your billing tier to continue.'
-        )
-      }
-
-      const { personalEncrypted, workspaceEncrypted } = await getPersonalAndWorkspaceEnv(
-        params.actorUserId,
-        workspaceId
-      )
-      const encryptedEnvVars = {
-        ...personalEncrypted,
-        ...workspaceEncrypted,
-      }
-
       // Workflow logs are the durable terminal state for queued and non-stream executions.
       const workflowLogId = await loggingSession.start({
         userId: params.actorUserId,
         workspaceId,
         workflowState: params.blueprint.workflowData,
-        variables: encryptedEnvVars,
         triggerData: params.triggerData,
       })
 
+      let encryptedEnvVars: Record<string, string> | undefined
       try {
+        const usageCheck = await checkServerSideUsageLimits({
+          userId: params.actorUserId,
+          workflowId: params.blueprint.workflowId,
+          workspaceId,
+        })
+
+        if (usageCheck.isExceeded) {
+          throw new WorkflowUsageLimitError(
+            usageCheck.message ||
+              'Usage limit exceeded. Please upgrade your billing tier to continue.'
+          )
+        }
+
+        const { personalEncrypted, workspaceEncrypted } = await getPersonalAndWorkspaceEnv(
+          params.actorUserId,
+          workspaceId
+        )
+        encryptedEnvVars = {
+          ...personalEncrypted,
+          ...workspaceEncrypted,
+        }
         const decryptedEnvVars = await decryptEnvironmentVariables(encryptedEnvVars)
         const mergedStates = mergeSubblockState(params.blueprint.workflowData.blocks, {})
         const processedBlockStates = buildProcessedBlockStates(mergedStates, decryptedEnvVars)
@@ -413,6 +412,7 @@ export async function runPreparedWorkflowExecution(params: {
           actorUserId: params.actorUserId,
           hasResponseBlock:
             result.logs?.some((log) => log.success && log.blockType === 'response') === true,
+          variables: encryptedEnvVars,
         })
 
         return {
@@ -439,6 +439,7 @@ export async function runPreparedWorkflowExecution(params: {
           traceSpans,
           workspaceId,
           actorUserId: params.actorUserId,
+          variables: encryptedEnvVars,
         })
         throw error
       }

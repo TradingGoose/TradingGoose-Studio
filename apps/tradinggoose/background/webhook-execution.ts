@@ -151,7 +151,6 @@ async function completeSkippedWebhookExecution(params: {
     userId: params.payload.userId,
     workspaceId: params.workspaceId,
     workflowState: params.workflowState,
-    variables: {},
     triggerData: params.triggerData,
   })
 
@@ -194,7 +193,6 @@ async function logWebhookFailure(params: {
       userId: params.payload.userId,
       workspaceId: params.workspaceId,
       workflowState: params.workflowState,
-      variables: {},
       triggerData: params.triggerData,
     })
 

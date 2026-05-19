@@ -207,6 +207,33 @@ describe('enqueuePendingExecution', () => {
     expect(triggerMock).not.toHaveBeenCalled()
   })
 
+  it('wakes the drain when a duplicate ordered row already exists', async () => {
+    getTriggerExecutionStateMock.mockResolvedValue({
+      configurationReady: true,
+      triggerDevEnabled: true,
+      executionEnabled: true,
+    })
+    txSelectLimitMock.mockResolvedValueOnce([{ id: 'pending-schedule-1' }])
+
+    const result = await enqueuePendingExecution({
+      executionType: 'schedule',
+      pendingExecutionId: 'pending-schedule-1',
+      workflowId: 'workflow-1',
+      workspaceId: 'workspace-1',
+      userId: 'user-1',
+      source: 'schedule',
+      orderingKey: 'schedule:schedule-1',
+      payload: {
+        executionId: 'pending-schedule-1',
+      },
+    })
+
+    expect(result.inserted).toBe(false)
+    expect(triggerMock).toHaveBeenCalledWith('pending-execution-drain', {
+      billingScopeId: 'workspace-1',
+    })
+  })
+
   it('returns duplicate workflow execution ids that already have a durable log', async () => {
     getTriggerExecutionStateMock.mockResolvedValue({
       configurationReady: true,
@@ -236,7 +263,7 @@ describe('enqueuePendingExecution', () => {
     expect(triggerMock).not.toHaveBeenCalled()
   })
 
-  it('skips rows when the same ordering key already has active work', async () => {
+  it('wakes the drain when the same ordering key already has active work', async () => {
     getTriggerExecutionStateMock.mockResolvedValue({
       configurationReady: true,
       triggerDevEnabled: true,
@@ -263,7 +290,9 @@ describe('enqueuePendingExecution', () => {
       inserted: false,
     })
     expect(txInsertValuesMock).not.toHaveBeenCalled()
-    expect(triggerMock).not.toHaveBeenCalled()
+    expect(triggerMock).toHaveBeenCalledWith('pending-execution-drain', {
+      billingScopeId: 'workspace-1',
+    })
   })
 
   it('deletes a newly inserted row when the Trigger.dev drain dispatch fails', async () => {
