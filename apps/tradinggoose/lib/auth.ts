@@ -1708,7 +1708,10 @@ export const auth = betterAuth({
             const hydratedSubscription = await getHydratedSubscriptionById(subscription.id)
             const subscriptionRecord = hydratedSubscription ?? { ...subscription, tier: null }
 
-            await handleSubscriptionDeleted(subscriptionRecord)
+            const didSettleDeletedSubscription = await handleSubscriptionDeleted(subscriptionRecord)
+            if (!didSettleDeletedSubscription) {
+              return
+            }
 
             const { billingEnabled } = await getBillingGateState()
             const nextSubscriptionRecord =

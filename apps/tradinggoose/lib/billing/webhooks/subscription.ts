@@ -106,7 +106,9 @@ export async function handleSubscriptionCreated(
  * Handle subscription deletion/cancellation - bill for final period overages
  * This fires when a subscription reaches its cancel_at_period_end date or is cancelled immediately
  */
-export async function handleSubscriptionDeleted(subscription: TieredSubscriptionLifecycleRecord) {
+export async function handleSubscriptionDeleted(
+  subscription: TieredSubscriptionLifecycleRecord
+): Promise<boolean> {
   try {
     const stripeSubscriptionId = subscription.stripeSubscriptionId || ''
 
@@ -206,7 +208,7 @@ export async function handleSubscriptionDeleted(subscription: TieredSubscription
           remainingOverage,
           error: invoiceError,
         })
-        // Don't throw - we don't want to fail the webhook
+        return false
       }
     } else {
       logger.info('No overage to bill for cancelled subscription', {
@@ -226,12 +228,13 @@ export async function handleSubscriptionDeleted(subscription: TieredSubscription
       stripeSubscriptionId,
       totalOverage,
     })
+    return true
   } catch (error) {
     logger.error('Failed to handle subscription deletion', {
       subscriptionId: subscription.id,
       stripeSubscriptionId: subscription.stripeSubscriptionId || '',
       error,
     })
-    throw error // Re-throw to signal webhook failure for retry
+    return false
   }
 }

@@ -8,7 +8,7 @@ import {
   user,
   userStats,
 } from '@tradinggoose/db/schema'
-import { and, eq, inArray, sql } from 'drizzle-orm'
+import { eq, inArray, sql } from 'drizzle-orm'
 import type Stripe from 'stripe'
 import PaymentFailedEmail from '@/components/emails/billing/payment-failed-email'
 import { calculateSubscriptionOverage } from '@/lib/billing/core/billing'
@@ -31,6 +31,7 @@ const OVERAGE_INVOICE_TYPES = new Set<string>([
   'overage_billing',
   'overage_threshold_billing',
   'overage_threshold_billing_org',
+  'final_overage_billing',
 ])
 
 function parseDecimal(value: string | number | null | undefined): number {
