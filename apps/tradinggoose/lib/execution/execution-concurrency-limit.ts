@@ -8,6 +8,8 @@ import {
   resolveWorkspaceBillingContext,
   toRateLimitBillingScope,
 } from '@/lib/billing/workspace-billing'
+import { isProd } from '@/lib/environment'
+import { createLogger } from '@/lib/logs/console/logger'
 import type { TriggerType } from '@/services/queue'
 
 type ExecutionLogger = {
@@ -15,6 +17,12 @@ type ExecutionLogger = {
 }
 
 type ExecutionBillingContext = Awaited<ReturnType<typeof resolveWorkspaceBillingContext>>
+
+const logger = createLogger('ExecutionConcurrencyLimit')
+
+function isMissingSubscriptionError(error: unknown) {
+  return error instanceof Error && error.message.includes('No active subscription')
+}
 
 export class ExecutionGateError extends Error {
   statusCode: number
@@ -49,6 +57,23 @@ export async function resolveServerExecutionBillingContext(params: {
           actorUserId: params.actorUserId,
         })
   } catch (error) {
+    if (!isProd) {
+      if (!isMissingSubscriptionError(error)) {
+        throw error
+      }
+
+      params.logger?.warn(
+        `[${params.requestId ?? 'execution'}] Failed to resolve ${params.source ?? 'execution'} billing context; continuing without billing limits in local development`,
+        {
+          actorUserId: params.actorUserId,
+          workflowId: params.workflowId,
+          workspaceId: params.workspaceId,
+          error,
+        }
+      )
+      return null
+    }
+
     params.logger?.warn(
       `[${params.requestId ?? 'execution'}] Failed to resolve ${params.source ?? 'execution'} billing context`,
       {
@@ -106,6 +131,23 @@ export async function resolveServerExecutionBillingTierForScope(params: {
 
     return subscription.tier
   } catch (error) {
+    if (!isProd) {
+      if (!isMissingSubscriptionError(error)) {
+        throw error
+      }
+
+      logger.warn(
+        '[execution] Failed to resolve execution billing tier; continuing without concurrency limits in local development',
+        {
+          scopeId: params.scopeId,
+          scopeType: params.scopeType,
+          error,
+        }
+      )
+
+      return null
+    }
+
     throw new ExecutionGateError(getBillingContextResolutionMessage(error))
   }
 }

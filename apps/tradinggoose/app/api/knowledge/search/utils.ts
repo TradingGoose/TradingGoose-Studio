@@ -98,6 +98,10 @@ function getTagFilters(filters: Record<string, string>, embedding: any) {
   })
 }
 
+function onlyCompletedDocuments() {
+  return [isNull(document.deletedAt), eq(document.processingStatus, 'completed')]
+}
+
 export function getQueryStrategy(kbCount: number, topK: number) {
   const useParallel = kbCount > 4 || (kbCount > 2 && topK > 50)
   const distanceThreshold = kbCount > 3 ? 0.8 : 1.0
@@ -124,7 +128,7 @@ async function executeTagFilterQuery(
         and(
           eq(embedding.knowledgeBaseId, knowledgeBaseIds[0]),
           eq(embedding.enabled, true),
-          isNull(document.deletedAt),
+          ...onlyCompletedDocuments(),
           ...getTagFilters(filters, embedding)
         )
       )
@@ -137,7 +141,7 @@ async function executeTagFilterQuery(
       and(
         inArray(embedding.knowledgeBaseId, knowledgeBaseIds),
         eq(embedding.enabled, true),
-        isNull(document.deletedAt),
+        ...onlyCompletedDocuments(),
         ...getTagFilters(filters, embedding)
       )
     )
@@ -174,7 +178,7 @@ async function executeVectorSearchOnIds(
     .where(
       and(
         inArray(embedding.id, embeddingIds),
-        isNull(document.deletedAt),
+        ...onlyCompletedDocuments(),
         sql`${embedding.embedding} <=> ${queryVector}::vector < ${distanceThreshold}`
       )
     )
@@ -220,7 +224,7 @@ export async function handleTagOnlySearch(params: SearchParams): Promise<SearchR
           and(
             eq(embedding.knowledgeBaseId, kbId),
             eq(embedding.enabled, true),
-            isNull(document.deletedAt),
+            ...onlyCompletedDocuments(),
             ...getTagFilters(filters, embedding)
           )
         )
@@ -253,7 +257,7 @@ export async function handleTagOnlySearch(params: SearchParams): Promise<SearchR
       and(
         inArray(embedding.knowledgeBaseId, knowledgeBaseIds),
         eq(embedding.enabled, true),
-        isNull(document.deletedAt),
+        ...onlyCompletedDocuments(),
         ...getTagFilters(filters, embedding)
       )
     )
@@ -298,7 +302,7 @@ export async function handleVectorOnlySearch(params: SearchParams): Promise<Sear
           and(
             eq(embedding.knowledgeBaseId, kbId),
             eq(embedding.enabled, true),
-            isNull(document.deletedAt),
+            ...onlyCompletedDocuments(),
             sql`${embedding.embedding} <=> ${queryVector}::vector < ${distanceThreshold}`
           )
         )
@@ -333,7 +337,7 @@ export async function handleVectorOnlySearch(params: SearchParams): Promise<Sear
       and(
         inArray(embedding.knowledgeBaseId, knowledgeBaseIds),
         eq(embedding.enabled, true),
-        isNull(document.deletedAt),
+        ...onlyCompletedDocuments(),
         sql`${embedding.embedding} <=> ${queryVector}::vector < ${distanceThreshold}`
       )
     )
