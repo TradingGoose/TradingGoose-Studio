@@ -9,6 +9,7 @@ import {
   toRateLimitBillingScope,
 } from '@/lib/billing/workspace-billing'
 import { isProd } from '@/lib/environment'
+import { createLogger } from '@/lib/logs/console/logger'
 import type { TriggerType } from '@/services/queue'
 
 type ExecutionLogger = {
@@ -16,6 +17,8 @@ type ExecutionLogger = {
 }
 
 type ExecutionBillingContext = Awaited<ReturnType<typeof resolveWorkspaceBillingContext>>
+
+const logger = createLogger('ExecutionConcurrencyLimit')
 
 export class ExecutionGateError extends Error {
   statusCode: number
@@ -121,6 +124,22 @@ export async function resolveServerExecutionBillingTierForScope(params: {
     return subscription.tier
   } catch (error) {
     if (!isProd) {
+      const missingSubscription =
+        error instanceof Error && error.message.includes('No active subscription')
+
+      if (!missingSubscription) {
+        throw error
+      }
+
+      logger.warn(
+        '[execution] Failed to resolve execution billing tier; continuing without concurrency limits in local development',
+        {
+          scopeId: params.scopeId,
+          scopeType: params.scopeType,
+          error,
+        }
+      )
+
       return null
     }
 

@@ -44,6 +44,10 @@ vi.mock('@/lib/environment', async (importOriginal) => {
   }
 })
 
+vi.mock('@/lib/logs/console/logger', () => ({
+  createLogger: () => ({ warn: loggerWarnMock }),
+}))
+
 describe('execution billing context resolution', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -108,5 +112,29 @@ describe('execution billing context resolution', () => {
         scopeType: 'user',
       })
     ).resolves.toBeNull()
+
+    expect(loggerWarnMock).toHaveBeenCalledWith(
+      expect.stringContaining('continuing without concurrency limits'),
+      expect.objectContaining({
+        scopeId: 'user-1',
+      })
+    )
+  })
+
+  it('surfaces unexpected local billing tier lookup failures', async () => {
+    const { resolveServerExecutionBillingTierForScope } = await import(
+      './execution-concurrency-limit'
+    )
+
+    getActiveSubscriptionForReferenceMock.mockRejectedValueOnce(
+      new Error('database connection failed')
+    )
+
+    await expect(
+      resolveServerExecutionBillingTierForScope({
+        scopeId: 'user-1',
+        scopeType: 'user',
+      })
+    ).rejects.toThrow('database connection failed')
   })
 })
