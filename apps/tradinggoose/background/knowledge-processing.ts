@@ -1,7 +1,6 @@
 import { task } from '@trigger.dev/sdk'
 import {
   markDocumentProcessingFailed,
-  prepareDocumentForProcessing,
   processDocumentAsync,
 } from '@/lib/knowledge/documents/service'
 import { env } from '@/lib/env'
@@ -30,7 +29,6 @@ export type DocumentProcessingPayload = {
     minCharactersPerChunk: number
     chunkOverlap: number
   }
-  resetBeforeProcessing?: boolean
   requestId: string
 }
 
@@ -55,10 +53,6 @@ async function executeDocumentProcessingJob(payload: DocumentProcessingPayload) 
   logger.info(`[${requestId}] Starting document pending execution: ${docData.filename}`)
 
   try {
-    if (payload.resetBeforeProcessing) {
-      await prepareDocumentForProcessing(documentId)
-    }
-
     await processDocumentAsync(knowledgeBaseId, documentId, docData, processingOptions)
 
     logger.info(

@@ -155,6 +155,7 @@ vi.mock('@tradinggoose/db', () => {
       transaction: vi.fn(async (fn: any) => {
         await fn({
           select: vi.fn(() => selectBuilder),
+          delete: () => ({ where: async () => dbOps.order.push('deleteEmbeddings') }),
           insert: (table: any) => ({
             values: (records: any) => {
               dbOps.order.push('insert')
@@ -166,9 +167,8 @@ vi.mock('@tradinggoose/db', () => {
             set: (payload: any) => ({
               where: () => {
                 dbOps.updatePayloads.push(payload)
-                const label = dbOps.updatePayloads.length === 1 ? 'updateDoc' : 'updateKb'
-                dbOps.order.push(label)
-                return Promise.resolve()
+                dbOps.order.push('update')
+                return { returning: () => Promise.resolve([{ id: 'doc1' }]) }
               },
             }),
           }),
@@ -182,7 +182,7 @@ vi.mock('@tradinggoose/db', () => {
 })
 
 import { generateEmbeddings } from '@/lib/embeddings/utils'
-import { processDocumentAsync } from '@/lib/knowledge/documents/service'
+import { markDocumentProcessingFailed, processDocumentAsync } from '@/lib/knowledge/documents/service'
 import {
   checkChunkAccess,
   checkDocumentAccess,
@@ -213,7 +213,7 @@ describe('Knowledge Utils', () => {
   })
 
   describe('processDocumentAsync', () => {
-    it.concurrent('should insert embeddings before updating document counters', async () => {
+    it.concurrent('should reset persisted embeddings before inserting new batches', async () => {
       kbRows.push({ id: 'kb1', embeddingModel: 'kb-embedding-model' })
       docRows.push({ id: 'doc1', deletedAt: null })
 
@@ -233,15 +233,29 @@ describe('Knowledge Utils', () => {
         }
       )
 
-      expect(dbOps.order).toEqual(['insert', 'updateDoc'])
+      expect(dbOps.order).toEqual(['deleteEmbeddings', 'update', 'insert', 'update'])
 
       expect(dbOps.updatePayloads[0]).toMatchObject({
+        processingStatus: 'processing',
+        chunkCount: 0,
+      })
+      expect(dbOps.updatePayloads[1]).toMatchObject({
         processingStatus: 'completed',
         chunkCount: 2,
       })
 
       expect(dbOps.insertRecords[0].length).toBe(2)
       expect(dbOps.insertRecords[0][0].embeddingModel).toBe('kb-embedding-model')
+    })
+
+    it('should clear persisted embeddings when processing is marked failed', async () => {
+      await markDocumentProcessingFailed('doc1', 'Embedding timeout')
+
+      expect(dbOps.order).toEqual(['update', 'deleteEmbeddings'])
+      expect(dbOps.updatePayloads[0]).toMatchObject({
+        processingStatus: 'failed',
+        processingError: 'Embedding timeout',
+      })
     })
   })
 

@@ -48,21 +48,30 @@ type DocumentDeletionTarget = {
 }
 
 export async function markDocumentProcessingFailed(documentId: string, errorMessage: string) {
-  await db
-    .update(document)
-    .set({
-      processingStatus: 'failed',
-      processingStartedAt: null,
-      processingCompletedAt: new Date(),
-      processingError: errorMessage,
-    })
-    .where(
-      and(
-        eq(document.id, documentId),
-        inArray(document.processingStatus, ['pending', 'processing']),
-        isNull(document.deletedAt)
+  await db.transaction(async (tx) => {
+    const [failedDocument] = await tx
+      .update(document)
+      .set({
+        processingStatus: 'failed',
+        processingStartedAt: null,
+        processingCompletedAt: new Date(),
+        processingError: errorMessage,
+      })
+      .where(
+        and(
+          eq(document.id, documentId),
+          inArray(document.processingStatus, ['pending', 'processing']),
+          isNull(document.deletedAt)
+        )
       )
-    )
+      .returning({ id: document.id })
+
+    if (!failedDocument) {
+      return
+    }
+
+    await tx.delete(embedding).where(eq(embedding.documentId, documentId))
+  })
 }
 
 async function deleteQueuedDocumentExecutions(documentIds: string[]) {
@@ -327,18 +336,9 @@ export async function processDocumentAsync(
 
     const kbEmbeddingModel = knowledgeBaseState.embeddingModel
 
+    await prepareDocumentForProcessing(documentId)
+
     logger.info(`[${documentId}] Starting document processing: ${docData.filename}`)
-
-    await db
-      .update(document)
-      .set({
-        processingStatus: 'processing',
-        processingStartedAt: new Date(),
-        processingError: null,
-      })
-      .where(eq(document.id, documentId))
-
-    logger.info(`[${documentId}] Status updated to 'processing', starting document processor`)
 
     await withTimeout(
       (async () => {
@@ -505,15 +505,15 @@ export async function prepareDocumentForProcessing(documentId: string) {
     await tx
       .update(document)
       .set({
-        processingStatus: 'pending',
-        processingStartedAt: null,
+        processingStatus: 'processing',
+        processingStartedAt: new Date(),
         processingCompletedAt: null,
         processingError: null,
         chunkCount: 0,
         tokenCount: 0,
         characterCount: 0,
       })
-      .where(eq(document.id, documentId))
+      .where(and(eq(document.id, documentId), isNull(document.deletedAt)))
   })
 }
 
@@ -1008,7 +1008,6 @@ export async function retryDocumentProcessing(
         documentId,
         docData,
         processingOptions,
-        resetBeforeProcessing: true,
         requestId,
       },
     ],
@@ -1038,7 +1037,7 @@ export async function failStaleDocumentProcessing(
         )
       )
 
-    await tx
+    const [failedDocument] = await tx
       .update(document)
       .set({
         processingStatus: 'failed',
@@ -1046,7 +1045,20 @@ export async function failStaleDocumentProcessing(
         processingCompletedAt: new Date(),
         processingError: 'Document processing exceeded the recovery window and was stopped.',
       })
-      .where(and(eq(document.id, documentId), eq(document.processingStatus, 'processing')))
+      .where(
+        and(
+          eq(document.id, documentId),
+          eq(document.processingStatus, 'processing'),
+          isNull(document.deletedAt)
+        )
+      )
+      .returning({ id: document.id })
+
+    if (!failedDocument) {
+      return
+    }
+
+    await tx.delete(embedding).where(eq(embedding.documentId, documentId))
   })
 
   logger.warn(`[${requestId}] Stale document processing marked as failed: ${documentId}`)
