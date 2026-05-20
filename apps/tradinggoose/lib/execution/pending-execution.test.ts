@@ -456,6 +456,35 @@ describe('claimNextPendingExecution', () => {
     })
   })
 
+  it('claims pending rows without a capacity check when local billing tier resolution is unavailable', async () => {
+    const { resolveServerExecutionBillingTierForScope } = await import(
+      '@/lib/execution/execution-concurrency-limit'
+    )
+    vi.mocked(resolveServerExecutionBillingTierForScope).mockResolvedValueOnce(null)
+    txSelectLimitMock.mockResolvedValueOnce([pendingRow])
+    updateReturningMock.mockResolvedValueOnce([
+      {
+        ...pendingRow,
+        status: 'processing',
+        processingStartedAt: new Date(),
+      },
+    ])
+
+    await expect(claimNextPendingExecution('scope-1')).resolves.toEqual({
+      status: 'claimed',
+      row: expect.objectContaining({
+        id: 'pending-1',
+        status: 'processing',
+      }),
+    })
+
+    expect(resolveServerExecutionBillingTierForScope).toHaveBeenCalledWith({
+      scopeId: 'scope-1',
+      scopeType: 'user',
+    })
+    expect(txSelectLimitMock).toHaveBeenCalledTimes(1)
+  })
+
   it('leaves the earliest pending row queued when the billing scope is full', async () => {
     const { resolveServerExecutionBillingTierForScope } = await import(
       '@/lib/execution/execution-concurrency-limit'

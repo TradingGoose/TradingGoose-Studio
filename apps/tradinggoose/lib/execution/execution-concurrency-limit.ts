@@ -8,6 +8,7 @@ import {
   resolveWorkspaceBillingContext,
   toRateLimitBillingScope,
 } from '@/lib/billing/workspace-billing'
+import { isProd } from '@/lib/environment'
 import type { TriggerType } from '@/services/queue'
 
 type ExecutionLogger = {
@@ -49,6 +50,19 @@ export async function resolveServerExecutionBillingContext(params: {
           actorUserId: params.actorUserId,
         })
   } catch (error) {
+    if (!isProd) {
+      params.logger?.warn(
+        `[${params.requestId ?? 'execution'}] Failed to resolve ${params.source ?? 'execution'} billing context; continuing without billing limits in local development`,
+        {
+          actorUserId: params.actorUserId,
+          workflowId: params.workflowId,
+          workspaceId: params.workspaceId,
+          error,
+        }
+      )
+      return null
+    }
+
     params.logger?.warn(
       `[${params.requestId ?? 'execution'}] Failed to resolve ${params.source ?? 'execution'} billing context`,
       {
@@ -106,6 +120,10 @@ export async function resolveServerExecutionBillingTierForScope(params: {
 
     return subscription.tier
   } catch (error) {
+    if (!isProd) {
+      return null
+    }
+
     throw new ExecutionGateError(getBillingContextResolutionMessage(error))
   }
 }

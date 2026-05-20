@@ -364,30 +364,11 @@ export async function processDocumentAsync(
           `[${documentId}] Document parsed successfully, generating embeddings for ${processed.chunks.length} chunks`
         )
 
-        // Generate embeddings in batches for large documents
-        const chunkTexts = processed.chunks.map((chunk) => chunk.text)
-        const embeddings: number[][] = []
-
-        if (chunkTexts.length > 0) {
-          const batchSize = LARGE_DOC_CONFIG.MAX_EMBEDDING_BATCH
-          const totalBatches = Math.ceil(chunkTexts.length / batchSize)
-
-          logger.info(`[${documentId}] Generating embeddings in ${totalBatches} batches`)
-
-          for (let i = 0; i < chunkTexts.length; i += batchSize) {
-            const batch = chunkTexts.slice(i, i + batchSize)
-            const batchNum = Math.floor(i / batchSize) + 1
-
-            logger.info(`[${documentId}] Processing embedding batch ${batchNum}/${totalBatches}`)
-            const batchEmbeddings = await generateEmbeddings(batch, kbEmbeddingModel)
-            embeddings.push(...batchEmbeddings)
-          }
-        }
-
-        logger.info(`[${documentId}] Embeddings generated, fetching document tags`)
+        logger.info(`[${documentId}] Fetching document tags`)
 
         const documentRecord = await db
           .select({
+            deletedAt: document.deletedAt,
             tag1: document.tag1,
             tag2: document.tag2,
             tag3: document.tag3,
@@ -400,34 +381,72 @@ export async function processDocumentAsync(
           .where(eq(document.id, documentId))
           .limit(1)
 
-        const documentTags = documentRecord[0] || {}
+        const documentTags = documentRecord[0]
+        if (!documentTags || documentTags.deletedAt) {
+          logger.info(`[${documentId}] Skipping write for deleted document`)
+          return
+        }
 
-        logger.info(`[${documentId}] Creating embedding records with tags`)
+        if (processed.chunks.length > 0) {
+          const batchSize = Math.min(
+            LARGE_DOC_CONFIG.MAX_EMBEDDING_BATCH,
+            LARGE_DOC_CONFIG.MAX_CHUNKS_PER_BATCH
+          )
+          const totalBatches = Math.ceil(processed.chunks.length / batchSize)
 
-        const embeddingRecords = processed.chunks.map((chunk, chunkIndex) => ({
-          id: crypto.randomUUID(),
-          knowledgeBaseId,
-          documentId,
-          chunkIndex,
-          chunkHash: crypto.createHash('sha256').update(chunk.text).digest('hex'),
-          content: chunk.text,
-          contentLength: chunk.text.length,
-          tokenCount: Math.ceil(chunk.text.length / 4),
-          embedding: embeddings[chunkIndex] || null,
-          embeddingModel: kbEmbeddingModel,
-          startOffset: chunk.metadata.startIndex,
-          endOffset: chunk.metadata.endIndex,
-          // Copy tags from document
-          tag1: documentTags.tag1,
-          tag2: documentTags.tag2,
-          tag3: documentTags.tag3,
-          tag4: documentTags.tag4,
-          tag5: documentTags.tag5,
-          tag6: documentTags.tag6,
-          tag7: documentTags.tag7,
-          createdAt: now,
-          updatedAt: now,
-        }))
+          logger.info(
+            `[${documentId}] Generating and inserting embeddings in ${totalBatches} batches`
+          )
+
+          for (let i = 0; i < processed.chunks.length; i += batchSize) {
+            const chunkBatch = processed.chunks.slice(i, i + batchSize)
+            const batchNum = Math.floor(i / batchSize) + 1
+
+            logger.info(`[${documentId}] Processing embedding batch ${batchNum}/${totalBatches}`)
+
+            const batchEmbeddings = await generateEmbeddings(
+              chunkBatch.map((chunk) => chunk.text),
+              kbEmbeddingModel
+            )
+
+            const embeddingRecords = chunkBatch.map((chunk, batchIndex) => {
+              const chunkIndex = i + batchIndex
+
+              return {
+                id: crypto.randomUUID(),
+                knowledgeBaseId,
+                documentId,
+                chunkIndex,
+                chunkHash: crypto.createHash('sha256').update(chunk.text).digest('hex'),
+                content: chunk.text,
+                contentLength: chunk.text.length,
+                tokenCount: Math.ceil(chunk.text.length / 4),
+                embedding: batchEmbeddings[batchIndex] || null,
+                embeddingModel: kbEmbeddingModel,
+                startOffset: chunk.metadata.startIndex,
+                endOffset: chunk.metadata.endIndex,
+                // Copy tags from document
+                tag1: documentTags.tag1,
+                tag2: documentTags.tag2,
+                tag3: documentTags.tag3,
+                tag4: documentTags.tag4,
+                tag5: documentTags.tag5,
+                tag6: documentTags.tag6,
+                tag7: documentTags.tag7,
+                createdAt: now,
+                updatedAt: now,
+              }
+            })
+
+            await db.transaction(async (tx) => {
+              await tx.insert(embedding).values(embeddingRecords)
+            })
+
+            logger.info(
+              `[${documentId}] Inserted embedding batch ${batchNum}/${totalBatches} (${embeddingRecords.length} records)`
+            )
+          }
+        }
 
         await db.transaction(async (tx) => {
           const [currentDocument] = await tx
@@ -437,28 +456,8 @@ export async function processDocumentAsync(
             .limit(1)
 
           if (!currentDocument || currentDocument.deletedAt) {
-            logger.info(`[${documentId}] Skipping write for deleted document`)
+            logger.info(`[${documentId}] Skipping completion update for deleted document`)
             return
-          }
-
-          // Insert embeddings in batches for large documents
-          if (embeddingRecords.length > 0) {
-            const batchSize = LARGE_DOC_CONFIG.MAX_CHUNKS_PER_BATCH
-            const totalBatches = Math.ceil(embeddingRecords.length / batchSize)
-
-            logger.info(
-              `[${documentId}] Inserting ${embeddingRecords.length} embeddings in ${totalBatches} batches`
-            )
-
-            for (let i = 0; i < embeddingRecords.length; i += batchSize) {
-              const batch = embeddingRecords.slice(i, i + batchSize)
-              const batchNum = Math.floor(i / batchSize) + 1
-
-              await tx.insert(embedding).values(batch)
-              logger.info(
-                `[${documentId}] Inserted batch ${batchNum}/${totalBatches} (${batch.length} records)`
-              )
-            }
           }
 
           await tx
