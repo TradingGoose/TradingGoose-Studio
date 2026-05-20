@@ -98,10 +98,7 @@ vi.mock('@/lib/urls/utils', () => ({
   getBaseUrl: vi.fn(() => 'http://localhost:3000'),
 }))
 
-function createSelectQueryMock(
-  result: unknown,
-  terminal: 'from' | 'limit' | 'where' = 'limit'
-) {
+function createSelectQueryMock(result: unknown, terminal: 'from' | 'limit' | 'where' = 'limit') {
   const query = {
     from: vi.fn(() => (terminal === 'from' ? Promise.resolve(result) : query)),
     where: vi.fn(() => (terminal === 'where' ? Promise.resolve(result) : query)),
@@ -187,6 +184,21 @@ describe('subscription billing helpers', () => {
     await expect(getPersonalBillingSnapshot('user_123')).rejects.toThrow(
       'No active personal subscription found for billed user user_123'
     )
+  })
+
+  it('throws a typed error when a required active subscription is missing', async () => {
+    mockDb.select.mockImplementationOnce(() => createSelectQueryMock([], 'where'))
+
+    const { MissingBillingSubscriptionError, requireActiveSubscriptionForReference } = await import(
+      './subscription'
+    )
+
+    await expect(
+      requireActiveSubscriptionForReference({
+        referenceType: 'user',
+        referenceId: 'user_123',
+      })
+    ).rejects.toBeInstanceOf(MissingBillingSubscriptionError)
   })
 
   it('seeds onboarding allowance into user stats on billing-enable backfill', async () => {

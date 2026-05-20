@@ -21,6 +21,13 @@ const logger = createLogger('SubscriptionCore')
 type SubscriptionRecord = typeof subscription.$inferSelect
 const DEFAULT_USER_SUBSCRIPTION_ID_PREFIX = 'sub_default_'
 
+export class MissingBillingSubscriptionError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'MissingBillingSubscriptionError'
+  }
+}
+
 export interface PersonalBillingSnapshot {
   subscription: SubscriptionWithTier | null
   tier: BillingTierSummary
@@ -96,6 +103,20 @@ export async function getActiveSubscriptionForReference(
 
   const hydratedSubscriptions = await hydrateSubscriptionsWithTiers(rows)
   return selectEffectiveSubscription(hydratedSubscriptions)
+}
+
+export async function requireActiveSubscriptionForReference(
+  reference: BillingReference
+): Promise<SubscriptionWithTier> {
+  const activeSubscription = await getActiveSubscriptionForReference(reference)
+
+  if (!activeSubscription?.tier) {
+    throw new MissingBillingSubscriptionError(
+      `No active subscription found for ${reference.referenceType} ${reference.referenceId}`
+    )
+  }
+
+  return activeSubscription
 }
 
 export async function getEffectiveSubscription(
