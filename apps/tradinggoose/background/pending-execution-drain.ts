@@ -24,7 +24,7 @@ type PendingExecutionDrainPayload = {
   billingScopeId: string
 }
 
-async function dispatchPendingExecution(row: PendingExecutionClaim) {
+async function dispatchPendingExecution(row: PendingExecutionClaim): Promise<boolean> {
   switch (row.executionType) {
     case 'workflow': {
       if (!isWorkflowExecutionPayload(row.payload)) {
@@ -75,7 +75,16 @@ async function dispatchPendingExecution(row: PendingExecutionClaim) {
     }
 
     case 'document': {
-      await dispatchQueuedDocumentProcessingJob(row.payload)
+      try {
+        await dispatchQueuedDocumentProcessingJob(row.payload)
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Pending execution failed'
+        await failQueuedDocumentProcessingJob(row.payload, errorMessage)
+        await completePendingExecution({
+          pendingExecutionId: row.id,
+        })
+        return false
+      }
       break
     }
 
@@ -86,6 +95,7 @@ async function dispatchPendingExecution(row: PendingExecutionClaim) {
   await completePendingExecution({
     pendingExecutionId: row.id,
   })
+  return true
 }
 
 export async function drainPendingExecutionsForBillingScope(payload: PendingExecutionDrainPayload) {
@@ -119,16 +129,9 @@ export async function drainPendingExecutionsForBillingScope(payload: PendingExec
     lastPendingExecutionId = row.id
 
     try {
-      await dispatchPendingExecution(row)
+      const succeeded = await dispatchPendingExecution(row)
+      failedAny ||= !succeeded
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Pending execution failed'
-
-      if (row.executionType === 'document') {
-        await failQueuedDocumentProcessingJob(row.payload, errorMessage)
-      }
-      await completePendingExecution({
-        pendingExecutionId: row.id,
-      })
       failedAny = true
 
       logger.error('Pending execution failed', {

@@ -17,7 +17,6 @@ const {
   txExecuteMock,
   updateReturningMock,
   deleteReturningMock,
-  loadWorkflowExecutionBlueprintMock,
   loggingStartMock,
   loggingCompleteWithErrorMock,
 } = vi.hoisted(() => ({
@@ -34,7 +33,6 @@ const {
   txExecuteMock: vi.fn(),
   updateReturningMock: vi.fn(),
   deleteReturningMock: vi.fn(),
-  loadWorkflowExecutionBlueprintMock: vi.fn(),
   loggingStartMock: vi.fn(),
   loggingCompleteWithErrorMock: vi.fn(),
 }))
@@ -150,10 +148,6 @@ vi.mock('@/lib/logs/execution/logging-session', () => ({
     start: loggingStartMock,
     completeWithError: loggingCompleteWithErrorMock,
   })),
-}))
-
-vi.mock('@/lib/workflows/execution-runner', () => ({
-  loadWorkflowExecutionBlueprint: loadWorkflowExecutionBlueprintMock,
 }))
 
 import { cancelPendingWorkflowExecution } from '@/lib/workflows/queued-execution-cancellation'
@@ -572,14 +566,6 @@ describe('cancelPendingWorkflowExecution', () => {
     updateReturningMock.mockResolvedValue([])
     deleteWhereMock.mockReturnValue(deleteChain)
     deleteReturningMock.mockResolvedValue([])
-    loadWorkflowExecutionBlueprintMock.mockResolvedValue({
-      workflowData: {
-        blocks: {},
-        edges: [],
-        loops: {},
-        parallels: {},
-      },
-    })
     loggingStartMock.mockResolvedValue('log-1')
     loggingCompleteWithErrorMock.mockResolvedValue(undefined)
   })
@@ -610,7 +596,6 @@ describe('cancelPendingWorkflowExecution', () => {
         userId: 'user-1',
       })
     ).resolves.toEqual({ status: 'cancelling' })
-    expect(loadWorkflowExecutionBlueprintMock).toHaveBeenCalled()
     expect(loggingStartMock).toHaveBeenCalled()
     expect(loggingCompleteWithErrorMock).toHaveBeenCalledWith({
       workspaceId: 'workspace-1',

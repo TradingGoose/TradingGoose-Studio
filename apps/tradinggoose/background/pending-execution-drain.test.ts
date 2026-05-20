@@ -79,7 +79,7 @@ describe('pendingExecutionDrain', () => {
     executeWorkflowJobMock.mockResolvedValue(undefined)
   })
 
-  it('removes failed workflow jobs after execution throws', async () => {
+  it('keeps workflow rows active when execution infrastructure throws', async () => {
     claimNextPendingExecutionMock.mockResolvedValueOnce({
       status: 'claimed',
       row: {
@@ -100,7 +100,7 @@ describe('pendingExecutionDrain', () => {
 
     const result = await runPendingExecutionDrain('scope-1')
 
-    expect(completePendingExecutionMock).toHaveBeenCalled()
+    expect(completePendingExecutionMock).not.toHaveBeenCalled()
     expect(claimNextPendingExecutionMock).toHaveBeenCalledTimes(2)
     expect(result).toEqual({
       success: false,

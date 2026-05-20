@@ -19,7 +19,7 @@ export {
 } from '@/lib/execution/pending-execution-drain-wake'
 
 const STALE_PROCESSING_WINDOW_MS = 30 * 60 * 1000
-const PENDING_EXECUTION_LOCK_NAMESPACE = 29_401
+export const PENDING_EXECUTION_LOCK_NAMESPACE = 29_401
 const WORKFLOW_BLOCK_SOURCE = 'workflow_block'
 
 export type PendingExecutionType =
@@ -300,9 +300,9 @@ export async function enqueuePendingExecution(
   }
 }
 
-async function claimNextPendingExecutionOnce(
+export async function claimNextPendingExecution(
   billingScopeId: string
-): Promise<PendingExecutionClaimResult | null> {
+): Promise<PendingExecutionClaimResult> {
   const staleBefore = new Date(Date.now() - STALE_PROCESSING_WINDOW_MS)
   return db.transaction(async (tx) => {
     await tx.execute(
@@ -403,7 +403,7 @@ async function claimNextPendingExecutionOnce(
       .returning()
 
     if (!claimed) {
-      return null
+      throw new Error(`Pending execution ${claimCandidate.id} could not be claimed`)
     }
 
     if (!isPendingExecutionPayload(claimed.payload)) {
@@ -418,15 +418,6 @@ async function claimNextPendingExecutionOnce(
 
     return { status: 'claimed', row: claimed as PendingExecutionClaim }
   })
-}
-
-export async function claimNextPendingExecution(
-  billingScopeId: string
-): Promise<PendingExecutionClaimResult> {
-  while (true) {
-    const claim = await claimNextPendingExecutionOnce(billingScopeId)
-    if (claim) return claim
-  }
 }
 
 export async function isPendingWorkflowExecutionCancellationRequested(pendingExecutionId: string) {

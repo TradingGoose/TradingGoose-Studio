@@ -166,7 +166,8 @@ describe('Workflow State API Route', () => {
           name: 'liveVar',
           value: 'live value',
         }),
-      }
+      },
+      undefined
     )
     expect(updateSetMock).toHaveBeenCalledWith(
       expect.objectContaining({

@@ -312,6 +312,7 @@ export async function runPreparedWorkflowExecution(params: {
   })
 
   let encryptedEnvVars: Record<string, string> | undefined
+  let result: ExecutionResult
   try {
     if (params.startupError) {
       throw params.startupError
@@ -384,50 +385,28 @@ export async function runPreparedWorkflowExecution(params: {
       isChildExecution: contextExtensions.isChildExecution === true,
     })
 
-    const result = await executor.execute(params.blueprint.workflowId, startBlockId)
-
-    const { traceSpans, totalDuration } = buildTraceSpans(result)
+    result = await executor.execute(params.blueprint.workflowId, startBlockId)
 
     if (result.success) {
       await updateWorkflowRunCounts(params.blueprint.workflowId).catch((error) =>
         logger.error(`[${requestId}] Workflow run count update failed after execution`, error)
       )
     }
-
-    await loggingSession.complete({
-      endedAt: new Date().toISOString(),
-      totalDurationMs: totalDuration || 0,
-      finalOutput: result.output === undefined ? {} : result.output,
-      success: result.success,
-      errorMessage: result.error,
-      traceSpans: traceSpans || [],
-      workflowInput: params.workflowInput,
-      workspaceId,
-      actorUserId: params.actorUserId,
-      hasResponseBlock:
-        result.logs?.some((log) => log.success && log.blockType === 'response') === true,
-      variables: encryptedEnvVars,
-    })
-
-    return {
-      executionId,
-      result,
-      workflowData: params.blueprint.workflowData,
-      workspaceId,
-    }
   } catch (error: any) {
-    const executionResultForError = (error?.executionResult as ExecutionResult | undefined) || {
+    const message = error.message || 'Workflow execution failed'
+    result = (error?.executionResult as ExecutionResult | undefined) || {
       success: false,
       output: {},
+      error: message,
       logs: [],
     }
-    const { traceSpans, totalDuration } = buildTraceSpans(executionResultForError)
+    const { traceSpans, totalDuration } = buildTraceSpans(result)
 
     await loggingSession.completeWithError({
       endedAt: new Date().toISOString(),
       totalDurationMs: totalDuration || 0,
       error: {
-        message: error.message || 'Workflow execution failed',
+        message,
         stackTrace: error.stack,
       },
       traceSpans,
@@ -435,7 +414,36 @@ export async function runPreparedWorkflowExecution(params: {
       actorUserId: params.actorUserId,
       variables: encryptedEnvVars,
     })
-    throw error
+    return {
+      executionId,
+      result,
+      workflowData: params.blueprint.workflowData,
+      workspaceId,
+    }
+  }
+
+  const { traceSpans, totalDuration } = buildTraceSpans(result)
+
+  await loggingSession.complete({
+    endedAt: new Date().toISOString(),
+    totalDurationMs: totalDuration || 0,
+    finalOutput: result.output === undefined ? {} : result.output,
+    success: result.success,
+    errorMessage: result.error,
+    traceSpans: traceSpans || [],
+    workflowInput: params.workflowInput,
+    workspaceId,
+    actorUserId: params.actorUserId,
+    hasResponseBlock:
+      result.logs?.some((log) => log.success && log.blockType === 'response') === true,
+    variables: encryptedEnvVars,
+  })
+
+  return {
+    executionId,
+    result,
+    workflowData: params.blueprint.workflowData,
+    workspaceId,
   }
 }
 

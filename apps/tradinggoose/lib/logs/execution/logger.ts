@@ -330,14 +330,24 @@ export class ExecutionLogger {
       .where(and(workflowLogWhere, isNull(workflowExecutionLogs.endedAt)))
       .returning()
 
-    if (!updatedLog) {
-      throw new Error(`Workflow log not found for execution ${executionId}`)
+    let completedRow = updatedLog
+    if (!completedRow) {
+      const [existingCompletedLog] = await db
+        .select()
+        .from(workflowExecutionLogs)
+        .where(workflowLogWhere)
+        .limit(1)
+
+      if (!existingCompletedLog?.endedAt) {
+        throw new Error(`Workflow log not found for execution ${executionId}`)
+      }
+      completedRow = existingCompletedLog
     }
 
-    if (await isBillingEnabledForRuntime()) {
+    if (updatedLog && (await isBillingEnabledForRuntime())) {
       try {
         const billingContext = await resolveWorkspaceBillingContext({
-          workspaceId: updatedLog.workspaceId,
+          workspaceId: completedRow.workspaceId,
           actorUserId,
         })
         const [billingUser] = await db
@@ -353,10 +363,10 @@ export class ExecutionLogger {
           const before = await checkUsageStatus(billingContext.billingUserId)
 
           await this.updateUsageLedger(
-            updatedLog.workspaceId,
-            updatedLog.workflowId,
+            completedRow.workspaceId,
+            completedRow.workflowId,
             costSummary,
-            updatedLog.trigger as ExecutionTrigger['type'],
+            completedRow.trigger as ExecutionTrigger['type'],
             actorUserId
           )
 
@@ -382,10 +392,10 @@ export class ExecutionLogger {
           const organizationBillingOwner = getOrganizationBillingOwner(billingContext.billingOwner)
 
           await this.updateUsageLedger(
-            updatedLog.workspaceId,
-            updatedLog.workflowId,
+            completedRow.workspaceId,
+            completedRow.workflowId,
             costSummary,
-            updatedLog.trigger as ExecutionTrigger['type'],
+            completedRow.trigger as ExecutionTrigger['type'],
             actorUserId
           )
 
@@ -440,10 +450,10 @@ export class ExecutionLogger {
           const orgUsageBeforeNum = billingLedger?.currentPeriodCost ?? 0
 
           await this.updateUsageLedger(
-            updatedLog.workspaceId,
-            updatedLog.workflowId,
+            completedRow.workspaceId,
+            completedRow.workflowId,
             costSummary,
-            updatedLog.trigger as ExecutionTrigger['type'],
+            completedRow.trigger as ExecutionTrigger['type'],
             actorUserId
           )
 
@@ -465,20 +475,20 @@ export class ExecutionLogger {
           })
         } else {
           await this.updateUsageLedger(
-            updatedLog.workspaceId,
-            updatedLog.workflowId,
+            completedRow.workspaceId,
+            completedRow.workflowId,
             costSummary,
-            updatedLog.trigger as ExecutionTrigger['type'],
+            completedRow.trigger as ExecutionTrigger['type'],
             actorUserId
           )
         }
       } catch (e) {
         try {
           await this.updateUsageLedger(
-            updatedLog.workspaceId,
-            updatedLog.workflowId,
+            completedRow.workspaceId,
+            completedRow.workflowId,
             costSummary,
-            updatedLog.trigger as ExecutionTrigger['type'],
+            completedRow.trigger as ExecutionTrigger['type'],
             actorUserId
           )
         } catch {}
@@ -489,28 +499,30 @@ export class ExecutionLogger {
     logger.debug(`Completed workflow execution ${executionId}`)
 
     const completedLog: WorkflowExecutionLog = {
-      id: updatedLog.id,
-      workflowId: updatedLog.workflowId,
-      workspaceId: updatedLog.workspaceId,
-      executionId: updatedLog.executionId,
-      stateSnapshotId: updatedLog.stateSnapshotId,
-      workflowSummary: updatedLog.workflowSummary as WorkflowExecutionLog['workflowSummary'],
-      level: updatedLog.level as 'info' | 'error',
-      trigger: updatedLog.trigger as ExecutionTrigger['type'],
-      startedAt: updatedLog.startedAt.toISOString(),
-      endedAt: updatedLog.endedAt?.toISOString() || endedAt,
-      totalDurationMs: updatedLog.totalDurationMs || totalDurationMs,
-      executionData: updatedLog.executionData as WorkflowExecutionLog['executionData'],
-      cost: updatedLog.cost as any,
-      createdAt: updatedLog.createdAt.toISOString(),
+      id: completedRow.id,
+      workflowId: completedRow.workflowId,
+      workspaceId: completedRow.workspaceId,
+      executionId: completedRow.executionId,
+      stateSnapshotId: completedRow.stateSnapshotId,
+      workflowSummary: completedRow.workflowSummary as WorkflowExecutionLog['workflowSummary'],
+      level: completedRow.level as 'info' | 'error',
+      trigger: completedRow.trigger as ExecutionTrigger['type'],
+      startedAt: completedRow.startedAt.toISOString(),
+      endedAt: completedRow.endedAt?.toISOString() || endedAt,
+      totalDurationMs: completedRow.totalDurationMs || totalDurationMs,
+      executionData: completedRow.executionData as WorkflowExecutionLog['executionData'],
+      cost: completedRow.cost as any,
+      createdAt: completedRow.createdAt.toISOString(),
     }
 
-    emitWorkflowExecutionCompleted(completedLog).catch((error) => {
-      logger.error('Failed to emit workflow execution completed event', {
-        error,
-        executionId,
+    if (updatedLog) {
+      emitWorkflowExecutionCompleted(completedLog).catch((error) => {
+        logger.error('Failed to emit workflow execution completed event', {
+          error,
+          executionId,
+        })
       })
-    })
+    }
 
     return completedLog
   }

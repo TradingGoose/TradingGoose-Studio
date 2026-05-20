@@ -230,25 +230,23 @@ describe('runPreparedWorkflowExecution', () => {
     )
   })
 
-  it('terminalizes usage gate failures after opening the workflow log', async () => {
+  it('returns failed results after terminalizing usage gate failures', async () => {
     mocks.checkServerSideUsageLimits.mockResolvedValueOnce({
       isExceeded: true,
       message: 'Usage limit exceeded',
     })
 
-    await expect(
-      runPreparedWorkflowExecution({
-        blueprint,
-        actorUserId: 'user-1',
-        triggerType: 'manual',
-        workflowInput: {},
-        executionId: 'execution-1',
-        start: {
-          kind: 'block',
-          blockId: 'trigger',
-        },
-      })
-    ).rejects.toThrow('Usage limit exceeded')
+    const result = await runPreparedWorkflowExecution({
+      blueprint,
+      actorUserId: 'user-1',
+      triggerType: 'manual',
+      workflowInput: {},
+      executionId: 'execution-1',
+      start: {
+        kind: 'block',
+        blockId: 'trigger',
+      },
+    })
 
     expect(mocks.start).toHaveBeenCalled()
     expect(mocks.execute).not.toHaveBeenCalled()
@@ -259,9 +257,15 @@ describe('runPreparedWorkflowExecution', () => {
         }),
       })
     )
+    expect(result.result).toEqual(
+      expect.objectContaining({
+        success: false,
+        error: 'Usage limit exceeded',
+      })
+    )
   })
 
-  it('terminalizes log completion failures before rethrowing', async () => {
+  it('does not rewrite successful executions as failed when terminal success logging fails', async () => {
     mocks.complete.mockRejectedValueOnce(new Error('log completion failed'))
 
     await expect(
@@ -279,14 +283,7 @@ describe('runPreparedWorkflowExecution', () => {
     ).rejects.toThrow('log completion failed')
 
     expect(mocks.execute).toHaveBeenCalled()
-    expect(mocks.completeWithError).toHaveBeenCalledWith(
-      expect.objectContaining({
-        error: expect.objectContaining({
-          message: 'log completion failed',
-        }),
-        totalDurationMs: 12,
-      })
-    )
+    expect(mocks.completeWithError).not.toHaveBeenCalled()
   })
 
   it('resolves queued child API starts through the child input-trigger path', async () => {
