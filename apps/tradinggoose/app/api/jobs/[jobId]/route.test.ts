@@ -377,6 +377,21 @@ describe('DELETE /api/jobs/[jobId]', () => {
     })
   })
 
+  it('treats already-finished workflow jobs as successfully cancelled', async () => {
+    cancelPendingWorkflowExecutionMock.mockResolvedValue({ status: 'finished' })
+
+    const response = await DELETE(new Request('http://localhost/api/jobs/job-1') as any, {
+      params: Promise.resolve({ jobId: 'job-1' }),
+    })
+
+    expect(response.status).toBe(200)
+    await expect(response.json()).resolves.toEqual({
+      success: true,
+      taskId: 'job-1',
+      status: 'finished',
+    })
+  })
+
   it('returns not found when the job does not belong to the user', async () => {
     cancelPendingWorkflowExecutionMock.mockResolvedValue({ status: 'not_found' })
 

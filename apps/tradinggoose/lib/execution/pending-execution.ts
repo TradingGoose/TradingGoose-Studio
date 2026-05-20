@@ -19,7 +19,7 @@ export {
 } from '@/lib/execution/pending-execution-drain-wake'
 
 const STALE_PROCESSING_WINDOW_MS = 30 * 60 * 1000
-const PENDING_EXECUTION_LOCK_NAMESPACE = 29_401
+export const PENDING_EXECUTION_LOCK_NAMESPACE = 29_401
 const WORKFLOW_BLOCK_SOURCE = 'workflow_block'
 
 export type PendingExecutionType =
@@ -423,10 +423,7 @@ async function claimNextPendingExecutionOnce(
 export async function claimNextPendingExecution(
   billingScopeId: string
 ): Promise<PendingExecutionClaimResult> {
-  while (true) {
-    const claim = await claimNextPendingExecutionOnce(billingScopeId)
-    if (claim) return claim
-  }
+  return (await claimNextPendingExecutionOnce(billingScopeId)) ?? { status: 'empty' }
 }
 
 export async function isPendingWorkflowExecutionCancellationRequested(pendingExecutionId: string) {
