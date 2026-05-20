@@ -1,16 +1,16 @@
 import { task } from '@trigger.dev/sdk'
+import { env } from '@/lib/env'
 import {
   markDocumentProcessingFailed,
   processDocumentAsync,
 } from '@/lib/knowledge/documents/service'
-import { env } from '@/lib/env'
 import { createLogger } from '@/lib/logs/console/logger'
 
 const logger = createLogger('KnowledgeProcessing')
 
-const envNumber = (value: unknown, fallback: number) => {
+const envNumber = (value: unknown, fallback: number, min = 1) => {
   const parsed = Number(value)
-  return Number.isFinite(parsed) ? parsed : fallback
+  return Number.isFinite(parsed) && parsed >= min ? parsed : fallback
 }
 
 export type DocumentProcessingPayload = {

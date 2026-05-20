@@ -1,5 +1,8 @@
 import { AuthType } from '@/lib/auth/hybrid'
-import { getActiveSubscriptionForReference } from '@/lib/billing/core/subscription'
+import {
+  MissingBillingSubscriptionError,
+  requireActiveSubscriptionForReference,
+} from '@/lib/billing/core/subscription'
 import { isBillingEnabledForRuntime } from '@/lib/billing/settings'
 import type { BillingReference, BillingScopeType, BillingTierRecord } from '@/lib/billing/tiers'
 import {
@@ -19,10 +22,6 @@ type ExecutionLogger = {
 type ExecutionBillingContext = Awaited<ReturnType<typeof resolveWorkspaceBillingContext>>
 
 const logger = createLogger('ExecutionConcurrencyLimit')
-
-function isMissingSubscriptionError(error: unknown) {
-  return error instanceof Error && error.message.includes('No active subscription')
-}
 
 export class ExecutionGateError extends Error {
   statusCode: number
@@ -57,11 +56,7 @@ export async function resolveServerExecutionBillingContext(params: {
           actorUserId: params.actorUserId,
         })
   } catch (error) {
-    if (!isProd) {
-      if (!isMissingSubscriptionError(error)) {
-        throw error
-      }
-
+    if (!isProd && error instanceof MissingBillingSubscriptionError) {
       params.logger?.warn(
         `[${params.requestId ?? 'execution'}] Failed to resolve ${params.source ?? 'execution'} billing context; continuing without billing limits in local development`,
         {
@@ -72,6 +67,10 @@ export async function resolveServerExecutionBillingContext(params: {
         }
       )
       return null
+    }
+
+    if (!isProd) {
+      throw error
     }
 
     params.logger?.warn(
@@ -121,21 +120,13 @@ export async function resolveServerExecutionBillingTierForScope(params: {
   }
 
   try {
-    const subscription = await getActiveSubscriptionForReference(
+    const subscription = await requireActiveSubscriptionForReference(
       getBillingReferenceForScope(params)
     )
 
-    if (!subscription?.tier) {
-      throw new Error(`No active subscription found for billing scope ${params.scopeId}`)
-    }
-
     return subscription.tier
   } catch (error) {
-    if (!isProd) {
-      if (!isMissingSubscriptionError(error)) {
-        throw error
-      }
-
+    if (!isProd && error instanceof MissingBillingSubscriptionError) {
       logger.warn(
         '[execution] Failed to resolve execution billing tier; continuing without concurrency limits in local development',
         {
@@ -144,8 +135,11 @@ export async function resolveServerExecutionBillingTierForScope(params: {
           error,
         }
       )
-
       return null
+    }
+
+    if (!isProd) {
+      throw error
     }
 
     throw new ExecutionGateError(getBillingContextResolutionMessage(error))

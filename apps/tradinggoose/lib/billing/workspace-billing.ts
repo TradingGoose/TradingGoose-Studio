@@ -2,7 +2,10 @@ import { db } from '@tradinggoose/db'
 import { workflow, workspace } from '@tradinggoose/db/schema'
 import { eq } from 'drizzle-orm'
 import { getOrganizationSubscription } from '@/lib/billing/core/billing'
-import { getActiveSubscriptionForReference } from '@/lib/billing/core/subscription'
+import {
+  getActiveSubscriptionForReference,
+  MissingBillingSubscriptionError,
+} from '@/lib/billing/core/subscription'
 import {
   type BillingScope,
   type BillingScopeType,
@@ -61,7 +64,7 @@ export function toRateLimitBillingScope(
 export function getBillingContextResolutionMessage(error: unknown): string {
   const message = error instanceof Error ? error.message : ''
 
-  if (message.includes('No active subscription found')) {
+  if (error instanceof MissingBillingSubscriptionError) {
     return 'No active subscription found for this workspace. Please configure billing before executing workflows.'
   }
 
@@ -153,7 +156,7 @@ async function hydrateBillingContext(params: {
     billingOwner: params.billingOwner,
   })
   if (!subscription?.tier) {
-    throw new Error(
+    throw new MissingBillingSubscriptionError(
       `No active subscription found for ${params.billingOwner.type} ${getBillingOwnerId(
         params.billingOwner
       )}`
