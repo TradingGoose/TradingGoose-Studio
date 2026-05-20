@@ -191,7 +191,7 @@ describe('copilot runtime tool manifest', () => {
           name: 'create_workflow',
           kind: 'create',
           entityKind: 'workflow',
-          description: expect.stringContaining('Use `edit_workflow` next'),
+          description: expect.stringContaining('with `edit_workflow` next'),
         }),
         expect.objectContaining({
           name: 'rename_workflow',
