@@ -20,6 +20,10 @@ type ExecutionBillingContext = Awaited<ReturnType<typeof resolveWorkspaceBilling
 
 const logger = createLogger('ExecutionConcurrencyLimit')
 
+function isMissingSubscriptionError(error: unknown) {
+  return error instanceof Error && error.message.includes('No active subscription')
+}
+
 export class ExecutionGateError extends Error {
   statusCode: number
 
@@ -54,6 +58,10 @@ export async function resolveServerExecutionBillingContext(params: {
         })
   } catch (error) {
     if (!isProd) {
+      if (!isMissingSubscriptionError(error)) {
+        throw error
+      }
+
       params.logger?.warn(
         `[${params.requestId ?? 'execution'}] Failed to resolve ${params.source ?? 'execution'} billing context; continuing without billing limits in local development`,
         {
@@ -124,10 +132,7 @@ export async function resolveServerExecutionBillingTierForScope(params: {
     return subscription.tier
   } catch (error) {
     if (!isProd) {
-      const missingSubscription =
-        error instanceof Error && error.message.includes('No active subscription')
-
-      if (!missingSubscription) {
+      if (!isMissingSubscriptionError(error)) {
         throw error
       }
 

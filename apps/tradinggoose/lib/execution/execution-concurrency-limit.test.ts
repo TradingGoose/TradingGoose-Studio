@@ -97,6 +97,26 @@ describe('execution billing context resolution', () => {
     ).rejects.toThrow('resolved billing error')
   })
 
+  it('surfaces unexpected local billing context resolution failures', async () => {
+    const { resolveServerExecutionBillingContext } = await import(
+      './execution-concurrency-limit'
+    )
+
+    resolveWorkspaceBillingContextMock.mockRejectedValueOnce(
+      new Error('database connection failed')
+    )
+
+    await expect(
+      resolveServerExecutionBillingContext({
+        actorUserId: 'user-1',
+        workspaceId: 'workspace-1',
+        logger: { warn: loggerWarnMock },
+      })
+    ).rejects.toThrow('database connection failed')
+
+    expect(loggerWarnMock).not.toHaveBeenCalled()
+  })
+
   it('falls back to no concurrency limit outside production when local tier lookup fails', async () => {
     const { resolveServerExecutionBillingTierForScope } = await import(
       './execution-concurrency-limit'
