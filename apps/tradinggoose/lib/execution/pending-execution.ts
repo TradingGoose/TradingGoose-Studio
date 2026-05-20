@@ -300,9 +300,9 @@ export async function enqueuePendingExecution(
   }
 }
 
-async function claimNextPendingExecutionOnce(
+export async function claimNextPendingExecution(
   billingScopeId: string
-): Promise<PendingExecutionClaimResult | null> {
+): Promise<PendingExecutionClaimResult> {
   const staleBefore = new Date(Date.now() - STALE_PROCESSING_WINDOW_MS)
   return db.transaction(async (tx) => {
     await tx.execute(
@@ -403,7 +403,7 @@ async function claimNextPendingExecutionOnce(
       .returning()
 
     if (!claimed) {
-      return null
+      throw new Error(`Pending execution ${claimCandidate.id} could not be claimed`)
     }
 
     if (!isPendingExecutionPayload(claimed.payload)) {
@@ -418,12 +418,6 @@ async function claimNextPendingExecutionOnce(
 
     return { status: 'claimed', row: claimed as PendingExecutionClaim }
   })
-}
-
-export async function claimNextPendingExecution(
-  billingScopeId: string
-): Promise<PendingExecutionClaimResult> {
-  return (await claimNextPendingExecutionOnce(billingScopeId)) ?? { status: 'empty' }
 }
 
 export async function isPendingWorkflowExecutionCancellationRequested(pendingExecutionId: string) {

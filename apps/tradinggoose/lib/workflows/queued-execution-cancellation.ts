@@ -143,7 +143,7 @@ export async function cancelPendingWorkflowExecution(params: {
 
   if (row.status === 'pending') {
     const cancelledAt = new Date().toISOString()
-    const payload = withCancellationRequest(row.payload, cancelledAt)
+    const cancellationPayload = withCancellationRequest(row.payload, cancelledAt)
     const claimed = await db.transaction(async (tx) => {
       await tx.execute(
         sql`select pg_advisory_xact_lock(${PENDING_EXECUTION_LOCK_NAMESPACE}, hashtext(${row.billingScopeId}))`
@@ -153,7 +153,7 @@ export async function cancelPendingWorkflowExecution(params: {
         .set({
           status: 'processing',
           processingStartedAt: new Date(),
-          payload,
+          payload: cancellationPayload,
           updatedAt: new Date(),
         })
         .where(and(eq(pendingExecution.id, row.id), eq(pendingExecution.status, 'pending')))
@@ -189,7 +189,7 @@ export async function cancelPendingWorkflowExecution(params: {
         .set({
           status: 'pending',
           processingStartedAt: null,
-          payload,
+          payload: cancellationPayload,
           updatedAt: new Date(),
         })
         .where(and(eq(pendingExecution.id, claimed.id), eq(pendingExecution.status, 'processing')))
