@@ -67,7 +67,13 @@ export async function markDocumentProcessingFailed(documentId: string, errorMess
       .returning({ id: document.id })
 
     if (!failedDocument) {
-      return
+      const [activeDocument] = await tx
+        .select({ id: document.id })
+        .from(document)
+        .where(and(eq(document.id, documentId), isNull(document.deletedAt)))
+        .limit(1)
+
+      if (activeDocument) return
     }
 
     await tx.delete(embedding).where(eq(embedding.documentId, documentId))
@@ -366,27 +372,6 @@ export async function processDocumentAsync(
 
         logger.info(`[${documentId}] Fetching document tags`)
 
-        const documentRecord = await db
-          .select({
-            deletedAt: document.deletedAt,
-            tag1: document.tag1,
-            tag2: document.tag2,
-            tag3: document.tag3,
-            tag4: document.tag4,
-            tag5: document.tag5,
-            tag6: document.tag6,
-            tag7: document.tag7,
-          })
-          .from(document)
-          .where(eq(document.id, documentId))
-          .limit(1)
-
-        const documentTags = documentRecord[0]
-        if (!documentTags || documentTags.deletedAt) {
-          logger.info(`[${documentId}] Skipping write for deleted document`)
-          return
-        }
-
         if (processed.chunks.length > 0) {
           const batchSize = Math.min(
             LARGE_DOC_CONFIG.MAX_EMBEDDING_BATCH,
@@ -409,41 +394,67 @@ export async function processDocumentAsync(
               kbEmbeddingModel
             )
 
-            const embeddingRecords = chunkBatch.map((chunk, batchIndex) => {
-              const chunkIndex = i + batchIndex
+            const inserted = await db.transaction(async (tx) => {
+              const [documentTags] = await tx
+                .select({
+                  tag1: document.tag1,
+                  tag2: document.tag2,
+                  tag3: document.tag3,
+                  tag4: document.tag4,
+                  tag5: document.tag5,
+                  tag6: document.tag6,
+                  tag7: document.tag7,
+                })
+                .from(document)
+                .where(and(eq(document.id, documentId), isNull(document.deletedAt)))
+                .for('update')
+                .limit(1)
 
-              return {
-                id: crypto.randomUUID(),
-                knowledgeBaseId,
-                documentId,
-                chunkIndex,
-                chunkHash: crypto.createHash('sha256').update(chunk.text).digest('hex'),
-                content: chunk.text,
-                contentLength: chunk.text.length,
-                tokenCount: Math.ceil(chunk.text.length / 4),
-                embedding: batchEmbeddings[batchIndex] || null,
-                embeddingModel: kbEmbeddingModel,
-                startOffset: chunk.metadata.startIndex,
-                endOffset: chunk.metadata.endIndex,
-                // Copy tags from document
-                tag1: documentTags.tag1,
-                tag2: documentTags.tag2,
-                tag3: documentTags.tag3,
-                tag4: documentTags.tag4,
-                tag5: documentTags.tag5,
-                tag6: documentTags.tag6,
-                tag7: documentTags.tag7,
-                createdAt: now,
-                updatedAt: now,
+              if (!documentTags) {
+                await tx.delete(embedding).where(eq(embedding.documentId, documentId))
+                return false
               }
+
+              const embeddingRecords = chunkBatch.map((chunk, batchIndex) => {
+                const chunkIndex = i + batchIndex
+
+                return {
+                  id: crypto.randomUUID(),
+                  knowledgeBaseId,
+                  documentId,
+                  chunkIndex,
+                  chunkHash: crypto.createHash('sha256').update(chunk.text).digest('hex'),
+                  content: chunk.text,
+                  contentLength: chunk.text.length,
+                  tokenCount: Math.ceil(chunk.text.length / 4),
+                  embedding: batchEmbeddings[batchIndex] || null,
+                  embeddingModel: kbEmbeddingModel,
+                  startOffset: chunk.metadata.startIndex,
+                  endOffset: chunk.metadata.endIndex,
+                  // Copy tags from document
+                  tag1: documentTags.tag1,
+                  tag2: documentTags.tag2,
+                  tag3: documentTags.tag3,
+                  tag4: documentTags.tag4,
+                  tag5: documentTags.tag5,
+                  tag6: documentTags.tag6,
+                  tag7: documentTags.tag7,
+                  createdAt: now,
+                  updatedAt: now,
+                }
+              })
+
+              await tx.insert(embedding).values(embeddingRecords)
+              return true
             })
 
-            await db.transaction(async (tx) => {
-              await tx.insert(embedding).values(embeddingRecords)
-            })
+            if (!inserted) {
+              logger.info(`[${documentId}] Stopped embedding inserts for deleted document`)
+              return
+            }
 
             logger.info(
-              `[${documentId}] Inserted embedding batch ${batchNum}/${totalBatches} (${embeddingRecords.length} records)`
+              `[${documentId}] Inserted embedding batch ${batchNum}/${totalBatches} (${chunkBatch.length} records)`
             )
           }
         }
@@ -452,10 +463,12 @@ export async function processDocumentAsync(
           const [currentDocument] = await tx
             .select({ deletedAt: document.deletedAt })
             .from(document)
-            .where(eq(document.id, documentId))
+            .where(and(eq(document.id, documentId), isNull(document.deletedAt)))
+            .for('update')
             .limit(1)
 
-          if (!currentDocument || currentDocument.deletedAt) {
+          if (!currentDocument) {
+            await tx.delete(embedding).where(eq(embedding.documentId, documentId))
             logger.info(`[${documentId}] Skipping completion update for deleted document`)
             return
           }
@@ -1055,7 +1068,13 @@ export async function failStaleDocumentProcessing(
       .returning({ id: document.id })
 
     if (!failedDocument) {
-      return
+      const [activeDocument] = await tx
+        .select({ id: document.id })
+        .from(document)
+        .where(and(eq(document.id, documentId), isNull(document.deletedAt)))
+        .limit(1)
+
+      if (activeDocument) return
     }
 
     await tx.delete(embedding).where(eq(embedding.documentId, documentId))

@@ -135,6 +135,9 @@ vi.mock('@tradinggoose/db', () => {
         where() {
           return {
             ...withLimit,
+            for() {
+              return withLimit
+            },
             orderBy() {
               return withLimit
             },
@@ -153,7 +156,7 @@ vi.mock('@tradinggoose/db', () => {
         }),
       }),
       transaction: vi.fn(async (fn: any) => {
-        await fn({
+        return fn({
           select: vi.fn(() => selectBuilder),
           delete: () => ({ where: async () => dbOps.order.push('deleteEmbeddings') }),
           insert: (table: any) => ({
@@ -168,7 +171,20 @@ vi.mock('@tradinggoose/db', () => {
               where: () => {
                 dbOps.updatePayloads.push(payload)
                 dbOps.order.push('update')
-                return { returning: () => Promise.resolve([{ id: 'doc1' }]) }
+                return {
+                  returning: () =>
+                    Promise.resolve(
+                      payload.processingStatus === 'failed' &&
+                        !docRows.some(
+                          (row) =>
+                            row.id === 'doc1' &&
+                            !row.deletedAt &&
+                            ['pending', 'processing'].includes(row.processingStatus)
+                        )
+                        ? []
+                        : [{ id: 'doc1' }]
+                    ),
+                }
               },
             }),
           }),
@@ -213,7 +229,7 @@ describe('Knowledge Utils', () => {
   })
 
   describe('processDocumentAsync', () => {
-    it.concurrent('should reset persisted embeddings before inserting new batches', async () => {
+    it('should reset persisted embeddings before inserting new batches', async () => {
       kbRows.push({ id: 'kb1', embeddingModel: 'kb-embedding-model' })
       docRows.push({ id: 'doc1', deletedAt: null })
 
@@ -249,6 +265,18 @@ describe('Knowledge Utils', () => {
     })
 
     it('should clear persisted embeddings when processing is marked failed', async () => {
+      docRows.push({ id: 'doc1', deletedAt: null, processingStatus: 'processing' })
+
+      await markDocumentProcessingFailed('doc1', 'Embedding timeout')
+
+      expect(dbOps.order).toEqual(['update', 'deleteEmbeddings'])
+      expect(dbOps.updatePayloads[0]).toMatchObject({
+        processingStatus: 'failed',
+        processingError: 'Embedding timeout',
+      })
+    })
+
+    it('should clear persisted embeddings when processing fails after document deletion', async () => {
       await markDocumentProcessingFailed('doc1', 'Embedding timeout')
 
       expect(dbOps.order).toEqual(['update', 'deleteEmbeddings'])
@@ -260,7 +288,7 @@ describe('Knowledge Utils', () => {
   })
 
   describe('checkKnowledgeBaseAccess', () => {
-    it.concurrent('should return success for workspace permission', async () => {
+    it('should return success for workspace permission', async () => {
       kbRows.push({ id: 'kb1', userId: 'owner', workspaceId: 'workspace1' })
       const result = await checkKnowledgeBaseAccess('kb1', 'user1')
 
@@ -277,7 +305,7 @@ describe('Knowledge Utils', () => {
   })
 
   describe('checkDocumentAccess', () => {
-    it.concurrent('should return unauthorized when user mismatch', async () => {
+    it('should return unauthorized when user mismatch', async () => {
       kbRows.push({ id: 'kb1', userId: 'owner', workspaceId: 'workspace1' })
       mockGetUserEntityPermissions.mockResolvedValueOnce(null)
       const result = await checkDocumentAccess('kb1', 'doc1', 'intruder')
@@ -290,7 +318,7 @@ describe('Knowledge Utils', () => {
   })
 
   describe('checkChunkAccess', () => {
-    it.concurrent('should fail when document is not completed', async () => {
+    it('should fail when document is not completed', async () => {
       kbRows.push({ id: 'kb1', userId: 'user1', workspaceId: 'workspace1' })
       docRows.push({ id: 'doc1', knowledgeBaseId: 'kb1', processingStatus: 'processing' })
 
@@ -317,7 +345,7 @@ describe('Knowledge Utils', () => {
   })
 
   describe('generateEmbeddings', () => {
-    it.concurrent('should return same length as input', async () => {
+    it('should return same length as input', async () => {
       const result = await generateEmbeddings(['a', 'b'])
 
       expect(result.length).toBe(2)
