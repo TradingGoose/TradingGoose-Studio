@@ -38,10 +38,10 @@ function readExecutionUserId(executionData: unknown) {
     : null
 }
 
-async function readFinishedWorkflowExecutionCancellation(params: {
+async function readWorkflowExecutionCancellationResult(params: {
   executionId: string
   userId: string
-}): Promise<PendingExecutionCancellationResult | null> {
+}): Promise<PendingExecutionCancellationResult> {
   const [logRow] = await db
     .select({
       endedAt: workflowExecutionLogs.endedAt,
@@ -54,7 +54,7 @@ async function readFinishedWorkflowExecutionCancellation(params: {
   if (logRow?.endedAt && readExecutionUserId(logRow.executionData) === params.userId) {
     return { status: 'finished' }
   }
-  return null
+  return { status: 'not_found' }
 }
 
 async function recordQueuedWorkflowCancellation(params: {
@@ -133,12 +133,10 @@ export async function cancelPendingWorkflowExecution(params: {
     .limit(1)
 
   if (!row || !row.workflowId) {
-    return (
-      (await readFinishedWorkflowExecutionCancellation({
-        executionId: params.pendingExecutionId,
-        userId: params.userId,
-      })) ?? { status: 'not_found' }
-    )
+    return readWorkflowExecutionCancellationResult({
+      executionId: params.pendingExecutionId,
+      userId: params.userId,
+    })
   }
 
   if (row.status === 'pending') {
@@ -168,7 +166,10 @@ export async function cancelPendingWorkflowExecution(params: {
     })
 
     if (!claimed) {
-      return { status: 'not_found' }
+      return readWorkflowExecutionCancellationResult({
+        executionId: params.pendingExecutionId,
+        userId: params.userId,
+      })
     }
     if (!claimed.workflowId || !claimed.workspaceId) {
       throw new Error(`Queued workflow execution ${claimed.id} is missing workflow scope`)
@@ -218,10 +219,8 @@ export async function cancelPendingWorkflowExecution(params: {
     }
   }
 
-  return (
-    (await readFinishedWorkflowExecutionCancellation({
-      executionId: params.pendingExecutionId,
-      userId: params.userId,
-    })) ?? { status: 'not_found' }
-  )
+  return readWorkflowExecutionCancellationResult({
+    executionId: params.pendingExecutionId,
+    userId: params.userId,
+  })
 }
