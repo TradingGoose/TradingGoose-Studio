@@ -5,17 +5,26 @@
 import { NextResponse } from 'next/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { checkHybridAuthMock, cancelPendingWorkflowExecutionMock, eqMock, andMock, limitMock } =
-  vi.hoisted(() => ({
-    checkHybridAuthMock: vi.fn(),
-    cancelPendingWorkflowExecutionMock: vi.fn(),
-    eqMock: vi.fn((field, value) => ({ field, value })),
-    andMock: vi.fn((...args) => ({ args })),
-    limitMock: vi.fn(),
-  }))
+const {
+  checkHybridAuthMock,
+  cancelPendingWorkflowExecutionMock,
+  eqMock,
+  andMock,
+  orMock,
+  limitMock,
+} = vi.hoisted(() => ({
+  checkHybridAuthMock: vi.fn(),
+  cancelPendingWorkflowExecutionMock: vi.fn(),
+  eqMock: vi.fn((field, value) => ({ field, value })),
+  andMock: vi.fn((...args) => ({ args })),
+  orMock: vi.fn((...args) => ({ args })),
+  limitMock: vi.fn(),
+}))
 
 const queryChain = {
   from: vi.fn().mockReturnThis(),
+  innerJoin: vi.fn().mockReturnThis(),
+  leftJoin: vi.fn().mockReturnThis(),
   where: vi.fn().mockReturnThis(),
   limit: limitMock,
 }
@@ -31,18 +40,34 @@ vi.mock('@tradinggoose/db/schema', () => ({
     id: 'pendingExecution.id',
     userId: 'pendingExecution.userId',
     status: 'pendingExecution.status',
-    errorMessage: 'pendingExecution.errorMessage',
     createdAt: 'pendingExecution.createdAt',
     processingStartedAt: 'pendingExecution.processingStartedAt',
-    result: 'pendingExecution.result',
-    completedAt: 'pendingExecution.completedAt',
     executionType: 'pendingExecution.executionType',
+  },
+  permissions: {
+    userId: 'permissions.userId',
+    entityType: 'permissions.entityType',
+    entityId: 'permissions.entityId',
+  },
+  workflowExecutionLogs: {
+    executionId: 'workflowExecutionLogs.executionId',
+    workspaceId: 'workflowExecutionLogs.workspaceId',
+    level: 'workflowExecutionLogs.level',
+    startedAt: 'workflowExecutionLogs.startedAt',
+    endedAt: 'workflowExecutionLogs.endedAt',
+    totalDurationMs: 'workflowExecutionLogs.totalDurationMs',
+    executionData: 'workflowExecutionLogs.executionData',
+  },
+  workspace: {
+    id: 'workspace.id',
+    ownerId: 'workspace.ownerId',
   },
 }))
 
 vi.mock('drizzle-orm', () => ({
   eq: eqMock,
   and: andMock,
+  or: orMock,
 }))
 
 vi.mock('@/lib/auth/hybrid', () => ({
@@ -54,7 +79,7 @@ vi.mock('@/lib/auth/hybrid', () => ({
   checkHybridAuth: checkHybridAuthMock,
 }))
 
-vi.mock('@/lib/execution/pending-execution', () => ({
+vi.mock('@/lib/workflows/queued-execution-cancellation', () => ({
   cancelPendingWorkflowExecution: cancelPendingWorkflowExecutionMock,
 }))
 
@@ -77,37 +102,41 @@ vi.mock('@/app/api/workflows/utils', () => ({
 
 import { DELETE, GET } from './route'
 
-const createWorkflowResult = (queuedExecution: Record<string, unknown>) => ({
-  success: true,
-  output: { answer: 42 },
-  logs: [{ blockId: 'block-1' }],
-  traceSpans: [{ id: 'trace-1' }],
-  executionId: 'execution-1',
-  executedAt: '2026-04-16T00:00:02.000Z',
-  metadata: {
-    duration: 1000,
-    queuedExecution,
+const createWorkflowResult = (
+  queuedExecution: Record<string, unknown>,
+  finalOutput: Record<string, unknown> = { answer: 42 },
+  level = 'info'
+) => ({
+  level,
+  startedAt: new Date('2026-04-16T00:00:00.000Z'),
+  endedAt: new Date('2026-04-16T00:00:02.000Z'),
+  totalDurationMs: 1000,
+  executionData: {
+    finalOutput,
+    ...(level === 'error' ? { errorMessage: finalOutput.error } : {}),
+    traceSpans: [{ id: 'trace-1' }],
+    trigger: {
+      data: {
+        queuedExecution,
+      },
+    },
   },
 })
 
-const mockCompletedWorkflowJob = (queuedExecution: Record<string, unknown>) =>
-  limitMock.mockResolvedValue([
-    {
-      id: 'job-1',
-      status: 'completed',
-      errorMessage: null,
-      executionType: 'workflow',
-      createdAt: new Date('2026-04-16T00:00:00.000Z'),
-      processingStartedAt: new Date('2026-04-16T00:00:01.000Z'),
-      result: createWorkflowResult(queuedExecution),
-      completedAt: new Date('2026-04-16T00:00:02.000Z'),
-    },
-  ])
+const mockCompletedWorkflowJob = (
+  queuedExecution: Record<string, unknown>,
+  finalOutput?: Record<string, unknown>
+) =>
+  limitMock
+    .mockResolvedValueOnce([])
+    .mockResolvedValueOnce([createWorkflowResult(queuedExecution, finalOutput)])
 
 describe('GET /api/jobs/[jobId]', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     queryChain.from.mockReturnThis()
+    queryChain.innerJoin.mockReturnThis()
+    queryChain.leftJoin.mockReturnThis()
     queryChain.where.mockReturnThis()
     checkHybridAuthMock.mockResolvedValue({
       success: true,
@@ -131,17 +160,13 @@ describe('GET /api/jobs/[jobId]', () => {
     })
   })
 
-  it('filters task lookup by the authenticated user', async () => {
+  it('filters active task lookup by the authenticated user', async () => {
     limitMock.mockResolvedValue([
       {
         id: 'job-1',
-        status: 'failed',
-        errorMessage: 'Function execution failed',
-        executionType: 'function',
+        status: 'processing',
         createdAt: new Date('2026-04-16T00:00:00.000Z'),
         processingStartedAt: new Date('2026-04-16T00:00:01.000Z'),
-        result: null,
-        completedAt: new Date('2026-04-16T00:00:02.000Z'),
       },
     ])
 
@@ -156,8 +181,7 @@ describe('GET /api/jobs/[jobId]', () => {
     await expect(response.json()).resolves.toMatchObject({
       success: true,
       taskId: 'job-1',
-      status: 'failed',
-      error: 'Function execution failed',
+      status: 'processing',
     })
   })
 
@@ -185,6 +209,27 @@ describe('GET /api/jobs/[jobId]', () => {
     expect(body.output.executionId).toBeUndefined()
     expect(body.output.executedAt).toBeUndefined()
     expect(body.output.metadata.queuedExecution).toBeUndefined()
+  })
+
+  it('does not treat successful workflow output with error property as failed', async () => {
+    mockCompletedWorkflowJob({ source: 'workflow_execute_api' }, { error: 'user output' })
+
+    const response = await GET(new Request('http://localhost/api/jobs/job-1') as any, {
+      params: Promise.resolve({ jobId: 'job-1' }),
+    })
+
+    expect(response.status).toBe(200)
+    const body = await response.json()
+    expect(body).toMatchObject({
+      success: true,
+      taskId: 'job-1',
+      status: 'completed',
+      output: {
+        success: true,
+        output: { error: 'user output' },
+      },
+    })
+    expect(body.error).toBeUndefined()
   })
 
   it('includes trace spans for internal child workflow polling only', async () => {
@@ -220,6 +265,47 @@ describe('GET /api/jobs/[jobId]', () => {
     expect(body.output.executionId).toBeUndefined()
     expect(body.output.executedAt).toBeUndefined()
     expect(body.output.metadata.queuedExecution).toBeUndefined()
+  })
+
+  it('reports failed workflow jobs without dropping the terminal result', async () => {
+    checkHybridAuthMock.mockResolvedValue({
+      success: true,
+      userId: 'user-1',
+      authType: 'internal_jwt',
+      internalWorkflowExecution: {
+        source: 'workflow_block',
+        parentExecutionId: 'parent-execution-1',
+        parentBlockId: 'workflow-block-1',
+      },
+    })
+    limitMock.mockResolvedValueOnce([]).mockResolvedValueOnce([
+      createWorkflowResult(
+        {
+          source: 'workflow_block',
+          parentExecutionId: 'parent-execution-1',
+          parentBlockId: 'workflow-block-1',
+        },
+        { error: 'Child failed' },
+        'error'
+      ),
+    ])
+
+    const response = await GET(new Request('http://localhost/api/jobs/job-1') as any, {
+      params: Promise.resolve({ jobId: 'job-1' }),
+    })
+
+    const body = await response.json()
+    expect(body).toMatchObject({
+      success: true,
+      taskId: 'job-1',
+      status: 'failed',
+      error: 'Child failed',
+      output: {
+        success: false,
+        error: 'Child failed',
+        traceSpans: [{ id: 'trace-1' }],
+      },
+    })
   })
 
   it('keeps unrelated internal workflow job output public', async () => {
@@ -288,6 +374,21 @@ describe('DELETE /api/jobs/[jobId]', () => {
       success: true,
       taskId: 'job-1',
       status: 'cancelling',
+    })
+  })
+
+  it('treats already-finished workflow jobs as successfully cancelled', async () => {
+    cancelPendingWorkflowExecutionMock.mockResolvedValue({ status: 'finished' })
+
+    const response = await DELETE(new Request('http://localhost/api/jobs/job-1') as any, {
+      params: Promise.resolve({ jobId: 'job-1' }),
+    })
+
+    expect(response.status).toBe(200)
+    await expect(response.json()).resolves.toEqual({
+      success: true,
+      taskId: 'job-1',
+      status: 'finished',
     })
   })
 

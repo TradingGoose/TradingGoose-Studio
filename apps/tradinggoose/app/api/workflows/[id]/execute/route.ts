@@ -6,7 +6,6 @@ import {
   enforceServerExecutionRateLimit,
 } from '@/lib/execution/execution-concurrency-limit'
 import {
-  cancelPendingWorkflowExecution,
   enqueuePendingExecution,
   isPendingExecutionLimitError,
 } from '@/lib/execution/pending-execution'
@@ -20,6 +19,7 @@ import { loadDeployedWorkflowState } from '@/lib/workflows/db-helpers'
 import type { WorkflowExecutionEventEntry } from '@/lib/workflows/execution-events'
 import { createPublicExecutionResult, isExecutionResult } from '@/lib/workflows/execution-result'
 import { processWorkflowInputFormatFiles } from '@/lib/workflows/input-format-files'
+import { cancelPendingWorkflowExecution } from '@/lib/workflows/queued-execution-cancellation'
 import { createHttpResponseFromBlock, workflowHasResponseBlock } from '@/lib/workflows/utils'
 import { validateWorkflowAccess } from '@/app/api/workflows/middleware'
 import { createErrorResponse, createSuccessResponse } from '@/app/api/workflows/utils'

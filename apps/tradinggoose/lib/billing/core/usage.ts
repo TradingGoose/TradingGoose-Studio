@@ -27,6 +27,15 @@ import { getBaseUrl } from '@/lib/urls/utils'
 
 const logger = createLogger('UsageManagement')
 
+function parseNonNegativeBillingAmount(value: string | number | null | undefined): number | null {
+  if (value === null || value === undefined) {
+    return null
+  }
+
+  const parsed = Number.parseFloat(value.toString())
+  return Number.isFinite(parsed) ? Math.max(parsed, 0) : null
+}
+
 /**
  * Handle new user setup when they join the platform.
  * Creates the billing usage row for a newly provisioned user.
@@ -69,7 +78,6 @@ export async function decrementGrantedOnboardingAllowanceByCurrentPeriodUsage(
       currentPeriodCost: userStats.currentPeriodCost,
       currentPeriodCopilotCost: userStats.currentPeriodCopilotCost,
       grantedOnboardingAllowanceUsd: userStats.grantedOnboardingAllowanceUsd,
-      customUsageLimit: userStats.customUsageLimit,
     })
     .from(userStats)
     .where(eq(userStats.userId, userId))
@@ -79,27 +87,18 @@ export async function decrementGrantedOnboardingAllowanceByCurrentPeriodUsage(
     return
   }
 
-  const grantedAllowance = Math.max(
-    Number.parseFloat(statsRecords[0].grantedOnboardingAllowanceUsd?.toString() ?? '0'),
-    0
-  )
-  const currentPeriodCost = Math.max(
-    Number.parseFloat(statsRecords[0].currentPeriodCost?.toString() ?? '0'),
-    0
-  )
+  const grantedAllowance =
+    parseNonNegativeBillingAmount(statsRecords[0].grantedOnboardingAllowanceUsd) ?? 0
+  const currentPeriodCost = parseNonNegativeBillingAmount(statsRecords[0].currentPeriodCost) ?? 0
   const currentPeriodCopilotCost = statsRecords[0].currentPeriodCopilotCost?.toString() ?? '0'
-  const currentPeriodCopilotCostValue = Math.max(Number.parseFloat(currentPeriodCopilotCost), 0)
+  const currentPeriodCopilotCostValue = parseNonNegativeBillingAmount(currentPeriodCopilotCost) ?? 0
+  const hasCurrentPeriodUsage = currentPeriodCost > 0 || currentPeriodCopilotCostValue > 0
 
-  if (currentPeriodCost === 0 && currentPeriodCopilotCostValue === 0) {
+  if (!hasCurrentPeriodUsage) {
     return
   }
 
   const remainingAllowance = Math.max(grantedAllowance - currentPeriodCost, 0)
-  const currentCustomUsageLimit = Number.parseFloat(
-    statsRecords[0].customUsageLimit?.toString() ?? '0'
-  )
-  const shouldSyncSeededCustomLimit =
-    Number.isFinite(currentCustomUsageLimit) && currentCustomUsageLimit === grantedAllowance
   const nextValues: {
     billedOverageThisPeriod: string
     grantedOnboardingAllowanceUsd: string
@@ -107,7 +106,6 @@ export async function decrementGrantedOnboardingAllowanceByCurrentPeriodUsage(
     lastPeriodCost?: string
     currentPeriodCopilotCost: string
     currentPeriodCost: string
-    customUsageLimit?: string
   } = {
     billedOverageThisPeriod: '0',
     grantedOnboardingAllowanceUsd: remainingAllowance.toString(),
@@ -118,36 +116,38 @@ export async function decrementGrantedOnboardingAllowanceByCurrentPeriodUsage(
   nextValues.lastPeriodCopilotCost = currentPeriodCopilotCost
   nextValues.lastPeriodCost = currentPeriodCost.toString()
 
-  if (shouldSyncSeededCustomLimit) {
-    nextValues.customUsageLimit = remainingAllowance.toString()
-  }
-
   await dbClient.update(userStats).set(nextValues).where(eq(userStats.userId, userId))
 }
 
-export async function resetUserCustomUsageLimitToGrantedOnboardingAllowance(
+export async function resetUserDefaultUsageToOnboardingAllowanceBalance(
   userId: string
 ): Promise<void> {
-  const statsRecords = await db
-    .select({ grantedOnboardingAllowanceUsd: userStats.grantedOnboardingAllowanceUsd })
-    .from(userStats)
-    .where(eq(userStats.userId, userId))
-    .limit(1)
+  const [{ onboardingAllowanceUsd }, statsRecords] = await Promise.all([
+    getResolvedBillingSettings(),
+    db
+      .select({ grantedOnboardingAllowanceUsd: userStats.grantedOnboardingAllowanceUsd })
+      .from(userStats)
+      .where(eq(userStats.userId, userId))
+      .limit(1),
+  ])
 
   if (statsRecords.length === 0) {
     return
   }
 
-  const remainingAllowance = Math.max(
-    Number.parseFloat(statsRecords[0].grantedOnboardingAllowanceUsd?.toString() ?? '0'),
-    0
-  )
+  const onboardingAllowance = parseNonNegativeBillingAmount(onboardingAllowanceUsd) ?? 0
+  const grantedAllowance =
+    parseNonNegativeBillingAmount(statsRecords[0].grantedOnboardingAllowanceUsd) ?? 0
+  const usedOnboardingAllowance = Math.max(onboardingAllowance - grantedAllowance, 0)
 
   await db
     .update(userStats)
     .set({
-      customUsageLimit: remainingAllowance.toString(),
+      customUsageLimit: onboardingAllowance.toString(),
       customUsageLimitUpdatedAt: new Date(),
+      currentPeriodCost: usedOnboardingAllowance.toString(),
+      currentPeriodCopilotCost: '0',
+      billedOverageThisPeriod: '0',
     })
     .where(eq(userStats.userId, userId))
 }

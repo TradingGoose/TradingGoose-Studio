@@ -47,9 +47,12 @@ vi.mock('@/lib/execution/execution-concurrency-limit', () => ({
 }))
 
 vi.mock('@/lib/execution/pending-execution', () => ({
-  cancelPendingWorkflowExecution: cancelPendingWorkflowExecutionMock,
   enqueuePendingExecution: enqueuePendingExecutionMock,
   isPendingExecutionLimitError: vi.fn(() => false),
+}))
+
+vi.mock('@/lib/workflows/queued-execution-cancellation', () => ({
+  cancelPendingWorkflowExecution: cancelPendingWorkflowExecutionMock,
 }))
 
 vi.mock('@/lib/execution/workflow-execution-stream', () => ({

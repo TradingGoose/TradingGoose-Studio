@@ -414,6 +414,14 @@ export const ToolArgSchemas = {
   }),
 } as const
 
+const CurrentWorkflowStateArg = { currentWorkflowState: z.string().min(1) }
+
+export const ServerToolArgSchemas = {
+  ...ToolArgSchemas,
+  edit_workflow: EditWorkflowArgs.extend(CurrentWorkflowStateArg),
+  edit_workflow_block: EditWorkflowBlockArgs.extend(CurrentWorkflowStateArg),
+} satisfies Record<ToolId, z.ZodTypeAny>
+
 // Tool-specific SSE schemas (tool_call with typed arguments)
 function toolCallSSEFor<TName extends ToolId, TArgs extends z.ZodTypeAny>(
   name: TName,

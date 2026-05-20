@@ -206,7 +206,7 @@ export async function handleSubscriptionDeleted(subscription: TieredSubscription
           remainingOverage,
           error: invoiceError,
         })
-        // Don't throw - we don't want to fail the webhook
+        throw invoiceError
       }
     } else {
       logger.info('No overage to bill for cancelled subscription', {
@@ -232,6 +232,6 @@ export async function handleSubscriptionDeleted(subscription: TieredSubscription
       stripeSubscriptionId: subscription.stripeSubscriptionId || '',
       error,
     })
-    throw error // Re-throw to signal webhook failure for retry
+    throw error
   }
 }

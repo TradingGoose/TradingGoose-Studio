@@ -8,24 +8,25 @@ const mocks = vi.hoisted(() => {
   const start = vi.fn()
   const complete = vi.fn()
   const completeWithError = vi.fn()
+  const checkServerSideUsageLimits = vi.fn()
+  const decryptSecret = vi.fn()
+  const getPersonalAndWorkspaceEnv = vi.fn()
   const dbRowsQueue: unknown[][] = []
   const dbChain: Record<string, any> = {}
   dbChain.from = vi.fn(() => dbChain)
   dbChain.where = vi.fn(() => dbChain)
   dbChain.limit = vi.fn(() => Promise.resolve(dbRowsQueue.shift() ?? []))
-  const executionConcurrencyController = {
-    runWithoutLease: vi.fn((task: () => unknown) => task()),
-  }
-
   return {
     execute,
     start,
     complete,
     completeWithError,
+    checkServerSideUsageLimits,
     dbRowsQueue,
-    executionConcurrencyController,
     dbSelect: vi.fn(() => dbChain),
+    decryptSecret,
     executorConstructor: vi.fn(),
+    getPersonalAndWorkspaceEnv,
     loggingSessionConstructor: vi.fn(),
     updateWorkflowRunCounts: vi.fn(),
   }
@@ -36,20 +37,11 @@ vi.mock('@tradinggoose/db/schema', () => ({ workflow: {} }))
 vi.mock('drizzle-orm', () => ({ eq: vi.fn() }))
 
 vi.mock('@/lib/billing', () => ({
-  checkServerSideUsageLimits: vi.fn().mockResolvedValue({ isExceeded: false }),
+  checkServerSideUsageLimits: mocks.checkServerSideUsageLimits,
 }))
 
 vi.mock('@/lib/environment/utils', () => ({
-  getPersonalAndWorkspaceEnv: vi.fn().mockResolvedValue({
-    personalEncrypted: {},
-    workspaceEncrypted: {},
-  }),
-}))
-
-vi.mock('@/lib/execution/execution-concurrency-limit', () => ({
-  withExecutionConcurrencyController: vi.fn(({ task }) =>
-    task(mocks.executionConcurrencyController)
-  ),
+  getPersonalAndWorkspaceEnv: mocks.getPersonalAndWorkspaceEnv,
 }))
 
 vi.mock('@/lib/logs/execution/logging-session', () => ({
@@ -68,7 +60,7 @@ vi.mock('@/lib/logs/execution/trace-spans/trace-spans', () => ({
 }))
 
 vi.mock('@/lib/utils-server', () => ({
-  decryptSecret: vi.fn(),
+  decryptSecret: mocks.decryptSecret,
 }))
 
 vi.mock('@/lib/workflows/db-helpers', () => ({
@@ -144,12 +136,16 @@ describe('runPreparedWorkflowExecution', () => {
     })
     mocks.complete.mockResolvedValue(undefined)
     mocks.completeWithError.mockResolvedValue(undefined)
+    mocks.checkServerSideUsageLimits.mockResolvedValue({ isExceeded: false })
+    mocks.decryptSecret.mockImplementation(async (value: string) => ({ decrypted: value }))
+    mocks.getPersonalAndWorkspaceEnv.mockResolvedValue({
+      personalEncrypted: {},
+      workspaceEncrypted: {},
+    })
     mocks.updateWorkflowRunCounts.mockResolvedValue(undefined)
   })
 
   it('threads required workspace and workflow log context into executor runs without resetting workflow depth', async () => {
-    mocks.complete.mockRejectedValueOnce(new Error('log boom'))
-
     const result = await runPreparedWorkflowExecution({
       blueprint,
       actorUserId: 'user-1',
@@ -188,8 +184,6 @@ describe('runPreparedWorkflowExecution', () => {
           userId: 'user-1',
           workflowLogId: 'workflow-log-1',
           submissionSource: 'workflow',
-          concurrencyLeaseInherited: true,
-          executionConcurrencyController: mocks.executionConcurrencyController,
           triggerType: 'webhook',
           workflowDepth: 3,
           isDeployedContext: true,
@@ -206,6 +200,90 @@ describe('runPreparedWorkflowExecution', () => {
     expect(mocks.completeWithError).not.toHaveBeenCalled()
     expect(result.result.success).toBe(true)
     expect(result.result.output).toEqual({ result: 'ok' })
+  })
+
+  it('persists encrypted environment references with the terminal workflow log', async () => {
+    mocks.getPersonalAndWorkspaceEnv.mockResolvedValueOnce({
+      personalEncrypted: { PERSONAL_KEY: 'encrypted-personal' },
+      workspaceEncrypted: { WORKSPACE_KEY: 'encrypted-workspace' },
+    })
+
+    await runPreparedWorkflowExecution({
+      blueprint,
+      actorUserId: 'user-1',
+      triggerType: 'manual',
+      workflowInput: {},
+      executionId: 'execution-1',
+      start: {
+        kind: 'block',
+        blockId: 'trigger',
+      },
+    })
+
+    expect(mocks.complete).toHaveBeenCalledWith(
+      expect.objectContaining({
+        variables: {
+          PERSONAL_KEY: 'encrypted-personal',
+          WORKSPACE_KEY: 'encrypted-workspace',
+        },
+      })
+    )
+  })
+
+  it('returns failed results after terminalizing usage gate failures', async () => {
+    mocks.checkServerSideUsageLimits.mockResolvedValueOnce({
+      isExceeded: true,
+      message: 'Usage limit exceeded',
+    })
+
+    const result = await runPreparedWorkflowExecution({
+      blueprint,
+      actorUserId: 'user-1',
+      triggerType: 'manual',
+      workflowInput: {},
+      executionId: 'execution-1',
+      start: {
+        kind: 'block',
+        blockId: 'trigger',
+      },
+    })
+
+    expect(mocks.start).toHaveBeenCalled()
+    expect(mocks.execute).not.toHaveBeenCalled()
+    expect(mocks.completeWithError).toHaveBeenCalledWith(
+      expect.objectContaining({
+        error: expect.objectContaining({
+          message: 'Usage limit exceeded',
+        }),
+      })
+    )
+    expect(result.result).toEqual(
+      expect.objectContaining({
+        success: false,
+        error: 'Usage limit exceeded',
+      })
+    )
+  })
+
+  it('does not rewrite successful executions as failed when terminal success logging fails', async () => {
+    mocks.complete.mockRejectedValueOnce(new Error('log completion failed'))
+
+    await expect(
+      runPreparedWorkflowExecution({
+        blueprint,
+        actorUserId: 'user-1',
+        triggerType: 'manual',
+        workflowInput: {},
+        executionId: 'execution-1',
+        start: {
+          kind: 'block',
+          blockId: 'trigger',
+        },
+      })
+    ).rejects.toThrow('log completion failed')
+
+    expect(mocks.execute).toHaveBeenCalled()
+    expect(mocks.completeWithError).not.toHaveBeenCalled()
   })
 
   it('resolves queued child API starts through the child input-trigger path', async () => {
@@ -235,6 +313,52 @@ describe('runPreparedWorkflowExecution', () => {
       true
     )
     expect(mocks.execute).toHaveBeenCalledWith('workflow-1', 'trigger')
+  })
+
+  it('requires workflow log start before executing blocks', async () => {
+    mocks.start.mockRejectedValueOnce(new Error('log start failed'))
+
+    await expect(
+      runPreparedWorkflowExecution({
+        blueprint,
+        actorUserId: 'user-1',
+        triggerType: 'manual',
+        workflowInput: {},
+        executionId: 'execution-1',
+        start: {
+          kind: 'trigger',
+          triggerType: 'manual',
+        },
+      })
+    ).rejects.toThrow('log start failed')
+
+    expect(mocks.execute).not.toHaveBeenCalled()
+  })
+
+  it('persists the response block marker with completed workflow logs', async () => {
+    mocks.execute.mockResolvedValueOnce({
+      success: true,
+      output: { response: { data: { ok: true }, status: 201, headers: {} } },
+      logs: [{ blockType: 'response', success: true }],
+    })
+
+    await runPreparedWorkflowExecution({
+      blueprint,
+      actorUserId: 'user-1',
+      triggerType: 'manual',
+      workflowInput: {},
+      executionId: 'execution-1',
+      start: {
+        kind: 'trigger',
+        triggerType: 'manual',
+      },
+    })
+
+    expect(mocks.complete).toHaveBeenCalledWith(
+      expect.objectContaining({
+        hasResponseBlock: true,
+      })
+    )
   })
 })
 

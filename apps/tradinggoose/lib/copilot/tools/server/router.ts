@@ -1,4 +1,10 @@
-import { CopilotTool, getToolContract, isToolId, type ToolId } from '@/lib/copilot/registry'
+import {
+  CopilotTool,
+  getToolContract,
+  isToolId,
+  ServerToolArgSchemas,
+  type ToolId,
+} from '@/lib/copilot/registry'
 import {
   type BaseServerTool,
   type ServerToolExecutionContext,
@@ -106,7 +112,7 @@ export async function routeExecution(
     })(),
   })
 
-  const args = contract.args.parse(payload ?? {})
+  const args = ServerToolArgSchemas[toolName].parse(payload ?? {})
   throwIfServerToolAborted(context)
 
   const result = await tool.execute(args, context)

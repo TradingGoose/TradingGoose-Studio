@@ -189,7 +189,8 @@ describe('Workflow API Route', () => {
       expect.objectContaining({
         blocks: initialWorkflowState.blocks,
       }),
-      insertedWorkflow.variables
+      insertedWorkflow.variables,
+      'Workflow Copy'
     )
   })
 

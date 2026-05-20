@@ -239,6 +239,13 @@
       "when": 1778884471062,
       "tag": "0033_lively_spirit",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1779087104759,
+      "tag": "0034_white_ma_gnuci",
+      "breakpoints": true
     }
   ]
 }

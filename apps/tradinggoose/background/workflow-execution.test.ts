@@ -103,6 +103,7 @@ describe('executeWorkflowJob', () => {
         }),
       })
     )
+    expect(createWorkflowExecutionEventWriterMock).not.toHaveBeenCalled()
   })
 
   it('enables chunk streaming only when requested by the queued payload', async () => {
@@ -121,6 +122,10 @@ describe('executeWorkflowJob', () => {
         }),
       })
     )
+    expect(createWorkflowExecutionEventWriterMock).toHaveBeenCalledWith({
+      pendingExecutionId: expect.any(String),
+      workflowId: 'workflow-1',
+    })
   })
 
   it('executes queued editor payloads with supplied live workflow data', async () => {

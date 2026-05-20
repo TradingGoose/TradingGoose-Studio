@@ -82,10 +82,12 @@ export const functionExecuteTool: ToolConfig<CodeExecutionInput, CodeExecutionOu
         blockOutputSchemas: params.blockOutputSchemas || {},
         workflowId: params._context?.workflowId,
         userId: params._context?.userId,
-        concurrencyLeaseInherited: params._context?.concurrencyLeaseInherited,
-        ...(params._context?.workspaceId
-          ? { workspaceId: params._context.workspaceId }
+        ...(params._context?.submissionSource === 'workflow' &&
+        params._context?.workflowId &&
+        params._context?.executionId
+          ? { usesParentExecutionConcurrencySlot: true }
           : {}),
+        ...(params._context?.workspaceId ? { workspaceId: params._context.workspaceId } : {}),
         isCustomTool: params.isCustomTool || false,
       }
     },

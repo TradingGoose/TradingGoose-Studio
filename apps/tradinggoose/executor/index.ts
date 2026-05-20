@@ -593,7 +593,6 @@ export class Executor {
       executionId: this.contextExtensions.executionId,
       workflowLogId: this.contextExtensions.workflowLogId,
       submissionSource: this.contextExtensions.submissionSource,
-      concurrencyLeaseInherited: this.contextExtensions.concurrencyLeaseInherited,
       triggerType: this.contextExtensions.triggerType,
       workflowDepth: this.contextExtensions.workflowDepth ?? 0,
       isDeployedContext: this.contextExtensions.isDeployedContext || false,
@@ -1472,9 +1471,7 @@ export class Executor {
         })
       }
 
-      await (this.contextExtensions.executionConcurrencyController?.runWithoutLease(
-        deferredWaitTask
-      ) ?? deferredWaitTask())
+      await deferredWaitTask()
     }
 
     // If there were any errors, log them but don't throw immediately

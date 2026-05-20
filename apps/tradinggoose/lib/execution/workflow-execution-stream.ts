@@ -1,6 +1,7 @@
 import { readWorkflowExecutionEventState } from '@/lib/execution/workflow-execution-events'
 import { createLogger } from '@/lib/logs/console/logger'
 import {
+  createWorkflowExecutionTerminalEventInput,
   formatWorkflowExecutionSSE,
   isTerminalWorkflowExecutionEvent,
   type WorkflowExecutionEventEntry,
@@ -92,7 +93,22 @@ function createSeededWorkflowExecutionEventStream(
         }
 
         if (!sawTerminalEvent && (state.status === 'completed' || state.status === 'failed')) {
-          throw new Error('Workflow execution ended without a terminal stream event')
+          const eventId = lastEventId + 1
+          const terminalEntry: WorkflowExecutionEventEntry = {
+            eventId,
+            event: {
+              ...createWorkflowExecutionTerminalEventInput(state.result),
+              executionId: params.pendingExecutionId,
+              workflowId: params.workflowId,
+              timestamp: new Date().toISOString(),
+              eventId,
+            },
+          }
+          for (const chunk of toChunks(formatEvent(terminalEntry))) {
+            enqueue(chunk)
+          }
+          lastEventId = eventId
+          return true
         }
 
         return sawTerminalEvent

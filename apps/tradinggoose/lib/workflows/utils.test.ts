@@ -28,7 +28,7 @@ vi.mock('@/lib/urls/utils', () => ({
   getBaseUrl: vi.fn(() => 'http://localhost'),
 }))
 
-import { hasWorkflowChanged } from '@/lib/workflows/utils'
+import { hasWorkflowChanged, workflowHasResponseBlock } from '@/lib/workflows/utils'
 
 const baseState = {
   blocks: {},
@@ -96,5 +96,36 @@ describe('hasWorkflowChanged', () => {
     }
 
     expect(hasWorkflowChanged(currentState as any, deployedState as any)).toBe(false)
+  })
+})
+
+describe('workflowHasResponseBlock', () => {
+  it('requires a completed response block instead of only output.response', () => {
+    const output = { response: { data: { ok: true }, status: 200, headers: {} } }
+
+    expect(
+      workflowHasResponseBlock({
+        success: true,
+        output,
+        logs: [],
+      })
+    ).toBe(false)
+
+    expect(
+      workflowHasResponseBlock({
+        success: true,
+        output,
+        logs: [{ blockId: 'response-1', blockType: 'response', success: true } as any],
+      })
+    ).toBe(true)
+
+    expect(
+      workflowHasResponseBlock({
+        success: true,
+        output,
+        logs: [],
+        metadata: { duration: 1, hasResponseBlock: true },
+      })
+    ).toBe(true)
   })
 })

@@ -1,4 +1,3 @@
-import type { ExecutionConcurrencyController } from '@/lib/execution/execution-concurrency-limit'
 import type { TraceSpan } from '@/lib/logs/types'
 import type { WorkflowExecutionEventInput } from '@/lib/workflows/execution-events'
 import type { BlockOutput } from '@/blocks/types'
@@ -91,6 +90,7 @@ export interface ExecutionMetadata {
   duration: number // Duration of workflow execution in milliseconds
   pendingBlocks?: string[] // List of block IDs that are pending execution
   isDebugSession?: boolean // Whether the workflow is running in debug mode
+  hasResponseBlock?: boolean // Whether a response block produced the final HTTP response
   context?: ExecutionContext // Runtime context for the workflow
   workflowConnections?: Array<{ source: string; target: string }> // Connections between workflow blocks
 }
@@ -114,7 +114,6 @@ export interface ExecutionContext {
   executionId?: string // Unique execution ID for file storage scoping
   workflowLogId?: string
   submissionSource?: ExecutionSubmissionSource
-  concurrencyLeaseInherited?: boolean
   triggerType?: TriggerType
   workflowDepth?: number
   // Whether this execution is running against deployed state (API/webhook/schedule/chat)
@@ -204,8 +203,6 @@ export interface ExecutionContextExtensions {
   userId?: string
   workflowLogId?: string
   submissionSource?: ExecutionSubmissionSource
-  concurrencyLeaseInherited?: boolean
-  executionConcurrencyController?: ExecutionConcurrencyController
   triggerType?: TriggerType
   workflowDepth?: number
   isChildExecution?: boolean

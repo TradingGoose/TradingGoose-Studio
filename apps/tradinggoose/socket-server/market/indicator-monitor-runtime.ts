@@ -1071,7 +1071,7 @@ export class IndicatorMonitorRuntime {
       }
 
       try {
-        await enqueuePendingExecution({
+        const handle = await enqueuePendingExecution({
           executionType: 'indicator_monitor',
           pendingExecutionId,
           workflowId: monitor.workflowId,
@@ -1082,6 +1082,10 @@ export class IndicatorMonitorRuntime {
           requestId: pendingExecutionId,
           payload,
         })
+        if (!handle.inserted) {
+          this.skippedCount += 1
+          return
+        }
       } catch (error) {
         if (error instanceof ExecutionGateError) {
           await this.disconnectMonitor(monitor.id, 'invalid_billing_context', {

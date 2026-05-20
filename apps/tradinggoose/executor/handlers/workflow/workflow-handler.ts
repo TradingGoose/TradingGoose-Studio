@@ -40,6 +40,7 @@ type ChildWorkflowHeaders = () => Promise<Record<string, string>>
 
 type ChildWorkflowWaitOptions = {
   taskId: string
+  childWorkflowName: string
   headers: ChildWorkflowHeaders
   shouldCancelExecution?: () => Promise<boolean>
 }
@@ -112,6 +113,7 @@ export class WorkflowBlockHandler implements BlockHandler {
           const childWorkflowName = queueResponse.workflowName
           const childResult = await this.waitForQueuedWorkflowResult({
             taskId: queueResponse.taskId,
+            childWorkflowName,
             headers,
             shouldCancelExecution: context.shouldCancelExecution,
           })
@@ -125,20 +127,6 @@ export class WorkflowBlockHandler implements BlockHandler {
             childWorkflowName,
             childTraceSpans
           )
-
-          if ((mappedResult as { success?: boolean }).success === false) {
-            const childError =
-              (mappedResult as { error?: string }).error || 'Child workflow execution failed'
-            const errorWithSpans = new Error(
-              `Error in child workflow "${childWorkflowName}": ${childError}`
-            ) as Error & {
-              childTraceSpans?: WorkflowTraceSpan[]
-              childWorkflowName?: string
-            }
-            errorWithSpans.childTraceSpans = childTraceSpans
-            errorWithSpans.childWorkflowName = childWorkflowName
-            throw errorWithSpans
-          }
 
           return mappedResult
         } catch (error: any) {
@@ -264,6 +252,7 @@ export class WorkflowBlockHandler implements BlockHandler {
 
   private async waitForQueuedWorkflowResult({
     taskId,
+    childWorkflowName,
     headers,
     shouldCancelExecution,
   }: ChildWorkflowWaitOptions): Promise<QueuedWorkflowExecutionResult> {
@@ -296,7 +285,20 @@ export class WorkflowBlockHandler implements BlockHandler {
       }
 
       if (body.status === 'failed') {
-        throw new Error(body.error || 'Child workflow execution failed')
+        const error = new Error(
+          body.output?.error || body.error || 'Child workflow execution failed'
+        ) as Error & {
+          childTraceSpans?: WorkflowTraceSpan[]
+          childWorkflowName?: string
+        }
+        error.childWorkflowName = childWorkflowName
+        if (Array.isArray(body.output?.traceSpans)) {
+          error.childTraceSpans = this.transformChildWorkflowSpans(
+            body.output.traceSpans,
+            childWorkflowName
+          )
+        }
+        throw error
       }
 
       await sleep(CHILD_WORKFLOW_POLL_INTERVAL_MS)
@@ -377,18 +379,6 @@ export class WorkflowBlockHandler implements BlockHandler {
     childWorkflowName: string,
     childTraceSpans: WorkflowTraceSpan[]
   ): BlockOutput {
-    if (childResult.success === false) {
-      const failure: Record<string, any> = {
-        success: false,
-        childWorkflowName,
-        error: childResult.error || 'Child workflow execution failed',
-      }
-      if (childTraceSpans.length > 0) {
-        failure.childTraceSpans = childTraceSpans
-      }
-      return failure
-    }
-
     return {
       success: true,
       childWorkflowName,

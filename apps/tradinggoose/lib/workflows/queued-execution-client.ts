@@ -1,7 +1,7 @@
-import type { ExecutionResult } from '@/executor/types'
-import type { WorkflowExecutionBlueprint } from '@/lib/workflows/execution-runner'
 import type { WorkflowExecutionEvent } from '@/lib/workflows/execution-events'
 import { isExecutionResult } from '@/lib/workflows/execution-result'
+import type { WorkflowExecutionBlueprint } from '@/lib/workflows/execution-runner'
+import type { ExecutionResult } from '@/executor/types'
 
 type QueuedWorkflowExecutionRequest = {
   workflowId: string
@@ -144,6 +144,7 @@ async function readQueuedWorkflowExecutionJob(params: {
     }
 
     if (payload?.status === 'failed') {
+      if (isExecutionResult(payload.output)) return payload.output
       return {
         success: false,
         output: {},
