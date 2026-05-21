@@ -108,9 +108,7 @@ export function NodeEditorPanel({ selectedNodeId }: NodeEditorPanelProps) {
     if (!blockId || !isRenaming) return
 
     const trimmedName = editedName.trim()
-    if (trimmedName) {
-      collaborativeUpdateBlockName(blockId, trimmedName)
-    }
+    if (trimmedName && !collaborativeUpdateBlockName(blockId, trimmedName)) return
 
     renamingBlockIdRef.current = null
     setIsRenaming(false)
