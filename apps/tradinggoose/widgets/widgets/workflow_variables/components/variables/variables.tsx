@@ -173,8 +173,8 @@ export function Variables({
   }
 
   const getValidationStatus = (variable: Variable): string | undefined => {
-    if (variable.validationError) return variable.validationError
     if (variable.value === '') return undefined
+    if (variable.validationError) return variable.validationError
     switch (variable.type) {
       case 'number':
         return Number.isNaN(Number(variable.value)) ? 'Not a valid number' : undefined

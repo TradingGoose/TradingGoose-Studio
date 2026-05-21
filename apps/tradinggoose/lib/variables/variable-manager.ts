@@ -18,10 +18,6 @@ export class VariableManager {
    * @returns The value converted to its appropriate type
    */
   private static convertToNativeType(value: any, type: VariableType, forExecution = false): any {
-    if (type === LISTING_IDENTITY_VALUE_TYPE) {
-      return parseListingIdentityValueStrict(value)
-    }
-
     // Special handling for empty input values during storage
     if (value === '') {
       return value // Return empty string for all types during storage
@@ -35,6 +31,11 @@ export class VariableManager {
       }
       // For storage/display, convert to empty string for text types
       return type === 'plain' ? '' : value
+    }
+
+    if (type === LISTING_IDENTITY_VALUE_TYPE) {
+      if (!forExecution && typeof value === 'string' && value.trim() === '{ }') return ''
+      return parseListingIdentityValueStrict(value)
     }
 
     // For 'plain' type, we want to preserve quotes exactly as entered
@@ -145,6 +146,7 @@ export class VariableManager {
       case 'object':
       case 'array':
       case LISTING_IDENTITY_VALUE_TYPE:
+        if (typedValue === '') return ''
         if (context === 'editor') {
           // Pretty print for editor
           return JSON.stringify(typedValue, null, 2)

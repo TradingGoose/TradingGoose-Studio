@@ -19,9 +19,7 @@ describe('listing identity helpers', () => {
     expect(listing ? getListingIdentityKey(listing) : null).toBe('default|AAPL||')
 
     expect(parseListingIdentityValueStrict(JSON.stringify(listing))).toEqual(listing)
-    expect(() => parseListingIdentityValueStrict({ ...listing, base: 'AAPL' })).toThrow(
-      'Invalid listingIdentity value'
-    )
+    expect(parseListingIdentityValueStrict({ ...listing, base: 'AAPL' })).toEqual(listing)
     expect(() => parseListingIdentityValueStrict('{"listing_type":"stock"}')).toThrow(
       'Invalid listingIdentity value'
     )

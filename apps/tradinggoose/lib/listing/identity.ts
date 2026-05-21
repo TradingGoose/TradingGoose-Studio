@@ -112,7 +112,6 @@ export const parseListingIdentityValueStrict = (value: unknown): ListingIdentity
   if (
     !record ||
     !listing ||
-    Object.keys(record).length !== 4 ||
     record.listing_id !== listing.listing_id ||
     record.base_id !== listing.base_id ||
     record.quote_id !== listing.quote_id ||
