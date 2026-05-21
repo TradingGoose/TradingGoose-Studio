@@ -1,4 +1,6 @@
-export type VariableType = 'plain' | 'number' | 'boolean' | 'object' | 'array'
+import type { LISTING_IDENTITY_VALUE_TYPE } from '@/lib/listing/identity'
+
+export type VariableType = 'plain' | 'number' | 'boolean' | 'object' | 'array' | typeof LISTING_IDENTITY_VALUE_TYPE
 
 /**
  * Represents a workflow variable with workflow-specific naming

@@ -1,3 +1,4 @@
+import { LISTING_IDENTITY_VALUE_TYPE, parseListingIdentityValueStrict } from '@/lib/listing/identity'
 import type { VariableType } from '@/stores/variables/types'
 
 /**
@@ -30,6 +31,11 @@ export class VariableManager {
       }
       // For storage/display, convert to empty string for text types
       return type === 'plain' ? '' : value
+    }
+
+    if (type === LISTING_IDENTITY_VALUE_TYPE) {
+      if (!forExecution && typeof value === 'string' && value.trim() === '{ }') return ''
+      return parseListingIdentityValueStrict(value)
     }
 
     // For 'plain' type, we want to preserve quotes exactly as entered
@@ -119,6 +125,7 @@ export class VariableManager {
     context: 'editor' | 'text' | 'code'
   ): string {
     // Handle special cases first
+    if (value === '') return ''
     if (value === undefined) return context === 'code' ? 'undefined' : ''
     if (value === null) return context === 'code' ? 'null' : ''
 
@@ -138,6 +145,8 @@ export class VariableManager {
 
       case 'object':
       case 'array':
+      case LISTING_IDENTITY_VALUE_TYPE:
+        if (typedValue === '') return ''
         if (context === 'editor') {
           // Pretty print for editor
           return JSON.stringify(typedValue, null, 2)

@@ -1,4 +1,5 @@
 import { ChartBarIcon } from '@/components/icons/icons'
+import { LISTING_IDENTITY_VALUE_TYPE } from '@/lib/listing/identity'
 import type { BlockConfig, SubBlockConfig } from '@/blocks/types'
 import { AuthMode } from '@/blocks/types'
 import type { MarketSeriesOutput } from '@/tools/market_data'
@@ -366,7 +367,7 @@ export const HistoricalDataBlock: BlockConfig<HistoricalDataResponse> = {
   },
   inputs: {
     provider: { type: 'string', description: 'Market provider id' },
-    listing: { type: 'json', description: 'Structured listing payload' },
+    listing: { type: LISTING_IDENTITY_VALUE_TYPE, description: 'Structured listing payload' },
     interval: { type: 'string', description: 'Series interval/timeframe' },
     start: { type: 'string', description: 'Inclusive start of the interval (ISO or UNIX timestamp)' },
     end: { type: 'string', description: 'Inclusive end of the interval (ISO or UNIX timestamp)' },
@@ -390,7 +391,7 @@ export const HistoricalDataBlock: BlockConfig<HistoricalDataResponse> = {
     listingBase: { type: 'string', description: 'Listing base symbol' },
     listingQuote: { type: 'string', description: 'Listing quote currency' },
     listing: {
-      type: 'json',
+      type: LISTING_IDENTITY_VALUE_TYPE,
       description: 'Structured listing identifier payload',
     },
     marketSeries: {

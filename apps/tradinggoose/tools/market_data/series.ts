@@ -5,15 +5,16 @@ import {
   getMarketSeriesCapabilities,
 } from '@/providers/market/providers'
 import {
-  toListingValueObject,
-  type ListingInputValue,
+  LISTING_IDENTITY_VALUE_TYPE,
+  parseListingIdentityValueStrict,
+  type ListingIdentity,
 } from '@/lib/listing/identity'
 import type { MarketSeries, NormalizationMode } from '@/providers/market/types'
 import type { ToolConfig, ToolResponse } from '@/tools/types'
 
 export interface MarketSeriesParams {
   provider: string
-  listing: ListingInputValue
+  listing: ListingIdentity
   interval?: string
   window?: {
     mode: 'range' | 'bars' | 'absolute'
@@ -62,7 +63,7 @@ const buildToolParams = (): ToolConfig['params'] => {
       description: 'Market data provider id (e.g., alpaca, finnhub, yahoo-finance).',
     },
     listing: {
-      type: 'json',
+      type: LISTING_IDENTITY_VALUE_TYPE,
       required: true,
       visibility: 'user-or-llm',
       description: 'Structured listing payload from TradingGoose Market.',
@@ -175,12 +176,8 @@ export const historicalDataTool: ToolConfig<MarketSeriesParams, ToolResponse> = 
     body: (params: MarketSeriesParams) => {
       const rawParams = params as Record<string, any>
       const providerParams = parseProviderParams(rawParams.providerParams)
-      const listing = toListingValueObject(params.listing)
+      const listing = parseListingIdentityValueStrict(params.listing)
       const auth: { apiKey?: string; apiSecret?: string } = {}
-
-      if (!listing) {
-        throw new Error('listing is required')
-      }
 
       delete providerParams.apiKey
       delete providerParams.apiSecret
@@ -274,10 +271,7 @@ export const historicalDataTool: ToolConfig<MarketSeriesParams, ToolResponse> = 
       if (!bars.length) {
         throw new Error('No data returned for the requested time range')
       }
-      const listing = toListingValueObject(params.listing)
-      if (!listing) {
-        throw new Error('listing is required')
-      }
+      const listing = parseListingIdentityValueStrict(params.listing)
       const seriesOutput = { ...series } as MarketSeries & { primaryMicCode?: string }
       if ('primaryMicCode' in seriesOutput) {
         delete seriesOutput.primaryMicCode
@@ -293,7 +287,7 @@ export const historicalDataTool: ToolConfig<MarketSeriesParams, ToolResponse> = 
     } catch (error: any) {
       logger.error('Error validating market series data', {
         provider: params.provider,
-        listing: toListingValueObject(params.listing),
+        listing: params.listing,
         error: error?.message || error,
       })
       return {
@@ -307,18 +301,8 @@ export const historicalDataTool: ToolConfig<MarketSeriesParams, ToolResponse> = 
     listingBase: { type: 'string', description: 'Listing base symbol', optional: true },
     listingQuote: { type: 'string', description: 'Listing quote currency', optional: true },
     listing: {
-      type: 'object',
+      type: LISTING_IDENTITY_VALUE_TYPE,
       description: 'Structured listing identifier payload',
-      properties: {
-        listing_id: { type: 'string', description: 'Listing id', optional: true },
-        base_id: { type: 'string', description: 'Base asset id', optional: true },
-        quote_id: { type: 'string', description: 'Quote asset id', optional: true },
-        listing_type: {
-          type: 'string',
-          description: 'Listing type (default, crypto, or currency)',
-          optional: true,
-        },
-      },
     },
     bars: {
       type: 'array',

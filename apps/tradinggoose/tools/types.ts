@@ -1,14 +1,26 @@
 import type { OAuthService } from '@/lib/oauth/oauth'
+import type { LISTING_IDENTITY_VALUE_TYPE } from '@/lib/listing/identity'
 
 export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH' | 'HEAD'
+export type ToolParameterType =
+  | 'string'
+  | 'number'
+  | 'boolean'
+  | 'json'
+  | 'array'
+  | 'object'
+  | 'file'
+  | 'file[]'
+  | 'any'
+  | typeof LISTING_IDENTITY_VALUE_TYPE
 
 export interface OutputProperty {
-  type: string
+  type: ToolParameterType
   description?: string
   optional?: boolean
   properties?: Record<string, OutputProperty>
   items?: {
-    type: string
+    type: ToolParameterType
     description?: string
     properties?: Record<string, OutputProperty>
   }
@@ -57,7 +69,7 @@ export interface ToolConfig<P = any, R = any> {
   params: Record<
     string,
     {
-      type: string
+      type: ToolParameterType
       required?: boolean
       visibility?: ParameterVisibility
       default?: any
@@ -76,7 +88,7 @@ export interface ToolConfig<P = any, R = any> {
   outputs?: Record<
     string,
     {
-      type: 'string' | 'number' | 'boolean' | 'json' | 'file' | 'file[]' | 'array' | 'object'
+      type: ToolParameterType
       description?: string
       optional?: boolean
       fileConfig?: {
@@ -84,7 +96,7 @@ export interface ToolConfig<P = any, R = any> {
         extension?: string // Expected file extension
       }
       items?: {
-        type: string
+        type: ToolParameterType
         properties?: Record<string, OutputProperty>
       }
       properties?: Record<string, OutputProperty>

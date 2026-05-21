@@ -1,3 +1,4 @@
+import { LISTING_IDENTITY_VALUE_TYPE } from '@/lib/listing/identity'
 import type { TriggerConfig } from '@/triggers/types'
 
 export const indicatorTrigger: TriggerConfig = {
@@ -29,7 +30,7 @@ export const indicatorTrigger: TriggerConfig = {
       description: 'Market historical series data.',
     },
     listing: {
-      type: 'json',
+      type: LISTING_IDENTITY_VALUE_TYPE,
       description: 'Listing information.',
     },
     indicator: {

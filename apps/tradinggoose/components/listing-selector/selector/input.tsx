@@ -17,6 +17,7 @@ import {
 } from '@/components/listing-selector/listing/rank-updates'
 import {
   areListingIdentitiesEqual,
+  LISTING_IDENTITY_VALUE_TYPE,
   toListingValue,
   toListingValueObject,
   type ListingIdentity,
@@ -450,9 +451,8 @@ export function StockSelector({
           activeSourceBlockId={null}
           inputValue={query}
           cursorPosition={cursorPosition}
-          allowVariables={false}
           allowContextualTags={false}
-          requiredOutputShape='listingIdentity'
+          allowedOutputTypes={[LISTING_IDENTITY_VALUE_TYPE]}
           onClose={() => {
             setShowTags(false)
           }}

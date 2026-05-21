@@ -1,10 +1,30 @@
-export type ListingType = 'default' | 'crypto' | 'currency'
+const LISTING_TYPES = ['default', 'crypto', 'currency'] as const
+
+export type ListingType = (typeof LISTING_TYPES)[number]
 
 export type ListingIdentity = {
   listing_id: string
   base_id: string
   quote_id: string
   listing_type: ListingType
+}
+
+export const LISTING_IDENTITY_VALUE_TYPE = 'listingIdentity' as const
+
+export const LISTING_IDENTITY_JSON_SCHEMA = {
+  type: 'object',
+  properties: {
+    listing_id: { type: 'string', description: 'Listing id for default listings; otherwise empty.' },
+    base_id: { type: 'string', description: 'Base asset id for pair listings; otherwise empty.' },
+    quote_id: { type: 'string', description: 'Quote asset id for pair listings; otherwise empty.' },
+    listing_type: {
+      type: 'string',
+      enum: LISTING_TYPES,
+      description: 'Listing type.',
+    },
+  },
+  required: ['listing_id', 'base_id', 'quote_id', 'listing_type'],
+  additionalProperties: false,
 }
 
 export type ListingResolved = ListingIdentity & {
@@ -40,7 +60,7 @@ const readListingField = (record: Record<string, unknown>, key: string): string 
 }
 
 const isListingType = (value?: string | null): value is ListingType =>
-  value === 'default' || value === 'crypto' || value === 'currency'
+  LISTING_TYPES.includes(value as ListingType)
 
 const readListingType = (record: Record<string, unknown>): ListingType | undefined => {
   const raw = readListingField(record, 'listing_type')
@@ -56,10 +76,7 @@ export const toListingValue = (
 }
 
 export const toListingValueObject = (value: ListingInputValue): ListingIdentity | null => {
-  if (!value) return null
-  if (typeof value === 'string') return null
-
-  return normalizeListingIdentity(value as Record<string, unknown>)
+  return normalizeListingIdentityValue(value)
 }
 
 export const areListingIdentitiesEqual = (
@@ -77,6 +94,33 @@ export const areListingIdentitiesEqual = (
 
 export const getListingIdentityKey = (listing: ListingIdentity) =>
   `${listing.listing_type}|${listing.listing_id}|${listing.base_id}|${listing.quote_id}`
+
+const normalizeListingIdentityValue = (value: unknown): ListingIdentity | null => {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null
+  return normalizeListingIdentity(value as Record<string, unknown>)
+}
+
+export const parseListingIdentityValueStrict = (value: unknown): ListingIdentity => {
+  const parsedValue =
+    typeof value === 'string' && value.trim() ? JSON.parse(value.trim()) : value
+  const record =
+    parsedValue && typeof parsedValue === 'object' && !Array.isArray(parsedValue)
+      ? (parsedValue as Record<string, unknown>)
+      : null
+  const listing = record ? normalizeListingIdentity(record) : null
+
+  if (
+    !record ||
+    !listing ||
+    record.listing_id !== listing.listing_id ||
+    record.base_id !== listing.base_id ||
+    record.quote_id !== listing.quote_id ||
+    record.listing_type !== listing.listing_type
+  ) {
+    throw new Error('Invalid listingIdentity value')
+  }
+  return listing
+}
 
 const normalizeListingIdentity = (record: Record<string, unknown>): ListingIdentity | null => {
   const listingType = readListingType(record)

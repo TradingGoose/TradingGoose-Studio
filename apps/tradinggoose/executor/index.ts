@@ -36,11 +36,15 @@ import type {
   StreamingExecution,
 } from '@/executor/types'
 import { VirtualBlockUtils } from '@/executor/utils/virtual-blocks'
+import { LISTING_IDENTITY_VALUE_TYPE, parseListingIdentityValueStrict } from '@/lib/listing/identity'
 import type { SerializedBlock, SerializedParallel, SerializedWorkflow } from '@/serializer/types'
 
 const logger = createLogger('Executor')
 const STREAM_CHUNK_FLUSH_INTERVAL_MS = 100
 const STREAM_CHUNK_FLUSH_SIZE = 2_048
+
+const isWorkflowReferenceString = (value: unknown): value is string =>
+  typeof value === 'string' && value.trim().startsWith('<') && value.trim().includes('>')
 
 declare global {
   interface Window {
@@ -707,6 +711,12 @@ export class Executor {
                   inputValue === true ||
                   inputValue === 1 ||
                   inputValue === '1'
+              } else if (field.type === LISTING_IDENTITY_VALUE_TYPE) {
+                if (isWorkflowReferenceString(inputValue)) {
+                  typedValue = inputValue
+                } else {
+                  typedValue = parseListingIdentityValueStrict(inputValue)
+                }
               } else if (
                 (field.type === 'object' || field.type === 'array') &&
                 typeof inputValue === 'string'

@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/select'
 import { checkTagTrigger, TagDropdown } from '@/components/ui/tag-dropdown'
 import { Textarea } from '@/components/ui/textarea'
+import { LISTING_IDENTITY_VALUE_TYPE } from '@/lib/listing/identity'
 import { cn } from '@/lib/utils'
 import { useWorkflowVariables } from '@/lib/yjs/use-workflow-doc'
 import { useAccessibleReferencePrefixes } from '@/hooks/workflow/use-accessible-reference-prefixes'
@@ -337,7 +338,7 @@ export function VariablesInput({
 
                   <div className='space-y-1.5'>
                     <Label className='text-xs'>Value</Label>
-                    {assignment.type === 'object' || assignment.type === 'array' ? (
+                    {assignment.type === 'object' || assignment.type === 'array' || assignment.type === LISTING_IDENTITY_VALUE_TYPE ? (
                       <Textarea
                         ref={(el) => {
                           if (el) valueInputRefs.current[assignment.id] = el
@@ -351,9 +352,9 @@ export function VariablesInput({
                           )
                         }
                         placeholder={
-                          assignment.type === 'object'
-                            ? '{\n  "key": "value"\n}'
-                            : '[\n  1, 2, 3\n]'
+                          assignment.type === 'array'
+                            ? '[\n  1, 2, 3\n]'
+                            : '{\n  "key": "value"\n}'
                         }
                         disabled={isPreview || disabled}
                         className={cn(
@@ -414,6 +415,7 @@ export function VariablesInput({
                         activeSourceBlockId={activeSourceBlockId}
                         inputValue={assignment.value || ''}
                         cursorPosition={cursorPosition}
+                        allowedOutputTypes={assignment.type === LISTING_IDENTITY_VALUE_TYPE ? [LISTING_IDENTITY_VALUE_TYPE] : undefined}
                         onClose={() => setShowTags(false)}
                         className='absolute top-full left-0 z-50 mt-1'
                       />
