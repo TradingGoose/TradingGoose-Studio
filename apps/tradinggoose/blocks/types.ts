@@ -1,10 +1,10 @@
 import type { JSX, SVGProps } from 'react'
-import type { LISTING_IDENTITY_VALUE_TYPE } from '@/lib/listing/identity'
 import type { TimeFormat } from '@/lib/time-format'
+import type { WorkflowParamType } from '@/lib/workflows/value-types'
 import type { ParameterVisibility, ToolResponse } from '@/tools/types'
 
 export type BlockIcon = (props: SVGProps<SVGSVGElement>) => JSX.Element
-export type ParamType = 'string' | 'number' | 'boolean' | 'json' | 'array' | typeof LISTING_IDENTITY_VALUE_TYPE
+export type ParamType = WorkflowParamType
 export type PrimitiveValueType = ParamType | 'files' | 'any'
 
 export type BlockCategory = 'blocks' | 'tools' | 'triggers'

@@ -3,14 +3,14 @@ import type { BlockOutput } from '@/blocks/types'
 import { BlockType } from '@/executor/consts'
 import type { BlockHandler, ExecutionContext } from '@/executor/types'
 import { LISTING_IDENTITY_VALUE_TYPE, parseListingIdentityValueStrict } from '@/lib/listing/identity'
+import { isWorkflowVariableType } from '@/lib/workflows/value-types'
 import type { SerializedBlock } from '@/serializer/types'
 import type { VariableType } from '@/stores/variables/types'
 
 const logger = createLogger('VariablesBlockHandler')
-const VARIABLE_TYPES = new Set<VariableType>(['plain', 'number', 'boolean', 'object', 'array', LISTING_IDENTITY_VALUE_TYPE])
 
 function assertVariableType(type: unknown, variableName: string): asserts type is VariableType {
-  if (typeof type !== 'string' || !VARIABLE_TYPES.has(type as VariableType)) {
+  if (!isWorkflowVariableType(type)) {
     throw new Error(
       `Unsupported variable type for "${variableName || 'unknown'}": ${String(type)}.`
     )

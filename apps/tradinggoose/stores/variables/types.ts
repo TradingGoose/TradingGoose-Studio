@@ -1,6 +1,6 @@
-import type { LISTING_IDENTITY_VALUE_TYPE } from '@/lib/listing/identity'
+import type { WorkflowVariableType } from '@/lib/workflows/value-types'
 
-export type VariableType = 'plain' | 'number' | 'boolean' | 'object' | 'array' | typeof LISTING_IDENTITY_VALUE_TYPE
+export type VariableType = WorkflowVariableType
 
 /**
  * Represents a workflow variable with workflow-specific naming

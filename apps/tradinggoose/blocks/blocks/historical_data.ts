@@ -10,6 +10,7 @@ import {
   getMarketProviderParamCatalog,
   getMarketProvidersByKind,
   getMarketSeriesCapabilities,
+  type MarketProviderParamType,
 } from '@/providers/market/providers'
 import type { NormalizationMode } from '@/providers/market/types'
 
@@ -373,7 +374,7 @@ export const HistoricalDataBlock: BlockConfig<HistoricalDataResponse> = {
     end: { type: 'string', description: 'Inclusive end of the interval (ISO or UNIX timestamp)' },
     normalizationMode: { type: 'string', description: 'Optional normalization mode' },
     ...providerParamIds.reduce<
-      Record<string, { type: 'string' | 'number' | 'boolean' | 'json' | 'array'; description?: string }>
+      Record<string, { type: MarketProviderParamType; description?: string }>
     >(
       (acc, paramId) => {
         const entry = providerParamRegistry[paramId]

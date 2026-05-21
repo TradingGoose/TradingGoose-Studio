@@ -21,6 +21,7 @@ import type {
   MarketSessionMode,
 } from '@/providers/market/types'
 import type { ListingIdentity } from '@/lib/listing/identity'
+import type { WorkflowProviderParamType } from '@/lib/workflows/value-types'
 import { AlphaVantageIcon, YahooIcon, FinnhubIcon, AlpacaIcon } from '@/components/icons/provider-icons'
 import { alphaVantageProviderConfig } from '@/providers/market/alpha-vantage/config'
 import { alpacaProviderConfig } from '@/providers/market/alpaca/config'
@@ -64,7 +65,7 @@ export interface MarketProviderCapabilities {
   live?: MarketLiveInputCapabilities
 }
 
-export type MarketProviderParamType = 'string' | 'number' | 'boolean' | 'json' | 'array'
+export type MarketProviderParamType = WorkflowProviderParamType
 
 export type MarketProviderParamVisibility =
   | 'user-or-llm'

@@ -21,11 +21,12 @@ import {
 import { checkTagTrigger, TagDropdown } from '@/components/ui/tag-dropdown'
 import { Textarea } from '@/components/ui/textarea'
 import { LISTING_IDENTITY_VALUE_TYPE } from '@/lib/listing/identity'
+import type { WorkflowFieldType } from '@/lib/workflows/value-types'
 import { cn } from '@/lib/utils'
 import { useAccessibleReferencePrefixes } from '@/hooks/workflow/use-accessible-reference-prefixes'
 import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
 
-type FieldType = 'string' | 'number' | 'boolean' | 'object' | 'array' | 'files' | typeof LISTING_IDENTITY_VALUE_TYPE
+type FieldType = WorkflowFieldType
 
 interface Field {
   id: string

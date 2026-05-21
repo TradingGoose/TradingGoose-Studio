@@ -1,18 +1,8 @@
 import type { OAuthService } from '@/lib/oauth/oauth'
-import type { LISTING_IDENTITY_VALUE_TYPE } from '@/lib/listing/identity'
+import type { WorkflowSchemaType } from '@/lib/workflows/value-types'
 
 export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH' | 'HEAD'
-export type ToolParameterType =
-  | 'string'
-  | 'number'
-  | 'boolean'
-  | 'json'
-  | 'array'
-  | 'object'
-  | 'file'
-  | 'file[]'
-  | 'any'
-  | typeof LISTING_IDENTITY_VALUE_TYPE
+export type ToolParameterType = WorkflowSchemaType | 'file' | 'file[]' | 'any'
 
 export interface OutputProperty {
   type: ToolParameterType
