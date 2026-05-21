@@ -13,10 +13,12 @@ import { useMarketListingSearch } from '@/components/listing-selector/selector/u
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { formatDisplayText } from '@/components/ui/formatted-text'
 import { checkTagTrigger, TagDropdown } from '@/components/ui/tag-dropdown'
-import type { ListingIdentity, ListingOption } from '@/lib/listing/identity'
 import {
   areListingIdentitiesEqual,
   getListingIdentityKey,
+  LISTING_IDENTITY_VALUE_TYPE,
+  type ListingIdentity,
+  type ListingOption,
   toListingValue,
   toListingValueObject,
 } from '@/lib/listing/identity'
@@ -665,9 +667,8 @@ export function ListingSelector({
           activeSourceBlockId={null}
           inputValue={query}
           cursorPosition={cursorPosition}
-          allowVariables={false}
           allowContextualTags={false}
-          requiredOutputShape='listingIdentity'
+          allowedOutputTypes={[LISTING_IDENTITY_VALUE_TYPE]}
           onClose={() => {
             setShowTags(false)
           }}

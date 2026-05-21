@@ -6,6 +6,7 @@ import type {
   ParamType,
   SubBlockOption,
 } from '@/blocks/types'
+import { LISTING_IDENTITY_VALUE_TYPE } from '@/lib/listing/identity'
 import type { ToolConfig } from '@/tools/types'
 
 export function resolveOutputType(
@@ -31,7 +32,7 @@ interface ToolInputOptions {
 }
 
 const toParamType = (type: string): ParamType => {
-  const allowed: ParamType[] = ['string', 'number', 'boolean', 'json', 'array']
+  const allowed: ParamType[] = ['string', 'number', 'boolean', 'json', 'array', LISTING_IDENTITY_VALUE_TYPE]
   return allowed.includes(type as ParamType) ? (type as ParamType) : 'string'
 }
 

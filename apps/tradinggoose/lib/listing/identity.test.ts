@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { getListingIdentityKey, toListingValueObject } from '@/lib/listing/identity'
+import { getListingIdentityKey, parseListingIdentityValueStrict, toListingValueObject } from '@/lib/listing/identity'
 
 describe('listing identity helpers', () => {
   it('normalizes listing identities and builds canonical keys from one source', () => {
@@ -17,5 +17,13 @@ describe('listing identity helpers', () => {
       listing_type: 'default',
     })
     expect(listing ? getListingIdentityKey(listing) : null).toBe('default|AAPL||')
+
+    expect(parseListingIdentityValueStrict(JSON.stringify(listing))).toEqual(listing)
+    expect(() => parseListingIdentityValueStrict({ ...listing, base: 'AAPL' })).toThrow(
+      'Invalid listingIdentity value'
+    )
+    expect(() => parseListingIdentityValueStrict('{"listing_type":"stock"}')).toThrow(
+      'Invalid listingIdentity value'
+    )
   })
 })

@@ -2,6 +2,7 @@ import { createLogger } from '@/lib/logs/console/logger'
 import type { BlockOutput } from '@/blocks/types'
 import { BlockType } from '@/executor/consts'
 import type { BlockHandler } from '@/executor/types'
+import { LISTING_IDENTITY_VALUE_TYPE, parseListingIdentityValueStrict } from '@/lib/listing/identity'
 import type { SerializedBlock } from '@/serializer/types'
 
 const logger = createLogger('ResponseBlockHandler')
@@ -9,7 +10,7 @@ const logger = createLogger('ResponseBlockHandler')
 interface JSONProperty {
   id: string
   name: string
-  type: 'string' | 'number' | 'boolean' | 'object' | 'array' | 'files'
+  type: 'string' | 'number' | 'boolean' | 'object' | 'array' | 'files' | typeof LISTING_IDENTITY_VALUE_TYPE
   value: any
   collapsed?: boolean
 }
@@ -131,6 +132,8 @@ export class ResponseBlockHandler implements BlockHandler {
         return this.convertObjectValue(prop.value)
       case 'array':
         return this.convertArrayValue(prop.value)
+      case LISTING_IDENTITY_VALUE_TYPE:
+        return this.convertListingIdentityValue(prop.value)
       case 'number':
         return this.convertNumberValue(prop.value)
       case 'boolean':
@@ -185,7 +188,19 @@ export class ResponseBlockHandler implements BlockHandler {
       )
     }
 
+    if (item.type === LISTING_IDENTITY_VALUE_TYPE) {
+      return this.convertListingIdentityValue(item.value)
+    }
+
     return item.value
+  }
+
+  private convertListingIdentityValue(value: any): any {
+    if (this.isVariableReference(value)) {
+      return value
+    }
+
+    return parseListingIdentityValueStrict(value)
   }
 
   private convertNumberValue(value: any): any {

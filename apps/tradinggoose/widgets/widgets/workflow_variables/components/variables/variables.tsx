@@ -24,6 +24,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui'
+import { LISTING_IDENTITY_VALUE_TYPE } from '@/lib/listing/identity'
 import { createLogger } from '@/lib/logs/console/logger'
 import { validateName } from '@/lib/utils'
 import { useWorkflowVariables } from '@/lib/yjs/use-workflow-doc'
@@ -106,6 +107,8 @@ export function Variables({
         return '{ }'
       case 'array':
         return '[ ]'
+      case LISTING_IDENTITY_VALUE_TYPE:
+        return 'ID'
       default:
         throw new Error(`Unsupported variable type: ${String(type)}`)
     }
@@ -123,6 +126,8 @@ export function Variables({
         return '{\n  "key": "value"\n}'
       case 'array':
         return '[\n  1,\n  2,\n  3\n]'
+      case LISTING_IDENTITY_VALUE_TYPE:
+        return '{ }'
       default:
         throw new Error(`Unsupported variable type: ${String(type)}`)
     }
@@ -134,6 +139,7 @@ export function Variables({
         return 'plaintext'
       case 'object':
       case 'array':
+      case LISTING_IDENTITY_VALUE_TYPE:
       case 'boolean':
       case 'number':
         return 'javascript'
@@ -167,6 +173,7 @@ export function Variables({
   }
 
   const getValidationStatus = (variable: Variable): string | undefined => {
+    if (variable.validationError) return variable.validationError
     if (variable.value === '') return undefined
     switch (variable.type) {
       case 'number':
@@ -305,6 +312,13 @@ export function Variables({
                       >
                         <div className='mr-2 w-5 text-center font-[380] text-sm'>[]</div>
                         <span className='font-[380]'>Array</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => collaborativeUpdateVariable(variable.id, 'type', LISTING_IDENTITY_VALUE_TYPE)}
+                        className='flex cursor-pointer items-center rounded-md px-3 py-2 font-[380] text-card-foreground text-sm hover:bg-secondary/50 focus:bg-secondary/50'
+                      >
+                        <div className='mr-2 w-5 text-center font-[380] text-sm'>ID</div>
+                        <span className='font-[380]'>Listing Identity</span>
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>

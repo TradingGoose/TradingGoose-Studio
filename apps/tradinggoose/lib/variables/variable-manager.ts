@@ -1,3 +1,4 @@
+import { LISTING_IDENTITY_VALUE_TYPE, parseListingIdentityValueStrict } from '@/lib/listing/identity'
 import type { VariableType } from '@/stores/variables/types'
 
 /**
@@ -17,6 +18,10 @@ export class VariableManager {
    * @returns The value converted to its appropriate type
    */
   private static convertToNativeType(value: any, type: VariableType, forExecution = false): any {
+    if (type === LISTING_IDENTITY_VALUE_TYPE) {
+      return parseListingIdentityValueStrict(value)
+    }
+
     // Special handling for empty input values during storage
     if (value === '') {
       return value // Return empty string for all types during storage
@@ -119,6 +124,7 @@ export class VariableManager {
     context: 'editor' | 'text' | 'code'
   ): string {
     // Handle special cases first
+    if (value === '') return ''
     if (value === undefined) return context === 'code' ? 'undefined' : ''
     if (value === null) return context === 'code' ? 'null' : ''
 
@@ -138,6 +144,7 @@ export class VariableManager {
 
       case 'object':
       case 'array':
+      case LISTING_IDENTITY_VALUE_TYPE:
         if (context === 'editor') {
           // Pretty print for editor
           return JSON.stringify(typedValue, null, 2)

@@ -11,6 +11,7 @@
  */
 
 import type * as Y from 'yjs'
+import { LISTING_IDENTITY_VALUE_TYPE, parseListingIdentityValueStrict } from '@/lib/listing/identity'
 import { escapeRegExp } from '@/lib/utils'
 import type { Variable } from '@/stores/variables/types'
 import { rewriteWorkflowContentReferences } from './workflow-reference-rewrite'
@@ -117,6 +118,15 @@ export function validateVariableValue(type: Variable['type'], value: any): strin
           }
         } catch {
           return 'Invalid JSON array syntax'
+        }
+        break
+      }
+
+      case LISTING_IDENTITY_VALUE_TYPE: {
+        try {
+          parseListingIdentityValueStrict(value)
+        } catch {
+          return 'Invalid listingIdentity value'
         }
         break
       }
