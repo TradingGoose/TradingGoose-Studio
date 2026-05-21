@@ -3,7 +3,6 @@
 import { memo, useCallback, useEffect, useMemo, useState } from 'react'
 import { Braces, ChevronDown, WrapText } from 'lucide-react'
 import { ListingDisplayRow } from '@/components/listing-selector/listing/row'
-import { Button } from '@/components/ui/button'
 import {
   LISTING_IDENTITY_VALUE_TYPE,
   type ListingOption,
@@ -59,10 +58,6 @@ export interface JsonDisplayControlsProps {
   buttonClassName?: string | ((active: boolean) => string)
 }
 
-const MAX_STRING_LENGTH = 150
-const MAX_OBJECT_KEYS = 10
-const MAX_ARRAY_ITEMS = 20
-
 const BADGE_STYLES: Record<ValueType, string> = {
   string: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400',
   number: 'bg-blue-500/15 text-blue-600 dark:text-blue-400',
@@ -99,141 +94,6 @@ export function stringifyJsonDisplay(data: unknown, redact = true): string {
   }
 }
 
-const TruncatedValue = ({ value }: { value: string }) => {
-  const [isExpanded, setIsExpanded] = useState(false)
-
-  if (value.length <= MAX_STRING_LENGTH) {
-    return (
-      <span className='break-all font-[380] text-muted-foreground leading-normal'>{value}</span>
-    )
-  }
-
-  return (
-    <span className='break-all font-[380] text-muted-foreground leading-normal'>
-      {isExpanded ? value : `${value.slice(0, MAX_STRING_LENGTH)}...`}
-      <Button
-        variant='link'
-        size='sm'
-        className='h-auto px-1 font-[380] text-muted-foreground/70 text-xs hover:text-foreground'
-        onClick={(event) => {
-          event.stopPropagation()
-          setIsExpanded(!isExpanded)
-        }}
-      >
-        {isExpanded ? 'Show less' : 'Show more'}
-      </Button>
-    </span>
-  )
-}
-
-const CollapsibleJSON = ({ data, depth = 0 }: { data: unknown; depth?: number }) => {
-  const [isExpanded, setIsExpanded] = useState(false)
-
-  if (data === null) {
-    return <span className='break-all font-[380] text-muted-foreground leading-normal'>null</span>
-  }
-
-  if (data === undefined) {
-    return (
-      <span className='break-all font-[380] text-muted-foreground leading-normal'>undefined</span>
-    )
-  }
-
-  if (typeof data === 'string') {
-    return <TruncatedValue value={JSON.stringify(data)} />
-  }
-
-  if (typeof data === 'number' || typeof data === 'boolean') {
-    return (
-      <span className='break-all font-[380] text-muted-foreground leading-normal'>
-        {JSON.stringify(data)}
-      </span>
-    )
-  }
-
-  if (Array.isArray(data)) {
-    const shouldCollapse = depth > 0 && data.length > MAX_ARRAY_ITEMS
-
-    if (shouldCollapse && !isExpanded) {
-      return (
-        <span
-          className='cursor-pointer break-all font-[380] text-muted-foreground/70 text-xs leading-normal'
-          onClick={() => setIsExpanded(true)}
-        >
-          {'[...]'}
-        </span>
-      )
-    }
-
-    return (
-      <span className='break-all font-[380] text-muted-foreground/70 leading-normal'>
-        {'['}
-        {data.length > 0 && (
-          <>
-            {'\n'}
-            {data.map((item, index) => (
-              <span key={index} className='break-all'>
-                {'  '.repeat(depth + 1)}
-                <CollapsibleJSON data={item} depth={depth + 1} />
-                {index < data.length - 1 ? ',' : ''}
-                {'\n'}
-              </span>
-            ))}
-            {'  '.repeat(depth)}
-          </>
-        )}
-        {']'}
-      </span>
-    )
-  }
-
-  if (typeof data === 'object') {
-    const record = data as Record<string, unknown>
-    const keys = Object.keys(record)
-    const shouldCollapse = depth > 0 && keys.length > MAX_OBJECT_KEYS
-
-    if (shouldCollapse && !isExpanded) {
-      return (
-        <span
-          className='cursor-pointer break-all font-[380] text-muted-foreground/70 text-xs leading-normal'
-          onClick={() => setIsExpanded(true)}
-        >
-          {'{...}'}
-        </span>
-      )
-    }
-
-    return (
-      <span className='break-all font-[380] text-muted-foreground/70 leading-normal'>
-        {'{'}
-        {keys.length > 0 && (
-          <>
-            {'\n'}
-            {keys.map((key, index) => (
-              <span key={key} className='break-all'>
-                {'  '.repeat(depth + 1)}
-                <span className='break-all font-[380] text-foreground leading-normal'>{key}</span>
-                <span className='font-[380] text-muted-foreground/60 leading-normal'>: </span>
-                <CollapsibleJSON data={record[key]} depth={depth + 1} />
-                {index < keys.length - 1 ? ',' : ''}
-                {'\n'}
-              </span>
-            ))}
-            {'  '.repeat(depth)}
-          </>
-        )}
-        {'}'}
-      </span>
-    )
-  }
-
-  return (
-    <span className='break-all font-[380] text-muted-foreground leading-normal'>
-      {JSON.stringify(data)}
-    </span>
-  )
-}
-
 const copyToClipboard = (data: unknown, redact = true) => {
   navigator.clipboard.writeText(stringifyJsonDisplay(data, redact))
 }
@@ -248,7 +108,7 @@ export const RawJsonView = ({
     x: number
     y: number
   } | null>(null)
-  const displayData = useMemo(() => getDisplayData(data, redact), [data, redact])
+  const displayText = useMemo(() => stringifyJsonDisplay(data, redact), [data, redact])
 
   const handleContextMenu = (event: React.MouseEvent) => {
     event.preventDefault()
@@ -263,57 +123,24 @@ export const RawJsonView = ({
     }
   }, [contextMenuPosition])
 
-  if (displayData === null) {
-    return <span className='font-[380] text-muted-foreground leading-normal'>null</span>
-  }
-
-  if (typeof displayData !== 'object') {
-    const stringValue =
-      displayData === undefined ? 'undefined' : (JSON.stringify(displayData) ?? String(displayData))
-    return (
-      <span
-        onContextMenu={handleContextMenu}
-        className={cn(
-          'relative max-w-full font-[380] font-mono text-muted-foreground leading-normal',
-          wrapText ? 'overflow-hidden break-all' : 'overflow-x-auto whitespace-pre',
-          className
-        )}
-      >
-        {typeof displayData === 'string' ? (
-          <TruncatedValue value={stringValue} />
-        ) : (
-          <span className='break-all font-[380] text-muted-foreground leading-normal'>
-            {stringValue}
-          </span>
-        )}
-        {contextMenuPosition && (
-          <div
-            className='fixed z-50 min-w-[160px] rounded-md border bg-popover py-1 shadow-md'
-            style={{ left: contextMenuPosition.x, top: contextMenuPosition.y }}
-          >
-            <button
-              className='w-full px-3 py-1.5 text-left font-[380] text-sm hover:bg-card'
-              onClick={() => copyToClipboard(displayData, redact)}
-            >
-              Copy value
-            </button>
-          </div>
-        )}
-      </span>
-    )
-  }
-
   return (
-    <div onContextMenu={handleContextMenu} className={className}>
+    <div
+      onContextMenu={handleContextMenu}
+      className={cn(
+        'relative block w-full min-w-0 max-w-full font-[380] font-mono text-muted-foreground leading-normal [contain:inline-size]',
+        className,
+        wrapText ? 'overflow-y-auto overflow-x-hidden' : 'overflow-auto'
+      )}
+    >
       <pre
         className={cn(
-          'max-w-full px-2 font-mono',
+          'm-0 px-2 font-sm text-sm text-foreground leading-[inherit]',
           wrapText
-            ? 'overflow-hidden whitespace-pre-wrap break-all'
-            : 'overflow-x-auto whitespace-pre'
+            ? 'whitespace-pre-wrap break-words'
+            : 'inline-block min-w-full whitespace-pre break-normal'
         )}
       >
-        <CollapsibleJSON data={displayData} />
+        {displayText}
       </pre>
       {contextMenuPosition && (
         <div
@@ -322,9 +149,9 @@ export const RawJsonView = ({
         >
           <button
             className='w-full px-3 py-1.5 text-left font-[380] text-sm hover:bg-card'
-            onClick={() => copyToClipboard(displayData, redact)}
+            onClick={() => copyToClipboard(data, redact)}
           >
-            Copy object
+            Copy value
           </button>
         </div>
       )}
@@ -487,9 +314,9 @@ const StructuredNode = memo(function StructuredNode({
   const badgeStyle = isError ? 'bg-red-500/15 text-red-600 dark:text-red-400' : BADGE_STYLES[type]
 
   return (
-    <div className='flex min-w-0 flex-col'>
+    <div className={cn('flex min-w-0 flex-col', !wrapText && 'w-max min-w-full')}>
       <div
-        className={STRUCTURED_STYLES.row}
+        className={cn(STRUCTURED_STYLES.row, !wrapText && 'w-max min-w-full')}
         onClick={handleToggle}
         onKeyDown={handleKeyDown}
         role='button'
@@ -507,12 +334,12 @@ const StructuredNode = memo(function StructuredNode({
       </div>
 
       {isExpanded && (
-        <div className={STRUCTURED_STYLES.indent}>
+        <div className={cn(STRUCTURED_STYLES.indent, !wrapText && 'w-max min-w-full')}>
           {isPrimitiveValue ? (
             <div
               className={cn(
                 STRUCTURED_STYLES.value,
-                wrapText ? 'break-words' : 'whitespace-nowrap'
+                wrapText ? 'break-words' : 'w-max min-w-full whitespace-nowrap'
               )}
             >
               {formatPrimitive(value)}
@@ -575,9 +402,9 @@ export const StructuredJsonView = memo(function StructuredJsonView({
   }, [displayData])
 
   const containerClass = cn(
-    'flex flex-col pl-[20px]',
-    wrapText ? 'overflow-x-hidden' : 'overflow-x-auto',
-    className
+    'flex w-full min-w-0 max-w-full flex-col pl-[20px] [contain:inline-size]',
+    className,
+    wrapText ? 'overflow-x-hidden overflow-y-auto' : 'overflow-auto'
   )
 
   if (isRunning && displayData === undefined) {

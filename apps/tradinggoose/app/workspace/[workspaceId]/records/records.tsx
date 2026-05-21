@@ -812,13 +812,13 @@ export default function Records() {
         <ResizablePanel
           order={1}
           defaultSize={panelLayout?.[0] ?? 60}
-          minSize={50}
+          minSize={30}
           className='flex h-full max-h-full min-h-0 min-w-0 flex-col overflow-hidden'
         >
           {primary}
         </ResizablePanel>
         <ResizableHandle withHandle />
-        <ResizablePanel order={2} defaultSize={panelLayout?.[1] ?? 40} minSize={20}>
+        <ResizablePanel order={2} defaultSize={panelLayout?.[1] ?? 40} minSize={30} maxSize={70}>
           {detail}
         </ResizablePanel>
       </ResizablePanelGroup>

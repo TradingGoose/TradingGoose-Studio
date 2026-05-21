@@ -4,15 +4,12 @@ import type { JsonDisplayMode } from '@/components/json-display/json-display'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { getIconTileStyle, sanitizeSolidIconColor } from '@/lib/ui/icon-colors'
 import { cn } from '@/lib/utils'
-import {
-  CollapsibleInputOutput,
-  normalizeChildWorkflowSpan,
-} from '@/app/workspace/[workspaceId]/records/components/log-details/components/trace-spans'
 import { scaleLogCostBreakdown } from '@/app/workspace/[workspaceId]/records/utils'
 import { getBlock } from '@/blocks/registry'
 import { isSkillLoaderToolId } from '@/executor/handlers/agent/skill-loader'
 import { formatCost, getProviderIcon } from '@/providers/ai/utils'
 import type { TraceSpan } from '@/stores/logs/filters/types'
+import { CollapsibleInputOutput } from './collapsible-input-output'
 
 interface TraceSpanItemProps {
   span: TraceSpan
@@ -27,12 +24,10 @@ interface TraceSpanItemProps {
   forwardHover: (clientX: number, clientY: number) => void
   gapBeforeMs?: number
   gapBeforePercent?: number
-  showRelativeChip?: boolean
   jsonDisplayMode: JsonDisplayMode
   jsonWrapText: boolean
-  chipVisibility?: {
+  chipVisibility: {
     model: boolean
-    toolProvider: boolean
     tokens: boolean
     cost: boolean
     relative: boolean
@@ -52,10 +47,9 @@ export function TraceSpanItem({
   forwardHover,
   gapBeforeMs = 0,
   gapBeforePercent = 0,
-  showRelativeChip = true,
   jsonDisplayMode,
   jsonWrapText,
-  chipVisibility = { model: true, toolProvider: true, tokens: true, cost: true, relative: true },
+  chipVisibility,
 }: TraceSpanItemProps): React.ReactNode {
   const spanId = span.id || `span-${span.name}-${span.startTime}`
   const expanded = expandedSpans.has(spanId)
@@ -245,7 +239,7 @@ export function TraceSpanItem({
   }
 
   return (
-    <div className={cn('relative border-b transition-colors last:border-b-0')}>
+    <div className='relative border-b transition-colors last:border-b-0'>
       {depth > 0 && (
         <div
           className='pointer-events-none absolute top-0 bottom-0 border-border/60 border-l'
@@ -390,7 +384,7 @@ export function TraceSpanItem({
                   </Tooltip>
                 </TooltipProvider>
               )}
-              {showRelativeChip && depth > 0 && (
+              {chipVisibility.relative && depth > 0 && (
                 <span className='inline-flex items-center rounded bg-secondary px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground tabular-nums'>
                   {span.relativeStartMs !== undefined
                     ? `+${span.relativeStartMs}ms`
@@ -610,14 +604,12 @@ export function TraceSpanItem({
           {hasChildren && (
             <div>
               {span.children?.map((childSpan, index) => {
-                const enrichedChildSpan = normalizeChildWorkflowSpan(childSpan)
-
                 let childGapMs = 0
                 let childGapPercent = 0
                 if (index > 0 && span.children) {
                   const prevChild = span.children[index - 1]
                   const prevEndTime = new Date(prevChild.endTime).getTime()
-                  const currentStartTime = new Date(enrichedChildSpan.startTime).getTime()
+                  const currentStartTime = new Date(childSpan.startTime).getTime()
                   childGapMs = currentStartTime - prevEndTime
                   if (childGapMs > 0 && totalDuration > 0) {
                     childGapPercent = (childGapMs / totalDuration) * 100
@@ -627,7 +619,7 @@ export function TraceSpanItem({
                 return (
                   <TraceSpanItem
                     key={index}
-                    span={enrichedChildSpan}
+                    span={childSpan}
                     depth={depth + 1}
                     totalDuration={totalDuration}
                     parentStartTime={spanStartTime}
@@ -638,7 +630,6 @@ export function TraceSpanItem({
                     costMultiplier={costMultiplier}
                     gapBeforeMs={childGapMs}
                     gapBeforePercent={childGapPercent}
-                    showRelativeChip={chipVisibility.relative}
                     jsonDisplayMode={jsonDisplayMode}
                     jsonWrapText={jsonWrapText}
                     chipVisibility={chipVisibility}
@@ -684,7 +675,6 @@ export function TraceSpanItem({
                     expandedSpans={expandedSpans}
                     forwardHover={forwardHover}
                     costMultiplier={costMultiplier}
-                    showRelativeChip={chipVisibility.relative}
                     jsonDisplayMode={jsonDisplayMode}
                     jsonWrapText={jsonWrapText}
                     chipVisibility={chipVisibility}

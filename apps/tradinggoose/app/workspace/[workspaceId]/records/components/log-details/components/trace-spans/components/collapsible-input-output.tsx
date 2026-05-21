@@ -27,15 +27,10 @@ export function CollapsibleInputOutput({
   const leftMargin = depth * 16 + 8 + 24
   const inputCopyText = useMemo(() => stringifyJsonDisplay(span.input), [span.input])
   const outputCopyText = useMemo(() => stringifyJsonDisplay(span.output), [span.output])
-  const dataContainerClassName = `group relative max-h-60 overflow-y-auto rounded p-2 ${
-    wrapText ? 'overflow-x-hidden' : 'overflow-x-auto'
-  }`
+  const dataContainerClassName = 'group relative rounded'
 
   return (
-    <div
-      className='mt-2 mr-4 mb-4 space-y-3 overflow-hidden'
-      style={{ marginLeft: `${leftMargin}px` }}
-    >
+    <div className='mt-2 mr-4 mb-4 space-y-3' style={{ marginLeft: `${leftMargin}px` }}>
       {span.input && (
         <div>
           <button
@@ -50,14 +45,14 @@ export function CollapsibleInputOutput({
             Input
           </button>
           {inputExpanded && (
-            <div className='mb-2 overflow-hidden rounded-md bg-secondary/30 p-3'>
+            <div className='mb-2 rounded-md bg-secondary/30 p-3'>
               <div className={dataContainerClassName}>
                 <CopyButton text={inputCopyText} />
                 <JsonDisplay
                   data={span.input}
                   mode={displayMode}
                   wrapText={wrapText}
-                  className='text-xs'
+                  className='max-h-60 text-xs'
                 />
               </div>
             </div>
@@ -79,14 +74,14 @@ export function CollapsibleInputOutput({
             {span.status === 'error' ? 'Error' : 'Output'}
           </button>
           {outputExpanded && (
-            <div className='mb-2 overflow-hidden rounded-md bg-secondary/30 p-3'>
+            <div className='mb-2 rounded-md bg-secondary/30 p-3'>
               <div className={dataContainerClassName}>
                 <CopyButton text={outputCopyText} />
                 <JsonDisplay
                   data={span.output}
                   mode={displayMode}
                   wrapText={wrapText}
-                  className='text-xs'
+                  className='max-h-60 text-xs'
                 />
               </div>
             </div>
