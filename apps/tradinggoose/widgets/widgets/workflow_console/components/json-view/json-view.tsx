@@ -215,7 +215,7 @@ export const JSONView = ({ data, wrapText = true }: JSONViewProps) => {
     <div onContextMenu={handleContextMenu}>
       <pre
         className={cn(
-          'max-w-full font-mono',
+          'max-w-full font-mono px-2',
           wrapText ? 'overflow-hidden whitespace-pre-wrap break-all' : 'overflow-x-auto whitespace-pre'
         )}
       >

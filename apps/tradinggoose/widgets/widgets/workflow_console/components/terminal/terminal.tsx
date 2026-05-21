@@ -426,7 +426,7 @@ export const Terminal = memo(function Terminal({
   }, [])
 
   const leftPanel = (
-    <div className='flex h-full flex-col rounded-md border border-border bg-card m-1'>
+    <div className='flex h-full flex-col rounded-md border border-border bg-card'>
       <div className='flex-1 overflow-hidden'>
         {executionGroups.length === 0 ? (
           <div className='flex h-full items-center justify-center text-sm text-muted-foreground'>
@@ -476,7 +476,7 @@ export const Terminal = memo(function Terminal({
   )
 
   const rightPanel = selectedEntry ? (
-    <div className='flex h-full flex-col overflow-hidden rounded-md border border-border bg-card m-1'>
+    <div className='flex h-full flex-col overflow-hidden rounded-md border border-border bg-card'>
       <OutputPanel
         entry={selectedEntry}
         consoleWidth={panelWidth || 0}
@@ -497,7 +497,7 @@ export const Terminal = memo(function Terminal({
   return (
     <ResizablePanelGroup
       direction='horizontal'
-      className='h-full w-full'
+      className='h-full w-full p-1 gap-1'
       onLayout={(sizes) => setPanelLayout(sizes)}
     >
       <ResizablePanel defaultSize={leftPanelSize} minSize={35} className='min-w-0'>

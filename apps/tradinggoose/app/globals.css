@@ -562,15 +562,15 @@ input[type="search"]::-ms-clear {
      ========================================================================== */
   @keyframes pulse-ring {
     0% {
-      box-shadow: 0 0 0 0 hsl(var(--border));
+      box-shadow: 0 0 0 0 var(--block-active-color);
     }
 
     50% {
-      box-shadow: 0 0 0 8px hsl(var(--border));
+      box-shadow: 0 0 0 8px var(--block-active-color);
     }
 
     100% {
-      box-shadow: 0 0 0 0 hsl(var(--border));
+      box-shadow: 0 0 0 0 var(--block-active-color);
     }
   }
 

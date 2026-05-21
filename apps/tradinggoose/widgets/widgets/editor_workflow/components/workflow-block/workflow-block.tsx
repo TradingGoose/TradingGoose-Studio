@@ -713,7 +713,7 @@ export const WorkflowBlock = memo(
                 'transition-block-bg transition-ring',
                 'w-[320px]',
                 !isEnabled && 'shadow-sm',
-                isActive && 'animate-pulse-ring ring-2 ring-blue-500',
+                isActive && 'animate-pulse-ring ring-2 ring-[var(--block-active-color)]',
                 isPending && 'ring-2 ring-yellow-500',
                 !hasPriorityRing && 'hover:ring-1 hover:ring-[var(--block-hover-color)]',
                 'z-[20]'
@@ -721,8 +721,10 @@ export const WorkflowBlock = memo(
               style={
                 {
                   '--block-hover-color': blockAccentColor,
+                  '--block-active-color': blockAccentColor,
                   ...(selected ? { borderColor: blockAccentColor, borderWidth: '1px' } : {}),
-                } as CSSProperties & Record<'--block-hover-color', string>
+                } as CSSProperties &
+                  Record<'--block-active-color' | '--block-hover-color', string>
               }
             >
               {/* Show debug indicator for pending blocks */}
