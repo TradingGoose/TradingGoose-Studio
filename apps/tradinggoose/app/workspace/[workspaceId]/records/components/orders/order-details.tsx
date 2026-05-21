@@ -172,59 +172,41 @@ export function OrderDetails({
   if (mode === 'log') {
     if (!hasLinkedLog) {
       return (
-        <div className='flex h-full flex-col'>
-          <OrderPanelHeader
-            order={order}
-            mode={mode}
-            onModeChange={onModeChange}
-            onClose={onClose}
-            onNavigateNext={onNavigateNext}
-            onNavigatePrev={onNavigatePrev}
-            hasNext={hasNext}
-            hasPrev={hasPrev}
-          />
-          <div className='flex flex-1 items-center justify-center p-6 text-center text-muted-foreground text-sm'>
-            No log is connected to this order.
-          </div>
-        </div>
+        <LogDetails
+          log={null}
+          isOpen
+          stateContent='No log is connected to this order.'
+          onClose={onClose}
+          onNavigateNext={onNavigateNext}
+          onNavigatePrev={onNavigatePrev}
+          hasNext={hasNext}
+          hasPrev={hasPrev}
+        />
       )
     }
 
     if (linkedLogLoading) {
       return (
-        <div className='flex h-full flex-col'>
-          <OrderPanelHeader
-            order={order}
-            mode={mode}
-            onModeChange={onModeChange}
-            onClose={onClose}
-            onNavigateNext={onNavigateNext}
-            onNavigatePrev={onNavigatePrev}
-            hasNext={hasNext}
-            hasPrev={hasPrev}
-          />
-          <div className='flex flex-1 items-center justify-center gap-2 text-muted-foreground text-sm'>
-            <Loader2 className='h-4 w-4 animate-spin' />
-            Loading workflow log...
-          </div>
-        </div>
+        <LogDetails
+          log={null}
+          isOpen
+          isLoading
+          stateContent='Loading workflow log...'
+          onClose={onClose}
+          onNavigateNext={onNavigateNext}
+          onNavigatePrev={onNavigatePrev}
+          hasNext={hasNext}
+          hasPrev={hasPrev}
+        />
       )
     }
 
     if (linkedLogError || !linkedLog) {
       return (
-        <div className='flex h-full flex-col'>
-          <OrderPanelHeader
-            order={order}
-            mode={mode}
-            onModeChange={onModeChange}
-            onClose={onClose}
-            onNavigateNext={onNavigateNext}
-            onNavigatePrev={onNavigatePrev}
-            hasNext={hasNext}
-            hasPrev={hasPrev}
-          />
-          <div className='flex flex-1 items-center justify-center p-6'>
+        <LogDetails
+          log={null}
+          isOpen
+          stateContent={
             <div className='space-y-3 text-center text-sm'>
               <AlertCircle className='mx-auto h-5 w-5 text-destructive' />
               <p className='text-muted-foreground'>
@@ -234,8 +216,13 @@ export function OrderDetails({
                 Retry
               </Button>
             </div>
-          </div>
-        </div>
+          }
+          onClose={onClose}
+          onNavigateNext={onNavigateNext}
+          onNavigatePrev={onNavigatePrev}
+          hasNext={hasNext}
+          hasPrev={hasPrev}
+        />
       )
     }
 
