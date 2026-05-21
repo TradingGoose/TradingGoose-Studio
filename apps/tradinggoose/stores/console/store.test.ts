@@ -21,9 +21,7 @@ vi.mock('@/lib/utils', async (importOriginal) => {
 
 describe('Console Store', () => {
   beforeEach(() => {
-    useConsoleStore.setState({
-      entries: [],
-    })
+    useConsoleStore.getState().clearConsole(null)
     vi.clearAllMocks()
     uuidCounter = 0
     // Clear localStorage mock
@@ -237,6 +235,35 @@ describe('Console Store', () => {
       const state = useConsoleStore.getState()
       expect(state.entries).toHaveLength(1)
       expect(state.entries[0].workflowId).toBe('workflow-2')
+    })
+
+    it('clears stream buffers for the removed workflow', () => {
+      const store = useConsoleStore.getState()
+
+      store.ingestWorkflowExecutionEvent({
+        executionId: 'exec-stream-clear',
+        workflowId: 'workflow-1',
+        timestamp: '2026-04-01T00:00:00.000Z',
+        type: 'stream:chunk',
+        data: { blockId: 'agent-1', chunk: 'before-clear' },
+      })
+
+      store.clearConsole('workflow-1')
+
+      store.ingestWorkflowExecutionEvent({
+        executionId: 'exec-stream-clear',
+        workflowId: 'workflow-1',
+        type: 'stream:chunk',
+        timestamp: '2026-04-01T00:00:01.000Z',
+        data: { blockId: 'agent-1', chunk: 'after-clear' },
+      })
+
+      const entries = useConsoleStore
+        .getState()
+        .entries.filter((entry) => entry.workflowId === 'workflow-1')
+
+      expect(entries).toHaveLength(1)
+      expect(entries[0]?.output?.content).toBe('after-clear')
     })
   })
 

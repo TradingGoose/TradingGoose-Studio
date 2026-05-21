@@ -215,6 +215,13 @@ const executionBlockKey = (executionId: string | undefined, blockId: string) =>
 
 const streamBuffers = new Map<string, string>()
 
+const clearExecutionStreamBuffers = (executionId: string | undefined) => {
+  const prefix = `${executionId ?? 'execution'}:`
+  for (const key of streamBuffers.keys()) {
+    if (key.startsWith(prefix)) streamBuffers.delete(key)
+  }
+}
+
 const findExecutionEntry = (
   entries: ConsoleEntry[],
   event: Pick<WorkflowExecutionEvent, 'workflowId' | 'executionId'>,
@@ -288,7 +295,13 @@ export const useConsoleStore = create<ConsoleStore>()(
               return { entries: [] }
             }
 
-            return { entries: state.entries.filter((entry) => entry.workflowId !== workflowId) }
+            return {
+              entries: state.entries.filter((entry) => {
+                if (entry.workflowId !== workflowId) return true
+                clearExecutionStreamBuffers(entry.executionId)
+                return false
+              }),
+            }
           })
         },
 
@@ -436,13 +449,6 @@ export const useConsoleStore = create<ConsoleStore>()(
             })
           }
 
-          const clearExecutionStreamBuffers = () => {
-            const prefix = `${event.executionId}:`
-            for (const key of streamBuffers.keys()) {
-              if (key.startsWith(prefix)) streamBuffers.delete(key)
-            }
-          }
-
           if (event.type === 'block:started') {
             streamBuffers.delete(executionBlockKey(event.executionId, event.data.blockId))
             writeBlock(event.data, { success: true, isRunning: true, isCanceled: false })
@@ -505,7 +511,9 @@ export const useConsoleStore = create<ConsoleStore>()(
             return
           }
 
-          if (isTerminalWorkflowExecutionEvent(event)) clearExecutionStreamBuffers()
+          if (isTerminalWorkflowExecutionEvent(event)) {
+            clearExecutionStreamBuffers(event.executionId)
+          }
         },
 
         cancelRunningEntries: (workflowId: string) => {
