@@ -601,9 +601,8 @@ export const WorkflowBlock = memo(
         return
       }
       const trimmedName = editedName.trim().slice(0, 18)
-      if (trimmedName && trimmedName !== name) {
-        collaborativeUpdateBlockName(id, trimmedName)
-      }
+      if (trimmedName && trimmedName !== name && !collaborativeUpdateBlockName(id, trimmedName))
+        return
       setIsEditing(false)
     }
 

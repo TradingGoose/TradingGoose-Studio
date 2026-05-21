@@ -115,7 +115,7 @@ export function useWorkflowEditorActions() {
 
   const collaborativeUpdateBlockName = useCallback(
     (id: string, name: string) => {
-      mutations.updateBlockName(id, name)
+      return mutations.updateBlockName(id, name)
     },
     [mutations]
   )

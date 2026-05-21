@@ -352,6 +352,14 @@ describe('useWorkflowMutations', () => {
 
     expect((workflowMap.get('blocks') as Record<string, any>)['block-1']?.name).toBe('Block 1')
 
+    const updateSpy = vi.fn()
+    doc.on('update', updateSpy)
+    await act(async () => {
+      expect(mutations?.updateBlockName('block-1', 'Block 1')).toBe(true)
+    })
+    doc.off('update', updateSpy)
+    expect(updateSpy).not.toHaveBeenCalled()
+
     await act(async () => {
       mutations?.updateBlockName('block-1', 'Block 2')
     })

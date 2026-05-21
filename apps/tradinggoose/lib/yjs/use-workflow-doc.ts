@@ -1027,6 +1027,10 @@ export function useWorkflowMutations() {
             normalizeBlockName(otherBlock.name) === normalizedRequestedName
         )
         if (hasCollision) return
+        if (block.name === trimmedName) {
+          success = true
+          return
+        }
 
         wm.set(YJS_KEYS.BLOCKS, { ...blocks, [id]: { ...block, name: trimmedName } })
 
