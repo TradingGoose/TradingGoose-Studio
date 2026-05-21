@@ -2,12 +2,25 @@
 
 import { memo, useCallback, useEffect, useMemo, useState } from 'react'
 import { Braces, ChevronDown, WrapText } from 'lucide-react'
+import { ListingDisplayRow } from '@/components/listing-selector/listing/row'
 import { Button } from '@/components/ui/button'
-import { LISTING_IDENTITY_VALUE_TYPE, toListingValueObject } from '@/lib/listing/identity'
+import {
+  LISTING_IDENTITY_VALUE_TYPE,
+  type ListingOption,
+  toListingValueObject,
+} from '@/lib/listing/identity'
 import { cn, redactApiKeys } from '@/lib/utils'
 
 export type JsonDisplayMode = 'beauty' | 'raw'
-type ValueType = 'null' | 'undefined' | 'array' | 'string' | 'number' | 'boolean' | 'object' | typeof LISTING_IDENTITY_VALUE_TYPE
+type ValueType =
+  | 'null'
+  | 'undefined'
+  | 'array'
+  | 'string'
+  | 'number'
+  | 'boolean'
+  | 'object'
+  | typeof LISTING_IDENTITY_VALUE_TYPE
 
 interface NodeEntry {
   key: string
@@ -327,6 +340,43 @@ function getTypeLabel(value: unknown): ValueType {
   return typeof value as ValueType
 }
 
+const readRecordText = (record: Record<string, unknown>, key: string): string => {
+  const raw = record[key]
+  if (typeof raw === 'string') return raw.trim()
+  if (typeof raw === 'number' && Number.isFinite(raw)) return String(raw)
+  return ''
+}
+
+function toListingDisplayOption(value: unknown): ListingOption | null {
+  const listing = toListingValueObject(value)
+  if (!listing) return null
+
+  const record = value as Record<string, unknown>
+  const base =
+    readRecordText(record, 'base') ||
+    (listing.listing_type === 'default' ? listing.listing_id : listing.base_id)
+  const quote =
+    readRecordText(record, 'quote') || (listing.listing_type === 'default' ? '' : listing.quote_id)
+
+  return {
+    ...listing,
+    base,
+    quote: quote || null,
+    name: readRecordText(record, 'name') || null,
+    iconUrl: readRecordText(record, 'iconUrl') || null,
+    assetClass:
+      readRecordText(record, 'assetClass') ||
+      (listing.listing_type === 'default' ? null : listing.listing_type),
+    countryCode: readRecordText(record, 'countryCode') || null,
+    cityName: readRecordText(record, 'cityName') || null,
+    marketCode: readRecordText(record, 'marketCode') || null,
+    primaryMicCode: readRecordText(record, 'primaryMicCode') || null,
+    timeZoneName: readRecordText(record, 'timeZoneName') || null,
+    base_asset_class: readRecordText(record, 'base_asset_class') || null,
+    quote_asset_class: readRecordText(record, 'quote_asset_class') || null,
+  }
+}
+
 function formatPrimitive(value: unknown): string {
   if (value === null) return 'null'
   if (value === undefined) return 'undefined'
@@ -383,6 +433,7 @@ function getCollapsedSummary(value: unknown): string | null {
 function computeInitialPaths(data: unknown, isError: boolean): Set<string> {
   if (isError) return new Set(['root.error'])
   if (!data || typeof data !== 'object') return new Set()
+  if (toListingValueObject(data)) return new Set(['root.value'])
   const entries = Array.isArray(data)
     ? data.map((_, index) => `root[${index}]`)
     : Object.keys(data).map((key) => `root.${key}`)
@@ -412,6 +463,7 @@ const StructuredNode = memo(function StructuredNode({
   const isPrimitiveValue = isPrimitive(value)
   const isEmptyValue = !isPrimitiveValue && isEmpty(value)
   const isExpanded = expandedPaths.has(path)
+  const listing = toListingDisplayOption(value)
 
   const handleToggle = useCallback(() => onToggle(path), [onToggle, path])
 
@@ -430,10 +482,7 @@ const StructuredNode = memo(function StructuredNode({
     [value, isPrimitiveValue, isEmptyValue, path]
   )
 
-  const collapsedSummary = useMemo(
-    () => (isPrimitiveValue ? null : getCollapsedSummary(value)),
-    [value, isPrimitiveValue]
-  )
+  const collapsedSummary = isPrimitiveValue || listing ? null : getCollapsedSummary(value)
 
   const badgeStyle = isError ? 'bg-red-500/15 text-red-600 dark:text-red-400' : BADGE_STYLES[type]
 
@@ -449,9 +498,11 @@ const StructuredNode = memo(function StructuredNode({
       >
         <span className={cn(STRUCTURED_STYLES.keyName, isError && 'text-destructive')}>{name}</span>
         <span className={cn(STRUCTURED_STYLES.badge, badgeStyle)}>{type}</span>
-        {!isExpanded && collapsedSummary && (
+        {listing ? (
+          <ListingDisplayRow listing={listing} showSecondary className='min-w-0 flex-1' />
+        ) : !isExpanded && collapsedSummary ? (
           <span className={STRUCTURED_STYLES.summary}>{collapsedSummary}</span>
-        )}
+        ) : null}
         <ChevronDown className={cn(STRUCTURED_STYLES.chevron, !isExpanded && '-rotate-90')} />
       </div>
 
@@ -517,7 +568,7 @@ export const StructuredJsonView = memo(function StructuredJsonView({
   }, [])
 
   const rootEntries = useMemo<NodeEntry[]>(() => {
-    if (isPrimitive(displayData)) {
+    if (isPrimitive(displayData) || toListingValueObject(displayData)) {
       return [{ key: 'value', value: displayData, path: 'root.value' }]
     }
     return buildEntries(displayData, 'root')
