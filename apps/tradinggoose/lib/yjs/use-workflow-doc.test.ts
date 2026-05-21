@@ -290,7 +290,7 @@ describe('useWorkflowMutations', () => {
     })
   })
 
-  it('preserves the typed block name unless another block already uses the normalized prefix', async () => {
+  it('allows typed block names unless another block already uses the normalized name', async () => {
     const doc = new Y.Doc()
     const workflowMap = doc.getMap('workflow')
     workflowMap.set('blocks', {
@@ -306,7 +306,7 @@ describe('useWorkflowMutations', () => {
       'block-2': {
         id: 'block-2',
         type: 'script',
-        name: 'myblock 1',
+        name: 'Block 2',
         enabled: true,
         position: { x: 30, y: 40 },
         subBlocks: {},
@@ -347,18 +347,16 @@ describe('useWorkflowMutations', () => {
     })
 
     await act(async () => {
-      mutations?.updateBlockName('block-1', 'My Block')
+      mutations?.updateBlockName('block-1', 'Block 1')
     })
 
-    expect((workflowMap.get('blocks') as Record<string, any>)['block-1']?.name).toBe('My Block 2')
+    expect((workflowMap.get('blocks') as Record<string, any>)['block-1']?.name).toBe('Block 1')
 
     await act(async () => {
-      mutations?.updateBlockName('block-1', 'Human Friendly Name')
+      mutations?.updateBlockName('block-1', 'Block 2')
     })
 
-    expect((workflowMap.get('blocks') as Record<string, any>)['block-1']?.name).toBe(
-      'Human Friendly Name'
-    )
+    expect((workflowMap.get('blocks') as Record<string, any>)['block-1']?.name).toBe('Block 1')
   })
 
   it('rewrites block-name references in subBlocks and text fields when renaming a block', async () => {
