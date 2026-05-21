@@ -3,10 +3,11 @@
 import { memo, useCallback, useEffect, useMemo, useState } from 'react'
 import { Braces, ChevronDown, WrapText } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { LISTING_IDENTITY_VALUE_TYPE, toListingValueObject } from '@/lib/listing/identity'
 import { cn, redactApiKeys } from '@/lib/utils'
 
 export type JsonDisplayMode = 'beauty' | 'raw'
-type ValueType = 'null' | 'undefined' | 'array' | 'string' | 'number' | 'boolean' | 'object'
+type ValueType = 'null' | 'undefined' | 'array' | 'string' | 'number' | 'boolean' | 'object' | typeof LISTING_IDENTITY_VALUE_TYPE
 
 interface NodeEntry {
   key: string
@@ -57,6 +58,7 @@ const BADGE_STYLES: Record<ValueType, string> = {
   null: 'bg-muted text-muted-foreground',
   undefined: 'bg-muted text-muted-foreground',
   object: 'bg-muted text-muted-foreground',
+  [LISTING_IDENTITY_VALUE_TYPE]: 'bg-cyan-500/15 text-cyan-600 dark:text-cyan-400',
 }
 
 const STRUCTURED_STYLES = {
@@ -321,6 +323,7 @@ function getTypeLabel(value: unknown): ValueType {
   if (value === null) return 'null'
   if (value === undefined) return 'undefined'
   if (Array.isArray(value)) return 'array'
+  if (toListingValueObject(value)) return LISTING_IDENTITY_VALUE_TYPE
   return typeof value as ValueType
 }
 

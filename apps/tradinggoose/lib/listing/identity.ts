@@ -75,7 +75,7 @@ export const toListingValue = (
   return normalizeListingIdentity(listing as Record<string, unknown>)
 }
 
-export const toListingValueObject = (value: ListingInputValue): ListingIdentity | null => {
+export const toListingValueObject = (value: unknown): ListingIdentity | null => {
   return normalizeListingIdentityValue(value)
 }
 
