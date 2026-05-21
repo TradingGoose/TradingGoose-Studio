@@ -1,5 +1,5 @@
-import type { NormalizedBlockOutput } from '@/executor/types'
 import type { WorkflowExecutionEvent } from '@/lib/workflows/execution-events'
+import type { NormalizedBlockOutput } from '@/executor/types'
 
 export interface ConsoleEntry {
   id: string

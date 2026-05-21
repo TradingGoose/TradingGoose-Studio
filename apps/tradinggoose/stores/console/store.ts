@@ -1,12 +1,12 @@
-import { createWithEqualityFn as create } from 'zustand/traditional'
 import { devtools, persist } from 'zustand/middleware'
+import { createWithEqualityFn as create } from 'zustand/traditional'
 import { redactApiKeys } from '@/lib/utils'
-import { isTerminalWorkflowExecutionEvent } from '@/lib/workflows/execution-events'
-import type { NormalizedBlockOutput } from '@/executor/types'
 import type {
   WorkflowExecutionBlockData,
   WorkflowExecutionEvent,
 } from '@/lib/workflows/execution-events'
+import { isTerminalWorkflowExecutionEvent } from '@/lib/workflows/execution-events'
+import type { NormalizedBlockOutput } from '@/executor/types'
 import type { ConsoleEntry, ConsoleStore } from '@/stores/console/types'
 
 const MAX_ENTRIES = 500 // MAX across all workflows - allows for 100 loop iterations + other workflow logs

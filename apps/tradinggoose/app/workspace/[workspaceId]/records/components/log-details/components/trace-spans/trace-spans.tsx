@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Maximize2, Minimize2 } from 'lucide-react'
+import { JsonDisplayControls, type JsonDisplayMode } from '@/components/json-display/json-display'
 import {
   formatDurationDisplay,
   normalizeChildWorkflowSpan,
@@ -21,6 +22,8 @@ export function TraceSpans({
   costMultiplier = 1,
 }: TraceSpansProps) {
   const [expandedSpans, setExpandedSpans] = useState<Set<string>>(new Set())
+  const [jsonDisplayMode, setJsonDisplayMode] = useState<JsonDisplayMode>('raw')
+  const [jsonWrapText, setJsonWrapText] = useState(true)
   const containerRef = useRef<HTMLDivElement | null>(null)
   const timelineHitboxRef = useRef<HTMLDivElement | null>(null)
   const [hoveredPercent, setHoveredPercent] = useState<number | null>(null)
@@ -143,6 +146,12 @@ export function TraceSpans({
           <div className='font-medium text-muted-foreground text-xs'>Workflow Execution</div>
         </div>
         <div className='flex items-center gap-1'>
+          <JsonDisplayControls
+            mode={jsonDisplayMode}
+            onModeChange={setJsonDisplayMode}
+            wrapText={jsonWrapText}
+            onWrapTextChange={setJsonWrapText}
+          />
           {(() => {
             const anyExpanded = expandedSpans.size > 0
             return (
@@ -205,6 +214,8 @@ export function TraceSpans({
               gapBeforeMs={gapMs}
               gapBeforePercent={gapPercent}
               showRelativeChip={chipVisibility.relative}
+              jsonDisplayMode={jsonDisplayMode}
+              jsonWrapText={jsonWrapText}
               chipVisibility={chipVisibility}
             />
           )

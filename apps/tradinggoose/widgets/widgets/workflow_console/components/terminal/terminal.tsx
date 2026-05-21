@@ -61,7 +61,7 @@ const BlockRow = memo(function BlockRow({
         </div>
         <span
           className={cn(
-            'min-w-0 truncate text-sm font-medium',
+            'min-w-0 truncate font-medium text-sm',
             hasError
               ? 'text-destructive'
               : isSelected
@@ -118,7 +118,7 @@ const IterationNodeRow = memo(function IterationNodeRow({
         <div className='flex min-w-0 flex-1 items-center gap-2'>
           <span
             className={cn(
-              'min-w-0 truncate text-sm font-medium',
+              'min-w-0 truncate font-medium text-sm',
               hasError ? 'text-destructive' : 'text-muted-foreground group-hover:text-foreground'
             )}
           >
@@ -211,7 +211,7 @@ const SubflowNodeRow = memo(function SubflowNodeRow({
           </div>
           <span
             className={cn(
-              'min-w-0 truncate text-sm font-medium',
+              'min-w-0 truncate font-medium text-sm',
               hasError
                 ? 'text-destructive'
                 : isExpanded
@@ -319,7 +319,7 @@ const ExecutionGroupRow = memo(function ExecutionGroupRow({
 }) {
   return (
     <div className='flex flex-col px-2'>
-      {showSeparator && <div className='mb-2 border-t border-border' />}
+      {showSeparator && <div className='mb-2 border-border border-t' />}
       <div className='flex flex-col gap-1 pb-2'>
         {group.entryTree.map((node) => (
           <EntryNodeRow
@@ -429,7 +429,7 @@ export const Terminal = memo(function Terminal({
     <div className='flex h-full flex-col rounded-md border border-border bg-card'>
       <div className='flex-1 overflow-hidden'>
         {executionGroups.length === 0 ? (
-          <div className='flex h-full items-center justify-center text-sm text-muted-foreground'>
+          <div className='flex h-full items-center justify-center text-muted-foreground text-sm'>
             No logs yet
           </div>
         ) : (
@@ -497,7 +497,7 @@ export const Terminal = memo(function Terminal({
   return (
     <ResizablePanelGroup
       direction='horizontal'
-      className='h-full w-full p-1 gap-1'
+      className='h-full w-full gap-1 p-1'
       onLayout={(sizes) => setPanelLayout(sizes)}
     >
       <ResizablePanel defaultSize={leftPanelSize} minSize={35} className='min-w-0'>

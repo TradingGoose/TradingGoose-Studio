@@ -723,8 +723,7 @@ export const WorkflowBlock = memo(
                   '--block-hover-color': blockAccentColor,
                   '--block-active-color': blockAccentColor,
                   ...(selected ? { borderColor: blockAccentColor, borderWidth: '1px' } : {}),
-                } as CSSProperties &
-                  Record<'--block-active-color' | '--block-hover-color', string>
+                } as CSSProperties & Record<'--block-active-color' | '--block-hover-color', string>
               }
             >
               {/* Show debug indicator for pending blocks */}

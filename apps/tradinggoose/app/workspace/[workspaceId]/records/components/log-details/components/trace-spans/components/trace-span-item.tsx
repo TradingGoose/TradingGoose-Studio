@@ -1,5 +1,6 @@
 import type React from 'react'
 import { ChevronDown, ChevronRight, Code, RepeatIcon, SplitIcon, ToolCase } from 'lucide-react'
+import type { JsonDisplayMode } from '@/components/json-display/json-display'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { getIconTileStyle, sanitizeSolidIconColor } from '@/lib/ui/icon-colors'
 import { cn } from '@/lib/utils'
@@ -27,6 +28,8 @@ interface TraceSpanItemProps {
   gapBeforeMs?: number
   gapBeforePercent?: number
   showRelativeChip?: boolean
+  jsonDisplayMode: JsonDisplayMode
+  jsonWrapText: boolean
   chipVisibility?: {
     model: boolean
     toolProvider: boolean
@@ -50,6 +53,8 @@ export function TraceSpanItem({
   gapBeforeMs = 0,
   gapBeforePercent = 0,
   showRelativeChip = true,
+  jsonDisplayMode,
+  jsonWrapText,
   chipVisibility = { model: true, toolProvider: true, tokens: true, cost: true, relative: true },
 }: TraceSpanItemProps): React.ReactNode {
   const spanId = span.id || `span-${span.name}-${span.startTime}`
@@ -594,7 +599,12 @@ export function TraceSpanItem({
       {expanded && (
         <div>
           {(span.input || span.output) && (
-            <CollapsibleInputOutput span={span} spanId={spanId} depth={depth} />
+            <CollapsibleInputOutput
+              span={span}
+              depth={depth}
+              displayMode={jsonDisplayMode}
+              wrapText={jsonWrapText}
+            />
           )}
 
           {hasChildren && (
@@ -629,6 +639,8 @@ export function TraceSpanItem({
                     gapBeforeMs={childGapMs}
                     gapBeforePercent={childGapPercent}
                     showRelativeChip={chipVisibility.relative}
+                    jsonDisplayMode={jsonDisplayMode}
+                    jsonWrapText={jsonWrapText}
                     chipVisibility={chipVisibility}
                   />
                 )
@@ -673,6 +685,8 @@ export function TraceSpanItem({
                     forwardHover={forwardHover}
                     costMultiplier={costMultiplier}
                     showRelativeChip={chipVisibility.relative}
+                    jsonDisplayMode={jsonDisplayMode}
+                    jsonWrapText={jsonWrapText}
                     chipVisibility={chipVisibility}
                   />
                 )

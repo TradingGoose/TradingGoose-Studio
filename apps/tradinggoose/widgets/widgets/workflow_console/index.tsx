@@ -1,13 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import {
-  Activity,
-  ArrowDown,
-  ArrowDownToLine,
-  ArrowUp,
-  Braces,
-  Trash2,
-  WrapText,
-} from 'lucide-react'
+import { Activity, ArrowDown, ArrowDownToLine, ArrowUp, Trash2 } from 'lucide-react'
+import { JsonDisplayControls } from '@/components/json-display/json-display'
 import { LoadingAgent } from '@/components/ui/loading-agent'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
@@ -123,7 +116,7 @@ const WorkflowConsoleWidgetBody = ({
 }
 
 const WidgetStateMessage = ({ message }: { message: string }) => (
-  <div className='flex h-full w-full items-center justify-center  px-4 text-center text-muted-foreground text-xs'>
+  <div className='flex h-full w-full items-center justify-center px-4 text-center text-muted-foreground text-xs'>
     {message}
   </div>
 )
@@ -243,40 +236,21 @@ const WorkflowConsoleHeaderControls = ({
         <TooltipContent side='top'>Sort by time</TooltipContent>
       </Tooltip>
 
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <button
-            type='button'
-            className={cn(
-              widgetHeaderIconButtonClassName(),
-              detailView.structuredView && 'text-primary'
-            )}
-            onClick={toggleStructuredView}
-            aria-label='Toggle structured view'
-            aria-pressed={detailView.structuredView}
-            disabled={isDisabled}
-          >
-            <Braces className='h-3.5 w-3.5' />
-          </button>
-        </TooltipTrigger>
-        <TooltipContent side='top'>Structured view</TooltipContent>
-      </Tooltip>
-
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <button
-            type='button'
-            className={cn(widgetHeaderIconButtonClassName(), detailView.wrapText && 'text-primary')}
-            onClick={toggleWrapText}
-            aria-label='Toggle wrap text'
-            aria-pressed={detailView.wrapText}
-            disabled={isDisabled}
-          >
-            <WrapText className='h-3.5 w-3.5' />
-          </button>
-        </TooltipTrigger>
-        <TooltipContent side='top'>Wrap text</TooltipContent>
-      </Tooltip>
+      <JsonDisplayControls
+        mode={detailView.structuredView ? 'beauty' : 'raw'}
+        onModeChange={(mode) => {
+          if ((mode === 'beauty') !== detailView.structuredView) toggleStructuredView()
+        }}
+        wrapText={detailView.wrapText}
+        onWrapTextChange={(wrapText) => {
+          if (wrapText !== detailView.wrapText) toggleWrapText()
+        }}
+        disabled={isDisabled}
+        showLabels={false}
+        buttonClassName={(active) =>
+          cn(widgetHeaderIconButtonClassName(), active && 'text-primary')
+        }
+      />
 
       <Tooltip>
         <TooltipTrigger asChild>

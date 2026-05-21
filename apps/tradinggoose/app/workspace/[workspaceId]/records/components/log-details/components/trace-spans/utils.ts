@@ -1,4 +1,3 @@
-import { redactApiKeys } from '@/lib/utils'
 import type { TraceSpan } from '@/stores/logs/filters/types'
 
 export function getSpanKey(span: TraceSpan): string {
@@ -60,16 +59,6 @@ export function normalizeChildWorkflowSpan(span: TraceSpan): TraceSpan {
   enrichedSpan.children = mergedChildren.length > 0 ? mergedChildren : undefined
 
   return enrichedSpan
-}
-
-export function transformBlockData(data: unknown, _blockType: string, isInput: boolean) {
-  if (data === null || data === undefined) return data
-
-  if (isInput) {
-    return redactApiKeys(data)
-  }
-
-  return data
 }
 
 export function formatDurationDisplay(ms: number): string {
