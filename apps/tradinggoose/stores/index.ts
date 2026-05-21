@@ -241,7 +241,7 @@ export const resetAllStores = () => {
     error: null,
   })
   useExecutionStore.getState().reset()
-  useConsoleStore.setState({ entries: [], isOpen: false })
+  useConsoleStore.setState({ entries: [] })
   getCopilotStore().setState({ messages: [], isSendingMessage: false })
   useCustomToolsStore.getState().resetAll()
   useSkillsStore.getState().resetAll()
