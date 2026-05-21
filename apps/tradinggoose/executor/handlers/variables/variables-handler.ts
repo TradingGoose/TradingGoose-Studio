@@ -120,16 +120,21 @@ export class VariablesBlockHandler implements BlockHandler {
   }
 
   private parseValueByType(value: any, type: VariableType, variableName?: string): any {
-    if (type === LISTING_IDENTITY_VALUE_TYPE) {
-      return parseListingIdentityValueStrict(value)
-    }
-
     if (value === null || value === undefined || value === '') {
+      if (type === LISTING_IDENTITY_VALUE_TYPE) {
+        throw new Error(
+          `Missing listingIdentity value for variable "${variableName || 'unknown'}": a valid listing identity is required.`
+        )
+      }
       if (type === 'number') return 0
       if (type === 'boolean') return false
       if (type === 'array') return []
       if (type === 'object') return {}
       return ''
+    }
+
+    if (type === LISTING_IDENTITY_VALUE_TYPE) {
+      return parseListingIdentityValueStrict(value)
     }
 
     if (type === 'plain') {
