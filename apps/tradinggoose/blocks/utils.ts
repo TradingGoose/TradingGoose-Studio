@@ -1,3 +1,4 @@
+import { isWorkflowParamType } from '@/lib/workflows/value-types'
 import type {
   BlockOptionLoaderContext,
   BlockOutput,
@@ -6,7 +7,6 @@ import type {
   ParamType,
   SubBlockOption,
 } from '@/blocks/types'
-import { isWorkflowParamType } from '@/lib/workflows/value-types'
 import type { ToolConfig } from '@/tools/types'
 
 export function resolveOutputType(

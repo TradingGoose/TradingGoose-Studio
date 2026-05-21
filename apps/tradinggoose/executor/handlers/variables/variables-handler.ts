@@ -1,9 +1,12 @@
+import {
+  LISTING_IDENTITY_VALUE_TYPE,
+  parseListingIdentityValueStrict,
+} from '@/lib/listing/identity'
 import { createLogger } from '@/lib/logs/console/logger'
+import { isWorkflowVariableType } from '@/lib/workflows/value-types'
 import type { BlockOutput } from '@/blocks/types'
 import { BlockType } from '@/executor/consts'
 import type { BlockHandler, ExecutionContext } from '@/executor/types'
-import { LISTING_IDENTITY_VALUE_TYPE, parseListingIdentityValueStrict } from '@/lib/listing/identity'
-import { isWorkflowVariableType } from '@/lib/workflows/value-types'
 import type { SerializedBlock } from '@/serializer/types'
 import type { VariableType } from '@/stores/variables/types'
 
