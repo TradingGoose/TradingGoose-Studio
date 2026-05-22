@@ -13,15 +13,14 @@ import { mistralProvider } from '@/providers/ai/mistral'
 import { ollamaProvider } from '@/providers/ai/ollama'
 import { openaiProvider } from '@/providers/ai/openai'
 import { openRouterProvider } from '@/providers/ai/openrouter'
-import { vertexProvider } from '@/providers/ai/vertex'
-import { vllmProvider } from '@/providers/ai/vllm'
 import type { ProviderConfig, ProviderRequest, ProviderResponse } from '@/providers/ai/types'
 import {
   calculateCost,
   generateStructuredOutputInstructions,
-  shouldBillModelUsage,
   supportsTemperature,
 } from '@/providers/ai/utils'
+import { vertexProvider } from '@/providers/ai/vertex'
+import { vllmProvider } from '@/providers/ai/vllm'
 import { xAIProvider } from '@/providers/ai/xai'
 
 const logger = createLogger('Providers')
@@ -140,23 +139,7 @@ export async function executeProviderRequest(
     const completionTokens = response.tokens.completion ?? response.tokens.output ?? 0
     const useCachedInput = !!request.context && request.context.length > 0
 
-    if (shouldBillModelUsage(response.model)) {
-      response.cost = calculateCost(response.model, promptTokens, completionTokens, useCachedInput)
-    } else {
-      response.cost = {
-        input: 0,
-        output: 0,
-        total: 0,
-        pricing: {
-          input: 0,
-          output: 0,
-          updatedAt: new Date().toISOString(),
-        },
-      }
-      logger.debug(
-        `Not billing model usage for ${response.model} - user provided API key or not hosted model`
-      )
-    }
+    response.cost = calculateCost(response.model, promptTokens, completionTokens, useCachedInput)
   }
 
   return response

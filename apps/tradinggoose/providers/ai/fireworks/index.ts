@@ -1,12 +1,11 @@
-import { createLogger } from '@/lib/logs/console/logger'
-import { toError } from '@/providers/ai/error'
 import OpenAI from 'openai'
 import type { ChatCompletionCreateParamsStreaming } from 'openai/resources/chat/completions'
+import { createLogger } from '@/lib/logs/console/logger'
 import type { StreamingExecution } from '@/executor/types'
 import { MAX_TOOL_ITERATIONS } from '@/providers/ai/constants'
+import { toError } from '@/providers/ai/error'
 import {
   checkForForcedToolUsage,
-  createReadableStreamFromOpenAIStream,
   supportsNativeStructuredOutputs,
 } from '@/providers/ai/fireworks/utils'
 import { getProviderDefaultModel, getProviderModels } from '@/providers/ai/models'
@@ -21,6 +20,7 @@ import type {
 import { ProviderError } from '@/providers/ai/types'
 import {
   calculateCost,
+  createOpenAICompatibleStream,
   generateSchemaInstructions,
   prepareToolExecution,
   prepareToolsWithUsageControl,
@@ -82,10 +82,10 @@ export const fireworksProvider: ProviderConfig = {
       baseURL: 'https://api.fireworks.ai/inference/v1',
     })
 
-    const requestedModel = request.model.replace(/^fireworks\//, '')
+    const apiModel = request.model.replace(/^fireworks\//, '')
 
     logger.info('Preparing Fireworks request', {
-      model: requestedModel,
+      model: apiModel,
       hasSystemPrompt: !!request.systemPrompt,
       hasMessages: !!request.messages?.length,
       hasTools: !!request.tools?.length,
@@ -120,7 +120,7 @@ export const fireworksProvider: ProviderConfig = {
       : undefined
 
     const payload: any = {
-      model: requestedModel,
+      model: apiModel,
       messages: allMessages,
     }
 
@@ -148,7 +148,7 @@ export const fireworksProvider: ProviderConfig = {
           payload,
           payload.messages,
           request.responseFormat,
-          requestedModel
+          apiModel
         )
       }
 
@@ -164,42 +164,46 @@ export const fireworksProvider: ProviderConfig = {
         )
 
         const streamingResult = {
-          stream: createReadableStreamFromOpenAIStream(streamResponse, (content, usage) => {
-            streamingResult.execution.output.content = content
-            streamingResult.execution.output.tokens = {
-              input: usage.prompt_tokens,
-              output: usage.completion_tokens,
-              total: usage.total_tokens,
-            }
+          stream: createOpenAICompatibleStream(
+            streamResponse as any,
+            'Fireworks',
+            (content, usage) => {
+              streamingResult.execution.output.content = content
+              streamingResult.execution.output.tokens = {
+                input: usage.prompt_tokens,
+                output: usage.completion_tokens,
+                total: usage.total_tokens,
+              }
 
-            const costResult = calculateCost(
-              requestedModel,
-              usage.prompt_tokens,
-              usage.completion_tokens
-            )
-            streamingResult.execution.output.cost = {
-              input: costResult.input,
-              output: costResult.output,
-              total: costResult.total,
-            }
+              const costResult = calculateCost(
+                request.model,
+                usage.prompt_tokens,
+                usage.completion_tokens
+              )
+              streamingResult.execution.output.cost = {
+                input: costResult.input,
+                output: costResult.output,
+                total: costResult.total,
+              }
 
-            const end = Date.now()
-            const endISO = new Date(end).toISOString()
-            if (streamingResult.execution.output.providerTiming) {
-              streamingResult.execution.output.providerTiming.endTime = endISO
-              streamingResult.execution.output.providerTiming.duration = end - providerStartTime
-              if (streamingResult.execution.output.providerTiming.timeSegments?.[0]) {
-                streamingResult.execution.output.providerTiming.timeSegments[0].endTime = end
-                streamingResult.execution.output.providerTiming.timeSegments[0].duration =
-                  end - providerStartTime
+              const end = Date.now()
+              const endISO = new Date(end).toISOString()
+              if (streamingResult.execution.output.providerTiming) {
+                streamingResult.execution.output.providerTiming.endTime = endISO
+                streamingResult.execution.output.providerTiming.duration = end - providerStartTime
+                if (streamingResult.execution.output.providerTiming.timeSegments?.[0]) {
+                  streamingResult.execution.output.providerTiming.timeSegments[0].endTime = end
+                  streamingResult.execution.output.providerTiming.timeSegments[0].duration =
+                    end - providerStartTime
+                }
               }
             }
-          }),
+          ),
           execution: {
             success: true,
             output: {
               content: '',
-              model: requestedModel,
+              model: request.model,
               tokens: { input: 0, output: 0, total: 0 },
               toolCalls: undefined,
               providerTiming: {
@@ -441,7 +445,7 @@ export const fireworksProvider: ProviderConfig = {
       }
 
       if (request.stream) {
-        const accumulatedCost = calculateCost(requestedModel, tokens.input, tokens.output)
+        const accumulatedCost = calculateCost(request.model, tokens.input, tokens.output)
 
         const streamingParams: ChatCompletionCreateParamsStreaming = {
           ...payload,
@@ -456,7 +460,7 @@ export const fireworksProvider: ProviderConfig = {
             streamingParams as any,
             streamingParams.messages,
             request.responseFormat,
-            requestedModel
+            apiModel
           )
         }
 
@@ -466,32 +470,36 @@ export const fireworksProvider: ProviderConfig = {
         )
 
         const streamingResult = {
-          stream: createReadableStreamFromOpenAIStream(streamResponse, (content, usage) => {
-            streamingResult.execution.output.content = content
-            streamingResult.execution.output.tokens = {
-              input: tokens.input + usage.prompt_tokens,
-              output: tokens.output + usage.completion_tokens,
-              total: tokens.total + usage.total_tokens,
-            }
+          stream: createOpenAICompatibleStream(
+            streamResponse as any,
+            'Fireworks',
+            (content, usage) => {
+              streamingResult.execution.output.content = content
+              streamingResult.execution.output.tokens = {
+                input: tokens.input + usage.prompt_tokens,
+                output: tokens.output + usage.completion_tokens,
+                total: tokens.total + usage.total_tokens,
+              }
 
-            const streamCost = calculateCost(
-              requestedModel,
-              usage.prompt_tokens,
-              usage.completion_tokens
-            )
-            const tc = sumToolCosts(toolResults)
-            streamingResult.execution.output.cost = {
-              input: accumulatedCost.input + streamCost.input,
-              output: accumulatedCost.output + streamCost.output,
-              toolCost: tc || undefined,
-              total: accumulatedCost.total + streamCost.total + tc,
+              const streamCost = calculateCost(
+                request.model,
+                usage.prompt_tokens,
+                usage.completion_tokens
+              )
+              const tc = sumToolCosts(toolResults)
+              streamingResult.execution.output.cost = {
+                input: accumulatedCost.input + streamCost.input,
+                output: accumulatedCost.output + streamCost.output,
+                toolCost: tc || undefined,
+                total: accumulatedCost.total + streamCost.total + tc,
+              }
             }
-          }),
+          ),
           execution: {
             success: true,
             output: {
               content: '',
-              model: requestedModel,
+              model: request.model,
               tokens: { input: tokens.input, output: tokens.output, total: tokens.total },
               toolCalls:
                 toolCalls.length > 0
@@ -544,7 +552,7 @@ export const fireworksProvider: ProviderConfig = {
           finalPayload,
           finalPayload.messages,
           request.responseFormat,
-          requestedModel
+          apiModel
         )
 
         const finalStartTime = Date.now()
@@ -580,7 +588,7 @@ export const fireworksProvider: ProviderConfig = {
 
       return {
         content,
-        model: requestedModel,
+        model: request.model,
         tokens,
         toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
         toolResults: toolResults.length > 0 ? toolResults : undefined,
