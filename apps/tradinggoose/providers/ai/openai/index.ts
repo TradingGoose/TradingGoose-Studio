@@ -9,6 +9,8 @@ import type {
   TimeSegment,
 } from '@/providers/ai/types'
 import {
+  calculateCost,
+  createOpenAICompatibleStream,
   prepareToolExecution,
   prepareToolsWithUsageControl,
   trackForcedToolUsage,
@@ -16,46 +18,6 @@ import {
 import { executeTool } from '@/tools'
 
 const logger = createLogger('OpenAIProvider')
-
-/**
- * Helper function to convert an OpenAI stream to a standard ReadableStream
- * and collect completion metrics
- */
-function createReadableStreamFromOpenAIStream(
-  openaiStream: any,
-  onComplete?: (content: string, usage?: any) => void
-): ReadableStream {
-  let fullContent = ''
-  let usageData: any = null
-
-  return new ReadableStream({
-    async start(controller) {
-      try {
-        for await (const chunk of openaiStream) {
-          // Check for usage data in the final chunk
-          if (chunk.usage) {
-            usageData = chunk.usage
-          }
-
-          const content = chunk.choices[0]?.delta?.content || ''
-          if (content) {
-            fullContent += content
-            controller.enqueue(new TextEncoder().encode(content))
-          }
-        }
-
-        // Once stream is complete, call the completion callback with the final content and usage
-        if (onComplete) {
-          onComplete(fullContent, usageData)
-        }
-
-        controller.close()
-      } catch (error) {
-        controller.error(error)
-      }
-    },
-  })
-}
 
 /**
  * OpenAI provider configuration
@@ -200,45 +162,50 @@ export const openaiProvider: ProviderConfig = {
           total: 0,
         }
 
-        let _streamContent = ''
-
         // Create a StreamingExecution response with a callback to update content and tokens
         const streamingResult = {
-          stream: createReadableStreamFromOpenAIStream(streamResponse, (content, usage) => {
-            // Update the execution data with the final content and token usage
-            _streamContent = content
-            streamingResult.execution.output.content = content
+          stream: createOpenAICompatibleStream(
+            streamResponse as any,
+            'OpenAI',
+            (content, usage) => {
+              // Update the execution data with the final content and token usage
+              streamingResult.execution.output.content = content
 
-            // Update the timing information with the actual completion time
-            const streamEndTime = Date.now()
-            const streamEndTimeISO = new Date(streamEndTime).toISOString()
+              // Update the timing information with the actual completion time
+              const streamEndTime = Date.now()
+              const streamEndTimeISO = new Date(streamEndTime).toISOString()
 
-            if (streamingResult.execution.output.providerTiming) {
-              streamingResult.execution.output.providerTiming.endTime = streamEndTimeISO
-              streamingResult.execution.output.providerTiming.duration =
-                streamEndTime - providerStartTime
-
-              // Update the time segment as well
-              if (streamingResult.execution.output.providerTiming.timeSegments?.[0]) {
-                streamingResult.execution.output.providerTiming.timeSegments[0].endTime =
-                  streamEndTime
-                streamingResult.execution.output.providerTiming.timeSegments[0].duration =
+              if (streamingResult.execution.output.providerTiming) {
+                streamingResult.execution.output.providerTiming.endTime = streamEndTimeISO
+                streamingResult.execution.output.providerTiming.duration =
                   streamEndTime - providerStartTime
+
+                // Update the time segment as well
+                if (streamingResult.execution.output.providerTiming.timeSegments?.[0]) {
+                  streamingResult.execution.output.providerTiming.timeSegments[0].endTime =
+                    streamEndTime
+                  streamingResult.execution.output.providerTiming.timeSegments[0].duration =
+                    streamEndTime - providerStartTime
+                }
+              }
+
+              // Update token usage if available from the stream
+              if (usage) {
+                const newTokens = {
+                  prompt: usage.prompt_tokens || tokenUsage.prompt,
+                  completion: usage.completion_tokens || tokenUsage.completion,
+                  total: usage.total_tokens || tokenUsage.total,
+                }
+
+                streamingResult.execution.output.tokens = newTokens
+                streamingResult.execution.output.cost = calculateCost(
+                  request.model,
+                  newTokens.prompt,
+                  newTokens.completion
+                )
               }
             }
-
-            // Update token usage if available from the stream
-            if (usage) {
-              const newTokens = {
-                prompt: usage.prompt_tokens || tokenUsage.prompt,
-                completion: usage.completion_tokens || tokenUsage.completion,
-                total: usage.total_tokens || tokenUsage.total,
-              }
-
-              streamingResult.execution.output.tokens = newTokens
-            }
-            // We don't need to estimate tokens here as logger.ts will handle that
-          }),
+          ),
           execution: {
             success: true,
             output: {
@@ -520,26 +487,31 @@ export const openaiProvider: ProviderConfig = {
 
         const streamResponse = await openai.chat.completions.create(streamingPayload)
 
-        // Create the StreamingExecution object with all collected data
-        let _streamContent = ''
-
         const streamingResult = {
-          stream: createReadableStreamFromOpenAIStream(streamResponse, (content, usage) => {
-            // Update the execution data with the final content and token usage
-            _streamContent = content
-            streamingResult.execution.output.content = content
+          stream: createOpenAICompatibleStream(
+            streamResponse as any,
+            'OpenAI',
+            (content, usage) => {
+              // Update the execution data with the final content and token usage
+              streamingResult.execution.output.content = content
 
-            // Update token usage if available from the stream
-            if (usage) {
-              const newTokens = {
-                prompt: usage.prompt_tokens || tokens.prompt,
-                completion: usage.completion_tokens || tokens.completion,
-                total: usage.total_tokens || tokens.total,
+              // Update token usage if available from the stream
+              if (usage) {
+                const newTokens = {
+                  prompt: usage.prompt_tokens || tokens.prompt,
+                  completion: usage.completion_tokens || tokens.completion,
+                  total: usage.total_tokens || tokens.total,
+                }
+
+                streamingResult.execution.output.tokens = newTokens
+                streamingResult.execution.output.cost = calculateCost(
+                  request.model,
+                  newTokens.prompt,
+                  newTokens.completion
+                )
               }
-
-              streamingResult.execution.output.tokens = newTokens
             }
-          }),
+          ),
           execution: {
             success: true,
             output: {

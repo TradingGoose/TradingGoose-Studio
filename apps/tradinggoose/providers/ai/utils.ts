@@ -570,17 +570,6 @@ export function getHostedModels(): string[] {
 }
 
 /**
- * Determine if model usage should be billed to the user
- *
- * @param model The model name
- * @returns true if the usage should be billed to the user
- */
-export function shouldBillModelUsage(model: string): boolean {
-  const hostedModels = getHostedModels()
-  return hostedModels.some((hostedModel) => hostedModel.toLowerCase() === model.toLowerCase())
-}
-
-/**
  * Prepares tool configuration for provider requests with consistent tool usage control behavior
  *
  * @param tools Array of tools in provider-specific format

@@ -2,16 +2,17 @@ import { ChartBarIcon } from '@/components/icons/icons'
 import { LISTING_IDENTITY_VALUE_TYPE } from '@/lib/listing/identity'
 import type { BlockConfig, SubBlockConfig } from '@/blocks/types'
 import { AuthMode } from '@/blocks/types'
-import type { MarketSeriesOutput } from '@/tools/market_data'
-import type { ToolResponse } from '@/tools/types'
 import {
   coerceMarketProviderParamValue,
   getMarketProviderOptionsByKind,
   getMarketProviderParamCatalog,
   getMarketProvidersByKind,
   getMarketSeriesCapabilities,
+  type MarketProviderParamType,
 } from '@/providers/market/providers'
 import type { NormalizationMode } from '@/providers/market/types'
+import type { MarketSeriesOutput } from '@/tools/market_data'
+import type { ToolResponse } from '@/tools/types'
 
 interface HistoricalDataResponse extends ToolResponse {
   output: MarketSeriesOutput
@@ -333,22 +334,15 @@ export const HistoricalDataBlock: BlockConfig<HistoricalDataResponse> = {
         })
 
         const interval = sanitizeInterval(params.provider, params.interval)
-        const normalizationMode = sanitizeNormalizationMode(params.provider, params.normalizationMode)
+        const normalizationMode = sanitizeNormalizationMode(
+          params.provider,
+          params.normalizationMode
+        )
 
-        let providerParams: Record<string, any> | undefined =
-          Object.keys(resolvedProviderParams).length ? resolvedProviderParams : undefined
-
-        if (providerParams) {
-          if (interval === undefined) {
-            delete providerParams.interval
-          }
-          if (normalizationMode === undefined) {
-            delete providerParams.normalizationMode
-          }
-          if (!Object.keys(providerParams).length) {
-            providerParams = undefined
-          }
-        }
+        const providerParams: Record<string, any> | undefined = Object.keys(resolvedProviderParams)
+          .length
+          ? resolvedProviderParams
+          : undefined
 
         return {
           provider: params.provider,
@@ -369,23 +363,23 @@ export const HistoricalDataBlock: BlockConfig<HistoricalDataResponse> = {
     provider: { type: 'string', description: 'Market provider id' },
     listing: { type: LISTING_IDENTITY_VALUE_TYPE, description: 'Structured listing payload' },
     interval: { type: 'string', description: 'Series interval/timeframe' },
-    start: { type: 'string', description: 'Inclusive start of the interval (ISO or UNIX timestamp)' },
+    start: {
+      type: 'string',
+      description: 'Inclusive start of the interval (ISO or UNIX timestamp)',
+    },
     end: { type: 'string', description: 'Inclusive end of the interval (ISO or UNIX timestamp)' },
     normalizationMode: { type: 'string', description: 'Optional normalization mode' },
     ...providerParamIds.reduce<
-      Record<string, { type: 'string' | 'number' | 'boolean' | 'json' | 'array'; description?: string }>
-    >(
-      (acc, paramId) => {
-        const entry = providerParamRegistry[paramId]
-        if (!entry) return acc
-        acc[paramId] = {
-          type: entry.definition.type,
-          description: entry.definition.description,
-        }
-        return acc
-      },
-      {}
-    ),
+      Record<string, { type: MarketProviderParamType; description?: string }>
+    >((acc, paramId) => {
+      const entry = providerParamRegistry[paramId]
+      if (!entry) return acc
+      acc[paramId] = {
+        type: entry.definition.type,
+        description: entry.definition.description,
+      }
+      return acc
+    }, {}),
   },
   outputs: {
     listingBase: { type: 'string', description: 'Listing base symbol' },

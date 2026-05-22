@@ -18,6 +18,17 @@ export function getListingPrimary(listing: ListingOption): string {
   return resolveListingFallbackLabel(listing)
 }
 
+export function getListingDisplaySymbol(listing: ListingOption): string {
+  const base = listing.base?.trim()
+  const quote = listing.quote?.trim()
+  if (base) {
+    return quote ? `${base}/${quote}` : base
+  }
+  const name = listing.name?.trim()
+  if (name) return name
+  return 'Listing'
+}
+
 export function getListingSecondary(listing: ListingOption): string | null {
   const base = listing.base?.trim()
   const name = listing.name?.trim()
@@ -26,9 +37,23 @@ export function getListingSecondary(listing: ListingOption): string | null {
   return name
 }
 
+export function getListingDisplayCompanyName(listing: ListingOption): string | null {
+  const name = listing.name?.trim()
+  if (!name) return null
+  const symbol = getListingDisplaySymbol(listing).trim()
+  if (symbol && symbol.toLowerCase() === name.toLowerCase()) return null
+  return name
+}
+
 export function getListingFallback(listing: ListingOption): string {
   const base = resolveListingFallbackLabel(listing)
   return base.slice(0, 2).toUpperCase()
+}
+
+export function getListingDisplayFallback(listing: ListingOption): string {
+  const symbol = getListingDisplaySymbol(listing).trim()
+  if (!symbol) return '??'
+  return symbol.slice(0, 2).toUpperCase()
 }
 
 export function getFlagData(
@@ -58,6 +83,64 @@ export interface MarketListingRowProps {
   showAssetClass?: boolean
   compact?: boolean
   className?: string
+}
+
+export interface ListingDisplayRowProps {
+  listing?: ListingOption | null
+  showSecondary?: boolean
+  className?: string
+}
+
+export function ListingDisplayRow({
+  listing,
+  showSecondary = false,
+  className,
+}: ListingDisplayRowProps) {
+  const symbol = listing ? getListingDisplaySymbol(listing) : ''
+  const companyName = listing ? getListingDisplayCompanyName(listing) : null
+  const assetClassLabel = listing?.assetClass?.toUpperCase() ?? ''
+  const flagData = getFlagData(listing?.countryCode)
+  const flagImageUrl = flagData
+    ? `https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/svg/${flagData.codepoints}.svg`
+    : null
+
+  return (
+    <div className={cn('flex min-w-0 flex-1 items-center gap-2', className)}>
+      <Avatar className='h-4 w-4 rounded-xs bg-secondary'>
+        {listing?.iconUrl ? <AvatarImage src={listing.iconUrl} alt={symbol} /> : null}
+        <AvatarFallback className='text-accent-foreground text-xs'>
+          {listing ? getListingDisplayFallback(listing) : '??'}
+        </AvatarFallback>
+      </Avatar>
+      {showSecondary && companyName ? (
+        <div className='min-w-0 flex-1'>
+          <span className='block min-w-0 truncate font-medium text-sm'>
+            {listing ? symbol : 'Select listing'}
+          </span>
+          <span className='block min-w-0 truncate text-muted-foreground text-xs'>
+            {companyName}
+          </span>
+        </div>
+      ) : (
+        <span className='min-w-0 truncate font-medium text-sm'>
+          {listing ? symbol : 'Select listing'}
+        </span>
+      )}
+      {flagImageUrl ? (
+        <img
+          src={flagImageUrl}
+          alt={`${listing?.countryCode ?? ''} flag`}
+          className='ml-1 h-3.5 w-3.5'
+          loading='lazy'
+        />
+      ) : null}
+      {assetClassLabel && listing ? (
+        <span className='ml-auto p-1 font-semibold text-muted-foreground text-xs'>
+          {assetClassLabel}
+        </span>
+      ) : null}
+    </div>
+  )
 }
 
 export function MarketListingRow({

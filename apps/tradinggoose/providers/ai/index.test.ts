@@ -143,7 +143,7 @@ describe('executeProviderRequest', () => {
     vi.clearAllMocks()
   })
 
-  it('does not bill model usage when no platform-hosted models are configured', async () => {
+  it('calculates model usage cost for token-bearing responses', async () => {
     mockOpenAIExecuteRequest.mockResolvedValue({
       content: 'ok',
       model: 'gpt-4o',
@@ -165,12 +165,12 @@ describe('executeProviderRequest', () => {
 
     expect(response).toMatchObject({
       cost: {
-        input: 0,
-        output: 0,
-        total: 0,
+        input: 0.003,
+        output: 0.003,
+        total: 0.006,
         pricing: {
-          input: 0,
-          output: 0,
+          input: 2.5,
+          output: 10,
         },
       },
     })

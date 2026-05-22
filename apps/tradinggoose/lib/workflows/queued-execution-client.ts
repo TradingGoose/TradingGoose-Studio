@@ -24,6 +24,12 @@ type QueueResponse = {
   error?: string
 }
 
+type QueuedWorkflowExecutionHandle = {
+  taskId: string
+  executionId: string
+  stream?: ReadableStream<Uint8Array>
+}
+
 type JobStatusResponse = {
   success?: boolean
   status?: string
@@ -74,7 +80,7 @@ function waitForJobPollInterval(signal?: AbortSignal) {
 
 export async function queueWorkflowExecution(
   request: QueuedWorkflowExecutionRequest
-): Promise<{ taskId: string; executionId?: string }> {
+): Promise<QueuedWorkflowExecutionHandle> {
   const response = await fetch(`/api/workflows/${request.workflowId}/queue`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -97,9 +103,28 @@ export async function queueWorkflowExecution(
     )
   }
 
+  if (request.stream === true) {
+    const executionId = response.headers.get('X-Execution-Id') ?? request.executionId
+    if (!executionId) {
+      throw new Error('Workflow queue stream response is missing executionId')
+    }
+    if (!response.body) {
+      throw new Error('Workflow queue stream response is missing body')
+    }
+
+    return {
+      taskId: response.headers.get('X-Task-Id') ?? executionId,
+      executionId,
+      stream: response.body,
+    }
+  }
+
   const payload = (await response.json().catch(() => null)) as QueueResponse | null
   if (!payload?.taskId) {
     throw new Error('Workflow queue response is missing taskId')
+  }
+  if (!payload.executionId) {
+    throw new Error('Workflow queue response is missing executionId')
   }
 
   return {
@@ -158,33 +183,29 @@ async function readQueuedWorkflowExecutionJob(params: {
 }
 
 async function readQueuedWorkflowExecutionStream(params: {
-  workflowId: string
-  executionId: string
+  stream: ReadableStream<Uint8Array>
   signal?: AbortSignal
   callbacks?: QueuedWorkflowExecutionCallbacks
 }): Promise<ExecutionResult> {
-  const response = await fetch(
-    `/api/workflows/${params.workflowId}/executions/${params.executionId}/stream?from=0`,
-    {
-      signal: params.signal,
-      cache: 'no-store',
-    }
-  )
-
-  if (!response.ok || !response.body) {
-    throw new Error(
-      await readError(response, `Failed to open workflow execution stream: ${response.status}`)
-    )
+  if (params.signal?.aborted) {
+    throw abortError()
   }
 
-  const reader = response.body.getReader()
+  const reader = params.stream.getReader()
   const decoder = new TextDecoder()
   let buffer = ''
   let terminalResult: ExecutionResult | null = null
+  const cancelReader = () => {
+    void reader.cancel(abortError()).catch(() => {})
+  }
 
   try {
+    params.signal?.addEventListener('abort', cancelReader, { once: true })
     while (true) {
       const { done, value } = await reader.read()
+      if (params.signal?.aborted) {
+        throw abortError()
+      }
       if (done) break
 
       buffer += decoder.decode(value, { stream: true })
@@ -225,7 +246,12 @@ async function readQueuedWorkflowExecutionStream(params: {
       }
     }
   } finally {
+    params.signal?.removeEventListener('abort', cancelReader)
     reader.releaseLock()
+  }
+
+  if (params.signal?.aborted) {
+    throw abortError()
   }
 
   if (!terminalResult) {
@@ -240,7 +266,6 @@ export async function runQueuedWorkflowExecution(
   callbacks?: QueuedWorkflowExecutionCallbacks
 ): Promise<ExecutionResult> {
   const queued = await queueWorkflowExecution(request)
-  const executionId = queued.executionId ?? request.executionId ?? queued.taskId
   const cancelQueuedExecution = () => {
     void cancelQueuedWorkflowExecution(queued.taskId).catch(() => {})
   }
@@ -253,9 +278,12 @@ export async function runQueuedWorkflowExecution(
 
   try {
     if (request.stream === true) {
+      if (!queued.stream) {
+        throw new Error('Workflow queue response is missing execution stream')
+      }
+
       return await readQueuedWorkflowExecutionStream({
-        workflowId: request.workflowId,
-        executionId,
+        stream: queued.stream,
         signal: request.signal,
         callbacks,
       })

@@ -13,7 +13,7 @@ vi.mock('@/components/ui/scroll-area', () => ({
 }))
 
 vi.mock('@/app/workspace/[workspaceId]/records/components/log-details/log-details', () => ({
-  LogDetails: () => <div>log details</div>,
+  LogDetails: ({ stateContent }: any) => <div>log details {stateContent}</div>,
 }))
 
 vi.mock('./order-provider-refresh', () => ({
@@ -127,5 +127,34 @@ describe('OrderDetails', () => {
     })
 
     expect(onModeChange).toHaveBeenCalledWith('provider')
+  })
+
+  it('keeps order panel controls visible when log mode cannot load a log', async () => {
+    const onModeChange = vi.fn()
+
+    await act(async () => {
+      root.render(
+        <OrderDetails
+          workspaceId='workspace-1'
+          order={order}
+          detail={null}
+          detailsLoading={false}
+          detailsError={null}
+          linkedLog={null}
+          linkedLogLoading={false}
+          linkedLogError='Workflow log unavailable'
+          mode='log'
+          onModeChange={onModeChange}
+          onClose={vi.fn()}
+          onRetryDetails={vi.fn()}
+          onRetryLog={vi.fn()}
+        />
+      )
+    })
+
+    expect(container.textContent).toContain('Workflow log unavailable')
+    expect(container.textContent).toContain('Order data')
+    expect(container.textContent).toContain('Provider')
+    expect(container.textContent).toContain('Close')
   })
 })

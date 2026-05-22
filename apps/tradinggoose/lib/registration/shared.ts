@@ -26,7 +26,7 @@ export function getRegistrationPrimaryLabel(mode: RegistrationMode) {
     case 'open':
       return 'Get Started'
     case 'waitlist':
-      return 'Join Waitlist'
+      return 'Get Early Access'
     case 'disabled':
       return 'Coming soon'
   }

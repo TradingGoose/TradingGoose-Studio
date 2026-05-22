@@ -14,7 +14,10 @@ export const LISTING_IDENTITY_VALUE_TYPE = 'listingIdentity' as const
 export const LISTING_IDENTITY_JSON_SCHEMA = {
   type: 'object',
   properties: {
-    listing_id: { type: 'string', description: 'Listing id for default listings; otherwise empty.' },
+    listing_id: {
+      type: 'string',
+      description: 'Listing id for default listings; otherwise empty.',
+    },
     base_id: { type: 'string', description: 'Base asset id for pair listings; otherwise empty.' },
     quote_id: { type: 'string', description: 'Quote asset id for pair listings; otherwise empty.' },
     listing_type: {
@@ -75,7 +78,7 @@ export const toListingValue = (
   return normalizeListingIdentity(listing as Record<string, unknown>)
 }
 
-export const toListingValueObject = (value: ListingInputValue): ListingIdentity | null => {
+export const toListingValueObject = (value: unknown): ListingIdentity | null => {
   return normalizeListingIdentityValue(value)
 }
 
@@ -101,8 +104,7 @@ const normalizeListingIdentityValue = (value: unknown): ListingIdentity | null =
 }
 
 export const parseListingIdentityValueStrict = (value: unknown): ListingIdentity => {
-  const parsedValue =
-    typeof value === 'string' && value.trim() ? JSON.parse(value.trim()) : value
+  const parsedValue = typeof value === 'string' && value.trim() ? JSON.parse(value.trim()) : value
   const record =
     parsedValue && typeof parsedValue === 'object' && !Array.isArray(parsedValue)
       ? (parsedValue as Record<string, unknown>)

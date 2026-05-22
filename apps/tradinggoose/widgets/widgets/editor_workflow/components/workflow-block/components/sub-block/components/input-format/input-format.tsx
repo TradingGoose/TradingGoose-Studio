@@ -22,10 +22,11 @@ import { checkTagTrigger, TagDropdown } from '@/components/ui/tag-dropdown'
 import { Textarea } from '@/components/ui/textarea'
 import { LISTING_IDENTITY_VALUE_TYPE } from '@/lib/listing/identity'
 import { cn } from '@/lib/utils'
+import type { WorkflowFieldType } from '@/lib/workflows/value-types'
 import { useAccessibleReferencePrefixes } from '@/hooks/workflow/use-accessible-reference-prefixes'
 import { useSubBlockValue } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/hooks/use-sub-block-value'
 
-type FieldType = 'string' | 'number' | 'boolean' | 'object' | 'array' | 'files' | typeof LISTING_IDENTITY_VALUE_TYPE
+type FieldType = WorkflowFieldType
 
 interface Field {
   id: string
@@ -364,7 +365,9 @@ export function FieldFormat({
                             <span>Object</span>
                           </DropdownMenuItem>
                           <DropdownMenuItem
-                            onClick={() => updateField(field.id, 'type', LISTING_IDENTITY_VALUE_TYPE)}
+                            onClick={() =>
+                              updateField(field.id, 'type', LISTING_IDENTITY_VALUE_TYPE)
+                            }
                             className='cursor-pointer'
                           >
                             <span className='mr-2 w-6 text-center font-mono'>ID</span>
@@ -411,7 +414,9 @@ export function FieldFormat({
                               <SelectItem value='false'>false</SelectItem>
                             </SelectContent>
                           </Select>
-                        ) : field.type === 'object' || field.type === 'array' || field.type === LISTING_IDENTITY_VALUE_TYPE ? (
+                        ) : field.type === 'object' ||
+                          field.type === 'array' ||
+                          field.type === LISTING_IDENTITY_VALUE_TYPE ? (
                           <Textarea
                             ref={(el) => {
                               if (el) valueInputRefs.current[field.id] = el

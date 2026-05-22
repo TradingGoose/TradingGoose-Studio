@@ -99,7 +99,7 @@ describe('landing nav registration mode', () => {
     expect(container.textContent).toContain('Docs')
     expect(container.textContent).toContain('Blog')
     expect(container.textContent).toContain('Login')
-    expect(container.textContent).toContain('Join Waitlist')
+    expect(container.textContent).toContain('Get Early Access')
   })
 
   it('reuses an already resolved registration mode when provided', async () => {
@@ -121,6 +121,6 @@ describe('landing nav registration mode', () => {
 
     expect(container.textContent).not.toContain('Login')
     expect(container.textContent).not.toContain('Sign up')
-    expect(container.textContent).not.toContain('Join Waitlist')
+    expect(container.textContent).not.toContain('Get Early Access')
   })
 })

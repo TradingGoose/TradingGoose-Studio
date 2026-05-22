@@ -1,6 +1,11 @@
-import { createWithEqualityFn as create } from 'zustand/traditional'
 import { devtools, persist } from 'zustand/middleware'
+import { createWithEqualityFn as create } from 'zustand/traditional'
 import { redactApiKeys } from '@/lib/utils'
+import type {
+  WorkflowExecutionBlockData,
+  WorkflowExecutionEvent,
+} from '@/lib/workflows/execution-events'
+import { isTerminalWorkflowExecutionEvent } from '@/lib/workflows/execution-events'
 import type { NormalizedBlockOutput } from '@/executor/types'
 import type { ConsoleEntry, ConsoleStore } from '@/stores/console/types'
 
@@ -8,6 +13,30 @@ const MAX_ENTRIES = 500 // MAX across all workflows - allows for 100 loop iterat
 const MAX_IMAGE_DATA_SIZE = 1000 // Maximum size of image data to store (in characters)
 const MAX_ANY_DATA_SIZE = 5000 // Maximum size of any data to store (in characters)
 const MAX_TOTAL_ENTRY_SIZE = 50000 // Maximum size of entire entry to prevent localStorage overflow
+
+type ConsoleUpdate = Partial<
+  Pick<
+    ConsoleEntry,
+    | 'blockName'
+    | 'blockType'
+    | 'startedAt'
+    | 'input'
+    | 'error'
+    | 'warning'
+    | 'success'
+    | 'endedAt'
+    | 'durationMs'
+    | 'isRunning'
+    | 'isCanceled'
+    | 'iterationCurrent'
+    | 'iterationTotal'
+    | 'iterationType'
+  >
+> & {
+  content?: string
+  output?: Partial<NormalizedBlockOutput>
+  replaceOutput?: NormalizedBlockOutput
+}
 
 /**
  * Safely clone and update a NormalizedBlockOutput
@@ -99,16 +128,25 @@ const processSafeStorage = (obj: any): any => {
   return result
 }
 
-const applyConsoleUpdate = (
-  entry: ConsoleEntry,
-  update: string | import('@/stores/console/types').ConsoleUpdate
-): ConsoleEntry => {
+const applyConsoleUpdate = (entry: ConsoleEntry, update: string | ConsoleUpdate): ConsoleEntry => {
   if (typeof update === 'string') {
     const newOutput = updateBlockOutput(entry.output, update)
     return { ...entry, output: newOutput }
   }
 
   const updatedEntry = { ...entry }
+
+  if (update.blockName !== undefined) {
+    updatedEntry.blockName = update.blockName
+  }
+
+  if (update.blockType !== undefined) {
+    updatedEntry.blockType = update.blockType
+  }
+
+  if (update.startedAt !== undefined) {
+    updatedEntry.startedAt = update.startedAt
+  }
 
   if (update.content !== undefined) {
     const newOutput = updateBlockOutput(entry.output, update.content)
@@ -172,12 +210,52 @@ const applyConsoleUpdate = (
   return updatedEntry
 }
 
+const executionBlockKey = (executionId: string | undefined, blockId: string) =>
+  `${executionId ?? 'execution'}:${blockId}`
+
+const streamBuffers = new Map<string, string>()
+
+const clearExecutionStreamBuffers = (executionId: string | undefined) => {
+  const prefix = `${executionId ?? 'execution'}:`
+  for (const key of streamBuffers.keys()) {
+    if (key.startsWith(prefix)) streamBuffers.delete(key)
+  }
+}
+
+const findExecutionEntry = (
+  entries: ConsoleEntry[],
+  event: Pick<WorkflowExecutionEvent, 'workflowId' | 'executionId'>,
+  data: WorkflowExecutionBlockData
+) => {
+  const matchingEntries = entries.filter(
+    (entry) =>
+      entry.workflowId === event.workflowId &&
+      entry.executionId === event.executionId &&
+      entry.blockId === data.blockId
+  )
+
+  return (
+    (data.startedAt && matchingEntries.find((entry) => entry.startedAt === data.startedAt)) ||
+    (data.iterationType &&
+      data.iterationCurrent !== undefined &&
+      matchingEntries.find(
+        (entry) =>
+          entry.iterationType === data.iterationType &&
+          entry.iterationCurrent === data.iterationCurrent
+      )) ||
+    matchingEntries.find((entry) => entry.isRunning) ||
+    null
+  )
+}
+
+const updateEntryById = (entries: ConsoleEntry[], entryId: string, update: ConsoleUpdate) =>
+  entries.map((entry) => (entry.id === entryId ? applyConsoleUpdate(entry, update) : entry))
+
 export const useConsoleStore = create<ConsoleStore>()(
   devtools(
     persist(
       (set, get) => ({
         entries: [],
-        isOpen: false,
 
         addConsole: (entry: Omit<ConsoleEntry, 'id' | 'timestamp'>) => {
           const existingEntry = get().entries.find(
@@ -194,81 +272,37 @@ export const useConsoleStore = create<ConsoleStore>()(
             return existingEntry
           }
 
-          set((state) => {
-            // Determine early if this entry represents a streaming output
-            const isStreamingOutput =
-              (typeof ReadableStream !== 'undefined' && entry.output instanceof ReadableStream) ||
-              (typeof entry.output === 'object' &&
-                entry.output &&
-                entry.output.isStreaming === true) ||
-              (typeof entry.output === 'object' &&
-                entry.output &&
-                'executionData' in entry.output &&
-                typeof entry.output.executionData === 'object' &&
-                entry.output.executionData?.isStreaming === true) ||
-              (typeof entry.output === 'object' && entry.output && 'stream' in entry.output) ||
-              (typeof entry.output === 'object' &&
-                entry.output &&
-                'stream' in entry.output &&
-                'execution' in entry.output)
+          const redactedEntry = { ...entry }
+          if (redactedEntry.output && typeof redactedEntry.output === 'object') {
+            redactedEntry.output = redactApiKeys(redactedEntry.output)
+          }
 
-            // Skip adding raw streaming objects that have both stream and executionData
-            if (
-              typeof entry.output === 'object' &&
-              entry.output &&
-              'stream' in entry.output &&
-              'executionData' in entry.output
-            ) {
-              // Don't add this entry - it will be processed by our explicit formatting code in executor/index.ts
-              return { entries: state.entries }
-            }
+          const newEntry = {
+            ...redactedEntry,
+            id: crypto.randomUUID(),
+            timestamp: new Date().toISOString(),
+          }
 
-            // Also skip raw StreamingExecution objects (with stream and execution properties)
-            if (
-              typeof entry.output === 'object' &&
-              entry.output &&
-              'stream' in entry.output &&
-              'execution' in entry.output
-            ) {
-              // Don't add this entry to prevent duplicate console entries for streaming responses
-              return { entries: state.entries }
-            }
+          set((state) => ({ entries: [newEntry, ...state.entries].slice(0, MAX_ENTRIES) }))
 
-            // Create a new entry with redacted API keys (if not a stream)
-            const redactedEntry = { ...entry }
-
-            // If output is a stream, we skip redaction (it's not an object we want to recurse into)
-            if (
-              !isStreamingOutput &&
-              redactedEntry.output &&
-              typeof redactedEntry.output === 'object'
-            ) {
-              redactedEntry.output = redactApiKeys(redactedEntry.output)
-            }
-
-            // Create the new entry with ID and timestamp
-            const newEntry = {
-              ...redactedEntry,
-              id: crypto.randomUUID(),
-              timestamp: new Date().toISOString(),
-            }
-
-            // Keep only the last MAX_ENTRIES
-            const newEntries = [newEntry, ...state.entries].slice(0, MAX_ENTRIES)
-
-            return { entries: newEntries }
-          })
-
-          // Return the created entry by finding it in the updated store
-          return get().entries[0]
+          return newEntry
         },
 
         clearConsole: (workflowId: string | null) => {
-          set((state) => ({
-            entries: workflowId
-              ? state.entries.filter((entry) => entry.workflowId !== workflowId)
-              : [],
-          }))
+          set((state) => {
+            if (!workflowId) {
+              streamBuffers.clear()
+              return { entries: [] }
+            }
+
+            return {
+              entries: state.entries.filter((entry) => {
+                if (entry.workflowId !== workflowId) return true
+                clearExecutionStreamBuffers(entry.executionId)
+                return false
+              }),
+            }
+          })
         },
 
         exportConsoleCSV: (workflowId: string) => {
@@ -362,41 +396,124 @@ export const useConsoleStore = create<ConsoleStore>()(
           }
         },
 
-        readWorkflowEntries: (workflowId) => {
-          return get().entries.filter((entry) => entry.workflowId === workflowId)
-        },
-
-        toggleConsole: () => {
-          set((state) => ({ isOpen: !state.isOpen }))
-        },
-
-        updateConsole: (
-          blockId: string,
-          update: string | import('@/stores/console/types').ConsoleUpdate,
-          executionId?: string
-        ) => {
-          set((state) => {
-            const targetIndex = state.entries.findIndex(
-              (entry) => entry.blockId === blockId && entry.executionId === executionId
-            )
-            if (targetIndex === -1) {
-              return state
+        ingestWorkflowExecutionEvent: (event: WorkflowExecutionEvent) => {
+          const writeBlock = (
+            data: WorkflowExecutionBlockData,
+            options: { success: boolean; isRunning: boolean; isCanceled?: boolean }
+          ) => {
+            const update: ConsoleUpdate = {
+              blockName: data.blockName,
+              blockType: data.blockType,
+              startedAt: data.startedAt,
+              input: data.input,
+              error: data.error,
+              success: options.success,
+              endedAt: data.endedAt,
+              durationMs: data.durationMs,
+              iterationCurrent: data.iterationCurrent,
+              iterationTotal: data.iterationTotal,
+              iterationType: data.iterationType,
+              isRunning: options.isRunning,
+              isCanceled: options.isCanceled ?? false,
+            }
+            if (data.output !== undefined) {
+              update.replaceOutput = data.output as NormalizedBlockOutput
             }
 
-            const updatedEntries = [...state.entries]
-            updatedEntries[targetIndex] = applyConsoleUpdate(updatedEntries[targetIndex], update)
-            return { ...state, entries: updatedEntries }
-          })
-        },
+            const existingEntry = findExecutionEntry(get().entries, event, data)
+            if (existingEntry) {
+              set((state) => ({
+                entries: updateEntryById(state.entries, existingEntry.id, update),
+              }))
+              return
+            }
 
-        updateConsoleEntry: (entryId: string, update: string | import('@/stores/console/types').ConsoleUpdate) => {
-          set((state) => {
-            const updatedEntries = state.entries.map((entry) => {
-              if (entry.id !== entryId) return entry
-              return applyConsoleUpdate(entry, update)
+            get().addConsole({
+              workflowId: event.workflowId,
+              executionId: event.executionId,
+              blockId: data.blockId,
+              blockName: data.blockName,
+              blockType: data.blockType,
+              input: data.input,
+              output: data.output as NormalizedBlockOutput | undefined,
+              error: data.error,
+              success: options.success,
+              durationMs: data.durationMs ?? 0,
+              startedAt: data.startedAt ?? event.timestamp,
+              endedAt: data.endedAt,
+              iterationCurrent: data.iterationCurrent,
+              iterationTotal: data.iterationTotal,
+              iterationType: data.iterationType,
+              isRunning: options.isRunning,
+              isCanceled: options.isCanceled ?? false,
             })
-            return { ...state, entries: updatedEntries }
-          })
+          }
+
+          if (event.type === 'block:started') {
+            streamBuffers.delete(executionBlockKey(event.executionId, event.data.blockId))
+            writeBlock(event.data, { success: true, isRunning: true, isCanceled: false })
+            return
+          }
+
+          if (event.type === 'stream:chunk') {
+            const { blockId, chunk } = event.data
+            const key = executionBlockKey(event.executionId, blockId)
+            const content = `${streamBuffers.get(key) ?? ''}${chunk}`
+            streamBuffers.set(key, content)
+
+            const runningEntry = get().entries.find(
+              (entry) =>
+                entry.workflowId === event.workflowId &&
+                entry.executionId === event.executionId &&
+                entry.blockId === blockId &&
+                entry.isRunning
+            )
+            const entry =
+              runningEntry ??
+              get().addConsole({
+                workflowId: event.workflowId,
+                executionId: event.executionId,
+                blockId,
+                blockName: blockId,
+                blockType: 'unknown',
+                output: undefined,
+                success: true,
+                durationMs: 0,
+                startedAt: event.timestamp,
+                isRunning: true,
+                isCanceled: false,
+              })
+
+            set((state) => ({
+              entries: updateEntryById(state.entries, entry.id, { content }),
+            }))
+            return
+          }
+
+          if (event.type === 'stream:done') {
+            streamBuffers.delete(executionBlockKey(event.executionId, event.data.blockId))
+            return
+          }
+
+          if (event.type === 'block:completed') {
+            streamBuffers.delete(executionBlockKey(event.executionId, event.data.blockId))
+            writeBlock(event.data, { success: true, isRunning: false, isCanceled: false })
+            return
+          }
+
+          if (event.type === 'block:error') {
+            streamBuffers.delete(executionBlockKey(event.executionId, event.data.blockId))
+            writeBlock(event.data, {
+              success: false,
+              isRunning: false,
+              isCanceled: event.data.isCanceled,
+            })
+            return
+          }
+
+          if (isTerminalWorkflowExecutionEvent(event)) {
+            clearExecutionStreamBuffers(event.executionId)
+          }
         },
 
         cancelRunningEntries: (workflowId: string) => {
@@ -447,10 +564,7 @@ export const useConsoleStore = create<ConsoleStore>()(
             return sanitizedEntry
           })
 
-          return {
-            isOpen: state.isOpen,
-            entries: sanitizedEntries,
-          }
+          return { entries: sanitizedEntries }
         },
       }
     )

@@ -9,10 +9,12 @@ const {
   checkSessionOrInternalAuthMock,
   readWorkflowAccessContextMock,
   enqueuePendingExecutionMock,
+  openWorkflowExecutionEventStreamMock,
 } = vi.hoisted(() => ({
   checkSessionOrInternalAuthMock: vi.fn(),
   readWorkflowAccessContextMock: vi.fn(),
   enqueuePendingExecutionMock: vi.fn(),
+  openWorkflowExecutionEventStreamMock: vi.fn(),
 }))
 
 vi.mock('@/lib/auth/hybrid', () => ({
@@ -26,6 +28,10 @@ vi.mock('@/lib/workflows/utils', () => ({
 vi.mock('@/lib/execution/pending-execution', () => ({
   enqueuePendingExecution: enqueuePendingExecutionMock,
   isPendingExecutionLimitError: vi.fn(() => false),
+}))
+
+vi.mock('@/lib/execution/workflow-execution-stream', () => ({
+  openWorkflowExecutionEventStream: openWorkflowExecutionEventStreamMock,
 }))
 
 vi.mock('@/lib/trigger/settings', () => ({
@@ -42,6 +48,7 @@ vi.mock('@/lib/logs/console/logger', () => ({
 
 vi.mock('@/lib/utils', () => ({
   generateRequestId: vi.fn(() => 'request-1'),
+  SSE_HEADERS: { 'Content-Type': 'text/event-stream' },
 }))
 
 import { POST } from './route'
@@ -68,6 +75,10 @@ describe('POST /api/workflows/[id]/queue', () => {
       pendingExecutionId: 'pending-1',
       billingScopeId: 'scope-1',
       inserted: true,
+    })
+    openWorkflowExecutionEventStreamMock.mockResolvedValue({
+      ok: true,
+      stream: new ReadableStream(),
     })
   })
 
@@ -319,6 +330,38 @@ describe('POST /api/workflows/[id]/queue', () => {
         }),
       })
     )
+  })
+
+  it('returns the queued workflow event stream for live streaming executions', async () => {
+    const response = await POST(
+      new NextRequest('http://localhost/api/workflows/workflow-1/queue', {
+        method: 'POST',
+        body: JSON.stringify({
+          executionId: 'execution-1',
+          input: { symbol: 'AAPL' },
+          executionTarget: 'live',
+          triggerType: 'manual',
+          stream: true,
+          workflowData: { blocks: {}, edges: [], loops: {}, parallels: {} },
+        }),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }),
+      {
+        params: Promise.resolve({ id: 'workflow-1' }),
+      }
+    )
+
+    expect(response.status).toBe(200)
+    expect(response.headers.get('Content-Type')).toContain('text/event-stream')
+    expect(response.headers.get('X-Execution-Id')).toBe('execution-1')
+    expect(response.headers.get('X-Task-Id')).toBe('pending-1')
+    expect(openWorkflowExecutionEventStreamMock).toHaveBeenCalledWith({
+      pendingExecutionId: 'execution-1',
+      workflowId: 'workflow-1',
+      requestId: 'request-1',
+    })
   })
 
   it('rejects deployed executions with live workflow state', async () => {
