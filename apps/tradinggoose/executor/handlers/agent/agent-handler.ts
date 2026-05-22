@@ -10,8 +10,8 @@ import type {
   StreamingConfig,
   ToolInput,
 } from '@/executor/handlers/agent/types'
-import type { BlockHandler, ExecutionContext, StreamingExecution } from '@/executor/types'
 import { getBlockToolExecutionId } from '@/executor/handlers/tool-execution-context'
+import type { BlockHandler, ExecutionContext, StreamingExecution } from '@/executor/types'
 import { getProviderFromModel, transformBlockTool } from '@/providers/ai/utils'
 import type { SerializedBlock } from '@/serializer/types'
 import { executeTool } from '@/tools'
@@ -669,13 +669,33 @@ export class AgentBlockHandler implements BlockHandler {
     context: ExecutionContext,
     providerStartTime: number
   ) {
-    return this.executeViaProviderApi(
-      providerRequest,
-      block,
-      responseFormat,
-      context,
-      providerStartTime
+    logger.info('Using direct server provider request')
+
+    const [{ executeProviderRequest }, { getApiKey }] = await Promise.all([
+      import('@/providers/ai'),
+      import('@/providers/ai/utils-server'),
+    ])
+    const apiKey = await getApiKey(
+      providerRequest.provider,
+      providerRequest.model,
+      providerRequest.apiKey
     )
+    const result = await executeProviderRequest(providerRequest.provider, {
+      ...providerRequest,
+      apiKey,
+      userId: context.userId,
+    })
+
+    this.logExecutionSuccess(
+      providerRequest.provider,
+      providerRequest.model,
+      context,
+      block,
+      providerStartTime,
+      result
+    )
+
+    return this.processProviderResponse(result, block, responseFormat)
   }
 
   private async executeBrowserSide(

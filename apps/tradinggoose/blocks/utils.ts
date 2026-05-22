@@ -1,3 +1,4 @@
+import { isWorkflowParamType } from '@/lib/workflows/value-types'
 import type {
   BlockOptionLoaderContext,
   BlockOutput,
@@ -31,8 +32,8 @@ interface ToolInputOptions {
 }
 
 const toParamType = (type: string): ParamType => {
-  const allowed: ParamType[] = ['string', 'number', 'boolean', 'json', 'array']
-  return allowed.includes(type as ParamType) ? (type as ParamType) : 'string'
+  if (isWorkflowParamType(type)) return type
+  throw new Error(`Unsupported block input type: ${type}`)
 }
 
 export const requiredUserOnlyInput = (type: ParamType, description: string): ParamConfig => ({

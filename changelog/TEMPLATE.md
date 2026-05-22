@@ -8,8 +8,9 @@ Use this structure for each dated changelog entry under `changelog/`.
 - Use the full English month name, two-digit day, and four-digit year.
 - Example: `changelog/April-11-2026.md`.
 - Keep one dated file per calendar day.
-- Inside the dated file, keep one `## <branch> @ <short-head-sha> vs origin/staging` section per documented branch snapshot.
-- If the same branch gets new commits later the same day, append a new section with the new short head SHA instead of renaming the earlier one.
+- Inside the dated file, keep one `## <branch> @ <short-head-sha> vs origin/staging` section per documented branch.
+- If the same branch gets new commits later the same day, update that branch's existing section in
+  place and replace the short head SHA. Append a new section only for a different branch.
 
 ## Required section order
 

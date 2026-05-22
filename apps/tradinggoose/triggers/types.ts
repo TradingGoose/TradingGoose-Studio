@@ -1,3 +1,5 @@
+import type { WorkflowOutputType } from '@/lib/workflows/value-types'
+
 export type TriggerFieldType =
   | 'string'
   | 'boolean'
@@ -20,7 +22,7 @@ export interface TriggerConfigField {
 }
 
 export interface TriggerOutput {
-  type?: string
+  type?: WorkflowOutputType
   description?: string
   [key: string]: TriggerOutput | string | undefined
 }

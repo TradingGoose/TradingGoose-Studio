@@ -1,4 +1,8 @@
 import { BlockPathCalculator } from '@/lib/block-path-calculator'
+import {
+  LISTING_IDENTITY_VALUE_TYPE,
+  parseListingIdentityValueStrict,
+} from '@/lib/listing/identity'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { TraceSpan } from '@/lib/logs/types'
 import { getBlock } from '@/blocks'
@@ -41,6 +45,9 @@ import type { SerializedBlock, SerializedParallel, SerializedWorkflow } from '@/
 const logger = createLogger('Executor')
 const STREAM_CHUNK_FLUSH_INTERVAL_MS = 100
 const STREAM_CHUNK_FLUSH_SIZE = 2_048
+
+const isWorkflowReferenceString = (value: unknown): value is string =>
+  typeof value === 'string' && value.trim().startsWith('<') && value.trim().includes('>')
 
 declare global {
   interface Window {
@@ -707,6 +714,12 @@ export class Executor {
                   inputValue === true ||
                   inputValue === 1 ||
                   inputValue === '1'
+              } else if (field.type === LISTING_IDENTITY_VALUE_TYPE) {
+                if (isWorkflowReferenceString(inputValue)) {
+                  typedValue = inputValue
+                } else {
+                  typedValue = parseListingIdentityValueStrict(inputValue)
+                }
               } else if (
                 (field.type === 'object' || field.type === 'array') &&
                 typeof inputValue === 'string'
@@ -1926,6 +1939,9 @@ export class Executor {
             data: {
               blockId: consoleBlockId,
               chunk,
+              iterationCurrent: iterationContext.iterationCurrent,
+              iterationTotal: iterationContext.iterationTotal,
+              iterationType: iterationContext.iterationType,
             },
           })
         }
@@ -1974,6 +1990,9 @@ export class Executor {
             type: 'stream:done',
             data: {
               blockId: consoleBlockId,
+              iterationCurrent: iterationContext.iterationCurrent,
+              iterationTotal: iterationContext.iterationTotal,
+              iterationType: iterationContext.iterationType,
             },
           })
         }

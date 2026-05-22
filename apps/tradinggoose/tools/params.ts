@@ -1,11 +1,15 @@
 import { createLogger } from '@/lib/logs/console/logger'
+import {
+  LISTING_IDENTITY_JSON_SCHEMA,
+  LISTING_IDENTITY_VALUE_TYPE,
+} from '@/lib/listing/identity'
 import type {
   BlockConfig,
   SubBlockCondition as ComponentCondition,
   SubBlockConfig,
   SubBlockOption,
 } from '@/blocks/types'
-import type { ParameterVisibility, ToolConfig } from '@/tools/types'
+import type { ParameterVisibility, ToolConfig, ToolParameterType } from '@/tools/types'
 import { getTool } from '@/tools/utils'
 
 const logger = createLogger('ToolsParams')
@@ -26,6 +30,11 @@ export type UIComponentConfig = Omit<
 export interface SchemaProperty {
   type: string
   description: string
+  properties?: Record<string, SchemaProperty>
+  items?: SchemaProperty
+  required?: string[]
+  additionalProperties?: boolean
+  enum?: readonly string[]
 }
 
 export interface ToolSchema {
@@ -41,7 +50,7 @@ export interface ValidationResult {
 
 export interface ToolParameterConfig {
   id: string
-  type: string
+  type: ToolParameterType
   required?: boolean // Required for tool execution
   visibility?: ParameterVisibility // Controls who can/must provide this parameter
   userProvided?: boolean // User filled this parameter
@@ -57,6 +66,32 @@ export interface ToolWithParameters {
   userInputParameters: ToolParameterConfig[] // Parameters shown to user
   requiredParameters: ToolParameterConfig[] // Must be filled by user or LLM
   optionalParameters: ToolParameterConfig[] // Nice to have, shown to user
+}
+
+const createSchemaProperty = (type: ToolParameterType, description: string): SchemaProperty => {
+  switch (type) {
+    case 'string':
+    case 'number':
+    case 'boolean':
+    case 'array':
+      return { type, description }
+    case 'json':
+    case 'any':
+    case 'object':
+      return { type: 'object', description }
+    case 'file':
+      return { type: 'object', description }
+    case 'file[]':
+      return { type: 'array', description, items: { type: 'object', description: 'File' } }
+    case LISTING_IDENTITY_VALUE_TYPE:
+      return {
+        ...LISTING_IDENTITY_JSON_SCHEMA,
+        description,
+      }
+  }
+
+  const unsupportedType: never = type
+  throw new Error(`Unsupported tool parameter type: ${String(unsupportedType)}`)
 }
 
 const getCanonicalSubBlockParamId = (subBlock: SubBlockConfig): string =>
@@ -292,16 +327,7 @@ export function createLLMToolSchema(
       return
     }
 
-    // Add parameter to LLM schema
-    let schemaType = param.type
-    if (param.type === 'json' || param.type === 'any') {
-      schemaType = 'object'
-    }
-
-    schema.properties[paramId] = {
-      type: schemaType,
-      description: param.description || '',
-    }
+    schema.properties[paramId] = createSchemaProperty(param.type, param.description || '')
 
     // Add to required if LLM must provide it and it's originally required
     if ((param.visibility === 'user-or-llm' || param.visibility === 'llm-only') && param.required) {
@@ -323,10 +349,7 @@ export function createExecutionToolSchema(toolConfig: ToolConfig): ToolSchema {
   }
 
   Object.entries(toolConfig.params).forEach(([paramId, param]) => {
-    schema.properties[paramId] = {
-      type: param.type === 'json' ? 'object' : param.type,
-      description: param.description || '',
-    }
+    schema.properties[paramId] = createSchemaProperty(param.type, param.description || '')
 
     if (param.required) {
       schema.required.push(paramId)

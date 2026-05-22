@@ -1,17 +1,11 @@
 import type { JSX, SVGProps } from 'react'
 import type { TimeFormat } from '@/lib/time-format'
+import type { WorkflowParamType } from '@/lib/workflows/value-types'
 import type { ParameterVisibility, ToolResponse } from '@/tools/types'
 
 export type BlockIcon = (props: SVGProps<SVGSVGElement>) => JSX.Element
-export type ParamType = 'string' | 'number' | 'boolean' | 'json' | 'array'
-export type PrimitiveValueType =
-  | 'string'
-  | 'number'
-  | 'boolean'
-  | 'json'
-  | 'array'
-  | 'files'
-  | 'any'
+export type ParamType = WorkflowParamType
+export type PrimitiveValueType = ParamType | 'files' | 'any'
 
 export type BlockCategory = 'blocks' | 'tools' | 'triggers'
 

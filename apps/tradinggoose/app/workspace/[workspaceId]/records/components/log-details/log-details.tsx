@@ -1,7 +1,7 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { ChevronDown, ChevronUp, Eye, X } from 'lucide-react'
+import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react'
+import { ChevronDown, ChevronUp, Eye, Loader2, X } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { CopyButton } from '@/components/ui/copy-button'
@@ -21,6 +21,8 @@ import type { WorkflowLog } from '@/stores/logs/filters/types'
 interface LogDetailsProps {
   log: WorkflowLog | null
   isOpen: boolean
+  isLoading?: boolean
+  stateContent?: ReactNode
   onClose: () => void
   onNavigateNext?: () => void
   onNavigatePrev?: () => void
@@ -47,6 +49,8 @@ const getLevelBadgeVariant = (level?: string | null) => {
 export function LogDetails({
   log,
   isOpen,
+  isLoading = false,
+  stateContent,
   onClose,
   onNavigateNext,
   onNavigatePrev,
@@ -120,15 +124,21 @@ export function LogDetails({
 
   if (!log) {
     return (
-      <div className='flex h-full min-h-0 min-w-0 items-center justify-center text-muted-foreground text-sm'>
-        Select a log to view details
+      <div className='flex h-full min-h-0 min-w-0 flex-col p-1'>
+        <div className='flex h-full min-h-0 min-w-0 flex-col overflow-hidden rounded-lg border border-border bg-card'>
+          <div className='flex h-full min-h-0 items-center justify-center gap-2 p-5 text-center text-muted-foreground text-sm'>
+            {isLoading && <Loader2 className='h-4 w-4 animate-spin' />}
+            {stateContent ??
+              (isLoading ? 'Loading log details...' : 'Select a log to view details')}
+          </div>
+        </div>
       </div>
     )
   }
 
   return (
     <div className='flex h-full min-h-0 min-w-0 flex-col p-1'>
-      <div className='flex h-full min-h-0 flex-col overflow-hidden rounded-lg border border-border bg-card'>
+      <div className='flex h-full min-h-0 min-w-0 flex-col overflow-hidden rounded-lg border border-border bg-card'>
         {/* Header */}
         <div className='z-[9] flex items-center justify-between border-b px-3 py-2'>
           <h2 className='font-medium text-foreground text-sm'>Log Details</h2>
@@ -182,12 +192,15 @@ export function LogDetails({
         </div>
 
         {/* Content */}
-        <div className='min-h-0 flex-1'>
-          <ScrollArea ref={scrollAreaRef} className='h-full w-full overflow-y-auto'>
-            <div className='flex w-full flex-col gap-3 px-3 pt-4 pb-4'>
+        <div className='min-h-0 min-w-0 flex-1'>
+          <ScrollArea
+            ref={scrollAreaRef}
+            className='h-full w-full min-w-0 max-w-full overflow-y-auto'
+          >
+            <div className='flex w-full min-w-0 max-w-full flex-col gap-3 px-3 pt-4 pb-4'>
               {/* Timestamp & Workflow Row */}
               <div className='flex min-w-0 items-center gap-4'>
-                <div className='flex w-[140px] flex-shrink-0 flex-col gap-2'>
+                <div className='flex w-full flex-shrink-0 flex-col gap-2'>
                   <span className='font-medium text-muted-foreground text-xs'>Timestamp</span>
                   <div className='group relative flex items-center gap-2 pr-8 font-medium text-foreground text-sm'>
                     <span>{formattedTimestamp?.compactDate || 'N/A'}</span>
@@ -279,14 +292,12 @@ export function LogDetails({
 
               {/* Trace Spans (if available and this is a workflow execution log) */}
               {isWorkflowExecutionLog && log.executionData?.traceSpans && (
-                <div className='w-full rounded-md border bg-muted/30 px-3 py-2'>
-                  <div className='w-full overflow-x-hidden'>
-                    <TraceSpans
-                      traceSpans={log.executionData.traceSpans}
-                      totalDuration={log.durationMs ?? undefined}
-                      costMultiplier={traceSpanCostMultiplier}
-                    />
-                  </div>
+                <div className='w-full min-w-0 max-w-full rounded-md border bg-muted/30 px-3 py-2'>
+                  <TraceSpans
+                    traceSpans={log.executionData.traceSpans}
+                    totalDuration={log.durationMs ?? undefined}
+                    costMultiplier={traceSpanCostMultiplier}
+                  />
                 </div>
               )}
 

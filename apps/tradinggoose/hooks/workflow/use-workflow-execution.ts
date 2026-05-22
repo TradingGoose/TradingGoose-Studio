@@ -20,7 +20,6 @@ type WorkflowExecutionRequest = {
   input?: unknown
   triggerType?: WorkflowExecutionTriggerType
   selectedOutputs?: string[]
-  stream?: boolean
   onEvent?: (event: WorkflowExecutionEvent) => void | Promise<void>
 }
 
@@ -96,141 +95,19 @@ export function useWorkflowExecution() {
   const [executionResult, setExecutionResult] = useState<ExecutionResult | null>(null)
 
   const applyExecutionEvent = useCallback(
-    (event: WorkflowExecutionEvent, streamedContentByBlock: Map<string, string>) => {
-      const { addConsole, updateConsole } = useConsoleStore.getState()
+    (event: WorkflowExecutionEvent) => {
+      useConsoleStore.getState().ingestWorkflowExecutionEvent(event)
 
       if (event.type === 'block:started') {
-        const data = event.data
-        streamedContentByBlock.delete(`${event.executionId}:${data.blockId}`)
-        addConsole({
-          workflowId: event.workflowId,
-          executionId: event.executionId,
-          blockId: data.blockId,
-          blockName: data.blockName,
-          blockType: data.blockType,
-          input: data.input,
-          output: undefined,
-          success: true,
-          durationMs: data.durationMs ?? 0,
-          startedAt: data.startedAt,
-          endedAt: data.endedAt,
-          iterationCurrent: data.iterationCurrent,
-          iterationTotal: data.iterationTotal,
-          iterationType: data.iterationType,
-          isRunning: true,
-          isCanceled: false,
-        })
-
         const activeBlockIds = new Set(useExecutionStore.getState().activeBlockIds)
-        activeBlockIds.add(data.blockId)
+        activeBlockIds.add(event.data.blockId)
         setActiveBlocks(activeBlockIds)
         return
       }
 
-      if (event.type === 'stream:chunk') {
-        const key = `${event.executionId}:${event.data.blockId}`
-        const content = `${streamedContentByBlock.get(key) ?? ''}${event.data.chunk}`
-        streamedContentByBlock.set(key, content)
-        updateConsole(event.data.blockId, { content }, event.executionId)
-        return
-      }
-
-      if (event.type === 'block:completed') {
-        const data = event.data
-        streamedContentByBlock.delete(`${event.executionId}:${data.blockId}`)
-        const hasEntry = useConsoleStore
-          .getState()
-          .entries.some(
-            (entry) => entry.blockId === data.blockId && entry.executionId === event.executionId
-          )
-
-        if (hasEntry) {
-          updateConsole(
-            data.blockId,
-            {
-              replaceOutput: data.output as any,
-              success: true,
-              endedAt: data.endedAt,
-              durationMs: data.durationMs,
-              isRunning: false,
-              isCanceled: false,
-            },
-            event.executionId
-          )
-        } else {
-          addConsole({
-            workflowId: event.workflowId,
-            executionId: event.executionId,
-            blockId: data.blockId,
-            blockName: data.blockName,
-            blockType: data.blockType,
-            input: data.input,
-            output: data.output as any,
-            success: true,
-            durationMs: data.durationMs ?? 0,
-            startedAt: data.startedAt,
-            endedAt: data.endedAt,
-            iterationCurrent: data.iterationCurrent,
-            iterationTotal: data.iterationTotal,
-            iterationType: data.iterationType,
-            isRunning: false,
-            isCanceled: false,
-          })
-        }
-
+      if (event.type === 'block:completed' || event.type === 'block:error') {
         const activeBlockIds = new Set(useExecutionStore.getState().activeBlockIds)
-        activeBlockIds.delete(data.blockId)
-        setActiveBlocks(activeBlockIds)
-        return
-      }
-
-      if (event.type === 'block:error') {
-        const data = event.data
-        streamedContentByBlock.delete(`${event.executionId}:${data.blockId}`)
-        const hasEntry = useConsoleStore
-          .getState()
-          .entries.some(
-            (entry) => entry.blockId === data.blockId && entry.executionId === event.executionId
-          )
-
-        if (hasEntry) {
-          updateConsole(
-            data.blockId,
-            {
-              replaceOutput: data.output as any,
-              success: false,
-              error: data.error,
-              endedAt: data.endedAt,
-              durationMs: data.durationMs,
-              isRunning: false,
-              isCanceled: data.isCanceled,
-            },
-            event.executionId
-          )
-        } else {
-          addConsole({
-            workflowId: event.workflowId,
-            executionId: event.executionId,
-            blockId: data.blockId,
-            blockName: data.blockName,
-            blockType: data.blockType,
-            input: data.input,
-            output: data.output as any,
-            error: data.error,
-            success: false,
-            durationMs: data.durationMs ?? 0,
-            startedAt: data.startedAt,
-            endedAt: data.endedAt,
-            iterationCurrent: data.iterationCurrent,
-            iterationTotal: data.iterationTotal,
-            iterationType: data.iterationType,
-            isRunning: false,
-            isCanceled: data.isCanceled,
-          })
-        }
-
-        const activeBlockIds = new Set(useExecutionStore.getState().activeBlockIds)
-        activeBlockIds.delete(data.blockId)
+        activeBlockIds.delete(event.data.blockId)
         setActiveBlocks(activeBlockIds)
         return
       }
@@ -282,7 +159,7 @@ export function useWorkflowExecution() {
           blockId: 'execution',
           executionId: options?.executionId,
           blockName: 'Workflow',
-          blockType: 'execution',
+          blockType: 'workflow',
         })
       }
 
@@ -471,7 +348,6 @@ export function useWorkflowExecution() {
 
       const abortController = new AbortController()
       abortControllerRef.current = abortController
-      const streamedContentByBlock = new Map<string, string>()
 
       try {
         const triggerType = request.triggerType ?? 'manual'
@@ -496,14 +372,12 @@ export function useWorkflowExecution() {
             workflowVariables: executionRequest.workflowVariables,
             startBlockId: executionRequest.startBlockId,
             selectedOutputs: request.selectedOutputs,
-            stream:
-              request.stream ??
-              (triggerType === 'chat' || Boolean(request.selectedOutputs?.length)),
+            stream: true,
             signal: abortController.signal,
           },
           {
             onEvent: async (event) => {
-              applyExecutionEvent(event, streamedContentByBlock)
+              applyExecutionEvent(event)
               await request.onEvent?.(event)
             },
           }

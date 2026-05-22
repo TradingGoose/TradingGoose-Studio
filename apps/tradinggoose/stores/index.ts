@@ -2,13 +2,13 @@
 
 import { useEffect } from 'react'
 import { createLogger } from '@/lib/logs/console/logger'
+import { useConsoleStore } from '@/stores/console/store'
 import { getCopilotStore, useCopilotStore } from '@/stores/copilot/store'
 import { useCustomToolsStore } from '@/stores/custom-tools/store'
-import { useIndicatorsStore } from '@/stores/indicators/store'
 import { useExecutionStore } from '@/stores/execution/store'
-import { useConsoleStore } from '@/stores/console/store'
-import { useSkillsStore } from '@/stores/skills/store'
+import { useIndicatorsStore } from '@/stores/indicators/store'
 import { useEnvironmentStore } from '@/stores/settings/environment/store'
+import { useSkillsStore } from '@/stores/skills/store'
 import { useSubscriptionStore } from '@/stores/subscription/store'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 
@@ -241,7 +241,7 @@ export const resetAllStores = () => {
     error: null,
   })
   useExecutionStore.getState().reset()
-  useConsoleStore.setState({ entries: [], isOpen: false })
+  useConsoleStore.setState({ entries: [] })
   getCopilotStore().setState({ messages: [], isSendingMessage: false })
   useCustomToolsStore.getState().resetAll()
   useSkillsStore.getState().resetAll()

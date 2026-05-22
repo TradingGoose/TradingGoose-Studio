@@ -812,13 +812,13 @@ export default function Records() {
         <ResizablePanel
           order={1}
           defaultSize={panelLayout?.[0] ?? 60}
-          minSize={50}
+          minSize={30}
           className='flex h-full max-h-full min-h-0 min-w-0 flex-col overflow-hidden'
         >
           {primary}
         </ResizablePanel>
         <ResizableHandle withHandle />
-        <ResizablePanel order={2} defaultSize={panelLayout?.[1] ?? 40} minSize={20}>
+        <ResizablePanel order={2} defaultSize={panelLayout?.[1] ?? 40} minSize={30} maxSize={70}>
           {detail}
         </ResizablePanel>
       </ResizablePanelGroup>
@@ -869,10 +869,16 @@ export default function Records() {
 
   const logsLayout = renderWithPanel(
     logsContent,
-    selectedLog && logDetailQuery.data ? (
+    selectedLog ? (
       <LogDetails
-        log={logDetailQuery.data}
+        log={logDetailQuery.data ?? null}
         isOpen={isLogDetailOpen}
+        isLoading={logDetailQuery.isLoading && !logDetailQuery.data}
+        stateContent={
+          logDetailQuery.isLoading && !logDetailQuery.data
+            ? 'Loading log details...'
+            : 'Log details unavailable'
+        }
         onClose={() => setIsLogDetailOpen(false)}
         onNavigateNext={() => {
           if (selectedLogIndex < logs.length - 1) selectLog(logs[selectedLogIndex + 1]!)
@@ -883,11 +889,7 @@ export default function Records() {
         hasNext={selectedLogIndex < logs.length - 1}
         hasPrev={selectedLogIndex > 0}
       />
-    ) : (
-      <div className='flex h-full items-center justify-center text-muted-foreground text-sm'>
-        {logDetailQuery.isLoading ? 'Loading log details...' : 'Log details unavailable'}
-      </div>
-    ),
+    ) : null,
     isLogDetailOpen && Boolean(selectedLog)
   )
 

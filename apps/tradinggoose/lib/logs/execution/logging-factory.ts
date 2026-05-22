@@ -155,6 +155,10 @@ export function calculateCostSummary(
   > = {}
 
   for (const span of costSpans) {
+    const tokens = span.tokens || {}
+    const promptTokens = tokens.prompt ?? tokens.input ?? 0
+    const completionTokens = tokens.completion ?? tokens.output ?? 0
+    const totalSpanTokens = tokens.total ?? promptTokens + completionTokens
     const scaledInputCost = (span.cost.input || 0) * modelCostMultiplier
     const scaledOutputCost = (span.cost.output || 0) * modelCostMultiplier
     const scaledTotalCost = (span.cost.total || 0) * modelCostMultiplier
@@ -162,12 +166,10 @@ export function calculateCostSummary(
     totalCost += scaledTotalCost
     totalInputCost += scaledInputCost
     totalOutputCost += scaledOutputCost
-    // Tokens are at span.tokens, not span.cost.tokens
-    totalTokens += span.tokens?.total || 0
-    totalPromptTokens += span.tokens?.prompt || 0
-    totalCompletionTokens += span.tokens?.completion || 0
+    totalTokens += totalSpanTokens
+    totalPromptTokens += promptTokens
+    totalCompletionTokens += completionTokens
 
-    // Aggregate model-specific costs - model is at span.model, not span.cost.model
     if (span.model) {
       const model = span.model
       if (!models[model]) {
@@ -181,9 +183,9 @@ export function calculateCostSummary(
       models[model].input += scaledInputCost
       models[model].output += scaledOutputCost
       models[model].total += scaledTotalCost
-      models[model].tokens.prompt += span.tokens?.prompt || 0
-      models[model].tokens.completion += span.tokens?.completion || 0
-      models[model].tokens.total += span.tokens?.total || 0
+      models[model].tokens.prompt += promptTokens
+      models[model].tokens.completion += completionTokens
+      models[model].tokens.total += totalSpanTokens
     }
   }
 

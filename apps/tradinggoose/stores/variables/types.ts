@@ -1,4 +1,6 @@
-export type VariableType = 'plain' | 'number' | 'boolean' | 'object' | 'array'
+import type { WorkflowVariableType } from '@/lib/workflows/value-types'
+
+export type VariableType = WorkflowVariableType
 
 /**
  * Represents a workflow variable with workflow-specific naming

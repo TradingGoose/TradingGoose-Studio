@@ -48,7 +48,6 @@
   }
 }
 
-
 .landing-loop-animated-dash {
   animation: dash-animation 1.5s linear infinite;
   /* Ensure animation works in React Flow context */
@@ -434,10 +433,16 @@ input[type="search"]::-ms-clear {
   .mask-radial-from-20\% {
     --mask-radial-position: 50% 50%;
     --mask-radial-inner: 60%;
-    mask-image: radial-gradient(circle at var(--mask-radial-position), rgba(0, 0, 0, 1) 0%, rgba(0, 0, 0, 0.0) var(--mask-radial-inner), transparent 100%);
+    mask-image: radial-gradient(circle at var(--mask-radial-position),
+        rgba(0, 0, 0, 1) 0%,
+        rgba(0, 0, 0, 0) var(--mask-radial-inner),
+        transparent 100%);
     mask-size: 100%;
     mask-repeat: no-repeat;
-    -webkit-mask-image: radial-gradient(circle at var(--mask-radial-position), rgba(0, 0, 0, 1) 0%, rgba(0, 0, 0, 0.0) var(--mask-radial-inner), transparent 100%);
+    -webkit-mask-image: radial-gradient(circle at var(--mask-radial-position),
+        rgba(0, 0, 0, 1) 0%,
+        rgba(0, 0, 0, 0) var(--mask-radial-inner),
+        transparent 100%);
     -webkit-mask-size: 100%;
     -webkit-mask-repeat: no-repeat;
   }
@@ -501,8 +506,6 @@ input[type="search"]::-ms-clear {
     background-clip: text;
   }
 
-
-
   /* Animation Classes */
   .animate-pulse-ring {
     animation: pulse-ring 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
@@ -562,15 +565,15 @@ input[type="search"]::-ms-clear {
      ========================================================================== */
   @keyframes pulse-ring {
     0% {
-      box-shadow: 0 0 0 0 hsl(var(--border));
+      box-shadow: 0 0 0 0 var(--block-active-pulse-color);
     }
 
     50% {
-      box-shadow: 0 0 0 8px hsl(var(--border));
+      box-shadow: 0 0 0 6px var(--block-active-pulse-color);
     }
 
     100% {
-      box-shadow: 0 0 0 0 hsl(var(--border));
+      box-shadow: 0 0 0 0 var(--block-active-pulse-color);
     }
   }
 

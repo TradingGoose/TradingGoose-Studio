@@ -1,13 +1,11 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Maximize2, Minimize2 } from 'lucide-react'
-import {
-  formatDurationDisplay,
-  normalizeChildWorkflowSpan,
-  TraceSpanItem,
-} from '@/app/workspace/[workspaceId]/records/components/log-details/components/trace-spans'
+import { JsonDisplayControls, type JsonDisplayMode } from '@/components/json-display/json-display'
 import type { TraceSpan } from '@/stores/logs/filters/types'
+import { TraceSpanItem } from './components/trace-span-item'
+import { formatDurationDisplay } from './utils'
 
 interface TraceSpansProps {
   traceSpans?: TraceSpan[]
@@ -21,31 +19,21 @@ export function TraceSpans({
   costMultiplier = 1,
 }: TraceSpansProps) {
   const [expandedSpans, setExpandedSpans] = useState<Set<string>>(new Set())
+  const [jsonDisplayMode, setJsonDisplayMode] = useState<JsonDisplayMode>('raw')
+  const [jsonWrapText, setJsonWrapText] = useState(true)
   const containerRef = useRef<HTMLDivElement | null>(null)
   const timelineHitboxRef = useRef<HTMLDivElement | null>(null)
   const [hoveredPercent, setHoveredPercent] = useState<number | null>(null)
   const [hoveredWorkflowMs, setHoveredWorkflowMs] = useState<number | null>(null)
   const [hoveredX, setHoveredX] = useState<number | null>(null)
-  const [containerWidth, setContainerWidth] = useState<number>(0)
-
-  type ChipVisibility = {
-    model: boolean
-    toolProvider: boolean
-    tokens: boolean
-    cost: boolean
-    relative: boolean
+  const [containerWidth, setContainerWidth] = useState(0)
+  const leftBudget = containerWidth * 0.55
+  const chipVisibility = {
+    model: leftBudget >= 300,
+    tokens: leftBudget >= 380,
+    cost: leftBudget >= 460,
+    relative: leftBudget >= 540,
   }
-
-  const chipVisibility: ChipVisibility = useMemo(() => {
-    const leftBudget = containerWidth * 0.55
-    return {
-      model: leftBudget >= 300, // first to reveal
-      toolProvider: leftBudget >= 300, // alongside model
-      tokens: leftBudget >= 380, // then tokens
-      cost: leftBudget >= 460, // then cost
-      relative: leftBudget >= 540, // finally relative timing
-    }
-  }, [containerWidth])
 
   const workflowStartTime = traceSpans.reduce((earliest, span) => {
     const startTime = new Date(span.startTime).getTime()
@@ -122,14 +110,13 @@ export function TraceSpans({
 
   useEffect(() => {
     if (!containerRef.current) return
-    const el = containerRef.current
-    const ro = new ResizeObserver((entries: ResizeObserverEntry[]) => {
-      const width = entries?.[0]?.contentRect?.width || el.clientWidth
-      setContainerWidth(width)
+    const element = containerRef.current
+    const resizeObserver = new ResizeObserver(([entry]) => {
+      setContainerWidth(entry?.contentRect.width || element.clientWidth)
     })
-    ro.observe(el)
-    setContainerWidth(el.clientWidth)
-    return () => ro.disconnect()
+    resizeObserver.observe(element)
+    setContainerWidth(element.clientWidth)
+    return () => resizeObserver.disconnect()
   }, [])
 
   if (traceSpans.length === 0) {
@@ -143,6 +130,12 @@ export function TraceSpans({
           <div className='font-medium text-muted-foreground text-xs'>Workflow Execution</div>
         </div>
         <div className='flex items-center gap-1'>
+          <JsonDisplayControls
+            mode={jsonDisplayMode}
+            onModeChange={setJsonDisplayMode}
+            wrapText={jsonWrapText}
+            onWrapTextChange={setJsonWrapText}
+          />
           {(() => {
             const anyExpanded = expandedSpans.size > 0
             return (
@@ -175,14 +168,13 @@ export function TraceSpans({
         }}
       >
         {traceSpans.map((span, index) => {
-          const normalizedSpan = normalizeChildWorkflowSpan(span)
           // Calculate gap from previous span (for sequential execution visualization)
           let gapMs = 0
           let gapPercent = 0
           if (index > 0) {
             const prevSpan = traceSpans[index - 1]
             const prevEndTime = new Date(prevSpan.endTime).getTime()
-            const currentStartTime = new Date(normalizedSpan.startTime).getTime()
+            const currentStartTime = new Date(span.startTime).getTime()
             gapMs = currentStartTime - prevEndTime
             if (gapMs > 0 && effectiveTotalDuration > 0) {
               gapPercent = (gapMs / effectiveTotalDuration) * 100
@@ -192,10 +184,10 @@ export function TraceSpans({
           return (
             <TraceSpanItem
               key={index}
-              span={normalizedSpan}
+              span={span}
               depth={0}
               totalDuration={effectiveTotalDuration}
-              parentStartTime={new Date(normalizedSpan.startTime).getTime()}
+              parentStartTime={new Date(span.startTime).getTime()}
               workflowStartTime={workflowStartTime}
               onToggle={handleSpanToggle}
               expandedSpans={expandedSpans}
@@ -204,7 +196,8 @@ export function TraceSpans({
               costMultiplier={costMultiplier}
               gapBeforeMs={gapMs}
               gapBeforePercent={gapPercent}
-              showRelativeChip={chipVisibility.relative}
+              jsonDisplayMode={jsonDisplayMode}
+              jsonWrapText={jsonWrapText}
               chipVisibility={chipVisibility}
             />
           )

@@ -167,78 +167,7 @@ export function OrderDetails({
   onRetryDetails,
   onRetryLog,
 }: OrderDetailsProps) {
-  const hasLinkedLog = Boolean(order.logId)
-
-  if (mode === 'log') {
-    if (!hasLinkedLog) {
-      return (
-        <div className='flex h-full flex-col'>
-          <OrderPanelHeader
-            order={order}
-            mode={mode}
-            onModeChange={onModeChange}
-            onClose={onClose}
-            onNavigateNext={onNavigateNext}
-            onNavigatePrev={onNavigatePrev}
-            hasNext={hasNext}
-            hasPrev={hasPrev}
-          />
-          <div className='flex flex-1 items-center justify-center p-6 text-center text-muted-foreground text-sm'>
-            No log is connected to this order.
-          </div>
-        </div>
-      )
-    }
-
-    if (linkedLogLoading) {
-      return (
-        <div className='flex h-full flex-col'>
-          <OrderPanelHeader
-            order={order}
-            mode={mode}
-            onModeChange={onModeChange}
-            onClose={onClose}
-            onNavigateNext={onNavigateNext}
-            onNavigatePrev={onNavigatePrev}
-            hasNext={hasNext}
-            hasPrev={hasPrev}
-          />
-          <div className='flex flex-1 items-center justify-center gap-2 text-muted-foreground text-sm'>
-            <Loader2 className='h-4 w-4 animate-spin' />
-            Loading workflow log...
-          </div>
-        </div>
-      )
-    }
-
-    if (linkedLogError || !linkedLog) {
-      return (
-        <div className='flex h-full flex-col'>
-          <OrderPanelHeader
-            order={order}
-            mode={mode}
-            onModeChange={onModeChange}
-            onClose={onClose}
-            onNavigateNext={onNavigateNext}
-            onNavigatePrev={onNavigatePrev}
-            hasNext={hasNext}
-            hasPrev={hasPrev}
-          />
-          <div className='flex flex-1 items-center justify-center p-6'>
-            <div className='space-y-3 text-center text-sm'>
-              <AlertCircle className='mx-auto h-5 w-5 text-destructive' />
-              <p className='text-muted-foreground'>
-                {linkedLogError ?? 'Workflow log unavailable'}
-              </p>
-              <Button size='sm' variant='outline' onClick={onRetryLog}>
-                Retry
-              </Button>
-            </div>
-          </div>
-        </div>
-      )
-    }
-
+  if (mode === 'log' && linkedLog) {
     return (
       <LogDetails
         log={linkedLog}
@@ -264,7 +193,26 @@ export function OrderDetails({
         hasNext={hasNext}
         hasPrev={hasPrev}
       />
-      {mode === 'provider' ? (
+      {mode === 'log' ? (
+        <div className='flex h-full min-h-0 items-center justify-center p-5 text-center text-muted-foreground text-sm'>
+          {!order.logId ? (
+            'No log is connected to this order.'
+          ) : linkedLogLoading ? (
+            <span className='flex items-center gap-2'>
+              <Loader2 className='h-4 w-4 animate-spin' />
+              Loading workflow log...
+            </span>
+          ) : (
+            <div className='space-y-3'>
+              <AlertCircle className='mx-auto h-5 w-5 text-destructive' />
+              <p>{linkedLogError ?? 'Workflow log unavailable'}</p>
+              <Button size='sm' variant='outline' onClick={onRetryLog}>
+                Retry
+              </Button>
+            </div>
+          )}
+        </div>
+      ) : mode === 'provider' ? (
         <ScrollArea className='h-full'>
           <div className='p-5'>
             <OrderProviderRefresh

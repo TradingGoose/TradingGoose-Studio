@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { LISTING_IDENTITY_VALUE_TYPE } from '@/lib/listing/identity'
 import { VariableManager } from '@/lib/variables/variable-manager'
 
 describe('VariableManager', () => {
@@ -43,6 +44,8 @@ describe('VariableManager', () => {
     it.concurrent('should handle empty values', () => {
       expect(VariableManager.parseInputForStorage('', 'plain')).toBe('')
       expect(VariableManager.parseInputForStorage('', 'number')).toBe('')
+      expect(VariableManager.parseInputForStorage('', LISTING_IDENTITY_VALUE_TYPE)).toBe('')
+      expect(VariableManager.parseInputForStorage('{ }', LISTING_IDENTITY_VALUE_TYPE)).toBe('')
       expect(VariableManager.parseInputForStorage(null as any, 'boolean')).toBe('')
       expect(VariableManager.parseInputForStorage(undefined as any, 'object')).toBe('')
     })
@@ -89,6 +92,7 @@ describe('VariableManager', () => {
     it.concurrent('should handle empty values', () => {
       expect(VariableManager.formatForEditor(null, 'plain')).toBe('')
       expect(VariableManager.formatForEditor(undefined, 'number')).toBe('')
+      expect(VariableManager.formatForEditor('{ }', LISTING_IDENTITY_VALUE_TYPE)).toBe('')
     })
   })
 
@@ -134,6 +138,12 @@ describe('VariableManager', () => {
     it.concurrent('throws for unsupported variable types', () => {
       expect(() => VariableManager.resolveForExecution('hello', 'string' as any)).toThrow(
         /Unsupported variable type/
+      )
+    })
+
+    it.concurrent('requires listingIdentity values for execution', () => {
+      expect(() => VariableManager.resolveForExecution('{ }', LISTING_IDENTITY_VALUE_TYPE)).toThrow(
+        'Invalid listingIdentity value'
       )
     })
   })

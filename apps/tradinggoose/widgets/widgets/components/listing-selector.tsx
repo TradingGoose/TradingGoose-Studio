@@ -8,15 +8,20 @@ import {
   triggerCurrencyRankUpdate,
   triggerListingRankUpdate,
 } from '@/components/listing-selector/listing/rank-updates'
+import {
+  getListingDisplaySymbol,
+  ListingDisplayRow,
+} from '@/components/listing-selector/listing/row'
 import { requestListingResolution } from '@/components/listing-selector/selector/resolve-request'
 import { useMarketListingSearch } from '@/components/listing-selector/selector/use-listing-search'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { formatDisplayText } from '@/components/ui/formatted-text'
 import { checkTagTrigger, TagDropdown } from '@/components/ui/tag-dropdown'
-import type { ListingIdentity, ListingOption } from '@/lib/listing/identity'
 import {
   areListingIdentitiesEqual,
   getListingIdentityKey,
+  LISTING_IDENTITY_VALUE_TYPE,
+  type ListingIdentity,
+  type ListingOption,
   toListingValue,
   toListingValueObject,
 } from '@/lib/listing/identity'
@@ -43,31 +48,6 @@ interface ListingSelectorProps {
 const getListingOptionKey = (listing: ListingOption) =>
   `${getListingIdentityKey(listing)}|${listing.base ?? ''}|${listing.quote ?? ''}|${listing.name ?? ''}`
 
-const getListingSymbol = (listing: ListingOption): string => {
-  const base = listing.base?.trim()
-  const quote = listing.quote?.trim()
-  if (base) {
-    return quote ? `${base}/${quote}` : base
-  }
-  const name = listing.name?.trim()
-  if (name) return name
-  return 'Listing'
-}
-
-const getListingFallback = (listing: ListingOption): string => {
-  const symbol = getListingSymbol(listing).trim()
-  if (!symbol) return '??'
-  return symbol.slice(0, 2).toUpperCase()
-}
-
-const getListingCompanyName = (listing: ListingOption): string | null => {
-  const name = listing.name?.trim()
-  if (!name) return null
-  const symbol = getListingSymbol(listing).trim()
-  if (symbol && symbol.toLowerCase() === name.toLowerCase()) return null
-  return name
-}
-
 const hasListingDetails = (listing?: ListingOption | null): boolean => {
   if (!listing) return false
   const base = listing.base?.trim()
@@ -75,79 +55,6 @@ const hasListingDetails = (listing?: ListingOption | null): boolean => {
   if (listing.listing_type === 'default') return true
   const quote = listing.quote?.trim()
   return Boolean(quote)
-}
-
-const getFlagData = (countryCode?: string | null): { emoji: string; codepoints: string } | null => {
-  if (!countryCode) return null
-  const code = countryCode.trim().toUpperCase()
-  if (code.length !== 2) return null
-  const flagOffset = 0x1f1e6
-  const asciiOffset = 0x41
-  const first = code.codePointAt(0)
-  const second = code.codePointAt(1)
-  if (first == null || second == null) return null
-  if (first < asciiOffset || first > asciiOffset + 25) return null
-  if (second < asciiOffset || second > asciiOffset + 25) return null
-  const firstChar = first - asciiOffset + flagOffset
-  const secondChar = second - asciiOffset + flagOffset
-  return {
-    emoji: String.fromCodePoint(firstChar, secondChar),
-    codepoints: `${firstChar.toString(16)}-${secondChar.toString(16)}`,
-  }
-}
-
-const ListingSelectorRow = ({
-  listing,
-  showSecondary = false,
-}: {
-  listing?: ListingOption | null
-  showSecondary?: boolean
-}) => {
-  const symbol = listing ? getListingSymbol(listing) : ''
-  const companyName = listing ? getListingCompanyName(listing) : null
-  const assetClassLabel = listing?.assetClass?.toUpperCase() ?? ''
-  const flagData = getFlagData(listing?.countryCode)
-  const flagImageUrl = flagData
-    ? `https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/svg/${flagData.codepoints}.svg`
-    : null
-
-  return (
-    <div className='flex min-w-0 flex-1 items-center gap-2'>
-      <Avatar className='h-4 w-4 rounded-xs bg-secondary'>
-        {listing?.iconUrl ? <AvatarImage src={listing.iconUrl} alt={symbol} /> : null}
-        <AvatarFallback className='text-accent-foreground text-xs'>
-          {listing ? getListingFallback(listing) : '??'}
-        </AvatarFallback>
-      </Avatar>
-      {showSecondary && companyName ? (
-        <div className='min-w-0 flex-1'>
-          <span className='block min-w-0 truncate font-medium text-sm'>
-            {listing ? symbol : 'Select listing'}
-          </span>
-          <span className='block min-w-0 truncate text-muted-foreground text-xs'>
-            {companyName}
-          </span>
-        </div>
-      ) : (
-        <span className='min-w-0 truncate font-medium text-sm'>
-          {listing ? symbol : 'Select listing'}
-        </span>
-      )}
-      {flagImageUrl ? (
-        <img
-          src={flagImageUrl}
-          alt={`${listing?.countryCode ?? ''} flag`}
-          className='ml-1 h-3.5 w-3.5'
-          loading='lazy'
-        />
-      ) : null}
-      {assetClassLabel && listing ? (
-        <span className='ml-auto p-1 font-semibold text-muted-foreground text-xs'>
-          {assetClassLabel}
-        </span>
-      ) : null}
-    </div>
-  )
 }
 
 export function ListingSelector({
@@ -239,7 +146,7 @@ export function ListingSelector({
 
   const selectedLabel = useMemo(() => {
     if (!selectedListing) return ''
-    return getListingSymbol(selectedListing)
+    return getListingDisplaySymbol(selectedListing)
   }, [selectedListing])
 
   const selectedListingIdentity = useMemo(
@@ -257,7 +164,7 @@ export function ListingSelector({
   const hideInputText = showRichOverlay || showTagOverlay || showPlaceholderOverlay
 
   const handleSelect = (listing: ListingOption) => {
-    const nextLabel = getListingSymbol(listing)
+    const nextLabel = getListingDisplaySymbol(listing)
     updateInstance(instanceId, {
       selectedListingValue: toListingValue(listing),
       selectedListing: listing,
@@ -450,7 +357,7 @@ export function ListingSelector({
                     isHighlighted && 'bg-accent text-accent-foreground'
                   )}
                 >
-                  <ListingSelectorRow listing={listing} showSecondary />
+                  <ListingDisplayRow listing={listing} showSecondary />
                 </div>
               )
             })
@@ -605,12 +512,12 @@ export function ListingSelector({
         />
         {showRichOverlay ? (
           <div className='pointer-events-none absolute inset-y-0 left-0 flex w-full items-center px-1'>
-            <ListingSelectorRow listing={selectedListing} />
+            <ListingDisplayRow listing={selectedListing} />
           </div>
         ) : null}
         {showPlaceholderOverlay ? (
           <div className='pointer-events-none absolute inset-y-0 left-0 flex w-full items-center px-1'>
-            <ListingSelectorRow listing={null} />
+            <ListingDisplayRow listing={null} />
           </div>
         ) : null}
         {showTagOverlay ? (
@@ -665,9 +572,8 @@ export function ListingSelector({
           activeSourceBlockId={null}
           inputValue={query}
           cursorPosition={cursorPosition}
-          allowVariables={false}
           allowContextualTags={false}
-          requiredOutputShape='listingIdentity'
+          allowedOutputTypes={[LISTING_IDENTITY_VALUE_TYPE]}
           onClose={() => {
             setShowTags(false)
           }}

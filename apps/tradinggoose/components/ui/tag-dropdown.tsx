@@ -14,10 +14,7 @@ import { getBlock } from '@/blocks'
 import type { BlockConfig } from '@/blocks/types'
 import { useAccessibleReferencePrefixes } from '@/hooks/workflow/use-accessible-reference-prefixes'
 import type { Variable } from '@/stores/variables/types'
-import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import type { BlockState } from '@/stores/workflows/workflow/types'
-import { DEFAULT_WORKFLOW_CHANNEL_ID } from '@/stores/workflows/workflow/types'
-import { useOptionalWorkflowRoute } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 
 interface BlockTagGroup {
   blockName: string
@@ -48,7 +45,6 @@ interface TagDropdownProps {
   style?: React.CSSProperties
   allowVariables?: boolean
   allowedOutputTypes?: string[]
-  requiredOutputShape?: 'listingIdentity'
   allowContextualTags?: boolean
 }
 
@@ -202,7 +198,6 @@ export const TagDropdown: React.FC<TagDropdownProps> = ({
   style,
   allowVariables = true,
   allowedOutputTypes,
-  requiredOutputShape,
   allowContextualTags = true,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -271,11 +266,6 @@ export const TagDropdown: React.FC<TagDropdownProps> = ({
 
   const readSub = (bId: string, key: string) => blocks[bId]?.subBlocks?.[key]?.value ?? null
 
-  const routeContext = useOptionalWorkflowRoute()
-  const resolvedChannelId = routeContext?.channelId ?? DEFAULT_WORKFLOW_CHANNEL_ID
-  const workflowId =
-    useWorkflowRegistry((state) => state.getActiveWorkflowId(resolvedChannelId)) ?? undefined
-
   const rawAccessiblePrefixes = useAccessibleReferencePrefixes(blockId)
 
   const combinedAccessiblePrefixes = useMemo(() => {
@@ -318,20 +308,9 @@ export const TagDropdown: React.FC<TagDropdownProps> = ({
         if (!allowedSet.has(outputType)) return false
       }
 
-      if (requiredOutputShape === 'listingIdentity') {
-        if (outputPath !== 'listing') return false
-
-        const listingType = getOutputTypeForPath(block, blockConfig, 'listing', mergedSubBlocks)
-        if (listingType !== 'json' && listingType !== 'object') return false
-
-        const baseType = getOutputTypeForPath(block, blockConfig, 'listingBase', mergedSubBlocks)
-        const quoteType = getOutputTypeForPath(block, blockConfig, 'listingQuote', mergedSubBlocks)
-        return baseType === 'string' && quoteType === 'string'
-      }
-
       return true
     },
-    [allowedOutputTypes, requiredOutputShape, workflowId]
+    [allowedOutputTypes]
   )
 
   const {
@@ -458,7 +437,7 @@ export const TagDropdown: React.FC<TagDropdownProps> = ({
         }
       }
 
-      if ((allowedOutputTypes && allowedOutputTypes.length > 0) || requiredOutputShape) {
+      if (allowedOutputTypes && allowedOutputTypes.length > 0) {
         blockTags = blockTags.filter((tag) =>
           matchesOutputConstraints(
             tag,
@@ -531,8 +510,15 @@ export const TagDropdown: React.FC<TagDropdownProps> = ({
       }
     }
 
+    const allowedOutputTypeSet =
+      allowedOutputTypes && allowedOutputTypes.length > 0 ? new Set(allowedOutputTypes) : null
+
     const validVariables = allowVariables
-      ? workflowVariables.filter((variable: Variable) => variable.name.trim() !== '')
+      ? workflowVariables.filter(
+          (variable: Variable) =>
+            variable.name.trim() !== '' &&
+            (!allowedOutputTypeSet || allowedOutputTypeSet.has(variable.type))
+        )
       : []
 
     const variableTags = validVariables.map(
@@ -759,7 +745,7 @@ export const TagDropdown: React.FC<TagDropdownProps> = ({
         blockTags = blockTags.filter((tag) => tag !== normalizedBlockName)
       }
 
-      if ((allowedOutputTypes && allowedOutputTypes.length > 0) || requiredOutputShape) {
+      if (allowedOutputTypes && allowedOutputTypes.length > 0) {
         blockTags = blockTags.filter((tag) => {
           return matchesOutputConstraints(
             tag,
@@ -817,10 +803,8 @@ export const TagDropdown: React.FC<TagDropdownProps> = ({
     parallels,
     allowVariables,
     allowedOutputTypes,
-    requiredOutputShape,
     allowContextualTags,
     workflowVariables,
-    workflowId,
     matchesOutputConstraints,
   ])
 

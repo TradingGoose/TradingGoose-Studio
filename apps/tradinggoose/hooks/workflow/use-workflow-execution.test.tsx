@@ -11,6 +11,7 @@ const mockUseWorkflowVariables = vi.hoisted(() => vi.fn())
 const mockConsoleState = vi.hoisted(() => ({
   cancelRunningEntries: vi.fn(),
   addConsole: vi.fn(),
+  ingestWorkflowExecutionEvent: vi.fn(),
   updateConsole: vi.fn(),
   entries: [],
 }))
@@ -32,7 +33,13 @@ vi.mock('@/lib/workflows/triggers', () => ({
   TriggerUtils: {
     findStartBlock: vi.fn(() => ({ blockId: 'chat-trigger', block: {} })),
     getTriggerValidationMessage: vi.fn(() => 'Missing chat trigger'),
-    findTriggersByType: vi.fn(() => []),
+    findTriggersByType: vi.fn((blocks, type) =>
+      type === 'manual'
+        ? Object.values(blocks as Record<string, any>).filter(
+            (block: any) => block.type === 'manual_trigger'
+          )
+        : []
+    ),
   },
 }))
 
@@ -137,6 +144,14 @@ describe('useWorkflowExecution', () => {
           subBlocks: {},
           outputs: {},
         },
+        'manual-trigger': {
+          id: 'manual-trigger',
+          type: 'manual_trigger',
+          name: 'Manual Trigger',
+          enabled: true,
+          subBlocks: {},
+          outputs: {},
+        },
         'agent-1': {
           id: 'agent-1',
           type: 'agent',
@@ -146,7 +161,10 @@ describe('useWorkflowExecution', () => {
           outputs: {},
         },
       },
-      edges: [{ id: 'edge-1', source: 'chat-trigger', target: 'agent-1' }],
+      edges: [
+        { id: 'edge-1', source: 'chat-trigger', target: 'agent-1' },
+        { id: 'edge-2', source: 'manual-trigger', target: 'agent-1' },
+      ],
     })
   })
 
@@ -219,32 +237,23 @@ describe('useWorkflowExecution', () => {
     const execution = await renderExecutionHook()
 
     await act(async () => {
-      await execution.handleRunWorkflow({
-        input: {
-          input: 'hello',
-          conversationId: 'conversation-1',
-        },
-        triggerType: 'chat',
-        onEvent,
-      })
+      await execution.handleRunWorkflow({ onEvent })
     })
 
     expect(onEvent).toHaveBeenCalledWith(streamEvent)
+    expect(mockConsoleState.ingestWorkflowExecutionEvent).toHaveBeenCalledWith(streamEvent)
     expect(mockRunQueuedWorkflowExecution).toHaveBeenCalledWith(
       expect.objectContaining({
+        triggerType: 'manual',
+        startBlockId: 'manual-trigger',
         selectedOutputs: undefined,
         stream: true,
       }),
       expect.any(Object)
     )
-    expect(mockConsoleState.updateConsole).toHaveBeenCalledWith(
-      'agent-1',
-      { content: 'streamed content' },
-      'execution-1'
-    )
   })
 
-  it('starts a fresh streamed content buffer for each block start event', async () => {
+  it('forwards every queued execution event to console ingestion', async () => {
     const blockStarted = {
       type: 'block:started',
       executionId: 'execution-1',
@@ -262,27 +271,40 @@ describe('useWorkflowExecution', () => {
     }
     mockRunQueuedWorkflowExecution.mockImplementationOnce(async (_request, callbacks) => {
       await callbacks.onEvent(blockStarted)
-      await callbacks.onEvent({
+      const firstChunk = {
         type: 'stream:chunk',
         executionId: 'execution-1',
         workflowId: 'workflow-1',
         timestamp: new Date().toISOString(),
-        data: { blockId: 'agent-1', chunk: 'first' },
-      })
-      await callbacks.onEvent({
+        data: {
+          blockId: 'agent-1',
+          chunk: 'first',
+          iterationCurrent: 1,
+          iterationTotal: 2,
+        },
+      }
+      await callbacks.onEvent(firstChunk)
+      const nextBlockStarted = {
         ...blockStarted,
         data: {
           ...blockStarted.data,
           iterationCurrent: 2,
         },
-      })
-      await callbacks.onEvent({
+      }
+      await callbacks.onEvent(nextBlockStarted)
+      const secondChunk = {
         type: 'stream:chunk',
         executionId: 'execution-1',
         workflowId: 'workflow-1',
         timestamp: new Date().toISOString(),
-        data: { blockId: 'agent-1', chunk: 'second' },
-      })
+        data: {
+          blockId: 'agent-1',
+          chunk: 'second',
+          iterationCurrent: 2,
+          iterationTotal: 2,
+        },
+      }
+      await callbacks.onEvent(secondChunk)
       return {
         success: true,
         output: {},
@@ -302,17 +324,27 @@ describe('useWorkflowExecution', () => {
       })
     })
 
-    expect(mockConsoleState.updateConsole).toHaveBeenNthCalledWith(
-      1,
-      'agent-1',
-      { content: 'first' },
-      'execution-1'
-    )
-    expect(mockConsoleState.updateConsole).toHaveBeenNthCalledWith(
+    expect(mockConsoleState.ingestWorkflowExecutionEvent).toHaveBeenNthCalledWith(1, blockStarted)
+    expect(mockConsoleState.ingestWorkflowExecutionEvent).toHaveBeenNthCalledWith(
       2,
-      'agent-1',
-      { content: 'second' },
-      'execution-1'
+      expect.objectContaining({
+        type: 'stream:chunk',
+        data: expect.objectContaining({ chunk: 'first', iterationCurrent: 1 }),
+      })
+    )
+    expect(mockConsoleState.ingestWorkflowExecutionEvent).toHaveBeenNthCalledWith(
+      3,
+      expect.objectContaining({
+        type: 'block:started',
+        data: expect.objectContaining({ iterationCurrent: 2 }),
+      })
+    )
+    expect(mockConsoleState.ingestWorkflowExecutionEvent).toHaveBeenNthCalledWith(
+      4,
+      expect.objectContaining({
+        type: 'stream:chunk',
+        data: expect.objectContaining({ chunk: 'second', iterationCurrent: 2 }),
+      })
     )
   })
 })

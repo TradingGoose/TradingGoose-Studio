@@ -2,13 +2,13 @@ import type Anthropic from '@anthropic-ai/sdk'
 import { transformJSONSchema } from '@anthropic-ai/sdk/lib/transform-json-schema'
 import type { RawMessageStreamEvent } from '@anthropic-ai/sdk/resources/messages/messages'
 import type { Logger } from '@/lib/logs/console/logger'
-import { toError } from '@/providers/ai/error'
 import type { StreamingExecution } from '@/executor/types'
-import { MAX_TOOL_ITERATIONS } from '@/providers/ai/constants'
 import {
   checkForForcedToolUsage,
   createReadableStreamFromAnthropicStream,
 } from '@/providers/ai/anthropic/utils'
+import { MAX_TOOL_ITERATIONS } from '@/providers/ai/constants'
+import { toError } from '@/providers/ai/error'
 import {
   getMaxOutputTokensForModel,
   getThinkingCapability,
@@ -37,6 +37,7 @@ export interface AnthropicProviderConfig {
   createClient: (apiKey: string, useNativeStructuredOutputs: boolean) => Anthropic
   /** Logger instance */
   logger: Logger
+  apiModel?: string
 }
 
 /**
@@ -179,6 +180,7 @@ export async function executeAnthropicProviderRequest(
   config: AnthropicProviderConfig
 ): Promise<ProviderResponse | StreamingExecution> {
   const { logger, providerId, providerLabel } = config
+  const apiModel = config.apiModel ?? request.model
 
   if (!request.apiKey) {
     throw new Error(`API key is required for ${providerLabel}`)
@@ -295,7 +297,7 @@ export async function executeAnthropicProviderRequest(
   }
 
   const payload: AnthropicPayload = {
-    model: request.model,
+    model: apiModel,
     messages,
     system: systemPrompt,
     max_tokens:

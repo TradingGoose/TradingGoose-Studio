@@ -9,6 +9,8 @@ import type {
   TimeSegment,
 } from '@/providers/ai/types'
 import {
+  calculateCost,
+  createOpenAICompatibleStream,
   prepareToolExecution,
   prepareToolsWithUsageControl,
   trackForcedToolUsage,
@@ -16,28 +18,6 @@ import {
 import { executeTool } from '@/tools'
 
 const logger = createLogger('DeepseekProvider')
-
-/**
- * Helper function to convert a DeepSeek (OpenAI-compatible) stream to a ReadableStream
- * of text chunks that can be consumed by the browser.
- */
-function createReadableStreamFromDeepseekStream(deepseekStream: any): ReadableStream {
-  return new ReadableStream({
-    async start(controller) {
-      try {
-        for await (const chunk of deepseekStream) {
-          const content = chunk.choices[0]?.delta?.content || ''
-          if (content) {
-            controller.enqueue(new TextEncoder().encode(content))
-          }
-        }
-        controller.close()
-      } catch (error) {
-        controller.error(error)
-      }
-    },
-  })
-}
 
 export const deepseekProvider: ProviderConfig = {
   id: 'deepseek',
@@ -102,7 +82,7 @@ export const deepseekProvider: ProviderConfig = {
         : undefined
 
       const payload: any = {
-        model: 'deepseek-chat', // Hardcode to deepseek-chat regardless of what's selected in the UI
+        model: request.model,
         messages: allMessages,
       }
 
@@ -133,7 +113,7 @@ export const deepseekProvider: ProviderConfig = {
                     : toolChoice.type === 'any'
                       ? `force:${toolChoice.any?.name || 'unknown'}`
                       : 'unknown',
-            model: request.model || 'deepseek-v3',
+            model: request.model,
           })
         }
       }
@@ -145,6 +125,7 @@ export const deepseekProvider: ProviderConfig = {
         const streamResponse = await deepseek.chat.completions.create({
           ...payload,
           stream: true,
+          stream_options: { include_usage: true },
         })
 
         // Start collecting token usage
@@ -156,12 +137,30 @@ export const deepseekProvider: ProviderConfig = {
 
         // Create a StreamingExecution response with a readable stream
         const streamingResult = {
-          stream: createReadableStreamFromDeepseekStream(streamResponse),
+          stream: createOpenAICompatibleStream(
+            streamResponse as any,
+            'Deepseek',
+            (content, usage) => {
+              streamingResult.execution.output.content = content
+
+              const newTokens = {
+                prompt: usage.prompt_tokens || 0,
+                completion: usage.completion_tokens || 0,
+                total: usage.total_tokens || 0,
+              }
+              streamingResult.execution.output.tokens = newTokens
+              streamingResult.execution.output.cost = calculateCost(
+                request.model,
+                newTokens.prompt,
+                newTokens.completion
+              )
+            }
+          ),
           execution: {
             success: true,
             output: {
               content: '', // Will be filled by streaming content in chat component
-              model: request.model || 'deepseek-chat',
+              model: request.model,
               tokens: tokenUsage,
               toolCalls: undefined,
               providerTiming: {
@@ -467,18 +466,38 @@ export const deepseekProvider: ProviderConfig = {
           messages: currentMessages,
           tool_choice: 'auto', // Always use 'auto' for the streaming response after tool calls
           stream: true,
+          stream_options: { include_usage: true },
         }
 
         const streamResponse = await deepseek.chat.completions.create(streamingPayload)
 
         // Create a StreamingExecution response with all collected data
         const streamingResult = {
-          stream: createReadableStreamFromDeepseekStream(streamResponse),
+          stream: createOpenAICompatibleStream(
+            streamResponse as any,
+            'Deepseek',
+            (content, usage) => {
+              streamingResult.execution.output.content = content
+
+              const newTokens = {
+                prompt: tokens.prompt + (usage.prompt_tokens || 0),
+                completion: tokens.completion + (usage.completion_tokens || 0),
+                total: tokens.total + (usage.total_tokens || 0),
+              }
+
+              streamingResult.execution.output.tokens = newTokens
+              streamingResult.execution.output.cost = calculateCost(
+                request.model,
+                newTokens.prompt,
+                newTokens.completion
+              )
+            }
+          ),
           execution: {
             success: true,
             output: {
               content: '', // Will be filled by the callback
-              model: request.model || 'deepseek-chat',
+              model: request.model,
               tokens: {
                 prompt: tokens.prompt,
                 completion: tokens.completion,
@@ -501,11 +520,7 @@ export const deepseekProvider: ProviderConfig = {
                 iterations: iterationCount + 1,
                 timeSegments: timeSegments,
               },
-              cost: {
-                total: (tokens.total || 0) * 0.0001,
-                input: (tokens.prompt || 0) * 0.0001,
-                output: (tokens.completion || 0) * 0.0001,
-              },
+              cost: calculateCost(request.model, tokens.prompt, tokens.completion),
             },
             logs: [], // No block logs at provider level
             metadata: {

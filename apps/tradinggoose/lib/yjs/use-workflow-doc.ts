@@ -48,7 +48,7 @@ import { getBlock } from '@/blocks'
 import type { BlockConfig } from '@/blocks/types'
 import { resolveOutputType } from '@/blocks/utils'
 import type { Variable } from '@/stores/variables/types'
-import { getUniqueBlockName, normalizeBlockName } from '@/stores/workflows/utils'
+import { normalizeBlockName } from '@/stores/workflows/utils'
 import type {
   BlockState,
   Loop,
@@ -1019,26 +1019,25 @@ export function useWorkflowMutations() {
         const block = blocks[id]
         if (!block) return
 
-        const otherBlocks = Object.fromEntries(
-          Object.entries(blocks).filter(([blockId]) => blockId !== id)
+        const normalizedRequestedName = normalizeBlockName(trimmedName)
+        const hasCollision = Object.entries(blocks).some(
+          ([blockId, otherBlock]: [string, any]) =>
+            blockId !== id &&
+            typeof otherBlock.name === 'string' &&
+            normalizeBlockName(otherBlock.name) === normalizedRequestedName
         )
-        const requestedNameMatch = trimmedName.match(/^(.*?)(\s+\d+)?$/)
-        const requestedPrefix = requestedNameMatch ? requestedNameMatch[1].trim() : trimmedName
-        const normalizedRequestedPrefix = normalizeBlockName(requestedPrefix)
-        const hasCollision = Object.values(otherBlocks).some((otherBlock: any) => {
-          const otherNameMatch = otherBlock.name?.match(/^(.*?)(\s+\d+)?$/)
-          const otherPrefix = otherNameMatch ? otherNameMatch[1].trim() : otherBlock.name
-          return otherPrefix && normalizeBlockName(otherPrefix) === normalizedRequestedPrefix
-        })
-        const nextName = hasCollision ? getUniqueBlockName(trimmedName, otherBlocks) : trimmedName
+        if (hasCollision) return
+        if (block.name === trimmedName) {
+          success = true
+          return
+        }
 
-        wm.set(YJS_KEYS.BLOCKS, { ...blocks, [id]: { ...block, name: nextName } })
+        wm.set(YJS_KEYS.BLOCKS, { ...blocks, [id]: { ...block, name: trimmedName } })
 
-        if (block.name !== nextName && block.name.trim() !== '' && nextName.trim() !== '') {
+        if (block.name !== trimmedName && block.name.trim() !== '') {
           const normalizedOld = normalizeBlockName(block.name)
-          const normalizedNew = normalizeBlockName(nextName)
           const regex = new RegExp(`<${escapeRegExp(normalizedOld)}(?=(?:>|\\.))`, 'gi')
-          const replacement = `<${normalizedNew}`
+          const replacement = `<${normalizedRequestedName}`
 
           rewriteWorkflowContentReferences(wm, readWorkflowTextFieldsMap(d), regex, replacement)
         }

@@ -1,6 +1,7 @@
 import type { SVGProps } from 'react'
 import { createElement } from 'react'
 import { Activity } from 'lucide-react'
+import { LISTING_IDENTITY_VALUE_TYPE } from '@/lib/listing/identity'
 import type { BlockConfig } from '@/blocks/types'
 import { getTrigger } from '@/triggers'
 
@@ -18,7 +19,7 @@ const indicatorTriggerOutputs = {
     description: 'Market historical series data.',
   },
   listing: {
-    type: 'json',
+    type: LISTING_IDENTITY_VALUE_TYPE,
     description: 'Listing information.',
   },
   indicator: {

@@ -1,3 +1,4 @@
+import { LISTING_IDENTITY_VALUE_TYPE } from '@/lib/listing/identity'
 import type { ToolConfig } from '@/tools/types'
 
 type OrderHistory = Array<Record<string, unknown>>
@@ -105,7 +106,10 @@ export const orderHistoryTool: ToolConfig<OrderHistoryParams, OrderHistoryRespon
           recordedAt: { type: 'string', description: 'Recorded timestamp' },
           submissionSource: { type: 'string', description: 'Order submission source' },
           logId: { type: 'string', description: 'Linked log ID' },
-          listingIdentity: { type: 'object', description: 'Listing identity metadata' },
+          listingIdentity: {
+            type: LISTING_IDENTITY_VALUE_TYPE,
+            description: 'Listing identity metadata',
+          },
           providerOrderId: { type: 'string', description: 'Provider order ID' },
           status: { type: 'string', description: 'Provider-normalized order status' },
         },

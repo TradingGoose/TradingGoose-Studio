@@ -9,6 +9,8 @@ import type {
   TimeSegment,
 } from '@/providers/ai/types'
 import {
+  calculateCost,
+  createOpenAICompatibleStream,
   prepareToolExecution,
   prepareToolsWithUsageControl,
   trackForcedToolUsage,
@@ -16,40 +18,6 @@ import {
 import { executeTool } from '@/tools'
 
 const logger = createLogger('OpenRouterProvider')
-
-function createReadableStreamFromOpenAIStream(
-  openaiStream: any,
-  onComplete?: (content: string, usage?: any) => void
-): ReadableStream {
-  let fullContent = ''
-  let usageData: any = null
-
-  return new ReadableStream({
-    async start(controller) {
-      try {
-        for await (const chunk of openaiStream) {
-          if (chunk.usage) {
-            usageData = chunk.usage
-          }
-
-          const content = chunk.choices[0]?.delta?.content || ''
-          if (content) {
-            fullContent += content
-            controller.enqueue(new TextEncoder().encode(content))
-          }
-        }
-
-        if (onComplete) {
-          onComplete(fullContent, usageData)
-        }
-
-        controller.close()
-      } catch (error) {
-        controller.error(error)
-      }
-    },
-  })
-}
 
 export const openRouterProvider: ProviderConfig = {
   id: 'openrouter',
@@ -71,10 +39,10 @@ export const openRouterProvider: ProviderConfig = {
       baseURL: 'https://openrouter.ai/api/v1',
     })
 
-    const requestedModel = (request.model || '').replace(/^openrouter\//, '')
+    const apiModel = (request.model || '').replace(/^openrouter\//, '')
 
     logger.info('Preparing OpenRouter request', {
-      model: requestedModel,
+      model: apiModel,
       hasSystemPrompt: !!request.systemPrompt,
       hasMessages: !!request.messages?.length,
       hasTools: !!request.tools?.length,
@@ -109,7 +77,7 @@ export const openRouterProvider: ProviderConfig = {
       : undefined
 
     const payload: any = {
-      model: requestedModel,
+      model: apiModel,
       messages: allMessages,
     }
 
@@ -153,33 +121,42 @@ export const openRouterProvider: ProviderConfig = {
         const tokenUsage = { prompt: 0, completion: 0, total: 0 }
 
         const streamingResult = {
-          stream: createReadableStreamFromOpenAIStream(streamResponse, (content, usage) => {
-            if (usage) {
-              const newTokens = {
-                prompt: usage.prompt_tokens || tokenUsage.prompt,
-                completion: usage.completion_tokens || tokenUsage.completion,
-                total: usage.total_tokens || tokenUsage.total,
+          stream: createOpenAICompatibleStream(
+            streamResponse as any,
+            'OpenRouter',
+            (content, usage) => {
+              if (usage) {
+                const newTokens = {
+                  prompt: usage.prompt_tokens || tokenUsage.prompt,
+                  completion: usage.completion_tokens || tokenUsage.completion,
+                  total: usage.total_tokens || tokenUsage.total,
+                }
+                streamingResult.execution.output.tokens = newTokens
+                streamingResult.execution.output.cost = calculateCost(
+                  request.model,
+                  newTokens.prompt,
+                  newTokens.completion
+                )
               }
-              streamingResult.execution.output.tokens = newTokens
-            }
-            streamingResult.execution.output.content = content
-            const end = Date.now()
-            const endISO = new Date(end).toISOString()
-            if (streamingResult.execution.output.providerTiming) {
-              streamingResult.execution.output.providerTiming.endTime = endISO
-              streamingResult.execution.output.providerTiming.duration = end - providerStartTime
-              if (streamingResult.execution.output.providerTiming.timeSegments?.[0]) {
-                streamingResult.execution.output.providerTiming.timeSegments[0].endTime = end
-                streamingResult.execution.output.providerTiming.timeSegments[0].duration =
-                  end - providerStartTime
+              streamingResult.execution.output.content = content
+              const end = Date.now()
+              const endISO = new Date(end).toISOString()
+              if (streamingResult.execution.output.providerTiming) {
+                streamingResult.execution.output.providerTiming.endTime = endISO
+                streamingResult.execution.output.providerTiming.duration = end - providerStartTime
+                if (streamingResult.execution.output.providerTiming.timeSegments?.[0]) {
+                  streamingResult.execution.output.providerTiming.timeSegments[0].endTime = end
+                  streamingResult.execution.output.providerTiming.timeSegments[0].duration =
+                    end - providerStartTime
+                }
               }
             }
-          }),
+          ),
           execution: {
             success: true,
             output: {
               content: '',
-              model: requestedModel,
+              model: request.model,
               tokens: tokenUsage,
               toolCalls: undefined,
               providerTiming: {
@@ -392,22 +369,31 @@ export const openRouterProvider: ProviderConfig = {
 
         const streamResponse = await client.chat.completions.create(streamingPayload)
         const streamingResult = {
-          stream: createReadableStreamFromOpenAIStream(streamResponse, (content, usage) => {
-            if (usage) {
-              const newTokens = {
-                prompt: usage.prompt_tokens || tokens.prompt,
-                completion: usage.completion_tokens || tokens.completion,
-                total: usage.total_tokens || tokens.total,
+          stream: createOpenAICompatibleStream(
+            streamResponse as any,
+            'OpenRouter',
+            (content, usage) => {
+              if (usage) {
+                const newTokens = {
+                  prompt: usage.prompt_tokens || tokens.prompt,
+                  completion: usage.completion_tokens || tokens.completion,
+                  total: usage.total_tokens || tokens.total,
+                }
+                streamingResult.execution.output.tokens = newTokens
+                streamingResult.execution.output.cost = calculateCost(
+                  request.model,
+                  newTokens.prompt,
+                  newTokens.completion
+                )
               }
-              streamingResult.execution.output.tokens = newTokens
+              streamingResult.execution.output.content = content
             }
-            streamingResult.execution.output.content = content
-          }),
+          ),
           execution: {
             success: true,
             output: {
               content: '',
-              model: requestedModel,
+              model: request.model,
               tokens: { prompt: tokens.prompt, completion: tokens.completion, total: tokens.total },
               toolCalls:
                 toolCalls.length > 0
@@ -445,7 +431,7 @@ export const openRouterProvider: ProviderConfig = {
 
       return {
         content,
-        model: requestedModel,
+        model: request.model,
         tokens,
         toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
         toolResults: toolResults.length > 0 ? toolResults : undefined,

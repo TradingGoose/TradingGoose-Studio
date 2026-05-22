@@ -1,4 +1,5 @@
 import { stableStringifyJsonValue } from '@/lib/json/stable'
+import { LISTING_IDENTITY_VALUE_TYPE, parseListingIdentityValueStrict } from '@/lib/listing/identity'
 import type { TradingActionResponse } from '@/providers/trading/types'
 import type { TradingActionParams } from '@/tools/trading/types'
 import type { ToolConfig } from '@/tools/types'
@@ -27,7 +28,7 @@ export const buildOrderRoutePayload = (params: TradingOrderRoutePayloadParams) =
   const payload = {
     workspaceId,
     portfolioIdentity: params.portfolioIdentity,
-    listing: params.listing,
+    listing: parseListingIdentityValueStrict(params.listing),
     side: params.side,
     quantity: useNotional ? undefined : toOptionalNumber(params.quantity),
     notional: useNotional ? toOptionalNumber(params.notional) : undefined,
@@ -76,7 +77,7 @@ export const tradingActionTool: ToolConfig<TradingActionParams, TradingActionRes
       description: 'Canonical broker account identity selected for this order.',
     },
     listing: {
-      type: 'json',
+      type: LISTING_IDENTITY_VALUE_TYPE,
       required: true,
       visibility: 'user-or-llm',
       description: 'Structured listing payload for the asset to trade.',

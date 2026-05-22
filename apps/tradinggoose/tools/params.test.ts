@@ -13,9 +13,10 @@ import {
   type ValidationResult,
   validateToolParameters,
 } from '@/tools/params'
-import type { HttpMethod, ParameterVisibility } from '@/tools/types'
+import { LISTING_IDENTITY_VALUE_TYPE } from '@/lib/listing/identity'
+import type { HttpMethod, ParameterVisibility, ToolConfig } from '@/tools/types'
 
-const mockToolConfig = {
+const mockToolConfig: ToolConfig = {
   id: 'test_tool',
   name: 'Test Tool',
   description: 'A test tool for parameter handling',
@@ -134,6 +135,31 @@ describe('Tool Parameters Utils', () => {
       expect(schema.properties).not.toHaveProperty('timeout') // user-only, never shown to LLM
       expect(schema.required).not.toContain('apiKey') // user-only, never required for LLM
       expect(schema.required).toContain('message') // user-or-llm + required: true
+    })
+
+    it.concurrent('maps listingIdentity parameters to JSON object schema', () => {
+      const toolConfig = {
+        ...mockToolConfig,
+        params: {
+          listing: {
+            type: LISTING_IDENTITY_VALUE_TYPE,
+            required: true,
+            visibility: 'user-or-llm' as ParameterVisibility,
+            description: 'Listing identity',
+          },
+        },
+      }
+      const listingSchema = createLLMToolSchema(toolConfig, {}).properties.listing
+
+      expect(listingSchema.type).toBe('object')
+      expect(listingSchema.required).toEqual(['listing_id', 'base_id', 'quote_id', 'listing_type'])
+      expect(listingSchema.properties?.listing_type.enum).toEqual(['default', 'crypto', 'currency'])
+      expect(createExecutionToolSchema(toolConfig).properties.listing).toMatchObject({
+        type: 'object',
+        properties: {
+          listing_id: { type: 'string' },
+        },
+      })
     })
   })
 

@@ -17,7 +17,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import { createLogger } from '@/lib/logs/console/logger'
-import { getIconTileStyle } from '@/lib/ui/icon-colors'
+import { getIconTileStyle, withIconColorAlpha } from '@/lib/ui/icon-colors'
 import { cn, validateName } from '@/lib/utils'
 import { buildSubBlockRows } from '@/lib/workflows/sub-block-rows'
 import { useBlock, useBlockProtection, useWorkflowMutations } from '@/lib/yjs/use-workflow-doc'
@@ -40,6 +40,8 @@ const WORKFLOW_POPOVER_PORTAL_KEY = '__workflowPopoverPortal'
 
 const logger = createLogger('WorkflowBlock')
 const CANONICAL_SIDE_PANEL_TYPES = new Set(Object.keys(blockRegistry))
+const ACTIVE_BLOCK_RING_ALPHA = '99'
+const ACTIVE_BLOCK_PULSE_ALPHA = '4D'
 
 interface WorkflowBlockProps extends Record<string, unknown> {
   type: string
@@ -151,7 +153,7 @@ export const WorkflowBlock = memo(
           createdPortal.remove()
         }
 
-        ;(flow as any)[WORKFLOW_POPOVER_PORTAL_KEY] = portal
+          ; (flow as any)[WORKFLOW_POPOVER_PORTAL_KEY] = portal
       }
 
       if (!portal) return
@@ -601,9 +603,8 @@ export const WorkflowBlock = memo(
         return
       }
       const trimmedName = editedName.trim().slice(0, 18)
-      if (trimmedName && trimmedName !== name) {
-        collaborativeUpdateBlockName(id, trimmedName)
-      }
+      if (trimmedName && trimmedName !== name && !collaborativeUpdateBlockName(id, trimmedName))
+        return
       setIsEditing(false)
     }
 
@@ -701,6 +702,12 @@ export const WorkflowBlock = memo(
     }, [childWorkflowId])
 
     const blockAccentColor = config.bgColor || 'hsl(var(--muted-foreground))'
+    const activeRingColor =
+      withIconColorAlpha(config.bgColor, ACTIVE_BLOCK_RING_ALPHA) ||
+      'hsl(var(--muted-foreground) / 0.6)'
+    const activePulseColor =
+      withIconColorAlpha(config.bgColor, ACTIVE_BLOCK_PULSE_ALPHA) ||
+      'hsl(var(--muted-foreground) / 0.3)'
     const hasPriorityRing = isActive || isPending
 
     return (
@@ -714,7 +721,7 @@ export const WorkflowBlock = memo(
                 'transition-block-bg transition-ring',
                 'w-[320px]',
                 !isEnabled && 'shadow-sm',
-                isActive && 'animate-pulse-ring ring-2 ring-blue-500',
+                isActive && 'animate-pulse-ring ring-2 ring-[var(--block-active-ring-color)]',
                 isPending && 'ring-2 ring-yellow-500',
                 !hasPriorityRing && 'hover:ring-1 hover:ring-[var(--block-hover-color)]',
                 'z-[20]'
@@ -722,8 +729,16 @@ export const WorkflowBlock = memo(
               style={
                 {
                   '--block-hover-color': blockAccentColor,
+                  '--block-active-ring-color': activeRingColor,
+                  '--block-active-pulse-color': activePulseColor,
                   ...(selected ? { borderColor: blockAccentColor, borderWidth: '1px' } : {}),
-                } as CSSProperties & Record<'--block-hover-color', string>
+                } as CSSProperties &
+                  Record<
+                    | '--block-active-pulse-color'
+                    | '--block-active-ring-color'
+                    | '--block-hover-color',
+                    string
+                  >
               }
             >
               {/* Show debug indicator for pending blocks */}
@@ -831,7 +846,7 @@ export const WorkflowBlock = memo(
                           'inline-block cursor-text font-medium text-md hover:text-muted-foreground',
                           !isEnabled && 'text-muted-foreground',
                           (disableInNodeEditing || isReadOnlyBlock) &&
-                            'cursor-default hover:text-foreground'
+                          'cursor-default hover:text-foreground'
                         )}
                         onClick={handleNameClick}
                         title={name}
@@ -998,24 +1013,24 @@ export const WorkflowBlock = memo(
                     position: 'absolute',
                     ...(type === 'condition'
                       ? {
-                          right: '-8px',
-                          top: `${60 + conditionRows.length * 29}px`,
-                          bottom: 'auto',
-                          transform: 'translateY(-50%)',
-                        }
+                        right: '-8px',
+                        top: `${60 + conditionRows.length * 29}px`,
+                        bottom: 'auto',
+                        transform: 'translateY(-50%)',
+                      }
                       : useHorizontalErrorHandle
                         ? {
-                            right: '-8px',
-                            top: 'auto',
-                            bottom: '30px',
-                            transform: 'translateY(0)',
-                          }
+                          right: '-8px',
+                          top: 'auto',
+                          bottom: '30px',
+                          transform: 'translateY(0)',
+                        }
                         : {
-                            bottom: '-8px',
-                            left: 'auto',
-                            right: '30px',
-                            transform: 'translateX(0)',
-                          }),
+                          bottom: '-8px',
+                          left: 'auto',
+                          right: '30px',
+                          transform: 'translateX(0)',
+                        }),
                   }}
                   data-nodeid={id}
                   data-handleid='error'

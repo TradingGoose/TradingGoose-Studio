@@ -12,16 +12,15 @@ import {
   Play,
 } from 'lucide-react'
 import Image from 'next/image'
+import { JsonDisplay, stringifyJsonDisplay } from '@/components/json-display/json-display'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { createLogger } from '@/lib/logs/console/logger'
 import { sanitizeSolidIconColor } from '@/lib/ui/icon-colors'
-import { cn, redactApiKeys } from '@/lib/utils'
+import { cn } from '@/lib/utils'
 import { getBlock } from '@/blocks'
 import type { ConsoleEntry as ConsoleEntryType } from '@/stores/console/types'
 import { CodeDisplay } from '../../../code-display/code-display'
-import { JSONView } from '../../../json-view/json-view'
-import { StructuredOutput } from './components/structured-output'
 
 const logger = createLogger('OutputPanel')
 
@@ -385,10 +384,7 @@ export function OutputPanel({
       // For code display, copy just the code string
       textToCopy = entry.input.code
     } else {
-      // For regular JSON display, copy the full JSON with redaction applied
-      const dataToCopy = displayData
-      const redactedData = redactApiKeys(dataToCopy)
-      textToCopy = JSON.stringify(redactedData, null, 2)
+      textToCopy = stringifyJsonDisplay(displayData)
     }
 
     navigator.clipboard.writeText(textToCopy)
@@ -524,11 +520,11 @@ export function OutputPanel({
   )
 
   const entryContent = (
-    <div className={cn('flex flex-col', isDetailView ? 'gap-2' : 'gap-3')}>
+    <div className={cn('flex flex-col', isDetailView ? 'h-full min-h-0 gap-2' : 'gap-3')}>
       {!isDetailView && headerContent}
 
       {/* Response area */}
-      <div className='space-y-2 pb-2'>
+      <div className={isDetailView ? 'flex min-h-0 flex-1 flex-col' : 'space-y-2 pb-2'}>
         {/* Error display */}
         {entry.error && !showInput && !isDetailView && (
           <div className='rounded-lg bg-[#F6D2D2] p-3 dark:bg-[#442929]'>
@@ -554,7 +550,9 @@ export function OutputPanel({
         {hasDisplayData && (
           <div
             className={cn(
-              isDetailView ? 'rounded-none bg-transparent' : 'rounded-lg bg-secondary/50',
+              isDetailView
+                ? 'flex min-h-0 flex-1 flex-col rounded-none bg-transparent'
+                : 'rounded-lg bg-secondary/50',
               shouldShowCodeDisplay || isDetailView ? 'p-0' : 'p-3'
             )}
           >
@@ -562,7 +560,7 @@ export function OutputPanel({
               /* Code display - replace entire content */
               <CodeDisplay code={entry.input.code} wrapText={wrapText} />
             ) : (
-              <div className='relative'>
+              <div className={cn('relative', isDetailView && 'flex min-h-0 flex-1 flex-col')}>
                 {/* Copy and Expand/Collapse buttons */}
                 {!isDetailView && (
                   <div className='absolute top-[-2.8] right-0 z-10 flex items-center gap-1'>
@@ -643,31 +641,19 @@ export function OutputPanel({
                 )}
 
                 {/* Content */}
-                {structuredView ? (
-                  isDetailView ? (
-                    <StructuredOutput
-                      data={displayData}
-                      wrapText={wrapText}
-                      isError={isOutputError}
-                      isRunning={isOutputRunning}
-                      className='min-h-full'
-                    />
-                  ) : isExpanded ? (
-                    <div className='max-w-full overflow-hidden break-all font-mono font-normal text-muted-foreground text-sm leading-normal'>
-                      <JSONView data={displayData} wrapText={wrapText} />
-                    </div>
-                  ) : (
-                    <div
-                      className='max-w-full cursor-pointer overflow-hidden break-all font-mono font-normal text-muted-foreground text-sm leading-normal'
-                      onClick={() => setIsExpanded(true)}
-                    >
-                      {'{...}'}
-                    </div>
-                  )
-                ) : isDetailView || isExpanded ? (
-                  <div className='max-w-full overflow-hidden break-all font-mono font-normal text-muted-foreground text-sm leading-normal'>
-                    <JSONView data={displayData} wrapText={wrapText} />
-                  </div>
+                {isDetailView || isExpanded ? (
+                  <JsonDisplay
+                    data={displayData}
+                    mode={isDetailView && structuredView ? 'beauty' : 'raw'}
+                    wrapText={wrapText}
+                    isError={isOutputError}
+                    isRunning={isOutputRunning}
+                    className={
+                      isDetailView
+                        ? 'min-h-0 flex-1'
+                        : 'max-w-full overflow-hidden break-all font-mono font-normal text-muted-foreground text-sm leading-normal'
+                    }
+                  />
                 ) : (
                   <div
                     className='max-w-full cursor-pointer overflow-hidden break-all font-mono font-normal text-muted-foreground text-sm leading-normal'
@@ -704,20 +690,18 @@ export function OutputPanel({
 
   if (isDetailView) {
     const detailHeader = (
-      <div className='border-b border-border bg-card p-2'>
+      <div className='border-border border-b bg-card p-2'>
         <div className='flex flex-col gap-2'>{headerContent}</div>
       </div>
     )
     const detailBody = scrollable ? (
-      <ScrollArea className='h-full flex-1' hideScrollbar={hideScrollbar}>
-        <div className='py-2'>{entryContent}</div>
-      </ScrollArea>
+      <div className='flex min-h-0 flex-1 flex-col p-2'>{entryContent}</div>
     ) : (
       <div className=''>{entryContent}</div>
     )
 
     return (
-      <div className='flex h-full flex-col'>
+      <div className='flex h-full min-h-0 flex-col'>
         {detailHeader}
         {detailBody}
       </div>
