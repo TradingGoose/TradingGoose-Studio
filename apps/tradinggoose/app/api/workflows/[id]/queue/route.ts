@@ -5,9 +5,10 @@ import {
   enqueuePendingExecution,
   isPendingExecutionLimitError,
 } from '@/lib/execution/pending-execution'
+import { openWorkflowExecutionEventStream } from '@/lib/execution/workflow-execution-stream'
 import { createLogger } from '@/lib/logs/console/logger'
 import { TriggerExecutionUnavailableError } from '@/lib/trigger/settings'
-import { generateRequestId } from '@/lib/utils'
+import { generateRequestId, SSE_HEADERS } from '@/lib/utils'
 import type { WorkflowExecutionBlueprint } from '@/lib/workflows/execution-runner'
 import { readWorkflowAccessContext } from '@/lib/workflows/utils'
 
@@ -169,6 +170,27 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     })
     if (!handle.inserted) {
       return NextResponse.json({ error: 'Workflow execution already exists' }, { status: 409 })
+    }
+
+    if (body.stream === true) {
+      const streamResult = await openWorkflowExecutionEventStream({
+        pendingExecutionId,
+        workflowId,
+        requestId,
+      })
+
+      if (!streamResult.ok) {
+        throw new Error('Queued workflow execution stream was not found')
+      }
+
+      return new NextResponse(streamResult.stream, {
+        status: 200,
+        headers: {
+          ...SSE_HEADERS,
+          'X-Execution-Id': pendingExecutionId,
+          'X-Task-Id': handle.pendingExecutionId,
+        },
+      })
     }
 
     return NextResponse.json(

@@ -159,7 +159,7 @@ export function useWorkflowExecution() {
           blockId: 'execution',
           executionId: options?.executionId,
           blockName: 'Workflow',
-          blockType: 'execution',
+          blockType: 'workflow',
         })
       }
 

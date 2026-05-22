@@ -15,14 +15,6 @@ describe('runQueuedWorkflowExecution', () => {
       const requestUrl = url.toString()
 
       if (requestUrl === '/api/workflows/workflow-1/queue') {
-        return Response.json({
-          success: true,
-          taskId: 'execution-1',
-          executionId: 'execution-1',
-        })
-      }
-
-      if (requestUrl === '/api/workflows/workflow-1/executions/execution-1/stream?from=0') {
         return new Response(
           new ReadableStream({
             start(controller) {
@@ -31,7 +23,14 @@ describe('runQueuedWorkflowExecution', () => {
                 controller.error(new DOMException('Aborted', 'AbortError'))
               }, 0)
             },
-          })
+          }),
+          {
+            headers: {
+              'Content-Type': 'text/event-stream',
+              'X-Execution-Id': 'execution-1',
+              'X-Task-Id': 'execution-1',
+            },
+          }
         )
       }
 
@@ -105,10 +104,75 @@ describe('runQueuedWorkflowExecution', () => {
       output: { value: 42 },
     })
 
-    expect(fetchMock).not.toHaveBeenCalledWith(
-      '/api/workflows/workflow-1/executions/execution-1/stream?from=0',
-      expect.anything()
-    )
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
+
+  it('reads workflow execution events from the queue response stream', async () => {
+    const onEvent = vi.fn()
+    const started = {
+      type: 'execution:started',
+      executionId: 'execution-1',
+      workflowId: 'workflow-1',
+      eventId: 1,
+      timestamp: new Date().toISOString(),
+      data: {
+        startTime: new Date().toISOString(),
+      },
+    }
+    const completed = {
+      type: 'execution:completed',
+      executionId: 'execution-1',
+      workflowId: 'workflow-1',
+      eventId: 2,
+      timestamp: new Date().toISOString(),
+      data: {
+        result: {
+          success: true,
+          output: { value: 42 },
+          logs: [],
+        },
+      },
+    }
+    const fetchMock = vi.fn(async (url: string | URL | Request) => {
+      const requestUrl = url.toString()
+
+      if (requestUrl === '/api/workflows/workflow-1/queue') {
+        return new Response(
+          `data: ${JSON.stringify(started)}\n\ndata: ${JSON.stringify(completed)}\n\ndata: [DONE]\n\n`,
+          {
+            headers: {
+              'Content-Type': 'text/event-stream',
+              'X-Execution-Id': 'execution-1',
+              'X-Task-Id': 'execution-1',
+            },
+          }
+        )
+      }
+
+      throw new Error(`Unexpected fetch ${requestUrl}`)
+    })
+    global.fetch = fetchMock as unknown as typeof fetch
+
+    await expect(
+      runQueuedWorkflowExecution(
+        {
+          workflowId: 'workflow-1',
+          executionId: 'execution-1',
+          input: {},
+          triggerType: 'manual',
+          executionTarget: 'live',
+          stream: true,
+        },
+        { onEvent }
+      )
+    ).resolves.toMatchObject({
+      success: true,
+      output: { value: 42 },
+    })
+
+    expect(onEvent).toHaveBeenCalledWith(started)
+    expect(onEvent).toHaveBeenCalledWith(completed)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
   })
 
   it('cancels when the signal aborts while enqueue is in flight', async () => {
