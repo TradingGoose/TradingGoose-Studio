@@ -104,7 +104,14 @@ const normalizeListingIdentityValue = (value: unknown): ListingIdentity | null =
 }
 
 export const parseListingIdentityValueStrict = (value: unknown): ListingIdentity => {
-  const parsedValue = typeof value === 'string' && value.trim() ? JSON.parse(value.trim()) : value
+  let parsedValue = value
+  if (typeof value === 'string' && value.trim()) {
+    try {
+      parsedValue = JSON.parse(value.trim())
+    } catch {
+      throw new Error('Invalid listingIdentity value')
+    }
+  }
   const record =
     parsedValue && typeof parsedValue === 'object' && !Array.isArray(parsedValue)
       ? (parsedValue as Record<string, unknown>)

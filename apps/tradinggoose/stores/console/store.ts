@@ -14,13 +14,14 @@ const MAX_IMAGE_DATA_SIZE = 1000 // Maximum size of image data to store (in char
 const MAX_ANY_DATA_SIZE = 5000 // Maximum size of any data to store (in characters)
 const MAX_TOTAL_ENTRY_SIZE = 50000 // Maximum size of entire entry to prevent localStorage overflow
 
-type ConsoleUpdate = Partial<
+type ConsoleEntryPatch = Partial<
   Pick<
     ConsoleEntry,
     | 'blockName'
     | 'blockType'
     | 'startedAt'
     | 'input'
+    | 'output'
     | 'error'
     | 'warning'
     | 'success'
@@ -34,8 +35,6 @@ type ConsoleUpdate = Partial<
   >
 > & {
   content?: string
-  output?: Partial<NormalizedBlockOutput>
-  replaceOutput?: NormalizedBlockOutput
 }
 
 /**
@@ -128,90 +127,26 @@ const processSafeStorage = (obj: any): any => {
   return result
 }
 
-const applyConsoleUpdate = (entry: ConsoleEntry, update: string | ConsoleUpdate): ConsoleEntry => {
-  if (typeof update === 'string') {
-    const newOutput = updateBlockOutput(entry.output, update)
-    return { ...entry, output: newOutput }
-  }
+const applyConsolePatch = (entry: ConsoleEntry, patch: ConsoleEntryPatch): ConsoleEntry => {
+  const { content, ...entryPatch } = patch
+  const definedPatch = Object.fromEntries(
+    Object.entries(entryPatch).filter(([, value]) => value !== undefined)
+  ) as Partial<ConsoleEntry>
+  const updatedEntry = { ...entry, ...definedPatch }
 
-  const updatedEntry = { ...entry }
-
-  if (update.blockName !== undefined) {
-    updatedEntry.blockName = update.blockName
-  }
-
-  if (update.blockType !== undefined) {
-    updatedEntry.blockType = update.blockType
-  }
-
-  if (update.startedAt !== undefined) {
-    updatedEntry.startedAt = update.startedAt
-  }
-
-  if (update.content !== undefined) {
-    const newOutput = updateBlockOutput(entry.output, update.content)
-    updatedEntry.output = newOutput
-  }
-
-  if (update.replaceOutput !== undefined) {
-    updatedEntry.output = update.replaceOutput
-  } else if (update.output !== undefined) {
-    const existingOutput = entry.output || {}
-    updatedEntry.output = {
-      ...existingOutput,
-      ...update.output,
-    }
-  }
-
-  if (update.error !== undefined) {
-    updatedEntry.error = update.error
-  }
-
-  if (update.warning !== undefined) {
-    updatedEntry.warning = update.warning
-  }
-
-  if (update.success !== undefined) {
-    updatedEntry.success = update.success
-  }
-
-  if (update.endedAt !== undefined) {
-    updatedEntry.endedAt = update.endedAt
-  }
-
-  if (update.durationMs !== undefined) {
-    updatedEntry.durationMs = update.durationMs
-  }
-
-  if (update.input !== undefined) {
-    updatedEntry.input = update.input
-  }
-
-  if (update.isRunning !== undefined) {
-    updatedEntry.isRunning = update.isRunning
-  }
-
-  if (update.isCanceled !== undefined) {
-    updatedEntry.isCanceled = update.isCanceled
-  }
-
-  if (update.iterationCurrent !== undefined) {
-    updatedEntry.iterationCurrent = update.iterationCurrent
-  }
-
-  if (update.iterationTotal !== undefined) {
-    updatedEntry.iterationTotal = update.iterationTotal
-  }
-
-  if (update.iterationType !== undefined) {
-    updatedEntry.iterationType = update.iterationType
+  if (content !== undefined) {
+    updatedEntry.output = updateBlockOutput(entry.output, content)
   }
 
   return updatedEntry
 }
 
-const executionBlockKey = (executionId: string | undefined, blockId: string) =>
-  `${executionId ?? 'execution'}:${blockId}`
+const executionBlockKey = (
+  executionId: string | undefined,
+  blockId: string,
+  data?: Pick<WorkflowExecutionBlockData, 'iterationCurrent' | 'iterationType'>
+) =>
+  `${executionId ?? 'execution'}:${blockId}:${data?.iterationType ?? ''}:${data?.iterationCurrent ?? ''}`
 
 const streamBuffers = new Map<string, string>()
 
@@ -225,7 +160,8 @@ const clearExecutionStreamBuffers = (executionId: string | undefined) => {
 const findExecutionEntry = (
   entries: ConsoleEntry[],
   event: Pick<WorkflowExecutionEvent, 'workflowId' | 'executionId'>,
-  data: WorkflowExecutionBlockData
+  data: WorkflowExecutionBlockData,
+  options: { allowRunningFallback?: boolean } = {}
 ) => {
   const matchingEntries = entries.filter(
     (entry) =>
@@ -234,22 +170,31 @@ const findExecutionEntry = (
       entry.blockId === data.blockId
   )
 
-  return (
-    (data.startedAt && matchingEntries.find((entry) => entry.startedAt === data.startedAt)) ||
-    (data.iterationType &&
-      data.iterationCurrent !== undefined &&
+  if (data.iterationType !== undefined || data.iterationCurrent !== undefined) {
+    return (
       matchingEntries.find(
         (entry) =>
           entry.iterationType === data.iterationType &&
           entry.iterationCurrent === data.iterationCurrent
-      )) ||
-    matchingEntries.find((entry) => entry.isRunning) ||
-    null
-  )
+      ) ?? null
+    )
+  }
+
+  if (data.startedAt) {
+    return matchingEntries.find((entry) => entry.startedAt === data.startedAt) ?? null
+  }
+
+  if (options.allowRunningFallback) {
+    const runningEntries = matchingEntries.filter((entry) => entry.isRunning)
+    if (runningEntries.length === 1) return runningEntries[0]
+    if (runningEntries.length > 1) return undefined
+  }
+
+  return matchingEntries.length > 1 ? undefined : (matchingEntries[0] ?? null)
 }
 
-const updateEntryById = (entries: ConsoleEntry[], entryId: string, update: ConsoleUpdate) =>
-  entries.map((entry) => (entry.id === entryId ? applyConsoleUpdate(entry, update) : entry))
+const updateEntryById = (entries: ConsoleEntry[], entryId: string, patch: ConsoleEntryPatch) =>
+  entries.map((entry) => (entry.id === entryId ? applyConsolePatch(entry, patch) : entry))
 
 export const useConsoleStore = create<ConsoleStore>()(
   devtools(
@@ -265,6 +210,7 @@ export const useConsoleStore = create<ConsoleStore>()(
               existing.executionId === entry.executionId &&
               existing.iterationType === entry.iterationType &&
               existing.iterationCurrent === entry.iterationCurrent &&
+              existing.startedAt === entry.startedAt &&
               existing.isRunning
           )
 
@@ -397,11 +343,23 @@ export const useConsoleStore = create<ConsoleStore>()(
         },
 
         ingestWorkflowExecutionEvent: (event: WorkflowExecutionEvent) => {
+          const deleteStreamBuffer = (data: WorkflowExecutionBlockData) => {
+            streamBuffers.delete(executionBlockKey(event.executionId, data.blockId, data))
+            const existingEntry = findExecutionEntry(get().entries, event, data, {
+              allowRunningFallback: true,
+            })
+            if (existingEntry) {
+              streamBuffers.delete(
+                executionBlockKey(event.executionId, data.blockId, existingEntry)
+              )
+            }
+          }
+
           const writeBlock = (
             data: WorkflowExecutionBlockData,
             options: { success: boolean; isRunning: boolean; isCanceled?: boolean }
           ) => {
-            const update: ConsoleUpdate = {
+            const patch: ConsoleEntryPatch = {
               blockName: data.blockName,
               blockType: data.blockType,
               startedAt: data.startedAt,
@@ -417,13 +375,17 @@ export const useConsoleStore = create<ConsoleStore>()(
               isCanceled: options.isCanceled ?? false,
             }
             if (data.output !== undefined) {
-              update.replaceOutput = data.output as NormalizedBlockOutput
+              patch.output = data.output as NormalizedBlockOutput
             }
 
             const existingEntry = findExecutionEntry(get().entries, event, data)
+            if (existingEntry === undefined) {
+              return
+            }
+
             if (existingEntry) {
               set((state) => ({
-                entries: updateEntryById(state.entries, existingEntry.id, update),
+                entries: updateEntryById(state.entries, existingEntry.id, patch),
               }))
               return
             }
@@ -450,26 +412,27 @@ export const useConsoleStore = create<ConsoleStore>()(
           }
 
           if (event.type === 'block:started') {
-            streamBuffers.delete(executionBlockKey(event.executionId, event.data.blockId))
+            streamBuffers.delete(
+              executionBlockKey(event.executionId, event.data.blockId, event.data)
+            )
             writeBlock(event.data, { success: true, isRunning: true, isCanceled: false })
             return
           }
 
           if (event.type === 'stream:chunk') {
             const { blockId, chunk } = event.data
-            const key = executionBlockKey(event.executionId, blockId)
-            const content = `${streamBuffers.get(key) ?? ''}${chunk}`
-            streamBuffers.set(key, content)
+            const data: WorkflowExecutionBlockData = {
+              blockId,
+              iterationCurrent: event.data.iterationCurrent,
+              iterationType: event.data.iterationType,
+            }
+            const existingEntry = findExecutionEntry(get().entries, event, data, {
+              allowRunningFallback: true,
+            })
+            if (existingEntry === undefined) return
 
-            const runningEntry = get().entries.find(
-              (entry) =>
-                entry.workflowId === event.workflowId &&
-                entry.executionId === event.executionId &&
-                entry.blockId === blockId &&
-                entry.isRunning
-            )
             const entry =
-              runningEntry ??
+              existingEntry ??
               get().addConsole({
                 workflowId: event.workflowId,
                 executionId: event.executionId,
@@ -480,10 +443,16 @@ export const useConsoleStore = create<ConsoleStore>()(
                 success: true,
                 durationMs: 0,
                 startedAt: event.timestamp,
+                iterationCurrent: event.data.iterationCurrent,
+                iterationTotal: event.data.iterationTotal,
+                iterationType: event.data.iterationType,
                 isRunning: true,
                 isCanceled: false,
               })
 
+            const key = executionBlockKey(event.executionId, blockId, entry)
+            const content = `${streamBuffers.get(key) ?? ''}${chunk}`
+            streamBuffers.set(key, content)
             set((state) => ({
               entries: updateEntryById(state.entries, entry.id, { content }),
             }))
@@ -491,18 +460,18 @@ export const useConsoleStore = create<ConsoleStore>()(
           }
 
           if (event.type === 'stream:done') {
-            streamBuffers.delete(executionBlockKey(event.executionId, event.data.blockId))
+            deleteStreamBuffer(event.data)
             return
           }
 
           if (event.type === 'block:completed') {
-            streamBuffers.delete(executionBlockKey(event.executionId, event.data.blockId))
+            deleteStreamBuffer(event.data)
             writeBlock(event.data, { success: true, isRunning: false, isCanceled: false })
             return
           }
 
           if (event.type === 'block:error') {
-            streamBuffers.delete(executionBlockKey(event.executionId, event.data.blockId))
+            deleteStreamBuffer(event.data)
             writeBlock(event.data, {
               success: false,
               isRunning: false,

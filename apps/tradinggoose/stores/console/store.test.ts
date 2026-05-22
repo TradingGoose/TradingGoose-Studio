@@ -184,6 +184,155 @@ describe('Console Store', () => {
       expect(second?.output?.content).toBe('second')
       expect(second?.isRunning).toBe(true)
     })
+
+    it('streams chunks into the exact iteration entry', () => {
+      const store = useConsoleStore.getState()
+      const base = {
+        executionId: 'exec-1',
+        workflowId: 'workflow-1',
+        timestamp: '2026-04-01T00:00:00.000Z',
+      }
+
+      store.ingestWorkflowExecutionEvent({
+        ...base,
+        type: 'block:started',
+        data: {
+          blockId: 'agent-1',
+          blockName: 'Agent',
+          blockType: 'agent',
+          startedAt: '2026-04-01T00:00:00.000Z',
+          iterationType: 'parallel',
+          iterationCurrent: 1,
+          iterationTotal: 2,
+        },
+      })
+      store.ingestWorkflowExecutionEvent({
+        ...base,
+        type: 'block:started',
+        data: {
+          blockId: 'agent-1',
+          blockName: 'Agent',
+          blockType: 'agent',
+          startedAt: '2026-04-01T00:00:01.000Z',
+          iterationType: 'parallel',
+          iterationCurrent: 2,
+          iterationTotal: 2,
+        },
+      })
+      store.ingestWorkflowExecutionEvent({
+        ...base,
+        type: 'stream:chunk',
+        data: {
+          blockId: 'agent-1',
+          chunk: 'second',
+          iterationType: 'parallel',
+          iterationCurrent: 2,
+          iterationTotal: 2,
+        },
+      })
+
+      const state = useConsoleStore.getState()
+      const first = state.entries.find((entry) => entry.iterationCurrent === 1)
+      const second = state.entries.find((entry) => entry.iterationCurrent === 2)
+
+      expect(first?.output?.content).toBeUndefined()
+      expect(second?.output?.content).toBe('second')
+    })
+
+    it('completes the exact iteration entry when startedAt is absent', () => {
+      const store = useConsoleStore.getState()
+      const base = {
+        executionId: 'exec-1',
+        workflowId: 'workflow-1',
+        timestamp: '2026-04-01T00:00:00.000Z',
+      }
+
+      for (const iterationCurrent of [1, 2]) {
+        store.ingestWorkflowExecutionEvent({
+          ...base,
+          type: 'block:started',
+          data: {
+            blockId: 'agent-1',
+            blockName: 'Agent',
+            blockType: 'agent',
+            startedAt: `2026-04-01T00:00:0${iterationCurrent}.000Z`,
+            iterationType: 'parallel',
+            iterationCurrent,
+            iterationTotal: 2,
+          },
+        })
+      }
+
+      store.ingestWorkflowExecutionEvent({
+        ...base,
+        type: 'block:completed',
+        data: {
+          blockId: 'agent-1',
+          output: { content: 'iteration 2 done' },
+          success: true,
+          endedAt: '2026-04-01T00:00:03.000Z',
+          durationMs: 50,
+          iterationType: 'parallel',
+          iterationCurrent: 2,
+          iterationTotal: 2,
+        },
+      })
+
+      const entries = useConsoleStore.getState().entries
+      const first = entries.find((entry) => entry.iterationCurrent === 1)
+      const second = entries.find((entry) => entry.iterationCurrent === 2)
+
+      expect(first?.isRunning).toBe(true)
+      expect(first?.output?.content).toBeUndefined()
+      expect(second?.isRunning).toBe(false)
+      expect(second?.output?.content).toBe('iteration 2 done')
+    })
+
+    it('does not guess when a completion event has ambiguous identity', () => {
+      const store = useConsoleStore.getState()
+      const base = {
+        executionId: 'exec-1',
+        workflowId: 'workflow-1',
+        timestamp: '2026-04-01T00:00:00.000Z',
+      }
+
+      store.ingestWorkflowExecutionEvent({
+        ...base,
+        type: 'block:started',
+        data: {
+          blockId: 'agent-1',
+          blockName: 'Agent',
+          blockType: 'agent',
+          startedAt: '2026-04-01T00:00:01.000Z',
+        },
+      })
+      store.ingestWorkflowExecutionEvent({
+        ...base,
+        type: 'block:started',
+        data: {
+          blockId: 'agent-1',
+          blockName: 'Agent',
+          blockType: 'agent',
+          startedAt: '2026-04-01T00:00:02.000Z',
+        },
+      })
+      store.ingestWorkflowExecutionEvent({
+        ...base,
+        type: 'block:completed',
+        data: {
+          blockId: 'agent-1',
+          output: { content: 'ambiguous' },
+          success: true,
+          endedAt: '2026-04-01T00:00:03.000Z',
+        },
+      })
+
+      const entries = useConsoleStore.getState().entries
+      const completed = entries.find((entry) => entry.output?.content === 'ambiguous')
+
+      expect(entries.filter((entry) => entry.isRunning)).toHaveLength(2)
+      expect(completed).toBeUndefined()
+    })
   })
 
   describe('clearConsole', () => {

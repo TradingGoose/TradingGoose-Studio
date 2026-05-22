@@ -1,4 +1,8 @@
 import { BlockPathCalculator } from '@/lib/block-path-calculator'
+import {
+  LISTING_IDENTITY_VALUE_TYPE,
+  parseListingIdentityValueStrict,
+} from '@/lib/listing/identity'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { TraceSpan } from '@/lib/logs/types'
 import { getBlock } from '@/blocks'
@@ -36,7 +40,6 @@ import type {
   StreamingExecution,
 } from '@/executor/types'
 import { VirtualBlockUtils } from '@/executor/utils/virtual-blocks'
-import { LISTING_IDENTITY_VALUE_TYPE, parseListingIdentityValueStrict } from '@/lib/listing/identity'
 import type { SerializedBlock, SerializedParallel, SerializedWorkflow } from '@/serializer/types'
 
 const logger = createLogger('Executor')
@@ -1936,6 +1939,9 @@ export class Executor {
             data: {
               blockId: consoleBlockId,
               chunk,
+              iterationCurrent: iterationContext.iterationCurrent,
+              iterationTotal: iterationContext.iterationTotal,
+              iterationType: iterationContext.iterationType,
             },
           })
         }
@@ -1984,6 +1990,9 @@ export class Executor {
             type: 'stream:done',
             data: {
               blockId: consoleBlockId,
+              iterationCurrent: iterationContext.iterationCurrent,
+              iterationTotal: iterationContext.iterationTotal,
+              iterationType: iterationContext.iterationType,
             },
           })
         }

@@ -109,6 +109,9 @@ export type WorkflowExecutionEvent =
       data: {
         blockId: string
         chunk: string
+        iterationCurrent?: number
+        iterationTotal?: number
+        iterationType?: 'loop' | 'parallel'
       }
     }
   | {
@@ -119,6 +122,9 @@ export type WorkflowExecutionEvent =
       eventId?: number
       data: {
         blockId: string
+        iterationCurrent?: number
+        iterationTotal?: number
+        iterationType?: 'loop' | 'parallel'
       }
     }
 

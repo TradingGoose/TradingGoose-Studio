@@ -252,4 +252,99 @@ describe('useWorkflowExecution', () => {
       expect.any(Object)
     )
   })
+
+  it('forwards every queued execution event to console ingestion', async () => {
+    const blockStarted = {
+      type: 'block:started',
+      executionId: 'execution-1',
+      workflowId: 'workflow-1',
+      timestamp: new Date().toISOString(),
+      data: {
+        blockId: 'agent-1',
+        blockName: 'Agent',
+        blockType: 'agent',
+        input: {},
+        startedAt: '2026-04-01T00:00:00.000Z',
+        iterationCurrent: 1,
+        iterationTotal: 2,
+      },
+    }
+    mockRunQueuedWorkflowExecution.mockImplementationOnce(async (_request, callbacks) => {
+      await callbacks.onEvent(blockStarted)
+      const firstChunk = {
+        type: 'stream:chunk',
+        executionId: 'execution-1',
+        workflowId: 'workflow-1',
+        timestamp: new Date().toISOString(),
+        data: {
+          blockId: 'agent-1',
+          chunk: 'first',
+          iterationCurrent: 1,
+          iterationTotal: 2,
+        },
+      }
+      await callbacks.onEvent(firstChunk)
+      const nextBlockStarted = {
+        ...blockStarted,
+        data: {
+          ...blockStarted.data,
+          iterationCurrent: 2,
+        },
+      }
+      await callbacks.onEvent(nextBlockStarted)
+      const secondChunk = {
+        type: 'stream:chunk',
+        executionId: 'execution-1',
+        workflowId: 'workflow-1',
+        timestamp: new Date().toISOString(),
+        data: {
+          blockId: 'agent-1',
+          chunk: 'second',
+          iterationCurrent: 2,
+          iterationTotal: 2,
+        },
+      }
+      await callbacks.onEvent(secondChunk)
+      return {
+        success: true,
+        output: {},
+        logs: [],
+      }
+    })
+
+    const execution = await renderExecutionHook()
+
+    await act(async () => {
+      await execution.handleRunWorkflow({
+        input: {
+          input: 'hello',
+          conversationId: 'conversation-1',
+        },
+        triggerType: 'chat',
+      })
+    })
+
+    expect(mockConsoleState.ingestWorkflowExecutionEvent).toHaveBeenNthCalledWith(1, blockStarted)
+    expect(mockConsoleState.ingestWorkflowExecutionEvent).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        type: 'stream:chunk',
+        data: expect.objectContaining({ chunk: 'first', iterationCurrent: 1 }),
+      })
+    )
+    expect(mockConsoleState.ingestWorkflowExecutionEvent).toHaveBeenNthCalledWith(
+      3,
+      expect.objectContaining({
+        type: 'block:started',
+        data: expect.objectContaining({ iterationCurrent: 2 }),
+      })
+    )
+    expect(mockConsoleState.ingestWorkflowExecutionEvent).toHaveBeenNthCalledWith(
+      4,
+      expect.objectContaining({
+        type: 'stream:chunk',
+        data: expect.objectContaining({ chunk: 'second', iterationCurrent: 2 }),
+      })
+    )
+  })
 })
