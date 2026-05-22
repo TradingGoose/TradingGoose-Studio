@@ -239,6 +239,25 @@ describe('Console Store', () => {
       expect(second?.output?.content).toBe('second')
     })
 
+    it('ignores chunks that do not have a matching lifecycle entry', () => {
+      const store = useConsoleStore.getState()
+
+      store.ingestWorkflowExecutionEvent({
+        executionId: 'exec-1',
+        workflowId: 'workflow-1',
+        timestamp: '2026-04-01T00:00:00.000Z',
+        type: 'stream:chunk',
+        data: {
+          blockId: 'agent-1',
+          chunk: 'orphan',
+          iterationType: 'parallel',
+          iterationCurrent: 1,
+        },
+      })
+
+      expect(useConsoleStore.getState().entries).toHaveLength(0)
+    })
+
     it('completes the exact iteration entry when startedAt is absent', () => {
       const store = useConsoleStore.getState()
       const base = {
@@ -393,6 +412,18 @@ describe('Console Store', () => {
         executionId: 'exec-stream-clear',
         workflowId: 'workflow-1',
         timestamp: '2026-04-01T00:00:00.000Z',
+        type: 'block:started',
+        data: {
+          blockId: 'agent-1',
+          blockName: 'Agent',
+          blockType: 'agent',
+          startedAt: '2026-04-01T00:00:00.000Z',
+        },
+      })
+      store.ingestWorkflowExecutionEvent({
+        executionId: 'exec-stream-clear',
+        workflowId: 'workflow-1',
+        timestamp: '2026-04-01T00:00:00.100Z',
         type: 'stream:chunk',
         data: { blockId: 'agent-1', chunk: 'before-clear' },
       })
@@ -402,8 +433,20 @@ describe('Console Store', () => {
       store.ingestWorkflowExecutionEvent({
         executionId: 'exec-stream-clear',
         workflowId: 'workflow-1',
-        type: 'stream:chunk',
+        type: 'block:started',
         timestamp: '2026-04-01T00:00:01.000Z',
+        data: {
+          blockId: 'agent-1',
+          blockName: 'Agent',
+          blockType: 'agent',
+          startedAt: '2026-04-01T00:00:01.000Z',
+        },
+      })
+      store.ingestWorkflowExecutionEvent({
+        executionId: 'exec-stream-clear',
+        workflowId: 'workflow-1',
+        type: 'stream:chunk',
+        timestamp: '2026-04-01T00:00:01.100Z',
         data: { blockId: 'agent-1', chunk: 'after-clear' },
       })
 

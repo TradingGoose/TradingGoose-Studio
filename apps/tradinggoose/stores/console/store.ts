@@ -14,14 +14,13 @@ const MAX_IMAGE_DATA_SIZE = 1000 // Maximum size of image data to store (in char
 const MAX_ANY_DATA_SIZE = 5000 // Maximum size of any data to store (in characters)
 const MAX_TOTAL_ENTRY_SIZE = 50000 // Maximum size of entire entry to prevent localStorage overflow
 
-type ConsoleEntryPatch = Partial<
+type ConsoleEntryPatchFields = Partial<
   Pick<
     ConsoleEntry,
     | 'blockName'
     | 'blockType'
     | 'startedAt'
     | 'input'
-    | 'output'
     | 'error'
     | 'warning'
     | 'success'
@@ -33,9 +32,13 @@ type ConsoleEntryPatch = Partial<
     | 'iterationTotal'
     | 'iterationType'
   >
-> & {
-  content?: string
-}
+>
+
+type ConsoleEntryPatch = ConsoleEntryPatchFields &
+  (
+    | { content: string; output?: never }
+    | { content?: never; output?: NormalizedBlockOutput }
+  )
 
 /**
  * Safely clone and update a NormalizedBlockOutput
@@ -359,7 +362,7 @@ export const useConsoleStore = create<ConsoleStore>()(
             data: WorkflowExecutionBlockData,
             options: { success: boolean; isRunning: boolean; isCanceled?: boolean }
           ) => {
-            const patch: ConsoleEntryPatch = {
+            const patchFields: ConsoleEntryPatchFields = {
               blockName: data.blockName,
               blockType: data.blockType,
               startedAt: data.startedAt,
@@ -374,9 +377,10 @@ export const useConsoleStore = create<ConsoleStore>()(
               isRunning: options.isRunning,
               isCanceled: options.isCanceled ?? false,
             }
-            if (data.output !== undefined) {
-              patch.output = data.output as NormalizedBlockOutput
-            }
+            const patch: ConsoleEntryPatch =
+              data.output !== undefined
+                ? { ...patchFields, output: data.output as NormalizedBlockOutput }
+                : patchFields
 
             const existingEntry = findExecutionEntry(get().entries, event, data)
             if (existingEntry === undefined) {
@@ -429,32 +433,13 @@ export const useConsoleStore = create<ConsoleStore>()(
             const existingEntry = findExecutionEntry(get().entries, event, data, {
               allowRunningFallback: true,
             })
-            if (existingEntry === undefined) return
+            if (!existingEntry) return
 
-            const entry =
-              existingEntry ??
-              get().addConsole({
-                workflowId: event.workflowId,
-                executionId: event.executionId,
-                blockId,
-                blockName: blockId,
-                blockType: 'unknown',
-                output: undefined,
-                success: true,
-                durationMs: 0,
-                startedAt: event.timestamp,
-                iterationCurrent: event.data.iterationCurrent,
-                iterationTotal: event.data.iterationTotal,
-                iterationType: event.data.iterationType,
-                isRunning: true,
-                isCanceled: false,
-              })
-
-            const key = executionBlockKey(event.executionId, blockId, entry)
+            const key = executionBlockKey(event.executionId, blockId, existingEntry)
             const content = `${streamBuffers.get(key) ?? ''}${chunk}`
             streamBuffers.set(key, content)
             set((state) => ({
-              entries: updateEntryById(state.entries, entry.id, { content }),
+              entries: updateEntryById(state.entries, existingEntry.id, { content }),
             }))
             return
           }
