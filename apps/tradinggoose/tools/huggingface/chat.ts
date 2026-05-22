@@ -35,7 +35,7 @@ export const chatTool: ToolConfig<HuggingFaceChatParams, HuggingFaceChatResponse
       type: 'string',
       required: true,
       visibility: 'user-only',
-      description: 'Model to use for chat completions (e.g., deepseek/deepseek-v3-0324)',
+      description: 'Model to use for chat completions (e.g., Qwen/Qwen2.5-7B-Instruct)',
     },
     maxTokens: {
       type: 'number',
