@@ -46,11 +46,11 @@ export function useTradingServices({
   const serviceIds = providerDefinition
     ? getTradingProviderOAuthServiceIds(providerDefinition.id)
     : []
-  const connectionsQuery = useOAuthConnections()
+  const isQueryEnabled = enabled && Boolean(trimmedProviderId)
+  const connectionsQuery = useOAuthConnections({ enabled: isQueryEnabled })
+  const connections = isQueryEnabled ? (connectionsQuery.data ?? []) : []
   const connectedServiceIds = serviceIds.filter((serviceId) =>
-    (connectionsQuery.data ?? []).some(
-      (service) => service.providerId === serviceId && service.isConnected
-    )
+    connections.some((service) => service.providerId === serviceId && service.isConnected)
   )
   const activeServiceId = resolveActiveTradingServiceId({
     serviceId,
@@ -61,8 +61,8 @@ export function useTradingServices({
     serviceIds,
     connectedServiceIds,
     activeServiceId,
-    isLoading: enabled && Boolean(trimmedProviderId) ? connectionsQuery.isLoading : false,
-    error: connectionsQuery.error instanceof Error ? connectionsQuery.error : null,
+    isLoading: isQueryEnabled ? connectionsQuery.isLoading : false,
+    error: isQueryEnabled && connectionsQuery.error instanceof Error ? connectionsQuery.error : null,
     refetch: () => {
       void connectionsQuery.refetch()
     },

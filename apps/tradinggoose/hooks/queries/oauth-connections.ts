@@ -75,10 +75,11 @@ async function fetchOAuthConnections(): Promise<ServiceInfo[]> {
 /**
  * Hook to fetch OAuth connections
  */
-export function useOAuthConnections() {
+export function useOAuthConnections({ enabled = true }: { enabled?: boolean } = {}) {
   return useQuery({
     queryKey: oauthConnectionsKeys.connections(),
     queryFn: fetchOAuthConnections,
+    enabled,
     staleTime: 30 * 1000, // 30 seconds - connections don't change often
     retry: false,
     placeholderData: keepPreviousData, // Show cached data immediately
