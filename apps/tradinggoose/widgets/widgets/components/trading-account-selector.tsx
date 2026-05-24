@@ -68,7 +68,6 @@ const getAccountDescription = (providerId: string, portfolioIdentity: PortfolioI
     .join(' - ')
 
 export function TradingAccountSelector({
-  workspaceId,
   providerId,
   serviceId,
   portfolioIdentity,
@@ -80,14 +79,13 @@ export function TradingAccountSelector({
 }: TradingAccountSelectorProps) {
   const [showOAuthModal, setShowOAuthModal] = useState(false)
   const [oauthModalServiceId, setOAuthModalServiceId] = useState<string | null>(null)
-  const trimmedWorkspaceId = typeof workspaceId === 'string' ? workspaceId.trim() : ''
   const trimmedProviderId = typeof providerId === 'string' ? providerId.trim() : ''
   const providerDefinition = trimmedProviderId
     ? getTradingProviderDefinition(trimmedProviderId)
     : undefined
   const providerName = providerDefinition?.name ?? 'broker'
   const oauthProvider = providerDefinition?.oauth?.provider
-  const isEnabled = Boolean(trimmedWorkspaceId && trimmedProviderId) && !disabled
+  const isEnabled = Boolean(trimmedProviderId) && !disabled
   const selectedPortfolioIdentity = toPortfolioValueObject(portfolioIdentity)
   const requestedServiceId = serviceId ?? selectedPortfolioIdentity?.serviceId
   const services = useTradingServices({
@@ -98,7 +96,6 @@ export function TradingAccountSelector({
   const activeServiceId = services.activeServiceId
   const hasConnection = Boolean(activeServiceId)
   const accountsQuery = usePortfolioIdentities({
-    workspaceId: trimmedWorkspaceId || undefined,
     provider: trimmedProviderId || undefined,
     serviceId: activeServiceId,
     enabled: isEnabled && hasConnection,

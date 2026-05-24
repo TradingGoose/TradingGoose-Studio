@@ -143,7 +143,6 @@ export function HeatmapWidgetBody({
     services,
     portfolioIdentities,
   } = usePortfolioIdentitySelection({
-    workspaceId,
     providerId: tradingProviderId,
     serviceId: widgetParams?.serviceId,
     portfolioIdentity: widgetParams?.portfolioIdentity,
@@ -154,7 +153,6 @@ export function HeatmapWidgetBody({
   })
 
   const snapshotQuery = usePortfolioDetail({
-    workspaceId: workspaceId ?? undefined,
     provider: sourceMode === 'portfolio' && isTradingProviderReady ? tradingProviderId : undefined,
     serviceId: activeServiceId,
     portfolioIdentity: activePortfolioIdentity,

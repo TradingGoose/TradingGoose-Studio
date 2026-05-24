@@ -44,7 +44,6 @@ export interface TradingPortfolioSubscribePayload {
   provider?: string
   serviceId?: string
   portfolioIdentity?: PortfolioIdentity | null
-  workspaceId?: string
   window?: TradingPortfolioPerformanceWindow
   channel?: TradingPortfolioChannel
   clientSubscriptionId?: string
@@ -66,7 +65,6 @@ export interface TradingPortfolioSubscriptionInfo {
   provider: TradingProviderId
   serviceId?: string
   portfolioIdentity?: PortfolioIdentity
-  workspaceId: string
   channel: TradingPortfolioChannel
   window?: TradingPortfolioPerformanceWindow
 }
@@ -80,7 +78,6 @@ interface TradingPortfolioSubscriptionRecord extends TradingPortfolioSubscriptio
 interface TradingPortfolioStreamState {
   streamKey: string
   userId: string
-  workspaceId: string
   providerId: TradingProviderId
   serviceId?: string
   portfolioIdentity?: PortfolioIdentity
@@ -101,7 +98,6 @@ interface AccountsCacheEntry {
 type TradingPortfolioBasePayload = {
   provider: TradingProviderId
   serviceId?: string
-  workspaceId: string
   channel: TradingPortfolioChannel
   receivedAt: string
 }
@@ -157,7 +153,6 @@ export class TradingPortfolioStreamManager {
     if (!userId) throw new Error('Authentication required')
 
     const providerId = resolveTradingProviderId(payload.provider, payload.portfolioIdentity)
-    const workspaceId = resolveWorkspaceId(payload.workspaceId)
 
     const channel = resolveChannel(payload.channel)
     const serviceId = resolveServiceId(
@@ -168,7 +163,6 @@ export class TradingPortfolioStreamManager {
     const window = resolvePerformanceWindow(providerId, channel, payload.window)
     const streamKey = buildStreamKey({
       userId,
-      workspaceId,
       providerId,
       serviceId,
       portfolioIdentity,
@@ -178,7 +172,6 @@ export class TradingPortfolioStreamManager {
     const streamState = this.getOrCreateStreamState({
       streamKey,
       userId,
-      workspaceId,
       providerId,
       serviceId,
       portfolioIdentity,
@@ -199,7 +192,6 @@ export class TradingPortfolioStreamManager {
       provider: providerId,
       serviceId,
       portfolioIdentity,
-      workspaceId,
       channel,
       window,
     }
@@ -221,7 +213,6 @@ export class TradingPortfolioStreamManager {
       providerId,
       serviceId,
       portfolioIdentity: redactPortfolioIdentity(portfolioIdentity),
-      workspaceId,
       channel,
       window,
     })
@@ -232,7 +223,6 @@ export class TradingPortfolioStreamManager {
       provider: providerId,
       serviceId,
       portfolioIdentity,
-      workspaceId,
       channel,
       window,
     }
@@ -325,7 +315,6 @@ export class TradingPortfolioStreamManager {
         const payload: TradingPortfolioAccountsPayload = {
           provider: streamState.providerId,
           serviceId: streamState.serviceId,
-          workspaceId: streamState.workspaceId,
           channel: 'accounts',
           portfolioIdentities,
           receivedAt: new Date().toISOString(),
@@ -350,7 +339,6 @@ export class TradingPortfolioStreamManager {
         const payload: TradingPortfolioSnapshotPayload = {
           provider: streamState.providerId,
           serviceId: streamState.serviceId,
-          workspaceId: streamState.workspaceId,
           channel: 'account-snapshot',
           portfolioIdentity: toPortfolioValueObject(portfolioDetail) ?? portfolioIdentity,
           portfolioDetail,
@@ -377,7 +365,6 @@ export class TradingPortfolioStreamManager {
       const payload: TradingPortfolioPerformancePayload = {
         provider: streamState.providerId,
         serviceId: streamState.serviceId,
-        workspaceId: streamState.workspaceId,
         channel: 'portfolio-performance',
         portfolioIdentity,
         window: streamState.window,
@@ -507,7 +494,6 @@ export class TradingPortfolioStreamManager {
         provider: record.provider,
         serviceId: record.serviceId,
         portfolioIdentity: record.portfolioIdentity,
-        workspaceId: record.workspaceId,
         channel: record.channel,
         window: record.window,
         subscriptionId: record.subscriptionId,
@@ -579,7 +565,6 @@ export class TradingPortfolioStreamManager {
       provider: record.provider,
       serviceId: record.serviceId,
       portfolioIdentity: redactPortfolioIdentity(record.portfolioIdentity),
-      workspaceId: record.workspaceId,
       channel: record.channel,
       window: record.window,
     })
@@ -641,12 +626,6 @@ function resolveTradingProviderId(
   return providerId as TradingProviderId
 }
 
-function resolveWorkspaceId(workspaceId?: string) {
-  const trimmed = workspaceId?.trim()
-  if (!trimmed) throw new Error('workspaceId is required')
-  return trimmed
-}
-
 function resolveServiceId(providerId: TradingProviderId, serviceId?: string) {
   const resolvedServiceId = getTradingProviderOAuthServiceId(providerId, serviceId)
   if (!resolvedServiceId) throw new Error('Trading provider connection is required')
@@ -701,7 +680,6 @@ function resolvePerformanceWindow(
 
 function buildStreamKey(config: {
   userId: string
-  workspaceId: string
   providerId: TradingProviderId
   serviceId?: string
   portfolioIdentity?: PortfolioIdentity
@@ -712,7 +690,6 @@ function buildStreamKey(config: {
     .update(
       [
         config.userId,
-        config.workspaceId,
         config.providerId,
         config.serviceId ?? '',
         config.channel,
@@ -728,7 +705,6 @@ function buildAccountsCacheKey(streamState: TradingPortfolioStreamState) {
     .update(
       [
         streamState.userId,
-        streamState.workspaceId,
         streamState.providerId,
         streamState.serviceId ?? '',
       ].join('|')
@@ -757,7 +733,6 @@ function toSubscriptionInfo(
     provider: record.provider,
     serviceId: record.serviceId,
     portfolioIdentity: record.portfolioIdentity,
-    workspaceId: record.workspaceId,
     channel: record.channel,
     window: record.window,
   }
