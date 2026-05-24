@@ -87,7 +87,6 @@ describe('TradingAccountSelector', () => {
       root.render(
         <TooltipProvider>
           <TradingAccountSelector
-            workspaceId='workspace-1'
             providerId='alpaca'
             serviceId='alpaca-live'
             portfolioIdentity={selectedPortfolioIdentity}
@@ -115,7 +114,6 @@ describe('TradingAccountSelector', () => {
       root.render(
         <TooltipProvider>
           <TradingAccountSelector
-            workspaceId='workspace-1'
             providerId='alpaca'
             serviceId='alpaca-live'
             portfolioIdentity={selectedPortfolioIdentity}
@@ -162,7 +160,6 @@ describe('TradingAccountSelector', () => {
       root.render(
         <TooltipProvider>
           <TradingAccountSelector
-            workspaceId='workspace-1'
             providerId='alpaca'
             serviceId='alpaca-live'
             portfolioIdentity={{
@@ -186,7 +183,6 @@ describe('TradingAccountSelector', () => {
       root.render(
         <TooltipProvider>
           <TradingAccountSelector
-            workspaceId='workspace-1'
             providerId='alpaca'
             serviceId='alpaca-live'
             portfolioIdentity={{

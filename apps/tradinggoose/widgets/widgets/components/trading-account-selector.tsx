@@ -37,7 +37,6 @@ export type TradingAccountSelection = {
 }
 
 type TradingAccountSelectorProps = {
-  workspaceId?: string | null
   providerId?: string | null
   serviceId?: string | null
   portfolioIdentity?: PortfolioIdentity | null
