@@ -188,7 +188,7 @@ export async function listOAuthCredentialsForUser(
     .map((row) => toOAuthCredential({ ...row, requesterUserId: params.userId }))
 }
 
-export async function listOAuthConnectionsForUser(params: {
+export async function listOAuthConnectionAccountsForUser(params: {
   userId: string
   providerIds?: string[]
 }) {
@@ -198,65 +198,63 @@ export async function listOAuthConnectionsForUser(params: {
     filters.push(inArray(account.providerId, providerIds))
   }
 
-  const rows = (
+  return (
     await db
       .select({
-        id: account.id,
+        tokenAccountId: account.id,
         accountId: account.accountId,
         providerId: account.providerId,
         idToken: account.idToken,
         updatedAt: account.updatedAt,
         scope: account.scope,
-        accountUserId: account.userId,
+        credentialOwnerUserId: account.userId,
       })
       .from(account)
       .where(and(...filters))
       .orderBy(desc(account.updatedAt))
   ).filter((row) => !isSignInOAuthProviderId(row.providerId))
+}
+
+export async function listOAuthConnectionsForUser(params: {
+  userId: string
+  providerIds?: string[]
+}) {
+  const rows = await listOAuthConnectionAccountsForUser(params)
 
   return rows.map((row) =>
     toOAuthCredential({
-      id: row.id,
+      id: row.tokenAccountId,
       displayName: getCredentialDisplayName(row),
       providerId: row.providerId,
       updatedAt: row.updatedAt,
       scope: row.scope,
-      accountUserId: row.accountUserId,
+      accountUserId: row.credentialOwnerUserId,
       requesterUserId: params.userId,
     })
   )
 }
 
-export async function listOAuthCredentialAccountsForUser(
-  params: OAuthCredentialQueryParams & { workspaceId: string }
-) {
-  const requesterAccess = await checkWorkspaceAccess(params.workspaceId, params.userId)
-  if (!requesterAccess.hasAccess) return []
-
-  const filters = [eq(credential.type, 'oauth'), eq(credential.workspaceId, params.workspaceId)]
-  if (params.providerIds?.length) {
-    filters.push(inArray(account.providerId, params.providerIds))
-  }
-
-  const rows = await db
+export async function resolveOAuthConnectionAccountForUser(params: {
+  accountId: string
+  userId: string
+}) {
+  const [row] = await db
     .select({
-      credentialId: credential.id,
       tokenAccountId: account.id,
       providerId: account.providerId,
-      credentialOwnerUserId: account.userId,
+      accountUserId: account.userId,
     })
-    .from(credential)
-    .innerJoin(account, eq(credential.accountId, account.id))
-    .where(and(...filters))
+    .from(account)
+    .where(and(eq(account.id, params.accountId), eq(account.userId, params.userId)))
+    .limit(1)
 
-  const usableCredentialIds = await listUsableCredentialIds({
-    userId: params.userId,
-    workspaceId: params.workspaceId,
-    canWrite: requesterAccess.canWrite,
-    rows,
-  })
+  if (!row || isSignInOAuthProviderId(row.providerId)) return null
 
-  return rows.filter((row) => usableCredentialIds.has(row.credentialId))
+  return {
+    tokenAccountId: row.tokenAccountId,
+    providerId: row.providerId,
+    credentialOwnerUserId: row.accountUserId,
+  }
 }
 
 export async function resolveOAuthCredentialAccountForUser(params: {

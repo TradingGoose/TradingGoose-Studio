@@ -9,8 +9,12 @@ import { setupAllHandlers } from '@/socket-server/handlers'
 import { IndicatorMonitorRuntime } from '@/socket-server/market/indicator-monitor-runtime'
 import { type AuthenticatedSocket, authenticateSocket } from '@/socket-server/middleware/auth'
 import { createHttpHandler } from '@/socket-server/routes/http'
+import { tradingPortfolioStreamManager } from '@/socket-server/trading/portfolio-manager'
+import {
+  isYjsUpgradeRequest,
+  shieldNonYjsUpgradeListeners,
+} from '@/socket-server/yjs/upgrade-routing'
 import { handleYjsUpgrade } from '@/socket-server/yjs/ws-handler'
-import { isYjsUpgradeRequest, shieldNonYjsUpgradeListeners } from '@/socket-server/yjs/upgrade-routing'
 
 const logger = createLogger('CollaborativeSocketServer')
 
@@ -130,13 +134,17 @@ const shutdown = () => {
   isShuttingDown = true
 
   logger.info('Shutting down Socket.IO server...')
+  tradingPortfolioStreamManager.stop()
   void indicatorMonitorRuntime
     .stop()
     .catch((error) => {
       logger.error('Failed to stop indicator monitor runtime cleanly', { error })
     })
     .finally(() => {
-      httpServer.close(() => {
+      void io.close((error) => {
+        if (error) {
+          logger.error('Failed to close Socket.IO server cleanly', { error })
+        }
         void closeRedisConnection()
           .catch((error) => {
             logger.error('Failed to close Redis connection cleanly', { error })

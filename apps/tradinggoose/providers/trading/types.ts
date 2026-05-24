@@ -84,7 +84,7 @@ export interface TradingOrderDetailResult {
 
 export interface TradingPortfolioBaseContext {
   providerId: TradingProviderId
-  credentialId: string
+  tokenAccountId: string
   serviceId: string
   environment?: 'paper' | 'live'
   accessToken: string
@@ -252,8 +252,6 @@ export interface TradingProviderOAuthConfig {
     environment?: 'paper' | 'live'
   }>
   scopes?: string[]
-  credentialTitle?: string
-  credentialPlaceholder?: string
 }
 
 export interface TradingActionResponse {

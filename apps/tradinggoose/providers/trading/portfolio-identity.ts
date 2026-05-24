@@ -12,7 +12,7 @@ export type PortfolioEnvironment = 'live' | 'paper'
 
 export type PortfolioIdentity = {
   providerId: TradingProviderId
-  credentialId: string
+  tokenAccountId: string
   serviceId: string
   accountId: string
   providerName?: string | null
@@ -44,17 +44,17 @@ export const toPortfolioValueObject = (value: unknown): PortfolioIdentity | null
 
   const record = value as Record<string, unknown>
   const providerId = readText(record, 'providerId')
-  const credentialId = readText(record, 'credentialId')
+  const tokenAccountId = readText(record, 'tokenAccountId')
   const serviceId = readText(record, 'serviceId')
   const accountId = readText(record, 'accountId')
 
-  if (!providerId || !credentialId || !serviceId || !accountId) {
+  if (!providerId || !tokenAccountId || !serviceId || !accountId) {
     return null
   }
 
   const identity: PortfolioIdentity = {
     providerId: providerId as TradingProviderId,
-    credentialId,
+    tokenAccountId,
     serviceId,
     accountId,
   }
@@ -75,7 +75,7 @@ export const toPortfolioValueObject = (value: unknown): PortfolioIdentity | null
 }
 
 export const getPortfolioIdentityKey = (portfolio: PortfolioIdentity) =>
-  `${portfolio.providerId}|${portfolio.credentialId}|${portfolio.serviceId}|${portfolio.accountId}`
+  `${portfolio.providerId}|${portfolio.tokenAccountId}|${portfolio.serviceId}|${portfolio.accountId}`
 
 export const arePortfolioIdentitiesEqual = (
   left?: PortfolioIdentity | null,

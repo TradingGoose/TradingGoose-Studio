@@ -5,7 +5,7 @@
 import { NextRequest } from 'next/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
-  authorizeTradingCredentialRequest,
+  authorizeTradingConnectionRequest,
   resolveTradingProviderContext,
 } from '@/lib/trading/context'
 import { executeTradingProviderOrderDetailRequest } from '@/providers/trading'
@@ -87,7 +87,7 @@ vi.mock('drizzle-orm', () => ({
 }))
 
 vi.mock('@/lib/trading/context', () => ({
-  authorizeTradingCredentialRequest: vi.fn(),
+  authorizeTradingConnectionRequest: vi.fn(),
   logTradingBrokerRequestFailure: vi.fn(),
   resolveTradingProviderContext: vi.fn(),
 }))
@@ -123,7 +123,7 @@ const orderRow = {
   listingIdentity: { listing_type: 'stock', listing_id: 'AAPL' },
   request: {
     accountId: 'account-1',
-    credentialId: 'credential-1',
+    tokenAccountId: 'oauth-account-1',
     serviceId: 'alpaca-paper',
     side: 'buy',
   },
@@ -138,9 +138,8 @@ describe('order provider detail route', () => {
     mocks.resultsQueue.length = 0
     mocks.checkAuth.mockResolvedValue({ success: true, userId: 'user-1' })
     mocks.checkWorkspaceAccess.mockResolvedValue({ exists: true, hasAccess: true })
-    vi.mocked(authorizeTradingCredentialRequest).mockResolvedValue({
-      credentialOwnerUserId: 'credential-owner-1',
-      tokenAccountId: 'account-credential-1',
+    vi.mocked(authorizeTradingConnectionRequest).mockResolvedValue({
+      connectionOwnerUserId: 'connection-owner-1',
       accountProviderId: 'alpaca-paper',
     })
     vi.mocked(resolveTradingProviderContext).mockResolvedValue({
@@ -173,22 +172,19 @@ describe('order provider detail route', () => {
     expect(mocks.checkWorkspaceAccess).toHaveBeenCalledWith('workspace-1', 'user-1')
     expect(mocks.eq).toHaveBeenCalledWith('orderHistoryTable.id', 'order-1')
     expect(mocks.eq).toHaveBeenCalledWith('orderHistoryTable.workspaceId', 'workspace-1')
-    expect(authorizeTradingCredentialRequest).toHaveBeenCalledWith({
-      request: expect.any(NextRequest),
-      credentialId: 'credential-1',
-      workspaceId: 'workspace-1',
-      workflowId: undefined,
+    expect(authorizeTradingConnectionRequest).toHaveBeenCalledWith({
+      tokenAccountId: 'oauth-account-1',
+      userId: 'user-1',
     })
     expect(resolveTradingProviderContext).toHaveBeenCalledWith({
       requestData: {
-        credentialId: 'credential-1',
+        tokenAccountId: 'oauth-account-1',
         serviceId: 'alpaca-paper',
         provider: 'alpaca',
       },
       requestId: 'request-1',
       userId: 'user-1',
-      credentialOwnerUserId: 'credential-owner-1',
-      tokenAccountId: 'account-credential-1',
+      connectionOwnerUserId: 'connection-owner-1',
       accountProviderId: 'alpaca-paper',
     })
     expect(executeTradingProviderOrderDetailRequest).toHaveBeenCalledWith(
@@ -218,7 +214,7 @@ describe('order provider detail route', () => {
     })
   })
 
-  it('rejects provider-detail refresh when the order record has no credential context', async () => {
+  it('rejects provider-detail refresh when the order record has no connection context', async () => {
     mocks.resultsQueue.push([{ ...orderRow, request: { accountId: 'account-1' } }])
     const { POST } = await import('./route')
 
@@ -232,7 +228,7 @@ describe('order provider detail route', () => {
 
     expect(response.status).toBe(400)
     await expect(response.json()).resolves.toEqual({
-      error: 'Order history record is missing trading credential context',
+      error: 'Order history record is missing trading connection context',
     })
     expect(resolveTradingProviderContext).not.toHaveBeenCalled()
   })

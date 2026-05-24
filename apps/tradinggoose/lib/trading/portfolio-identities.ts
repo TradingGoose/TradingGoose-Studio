@@ -1,4 +1,4 @@
-import { listOAuthCredentialAccountsForUser } from '@/lib/credentials/oauth'
+import { listOAuthConnectionAccountsForUser } from '@/lib/credentials/oauth'
 import { refreshAccessTokenIfNeeded } from '@/lib/oauth/tokens'
 import { listPortfolioIdentities } from '@/providers/trading/portfolio'
 import {
@@ -10,13 +10,11 @@ import type { TradingProviderId } from '@/providers/trading/types'
 
 export async function listTradingPortfolioIdentities({
   userId,
-  workspaceId,
   providerId,
   serviceId,
   requestId,
 }: {
   userId: string
-  workspaceId: string
   providerId: TradingProviderId
   serviceId?: string
   requestId: string
@@ -32,32 +30,31 @@ export async function listTradingPortfolioIdentities({
   const targetServiceIds = selectedServiceId ? [selectedServiceId] : serviceIds
   if (!targetServiceIds.length) return []
 
-  const credentials = await listOAuthCredentialAccountsForUser({
+  const connections = await listOAuthConnectionAccountsForUser({
     userId,
-    workspaceId,
     providerIds: targetServiceIds,
   })
 
   const identities = await Promise.allSettled(
-    credentials.map(async (credential) => {
-      const environment = getTradingProviderOAuthEnvironment(providerId, credential.providerId)
+    connections.map(async (connection) => {
+      const environment = getTradingProviderOAuthEnvironment(providerId, connection.providerId)
       if (!environment) {
-        throw new Error(`Unsupported trading service: ${credential.providerId}`)
+        throw new Error(`Unsupported trading service: ${connection.providerId}`)
       }
 
       const accessToken = await refreshAccessTokenIfNeeded(
-        credential.tokenAccountId,
-        credential.credentialOwnerUserId,
+        connection.tokenAccountId,
+        connection.credentialOwnerUserId,
         requestId
       )
       if (!accessToken) {
-        throw new Error(`Trading credential token unavailable: ${credential.credentialId}`)
+        throw new Error(`Trading connection token unavailable: ${connection.tokenAccountId}`)
       }
 
       return listPortfolioIdentities({
         providerId,
-        credentialId: credential.credentialId,
-        serviceId: credential.providerId,
+        tokenAccountId: connection.tokenAccountId,
+        serviceId: connection.providerId,
         environment,
         accessToken,
       })

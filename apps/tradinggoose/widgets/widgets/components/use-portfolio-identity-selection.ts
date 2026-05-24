@@ -43,7 +43,6 @@ export function usePortfolioIdentitySelection({
   const services = useTradingServices({
     providerId,
     serviceId: requestedServiceId,
-    workspaceId,
     enabled,
   })
   const activeServiceId = enabled ? services.activeServiceId : undefined

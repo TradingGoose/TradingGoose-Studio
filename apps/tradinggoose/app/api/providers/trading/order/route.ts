@@ -21,7 +21,7 @@ const orderListingSchema = z
 const portfolioIdentitySchema = z
   .object({
     providerId: nonEmptyStringSchema,
-    credentialId: nonEmptyStringSchema,
+    tokenAccountId: nonEmptyStringSchema,
     serviceId: nonEmptyStringSchema,
     accountId: nonEmptyStringSchema,
   })
@@ -92,7 +92,6 @@ export async function POST(request: NextRequest) {
         : { ...requestData, ...(workflowId ? { workflowId } : {}) }
 
     const response = await submitTradingOrder({
-      request,
       requestData: submitRequestData,
       requestId,
       userId: auth.userId,

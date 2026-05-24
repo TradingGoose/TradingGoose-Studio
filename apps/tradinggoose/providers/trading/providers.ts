@@ -109,12 +109,6 @@ export interface TradingProviderDefinition {
   description: string
   authType: TradingAuthType
   oauth?: TradingProviderOAuthConfig
-  credentialFields?: Array<{
-    id: string
-    label: string
-    secret?: boolean
-    description?: string
-  }>
   defaults?: {
     orderSizingMode?: TradingOrderSizingMode
     orderType?: string
@@ -137,10 +131,7 @@ export const TRADING_PROVIDER_DEFINITIONS: Record<string, TradingProviderDefinit
         { serviceId: 'alpaca-paper', environment: 'paper' },
       ],
       scopes: getCanonicalScopesForProvider('alpaca-live'),
-      credentialTitle: 'Alpaca Account',
-      credentialPlaceholder: 'Select or connect Alpaca connection',
     },
-    credentialFields: [],
     defaults: {
       orderSizingMode: 'quantity',
       orderType: 'market',
@@ -157,8 +148,6 @@ export const TRADING_PROVIDER_DEFINITIONS: Record<string, TradingProviderDefinit
       provider: 'tradier',
       services: [{ serviceId: 'tradier-live', environment: 'live' }],
       scopes: getCanonicalScopesForProvider('tradier-live'),
-      credentialTitle: 'Tradier Account',
-      credentialPlaceholder: 'Select or connect Tradier connection',
     },
     defaults: {
       orderSizingMode: 'quantity',

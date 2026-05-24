@@ -1,7 +1,7 @@
 'use client'
 
 import { getServiceByProviderAndId } from '@/lib/oauth'
-import { useOAuthCredentialsByProviderIds } from '@/hooks/queries/oauth-credentials'
+import { useOAuthConnections } from '@/hooks/queries/oauth-connections'
 import {
   getTradingProviderDefinition,
   getTradingProviderOAuthServiceIds,
@@ -33,30 +33,24 @@ export function resolveActiveTradingServiceId({
 export function useTradingServices({
   providerId,
   serviceId,
-  workspaceId,
   enabled = true,
 }: {
   providerId?: string | null
   serviceId?: string | null
-  workspaceId?: string | null
   enabled?: boolean
 }): TradingServiceState {
   const trimmedProviderId = typeof providerId === 'string' ? providerId.trim() : ''
-  const trimmedWorkspaceId = typeof workspaceId === 'string' ? workspaceId.trim() : ''
   const providerDefinition = trimmedProviderId
     ? getTradingProviderDefinition(trimmedProviderId)
     : undefined
   const serviceIds = providerDefinition
     ? getTradingProviderOAuthServiceIds(providerDefinition.id)
     : []
-  const credentialsQuery = useOAuthCredentialsByProviderIds(
-    serviceIds,
-    enabled && Boolean(trimmedProviderId),
-    trimmedWorkspaceId ? { workspaceId: trimmedWorkspaceId } : undefined
-  )
-  const credentialsByProviderId = credentialsQuery.data ?? {}
-  const connectedServiceIds = serviceIds.filter(
-    (serviceId) => (credentialsByProviderId[serviceId]?.length ?? 0) > 0
+  const isQueryEnabled = enabled && Boolean(trimmedProviderId)
+  const connectionsQuery = useOAuthConnections({ enabled: isQueryEnabled })
+  const connections = isQueryEnabled ? (connectionsQuery.data ?? []) : []
+  const connectedServiceIds = serviceIds.filter((serviceId) =>
+    connections.some((service) => service.providerId === serviceId && service.isConnected)
   )
   const activeServiceId = resolveActiveTradingServiceId({
     serviceId,
@@ -67,10 +61,10 @@ export function useTradingServices({
     serviceIds,
     connectedServiceIds,
     activeServiceId,
-    isLoading: credentialsQuery.isLoading,
-    error: credentialsQuery.error instanceof Error ? credentialsQuery.error : null,
+    isLoading: isQueryEnabled ? connectionsQuery.isLoading : false,
+    error: isQueryEnabled && connectionsQuery.error instanceof Error ? connectionsQuery.error : null,
     refetch: () => {
-      void credentialsQuery.refetch()
+      void connectionsQuery.refetch()
     },
   }
 }

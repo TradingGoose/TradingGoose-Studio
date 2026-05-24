@@ -19,7 +19,7 @@ type MockTradingAccountSelectorProps = {
 }
 const selectedPortfolioIdentity: PortfolioIdentity = {
   providerId: 'alpaca',
-  credentialId: 'credential-1',
+  tokenAccountId: 'oauth-account-1',
   serviceId: 'alpaca-paper',
   accountId: 'acct-1',
 }

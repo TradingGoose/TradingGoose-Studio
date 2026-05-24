@@ -3,13 +3,13 @@ import { tradingActionTool } from '@/tools/trading/action'
 
 const portfolioIdentity = {
   providerId: 'alpaca' as const,
-  credentialId: 'credential-1',
+  tokenAccountId: 'oauth-account-1',
   serviceId: 'alpaca-live',
   accountId: 'ACC-1',
 }
 const tradierPortfolioIdentity = {
   providerId: 'tradier' as const,
-  credentialId: 'credential-2',
+  tokenAccountId: 'oauth-account-2',
   serviceId: 'tradier-live',
   accountId: 'ACC-2',
 }
@@ -51,7 +51,6 @@ describe('tradingActionTool canonical order route payload', () => {
       timeInForce: 'day',
       quantity: 2,
     })
-    expect(body).not.toHaveProperty('credential')
     expect(body).not.toHaveProperty('accessToken')
     expect(body).not.toHaveProperty('accountId')
   })

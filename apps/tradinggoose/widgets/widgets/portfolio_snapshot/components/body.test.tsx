@@ -8,7 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { PortfolioSnapshotWidgetBody } from '@/widgets/widgets/portfolio_snapshot/components/body'
 
 const mockUseOAuthProviderAvailability = vi.fn()
-const mockUseOAuthCredentialsByProviderIds = vi.fn()
+const mockUseOAuthConnections = vi.fn()
 const mockUseMarketQuoteSnapshots = vi.fn()
 const mockUsePortfolioIdentities = vi.fn()
 const mockUsePortfolioDetail = vi.fn()
@@ -17,7 +17,7 @@ const mockEmitPortfolioSnapshotParamsChange = vi.fn()
 
 const selectedPortfolioIdentity = {
   providerId: 'alpaca',
-  credentialId: 'credential-1',
+  tokenAccountId: 'oauth-account-1',
   serviceId: 'alpaca-live',
   accountId: 'acct-1',
   accountName: 'Paper',
@@ -81,9 +81,8 @@ vi.mock('@/hooks/queries/oauth-provider-availability', () => ({
   useOAuthProviderAvailability: (...args: unknown[]) => mockUseOAuthProviderAvailability(...args),
 }))
 
-vi.mock('@/hooks/queries/oauth-credentials', () => ({
-  useOAuthCredentialsByProviderIds: (...args: unknown[]) =>
-    mockUseOAuthCredentialsByProviderIds(...args),
+vi.mock('@/hooks/queries/oauth-connections', () => ({
+  useOAuthConnections: (...args: unknown[]) => mockUseOAuthConnections(...args),
 }))
 
 vi.mock('@/hooks/queries/market-quote-snapshots', () => ({
@@ -139,12 +138,12 @@ describe('PortfolioSnapshotWidgetBody', () => {
         },
       })
     )
-    mockUseOAuthCredentialsByProviderIds.mockReturnValue(
+    mockUseOAuthConnections.mockReturnValue(
       createQueryResult({
-        data: {
-          'alpaca-live': [{ id: 'cred-1', name: 'Alpaca Live', provider: 'alpaca-live' }],
-          'tradier-live': [{ id: 'cred-2', name: 'Tradier Live', provider: 'tradier-live' }],
-        },
+        data: [
+          { providerId: 'alpaca-live', isConnected: true },
+          { providerId: 'tradier-live', isConnected: true },
+        ],
       })
     )
     mockUsePortfolioIdentities.mockReturnValue(
@@ -233,16 +232,14 @@ describe('PortfolioSnapshotWidgetBody', () => {
   it('clears the saved account when the saved service has disconnected', async () => {
     const connectedPaperIdentity = {
       ...selectedPortfolioIdentity,
-      credentialId: 'cred-paper',
+      tokenAccountId: 'oauth-account-paper',
       serviceId: 'alpaca-paper',
       accountId: 'paper-acct',
       accountName: 'Paper Account',
     }
-    mockUseOAuthCredentialsByProviderIds.mockReturnValue(
+    mockUseOAuthConnections.mockReturnValue(
       createQueryResult({
-        data: {
-          'alpaca-paper': [{ id: 'cred-paper', name: 'Alpaca Paper', provider: 'alpaca-paper' }],
-        },
+        data: [{ providerId: 'alpaca-paper', isConnected: true }],
       })
     )
     mockUsePortfolioIdentities.mockReturnValue(
@@ -350,7 +347,7 @@ describe('PortfolioSnapshotWidgetBody', () => {
     const tradierPortfolioIdentity = {
       ...selectedPortfolioIdentity,
       providerId: 'tradier',
-      credentialId: 'credential-2',
+      tokenAccountId: 'oauth-account-2',
       serviceId: 'tradier-live',
     }
     mockUsePortfolioIdentities.mockReturnValue(
@@ -745,7 +742,7 @@ describe('PortfolioSnapshotWidgetBody', () => {
     })
   })
 
-  it('requires selecting a provider before loading credentials or accounts', async () => {
+  it('requires selecting a provider before loading connections or accounts', async () => {
     mockUsePortfolioIdentities.mockReturnValueOnce(createQueryResult({ data: [] }))
 
     await act(async () => {

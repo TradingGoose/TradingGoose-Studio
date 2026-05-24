@@ -9,7 +9,7 @@ import { useListingSelectorStore } from '@/stores/market/selector/store'
 import { QuickOrderWidgetBody } from '@/widgets/widgets/quick_order/components/body'
 
 const mockUseOAuthProviderAvailability = vi.fn()
-const mockUseOAuthCredentialsByProviderIds = vi.fn()
+const mockUseOAuthConnections = vi.fn()
 const mockUseMarketQuoteSnapshots = vi.fn()
 const mockUsePortfolioIdentities = vi.fn()
 const mockUsePortfolioDetail = vi.fn()
@@ -20,7 +20,7 @@ const mockReset = vi.fn()
 
 const portfolioIdentity = {
   providerId: 'alpaca',
-  credentialId: 'credential-1',
+  tokenAccountId: 'oauth-account-1',
   serviceId: 'alpaca-live',
   accountId: 'acct-1',
   accountName: 'Paper Account',
@@ -68,9 +68,8 @@ vi.mock('@/hooks/queries/oauth-provider-availability', () => ({
   useOAuthProviderAvailability: (...args: unknown[]) => mockUseOAuthProviderAvailability(...args),
 }))
 
-vi.mock('@/hooks/queries/oauth-credentials', () => ({
-  useOAuthCredentialsByProviderIds: (...args: unknown[]) =>
-    mockUseOAuthCredentialsByProviderIds(...args),
+vi.mock('@/hooks/queries/oauth-connections', () => ({
+  useOAuthConnections: (...args: unknown[]) => mockUseOAuthConnections(...args),
 }))
 
 vi.mock('@/hooks/queries/market-quote-snapshots', () => ({
@@ -272,11 +271,12 @@ describe('QuickOrderWidgetBody', () => {
     mockUseOAuthProviderAvailability.mockReturnValue(
       queryResult({ data: { 'alpaca-live': true, 'alpaca-paper': true } })
     )
-    mockUseOAuthCredentialsByProviderIds.mockReturnValue(
+    mockUseOAuthConnections.mockReturnValue(
       queryResult({
-        data: {
-          'alpaca-live': [{ id: 'cred-1', name: 'Alpaca Live', provider: 'alpaca-live' }],
-        },
+        data: [
+          { providerId: 'alpaca-live', isConnected: true },
+          { providerId: 'alpaca-paper', isConnected: true },
+        ],
       })
     )
     mockUsePortfolioIdentities.mockReturnValue(queryResult({ data: [portfolioIdentity] }))
@@ -327,18 +327,14 @@ describe('QuickOrderWidgetBody', () => {
     expect(footerButton).toBeDisabled()
   })
 
-  it('scopes broker connection discovery by workspace', async () => {
+  it('uses user broker connections independently of workspace scope', async () => {
     await renderBody(container, root, {
       provider: 'alpaca',
       portfolioIdentity,
       side: 'buy',
     })
 
-    expect(mockUseOAuthCredentialsByProviderIds).toHaveBeenCalledWith(
-      ['alpaca-live', 'alpaca-paper'],
-      true,
-      { workspaceId: 'workspace-1' }
-    )
+    expect(mockUseOAuthConnections).toHaveBeenCalled()
   })
 
   it('keeps listing selector state scoped to a stable trading instance and resets on unmount', async () => {
@@ -621,7 +617,7 @@ describe('QuickOrderWidgetBody', () => {
       mockMutate.mock.calls[0][1].onSuccess()
     })
     expect(mockPortfolioRefetch).toHaveBeenCalled()
-    expect(mockMutate.mock.calls[0][0]).not.toHaveProperty('credentialId')
+    expect(mockMutate.mock.calls[0][0]).not.toHaveProperty('tokenAccountId')
     expect(mockMutate.mock.calls[0][0]).not.toHaveProperty('serviceId')
     expect(mockMutate.mock.calls[0][0]).not.toHaveProperty('environment')
     expect(mockMutate.mock.calls[0][0]).not.toHaveProperty('accountId')

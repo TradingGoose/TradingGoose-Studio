@@ -11,7 +11,7 @@ const mockGetSession = vi.fn()
 const mockRefreshAccessTokenIfNeeded = vi.fn()
 const mockListPortfolioIdentities = vi.fn()
 const mockCheckWorkspaceAccess = vi.fn()
-const mockAuthorizeCredentialUse = vi.fn()
+const mockResolveOAuthConnectionAccountForUser = vi.fn()
 const mockResolveOrderHistoryContext = vi.fn()
 const mockRecordOrderHistory = vi.fn()
 const mockUpdateOrderHistoryResult = vi.fn()
@@ -36,8 +36,8 @@ vi.mock('@/lib/oauth/tokens', () => ({
   refreshAccessTokenIfNeeded: mockRefreshAccessTokenIfNeeded,
 }))
 
-vi.mock('@/lib/auth/credential-access', () => ({
-  authorizeCredentialUse: mockAuthorizeCredentialUse,
+vi.mock('@/lib/credentials/oauth', () => ({
+  resolveOAuthConnectionAccountForUser: mockResolveOAuthConnectionAccountForUser,
 }))
 
 vi.mock('@/lib/permissions/utils', () => ({
@@ -98,7 +98,7 @@ const workspaceId = 'workspace-1'
 
 const portfolioIdentityFor = (providerId: 'alpaca' | 'tradier', accountId = 'ACC-1') => ({
   providerId,
-  credentialId: `${providerId}-credential-1`,
+  tokenAccountId: `${providerId}-oauth-account-1`,
   serviceId: `${providerId}-live`,
   accountId,
 })
@@ -153,15 +153,12 @@ describe('Trading provider order route', () => {
     idempotencyCounter = 0
     vi.stubGlobal('fetch', mockFetch)
     mockGetSession.mockResolvedValue({ user: { id: 'user-1' } })
-    mockAuthorizeCredentialUse.mockImplementation(
-      (_request: unknown, { credentialId }: { credentialId: string }) =>
+    mockResolveOAuthConnectionAccountForUser.mockImplementation(
+      ({ accountId }: { accountId: string }) =>
         Promise.resolve({
-          ok: true,
-          authType: 'session',
-          requesterUserId: 'user-1',
           credentialOwnerUserId: 'user-1',
-          resolvedTokenAccountId: 'account-credential-1',
-          resolvedProviderId: credentialId.startsWith('tradier') ? 'tradier-live' : 'alpaca-live',
+          tokenAccountId: accountId,
+          providerId: accountId.startsWith('tradier') ? 'tradier-live' : 'alpaca-live',
         })
     )
     mockRefreshAccessTokenIfNeeded.mockResolvedValue('access-token')
@@ -180,7 +177,7 @@ describe('Trading provider order route', () => {
     mockListPortfolioIdentities.mockResolvedValue([
       {
         providerId: 'alpaca',
-        credentialId: 'alpaca-credential-1',
+        tokenAccountId: 'alpaca-oauth-account-1',
         serviceId: 'alpaca-live',
         accountId: 'ACC-1',
         accountName: 'Main',
@@ -190,7 +187,7 @@ describe('Trading provider order route', () => {
       },
       {
         providerId: 'tradier',
-        credentialId: 'tradier-credential-1',
+        tokenAccountId: 'tradier-oauth-account-1',
         serviceId: 'tradier-live',
         accountId: 'ACC-1',
         accountName: 'Main',
@@ -229,29 +226,25 @@ describe('Trading provider order route', () => {
     expect(mockFetch).not.toHaveBeenCalled()
   })
 
-  it('authorizes the selected portfolio credential before token lookup', async () => {
-    mockAuthorizeCredentialUse.mockResolvedValue({
-      ok: false,
-      error: 'Unauthorized',
-    })
+  it('requires the selected portfolio connection before token lookup', async () => {
+    mockResolveOAuthConnectionAccountForUser.mockResolvedValue(null)
 
     const { POST } = await import('@/app/api/providers/trading/order/route')
     const response = await POST(createProviderOrderRequest('tradier'))
 
-    expect(response.status).toBe(403)
-    await expect(response.json()).resolves.toEqual({ error: 'Unauthorized' })
+    expect(response.status).toBe(404)
+    await expect(response.json()).resolves.toEqual({
+      error: 'Trading provider connection not found',
+    })
     expect(mockRefreshAccessTokenIfNeeded).not.toHaveBeenCalled()
     expectNoAccountDiscoveryOrBrokerCall()
   })
 
-  it('rejects portfolio identities whose credential service does not match the requested service', async () => {
-    mockAuthorizeCredentialUse.mockResolvedValueOnce({
-      ok: true,
-      authType: 'session',
-      requesterUserId: 'user-1',
+  it('rejects portfolio identities whose connection service does not match the requested service', async () => {
+    mockResolveOAuthConnectionAccountForUser.mockResolvedValueOnce({
       credentialOwnerUserId: 'user-1',
-      resolvedTokenAccountId: 'account-credential-1',
-      resolvedProviderId: 'alpaca-live',
+      tokenAccountId: 'tradier-oauth-account-1',
+      providerId: 'alpaca-live',
     })
 
     const { POST } = await import('@/app/api/providers/trading/order/route')
@@ -529,7 +522,7 @@ describe('Trading provider order route', () => {
     mockListPortfolioIdentities.mockResolvedValue([
       {
         providerId: 'tradier',
-        credentialId: 'tradier-credential-1',
+        tokenAccountId: 'tradier-oauth-account-1',
         serviceId: 'tradier-live',
         accountId: 'ACC-2',
       },
@@ -616,7 +609,7 @@ describe('Trading provider order route', () => {
     })
     expect(mockFetch).toHaveBeenCalledTimes(1)
     expect(mockRefreshAccessTokenIfNeeded).toHaveBeenCalledWith(
-      'account-credential-1',
+      'alpaca-oauth-account-1',
       'user-1',
       expect.any(String)
     )
@@ -629,7 +622,7 @@ describe('Trading provider order route', () => {
         request: expect.objectContaining({
           accountId: 'ACC-1',
           clientOrderId,
-          credentialId: 'alpaca-credential-1',
+          tokenAccountId: 'alpaca-oauth-account-1',
           serviceId: 'alpaca-live',
           orderType: 'market',
           quantity: 3,
@@ -778,7 +771,7 @@ describe('Trading provider order route', () => {
         request: expect.objectContaining({
           accountId: 'ACC-1',
           clientOrderId,
-          credentialId: 'tradier-credential-1',
+          tokenAccountId: 'tradier-oauth-account-1',
           serviceId: 'tradier-live',
           quantity: 3,
           side: 'buy',

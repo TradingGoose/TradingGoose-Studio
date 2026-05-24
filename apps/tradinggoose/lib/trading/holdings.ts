@@ -1,6 +1,5 @@
-import type { NextRequest } from 'next/server'
 import {
-  authorizeTradingCredentialRequest,
+  authorizeTradingConnectionRequest,
   resolveTradingProviderContext,
   resolveTradingProviderSelectedAccount,
 } from '@/lib/trading/context'
@@ -12,8 +11,6 @@ import { TradingServiceError } from './errors'
 
 export interface TradingHoldingsRequest {
   portfolioIdentity?: PortfolioIdentity | null
-  workspaceId?: string
-  workflowId?: string
 }
 
 export type TradingHoldingsResult = {
@@ -23,12 +20,10 @@ export type TradingHoldingsResult = {
 }
 
 export async function getTradingHoldings({
-  request,
   requestData,
   requestId,
   userId,
 }: {
-  request: NextRequest
   requestData: TradingHoldingsRequest
   requestId: string
   userId: string
@@ -38,24 +33,21 @@ export async function getTradingHoldings({
   if (!portfolioIdentity) {
     throw new TradingServiceError('Portfolio identity is required')
   }
-  const credentialAuthorization = await authorizeTradingCredentialRequest({
-    request,
-    credentialId: portfolioIdentity.credentialId,
-    workspaceId: requestData.workspaceId,
-    workflowId: requestData.workflowId,
+  const connectionAuthorization = await authorizeTradingConnectionRequest({
+    tokenAccountId: portfolioIdentity.tokenAccountId,
+    userId,
   })
 
   const baseContext = await resolveTradingProviderContext({
     requestData: {
       provider: portfolioIdentity.providerId,
-      credentialId: portfolioIdentity.credentialId,
+      tokenAccountId: portfolioIdentity.tokenAccountId,
       serviceId: portfolioIdentity.serviceId,
     },
     requestId,
     userId,
-    credentialOwnerUserId: credentialAuthorization.credentialOwnerUserId,
-    tokenAccountId: credentialAuthorization.tokenAccountId,
-    accountProviderId: credentialAuthorization.accountProviderId,
+    connectionOwnerUserId: connectionAuthorization.connectionOwnerUserId,
+    accountProviderId: connectionAuthorization.accountProviderId,
   })
   const providerDefinition = getTradingProviderDefinition(baseContext.providerId)
   if (!providerDefinition) {
@@ -68,7 +60,7 @@ export async function getTradingHoldings({
 
   const holdings = await getPortfolioDetail({
     providerId: baseContext.providerId,
-    credentialId: baseContext.credentialId,
+    tokenAccountId: baseContext.tokenAccountId,
     serviceId: baseContext.serviceId,
     environment: baseContext.environment,
     accessToken: baseContext.accessToken,
