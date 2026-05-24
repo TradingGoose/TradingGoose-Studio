@@ -174,10 +174,8 @@ describe('order provider detail route', () => {
     expect(mocks.eq).toHaveBeenCalledWith('orderHistoryTable.id', 'order-1')
     expect(mocks.eq).toHaveBeenCalledWith('orderHistoryTable.workspaceId', 'workspace-1')
     expect(authorizeTradingCredentialRequest).toHaveBeenCalledWith({
-      request: expect.any(NextRequest),
       credentialId: 'credential-1',
-      workspaceId: 'workspace-1',
-      workflowId: undefined,
+      userId: 'user-1',
     })
     expect(resolveTradingProviderContext).toHaveBeenCalledWith({
       requestData: {

@@ -10,7 +10,7 @@ const {
   getTradingProviderOAuthServiceIdMock,
   getTradingPortfolioSupportedWindowsMock,
   isTradingPortfolioWindowSupportedMock,
-  resolveOAuthCredentialAccountForUserMock,
+  resolveOAuthConnectionAccountForUserMock,
   listTradingPortfolioIdentitiesMock,
   getPortfolioDetailMock,
   getTradingAccountPerformanceMock,
@@ -21,7 +21,7 @@ const {
   getTradingProviderOAuthEnvironmentMock: vi.fn(),
   getTradingPortfolioSupportedWindowsMock: vi.fn(),
   isTradingPortfolioWindowSupportedMock: vi.fn(),
-  resolveOAuthCredentialAccountForUserMock: vi.fn(),
+  resolveOAuthConnectionAccountForUserMock: vi.fn(),
   listTradingPortfolioIdentitiesMock: vi.fn(),
   getPortfolioDetailMock: vi.fn(),
   getTradingAccountPerformanceMock: vi.fn(),
@@ -32,8 +32,8 @@ vi.mock('@/lib/oauth/tokens', () => ({
 }))
 
 vi.mock('@/lib/credentials/oauth', () => ({
-  resolveOAuthCredentialAccountForUser: (...args: unknown[]) =>
-    resolveOAuthCredentialAccountForUserMock(...args),
+  resolveOAuthConnectionAccountForUser: (...args: unknown[]) =>
+    resolveOAuthConnectionAccountForUserMock(...args),
 }))
 
 vi.mock('@/lib/trading/portfolio-identities', () => ({
@@ -71,7 +71,7 @@ import { TradingPortfolioStreamManager } from './portfolio-manager'
 
 const portfolioIdentity: PortfolioIdentity = {
   providerId: 'alpaca',
-  credentialId: 'credential-1',
+  credentialId: 'account-credential-1',
   serviceId: 'alpaca-live',
   accountId: 'acct-1',
   providerName: 'Alpaca',
@@ -143,11 +143,10 @@ const flushPortfolioPolls = async () => {
 describe('TradingPortfolioStreamManager', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    resolveOAuthCredentialAccountForUserMock.mockResolvedValue({
-      accountId: 'account-credential-1',
+    resolveOAuthConnectionAccountForUserMock.mockResolvedValue({
+      tokenAccountId: 'account-credential-1',
       credentialOwnerUserId: 'user-1',
       providerId: 'alpaca-live',
-      workspaceId: 'workspace-1',
     })
     refreshAccessTokenIfNeededMock.mockResolvedValue('oauth-token')
     getTradingProviderDefinitionMock.mockReturnValue({
@@ -194,10 +193,16 @@ describe('TradingPortfolioStreamManager', () => {
 
     expect(refreshAccessTokenIfNeededMock).toHaveBeenCalledTimes(1)
     expect(listTradingPortfolioIdentitiesMock).toHaveBeenCalledTimes(1)
+    expect(listTradingPortfolioIdentitiesMock).toHaveBeenCalledWith({
+      userId: 'user-1',
+      providerId: 'alpaca',
+      serviceId: 'alpaca-live',
+      requestId: expect.any(String),
+    })
     expect(getPortfolioDetailMock).toHaveBeenCalledTimes(1)
     expect(getPortfolioDetailMock).toHaveBeenCalledWith({
       providerId: 'alpaca',
-      credentialId: 'credential-1',
+      credentialId: 'account-credential-1',
       serviceId: 'alpaca-live',
       environment: 'live',
       accessToken: 'oauth-token',

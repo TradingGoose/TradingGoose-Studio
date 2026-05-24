@@ -88,7 +88,6 @@ export const fetchTradingPortfolioIdentityOptions = async (
   if (!provider) return []
 
   const params = new URLSearchParams({ provider })
-  if (context.workflowId) params.set('workflowId', context.workflowId)
 
   const response = await fetch(`/api/providers/trading/portfolio-identities?${params}`, {
     cache: 'no-store',

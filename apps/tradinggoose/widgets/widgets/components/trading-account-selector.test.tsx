@@ -101,7 +101,6 @@ describe('TradingAccountSelector', () => {
     expect(mockUseTradingServices).toHaveBeenCalledWith({
       providerId: 'alpaca',
       serviceId: 'alpaca-live',
-      workspaceId: 'workspace-1',
       enabled: true,
     })
     expect(mockUsePortfolioIdentities).toHaveBeenCalledWith({

@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from 'crypto'
-import { resolveOAuthCredentialAccountForUser } from '@/lib/credentials/oauth'
+import { resolveOAuthConnectionAccountForUser } from '@/lib/credentials/oauth'
 import { createLogger } from '@/lib/logs/console/logger'
 import { refreshAccessTokenIfNeeded } from '@/lib/oauth/tokens'
 import { listTradingPortfolioIdentities } from '@/lib/trading/portfolio-identities'
@@ -394,7 +394,6 @@ export class TradingPortfolioStreamManager {
 
     const promise = listTradingPortfolioIdentities({
       userId: streamState.userId,
-      workspaceId: streamState.workspaceId,
       providerId: streamState.providerId,
       serviceId: streamState.serviceId,
       requestId: streamState.streamKey,
@@ -583,10 +582,9 @@ async function resolveTradingPortfolioContext(
   const credentialId = streamState.portfolioIdentity?.credentialId
   if (!credentialId) throw new Error('portfolioIdentity credential is required')
 
-  const credentialAccount = await resolveOAuthCredentialAccountForUser({
-    credentialId,
+  const credentialAccount = await resolveOAuthConnectionAccountForUser({
+    accountId: credentialId,
     userId: streamState.userId,
-    workspaceId: streamState.workspaceId,
   })
   if (!credentialAccount) throw new Error('Trading provider connection not found')
   if (credentialAccount.providerId !== serviceId) {
@@ -594,7 +592,7 @@ async function resolveTradingPortfolioContext(
   }
 
   const accessToken = await refreshAccessTokenIfNeeded(
-    credentialAccount.accountId,
+    credentialAccount.tokenAccountId,
     credentialAccount.credentialOwnerUserId,
     streamState.streamKey
   )

@@ -1,5 +1,4 @@
-import type { NextRequest } from 'next/server'
-import { authorizeCredentialUse } from '@/lib/auth/credential-access'
+import { resolveOAuthConnectionAccountForUser } from '@/lib/credentials/oauth'
 import { createLogger } from '@/lib/logs/console/logger'
 import { refreshAccessTokenIfNeeded } from '@/lib/oauth/tokens'
 import { TradingServiceError } from '@/lib/trading/errors'
@@ -47,39 +46,25 @@ const requireStringField = (input: string | undefined, field: string): string =>
 }
 
 export async function authorizeTradingCredentialRequest(params: {
-  request: NextRequest
   credentialId: string
-  workspaceId?: string
-  workflowId?: string
+  userId: string
 }): Promise<{
   credentialOwnerUserId: string
   tokenAccountId: string
   accountProviderId: string
 }> {
-  const authorization = await authorizeCredentialUse(params.request, {
-    credentialId: params.credentialId,
-    workspaceId: params.workspaceId,
-    workflowId: params.workflowId,
+  const connection = await resolveOAuthConnectionAccountForUser({
+    accountId: params.credentialId,
+    userId: params.userId,
   })
-  if (
-    !authorization.ok ||
-    !authorization.credentialOwnerUserId ||
-    !authorization.resolvedTokenAccountId ||
-    !authorization.resolvedProviderId
-  ) {
-    const status =
-      authorization.error === 'Credential not found'
-        ? 404
-        : authorization.error === 'Authentication required'
-          ? 401
-          : 403
-    throw new TradingServiceError(authorization.error || 'Unauthorized', status)
+  if (!connection) {
+    throw new TradingServiceError('Trading provider connection not found', 404)
   }
 
   return {
-    credentialOwnerUserId: authorization.credentialOwnerUserId,
-    tokenAccountId: authorization.resolvedTokenAccountId,
-    accountProviderId: authorization.resolvedProviderId,
+    credentialOwnerUserId: connection.credentialOwnerUserId,
+    tokenAccountId: connection.tokenAccountId,
+    accountProviderId: connection.providerId,
   }
 }
 

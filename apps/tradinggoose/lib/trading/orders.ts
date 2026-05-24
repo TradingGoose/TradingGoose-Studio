@@ -320,7 +320,6 @@ const extractOrderProviderMessage = (
   readMessage(rawOrder) ?? readMessage(normalizedOrder?.raw) ?? readMessage(normalizedOrder)
 
 export async function submitTradingOrder({
-  request,
   requestData,
   requestId,
   userId,
@@ -346,10 +345,8 @@ export async function submitTradingOrder({
     logId: requestData.logId,
   })
   const credentialAuthorization = await authorizeTradingCredentialRequest({
-    request,
     credentialId: portfolioIdentity.credentialId,
-    workspaceId: requestData.workspaceId,
-    workflowId: requestData.workflowId,
+    userId,
   })
 
   const baseContext = await resolveTradingProviderContext({

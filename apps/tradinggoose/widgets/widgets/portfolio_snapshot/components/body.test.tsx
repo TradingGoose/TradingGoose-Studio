@@ -8,7 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { PortfolioSnapshotWidgetBody } from '@/widgets/widgets/portfolio_snapshot/components/body'
 
 const mockUseOAuthProviderAvailability = vi.fn()
-const mockUseOAuthCredentialsByProviderIds = vi.fn()
+const mockUseOAuthConnections = vi.fn()
 const mockUseMarketQuoteSnapshots = vi.fn()
 const mockUsePortfolioIdentities = vi.fn()
 const mockUsePortfolioDetail = vi.fn()
@@ -81,9 +81,8 @@ vi.mock('@/hooks/queries/oauth-provider-availability', () => ({
   useOAuthProviderAvailability: (...args: unknown[]) => mockUseOAuthProviderAvailability(...args),
 }))
 
-vi.mock('@/hooks/queries/oauth-credentials', () => ({
-  useOAuthCredentialsByProviderIds: (...args: unknown[]) =>
-    mockUseOAuthCredentialsByProviderIds(...args),
+vi.mock('@/hooks/queries/oauth-connections', () => ({
+  useOAuthConnections: (...args: unknown[]) => mockUseOAuthConnections(...args),
 }))
 
 vi.mock('@/hooks/queries/market-quote-snapshots', () => ({
@@ -139,12 +138,12 @@ describe('PortfolioSnapshotWidgetBody', () => {
         },
       })
     )
-    mockUseOAuthCredentialsByProviderIds.mockReturnValue(
+    mockUseOAuthConnections.mockReturnValue(
       createQueryResult({
-        data: {
-          'alpaca-live': [{ id: 'cred-1', name: 'Alpaca Live', provider: 'alpaca-live' }],
-          'tradier-live': [{ id: 'cred-2', name: 'Tradier Live', provider: 'tradier-live' }],
-        },
+        data: [
+          { providerId: 'alpaca-live', isConnected: true },
+          { providerId: 'tradier-live', isConnected: true },
+        ],
       })
     )
     mockUsePortfolioIdentities.mockReturnValue(
@@ -238,11 +237,9 @@ describe('PortfolioSnapshotWidgetBody', () => {
       accountId: 'paper-acct',
       accountName: 'Paper Account',
     }
-    mockUseOAuthCredentialsByProviderIds.mockReturnValue(
+    mockUseOAuthConnections.mockReturnValue(
       createQueryResult({
-        data: {
-          'alpaca-paper': [{ id: 'cred-paper', name: 'Alpaca Paper', provider: 'alpaca-paper' }],
-        },
+        data: [{ providerId: 'alpaca-paper', isConnected: true }],
       })
     )
     mockUsePortfolioIdentities.mockReturnValue(

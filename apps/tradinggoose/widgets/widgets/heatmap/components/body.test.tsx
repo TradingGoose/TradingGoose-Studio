@@ -12,7 +12,7 @@ import { HeatmapWidgetBody } from '@/widgets/widgets/heatmap/components/body'
 const mockUseResolvedListings = vi.fn()
 const mockUseMarketQuoteSnapshots = vi.fn()
 const mockUseOAuthProviderAvailability = vi.fn()
-const mockUseOAuthCredentialsByProviderIds = vi.fn()
+const mockUseOAuthConnections = vi.fn()
 const mockUsePortfolioIdentities = vi.fn()
 const mockUsePortfolioDetail = vi.fn()
 const mockUseWatchlists = vi.fn()
@@ -97,9 +97,8 @@ vi.mock('@/hooks/queries/oauth-provider-availability', () => ({
   useOAuthProviderAvailability: (...args: unknown[]) => mockUseOAuthProviderAvailability(...args),
 }))
 
-vi.mock('@/hooks/queries/oauth-credentials', () => ({
-  useOAuthCredentialsByProviderIds: (...args: unknown[]) =>
-    mockUseOAuthCredentialsByProviderIds(...args),
+vi.mock('@/hooks/queries/oauth-connections', () => ({
+  useOAuthConnections: (...args: unknown[]) => mockUseOAuthConnections(...args),
 }))
 
 vi.mock('@/hooks/queries/trading-portfolio', () => ({
@@ -169,11 +168,9 @@ describe('HeatmapWidgetBody', () => {
     mockUseOAuthProviderAvailability.mockReturnValue(
       createQueryResult({ data: { 'alpaca-live': true, 'alpaca-paper': true } })
     )
-    mockUseOAuthCredentialsByProviderIds.mockReturnValue(
+    mockUseOAuthConnections.mockReturnValue(
       createQueryResult({
-        data: {
-          'alpaca-live': [{ id: 'cred-1', name: 'Alpaca Live', provider: 'alpaca-live' }],
-        },
+        data: [{ providerId: 'alpaca-live', isConnected: true }],
       })
     )
     mockUsePortfolioIdentities.mockReturnValue(createQueryResult({ data: [] }))

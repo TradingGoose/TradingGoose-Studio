@@ -34,11 +34,9 @@ export type TradingProviderOrderDetailResult = {
 
 export async function getRecordedTradingOrderProviderDetail({
   orderId,
-  request,
   requestId,
   userId,
   workspaceId,
-  workflowId,
 }: {
   orderId: string
   request: NextRequest
@@ -72,10 +70,8 @@ export async function getRecordedTradingOrderProviderDetail({
     throw new TradingServiceError('Order history record is missing trading credential context')
   }
   const credentialAuthorization = await authorizeTradingCredentialRequest({
-    request,
     credentialId,
-    workspaceId,
-    workflowId,
+    userId,
   })
 
   const baseContext = await resolveTradingProviderContext({

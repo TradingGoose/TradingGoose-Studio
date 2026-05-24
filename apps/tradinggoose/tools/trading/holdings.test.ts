@@ -100,7 +100,7 @@ describe('tradingHoldingsTool', () => {
     })
   })
 
-  it('requires workspace scope for credential-owned portfolio reads', () => {
+  it('declares workspace read scope for tool execution', () => {
     expect(tradingHoldingsTool.execution).toEqual({
       workspace: { required: true, access: 'read' },
     })
@@ -123,10 +123,8 @@ describe('tradingHoldingsTool', () => {
     ).rejects.toThrow('Unauthorized')
 
     expect(authorizeTradingCredentialRequestMock).toHaveBeenCalledWith({
-      request,
       credentialId: 'credential-1',
-      workspaceId: 'workspace-1',
-      workflowId: undefined,
+      userId: 'user-1',
     })
     expect(resolveTradingProviderContextMock).not.toHaveBeenCalled()
     expect(getPortfolioDetailMock).not.toHaveBeenCalled()

@@ -6,7 +6,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
   credentials: [] as Array<{
-    credentialId: string
     tokenAccountId: string
     providerId: string
     credentialOwnerUserId: string
@@ -20,7 +19,7 @@ vi.mock('@/lib/oauth/tokens', () => ({
 }))
 
 vi.mock('@/lib/credentials/oauth', () => ({
-  listOAuthCredentialAccountsForUser: vi.fn(() => Promise.resolve(mocks.credentials)),
+  listOAuthConnectionAccountsForUser: vi.fn(() => Promise.resolve(mocks.credentials)),
 }))
 
 vi.mock('@/providers/trading/portfolio', () => ({
@@ -46,7 +45,7 @@ vi.mock('@/providers/trading/providers', () => ({
 
 const portfolioIdentity = {
   providerId: 'alpaca',
-  credentialId: 'credential-live',
+  credentialId: 'account-live',
   serviceId: 'alpaca-live',
   accountId: 'account-1',
 }
@@ -62,13 +61,11 @@ describe('listTradingPortfolioIdentities', () => {
   it('throws for a selected service when any same-service account load fails', async () => {
     mocks.credentials = [
       {
-        credentialId: 'credential-live',
         tokenAccountId: 'account-live',
         providerId: 'alpaca-live',
         credentialOwnerUserId: 'user-1',
       },
       {
-        credentialId: 'credential-stale',
         tokenAccountId: 'account-stale',
         providerId: 'alpaca-live',
         credentialOwnerUserId: 'user-1',
@@ -82,7 +79,6 @@ describe('listTradingPortfolioIdentities', () => {
     await expect(
       listTradingPortfolioIdentities({
         userId: 'user-1',
-        workspaceId: 'workspace-1',
         providerId: 'alpaca',
         serviceId: 'alpaca-live',
         requestId: 'request-1',
@@ -93,13 +89,11 @@ describe('listTradingPortfolioIdentities', () => {
   it('returns healthy identities when another service fails during all-service loading', async () => {
     mocks.credentials = [
       {
-        credentialId: 'credential-live',
         tokenAccountId: 'account-live',
         providerId: 'alpaca-live',
         credentialOwnerUserId: 'user-1',
       },
       {
-        credentialId: 'credential-paper',
         tokenAccountId: 'account-paper',
         providerId: 'alpaca-paper',
         credentialOwnerUserId: 'user-1',
@@ -113,7 +107,6 @@ describe('listTradingPortfolioIdentities', () => {
     await expect(
       listTradingPortfolioIdentities({
         userId: 'user-1',
-        workspaceId: 'workspace-1',
         providerId: 'alpaca',
         requestId: 'request-1',
       })

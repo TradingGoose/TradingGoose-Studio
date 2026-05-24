@@ -93,7 +93,6 @@ export function TradingAccountSelector({
   const services = useTradingServices({
     providerId: trimmedProviderId,
     serviceId: requestedServiceId,
-    workspaceId: trimmedWorkspaceId,
     enabled: isEnabled,
   })
   const activeServiceId = services.activeServiceId

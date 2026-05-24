@@ -11,7 +11,7 @@ const mockGetSession = vi.fn()
 const mockRefreshAccessTokenIfNeeded = vi.fn()
 const mockListPortfolioIdentities = vi.fn()
 const mockCheckWorkspaceAccess = vi.fn()
-const mockAuthorizeCredentialUse = vi.fn()
+const mockResolveOAuthConnectionAccountForUser = vi.fn()
 const mockResolveOrderHistoryContext = vi.fn()
 const mockRecordOrderHistory = vi.fn()
 const mockUpdateOrderHistoryResult = vi.fn()
@@ -36,8 +36,8 @@ vi.mock('@/lib/oauth/tokens', () => ({
   refreshAccessTokenIfNeeded: mockRefreshAccessTokenIfNeeded,
 }))
 
-vi.mock('@/lib/auth/credential-access', () => ({
-  authorizeCredentialUse: mockAuthorizeCredentialUse,
+vi.mock('@/lib/credentials/oauth', () => ({
+  resolveOAuthConnectionAccountForUser: mockResolveOAuthConnectionAccountForUser,
 }))
 
 vi.mock('@/lib/permissions/utils', () => ({
@@ -153,15 +153,12 @@ describe('Trading provider order route', () => {
     idempotencyCounter = 0
     vi.stubGlobal('fetch', mockFetch)
     mockGetSession.mockResolvedValue({ user: { id: 'user-1' } })
-    mockAuthorizeCredentialUse.mockImplementation(
-      (_request: unknown, { credentialId }: { credentialId: string }) =>
+    mockResolveOAuthConnectionAccountForUser.mockImplementation(
+      ({ accountId }: { accountId: string }) =>
         Promise.resolve({
-          ok: true,
-          authType: 'session',
-          requesterUserId: 'user-1',
           credentialOwnerUserId: 'user-1',
-          resolvedTokenAccountId: 'account-credential-1',
-          resolvedProviderId: credentialId.startsWith('tradier') ? 'tradier-live' : 'alpaca-live',
+          tokenAccountId: 'account-credential-1',
+          providerId: accountId.startsWith('tradier') ? 'tradier-live' : 'alpaca-live',
         })
     )
     mockRefreshAccessTokenIfNeeded.mockResolvedValue('access-token')
@@ -229,29 +226,25 @@ describe('Trading provider order route', () => {
     expect(mockFetch).not.toHaveBeenCalled()
   })
 
-  it('authorizes the selected portfolio credential before token lookup', async () => {
-    mockAuthorizeCredentialUse.mockResolvedValue({
-      ok: false,
-      error: 'Unauthorized',
-    })
+  it('requires the selected portfolio connection before token lookup', async () => {
+    mockResolveOAuthConnectionAccountForUser.mockResolvedValue(null)
 
     const { POST } = await import('@/app/api/providers/trading/order/route')
     const response = await POST(createProviderOrderRequest('tradier'))
 
-    expect(response.status).toBe(403)
-    await expect(response.json()).resolves.toEqual({ error: 'Unauthorized' })
+    expect(response.status).toBe(404)
+    await expect(response.json()).resolves.toEqual({
+      error: 'Trading provider connection not found',
+    })
     expect(mockRefreshAccessTokenIfNeeded).not.toHaveBeenCalled()
     expectNoAccountDiscoveryOrBrokerCall()
   })
 
   it('rejects portfolio identities whose credential service does not match the requested service', async () => {
-    mockAuthorizeCredentialUse.mockResolvedValueOnce({
-      ok: true,
-      authType: 'session',
-      requesterUserId: 'user-1',
+    mockResolveOAuthConnectionAccountForUser.mockResolvedValueOnce({
       credentialOwnerUserId: 'user-1',
-      resolvedTokenAccountId: 'account-credential-1',
-      resolvedProviderId: 'alpaca-live',
+      tokenAccountId: 'account-credential-1',
+      providerId: 'alpaca-live',
     })
 
     const { POST } = await import('@/app/api/providers/trading/order/route')

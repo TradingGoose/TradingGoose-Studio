@@ -23,7 +23,6 @@ export type TradingHoldingsResult = {
 }
 
 export async function getTradingHoldings({
-  request,
   requestData,
   requestId,
   userId,
@@ -39,10 +38,8 @@ export async function getTradingHoldings({
     throw new TradingServiceError('Portfolio identity is required')
   }
   const credentialAuthorization = await authorizeTradingCredentialRequest({
-    request,
     credentialId: portfolioIdentity.credentialId,
-    workspaceId: requestData.workspaceId,
-    workflowId: requestData.workflowId,
+    userId,
   })
 
   const baseContext = await resolveTradingProviderContext({

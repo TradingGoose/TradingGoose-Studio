@@ -1,4 +1,4 @@
-import { listOAuthCredentialAccountsForUser } from '@/lib/credentials/oauth'
+import { listOAuthConnectionAccountsForUser } from '@/lib/credentials/oauth'
 import { refreshAccessTokenIfNeeded } from '@/lib/oauth/tokens'
 import { listPortfolioIdentities } from '@/providers/trading/portfolio'
 import {
@@ -10,13 +10,11 @@ import type { TradingProviderId } from '@/providers/trading/types'
 
 export async function listTradingPortfolioIdentities({
   userId,
-  workspaceId,
   providerId,
   serviceId,
   requestId,
 }: {
   userId: string
-  workspaceId: string
   providerId: TradingProviderId
   serviceId?: string
   requestId: string
@@ -32,9 +30,8 @@ export async function listTradingPortfolioIdentities({
   const targetServiceIds = selectedServiceId ? [selectedServiceId] : serviceIds
   if (!targetServiceIds.length) return []
 
-  const credentials = await listOAuthCredentialAccountsForUser({
+  const credentials = await listOAuthConnectionAccountsForUser({
     userId,
-    workspaceId,
     providerIds: targetServiceIds,
   })
 
@@ -51,12 +48,12 @@ export async function listTradingPortfolioIdentities({
         requestId
       )
       if (!accessToken) {
-        throw new Error(`Trading credential token unavailable: ${credential.credentialId}`)
+        throw new Error(`Trading credential token unavailable: ${credential.tokenAccountId}`)
       }
 
       return listPortfolioIdentities({
         providerId,
-        credentialId: credential.credentialId,
+        credentialId: credential.tokenAccountId,
         serviceId: credential.providerId,
         environment,
         accessToken,
