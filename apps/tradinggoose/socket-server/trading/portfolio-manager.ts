@@ -151,7 +151,8 @@ export class TradingPortfolioStreamManager {
     socket: AuthenticatedSocket,
     payload: TradingPortfolioSubscribePayload
   ): Promise<TradingPortfolioSubscriptionInfo> {
-    this.stopped = false
+    if (this.stopped) throw new Error('Trading portfolio stream manager is stopped')
+
     const userId = socket.userId
     if (!userId) throw new Error('Authentication required')
 

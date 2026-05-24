@@ -1,6 +1,5 @@
 import { db, orderHistoryTable } from '@tradinggoose/db'
 import { and, eq } from 'drizzle-orm'
-import type { NextRequest } from 'next/server'
 import { checkWorkspaceAccess } from '@/lib/permissions/utils'
 import {
   authorizeTradingCredentialRequest,
@@ -39,11 +38,9 @@ export async function getRecordedTradingOrderProviderDetail({
   workspaceId,
 }: {
   orderId: string
-  request: NextRequest
   requestId: string
   userId: string
   workspaceId: string
-  workflowId?: string
 }): Promise<TradingProviderOrderDetailResult> {
   const access = await checkWorkspaceAccess(workspaceId, userId)
   if (!access.exists || !access.hasAccess) {

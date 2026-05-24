@@ -26,16 +26,12 @@ export async function POST(
     if (!workspaceId) {
       return NextResponse.json({ error: 'workspaceId is required' }, { status: 400 })
     }
-    const workflowId = new URL(request.url).searchParams.get('workflowId')?.trim() || undefined
-
     const { orderId } = await params
     const providerDetail = await getRecordedTradingOrderProviderDetail({
       orderId,
-      request,
       requestId,
       userId: auth.userId,
       workspaceId,
-      workflowId,
     })
 
     return NextResponse.json({ data: providerDetail })

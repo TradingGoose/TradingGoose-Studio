@@ -1,4 +1,3 @@
-import type { NextRequest } from 'next/server'
 import {
   authorizeTradingCredentialRequest,
   resolveTradingProviderContext,
@@ -12,8 +11,6 @@ import { TradingServiceError } from './errors'
 
 export interface TradingHoldingsRequest {
   portfolioIdentity?: PortfolioIdentity | null
-  workspaceId?: string
-  workflowId?: string
 }
 
 export type TradingHoldingsResult = {
@@ -27,7 +24,6 @@ export async function getTradingHoldings({
   requestId,
   userId,
 }: {
-  request: NextRequest
   requestData: TradingHoldingsRequest
   requestId: string
   userId: string

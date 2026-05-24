@@ -92,7 +92,6 @@ export async function POST(request: NextRequest) {
         : { ...requestData, ...(workflowId ? { workflowId } : {}) }
 
     const response = await submitTradingOrder({
-      request,
       requestData: submitRequestData,
       requestId,
       userId: auth.userId,

@@ -1,5 +1,4 @@
 import { createHash } from 'crypto'
-import type { NextRequest } from 'next/server'
 import { IdempotencyService } from '@/lib/idempotency'
 import type { ListingInputValue } from '@/lib/listing/identity'
 import { toListingValueObject } from '@/lib/listing/identity'
@@ -324,7 +323,6 @@ export async function submitTradingOrder({
   requestId,
   userId,
 }: {
-  request: NextRequest
   requestData: TradingOrderSubmitRequest
   requestId: string
   userId: string

@@ -340,6 +340,16 @@ describe('TradingPortfolioStreamManager', () => {
     expect(getPortfolioDetailMock).toHaveBeenCalledTimes(1)
 
     manager.stop()
+    await expect(
+      manager.subscribe(socket, {
+        provider: 'alpaca',
+        serviceId: 'alpaca-live',
+        portfolioIdentity,
+        workspaceId: 'workspace-1',
+        channel: 'account-snapshot',
+      })
+    ).rejects.toThrow('Trading portfolio stream manager is stopped')
+
     await vi.advanceTimersByTimeAsync(30_000)
     await flushPortfolioPolls()
 

@@ -1,4 +1,3 @@
-import { NextRequest } from 'next/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const getPortfolioDetailMock = vi.fn()
@@ -53,12 +52,9 @@ describe('tradingHoldingsTool', () => {
   })
 
   it('fetches holdings for the selected portfolioIdentity account', async () => {
-    const request = new NextRequest('http://localhost/api/tools/trading/holdings')
     const result = await getTradingHoldings({
-      request,
       requestData: {
         portfolioIdentity,
-        workspaceId: 'workspace-1',
       },
       requestId: 'request-1',
       userId: 'user-1',
@@ -107,15 +103,12 @@ describe('tradingHoldingsTool', () => {
   })
 
   it('authorizes the selected portfolio credential before broker calls', async () => {
-    const request = new NextRequest('http://localhost/api/tools/trading/holdings')
     authorizeTradingCredentialRequestMock.mockRejectedValue(new Error('Unauthorized'))
 
     await expect(
       getTradingHoldings({
-        request,
         requestData: {
           portfolioIdentity,
-          workspaceId: 'workspace-1',
         },
         requestId: 'request-1',
         userId: 'user-1',
