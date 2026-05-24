@@ -145,11 +145,13 @@ export class TradingPortfolioStreamManager {
   private streams = new Map<string, TradingPortfolioStreamState>()
   private socketSubscriptions = new Map<string, Map<string, TradingPortfolioSubscriptionRecord>>()
   private accountsCache = new Map<string, AccountsCacheEntry>()
+  private stopped = false
 
   async subscribe(
     socket: AuthenticatedSocket,
     payload: TradingPortfolioSubscribePayload
   ): Promise<TradingPortfolioSubscriptionInfo> {
+    this.stopped = false
     const userId = socket.userId
     if (!userId) throw new Error('Authentication required')
 
@@ -269,6 +271,19 @@ export class TradingPortfolioStreamManager {
     socketMap.forEach((record) => this.removeRecord(record))
   }
 
+  stop() {
+    this.stopped = true
+    this.streams.forEach((streamState) => {
+      if (streamState.pollingTimer) {
+        clearInterval(streamState.pollingTimer)
+      }
+      streamState.subscribers.clear()
+    })
+    this.streams.clear()
+    this.socketSubscriptions.clear()
+    this.accountsCache.clear()
+  }
+
   private getOrCreateStreamState(
     config: Omit<TradingPortfolioStreamState, 'subscribers'>
   ): TradingPortfolioStreamState {
@@ -298,6 +313,7 @@ export class TradingPortfolioStreamManager {
   }
 
   private async pollState(streamState: TradingPortfolioStreamState, forceRefresh: boolean) {
+    if (this.stopped) return
     if (streamState.pollingInFlight) return
     if (streamState.subscribers.size === 0) return
 
@@ -370,6 +386,7 @@ export class TradingPortfolioStreamManager {
       streamState.lastPayload = payload
       this.emitToSubscribers(streamState, payload)
     } catch (error) {
+      if (this.stopped) return
       this.emitErrorToSubscribers(streamState, error)
     } finally {
       streamState.pollingInFlight = false

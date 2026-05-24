@@ -321,20 +321,29 @@ describe('TradingPortfolioStreamManager', () => {
     manager.removeSocket(socket.id)
   })
 
-  it('requires workspace scope before broker calls', async () => {
+  it('stops portfolio polling without waiting for socket disconnect', async () => {
+    vi.useFakeTimers()
     const manager = new TradingPortfolioStreamManager()
     const socket = createSocket('socket-1')
 
-    await expect(
-      manager.subscribe(socket, {
-        provider: 'alpaca',
-        serviceId: 'alpaca-live',
-        portfolioIdentity,
-        channel: 'account-snapshot',
-      })
-    ).rejects.toThrow('workspaceId is required')
+    await manager.subscribe(socket, {
+      provider: 'alpaca',
+      serviceId: 'alpaca-live',
+      portfolioIdentity,
+      workspaceId: 'workspace-1',
+      channel: 'account-snapshot',
+      clientSubscriptionId: 'snapshot-1',
+    })
+    await flushPortfolioPolls()
 
-    expect(refreshAccessTokenIfNeededMock).not.toHaveBeenCalled()
-    expect(getPortfolioDetailMock).not.toHaveBeenCalled()
+    expect(refreshAccessTokenIfNeededMock).toHaveBeenCalledTimes(1)
+    expect(getPortfolioDetailMock).toHaveBeenCalledTimes(1)
+
+    manager.stop()
+    await vi.advanceTimersByTimeAsync(30_000)
+    await flushPortfolioPolls()
+
+    expect(refreshAccessTokenIfNeededMock).toHaveBeenCalledTimes(1)
+    expect(getPortfolioDetailMock).toHaveBeenCalledTimes(1)
   })
 })
