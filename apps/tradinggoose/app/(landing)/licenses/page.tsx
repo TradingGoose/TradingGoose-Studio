@@ -26,7 +26,7 @@ export default function LicensesPage() {
           <h2 className='mb-4 font-semibold text-2xl'>Project License</h2>
           <p className='mb-4'>
             The repository-level license for the combined project is AGPL-3.0-only. The root{' '}
-            <code>NOTICE</code> file preserves the TradingGoose Studio attribution required by the upstream
+            <code>NOTICE</code> file preserves the Sim Studio attribution required by the upstream
             Apache-2.0 source on which this project is based.
           </p>
           <p className='mb-4'>
@@ -51,7 +51,7 @@ export default function LicensesPage() {
         <section>
           <h2 className='mb-4 font-semibold text-2xl'>Why AGPL-3.0-only</h2>
           <p className='mb-4'>
-            TradingGoose Studio, the upstream base project, is Apache-2.0 and its required notices remain
+            Sim Studio, the upstream base project, is Apache-2.0 and its required notices remain
             preserved here. The AGPL status of TradingGoose Studio comes from PineTS, which is used
             as an integrated runtime dependency under AGPL terms in this project.
           </p>

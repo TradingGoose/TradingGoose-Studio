@@ -1,5 +1,4 @@
 import { createHash } from 'crypto'
-import type { NextRequest } from 'next/server'
 import { IdempotencyService } from '@/lib/idempotency'
 import type { ListingInputValue } from '@/lib/listing/identity'
 import { toListingValueObject } from '@/lib/listing/identity'
@@ -7,7 +6,7 @@ import { resolveListingIdentity } from '@/lib/listing/resolve'
 import { createLogger } from '@/lib/logs/console/logger'
 import { checkWorkspaceAccess } from '@/lib/permissions/utils'
 import {
-  authorizeTradingCredentialRequest,
+  authorizeTradingConnectionRequest,
   logTradingBrokerRequestFailure,
   resolveTradingProviderContext,
   resolveTradingProviderSelectedAccount,
@@ -320,12 +319,10 @@ const extractOrderProviderMessage = (
   readMessage(rawOrder) ?? readMessage(normalizedOrder?.raw) ?? readMessage(normalizedOrder)
 
 export async function submitTradingOrder({
-  request,
   requestData,
   requestId,
   userId,
 }: {
-  request: NextRequest
   requestData: TradingOrderSubmitRequest
   requestId: string
   userId: string
@@ -345,24 +342,21 @@ export async function submitTradingOrder({
     submissionSource: requestData.submissionSource,
     logId: requestData.logId,
   })
-  const credentialAuthorization = await authorizeTradingCredentialRequest({
-    request,
-    credentialId: portfolioIdentity.credentialId,
-    workspaceId: requestData.workspaceId,
-    workflowId: requestData.workflowId,
+  const connectionAuthorization = await authorizeTradingConnectionRequest({
+    tokenAccountId: portfolioIdentity.tokenAccountId,
+    userId,
   })
 
   const baseContext = await resolveTradingProviderContext({
     requestData: {
       provider: portfolioIdentity.providerId,
-      credentialId: portfolioIdentity.credentialId,
+      tokenAccountId: portfolioIdentity.tokenAccountId,
       serviceId: portfolioIdentity.serviceId,
     },
     requestId,
     userId,
-    credentialOwnerUserId: credentialAuthorization.credentialOwnerUserId,
-    tokenAccountId: credentialAuthorization.tokenAccountId,
-    accountProviderId: credentialAuthorization.accountProviderId,
+    connectionOwnerUserId: connectionAuthorization.connectionOwnerUserId,
+    accountProviderId: connectionAuthorization.accountProviderId,
   })
 
   const resolvedListing = await resolveOrderListing(requestData.listing as ListingInputValue)
@@ -396,7 +390,7 @@ export async function submitTradingOrder({
   })
   const clientOrderId = createTradingOrderClientOrderId(requestData.idempotencyKey)
   const orderHistoryRequest = compactRecord({
-    credentialId: baseContext.credentialId,
+    tokenAccountId: baseContext.tokenAccountId,
     serviceId: baseContext.serviceId,
     accountId: accountContext.accountId,
     clientOrderId,

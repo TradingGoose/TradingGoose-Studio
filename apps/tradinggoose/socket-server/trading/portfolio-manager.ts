@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from 'crypto'
-import { resolveOAuthCredentialAccountForUser } from '@/lib/credentials/oauth'
+import { resolveOAuthConnectionAccountForUser } from '@/lib/credentials/oauth'
 import { createLogger } from '@/lib/logs/console/logger'
 import { refreshAccessTokenIfNeeded } from '@/lib/oauth/tokens'
 import { listTradingPortfolioIdentities } from '@/lib/trading/portfolio-identities'
@@ -44,7 +44,6 @@ export interface TradingPortfolioSubscribePayload {
   provider?: string
   serviceId?: string
   portfolioIdentity?: PortfolioIdentity | null
-  workspaceId?: string
   window?: TradingPortfolioPerformanceWindow
   channel?: TradingPortfolioChannel
   clientSubscriptionId?: string
@@ -66,7 +65,6 @@ export interface TradingPortfolioSubscriptionInfo {
   provider: TradingProviderId
   serviceId?: string
   portfolioIdentity?: PortfolioIdentity
-  workspaceId: string
   channel: TradingPortfolioChannel
   window?: TradingPortfolioPerformanceWindow
 }
@@ -80,7 +78,6 @@ interface TradingPortfolioSubscriptionRecord extends TradingPortfolioSubscriptio
 interface TradingPortfolioStreamState {
   streamKey: string
   userId: string
-  workspaceId: string
   providerId: TradingProviderId
   serviceId?: string
   portfolioIdentity?: PortfolioIdentity
@@ -101,7 +98,6 @@ interface AccountsCacheEntry {
 type TradingPortfolioBasePayload = {
   provider: TradingProviderId
   serviceId?: string
-  workspaceId: string
   channel: TradingPortfolioChannel
   receivedAt: string
 }
@@ -145,16 +141,18 @@ export class TradingPortfolioStreamManager {
   private streams = new Map<string, TradingPortfolioStreamState>()
   private socketSubscriptions = new Map<string, Map<string, TradingPortfolioSubscriptionRecord>>()
   private accountsCache = new Map<string, AccountsCacheEntry>()
+  private stopped = false
 
   async subscribe(
     socket: AuthenticatedSocket,
     payload: TradingPortfolioSubscribePayload
   ): Promise<TradingPortfolioSubscriptionInfo> {
+    if (this.stopped) throw new Error('Trading portfolio stream manager is stopped')
+
     const userId = socket.userId
     if (!userId) throw new Error('Authentication required')
 
     const providerId = resolveTradingProviderId(payload.provider, payload.portfolioIdentity)
-    const workspaceId = resolveWorkspaceId(payload.workspaceId)
 
     const channel = resolveChannel(payload.channel)
     const serviceId = resolveServiceId(
@@ -165,7 +163,6 @@ export class TradingPortfolioStreamManager {
     const window = resolvePerformanceWindow(providerId, channel, payload.window)
     const streamKey = buildStreamKey({
       userId,
-      workspaceId,
       providerId,
       serviceId,
       portfolioIdentity,
@@ -175,7 +172,6 @@ export class TradingPortfolioStreamManager {
     const streamState = this.getOrCreateStreamState({
       streamKey,
       userId,
-      workspaceId,
       providerId,
       serviceId,
       portfolioIdentity,
@@ -196,7 +192,6 @@ export class TradingPortfolioStreamManager {
       provider: providerId,
       serviceId,
       portfolioIdentity,
-      workspaceId,
       channel,
       window,
     }
@@ -218,7 +213,6 @@ export class TradingPortfolioStreamManager {
       providerId,
       serviceId,
       portfolioIdentity: redactPortfolioIdentity(portfolioIdentity),
-      workspaceId,
       channel,
       window,
     })
@@ -229,7 +223,6 @@ export class TradingPortfolioStreamManager {
       provider: providerId,
       serviceId,
       portfolioIdentity,
-      workspaceId,
       channel,
       window,
     }
@@ -269,6 +262,19 @@ export class TradingPortfolioStreamManager {
     socketMap.forEach((record) => this.removeRecord(record))
   }
 
+  stop() {
+    this.stopped = true
+    this.streams.forEach((streamState) => {
+      if (streamState.pollingTimer) {
+        clearInterval(streamState.pollingTimer)
+      }
+      streamState.subscribers.clear()
+    })
+    this.streams.clear()
+    this.socketSubscriptions.clear()
+    this.accountsCache.clear()
+  }
+
   private getOrCreateStreamState(
     config: Omit<TradingPortfolioStreamState, 'subscribers'>
   ): TradingPortfolioStreamState {
@@ -298,6 +304,7 @@ export class TradingPortfolioStreamManager {
   }
 
   private async pollState(streamState: TradingPortfolioStreamState, forceRefresh: boolean) {
+    if (this.stopped) return
     if (streamState.pollingInFlight) return
     if (streamState.subscribers.size === 0) return
 
@@ -308,7 +315,6 @@ export class TradingPortfolioStreamManager {
         const payload: TradingPortfolioAccountsPayload = {
           provider: streamState.providerId,
           serviceId: streamState.serviceId,
-          workspaceId: streamState.workspaceId,
           channel: 'accounts',
           portfolioIdentities,
           receivedAt: new Date().toISOString(),
@@ -324,7 +330,7 @@ export class TradingPortfolioStreamManager {
       if (streamState.channel === 'account-snapshot') {
         const portfolioDetail = await getPortfolioDetail({
           providerId: context.providerId,
-          credentialId: context.credentialId,
+          tokenAccountId: context.tokenAccountId,
           serviceId: context.serviceId,
           environment: context.environment,
           accessToken: context.accessToken,
@@ -333,7 +339,6 @@ export class TradingPortfolioStreamManager {
         const payload: TradingPortfolioSnapshotPayload = {
           provider: streamState.providerId,
           serviceId: streamState.serviceId,
-          workspaceId: streamState.workspaceId,
           channel: 'account-snapshot',
           portfolioIdentity: toPortfolioValueObject(portfolioDetail) ?? portfolioIdentity,
           portfolioDetail,
@@ -350,7 +355,7 @@ export class TradingPortfolioStreamManager {
 
       const performance = await getTradingAccountPerformance({
         providerId: context.providerId,
-        credentialId: context.credentialId,
+        tokenAccountId: context.tokenAccountId,
         serviceId: context.serviceId,
         environment: context.environment,
         accessToken: context.accessToken,
@@ -360,7 +365,6 @@ export class TradingPortfolioStreamManager {
       const payload: TradingPortfolioPerformancePayload = {
         provider: streamState.providerId,
         serviceId: streamState.serviceId,
-        workspaceId: streamState.workspaceId,
         channel: 'portfolio-performance',
         portfolioIdentity,
         window: streamState.window,
@@ -370,6 +374,7 @@ export class TradingPortfolioStreamManager {
       streamState.lastPayload = payload
       this.emitToSubscribers(streamState, payload)
     } catch (error) {
+      if (this.stopped) return
       this.emitErrorToSubscribers(streamState, error)
     } finally {
       streamState.pollingInFlight = false
@@ -394,7 +399,6 @@ export class TradingPortfolioStreamManager {
 
     const promise = listTradingPortfolioIdentities({
       userId: streamState.userId,
-      workspaceId: streamState.workspaceId,
       providerId: streamState.providerId,
       serviceId: streamState.serviceId,
       requestId: streamState.streamKey,
@@ -490,7 +494,6 @@ export class TradingPortfolioStreamManager {
         provider: record.provider,
         serviceId: record.serviceId,
         portfolioIdentity: record.portfolioIdentity,
-        workspaceId: record.workspaceId,
         channel: record.channel,
         window: record.window,
         subscriptionId: record.subscriptionId,
@@ -562,7 +565,6 @@ export class TradingPortfolioStreamManager {
       provider: record.provider,
       serviceId: record.serviceId,
       portfolioIdentity: redactPortfolioIdentity(record.portfolioIdentity),
-      workspaceId: record.workspaceId,
       channel: record.channel,
       window: record.window,
     })
@@ -580,22 +582,21 @@ async function resolveTradingPortfolioContext(
   const serviceId = getTradingProviderOAuthServiceId(streamState.providerId, streamState.serviceId)
   if (!serviceId) throw new Error('Trading provider OAuth service is not configured')
 
-  const credentialId = streamState.portfolioIdentity?.credentialId
-  if (!credentialId) throw new Error('portfolioIdentity credential is required')
+  const tokenAccountId = streamState.portfolioIdentity?.tokenAccountId
+  if (!tokenAccountId) throw new Error('portfolioIdentity token account is required')
 
-  const credentialAccount = await resolveOAuthCredentialAccountForUser({
-    credentialId,
+  const connectionAccount = await resolveOAuthConnectionAccountForUser({
+    accountId: tokenAccountId,
     userId: streamState.userId,
-    workspaceId: streamState.workspaceId,
   })
-  if (!credentialAccount) throw new Error('Trading provider connection not found')
-  if (credentialAccount.providerId !== serviceId) {
+  if (!connectionAccount) throw new Error('Trading provider connection not found')
+  if (connectionAccount.providerId !== serviceId) {
     throw new Error('Trading provider connection does not match requested service')
   }
 
   const accessToken = await refreshAccessTokenIfNeeded(
-    credentialAccount.accountId,
-    credentialAccount.credentialOwnerUserId,
+    connectionAccount.tokenAccountId,
+    connectionAccount.credentialOwnerUserId,
     streamState.streamKey
   )
   if (!accessToken) throw new Error('Trading provider connection not found')
@@ -604,7 +605,7 @@ async function resolveTradingPortfolioContext(
 
   return {
     providerId: streamState.providerId,
-    credentialId,
+    tokenAccountId,
     serviceId: serviceId,
     environment,
     accessToken,
@@ -623,12 +624,6 @@ function resolveTradingProviderId(
     throw new Error('Unsupported trading provider')
   }
   return providerId as TradingProviderId
-}
-
-function resolveWorkspaceId(workspaceId?: string) {
-  const trimmed = workspaceId?.trim()
-  if (!trimmed) throw new Error('workspaceId is required')
-  return trimmed
 }
 
 function resolveServiceId(providerId: TradingProviderId, serviceId?: string) {
@@ -662,7 +657,7 @@ function resolvePortfolioIdentity(
     throw new Error('portfolioIdentity provider does not match subscription provider')
   }
   if (portfolioIdentity.serviceId !== serviceId) {
-    throw new Error('portfolioIdentity credential does not match subscription credential')
+    throw new Error('portfolioIdentity service does not match subscription service')
   }
   return portfolioIdentity
 }
@@ -685,7 +680,6 @@ function resolvePerformanceWindow(
 
 function buildStreamKey(config: {
   userId: string
-  workspaceId: string
   providerId: TradingProviderId
   serviceId?: string
   portfolioIdentity?: PortfolioIdentity
@@ -696,7 +690,6 @@ function buildStreamKey(config: {
     .update(
       [
         config.userId,
-        config.workspaceId,
         config.providerId,
         config.serviceId ?? '',
         config.channel,
@@ -712,7 +705,6 @@ function buildAccountsCacheKey(streamState: TradingPortfolioStreamState) {
     .update(
       [
         streamState.userId,
-        streamState.workspaceId,
         streamState.providerId,
         streamState.serviceId ?? '',
       ].join('|')
@@ -741,7 +733,6 @@ function toSubscriptionInfo(
     provider: record.provider,
     serviceId: record.serviceId,
     portfolioIdentity: record.portfolioIdentity,
-    workspaceId: record.workspaceId,
     channel: record.channel,
     window: record.window,
   }

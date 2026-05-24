@@ -26,7 +26,7 @@ describe('TradingAccountSelector', () => {
   let root: Root
   const selectedPortfolioIdentity: PortfolioIdentity = {
     providerId: 'alpaca',
-    credentialId: 'credential-1',
+    tokenAccountId: 'oauth-account-1',
     serviceId: 'alpaca-live',
     accountId: 'acct-1',
   }
@@ -59,7 +59,7 @@ describe('TradingAccountSelector', () => {
         },
         {
           providerId: 'alpaca',
-          credentialId: 'credential-2',
+          tokenAccountId: 'oauth-account-2',
           serviceId: 'alpaca-live',
           accountId: 'acct-2',
           accountName: 'Live Account',
@@ -87,7 +87,6 @@ describe('TradingAccountSelector', () => {
       root.render(
         <TooltipProvider>
           <TradingAccountSelector
-            workspaceId='workspace-1'
             providerId='alpaca'
             serviceId='alpaca-live'
             portfolioIdentity={selectedPortfolioIdentity}
@@ -101,11 +100,9 @@ describe('TradingAccountSelector', () => {
     expect(mockUseTradingServices).toHaveBeenCalledWith({
       providerId: 'alpaca',
       serviceId: 'alpaca-live',
-      workspaceId: 'workspace-1',
       enabled: true,
     })
     expect(mockUsePortfolioIdentities).toHaveBeenCalledWith({
-      workspaceId: 'workspace-1',
       provider: 'alpaca',
       serviceId: 'alpaca-live',
       enabled: true,
@@ -117,7 +114,6 @@ describe('TradingAccountSelector', () => {
       root.render(
         <TooltipProvider>
           <TradingAccountSelector
-            workspaceId='workspace-1'
             providerId='alpaca'
             serviceId='alpaca-live'
             portfolioIdentity={selectedPortfolioIdentity}
@@ -164,12 +160,11 @@ describe('TradingAccountSelector', () => {
       root.render(
         <TooltipProvider>
           <TradingAccountSelector
-            workspaceId='workspace-1'
             providerId='alpaca'
             serviceId='alpaca-live'
             portfolioIdentity={{
               providerId: 'alpaca',
-              credentialId: 'credential-1',
+              tokenAccountId: 'oauth-account-1',
               serviceId: 'alpaca-live',
               accountId: '8b594a8c-1353-40d0-981c-e022a879e0e0',
             }}
@@ -188,12 +183,11 @@ describe('TradingAccountSelector', () => {
       root.render(
         <TooltipProvider>
           <TradingAccountSelector
-            workspaceId='workspace-1'
             providerId='alpaca'
             serviceId='alpaca-live'
             portfolioIdentity={{
               providerId: 'alpaca',
-              credentialId: 'credential-1',
+              tokenAccountId: 'oauth-account-1',
               serviceId: 'alpaca-live',
               accountId: 'stale-account-id',
             }}

@@ -1,5 +1,4 @@
-import type { NextRequest } from 'next/server'
-import { authorizeCredentialUse } from '@/lib/auth/credential-access'
+import { resolveOAuthConnectionAccountForUser } from '@/lib/credentials/oauth'
 import { createLogger } from '@/lib/logs/console/logger'
 import { refreshAccessTokenIfNeeded } from '@/lib/oauth/tokens'
 import { TradingServiceError } from '@/lib/trading/errors'
@@ -16,14 +15,13 @@ const logger = createLogger('TradingServices')
 
 type ProviderRequestData = {
   provider: string
-  credentialId: string
+  tokenAccountId: string
   serviceId: string
 }
 
 type PreflightContext = {
   requestId: string
   providerId: string
-  credentialId: string
   tokenAccountId: string
   serviceId: string
   environment: 'paper' | 'live'
@@ -46,40 +44,24 @@ const requireStringField = (input: string | undefined, field: string): string =>
   return value
 }
 
-export async function authorizeTradingCredentialRequest(params: {
-  request: NextRequest
-  credentialId: string
-  workspaceId?: string
-  workflowId?: string
-}): Promise<{
-  credentialOwnerUserId: string
+export async function authorizeTradingConnectionRequest(params: {
   tokenAccountId: string
+  userId: string
+}): Promise<{
+  connectionOwnerUserId: string
   accountProviderId: string
 }> {
-  const authorization = await authorizeCredentialUse(params.request, {
-    credentialId: params.credentialId,
-    workspaceId: params.workspaceId,
-    workflowId: params.workflowId,
+  const connection = await resolveOAuthConnectionAccountForUser({
+    accountId: params.tokenAccountId,
+    userId: params.userId,
   })
-  if (
-    !authorization.ok ||
-    !authorization.credentialOwnerUserId ||
-    !authorization.resolvedTokenAccountId ||
-    !authorization.resolvedProviderId
-  ) {
-    const status =
-      authorization.error === 'Credential not found'
-        ? 404
-        : authorization.error === 'Authentication required'
-          ? 401
-          : 403
-    throw new TradingServiceError(authorization.error || 'Unauthorized', status)
+  if (!connection) {
+    throw new TradingServiceError('Trading provider connection not found', 404)
   }
 
   return {
-    credentialOwnerUserId: authorization.credentialOwnerUserId,
-    tokenAccountId: authorization.resolvedTokenAccountId,
-    accountProviderId: authorization.resolvedProviderId,
+    connectionOwnerUserId: connection.credentialOwnerUserId,
+    accountProviderId: connection.providerId,
   }
 }
 
@@ -87,15 +69,13 @@ export async function resolveTradingProviderContext({
   requestData,
   requestId,
   userId,
-  credentialOwnerUserId,
-  tokenAccountId,
+  connectionOwnerUserId,
   accountProviderId,
 }: {
   requestData: ProviderRequestData
   requestId: string
   userId: string
-  credentialOwnerUserId: string
-  tokenAccountId: string
+  connectionOwnerUserId: string
   accountProviderId: string
 }): Promise<PreflightContext> {
   const providerId = requireStringField(requestData.provider, 'provider')
@@ -111,14 +91,14 @@ export async function resolveTradingProviderContext({
     throw new TradingServiceError('Trading provider connection is required')
   }
 
-  const credentialId = requireStringField(requestData.credentialId, 'credentialId')
+  const tokenAccountId = requireStringField(requestData.tokenAccountId, 'tokenAccountId')
   if (accountProviderId !== serviceId) {
     throw new TradingServiceError('Trading provider connection does not match requested service')
   }
 
   const resolvedAccessToken = await refreshAccessTokenIfNeeded(
     tokenAccountId,
-    credentialOwnerUserId,
+    connectionOwnerUserId,
     requestId
   )
   if (!resolvedAccessToken) {
@@ -132,7 +112,6 @@ export async function resolveTradingProviderContext({
   return {
     requestId,
     providerId,
-    credentialId,
     tokenAccountId,
     serviceId: serviceId,
     environment,
@@ -155,7 +134,7 @@ export async function resolveTradingProviderSelectedAccount({
   const portfolioIdentity = portfolioIdentities.find(
     (candidate) =>
       candidate.providerId === baseContext.providerId &&
-      candidate.credentialId === baseContext.credentialId &&
+      candidate.tokenAccountId === baseContext.tokenAccountId &&
       candidate.serviceId === baseContext.serviceId &&
       candidate.accountId === selectedAccountId
   )

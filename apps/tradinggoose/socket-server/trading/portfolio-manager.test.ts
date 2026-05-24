@@ -10,7 +10,7 @@ const {
   getTradingProviderOAuthServiceIdMock,
   getTradingPortfolioSupportedWindowsMock,
   isTradingPortfolioWindowSupportedMock,
-  resolveOAuthCredentialAccountForUserMock,
+  resolveOAuthConnectionAccountForUserMock,
   listTradingPortfolioIdentitiesMock,
   getPortfolioDetailMock,
   getTradingAccountPerformanceMock,
@@ -21,7 +21,7 @@ const {
   getTradingProviderOAuthEnvironmentMock: vi.fn(),
   getTradingPortfolioSupportedWindowsMock: vi.fn(),
   isTradingPortfolioWindowSupportedMock: vi.fn(),
-  resolveOAuthCredentialAccountForUserMock: vi.fn(),
+  resolveOAuthConnectionAccountForUserMock: vi.fn(),
   listTradingPortfolioIdentitiesMock: vi.fn(),
   getPortfolioDetailMock: vi.fn(),
   getTradingAccountPerformanceMock: vi.fn(),
@@ -32,8 +32,8 @@ vi.mock('@/lib/oauth/tokens', () => ({
 }))
 
 vi.mock('@/lib/credentials/oauth', () => ({
-  resolveOAuthCredentialAccountForUser: (...args: unknown[]) =>
-    resolveOAuthCredentialAccountForUserMock(...args),
+  resolveOAuthConnectionAccountForUser: (...args: unknown[]) =>
+    resolveOAuthConnectionAccountForUserMock(...args),
 }))
 
 vi.mock('@/lib/trading/portfolio-identities', () => ({
@@ -71,7 +71,7 @@ import { TradingPortfolioStreamManager } from './portfolio-manager'
 
 const portfolioIdentity: PortfolioIdentity = {
   providerId: 'alpaca',
-  credentialId: 'credential-1',
+  tokenAccountId: 'oauth-account-1',
   serviceId: 'alpaca-live',
   accountId: 'acct-1',
   providerName: 'Alpaca',
@@ -143,11 +143,10 @@ const flushPortfolioPolls = async () => {
 describe('TradingPortfolioStreamManager', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    resolveOAuthCredentialAccountForUserMock.mockResolvedValue({
-      accountId: 'account-credential-1',
+    resolveOAuthConnectionAccountForUserMock.mockResolvedValue({
+      tokenAccountId: 'oauth-account-1',
       credentialOwnerUserId: 'user-1',
       providerId: 'alpaca-live',
-      workspaceId: 'workspace-1',
     })
     refreshAccessTokenIfNeededMock.mockResolvedValue('oauth-token')
     getTradingProviderDefinitionMock.mockReturnValue({
@@ -177,7 +176,6 @@ describe('TradingPortfolioStreamManager', () => {
       provider: 'alpaca',
       serviceId: 'alpaca-live',
       portfolioIdentity,
-      workspaceId: 'workspace-1',
       channel: 'account-snapshot',
       clientSubscriptionId: 'snapshot-1',
     })
@@ -185,7 +183,6 @@ describe('TradingPortfolioStreamManager', () => {
       provider: 'alpaca',
       serviceId: 'alpaca-live',
       portfolioIdentity,
-      workspaceId: 'workspace-1',
       channel: 'account-snapshot',
       clientSubscriptionId: 'snapshot-2',
     })
@@ -194,10 +191,16 @@ describe('TradingPortfolioStreamManager', () => {
 
     expect(refreshAccessTokenIfNeededMock).toHaveBeenCalledTimes(1)
     expect(listTradingPortfolioIdentitiesMock).toHaveBeenCalledTimes(1)
+    expect(listTradingPortfolioIdentitiesMock).toHaveBeenCalledWith({
+      userId: 'user-1',
+      providerId: 'alpaca',
+      serviceId: 'alpaca-live',
+      requestId: expect.any(String),
+    })
     expect(getPortfolioDetailMock).toHaveBeenCalledTimes(1)
     expect(getPortfolioDetailMock).toHaveBeenCalledWith({
       providerId: 'alpaca',
-      credentialId: 'credential-1',
+      tokenAccountId: 'oauth-account-1',
       serviceId: 'alpaca-live',
       environment: 'live',
       accessToken: 'oauth-token',
@@ -208,7 +211,6 @@ describe('TradingPortfolioStreamManager', () => {
       expect.objectContaining({
         provider: 'alpaca',
         serviceId: 'alpaca-live',
-        workspaceId: 'workspace-1',
         channel: 'account-snapshot',
         portfolioIdentity,
         portfolioDetail: expect.objectContaining({ accountId: 'acct-1' }),
@@ -236,7 +238,6 @@ describe('TradingPortfolioStreamManager', () => {
       provider: 'alpaca',
       serviceId: 'alpaca-live',
       portfolioIdentity,
-      workspaceId: 'workspace-1',
       channel: 'account-snapshot',
       clientSubscriptionId: 'portfolio_snapshot',
     })
@@ -244,7 +245,6 @@ describe('TradingPortfolioStreamManager', () => {
       provider: 'alpaca',
       serviceId: 'alpaca-live',
       portfolioIdentity,
-      workspaceId: 'workspace-1',
       channel: 'account-snapshot',
       clientSubscriptionId: 'portfolio_snapshot',
     })
@@ -281,7 +281,6 @@ describe('TradingPortfolioStreamManager', () => {
       provider: 'alpaca',
       serviceId: 'alpaca-live',
       portfolioIdentity,
-      workspaceId: 'workspace-1',
       channel: 'account-snapshot',
       clientSubscriptionId: 'snapshot-1',
     })
@@ -289,7 +288,6 @@ describe('TradingPortfolioStreamManager', () => {
       provider: 'alpaca',
       serviceId: 'alpaca-live',
       portfolioIdentity,
-      workspaceId: 'workspace-1',
       channel: 'portfolio-performance',
       window: '1D',
       clientSubscriptionId: 'performance-1',
@@ -305,7 +303,6 @@ describe('TradingPortfolioStreamManager', () => {
       expect.objectContaining({
         provider: 'alpaca',
         serviceId: 'alpaca-live',
-        workspaceId: 'workspace-1',
         channel: 'portfolio-performance',
         portfolioIdentity,
         window: '1D',
@@ -316,10 +313,24 @@ describe('TradingPortfolioStreamManager', () => {
     manager.removeSocket(socket.id)
   })
 
-  it('requires workspace scope before broker calls', async () => {
+  it('stops portfolio polling without waiting for socket disconnect', async () => {
+    vi.useFakeTimers()
     const manager = new TradingPortfolioStreamManager()
     const socket = createSocket('socket-1')
 
+    await manager.subscribe(socket, {
+      provider: 'alpaca',
+      serviceId: 'alpaca-live',
+      portfolioIdentity,
+      channel: 'account-snapshot',
+      clientSubscriptionId: 'snapshot-1',
+    })
+    await flushPortfolioPolls()
+
+    expect(refreshAccessTokenIfNeededMock).toHaveBeenCalledTimes(1)
+    expect(getPortfolioDetailMock).toHaveBeenCalledTimes(1)
+
+    manager.stop()
     await expect(
       manager.subscribe(socket, {
         provider: 'alpaca',
@@ -327,9 +338,12 @@ describe('TradingPortfolioStreamManager', () => {
         portfolioIdentity,
         channel: 'account-snapshot',
       })
-    ).rejects.toThrow('workspaceId is required')
+    ).rejects.toThrow('Trading portfolio stream manager is stopped')
 
-    expect(refreshAccessTokenIfNeededMock).not.toHaveBeenCalled()
-    expect(getPortfolioDetailMock).not.toHaveBeenCalled()
+    await vi.advanceTimersByTimeAsync(30_000)
+    await flushPortfolioPolls()
+
+    expect(refreshAccessTokenIfNeededMock).toHaveBeenCalledTimes(1)
+    expect(getPortfolioDetailMock).toHaveBeenCalledTimes(1)
   })
 })

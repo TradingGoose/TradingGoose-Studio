@@ -22,7 +22,7 @@ const mockTradingAccountSelector = vi.fn(({ onAccountSelect }: MockTradingAccoun
       onAccountSelect?.({
         portfolioIdentity: {
           providerId: 'alpaca',
-          credentialId: 'credential-1',
+          tokenAccountId: 'oauth-account-1',
           serviceId: 'alpaca-live',
           accountId: 'acct-1',
         },
@@ -146,7 +146,7 @@ describe('PortfolioSnapshotHeaderControls', () => {
       provider: 'alpaca',
       portfolioIdentity: {
         providerId: 'alpaca',
-        credentialId: 'credential-1',
+        tokenAccountId: 'oauth-account-1',
         serviceId: 'alpaca-live',
         accountId: 'acct-1',
       },
@@ -220,7 +220,7 @@ describe('PortfolioSnapshotHeaderControls', () => {
       params: {
         portfolioIdentity: {
           providerId: 'alpaca',
-          credentialId: 'credential-1',
+          tokenAccountId: 'oauth-account-1',
           serviceId: 'alpaca-live',
           accountId: 'acct-1',
         },
