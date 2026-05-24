@@ -30,31 +30,31 @@ export async function listTradingPortfolioIdentities({
   const targetServiceIds = selectedServiceId ? [selectedServiceId] : serviceIds
   if (!targetServiceIds.length) return []
 
-  const credentials = await listOAuthConnectionAccountsForUser({
+  const connections = await listOAuthConnectionAccountsForUser({
     userId,
     providerIds: targetServiceIds,
   })
 
   const identities = await Promise.allSettled(
-    credentials.map(async (credential) => {
-      const environment = getTradingProviderOAuthEnvironment(providerId, credential.providerId)
+    connections.map(async (connection) => {
+      const environment = getTradingProviderOAuthEnvironment(providerId, connection.providerId)
       if (!environment) {
-        throw new Error(`Unsupported trading service: ${credential.providerId}`)
+        throw new Error(`Unsupported trading service: ${connection.providerId}`)
       }
 
       const accessToken = await refreshAccessTokenIfNeeded(
-        credential.tokenAccountId,
-        credential.credentialOwnerUserId,
+        connection.tokenAccountId,
+        connection.credentialOwnerUserId,
         requestId
       )
       if (!accessToken) {
-        throw new Error(`Trading credential token unavailable: ${credential.tokenAccountId}`)
+        throw new Error(`Trading connection token unavailable: ${connection.tokenAccountId}`)
       }
 
       return listPortfolioIdentities({
         providerId,
-        credentialId: credential.tokenAccountId,
-        serviceId: credential.providerId,
+        tokenAccountId: connection.tokenAccountId,
+        serviceId: connection.providerId,
         environment,
         accessToken,
       })

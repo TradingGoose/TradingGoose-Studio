@@ -341,7 +341,7 @@ export class TradingPortfolioStreamManager {
       if (streamState.channel === 'account-snapshot') {
         const portfolioDetail = await getPortfolioDetail({
           providerId: context.providerId,
-          credentialId: context.credentialId,
+          tokenAccountId: context.tokenAccountId,
           serviceId: context.serviceId,
           environment: context.environment,
           accessToken: context.accessToken,
@@ -367,7 +367,7 @@ export class TradingPortfolioStreamManager {
 
       const performance = await getTradingAccountPerformance({
         providerId: context.providerId,
-        credentialId: context.credentialId,
+        tokenAccountId: context.tokenAccountId,
         serviceId: context.serviceId,
         environment: context.environment,
         accessToken: context.accessToken,
@@ -597,21 +597,21 @@ async function resolveTradingPortfolioContext(
   const serviceId = getTradingProviderOAuthServiceId(streamState.providerId, streamState.serviceId)
   if (!serviceId) throw new Error('Trading provider OAuth service is not configured')
 
-  const credentialId = streamState.portfolioIdentity?.credentialId
-  if (!credentialId) throw new Error('portfolioIdentity credential is required')
+  const tokenAccountId = streamState.portfolioIdentity?.tokenAccountId
+  if (!tokenAccountId) throw new Error('portfolioIdentity token account is required')
 
-  const credentialAccount = await resolveOAuthConnectionAccountForUser({
-    accountId: credentialId,
+  const connectionAccount = await resolveOAuthConnectionAccountForUser({
+    accountId: tokenAccountId,
     userId: streamState.userId,
   })
-  if (!credentialAccount) throw new Error('Trading provider connection not found')
-  if (credentialAccount.providerId !== serviceId) {
+  if (!connectionAccount) throw new Error('Trading provider connection not found')
+  if (connectionAccount.providerId !== serviceId) {
     throw new Error('Trading provider connection does not match requested service')
   }
 
   const accessToken = await refreshAccessTokenIfNeeded(
-    credentialAccount.tokenAccountId,
-    credentialAccount.credentialOwnerUserId,
+    connectionAccount.tokenAccountId,
+    connectionAccount.credentialOwnerUserId,
     streamState.streamKey
   )
   if (!accessToken) throw new Error('Trading provider connection not found')
@@ -620,7 +620,7 @@ async function resolveTradingPortfolioContext(
 
   return {
     providerId: streamState.providerId,
-    credentialId,
+    tokenAccountId,
     serviceId: serviceId,
     environment,
     accessToken,
@@ -678,7 +678,7 @@ function resolvePortfolioIdentity(
     throw new Error('portfolioIdentity provider does not match subscription provider')
   }
   if (portfolioIdentity.serviceId !== serviceId) {
-    throw new Error('portfolioIdentity credential does not match subscription credential')
+    throw new Error('portfolioIdentity service does not match subscription service')
   }
   return portfolioIdentity
 }

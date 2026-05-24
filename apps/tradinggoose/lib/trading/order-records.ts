@@ -102,7 +102,6 @@ const SECRET_KEY_EXACT_KEYS = new Set([
   'apikey',
   'apisecret',
   'authorization',
-  'credentialid',
   'password',
   'refreshtoken',
   'serviceid',
@@ -250,8 +249,8 @@ const readOrderRequestString = (row: Pick<RecordsOrderRow, 'request'>, key: stri
 export const readOrderAccountId = (row: Pick<RecordsOrderRow, 'request'>) =>
   readOrderRequestString(row, 'accountId')
 
-export const readOrderCredentialId = (row: Pick<RecordsOrderRow, 'request'>) =>
-  readOrderRequestString(row, 'credentialId')
+export const readOrderTokenAccountId = (row: Pick<RecordsOrderRow, 'request'>) =>
+  readOrderRequestString(row, 'tokenAccountId')
 
 export const readOrderServiceId = (row: Pick<RecordsOrderRow, 'request'>) =>
   readOrderRequestString(row, 'serviceId')

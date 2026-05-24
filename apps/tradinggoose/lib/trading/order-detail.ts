@@ -2,7 +2,7 @@ import { db, orderHistoryTable } from '@tradinggoose/db'
 import { and, eq } from 'drizzle-orm'
 import { checkWorkspaceAccess } from '@/lib/permissions/utils'
 import {
-  authorizeTradingCredentialRequest,
+  authorizeTradingConnectionRequest,
   logTradingBrokerRequestFailure,
   resolveTradingProviderContext,
 } from '@/lib/trading/context'
@@ -10,8 +10,8 @@ import { TradingServiceError } from '@/lib/trading/errors'
 import {
   deepRedactSecrets,
   readOrderAccountId,
-  readOrderCredentialId,
   readOrderServiceId,
+  readOrderTokenAccountId,
 } from '@/lib/trading/order-records'
 import { executeTradingProviderOrderDetailRequest } from '@/providers/trading'
 import { TradingBrokerRequestError } from '@/providers/trading/portfolio-utils'
@@ -61,27 +61,26 @@ export async function getRecordedTradingOrderProviderDetail({
     throw new TradingServiceError('Tradier order history record is missing accountId')
   }
 
-  const credentialId = readOrderCredentialId(order)
+  const tokenAccountId = readOrderTokenAccountId(order)
   const serviceId = readOrderServiceId(order)
-  if (!credentialId || !serviceId) {
-    throw new TradingServiceError('Order history record is missing trading credential context')
+  if (!tokenAccountId || !serviceId) {
+    throw new TradingServiceError('Order history record is missing trading connection context')
   }
-  const credentialAuthorization = await authorizeTradingCredentialRequest({
-    credentialId,
+  const connectionAuthorization = await authorizeTradingConnectionRequest({
+    tokenAccountId,
     userId,
   })
 
   const baseContext = await resolveTradingProviderContext({
     requestData: {
       provider: order.provider,
-      credentialId,
+      tokenAccountId,
       serviceId,
     },
     requestId,
     userId,
-    credentialOwnerUserId: credentialAuthorization.credentialOwnerUserId,
-    tokenAccountId: credentialAuthorization.tokenAccountId,
-    accountProviderId: credentialAuthorization.accountProviderId,
+    connectionOwnerUserId: connectionAuthorization.connectionOwnerUserId,
+    accountProviderId: connectionAuthorization.accountProviderId,
   })
 
   const detailInput: TradingOrderDetailInput = {

@@ -20,7 +20,7 @@ const mockReset = vi.fn()
 
 const portfolioIdentity = {
   providerId: 'alpaca',
-  credentialId: 'credential-1',
+  tokenAccountId: 'oauth-account-1',
   serviceId: 'alpaca-live',
   accountId: 'acct-1',
   accountName: 'Paper Account',
@@ -327,7 +327,7 @@ describe('QuickOrderWidgetBody', () => {
     expect(footerButton).toBeDisabled()
   })
 
-  it('uses user broker connections independently of workspace credential scope', async () => {
+  it('uses user broker connections independently of workspace scope', async () => {
     await renderBody(container, root, {
       provider: 'alpaca',
       portfolioIdentity,
@@ -617,7 +617,7 @@ describe('QuickOrderWidgetBody', () => {
       mockMutate.mock.calls[0][1].onSuccess()
     })
     expect(mockPortfolioRefetch).toHaveBeenCalled()
-    expect(mockMutate.mock.calls[0][0]).not.toHaveProperty('credentialId')
+    expect(mockMutate.mock.calls[0][0]).not.toHaveProperty('tokenAccountId')
     expect(mockMutate.mock.calls[0][0]).not.toHaveProperty('serviceId')
     expect(mockMutate.mock.calls[0][0]).not.toHaveProperty('environment')
     expect(mockMutate.mock.calls[0][0]).not.toHaveProperty('accountId')

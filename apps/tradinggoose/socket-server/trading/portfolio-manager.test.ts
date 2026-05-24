@@ -71,7 +71,7 @@ import { TradingPortfolioStreamManager } from './portfolio-manager'
 
 const portfolioIdentity: PortfolioIdentity = {
   providerId: 'alpaca',
-  credentialId: 'account-credential-1',
+  tokenAccountId: 'oauth-account-1',
   serviceId: 'alpaca-live',
   accountId: 'acct-1',
   providerName: 'Alpaca',
@@ -144,7 +144,7 @@ describe('TradingPortfolioStreamManager', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     resolveOAuthConnectionAccountForUserMock.mockResolvedValue({
-      tokenAccountId: 'account-credential-1',
+      tokenAccountId: 'oauth-account-1',
       credentialOwnerUserId: 'user-1',
       providerId: 'alpaca-live',
     })
@@ -202,7 +202,7 @@ describe('TradingPortfolioStreamManager', () => {
     expect(getPortfolioDetailMock).toHaveBeenCalledTimes(1)
     expect(getPortfolioDetailMock).toHaveBeenCalledWith({
       providerId: 'alpaca',
-      credentialId: 'account-credential-1',
+      tokenAccountId: 'oauth-account-1',
       serviceId: 'alpaca-live',
       environment: 'live',
       accessToken: 'oauth-token',

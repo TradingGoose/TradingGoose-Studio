@@ -26,7 +26,7 @@ describe('TradingAccountSelector', () => {
   let root: Root
   const selectedPortfolioIdentity: PortfolioIdentity = {
     providerId: 'alpaca',
-    credentialId: 'credential-1',
+    tokenAccountId: 'oauth-account-1',
     serviceId: 'alpaca-live',
     accountId: 'acct-1',
   }
@@ -59,7 +59,7 @@ describe('TradingAccountSelector', () => {
         },
         {
           providerId: 'alpaca',
-          credentialId: 'credential-2',
+          tokenAccountId: 'oauth-account-2',
           serviceId: 'alpaca-live',
           accountId: 'acct-2',
           accountName: 'Live Account',
@@ -168,7 +168,7 @@ describe('TradingAccountSelector', () => {
             serviceId='alpaca-live'
             portfolioIdentity={{
               providerId: 'alpaca',
-              credentialId: 'credential-1',
+              tokenAccountId: 'oauth-account-1',
               serviceId: 'alpaca-live',
               accountId: '8b594a8c-1353-40d0-981c-e022a879e0e0',
             }}
@@ -192,7 +192,7 @@ describe('TradingAccountSelector', () => {
             serviceId='alpaca-live'
             portfolioIdentity={{
               providerId: 'alpaca',
-              credentialId: 'credential-1',
+              tokenAccountId: 'oauth-account-1',
               serviceId: 'alpaca-live',
               accountId: 'stale-account-id',
             }}

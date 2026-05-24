@@ -66,7 +66,7 @@ describe('trading portfolio identities route', () => {
       {
         providerId: 'alpaca',
         providerName: 'Alpaca',
-        credentialId: 'credential-1',
+        tokenAccountId: 'oauth-account-1',
         serviceId: 'alpaca-live',
         accountId: 'account-1',
         accountName: 'Main',
@@ -94,7 +94,7 @@ describe('trading portfolio identities route', () => {
           label: 'Main',
           rightLabel: 'Alpaca Live - cash - active - USD',
           value: {
-            credentialId: 'credential-1',
+            tokenAccountId: 'oauth-account-1',
             accountId: 'account-1',
           },
         },

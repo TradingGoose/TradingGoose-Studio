@@ -82,7 +82,7 @@ describe('order history support route', () => {
         listingIdentity: { listing_id: 'AAPL', listing_type: 'stock' },
         request: {
           accountId: 'account-1',
-          credentialId: 'credential-1',
+          tokenAccountId: 'oauth-account-1',
           serviceId: 'alpaca-paper',
           quantity: 1,
           side: 'buy',
@@ -107,7 +107,7 @@ describe('order history support route', () => {
         history: [
           expect.not.objectContaining({
             accountId: 'account-1',
-            credentialId: 'credential-1',
+            tokenAccountId: 'oauth-account-1',
             serviceId: 'alpaca-paper',
           }),
         ],
