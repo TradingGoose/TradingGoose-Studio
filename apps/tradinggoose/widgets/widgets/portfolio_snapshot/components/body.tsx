@@ -271,7 +271,6 @@ export function PortfolioSnapshotWidgetBody({
     services,
     portfolioIdentities,
   } = usePortfolioIdentitySelection({
-    workspaceId,
     providerId,
     serviceId: widgetParams?.serviceId,
     portfolioIdentity: widgetParams?.portfolioIdentity,
@@ -282,7 +281,6 @@ export function PortfolioSnapshotWidgetBody({
   })
 
   const snapshotQuery = usePortfolioDetail({
-    workspaceId: workspaceId ?? undefined,
     provider: isProviderReady ? providerId : undefined,
     serviceId: activeServiceId,
     portfolioIdentity: activePortfolioIdentity,
@@ -324,7 +322,6 @@ export function PortfolioSnapshotWidgetBody({
   })
 
   const performanceQuery = usePortfolioPerformance({
-    workspaceId: workspaceId ?? undefined,
     provider: isProviderReady ? providerId : undefined,
     serviceId: activeServiceId,
     portfolioIdentity: activePortfolioIdentity,

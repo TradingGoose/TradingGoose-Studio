@@ -511,7 +511,6 @@ describe('QuickOrderWidgetBody', () => {
       side: 'buy',
     })
     expect(mockUsePortfolioDetail).toHaveBeenLastCalledWith({
-      workspaceId: 'workspace-1',
       provider: 'alpaca',
       serviceId: 'alpaca-live',
       portfolioIdentity: undefined,

@@ -176,7 +176,6 @@ describe('TradingPortfolioStreamManager', () => {
       provider: 'alpaca',
       serviceId: 'alpaca-live',
       portfolioIdentity,
-      workspaceId: 'workspace-1',
       channel: 'account-snapshot',
       clientSubscriptionId: 'snapshot-1',
     })
@@ -184,7 +183,6 @@ describe('TradingPortfolioStreamManager', () => {
       provider: 'alpaca',
       serviceId: 'alpaca-live',
       portfolioIdentity,
-      workspaceId: 'workspace-1',
       channel: 'account-snapshot',
       clientSubscriptionId: 'snapshot-2',
     })
@@ -213,7 +211,6 @@ describe('TradingPortfolioStreamManager', () => {
       expect.objectContaining({
         provider: 'alpaca',
         serviceId: 'alpaca-live',
-        workspaceId: 'workspace-1',
         channel: 'account-snapshot',
         portfolioIdentity,
         portfolioDetail: expect.objectContaining({ accountId: 'acct-1' }),
@@ -241,7 +238,6 @@ describe('TradingPortfolioStreamManager', () => {
       provider: 'alpaca',
       serviceId: 'alpaca-live',
       portfolioIdentity,
-      workspaceId: 'workspace-1',
       channel: 'account-snapshot',
       clientSubscriptionId: 'portfolio_snapshot',
     })
@@ -249,7 +245,6 @@ describe('TradingPortfolioStreamManager', () => {
       provider: 'alpaca',
       serviceId: 'alpaca-live',
       portfolioIdentity,
-      workspaceId: 'workspace-1',
       channel: 'account-snapshot',
       clientSubscriptionId: 'portfolio_snapshot',
     })
@@ -286,7 +281,6 @@ describe('TradingPortfolioStreamManager', () => {
       provider: 'alpaca',
       serviceId: 'alpaca-live',
       portfolioIdentity,
-      workspaceId: 'workspace-1',
       channel: 'account-snapshot',
       clientSubscriptionId: 'snapshot-1',
     })
@@ -294,7 +288,6 @@ describe('TradingPortfolioStreamManager', () => {
       provider: 'alpaca',
       serviceId: 'alpaca-live',
       portfolioIdentity,
-      workspaceId: 'workspace-1',
       channel: 'portfolio-performance',
       window: '1D',
       clientSubscriptionId: 'performance-1',
@@ -310,7 +303,6 @@ describe('TradingPortfolioStreamManager', () => {
       expect.objectContaining({
         provider: 'alpaca',
         serviceId: 'alpaca-live',
-        workspaceId: 'workspace-1',
         channel: 'portfolio-performance',
         portfolioIdentity,
         window: '1D',
@@ -330,7 +322,6 @@ describe('TradingPortfolioStreamManager', () => {
       provider: 'alpaca',
       serviceId: 'alpaca-live',
       portfolioIdentity,
-      workspaceId: 'workspace-1',
       channel: 'account-snapshot',
       clientSubscriptionId: 'snapshot-1',
     })
@@ -345,7 +336,6 @@ describe('TradingPortfolioStreamManager', () => {
         provider: 'alpaca',
         serviceId: 'alpaca-live',
         portfolioIdentity,
-        workspaceId: 'workspace-1',
         channel: 'account-snapshot',
       })
     ).rejects.toThrow('Trading portfolio stream manager is stopped')

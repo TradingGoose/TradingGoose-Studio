@@ -79,7 +79,6 @@ export function QuickOrderHeaderControls({
 
       {areProviderOptionsReady ? (
         <TradingProviderControls
-          workspaceId={workspaceId}
           providerId={providerId}
           providerOptions={providerOptions}
           serviceId={params?.serviceId}

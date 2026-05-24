@@ -21,7 +21,6 @@ import type {
 type TradingPortfolioChannel = 'accounts' | 'account-snapshot' | 'portfolio-performance'
 
 type TradingAccountsRequest = {
-  workspaceId?: string
   provider?: string
   serviceId?: string
   refreshKey?: number | string | null
@@ -39,7 +38,6 @@ type TradingPerformanceRequest = TradingSnapshotRequest & {
 type TradingPortfolioSubscribedPayload = {
   provider?: string
   serviceId?: string
-  workspaceId?: string
   channel?: TradingPortfolioChannel
   subscriptionId?: string
   clientSubscriptionId?: string
@@ -80,7 +78,6 @@ type SocketSubscriptionRef = {
   clientSubscriptionId: string
   provider: string
   serviceId?: string
-  workspaceId: string
   channel: TradingPortfolioChannel
   portfolioIdentity?: PortfolioIdentity
 }
@@ -117,7 +114,6 @@ function useTradingPortfolioSocketData<T>({
   channel,
   provider,
   serviceId,
-  workspaceId,
   portfolioIdentity,
   window,
   refreshKey,
@@ -128,7 +124,6 @@ function useTradingPortfolioSocketData<T>({
   channel: TradingPortfolioChannel
   provider?: string
   serviceId?: string
-  workspaceId?: string
   portfolioIdentity?: PortfolioIdentity | null
   window?: TradingPortfolioPerformanceWindow
   refreshKey?: number | string | null
@@ -152,14 +147,12 @@ function useTradingPortfolioSocketData<T>({
 
   const normalizedProvider = provider?.trim()
   const normalizedServiceId = serviceId?.trim()
-  const normalizedWorkspaceId = workspaceId?.trim()
   const normalizedPortfolioIdentity = toPortfolioValueObject(portfolioIdentity)
   const normalizedPortfolioIdentityKey = normalizedPortfolioIdentity
     ? getPortfolioIdentityKey(normalizedPortfolioIdentity)
     : ''
   const requestKey = [
     channel,
-    normalizedWorkspaceId ?? '',
     normalizedProvider ?? '',
     normalizedServiceId ?? '',
     normalizedPortfolioIdentityKey,
@@ -169,7 +162,6 @@ function useTradingPortfolioSocketData<T>({
   const shouldSubscribe =
     enabled &&
     Boolean(normalizedProvider) &&
-    Boolean(normalizedWorkspaceId) &&
     (channel === 'accounts' || Boolean(normalizedPortfolioIdentityKey)) &&
     (channel !== 'portfolio-performance' || Boolean(window))
   const isCurrentRequestResolved = dataState.key === requestKey
@@ -206,7 +198,6 @@ function useTradingPortfolioSocketData<T>({
       clientSubscriptionId,
       provider: normalizedProvider as string,
       serviceId: normalizedServiceId,
-      workspaceId: normalizedWorkspaceId as string,
       channel,
       portfolioIdentity: normalizedPortfolioIdentity ?? undefined,
     }
@@ -225,7 +216,6 @@ function useTradingPortfolioSocketData<T>({
       ) {
         return false
       }
-      if (payload.workspaceId && payload.workspaceId !== normalizedWorkspaceId) return false
       const payloadPortfolioIdentity = toPortfolioValueObject(payload.portfolioIdentity)
       if (
         payloadPortfolioIdentity &&
@@ -248,7 +238,6 @@ function useTradingPortfolioSocketData<T>({
       socket.emit('trading-portfolio-subscribe', {
         provider: normalizedProvider,
         serviceId: normalizedServiceId,
-        workspaceId: normalizedWorkspaceId,
         channel,
         portfolioIdentity: normalizedPortfolioIdentity,
         window,
@@ -325,7 +314,6 @@ function useTradingPortfolioSocketData<T>({
     normalizedServiceId,
     normalizedPortfolioIdentityKey,
     normalizedProvider,
-    normalizedWorkspaceId,
     refetchNonce,
     refreshKey,
     requestKey,
@@ -366,7 +354,6 @@ export function usePortfolioIdentities(request: TradingAccountsRequest) {
     channel: 'accounts',
     provider: request.provider,
     serviceId: request.serviceId,
-    workspaceId: request.workspaceId,
     refreshKey: request.refreshKey,
     enabled: request.enabled,
     dataEvent: 'trading-portfolio-accounts',
@@ -379,7 +366,6 @@ export function usePortfolioDetail(request: TradingSnapshotRequest) {
     channel: 'account-snapshot',
     provider: request.provider,
     serviceId: request.serviceId,
-    workspaceId: request.workspaceId,
     portfolioIdentity: request.portfolioIdentity,
     refreshKey: request.refreshKey,
     enabled: request.enabled,
@@ -393,7 +379,6 @@ export function usePortfolioPerformance(request: TradingPerformanceRequest) {
     channel: 'portfolio-performance',
     provider: request.provider,
     serviceId: request.serviceId,
-    workspaceId: request.workspaceId,
     portfolioIdentity: request.portfolioIdentity,
     window: request.selectedWindow,
     refreshKey: request.refreshKey,

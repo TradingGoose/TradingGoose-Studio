@@ -468,7 +468,6 @@ describe('PortfolioSnapshotWidgetBody', () => {
     expect(container.textContent).toContain('Alpaca · active · paper')
     expect(container.textContent).toContain('performance-chart')
     expect(mockUsePortfolioDetail).toHaveBeenCalledWith({
-      workspaceId: 'workspace-1',
       provider: 'alpaca',
       serviceId: 'alpaca-live',
       portfolioIdentity: selectedPortfolioIdentity,
