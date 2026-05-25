@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { buildAlpacaOrderDetailSiteUrl } from '@/providers/trading/alpaca/config'
 import { buildAlpacaOrderDetailRequest } from '@/providers/trading/alpaca/orderDetail'
 
 describe('Alpaca order detail request builder', () => {
@@ -38,5 +39,11 @@ describe('Alpaca order detail request builder', () => {
         { orderId: 'order-1', accessToken: 'token' }
       )
     ).toThrow('missing trading environment')
+  })
+
+  it('builds the Alpaca web order detail URL from the provider order id', () => {
+    expect(buildAlpacaOrderDetailSiteUrl('provider-order-1')).toBe(
+      'https://app.alpaca.markets/dashboard/order/provider-order-1'
+    )
   })
 })

@@ -767,7 +767,6 @@ export default function Records() {
   const orderContent = (
     <OrdersTable
       orders={orders}
-      total={ordersTotal}
       selectedOrderId={selectedOrder?.id ?? null}
       loading={ordersLoading}
       error={ordersError}
@@ -777,9 +776,6 @@ export default function Records() {
       sortOrder={normalizedOrdersState.orderSortOrder}
       onSortChange={handleOrderSortChange}
       onOrderClick={selectOrder}
-      onOpenOrder={(order) => selectOrder(order, 'order')}
-      onOpenLog={(order) => selectOrder(order, 'log')}
-      onOpenProvider={(order) => selectOrder(order, 'provider')}
       loaderRef={ordersLoaderRef}
       scrollContainerRef={ordersScrollContainerRef}
       selectedRowRef={selectedOrderRowRef}

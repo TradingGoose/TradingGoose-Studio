@@ -90,7 +90,7 @@ const orderRow = {
   recordedAt: new Date('2026-04-23T00:00:00.000Z'),
   submissionSource: 'workflow',
   logId: 'log-1',
-  listingIdentity: { listing_type: 'stock', listing_id: 'AAPL' },
+  listingIdentity: { base_id: '', listing_id: 'AAPL', listing_type: 'default', quote_id: '' },
   request: { side: 'buy', quantity: 5, orderType: 'limit', timeInForce: 'day' },
   response: { orderId: 'provider-order-1', submittedAt: '2026-04-23T00:00:00.000Z' },
   normalizedOrder: { symbol: 'AAPL', status: 'filled', averageFillPrice: '184.25' },

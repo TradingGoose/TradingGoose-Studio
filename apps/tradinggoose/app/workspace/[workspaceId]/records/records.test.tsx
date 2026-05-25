@@ -35,7 +35,7 @@ const order = {
   id: 'order-1',
   linkedLog: null,
   listing: { listingType: 'stock', name: 'Apple Inc.', symbol: 'AAPL' },
-  listingIdentity: { listing_id: 'AAPL', listing_type: 'stock' },
+  listingIdentity: { base_id: '', listing_id: 'AAPL', listing_type: 'default', quote_id: '' },
   message: 'Filled successfully',
   normalizedOrder: { status: 'filled' },
   notional: null,

@@ -8,6 +8,11 @@ export const ALPACA_PAPER_TRADING_BASE_URL = 'https://paper-api.alpaca.markets'
 export const resolveAlpacaTradingBaseUrl = (environment?: string | null) =>
   environment === 'paper' ? ALPACA_PAPER_TRADING_BASE_URL : ALPACA_LIVE_TRADING_BASE_URL
 
+export const buildAlpacaOrderDetailSiteUrl = (providerOrderId?: string | null) =>
+  providerOrderId?.trim()
+    ? `https://app.alpaca.markets/dashboard/order/${encodeURIComponent(providerOrderId.trim())}`
+    : null
+
 const availableAssetClasses: AssetClass[] = ['stock', 'crypto']
 const availableCryptoQuoteCodes = ['USD', 'USDC', 'USDT', 'BTC']
 const availableCryptoBaseCodes = [
