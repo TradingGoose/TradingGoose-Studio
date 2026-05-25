@@ -11,7 +11,10 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { getListingIdentityKey, toListingValueObject } from '@/lib/listing/identity'
 import { LogDetails } from '@/app/workspace/[workspaceId]/records/components/log-details/log-details'
 import { useResolvedListings } from '@/hooks/queries/listing-resolution'
-import { useProviderOrderDetail } from '@/hooks/queries/records-orders'
+import {
+  type ProviderOrderDetailResponse,
+  useProviderOrderDetail,
+} from '@/hooks/queries/records-orders'
 import { getTradingProviderOAuthServiceIds } from '@/providers/trading/providers'
 import type { TradingProviderId } from '@/providers/trading/types'
 import type { WorkflowLog } from '@/stores/logs/filters/types'
@@ -80,13 +83,10 @@ const DetailRow = ({
 const CopyableCode = ({ value }: { value: string | null | undefined }) =>
   value ? <code className='block truncate font-mono text-xs'>{value}</code> : '—'
 
-type ProviderDetailResponse = {
-  data?: {
-    orderDetail?: Record<string, any>
-  }
-}
-
-const changedProviderRows = (order: RecordsOrder, providerDetail: Record<string, any> | null) => {
+const changedProviderRows = (
+  order: RecordsOrder,
+  providerDetail: ProviderOrderDetailResponse['data']['orderDetail'] | null
+) => {
   if (!providerDetail) return []
   const savedExecutionPrice = order.fillPrice ?? order.averageFillPrice
   const rows = [
@@ -170,13 +170,12 @@ function OrderData({
   loading: boolean
   error: string | null
   onRetry: () => void
-  providerDetail: ProviderDetailResponse | undefined
+  providerDetail: ProviderOrderDetailResponse | undefined
   providerDetailError: unknown
 }) {
   const active = detail ?? order
   const executionPrice = active.fillPrice ?? active.averageFillPrice
-  const latestProviderDetail =
-    (providerDetail?.data?.orderDetail as Record<string, any> | undefined) ?? null
+  const latestProviderDetail = providerDetail?.data.orderDetail ?? null
   const providerRows = changedProviderRows(active, latestProviderDetail)
   const showWorkflow =
     Boolean(active.logId) ||
@@ -416,7 +415,7 @@ export function OrderDetails({
               loading={detailsLoading}
               error={detailsError}
               onRetry={onRetryDetails}
-              providerDetail={providerDetailQuery.data as ProviderDetailResponse | undefined}
+              providerDetail={providerDetailQuery.data}
               providerDetailError={providerDetailQuery.error}
             />
           )}

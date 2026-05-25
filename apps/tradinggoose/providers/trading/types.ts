@@ -8,12 +8,7 @@ export type TradingProviderId = 'alpaca' | 'tradier' | (string & {})
 
 export type TradingAuthType = 'oauth'
 
-export type TradingOrderType =
-  | 'market'
-  | 'limit'
-  | 'stop'
-  | 'stop_limit'
-  | 'trailing_stop'
+export type TradingOrderType = 'market' | 'limit' | 'stop' | 'stop_limit' | 'trailing_stop'
 
 export type TradingOrderSizingMode = 'quantity' | 'notional'
 
@@ -77,9 +72,36 @@ export interface TradingOrderHistoryRecord {
   normalizedOrder?: Record<string, any> | null
 }
 
+export interface TradingOrderDetailOutput {
+  appOrderId: string
+  provider: TradingProviderId
+  providerOrderId: string
+  environment?: string | null
+  clientOrderId?: string | null
+  createdAt?: string | null
+  updatedAt?: string | null
+  submittedAt?: string | null
+  filledAt?: string | null
+  canceledAt?: string | null
+  expiredAt?: string | null
+  symbol?: string | null
+  side?: string | null
+  status?: string | null
+  orderType?: string | null
+  timeInForce?: string | null
+  quantity?: string | number | null
+  filledQuantity?: string | number | null
+  remainingQuantity?: string | number | null
+  notional?: string | number | null
+  limitPrice?: string | number | null
+  stopPrice?: string | number | null
+  averageFillPrice?: string | number | null
+  raw?: unknown
+}
+
 export interface TradingOrderDetailResult {
   providerOrderId: string
-  orderDetail: Record<string, any>
+  orderDetail: TradingOrderDetailOutput
 }
 
 export interface TradingPortfolioBaseContext {
