@@ -15,20 +15,25 @@ import {
 } from '@/lib/trading/order-records'
 import { executeTradingProviderOrderDetailRequest } from '@/providers/trading'
 import { TradingBrokerRequestError } from '@/providers/trading/portfolio-utils'
-import type { TradingOrderDetailInput, TradingOrderHistoryRecord } from '@/providers/trading/types'
+import type {
+  TradingOrderDetailInput,
+  TradingOrderDetailResult,
+  TradingOrderHistoryRecord,
+} from '@/providers/trading/types'
 
 export type TradingProviderOrderDetailResult = {
   appOrderId: string
   logId: string | null
   orderId: string
-  orderDetail: Record<string, any>
+  orderDetail: TradingOrderDetailResult['orderDetail']
   provider: string
   providerOrderId: string
-  providerDetail: {
-    providerOrderId: string
-    orderDetail: Record<string, any>
-  }
+  providerDetail: TradingOrderDetailResult
   workspaceId: string
+}
+
+export type TradingProviderOrderDetailResponse = {
+  data: TradingProviderOrderDetailResult
 }
 
 export async function getRecordedTradingOrderProviderDetail({
@@ -108,7 +113,9 @@ export async function getRecordedTradingOrderProviderDetail({
     appOrderId: order.id,
     logId: order.logId,
     orderId,
-    orderDetail: deepRedactSecrets(providerDetail.orderDetail) as Record<string, any>,
+    orderDetail: deepRedactSecrets(
+      providerDetail.orderDetail
+    ) as TradingProviderOrderDetailResult['orderDetail'],
     provider: order.provider,
     providerOrderId: providerDetail.providerOrderId,
     providerDetail: deepRedactSecrets(

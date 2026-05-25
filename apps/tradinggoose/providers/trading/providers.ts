@@ -1,7 +1,10 @@
 import type React from 'react'
 import { getCanonicalScopesForProvider } from '@/lib/oauth'
 import type { AssetClass } from '@/providers/market/types'
-import { alpacaTradingProviderConfig } from '@/providers/trading/alpaca/config'
+import {
+  alpacaTradingProviderConfig,
+  buildAlpacaOrderDetailSiteUrl,
+} from '@/providers/trading/alpaca/config'
 import { tradierTradingProviderConfig } from '@/providers/trading/tradier/config'
 import type {
   TradingAuthType,
@@ -116,6 +119,10 @@ export interface TradingProviderDefinition {
   }
   config: TradingProviderConfig
   icon?: React.ComponentType<{ className?: string }>
+  orderDetailSiteUrl?: (input: {
+    providerOrderId?: string | null
+    environment?: string | null
+  }) => string | null
 }
 
 export const TRADING_PROVIDER_DEFINITIONS: Record<string, TradingProviderDefinition> = {
@@ -138,6 +145,7 @@ export const TRADING_PROVIDER_DEFINITIONS: Record<string, TradingProviderDefinit
       timeInForce: 'day',
     },
     config: alpacaTradingProviderConfig,
+    orderDetailSiteUrl: ({ providerOrderId }) => buildAlpacaOrderDetailSiteUrl(providerOrderId),
   },
   tradier: {
     id: 'tradier',

@@ -23,6 +23,7 @@ interface LogDetailsProps {
   isOpen: boolean
   isLoading?: boolean
   stateContent?: ReactNode
+  headerControls?: ReactNode
   onClose: () => void
   onNavigateNext?: () => void
   onNavigatePrev?: () => void
@@ -51,6 +52,7 @@ export function LogDetails({
   isOpen,
   isLoading = false,
   stateContent,
+  headerControls,
   onClose,
   onNavigateNext,
   onNavigatePrev,
@@ -143,6 +145,7 @@ export function LogDetails({
         <div className='z-[9] flex items-center justify-between border-b px-3 py-2'>
           <h2 className='font-medium text-foreground text-sm'>Log Details</h2>
           <div className='flex items-center gap-1'>
+            {headerControls}
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>

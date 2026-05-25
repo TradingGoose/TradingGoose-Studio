@@ -4,10 +4,10 @@ import {
   DEFAULT_ORDERS_FILTER_STATE,
   getOrderStatusRecordValues,
   getOrderTimeInForceRecordValues,
-  normalizeOrderTimeInForceFilterValue,
   normalizeOrderSortByValue,
   normalizeOrderStatusFilterValue,
   normalizeOrdersFilterState,
+  normalizeOrderTimeInForceFilterValue,
   ORDER_SORT_BY_VALUES,
   ORDER_TYPE_FILTER_VALUES,
 } from './order-filters'
@@ -66,5 +66,6 @@ describe('order filters', () => {
     })
 
     expect(normalizeOrderSortByValue('averagefillprice')).toBe('recordedAt')
+    expect(normalizeOrderSortByValue('submittedAt')).toBe('recordedAt')
   })
 })

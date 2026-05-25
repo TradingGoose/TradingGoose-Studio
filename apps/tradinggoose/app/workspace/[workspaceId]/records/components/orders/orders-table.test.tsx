@@ -8,14 +8,27 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { RecordsOrder } from '@/hooks/queries/records-orders'
 import { OrdersTable } from './orders-table'
 
+const mockUseResolvedListings = vi.fn()
+
 vi.mock('@/components/ui/tooltip', () => ({
   Tooltip: ({ children }: any) => <>{children}</>,
   TooltipContent: ({ children }: any) => <>{children}</>,
   TooltipTrigger: ({ children }: any) => <>{children}</>,
 }))
 
+vi.mock('@/hooks/queries/listing-resolution', () => ({
+  useResolvedListings: (...args: unknown[]) => mockUseResolvedListings(...args),
+}))
+
 const reactActEnvironment = globalThis as typeof globalThis & {
   IS_REACT_ACT_ENVIRONMENT?: boolean
+}
+
+const listingIdentity = {
+  base_id: '',
+  listing_id: 'TG_LSTG_AAPL',
+  listing_type: 'default' as const,
+  quote_id: '',
 }
 
 const order: RecordsOrder = {
@@ -37,7 +50,7 @@ const order: RecordsOrder = {
     workflowName: 'Workflow',
   },
   listing: { listingType: 'stock', name: 'Apple Inc.', symbol: 'AAPL' },
-  listingIdentity: { listing_id: 'AAPL', listing_type: 'stock' },
+  listingIdentity,
   message: 'Filled successfully',
   normalizedOrder: { status: 'filled' },
   notional: null,
@@ -66,6 +79,7 @@ describe('OrdersTable', () => {
 
   beforeEach(() => {
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = true
+    mockUseResolvedListings.mockReturnValue({ data: {} })
     container = document.createElement('div')
     document.body.appendChild(container)
     root = createRoot(container)
@@ -74,6 +88,7 @@ describe('OrdersTable', () => {
   afterEach(() => {
     act(() => root.unmount())
     container.remove()
+    mockUseResolvedListings.mockReset()
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = false
   })
 
@@ -85,7 +100,6 @@ describe('OrdersTable', () => {
       root.render(
         <OrdersTable
           orders={[order]}
-          total={1}
           selectedOrderId='order-1'
           loading={false}
           error={null}
@@ -95,25 +109,39 @@ describe('OrdersTable', () => {
           sortOrder='desc'
           onSortChange={onSortChange}
           onOrderClick={onOrderClick}
-          onOpenOrder={vi.fn()}
-          onOpenLog={vi.fn()}
-          onOpenProvider={vi.fn()}
           loaderRef={createRef<HTMLDivElement>()}
           scrollContainerRef={createRef<HTMLDivElement>()}
           selectedRowRef={createRef<HTMLTableRowElement>()}
         />
       )
     })
+    await act(async () => {
+      await Promise.resolve()
+    })
 
     expect(container.textContent).toContain('AAPL')
+    expect(container.textContent).toContain('Apple Inc.')
+    expect(container.textContent).not.toContain('Resolving listing')
+    expect(container.textContent).not.toContain('STOCK')
+    expect(container.textContent).not.toContain('DEFAULT')
+    expect(container.textContent).not.toContain('TG_LSTG_AAPL')
+    expect(container.textContent).not.toContain('Order IDs')
+    expect(container.textContent).not.toContain('provider-order-1')
+    expect(container.textContent).not.toContain('Linked')
+    expect(container.textContent).not.toContain('Recorded ')
+    expect(container.textContent).toContain('Created at')
+    expect(container.textContent).toContain('Updated at')
     expect(container.textContent).toContain('Workflow')
     expect(container.textContent).toContain('Limit')
     expect(container.textContent).toContain('DAY')
+    expect(container.querySelector('img[alt="US flag"]')).toBeNull()
     expect(container.querySelector('.selected-row')).toBeTruthy()
+    expect(mockUseResolvedListings).toHaveBeenCalledWith({
+      listings: [listingIdentity],
+      enabled: true,
+    })
 
-    const row = Array.from(container.querySelectorAll('tr')).find((node) =>
-      node.textContent?.includes('provider-order-1')
-    )
+    const row = container.querySelector('tbody tr')
     if (!(row instanceof HTMLTableRowElement)) {
       throw new Error('Expected order row to render')
     }
@@ -123,5 +151,23 @@ describe('OrdersTable', () => {
     })
 
     expect(onOrderClick).toHaveBeenCalledWith(order)
+
+    onOrderClick.mockClear()
+    const providerDetailLink = Array.from(container.querySelectorAll('a')).find(
+      (node) => node.textContent === 'Open provider order detail'
+    )
+    if (!(providerDetailLink instanceof HTMLAnchorElement)) {
+      throw new Error('Expected provider detail link to render')
+    }
+
+    expect(providerDetailLink.href).toBe(
+      'https://app.alpaca.markets/dashboard/order/provider-order-1'
+    )
+
+    await act(async () => {
+      providerDetailLink.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    })
+
+    expect(onOrderClick).not.toHaveBeenCalled()
   })
 })

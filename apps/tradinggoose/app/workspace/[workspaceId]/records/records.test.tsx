@@ -31,11 +31,11 @@ const order = {
   fillPrice: null,
   filledAt: '2026-04-23T00:02:00.000Z',
   filledQuantity: '5',
-  hasLinkedLog: false,
+  hasLinkedLog: true,
   id: 'order-1',
   linkedLog: null,
   listing: { listingType: 'stock', name: 'Apple Inc.', symbol: 'AAPL' },
-  listingIdentity: { listing_id: 'AAPL', listing_type: 'stock' },
+  listingIdentity: { base_id: '', listing_id: 'AAPL', listing_type: 'default', quote_id: '' },
   message: 'Filled successfully',
   normalizedOrder: { status: 'filled' },
   notional: null,
@@ -54,7 +54,7 @@ const order = {
   submittedPrice: '184.25',
   timeInForce: 'day',
   updatedAt: '2026-04-23T00:02:00.000Z',
-  logId: null,
+  logId: 'log-1',
   workspaceId: 'workspace-1',
 }
 
