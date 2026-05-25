@@ -22,6 +22,7 @@ import {
   formatMoney,
   formatNumber,
   getExecutionPrice,
+  getOrderListingFallback,
   titleCase,
   uppercase,
 } from './order-formatters'
@@ -293,6 +294,7 @@ export function OrdersTable({
                                 getListingIdentityKey(listingIdentity)
                               ] ?? null)
                             : null
+                          const displayListing = resolvedListing ?? getOrderListingFallback(order)
                           const providerOrderDetailUrl =
                             getTradingProviderDefinition(order.provider)?.orderDetailSiteUrl?.({
                               environment: order.environment,
@@ -309,9 +311,9 @@ export function OrdersTable({
                               onClick={() => onOrderClick(order)}
                             >
                               <TableCell className={cn(tableCellClassName, 'text-left')}>
-                                {resolvedListing ? (
+                                {displayListing ? (
                                   <MarketListingRow
-                                    listing={{ ...resolvedListing, countryCode: null }}
+                                    listing={{ ...displayListing, countryCode: null }}
                                     className='w-full min-w-0 justify-start pr-0 text-left'
                                   />
                                 ) : (

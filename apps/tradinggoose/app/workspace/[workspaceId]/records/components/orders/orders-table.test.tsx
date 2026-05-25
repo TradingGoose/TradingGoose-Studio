@@ -31,24 +31,6 @@ const listingIdentity = {
   quote_id: '',
 }
 
-const resolvedListings = {
-  'default|TG_LSTG_AAPL||': {
-    ...listingIdentity,
-    assetClass: 'stock',
-    base: 'AAPL',
-    base_asset_class: 'stock',
-    cityName: null,
-    countryCode: 'US',
-    iconUrl: null,
-    marketCode: null,
-    name: 'Apple Inc.',
-    primaryMicCode: null,
-    quote: null,
-    quote_asset_class: null,
-    timeZoneName: null,
-  },
-}
-
 const order: RecordsOrder = {
   averageFillPrice: '184.25',
   clientOrderId: 'client-order-1',
@@ -97,7 +79,7 @@ describe('OrdersTable', () => {
 
   beforeEach(() => {
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = true
-    mockUseResolvedListings.mockReturnValue({ data: resolvedListings })
+    mockUseResolvedListings.mockReturnValue({ data: {} })
     container = document.createElement('div')
     document.body.appendChild(container)
     root = createRoot(container)
@@ -139,6 +121,7 @@ describe('OrdersTable', () => {
 
     expect(container.textContent).toContain('AAPL')
     expect(container.textContent).toContain('Apple Inc.')
+    expect(container.textContent).not.toContain('Resolving listing')
     expect(container.textContent).not.toContain('STOCK')
     expect(container.textContent).not.toContain('DEFAULT')
     expect(container.textContent).not.toContain('TG_LSTG_AAPL')

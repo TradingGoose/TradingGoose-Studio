@@ -17,7 +17,12 @@ vi.mock('@/components/ui/scroll-area', () => ({
 }))
 
 vi.mock('@/app/workspace/[workspaceId]/records/components/log-details/log-details', () => ({
-  LogDetails: ({ stateContent }: any) => <div>log details {stateContent}</div>,
+  LogDetails: ({ headerControls, log }: any) => (
+    <div>
+      log details {log?.id}
+      {headerControls}
+    </div>
+  ),
 }))
 
 vi.mock('@/hooks/queries/listing-resolution', () => ({
@@ -37,24 +42,6 @@ const listingIdentity = {
   listing_id: 'TG_LSTG_AAPL',
   listing_type: 'default' as const,
   quote_id: '',
-}
-
-const resolvedListings = {
-  'default|TG_LSTG_AAPL||': {
-    ...listingIdentity,
-    assetClass: 'stock',
-    base: 'AAPL',
-    base_asset_class: 'stock',
-    cityName: null,
-    countryCode: 'US',
-    iconUrl: null,
-    marketCode: null,
-    name: 'Apple Inc.',
-    primaryMicCode: null,
-    quote: null,
-    quote_asset_class: null,
-    timeZoneName: null,
-  },
 }
 
 const order: RecordsOrder = {
@@ -105,7 +92,7 @@ describe('OrderDetails', () => {
 
   beforeEach(() => {
     reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = true
-    mockUseResolvedListings.mockReturnValue({ data: resolvedListings })
+    mockUseResolvedListings.mockReturnValue({ data: {} })
     mockUseProviderOrderDetail.mockReturnValue({
       data: null,
       error: null,
@@ -196,9 +183,7 @@ describe('OrderDetails', () => {
     expect(mockProviderRefetch).toHaveBeenCalled()
   })
 
-  it('keeps order panel controls visible when log mode cannot load a log', async () => {
-    const onModeChange = vi.fn()
-
+  it('keeps order data access visible when log mode loads a linked log', async () => {
     await act(async () => {
       root.render(
         <OrderDetails
@@ -207,11 +192,11 @@ describe('OrderDetails', () => {
           detail={null}
           detailsLoading={false}
           detailsError={null}
-          linkedLog={null}
+          linkedLog={{ id: 'log-1' } as any}
           linkedLogLoading={false}
-          linkedLogError='Workflow log unavailable'
+          linkedLogError={null}
           mode='log'
-          onModeChange={onModeChange}
+          onModeChange={vi.fn()}
           onClose={vi.fn()}
           onRetryDetails={vi.fn()}
           onRetryLog={vi.fn()}
@@ -219,10 +204,8 @@ describe('OrderDetails', () => {
       )
     })
 
-    expect(container.textContent).toContain('Workflow log unavailable')
+    expect(container.textContent).toContain('log details log-1')
     expect(container.textContent).toContain('Order data')
-    expect(container.textContent).toContain('Refresh provider order detail')
-    expect(container.textContent).toContain('Close')
   })
 
   it('renders provider refresh differences inside the order data card', async () => {

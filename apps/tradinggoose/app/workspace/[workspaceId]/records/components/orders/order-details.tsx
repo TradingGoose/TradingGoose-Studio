@@ -15,7 +15,14 @@ import { useProviderOrderDetail } from '@/hooks/queries/records-orders'
 import { getTradingProviderOAuthServiceIds } from '@/providers/trading/providers'
 import type { TradingProviderId } from '@/providers/trading/types'
 import type { WorkflowLog } from '@/stores/logs/filters/types'
-import { formatDateTime, formatMoney, formatNumber, titleCase, uppercase } from './order-formatters'
+import {
+  formatDateTime,
+  formatMoney,
+  formatNumber,
+  getOrderListingFallback,
+  titleCase,
+  uppercase,
+} from './order-formatters'
 import { OrderStatusBadge } from './order-status-badge'
 import type { RecordsOrder, RecordsOrderDetailMode } from './types'
 
@@ -124,21 +131,22 @@ function useResolvedOrderListing(listingIdentityValue: unknown) {
 }
 
 function ResolvedOrderListing({
-  listingIdentityValue,
+  order,
   compact = false,
   showAssetClass = false,
   className,
 }: {
-  listingIdentityValue: unknown
+  order: RecordsOrder
   compact?: boolean
   showAssetClass?: boolean
   className?: string
 }) {
-  const { listing, listingIdentity } = useResolvedOrderListing(listingIdentityValue)
+  const { listing, listingIdentity } = useResolvedOrderListing(order.listingIdentity)
+  const displayListing = listing ?? getOrderListingFallback(order)
 
   return (
     <MarketListingRow
-      listing={listing}
+      listing={displayListing}
       compact={compact}
       showAssetClass={showAssetClass}
       className={className}
@@ -199,11 +207,7 @@ function OrderData({
 
         <section className='overflow-hidden rounded-md border bg-muted/30 p-3'>
           <div className='flex min-w-0 flex-col gap-2'>
-            <ResolvedOrderListing
-              listingIdentityValue={active.listingIdentity}
-              showAssetClass
-              className='w-full min-w-0 pr-0'
-            />
+            <ResolvedOrderListing order={active} showAssetClass className='w-full min-w-0 pr-0' />
             <div className='flex flex-wrap items-center gap-2'>
               <OrderStatusBadge status={active.status} />
               <Badge variant='secondary'>{titleCase(active.submissionSource)}</Badge>
@@ -355,6 +359,11 @@ export function OrderDetails({
       <LogDetails
         log={linkedLog}
         isOpen
+        headerControls={
+          <Button size='sm' variant='ghost' onClick={() => onModeChange('order')}>
+            Order data
+          </Button>
+        }
         onClose={onClose}
         onNavigateNext={onNavigateNext}
         onNavigatePrev={onNavigatePrev}

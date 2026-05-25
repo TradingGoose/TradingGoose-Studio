@@ -274,7 +274,9 @@ export default function Records() {
 
   const orderDetailQuery = useOrderDetail(workspaceId, selectedOrder?.id)
   const orderLogDetailQuery = useLogDetail(
-    selectedOrder?.logId && isOrderDetailOpen ? selectedOrder.logId : undefined
+    selectedOrder?.logId && isOrderDetailOpen && orderDetailMode === 'log'
+      ? selectedOrder.logId
+      : undefined
   )
 
   useEffect(() => {
@@ -492,7 +494,7 @@ export default function Records() {
   }, [activeTab, logs, orders, selectedLog, selectedLogIndex, selectedOrder, selectedOrderIndex])
 
   const selectOrder = useCallback(
-    (order: RecordsOrder, mode: RecordsOrderDetailMode = order.logId ? 'log' : 'order') => {
+    (order: RecordsOrder, mode: RecordsOrderDetailMode = 'order') => {
       setSelectedOrder(order)
       setSelectedOrderIndex(orders.findIndex((entry) => entry.id === order.id))
       setOrderDetailMode(mode)
