@@ -599,8 +599,8 @@ export function ToolInput({ blockId, subBlockId, isConnecting, disabled = false 
 
     const condition = param.uiComponent.condition
     const currentValues: Record<string, any> = {
-      operation: tool.operation,
       ...tool.params,
+      operation: tool.operation,
     }
 
     return evaluateSubBlockConditionValues(condition, currentValues)
@@ -611,6 +611,7 @@ export function ToolInput({ blockId, subBlockId, isConnecting, disabled = false 
     param: ToolParameterConfig,
     toolIndex: number,
     currentToolParams: Record<string, any>,
+    currentToolContext: Record<string, any>,
     toolId: string
   ) => {
     const uiComponent = param.uiComponent
@@ -665,7 +666,7 @@ export function ToolInput({ blockId, subBlockId, isConnecting, disabled = false 
         ? async (blockId, subBlockId, context) =>
             uiComponent.fetchOptions?.(blockId, subBlockId, {
               ...context,
-              contextValues: currentToolParams,
+              contextValues: currentToolContext,
             } as any) ?? []
         : undefined,
     }
@@ -678,6 +679,7 @@ export function ToolInput({ blockId, subBlockId, isConnecting, disabled = false 
         subBlock={subBlock}
         effectiveParamId={param.id}
         toolParams={currentToolParams}
+        contextValues={currentToolContext}
         onParamChange={handleParamChange}
         isConnecting={isConnecting}
         disabled={disabled}
@@ -945,7 +947,7 @@ export function ToolInput({ blockId, subBlockId, isConnecting, disabled = false 
                                 options={operationOptions}
                                 placeholder='Select operation'
                                 useStore={false}
-                                valueOverride={tool.operation || operationOptions[0].id}
+                                valueOverride={tool.operation}
                                 onChange={(value) => handleOperationChange(toolIndex, value)}
                                 disabled={disabled}
                               />
@@ -978,9 +980,10 @@ export function ToolInput({ blockId, subBlockId, isConnecting, disabled = false 
                       {getRenderableToolParameters(displayParams)
                         .filter((param) => evaluateParameterCondition(param, tool))
                         .map((param) => {
-                          const currentToolParams = {
+                          const currentToolParams = tool.params
+                          const currentToolContext = {
                             ...tool.params,
-                            ...(tool.operation ? { operation: tool.operation } : {}),
+                            operation: tool.operation,
                           }
                           return (
                             <div key={param.id} className='relative min-w-0 space-y-1.5'>
@@ -989,6 +992,7 @@ export function ToolInput({ blockId, subBlockId, isConnecting, disabled = false 
                                   param,
                                   toolIndex,
                                   currentToolParams,
+                                  currentToolContext,
                                   currentToolId
                                 )}
                               </div>

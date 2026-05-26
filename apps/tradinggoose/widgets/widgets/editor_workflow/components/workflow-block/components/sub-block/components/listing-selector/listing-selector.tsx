@@ -126,7 +126,7 @@ export function ListingSelectorInput({
   const finalDisabled =
     dependsOnDisabled ||
     (usesRouteMarketProvider && !routeMarketProviderId && !usesFetchedListingOptions)
-  const [fetchedListingOptions, setFetchedListingOptions] = useState<ListingOption[]>([])
+  const [fetchedListingOptions, setFetchedListingOptions] = useState<ListingOption[] | null>(null)
   const [isLoadingListingOptions, setIsLoadingListingOptions] = useState(false)
   const [listingOptionsError, setListingOptionsError] = useState<string | undefined>()
 
@@ -156,13 +156,14 @@ export function ListingSelectorInput({
 
   useEffect(() => {
     if (!usesFetchedListingOptions || finalDisabled || !config?.fetchOptions) {
-      setFetchedListingOptions([])
+      setFetchedListingOptions(null)
       setIsLoadingListingOptions(false)
       setListingOptionsError(undefined)
       return
     }
 
     let cancelled = false
+    setFetchedListingOptions(null)
     setIsLoadingListingOptions(true)
     setListingOptionsError(undefined)
 
@@ -179,7 +180,7 @@ export function ListingSelectorInput({
       })
       .catch((error) => {
         if (cancelled) return
-        setFetchedListingOptions([])
+        setFetchedListingOptions(null)
         setListingOptionsError(error instanceof Error ? error.message : 'Failed to load listings')
       })
       .finally(() => {
@@ -202,8 +203,7 @@ export function ListingSelectorInput({
   ])
 
   useEffect(() => {
-    if (!usesFetchedListingOptions || isLoadingListingOptions || !currentListingIdentity) return
-    if (listingOptionsError) return
+    if (!usesFetchedListingOptions || !fetchedListingOptions || !currentListingIdentity) return
     if (typeof currentValue === 'string' && isVariableListingInput(currentValue)) return
     if (
       fetchedListingOptions.some((listing) =>
@@ -221,11 +221,9 @@ export function ListingSelectorInput({
     }
   }, [
     usesFetchedListingOptions,
-    isLoadingListingOptions,
     currentListingIdentity,
     currentValue,
     fetchedListingOptions,
-    listingOptionsError,
     instanceId,
     updateInstance,
     onChange,
@@ -343,7 +341,7 @@ export function ListingSelectorInput({
       blockId={blockId}
       disabled={finalDisabled}
       providerType={resolvedProviderType}
-      candidateListings={usesFetchedListingOptions ? fetchedListingOptions : undefined}
+      candidateListings={usesFetchedListingOptions ? (fetchedListingOptions ?? []) : undefined}
       candidateListingsLoading={usesFetchedListingOptions && isLoadingListingOptions}
       candidateListingsError={usesFetchedListingOptions ? listingOptionsError : undefined}
       listingRequired={config?.required === true}
