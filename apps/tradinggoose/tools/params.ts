@@ -1,8 +1,5 @@
+import { LISTING_IDENTITY_JSON_SCHEMA, LISTING_IDENTITY_VALUE_TYPE } from '@/lib/listing/identity'
 import { createLogger } from '@/lib/logs/console/logger'
-import {
-  LISTING_IDENTITY_JSON_SCHEMA,
-  LISTING_IDENTITY_VALUE_TYPE,
-} from '@/lib/listing/identity'
 import type {
   BlockConfig,
   SubBlockCondition as ComponentCondition,
@@ -205,6 +202,7 @@ export function getToolParametersConfig(
             tooltip: subBlock.tooltip,
             password: subBlock.password,
             condition: resolveSubBlockCondition(subBlock.condition),
+            fetchOptionsCondition: resolveSubBlockCondition(subBlock.fetchOptionsCondition),
             title: subBlock.title,
             layout: subBlock.layout,
             value: subBlock.value,

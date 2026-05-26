@@ -614,8 +614,6 @@ export function ToolInput({ blockId, subBlockId, isConnecting, disabled = false 
     toolId: string
   ) => {
     const uiComponent = param.uiComponent
-    const toSyntheticParamId = (paramId: string) => `${subBlockId}-tool-${toolIndex}-${paramId}`
-    const providerFieldId = toSyntheticParamId(uiComponent?.providerFieldId || 'provider')
     const providerType =
       uiComponent?.providerType || (toolId?.startsWith('trading_') ? 'trading' : 'market')
     const subBlock: SubBlockConfig = {
@@ -628,13 +626,14 @@ export function ToolInput({ blockId, subBlockId, isConnecting, disabled = false 
       description: uiComponent?.description,
       tooltip: uiComponent?.tooltip,
       required: param.required,
+      fetchOptionsCondition: uiComponent?.fetchOptionsCondition,
       password: uiComponent?.password || isPasswordParameter(param.id),
       inputType: uiComponent?.inputType,
       provider: uiComponent?.provider,
       serviceId: uiComponent?.serviceId,
       requiredScopes: uiComponent?.requiredScopes,
       providerType,
-      providerFieldId,
+      providerFieldId: uiComponent?.providerFieldId,
       enableSearch: uiComponent?.enableSearch,
       searchPlaceholder: uiComponent?.searchPlaceholder,
       mimeType: uiComponent?.mimeType,

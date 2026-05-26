@@ -8,7 +8,7 @@ import {
   addListingToWatchlist,
   getWatchlist,
   listWatchlists,
-  removeWatchlistItem,
+  removeListingFromWatchlist,
   WatchlistOperationError,
 } from '@/lib/watchlists/operations'
 import type {
@@ -52,7 +52,7 @@ const watchlistToolRequestSchema = z.discriminatedUnion('operation', [
   baseSchema.extend({
     operation: z.literal('removeListing'),
     watchlistId: nonEmptyString,
-    itemId: nonEmptyString,
+    listing: listingSchema,
   }),
 ])
 
@@ -110,7 +110,7 @@ const dispatchWatchlistOperation = async (
     case 'addListing':
       return watchlistData(await addListingToWatchlist(scope, body.watchlistId, body.listing))
     case 'removeListing':
-      return watchlistData(await removeWatchlistItem(scope, body.watchlistId, body.itemId))
+      return watchlistData(await removeListingFromWatchlist(scope, body.watchlistId, body.listing))
   }
 }
 

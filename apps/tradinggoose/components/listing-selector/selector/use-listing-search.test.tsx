@@ -67,7 +67,6 @@ describe('useMarketListingSearch', () => {
           providerType='market'
           instanceId='test-selector'
           updateInstance={updateInstance}
-          isVariableInput={() => false}
         />
       )
       await Promise.resolve()
@@ -129,7 +128,6 @@ describe('useMarketListingSearch', () => {
           providerType='market'
           instanceId='test-selector'
           updateInstance={updateInstance}
-          isVariableInput={() => false}
         />
       )
       await Promise.resolve()
@@ -154,7 +152,6 @@ describe('useMarketListingSearch', () => {
           providerType='market'
           instanceId='test-selector'
           updateInstance={updateInstance}
-          isVariableInput={() => false}
         />
       )
     })
@@ -216,7 +213,6 @@ describe('useMarketListingSearch', () => {
           providerType='market'
           instanceId='test-selector'
           updateInstance={updateInstance}
-          isVariableInput={() => false}
         />
       )
       await Promise.resolve()
@@ -233,7 +229,6 @@ describe('useMarketListingSearch', () => {
           providerType='market'
           instanceId='test-selector'
           updateInstance={updateInstance}
-          isVariableInput={() => false}
         />
       )
     })
@@ -254,13 +249,66 @@ describe('useMarketListingSearch', () => {
           providerType='market'
           instanceId='test-selector'
           updateInstance={updateInstance}
-          isVariableInput={() => false}
         />
       )
     })
 
     expect(fetchListingsMock).not.toHaveBeenCalled()
     expect(updateInstance).toHaveBeenCalledWith('test-selector', {
+      isLoading: false,
+      error: undefined,
+    })
+  })
+
+  it('filters scoped candidate listings without calling market search', async () => {
+    const updateInstance = vi.fn()
+
+    await act(async () => {
+      root.render(
+        <HookHarness
+          open
+          query='btc'
+          providerType='market'
+          instanceId='test-selector'
+          updateInstance={updateInstance}
+          candidateListings={[
+            {
+              listing_id: 'AAPL',
+              base_id: '',
+              quote_id: '',
+              listing_type: 'default',
+              base: 'AAPL',
+              quote: null,
+              name: 'Apple Inc.',
+            },
+            {
+              listing_id: '',
+              base_id: 'BTC',
+              quote_id: 'USD',
+              listing_type: 'crypto',
+              base: 'BTC',
+              quote: 'USD',
+              name: 'BTC/USD',
+            },
+          ]}
+        />
+      )
+      await Promise.resolve()
+    })
+
+    expect(fetchListingsMock).not.toHaveBeenCalled()
+    expect(updateInstance).toHaveBeenCalledWith('test-selector', {
+      results: [
+        {
+          listing_id: '',
+          base_id: 'BTC',
+          quote_id: 'USD',
+          listing_type: 'crypto',
+          base: 'BTC',
+          quote: 'USD',
+          name: 'BTC/USD',
+        },
+      ],
       isLoading: false,
       error: undefined,
     })

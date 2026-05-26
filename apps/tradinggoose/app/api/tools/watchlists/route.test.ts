@@ -22,7 +22,7 @@ const mocks = vi.hoisted(() => {
     checkAuth: vi.fn(),
     checkWorkspaceAccess: vi.fn(),
     listWatchlists: vi.fn(),
-    removeWatchlistItem: vi.fn(),
+    removeListingFromWatchlist: vi.fn(),
   }
 })
 
@@ -47,7 +47,7 @@ vi.mock('@/lib/watchlists/operations', () => ({
   addListingToWatchlist: (...args: unknown[]) => mocks.addListingToWatchlist(...args),
   getWatchlist: vi.fn(),
   listWatchlists: (...args: unknown[]) => mocks.listWatchlists(...args),
-  removeWatchlistItem: (...args: unknown[]) => mocks.removeWatchlistItem(...args),
+  removeListingFromWatchlist: (...args: unknown[]) => mocks.removeListingFromWatchlist(...args),
 }))
 
 const workspaceId = 'workspace-1'
@@ -89,7 +89,7 @@ describe('watchlist tools route', () => {
     })
     mocks.listWatchlists.mockResolvedValue([watchlist])
     mocks.addListingToWatchlist.mockResolvedValue(watchlist)
-    mocks.removeWatchlistItem.mockResolvedValue(watchlist)
+    mocks.removeListingFromWatchlist.mockResolvedValue(watchlist)
   })
 
   it('reads watchlist lists through existing watchlist operations', async () => {
@@ -120,6 +120,21 @@ describe('watchlist tools route', () => {
     )
   })
 
+  it('removes listings by listing identity through existing watchlist operations', async () => {
+    const { POST } = await import('./route')
+
+    const response = await POST(
+      post({ operation: 'removeListing', workspaceId, watchlistId: 'watchlist-1', listing })
+    )
+
+    expect(response.status).toBe(200)
+    expect(mocks.removeListingFromWatchlist).toHaveBeenCalledWith(
+      { workspaceId, userId },
+      'watchlist-1',
+      listing
+    )
+  })
+
   it('uses workspace write access for mutations', async () => {
     mocks.checkWorkspaceAccess.mockResolvedValueOnce({
       exists: true,
@@ -134,11 +149,11 @@ describe('watchlist tools route', () => {
         operation: 'removeListing',
         workspaceId,
         watchlistId: 'watchlist-1',
-        itemId: 'item-1',
+        listing,
       })
     )
 
     expect(response.status).toBe(403)
-    expect(mocks.removeWatchlistItem).not.toHaveBeenCalled()
+    expect(mocks.removeListingFromWatchlist).not.toHaveBeenCalled()
   })
 })

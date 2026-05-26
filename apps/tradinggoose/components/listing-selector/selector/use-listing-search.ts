@@ -1,12 +1,13 @@
 import { useEffect, useRef } from 'react'
-import { useDebounce } from '@/hooks/use-debounce'
 import { fetchListings } from '@/components/listing-selector/fetchers'
-import type { ListingSelectorInstance } from '@/stores/market/selector/store'
 import { buildMarketSearchRequest } from '@/components/listing-selector/selector/search-request'
 import {
   useMarketProviderSearchConfig,
   useTradingProviderSearchConfig,
 } from '@/components/listing-selector/selector/use-provider-config'
+import type { ListingOption } from '@/lib/listing/identity'
+import { useDebounce } from '@/hooks/use-debounce'
+import type { ListingSelectorInstance } from '@/stores/market/selector/store'
 
 type UpdateInstance = (id: string, patch: Partial<ListingSelectorInstance>) => void
 
@@ -17,7 +18,27 @@ type UseMarketListingSearchOptions = {
   providerType?: 'market' | 'trading'
   instanceId: string
   updateInstance: UpdateInstance
-  isVariableInput: (value: string) => boolean
+  candidateListings?: ListingOption[]
+  candidateListingsLoading?: boolean
+  candidateListingsError?: string
+}
+
+const listingMatchesQuery = (listing: ListingOption, query: string): boolean => {
+  if (!query) return true
+  return [
+    listing.base,
+    listing.quote,
+    listing.name,
+    listing.assetClass,
+    listing.listing_id,
+    listing.base_id,
+    listing.quote_id,
+    listing.listing_type,
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase()
+    .includes(query)
 }
 
 export function useMarketListingSearch({
@@ -27,15 +48,16 @@ export function useMarketListingSearch({
   providerType = 'market',
   instanceId,
   updateInstance,
-  isVariableInput,
+  candidateListings,
+  candidateListingsLoading = false,
+  candidateListingsError,
 }: UseMarketListingSearchOptions) {
   const debouncedQuery = useDebounce(query, 400)
   const requestKeyRef = useRef<string>('')
   const abortRef = useRef<AbortController | null>(null)
   const marketProviderConfig = useMarketProviderSearchConfig(providerId)
   const tradingProviderConfig = useTradingProviderSearchConfig(providerId)
-  const providerConfig =
-    providerType === 'trading' ? tradingProviderConfig : marketProviderConfig
+  const providerConfig = providerType === 'trading' ? tradingProviderConfig : marketProviderConfig
 
   const abortInFlightRequest = () => {
     requestKeyRef.current = ''
@@ -61,9 +83,26 @@ export function useMarketListingSearch({
       return
     }
 
-    if (isVariableInput(trimmedQuery)) {
+    if (trimmedQuery.startsWith('<')) {
       abortInFlightRequest()
       updateInstance(instanceId, { results: [], isLoading: false, error: undefined })
+      return
+    }
+
+    if (candidateListings) {
+      abortInFlightRequest()
+      if (candidateListingsLoading) {
+        updateInstance(instanceId, { results: [], isLoading: true, error: undefined })
+        return
+      }
+
+      updateInstance(instanceId, {
+        results: candidateListings.filter((listing) =>
+          listingMatchesQuery(listing, trimmedQuery.toLowerCase())
+        ),
+        isLoading: false,
+        error: candidateListingsError,
+      })
       return
     }
 
@@ -124,6 +163,8 @@ export function useMarketListingSearch({
     providerConfig,
     instanceId,
     updateInstance,
-    isVariableInput,
+    candidateListings,
+    candidateListingsLoading,
+    candidateListingsError,
   ])
 }

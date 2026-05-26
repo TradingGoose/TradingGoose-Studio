@@ -1,3 +1,19 @@
+'use client'
+
+import { useEffect, useMemo, useRef, useState } from 'react'
+import {
+  buildListingDisplayOption,
+  getListingDisplaySymbol,
+  ListingDisplayRow,
+} from '@/components/listing-selector/listing/row'
+import { requestListingResolution } from '@/components/listing-selector/selector/resolve-request'
+import {
+  areListingIdentitiesEqual,
+  getListingIdentityKey,
+  type ListingIdentity,
+  type ListingOption,
+  toListingValueObject,
+} from '@/lib/listing/identity'
 import { cn } from '@/lib/utils'
 import { getTriggerAwareSubBlockStableKey } from '@/lib/workflows/sub-block-keys'
 import { resolveDisplayedSubBlockValue } from '@/lib/workflows/subblock-values'
@@ -268,6 +284,91 @@ function SummaryRow({
   )
 }
 
+const getResolvedListingFromValue = (
+  value: unknown,
+  identity: ListingIdentity
+): ListingOption | null => {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null
+  const record = value as Record<string, unknown>
+  if (typeof record.base !== 'string' || !record.base.trim()) return null
+  if (identity.listing_type !== 'default' && typeof record.quote !== 'string') return null
+  return value as ListingOption
+}
+
+function SummaryListingRow({
+  title,
+  value,
+  labelClassName,
+  valueClassName,
+}: {
+  title: string
+  value: unknown
+  labelClassName?: string
+  valueClassName?: string
+}) {
+  const identity = useMemo(() => toListingValueObject(value), [value])
+  const initialListing = useMemo(
+    () => (identity ? getResolvedListingFromValue(value, identity) : null),
+    [identity, value]
+  )
+  const [resolvedListing, setResolvedListing] = useState<ListingOption | null>(initialListing)
+  const resolvedIdentityRef = useRef<ListingIdentity | null>(initialListing ? identity : null)
+
+  useEffect(() => {
+    setResolvedListing(initialListing)
+    resolvedIdentityRef.current = initialListing ? identity : null
+  }, [identity, initialListing])
+
+  useEffect(() => {
+    if (!identity || initialListing) return
+    if (areListingIdentitiesEqual(resolvedIdentityRef.current, identity)) return
+
+    resolvedIdentityRef.current = identity
+    let cancelled = false
+    requestListingResolution(identity)
+      .then((resolved) => {
+        if (cancelled) return
+        setResolvedListing(resolved ? buildListingDisplayOption(identity, resolved) : null)
+      })
+      .catch(() => {})
+
+    return () => {
+      cancelled = true
+    }
+  }, [identity, initialListing])
+
+  if (!identity) {
+    return (
+      <SummaryRow
+        title={title}
+        value={formatSubBlockSummaryValue(value)}
+        labelClassName={labelClassName}
+        valueClassName={valueClassName}
+      />
+    )
+  }
+
+  const displayListing = resolvedListing ?? buildListingDisplayOption(identity)
+  const displayTitle = getListingDisplaySymbol(displayListing)
+
+  return (
+    <div className='flex items-center gap-2'>
+      <p
+        className={cn('min-w-0 truncate text-muted-foreground capitalize', labelClassName)}
+        title={title}
+      >
+        {title}
+      </p>
+      <div
+        className={cn('min-w-0 flex-1', valueClassName)}
+        title={displayTitle || getListingIdentityKey(identity)}
+      >
+        <ListingDisplayRow listing={displayListing} className='justify-end' />
+      </div>
+    </div>
+  )
+}
+
 export function SubBlockSummaryRows({
   blockId,
   subBlocks,
@@ -351,6 +452,18 @@ export function SubBlockSummaryRows({
                     ))}
                   </div>
                 </div>
+              )
+            }
+
+            if (!subBlock.password && subBlock.type === 'market-selector') {
+              return (
+                <SummaryListingRow
+                  key={stableKey}
+                  title={title}
+                  value={rawValue}
+                  labelClassName={labelClassName}
+                  valueClassName={valueClassName}
+                />
               )
             }
 

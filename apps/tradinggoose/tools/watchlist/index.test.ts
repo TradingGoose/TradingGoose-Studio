@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { watchlistAddListingTool, watchlistReadListsTool } from '@/tools/watchlist'
+import {
+  watchlistAddListingTool,
+  watchlistReadListsTool,
+  watchlistRemoveListingTool,
+} from '@/tools/watchlist'
 
 const context = {
   _context: {
@@ -31,6 +35,21 @@ describe('watchlist tools', () => {
       })
     ).toEqual({
       operation: 'addListing',
+      workspaceId: 'workspace-1',
+      watchlistId: 'watchlist-1',
+      listing,
+    })
+  })
+
+  it('builds scoped remove-listing requests with listing identity', () => {
+    expect(
+      watchlistRemoveListingTool.request.body?.({
+        ...context,
+        watchlistId: 'watchlist-1',
+        listing,
+      })
+    ).toEqual({
+      operation: 'removeListing',
       workspaceId: 'workspace-1',
       watchlistId: 'watchlist-1',
       listing,

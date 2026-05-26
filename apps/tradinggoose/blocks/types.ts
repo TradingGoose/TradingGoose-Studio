@@ -129,6 +129,7 @@ export interface ParamConfig {
 export interface BlockOptionLoaderContext {
   channelId: string
   workflowId: string | null
+  workspaceId?: string
   contextValues?: Record<string, unknown>
 }
 
@@ -163,6 +164,7 @@ export interface SubBlockConfig {
     subBlockId: string,
     context: BlockOptionLoaderContext
   ) => Promise<SubBlockOption[]>
+  fetchOptionsCondition?: SubBlockCondition
   optionsStore?: 'marketProviders'
   min?: number
   max?: number

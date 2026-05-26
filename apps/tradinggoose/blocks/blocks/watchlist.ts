@@ -1,8 +1,19 @@
 import type { SVGProps } from 'react'
 import { createElement } from 'react'
 import { List } from 'lucide-react'
-import { LISTING_IDENTITY_VALUE_TYPE } from '@/lib/listing/identity'
-import type { BlockConfig, SubBlockCondition } from '@/blocks/types'
+import {
+  getListingIdentityKey,
+  LISTING_IDENTITY_VALUE_TYPE,
+  type ListingResolved,
+} from '@/lib/listing/identity'
+import { resolveListingIdentities } from '@/lib/listing/resolve'
+import type { WatchlistRecord } from '@/lib/watchlists/types'
+import type {
+  BlockConfig,
+  BlockOptionLoaderContext,
+  SubBlockCondition,
+  SubBlockOption,
+} from '@/blocks/types'
 import { WATCHLIST_TOOL_IDS } from '@/tools/watchlist'
 
 const WatchlistIcon = (props: SVGProps<SVGSVGElement>) => createElement(List, props)
@@ -11,6 +22,117 @@ const operationCondition = (value: string | string[]): SubBlockCondition => ({
   field: 'operation',
   value,
 })
+
+const readContextString = (contextValues: Record<string, unknown> | undefined, key: string) => {
+  const value = contextValues?.[key]
+  if (typeof value === 'string') return value
+  if (value && typeof value === 'object' && 'value' in value) {
+    return String((value as { value?: unknown }).value ?? '')
+  }
+  return ''
+}
+
+const loadWatchlists = async (context: BlockOptionLoaderContext): Promise<WatchlistRecord[]> => {
+  const workspaceId = context.workspaceId?.trim()
+  if (!workspaceId) return []
+
+  const response = await fetch(`/api/watchlists?workspaceId=${encodeURIComponent(workspaceId)}`, {
+    cache: 'no-store',
+  })
+  if (!response.ok) {
+    throw new Error('Failed to load watchlists')
+  }
+
+  const payload = (await response.json()) as { watchlists?: WatchlistRecord[] }
+  return Array.isArray(payload.watchlists) ? payload.watchlists : []
+}
+
+const listingCountLabel = (watchlist: WatchlistRecord) => {
+  const count = watchlist.items.filter((item) => item.type === 'listing').length
+  return `${count} listing${count === 1 ? '' : 's'}`
+}
+
+const listingLabel = (listing: WatchlistRecord['items'][number]) => {
+  if (listing.type === 'section') return listing.label
+  if (listing.listing.listing_type === 'default') return listing.listing.listing_id
+  return `${listing.listing.base_id}/${listing.listing.quote_id}`
+}
+
+const listingSearchLabel = (item: Extract<WatchlistRecord['items'][number], { type: 'listing' }>) =>
+  [
+    listingLabel(item),
+    item.id,
+    item.listing.listing_id,
+    item.listing.base_id,
+    item.listing.quote_id,
+  ]
+    .filter(Boolean)
+    .join(' ')
+
+const listingOptionValue = (
+  item: Extract<WatchlistRecord['items'][number], { type: 'listing' }>,
+  resolved?: ListingResolved | null
+) => {
+  const label = listingLabel(item)
+  const listing = item.listing
+  if (resolved) return resolved
+
+  return {
+    ...listing,
+    base: listing.listing_type === 'default' ? listing.listing_id : listing.base_id,
+    quote: listing.listing_type === 'default' ? null : listing.quote_id,
+    name: label,
+  }
+}
+
+const fetchWatchlistOptions = async (
+  _blockId: string,
+  _subBlockId: string,
+  context: BlockOptionLoaderContext
+): Promise<SubBlockOption[]> =>
+  (await loadWatchlists(context)).map((watchlist) => ({
+    id: watchlist.id,
+    label: watchlist.name,
+    searchLabel: `${watchlist.name} ${watchlist.id}`,
+    rightLabel: listingCountLabel(watchlist),
+  }))
+
+const fetchWatchlistListingOptions = async (
+  _blockId: string,
+  _subBlockId: string,
+  context: BlockOptionLoaderContext
+): Promise<SubBlockOption[]> => {
+  const watchlistId = readContextString(context.contextValues, 'watchlistId')
+  if (!watchlistId) return []
+
+  const watchlist = (await loadWatchlists(context)).find((entry) => entry.id === watchlistId)
+  if (!watchlist) return []
+
+  const listingItems = watchlist.items.filter(
+    (item): item is Extract<WatchlistRecord['items'][number], { type: 'listing' }> =>
+      item.type === 'listing'
+  )
+  const resolvedListings = await resolveListingIdentities(listingItems.map((item) => item.listing))
+
+  let group = 'Listings'
+  return watchlist.items.flatMap((item) => {
+    if (item.type === 'section') {
+      group = item.label
+      return []
+    }
+    const label = listingLabel(item)
+    return [
+      {
+        id: getListingIdentityKey(item.listing),
+        label,
+        group,
+        searchLabel: listingSearchLabel(item),
+        rightLabel: item.listing.listing_type,
+        value: listingOptionValue(item, resolvedListings[getListingIdentityKey(item.listing)]),
+      },
+    ]
+  })
+}
 
 export const WatchlistBlock: BlockConfig = {
   type: 'watchlist',
@@ -38,10 +160,16 @@ export const WatchlistBlock: BlockConfig = {
     },
     {
       id: 'watchlistId',
-      title: 'Watchlist ID',
-      type: 'short-input',
+      title: 'Watchlist',
+      type: 'dropdown',
       layout: 'full',
       condition: operationCondition(['readListItems', 'addListing', 'removeListing']),
+      options: [],
+      fetchOptions: fetchWatchlistOptions,
+      enableSearch: true,
+      searchPlaceholder: 'Search watchlists...',
+      placeholder: 'Select watchlist',
+      autoSelectFirstOption: false,
       required: true,
     },
     {
@@ -49,15 +177,10 @@ export const WatchlistBlock: BlockConfig = {
       title: 'Listing',
       type: 'market-selector',
       layout: 'full',
-      condition: operationCondition('addListing'),
-      required: true,
-    },
-    {
-      id: 'itemId',
-      title: 'Listing Item ID',
-      type: 'short-input',
-      layout: 'full',
-      condition: operationCondition('removeListing'),
+      condition: operationCondition(['addListing', 'removeListing']),
+      dependsOn: ['watchlistId'],
+      fetchOptionsCondition: operationCondition('removeListing'),
+      fetchOptions: fetchWatchlistListingOptions,
       required: true,
     },
   ],
@@ -74,17 +197,12 @@ export const WatchlistBlock: BlockConfig = {
   inputs: {
     watchlistId: {
       type: 'string',
-      description: 'Watchlist ID returned by read lists operation.',
+      description: 'Watchlist selected by the Watchlist field.',
       visibility: 'user-or-llm',
     },
     listing: {
       type: LISTING_IDENTITY_VALUE_TYPE,
       description: 'Structured listing identity.',
-      visibility: 'user-or-llm',
-    },
-    itemId: {
-      type: 'string',
-      description: 'Listing item ID from the watchlist items array.',
       visibility: 'user-or-llm',
     },
   },

@@ -1,9 +1,9 @@
 'use client'
 
 import { useEffect } from 'react'
-import { cn } from '@/lib/utils'
-import type { ListingOption } from '@/lib/listing/identity'
 import { StockSelector } from '@/components/listing-selector/selector/input'
+import type { ListingOption } from '@/lib/listing/identity'
+import { cn } from '@/lib/utils'
 import { useListingSelectorStore } from '@/stores/market/selector/store'
 
 export interface ListingSelectorProps {
@@ -12,6 +12,9 @@ export interface ListingSelectorProps {
   className?: string
   disabled?: boolean
   providerType?: 'market' | 'trading'
+  candidateListings?: ListingOption[]
+  candidateListingsLoading?: boolean
+  candidateListingsError?: string
   onListingChange?: (listing: ListingOption | null) => void
   onListingValueChange?: (value: string | null) => void
   onListingTagSelect?: (value: string) => void
@@ -24,6 +27,9 @@ export function ListingSelector({
   className,
   disabled,
   providerType = 'market',
+  candidateListings,
+  candidateListingsLoading,
+  candidateListingsError,
   onListingChange,
   onListingValueChange,
   onListingTagSelect,
@@ -47,6 +53,9 @@ export function ListingSelector({
           blockId={blockId}
           disabled={disabled}
           providerType={providerType}
+          candidateListings={candidateListings}
+          candidateListingsLoading={candidateListingsLoading}
+          candidateListingsError={candidateListingsError}
           onListingChange={onListingChange}
           onListingValueChange={onListingValueChange}
           onListingTagSelect={onListingTagSelect}

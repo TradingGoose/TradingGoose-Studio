@@ -26,7 +26,7 @@ export interface WatchlistAddListingParams extends WatchlistScopedParams {
 
 export interface WatchlistRemoveListingParams extends WatchlistScopedParams {
   watchlistId: string
-  itemId: string
+  listing: unknown
 }
 
 export type WatchlistListItemsOutput = {
@@ -202,16 +202,16 @@ export const watchlistRemoveListingTool: ToolConfig<
 > = {
   id: WATCHLIST_TOOL_IDS.removeListing,
   name: 'Watchlist: Remove Listing',
-  description: 'Remove a listing from a watchlist by listing item ID.',
+  description: 'Remove a listing from a watchlist.',
   version: '1.0.0',
   execution: workspaceWriteExecution,
   params: {
     watchlistId: watchlistIdParam,
-    itemId: {
-      type: 'string',
+    listing: {
+      type: LISTING_IDENTITY_VALUE_TYPE,
       required: true,
       visibility: 'user-or-llm',
-      description: 'Listing item ID from the watchlist items array.',
+      description: 'Structured TradingGoose listing identity to remove.',
     },
   },
   request: {
@@ -221,7 +221,7 @@ export const watchlistRemoveListingTool: ToolConfig<
     body: (params) =>
       scopedBody('removeListing', params, {
         watchlistId: params.watchlistId,
-        itemId: params.itemId,
+        listing: params.listing,
       }),
   },
   transformResponse: transformWatchlistResponse<WatchlistListItemsOutput>(),

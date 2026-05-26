@@ -1,8 +1,8 @@
 'use client'
 
 import { useMemo } from 'react'
-import type { SubBlockConfig } from '@/blocks/types'
 import { useBlock } from '@/lib/yjs/use-workflow-doc'
+import type { SubBlockConfig } from '@/blocks/types'
 
 /**
  * Centralized dependsOn gating for sub-block components.
@@ -33,6 +33,7 @@ export function useDependsOnGate(
       const record = rawValue as Record<string, any>
       if ('value' in record) return normalizeDependencyValue(record.value)
       if ('id' in record) return record.id
+      if (typeof record.providerId === 'string') return record.providerId
       return record
     }
 
@@ -47,7 +48,9 @@ export function useDependsOnGate(
     }
 
     if (!block?.subBlocks) return dependsOn.map(() => null)
-    return dependsOn.map((depKey) => normalizeDependencyValue(block.subBlocks[depKey]?.value) ?? null)
+    return dependsOn.map(
+      (depKey) => normalizeDependencyValue(block.subBlocks[depKey]?.value) ?? null
+    )
   }, [dependsOn, contextValues, block]) as any[]
 
   const depsSatisfied = useMemo(() => {

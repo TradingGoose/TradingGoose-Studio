@@ -7,6 +7,12 @@ import type {
   ParamType,
   SubBlockOption,
 } from '@/blocks/types'
+import {
+  getAvailableTradingProviderOptions,
+  getTradingProviderOAuthServiceIds,
+  getTradingProvidersByKind,
+} from '@/providers/trading/providers'
+import type { TradingOperationKind } from '@/providers/trading/types'
 import type { ToolConfig } from '@/tools/types'
 
 export function resolveOutputType(
@@ -78,6 +84,30 @@ const readContextString = (contextValues: Record<string, unknown> | undefined, k
   }
   return ''
 }
+
+export const fetchTradingProviderOptionsByKind =
+  (kind: TradingOperationKind) => async (): Promise<SubBlockOption[]> => {
+    const providers = getTradingProvidersByKind(kind)
+    const providerIds = Array.from(
+      new Set(providers.flatMap((provider) => getTradingProviderOAuthServiceIds(provider.id)))
+    )
+    const query = providerIds.length
+      ? `?providers=${encodeURIComponent(providerIds.join(','))}`
+      : ''
+
+    const response = await fetch(`/api/auth/oauth/providers${query}`, {
+      cache: 'no-store',
+    })
+    if (!response.ok) {
+      throw new Error('Failed to load trading providers')
+    }
+
+    const availability = (await response.json()) as Record<string, boolean>
+    return getAvailableTradingProviderOptions(availability, kind).map((provider) => ({
+      label: provider.name,
+      id: provider.id,
+    }))
+  }
 
 export const fetchTradingPortfolioIdentityOptions = async (
   _blockId: string,

@@ -1,15 +1,15 @@
 import { DollarIcon } from '@/components/icons/icons'
 import type { BlockConfig } from '@/blocks/types'
 import { AuthMode } from '@/blocks/types'
-import { fetchTradingPortfolioIdentityOptions, requiredUserOnlyInput } from '@/blocks/utils'
-import { getTradingProvidersByKind } from '@/providers/trading'
+import {
+  fetchTradingPortfolioIdentityOptions,
+  fetchTradingProviderOptionsByKind,
+  requiredUserOnlyInput,
+} from '@/blocks/utils'
 import { toPortfolioValueObject } from '@/providers/trading/portfolio-identity'
 import type { TradingHoldingsResponse } from '@/providers/trading/types'
 
-const providerOptions = getTradingProvidersByKind('holdings').map((provider) => ({
-  label: provider.name,
-  id: provider.id,
-}))
+const fetchHoldingsProviderOptions = fetchTradingProviderOptionsByKind('holdings')
 
 export const TradingHoldingsBlock: BlockConfig<TradingHoldingsResponse> = {
   type: 'trading_holdings',
@@ -27,7 +27,9 @@ export const TradingHoldingsBlock: BlockConfig<TradingHoldingsResponse> = {
       title: 'Broker',
       type: 'dropdown',
       layout: 'full',
-      options: providerOptions,
+      options: [],
+      fetchOptions: fetchHoldingsProviderOptions,
+      placeholder: 'Select broker',
       required: true,
     },
     {

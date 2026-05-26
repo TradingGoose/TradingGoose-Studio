@@ -1,7 +1,7 @@
 'use client'
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import type { ListingOption } from '@/lib/listing/identity'
+import type { ListingIdentity, ListingOption } from '@/lib/listing/identity'
 import { cn } from '@/lib/utils'
 
 const resolveListingFallbackLabel = (listing: ListingOption): string => {
@@ -54,6 +54,40 @@ export function getListingDisplayFallback(listing: ListingOption): string {
   const symbol = getListingDisplaySymbol(listing).trim()
   if (!symbol) return '??'
   return symbol.slice(0, 2).toUpperCase()
+}
+
+export function hasListingDisplayDetails(listing?: ListingOption | null): boolean {
+  if (!listing) return false
+
+  const base = listing.base?.trim()
+  if (!base) return false
+
+  if (listing.listing_type === 'default') return true
+
+  return Boolean(listing.quote?.trim())
+}
+
+export function buildListingDisplayOption(
+  listing: ListingIdentity,
+  resolved?: ListingOption | null
+): ListingOption {
+  const base =
+    resolved?.base?.trim() ||
+    (listing.listing_type === 'default' ? listing.listing_id : listing.base_id)
+  const quote =
+    resolved?.quote?.trim() || (listing.listing_type === 'default' ? null : listing.quote_id)
+
+  return {
+    ...listing,
+    ...resolved,
+    base,
+    quote,
+    name:
+      resolved?.name?.trim() ||
+      (listing.listing_type === 'default'
+        ? listing.listing_id
+        : `${listing.base_id}/${listing.quote_id}`),
+  }
 }
 
 export function getFlagData(
