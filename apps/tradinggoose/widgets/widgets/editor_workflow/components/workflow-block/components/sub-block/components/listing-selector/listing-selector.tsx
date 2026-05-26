@@ -120,10 +120,12 @@ export function ListingSelectorInput({
     disabled,
     contextValues,
   })
-  const finalDisabled = dependsOnDisabled || (usesRouteMarketProvider && !routeMarketProviderId)
   const usesFetchedListingOptions =
     Boolean(config?.fetchOptions) &&
     evaluateSubBlockConditionValues(config?.fetchOptionsCondition, contextValues ?? {})
+  const finalDisabled =
+    dependsOnDisabled ||
+    (usesRouteMarketProvider && !routeMarketProviderId && !usesFetchedListingOptions)
   const [fetchedListingOptions, setFetchedListingOptions] = useState<ListingOption[]>([])
   const [isLoadingListingOptions, setIsLoadingListingOptions] = useState(false)
   const [listingOptionsError, setListingOptionsError] = useState<string | undefined>()
@@ -201,6 +203,7 @@ export function ListingSelectorInput({
 
   useEffect(() => {
     if (!usesFetchedListingOptions || isLoadingListingOptions || !currentListingIdentity) return
+    if (listingOptionsError) return
     if (typeof currentValue === 'string' && isVariableListingInput(currentValue)) return
     if (
       fetchedListingOptions.some((listing) =>
@@ -222,6 +225,7 @@ export function ListingSelectorInput({
     currentListingIdentity,
     currentValue,
     fetchedListingOptions,
+    listingOptionsError,
     instanceId,
     updateInstance,
     onChange,

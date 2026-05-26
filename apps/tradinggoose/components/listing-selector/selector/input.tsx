@@ -199,15 +199,6 @@ export function StockSelector({
 
     if (!nextValue.trim()) {
       setShowTags(false)
-      if (!isHeader && (selectedListing || safeInstance.selectedListingValue)) {
-        updateInstance(instanceId, {
-          query: '',
-          results: [],
-          isLoading: false,
-          error: undefined,
-        })
-        return
-      }
       clearValue()
       return
     }
