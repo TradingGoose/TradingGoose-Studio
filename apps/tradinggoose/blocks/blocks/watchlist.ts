@@ -7,7 +7,7 @@ import {
   type ListingResolved,
 } from '@/lib/listing/identity'
 import { resolveListingIdentities } from '@/lib/listing/resolve'
-import type { WatchlistRecord } from '@/lib/watchlists/types'
+import type { WatchlistListingItem, WatchlistRecord } from '@/lib/watchlists/types'
 import type {
   BlockConfig,
   BlockOptionLoaderContext,
@@ -23,15 +23,6 @@ const operationCondition = (value: string | string[]): SubBlockCondition => ({
   value,
 })
 
-const readContextString = (contextValues: Record<string, unknown> | undefined, key: string) => {
-  const value = contextValues?.[key]
-  if (typeof value === 'string') return value
-  if (value && typeof value === 'object' && 'value' in value) {
-    return String((value as { value?: unknown }).value ?? '')
-  }
-  return ''
-}
-
 const loadWatchlists = async (context: BlockOptionLoaderContext): Promise<WatchlistRecord[]> => {
   const workspaceId = context.workspaceId?.trim()
   if (!workspaceId) return []
@@ -43,36 +34,15 @@ const loadWatchlists = async (context: BlockOptionLoaderContext): Promise<Watchl
     throw new Error('Failed to load watchlists')
   }
 
-  const payload = (await response.json()) as { watchlists?: WatchlistRecord[] }
-  return Array.isArray(payload.watchlists) ? payload.watchlists : []
+  return ((await response.json()) as { watchlists: WatchlistRecord[] }).watchlists
 }
 
-const listingCountLabel = (watchlist: WatchlistRecord) => {
-  const count = watchlist.items.filter((item) => item.type === 'listing').length
-  return `${count} listing${count === 1 ? '' : 's'}`
-}
-
-const listingLabel = (listing: WatchlistRecord['items'][number]) => {
-  if (listing.type === 'section') return listing.label
+const listingLabel = (listing: WatchlistListingItem) => {
   if (listing.listing.listing_type === 'default') return listing.listing.listing_id
   return `${listing.listing.base_id}/${listing.listing.quote_id}`
 }
 
-const listingSearchLabel = (item: Extract<WatchlistRecord['items'][number], { type: 'listing' }>) =>
-  [
-    listingLabel(item),
-    item.id,
-    item.listing.listing_id,
-    item.listing.base_id,
-    item.listing.quote_id,
-  ]
-    .filter(Boolean)
-    .join(' ')
-
-const listingOptionValue = (
-  item: Extract<WatchlistRecord['items'][number], { type: 'listing' }>,
-  resolved?: ListingResolved | null
-) => {
+const listingOptionValue = (item: WatchlistListingItem, resolved?: ListingResolved | null) => {
   const label = listingLabel(item)
   const listing = item.listing
   if (resolved) return resolved
@@ -89,35 +59,35 @@ const fetchWatchlistOptions = async (
   _blockId: string,
   _subBlockId: string,
   context: BlockOptionLoaderContext
-): Promise<SubBlockOption[]> =>
-  (await loadWatchlists(context)).map((watchlist) => ({
+): Promise<SubBlockOption[]> => (await loadWatchlists(context)).map((watchlist) => {
+  const count = watchlist.items.filter((item) => item.type === 'listing').length
+  return {
     id: watchlist.id,
     label: watchlist.name,
     searchLabel: `${watchlist.name} ${watchlist.id}`,
-    rightLabel: listingCountLabel(watchlist),
-  }))
+    rightLabel: `${count} listing${count === 1 ? '' : 's'}`,
+  }
+})
 
 const fetchWatchlistListingOptions = async (
   _blockId: string,
   _subBlockId: string,
   context: BlockOptionLoaderContext
 ): Promise<SubBlockOption[]> => {
-  const watchlistId = readContextString(context.contextValues, 'watchlistId')
+  const watchlistId =
+    typeof context.contextValues?.watchlistId === 'string' ? context.contextValues.watchlistId : ''
   if (!watchlistId) return []
 
   const watchlist = (await loadWatchlists(context)).find((entry) => entry.id === watchlistId)
   if (!watchlist) return []
 
   const listingItems = watchlist.items.filter(
-    (item): item is Extract<WatchlistRecord['items'][number], { type: 'listing' }> =>
-      item.type === 'listing'
+    (item): item is WatchlistListingItem => item.type === 'listing'
   )
   const resolvedListings = await resolveListingIdentities(listingItems.map((item) => item.listing))
 
-  let group = 'Listings'
   return watchlist.items.flatMap((item) => {
     if (item.type === 'section') {
-      group = item.label
       return []
     }
     const label = listingLabel(item)
@@ -125,9 +95,6 @@ const fetchWatchlistListingOptions = async (
       {
         id: getListingIdentityKey(item.listing),
         label,
-        group,
-        searchLabel: listingSearchLabel(item),
-        rightLabel: item.listing.listing_type,
         value: listingOptionValue(item, resolvedListings[getListingIdentityKey(item.listing)]),
       },
     ]

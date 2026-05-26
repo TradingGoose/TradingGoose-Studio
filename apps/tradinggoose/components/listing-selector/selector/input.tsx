@@ -28,7 +28,6 @@ import { checkTagTrigger, TagDropdown } from '@/components/ui/tag-dropdown'
 import {
   areListingIdentitiesEqual,
   LISTING_IDENTITY_VALUE_TYPE,
-  type ListingIdentity,
   type ListingOption,
   toListingValue,
   toListingValueObject,
@@ -80,7 +79,6 @@ export function StockSelector({
   const instance = useListingSelectorStore((state) => state.instances[instanceId])
   const containerRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
-  const hydratedListingRef = useRef<ListingIdentity | null>(null)
   const hydrateRequestRef = useRef(0)
   const hasActivatedOnMountRef = useRef(false)
   const [open, setOpen] = useState(false)
@@ -345,30 +343,20 @@ export function StockSelector({
 
   useEffect(() => {
     const selectedValue = safeInstance.selectedListingValue ?? safeInstance.selectedListing ?? null
-    if (!selectedValue) {
-      hydratedListingRef.current = null
-      return
-    }
+    if (!selectedValue) return
 
     const identity = toListingValueObject(selectedValue)
     if (!identity) return
 
     if (safeInstance.selectedListing && hasListingDisplayDetails(safeInstance.selectedListing)) {
-      hydratedListingRef.current = identity
       return
     }
 
-    if (areListingIdentitiesEqual(hydratedListingRef.current, identity)) {
-      return
-    }
-
-    hydratedListingRef.current = identity
     const requestId = ++hydrateRequestRef.current
-    let cancelled = false
 
     requestListingResolution(identity)
       .then((resolved) => {
-        if (cancelled || hydrateRequestRef.current !== requestId) return
+        if (hydrateRequestRef.current !== requestId) return
         if (!resolved) return
         updateInstance(instanceId, {
           selectedListing: resolved,
@@ -376,10 +364,6 @@ export function StockSelector({
         })
       })
       .catch(() => {})
-
-    return () => {
-      cancelled = true
-    }
   }, [safeInstance.selectedListing, safeInstance.selectedListingValue, instanceId, updateInstance])
 
   useEffect(() => {

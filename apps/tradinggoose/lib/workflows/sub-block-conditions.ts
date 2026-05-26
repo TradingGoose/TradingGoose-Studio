@@ -1,15 +1,7 @@
 import type { SubBlockCondition } from '@/blocks/types'
 
-const normalizeConditionValue = (value: unknown): unknown =>
-  value && typeof value === 'object'
-    ? 'value' in value
-      ? normalizeConditionValue((value as { value: unknown }).value)
-      : 'id' in value
-        ? value.id
-        : 'providerId' in value
-          ? value.providerId
-          : value
-    : value
+const normalizeConditionValue = (value: unknown) =>
+  value && typeof value === 'object' && 'id' in value ? value.id : value
 
 function matchesConditionValue(condition: SubBlockCondition, rawFieldValue: unknown): boolean {
   const fieldValue = normalizeConditionValue(rawFieldValue)

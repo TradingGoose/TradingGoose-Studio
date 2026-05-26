@@ -78,11 +78,7 @@ export const buildInputsFromToolParams = (
 
 const readContextString = (contextValues: Record<string, unknown> | undefined, key: string) => {
   const value = contextValues?.[key]
-  if (typeof value === 'string') return value
-  if (value && typeof value === 'object' && 'value' in value) {
-    return String((value as { value?: unknown }).value ?? '')
-  }
-  return ''
+  return typeof value === 'string' ? value : ''
 }
 
 export const fetchTradingProviderOptionsByKind =

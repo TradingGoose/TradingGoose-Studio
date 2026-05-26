@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { NextRequest } from 'next/server'
 import { createMockRequest } from '@/app/api/__test-utils__/utils'
 
-const mockGetSession = vi.fn()
+const mockCheckSessionOrInternalAuth = vi.fn()
 const mockGetUserEntityPermissions = vi.fn()
 const mockListWatchlists = vi.fn()
 const mockCreateWatchlist = vi.fn()
@@ -19,8 +19,8 @@ vi.mock('@/lib/logs/console/logger', () => ({
   }),
 }))
 
-vi.mock('@/lib/auth', () => ({
-  getSession: mockGetSession,
+vi.mock('@/lib/auth/hybrid', () => ({
+  checkSessionOrInternalAuth: mockCheckSessionOrInternalAuth,
 }))
 
 vi.mock('@/lib/permissions/utils', () => ({
@@ -39,12 +39,12 @@ vi.mock('@/lib/watchlists/operations', async () => {
 describe('Watchlists API route', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mockGetSession.mockResolvedValue({ user: { id: 'user-1' } })
+    mockCheckSessionOrInternalAuth.mockResolvedValue({ success: true, userId: 'user-1' })
     mockGetUserEntityPermissions.mockResolvedValue('admin')
   })
 
   it('returns 401 when session is missing', async () => {
-    mockGetSession.mockResolvedValue(null)
+    mockCheckSessionOrInternalAuth.mockResolvedValue({ success: false, error: 'Unauthorized' })
     const { GET } = await import('@/app/api/watchlists/route')
     const request = createMockRequest('GET')
     Object.defineProperty(request, 'url', {

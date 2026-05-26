@@ -48,11 +48,6 @@ const resolveListingProviderId = (value: unknown): string | undefined => {
     return undefined
   }
 
-  const record = value as Record<string, unknown>
-  if ('value' in record) {
-    return resolveListingProviderId(record.value)
-  }
-
   return toPortfolioValueObject(value)?.providerId
 }
 
@@ -66,12 +61,7 @@ const readContextValue = (contextValues: Record<string, any> | undefined, field:
   return contextValues[field]
 }
 
-const readStringField = (record: Record<string, unknown>, field: string): string | null => {
-  const value = record[field]
-  return typeof value === 'string' && value.trim() ? value.trim() : null
-}
-
-const toFetchedListingOption = (option: { label?: string; value?: unknown }) => {
+const toFetchedListingOption = (option: { value?: unknown }) => {
   const identity = toListingValueObject(option.value)
   if (
     !identity ||
@@ -82,26 +72,7 @@ const toFetchedListingOption = (option: { label?: string; value?: unknown }) => 
     return null
   }
 
-  const record = option.value as Record<string, unknown>
-  const base =
-    readStringField(record, 'base') ||
-    (identity.listing_type === 'default' ? identity.listing_id : identity.base_id)
-  const quote =
-    readStringField(record, 'quote') ||
-    (identity.listing_type === 'default' ? null : identity.quote_id)
-
-  return {
-    ...record,
-    ...identity,
-    base,
-    quote,
-    name:
-      readStringField(record, 'name') ||
-      option.label ||
-      (identity.listing_type === 'default'
-        ? identity.listing_id
-        : `${identity.base_id}/${identity.quote_id}`),
-  } as ListingOption
+  return option.value as ListingOption
 }
 
 const isListingOption = (value: ListingOption | null): value is ListingOption => Boolean(value)

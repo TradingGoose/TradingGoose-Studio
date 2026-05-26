@@ -29,11 +29,7 @@ const resolveContextValue = (
   key: string
 ): string | undefined => {
   const entry = contextValues?.[key]
-  if (entry && typeof entry === 'object' && 'value' in entry) {
-    return String((entry as { value?: unknown }).value ?? '') || undefined
-  }
-  if (typeof entry === 'string') return entry || undefined
-  return undefined
+  return typeof entry === 'string' ? entry || undefined : undefined
 }
 
 const orderProviders = getTradingProvidersByKind('order')

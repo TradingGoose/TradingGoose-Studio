@@ -31,16 +31,11 @@ const readWorkflowToolbarScopeId = (widgetKey: string, panelId?: string) =>
   `${widgetKey}::${panelId ?? 'panel'}`
 
 type ViewportBounds = { x: number; y: number; width: number; height: number }
-type WorkflowEditorWidgetParams = Record<string, unknown> & {
+type WorkflowEditorWidgetParams = {
   marketProvider?: string
   marketProviderParams?: Record<string, unknown>
   marketAuth?: Record<string, unknown>
 }
-
-const toWorkflowEditorWidgetParams = (
-  params: Record<string, unknown> | null | undefined
-): WorkflowEditorWidgetParams | null =>
-  params && typeof params === 'object' ? (params as WorkflowEditorWidgetParams) : null
 
 const WorkflowEditorWidgetBody = ({
   params,
@@ -53,7 +48,7 @@ const WorkflowEditorWidgetBody = ({
   const workspaceId = context?.workspaceId
   const widgetKey = widget?.key ?? 'editor_workflow'
   const toolbarScopeId = readWorkflowToolbarScopeId(widgetKey, panelId)
-  const widgetParams = toWorkflowEditorWidgetParams(params)
+  const widgetParams = params as WorkflowEditorWidgetParams | null
   const marketProviderOptions = useMemo(() => getSeriesMarketProviderOptions(), [])
   const marketProviderId = resolveConfiguredSeriesMarketProviderId(
     widgetParams?.marketProvider,
@@ -315,7 +310,7 @@ export const workflowEditorWidget: DashboardWidgetDefinition = {
   renderHeader: ({ widget, context, panelId }) => {
     const widgetKey = widget?.key ?? 'editor_workflow'
     const toolbarScopeId = readWorkflowToolbarScopeId(widgetKey, panelId)
-    const widgetParams = toWorkflowEditorWidgetParams(widget?.params ?? null)
+    const widgetParams = widget?.params as WorkflowEditorWidgetParams | null
 
     return {
       left: (

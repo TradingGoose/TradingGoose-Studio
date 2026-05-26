@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   buildListingDisplayOption,
   getListingDisplaySymbol,
@@ -8,9 +8,7 @@ import {
 } from '@/components/listing-selector/listing/row'
 import { requestListingResolution } from '@/components/listing-selector/selector/resolve-request'
 import {
-  areListingIdentitiesEqual,
   getListingIdentityKey,
-  type ListingIdentity,
   type ListingOption,
   toListingValueObject,
 } from '@/lib/listing/identity'
@@ -284,17 +282,6 @@ function SummaryRow({
   )
 }
 
-const getResolvedListingFromValue = (
-  value: unknown,
-  identity: ListingIdentity
-): ListingOption | null => {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return null
-  const record = value as Record<string, unknown>
-  if (typeof record.base !== 'string' || !record.base.trim()) return null
-  if (identity.listing_type !== 'default' && typeof record.quote !== 'string') return null
-  return value as ListingOption
-}
-
 function SummaryListingRow({
   title,
   value,
@@ -307,23 +294,14 @@ function SummaryListingRow({
   valueClassName?: string
 }) {
   const identity = useMemo(() => toListingValueObject(value), [value])
-  const initialListing = useMemo(
-    () => (identity ? getResolvedListingFromValue(value, identity) : null),
-    [identity, value]
-  )
-  const [resolvedListing, setResolvedListing] = useState<ListingOption | null>(initialListing)
-  const resolvedIdentityRef = useRef<ListingIdentity | null>(initialListing ? identity : null)
+  const valueListing =
+    value && typeof value === 'object' && !Array.isArray(value) ? (value as ListingOption) : null
+  const [resolvedListing, setResolvedListing] = useState<ListingOption | null>(null)
 
   useEffect(() => {
-    setResolvedListing(initialListing)
-    resolvedIdentityRef.current = initialListing ? identity : null
-  }, [identity, initialListing])
+    setResolvedListing(null)
+    if (!identity) return
 
-  useEffect(() => {
-    if (!identity || initialListing) return
-    if (areListingIdentitiesEqual(resolvedIdentityRef.current, identity)) return
-
-    resolvedIdentityRef.current = identity
     let cancelled = false
     requestListingResolution(identity)
       .then((resolved) => {
@@ -335,7 +313,7 @@ function SummaryListingRow({
     return () => {
       cancelled = true
     }
-  }, [identity, initialListing])
+  }, [identity])
 
   if (!identity) {
     return (
@@ -348,7 +326,7 @@ function SummaryListingRow({
     )
   }
 
-  const displayListing = resolvedListing ?? buildListingDisplayOption(identity)
+  const displayListing = buildListingDisplayOption(identity, resolvedListing ?? valueListing)
   const displayTitle = getListingDisplaySymbol(displayListing)
 
   return (

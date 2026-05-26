@@ -7,42 +7,22 @@ import type {
 } from '@/lib/watchlists/types'
 import type { ToolConfig, ToolResponse } from '@/tools/types'
 
-type WatchlistToolContext = {
-  workspaceId?: string
+type WatchlistScopedParams = {
+  _context?: { workspaceId?: string }
 }
 
-interface WatchlistScopedParams {
-  _context?: WatchlistToolContext
-}
+type WatchlistReadListItemsParams = WatchlistScopedParams & { watchlistId: string }
+type WatchlistListingParams = WatchlistReadListItemsParams & { listing: unknown }
 
-export interface WatchlistReadListItemsParams extends WatchlistScopedParams {
-  watchlistId: string
-}
-
-export interface WatchlistAddListingParams extends WatchlistScopedParams {
-  watchlistId: string
-  listing: unknown
-}
-
-export interface WatchlistRemoveListingParams extends WatchlistScopedParams {
-  watchlistId: string
-  listing: unknown
-}
-
-export type WatchlistListItemsOutput = {
+type WatchlistListItemsOutput = {
   watchlist: WatchlistRecord
   items: WatchlistItem[]
   listings: WatchlistListingItem[]
   sections: WatchlistSectionItem[]
 }
 
-export type WatchlistListsOutput = {
+type WatchlistListsOutput = {
   watchlists: WatchlistRecord[]
-}
-
-type WatchlistApiResponse<T> = {
-  success: boolean
-  data: T
 }
 
 type WatchlistToolResponse<T extends Record<string, any>> = ToolResponse & {
@@ -58,11 +38,15 @@ export const WATCHLIST_TOOL_IDS = {
   removeListing: 'watchlist_remove_listing',
 } as const satisfies Record<WatchlistOperation, string>
 
-const watchlistToolUrl = '/api/tools/watchlists'
-
 const jsonHeaders = () => ({
   'Content-Type': 'application/json',
 })
+
+const readWatchlistsRequest = {
+  url: '/api/watchlists',
+  method: 'GET' as const,
+  headers: jsonHeaders,
+}
 
 const resolveWorkspaceId = (params: WatchlistScopedParams, toolId: string) => {
   const workspaceId = params._context?.workspaceId?.trim()
@@ -72,25 +56,49 @@ const resolveWorkspaceId = (params: WatchlistScopedParams, toolId: string) => {
   return workspaceId
 }
 
-const scopedBody = (
-  operation: WatchlistOperation,
-  params: WatchlistScopedParams,
-  payload: Record<string, unknown> = {}
-) => ({
-  operation,
-  workspaceId: resolveWorkspaceId(params, WATCHLIST_TOOL_IDS[operation]),
-  ...payload,
+const watchlistItemsUrl = (watchlistId: string) =>
+  `/api/watchlists/${encodeURIComponent(watchlistId)}/items`
+
+const splitWatchlistItems = (items: WatchlistItem[]) => {
+  const listings: WatchlistListingItem[] = []
+  const sections: WatchlistSectionItem[] = []
+
+  for (const item of items) {
+    if (item.type === 'listing') listings.push(item)
+    else sections.push(item)
+  }
+
+  return { items, listings, sections }
+}
+
+const watchlistOutput = (watchlist: WatchlistRecord): WatchlistListItemsOutput => ({
+  watchlist,
+  ...splitWatchlistItems(watchlist.items),
 })
 
-const transformWatchlistResponse =
-  <T extends Record<string, any>>() =>
-  async (response: Response): Promise<WatchlistToolResponse<T>> => {
-    const result = (await response.json()) as WatchlistApiResponse<T>
-    return {
-      success: true,
-      output: result.data,
-    }
-  }
+const transformReadListsResponse = async (
+  response: Response
+): Promise<WatchlistToolResponse<WatchlistListsOutput>> => ({
+  success: true,
+  output: (await response.json()) as WatchlistListsOutput,
+})
+
+const transformReadListItemsResponse = async (
+  response: Response,
+  params?: WatchlistReadListItemsParams
+): Promise<WatchlistToolResponse<WatchlistListItemsOutput>> => {
+  const { watchlists } = (await response.json()) as WatchlistListsOutput
+  const watchlist = watchlists.find((entry) => entry.id === params?.watchlistId)
+  if (!watchlist) throw new Error('Watchlist not found')
+  return { success: true, output: watchlistOutput(watchlist) }
+}
+
+const transformWatchlistResponse = async (
+  response: Response
+): Promise<WatchlistToolResponse<WatchlistListItemsOutput>> => {
+  const { watchlist } = (await response.json()) as { watchlist: WatchlistRecord }
+  return { success: true, output: watchlistOutput(watchlist) }
+}
 
 const workspaceReadExecution = {
   workspace: { required: true, access: 'read' },
@@ -105,6 +113,13 @@ const watchlistIdParam = {
   required: true,
   visibility: 'user-or-llm',
   description: 'Watchlist ID returned by Watchlist: Read Lists.',
+} as const
+
+const listingParam = {
+  type: LISTING_IDENTITY_VALUE_TYPE,
+  required: true,
+  visibility: 'user-or-llm',
+  description: 'Structured TradingGoose listing identity.',
 } as const
 
 const watchlistListItemsOutputs = {
@@ -127,13 +142,8 @@ export const watchlistReadListsTool: ToolConfig<
   version: '1.0.0',
   execution: workspaceReadExecution,
   params: {},
-  request: {
-    url: watchlistToolUrl,
-    method: 'POST',
-    headers: jsonHeaders,
-    body: (params) => scopedBody('readLists', params),
-  },
-  transformResponse: transformWatchlistResponse<WatchlistListsOutput>(),
+  request: readWatchlistsRequest,
+  transformResponse: transformReadListsResponse,
   outputs: {
     watchlists: {
       type: 'array',
@@ -154,76 +164,50 @@ export const watchlistReadListItemsTool: ToolConfig<
   params: {
     watchlistId: watchlistIdParam,
   },
-  request: {
-    url: watchlistToolUrl,
-    method: 'POST',
-    headers: jsonHeaders,
-    body: (params) => scopedBody('readListItems', params, { watchlistId: params.watchlistId }),
-  },
-  transformResponse: transformWatchlistResponse<WatchlistListItemsOutput>(),
+  request: readWatchlistsRequest,
+  transformResponse: transformReadListItemsResponse,
   outputs: watchlistListItemsOutputs,
 }
 
-export const watchlistAddListingTool: ToolConfig<
-  WatchlistAddListingParams,
+const listingMutationTool = (
+  operation: 'addListing' | 'removeListing',
+  name: string,
+  description: string
+): ToolConfig<
+  WatchlistListingParams,
   WatchlistToolResponse<WatchlistListItemsOutput>
-> = {
-  id: WATCHLIST_TOOL_IDS.addListing,
-  name: 'Watchlist: Add Listing',
-  description: 'Add a listing to a watchlist.',
+> => ({
+  id: WATCHLIST_TOOL_IDS[operation],
+  name,
+  description,
   version: '1.0.0',
   execution: workspaceWriteExecution,
   params: {
     watchlistId: watchlistIdParam,
-    listing: {
-      type: LISTING_IDENTITY_VALUE_TYPE,
-      required: true,
-      visibility: 'user-or-llm',
-      description: 'Structured TradingGoose listing identity to add.',
-    },
+    listing: listingParam,
   },
   request: {
-    url: watchlistToolUrl,
+    url: (params) => watchlistItemsUrl(params.watchlistId),
     method: 'POST',
     headers: jsonHeaders,
-    body: (params) =>
-      scopedBody('addListing', params, {
-        watchlistId: params.watchlistId,
-        listing: params.listing,
-      }),
+    body: (params) => ({
+      workspaceId: resolveWorkspaceId(params, WATCHLIST_TOOL_IDS[operation]),
+      action: operation,
+      listing: params.listing,
+    }),
   },
-  transformResponse: transformWatchlistResponse<WatchlistListItemsOutput>(),
+  transformResponse: transformWatchlistResponse,
   outputs: watchlistListItemsOutputs,
-}
+})
 
-export const watchlistRemoveListingTool: ToolConfig<
-  WatchlistRemoveListingParams,
-  WatchlistToolResponse<WatchlistListItemsOutput>
-> = {
-  id: WATCHLIST_TOOL_IDS.removeListing,
-  name: 'Watchlist: Remove Listing',
-  description: 'Remove a listing from a watchlist.',
-  version: '1.0.0',
-  execution: workspaceWriteExecution,
-  params: {
-    watchlistId: watchlistIdParam,
-    listing: {
-      type: LISTING_IDENTITY_VALUE_TYPE,
-      required: true,
-      visibility: 'user-or-llm',
-      description: 'Structured TradingGoose listing identity to remove.',
-    },
-  },
-  request: {
-    url: watchlistToolUrl,
-    method: 'POST',
-    headers: jsonHeaders,
-    body: (params) =>
-      scopedBody('removeListing', params, {
-        watchlistId: params.watchlistId,
-        listing: params.listing,
-      }),
-  },
-  transformResponse: transformWatchlistResponse<WatchlistListItemsOutput>(),
-  outputs: watchlistListItemsOutputs,
-}
+export const watchlistAddListingTool = listingMutationTool(
+  'addListing',
+  'Watchlist: Add Listing',
+  'Add a listing to a watchlist.'
+)
+
+export const watchlistRemoveListingTool = listingMutationTool(
+  'removeListing',
+  'Watchlist: Remove Listing',
+  'Remove a listing from a watchlist.'
+)

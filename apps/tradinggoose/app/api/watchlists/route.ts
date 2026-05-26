@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
-import { getSession } from '@/lib/auth'
+import { checkSessionOrInternalAuth } from '@/lib/auth/hybrid'
 import { createLogger } from '@/lib/logs/console/logger'
 import { getUserEntityPermissions } from '@/lib/permissions/utils'
 import {
@@ -16,12 +16,12 @@ const CreateWatchlistSchema = z.object({
   name: z.string().trim().min(1, 'name is required'),
 })
 
-const requireSessionUser = async () => {
-  const session = await getSession()
-  if (!session?.user?.id) {
-    throw new WatchlistOperationError('Unauthorized', 401)
+const requireSessionUser = async (request: NextRequest) => {
+  const auth = await checkSessionOrInternalAuth(request, { requireWorkflowId: false })
+  if (!auth.success || !auth.userId) {
+    throw new WatchlistOperationError(auth.error || 'Unauthorized', 401)
   }
-  return session.user.id
+  return auth.userId
 }
 
 const requireWorkspacePermission = async (
@@ -52,7 +52,7 @@ const handleRouteError = (error: unknown, fallbackMessage: string) => {
 
 export async function GET(request: NextRequest) {
   try {
-    const userId = await requireSessionUser()
+    const userId = await requireSessionUser(request)
     const workspaceId = request.nextUrl.searchParams.get('workspaceId')?.trim()
     if (!workspaceId) {
       return NextResponse.json({ error: 'workspaceId is required' }, { status: 400 })
@@ -73,7 +73,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const userId = await requireSessionUser()
+    const userId = await requireSessionUser(request)
     const parsed = CreateWatchlistSchema.parse(await request.json())
     await requireWorkspacePermission(userId, parsed.workspaceId, { write: true })
 

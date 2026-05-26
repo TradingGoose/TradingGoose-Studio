@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { isEqual } from 'lodash'
 import {
   sanitizeMarketProviderAuth,
   sanitizeMarketProviderParamsForWidget,
@@ -27,26 +28,6 @@ const normalizeString = (value: unknown) => {
   if (typeof value !== 'string') return undefined
   const trimmed = value.trim()
   return trimmed || undefined
-}
-
-const areValuesEqual = (left: unknown, right: unknown): boolean => {
-  if (Object.is(left, right)) return true
-
-  if (Array.isArray(left) || Array.isArray(right)) {
-    if (!Array.isArray(left) || !Array.isArray(right)) return false
-    if (left.length !== right.length) return false
-    return left.every((value, index) => areValuesEqual(value, right[index]))
-  }
-
-  if (isRecord(left) || isRecord(right)) {
-    if (!isRecord(left) || !isRecord(right)) return false
-    const leftKeys = Object.keys(left)
-    const rightKeys = Object.keys(right)
-    if (leftKeys.length !== rightKeys.length) return false
-    return leftKeys.every((key) => key in right && areValuesEqual(left[key], right[key]))
-  }
-
-  return false
 }
 
 const sanitizeWorkflowWidgetParams = (
@@ -104,7 +85,7 @@ export function useWorkflowSelectionPersistence({
         workflowId: detail.workflowId,
       })
 
-      if (areValuesEqual(currentParams, nextParams)) return
+      if (isEqual(currentParams, nextParams)) return
       latestParamsRef.current = nextParams
       onWidgetParamsChange(nextParams)
     }
@@ -121,7 +102,7 @@ export function useWorkflowSelectionPersistence({
         ...detail.params,
       })
 
-      if (areValuesEqual(currentParams, nextParams)) return
+      if (isEqual(currentParams, nextParams)) return
       latestParamsRef.current = nextParams
       onWidgetParamsChange(nextParams)
     }
