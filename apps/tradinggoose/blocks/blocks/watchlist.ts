@@ -59,15 +59,16 @@ const fetchWatchlistOptions = async (
   _blockId: string,
   _subBlockId: string,
   context: BlockOptionLoaderContext
-): Promise<SubBlockOption[]> => (await loadWatchlists(context)).map((watchlist) => {
-  const count = watchlist.items.filter((item) => item.type === 'listing').length
-  return {
-    id: watchlist.id,
-    label: watchlist.name,
-    searchLabel: `${watchlist.name} ${watchlist.id}`,
-    rightLabel: `${count} listing${count === 1 ? '' : 's'}`,
-  }
-})
+): Promise<SubBlockOption[]> =>
+  (await loadWatchlists(context)).map((watchlist) => {
+    const count = watchlist.items.filter((item) => item.type === 'listing').length
+    return {
+      id: watchlist.id,
+      label: watchlist.name,
+      searchLabel: `${watchlist.name} ${watchlist.id}`,
+      rightLabel: `${count} listing${count === 1 ? '' : 's'}`,
+    }
+  })
 
 const fetchWatchlistListingOptions = async (
   _blockId: string,

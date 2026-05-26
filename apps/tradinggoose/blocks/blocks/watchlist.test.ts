@@ -35,7 +35,9 @@ describe('WatchlistBlock', () => {
       (subBlock) => subBlock.id === 'operation'
     )
     const options = Array.isArray(operationSubBlock?.options) ? operationSubBlock.options : []
-    const toolIds = options.map((option) => WatchlistBlock.tools.config?.tool({ operation: option.id }))
+    const toolIds = options.map((option) =>
+      WatchlistBlock.tools.config?.tool({ operation: option.id })
+    )
 
     expect(options.length).toBe(Object.keys(WATCHLIST_TOOL_IDS).length)
     expect(toolIds).toEqual(Object.values(WATCHLIST_TOOL_IDS))
@@ -100,7 +102,12 @@ describe('WatchlistBlock', () => {
       cache: 'no-store',
     })
     expect(options).toEqual([
-      { id: 'watchlist-1', label: 'Growth', searchLabel: 'Growth watchlist-1', rightLabel: '2 listings' },
+      {
+        id: 'watchlist-1',
+        label: 'Growth',
+        searchLabel: 'Growth watchlist-1',
+        rightLabel: '2 listings',
+      },
     ])
   })
 
@@ -142,7 +149,13 @@ describe('WatchlistBlock', () => {
     expect(options?.map((option) => option.id)).toEqual(['default|AAPL||', 'crypto||BTC|USD'])
     expect(options?.map((option) => option.value)).toMatchObject([
       { base: 'AAPL', name: 'Apple Inc.', iconUrl: '/aapl.svg', assetClass: 'stock' },
-      { base: 'BTC', quote: 'USD', name: 'Bitcoin to US Dollar pair', iconUrl: '/btc.svg', assetClass: 'crypto' },
+      {
+        base: 'BTC',
+        quote: 'USD',
+        name: 'Bitcoin to US Dollar pair',
+        iconUrl: '/btc.svg',
+        assetClass: 'crypto',
+      },
     ])
   })
 })

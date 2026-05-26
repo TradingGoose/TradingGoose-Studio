@@ -173,10 +173,7 @@ const listingMutationTool = (
   operation: 'addListing' | 'removeListing',
   name: string,
   description: string
-): ToolConfig<
-  WatchlistListingParams,
-  WatchlistToolResponse<WatchlistListItemsOutput>
-> => ({
+): ToolConfig<WatchlistListingParams, WatchlistToolResponse<WatchlistListItemsOutput>> => ({
   id: WATCHLIST_TOOL_IDS[operation],
   name,
   description,

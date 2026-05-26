@@ -1,8 +1,9 @@
 /**
  * @vitest-environment node
  */
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+
 import { NextRequest } from 'next/server'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMockRequest } from '@/app/api/__test-utils__/utils'
 
 const mockCheckSessionOrInternalAuth = vi.fn()
@@ -70,9 +71,12 @@ describe('Watchlists API route', () => {
       },
     ])
     const { GET } = await import('@/app/api/watchlists/route')
-    const request = new NextRequest(new URL('http://localhost:3000/api/watchlists?workspaceId=workspace-1'), {
-      method: 'GET',
-    })
+    const request = new NextRequest(
+      new URL('http://localhost:3000/api/watchlists?workspaceId=workspace-1'),
+      {
+        method: 'GET',
+      }
+    )
 
     const response = await GET(request)
     const payload = await response.json()

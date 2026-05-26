@@ -6,10 +6,10 @@ import { getUserEntityPermissions } from '@/lib/permissions/utils'
 import {
   addListingToWatchlist,
   addSectionToWatchlist,
-  renameWatchlistSection,
   removeListingFromWatchlist,
   removeWatchlistItem,
   removeWatchlistSection,
+  renameWatchlistSection,
   updateWatchlistItemListing,
   WatchlistOperationError,
 } from '@/lib/watchlists/operations'
@@ -127,7 +127,12 @@ export async function POST(
       if (!parsed.label) {
         return NextResponse.json({ error: 'label is required' }, { status: 400 })
       }
-      const watchlist = await renameWatchlistSection(scope, watchlistId, parsed.sectionId, parsed.label)
+      const watchlist = await renameWatchlistSection(
+        scope,
+        watchlistId,
+        parsed.sectionId,
+        parsed.label
+      )
       return NextResponse.json({ watchlist }, { status: 200 })
     }
 

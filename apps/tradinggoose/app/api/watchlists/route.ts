@@ -44,7 +44,10 @@ const handleRouteError = (error: unknown, fallbackMessage: string) => {
     return NextResponse.json({ error: error.message }, { status: error.status })
   }
   if (error instanceof z.ZodError) {
-    return NextResponse.json({ error: 'Invalid request data', details: error.errors }, { status: 400 })
+    return NextResponse.json(
+      { error: 'Invalid request data', details: error.errors },
+      { status: 400 }
+    )
   }
   logger.error(fallbackMessage, { error })
   return NextResponse.json({ error: fallbackMessage }, { status: 500 })

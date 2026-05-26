@@ -26,7 +26,6 @@ import { formatDisplayText } from '@/components/ui/formatted-text'
 import { Input } from '@/components/ui/input'
 import { checkTagTrigger, TagDropdown } from '@/components/ui/tag-dropdown'
 import {
-  areListingIdentitiesEqual,
   LISTING_IDENTITY_VALUE_TYPE,
   type ListingOption,
   toListingValue,
@@ -502,6 +501,7 @@ export function StockSelector({
           </div>
         ) : null}
         <Button
+          type='button'
           variant='ghost'
           size='sm'
           className='-translate-y-1/2 absolute top-1/2 right-1 z-10 h-6 w-6 bg-transparent p-0'
