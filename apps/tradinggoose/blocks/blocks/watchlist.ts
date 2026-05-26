@@ -1,11 +1,7 @@
 import type { SVGProps } from 'react'
 import { createElement } from 'react'
 import { List } from 'lucide-react'
-import {
-  getListingIdentityKey,
-  LISTING_IDENTITY_VALUE_TYPE,
-  type ListingResolved,
-} from '@/lib/listing/identity'
+import { getListingIdentityKey, LISTING_IDENTITY_VALUE_TYPE } from '@/lib/listing/identity'
 import { resolveListingIdentities } from '@/lib/listing/resolve'
 import type { WatchlistListingItem, WatchlistRecord } from '@/lib/watchlists/types'
 import type {
@@ -35,24 +31,6 @@ const loadWatchlists = async (context: BlockOptionLoaderContext): Promise<Watchl
   }
 
   return ((await response.json()) as { watchlists: WatchlistRecord[] }).watchlists
-}
-
-const listingLabel = (listing: WatchlistListingItem) => {
-  if (listing.listing.listing_type === 'default') return listing.listing.listing_id
-  return `${listing.listing.base_id}/${listing.listing.quote_id}`
-}
-
-const listingOptionValue = (item: WatchlistListingItem, resolved?: ListingResolved | null) => {
-  const label = listingLabel(item)
-  const listing = item.listing
-  if (resolved) return resolved
-
-  return {
-    ...listing,
-    base: listing.listing_type === 'default' ? listing.listing_id : listing.base_id,
-    quote: listing.listing_type === 'default' ? null : listing.quote_id,
-    name: label,
-  }
 }
 
 const fetchWatchlistOptions = async (
@@ -87,18 +65,18 @@ const fetchWatchlistListingOptions = async (
   )
   const resolvedListings = await resolveListingIdentities(listingItems.map((item) => item.listing))
 
-  return watchlist.items.flatMap((item) => {
-    if (item.type === 'section') {
-      return []
+  return listingItems.map((item) => {
+    const id = getListingIdentityKey(item.listing)
+    const resolved = resolvedListings[id]
+    if (!resolved) throw new Error('Failed to resolve watchlist listing')
+
+    return {
+      id,
+      label:
+        resolved.name?.trim() ||
+        (resolved.quote ? `${resolved.base}/${resolved.quote}` : resolved.base),
+      value: resolved,
     }
-    const label = listingLabel(item)
-    return [
-      {
-        id: getListingIdentityKey(item.listing),
-        label,
-        value: listingOptionValue(item, resolvedListings[getListingIdentityKey(item.listing)]),
-      },
-    ]
   })
 }
 

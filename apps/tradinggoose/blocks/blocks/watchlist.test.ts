@@ -112,15 +112,25 @@ describe('WatchlistBlock', () => {
   })
 
   it('loads remove-listing candidates from the selected watchlist as resolved listings', async () => {
+    let resolveStock = true
     const fetchMock = vi.fn().mockImplementation(async (input) => {
       const url = String(input)
       if (url.startsWith('/api/watchlists')) {
         return jsonResponse({ watchlists: [watchlistRecord] })
       }
       if (url.includes('/api/market/get/listing')) {
-        return jsonResponse({
-          data: { base: 'AAPL', name: 'Apple Inc.', iconUrl: '/aapl.svg', assetClass: 'stock' },
-        })
+        return jsonResponse(
+          resolveStock
+            ? {
+                data: {
+                  base: 'AAPL',
+                  name: 'Apple Inc.',
+                  iconUrl: '/aapl.svg',
+                  assetClass: 'stock',
+                },
+              }
+            : { data: null }
+        )
       }
       if (url.includes('/api/market/get/crypto')) {
         return jsonResponse({ data: { code: 'BTC', name: 'Bitcoin', iconUrl: '/btc.svg' } })
@@ -139,12 +149,13 @@ describe('WatchlistBlock', () => {
       dependsOn: ['watchlistId'],
     })
 
-    const options = await listingSubBlock?.fetchOptions?.('block-1', 'listing', {
+    const loaderContext = {
       channelId: 'channel-1',
       workflowId: 'workflow-1',
       workspaceId: 'workspace-1',
       contextValues: { watchlistId: 'watchlist-1' },
-    })
+    }
+    const options = await listingSubBlock?.fetchOptions?.('block-1', 'listing', loaderContext)
 
     expect(options?.map((option) => option.id)).toEqual(['default|AAPL||', 'crypto||BTC|USD'])
     expect(options?.map((option) => option.value)).toMatchObject([
@@ -157,5 +168,10 @@ describe('WatchlistBlock', () => {
         assetClass: 'crypto',
       },
     ])
+
+    resolveStock = false
+    await expect(
+      listingSubBlock?.fetchOptions?.('block-1', 'listing', loaderContext)
+    ).rejects.toThrow('Failed to resolve watchlist listing')
   })
 })
