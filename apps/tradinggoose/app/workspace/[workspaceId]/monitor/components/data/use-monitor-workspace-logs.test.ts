@@ -146,7 +146,7 @@ describe('useMonitorWorkspaceLogs', () => {
         searchQuery: 'provider:#alpaca workflow:#wf-1',
         queryPolicy: expect.objectContaining({ key: 'monitor' }),
         queryPolicyKey: 'monitor',
-        triggerSource: 'indicator_trigger',
+        triggerSource: 'indicator_trigger,portfolio_state_trigger',
       })
     )
     expect(snapshots.at(-1)?.executionItems[0]?.monitorId).toBe('monitor-1')

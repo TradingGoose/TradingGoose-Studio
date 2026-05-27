@@ -26,11 +26,11 @@ const referenceData: MonitorReferenceData = {
   indicatorById: {
     rsi: { id: 'rsi', name: 'RSI', source: 'default', color: '#3972F6' },
   },
-  streamingProviders: [
+  marketProviders: [
     { id: 'alpaca', name: 'Alpaca' },
     { id: 'finnhub', name: 'Finnhub' },
   ],
-  providerById: {
+  marketProviderById: {
     alpaca: { id: 'alpaca', name: 'Alpaca' },
     finnhub: { id: 'finnhub', name: 'Finnhub' },
   },
@@ -38,7 +38,7 @@ const referenceData: MonitorReferenceData = {
   providerParamDefinitionsByProviderId: {},
   tradingProviders: [{ id: 'alpaca', name: 'Alpaca' }],
   tradingProviderById: { alpaca: { id: 'alpaca', name: 'Alpaca' } },
-  defaultDraftProviderId: 'alpaca',
+  defaultMarketProviderId: 'alpaca',
   defaultPortfolioProviderId: 'alpaca',
   defaultDraftInterval: '1m',
   createDisabledReason: null,

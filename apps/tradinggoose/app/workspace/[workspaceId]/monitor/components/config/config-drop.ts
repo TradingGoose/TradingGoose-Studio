@@ -46,7 +46,7 @@ const applyDimension = ({
   }
 
   if (field === 'provider') {
-    if (!referenceData.providerById[value]) {
+    if (!referenceData.marketProviderById[value]) {
       errors.provider = 'Provider is unavailable.'
       return
     }

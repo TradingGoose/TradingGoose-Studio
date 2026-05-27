@@ -21,6 +21,11 @@ export { McpServerSelector } from './mcp-server-modal/mcp-server-selector'
 export { McpToolSelector } from './mcp-server-modal/mcp-tool-selector'
 export { OrderIdSelectorInput } from './order-id-selector/order-id-selector'
 export { ProjectSelectorInput } from './project-selector/project-selector-input'
+export {
+  WorkflowMarketProviderSelector,
+  WorkflowTradingAccountSelector,
+  WorkflowTradingProviderSelector,
+} from './provider-selectors'
 export { ScheduleConfig } from './schedule/schedule-config'
 export { ShortInput } from './short-input'
 export { SkillInput } from './skill-input/skill-input'

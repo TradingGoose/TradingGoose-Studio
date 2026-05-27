@@ -122,7 +122,7 @@ const buildAxisValues = (
       })
     )
   } else if (field === 'provider') {
-    referenceData.streamingProviders.concat(referenceData.tradingProviders).forEach((provider) =>
+    referenceData.marketProviders.concat(referenceData.tradingProviders).forEach((provider) =>
       addAxisValue(values, {
         id: provider.id,
         label: provider.name,

@@ -2,8 +2,10 @@ import type { ComponentType } from 'react'
 import type { InputMetaMap } from '@/lib/indicators/types'
 import type { ListingIdentity } from '@/lib/listing/identity'
 import type { PortfolioFireCondition } from '@/lib/monitors/portfolio-conditions'
-import type { MarketProviderParamDefinition } from '@/providers/market/providers'
-import type { PortfolioIdentity } from '@/providers/trading/portfolio-identity'
+import type {
+  MarketProviderOption,
+  MarketProviderParamDefinition,
+} from '@/providers/market/providers'
 
 export type MonitorSource = 'indicator' | 'portfolio'
 
@@ -117,7 +119,7 @@ export type IndicatorMonitorUpdateInput = {
   isActive?: boolean
 }
 
-export type IndicatorMonitorStateUpdateInput = {
+export type MonitorStateUpdateInput = {
   workspaceId: string
   isActive: boolean
 }
@@ -157,23 +159,10 @@ export type PortfolioMonitorUpdateInput = {
 export type MonitorCreateInput = IndicatorMonitorCreateInput | PortfolioMonitorCreateInput
 export type MonitorUpdateInput = IndicatorMonitorUpdateInput | PortfolioMonitorUpdateInput
 
-export type StreamingProviderOption = {
-  id: string
-  name: string
-  icon?: ComponentType<{ className?: string }>
-}
-
 export type TradingProviderOption = {
   id: string
   name: string
   icon?: ComponentType<{ className?: string }>
-}
-
-export type PortfolioAccountOption = {
-  id: string
-  label: string
-  rightLabel?: string
-  value: PortfolioIdentity
 }
 
 export type WorkflowPickerOption = {
@@ -190,13 +179,13 @@ export type MonitorReferenceData = {
   portfolioWorkflowTargets: WorkflowTargetOption[]
   indicatorOptions: IndicatorOption[]
   indicatorById: Record<string, IndicatorOption>
-  streamingProviders: StreamingProviderOption[]
-  providerById: Record<string, StreamingProviderOption>
+  marketProviders: MarketProviderOption[]
+  marketProviderById: Record<string, MarketProviderOption>
   providerIntervalsByProviderId: Record<string, string[]>
   providerParamDefinitionsByProviderId: Record<string, MarketProviderParamDefinition[]>
   tradingProviders: TradingProviderOption[]
   tradingProviderById: Record<string, TradingProviderOption>
-  defaultDraftProviderId: string
+  defaultMarketProviderId: string
   defaultPortfolioProviderId: string
   defaultDraftInterval: string
   createDisabledReason: string | null

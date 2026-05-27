@@ -91,7 +91,7 @@ export const buildConfigMonitorCards = (
       : undefined
     const provider = isPortfolio
       ? referenceData.tradingProviderById[monitorConfig.providerId]
-      : referenceData.providerById[monitorConfig.providerId]
+      : referenceData.marketProviderById[monitorConfig.providerId]
     const listingValue = isPortfolio
       ? `portfolio:${monitorConfig.serviceId ?? ''}:${monitorConfig.accountId ?? ''}`
       : (canonicalizeListingValue(monitorConfig.listing) ?? '')

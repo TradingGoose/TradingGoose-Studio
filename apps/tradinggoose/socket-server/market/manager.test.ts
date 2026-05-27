@@ -9,16 +9,18 @@ const { getEffectiveDecryptedEnvMock } = vi.hoisted(() => ({
 
 const {
   buildMarketQuoteSnapshotMock,
-  getMarketLiveCapabilitiesMock,
+  executeProviderRequestMock,
   getMarketProviderConfigMock,
+  getMarketProviderPollingIntervalMsMock,
   resolveListingContextMock,
   resolveProviderSymbolMock,
   alpacaStreamInstances,
   finnhubStreamInstances,
 } = vi.hoisted(() => ({
   buildMarketQuoteSnapshotMock: vi.fn(),
-  getMarketLiveCapabilitiesMock: vi.fn(),
+  executeProviderRequestMock: vi.fn(),
   getMarketProviderConfigMock: vi.fn(),
+  getMarketProviderPollingIntervalMsMock: vi.fn(),
   resolveListingContextMock: vi.fn(),
   resolveProviderSymbolMock: vi.fn(),
   alpacaStreamInstances: [] as any[],
@@ -35,6 +37,10 @@ vi.mock('@/lib/listing/identity', () => ({
 
 vi.mock('@/lib/market/quote-snapshots', () => ({
   buildMarketQuoteSnapshot: buildMarketQuoteSnapshotMock,
+}))
+
+vi.mock('@/providers/market', () => ({
+  executeProviderRequest: executeProviderRequestMock,
 }))
 
 vi.mock('@/lib/logs/console/logger', () => ({
@@ -54,8 +60,8 @@ vi.mock('@/providers/market/finnhub/config', () => ({
 }))
 
 vi.mock('@/providers/market/providers', () => ({
-  getMarketLiveCapabilities: getMarketLiveCapabilitiesMock,
   getMarketProviderConfig: getMarketProviderConfigMock,
+  getMarketProviderPollingIntervalMs: getMarketProviderPollingIntervalMsMock,
 }))
 
 vi.mock('@/providers/market/utils', () => ({
@@ -101,8 +107,8 @@ vi.mock('@/socket-server/market/finnhub', () => ({
 
 import {
   MarketStreamManager,
-  resolveMarketSubscribeEnv,
   type MarketSubscribePayload,
+  resolveMarketSubscribeEnv,
 } from './manager'
 
 const listing = {
@@ -131,12 +137,12 @@ describe('resolveMarketSubscribeEnv', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
-    delete process.env.RUNTIME_ONLY_KEY
+    process.env.RUNTIME_ONLY_KEY = undefined
   })
 
   afterEach(() => {
     if (originalEnv === undefined) {
-      delete process.env.RUNTIME_ONLY_KEY
+      process.env.RUNTIME_ONLY_KEY = undefined
       return
     }
 
@@ -201,16 +207,22 @@ describe('MarketStreamManager quote snapshots', () => {
     alpacaStreamInstances.length = 0
     finnhubStreamInstances.length = 0
     buildMarketQuoteSnapshotMock.mockResolvedValue(quoteSnapshot)
-    getMarketLiveCapabilitiesMock.mockImplementation((provider: string) =>
-      provider === 'yahoo-finance'
-        ? {
-            supportsPolling: true,
-            channels: ['quote-snapshots'],
-            pollingIntervalMs: 5_000,
-          }
-        : null
-    )
+    executeProviderRequestMock.mockResolvedValue({
+      bars: [
+        {
+          timeStamp: '2026-05-27T14:30:00.000Z',
+          open: 100,
+          high: 102,
+          low: 99,
+          close: 101,
+          volume: 1000,
+        },
+      ],
+    })
     getMarketProviderConfigMock.mockReturnValue({})
+    getMarketProviderPollingIntervalMsMock.mockImplementation((provider: string) =>
+      provider === 'yahoo-finance' ? 5_000 : undefined
+    )
     resolveListingContextMock.mockResolvedValue({
       listing,
       base: 'AAPL',
@@ -362,6 +374,75 @@ describe('MarketStreamManager quote snapshots', () => {
     await Promise.resolve()
 
     expect(buildMarketQuoteSnapshotMock).toHaveBeenCalledTimes(1)
+
+    manager.removeSocket(firstSocket.id)
+    manager.removeSocket(secondSocket.id)
+  })
+
+  it('uses one polling pull for duplicate polling-provider bar streams', async () => {
+    vi.useFakeTimers()
+    const manager = new MarketStreamManager()
+    const firstSocket = createSocket('socket-1')
+    const secondSocket = createSocket('socket-2')
+
+    await manager.subscribe(firstSocket, {
+      provider: 'yahoo-finance',
+      workspaceId: 'workspace-1',
+      listing,
+      channel: 'bars',
+      interval: '1m',
+      clientSubscriptionId: 'bars-1',
+    })
+    await manager.subscribe(secondSocket, {
+      provider: 'yahoo-finance',
+      workspaceId: 'workspace-1',
+      listing,
+      channel: 'bars',
+      interval: '1m',
+      clientSubscriptionId: 'bars-2',
+    })
+
+    await Promise.resolve()
+    await Promise.resolve()
+
+    expect(executeProviderRequestMock).toHaveBeenCalledTimes(1)
+    expect(executeProviderRequestMock).toHaveBeenCalledWith(
+      'yahoo-finance',
+      expect.objectContaining({
+        kind: 'series',
+        interval: '1m',
+        windows: [{ mode: 'bars', barCount: 1 }],
+      })
+    )
+    expect(firstSocket.emit).toHaveBeenCalledWith(
+      'market-bar',
+      expect.objectContaining({
+        provider: 'yahoo-finance',
+        channel: 'bars',
+        clientSubscriptionId: 'bars-1',
+        bar: expect.objectContaining({ close: 101 }),
+      })
+    )
+    expect(secondSocket.emit).toHaveBeenCalledWith(
+      'market-bar',
+      expect.objectContaining({
+        provider: 'yahoo-finance',
+        channel: 'bars',
+        clientSubscriptionId: 'bars-2',
+        bar: expect.objectContaining({ close: 101 }),
+      })
+    )
+
+    executeProviderRequestMock.mockClear()
+    firstSocket.emit.mockClear()
+    secondSocket.emit.mockClear()
+    vi.advanceTimersByTime(5_000)
+    await Promise.resolve()
+    await Promise.resolve()
+
+    expect(executeProviderRequestMock).toHaveBeenCalledTimes(1)
+    expect(firstSocket.emit).not.toHaveBeenCalled()
+    expect(secondSocket.emit).not.toHaveBeenCalled()
 
     manager.removeSocket(firstSocket.id)
     manager.removeSocket(secondSocket.id)

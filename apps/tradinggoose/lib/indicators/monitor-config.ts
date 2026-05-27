@@ -6,9 +6,8 @@ import { INDICATOR_MONITOR_TRIGGER_ID } from '@/lib/monitors/sources'
 import { encryptSecret } from '@/lib/utils-server'
 import {
   coerceMarketProviderParamValue,
-  getMarketLiveCapabilities,
-  getMarketProviderParamDefinitions,
-  getMarketSeriesCapabilities,
+  getMarketMonitorProviderParamDefinitions,
+  getMarketProviderIntervals,
 } from '@/providers/market/providers'
 
 export { INDICATOR_MONITOR_TRIGGER_ID }
@@ -79,8 +78,8 @@ export type IndicatorMonitorProviderConfig = {
   }
 }
 
-const getRequiredLiveSecretParamIds = (providerId: string): string[] =>
-  getMarketProviderParamDefinitions(providerId, 'live')
+const getRequiredMonitorSecretParamIds = (providerId: string): string[] =>
+  getMarketMonitorProviderParamDefinitions(providerId)
     .filter((definition) => definition.password && definition.required)
     .map((definition) => definition.id)
 
@@ -88,7 +87,7 @@ const normalizeProviderParams = (
   providerId: string,
   raw: Record<string, unknown> | undefined
 ): Record<string, unknown> | undefined => {
-  const definitions = getMarketProviderParamDefinitions(providerId, 'live')
+  const definitions = getMarketMonitorProviderParamDefinitions(providerId)
   const nonSecretDefinitions = definitions.filter((definition) => !definition.password)
   const definitionMap = new Map(
     nonSecretDefinitions.map((definition) => [definition.id, definition])
@@ -223,12 +222,7 @@ type NormalizeMonitorConfigInput = {
 export const normalizeIndicatorMonitorConfig = async (
   input: NormalizeMonitorConfigInput
 ): Promise<IndicatorMonitorProviderConfig> => {
-  const liveCapabilities = getMarketLiveCapabilities(input.providerId)
-  if (!liveCapabilities?.supportsStreaming) {
-    throw new Error(`Provider ${input.providerId} does not support live streaming.`)
-  }
-
-  const intervalOptions = getMarketSeriesCapabilities(input.providerId)?.intervals ?? []
+  const intervalOptions = getMarketProviderIntervals(input.providerId)
   if (!intervalOptions.includes(input.interval as any)) {
     throw new Error(`Interval ${input.interval} is not supported for provider ${input.providerId}.`)
   }
@@ -238,7 +232,7 @@ export const normalizeIndicatorMonitorConfig = async (
     throw new Error('Invalid listing value.')
   }
 
-  const requiredSecretParamIds = getRequiredLiveSecretParamIds(input.providerId)
+  const requiredSecretParamIds = getRequiredMonitorSecretParamIds(input.providerId)
   const replacingAuth = input.authInput !== undefined
   const incomingSecretValues = input.authInput?.secrets ?? {}
   const encryptedSecrets: Record<string, string> = replacingAuth

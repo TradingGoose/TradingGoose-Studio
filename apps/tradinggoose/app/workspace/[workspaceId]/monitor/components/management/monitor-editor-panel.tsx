@@ -66,7 +66,7 @@ function MonitorDetails({
               {isPortfolio
                 ? (referenceData.tradingProviderById[monitorConfig.providerId]?.name ??
                   monitorConfig.providerId)
-                : (referenceData.providerById[monitorConfig.providerId]?.name ??
+                : (referenceData.marketProviderById[monitorConfig.providerId]?.name ??
                   monitorConfig.providerId)}
             </div>
           </div>
@@ -164,7 +164,7 @@ function EditorContent({
           draft={editorState.editingDraft}
           errors={editorState.editingErrors}
           saving={editorState.saving}
-          streamingProviders={referenceData.streamingProviders}
+          marketProviders={referenceData.marketProviders}
           tradingProviders={referenceData.tradingProviders}
           providerIntervals={
             referenceData.providerIntervalsByProviderId[editorState.editingDraft.providerId] ?? []

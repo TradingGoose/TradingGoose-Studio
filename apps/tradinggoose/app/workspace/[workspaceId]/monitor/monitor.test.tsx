@@ -259,6 +259,13 @@ vi.mock('@/hooks/queries/logs', async (importOriginal) => {
   }
 })
 
+vi.mock('@/hooks/queries/oauth-provider-availability', () => ({
+  fetchOAuthProviderAvailability: vi.fn().mockResolvedValue({
+    'alpaca-paper': true,
+    'tradier-live': false,
+  }),
+}))
+
 vi.mock('@/app/workspace/[workspaceId]/monitor/components/data/api', () => ({
   createMonitorView: vi.fn(),
   createMonitorRecord: vi.fn(),

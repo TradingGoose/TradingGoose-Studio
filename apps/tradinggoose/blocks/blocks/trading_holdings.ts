@@ -1,15 +1,9 @@
 import { DollarIcon } from '@/components/icons/icons'
 import type { BlockConfig } from '@/blocks/types'
 import { AuthMode } from '@/blocks/types'
-import {
-  fetchTradingPortfolioIdentityOptions,
-  fetchTradingProviderOptionsByKind,
-  requiredUserOnlyInput,
-} from '@/blocks/utils'
+import { requiredUserOnlyInput } from '@/blocks/utils'
 import { toPortfolioValueObject } from '@/providers/trading/portfolio-identity'
 import type { TradingHoldingsResponse } from '@/providers/trading/types'
-
-const fetchHoldingsProviderOptions = fetchTradingProviderOptionsByKind('holdings')
 
 export const TradingHoldingsBlock: BlockConfig<TradingHoldingsResponse> = {
   type: 'trading_holdings',
@@ -25,25 +19,23 @@ export const TradingHoldingsBlock: BlockConfig<TradingHoldingsResponse> = {
     {
       id: 'provider',
       title: 'Broker',
-      type: 'dropdown',
+      type: 'trading-provider-selector',
       layout: 'full',
-      options: [],
-      fetchOptions: fetchHoldingsProviderOptions,
+      tradingProviderKind: 'holdings',
       placeholder: 'Select broker',
       required: true,
     },
     {
       id: 'portfolioIdentity',
       title: 'Broker Account',
-      type: 'dropdown',
+      type: 'trading-account-selector',
       layout: 'full',
       required: true,
       dependsOn: ['provider'],
-      enableSearch: true,
       autoSelectFirstOption: false,
       placeholder: 'Select broker account',
       description: 'Broker account used to fetch canonical portfolio detail.',
-      fetchOptions: fetchTradingPortfolioIdentityOptions,
+      tradingProviderFieldId: 'provider',
     },
   ],
   tools: {

@@ -37,11 +37,10 @@ import { blockExistsInDeployment } from '@/lib/workflows/db-helpers'
 import { applySavedEntityYjsStateToRows } from '@/lib/yjs/entity-state'
 import type { MonitorExecutionPayload } from '@/background/monitor-execution'
 import { executeProviderRequest } from '@/providers/market'
-import { alpacaProviderConfig } from '@/providers/market/alpaca/config'
-import { finnhubProviderConfig } from '@/providers/market/finnhub/config'
+import { getMarketProviderConfig } from '@/providers/market/providers'
 import type { MarketBar, MarketSeries } from '@/providers/market/types'
 import { resolveListingContext, resolveProviderSymbol } from '@/providers/market/utils'
-import { marketStreamManager } from '@/socket-server/market/manager'
+import { type AnyMarketProviderId, marketStreamManager } from '@/socket-server/market/manager'
 import type { AuthenticatedSocket } from '@/socket-server/middleware/auth'
 
 type MonitorRuntimeStatus = 'not_initialized' | 'running' | 'degraded' | 'disabled'
@@ -86,7 +85,7 @@ type MonitorRuntimeConfig = {
   userId: string
   pinnedApiKeyId: string | null
   blockId: string
-  providerId: 'alpaca' | 'finnhub'
+  providerId: AnyMarketProviderId
   interval: string
   intervalMs: number | null
   indicatorId: string
@@ -181,7 +180,7 @@ const normalizeProviderConfig = (
     toTrimmedString(monitor.blockId) ??
     toTrimmedString(row.blockId)
 
-  if (!providerId || (providerId !== 'alpaca' && providerId !== 'finnhub')) return null
+  if (!providerId || !getMarketProviderConfig(providerId)) return null
   if (!interval || !indicatorId || !listing) return null
   if (!triggerBlockId) return null
 
@@ -208,7 +207,7 @@ const normalizeProviderConfig = (
     userId,
     pinnedApiKeyId,
     blockId: triggerBlockId,
-    providerId,
+    providerId: providerId as AnyMarketProviderId,
     interval,
     intervalMs,
     indicatorId,
@@ -777,8 +776,10 @@ export class IndicatorMonitorRuntime {
   ): Promise<IndicatorMonitorSubscription> {
     const auth = await resolveMonitorAuth(monitor)
     const listingContext = await resolveListingContext(monitor.listing)
-    const providerConfig =
-      monitor.providerId === 'alpaca' ? alpacaProviderConfig : finnhubProviderConfig
+    const providerConfig = getMarketProviderConfig(monitor.providerId)
+    if (!providerConfig) {
+      throw new Error(`Market provider not found: ${monitor.providerId}`)
+    }
     const symbol = normalizeSymbol(resolveProviderSymbol(providerConfig, listingContext))
 
     if (!symbol) {
@@ -829,13 +830,11 @@ export class IndicatorMonitorRuntime {
             typeof payload?.message === 'string' && payload.message.trim()
               ? payload.message
               : 'Market stream error'
-          this.logger.warn(
-            `${monitor.providerId === 'alpaca' ? 'Alpaca' : 'Finnhub'} monitor stream error`,
-            {
-              monitorId: monitor.id,
-              message,
-            }
-          )
+          this.logger.warn('Indicator monitor market stream error', {
+            monitorId: monitor.id,
+            providerId: monitor.providerId,
+            message,
+          })
         }
       },
     } as unknown as AuthenticatedSocket

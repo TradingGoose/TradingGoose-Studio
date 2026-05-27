@@ -29,7 +29,7 @@ type IndicatorMonitorExecutionMonitor = {
   userId: string
   actorUserId: string
   blockId: string
-  providerId: 'alpaca' | 'finnhub'
+  providerId: string
   interval: string
   intervalMs: number | null
   indicatorId: string
@@ -67,7 +67,8 @@ const isMonitor = (value: unknown): value is IndicatorMonitorExecutionMonitor =>
     typeof value.userId === 'string' &&
     typeof value.actorUserId === 'string' &&
     typeof value.blockId === 'string' &&
-    (value.providerId === 'alpaca' || value.providerId === 'finnhub') &&
+    typeof value.providerId === 'string' &&
+    value.providerId.trim().length > 0 &&
     typeof value.interval === 'string' &&
     (typeof value.intervalMs === 'number' || value.intervalMs === null) &&
     typeof value.indicatorId === 'string' &&

@@ -59,13 +59,13 @@ const referenceData: MonitorReferenceData = {
   indicatorById: {
     rsi: { id: 'rsi', name: 'RSI', source: 'default', color: '#3972F6' },
   },
-  streamingProviders: [{ id: 'alpaca', name: 'Alpaca' }],
-  providerById: { alpaca: { id: 'alpaca', name: 'Alpaca' } },
+  marketProviders: [{ id: 'alpaca', name: 'Alpaca' }],
+  marketProviderById: { alpaca: { id: 'alpaca', name: 'Alpaca' } },
   providerIntervalsByProviderId: { alpaca: ['1m'] },
   providerParamDefinitionsByProviderId: {},
   tradingProviders: [{ id: 'alpaca', name: 'Alpaca' }],
   tradingProviderById: { alpaca: { id: 'alpaca', name: 'Alpaca' } },
-  defaultDraftProviderId: 'alpaca',
+  defaultMarketProviderId: 'alpaca',
   defaultPortfolioProviderId: 'alpaca',
   defaultDraftInterval: '1m',
   createDisabledReason: null,
@@ -230,7 +230,7 @@ describe('config monitor domain', () => {
     })
   })
 
-  it('falls back to a supported interval when a provider drop changes capabilities', () => {
+  it('falls back to a supported interval when a provider drop changes interval options', () => {
     const card = buildConfigMonitorCards([monitor], referenceData, {})[0]!
     const resolution = resolveConfigBoardContextPatch({
       decodedContext: {
@@ -246,12 +246,9 @@ describe('config monitor domain', () => {
       },
       referenceData: {
         ...referenceData,
-        streamingProviders: [
-          ...referenceData.streamingProviders,
-          { id: 'tradier', name: 'Tradier' },
-        ],
-        providerById: {
-          ...referenceData.providerById,
+        marketProviders: [...referenceData.marketProviders, { id: 'tradier', name: 'Tradier' }],
+        marketProviderById: {
+          ...referenceData.marketProviderById,
           tradier: { id: 'tradier', name: 'Tradier' },
         },
         providerIntervalsByProviderId: {
@@ -277,9 +274,9 @@ describe('config monitor domain', () => {
     const card = buildConfigMonitorCards([monitor], referenceData, {})[0]!
     const nextReferenceData: MonitorReferenceData = {
       ...referenceData,
-      streamingProviders: [...referenceData.streamingProviders, { id: 'tradier', name: 'Tradier' }],
-      providerById: {
-        ...referenceData.providerById,
+      marketProviders: [...referenceData.marketProviders, { id: 'tradier', name: 'Tradier' }],
+      marketProviderById: {
+        ...referenceData.marketProviderById,
         tradier: { id: 'tradier', name: 'Tradier' },
       },
       providerIntervalsByProviderId: {
@@ -332,12 +329,9 @@ describe('config monitor domain', () => {
       },
       referenceData: {
         ...referenceData,
-        streamingProviders: [
-          ...referenceData.streamingProviders,
-          { id: 'tradier', name: 'Tradier' },
-        ],
-        providerById: {
-          ...referenceData.providerById,
+        marketProviders: [...referenceData.marketProviders, { id: 'tradier', name: 'Tradier' }],
+        marketProviderById: {
+          ...referenceData.marketProviderById,
           tradier: { id: 'tradier', name: 'Tradier' },
         },
         providerIntervalsByProviderId: {
@@ -373,9 +367,9 @@ describe('config monitor domain', () => {
     }
     const nextReferenceData: MonitorReferenceData = {
       ...referenceData,
-      streamingProviders: [...referenceData.streamingProviders, { id: 'tradier', name: 'Tradier' }],
-      providerById: {
-        ...referenceData.providerById,
+      marketProviders: [...referenceData.marketProviders, { id: 'tradier', name: 'Tradier' }],
+      marketProviderById: {
+        ...referenceData.marketProviderById,
         tradier: { id: 'tradier', name: 'Tradier' },
       },
       providerIntervalsByProviderId: {
@@ -415,9 +409,9 @@ describe('config monitor domain', () => {
   it('uses the default draft interval when an editor provider change has no interval list', () => {
     const nextReferenceData: MonitorReferenceData = {
       ...referenceData,
-      streamingProviders: [...referenceData.streamingProviders, { id: 'tradier', name: 'Tradier' }],
-      providerById: {
-        ...referenceData.providerById,
+      marketProviders: [...referenceData.marketProviders, { id: 'tradier', name: 'Tradier' }],
+      marketProviderById: {
+        ...referenceData.marketProviderById,
         tradier: { id: 'tradier', name: 'Tradier' },
       },
       providerIntervalsByProviderId: {
@@ -456,9 +450,9 @@ describe('config monitor domain', () => {
     }
     const nextReferenceData: MonitorReferenceData = {
       ...referenceData,
-      streamingProviders: [...referenceData.streamingProviders, { id: 'tradier', name: 'Tradier' }],
-      providerById: {
-        ...referenceData.providerById,
+      marketProviders: [...referenceData.marketProviders, { id: 'tradier', name: 'Tradier' }],
+      marketProviderById: {
+        ...referenceData.marketProviderById,
         tradier: { id: 'tradier', name: 'Tradier' },
       },
       providerIntervalsByProviderId: {

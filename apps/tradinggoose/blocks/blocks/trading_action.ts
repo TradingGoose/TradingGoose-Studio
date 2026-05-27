@@ -2,12 +2,7 @@ import { DollarIcon } from '@/components/icons/icons'
 import type { ListingInputValue } from '@/lib/listing/identity'
 import type { BlockConfig, SubBlockCondition } from '@/blocks/types'
 import { AuthMode } from '@/blocks/types'
-import {
-  buildInputsFromToolParams,
-  fetchTradingPortfolioIdentityOptions,
-  fetchTradingProviderOptionsByKind,
-  requiredUserOnlyInput,
-} from '@/blocks/utils'
+import { buildInputsFromToolParams, requiredUserOnlyInput } from '@/blocks/utils'
 import {
   getTradingOrderSizingModeDefinitions,
   getTradingOrderTimeInForceOptions,
@@ -33,7 +28,6 @@ const resolveContextValue = (
 }
 
 const orderProviders = getTradingProvidersByKind('order')
-const fetchOrderProviderOptions = fetchTradingProviderOptionsByKind('order')
 
 const providerIdsWith = (predicate: (provider: (typeof orderProviders)[number]) => boolean) =>
   orderProviders.filter(predicate).map((provider) => provider.id)
@@ -111,25 +105,23 @@ export const TradingActionBlock: BlockConfig<TradingActionResponse> = {
     {
       id: TRADING_PROVIDER_FIELD,
       title: 'Broker',
-      type: 'dropdown',
+      type: 'trading-provider-selector',
       layout: 'full',
-      options: [],
-      fetchOptions: fetchOrderProviderOptions,
+      tradingProviderKind: 'order',
       placeholder: 'Select broker',
       required: true,
     },
     {
       id: 'portfolioIdentity',
       title: 'Broker Account',
-      type: 'dropdown',
+      type: 'trading-account-selector',
       layout: 'full',
       required: true,
       dependsOn: [TRADING_PROVIDER_FIELD],
-      enableSearch: true,
       autoSelectFirstOption: false,
       placeholder: 'Select broker account',
       description: 'Broker account used to submit this order.',
-      fetchOptions: fetchTradingPortfolioIdentityOptions,
+      tradingProviderFieldId: TRADING_PROVIDER_FIELD,
     },
     {
       id: 'side',

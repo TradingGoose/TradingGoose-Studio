@@ -48,6 +48,9 @@ import {
   ToolInput,
   TriggerSave,
   VariablesInput,
+  WorkflowMarketProviderSelector,
+  WorkflowTradingAccountSelector,
+  WorkflowTradingProviderSelector,
 } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/components'
 import { DocumentTagEntry } from './components/document-tag-entry/document-tag-entry'
 import { KnowledgeTagFilters } from './components/knowledge-tag-filters/knowledge-tag-filters'
@@ -405,6 +408,36 @@ export const SubBlock = memo(
         case 'market-selector':
           return (
             <ListingSelectorInput
+              blockId={blockId}
+              subBlockId={config.id}
+              disabled={isDisabled}
+              config={config}
+              contextValues={contextValues}
+            />
+          )
+        case 'market-provider-selector':
+          return (
+            <WorkflowMarketProviderSelector
+              blockId={blockId}
+              subBlockId={config.id}
+              disabled={isDisabled}
+              config={config}
+              contextValues={contextValues}
+            />
+          )
+        case 'trading-provider-selector':
+          return (
+            <WorkflowTradingProviderSelector
+              blockId={blockId}
+              subBlockId={config.id}
+              disabled={isDisabled}
+              config={config}
+              contextValues={contextValues}
+            />
+          )
+        case 'trading-account-selector':
+          return (
+            <WorkflowTradingAccountSelector
               blockId={blockId}
               subBlockId={config.id}
               disabled={isDisabled}

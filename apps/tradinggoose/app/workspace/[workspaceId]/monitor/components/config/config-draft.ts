@@ -54,7 +54,7 @@ const getDefaultProviderIdForSource = (
 ) =>
   source === 'portfolio'
     ? referenceData.defaultPortfolioProviderId
-    : referenceData.defaultDraftProviderId
+    : referenceData.defaultMarketProviderId
 
 export const getProviderIntervalFallback = ({
   defaultDraftInterval,
@@ -213,7 +213,7 @@ export const validateMonitorDraft = ({
   if (draft.indicatorId && !referenceData.indicatorById[draft.indicatorId]) {
     errors.indicatorId = 'Selected indicator is unavailable.'
   }
-  if (draft.providerId && !referenceData.providerById[draft.providerId]) {
+  if (draft.providerId && !referenceData.marketProviderById[draft.providerId]) {
     errors.providerId = 'Selected provider is unavailable.'
   }
   const availableIntervals = referenceData.providerIntervalsByProviderId[draft.providerId] ?? []

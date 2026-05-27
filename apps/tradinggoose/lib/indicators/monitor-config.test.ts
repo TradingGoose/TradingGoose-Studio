@@ -161,4 +161,16 @@ describe('normalizeIndicatorMonitorConfig', () => {
       'Missing required auth secret values for provider fields: apiKey, apiSecret'
     )
   })
+
+  it('allows polling-backed market providers through the same monitor config path', async () => {
+    const result = await normalizeIndicatorMonitorConfig({
+      ...baseInput,
+      providerId: 'yahoo-finance',
+      interval: '1m',
+      providerParams: {},
+    })
+
+    expect(result.monitor.providerId).toBe('yahoo-finance')
+    expect(result.monitor.interval).toBe('1m')
+  })
 })

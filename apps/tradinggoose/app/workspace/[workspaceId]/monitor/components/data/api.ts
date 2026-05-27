@@ -4,10 +4,10 @@ import {
   PORTFOLIO_MONITOR_TRIGGER_ID,
 } from '@/lib/monitors/sources'
 import type {
-  IndicatorMonitorStateUpdateInput,
   IndicatorOption,
   MonitorCreateInput,
   MonitorRecord,
+  MonitorStateUpdateInput,
   MonitorUpdateInput,
   WorkflowPickerOption,
   WorkflowTargetOption,
@@ -279,7 +279,7 @@ export async function createMonitorRecord(body: MonitorCreateInput): Promise<Mon
 
 export async function updateMonitorRecord(
   monitorId: string,
-  body: MonitorUpdateInput | IndicatorMonitorStateUpdateInput
+  body: MonitorUpdateInput | MonitorStateUpdateInput
 ): Promise<MonitorRecord | null> {
   const response = await fetch(`/api/monitors/${encodeURIComponent(monitorId)}`, {
     method: 'PATCH',

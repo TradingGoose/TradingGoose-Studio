@@ -129,12 +129,8 @@ vi.mock('@/providers/market', () => ({
   executeProviderRequest: vi.fn(),
 }))
 
-vi.mock('@/providers/market/alpaca/config', () => ({
-  alpacaProviderConfig: {},
-}))
-
-vi.mock('@/providers/market/finnhub/config', () => ({
-  finnhubProviderConfig: {},
+vi.mock('@/providers/market/providers', () => ({
+  getMarketProviderConfig: vi.fn(() => ({})),
 }))
 
 vi.mock('@/providers/market/utils', () => ({
@@ -190,7 +186,7 @@ describe('IndicatorMonitorRuntime lock lifecycle', () => {
     expect(acquireLockMock).toHaveBeenCalledWith(
       'indicator-monitor-runtime-lock',
       expect.any(String),
-      90,
+      90
     )
     expect(runtime.getHealth().status).toBe('running')
 
@@ -199,7 +195,7 @@ describe('IndicatorMonitorRuntime lock lifecycle', () => {
     expect(renewLockMock).toHaveBeenCalledWith(
       'indicator-monitor-runtime-lock',
       expect.any(String),
-      90,
+      90
     )
 
     await runtime.stop()
@@ -226,7 +222,7 @@ describe('IndicatorMonitorRuntime lock lifecycle', () => {
       'Indicator monitor paused; runtime unavailable',
       expect.objectContaining({
         reason: 'lock',
-      }),
+      })
     )
 
     await runtime.stop()
@@ -244,7 +240,7 @@ describe('IndicatorMonitorRuntime lock lifecycle', () => {
 
     expect(releaseLockMock).toHaveBeenCalledWith(
       'indicator-monitor-runtime-lock',
-      expect.any(String),
+      expect.any(String)
     )
 
     const renewCallCount = renewLockMock.mock.calls.length
