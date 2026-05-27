@@ -75,6 +75,7 @@ const toFetchedListingOption = (option: { value?: unknown }) => {
 }
 
 const isListingOption = (value: ListingOption | null): value is ListingOption => Boolean(value)
+const EMPTY_LISTING_OPTIONS: ListingOption[] = []
 
 export function ListingSelectorInput({
   blockId,
@@ -349,7 +350,9 @@ export function ListingSelectorInput({
       providerType={resolvedProviderType}
       marketProviderId={marketProviderId}
       tradingProviderId={tradingProviderId}
-      candidateListings={usesFetchedListingOptions ? (fetchedListingOptions ?? []) : undefined}
+      candidateListings={
+        usesFetchedListingOptions ? (fetchedListingOptions ?? EMPTY_LISTING_OPTIONS) : undefined
+      }
       candidateListingsLoading={usesFetchedListingOptions && isLoadingListingOptions}
       candidateListingsError={usesFetchedListingOptions ? listingOptionsError : undefined}
       listingRequired={config?.required === true}

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { type ReactNode, useEffect, useMemo, useState } from 'react'
 import {
   getListingDisplaySymbol,
   ListingDisplayRow,
@@ -259,25 +259,32 @@ function formatSkillInputValue(value: unknown): string {
 function SummaryRow({
   title,
   value,
+  valueTitle,
   labelClassName,
   valueClassName,
 }: {
   title: string
-  value: string
+  value: ReactNode
+  valueTitle?: string
   labelClassName?: string
   valueClassName?: string
 }) {
+  const isTextValue = typeof value === 'string'
+
   return (
-    <div className='flex items-center gap-2'>
+    <div className='flex items-center gap-8'>
       <p
         className={cn('min-w-0 truncate text-muted-foreground capitalize', labelClassName)}
         title={title}
       >
         {title}
       </p>
-      <p className={cn('min-w-0 flex-1 truncate text-right', valueClassName)} title={value}>
+      <div
+        className={cn('min-w-0 flex-1', isTextValue && 'truncate text-right', valueClassName)}
+        title={valueTitle ?? (isTextValue ? value : undefined)}
+      >
         {value}
-      </p>
+      </div>
     </div>
   )
 }
@@ -330,20 +337,13 @@ function SummaryListingRow({
   const displayTitle = getListingDisplaySymbol(displayListing)
 
   return (
-    <div className='flex items-center gap-2'>
-      <p
-        className={cn('min-w-0 truncate text-muted-foreground capitalize', labelClassName)}
-        title={title}
-      >
-        {title}
-      </p>
-      <div
-        className={cn('min-w-0 flex-1', valueClassName)}
-        title={displayTitle || getListingIdentityKey(identity)}
-      >
-        <ListingDisplayRow listing={displayListing} className='justify-end' />
-      </div>
-    </div>
+    <SummaryRow
+      title={title}
+      value={<ListingDisplayRow listing={displayListing} className='justify-end' />}
+      valueTitle={displayTitle || getListingIdentityKey(identity)}
+      labelClassName={labelClassName}
+      valueClassName={valueClassName}
+    />
   )
 }
 

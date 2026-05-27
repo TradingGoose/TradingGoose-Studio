@@ -119,4 +119,31 @@ describe('ListingSelectorInput', () => {
       })
     )
   })
+
+  it('keeps empty fetched listing candidates stable while options load', () => {
+    const fetchedConfig = {
+      ...unscopedConfig,
+      fetchOptionsCondition: { field: 'operation', value: 'removeListing' },
+      fetchOptions: vi.fn(() => new Promise<never>(() => {})),
+    } satisfies SubBlockConfig
+    const props = {
+      blockId: 'block-1',
+      subBlockId: 'listing',
+      config: fetchedConfig,
+      contextValues: { operation: 'removeListing' },
+    }
+
+    act(() => {
+      root.render(<ListingSelectorInput {...props} />)
+    })
+    const firstCandidates = listingSelectorMock.mock.calls.at(-1)?.[0]?.candidateListings
+
+    act(() => {
+      root.render(<ListingSelectorInput {...props} />)
+    })
+    const secondCandidates = listingSelectorMock.mock.calls.at(-1)?.[0]?.candidateListings
+
+    expect(firstCandidates).toEqual([])
+    expect(secondCandidates).toBe(firstCandidates)
+  })
 })
