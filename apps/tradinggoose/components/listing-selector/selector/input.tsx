@@ -26,6 +26,7 @@ import { formatDisplayText } from '@/components/ui/formatted-text'
 import { Input } from '@/components/ui/input'
 import { checkTagTrigger, TagDropdown } from '@/components/ui/tag-dropdown'
 import {
+  areListingIdentitiesEqual,
   LISTING_IDENTITY_VALUE_TYPE,
   type ListingOption,
   toListingValue,
@@ -47,6 +48,8 @@ export interface StockSelectorProps {
   className?: string
   variant?: 'field' | 'header'
   providerType?: 'market' | 'trading'
+  marketProviderId?: string
+  tradingProviderId?: string
   activateOnMount?: boolean
   candidateListings?: ListingOption[]
   candidateListingsLoading?: boolean
@@ -64,6 +67,8 @@ export function StockSelector({
   className,
   variant = 'field',
   providerType = 'market',
+  marketProviderId,
+  tradingProviderId,
   activateOnMount = false,
   candidateListings,
   candidateListingsLoading,
@@ -303,6 +308,8 @@ export function StockSelector({
     query,
     providerId,
     providerType,
+    marketProviderId,
+    tradingProviderId,
     instanceId,
     updateInstance,
     candidateListings,
@@ -333,27 +340,44 @@ export function StockSelector({
 
   useEffect(() => {
     const selectedValue = safeInstance.selectedListingValue ?? safeInstance.selectedListing ?? null
-    if (!selectedValue) return
+    if (!selectedValue) {
+      hydrateRequestRef.current += 1
+      return
+    }
 
     const identity = toListingValueObject(selectedValue)
-    if (!identity) return
+    if (!identity) {
+      hydrateRequestRef.current += 1
+      return
+    }
 
     if (safeInstance.selectedListing && hasListingDisplayDetails(safeInstance.selectedListing)) {
+      hydrateRequestRef.current += 1
       return
     }
 
     const requestId = ++hydrateRequestRef.current
+    let cancelled = false
 
     requestListingResolution(identity)
       .then((resolved) => {
-        if (hydrateRequestRef.current !== requestId) return
+        if (cancelled || hydrateRequestRef.current !== requestId) return
         if (!resolved) return
+        const currentInstance = useListingSelectorStore.getState().instances[instanceId]
+        const currentIdentity = toListingValueObject(
+          currentInstance?.selectedListingValue ?? currentInstance?.selectedListing ?? null
+        )
+        if (!areListingIdentitiesEqual(currentIdentity, identity)) return
         updateInstance(instanceId, {
           selectedListing: resolved,
           selectedListingValue: identity,
         })
       })
       .catch(() => {})
+
+    return () => {
+      cancelled = true
+    }
   }, [safeInstance.selectedListing, safeInstance.selectedListingValue, instanceId, updateInstance])
 
   useEffect(() => {

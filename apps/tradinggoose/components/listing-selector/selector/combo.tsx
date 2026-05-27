@@ -12,6 +12,8 @@ export interface ListingSelectorProps {
   className?: string
   disabled?: boolean
   providerType?: 'market' | 'trading'
+  marketProviderId?: string
+  tradingProviderId?: string
   candidateListings?: ListingOption[]
   candidateListingsLoading?: boolean
   candidateListingsError?: string
@@ -27,6 +29,8 @@ export function ListingSelector({
   className,
   disabled,
   providerType = 'market',
+  marketProviderId,
+  tradingProviderId,
   candidateListings,
   candidateListingsLoading,
   candidateListingsError,
@@ -53,6 +57,8 @@ export function ListingSelector({
           blockId={blockId}
           disabled={disabled}
           providerType={providerType}
+          marketProviderId={marketProviderId}
+          tradingProviderId={tradingProviderId}
           candidateListings={candidateListings}
           candidateListingsLoading={candidateListingsLoading}
           candidateListingsError={candidateListingsError}

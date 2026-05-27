@@ -1,7 +1,8 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { fetchListings } from '@/components/listing-selector/fetchers'
 import { buildMarketSearchRequest } from '@/components/listing-selector/selector/search-request'
 import {
+  combineProviderSearchConfigs,
   useMarketProviderSearchConfig,
   useTradingProviderSearchConfig,
 } from '@/components/listing-selector/selector/use-provider-config'
@@ -16,6 +17,8 @@ type UseMarketListingSearchOptions = {
   query: string
   providerId?: string
   providerType?: 'market' | 'trading'
+  marketProviderId?: string
+  tradingProviderId?: string
   instanceId: string
   updateInstance: UpdateInstance
   candidateListings?: ListingOption[]
@@ -46,6 +49,8 @@ export function useMarketListingSearch({
   query,
   providerId,
   providerType = 'market',
+  marketProviderId,
+  tradingProviderId,
   instanceId,
   updateInstance,
   candidateListings,
@@ -55,9 +60,20 @@ export function useMarketListingSearch({
   const debouncedQuery = useDebounce(query, 400)
   const requestKeyRef = useRef<string>('')
   const abortRef = useRef<AbortController | null>(null)
-  const marketProviderConfig = useMarketProviderSearchConfig(providerId)
-  const tradingProviderConfig = useTradingProviderSearchConfig(providerId)
-  const providerConfig = providerType === 'trading' ? tradingProviderConfig : marketProviderConfig
+  const marketSearchProviderId =
+    marketProviderId ?? (providerType === 'market' ? providerId : undefined)
+  const tradingSearchProviderId =
+    tradingProviderId ?? (providerType === 'trading' ? providerId : undefined)
+  const marketProviderConfig = useMarketProviderSearchConfig(marketSearchProviderId)
+  const tradingProviderConfig = useTradingProviderSearchConfig(tradingSearchProviderId)
+  const providerConfig = useMemo(
+    () =>
+      combineProviderSearchConfigs([
+        ...(marketSearchProviderId ? [marketProviderConfig] : []),
+        ...(tradingSearchProviderId ? [tradingProviderConfig] : []),
+      ]),
+    [marketSearchProviderId, marketProviderConfig, tradingSearchProviderId, tradingProviderConfig]
+  )
 
   const abortInFlightRequest = () => {
     requestKeyRef.current = ''
@@ -117,11 +133,13 @@ export function useMarketListingSearch({
 
     const { queryParams, requestKey } = buildMarketSearchRequest({
       rawQuery: debouncedQuery,
-      providerId,
-      providerType,
       providerConfig,
     })
-    requestKeyRef.current = requestKey
+    if (Object.keys(queryParams).length === 0) {
+      abortInFlightRequest()
+      updateInstance(instanceId, { results: [], isLoading: false, error: undefined })
+      return
+    }
 
     abortInFlightRequest()
     requestKeyRef.current = requestKey
@@ -160,6 +178,8 @@ export function useMarketListingSearch({
     debouncedQuery,
     providerId,
     providerType,
+    marketProviderId,
+    tradingProviderId,
     providerConfig,
     instanceId,
     updateInstance,

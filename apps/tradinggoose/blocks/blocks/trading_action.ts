@@ -148,6 +148,8 @@ export const TradingActionBlock: BlockConfig<TradingActionResponse> = {
       type: 'market-selector',
       layout: 'full',
       providerType: 'market',
+      tradingProviderFieldId: TRADING_PROVIDER_FIELD,
+      dependsOn: [TRADING_PROVIDER_FIELD],
       required: true,
     },
     {

@@ -154,7 +154,7 @@ export interface SubBlockConfig {
   mode?: 'basic' | 'advanced' | 'both' | 'trigger' // Default is 'both' if not specified
   canonicalParamId?: string
   providerType?: 'market' | 'trading'
-  providerFieldId?: string
+  tradingProviderFieldId?: string
   required?: boolean | SubBlockCondition | (() => SubBlockCondition)
   defaultValue?: string | number | boolean | Record<string, unknown> | Array<unknown>
   options?: SubBlockOption[] | (() => SubBlockOption[])

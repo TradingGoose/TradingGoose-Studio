@@ -48,15 +48,15 @@ describe('trading order block contracts', () => {
     expect(orderType?.dependsOn).toEqual(['provider', 'listing'])
   })
 
-  it('uses market provider context as the listing provider source', () => {
+  it('uses route market provider context and selected broker as listing filters', () => {
     const listing = TradingActionBlock.subBlocks.find((subBlock) => subBlock.id === 'listing')
 
     expect(listing).toMatchObject({
       type: 'market-selector',
       providerType: 'market',
+      tradingProviderFieldId: 'provider',
+      dependsOn: ['provider'],
     })
-    expect(listing).not.toHaveProperty('providerFieldId')
-    expect(listing).not.toHaveProperty('dependsOn')
   })
 
   it('loads enabled broker provider options from OAuth service availability', async () => {

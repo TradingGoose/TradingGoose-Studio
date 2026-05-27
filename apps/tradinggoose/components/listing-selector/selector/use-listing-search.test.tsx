@@ -44,20 +44,8 @@ describe('useMarketListingSearch', () => {
     vi.useRealTimers()
   })
 
-  it('searches immediately on blank open and stores the returned results', async () => {
+  it('does not search a blank open selector without query or provider criteria', async () => {
     const updateInstance = vi.fn()
-
-    fetchListingsMock.mockResolvedValue([
-      {
-        listing_id: 'AAPL',
-        base_id: '',
-        quote_id: '',
-        listing_type: 'default',
-        base: 'AAPL',
-        quote: 'USD',
-        name: 'Apple Inc.',
-      },
-    ])
 
     await act(async () => {
       root.render(
@@ -72,34 +60,69 @@ describe('useMarketListingSearch', () => {
       await Promise.resolve()
     })
 
-    expect(fetchListingsMock).toHaveBeenCalledTimes(1)
-    expect(fetchListingsMock).toHaveBeenCalledWith(
-      expect.not.objectContaining({
-        search_query: expect.anything(),
-      }),
-      expect.any(AbortSignal)
-    )
+    expect(fetchListingsMock).not.toHaveBeenCalled()
+
     expect(updateInstance).toHaveBeenCalledWith('test-selector', {
-      isLoading: true,
+      results: [],
+      isLoading: false,
       error: undefined,
     })
+  })
+
+  it('searches a blank open selector with combined market and trading provider criteria', async () => {
+    const updateInstance = vi.fn()
+
+    fetchListingsMock.mockResolvedValue([])
 
     await act(async () => {
+      root.render(
+        <HookHarness
+          open
+          query=''
+          providerType='trading'
+          marketProviderId='yahoo-finance'
+          tradingProviderId='alpaca'
+          instanceId='test-selector'
+          updateInstance={updateInstance}
+        />
+      )
       await Promise.resolve()
     })
 
+    expect(fetchListingsMock).toHaveBeenCalledTimes(1)
+    const queryParams = fetchListingsMock.mock.calls[0][0] as Record<string, string>
+    expect(queryParams.search_query).toBeUndefined()
+    expect(queryParams.crypto_quote_code).toBe('[BTC,USD]')
+    expect(JSON.parse(queryParams.filters)).toEqual(
+      expect.objectContaining({
+        limit: 50,
+        asset_class: ['stock', 'crypto'],
+      })
+    )
+  })
+
+  it('does not let explicit asset prefixes bypass combined provider criteria', async () => {
+    const updateInstance = vi.fn()
+
+    await act(async () => {
+      root.render(
+        <HookHarness
+          open
+          query='crypto:BTC'
+          providerType='trading'
+          marketProviderId='yahoo-finance'
+          tradingProviderId='tradier'
+          instanceId='test-selector'
+          updateInstance={updateInstance}
+        />
+      )
+      vi.advanceTimersByTime(400)
+      await Promise.resolve()
+    })
+
+    expect(fetchListingsMock).not.toHaveBeenCalled()
     expect(updateInstance).toHaveBeenCalledWith('test-selector', {
-      results: [
-        {
-          listing_id: 'AAPL',
-          base_id: '',
-          quote_id: '',
-          listing_type: 'default',
-          base: 'AAPL',
-          quote: 'USD',
-          name: 'Apple Inc.',
-        },
-      ],
+      results: [],
       isLoading: false,
       error: undefined,
     })
@@ -133,13 +156,7 @@ describe('useMarketListingSearch', () => {
       await Promise.resolve()
     })
 
-    expect(fetchListingsMock).toHaveBeenCalledTimes(1)
-    expect(fetchListingsMock).toHaveBeenLastCalledWith(
-      expect.not.objectContaining({
-        search_query: expect.anything(),
-      }),
-      expect.any(AbortSignal)
-    )
+    expect(fetchListingsMock).not.toHaveBeenCalled()
 
     fetchListingsMock.mockClear()
     updateInstance.mockClear()

@@ -27,8 +27,7 @@ interface ListingSelectorInputProps {
   disabled?: boolean
   config?: SubBlockConfig
   providerType?: 'market' | 'trading'
-  providerFieldId?: string
-  providerValueOverride?: unknown
+  tradingProviderFieldId?: string
   contextValues?: Record<string, any>
 }
 
@@ -85,28 +84,39 @@ export function ListingSelectorInput({
   disabled = false,
   config,
   providerType,
-  providerFieldId,
-  providerValueOverride,
+  tradingProviderFieldId,
   contextValues,
 }: ListingSelectorInputProps) {
   const [storeValue, setStoreValue] = useSubBlockValue<ListingInputValue>(blockId, subBlockId)
   const routeContext = useOptionalWorkflowRoute()
   const resolvedProviderType = providerType ?? config?.providerType ?? 'market'
-  const configuredProviderField = providerFieldId ?? config?.providerFieldId
-  const providerField = configuredProviderField ?? 'provider'
+  const configuredTradingProviderField = tradingProviderFieldId ?? config?.tradingProviderFieldId
+  const providerField = 'provider'
   const hasLocalProviderSource =
-    Boolean(configuredProviderField) || dependsOnIncludes(config?.dependsOn, providerField)
+    !configuredTradingProviderField && dependsOnIncludes(config?.dependsOn, providerField)
   const usesRouteMarketProvider = resolvedProviderType === 'market' && !hasLocalProviderSource
   const [providerValueFromStore] = useSubBlockValue<unknown>(blockId, providerField)
+  const [tradingProviderValueFromStore] = useSubBlockValue<unknown>(
+    blockId,
+    configuredTradingProviderField ?? providerField
+  )
   const providerValue = hasLocalProviderSource
-    ? (providerValueOverride ??
-      readContextValue(contextValues, providerField) ??
-      providerValueFromStore)
-    : providerValueOverride
+    ? (readContextValue(contextValues, providerField) ?? providerValueFromStore)
+    : undefined
+  const tradingProviderValue = configuredTradingProviderField
+    ? (readContextValue(contextValues, configuredTradingProviderField) ??
+      tradingProviderValueFromStore)
+    : undefined
   const routeMarketProviderId = routeContext?.marketProviderId?.trim() || undefined
-  const providerId =
-    resolveListingProviderId(providerValue) ??
-    (usesRouteMarketProvider ? routeMarketProviderId : undefined)
+  const primaryProviderId = resolveListingProviderId(providerValue)
+  const marketProviderId =
+    resolvedProviderType === 'market'
+      ? (primaryProviderId ?? routeMarketProviderId)
+      : routeMarketProviderId
+  const tradingProviderId =
+    resolveListingProviderId(tradingProviderValue) ??
+    (resolvedProviderType === 'trading' ? primaryProviderId : undefined)
+  const providerId = resolvedProviderType === 'trading' ? tradingProviderId : marketProviderId
   const ensureInstance = useListingSelectorStore((state) => state.ensureInstance)
   const updateInstance = useListingSelectorStore((state) => state.updateInstance)
   const instance = useListingSelectorStore((state) => state.instances[`${blockId}-${subBlockId}`])
@@ -131,7 +141,7 @@ export function ListingSelectorInput({
   const [listingOptionsError, setListingOptionsError] = useState<string | undefined>()
 
   const instanceId = useMemo(() => `${blockId}-${subBlockId}`, [blockId, subBlockId])
-  const previousProviderRef = useRef<string | null | undefined>(undefined)
+  const previousProviderRef = useRef<string | undefined>(undefined)
 
   useEffect(() => {
     ensureInstance(instanceId)
@@ -293,15 +303,16 @@ export function ListingSelectorInput({
   useEffect(() => {
     if (finalDisabled) return
     const normalizedProvider = providerId
+    const providerSignature = [providerId, marketProviderId, tradingProviderId].join(':')
     const prevProvider = previousProviderRef.current
     const hasPreviousProvider = previousProviderRef.current !== undefined
     const storedProvider = safeInstance.providerId
     const providerMismatch = storedProvider !== normalizedProvider
-    const providerChanged = hasPreviousProvider && prevProvider !== normalizedProvider
+    const providerChanged = hasPreviousProvider && prevProvider !== providerSignature
     const needsProviderSync = providerMismatch
 
     if (!providerChanged && !needsProviderSync) {
-      previousProviderRef.current = normalizedProvider
+      previousProviderRef.current = providerSignature
       return
     }
 
@@ -324,9 +335,11 @@ export function ListingSelectorInput({
       updateInstance(instanceId, { providerId: normalizedProvider })
     }
 
-    previousProviderRef.current = normalizedProvider
+    previousProviderRef.current = providerSignature
   }, [
     providerId,
+    marketProviderId,
+    tradingProviderId,
     safeInstance.providerId,
     instanceId,
     updateInstance,
@@ -341,6 +354,8 @@ export function ListingSelectorInput({
       blockId={blockId}
       disabled={finalDisabled}
       providerType={resolvedProviderType}
+      marketProviderId={marketProviderId}
+      tradingProviderId={tradingProviderId}
       candidateListings={usesFetchedListingOptions ? (fetchedListingOptions ?? []) : undefined}
       candidateListingsLoading={usesFetchedListingOptions && isLoadingListingOptions}
       candidateListingsError={usesFetchedListingOptions ? listingOptionsError : undefined}
