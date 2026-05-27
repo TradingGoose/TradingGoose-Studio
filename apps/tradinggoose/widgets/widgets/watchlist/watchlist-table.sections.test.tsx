@@ -42,7 +42,7 @@ vi.mock('@/components/listing-selector/listing/row', () => ({
 }))
 
 vi.mock('@/components/listing-selector/selector/input', () => ({
-  StockSelector: ({
+  ListingSearchInput: ({
     instanceId,
     activateOnMount,
     onListingChange,

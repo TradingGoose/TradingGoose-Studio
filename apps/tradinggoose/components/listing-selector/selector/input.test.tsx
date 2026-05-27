@@ -5,7 +5,7 @@
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { StockSelector } from '@/components/listing-selector/selector/input'
+import { ListingSearchInput } from '@/components/listing-selector/selector/input'
 import type { ListingIdentity, ListingOption } from '@/lib/listing/identity'
 import { useListingSelectorStore } from '@/stores/market/selector/store'
 
@@ -44,7 +44,7 @@ const defer = <T,>() => {
   }
 }
 
-describe('StockSelector', () => {
+describe('ListingSearchInput', () => {
   let root: Root
   let container: HTMLDivElement
 
@@ -76,7 +76,7 @@ describe('StockSelector', () => {
     })
 
     await act(async () => {
-      root.render(<StockSelector instanceId='selector-test' />)
+      root.render(<ListingSearchInput instanceId='selector-test' />)
       await Promise.resolve()
     })
 

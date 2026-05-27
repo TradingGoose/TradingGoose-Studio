@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef } from 'react'
 import { hasListingDisplayDetails } from '@/components/listing-selector/listing/row'
-import { StockSelector } from '@/components/listing-selector/selector/input'
+import { ListingSearchInput } from '@/components/listing-selector/selector/input'
 import {
   areListingIdentitiesEqual,
   type ListingIdentity,
@@ -38,7 +38,7 @@ export const DataChartListingSelector = ({
   onListingChange,
 }: DataChartListingSelectorProps) => (
   <div className='min-w-[240px]'>
-    <StockSelector
+    <ListingSearchInput
       instanceId={instanceId}
       variant='header'
       disabled={!providerId}

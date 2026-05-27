@@ -26,7 +26,7 @@ import {
 import { sortableKeyboardCoordinates } from '@dnd-kit/sortable'
 import { ChevronRight, Pencil, Trash2, X } from 'lucide-react'
 import { getListingPrimary, MarketListingRow } from '@/components/listing-selector/listing/row'
-import { StockSelector } from '@/components/listing-selector/selector/input'
+import { ListingSearchInput } from '@/components/listing-selector/selector/input'
 import { requestListingResolution } from '@/components/listing-selector/selector/resolve-request'
 import {
   AlertDialog,
@@ -523,7 +523,7 @@ export const WatchlistTable = ({
 
     return (
       <div className='relative z-20 flex items-center bg-background'>
-        <StockSelector
+        <ListingSearchInput
           instanceId={instanceId}
           variant='header'
           providerType='market'

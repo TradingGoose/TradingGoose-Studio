@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect } from 'react'
-import { StockSelector } from '@/components/listing-selector/selector/input'
+import { ListingSearchInput } from '@/components/listing-selector/selector/input'
 import type { ListingOption } from '@/lib/listing/identity'
 import { cn } from '@/lib/utils'
 import { useListingSelectorStore } from '@/stores/market/selector/store'
@@ -52,7 +52,7 @@ export function ListingSelector({
           Listing
           {listingRequired ? <span className='ml-1 text-red-500'>*</span> : null}
         </div>
-        <StockSelector
+        <ListingSearchInput
           instanceId={instanceId}
           blockId={blockId}
           disabled={disabled}

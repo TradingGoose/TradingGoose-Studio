@@ -37,7 +37,7 @@ vi.mock('@/widgets/utils/watchlist-params', () => ({
 }))
 
 vi.mock('@/components/listing-selector/selector/input', () => ({
-  StockSelector: (props: {
+  ListingSearchInput: (props: {
     disabled?: boolean
     onListingChange?: (listing: {
       listing_id: string

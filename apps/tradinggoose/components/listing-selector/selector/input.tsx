@@ -40,7 +40,7 @@ import {
 } from '@/stores/market/selector/store'
 import { widgetHeaderControlClassName } from '@/widgets/widgets/components/widget-header-control'
 
-export interface StockSelectorProps {
+export interface ListingSearchInputProps {
   instanceId: string
   blockId?: string
   disabled?: boolean
@@ -59,7 +59,7 @@ export interface StockSelectorProps {
   onListingTagSelect?: (value: string) => void
 }
 
-export function StockSelector({
+export function ListingSearchInput({
   instanceId,
   blockId,
   disabled,
@@ -76,7 +76,7 @@ export function StockSelector({
   onListingChange,
   onListingValueChange,
   onListingTagSelect,
-}: StockSelectorProps) {
+}: ListingSearchInputProps) {
   const isHeader = variant === 'header'
   const ensureInstance = useListingSelectorStore((state) => state.ensureInstance)
   const updateInstance = useListingSelectorStore((state) => state.updateInstance)
