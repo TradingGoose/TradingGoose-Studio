@@ -6,6 +6,7 @@ export interface TradingActionParams
     TradingOrderSubmitRequest,
     'workspaceId' | 'workflowId' | 'submissionSource' | 'logId' | 'idempotencyKey'
   > {
+  provider?: TradingProviderId
   _context?: {
     workspaceId?: string
     workflowId?: string
