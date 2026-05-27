@@ -135,7 +135,10 @@ export function ListingSelectorInput({
     evaluateSubBlockConditionValues(config?.fetchOptionsCondition, contextValues ?? {})
   const finalDisabled =
     dependsOnDisabled ||
-    (usesRouteMarketProvider && !routeMarketProviderId && !usesFetchedListingOptions)
+    (usesRouteMarketProvider &&
+      !routeMarketProviderId &&
+      !tradingProviderId &&
+      !usesFetchedListingOptions)
   const [fetchedListingOptions, setFetchedListingOptions] = useState<ListingOption[] | null>(null)
   const [isLoadingListingOptions, setIsLoadingListingOptions] = useState(false)
   const [listingOptionsError, setListingOptionsError] = useState<string | undefined>()

@@ -170,8 +170,18 @@ describe('WatchlistBlock', () => {
     ])
 
     resolveStock = false
-    await expect(
-      listingSubBlock?.fetchOptions?.('block-1', 'listing', loaderContext)
-    ).rejects.toThrow('Failed to resolve watchlist listing')
+    const unresolvedOptions = await listingSubBlock?.fetchOptions?.(
+      'block-1',
+      'listing',
+      loaderContext
+    )
+    expect(unresolvedOptions?.map((option) => option.value)).toMatchObject([
+      { base: 'AAPL', name: 'AAPL' },
+      {
+        base: 'BTC',
+        quote: 'USD',
+        name: 'Bitcoin to US Dollar pair',
+      },
+    ])
   })
 })

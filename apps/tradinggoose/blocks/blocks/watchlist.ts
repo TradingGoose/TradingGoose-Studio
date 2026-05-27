@@ -1,7 +1,11 @@
 import type { SVGProps } from 'react'
 import { createElement } from 'react'
 import { List } from 'lucide-react'
-import { getListingIdentityKey, LISTING_IDENTITY_VALUE_TYPE } from '@/lib/listing/identity'
+import {
+  buildListingDisplayOption,
+  getListingIdentityKey,
+  LISTING_IDENTITY_VALUE_TYPE,
+} from '@/lib/listing/identity'
 import { resolveListingIdentities } from '@/lib/listing/resolve'
 import type { WatchlistListingItem, WatchlistRecord } from '@/lib/watchlists/types'
 import type {
@@ -67,15 +71,13 @@ const fetchWatchlistListingOptions = async (
 
   return listingItems.map((item) => {
     const id = getListingIdentityKey(item.listing)
-    const resolved = resolvedListings[id]
-    if (!resolved) throw new Error('Failed to resolve watchlist listing')
+    const listing = buildListingDisplayOption(item.listing, resolvedListings[id])
 
     return {
       id,
       label:
-        resolved.name?.trim() ||
-        (resolved.quote ? `${resolved.base}/${resolved.quote}` : resolved.base),
-      value: resolved,
+        listing.name?.trim() || (listing.quote ? `${listing.base}/${listing.quote}` : listing.base),
+      value: listing,
     }
   })
 }
@@ -135,7 +137,7 @@ export const WatchlistBlock: BlockConfig = {
     config: {
       tool: (params) => {
         const operation = params.operation as keyof typeof WATCHLIST_TOOL_IDS
-        return WATCHLIST_TOOL_IDS[operation] ?? WATCHLIST_TOOL_IDS.readLists
+        return WATCHLIST_TOOL_IDS[operation]
       },
       params: ({ operation: _operation, ...params }) => params,
     },

@@ -26,26 +26,6 @@ const mockResetListingSelectorInstance = vi.fn()
 const mockStockSelectorRender = vi.fn()
 
 vi.mock('@/components/listing-selector/listing/row', () => ({
-  buildListingDisplayOption: (
-    listing: {
-      listing_id: string
-      base_id: string
-      quote_id: string
-      listing_type: 'default' | 'crypto' | 'currency'
-      name?: string
-    },
-    resolved?: {
-      base?: string
-      quote?: string | null
-      name?: string
-    } | null
-  ) => ({
-    ...listing,
-    ...resolved,
-    base: resolved?.base ?? (listing.listing_id || listing.base_id),
-    quote: resolved?.quote ?? (listing.quote_id || null),
-    name: resolved?.name ?? listing.name ?? listing.listing_id ?? listing.base_id,
-  }),
   getListingPrimary: (listing: { name?: string; listing_id?: string }) =>
     listing.name ?? listing.listing_id ?? 'Listing',
   MarketListingRow: ({

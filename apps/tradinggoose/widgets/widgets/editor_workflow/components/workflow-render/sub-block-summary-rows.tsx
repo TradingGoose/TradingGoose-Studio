@@ -2,12 +2,12 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import {
-  buildListingDisplayOption,
   getListingDisplaySymbol,
   ListingDisplayRow,
 } from '@/components/listing-selector/listing/row'
 import { requestListingResolution } from '@/components/listing-selector/selector/resolve-request'
 import {
+  buildListingDisplayOption,
   getListingIdentityKey,
   type ListingOption,
   toListingValueObject,

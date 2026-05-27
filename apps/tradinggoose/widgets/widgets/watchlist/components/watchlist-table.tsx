@@ -25,11 +25,7 @@ import {
 } from '@dnd-kit/core'
 import { sortableKeyboardCoordinates } from '@dnd-kit/sortable'
 import { ChevronRight, Pencil, Trash2, X } from 'lucide-react'
-import {
-  buildListingDisplayOption,
-  getListingPrimary,
-  MarketListingRow,
-} from '@/components/listing-selector/listing/row'
+import { getListingPrimary, MarketListingRow } from '@/components/listing-selector/listing/row'
 import { StockSelector } from '@/components/listing-selector/selector/input'
 import { requestListingResolution } from '@/components/listing-selector/selector/resolve-request'
 import {
@@ -46,6 +42,7 @@ import { Button } from '@/components/ui/button'
 import { Sortable, SortableContent, SortableItem } from '@/components/ui/sortable'
 import {
   areListingIdentitiesEqual,
+  buildListingDisplayOption,
   type ListingIdentity,
   type ListingOption,
   toListingValue,
