@@ -1,22 +1,16 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Workflow } from 'lucide-react'
 import { LoadingAgent } from '@/components/ui/loading-agent'
 import { useWorkflowWidgetState } from '@/widgets/hooks/use-workflow-widget-state'
 import type { WidgetInstance } from '@/widgets/layout'
 import type { DashboardWidgetDefinition, WidgetComponentProps } from '@/widgets/types'
 import {
-  emitWorkflowParamsChange,
   emitWorkflowSelectionChange,
   useWorkflowSelectionPersistence,
 } from '@/widgets/utils/workflow-selection'
-import { MarketProviderControls } from '@/widgets/widgets/components/market-provider-controls'
 import { WorkflowDropdown } from '@/widgets/widgets/components/workflow-dropdown'
-import {
-  getSeriesMarketProviderOptions,
-  resolveConfiguredSeriesMarketProviderId,
-} from '@/widgets/widgets/data_chart/options'
 import { WorkflowWidgetControlBar } from '@/widgets/widgets/editor_workflow/components/workflow-controlbar'
 import type { WorkflowCanvasUIConfig } from '@/widgets/widgets/editor_workflow/components/workflow-editor/workflow-canvas'
 import WorkflowEditorApp from '@/widgets/widgets/editor_workflow/components/workflow-editor-app'
@@ -31,11 +25,6 @@ const readWorkflowToolbarScopeId = (widgetKey: string, panelId?: string) =>
   `${widgetKey}::${panelId ?? 'panel'}`
 
 type ViewportBounds = { x: number; y: number; width: number; height: number }
-type WorkflowEditorWidgetParams = {
-  marketProvider?: string
-  marketProviderParams?: Record<string, unknown>
-  marketAuth?: Record<string, unknown>
-}
 
 const WorkflowEditorWidgetBody = ({
   params,
@@ -48,12 +37,6 @@ const WorkflowEditorWidgetBody = ({
   const workspaceId = context?.workspaceId
   const widgetKey = widget?.key ?? 'editor_workflow'
   const toolbarScopeId = readWorkflowToolbarScopeId(widgetKey, panelId)
-  const widgetParams = params as WorkflowEditorWidgetParams | null
-  const marketProviderOptions = useMemo(() => getSeriesMarketProviderOptions(), [])
-  const marketProviderId = resolveConfiguredSeriesMarketProviderId(
-    widgetParams?.marketProvider,
-    marketProviderOptions
-  )
   const {
     channelId,
     resolvedPairColor,
@@ -181,7 +164,6 @@ const WorkflowEditorWidgetBody = ({
           workspaceId={workspaceId}
           workflowId={resolvedWorkflowId}
           channelId={channelId}
-          marketProviderId={marketProviderId || undefined}
           toolbarScopeId={toolbarScopeId}
           ui={WORKFLOW_WIDGET_UI_CONFIG}
           viewportBounds={widgetBounds ?? undefined}
@@ -244,60 +226,14 @@ const WorkflowEditorHeaderSelector = ({
 
 type WorkflowEditorHeaderControlsProps = {
   workspaceId?: string
-  widgetKey: string
-  widgetParams: WorkflowEditorWidgetParams | null
-  panelId?: string
   toolbarScopeId: string
 }
 
 const WorkflowEditorHeaderControls = ({
   workspaceId,
-  widgetKey,
-  widgetParams,
-  panelId,
   toolbarScopeId,
 }: WorkflowEditorHeaderControlsProps) => {
-  const marketProviderOptions = useMemo(() => getSeriesMarketProviderOptions(), [])
-  const marketProviderId = resolveConfiguredSeriesMarketProviderId(
-    widgetParams?.marketProvider,
-    marketProviderOptions
-  )
-
-  return (
-    <>
-      <MarketProviderControls
-        value={marketProviderId}
-        options={marketProviderOptions}
-        onChange={(nextProvider) => {
-          if (!nextProvider || nextProvider === marketProviderId) return
-          emitWorkflowParamsChange({
-            params: {
-              marketProvider: nextProvider,
-              marketProviderParams: null,
-              marketAuth: null,
-            },
-            panelId,
-            widgetKey,
-          })
-        }}
-        providerParams={widgetParams?.marketProviderParams}
-        authParams={widgetParams?.marketAuth}
-        workspaceId={workspaceId}
-        onSettingsSave={({ providerParams, auth }) => {
-          emitWorkflowParamsChange({
-            params: {
-              marketProvider: marketProviderId,
-              marketProviderParams: providerParams,
-              marketAuth: auth,
-            },
-            panelId,
-            widgetKey,
-          })
-        }}
-      />
-      <WorkflowToolbar workspaceId={workspaceId} toolbarScopeId={toolbarScopeId} />
-    </>
-  )
+  return <WorkflowToolbar workspaceId={workspaceId} toolbarScopeId={toolbarScopeId} />
 }
 
 export const workflowEditorWidget: DashboardWidgetDefinition = {
@@ -310,15 +246,11 @@ export const workflowEditorWidget: DashboardWidgetDefinition = {
   renderHeader: ({ widget, context, panelId }) => {
     const widgetKey = widget?.key ?? 'editor_workflow'
     const toolbarScopeId = readWorkflowToolbarScopeId(widgetKey, panelId)
-    const widgetParams = widget?.params as WorkflowEditorWidgetParams | null
 
     return {
       left: (
         <WorkflowEditorHeaderControls
           workspaceId={context?.workspaceId}
-          widgetKey={widgetKey}
-          widgetParams={widgetParams}
-          panelId={panelId}
           toolbarScopeId={toolbarScopeId}
         />
       ),

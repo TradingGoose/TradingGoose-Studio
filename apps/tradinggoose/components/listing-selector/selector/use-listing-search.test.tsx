@@ -188,6 +188,7 @@ describe('useMarketListingSearch', () => {
     expect(fetchListingsMock).toHaveBeenCalledTimes(1)
     expect(fetchListingsMock).toHaveBeenCalledWith(
       expect.objectContaining({
+        filters: JSON.stringify({ limit: 50 }),
         search_query: 'AAPL',
       }),
       expect.any(AbortSignal)

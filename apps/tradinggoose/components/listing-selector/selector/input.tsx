@@ -15,10 +15,7 @@ import {
   ListingDisplayRow,
   MarketListingRow,
 } from '@/components/listing-selector/listing/row'
-import {
-  ListingSelectorDropdown,
-  ListingSelectorDropdownContent,
-} from '@/components/listing-selector/selector/dropdown'
+import { ListingSelectorDropdownContent } from '@/components/listing-selector/selector/dropdown'
 import { requestListingResolution } from '@/components/listing-selector/selector/resolve-request'
 import { useMarketListingSearch } from '@/components/listing-selector/selector/use-listing-search'
 import { Button } from '@/components/ui/button'
@@ -397,12 +394,12 @@ export function ListingSearchInput({
   }, [results])
 
   useEffect(() => {
-    if (!isHeader || typeof document === 'undefined') return
+    if (typeof document === 'undefined') return
     setPortalTarget(document.body)
-  }, [isHeader])
+  }, [])
 
   useEffect(() => {
-    if (!isHeader || !showListingDropdown) {
+    if (!showListingDropdown) {
       setDropdownPosition(null)
       return
     }
@@ -425,9 +422,9 @@ export function ListingSearchInput({
       window.removeEventListener('resize', updatePosition)
       window.removeEventListener('scroll', updatePosition, true)
     }
-  }, [isHeader, showListingDropdown])
+  }, [showListingDropdown])
 
-  const headerDropdown = showListingDropdown ? (
+  const listingDropdown = showListingDropdown ? (
     <div
       className={cn(
         dropdownPosition ? 'absolute z-[1000]' : 'absolute top-full left-0 z-[200] mt-1 w-full'
@@ -452,7 +449,9 @@ export function ListingSearchInput({
         highlightedIndex={highlightedIndex}
         onHighlightChange={setHighlightedIndex}
         onSelect={handleSelect}
-        renderListing={(listing) => <ListingDisplayRow listing={listing} showSecondary />}
+        renderListing={
+          isHeader ? (listing) => <ListingDisplayRow listing={listing} showSecondary /> : undefined
+        }
         scrollStyle={{ scrollbarWidth: 'thin', overscrollBehavior: 'contain' }}
         onWheelCapture={(event) => event.stopPropagation()}
         onTouchMove={(event) => event.stopPropagation()}
@@ -554,23 +553,9 @@ export function ListingSearchInput({
         </Button>
       </div>
 
-      {isHeader ? (
-        headerDropdown && portalTarget && dropdownPosition ? (
-          createPortal(headerDropdown, portalTarget)
-        ) : (
-          headerDropdown
-        )
-      ) : (
-        <ListingSelectorDropdown
-          visible={showListingDropdown}
-          results={results}
-          isLoading={isLoading}
-          error={error}
-          highlightedIndex={highlightedIndex}
-          onHighlightChange={setHighlightedIndex}
-          onSelect={handleSelect}
-        />
-      )}
+      {listingDropdown && portalTarget && dropdownPosition
+        ? createPortal(listingDropdown, portalTarget)
+        : listingDropdown}
       {blockId ? (
         <TagDropdown
           visible={showTags}

@@ -59,6 +59,13 @@ const config = {
   dependsOn: ['provider'],
 } satisfies SubBlockConfig
 
+const unscopedConfig = {
+  id: 'listing',
+  title: 'Listing',
+  type: 'market-selector',
+  providerType: 'market',
+} satisfies SubBlockConfig
+
 describe('ListingSelectorInput', () => {
   let root: Root
   let container: HTMLDivElement
@@ -93,6 +100,22 @@ describe('ListingSelectorInput', () => {
         disabled: false,
         marketProviderId: undefined,
         tradingProviderId: 'alpaca',
+      })
+    )
+  })
+
+  it('enables market selectors without provider filters', () => {
+    act(() => {
+      root.render(
+        <ListingSelectorInput blockId='block-1' subBlockId='listing' config={unscopedConfig} />
+      )
+    })
+
+    expect(listingSelectorMock).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        disabled: false,
+        marketProviderId: undefined,
+        tradingProviderId: undefined,
       })
     )
   })

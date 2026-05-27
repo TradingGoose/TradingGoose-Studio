@@ -7,7 +7,6 @@ interface WorkflowRouteContextValue {
   workspaceId: string
   workflowId: string
   channelId: string
-  marketProviderId?: string
 }
 
 const WorkflowRouteContext = createContext<WorkflowRouteContextValue | null>(null)
@@ -16,7 +15,6 @@ interface WorkflowRouteProviderProps {
   workspaceId: string
   workflowId: string
   channelId?: string
-  marketProviderId?: string
   children: ReactNode
 }
 
@@ -24,7 +22,6 @@ export function WorkflowRouteProvider({
   workspaceId,
   workflowId,
   channelId = DEFAULT_WORKFLOW_CHANNEL_ID,
-  marketProviderId,
   children,
 }: WorkflowRouteProviderProps) {
   const value = useMemo(
@@ -32,9 +29,8 @@ export function WorkflowRouteProvider({
       workspaceId,
       workflowId,
       channelId,
-      marketProviderId,
     }),
-    [workspaceId, workflowId, channelId, marketProviderId]
+    [workspaceId, workflowId, channelId]
   )
 
   return <WorkflowRouteContext.Provider value={value}>{children}</WorkflowRouteContext.Provider>

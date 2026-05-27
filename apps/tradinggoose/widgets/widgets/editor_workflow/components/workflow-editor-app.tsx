@@ -14,7 +14,6 @@ interface WorkflowEditorAppProps {
   ui?: WorkflowCanvasUIConfig
   disableNavigation?: boolean
   channelId?: string
-  marketProviderId?: string
   toolbarScopeId?: string
   viewportBounds?: { x: number; y: number; width: number; height: number }
 }
@@ -25,7 +24,6 @@ const WorkflowEditorApp = ({
   ui,
   disableNavigation,
   channelId = DEFAULT_WORKFLOW_CHANNEL_ID,
-  marketProviderId,
   toolbarScopeId,
   viewportBounds,
 }: WorkflowEditorAppProps) => {
@@ -47,7 +45,6 @@ const WorkflowEditorApp = ({
           workspaceId={workspaceId}
           workflowId={workflowId}
           channelId={channelId}
-          marketProviderId={marketProviderId}
         >
           <Workflow
             key={workflowRenderKey}

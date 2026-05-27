@@ -94,7 +94,6 @@ export function ListingSelectorInput({
   const providerField = 'provider'
   const hasLocalProviderSource =
     !configuredTradingProviderField && dependsOnIncludes(config?.dependsOn, providerField)
-  const usesRouteMarketProvider = resolvedProviderType === 'market' && !hasLocalProviderSource
   const [providerValueFromStore] = useSubBlockValue<unknown>(blockId, providerField)
   const [tradingProviderValueFromStore] = useSubBlockValue<unknown>(
     blockId,
@@ -107,12 +106,8 @@ export function ListingSelectorInput({
     ? (readContextValue(contextValues, configuredTradingProviderField) ??
       tradingProviderValueFromStore)
     : undefined
-  const routeMarketProviderId = routeContext?.marketProviderId?.trim() || undefined
   const primaryProviderId = resolveListingProviderId(providerValue)
-  const marketProviderId =
-    resolvedProviderType === 'market'
-      ? (primaryProviderId ?? routeMarketProviderId)
-      : routeMarketProviderId
+  const marketProviderId = resolvedProviderType === 'market' ? primaryProviderId : undefined
   const tradingProviderId =
     resolveListingProviderId(tradingProviderValue) ??
     (resolvedProviderType === 'trading' ? primaryProviderId : undefined)
@@ -133,12 +128,7 @@ export function ListingSelectorInput({
   const usesFetchedListingOptions =
     Boolean(config?.fetchOptions) &&
     evaluateSubBlockConditionValues(config?.fetchOptionsCondition, contextValues ?? {})
-  const finalDisabled =
-    dependsOnDisabled ||
-    (usesRouteMarketProvider &&
-      !routeMarketProviderId &&
-      !tradingProviderId &&
-      !usesFetchedListingOptions)
+  const finalDisabled = dependsOnDisabled
   const [fetchedListingOptions, setFetchedListingOptions] = useState<ListingOption[] | null>(null)
   const [isLoadingListingOptions, setIsLoadingListingOptions] = useState(false)
   const [listingOptionsError, setListingOptionsError] = useState<string | undefined>()

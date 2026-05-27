@@ -93,20 +93,3 @@ export function ListingSelectorDropdownContent({
     </div>
   )
 }
-
-type ListingSelectorDropdownProps = ListingSelectorDropdownContentProps & {
-  visible: boolean
-}
-
-export function ListingSelectorDropdown({
-  visible,
-  ...contentProps
-}: ListingSelectorDropdownProps) {
-  if (!visible) return null
-
-  return (
-    <div className='absolute top-full left-0 z-[100] mt-1 w-full'>
-      <ListingSelectorDropdownContent {...contentProps} />
-    </div>
-  )
-}
