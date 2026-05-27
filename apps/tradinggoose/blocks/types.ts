@@ -129,6 +129,7 @@ export interface ParamConfig {
 export interface BlockOptionLoaderContext {
   channelId: string
   workflowId: string | null
+  workspaceId?: string
   contextValues?: Record<string, unknown>
 }
 
@@ -153,7 +154,7 @@ export interface SubBlockConfig {
   mode?: 'basic' | 'advanced' | 'both' | 'trigger' // Default is 'both' if not specified
   canonicalParamId?: string
   providerType?: 'market' | 'trading'
-  providerFieldId?: string
+  tradingProviderFieldId?: string
   required?: boolean | SubBlockCondition | (() => SubBlockCondition)
   defaultValue?: string | number | boolean | Record<string, unknown> | Array<unknown>
   options?: SubBlockOption[] | (() => SubBlockOption[])
@@ -163,6 +164,7 @@ export interface SubBlockConfig {
     subBlockId: string,
     context: BlockOptionLoaderContext
   ) => Promise<SubBlockOption[]>
+  fetchOptionsCondition?: SubBlockCondition
   optionsStore?: 'marketProviders'
   min?: number
   max?: number

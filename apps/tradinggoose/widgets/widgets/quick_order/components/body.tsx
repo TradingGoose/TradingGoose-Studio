@@ -669,6 +669,8 @@ export function QuickOrderWidgetBody({
           <ListingSelector
             instanceId={listingInstanceId}
             providerType='trading'
+            marketProviderId={marketProviderId || undefined}
+            tradingProviderId={providerId || undefined}
             className='w-full'
             listingRequired
             onListingChange={(nextListing) => {

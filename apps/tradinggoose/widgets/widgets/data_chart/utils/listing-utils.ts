@@ -5,17 +5,6 @@ export type ListingSymbolParts = {
   quote: string
 }
 
-export const hasListingDetails = (listing?: ListingResolved | null): boolean => {
-  if (!listing) return false
-  const base = listing.base?.trim()
-  const name = listing.name?.trim()
-  if (listing.listing_type === 'default') {
-    return Boolean(base || name)
-  }
-  const quote = listing.quote?.trim()
-  return Boolean((base && quote) || name)
-}
-
 export const getListingSymbol = (listing: ListingResolved): string => {
   const base = listing.base?.trim()
   const quote = listing.quote?.trim()

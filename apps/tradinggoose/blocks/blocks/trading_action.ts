@@ -5,6 +5,7 @@ import { AuthMode } from '@/blocks/types'
 import {
   buildInputsFromToolParams,
   fetchTradingPortfolioIdentityOptions,
+  fetchTradingProviderOptionsByKind,
   requiredUserOnlyInput,
 } from '@/blocks/utils'
 import {
@@ -16,31 +17,24 @@ import {
 import type { TradingOrderTypeRequirement } from '@/providers/trading/providers'
 import {
   getTradingOrderCapabilities,
-  getTradingProviderOptionsByKind,
   getTradingProvidersByKind,
 } from '@/providers/trading/providers'
-import type { TradingActionResponse } from '@/providers/trading/types'
+import type { TradingActionResponse, TradingProviderId } from '@/providers/trading/types'
 import { buildOrderRoutePayload, tradingActionTool } from '@/tools/trading/action'
 
-const providerOptions = () =>
-  getTradingProviderOptionsByKind('order').map((provider) => ({
-    label: provider.name,
-    id: provider.id,
-  }))
+const TRADING_PROVIDER_FIELD = 'provider'
 
 const resolveContextValue = (
   contextValues: Record<string, unknown> | undefined,
   key: string
 ): string | undefined => {
   const entry = contextValues?.[key]
-  if (entry && typeof entry === 'object' && 'value' in entry) {
-    return (entry as { value?: string }).value
-  }
-  if (typeof entry === 'string') return entry
-  return undefined
+  return typeof entry === 'string' ? entry || undefined : undefined
 }
 
 const orderProviders = getTradingProvidersByKind('order')
+const fetchOrderProviderOptions = fetchTradingProviderOptionsByKind('order')
+
 const providerIdsWith = (predicate: (provider: (typeof orderProviders)[number]) => boolean) =>
   orderProviders.filter(predicate).map((provider) => provider.id)
 
@@ -52,7 +46,7 @@ const conditionFor = (
   if (!values.length) return undefined
   const condition: SubBlockCondition = { field, value: values }
   return providerIds?.length
-    ? { ...condition, and: { field: 'provider', value: providerIds } }
+    ? { ...condition, and: { field: TRADING_PROVIDER_FIELD, value: providerIds } }
     : condition
 }
 
@@ -95,9 +89,9 @@ const quantityConditionBase = conditionFor('orderSizingMode', ['notional'], quan
 const quantityCondition = quantityConditionBase
   ? { ...quantityConditionBase, not: true }
   : undefined
-const sizingModeCondition = conditionFor('provider', sizingModeProviderIds)
+const sizingModeCondition = conditionFor(TRADING_PROVIDER_FIELD, sizingModeProviderIds)
 const notionalCondition = conditionFor('orderSizingMode', ['notional'], notionalProviderIds)
-const previewCondition = conditionFor('provider', previewProviderIds)
+const previewCondition = conditionFor(TRADING_PROVIDER_FIELD, previewProviderIds)
 const limitPriceCondition = orderTypeCapability('limitPrice')
 const stopPriceCondition = orderTypeCapability('stopPrice')
 const trailPriceCondition = orderTypeCapability('trailPrice')
@@ -115,13 +109,14 @@ export const TradingActionBlock: BlockConfig<TradingActionResponse> = {
   icon: DollarIcon,
   subBlocks: [
     {
-      id: 'provider',
+      id: TRADING_PROVIDER_FIELD,
       title: 'Broker',
       type: 'dropdown',
       layout: 'full',
-      options: providerOptions,
+      options: [],
+      fetchOptions: fetchOrderProviderOptions,
+      placeholder: 'Select broker',
       required: true,
-      value: () => providerOptions()[0]?.id,
     },
     {
       id: 'portfolioIdentity',
@@ -129,7 +124,7 @@ export const TradingActionBlock: BlockConfig<TradingActionResponse> = {
       type: 'dropdown',
       layout: 'full',
       required: true,
-      dependsOn: ['provider'],
+      dependsOn: [TRADING_PROVIDER_FIELD],
       enableSearch: true,
       autoSelectFirstOption: false,
       placeholder: 'Select broker account',
@@ -152,7 +147,9 @@ export const TradingActionBlock: BlockConfig<TradingActionResponse> = {
       title: 'Listing',
       type: 'market-selector',
       layout: 'full',
-      providerType: 'trading',
+      providerType: 'market',
+      tradingProviderFieldId: TRADING_PROVIDER_FIELD,
+      dependsOn: [TRADING_PROVIDER_FIELD],
       required: true,
     },
     {
@@ -161,10 +158,10 @@ export const TradingActionBlock: BlockConfig<TradingActionResponse> = {
       type: 'dropdown',
       layout: 'half',
       condition: sizingModeCondition,
-      dependsOn: ['provider'],
+      dependsOn: [TRADING_PROVIDER_FIELD],
       fetchOptions: async (_blockId, _subBlockId, context) => {
         const contextValues = context.contextValues as Record<string, unknown> | undefined
-        const providerId = resolveContextValue(contextValues, 'provider')
+        const providerId = resolveContextValue(contextValues, TRADING_PROVIDER_FIELD)
         return getTradingOrderSizingModeDefinitions(providerId).map((definition) => ({
           id: definition.id,
           label: definition.label,
@@ -194,10 +191,12 @@ export const TradingActionBlock: BlockConfig<TradingActionResponse> = {
       layout: 'half',
       required: true,
       value: () => 'market',
-      dependsOn: ['provider', 'listing'],
+      dependsOn: [TRADING_PROVIDER_FIELD, 'listing'],
       fetchOptions: async (_blockId, _subBlockId, context) => {
         const contextValues = context.contextValues as Record<string, unknown> | undefined
-        const providerId = resolveContextValue(contextValues, 'provider')
+        const providerId = resolveContextValue(contextValues, TRADING_PROVIDER_FIELD) as
+          | TradingProviderId
+          | undefined
         const listing = contextValues?.listing as ListingInputValue | undefined
         return getTradingOrderTypeOptions(providerId, { listing })
       },
@@ -246,11 +245,11 @@ export const TradingActionBlock: BlockConfig<TradingActionResponse> = {
       title: 'Time in Force',
       type: 'dropdown',
       layout: 'half',
-      dependsOn: ['provider'],
+      dependsOn: [TRADING_PROVIDER_FIELD],
       fetchOptions: async (_blockId, _subBlockId, context) => {
         const contextValues = context.contextValues as Record<string, unknown> | undefined
         return getTradingOrderTimeInForceOptions(
-          resolveContextValue(contextValues, 'provider')
+          resolveContextValue(contextValues, TRADING_PROVIDER_FIELD)
         ).map((id) => ({
           id,
           label: id.toUpperCase(),

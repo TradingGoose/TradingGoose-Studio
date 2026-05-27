@@ -14,6 +14,7 @@ interface ToolSubBlockRendererProps {
   subBlock: SubBlockConfig
   effectiveParamId: string
   toolParams: Record<string, any> | undefined
+  contextValues: Record<string, any> | undefined
   onParamChange: (toolIndex: number, paramId: string, value: any) => void
   isConnecting: boolean
   disabled: boolean
@@ -92,6 +93,7 @@ function StoredToolSubBlockRenderer({
   subBlock,
   effectiveParamId,
   toolParams,
+  contextValues,
   onParamChange,
   isConnecting,
   disabled,
@@ -144,7 +146,7 @@ function StoredToolSubBlockRenderer({
       config={config}
       isConnecting={isConnecting}
       disabled={disabled}
-      contextValues={toolParams}
+      contextValues={contextValues}
     />
   )
 }

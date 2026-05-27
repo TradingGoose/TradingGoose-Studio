@@ -1,3 +1,17 @@
+'use client'
+
+import { type ReactNode, useEffect, useMemo, useState } from 'react'
+import {
+  getListingDisplaySymbol,
+  ListingDisplayRow,
+} from '@/components/listing-selector/listing/row'
+import { requestListingResolution } from '@/components/listing-selector/selector/resolve-request'
+import {
+  buildListingDisplayOption,
+  getListingIdentityKey,
+  type ListingOption,
+  toListingValueObject,
+} from '@/lib/listing/identity'
 import { cn } from '@/lib/utils'
 import { getTriggerAwareSubBlockStableKey } from '@/lib/workflows/sub-block-keys'
 import { resolveDisplayedSubBlockValue } from '@/lib/workflows/subblock-values'
@@ -245,26 +259,91 @@ function formatSkillInputValue(value: unknown): string {
 function SummaryRow({
   title,
   value,
+  valueTitle,
   labelClassName,
   valueClassName,
 }: {
   title: string
-  value: string
+  value: ReactNode
+  valueTitle?: string
   labelClassName?: string
   valueClassName?: string
 }) {
+  const isTextValue = typeof value === 'string'
+
   return (
-    <div className='flex items-center gap-2'>
+    <div className='flex items-center gap-8'>
       <p
         className={cn('min-w-0 truncate text-muted-foreground capitalize', labelClassName)}
         title={title}
       >
         {title}
       </p>
-      <p className={cn('min-w-0 flex-1 truncate text-right', valueClassName)} title={value}>
+      <div
+        className={cn('min-w-0 flex-1', isTextValue && 'truncate text-right', valueClassName)}
+        title={valueTitle ?? (isTextValue ? value : undefined)}
+      >
         {value}
-      </p>
+      </div>
     </div>
+  )
+}
+
+function SummaryListingRow({
+  title,
+  value,
+  labelClassName,
+  valueClassName,
+}: {
+  title: string
+  value: unknown
+  labelClassName?: string
+  valueClassName?: string
+}) {
+  const identity = useMemo(() => toListingValueObject(value), [value])
+  const valueListing =
+    value && typeof value === 'object' && !Array.isArray(value) ? (value as ListingOption) : null
+  const [resolvedListing, setResolvedListing] = useState<ListingOption | null>(null)
+
+  useEffect(() => {
+    setResolvedListing(null)
+    if (!identity) return
+
+    let cancelled = false
+    requestListingResolution(identity)
+      .then((resolved) => {
+        if (cancelled) return
+        setResolvedListing(resolved ? buildListingDisplayOption(identity, resolved) : null)
+      })
+      .catch(() => {})
+
+    return () => {
+      cancelled = true
+    }
+  }, [identity])
+
+  if (!identity) {
+    return (
+      <SummaryRow
+        title={title}
+        value={formatSubBlockSummaryValue(value)}
+        labelClassName={labelClassName}
+        valueClassName={valueClassName}
+      />
+    )
+  }
+
+  const displayListing = buildListingDisplayOption(identity, resolvedListing ?? valueListing)
+  const displayTitle = getListingDisplaySymbol(displayListing)
+
+  return (
+    <SummaryRow
+      title={title}
+      value={<ListingDisplayRow listing={displayListing} className='justify-end' />}
+      valueTitle={displayTitle || getListingIdentityKey(identity)}
+      labelClassName={labelClassName}
+      valueClassName={valueClassName}
+    />
   )
 }
 
@@ -351,6 +430,18 @@ export function SubBlockSummaryRows({
                     ))}
                   </div>
                 </div>
+              )
+            }
+
+            if (!subBlock.password && subBlock.type === 'market-selector') {
+              return (
+                <SummaryListingRow
+                  key={stableKey}
+                  title={title}
+                  value={rawValue}
+                  labelClassName={labelClassName}
+                  valueClassName={valueClassName}
+                />
               )
             }
 

@@ -152,6 +152,8 @@ vi.mock('@/components/listing-selector/selector/combo', () => ({
   ListingSelector: ({
     instanceId,
     providerType,
+    marketProviderId,
+    tradingProviderId,
     listingRequired,
     className,
     onListingChange,
@@ -159,6 +161,8 @@ vi.mock('@/components/listing-selector/selector/combo', () => ({
   }: {
     instanceId: string
     providerType: string
+    marketProviderId?: string
+    tradingProviderId?: string
     listingRequired?: boolean
     className?: string
     onListingChange: (listing: Record<string, unknown>) => void
@@ -168,6 +172,8 @@ vi.mock('@/components/listing-selector/selector/combo', () => ({
       data-testid='listing-selector-surface'
       data-instance-id={instanceId}
       data-provider-type={providerType}
+      data-market-provider-id={marketProviderId ?? ''}
+      data-trading-provider-id={tradingProviderId ?? ''}
       data-listing-required={listingRequired ? 'true' : 'false'}
       data-class-name={className ?? ''}
     >
@@ -349,6 +355,8 @@ describe('QuickOrderWidgetBody', () => {
     )
     expect(selector?.dataset.instanceId).toBe('quick-order-panel-1-quick_order')
     expect(selector?.dataset.providerType).toBe('trading')
+    expect(selector?.dataset.marketProviderId).toBe('')
+    expect(selector?.dataset.tradingProviderId).toBe('alpaca')
     expect(
       useListingSelectorStore.getState().instances['quick-order-panel-1-quick_order']?.providerId
     ).toBe('alpaca')
@@ -423,6 +431,11 @@ describe('QuickOrderWidgetBody', () => {
       portfolioIdentity,
       side: 'buy',
     })
+
+    expect(
+      container.querySelector<HTMLElement>('[data-testid="listing-selector-surface"]')?.dataset
+        .marketProviderId
+    ).toBe('finnhub')
 
     await act(async () => {
       container.querySelector<HTMLButtonElement>('[data-testid="listing-selector"]')?.click()

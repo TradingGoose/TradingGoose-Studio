@@ -7,6 +7,12 @@ import type {
   ParamType,
   SubBlockOption,
 } from '@/blocks/types'
+import {
+  getAvailableTradingProviderOptions,
+  getTradingProviderOAuthServiceIds,
+  getTradingProvidersByKind,
+} from '@/providers/trading/providers'
+import type { TradingOperationKind } from '@/providers/trading/types'
 import type { ToolConfig } from '@/tools/types'
 
 export function resolveOutputType(
@@ -72,12 +78,32 @@ export const buildInputsFromToolParams = (
 
 const readContextString = (contextValues: Record<string, unknown> | undefined, key: string) => {
   const value = contextValues?.[key]
-  if (typeof value === 'string') return value
-  if (value && typeof value === 'object' && 'value' in value) {
-    return String((value as { value?: unknown }).value ?? '')
-  }
-  return ''
+  return typeof value === 'string' ? value : ''
 }
+
+export const fetchTradingProviderOptionsByKind =
+  (kind: TradingOperationKind) => async (): Promise<SubBlockOption[]> => {
+    const providers = getTradingProvidersByKind(kind)
+    const providerIds = Array.from(
+      new Set(providers.flatMap((provider) => getTradingProviderOAuthServiceIds(provider.id)))
+    )
+    const query = providerIds.length
+      ? `?providers=${encodeURIComponent(providerIds.join(','))}`
+      : ''
+
+    const response = await fetch(`/api/auth/oauth/providers${query}`, {
+      cache: 'no-store',
+    })
+    if (!response.ok) {
+      throw new Error('Failed to load trading providers')
+    }
+
+    const availability = (await response.json()) as Record<string, boolean>
+    return getAvailableTradingProviderOptions(availability, kind).map((provider) => ({
+      label: provider.name,
+      id: provider.id,
+    }))
+  }
 
 export const fetchTradingPortfolioIdentityOptions = async (
   _blockId: string,

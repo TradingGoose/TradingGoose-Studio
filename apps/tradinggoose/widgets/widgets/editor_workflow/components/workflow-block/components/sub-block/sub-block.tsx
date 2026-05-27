@@ -409,6 +409,7 @@ export const SubBlock = memo(
               subBlockId={config.id}
               disabled={isDisabled}
               config={config}
+              contextValues={contextValues}
             />
           )
         case 'order-id-selector':

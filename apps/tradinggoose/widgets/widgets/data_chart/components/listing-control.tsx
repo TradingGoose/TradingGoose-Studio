@@ -1,21 +1,21 @@
 'use client'
 
 import { useEffect, useMemo, useRef } from 'react'
+import { hasListingDisplayDetails } from '@/components/listing-selector/listing/row'
+import { ListingSearchInput } from '@/components/listing-selector/selector/input'
+import {
+  areListingIdentitiesEqual,
+  type ListingIdentity,
+  type ListingOption,
+  toListingValue,
+  toListingValueObject,
+} from '@/lib/listing/identity'
+import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
 import {
   createEmptyListingSelectorInstance,
   useListingSelectorStore,
 } from '@/stores/market/selector/store'
-import {
-  areListingIdentitiesEqual,
-  type ListingIdentity,
-  toListingValue,
-  toListingValueObject,
-  type ListingOption,
-} from '@/lib/listing/identity'
-import { usePairColorContext, useSetPairColorContext } from '@/stores/dashboard/pair-store'
 import type { PairColor } from '@/widgets/pair-colors'
-import { ListingSelector } from '@/widgets/widgets/components/listing-selector'
-import { hasListingDetails } from '@/widgets/widgets/data_chart/utils/listing-utils'
 import { emitDataChartParamsChange } from '@/widgets/utils/chart-params'
 import type { DataChartWidgetParams } from '@/widgets/widgets/data_chart/types'
 
@@ -38,8 +38,9 @@ export const DataChartListingSelector = ({
   onListingChange,
 }: DataChartListingSelectorProps) => (
   <div className='min-w-[240px]'>
-    <ListingSelector
+    <ListingSearchInput
       instanceId={instanceId}
+      variant='header'
       disabled={!providerId}
       onListingChange={onListingChange}
     />
@@ -54,7 +55,7 @@ export const DataChartListingControl = ({
 }: DataChartListingControlProps) => {
   const providerId = params.data?.provider
   const pairContext = usePairColorContext(pairColor)
-  const rawListing = pairColor !== 'gray' ? pairContext.listing ?? null : params.listing ?? null
+  const rawListing = pairColor !== 'gray' ? (pairContext.listing ?? null) : (params.listing ?? null)
   const listingIdentity = useMemo(() => {
     if (!rawListing || typeof rawListing !== 'object') return null
     return toListingValueObject(rawListing)
@@ -62,7 +63,7 @@ export const DataChartListingControl = ({
   const displayListing = useMemo(() => {
     if (!rawListing || typeof rawListing !== 'object') return null
     const candidate = rawListing as ListingOption
-    return hasListingDetails(candidate) ? candidate : null
+    return hasListingDisplayDetails(candidate) ? candidate : null
   }, [rawListing])
   const ensureInstance = useListingSelectorStore((state) => state.ensureInstance)
   const updateInstance = useListingSelectorStore((state) => state.updateInstance)
@@ -106,7 +107,8 @@ export const DataChartListingControl = ({
   useEffect(() => {
     const normalizedProvider = providerId ?? undefined
     const previousProvider = previousProviderRef.current
-    const providerChanged = previousProvider !== undefined && previousProvider !== normalizedProvider
+    const providerChanged =
+      previousProvider !== undefined && previousProvider !== normalizedProvider
 
     if (providerChanged) {
       updateInstance(instanceId, {

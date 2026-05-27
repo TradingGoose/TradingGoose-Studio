@@ -125,6 +125,7 @@ import { VariablesBlock } from '@/blocks/blocks/variables'
 import { VideoGeneratorBlock } from '@/blocks/blocks/video_generator'
 import { VisionBlock } from '@/blocks/blocks/vision'
 import { WaitBlock } from '@/blocks/blocks/wait'
+import { WatchlistBlock } from '@/blocks/blocks/watchlist'
 import { WealthboxBlock } from '@/blocks/blocks/wealthbox'
 import { WebflowBlock } from '@/blocks/blocks/webflow'
 import { WebhookRequestBlock } from '@/blocks/blocks/webhook_request'
@@ -236,6 +237,7 @@ export const registry: Record<string, BlockConfig> = {
   variables: VariablesBlock,
   vision: VisionBlock,
   wait: WaitBlock,
+  watchlist: WatchlistBlock,
   wealthbox: WealthboxBlock,
   webflow: WebflowBlock,
   whatsapp: WhatsAppBlock,

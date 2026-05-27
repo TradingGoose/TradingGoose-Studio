@@ -139,6 +139,7 @@ export function Dropdown({
       const options = await fetchOptions(blockId, subBlockId, {
         channelId: resolvedChannelId,
         workflowId: resolvedWorkflowId ?? null,
+        workspaceId: routeContext?.workspaceId,
         contextValues: resolvedContextValues as Record<string, unknown> | undefined,
       })
       setFetchedOptions(options)
@@ -159,6 +160,7 @@ export function Dropdown({
     blockContextValues,
     resolvedChannelId,
     resolvedWorkflowId,
+    routeContext?.workspaceId,
   ])
 
   const evaluatedOptions = useMemo(() => {
@@ -245,13 +247,7 @@ export function Dropdown({
     if (!isValid) {
       clearSelectedValue()
     }
-  }, [
-    optionsReady,
-    hasValue,
-    availableOptions,
-    value,
-    clearSelectedValue,
-  ])
+  }, [optionsReady, hasValue, availableOptions, value, clearSelectedValue])
 
   // Mark store as initialized on first render
   useEffect(() => {

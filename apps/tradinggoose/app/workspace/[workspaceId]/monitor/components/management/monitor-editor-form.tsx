@@ -1,6 +1,6 @@
 'use client'
 
-import { StockSelector } from '@/components/listing-selector/selector/input'
+import { ListingSearchInput } from '@/components/listing-selector/selector/input'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -193,9 +193,7 @@ export function MonitorEditorForm({
                     <Input
                       id={`monitor-secret-${definition.id}`}
                       value={draft.secretValues[definition.id] ?? ''}
-                      onChange={(event) =>
-                        onUpdateSecretValue(definition.id, event.target.value)
-                      }
+                      onChange={(event) => onUpdateSecretValue(definition.id, event.target.value)}
                       placeholder={definition.title || definition.id}
                       type={
                         definition.type === 'number' ? 'number' : isPassword ? 'password' : 'text'
@@ -217,7 +215,7 @@ export function MonitorEditorForm({
           <div className='space-y-2'>
             <Label className='text-muted-foreground text-xs'>Listing</Label>
             {listingInstanceId ? (
-              <StockSelector
+              <ListingSearchInput
                 instanceId={listingInstanceId}
                 providerType='market'
                 onListingChange={(listing) => onUpdateDraft({ listing: toListingValue(listing) })}
