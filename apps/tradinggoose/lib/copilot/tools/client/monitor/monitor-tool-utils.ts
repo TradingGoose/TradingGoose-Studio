@@ -14,17 +14,20 @@ export type EditMonitorArgs = ReadMonitorArgs & {
   documentFormat?: string
 }
 
-export type IndicatorMonitorRecord = {
+export type MonitorRecord = {
   monitorId: string
+  source: 'indicator' | 'portfolio'
   workflowId: string
   blockId: string
   isActive: boolean
   providerConfig: {
     monitor: {
       providerId: string
-      interval: string
-      listing: Record<string, unknown>
-      indicatorId: string
+      interval?: string
+      listing?: Record<string, unknown>
+      indicatorId?: string
+      serviceId?: string
+      accountId?: string
       auth?: {
         hasEncryptedSecrets?: boolean
         encryptedSecretFieldIds?: string[]
@@ -64,14 +67,22 @@ function getListingLabel(listing: Record<string, unknown> | null | undefined): s
   return baseId && quoteId ? `${baseId}/${quoteId}` : baseId || quoteId || 'listing'
 }
 
-export function buildMonitorName(record: IndicatorMonitorRecord): string {
+export function buildMonitorName(record: MonitorRecord): string {
+  if (record.source === 'portfolio') {
+    return `Portfolio state (${record.providerConfig.monitor.accountId || 'account'})`
+  }
+
   const indicatorId = record.providerConfig.monitor.indicatorId || 'indicator'
   const interval = record.providerConfig.monitor.interval || 'interval'
   const listingLabel = getListingLabel(record.providerConfig.monitor.listing)
   return `${indicatorId} on ${listingLabel} (${interval})`
 }
 
-export function toMonitorDocumentFields(record: IndicatorMonitorRecord) {
+export function toMonitorDocumentFields(record: MonitorRecord) {
+  if (record.source !== 'indicator') {
+    throw new Error('Monitor document editing is only supported for indicator monitors')
+  }
+
   return {
     workflowId: record.workflowId,
     blockId: record.blockId,
@@ -86,8 +97,8 @@ export function toMonitorDocumentFields(record: IndicatorMonitorRecord) {
   }
 }
 
-export async function fetchMonitorById(monitorId: string): Promise<IndicatorMonitorRecord> {
-  const response = await fetch(`/api/indicator-monitors/${encodeURIComponent(monitorId)}`)
+export async function fetchMonitorById(monitorId: string): Promise<MonitorRecord> {
+  const response = await fetch(`/api/monitors/${encodeURIComponent(monitorId)}`)
   const payload = await response.json().catch(() => ({}))
 
   if (!response.ok) {
@@ -98,5 +109,5 @@ export async function fetchMonitorById(monitorId: string): Promise<IndicatorMoni
     throw new Error('Invalid monitor response')
   }
 
-  return payload.data as IndicatorMonitorRecord
+  return payload.data as MonitorRecord
 }

@@ -5,8 +5,8 @@ import { reconcilePublishedChatsForDeploymentTx } from '@/lib/chat/published-dep
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateRequestId } from '@/lib/utils'
 import { validateWorkflowPermissions } from '@/lib/workflows/utils'
-import { notifyIndicatorMonitorsReconcile } from '@/app/api/indicator-monitors/reconcile'
-import { pauseMonitorsMissingDeployedIndicatorTrigger } from '@/app/api/indicator-monitors/shared'
+import { notifyMonitorsReconcile } from '@/app/api/monitors/reconcile'
+import { pauseMonitorsMissingDeployedTrigger } from '@/app/api/monitors/shared'
 import { createErrorResponse, createSuccessResponse } from '@/app/api/workflows/utils'
 
 const logger = createLogger('WorkflowActivateDeploymentAPI')
@@ -135,8 +135,8 @@ export async function POST(
       })
     })
 
-    await pauseMonitorsMissingDeployedIndicatorTrigger(id)
-    await notifyIndicatorMonitorsReconcile({ requestId, logger })
+    await pauseMonitorsMissingDeployedTrigger(id)
+    await notifyMonitorsReconcile({ requestId, logger })
 
     return createSuccessResponse({ success: true, deployedAt: now })
   } catch (error: any) {

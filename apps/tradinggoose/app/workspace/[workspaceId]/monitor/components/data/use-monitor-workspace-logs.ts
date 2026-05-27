@@ -3,10 +3,15 @@ import { type ListingInputValue, toListingValueObject } from '@/lib/listing/iden
 import { createSearchClause, serializeQuery } from '@/lib/logs/query-parser'
 import { MONITOR_QUERY_POLICY } from '@/lib/logs/query-policy'
 import type { SearchClause } from '@/lib/logs/query-types'
+import {
+  INDICATOR_MONITOR_TRIGGER_ID,
+  MONITOR_TRIGGER_IDS,
+  PORTFOLIO_MONITOR_TRIGGER_ID,
+} from '@/lib/monitors/sources'
 import { useLogsList } from '@/hooks/queries/logs'
 import type { WorkflowLog } from '@/stores/logs/filters/types'
 import { buildMonitorBoardSections } from '../board/board-state'
-import type { IndicatorMonitorRecord } from '../shared/types'
+import type { MonitorRecord } from '../shared/types'
 import { buildMonitorTimelineGroups } from '../timeline/timeline-state'
 import type {
   ExecutionMonitorQuickFilter,
@@ -30,6 +35,7 @@ const QUICK_FILTER_FIELD_TO_QUERY_FIELD: Record<ExecutionMonitorQuickFilterField
   monitor: 'monitor',
 }
 const MONITOR_EXECUTION_AUTO_PAGE_LIMIT = 3
+const MONITOR_TRIGGER_SOURCE_FILTER = MONITOR_TRIGGER_IDS.join(',')
 
 type MonitorQuickFilterClause = {
   id: string
@@ -41,6 +47,8 @@ type MonitorQuickFilterClause = {
 type MonitorExecutionSnapshot = {
   id?: unknown
   providerId?: unknown
+  serviceId?: unknown
+  accountId?: unknown
   interval?: unknown
   indicatorId?: unknown
   listing?: unknown
@@ -53,6 +61,7 @@ type MonitorWorkflowLog = WorkflowLog & {
   executionData?: WorkflowLog['executionData'] & {
     totalDuration?: number | null
     trigger?: {
+      source?: string
       data?: {
         monitor?: MonitorExecutionSnapshot
       }
@@ -169,7 +178,7 @@ export const buildMonitorExecutionLogFilters = (viewConfig: ExecutionMonitorView
   queryPolicyKey: 'monitor' as const,
   limit: 100,
   details: 'full' as const,
-  triggerSource: 'indicator_trigger' as const,
+  triggerSource: MONITOR_TRIGGER_SOURCE_FILTER,
 })
 
 const toExecutionItem = (
@@ -182,8 +191,12 @@ const toExecutionItem = (
   const endedAt = getEndedAt(startedAt, log.endedAt, durationMs)
   const rawListing = snapshot?.listing ?? null
   const listing = toListingValueObject(rawListing as ListingInputValue)
+  const source =
+    typeof log.executionData?.trigger?.source === 'string' ? log.executionData.trigger.source : null
   const monitorId = typeof snapshot?.id === 'string' ? snapshot.id : null
   const providerId = typeof snapshot?.providerId === 'string' ? snapshot.providerId : null
+  const serviceId = typeof snapshot?.serviceId === 'string' ? snapshot.serviceId : null
+  const accountId = typeof snapshot?.accountId === 'string' ? snapshot.accountId : null
   const interval = typeof snapshot?.interval === 'string' ? snapshot.interval : null
   const indicatorId = typeof snapshot?.indicatorId === 'string' ? snapshot.indicatorId : null
   const listingWithAssetClass = rawListing as {
@@ -198,7 +211,17 @@ const toExecutionItem = (
       listingWithAssetClass.base_asset_class.trim()) ||
     (typeof listingWithAssetClass?.listing_type === 'string' &&
       listingWithAssetClass.listing_type.trim()) ||
+    (source === PORTFOLIO_MONITOR_TRIGGER_ID ? 'portfolio' : '') ||
     'unknown'
+  const listingLabel = listing ? getListingLabel(listing) : accountId || 'Portfolio account'
+  const isPartial =
+    !monitorId ||
+    !providerId ||
+    (source === INDICATOR_MONITOR_TRIGGER_ID
+      ? !interval || !listing
+      : source === PORTFOLIO_MONITOR_TRIGGER_ID
+        ? !accountId
+        : !interval && !listing && !accountId)
 
   return {
     logId: log.id,
@@ -212,15 +235,18 @@ const toExecutionItem = (
     workflowName: log.workflow?.name || 'Unknown workflow',
     workflowColor: log.workflow?.color || '#3972F6',
     monitorId,
+    source,
     providerId,
+    serviceId,
+    accountId,
     interval,
     indicatorId,
     assetType: assetType.toLowerCase(),
     listing,
-    listingLabel: getListingLabel(listing),
+    listingLabel,
     cost: typeof log.cost?.total === 'number' ? log.cost.total : null,
     isOrphaned: Boolean(monitorId && !liveMonitorIds.has(monitorId)),
-    isPartial: !monitorId || !providerId || !interval || !listing,
+    isPartial,
     sourceLog: log,
   }
 }
@@ -232,7 +258,7 @@ export function useMonitorWorkspaceLogs({
 }: {
   workspaceId: string
   viewConfig: ExecutionMonitorViewConfig
-  monitors: IndicatorMonitorRecord[]
+  monitors: MonitorRecord[]
 }) {
   const filters = useMemo(() => buildMonitorExecutionLogFilters(viewConfig), [viewConfig])
 

@@ -1,9 +1,12 @@
 'use client'
 
 import { useCallback, useEffect, useMemo } from 'react'
+import { MONITOR_TRIGGER_IDS } from '@/lib/monitors/sources'
 import { useLogsList } from '@/hooks/queries/logs'
 import type { WorkflowLog } from '@/stores/logs/filters/types'
 import type { MonitorExecutionOutcome } from './execution-ordering'
+
+const MONITOR_TRIGGER_SOURCE_FILTER = MONITOR_TRIGGER_IDS.join(',')
 
 type MonitorWorkflowLog = WorkflowLog & {
   startedAt?: string
@@ -118,7 +121,7 @@ export function useMonitorExecutionSummaries({
       searchQuery: '',
       limit: 100,
       details: 'full' as const,
-      triggerSource: 'indicator_trigger' as const,
+      triggerSource: MONITOR_TRIGGER_SOURCE_FILTER,
     }),
     []
   )

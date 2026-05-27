@@ -1,4 +1,7 @@
-import { listOAuthConnectionAccountsForUser } from '@/lib/credentials/oauth'
+import {
+  listOAuthCredentialsForUser,
+  resolveOAuthCredentialAccountForUser,
+} from '@/lib/credentials/oauth'
 import { refreshAccessTokenIfNeeded } from '@/lib/oauth/tokens'
 import { listPortfolioIdentities } from '@/providers/trading/portfolio'
 import {
@@ -10,11 +13,13 @@ import type { TradingProviderId } from '@/providers/trading/types'
 
 export async function listTradingPortfolioIdentities({
   userId,
+  workspaceId,
   providerId,
   serviceId,
   requestId,
 }: {
   userId: string
+  workspaceId: string
   providerId: TradingProviderId
   serviceId?: string
   requestId: string
@@ -30,31 +35,42 @@ export async function listTradingPortfolioIdentities({
   const targetServiceIds = selectedServiceId ? [selectedServiceId] : serviceIds
   if (!targetServiceIds.length) return []
 
-  const connections = await listOAuthConnectionAccountsForUser({
+  const credentials = await listOAuthCredentialsForUser({
     userId,
+    workspaceId,
     providerIds: targetServiceIds,
   })
 
   const identities = await Promise.allSettled(
-    connections.map(async (connection) => {
-      const environment = getTradingProviderOAuthEnvironment(providerId, connection.providerId)
+    credentials.map(async (credential) => {
+      const environment = getTradingProviderOAuthEnvironment(providerId, credential.provider)
       if (!environment) {
-        throw new Error(`Unsupported trading service: ${connection.providerId}`)
+        throw new Error(`Unsupported trading service: ${credential.provider}`)
+      }
+
+      const credentialAccess = await resolveOAuthCredentialAccountForUser({
+        credentialId: credential.id,
+        userId,
+        workspaceId,
+      })
+      if (!credentialAccess) {
+        throw new Error(`Trading credential unavailable: ${credential.id}`)
       }
 
       const accessToken = await refreshAccessTokenIfNeeded(
-        connection.tokenAccountId,
-        connection.credentialOwnerUserId,
+        credentialAccess.accountId,
+        credentialAccess.credentialOwnerUserId,
         requestId
       )
       if (!accessToken) {
-        throw new Error(`Trading connection token unavailable: ${connection.tokenAccountId}`)
+        throw new Error(`Trading credential token unavailable: ${credential.id}`)
       }
 
       return listPortfolioIdentities({
         providerId,
-        tokenAccountId: connection.tokenAccountId,
-        serviceId: connection.providerId,
+        credentialId: credential.id,
+        tokenAccountId: credentialAccess.accountId,
+        serviceId: credential.provider,
         environment,
         accessToken,
       })

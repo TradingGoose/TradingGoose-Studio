@@ -4,7 +4,7 @@ type Logger = {
   warn: (message: string, ...args: unknown[]) => void
 }
 
-export const notifyIndicatorMonitorsReconcile = async ({
+export const notifyMonitorsReconcile = async ({
   requestId,
   logger,
 }: {
@@ -13,7 +13,7 @@ export const notifyIndicatorMonitorsReconcile = async ({
 }) => {
   try {
     const socketUrl = getInternalRealtimeUrl()
-    const response = await fetch(`${socketUrl}/internal/indicator-monitors/reconcile`, {
+    const response = await fetch(`${socketUrl}/internal/monitors/reconcile`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -23,11 +23,11 @@ export const notifyIndicatorMonitorsReconcile = async ({
     })
 
     if (!response.ok) {
-      logger.warn(`[${requestId}] Indicator monitor reconcile notification failed`, {
+      logger.warn(`[${requestId}] Monitor reconcile notification failed`, {
         status: response.status,
       })
     }
   } catch (error) {
-    logger.warn(`[${requestId}] Indicator monitor reconcile notification error`, { error })
+    logger.warn(`[${requestId}] Monitor reconcile notification error`, { error })
   }
 }

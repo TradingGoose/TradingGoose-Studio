@@ -5,7 +5,7 @@
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { IndicatorMonitorRecord, MonitorReferenceData } from '../shared/types'
+import type { MonitorRecord, MonitorReferenceData } from '../shared/types'
 import { DEFAULT_CONFIG_MONITOR_VIEW_CONFIG } from '../view/view-config'
 import { useMonitorEditorState } from './use-monitor-editor-state'
 
@@ -13,13 +13,18 @@ const referenceData: MonitorReferenceData = {
   workflowTargets: [],
   workflowTargetByKey: {},
   workflowOptions: [],
+  indicatorWorkflowTargets: [],
+  portfolioWorkflowTargets: [],
   indicatorOptions: [],
   indicatorById: {},
   streamingProviders: [{ id: 'alpaca', name: 'Alpaca' }],
   providerById: { alpaca: { id: 'alpaca', name: 'Alpaca' } },
   providerIntervalsByProviderId: { alpaca: ['1m'] },
   providerParamDefinitionsByProviderId: {},
+  tradingProviders: [{ id: 'alpaca', name: 'Alpaca' }],
+  tradingProviderById: { alpaca: { id: 'alpaca', name: 'Alpaca' } },
   defaultDraftProviderId: 'alpaca',
+  defaultPortfolioProviderId: 'alpaca',
   defaultDraftInterval: '1m',
   createDisabledReason: null,
   isLoading: false,
@@ -28,6 +33,7 @@ const referenceData: MonitorReferenceData = {
 
 const monitor = {
   monitorId: 'monitor-1',
+  source: 'indicator',
   workflowId: 'workflow-1',
   blockId: 'block-1',
   isActive: true,
@@ -43,7 +49,7 @@ const monitor = {
   },
   createdAt: '2026-04-23T00:00:00.000Z',
   updatedAt: '2026-04-24T00:00:00.000Z',
-} satisfies IndicatorMonitorRecord
+} satisfies MonitorRecord
 
 const actions = {
   createMonitor: vi.fn(),
@@ -52,7 +58,7 @@ const actions = {
   deleteMonitor: vi.fn(),
 }
 
-const Harness = ({ records }: { records: IndicatorMonitorRecord[] }) => {
+const Harness = ({ records }: { records: MonitorRecord[] }) => {
   const state = useMonitorEditorState({
     workspaceId: 'workspace-1',
     monitorRecords: records,

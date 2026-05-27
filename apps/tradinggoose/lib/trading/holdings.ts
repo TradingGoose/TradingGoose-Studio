@@ -10,6 +10,7 @@ import { getTradingProviderDefinition } from '@/providers/trading/providers'
 import { TradingServiceError } from './errors'
 
 export interface TradingHoldingsRequest {
+  workspaceId?: string
   portfolioIdentity?: PortfolioIdentity | null
 }
 
@@ -33,20 +34,27 @@ export async function getTradingHoldings({
   if (!portfolioIdentity) {
     throw new TradingServiceError('Portfolio identity is required')
   }
+  const workspaceId = requestData.workspaceId?.trim()
+  if (!workspaceId) {
+    throw new TradingServiceError('workspaceId is required')
+  }
   const connectionAuthorization = await authorizeTradingConnectionRequest({
-    tokenAccountId: portfolioIdentity.tokenAccountId,
+    credentialId: portfolioIdentity.credentialId,
     userId,
+    workspaceId,
   })
 
   const baseContext = await resolveTradingProviderContext({
     requestData: {
       provider: portfolioIdentity.providerId,
-      tokenAccountId: portfolioIdentity.tokenAccountId,
+      credentialId: portfolioIdentity.credentialId,
       serviceId: portfolioIdentity.serviceId,
+      workspaceId,
     },
     requestId,
     userId,
     connectionOwnerUserId: connectionAuthorization.connectionOwnerUserId,
+    tokenAccountId: connectionAuthorization.tokenAccountId,
     accountProviderId: connectionAuthorization.accountProviderId,
   })
   const providerDefinition = getTradingProviderDefinition(baseContext.providerId)
@@ -60,6 +68,7 @@ export async function getTradingHoldings({
 
   const holdings = await getPortfolioDetail({
     providerId: baseContext.providerId,
+    credentialId: baseContext.credentialId,
     tokenAccountId: baseContext.tokenAccountId,
     serviceId: baseContext.serviceId,
     environment: baseContext.environment,

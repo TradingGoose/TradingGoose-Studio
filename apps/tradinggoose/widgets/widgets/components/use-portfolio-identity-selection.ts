@@ -16,6 +16,7 @@ type EmitPortfolioParamsChange = (input: {
 }) => void
 
 export function usePortfolioIdentitySelection({
+  workspaceId,
   providerId,
   serviceId,
   portfolioIdentity,
@@ -24,6 +25,7 @@ export function usePortfolioIdentitySelection({
   widgetKey,
   emitParamsChange,
 }: {
+  workspaceId?: string | null
   providerId?: string | null
   serviceId?: string | null
   portfolioIdentity?: PortfolioIdentity | null
@@ -45,6 +47,7 @@ export function usePortfolioIdentitySelection({
   })
   const activeServiceId = enabled ? services.activeServiceId : undefined
   const accountsQuery = usePortfolioIdentities({
+    workspaceId: workspaceId ?? undefined,
     provider: enabled ? (providerId ?? undefined) : undefined,
     serviceId: activeServiceId,
     enabled: enabled && Boolean(activeServiceId),

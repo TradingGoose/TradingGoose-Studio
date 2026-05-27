@@ -13,6 +13,7 @@ import { normalizeBarsMs } from '@/lib/indicators/series-data'
 import type { BarMs, NormalizedPineSignal } from '@/lib/indicators/types'
 import type { ListingIdentity } from '@/lib/listing/identity'
 import { createLogger } from '@/lib/logs/console/logger'
+import { INDICATOR_MONITOR_PROVIDER } from '@/lib/monitors/sources'
 import {
   loadWorkflowExecutionBlueprint,
   runPreparedWorkflowExecution,
@@ -170,7 +171,7 @@ async function disableMonitor(
       isActive: false,
       updatedAt: new Date(),
     })
-    .where(and(eq(webhook.id, monitorId), eq(webhook.provider, 'indicator')))
+    .where(and(eq(webhook.id, monitorId), eq(webhook.provider, INDICATOR_MONITOR_PROVIDER)))
 
   logger.warn('Indicator monitor disabled', {
     monitorId,
@@ -342,6 +343,6 @@ export async function executeIndicatorMonitorJob(payload: IndicatorMonitorExecut
     output: result.output,
     error: result.error,
     executedAt: new Date().toISOString(),
-    provider: 'indicator',
+    provider: INDICATOR_MONITOR_PROVIDER,
   }
 }

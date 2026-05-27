@@ -6,14 +6,14 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const {
   dispatchQueuedDocumentProcessingJobMock,
   executeWorkflowJobMock,
-  executeIndicatorMonitorJobMock,
+  executeMonitorJobMock,
   claimNextPendingExecutionMock,
   completePendingExecutionMock,
   failQueuedDocumentProcessingJobMock,
 } = vi.hoisted(() => ({
   dispatchQueuedDocumentProcessingJobMock: vi.fn(),
   executeWorkflowJobMock: vi.fn(),
-  executeIndicatorMonitorJobMock: vi.fn(),
+  executeMonitorJobMock: vi.fn(),
   claimNextPendingExecutionMock: vi.fn(),
   completePendingExecutionMock: vi.fn(),
   failQueuedDocumentProcessingJobMock: vi.fn(),
@@ -40,9 +40,9 @@ vi.mock('./knowledge-processing', () => ({
   failQueuedDocumentProcessingJob: failQueuedDocumentProcessingJobMock,
 }))
 
-vi.mock('./indicator-monitor-execution', () => ({
-  executeIndicatorMonitorJob: executeIndicatorMonitorJobMock,
-  isIndicatorMonitorExecutionPayload: vi.fn(() => false),
+vi.mock('./monitor-execution', () => ({
+  executeMonitorJob: executeMonitorJobMock,
+  isMonitorExecutionPayload: vi.fn(() => false),
 }))
 
 vi.mock('./schedule-execution', () => ({
@@ -223,11 +223,12 @@ describe('pendingExecutionDrain', () => {
         id: 'pending-indicator-1',
         billingScopeId: 'scope-1',
         billingScopeType: 'user',
-        executionType: 'indicator_monitor',
+        executionType: 'monitor',
         userId: 'actor-1',
         workflowId: 'workflow-1',
         workspaceId: 'workspace-1',
         payload: {
+          source: 'indicator',
           monitor: {
             id: 'monitor-1',
             workflowId: 'workflow-1',
@@ -257,13 +258,13 @@ describe('pendingExecutionDrain', () => {
       },
     })
 
-    const { isIndicatorMonitorExecutionPayload } = await import('./indicator-monitor-execution')
-    vi.mocked(isIndicatorMonitorExecutionPayload).mockReturnValue(true)
-    executeIndicatorMonitorJobMock.mockResolvedValue({ success: true })
+    const { isMonitorExecutionPayload } = await import('./monitor-execution')
+    vi.mocked(isMonitorExecutionPayload).mockReturnValue(true)
+    executeMonitorJobMock.mockResolvedValue({ success: true })
 
     const result = await runPendingExecutionDrain('scope-1')
 
-    expect(executeIndicatorMonitorJobMock).toHaveBeenCalledWith(
+    expect(executeMonitorJobMock).toHaveBeenCalledWith(
       expect.objectContaining({
         executionId: 'pending-indicator-1',
       })

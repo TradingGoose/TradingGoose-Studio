@@ -147,6 +147,7 @@ import { ImapBlock } from '@/triggers/blocks/imap'
 import { IndicatorTriggerBlock } from '@/triggers/blocks/indicator_trigger'
 import { InputTriggerBlock } from '@/triggers/blocks/input_trigger'
 import { ManualTriggerBlock } from '@/triggers/blocks/manual_trigger'
+import { PortfolioStateTriggerBlock } from '@/triggers/blocks/portfolio_state_trigger'
 import { RssBlock } from '@/triggers/blocks/rss'
 import { ScheduleBlock } from '@/triggers/blocks/schedule'
 
@@ -201,6 +202,7 @@ export const registry: Record<string, BlockConfig> = {
   outlook: OutlookBlock,
   onedrive: OneDriveBlock,
   parallel_ai: ParallelBlock,
+  portfolio_state_trigger: PortfolioStateTriggerBlock,
   perplexity: PerplexityBlock,
   pinecone: PineconeBlock,
   postgresql: PostgreSQLBlock,

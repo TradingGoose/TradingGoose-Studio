@@ -2,6 +2,7 @@ import { z } from 'zod'
 import type { InputMeta, InputMetaMap } from '@/lib/indicators/types'
 import type { ListingIdentity, ListingInputValue } from '@/lib/listing/identity'
 import { toListingValueObject } from '@/lib/listing/identity'
+import { INDICATOR_MONITOR_TRIGGER_ID } from '@/lib/monitors/sources'
 import { encryptSecret } from '@/lib/utils-server'
 import {
   coerceMarketProviderParamValue,
@@ -10,7 +11,7 @@ import {
   getMarketSeriesCapabilities,
 } from '@/providers/market/providers'
 
-export const INDICATOR_MONITOR_TRIGGER_ID = 'indicator_trigger' as const
+export { INDICATOR_MONITOR_TRIGGER_ID }
 
 const MonitorAuthCreateInputSchema = z.object({
   secrets: z.record(z.string()),

@@ -4,6 +4,7 @@ import { and, eq, sql } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createLogger } from '@/lib/logs/console/logger'
+import { isMonitorTriggerId } from '@/lib/monitors/sources'
 import { buildWorkspaceAccessScope } from '@/lib/permissions/utils'
 import { normalizeOptionalString } from '@/lib/utils'
 import { parseListingFilter } from '@/app/api/logs/log-utils'
@@ -15,6 +16,20 @@ const logger = createLogger('V1LogsAPI')
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
+
+const splitCsv = (value: string | undefined) =>
+  (value ?? '')
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter(Boolean)
+
+const MonitorTriggerSourceParamSchema = z
+  .preprocess((value) => {
+    if (typeof value !== 'string') return value
+    const trimmed = value.trim()
+    return trimmed.length === 0 ? undefined : trimmed
+  }, z.string().optional())
+  .refine((value) => !value || splitCsv(value).every(isMonitorTriggerId), 'Invalid triggerSource')
 
 const QueryParamsSchema = z.object({
   workspaceId: z.string(),
@@ -38,11 +53,7 @@ const QueryParamsSchema = z.object({
   indicatorId: z.string().optional(),
   providerId: z.string().optional(),
   interval: z.string().optional(),
-  triggerSource: z.preprocess((value) => {
-    if (typeof value !== 'string') return value
-    const trimmed = value.trim()
-    return trimmed.length === 0 ? undefined : trimmed
-  }, z.literal('indicator_trigger').optional()),
+  triggerSource: MonitorTriggerSourceParamSchema,
   limit: z.coerce.number().optional().default(100),
   cursor: z.string().optional(),
   order: z.enum(['desc', 'asc']).optional().default('desc'),

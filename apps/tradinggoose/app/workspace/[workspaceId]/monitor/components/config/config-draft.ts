@@ -1,10 +1,12 @@
 import type { ListingIdentity } from '@/lib/listing/identity'
 import type {
-  IndicatorMonitorCreateInput,
-  IndicatorMonitorRecord,
-  IndicatorMonitorUpdateInput,
+  MonitorCreateInput,
   MonitorDraft,
+  MonitorRecord,
   MonitorReferenceData,
+  MonitorUpdateInput,
+  PortfolioMonitorCreateInput,
+  PortfolioMonitorUpdateInput,
 } from '../shared/types'
 import { buildDefaultDraft, buildDraftFromMonitor, isAuthParamDefinition } from '../shared/utils'
 
@@ -46,6 +48,14 @@ const mapProviderParamsToComparableValues = (
 const getProviderDefinitions = (referenceData: MonitorReferenceData, providerId: string) =>
   referenceData.providerParamDefinitionsByProviderId[providerId] ?? []
 
+const getDefaultProviderIdForSource = (
+  source: MonitorDraft['source'],
+  referenceData: MonitorReferenceData
+) =>
+  source === 'portfolio'
+    ? referenceData.defaultPortfolioProviderId
+    : referenceData.defaultDraftProviderId
+
 export const getProviderIntervalFallback = ({
   defaultDraftInterval,
   providerId,
@@ -75,6 +85,20 @@ export const mergeMonitorDraftPatch = ({
   patch: Partial<MonitorDraft>
   referenceData: MonitorReferenceData
 }): MonitorDraft => {
+  const nextSource = patch.source ?? draft.source
+  if (nextSource !== draft.source) {
+    return {
+      ...buildDefaultDraft({
+        source: nextSource,
+        providerId: getDefaultProviderIdForSource(nextSource, referenceData),
+        interval: referenceData.defaultDraftInterval,
+      }),
+      isActive: draft.isActive,
+      ...patch,
+      source: nextSource,
+    }
+  }
+
   const nextProviderId = patch.providerId ?? draft.providerId
   const providerChanged = nextProviderId !== draft.providerId
   const nextIndicatorId = patch.indicatorId ?? draft.indicatorId
@@ -94,6 +118,7 @@ export const mergeMonitorDraftPatch = ({
   return {
     ...draft,
     ...patch,
+    source: nextSource,
     providerId: nextProviderId,
     interval: nextInterval,
     listing: providerChanged
@@ -112,6 +137,11 @@ export const mergeMonitorDraftPatch = ({
     existingEncryptedSecretFieldIds: providerChanged
       ? (patch.existingEncryptedSecretFieldIds ?? [])
       : (patch.existingEncryptedSecretFieldIds ?? draft.existingEncryptedSecretFieldIds),
+    serviceId: providerChanged ? (patch.serviceId ?? '') : (patch.serviceId ?? draft.serviceId),
+    credentialId: providerChanged
+      ? (patch.credentialId ?? '')
+      : (patch.credentialId ?? draft.credentialId),
+    accountId: providerChanged ? (patch.accountId ?? '') : (patch.accountId ?? draft.accountId),
     indicatorInputs: Object.hasOwn(patch, 'indicatorInputs')
       ? (patch.indicatorInputs ?? {})
       : indicatorChanged
@@ -120,11 +150,18 @@ export const mergeMonitorDraftPatch = ({
   }
 }
 
-export const buildBlankMonitorDraft = (referenceData: MonitorReferenceData) =>
+export const buildBlankMonitorDraft = (
+  referenceData: MonitorReferenceData,
+  source: MonitorDraft['source'] = 'indicator'
+) =>
   buildDefaultDraft({
-    providerId: referenceData.defaultDraftProviderId,
+    source,
+    providerId: getDefaultProviderIdForSource(source, referenceData),
     interval: referenceData.defaultDraftInterval,
   })
+
+const hasPortfolioConditionRules = (draft: MonitorDraft) =>
+  Array.isArray(draft.condition?.root?.rules) && draft.condition.root.rules.length > 0
 
 export const validateMonitorDraft = ({
   draft,
@@ -140,23 +177,45 @@ export const validateMonitorDraft = ({
   if (!draft.workflowId) errors.workflowId = 'Workflow is required.'
   if (!draft.blockId) errors.blockId = 'Block target is required.'
   if (!draft.providerId) errors.providerId = 'Provider is required.'
+
+  const workflowTargetKey = `${draft.workflowId}:${draft.blockId}`
+  const workflowTarget = referenceData.workflowTargetByKey[workflowTargetKey]
+  if (
+    draft.workflowId &&
+    draft.blockId &&
+    (!workflowTarget || workflowTarget.source !== draft.source)
+  ) {
+    errors.workflowId =
+      draft.source === 'portfolio'
+        ? 'Selected workflow target is not deployed with a portfolio state trigger.'
+        : 'Selected workflow target is not deployed with an indicator trigger.'
+  }
+
+  if (draft.source === 'portfolio') {
+    if (draft.providerId && !referenceData.tradingProviderById[draft.providerId]) {
+      errors.providerId = 'Selected trading provider is unavailable.'
+    }
+    if (!draft.serviceId) errors.serviceId = 'Trading connection is required.'
+    if (!draft.credentialId || !draft.accountId) errors.accountId = 'Trading account is required.'
+    if (!hasPortfolioConditionRules(draft)) {
+      errors.condition = 'At least one fire condition is required.'
+    }
+
+    return {
+      valid: Object.keys(errors).length === 0,
+      errors,
+    }
+  }
+
   if (!draft.interval) errors.interval = 'Interval is required.'
   if (!draft.indicatorId) errors.indicatorId = 'Indicator is required.'
   if (!draft.listing) errors.listing = 'Listing is required.'
-
-  const workflowTargetKey = `${draft.workflowId}:${draft.blockId}`
-  if (draft.workflowId && draft.blockId && !referenceData.workflowTargetByKey[workflowTargetKey]) {
-    errors.workflowId = 'Selected workflow target is not deployed with an indicator trigger.'
-  }
-
   if (draft.indicatorId && !referenceData.indicatorById[draft.indicatorId]) {
     errors.indicatorId = 'Selected indicator is unavailable.'
   }
-
   if (draft.providerId && !referenceData.providerById[draft.providerId]) {
     errors.providerId = 'Selected provider is unavailable.'
   }
-
   const availableIntervals = referenceData.providerIntervalsByProviderId[draft.providerId] ?? []
   if (
     draft.interval &&
@@ -201,10 +260,29 @@ export const buildMonitorCreatePayloadFromDraft = ({
   workspaceId: string
   draft: MonitorDraft
   referenceData: MonitorReferenceData
-}): IndicatorMonitorCreateInput => {
+}): MonitorCreateInput => {
+  if (draft.source === 'portfolio') {
+    return {
+      source: 'portfolio',
+      workspaceId,
+      workflowId: draft.workflowId,
+      blockId: draft.blockId,
+      providerId: draft.providerId,
+      serviceId: draft.serviceId,
+      credentialId: draft.credentialId,
+      accountId: draft.accountId,
+      condition: draft.condition,
+      fireMode: draft.fireMode,
+      cooldownSeconds: draft.cooldownSeconds,
+      pollIntervalSeconds: draft.pollIntervalSeconds,
+      isActive: draft.isActive,
+    } satisfies PortfolioMonitorCreateInput
+  }
+
   const providerParams = trimRecordValues(draft.providerParamValues)
 
   return {
+    source: 'indicator',
     workspaceId,
     workflowId: draft.workflowId,
     blockId: draft.blockId,
@@ -230,10 +308,28 @@ export const buildMonitorUpdatePayloadFromDraft = ({
 }: {
   workspaceId: string
   draft: MonitorDraft
-  originalMonitor: IndicatorMonitorRecord
+  originalMonitor: MonitorRecord
   referenceData: MonitorReferenceData
-}): IndicatorMonitorUpdateInput => {
+}): MonitorUpdateInput => {
   const originalConfig = originalMonitor.providerConfig.monitor
+  if (originalMonitor.source === 'portfolio') {
+    return {
+      source: 'portfolio',
+      workspaceId,
+      workflowId: draft.workflowId,
+      blockId: draft.blockId,
+      providerId: draft.providerId,
+      serviceId: draft.serviceId,
+      credentialId: draft.credentialId,
+      accountId: draft.accountId,
+      condition: draft.condition,
+      fireMode: draft.fireMode,
+      cooldownSeconds: draft.cooldownSeconds,
+      pollIntervalSeconds: draft.pollIntervalSeconds,
+      isActive: draft.isActive,
+    } satisfies PortfolioMonitorUpdateInput
+  }
+
   const providerChanged = draft.providerId !== originalConfig.providerId
   const indicatorChanged = draft.indicatorId !== originalConfig.indicatorId
   const nextProviderParams = trimRecordValues(draft.providerParamValues)
@@ -246,6 +342,7 @@ export const buildMonitorUpdatePayloadFromDraft = ({
   )
 
   return {
+    source: 'indicator',
     workspaceId,
     workflowId: draft.workflowId,
     blockId: draft.blockId,
@@ -266,9 +363,9 @@ export const buildMonitorUpdatePayloadFromDraft = ({
 }
 
 export const buildOptimisticMonitorRecordFromDraft = (
-  monitor: IndicatorMonitorRecord,
+  monitor: MonitorRecord,
   draft: MonitorDraft
-): IndicatorMonitorRecord => ({
+): MonitorRecord => ({
   ...monitor,
   workflowId: draft.workflowId,
   blockId: draft.blockId,
@@ -279,17 +376,29 @@ export const buildOptimisticMonitorRecordFromDraft = (
     monitor: {
       ...monitor.providerConfig.monitor,
       providerId: draft.providerId,
-      interval: draft.interval,
-      indicatorId: draft.indicatorId,
-      listing: draft.listing as ListingIdentity,
-      providerParams: trimRecordValues(draft.providerParamValues),
-      indicatorInputs: draft.indicatorInputs,
+      ...(draft.source === 'portfolio'
+        ? {
+            serviceId: draft.serviceId,
+            credentialId: draft.credentialId,
+            accountId: draft.accountId,
+            condition: draft.condition,
+            fireMode: draft.fireMode,
+            cooldownSeconds: draft.cooldownSeconds,
+            pollIntervalSeconds: draft.pollIntervalSeconds,
+          }
+        : {
+            interval: draft.interval,
+            indicatorId: draft.indicatorId,
+            listing: draft.listing as ListingIdentity,
+            providerParams: trimRecordValues(draft.providerParamValues),
+            indicatorInputs: draft.indicatorInputs,
+          }),
     },
   },
 })
 
 export const buildDraftFromMonitorWithPatch = (
-  monitor: IndicatorMonitorRecord,
+  monitor: MonitorRecord,
   patch: Partial<MonitorDraft>,
   referenceData: MonitorReferenceData
 ) =>

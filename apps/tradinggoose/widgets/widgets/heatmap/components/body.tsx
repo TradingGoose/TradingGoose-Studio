@@ -8,8 +8,8 @@ import { useResolvedListings } from '@/hooks/queries/listing-resolution'
 import { useMarketQuoteSnapshots } from '@/hooks/queries/market-quote-snapshots'
 import { useOAuthProviderAvailability } from '@/hooks/queries/oauth-provider-availability'
 import { usePortfolioDetail } from '@/hooks/queries/trading-portfolio'
-import { getPortfolioListingExposures } from '@/providers/trading/portfolio-selectors'
 import { useWatchlists } from '@/hooks/queries/watchlists'
+import { getPortfolioListingExposures } from '@/providers/trading/portfolio-selectors'
 import { useSetPairColorContext } from '@/stores/dashboard/pair-store'
 import type { WidgetComponentProps } from '@/widgets/types'
 import {
@@ -136,23 +136,20 @@ export function HeatmapWidgetBody({
     })
   }, [hasInvalidPersistedTradingProvider, panelId, widgetKey])
 
-  const {
-    accountsQuery,
-    activeServiceId,
-    activePortfolioIdentity,
-    services,
-    portfolioIdentities,
-  } = usePortfolioIdentitySelection({
-    providerId: tradingProviderId,
-    serviceId: widgetParams?.serviceId,
-    portfolioIdentity: widgetParams?.portfolioIdentity,
-    enabled: sourceMode === 'portfolio' && isTradingProviderReady,
-    panelId,
-    widgetKey,
-    emitParamsChange: emitHeatmapParamsChange,
-  })
+  const { accountsQuery, activeServiceId, activePortfolioIdentity, services, portfolioIdentities } =
+    usePortfolioIdentitySelection({
+      workspaceId,
+      providerId: tradingProviderId,
+      serviceId: widgetParams?.serviceId,
+      portfolioIdentity: widgetParams?.portfolioIdentity,
+      enabled: sourceMode === 'portfolio' && isTradingProviderReady,
+      panelId,
+      widgetKey,
+      emitParamsChange: emitHeatmapParamsChange,
+    })
 
   const snapshotQuery = usePortfolioDetail({
+    workspaceId: workspaceId ?? undefined,
     provider: sourceMode === 'portfolio' && isTradingProviderReady ? tradingProviderId : undefined,
     serviceId: activeServiceId,
     portfolioIdentity: activePortfolioIdentity,

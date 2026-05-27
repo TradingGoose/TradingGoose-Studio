@@ -132,7 +132,7 @@ function HeatmapWatchlistSizeControls({ panelId, widgetKey, params }: HeaderCont
   )
 }
 
-function HeatmapPortfolioControls({ panelId, widgetKey, params }: HeaderControlProps) {
+function HeatmapPortfolioControls({ workspaceId, panelId, widgetKey, params }: HeaderControlProps) {
   const providerAvailabilityQuery = useOAuthProviderAvailability(
     getHeatmapTradingProviderAvailabilityIds()
   )
@@ -144,6 +144,7 @@ function HeatmapPortfolioControls({ panelId, widgetKey, params }: HeaderControlP
 
   return (
     <TradingProviderControls
+      workspaceId={workspaceId}
       providerId={providerId}
       providerOptions={providerOptions}
       serviceId={params?.serviceId}

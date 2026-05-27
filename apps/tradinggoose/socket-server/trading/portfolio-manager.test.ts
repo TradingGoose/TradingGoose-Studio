@@ -10,7 +10,7 @@ const {
   getTradingProviderOAuthServiceIdMock,
   getTradingPortfolioSupportedWindowsMock,
   isTradingPortfolioWindowSupportedMock,
-  resolveOAuthConnectionAccountForUserMock,
+  resolveOAuthCredentialAccountForUserMock,
   listTradingPortfolioIdentitiesMock,
   getPortfolioDetailMock,
   getTradingAccountPerformanceMock,
@@ -21,7 +21,7 @@ const {
   getTradingProviderOAuthEnvironmentMock: vi.fn(),
   getTradingPortfolioSupportedWindowsMock: vi.fn(),
   isTradingPortfolioWindowSupportedMock: vi.fn(),
-  resolveOAuthConnectionAccountForUserMock: vi.fn(),
+  resolveOAuthCredentialAccountForUserMock: vi.fn(),
   listTradingPortfolioIdentitiesMock: vi.fn(),
   getPortfolioDetailMock: vi.fn(),
   getTradingAccountPerformanceMock: vi.fn(),
@@ -32,8 +32,8 @@ vi.mock('@/lib/oauth/tokens', () => ({
 }))
 
 vi.mock('@/lib/credentials/oauth', () => ({
-  resolveOAuthConnectionAccountForUser: (...args: unknown[]) =>
-    resolveOAuthConnectionAccountForUserMock(...args),
+  resolveOAuthCredentialAccountForUser: (...args: unknown[]) =>
+    resolveOAuthCredentialAccountForUserMock(...args),
 }))
 
 vi.mock('@/lib/trading/portfolio-identities', () => ({
@@ -71,7 +71,7 @@ import { TradingPortfolioStreamManager } from './portfolio-manager'
 
 const portfolioIdentity: PortfolioIdentity = {
   providerId: 'alpaca',
-  tokenAccountId: 'oauth-account-1',
+  credentialId: 'oauth-credential-1',
   serviceId: 'alpaca-live',
   accountId: 'acct-1',
   providerName: 'Alpaca',
@@ -143,10 +143,12 @@ const flushPortfolioPolls = async () => {
 describe('TradingPortfolioStreamManager', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    resolveOAuthConnectionAccountForUserMock.mockResolvedValue({
-      tokenAccountId: 'oauth-account-1',
+    resolveOAuthCredentialAccountForUserMock.mockResolvedValue({
+      credentialId: 'oauth-credential-1',
+      accountId: 'oauth-account-1',
       credentialOwnerUserId: 'user-1',
       providerId: 'alpaca-live',
+      workspaceId: 'workspace-1',
     })
     refreshAccessTokenIfNeededMock.mockResolvedValue('oauth-token')
     getTradingProviderDefinitionMock.mockReturnValue({
@@ -173,6 +175,7 @@ describe('TradingPortfolioStreamManager', () => {
     const secondSocket = createSocket('socket-2')
 
     await manager.subscribe(firstSocket, {
+      workspaceId: 'workspace-1',
       provider: 'alpaca',
       serviceId: 'alpaca-live',
       portfolioIdentity,
@@ -180,6 +183,7 @@ describe('TradingPortfolioStreamManager', () => {
       clientSubscriptionId: 'snapshot-1',
     })
     await manager.subscribe(secondSocket, {
+      workspaceId: 'workspace-1',
       provider: 'alpaca',
       serviceId: 'alpaca-live',
       portfolioIdentity,
@@ -193,6 +197,7 @@ describe('TradingPortfolioStreamManager', () => {
     expect(listTradingPortfolioIdentitiesMock).toHaveBeenCalledTimes(1)
     expect(listTradingPortfolioIdentitiesMock).toHaveBeenCalledWith({
       userId: 'user-1',
+      workspaceId: 'workspace-1',
       providerId: 'alpaca',
       serviceId: 'alpaca-live',
       requestId: expect.any(String),
@@ -200,6 +205,7 @@ describe('TradingPortfolioStreamManager', () => {
     expect(getPortfolioDetailMock).toHaveBeenCalledTimes(1)
     expect(getPortfolioDetailMock).toHaveBeenCalledWith({
       providerId: 'alpaca',
+      credentialId: 'oauth-credential-1',
       tokenAccountId: 'oauth-account-1',
       serviceId: 'alpaca-live',
       environment: 'live',
@@ -235,6 +241,7 @@ describe('TradingPortfolioStreamManager', () => {
     const secondSocket = createSocket('socket-2')
 
     const first = await manager.subscribe(firstSocket, {
+      workspaceId: 'workspace-1',
       provider: 'alpaca',
       serviceId: 'alpaca-live',
       portfolioIdentity,
@@ -242,6 +249,7 @@ describe('TradingPortfolioStreamManager', () => {
       clientSubscriptionId: 'portfolio_snapshot',
     })
     const second = await manager.subscribe(secondSocket, {
+      workspaceId: 'workspace-1',
       provider: 'alpaca',
       serviceId: 'alpaca-live',
       portfolioIdentity,
@@ -278,6 +286,7 @@ describe('TradingPortfolioStreamManager', () => {
     const socket = createSocket('socket-1')
 
     await manager.subscribe(socket, {
+      workspaceId: 'workspace-1',
       provider: 'alpaca',
       serviceId: 'alpaca-live',
       portfolioIdentity,
@@ -285,6 +294,7 @@ describe('TradingPortfolioStreamManager', () => {
       clientSubscriptionId: 'snapshot-1',
     })
     await manager.subscribe(socket, {
+      workspaceId: 'workspace-1',
       provider: 'alpaca',
       serviceId: 'alpaca-live',
       portfolioIdentity,
@@ -319,6 +329,7 @@ describe('TradingPortfolioStreamManager', () => {
     const socket = createSocket('socket-1')
 
     await manager.subscribe(socket, {
+      workspaceId: 'workspace-1',
       provider: 'alpaca',
       serviceId: 'alpaca-live',
       portfolioIdentity,
@@ -333,6 +344,7 @@ describe('TradingPortfolioStreamManager', () => {
     manager.stop()
     await expect(
       manager.subscribe(socket, {
+        workspaceId: 'workspace-1',
         provider: 'alpaca',
         serviceId: 'alpaca-live',
         portfolioIdentity,

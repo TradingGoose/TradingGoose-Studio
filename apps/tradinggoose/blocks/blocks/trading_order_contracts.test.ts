@@ -175,7 +175,7 @@ describe('trading order block contracts', () => {
     const params = TradingActionBlock.tools.config!.params!({
       portfolioIdentity: {
         providerId: 'tradier',
-        tokenAccountId: 'oauth-account-1',
+        credentialId: 'oauth-account-1',
         serviceId: 'tradier-live',
         accountId: 'ACC-1',
       },

@@ -17,7 +17,7 @@ const mockEmitPortfolioSnapshotParamsChange = vi.fn()
 
 const selectedPortfolioIdentity = {
   providerId: 'alpaca',
-  tokenAccountId: 'oauth-account-1',
+  credentialId: 'oauth-account-1',
   serviceId: 'alpaca-live',
   accountId: 'acct-1',
   accountName: 'Paper',
@@ -232,7 +232,7 @@ describe('PortfolioSnapshotWidgetBody', () => {
   it('clears the saved account when the saved service has disconnected', async () => {
     const connectedPaperIdentity = {
       ...selectedPortfolioIdentity,
-      tokenAccountId: 'oauth-account-paper',
+      credentialId: 'oauth-account-paper',
       serviceId: 'alpaca-paper',
       accountId: 'paper-acct',
       accountName: 'Paper Account',
@@ -347,7 +347,7 @@ describe('PortfolioSnapshotWidgetBody', () => {
     const tradierPortfolioIdentity = {
       ...selectedPortfolioIdentity,
       providerId: 'tradier',
-      tokenAccountId: 'oauth-account-2',
+      credentialId: 'oauth-account-2',
       serviceId: 'tradier-live',
     }
     mockUsePortfolioIdentities.mockReturnValue(
@@ -468,6 +468,7 @@ describe('PortfolioSnapshotWidgetBody', () => {
     expect(container.textContent).toContain('Alpaca · active · paper')
     expect(container.textContent).toContain('performance-chart')
     expect(mockUsePortfolioDetail).toHaveBeenCalledWith({
+      workspaceId: 'workspace-1',
       provider: 'alpaca',
       serviceId: 'alpaca-live',
       portfolioIdentity: selectedPortfolioIdentity,

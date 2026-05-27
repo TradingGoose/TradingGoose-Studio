@@ -37,6 +37,7 @@ export type TradingAccountSelection = {
 }
 
 type TradingAccountSelectorProps = {
+  workspaceId?: string | null
   providerId?: string | null
   serviceId?: string | null
   portfolioIdentity?: PortfolioIdentity | null
@@ -67,6 +68,7 @@ const getAccountDescription = (providerId: string, portfolioIdentity: PortfolioI
     .join(' - ')
 
 export function TradingAccountSelector({
+  workspaceId,
   providerId,
   serviceId,
   portfolioIdentity,
@@ -95,6 +97,7 @@ export function TradingAccountSelector({
   const activeServiceId = services.activeServiceId
   const hasConnection = Boolean(activeServiceId)
   const accountsQuery = usePortfolioIdentities({
+    workspaceId: workspaceId ?? undefined,
     provider: trimmedProviderId || undefined,
     serviceId: activeServiceId,
     enabled: isEnabled && hasConnection,

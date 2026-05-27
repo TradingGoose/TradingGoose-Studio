@@ -11,12 +11,9 @@ import { MARKET_QUOTE_SNAPSHOT_REQUEST_CAP } from '@/lib/market/quote-snapshot-c
 import { cn } from '@/lib/utils'
 import { useMarketQuoteSnapshots } from '@/hooks/queries/market-quote-snapshots'
 import { useOAuthProviderAvailability } from '@/hooks/queries/oauth-provider-availability'
-import {
-  usePortfolioDetail,
-  usePortfolioPerformance,
-} from '@/hooks/queries/trading-portfolio'
-import { getTradingProviderDefinition } from '@/providers/trading/providers'
+import { usePortfolioDetail, usePortfolioPerformance } from '@/hooks/queries/trading-portfolio'
 import { getPortfolioListingExposures } from '@/providers/trading/portfolio-selectors'
+import { getTradingProviderDefinition } from '@/providers/trading/providers'
 import type { TradingPortfolioPerformanceWindow } from '@/providers/trading/types'
 import type { WidgetComponentProps } from '@/widgets/types'
 import {
@@ -264,23 +261,20 @@ export function PortfolioSnapshotWidgetBody({
     widgetParams?.selectedWindow,
   ])
 
-  const {
-    accountsQuery,
-    activeServiceId,
-    activePortfolioIdentity,
-    services,
-    portfolioIdentities,
-  } = usePortfolioIdentitySelection({
-    providerId,
-    serviceId: widgetParams?.serviceId,
-    portfolioIdentity: widgetParams?.portfolioIdentity,
-    enabled: isProviderReady,
-    panelId,
-    widgetKey,
-    emitParamsChange: emitPortfolioSnapshotParamsChange,
-  })
+  const { accountsQuery, activeServiceId, activePortfolioIdentity, services, portfolioIdentities } =
+    usePortfolioIdentitySelection({
+      workspaceId,
+      providerId,
+      serviceId: widgetParams?.serviceId,
+      portfolioIdentity: widgetParams?.portfolioIdentity,
+      enabled: isProviderReady,
+      panelId,
+      widgetKey,
+      emitParamsChange: emitPortfolioSnapshotParamsChange,
+    })
 
   const snapshotQuery = usePortfolioDetail({
+    workspaceId: workspaceId ?? undefined,
     provider: isProviderReady ? providerId : undefined,
     serviceId: activeServiceId,
     portfolioIdentity: activePortfolioIdentity,
@@ -322,6 +316,7 @@ export function PortfolioSnapshotWidgetBody({
   })
 
   const performanceQuery = usePortfolioPerformance({
+    workspaceId: workspaceId ?? undefined,
     provider: isProviderReady ? providerId : undefined,
     serviceId: activeServiceId,
     portfolioIdentity: activePortfolioIdentity,
@@ -460,7 +455,7 @@ export function PortfolioSnapshotWidgetBody({
         : (quotedPositionsHint ??
           (marketProviderId
             ? quoteItems.length > 0
-          ? `${quoteSummary.quotedPositions}/${cappedQuotePositions.length} quoted`
+              ? `${quoteSummary.quotedPositions}/${cappedQuotePositions.length} quoted`
               : 'No holdings with market listings'
             : 'No market provider')))
   const accountMetaText = [

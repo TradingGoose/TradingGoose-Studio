@@ -7,8 +7,8 @@ import {
 import { resolveWorkspaceIdFromExecutionContext } from '@/lib/copilot/tools/client/entities/entity-document-tool-utils'
 import {
   buildMonitorName,
-  type IndicatorMonitorRecord,
   type ListMonitorArgs,
+  type MonitorRecord,
 } from '@/lib/copilot/tools/client/monitor/monitor-tool-utils'
 
 export class ListMonitorsClientTool extends BaseClientTool {
@@ -44,20 +44,21 @@ export class ListMonitorsClientTool extends BaseClientTool {
         searchParams.set('blockId', args.blockId)
       }
 
-      const response = await fetch(`/api/indicator-monitors?${searchParams.toString()}`)
+      const response = await fetch(`/api/monitors?${searchParams.toString()}`)
       const payload = await response.json().catch(() => ({}))
 
       if (!response.ok) {
         throw new Error(payload?.error || `Failed to fetch monitors: ${response.status}`)
       }
 
-      const monitors = Array.isArray(payload?.data) ? (payload.data as IndicatorMonitorRecord[]) : []
+      const monitors = Array.isArray(payload?.data) ? (payload.data as MonitorRecord[]) : []
       const monitorsList = monitors.map((monitor) => ({
         monitorId: monitor.monitorId,
         monitorName: buildMonitorName(monitor),
         monitorDescription: `Workflow ${monitor.workflowId}, block ${monitor.blockId}`,
         workflowId: monitor.workflowId,
         blockId: monitor.blockId,
+        source: monitor.source,
         providerId: monitor.providerConfig.monitor.providerId,
         indicatorId: monitor.providerConfig.monitor.indicatorId,
         interval: monitor.providerConfig.monitor.interval,

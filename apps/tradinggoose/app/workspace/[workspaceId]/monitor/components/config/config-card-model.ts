@@ -1,12 +1,13 @@
 import type { ListingIdentity } from '@/lib/listing/identity'
 import type { MonitorExecutionOutcome } from '../data/execution-ordering'
 import type { MonitorExecutionSummary } from '../data/use-monitor-execution-summaries'
-import type { IndicatorMonitorRecord, MonitorReferenceData } from '../shared/types'
+import type { MonitorRecord, MonitorReferenceData } from '../shared/types'
 import type { ConfigMonitorDimensionField, ConfigMonitorStatus } from '../view/view-config'
 import { canonicalizeListingValue } from './config-filter-values'
 
 export type ConfigMonitorCard = {
   monitorId: string
+  source: MonitorRecord['source']
   workflowId: string
   blockId: string
   workflowTargetKey: string
@@ -17,7 +18,7 @@ export type ConfigMonitorCard = {
   providerId: string
   providerLabel: string
   interval: string
-  listing: ListingIdentity
+  listing: ListingIdentity | null
   listingValue: string
   listingLabel: string
   isActive: boolean
@@ -25,12 +26,12 @@ export type ConfigMonitorCard = {
   createdAt: string
   updatedAt: string
   indicatorInputs: Record<string, unknown>
-  auth: IndicatorMonitorRecord['providerConfig']['monitor']['auth']
-  providerParams: IndicatorMonitorRecord['providerConfig']['monitor']['providerParams']
+  auth: MonitorRecord['providerConfig']['monitor']['auth']
+  providerParams: MonitorRecord['providerConfig']['monitor']['providerParams']
   lastExecutionAt: string | null
   lastOutcome: MonitorExecutionOutcome | null
   lastExecutionLogId: string | null
-  sourceMonitor: IndicatorMonitorRecord
+  sourceMonitor: MonitorRecord
 }
 
 export type ConfigAxisValue = {
@@ -76,34 +77,46 @@ const getSummaryFields = (summary: MonitorExecutionSummary | undefined) => ({
 })
 
 export const buildConfigMonitorCards = (
-  monitors: IndicatorMonitorRecord[],
+  monitors: MonitorRecord[],
   referenceData: MonitorReferenceData,
   summariesByMonitorId: Record<string, MonitorExecutionSummary>
 ): ConfigMonitorCard[] =>
   monitors.map((monitor) => {
     const monitorConfig = monitor.providerConfig.monitor
+    const isPortfolio = monitor.source === 'portfolio'
     const workflowTargetKey = readWorkflowTargetKey(monitor.workflowId, monitor.blockId)
     const workflowTarget = referenceData.workflowTargetByKey[workflowTargetKey]
-    const indicator = referenceData.indicatorById[monitorConfig.indicatorId]
-    const provider = referenceData.providerById[monitorConfig.providerId]
-    const listingValue = canonicalizeListingValue(monitorConfig.listing) ?? ''
+    const indicator = monitorConfig.indicatorId
+      ? referenceData.indicatorById[monitorConfig.indicatorId]
+      : undefined
+    const provider = isPortfolio
+      ? referenceData.tradingProviderById[monitorConfig.providerId]
+      : referenceData.providerById[monitorConfig.providerId]
+    const listingValue = isPortfolio
+      ? `portfolio:${monitorConfig.serviceId ?? ''}:${monitorConfig.accountId ?? ''}`
+      : (canonicalizeListingValue(monitorConfig.listing) ?? '')
     const summary = getSummaryFields(summariesByMonitorId[monitor.monitorId])
 
     return {
       monitorId: monitor.monitorId,
+      source: monitor.source,
       workflowId: monitor.workflowId,
       blockId: monitor.blockId,
       workflowTargetKey,
       workflowName: workflowTarget?.workflowName ?? monitor.workflowId,
       workflowTargetLabel: workflowTarget?.label ?? workflowTargetKey,
-      indicatorId: monitorConfig.indicatorId,
-      indicatorName: indicator?.name ?? monitorConfig.indicatorId,
+      indicatorId: monitorConfig.indicatorId ?? 'portfolio_state',
+      indicatorName: isPortfolio
+        ? 'Portfolio state'
+        : (indicator?.name ?? monitorConfig.indicatorId ?? 'Indicator'),
       providerId: monitorConfig.providerId,
       providerLabel: provider?.name ?? monitorConfig.providerId,
-      interval: monitorConfig.interval,
-      listing: monitorConfig.listing,
+      interval: monitorConfig.interval ?? `${monitorConfig.pollIntervalSeconds ?? 60}s poll`,
+      listing: monitorConfig.listing ?? null,
       listingValue,
-      listingLabel: formatListingLabel(monitorConfig.listing),
+      listingLabel: isPortfolio
+        ? (monitorConfig.accountId ?? 'Portfolio account')
+        : formatListingLabel(monitorConfig.listing),
       isActive: monitor.isActive,
       status: monitor.isActive ? 'active' : 'paused',
       createdAt: monitor.createdAt,

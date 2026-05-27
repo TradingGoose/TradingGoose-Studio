@@ -12,6 +12,7 @@ import { z } from 'zod'
 import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
 import type { WorkflowLogOutcome } from '@/lib/logs/types'
+import { isMonitorTriggerId } from '@/lib/monitors/sources'
 import { buildWorkspaceAccessScope } from '@/lib/permissions/utils'
 import { generateRequestId, normalizeOptionalString } from '@/lib/utils'
 import {
@@ -23,6 +24,14 @@ import {
 const logger = createLogger('LogsAPI')
 
 export const revalidate = 0
+
+const MonitorTriggerSourceParamSchema = z
+  .preprocess((value) => {
+    if (typeof value !== 'string') return value
+    const trimmed = value.trim()
+    return trimmed.length === 0 ? undefined : trimmed
+  }, z.string().optional())
+  .refine((value) => !value || splitCsv(value).every(isMonitorTriggerId), 'Invalid triggerSource')
 
 const QueryParamsSchema = z.object({
   details: z.enum(['basic', 'full']).optional().default('basic'),
@@ -74,11 +83,7 @@ const QueryParamsSchema = z.object({
   costMinExclusive: z.string().optional(),
   costMax: z.coerce.number().optional(),
   costMaxExclusive: z.string().optional(),
-  triggerSource: z.preprocess((value) => {
-    if (typeof value !== 'string') return value
-    const trimmed = value.trim()
-    return trimmed.length === 0 ? undefined : trimmed
-  }, z.literal('indicator_trigger').optional()),
+  triggerSource: MonitorTriggerSourceParamSchema,
   workspaceId: z.string(),
 })
 
@@ -463,10 +468,14 @@ export async function GET(request: NextRequest) {
         : applyCostLowerBound(conditions, value, parseBooleanFlag(exclusive))
     }
 
-    if (params.triggerSource) {
+    const triggerSources = splitCsv(params.triggerSource)
+    if (triggerSources.length > 0) {
       conditions = and(
         conditions,
-        sql`${workflowExecutionLogs.executionData}->'trigger'->>'source' = ${params.triggerSource}`
+        inArray(
+          sql<string>`${workflowExecutionLogs.executionData}->'trigger'->>'source'`,
+          triggerSources
+        )
       )
     }
 

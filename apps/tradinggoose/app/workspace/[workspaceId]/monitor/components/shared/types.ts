@@ -1,7 +1,11 @@
 import type { ComponentType } from 'react'
 import type { InputMetaMap } from '@/lib/indicators/types'
 import type { ListingIdentity } from '@/lib/listing/identity'
+import type { PortfolioFireCondition } from '@/lib/monitors/portfolio-conditions'
 import type { MarketProviderParamDefinition } from '@/providers/market/providers'
+import type { PortfolioIdentity } from '@/providers/trading/portfolio-identity'
+
+export type MonitorSource = 'indicator' | 'portfolio'
 
 export type IndicatorOption = {
   id: string
@@ -13,6 +17,8 @@ export type IndicatorOption = {
 }
 
 export type WorkflowTargetOption = {
+  source: MonitorSource
+  triggerId: 'indicator_trigger' | 'portfolio_state_trigger'
   workflowId: string
   blockId: string
   workflowName: string
@@ -22,19 +28,27 @@ export type WorkflowTargetOption = {
   label: string
 }
 
-export type IndicatorMonitorRecord = {
+export type MonitorRecord = {
   monitorId: string
+  source: MonitorSource
   workflowId: string
   blockId: string
   isActive: boolean
   providerConfig: {
-    triggerId: 'indicator_trigger'
+    triggerId: 'indicator_trigger' | 'portfolio_state_trigger'
     version: 1
     monitor: {
       providerId: string
-      interval: string
-      listing: ListingIdentity
-      indicatorId: string
+      interval?: string
+      listing?: ListingIdentity
+      indicatorId?: string
+      serviceId?: string
+      credentialId?: string
+      accountId?: string
+      condition?: PortfolioFireCondition
+      fireMode?: 'edge' | 'while_true'
+      cooldownSeconds?: number
+      pollIntervalSeconds?: number
       indicatorInputs?: Record<string, unknown>
       auth?: {
         hasEncryptedSecrets?: boolean
@@ -48,12 +62,20 @@ export type IndicatorMonitorRecord = {
 }
 
 export type MonitorDraft = {
+  source: MonitorSource
   workflowId: string
   blockId: string
   providerId: string
   interval: string
   indicatorId: string
   listing: ListingIdentity | null
+  serviceId: string
+  credentialId: string
+  accountId: string
+  condition: PortfolioFireCondition
+  fireMode: 'edge' | 'while_true'
+  cooldownSeconds: number
+  pollIntervalSeconds: number
   secretValues: Record<string, string>
   providerParamValues: Record<string, string>
   indicatorInputs: Record<string, unknown>
@@ -62,6 +84,7 @@ export type MonitorDraft = {
 }
 
 export type IndicatorMonitorCreateInput = {
+  source: 'indicator'
   workspaceId: string
   workflowId: string
   blockId: string
@@ -78,6 +101,7 @@ export type IndicatorMonitorCreateInput = {
 }
 
 export type IndicatorMonitorUpdateInput = {
+  source?: 'indicator'
   workspaceId: string
   workflowId?: string
   blockId?: string
@@ -98,10 +122,58 @@ export type IndicatorMonitorStateUpdateInput = {
   isActive: boolean
 }
 
+export type PortfolioMonitorCreateInput = {
+  source: 'portfolio'
+  workspaceId: string
+  workflowId: string
+  blockId: string
+  providerId: string
+  serviceId: string
+  credentialId: string
+  accountId: string
+  condition: PortfolioFireCondition
+  fireMode: 'edge' | 'while_true'
+  cooldownSeconds: number
+  pollIntervalSeconds: number
+  isActive: boolean
+}
+
+export type PortfolioMonitorUpdateInput = {
+  source?: 'portfolio'
+  workspaceId: string
+  workflowId?: string
+  blockId?: string
+  providerId?: string
+  serviceId?: string
+  credentialId?: string
+  accountId?: string
+  condition?: PortfolioFireCondition
+  fireMode?: 'edge' | 'while_true'
+  cooldownSeconds?: number
+  pollIntervalSeconds?: number
+  isActive?: boolean
+}
+
+export type MonitorCreateInput = IndicatorMonitorCreateInput | PortfolioMonitorCreateInput
+export type MonitorUpdateInput = IndicatorMonitorUpdateInput | PortfolioMonitorUpdateInput
+
 export type StreamingProviderOption = {
   id: string
   name: string
   icon?: ComponentType<{ className?: string }>
+}
+
+export type TradingProviderOption = {
+  id: string
+  name: string
+  icon?: ComponentType<{ className?: string }>
+}
+
+export type PortfolioAccountOption = {
+  id: string
+  label: string
+  rightLabel?: string
+  value: PortfolioIdentity
 }
 
 export type WorkflowPickerOption = {
@@ -114,13 +186,18 @@ export type MonitorReferenceData = {
   workflowTargets: WorkflowTargetOption[]
   workflowTargetByKey: Record<string, WorkflowTargetOption>
   workflowOptions: WorkflowPickerOption[]
+  indicatorWorkflowTargets: WorkflowTargetOption[]
+  portfolioWorkflowTargets: WorkflowTargetOption[]
   indicatorOptions: IndicatorOption[]
   indicatorById: Record<string, IndicatorOption>
   streamingProviders: StreamingProviderOption[]
   providerById: Record<string, StreamingProviderOption>
   providerIntervalsByProviderId: Record<string, string[]>
   providerParamDefinitionsByProviderId: Record<string, MarketProviderParamDefinition[]>
+  tradingProviders: TradingProviderOption[]
+  tradingProviderById: Record<string, TradingProviderOption>
   defaultDraftProviderId: string
+  defaultPortfolioProviderId: string
   defaultDraftInterval: string
   createDisabledReason: string | null
   isLoading: boolean
@@ -128,20 +205,20 @@ export type MonitorReferenceData = {
 }
 
 type MonitorRecordMutationOptions = {
-  optimisticRecord?: IndicatorMonitorRecord
+  optimisticRecord?: MonitorRecord
 }
 
 export type MonitorRecordActions = {
-  createMonitor: (input: IndicatorMonitorCreateInput) => Promise<IndicatorMonitorRecord | null>
+  createMonitor: (input: MonitorCreateInput) => Promise<MonitorRecord | null>
   updateMonitor: (
     monitorId: string,
-    input: IndicatorMonitorUpdateInput,
+    input: MonitorUpdateInput,
     options?: MonitorRecordMutationOptions
-  ) => Promise<IndicatorMonitorRecord | null>
+  ) => Promise<MonitorRecord | null>
   toggleMonitorState: (
-    monitor: IndicatorMonitorRecord,
+    monitor: MonitorRecord,
     nextIsActive: boolean,
     options?: MonitorRecordMutationOptions
-  ) => Promise<IndicatorMonitorRecord | null>
+  ) => Promise<MonitorRecord | null>
   deleteMonitor: (monitorId: string) => Promise<void>
 }

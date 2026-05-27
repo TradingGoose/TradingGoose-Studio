@@ -4,6 +4,7 @@ import { eq } from 'drizzle-orm'
 import { type NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
 import { createLogger } from '@/lib/logs/console/logger'
+import { isMonitorProvider } from '@/lib/monitors/sources'
 import { getUserEntityPermissions } from '@/lib/permissions/utils'
 import { getBaseUrl } from '@/lib/urls/utils'
 import { generateRequestId } from '@/lib/utils'
@@ -70,8 +71,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 })
     }
 
-    if (foundWebhook.provider === 'indicator') {
-      logger.warn(`[${requestId}] Blocked webhook test helper call for indicator webhook`, {
+    if (isMonitorProvider(foundWebhook.provider)) {
+      logger.warn(`[${requestId}] Blocked webhook test helper call for monitor webhook`, {
         webhookId,
       })
       return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 })

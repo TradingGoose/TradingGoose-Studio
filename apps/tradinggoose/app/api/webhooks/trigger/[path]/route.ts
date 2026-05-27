@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { createLogger } from '@/lib/logs/console/logger'
+import { isMonitorProvider } from '@/lib/monitors/sources'
 import { generateRequestId } from '@/lib/utils'
 import {
   checkUsageLimits,
@@ -30,8 +31,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
   const { webhook: foundWebhook } = findResult
 
-  if (foundWebhook.provider === 'indicator') {
-    logger.warn(`[${requestId}] Blocked external trigger request for indicator webhook`, {
+  if (isMonitorProvider(foundWebhook.provider)) {
+    logger.warn(`[${requestId}] Blocked external trigger request for monitor webhook`, {
       path,
       webhookId: foundWebhook.id,
     })
@@ -72,8 +73,8 @@ export async function POST(
 
   const { webhook: foundWebhook, workflow: foundWorkflow } = findResult
 
-  if (foundWebhook.provider === 'indicator') {
-    logger.warn(`[${requestId}] Blocked external trigger request for indicator webhook`, {
+  if (isMonitorProvider(foundWebhook.provider)) {
+    logger.warn(`[${requestId}] Blocked external trigger request for monitor webhook`, {
       path,
       webhookId: foundWebhook.id,
     })
@@ -130,16 +131,10 @@ export async function POST(
     }
   }
 
-  return queueWebhookExecution(
-    foundWebhook,
-    foundWorkflow,
-    body,
-    request,
-    {
-      requestId,
-      path,
-      testMode: false,
-      executionTarget: 'deployed',
-    }
-  )
+  return queueWebhookExecution(foundWebhook, foundWorkflow, body, request, {
+    requestId,
+    path,
+    testMode: false,
+    executionTarget: 'deployed',
+  })
 }

@@ -1,4 +1,4 @@
-import { resolveOAuthConnectionAccountForUser } from '@/lib/credentials/oauth'
+import { resolveOAuthCredentialAccountForUser } from '@/lib/credentials/oauth'
 import { createLogger } from '@/lib/logs/console/logger'
 import { refreshAccessTokenIfNeeded } from '@/lib/oauth/tokens'
 import { TradingServiceError } from '@/lib/trading/errors'
@@ -15,13 +15,15 @@ const logger = createLogger('TradingServices')
 
 type ProviderRequestData = {
   provider: string
-  tokenAccountId: string
+  credentialId: string
   serviceId: string
+  workspaceId: string
 }
 
 type PreflightContext = {
   requestId: string
   providerId: string
+  credentialId: string
   tokenAccountId: string
   serviceId: string
   environment: 'paper' | 'live'
@@ -45,15 +47,18 @@ const requireStringField = (input: string | undefined, field: string): string =>
 }
 
 export async function authorizeTradingConnectionRequest(params: {
-  tokenAccountId: string
+  credentialId: string
   userId: string
+  workspaceId: string
 }): Promise<{
   connectionOwnerUserId: string
+  tokenAccountId: string
   accountProviderId: string
 }> {
-  const connection = await resolveOAuthConnectionAccountForUser({
-    accountId: params.tokenAccountId,
+  const connection = await resolveOAuthCredentialAccountForUser({
+    credentialId: params.credentialId,
     userId: params.userId,
+    workspaceId: params.workspaceId,
   })
   if (!connection) {
     throw new TradingServiceError('Trading provider connection not found', 404)
@@ -61,6 +66,7 @@ export async function authorizeTradingConnectionRequest(params: {
 
   return {
     connectionOwnerUserId: connection.credentialOwnerUserId,
+    tokenAccountId: connection.accountId,
     accountProviderId: connection.providerId,
   }
 }
@@ -70,12 +76,14 @@ export async function resolveTradingProviderContext({
   requestId,
   userId,
   connectionOwnerUserId,
+  tokenAccountId,
   accountProviderId,
 }: {
   requestData: ProviderRequestData
   requestId: string
   userId: string
   connectionOwnerUserId: string
+  tokenAccountId: string
   accountProviderId: string
 }): Promise<PreflightContext> {
   const providerId = requireStringField(requestData.provider, 'provider')
@@ -91,13 +99,14 @@ export async function resolveTradingProviderContext({
     throw new TradingServiceError('Trading provider connection is required')
   }
 
-  const tokenAccountId = requireStringField(requestData.tokenAccountId, 'tokenAccountId')
+  const credentialId = requireStringField(requestData.credentialId, 'credentialId')
+  const resolvedTokenAccountId = requireStringField(tokenAccountId, 'tokenAccountId')
   if (accountProviderId !== serviceId) {
     throw new TradingServiceError('Trading provider connection does not match requested service')
   }
 
   const resolvedAccessToken = await refreshAccessTokenIfNeeded(
-    tokenAccountId,
+    resolvedTokenAccountId,
     connectionOwnerUserId,
     requestId
   )
@@ -112,7 +121,8 @@ export async function resolveTradingProviderContext({
   return {
     requestId,
     providerId,
-    tokenAccountId,
+    credentialId,
+    tokenAccountId: resolvedTokenAccountId,
     serviceId: serviceId,
     environment,
     accessToken: resolvedAccessToken,
@@ -134,7 +144,7 @@ export async function resolveTradingProviderSelectedAccount({
   const portfolioIdentity = portfolioIdentities.find(
     (candidate) =>
       candidate.providerId === baseContext.providerId &&
-      candidate.tokenAccountId === baseContext.tokenAccountId &&
+      candidate.credentialId === baseContext.credentialId &&
       candidate.serviceId === baseContext.serviceId &&
       candidate.accountId === selectedAccountId
   )

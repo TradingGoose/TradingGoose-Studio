@@ -7,9 +7,9 @@ import {
   workflowEdges,
   workflowSubflows,
 } from '@tradinggoose/db'
+import type { Edge } from '@xyflow/react'
 import type { InferSelectModel } from 'drizzle-orm'
 import { and, desc, eq, inArray, ne, sql } from 'drizzle-orm'
-import type { Edge } from '@xyflow/react'
 import { v4 as uuidv4 } from 'uuid'
 import * as Y from 'yjs'
 import { reconcilePublishedChatsForDeploymentTx } from '@/lib/chat/published-deployment'
@@ -18,12 +18,13 @@ import {
   serializeYjsTransportEnvelope,
 } from '@/lib/copilot/review-sessions/identity'
 import { createLogger } from '@/lib/logs/console/logger'
+import { MONITOR_WEBHOOK_PROVIDERS } from '@/lib/monitors/sources'
+import { resolveStoredDateValue } from '@/lib/time-format'
+import { sanitizeAgentToolsInBlocks } from '@/lib/workflows/validation'
+import { normalizeVariables } from '@/lib/workflows/variable-utils'
 import { inferMermaidDirectionFromWorkflowState } from '@/lib/workflows/workflow-direction'
 import { getYjsSnapshot, SocketServerBridgeError } from '@/lib/yjs/server/snapshot-bridge'
 import { extractPersistedStateFromDoc } from '@/lib/yjs/workflow-session'
-import { resolveStoredDateValue } from '@/lib/time-format'
-import { normalizeVariables } from '@/lib/workflows/variable-utils'
-import { sanitizeAgentToolsInBlocks } from '@/lib/workflows/validation'
 import type { Variable } from '@/stores/variables/types'
 import type {
   BlockState,
@@ -225,12 +226,13 @@ export async function loadWorkflowState(
   }
 
   return {
-    direction: normalizedData.blocks && Object.keys(normalizedData.blocks).length > 0
-      ? inferMermaidDirectionFromWorkflowState({
-          blocks: normalizedData.blocks,
-          edges: normalizedData.edges,
-        })
-      : undefined,
+    direction:
+      normalizedData.blocks && Object.keys(normalizedData.blocks).length > 0
+        ? inferMermaidDirectionFromWorkflowState({
+            blocks: normalizedData.blocks,
+            edges: normalizedData.edges,
+          })
+        : undefined,
     blocks: normalizedData.blocks,
     edges: normalizedData.edges,
     loops: normalizedData.loops,
@@ -904,7 +906,12 @@ export async function saveWorkflowToNormalizedTables(
           blockId: null,
           updatedAt: new Date(),
         })
-        .where(and(eq(webhook.workflowId, workflowId), eq(webhook.provider, 'indicator')))
+        .where(
+          and(
+            eq(webhook.workflowId, workflowId),
+            inArray(webhook.provider, [...MONITOR_WEBHOOK_PROVIDERS])
+          )
+        )
 
       // Clear existing data for this workflow
       await Promise.all([

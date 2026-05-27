@@ -10,6 +10,7 @@ import { IndicatorMonitorRuntime } from '@/socket-server/market/indicator-monito
 import { type AuthenticatedSocket, authenticateSocket } from '@/socket-server/middleware/auth'
 import { createHttpHandler } from '@/socket-server/routes/http'
 import { tradingPortfolioStreamManager } from '@/socket-server/trading/portfolio-manager'
+import { PortfolioMonitorRuntime } from '@/socket-server/trading/portfolio-monitor-runtime'
 import {
   isYjsUpgradeRequest,
   shieldNonYjsUpgradeListeners,
@@ -40,14 +41,18 @@ const io = createSocketIOServer(httpServer)
 shieldNonYjsUpgradeListeners(httpServer, yjsUpgradeListener)
 
 const indicatorMonitorRuntime = new IndicatorMonitorRuntime(logger)
+const portfolioMonitorRuntime = new PortfolioMonitorRuntime(logger)
 
 io.use(authenticateSocket)
 
 const httpHandler = createHttpHandler(logger, {
   getMonitorRuntimeHealth: () => indicatorMonitorRuntime.getHealth(),
   getConnectionCount: () => yjsWss.clients.size + (io.engine?.clientsCount ?? 0),
-  onIndicatorMonitorsReconcile: async () => {
-    await indicatorMonitorRuntime.requestReconcile()
+  onMonitorsReconcile: async () => {
+    await Promise.all([
+      indicatorMonitorRuntime.requestReconcile(),
+      portfolioMonitorRuntime.requestReconcile(),
+    ])
   },
 })
 httpServer.on('request', httpHandler)
@@ -121,6 +126,9 @@ httpServer.listen(PORT, '0.0.0.0', () => {
   void indicatorMonitorRuntime.start().catch((error) => {
     logger.error('Failed to start indicator monitor runtime', { error })
   })
+  void portfolioMonitorRuntime.start().catch((error) => {
+    logger.error('Failed to start portfolio monitor runtime', { error })
+  })
 })
 
 httpServer.on('error', (error) => {
@@ -135,10 +143,9 @@ const shutdown = () => {
 
   logger.info('Shutting down Socket.IO server...')
   tradingPortfolioStreamManager.stop()
-  void indicatorMonitorRuntime
-    .stop()
+  void Promise.all([indicatorMonitorRuntime.stop(), portfolioMonitorRuntime.stop()])
     .catch((error) => {
-      logger.error('Failed to stop indicator monitor runtime cleanly', { error })
+      logger.error('Failed to stop monitor runtimes cleanly', { error })
     })
     .finally(() => {
       void io.close((error) => {

@@ -7,6 +7,7 @@ import {
   getMarketProviderParamDefinitions,
   getMarketSeriesCapabilities,
 } from '@/providers/market/providers'
+import { getTradingProvidersByKind } from '@/providers/trading/providers'
 import type {
   IndicatorOption,
   MonitorReferenceData,
@@ -20,13 +21,18 @@ const EMPTY_REFERENCE_DATA: MonitorReferenceData = {
   workflowTargets: [],
   workflowTargetByKey: {},
   workflowOptions: [],
+  indicatorWorkflowTargets: [],
+  portfolioWorkflowTargets: [],
   indicatorOptions: [],
   indicatorById: {},
   streamingProviders: [],
   providerById: {},
   providerIntervalsByProviderId: {},
   providerParamDefinitionsByProviderId: {},
+  tradingProviders: [],
+  tradingProviderById: {},
   defaultDraftProviderId: 'alpaca',
+  defaultPortfolioProviderId: 'alpaca',
   defaultDraftInterval: '1m',
   createDisabledReason:
     'No deployed workflow with indicator trigger is available, or no trigger-capable indicator exists.',
@@ -47,16 +53,28 @@ const buildReferenceData = ({
   isLoading: boolean
   warning: string | null
 }): MonitorReferenceData => {
-  const streamingProviders: StreamingProviderOption[] = getMarketProviderOptionsByKind('live').filter(
-    (option) => Boolean(getMarketLiveCapabilities(option.id)?.supportsStreaming)
-  )
+  const streamingProviders: StreamingProviderOption[] = getMarketProviderOptionsByKind(
+    'live'
+  ).filter((option) => Boolean(getMarketLiveCapabilities(option.id)?.supportsStreaming))
+  const tradingProviders = getTradingProvidersByKind('holdings').map((provider) => ({
+    id: provider.id,
+    name: provider.name,
+    icon: provider.icon,
+  }))
   const workflowTargetByKey = Object.fromEntries(
     workflowTargets.map((target) => [`${target.workflowId}:${target.blockId}`, target])
   )
+  const indicatorWorkflowTargets = workflowTargets.filter((target) => target.source === 'indicator')
+  const portfolioWorkflowTargets = workflowTargets.filter((target) => target.source === 'portfolio')
   const indicatorById = Object.fromEntries(
     indicatorOptions.map((indicator) => [indicator.id, indicator])
   )
-  const providerById = Object.fromEntries(streamingProviders.map((provider) => [provider.id, provider]))
+  const providerById = Object.fromEntries(
+    streamingProviders.map((provider) => [provider.id, provider])
+  )
+  const tradingProviderById = Object.fromEntries(
+    tradingProviders.map((provider) => [provider.id, provider])
+  )
   const providerIntervalsByProviderId = Object.fromEntries(
     streamingProviders.map((provider) => [
       provider.id,
@@ -70,24 +88,31 @@ const buildReferenceData = ({
     ])
   )
   const defaultDraftProviderId = streamingProviders[0]?.id ?? 'alpaca'
+  const defaultPortfolioProviderId = tradingProviders[0]?.id ?? 'alpaca'
   const defaultDraftInterval = providerIntervalsByProviderId[defaultDraftProviderId]?.[0] ?? '1m'
   const createDisabledReason = isLoading
     ? 'Loading monitor requirements...'
-    : workflowTargets.length > 0 && indicatorOptions.length > 0
+    : (indicatorWorkflowTargets.length > 0 && indicatorOptions.length > 0) ||
+        portfolioWorkflowTargets.length > 0
       ? null
-      : 'No deployed workflow with indicator trigger is available, or no trigger-capable indicator exists.'
+      : 'No deployed workflow with a monitor trigger is available, or no trigger-capable indicator exists.'
 
   return {
     workflowTargets,
     workflowTargetByKey,
     workflowOptions,
+    indicatorWorkflowTargets,
+    portfolioWorkflowTargets,
     indicatorOptions,
     indicatorById,
     streamingProviders,
     providerById,
     providerIntervalsByProviderId,
     providerParamDefinitionsByProviderId,
+    tradingProviders,
+    tradingProviderById,
     defaultDraftProviderId,
+    defaultPortfolioProviderId,
     defaultDraftInterval,
     createDisabledReason,
     isLoading,

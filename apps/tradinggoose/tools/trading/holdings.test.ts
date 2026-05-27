@@ -22,7 +22,7 @@ import { tradingHoldingsTool } from '@/tools/trading/holdings'
 
 const portfolioIdentity = {
   providerId: 'tradier',
-  tokenAccountId: 'oauth-account-1',
+  credentialId: 'oauth-credential-1',
   serviceId: 'tradier-live',
   accountId: 'ACC-2',
 }
@@ -33,11 +33,13 @@ describe('tradingHoldingsTool', () => {
     getPortfolioDetailMock.mockResolvedValue({ accountId: 'ACC-2' })
     authorizeTradingConnectionRequestMock.mockResolvedValue({
       connectionOwnerUserId: 'user-1',
+      tokenAccountId: 'oauth-account-1',
       accountProviderId: 'tradier-live',
     })
     resolveTradingProviderContextMock.mockResolvedValue({
       requestId: 'request-1',
       providerId: 'tradier',
+      credentialId: 'oauth-credential-1',
       tokenAccountId: 'oauth-account-1',
       serviceId: 'tradier-live',
       environment: 'live',
@@ -53,6 +55,7 @@ describe('tradingHoldingsTool', () => {
   it('fetches holdings for the selected portfolioIdentity account', async () => {
     const result = await getTradingHoldings({
       requestData: {
+        workspaceId: 'workspace-1',
         portfolioIdentity,
       },
       requestId: 'request-1',
@@ -66,16 +69,19 @@ describe('tradingHoldingsTool', () => {
     expect(resolveTradingProviderContextMock).toHaveBeenCalledWith({
       requestData: {
         provider: 'tradier',
-        tokenAccountId: 'oauth-account-1',
+        credentialId: 'oauth-credential-1',
         serviceId: 'tradier-live',
+        workspaceId: 'workspace-1',
       },
       requestId: 'request-1',
       userId: 'user-1',
       connectionOwnerUserId: 'user-1',
+      tokenAccountId: 'oauth-account-1',
       accountProviderId: 'tradier-live',
     })
     expect(getPortfolioDetailMock).toHaveBeenCalledWith({
       providerId: 'tradier',
+      credentialId: 'oauth-credential-1',
       tokenAccountId: 'oauth-account-1',
       serviceId: 'tradier-live',
       environment: 'live',
@@ -106,6 +112,7 @@ describe('tradingHoldingsTool', () => {
     await expect(
       getTradingHoldings({
         requestData: {
+          workspaceId: 'workspace-1',
           portfolioIdentity,
         },
         requestId: 'request-1',
@@ -114,8 +121,9 @@ describe('tradingHoldingsTool', () => {
     ).rejects.toThrow('Unauthorized')
 
     expect(authorizeTradingConnectionRequestMock).toHaveBeenCalledWith({
-      tokenAccountId: 'oauth-account-1',
+      credentialId: 'oauth-credential-1',
       userId: 'user-1',
+      workspaceId: 'workspace-1',
     })
     expect(resolveTradingProviderContextMock).not.toHaveBeenCalled()
     expect(getPortfolioDetailMock).not.toHaveBeenCalled()

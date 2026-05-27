@@ -1,10 +1,10 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { createLogger } from '@/lib/logs/console/logger'
+import { isMonitorProvider } from '@/lib/monitors/sources'
 import { generateRequestId } from '@/lib/utils'
 import {
   findWebhookAndWorkflow,
   handleProviderChallenges,
-  mapDispatchGateResultToHttpResponse,
   parseWebhookBody,
   queueWebhookExecution,
   verifyProviderAuth,
@@ -44,8 +44,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
   const { webhook: foundWebhook, workflow: foundWorkflow } = result
 
-  if (foundWebhook.provider === 'indicator') {
-    logger.warn(`[${requestId}] Blocked external test-receiver request for indicator webhook`, {
+  if (isMonitorProvider(foundWebhook.provider)) {
+    logger.warn(`[${requestId}] Blocked external test-receiver request for monitor webhook`, {
       webhookId: foundWebhook.id,
     })
     return new NextResponse('Forbidden', { status: 403 })
@@ -72,16 +72,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     `[${requestId}] Executing TEST webhook for ${foundWebhook.provider} (workflow: ${foundWorkflow.id})`
   )
 
-  return queueWebhookExecution(
-    foundWebhook,
-    foundWorkflow,
-    body,
-    request,
-    {
-      requestId,
-      path: foundWebhook.path,
-      testMode: true,
-      executionTarget: 'live',
-    }
-  )
+  return queueWebhookExecution(foundWebhook, foundWorkflow, body, request, {
+    requestId,
+    path: foundWebhook.path,
+    testMode: true,
+    executionTarget: 'live',
+  })
 }

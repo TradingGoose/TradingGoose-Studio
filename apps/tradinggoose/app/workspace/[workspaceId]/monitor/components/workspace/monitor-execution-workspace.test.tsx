@@ -207,7 +207,15 @@ describe('MonitorExecutionWorkspace', () => {
             workflowName: 'Workflow One',
             workflowColor: '#3972F6',
             monitorId: 'monitor-1',
+
+            source: 'indicator',
+
             providerId: 'alpaca',
+
+            serviceId: null,
+
+            accountId: null,
+
             interval: '1m',
             indicatorId: 'rsi',
             assetType: 'stock',
@@ -288,7 +296,15 @@ describe('MonitorExecutionWorkspace', () => {
             workflowName: 'Workflow One',
             workflowColor: '#3972F6',
             monitorId: 'monitor-1',
+
+            source: 'indicator',
+
             providerId: null,
+
+            serviceId: null,
+
+            accountId: null,
+
             interval: null,
             indicatorId: null,
             assetType: 'stock',
@@ -384,7 +400,15 @@ describe('MonitorExecutionWorkspace', () => {
             workflowName: 'Workflow One',
             workflowColor: '#3972F6',
             monitorId: 'monitor-1',
+
+            source: 'indicator',
+
             providerId: 'alpaca',
+
+            serviceId: null,
+
+            accountId: null,
+
             interval: '1m',
             indicatorId: 'rsi',
             assetType: 'stock',

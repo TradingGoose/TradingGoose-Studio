@@ -106,6 +106,7 @@ export interface TradingOrderDetailResult {
 
 export interface TradingPortfolioBaseContext {
   providerId: TradingProviderId
+  credentialId: string
   tokenAccountId: string
   serviceId: string
   environment?: 'paper' | 'live'

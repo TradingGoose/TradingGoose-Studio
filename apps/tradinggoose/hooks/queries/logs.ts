@@ -45,7 +45,7 @@ export interface LogFilters {
   indicatorId?: string
   providerId?: string
   interval?: string
-  triggerSource?: 'indicator_trigger'
+  triggerSource?: string
 }
 
 const resolveLogFilters = (

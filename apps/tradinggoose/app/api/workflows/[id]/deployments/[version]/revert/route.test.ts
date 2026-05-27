@@ -127,20 +127,16 @@ describe('Revert To Deployment Version API Route', () => {
     }))
 
     vi.doMock('@/app/api/workflows/utils', () => ({
-      createErrorResponse: vi.fn((error, status) =>
-        Response.json({ error }, { status })
-      ),
-      createSuccessResponse: vi.fn((data) =>
-        Response.json({ data }, { status: 200 })
-      ),
+      createErrorResponse: vi.fn((error, status) => Response.json({ error }, { status })),
+      createSuccessResponse: vi.fn((data) => Response.json({ data }, { status: 200 })),
     }))
 
-    vi.doMock('@/app/api/indicator-monitors/reconcile', () => ({
-      notifyIndicatorMonitorsReconcile: vi.fn().mockResolvedValue(undefined),
+    vi.doMock('@/app/api/monitors/reconcile', () => ({
+      notifyMonitorsReconcile: vi.fn().mockResolvedValue(undefined),
     }))
 
-    vi.doMock('@/app/api/indicator-monitors/shared', () => ({
-      pauseMonitorsMissingDeployedIndicatorTrigger: vi.fn().mockResolvedValue(undefined),
+    vi.doMock('@/app/api/monitors/shared', () => ({
+      pauseMonitorsMissingDeployedTrigger: vi.fn().mockResolvedValue(undefined),
     }))
   })
 

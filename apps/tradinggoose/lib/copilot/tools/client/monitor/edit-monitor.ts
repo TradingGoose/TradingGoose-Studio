@@ -13,7 +13,7 @@ import {
 import { resolveWorkspaceIdFromExecutionContext } from '@/lib/copilot/tools/client/entities/entity-document-tool-utils'
 import {
   type EditMonitorArgs,
-  type IndicatorMonitorRecord,
+  type MonitorRecord,
   readStoredToolArgs,
   toMonitorDocumentFields,
 } from '@/lib/copilot/tools/client/monitor/monitor-tool-utils'
@@ -74,27 +74,25 @@ export class EditMonitorClientTool extends BaseClientTool {
       const workspaceId = resolveWorkspaceIdFromExecutionContext(executionContext)
       const nextFields = parseMonitorDocument(resolvedArgs.monitorDocument)
 
-      const response = await fetch(
-        `/api/indicator-monitors/${encodeURIComponent(resolvedArgs.monitorId)}`,
-        {
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            workspaceId,
-            workflowId: nextFields.workflowId,
-            blockId: nextFields.blockId,
-            providerId: nextFields.providerId,
-            interval: nextFields.interval,
-            indicatorId: nextFields.indicatorId,
-            listing: nextFields.listing,
-            isActive: nextFields.isActive,
-            ...(nextFields.providerParams ? { providerParams: nextFields.providerParams } : {}),
-            ...(nextFields.auth ? { auth: nextFields.auth } : {}),
-          }),
-        }
-      )
+      const response = await fetch(`/api/monitors/${encodeURIComponent(resolvedArgs.monitorId)}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          source: 'indicator',
+          workspaceId,
+          workflowId: nextFields.workflowId,
+          blockId: nextFields.blockId,
+          providerId: nextFields.providerId,
+          interval: nextFields.interval,
+          indicatorId: nextFields.indicatorId,
+          listing: nextFields.listing,
+          isActive: nextFields.isActive,
+          ...(nextFields.providerParams ? { providerParams: nextFields.providerParams } : {}),
+          ...(nextFields.auth ? { auth: nextFields.auth } : {}),
+        }),
+      })
       const payload = await response.json().catch(() => ({}))
 
       if (!response.ok) {
@@ -102,9 +100,7 @@ export class EditMonitorClientTool extends BaseClientTool {
       }
 
       const updatedMonitor =
-        payload?.data && typeof payload.data === 'object'
-          ? (payload.data as IndicatorMonitorRecord)
-          : null
+        payload?.data && typeof payload.data === 'object' ? (payload.data as MonitorRecord) : null
 
       if (!updatedMonitor) {
         throw new Error('Invalid updated monitor response')

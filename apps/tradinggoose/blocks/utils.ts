@@ -111,9 +111,9 @@ export const fetchTradingPortfolioIdentityOptions = async (
   context: BlockOptionLoaderContext
 ): Promise<SubBlockOption[]> => {
   const provider = readContextString(context.contextValues, 'provider')
-  if (!provider) return []
+  if (!provider || !context.workspaceId) return []
 
-  const params = new URLSearchParams({ provider })
+  const params = new URLSearchParams({ provider, workspaceId: context.workspaceId })
 
   const response = await fetch(`/api/providers/trading/portfolio-identities?${params}`, {
     cache: 'no-store',

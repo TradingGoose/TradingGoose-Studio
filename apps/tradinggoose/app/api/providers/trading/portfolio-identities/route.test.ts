@@ -54,7 +54,9 @@ describe('trading portfolio identities route', () => {
     const { GET } = await import('./route')
 
     const response = await GET(
-      new Request('http://localhost/api/providers/trading/portfolio-identities?provider=alpaca')
+      new Request(
+        'http://localhost/api/providers/trading/portfolio-identities?workspaceId=workspace-1&provider=alpaca'
+      )
     )
 
     expect(response.status).toBe(502)
@@ -66,7 +68,7 @@ describe('trading portfolio identities route', () => {
       {
         providerId: 'alpaca',
         providerName: 'Alpaca',
-        tokenAccountId: 'oauth-account-1',
+        credentialId: 'oauth-credential-1',
         serviceId: 'alpaca-live',
         accountId: 'account-1',
         accountName: 'Main',
@@ -78,12 +80,15 @@ describe('trading portfolio identities route', () => {
     const { GET } = await import('./route')
 
     const response = await GET(
-      new Request('http://localhost/api/providers/trading/portfolio-identities?provider=alpaca')
+      new Request(
+        'http://localhost/api/providers/trading/portfolio-identities?workspaceId=workspace-1&provider=alpaca'
+      )
     )
 
     expect(response.status).toBe(200)
     expect(mocks.listPortfolioIdentities).toHaveBeenCalledWith({
       userId: 'user-1',
+      workspaceId: 'workspace-1',
       providerId: 'alpaca',
       serviceId: undefined,
       requestId: 'request-1',
@@ -94,7 +99,7 @@ describe('trading portfolio identities route', () => {
           label: 'Main',
           rightLabel: 'Alpaca Live - cash - active - USD',
           value: {
-            tokenAccountId: 'oauth-account-1',
+            credentialId: 'oauth-credential-1',
             accountId: 'account-1',
           },
         },

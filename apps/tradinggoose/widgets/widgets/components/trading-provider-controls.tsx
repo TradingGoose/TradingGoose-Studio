@@ -13,6 +13,7 @@ import {
 import { widgetHeaderButtonGroupClassName } from '@/widgets/widgets/components/widget-header-control'
 
 type TradingProviderControlsProps = {
+  workspaceId?: string | null
   providerId?: string | null
   providerOptions: TradingProviderOption[]
   onProviderChange?: (providerId: string) => void
@@ -28,6 +29,7 @@ type TradingProviderControlsProps = {
 }
 
 export function TradingProviderControls({
+  workspaceId,
   providerId,
   providerOptions,
   onProviderChange,
@@ -55,6 +57,7 @@ export function TradingProviderControls({
       />
       {hasSelectedProvider ? (
         <TradingAccountSelector
+          workspaceId={workspaceId}
           providerId={selectedProviderId}
           serviceId={serviceId}
           portfolioIdentity={portfolioIdentity}

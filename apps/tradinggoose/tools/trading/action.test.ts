@@ -3,13 +3,13 @@ import { tradingActionTool } from '@/tools/trading/action'
 
 const portfolioIdentity = {
   providerId: 'alpaca' as const,
-  tokenAccountId: 'oauth-account-1',
+  credentialId: 'oauth-account-1',
   serviceId: 'alpaca-live',
   accountId: 'ACC-1',
 }
 const tradierPortfolioIdentity = {
   providerId: 'tradier' as const,
-  tokenAccountId: 'oauth-account-2',
+  credentialId: 'oauth-account-2',
   serviceId: 'tradier-live',
   accountId: 'ACC-2',
 }

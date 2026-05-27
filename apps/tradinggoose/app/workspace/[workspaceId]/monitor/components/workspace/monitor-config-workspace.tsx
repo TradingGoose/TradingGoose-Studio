@@ -24,11 +24,7 @@ import {
   MonitorControlSelect,
   MonitorStateCard,
 } from '../shared/monitor-ui'
-import type {
-  IndicatorMonitorRecord,
-  MonitorRecordActions,
-  MonitorReferenceData,
-} from '../shared/types'
+import type { MonitorRecord, MonitorRecordActions, MonitorReferenceData } from '../shared/types'
 import { MonitorTimezoneMenu } from '../timezone-selector/monitor-timezone-menu'
 import {
   CONFIG_MONITOR_DIMENSION_FIELDS,
@@ -50,7 +46,7 @@ type MonitorConfigWorkspaceProps = {
   viewsError: string | null
   effectiveConfig: ConfigMonitorViewConfig
   panelSizes: [number, number] | null
-  monitorRecords: IndicatorMonitorRecord[]
+  monitorRecords: MonitorRecord[]
   monitorsLoading: boolean
   monitorsError: string | null
   referenceData: MonitorReferenceData
@@ -451,6 +447,7 @@ export function MonitorConfigWorkspace({
   const hasEditorPanel = editorState.isEditorOpen || Boolean(editorState.selectedMonitor)
   const editor = hasEditorPanel ? (
     <MonitorEditorPanel
+      workspaceId={workspaceId}
       editorState={editorState}
       referenceData={referenceData}
       createDisabled={controlsDisabled}

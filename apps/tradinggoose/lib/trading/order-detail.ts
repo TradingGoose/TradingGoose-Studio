@@ -10,8 +10,8 @@ import { TradingServiceError } from '@/lib/trading/errors'
 import {
   deepRedactSecrets,
   readOrderAccountId,
+  readOrderCredentialId,
   readOrderServiceId,
-  readOrderTokenAccountId,
 } from '@/lib/trading/order-records'
 import { executeTradingProviderOrderDetailRequest } from '@/providers/trading'
 import { TradingBrokerRequestError } from '@/providers/trading/portfolio-utils'
@@ -66,25 +66,28 @@ export async function getRecordedTradingOrderProviderDetail({
     throw new TradingServiceError('Tradier order history record is missing accountId')
   }
 
-  const tokenAccountId = readOrderTokenAccountId(order)
+  const credentialId = readOrderCredentialId(order)
   const serviceId = readOrderServiceId(order)
-  if (!tokenAccountId || !serviceId) {
+  if (!credentialId || !serviceId) {
     throw new TradingServiceError('Order history record is missing trading connection context')
   }
   const connectionAuthorization = await authorizeTradingConnectionRequest({
-    tokenAccountId,
+    credentialId,
     userId,
+    workspaceId,
   })
 
   const baseContext = await resolveTradingProviderContext({
     requestData: {
       provider: order.provider,
-      tokenAccountId,
+      credentialId,
       serviceId,
+      workspaceId,
     },
     requestId,
     userId,
     connectionOwnerUserId: connectionAuthorization.connectionOwnerUserId,
+    tokenAccountId: connectionAuthorization.tokenAccountId,
     accountProviderId: connectionAuthorization.accountProviderId,
   })
 

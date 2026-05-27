@@ -5,7 +5,7 @@
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { IndicatorMonitorRecord, MonitorReferenceData } from '../shared/types'
+import type { MonitorRecord, MonitorReferenceData } from '../shared/types'
 import { DEFAULT_CONFIG_MONITOR_VIEW_CONFIG } from '../view/view-config'
 import { MonitorConfigWorkspace } from './monitor-config-workspace'
 
@@ -30,6 +30,8 @@ const reactActEnvironment = globalThis as typeof globalThis & {
 const referenceData: MonitorReferenceData = {
   workflowTargets: [
     {
+      source: 'indicator',
+      triggerId: 'indicator_trigger',
       workflowId: 'workflow-1',
       blockId: 'block-1',
       workflowName: 'Workflow One',
@@ -41,6 +43,8 @@ const referenceData: MonitorReferenceData = {
   ],
   workflowTargetByKey: {
     'workflow-1:block-1': {
+      source: 'indicator',
+      triggerId: 'indicator_trigger',
       workflowId: 'workflow-1',
       blockId: 'block-1',
       workflowName: 'Workflow One',
@@ -51,6 +55,20 @@ const referenceData: MonitorReferenceData = {
     },
   },
   workflowOptions: [],
+  indicatorWorkflowTargets: [
+    {
+      source: 'indicator',
+      triggerId: 'indicator_trigger',
+      workflowId: 'workflow-1',
+      blockId: 'block-1',
+      workflowName: 'Workflow One',
+      workflowColor: '#3972F6',
+      isDeployed: true,
+      blockName: 'Indicator Trigger',
+      label: 'Workflow One - Indicator Trigger',
+    },
+  ],
+  portfolioWorkflowTargets: [],
   indicatorOptions: [{ id: 'rsi', name: 'RSI', source: 'default', color: '#3972F6' }],
   indicatorById: {
     rsi: { id: 'rsi', name: 'RSI', source: 'default', color: '#3972F6' },
@@ -59,7 +77,10 @@ const referenceData: MonitorReferenceData = {
   providerById: { alpaca: { id: 'alpaca', name: 'Alpaca' } },
   providerIntervalsByProviderId: { alpaca: ['1m'] },
   providerParamDefinitionsByProviderId: {},
+  tradingProviders: [{ id: 'alpaca', name: 'Alpaca' }],
+  tradingProviderById: { alpaca: { id: 'alpaca', name: 'Alpaca' } },
   defaultDraftProviderId: 'alpaca',
+  defaultPortfolioProviderId: 'alpaca',
   defaultDraftInterval: '1m',
   createDisabledReason: null,
   isLoading: false,
@@ -101,6 +122,7 @@ const referenceDataWithProviderParams: MonitorReferenceData = {
 
 const monitor = {
   monitorId: 'monitor-1',
+  source: 'indicator',
   workflowId: 'workflow-1',
   blockId: 'block-1',
   isActive: true,
@@ -116,7 +138,7 @@ const monitor = {
   },
   createdAt: '2026-04-23T00:00:00.000Z',
   updatedAt: '2026-04-24T00:00:00.000Z',
-} satisfies IndicatorMonitorRecord
+} satisfies MonitorRecord
 
 describe('MonitorConfigWorkspace', () => {
   let container: HTMLDivElement

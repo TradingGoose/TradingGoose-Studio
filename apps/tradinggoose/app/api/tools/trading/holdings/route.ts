@@ -49,7 +49,10 @@ export async function POST(request: NextRequest) {
     }
 
     const holdings = await getTradingHoldings({
-      requestData: body,
+      requestData: {
+        ...body,
+        workspaceId: body.workspaceId ?? workspaceId,
+      },
       requestId,
       userId: auth.userId,
     })

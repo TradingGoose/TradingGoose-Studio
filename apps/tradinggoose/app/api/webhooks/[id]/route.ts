@@ -5,6 +5,7 @@ import { type NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
 import { getOAuthAccessTokenForUserCredential } from '@/lib/credentials/oauth'
 import { createLogger } from '@/lib/logs/console/logger'
+import { isMonitorProvider } from '@/lib/monitors/sources'
 import { getUserEntityPermissions } from '@/lib/permissions/utils'
 import { generateRequestId } from '@/lib/utils'
 
@@ -48,8 +49,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
     const webhookData = webhooks[0]
 
-    if (webhookData.webhook.provider === 'indicator') {
-      logger.warn(`[${requestId}] Generic webhook read blocked for indicator webhook: ${id}`)
+    if (isMonitorProvider(webhookData.webhook.provider)) {
+      logger.warn(`[${requestId}] Generic webhook read blocked for monitor webhook: ${id}`)
       return NextResponse.json({ error: 'Webhook not found' }, { status: 404 })
     }
 
@@ -103,8 +104,8 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     const body = await request.json()
     const { path, provider, providerConfig, isActive } = body
 
-    if (provider === 'indicator') {
-      logger.warn(`[${requestId}] Generic webhook update cannot set indicator provider: ${id}`)
+    if (isMonitorProvider(provider)) {
+      logger.warn(`[${requestId}] Generic webhook update cannot set monitor provider: ${id}`)
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
@@ -130,8 +131,8 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
     const webhookData = webhooks[0]
 
-    if (webhookData.webhook.provider === 'indicator') {
-      logger.warn(`[${requestId}] Generic webhook update blocked for indicator webhook: ${id}`)
+    if (isMonitorProvider(webhookData.webhook.provider)) {
+      logger.warn(`[${requestId}] Generic webhook update blocked for monitor webhook: ${id}`)
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
@@ -230,8 +231,8 @@ export async function DELETE(
 
     const webhookData = webhooks[0]
 
-    if (webhookData.webhook.provider === 'indicator') {
-      logger.warn(`[${requestId}] Generic webhook delete blocked for indicator webhook: ${id}`)
+    if (isMonitorProvider(webhookData.webhook.provider)) {
+      logger.warn(`[${requestId}] Generic webhook delete blocked for monitor webhook: ${id}`)
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
