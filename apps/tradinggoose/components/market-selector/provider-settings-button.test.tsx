@@ -6,7 +6,7 @@ import type { ReactNode } from 'react'
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { MarketProviderSettingsButton } from '@/widgets/widgets/components/market-provider-settings-button'
+import { MarketProviderSettingsButton } from '@/components/market-selector/provider-settings-button'
 
 vi.mock('@/components/ui/tooltip', () => ({
   Tooltip: ({ children }: { children?: ReactNode }) => <>{children}</>,

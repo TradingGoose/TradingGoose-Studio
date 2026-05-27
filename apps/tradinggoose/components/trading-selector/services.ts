@@ -62,7 +62,8 @@ export function useTradingServices({
     connectedServiceIds,
     activeServiceId,
     isLoading: isQueryEnabled ? connectionsQuery.isLoading : false,
-    error: isQueryEnabled && connectionsQuery.error instanceof Error ? connectionsQuery.error : null,
+    error:
+      isQueryEnabled && connectionsQuery.error instanceof Error ? connectionsQuery.error : null,
     refetch: () => {
       void connectionsQuery.refetch()
     },

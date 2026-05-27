@@ -5,8 +5,8 @@
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { TradingProviderSelector } from '@/components/trading-selector/provider-selector'
 import { TooltipProvider } from '@/components/ui/tooltip'
-import { TradingProviderSelector } from '@/widgets/widgets/components/trading-provider-selector'
 
 describe('TradingProviderSelector', () => {
   let container: HTMLDivElement
@@ -62,5 +62,25 @@ describe('TradingProviderSelector', () => {
 
     const button = container.querySelector('button[aria-label="Select trading provider"]')
     expect(button?.textContent).toContain('Select broker')
+  })
+
+  it('uses form input styling without the widget broker prefix when requested', () => {
+    act(() => {
+      root.render(
+        <TooltipProvider>
+          <TradingProviderSelector
+            value='alpaca'
+            options={[{ id: 'alpaca', name: 'Alpaca' }]}
+            variant='form'
+          />
+        </TooltipProvider>
+      )
+    })
+
+    const button = container.querySelector('button[aria-label="Select trading provider"]')
+    expect(button?.textContent).toContain('Alpaca')
+    expect(button?.textContent).not.toContain('Broker:')
+    expect(button?.className).toContain('h-10')
+    expect(button?.className).toContain('rounded-md')
   })
 })

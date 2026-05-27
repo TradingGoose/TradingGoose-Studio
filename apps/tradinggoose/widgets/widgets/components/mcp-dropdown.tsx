@@ -12,15 +12,15 @@ import {
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { cn } from '@/lib/utils'
-import { useMcpServersStore } from '@/stores/mcp-servers/store'
-import type { McpServerWithStatus } from '@/stores/mcp-servers/types'
 import {
   widgetHeaderControlClassName,
   widgetHeaderMenuContentClassName,
   widgetHeaderMenuItemClassName,
   widgetHeaderMenuTextClassName,
-} from '@/widgets/widgets/components/widget-header-control'
+} from '@/components/widget-header-control'
+import { cn } from '@/lib/utils'
+import { useMcpServersStore } from '@/stores/mcp-servers/store'
+import type { McpServerWithStatus } from '@/stores/mcp-servers/types'
 
 const DEFAULT_PLACEHOLDER = 'Select MCP server'
 const DROPDOWN_MAX_HEIGHT = '20rem'

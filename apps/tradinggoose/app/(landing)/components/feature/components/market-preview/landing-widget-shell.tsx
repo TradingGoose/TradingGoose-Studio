@@ -3,9 +3,9 @@
 import type { ReactNode, WheelEvent } from 'react'
 import { useCallback } from 'react'
 import { Card } from '@/components/ui/card'
+import { widgetHeaderControlClassName } from '@/components/widget-header-control'
 import { cn } from '@/lib/utils'
 import { getWidgetDefinition } from '@/widgets/registry'
-import { widgetHeaderControlClassName } from '@/widgets/widgets/components/widget-header-control'
 
 type LandingWidgetShellProps = {
   widgetKey: string

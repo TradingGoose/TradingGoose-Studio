@@ -5,8 +5,8 @@
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { MarketProviderSelector } from '@/components/market-selector/provider-selector'
 import { TooltipProvider } from '@/components/ui/tooltip'
-import { MarketProviderSelector } from '@/widgets/widgets/components/market-provider-selector'
 
 describe('MarketProviderSelector', () => {
   let container: HTMLDivElement
@@ -62,5 +62,25 @@ describe('MarketProviderSelector', () => {
 
     const button = container.querySelector('button[aria-label="Select market provider"]')
     expect(button?.textContent).toContain('Select market data')
+  })
+
+  it('uses form input styling without the widget market prefix when requested', () => {
+    act(() => {
+      root.render(
+        <TooltipProvider>
+          <MarketProviderSelector
+            value='yahoo-finance'
+            options={[{ id: 'yahoo-finance', name: 'Yahoo Finance' }]}
+            variant='form'
+          />
+        </TooltipProvider>
+      )
+    })
+
+    const button = container.querySelector('button[aria-label="Select market provider"]')
+    expect(button?.textContent).toContain('Yahoo Finance')
+    expect(button?.textContent).not.toContain('Market:')
+    expect(button?.className).toContain('h-10')
+    expect(button?.className).toContain('rounded-md')
   })
 })

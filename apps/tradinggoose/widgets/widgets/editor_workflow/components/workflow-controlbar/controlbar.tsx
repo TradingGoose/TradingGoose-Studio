@@ -2,14 +2,14 @@
 
 import { useMemo } from 'react'
 import { TooltipProvider } from '@/components/ui/tooltip'
-import { WorkspacePermissionsProvider } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
-import { ControlBar } from '@/widgets/widgets/editor_workflow/components/control-bar/control-bar'
+import { widgetHeaderControlClassName } from '@/components/widget-header-control'
 import { WorkflowSessionProvider } from '@/lib/yjs/workflow-session-host'
-import { WorkflowRouteProvider } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
+import { WorkspacePermissionsProvider } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
-import { widgetHeaderControlClassName } from '@/widgets/widgets/components/widget-header-control'
 import type { WidgetInstance } from '@/widgets/layout'
 import { isPairColor, type PairColor } from '@/widgets/pair-colors'
+import { ControlBar } from '@/widgets/widgets/editor_workflow/components/control-bar/control-bar'
+import { WorkflowRouteProvider } from '@/widgets/widgets/editor_workflow/context/workflow-route-context'
 
 const FALLBACK_TEXT_CLASS = widgetHeaderControlClassName('text-muted-foreground/80')
 
@@ -55,10 +55,7 @@ export function WorkflowWidgetControlBar({
   return (
     <TooltipProvider delayDuration={100}>
       <WorkspacePermissionsProvider workspaceId={workspaceId}>
-        <WorkflowSessionProvider
-          workspaceId={workspaceId}
-          workflowId={activeWorkflowId}
-        >
+        <WorkflowSessionProvider workspaceId={workspaceId} workflowId={activeWorkflowId}>
           <WorkflowRouteProvider
             workspaceId={workspaceId}
             workflowId={activeWorkflowId}

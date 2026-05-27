@@ -9,6 +9,13 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import {
+  widgetHeaderIconButtonClassName,
+  widgetHeaderMenuContentClassName,
+  widgetHeaderMenuIconClassName,
+  widgetHeaderMenuItemClassName,
+  widgetHeaderMenuTextClassName,
+} from '@/components/widget-header-control'
 import { createLogger } from '@/lib/logs/console/logger'
 import { generateFolderName } from '@/lib/naming'
 import { cn } from '@/lib/utils'
@@ -18,13 +25,6 @@ import { useImportSkills } from '@/hooks/queries/skills'
 import { useFolderStore } from '@/stores/folders/store'
 import { parseWorkflowJson } from '@/stores/workflows/json/importer'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
-import {
-  widgetHeaderIconButtonClassName,
-  widgetHeaderMenuContentClassName,
-  widgetHeaderMenuIconClassName,
-  widgetHeaderMenuItemClassName,
-  widgetHeaderMenuTextClassName,
-} from '@/widgets/widgets/components/widget-header-control'
 import { buildImportedWorkflowSkillsLookup } from './workflow-create-menu.utils'
 
 const logger = createLogger('DashboardWorkflowCreateMenu')

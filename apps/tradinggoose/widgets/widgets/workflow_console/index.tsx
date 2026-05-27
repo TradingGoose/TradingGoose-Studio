@@ -3,6 +3,10 @@ import { Activity, ArrowDown, ArrowDownToLine, ArrowUp, Trash2 } from 'lucide-re
 import { JsonDisplayControls } from '@/components/json-display/json-display'
 import { LoadingAgent } from '@/components/ui/loading-agent'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import {
+  widgetHeaderButtonGroupClassName,
+  widgetHeaderIconButtonClassName,
+} from '@/components/widget-header-control'
 import { cn } from '@/lib/utils'
 import { useConsoleStore } from '@/stores/console/store'
 import { useWorkflowWidgetState } from '@/widgets/hooks/use-workflow-widget-state'
@@ -12,10 +16,6 @@ import {
   emitWorkflowSelectionChange,
   useWorkflowSelectionPersistence,
 } from '@/widgets/utils/workflow-selection'
-import {
-  widgetHeaderButtonGroupClassName,
-  widgetHeaderIconButtonClassName,
-} from '@/widgets/widgets/components/widget-header-control'
 import { WorkflowDropdown } from '@/widgets/widgets/components/workflow-dropdown'
 import { FilterPopover } from './components/terminal/components/filter-popover'
 import { useWorkflowConsoleUiState } from './components/terminal/terminal-ui-store'

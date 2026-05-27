@@ -1,7 +1,7 @@
 'use client'
 
+import { MarketProviderControls } from '@/components/market-selector/provider-controls'
 import { emitDataChartParamsChange } from '@/widgets/utils/chart-params'
-import { MarketProviderControls } from '@/widgets/widgets/components/market-provider-controls'
 import { WidgetHeaderRefreshButton } from '@/widgets/widgets/components/widget-header-refresh-button'
 import { providerOptions } from '@/widgets/widgets/data_chart/options'
 import type { DataChartWidgetParams } from '@/widgets/widgets/data_chart/types'

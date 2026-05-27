@@ -12,18 +12,18 @@ import {
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import {
+  widgetHeaderControlClassName,
+  widgetHeaderMenuContentClassName,
+  widgetHeaderMenuItemClassName,
+  widgetHeaderMenuTextClassName,
+} from '@/components/widget-header-control'
 import { cn } from '@/lib/utils'
 import { useSetPairColorContext } from '@/stores/dashboard/pair-store'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import type { WorkflowMetadata } from '@/stores/workflows/registry/types'
 import { WORKSPACE_BOOTSTRAP_CHANNEL } from '@/stores/workflows/registry/types'
 import type { PairColor } from '@/widgets/pair-colors'
-import {
-  widgetHeaderControlClassName,
-  widgetHeaderMenuContentClassName,
-  widgetHeaderMenuItemClassName,
-  widgetHeaderMenuTextClassName,
-} from '@/widgets/widgets/components/widget-header-control'
 
 const DEFAULT_PLACEHOLDER = 'Select workflow'
 const DROPDOWN_MAX_HEIGHT = '20rem'

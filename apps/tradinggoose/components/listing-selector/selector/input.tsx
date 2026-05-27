@@ -22,6 +22,7 @@ import { Button } from '@/components/ui/button'
 import { formatDisplayText } from '@/components/ui/formatted-text'
 import { Input } from '@/components/ui/input'
 import { checkTagTrigger, TagDropdown } from '@/components/ui/tag-dropdown'
+import { widgetHeaderControlClassName } from '@/components/widget-header-control'
 import {
   areListingIdentitiesEqual,
   LISTING_IDENTITY_VALUE_TYPE,
@@ -35,7 +36,6 @@ import {
   createEmptyListingSelectorInstance,
   useListingSelectorStore,
 } from '@/stores/market/selector/store'
-import { widgetHeaderControlClassName } from '@/widgets/widgets/components/widget-header-control'
 
 export interface ListingSearchInputProps {
   instanceId: string

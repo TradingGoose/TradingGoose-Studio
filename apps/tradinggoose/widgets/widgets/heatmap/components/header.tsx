@@ -1,13 +1,13 @@
 'use client'
 
 import { useMemo } from 'react'
+import { MarketProviderControls } from '@/components/market-selector/provider-controls'
+import { TradingProviderControls } from '@/components/trading-selector/provider-controls'
 import { Button } from '@/components/ui/button'
+import { widgetHeaderButtonGroupClassName } from '@/components/widget-header-control'
 import { useOAuthProviderAvailability } from '@/hooks/queries/oauth-provider-availability'
 import type { DashboardWidgetDefinition } from '@/widgets/types'
 import { emitHeatmapParamsChange } from '@/widgets/utils/heatmap-params'
-import { MarketProviderControls } from '@/widgets/widgets/components/market-provider-controls'
-import { TradingProviderControls } from '@/widgets/widgets/components/trading-provider-controls'
-import { widgetHeaderButtonGroupClassName } from '@/widgets/widgets/components/widget-header-control'
 import { WidgetHeaderRefreshButton } from '@/widgets/widgets/components/widget-header-refresh-button'
 import {
   getHeatmapMarketProviderOptions,

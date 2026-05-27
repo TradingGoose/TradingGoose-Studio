@@ -5,6 +5,7 @@ import { Download, Save, SquareTerminal } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { LoadingAgent } from '@/components/ui/loading-agent'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { widgetHeaderButtonGroupClassName } from '@/components/widget-header-control'
 import { useCustomTools } from '@/hooks/queries/custom-tools'
 import { useCustomToolsStore } from '@/stores/custom-tools/store'
 import type { CustomToolDefinition } from '@/stores/custom-tools/types'
@@ -25,7 +26,6 @@ import {
   resolveCustomToolId,
 } from '@/widgets/widgets/_shared/custom_tool/utils'
 import { CustomToolDropdown } from '@/widgets/widgets/components/custom-tool-dropdown'
-import { widgetHeaderButtonGroupClassName } from '@/widgets/widgets/components/widget-header-control'
 import {
   CustomToolEditor,
   type CustomToolEditorSection,
@@ -136,7 +136,9 @@ function EditorCustomToolWidgetBody({
     tools.some((tool) => tool.id === normalizedRequestedCustomToolId)
   const selectedToolId = hasRequestedTool
     ? normalizedRequestedCustomToolId
-    : (isLinkedToColorPair ? null : (tools[0]?.id ?? null))
+    : isLinkedToColorPair
+      ? null
+      : (tools[0]?.id ?? null)
 
   useCustomToolSelectionPersistence({
     onWidgetParamsChange,

@@ -1,7 +1,6 @@
 'use client'
 
 import type { ComponentType } from 'react'
-import { useMemo } from 'react'
 import { Check, ChevronDown } from 'lucide-react'
 import {
   DropdownMenu,
@@ -9,67 +8,97 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { selectTriggerClassName } from '@/components/ui/select'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { cn } from '@/lib/utils'
 import {
   widgetHeaderControlClassName,
   widgetHeaderMenuContentClassName,
   widgetHeaderMenuItemClassName,
   widgetHeaderMenuTextClassName,
-} from '@/widgets/widgets/components/widget-header-control'
+} from '@/components/widget-header-control'
+import { cn } from '@/lib/utils'
 
-export type MarketProviderOption = {
+export type ProviderSelectorVariant = 'widget' | 'form'
+
+export type ProviderSelectorOption = {
   id: string
   name: string
   icon?: ComponentType<{ className?: string }>
 }
 
-interface MarketProviderSelectorProps {
-  value?: string | null
-  options: MarketProviderOption[]
-  onChange?: (providerId: string) => void
-  disabled?: boolean
-  placeholder?: string
-  triggerClassName?: string
-  menuClassName?: string
+export function providerSelectorTriggerClassName(
+  variant: ProviderSelectorVariant,
+  className?: string
+) {
+  if (variant === 'form') {
+    return selectTriggerClassName(cn('group gap-2 text-left font-normal', className))
+  }
+
+  return widgetHeaderControlClassName(cn('group flex justify-between', className))
 }
 
-const DEFAULT_PLACEHOLDER = 'Select Market Provider'
+export function providerSelectorMenuContentClassName(
+  variant: ProviderSelectorVariant,
+  className?: string
+) {
+  return cn(variant === 'widget' && widgetHeaderMenuContentClassName, className)
+}
 
-export function MarketProviderSelector({
+export function providerSelectorMenuItemClassName(
+  variant: ProviderSelectorVariant,
+  className?: string
+) {
+  return cn(variant === 'widget' && widgetHeaderMenuItemClassName, className)
+}
+
+type ProviderSelectorProps<TOption extends ProviderSelectorOption> = {
+  value?: string | null
+  options: TOption[]
+  onChange?: (providerId: string) => void
+  disabled?: boolean
+  placeholder: string
+  ariaLabel: string
+  tooltipText: string
+  triggerClassName?: string
+  menuClassName?: string
+  variant?: ProviderSelectorVariant
+  emptyText?: string
+  formatSelectedLabel?: (option: TOption, variant: ProviderSelectorVariant) => string
+}
+
+export function ProviderSelector<TOption extends ProviderSelectorOption>({
   value,
   options,
   onChange,
   disabled = false,
-  placeholder = DEFAULT_PLACEHOLDER,
+  placeholder,
+  ariaLabel,
+  tooltipText,
   triggerClassName,
   menuClassName,
-}: MarketProviderSelectorProps) {
-  const selected = useMemo(() => options.find((option) => option.id === value), [options, value])
-
-  const label = selected ? `Market: ${selected.name}` : placeholder
+  variant = 'widget',
+  emptyText = 'No providers',
+  formatSelectedLabel,
+}: ProviderSelectorProps<TOption>) {
+  const selected = options.find((option) => option.id === value)
+  const label = selected ? (formatSelectedLabel?.(selected, variant) ?? selected.name) : placeholder
   const SelectedIcon = selected?.icon
   const isDropdownDisabled = disabled || options.length === 0
-  const tooltipText = isDropdownDisabled
-    ? 'Provider selection unavailable'
-    : 'Select market data provider'
 
   return (
     <DropdownMenu modal={false}>
       <Tooltip>
         <TooltipTrigger asChild>
-          <span className='inline-flex'>
+          <span className={cn('inline-flex', variant === 'form' && 'w-full')}>
             <DropdownMenuTrigger asChild>
               <button
                 type='button'
                 disabled={isDropdownDisabled}
-                className={widgetHeaderControlClassName(
-                  cn('group flex justify-between', triggerClassName)
-                )}
+                className={providerSelectorTriggerClassName(variant, triggerClassName)}
                 aria-haspopup='listbox'
-                aria-label='Select market provider'
+                aria-label={ariaLabel}
               >
-                <span className='flex min-w-0 items-center gap-1.5'>
+                <div className='flex min-w-0 items-center gap-1.5'>
                   {SelectedIcon ? (
                     <SelectedIcon
                       className='h-4 w-4 shrink-0 text-muted-foreground'
@@ -78,29 +107,31 @@ export function MarketProviderSelector({
                   ) : null}
                   <span
                     className={cn(
-                      'min-w-0 text-left',
+                      'min-w-0 truncate text-left',
                       selected ? 'text-foreground' : 'text-muted-foreground'
                     )}
                   >
                     {label}
                   </span>
-                </span>
+                </div>
                 <ChevronDown
-                  className='h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-180'
+                  className='h-4 w-4 shrink-0 text-muted-foreground opacity-50 transition-transform group-data-[state=open]:rotate-180'
                   aria-hidden='true'
                 />
               </button>
             </DropdownMenuTrigger>
           </span>
         </TooltipTrigger>
-        <TooltipContent side='top'>{tooltipText}</TooltipContent>
+        <TooltipContent side='top'>
+          {isDropdownDisabled ? 'Provider selection unavailable' : tooltipText}
+        </TooltipContent>
       </Tooltip>
       <DropdownMenuContent
         sideOffset={6}
-        className={cn(widgetHeaderMenuContentClassName, 'w-[220px]', menuClassName)}
+        className={providerSelectorMenuContentClassName(variant, cn('w-[220px]', menuClassName))}
       >
         {options.length === 0 ? (
-          <div className='px-2 py-2 text-muted-foreground text-xs'>No providers</div>
+          <div className='px-2 py-2 text-muted-foreground text-xs'>{emptyText}</div>
         ) : (
           options.map((option) => {
             const isSelected = option.id === value
@@ -108,7 +139,7 @@ export function MarketProviderSelector({
             return (
               <DropdownMenuItem
                 key={option.id}
-                className={cn(widgetHeaderMenuItemClassName, 'items-center')}
+                className={providerSelectorMenuItemClassName(variant, 'items-center')}
                 onSelect={() => {
                   if (option.id === value) return
                   onChange?.(option.id)
@@ -120,7 +151,11 @@ export function MarketProviderSelector({
                     aria-hidden='true'
                   />
                 ) : null}
-                <span className={cn(widgetHeaderMenuTextClassName, 'truncate')}>{option.name}</span>
+                <span
+                  className={cn(variant === 'widget' && widgetHeaderMenuTextClassName, 'truncate')}
+                >
+                  {option.name}
+                </span>
                 {isSelected ? <Check className='ml-auto h-3.5 w-3.5 text-primary' /> : null}
               </DropdownMenuItem>
             )

@@ -9,16 +9,16 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { cn } from '@/lib/utils'
-import { getWidgetCategories, getWidgetDefinition } from '@/widgets/registry'
-import type { DashboardWidgetDefinition } from '@/widgets/types'
 import {
   widgetHeaderControlClassName,
   widgetHeaderMenuContentClassName,
   widgetHeaderMenuIconClassName,
   widgetHeaderMenuItemClassName,
   widgetHeaderMenuTextClassName,
-} from '@/widgets/widgets/components/widget-header-control'
+} from '@/components/widget-header-control'
+import { cn } from '@/lib/utils'
+import { getWidgetCategories, getWidgetDefinition } from '@/widgets/registry'
+import type { DashboardWidgetDefinition } from '@/widgets/types'
 
 export interface WidgetSelectorProps {
   currentKey?: string | null

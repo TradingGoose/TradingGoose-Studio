@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { resolveActiveTradingServiceId } from '@/widgets/widgets/components/trading-services'
+import { resolveActiveTradingServiceId } from '@/components/trading-selector/services'
 
 describe('resolveActiveTradingServiceId', () => {
   it('keeps a requested service only when it is connected', () => {

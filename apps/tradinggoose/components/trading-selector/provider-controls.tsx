@@ -1,16 +1,16 @@
 'use client'
 
-import { cn } from '@/lib/utils'
-import type { PortfolioIdentity } from '@/providers/trading/portfolio-identity'
 import {
   type TradingAccountSelection,
   TradingAccountSelector,
-} from '@/widgets/widgets/components/trading-account-selector'
+} from '@/components/trading-selector/account-selector'
 import {
   type TradingProviderOption,
   TradingProviderSelector,
-} from '@/widgets/widgets/components/trading-provider-selector'
-import { widgetHeaderButtonGroupClassName } from '@/widgets/widgets/components/widget-header-control'
+} from '@/components/trading-selector/provider-selector'
+import { widgetHeaderButtonGroupClassName } from '@/components/widget-header-control'
+import { cn } from '@/lib/utils'
+import type { PortfolioIdentity } from '@/providers/trading/portfolio-identity'
 
 type TradingProviderControlsProps = {
   workspaceId?: string | null

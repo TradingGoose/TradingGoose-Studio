@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { widgetHeaderControlClassName } from '@/components/widget-header-control'
 import {
   isMarketProviderCredentialDefinition,
   resolveMarketProviderSettingsDefinitions,
@@ -24,7 +25,6 @@ import {
 } from '@/lib/market/market-provider-settings'
 import { cn } from '@/lib/utils'
 import type { MarketProviderParamDefinition } from '@/providers/market/providers'
-import { widgetHeaderControlClassName } from '@/widgets/widgets/components/widget-header-control'
 
 export type MarketProviderSettingsSaveResult = {
   auth?: Record<string, unknown>
@@ -217,9 +217,7 @@ export function MarketProviderSettingsButton({
           <PopoverTrigger asChild>
             <button
               type='button'
-              className={widgetHeaderControlClassName(
-                cn('flex justify-between gap-1.5')
-              )}
+              className={widgetHeaderControlClassName(cn('flex justify-between gap-1.5'))}
               disabled={!trimmedProviderId}
               aria-label={`Configure ${resolvedProviderName} provider`}
             >

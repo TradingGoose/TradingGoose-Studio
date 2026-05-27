@@ -5,9 +5,9 @@
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { TradingAccountSelector } from '@/components/trading-selector/account-selector'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import type { PortfolioIdentity } from '@/providers/trading/portfolio-identity'
-import { TradingAccountSelector } from '@/widgets/widgets/components/trading-account-selector'
 
 const mockUsePortfolioIdentities = vi.fn()
 const mockUseTradingServices = vi.fn()
@@ -16,7 +16,7 @@ vi.mock('@/hooks/queries/trading-portfolio', () => ({
   usePortfolioIdentities: (...args: unknown[]) => mockUsePortfolioIdentities(...args),
 }))
 
-vi.mock('@/widgets/widgets/components/trading-services', () => ({
+vi.mock('@/components/trading-selector/services', () => ({
   getTradingServiceName: vi.fn(() => 'Primary Broker'),
   useTradingServices: (...args: unknown[]) => mockUseTradingServices(...args),
 }))
@@ -200,5 +200,25 @@ describe('TradingAccountSelector', () => {
     const button = container.querySelector('button[aria-label="Select trading account"]')
     expect(button?.textContent).toContain('Select account')
     expect(button?.textContent).not.toContain('stale-account-id')
+  })
+
+  it('uses form input styling when requested', () => {
+    act(() => {
+      root.render(
+        <TooltipProvider>
+          <TradingAccountSelector
+            providerId='alpaca'
+            serviceId='alpaca-live'
+            portfolioIdentity={selectedPortfolioIdentity}
+            variant='form'
+          />
+        </TooltipProvider>
+      )
+    })
+
+    const button = container.querySelector('button[aria-label="Select trading account"]')
+    expect(button?.textContent).toContain('Alpaca Account')
+    expect(button?.className).toContain('h-10')
+    expect(button?.className).toContain('rounded-md')
   })
 })

@@ -1,16 +1,14 @@
 'use client'
 
 import { useMemo } from 'react'
-import { cn } from '@/lib/utils'
-import {
-  type MarketProviderOption,
-  MarketProviderSelector,
-} from '@/widgets/widgets/components/market-provider-selector'
+import { MarketProviderSelector } from '@/components/market-selector/provider-selector'
 import {
   MarketProviderSettingsButton,
   type MarketProviderSettingsSaveResult,
-} from '@/widgets/widgets/components/market-provider-settings-button'
-import { widgetHeaderButtonGroupClassName } from '@/widgets/widgets/components/widget-header-control'
+} from '@/components/market-selector/provider-settings-button'
+import { widgetHeaderButtonGroupClassName } from '@/components/widget-header-control'
+import { cn } from '@/lib/utils'
+import type { MarketProviderOption } from '@/providers/market/providers'
 
 type MarketProviderControlsProps = {
   value?: string | null

@@ -2,6 +2,15 @@
 
 import { useState } from 'react'
 import { Check, ChevronDown, Plus, RefreshCw } from 'lucide-react'
+import { OAuthRequiredModal } from '@/components/oauth/oauth-required-modal'
+import {
+  type ProviderSelectorVariant,
+  providerSelectorMenuContentClassName,
+  providerSelectorMenuItemClassName,
+  providerSelectorTriggerClassName,
+} from '@/components/provider-selector'
+import { resolveTradingProviderIcon } from '@/components/trading-selector/provider-selector'
+import { getTradingServiceName, useTradingServices } from '@/components/trading-selector/services'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -19,17 +28,6 @@ import {
   toPortfolioValueObject,
 } from '@/providers/trading/portfolio-identity'
 import { getTradingProviderDefinition } from '@/providers/trading/providers'
-import { resolveTradingProviderIcon } from '@/widgets/widgets/components/trading-provider-selector'
-import {
-  getTradingServiceName,
-  useTradingServices,
-} from '@/widgets/widgets/components/trading-services'
-import {
-  widgetHeaderControlClassName,
-  widgetHeaderMenuContentClassName,
-  widgetHeaderMenuItemClassName,
-} from '@/widgets/widgets/components/widget-header-control'
-import { OAuthRequiredModal } from '@/widgets/widgets/editor_workflow/components/workflow-block/components/sub-block/components/credential-selector/components/oauth-required-modal'
 
 export type TradingAccountSelection = {
   serviceId?: string | null
@@ -46,6 +44,7 @@ type TradingAccountSelectorProps = {
   tooltipText?: string
   toolName?: string
   onAccountSelect?: (selection: TradingAccountSelection) => void
+  variant?: ProviderSelectorVariant
 }
 
 const getAccountName = (portfolioIdentity: PortfolioIdentity) =>
@@ -77,6 +76,7 @@ export function TradingAccountSelector({
   tooltipText = 'Select trading account',
   toolName = 'Trading',
   onAccountSelect,
+  variant = 'widget',
 }: TradingAccountSelectorProps) {
   const [showOAuthModal, setShowOAuthModal] = useState(false)
   const [oauthModalServiceId, setOAuthModalServiceId] = useState<string | null>(null)
@@ -133,16 +133,16 @@ export function TradingAccountSelector({
       <DropdownMenu modal={false}>
         <Tooltip>
           <TooltipTrigger asChild>
-            <span className='inline-flex'>
+            <span className={cn('inline-flex', variant === 'form' && 'w-full')}>
               <DropdownMenuTrigger asChild>
                 <button
                   type='button'
                   disabled={!trimmedProviderId || disabled}
-                  className={widgetHeaderControlClassName('group flex justify-between gap-2')}
+                  className={providerSelectorTriggerClassName(variant, 'gap-2')}
                   aria-haspopup='listbox'
                   aria-label='Select trading account'
                 >
-                  <span className='flex min-w-0 items-center gap-1.5'>
+                  <div className='flex min-w-0 items-center gap-1.5'>
                     {ProviderIcon ? (
                       <ProviderIcon
                         className='h-4 w-4 shrink-0 text-muted-foreground'
@@ -152,14 +152,16 @@ export function TradingAccountSelector({
                     <span
                       className={cn(
                         'min-w-0 truncate text-left',
-                        selectedOption ? 'font-medium text-foreground' : 'text-muted-foreground'
+                        selectedOption
+                          ? cn('text-foreground', variant === 'widget' && 'font-medium')
+                          : 'text-muted-foreground'
                       )}
                     >
                       {buttonLabel}
                     </span>
-                  </span>
+                  </div>
                   <ChevronDown
-                    className='h-4 w-4 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-180'
+                    className='h-4 w-4 shrink-0 text-muted-foreground opacity-50 transition-transform group-data-[state=open]:rotate-180'
                     aria-hidden='true'
                   />
                 </button>
@@ -170,7 +172,7 @@ export function TradingAccountSelector({
         </Tooltip>
         <DropdownMenuContent
           sideOffset={6}
-          className={cn(widgetHeaderMenuContentClassName, 'w-[300px] p-1')}
+          className={providerSelectorMenuContentClassName(variant, 'w-[300px] p-1')}
         >
           {services.isLoading ? (
             <div className='flex items-center gap-2 px-3 py-2 text-muted-foreground text-xs'>
@@ -191,7 +193,10 @@ export function TradingAccountSelector({
               {services.connectedServiceIds.map((serviceId) => (
                 <DropdownMenuItem
                   key={serviceId}
-                  className={cn(widgetHeaderMenuItemClassName, 'items-center justify-between')}
+                  className={providerSelectorMenuItemClassName(
+                    variant,
+                    'items-center justify-between'
+                  )}
                   onSelect={() => {
                     onAccountSelect?.({ portfolioIdentity: null, serviceId: serviceId })
                   }}
@@ -224,7 +229,10 @@ export function TradingAccountSelector({
               return (
                 <DropdownMenuItem
                   key={getPortfolioIdentityKey(account)}
-                  className={cn(widgetHeaderMenuItemClassName, 'items-center justify-between')}
+                  className={providerSelectorMenuItemClassName(
+                    variant,
+                    'items-center justify-between'
+                  )}
                   onSelect={() => {
                     if (isSelected) return
                     onAccountSelect?.({
@@ -253,7 +261,10 @@ export function TradingAccountSelector({
               {services.serviceIds.map((serviceId) => (
                 <DropdownMenuItem
                   key={serviceId}
-                  className={cn(widgetHeaderMenuItemClassName, 'items-center text-foreground')}
+                  className={providerSelectorMenuItemClassName(
+                    variant,
+                    'items-center text-foreground'
+                  )}
                   onSelect={() => openOAuthModal(serviceId)}
                 >
                   <Plus className='h-3.5 w-3.5 text-muted-foreground' />

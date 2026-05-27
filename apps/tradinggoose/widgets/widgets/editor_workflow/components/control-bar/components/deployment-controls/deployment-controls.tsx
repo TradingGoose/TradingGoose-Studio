@@ -4,12 +4,12 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Loader2, Rocket } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { widgetHeaderIconButtonClassName } from '@/components/widget-header-control'
 import { cn } from '@/lib/utils'
-import { DeployModal } from '@/widgets/widgets/editor_workflow/components/control-bar/components'
 import type { WorkspaceUserPermissions } from '@/hooks/use-user-permissions'
 import { useWorkflowRegistry } from '@/stores/workflows/registry/store'
 import type { WorkflowState } from '@/stores/workflows/workflow/types'
-import { widgetHeaderIconButtonClassName } from '@/widgets/widgets/components/widget-header-control'
+import { DeployModal } from '@/widgets/widgets/editor_workflow/components/control-bar/components'
 
 type ControlVariant = 'workspace' | 'widget'
 
@@ -105,10 +105,9 @@ export function DeploymentControls({
                 'hover:border-primary hover:bg-primary hover:text-black',
                 'transition-all duration-200',
                 isDeployed && !isPreviousVersionActive && 'text-primary-hover',
-                isPreviousVersionActive &&
-                'border-primary bg-primary-hover/5 text-primary',
+                isPreviousVersionActive && 'border-primary bg-primary-hover/5 text-primary',
                 isDisabled &&
-                'cursor-not-allowed opacity-50 hover:border hover:bg-card hover:text-card-foreground hover:shadow-xs'
+                  'cursor-not-allowed opacity-50 hover:border hover:bg-card hover:text-card-foreground hover:shadow-xs'
               )}
             >
               {isDeploying ? (

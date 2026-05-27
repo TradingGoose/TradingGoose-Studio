@@ -18,6 +18,12 @@ import {
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import {
+  widgetHeaderButtonGroupClassName,
+  widgetHeaderControlClassName,
+  widgetHeaderMenuContentClassName,
+  widgetHeaderMenuTextClassName,
+} from '@/components/widget-header-control'
 import { cn } from '@/lib/utils'
 import {
   getProviderIdsForBlocks,
@@ -31,12 +37,6 @@ import {
 } from '@/lib/workflows/trigger-utils'
 import { WorkspacePermissionsProvider } from '@/app/workspace/[workspaceId]/providers/workspace-permissions-provider'
 import type { BlockConfig } from '@/blocks/types'
-import {
-  widgetHeaderButtonGroupClassName,
-  widgetHeaderControlClassName,
-  widgetHeaderMenuContentClassName,
-  widgetHeaderMenuTextClassName,
-} from '@/widgets/widgets/components/widget-header-control'
 import { ToolbarBlock } from '@/widgets/widgets/editor_workflow/components/toolbar/toolbar-block/toolbar-block'
 import LoopToolbarItem from '@/widgets/widgets/editor_workflow/components/toolbar/toolbar-loop-block/toolbar-loop-block'
 import ParallelToolbarItem from '@/widgets/widgets/editor_workflow/components/toolbar/toolbar-parallel-block/toolbar-parallel-block'
