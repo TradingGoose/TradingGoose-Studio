@@ -126,8 +126,9 @@ export function ListingSelectorInput({
     disabled,
     contextValues,
   })
+  const fetchOptions = config?.fetchOptions
   const usesFetchedListingOptions =
-    Boolean(config?.fetchOptions) &&
+    Boolean(fetchOptions) &&
     evaluateSubBlockConditionValues(config?.fetchOptionsCondition, contextValues ?? {})
   const finalDisabled = dependsOnDisabled
   const [fetchedListingOptions, setFetchedListingOptions] = useState<ListingOption[] | null>(null)
@@ -135,6 +136,7 @@ export function ListingSelectorInput({
   const [listingOptionsError, setListingOptionsError] = useState<string | undefined>()
 
   const instanceId = useMemo(() => `${blockId}-${subBlockId}`, [blockId, subBlockId])
+  const contextValuesSignature = useMemo(() => JSON.stringify(contextValues ?? {}), [contextValues])
   const previousProviderRef = useRef<string | undefined>(undefined)
 
   useEffect(() => {
@@ -159,7 +161,7 @@ export function ListingSelectorInput({
       : null
 
   useEffect(() => {
-    if (!usesFetchedListingOptions || finalDisabled || !config?.fetchOptions) {
+    if (!usesFetchedListingOptions || finalDisabled || !fetchOptions) {
       setFetchedListingOptions(null)
       setIsLoadingListingOptions(false)
       setListingOptionsError(undefined)
@@ -171,13 +173,12 @@ export function ListingSelectorInput({
     setIsLoadingListingOptions(true)
     setListingOptionsError(undefined)
 
-    config
-      .fetchOptions(blockId, subBlockId, {
-        channelId: routeContext?.channelId ?? '',
-        workflowId: routeContext?.workflowId ?? null,
-        workspaceId: routeContext?.workspaceId,
-        contextValues,
-      })
+    fetchOptions(blockId, subBlockId, {
+      channelId: routeContext?.channelId ?? '',
+      workflowId: routeContext?.workflowId ?? null,
+      workspaceId: routeContext?.workspaceId,
+      contextValues,
+    })
       .then((options) => {
         if (cancelled) return
         setFetchedListingOptions(options.map(toFetchedListingOption).filter(isListingOption))
@@ -197,13 +198,13 @@ export function ListingSelectorInput({
   }, [
     usesFetchedListingOptions,
     finalDisabled,
-    config,
+    fetchOptions,
     blockId,
     subBlockId,
     routeContext?.channelId,
     routeContext?.workflowId,
     routeContext?.workspaceId,
-    contextValues,
+    contextValuesSignature,
   ])
 
   useEffect(() => {

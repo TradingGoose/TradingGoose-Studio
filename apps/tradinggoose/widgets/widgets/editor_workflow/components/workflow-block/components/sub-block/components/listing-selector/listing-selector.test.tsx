@@ -139,11 +139,18 @@ describe('ListingSelectorInput', () => {
     const firstCandidates = listingSelectorMock.mock.calls.at(-1)?.[0]?.candidateListings
 
     act(() => {
-      root.render(<ListingSelectorInput {...props} />)
+      root.render(
+        <ListingSelectorInput
+          {...props}
+          config={{ ...fetchedConfig }}
+          contextValues={{ operation: 'removeListing' }}
+        />
+      )
     })
     const secondCandidates = listingSelectorMock.mock.calls.at(-1)?.[0]?.candidateListings
 
     expect(firstCandidates).toEqual([])
     expect(secondCandidates).toBe(firstCandidates)
+    expect(fetchedConfig.fetchOptions).toHaveBeenCalledTimes(1)
   })
 })

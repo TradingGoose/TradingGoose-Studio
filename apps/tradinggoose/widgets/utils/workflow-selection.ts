@@ -29,10 +29,9 @@ const sanitizeWorkflowWidgetParams = (
 ): Record<string, unknown> | null => {
   if (!params || !isRecord(params)) return null
 
-  const nextParams: Record<string, unknown> = {}
-  const workflowId = normalizeString(params.workflowId)
-
-  if (workflowId) nextParams.workflowId = workflowId
+  const { workflowId: rawWorkflowId, ...restParams } = params
+  const workflowId = normalizeString(rawWorkflowId)
+  const nextParams = workflowId ? { ...restParams, workflowId } : restParams
 
   return Object.keys(nextParams).length > 0 ? nextParams : null
 }
