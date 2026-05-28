@@ -151,6 +151,7 @@ function attachRuntimeSubscription(
   const updateRuntimeState = vi.fn()
   runtime.subscriptions.set('monitor-1', { config, unsubscribe: vi.fn() })
   runtime.updateRuntimeState = updateRuntimeState
+  Object.assign(runtime, { getCurrentProviderConfig: vi.fn().mockResolvedValue({}) })
   return updateRuntimeState
 }
 

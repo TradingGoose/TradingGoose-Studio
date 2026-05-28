@@ -64,6 +64,7 @@ type PortfolioMonitorRuntimeConfig = {
   cooldownSeconds: number
   pollIntervalSeconds: number
   runtimeState?: PortfolioMonitorProviderConfig['runtimeState']
+  updatedAt: Date
   signature: string
 }
 
@@ -106,6 +107,7 @@ const toConfig = (
     cooldownSeconds: monitor.cooldownSeconds,
     pollIntervalSeconds: monitor.pollIntervalSeconds,
     runtimeState: providerConfig.runtimeState,
+    updatedAt: row.updatedAt,
   }
 
   return {
@@ -414,10 +416,13 @@ export class PortfolioMonitorRuntime {
     }
 
     if (!shouldFire) {
-      await this.updateRuntimeState(config.id, evaluatedState)
-      config.runtimeState = evaluatedState
+      if (await this.updateRuntimeState(config, evaluatedState)) {
+        config.runtimeState = evaluatedState
+      }
       return
     }
+
+    if (!(await this.getCurrentProviderConfig(config))) return
 
     const actorUserId = await getApiKeyOwnerUserId(config.pinnedApiKeyId)
     if (!actorUserId) {
@@ -477,31 +482,61 @@ export class PortfolioMonitorRuntime {
       ...evaluatedState,
       lastFiredAt: evaluatedAt,
     }
-    await this.updateRuntimeState(config.id, firedState)
-    config.runtimeState = firedState
+    if (await this.updateRuntimeState(config, firedState)) {
+      config.runtimeState = firedState
+    }
+  }
+
+  private async getCurrentProviderConfig(config: PortfolioMonitorRuntimeConfig) {
+    const [row] = await db
+      .select({
+        webhook,
+        workflow: {
+          userId: workflow.userId,
+          workspaceId: workflow.workspaceId,
+          pinnedApiKeyId: workflow.pinnedApiKeyId,
+        },
+      })
+      .from(webhook)
+      .innerJoin(workflow, eq(webhook.workflowId, workflow.id))
+      .where(
+        and(
+          eq(webhook.id, config.id),
+          eq(webhook.provider, PORTFOLIO_MONITOR_PROVIDER),
+          eq(webhook.isActive, true),
+          eq(workflow.isDeployed, true)
+        )
+      )
+      .limit(1)
+    if (!row || !isRecord(row.webhook.providerConfig)) return null
+    const currentConfig = toConfig(row.webhook, row.workflow)
+    if (currentConfig?.signature !== config.signature) return null
+    return row.webhook.providerConfig as Record<string, unknown>
   }
 
   private async updateRuntimeState(
-    monitorId: string,
+    config: PortfolioMonitorRuntimeConfig,
     runtimeState: PortfolioMonitorProviderConfig['runtimeState']
   ) {
-    const [row] = await db
-      .select({ providerConfig: webhook.providerConfig })
-      .from(webhook)
-      .where(and(eq(webhook.id, monitorId), eq(webhook.provider, PORTFOLIO_MONITOR_PROVIDER)))
-      .limit(1)
-    if (!row || !isRecord(row.providerConfig)) return
+    const currentProviderConfig = await this.getCurrentProviderConfig(config)
+    if (!currentProviderConfig) return false
 
-    await db
+    const providerConfig = {
+      ...currentProviderConfig,
+      runtimeState,
+    }
+    const updated = await db
       .update(webhook)
-      .set({
-        providerConfig: {
-          ...(row.providerConfig as Record<string, unknown>),
-          runtimeState,
-        },
-        updatedAt: new Date(),
-      })
-      .where(and(eq(webhook.id, monitorId), eq(webhook.provider, PORTFOLIO_MONITOR_PROVIDER)))
+      .set({ providerConfig })
+      .where(
+        and(
+          eq(webhook.id, config.id),
+          eq(webhook.provider, PORTFOLIO_MONITOR_PROVIDER),
+          eq(webhook.updatedAt, config.updatedAt)
+        )
+      )
+      .returning({ id: webhook.id })
+    return updated.length > 0
   }
 
   private async disconnect(monitorId: string, reason: string) {
