@@ -175,7 +175,7 @@ export function MonitorBoardShell({
   return (
     <Card
       className={cn(
-        'flex h-full w-full min-w-0 max-w-full flex-col overflow-hidden rounded-xl border bg-card/40 p-1.5',
+        'flex h-full w-full min-w-0 max-w-full flex-col overflow-hidden rounded-xl border bg-card/60 p-1.5',
         className
       )}
       {...props}
@@ -192,28 +192,6 @@ export function MonitorBoardShell({
   )
 }
 
-type MonitorSectionHeaderProps = ComponentProps<'div'> & {
-  description?: ReactNode
-  title: ReactNode
-}
-
-export function MonitorSectionHeader({
-  children,
-  className,
-  description,
-  title,
-  ...props
-}: MonitorSectionHeaderProps) {
-  return (
-    <div className={cn('flex items-center justify-between gap-3', className)} {...props}>
-      <div>
-        <h2 className='font-medium text-sm'>{title}</h2>
-        {description ? <p className='text-muted-foreground text-xs'>{description}</p> : null}
-      </div>
-      {children ? <div className='flex gap-2'>{children}</div> : null}
-    </div>
-  )
-}
 
 type MonitorAggregateBadgesProps = ComponentProps<'div'> & {
   badgeClassName?: string
