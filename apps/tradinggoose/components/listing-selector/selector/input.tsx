@@ -449,9 +449,9 @@ export function ListingSearchInput({
         highlightedIndex={highlightedIndex}
         onHighlightChange={setHighlightedIndex}
         onSelect={handleSelect}
-        renderListing={
-          isHeader ? (listing) => <ListingDisplayRow listing={listing} showSecondary /> : undefined
-        }
+        renderListing={(listing) => (
+          <ListingDisplayRow listing={listing} showSecondary={isHeader} />
+        )}
         scrollStyle={{ scrollbarWidth: 'thin', overscrollBehavior: 'contain' }}
         onWheelCapture={(event) => event.stopPropagation()}
         onTouchMove={(event) => event.stopPropagation()}

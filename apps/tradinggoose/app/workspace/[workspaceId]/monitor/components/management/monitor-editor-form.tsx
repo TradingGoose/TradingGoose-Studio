@@ -264,7 +264,7 @@ export function MonitorEditorForm({
                 onChange={(condition) => onUpdateDraft({ condition })}
               />
 
-              <div className='grid gap-3 sm:grid-cols-3'>
+              <div className='grid gap-3 sm:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,0.8fr)_auto]'>
                 <div className='space-y-2'>
                   <Label className='text-muted-foreground text-xs'>Fire mode</Label>
                   <Select
@@ -330,10 +330,10 @@ export function MonitorEditorForm({
                         interval: nextIntervals.includes(draft.interval as any)
                           ? draft.interval
                           : getProviderIntervalFallback({
-                              defaultDraftInterval,
-                              providerId: nextProviderId,
-                              providerIntervalsByProviderId,
-                            }),
+                            defaultDraftInterval,
+                            providerId: nextProviderId,
+                            providerIntervalsByProviderId,
+                          }),
                       })
                     }}
                   />

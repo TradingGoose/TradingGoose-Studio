@@ -41,7 +41,12 @@ export function providerSelectorMenuContentClassName(
   variant: ProviderSelectorVariant,
   className?: string
 ) {
-  return cn(variant === 'widget' && widgetHeaderMenuContentClassName, className)
+  return cn(
+    variant === 'widget'
+      ? widgetHeaderMenuContentClassName
+      : 'w-[var(--radix-dropdown-menu-trigger-width)] min-w-[var(--radix-dropdown-menu-trigger-width)]',
+    className
+  )
 }
 
 export function providerSelectorMenuItemClassName(
@@ -128,7 +133,10 @@ export function ProviderSelector<TOption extends ProviderSelectorOption>({
       </Tooltip>
       <DropdownMenuContent
         sideOffset={6}
-        className={providerSelectorMenuContentClassName(variant, cn('w-[220px]', menuClassName))}
+        className={providerSelectorMenuContentClassName(
+          variant,
+          cn(variant === 'widget' && 'w-[220px]', menuClassName)
+        )}
       >
         {options.length === 0 ? (
           <div className='px-2 py-2 text-muted-foreground text-xs'>{emptyText}</div>

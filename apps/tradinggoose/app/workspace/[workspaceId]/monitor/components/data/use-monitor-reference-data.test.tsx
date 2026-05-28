@@ -104,7 +104,7 @@ describe('useMonitorReferenceData', () => {
     expect(snapshots.at(-1)?.tradingProviderById).toEqual({
       alpaca: { id: 'alpaca', name: 'Alpaca' },
     })
-    expect(snapshots.at(-1)?.defaultPortfolioProviderId).toBe('alpaca')
+    expect(snapshots.at(-1)?.defaultPortfolioProviderId).toBe('')
     expect(snapshots.at(-1)?.createDisabledReason).toBeNull()
   })
 })

@@ -48,7 +48,7 @@ export function ListingSelectorDropdownContent({
   }, [highlightedIndex])
 
   return (
-    <div className='allow-scroll fade-in-0 zoom-in-95 animate-in rounded-md border bg-popover text-popover-foreground shadow-lg'>
+    <div className='allow-scroll fade-in-0 zoom-in-95 animate-in rounded-md border bg-popover text-popover-foreground shadow-md'>
       <div
         ref={dropdownRef}
         className='allow-scroll max-h-64 overflow-y-auto p-1'

@@ -35,7 +35,7 @@ const EMPTY_REFERENCE_DATA: MonitorReferenceData = {
   providerParamDefinitionsByProviderId: {},
   tradingProviders: [],
   tradingProviderById: {},
-  defaultMarketProviderId: 'alpaca',
+  defaultMarketProviderId: '',
   defaultPortfolioProviderId: '',
   defaultDraftInterval: '1m',
   createDisabledReason:
@@ -91,8 +91,8 @@ const buildReferenceData = ({
       getMarketMonitorProviderParamDefinitions(provider.id),
     ])
   )
-  const defaultMarketProviderId = marketProviders[0]?.id ?? 'alpaca'
-  const defaultPortfolioProviderId = tradingProviders[0]?.id ?? ''
+  const defaultMarketProviderId = ''
+  const defaultPortfolioProviderId = ''
   const defaultDraftInterval = providerIntervalsByProviderId[defaultMarketProviderId]?.[0] ?? '1m'
   const canCreateIndicatorMonitor =
     indicatorWorkflowTargets.length > 0 && indicatorOptions.length > 0

@@ -172,7 +172,10 @@ export function TradingAccountSelector({
         </Tooltip>
         <DropdownMenuContent
           sideOffset={6}
-          className={providerSelectorMenuContentClassName(variant, 'w-[300px] p-1')}
+          className={providerSelectorMenuContentClassName(
+            variant,
+            variant === 'widget' ? 'w-[300px]' : undefined
+          )}
         >
           {services.isLoading ? (
             <div className='flex items-center gap-2 px-3 py-2 text-muted-foreground text-xs'>
@@ -241,9 +244,9 @@ export function TradingAccountSelector({
                     })
                   }}
                 >
-                  <span className='flex min-w-0 flex-col'>
+                  <span className={cn('min-w-0', variant === 'widget' && 'flex flex-col')}>
                     <span className='truncate text-foreground'>{getAccountName(account)}</span>
-                    {accountDescription ? (
+                    {variant === 'widget' && accountDescription ? (
                       <span className='truncate text-[11px] text-muted-foreground'>
                         {accountDescription}
                       </span>

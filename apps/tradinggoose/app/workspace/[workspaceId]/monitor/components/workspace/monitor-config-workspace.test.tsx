@@ -79,8 +79,8 @@ const referenceData: MonitorReferenceData = {
   providerParamDefinitionsByProviderId: {},
   tradingProviders: [{ id: 'alpaca', name: 'Alpaca' }],
   tradingProviderById: { alpaca: { id: 'alpaca', name: 'Alpaca' } },
-  defaultMarketProviderId: 'alpaca',
-  defaultPortfolioProviderId: 'alpaca',
+  defaultMarketProviderId: '',
+  defaultPortfolioProviderId: '',
   defaultDraftInterval: '1m',
   createDisabledReason: null,
   isLoading: false,
@@ -364,8 +364,8 @@ describe('MonitorConfigWorkspace', () => {
     })
 
     expect(container.textContent).toContain('Create Monitor')
-    expect(container.textContent).toContain('Feed')
-    expect(container.querySelector('input#monitor-secret-apiKey')).not.toBeNull()
-    expect(container.querySelector('input#monitor-secret-apiSecret')).not.toBeNull()
+    expect(container.textContent).toContain('Select provider')
+    expect(container.querySelector('input#monitor-secret-apiKey')).toBeNull()
+    expect(container.querySelector('input#monitor-secret-apiSecret')).toBeNull()
   })
 })

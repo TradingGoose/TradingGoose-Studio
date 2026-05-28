@@ -311,7 +311,14 @@ function ConditionRuleEditor({
   }, [rule.listing, ruleListingInstanceId, updateListingSelectorInstance])
 
   return (
-    <div className='grid gap-2 rounded-md border bg-background p-2 sm:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,0.8fr)_auto]'>
+    <div
+      className={cn(
+        'grid gap-2 rounded-md border bg-background p-2',
+        showListing && showValue
+          ? 'sm:grid-cols-[minmax(0,1.4fr)_minmax(0,0.7fr)_minmax(0,1.6fr)_minmax(0,0.6fr)_auto]'
+          : 'sm:grid-cols-[minmax(0,1.4fr)_minmax(0,0.8fr)_minmax(0,1.4fr)_auto]'
+      )}
+    >
       <Select
         value={rule.metric}
         disabled={disabled}
@@ -358,40 +365,36 @@ function ConditionRuleEditor({
         </SelectContent>
       </Select>
 
-      <div className='grid gap-2 sm:grid-cols-2'>
-        {showListing && ruleListingInstanceId ? (
-          <ListingSearchInput
-            instanceId={ruleListingInstanceId}
-            providerType='trading'
-            tradingProviderId={tradingProviderId}
-            disabled={disabled}
-            compact
-            onListingChange={(listing) =>
-              onUpdate(path, (node) =>
-                isGroup(node) ? node : { ...node, listing: toListingValue(listing) }
-              )
-            }
-            onListingValueChange={() =>
-              onUpdate(path, (node) => (isGroup(node) ? node : { ...node, listing: null }))
-            }
-          />
-        ) : null}
-        {showValue ? (
-          <Input
-            value={
-              typeof rule.value === 'number' || typeof rule.value === 'string' ? rule.value : ''
-            }
-            type='number'
-            className='h-8'
-            disabled={disabled}
-            onChange={(event) =>
-              onUpdate(path, (node) =>
-                isGroup(node) ? node : { ...node, value: Number(event.target.value) }
-              )
-            }
-          />
-        ) : null}
-      </div>
+      {showListing && ruleListingInstanceId ? (
+        <ListingSearchInput
+          instanceId={ruleListingInstanceId}
+          providerType='trading'
+          tradingProviderId={tradingProviderId}
+          disabled={disabled}
+          compact
+          onListingChange={(listing) =>
+            onUpdate(path, (node) =>
+              isGroup(node) ? node : { ...node, listing: toListingValue(listing) }
+            )
+          }
+          onListingValueChange={() =>
+            onUpdate(path, (node) => (isGroup(node) ? node : { ...node, listing: null }))
+          }
+        />
+      ) : null}
+      {showValue ? (
+        <Input
+          value={typeof rule.value === 'number' || typeof rule.value === 'string' ? rule.value : ''}
+          type='number'
+          className='h-8'
+          disabled={disabled}
+          onChange={(event) =>
+            onUpdate(path, (node) =>
+              isGroup(node) ? node : { ...node, value: Number(event.target.value) }
+            )
+          }
+        />
+      ) : null}
 
       <Button
         type='button'
