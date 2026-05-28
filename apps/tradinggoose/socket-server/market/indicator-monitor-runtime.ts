@@ -37,6 +37,7 @@ import type { AuthenticatedSocket } from '@/socket-server/middleware/auth'
 import {
   createMonitorRuntimeLock,
   getMonitorRuntimeUnavailableStatus,
+  isMonitorRuntimeDatabaseConnectionError,
   type MonitorRuntimeLockHealth,
   type MonitorRuntimeStatus,
 } from '@/socket-server/monitor-runtime-lock'
@@ -107,32 +108,6 @@ const LOCK_KEY = 'indicator-monitor-runtime-lock'
 const RECONCILE_INTERVAL_MS = 30_000
 const MONITOR_WINDOW_BARS = 2000
 const ENV_VAR_PATTERN = /\{\{([^}]+)\}\}/g
-const DATABASE_CONNECTION_ERROR_CODES = new Set([
-  'ECONNREFUSED',
-  'ECONNRESET',
-  'ETIMEDOUT',
-  'ENOTFOUND',
-  'EHOSTUNREACH',
-])
-
-function isDatabaseConnectionError(error: unknown): boolean {
-  const seen = new Set<object>()
-  let current: unknown = error
-
-  while (current && typeof current === 'object' && !seen.has(current)) {
-    seen.add(current)
-
-    const code = (current as { code?: unknown }).code
-    if (typeof code === 'string' && DATABASE_CONNECTION_ERROR_CODES.has(code)) {
-      return true
-    }
-
-    current = (current as { cause?: unknown }).cause
-  }
-
-  return false
-}
-
 const toTrimmedString = (value: unknown): string | null => {
   if (typeof value !== 'string') return null
   const trimmed = value.trim()
@@ -633,7 +608,7 @@ export class IndicatorMonitorRuntime {
     } catch (error) {
       this.lastReconcileError = error instanceof Error ? error.message : String(error)
 
-      if (isDatabaseConnectionError(error)) {
+      if (isMonitorRuntimeDatabaseConnectionError(error)) {
         await this.enterDegradedState(reason, error, this.subscriptions.size > 0)
         return
       }

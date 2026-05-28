@@ -76,7 +76,8 @@ async function disableMonitor(
 }
 
 export async function executePortfolioMonitorJob(payload: PortfolioMonitorExecutionPayload) {
-  const requestId = (payload.executionId ?? payload.monitor.id).slice(0, 8)
+  const executionId = payload.executionId ?? `portfolio_state:${payload.monitor.id}:${Date.now()}`
+  const requestId = executionId.slice(0, 8)
   const usageCheck = await checkServerSideUsageLimits({
     userId: payload.monitor.actorUserId,
     workflowId: payload.monitor.workflowId,
@@ -105,7 +106,6 @@ export async function executePortfolioMonitorJob(payload: PortfolioMonitorExecut
     return { success: true, skipped: 'missing_trigger_block' as const }
   }
 
-  const eventId = `portfolio_state:${payload.monitor.id}:${Date.now()}`
   const workflowInput = {
     input: `Portfolio state condition matched for ${payload.portfolioIdentity.accountName ?? payload.portfolioIdentity.accountId}`,
     event: 'portfolio_state_condition_matched',
@@ -128,7 +128,7 @@ export async function executePortfolioMonitorJob(payload: PortfolioMonitorExecut
     blueprint,
     actorUserId: payload.monitor.actorUserId,
     requestId,
-    executionId: eventId,
+    executionId,
     triggerType: 'webhook',
     workflowInput,
     start: {
@@ -152,7 +152,7 @@ export async function executePortfolioMonitorJob(payload: PortfolioMonitorExecut
   return {
     success: result.success,
     workflowId: payload.monitor.workflowId,
-    executionId: eventId,
+    executionId,
     output: result.output,
     error: result.error,
     executedAt: new Date().toISOString(),

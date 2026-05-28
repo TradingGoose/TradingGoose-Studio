@@ -18,6 +18,7 @@ import type { PortfolioDetail, PortfolioIdentity } from '@/providers/trading/por
 import {
   createMonitorRuntimeLock,
   getMonitorRuntimeUnavailableStatus,
+  isMonitorRuntimeDatabaseConnectionError,
   type MonitorRuntimeLockHealth,
   type MonitorRuntimeStatus,
 } from '@/socket-server/monitor-runtime-lock'
@@ -292,6 +293,11 @@ export class PortfolioMonitorRuntime {
       await this.reconcileSubscriptions(reason)
     } catch (error) {
       this.lastReconcileError = error instanceof Error ? error.message : String(error)
+      if (isMonitorRuntimeDatabaseConnectionError(error)) {
+        await this.enterDegradedState(reason, error, this.subscriptions.size > 0)
+        return
+      }
+
       this.logger.error('Portfolio monitor reconcile failed', {
         reason,
         error,

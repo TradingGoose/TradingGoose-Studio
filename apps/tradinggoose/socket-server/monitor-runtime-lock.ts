@@ -29,6 +29,31 @@ type RuntimeLockOptions = {
 
 const LOCK_EXPIRY_SECONDS = 90
 const LOCK_REFRESH_INTERVAL_MS = 30_000
+const DATABASE_CONNECTION_ERROR_CODES = new Set([
+  'ECONNREFUSED',
+  'ECONNRESET',
+  'ETIMEDOUT',
+  'ENOTFOUND',
+  'EHOSTUNREACH',
+])
+
+export function isMonitorRuntimeDatabaseConnectionError(error: unknown): boolean {
+  const seen = new Set<object>()
+  let current: unknown = error
+
+  while (current && typeof current === 'object' && !seen.has(current)) {
+    seen.add(current)
+
+    const code = (current as { code?: unknown }).code
+    if (typeof code === 'string' && DATABASE_CONNECTION_ERROR_CODES.has(code)) {
+      return true
+    }
+
+    current = (current as { cause?: unknown }).cause
+  }
+
+  return false
+}
 
 export const getMonitorRuntimeUnavailableStatus = (): MonitorRuntimeStatus =>
   getRedisStorageMode() === 'redis' ? 'degraded' : 'disabled'
