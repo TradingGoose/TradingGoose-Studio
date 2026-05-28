@@ -21,6 +21,8 @@ import {
 import { generateRequestId } from '@/lib/utils'
 import { authenticateIndicatorRequest, checkWorkspacePermission } from '@/app/api/indicators/utils'
 import { notifyMonitorsReconcile } from '@/app/api/monitors/reconcile'
+import { getTradingProviderOAuthServiceId } from '@/providers/trading/providers'
+import type { TradingProviderId } from '@/providers/trading/types'
 import {
   ensureMonitorTriggerBlockInDeployedState,
   ensureTriggerCapableIndicator,
@@ -288,21 +290,32 @@ async function buildProviderConfigForUpdate({
 }) {
   if (source === PORTFOLIO_MONITOR_PROVIDER) {
     const portfolioPayload = payload as PortfolioUpdatePayload
-    const existingMonitor = (existingConfig as PortfolioMonitorProviderConfig).monitor
+    const portfolioConfig = existingConfig as PortfolioMonitorProviderConfig
+    const existingMonitor = portfolioConfig.monitor
     const nextProviderId = portfolioPayload.providerId ?? existingMonitor.providerId
     const nextCredentialId = portfolioPayload.credentialId ?? existingMonitor.credentialId
     const nextAccountId = portfolioPayload.accountId ?? existingMonitor.accountId
-    const nextServiceId = await resolvePortfolioMonitorAccount({
-      userId,
-      workspaceId,
-      providerId: nextProviderId,
-      serviceId: portfolioPayload.serviceId ?? existingMonitor.serviceId,
-      credentialId: nextCredentialId,
-      accountId: nextAccountId,
-      requestId,
-    })
+    const requestedServiceId = portfolioPayload.serviceId ?? existingMonitor.serviceId
+    const nextServiceId = requireCompleteAuth
+      ? await resolvePortfolioMonitorAccount({
+          userId,
+          workspaceId,
+          providerId: nextProviderId,
+          serviceId: requestedServiceId,
+          credentialId: nextCredentialId,
+          accountId: nextAccountId,
+          requestId,
+        })
+      : getTradingProviderOAuthServiceId(nextProviderId as TradingProviderId, requestedServiceId)
 
-    return normalizePortfolioMonitorConfig({
+    if (!nextServiceId) throw new MonitorRequestError('Trading provider connection is required')
+    const shouldPreserveRuntimeState =
+      nextProviderId === existingMonitor.providerId &&
+      nextServiceId === existingMonitor.serviceId &&
+      nextCredentialId === existingMonitor.credentialId &&
+      nextAccountId === existingMonitor.accountId
+
+    const providerConfig = normalizePortfolioMonitorConfig({
       triggerBlockId: nextTriggerBlockId,
       providerId: nextProviderId,
       serviceId: nextServiceId,
@@ -314,6 +327,10 @@ async function buildProviderConfigForUpdate({
       pollIntervalSeconds:
         portfolioPayload.pollIntervalSeconds ?? existingMonitor.pollIntervalSeconds,
     })
+    if (shouldPreserveRuntimeState && portfolioConfig.runtimeState !== undefined) {
+      providerConfig.runtimeState = portfolioConfig.runtimeState
+    }
+    return providerConfig
   }
 
   const indicatorPayload = payload as IndicatorUpdatePayload

@@ -888,6 +888,7 @@ function buildAccountsCacheKey(streamState: TradingPortfolioStreamState) {
         streamState.workspaceId,
         streamState.providerId,
         streamState.serviceId ?? '',
+        streamState.portfolioIdentity?.credentialId ?? '',
       ].join('|')
     )
     .digest('hex')
